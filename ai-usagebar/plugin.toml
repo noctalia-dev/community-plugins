@@ -1,14 +1,14 @@
 id = "felipeartur/ai-usagebar"
 name = "AI Usage"
-version = "2.4.0"
-plugin_api = 22
+version = "2.9.0"
+plugin_api = 32
 author = "felipeartur"
 license = "MIT"
 icon = "brain"
 description = "AI plan usage in the bar, powered by the ai-usagebar CLI."
 tags = ["bar", "panel", "ai", "indicator", "utility"]
 # The CLI owns credentials, vendor endpoints and caching. This plugin only runs
-# `ai-usagebar usage --json` and draws the result.
+# `ai-usagebar usage --json` and, on request, `ai-usagebar vendors --json`.
 dependencies = ["ai-usagebar", "xdg-open"]
 
 # ── Plugin-level settings (shared by the poller, every capsule and the panel) ──
@@ -23,6 +23,17 @@ description_key = "settings.refresh_minutes.description"
 default = 5
 min = 1
 max = 120
+
+[[setting]]
+key = "usage_display"
+type = "select"
+label_key = "settings.usage_display.label"
+description_key = "settings.usage_display.description"
+default = "used"
+options = [
+  { value = "used", label_key = "settings.usage_display.option.used" },
+  { value = "remaining", label_key = "settings.usage_display.option.remaining" },
+]
 
 # ── Entries ───────────────────────────────────────────────────────────────────
 
@@ -87,6 +98,27 @@ label_key = "settings.account.label"
 description_key = "settings.account.description"
 default = ""
 
+[[widget.setting]]
+key = "quota_window"
+type = "select"
+label_key = "settings.quota_window.label"
+description_key = "settings.quota_window.description"
+default = "auto"
+options = [
+  { value = "auto", label_key = "settings.quota_window.option.auto" },
+  { value = "session", label_key = "settings.quota_window.option.session" },
+  { value = "weekly", label_key = "settings.quota_window.option.weekly" },
+  { value = "monthly", label_key = "settings.quota_window.option.monthly" },
+]
+
+[[widget.setting]]
+key = "auto_providers"
+visible_when = { key = "vendor", values = ["auto"] }
+type = "string_list"
+label_key = "settings.auto_providers.label"
+description_key = "settings.auto_providers.description"
+default = []
+
 # Keys named after the core `sysmon` widget, so the CPU capsule and this one are
 # configured with the same vocabulary.
 [[widget.setting]]
@@ -116,6 +148,7 @@ default = true
 
 [[widget.setting]]
 key = "glyph_position"
+visible_when = { key = "show_glyph", values = ["true"] }
 type = "select"
 label_key = "settings.glyph_position.label"
 description_key = "settings.glyph_position.description"
@@ -128,6 +161,7 @@ options = [
 # One capsule can carry more than one provider; "auto" fills it with the busiest.
 [[widget.setting]]
 key = "provider_limit"
+visible_when = { key = "vendor", values = ["auto"] }
 type = "int"
 label_key = "settings.provider_limit.label"
 description_key = "settings.provider_limit.description"
@@ -166,8 +200,8 @@ default = true
 id = "panel"
 entry = "panel.luau"
 # Provider tabs at the top, detailed charts and accessory cards below.
-width = 460
-height = 460
+width = 440
+height = 440
 # The shell draws the Placement and Position rows for every plugin panel whether
 # or not they are declared; declaring them only picks the default the user gets.
 placement = "attached"

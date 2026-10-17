@@ -5,6 +5,13 @@
 local report = nil
 local polling = false
 local refreshQueued = false
+local showSetup = false
+local showActions = false
+local showEnabled = false
+local showDisabled = false
+local catalog = nil
+local catalogLoading = false
+local catalogError = false
 
 local shared = require("./shared.luau")
 local providerGlyph, parseIso = shared.providerGlyph, shared.parseIso
@@ -13,13 +20,25 @@ local ratio, headline, severityRole = shared.ratio, shared.headline, shared.seve
 local modelHeadlines, isCritical, dualMetrics = shared.modelHeadlines, shared.isCritical, shared.dualMetrics
 local modelGlyph = shared.modelGlyph
 local modelDisplayName = shared.modelDisplayName
-local elapsedPercent, pace = shared.elapsedPercent, shared.pace
+local pace = shared.pace
 local requestRefresh = shared.requestRefresh
 local providerWarning, unavailable, readFailure = shared.warning, shared.unavailable, shared.readFailure
 local saysError, transportError = shared.saysError, shared.transportError
 local NO_FAILURE, asFailure = shared.NO_FAILURE, shared.asFailure
 
 local failure = NO_FAILURE
+
+local function displayMode()
+    return noctalia.getConfig("usage_display") == "remaining" and "remaining" or "used"
+end
+
+local function percentText(metric)
+    local percent = shared.displayPercent(metric, displayMode())
+    if percent == nil then return "—" end
+    local text = string.format("%d%%", percent)
+    if displayMode() == "remaining" then text = text .. " " .. noctalia.tr("ui.remaining") end
+    return text
+end
 
 -- The plan each provider last reported on. A plan carries the limits every
 -- percentage is measured against, so a reading taken under the old one says
@@ -82,21 +101,25 @@ end
 -- label, or the window's name inside a card that stacks a model's readings.
 -- `muted` is for the second case, where the card is already titled.
 local function metricRows(section, title, muted)
-    local percent = tonumber(section.percent) or 0
+    local percent = shared.displayPercent(section, displayMode())
+    local usedPercent = tonumber(section.percent) or 0
     local tint = severityRole(section, "on_surface")
     local fill = severityRole(section, "primary")
     local value = tostring(section.value or ""):gsub(" of ", " / ")
-    local showValue = value ~= "" and value ~= string.format("%d%%", percent)
+    local showValue = value ~= "" and value ~= string.format("%d%%", usedPercent)
+    if showValue and displayMode() == "remaining" then value = value .. " " .. noctalia.tr("ui.used") end
 
     local left = countdown(section)
     local clock = resetClock(section)
     local paceText, _, paceWord = pace(section.detail)
 
-    local resetStr = ""
-    if left ~= "" then
-        resetStr = left
-        if clock ~= "" then resetStr = resetStr .. " (" .. clock .. ")" end
-    end
+    local elapsed = shared.elapsedPercent(section.detail)
+    local remaining = displayMode() == "remaining"
+    local timePercent = elapsed ~= nil and elapsed >= 0 and elapsed <= 100
+        and (remaining and (100 - elapsed) or elapsed) or nil
+    local timeTooltip = timePercent ~= nil and noctalia.tr(
+        remaining and "ui.time_remaining" or "ui.elapsed", { percent = timePercent }) or nil
+    local resetStr = left
 
     local displayTitle = tostring(title or "")
 
@@ -104,37 +127,28 @@ local function metricRows(section, title, muted)
     local rightMeta = {}
     local word = severityWord(section)
     if word ~= nil then
-        local sevRole = isCritical(section) and "error" or severityRole(section, "secondary")
-        rightMeta[#rightMeta + 1] = ui.row({
-            paddingH = 6, paddingV = 2, radius = 5, align = "center",
-            fill = sevRole .. "/0.15",
-        }, {
-            ui.label({ text = word, fontSize = 10, fontWeight = "bold", color = sevRole }),
-        })
+        rightMeta[#rightMeta + 1] = ui.label({ text = word, fontSize = 10,
+            color = isCritical(section) and "error" or severityRole(section, "secondary") })
     end
-
-    rightMeta[#rightMeta + 1] = ui.row({
-        paddingH = 6, paddingV = 2, radius = 5, align = "center", justify = "center",
-        fill = tint .. "/0.10",
-    }, {
-        ui.label({ text = string.format("%d%%", percent), fontSize = 12,
-                   fontWeight = "bold", color = tint, textAlign = "center" }),
-    })
+    rightMeta[#rightMeta + 1] = ui.label({ text = percentText(section), fontSize = 12,
+        fontWeight = "bold", color = tint, textAlign = "center" })
 
     local topRow = ui.row({ gap = 8, align = "center" }, {
-        ui.label({
-            text = displayTitle,
-            fontSize = muted and 12 or 13,
-            fontWeight = "semibold",
-            color = "on_surface",
-            maxLines = 1,
+        ui.column({ tooltip = timeTooltip }, {
+            ui.label({
+                text = displayTitle,
+                fontSize = muted and 12 or 13,
+                fontWeight = "semibold",
+                color = "on_surface",
+                maxLines = 1,
+            }),
         }),
         ui.spacer({ flexGrow = 1 }),
         ui.row({ gap = 5, align = "center", justify = "end" }, rightMeta),
     })
 
     -- Usage bar.
-    local progressBar = ui.progress({
+    local progressBar = percent ~= nil and ui.progress({
         progress = ratio(percent),
         fill = fill,
         track = "on_surface/0.10",
@@ -145,18 +159,16 @@ local function metricRows(section, title, muted)
     -- Reset on the left, pace on the right.
     local bottomRowElements = {}
     if resetStr ~= "" then
-        bottomRowElements[#bottomRowElements + 1] = ui.row({ gap = 4, align = "center",
-            paddingH = 5, paddingV = 2, radius = 5, fill = "on_surface/0.06" }, {
+        bottomRowElements[#bottomRowElements + 1] = ui.row({ gap = 4, align = "center", tooltip = clock ~= "" and clock or nil }, {
             ui.glyph({ name = "clock", size = 10, color = "on_surface_variant" }),
             ui.label({ text = resetStr, fontSize = 11, color = "on_surface_variant",
-                       maxLines = 2, maxWidth = paceText ~= "" and 230 or 340 }),
+                       maxLines = 1, maxWidth = paceText ~= "" and 190 or 340 }),
         })
     end
 
     local subRight = {}
     if paceText ~= "" then
         local paceColor = paceWord == "ahead" and "secondary"
-            or paceWord == "behind" and "error"
             or "on_surface_variant"
         local paceIcon = paceWord == "ahead" and "trending-up"
             or paceWord == "behind" and "trending-down"
@@ -167,7 +179,12 @@ local function metricRows(section, title, muted)
         })
     end
 
-    local body = { topRow, progressBar }
+    local body = { topRow }
+    if progressBar then body[#body + 1] = progressBar end
+    if progressBar and timePercent ~= nil then
+        body[#body + 1] = ui.progress({ progress = ratio(timePercent), height = 2,
+            radius = 1, fill = "on_surface_variant/0.45", track = "on_surface/0.06" })
+    end
 
     if showValue then
         body[#body + 1] = ui.label({ text = value, fontSize = 11,
@@ -190,7 +207,7 @@ local function metricRows(section, title, muted)
     return body
 end
 
-local CARD = { gap = 6, padding = 10, radius = 9, fill = "surface_variant/0.34",
+local CARD = { gap = 4, padding = 10, radius = 9, fill = "surface_variant/0.34",
                border = "outline/0.08", borderWidth = 1 }
 
 local function cardStyle(gap, fill, border)
@@ -204,12 +221,7 @@ local function stackCard(name, readings, glyph)
     local body = {}
     if titled then
         body[#body + 1] = ui.row({ gap = 6, align = "center" }, {
-            ui.row({
-                width = 20, height = 20, radius = 5,
-                fill = "primary/0.14", align = "center", justify = "center",
-            }, {
-                ui.glyph({ name = glyph or modelGlyph(name), size = 12, color = "primary" }),
-            }),
+            ui.glyph({ name = glyph or modelGlyph(name), size = 13, color = "on_surface_variant" }),
             ui.label({ text = glyph and name or modelDisplayName(name), fontSize = 12, fontWeight = "bold",
                        color = "on_surface", maxLines = 1 }),
         })
@@ -346,8 +358,10 @@ local function recordCard(entry, items, windowed)
         local parts = {}
         for _, reading in ipairs(byName[name]) do
             local value = tostring(reading.section.value or "")
-            if value == "" then
-                value = string.format("%d%%", tonumber(reading.section.percent) or 0)
+            if value == "" or value == string.format("%d%%", tonumber(reading.section.percent) or 0) then
+                value = percentText(reading.section)
+            elseif displayMode() == "remaining" then
+                value = value .. " " .. noctalia.tr("ui.used")
             end
             parts[#parts + 1] = noctalia.string.trim(reading.title .. " " .. value)
         end
@@ -482,8 +496,8 @@ local function providerRow(entry, selected, compact)
         justify = "center",
         tooltip = compact and displayName or nil,
         paddingH = 10,
-        minHeight = 32,
-        paddingV = 6,
+        minHeight = 30,
+        paddingV = 4,
         radius = 8,
         flexGrow = 1,
         fill = selected and "primary/0.14" or "surface_variant/0.22",
@@ -555,9 +569,13 @@ local function copySummary(entry)
     end
     local metricStrs = {}
     for _, m in ipairs(entry.metrics or {}) do
-        if m.label and m.percent then
-            metricStrs[#metricStrs + 1] = tostring(m.label) .. " " .. tostring(m.percent) .. "%"
+        if type(m) == "table" and m.label and shared.displayPercent(m, displayMode()) ~= nil then
+            metricStrs[#metricStrs + 1] = tostring(m.label) .. " " .. percentText(m)
         end
+    end
+    if #metricStrs == 0 then
+        local balance = shared.balanceText(entry)
+        if balance ~= nil then metricStrs[#metricStrs + 1] = balance end
     end
     if #metricStrs > 0 then
         parts[#parts + 1] = "· " .. table.concat(metricStrs, " · ")
@@ -593,7 +611,7 @@ local function statusIndicator(entry)
     end
 
     if type(entry.metrics) ~= "table" or #entry.metrics == 0 then
-        return ui.label({ text = noctalia.tr("ui.waiting"), fontSize = 11,
+        return ui.label({ text = shared.balanceText(entry) or noctalia.tr("ui.waiting"), fontSize = 11,
             color = "on_surface_variant", maxLines = 1 })
     end
 
@@ -608,7 +626,16 @@ local function statusIndicator(entry)
         for index, metric in ipairs(model.metrics or {}) do
             local percent = type(metric) == "table" and tonumber(metric.percent) or nil
             if percent ~= nil and percent > 50 then
-                local window = metric == short and "5h" or metric == weekly and "7d" or ""
+                local window = tostring(metric.label or "")
+                local seconds = tonumber(metric.window_secs)
+                local label = window:lower()
+                if shared.baseProvider(entry.id) == "antigravity" then
+                    window = metric == short and "5h" or metric == weekly and "7d" or ""
+                elseif seconds == 18000 or (seconds == nil and (label:match("5h$") or label == "session")) then
+                    window = "5h"
+                elseif seconds == 604800 or (seconds == nil and (label:match("weekly$") or label:match("7d$"))) then
+                    window = "7d"
+                end
                 affected[#affected + 1] = { metric = metric, percent = percent,
                     window = window, index = index }
             end
@@ -642,25 +669,25 @@ local function statusIndicator(entry)
             if modelName == "Claude & GPT OSS" then modelName = "OSS" end
             local text = (modelName ~= "" and modelName .. " " or "")
                 .. (item.window ~= "" and item.window .. " " or "")
-                .. tostring(item.percent) .. "%"
+                .. percentText(metric)
             local severity = tostring(metric.severity or "")
             local detail = blocked and noctalia.tr("ui.quota_exhausted")
                 or (severity == "high" or severity == "critical")
                     and noctalia.tr("ui.severity." .. severity)
-                or tostring(item.percent) .. "%"
+                or percentText(metric)
             local left = blocked and shared.fixedCountdown(metric) or ""
             if left ~= "" then detail = detail .. " · " .. noctalia.tr("ui.quota_reset", { time = left }) end
             pills[#pills + 1] = ui.row({ gap = 3, align = "center", paddingH = 6,
                 paddingV = 2, radius = 5, fill = role .. "/0.10",
-                border = role .. "/0.20", borderWidth = 1 }, {
+                border = role .. "/0.20", borderWidth = 1, tooltip = detail }, {
                 ui.glyph({ name = item.model.glyph, size = 10, color = role }),
-                ui.label({ text = text, tooltip = detail, fontSize = 10,
+                ui.label({ text = text, fontSize = 10,
                     fontWeight = "bold", color = role, maxLines = 1 }),
             })
         end
         return ui.row({ gap = 4, align = "center" }, pills)
     end
-    return ui.glyph({ name = "circle-check", size = 13, color = "primary" })
+    return nil
 end
 
 local function detailPane(entry)
@@ -675,7 +702,6 @@ local function detailPane(entry)
     local windowed = false
     local heading = ""
     local items = {}
-    local metricCount = 0
     for _, section in ipairs(sections) do
         if type(section) == "table" then
             local text = section.type == "text"
@@ -684,7 +710,6 @@ local function detailPane(entry)
                 windowed = windowed or heading ~= ""
             elseif section.type ~= "spacer" then
                 items[#items + 1] = { section = section, window = heading }
-                if section.type == "metric" then metricCount = metricCount + 1 end
             end
         end
     end
@@ -715,14 +740,13 @@ local function detailPane(entry)
             local cardName, glyph = name, nil
             local readings = byName[name]
             if not windowed and entry ~= nil then
-                cardName = tostring(entry.display_name or entry.id)
-                glyph = providerGlyph(entry.id)
+                cardName = ""
                 for _, reading in ipairs(readings) do
                     local label = tostring(reading.title):lower()
                     if label:match("5h$") then
-                        reading.title = "Session"
+                        reading.title = noctalia.tr("ui.session")
                     elseif label:match("weekly$") then
-                        reading.title = "Weekly"
+                        reading.title = noctalia.tr("ui.weekly")
                     end
                 end
             end
@@ -739,25 +763,10 @@ local function detailPane(entry)
         end
     end
 
-    -- Keep the same card width in both modes. The scrollbar lives in the
-    -- reserved right gutter, while the provider header remains fixed above.
+    -- Keep the same card width in both modes and the provider header fixed above.
     if #cards > 0 then
-        local needsScroll = #cards >= 3 or metricCount >= 3
-            or (windowed and #cards >= 2)
-        for _, item in ipairs(items) do
-            if item.section.type == "block" and type(item.section.body) == "table"
-                and #item.section.body >= 4 then
-                needsScroll = true
-            end
-        end
-        local props = { gap = 8, paddingLeft = 2, paddingRight = 16,
-            paddingV = 4, align = "stretch" }
-        if needsScroll then
-            props.flexGrow = 1
-            children[#children + 1] = ui.scroll(props, cards)
-        else
-            children[#children + 1] = ui.column(props, cards)
-        end
+        children[#children + 1] = ui.scroll({ gap = 8,
+            paddingV = 2, align = "stretch", flexGrow = 1 }, cards)
     elseif entry ~= nil then
         children[#children + 1] = ui.row({ gap = 6, align = "center" }, {
             ui.glyph({ name = "info-circle", size = 14, color = "on_surface_variant" }),
@@ -770,7 +779,201 @@ local function detailPane(entry)
                        align = "stretch" }, children)
 end
 
+local function requestCatalog()
+    noctalia.state.set("command", { action = "catalog", at = noctalia.nowMs() })
+end
+
+local function setupButton()
+    return ui.button({
+        text = noctalia.tr(showSetup and "ui.back_to_usage" or "ui.provider_setup"),
+        glyph = showSetup and "arrow-left" or "list-details",
+        tooltip = showSetup and noctalia.tr("ui.back_to_usage") or noctalia.tr("ui.provider_setup"),
+        variant = "outline", controlSize = "sm",
+        onClick = function()
+            showSetup = not showSetup
+            if showSetup then
+                showActions = false
+                showEnabled, showDisabled = false, false
+                requestCatalog()
+            end
+            render()
+        end,
+    })
+end
+
+-- Catalog facts establish credential presence, while raw reports identify accounts.
+local function diagnosticCard(name, cause, impact, guidance, details)
+    return ui.column({ gap = 4, padding = 8, radius = 8,
+        fill = "error/0.06", border = "error/0.12", borderWidth = 1, tooltip = details }, {
+        ui.label({ text = name, fontSize = 12, fontWeight = "semibold", color = "on_surface", maxLines = 2 }),
+        ui.label({ text = cause, fontSize = 11, color = "on_surface_variant", maxLines = 4 }),
+        ui.label({ text = noctalia.tr(impact), fontSize = 11, color = "on_surface_variant", maxLines = 2 }),
+        ui.label({ text = noctalia.tr(guidance), fontSize = 11, color = "on_surface", maxLines = 3 }),
+    })
+end
+
+local function recovery(entry, cause, missingCredential)
+    local text = cause:lower()
+    if readFailure(entry) then return "ui.diagnostics_update_cli" end
+    if shared.terminalAuth(entry) or text:match("http%s*:?%s*40[13]") then
+        return "ui.diagnostics_login"
+    end
+    if text:find("429", 1, true) or text:find("rate limit", 1, true)
+        or text:find("timeout", 1, true) or text:find("timed out", 1, true)
+        or text:find("temporar", 1, true) or text:match("http%s*:?%s*5%d%d") then
+        return "ui.diagnostics_retry"
+    end
+    if text:find("authentication failed", 1, true) or text:find("auth failed", 1, true)
+        or (text:find("authentication error", 1, true)
+            and (text:find("expired", 1, true) or text:find("invalid", 1, true)
+                or text:find("reject", 1, true) or text:find("unauthorized", 1, true))) then
+        return "ui.diagnostics_login"
+    end
+    if shared.baseProvider(entry.id) == "antigravity" then return "ui.diagnostics_local_app" end
+    if text:find("no api key", 1, true) or missingCredential then return "ui.diagnostics_configure" end
+    return "ui.diagnostics_check_cli"
+end
+
+local function setupPane()
+    local rows = { ui.label({ text = noctalia.tr("ui.setup_hint"), fontSize = 12,
+        color = "on_surface_variant", maxLines = 2 }) }
+    local problems, failedDefaults, failedProviders, readyProviders, disabledProviders = 0, {}, {}, {}, {}
+    local missingCredentials = {}
+    local validCatalog = not catalogError and not catalogLoading
+        and type(catalog) == "table" and type(catalog.vendors) == "table"
+    local vendors = validCatalog and catalog.vendors or {}
+    for _, vendor in ipairs(vendors) do
+        if type(vendor) == "table" then
+            local id = shared.baseProvider(vendor.id)
+            if vendor.enabled == false then disabledProviders[id] = true end
+            missingCredentials[id] = vendor.enabled == true and vendor.needs_credential == true
+                and vendor.configured == false and id ~= "antigravity"
+        end
+    end
+    local recoverUsage = failure.code ~= "" or report == nil or (type(report) == "table" and report.stale == true)
+    if failure.code ~= "" then
+        rows[#rows + 1] = diagnosticCard(noctalia.tr("ui.error." .. failure.code),
+            failure.detail ~= "" and failure.detail or noctalia.tr("ui.error." .. failure.code .. "_hint"),
+            report ~= nil and "ui.diagnostics_old_usage" or "ui.diagnostics_no_usage",
+            failure.code == "not_installed" and "ui.error.not_installed_hint" or "ui.diagnostics_retry")
+        problems = problems + 1
+    elseif report == nil or report.stale == true then
+        rows[#rows + 1] = diagnosticCard(noctalia.tr("ui.diagnostics_usage_status"),
+            noctalia.tr(report == nil and "ui.waiting" or "ui.stale_hint"),
+            report == nil and "ui.diagnostics_no_usage" or "ui.diagnostics_old_usage", "ui.diagnostics_retry")
+        problems = problems + 1
+    end
+    local rawEntries = type(report) == "table" and type(report.entries) == "table" and report.entries or {}
+    for _, entry in ipairs(rawEntries) do
+        local base = type(entry) == "table" and shared.baseProvider(entry.id) or ""
+        if type(entry) == "table" and not unavailable(entry) and not shared.terminalAuth(entry)
+            and entry.stale ~= true and entry.status == "ready" then
+            readyProviders[base] = true
+        end
+        if type(entry) == "table" and not disabledProviders[base] and (entry.status == "error" or unavailable(entry)
+            or shared.terminalAuth(entry) or entry.stale == true) then
+            local cause = providerWarning(entry)
+            if cause == "" then
+                local sections = type(entry.sections) == "table" and entry.sections or {}
+                for _, section in ipairs(sections) do
+                    if type(section) == "table" and section.type == "text"
+                        and (tostring(section.label or ""):lower() == "unavailable"
+                            or transportError(section.label) or transportError(section.value)) then
+                        cause = tostring(section.value or section.label or "")
+                        if cause ~= "" then break end
+                    end
+                end
+            end
+            if cause == "" then cause = noctalia.tr(entry.stale == true and "ui.stale_hint" or "ui.unavailable") end
+            local historical = failure.code ~= "" or report.stale == true
+            local guidance = historical and "ui.diagnostics_recheck" or recovery(entry, cause, missingCredentials[base])
+            local configuring = guidance == "ui.diagnostics_configure"
+            rows[#rows + 1] = diagnosticCard(tostring(entry.display_name or entry.name or entry.id or ""),
+                configuring and noctalia.tr("ui.setup_required") or cause,
+                (historical or entry.stale == true) and "ui.diagnostics_old_usage" or "ui.diagnostics_no_usage",
+                guidance, configuring and cause or nil)
+            problems = problems + 1
+            recoverUsage = true
+            failedProviders[base] = true
+            -- Keep named failures separate from the default provider catalog facts.
+            local id = tostring(entry.id or "")
+            if not id:find("@", 1, true) then failedDefaults[id] = true end
+        end
+    end
+    if catalogLoading then
+        rows[#rows + 1] = ui.label({ text = noctalia.tr("ui.setup_loading"), fontSize = 12, color = "on_surface_variant" })
+    end
+    local enabled, disabled = {}, {}
+    if not validCatalog then
+        rows[#rows + 1] = ui.label({ text = noctalia.tr("ui.setup_unavailable"), fontSize = 12,
+            color = "on_surface_variant", maxLines = 3 })
+    elseif #vendors == 0 then
+        rows[#rows + 1] = ui.label({ text = noctalia.tr("ui.setup_empty"), fontSize = 12, color = "on_surface_variant" })
+    end
+    for _, vendor in ipairs(vendors) do
+        if type(vendor) == "table" then
+            local missing = vendor.enabled == true and vendor.needs_credential == true and vendor.configured == false
+                and shared.baseProvider(vendor.id) ~= "antigravity"
+            if missing and not readyProviders[shared.baseProvider(vendor.id)]
+                and not failedProviders[shared.baseProvider(vendor.id)] then
+                rows[#rows + 1] = diagnosticCard(tostring(vendor.name or vendor.id or ""),
+                    noctalia.tr("ui.setup_required"), "ui.diagnostics_no_usage", "ui.diagnostics_configure")
+                problems = problems + 1
+                recoverUsage = true
+            elseif not failedDefaults[tostring(vendor.id or "")] then
+                local group = vendor.enabled == true and enabled or disabled
+                group[#group + 1] = vendor
+            end
+        end
+    end
+    if validCatalog and report ~= nil and problems == 0 and not catalogLoading then
+        rows[#rows + 1] = ui.label({ text = noctalia.tr("ui.diagnostics_no_problems"), fontSize = 12, color = "on_surface_variant" })
+    end
+    local controls = { ui.button({ text = noctalia.tr("ui.diagnostics_refresh_status"), glyph = "refresh",
+        variant = "outline", controlSize = "sm", enabled = not catalogLoading, onClick = requestCatalog }) }
+    if recoverUsage then
+        controls[#controls + 1] = ui.button({ text = noctalia.tr("ui.diagnostics_refresh_usage"), glyph = "refresh",
+            variant = "outline", controlSize = "sm", enabled = not polling, onClick = requestRefresh })
+    end
+    local function group(vendors, key, expanded, toggle)
+        if #vendors == 0 then return end
+        rows[#rows + 1] = ui.button({ text = noctalia.tr(key, { count = #vendors }),
+            glyph = expanded and "chevron-up" or "chevron-down", variant = "outline", controlSize = "sm", onClick = toggle })
+        if not expanded then return end
+        for _, vendor in ipairs(vendors) do
+            local status = vendor.enabled ~= true and "ui.setup_disabled"
+                or vendor.needs_credential == false and "ui.setup_no_credential"
+                or vendor.configured == true and "ui.setup_credentials_found" or "ui.setup_required"
+            rows[#rows + 1] = ui.row({ gap = 8, paddingV = 6, align = "center" }, {
+                ui.glyph({ name = providerGlyph(vendor.id), size = 15, color = "on_surface" }),
+                ui.label({ text = tostring(vendor.name or vendor.id or ""), fontSize = 12, color = "on_surface", maxLines = 2 }),
+                ui.spacer({ flexGrow = 1 }),
+                ui.label({ text = noctalia.tr(status), fontSize = 11, color = "on_surface_variant", maxLines = 2 }),
+            })
+        end
+    end
+    group(enabled, "ui.diagnostics_enabled", showEnabled, function() showEnabled = not showEnabled; render() end)
+    group(disabled, "ui.diagnostics_disabled", showDisabled, function() showDisabled = not showDisabled; render() end)
+    return ui.column({ gap = 8, flexGrow = 1, align = "stretch" }, {
+        ui.row({ gap = 8, align = "center" }, controls),
+        ui.scroll({ gap = 8, flexGrow = 1, align = "stretch" }, rows),
+    })
+end
+
 function render()
+    if showSetup then
+        panel.render(ui.column({ gap = 8, padding = 10, flexGrow = 1, align = "stretch" }, {
+            ui.row({ gap = 8, align = "center" }, {
+                ui.label({ text = noctalia.tr("ui.provider_setup"), fontSize = 14,
+                    fontWeight = "bold", color = "on_surface" }),
+                ui.spacer({ flexGrow = 1 }),
+                setupButton(),
+            }),
+            ui.separator({ orientation = "horizontal", color = "outline", opacity = 0.15 }),
+            setupPane(),
+        }))
+        return
+    end
     local entry = currentEntry()
     -- A failure with nothing behind it is the whole panel; with a report behind
     -- it, a banner over readings that are still the best answer available. A
@@ -788,6 +991,7 @@ function render()
                                fontWeight = "bold", color = "on_surface" }),
                 }),
                 errorBlock(),
+                setupButton(),
             }),
         }))
         return
@@ -808,19 +1012,17 @@ function render()
     end
 
     local headerActions = {}
-    local providerActions = {}
+    local providerActions = { setupButton() }
     local updatedRow = nil
 
     local fetched = parseIso(entry and entry.fetched_at)
     if fetched ~= nil then
-        updatedRow = ui.row({ gap = 3, align = "center", paddingH = 6,
-                              paddingV = 2, radius = 5, fill = "on_surface/0.06" }, {
+        updatedRow = ui.row({ gap = 3, align = "center", tooltip = updatedText(entry) }, {
             ui.glyph({ name = "clock", size = 10, color = "on_surface_variant" }),
             ui.label({
                 text = noctalia.tr("ui.updated") .. " " .. noctalia.formatTime(noctalia.timeFormat(), fetched),
                 fontSize = 11,
                 color = "on_surface_variant",
-                tooltip = updatedText(entry),
             }),
         })
     end
@@ -828,18 +1030,18 @@ function render()
     if entry ~= nil then
         providerActions[#providerActions + 1] = ui.button({
             glyph = "copy",
-            variant = "outline", border = "outline", borderWidth = 1,
+            variant = "outline",
             controlSize = "sm",
-            tooltip = "Copy usage summary",
+            tooltip = noctalia.tr("ui.copy_summary"),
             onClick = function() copySummary(entry) end,
         })
         local dashUrl = shared.providerDashboard(entry.id)
         if dashUrl ~= nil then
             providerActions[#providerActions + 1] = ui.button({
                 glyph = "external-link",
-                variant = "outline", border = "outline", borderWidth = 1,
+                variant = "outline",
                 controlSize = "sm",
-                tooltip = "Open dashboard",
+                tooltip = noctalia.tr("ui.open_dashboard"),
                 onClick = function()
                     if type(noctalia.runAsync) == "function" then
                         noctalia.runAsync("xdg-open '" .. dashUrl .. "'")
@@ -851,22 +1053,28 @@ function render()
 
     headerActions[#headerActions + 1] = ui.button({
         glyph = polling and "loader-2" or refreshQueued and "clock" or "refresh",
-        variant = "outline", border = "outline", borderWidth = 1, controlSize = "sm",
+        variant = "outline", controlSize = "sm",
         tooltip = noctalia.tr(polling and "ui.refreshing"
             or refreshQueued and "ui.refresh_queued" or "ui.refresh"),
         enabled = not polling,
         onClick = requestRefresh,
     })
-    headerActions[#headerActions + 1] = ui.button({
+    providerActions[#providerActions + 1] = ui.button({
         glyph = "settings",
-        variant = "outline", border = "outline", borderWidth = 1, controlSize = "sm",
+        variant = "outline", controlSize = "sm",
         tooltip = noctalia.tr("ui.settings"),
         onClick = function() noctalia.openSettings() end,
     })
     headerActions[#headerActions + 1] = ui.button({
+        glyph = "dots",
+        variant = "outline", controlSize = "sm",
+        tooltip = noctalia.tr("ui.more_actions"),
+        onClick = function() showActions = not showActions; render() end,
+    })
+    headerActions[#headerActions + 1] = ui.button({
         glyph = "x",
-        variant = "outline", border = "outline", borderWidth = 1, controlSize = "sm",
-        tooltip = "Close",
+        variant = "outline", controlSize = "sm",
+        tooltip = noctalia.tr("ui.close"),
         onClick = function()
             if type(panel.close) == "function" then panel.close() end
         end,
@@ -874,39 +1082,37 @@ function render()
 
     local topChildren = {
         ui.row({ gap = 8, align = "center" }, {
-            ui.row({
-                width = 24, height = 24, radius = 6,
-                fill = "primary/0.14", align = "center", justify = "center",
-            }, {
-                ui.glyph({ name = "brain", size = 14, color = "primary" }),
-            }),
+            ui.glyph({ name = "brain", size = 18, color = "primary" }),
             ui.label({ text = noctalia.tr("ui.title"), fontSize = 14, fontWeight = "bold", color = "on_surface" }),
             ui.spacer({ flexGrow = 1 }),
             ui.row({ gap = 4, align = "center" }, headerActions),
         }),
     }
 
+    if showActions then
+        topChildren[#topChildren + 1] = ui.row({ gap = 4, align = "center", justify = "end" }, providerActions)
+    end
+
     if #tabs > 0 then
         topChildren[#topChildren + 1] = ui.row({ key = "tabs-dock", gap = 6,
             align = "center", justify = "center" }, tabs)
     end
 
+    local footer = nil
     local status = statusIndicator(entry)
-    if updatedRow ~= nil or status ~= nil or #providerActions > 0 then
+    if updatedRow ~= nil or status ~= nil then
         local providerMeta = {}
         if updatedRow ~= nil then providerMeta[#providerMeta + 1] = updatedRow end
         if status ~= nil then providerMeta[#providerMeta + 1] = status end
         providerMeta[#providerMeta + 1] = ui.spacer({ flexGrow = 1 })
-        if #providerActions > 0 then
-            providerMeta[#providerMeta + 1] = ui.row({ gap = 4, align = "center" }, providerActions)
-        end
-        topChildren[#topChildren + 1] = ui.row({ key = "meta-row", gap = 4, align = "center" }, providerMeta)
+        footer = ui.row({ key = "meta-row", gap = 4, align = "center" }, providerMeta)
     end
 
     panel.render(ui.column({ gap = 6, paddingH = 10, paddingV = 8, flexGrow = 1, align = "stretch" }, {
         ui.column({ gap = 6 }, topChildren),
         ui.separator({ orientation = "horizontal", color = "outline", opacity = 0.15 }),
         detailPane(entry),
+        footer,
     }))
 end
 
@@ -955,13 +1161,34 @@ noctalia.state.watch("refresh_queued", function(value)
     render()
 end)
 
+noctalia.state.watch("catalog", function(value)
+    catalog = value
+    if showSetup then render() end
+end)
+
+noctalia.state.watch("catalog_loading", function(value)
+    catalogLoading = value == true
+    if showSetup then render() end
+end)
+
+noctalia.state.watch("catalog_error", function(value)
+    catalogError = value == true
+    if showSetup then render() end
+end)
+
 function onOpen(context)
-    if type(context) == "string" and context ~= "" then
+    showEnabled, showDisabled = false, false
+    showActions = false
+    showSetup = context == "setup"
+    catalog = noctalia.state.get("catalog")
+    catalogLoading = noctalia.state.get("catalog_loading") == true
+    catalogError = noctalia.state.get("catalog_error") == true
+    if not showSetup and type(context) == "string" and context ~= "" then
         noctalia.state.set("selected", context)
     end
     -- Every open asks for fresh numbers. The CLI answers from its cache when it
     -- has one, and the poller drops requests that arrive too close together.
-    requestRefresh()
+    if showSetup then requestCatalog() else requestRefresh() end
     report = noctalia.state.get("report")
     rememberPlans()
     failure = asFailure(noctalia.state.get("error"))
@@ -987,8 +1214,8 @@ function onKey(chord, pressed)
     if lower == "escape" then
         if type(panel.close) == "function" then panel.close() end
     elseif lower == "r" then
-        requestRefresh()
-    elseif lower == "up" or lower == "down" or lower == "left" or lower == "right" then
+        if showSetup then requestCatalog() else requestRefresh() end
+    elseif not showSetup and (lower == "up" or lower == "down" or lower == "left" or lower == "right") then
         local list = {}
         local currentIndex = 1
         local current = currentEntry()

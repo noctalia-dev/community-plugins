@@ -157,6 +157,59 @@ local function classify(result)
     return failure("no_data", stderr)
 end
 
+-- The setup view asks for this local catalog; quota ticks never collect it.
+local catalogInFlight = false
+local lastCatalogStart = nil
+
+local function publicCatalog(document)
+    if type(document) ~= "table" or type(document.vendors) ~= "table" then return nil end
+    local vendors, count = {}, 0
+    for key, vendor in pairs(document.vendors) do
+        if type(key) ~= "number" or key % 1 ~= 0 or key < 1 or key > #document.vendors
+            or type(vendor) ~= "table" then return nil end
+        count = count + 1
+    end
+    if count ~= #document.vendors then return nil end
+    for _, vendor in ipairs(document.vendors) do
+        if type(vendor.id) ~= "string" or #vendor.id > 80
+            or not vendor.id:match("^[a-z0-9][a-z0-9_%-]*$")
+            or type(vendor.name) ~= "string"
+            or type(vendor.enabled) ~= "boolean"
+            or type(vendor.configured) ~= "boolean"
+            or type(vendor.needs_credential) ~= "boolean" then return nil end
+        vendors[#vendors + 1] = {
+            id = vendor.id,
+            name = safeText(vendor.name),
+            enabled = vendor.enabled,
+            configured = vendor.configured,
+            needs_credential = vendor.needs_credential,
+        }
+    end
+    return { vendors = vendors }
+end
+
+local function loadCatalog()
+    local now = noctalia.nowMs()
+    if catalogInFlight or (lastCatalogStart ~= nil and now - lastCatalogStart < 2000) then return end
+    catalogInFlight = true
+    lastCatalogStart = now
+    noctalia.state.set("catalog_loading", true)
+    local started = noctalia.runAsync("ai-usagebar vendors --json", function(result)
+        local decoded = result ~= nil and not result.timedOut and result.exitCode == 0
+            and noctalia.json.decode(result.stdout or "") or nil
+        local catalog = publicCatalog(decoded)
+        if catalog ~= nil then noctalia.state.set("catalog", catalog) end
+        noctalia.state.set("catalog_error", catalog == nil)
+        catalogInFlight = false
+        noctalia.state.set("catalog_loading", false)
+    end, 5000)
+    if not started then
+        catalogInFlight = false
+        noctalia.state.set("catalog_error", true)
+        noctalia.state.set("catalog_loading", false)
+    end
+end
+
 local inFlight = false
 local pendingRefresh = false
 
@@ -242,6 +295,7 @@ end
 
 noctalia.state.watch("command", function(value)
     if type(value) == "table" and value.action == "refresh" then refresh() end
+    if type(value) == "table" and value.action == "catalog" then loadCatalog() end
 end)
 
 function update()
@@ -257,6 +311,7 @@ end
 
 function onIpc(event, payload)
     if event == "refresh" then refresh() end
+    if event == "catalog" then loadCatalog() end
     -- `select <provider-id>` points the panel at one provider from a script.
     if event == "select" and type(payload) == "string" and payload ~= "" then
         noctalia.state.set("selected", payload)

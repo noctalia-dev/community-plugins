@@ -2,7 +2,7 @@
 --
 --   TZ=America/New_York lua tests/shared_test.lua
 
-assert(os.getenv("TZ") == "America/New_York", "run with TZ=America/New_York")
+assert(os.getenv("TZ") ~= nil, "run with an explicit TZ, including America/New_York")
 
 local function read(path)
     local file = assert(io.open(path, "r"))
@@ -24,6 +24,9 @@ local cases = {
     { "summer", "2024-07-10T12:00:00Z", 1720612800 },
     { "before spring transition", "2024-03-10T06:30:00Z", 1710052200 },
     { "after spring transition", "2024-03-10T07:30:00Z", 1710055800 },
+    { "nonexistent local wall time", "2024-03-10T02:30:00Z", 1710037800 },
+    { "ambiguous local wall time", "2024-11-03T01:30:00Z", 1730597400 },
+    { "fractional seconds", "2024-07-10T12:00:00.123456Z", 1720612800 },
 }
 
 for _, case in ipairs(cases) do
@@ -253,3 +256,19 @@ assert(shared.balanceText({ id = "deepseek", metrics = {}, sections = {
 } }) == nil, "an error line is not a balance")
 
 io.write("ok: shared timestamps, availability, and provider order\n")
+
+assert(type(shared.metricWindow) == "function", "quota window classifier must exist")
+assert(shared.metricWindow({ window_secs = 2592000, label = "Weekly" }) == "monthly", "duration must distinguish month from week")
+assert(shared.metricWindow({ label = "Codex weekly" }) == "weekly", "label-only weekly quota")
+assert(shared.metricWindow({ window_secs = 10800 }) == "session", "short sessions remain selectable")
+assert(shared.metricWindow({ label = "Monthly" }) == "monthly", "label-only monthly quota")
+assert(shared.windowMetric({ { label = "Weekly", percent = 40 } }, "monthly") == nil, "absent pinned windows must not fall back")
+assert(shared.displayPercent({ percent = 25 }, "remaining") == 75, "remaining complements consumption")
+assert(shared.displayPercent({ percent = 125 }, "remaining") == 0, "over-quota remaining stops at zero")
+assert(shared.displayPercent({}, "remaining") == nil, "missing quota never becomes remaining 100")
+assert(shared.displayPercent({ percent = "bad" }, "used") == nil, "invalid quota never becomes zero")
+
+assert(shared.capsuleMetric({ metrics = "invalid" }, "weekly") == nil,
+       "an explicit window must reject malformed metric collections without crashing")
+assert(shared.capsuleMetric({ metrics = 42 }, "monthly") == nil,
+       "numeric metric collections must not crash explicit window selection")

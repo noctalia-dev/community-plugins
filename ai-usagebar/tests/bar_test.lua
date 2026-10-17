@@ -1,5 +1,14 @@
 -- Host harness for provider/account selection in bar.luau.
 
+-- Keep exact countdown assertions independent of second boundaries during rendering.
+local realTime = os.time
+local os = setmetatable({
+    time = function(date)
+        if date ~= nil then return realTime(date) end
+        return 1792166400
+    end,
+}, { __index = os })
+
 local function read(path)
     local file = assert(io.open(path, "r"))
     local source = file:read("*a")
@@ -42,6 +51,7 @@ local function loadBar(config, report, err)
         setUpdateInterval = function() end,
         togglePanel = function() end,
         tr = function(key, args)
+            if key == "ui.reset" then return "Reset" end
             if key == "ui.not_configured" then
                 return tostring(args.vendor) .. " not configured"
             end
@@ -63,7 +73,7 @@ local function loadBar(config, report, err)
         setTooltip = function(rows) tooltip = rows end,
         isVertical = function() return config.vertical == true end,
     }
-    local sharedEnv = setmetatable({ noctalia = noctalia }, { __index = _G })
+    local sharedEnv = setmetatable({ noctalia = noctalia, os = os }, { __index = _G })
     local shared = assert(load(read("shared.luau"), "shared", "t", sharedEnv))()
     local env = setmetatable({
         noctalia = noctalia,
@@ -96,14 +106,26 @@ local function containsText(node, wanted)
     return false
 end
 
-local function containsGlyph(node, wanted)
+local function containsGlyph(node, wanted, color)
     if type(node) ~= "table" then return false end
-    if type(node.props) == "table" and node.props.name == wanted then return true end
+    if type(node.props) == "table" and node.props.name == wanted
+        and (color == nil or node.props.color == color) then return true end
     for _, child in ipairs(node.children or {}) do
-        if containsGlyph(child, wanted) then return true end
+        if containsGlyph(child, wanted, color) then return true end
     end
     return false
 end
+
+local agyFailureReport = { entries = { {
+    id = "antigravity", status = "ready",
+    metrics = { { label = "Gemini", percent = 40, window_secs = 18000 } },
+} } }
+local healthyModel = loadBar({ extras = "none" }, agyFailureReport)
+local failedModel = loadBar({ extras = "none" }, agyFailureReport, { code = "timed_out", detail = "" })
+assert(containsGlyph(healthyModel.rendered(), "brand-google", "on_surface"),
+       "a healthy Antigravity model should keep its normal glyph color")
+assert(containsGlyph(failedModel.rendered(), "brand-google", "error"),
+       "a whole-report failure must flag the existing Antigravity model glyph")
 
 local namedReport = {
     primary = "openai",
@@ -219,15 +241,24 @@ local withoutRejected = loadBar({
     provider_limit = 2,
 }, { entries = { rejected, entry("openai", "Codex", 20) } })
 local rejectedRows = withoutRejected.tooltip()
-assert(rejectedRows[1].key == "Codex" and #rejectedRows == 1,
+assert(rejectedRows[1].key == "Codex" and #rejectedRows == 2,
        "a terminal provider should leave the bar immediately")
 
 local pinnedDown = loadBar({
     vendor = "antigravity", account = "", extras = "none", visualization = "none",
 }, { entries = { downEntry("antigravity", "Antigravity", 90) } })
 local pinnedRow = pinnedDown.tooltip()[1]
-assert(pinnedRow.value == "antigravity not configured",
-       "a pinned provider with its own failure should leave the bar")
+assert(pinnedRow.key == "Antigravity"
+    and pinnedRow.value == "credentials error: Antigravity: no local server found.",
+       "a configured provider that is down should keep its diagnostic in the tooltip")
+assert(not containsText(pinnedDown.rendered(), "90%"),
+       "a pinned provider that is down must still withhold its reading")
+
+local namedDown = loadBar({
+    vendor = "openai", account = "work", extras = "none", visualization = "none",
+}, { entries = { downEntry("openai@work", "Codex · work", 90) } })
+assert(namedDown.tooltip()[1].key == "Codex · work",
+       "a pinned named account should retain its own failure diagnostic")
 
 -- `[ui] primary` can come back as a full account id, and the tie-break has to
 -- recognise it in that form as well as the bare provider one.
@@ -297,7 +328,7 @@ assert(containsText(bottleneckBar.rendered(), "100%"),
 assert(not containsText(bottleneckBar.rendered(), "0%"),
        "capsule should not show 0% when weekly limit is 100%")
 local bottleneckRows = bottleneckBar.tooltip()
-assert(#bottleneckRows == 2 and bottleneckRows[1].key == "Codex" and bottleneckRows[1].value == "0% / 100%"
+assert(#bottleneckRows == 3 and bottleneckRows[1].key == "Codex" and bottleneckRows[1].value == "0% / 100%"
        and bottleneckRows[2].key == "Reset" and bottleneckRows[2].value == "6d 20h",
        "bottleneckBar tooltip should keep the blocking reset on a separate row")
 
@@ -327,7 +358,7 @@ assert(containsText(agyBar.rendered(), "100%"), "blocked model should show its e
 assert(not containsText(agyBar.rendered(), "0%"), "blocked model should hide its irrelevant active session percentage")
 assert(containsText(agyBar.rendered(), "6d 20h"), "blocked model should show its long-window unlock time")
 local agyTooltip = agyBar.tooltip()
-assert(#agyTooltip == 4, "antigravity tooltip should group each model with its reset")
+assert(#agyTooltip == 5, "antigravity tooltip should group each model with its reset")
 assert(agyTooltip[1].key == "Gemini" and agyTooltip[1].value == "11% / 24%",
        "antigravity tooltip first row should show Gemini percentages")
 assert(agyTooltip[2].key == "Reset" and agyTooltip[2].value == "2h 00m",
@@ -360,7 +391,7 @@ assert(containsGlyph(normalAgyBar.rendered(), "robot"), "capsule should show rob
 assert(containsText(normalAgyBar.rendered(), "11%"), "capsule should show active session percentage (11%)")
 assert(containsText(normalAgyBar.rendered(), "0%"), "capsule should show active session percentage (0%)")
 assert(not containsText(normalAgyBar.rendered(), "78%"), "capsule should not stick to weekly percentage (78%)")
-assert(#normalAgyBar.tooltip() == 2, "models without reset times should not gain empty reset rows")
+assert(#normalAgyBar.tooltip() == 3, "models without reset times should not gain empty reset rows")
 
 local reorderedAgyBar = loadBar({ vendor = "antigravity", visualization = "gauge" }, { entries = {
     { id = "antigravity", display_name = "Antigravity", status = "ready", metrics = {
@@ -452,6 +483,38 @@ assert(containsText(quietFailure.rendered(), "—"), "hidden glyph must not crea
 
 local vertBar = loadBar({ vendor = "openai", vertical = true }, { entries = { quotaEntry } })
 assert(vertBar.rendered().kind == "column", "vertical bar must render a column")
+
+for _, provider in ipairs({ "openai", "antigravity" }) do
+    for _, stale in ipairs({ false, true }) do
+        for _, showGlyph in ipairs({ false, true }) do
+            for _, position in ipairs({ "before", "after" }) do
+                local reading = entry(provider, provider, 40)
+                reading.stale = stale
+                if provider == "antigravity" then
+                    reading.metrics = {
+                        { label = "Gemini", percent = 40, window_secs = 18000 },
+                        { label = "Claude & GPT OSS", percent = 20, window_secs = 18000 },
+                    }
+                end
+                local vertical = loadBar({
+                    vendor = provider, vertical = true, extras = "none",
+                    show_glyph = showGlyph, glyph_position = position,
+                }, { entries = { reading } })
+                assert(containsGlyph(vertical.rendered(), "clock-exclamation", "secondary") == stale,
+                       "vertical stale indicator must follow reading age, independently of provider glyph settings")
+                assert(containsText(vertical.rendered(), "40%"),
+                       "vertical stale readings must retain their cached percentage")
+                local expectedGlyph = provider == "antigravity" and "brand-google" or "brand-openai"
+                assert(containsGlyph(vertical.rendered(), expectedGlyph) == showGlyph,
+                       "vertical provider and model glyphs must respect show_glyph")
+                if provider == "antigravity" then
+                    assert(containsGlyph(vertical.rendered(), "robot") == showGlyph,
+                           "vertical secondary model glyph must respect show_glyph")
+                end
+            end
+        end
+    end
+end
 
 local multiReport = {
     entries = {
@@ -571,3 +634,82 @@ local nousRows = nousBalanceBar.tooltip()
 assert(#nousRows == 1 and nousRows[1].key == "Nous Research" and nousRows[1].value == "8.19",
     "a balance provider's tooltip should not report no usage")
 
+
+local threeWindows = { id = "opencode-go", display_name = "Go", status = "ready", metrics = {
+    { label = "Session", percent = 20, window_secs = 18000, severity = "low" },
+    { label = "Weekly", percent = 60, window_secs = 604800, severity = "high" },
+    { label = "Monthly", percent = 80, window_secs = 2592000, severity = "high" },
+} }
+local pinnedMonth = loadBar({ vendor = "opencode-go", quota_window = "monthly", usage_display = "remaining" }, { entries = { threeWindows } })
+assert(containsText(pinnedMonth.rendered(), "20%"), "monthly remaining must use the actual monthly quota")
+local pinnedBars = findAllNodes(pinnedMonth.rendered(), function(n) return n.kind == "progress" end)
+assert(#pinnedBars == 1 and pinnedBars[1].props.progress == 0.2, "pin renders one matching remaining bar")
+local absentMonth = loadBar({ vendor = "openai", quota_window = "monthly", usage_display = "remaining" }, { entries = { entry("openai", "Codex", 25) } })
+assert(containsText(absentMonth.rendered(), "—"), "missing pinned quota must show dash")
+assert(#findAllNodes(absentMonth.rendered(), function(n) return n.kind == "progress" end) == 0, "missing pinned quota has no gauge")
+local subsetReport = { entries = { entry("openai@work", "Work", 90), entry("openai@home", "Home", 70), entry("anthropic", "Claude", 99) } }
+local subset = loadBar({ auto_providers = { "openai@home" } }, subsetReport)
+assert(subset.tooltip()[1].key == "Home", "exact account filter must exclude other accounts")
+subset.env.onScroll("vertical", 1, true)
+assert(subset.tooltip()[1].key == "Home", "scroll stays within automatic subset")
+local providerSubset = loadBar({ auto_providers = { "openai" }, provider_limit = 4 }, subsetReport)
+assert(providerSubset.tooltip()[1].key == "Work" and providerSubset.tooltip()[2].key == "Home", "base provider includes all its accounts")
+local invalidSubset = loadBar({ auto_providers = { false, 42, "unknown" } }, subsetReport)
+assert(not containsText(invalidSubset.rendered(), "99%"), "invalid nonempty filter must never include all providers")
+local remainingAuto = loadBar({ usage_display = "remaining" }, subsetReport)
+assert(remainingAuto.tooltip()[1].key == "Claude" and containsText(remainingAuto.rendered(), "1%"), "remaining must preserve consumed ranking")
+local remainingBalance = loadBar({ vendor = "deepseek", quota_window = "monthly", usage_display = "remaining" }, { entries = {
+    { id = "deepseek", status = "ready", metrics = {}, sections = { { type = "text", label = "Balance", value = "$2.90" } } },
+} })
+assert(containsText(remainingBalance.rendered(), "$2.90"), "window and direction settings must preserve balances")
+
+assert(pinnedMonth.tooltip()[1].value == "Monthly: 20%", "pinned tooltip identifies actual quota and direction")
+assert(pinnedMonth.tooltip()[#pinnedMonth.tooltip()].key == "ui.remaining", "tooltip explicitly names remaining mode")
+assert(absentMonth.tooltip()[1].value == "ui.window_unavailable", "tooltip explains an absent pinned window")
+local blockedPinEntry = { id = "openai", status = "ready", metrics = {
+    { label = "Session", percent = 20, window_secs = 18000 },
+    { label = "Weekly", percent = 100, severity = "critical", window_secs = 604800, reset_at = "2026-10-23T12:00:00Z" },
+    { label = "Monthly", percent = 100, severity = "critical", window_secs = 2592000, reset_at = "2026-10-26T12:00:00Z" },
+} }
+local blockedPin = loadBar({ vendor = "openai", quota_window = "session", usage_display = "remaining" }, { entries = { blockedPinEntry } })
+assert(containsText(blockedPin.rendered(), "0%"), "pinned session cannot hide exhausted long quota")
+assert(blockedPin.tooltip()[1].value == "Monthly: 0%", "latest exhausted window overrides pin in tooltip")
+local blockedBars = findAllNodes(blockedPin.rendered(), function(n) return n.kind == "progress" end)
+assert(#blockedBars == 1 and blockedBars[1].props.progress == 0 and blockedBars[1].props.fill == "error", "zero remaining keeps exhausted consumption severity")
+local agyPin = loadBar({ vendor = "antigravity", quota_window = "session", usage_display = "remaining" }, { entries = {
+    { id = "antigravity", status = "ready", metrics = {
+        { label = "Gemini", percent = 90, window_secs = 604800 },
+        { label = "Claude", percent = 100, severity = "critical", window_secs = 604800 },
+        { label = "Gemini", percent = 30, window_secs = 18000 },
+        { label = "Claude", percent = 10, window_secs = 18000 },
+    } },
+} })
+assert(containsText(agyPin.rendered(), "70%") and containsText(agyPin.rendered(), "0%"), "AGY selects session and blocking quota independently per model")
+local agyPinnedBars = findAllNodes(agyPin.rendered(), function(n) return n.kind == "progress" end)
+assert(#agyPinnedBars == 2 and agyPinnedBars[1].props.progress == 0.7 and agyPinnedBars[2].props.progress == 0, "AGY pin draws one remaining gauge per model")
+local agyMissing = loadBar({ vendor = "antigravity", quota_window = "monthly", usage_display = "remaining" }, { entries = {
+    { id = "antigravity", status = "ready", metrics = { { label = "Gemini", percent = 20, window_secs = 18000 } } },
+} })
+assert(containsText(agyMissing.rendered(), "—"), "AGY absent pinned quota never becomes zero or 100 remaining")
+local invalidPercent = loadBar({ vendor = "antigravity", usage_display = "remaining" }, { entries = {
+    { id = "antigravity", status = "ready", metrics = { { label = "Gemini", window_secs = 18000 } } },
+} })
+assert(containsText(invalidPercent.rendered(), "—"), "AGY missing percent must remain unknown")
+local inverseAuto = loadBar({ vendor = "opencode-go", usage_display = "remaining" }, { entries = { threeWindows } })
+local inverseBars = findAllNodes(inverseAuto.rendered(), function(n) return n.kind == "progress" end)
+assert(#inverseBars == 2 and inverseBars[1].props.progress == 0.8 and inverseBars[2].props.progress == 0.4, "automatic gauges invert both windows")
+assert(inverseBars[2].props.fill == "secondary", "remaining bars retain consumed severity")
+local verticalRemaining = loadBar({ vendor = "opencode-go", quota_window = "weekly", usage_display = "remaining", vertical = true }, { entries = { threeWindows } })
+assert(containsText(verticalRemaining.rendered(), "40%"), "vertical capsule applies remaining to its number")
+local verticalLevel = findNode(verticalRemaining.rendered(), function(n) return n.props.key == "level" end)
+assert(verticalLevel ~= nil and verticalLevel.props.height == 6, "vertical remaining gauge uses selected quota")
+local pinnedIgnoresFilter = loadBar({ vendor = "anthropic", auto_providers = { "openai" } }, subsetReport)
+assert(containsText(pinnedIgnoresFilter.rendered(), "99%"), "automatic filter cannot hide explicit provider pin")
+local emptySubset = loadBar({ auto_providers = {} }, subsetReport)
+assert(containsText(emptySubset.rendered(), "99%"), "empty automatic filter preserves all providers")
+local subsetHidden = loadBar({ auto_providers = { "openai" }, provider_limit = 2 }, subsetReport)
+assert(not containsText(subsetHidden.rendered(), "+1"), "hidden count excludes providers outside subset")
+
+local unmatchedFilter = loadBar({ vendor = "auto", auto_providers = { "missing-provider" } }, namedReport)
+assert(unmatchedFilter.tooltip()[1].value == "ui.no_matching_providers",
+    "an unmatched automatic filter should explain the empty selection")

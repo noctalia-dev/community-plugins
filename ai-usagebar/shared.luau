@@ -162,8 +162,9 @@ function M.asFailure(value)
 end
 
 -- "2026-08-15T11:29:59.872624Z" -> unix seconds. The stamps are UTC and
--- os.time() reads its table as local, so the offset is measured at that same
--- instant and added back.
+-- os.time() reads its table as local, so the offset is measured and added back.
+-- Force standard time on both conversions: DST must not normalize the UTC
+-- fields through a nonexistent or ambiguous local wall time.
 function M.parseIso(value)
     if type(value) ~= "string" then return nil end
     local y, mo, d, h, mi, s = value:match("^(%d+)%-(%d+)%-(%d+)T(%d+):(%d+):(%d+)")
@@ -171,12 +172,10 @@ function M.parseIso(value)
     local asLocal = os.time({
         year = tonumber(y), month = tonumber(mo), day = tonumber(d),
         hour = tonumber(h), min = tonumber(mi), sec = tonumber(s),
+        isdst = false,
     })
     local utc = os.date("!*t", asLocal)
-    -- Let os.time resolve DST for these wall-clock fields. os.date marks a UTC
-    -- table as standard time, which is wrong when the same fields fall in the
-    -- local timezone's daylight-saving season.
-    utc.isdst = nil
+    utc.isdst = false
     local utcAsLocal = os.time(utc)
     return asLocal + (asLocal - utcAsLocal)
 end
@@ -229,7 +228,7 @@ end
 
 -- How much of the window is gone, out of "Resets in 1h 58m · 60% elapsed".
 function M.elapsedPercent(detail)
-    local value = tostring(detail or ""):match("(%d+)%%%s*elapsed")
+    local value = tostring(detail or ""):match("([%+%-]?[%d%.]+)%%%s*elapsed")
     return value ~= nil and tonumber(value) or nil
 end
 
@@ -338,6 +337,47 @@ function M.balanceText(entry)
         end
     end
     return credit
+end
+
+-- Explicit pins require a real matching window; positional fallback would turn
+-- a missing monthly quota into a plausible but unrelated weekly reading.
+function M.metricWindow(metric)
+    if type(metric) ~= "table" then return nil end
+    local seconds = tonumber(metric.window_secs)
+    if seconds ~= nil then
+        if seconds > 0 and seconds <= 86400 then return "session" end
+        if seconds == 604800 then return "weekly" end
+        if seconds >= 2419200 and seconds <= 2678400 then return "monthly" end
+        return nil
+    end
+    local label = tostring(metric.label or ""):lower()
+    if label:find("month", 1, true) or label:find("30d", 1, true) then return "monthly" end
+    if label:find("week", 1, true) or label:find("7d", 1, true) then return "weekly" end
+    if label:find("session", 1, true) or label:find("hour", 1, true)
+        or label:match("%d+h") then return "session" end
+    return nil
+end
+
+function M.windowMetric(metrics, window)
+    if type(metrics) ~= "table" then return nil end
+    for _, metric in ipairs(metrics) do
+        if M.metricWindow(metric) == window then return metric end
+    end
+    return nil
+end
+
+function M.displayPercent(metric, display)
+    if type(metric) ~= "table" then return nil end
+    local percent = tonumber(metric.percent)
+    if percent == nil or percent ~= percent or percent == math.huge or percent == -math.huge then return nil end
+    if display == "remaining" then return math.max(0, 100 - percent) end
+    return percent
+end
+
+function M.capsuleMetric(entry, window)
+    if type(entry) ~= "table" or type(entry.metrics) ~= "table" then return nil end
+    if window == nil or window == "auto" then return M.headline(entry) end
+    return M.blockingMetric(entry.metrics) or M.windowMetric(entry.metrics, window)
 end
 
 function M.modelGlyph(label)
