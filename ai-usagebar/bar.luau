@@ -257,6 +257,16 @@ local function miniGauge(percent, tint)
     })
 end
 
+local function withCountdown(value, metric, isVert)
+    if isVert or (extras ~= "countdown" and extras ~= "both") then return value end
+    local left = fixedCountdown(metric)
+    if left == "" then return value end
+    local countdown = ui.label({ text = left, fontSize = 12, color = "on_surface_variant", maxLines = 1 })
+    if value == nil then return countdown end
+    -- Keep the smaller reset beside the value's lower edge, not floating at its centre.
+    return ui.row({ gap = 3, align = "end" }, { value, countdown })
+end
+
 local function chip(entry, flagged, isVert)
     if shared.readFailure(entry) then
         local nodes = { ui.label({ text = "—", color = "on_surface_variant" }) }
@@ -314,26 +324,15 @@ local function chip(entry, flagged, isVert)
                 if visualization == "gauge" and not isVert and not glyphAfter and barNode ~= nil then
                     rowChildren[#rowChildren + 1] = barNode
                 end
-                if showValue then
-                    rowChildren[#rowChildren + 1] = ui.label({
-                        text = mPct ~= nil and string.format("%d%%", mPct) or "—",
-                        color = mTint,
-                        maxLines = 1,
-                    })
-                end
+                local value = showValue and ui.label({
+                    text = mPct ~= nil and string.format("%d%%", mPct) or "—",
+                    color = mTint,
+                    maxLines = 1,
+                }) or nil
+                local reading = withCountdown(value, shownMetric, isVert)
+                if reading ~= nil then rowChildren[#rowChildren + 1] = reading end
                 if visualization == "gauge" and not isVert and glyphAfter and barNode ~= nil then
                     rowChildren[#rowChildren + 1] = barNode
-                end
-                if (extras == "countdown" or extras == "both") and not isVert then
-                    local left = fixedCountdown(shownMetric)
-                    if left ~= "" then
-                        rowChildren[#rowChildren + 1] = ui.label({
-                            text = left,
-                            fontSize = 10,
-                            color = "on_surface_variant",
-                            maxLines = 1,
-                        })
-                    end
                 end
                 if modelGlyph and glyphAfter then rowChildren[#rowChildren + 1] = modelGlyph end
                 if #parts > 0 and #rowChildren > 0 then
@@ -392,15 +391,9 @@ local function chip(entry, flagged, isVert)
         end
         add(barNode)
     end
-    add(pct)
+    add(hasSubmodels and pct or withCountdown(pct, metric, false))
     if glyphAfter then add(glyph) end
 
-    if (extras == "countdown" or extras == "both") and not hasSubmodels then
-        local left = fixedCountdown(metric)
-        if left ~= "" then
-            add(ui.label({ text = left, fontSize = 10, color = "on_surface_variant", maxLines = 1 }))
-        end
-    end
     if extras == "pace" or extras == "both" then
         local _, points, word = pace(metric and metric.detail)
         if points ~= nil then

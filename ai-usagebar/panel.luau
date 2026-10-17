@@ -207,7 +207,7 @@ local function metricRows(section, title, muted)
     return body
 end
 
-local CARD = { gap = 4, padding = 10, radius = 9, fill = "surface_variant/0.34",
+local CARD = { gap = 3, padding = 10, radius = 9, fill = "surface_variant/0.34",
                border = "outline/0.08", borderWidth = 1 }
 
 local function cardStyle(gap, fill, border)
