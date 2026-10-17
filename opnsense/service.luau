@@ -38,6 +38,15 @@ local configError = ""
 local actionBusy = false
 local dataSignature = ""
 
+-- Sweep-slot state. Forward-declared on purpose: timeout recovery, defined
+-- further down, reads it, and a `local` declared after a function would leave
+-- that function looking at a global instead (nil), silently disabling the check.
+local refreshQueue = {}
+local refreshActive = false
+local refreshToken = 0
+local refreshOwner = nil
+local releaseSweep
+
 local function newInstanceData()
   return {
     available = false,
@@ -348,6 +357,10 @@ local function syncInstances()
   end
   configSignature = signature
   configGeneration += 1
+  -- The in-flight run belongs to the old list and is no longer reachable by
+  -- timeout recovery, so release its slot here: without this a run whose callback
+  -- never arrives would hold the sweep for good. Its late callback is a no-op.
+  releaseSweep()
 
   local previous = {}
   for _, inst in ipairs(instances) do
@@ -949,11 +962,19 @@ local function recoverStuck()
     local data = inst.data
     if inst.pending > 0 and inst.startedAt > 0 and (nowSec() - inst.startedAt) >= STUCK_REFRESH_SEC then
       noctalia.log(`opnsense: {inst.name} refresh timed out`)
+      -- Abandon the run: bumping the generation makes its late callbacks no-ops
+      -- (see finish()), so they cannot decrement the counter of the run that
+      -- replaces it. Then free the sweep slot it is holding — without this the
+      -- pump refuses to start another firewall and polling stalls for good.
+      inst.generation += 1
       inst.pending = 0
       inst.startedAt = 0
       data.loading = false
       if data.error == "" then
         data.error = "refresh timed out"
+      end
+      if refreshOwner == inst then
+        releaseSweep()
       end
     end
     if inst.logsPending and inst.logsStartedAt > 0 and (nowSec() - inst.logsStartedAt) >= STUCK_LOGS_SEC then
@@ -977,9 +998,19 @@ end
 -- The host rejects requests beyond its HTTP queue (`http queue full`), so only
 -- one firewall is polled at a time: its 8 calls are the same burst a single
 -- firewall always produced. Queue: 4 firewalls then take ~4x a poll to sweep.
-local refreshQueue = {}
-local refreshActive = false
+-- `refreshQueue`, `refreshActive`, `refreshToken` and `refreshOwner` are declared
+-- at the top of the file; the sweep slot belongs to one run at a time, so
+-- `refreshToken` identifies that run (a late callback from an abandoned run
+-- cannot free a newer run's slot) and `refreshOwner` is the instance holding it
+-- (so timeout recovery knows whose slot to release).
 local pumpRefreshQueue
+
+-- Drop the sweep slot without waiting for a callback that may never arrive.
+releaseSweep = function()
+  refreshToken += 1
+  refreshActive = false
+  refreshOwner = nil
+end
 
 local function refreshInstance(inst, onDone)
   if inst.pending > 0 then
@@ -1019,15 +1050,16 @@ local function refreshInstance(inst, onDone)
   local errors = {}
   local finished = false
 
-  local function stale()
-    return confGeneration ~= configGeneration or generation ~= inst.generation
-  end
-
   local function finish()
-    if stale() then
-      -- This run was abandoned: the instance list or the instance itself was
-      -- replaced under us. Release exactly once, or refreshActive stays set and
-      -- no firewall is ever polled again.
+    if generation ~= inst.generation then
+      -- Timeout recovery abandoned this run: it already cleared the counter and
+      -- released the sweep slot. Touch nothing — writing inst.pending here would
+      -- clobber whatever run is in flight now, and onDone would free its slot.
+      return
+    end
+    if confGeneration ~= configGeneration then
+      -- The instance list was replaced under us. Release exactly once, or
+      -- refreshActive stays set and no firewall is ever polled again.
       if not finished then
         finished = true
         inst.pending = 0
@@ -1162,8 +1194,16 @@ pumpRefreshQueue = function()
     return
   end
   refreshActive = true
+  refreshOwner = inst
+  refreshToken += 1
+  local token = refreshToken
   refreshInstance(inst, function()
-    refreshActive = false
+    -- Only the run holding the slot may release it. An abandoned run's late
+    -- callback must not free a slot a newer run has since taken.
+    if refreshToken ~= token then
+      return
+    end
+    releaseSweep()
     pumpRefreshQueue()
   end)
 end
@@ -1444,8 +1484,10 @@ function onConfigChanged()
   -- Settings changed: drop in-flight bookkeeping, rebuild the list, poll again.
   -- The queue and the pump flag must be dropped too: a sweep that was running
   -- when the list was replaced would otherwise keep refreshActive set forever.
+  -- releaseSweep() also invalidates its token, so the abandoned run's late
+  -- callback cannot free the slot of the sweep started below.
   refreshQueue = {}
-  refreshActive = false
+  releaseSweep()
   for _, inst in ipairs(instances) do
     inst.pending = 0
     inst.startedAt = 0
@@ -1461,9 +1503,14 @@ end
 function onIpc(event, _payload)
   if event == "refresh" then
     for _, inst in ipairs(instances) do
+      -- Clearing the counter drops the in-flight run out of timeout recovery's
+      -- sight, so release its slot here too; the generation bump makes its late
+      -- callbacks no-ops so they cannot disturb the sweep started below.
+      inst.generation += 1
       inst.pending = 0
       inst.startedAt = 0
     end
+    releaseSweep()
     refreshAll(true)
   elseif event == "logs" then
     fetchLogs({ action = "fetch_logs", requestId = "ipc-logs" })
