@@ -1050,6 +1050,13 @@ local function refreshInstance(inst, onDone)
   local errors = {}
   local finished = false
 
+  -- Guards the work inside a callback: a run that was abandoned (timeout
+  -- recovery) or superseded (replaced firewall list) must not write into the
+  -- bag. finish() below decides what such a callback is still allowed to do.
+  local function stale()
+    return generation ~= inst.generation or confGeneration ~= configGeneration
+  end
+
   local function finish()
     if generation ~= inst.generation then
       -- Timeout recovery abandoned this run: it already cleared the counter and

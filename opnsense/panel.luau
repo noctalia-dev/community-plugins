@@ -648,9 +648,19 @@ render = function()
   if not overview and type(view.resources) == "table" then
     load = tostring(view.resources.load or "")
   end
+  -- The overview totals must count an unreachable firewall as an issue, the same
+  -- way instanceIssues() does for the per-firewall rows and the bar widget;
+  -- snapshot.issueCount only sums the issues each instance reported.
+  local overviewIssues = 0
+  if overview then
+    for _, inst in ipairs(instanceList()) do
+      overviewIssues += instanceIssues(inst)
+    end
+  end
+
   local summary = overview and tr("panel.summary", {
     ok = snapshot.okCount or 0,
-    issues = snapshot.issueCount or 0,
+    issues = overviewIssues,
     load = "—",
   }) or tr("panel.summary", {
     ok = view.okCount or 0,
@@ -662,7 +672,7 @@ render = function()
     version = tostring(view.info.version or "")
   end
 
-  local titleIssues = overview and (snapshot.issueCount or 0) or (view.issueCount or 0)
+  local titleIssues = overview and overviewIssues or (view.issueCount or 0)
   local up = overview and (snapshot.available == true) or (view.available == true)
   local titleIcon = "assets/opnsense-grey.png"
   if up == true then
@@ -761,6 +771,15 @@ noctalia.state.watch(STATE_KEY, function(value)
   local previousBlocked = view.blockLogCount
   local previousLogs = #(view.logs or {})
   local previousRules = #(view.rules or {})
+  -- Counts alone are not enough: a refresh that only flips loading/error, or a
+  -- log fetch that only flips logsLoading, leaves every count the same, and the
+  -- panel would keep showing "Querying API…" or stale status text.
+  local previousLoading = view.loading
+  local previousLogsLoading = view.logsLoading
+  local previousError = view.error
+  local previousAvailable = view.available
+  local previousSnapshotLoading = snapshot.loading
+  local previousSnapshotError = snapshot.error
 
   snapshot = value
   syncView()
@@ -772,6 +791,12 @@ noctalia.state.watch(STATE_KEY, function(value)
     or view.blockLogCount ~= previousBlocked
     or #(view.logs or {}) ~= previousLogs
     or #(view.rules or {}) ~= previousRules
+    or view.loading ~= previousLoading
+    or view.logsLoading ~= previousLogsLoading
+    or view.error ~= previousError
+    or view.available ~= previousAvailable
+    or value.loading ~= previousSnapshotLoading
+    or value.error ~= previousSnapshotError
   if selectedId ~= "" then
     if not (selectedWidget() or selectedIface() or selectedGw() or selectedService()
       or selectedRule() or selectedLog()) then
