@@ -20,6 +20,7 @@ local tr_color_picker = noctalia.tr("color_picker")
 --==============================================
 -- CONTROL VARIABLES
 --==============================================
+local showCloseBtn = true
 local waitingForPanelPick = false
 local initialSessionColor = nil
 local initialSessionOpacity = 1
@@ -205,11 +206,16 @@ end
 --==============================================
 
 local function renderTitlebar()
-    return ui.row({ align = "center", justify = "space_between", gap = 8 }, {
+    local header = {
         ui.label({ text = tr("color_picker"), fontSize = 18, fontWeight = "bold", color = "primary", flexGrow = 1 }),
         ui.button({ glyph = "color-picker", onClick = "onPickClickedFromPanel" }),
-        ui.button({ glyph = "close", onClick = "onCloseClicked" }),
-    })
+    }
+
+    if showCloseBtn then
+        table.insert(header, ui.button({ glyph = "close", onClick = "onCloseClicked" }))
+    end
+
+    return ui.row({ align = "center", justify = "space_between", gap = 8 }, header)
 end
 
 local function renderRecentItem(color: string, index: number)
@@ -405,6 +411,7 @@ function onClose()
 end
 
 function onOpen(context)
+    showCloseBtn = noctalia.getSetting("shell.show_close_buttons")
     initialChanged = false
     initialSessionColor = getSelectedColor()
     initialSessionOpacity = getSelectedOpacity()
