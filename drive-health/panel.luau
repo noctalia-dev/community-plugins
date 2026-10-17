@@ -257,6 +257,13 @@ local function dependencyCard(dependencies)
       }),
       ui.label({ text = tostring(dependencies.install_command), fontSize = 10, color = "on_surface", maxLines = 2 }),
     }))
+  elseif dependencies.nixos_hint ~= nil and dependencies.nixos_hint ~= "" then
+    table.insert(children, ui.label({
+      text = tostring(dependencies.nixos_hint),
+      fontSize = 11,
+      color = "on_surface_variant",
+      maxLines = 4,
+    }))
   else
     table.insert(children, ui.label({
       text = noctalia.tr("dependencies.manual_install"),
@@ -317,18 +324,20 @@ local function collectorCard(collector)
   end
   local color = status == "stale" and "error" or "secondary"
   local actions = {}
-  local actionKey = status == "stale" and "collector.start"
-    or (collector.installed and "collector.upgrade" or "collector.install")
-  local actionHandler = status == "stale" and "onStartCollectorClicked"
-    or "onInstallCollectorClicked"
-  table.insert(actions, ui.button({
-    text = noctalia.tr(actionKey), variant = "primary", controlSize = "sm", onClick = actionHandler,
-  }))
-  table.insert(actions, ui.button({
-    text = noctalia.tr("collector.copy_install"), variant = "outline", controlSize = "sm",
-    onClick = "onCopyCollectorCommandClicked",
-  }))
-  if collector.installed then
+  if not collector.is_nixos then
+    local actionKey = status == "stale" and "collector.start"
+      or (collector.installed and "collector.upgrade" or "collector.install")
+    local actionHandler = status == "stale" and "onStartCollectorClicked"
+      or "onInstallCollectorClicked"
+    table.insert(actions, ui.button({
+      text = noctalia.tr(actionKey), variant = "primary", controlSize = "sm", onClick = actionHandler,
+    }))
+    table.insert(actions, ui.button({
+      text = noctalia.tr("collector.copy_install"), variant = "outline", controlSize = "sm",
+      onClick = "onCopyCollectorCommandClicked",
+    }))
+  end
+  if collector.installed and not collector.is_nixos then
     table.insert(actions, ui.button({
       text = noctalia.tr("collector.remove"), variant = confirmUninstall and "destructive" or "ghost",
       controlSize = "sm", onClick = "onUninstallCollectorClicked",
@@ -353,6 +362,11 @@ local function collectorCard(collector)
       }),
     }),
   }
+  if collector.is_nixos and collector.nixos_hint ~= nil and collector.nixos_hint ~= "" then
+    table.insert(children, ui.label({
+      text = tostring(collector.nixos_hint), fontSize = 10, color = "on_surface_variant", maxLines = 3,
+    }))
+  end
   if confirmUninstall then
     table.insert(children, ui.label({
       text = noctalia.tr("collector.remove_confirm"), fontSize = 11, color = "error",
@@ -379,10 +393,10 @@ local function collectorSettingsCard(collector)
       controlSize = "sm", onClick = "onOpenPluginSettingsClicked" }),
   }
 
-  if enabled and status == "not-installed" then
+  if not collector.is_nixos and enabled and status == "not-installed" then
     table.insert(actions, 1, ui.button({ text = noctalia.tr("collector.install"), variant = "primary",
       controlSize = "sm", onClick = "onInstallCollectorClicked" }))
-  elseif enabled and status == "upgrade-required" then
+  elseif not collector.is_nixos and enabled and status == "upgrade-required" then
     table.insert(actions, 1, ui.button({ text = noctalia.tr("collector.upgrade"), variant = "primary",
       controlSize = "sm", onClick = "onInstallCollectorClicked" }))
   elseif enabled and status == "stale" and collector.enable_command ~= nil then
@@ -442,6 +456,11 @@ local function collectorSettingsCard(collector)
     }), fontSize = 10, color = "on_surface_variant" }),
     ui.row({ gap = 7, align = "center" }, actions),
   }
+  if collector.is_nixos and collector.nixos_hint ~= nil and collector.nixos_hint ~= "" then
+    table.insert(children, (#children), ui.label({
+      text = tostring(collector.nixos_hint), fontSize = 10, color = "on_surface_variant", maxLines = 3,
+    }))
+  end
   if confirmUninstall then
     table.insert(children, ui.label({ text = noctalia.tr("collector.remove_confirm"),
       fontSize = 10, color = "error" }))
@@ -465,7 +484,7 @@ local function collectorSettingsCard(collector)
       maxLines = 2,
     }))
   end
-  if collector.installed then
+  if collector.installed and not collector.is_nixos then
     table.insert(children, ui.button({ text = noctalia.tr("collector.remove"),
       variant = confirmUninstall and "destructive" or "ghost", controlSize = "sm",
       onClick = "onUninstallCollectorClicked" }))
