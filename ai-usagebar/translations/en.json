@@ -116,7 +116,7 @@
   },
   "ui": {
     "details": "Details",
-    "elapsed": "{percent}% of the window elapsed",
+    "elapsed": "{percent}% elapsed",
     "error": {
       "failed": "Could not read usage",
       "failed_hint": "ai-usagebar exited with an error.",
@@ -130,7 +130,7 @@
       "timed_out_hint": "The read took too long. A provider may be answering slowly."
     },
     "hidden_label": "Not shown",
-    "hidden_value": "{count} more, click to open the panel",
+    "hidden_value": "{count} more providers in the panel",
     "install": "Install page",
     "last_reading": "Last reading, {minutes} min ago",
     "last_reading_now": "Last reading, moments ago",
@@ -141,9 +141,9 @@
     "plan_changed": "The plan changed; readings taken under the previous one were dropped.",
     "quota_exhausted": "Quota exhausted",
     "quota_reset": "Renews in {time}",
-    "refresh": "Refresh now",
+    "refresh": "Refresh usage",
     "refresh_queued": "Refresh queued",
-    "refreshing": "Refreshing usage",
+    "refreshing": "Refreshing…",
     "retry": "Try again",
     "settings": "Plugin settings",
     "severity": {
@@ -180,7 +180,7 @@
     "setup_hint": "Check reported failures and local provider configuration.",
     "setup_notifications": "The CLI manages alerts. To turn them off, set enabled = false under [notifications] in its config.toml.",
     "more_actions": "More actions",
-    "time_remaining": "{percent}% of the window left",
+    "time_remaining": "{percent}% of the window remaining",
     "diagnostics_login": "Check this account's credentials and access with the provider, then refresh usage.",
     "diagnostics_local_app": "If Antigravity is closed, open it so its local server can run, then refresh usage. No API key is required.",
     "diagnostics_configure": "Configure this provider's credentials for ai-usagebar, then refresh status and usage.",
@@ -195,6 +195,7 @@
     "diagnostics_refresh_usage": "Refresh usage",
     "diagnostics_enabled": "Other enabled providers ({count})",
     "diagnostics_disabled": "Disabled providers ({count})",
-    "diagnostics_recheck": "Refresh usage to check whether this earlier problem persists."
+    "diagnostics_recheck": "Refresh usage to check whether this earlier problem persists.",
+    "tooltip_more": "Click the widget for details."
   }
 }

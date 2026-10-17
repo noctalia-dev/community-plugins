@@ -9,6 +9,7 @@ local showSetup = false
 local showActions = false
 local showEnabled = false
 local showDisabled = false
+local expandedDiagnosticKey = nil
 local catalog = nil
 local catalogLoading = false
 local catalogError = false
@@ -827,11 +828,11 @@ local function setupButton()
     return ui.button({
         text = noctalia.tr(showSetup and "ui.back_to_usage" or "ui.provider_setup"),
         glyph = showSetup and "arrow-left" or "list-details",
-        tooltip = showSetup and noctalia.tr("ui.back_to_usage") or noctalia.tr("ui.provider_setup"),
         variant = "outline", controlSize = "sm",
         onClick = function()
             showSetup = not showSetup
             if showSetup then
+                expandedDiagnosticKey = nil
                 showActions = false
                 showEnabled, showDisabled = false, false
                 requestCatalog()
@@ -841,16 +842,6 @@ local function setupButton()
     })
 end
 
--- Catalog facts establish credential presence, while raw reports identify accounts.
-local function diagnosticCard(name, cause, impact, guidance, details)
-    return ui.column({ gap = 4, padding = 8, radius = 8,
-        fill = "error/0.06", border = "error/0.12", borderWidth = 1, tooltip = details }, {
-        ui.label({ text = name, fontSize = 12, fontWeight = "semibold", color = "on_surface", maxLines = 2 }),
-        ui.label({ text = cause, fontSize = 11, color = "on_surface_variant", maxLines = 4 }),
-        ui.label({ text = noctalia.tr(impact), fontSize = 11, color = "on_surface_variant", maxLines = 2 }),
-        ui.label({ text = noctalia.tr(guidance), fontSize = 11, color = "on_surface", maxLines = 3 }),
-    })
-end
 
 local function recovery(entry, cause, missingCredential)
     local text = cause:lower()
@@ -875,6 +866,33 @@ local function recovery(entry, cause, missingCredential)
 end
 
 local function setupPane()
+    local expandedFound = false
+    -- Technical causes expand inside the scrolling diagnostics, away from controls.
+    local function diagnosticCard(name, cause, impact, guidance, details, identity)
+        local key = tostring(identity or "global") .. "\0" .. name .. "\0" .. cause .. "\0" .. tostring(details or "")
+        local expanded = details ~= nil and expandedDiagnosticKey == key
+        if expanded then expandedFound = true end
+        local children = {
+            ui.label({ text = name, fontSize = 12, fontWeight = "semibold", color = "on_surface", maxLines = 2 }),
+            ui.label({ text = cause, fontSize = 11, color = "on_surface_variant", maxLines = 4 }),
+            ui.label({ text = noctalia.tr(impact), fontSize = 11, color = "on_surface_variant", maxLines = 2 }),
+            ui.label({ text = noctalia.tr(guidance), fontSize = 11, color = "on_surface", maxLines = 3 }),
+        }
+        if details ~= nil and details ~= "" and details ~= cause then
+            children[#children + 1] = ui.button({ text = noctalia.tr("ui.details"),
+                glyph = expanded and "chevron-up" or "chevron-down", variant = "outline", controlSize = "sm",
+                onClick = function()
+                    if expanded then expandedDiagnosticKey = nil else expandedDiagnosticKey = key end
+                    render()
+                end })
+            if expanded then
+                children[#children + 1] = ui.label({ text = details, fontSize = 11,
+                    color = "on_surface_variant", maxLines = 0 })
+            end
+        end
+        return ui.column({ gap = 4, padding = 8, radius = 8,
+            fill = "error/0.06", border = "error/0.12", borderWidth = 1 }, children)
+    end
     local rows = { ui.label({ text = noctalia.tr("ui.setup_hint"), fontSize = 12,
         color = "on_surface_variant", maxLines = 2 }) }
     local problems, failedDefaults, failedProviders, readyProviders, disabledProviders = 0, {}, {}, {}, {}
@@ -931,7 +949,7 @@ local function setupPane()
             rows[#rows + 1] = diagnosticCard(tostring(entry.display_name or entry.name or entry.id or ""),
                 configuring and noctalia.tr("ui.setup_required") or cause,
                 (historical or entry.stale == true) and "ui.diagnostics_old_usage" or "ui.diagnostics_no_usage",
-                guidance, configuring and cause or nil)
+                guidance, configuring and cause or nil, "entry:" .. tostring(entry.id or ""))
             problems = problems + 1
             recoverUsage = true
             failedProviders[base] = true
@@ -957,7 +975,8 @@ local function setupPane()
             if missing and not readyProviders[shared.baseProvider(vendor.id)]
                 and not failedProviders[shared.baseProvider(vendor.id)] then
                 rows[#rows + 1] = diagnosticCard(tostring(vendor.name or vendor.id or ""),
-                    noctalia.tr("ui.setup_required"), "ui.diagnostics_no_usage", "ui.diagnostics_configure")
+                    noctalia.tr("ui.setup_required"), "ui.diagnostics_no_usage", "ui.diagnostics_configure",
+                    nil, "catalog:" .. tostring(vendor.id or ""))
                 problems = problems + 1
                 recoverUsage = true
             elseif not failedDefaults[tostring(vendor.id or "")] then
@@ -966,6 +985,7 @@ local function setupPane()
             end
         end
     end
+    if not expandedFound then expandedDiagnosticKey = nil end
     if validCatalog and report ~= nil and problems == 0 and not catalogLoading then
         rows[#rows + 1] = ui.label({ text = noctalia.tr("ui.diagnostics_no_problems"), fontSize = 12, color = "on_surface_variant" })
     end
@@ -1217,6 +1237,7 @@ noctalia.state.watch("catalog_error", function(value)
 end)
 
 function onOpen(context)
+    expandedDiagnosticKey = nil
     showEnabled, showDisabled = false, false
     showActions = false
     showSetup = context == "setup"

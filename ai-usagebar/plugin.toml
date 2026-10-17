@@ -1,6 +1,6 @@
 id = "felipeartur/ai-usagebar"
 name = "AI Usage"
-version = "2.10.1"
+version = "2.11.0"
 plugin_api = 32
 author = "felipeartur"
 license = "MIT"

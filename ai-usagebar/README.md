@@ -101,7 +101,8 @@ auto_providers = [ "openai", "antigravity" ]
 start = [ "clock", "ai_usage" ]
 ```
 
-- Hover shows session and long-window values with a reset countdown per model.
+- Hover shows a compact summary of at most six rows. Each reading keeps its
+  reset on the same line. Open the panel for all windows, models and diagnostics.
 - When a long window is exhausted, the capsule replaces the short-window value
   with `100%` and counts down to the blocking window's reset. If several windows
   are exhausted, it uses the latest reset. A critical warning below 100% does
@@ -210,7 +211,9 @@ Per widget instance, so two capsules can follow two providers:
 Open **⋯ → Diagnostics** to find out why a configured provider is missing or
 showing an old reading. Problems appear first, with the reported problem, its
 impact on the widget and a suggested next step. Named account failures retain
-the account label. Other enabled providers and disabled providers stay collapsed
+the account label. Technical causes expand with **Details** inside the scrolling
+view, one problem at a time. They do not open a popup over the card. Other enabled
+providers and disabled providers stay collapsed
 until requested. Finding credentials does not establish that an account can
 authenticate; Antigravity needs no separate API key.
 
@@ -252,6 +255,10 @@ noctalia msg plugin felipeartur/ai-usagebar:poller all catalog
 ```
 
 ## Notes
+
+Tooltips use the shell's native appearance, timing and position. They do not
+capture pointer clicks or keyboard focus. Panel tips stay on small controls and
+labels; long technical details require an explicit click inside Diagnostics.
 
 - One process, `ai-usagebar usage --json`, spawned by a single headless service
   on the configured interval, plus on demand from a right click, from opening

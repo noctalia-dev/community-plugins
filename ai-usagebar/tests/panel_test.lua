@@ -1244,12 +1244,13 @@ for _, fixture in ipairs({
     host.publishState("catalog", { vendors = {
         { id = fixture.id, name = fixture.display_name, enabled = true, configured = false, needs_credential = true },
     } })
-    local preservedCause = false
+    assert(not has(labels(host.tree()), fixture.error) and has(labels(host.tree()), "ui.diagnostics_configure"),
+        "missing provider credentials start with concise configuration recovery")
     for _, card in ipairs(collect(host.tree(), "column")) do
-        if card.props.tooltip == fixture.error and has(labels(card), "ui.setup_required") then preservedCause = true end
+        assert(card.props.tooltip ~= fixture.error, "technical errors must not cover the diagnostic card on hover")
     end
-    assert(preservedCause and has(labels(host.tree()), "ui.diagnostics_configure"),
-        "missing provider credentials must offer configuration recovery while preserving the real error")
+    clickButton(host.tree(), "ui.details")
+    assert(has(labels(host.tree()), fixture.error), "inline details must preserve the actual credential error")
     for _, scroll in ipairs(collect(host.tree(), "scroll")) do
         for _, button in ipairs(collect(scroll, "button")) do
             assert(button.props.text ~= "ui.diagnostics_refresh_status" and button.props.text ~= "ui.diagnostics_refresh_usage",
@@ -1278,16 +1279,84 @@ end
 
 do
 local cause = "credentials error: Zai: no API key configured; configure credentials in the CLI"
-local tree, _, _, _, _, _, host = loadPanel({ id = "zai", display_name = "Z.AI",
+local tree, _, env, _, _, _, host = loadPanel({ id = "zai", display_name = "Z.AI",
     status = "error", error = cause, metrics = {}, sections = {} })
 clickButton(openActions(tree, host), "ui.provider_setup")
 assert(has(labels(host.tree()), "ui.setup_required") and not has(labels(host.tree()), cause),
     "credential setup cards must show a concise cause")
-local preserved = false
-for _, card in ipairs(collect(host.tree(), "column")) do
-    if card.props.tooltip == cause and has(labels(card), "ui.setup_required") then preserved = true end
+clickButton(host.tree(), "ui.details")
+assert(has(labels(host.tree()), cause), "opening details must retain the full technical cause inline")
+host.publishState("polling", true)
+assert(has(labels(host.tree()), cause), "polling updates must preserve the expanded cause")
+local function reportWith(error)
+    return { entries = {{ id = "zai", display_name = "Z.AI", status = "error", error = error, metrics = {}, sections = {} }} }
 end
-assert(preserved, "the credential setup cause must remain available verbatim in its tooltip")
+host.publishState("report", reportWith(cause))
+assert(has(labels(host.tree()), cause), "an unchanged cause must remain expanded after refresh")
+clickButton(host.tree(), "ui.details")
+assert(not has(labels(host.tree()), cause), "details must collapse without hiding recovery guidance")
+clickButton(host.tree(), "ui.details")
+local changed = cause .. "; changed"
+host.publishState("report", reportWith(changed))
+assert(not has(labels(host.tree()), changed), "a changed problem must start collapsed")
+host.publishState("report", reportWith(cause))
+assert(not has(labels(host.tree()), cause), "an earlier problem must not inherit stale expanded state")
+clickButton(host.tree(), "ui.details")
+env.onOpen("setup")
+assert(not has(labels(host.tree()), cause), "reopening diagnostics must reset expanded details")
+end
+
+-- Only one technical cause expands at a time, even across named accounts.
+do
+local firstCause = "credentials error: Zai: no API key configured for first"
+local secondCause = "credentials error: Zai: no API key configured for second"
+local tree, _, _, _, _, _, host = loadPanel({ entries = {
+    { id = "zai@first", display_name = "First account", status = "error", error = firstCause },
+    { id = "zai@second", display_name = "Second account", status = "error", error = secondCause },
+} })
+clickButton(openActions(tree, host), "ui.provider_setup")
+local function expandAccount(name)
+    for _, card in ipairs(collect(host.tree(), "column")) do
+        if card.props.fill == "error/0.06" and has(labels(card), name) then
+            clickButton(card, "ui.details")
+            return
+        end
+    end
+    error("missing account card: " .. name)
+end
+expandAccount("First account")
+assert(has(labels(host.tree()), firstCause) and not has(labels(host.tree()), secondCause))
+expandAccount("Second account")
+assert(not has(labels(host.tree()), firstCause) and has(labels(host.tree()), secondCause),
+    "expanding another account must collapse the previous technical cause")
+end
+
+-- Accounts may share a display name and technical error while keeping separate disclosures.
+do
+local cause = "credentials error: Custom: no API key configured"
+local first = { id = "custom@first", display_name = "Custom", status = "error", error = cause }
+local second = { id = "custom@second", display_name = "Custom", status = "error", error = cause }
+local tree, _, _, _, _, _, host = loadPanel({ entries = { first, second } })
+clickButton(openActions(tree, host), "ui.provider_setup")
+local function cards()
+    local found = {}
+    for _, column in ipairs(collect(host.tree(), "column")) do
+        if column.props.fill == "error/0.06" then found[#found + 1] = column end
+    end
+    return found
+end
+clickButton(cards()[1], "ui.details")
+assert(has(labels(cards()[1]), cause) and not has(labels(cards()[2]), cause),
+    "matching display names and causes must not expand another account")
+host.publishState("report", { entries = { second, first } })
+assert(not has(labels(cards()[1]), cause) and has(labels(cards()[2]), cause),
+    "expanded details must follow the account ID when reports reorder accounts")
+clickButton(cards()[1], "ui.details")
+assert(has(labels(cards()[1]), cause) and not has(labels(cards()[2]), cause),
+    "switching matching accounts must keep one disclosure expanded")
+clickButton(cards()[1], "ui.details")
+assert(not has(labels(cards()[1]), cause) and not has(labels(cards()[2]), cause),
+    "the matching account disclosure must toggle closed")
 end
 
 -- On-demand spend is separate from subscription quota and has no reset window.

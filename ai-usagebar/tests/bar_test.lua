@@ -52,6 +52,7 @@ local function loadBar(config, report, err)
         togglePanel = function() end,
         tr = function(key, args)
             if key == "ui.reset" then return "Reset" end
+            if key == "ui.hidden_value" then return tostring(args.count) .. " provider(s)" end
             if key == "ui.not_configured" then
                 return tostring(args.vendor) .. " not configured"
             end
@@ -249,8 +250,8 @@ local pinnedDown = loadBar({
 }, { entries = { downEntry("antigravity", "Antigravity", 90) } })
 local pinnedRow = pinnedDown.tooltip()[1]
 assert(pinnedRow.key == "Antigravity"
-    and pinnedRow.value == "credentials error: Antigravity: no local server found.",
-       "a configured provider that is down should keep its diagnostic in the tooltip")
+    and pinnedRow.value == "ui.unavailable",
+       "a down provider should give a short state; the panel keeps its diagnostic")
 assert(not containsText(pinnedDown.rendered(), "90%"),
        "a pinned provider that is down must still withhold its reading")
 
@@ -328,9 +329,9 @@ assert(containsText(bottleneckBar.rendered(), "100%"),
 assert(not containsText(bottleneckBar.rendered(), "0%"),
        "capsule should not show 0% when weekly limit is 100%")
 local bottleneckRows = bottleneckBar.tooltip()
-assert(#bottleneckRows == 3 and bottleneckRows[1].key == "Codex" and bottleneckRows[1].value == "0% / 100%"
-       and bottleneckRows[2].key == "Reset" and bottleneckRows[2].value == "6d 20h",
-       "bottleneckBar tooltip should keep the blocking reset on a separate row")
+assert(#bottleneckRows == 2 and bottleneckRows[1].key == "Codex"
+       and bottleneckRows[1].value == "0% / 100% · 6d 20h",
+       "the compact tooltip keeps the blocking reset beside both quotas")
 
 local agyBar = loadBar({
     vendor = "antigravity", account = "", extras = "countdown", visualization = "none",
@@ -358,15 +359,11 @@ assert(containsText(agyBar.rendered(), "100%"), "blocked model should show its e
 assert(not containsText(agyBar.rendered(), "0%"), "blocked model should hide its irrelevant active session percentage")
 assert(containsText(agyBar.rendered(), "6d 20h"), "blocked model should show its long-window unlock time")
 local agyTooltip = agyBar.tooltip()
-assert(#agyTooltip == 5, "antigravity tooltip should group each model with its reset")
-assert(agyTooltip[1].key == "Gemini" and agyTooltip[1].value == "11% / 24%",
-       "antigravity tooltip first row should show Gemini percentages")
-assert(agyTooltip[2].key == "Reset" and agyTooltip[2].value == "2h 00m",
-       "Gemini reset should sit below its percentages")
-assert(agyTooltip[3].key == "Claude & GPT OSS" and agyTooltip[3].value == "0% / 100%",
-       "antigravity tooltip should keep the full long model name")
-assert(agyTooltip[4].key == "Reset" and agyTooltip[4].value == "6d 20h",
-       "Claude & GPT OSS reset should sit below its percentages")
+assert(#agyTooltip == 3, "one row per model plus mode keeps the tooltip compact")
+assert(agyTooltip[1].key == "Gemini" and agyTooltip[1].value == "11% / 24% · 2h 00m",
+       "Gemini quotas and reset belong together")
+assert(agyTooltip[2].key == "Claude & GPT OSS" and agyTooltip[2].value == "0% / 100% · 6d 20h",
+       "the full model name and later blocking reset survive compaction")
 
 local normalAgyBar = loadBar({
     vendor = "antigravity", account = "", extras = "none", visualization = "none",
@@ -427,10 +424,8 @@ assert(containsText(countdownBar.rendered(), "0h 54m"), "capsule should retain h
 assert(containsText(countdownBar.rendered(), "23h 05m"), "capsule should show hours and minutes below 24 hours")
 assert(containsText(countdownBar.rendered(), "·"), "capsule should show dot separator between submodels")
 local countdownTooltip = countdownBar.tooltip()
-assert(countdownTooltip[1].value == "64%" and countdownTooltip[2].value == "0h 54m",
-       "tooltip should put the minutes-only reset on its own row")
-assert(countdownTooltip[3].value == "69%" and countdownTooltip[4].value == "23h 05m",
-       "tooltip should keep fixed hours and minutes visible")
+assert(countdownTooltip[1].value == "64% · 0h 54m", "reset stays with the corresponding model")
+assert(countdownTooltip[2].value == "69% · 23h 05m", "fixed hours and minutes stay visible")
 
 io.write("ok: account selection, unavailable providers, and a steady capsule\n")
 local parserFailure = loadBar({ vendor = "openai", extras = "countdown" }, { entries = {
@@ -449,8 +444,7 @@ quotaEntry.metrics = {
 }
 local bothBlocked = loadBar({ vendor = "openai", extras = "countdown" }, { entries = { quotaEntry } })
 assert(containsText(bothBlocked.rendered(), "6d 20h"), "two exhausted quotas must display the later reset")
-assert(bothBlocked.tooltip()[1].value == "100% / 100%"
-       and bothBlocked.tooltip()[2].value == "6d 20h", "tooltip must agree with the bar's blocking reset")
+assert(bothBlocked.tooltip()[1].value == "100% / 100% · 6d 20h", "tooltip must agree with the bar's blocking reset")
 quotaEntry.id = "antigravity"
 quotaEntry.metrics[1].percent = 0
 local singleModel = loadBar({ vendor = "antigravity" }, { entries = { quotaEntry } })
@@ -510,7 +504,7 @@ assert(containsText(blockedPool.rendered(), "10%") and containsText(blockedPool.
        "an exhausted model pool must not replace the Gemini quota or reset")
 assert(not containsText(blockedPool.rendered(), "100%") and not containsText(blockedPool.rendered(), "6d 20h"),
        "model pool exhaustion must not add a bar reading")
-assert(blockedPool.tooltip()[3].key == "Gemini 4 Argon" and blockedPool.tooltip()[3].value == "100%",
+assert(blockedPool.tooltip()[2].key == "Gemini 4 Argon" and blockedPool.tooltip()[2].value == "100% · 6d 20h",
        "an exhausted pool remains available in the tooltip")
 local poolWindow = loadBar({ vendor = "antigravity", quota_window = "weekly" }, poolReport)
 assert(containsText(poolWindow.rendered(), "—") and not containsText(poolWindow.rendered(), "100%"),
@@ -730,7 +724,7 @@ local blockedPinEntry = { id = "openai", status = "ready", metrics = {
 } }
 local blockedPin = loadBar({ vendor = "openai", quota_window = "session", usage_display = "remaining" }, { entries = { blockedPinEntry } })
 assert(containsText(blockedPin.rendered(), "0%"), "pinned session cannot hide exhausted long quota")
-assert(blockedPin.tooltip()[1].value == "Monthly: 0%", "latest exhausted window overrides pin in tooltip")
+assert(blockedPin.tooltip()[1].value:find("Monthly: 0% · ", 1, true) == 1, "latest exhausted window overrides pin in tooltip")
 local blockedBars = findAllNodes(blockedPin.rendered(), function(n) return n.kind == "progress" end)
 assert(#blockedBars == 1 and blockedBars[1].props.progress == 0 and blockedBars[1].props.fill == "error", "zero remaining keeps exhausted consumption severity")
 local agyPin = loadBar({ vendor = "antigravity", quota_window = "session", usage_display = "remaining" }, { entries = {
@@ -788,3 +782,59 @@ amountEntry.metrics[1].value = nil
 local missingAmount = loadBar({ vendor = "custom", visualization = "none" }, { entries = { amountEntry } })
 assert(containsText(missingAmount.rendered(), "—") and not containsText(missingAmount.rendered(), "75%"),
     "a missing amount does not substitute a believable percentage")
+
+-- Tooltips summarize the capsule; the panel owns the full report.
+local crowdedEntries = {}
+for i = 1, 4 do
+    local accountEntry = entry("antigravity@account" .. i, "Antigravity · conta " .. i, 80 - i)
+    accountEntry.metrics = {
+        { label = "Gemini", percent = 80 - i, window_secs = 18000, reset_at = resetSoon },
+        { label = "Gemini 4 Argon", percent = 35, model_pool = true, window_secs = 604800 },
+        { label = "Claude & GPT OSS", percent = 20, window_secs = 18000 },
+    }
+    crowdedEntries[#crowdedEntries + 1] = accountEntry
+end
+crowdedEntries[#crowdedEntries + 1] = entry("openai", "Codex", 10)
+local crowded = loadBar({ provider_limit = 4, usage_display = "remaining" }, { entries = crowdedEntries })
+local crowdedRows = crowded.tooltip()
+assert(#crowdedRows == 6, "the six-row budget includes readings, mode, hidden providers and the panel hint")
+assert(crowdedRows[1].key == "Antigravity · conta 1 · Gemini"
+    and crowdedRows[1].value == "21% · 2h 00m", "named accounts and remaining mode survive compaction")
+assert(crowdedRows[2].key == "Antigravity · conta 1 · Gemini 4 Argon",
+    "model pool details remain in the hover when there is room")
+assert(crowdedRows[4].key == "ui.remaining" and crowdedRows[4].value == "settings.quota_window.option.auto",
+    "the mode and selected window are never displaced by model rows")
+assert(crowdedRows[5].key == "ui.hidden_label" and crowdedRows[5].value == "1 provider(s)",
+    "hidden counts providers outside the capsule, not omitted model rows")
+assert(crowdedRows[6].value == "ui.tooltip_more", "overflow directs the user to the full panel")
+
+local ordinary = loadBar({ provider_limit = 4 }, { entries = {
+    entry("openai", "Codex", 80), entry("claude", "Claude", 70),
+    entry("cursor", "Cursor", 60), entry("amp", "Amp", 50),
+} })
+assert(#ordinary.tooltip() == 5 and ordinary.tooltip()[4].key == "Amp",
+    "four simple providers remain visible together with their mode")
+
+local rawError = string.rep("sensitive raw diagnostic\n", 200)
+local failed = loadBar({}, nil, { code = "cli_failed", detail = rawError })
+assert(#failed.tooltip() == 2 and failed.tooltip()[1].value == "ui.error.cli_failed"
+    and failed.tooltip()[2].value == "ui.tooltip_more", "global raw errors stay out of the hover")
+local accountError = entry("openai", "Codex", 50)
+accountError.status, accountError.error = "error", rawError
+local failedAccount = loadBar({ vendor = "openai" }, { entries = { accountError } })
+for _, row in ipairs(failedAccount.tooltip()) do
+    assert(not row.value:find("sensitive", 1, true), "account diagnostics are also kept in the panel")
+end
+
+local unicodeAccount = entry("openai@ação", "  Codex\n·\tAção 日本語  ", 30)
+local unicodeBar = loadBar({ vendor = "openai", account = "ação" }, { entries = { unicodeAccount } })
+assert(unicodeBar.tooltip()[1].key == "Codex · Ação 日本語", "whitespace normalization preserves full Unicode names")
+for _, row in ipairs(unicodeBar.tooltip()) do
+    assert(not row.key:find("[\n\r\t]") and not row.value:find("[\n\r\t]"), "each structured row occupies one line")
+end
+
+amountEntry.metrics[1].value = "€12.50"
+for _, mode in ipairs({ "used", "remaining" }) do
+    local amountHover = loadBar({ vendor = "custom", usage_display = mode }, { entries = { amountEntry } })
+    assert(amountHover.tooltip()[1].value == "€12.50", "tooltip honors monetary headlines in either display mode")
+end

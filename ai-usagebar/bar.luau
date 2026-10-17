@@ -31,7 +31,7 @@ local ratio, headline = shared.ratio, shared.headline
 local modelHeadlines, isCritical, dualMetrics = shared.modelHeadlines, shared.isCritical, shared.dualMetrics
 local pace, SEVERITY_RANK = shared.pace, shared.SEVERITY_RANK
 local NO_FAILURE, asFailure = shared.NO_FAILURE, shared.asFailure
-local unavailable, warning = shared.unavailable, shared.warning
+local unavailable = shared.unavailable
 
 local failure = NO_FAILURE
 local scrollOffset = 0
@@ -430,47 +430,36 @@ local function chip(entry, flagged, isVert)
 end
 
 local function formatDualMetric(m1, m2)
-    m1 = type(m1) == "table" and m1 or nil
-    m2 = type(m2) == "table" and m2 or nil
     if m1 == nil and m2 == nil then return "" end
-
-    local p1 = m1 and shared.displayPercent(m1, usageDisplay)
-    local p2 = m2 and shared.displayPercent(m2, usageDisplay)
-
-    local str1 = type(p1) == "number" and string.format("%d%%", p1) or (m1 ~= nil and "—" or "")
-    local str2 = type(p2) == "number" and string.format("%d%%", p2) or (m2 ~= nil and "—" or nil)
-
-    -- If one window is exhausted, its reset is the real unlock time. Showing
-    -- the shorter session reset would promise availability while the weekly
-    -- limit still blocks the model.
-    local blocking = shared.blockingMetric(m1 and { m1, m2 } or { m2 })
+    local values = {}
+    if m1 ~= nil then values[#values + 1] = shared.metricText(m1, usageDisplay) end
+    if m2 ~= nil then values[#values + 1] = shared.metricText(m2, usageDisplay) end
+    -- The latest exhausted window decides when the model can be used again.
+    local metrics = m1 ~= nil and { m1, m2 } or { m2 }
+    local blocking = shared.blockingMetric(metrics)
     local left = blocking ~= nil and fixedCountdown(blocking) or ""
     if left == "" and m1 ~= nil then left = fixedCountdown(m1) end
     if left == "" and m2 ~= nil then left = fixedCountdown(m2) end
-
-    local val = str1
-    if str2 ~= nil and str2 ~= "" then
-        val = val .. " / " .. str2
+    local value = table.concat(values, " / ")
+    if quotaWindow ~= "auto" then
+        local metric = m1 or m2
+        value = tostring(metric.label or quotaWindow) .. ": " .. value
     end
-    return val, left
+    if left ~= "" then value = value .. " · " .. left end
+    return value
 end
 
-local function tooltip(picked, hidden)
+-- Native structured tooltips elide long fields, but do not cap their height.
+-- Six rows include the mode, hidden providers and any panel navigation hint.
+local function tooltipSummary(picked, hidden)
+    local more = { key = noctalia.tr("ui.title"), value = noctalia.tr("ui.tooltip_more") }
     if failure.code ~= "" then
-        local key = "ui.error." .. failure.code
-        local rows = { { key = noctalia.tr(key), value = noctalia.tr(key .. "_hint") } }
-        if failure.detail ~= "" then
-            rows[2] = { key = noctalia.tr("ui.details"), value = failure.detail }
-        end
-        return rows
+        return { { key = noctalia.tr("ui.title"), value = noctalia.tr("ui.error." .. failure.code) }, more }
     end
     if #picked == 0 then
-        -- A pinned provider the report still lists is configured; its source is
-        -- what is down. Calling that "not configured" would blame the user's
-        -- config for a failure the CLI already worded.
         local down = pinnedDown()
         if down ~= nil then
-            return { { key = tostring(down.display_name or down.id), value = warning(down) } }
+            return { { key = tostring(down.display_name or down.id), value = noctalia.tr("ui.unavailable") }, more }
         end
         local waiting = noctalia.tr("ui.waiting")
         if vendor ~= "auto" then
@@ -481,71 +470,63 @@ local function tooltip(picked, hidden)
         return { { key = noctalia.tr("ui.title"), value = waiting } }
     end
 
-    local rows = {}
-    local hasQuota = false
+    local readings = {}
+    local hasQuota, needsPanel = false, false
+    local function addReading(title, metrics, selected, entry)
+        local first, second = gaugeMetrics(metrics, selected)
+        local value = formatDualMetric(first, second)
+        if #metrics > 0 then
+            hasQuota = true
+            if value == "" and quotaWindow ~= "auto" then value = noctalia.tr("ui.window_unavailable") end
+        end
+        if value == "" then value = shared.balanceText(entry) or noctalia.tr("ui.no_usage") end
+        if entry.stale == true then
+            value = value .. " · " .. noctalia.tr("ui.stale")
+            needsPanel = true
+        end
+        readings[#readings + 1] = { key = title, value = value }
+    end
     for _, entry in ipairs(picked) do
         local title = tostring(entry.display_name or entry.id)
-        if entry.status == "error" then
-            rows[#rows + 1] = { key = title, value = tostring(entry.error or noctalia.tr("ui.unavailable")) }
+        if entry.status == "error" or shared.readFailure(entry) then
+            readings[#readings + 1] = { key = title, value = noctalia.tr("ui.unavailable") }
+            needsPanel = true
         else
-            local submodels = modelHeadlines(entry)
-            if #submodels > 0 then
-                for _, item in ipairs(submodels) do
-                    local mMetrics = type(item.metrics) == "table" and item.metrics or { item.metric }
-                    local mShort, mWeekly = gaugeMetrics(mMetrics, shared.capsuleMetric({ metrics = mMetrics }, quotaWindow))
-                    local val, left = formatDualMetric(mShort, mWeekly)
-                    hasQuota = true
-                    if quotaWindow ~= "auto" then
-                        val = mShort ~= nil and (tostring(mShort.label or quotaWindow) .. ": " .. val)
-                            or noctalia.tr("ui.window_unavailable")
-                    end
-                    if val ~= "" then
-                        rows[#rows + 1] = { key = item.displayName or item.model, value = val }
-                        if left ~= "" then
-                            rows[#rows + 1] = { key = noctalia.tr("ui.reset"), value = left }
-                        end
-                    end
+            local models = modelHeadlines(entry)
+            if #models > 0 then
+                for _, item in ipairs(models) do
+                    local metrics = item.metrics
+                    local modelTitle = item.displayName or item.model
+                    if tostring(entry.id):find("@", 1, true) then modelTitle = title .. " · " .. modelTitle end
+                    addReading(modelTitle, metrics, shared.capsuleMetric({ metrics = metrics }, quotaWindow), entry)
                 end
             else
                 local metrics = type(entry.metrics) == "table" and entry.metrics or {}
-                local mShort, mWeekly = gaugeMetrics(metrics, capsuleMetric(entry))
-                local val, left = formatDualMetric(mShort, mWeekly)
-                if #metrics > 0 then
-                    hasQuota = true
-                    if quotaWindow ~= "auto" then
-                        val = mShort ~= nil and (tostring(mShort.label or quotaWindow) .. ": " .. val)
-                            or noctalia.tr("ui.window_unavailable")
-                    end
-                end
-                if val ~= "" then
-                    rows[#rows + 1] = { key = title, value = val }
-                    if left ~= "" then
-                        rows[#rows + 1] = { key = noctalia.tr("ui.reset"), value = left }
-                    end
-                else
-                    -- A balance-only provider carries no metric: the tooltip shows
-                    -- the same balance the capsule does, ahead of the plan name.
-                    local balance = shared.balanceText(entry)
-                    if balance ~= nil then
-                        rows[#rows + 1] = { key = title, value = balance }
-                    elseif entry.plan ~= nil and tostring(entry.plan) ~= "" then
-                        rows[#rows + 1] = { key = title, value = tostring(entry.plan) }
-                    end
-                end
-            end
-            if entry.stale == true then
-                rows[#rows + 1] = { key = noctalia.tr("ui.updated"), value = noctalia.tr("ui.stale_hint") }
+                addReading(title, metrics, capsuleMetric(entry), entry)
             end
         end
     end
+    local footer = {}
     if hasQuota then
-        rows[#rows + 1] = { key = noctalia.tr("ui." .. usageDisplay), value = noctalia.tr("settings.quota_window.option." .. quotaWindow) }
+        footer[#footer + 1] = { key = noctalia.tr("ui." .. usageDisplay), value = noctalia.tr("settings.quota_window.option." .. quotaWindow) }
     end
     if hidden > 0 then
-        rows[#rows + 1] = { key = noctalia.tr("ui.hidden_label"), value = noctalia.tr("ui.hidden_value", { count = hidden }) }
+        footer[#footer + 1] = { key = noctalia.tr("ui.hidden_label"), value = noctalia.tr("ui.hidden_value", { count = hidden }) }
     end
-    if #rows == 0 then
-        rows[#rows + 1] = { key = noctalia.tr("ui.title"), value = noctalia.tr("ui.no_usage") }
+    local omitted = #readings + #footer > 6
+    local budget = 6 - #footer - ((omitted or needsPanel) and 1 or 0)
+    local rows = {}
+    for i = 1, math.min(budget, #readings) do rows[#rows + 1] = readings[i] end
+    for _, row in ipairs(footer) do rows[#rows + 1] = row end
+    if omitted or needsPanel then rows[#rows + 1] = more end
+    return rows
+end
+
+local function tooltip(picked, hidden)
+    local rows = tooltipSummary(picked, hidden)
+    for _, row in ipairs(rows) do
+        row.key = noctalia.string.trim(tostring(row.key):gsub("%s+", " "))
+        row.value = noctalia.string.trim(tostring(row.value):gsub("%s+", " "))
     end
     return rows
 end
