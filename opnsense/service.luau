@@ -1496,6 +1496,12 @@ function onConfigChanged()
   refreshQueue = {}
   releaseSweep()
   for _, inst in ipairs(instances) do
+    -- A settings change that leaves the instance signature alone (say
+    -- refresh_interval) keeps these same instance objects and leaves
+    -- configGeneration unchanged, so the old run's callbacks would still pass
+    -- both guards in finish() and write their own count into inst.pending. The
+    -- generation bump retires that run; the sweep below then starts cleanly.
+    inst.generation += 1
     inst.pending = 0
     inst.startedAt = 0
     inst.refreshAgain = false
