@@ -25,7 +25,12 @@ end
 
 local function headline(q, m)
 	if m == "percent" then
-		return util.pct(q.kwhFraction)
+		-- No subscription (or an unusable fraction) still falls through to the
+		-- credit balance below, instead of showing an empty capsule.
+		local percent = util.pct(q.kwhFraction)
+		if percent then
+			return percent
+		end
 	end
 	if m == "remaining" and q.kwhRemaining then
 		return noctalia.tr("bar.remaining", { kwh = util.kwh(q.kwhRemaining) })

@@ -318,6 +318,8 @@ render = function()
 	if tab == "models" then
 		table.insert(children, ui.input({
 			key = "search",
+			-- The filter survives a tab switch, so the recreated field must show it.
+			value = query,
 			placeholder = noctalia.tr("models.search"),
 			controlSize = "sm",
 			onChange = "onSearch",
