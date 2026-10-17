@@ -79,8 +79,7 @@ Settings use the same names as the core `sysmon` widget. Set `visualization` to
 `show_glyph` and `glyph_position` control the percentage and icon placement,
 including Antigravity's individual model readings. Provider groups use a subtle
 divider; models within one provider use dots. Enable `show_name` to distinguish
-individual model names, including Gemini 4 Argon. Names remain bounded so they
-do not take over the bar.
+the shared model groups. Names remain bounded so they do not take over the bar.
 
 `extras` adds the reset countdown (`3h 51m`), consumption pace (`↑3` means three
 percentage points ahead of elapsed time; `↓3` means three behind), both, or
@@ -143,8 +142,9 @@ service link. Click outside or click the widget again to close the panel.
 The list contains only providers with a usable reading. A provider the CLI
 reports no API key for never appears, because it was never set up. A configured
 provider with its own refresh failure also leaves the bar and panel, then
-returns automatically after a healthy read. Model-specific pools retain their own
-name, reset and usage. A full Gemini 4 Argon pool does not mark Antigravity as
+returns automatically after a healthy read. Model-specific Gemini pools, such as
+Gemini 4 Argon, appear inside the Gemini card with their own name, reset and usage. They do not add a separate bar reading.
+A full Gemini 4 Argon pool does not mark Antigravity as
 exhausted while its shared windows remain available. The panel sorts providers by headline
 severity, then usage; equal readings keep the CLI's order. Automatic bar selection
 uses the same priorities, then the configured primary provider and account id.

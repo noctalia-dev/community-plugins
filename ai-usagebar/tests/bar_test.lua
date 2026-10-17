@@ -489,8 +489,10 @@ local poolReport = { entries = { {
     },
 } } }
 local namedPools = loadBar({ vendor = "antigravity", show_name = true }, poolReport)
-assert(containsText(namedPools.rendered(), "Gemini") and containsText(namedPools.rendered(), "Gemini 4 Argon"),
-       "show_name must distinguish model pools that share a provider glyph")
+assert(containsText(namedPools.rendered(), "Gemini") and not containsText(namedPools.rendered(), "Gemini 4 Argon"),
+       "a model pool stays under its family in the panel, without a separate bar reading")
+assert(containsText(namedPools.rendered(), "10%") and not containsText(namedPools.rendered(), "35%"),
+       "the Gemini reading must retain its shared quota")
 assert(not containsText(namedPools.rendered(), "Antigravity"), "model names replace the aggregate provider name")
 local quietPools = loadBar({ vendor = "antigravity", show_name = false }, poolReport)
 assert(not containsText(quietPools.rendered(), "Gemini") and not containsText(quietPools.rendered(), "Gemini 4 Argon"),
@@ -498,6 +500,38 @@ assert(not containsText(quietPools.rendered(), "Gemini") and not containsText(qu
 local verticalPools = loadBar({ vendor = "antigravity", show_name = true, vertical = true }, poolReport)
 assert(not containsText(verticalPools.rendered(), "Gemini 4 Argon"), "model names must not widen a vertical bar")
 assert(namedPools.tooltip()[2].key == "Gemini 4 Argon", "the tooltip preserves the full model pool name")
+local poolEntry = poolReport.entries[1]
+poolEntry.metrics[2].percent = 100
+poolEntry.metrics[2].severity = "critical"
+poolEntry.metrics[2].reset_at = resetLater
+poolEntry.metrics[1].reset_at = resetSoon
+local blockedPool = loadBar({ vendor = "antigravity", extras = "countdown" }, poolReport)
+assert(containsText(blockedPool.rendered(), "10%") and containsText(blockedPool.rendered(), "2h 00m"),
+       "an exhausted model pool must not replace the Gemini quota or reset")
+assert(not containsText(blockedPool.rendered(), "100%") and not containsText(blockedPool.rendered(), "6d 20h"),
+       "model pool exhaustion must not add a bar reading")
+assert(blockedPool.tooltip()[3].key == "Gemini 4 Argon" and blockedPool.tooltip()[3].value == "100%",
+       "an exhausted pool remains available in the tooltip")
+local poolWindow = loadBar({ vendor = "antigravity", quota_window = "weekly" }, poolReport)
+assert(containsText(poolWindow.rendered(), "—") and not containsText(poolWindow.rendered(), "100%"),
+       "a pool cannot substitute for a missing shared quota window")
+poolEntry.metrics[3] = { label = "Claude & GPT OSS", percent = 25 }
+local sharedFamilies = loadBar({ vendor = "antigravity", show_name = true }, poolReport)
+assert(containsText(sharedFamilies.rendered(), "Gemini") and containsText(sharedFamilies.rendered(), "10%")
+       and containsText(sharedFamilies.rendered(), "Claude & GPT OSS") and containsText(sharedFamilies.rendered(), "25%")
+       and not containsText(sharedFamilies.rendered(), "100%"),
+       "hiding a pool must preserve both shared family readings")
+local poolOnly = { id = "antigravity", status = "ready", metrics = { poolEntry.metrics[2] } }
+local onlyPool = loadBar({ vendor = "antigravity", show_name = true }, { entries = { poolOnly } })
+assert(containsText(onlyPool.rendered(), "—") and not containsText(onlyPool.rendered(), "100%")
+       and not containsText(onlyPool.rendered(), "Gemini 4 Argon"),
+       "pool-only reports must not invent a shared quota or standalone model reading")
+local autoPool = loadBar({ extras = "none" }, {
+    entries = { poolOnly, entry("openai", "Codex", 30) },
+})
+assert(containsGlyph(autoPool.rendered(), "brand-openai"),
+       "an exhausted model-only quota must not rank Antigravity as globally exhausted")
+
 local iconOnly = loadBar({ vendor = "antigravity", show_value = false, extras = "none" }, { entries = { quotaEntry } })
 assert(containsGlyph(iconOnly.rendered(), "brand-google") and not containsText(iconOnly.rendered(), "100%"),
        "show_value=false must preserve enabled model glyphs")

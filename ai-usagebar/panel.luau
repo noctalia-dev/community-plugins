@@ -323,21 +323,36 @@ end
 -- Every reading a provider sent, grouped into the subjects it is read by:
 -- Windowed reports group by model; other reports keep their readings in one
 -- provider card. The card and the record share this grouping.
-local function groupReadings(items, windowed)
-    local order, byName = {}, {}
+local function groupReadings(items, windowed, entry)
+    local order, byName, pools = {}, {}, {}
     for _, item in ipairs(items) do
         if item.section.type == "metric" then
             local label = tostring(item.section.label or "")
-            local name = windowed and label or ""
+            local geminiPool = windowed and entry ~= nil
+                and shared.baseProvider(entry.id) == "antigravity"
+                and item.section.model_pool == true
+                and (label == "Gemini" or label:match("^Gemini%s") ~= nil)
+            local name = geminiPool and "Gemini" or windowed and label or ""
             if byName[name] == nil then
                 byName[name] = {}
                 order[#order + 1] = name
             end
             local readings = byName[name]
+            if geminiPool then
+                pools[name] = pools[name] or {}
+                readings = pools[name]
+            end
             readings[#readings + 1] = {
                 section = item.section,
-                title = windowed and item.window or label,
+                title = geminiPool and (label .. (item.window ~= "" and " · " .. item.window or ""))
+                    or windowed and item.window or label,
             }
+        end
+    end
+    -- Shared windows lead the family card even if the CLI sends a model pool first.
+    for name, readings in pairs(pools) do
+        for _, reading in ipairs(readings) do
+            byName[name][#byName[name] + 1] = reading
         end
     end
     return order, byName
@@ -346,7 +361,7 @@ end
 -- While a provider is down its numbers record when it was last read, so they
 -- are set in text rather than drawn as bars a glance would read as live.
 local function recordCard(entry, items, windowed)
-    local order, byName = groupReadings(items, windowed)
+    local order, byName = groupReadings(items, windowed, entry)
     if #order == 0 then return nil end
 
     local body = {
@@ -760,7 +775,7 @@ local function detailPane(entry)
         end
     else
         -- Pass two: every reading a provider sends, in the cards it is read by.
-        local order, byName = groupReadings(items, windowed)
+        local order, byName = groupReadings(items, windowed, entry)
         for _, name in ipairs(order) do
             local cardName, glyph = name, nil
             local readings = byName[name]

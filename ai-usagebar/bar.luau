@@ -57,7 +57,21 @@ local function entries()
     return filtered
 end
 
-local function capsuleMetric(entry) return shared.capsuleMetric(entry, quotaWindow) end
+-- Model pools stay in the panel and tooltip; the bar follows shared family quotas.
+local function barEntry(entry)
+    if baseProvider(entry.id) ~= "antigravity" then return entry end
+    local visible = {}
+    for key, value in pairs(entry) do visible[key] = value end
+    visible.metrics = {}
+    for _, metric in ipairs(type(entry.metrics) == "table" and entry.metrics or {}) do
+        if type(metric) == "table" and metric.model_pool ~= true then
+            visible.metrics[#visible.metrics + 1] = metric
+        end
+    end
+    return visible
+end
+
+local function capsuleMetric(entry) return shared.capsuleMetric(barEntry(entry), quotaWindow) end
 local function gaugeMetrics(metrics, selected)
     if quotaWindow ~= "auto" then return selected, nil end
     return dualMetrics(metrics)
@@ -69,7 +83,7 @@ local function wantedEntryId()
 end
 
 local function rank(entry)
-    local metric = headline(entry)
+    local metric = headline(barEntry(entry))
     if metric == nil then return -1, -1 end
     return SEVERITY_RANK[tostring(metric.severity or "")] or 0, tonumber(metric.percent) or -1
 end
@@ -268,6 +282,7 @@ local function withCountdown(value, metric, isVert)
 end
 
 local function chip(entry, flagged, isVert)
+    entry = barEntry(entry)
     if shared.readFailure(entry) then
         local nodes = { ui.label({ text = "—", color = "on_surface_variant" }) }
         if showGlyph then

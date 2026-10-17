@@ -324,6 +324,48 @@ for _, card in ipairs(drawn) do
 end
 assert(geminiTitles == 1, "the model is named once")
 
+-- Antigravity model pools belong to their family card without sharing quota.
+do
+    local sections = {
+        { type = "text", label = "Weekly", value = "" },
+        { type = "metric", label = "Gemini 4 Argon", model_pool = true,
+          percent = 91, value = "91%",
+          reset_at = os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() + 601200) },
+    }
+    for _, section in ipairs(WINDOWS) do sections[#sections + 1] = section end
+    local entry = withSections(sections)
+    local grouped = cards(loadPanel(entry))
+    assert(#grouped == 2, "Gemini pools must not create separate cards")
+    local gemini = labels(grouped[1])
+    assert(gemini[1] == "Gemini" and has(gemini, "Gemini 4 Argon · Weekly"),
+        "pool-first reports still use the Gemini family heading and name the independent pool")
+    assert(has(gemini, "3%") and has(gemini, "8%") and has(gemini, "91%")
+        and has(gemini, "6d 23h"), "shared and model pool quotas keep their own values and resets")
+    local progress = collect(grouped[1], "progress")
+    assert(#progress == 3 and progress[1].props.progress == 0.03 and progress[2].props.progress == 0.08
+        and progress[3].props.progress == 0.91, "shared windows precede independent model pools")
+
+    entry.id = "antigravity@work"
+    assert(#cards(loadPanel(entry)) == 2, "named Antigravity accounts use the same Gemini family")
+    entry.id = "another-provider"
+    assert(#cards(loadPanel(entry)) == 3, "other providers retain their existing grouping")
+    entry.id = "antigravity"
+    sections[2].model_pool = nil
+    entry.sections = sections
+    assert(#cards(loadPanel(entry)) == 3, "a Gemini name alone must not merge unmarked quotas")
+
+    sections[2].model_pool = true
+    sections[2].label = "Claude model pool"
+    assert(#cards(loadPanel(entry)) == 3, "non-Gemini model pools keep their own cards")
+    sections[2].label = "Gemini 4 Argon"
+    entry.sections = sections
+    entry.status = "error"
+    entry.error = "schema mismatch: unexpected field"
+    local recorded = labels(loadPanel(entry))
+    assert(table.concat(recorded, "|"):find("Gemini 4 Argon · Weekly 91%", 1, true) ~= nil,
+        "historical records preserve the independent model pool name")
+end
+
 -- The windows of one model are divided the same way readings of equal weight are.
 for _, card in ipairs(drawn) do
     local ruled = false
