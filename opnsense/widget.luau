@@ -74,6 +74,10 @@ render = function()
   local warnColor = configString("warn_color", "error")
 
   local target = targetedInstance()
+  -- A pinned firewall that matches no instance must not fall back to the combined
+  -- state: the bar would show green while the firewall the user asked for is not
+  -- being monitored at all.
+  local pinned = configString("instance", "") ~= ""
   local list = instances()
   local issues, available = 0, false
 
@@ -87,6 +91,9 @@ render = function()
   if target ~= nil then
     available = target.available == true
     issues = issueCount(target, available)
+  elseif pinned then
+    available = false
+    issues = 0
   end
   if configured and target == nil and #list == 0 then
     available = false
@@ -158,13 +165,16 @@ render = function()
     }
     for _, inst in ipairs(list) do
       local reachable = inst.available == true
+      local count = tonumber(inst.issueCount) or 0
       local detail
       if not reachable then
         detail = noctalia.tr("widget.instance_down", {
           error = inst.error ~= "" and inst.error or "unknown",
         })
+      elseif count > 0 then
+        detail = noctalia.tr("widget.instance_issues", { n = count })
       else
-        detail = noctalia.tr("widget.instance_issues", { n = tonumber(inst.issueCount) or 0 })
+        detail = noctalia.tr("widget.instance_ok")
       end
       table.insert(lines, inst.name .. " · " .. detail)
     end

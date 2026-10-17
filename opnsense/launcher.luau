@@ -405,7 +405,9 @@ function onActivate(id)
   if inst then
     currentId = inst
     syncView()
-    launcher.setQuery(view.name .. " status ")
+    -- Names can repeat ("Site B", "Site B (2)"); the id is unique and
+    -- instanceByName resolves it, so the follow-up query targets this firewall.
+    launcher.setQuery(view.id .. " status ")
     return
   end
 

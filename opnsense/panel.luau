@@ -431,6 +431,11 @@ local function instanceSwitcher()
       variant = inst.id == instanceId and "primary" or "ghost",
       onClick = function()
         selectInstance(inst.id)
+        -- Logs belong to one firewall and are fetched on demand, so switching
+        -- firewalls while the Logs tab is open must request the new one's logs.
+        if tab == "logs" and not view.logsLoading then
+          send("fetch_logs", { instance = instanceId })
+        end
         render()
       end,
     }))
