@@ -33,7 +33,7 @@ local snapshot = {
 -- Rebuilt only when the settings change.
 local instances = {}
 local configGeneration = 0
-local configSignature = ""
+local configSignature = nil -- nil so the first syncInstances() always applies and logs
 local configError = ""
 local actionBusy = false
 local dataSignature = ""

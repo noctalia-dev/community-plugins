@@ -413,6 +413,9 @@ local function overviewRows()
         selected = selected,
         onClick = function()
           selectInstance(inst.id)
+          -- The Overview filter matched the firewall, not the Status tab's rows,
+          -- so it must not follow the user there.
+          filterText = ""
           tab = "status"
           render()
         end,
@@ -644,7 +647,9 @@ render = function()
   if snapshot.busy then
     table.insert(notes, ui.label({ text = tr("panel.busy"), color = "primary" }))
   end
-  local problem = overview and snapshot.error or view.error
+  -- A malformed instances array leaves snapshot.instances empty, so the error
+  -- lives on the snapshot: the README promises the panel says so.
+  local problem = (overview or view.id == "") and snapshot.error or view.error
   if type(problem) == "string" and problem ~= "" then
     table.insert(notes, ui.label({ text = problem, color = "error", maxLines = 3 }))
   end

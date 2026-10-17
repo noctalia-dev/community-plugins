@@ -144,7 +144,7 @@
       "label": "Web UI URL override"
     },
     "instances": {
-      "label": "Additional firewalls (JSON)",
+      "label": "Firewalls (JSON)",
       "description": "Advanced: JSON array of {\"name\",\"url\",\"api_key\",\"api_secret\",\"insecure\",\"web_ui_url\"}. When set, these firewalls replace the Base URL / API key / API secret above."
     },
     "instance": {
@@ -175,7 +175,7 @@
     "tooltip_missing": "Configure base URL + API key/secret in plugin settings",
     "tooltip_ok": "{host} · healthy · {ifaces} interfaces · load {load}",
     "tooltip_aggregate": "{n} firewalls · {issues} issue(s) · {down} unreachable",
-    "tooltip_unknown_instance": "No firewall named “{name}” in the instances setting.",
+    "tooltip_unknown_instance": "No configured firewall named “{name}”.",
     "instance_ok": "healthy",
     "instance_issues": "{n} issue(s)",
     "instance_down": "unreachable: {error}"

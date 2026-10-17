@@ -27,9 +27,10 @@ Configure **Base URL**, **API key**, and **API secret** under plugin settings (k
 
 ### Several firewalls
 
-Leave the single-firewall settings as they are and put a JSON array in the advanced
-**Additional firewalls** setting. When that setting is non-empty it **replaces** the
-single-firewall settings, so list every firewall there (including the first one):
+Put a JSON array in the advanced **Firewalls (JSON)** setting. When that setting is
+non-empty it **replaces** the single-firewall settings above — **it does not add to them**, so
+list every firewall there, including the first one. Leaving the single-firewall fields filled
+in while this setting is set has no effect on which firewalls are polled. List them all:
 
 ```json
 [
