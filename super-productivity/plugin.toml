@@ -1,6 +1,6 @@
 id          = "redxtech/super-productivity"
 name        = "Super Productivity"
-version     = "2.0.0"
+version     = "2.1.0"
 plugin_api  = 24
 author      = "Gabe Dunn"
 license     = "MIT"
@@ -101,6 +101,13 @@ default         = 30
 min             = 5
 max             = 50
 
+[[setting]]
+key             = "follow_active_task"
+type            = "bool"
+label_key       = "settings.follow_active_task.label"
+description_key = "settings.follow_active_task.description"
+default         = true
+
 [[service]]
 id    = "service"
 entry = "service.luau"
@@ -113,6 +120,13 @@ entry = "widget.luau"
   middle = "none"
 
   [[widget.setting]]
+  key             = "hide_when_no_active_task"
+  type            = "bool"
+  label_key       = "settings.hide_when_no_active_task.label"
+  description_key = "settings.hide_when_no_active_task.description"
+  default         = false
+
+  [[widget.setting]]
   key             = "glyph"
   type            = "glyph"
   label_key       = "settings.glyph.label"
@@ -120,11 +134,23 @@ entry = "widget.luau"
   default         = "checks"
 
   [[widget.setting]]
-  key             = "show_due_text"
-  type            = "bool"
-  label_key       = "settings.show_due_text.label"
-  description_key = "settings.show_due_text.description"
-  default         = true
+  key             = "additional_info_mode"
+  type            = "select"
+  label_key       = "settings.additional_info_mode.label"
+  description_key = "settings.additional_info_mode.description"
+  default         = "due"
+
+    [[widget.setting.options]]
+    value     = "none"
+    label_key = "settings.additional_info_mode.none"
+
+    [[widget.setting.options]]
+    value     = "due"
+    label_key = "settings.additional_info_mode.due"
+
+    [[widget.setting.options]]
+    value     = "spent"
+    label_key = "settings.additional_info_mode.spent"
 
   [[widget.setting]]
   key             = "max_title_chars"
