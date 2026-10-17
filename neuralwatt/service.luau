@@ -68,7 +68,6 @@ local function parseQuota(body)
 		billingInterval = sub and sub.billing_interval or nil,
 		autoRenew = sub and sub.auto_renew or nil,
 		periodEnd = sub and sub.current_period_end or nil,
-		periodEndCountdown = sub and util.countdown(sub.current_period_end) or nil,
 		kwhUsed = kwhUsed,
 		kwhIncluded = kwhIncluded,
 		kwhRemaining = sub and num(sub.kwh_remaining) or nil,

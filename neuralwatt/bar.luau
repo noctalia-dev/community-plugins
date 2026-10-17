@@ -60,8 +60,11 @@ local function tooltipRows(q)
 	if q.kwhRemaining then
 		row(noctalia.tr("field.remaining"), util.kwh(q.kwhRemaining))
 	end
-	if q.periodEndCountdown then
-		row(noctalia.tr("field.renews"), q.periodEndCountdown)
+	-- Recomputed here, not read from state: a countdown cached at poll time would
+	-- sit on screen unchanged for up to a full refresh interval.
+	local renews = util.countdown(q.periodEnd)
+	if renews then
+		row(noctalia.tr("field.renews"), renews)
 	end
 	row(noctalia.tr("field.plan"), q.plan)
 	row(noctalia.tr("field.cost"), util.money(q.monthCost))
@@ -105,6 +108,10 @@ noctalia.state.watch("quota", function(value)
 	quota = value
 	render()
 end)
+
+-- Re-render every minute: the tooltip's renewal countdown is recomputed on each
+-- render, so it must not wait for the next poll (up to refresh_interval_sec).
+noctalia.setUpdateInterval(60000)
 
 function update()
 	isVertical = barWidget.isVertical()
