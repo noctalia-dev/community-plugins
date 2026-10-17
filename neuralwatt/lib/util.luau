@@ -146,10 +146,12 @@ function M.isoToEpoch(ts)
 	if not y then
 		return nil
 	end
-	-- Fractional seconds ("...:02.220Z") are intentionally dropped.
+	-- Fractional seconds ("...:02.220Z") carry no information we use, but a UTC
+	-- offset can follow them, so drop the fraction and keep the rest.
+	local tail = rest:gsub("^%.%d+", "")
 	local epoch = daysFromCivil(tonumber(y), tonumber(mo), tonumber(d)) * 86400
 		+ tonumber(h) * 3600 + tonumber(mi) * 60 + tonumber(s)
-	local sign, oh, om = rest:match("^([%+%-])(%d%d):(%d%d)$")
+	local sign, oh, om = tail:match("^([%+%-])(%d%d):(%d%d)$")
 	if sign then
 		local offset = tonumber(oh) * 3600 + tonumber(om) * 60
 		epoch = epoch + (sign == "-" and offset or -offset)

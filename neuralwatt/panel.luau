@@ -23,6 +23,9 @@ local models = noctalia.state.get("models")
 local busy = false
 local tab = "usage"
 local query = ""
+-- The countdown string currently on screen, so the second tick only re-renders
+-- when it actually changes.
+local lastCountdown = nil
 
 -- Forward declaration: the tab callbacks below are closures that re-render, and
 -- a `local function render` declared later would not be in their scope (they
@@ -93,7 +96,9 @@ end
 -- ── usage sections ───────────────────────────────────────────────────────────
 
 local function subscriptionSection(q)
-	local renews = q.periodEndCountdown
+	-- Recomputed per render, not read from state: a countdown cached at poll time
+	-- would stay frozen for up to a full refresh interval.
+	local renews = util.countdown(q.periodEnd)
 	if renews and q.autoRenew == true then
 		renews = renews .. " · " .. noctalia.tr("field.auto_renew")
 	end
@@ -312,12 +317,15 @@ local function tabBar()
 end
 
 render = function()
+	lastCountdown = type(quota) == "table" and quota.ok and util.countdown(quota.periodEnd) or nil
 	local body = tab == "models" and catalogBody() or usageBody()
 
 	local children = { header(), tabBar() }
 	if tab == "models" then
 		table.insert(children, ui.input({
 			key = "search",
+			-- The filter survives a tab switch, so the recreated field must show it.
+			value = query,
 			placeholder = noctalia.tr("models.search"),
 			controlSize = "sm",
 			onChange = "onSearch",
@@ -378,6 +386,22 @@ function onOpen(_context)
 	-- Fetch the catalog only when the tab needs it and the cache is cold.
 	if tab == "models" and (type(models) ~= "table" or not models.ok) then
 		noctalia.state.set("models.cmd", (noctalia.state.get("models.cmd") or 0) + 1)
+	end
+end
+
+-- The renewal countdown is minute-grained, so second ticks are only used to
+-- notice when the string changes; a closed panel stays static and onOpen
+-- re-renders it.
+panel.setWantsSecondTicks(true)
+
+function update()
+	if type(quota) ~= "table" or not quota.ok then
+		return
+	end
+	local renews = util.countdown(quota.periodEnd)
+	if renews ~= lastCountdown then
+		lastCountdown = renews
+		render()
 	end
 end
 

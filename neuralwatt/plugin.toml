@@ -4,7 +4,7 @@
 # the state it publishes.
 id = "omertahaoztop/neuralwatt"
 name = "Neuralwatt"
-version = "1.0.0"
+version = "1.0.1"
 # 22 for require("./lib/util.luau") (shared formatting, severity and dates) and
 # 10 for keyboard_focus = "exclusive" on the panels. Everything else is older:
 # declarative ui.* trees, panel/service entries, noctalia.http, shared state and
