@@ -402,19 +402,22 @@ local function overviewRows()
     else
       status = tr("panel.instance_ok")
     end
-    local selected = inst.id == instanceId
-    table.insert(rows, listButton({
-      key = "fw-" .. inst.id,
-      text = `{inst.name}  ·  {inst.host}  ·  {status}`,
-      glyph = ok and "shield-check" or "shield-x",
-      variant = selected and "primary" or "outline",
-      selected = selected,
-      onClick = function()
-        selectInstance(inst.id)
-        tab = "status"
-        render()
-      end,
-    }))
+    -- The filter box is visible on Overview too, so the rows must honour it.
+    if matchesFilter(inst.name, inst.host, status) then
+      local selected = inst.id == instanceId
+      table.insert(rows, listButton({
+        key = "fw-" .. inst.id,
+        text = `{inst.name}  ·  {inst.host}  ·  {status}`,
+        glyph = ok and "shield-check" or "shield-x",
+        variant = selected and "primary" or "outline",
+        selected = selected,
+        onClick = function()
+          selectInstance(inst.id)
+          tab = "status"
+          render()
+        end,
+      }))
+    end
   end
   return rows
 end
@@ -458,6 +461,10 @@ local function itemList()
   else rows = logRows()
   end
   if #rows == 0 then
+    -- An Overview with nothing configured is not a filtered-out list.
+    if tab == "overview" and #instanceList() == 0 then
+      return emptyList(tr("panel.overview_empty"))
+    end
     return emptyList(tr("panel.empty"))
   end
   return itemColumn(rows)

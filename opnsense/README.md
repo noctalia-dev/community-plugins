@@ -63,7 +63,8 @@ when you open the Logs tab (last 100 events, for the selected firewall).
 ![Status tab of one firewall](screenshots/panel-detail-status.webp) ![Interfaces tab of one firewall](screenshots/panel-detail-interfaces.webp)
 
 Launcher: `/opn` for categories and quick actions, optionally pointed at one firewall —
-`/opn site-b gateways` switches the launcher to `Site B` and lists its gateways. Firewall rows
+`/opn site b gateways` switches the launcher to `Site B` and lists its gateways (firewall names
+match case-insensitively, and the host works too: `/opn fw-b.example.net gateways`). Firewall rows
 appear at the top of the empty query and in the fuzzy results.
 
 ### Bar widget

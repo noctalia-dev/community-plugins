@@ -229,9 +229,19 @@ local function shellQuote(v)
 end
 
 local function findInstance(idOrName)
-  local want = lower(trim(idOrName))
+  local raw = trim(idOrName)
+  local want = lower(raw)
   if want == "" then
     return nil
+  end
+  -- Exact id first: ids are unique, while the loose match below returns the first
+  -- entry whose id, name or host matches — and a name can collide with another
+  -- firewall's name in a different case, or with its host. Service actions
+  -- (start/stop/restart) would then reach the wrong firewall.
+  for _, inst in ipairs(instances) do
+    if inst.id == raw then
+      return inst
+    end
   end
   for _, inst in ipairs(instances) do
     if lower(inst.id) == want or lower(inst.name) == want or lower(inst.host) == want then
@@ -247,6 +257,10 @@ local function parseInstanceConfig()
   local raw = trim(noctalia.getConfig("instances"))
   local out = {}
   local problem = ""
+  -- Collected, not logged here: parseInstanceConfig runs on every refreshAll
+  -- tick (every second during a sweep), so logging inline would repeat one line
+  -- per tick. syncInstances logs them once, when the signature changes.
+  local skipped = {}
 
   if raw ~= "" then
     local decoded, decodeError = noctalia.json.decode(raw)
@@ -274,7 +288,7 @@ local function parseInstanceConfig()
             if label == "" then
               label = "instance " .. tostring(entryIndex)
             end
-            noctalia.log(`opnsense: skipping {label} — missing {table.concat(missing, ", ")}`)
+            table.insert(skipped, `opnsense: skipping {label} — missing {table.concat(missing, ", ")}`)
           else
             local name = trim(asString(entry.name))
             if name == "" then
@@ -336,13 +350,13 @@ local function parseInstanceConfig()
     end
     seen[id] = true
   end
-  return out, problem
+  return out, problem, skipped
 end
 
 -- Rebuilds the instance list when the settings change; keeps the collected
 -- data of instances that were not edited.
 local function syncInstances()
-  local parsed, problem = parseInstanceConfig()
+  local parsed, problem, skipped = parseInstanceConfig()
   configError = problem
 
   local parts = {}
@@ -357,6 +371,9 @@ local function syncInstances()
   end
   configSignature = signature
   configGeneration += 1
+  for _, message in ipairs(skipped or {}) do
+    noctalia.log(message)
+  end
   -- The in-flight run belongs to the old list and is no longer reachable by
   -- timeout recovery, so release its slot here: without this a run whose callback
   -- never arrives would hold the sweep for good. Its late callback is a no-op.
