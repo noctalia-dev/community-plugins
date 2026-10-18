@@ -347,7 +347,7 @@ render = function()
   -- stream count lives in its tooltip rather than as its own label.
   headerRow[#headerRow + 1] = ui.button({
     key = "archives-sort",
-    glyph = sortMode == "date" and "clock" or "sort-a-z",
+    glyph = sortMode == "date" and "clock" or "letter-a",
     variant = "ghost",
     controlSize = "sm",
     tooltip = (sortMode == "date" and SORT_OPTIONS[2] or SORT_OPTIONS[1])
