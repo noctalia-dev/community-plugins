@@ -327,11 +327,6 @@ render = function()
           play(it.name, it.url)
         end }),
       }
-      if it.isArchive and favorites[showKey(it.name)] then
-        row[#row + 1] = ui.button({ key = it.url .. "-fav", glyph = "star", tooltip = "Remove from favourites", selected = true, variant = "ghost", controlSize = "sm", onClick = function()
-          toggleFavorite(it)
-        end })
-      end
       table.insert(rows, ui.row({ key = it.url .. "-row", gap = 4, align = "center" }, row))
     end
   end
