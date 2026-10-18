@@ -753,8 +753,9 @@ local function systemCollectorState(raw, source)
   local status
   if not enabled then
     status = "disabled"
-  elseif installed and not noctalia.fileExists(manageScript) then
-    -- Older collectors did not include the fixed, root-owned lifecycle helper.
+  elseif installed and not isNixosSystem and not noctalia.fileExists(manageScript) then
+    -- Older collectors did not include the fixed, root-owned lifecycle helper;
+    -- a declarative NixOS collector never installs it.
     -- Ask for an upgrade rather than falling back to a shell or terminal.
     status = "upgrade-required"
   elseif source == "system-cache" and version == EXPECTED_COLLECTOR_VERSION then

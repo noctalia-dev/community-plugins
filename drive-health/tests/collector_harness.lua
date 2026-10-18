@@ -270,6 +270,10 @@ elseif mode == "nixos" then
     "declarative NixOS collector was not recognised as installed")
   assert(collector.install_command == nil, "NixOS still offered the imperative install command")
   assert(collector.nixos_hint == "collector.nixos_hint", "NixOS collector lost its hint")
+  assert(collector.status == "healthy" and collector.version == "2.0.1"
+    and collector.expected_version == "2.0.1",
+    "current declarative NixOS collector was not reported healthy")
+  assert(#notifications == 0, "current declarative NixOS collector produced an upgrade notification")
   print("collector initialization test passed: " .. mode)
   return
 elseif mode == "outdated-raw-cache" then
