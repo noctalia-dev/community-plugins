@@ -71,7 +71,7 @@ local function getVaultsAsync(callback)
 		local vaults: Vaults = decoded["vaults"] or {}
 		cachedVaults = vaults
 		return callback(vaults)
-	end)
+	end, 30000)
 end
 
 local function getItemsAsync(vaultName: string, callback)
