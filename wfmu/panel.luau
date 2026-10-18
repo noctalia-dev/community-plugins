@@ -334,12 +334,30 @@ render = function()
     ui.image({ path = "wfmu.png", width = 24, height = 24, radius = 6, tooltip = "Open wfmu.org", onClick = "onOpenSite" }),
     ui.label({ text = "WFMU", fontSize = 16, fontWeight = "bold", color = "primary", flexGrow = 1 }),
   }
-  -- Favorite star for the playing archive, leftmost of the icon cluster.
+  -- Favorite star and the playback controls for the playing stream, leftmost of
+  -- the icon cluster.
   if now and now ~= "" and nowUrl ~= "" and isArchiveUrl(nowUrl) then
     local nowKey = showKey(now)
     headerRow[#headerRow + 1] = ui.button({ key = "fav-now", glyph = "star", tooltip = favorites[nowKey] and "Remove from favorites" or "Add to favorites", selected = favorites[nowKey] ~= nil, variant = "ghost", controlSize = "sm", onClick = function()
       toggleFavorite({ name = now, url = nowUrl })
     end })
+  end
+  if now and now ~= "" then
+    local paused = noctalia.state.get("paused") == true
+    headerRow[#headerRow + 1] = ui.button({ glyph = paused and "player-play" or "player-pause", tooltip = paused and "Resume" or "Pause", variant = "ghost", controlSize = "sm", onClick = "onTogglePause" })
+    if noctalia.state.get("seekable") then
+      headerRow[#headerRow + 1] = ui.button({ glyph = "chevron-left", tooltip = "1 min (left-click)\n3 min (right-click)", variant = "ghost", controlSize = "sm", onClick = function()
+        seekBy(-60)
+      end, onRightClick = function()
+        seekBy(-180)
+      end })
+      headerRow[#headerRow + 1] = ui.button({ glyph = "chevron-right", tooltip = "1 min (left-click)\n3 min (right-click)", variant = "ghost", controlSize = "sm", onClick = function()
+        seekBy(60)
+      end, onRightClick = function()
+        seekBy(180)
+      end })
+    end
+    headerRow[#headerRow + 1] = ui.button({ glyph = "player-stop", tooltip = "Stop", variant = "ghost", controlSize = "sm", onClick = "onStop" })
   end
   -- Archive sort toggle: a clock while the list runs newest first, an A-Z
   -- while it is alphabetical. Buttons are plain callbacks - a ui.select here
@@ -365,25 +383,7 @@ render = function()
   }
 
   if now and now ~= "" then
-    local paused = noctalia.state.get("paused") == true
-    local row = {
-      ui.label({ text = now, flexGrow = 1, maxLines = 1, fontWeight = "bold" }),
-      ui.button({ glyph = paused and "player-play" or "player-pause", tooltip = paused and "Resume" or "Pause", variant = "ghost", controlSize = "sm", onClick = "onTogglePause" }),
-    }
-    if noctalia.state.get("seekable") then
-      row[#row + 1] = ui.button({ glyph = "chevron-left", tooltip = "1 min (left-click)\n3 min (right-click)", variant = "ghost", controlSize = "sm", onClick = function()
-        seekBy(-60)
-      end, onRightClick = function()
-        seekBy(-180)
-      end })
-      row[#row + 1] = ui.button({ glyph = "chevron-right", tooltip = "1 min (left-click)\n3 min (right-click)", variant = "ghost", controlSize = "sm", onClick = function()
-        seekBy(60)
-      end, onRightClick = function()
-        seekBy(180)
-      end })
-    end
-    row[#row + 1] = ui.button({ glyph = "player-stop", tooltip = "Stop", variant = "ghost", controlSize = "sm", onClick = "onStop" })
-    children[#children + 1] = ui.row({ align = "center", gap = 8, padding = 8, radius = 8 }, row)
+    children[#children + 1] = ui.label({ text = now, maxLines = 1, fontWeight = "bold" })
     -- mpv reports the stream name again when it has no song metadata (common on
     -- the live streams); show that line once rather than twice.
     local np = stripDate(noctalia.state.get("now_playing"))
