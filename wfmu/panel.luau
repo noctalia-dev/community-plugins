@@ -281,32 +281,29 @@ render = function()
     saveFavorites()
   end
 
-  -- Favourites are always A-Z; only the Archives section follows the sort picked
-  -- in its heading row. Name order is applied explicitly rather than relying on
-  -- the order the fetcher happened to write the list in.
-  table.sort(faved, function(a, b)
+  -- Both the Favourites and Archives sections follow the sort picked in the
+  -- heading row. Name order is applied explicitly rather than relying on the
+  -- order the fetcher happened to write the list in.
+  local function byName(a, b)
     return a.nameLower < b.nameLower
-  end)
-  if sortMode == "date" then
-    -- "Newest first" sorts on the ordering stamp the fetcher appends to archive
-    -- lines: the day the feed says the show aired, a space, then the instant its
-    -- archive was published ("2026-10-16 2026-10-17T04:14:53Z"). The day half
-    -- keeps a show inside the day it aired; the publish half puts same-day shows
-    -- in the order they went out and keeps a late-night show (published just
-    -- after midnight) at the end of its day rather than the start. It is a
-    -- plain string compare. Lines with no stamp (live streams, a list fetched by
-    -- an older version) sort last.
-    table.sort(rest, function(a, b)
-      if a.aired ~= b.aired then
-        return a.aired > b.aired
-      end
-      return a.nameLower < b.nameLower
-    end)
-  else
-    table.sort(rest, function(a, b)
-      return a.nameLower < b.nameLower
-    end)
   end
+  -- "Newest first" sorts on the ordering stamp the fetcher appends to archive
+  -- lines: the day the feed says the show aired, a space, then the instant its
+  -- archive was published ("2026-10-16 2026-10-17T04:14:53Z"). The day half
+  -- keeps a show inside the day it aired; the publish half puts same-day shows
+  -- in the order they went out and keeps a late-night show (published just
+  -- after midnight) at the end of its day rather than the start. It is a
+  -- plain string compare. Lines with no stamp (live streams, a list fetched by
+  -- an older version) sort last.
+  local function byDate(a, b)
+    if a.aired ~= b.aired then
+      return a.aired > b.aired
+    end
+    return a.nameLower < b.nameLower
+  end
+  local order = sortMode == "date" and byDate or byName
+  table.sort(faved, order)
+  table.sort(rest, order)
 
   local rows = {}
   local sections = {
