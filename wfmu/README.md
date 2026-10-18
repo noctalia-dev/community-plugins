@@ -32,7 +32,7 @@ The panel can also be toggled directly:
 noctalia msg panel-toggle quaversa/wfmu:browse
 ```
 
-The panel has three sections: **Live** (the WFMU live streams), **Favourites**,
+The panel has three sections: **Live** (the WFMU live streams), **Favorites**,
 and **Archives** (each show's most recent episode). Click a stream or archive to play it in
 mpv, and favorite a playing archived show from the panel header to pin it.
 

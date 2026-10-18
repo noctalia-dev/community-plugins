@@ -39,8 +39,8 @@ local render
 local favorites_path = data_dir .. "/favorites.json"
 local favorites = {}
 
--- The Archives section can be listed A-Z (the default, and how the fetcher
--- writes the list) or newest-first. Favourites are always A-Z.
+-- The Archives and Favorites sections can be listed A-Z (the default, and how
+-- the fetcher writes the list) or newest-first.
 local sort_path = data_dir .. "/sort.txt"
 local sortMode = "name"
 
@@ -281,7 +281,7 @@ render = function()
     saveFavorites()
   end
 
-  -- Both the Favourites and Archives sections follow the sort picked in the
+  -- Both the Favorites and Archives sections follow the sort picked in the
   -- heading row. Name order is applied explicitly rather than relying on the
   -- order the fetcher happened to write the list in.
   local function byName(a, b)
@@ -308,7 +308,7 @@ render = function()
   local rows = {}
   local sections = {
     { items = live, label = "Live" },
-    { items = faved, label = "Favourites" },
+    { items = faved, label = "Favorites" },
     { items = rest, label = "Archives" },
   }
   for _, section in ipairs(sections) do
@@ -334,10 +334,10 @@ render = function()
     ui.image({ path = "wfmu.png", width = 24, height = 24, radius = 6, tooltip = "Open wfmu.org", onClick = "onOpenSite" }),
     ui.label({ text = "WFMU", fontSize = 16, fontWeight = "bold", color = "primary", flexGrow = 1 }),
   }
-  -- Favourite star for the playing archive, leftmost of the icon cluster.
+  -- Favorite star for the playing archive, leftmost of the icon cluster.
   if now and now ~= "" and nowUrl ~= "" and isArchiveUrl(nowUrl) then
     local nowKey = showKey(now)
-    headerRow[#headerRow + 1] = ui.button({ key = "fav-now", glyph = "star", tooltip = favorites[nowKey] and "Remove from favourites" or "Add to favourites", selected = favorites[nowKey] ~= nil, variant = "ghost", controlSize = "sm", onClick = function()
+    headerRow[#headerRow + 1] = ui.button({ key = "fav-now", glyph = "star", tooltip = favorites[nowKey] and "Remove from favorites" or "Add to favorites", selected = favorites[nowKey] ~= nil, variant = "ghost", controlSize = "sm", onClick = function()
       toggleFavorite({ name = now, url = nowUrl })
     end })
   end
@@ -371,12 +371,12 @@ render = function()
       ui.button({ glyph = paused and "player-play" or "player-pause", tooltip = paused and "Resume" or "Pause", variant = "ghost", controlSize = "sm", onClick = "onTogglePause" }),
     }
     if noctalia.state.get("seekable") then
-      row[#row + 1] = ui.button({ glyph = "chevron-left", tooltip = "Back 1 min\n(right-click: 3 min)", variant = "ghost", controlSize = "sm", onClick = function()
+      row[#row + 1] = ui.button({ glyph = "chevron-left", tooltip = "1 min\n3 min right-click", variant = "ghost", controlSize = "sm", onClick = function()
         seekBy(-60)
       end, onRightClick = function()
         seekBy(-180)
       end })
-      row[#row + 1] = ui.button({ glyph = "chevron-right", tooltip = "Skip 1 min\n(right-click: 3 min)", variant = "ghost", controlSize = "sm", onClick = function()
+      row[#row + 1] = ui.button({ glyph = "chevron-right", tooltip = "1 min\n3 min right-click", variant = "ghost", controlSize = "sm", onClick = function()
         seekBy(60)
       end, onRightClick = function()
         seekBy(180)
