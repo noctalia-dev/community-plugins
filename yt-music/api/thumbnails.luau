@@ -157,16 +157,20 @@ function EXPO.ensure_thumbnails(items, on_updated, tag)
 
 	network.runAsync(
 		{ "curl", "-s", "--parallel", "--parallel-max", "16", "--parallel-immediate", "-K", configFile },
-		function(res)
-			local ok = type(res) == "table" and res.exitCode == 0
-			if not ok then
-				return
-			end
+		function(_res)
+			-- curl reports a single failed transfer as a non-zero exit, but every
+			-- transfer that did complete is already on disk. Attach whatever
+			-- landed instead of discarding the batch: one unreachable cover used
+			-- to leave every newly fetched item without artwork.
+			local attached = false
 			for _, m in ipairs(missing) do
-				known_thumb_files[m.path] = true
-				m.item.thumb_path = m.path
+				if noctalia.fileExists(m.path) then
+					known_thumb_files[m.path] = true
+					m.item.thumb_path = m.path
+					attached = true
+				end
 			end
-			if type(on_updated) == "function" then
+			if attached and type(on_updated) == "function" then
 				on_updated()
 			end
 		end,
