@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1] - 2026-10-18
+
+### Fixed
+- **Browser detection**: browsers packaged under their own binary name (Brave Origin's `brave-origin`, Zen's `zen-browser`) and Flatpak installs that only expose an app id on `PATH` are now listed on the sign-in page instead of showing up greyed out.
+- **Zen sign-in**: the Zen profile is looked up in `~/.config/zen`, `~/.zen` and the Flatpak profile directory, and the profile `[Install*] Default=` points at is preferred over a leftover `Default=1` profile that holds no cookies.
+- **Cookie file safety**: picking Zen when no Zen profile is found reports the missing profile instead of running `yt-dlp` with an invalid browser spec and truncating a `cookies.txt` that still works.
+
 ## [0.4.0] - 2026-10-08
 
 ### Added
