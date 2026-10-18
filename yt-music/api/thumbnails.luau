@@ -11,8 +11,9 @@ local network = require("../utils/network.luau")
 local EXPO = {}
 
 -- Thumbnail filename = stable resource id extracted from the URL itself:
---   yt3.googleusercontent.com/<seg>=w120…   → <seg>
---   i.ytimg.com/vi/<videoId>/hqdefault.jpg  → <videoId>
+--   yt3.googleusercontent.com/<seg>=w120…          → <seg>
+--   lh3.googleusercontent.com/<prefix>/<seg>=s576  → <seg>
+--   i.ytimg.com/vi/<videoId>/hqdefault.jpg         → <videoId>
 -- Identical covers therefore collapse to one file/download with zero hashing
 -- or extra machinery. Unrecognised shapes fall back to the legacy per-id name
 -- (dedup skipped for those, none observed in practice).
@@ -23,6 +24,14 @@ local function thumb_key(url): string?
 	local seg1 = url:match("yt3%.googleusercontent%.com/([^/=]+)")
 	if seg1 and seg1 ~= "" then
 		return seg1
+	end
+	-- Podcast artwork is the two-segment shape, where the FIRST segment is a
+	-- constant ("youtube-podcasts-ingestion-proxy") and the id is the second.
+	-- Keying these on the first segment put every show in the library on one
+	-- cached file — the first show's cover, drawn for all of them.
+	local seg2b = url:match("lh3%.googleusercontent%.com/[^/]+/([^/=]+)")
+	if seg2b and seg2b ~= "" then
+		return seg2b
 	end
 	local seg2 = url:match("lh3%.googleusercontent%.com/([^/=]+)")
 	if seg2 and seg2 ~= "" then
