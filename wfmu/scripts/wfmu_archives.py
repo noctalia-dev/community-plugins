@@ -294,7 +294,18 @@ def main(argv: list[str]) -> int:
     args = parser.parse_args(argv)
 
     fetcher = Fetcher(None if args.no_cache else args.cache, args.cache_ttl)
-    output = build_tsv(collect(fetcher, args.max_age_days))
+    archives = collect(fetcher, args.max_age_days)
+
+    # A run that resolved no archives is almost always a transient WFMU outage or
+    # a markup change, not a real "there are no archives" state. Do not overwrite
+    # a good list with live streams only: leave the previous file in place so the
+    # panel keeps its archives, and exit non-zero so the run is not treated as a
+    # fresh success. (With no file yet, the live-only list is still written.)
+    if args.out and not archives and os.path.exists(args.out):
+        print("no archives resolved; keeping the existing list", file=sys.stderr, flush=True)
+        return 1
+
+    output = build_tsv(archives)
 
     if args.out:
         directory = os.path.dirname(os.path.abspath(args.out))

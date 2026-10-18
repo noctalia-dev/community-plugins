@@ -63,12 +63,18 @@ local function stripDate(text)
   do
     local lower = string.lower(t)
     for _, m in ipairs({ "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec" }) do
-      lower = lower:gsub("%s+" .. m .. "[a-z]*%s+%d%d?,?%s*%d%d%d%d%s*$", " ")
+      local match = lower:match("%s+" .. m .. "[a-z]*%s+%d%d?,?%s*%d%d%d%d%s*$")
+      if match then
+        -- The match is a plain-ASCII date suffix, so its byte length is the same
+        -- in the original; cut it off instead of replacing the value with its
+        -- lowercased form, which would lowercase the show name as well.
+        t = t:sub(1, #t - #match)
+        break
+      end
     end
-    t = lower
   end
-  t = t:gsub("%s*[%-%–—:]?%s*%d%d%d%d%-%d%d%-%d%d%s*$", " ")
-  t = t:gsub("%s*[%-%–—:]?%s*%d?%d/%d?%d/%d%d%d%d%s*$", " ")
+  t = t:gsub("%s*[%-–—:]?%s*%d%d%d%d%-%d%d%-%d%d%s*$", " ")
+  t = t:gsub("%s*[%-–—:]?%s*%d?%d/%d?%d/%d%d%d%d%s*$", " ")
   t = t:gsub("%s+", " ")
   return noctalia.string.trim(t)
 end
