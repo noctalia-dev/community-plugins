@@ -65,6 +65,7 @@ local function build_library()
 		{ id = "playlists", label = "Playlists" },
 		{ id = "albums", label = "Albums" },
 		{ id = "artists", label = "Artists" },
+		{ id = "podcasts", label = "Podcasts" },
 	}
 
 	local chip_elems = {}
@@ -98,7 +99,12 @@ local function build_library()
 		local title_lower = (item.title or ""):lower()
 		local is_artist = (iid:sub(1, 2) == "UC" or sub_lower:find("artist", 1, true))
 		local is_album = (iid:sub(1, 5) == "MPREb" or sub_lower:find("album", 1, true))
-		local is_playlist = not is_artist and not is_album
+		-- YouTube Music's own Library keeps podcast shows out of the Playlists
+		-- tab — they live under Podcasts, and every library row says which it is
+		-- ("Podcast • Pushkin Industries & Financial Times" vs "Playlist • …").
+		-- Without this every show the account follows listed as a playlist.
+		local is_podcast = (sub_lower:sub(1, 7) == "podcast")
+		local is_playlist = not is_artist and not is_album and not is_podcast
 
 		local matches = false
 		if filter == "all" then
@@ -108,6 +114,8 @@ local function build_library()
 		elseif filter == "albums" and is_album then
 			matches = true
 		elseif filter == "artists" and is_artist then
+			matches = true
+		elseif filter == "podcasts" and is_podcast then
 			matches = true
 		end
 
