@@ -160,6 +160,7 @@ local function stopPlayback()
       shq(pid_file), shq(pid_file), shq(pid_file), shq(ipc_sock)))
   end
   noctalia.state.set("now", nil)
+  noctalia.state.set("now_playing", nil)
   noctalia.state.set("paused", false)
 end
 
