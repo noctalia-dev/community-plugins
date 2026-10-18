@@ -1,0 +1,45 @@
+{
+  "settings": {
+    "cmd": {
+      "description": "Command to be run through the shell",
+      "label": "Command"
+    },
+    "err_glyph": {
+      "description": "Glyph on error status",
+      "label": "Error glyph"
+    },
+    "hide_on_error": {
+      "description": "Hide the bar widget if command execution results in an error",
+      "label": "Hide on error"
+    },
+    "interval": {
+      "description": "Run interval",
+      "label": "Interval to run command"
+    },
+    "interval_units": {
+      "description": "Interval time units",
+      "hours": "Hours",
+      "label": "Interval time units",
+      "minutes": "Minutes",
+      "seconds": "Seconds"
+    },
+    "json": {
+      "description": "Output is in JSON format",
+      "label": "JSON format"
+    },
+    "ok_glyph": {
+      "description": "Glyph on OK status",
+      "label": "OK glyph"
+    },
+    "show_glyph": {
+      "description": "Show the glyph on bar widget",
+      "label": "Show glyph"
+    }
+  },
+  "tips": {
+    "error_message": "Error",
+    "exit_code": "Exit code",
+    "last_run_time": "Updated at",
+    "timed_out": "Timed out"
+  }
+}
