@@ -1,0 +1,38 @@
+# Switch nwg-displays monitor layouts from the bar, a panel, or the launcher.
+# Applying is delegated to `nwg-displays-apply -p <name>`.
+
+id = "micahg/nwg-displays"
+name = "NWG Display Profiles"
+version = "1.0.0"
+# 26 for getSetting("shell.show_close_buttons") in the panel; 24 for the argv
+# form of runAsync, so no shell ever parses a profile name.
+plugin_api = 26
+author = "micahg"
+license = "MIT"
+icon = "device-desktop"
+dependencies = ["nwg-displays"]
+tags = ["bar", "panel", "launcher", "hyprland", "utility"]
+description = "Switch nwg-displays display profiles from the bar, a panel, or the launcher."
+
+[[widget]]
+id = "widget"
+entry = "widget.luau"
+
+  # Remappable per instance; widget.luau's onClick is the fallback.
+  [widget.actions]
+  left = "panel-toggle micahg/nwg-displays:panel"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 320
+height = 400
+placement = "attached"
+open_near_click = true
+
+[[launcher_provider]]
+id = "launcher"
+entry = "launcher.luau"
+prefix = "nwg"
+glyph = "device-desktop"
+include_in_global_search = false
