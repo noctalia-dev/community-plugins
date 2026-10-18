@@ -371,13 +371,14 @@ render = function()
       ui.button({ glyph = paused and "player-play" or "player-pause", tooltip = paused and "Resume" or "Pause", variant = "ghost", controlSize = "sm", onClick = "onTogglePause" }),
     }
     if noctalia.state.get("seekable") then
-      row[#row + 1] = ui.button({ glyph = "chevron-left", tooltip = "Back 1 min", variant = "ghost", controlSize = "sm", onClick = function()
+      row[#row + 1] = ui.button({ glyph = "chevron-left", tooltip = "Back 1 min (right-click: 3 min)", variant = "ghost", controlSize = "sm", onClick = function()
         seekBy(-60)
+      end, onRightClick = function()
+        seekBy(-180)
       end })
-      row[#row + 1] = ui.button({ glyph = "chevron-right", tooltip = "Skip 1 min", variant = "ghost", controlSize = "sm", onClick = function()
+      row[#row + 1] = ui.button({ glyph = "chevron-right", tooltip = "Skip 1 min (right-click: 3 min)", variant = "ghost", controlSize = "sm", onClick = function()
         seekBy(60)
-      end })
-      row[#row + 1] = ui.button({ glyph = "chevrons-right", tooltip = "Skip 3 min", variant = "ghost", controlSize = "sm", onClick = function()
+      end, onRightClick = function()
         seekBy(180)
       end })
     end
