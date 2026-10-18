@@ -12,7 +12,7 @@ local EXPO = {}
 
 -- Thumbnail filename = stable resource id extracted from the URL itself:
 --   yt3.googleusercontent.com/<seg>=w120…          → <seg>
---   lh3.googleusercontent.com/<prefix>/<seg>=s576  → <seg>
+--   lh3.googleusercontent.com/<prefix>/<seg>=s576  → <seg>, when short enough
 --   i.ytimg.com/vi/<videoId>/hqdefault.jpg         → <videoId>
 -- Identical covers therefore collapse to one file/download with zero hashing
 -- or extra machinery. Unrecognised shapes fall back to the legacy per-id name
@@ -31,6 +31,15 @@ local function thumb_key(url): string?
 	-- cached file — the first show's cover, drawn for all of them.
 	local seg2b = url:match("lh3%.googleusercontent%.com/[^/]+/([^/=]+)")
 	if seg2b and seg2b ~= "" then
+		-- …but that second segment is an opaque signed reference, 250–300
+		-- characters in practice: past the 255-byte filename cap, and it changes
+		-- whenever the signature rotates. Neither fits a cache filename, so give
+		-- up on it (returning nil, never falling through to the constant first
+		-- segment below) and let the caller name the file after the item — one
+		-- file per show, stable across rotations.
+		if #seg2b > 128 then
+			return nil
+		end
 		return seg2b
 	end
 	local seg2 = url:match("lh3%.googleusercontent%.com/([^/=]+)")
