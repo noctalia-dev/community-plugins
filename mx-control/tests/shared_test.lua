@@ -172,7 +172,17 @@ check("a stale snapshot wins over its old permission error",
 check("no snapshot means the helper must start", shared.helperNeedsStart(nil, 1000))
 check("a heartbeat within 90 s means it is alive", not shared.helperNeedsStart(1000, 1089))
 check("a snapshot older than 90 s means it died", shared.helperNeedsStart(1000, 1091))
-check("the helper pattern is anchored to a real serve process", shared.HELPER_PATTERN == "^python3 [^ ]*/mxctl\\.py serve$")
+-- pkill -f matches HELPER_PATTERN as an ERE against the full command line.
+local function helperMatches(cmdline)
+    local p = io.popen("printf '%s\\n' '" .. cmdline .. "' | grep -Ec '" .. shared.HELPER_PATTERN .. "'")
+    local n = p:read("*n")
+    p:close()
+    return n == 1
+end
+check("the helper pattern matches serve run by bare name", helperMatches("python3 /x/mx-control/backend/mxctl.py serve"))
+check("the helper pattern matches serve run by path", helperMatches("/usr/bin/python3 /usr/share/noctalia/plugins/mx-control/backend/mxctl.py serve"))
+check("the helper pattern skips a shell that mentions serve", not helperMatches("bash -c python3 /x/mxctl.py serve"))
+check("the helper pattern skips other mxctl commands", not helperMatches("/usr/bin/python3 /x/mxctl.py status"))
 
 -- sectionFor
 check("dpi is a pointer setting", shared.sectionFor("dpi") == "pointer")
