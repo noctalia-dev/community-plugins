@@ -1,0 +1,6 @@
+{
+  "settings.timeout.label": "Start after (seconds)",
+  "settings.timeout.description": "Seconds without keyboard or mouse input before the screensaver starts.",
+  "settings.logo.label": "Logo",
+  "settings.logo.description": "Image that bounces. White art on a transparent background tints best. Leave empty for the built-in logo."
+}
