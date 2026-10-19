@@ -15,7 +15,7 @@ Run a command periodically and display its output as bar widget text.
 
 Noctalia plugin API 28 or newer.
 
-No other dependencies.
+The example script `examples/stdout-bt-battery.sh` requires `bluetoothctl`, `jq`, `grep` and `awk` to be installed into `$PATH`
 
 ## Usage
 

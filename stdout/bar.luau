@@ -149,7 +149,7 @@ end
 
 function onIpc(event, payload)
     if event == "update" then
-        update()
+        run_script()
     end
 end
 
