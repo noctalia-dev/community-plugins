@@ -1,6 +1,6 @@
 id = "k4n4t4/hypr-submap"
 name = "Hyprland Submap"
-version = "1.0.0"
+version = "1.0.1"
 plugin_api = 6
 author = "k4n4t4"
 license = "MIT"

@@ -34,19 +34,24 @@ end
 
 local sock = socketPath()
 if sock ~= nil then
-    noctalia.runAsync("hyprctl submap", function(output)
-        if output ~= nil then
-            currentSubmap = noctalia.string.trim(output)
+    noctalia.runAsync("hyprctl submap", function(result)
+        if result.exitCode == 0 then
+            currentSubmap = noctalia.string.trim(result.stdout)
             render()
         end
     end)
-    noctalia.runStream(`stdbuf -oL -eL socat -u UNIX-CONNECT:{sock} -`, function(line)
+    local started = noctalia.runStream(`stdbuf -oL -eL socat -u UNIX-CONNECT:{sock} -`, function(line)
         local match = line:match("submap>>(.*)")
         if match ~= nil then
             currentSubmap = noctalia.string.trim(match)
             render()
         end
     end)
+    if not started then
+        noctalia.log("could not start the Hyprland event stream")
+    end
+else
+    noctalia.log("HYPRLAND_INSTANCE_SIGNATURE or XDG_RUNTIME_DIR is not set")
 end
 
 function update()
