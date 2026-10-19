@@ -63,6 +63,17 @@ noctalia.state.watch("pomodoro.nextCommand", function(command)
         isDirty = true
         isRunning = not isRunning
         resetTickClock()
+    elseif command == "start" then
+        isDirty = true
+        if not isRunning then
+            isRunning = true
+            resetTickClock()
+        end
+    elseif command == "pause" then
+        if isRunning then
+            isRunning = false
+            resetTickClock()
+        end
     elseif command == "skip" then
         isRunning = false
         resetTickClock()
@@ -93,6 +104,25 @@ end)
 
 local state = getStateSnapshot()
 noctalia.state.set("pomodoro.state", state)
+
+-- noctalia msg plugin thepunkoff/pomodoro:pomodoro all <event>
+local ipcCommands = {
+    toggle = "toggle",
+    start = "start",
+    pause = "pause",
+    skip = "skip",
+    reset = "reset",
+    ["reset-all"] = "resetAll",
+}
+
+function onIpc(event, _payload)
+    local command = ipcCommands[event]
+    if command == nil then
+        noctalia.log(`unknown IPC event: {event}`)
+        return
+    end
+    noctalia.state.set("pomodoro.nextCommand", command)
+end
 
 noctalia.setUpdateInterval(250)
 function update()
