@@ -1,6 +1,6 @@
 id = "ashur-d/nvim-projects"
 name = "Neovim Projects"
-version = "1.1.0"
+version = "1.1.1"
 plugin_api = 24
 author = "Ashur-D"
 license = "MIT"

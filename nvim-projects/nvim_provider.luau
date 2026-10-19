@@ -45,6 +45,12 @@ local function shellQuote(s: string): string
 	return "'" .. s:gsub("'", "'\"'\"'") .. "'"
 end
 
+local function escapeVim(s: string): string
+    -- Only return first value from gsub
+    local replaced =  s:gsub("[%%#]", "\\%0")
+    return replaced
+end
+
 local function split(haystack: string, separator: string): {string}
     local t = {}
     local start = 1
@@ -225,10 +231,10 @@ function onActivate(id: string)
     local args = split(getBaseCommand(), ' ')
     if project.session_file ~= nil then
         table.insert(args, "-S")
-        table.insert(args, project.session_file)
+        table.insert(args, escapeVim(project.session_file))
     else
         table.insert(args, "-c")
-        table.insert(args, "cd "..project.dir)
+        table.insert(args, "cd "..escapeVim(project.dir))
         table.insert(args, "--")
         table.insert(args, project.dir)
     end
