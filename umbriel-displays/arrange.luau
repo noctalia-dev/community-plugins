@@ -3,9 +3,9 @@
 -- or below, or into the tray to turn it off.
 --
 -- Noctalia's panel tree is flexbox with discrete drag targets, so this is not a
--- free canvas: the reachable arrangements are the edge-to-edge ones, which is
--- the set worth having anyway. No drop can leave an overlap or a hole, since
--- positions are a running sum recomputed from the row order every time.
+-- free canvas: displays stay edge to edge within a row, while shorter rows are
+-- centred under the widest one. Positions are recomputed from the row order
+-- after every drop, so the saved layout matches the canvas.
 
 local displays = require("./outputs.luau")
 local controls = require("./controls.luau")
