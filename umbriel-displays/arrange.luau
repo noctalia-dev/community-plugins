@@ -325,6 +325,7 @@ end
 render = function()
   local nodes = {
     controls.header(tr("arrange.title"), {
+      ui.button({ glyph = "arrow-left", variant = "ghost", controlSize = "sm", tooltip = tr("action.back"), onClick = "onBack" }),
       ui.label({ text = tr("arrange.hint"), fontSize = 11, color = "on_surface_variant" }),
       ui.button({ glyph = "refresh", variant = "ghost", controlSize = "sm", tooltip = tr("action.refresh"), onClick = "onRefresh" }),
       ui.button({ glyph = "x", variant = "ghost", controlSize = "sm", onClick = "onCloseClick" }),
@@ -409,11 +410,15 @@ function onDrop(payload, value)
   commit()
 end
 
+function onBack()
+  panel.close()
+  noctalia.togglePanel("prponkshe/umbriel-displays:panel")
+end
+
 -- Escape walks back to the panel this window was opened from, rather than
 -- leaving the user on the desktop.
 function onKey(chord, pressed)
   if pressed and chord == "escape" then
-    panel.close()
-    noctalia.togglePanel("prponkshe/umbriel-displays:panel")
+    onBack()
   end
 end

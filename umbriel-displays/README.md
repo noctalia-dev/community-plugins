@@ -88,8 +88,9 @@ written and applied immediately.
 
 **`advanced`** holds the rest of what an `[output.*]` section accepts: rotation,
 adaptive sync, HDR and its SDR reference white, tearing, direct scanout, the
-workspace inventory and axis, and the initial scrolling column width. Escape
-returns to the main panel, as it does from the arrangement.
+workspace inventory and axis, and the initial scrolling column width. The
+header back button or Escape returns to the main panel, as it does from the
+arrangement.
 
 **`arrange`** draws each enabled display to scale. Drag one onto:
 
