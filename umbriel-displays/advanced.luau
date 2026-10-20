@@ -75,6 +75,10 @@ end
 -- Writing one key still lays the arrangement out again, since a rotation
 -- changes the logical box every display to the right of it sits against.
 local function commit(output, changes)
+  local previousTransform = output.transform
+  if changes.transform ~= nil then
+    output.transform = displays.text(changes.transform)
+  end
   local sections = displays.apply(outputs, displays.rows(outputs))
   local section = displays.sectionFor(sections, output)
   for key, raw in pairs(changes) do
@@ -86,6 +90,7 @@ local function commit(output, changes)
     if ok then
       status, statusIsError = tr("status.applied"), false
     else
+      output.transform = previousTransform
       status, statusIsError = unsupported ~= nil and tr("status.unsupported", { key = unsupported })
         or tr("status.write_failed", { error = tostring(err) }), true
       toggleKey = toggleKey + 1
