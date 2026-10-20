@@ -22,6 +22,9 @@ Install these commands on `PATH`:
   written.
 - `timeout`: bounds each `playerctl` metadata poll during startup and runtime.
 
+For a dependency table and package-manager install commands, see
+[DEPENDENCIES.md](DEPENDENCIES.md).
+
 ## Usage
 
 Enable `h465855hgg/lyrics`, start its `service` entry, and add the `lyrics` bar
