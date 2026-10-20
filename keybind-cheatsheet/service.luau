@@ -1306,6 +1306,239 @@ local function saveBindingCache(cache)
   end
 end
 
+-- ── Fcitx input-method hotkeys ──────────────────────────────────────────────
+-- Fcitx owns these keys instead of the compositor, so they cannot be
+-- discovered from the compositor config. Read them from the Fcitx5 INI files
+-- on every refresh and expose them as virtual "System" rows in the cheatsheet.
+local FCITX_HOTKEY_MODIFIERS = {
+  control = "CTRL",
+  ctrl = "CTRL",
+  shift = "SHIFT",
+  alt = "ALT",
+  super = "SUPER",
+  meta = "SUPER",
+  logo = "SUPER",
+  mod1 = "ALT",
+  mod4 = "SUPER",
+  mod5 = "MOD5",
+}
+
+local FCITX_KEY_LABELS = {
+  ["return"] = "Return",
+  enter = "Return",
+  escape = "Escape",
+  esc = "Escape",
+  period = ".",
+  comma = ",",
+  slash = "/",
+  semicolon = ";",
+  apostrophe = "'",
+  grave = "`",
+  minus = "-",
+  equal = "=",
+  bracketleft = "[",
+  bracketright = "]",
+  backslash = "\\",
+  space = "space",
+  tab = "Tab",
+  backspace = "Backspace",
+}
+
+local FCITX_LAYOUT_LABELS = {
+  de = "German",
+  es = "Spanish",
+  fr = "French",
+  gb = "English (UK)",
+  no = "Norwegian",
+  us = "English (US)",
+}
+
+local function parseIniFile(path)
+  local content = noctalia.readFile(normalizePath(expandEnvironment(path)))
+  if content == nil or content == "" then return nil end
+  local sections = {}
+  local current = nil
+  for rawLine in (content .. "\n"):gmatch("(.-)\r?\n") do
+    local line = trim(rawLine)
+    if line ~= "" and not startsWith(line, "#") and not startsWith(line, ";") then
+      local header = line:match("^%[([^%]]+)%]$")
+      if header ~= nil then
+        current = header
+        sections[current] = sections[current] or {}
+      elseif current ~= nil then
+        local key, value = line:match("^([^=]+)=(.*)$")
+        if key ~= nil then
+          sections[current][trim(key)] = trim(value)
+        end
+      end
+    end
+  end
+  return sections
+end
+
+local function sectionValues(sections, name)
+  local values = {}
+  local section = sections ~= nil and sections[name] or nil
+  if section == nil then return values end
+  local keys = {}
+  for key in pairs(section) do table.insert(keys, key) end
+  table.sort(keys, function(a, b)
+    local left, right = tonumber(a), tonumber(b)
+    if left ~= nil and right ~= nil then return left < right end
+    return a < b
+  end)
+  for _, key in ipairs(keys) do
+    if section[key] ~= "" then table.insert(values, section[key]) end
+  end
+  return values
+end
+
+local function parseFcitxHotkey(value)
+  local parts = {}
+  for part in (value or ""):gmatch("[^+]+") do table.insert(parts, part) end
+  local key = table.remove(parts)
+  if key == nil or key == "" then return nil, nil end
+  local modifiers = {}
+  for _, part in ipairs(parts) do
+    local modifier = FCITX_HOTKEY_MODIFIERS[lower(part)]
+    if modifier ~= nil then table.insert(modifiers, modifier) end
+  end
+  return modifiers, FCITX_KEY_LABELS[lower(key)] or trim(key)
+end
+
+local function fcitxInputMethodLabel(name)
+  local lowered = lower(name)
+  if lowered == "pinyin" then return "Pinyin" end
+  if startsWith(lowered, "keyboard-") then
+    local layout = lowered:gsub("^keyboard%-", ""):gsub("%-nodeadkeys$", "")
+    return FCITX_LAYOUT_LABELS[layout] or ("Keyboard (" .. layout .. ")")
+  end
+  return name
+end
+
+local function fcitxInputMethodNames(sections)
+  if sections == nil then return {} end
+  local groups = {}
+  for sectionName, values in pairs(sections) do
+    local groupIndex, itemIndex = sectionName:match("^Groups/(%d+)/Items/(%d+)$")
+    if groupIndex ~= nil and values.Name ~= nil and values.Name ~= "" then
+      groupIndex = tonumber(groupIndex)
+      itemIndex = tonumber(itemIndex)
+      groups[groupIndex] = groups[groupIndex] or {}
+      groups[groupIndex][itemIndex] = values.Name
+    end
+  end
+
+  local groupIndexes = {}
+  for index in pairs(groups) do table.insert(groupIndexes, index) end
+  table.sort(groupIndexes)
+  local selected = groups[0] or groups[groupIndexes[1]]
+  if selected == nil then return {} end
+
+  local itemIndexes = {}
+  for index in pairs(selected) do table.insert(itemIndexes, index) end
+  table.sort(itemIndexes)
+  local names = {}
+  for _, index in ipairs(itemIndexes) do
+    table.insert(names, fcitxInputMethodLabel(selected[index]))
+  end
+  return names
+end
+
+local function fcitxConfigDir()
+  local configHome = noctalia.getenv("XDG_CONFIG_HOME")
+  if type(configHome) ~= "string" or trim(configHome) == "" then
+    configHome = "~/.config"
+  end
+  return pathJoin(normalizePath(expandEnvironment(configHome)), "fcitx5")
+end
+
+local function fcitxTriggerDescription(names)
+  if #names == 0 then return "Switch input method" end
+  if #names == 1 then return "Switch input method (" .. names[1] .. ")" end
+  if #names == 2 then return "Switch input method (" .. names[1] .. " ↔ " .. names[2] .. ")" end
+  return "Switch input method (" .. names[1] .. " ↔ " .. names[2] .. ", …)"
+end
+
+local function fcitxBindings(configDir)
+  local result = {}
+  configDir = configDir or fcitxConfigDir()
+  local configPath = configDir .. "/config"
+  local config = parseIniFile(configPath)
+  local names = fcitxInputMethodNames(parseIniFile(configDir .. "/profile"))
+  local triggerDescription = fcitxTriggerDescription(names)
+
+  local function addHotkey(value, description, sourcePath)
+    for chord in (value or ""):gmatch("%S+") do
+      local modifiers, key = parseFcitxHotkey(chord)
+      if key ~= nil then
+        addBinding(result, {
+          compositor = "fcitx",
+          bindingType = "hotkey",
+          modifiers = modifiers,
+          key = key,
+          action = description,
+          description = description,
+          category = "System",
+          sourceFile = sourcePath or configPath,
+          sourceLine = 0,
+          submap = "",
+        })
+      end
+    end
+  end
+
+  if config ~= nil then
+    for _, value in ipairs(sectionValues(config, "Hotkey/TriggerKeys")) do
+      addHotkey(value, triggerDescription, configPath)
+    end
+    for _, value in ipairs(sectionValues(config, "Hotkey/AltTriggerKeys")) do
+      addHotkey(value, "Temporarily switch input method", configPath)
+    end
+    for _, value in ipairs(sectionValues(config, "Hotkey/EnumerateForwardKeys")) do
+      addHotkey(value, "Next input method", configPath)
+    end
+    for _, value in ipairs(sectionValues(config, "Hotkey/EnumerateBackwardKeys")) do
+      addHotkey(value, "Previous input method", configPath)
+    end
+    for _, value in ipairs(sectionValues(config, "Hotkey/EnumerateGroupForwardKeys")) do
+      addHotkey(value, "Next input-method group", configPath)
+    end
+    for _, value in ipairs(sectionValues(config, "Hotkey/EnumerateGroupBackwardKeys")) do
+      addHotkey(value, "Previous input-method group", configPath)
+    end
+  end
+
+  local chttransPath = configDir .. "/conf/chttrans.conf"
+  local chttrans = parseIniFile(chttransPath)
+  if chttrans ~= nil then
+    local chtKeys = sectionValues(chttrans, "Hotkey")
+    local pinyinEnabled = false
+    for _, name in ipairs(sectionValues(chttrans, "EnabledIM")) do
+      if lower(name) == "pinyin" then pinyinEnabled = true end
+    end
+    -- This hotkey is a Fcitx default and only gets written to the file after
+    -- it is changed, so fall back to the default when pinyin is enabled.
+    if #chtKeys == 0 and pinyinEnabled then
+      chtKeys = { "Control+Shift+F" }
+    end
+    for _, value in ipairs(chtKeys) do
+      addHotkey(value, "Toggle Simplified/Traditional Chinese", chttransPath)
+    end
+  end
+
+  return result
+end
+
+local function withFcitxBindings(bindings)
+  local result = {}
+  for _, binding in ipairs(bindings or {}) do
+    if binding.compositor ~= "fcitx" then table.insert(result, binding) end
+  end
+  for _, binding in ipairs(fcitxBindings()) do table.insert(result, binding) end
+  return result
+end
+
 local refresh
 
 local function snapshot(status, request, cache, err, isRefreshing)
@@ -1342,7 +1575,7 @@ local function finishRefresh(generation, request, result, warnings, err, sourceS
     lastGood = {
       schema = CACHE_SCHEMA,
       request = request,
-      bindings = result or {},
+      bindings = withFcitxBindings(result),
       warnings = warnings or {},
       sources = sourceSnapshot ~= nil and sourceSnapshot.sources or {},
       globs = sourceSnapshot ~= nil and sourceSnapshot.globs or {},
@@ -1704,6 +1937,7 @@ end
 local function loadCachedSnapshot(request)
   local cached = readBindingCache()
   if requestsMatch(cached ~= nil and cached.request or nil, request) then
+    cached.bindings = withFcitxBindings(cached.bindings)
     lastGood = cached
     publish("ready", request, cached, "", true)
   else
@@ -1746,9 +1980,9 @@ local function containsAll(values, required)
 end
 
 -- The self-test runs one fixture case per SELF_TEST_STEP_KEY callback: all
--- four in one budget window no longer fit on the instrumented runtime, even
+-- five in one budget window no longer fit on the instrumented runtime, even
 -- with byte-sized fixtures.
-local SELF_TEST_CASES = { "mango", "hypr_conf", "niri", "hypr_lua" }
+local SELF_TEST_CASES = { "mango", "hypr_conf", "niri", "hypr_lua", "fcitx" }
 local selfTestJob = nil
 local selfTestStepCounter = 0
 
@@ -1764,6 +1998,8 @@ local function selfTestCaseBindings(name, fixtureRoot)
     return walkConfig(fixtureRoot .. "/hypr/hyprland.conf", parseHyprContent).bindings
   elseif name == "niri" then
     return walkConfig(fixtureRoot .. "/niri/config.kdl", parseNiriContent).bindings
+  elseif name == "fcitx" then
+    return fcitxBindings(fixtureRoot .. "/fcitx")
   else
     local scan = scanHyprLua(fixtureRoot .. "/hypr/hyprland.lua")
     local raw = noctalia.readFile(fixtureRoot .. "/hypr/binds.json") or "[]"

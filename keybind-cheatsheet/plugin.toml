@@ -1,13 +1,13 @@
 id = "kenn/keybind-cheatsheet"
 name = "Keybind Cheatsheet"
-version = "0.3.0"
+version = "0.3.2"
 plugin_api = 9
 author = "kenn"
 license = "MIT"
 dependencies = ["hyprctl"]
-tags = ["bar", "panel", "utility", "system", "hyprland", "mangowc", "niri"]
+tags = ["bar", "panel", "utility", "system", "language", "hyprland", "mangowc", "niri"]
 icon = "keyboard"
-description = "Searchable keybindings for Mango, Hyprland, and Niri."
+description = "Searchable keybindings for Mango, Hyprland, and Niri, plus Fcitx5 input-method hotkeys."
 
 [[service]]
 id = "data"

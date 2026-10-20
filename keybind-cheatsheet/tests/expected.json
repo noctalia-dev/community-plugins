@@ -36,5 +36,16 @@
       "Close window",
       "Workspace 1"
     ]
+  },
+  "fcitx": {
+    "count": 3,
+    "descriptions": [
+      "Switch input method (Norwegian ↔ Pinyin)",
+      "Temporarily switch input method",
+      "Toggle Simplified/Traditional Chinese"
+    ],
+    "categories": [
+      "System"
+    ]
   }
 }
