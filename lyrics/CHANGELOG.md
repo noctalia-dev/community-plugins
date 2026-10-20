@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.5.7
+
+- Keep the lyrics capsule visible while lyrics are loading and retry transient
+  empty player polls instead of clearing the current track immediately.
+- Open the selector only from its shortcut or IPC; hovering no longer opens the
+  panel and can no longer interfere with the widget's left-click action.
+- Add a per-widget intro/interlude cue toggle, cue text and font controls, and
+  adjustable timing thresholds.
+
 ## 1.5.6
 
 - Keep runtime cache in Noctalia's plugin data directory so plugin source

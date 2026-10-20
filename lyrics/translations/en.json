@@ -79,9 +79,29 @@
         "follow": "Follow interface font"
       }
     },
+    "show_cues": {
+      "description": "Show animated cue characters during intros and instrumental interludes.",
+      "label": "Show intro/interlude cues"
+    },
     "cue_text": {
       "description": "Text or characters highlighted during intros and interludes.",
       "label": "Intro/interlude characters"
+    },
+    "intro_min_ms": {
+      "description": "Only show an intro cue when the first lyric starts after this many milliseconds.",
+      "label": "Intro cue threshold"
+    },
+    "interlude_gap_ms": {
+      "description": "Minimum gap between lyric start times that is treated as a long instrumental break when estimating line duration.",
+      "label": "Long-break detection gap"
+    },
+    "interlude_min_ms": {
+      "description": "Minimum silent gap after a lyric line before an interlude cue appears.",
+      "label": "Interlude cue threshold"
+    },
+    "interlude_lead_ms": {
+      "description": "Show the interlude cue this many milliseconds before the previous lyric line ends.",
+      "label": "Interlude cue lead time"
     },
     "custom_json_field": {
       "description": "Lyrics field in a JSON response, with dotted paths such as data.lyric. Leave empty for plain LRC.",
