@@ -46,13 +46,13 @@ those as before.
 
 - **Processes:** the service runs one long-lived `qs -p <plugin dir>/shell.qml` and checks
   every 30 s that it is still running, restarting it if not. Disabling the plugin ends it.
-  While an app is holding an idle inhibitor (see below), `shell.qml` runs
-  `niri msg -j outputs`, `niri msg -j workspaces` and `niri msg -j windows` every 2 s.
+  While idle, `shell.qml` runs `niri msg -j outputs`, `niri msg -j workspaces` and
+  `niri msg -j windows` every 2 s.
 - **Files and network:** none. It writes nothing and makes no network calls.
-- **Apps that keep the screen awake:** browsers and video players hold a Wayland idle
-  inhibitor while media plays. Bounce Saver still starts in that case unless the screen
-  shows a fullscreen window, so fullscreen video keeps playing but a static music page does
-  not stay on screen for hours. niri reports no fullscreen flag, so a window exactly the
+- **Apps that keep the screen awake:** Bounce Saver ignores idle inhibitors and instead
+  skips any screen that shows a fullscreen window, so fullscreen video keeps playing (also
+  in X11 players, which cannot inhibit idle) but a static music page does not stay on
+  screen for hours. niri reports no fullscreen flag, so a window exactly the
   size of its output on an active workspace counts as fullscreen. Without niri the check
   cannot run and the screensaver always starts, the OLED-safe choice.
 - **Compositors:** needs layer-shell and `ext-idle-notify-v1`. Tested on niri.

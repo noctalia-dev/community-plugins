@@ -13,16 +13,11 @@ import Quickshell.Wayland
 ShellRoot {
     id: root
 
-    // Idle with no app inhibitor: always show. Idle while an app inhibits (video,
-    // or music keeping a static page up): show unless that screen has a fullscreen window.
+    // Idle: show, unless that screen has a fullscreen window (video). Inhibitors are
+    // ignored: a static music page inhibits too, and X11 players cannot inhibit at all.
     IdleMonitor {
         id: idle
         timeout: Number(Quickshell.env("BOUNCE_TIMEOUT")) || 120 // seconds without input
-        respectInhibitors: true
-    }
-    IdleMonitor {
-        id: idleAny
-        timeout: idle.timeout
         respectInhibitors: false
     }
 
@@ -32,8 +27,8 @@ ShellRoot {
     // No niri (or IPC error): empty list, so the screensaver shows. OLED-safe default.
     property var fullscreenOutputs: []
     property bool probed: false
-    readonly property bool inhibitedIdle: idleAny.isIdle && !idle.isIdle
-    onInhibitedIdleChanged: inhibitedIdle ? fsProbe.running = true : probed = false
+    readonly property bool idleNow: idle.isIdle
+    onIdleNowChanged: idleNow ? fsProbe.running = true : probed = false
 
     function parseFullscreen(text) {
         const [outputs, workspaces, windows] = text.trim().split("\n").map(l => JSON.parse(l))
@@ -63,7 +58,7 @@ ShellRoot {
     Timer {
         interval: 2000
         repeat: true
-        running: root.inhibitedIdle
+        running: root.idleNow
         onTriggered: fsProbe.running = true
     }
 
@@ -74,8 +69,8 @@ ShellRoot {
             id: win
             required property var modelData
             screen: modelData
-            visible: idle.isIdle || (root.inhibitedIdle && root.probed
-                && !root.fullscreenOutputs.includes(win.modelData.name))
+            visible: root.idleNow && root.probed
+                && !root.fullscreenOutputs.includes(win.modelData.name)
             color: "black"
             anchors { top: true; bottom: true; left: true; right: true }
             exclusionMode: ExclusionMode.Ignore
