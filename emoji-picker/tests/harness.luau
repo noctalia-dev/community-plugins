@@ -132,6 +132,7 @@ local CHUNK_TAIL = "\n\nonOpen = M.onOpen\nonKey = M.onKey\nreturn {\n"
   .. "  moveSelection = moveSelection,\n"
   .. "  setQuery = function(q) query = q end,\n"
   .. "  getSel = function() return sel end,\n"
+  .. "  getItem = function(i) return items[i] end,\n"
   .. "  setCat = function(c) cat = c end,\n"
   .. "  getCat = function() return cat end,\n"
   .. "  dataLoaded = function() return data ~= nil end,\n"
@@ -379,6 +380,19 @@ local function tabButtons()
   end)
 end
 
+-- Grid tiles are keyed clickable columns holding one glyph label; the
+-- selection highlight is the tile's own fill/border and its label colour.
+local function tileNodes()
+  return findNodes(function(n)
+    return n.kind == "column" and type(keyOf(n)) == "string" and string.find(keyOf(n), "^t%d+$") ~= nil
+  end)
+end
+
+local function tileGlyph(tileNode)
+  local label = tileNode.children ~= nil and tileNode.children[1] or nil
+  return label ~= nil and label.kind == "label" and label.opts.text or nil
+end
+
 local function labelShown(text)
   return #findNodes(function(n)
     return n.kind == "label" and n.opts.text == text
@@ -436,10 +450,9 @@ do
   -- share their first three UTF-8 bytes.
   local RI_PREFIX = string.sub("\u{1F1E6}", 1, 3)
   local flagTiles = 0
-  for _, b in ipairs(findNodes(function(n)
-    return n.kind == "button" and type(keyOf(n)) == "string" and string.find(keyOf(n), "^t%d+$") ~= nil
-  end)) do
-    if type(b.opts.text) == "string" and string.sub(b.opts.text, 1, 3) == RI_PREFIX then
+  for _, b in ipairs(tileNodes()) do
+    local glyph = tileGlyph(b)
+    if type(glyph) == "string" and string.sub(glyph, 1, 3) == RI_PREFIX then
       flagTiles += 1
     end
   end
@@ -485,9 +498,158 @@ do
   )
 end
 
+-- ── Selection: one visible highlight, owned by the keyboard model ──────
+-- A tile paints its own fill/border/label colour from `sel`, so exactly
+-- one tile is highlighted at any time — the one the footer names and
+-- Enter commits — whether `sel` moved by search, arrows or pointer hover.
+-- Hover callbacks arrive as the strings "true"/"false" (the panel host
+-- sends both on enter/leave); a leave must never move the selection.
+do
+  local function highlighted(tileNode)
+    return tileNode.opts.fill == "primary"
+  end
+  local function footerLabel(key)
+    return findNodes(function(n) return n.kind == "label" and keyOf(n) == key end)[1]
+  end
+  local function tileByIndex(i)
+    return findNodes(function(n) return keyOf(n) == "t" .. tostring(i) end)[1]
+  end
+  -- Exactly one tile is highlighted and it is tile `expected`; its fill,
+  -- border and glyph colour agree; every other tile is fully unhighlighted;
+  -- the footer shows the selected entry.
+  local function expectSelected(expected, what)
+    local lit = {}
+    local consistent = true
+    for _, t in ipairs(tileNodes()) do
+      local label = t.children[1]
+      local on = highlighted(t)
+      if on then
+        table.insert(lit, t)
+      end
+      if (t.opts.border == "primary") ~= on or (label.opts.color == "on_primary") ~= on then
+        consistent = false
+      end
+      if not on and (t.opts.fill ~= "surface_variant" or label.opts.color ~= "on_surface") then
+        consistent = false
+      end
+    end
+    check(picker.getSel() == expected, what .. ": keyboard selection is " .. tostring(expected))
+    check(#lit == 1, what .. ": exactly one tile is highlighted (got " .. tostring(#lit) .. ")")
+    check(
+      lit[1] ~= nil and keyOf(lit[1]) == "t" .. tostring(expected),
+      what .. ": the highlighted tile is tile " .. tostring(expected)
+    )
+    check(consistent, what .. ": fill, border and glyph colour agree on every tile")
+    local entry = picker.getItem(expected)
+    local emojiLabel, nameLabel = footerLabel("foot-emoji"), footerLabel("foot-name")
+    check(
+      entry ~= nil and lit[1] ~= nil and tileGlyph(lit[1]) == entry.e,
+      what .. ": the highlighted tile shows the selected entry"
+    )
+    check(
+      entry ~= nil and emojiLabel ~= nil and nameLabel ~= nil
+        and emojiLabel.opts.text == entry.e and nameLabel.opts.text == entry.n,
+      what .. ": the footer names the highlighted tile"
+    )
+  end
+
+  -- Drive the rendered controls, as the host does: typing calls the input's
+  -- onChange (which resets the selection to the first result), and a tab
+  -- click calls that tab button's onClick. Both re-render before returning.
+  local function typeQuery(text)
+    local input = findNodes(function(n)
+      return n.kind == "input" and type(keyOf(n)) == "string" and string.sub(keyOf(n), 1, 2) == "q-"
+    end)[1]
+    check(input ~= nil, "the search input is rendered")
+    if input ~= nil then
+      input.opts.onChange(text)
+    end
+  end
+  local function pickTab(id)
+    local tab = findNodes(function(n) return n.kind == "button" and keyOf(n) == "cat-" .. id end)[1]
+    check(tab ~= nil, "the " .. id .. " tab is rendered")
+    if tab ~= nil then
+      tab.opts.onClick()
+    end
+  end
+
+  local savedCat = picker.getCat()
+
+  -- Search: typing selects the first result straight away.
+  pickTab("smileys")
+  typeQuery("euro")
+  check(#tileNodes() >= 2, "euro search renders at least two tiles")
+  expectSelected(1, "after search")
+
+  onKey("right", true)
+  expectSelected(2, "after right arrow")
+  onKey("left", true)
+  expectSelected(1, "after left arrow")
+
+  -- Pointer enter: the hovered tile becomes the one selection, footer too.
+  tileByIndex(2).opts.onHover("true", "t2")
+  expectSelected(2, "after hovering tile 2")
+
+  -- Keyboard while the pointer still rests on tile 2: tile 2 must not stay
+  -- highlighted beside the keyboard's tile (the old stuck-hover state).
+  onKey("left", true)
+  expectSelected(1, "keyboard move while the pointer rests on tile 2")
+
+  -- The pointer then leaves tile 2: the "false" string is truthy in Luau
+  -- but must be ignored, so the keyboard selection survives.
+  tileByIndex(2).opts.onHover("false", "t2")
+  expectSelected(1, "pointer leaving tile 2 after a keyboard move")
+
+  -- Sweeping A -> B delivers A's leave before B's enter.
+  tileByIndex(1).opts.onHover("true", "t1")
+  tileByIndex(1).opts.onHover("false", "t1")
+  tileByIndex(2).opts.onHover("true", "t2")
+  expectSelected(2, "pointer sweep from tile 1 to tile 2")
+
+  -- Enter commits the selected entry and closes, as before.
+  local copiedBefore, closedBefore = #copied, closedPanel
+  local selectedEntry = picker.getItem(2)
+  onKey("enter", true)
+  check(
+    #copied == copiedBefore + 1 and selectedEntry ~= nil and copied[#copied].text == selectedEntry.e,
+    "enter copies the hovered-and-selected glyph"
+  )
+  check(closedPanel == closedBefore + 1, "enter closes the panel after a hover selection")
+
+  -- Mouse click commits the clicked tile's own glyph (not `sel`) and closes.
+  typeQuery("")
+  typeQuery("euro")
+  expectSelected(1, "after re-search")
+  copiedBefore, closedBefore = #copied, closedPanel
+  local clicked = tileByIndex(2)
+  local clickedEntry = picker.getItem(2)
+  clicked.opts.onClick()
+  check(
+    #copied == copiedBefore + 1 and clickedEntry ~= nil and copied[#copied].text == clickedEntry.e,
+    "clicking a tile copies that tile's glyph"
+  )
+  check(closedPanel == closedBefore + 1, "clicking a tile closes the panel")
+
+  -- Browse view: the highlight is still the keyboard model's, and vertical
+  -- navigation moves it with the footer.
+  typeQuery("")
+  pickTab("smileys")
+  expectSelected(picker.getSel(), "browse view rebuild")
+  local before = picker.getSel()
+  onKey("down", true)
+  check(picker.getSel() ~= before, "down arrow moves the browse selection")
+  expectSelected(picker.getSel(), "after down arrow")
+  tileByIndex(1).opts.onHover("true", "t1")
+  expectSelected(1, "hovering tile 1 in the browse grid")
+
+  -- Leave no state behind for later tests: original category, no query.
+  typeQuery("")
+  pickTab(savedCat)
+  check(picker.getSel() == 1, "selection block leaves keyboard focus at 1")
+end
+
 -- ── Grid fit: a rendered row never runs under the overlay scrollbar ────
--- The ui.scroll scrollbar is an overlay (reserves no width) and ui.button
--- draws padding+border OUTSIDE its width/height content box, so the row
+-- The ui.scroll scrollbar is an overlay (reserves no width), so the row
 -- budget must cover the RENDERED tile width and reserve SCROLLBAR_GUTTER.
 -- fitGrid guarantees that for every manifest panel width and every tier;
 -- the rendered tree must then spend exactly what fitGrid derived.

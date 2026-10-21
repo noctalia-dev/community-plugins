@@ -1,6 +1,7 @@
 {
   "action_back": "Zurück",
   "action_check": "Updates prüfen",
+  "action_config_review": "Prüfen",
   "action_dismiss": "Verwerfen",
   "action_open_log": "Log öffnen",
   "action_open_news": "News öffnen",
@@ -41,8 +42,57 @@
   },
   "changelog_empty": "Kein Changelog verfügbar",
   "changelog_title": "Was ist neu",
+  "config_apply": "Zusammenführung anwenden",
+  "config_apply_external": "Tool-Ergebnis anwenden",
+  "config_apply_external_tip": "Das anwenden, was das externe Tool nach %merged geschrieben hat",
+  "config_base": "Vorheriger Standard",
+  "config_conflict": "Konflikt",
+  "config_discard_new": "Neue verwerfen",
+  "config_discard_new_tip": "Die .pacnew löschen und deine aktuelle Datei unverändert lassen",
+  "config_empty": "Keine .pacnew- oder .pacsave-Dateien gefunden",
+  "config_external_tip": "Im externen Merge-Tool öffnen",
+  "config_hide_base": "Vorherigen Standard ausblenden",
+  "config_hide_preview": "Vorschau ausblenden",
+  "config_identical": "identisch",
+  "config_identical_explain": "Die .pacnew ist Byte für Byte identisch mit deiner aktuellen Datei. Sie kann bedenkenlos entfernt werden.",
+  "config_keep_both": "Beide",
+  "config_keep_mine": "Meine",
+  "config_loading": "Zusammenführung wird vorbereitet…",
+  "config_mine": "Deine Version",
+  "config_none_here": "(auf dieser Seite nichts)",
+  "config_open_tip": "Zusammenführung öffnen",
+  "config_oversize": "Diese Datei ist zu groß für die Zusammenführung im Panel. Nutze das externe Merge-Tool, übernimm die neue Version unverändert oder verwirf sie.",
+  "config_pacsave_explain": "Das Paket dieser Datei wurde entfernt. pacman hat deine bearbeitete Konfiguration als .pacsave behalten. Wiederherstellen setzt sie zurück an ihren Platz, oder entferne sie.",
+  "config_pending": {
+    "one": "1 Konfigurationsdatei zu prüfen",
+    "other": "{count} Konfigurationsdateien zu prüfen"
+  },
+  "config_preview": "Ergebnis-Vorschau",
+  "config_remove": "Entfernen",
+  "config_rescan_tip": "Erneut nach Konfigurationsdateien suchen",
+  "config_restore": "Wiederherstellen",
+  "config_show_base": "Vorherigen Standard zeigen",
+  "config_summary": {
+    "one": "1 Konflikt zu lösen — alles andere wird automatisch zusammengeführt",
+    "other": "{count} Konflikte zu lösen — alles andere wird automatisch zusammengeführt"
+  },
+  "config_summary_clean": "Keine Konflikte — die Änderungen des neuen Standards fügen sich sauber ein. Vorschau ansehen, dann anwenden.",
+  "config_summary_nobase": "Keine gemeinsame Ausgangsversion gefunden — jede Abweichung wird zur Auswahl gestellt.",
+  "config_take_new": "Neue",
+  "config_take_new_full": "Neue unverändert übernehmen",
+  "config_take_new_full_tip": "Deine Datei durch den neuen Standard des Pakets ersetzen",
+  "config_theirs": "Neuer Standard",
+  "config_title": "Konfigurationsdateien prüfen",
+  "config_unchanged_lines": {
+    "one": "1 unveränderte Zeile",
+    "other": "{count} unveränderte Zeilen"
+  },
+  "config_unreadable_explain": "Diese Datei ist ohne Root nicht lesbar, daher kann die Zusammenführung im Panel sie nicht öffnen. Nutze das externe Tool (es eskaliert per sudo) oder entferne die .pacnew.",
+  "config_view": "Diff ansehen",
   "err_check_timeout": "Zeitüberschreitung beim Prüfen auf Updates",
+  "err_config_apply": "Die Konfigurationsänderung konnte nicht angewendet werden, Details im Systemlog",
   "err_no_checkupdates": "checkupdates nicht gefunden, pacman-contrib installieren und PATH prüfen",
+  "err_no_merge_tool": "Kein Merge-Tool verfügbar, wähle eins in den Plugin-Einstellungen oder installiere pacdiff",
   "err_no_pkexec": "pkexec nicht gefunden, Polkit ist nicht installiert",
   "err_no_terminal": "Kein Terminal-Emulator gefunden, in den Plugin-Einstellungen festlegen",
   "err_no_xdg_open": "xdg-open nicht gefunden, Paketseite kann nicht geöffnet werden",
@@ -69,6 +119,11 @@
   "news_unread": {
     "one": "1 ungelesener Arch-News-Beitrag: „{title}“",
     "other": "{count} ungelesene Arch-News-Beiträge, zuletzt: „{title}“"
+  },
+  "notify_config_applied": "Konfigurationsdatei aktualisiert",
+  "notify_config_new": {
+    "one": "Ein Update hat 1 neue .pacnew-Datei zum Prüfen hinterlassen",
+    "other": "Ein Update hat {count} neue .pacnew-Dateien zum Prüfen hinterlassen"
   },
   "notify_updates": {
     "one": "1 Paket zu aktualisieren",
@@ -113,6 +168,58 @@
     "check_reboot_needed": {
       "description": "Prüft, ob die Dateien des aktuell laufenden Kernels noch vorhanden sind. Fehlen sie, wurde ein neuerer Kernel installiert, und erst ein Neustart wechselt darauf.",
       "label": "Auf nötigen Neustart prüfen"
+    },
+    "config_auto_remove_identical": {
+      "description": "Nach einem Update .pacnew-Dateien löschen, die Byte für Byte mit der aktiven Datei identisch sind, in einer einzigen polkit-Abfrage. Aus behält sie in der Liste mit einem Ein-Klick-Entfernen.",
+      "label": "Identische .pacnew automatisch entfernen"
+    },
+    "config_backup": {
+      "description": "Eine Kopie der aktuellen Konfiguration anlegen, bevor das zusammengeführte Ergebnis geschrieben wird.",
+      "label": "Datei vor dem Anwenden sichern"
+    },
+    "config_backup_dir": {
+      "description": "Leer: ein Ordner „config-backups“ im Datenverzeichnis des Plugins. Ein absoluter Pfad: dorthin sichern. „alongside“: eine <Datei>.arch-updater.bak neben jeder Datei behalten (root gehörend).",
+      "label": "Speicherort der Sicherung"
+    },
+    "config_backup_keep": {
+      "description": "Ältere Sicherungen über diese Anzahl je Datei hinaus entfernen. 0 behält alle. Für den Ort „alongside“ ohne Wirkung.",
+      "label": "Sicherungen pro Datei behalten"
+    },
+    "config_badge": {
+      "description": "Die Anzahl offener .pacnew-/.pacsave-Dateien auf dem Leisten-Widget zeigen, wenn keine Updates ausstehen.",
+      "label": "Badge für Konfig-Prüfung"
+    },
+    "config_default_resolution": {
+      "description": "Auf welcher Seite jeder Konflikt-Block in der Zusammenführung startet. „Meine Version behalten“ ändert nie eine von dir bearbeitete Zeile; „Neue Version übernehmen“ bevorzugt den neuen Standard des Pakets.",
+      "label": "Standardwahl bei Konflikten",
+      "options": {
+        "mine": "Meine Version behalten",
+        "theirs": "Neue Version übernehmen"
+      }
+    },
+    "config_diff_tool": {
+      "description": "Befehl für „Diff ansehen“, mit Platzhaltern %a (aktuelle Datei) und %b (.pacnew). Leer nutzt „diff“ im Terminal-Pager.",
+      "label": "Externer Diff-Betrachter"
+    },
+    "config_include_pacsave": {
+      "description": "Bezieht .pacsave-Dateien (die behaltene Konfiguration eines entfernten Pakets) in die Prüfliste ein, mit Aktionen zum Wiederherstellen und Entfernen.",
+      "label": "Auch .pacsave-Dateien auflisten"
+    },
+    "config_merge_tool": {
+      "description": "Befehl, der statt der eingebauten Zusammenführung geöffnet wird. Platzhalter: %mine %base %theirs %merged. Beispiel: meld %mine %merged %theirs. Leer nutzt die Zusammenführung im Panel.",
+      "label": "Externes Merge-Tool"
+    },
+    "config_notify": {
+      "description": "Eine Benachrichtigung senden, wenn ein Update neue .pacnew-Dateien hinterlässt.",
+      "label": "Über neue .pacnew-Dateien benachrichtigen"
+    },
+    "config_review": {
+      "description": "Nach jeder Prüfung und jedem Update nach pacmans .pacnew-/.pacsave-Dateien suchen und eine 3-Wege-Zusammenführung im Panel anbieten. Aus stoppt auch die Suche und blendet das Leisten-Badge aus.",
+      "label": "Änderungen an .pacnew-Konfigurationsdateien prüfen"
+    },
+    "config_search_paths": {
+      "description": "Absolute Verzeichnisse, die nach .pacnew-/.pacsave-/.pacorig-Dateien durchsucht werden. Standard: /etc.",
+      "label": "Suchpfade für Konfigurationsdateien"
     },
     "flatpak_enabled": {
       "description": "Prüft zusätzlich (und führt beim Aktualisieren) 'flatpak update' aus. Wird automatisch übersprungen, wenn Flatpak nicht installiert ist.",
@@ -163,7 +270,7 @@
       "label": "Terminal"
     },
     "update_cmd": {
-      "description": "Vollständige Überschreibung des im Terminal ausgeführten Befehls beim Aktualisieren. Leer (Standard) baut ihn aus AUR-Helfer, Ignorierliste, Flatpak und „Automatisch mit Ja bestätigen“ oben zusammen.",
+      "description": "Vollständige Überschreibung des Update-Befehls, im Terminal- und im Hintergrundmodus. Leer (Standard) baut ihn aus AUR-Helfer, Ignorierliste und Flatpak-Einstellungen oben zusammen.",
       "label": "Eigener Update-Befehl"
     },
     "update_mode": {
@@ -210,6 +317,11 @@
   "tip_update_terminal": "in einem terminal-Fenster ausführen, in dem prompts und die PKGBUILD ausgabe angezeigt werden",
   "title": "Arch Updater",
   "tooltip_checked": "Geprüft",
+  "tooltip_config_key": "Konfig-Dateien",
+  "tooltip_config_value": {
+    "one": "1 zu prüfen",
+    "other": "{count} zu prüfen"
+  },
   "tooltip_hints": "Klick: Panel · rechts: jetzt prüfen",
   "tooltip_news": "Arch News",
   "tooltip_news_value": {

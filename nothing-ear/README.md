@@ -74,7 +74,7 @@ while the earbuds are your default output.
 
 ```sh
 # Noise control: anc, transparency or off. anc takes an optional strength:
-# high, mid, low or adaptive.
+# high, mid, low or adaptive. Without one it keeps the current strength, or uses adaptive.
 noctalia msg plugin zyrex/nothing-ear:service all set-anc anc:high
 noctalia msg plugin zyrex/nothing-ear:service all cycle-anc
 

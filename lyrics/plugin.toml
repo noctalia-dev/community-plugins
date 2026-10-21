@@ -1,7 +1,7 @@
 id = "h465855hgg/lyrics"
 name = "Lyrics"
-version = "1.5.7"
-plugin_api = 3
+version = "1.5.8"
+plugin_api = 14
 author = "h465855hgg"
 license = "MIT"
 dependencies = ["playerctl", "python3", "cp", "chmod", "timeout"]
@@ -211,6 +211,13 @@ open_near_click = true
 id = "lyrics"
 entry = "lyrics.luau"
 
+# Default pointer bindings, editable per widget under Actions in the bar settings.
+[widget.actions]
+left = "plugin h465855hgg/lyrics:lyrics all toggle-view"
+right = "plugin h465855hgg/lyrics:service all toggle-playback"
+scroll_up = "plugin h465855hgg/lyrics:service all next"
+scroll_down = "plugin h465855hgg/lyrics:service all previous"
+
   [[widget.setting]]
   key = "show_glyph"
   type = "bool"
@@ -272,7 +279,7 @@ entry = "lyrics.luau"
   type = "bool"
   label_key = "settings.double_line.label"
   description_key = "settings.double_line.description"
-  default = true
+  default = false
 
   [[widget.setting]]
   key = "show_translation"

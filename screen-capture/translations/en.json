@@ -1,0 +1,115 @@
+{
+  "notify": {
+    "failed": "Recording failed",
+    "failed_hint": "No file was produced. See the screen-capture log for the recorder's own output.",
+    "launch_failed": "The recorder process could not be launched.",
+    "no_monitor": "No focused monitor was reported by the compositor.",
+    "no_window": "No window matched that direction.",
+    "saved": "Recording saved",
+    "saved_hint": "Saved to:"
+  },
+  "panel": {
+    "cancel": "Cancel",
+    "record": "Record",
+    "audio": {
+      "label": "Audio"
+    },
+    "source": {
+      "label": "What to record",
+      "region": "Region",
+      "window": "Application (window)",
+      "fullscreen": "Full screen"
+    },
+    "title": "Record screen",
+    "webcam": {
+      "label": "Record with camera"
+    }
+  },
+  "plugin_name": "Screen Capture",
+  "settings": {
+    "audio_source": {
+      "description": "Audio stream to record",
+      "label": "Audio Source",
+      "options": {
+        "both": "System Output + Microphone",
+        "default_input": "Microphone",
+        "default_output": "System Output (Desktop)",
+        "none": "No Audio"
+      }
+    },
+    "copy_to_clipboard": {
+      "description": "Copy the file:// path to the clipboard when recording completes",
+      "label": "Copy File URL to Clipboard"
+    },
+    "directory": {
+      "description": "Directory where recordings are saved",
+      "label": "Save Directory"
+    },
+    "filename_pattern": {
+      "description": "Strftime format string for output file names",
+      "label": "Filename Pattern"
+    },
+    "frame_rate": {
+      "description": "Target frame rate",
+      "label": "Frame Rate"
+    },
+    "framerate_mode": {
+      "description": "cfr keeps a constant rate and is what editors expect; vfr only stores frames when the screen changes",
+      "label": "Framerate Mode",
+      "options": {
+        "cfr": "Constant Frame Rate",
+        "vfr": "Variable"
+      }
+    },
+    "hide_inactive": {
+      "description": "Hide the bar widget while nothing is recording",
+      "label": "Hide When Inactive"
+    },
+    "normalize_audio": {
+      "description": "Trim the first frame, mute the first 400ms and normalize loudness to -14 LUFS",
+      "label": "Normalize Audio"
+    },
+    "quality": {
+      "description": "gpu-screen-recorder only accepts these named values; on this GPU only h264 and hevc encode in hardware",
+      "label": "Quality",
+      "options": {
+        "high": "High",
+        "medium": "Medium",
+        "ultra": "Ultra",
+        "very_high": "Very High"
+      }
+    },
+    "show_cursor": {
+      "description": "Include the mouse cursor in the recording",
+      "label": "Show Cursor"
+    },
+    "webcam_device": {
+      "description": "Empty uses the first available camera, for example /dev/video0",
+      "label": "Webcam Device"
+    },
+    "webcam_size": {
+      "description": "Webcam frame size, scaled from the region being recorded",
+      "label": "Webcam Size",
+      "options": {
+        "large": "Large",
+        "medium": "Medium",
+        "small": "Small"
+      }
+    }
+  },
+  "shortcut": {
+    "idle": "Record region",
+    "recording": "Stop recording",
+    "selecting": "Selecting...",
+    "starting": "Starting...",
+    "stopping": "Finalizing..."
+  },
+  "widget": {
+    "idle": "Screen Capture: click to open the recording menu",
+    "recording": "Screen Capture: recording. Click to stop.",
+    "selecting": "Screen Capture: pick a region, click a window, or take the monitor",
+    "starting": "Screen Capture: starting the recorder",
+    "stopping": "Screen Capture: finalizing the file",
+    "unavailable": "Screen Capture: gpu-screen-recorder or slurp is missing"
+  }
+}

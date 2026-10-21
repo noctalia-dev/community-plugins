@@ -205,10 +205,21 @@ def read_cached() -> dict:
 
 
 def write_anc(address: str, mode: str, strength: str | None) -> dict:
-    mode_byte = p.anc_mode_to_byte(mode, strength)
+    # Validate before connecting; a missing anc strength is filled in below.
+    p.anc_mode_to_byte(mode, strength or ("adaptive" if mode == "anc" else None))
     with channel_lock(wait=WRITE_LOCK_WAIT):
         sock = connect(address)
         try:
+            if mode == "anc" and strength is None:
+                # Keep the buds' current strength if ANC is already on, else adaptive.
+                sock.send(p.build_frame(p.ANC_READ, seq=3))
+                current = gather(sock, {p.ANC_RESP}, timeout=1.5)
+                strength = "adaptive"
+                if p.ANC_RESP in current:
+                    now = p.parse_anc(current[p.ANC_RESP].payload)
+                    if now.get("mode") == "anc" and now.get("strength"):
+                        strength = now["strength"]
+            mode_byte = p.anc_mode_to_byte(mode, strength)
             sock.send(p.build_frame(p.ANC_WRITE, p.anc_write_payload(mode_byte), seq=1))
             gather(sock, {p.ANC_WRITE & 0x7FFF}, timeout=1.5)
             sock.send(p.build_frame(p.ANC_READ, seq=2))

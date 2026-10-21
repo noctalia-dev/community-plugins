@@ -41,6 +41,7 @@ body:
         - asus-fan
         - asus-fans-controller-ec
         - asus-gpu-mode
+        - audio-sticker
         - audio-switcher
         - awwwall
         - ayet-kosesi
@@ -169,6 +170,7 @@ body:
         - niri-ribbon
         - niri-rules-studio
         - niri-workspace-preview
+        - niri-workspace-stack
         - nix-monitor
         - nix-search
         - nix-status
@@ -227,6 +229,7 @@ body:
         - rum-updates
         - run-path
         - saved-desktop-widgets
+        - screen-capture
         - screen-toolkit
         - share-wifi
         - sharednd

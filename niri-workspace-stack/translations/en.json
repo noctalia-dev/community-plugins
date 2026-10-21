@@ -1,0 +1,64 @@
+{
+  "panel": {
+    "empty": "empty",
+    "focused": "focused monitor",
+    "title": "Workspaces on {output}"
+  },
+  "settings": {
+    "compact": {
+      "description": "Tighter gaps between indicators and icons.",
+      "label": "Compact spacing"
+    },
+    "display_mode": {
+      "description": "How this bar shows its monitor's workspaces. Navigator is the default; each bar can use a different mode.",
+      "label": "Display mode",
+      "mini_map": "Mini map",
+      "navigator": "Navigator",
+      "numbered_rail": "Numbered rail"
+    },
+    "icon_size": {
+      "label": "Window icon size"
+    },
+    "indicator_size": {
+      "description": "Scales indicators, numbers and spacing. Keep the stack within the bar thickness.",
+      "label": "Indicator size"
+    },
+    "max_windows": {
+      "description": "Maximum window icons shown; the rest collapse into a +N counter. 0 shows all.",
+      "label": "Maximum window icons"
+    },
+    "show_empty": {
+      "description": "Show empty workspaces, including the one niri keeps at the bottom of each monitor.",
+      "label": "Show empty workspaces"
+    },
+    "show_numbers": {
+      "description": "Show the active workspace's number (or name) next to the rail or mini map.",
+      "label": "Show numbers"
+    },
+    "show_windows": {
+      "description": "Show the windows of the active workspace next to the stack.",
+      "label": "Show windows"
+    },
+    "visible_workspaces": {
+      "description": "How many workspaces the rail and mini map show at once, centered on the active one. Limited to what fits the bar height (4 needs compact spacing).",
+      "label": "Visible workspaces"
+    }
+  },
+  "tooltip": {
+    "active_focused": "Active on {output} — the focused monitor",
+    "active_unfocused": "Active on {output} — another monitor has focus",
+    "click_switch": "Click to switch",
+    "empty": "Empty",
+    "navigator": "Position {position} of {total} · scroll to move, click for the list",
+    "urgent": "Needs attention",
+    "window_current": "current window here (keyboard focus is elsewhere) · click to focus",
+    "window_floating": "floating",
+    "window_focused": "has keyboard focus",
+    "window_normal": "click to focus",
+    "windows": {
+      "one": "{count} window: {apps}",
+      "other": "{count} windows: {apps}"
+    },
+    "workspace_title": "Workspace {idx}"
+  }
+}

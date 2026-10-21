@@ -41,6 +41,10 @@ noctalia msg panel-toggle liamwh/emoji-picker:compact
   "euro", "plusminus", or paste a character itself to find it.
 - **Arrows** move the selection, **Enter** copies the selected entry and
   closes the panel, **Escape** closes without copying.
+- Exactly one tile is highlighted: the selected one, which the footer
+  names. Hovering a tile selects it (the footer then shows its name rather
+  than a tooltip), and the pointer leaving a tile never changes the
+  selection, so arrow keys and the mouse never leave two tiles lit.
 - Without a query, the panel shows category tabs along the top — **All**
   plus the nine categories (Smileys & People, Animals & Nature, Food &
   Drink, Activities, Travel & Places, Objects, Symbols, Characters,

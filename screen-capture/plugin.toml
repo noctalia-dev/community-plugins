@@ -1,0 +1,162 @@
+# Screen capture for Noctalia.
+#
+# The capture logic lives in bash under scripts/ and is proven independently of
+# the shell; the Luau entries below only orchestrate it and mirror its state.
+# Every script is a standalone command that talks through files under a runtime
+# directory, so each one can be tested on its own before the plugin is loaded.
+#
+# Capture never uses the xdg-desktop-portal. That backend needs dmabuf EGL
+# import, which fails on this machine (PipeWire "alloc buffers: Invalid
+# argument") and is off by default upstream for the same reason. Region and
+# monitor capture go straight to the compositor instead.
+
+id = "amaurisd97/screen-capture"
+name = "Screen Capture"
+version = "0.1.0"
+plugin_api = 24
+author = "amaurisd97"
+license = "MIT"
+dependencies = ["gpu-screen-recorder", "slurp", "jq", "hyprctl", "hyprpicker", "ffmpeg", "ffprobe", "flock", "mpv", "v4l2-ctl"]
+tags = ["recording", "video", "utility"]
+icon = "video"
+description = "Record the screen, a single window or a region, with webcam and desktop+mic audio."
+
+[[setting]]
+key = "directory"
+type = "folder"
+label_key = "settings.directory.label"
+description_key = "settings.directory.description"
+default = "~/Videos/Recordings"
+
+[[setting]]
+key = "filename_pattern"
+type = "string"
+label_key = "settings.filename_pattern.label"
+description_key = "settings.filename_pattern.description"
+default = "capture_%Y-%m-%d_%H-%M-%S"
+
+[[setting]]
+key = "audio_source"
+type = "select"
+label_key = "settings.audio_source.label"
+description_key = "settings.audio_source.description"
+default = "both"
+options = [
+  { value = "none", label_key = "settings.audio_source.options.none" },
+  { value = "default_output", label_key = "settings.audio_source.options.default_output" },
+  { value = "default_input", label_key = "settings.audio_source.options.default_input" },
+  { value = "both", label_key = "settings.audio_source.options.both" },
+]
+
+[[setting]]
+key = "frame_rate"
+type = "int"
+label_key = "settings.frame_rate.label"
+description_key = "settings.frame_rate.description"
+default = 60
+min = 1
+max = 240
+
+[[setting]]
+key = "framerate_mode"
+type = "select"
+label_key = "settings.framerate_mode.label"
+description_key = "settings.framerate_mode.description"
+default = "cfr"
+options = [
+  { value = "cfr", label_key = "settings.framerate_mode.options.cfr" },
+  { value = "vfr", label_key = "settings.framerate_mode.options.vfr" },
+]
+
+# gpu-screen-recorder's -q is a named preset in QP mode, which is the bitrate
+# mode it defaults to. A numeric value there is rejected.
+[[setting]]
+key = "quality"
+type = "select"
+label_key = "settings.quality.label"
+description_key = "settings.quality.description"
+default = "high"
+options = [
+  { value = "medium", label_key = "settings.quality.options.medium" },
+  { value = "high", label_key = "settings.quality.options.high" },
+  { value = "very_high", label_key = "settings.quality.options.very_high" },
+  { value = "ultra", label_key = "settings.quality.options.ultra" },
+]
+
+[[setting]]
+key = "show_cursor"
+type = "bool"
+label_key = "settings.show_cursor.label"
+description_key = "settings.show_cursor.description"
+default = true
+
+[[setting]]
+key = "normalize_audio"
+type = "bool"
+label_key = "settings.normalize_audio.label"
+description_key = "settings.normalize_audio.description"
+default = true
+
+# Webcam overlay. Deliberately sized from the recorded region, not the monitor,
+# so a window capture keeps the camera inside its own frame.
+[[setting]]
+key = "webcam_size"
+type = "select"
+label_key = "settings.webcam_size.label"
+description_key = "settings.webcam_size.description"
+default = "medium"
+options = [
+  { value = "small", label_key = "settings.webcam_size.options.small" },
+  { value = "medium", label_key = "settings.webcam_size.options.medium" },
+  { value = "large", label_key = "settings.webcam_size.options.large" },
+]
+
+[[setting]]
+key = "webcam_device"
+type = "string"
+label_key = "settings.webcam_device.label"
+description_key = "settings.webcam_device.description"
+default = ""
+
+[[setting]]
+key = "hide_inactive"
+type = "bool"
+label_key = "settings.hide_inactive.label"
+description_key = "settings.hide_inactive.description"
+default = false
+
+[[setting]]
+key = "copy_to_clipboard"
+type = "bool"
+label_key = "settings.copy_to_clipboard.label"
+description_key = "settings.copy_to_clipboard.description"
+default = false
+
+# Headless service. Owns the recording: it runs the picker, spawns the webcam
+# overlay, launches the recorder and finalizes the file. Publishes "status" to
+# the widget and shortcut, and takes commands from "command".
+[[service]]
+id = "service"
+entry = "service.luau"
+
+# Bar widget. Left click starts the interactive picker, right click records the
+# focused monitor straight away or stops an active recording.
+[[widget]]
+id = "widget"
+entry = "widget.luau"
+
+# Control-center tile. Mirrors the widget.
+[[shortcut]]
+id = "toggle"
+entry = "shortcut.luau"
+
+# Pre-recording menu. Left click on the widget or the tile opens it; it asks for
+# the capture source, the audio source and the webcam overlay, publishes the
+# choice to the service, and closes itself so nothing of the menu is recorded.
+[[panel]]
+id = "menu"
+entry = "menu.luau"
+width = 440
+height = 360
+placement = "floating"
+position = "center"

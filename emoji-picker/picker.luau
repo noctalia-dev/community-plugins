@@ -51,12 +51,12 @@ local TIERS = {
 
 local GAP = 6
 
--- Grid fit constants. TILE_CHROME is the out-of-box width ui.button adds
--- to its declared width/height — measured 2026-10-12 as ZERO: a tile
--- declaring 66 logical renders 83px at scale 1.25 (≈66.4 logical, border
--- included) and rows pitch at cell+GAP, so the button paints its padding
--- and border WITHIN the declared box. Kept as a knob only in case a theme
--- ever adds out-of-box chrome; budgeting it non-zero silently costs whole
+-- Grid fit constants. TILE_CHROME is the out-of-box width a tile adds to
+-- its declared width/height. Measured 2026-10-12 as ZERO for the former
+-- ui.button tile (66 logical rendered 83px at scale 1.25, ≈66.4 logical,
+-- border included; rows pitch at cell+GAP), and the column tile declares
+-- the same box with its border inside it. Kept as a knob only in case a
+-- theme ever adds out-of-box chrome; budgeting it non-zero silently costs whole
 -- columns (it did: 5 → 4 on compact). The ui.scroll scrollbar is an
 -- overlay that reserves no width, so rows reserve SCROLLBAR_GUTTER — the
 -- rows are inset half of it on each side (scroll paddingH), which keeps
@@ -632,26 +632,46 @@ end
 -- ── Rendering ──────────────────────────────────────────────────────────
 local render -- forward declaration (closures below call it)
 
+-- `sel` owns the one fill for mouse and keyboard: a native ui.button hover
+-- would add an independent tint, so the tile paints itself as a column.
+-- The footer supplies the name instead of a tooltip.
 local function tile(entry, idx)
-  return ui.button({
+  local selected = idx == sel
+  return ui.column({
     key = "t" .. tostring(idx),
-    text = entry.e,
-    -- Keep each tier's designed glyph/tile ratio as the tile grows to
-    -- fill the row area (tier.glyph was sized for tier.cell).
-    fontSize = math.floor(gridCell * tier.glyph / (tier.cell + TILE_CHROME)),
     width = gridCell - TILE_CHROME,
     height = gridCell - TILE_CHROME,
-    contentAlign = "center",
-    tooltip = entry.n,
+    align = "center",
+    justify = "center",
+    fill = if selected then "primary" else "surface_variant",
+    border = if selected then "primary" else "outline",
+    borderWidth = 1,
+    radius = 6,
     onClick = function()
       commit(entry)
     end,
-    onHover = function()
-      if sel ~= idx then
+    -- Hover callbacks arrive as the STRINGS "true" / "false" (and the key),
+    -- and "false" is truthy in Luau, so compare explicitly. Only entering
+    -- selects: a leave must not undo a keyboard move made while the
+    -- pointer rested on this tile.
+    onHover = function(state)
+      if state == "true" and sel ~= idx then
         sel = idx
         render()
       end
     end,
+  }, {
+    ui.label({
+      key = "e",
+      text = entry.e,
+      -- Keep each tier's designed glyph/tile ratio as the tile grows to
+      -- fill the row area (tier.glyph was sized for tier.cell).
+      fontSize = math.floor(gridCell * tier.glyph / (tier.cell + TILE_CHROME)),
+      maxLines = 1,
+      -- Monochrome symbols take the label colour, so it must contrast
+      -- with the fill; colour-font emoji ignore it.
+      color = if selected then "on_primary" else "on_surface",
+    }),
   })
 end
 

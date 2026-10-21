@@ -401,6 +401,7 @@ local function startHotspot()
       return
     end
 
+    local autostart = noctalia.getConfig("autostart") or false
     local command = table.concat({
       "nmcli device wifi hotspot",
       "ifname " .. shellQuote(iface),
@@ -409,7 +410,13 @@ local function startHotspot()
     }, " ")
 
     runCommand(command, function(result)
-      finishToggle(true, result)
+      if result.exitCode == 0 and not autostart then
+        runCommand("nmcli connection modify " .. shellQuote(ssidOrError) .. " connection.autoconnect no", function()
+          finishToggle(true, result)
+        end, 5000)
+      else
+        finishToggle(true, result)
+      end
     end, 30000)
   end)
 end
@@ -483,7 +490,22 @@ noctalia.state.watch(COMMAND_KEY, function(command)
 end)
 
 publish(available and "" or noctalia.tr("error.missing_dependencies"))
-refresh()
+
+local function checkAutostart()
+  local autostart = noctalia.getConfig("autostart") or false
+  
+  if autostart and not status.active then
+    busy = true
+    publish()
+    startHotspot()
+  elseif not autostart and status.active then
+    busy = true
+    publish()
+    stopHotspot()
+  end
+end
+
+refresh(checkAutostart)
 
 function update()
   local seconds = tonumber(noctalia.getConfig("refresh_interval")) or 5

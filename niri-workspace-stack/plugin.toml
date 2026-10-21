@@ -1,0 +1,121 @@
+# Niri Workspace Stack - a compact view of the bar's own niri workspaces with the active
+# workspace's windows as clickable app icons. Three switchable display modes (experimental):
+# navigator (default: badge + workspace list panel), numbered rail, mini map.
+#
+# Event-driven over `niri msg --json event-stream` (no polling). Clicks resolve niri's stable
+# workspace / window ids against the latest state at click time.
+#
+# plugin_api 32: container tooltips (32), argv runAsync (24), require (22), widget gesture
+# defaults (14), UI closures (9). Works on Noctalia v5.2.0 and newer.
+
+id           = "johnnyp0t/niri-workspace-stack"
+name         = "Niri Workspace Stack"
+version      = "0.3.1"
+plugin_api   = 32
+author       = "johnnyp0t"
+license      = "MIT"
+dependencies = ["niri"]
+icon         = "stack-2"
+description  = "Compact niri workspace stack with the active workspace's windows as app icons; three display modes."
+tags         = ["bar", "indicator", "niri", "productivity"]
+
+[[widget]]
+id    = "stack"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key             = "displayMode"
+  type            = "select"
+  label_key       = "settings.display_mode.label"
+  description_key = "settings.display_mode.description"
+  default         = "navigator"
+  options         = [
+      { value = "navigator",     label_key = "settings.display_mode.navigator" },
+      { value = "numbered_rail", label_key = "settings.display_mode.numbered_rail" },
+      { value = "mini_map",      label_key = "settings.display_mode.mini_map" },
+  ]
+
+  [[widget.setting]]
+  key             = "visible_workspaces"
+  type            = "int"
+  label_key       = "settings.visible_workspaces.label"
+  description_key = "settings.visible_workspaces.description"
+  default         = 3
+  min             = 1
+  max             = 4
+
+  [[widget.setting]]
+  key             = "show_numbers"
+  type            = "bool"
+  label_key       = "settings.show_numbers.label"
+  description_key = "settings.show_numbers.description"
+  default         = true
+
+  [[widget.setting]]
+  key             = "show_windows"
+  type            = "bool"
+  label_key       = "settings.show_windows.label"
+  description_key = "settings.show_windows.description"
+  default         = true
+
+  [[widget.setting]]
+  key             = "show_empty"
+  type            = "bool"
+  label_key       = "settings.show_empty.label"
+  description_key = "settings.show_empty.description"
+  default         = true
+
+  [[widget.setting]]
+  key             = "max_windows"
+  type            = "int"
+  label_key       = "settings.max_windows.label"
+  description_key = "settings.max_windows.description"
+  default         = 8
+  min             = 0
+  max             = 32
+  visible_when    = { key = "show_windows", values = ["true"] }
+
+  [[widget.setting]]
+  key             = "icon_size"
+  type            = "double"
+  label_key       = "settings.icon_size.label"
+  default         = 18.0
+  min             = 12.0
+  max             = 28.0
+  visible_when    = { key = "show_windows", values = ["true"] }
+
+  [[widget.setting]]
+  key             = "indicator_size"
+  type            = "double"
+  label_key       = "settings.indicator_size.label"
+  description_key = "settings.indicator_size.description"
+  default         = 1.0
+  min             = 0.75
+  max             = 1.5
+
+  [[widget.setting]]
+  key             = "compact"
+  type            = "bool"
+  label_key       = "settings.compact.label"
+  description_key = "settings.compact.description"
+  default         = false
+
+  # A left click on the capsule (not on a workspace or window, which handle their own
+  # clicks) opens the navigator list anchored at this widget. In navigator mode the badge
+  # has no click handler of its own, so clicking it opens the list.
+  #
+  # The wheel is deliberately left unbound: widget.luau's onScroll steps this bar's monitor
+  # through `niri msg` (a bound scroll gesture would take the wheel away from the script).
+  [widget.actions]
+  left = "panel-toggle johnnyp0t/niri-workspace-stack:navigator"
+
+# Navigator list. Opened through the widget's gesture binding above, which anchors it at
+# the clicked widget on that bar's output.
+[[panel]]
+id              = "navigator"
+entry           = "panel.luau"
+width           = 380
+height          = 340
+placement       = "attached"
+position        = "auto"
+open_near_click = true

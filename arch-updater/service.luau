@@ -54,9 +54,13 @@ local RUN_POLL_SECONDS = 2
 local RUN_STALE_LIMIT_S = 1800 -- no log growth for this long = the background run is stuck
 local RUN_PID_GRACE_S = 20 -- a terminal run's pidfile has this long to appear before it's given up on
 local TERMINAL_CLOSED_CODE = -2 -- finishRun sentinel: the terminal's process died with no ::EXIT marker
+local LOG_LINE_MAX = 400 -- per-line cap on the live log tail (pollRunLog), in bytes
 local RUN_RESUME_MAX_AGE_S = 6 * 3600 -- older unfinished logs are not resumed
 local AUTO_CHECK_DELAY = 10 -- ticks before an enabled auto-check's first run
 local MAX_LISTED = 300 -- packages kept per source for the panel's expandable list
+local MAX_CONFIG_FILES = 50 -- .pacnew/.pacsave entries kept per scan
+local CONFIG_MERGE_MAX_LINES = 6000 -- a config file larger than this offers only the external tools
+local CONFIG_APPLY_TIMEOUT_MS = 120000
 
 local phase = "idle" -- idle|checking|clean|ready|running|error|missing
 local step = "" -- source label being checked (phase == "checking")
@@ -101,10 +105,18 @@ local runKind = "update" -- update|rollback: what the current run does
 local runMode = "background" -- background|terminal: how the current run was launched
 local runPackages = nil -- packages of the current run, for the history entry
 local probeResult = nil -- cache/required-by info for one run, {at, pkgs}
+local configFiles = {} -- { path, pacpath, kind, pkg, identical, readable } from the last scan
+local configReview = nil -- published merge for the currently-open config file, or nil
+local configReviewData = nil -- full-fidelity { path, pacpath, kind, mode, segments, stat } for apply-time reconstruction
+local configApplyBusy = false
+local configLastPaths = nil -- pacpath set of the previous scan, to spot files a run just created
 
 local startCheck
 local checkNews
 local finishRun
+local configEnabled
+local scanConfigFiles
+local postRunConfigScan
 
 local function cfg(key)
     return noctalia.getConfig(key)
@@ -557,6 +569,14 @@ local function publish()
         logPath = logPath(),
         runExit = runExit,
         progress = { done = runDone, total = runTotal },
+        configReviewEnabled = configEnabled(),
+        configFiles = configFiles,
+        configCount = #configFiles,
+        configReview = configReview,
+        configApplyBusy = configApplyBusy,
+        configMergeTool = trim(cfg("config_merge_tool")) ~= "" and "custom"
+            or (noctalia.commandExists("pacdiff") and "pacdiff" or false),
+        configDefaultResolution = cfg("config_default_resolution") == "theirs" and "theirs" or "mine",
     })
 end
 
@@ -789,6 +809,7 @@ finishCheck = function()
     if total > 0 and cfg("notify_on_updates") == true then
         noctalia.notify(tr("title"), noctalia.trp("notify_updates", total, { count = total }))
     end
+    scanConfigFiles()
 end
 
 -- ── Arch Linux news ──────────────────────────────────────────────────────────
@@ -1026,6 +1047,23 @@ local function flatpakUpdateCommand(flags)
         .. [[if [ -n "$flatpak_refs" ]; then flatpak update]] .. flags .. [[ $flatpak_refs; fi; }]]
 end
 
+-- Joins the run's steps (system upgrade, then Flatpak) so each one runs even
+-- if an earlier one failed: one AUR package that won't build, or a declined
+-- "Proceed with installation?", must not also hold back every Flatpak update
+-- (#1035). The chain still exits with the last failing step's status, so the
+-- run is reported as failed and offers the usual retry.
+local function chainSteps(parts)
+    if #parts == 1 then
+        return parts[1]
+    end
+    local out = { "au_rc=0" }
+    for _, part in ipairs(parts) do
+        table.insert(out, "{ " .. part .. " ; } || au_rc=$?")
+    end
+    table.insert(out, "(exit \"$au_rc\")")
+    return table.concat(out, "; ")
+end
+
 -- The core upgrade command, fully non-interactive. pkexec raises the polkit
 -- password dialog; --noconfirm answers every remaining question with its
 -- default. AUR helpers run as the user and escalate through pkexec themselves
@@ -1054,7 +1092,7 @@ local function buildBackgroundCommand()
         table.insert(parts, flatpakUpdateCommand(" -y --noninteractive"))
     end
 
-    return table.concat(parts, " && ")
+    return chainSteps(parts)
 end
 
 -- Interactive variant, used when update_mode is "terminal" (the default) and
@@ -1086,20 +1124,100 @@ local function buildTerminalCommand()
         -- here, so just make it non-interactive like the background mode.
         table.insert(parts, flatpakUpdateCommand(" -y --noninteractive"))
     end
-    return table.concat(parts, " && ")
+    return chainSteps(parts)
+end
+
+-- pacman/paru draw their live download/install progress bar only when their
+-- own stdout is a terminal; piping it into `tee` for the log (runUpdateTerminal)
+-- makes that stdout a plain pipe, so the bar silently degrades to static
+-- "downloading packages…"/"installing packages…" lines that only resolve once
+-- the whole buffered run ends (#788), even though the run is sitting in the
+-- user's own terminal window the whole time. `script` (util-linux, part of
+-- Arch's `base` group) allocates a real pty for the child so pacman still
+-- sees a terminal: -q keeps script itself silent, -f relays with no extra
+-- buffering of its own, -e passes the child's exit status through as this
+-- script's own, and /dev/null skips script's usual typescript file since
+-- `tee` already keeps the log. Left unwrapped if `script` is somehow missing.
+-- script runs its -c command through $SHELL, which for a fish or nu user
+-- can't parse the POSIX chain above, so it gets /bin/sh for that one exec and
+-- the user's own $SHELL back inside it.
+local function ptyWrap(cmd)
+    if not noctalia.commandExists("script") then
+        return cmd
+    end
+    local inner = "if [ -n \"$AU_SHELL\" ]; then SHELL=$AU_SHELL; export SHELL; fi; unset AU_SHELL; " .. cmd
+    return "AU_SHELL=$SHELL SHELL=/bin/sh script -q -f -e -c " .. shellQuote(inner) .. " /dev/null"
+end
+
+-- Every terminal the plugin opens gets this app id (class) and a fixed,
+-- untranslated title per job, so compositor window rules can target them
+-- (#1034) instead of matching the generic "sh" every launch used to inherit.
+local TERMINAL_APP_ID = "arch-updater"
+local TERMINAL_TITLES = {
+    update = "Arch Updater - Update",
+    log = "Arch Updater - Log",
+    config = "Arch Updater - Config",
+}
+
+-- Per-emulator flags: app id/title switches and what goes before the command
+-- (kitty and foot take it positionally and don't know -e). Emulators missing
+-- here get no extra flags, only the title escape below.
+local function terminalArgs(term, bin, title)
+    local t = shellQuote(title)
+    if bin == "kitty" then
+        return "--class " .. TERMINAL_APP_ID .. " --title " .. t, ""
+    elseif bin == "foot" then
+        return "--app-id=" .. TERMINAL_APP_ID .. " --title=" .. t, ""
+    elseif bin == "alacritty" then
+        return "--class " .. TERMINAL_APP_ID .. " --title " .. t, "-e"
+    elseif bin == "ghostty" then
+        -- Ghostty only accepts a reverse-DNS GTK application id as its class.
+        return "--class=dev.noctalia." .. TERMINAL_APP_ID .. " --title=" .. t, "-e"
+    elseif bin == "wezterm" then
+        -- Only `wezterm start` runs a command; add it unless it's configured.
+        local start = (" " .. term .. " "):find(" start ", 1, true) == nil and "start " or ""
+        return start .. "--class " .. TERMINAL_APP_ID, "--"
+    elseif bin == "xterm" or bin == "uxterm" then
+        return "-class " .. TERMINAL_APP_ID .. " -T " .. t, "-e"
+    elseif bin == "konsole" then
+        return "-p tabtitle=" .. t, "-e"
+    elseif bin == "gnome-terminal" or bin == "kgx" or bin == "ptyxis" then
+        return "", "--"
+    end
+    return "", "-e"
+end
+
+local function terminalBin(term)
+    local first = term:match("^%S+") or term
+    return first:match("([^/]+)$") or first
 end
 
 -- Uses Noctalia's terminal discovery ($TERMINAL, then the usual emulators)
--- unless a terminal is configured.
-local function launchTerminal(cmd)
+-- unless a terminal is configured. A $TERMINAL we know the flags for is
+-- launched directly, so it gets the app id/title too. The title is also set
+-- by escape sequence inside the run, which covers every other emulator.
+local function launchTerminal(cmd, job)
+    local title = TERMINAL_TITLES[job or "log"] or TERMINAL_TITLES.log
+    local titled = "printf '\\033]0;%s\\007' " .. shellQuote(title) .. "; " .. cmd
     local term = trim(cfg("terminal"))
     if term == "" then
-        return noctalia.runInTerminal(cmd)
+        local env = trim(tostring(noctalia.getenv("TERMINAL") or ""))
+        local known = env ~= "" and env:find("%s") == nil and (terminalArgs(env, terminalBin(env), title)) ~= ""
+        if not (known and noctalia.commandExists(env)) then
+            return noctalia.runInTerminal(titled)
+        end
+        term = env
     end
-    local first = term:match("^%S+") or term
-    local bin = first:match("([^/]+)$") or first
-    local separator = (bin == "gnome-terminal" or bin == "kgx" or bin == "ptyxis") and "--" or "-e"
-    return noctalia.runAsync(term .. " " .. separator .. " sh -lc " .. shellQuote(cmd))
+    local flags, separator = terminalArgs(term, terminalBin(term), title)
+    local argv = { term }
+    if flags ~= "" then
+        table.insert(argv, flags)
+    end
+    if separator ~= "" then
+        table.insert(argv, separator)
+    end
+    table.insert(argv, "sh -lc " .. shellQuote(titled))
+    return noctalia.runAsync(table.concat(argv, " "))
 end
 
 -- "Open full log": xdg-open is unreliable for plain text (text/plain often
@@ -1110,7 +1228,7 @@ local function openLog()
     if path == nil then
         return
     end
-    if not launchTerminal("less +G -- " .. shellQuote(path)) then
+    if not launchTerminal("less +G -- " .. shellQuote(path), "log") then
         noctalia.notifyError(tr("title"), tr("err_no_terminal"))
     end
 end
@@ -1192,6 +1310,12 @@ local function beginRun(kind, expectTotal, mode)
     runPollTicks = 0
     logTail = {}
     lastTailText = ""
+    -- Snapshot the .pacnew set now, so the post-run scan can tell which
+    -- files this run created (see postRunConfigScan).
+    configLastPaths = {}
+    for _, entry in ipairs(configFiles) do
+        configLastPaths[entry.pacpath] = true
+    end
     publish()
 end
 
@@ -1255,11 +1379,13 @@ local function runUpdateTerminal()
     local quoted = shellQuote(path)
     -- echo $$ first thing (pidWritePrefix): pollRunLog's pidfile check is how
     -- a closed terminal window gets noticed at all, since closing it SIGHUPs
-    -- the pipeline before the trailing ::EXIT printf ever runs.
+    -- the pipeline before the trailing ::EXIT printf ever runs. ::EXIT starts
+    -- on a fresh line: the run's last output (a prompt, a progress redraw)
+    -- may not end in a newline, and pollRunLog only matches it at line start.
     local wrapped = pidWritePrefix() .. "printf '::START %s\\n' \"$(date +%s)\" > " .. quoted
-        .. "; { " .. buildTerminalCommand() .. "; printf '::EXIT %s\\n' \"$?\" ; } 2>&1 | tee -a " .. quoted
+        .. "; { " .. ptyWrap(buildTerminalCommand()) .. "; printf '\\n::EXIT %s\\n' \"$?\" ; } 2>&1 | tee -a " .. quoted
         .. "; echo; echo " .. shellQuote(tr("run.press_key")) .. "; read -n 1"
-    if not launchTerminal(wrapped) then
+    if not launchTerminal(wrapped, "update") then
         phase = "error"
         errMsg = tr("err_no_terminal")
         publish()
@@ -1346,6 +1472,9 @@ finishRun = function(code)
         clearRunMeta()
         phase = "clean"
         publish()
+        if runKind ~= "rollback" then
+            postRunConfigScan() -- an upgrade may have left .pacnew files behind
+        end
         startCheck() -- verify: phase becomes checking, then clean/ready
     elseif code == TERMINAL_CLOSED_CODE then
         runPackages = nil
@@ -1364,8 +1493,13 @@ finishRun = function(code)
     end
 end
 
+-- The awk in pollRunLog has already cut each line down; this is the cheap
+-- leftover pass (also catches private modes like the bar's ESC[?25l).
 local function stripAnsi(line)
-    return (line:gsub("\27%[[%d;]*[A-Za-z]", ""):gsub("\r", ""))
+    if #line > LOG_LINE_MAX then
+        line = line:sub(1, LOG_LINE_MAX)
+    end
+    return (line:gsub("\27%[[%d;?]*[A-Za-z]", ""):gsub("\r", ""))
 end
 
 -- One `tail` per poll: the last screenful for display plus a full-file
@@ -1380,8 +1514,17 @@ local function pollRunLog()
     end
     local keep = math.max(6, math.min(30, tonumber(cfg("log_lines")) or 14))
     local quoted = shellQuote(path)
+    -- A terminal run's log holds pacman's live progress bar (it gets a pty,
+    -- see ptyWrap): every redraw is a \r on the same line, so one package's
+    -- line can grow past 100 KB, and pattern-matching that in Luau blows the
+    -- callback's CPU budget (#1037). awk keeps only what the terminal finally
+    -- showed (the text after the last \r), drops the escape codes and caps
+    -- the length before any of it reaches Lua. The count allows pacman's
+    -- "( 3/12) " prefix, which only appears with that progress bar.
     local cmd = "tail -n " .. tostring(keep + 8) .. " " .. quoted .. " 2>/dev/null"
-        .. "; printf '::COUNT %s\\n' \"$(grep -cE '^(upgrading|installing|reinstalling|downgrading) |^(Updating|Installing) (app|runtime)/' " .. quoted .. " 2>/dev/null)\""
+        .. " | awk " .. shellQuote("{ sub(/\\r+$/, \"\"); n = split($0, seg, \"\\r\"); s = seg[n]; "
+            .. "gsub(/\\033\\[[0-9;?]*[A-Za-z]/, \"\", s); print substr(s, 1, " .. tostring(LOG_LINE_MAX) .. ") }")
+        .. "; printf '::COUNT %s\\n' \"$(grep -cE '^(\\([ 0-9]+/[ 0-9]+\\) )?(upgrading|installing|reinstalling|downgrading) |^(Updating|Installing) (app|runtime)/' " .. quoted .. " 2>/dev/null)\""
     -- The run's pidfile: prints nothing while it hasn't appeared yet (still
     -- launching), "::ALIVE 1" while the process it names is running,
     -- "::ALIVE 0" once that process is gone - the only way to notice a run
@@ -1717,6 +1860,671 @@ done]]
     end, SIZE_TIMEOUT_MS)
 end
 
+-- ── Config file review (.pacnew / .pacsave) ─────────────────────────────────
+--
+-- pacman writes a package's new default config as <file>.pacnew when the
+-- installed file has local edits, warns once in its log, and never mentions
+-- it again, so new upstream defaults quietly pile up unmerged. This scans
+-- the configured roots for those (plus .pacsave from removed packages and
+-- the rare .pacorig) and drives an in-panel 3-way merge:
+--
+--   mine   = <file>            (the user's edited config, still live)
+--   theirs = <file>.pacnew     (the package's new default)
+--   base   = <file> as shipped by the PREVIOUS package version, pulled from
+--            the pacman cache the same way rollback resolves old packages
+--
+-- diff3 -m applies every non-overlapping change automatically; only regions
+-- both sides touched become a conflict the panel asks about. With no base
+-- in the cache it falls back to a 2-way diff where every hunk is a manual
+-- choice. The merge is computed on demand for one file at a time (like
+-- probeRun), never on every publish().
+
+local CONFIG_SUFFIX = { pacnew = ".pacnew", pacsave = ".pacsave", pacorig = ".pacorig" }
+
+configEnabled = function()
+    return cfg("config_review") ~= false
+end
+
+-- Absolute, no '..', no shell metacharacters: these go onto a find command
+-- line (each still shell-quoted). Anything else is dropped with a log line.
+local function configSearchPaths()
+    local raw = cfg("config_search_paths")
+    local paths = {}
+    if type(raw) == "table" then
+        for _, entry in ipairs(raw) do
+            local p = trim(tostring(entry))
+            if p:match("^/[%w._/-]*$") ~= nil and not p:find("%.%.", 1, true) then
+                table.insert(paths, p ~= "/" and p:gsub("/+$", "") or p)
+            elseif p ~= "" then
+                noctalia.log("arch-updater: ignoring invalid config search path '" .. p .. "'")
+            end
+        end
+    end
+    if #paths == 0 then
+        table.insert(paths, "/etc")
+    end
+    return paths
+end
+
+local function configScanScript()
+    local roots = {}
+    for _, p in ipairs(configSearchPaths()) do
+        table.insert(roots, shellQuote(p))
+    end
+    local names = cfg("config_include_pacsave") ~= false
+            and [[-name '*.pacnew' -o -name '*.pacsave' -o -name '*.pacorig']]
+        or [[-name '*.pacnew' -o -name '*.pacorig']]
+    -- Per hit, tab-separated: the .pac* path, its suffix, whether it is
+    -- byte-identical to the live file, whether both are readable here, and
+    -- the owning package (best effort).
+    return "find " .. table.concat(roots, " ") .. " -type f \\( " .. names .. " \\) 2>/dev/null"
+        .. " | head -n " .. tostring(MAX_CONFIG_FILES) .. [[ | while IFS= read -r f; do
+  base=${f%.*}; suffix=${f##*.}
+  id=no; [ -f "$base" ] && cmp -s "$base" "$f" && id=yes
+  rd=no; [ -r "$f" ] && { [ ! -e "$base" ] || [ -r "$base" ]; } && rd=yes
+  pkg=$(LC_ALL=C pacman -Qoq "$base" 2>/dev/null | head -n 1)
+  printf '%s\t%s\t%s\t%s\t%s\n' "$f" "$suffix" "$id" "$rd" "$pkg"
+done]]
+end
+
+local function parseConfigScan(output)
+    local files = {}
+    for line in (output or ""):gmatch("[^\n]+") do
+        local pacpath, suffix, id, rd, pkg = line:match("^(.-)\t(%a+)\t(%a+)\t(%a+)\t(.-)$")
+        local ext = pacpath ~= nil and CONFIG_SUFFIX[suffix] or nil
+        if ext ~= nil and pacpath:sub(-#ext) == ext then
+            table.insert(files, {
+                path = pacpath:sub(1, #pacpath - #ext),
+                pacpath = pacpath,
+                kind = suffix,
+                identical = id == "yes",
+                readable = rd == "yes",
+                pkg = trim(pkg or ""),
+            })
+        end
+    end
+    return files
+end
+
+scanConfigFiles = function(onDone)
+    if not configEnabled() then
+        configFiles = {}
+        publish()
+        if onDone ~= nil then
+            onDone()
+        end
+        return
+    end
+    local started = noctalia.runAsync(configScanScript(), function(result)
+        if not result.timedOut then
+            configFiles = parseConfigScan(result.stdout)
+        end
+        publish()
+        if onDone ~= nil then
+            onDone()
+        end
+    end, SIZE_TIMEOUT_MS)
+    if not started and onDone ~= nil then
+        onDone()
+    end
+end
+
+local function findConfigEntry(path)
+    for _, entry in ipairs(configFiles) do
+        if entry.path == path or entry.pacpath == path then
+            return entry
+        end
+    end
+    return nil
+end
+
+-- The version whose default config the user started editing: the `from` of
+-- the most recent recorded run that upgraded this package, else a currently
+-- pending update's `from` (for a .pacnew that predates our history).
+local function configBaseHint(pkg)
+    if not validName(pkg) then
+        return nil
+    end
+    loadRuns()
+    for i = #runsHistory, 1, -1 do
+        for _, item in ipairs(runsHistory[i].packages or {}) do
+            if item.name == pkg and item.source ~= "flatpak" and versionOk(tostring(item.from or "")) then
+                return item.from
+            end
+        end
+    end
+    for _, item in ipairs(sources.pacman.items or {}) do
+        if item.name == pkg and versionOk(tostring(item.from or "")) then
+            return item.from
+        end
+    end
+    return nil
+end
+
+-- diff3 -m output: lines outside a <<<<<<< ||||||| ======= >>>>>>> block are
+-- an agreed / one-sided ("stable") segment; each block is a "conflict" with
+-- its mine / base / theirs line lists.
+local function parseDiff3(text)
+    local segments = {}
+    local stable = {}
+    local cur = nil
+    local state = "stable"
+    local flush = function()
+        if #stable > 0 then
+            table.insert(segments, { type = "stable", lines = stable })
+            stable = {}
+        end
+    end
+    for line in (text .. "\n"):gmatch("([^\n]*)\n") do
+        if state == "stable" and line:match("^<<<<<<<") ~= nil then
+            flush()
+            cur = { type = "conflict", mine = {}, base = {}, theirs = {} }
+            state = "mine"
+        elseif state == "mine" and line:match("^|||||||") ~= nil then
+            state = "base"
+        elseif (state == "mine" or state == "base") and line == "=======" then
+            state = "theirs"
+        elseif state == "theirs" and line:match("^>>>>>>>") ~= nil then
+            table.insert(segments, cur)
+            cur, state = nil, "stable"
+        elseif state == "stable" then
+            table.insert(stable, line)
+        elseif state == "mine" then
+            table.insert(cur.mine, line)
+        elseif state == "base" then
+            table.insert(cur.base, line)
+        else
+            table.insert(cur.theirs, line)
+        end
+    end
+    flush()
+    return segments
+end
+
+-- 2-way fallback: `diff` with per-line format prefixes. A run of '<' (mine)
+-- lines followed by '>' (theirs) lines is one conflict; '=' lines are
+-- stable. A bare '<' run is a deletion (theirs empty), a bare '>' run an
+-- addition (mine empty).
+local function parseTwoWay(text)
+    local segments = {}
+    local stable = {}
+    local cur = nil
+    local flushStable = function()
+        if #stable > 0 then
+            table.insert(segments, { type = "stable", lines = stable })
+            stable = {}
+        end
+    end
+    local flushConflict = function()
+        if cur ~= nil then
+            table.insert(segments, cur)
+            cur = nil
+        end
+    end
+    for line in (text .. "\n"):gmatch("([^\n]*)\n") do
+        local tag = line:sub(1, 1)
+        local rest = line:sub(2)
+        if tag == "=" then
+            flushConflict()
+            table.insert(stable, rest)
+        elseif tag == "<" then
+            flushStable()
+            if cur == nil then
+                cur = { type = "conflict", mine = {}, base = {}, theirs = {} }
+            end
+            table.insert(cur.mine, rest)
+        elseif tag == ">" then
+            flushStable()
+            if cur == nil then
+                cur = { type = "conflict", mine = {}, base = {}, theirs = {} }
+            end
+            table.insert(cur.theirs, rest)
+        end
+    end
+    flushConflict()
+    flushStable()
+    return segments
+end
+
+local function countConflicts(segments)
+    local n = 0
+    for _, seg in ipairs(segments) do
+        if seg.type == "conflict" then
+            n += 1
+        end
+    end
+    return n
+end
+
+-- One sh run per opened file: stage mine/theirs, find a base in the cache,
+-- then print metadata markers and the merge payload between ::MERGE and
+-- ::CMEND.
+local function configMergeScript(entry, hint)
+    local dir = noctalia.pluginDataDir()
+    if dir == nil then
+        return nil
+    end
+    local d = shellQuote(dir)
+    local live = shellQuote(entry.path)
+    local pac = shellQuote(entry.pacpath)
+    local pkg = validName(entry.pkg) and shellQuote(entry.pkg) or "''"
+    local hintQ = (hint ~= nil and versionOk(hint)) and shellQuote(hint) or "''"
+    local member = shellQuote((entry.path:gsub("^/+", "")))
+    return FIND_PKG_SH .. "\nDIR=" .. d .. "\nPKG=" .. pkg .. "\nHINT=" .. hintQ .. "\n" .. [[
+cp -- ]] .. live .. [[ "$DIR/cm-mine" 2>/dev/null || : > "$DIR/cm-mine"
+cp -- ]] .. pac .. [[ "$DIR/cm-theirs" 2>/dev/null || { printf '::ERR read\n'; exit 0; }
+: > "$DIR/cm-base"    # cleared so a stale base from a previous file can't leak in
+rm -f "$DIR/cm-merged"
+INST=$(LC_ALL=C pacman -Q "$PKG" 2>/dev/null | awk '{print $2}')
+BASEOK=no
+extract() { bsdtar -xOf "$1" ]] .. member .. [[ > "$DIR/cm-base" 2>/dev/null && [ -s "$DIR/cm-base" ] && BASEOK=yes; }
+if [ -n "$PKG" ] && [ -n "$HINT" ]; then
+  f=$(find_pkg "$PKG" "$HINT") && extract "$f"
+fi
+if [ "$BASEOK" = no ] && [ -n "$PKG" ]; then
+  n=0; one=
+  for g in /var/cache/pacman/pkg/"$PKG"-*.pkg.tar.*; do
+    [ -f "$g" ] || continue
+    case "$g" in *.sig) continue ;; esac
+    case "${g##*/}" in "$PKG"-"$INST"-*) continue ;; esac
+    n=$((n + 1)); one=$g
+  done
+  [ "$n" -eq 1 ] && extract "$one"
+fi
+printf '::PKG %s\n' "$PKG"
+printf '::STAT %s\n' "$(stat -c '%a|%U|%G' ]] .. live .. [[ 2>/dev/null)"
+printf '::LINES %s\n' "$(wc -l < "$DIR/cm-theirs" 2>/dev/null)"
+if [ "$BASEOK" = yes ]; then
+  printf '::MODE 3\n::MERGE\n'
+  diff3 -m -L mine -L base -L theirs "$DIR/cm-mine" "$DIR/cm-base" "$DIR/cm-theirs"
+else
+  printf '::MODE 2\n::MERGE\n'
+  diff --old-line-format='<%l
+' --new-line-format='>%l
+' --unchanged-line-format='=%l
+' "$DIR/cm-mine" "$DIR/cm-theirs"
+fi
+printf '\n::CMEND\n']]
+end
+
+local function publishConfigReview()
+    if configReviewData == nil then
+        configReview = nil
+    else
+        local d = configReviewData
+        configReview = {
+            path = d.path,
+            pacpath = d.pacpath,
+            kind = d.kind,
+            mode = d.mode,
+            base = d.mode == 3,
+            conflicts = countConflicts(d.segments),
+            segments = d.segments,
+            oversize = d.oversize == true,
+            readable = d.readable ~= false,
+        }
+    end
+    publish()
+end
+
+local function openConfigReview(payload)
+    local path = trim(tostring((type(payload) == "table" and payload.path) or ""))
+    local entry = findConfigEntry(path)
+    if entry == nil then
+        return
+    end
+    -- .pacsave / an unreadable file: nothing to merge, the panel just offers
+    -- restore / remove / the external tool.
+    if entry.kind == "pacsave" or not entry.readable then
+        configReviewData = {
+            path = entry.path,
+            pacpath = entry.pacpath,
+            kind = entry.kind,
+            mode = 0,
+            segments = {},
+            readable = entry.readable,
+        }
+        publishConfigReview()
+        return
+    end
+    local script = configMergeScript(entry, configBaseHint(entry.pkg))
+    if script == nil then
+        return
+    end
+    noctalia.runAsync(script, function(result)
+        if result.timedOut then
+            return
+        end
+        local text = result.stdout or ""
+        if text:match("::ERR read") ~= nil then
+            configReviewData = {
+                path = entry.path,
+                pacpath = entry.pacpath,
+                kind = entry.kind,
+                mode = 0,
+                segments = {},
+                readable = false,
+            }
+            publishConfigReview()
+            return
+        end
+        local mode = tonumber(text:match("::MODE (%d)")) or 2
+        local statLine = text:match("::STAT ([^\n]*)") or ""
+        local smode, sowner, sgroup = statLine:match("^(%d*)|([^|]*)|([^|]*)$")
+        local lineCount = tonumber(text:match("::LINES (%d+)")) or 0
+        -- Drop the one trailing newline the payload always carries (diff /
+        -- diff3 end with one, and the ::CMEND marker adds its own), so the
+        -- parsers don't see a spurious empty last line.
+        local payloadText = (text:match("::MERGE\n(.*)\n::CMEND") or ""):gsub("\n$", "")
+        local segments
+        if lineCount > CONFIG_MERGE_MAX_LINES then
+            segments = {}
+        elseif mode == 3 then
+            segments = parseDiff3(payloadText)
+        else
+            segments = parseTwoWay(payloadText)
+        end
+        configReviewData = {
+            path = entry.path,
+            pacpath = entry.pacpath,
+            kind = entry.kind,
+            mode = mode,
+            segments = segments,
+            readable = true,
+            oversize = lineCount > CONFIG_MERGE_MAX_LINES,
+            stat = {
+                mode = (smode ~= nil and smode ~= "") and smode or "644",
+                owner = (sowner ~= nil and sowner:match("^[%w._-]+$")) and sowner or "root",
+                group = (sgroup ~= nil and sgroup:match("^[%w._-]+$")) and sgroup or "root",
+            },
+        }
+        publishConfigReview()
+    end, SIZE_TIMEOUT_MS)
+end
+
+local function closeConfigReview()
+    configReviewData = nil
+    publishConfigReview()
+end
+
+-- Walk the parsed segments, emitting each stable segment verbatim and each
+-- conflict per the panel's choice ("mine" | "theirs" | "both"); an unset
+-- conflict falls back to config_default_resolution.
+local function reconstructMerge(data, choices)
+    local default = cfg("config_default_resolution") == "theirs" and "theirs" or "mine"
+    local out = {}
+    local ci = 0
+    for _, seg in ipairs(data.segments) do
+        if seg.type == "stable" then
+            for _, l in ipairs(seg.lines) do
+                table.insert(out, l)
+            end
+        else
+            ci += 1
+            local choice = (type(choices) == "table" and choices[ci]) or default
+            if choice == "theirs" then
+                for _, l in ipairs(seg.theirs) do
+                    table.insert(out, l)
+                end
+            elseif choice == "both" then
+                for _, l in ipairs(seg.mine) do
+                    table.insert(out, l)
+                end
+                for _, l in ipairs(seg.theirs) do
+                    table.insert(out, l)
+                end
+            else
+                for _, l in ipairs(seg.mine) do
+                    table.insert(out, l)
+                end
+            end
+        end
+    end
+    return table.concat(out, "\n") .. "\n"
+end
+
+-- User-side backup snippet, run before the privileged apply. Returns "" when
+-- backups are off or the target is invalid; the "alongside" mode is folded
+-- into the pkexec script instead (it needs root), see configApply.
+local function configBackupSnippet(entry)
+    if cfg("config_backup") == false then
+        return ""
+    end
+    local target = trim(cfg("config_backup_dir"))
+    if target == "alongside" then
+        return ""
+    end
+    local dir
+    if target == "" then
+        local base = noctalia.pluginDataDir()
+        dir = base ~= nil and (base .. "/config-backups") or nil
+    elseif target:match("^/[%w._/-]+$") ~= nil and not target:find("%.%.", 1, true) then
+        dir = target
+    end
+    if dir == nil then
+        return ""
+    end
+    local safe = entry.path:gsub("^/+", ""):gsub("/", "_")
+    local stamp = os.date("%Y%m%d-%H%M%S")
+    local dq = shellQuote(dir)
+    local glob = shellQuote(dir .. "/" .. safe .. ".") .. "*" .. shellQuote(".bak")
+    local keep = math.max(0, tonumber(cfg("config_backup_keep")) or 10)
+    local prune = ""
+    if keep > 0 then
+        prune = "; ls -1t " .. glob .. " 2>/dev/null | tail -n +" .. tostring(keep + 1)
+            .. " | while IFS= read -r x; do rm -f -- \"$x\"; done"
+    end
+    return "mkdir -p " .. dq .. " && cp -- " .. shellQuote(entry.path) .. " "
+        .. shellQuote(dir .. "/" .. safe .. "." .. stamp .. ".bak") .. prune .. " ; "
+end
+
+local function notifyConfigResult(ok, failMsg)
+    scanConfigFiles(function()
+        closeConfigReview()
+    end)
+    if ok then
+        noctalia.notify(tr("title"), tr("notify_config_applied"))
+    else
+        noctalia.notifyError(tr("title"), failMsg or tr("err_config_apply"))
+    end
+end
+
+-- One privileged step: optional alongside-backup, then install the staged
+-- file (keeping the live file's mode/owner/group) or drop the .pacnew, then
+-- remove the .pac* sibling. Modeled on installPolkitRule: a single pkexec
+-- call, a notification, and a rescan.
+local function configApply(payload)
+    if configApplyBusy or type(payload) ~= "table" then
+        return
+    end
+    if not noctalia.commandExists("pkexec") then
+        noctalia.notifyError(tr("title"), tr("err_no_pkexec"))
+        return
+    end
+    local entry = findConfigEntry(tostring(payload.path or ""))
+    if entry == nil then
+        return
+    end
+    local dir = noctalia.pluginDataDir()
+    if dir == nil then
+        return
+    end
+    local mode = tostring(payload.mode or "merge")
+    local live = shellQuote(entry.path)
+    local pac = shellQuote(entry.pacpath)
+    local alongside = trim(cfg("config_backup_dir")) == "alongside" and cfg("config_backup") ~= false
+    local backupCmd = alongside
+            and ("{ cp -a -- " .. live .. " " .. shellQuote(entry.path .. ".arch-updater.bak") .. " || true; } ; ")
+        or ""
+
+    local userSnippet = ""
+    local inner
+
+    if mode == "remove" then
+        inner = "rm -f -- " .. pac
+    elseif mode == "restore" then
+        -- .pacsave back into place (the base file is usually gone with its
+        -- package), then drop the sibling.
+        inner = "cp -a -- " .. pac .. " " .. live .. " && rm -f -- " .. pac
+    elseif mode == "theirs" then
+        local d = configReviewData
+        local st = (d ~= nil and d.path == entry.path and d.stat)
+            or { mode = "644", owner = "root", group = "root" }
+        userSnippet = configBackupSnippet(entry)
+        inner = backupCmd
+            .. "install -m " .. st.mode .. " -o " .. st.owner .. " -g " .. st.group .. " -- "
+            .. pac .. " " .. live .. " && rm -f -- " .. pac
+    elseif mode == "external" then
+        -- Whatever the external merge tool wrote to cm-merged.
+        local d = configReviewData
+        local st = (d ~= nil and d.path == entry.path and d.stat)
+            or { mode = "644", owner = "root", group = "root" }
+        local staged = dir .. "/cm-merged"
+        userSnippet = configBackupSnippet(entry)
+        inner = "test -s " .. shellQuote(staged) .. " || { echo 'no external result'; exit 1; }; "
+            .. backupCmd
+            .. "install -m " .. st.mode .. " -o " .. st.owner .. " -g " .. st.group .. " -- "
+            .. shellQuote(staged) .. " " .. live .. " && rm -f -- " .. pac
+    else -- "merge"
+        local d = configReviewData
+        if d == nil or d.path ~= entry.path or d.mode == 0 then
+            return
+        end
+        local merged = reconstructMerge(d, payload.choices)
+        local staged = dir .. "/cm-merged"
+        noctalia.writeFile(staged, merged)
+        local st = d.stat or { mode = "644", owner = "root", group = "root" }
+        userSnippet = configBackupSnippet(entry)
+        inner = backupCmd
+            .. "install -m " .. st.mode .. " -o " .. st.owner .. " -g " .. st.group .. " -- "
+            .. shellQuote(staged) .. " " .. live .. " && rm -f -- " .. pac
+    end
+
+    configApplyBusy = true
+    publish()
+    local cmd = userSnippet .. "pkexec sh -c " .. shellQuote("set -e; " .. inner)
+    local started = noctalia.runAsync(cmd, function(result)
+        configApplyBusy = false
+        if result.exitCode == 0 then
+            notifyConfigResult(true)
+        elseif result.exitCode == 126 or result.exitCode == 127 then
+            -- 126/127: the polkit dialog was dismissed or auth failed.
+            publish()
+        else
+            notifyConfigResult(false)
+        end
+    end, CONFIG_APPLY_TIMEOUT_MS)
+    if not started then
+        configApplyBusy = false
+        publish()
+    end
+end
+
+local function configTokens(templateRaw, map)
+    return (templateRaw:gsub("%%(%a+)", function(name)
+        return map[name] ~= nil and shellQuote(map[name]) or ("%" .. name)
+    end))
+end
+
+-- Open the file in an external merge / diff tool. The built-in engine has
+-- already staged cm-mine / cm-theirs (and cm-base when a base was found);
+-- point the tool at those so it never has to read /etc twice.
+local function configExternal(payload)
+    local entry = findConfigEntry(tostring(type(payload) == "table" and payload.path or ""))
+    if entry == nil then
+        return
+    end
+    local dir = noctalia.pluginDataDir()
+    local tool = trim(cfg("config_merge_tool"))
+    local cmd
+    if tool ~= "" and dir ~= nil then
+        -- Seed cm-merged with the engine's own auto-merge, so a tool that
+        -- edits the "merged" file in place starts from a sane result and a
+        -- straight save (no edits) still does the right thing.
+        local d = configReviewData
+        if d ~= nil and d.path == entry.path and d.mode ~= 0 then
+            noctalia.writeFile(dir .. "/cm-merged", reconstructMerge(d, nil))
+        end
+        cmd = configTokens(tool, {
+            mine = dir .. "/cm-mine",
+            theirs = dir .. "/cm-theirs",
+            base = dir .. "/cm-base",
+            merged = dir .. "/cm-merged",
+        })
+    elseif noctalia.commandExists("pacdiff") then
+        -- pacdiff finds the sibling itself and escalates through sudo.
+        local prog = trim(cfg("config_diff_tool"))
+        cmd = (prog ~= "" and ("DIFFPROG=" .. shellQuote(prog) .. " ") or "") .. "pacdiff"
+    else
+        noctalia.notifyError(tr("title"), tr("err_no_merge_tool"))
+        return
+    end
+    if not launchTerminal(cmd, "config") then
+        noctalia.notifyError(tr("title"), tr("err_no_terminal"))
+    end
+    -- The external tool runs in its own window; the panel's refresh button
+    -- and the next check pick up whatever it changed.
+end
+
+local function configDiff(payload)
+    local entry = findConfigEntry(tostring(type(payload) == "table" and payload.path or ""))
+    if entry == nil then
+        return
+    end
+    local a, b = shellQuote(entry.path), shellQuote(entry.pacpath)
+    local tool = trim(cfg("config_diff_tool"))
+    local cmd
+    if entry.kind == "pacsave" or not entry.readable then
+        -- The base file is gone (removed package) or unreadable here: just
+        -- show the saved file.
+        cmd = "less -- " .. b
+    elseif tool ~= "" then
+        cmd = configTokens(tool, { a = entry.path, b = entry.pacpath })
+    else
+        cmd = "{ diff -u -- " .. a .. " " .. b .. "; true; } | less"
+    end
+    if not launchTerminal(cmd, "config") then
+        noctalia.notifyError(tr("title"), tr("err_no_terminal"))
+    end
+end
+
+-- After an update run: rescan, tell the user about any .pacnew the run just
+-- created, and (opt-in) sweep away ones byte-identical to the live file in a
+-- single pkexec.
+postRunConfigScan = function()
+    if not configEnabled() then
+        return
+    end
+    scanConfigFiles(function()
+        local fresh = {}
+        local identical = {}
+        for _, entry in ipairs(configFiles) do
+            if entry.kind == "pacnew" then
+                if type(configLastPaths) == "table" and not configLastPaths[entry.pacpath] then
+                    table.insert(fresh, entry)
+                end
+                if entry.identical then
+                    table.insert(identical, entry.pacpath)
+                end
+            end
+        end
+        if #fresh > 0 and cfg("config_notify") ~= false then
+            noctalia.notify(tr("title"), noctalia.trp("notify_config_new", #fresh, { count = #fresh }))
+        end
+        if #identical > 0 and cfg("config_auto_remove_identical") == true and noctalia.commandExists("pkexec") then
+            local args = {}
+            for _, p in ipairs(identical) do
+                table.insert(args, shellQuote(p))
+            end
+            noctalia.runAsync("pkexec rm -f -- " .. table.concat(args, " "), function(result)
+                if result.exitCode == 0 then
+                    scanConfigFiles()
+                end
+            end, CONFIG_APPLY_TIMEOUT_MS)
+        end
+    end)
+end
+
 -- ── Requests, lifecycle ──────────────────────────────────────────────────────
 
 -- Persists in IGNORE_FILE and takes effect immediately by moving the
@@ -1818,6 +2626,18 @@ local function handle(action, payload)
         publish()
     elseif action == "open_news" then
         openNews()
+    elseif action == "config_scan" then
+        scanConfigFiles()
+    elseif action == "config_open" then
+        openConfigReview(payload)
+    elseif action == "config_close" then
+        closeConfigReview()
+    elseif action == "config_apply" then
+        configApply(payload)
+    elseif action == "config_external" then
+        configExternal(payload)
+    elseif action == "config_diff" then
+        configDiff(payload)
     end
 end
 
@@ -1841,6 +2661,7 @@ end)
 --   noctalia msg plugin yuuto/arch-updater:service all dismiss
 --   noctalia msg plugin yuuto/arch-updater:service all ignore:NAME
 --   noctalia msg plugin yuuto/arch-updater:service all unignore:NAME
+--   noctalia msg plugin yuuto/arch-updater:service all config_scan
 function onIpc(event, payload)
     local action, arg = tostring(event):match("^(%w+):(.+)$")
     if action ~= nil then
@@ -1908,3 +2729,4 @@ end
 publish()
 resumeRunIfActive()
 checkPolkitRule()
+scanConfigFiles()

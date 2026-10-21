@@ -308,15 +308,21 @@ rev = "203aaef232cb47ba37c9b32af82f27225ea1916e"
 [[plugin]]
 id = "h465855hgg/lyrics"
 name = "Lyrics"
-version = "1.5.7"
-updated_at = 1792531543
+version = "1.5.8"
+updated_at = 1792587743
 added_at = 1784238037
 author = "h465855hgg"
 license = "MIT"
 icon = "music"
 description = "Synchronized lyrics with karaoke highlighting, animated transitions, and flexible lyric sources."
-plugin_api = 3
+plugin_api = 14
 tags = ["bar", "panel", "service", "music", "media", "animation"]
+
+[[plugin.release]]
+plugin_api = 3
+version = "1.5.7"
+updated_at = 1792531543
+rev = "87cd6e76931e69eb15c2de241ca27ce96ef3799e"
 
 [[plugin]]
 id = "whyoolw/dropwall"
@@ -805,8 +811,8 @@ tags = ["hardware", "utility", "desktop", "panel"]
 [[plugin]]
 id = "cleboost/hotspot"
 name = "Wi-Fi Hotspot"
-version = "1.1.0"
-updated_at = 1786612400
+version = "1.1.1"
+updated_at = 1792588716
 added_at = 1785174978
 author = "Cleboost"
 license = "MIT"
@@ -818,13 +824,13 @@ tags = ["network", "bar", "panel", "service", "shortcut", "utility", "system", "
 [[plugin]]
 id = "yuuto/arch-updater"
 name = "Arch Updater"
-version = "2.0.3"
-updated_at = 1788468899
+version = "2.1.0"
+updated_at = 1792590457
 added_at = 1785208995
 author = "yuuto"
 license = "MIT"
 icon = "package"
-description = "Check pacman, AUR and Flatpak updates, then upgrade in a terminal or in the background, with run history and rollback."
+description = "Check pacman, AUR and Flatpak updates, upgrade in a terminal or background, with rollback and .pacnew review."
 plugin_api = 9
 tags = ["arch", "bar", "panel", "launcher", "system", "utility"]
 
@@ -876,15 +882,21 @@ tags = ["launcher", "network", "utility", "development"]
 [[plugin]]
 id = "dunarand/bookmarks"
 name = "Bookmarks"
-version = "1.3.1"
-updated_at = 1785965768
+version = "1.3.2"
+updated_at = 1792587716
 added_at = 1785350683
 author = "dunarand"
 license = "MIT"
 icon = "bookmark"
 description = "A user-defined list of bookmarks. Each item has a label, a glyph, and a shell command."
-plugin_api = 13
+plugin_api = 33
 tags = ["launcher", "panel", "productivity", "utility"]
+
+[[plugin.release]]
+plugin_api = 13
+version = "1.3.1"
+updated_at = 1785965768
+rev = "87624091e4fa189c552b045482020f6644112533"
 
 [[plugin]]
 id = "dunarand/tmux-provider"
@@ -2216,8 +2228,8 @@ tags = ["bar", "panel", "niri", "utility"]
 [[plugin]]
 id = "liamwh/emoji-picker"
 name = "Emoji & Symbol Picker"
-version = "1.2.0"
-updated_at = 1792154981
+version = "1.2.1"
+updated_at = 1792588786
 added_at = 1788473658
 author = "liamwh"
 license = "MIT"
@@ -2507,8 +2519,8 @@ tags = ["bar", "desktop", "panel", "service", "animation", "media", "network", "
 [[plugin]]
 id = "prponkshe/umbriel-displays"
 name = "Umbriel Displays"
-version = "1.0.2"
-updated_at = 1792531218
+version = "1.0.3"
+updated_at = 1792588740
 added_at = 1789086907
 author = "prponkshe"
 license = "MIT"
@@ -3859,8 +3871,8 @@ tags = ["bar", "panel", "service", "launcher", "desktop", "indicator", "privacy"
 [[plugin]]
 id = "zyrex/nothing-ear"
 name = "Nothing Ear"
-version = "0.1.0"
-updated_at = 1792534252
+version = "0.1.1"
+updated_at = 1792588827
 added_at = 1792534252
 author = "zyrex"
 license = "MIT"
@@ -3868,3 +3880,42 @@ icon = "headphones"
 description = "Battery, noise control, EQ and auto mono audio for Nothing and CMF earbuds, controlled directly over Bluetooth."
 plugin_api = 28
 tags = ["audio", "bar", "panel", "desktop", "service", "hardware", "indicator"]
+
+[[plugin]]
+id = "amaurisd97/screen-capture"
+name = "Screen Capture"
+version = "0.1.0"
+updated_at = 1792588666
+added_at = 1792588666
+author = "amaurisd97"
+license = "MIT"
+icon = "video"
+description = "Record the screen, a single window or a region, with webcam and desktop+mic audio."
+plugin_api = 24
+tags = ["recording", "video", "utility"]
+
+[[plugin]]
+id = "johnnyp0t/niri-workspace-stack"
+name = "Niri Workspace Stack"
+version = "0.3.1"
+updated_at = 1792589522
+added_at = 1792589522
+author = "johnnyp0t"
+license = "MIT"
+icon = "stack-2"
+description = "Compact niri workspace stack with the active workspace's windows as app icons; three display modes."
+plugin_api = 32
+tags = ["bar", "indicator", "niri", "productivity"]
+
+[[plugin]]
+id = "miixz/audio-sticker"
+name = "Audio Reactive Sticker"
+version = "1.1.1"
+updated_at = 1792592381
+added_at = 1792589793
+author = "miixz"
+license = "MIT"
+icon = "photo"
+description = "Desktop sticker that fades in and out with audio playback."
+plugin_api = 24
+tags = ["desktop", "audio", "animation"]
