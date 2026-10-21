@@ -709,7 +709,18 @@ local function listView()
 			for rowIndex, result in ipairs(results) do
 				table.insert(rows, searchResultRow(result, rowIndex))
 			end
-			table.insert(children, ui.scroll({ flexGrow = 1, gap = 2 }, rows))
+			-- `revealKey` (plugin_api >= 33) keeps the keyboard selection in
+			-- view: the scroll brings the child with that key into the
+			-- viewport whenever it changes.
+			table.insert(
+				children,
+				ui.scroll({
+					key = "search-scroll",
+					flexGrow = 1,
+					gap = 2,
+					revealKey = selectedIndex and ("search-" .. selectedIndex) or nil,
+				}, rows)
+			)
 		end
 		return ui.column({ gap = 10, padding = 14, flexGrow = 1 }, children)
 	end
@@ -791,7 +802,28 @@ local function listView()
 		if editMode and count > 0 then
 			table.insert(rows, insertionGap(count, "after"))
 		end
-		table.insert(children, ui.scroll({ flexGrow = 1, gap = 2 }, rows))
+		-- Keep the keyboard selection in view. The key must match the
+		-- scroll's direct child for that row, which is the folder drop-zone
+		-- wrapper ("into-N") for root folders in edit mode, else the row
+		-- itself ("bm-N") - see entryRow / folderDropTarget.
+		local revealKey = nil
+		local selectedEntry = selectedIndex and list[selectedIndex]
+		if selectedEntry ~= nil then
+			if entryType(selectedEntry) == "folder" and editMode and currentFolder == nil then
+				revealKey = "into-" .. selectedIndex
+			else
+				revealKey = "bm-" .. selectedIndex
+			end
+		end
+		table.insert(
+			children,
+			ui.scroll({
+				key = "list-scroll-" .. tostring(currentFolder or 0),
+				flexGrow = 1,
+				gap = 2,
+				revealKey = revealKey,
+			}, rows)
+		)
 	end
 
 	if currentFolder ~= nil then

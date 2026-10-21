@@ -15,7 +15,7 @@ and a shell command to execute. You can backup your bookmarks as well!
 
 ## Requirements
 
-- Noctalia v5.0.0 or higher
+- Noctalia v5.3.0 or higher
 - `nohup` (Optional): For "Run in background" wrapper toggle
 
 ## IPC & Keybinds
@@ -204,3 +204,9 @@ The plugin itself has the following settings:
     - It was also causing the scroll bar to render incorrectly
     - The fix introduces a new bug where navigating items via keybinds doesn't trigger scrolling.
     This issue will be fixed in future
+
+### v1.3.2
+
+- Fixed the issue where keyboard navigation would not auto-scroll. The issue has been fixed with
+  changes introduced with Noctalia v5.3.0 plugin API 33 so newer versions of bookmarks, including
+  this patch, now requires Noctalia v5.3.0 or higher
