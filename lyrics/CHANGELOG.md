@@ -7,6 +7,8 @@
   using the service's selected MPRIS player, and only the hovered lyrics widget
   changes view on left click when several instances are active.
 - Raise `plugin_api` to 14, required for widget gesture defaults.
+- Turn double-line lyrics off by default. Existing widgets with an explicit
+  `double_line = true` setting keep the second line.
 
 ## 1.5.7
 

@@ -279,7 +279,7 @@ scroll_down = "plugin h465855hgg/lyrics:service all previous"
   type = "bool"
   label_key = "settings.double_line.label"
   description_key = "settings.double_line.description"
-  default = true
+  default = false
 
   [[widget.setting]]
   key = "show_translation"
