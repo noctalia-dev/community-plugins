@@ -19,6 +19,9 @@
   log per-source diagnostics instead of silently showing no lyrics.
 - Normalize control characters in MPRIS metadata from Electron/Chromium-based
   players such as the QQ Music Flatpak.
+- Report a clear diagnostic when `python3` lacks the `_ssl` module, and check
+  HTTPS support in `setup-deps.sh`, instead of treating every source as a
+  generic network failure.
 
 ## 1.5.7
 

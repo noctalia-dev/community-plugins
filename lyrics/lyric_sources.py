@@ -13,6 +13,12 @@ import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 
+try:
+    import ssl  # noqa: F401
+    SSL_AVAILABLE = True
+except ImportError:
+    SSL_AVAILABLE = False
+
 from music_sources import CatalogueClient, decode_lyric, direct_song
 
 
@@ -29,6 +35,10 @@ CREDIT_LINE = re.compile(r"^(词|曲|作词|作曲|编曲|制作人|lyricist|com
 
 def empty(source, *diag):
     return {"type": "none", "source": source, "lines": [], "diag": list(diag)}
+
+
+def ssl_missing(source):
+    return empty(source, "python3: missing ssl module (_ssl); install full python3, not python3-minimal")
 
 
 def clean_text(value):
@@ -988,12 +998,14 @@ def main():
                         response = empty(source, "request: unknown source")
                     elif not clean_text(track.get("title")):
                         response = empty(source, "request: track title required")
+                    elif not SSL_AVAILABLE and source not in ("splayer", "qishui"):
+                        response = ssl_missing(source)
                     else:
                         response = adapter(track, credentials, options)
             except urllib.error.HTTPError as error:
                 response = empty(source, "source: HTTP " + str(error.code))
             except (urllib.error.URLError, TimeoutError):
-                response = empty(source, "source: network failure")
+                response = ssl_missing(source) if not SSL_AVAILABLE else empty(source, "source: network failure")
             except (ValueError, ET.ParseError):
                 response = empty(source, "source: invalid response")
             except Exception:

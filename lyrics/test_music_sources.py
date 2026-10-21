@@ -1,5 +1,8 @@
 import base64
+import io
 import json
+import os
+import tempfile
 import unittest
 import urllib.error
 from unittest import mock
@@ -155,6 +158,23 @@ class ProviderRequestsTest(unittest.TestCase):
         self.assertEqual(result["type"], "none")
         self.assertNotIn("secret", str(result["diag"]))
         self.assertLessEqual(request.call_count, 4)
+
+
+class MainTest(unittest.TestCase):
+    @mock.patch("lyric_sources.SSL_AVAILABLE", False)
+    def test_missing_ssl_has_actionable_diagnostic(self):
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as handle:
+            json.dump({"source": "lrclib", "track": {"title": "Song", "artist": "Artist"}}, handle)
+            request_path = handle.name
+            self.addCleanup(lambda: os.path.exists(request_path) and os.remove(request_path))
+
+        with mock.patch("sys.argv", ["lyric_sources.py", request_path]), \
+                mock.patch("sys.stdout", new_callable=io.StringIO) as output:
+            lyrics.main()
+
+        result = json.loads(output.getvalue())
+        self.assertEqual(result["type"], "none")
+        self.assertIn("missing ssl module (_ssl)", result["diag"][0])
 
 
 if __name__ == "__main__":

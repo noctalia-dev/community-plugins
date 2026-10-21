@@ -28,7 +28,12 @@ Check:
 
 ```sh
 sh scripts/setup-deps.sh --check
+python3 -c 'import ssl; print(ssl.OPENSSL_VERSION)'
 ```
+
+The second command must print an OpenSSL version. A Python build without the
+`_ssl` module cannot fetch HTTPS lyrics; on NixOS use `pkgs.python3`, not
+`pkgs.python3Minimal`.
 
 Omit `--check` to install automatically after detecting the package manager.
 
