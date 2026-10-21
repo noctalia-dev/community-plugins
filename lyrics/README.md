@@ -80,8 +80,8 @@ python3 .github/workflows/scripts/validate-plugins.py
 noctalia plugins lint lyrics
 sh lyrics/scripts/setup-deps.sh --check
 cd lyrics
-python3 -m py_compile lyric_sources.py krc_decode.py lrclib_lyric.py
-python3 -m unittest test_lyric_sources.py
+python3 -m py_compile lyric_sources.py music_sources.py krc_decode.py lrclib_lyric.py
+python3 -m unittest discover -v
 ```
 
 ## Lyrics model
@@ -107,13 +107,14 @@ IDs are:
 
 - `lrclib`: public LRCLIB search with automatic synchronized-result ranking and
   manual result selection.
-- `netease`: public NetEase search, synchronized lyrics, translations, and
-  romanization when returned.
+- `netease`: public NetEase cloud search and lyric endpoint with legacy
+  fallback, synchronized lyrics, translations, and romanization when returned.
 - `splayer`: SPlayer's complete current lyric data, including line and word
   timing, translations, romanization, background lines, and duet markers.
   SPlayer must be running; the default API URL is `http://127.0.0.1:25884`.
   Changing this URL sends current track metadata to the configured service.
-- `qqmusic`: public QQ Music search and lyric endpoint.
+- `qqmusic`: QQ Music desktop catalogue search and lyric endpoint with legacy
+  endpoint fallback.
 - `kugou`: public Kugou search and lyric download endpoint.
 - `qishui`: user-configured HTTP endpoint supporting `{title}`, `{artist}`, and
   `{album}` placeholders.

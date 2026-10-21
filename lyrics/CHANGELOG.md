@@ -9,6 +9,16 @@
 - Raise `plugin_api` to 14, required for widget gesture defaults.
 - Turn double-line lyrics off by default. Existing widgets with an explicit
   `double_line = true` setting keep the second line.
+- Use the QQ Music desktop catalogue and lyric endpoints, with the legacy
+  endpoints as fallback, and prefer NetEase cloud search plus the newer lyric
+  endpoint. This restores lyrics when the old endpoints fail or return empty
+  results.
+- Match catalogue entries by artist, version, and duration, and try additional
+  matched entries when the first one has no lyrics.
+- Retry the same track with exponential backoff after every source fails, and
+  log per-source diagnostics instead of silently showing no lyrics.
+- Normalize control characters in MPRIS metadata from Electron/Chromium-based
+  players such as the QQ Music Flatpak.
 
 ## 1.5.7
 
