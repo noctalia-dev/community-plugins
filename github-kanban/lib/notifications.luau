@@ -5,7 +5,22 @@ local Notifications = {}
 -- gh performs this projection outside the Luau callback's 25 ms CPU budget.
 local fields = "{id, updated_at, unread, last_read_at, reason, subject: (.subject | {title, url, type}), repository: (.repository | {full_name})}"
 local projection = 'if type == "array" then map(' .. fields .. ') elif type == "object" and has("id") then ' .. fields .. ' else . end'
-local idleInterval, busyInterval, readTimeout = 5000, 16, 120
+local idleInterval, busyInterval, requestTimeout = 5000, 16, 120
+
+local function validSnapshot(items)
+  if type(items) ~= "table" then return false end
+  local count = 0
+  for index, item in pairs(items) do
+    if type(index) ~= "number" or index < 1 or index % 1 ~= 0 or type(item) ~= "table"
+      or type(item.unread) ~= "boolean" then return false end
+    for _, field in ipairs({ "id", "title", "reason", "type", "repository", "url", "updatedAt", "lastReadAt" }) do
+      if type(item[field]) ~= "string" then return false end
+    end
+    if not item.id:match("^%d+$") then return false end
+    count = count + 1
+  end
+  return count == #items
+end
 
 local function copy(item)
   local result = {}
@@ -35,7 +50,7 @@ function Notifications.new(env, Data, clock)
   local account, generation = nil, 0
   local serverItems, serverUnread, overrides, pageCache = {}, {}, {}, {}
   local queue, writeBusy, readBusy = {}, false, false
-  local activeWriteId
+  local activeWriteId, activeWrite
   local nextPoll, nextAllowed, queuedRefresh = 0, 0, false
   local revision, failures, lastUpdate = 0, 0, 0
   local readError, writeErrors = "", {}
@@ -50,10 +65,13 @@ function Notifications.new(env, Data, clock)
 
   local function synced() return env.getConfig("notification_sync_mode") == "synced" end
   local function tickInterval(ms) env.setUpdateInterval(ms) end
+  local function updateTicker()
+    tickInterval((readJob or (not writeBusy and #queue > 0)) and busyInterval or idleInterval)
+  end
   local function activeRead(serial) return readBusy and serial == readSerial end
   local function scheduleRead(serial, callback)
     if not activeRead(serial) then return end
-    readDeadline = now() + readTimeout
+    readDeadline = now() + requestTimeout
     readJob = coroutine.create(callback)
     tickInterval(busyInterval)
   end
@@ -130,8 +148,15 @@ function Notifications.new(env, Data, clock)
     local limited = lower:find("rate limit", 1, true) or lower:find("rate-limit", 1, true) or lower:find("429", 1, true)
     env.state.set("notifications_status", limited and "rate_limited" or (auth and "auth_error" or "error"))
   end
-  local function identity(callback)
-    run({ "gh", "api", "--hostname", "github.com", "user", "--jq", ".login" }, function(result)
+  local function failRead(failure)
+    readSerial, readBusy, readJob = readSerial + 1, false, nil
+    failures = math.min(failures + 1, 4)
+    nextAllowed = math.max(nextAllowed, now() + 60 * 2 ^ (failures - 1))
+    queuedRefresh, readError = true, failure
+    statusError(readError); publish(); updateTicker()
+  end
+  local function identity(callback, runner)
+    (runner or run)({ "gh", "api", "--hostname", "github.com", "user", "--jq", ".login" }, function(result)
       local login = tostring(result.stdout or ""):match("^%s*([%w%-]+)%s*$")
       if result.exitCode ~= 0 or not login then callback(nil, message(result)); return end
       callback(string.lower(login))
@@ -140,11 +165,13 @@ function Notifications.new(env, Data, clock)
   local function setAccount(login)
     if account == login then return end
     account, generation = login, generation + 1
+    -- Old-account commands may finish later; their tokens no longer own a slot.
+    writeBusy, activeWriteId, activeWrite = false, nil, nil
     serverItems, serverUnread, overrides, pageCache, queue = {}, {}, {}, {}, {}
     writeErrors, lastUpdate, revision = {}, 0, 0
-    if type(cached) == "table" and cached.schema == 1 and cached.login == login then
-      serverItems = type(cached.items) == "table" and cached.items or {}
-      serverUnread = type(cached.unread) == "table" and cached.unread or {}
+    if type(cached) == "table" and cached.schema == 1 and cached.login == login
+      and validSnapshot(cached.items) and validSnapshot(cached.unread) then
+      serverItems, serverUnread = cached.items, cached.unread
       lastUpdate = tonumber(cached.last_update) or 0
       for id, record in pairs(type(cached.overrides) == "table" and cached.overrides or {}) do
         if type(record) == "table" and type(record.updatedAt) == "string" and not record.pending
@@ -157,6 +184,7 @@ function Notifications.new(env, Data, clock)
     end
     cached = nil
     publish()
+    updateTicker()
   end
   local function pollHeaders(headers)
     nextAllowed = math.max(nextAllowed, now() + math.max(60, tonumber(headers["x-poll-interval"]) or 60))
@@ -197,7 +225,7 @@ function Notifications.new(env, Data, clock)
           coroutine.yield()
           for i, item in ipairs(raw) do
             if type(item) ~= "table" or not tostring(item.id or ""):match("^%d+$")
-              or type(item.updated_at) ~= "string" then
+              or type(item.updated_at) ~= "string" or type(item.unread) ~= "boolean" then
               callback(nil, env.tr("status.unexpected_data")); return
             end
             normalized[#normalized + 1] = Data.notification(item)
@@ -223,7 +251,7 @@ function Notifications.new(env, Data, clock)
     queuedRefresh, readBusy = false, true
     readSerial = readSerial + 1
     local serial = readSerial
-    readDeadline = now() + readTimeout
+    readDeadline = now() + requestTimeout
     nextPoll = now() + interval()
     if not env.commandExists("gh") then
       readBusy = false; readError = env.tr("status.missing_gh")
@@ -234,8 +262,7 @@ function Notifications.new(env, Data, clock)
     publish()
     identity(readCallback(serial, function(login, error)
       if not login then
-        readBusy = false; readError = error; statusError(error)
-        nextAllowed = math.max(nextAllowed, now() + 60); publish(); return
+        failRead(error); return
       end
       setAccount(login)
       local expectedGeneration, startedRevision = generation, revision
@@ -243,10 +270,7 @@ function Notifications.new(env, Data, clock)
       local function finish(items, unread, failure)
         if not activeRead(serial) then return end
         if failure then
-          readBusy = false
-          readError = failure; failures = math.min(failures + 1, 4)
-          nextAllowed = math.max(nextAllowed, now() + 60 * 2 ^ (failures - 1))
-          statusError(failure); publish(); return
+          failRead(failure); return
         end
         if expectedGeneration ~= generation then return end
         local byId = {}
@@ -280,6 +304,9 @@ function Notifications.new(env, Data, clock)
             if not remote or remote.updatedAt > record.updatedAt or now() >= record.expiresAt then overrides[id] = nil end
           end
         end
+        if startedRevision == revision then
+          for id in pairs(writeErrors) do if not unreadById[id] then writeErrors[id] = nil end end
+        end
         env.state.set("notifications_status", next(writeErrors) and "error" or "ready")
         publish(); persist()
         readBusy = false
@@ -296,11 +323,14 @@ function Notifications.new(env, Data, clock)
     if writeBusy or #queue == 0 then return end
     local action = table.remove(queue, 1)
     local record = overrides[action.id]
-    if not record or record ~= action.record then drain(); return end
-    writeBusy, activeWriteId = true, action.id
+    if not record or record ~= action.record then updateTicker(); return end
+    writeBusy, activeWriteId, activeWrite = true, action.id, action
+    updateTicker()
     local expectedAccount, expectedGeneration = account, generation
     local function finish(ok, error)
-      writeBusy, activeWriteId = false, nil
+      if activeWrite ~= action then return end
+      writeBusy, activeWriteId, activeWrite = false, nil, nil
+      updateTicker()
       if generation == expectedGeneration and overrides[action.id] == record then
         revision = revision + 1
         if ok then
@@ -315,7 +345,23 @@ function Notifications.new(env, Data, clock)
         pageCache = {}; queuedRefresh = true
         publish(); persist()
       end
-      drain()
+    end
+    action.cancel = function()
+      -- A missing PATCH reply is ambiguous: reconcile by reading, never replay
+      -- the write. Release queued actions for an explicit manual retry as well.
+      for _, waiting in ipairs(queue) do
+        if overrides[waiting.id] == waiting.record then overrides[waiting.id] = nil end
+      end
+      queue = {}
+      finish(false, env.tr("status.notification_write_timeout"))
+    end
+    local function runWrite(argv, callback)
+      action.deadline = now() + requestTimeout
+      run(argv, function(result)
+        if activeWrite ~= action then return end
+        if expectedGeneration ~= generation then finish(false); return end
+        callback(result)
+      end)
     end
     -- Recheck account and current thread version before every write, including batches.
     identity(function(login, error)
@@ -325,7 +371,7 @@ function Notifications.new(env, Data, clock)
         finish(false, env.tr("status.auth_error")); self.refresh(); return
       end
       if not synced() then finish(false); return end
-      run(api("notifications/threads/" .. action.id), function(result)
+      runWrite(api("notifications/threads/" .. action.id), function(result)
         if expectedGeneration ~= generation then finish(false); return end
         local code, _, body = response(result)
         local raw = env.json.decode(body)
@@ -342,12 +388,12 @@ function Notifications.new(env, Data, clock)
         end
         if raw.unread == false then finish(true); return end
         if not synced() or generation ~= expectedGeneration then finish(false); return end
-        run(api("notifications/threads/" .. action.id, "PATCH"), function(patch)
+        runWrite(api("notifications/threads/" .. action.id, "PATCH"), function(patch)
           local status = response(patch)
           finish(patch.exitCode == 0 and (status == 205 or status == 304), message(patch))
         end)
       end)
-    end)
+    end, runWrite)
   end
 
   local function enqueue(action)
@@ -376,17 +422,16 @@ function Notifications.new(env, Data, clock)
       queue = {}
       for id, record in pairs(overrides) do if record.pending and id ~= activeWriteId then overrides[id] = nil end end
     end
+    updateTicker()
     self.refresh()
   end
   function self.update()
+    if activeWrite and now() >= activeWrite.deadline then activeWrite.cancel() end
+    if not writeBusy and #queue > 0 then drain() end
     if readBusy and now() >= readDeadline then
       -- An aborted callback cannot release readBusy. Invalidate its late replies
       -- and retain the previous complete snapshot while backing off for retry.
-      readSerial, readBusy, readJob = readSerial + 1, false, nil
-      failures = math.min(failures + 1, 4)
-      nextAllowed = math.max(nextAllowed, now() + 60 * 2 ^ (failures - 1))
-      queuedRefresh, readError = true, env.tr("status.notification_refresh_timeout")
-      statusError(readError); publish(); tickInterval(idleInterval)
+      failRead(env.tr("status.notification_refresh_timeout"))
       return
     end
     if readJob then
@@ -395,10 +440,14 @@ function Notifications.new(env, Data, clock)
       -- able to recover, rather than resuming an abandoned coroutine forever.
       readJob = nil
       tickInterval(idleInterval)
-      readDeadline = now() + readTimeout
-      local ok = coroutine.resume(job)
+      readDeadline = now() + requestTimeout
+      local ok, error = coroutine.resume(job)
+      if not ok then
+        env.log("Notification refresh processing failed: " .. tostring(error):sub(1, 300))
+        failRead(env.tr("status.notification_refresh_failed")); return
+      end
       if ok and coroutine.status(job) ~= "dead" and readBusy then readJob = job end
-      if readJob then tickInterval(busyInterval) end
+      updateTicker()
       return
     end
     if now() >= nextAllowed and (queuedRefresh or now() >= nextPoll) then self.refresh() end
