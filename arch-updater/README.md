@@ -21,11 +21,18 @@ run is logged and recorded in an update history with per-package rollback.
 
 - `pacman-contrib` on `PATH` (for `checkupdates` and `pactree`), required.
 - `pacman`, `sh`, `awk`, `sed`, `grep`, `tail`, `head`, `tee`, `wc`, `date`,
-  `rm`, `install`, `test`, `cat`, `kill` and `uname`, required — base tools
-  from any standard Arch install (coreutils and friends), used to run and
-  parse the checks, build the download size estimate, check the running
-  kernel, follow and open the update log, install the optional polkit rule,
-  and detect whether a terminal update run's process is still alive.
+  `rm`, `cp`, `ls`, `mkdir`, `stat`, `cmp`, `install`, `test`, `cat`, `kill`
+  and `uname`, required — base tools from any standard Arch install
+  (coreutils and friends), used to run and parse the checks, build the
+  download size estimate, check the running kernel, follow and open the
+  update log, install the optional polkit rule, scan for and back up
+  `.pacnew` files, and detect whether a terminal update run's process is
+  still alive.
+- `find`, `diff`, `diff3` (findutils and diffutils, both in `base`) and
+  `bsdtar` (from `libarchive`, a `pacman` dependency), required for the
+  config-file review: `find` locates `.pacnew`/`.pacsave` files, `bsdtar`
+  pulls the previous default out of the cached package, and `diff3` / `diff`
+  produce the 3-way (or 2-way) merge.
 - `pkexec` (polkit) with an authentication agent, required for the
   background update mode and for rollback. Noctalia's built-in polkit agent
   works out of the box.
@@ -37,6 +44,10 @@ run is logged and recorded in an update history with per-package rollback.
   (the default), the **Retry in terminal** fallback and the **Open full
   log** viewer: Noctalia's own terminal detection (`$TERMINAL`, then the
   common emulators), or the one named in the **Terminal** setting.
+- `script` (util-linux, `base`), optional, gives the terminal update mode's
+  pacman/paru a real pty so its own download/install progress bar still
+  animates even though the run is also `tee`'d into the log. Skipped
+  automatically if missing — the run still works, just without that bar.
 
 A missing optional tool is skipped, not treated as an error.
 
@@ -65,9 +76,11 @@ after updating** setting.
 - **In a terminal window** (default): opens a terminal running the usual
   interactive upgrade — `sudo pacman -Syu` or the AUR helper without any
   auto-answer flags, so prompts, conflicts and the PKGBUILD review work
-  exactly as on the command line. The output is `tee`'d into the update
-  log, so the panel still shows the live tail, the progress bar and the
-  bar-widget percentage, and the run still lands in the update history.
+  exactly as on the command line. It runs under `script` so pacman/paru
+  still see a terminal and keep drawing their own download/install progress
+  bar, and that same output is `tee`'d into the update log, so the panel
+  also shows the live tail, its own progress bar and the bar-widget
+  percentage, and the run still lands in the update history.
 - **In the background**: pkexec raises the polkit password dialog,
   everything else is non-interactive (`--noconfirm`, and for the AUR helper
   `--skipreview` / the `--answer*` flags), so any remaining question gets
@@ -77,9 +90,35 @@ after updating** setting.
   stops cleanly with a non-zero exit before touching the system; a failed
   run keeps its log on screen and offers **Retry in terminal**.
 
+In both modes the Flatpak step runs even when the pacman/AUR step failed
+(say, one AUR package that won't build, or a declined prompt); the run is
+still reported as failed, with the exit status of the last failing step.
+
 When a run ends you get a notification and an automatic re-check.
+
+### Window rules for the terminal
+
+Every terminal the plugin opens gets the app id (class) `arch-updater` and
+a fixed title per job, so compositor window rules can target it:
+`Arch Updater - Update`, `Arch Updater - Log` and `Arch Updater - Config`
+(the `.pacnew` merge/diff tools). The app id is set through the emulator's
+own flag for kitty, foot, alacritty, wezterm and xterm (Ghostty only accepts
+reverse-DNS ids, so there it's `dev.noctalia.arch-updater`). That works for
+the **Terminal** setting, or for `$TERMINAL` when the setting is empty. Other
+emulators keep their own app id; the title is still set on launch for
+konsole and through an escape sequence for every emulator. Example for niri:
+
+```kdl
+window-rule {
+    match app-id="arch-updater" title="^Arch Updater - Update$"
+    open-floating true
+}
+```
 **Dismiss** clears the pending list until the next check. **Check Updates**
 queries all sources.
+
+If a check or a finished update finds `.pacnew`/`.pacsave` config files, a
+**Review** line appears in the panel — see [Config file review](#config-file-review-pacnew--pacsave).
 
 Type `/arch` in the launcher for quick actions (check, update, open news),
 or `/arch <text>` to fuzzy-search the packages from the last check.
@@ -111,6 +150,54 @@ Before a run is recorded, `pacman -Q` confirms which packages actually
 changed: anything declined during an interactive terminal run is left out
 of the entry, so the history never offers to "undo" an update that did not
 happen. Failed runs are not recorded.
+
+### Config file review (`.pacnew` / `.pacsave`)
+
+When a package ships a new default for a config file you have edited, pacman
+writes the new version alongside yours as `<file>.pacnew`, warns once, and
+never mentions it again. With **Review .pacnew config files** on (the
+default), every check and every finished update scans the configured roots
+(**Config search paths**, `/etc` by default) for `.pacnew`, `.pacsave` and
+`.pacorig` files and lists them behind a **Review** line in the panel (and a
+badge on the bar widget).
+
+Opening a `.pacnew` builds a **3-way merge**:
+
+- **mine** — your current file
+- **theirs** — the `.pacnew`, i.e. the package's new default
+- **base** — the file as shipped by the *previous* version of the package,
+  extracted with `bsdtar` from the pacman cache (the version is taken from
+  the update history, or guessed when exactly one other version is cached)
+
+`diff3 -m` applies every change that only one side made automatically; only a
+region both sides touched becomes a **conflict**, shown as a card with your
+lines, the new lines, and a **Keep mine · Take new · Keep both** switch
+(pre-set by **Default choice for conflicts**). **Preview result** renders the
+merged file in place; **Apply merge** writes it. When no base is in the cache
+the merge falls back to a 2-way diff where every difference is a choice.
+
+Also on offer: **Take new as-is** (replace your file wholesale),
+**Discard new** (delete the `.pacnew`, keep yours), and, for `.pacsave`
+files, **Restore** / **Remove**. Files that need root to read are shown with
+a lock and can only go through the external tool.
+
+**External merge tool.** Set **External merge tool** to a command with the
+tokens `%mine`, `%base`, `%theirs`, `%merged` — e.g.
+`meld %mine %merged %theirs` or `kdiff3 %base %mine %theirs -o %merged`. The
+external-tool button in the merge view opens it against the staged files
+(`%merged` is pre-seeded with the engine's auto-merge); when you save the
+tool's result to `%merged`, **Apply tool result** installs it the same way
+**Apply merge** would. With the setting empty the button runs `pacdiff`
+instead (which writes `/etc` itself via sudo). **External diff viewer**
+(`%a` = current file, `%b` = `.pacnew`) is the equivalent for **View diff**.
+
+Applying writes through one `pkexec` call: the live file's mode and owner are
+preserved (`install -m … -o … -g …`), the `.pacnew` is removed, and — unless
+**Back up the file before applying** is off — a copy is saved first (to a
+`config-backups` folder in the plugin's data directory by default; see
+**Backup location**). After a run, new `.pacnew` files raise a notification,
+and **Auto-remove identical .pacnew** (off by default) sweeps away ones that
+are byte-for-byte identical to the live file in a single prompt.
 
 ### Activity graph
 
@@ -191,9 +278,21 @@ setting.
 | `log_lines` | `int` | `14` | How many of the latest update-log lines the panel shows during a run (6–30). |
 | `terminal` | `string` | *(empty)* | Terminal command for terminal-mode updates, the retry fallback and the log viewer. Empty uses Noctalia's detection. |
 | `update_cmd` | `string` | *(empty)* | Full override for the update command, in both terminal and background mode. Empty builds it from the settings above. |
+| `config_review` | `bool` | `true` | Scan for `.pacnew`/`.pacsave` files and offer the in-panel 3-way merge. Off also stops the scan and hides the bar badge. |
+| `config_search_paths` | `string_list` | `["/etc"]` | Absolute directories to scan for `.pacnew`/`.pacsave`/`.pacorig` files. |
+| `config_include_pacsave` | `bool` | `true` | Also list `.pacsave` files (a removed package's kept config), with restore/remove actions. |
+| `config_default_resolution` | `select` | `mine` | Which side each conflicting hunk starts on: `mine` (never changes an edited line) or `theirs` (prefers the new default). |
+| `config_notify` | `bool` | `true` | Notify when an update run leaves new `.pacnew` files behind. |
+| `config_auto_remove_identical` | `bool` | `false` | After a run, delete `.pacnew` files byte-identical to the live file in one `pkexec` call. |
+| `config_backup` | `bool` | `true` | Save a copy of the config before writing the merged result. |
+| `config_backup_dir` | `string` | *(empty)* | Empty: a `config-backups` folder in the data directory. An absolute path: back up there. `alongside`: a `<file>.arch-updater.bak` next to each file (root-owned). |
+| `config_backup_keep` | `int` | `10` | Backups to keep per file (`0` = all). Ignored for the `alongside` location. |
+| `config_merge_tool` | `string` | *(empty)* | External merge command with tokens `%mine %base %theirs %merged`. Empty uses the in-panel merge. |
+| `config_diff_tool` | `string` | *(empty)* | External diff command for **View diff**, tokens `%a` (current file) and `%b` (`.pacnew`). Empty uses `diff` in the pager. |
 | `glyph` | `glyph` | `package` | The glyph shown for the widget on the bar. |
 | `show_count` | `bool` | `true` | Show the pending-update count next to the bar glyph. |
 | `hide_on_empty` | `bool` | `false` | Hide the widget entirely when there is nothing to show. |
+| `config_badge` | `bool` | `true` | Show the pending `.pacnew`/`.pacsave` count on the bar widget when no updates are pending. |
 
 ## IPC
 
@@ -205,11 +304,13 @@ noctalia msg plugin yuuto/arch-updater:service all update_terminal
 noctalia msg plugin yuuto/arch-updater:service all dismiss
 noctalia msg plugin yuuto/arch-updater:service all ignore:NAME
 noctalia msg plugin yuuto/arch-updater:service all unignore:NAME
+noctalia msg plugin yuuto/arch-updater:service all config_scan
 ```
 
 `update` follows the **Update mode** setting; `update_background` and
 `update_terminal` force one mode. `ignore:NAME` / `unignore:NAME` edit the
-panel-managed ignore list.
+panel-managed ignore list. `config_scan` re-scans for `.pacnew`/`.pacsave`
+files.
 
 ## Notes
 
@@ -221,9 +322,10 @@ panel-managed ignore list.
   `--sudo pkexec`, then optionally `flatpak update` — all output redirected
   to the update log, which the engine follows with `tail`/`grep`. The
   terminal mode runs the interactive equivalents (`sudo pacman -Syu`, the
-  helper without auto-answers) under your terminal, `tee`'d into the same
-  log. Rollback: `pactree` to resolve same-run dependencies, a shell glob
-  over the package caches to find the old files, `pkexec pacman -U` to
+  helper without auto-answers) under your terminal, wrapped in `script` for
+  a real pty and `tee`'d into the same log. Rollback: `pactree` to resolve
+  same-run dependencies, a shell glob over the package caches to find the
+  old files, `pkexec pacman -U` to
   install them, and `pactree -rd1` piped through `wc` for the
   reverse-dependency warning. After a successful run, `pacman -Q` verifies
   which packages actually changed before the history entry is written.
@@ -236,6 +338,14 @@ panel-managed ignore list.
   button installs the shipped polkit rule via one user-confirmed
   `pkexec install` call; nothing else touches system configuration, and
   `pacman.conf` is never modified.
+- **Config file review.** `find` over the search paths for `*.pacnew` /
+  `*.pacsave` / `*.pacorig`, `cmp -s` and `pacman -Qoq` per hit. Opening one:
+  `cp` of the live file and the `.pacnew` into the data directory, `bsdtar
+  -xO` of the base out of a cached package, then `diff3 -m` (or `diff`).
+  Applying: an optional user-side `cp` backup, then one `pkexec sh -c`
+  running `install -m … -o … -g …` (or `cp -a` / `rm`) and removing the
+  `.pacnew`. `.pacnew` files are only ever created by pacman; the plugin only
+  merges, backs up and removes them.
 - **Network.** `checkupdates`, the AUR helper and the Flatpak check contact
   mirrors, the AUR RPC, or a Flatpak remote, same as the corresponding
   upgrade would. The Arch news check fetches `archlinux.org/feeds/news/`
@@ -249,7 +359,9 @@ panel-managed ignore list.
   last read news post), a staged copy of the polkit rule, and a marker
   recording that the rule was installed (`/etc/polkit-1/rules.d` is not
   readable by regular users on Arch, so presence can't always be probed
-  directly).
+  directly). Config file review adds `cm-mine` / `cm-base` / `cm-theirs` /
+  `cm-merged` (the staged merge inputs and result) and, unless backups are
+  off or pointed elsewhere, a `config-backups/` folder.
 - **Stuck-run guard.** A *background* run whose log stops growing for 30
   minutes is declared failed; the panel then offers the terminal fallback.
   Terminal runs are exempt — log silence there can just be you reading a

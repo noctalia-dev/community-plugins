@@ -25,6 +25,11 @@ local ARM_TIMEOUT_S = 8
 local activityHoverIndex = nil -- activity graph point currently under the pointer
 local changelogOpen = false -- changelog view replaces the sources
 local changelogAutoOpenPending = false -- set with changelogOpen when a just-finished update opened it, so onOpen() doesn't reset it away unseen
+local configListOpen = false -- config-review list / merge view replaces the sources
+local configPath = nil -- the config file whose merge view is open, or nil for the list
+local configChoices = {} -- conflict index -> "mine" | "theirs" | "both"
+local configExpand = {} -- local expand toggles for stable segments and base blocks
+local configPreview = false -- merge view is showing the reconstructed result
 
 local render
 
@@ -842,6 +847,426 @@ local function changelogRows()
     return rows
 end
 
+-- ── Config file review (.pacnew / .pacsave) ─────────────────────────────────
+
+local function configReviewEnabled()
+    return snapshot ~= nil and snapshot.configReviewEnabled == true
+end
+
+local function configFilesList()
+    if snapshot == nil or type(snapshot.configFiles) ~= "table" then
+        return {}
+    end
+    return snapshot.configFiles
+end
+
+local function configReviewData()
+    if snapshot ~= nil and type(snapshot.configReview) == "table" then
+        return snapshot.configReview
+    end
+    return nil
+end
+
+local function defaultResolution()
+    return (snapshot ~= nil and snapshot.configDefaultResolution) == "theirs" and "theirs" or "mine"
+end
+
+local function conflictChoice(index)
+    return configChoices[index] or defaultResolution()
+end
+
+-- Same walk as the engine's reconstructMerge, for the in-panel preview.
+local function reconstructMerge(review)
+    local out = {}
+    local ci = 0
+    for _, seg in ipairs(review.segments or {}) do
+        if seg.type == "stable" then
+            for _, l in ipairs(seg.lines or {}) do
+                table.insert(out, l)
+            end
+        else
+            ci += 1
+            local choice = conflictChoice(ci)
+            if choice == "theirs" then
+                for _, l in ipairs(seg.theirs or {}) do
+                    table.insert(out, l)
+                end
+            elseif choice == "both" then
+                for _, l in ipairs(seg.mine or {}) do
+                    table.insert(out, l)
+                end
+                for _, l in ipairs(seg.theirs or {}) do
+                    table.insert(out, l)
+                end
+            else
+                for _, l in ipairs(seg.mine or {}) do
+                    table.insert(out, l)
+                end
+            end
+        end
+    end
+    return out
+end
+
+local function choiceArray(review)
+    local arr = {}
+    for i = 1, tonumber(review.conflicts) or 0 do
+        arr[i] = conflictChoice(i)
+    end
+    return arr
+end
+
+local function openConfig(path)
+    configPath = path
+    configChoices = {}
+    configExpand = {}
+    configPreview = false
+    request("config_open", { path = path })
+    render()
+end
+
+local function closeConfigView()
+    configListOpen = false
+    configPath = nil
+    request("config_close")
+    render()
+end
+
+local function backToConfigList()
+    configPath = nil
+    request("config_close")
+    render()
+end
+
+local CODE_COLOR = { mine = "on_surface", theirs = "primary", ctx = "on_surface_variant" }
+
+local function codeLines(lines, color, keyPrefix)
+    local rows = {}
+    for i, line in ipairs(lines) do
+        table.insert(rows, ui.label({
+            key = keyPrefix .. i,
+            text = line == "" and " " or line,
+            fontSize = 10,
+            color = color,
+        }))
+    end
+    if #rows == 0 then
+        table.insert(rows, ui.label({ key = keyPrefix .. "empty", text = tr("config_none_here"), fontSize = 10, color = "on_surface_variant" }))
+    end
+    return ui.column({ key = keyPrefix .. "col", gap = 1 }, rows)
+end
+
+local function segToggle(index)
+    local current = conflictChoice(index)
+    local opts = {
+        { value = "mine", label = tr("config_keep_mine") },
+        { value = "theirs", label = tr("config_take_new") },
+        { value = "both", label = tr("config_keep_both") },
+    }
+    local buttons = {}
+    for _, opt in ipairs(opts) do
+        table.insert(buttons, ui.button({
+            key = "cf-ch-" .. index .. "-" .. opt.value .. (current == opt.value and "-on" or ""),
+            text = opt.label,
+            variant = current == opt.value and "primary" or "ghost",
+            controlSize = "sm",
+            flexGrow = 1,
+            onClick = function()
+                configChoices[index] = opt.value
+                render()
+            end,
+        }))
+    end
+    return ui.row({ key = "cf-seg-" .. index, gap = 4, align = "center" }, buttons)
+end
+
+local function conflictCard(index, seg)
+    local baseKey = "cf-base-" .. index
+    local showBase = configExpand[baseKey] == true and #(seg.base or {}) > 0
+    local children = {
+        ui.row({ key = "cf-h-" .. index, gap = 6, align = "center" }, {
+            ui.glyph({ name = "git-merge", size = 12, color = "on_surface_variant" }),
+            ui.label({ text = tr("config_conflict") .. " " .. index, fontSize = 11, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
+        }),
+    }
+    if #(seg.base or {}) > 0 then
+        table.insert(children, ui.button({
+            key = baseKey .. (showBase and "-open" or ""),
+            text = showBase and tr("config_hide_base") or tr("config_show_base"),
+            variant = "ghost", controlSize = "sm",
+            onClick = function()
+                configExpand[baseKey] = not configExpand[baseKey]
+                render()
+            end,
+        }))
+        if showBase then
+            table.insert(children, ui.label({ text = tr("config_base"), fontSize = 10, fontWeight = "bold", color = "on_surface_variant" }))
+            table.insert(children, codeLines(seg.base, CODE_COLOR.ctx, baseKey .. "-l"))
+        end
+    end
+    table.insert(children, ui.label({ text = tr("config_mine"), fontSize = 10, fontWeight = "bold", color = "on_surface_variant" }))
+    table.insert(children, codeLines(seg.mine or {}, CODE_COLOR.mine, "cf-mine-" .. index .. "-"))
+    table.insert(children, ui.label({ text = tr("config_theirs"), fontSize = 10, fontWeight = "bold", color = "on_surface_variant" }))
+    table.insert(children, codeLines(seg.theirs or {}, CODE_COLOR.theirs, "cf-theirs-" .. index .. "-"))
+    table.insert(children, segToggle(index))
+    return ui.column({ key = "cf-card-" .. index, gap = 4 }, {
+        ui.separator({}),
+        ui.column({ key = "cf-card-c-" .. index, gap = 4 }, children),
+    })
+end
+
+local function stableBlock(sidx, lines)
+    local key = "cf-stable-" .. sidx
+    if #lines <= 3 or configExpand[key] == true then
+        return ui.column({ key = key, gap = 1 }, (function()
+            local rows = {}
+            for i, l in ipairs(lines) do
+                table.insert(rows, ui.label({ key = key .. "-" .. i, text = l == "" and " " or l, fontSize = 10, color = "on_surface_variant" }))
+            end
+            return rows
+        end)())
+    end
+    return ui.row({
+        key = key,
+        gap = 6,
+        align = "center",
+        onClick = function()
+            configExpand[key] = true
+            render()
+        end,
+    }, {
+        ui.glyph({ name = "chevron-right", size = 11, color = "on_surface_variant" }),
+        ui.label({ text = noctalia.trp("config_unchanged_lines", #lines, { count = #lines }), fontSize = 10, color = "on_surface_variant" }),
+    })
+end
+
+-- The list of pending .pac* files.
+local function configListRows()
+    local rows = {}
+    table.insert(rows, ui.row({ key = "cf-list-head", gap = 6, align = "center" }, {
+        ui.button({
+            glyph = "chevron-left", variant = "ghost", controlSize = "sm", width = 22, height = 22, glyphSize = 12,
+            tooltip = tr("action_back"),
+            onClick = closeConfigView,
+        }),
+        ui.label({ text = tr("config_title"), fontSize = 12, fontWeight = "bold", color = "on_surface", flexGrow = 1, maxLines = 1 }),
+        ui.button({
+            glyph = "refresh", variant = "ghost", controlSize = "sm", width = 22, height = 22, glyphSize = 12,
+            tooltip = tr("config_rescan_tip"),
+            onClick = function()
+                request("config_scan")
+            end,
+        }),
+    }))
+    local files = configFilesList()
+    if #files == 0 then
+        table.insert(rows, ui.row({ key = "cf-list-empty", paddingH = 18 }, {
+            ui.label({ text = tr("config_empty"), fontSize = 11, color = "on_surface_variant" }),
+        }))
+        return rows
+    end
+    for index, entry in ipairs(files) do
+        local tags = {}
+        table.insert(tags, ui.label({ text = "." .. entry.kind, fontSize = 10, color = "on_surface_variant" }))
+        if entry.identical == true then
+            table.insert(tags, ui.label({ text = tr("config_identical"), fontSize = 10, color = "warning" }))
+        end
+        if entry.readable ~= true then
+            table.insert(tags, ui.glyph({ name = "lock", size = 11, color = "on_surface_variant" }))
+        end
+        local row = {
+            ui.label({ text = entry.path, fontSize = 11, color = "on_surface", flexGrow = 1, maxLines = 1 }),
+        }
+        for _, tag in ipairs(tags) do
+            table.insert(row, tag)
+        end
+        table.insert(row, ui.button({
+            glyph = "chevron-right", variant = "ghost", controlSize = "sm", width = 22, height = 22, glyphSize = 12,
+            tooltip = tr("config_open_tip"),
+            onClick = function()
+                openConfig(entry.path)
+            end,
+        }))
+        table.insert(rows, ui.row({
+            key = "cf-row-" .. index,
+            paddingH = 10,
+            gap = 6,
+            align = "center",
+            onClick = function()
+                openConfig(entry.path)
+            end,
+        }, row))
+    end
+    return rows
+end
+
+-- The merge view for one file.
+local function configMergeRows()
+    local review = configReviewData()
+    local rows = {}
+    local headTitle = configPath ~= nil and configPath or tr("config_title")
+    local header = {
+        ui.button({
+            glyph = "chevron-left", variant = "ghost", controlSize = "sm", width = 22, height = 22, glyphSize = 12,
+            tooltip = tr("action_back"),
+            onClick = backToConfigList,
+        }),
+        ui.label({ text = headTitle, fontSize = 12, fontWeight = "bold", color = "on_surface", flexGrow = 1, maxLines = 1 }),
+    }
+    local mergeTool = snapshot ~= nil and snapshot.configMergeTool or false
+    if mergeTool == "custom" or mergeTool == "pacdiff" then
+        table.insert(header, ui.button({
+            glyph = "external-link", variant = "ghost", controlSize = "sm", width = 22, height = 22, glyphSize = 12,
+            tooltip = tr("config_external_tip"),
+            onClick = function()
+                request("config_external", { path = configPath })
+            end,
+        }))
+    end
+    table.insert(rows, ui.row({ key = "cf-m-head", gap = 6, align = "center" }, header))
+
+    if review == nil or review.path ~= configPath then
+        table.insert(rows, ui.row({ key = "cf-m-loading", paddingH = 10 }, {
+            ui.label({ text = tr("config_loading"), fontSize = 11, color = "on_surface_variant" }),
+        }))
+        return rows
+    end
+
+    local busyApply = snapshot ~= nil and snapshot.configApplyBusy == true
+    local entry = nil
+    for _, e in ipairs(configFilesList()) do
+        if e.path == configPath then
+            entry = e
+        end
+    end
+
+    -- .pacsave / unreadable: no merge, just the plain actions.
+    if review.kind == "pacsave" or review.readable == false then
+        local msg = review.kind == "pacsave" and tr("config_pacsave_explain") or tr("config_unreadable_explain")
+        table.insert(rows, ui.label({ key = "cf-m-msg", text = msg, fontSize = 11, color = "on_surface_variant", maxLines = 4 }))
+        local actions = {
+            ui.button({ text = tr("config_view"), variant = "ghost", controlSize = "sm", onClick = function()
+                request("config_diff", { path = configPath })
+            end }),
+        }
+        if review.kind == "pacsave" then
+            table.insert(actions, ui.button({ text = tr("config_restore"), variant = "ghost", controlSize = "sm", enabled = not busyApply, onClick = function()
+                request("config_apply", { path = configPath, mode = "restore" })
+            end }))
+        end
+        table.insert(actions, ui.button({ text = tr("config_remove"), variant = "primary", controlSize = "sm", enabled = not busyApply, onClick = function()
+            request("config_apply", { path = configPath, mode = "remove" })
+        end }))
+        table.insert(rows, ui.row({ key = "cf-m-act", gap = 6, align = "center", justify = "end" }, actions))
+        return rows
+    end
+
+    -- Identical .pacnew: nothing to merge.
+    if entry ~= nil and entry.identical == true then
+        table.insert(rows, ui.label({ key = "cf-m-id", text = tr("config_identical_explain"), fontSize = 11, color = "on_surface_variant", maxLines = 3 }))
+        table.insert(rows, ui.row({ key = "cf-m-act", gap = 6, justify = "end" }, {
+            ui.button({ text = tr("config_remove"), variant = "primary", controlSize = "sm", enabled = not busyApply, onClick = function()
+                request("config_apply", { path = configPath, mode = "remove" })
+            end }),
+        }))
+        return rows
+    end
+
+    if review.oversize == true then
+        table.insert(rows, ui.label({ key = "cf-m-big", text = tr("config_oversize"), fontSize = 11, color = "on_surface_variant", maxLines = 4 }))
+        table.insert(rows, ui.row({ key = "cf-m-act", gap = 6, justify = "end" }, {
+            ui.button({ text = tr("config_take_new_full"), variant = "ghost", controlSize = "sm", enabled = not busyApply, onClick = function()
+                request("config_apply", { path = configPath, mode = "theirs" })
+            end }),
+            ui.button({ text = tr("config_discard_new"), variant = "ghost", controlSize = "sm", enabled = not busyApply, onClick = function()
+                request("config_apply", { path = configPath, mode = "remove" })
+            end }),
+        }))
+        return rows
+    end
+
+    local conflicts = tonumber(review.conflicts) or 0
+    local summary
+    if review.base ~= true then
+        summary = tr("config_summary_nobase")
+    elseif conflicts == 0 then
+        summary = tr("config_summary_clean")
+    else
+        summary = noctalia.trp("config_summary", conflicts, { count = conflicts })
+    end
+    table.insert(rows, ui.label({ key = "cf-m-sum", text = summary, fontSize = 11, color = "on_surface_variant", maxLines = 3 }))
+
+    -- A clean merge has nothing to decide, so show the result straight away
+    -- instead of a collapsed "N unchanged lines".
+    local showResult = configPreview or conflicts == 0
+    if showResult then
+        local merged = reconstructMerge(review)
+        local prows = {}
+        for i, l in ipairs(merged) do
+            table.insert(prows, ui.label({ key = "cf-pv-" .. i, text = l == "" and " " or l, fontSize = 10, color = "on_surface_variant" }))
+        end
+        table.insert(rows, ui.column({ key = "cf-pv", gap = 1 }, prows))
+    else
+        local sidx = 0
+        local cidx = 0
+        for _, seg in ipairs(review.segments or {}) do
+            sidx += 1
+            if seg.type == "stable" then
+                table.insert(rows, stableBlock(sidx, seg.lines or {}))
+            else
+                cidx += 1
+                table.insert(rows, conflictCard(cidx, seg))
+            end
+        end
+    end
+
+    local secondary = {
+        ui.button({
+            text = tr("config_discard_new"), variant = "ghost", controlSize = "sm", flexGrow = 1, enabled = not busyApply,
+            tooltip = tr("config_discard_new_tip"),
+            onClick = function()
+                request("config_apply", { path = configPath, mode = "remove" })
+            end,
+        }),
+        ui.button({
+            text = tr("config_take_new_full"), variant = "ghost", controlSize = "sm", flexGrow = 1, enabled = not busyApply,
+            tooltip = tr("config_take_new_full_tip"),
+            onClick = function()
+                request("config_apply", { path = configPath, mode = "theirs" })
+            end,
+        }),
+    }
+    if mergeTool == "custom" then
+        table.insert(secondary, ui.button({
+            text = tr("config_apply_external"), variant = "ghost", controlSize = "sm", flexGrow = 1, enabled = not busyApply,
+            tooltip = tr("config_apply_external_tip"),
+            onClick = function()
+                request("config_apply", { path = configPath, mode = "external" })
+            end,
+        }))
+    end
+    table.insert(rows, ui.row({ key = "cf-m-foot2", gap = 6, align = "center" }, secondary))
+    local applyRow = {}
+    if conflicts > 0 then
+        table.insert(applyRow, ui.button({
+            text = configPreview and tr("config_hide_preview") or tr("config_preview"),
+            variant = "ghost", controlSize = "sm", flexGrow = 1,
+            onClick = function()
+                configPreview = not configPreview
+                render()
+            end,
+        }))
+    end
+    table.insert(applyRow, ui.button({
+        text = tr("config_apply"), variant = "primary", controlSize = "sm", flexGrow = 1, enabled = not busyApply,
+        onClick = function()
+            request("config_apply", { path = configPath, mode = "merge", choices = choiceArray(review) })
+        end,
+    }))
+    table.insert(rows, ui.row({ key = "cf-m-foot", gap = 6, align = "center" }, applyRow))
+    return rows
+end
+
 -- Live tail of the update log, with a progress bar while packages are being
 -- processed. Shown during a run and kept on screen after a failed one.
 local function logSection()
@@ -926,6 +1351,30 @@ local function extras()
         }))
     end
 
+    local configCount = tonumber(snapshot.configCount) or 0
+    if configReviewEnabled() and configCount > 0 then
+        table.insert(lines, ui.row({ key = "config-review", gap = 6, align = "center" }, {
+            ui.glyph({ name = "file-diff", size = 13, color = "warning" }),
+            ui.label({
+                text = noctalia.trp("config_pending", configCount, { count = configCount }),
+                fontSize = 12,
+                color = "on_surface",
+                flexGrow = 1,
+                maxLines = 2,
+            }),
+            ui.button({
+                glyph = "chevron-right", variant = "ghost", controlSize = "sm",
+                width = 22, height = 22, glyphSize = 12,
+                tooltip = tr("action_config_review"),
+                onClick = function()
+                    configListOpen = true
+                    configPath = nil
+                    render()
+                end,
+            }),
+        }))
+    end
+
     -- Offered until the polkit keep-authorization rule is installed. Only in
     -- background mode: a terminal run goes through sudo, so the repeated
     -- polkit prompts the rule solves never happen there.
@@ -985,6 +1434,10 @@ local function body()
     -- back button returns to the live log, which is otherwise still shown.
     if changelogOpen then
         table.insert(children, ui.scroll({ key = "changelog-view", flexGrow = 1, gap = 4 }, changelogRows()))
+        return children
+    elseif configListOpen and phaseOf() ~= "running" then
+        local rows = configPath ~= nil and configMergeRows() or configListRows()
+        table.insert(children, ui.scroll({ key = "config-view", flexGrow = 1, gap = 4 }, rows))
         return children
     elseif phaseOf() == "running" or (runFailed() and #logLines() > 0) then
         table.insert(children, logSection())
@@ -1094,9 +1547,15 @@ render = function()
     -- Both footers hide while a check or run is on screen, so neither ever
     -- competes with the live log for space. The activity graph also hides
     -- while the changelog is open: it plots pending-update counts, which
-    -- has nothing to do with release notes.
-    local activity = not busy() and not changelogOpen and activitySection() or nil
-    local history = not busy() and historySection() or nil
+    -- has nothing to do with release notes. They also give way to an
+    -- expanded package list: with the optional lines all on (download size,
+    -- config review, news) the fixed-height panel leaves the list only a
+    -- handful of rows, and while browsing it the trend graph and the run
+    -- strip are the least urgent things on screen. The compact caption
+    -- below still reports when the last check ran.
+    local inConfigView = configListOpen and phase ~= "running"
+    local activity = not busy() and not changelogOpen and not inConfigView and not listOpen and activitySection() or nil
+    local history = not busy() and not inConfigView and not listOpen and historySection() or nil
     if activity ~= nil or history ~= nil then
         table.insert(children, ui.separator({}))
         if activity ~= nil then
@@ -1105,7 +1564,7 @@ render = function()
         if history ~= nil then
             table.insert(children, history)
         end
-    else
+    elseif not inConfigView then
         local caption = footerCaption()
         if caption ~= nil then
             table.insert(children, ui.separator({}))
@@ -1113,7 +1572,7 @@ render = function()
         end
     end
 
-    if phase ~= "missing" then
+    if phase ~= "missing" and not inConfigView then
         local footer = {}
         -- Not offered after a failed rollback: re-running the *update*
         -- command in a terminal is not a retry of the rollback.
@@ -1173,6 +1632,11 @@ function onOpen(_context)
         changelogOpen = false
     end
     changelogAutoOpenPending = false
+    configListOpen = false
+    configPath = nil
+    configChoices = {}
+    configExpand = {}
+    configPreview = false
     render()
 end
 
@@ -1198,6 +1662,8 @@ noctalia.state.watch(STATE_KEY, function(value)
         openedRunAt = nil
         armedKey = nil
         changelogOpen = false
+        configListOpen = false
+        configPath = nil
     end
     -- lastUpdateAt only moves for a real, successful update run (never a
     -- rollback or a plain check, see recordUpdateRun in service.luau), and it
@@ -1214,6 +1680,20 @@ noctalia.state.watch(STATE_KEY, function(value)
     then
         changelogOpen = true
         changelogAutoOpenPending = true
+    end
+    -- An apply finished (busy true -> false) and the engine cleared the
+    -- review: drop back to the file list.
+    if
+        configPath ~= nil
+        and snapshot ~= nil
+        and snapshot.configApplyBusy == true
+        and value.configApplyBusy ~= true
+        and type(value.configReview) ~= "table"
+    then
+        configPath = nil
+        configChoices = {}
+        configExpand = {}
+        configPreview = false
     end
     snapshot = value
     render()

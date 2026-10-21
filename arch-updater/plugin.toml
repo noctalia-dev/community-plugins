@@ -1,12 +1,12 @@
 id = "yuuto/arch-updater"
 name = "Arch Updater"
-version = "2.0.3"
+version = "2.1.0"
 plugin_api = 9
 author = "yuuto"
 license = "MIT"
 icon = "package"
-description = "Check pacman, AUR and Flatpak updates, then upgrade in a terminal or in the background, with run history and rollback."
-dependencies = ["pacman-contrib", "awk", "cat", "date", "flatpak", "grep", "head", "install", "kill", "less", "pacman", "paru", "pkexec", "rm", "sed", "sh", "sudo", "tail", "tee", "test", "uname", "wc", "xdg-open", "yay"]
+description = "Check pacman, AUR and Flatpak updates, upgrade in a terminal or background, with rollback and .pacnew review."
+dependencies = ["pacman-contrib", "awk", "bsdtar", "cat", "cmp", "cp", "date", "diff", "diff3", "find", "flatpak", "grep", "head", "install", "kill", "less", "ls", "mkdir", "pacman", "paru", "pkexec", "rm", "script", "sed", "sh", "stat", "sudo", "tail", "tee", "test", "uname", "wc", "xdg-open", "yay"]
 tags = ["arch", "bar", "panel", "launcher", "system", "utility"]
 
 # ── General ──────────────────────────────────────────────────────────────────
@@ -162,6 +162,101 @@ description_key = "settings.update_cmd.description"
 default = ""
 advanced = true
 
+# ── Config file review (.pacnew / .pacsave) ──────────────────────────────────
+
+[[setting]]
+key = "config_review"
+type = "bool"
+label_key = "settings.config_review.label"
+description_key = "settings.config_review.description"
+default = true
+
+[[setting]]
+key = "config_search_paths"
+type = "string_list"
+label_key = "settings.config_search_paths.label"
+description_key = "settings.config_search_paths.description"
+default = ["/etc"]
+visible_when = { key = "config_review", values = ["true"] }
+
+[[setting]]
+key = "config_include_pacsave"
+type = "bool"
+label_key = "settings.config_include_pacsave.label"
+description_key = "settings.config_include_pacsave.description"
+default = true
+visible_when = { key = "config_review", values = ["true"] }
+
+[[setting]]
+key = "config_default_resolution"
+type = "select"
+label_key = "settings.config_default_resolution.label"
+description_key = "settings.config_default_resolution.description"
+default = "mine"
+visible_when = { key = "config_review", values = ["true"] }
+options = [
+  { value = "mine", label_key = "settings.config_default_resolution.options.mine" },
+  { value = "theirs", label_key = "settings.config_default_resolution.options.theirs" },
+]
+
+[[setting]]
+key = "config_notify"
+type = "bool"
+label_key = "settings.config_notify.label"
+description_key = "settings.config_notify.description"
+default = true
+visible_when = { key = "config_review", values = ["true"] }
+
+[[setting]]
+key = "config_auto_remove_identical"
+type = "bool"
+label_key = "settings.config_auto_remove_identical.label"
+description_key = "settings.config_auto_remove_identical.description"
+default = false
+visible_when = { key = "config_review", values = ["true"] }
+
+[[setting]]
+key = "config_backup"
+type = "bool"
+label_key = "settings.config_backup.label"
+description_key = "settings.config_backup.description"
+default = true
+visible_when = { key = "config_review", values = ["true"] }
+
+[[setting]]
+key = "config_backup_dir"
+type = "string"
+label_key = "settings.config_backup_dir.label"
+description_key = "settings.config_backup_dir.description"
+default = ""
+advanced = true
+
+[[setting]]
+key = "config_backup_keep"
+type = "int"
+label_key = "settings.config_backup_keep.label"
+description_key = "settings.config_backup_keep.description"
+default = 10
+min = 0
+max = 200
+advanced = true
+
+[[setting]]
+key = "config_merge_tool"
+type = "string"
+label_key = "settings.config_merge_tool.label"
+description_key = "settings.config_merge_tool.description"
+default = ""
+advanced = true
+
+[[setting]]
+key = "config_diff_tool"
+type = "string"
+label_key = "settings.config_diff_tool.label"
+description_key = "settings.config_diff_tool.description"
+default = ""
+advanced = true
+
 [[service]]
 id = "service"
 entry = "service.luau"
@@ -199,6 +294,13 @@ entry = "widget.luau"
   label_key = "settings.hide_on_empty.label"
   description_key = "settings.hide_on_empty.description"
   default = false
+
+  [[widget.setting]]
+  key = "config_badge"
+  type = "bool"
+  label_key = "settings.config_badge.label"
+  description_key = "settings.config_badge.description"
+  default = true
 
 [[launcher_provider]]
 id = "launcher"
