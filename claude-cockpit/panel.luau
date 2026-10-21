@@ -10,7 +10,10 @@
 --   Usage     jrohland/claudecode's panel.luau, trimmed port (MIT, see
 --             README Notes) — a thin client of service.luau's "usage"/
 --             "status" state.
---   Sessions  every local session, grouped by project. Click to resume in
+--   Sessions  every local session, grouped by project, sortable by date or
+--             name, filterable to empty ones (no prompt ever sent). Up/Down
+--             select a row, Enter opens it; a glyph marks the running ones
+--             (the service's "live" state). Click to resume in
 --             a terminal, eye toggles a preview, trash deletes after an
 --             inline confirm. Fetched on-demand via sessions.luau, never
 --             polled.
@@ -66,6 +69,25 @@ local searchText = ""
 local expandedGroups = {} -- cwd -> bool, seeded on first load (see loadSessions)
 local expandedSessionId = nil -- one preview open at a time
 local confirmingDeleteId = nil
+local confirmingClean = false -- inline confirm strip for "delete all empty sessions"
+-- Sessions tab ordering/filter. Date sorts newest first, name A-Z, until the
+-- active button is clicked again.
+local sortBy = "date" -- "date" | "name"
+local sortAsc = false
+local emptyOnly = false -- only sessions that never got a prompt
+
+-- Keyboard selection on the Sessions tab: Up/Down walk `navItems` (the rows
+-- the last render drew: project headers and sessions), Enter runs the
+-- selected one. `revealKey` on the scroll keeps it in view (plugin_api >= 33).
+local navItems = {}
+local sel = 1
+-- capture_keys filters key repeat (one press, one release), so a held arrow is
+-- repeated from the frame tick. It stops at the list end instead of wrapping.
+local KEY_STEPS = { up = -1, down = 1 }
+local REPEAT_DELAY_MS = 350
+local REPEAT_STEP_MS = 60
+local heldStep = 0
+local repeatInMs = 0
 
 -- Live tab: filled from the service's "live" state (see service.luau).
 local liveState = { error = nil, groups = nil }
@@ -212,7 +234,7 @@ local function setActiveTab(id)
     if id == "skills" then
         loadSkills(false)
     end
-    if id == "live" then
+    if id == "live" or id == "sessions" then
         loadLive()
     end
     render()
@@ -538,7 +560,21 @@ local function previewText(session)
     return tr("no_preview")
 end
 
+-- Ids of the sessions running right now, from the service's "live" state.
+local function liveIds()
+    local ids = {}
+    for _, g in ipairs(live.GROUPS) do
+        for _, s in ipairs((liveState.groups or {})[g] or {}) do
+            ids[s.id] = true
+        end
+    end
+    return ids
+end
+
 local function resumeSession(session)
+    if session.empty then
+        return -- `claude --resume` finds nothing and the terminal closes at once
+    end
     local cmd = "cd " .. shared.shellQuote(session.cwd) .. " && exec claude --resume " .. shared.shellQuote(session.id)
     if not shared.launchTerminal(cmd) then
         noctalia.notifyError(tr("title"), tr("err_no_terminal"))
@@ -620,10 +656,19 @@ local function contextRow(session)
     })
 end
 
-local function sessionRow(session)
+local function sessionWrapKey(session)
+    return "sess-wrap-" .. session.id
+        .. (expandedSessionId == session.id and "-prev" or "")
+        .. (confirmingDeleteId == session.id and "-del" or "")
+end
+
+local function sessionRow(session, selected, isLive)
     local id = session.id
     local previewOpen = expandedSessionId == id
-    local metaBits = { relativeTime(session.mtime) }
+    local metaBits = { os.date("%Y-%m-%d %H:%M", session.mtime), relativeTime(session.mtime) }
+    if session.empty then
+        table.insert(metaBits, tr("session_empty"))
+    end
     if session.gitBranch then
         table.insert(metaBits, session.gitBranch)
     end
@@ -634,13 +679,15 @@ local function sessionRow(session)
         table.insert(infoChildren, ctxRow)
     end
 
-    local rowButtons = {
-        ui.button({
-            text = session.label, variant = "ghost", contentAlign = "start", flexGrow = 1,
-            controlSize = "sm", tooltip = tr("tip_resume"),
-            onClick = function() resumeSession(session) end,
-        }),
-    }
+    local rowButtons = {}
+    if isLive then
+        table.insert(rowButtons, ui.glyph({ name = "activity", size = 14, color = "primary" }))
+    end
+    table.insert(rowButtons, ui.button({
+        text = session.label, variant = "ghost", contentAlign = "start", flexGrow = 1,
+        controlSize = "sm", tooltip = tr(session.empty and "tip_resume_empty" or "tip_resume"), selected = selected,
+        onClick = function() resumeSession(session) end,
+    }))
 
     -- Only a real cwd has a CLAUDE.md path worth opening — "unknown project"
     -- sessions (no recorded cwd) skip this button entirely.
@@ -688,35 +735,165 @@ local function sessionRow(session)
         }))
     end
 
-    local key = "sess-wrap-" .. id
-        .. (previewOpen and "-prev" or "")
-        .. (confirmingDeleteId == id and "-del" or "")
-    return ui.column({ key = key, gap = 4, align = "stretch", paddingL = 20 }, blocks)
+    return ui.column({ key = sessionWrapKey(session), gap = 4, align = "stretch", paddingL = 20 }, blocks)
 end
 
-local function groupHeader(group, count)
+local function groupHeader(group, count, selected, hasLive)
     local expanded = expandedGroups[group.cwd] == true
     local basename = group.cwd:match("([^/]+)/?$") or group.cwd
     return ui.row({
         key = "grp-" .. group.cwd, gap = 8, align = "center",
         onClick = function() toggleGroup(group.cwd) end,
-    }, {
+    }, compact(
         ui.glyph({ name = expanded and "chevron-down" or "chevron-right", size = 14, color = "on_surface_variant" }),
         ui.glyph({ name = "folder", size = 14, color = "on_surface_variant" }),
+        hasLive and ui.glyph({ name = "activity", size = 14, color = "primary" }) or nil,
         ui.button({
             text = basename, variant = "ghost", contentAlign = "start", flexGrow = 1,
-            controlSize = "sm", fontSize = 13, tooltip = group.cwd,
+            controlSize = "sm", fontSize = 13, tooltip = group.cwd, selected = selected,
             onClick = function() toggleGroup(group.cwd) end,
         }),
-        muted(tostring(count), 11),
+        muted(tostring(count), 11)
+    ))
+end
+
+-- Comparator for the active sort; `valueOf` maps a record to its sort value.
+local function byActiveSort(valueOf)
+    return function(a, b)
+        local x, y = valueOf(a), valueOf(b)
+        if x == y then
+            return false
+        end
+        if sortAsc then
+            return x < y
+        end
+        return x > y
+    end
+end
+
+local function sortSessions(list)
+    table.sort(list, byActiveSort(function(session)
+        return sortBy == "name" and session.label:lower() or session.mtime
+    end))
+end
+
+local function sortGroups(list)
+    table.sort(list, byActiveSort(function(group)
+        return sortBy == "name" and (group.cwd:match("([^/]+)/?$") or group.cwd):lower() or group.lastActivity
+    end))
+end
+
+local function setSort(key)
+    if sortBy == key then
+        sortAsc = not sortAsc
+    else
+        sortBy = key
+        sortAsc = key == "name"
+    end
+    sel = 1
+    render()
+end
+
+local function countEmpty()
+    local n = 0
+    for _, group in ipairs(sessionsState.projects or {}) do
+        for _, session in ipairs(group.sessions) do
+            if session.empty then
+                n += 1
+            end
+        end
+    end
+    return n
+end
+
+-- Empty sessions that are safe to delete: one that is running right now has
+-- no prompt yet either, and deleting it would pull the file from under it.
+local function deletableEmpty()
+    local running = liveIds()
+    local list = {}
+    for _, group in ipairs(sessionsState.projects or {}) do
+        for _, session in ipairs(group.sessions) do
+            if session.empty and not running[session.id] then
+                table.insert(list, session)
+            end
+        end
+    end
+    return list
+end
+
+local function cleanEmpty()
+    confirmingClean = false
+    local list = deletableEmpty()
+    local pending, failed = #list, 0
+    if pending == 0 then
+        render()
+        return
+    end
+    for _, session in ipairs(list) do
+        sessions.deleteSession(session, function(ok)
+            pending -= 1
+            if not ok then
+                failed += 1
+            end
+            if pending == 0 then
+                if failed > 0 then
+                    noctalia.notifyError(tr("title"), tr("err_delete_failed"))
+                end
+                loadSessions(true)
+            end
+        end)
+    end
+end
+
+local function sortButton(key, labelKey)
+    local arrow = ""
+    if sortBy == key then
+        arrow = sortAsc and " ↑" or " ↓"
+    end
+    return ui.button({
+        key = "sort-" .. key, text = tr(labelKey) .. arrow, variant = "ghost", controlSize = "sm",
+        selected = sortBy == key, tooltip = tr("tip_sort_" .. key),
+        onClick = function() setSort(key) end,
     })
+end
+
+-- Runs the selected row: a project header toggles, a session resumes.
+local function activateSelected()
+    local item = navItems[sel]
+    if item ~= nil then
+        item.act()
+    end
+end
+
+local function moveSelection(step, wrap)
+    local count = #navItems
+    if count == 0 then
+        return false
+    end
+    local target = sel + step
+    if target < 1 or target > count then
+        if not wrap then
+            return false
+        end
+        target = target < 1 and count or 1
+    end
+    if target == sel then
+        return false
+    end
+    sel = target
+    return true
+end
+
+local function stopKeyRepeat()
+    heldStep = 0
+    panel.setNeedsFrameTick(false)
 end
 
 local function renderSessionsTab()
     loadSessions(false)
 
     local rows = {
-        ui.row({ gap = 6, align = "center" }, {
+        ui.row({ key = "sess-tools", gap = 6, align = "center" }, {
             ui.input({
                 key = "sess-search",
                 value = searchText,
@@ -724,6 +901,7 @@ local function renderSessionsTab()
                 flexGrow = 1,
                 onChange = function(value)
                     searchText = value
+                    sel = 1
                     render()
                 end,
             }),
@@ -738,35 +916,105 @@ local function renderSessionsTab()
                 onClick = function() setAllGroups(false) end,
             }),
         }),
+        ui.row({ key = "sess-sort", gap = 6, align = "center" }, {
+            sortButton("date", "sort_date"),
+            sortButton("name", "sort_name"),
+            ui.button({
+                key = "sort-empty", text = tr("filter_empty", { n = countEmpty() }),
+                variant = "ghost", controlSize = "sm", selected = emptyOnly, tooltip = tr("tip_filter_empty"),
+                onClick = function()
+                    emptyOnly = not emptyOnly
+                    sel = 1
+                    render()
+                end,
+            }),
+            ui.label({ key = "sort-spacer", text = "", flexGrow = 1 }),
+            ui.button({
+                key = "sess-refresh", glyph = sessionsState.loading and "loader-2" or "refresh",
+                variant = "ghost", controlSize = "sm", enabled = not sessionsState.loading,
+                tooltip = tr(sessionsState.loading and "refreshing" or "refresh"),
+                onClick = function()
+                    loadSessions(true)
+                    loadLive()
+                end,
+            }),
+            ui.button({
+                key = "sess-clean", glyph = "trash-x", variant = "ghost", controlSize = "sm",
+                enabled = #deletableEmpty() > 0, tooltip = tr("tip_clean_empty"),
+                onClick = function()
+                    confirmingClean = true
+                    render()
+                end,
+            }),
+        }),
     }
+    if confirmingClean then
+        table.insert(rows, ui.row({ key = "confirm-clean", gap = 8, align = "center" }, {
+            ui.label({ text = tr("clean_empty_confirm", { n = #deletableEmpty() }), fontSize = 12, color = "on_surface", flexGrow = 1 }),
+            ui.button({ text = tr("yes"), variant = "destructive", controlSize = "sm", onClick = cleanEmpty }),
+            ui.button({
+                text = tr("no"), variant = "ghost", controlSize = "sm",
+                onClick = function()
+                    confirmingClean = false
+                    render()
+                end,
+            }),
+        }))
+    end
 
+    navItems = {}
     if sessionsState.error ~= nil then
         table.insert(rows, ui.label({ text = sessionsState.error, color = "error" }))
     elseif sessionsState.projects == nil then
         table.insert(rows, muted(tr("loading")))
     else
         local needle = shared.trim(searchText):lower()
-        local any = false
+        local shown = {}
         for _, group in ipairs(sessionsState.projects) do
             local matches = {}
             for _, session in ipairs(group.sessions) do
-                if needle == "" or matchesSearch(session, group.cwd, needle) then
+                if (needle == "" or matchesSearch(session, group.cwd, needle)) and (not emptyOnly or session.empty) then
                     table.insert(matches, session)
                 end
             end
             if #matches > 0 then
-                any = true
-                table.insert(rows, groupHeader(group, #matches))
-                if expandedGroups[group.cwd] == true then
-                    for _, session in ipairs(matches) do
-                        table.insert(rows, sessionRow(session))
-                    end
+                sortSessions(matches)
+                table.insert(shown, { group = group, matches = matches, lastActivity = group.lastActivity, cwd = group.cwd })
+            end
+        end
+        sortGroups(shown)
+        -- Clamp after the filter shrank the list, then draw with the final sel.
+        local total = 0
+        for _, entry in ipairs(shown) do
+            total += 1 + (expandedGroups[entry.cwd] == true and #entry.matches or 0)
+        end
+        sel = math.max(1, math.min(sel, total))
+        local revealKey = nil
+        local running = liveIds()
+        local function track(key, act)
+            table.insert(navItems, { key = key, act = act })
+            if #navItems == sel then
+                revealKey = key
+            end
+            return #navItems == sel
+        end
+        for _, entry in ipairs(shown) do
+            local group = entry.group
+            local hasLive = false
+            for _, session in ipairs(group.sessions) do
+                hasLive = hasLive or running[session.id] == true
+            end
+            table.insert(rows, groupHeader(group, #entry.matches, track("grp-" .. group.cwd, function() toggleGroup(group.cwd) end), hasLive))
+            if expandedGroups[group.cwd] == true then
+                for _, session in ipairs(entry.matches) do
+                    table.insert(rows, sessionRow(session, track(sessionWrapKey(session), function() resumeSession(session) end), running[session.id] == true))
                 end
             end
         end
-        if not any then
+        if #shown == 0 then
             table.insert(rows, muted(tr("no_sessions")))
         end
+        return ui.scroll({ key = "sessions-scroll", flexGrow = 1, gap = 6, align = "stretch", revealKey = revealKey }, rows)
     end
 
     return ui.scroll({ key = "sessions-scroll", flexGrow = 1, gap = 6, align = "stretch" }, rows)
@@ -1259,6 +1507,7 @@ end)
 
 function onOpen(_context)
     isOpen = true
+    sel = 1
     hoveredDay = nil
     usage = noctalia.state.get("usage")
     status = noctalia.state.get("status")
@@ -1273,7 +1522,7 @@ function onOpen(_context)
     if activeTab == "skills" then
         loadSkills(false)
     end
-    if activeTab == "live" then
+    if activeTab == "live" or activeTab == "sessions" then
         loadLive()
     end
     render()
@@ -1281,15 +1530,64 @@ end
 
 function onClose()
     isOpen = false
+    stopKeyRepeat() -- a key held while the panel closes never reports its release
     confirmingDeleteId = nil
+    confirmingClean = false
     confirmingSkillKey = nil
     panel.setWantsSecondTicks(false)
     noctalia.state.set("claude_cockpit_open", false)
 end
 
 function update()
-    if activeTab == "live" then
+    if activeTab == "live" or activeTab == "sessions" then
         noctalia.state.set("live_wanted_at", os.time())
     end
     render()
+end
+
+-- The chords listed under capture_keys in plugin.toml. They arrive here even
+-- while the filter input has focus; typing still goes to the input. Return is
+-- captured too, with the keypad Enter (not the input's onSubmit): the input is rarely the focused
+-- control after a click on a row. Sessions tab only.
+function onKey(chord, pressed)
+    if activeTab ~= "sessions" then
+        return
+    end
+    if chord == "Return" or chord == "KP_Enter" then
+        if pressed then
+            activateSelected()
+        end
+        return
+    end
+    local step = KEY_STEPS[chord]
+    if step == nil then
+        return
+    end
+    if not pressed then
+        if heldStep == step then
+            stopKeyRepeat()
+        end
+        return
+    end
+    heldStep = step
+    repeatInMs = REPEAT_DELAY_MS
+    panel.setNeedsFrameTick(true)
+    if moveSelection(step, true) then
+        render()
+    end
+end
+
+function onFrameTick(deltaMs)
+    if heldStep == 0 then
+        return
+    end
+    repeatInMs -= deltaMs
+    if repeatInMs <= 0 then
+        repeatInMs = REPEAT_STEP_MS
+        if moveSelection(heldStep, false) then
+            render()
+        else
+            stopKeyRepeat()
+        end
+    end
 end

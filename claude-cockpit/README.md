@@ -20,6 +20,9 @@ widget and the Live and Usage tabs only show what it publishes.
 
 ## Requirements
 
+- noctalia v5.3.0 or newer (`plugin_api = 33`). The Sessions tab needs
+  `revealKey` on `ui.scroll`, which keeps the keyboard selection in view. An
+  older noctalia keeps getting the last version it can load.
 - `bash`, `jq` and `curl`.
 - The base tools the scripts call: `find`, `stat`, `grep`, `tac`, `awk`,
   `head`, `tail`, `rm`, `mkdir`, `mv`. Every distribution ships them.
@@ -76,11 +79,40 @@ you choose.
 
 ![Sessions tab](images/sessions.png)
 
-*Every past session, grouped by project. Work project names are blurred in
-this screenshot.*
+*Every past session, grouped by project. Session titles are blurred in this
+screenshot.*
 
 Click a session to resume it (`claude --resume <id>`) in a terminal, in its
 project directory. The search box filters by title, prompt or path.
+
+| Key      | Action                                                      |
+| ---      | ---                                                         |
+| ↑ / ↓    | Move the selection through projects and sessions. Hold to repeat. |
+| `Return` or keypad `Enter` | Resume the selected session, or open or close the selected project. |
+
+The list scrolls to keep the selection in view. The keys work on this tab
+only.
+
+Each row shows the date and time of the last update, then the time since.
+A glyph marks a running session, and the project that holds one, even when
+the project is closed.
+
+Buttons on the filter row:
+
+- **Date** and **Name** sort the projects and their sessions. Date puts the
+  newest first, Name goes from A to Z. Click the active button again to
+  reverse the order.
+- **Empty (n)** shows only the empty sessions. Claude Code leaves one behind
+  when you open it and close it before you send a prompt. An empty session
+  has an *empty* tag, and clicking it does nothing, because there is nothing
+  to resume.
+- The refresh button reads the sessions again.
+- The bin button deletes every empty session, after a confirm. A running
+  session is never deleted, even when it has no prompt yet.
+
+![Delete empty sessions](images/sessions-empty.png)
+
+*The empty filter and the delete confirm.*
 
 ### CLAUDE.md
 
@@ -129,7 +161,7 @@ What the plugin touches:
 
 - **Reads** `~/.claude/sessions/*.json` and the transcripts of running
   sessions, every 2 seconds, only while the widget is in activity mode or
-  the Live tab is open. A transcript is parsed again only when it changes.
+  the Live or Sessions tab is open. A transcript is parsed again only when it changes.
   The Usage and Sessions tabs read the other transcripts in small slices.
 - **Reads** `~/.claude/.credentials.json` for the token of the usage query.
 - **Writes** two caches you can delete: `~/.claude/pricing-cache.json` and
@@ -143,7 +175,8 @@ What the plugin touches:
   `niri msg` or `umbriel msg` to focus a window (window ids and pids only,
   never titles).
 - **Deletes**, always after an inline confirm: a session transcript (trash
-  glyph), a plugin or marketplace (through `claude plugin`), a local skill
+  glyph on its row), all empty sessions at once (bin button on the filter
+  row, running sessions kept), a plugin or marketplace (through `claude plugin`), a local skill
   folder (a symlink loses the link only).
 - No rename: Claude Code cannot rename a session after it starts.
 

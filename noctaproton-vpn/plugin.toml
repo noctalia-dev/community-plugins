@@ -1,6 +1,6 @@
 id           = "riversyx/noctaproton-vpn"
 name         = "NoctaProton VPN"
-version      = "1.0.0"
+version      = "1.0.1"
 plugin_api   = 24
 author       = "RiverSyx"
 license      = "GPL-3.0"

@@ -53,6 +53,7 @@ local function shapeSession(raw, cwd)
         gitBranch = (type(raw.gitBranch) == "string" and raw.gitBranch ~= "") and raw.gitBranch or nil,
         mtime = tonumber(raw.mtime) or 0,
         size = tonumber(raw.size) or 0,
+        empty = raw.empty == true, -- no user turn: opened and closed without a prompt
         label = label,
         firstPrompt = firstPrompt,
         -- Model + context size from the session's last assistant turn; 0/""

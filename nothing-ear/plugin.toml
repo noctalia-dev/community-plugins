@@ -1,0 +1,76 @@
+# Nothing Ear for Noctalia
+# Battery, ANC (off/transparency/on+strength), EQ presets, low-latency and mono
+# for Nothing- and CMF-branded earbuds, talked to directly over Bluetooth
+# RFCOMM — no dependency on the Nothing X app or any other helper daemon.
+# Hardware-verified against a Nothing Ear (2); other models in the family
+# share the same wire protocol per independent community reverse-engineering
+# (see https://github.com/Zyrecx/noctalia-plugins/blob/main/nothing-ear/PROTOCOL.md)
+# but are not individually tested by this plugin's author.
+
+id = "zyrex/nothing-ear"
+name = "Nothing Ear"
+version = "0.1.0"
+plugin_api = 28
+author = "zyrex"
+license = "MIT"
+icon = "headphones"
+description = "Battery, noise control, EQ and auto mono audio for Nothing and CMF earbuds, controlled directly over Bluetooth."
+tags = ["audio", "bar", "panel", "desktop", "service", "hardware", "indicator"]
+dependencies = ["python3", "bluetoothctl", "pactl"]
+
+[[setting]]
+key = "device_mac"
+type = "string"
+label_key = "settings.device_mac.label"
+description_key = "settings.device_mac.description"
+default = ""
+
+[[setting]]
+key = "show_in_bar"
+type = "bool"
+label_key = "settings.show_in_bar.label"
+description_key = "settings.show_in_bar.description"
+default = true
+
+[[setting]]
+key = "show_percentage"
+type = "bool"
+label_key = "settings.show_percentage.label"
+description_key = "settings.show_percentage.description"
+default = true
+
+[[setting]]
+key = "mono_on_single_bud"
+type = "bool"
+label_key = "settings.mono_on_single_bud.label"
+description_key = "settings.mono_on_single_bud.description"
+default = false
+
+[[widget]]
+id = "nothing-ear"
+entry = "widget.luau"
+
+  [widget.actions]
+  left = "panel-toggle zyrex/nothing-ear:panel"
+  right = "plugin zyrex/nothing-ear:service all cycle-anc"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 380
+height = 650
+placement = "attached"
+position = "top_right"
+open_near_click = true
+
+[[desktop_widget]]
+id = "desktop"
+entry = "desktop-widget.luau"
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[shortcut]]
+id = "refresh"
+entry = "shortcut.luau"

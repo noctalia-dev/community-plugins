@@ -1,5 +1,6 @@
 {
   "check_updates": "Check updates",
+  "clean_empty_confirm": "Delete {n} empty sessions? This cannot be undone.",
   "close": "Close",
   "currency": {
     "auto_default": "usd"
@@ -22,6 +23,7 @@
   "err_sessions_fetch": "Could not read local sessions",
   "err_sessions_launch": "Could not launch list-claude-sessions",
   "err_skills_fetch": "Could not list Claude Code plugins",
+  "filter_empty": "Empty ({n})",
   "global_claude_md": "Global",
   "install_heading": "Install",
   "install_hint": "plugin@marketplace installs a plugin. owner/repo, a git URL or a path adds a marketplace.",
@@ -58,6 +60,7 @@
   "resetting": "Resetting…",
   "restart_hint": "Restart Claude Code to apply.",
   "search_placeholder": "Filter sessions…",
+  "session_empty": "empty",
   "session_untitled": "Session {id}",
   "sessions": "sessions",
   "settings": {
@@ -81,14 +84,6 @@
       "description": "Exchange-rate API get-claude-usage fetches every non-USD rate from.",
       "label": "Currency API URL"
     },
-    "display_mode": {
-      "description": "Classic shows usage percentages. Activity shows one dot per live session (red needs you, accent working, grey idle) and fill rings for the session and weekly limits.",
-      "label": "Display mode",
-      "options": {
-        "activity": "Activity",
-        "classic": "Classic"
-      }
-    },
     "editor_command": {
       "description": "Command to open a CLAUDE.md file. Empty tries \"code\", then \"zed\".",
       "label": "Editor command"
@@ -102,8 +97,8 @@
       "label": "Terminal command"
     },
     "usage_percent_display": {
-      "description": "What rides beside the bar glyph: the 5-hour session window, the 7-day weekly one, both, or neither.",
-      "label": "Usage percentage",
+      "description": "Which usage windows the bar widget shows, in both modes: the 5-hour session window, the 7-day weekly one, both, or neither. Activity mode draws a ring before each percentage.",
+      "label": "Usage limits shown",
       "options": {
         "both": "Both (sNN% wMM%)",
         "none": "Nothing",
@@ -114,12 +109,22 @@
     "usage_refresh_interval": {
       "description": "How often to fetch usage data (minutes).",
       "label": "Usage refresh interval"
+    },
+    "display_mode": {
+      "label": "Display mode",
+      "description": "Classic shows usage percentages. Activity shows one dot per live session (red needs you, accent working, grey idle) and fill rings for the session and weekly limits.",
+      "options": {
+        "classic": "Classic",
+        "activity": "Activity"
+      }
     }
   },
   "settings_tooltip": "Plugin settings",
   "since": "Since",
   "skill_action_done": "{name}: done.",
   "skill_action_failed": "{name}: failed",
+  "sort_date": "Date",
+  "sort_name": "Name",
   "tab_claudemd": "CLAUDE.md",
   "tab_live": "Live",
   "tab_sessions": "Sessions",
@@ -130,12 +135,14 @@
   "time_just_now": "just now",
   "time_minutes_ago": "{n}m ago",
   "tip_check_updates": "Fetch every marketplace and compare versions. Installs nothing.",
+  "tip_clean_empty": "Delete all empty sessions",
   "tip_collapse_all": "Collapse all projects",
   "tip_create_editor": "Create in editor",
   "tip_delete_session": "Delete session",
   "tip_disable_plugin": "Disable",
   "tip_enable_plugin": "Enable",
   "tip_expand_all": "Expand all projects",
+  "tip_filter_empty": "Show only empty sessions (no prompt sent)",
   "tip_focus_terminal": "Focus the terminal",
   "tip_hide_preview": "Hide preview",
   "tip_install": "Install",
@@ -144,6 +151,9 @@
   "tip_preview": "Preview",
   "tip_remove_marketplace": "Remove marketplace",
   "tip_resume": "Resume in a terminal",
+  "tip_resume_empty": "Empty session: nothing to resume",
+  "tip_sort_date": "Sort by date (click again to reverse)",
+  "tip_sort_name": "Sort by name (click again to reverse)",
   "tip_uninstall": "Uninstall",
   "tip_update_available": "Update available",
   "tip_update_marketplace": "Refresh marketplace",

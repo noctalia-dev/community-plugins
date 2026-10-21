@@ -27,6 +27,7 @@ shopt -s nullglob
 # "title" yet. "model"/"contextTokens" come from the session's last
 # "assistant" turn: message.model, and input_tokens + cache_read_input_tokens
 # + cache_creation_input_tokens (how full the context window was at that turn).
+# "empty" is true when the file holds no "user" turn.
 
 CLAUDE_DIR="${HOME}/.claude"
 PROJECTS_DIR="${CLAUDE_DIR}/projects"
@@ -94,11 +95,16 @@ if [ -d "$PROJECTS_DIR" ]; then
         sess_dir="$WORKDIR/work-$id"
         mkdir -p "$sess_dir"
 
+        # A session nobody wrote to (opened and closed at once) holds only
+        # bookkeeping lines — no "user" turn at all.
+        empty=true
+        grep -q -F '"type":"user"' -- "$file" 2>/dev/null && empty=false
+
         # Base fields are always short: safe as --arg regardless of file size.
         jq -n \
             --arg id "$id" --arg projectDir "$project_dir" \
-            --arg mtime "$mtime" --arg size "$size" \
-            '{ id: $id, projectDir: $projectDir,
+            --arg mtime "$mtime" --arg size "$size" --argjson empty "$empty" \
+            '{ id: $id, projectDir: $projectDir, empty: $empty,
                mtime: ($mtime | tonumber? // 0), size: ($size | tonumber? // 0) }' \
             > "$sess_dir/base.json"
         write_head_json "$file" "$sess_dir/head.json"

@@ -1,0 +1,103 @@
+{
+  "plugin": {
+    "name": "Nothing Ear",
+    "description": "Battery, ANC, EQ presets and low-latency mode for Nothing and CMF earbuds, controlled directly over Bluetooth."
+  },
+  "settings": {
+    "device_mac": {
+      "label": "Earbuds MAC Address",
+      "description": "Leave empty to auto-detect or pick from the panel. Set it to pin one device."
+    },
+    "show_in_bar": {
+      "label": "Show live status in bar",
+      "description": "Show the battery number next to the icon, updated in the background."
+    },
+    "show_percentage": {
+      "label": "Show battery percentage in bar",
+      "description": "Add a % sign after the battery number."
+    },
+    "mono_on_single_bud": {
+      "label": "Auto mono when only one bud is out",
+      "description": "Switch to mono while one bud is in its closed case, so you hear everything in the other."
+    }
+  },
+  "widget": {
+    "not_connected": "Earbuds not connected",
+    "not_configured": "No earbuds configured",
+    "on": "On",
+    "click": {
+      "left": "Left click",
+      "right": "Right click"
+    },
+    "action": {
+      "left_click": "Open Controls",
+      "right_click": "Cycle ANC Mode"
+    }
+  },
+  "panel": {
+    "title": "Nothing Ear",
+    "left": "Left",
+    "right": "Right",
+    "case": "Case",
+    "charging": "Charging",
+    "noise_control": "Noise Control",
+    "mode": {
+      "anc": "Noise Cancellation",
+      "transparency": "Transparency",
+      "off": "Off"
+    },
+    "strength": {
+      "high": "High",
+      "mid": "Mid",
+      "low": "Low",
+      "adaptive": "Adaptive"
+    },
+    "eq": {
+      "title": "EQ Preset",
+      "balanced": "Balanced",
+      "more_bass": "More Bass",
+      "more_treble": "More Treble",
+      "voice": "Voice",
+      "custom": "Custom"
+    },
+    "latency": {
+      "title": "Low Latency Mode",
+      "caption": "Less delay for games and video"
+    },
+    "mono": {
+      "title": "Mono Audio",
+      "caption": "Same sound in both buds. Auto mode is in settings",
+      "caption_auto": "Turns on by itself when one bud is out",
+      "caption_auto_active": "On because only one bud is out"
+    },
+    "personal_anc": {
+      "title": "Personalised ANC"
+    },
+    "sound_profile": {
+      "title": "Personal Sound Profile"
+    },
+    "status": {
+      "connected": "Connected",
+      "disconnected": "Not Connected"
+    },
+    "guidance": "Pick your earbuds below, or set the Bluetooth MAC address manually in this plugin's settings.",
+    "devices": {
+      "title": "Paired Bluetooth Devices",
+      "scan": "Scan for devices",
+      "none": "No paired Bluetooth devices found. Make sure the earbuds are paired at the OS level, then scan again.",
+      "switch": "Switch earbuds"
+    },
+    "audio": {
+      "title": "Audio"
+    }
+  },
+  "shortcut": {
+    "refresh": "Refresh Nothing Ear"
+  },
+  "notify": {
+    "mono_on_title": "Mono audio on",
+    "mono_on_body": "Only one earbud is out, so both channels play in it.",
+    "mono_off_title": "Stereo audio back",
+    "mono_off_body": "Both earbuds are out or back in the case."
+  }
+}

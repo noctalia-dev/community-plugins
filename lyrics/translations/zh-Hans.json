@@ -79,9 +79,29 @@
         "follow": "跟随界面字体"
       }
     },
+    "show_cues": {
+      "description": "在前奏和间奏期间显示逐字点亮的提示字符。",
+      "label": "显示前奏/间奏提示"
+    },
     "cue_text": {
       "description": "前奏和间奏期间逐字点亮的文字或字符。",
       "label": "前奏/间奏字符"
+    },
+    "intro_min_ms": {
+      "description": "仅当第一句歌词在此毫秒数之后开始时，才显示前奏提示。",
+      "label": "前奏提示阈值"
+    },
+    "interlude_gap_ms": {
+      "description": "相邻歌词起始时间超过此毫秒数时，按长间奏估算上一句歌词的结束时间。",
+      "label": "长间奏判定间隔"
+    },
+    "interlude_min_ms": {
+      "description": "歌词结束后静默超过此毫秒数时，才显示间奏提示。",
+      "label": "间奏提示阈值"
+    },
+    "interlude_lead_ms": {
+      "description": "提前多少毫秒显示间奏提示。",
+      "label": "间奏提示提前量"
     },
     "custom_json_field": {
       "description": "JSON 响应中的歌词字段，支持点号路径，例如 data.lyric；留空则按纯 LRC 解析。",

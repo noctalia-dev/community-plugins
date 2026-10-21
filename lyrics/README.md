@@ -1,4 +1,4 @@
-# Noctalia Lyrics 1.5.6
+# Noctalia Lyrics 1.5.7
 
 Synchronized lyrics for the Noctalia bar, with multiple MPRIS players,
 translation and romanization layers, configurable sources, karaoke highlighting,
@@ -22,15 +22,17 @@ Install these commands on `PATH`:
   written.
 - `timeout`: bounds each `playerctl` metadata poll during startup and runtime.
 
+For a dependency table and package-manager install commands, see
+[DEPENDENCIES.md](DEPENDENCIES.md).
+
 ## Usage
 
 Enable `h465855hgg/lyrics`, start its `service` entry, and add the `lyrics` bar
 widget. Left-click switches between lyrics and track information when
 `display_mode` is `toggle`; right-click pauses or resumes the selected player.
-When LRCLIB returns multiple matches, hover over the lyrics widget briefly to
-open the `selector` panel and apply another result.
-Bind the `open_selector` shortcut to a key combination in Noctalia's shortcuts
-settings, or open the selector directly through IPC:
+When LRCLIB returns multiple matches, open the `selector` panel from the
+`open_selector` control-center shortcut and apply another result. The widget no
+longer opens the selector on hover; it can also be opened directly through IPC:
 
 ```sh
 noctalia msg panel-toggle h465855hgg/lyrics:selector
@@ -143,10 +145,10 @@ Per-widget settings control the fallback glyph, artist visibility, paused-state
 visibility, visibility when no lyrics are available, album-cover shape and size,
 primary, inactive, and secondary lyric colors, display mode, lyric layers,
 karaoke behavior, scrolling, fixed lyric width, transitions, typography, spacing,
-padding, cue text, and text alignment. Credential and source-specific fields are
-shown only when their matching source is selected; source order, credentials,
-polling, marquee metrics, player filters, and fine layout controls are under
-Advanced settings.
+padding, intro/interlude cue visibility and text, and text alignment. Credential
+and source-specific fields are shown only when their matching source is selected;
+source order, credentials, polling, marquee metrics, player filters, cue timing
+thresholds, and fine layout controls are under Advanced settings.
 
 ### 1.5 configuration change
 
@@ -192,8 +194,11 @@ polling, marquee metrics, player filters, and fine padding.
 14. Layout: test `max_chars` and `text_alignment` with short and long lyrics,
     plus `padding_left`, `padding_right`, and `line_gap` on horizontal and vertical
     bars.
-15. LRCLIB selection: play a track with multiple results, briefly hover over the widget,
-    and switch between synchronized and plain entries without changing tracks.
+15. LRCLIB selection: play a track with multiple results, open the selector from
+    its shortcut or IPC, and switch between synchronized and plain entries without
+    changing tracks.
+16. Cues: toggle `show_cues` and verify the widget hides cue text but keeps lyrics
+    visible; adjust the cue thresholds under Advanced.
 
 ## External protocol
 

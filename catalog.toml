@@ -308,8 +308,8 @@ rev = "203aaef232cb47ba37c9b32af82f27225ea1916e"
 [[plugin]]
 id = "h465855hgg/lyrics"
 name = "Lyrics"
-version = "1.5.6"
-updated_at = 1792417676
+version = "1.5.7"
+updated_at = 1792531543
 added_at = 1784238037
 author = "h465855hgg"
 license = "MIT"
@@ -2507,8 +2507,8 @@ tags = ["bar", "desktop", "panel", "service", "animation", "media", "network", "
 [[plugin]]
 id = "prponkshe/umbriel-displays"
 name = "Umbriel Displays"
-version = "1.0.1"
-updated_at = 1790485959
+version = "1.0.2"
+updated_at = 1792531218
 added_at = 1789086907
 author = "prponkshe"
 license = "MIT"
@@ -2520,15 +2520,21 @@ tags = ["bar", "panel", "service", "hardware", "utility", "umbriel"]
 [[plugin]]
 id = "nightwatch75/claude-cockpit"
 name = "Claude Cockpit"
-version = "1.0.0"
-updated_at = 1791639110
+version = "1.1.0"
+updated_at = 1792531517
 added_at = 1789089483
 author = "nightwatch75"
 license = "MIT"
 icon = "robot"
 description = "Live Claude Code sessions and usage on the bar; manage sessions, skills and mods, edit CLAUDE.md files."
-plugin_api = 31
+plugin_api = 33
 tags = ["ai", "development", "bar", "panel", "service", "productivity"]
+
+[[plugin.release]]
+plugin_api = 31
+version = "1.0.0"
+updated_at = 1791639110
+rev = "441c27a0824593ae8186176c6eb5cec1e931307e"
 
 [[plugin.release]]
 plugin_api = 24
@@ -3065,8 +3071,8 @@ tags = ["bar", "panel", "ai", "indicator", "utility"]
 [[plugin]]
 id = "riversyx/noctaproton-vpn"
 name = "NoctaProton VPN"
-version = "1.0.0"
-updated_at = 1790251619
+version = "1.0.1"
+updated_at = 1792546815
 added_at = 1790251619
 author = "RiverSyx"
 license = "GPL-3.0"
@@ -3849,3 +3855,16 @@ icon = "currency-bitcoin"
 description = "Your Binance portfolio, Binance Stocks, a watchlist and price alerts, with a read-only key kept in your keyring."
 plugin_api = 32
 tags = ["bar", "panel", "service", "launcher", "desktop", "indicator", "privacy"]
+
+[[plugin]]
+id = "zyrex/nothing-ear"
+name = "Nothing Ear"
+version = "0.1.0"
+updated_at = 1792534252
+added_at = 1792534252
+author = "zyrex"
+license = "MIT"
+icon = "headphones"
+description = "Battery, noise control, EQ and auto mono audio for Nothing and CMF earbuds, controlled directly over Bluetooth."
+plugin_api = 28
+tags = ["audio", "bar", "panel", "desktop", "service", "hardware", "indicator"]
