@@ -22,6 +22,7 @@ No manual player configuration is required.
 
 You can customize the glyph and color for each playback state in the widget settings.
 Enable **Hide Stopped** to hide the indicator when a media player reports that playback is stopped.
+Disable **Hide Missing** to show the icon when no media player is available.
 
 Left-click the widget to toggle media playback between play and pause.
 Right-click the widget to open the Noctalia Control Center with its Media tab selected.
@@ -48,10 +49,15 @@ The plugin uses:
 | `hide_stopped`  | `bool`   | `false`                | Hide the indicator when a media player is stopped. |
 | `stopped_glyph` | `glyph`  | `"player-stop-filled"` | Glyph displayed when a media player is stopped.    |
 | `stopped_color` | `color`  | `"on_surface"`         | Color used for the stopped status glyph.           |
+| `hide_missing`  | `bool`   | `true`                 | Hide the indicator when a media player is missing. |
+| `missing_glyph` | `glyph`  | `"disc"`               | Glyph displayed when a media player is missing.    |
+| `missing_color` | `color`  | `"on_surface_variant"` | Color used for the missing status glyph.           |
 
 The `stopped_glyph` and `stopped_color` settings are only available when `hide_stopped` is disabled.
 
+The `missing_glyph` and `missing_color` settings are only available when `hide_missing` is disabled.
+
 ## Notes
 
-- The widget is hidden when no media player is available or when the service encounters an error.
+- The widget is hidden when the service encounters an error.
 - Errors are logged to the Noctalia log.

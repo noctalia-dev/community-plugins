@@ -5,9 +5,21 @@
     "stream_failed": "Could not start the media player status stream."
   },
   "settings": {
+    "hide_missing": {
+      "description": "Hide the media player indicator when no media player is running",
+      "label": "Hide Missing"
+    },
     "hide_stopped": {
       "description": "Hide the media player indicator when playback is stopped",
       "label": "Hide Stopped"
+    },
+    "missing_color": {
+      "description": "Color to use for the missing status glyph",
+      "label": "Missing color"
+    },
+    "missing_glyph": {
+      "description": "Glyph to display when no media player is running",
+      "label": "Missing glyph"
     },
     "paused_color": {
       "description": "Color to use for the paused status glyph",

@@ -2,16 +2,19 @@
 
 -- Visibility settings
 local hideStopped = noctalia.getConfig("hide_stopped")
+local hideMissing = noctalia.getConfig("hide_missing")
 
 -- Glyph settings
 local playingGlyph = noctalia.getConfig("playing_glyph")
 local pausedGlyph = noctalia.getConfig("paused_glyph")
 local stoppedGlyph = noctalia.getConfig("stopped_glyph")
+local missingGlyph = noctalia.getConfig("missing_glyph")
 
 -- Color settings
 local playingColor = noctalia.getConfig("playing_color")
 local pausedColor = noctalia.getConfig("paused_color")
 local stoppedColor = noctalia.getConfig("stopped_color")
+local missingColor = noctalia.getConfig("missing_color")
 
 -- Initial state
 local snapshot = {
@@ -22,7 +25,7 @@ local snapshot = {
 
 -- Update the bar widget
 local function render()
-  if snapshot.hasError or not snapshot.hasPlayer then
+  if snapshot.hasError or (hideMissing and not snapshot.hasPlayer) then
     barWidget.setVisible(false)
     return
   end
@@ -44,6 +47,9 @@ local function render()
   elseif snapshot.status == "Stopped" then
     glyph = stoppedGlyph
     color = stoppedColor
+  elseif not snapshot.hasPlayer then
+    glyph = missingGlyph
+    color = missingColor
   end
 
   -- Hide if the status is unknown or the glyph is empty
