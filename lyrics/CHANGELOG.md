@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.5.8
+
+- Declare the widget's left-click, right-click, and scroll bindings as editable
+  Actions defaults instead of hiding them in Luau callbacks. The commands keep
+  using the service's selected MPRIS player, and only the hovered lyrics widget
+  changes view on left click when several instances are active.
+- Raise `plugin_api` to 14, required for widget gesture defaults.
+
 ## 1.5.7
 
 - Keep the lyrics capsule visible while lyrics are loading and retry transient

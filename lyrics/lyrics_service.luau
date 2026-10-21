@@ -1091,8 +1091,26 @@ local function applyPushedLyrics(payload)
   return false
 end
 
+local function controlPlayer(action, onSuccess)
+  if currentPlayerInstance == "" then return end
+  noctalia.runAsync("playerctl --player " .. shellQuote(currentPlayerInstance) .. " " .. action, function(result)
+    if result.exitCode ~= 0 then return end
+    if onSuccess then onSuccess() end
+    poll()
+  end)
+end
+
 function onIpc(event, payload)
-  if event == "push-lrc" then
+  if event == "toggle-playback" then
+    local wasPlaying = noctalia.state.get("playing") == true
+    controlPlayer("play-pause", function()
+      noctalia.state.set("playing", not wasPlaying)
+    end)
+  elseif event == "next" then
+    controlPlayer("next")
+  elseif event == "previous" then
+    controlPlayer("previous")
+  elseif event == "push-lrc" then
     local tk = currentTrack and trackKey(currentTrack) or ""
     candidateCache[tk] = nil
     selectedCandidateCache[tk] = nil

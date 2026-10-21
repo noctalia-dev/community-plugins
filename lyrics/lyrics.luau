@@ -66,7 +66,7 @@ local cover = nil
 local playing = false
 local showMode = displayMode == "track" and "track" or "auto"
 local rendered = false
-local playerInstance = ""
+local hovered = false
 local sourceUsed = ""
 local lyricsLoading = false
 
@@ -84,10 +84,6 @@ local FADE_OUT_MS = 130
 local FADE_IN_MS = 260
 local MARQUEE_HOLD = 1.1
 local BLEND_MS = 350
-
-local function shellQuote(value)
-  return "'" .. tostring(value):gsub("'", "'\\''") .. "'"
-end
 
 local function clamp(value, low, high)
   return math.min(high, math.max(low, value))
@@ -575,33 +571,23 @@ local function render()
   rendered = true
 end
 
-function onClick()
+local function toggleView()
   if displayMode ~= "toggle" then return end
   showMode = showMode == "auto" and "track" or "auto"
   marqueeElapsed = 0
   if rendered then render() end
 end
 
-function onRightClick()
-  if playerInstance == "" then return end
-  noctalia.runAsync("playerctl --player " .. shellQuote(playerInstance) .. " play-pause", function(result)
-    if result.exitCode == 0 then
-      local wasPlaying = playing
-      if wasPlaying then baselinePosition = getProgressMs() * 1000 end
-      playing = not wasPlaying
-      noctalia.state.set("playing", playing)
-      baselineClock = os.clock()
-      render()
-    end
-  end)
+function onClick()
+  toggleView()
 end
 
-function onScroll(axis, steps)
-  if axis ~= "vertical" or playerInstance == "" then return end
-  local direction = tonumber(steps) or 0
-  if direction == 0 then return end
-  local action = direction < 0 and "next" or "previous"
-  noctalia.runAsync("playerctl --player " .. shellQuote(playerInstance) .. " " .. action, function() end)
+function onHover(entered)
+  hovered = entered == true
+end
+
+function onIpc(event, _payload)
+  if event == "toggle-view" and hovered then toggleView() end
 end
 
 function update()
@@ -613,7 +599,6 @@ function update()
   lyrics = noctalia.state.get("lyrics")
   cover = noctalia.state.get("cover")
   playing = noctalia.state.get("playing") == true
-  playerInstance = noctalia.state.get("player_instance") or ""
   sourceUsed = noctalia.state.get("lyrics_source_used") or ""
   lyricsLoading = noctalia.state.get("lyrics_loading") == true
 
