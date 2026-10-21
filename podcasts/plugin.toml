@@ -1,6 +1,6 @@
 id = "fel/podcasts"
 name = "Podcasts"
-version = "0.1.0"
+version = "0.1.1"
 plugin_api = 22
 author = "fel"
 license = "MIT"
