@@ -530,6 +530,7 @@
     "cli_start_failed": "Could not start GitHub CLI.",
     "empty": "Nothing to show here.",
     "gh_request_failed": "GitHub CLI request failed.",
+    "notification_refresh_timeout": "Notification refresh timed out. It will retry automatically.",
     "invalid_json": "GitHub returned invalid JSON.",
     "loading": "Loading GitHub data…",
     "missing_gh": "GitHub CLI (gh) is required.",
