@@ -1,0 +1,88 @@
+{
+  "bar": {
+    "pending": "Pending",
+    "overdue": "Overdue",
+    "due-today": "Due today"
+  },
+  "service": {
+    "added": "Task added",
+    "completed": "Task completed",
+    "deleted": "Task deleted",
+    "updated": "Task updated",
+    "undone": "Last change undone",
+    "command-failed": "Taskwarrior command failed",
+    "export-failed": "task export failed",
+    "parse-failed": "Failed to parse task export"
+  },
+  "panel": {
+    "title": "Taskwarrior",
+    "header": {
+      "count": {
+        "one": "{count} task",
+        "other": "{count} tasks"
+      }
+    },
+    "tabs": {
+      "all": "All"
+    },
+    "add": {
+      "placeholder": "What needs doing? (Taskwarrior syntax also works here)",
+      "tags-placeholder": "Tags, e.g. +work +urgent",
+      "project-placeholder": "Project",
+      "due-placeholder": "Due, e.g. 2h, friday, 2026-07-10, eom",
+      "submit": "Add"
+    },
+    "due-preset": {
+      "1h": "1h",
+      "4h": "4h",
+      "today": "Today",
+      "tomorrow": "Tomorrow",
+      "3d": "3d",
+      "1w": "1w",
+      "2w": "2w",
+      "1m": "1m"
+    },
+    "sort": {
+      "urgency": "Sort: urgency",
+      "due": "Sort: due date",
+      "priority": "Sort: priority",
+      "project": "Sort: project"
+    },
+    "filter": {
+      "all-projects": "All projects"
+    },
+    "due": {
+      "overdue": "overdue",
+      "overdue-days": "{days}d overdue",
+      "today": "today {time}",
+      "tomorrow": "tomorrow",
+      "in-days": "in {days}d"
+    },
+    "empty": "No pending tasks — enjoy the calm.",
+    "edit": {
+      "title": "Edit task",
+      "description": "Description",
+      "project": "Project",
+      "due": "Due",
+      "due-placeholder": "e.g. 2h, tomorrow, friday, 2026-07-10",
+      "tags": "Tags",
+      "tags-placeholder": "space separated, e.g. work urgent",
+      "priority": "Priority",
+      "urgency": "urgency {urgency}",
+      "save": "Save",
+      "discard": "Discard",
+      "done": "Done",
+      "delete": "Delete"
+    }
+  },
+  "settings": {
+    "show-all-tab": {
+      "label": "Show 'All' tab",
+      "description": "Show a tab listing all pending tasks regardless of tag. The other tabs reflect the tags found on your pending tasks."
+    },
+    "refresh-interval": {
+      "label": "Refresh interval (seconds)",
+      "description": "How often the task list is refreshed in the background."
+    }
+  }
+}

@@ -1,0 +1,42 @@
+id = "asj/noctalia-warrior"
+name = "Noctalia Warrior"
+version = "2.0.0"
+plugin_api = 3
+author = "Anders Doozer"
+license = "MIT"
+description = "Taskwarrior in your bar: see pending and overdue counts, and add, edit, complete or delete tasks."
+tags = ["bar", "panel", "service", "productivity"]
+icon = "swords"
+dependencies = ["task"]
+
+[[setting]]
+key = "show_all_tab"
+type = "bool"
+label_key = "settings.show-all-tab.label"
+description_key = "settings.show-all-tab.description"
+default = true
+
+[[setting]]
+key = "refresh_interval"
+type = "int"
+label_key = "settings.refresh-interval.label"
+description_key = "settings.refresh-interval.description"
+default = 30
+min = 5
+max = 3600
+
+[[widget]]
+id = "bar"
+entry = "widget.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 720
+height = 680
+placement = "attached"
+open_near_click = true
+
+[[service]]
+id = "tasks"
+entry = "service.luau"
