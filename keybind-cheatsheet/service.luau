@@ -916,25 +916,32 @@ end
 -- Hyprland configs are full of `exec_cmd("tool --flag")` lines whose
 -- description then never gets read (the bind lands in "Other").
 local function luaCommentStart(line)
+  -- find() jumps straight to the next quote, backslash or dash; a per-character
+  -- loop over a few hundred config lines exceeded one CPU-budget window.
   local quote = nil
   local i = 1
-  local n = #line
-  while i <= n do
-    local ch = line:sub(i, i)
+  while true do
     if quote ~= nil then
-      if ch == "\\" then
-        i += 1
-      elseif ch == quote then
+      local j = line:find(quote == '"' and '[\\"]' or "[\\']", i)
+      if j == nil then return nil end
+      if line:sub(j, j) == "\\" then
+        i = j + 2
+      else
         quote = nil
+        i = j + 1
       end
-    elseif ch == '"' or ch == "'" then
-      quote = ch
-    elseif ch == "-" and line:sub(i + 1, i + 1) == "-" then
-      return i
+    else
+      local j = line:find("[\"'%-]", i)
+      if j == nil then return nil end
+      local ch = line:sub(j, j)
+      if ch == "-" then
+        if line:sub(j + 1, j + 1) == "-" then return j end
+      else
+        quote = ch
+      end
+      i = j + 1
     end
-    i += 1
   end
-  return nil
 end
 
 local function scanHyprLuaContent(content, sourceFile, context)
@@ -1002,8 +1009,9 @@ local function scanHyprLuaContent(content, sourceFile, context)
   return includes
 end
 
-local function scanHyprLua(rootPath)
-  local context = {
+local function newHyprLuaScan(rootPath)
+  local root = normalizePath(expandEnvironment(rootPath))
+  return {
     bindings = {},
     variables = {},
     warnings = {},
@@ -1011,40 +1019,51 @@ local function scanHyprLua(rootPath)
     fileCount = 0,
     rootRead = false,
     rules = {},
-    luaRoot = pathDirname(normalizePath(expandEnvironment(rootPath))),
+    luaRoot = pathDirname(root),
     sources = {},
     globs = {},
+    queue = { { path = root, depth = 0, isRoot = true } },
   }
+end
 
-  local visit
-  visit = function(path, depth, isRoot)
-    if depth > MAX_PARSE_DEPTH or context.fileCount >= MAX_PARSE_FILES then
-      table.insert(context.warnings, "Lua include limit reached at " .. path)
-      return
-    end
-    path = normalizePath(path)
-    if context.visited[path] then
-      return
-    end
-    context.visited[path] = true
-    context.fileCount += 1
-    local content, err = noctalia.readFile(path)
-    if content == nil then
-      table.insert(context.warnings, err or ("Could not read " .. path))
-      return
-    end
-    local info = noctalia.fileInfo(path)
-    if info ~= nil then
-      table.insert(context.sources, { path = path, size = info.size, mtime = info.mtime })
-    end
-    if isRoot then context.rootRead = true end
-    local includes = scanHyprLuaContent(content, path, context)
-    for _, include in ipairs(includes) do
-      visit(normalizePath(include.path), depth + 1, false)
-    end
+-- Scans the next queued file and queues its require()s ahead of the rest, so
+-- the order matches a depth-first walk. Returns true once the queue is empty.
+-- The hypr job calls this once per budget window; scanning a split config in
+-- one callback exceeded the budget and left the service refreshing forever.
+local function hyprLuaScanStep(context)
+  local entry = table.remove(context.queue, 1)
+  if entry == nil then return true end
+  local path = entry.path
+  if entry.depth > MAX_PARSE_DEPTH or context.fileCount >= MAX_PARSE_FILES then
+    table.insert(context.warnings, "Lua include limit reached at " .. path)
+    return #context.queue == 0
   end
+  path = normalizePath(path)
+  if context.visited[path] then
+    return #context.queue == 0
+  end
+  context.visited[path] = true
+  context.fileCount += 1
+  local content, err = noctalia.readFile(path)
+  if content == nil then
+    table.insert(context.warnings, err or ("Could not read " .. path))
+    return #context.queue == 0
+  end
+  local info = noctalia.fileInfo(path)
+  if info ~= nil then
+    table.insert(context.sources, { path = path, size = info.size, mtime = info.mtime })
+  end
+  if entry.isRoot then context.rootRead = true end
+  local includes = scanHyprLuaContent(content, path, context)
+  for index, include in ipairs(includes) do
+    table.insert(context.queue, index, { path = normalizePath(include.path), depth = entry.depth + 1, isRoot = false })
+  end
+  return #context.queue == 0
+end
 
-  visit(normalizePath(expandEnvironment(rootPath)), 0, true)
+local function scanHyprLua(rootPath)
+  local context = newHyprLuaScan(rootPath)
+  while not hyprLuaScanStep(context) do end
   return context
 end
 
@@ -1600,9 +1619,13 @@ local function hyprStep(value)
   end
 
   if job.phase == "scan" then
-    -- Whole-config scan gets its own budget window (this is what
-    -- blew up on large Lua configs in #606).
-    job.scan = scanHyprLua(job.request.root)
+    -- One config file per budget window. A whole-config scan in one window
+    -- blew up on large Lua configs (#606) and again on split configs.
+    if job.scan == nil then job.scan = newHyprLuaScan(job.request.root) end
+    if not hyprLuaScanStep(job.scan) then
+      scheduleHyprStep(job)
+      return
+    end
     if job.error ~= nil then
       job.bindings = {}
       job.phase = "finish"
