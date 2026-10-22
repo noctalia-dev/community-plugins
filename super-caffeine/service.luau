@@ -33,7 +33,7 @@ local function setActive(on)
     publish()
     noctalia.runAsync(if on then START else STOP, function(r)
         if r.exitCode ~= 0 then
-            noctalia.notifyError("Super Caffeine", noctalia.string.trim(r.stderr or ""))
+            noctalia.notifyError(noctalia.tr("title"), noctalia.string.trim(r.stderr or ""))
         end
         refresh(function()
             busy = false

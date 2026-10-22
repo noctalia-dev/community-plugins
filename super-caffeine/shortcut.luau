@@ -3,7 +3,7 @@ local status = noctalia.state.get("super_caffeine_status") or { active = false, 
 local requestId = 0
 
 local function render()
-    shortcut.setLabel(if status.active then "Super Caffeine On" else "Super Caffeine Off")
+    shortcut.setLabel(if status.active then noctalia.tr("shortcut.active") else noctalia.tr("shortcut.inactive"))
     shortcut.setIcon("coffee", "coffee-off")
     shortcut.setActive(status.active == true)
     shortcut.setEnabled(status.busy ~= true)

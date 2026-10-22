@@ -5,7 +5,7 @@ plugin_api = 3
 author = "bagusk99"
 license = "MIT"
 icon = "coffee"
-description = "One toggle for full stay-awake: Noctalia caffeine (no idle lock/sleep) plus a logind lid inhibitor (closing the lid won't suspend)."
+description = "One toggle for full stay-awake: Noctalia caffeine (no idle lock/sleep) plus a lid inhibitor (lid close won't suspend)."
 tags = ["bar", "indicator", "productivity", "service", "shortcut", "system", "utility"]
 dependencies = ["noctalia", "systemctl", "systemd-run", "systemd-inhibit", "sleep"]
 

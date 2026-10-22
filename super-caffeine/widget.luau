@@ -6,15 +6,15 @@ local function render()
     if status.busy then
         barWidget.setGlyph("loader-2")
         barWidget.setGlyphColor("primary")
-        barWidget.setTooltip("Super Caffeine: switching…")
+        barWidget.setTooltip(noctalia.tr("tooltip.changing"))
     elseif status.active then
         barWidget.setGlyph("coffee")
         barWidget.setGlyphColor("tertiary")
-        barWidget.setTooltip("Super Caffeine ON: no idle lock, lid close won't suspend")
+        barWidget.setTooltip(noctalia.tr("tooltip.active"))
     else
         barWidget.setGlyph("coffee-off")
         barWidget.setGlyphColor("on_surface_variant")
-        barWidget.setTooltip("Super Caffeine OFF")
+        barWidget.setTooltip(noctalia.tr("tooltip.inactive"))
     end
 end
 
