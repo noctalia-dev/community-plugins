@@ -1,4 +1,4 @@
-# Noctalia Warrior
+# Task Warrior
 
 [Taskwarrior](https://taskwarrior.org/) on your Noctalia bar. A bar widget shows how many tasks are
 pending and turns red when something is overdue or due today. Its panel lets you view, add, edit,
@@ -9,7 +9,7 @@ always show the same tasks.
 
 | Field | Value |
 | --- | --- |
-| ID | `asj/noctalia-warrior` |
+| ID | `asj/task-warrior` |
 | Entries | Bar widget: `bar`; panel: `panel`; service: `tasks` |
 
 ## Requirements
@@ -19,7 +19,7 @@ Taskwarrior configuration and data; it needs no extra setup.
 
 ## Usage
 
-Enable the plugin in Settings → Plugins, then add the **Noctalia Warrior** widget (`asj/noctalia-warrior:bar`)
+Enable the plugin in Settings → Plugins, then add the **Task Warrior** widget (`asj/task-warrior:bar`)
 to a bar section. The `tasks` service starts with the plugin and needs no setup.
 
 - **Left click** the widget to open or close the panel.
@@ -29,7 +29,7 @@ to a bar section. The `tasks` service starts with the plugin and needs no setup.
 The panel can also be toggled from a keybind or script:
 
 ```sh
-noctalia msg panel-toggle asj/noctalia-warrior:panel
+noctalia msg panel-toggle asj/task-warrior:panel
 ```
 
 In the panel:

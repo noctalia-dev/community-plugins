@@ -1,5 +1,5 @@
 --!nonstrict
--- Noctalia Warrior taskwarrior service: the single owner of all `task` CLI access.
+-- Task Warrior taskwarrior service: the single owner of all `task` CLI access.
 --
 -- Publishes shared state:
 --   tasks   : array of pending task tables (from `task export`)
@@ -257,11 +257,11 @@ local function runNext()
     if r.exitCode == 0 and not r.timedOut then
       local key = successKeys[req.kind]
       if key ~= nil then
-        noctalia.notify("Noctalia Warrior", noctalia.tr(key))
+        noctalia.notify("Task Warrior", noctalia.tr(key))
       end
     else
       local msg = firstLine(r.stderr)
-      noctalia.notifyError("Noctalia Warrior", msg ~= "" and msg or noctalia.tr("service.command-failed"))
+      noctalia.notifyError("Task Warrior", msg ~= "" and msg or noctalia.tr("service.command-failed"))
     end
     -- Refresh once per queue drain, not once per action.
     if #pending > 0 then

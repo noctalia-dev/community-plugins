@@ -1,5 +1,5 @@
 --!nonstrict
--- Noctalia Warrior panel: tag tabs, task list, sort/filter, and a form that doubles
+-- Task Warrior panel: tag tabs, task list, sort/filter, and a form that doubles
 -- as quick-add (empty selection) or edit (click a task to load its fields).
 -- A pure view over the service's "tasks"/"status" state; all taskwarrior
 -- mutations are sent to the service as "request" state values.

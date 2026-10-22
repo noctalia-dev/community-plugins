@@ -1,5 +1,5 @@
-id = "asj/noctalia-warrior"
-name = "Noctalia Warrior"
+id = "asj/task-warrior"
+name = "Task Warrior"
 version = "2.0.0"
 plugin_api = 3
 author = "Anders Doozer"

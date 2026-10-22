@@ -1,5 +1,5 @@
 --!nonstrict
--- Noctalia Warrior bar widget: pending-task count, red when something is overdue or
+-- Task Warrior bar widget: pending-task count, red when something is overdue or
 -- due today (mirroring taskwarrior's own color.overdue / color.due.today).
 -- A pure view over the service's "summary" state; left click toggles the panel,
 -- right click asks the service for an immediate refresh.
@@ -39,7 +39,7 @@ noctalia.state.watch("summary", function(value)
 end)
 
 function onClick()
-  noctalia.togglePanel("asj/noctalia-warrior:panel")
+  noctalia.togglePanel("asj/task-warrior:panel")
 end
 
 local requestSeq = 0
