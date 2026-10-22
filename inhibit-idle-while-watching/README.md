@@ -99,10 +99,18 @@ model and guarantees:
 - **No capture while locked — fail closed:** the privacy gate captures only on
   an *explicit* "unlocked" from `noctalia msg status`. A lock screen, a missing
   or malformed status answer, or a schema drift all refuse capture ("skipped").
-  The gate is checked at spawn (service side, also fail-closed), at check
-  start, and again immediately before the frame is taken. A locked session is
-  also where the poke must never land: synthetic input on a lockscreen would
-  wake it, so the gate exits before capture and never reaches the tap.
+  The lock is checked at spawn (service side, also fail-closed), at check
+  start, and again immediately before the frame is taken. What is guaranteed:
+  capture is never *started* while the session is locked or its state unknown.
+  A capture already in flight when the session locks cannot be cancelled
+  mid-frame — that single frame still follows the image-lifetime rule above
+  (RAM only, dropped with the check).
+- **The tap never reaches a lockscreen:** synthetic input on a lockscreen
+  would wake it, so the lock state is re-checked one last time immediately
+  before the `wtype` tap — after capture and detection, which can span up to
+  ~15 s during which the session can lock. Locked or unknown at that moment
+  refuses the tap (the gate then reports `locked`/`skipped`) and the
+  configured idle chain proceeds untouched.
 - **No shell, fixed binaries:** `ffmpeg`, `v4l2-ctl`, `wtype` and `noctalia`
   are invoked with argument lists (never through a shell). Settings such as
   `camera_path` are passed as discrete arguments; there is no string

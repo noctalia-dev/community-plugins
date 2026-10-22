@@ -391,7 +391,11 @@ def poke_idle(log_path: str | None) -> bool:
     behaviour spent (measured 2026-10-22 on umbriel: no re-fire within 90 s),
     while an input tap re-arms every behaviour (re-fire at tap + timeout).
     A bare modifier tap types nothing into applications; wtype injects it
-    through the virtual-keyboard protocol."""
+    through the virtual-keyboard protocol.
+
+    Sends the tap unconditionally: callers must re-check the lock state
+    immediately before calling (see cmd_gate) so input never lands on a
+    lockscreen."""
     try:
         subprocess.run(["wtype", "-M", "shift", "-m", "shift"],
                        capture_output=True, text=True, timeout=5)
@@ -421,7 +425,18 @@ def cmd_gate(args) -> int:
         print("error")
         return EXIT_ERROR
     if should_poke(code):
-        poke_idle(args.log_file)
+        # Lock re-check immediately before the tap (review 2026-10-22): capture
+        # and detection can span up to ~15 s and the session can lock mid-check;
+        # synthetic input on a lockscreen would wake it. Same fail-closed
+        # predicate as the capture gate: unknown lock state refuses the tap.
+        locked = session_locked()
+        if may_capture(locked):
+            poke_idle(args.log_file)
+        else:
+            reason = "locked" if locked else "lock state unknown"
+            log_line(args.log_file,
+                     f"tap refused ({reason} after check; seen: {verdict})")
+            code, verdict = EXIT_SKIPPED, ("locked" if locked else "skipped")
     if args.status_file:
         write_status(args.status_file, state="idle", last_result=verdict, checks=1,
                      camera=args.camera_path or "auto", detector=args.detector,
