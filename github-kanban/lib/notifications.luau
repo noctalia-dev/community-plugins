@@ -577,6 +577,9 @@ function Notifications.new(env, Data, clock, workClock)
         end
         if tostring(raw.updated_at or "") > record.updatedAt then
           -- Do not consume a comment that arrived after the displayed notification.
+          -- Counter jobs retain this array and old overrides across ticks. Drop
+          -- their partial count before replacing an item with a newer version.
+          metadataJob, metadataDirty = nil, false
           local fresh = Data.notification(raw)
           serverById[action.id] = fresh
           for i, item in ipairs(serverItems) do if item.id == action.id then serverItems[i] = fresh end end
