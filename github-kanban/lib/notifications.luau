@@ -45,9 +45,10 @@ local function response(result)
   return tonumber(head:match("^HTTP/%S+%s+(%d+)")), headers, body
 end
 
-function Notifications.new(env, Data, clock)
+function Notifications.new(env, Data, clock, workClock)
   local self = {}
   local now = clock or os.time
+  local elapsed = workClock or os.clock
   local account, generation = nil, 0
   local serverItems, serverUnread, overrides, pageCache, serverById = {}, {}, {}, {}, {}
   local queue, writeBusy, readBusy = {}, false, false
@@ -58,6 +59,7 @@ function Notifications.new(env, Data, clock)
   local readSerial, readDeadline, readJob = 0, 0, nil
   local publishSerial, cacheJob, bulkJob, viewJob, viewDirty = 0, nil, nil, nil, false
   local views = {}
+  local metadataJob, metadataDirty, pendingIds, readBalance = nil, false, {}, 0
   local cached, cachePath
   local dataDir = env.pluginDataDir()
   if dataDir then
@@ -69,7 +71,7 @@ function Notifications.new(env, Data, clock)
   local function synced() return env.getConfig("notification_sync_mode") == "synced" end
   local function tickInterval(ms) env.setUpdateInterval(ms) end
   local function updateTicker()
-    tickInterval((readJob or cacheJob or bulkJob or viewJob or (not writeBusy and #queue > 0)) and busyInterval or idleInterval)
+    tickInterval((readJob or cacheJob or bulkJob or viewJob or metadataJob or (not writeBusy and #queue > 0)) and busyInterval or idleInterval)
   end
   local function activeRead(serial) return readBusy and serial == readSerial end
   local function scheduleRead(serial, callback)
@@ -85,6 +87,19 @@ function Notifications.new(env, Data, clock)
   end
   local function pause(index)
     if index % 10 == 0 then coroutine.yield() end
+  end
+  local function resumeSlice(job, deadline)
+    -- Keep small checkpoints, but avoid sleeping a frame after every one.
+    -- Monotonic elapsed time includes native work; the hard resume cap also
+    -- bounds a tick when the clock has poor resolution. No network polling is
+    -- accelerated: only already-scheduled local coroutine work is advanced.
+    local ok, error = true, nil
+    for _ = 1, 16 do
+      if elapsed() >= deadline then break end
+      ok, error = coroutine.resume(job)
+      if not ok or error == "frame" or coroutine.status(job) == "dead" then break end
+    end
+    return ok, error
   end
   local function interval()
     if synced() then return math.max(60, tonumber(env.getConfig("notification_refresh_interval_seconds")) or 120) end
@@ -106,18 +121,61 @@ function Notifications.new(env, Data, clock)
     view.item.unread = isUnread(item)
     return view.item
   end
+  local function unreadFor(id)
+    local item = serverById[id]
+    return item ~= nil and isUnread(item)
+  end
+  local function changedRead(id, before)
+    local after = unreadFor(id)
+    readBalance = readBalance + (after and 1 or 0) - (before and 1 or 0)
+    pendingIds[id] = overrides[id] and overrides[id].pending and true or nil
+  end
+  local function cancelPending(id, record)
+    local item = serverById[id]
+    if item and item.unread and item.updatedAt <= record.updatedAt then readBalance = readBalance + 1 end
+    overrides[id], pendingIds[id] = nil, nil
+    local view = views[id]
+    if item and view and view.source == item then view.item.unread = item.unread end
+  end
   local publish
   publish = function(step, metadataOnly, viewOnly)
+    if metadataOnly and #serverUnread > 1000 then
+      if metadataJob then metadataDirty = true; return end
+      local expectedGeneration, unread, records, balance = generation, serverUnread, table.clone(overrides), readBalance
+      metadataJob = coroutine.create(function()
+        local count = 0
+        for i, item in ipairs(unread) do
+          local record = records[item.id]
+          if item.unread and (not record or item.updatedAt > record.updatedAt) then count = count + 1 end
+          if i % 100 == 0 then coroutine.yield() end
+        end
+        coroutine.yield("frame")
+        if generation ~= expectedGeneration or unread ~= serverUnread then return end
+        -- Local mutations after this immutable snapshot contribute a delta;
+        -- continuous writes cannot starve publication or restore an old count.
+        env.state.set("notifications_count", math.clamp(count + readBalance - balance, 0, #unread))
+        env.state.set("notifications_pending", pendingIds)
+        coroutine.yield("frame")
+        if generation ~= expectedGeneration or unread ~= serverUnread then return end
+        env.state.set("notifications_last_update", lastUpdate)
+        local errors = {}
+        if readError ~= "" then errors[#errors + 1] = readError end
+        for _, message in pairs(writeErrors) do errors[#errors + 1] = message end
+        env.state.set("notifications_error", table.concat(errors, "\n"))
+        if metadataDirty then metadataDirty = false; publish(nil, true) end
+      end)
+      updateTicker(); return
+    end
     if not step and not metadataOnly and #serverItems > 250 then
       if viewJob then viewDirty = true
       else
         local expectedGeneration = generation
         viewJob = coroutine.create(function()
           publish(function(index) if index % 100 == 0 then coroutine.yield() end end, false, true)
-          coroutine.yield()
+          coroutine.yield("frame")
           if generation ~= expectedGeneration then return end
-          publish(nil, true)
-          if viewDirty then viewDirty = false; publish() end
+          if viewDirty then viewDirty = false; publish()
+          else publish(nil, true) end
         end)
       end
       updateTicker()
@@ -138,14 +196,26 @@ function Notifications.new(env, Data, clock)
         if serial ~= publishSerial then return end
       end
     end
-    if viewOnly then env.state.set("notifications", items); return end
+    if viewOnly then
+      coroutine.yield("frame")
+      if serial ~= publishSerial then return end
+      env.state.set("notifications", items)
+      coroutine.yield("frame")
+      return
+    end
     for i, item in ipairs(serverUnread) do
       if isUnread(item) then count = count + 1 end
       advance(i)
       if serial ~= publishSerial then return end
     end
     for id, record in pairs(overrides) do if record.pending then pending[id] = true end end
-    if not metadataOnly then env.state.set("notifications", items) end
+    if not metadataOnly then
+      if step and #serverItems > 250 then coroutine.yield("frame") end
+      if serial ~= publishSerial then return end
+      env.state.set("notifications", items)
+      if step and #serverItems > 250 then coroutine.yield("frame") end
+      if serial ~= publishSerial then return end
+    end
     env.state.set("notifications_count", count)
     env.state.set("notifications_pending", pending)
     env.state.set("notifications_last_update", lastUpdate)
@@ -182,8 +252,14 @@ function Notifications.new(env, Data, clock)
       -- A newer snapshot/action may replace or invalidate work between chunks.
       if account ~= expectedAccount or generation ~= expectedGeneration or revision ~= expectedRevision
         or serverItems ~= snapshot then return end
+      coroutine.yield("frame")
+      if account ~= expectedAccount or generation ~= expectedGeneration or revision ~= expectedRevision
+        or serverItems ~= snapshot then return end
       local encoded = assert(env.json.encode({ schema = 2, login = expectedAccount, chunks = chunks,
         read_versions = versions, last_update = updated }))
+      coroutine.yield("frame")
+      if account ~= expectedAccount or generation ~= expectedGeneration or revision ~= expectedRevision
+        or serverItems ~= snapshot then return end
       local ok, error = env.writeFile(cachePath, encoded)
       assert(ok, error or "cache file write failed")
     end)
@@ -263,6 +339,7 @@ function Notifications.new(env, Data, clock)
     writeBusy, activeWriteId, activeWrite = false, nil, nil
     serverItems, serverUnread, overrides, pageCache, queue, serverById = {}, {}, {}, {}, {}, {}
     writeErrors, lastUpdate, revision, cacheJob, bulkJob, views, viewJob, viewDirty = {}, 0, 0, nil, nil, {}, nil, false
+    metadataJob, metadataDirty, pendingIds, readBalance = nil, false, {}, 0
     local restoredCache = restoreCache(login)
     if restoredCache then
       serverItems, serverUnread = restoredCache.items, restoredCache.unread
@@ -319,7 +396,7 @@ function Notifications.new(env, Data, clock)
           local normalized = {}
           -- Decode only the projected page, then normalize bounded batches on
           -- separate update ticks instead of inside the command callback.
-          coroutine.yield()
+          coroutine.yield("frame")
           for i, item in ipairs(raw) do
             if type(item) ~= "table" or not tostring(item.id or ""):match("^%d+$")
               or type(item.updated_at) ~= "string" or type(item.unread) ~= "boolean" then
@@ -408,6 +485,7 @@ function Notifications.new(env, Data, clock)
         -- A newer mutation invalidates conditional pages collected before it.
         pageCache = startedRevision == revision and cache or {}
         serverItems, serverUnread, serverById, views, viewJob, viewDirty = combined, canonicalUnread, byId, {}, nil, false
+        metadataJob, metadataDirty, readBalance = nil, false, 0
         for id, record in pairs(overrides) do
           if not record.pending and startedRevision >= (record.confirmedRevision or 0) then
             local remote = unreadById[id]
@@ -445,6 +523,7 @@ function Notifications.new(env, Data, clock)
       writeBusy, activeWriteId, activeWrite = false, nil, nil
       updateTicker()
       if generation == expectedGeneration and overrides[action.id] == record then
+        local wasUnread = unreadFor(action.id)
         revision = revision + 1
         if ok then
           record.pending, record.confirmedRevision, record.expiresAt = false, revision, now() + 600
@@ -455,6 +534,7 @@ function Notifications.new(env, Data, clock)
           writeErrors[action.id] = error or env.tr("status.gh_request_failed")
           statusError(writeErrors[action.id])
         end
+        changedRead(action.id, wasUnread)
         pageCache = {}; queuedRefresh = true
         if serverById[action.id] then effective(serverById[action.id]) end
         publish(); persist()
@@ -465,8 +545,7 @@ function Notifications.new(env, Data, clock)
       -- the write. Release queued actions for an explicit manual retry as well.
       for _, waiting in ipairs(queue) do
         if overrides[waiting.id] == waiting.record then
-          overrides[waiting.id] = nil
-          if serverById[waiting.id] then effective(serverById[waiting.id]) end
+          cancelPending(waiting.id, waiting.record)
         end
       end
       queue, bulkJob = {}, nil
@@ -522,6 +601,7 @@ function Notifications.new(env, Data, clock)
     revision = revision + 1
     local record = { updatedAt = target.updatedAt, pending = true }
     overrides[id] = record; writeErrors[id] = nil
+    changedRead(id, true)
     effective(target)
     queue[#queue + 1] = { id = id, record = record }
   end
@@ -553,8 +633,7 @@ function Notifications.new(env, Data, clock)
       queue, bulkJob = {}, nil
       for id, record in pairs(overrides) do
         if record.pending and id ~= activeWriteId then
-          overrides[id] = nil
-          if serverById[id] then effective(serverById[id]) end
+          cancelPending(id, record)
         end
       end
     end
@@ -562,6 +641,7 @@ function Notifications.new(env, Data, clock)
     self.refresh()
   end
   function self.update()
+    local deadline = elapsed() + 0.002
     if activeWrite and now() >= activeWrite.deadline then activeWrite.cancel() end
     if not writeBusy and #queue > 0 then drain() end
     if readBusy and now() >= readDeadline then
@@ -577,7 +657,7 @@ function Notifications.new(env, Data, clock)
       readJob = nil
       tickInterval(idleInterval)
       readDeadline = now() + requestTimeout
-      local ok, error = coroutine.resume(job)
+      local ok, error = resumeSlice(job, deadline)
       if not ok then
         env.log("Notification refresh processing failed: " .. tostring(error):sub(1, 300))
         failRead(env.tr("status.notification_refresh_failed")); return
@@ -596,6 +676,15 @@ function Notifications.new(env, Data, clock)
       updateTicker()
       return
     end
+    if metadataJob then
+      local job = metadataJob
+      metadataJob = nil
+      local ok, error = resumeSlice(job, deadline)
+      if not ok then env.log("Notification counters could not be updated: " .. tostring(error):sub(1, 300))
+      elseif coroutine.status(job) ~= "dead" then metadataJob = job end
+      updateTicker()
+      return
+    end
     if viewJob then
       local job = viewJob
       viewJob = nil
@@ -608,7 +697,7 @@ function Notifications.new(env, Data, clock)
     if cacheJob then
       local job = cacheJob
       cacheJob = nil
-      local ok, error = coroutine.resume(job)
+      local ok, error = resumeSlice(job, deadline)
       if not ok then env.log("Notification cache could not be saved: " .. tostring(error):sub(1, 300))
       elseif coroutine.status(job) ~= "dead" then cacheJob = job end
       updateTicker()
