@@ -5,7 +5,7 @@
       "label": "Aktive Benachrichtigungen schließen"
     },
     "disable_animations": {
-      "description": "Fenster- und Shell-Übergangsanimationen ausschalten",
+      "description": "Compositor-Fensterübergangsanimationen ausschalten",
       "label": "Animationen deaktivieren"
     },
     "disable_blur": {

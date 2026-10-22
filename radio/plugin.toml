@@ -1,6 +1,6 @@
 id = "fel/radio"
 name = "Radio"
-version = "0.1.0"
+version = "0.1.1"
 plugin_api = 9
 author = "fel"
 license = "MIT"

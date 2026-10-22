@@ -87,5 +87,6 @@ noctalia msg plugin fel/radio:browser all search "lofi"
 Network: `de1.api.radio-browser.info` for search/top/click-count plus the
 stream hosts themselves. Files: favorites at the plugin data dir
 `favorites.json`, mpv IPC socket `mpv.sock` in the same dir. Processes: one
-headless `mpv --no-video` owned by the player service, killed on plugin
-disable/uninstall/exit.
+headless `mpv --no-video` owned by the player service. Playing a station stops
+the running one first and waits for it to exit, so switching stations never
+leaves a second stream playing. Killed on plugin disable/uninstall/exit.

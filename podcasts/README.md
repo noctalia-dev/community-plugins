@@ -105,5 +105,6 @@ noctalia msg plugin fel/podcasts:browser all search "99 invisible"
 Network: `itunes.apple.com` for discovery plus each feed host and MP3 CDN.
 Files: subscriptions at the plugin data dir `subscriptions.json`, artwork
 under `art/`, mpv IPC socket `mpv.sock` in the same dir. Processes: one
-headless `mpv --no-video` owned by the player service, killed on plugin
-disable/uninstall/exit.
+headless `mpv --no-video` owned by the player service. Starting an episode
+stops the running one first and waits for it to exit, so switching never
+leaves a second stream playing. Killed on plugin disable/uninstall/exit.

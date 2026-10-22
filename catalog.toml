@@ -2791,8 +2791,8 @@ tags = ["audio", "music", "network", "panel", "bar", "utility"]
 [[plugin]]
 id = "fel/radio"
 name = "Radio"
-version = "0.1.0"
-updated_at = 1789561453
+version = "0.1.1"
+updated_at = 1792606430
 added_at = 1789561453
 author = "fel"
 license = "MIT"
@@ -2804,8 +2804,8 @@ tags = ["bar", "panel", "launcher", "service", "audio", "music", "media", "netwo
 [[plugin]]
 id = "fel/podcasts"
 name = "Podcasts"
-version = "0.1.0"
-updated_at = 1789561605
+version = "0.1.1"
+updated_at = 1792606204
 added_at = 1789561605
 author = "fel"
 license = "MIT"
@@ -3780,8 +3780,8 @@ tags = ["bar", "launcher", "service", "shortcut", "time"]
 [[plugin]]
 id = "detluck/performance-plus"
 name = "Performance Plus"
-version = "0.2.0"
-updated_at = 1792156891
+version = "0.2.1"
+updated_at = 1792618545
 added_at = 1792156891
 author = "detluck"
 license = "MIT"

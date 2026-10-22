@@ -69,7 +69,7 @@ Configure individual features in **Settings → Plugins → Performance Plus**:
 | --- | --- | --- | --- |
 | `disable_wallpaper` | `bool` | `true` | Tear down background layer-shell surfaces to free GPU VRAM memory. |
 | `disable_blur` | `bool` | `true` | Turn off compositor background blur. |
-| `disable_animations` | `bool` | `true` | Turn off window and shell transition animations. |
+| `disable_animations` | `bool` | `true` | Turn off compositor window transition animations. |
 | `disable_shadows` | `bool` | `true` | Turn off window drop shadows. |
 | `hide_widgets` | `bool` | `true` | Pause and hide all active desktop widgets. |
 | `enable_dnd` | `bool` | `true` | Silence all notification toasts while active. |
