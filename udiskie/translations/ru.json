@@ -1,0 +1,69 @@
+{
+  "btn_docs": "Открыть документацию",
+  "btn_eject": "Извлечь",
+  "btn_mount": "Подключить",
+  "btn_mount_all": "Подключить все",
+  "btn_open": "Открыть",
+  "btn_poweroff": "Отключить питание",
+  "btn_retry": "Повторить подключение",
+  "btn_unlock": "Разблокировать",
+  "btn_unmount": "Отключить",
+  "btn_unmount_all": "Отключить все",
+  "copy_path_tooltip": "Копировать путь к точке монтирования",
+  "error_missing_dep": "Исполняемый файл udiskie отсутствует в PATH",
+  "no_partitions_found": "Разделы не найдены",
+  "notif_drive_connected_body": "{label} подключён",
+  "notif_drive_connected_title": "Накопитель подключён",
+  "notif_drive_mounted_body": "{label} готов к использованию",
+  "notif_drive_mounted_title": "Накопитель смонтирован",
+  "notif_drive_removed_body": "{label} отключён",
+  "notif_drive_removed_title": "Накопитель отключён",
+  "notif_drive_unmounted_body": "{label} был безопасно отключён",
+  "notif_drive_unmounted_title": "Накопитель отмонтирован",
+  "notif_eject_failed_fallback": "Не удалось извлечь {device}",
+  "notif_eject_failed_title": "Ошибка извлечения",
+  "notif_mount_all_failed_fallback": "Не удалось смонтировать все устройства",
+  "notif_mount_all_failed_title": "Ошибка монтирования всех устройств",
+  "notif_mount_failed_fallback": "Не удалось смонтировать {device}",
+  "notif_mount_failed_title": "Ошибка монтирования",
+  "notif_poweroff_failed_fallback": "Не удалось отключить питание {device}",
+  "notif_poweroff_failed_title": "Ошибка отключения питания",
+  "notif_unmount_all_failed_fallback": "Одно или несколько устройств заняты",
+  "notif_unmount_all_failed_title": "Ошибка отключения устройств",
+  "notif_unmount_failed_fallback": "Устройство {device} занято или используется",
+  "notif_unmount_failed_title": "Ошибка отключения устройства",
+  "notify_path_copied": "Путь скопирован в буфер обмена",
+  "panel_empty": "USB-накопители не обнаружены",
+  "panel_title": "Менеджер накопителей",
+  "settings": {
+    "auto_open_filemanager": {
+      "description": "Автоматически открывать смонтированные накопители в файловом менеджере.",
+      "label": "Автоматически открывать файловый менеджер"
+    },
+    "enable_notifications": {
+      "description": "Показывать системные уведомления Noctalia при событиях с устройствами.",
+      "label": "Уведомления рабочего стола"
+    },
+    "file_manager_cmd": {
+      "description": "Команда для открытия смонтированных папок.",
+      "label": "Команда файлового менеджера"
+    },
+    "glyph": {
+      "description": "Значок виджета Udiskie на панели.",
+      "label": "Значок на панели"
+    },
+    "hide_when_empty": {
+      "description": "Скрывать виджет на панели, если USB-накопители не подключены.",
+      "label": "Скрывать, если накопителей нет"
+    },
+    "show_count": {
+      "description": "Показывать количество смонтированных устройств на виджете панели.",
+      "label": "Показывать количество устройств"
+    }
+  },
+  "status_locked": "Заблокирован (LUKS)",
+  "status_mounted": "Смонтирован",
+  "status_unmounted": "Не смонтирован",
+  "tooltip_empty": "Нет смонтированных устройств",
+  "tooltip_mounted": "Смонтированные устройства"
+}

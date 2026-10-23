@@ -6,6 +6,7 @@
   "glyph": "Glyph",
   "hex": "HEX",
   "hyprpicker_not_installed": "hyprpicker is not installed.",
+  "picker_already_open": "Color picker is already open.",
   "no_color_picked": "No color picked yet.",
   "no_history": "No colors in history yet.",
   "opacity": "Opacity",

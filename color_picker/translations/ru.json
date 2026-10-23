@@ -1,0 +1,49 @@
+{
+  "color_copied": "Цвет {color} скопирован.",
+  "color_picked": "Цвет {color} выбран.",
+  "color_picker": "Пипетка",
+  "could_not_parse": "Не удалось разобрать вывод hyprpicker.",
+  "glyph": "Значок",
+  "hex": "HEX",
+  "hyprpicker_not_installed": "hyprpicker не установлен.",
+  "no_color_picked": "Цвет ещё не выбран.",
+  "no_history": "История цветов пуста.",
+  "opacity": "Непрозрачность",
+  "recent_colors": "Недавние цвета",
+  "rgb": "RGB",
+  "picker_already_open": "Окно выбора цвета уже открыто.",
+  "settings": {
+    "hyprpicker_cursor": {
+      "description": "Включает курсор в предварительный просмотр экрана.",
+      "label": "Показывать курсор"
+    },
+    "hyprpicker_disable_preview": {
+      "description": "Отключает предпросмотр цвета в реальном времени при выборе.",
+      "label": "Отключить предпросмотр"
+    },
+    "hyprpicker_format": {
+      "description": "Формат цвета для копирования в буфер обмена по умолчанию (HEX или RGB).",
+      "label": "Формат по умолчанию"
+    },
+    "hyprpicker_lowercase": {
+      "description": "Выводит HEX-код строчными буквами.",
+      "label": "Строчные буквы в HEX"
+    },
+    "hyprpicker_no_zoom": {
+      "description": "Отключает увеличительную линзу при выборе цвета.",
+      "label": "Отключить увеличение"
+    },
+    "hyprpicker_radius": {
+      "description": "Радиус увеличительной линзы в пикселях (от 1 до 1000).",
+      "label": "Радиус увеличения"
+    },
+    "hyprpicker_scale": {
+      "description": "Степень увеличения изображения (от 1 до 10).",
+      "label": "Масштаб увеличения"
+    },
+    "swatch_radius": {
+      "description": "Радиус скругления образцов цветов в истории и области предпросмотра текущего цвета.",
+      "label": "Скругление углов образцов"
+    }
+  }
+}
