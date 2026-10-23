@@ -1,151 +1,101 @@
 # QuickAsk
 
-A small, keyboard-first text panel for streaming responses through OpenCode Go.
-Each opening is one independent question: close and reopen to start fresh.
-The panel uses Noctalia's native controls, theme, Markdown and clipboard support.
+A keyboard-first Noctalia popup for streaming text answers from OpenCode Go or an OpenAI-compatible API.
 
 ## Plugin
 
-| Field | Value |
-| --- | --- |
-| ID | `yusuferdemyamali/quickask` |
-| Entries | Panel: `panel` |
-| License | MIT |
+Plugin ID: `yusuferdemyamali/quickask`. Floating panel entry: `panel`.
+
+A minimal, keyboard-first text popup for Noctalia v5. Ask one question, read a streaming Markdown answer, then close it. QuickAsk supports OpenCode Go and explicitly configured OpenAI-compatible Chat Completions APIs.
+
+![QuickAsk panel](screenshot.png)
+
+The panel opens at the bottom center (520 × 380), follows your Noctalia theme, and focuses the input. It has no saved conversation history, uploads, audio, agents or background service.
 
 ## Requirements
 
-- Native Noctalia v5 with **Plugin API 24 or later**. This is a Luau plugin, not a legacy QML/Quickshell plugin. API 24 is needed for safe argv-form process execution; the panel and Markdown use earlier APIs.
-- **`secret-tool`** on `PATH` (provided by `libsecret` on Arch Linux).
-- A running, unlocked Linux Secret Service, such as GNOME Keyring, KWallet with Secret Service enabled, or KeePassXC with Secret Service integration.
-- An OpenCode Go subscription/key with access to **DeepSeek V4.1 Flash**. In Go Console, **Settings → Privacy → Regions → Global** must allow this model. QuickAsk does not change account privacy settings.
-- A Wayland compositor supported by Noctalia. Tested on Hyprland; the shortcut below is optional and compositor-specific.
+- Noctalia Plugin API **24 or newer**, with a working Wayland desktop.
+- `secret-tool` (Arch/CachyOS package: `libsecret`) and an unlocked Linux Secret Service keyring, such as GNOME Keyring or KeePassXC with Secret Service enabled.
+- An account and API key authorized for your chosen endpoint, model and use case; network access to that endpoint.
+- For compatible mode: an **HTTPS Chat Completions** endpoint that accepts Bearer authentication, `system`/`user` messages and streams `choices[].delta.content` as SSE followed by `data: [DONE]`. This is not a guarantee that every provider or model works. Responses-only models, tool calls, local HTTP endpoints, custom authentication and extra request parameters are unsupported.
 
-### Provider suitability
+**OpenCode Go requirements:** Go is a subscription service with documented coding-agent traffic requirements, model availability, region restrictions and usage limits. QuickAsk is a standalone text client. General-chat permission has not been established by this project. Verify that your intended usage is permitted before sending a request; if it is not, do not use Go with QuickAsk. Community catalog hosting does not imply OpenCode approval or permission. See [OpenCode Go](https://opencode.ai/docs/go/) and your account terms. Go uses `deepseek-v4.1-flash`, with non-reasoning requested by `thinking.type = "disabled"`; current model access may require Privacy → Regions → Global. QuickAsk never changes account settings or imitates another client.
 
-[OpenCode Go's documentation](https://github.com/anomalyco/opencode/blob/dev/services/www/src/docs/content/console/go.mdx#where-can-i-use-it) describes Go as intended for OpenCode and other coding agents, and asks clients to send typical coding-agent traffic.
-QuickAsk is a standalone question-and-response panel, **not** a coding agent or an OpenCode-validated client.
-Technical API compatibility and a user's personal confirmation do not establish blanket permission for general-purpose chat or an endorsement by OpenCode.
-Verify that your intended use is permitted for your account before sending a question. Provider clarification for public general-purpose use remains outstanding; no alternative provider, client impersonation or restriction bypass is included.
+For OpenAI or another compatible service, use that service's API credentials, terms, model permissions and billing. A Go subscription key is not an OpenAI API key. OpenAI's Chat Completions reference is [here](https://developers.openai.com/api/reference/resources/chat).
 
-### Store your key
+## Usage
 
-Run this command in your own terminal and enter the key at the hidden prompt:
+1. Install **QuickAsk** from the Noctalia plugin catalog and enable it in **Settings → Plugins**. For a source checkout, run `noctalia plugins install ./quickask`, then `noctalia msg plugins enable local/quickask`; local installs use `local/quickask` in all commands below.
+2. Open QuickAsk's **Settings** button, or run `noctalia msg settings-open-plugin yusuferdemyamali/quickask`. Select **OpenCode Go** or **OpenAI compatible**. Compatible mode requires a full endpoint URL and an exact model ID that your account can use. OpenAI's URL is `https://api.openai.com/v1/chat/completions`; no model is selected automatically.
+3. Store the matching key interactively in your own terminal. Never put a key in Noctalia settings, a command argument, a URL or a chat message.
+
+For **OpenCode Go**, existing credentials continue to work:
 
 ```sh
 secret-tool store --label='QuickAsk OpenCode Go' application quickask provider opencode-go
 ```
 
-Keep the key out of command arguments, shell history, configuration, `.env` files, screenshots and bug reports. Unlock your keyring first. QuickAsk has no password input field.
-To delete the stored key:
+For **OpenAI compatible**, the `endpoint` attribute must match the **complete URL in Settings exactly** (including case, port and path). For OpenAI:
+
+```sh
+secret-tool store --label='QuickAsk OpenAI API' application quickask provider openai-compatible endpoint https://api.openai.com/v1/chat/completions
+```
+
+For another compatible service, use its authorized HTTPS Chat Completions URL in both Settings and the command. `secret-tool` prompts for the secret; enter your key there. A changed endpoint requires a separately stored key. QuickAsk never falls back to a Go key or another provider. The keyring must already be unlocked. Do not run `secret-tool lookup` in a recorded terminal; it prints the key.
+
+4. Open the panel using the IPC command or shortcut below. Its status line shows the selected service and model. An invalid configuration disables Send and links you to Settings through the gear button.
+5. **Enter** sends, **Shift+Enter** inserts a newline, **Escape** or an outside click closes the panel. Use **Stop** to cancel and preserve received text, **Copy** for the plain Markdown answer, and **Retry** to repeat a failed question manually. Opening Settings cancels the current request and clears that panel session. To change providers for a new question, close and reopen the panel.
+
+Removing a stored key is optional and does not change the selected provider:
 
 ```sh
 secret-tool clear application quickask provider opencode-go
+secret-tool clear application quickask provider openai-compatible endpoint https://api.openai.com/v1/chat/completions
 ```
 
-The lookup attributes are unchanged from the local MVP, so an existing QuickAsk key can be reused.
+## Settings
 
-## Usage
+| Key | Default | Description |
+| --- | --- | --- |
+| `provider` | `opencode-go` | `opencode-go` or `openai-compatible`. Selection is explicit; no automatic fallback. |
+| `endpoint` | `https://api.openai.com/v1/chat/completions` | Compatible mode only. Full HTTPS URL ending in `/chat/completions`; no embedded credentials, query or fragment. Keys are bound to this exact URL. |
+| `model` | empty | Compatible mode only. Set the exact text model ID supported by the endpoint. |
 
-Install and enable **QuickAsk** from Noctalia's community plugin store once it is published. This submission has not been merged or published yet.
+OpenCode Go retains its preset endpoint and model. Settings contain no secrets. The minimum API stays at 24: settings and `openSettings()` predate the existing argv subprocess API requirement.
 
-For a checkout before publication, run this from its repository root. The symlink name must be unused; `ln -sT` refuses to overwrite an existing installation:
+## IPC
 
-```sh
-plugin_root="${XDG_DATA_HOME:-$HOME/.local/share}/noctalia/plugins"
-mkdir -p "$plugin_root"
-ln -sT "$PWD/quickask" "$plugin_root/quickask-publication"
-noctalia msg config-reload
-noctalia msg plugins enable yusuferdemyamali/quickask
-```
-
-Open or close the panel:
+Catalog installation:
 
 ```sh
 noctalia msg panel-toggle yusuferdemyamali/quickask:panel
+noctalia msg settings-open-plugin yusuferdemyamali/quickask
 ```
 
-The 520×380 logical-pixel panel appears at the bottom center of the focused monitor. Input receives focus automatically.
-
-- **Enter** sends; **Shift+Enter** inserts a new line. Empty or whitespace-only input is rejected.
-- A response streams as Markdown, including code blocks. The bounded answer area follows new output until you scroll away.
-- **Stop** cancels the active operation and preserves received text. **Copy response** copies only the assistant's raw text/Markdown after completion, error or stop.
-- **Retry** manually retries the same question after an error. There is no automatic retry or conversational continuation.
-- **Escape**, an outside click or the close button closes the panel and cancels the operation. Reopening starts blank. Opening alone makes no network request.
-
-All UI and error strings use `noctalia.tr` with an English catalog. Other locales can be maintained through Noctalia Translate; this submission includes only `translations/en.json`.
-
-### Optional Hyprland shortcut
-
-Check for an existing **SUPER+A** binding before adding one. Back up your configuration; keep existing bindings and theme settings.
-For Hyprland's Lua configuration, add:
+Hyprland Lua example for `~/.config/hypr/hyprland.lua` (check the shortcut is available before adding it):
 
 ```lua
 hl.bind("SUPER + A", hl.dsp.exec_cmd("noctalia msg panel-toggle yusuferdemyamali/quickask:panel"))
 ```
 
-On the tested Hyprland version, reload with `hyprctl reload config-only` and inspect `hyprctl configerrors`.
-For a system actually using the traditional configuration instead:
-
-```ini
-bind = SUPER, A, exec, noctalia msg panel-toggle yusuferdemyamali/quickask:panel
-```
-
-If upgrading the local MVP, replace its old `local/quickask:panel` shortcut target with the published ID, and disable the old plugin after verifying the new one. Do not add a second binding for the same key.
-
-## IPC
-
-```sh
-noctalia msg panel-toggle yusuferdemyamali/quickask:panel
-noctalia msg panel-close yusuferdemyamali/quickask:panel
-```
-
-There are no additional IPC events, settings, widgets, services or launcher providers.
+For local source installations, substitute `local/quickask:panel` and `local/quickask` respectively. QuickAsk does not modify compositor configuration.
 
 ## Notes
 
-### Network, processes and privacy
+- **Network:** Only the explicitly selected HTTPS endpoint receives a POST. Common JSON fields are `model`, `messages` and `stream`. The Go preset additionally sends `thinking.type = "disabled"` and its required per-question `x-opencode-session`; compatible mode sends neither. A QuickAsk User-Agent identifies the client. TLS verification is enabled and redirects are disabled. There is no background traffic or automatic retry.
+- **Credentials and subprocesses:** Only `secret-tool lookup` runs, through native argv execution without a shell. Attributes are `application=quickask, provider=opencode-go` or `application=quickask, provider=openai-compatible, endpoint=<exact URL>`. Keys stay in memory for request setup and are not logged or saved. Raw service errors and credential subprocess output are never displayed. Prompts and model responses are sent to your chosen service under its data policy; clipboard writes happen only on Copy.
+- **Filesystem:** Runtime reads its shipped Luau modules/translations and declared host settings. It writes no chat or credential files. Noctalia persists non-secret plugin settings; the user's keyring persists credentials.
+- **Failures:** Credential, HTTP, SSE, cancellation and timeout errors are shown safely. Partial output is preserved when possible. The displayed connection is captured when the panel opens and retained for submission/retry; reopen after changing settings. Timeout is 45 seconds idle / 180 seconds total; response text is capped at 256 KiB. No provider fallback, bypass or alternative transport is attempted.
+- **Validation:** Production-source mock tests, Luau compilation and Noctalia lint cover both connection modes. Compatible-provider live inference requires separate account permission and has not been exercised for this update; mocks do not establish provider compatibility or permitted use.
+- **Maintenance:** If a provider disallows this usage, update or disable that connection. Users must meet provider requirements; catalog inclusion supplies no provider endorsement.
+- **Troubleshooting and rollback:** For 401, check the key for the exact selected URL; for 403, check model access and permitted usage; for 429, wait and check billing/quota. Missing-key errors require an unlocked keyring and the exact attributes above. To roll back, disable QuickAsk, restore the previously installed plugin directory/version, then enable it again. To remove it, disable/uninstall it in Noctalia and optionally clear its keyring entries using the commands above.
 
-Each explicit question or manual retry sends one HTTPS POST to:
-
-```text
-https://opencode.ai/inference/go/openai/v1/chat/completions
-```
-
-The fixed model is `deepseek-v4.1-flash`, with top-level `thinking: {"type":"disabled"}` for non-reasoning mode. Requests contain a short system instruction, the entered question and `stream: true`. No previous questions, clipboard contents, files, images or desktop context are sent.
-QuickAsk sends its own `User-Agent: quickask/0.1.1`, the bearer credential, and a new `x-opencode-session` per independent question (stable for manual retries). It does not impersonate a validated client. TLS verification remains enabled; redirects are not followed.
-
-The only spawned command is the direct argv form of `secret-tool lookup application quickask provider opencode-go`; no shell is used. Captured stdout/stderr are never logged or shown. Credentials are held only as short-lived in-memory references. HTTP error bodies and headers are not surfaced or logged.
-
-There are no plugin filesystem reads/writes apart from Noctalia loading the shipped scripts/catalog, and no on-disk conversation history. Secret Service manages credential persistence. Copying uses Noctalia's clipboard API; your clipboard manager can independently retain copied text. The Noctalia host may persist plugin enablement/settings as usual.
-
-Only one request is active per panel. Generation checks ignore callbacks after stop, close or retry. There is a 45-second inactivity watchdog, a 180-second total watchdog and a 256 KiB answer limit. Partial responses survive interrupted streams while the panel remains open. Missing/locked credentials, HTTP failures and connection errors show local, actionable messages without raw provider output.
-
-### Validation and limitations
-
-- 44 deterministic tests execute the actual shipped Luau modules against a mocked Noctalia host, including serialized model/thinking fields, Unicode/escaping, SSE, HTTP errors, cancellation races, credential failures and clipboard failures.
-- Tested native host: Noctalia 5.3.0 / API 34 on Hyprland. Native panel focus, keyboard behavior, dismissal, two-monitor placement and the English publication panel were checked. The screenshot shows the actual English idle panel; it is not a rendered mockup or an inference result.
-- Prior local MVP validation included one successful GLM live stream. **The current DeepSeek model has not been live-tested.** Publication preparation sends no inference requests and does not read a real credential.
-- Prior clipboard, long-answer scrolling and stop UI checks used deterministic data inside the native host. Real HTTP cancellation/fault/timeout cases and callback races are covered by mocks, not claimed as complete native validation.
-- Light theme, fractional scaling and other compositors have not been validated.
-
-Development checks (Python 3.11+ and official Luau CLI are test tools only):
+Development checks (Luau CLI is a development tool only):
 
 ```sh
-noctalia plugins lint quickask
-luau-compile --null quickask/panel.luau quickask/lib/api.luau quickask/lib/credentials.luau
+noctalia plugins lint ./quickask
 python3 quickask/tests/run.py --runtime /path/to/luau
+luau-compile --null quickask/panel.luau quickask/lib/api.luau quickask/lib/credentials.luau quickask/lib/config.luau
 ```
 
-The test-only JSON codec is rxi/json.lua 0.1.2, commit `dbf4b2dd2eb7c23be2773c89eb059dadd6436f94`, MIT; its notice is in `tests/vendor/LICENSE`. Production uses `noctalia.json`. The test harness injects module globals and English translations; it does not prove the native loader/JSON codec or access the network/keyring.
-
-### Troubleshooting and removal
-
-- Plugin held back: update native Noctalia to API 24+; do not lower `plugin_api` or substitute a shell-based credential lookup.
-- Key not found: check `secret-tool`, Secret Service availability/unlocked state and the exact store attributes above. Never print the lookup result for debugging.
-- HTTP 401/403: check the key, subscription, model region permissions and permitted use; 429: wait before manually retrying.
-- No panel: confirm the plugin is enabled and use the exact IPC ID above. Check shortcut conflicts separately.
-- A stopped or interrupted answer remains copyable. Close/reopen for another question.
-
-To remove QuickAsk, close the panel, disable/uninstall `yusuferdemyamali/quickask` in Noctalia and remove only the shortcut you added. For a development installation, remove only the `quickask-publication` symlink you created; keep the source checkout. Clearing the Secret Service entry is optional and also affects a local MVP using the same attributes. No system packages or theme changes are required by this plugin.
-
-![QuickAsk running in Noctalia](screenshot.png)
+MIT licensed. The test-only JSON codec retains its upstream MIT notice in `tests/vendor/LICENSE`.

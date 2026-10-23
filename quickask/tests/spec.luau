@@ -17,9 +17,10 @@ local function hasText(fragment, node)
   for _, child in ipairs(node.children) do if hasText(fragment, child) then return true end end
   return false
 end
-local function fresh()
+local function fresh(settings)
   onClose()
   resetMock()
+  for key, value in pairs(settings or {}) do mock.settings[key] = value end
   onOpen({})
 end
 local function credential(index, overrides)
@@ -113,7 +114,7 @@ test("fixed HTTPS endpoint and complete header array with redirects disabled", f
   equal(r.headers[1], "Authorization: Bearer synthetic-test-credential")
   equal(r.headers[2], "Content-Type: application/json")
   equal(r.headers[3], "Accept: text/event-stream")
-  equal(r.headers[4], "User-Agent: quickask/0.1.1")
+  equal(r.headers[4], "User-Agent: quickask/0.2.0")
   assert(r.headers[5]:match("^x%-opencode%-session: ses_"))
 end)
 test("rapid duplicate Enter/retry opens at most one stream", function()
@@ -268,6 +269,141 @@ test("close button cancels stream and exit clears the session", function()
   equal(mock.closed, 1); equal(old.stopped, 1)
   onOpen({}); equal(find("input").props.value, ""); onExit("", "reload")
   onSubmit("Geç"); equal(#mock.lookups, 1)
+end)
+
+local compatible = { provider = "openai-compatible", endpoint = "https://api.example.org/v1/chat/completions", model = "test-model" }
+
+test("compatible mode streams text with standard JSON and no Go-only headers or parameters", function()
+  fresh(compatible)
+  assert(hasText("api.example.org · test-model"))
+  equal(#mock.lookups, 0); equal(#mock.requests, 0)
+  begin('Question "one"\nUnicode İ 🧠')
+  local r = request().request
+  local payload = json.decode(r.body)
+  equal(r.url, compatible.endpoint); equal(r.method, "POST"); equal(r.follow_redirects, false)
+  assert(not r.allow_insecure_tls)
+  equal(payload.model, compatible.model); equal(payload.stream, true)
+  equal(payload.thinking, nil); equal(#payload.messages, 2)
+  local fieldCount = 0
+  for _ in pairs(payload) do fieldCount = fieldCount + 1 end
+  equal(fieldCount, 3)
+  equal(#r.headers, 4); equal(r.headers[1], "Authorization: Bearer synthetic-test-credential")
+  equal(r.headers[4], "User-Agent: quickask/0.2.0")
+  equal(table.concat(mock.lookupArgs[1], "|"), "secret-tool|lookup|application|quickask|provider|openai-compatible|endpoint|" .. compatible.endpoint)
+  emit("# Answer\n"); flush(); equal(find("markdown").props.text, "# Answer\n")
+  complete("```lua\nprint(1)\n```"); onCopy()
+  equal(mock.clipboard, "# Answer\n```lua\nprint(1)\n```")
+end)
+
+test("Go preset ignores compatible endpoint/model settings and retains the original key attributes", function()
+  fresh({ endpoint = "https://other.example/v1/chat/completions", model = "other-model" }); begin()
+  equal(json.decode(request().request.body).model, "deepseek-v4.1-flash")
+  equal(table.concat(mock.lookupArgs[1], "|"), "secret-tool|lookup|application|quickask|provider|opencode-go")
+end)
+
+test("unknown provider never falls back to Go or looks up credentials", function()
+  fresh({ provider = "typo" }); onSubmit("Soru")
+  equal(find("button", "Send").props.enabled, false)
+  equal(#mock.lookups, 0); equal(#mock.requests, 0); assert(hasText("Unknown API provider"))
+end)
+
+for index, endpoint in ipairs({
+  "", "http://api.example.org/v1/chat/completions", "https://api.example.org/v1/responses",
+  "https://api.example.org", "https://api.example.org/v1/chat/completions?key=private",
+  "https://api.example.org/v1/chat/completions#private", "https://user:private@api.example.org/v1/chat/completions",
+  "https://api.example.org\\@evil.example/v1/chat/completions", "https://api.example.org\n/v1/chat/completions",
+  "https://api.example.org:0/v1/chat/completions", "https://api.example.org:65536/v1/chat/completions",
+  "https://api.example.org:abc/v1/chat/completions", "https://-bad.example/v1/chat/completions",
+  "https://api..example.org/v1/chat/completions", "https://api.example.org./v1/chat/completions",
+  "https://api%2eexample.org/v1/chat/completions", "https://api.example.org/v1/chat/completions/",
+}) do
+  test("invalid compatible endpoint " .. tostring(index) .. " is blocked before credentials or network", function()
+    fresh({ provider = compatible.provider, endpoint = endpoint, model = compatible.model })
+    onSubmit("Soru"); equal(#mock.lookups, 0); equal(#mock.requests, 0)
+    equal(find("button", "Send").props.enabled, false); assert(hasText("full HTTPS URL"))
+    assert(not hasText("private"))
+  end)
+end
+
+for _, model in ipairs({ "", "   ", "bad\nmodel", string.rep("m", 257) }) do
+  test("invalid compatible model is blocked before credentials or network", function()
+    fresh({ provider = compatible.provider, endpoint = compatible.endpoint, model = model })
+    onSubmit("Soru"); equal(#mock.lookups, 0); equal(#mock.requests, 0)
+    assert(hasText("valid model ID"))
+  end)
+end
+
+for _, endpoint in ipairs({ "https://host.example:8443/api/v1/chat/completions", "https://[::1]:8443/v1/chat/completions" }) do
+  test("compatible HTTPS endpoints with explicit ports bind credentials to the complete URL", function()
+    fresh({ provider = compatible.provider, endpoint = endpoint, model = "  vendor/model  " }); begin()
+    equal(request().request.url, endpoint); equal(mock.lookupArgs[1][8], endpoint)
+    equal(json.decode(request().request.body).model, "vendor/model")
+  end)
+end
+
+test("a compatible missing key never falls back to the Go credential or sends a request", function()
+  fresh(compatible); onSubmit("Soru"); credential(nil, { stdout = "" })
+  equal(#mock.lookups, 1); equal(#mock.requests, 0)
+  assert(hasText("selected provider and endpoint"))
+end)
+
+test("compatible retry keeps its connection snapshot during delayed credential lookup", function()
+  fresh(compatible); onSubmit("Soru")
+  mock.settings.endpoint = "https://different.example/v1/chat/completions"
+  mock.settings.model = "different-model"
+  mock.settings.provider = "opencode-go"
+  credential(); equal(request().request.url, compatible.endpoint)
+  equal(json.decode(request().request.body).model, compatible.model)
+  closeHTTP(503); onRetry(); credential()
+  equal(mock.lookupArgs[2][8], compatible.endpoint); equal(request().request.url, compatible.endpoint)
+  complete(); onClose(); onOpen({}); begin()
+  equal(request().request.url, "https://opencode.ai/inference/go/openai/v1/chat/completions")
+end)
+
+test("submission uses the destination displayed at opening even if settings change before Enter", function()
+  fresh(compatible)
+  mock.settings.provider = "opencode-go"
+  mock.settings.endpoint = "https://different.example/v1/chat/completions"
+  mock.settings.model = "different-model"
+  begin()
+  equal(request().request.url, compatible.endpoint)
+  equal(json.decode(request().request.body).model, compatible.model)
+  equal(mock.lookupArgs[1][8], compatible.endpoint)
+end)
+
+test("changing compatible endpoint requires a separately scoped lookup on reopening", function()
+  fresh(compatible); begin(); complete(); onClose()
+  local endpoint = "https://different.example/v1/chat/completions"
+  mock.settings.endpoint = endpoint; onOpen({}); onSubmit("Yeni")
+  equal(mock.lookupArgs[2][8], endpoint); credential(nil, { stdout = "" })
+  equal(#mock.requests, 1); assert(hasText("No key was found"))
+end)
+
+test("opening settings cancels the stream before handing control to Noctalia", function()
+  fresh(compatible); begin(); local old = request(); emit("partial")
+  onSettingsClicked(); equal(old.stopped, 1); equal(mock.settingsOpened, 1)
+  emit("late", old); old.onClose({ ok = true, status = 200 }); onSubmit("late")
+  equal(#mock.requests, 1); equal(mock.ticks, false)
+  onOpen({}); equal(find("input").props.value, "")
+end)
+
+test("opening settings while key lookup is pending prevents the delayed request", function()
+  fresh(compatible); onSubmit("Soru"); onSettingsClicked(); credential()
+  equal(#mock.requests, 0); equal(mock.settingsOpened, 1)
+end)
+
+for _, status in ipairs({ 401, 403, 429, 500 }) do
+  test("compatible HTTP " .. tostring(status) .. " preserves provider choice and never falls back", function()
+    fresh(compatible); begin(); closeHTTP(status)
+    equal(#mock.requests, 1); equal(#mock.lookups, 1); assert(find("button", "Retry"))
+    onRetry(); credential(); equal(request().request.url, compatible.endpoint)
+  end)
+end
+
+test("compatible timeout cancels the stream and ignores late callbacks", function()
+  fresh(compatible); begin(); local old = request(); emit("partial"); flush(45001)
+  equal(old.stopped, 1); assert(hasText("timed out")); emit("late", old)
+  equal(find("markdown").props.text, "partial")
 end)
 
 onClose()
