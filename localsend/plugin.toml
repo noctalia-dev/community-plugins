@@ -1,0 +1,71 @@
+id          = "mera/localsend"
+name        = "LocalSend"
+version     = "0.2.0"
+plugin_api  = 24
+author      = "mera"
+license     = "MIT"
+icon        = "send"
+description = "Send and receive files, folders and text with LocalSend devices on your network."
+tags        = ["network", "utility", "bar", "panel", "service"]
+dependencies = ["python3", "openssl", "zenity"]
+
+[[setting]]
+key       = "alias"
+type      = "string"
+label_key = "settings.alias.label"
+description_key = "settings.alias.description"
+default   = ""
+
+[[setting]]
+key       = "save_dir"
+type      = "folder"
+label_key = "settings.save_dir.label"
+default   = "~/Downloads/LocalSend"
+
+[[setting]]
+key       = "auto_accept"
+type      = "bool"
+label_key = "settings.auto_accept.label"
+description_key = "settings.auto_accept.description"
+default   = false
+
+[[setting]]
+key       = "pin"
+type      = "string"
+label_key = "settings.pin.label"
+description_key = "settings.pin.description"
+default   = ""
+
+[[setting]]
+key       = "port"
+type      = "int"
+label_key = "settings.port.label"
+description_key = "settings.port.description"
+default   = 53317
+min       = 1024
+max       = 65535
+advanced  = true
+
+[[setting]]
+key       = "control_port"
+type      = "int"
+label_key = "settings.control_port.label"
+description_key = "settings.control_port.description"
+default   = 53318
+min       = 1024
+max       = 65535
+advanced  = true
+
+[[widget]]
+id    = "widget"
+entry = "widget.luau"
+
+[[panel]]
+id     = "panel"
+entry  = "panel.luau"
+width  = 380
+height = 520
+
+[[service]]
+id    = "service"
+entry = "service.luau"
