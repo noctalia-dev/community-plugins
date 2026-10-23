@@ -43,7 +43,10 @@ like/unlike, and a hover tooltip with codec and bitrate info.
 
 On first launch, sign in from the sidebar to extract your YouTube Music
 cookies from an installed browser (Chrome, Chromium, Firefox, Edge, Brave,
-Opera, Vivaldi, Whale, or Zen).
+Opera, Vivaldi, Whale, or Zen). Every packaged binary name is accepted, so
+Brave Origin (`brave-origin`) and Zen (`zen-browser`) are recognised too, as
+are Flatpak installs that expose their app id on `PATH`; Zen profiles are read
+from `~/.config/zen`, `~/.zen`, or the Flatpak profile directory.
 
 ### Playback
 
@@ -86,6 +89,13 @@ The bar widget also opens entries directly (`panel-toggle aabidk20/yt-music:mini
   cookies locally via `yt-dlp --cookies-from-browser` and stores them only in
   the cache directory above. Nothing is ever sent anywhere except directly to
   YouTube for playback and preference requests. See [Privacy](#privacy) below.
+- **Chromium cookie encryption** — Chromium-based browsers since Chrome 127
+  (Brave, Chrome, Edge) protect their cookies with app-bound encryption, which
+  `yt-dlp` cannot decrypt. Those browsers are authenticated through the DevTools
+  protocol instead: the plugin opens a throwaway profile, you sign in there, and
+  the cookies are exported from the running browser. Firefox-based browsers
+  (Firefox, Zen) are read straight from their own profile and need no extra
+  sign-in.
 - **Processes** — spawns the tools listed in Requirements plus a browser on the
   sign-in page to authenticate.
 - **MPRIS transport** — with `mpv-mpris` installed, a three-entry mpv
