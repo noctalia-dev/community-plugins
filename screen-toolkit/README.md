@@ -16,7 +16,7 @@ not the original implementation.
 | Field | Value |
 | --- | --- |
 | ID | `alexander/screen-toolkit` |
-| Entries | Bar widget: `widget`; control-center shortcut: `toggle`; panels: `panel` (standard tools), `panel-legacy` (legacy layout), `result` (result view); service: `service` |
+| Entries | Bar widget: `widget`; control-center shortcut: `toggle`; panels: `panel` (standard tools), `panel-legacy` (legacy layout), `result` (result view), `record-result` (recording save card); service: `service` |
 
 ## Requirements
 
@@ -37,6 +37,7 @@ only pixel processing and recording need external tools.
 - **`pkill`** — stopping active recording backends
 - **`xdg-open`** — opening URLs, OCR search results, and shared-link targets
 - **`mpv`** — open recording preview in legacy mode subpanel
+- **`notify-send`** — thumbnail toast with a play action when a recording is saved (libnotify; without it the toast is plain text)
 - **`pactl`** — resolve the default audio source for single-source wf-recorder / wl-screenrec recording
 
 Recording requires at least one backend:
@@ -113,6 +114,14 @@ Open the result panel (shows the last capture/recording output):
 noctalia msg panel-toggle alexander/screen-toolkit:result
 ```
 
+Open the recording save card (shown automatically when a recording stops with
+"Skip Save Confirmation" off; unlike the other dialogs it ignores clicks
+outside it, so a stray click cannot dismiss a pending recording):
+
+```sh
+noctalia msg panel-toggle alexander/screen-toolkit:record-result
+```
+
 The tools panel contains the capture actions. When a capture tool finishes, a
 **result panel** opens with the output and its actions; close it to return to
 the tools panel.
@@ -124,6 +133,13 @@ external recorder. Recording starts immediately and the bar widget shows the
 pulsing dot; click the dot, the widget, the shortcut, or the panel's **Stop**
 button to end it. Unless "Skip Save Confirmation" is on, the panel then
 offers **Save MP4**, **Save GIF**, **Copy**, and **Discard**.
+
+With "Finalize Recordings" on (the default), saving an MP4 first runs a
+ffmpeg pass that drops the first 0.1 s, mutes the capture-open pop in the
+first 400 ms of audio, normalizes loudness to -14 LUFS, and adds
+`+faststart`; the save toast then carries a thumbnail and a **Play in mpv**
+action. Video is stream-copied unless the first GOP needs a re-encode to
+trim. The raw file is deleted only after the pass succeeds.
 
 The `hide-cursor` setting excludes the cursor from **recordings** (default:
 hidden). Screenshots follow the shell's own screenshot cursor setting.
@@ -174,6 +190,7 @@ All settings live in Settings → Plugins (gear on the plugin's row).
 | `record-fps` | `int` | `60` | Frame rate for `gpu-screen-recorder` fullscreen capture (15–240). |
 | `record-skip-confirmation` | `bool` | `false` | Save automatically when a recording ends, skipping the save dialog. |
 | `record-copy-to-clipboard` | `bool` | `false` | Finalize to MP4 and copy the file URI when recording ends. |
+| `record-finalize` | `bool` | `true` | Run the trim/mute/loudnorm pass on saved MP4s and show the thumbnail toast. Turn off for the plain `mv` save. |
 | `gif-max-seconds` | `int` | `30` | Cap for GIF recordings (1–600 s). |
 | `panel-mode` | `select` | `standard` | Main panel layout: `standard` (dense grid, 380×260) or `legacy` (4×2 legacy grid, 380×260). |
 
@@ -242,8 +259,10 @@ Summary of every service command:
 | `recordFullscreen` | — | Record the full screen as GIF |
 | `recordFullscreenMp4` | — | Record the full screen as MP4 |
 | `recordStop` | — | Stop the active recording |
+| `recordToggle` | — | Start a fullscreen MP4 recording, or stop the active one |
 | `recordSave` | `"gif"` / `"mp4"` | Save the finished recording |
 | `recordCopy` | — | Finalize to MP4 and copy the file URI |
+| `recordPreview` | — | Play the finished, unsaved recording in mpv |
 | `recordDiscard` | — | Discard the finished recording |
 | `ocrSearch` | optional `{text}` | Search OCR text with the configured engine |
 | `ocrTranslate` | language code | Translate OCR text |

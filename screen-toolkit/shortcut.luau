@@ -19,8 +19,13 @@ noctalia.state.watch("recording", function(value)
 end)
 
 function onClick()
-  -- The shortcut tile never stops a recording; it just opens the panel so
-  -- the stop button (in the panel header, next to the close X) is reachable.
+  -- Same contract as the bar widget: while recording, this stops the
+  -- recording rather than opening a panel the user would then have to stop
+  -- from. The service opens the result panel when the file is ready.
+  if recording then
+    noctalia.state.set("command", { action = "recordStop" })
+    return
+  end
   local mode = noctalia.getConfig("panel-mode")
   local id = (mode == "legacy") and "alexander/screen-toolkit:panel-legacy" or "alexander/screen-toolkit:panel"
   noctalia.togglePanel(id)

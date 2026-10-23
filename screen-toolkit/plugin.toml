@@ -8,7 +8,7 @@
 
 id = "alexander/screen-toolkit"
 name = "Screen Toolkit"
-version = "1.5.3"
+version = "1.5.5"
 plugin_api = 13
 author = "alexander"
 license = "MIT"
@@ -36,6 +36,8 @@ dependencies = [
   "pkill",
   "pactl",
   "mpv",
+  # Recording toast: freedesktop image hint + click action (libnotify).
+  "notify-send",
   # Compositor-specific flows (window geometry, hover highlight).
   "hyprctl",
   "niri",
@@ -78,6 +80,21 @@ width = 560
 height = 520
 placement = "floating"
 position = "center"
+
+# Recording save card: opened by the service when a recording stops with
+# confirmation enabled. A pending recording is a destructive choice (save vs
+# discard of a raw capture), so this panel opts out of outside-click dismissal:
+# clicking elsewhere must never look like it threw the recording away. Closing
+# it is explicit — the header Clear (discard) and close buttons, or an
+# automatic close when the service leaves the "ready" state.
+[[panel]]
+id = "record-result"
+entry = "record-result.luau"
+width = 560
+height = 520
+placement = "floating"
+position = "center"
+dismiss_on_outside_click = false
 
 # ── Plugin-level settings (shared by every entry, edited in Settings → Plugins) ──
 
@@ -199,6 +216,13 @@ type = "bool"
 label_key = "settings.record_copy_to_clipboard.label"
 description_key = "settings.record_copy_to_clipboard.description"
 default = false
+
+[[setting]]
+key = "record-finalize"
+type = "bool"
+label_key = "settings.record_finalize.label"
+description_key = "settings.record_finalize.description"
+default = true
 
 [[setting]]
 key = "gif-max-seconds"

@@ -23,6 +23,11 @@
 local PANEL_ID = "alexander/screen-toolkit:panel"
 local LEGACY_PANEL_ID = "alexander/screen-toolkit:panel-legacy"
 local RESULT_PANEL_ID = "alexander/screen-toolkit:result"
+-- The recording save card is its own panel entry so its manifest can opt out
+-- of outside-click dismissal: a pending recording is a destructive choice, and
+-- a stray click must never dismiss the card. The host shows one panel at a
+-- time, so opening this replaces any open tool-result panel.
+local RECORD_RESULT_PANEL_ID = "alexander/screen-toolkit:record-result"
 
 local SCRIPT_CAPTURE = noctalia.pluginDir() .. "/scripts/capture.sh"
 local SCRIPT_SHELL = noctalia.pluginDir() .. "/scripts/shell-capture.sh"
@@ -30,6 +35,8 @@ local SCRIPT_CAPTURE_NIRI = noctalia.pluginDir() .. "/scripts/capture-niri.sh"
 local SCRIPT_OCR = noctalia.pluginDir() .. "/scripts/ocr.sh"
 local SCRIPT_LENS = noctalia.pluginDir() .. "/scripts/lens-upload.sh"
 local SCRIPT_RECORD = noctalia.pluginDir() .. "/scripts/record.sh"
+local SCRIPT_FINALIZE = noctalia.pluginDir() .. "/scripts/finalize-record.sh"
+local SCRIPT_TOAST = noctalia.pluginDir() .. "/scripts/record-toast.sh"
 local SCRIPT_SHARE = noctalia.pluginDir() .. "/scripts/share-upload.sh"
 local SCRIPT_PICKER = noctalia.pluginDir() .. "/scripts/color-picker.sh"
 
@@ -153,6 +160,10 @@ end
 local SHELL_TIMEOUT_INTERACTIVE = 600000
 local SHELL_TIMEOUT_QUICK = 120000
 local SHELL_TIMEOUT_EDIT = 30000
+-- record-toast.sh waits for the toast to be dismissed or to expire (notify-send
+-- --action implies --wait); the script's own -t 10000 bounds it, this is the
+-- backstop that also covers a hung daemon.
+local TOAST_TIMEOUT = 60000
 
 -- Runs a shell-capture.sh action and maps its exit codes:
 --   10 cancelled → silent; 11 nothing saved → no_file hint;
@@ -856,6 +867,17 @@ local function parseRecordInfo(raw)
   }
 end
 
+local FINALIZE_EXIT_KEYS = {
+  [1] = "messages.finalize_bad_args",
+  [2] = "messages.finalize_file_not_found",
+  [3] = "messages.finalize_missing_dep",
+  [4] = "messages.finalize_failed",
+}
+
+-- MP4 gets the finalize pass (trim, mute, loudnorm) unless the user turned it
+-- off; GIF and MOV keep their own convert paths, where the script removes the
+-- raw file itself. finalize-record.sh never touches its input, so the raw file
+-- is deleted here only after it exits 0 — a failed pass leaves it recoverable.
 local function finalizeRecord(format, copyToClipboard)
   if rawPath == "" then return end
   local destDir = videoDir()
@@ -863,19 +885,27 @@ local function finalizeRecord(format, copyToClipboard)
   if format == "gif" then ext = ".gif" elseif format == "mov" then ext = ".mov" else ext = ".mp4" end
   local dest = destDir .. "/" .. buildFilename("record", ext)
   setRecordState("converting")
+  local finalizing = format ~= "gif" and format ~= "mov" and cfg("record-finalize") ~= false
+  local thumb = if finalizing then `/tmp/screen-toolkit-toast-{os.time()}.png` else nil
   local argv
   if format == "gif" then
     argv = { SCRIPT_RECORD, "convert-gif", rawPath, dest, tostring(cfg("gif-max-seconds") or 0) }
   elseif format == "mov" then
     argv = { SCRIPT_RECORD, "convert-mov", rawPath, dest }
+  elseif finalizing then
+    argv = { SCRIPT_FINALIZE, rawPath, dest, thumb }
   else
     argv = { SCRIPT_RECORD, "convert-mp4", rawPath, dest }
   end
   noctalia.runAsync(argv, function(res)
     if res.exitCode ~= 0 then
       setRecordState("idle")
-      noctalia.notifyError(noctalia.tr("messages.recording_failed"))
+      local key = if finalizing then FINALIZE_EXIT_KEYS[res.exitCode] else nil
+      noctalia.notifyError(if key then noctalia.tr(key) else noctalia.tr("messages.recording_failed"))
       return
+    end
+    if finalizing then
+      noctalia.runAsync({ "rm", "-f", rawPath })
     end
     recordPath = dest
     rawPath = ""
@@ -883,9 +913,29 @@ local function finalizeRecord(format, copyToClipboard)
     if copyToClipboard then
       copyFileUri(dest)
       noctalia.notify(noctalia.tr("panel.copied_to_clipboard"), dest)
-    else
-      noctalia.notify(noctalia.tr("messages.saved_to", { path = dest }))
+      if thumb then noctalia.runAsync({ "rm", "-f", thumb }) end
+      return
     end
+    -- The toast blocks until dismissed or timed out, so it runs detached from
+    -- the state machine; the plain text notification stays as the fallback
+    -- when notify-send is absent (record-toast.sh is then a silent no-op).
+    if thumb and noctalia.commandExists("notify-send") then
+      noctalia.runAsync({
+        SCRIPT_TOAST,
+        dest,
+        thumb,
+        noctalia.tr("messages.recording_saved"),
+        noctalia.tr("messages.saved_to", { path = dest }),
+        noctalia.tr("messages.play_in_mpv"),
+      }, function(toast)
+        if (toast.exitCode or 1) ~= 0 then
+          noctalia.notify(noctalia.tr("messages.saved_to", { path = dest }))
+        end
+        noctalia.runAsync({ "rm", "-f", thumb })
+      end, TOAST_TIMEOUT)
+      return
+    end
+    noctalia.notify(noctalia.tr("messages.saved_to", { path = dest }))
   end, 600000)
 end
 
@@ -921,7 +971,7 @@ local function recordStop()
                 local size = trim(statRes.stdout or "")
                 publish("recordInfo", parseRecordInfo(`{duration}|{wh}|{size}`))
                 setRecordState("ready")
-                noctalia.togglePanel(RESULT_PANEL_ID)
+                noctalia.togglePanel(RECORD_RESULT_PANEL_ID)
               end)
             end)
           end)
@@ -929,6 +979,19 @@ local function recordStop()
       end
     end)
   end)
+end
+
+-- Preview the finished-but-unsaved recording in mpv. Deliberately not in
+-- CAPTURE_STARTS: opening a preview is not a new capture, and discarding the
+-- pending recording here would delete the file mpv was just handed.
+local function recordPreview()
+  if recordState ~= "ready" or rawPath == "" then return end
+  if not noctalia.commandExists("mpv") then
+    noctalia.notifyError(noctalia.tr("messages.missing_dep", { dep = "mpv" }))
+    return
+  end
+  -- Detached (no callback): mpv outlives the call, which is the point.
+  noctalia.runAsync({ "mpv", "--no-config", "--title=" .. noctalia.tr("panel.record_preview"), rawPath })
 end
 
 local function recordDiscard()
@@ -1026,14 +1089,28 @@ local function runRecordFullscreen(format)
   startRecord("screen", format, bin)
 end
 
+-- One keybind that starts and stops: the bar widget's click contract, exposed
+-- over IPC so a compositor bind does not need to know the current state.
+local function recordToggle()
+  if recordState == "recording" then
+    recordStop()
+  elseif recordState == "idle" then
+    runRecordFullscreen("mp4")
+  end
+  -- "converting" and "ready" are deliberately inert: the file is being
+  -- written or is waiting for Save/Clear, and starting a second recording
+  -- would orphan it.
+end
+
 local HANDLERS = {
   colorPicker = runColorPicker, ocr = runOcr, qr = runQr, palette = runPalette, lens = runLens, measure = runMeasure,
   annotate = annotateRegion, annotateFullscreen = annotateFullscreen, annotateWindow = annotateWindow,
   record = function() runRecordRegion("gif") end, recordMp4 = function() runRecordRegion("mp4") end,
   recordFullscreen = function() runRecordFullscreen("gif") end, recordFullscreenMp4 = function() runRecordFullscreen("mp4") end,
-  recordStop = recordStop,
+  recordStop = recordStop, recordToggle = recordToggle,
   recordSave = function(payload) finalizeRecord((type(payload) == "table" and payload.format or nil) or recordFormat, false) end,
   recordCopy = function() finalizeRecord(recordFormat, true) end, recordDiscard = recordDiscard,
+  recordPreview = recordPreview,
   ocrSearch = ocrSearch, ocrTranslate = ocrTranslate, share = shareFile, clearResult = clearResult, clearHistory = clearHistory, setCursorHidden = setCursorHidden,
   setAudioOut = function(payload) overrideAudioOut = (type(payload) == "table" and payload.value or payload) == true end,
   setAudioIn = function(payload) overrideAudioIn = (type(payload) == "table" and payload.value or payload) == true end,
@@ -1083,6 +1160,17 @@ end
 local function boot()
   noctalia.mkdirAll(DATA_DIR)
   loadState()
+  -- The "command"/state channel outlives a service restart, so a
+  -- `recordState = "ready"` published before the restart would otherwise
+  -- resurrect a "Recording finished" panel whose rawPath is gone: Save and
+  -- Clear then do nothing. A fresh service owns no recording, so say so.
+  rawPath = ""
+  recordPath = ""
+  recordState = "idle"
+  publish("recordState", recordState)
+  publish("recording", false)
+  publish("recordPath", recordPath)
+  publish("recordStartedAt", nil)
   cursorHidden = cfg("hide-cursor") ~= false
   publish("cursorHidden", cursorHidden)
   refreshRecorders()

@@ -2,6 +2,10 @@
   "messages": {
     "capture_failed": "Screen capture failed.",
     "color_picked": "Color {color} picked.",
+    "finalize_bad_args": "Recording could not be finalized (bad arguments).",
+    "finalize_failed": "Recording could not be finalized. The raw file was kept.",
+    "finalize_file_not_found": "Recording could not be finalized: file not found.",
+    "finalize_missing_dep": "Recording could not be finalized: ffmpeg and ffprobe are required.",
     "lens_failed": "Google Lens upload failed.",
     "measure_copied": "Measurement copied.",
     "measure_failed": "Measurement failed.",
@@ -14,9 +18,11 @@
     "no_text": "No text detected.",
     "palette_failed": "Palette extraction failed.",
     "picker_cancelled": "Color picker cancelled.",
+    "play_in_mpv": "Play in mpv",
     "recording_failed": "Recording failed or cancelled.",
     "recording_started": "Recording started. Use the red REC indicator or shortcut to stop.",
     "recording_stopped": "Recording stopped. Preparing save options…",
+    "recording_saved": "Recording saved",
     "saved_to": "Saved: {path}",
     "share_bad_args": "Share failed: no file specified.",
     "share_file_not_found": "Share failed: file not found.",
@@ -45,7 +51,6 @@
     "copy_hex_list": "Copy hex list",
     "copy_link": "Copy link",
     "copy_text": "Copy text",
-    "discard": "Discard",
     "empty": "Pick a tool. Results appear here.",
     "format_copied": "{label} copied.",
     "history": "History",
@@ -54,13 +59,15 @@
     "no_history": "No colors in history yet.",
     "no_result": "No result yet.",
     "no_text": "No text detected.",
+    "ocr_source": "Source",
     "ocr_text": "Detected text",
     "open_url": "Open URL",
     "pick_again": "Pick again",
+    "play": "Play",
     "ready": "Recording finished",
-    "ready_hint": "Preview the recording, then save or discard",
     "rec": "REC",
     "record_duration": "Time",
+    "record_preview": "Recording preview",
     "record_ratio": "Ratio",
     "record_size": "Size",
     "recording_banner": "Recording…",
@@ -132,6 +139,10 @@
     "record_copy_to_clipboard": {
       "description": "Copy the recording to clipboard when done instead of showing the save dialog.",
       "label": "Copy to Clipboard"
+    },
+    "record_finalize": {
+      "description": "Trim the first 0.1 s, mute the capture-open pop, normalize to -14 LUFS, and show a thumbnail toast with a play action when a recording is saved. The raw file is kept if the pass fails.",
+      "label": "Finalize Recordings"
     },
     "record_fps": {
       "description": "Frame rate for gpu-screen-recorder fullscreen capture (15–240).",

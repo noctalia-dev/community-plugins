@@ -8,10 +8,6 @@
 
 local panelOpen = false
 
-local recordState = noctalia.state.get("recordState") or "idle"
-local recordFormat = noctalia.state.get("recordFormat") or "mp4"
-local recordInfo = noctalia.state.get("recordInfo")
-local saveContainerIndex = 0
 local activeTool = noctalia.state.get("activeTool")
 local colorResult = noctalia.state.get("colorResult")
 local colorHistory = noctalia.state.get("colorHistory") or {}
@@ -138,9 +134,6 @@ local function showHistoryColor(hex)
 end
 
 local function refresh()
-  recordState = noctalia.state.get("recordState") or "idle"
-  recordFormat = noctalia.state.get("recordFormat") or "mp4"
-  recordInfo = noctalia.state.get("recordInfo")
   activeTool = noctalia.state.get("activeTool")
   colorResult = noctalia.state.get("colorResult")
   colorHistory = noctalia.state.get("colorHistory") or {}
@@ -156,9 +149,7 @@ end
 
 local function header()
   local title, glyph = tr("panel.title"), "crosshair"
-  if recordState == "ready" then
-    title, glyph = tr("panel.ready"), "video"
-  elseif activeTool == "colorpicker" then
+  if activeTool == "colorpicker" then
     title, glyph = tr("tools.colorpicker"), "palette"
   elseif activeTool == "ocr" then
     title, glyph = tr("tools.ocr"), "scan"
@@ -167,6 +158,8 @@ local function header()
   elseif activeTool == "palette" then
     title, glyph = tr("tools.palette"), "color-swatch"
   end
+  -- Clear sits top-right in every state, matching the other dialogs: it drops
+  -- the shown result.
   return ui.row({ align = "center", gap = 10 }, {
     ui.column({ width = 36, height = 36, radius = 10, fill = "primary/0.15", align = "center", justify = "center" }, {
       ui.glyph({ name = glyph, size = 18, color = "primary" }),
@@ -179,89 +172,13 @@ local function header()
       controlSize = "sm",
       tooltip = tr("panel.clear"),
       onClick = function()
-        if recordState == "ready" then send("recordDiscard") else send("clearResult") end
+        send("clearResult")
         panel.close()
       end,
     }),
-    ui.button({ glyph = "close", variant = "ghost", controlSize = "sm", onClick = function() panel.close() end }),
-  })
-end
-
--- Recording finished: preview the thumbnail, recording info, then save or
--- discard. The format (GIF / MP4) was chosen from the main panel when the
--- recording started; a video can still be finalized as MP4 or MOV.
-local RECORD_THUMB_PATH = "/tmp/screen-toolkit-record-thumb.png"
-
-local function fmtBytes(bytes)
-  if bytes >= 1048576 then
-    return string.format("%.1f MB", bytes / 1048576)
-  end
-  return string.format("%.0f KB", bytes / 1024)
-end
-
-local function fmtDuration(seconds)
-  seconds = math.floor(seconds + 0.5)
-  local h = math.floor(seconds / 3600)
-  local m = math.floor((seconds % 3600) / 60)
-  local s = seconds % 60
-  if h > 0 then return string.format("%d:%02d:%02d", h, m, s) end
-  return string.format("%d:%02d", m, s)
-end
-
-local function fmtRatio(w, h)
-  if not w or not h or w <= 0 or h <= 0 then return "—" end
-  local a, b = w, h
-  while b ~= 0 do a, b = b, a % b end
-  return string.format("%d:%d", w / a, h / a)
-end
-
-local function infoTile(label, value)
-  return ui.column({ flexGrow = 1, gap = 2, align = "center", paddingH = 6, paddingV = 8, radius = 10, fill = "surface_variant/0.25" }, {
-    ui.label({ text = label, fontSize = 10, color = "on_surface_variant" }),
-    ui.label({ text = value or "—", fontSize = 13, fontWeight = "bold" }),
-  })
-end
-
-local function recordSaveCard()
-  local isGif = recordFormat == "gif"
-  local info = recordInfo or {}
-  local actions = {}
-  if isGif then
-    table.insert(actions, ui.label({
-      text = tr("tools.record_gif"),
-      flexGrow = 1,
-      fontSize = 12,
-      color = "on_surface_variant",
-    }))
-  else
-    table.insert(actions, ui.select({
-      options = { "MP4", "MOV" },
-      selectedIndex = saveContainerIndex,
-      controlSize = "sm",
-      width = 96,
-      onChange = function(value)
-        saveContainerIndex = tonumber(value) or 0
-      end,
-    }))
-  end
-  table.insert(actions, actionButton("download", tr("panel.save"), function()
-    if isGif then
-      send("recordSave")
-    else
-      send("recordSave", { format = saveContainerIndex == 0 and "mp4" or "mov" })
-    end
-  end, "primary"))
-  table.insert(actions, actionButton("trash", tr("panel.discard"), function()
-    send("recordDiscard")
-  end, "ghost"))
-  return ui.column({ flexGrow = 1, gap = 10 }, {
-    ui.image({ path = RECORD_THUMB_PATH, height = 220, fit = "contain", radius = 12, borderWidth = 1, border = "outline" }),
-    ui.row({ gap = 8 }, {
-      infoTile(tr("panel.record_size"), fmtBytes(info.size or 0)),
-      infoTile(tr("panel.record_duration"), fmtDuration(info.duration or 0)),
-      infoTile(tr("panel.record_ratio"), fmtRatio(info.width, info.height)),
+    ui.button({
+      glyph = "close", variant = "ghost", controlSize = "sm", onClick = function() panel.close() end,
     }),
-    ui.row({ gap = 6, align = "center" }, actions),
   })
 end
 
@@ -307,6 +224,11 @@ local function renderColor()
     return emptyState("palette", tr("panel.no_color"))
   end
   local c = colorResult
+  -- The panel height is fixed in the manifest and this view is taller than
+  -- it, so everything past the header has to scroll: without the scroll the
+  -- tail (the history row) is cut off by the panel's bottom edge, which reads
+  -- as a broken dialog rather than as content below the fold. The header row
+  -- stays outside so the swatch and Pick again are always reachable.
   return ui.column({ flexGrow = 1, gap = 10 }, {
     ui.row({ gap = 12, align = "center" }, {
       ui.box({ key = "swatch", width = 76, height = 50, radius = 12, fill = c.hex, borderWidth = 2, border = "outline" }),
@@ -316,7 +238,6 @@ local function renderColor()
       }),
       ui.column({ align = "end", gap = 4 }, {
         actionButton("color-picker", tr("panel.pick_again"), function() send("colorPicker"); panel.close() end),
-        actionButton("trash", tr("panel.clear"), function() send("clearResult"); panel.close() end, "ghost"),
       }),
     }),
     ui.row({ gap = 6 }, {
@@ -325,18 +246,19 @@ local function renderColor()
       end),
       actionButton("share", tr("panel.share"), function() send("share", c.capturePath) end),
     }),
-    ui.separator({ spacing = 4 }),
-    colorFormatRow("HEX", c.hex),
-    colorFormatRow("RGB", c.rgb),
-    colorFormatRow("HSL", c.hsl),
-    colorFormatRow("HSV", c.hsv),
-    ui.separator({ spacing = 4 }),
-    ui.column({ gap = 6 }, {
-      ui.row({ align = "center", justify = "space_between", gap = 8 }, {
-        ui.label({ text = tr("panel.history"), fontSize = 12, fontWeight = "bold", color = "on_surface_variant" }),
-        ui.button({ text = tr("panel.clear_history"), controlSize = "sm", variant = "ghost", onClick = function() send("clearHistory") end }),
+    ui.scroll({ flexGrow = 1, gap = 10 }, {
+      colorFormatRow("HEX", c.hex),
+      colorFormatRow("RGB", c.rgb),
+      colorFormatRow("HSL", c.hsl),
+      colorFormatRow("HSV", c.hsv),
+      ui.separator({ spacing = 4 }),
+      ui.column({ gap = 6 }, {
+        ui.row({ align = "center", justify = "space_between", gap = 8 }, {
+          ui.label({ text = tr("panel.history"), fontSize = 12, fontWeight = "bold", color = "on_surface_variant" }),
+          ui.button({ text = tr("panel.clear_history"), controlSize = "sm", variant = "ghost", onClick = function() send("clearHistory") end }),
+        }),
+        colorHistoryRow(),
       }),
-      colorHistoryRow(),
     }),
   })
 end
@@ -354,14 +276,18 @@ local function renderOcr()
   local email = text:match("[%w%._%%+%-]+@[%w%.%-]+%.[%a][%a]+")
   local imgW = tonumber(ocrResult.gw) or 0
   local imgH = tonumber(ocrResult.gh) or 0
+  -- Caps chosen so the usual case (image card + a few lines of text) fits the
+  -- fixed panel height and no scrollbar appears at all: the scroll area is
+  -- about 406 tall and the non-editor rows take 76, so image + input must stay
+  -- under ~330. Longer text still scrolls, which is the scroll's job.
   local imgHeight = 90
   if imgW > 0 and imgH > 0 then
-    imgHeight = math.max(70, math.min(140, math.floor(360 * (imgH / imgW))))
+    imgHeight = math.max(70, math.min(130, math.floor(360 * (imgH / imgW))))
   end
   local lineCount = 1
   for _ in tostring(text):gmatch("\n") do lineCount = lineCount + 1 end
   lineCount = lineCount + math.floor(#text / 60)
-  local inputHeight = math.max(70, math.min(180, lineCount * 20 + 32))
+  local inputHeight = math.max(70, math.min(160, lineCount * 20 + 32))
   local hasTranslation = translateResult and translateResult ~= ""
   if hasTranslation and ocrTab ~= "original" and ocrTab ~= "translation" then ocrTab = "original" end
   local scrollChildren = {}
@@ -527,9 +453,7 @@ end
 -- ── Render ─────────────────────────────────────────────────────────────────
 
 local function body()
-  if recordState == "ready" then
-    return recordSaveCard()
-  elseif activeTool == "colorpicker" then
+  if activeTool == "colorpicker" then
     return renderColor()
   elseif activeTool == "ocr" then
     return renderOcr()
@@ -560,16 +484,6 @@ function onClose()
   panelOpen = false
 end
 
-noctalia.state.watch("recordState", function(v)
-  if recordState == "ready" and v ~= "ready" then
-    panel.close()
-    return
-  end
-  recordState = v or "idle"
-  if panelOpen then render() end
-end)
-noctalia.state.watch("recordFormat", function(v) recordFormat = v or "mp4"; if panelOpen then render() end end)
-noctalia.state.watch("recordInfo", function(v) recordInfo = v; if panelOpen then render() end end)
 noctalia.state.watch("activeTool", function(v) activeTool = v; if panelOpen then render() end end)
 noctalia.state.watch("colorResult", function(v) colorResult = v; if panelOpen then render() end end)
 noctalia.state.watch("colorHistory", function(v) colorHistory = v or {}; if panelOpen then render() end end)

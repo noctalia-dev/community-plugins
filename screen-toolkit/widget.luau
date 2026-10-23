@@ -2,10 +2,10 @@
 -- Screen Toolkit — bar [[widget]].
 --
 -- Crosshair glyph; a pulsing red dot appears while a recording is active.
--- Left click toggles the main panel; right click quick-picks a color.
--- Recording logic lives in the [[service]] — this widget
--- only reflects the published state and drives the service through the
--- "command" state channel.
+-- Left click stops an active recording, otherwise toggles the main panel;
+-- right click quick-picks a color. Recording logic lives in the [[service]] —
+-- this widget only reflects the published state and drives the service
+-- through the "command" state channel.
 -- When "hide-when-unused" is enabled, the widget is hidden until a
 -- recording starts (issue #444).
 
@@ -67,8 +67,14 @@ function onConfigChanged()
 end
 
 function onClick()
-  -- The bar icon never stops a recording; it just opens the panel so the
-  -- stop button (in the panel header, next to the close X) is reachable.
+  -- While recording, the bar icon stops the recording and the service opens
+  -- the result panel when the file is ready — the same end state as the
+  -- panel's own Stop button. Opening the tools panel here instead forced a
+  -- second click on a stop button the user could not need.
+  if recording then
+    noctalia.state.set("command", { action = "recordStop" })
+    return
+  end
   local mode = noctalia.getConfig("panel-mode")
   local id = (mode == "legacy") and "alexander/screen-toolkit:panel-legacy" or "alexander/screen-toolkit:panel"
   noctalia.togglePanel(id)

@@ -249,6 +249,13 @@ case "$ACTION" in
         _require noctalia
         _file="${2:-}"
         [ -n "$_file" ] && [ -f "$_file" ] || exit 2
+        # The annotate command postdates some shell builds (5.0.1 lacks it);
+        # probe once so the caller reports a missing dependency instead of
+        # retrying an unknown command and failing with a generic error.
+        if ! noctalia msg --help 2>/dev/null | grep -q '^[[:space:]]*annotate'; then
+            echo "a Noctalia shell that ships the annotate command"
+            exit 1
+        fi
         # The handoff can race the shell flushing the fresh capture.
         _i=0
         while [ "$_i" -lt 3 ]; do
