@@ -1,0 +1,20 @@
+id = "yusuferdemyamali/quickask"
+name = "QuickAsk"
+version = "0.1.1"
+plugin_api = 24
+author = "yusuferdemyamali"
+license = "MIT"
+description = "A keyboard-first text panel with streaming OpenCode Go responses"
+dependencies = ["secret-tool"]
+tags = ["panel", "ai", "productivity", "hyprland"]
+icon = "message-circle"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 520
+height = 380
+placement = "floating"
+position = "bottom_center"
+keyboard_focus = "exclusive"
+dismiss_on_outside_click = true
