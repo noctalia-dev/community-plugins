@@ -1,7 +1,7 @@
 id = "bagusk99/super-caffeine"
 name = "Super Caffeine"
-version = "1.0.0"
-plugin_api = 3
+version = "1.0.1"
+plugin_api = 17
 author = "bagusk99"
 license = "MIT"
 icon = "coffee"

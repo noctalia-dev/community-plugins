@@ -68,3 +68,12 @@ end
 function onIpc(event, _payload)
     handle(event)
 end
+
+function onExit(_signal, reason)
+    -- Disable/uninstall removes the controls, so release what we own. Launch
+    -- without a callback: the VM is torn down as soon as this returns.
+    -- Reload/shutdown keep the unit so the mode survives a shell restart.
+    if reason == "disable" or reason == "uninstall" then
+        noctalia.runAsync("if " .. CHECK .. "; then " .. STOP .. "; fi")
+    end
+end
