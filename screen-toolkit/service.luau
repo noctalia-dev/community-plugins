@@ -161,6 +161,11 @@ local SHELL_TIMEOUT_EDIT = 30000
 local function shellCapture(argv, timeout, onFile)
   noctalia.runAsync(argv, function(res)
     if res.exitCode == 10 then return end -- cancelled, silent
+    if res.exitCode == 14 then
+      -- another annotate session is already open; nothing to retry
+      noctalia.notify(noctalia.tr("panel.running"))
+      return
+    end
     if res.exitCode == 11 then
       noctalia.notifyError(noctalia.tr("messages.no_file"))
       return
@@ -213,6 +218,10 @@ local function editFile(path, onOk)
   noctalia.runAsync({ SCRIPT_SHELL, "edit", path }, function(res)
     if res.exitCode == 1 then
       noctalia.notifyError(noctalia.tr("messages.missing_dep", { dep = trim(res.stdout or "") }))
+      return
+    end
+    if res.exitCode == 14 then
+      noctalia.notify(noctalia.tr("panel.running"))
       return
     end
     if res.exitCode ~= 0 then
@@ -985,6 +994,22 @@ local function shareFile(file)
   )
 end
 
+-- Share the newest shell screenshot when it is still fresh (5 min), like the
+-- standalone share script this plugin replaces; otherwise capture a region
+-- interactively and share that instead.
+local function shareLast()
+  noctalia.runAsync({ SCRIPT_SHELL, "newest-shot", "5" }, function(res)
+    local path = if res.exitCode == 0 then trim(res.stdout or "") else ""
+    if path ~= "" then
+      shareFile(path)
+      return
+    end
+    shellCaptureTemp({ SCRIPT_SHELL, "region-file" }, SHELL_TIMEOUT_INTERACTIVE, function(tmp)
+      if tmp ~= "" then shareFile(tmp) end
+    end)
+  end)
+end
+
 -- ── Result housekeeping ────────────────────────────────────────────────────
 
 local function clearResult()
@@ -1034,7 +1059,8 @@ local HANDLERS = {
   recordStop = recordStop,
   recordSave = function(payload) finalizeRecord((type(payload) == "table" and payload.format or nil) or recordFormat, false) end,
   recordCopy = function() finalizeRecord(recordFormat, true) end, recordDiscard = recordDiscard,
-  ocrSearch = ocrSearch, ocrTranslate = ocrTranslate, share = shareFile, clearResult = clearResult, clearHistory = clearHistory, setCursorHidden = setCursorHidden,
+  ocrSearch = ocrSearch, ocrTranslate = ocrTranslate, share = shareFile, shareLast = shareLast,
+  clearResult = clearResult, clearHistory = clearHistory, setCursorHidden = setCursorHidden,
   setAudioOut = function(payload) overrideAudioOut = (type(payload) == "table" and payload.value or payload) == true end,
   setAudioIn = function(payload) overrideAudioIn = (type(payload) == "table" and payload.value or payload) == true end,
   toggle = function()
@@ -1051,6 +1077,7 @@ local CAPTURE_STARTS = {
   colorPicker = true, ocr = true, qr = true, palette = true, lens = true,
   measure = true, annotate = true, annotateFullscreen = true, annotateWindow = true,
   record = true, recordMp4 = true, recordFullscreen = true, recordFullscreenMp4 = true,
+  shareLast = true,
 }
 
 local function dispatch(event, payload)

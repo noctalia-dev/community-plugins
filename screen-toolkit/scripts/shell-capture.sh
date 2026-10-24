@@ -9,6 +9,8 @@
 # Actions:
 #   region-file                — interactive region capture; stdout: file path
 #   fullscreen-file            — capture the focused monitor; stdout: file path
+#   newest-shot [maxage-min]   — newest shell screenshot younger than maxage;
+#                                stdout: file path or nothing
 #   window-file                — hover to aim (overlay cut from the hovered
 #                                window's geometry), click to capture it via
 #                                fullscreen + magick crop.
@@ -30,6 +32,7 @@
 #   10 — cancelled by the user (silent)
 #   11 — capture finished but nothing was saved to a file (NOFILE)
 #   13 — annotation editor handoff failed
+#   14 — annotation editor already has a session active
 #
 # Used by: service.luau
 
@@ -62,7 +65,7 @@ shell_dir() {
             return 0
         fi
     done
-    printf '%s\n' "$HOME/Pictures/Screenshots"
+    printf '%s\n' "$HOME/Pictures"
 }
 
 # Newest regular file in $1 newer than ($2 - 2s). Prints nothing when none.
@@ -114,7 +117,27 @@ case "$ACTION" in
 
     region-file)
         _require noctalia
-        # Let the just-closed panel finish its close animation first.
+        # On niri select the region directly with slurp+grim. The shell's
+        # screenshot-region ends in its confirm_region dialog when that setting
+        # is on, which this pipeline cannot wait on, and it leaves a stray
+        # -region file among the user's screenshots. slurp+grim yields an exact
+        # temp file with no dialog and no pickup race.
+        if [ -n "${NIRI_SOCKET:-}" ] \
+            && command -v slurp >/dev/null 2>&1 \
+            && command -v grim >/dev/null 2>&1; then
+            sleep 0.3   # let the just-closed panel finish its close animation
+            _geom=""
+            _geom=$(slurp -f '%x,%y %wx%h' 2>/dev/null) || exit 10
+            [ -n "$_geom" ] || exit 10
+            _out="/tmp/screen-toolkit-region-$$.png"
+            if ! grim -g "$_geom" "$_out" 2>/dev/null || [ ! -s "$_out" ]; then
+                rm -f "$_out"
+                exit 3
+            fi
+            printf '%s\n' "$_out"
+            exit 0
+        fi
+        # Otherwise: the shell's interactive region overlay via its stack.
         sleep 0.3
         _dir=$(shell_dir)
         _before=$(date +%s)
@@ -264,11 +287,26 @@ case "$ACTION" in
                 printf '%s\n' "$_file"
                 exit 0
             fi
+            # Retrying makes no sense while another annotate session is up.
+            case "$_err" in
+                *"already active"*) printf '%s\n' "$_err" >&2; exit 14 ;;
+            esac
             sleep 0.5
             _i=$((_i + 1))
         done
         printf '%s\n' "$_err" >&2
         exit 13
+        ;;
+
+    newest-shot)
+        # Newest screenshot_*.png in the shell's screenshot dir not older than
+        # $2 minutes (default 5). Prints nothing when there is none. Used by
+        # the service's shareLast command to reuse a just-taken screenshot.
+        _dir=$(shell_dir)
+        _age="${2:-5}"
+        case "$_age" in ''|*[!0-9]*) _age=5 ;; esac
+        find "$_dir" -maxdepth 1 -type f -name 'screenshot_*.png' -mmin "-$_age" \
+            -printf '%T@ %p\n' 2>/dev/null | sort -n | tail -1 | cut -d' ' -f2-
         ;;
 
     annotate-region|annotate-fullscreen|annotate-window)
@@ -285,7 +323,7 @@ case "$ACTION" in
         ;;
 
     *)
-        echo "ERROR: unknown action '${ACTION}'. Expected: region-file | fullscreen-file | window-file | edit | annotate-region | annotate-fullscreen | annotate-window" >&2
+        echo "ERROR: unknown action '${ACTION}'. Expected: region-file | fullscreen-file | window-file | newest-shot | edit | annotate-region | annotate-fullscreen | annotate-window" >&2
         exit 2
         ;;
 

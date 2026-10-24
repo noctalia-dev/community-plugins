@@ -201,6 +201,7 @@ noctalia msg plugin alexander/screen-toolkit:service all recordSave
 noctalia msg plugin alexander/screen-toolkit:service all recordCopy
 noctalia msg plugin alexander/screen-toolkit:service all recordDiscard
 noctalia msg plugin alexander/screen-toolkit:service all ocrSearch
+noctalia msg plugin alexander/screen-toolkit:service all shareLast
 noctalia msg plugin alexander/screen-toolkit:service all clearResult
 noctalia msg plugin alexander/screen-toolkit:service all clearHistory
 ```
@@ -248,6 +249,7 @@ Summary of every service command:
 | `ocrSearch` | optional `{text}` | Search OCR text with the configured engine |
 | `ocrTranslate` | language code | Translate OCR text |
 | `share` | file path | Upload a file and copy the link |
+| `shareLast` | — | Share the newest screenshot (≤5 min old); if none, capture a region and share it |
 | `clearResult` | — | Clear the current result panel state |
 | `clearHistory` | — | Clear the color history |
 | `setCursorHidden` | \"true\" / \"false\" | Exclude/include the cursor in recordings |
@@ -264,7 +266,10 @@ Summary of every service command:
 - This is a port of the legacy v4
   [screen-toolkit](https://github.com/noctalia-dev/legacy-v4-plugins/tree/main/screen-toolkit)
   plugin. Tools that relied on freeform v4 QML overlays are adapted: region
-  selection and annotation go through the shell's screenshot stack, window
+  selection and annotation go through the shell's screenshot stack (on niri the
+  region tools select directly with `slurp`+`grim`, because the shell's
+  `screenshot-region` ends in its `confirm_region` dialog, which a tool pipeline
+  cannot wait on), window
   aiming dims everything except the hovered window (`hyprctl dim_around` on
   Hyprland), and measure reports region dimensions instead of drawing a line
   overlay. **Pin** (floating screen overlays) and **Webcam Mirror** could not
