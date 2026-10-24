@@ -1,0 +1,164 @@
+{
+  "settings": {
+    "token": {
+      "label": "API token",
+      "description": "Stored as plain text in Noctalia's settings. Prefer a token file or the TODOIST_API_TOKEN environment variable."
+    },
+    "token_file": {
+      "label": "Token file",
+      "description": "Path to a file holding your Todoist API token. Either the bare token or a line like TODOIST_API_TOKEN = xxx works."
+    },
+    "default_project": {
+      "label": "Default project",
+      "description": "Shown as a capture hint. Todoist parses #project from the task text."
+    },
+    "default_labels": {
+      "label": "Default labels",
+      "description": "Shown as a capture hint. Todoist parses projects and labels from the task text."
+    },
+    "default_priority": {
+      "label": "Default priority",
+      "description": "Shown as a capture hint. Todoist parses p1-p4 from the task text."
+    },
+    "cache_tasks": {
+      "label": "Keep tasks locally",
+      "description": "Stores the last loaded tasks in plain text on this computer so the panel can paint before the first request."
+    },
+    "max_retries": {
+      "label": "Automatic retries",
+      "description": "How many times a failed read is retried. Creating a task is never retried."
+    },
+    "confirm_delete": {
+      "label": "Confirm before deleting",
+      "description": "Ask for confirmation in the panel before a task is deleted."
+    }
+  },
+  "priority": {
+    "none": "None",
+    "p1": "Priority 1",
+    "p2": "Priority 2",
+    "p3": "Priority 3",
+    "p4": "Priority 4"
+  },
+  "due": {
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "yesterday": "Yesterday",
+    "overdue": "Overdue"
+  },
+  "ui": {
+    "panel": {
+      "title": "Todoist",
+      "refresh": "Refresh",
+      "settings": "Settings",
+      "close": "Close",
+      "ping": "Check connection",
+      "status": {
+        "unknown": "Not checked yet.",
+        "ok": "Connected.",
+        "fail": "Last check failed: {kind}"
+      },
+      "filter": {
+        "overdue": "Overdue",
+        "today": "Due today",
+        "p1": "Priority 1"
+      },
+      "nav": {
+        "today": "Today",
+        "inbox": "Inbox",
+        "projects": "Projects",
+        "back": "Back",
+        "completed": "Completed"
+      },
+      "projects": {
+        "title": "Projects",
+        "empty": "No projects found."
+      },
+      "tasks": {
+        "empty": "Nothing here.",
+        "completed_empty": "No completed tasks in the last 7 days."
+      },
+      "loading": "Loading...",
+      "not_configured": "Add a Todoist API token in Settings.",
+      "open_in_todoist": "Open in Todoist",
+      "copy_link": "Copy link",
+      "link_copied": "Link copied.",
+      "complete": "Complete",
+      "reopen": "Reopen",
+      "action": {
+        "not_now": "Not now"
+      },
+      "delete": {
+        "confirm": "Delete \"{content}\"?",
+        "yes": "Delete",
+        "no": "Cancel",
+        "tooltip": "Delete"
+      },
+      "edit": {
+        "heading": "Edit task",
+        "open": "Edit",
+        "content": "Task",
+        "description": "Description",
+        "description_ph": "Notes (optional)",
+        "priority": "Priority",
+        "due": "Due",
+        "due_ph": "e.g. tomorrow 9am",
+        "clear_due": "Clear due date",
+        "project": "Project",
+        "section": "Section",
+        "no_section": "No section",
+        "no_sections": "This project has no sections.",
+        "no_project": "No project",
+        "labels": "Labels",
+        "labels_ph": "Comma separated",
+        "labels_known": "Existing: {labels}",
+        "save": "Save",
+        "move": "Move",
+        "cancel": "Cancel",
+        "content_required": "A task needs a title.",
+        "move_no_change": "Change the project or section first.",
+        "save_use_move": "Use Move to change the project or section."
+      },
+      "updated": "Updated {time}",
+      "subtask": "Sub-task",
+      "quick": {
+        "placeholder": "Add a task... (#project, @label, tomorrow p1)",
+        "add": "Add",
+        "hint": "Todoist parses dates, projects, labels and priorities.",
+        "defaults": "Defaults: {summary}",
+        "sent": "Sent. Refreshing..."
+      },
+      "undo": {
+        "completed": "Completed: {content}",
+        "action": "Undo"
+      },
+      "more": "and {count} more"
+    }
+  },
+  "err": {
+    "config": "No Todoist API token set.",
+    "auth": "The API token was rejected.",
+    "forbidden": "Todoist refused this request.",
+    "rate_limit": "Too many requests. Try again shortly.",
+    "validation": "Todoist rejected the request.",
+    "not_found": "Not found.",
+    "network": "Could not reach Todoist.",
+    "server": "Todoist returned an error.",
+    "timeout": "The request timed out.",
+    "unknown_outcome": "Outcome unknown. The task may have been created - check Todoist before retrying.",
+    "unknown_outcome_refresh": "Outcome unknown. Refreshing to check."
+  },
+  "notify": {
+    "created": "Task added",
+    "failed": "Could not add the task",
+    "unknown": "Task outcome unknown"
+  },
+  "launcher": {
+    "hint": "Search your tasks, or type to add one",
+    "create": "Add task: {text}",
+    "open_manager": "Open Todoist panel"
+  },
+  "widget": {
+    "tooltip": "Todoist"
+  }
+}
