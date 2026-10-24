@@ -4,6 +4,25 @@ Manage your Todoist tasks from the Noctalia panel and capture new ones from the
 launcher — without leaving the shell. Read, complete, edit, move, delete, and
 quick-add tasks.
 
+## Screenshots
+
+Inbox view with filter tiles, priority flags, due dates and per-task actions:
+
+![Todoist panel showing the Inbox tab with priority flags, due dates and quick actions](screenshots/panel-inbox.webp)
+
+Edit form for a task: title, description, priority, due date, project, section and
+labels:
+
+![Todoist panel edit form with title, description, priority, due date, project, section and labels](screenshots/panel-edit-task.webp)
+
+Completed view:
+
+![Todoist panel Completed tab listing finished tasks with their completion dates](screenshots/panel-completed.webp)
+
+Quick capture from the launcher with the `/td` prefix:
+
+![Launcher showing the /td prefix and Todoist task results](screenshots/launcher-capture.webp)
+
 ## Plugin
 
 | Field | Value |
