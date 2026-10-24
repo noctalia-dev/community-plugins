@@ -1,13 +1,36 @@
 id           = "gabedunn/voxtype"
 name         = "Voxtype"
-version      = "1.0.0"
-plugin_api   = 14
+version      = "1.1.0"
+plugin_api   = 30
 author       = "Gabe Dunn"
 license      = "MIT"
 icon         = "microphone-2"
-description  = "Shows and controls Voxtype's live dictation status from the bar."
-dependencies = ["voxtype"]
-tags         = ["audio", "bar", "indicator", "recording", "utility"]
+description  = "Shows Voxtype status in the bar and an optional live audio overlay."
+dependencies = ["voxtype", "voxtype-audio-bridge", "noctalia"]
+tags         = ["audio", "bar", "indicator", "recording", "utility", "panel", "service"]
+
+# Disabled by default so existing bar-only installations keep their behavior.
+[[setting]]
+key = "osd_enabled"
+type = "bool"
+label_key = "settings.osd_enabled.label"
+description_key = "settings.osd_enabled.description"
+default = false
+
+[[service]]
+id = "osd-monitor"
+entry = "osd-service.luau"
+
+[[panel]]
+id = "osd"
+entry = "osd-panel.luau"
+width = 148
+height = 46
+position = "bottom_center"
+layer = "overlay"
+keyboard_focus = "none"
+dismiss_on_outside_click = false
+persistent = true
 
 [[widget]]
 id    = "status"

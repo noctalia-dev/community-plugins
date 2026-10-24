@@ -9,18 +9,30 @@ tooltip.
 | Field | Value |
 | --- | --- |
 | ID | `gabedunn/voxtype` |
-| Entries | Bar widget: `status` |
+| Entries | Bar widget: `status`; panel: `osd`; service: `osd-monitor` |
 
 ## Requirements
 
 Install [`voxtype`](https://github.com/peteonrails/voxtype) and make sure the
 `voxtype` command is available on `PATH`. Configure Voxtype and its recording
-hotkey before using this widget.
+hotkey before using this widget. The overlay requires `voxtype-audio-bridge`
+and `noctalia` on PATH, plus Noctalia plugin API 30. Use
+`state_file = "auto"` and `[osd] enabled = false` in Voxtype.
 
 ## Usage
 
 Enable the plugin in Settings → Plugins, then add the `status` widget to your
 bar in Settings → Bar.
+
+Enable **Live dictation overlay** in plugin settings for audio levels while
+recording and an animation while transcribing. It closes when finished or
+cancelled and works without the bar widget.
+
+Panel IPC (closes immediately without active dictation):
+
+```sh
+noctalia msg panel-toggle gabedunn/voxtype:osd
+```
 
 The widget follows Voxtype's live status and updates as soon as it changes:
 
@@ -51,6 +63,9 @@ settings.
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
+| `osd_enabled` | `bool` | `false` | Enable the floating overlay. |
+| `osd_position` | native panel setting | `bottom_center` | Screen position. |
+| `osd_layer` | native panel setting | `overlay` | `overlay` above fullscreen windows, or `top`. |
 | `show_alt` | `bool` | `false` | Show the current state (`idle`, `streaming`, `recording`, `transcribing`, or `stopped`) beside the glyph. |
 | `show_extended` | `bool` | `false` | Enable extended output. The tooltip includes model, device, and backend. |
 | `show_model` | `bool` | `true` | Show the model on the bar when extended status is enabled. |
@@ -79,3 +94,6 @@ and tooltip; the emoji in Voxtype's `text` field is not rendered.
 The plugin makes no network requests and does not directly read or write files.
 Its click actions invoke Voxtype, which records and processes audio according to
 your Voxtype configuration.
+
+The `osd-monitor` service follows status and audio levels through managed Voxtype
+processes. The overlay does not record audio, save transcripts, or use the network.
