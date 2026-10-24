@@ -1,0 +1,386 @@
+# Shift — work-hours tracker for Noctalia.
+# Design: docs/specs/0001-shift-v1.md (repository root).
+#
+# core      -> headless service, single source of truth (state, signals, persistence)
+# bar       -> bar widget, thin client of the core snapshot
+# dashboard -> panel, thin client: dashboard, history and editors
+# tile      -> control-center shortcut, check in / check out
+
+id           = "hbollon/shift"
+name         = "Shift"
+version      = "1.0.1"
+plugin_api   = 32
+author       = "hbollon"
+license      = "MIT"
+icon         = "briefcase"
+description  = "Track your work hours: one-click check in/out, smart automation, daily target and overtime balance."
+tags         = ["bar", "panel", "shortcut", "service", "productivity", "time"]
+dependencies = ["swayidle", "gdbus", "loginctl"] # all optional: idle, lock and sleep detection, lock fallback
+
+# --- Settings ------------------------------------------------------------------
+
+[[setting]]
+key             = "weekly_hours"
+type            = "double"
+label_key       = "settings.weekly_hours.label"
+description_key = "settings.weekly_hours.description"
+default         = 35
+min             = 0
+max             = 100
+
+[[setting]]
+key             = "work_week"
+type            = "select"
+label_key       = "settings.work_week.label"
+description_key = "settings.work_week.description"
+default         = "mon_fri"
+options = [
+  { value = "mon_fri", label_key = "settings.work_week.mon_fri" },
+  { value = "mon_sat", label_key = "settings.work_week.mon_sat" },
+  { value = "custom", label_key = "settings.work_week.custom" },
+]
+
+[[setting]]
+key          = "workday_mon"
+type         = "bool"
+label_key    = "settings.workday_mon.label"
+default      = true
+visible_when = { key = "work_week", values = ["custom"] }
+
+[[setting]]
+key          = "workday_tue"
+type         = "bool"
+label_key    = "settings.workday_tue.label"
+default      = true
+visible_when = { key = "work_week", values = ["custom"] }
+
+[[setting]]
+key          = "workday_wed"
+type         = "bool"
+label_key    = "settings.workday_wed.label"
+default      = true
+visible_when = { key = "work_week", values = ["custom"] }
+
+[[setting]]
+key          = "workday_thu"
+type         = "bool"
+label_key    = "settings.workday_thu.label"
+default      = true
+visible_when = { key = "work_week", values = ["custom"] }
+
+[[setting]]
+key          = "workday_fri"
+type         = "bool"
+label_key    = "settings.workday_fri.label"
+default      = true
+visible_when = { key = "work_week", values = ["custom"] }
+
+[[setting]]
+key          = "workday_sat"
+type         = "bool"
+label_key    = "settings.workday_sat.label"
+default      = false
+visible_when = { key = "work_week", values = ["custom"] }
+
+[[setting]]
+key          = "workday_sun"
+type         = "bool"
+label_key    = "settings.workday_sun.label"
+default      = false
+visible_when = { key = "work_week", values = ["custom"] }
+
+[[setting]]
+key             = "day_start_hour"
+type            = "int"
+label_key       = "settings.day_start_hour.label"
+description_key = "settings.day_start_hour.description"
+default         = 4
+min             = 0
+max             = 12
+advanced        = true
+
+[[setting]]
+key             = "duration_format"
+type            = "select"
+label_key       = "settings.duration_format.label"
+description_key = "settings.duration_format.description"
+default         = "colon"
+options = [
+  { value = "colon", label_key = "settings.duration_format.colon" },
+  { value = "units", label_key = "settings.duration_format.units" },
+  { value = "decimal", label_key = "settings.duration_format.decimal" },
+]
+
+# Automation (spec §6.3, §8.3). Everything below is hidden with the manual preset; the
+# individual behaviors are shown for the custom one.
+
+[[setting]]
+key             = "automation"
+type            = "select"
+label_key       = "settings.automation.label"
+description_key = "settings.automation.description"
+default         = "assisted"
+options = [
+  { value = "manual", label_key = "settings.automation.manual" },
+  { value = "assisted", label_key = "settings.automation.assisted" },
+  { value = "automatic", label_key = "settings.automation.automatic" },
+  { value = "custom", label_key = "settings.automation.custom" },
+]
+
+[[setting]]
+key             = "window_start"
+type            = "string"
+label_key       = "settings.window_start.label"
+description_key = "settings.window_start.description"
+default         = "08:00"
+visible_when    = { key = "automation", values = ["assisted", "automatic", "custom"] }
+
+[[setting]]
+key             = "window_end"
+type            = "string"
+label_key       = "settings.window_end.label"
+description_key = "settings.window_end.description"
+default         = "19:00"
+visible_when    = { key = "automation", values = ["assisted", "automatic", "custom"] }
+
+[[setting]]
+key             = "window_exclude_holidays"
+type            = "bool"
+label_key       = "settings.window_exclude_holidays.label"
+description_key = "settings.window_exclude_holidays.description"
+default         = true
+visible_when    = { key = "automation", values = ["assisted", "automatic", "custom"] }
+
+[[setting]]
+key             = "extra_rules"
+type            = "string_list"
+label_key       = "settings.extra_rules.label"
+description_key = "settings.extra_rules.description"
+default         = []
+visible_when    = { key = "automation", values = ["assisted", "automatic", "custom"] }
+
+[[setting]]
+key             = "auto_checkin"
+type            = "select"
+label_key       = "settings.auto_checkin.label"
+description_key = "settings.auto_checkin.description"
+default         = "suggest"
+visible_when    = { key = "automation", values = ["custom"] }
+options = [
+  { value = "off", label_key = "settings.auto_mode.off" },
+  { value = "suggest", label_key = "settings.auto_mode.suggest" },
+  { value = "auto", label_key = "settings.auto_mode.auto" },
+]
+
+[[setting]]
+key             = "auto_checkout"
+type            = "select"
+label_key       = "settings.auto_checkout.label"
+description_key = "settings.auto_checkout.description"
+default         = "suggest"
+visible_when    = { key = "automation", values = ["custom"] }
+options = [
+  { value = "off", label_key = "settings.auto_mode.off" },
+  { value = "suggest", label_key = "settings.auto_mode.suggest" },
+  { value = "auto", label_key = "settings.auto_mode.auto" },
+]
+
+[[setting]]
+key             = "idle_action"
+type            = "select"
+label_key       = "settings.idle_action.label"
+description_key = "settings.idle_action.description"
+default         = "ask"
+visible_when    = { key = "automation", values = ["custom"] }
+options = [
+  { value = "ignore", label_key = "settings.absence_action.ignore" },
+  { value = "ask", label_key = "settings.absence_action.ask" },
+  { value = "deduct", label_key = "settings.absence_action.deduct" },
+  { value = "checkout", label_key = "settings.absence_action.checkout" },
+]
+
+[[setting]]
+key             = "lock_action"
+type            = "select"
+label_key       = "settings.lock_action.label"
+description_key = "settings.lock_action.description"
+default         = "ask"
+visible_when    = { key = "automation", values = ["custom"] }
+options = [
+  { value = "ignore", label_key = "settings.absence_action.ignore" },
+  { value = "ask", label_key = "settings.absence_action.ask" },
+  { value = "deduct", label_key = "settings.absence_action.deduct" },
+  { value = "checkout", label_key = "settings.absence_action.checkout" },
+]
+
+[[setting]]
+key             = "sleep_action"
+type            = "select"
+label_key       = "settings.sleep_action.label"
+description_key = "settings.sleep_action.description"
+default         = "ask"
+visible_when    = { key = "automation", values = ["custom"] }
+options = [
+  { value = "ignore", label_key = "settings.absence_action.ignore" },
+  { value = "ask", label_key = "settings.absence_action.ask" },
+  { value = "deduct", label_key = "settings.absence_action.deduct" },
+  { value = "checkout", label_key = "settings.absence_action.checkout" },
+]
+
+[[setting]]
+key             = "idle_timeout_min"
+type            = "int"
+label_key       = "settings.idle_timeout_min.label"
+description_key = "settings.idle_timeout_min.description"
+default         = 5
+min             = 1
+max             = 120
+visible_when    = { key = "automation", values = ["assisted", "automatic", "custom"] }
+
+[[setting]]
+key             = "min_absence_min"
+type            = "int"
+label_key       = "settings.min_absence_min.label"
+description_key = "settings.min_absence_min.description"
+default         = 15
+min             = 1
+max             = 240
+visible_when    = { key = "automation", values = ["assisted", "automatic", "custom"] }
+
+[[setting]]
+key             = "unresolved_absence"
+type            = "select"
+label_key       = "settings.unresolved_absence.label"
+description_key = "settings.unresolved_absence.description"
+default         = "keep"
+advanced        = true
+visible_when    = { key = "automation", values = ["assisted", "automatic", "custom"] }
+options = [
+  { value = "keep", label_key = "settings.unresolved_absence.keep" },
+  { value = "remove", label_key = "settings.unresolved_absence.remove" },
+]
+
+[[setting]]
+key             = "idle_backend"
+type            = "select"
+label_key       = "settings.idle_backend.label"
+description_key = "settings.idle_backend.description"
+default         = "auto"
+advanced        = true
+visible_when    = { key = "automation", values = ["assisted", "automatic", "custom"] }
+options = [
+  { value = "auto", label_key = "settings.idle_backend.auto" },
+  { value = "swayidle", label_key = "settings.idle_backend.swayidle" },
+  { value = "external", label_key = "settings.idle_backend.external" },
+  { value = "off", label_key = "settings.idle_backend.off" },
+]
+
+# Public holidays (spec §6.7, §8.4): the plugin's only network access.
+
+[[setting]]
+key             = "holidays_enabled"
+type            = "bool"
+label_key       = "settings.holidays_enabled.label"
+description_key = "settings.holidays_enabled.description"
+default         = true
+
+[[setting]]
+key             = "holiday_country"
+type            = "string"
+label_key       = "settings.holiday_country.label"
+description_key = "settings.holiday_country.description"
+default         = ""
+visible_when    = { key = "holidays_enabled", values = ["true"] }
+
+[[setting]]
+key             = "holiday_region"
+type            = "string"
+label_key       = "settings.holiday_region.label"
+description_key = "settings.holiday_region.description"
+default         = ""
+advanced        = true
+visible_when    = { key = "holidays_enabled", values = ["true"] }
+
+# Notifications (spec §6.9, §8.5).
+
+[[setting]]
+key             = "notify_target_reached"
+type            = "bool"
+label_key       = "settings.notify_target_reached.label"
+description_key = "settings.notify_target_reached.description"
+default         = true
+
+[[setting]]
+key             = "notify_pending_absence"
+type            = "bool"
+label_key       = "settings.notify_pending_absence.label"
+description_key = "settings.notify_pending_absence.description"
+default         = true
+visible_when    = { key = "automation", values = ["assisted", "automatic", "custom"] }
+
+[[setting]]
+key             = "notify_suggestions"
+type            = "bool"
+label_key       = "settings.notify_suggestions.label"
+description_key = "settings.notify_suggestions.description"
+default         = true
+visible_when    = { key = "automation", values = ["assisted", "custom"] }
+
+# --- Entries -------------------------------------------------------------------
+
+[[service]]
+id    = "core"
+entry = "core.luau"
+
+[[widget]]
+id    = "bar"
+entry = "bar.luau"
+
+[[widget.setting]]
+key             = "style"
+type            = "select"
+label_key       = "settings.style.label"
+description_key = "settings.style.description"
+default         = "full"
+options = [
+  { value = "full", label_key = "settings.style.full" },
+  { value = "compact", label_key = "settings.style.compact" },
+  { value = "minimal", label_key = "settings.style.minimal" },
+]
+
+[[widget.setting]]
+key             = "value"
+type            = "select"
+label_key       = "settings.value.label"
+description_key = "settings.value.description"
+default         = "worked"
+options = [
+  { value = "worked", label_key = "settings.value.worked" },
+  { value = "remaining", label_key = "settings.value.remaining" },
+]
+
+[[widget.setting]]
+key             = "when_off"
+type            = "select"
+label_key       = "settings.when_off.label"
+description_key = "settings.when_off.description"
+default         = "dim"
+options = [
+  { value = "show", label_key = "settings.when_off.show" },
+  { value = "dim", label_key = "settings.when_off.dim" },
+  { value = "hide", label_key = "settings.when_off.hide" },
+]
+
+[[panel]]
+id              = "dashboard"
+entry           = "dashboard.luau"
+width           = 400
+height          = 686
+placement       = "attached"
+position        = "auto"
+open_near_click = true
+capture_keys    = ["ctrl+z"]
+
+[[shortcut]]
+id    = "tile"
+entry = "tile.luau"
