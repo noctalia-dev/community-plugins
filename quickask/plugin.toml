@@ -1,10 +1,10 @@
 id = "yusuferdemyamali/quickask"
 name = "QuickAsk"
-version = "0.1.1"
+version = "0.2.0"
 plugin_api = 24
 author = "yusuferdemyamali"
 license = "MIT"
-description = "A keyboard-first text panel with streaming OpenCode Go responses"
+description = "A keyboard-first streaming text panel for OpenCode Go and OpenAI-compatible APIs"
 dependencies = ["secret-tool"]
 tags = ["panel", "ai", "productivity", "hyprland"]
 icon = "message-circle"
@@ -18,3 +18,30 @@ placement = "floating"
 position = "bottom_center"
 keyboard_focus = "exclusive"
 dismiss_on_outside_click = true
+
+[[setting]]
+key = "provider"
+type = "select"
+label_key = "settings.provider.label"
+description_key = "settings.provider.description"
+default = "opencode-go"
+options = [
+  { value = "opencode-go", label_key = "settings.provider.go" },
+  { value = "openai-compatible", label_key = "settings.provider.compatible" },
+]
+
+[[setting]]
+key = "endpoint"
+type = "string"
+label_key = "settings.endpoint.label"
+description_key = "settings.endpoint.description"
+default = "https://api.openai.com/v1/chat/completions"
+visible_when = { key = "provider", values = ["openai-compatible"] }
+
+[[setting]]
+key = "model"
+type = "string"
+label_key = "settings.model.label"
+description_key = "settings.model.description"
+default = ""
+visible_when = { key = "provider", values = ["openai-compatible"] }

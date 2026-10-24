@@ -2,15 +2,19 @@
 -- Never persist, log, or forward subprocess output to the UI.
 local M = {}
 
-function M.lookup(callback)
+function M.lookup(connection, callback)
   if not noctalia.commandExists("secret-tool") then
     callback(nil, noctalia.tr("credentials.missing-command"))
     return
   end
 
-  local started = noctalia.runAsync({
-    "secret-tool", "lookup", "application", "quickask", "provider", "opencode-go",
-  }, function(result)
+  local argv = { "secret-tool", "lookup", "application", "quickask", "provider", connection.provider }
+  if connection.provider == "openai-compatible" then
+    -- Bind each compatible key to its exact URL, never reuse the Go credential.
+    table.insert(argv, "endpoint")
+    table.insert(argv, connection.endpoint)
+  end
+  local started = noctalia.runAsync(argv, function(result)
     local raw = result.stdout
     result.stdout = nil
     result.stderr = nil
