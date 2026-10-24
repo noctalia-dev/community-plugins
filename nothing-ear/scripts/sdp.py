@@ -18,7 +18,7 @@ def _build_request(service_uuid: uuid.UUID) -> bytes:
     uuid_elem = bytes([0x1C]) + service_uuid.bytes  # UUID128 data element
     search_pattern = bytes([0x35, len(uuid_elem)]) + uuid_elem
     max_attr_bytes = (0xFFFF).to_bytes(2, "big")
-    attr_range = bytes([0x0A]) + (0x00000000).to_bytes(4, "big")  # attr range 0x0000-0xFFFF
+    attr_range = bytes([0x0A]) + (0x0000FFFF).to_bytes(4, "big")  # attr range 0x0000-0xFFFF
     attr_id_list = bytes([0x35, len(attr_range)]) + attr_range
     params = search_pattern + max_attr_bytes + attr_id_list
 
