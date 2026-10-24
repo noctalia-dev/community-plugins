@@ -1,0 +1,99 @@
+id = "snowballons/todoist-manager"
+name = "Todoist Manager"
+version = "1.1.0"
+plugin_api = 33
+author = "snowballons"
+license = "MIT"
+icon = "checklist"
+description = "Todoist tasks in Noctalia"
+tags = ["productivity", "panel", "launcher", "bar"]
+dependencies = ["chmod", "xdg-open"]
+
+[[setting]]
+key = "token"
+type = "string"
+label_key = "settings.token.label"
+description_key = "settings.token.description"
+default = ""
+
+[[setting]]
+key = "token_file"
+type = "file"
+label_key = "settings.token_file.label"
+description_key = "settings.token_file.description"
+default = ""
+
+[[setting]]
+key = "default_project"
+type = "string"
+label_key = "settings.default_project.label"
+description_key = "settings.default_project.description"
+default = ""
+
+[[setting]]
+key = "default_labels"
+type = "string_list"
+label_key = "settings.default_labels.label"
+description_key = "settings.default_labels.description"
+default = []
+
+[[setting]]
+key = "default_priority"
+type = "select"
+label_key = "settings.default_priority.label"
+default = "none"
+options = [
+  { value = "p1", label_key = "priority.p1" },
+  { value = "p2", label_key = "priority.p2" },
+  { value = "p3", label_key = "priority.p3" },
+  { value = "p4", label_key = "priority.p4" },
+  { value = "none", label_key = "priority.none" },
+]
+
+[[setting]]
+key = "cache_tasks"
+type = "bool"
+label_key = "settings.cache_tasks.label"
+description_key = "settings.cache_tasks.description"
+default = false
+
+[[setting]]
+key = "confirm_delete"
+type = "bool"
+label_key = "settings.confirm_delete.label"
+description_key = "settings.confirm_delete.description"
+default = true
+
+[[setting]]
+key = "max_retries"
+type = "int"
+label_key = "settings.max_retries.label"
+default = 1
+min = 0
+max = 3
+advanced = true
+
+[[service]]
+id = "core"
+entry = "service.luau"
+
+[[panel]]
+id = "manager"
+entry = "panel.luau"
+width = 560
+height = 680
+placement = "floating"
+position = "center"
+keyboard_focus = "exclusive"
+dismiss_on_outside_click = false
+
+[[launcher_provider]]
+id = "capture"
+entry = "launcher.luau"
+prefix = "td"
+glyph = "checklist"
+include_in_global_search = false
+
+[[widget]]
+id = "button"
+entry = "widget.luau"
