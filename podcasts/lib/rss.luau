@@ -5,7 +5,13 @@
 local M = {}
 
 local function stripCdata(s)
-  local inner = string.match(s or "", "^%s*<!%[CDATA%[(.-)%]%]>%s*$")
+  s = s or ""
+  -- Most values are plain text. The anchored match below scans the whole
+  -- string with a pattern, so skip it when no CDATA marker is present.
+  if not string.find(s, "<![CDATA[", 1, true) then
+    return s
+  end
+  local inner = string.match(s, "^%s*<!%[CDATA%[(.-)%]%]>%s*$")
   if inner ~= nil then
     return inner
   end
@@ -14,6 +20,10 @@ end
 
 local function unescape(s)
   s = s or ""
+  -- Eight gsub passes per call; skip them all when nothing can match.
+  if not string.find(s, "&", 1, true) then
+    return s
+  end
   s = string.gsub(s, "&#(%d+);", function(n)
     local ok, ch = pcall(utf8.char, tonumber(n) or 0)
     if ok then
@@ -37,16 +47,33 @@ local function unescape(s)
   return s
 end
 
+-- True when "%s+" would actually change the string: any whitespace other than
+-- a single space, or two adjacent spaces.
+-- The list below is exhaustive because `%s` is exactly space \t \n \r \f \v in
+-- Luau. Keep it in sync if `%s` ever changes.
+local function needsCollapse(s)
+  return string.find(s, "\n", 1, true) ~= nil
+    or string.find(s, "\t", 1, true) ~= nil
+    or string.find(s, "\r", 1, true) ~= nil
+    or string.find(s, "\f", 1, true) ~= nil
+    or string.find(s, "\v", 1, true) ~= nil
+    or string.find(s, "  ", 1, true) ~= nil
+end
+
 function M.cleanText(s)
   s = stripCdata(s)
   s = unescape(s)
-  s = string.gsub(s, "%s+", " ")
+  if needsCollapse(s) then
+    s = string.gsub(s, "%s+", " ")
+  end
   return noctalia.string.trim(s)
 end
 
 function M.stripTags(s)
   s = stripCdata(s or "")
-  s = string.gsub(s, "<[^>]+>", " ")
+  if string.find(s, "<", 1, true) then
+    s = string.gsub(s, "<[^>]+>", " ")
+  end
   return M.cleanText(s)
 end
 
