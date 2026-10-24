@@ -1,68 +1,9 @@
 -- Launcher provider: "/bk" fuzzy-searches bookmark labels (root + one level
 -- of folders, bookmarks only - same scope as the panel's own search) and
 -- runs the selected one on activation. Reads the same data.json the panel
--- writes, resolved the same way (configured data_path, else the plugin's
--- data dir), so no state is shared beyond the file on disk.
+-- writes, resolved via shared.luau, so no state is shared beyond the file on disk.
 
-local function resolveDataPath()
-	local configured = noctalia.getConfig("data_path")
-	if type(configured) == "string" and noctalia.string.trim(configured) ~= "" then
-		return noctalia.expandPath(noctalia.string.trim(configured)), nil
-	end
-
-	local dataDir, dataDirErr = noctalia.pluginDataDir()
-	if dataDir == nil then
-		return nil, dataDirErr
-	end
-	return dataDir .. "/data.json", nil
-end
-
-local function entryType(entry)
-	return entry.type == "folder" and "folder" or "bookmark"
-end
-
--- Reads and decodes data.json fresh on every query. The panel is the only
--- writer and bookmark lists are small, so there's no need to cache across
--- queries here.
-local function loadBookmarks()
-	local path, pathErr = resolveDataPath()
-	if path == nil then
-		noctalia.log("bookmarks-provider: could not resolve data path: " .. tostring(pathErr))
-		return {}
-	end
-	if not noctalia.fileExists(path) then
-		return {}
-	end
-	local raw, readErr = noctalia.readFile(path)
-	if raw == nil then
-		noctalia.log("bookmarks-provider: failed to read data file: " .. tostring(readErr))
-		return {}
-	end
-	local decoded, decodeErr = noctalia.json.decode(raw)
-	if type(decoded) ~= "table" then
-		noctalia.log("bookmarks-provider: data file is corrupt: " .. tostring(decodeErr))
-		return {}
-	end
-	return decoded
-end
-
--- Flat list of { entry, path } across root and one level of folders,
--- bookmarks only (folders themselves aren't launchable results).
-local function flatten(bookmarks)
-	local flat = {}
-	for _, entry in ipairs(bookmarks) do
-		if entryType(entry) == "folder" then
-			for _, subEntry in ipairs(entry.items or {}) do
-				if entryType(subEntry) ~= "folder" then
-					table.insert(flat, { entry = subEntry, path = entry.label or "" })
-				end
-			end
-		else
-			table.insert(flat, { entry = entry, path = nil })
-		end
-	end
-	return flat
-end
+local shared = require("./shared.luau")
 
 -- Bookmarks are indexed by a stable synthetic id (path-qualified label),
 -- rather than by array position, since onActivate only receives the id
@@ -72,8 +13,8 @@ local function resultId(item)
 end
 
 local function buildResults(query)
-	local bookmarks = loadBookmarks()
-	local flat = flatten(bookmarks)
+	local bookmarks = shared.loadBookmarks()
+	local flat = shared.flatten(bookmarks)
 
 	local results = {}
 	for _, item in ipairs(flat) do
@@ -240,52 +181,11 @@ function onActivate(id)
 		wantPath = nil
 	end
 
-	local bookmarks = loadBookmarks()
-	for _, item in ipairs(flatten(bookmarks)) do
+	local bookmarks = shared.loadBookmarks()
+	for _, item in ipairs(shared.flatten(bookmarks)) do
 		if item.entry.label == wantLabel and (item.path or nil) == wantPath then
-			local entry = item.entry
-			local cmd = entry.cmd
-			if type(cmd) ~= "string" or cmd == "" then
-				noctalia.notifyError(noctalia.tr("title"), noctalia.tr("err.no_command"))
-				return
-			end
-			local label = entry.label or cmd
-
 			recordActivation(id)
-
-			if entry.runInTerminal == true then
-				noctalia.runInTerminal(cmd)
-				return
-			end
-
-			local finalCmd = cmd
-			if entry.runInBackground == true then
-				finalCmd = "nohup " .. cmd .. " >/dev/null 2>&1 &"
-			end
-
-			local ok = noctalia.runAsync(finalCmd, function(result)
-				if entry.runInBackground == true then
-					return
-				end
-				if result.exitCode ~= 0 then
-					local detail = noctalia.string.trim(result.stderr or "")
-					local msg = noctalia.tr(
-						"err.exit_code",
-						{ label = label, code = tostring(result.exitCode) }
-					)
-					if detail ~= "" then
-						msg = msg .. ": " .. detail
-					end
-					noctalia.notifyError(noctalia.tr("title"), msg)
-				end
-			end)
-
-			if not ok then
-				noctalia.notifyError(
-					noctalia.tr("title"),
-					noctalia.tr("err.launch_failed", { label = label })
-				)
-			end
+			shared.runBookmark(item.entry)
 			return
 		end
 	end
