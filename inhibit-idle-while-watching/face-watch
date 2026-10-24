@@ -62,6 +62,7 @@ EXIT_SKIPPED = 3  # locked / disabled: not an error, not a verdict
 CAMERA_MODES = ("rgb", "ir", "smart", "robust")
 DEFAULT_CAMERA_MODE = "robust"
 DEFAULT_IR_THRESHOLD_LUX = 10.0
+DETECTORS = ("haar", "dnn")
 
 # ALS discovery mirrors als-brightness hardware.luau find_illuminance.
 IIO_DIR = "/sys/bus/iio/devices/"
@@ -681,7 +682,7 @@ def main(argv: list[str] | None = None) -> int:
 
     def common(p: argparse.ArgumentParser) -> None:
         p.add_argument("--camera-path", default="", help="v4l2 device; empty = autodetect")
-        p.add_argument("--detector", choices=("haar", "dnn"), default="haar")
+        p.add_argument("--detector", choices=DETECTORS, default="haar")
         p.add_argument("--sensitivity", type=int, default=5, help="1 loose .. 10 strict")
         p.add_argument("--capture-width", type=int, default=640)
         p.add_argument("--camera-mode", default=DEFAULT_CAMERA_MODE,

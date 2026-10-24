@@ -25,10 +25,16 @@ default = ""
 
 [[setting]]
 key = "camera_mode"
-type = "string"
+type = "select"
 label_key = "settings.camera_mode.label"
 description_key = "settings.camera_mode.description"
 default = "robust"
+options = [
+  { value = "rgb", label_key = "settings.camera_mode.options.rgb" },
+  { value = "ir", label_key = "settings.camera_mode.options.ir" },
+  { value = "smart", label_key = "settings.camera_mode.options.smart" },
+  { value = "robust", label_key = "settings.camera_mode.options.robust" },
+]
 
 [[setting]]
 key = "ir_threshold_lux"
@@ -42,10 +48,14 @@ step = 1
 
 [[setting]]
 key = "detector"
-type = "string"
+type = "select"
 label_key = "settings.detector.label"
 description_key = "settings.detector.description"
 default = "haar"
+options = [
+  { value = "haar", label_key = "settings.detector.options.haar" },
+  { value = "dnn", label_key = "settings.detector.options.dnn" },
+]
 
 [[setting]]
 key = "sensitivity"

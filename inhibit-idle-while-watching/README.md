@@ -66,9 +66,9 @@ noctalia msg plugin zhangdm/inhibit-idle-while-watching:face-watch all status  #
 | --- | --- | --- | --- |
 | `enabled` | `bool` | `true` | Master switch; off means the camera is never touched. |
 | `camera_path` | `string` | `""` | Explicit video device such as `/dev/video2`; when set it **overrides `camera_mode`** (one camera, no probing). Empty = pick by mode. |
-| `camera_mode` | `string` | `"robust"` | `rgb`, `ir`, `smart` or `robust` — which sensor(s) one check uses. See below. |
+| `camera_mode` | `select` | `"robust"` | `rgb`, `ir`, `smart` or `robust` — which sensor(s) one check uses. See below. |
 | `ir_threshold_lux` | `int` | `10` | `smart` only: below this ambient lux the IR camera is used (slider, 0…200). |
-| `detector` | `string` | `"haar"` | `haar` (cheap) or `dnn` (accurate, needs the ONNX model). |
+| `detector` | `select` | `"haar"` | `haar` (cheap) or `dnn` (accurate, needs the ONNX model). |
 | `sensitivity` | `int` | `5` | 1 lenient … 10 strict. |
 | `capture_width` | `int` | `640` | Frame width per check (height 4:3); detection downscales to 320 px. |
 | `cooldown_s` | `int` | `10` | Minimum seconds between gate runs (camera wake-up cap). |
