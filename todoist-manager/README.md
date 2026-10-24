@@ -17,7 +17,7 @@ labels:
 
 Completed view:
 
-![Todoist panel Completed tab listing finished tasks with their completion dates](screenshots/panel-completed.webp)
+![Todoist panel Completed tab listing tasks completed in the last 7 days](screenshots/panel-completed.webp)
 
 Quick capture from the launcher with the `/td` prefix:
 
