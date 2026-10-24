@@ -1,12 +1,14 @@
 id = "vn1k/cursor"
 name = "Cursor"
-version = "1.0.0"
-plugin_api = 8
+version = "1.0.7"
+# The highest level any entry uses: require() of shared.luau is 22. The store
+# validator does not check it, so keep it in step by hand.
+plugin_api = 22
 author = "Vn1k"
 license = "MIT"
 icon = "pointer"
 description = "Pick, import and build cursor themes, then apply them everywhere at once."
-tags = ["panel", "shortcut", "theming", "utility", "niri", "hyprland", "sway", "mangowc"]
+tags = ["panel", "shortcut", "theming", "utility", "niri", "hyprland", "sway", "mangowc", "umbriel"]
 
 # bin/curmgr.py owns every cursor file and every config write; this plugin runs
 # it and draws the JSON it prints, so nothing here needs to know a binary
@@ -51,6 +53,63 @@ options = [
   { value = "mitchell", label_key = "settings.scale_filter.option.mitchell" },
 ]
 
+# Every path below is empty by default, which keeps the XDG location. The panel
+# hands the ones set to the engine as CURMGR_* env vars.
+
+# Searched on top of ~/.local/share/icons, ~/.icons, $XCURSOR_PATH and
+# $XDG_DATA_DIRS/icons - for themes kept anywhere else.
+[[setting]]
+key = "icon_dirs"
+type = "string_list"
+label_key = "settings.icon_dirs.label"
+description_key = "settings.icon_dirs.description"
+default = []
+
+# Where imported, built and installed themes go, and the only folder Remove
+# deletes from. The engine refuses one outside $HOME.
+[[setting]]
+key = "install_dir"
+type = "folder"
+label_key = "settings.install_dir.label"
+description_key = "settings.install_dir.description"
+default = ""
+
+# The compositor's main config; the managed cursor include file sits beside it.
+[[setting]]
+key = "niri_config"
+type = "file"
+label_key = "settings.niri_config.label"
+description_key = "settings.niri_config.description"
+default = ""
+
+[[setting]]
+key = "hyprland_config"
+type = "file"
+label_key = "settings.hyprland_config.label"
+description_key = "settings.hyprland_config.description"
+default = ""
+
+[[setting]]
+key = "sway_config"
+type = "file"
+label_key = "settings.sway_config.label"
+description_key = "settings.sway_config.description"
+default = ""
+
+[[setting]]
+key = "mango_config"
+type = "file"
+label_key = "settings.mango_config.label"
+description_key = "settings.mango_config.description"
+default = ""
+
+[[setting]]
+key = "umbriel_config"
+type = "file"
+label_key = "settings.umbriel_config.label"
+description_key = "settings.umbriel_config.description"
+default = ""
+
 [[panel]]
 id = "manager"
 entry = "panel.luau"
@@ -59,9 +118,24 @@ height = 640
 placement = "attached"
 position = "auto"
 dismiss_on_outside_click = true
+# Opened from the bar widget, drop the panel under it; from the control-centre
+# tile it still follows `position`.
+open_near_click = true
 
-# A cursor is set once and then forgotten, so it belongs in the control centre
-# rather than taking permanent space in the bar.
+# A cursor is set once and then forgotten, so the control-centre tile is the
+# main way in, and the bar button is there only for whoever wants one.
 [[shortcut]]
 id = "shortcut"
 entry = "shortcut.luau"
+
+# Makes the plugin addable from the bar's widget picker, which lists only
+# [[widget]] entries (community-plugins#880).
+[[widget]]
+id = "widget"
+entry = "widget.luau"
+
+# Headless: resets the cursor when the plugin is removed (onExit "uninstall",
+# plugin_api 17). Runs nothing otherwise.
+[[service]]
+id = "lifecycle"
+entry = "service.luau"

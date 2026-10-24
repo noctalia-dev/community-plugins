@@ -16,12 +16,19 @@ local STRIP_HEIGHT = 56
 
 local tab = "themes"
 local themes = {}
-local previews = {} -- theme name -> rendered strip path
+local previews = {} -- theme name -> { path, stamp } of its rendered strip
 local selected = ""
 local sizeIndex = 2 -- 24
 local hideTyping = false
 local hideMs = ""
 local busy = false
+-- "import" or "build": a Browse pick waiting to be scanned once the theme list
+-- refresh lets go of `busy` (doImport/doBuild return early while it is set).
+local pendingScan = nil
+-- Bumped by every loadThemes(). A refresh started by an earlier open whose
+-- callbacks land late must not clear `busy`, run the queued scan or keep
+-- rendering previews over the newer one.
+local refreshGen = 0
 local status = ""
 local statusTone = "on_surface_variant"
 local current = nil
@@ -35,6 +42,15 @@ local installPath = ""
 -- Deleting a theme is destructive and a dialog would dismiss the panel, so the
 -- confirmation is the button itself: first click arms, second click removes.
 local pendingRemove = ""
+-- Reset to system cursor undoes everything the plugin wrote. Armed the same
+-- way as Remove, but with its consequences spelled out and a way back out.
+local pendingReset = false
+-- After a reset every place reads "not set" or the system default, which is
+-- the point - so the drift warning stays quiet until the next apply.
+local undone = false
+-- Layers the last apply could not write (name -> reason). "Applied" alone hid
+-- a read-only settings.ini until the drift warning turned up later.
+local failedLayers = {}
 -- Import and Build each get their own report: they used to share one global,
 -- which is how a Windows import's mapping grid ended up rendering under Build
 -- too - both tabs called the same reportView() off the same variable.
@@ -75,21 +91,9 @@ local function tr(key)
   return noctalia.tr(key)
 end
 
-local function shellQuote(s)
-  return "'" .. tostring(s):gsub("'", "'\\''") .. "'"
-end
-
-local function trim(s)
-  return noctalia.string.trim(tostring(s or ""))
-end
-
-local function configString(key, fallback)
-  local value = noctalia.getConfig(key)
-  if type(value) == "string" and value ~= "" then
-    return value
-  end
-  return fallback
-end
+local shared = require("./shared.luau")
+local shellQuote, trim = shared.shellQuote, shared.trim
+local configString, pathEnv = shared.configString, shared.pathEnv
 
 -- The engine ships inside the plugin, so a store install needs nothing on
 -- PATH; the setting only exists for a checkout that keeps curmgr elsewhere.
@@ -110,6 +114,13 @@ local function imageArgs()
     .. ` --filter {shellQuote(configString("scale_filter", "lanczos"))}`
 end
 
+-- runAsync's default is 5s, and Noctalia kills the process when it runs out. An
+-- animated Windows pack at five sizes takes about that long, so it got killed
+-- halfway. 60s is the maximum runAsync allows.
+-- ponytail: a pack slower than 60s still times out; runStream has no limit if
+-- one ever does.
+local ENGINE_TIMEOUT_MS = 60000
+
 -- Every subcommand answers with one JSON object, so a decode failure means the
 -- engine itself is missing or broken rather than the request being invalid.
 local function call(args, done)
@@ -117,9 +128,13 @@ local function call(args, done)
     done(nil, tr("engine_missing"))
     return
   end
-  noctalia.runAsync(`{engine()} {args}`, function(result)
-    if result == nil or result.timedOut then
+  noctalia.runAsync(`{pathEnv()}{engine()} {args}`, function(result)
+    if result == nil then
       done(nil, tr("engine_missing"))
+      return
+    end
+    if result.timedOut then
+      done(nil, tr("engine_timeout"))
       return
     end
     local decoded = noctalia.json.decode(result.stdout or "")
@@ -133,7 +148,7 @@ local function call(args, done)
       return
     end
     done(decoded, nil)
-  end)
+  end, ENGINE_TIMEOUT_MS)
 end
 
 local function setStatus(text, tone)
@@ -172,8 +187,8 @@ local function startDir(current)
   return noctalia.expandPath("~/Downloads") .. "/"
 end
 
--- Every tab takes a folder: extract an archive first. The engine still accepts
--- one, so a .zip or .tar.* path typed into the field keeps working.
+-- Every tab takes a folder: extract an archive first. The engine refuses
+-- archives outright rather than unpacking them.
 local function pick(field, current)
   if not noctalia.commandExists("zenity") then
     fail(tr("picker_missing"))
@@ -232,16 +247,19 @@ end
 
 -- Previews are rendered one at a time: each is a fresh process, and a theme
 -- with a hundred cursors is still under a second.
-local function loadPreviews(index)
+-- Previews are optional decoration and don't hold `busy`: the list is usable,
+-- and a queued Browse scan runs, as soon as `list` and `current` are in.
+local function loadPreviews(index, gen)
   local theme = themes[index]
-  if theme == nil then
-    busy = false
-    render()
+  if theme == nil or gen ~= refreshGen then
     return
   end
   call(`preview {shellQuote(theme.name)}`, function(result, err)
+    if gen ~= refreshGen then
+      return
+    end
     if result ~= nil then
-      previews[theme.name] = result.preview
+      previews[theme.name] = { path = result.preview, stamp = tostring(result.stamp or "") }
       render()
     elseif index == 1 then
       -- Previews are optional: without wand the panel still lists and applies
@@ -249,7 +267,7 @@ local function loadPreviews(index)
       -- the first theme reports; a missing dependency fails all of them.
       setStatus(err, "tertiary")
     end
-    loadPreviews(index + 1)
+    loadPreviews(index + 1, gen)
   end)
 end
 
@@ -272,6 +290,8 @@ local function loadCurrent(done)
 end
 
 loadThemes = function()
+  refreshGen += 1
+  local gen = refreshGen
   busy = true
   -- Panel state outlives a close, so a reopen would otherwise draw last
   -- session's drift warning until the refresh lands.
@@ -279,15 +299,30 @@ loadThemes = function()
   setStatus(tr("loading"))
   render()
   call("list", function(result, err)
+    if gen ~= refreshGen then
+      return
+    end
     if result == nil then
+      pendingScan = nil
       fail(err)
       return
     end
     themes = result.themes or {}
     setStatus("")
     loadCurrent(function()
+      if gen ~= refreshGen then
+        return
+      end
+      busy = false
       render()
-      loadPreviews(1)
+      local scan = pendingScan
+      pendingScan = nil
+      if scan == "import" then
+        onScanImport()
+      elseif scan == "build" then
+        onScanBuild()
+      end
+      loadPreviews(1, gen)
     end)
   end)
 end
@@ -311,8 +346,11 @@ local function themeTile(theme)
 
   local frame
   if preview ~= nil then
+    -- Keyed on the stamp: a re-rendered strip lands on the same path, and an
+    -- unchanged key would keep the host's cached texture (see serial).
     frame = ui.image({
-      width = width, height = STRIP_HEIGHT, path = preview, fit = "contain",
+      key = `strip_{theme.name}_{preview.stamp}`,
+      width = width, height = STRIP_HEIGHT, path = preview.path, fit = "contain",
       radius = 12, border = border, borderWidth = borderWidth, onClick = onClick,
     })
   else
@@ -371,6 +409,14 @@ local function sortedKeys(t)
   return keys
 end
 
+-- "xdg_default" is how the engine names a layer, not something a user has ever
+-- heard of. A missing translation (a new compositor) falls back to the name.
+local function layerName(name)
+  local key = `layer_{name}`
+  local label = tr(key)
+  return (label ~= nil and label ~= key) and label or name
+end
+
 -- The value most layers agree on. Deliberately not current.theme: that is the
 -- first compositor's value, so when the compositor is the one that drifted it
 -- would name every *other* layer as the odd one out.
@@ -389,7 +435,7 @@ end
 -- layer drifted, name it - the engine already sends the per-layer values, and
 -- "something disagrees" sends the user to the terminal to find out which.
 local function driftWarning()
-  if current == nil or current.consistent or busy or current.layers == nil then
+  if current == nil or current.consistent or busy or current.layers == nil or undone then
     return ui.box({ height = 0 })
   end
   local expected = majorityTheme(current.layers)
@@ -405,7 +451,7 @@ local function driftWarning()
     local value = current.layers[name]
     if value ~= expected then
       table.insert(rows, ui.label({
-        text = ("%s: %s"):format(name, value ~= "" and value or tr("not_set")),
+        text = ("%s: %s"):format(layerName(name), value ~= "" and value or tr("not_set")),
         fontSize = 11, color = "tertiary",
       }))
     end
@@ -413,8 +459,59 @@ local function driftWarning()
   return ui.column({ gap = 2, align = "stretch" }, rows)
 end
 
+-- What the last apply could not write, and why. A layer this box simply does
+-- not have (no flatpak, no gsettings) is never in here: the engine skips it.
+local function failedWarning()
+  local names = sortedKeys(failedLayers)
+  if #names == 0 or busy then
+    return ui.box({ height = 0 })
+  end
+  local rows = {
+    ui.row({ gap = 8, align = "center" }, {
+      ui.glyph({ name = "alert-triangle", color = "tertiary", size = 16 }),
+      ui.label({ text = tr("applied_partly"), fontSize = 12, color = "tertiary", flexGrow = 1 }),
+    }),
+  }
+  for _, name in ipairs(names) do
+    table.insert(rows, ui.label({ text = `{layerName(name)}: {failedLayers[name]}`, fontSize = 11,
+                                  color = "tertiary", maxLines = 1 }))
+  end
+  return ui.column({ gap = 2, align = "stretch" }, rows)
+end
+
+-- Secondary and destructive, so it stays small until asked for. Armed, it says
+-- exactly what it will do before the second click does it.
+local function resetFooter()
+  if not pendingReset then
+    return ui.row({ gap = 8, align = "center" }, {
+      ui.spacer({ flexGrow = 1 }),
+      ui.button({ key = "reset", text = tr("reset"), glyph = "arrow-back-up",
+                  variant = "ghost", controlSize = "sm", enabled = not busy,
+                  onClick = function()
+                    pendingReset = true
+                    render()
+                  end }),
+    })
+  end
+  return ui.column({ gap = 8, align = "stretch" }, {
+    ui.label({ text = tr("reset_explain"), fontSize = 12, color = "on_surface_variant" }),
+    ui.row({ gap = 8, align = "center" }, {
+      ui.spacer({ flexGrow = 1 }),
+      ui.button({ key = "reset_cancel", text = tr("cancel"), variant = "ghost",
+                  controlSize = "sm",
+                  onClick = function()
+                    pendingReset = false
+                    render()
+                  end }),
+      ui.button({ key = "reset_confirm", text = tr("reset_confirm"), variant = "destructive",
+                  controlSize = "sm", enabled = not busy, onClick = "onReset" }),
+    }),
+  })
+end
+
 local function themesTab()
   return ui.column({ flexGrow = 1, gap = 12, align = "stretch" }, {
+    failedWarning(),
     driftWarning(),
     -- ui.scroll centres content shorter than its viewport, so a one-theme list
     -- sits mid-panel. It fills from the top as soon as the grid is taller.
@@ -433,6 +530,7 @@ local function themesTab()
       ui.button({ key = "apply", text = tr("apply"), variant = "primary",
                   onClick = "onApply", enabled = not busy and selected ~= "" }),
     }),
+    resetFooter(),
   })
 end
 
@@ -680,7 +778,7 @@ local function buildTab()
   })
 end
 
--- Only themes under ~/.local/share/icons are ours to delete; list_themes marks
+-- Only themes in the install folder are ours to delete; list_themes marks
 -- those `removable`, so system themes simply never appear here.
 local function removableRows()
   local rows = {}
@@ -690,7 +788,6 @@ local function removableRows()
       local armed = pendingRemove == name
       table.insert(rows, ui.row({ key = `rm_{name}`, gap = 8, align = "center" }, {
         ui.label({ text = theme.title or name, fontSize = 13, maxLines = 1, flexGrow = 1 }),
-        ui.label({ text = tostring(theme.count), fontSize = 11, color = "on_surface_variant" }),
         ui.button({
           key = `rmbtn_{name}`,
           text = armed and tr("confirm_remove") or nil,
@@ -784,28 +881,30 @@ end
 function onOpen(_context)
   -- The picker reopens this panel when it is done, so an open is also how a
   -- chosen path comes back.
+  -- Through the path-change handlers, so a new pick also drops the previous
+  -- pack's grid, report and hand-made mapping.
   consumePick("import", function(path)
-    importPath = path
+    onImportPathChange(path)
     tab = "import"
   end)
   consumePick("build", function(path)
-    buildPath = path
+    onBuildPathChange(path)
     tab = "build"
   end)
   consumePick("install", function(path)
     installPath = path
     tab = "install"
   end)
-  loadThemes()
   -- Picking a folder is the whole intent, so read it straight away: the user
   -- gets the mapping grid without a second click, and still decides when
-  -- anything is written. Only the tab the pick landed on scans - `busy` would
-  -- swallow the second call anyway, and a pick only ever sets one field.
+  -- anything is written. Only the tab the pick landed on scans, and only after
+  -- loadThemes() below is done with `busy`.
   if tab == "import" and trim(importPath) ~= "" and maps.import.scanned ~= trim(importPath) then
-    onScanImport()
+    pendingScan = "import"
   elseif tab == "build" and trim(buildPath) ~= "" and maps.build.scanned ~= trim(buildPath) then
-    onScanBuild()
+    pendingScan = "build"
   end
+  loadThemes()
 end
 
 function onPickImportDir()
@@ -875,6 +974,40 @@ function onRemoveTheme(name)
   end)
 end
 
+function onReset()
+  if busy then
+    return
+  end
+  busy = true
+  pendingReset = false
+  setStatus(tr("resetting"))
+  render()
+
+  call("uninstall", function(result, err)
+    if result == nil then
+      fail(err)
+      return
+    end
+    busy = false
+    undone = true
+    failedLayers = {}
+    -- The old pick would stay highlighted over the theme that is no longer
+    -- applied; empty, loadCurrent() adopts what the reset left active.
+    selected = ""
+    local failed = {}
+    for _, name in ipairs(sortedKeys(type(result.failed) == "table" and result.failed or {})) do
+      table.insert(failed, layerName(name))
+    end
+    if #failed > 0 then
+      setStatus(`{tr("reset_partly")} {table.concat(failed, ", ")}`, "tertiary")
+    else
+      setStatus(tr("reset_done"), "primary")
+    end
+    noctalia.notify(tr("title"), tr("reset_done"))
+    loadThemes()
+  end)
+end
+
 function onReload()
   previews = {}
   loadThemes()
@@ -903,6 +1036,7 @@ function onApply()
     return
   end
   busy = true
+  failedLayers = {}
   setStatus(tr("applying"))
   render()
 
@@ -921,8 +1055,21 @@ function onApply()
       return
     end
     busy = false
-    setStatus(tr("applied"), "primary")
-    noctalia.notify(tr("title"), `{tr("applied")}: {selected}`)
+    undone = false
+    failedLayers = type(result.failed) == "table" and result.failed or {}
+    local failed = sortedKeys(failedLayers)
+    if #failed > 0 then
+      local names, lines = {}, {}
+      for _, name in ipairs(failed) do
+        table.insert(names, layerName(name))
+        table.insert(lines, `{layerName(name)}: {failedLayers[name]}`)
+      end
+      setStatus(`{tr("applied_partly")} {table.concat(names, ", ")}`, "tertiary")
+      noctalia.notify(tr("title"), `{selected}. {tr("applied_partly")}\n{table.concat(lines, "\n")}`)
+    else
+      setStatus(tr("applied"), "primary")
+      noctalia.notify(tr("title"), `{tr("applied")}: {selected}`)
+    end
     loadCurrent(render)
   end)
 end
@@ -963,8 +1110,10 @@ local function applyMapResult(st, source, result)
 
   if result.written then
     selected = result.name
-    setStatus(`{tr("built")}: {result.name}`, "primary")
-    noctalia.notify(tr("title"), `{tr("built")}: {result.name}`)
+    -- Same wording as install: overwriting a theme of that name shouldn't be silent.
+    local verb = result.replaced and tr("replaced") or tr("built")
+    setStatus(`{verb}: {result.name}`, "primary")
+    noctalia.notify(tr("title"), `{verb}: {result.name}`)
     call("list", function(listResult)
       if listResult ~= nil then
         themes = listResult.themes or {}

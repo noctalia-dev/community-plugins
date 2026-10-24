@@ -2,7 +2,7 @@
   "active": "active",
   "applied": "Cursor applied",
   "apply": "Apply",
-  "applying": "Applying…",
+  "applying": "Applying… a new size takes longer the first time",
   "build": "Build",
   "build_again": "Build again",
   "build_hint": "A folder of PNGs. It is read and shown below before anything is written. Add spec.json to set hotspots, animation frames and delays.",
@@ -11,15 +11,24 @@
   "built": "Theme built",
   "confirm_remove": "Remove?",
   "convert": "Convert",
-  "convert_again": "Convert again",
   "converting": "Converting…",
-  "drift": "Layers disagree — apply a theme to bring your compositor, GTK and Qt back in sync.",
+  "drift": "Not every app uses the same cursor. Apply a theme to bring them back in line.",
+  "not_set": "not set",
   "engine_missing": "The cursor engine did not run. Check that python3 is installed.",
+  "engine_timeout": "The cursor engine took longer than a minute and was stopped. Try fewer sizes in the plugin settings, then run it again.",
   "error": "Something went wrong",
-  "hide_after_ms": "Hide after ms",
+  "hide_after_ms": "Hide after (ms)",
   "hide_when_typing": "Hide when typing",
   "import_hint": "A Windows cursor pack folder. It is read and shown below before anything is written. An Install.inf is used when present.",
   "import_path": "Cursor pack folder",
+  "scan": "Load pack",
+  "scan_build": "Load PNGs",
+  "scanning": "Reading files…",
+  "map_roles": "Assign cursors",
+  "map_pick": "Pick a file for",
+  "map_source_files": "Files in this folder — drag one onto a role, or pick a role then a file",
+  "needs_arrow": "No arrow cursor was found — assign one below, then convert again.",
+  "convert_again": "Convert again",
   "install": "Install",
   "install_hint": "A folder holding a cursors/ directory. Windows packs go in the Import tab.",
   "install_path": "Theme folder",
@@ -27,67 +36,35 @@
   "installed_themes": "Themes you installed",
   "installing": "Installing…",
   "loading": "Loading themes…",
-  "map_pick": "Pick a file for",
-  "map_roles": "Assign cursors",
-  "map_source_files": "Files in this folder — drag one onto a role, or pick a role then a file",
   "mapped": "Mapped",
   "method": "Source",
-  "needs_arrow": "No arrow cursor was found — assign one below, then convert again.",
   "no_themes": "No cursor themes installed.",
   "none_removable": "Nothing installed yet — system themes cannot be removed here.",
   "not_a_folder": "Build needs a folder of PNGs, not a file.",
-  "not_set": "not set",
   "path_missing": "That path does not exist.",
   "pick_folder": "Folder…",
   "picker_missing": "zenity is not installed — type the path instead, or install zenity.",
   "reload": "Rescan themes",
+  "role_legend": "What each cursor is for",
+  "role_arrow": "Normal pointer — the default arrow",
+  "role_crosshair": "Precision select — the thin cross",
+  "role_help": "Help select — arrow with a question mark",
+  "role_link": "Link select — the pointing hand",
+  "role_move": "Move — four-way arrows",
+  "role_pen": "Handwriting — the pen",
+  "role_size_ns": "Resize up/down ↕ — top or bottom edge",
+  "role_size_ew": "Resize left/right ↔ — left or right edge",
+  "role_size_nwse": "Resize corner ↖↘ — top-left / bottom-right",
+  "role_size_nesw": "Resize corner ↗↙ — top-right / bottom-left",
+  "role_text": "Text select — the I-beam",
+  "role_unavailable": "Unavailable — the blocked circle",
+  "role_wait": "Busy — hourglass or spinner, the app is not responding",
+  "role_working": "Working in background — arrow with a spinner",
+  "role_up_arrow": "Alternate select — arrow pointing up",
   "remove": "Remove this theme",
   "removed": "Removed",
   "removing": "Removing…",
   "replaced": "Replaced",
-  "role_arrow": "Normal pointer — the default arrow",
-  "role_crosshair": "Precision select — the thin cross",
-  "role_help": "Help select — arrow with a question mark",
-  "role_legend": "What each cursor is for",
-  "role_link": "Link select — the pointing hand",
-  "role_move": "Move — four-way arrows",
-  "role_pen": "Handwriting — the pen",
-  "role_size_ew": "Resize left/right ↔ — left or right edge",
-  "role_size_nesw": "Resize corner ↗↙ — top-right / bottom-left",
-  "role_size_ns": "Resize up/down ↕ — top or bottom edge",
-  "role_size_nwse": "Resize corner ↖↘ — top-left / bottom-right",
-  "role_text": "Text select — the I-beam",
-  "role_unavailable": "Unavailable — the blocked circle",
-  "role_up_arrow": "Alternate select — arrow pointing up",
-  "role_wait": "Busy — hourglass or spinner, the app is not responding",
-  "role_working": "Working in background — arrow with a spinner",
-  "scan": "Load pack",
-  "scan_build": "Load PNGs",
-  "scanning": "Reading files…",
-  "settings": {
-    "build_sizes": {
-      "description": "Nominal sizes baked into themes you import or build.",
-      "label": "Built sizes",
-      "option": {
-        "hidpi": "HiDPI (24-128)",
-        "small": "Small (24, 32, 48)",
-        "standard": "Standard (24-96)"
-      }
-    },
-    "engine_path": {
-      "description": "Leave empty. Only for a checkout that keeps curmgr elsewhere.",
-      "label": "Engine path"
-    },
-    "scale_filter": {
-      "description": "How cursors are resized. Point keeps pixel art crisp; Lanczos suits smooth artwork.",
-      "label": "Resampling",
-      "option": {
-        "lanczos": "Lanczos (smooth)",
-        "mitchell": "Mitchell (balanced)",
-        "point": "Point (pixel art)"
-      }
-    }
-  },
   "shadow": "Windows shadow",
   "shadow_tooltip": "Bake in the drop shadow Windows draws for you",
   "size": "Size",
@@ -98,5 +75,77 @@
   "theme_name": "Theme name (optional)",
   "title": "Cursor",
   "unmapped": "Not recognised",
-  "unmapped_hint": "Assign them in the grid below, or rename the file after its role and convert again."
+  "unmapped_hint": "Assign them in the grid below, or rename the file after its role and convert again.",
+  "applied_partly": "Applied, but not to:",
+  "reset": "Reset to system cursor",
+  "reset_explain": "Removes everything this plugin set — compositor, GTK, Qt, Flatpak and login settings — and goes back to the system cursor. Your installed themes stay. This also happens when you remove the plugin.",
+  "reset_confirm": "Reset to system cursor",
+  "cancel": "Cancel",
+  "resetting": "Resetting…",
+  "reset_done": "Back to the system cursor",
+  "reset_partly": "Reset, but not:",
+  "layer_gsettings": "GNOME settings",
+  "layer_gtk": "GTK apps",
+  "layer_xdg_default": "Qt and X11 apps",
+  "layer_environment": "Login environment",
+  "layer_flatpak": "Flatpak apps",
+  "layer_niri": "niri",
+  "layer_hyprland": "Hyprland",
+  "layer_sway": "Sway",
+  "layer_mango": "MangoWC",
+  "layer_umbriel": "Umbriel",
+  "layer_gtk3": "GTK 3 apps",
+  "layer_gtk4": "GTK 4 apps",
+  "settings": {
+    "engine_path": {
+      "label": "Engine path",
+      "description": "Leave empty. Only for a checkout that keeps curmgr elsewhere."
+    },
+    "build_sizes": {
+      "label": "Built sizes",
+      "description": "Nominal sizes baked into themes you import or build.",
+      "option": {
+        "small": "Small (24, 32, 48)",
+        "standard": "Standard (24-96)",
+        "hidpi": "HiDPI (24-128)"
+      }
+    },
+    "scale_filter": {
+      "label": "Resampling",
+      "description": "How cursors are resized. Point keeps pixel art crisp; Lanczos suits smooth artwork.",
+      "option": {
+        "lanczos": "Lanczos (smooth)",
+        "point": "Point (pixel art)",
+        "mitchell": "Mitchell (balanced)"
+      }
+    },
+    "icon_dirs": {
+      "label": "Extra theme folders",
+      "description": "Also look for cursor themes here. ~/.local/share/icons, ~/.icons, $XCURSOR_PATH and $XDG_DATA_DIRS are always searched."
+    },
+    "install_dir": {
+      "label": "Install folder",
+      "description": "Where imported, built and installed themes go, and the only folder Remove deletes from. Must be inside your home folder. Anywhere but the default, apps find it through XCURSOR_PATH after the next login. Leave empty for ~/.local/share/icons."
+    },
+    "niri_config": {
+      "label": "niri config",
+      "description": "Leave empty for ~/.config/niri/config.kdl. cursor.kdl is written beside it."
+    },
+    "hyprland_config": {
+      "label": "Hyprland config",
+      "description": "Leave empty for ~/.config/hypr/hyprland.conf. cursor.conf is written beside it."
+    },
+    "sway_config": {
+      "label": "Sway config",
+      "description": "Leave empty for ~/.config/sway/config. cursor.conf is written beside it."
+    },
+    "mango_config": {
+      "label": "MangoWC config",
+      "description": "Leave empty for ~/.config/mango/config.conf. cursor.conf is written beside it."
+    },
+    "umbriel_config": {
+      "label": "Umbriel config",
+      "description": "Leave empty for ~/.config/umbriel/config.toml. cursor.toml is written beside it."
+    }
+  }
 }
