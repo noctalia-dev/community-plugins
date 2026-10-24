@@ -80,6 +80,7 @@ sudo tailscale set --operator=$USER
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
 | `poll_interval` | `int` | `5` | Status refresh interval in seconds (1–60). |
+| `hide_not_installed` | `bool` | `false` | Hide the widget entirely when Tailscale is not installed. |
 | `hide_mullvad` | `bool` | `true` | Hide Mullvad exit nodes from the peer lists. |
 | `hide_offline` | `bool` | `false` | Hide offline peers from the panel and launcher. |
 | `taildrop_dir` | `folder` | `""` | Where Taildrop saves received files. Empty = the XDG download folder (advanced). |

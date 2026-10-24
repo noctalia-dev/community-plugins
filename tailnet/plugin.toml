@@ -97,6 +97,13 @@ entry = "bar.luau"
   description_key = "settings.show_count.description"
   default = true
 
+  [[widget.setting]]
+  key = "hide_not_installed"
+  type = "bool"
+  label_key = "settings.hide_not_installed.label"
+  description_key = "settings.hide_not_installed.description"
+  default = false
+
 [[panel]]
 id = "panel"
 entry = "panel.luau"

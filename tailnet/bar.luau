@@ -46,6 +46,13 @@ end
 
 local function render()
   local state = stateOf()
+
+  local hidden = state == "not-installed" and noctalia.getConfig("hide_not_installed") == true
+  barWidget.setVisible(not hidden)
+  if hidden then
+    return
+  end
+
   local color = COLORS[state] or "outline"
   local children = { logo(state) }
   local badge = BADGES[state]
