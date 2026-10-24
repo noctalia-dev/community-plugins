@@ -6,7 +6,15 @@
     },
     "camera_path": {
       "label": "Camera device",
-      "description": "Video device path such as /dev/video0. Leave empty to auto-detect the first capture-capable webcam."
+      "description": "Video device path such as /dev/video0. Leave empty to auto-detect. When set, it overrides Camera mode and this exact camera is checked."
+    },
+    "camera_mode": {
+      "label": "Camera mode",
+      "description": "Which sensor to check: rgb (visible light only), ir (infrared only), smart (ambient light decides per check: dark -> ir, bright -> rgb), or robust (check both; a face on either keeps the session awake). Default: robust. Values: rgb, ir, smart, robust."
+    },
+    "ir_threshold_lux": {
+      "label": "IR switch threshold (lux)",
+      "description": "Smart mode only: below this ambient light level the IR camera is used, at or above it the RGB camera. The ambient sensor is read once per check."
     },
     "detector": {
       "label": "Detector",

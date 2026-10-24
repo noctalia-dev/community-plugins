@@ -1,7 +1,7 @@
 name = "Inhibit Idle While Watching"
 id = "zhangdm/inhibit-idle-while-watching"
 description = "Checks for a face when idle is about to act and restarts the idle countdown while you keep watching."
-version = "0.2.0"
+version = "0.3.0"
 author = "zhangdm"
 license = "MIT"
 icon = "camera"
@@ -22,6 +22,23 @@ type = "string"
 label_key = "settings.camera_path.label"
 description_key = "settings.camera_path.description"
 default = ""
+
+[[setting]]
+key = "camera_mode"
+type = "string"
+label_key = "settings.camera_mode.label"
+description_key = "settings.camera_mode.description"
+default = "robust"
+
+[[setting]]
+key = "ir_threshold_lux"
+type = "int"
+label_key = "settings.ir_threshold_lux.label"
+description_key = "settings.ir_threshold_lux.description"
+default = 10
+min = 0
+max = 200
+step = 1
 
 [[setting]]
 key = "detector"
