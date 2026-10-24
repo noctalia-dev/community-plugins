@@ -1,0 +1,47 @@
+{
+  "errors": {
+    "foreign": "{path} exists but was not written by this plugin, so it is not overwritten. Pick another target file or move that file away.",
+    "invalid": "nix-instantiate rejected the generated file, nothing was written: {error}",
+    "no_target": "No target file is set in the plugin settings.",
+    "parse": "Could not read {path}: {error}",
+    "read": "Could not read {path}: {error}",
+    "unverifiable": "{path} exists, but it cannot be checked whether this plugin wrote it ({error}), so it is not replaced.",
+    "write": "Could not write {path}: {error}. Your user needs write access to the directory of the target file."
+  },
+  "notify": {
+    "done_body": {
+      "one": "1 setting written to {path}.",
+      "other": "{count} settings written to {path}."
+    },
+    "done_title": "Settings exported to Nix",
+    "failed_title": "Settings to Nix: export failed",
+    "unchanged_body": "{path} already matches the GUI settings.",
+    "unchanged_title": "Nothing to export"
+  },
+  "panel": {
+    "export_button": "Export to Nix",
+    "export_current": {
+      "one": "1 setting in the Nix file, matches the GUI.",
+      "other": "{count} settings in the Nix file, matches the GUI."
+    },
+    "export_pending": {
+      "one": "1 setting, the GUI changed since the last export.",
+      "other": "{count} settings, the GUI changed since the last export."
+    },
+    "export_title": "Export",
+    "title": "Settings to Nix",
+    "usage_body": "The file mirrors settings.toml, deletions included. It is your backup: keep it safe, for example in git. To restore, run the nix-build command written at the top of the file, then restart Noctalia.",
+    "usage_title": "How the file is used"
+  },
+  "settings": {
+    "target_path": {
+      "description": "Nix file the settings are mirrored to, kept up to date on every change in the GUI. Keep it somewhere you back up, for example a git repository.",
+      "label": "Target Nix file"
+    }
+  },
+  "shortcut": {
+    "error": "Nix export failed",
+    "label": "Export to Nix",
+    "pending": "Export to Nix (changed)"
+  }
+}
