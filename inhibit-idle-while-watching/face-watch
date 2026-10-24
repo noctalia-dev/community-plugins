@@ -39,11 +39,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import re
 import subprocess
 import sys
 import time
+from collections import namedtuple
 
 SCREENSAVER_NAME = "org.freedesktop.ScreenSaver"
 SCREENSAVER_PATHS = ("/ScreenSaver", "/org/freedesktop/ScreenSaver")
@@ -53,6 +55,14 @@ EXIT_FACE = 0
 EXIT_NO_FACE = 1
 EXIT_ERROR = 2
 EXIT_SKIPPED = 3  # locked / disabled: not an error, not a verdict
+
+# Per-camera result: kind label, device path, outcome code, verdict, faces.
+CheckRow = namedtuple("CheckRow", "kind path code verdict faces")
+
+# Skip reasons are state, not display text: the row carries one of these for
+# EXIT_SKIPPED and the fusion maps it back to the verdict.
+SKIP_LOCKED = "locked"
+SKIP_UNKNOWN = "skipped"
 
 # Camera modes: which sensor(s) one gate run checks.
 #   rgb    the visible-light sensor only (classic behaviour)
@@ -227,53 +237,6 @@ def parse_locked(payload: str) -> bool | None:
     return value if isinstance(value, bool) else None
 
 
-def read_text(path: str) -> str | None:
-    """Whole file, None when unreadable (default injected reader for ALS)."""
-    try:
-        with open(path, "r", encoding="utf-8") as fh:
-            return fh.read()
-    except OSError:
-        return None
-
-
-def find_illuminance(list_dir=os.listdir, read=read_text) -> str | None:
-    """Path of the ambient-light attr, mirroring als-brightness
-    hardware.luau find_illuminance: attrs outermost (in_illuminance_raw
-    preferred on ANY device), devices in lexicographic order — the exact
-    choices the ALS plugin made, so both plugins read the same sensor."""
-    try:
-        names = sorted(str(n) for n in (list_dir(IIO_DIR) or [])
-                       if re.fullmatch(r"iio:device\d+", str(n)))
-    except OSError:
-        return None
-    for attr in ILLUMINANCE_ATTRS:
-        for name in names:
-            path = IIO_DIR + name + "/" + attr
-            if read(path) is not None:
-                return path
-    return None
-
-
-def read_illuminance_lux(list_dir=os.listdir, read=read_text) -> float | None:
-    """Ambient lux = raw x in_illuminance_scale (missing scale file = 1.0;
-    the IIO convention applies the scale to input attrs too). None on anything
-    missing or malformed — smart mode then degrades to robust."""
-    path = find_illuminance(list_dir, read)
-    if path is None:
-        return None
-    try:
-        raw = float((read(path) or "").strip())
-    except ValueError:
-        return None
-    scale_text = read(os.path.dirname(path) + "/in_illuminance_scale")
-    if scale_text is None:
-        return raw
-    try:
-        return raw * float(scale_text.strip())
-    except ValueError:
-        return None
-
-
 def select_cameras(mode: str, nodes: list[tuple[str, str]], als_lux: float | None,
                    threshold_lux: float, camera_path: str = "",
                    ) -> tuple[list[tuple[str, str]], str | None]:
@@ -318,24 +281,34 @@ def select_cameras(mode: str, nodes: list[tuple[str, str]], als_lux: float | Non
     return picks, note
 
 
-def aggregate_results(rows: list[tuple[str, str, int, str, int]]) -> tuple[int, str]:
-    """OR fusion over per-camera results; row = (kind, path, code, verdict,
-    faces). Precedence face > skipped (locked/unknown) > error > no_face: a
-    face from either sensor is presence; a lock skip reflects session truth;
-    an error outranks a healthy no_face so a broken camera never lets one
-    sensor claim a verdict (robust error semantics: report error, no tap)."""
+def face_kinds(rows: list["CheckRow"]) -> str:
+    """Comma-joined kind labels of the rows that saw a face (verdict bracket)."""
+    return ",".join(r.kind for r in rows if r.code == EXIT_FACE and r.kind)
+
+
+def aggregate_results(rows: list["CheckRow"]) -> tuple[int, str]:
+    """OR fusion over per-camera CheckRows. Precedence face > skipped
+    (locked/unknown) > error > no_face: a face from either sensor is presence;
+    a lock skip reflects session truth; an error outranks a healthy no_face so
+    a broken camera never lets one sensor claim a verdict (robust error
+    semantics: report error, no tap)."""
     def kinds(code: int) -> str:
-        return ",".join(k for k, _p, c, _v, _f in rows if c == code)
-    if any(c == EXIT_FACE for _k, _p, c, _v, _f in rows):
-        n = max(f for _k, _p, c, _v, f in rows if c == EXIT_FACE)
-        return EXIT_FACE, f"face ({n}) [{kinds(EXIT_FACE)}]"
-    if any(c == EXIT_SKIPPED for _k, _p, c, _v, _f in rows):
-        base = ("locked" if any(v == "locked" for _k, _p, c, v, _f in rows
-                                if c == EXIT_SKIPPED) else "skipped")
-        return EXIT_SKIPPED, f"{base} [{kinds(EXIT_SKIPPED)}]"
-    if any(c == EXIT_ERROR for _k, _p, c, _v, _f in rows):
-        return EXIT_ERROR, f"error [{kinds(EXIT_ERROR)}]"
-    return EXIT_NO_FACE, f"no_face [{kinds(EXIT_NO_FACE)}]"
+        return ",".join(r.kind for r in rows if r.code == code and r.kind)
+
+    def bracket(code: int) -> str:
+        k = kinds(code)
+        return f" [{k}]" if k else ""
+
+    if any(r.code == EXIT_FACE for r in rows):
+        n = max(r.faces for r in rows if r.code == EXIT_FACE)
+        return EXIT_FACE, f"face ({n})" + bracket(EXIT_FACE)
+    if any(r.code == EXIT_SKIPPED for r in rows):
+        base = (SKIP_LOCKED if any(r.verdict == SKIP_LOCKED for r in rows
+                                   if r.code == EXIT_SKIPPED) else SKIP_UNKNOWN)
+        return EXIT_SKIPPED, base + bracket(EXIT_SKIPPED)
+    if any(r.code == EXIT_ERROR for r in rows):
+        return EXIT_ERROR, "error" + bracket(EXIT_ERROR)
+    return EXIT_NO_FACE, "no_face" + bracket(EXIT_NO_FACE)
 
 
 def box_iou(a, b) -> float:
@@ -370,6 +343,64 @@ def decode_dnn_faces(score_rows, box_rows, threshold: float, iou_limit: float = 
 
 # ── camera / detect IO ───────────────────────────────────────────────────────
 
+def read_text(path: str) -> str | None:
+    """Whole file, None when unreadable (default injected reader for ALS)."""
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            return fh.read()
+    except OSError:
+        return None
+
+
+def find_illuminance(list_dir=os.listdir, read=read_text) -> str | None:
+    """Path of the ambient-light attr, mirroring als-brightness
+    hardware.luau find_illuminance: attrs outermost (in_illuminance_raw
+    preferred on ANY device), devices in lexicographic order — the exact
+    choices the ALS plugin made, so both plugins read the same sensor."""
+    try:
+        names = sorted(str(n) for n in (list_dir(IIO_DIR) or [])
+                       if re.fullmatch(r"iio:device\d+", str(n)))
+    except OSError:
+        return None
+    for attr in ILLUMINANCE_ATTRS:
+        for name in names:
+            path = IIO_DIR + name + "/" + attr
+            if read(path) is not None:
+                return path
+    return None
+
+
+def read_illuminance_lux(list_dir=os.listdir, read=read_text) -> float | None:
+    """Ambient lux = raw x in_illuminance_scale (missing scale file = 1.0;
+    the IIO convention applies the scale to input attrs too). None on anything
+    missing, malformed or non-finite (nan/inf float-parse fine but make the
+    comparison meaningless) — smart mode then degrades to robust."""
+    path = find_illuminance(list_dir, read)
+    if path is None:
+        return None
+    try:
+        raw = float((read(path) or "").strip())
+    except ValueError:
+        return None
+    scale_text = read(os.path.dirname(path) + "/in_illuminance_scale")
+    try:
+        scale = 1.0 if scale_text is None else float(scale_text.strip())
+    except ValueError:
+        return None
+    lux = raw * scale
+    return lux if math.isfinite(lux) else None
+
+
+def list_video_nodes() -> list[tuple[str, list[str]]]:
+    """`v4l2-ctl --list-devices` parsed to [(primary_path, all_paths)]."""
+    try:
+        listed = subprocess.run(["v4l2-ctl", "--list-devices"], capture_output=True,
+                                text=True, timeout=5)
+    except (OSError, subprocess.TimeoutExpired):
+        return []
+    return parse_v4l2_devices(listed.stdout or "")
+
+
 def probe_node(path: str) -> tuple[bool, str]:
     """(capture_capable, card_type) for one v4l2 node."""
     capable, card = False, ""
@@ -392,13 +423,8 @@ def probe_capture_nodes() -> list[tuple[str, str]]:
     """[(path, kind)] for every capture-capable node, in listing order.
     The rgb/ir split is only visible per node (Card type): --list-devices
     groups a combo webcam's sensors under one header."""
-    try:
-        listed = subprocess.run(["v4l2-ctl", "--list-devices"], capture_output=True,
-                                text=True, timeout=5)
-    except (OSError, subprocess.TimeoutExpired):
-        return []
     nodes: list[tuple[str, str]] = []
-    for _primary, paths in parse_v4l2_devices(listed.stdout or ""):
+    for _primary, paths in list_video_nodes():
         for path in paths:
             capable, card = probe_node(path)
             if capable:
@@ -407,12 +433,9 @@ def probe_capture_nodes() -> list[tuple[str, str]]:
 
 
 def autodetect_camera() -> str | None:
-    try:
-        listed = subprocess.run(["v4l2-ctl", "--list-devices"], capture_output=True,
-                                text=True, timeout=5)
-    except (OSError, subprocess.TimeoutExpired):
+    devices = list_video_nodes()
+    if not devices:
         return None
-    devices = parse_v4l2_devices(listed.stdout or "")
     capable: dict[str, bool] = {}
     for _primary, paths in devices:
         for path in paths:
@@ -552,12 +575,12 @@ def check_camera(camera: str, kind: str, args) -> tuple[int, str, int]:
     try:
         locked = session_locked()
         if not may_capture(locked):
-            return EXIT_SKIPPED, ("locked" if locked else "skipped"), 0
+            return EXIT_SKIPPED, (SKIP_LOCKED if locked else SKIP_UNKNOWN), 0
         # Re-check as late as possible so the privacy gate covers the widest
         # possible window before capture.
         locked = session_locked()
         if not may_capture(locked):
-            return EXIT_SKIPPED, ("locked" if locked else "skipped"), 0
+            return EXIT_SKIPPED, (SKIP_LOCKED if locked else SKIP_UNKNOWN), 0
         img = capture_frame(camera, args.capture_width)
         faces = detect_faces(img, args.detector, args.sensitivity)
     except Exception as err:  # noqa: BLE001 - one camera must not kill the fusion
@@ -567,13 +590,19 @@ def check_camera(camera: str, kind: str, args) -> tuple[int, str, int]:
             else (EXIT_NO_FACE, "no_face", 0))
 
 
-def run_gate_checks(args) -> tuple[list[tuple[str, str, int, str, int]], float | None]:
-    """Shared pipeline for check/gate: resolve the mode, then one lock-gated
-    check per camera. Rows are (kind, path, code, verdict, faces)."""
+def run_gate_checks(args) -> tuple[list["CheckRow"], float | None]:
+    """Shared pipeline for check/gate: lock-gate first (before any device
+    probe — a locked session sees no v4l2 traffic at all), resolve the mode,
+    then one lock-gated check per camera."""
+    override = bool(args.camera_path)
+    locked = session_locked()
+    if not may_capture(locked):
+        return [CheckRow("", "", EXIT_SKIPPED,
+                         SKIP_LOCKED if locked else SKIP_UNKNOWN, 0)], None
     als_lux = None
-    if args.camera_mode == "smart":
+    if args.camera_mode == "smart" and not override:
         als_lux = read_illuminance_lux()
-    nodes = probe_capture_nodes()
+    nodes = [] if override else probe_capture_nodes()
     picks, note = select_cameras(args.camera_mode, nodes, als_lux,
                                  args.ir_threshold_lux, args.camera_path or "")
     if note:
@@ -581,7 +610,8 @@ def run_gate_checks(args) -> tuple[list[tuple[str, str, int, str, int]], float |
     if not picks:
         raise RuntimeError(
             f"no camera usable for mode {args.camera_mode!r} (set camera_path)")
-    rows = [(kind, path, *check_camera(path, kind, args)) for path, kind in picks]
+    rows = [CheckRow(kind, path, *check_camera(path, kind, args))
+            for path, kind in picks]
     return rows, als_lux
 
 
@@ -658,14 +688,13 @@ def cmd_gate(args) -> int:
             reason = "locked" if locked else "lock state unknown"
             log_line(args.log_file,
                      f"tap refused ({reason} after check; seen: {verdict})")
-            face_kinds = ",".join(k for k, _p, c, _v, _f in rows if c == EXIT_FACE)
             code = EXIT_SKIPPED
-            verdict = f"{'locked' if locked else 'skipped'} [{face_kinds}]"
+            verdict = f"{SKIP_LOCKED if locked else SKIP_UNKNOWN} [{face_kinds(rows)}]"
     if args.status_file:
         status = dict(state="idle", last_result=verdict, checks=len(rows),
-                      camera=",".join(path for _k, path, _c, _v, _f in rows),
+                      camera=",".join(r.path for r in rows if r.path),
                       detector=args.detector, mode=args.camera_mode,
-                      cameras={k: v for k, _p, _c, v, _f in rows},
+                      cameras={r.kind: r.verdict for r in rows if r.kind},
                       since=started, ended_at=time.time())
         if als_lux is not None:
             status["als_lux"] = als_lux

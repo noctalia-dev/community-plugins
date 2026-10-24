@@ -86,7 +86,7 @@ with both detectors (Haar 3/3, DNN 3/3) while the RGB frames were black.
 | --- | --- |
 | `rgb` | Visible-light sensor only (the classic behaviour). |
 | `ir` | Infrared sensor only — the dark-room watching mode. |
-| `smart` | Reads the ambient light sensor before the check: below `ir_threshold_lux` → `ir`, at/above → `rgb`. Unreadable sensor → falls back to `robust`. |
+| `smart` | Reads the ambient light sensor before the check: below `ir_threshold_lux` → `ir`, at/above → `rgb`. Unreadable sensor → falls back to `robust`; if the chosen sensor is missing on this machine the other one is used (the check never silently stops). |
 | `robust` (default) | Checks **both** sensors; a face on **either** keeps the session awake (OR). Degrades to whatever sensors the machine has. |
 
 In `robust`, presence = `face(rgb) OR face(ir)`; if neither saw a face but one
