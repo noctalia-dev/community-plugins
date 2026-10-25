@@ -1,10 +1,11 @@
+--!nonstrict
 -- Bar [[widget]] entry:
 -- Left Click: opens the panel,
 -- Right Click: picks a color directly
 -- and copies the hex to clipboard (no panel).
 
 local glyph = noctalia.getConfig("glyph")
-local tr_color_picker = noctalia.tr("color_picker");
+local tr_color_picker = noctalia.tr("color_picker")
 
 local function render()
   barWidget.setGlyph(glyph)
