@@ -38,12 +38,17 @@ local invalidateBindingCaches -- defined below, called from the state watcher ab
 -- draws at most `renderLimit` rows; the rest fills in over a chain of
 -- state-ping callbacks (each one a fresh budget, see scheduleFill) and the
 -- panel stays interactive throughout.
-local RENDER_FIRST = 24
-local RENDER_STEP = 40
+-- A cold row costs ~0.4 ms in the instrumented host; 20 new rows plus the
+-- group pass stays well under the budget, 40 came within a few ms of it.
+local RENDER_FIRST = 20
+local RENDER_STEP = 20
 local renderLimit = RENDER_FIRST
 local renderedRows = 0
 local renderTruncated = false
 local scheduleFill -- defined below; called at the end of render
+local armRenderGuard -- defined below; called at the start of render
+local renderSerial = 0
+local completedRenderSerial = 0
 local panelSteps = {} -- queued panel-step functions (see schedulePanelStep below)
 local fillQueued = false
 local invalidateRowCache -- defined with the row cache, called from invalidateBindingCaches above it
@@ -268,9 +273,29 @@ local function savePreferences()
   end
 end
 
+-- Everything a cached row, category, or search haystack depends on. Binding
+-- ids only cover modifiers, key, and action, so description and category
+-- are added; an unchanged signature keeps the caches warm.
+local function snapshotSignature(value)
+  if type(value) ~= "table" or type(value.bindings) ~= "table" then return nil end
+  local parts = { value.compositor or "" }
+  for _, binding in ipairs(value.bindings) do
+    table.insert(parts, (binding.id or "") .. "\1" .. (binding.description or "") .. "\1" .. (binding.baseCategory or ""))
+  end
+  return table.concat(parts, "\2")
+end
+
+local snapshotCacheSignature = nil
+
 local function applySnapshot(value)
   snapshot = type(value) == "table" and value or nil
-  invalidateBindingCaches()
+  -- onOpen re-applies the snapshot on every open; dropping the caches each
+  -- time made every open a cold render that overran the CPU budget.
+  local signature = snapshotSignature(snapshot)
+  if signature == nil or signature ~= snapshotCacheSignature then
+    invalidateBindingCaches()
+  end
+  snapshotCacheSignature = signature
   if snapshot == nil then
     bindings = {}
     parseWarnings = {}
@@ -540,8 +565,7 @@ local function cachedCategory(binding)
   return cached
 end
 
-local function bindingMatches(binding)
-  local needle = lower(trim(query))
+local function bindingMatches(binding, needle)
   if needle == "" then return true end
   local haystack = haystackCache[binding.id]
   if haystack == nil then
@@ -579,12 +603,24 @@ local CATEGORY_PRIORITIES = {
   { lower(tr("other")), 950 },
 }
 
+-- Memoised per name: the group sort calls this twice per comparison, and
+-- the substring scan over every priority entry made the sort alone cost
+-- several milliseconds of each render's budget.
+local priorityCache = {}
+
 local function categoryPriority(name)
+  local cached = priorityCache[name]
+  if cached ~= nil then return cached end
   local value = lower(name)
+  local priority = 500
   for _, entry in ipairs(CATEGORY_PRIORITIES) do
-    if value:find(entry[1], 1, true) ~= nil then return entry[2] end
+    if value:find(entry[1], 1, true) ~= nil then
+      priority = entry[2]
+      break
+    end
   end
-  return 500
+  priorityCache[name] = priority
+  return priority
 end
 
 local function bindingAvailableInView(hidden, undescribed, managing, showUndescribed)
@@ -672,12 +708,13 @@ local function visibleGroups()
   local showUndescribed = noctalia.getConfig("show_undescribed") ~= false
   local managing = view == "edit"
   local mergeRuns = noctalia.getConfig("merge_sequential") ~= false and not managing
+  local needle = lower(trim(query))
   local groups = {}
   local byName = {}
   for index, binding in ipairs(bindings) do
     local hidden = preferences.hidden[binding.id] == true
     local undescribed = authoredDescription(binding) == "" and binding.compositor ~= "niri"
-    if bindingAvailableInView(hidden, undescribed, managing, showUndescribed) and bindingMatches(binding) then
+    if bindingAvailableInView(hidden, undescribed, managing, showUndescribed) and bindingMatches(binding, needle) then
       local category = cachedCategory(binding)
       local group = byName[category]
       if group == nil then
@@ -997,6 +1034,9 @@ render = function(keepLimit)
     renderLimit = RENDER_FIRST
   end
   if not panelOpen then return end
+  renderSerial += 1
+  local serial = renderSerial
+  if armRenderGuard ~= nil then armRenderGuard(serial) end
   resetCallbacks()
   local contentState = "bindings"
   if view == "appearance" then
@@ -1031,6 +1071,7 @@ render = function(keepLimit)
     table.insert(children, bindingsBody())
   end
   panel.render(ui.column({ key = "keybind-cheatsheet-" .. contentState, flexGrow = 1, gap = 8, align = "stretch" }, children))
+  completedRenderSerial = math.max(completedRenderSerial, serial)
   if renderTruncated and scheduleFill ~= nil then
     scheduleFill()
   end
@@ -1093,7 +1134,42 @@ scheduleFill = function()
   end)
 end
 
+-- A render killed by the CPU budget never reaches its own scheduleFill, so
+-- the fill chain died with it and the sheet stayed half-drawn (only the
+-- first RENDER_FIRST rows, the other columns as bare headings). Every
+-- render therefore arms a guard ping first; it fires as its own event, and
+-- if that render never completed it is retried with a fresh budget. Rows
+-- built before the kill are already in the row cache, so a retry is
+-- cheaper than the attempt it replaces. Retries are capped per chain so a
+-- render that can never fit does not loop forever.
+local RENDER_GUARD_KEY = "keybind-cheatsheet.panel-render-guard"
+local MAX_RENDER_RETRIES = 3
+local renderRetries = 0
+local guardArming = false
+
+armRenderGuard = function(serial)
+  guardArming = true
+  noctalia.state.set(RENDER_GUARD_KEY, serial)
+  guardArming = false
+end
+
+noctalia.state.watch(RENDER_GUARD_KEY, function(value)
+  -- Delivered synchronously (the test host does that): the render is still
+  -- running, so there is nothing to recover yet.
+  if guardArming then return end
+  local serial = tonumber(value)
+  if not panelOpen or serial ~= renderSerial then return end
+  if completedRenderSerial >= serial then
+    renderRetries = 0
+    return
+  end
+  if renderRetries >= MAX_RENDER_RETRIES then return end
+  renderRetries += 1
+  render(true)
+end)
+
 function onOpen(_context)
+  renderRetries = 0
   renderLimit = RENDER_FIRST
   panelOpen = true
   view = "bindings"

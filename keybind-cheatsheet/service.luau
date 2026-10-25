@@ -915,34 +915,54 @@ end
 -- string literal. A naive find() stops at the first `--` anywhere, and
 -- Hyprland configs are full of `exec_cmd("tool --flag")` lines whose
 -- description then never gets read (the bind lands in "Other").
+-- Jumps between quotes and dashes with find() instead of walking the line
+-- one sub() at a time: the per-character walk alone pushed a full config
+-- scan past the host CPU budget.
 local function luaCommentStart(line)
-  local quote = nil
-  local i = 1
-  local n = #line
-  while i <= n do
-    local ch = line:sub(i, i)
-    if quote ~= nil then
-      if ch == "\\" then
-        i += 1
-      elseif ch == quote then
-        quote = nil
-      end
-    elseif ch == '"' or ch == "'" then
-      quote = ch
-    elseif ch == "-" and line:sub(i + 1, i + 1) == "-" then
-      return i
+  local dash = line:find("--", 1, true)
+  local index = 1
+  while dash ~= nil do
+    local quotePos = line:find("[\"']", index)
+    if quotePos == nil or quotePos > dash then
+      return dash
     end
-    i += 1
+    local quote = line:sub(quotePos, quotePos)
+    local closing = quotePos
+    while true do
+      closing = line:find(quote, closing + 1, true)
+      if closing == nil then
+        -- Unterminated string: everything after it is string content.
+        return nil
+      end
+      local backslashes = 0
+      local j = closing - 1
+      while j > quotePos and line:sub(j, j) == "\\" do
+        backslashes += 1
+        j -= 1
+      end
+      if backslashes % 2 == 0 then break end
+    end
+    index = closing + 1
+    dash = line:find("--", index, true)
   end
   return nil
 end
 
-local function scanHyprLuaContent(content, sourceFile, context)
-  local category = ""
-  local includes = {}
-  local pendingDescription = false
+local function newHyprLuaFileScan(content, depth)
+  return {
+    nextLine = content:gmatch("[^\r\n]+"),
+    depth = depth,
+    category = "",
+    includes = {},
+    pendingDescription = false,
+  }
+end
 
-  for rawLine in content:gmatch("[^\r\n]+") do
+local function scanHyprLuaLine(file, rawLine, context)
+  local includes = file.includes
+  local category = file.category
+  local pendingDescription = file.pendingDescription
+  do
     local commentIndex = luaCommentStart(rawLine)
     if commentIndex ~= nil then
       local heading = rawLine:match("^%s*%-%-%s*%d+%.%s*(.-)%s*$")
@@ -999,53 +1019,89 @@ local function scanHyprLuaContent(content, sourceFile, context)
       end
     end
   end
-  return includes
+  file.category = category
+  file.pendingDescription = pendingDescription
+end
+
+-- The scan is resumable: hyprLuaScanStep handles at most maxLines lines and
+-- returns true once every file is done, so the refresh can spread a large
+-- modular config over several budget windows. Files are visited depth-first
+-- in include order, like the old recursive walk.
+local function newHyprLuaScan(rootPath)
+  return {
+    context = {
+      bindings = {},
+      variables = {},
+      warnings = {},
+      visited = {},
+      fileCount = 0,
+      rootRead = false,
+      rules = {},
+      luaRoot = pathDirname(normalizePath(expandEnvironment(rootPath))),
+      sources = {},
+      globs = {},
+    },
+    stack = { { path = expandEnvironment(rootPath), depth = 0, isRoot = true } },
+    file = nil,
+  }
+end
+
+local function openHyprLuaFile(entry, context)
+  local path = normalizePath(entry.path)
+  if entry.depth > MAX_PARSE_DEPTH or context.fileCount >= MAX_PARSE_FILES then
+    table.insert(context.warnings, "Lua include limit reached at " .. path)
+    return nil
+  end
+  if context.visited[path] then
+    return nil
+  end
+  context.visited[path] = true
+  context.fileCount += 1
+  local content, err = noctalia.readFile(path)
+  if content == nil then
+    table.insert(context.warnings, err or ("Could not read " .. path))
+    return nil
+  end
+  local info = noctalia.fileInfo(path)
+  if info ~= nil then
+    table.insert(context.sources, { path = path, size = info.size, mtime = info.mtime })
+  end
+  if entry.isRoot then context.rootRead = true end
+  return newHyprLuaFileScan(content, entry.depth)
+end
+
+local function hyprLuaScanStep(scan, maxLines)
+  local context = scan.context
+  local budget = maxLines
+  while budget > 0 do
+    local file = scan.file
+    if file == nil then
+      local entry = table.remove(scan.stack)
+      if entry == nil then
+        return true
+      end
+      scan.file = openHyprLuaFile(entry, context)
+      budget -= 1
+    else
+      local rawLine = file.nextLine()
+      if rawLine == nil then
+        for i = #file.includes, 1, -1 do
+          table.insert(scan.stack, { path = file.includes[i].path, depth = file.depth + 1, isRoot = false })
+        end
+        scan.file = nil
+      else
+        scanHyprLuaLine(file, rawLine, context)
+        budget -= 1
+      end
+    end
+  end
+  return false
 end
 
 local function scanHyprLua(rootPath)
-  local context = {
-    bindings = {},
-    variables = {},
-    warnings = {},
-    visited = {},
-    fileCount = 0,
-    rootRead = false,
-    rules = {},
-    luaRoot = pathDirname(normalizePath(expandEnvironment(rootPath))),
-    sources = {},
-    globs = {},
-  }
-
-  local visit
-  visit = function(path, depth, isRoot)
-    if depth > MAX_PARSE_DEPTH or context.fileCount >= MAX_PARSE_FILES then
-      table.insert(context.warnings, "Lua include limit reached at " .. path)
-      return
-    end
-    path = normalizePath(path)
-    if context.visited[path] then
-      return
-    end
-    context.visited[path] = true
-    context.fileCount += 1
-    local content, err = noctalia.readFile(path)
-    if content == nil then
-      table.insert(context.warnings, err or ("Could not read " .. path))
-      return
-    end
-    local info = noctalia.fileInfo(path)
-    if info ~= nil then
-      table.insert(context.sources, { path = path, size = info.size, mtime = info.mtime })
-    end
-    if isRoot then context.rootRead = true end
-    local includes = scanHyprLuaContent(content, path, context)
-    for _, include in ipairs(includes) do
-      visit(normalizePath(include.path), depth + 1, false)
-    end
-  end
-
-  visit(normalizePath(expandEnvironment(rootPath)), 0, true)
-  return context
+  local scan = newHyprLuaScan(rootPath)
+  while not hyprLuaScanStep(scan, math.huge) do end
+  return scan.context
 end
 
 local function categoryFromHyprRules(description, rules)
@@ -1761,6 +1817,7 @@ end)
 -- state-watch callback continues the job with a fresh budget window.
 local HYPR_STEP_KEY = "keybind-cheatsheet.hypr-step"
 local HYPR_BINDING_SLICE = 16
+local HYPR_SCAN_LINE_SLICE = 32
 local hyprJob = nil
 local hyprStepCounter = 0
 
@@ -1833,9 +1890,18 @@ local function hyprStep(value)
   end
 
   if job.phase == "scan" then
-    -- Whole-config scan gets its own budget window (this is what
-    -- blew up on large Lua configs in #606).
-    job.scan = scanHyprLua(job.request.root)
+    -- The config scan is sliced by lines as well; a whole-config scan in
+    -- one window blew up on large Lua configs (#606) and, with the
+    -- string-aware comment check from 0.3.0, on ordinary ones too.
+    if job.luaScan == nil then
+      job.luaScan = newHyprLuaScan(job.request.root)
+    end
+    if not hyprLuaScanStep(job.luaScan, HYPR_SCAN_LINE_SLICE) then
+      scheduleHyprStep(job)
+      return
+    end
+    job.scan = job.luaScan.context
+    job.luaScan = nil
     if job.error ~= nil then
       job.bindings = {}
       job.phase = "finish"
