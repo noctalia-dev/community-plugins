@@ -473,9 +473,10 @@ end
 -- on: the Dolphin context menu entry, and the `localsend` command with
 -- completion for fish, bash and zsh. Each shell loads its folder by itself
 -- (zsh once ~/.local/share/zsh/site-functions is in fpath), so no shell
--- config is touched. A file that is already there with other content is
--- left alone. Turning a setting off removes only files the plugin wrote
--- itself, noted in a marker file in the data dir.
+-- config is touched. A marker file in the data dir keeps the content the
+-- plugin wrote to each path. The plugin replaces or removes a file only
+-- while it still holds exactly that; a file with anything else belongs to
+-- the user and is reported and left alone.
 local EXTRAS = {
   {
     setting = "dolphin_menu",
@@ -498,46 +499,84 @@ local EXTRAS = {
 
 local extraWarned = {} -- settings whose blocked install was reported this run
 
+-- The content the plugin last wrote, by absolute path. A marker that does
+-- not parse records nothing, so every file it named counts as the user's.
+local function readMark(mark)
+  local raw = mark and noctalia.readFile(mark)
+  local data = raw and noctalia.json.decode(raw)
+  local files = {}
+  if type(data) == "table" and type(data.files) == "table" then
+    for path, content in pairs(data.files) do
+      if type(path) == "string" and type(content) == "string" then files[path] = content end
+    end
+  end
+  return files
+end
+
+local function writeMark(mark, files)
+  if mark ~= nil then noctalia.writeFile(mark, noctalia.json.encode({ files = files })) end
+end
+
 local function syncExtra(extra)
   local mark = lib.dataFile(extra.setting)
-  local installed = mark ~= nil and noctalia.fileExists(mark)
+  local recorded = readMark(mark)
   local wanted = noctalia.getConfig(extra.setting) == true
   if not wanted then extraWarned[extra.setting] = nil end
   if wanted then
-    local plan = {}
+    local plan, conflicts = {}, {}
     for source, file in pairs(extra.files) do
       local content = noctalia.readFile(noctalia.pluginDir() .. "/" .. source)
       if content == nil then return end
       local path = noctalia.expandPath(file.path)
       local current = noctalia.readFile(path)
-      if current ~= nil and current ~= content and not installed then
-        if not extraWarned[extra.setting] then
-          extraWarned[extra.setting] = true
-          noctalia.notifyError(tr("notify.title"), tr("error.extra_exists", { path = path }))
-        end
-        return
+      if current == nil or current == content or current == recorded[path] then
+        table.insert(plan, { path = path, content = content, write = current ~= content,
+          executable = file.executable })
+      else
+        table.insert(conflicts, path)
       end
-      table.insert(plan, { path = path, content = content, write = current ~= content,
-        executable = file.executable })
     end
+    -- All or nothing: completions next to someone else's `localsend` would
+    -- complete the wrong command.
+    if #conflicts > 0 then
+      if not extraWarned[extra.setting] then
+        extraWarned[extra.setting] = true
+        table.sort(conflicts)
+        noctalia.notifyError(tr("notify.title"), tr("error.extra_exists", { path = table.concat(conflicts, ", ") }))
+      end
+      return
+    end
+    local files = {}
+    for path, content in pairs(recorded) do files[path] = content end
     for _, item in ipairs(plan) do
       if item.write then
         local ok, err = noctalia.mkdirAll(lib.dirname(item.path))
         if ok then ok, err = noctalia.writeFile(item.path, item.content) end
         if not ok then
+          writeMark(mark, files) -- keeps what did get written
           noctalia.notifyError(tr("notify.title"), tr("error.install_extra", { path = item.path, reason = tostring(err) }))
           return
         end
       end
+      files[item.path] = item.content
       if item.executable then noctalia.runAsync({ "chmod", "755", item.path }) end
     end
-    if mark ~= nil then noctalia.writeFile(mark, "installed") end
-  elseif installed then
-    for _, file in pairs(extra.files) do
-      local path = noctalia.expandPath(file.path)
-      if noctalia.fileExists(path) then noctalia.removeFile(path) end
+    writeMark(mark, files)
+  elseif mark ~= nil and noctalia.fileExists(mark) then
+    local kept = {}
+    for path, content in pairs(recorded) do
+      local current = noctalia.readFile(path)
+      if current == content then
+        noctalia.removeFile(path)
+      elseif current ~= nil then
+        table.insert(kept, path)
+      end
     end
     noctalia.removeFile(mark)
+    if #kept > 0 then
+      table.sort(kept)
+      noctalia.notify(tr("notify.title"), tr("error.extra_kept", { path = table.concat(kept, ", ") }))
+    end
   end
 end
 

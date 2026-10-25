@@ -156,7 +156,8 @@
     "picker_open": "Okno wyboru plików jest już otwarte.",
     "receive_stalled": "Nadawca przestał wysyłać, więc odbiór został anulowany.",
     "install_extra": "Nie udało się zapisać {path}: {reason}",
-    "extra_exists": "{path} już istnieje i zawiera coś innego, więc plugin go nie ruszył. Usuń go albo zmień nazwę, potem wyłącz i włącz ustawienie."
+    "extra_exists": "{path} już istnieje i zawiera coś innego, więc plugin go nie ruszył. Usuń go albo zmień nazwę, potem wyłącz i włącz ustawienie.",
+    "extra_kept": "Plugin nie usunął plików zmienionych po instalacji: {path}"
   },
   "visibility": {
     "everyone": "Wszyscy",

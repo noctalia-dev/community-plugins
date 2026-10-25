@@ -156,7 +156,8 @@
     "picker_open": "A file picker is already open.",
     "receive_stalled": "The sender stopped sending, so the transfer was cancelled.",
     "install_extra": "Could not write {path}: {reason}",
-    "extra_exists": "{path} already exists with other content, so it was left alone. Remove or rename it and switch the setting off and on."
+    "extra_exists": "{path} already exists with other content, so it was left alone. Remove or rename it and switch the setting off and on.",
+    "extra_kept": "Files changed after the plugin installed them were left in place: {path}"
   },
   "visibility": {
     "everyone": "Everyone",

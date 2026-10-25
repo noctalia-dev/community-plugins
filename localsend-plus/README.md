@@ -86,7 +86,7 @@ subnet still sees your name in favorites mode; hidden mode keeps you invisible.
 The plugin can add "Send with LocalSend Plus" to Dolphin's context menu. Turn on `dolphin_menu` (Dolphin context
 menu) in the plugin settings. The plugin then writes `~/.local/share/kio/servicemenus/localsend-plus.desktop` and
 makes it executable, which KDE requires for service menus in your home folder. Turning the setting off removes the
-file again. The plugin writes nothing there until you turn it on.
+file again, unless you edited it in the meantime. The plugin writes nothing there until you turn it on.
 
 Reopen Dolphin afterwards. The entry shows up when you right-click selected files or folders, not the empty
 background of a window. With many other actions installed, KDE may tuck it into the Actions submenu. Pick a device
@@ -145,9 +145,11 @@ fpath=(~/.local/share/zsh/site-functions $fpath)
 
 The plugin changes no shell configuration itself. `~/.local/bin` has to be on your `PATH`, as it is by default on
 Fedora and most other distributions. Open a new terminal afterwards; then `localsend report.pdf phone` works, and
-Tab after the file names offers the online devices. If `~/.local/bin/localsend` or one of the completion files
-already exists with other content, the plugin leaves it alone and says so. Turning the setting off removes the files
-it wrote. The same files are in `extras/terminal/` if you prefer to install them yourself.
+Tab after the file names offers the online devices. The plugin remembers what it wrote to each file, and it
+updates or removes a file only while the file still holds exactly that. If `~/.local/bin/localsend` or one of the
+completion files has other content, whether it was there before or you changed it later, the plugin leaves it alone
+and says so. Turning the setting off removes the files it wrote. The same files are in `extras/terminal/` if you
+prefer to install them yourself.
 
 ## Settings
 
@@ -189,8 +191,8 @@ chosen name (`controller/alias`), `favorites.json`, `visibility.json`, `auto_acc
 (`pin`). The plugin refuses to save a PIN if it cannot make that directory private. PINs passed to the controller go
 through one-shot files in `$XDG_RUNTIME_DIR`; the controller deletes each one as soon as it has read it, and the
 plugin removes any that are left over. Received files are readable by you only (`0600`). Outside these folders the plugin writes only the Dolphin
-menu entry and the `localsend` command with its completion files, each only while its setting is on, and it never
-replaces a file it did not write.
+menu entry and the `localsend` command with its completion files, each only while its setting is on. It replaces or
+removes one of them only while it still holds what the plugin wrote, so a file you added or edited stays.
 
 The plugin runs `localsend-controller` (a long-running daemon plus one short call per action), `zenity`, `wl-paste`,
 `wl-copy` (run by the controller), `xdg-open` or `dolphin`, `chmod` and `sh`. PINs never appear on a command line,
