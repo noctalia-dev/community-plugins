@@ -1,0 +1,17 @@
+#compdef localsend
+# zsh completion for localsend: files and folders, plus the names of the
+# devices online now.
+local bin=${commands[localsend-controller]:-$HOME/.cargo/bin/localsend-controller}
+local -a devices
+devices=(${(f)"$($bin send --list 2>/dev/null)"})
+devices=(${devices//:/\\:})
+local state
+_arguments -s \
+  '--list[list the devices online now]' \
+  '*:file or device:->items' && return
+case $state in
+  items)
+    _describe -t devices device devices
+    _files
+    ;;
+esac
