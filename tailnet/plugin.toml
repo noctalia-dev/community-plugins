@@ -7,7 +7,7 @@
 
 id = "rylos/tailnet"
 name = "Tailnet"
-version = "2.1.0"
+version = "2.2.0"
 plugin_api = 9
 author = "Marco Ziliani"
 license = "MIT"
