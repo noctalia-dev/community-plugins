@@ -3,7 +3,10 @@
 #
 # The token is read from $TODOIST_API_TOKEN, or from a file (default
 # ~/.config/todoist/token, override with $TODOIST_TOKEN_FILE). It is never
-# echoed, never passed as an argument, and never written to a temp file.
+# echoed and never passed as an argument. The Authorization header goes to curl
+# through an inherited file descriptor (-H @/dev/fd/9) whose backing file is
+# unlinked as soon as it is opened, so the value never appears in any process's
+# argv (readable via ps and /proc/<pid>/cmdline) and no copy stays on disk.
 #
 # Phase 1: creates two tasks with Quick Add and deletes them again.
 # Phase 2: create -> update -> move -> close -> reopen -> delete, verifying that
@@ -51,9 +54,23 @@ if [ -z "$TOKEN" ]; then
   exit 2
 fi
 
-H=(-H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -H "Accept: application/json")
 MARK="noctalia-smoke-$$-$(date +%s)"
 CREATED=()
+
+# Open the Authorization header on fd 9, then unlink the backing file: the fd
+# stays readable for every curl call below while the path is gone from the
+# filesystem, so the token is never in an argv and never left on disk.
+HDR_FILE="$(mktemp "${TMPDIR:-/tmp}/noctalia-smoke-hdr.XXXXXX")" || {
+  echo "Could not create a temporary header file." >&2
+  exit 2
+}
+chmod 600 "$HDR_FILE"
+printf 'Authorization: Bearer %s\n' "$TOKEN" > "$HDR_FILE"
+exec 9< "$HDR_FILE"
+rm -f "$HDR_FILE"
+unset HDR_FILE TOKEN TODOIST_API_TOKEN
+
+H=(-H "@/dev/fd/9" -H "Content-Type: application/json" -H "Accept: application/json")
 
 say() { printf '\n=== %s ===\n' "$*"; }
 count() { python3 -c "import json,sys
