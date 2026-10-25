@@ -1,0 +1,291 @@
+id = "shangshui0302/token-monitor"
+name = "Token Monitor"
+version = "0.1.0"
+plugin_api = 32
+author = "Shangshui0302"
+license = "MIT"
+icon = "chart-donut-3"
+description = "Quotas, usage, sessions and an activity heatmap from your Token Monitor Hub."
+tags = ["bar", "panel", "service", "ai", "utility"]
+dependencies = []
+
+[[setting]]
+key = "hub_url"
+type = "string"
+default = "http://127.0.0.1:17321"
+label_key = "settings.hub_url.label"
+description_key = "settings.hub_url.description"
+
+[[setting]]
+key = "auto_discover_credentials"
+type = "bool"
+default = true
+label_key = "settings.auto_discover_credentials.label"
+description_key = "settings.auto_discover_credentials.description"
+
+[[setting]]
+key = "credentials_file"
+advanced = true
+type = "file"
+default = ""
+label_key = "settings.credentials_file.label"
+description_key = "settings.credentials_file.description"
+
+[[setting]]
+key = "initial_view"
+type = "select"
+default = "quotas"
+label_key = "settings.initial_view.label"
+description_key = "settings.initial_view.description"
+options = [
+  { value = "quotas", label_key = "tabs.quotas" },
+  { value = "models", label_key = "tabs.models" },
+  { value = "sessions", label_key = "tabs.sessions" },
+  { value = "activity", label_key = "tabs.activity" },
+  { value = "trends", label_key = "tabs.trends" },
+]
+
+[[setting]]
+key = "bar_provider"
+type = "select"
+default = "codex"
+label_key = "settings.bar_provider.label"
+description_key = "settings.bar_provider.description"
+options = [
+  { value = "codex", label_key = "settings.bar_provider.options.codex" },
+  { value = "deepseek", label_key = "settings.bar_provider.options.deepseek" },
+  { value = "antigravity", label_key = "settings.bar_provider.options.antigravity" },
+]
+
+[[setting]]
+key = "bar_window"
+type = "select"
+default = "first"
+label_key = "settings.bar_window.label"
+description_key = "settings.bar_window.description"
+options = [
+  { value = "first", label_key = "settings.bar_window.options.first" },
+  { value = "session", label_key = "settings.bar_window.options.session" },
+  { value = "weekly", label_key = "settings.bar_window.options.weekly" },
+  { value = "lowest", label_key = "settings.bar_window.options.lowest" },
+]
+
+[[setting]]
+key = "bar_style"
+type = "select"
+default = "full"
+label_key = "settings.bar_style.label"
+description_key = "settings.bar_style.description"
+options = [
+  { value = "full", label_key = "settings.bar_style.options.full" },
+  { value = "value", label_key = "settings.bar_style.options.value" },
+  { value = "icon", label_key = "settings.bar_style.options.icon" },
+]
+
+[[setting]]
+key = "percentage_mode"
+type = "select"
+default = "remaining"
+label_key = "settings.percentage_mode.label"
+description_key = "settings.percentage_mode.description"
+options = [
+  { value = "remaining", label_key = "settings.percentage_mode.options.remaining" },
+  { value = "used", label_key = "settings.percentage_mode.options.used" },
+]
+
+[[setting]]
+key = "show_account_names"
+type = "bool"
+default = true
+label_key = "settings.show_account_names.label"
+description_key = "settings.show_account_names.description"
+
+[[setting]]
+key = "panel_density"
+type = "select"
+default = "compact"
+label_key = "settings.panel_density.label"
+description_key = "settings.panel_density.description"
+options = [
+  { value = "compact", label_key = "settings.panel_density.options.compact" },
+  { value = "comfortable", label_key = "settings.panel_density.options.comfortable" },
+]
+
+[[setting]]
+key = "heatmap_weeks"
+type = "select"
+default = "half"
+label_key = "settings.heatmap_weeks.label"
+description_key = "settings.heatmap_weeks.description"
+options = [
+  { value = "quarter", label_key = "heatmap.weeks_13" },
+  { value = "half", label_key = "heatmap.weeks_26" },
+]
+
+[[setting]]
+key = "usage_period"
+advanced = true
+type = "select"
+default = "today"
+label_key = "settings.usage_period.label"
+description_key = "settings.usage_period.description"
+options = [
+  { value = "today", label_key = "period.today" },
+  { value = "month", label_key = "period.month" },
+  { value = "allTime", label_key = "period.all_time" },
+]
+
+[[setting]]
+key = "history_granularity"
+advanced = true
+type = "select"
+default = "daily"
+label_key = "settings.history_granularity.label"
+description_key = "settings.history_granularity.description"
+options = [
+  { value = "daily", label_key = "period.daily" },
+  { value = "monthly", label_key = "period.monthly" },
+]
+
+[[setting]]
+key = "heatmap_metric"
+advanced = true
+type = "select"
+default = "tokens"
+label_key = "settings.heatmap_metric.label"
+description_key = "settings.heatmap_metric.description"
+options = [
+  { value = "tokens", label_key = "period.tokens" },
+  { value = "cost", label_key = "period.cost" },
+  { value = "messages", label_key = "analytics.messages" },
+]
+
+[[setting]]
+key = "panel_provider"
+advanced = true
+type = "select"
+default = "all"
+label_key = "settings.panel_provider.label"
+description_key = "settings.panel_provider.description"
+options = [
+  { value = "all", label_key = "settings.panel_provider.options.all" },
+  { value = "codex", label_key = "settings.panel_provider.options.codex" },
+  { value = "deepseek", label_key = "settings.panel_provider.options.deepseek" },
+  { value = "antigravity", label_key = "settings.panel_provider.options.antigravity" },
+]
+
+[[setting]]
+key = "accounts_per_page"
+advanced = true
+type = "int"
+default = 4
+label_key = "settings.accounts_per_page.label"
+description_key = "settings.accounts_per_page.description"
+min = 1
+max = 8
+
+[[setting]]
+key = "details_per_page"
+advanced = true
+type = "int"
+default = 6
+min = 2
+max = 10
+label_key = "settings.details_per_page.label"
+description_key = "settings.details_per_page.description"
+
+[[setting]]
+key = "show_progress"
+advanced = true
+type = "bool"
+default = true
+label_key = "settings.show_progress.label"
+description_key = "settings.show_progress.description"
+
+[[setting]]
+key = "show_reset_time"
+advanced = true
+type = "bool"
+default = true
+label_key = "settings.show_reset_time.label"
+description_key = "settings.show_reset_time.description"
+
+[[setting]]
+key = "show_collection_time"
+advanced = true
+type = "bool"
+default = false
+label_key = "settings.show_collection_time.label"
+description_key = "settings.show_collection_time.description"
+
+[[setting]]
+key = "warning_threshold"
+advanced = true
+type = "int"
+default = 20
+label_key = "settings.warning_threshold.label"
+description_key = "settings.warning_threshold.description"
+min = 0
+max = 100
+
+[[setting]]
+key = "bar_show_icon"
+visible_when = { key = "bar_style", values = ["full", "value"] }
+advanced = true
+type = "bool"
+default = true
+label_key = "settings.bar_show_icon.label"
+description_key = "settings.bar_show_icon.description"
+
+[[setting]]
+key = "bar_account_index"
+advanced = true
+type = "int"
+default = 1
+label_key = "settings.bar_account_index.label"
+description_key = "settings.bar_account_index.description"
+min = 1
+max = 128
+
+[[setting]]
+key = "auto_refresh"
+type = "bool"
+default = true
+label_key = "settings.auto_refresh.label"
+description_key = "settings.auto_refresh.description"
+
+[[setting]]
+key = "refresh_interval_seconds"
+visible_when = { key = "auto_refresh", values = ["true"] }
+type = "int"
+default = 60
+min = 30
+max = 3600
+label_key = "settings.refresh_interval.label"
+description_key = "settings.refresh_interval.description"
+
+[[setting]]
+key = "refresh_on_open"
+advanced = true
+type = "bool"
+default = false
+label_key = "settings.refresh_on_open.label"
+description_key = "settings.refresh_on_open.description"
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[widget]]
+id = "bar"
+entry = "bar_widget.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 580
+height = 720
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
