@@ -1,18 +1,68 @@
 #!/usr/bin/env bash
 # Invoked via:  bash scripts/cookies.sh <fn> <args...>
 
+# Returns the name of the first executable found among the candidates, or
+# nothing when none is installed. A single name per browser is not enough:
+# packagers rename the binary (Brave Origin ships `brave-origin`, Zen ships
+# `zen-browser`) and Flatpak installations only expose their app id in
+# /var/lib/flatpak/exports/bin (for example `app.zen_browser.zen`).
+first_cmd() {
+  local c
+  for c in "$@"; do
+    command -v "$c" >/dev/null 2>&1 && { printf '%s\n' "$c"; return 0; }
+  done
+  return 1
+}
+
+# Locates the Zen profile (Firefox based) that holds the YouTube cookies.
+# The profile actually in use is the one `[Install*] Default=` points at, not
+# the `Default=1` flag in `[Profile*]`, which can be a leftover empty profile.
+# Native and Flatpak locations are both tried.
+zen_profile_dir() {
+  local root ini p d
+  for root in "${XDG_CONFIG_HOME:-$HOME/.config}/zen" "$HOME/.zen" "$HOME/.var/app/app.zen_browser.zen/.zen"; do
+    ini="$root/profiles.ini"
+    if [ -f "$ini" ]; then
+      p=$(awk -F= '
+        /^\[Install/ {want=1; next}
+        /^\[/        {want=0}
+        want && $1 == "Default" {print $2}
+      ' "$ini" | tail -n1)
+      if [ -z "$p" ]; then
+        p=$(awk -F= '
+          /^\[Profile/ {want=1; path=""; next}
+          /^\[/        {want=0}
+          want && $1 == "Path" {path = substr($0, index($0, "=") + 1)}
+          want && $1 == "Default" && $2 ~ /^1$/ {print path}
+        ' "$ini" | tail -n1)
+      fi
+      case "$p" in
+        /*) : ;;
+        *)  [ -n "$p" ] && p="$root/$p" ;;
+      esac
+      [ -n "$p" ] && [ -f "$p/cookies.sqlite" ] && { printf '%s\n' "$p"; return 0; }
+    fi
+    # profiles.ini missing or pointing at a profile without cookies: fall back
+    # to the first profile in this root that does have a cookie database.
+    for d in "$root"/*/; do
+      [ -f "${d}cookies.sqlite" ] && { printf '%s\n' "${d%/}"; return 0; }
+    done
+  done
+  return 1
+}
+
 open_browser() {   # $1=browser id
   local b="$1"
   case "$b" in
-    chrome)   B="google-chrome"; command -v google-chrome-stable >/dev/null 2>&1 && B="google-chrome-stable" ;;
-    chromium) B="chromium" ;;
-    firefox)  B="firefox" ;;
-    edge)     B="microsoft-edge" ;;
-    brave)    B="brave-browser"; command -v brave >/dev/null 2>&1 && B="brave" ;;
-    opera)    B="opera" ;;
-    vivaldi)  B="vivaldi" ;;
-    whale)    B="whale" ;;
-    zen)      B="zen" ;;
+    chrome)   B="$(first_cmd google-chrome-stable google-chrome)" ;;
+    chromium) B="$(first_cmd chromium)" ;;
+    firefox)  B="$(first_cmd firefox org.mozilla.firefox)" ;;
+    edge)     B="$(first_cmd microsoft-edge)" ;;
+    brave)    B="$(first_cmd brave-browser brave brave-origin)" ;;
+    opera)    B="$(first_cmd opera)" ;;
+    vivaldi)  B="$(first_cmd vivaldi)" ;;
+    whale)    B="$(first_cmd whale)" ;;
+    zen)      B="$(first_cmd zen zen-browser app.zen_browser.zen)" ;;
     *)        B="" ;;
   esac
   local cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/yt-music/profiles/$b"
@@ -111,24 +161,32 @@ extract_cookies() {   # $1=browser id
     rm -rf "${XDG_CACHE_HOME:-$HOME/.cache}/yt-music/profiles/$browser" 2>/dev/null
   else
     if [ "$browser" = "zen" ]; then
-      ZEN_P=$(awk -F= '/^Path=/{p=substr($0,6)} /^Default=1/{print p; exit}' "$HOME/.zen/profiles.ini" 2>/dev/null)
-      if [ -z "$ZEN_P" ]; then
-        for d in "$HOME/.zen"/*/; do
-          [ -d "$d" ] && [ -f "${d}places.sqlite" ] && { ZEN_P=$(basename "$d"); break; }
-        done
+      ZEN_P=$(zen_profile_dir)
+      if [ -n "$ZEN_P" ]; then
+        CFB="firefox:$ZEN_P"
+      else
+        # No profile: bail out instead of running yt-dlp with an invalid spec
+        # and truncating a cookie file that may still be working.
+        CFB=""
+        no_profile=1
+        logger -t "ytm/cookies" "[ytm/cookies] no Zen profile with cookies.sqlite found"
       fi
-      case "$ZEN_P" in
-        /*) CFB="firefox:$ZEN_P" ;;
-        *)  CFB="firefox:$HOME/.zen/$ZEN_P" ;;
-      esac
     else
       CFB="$browser"
     fi
-    LOG=$(timeout 45 yt-dlp --cookies-from-browser "$CFB" --cookies "$RAW" --skip-download --no-warnings --no-playlist "https://music.youtube.com" 2>&1 | tr '\n' ' ')
-    grep -iE '^#|(youtube\.com|youtu\.be|youtube-nocookie\.com|ytimg\.com|googlevideo\.com|yt\.be|youtubeeducation\.com)' "$RAW" > "$OUT" 2>/dev/null
+    if [ -z "$CFB" ]; then
+      LOG="No Zen profile found. Looked in ~/.config/zen, ~/.zen and the Flatpak profile directory"
+    else
+      LOG=$(timeout 45 yt-dlp --cookies-from-browser "$CFB" --cookies "$RAW" --skip-download --no-warnings --no-playlist "https://music.youtube.com" 2>&1 | tr '\n' ' ')
+      grep -iE '^#|(youtube\.com|youtu\.be|youtube-nocookie\.com|ytimg\.com|googlevideo\.com|yt\.be|youtubeeducation\.com)' "$RAW" > "$OUT" 2>/dev/null
+    fi
   fi
   TOTAL=$(grep -vc '^#' "$RAW" 2>/dev/null || echo 0)
-  KEPT=$(grep -vc '^#' "$OUT" 2>/dev/null || echo 0)
+  if [ "${no_profile:-0}" -eq 1 ]; then
+    KEPT=0
+  else
+    KEPT=$(grep -vc '^#' "$OUT" 2>/dev/null || echo 0)
+  fi
   rm -rf "$TMPD"
   echo "DIR=$OUT_DIR"
   echo "RAW=$RAW"
@@ -155,21 +213,21 @@ load_cached_cookies() {
 }
 
 detect_browsers() {
-  check() {   # $1=browser_id $2=binary1 $3=binary2
-    local id="$1" b1="$2" b2="${3:-$2}"
-    if command -v "$b1" >/dev/null 2>&1 || command -v "$b2" >/dev/null 2>&1; then
+  check() {   # $1=browser_id, every other argument is a binary name or Flatpak app id
+    local id="$1"; shift
+    if first_cmd "$@" >/dev/null; then
       echo "FOUND=$id"
     fi
   }
-  check chrome google-chrome google-chrome-stable
+  check chrome google-chrome-stable google-chrome
   check chromium chromium
-  check firefox firefox
+  check firefox firefox org.mozilla.firefox
   check edge microsoft-edge
-  check brave brave-browser brave
+  check brave brave-browser brave brave-origin
   check opera opera
   check vivaldi vivaldi
   check whale whale
-  check zen zen
+  check zen zen zen-browser app.zen_browser.zen
   echo "DONE=1"
 }
 
