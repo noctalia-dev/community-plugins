@@ -82,10 +82,7 @@ DeepSeek and Antigravity retain U+E001 and U+E002. The reviewed static mapping
 is `lib/providers.luau`; both the filename and family include a source fingerprint. Noctalia caches
 registered fonts by path, so changing only the family does not refresh an
 already registered file. A new filename distinguishes changed font content
-during plugin updates. A separate unresolved runtime font-state issue has been
-observed on Noctalia 5.3.0; see [validation](../VALIDATION.md#known-unresolved-icon-issue).
-The plugin loads the
-bundled font through Noctalia's process-local `loadFont` API. No runtime asset
+during plugin updates. The plugin loads the bundled font through Noctalia's process-local `loadFont` API. No runtime asset
 download, font installation, generation, dependency or extra write is needed.
 
 Regenerate with Python and `fontTools`:

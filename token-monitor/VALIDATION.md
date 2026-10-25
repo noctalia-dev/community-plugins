@@ -20,8 +20,7 @@ Token Monitor 0.68.0 supplies the read-only Hub contract.
   names and pin selection. Font family and filename are versioned for reload.
 - Local Hyprland testing reads the user's configured Hub without triggering
   provider collection. The automated real-Hub probe retains counts/errors and
-  disables screenshots. A separate private visual diagnostic captured only the
-  provider-icon region, excluding account names and usage values.
+  disables screenshots.
 - The public screenshot contains synthetic history. The 960×540 WebP thumbnail
   was exported using the official Noctalia thumbnail generator.
 
@@ -61,22 +60,6 @@ Same-date activity selection now matches the heatmap's last-record-wins rule.
 English keys use the community catalog's lowercase convention. The reviewed
 provider mapping is static data; the development tool verifies that mapping
 and builds only the font from the included, pinned SVG sources.
-
-## Known unresolved icon issue
-
-One long-running Noctalia 5.3.0 Hyprland process displayed provider glyphs as
-squares while native control icons worked. The font matched the submitted
-asset byte-for-byte and `noctalia.loadFont()` returned the expected family.
-Disabling and re-enabling the plugin did not recover the icons. Restarting the
-existing Noctalia service restored the brand rendering and font mapping, with
-the same plugin files, settings, enabled IDs and pinned selection.
-
-The isolated native provider suite passed for all 29 provider IDs and three
-adapter variants. A separate same-process fixture kept visible glyphs unchanged
-across atomic plugin-directory replacement, configuration reload and
-disable/enable. The trigger was not reproduced; no claim of a root-cause fix or
-guaranteed non-recurrence is made. Private desktop crops and machine-specific
-diagnostic logs are excluded from the submission.
 
 ## Reproduce
 

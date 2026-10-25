@@ -188,13 +188,6 @@ Only point the plugin at a Hub you trust. Use HTTPS for remote network paths.
   the configured Hub. If History succeeds but the chart has no records, the
   Hub may not have recorded data for that period; changing the heatmap metric
   or time range cannot create missing history.
-- **Provider icons appear as squares:** this was observed in one running
-  Noctalia 5.3.0 session while settings and refresh icons still worked. Restarting
-  Noctalia through the session's usual startup method restored the brand icons;
-  re-enabling the plugin alone did not. The bundled font was valid and unchanged.
-  The trigger remains unknown and did not recur in isolated startup, plugin
-  update, configuration reload or disable/enable checks. This is a recovery
-  procedure, not a confirmed root-cause fix. No system font installation is needed.
 
 Once enabled, open the panel or refresh through Noctalia IPC:
 

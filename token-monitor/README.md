@@ -149,8 +149,5 @@ noctalia msg plugin shangshui0302/token-monitor:panel all view activity
   [API coverage and limitations](docs/hub-api-assessment.md) describe the contract.
 - English strings ship in `translations/en.json`; additional languages use
   Noctalia Translate's human review/export workflow.
-- Known issue: provider icons appeared as squares in one running Noctalia 5.3.0
-  session and recovered after restarting Noctalia. The trigger remains unknown;
-  see [icon troubleshooting](docs/guide.md#troubleshooting).
 
 For contributing and repeatable checks, see [validation](VALIDATION.md).
