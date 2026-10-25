@@ -1,0 +1,43 @@
+id           = "arthur/loq-rgb"
+name         = "LOQ RGB"
+version      = "1.0.0"
+author       = "arthur"
+license      = "MIT"
+icon         = "keyboard"
+description  = "RGB lighting for Lenovo LOQ and other HID LampArray keyboards: palette sync, gradients, per-zone colors."
+deprecated   = false
+plugin_api   = 32
+tags         = ["bar", "panel", "service", "hardware", "theming"]
+dependencies = ["python3"]
+
+[[setting]]
+key             = "transition_ms"
+type            = "int"
+label_key       = "settings.transition.label"
+description_key = "settings.transition.description"
+default         = 350
+min             = 0
+max             = 2000
+
+[[service]]
+id    = "service"
+entry = "service.luau"
+
+[[widget]]
+id    = "rgb"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key       = "show_label"
+  type      = "bool"
+  label_key = "settings.show_label.label"
+  default   = false
+
+[[panel]]
+id              = "panel"
+entry           = "panel.luau"
+width           = 420
+height          = 640
+placement       = "floating"
+position        = "auto"
+open_near_click = true
