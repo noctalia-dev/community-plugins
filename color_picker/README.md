@@ -1,6 +1,6 @@
 # Color Picker
 
-<img src="thumbnail.webp" alt="Color Picker Thumbnail" width="720" />
+![Color Picker Thumbnail](thumbnail.webp)
 
 ---
 
@@ -22,7 +22,7 @@ A screen color picker for Noctalia v5. Pick any pixel on your screen with [hyprp
 
 ## Requirements
 
-This plugin requires **hyprpicker** OR **grim + slurp** to function. Ensure you have installed your preferred tool and selected it in the plugin settings (`picker_tool`).
+This plugin requires `hyprpicker` OR `grim` + `slurp` to function. Ensure you have installed your preferred tool and selected it in the plugin settings (`picker_tool`).
 
 | Backend | Notes |
 | ------- | ----- |
