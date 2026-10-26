@@ -6,6 +6,7 @@ author = "AnkitKumar"
 license = "GPL-3.0-or-later"
 icon = "book"
 tags = ["desktop", "utility"]
+dependencies = []
 description = "A customizable Bhagavad Gita verse desktop widget."
 
 [[desktop_widget]]
