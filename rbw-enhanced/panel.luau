@@ -32,7 +32,7 @@ local GLYPHS = {
   stopped = { "lock", "on_surface/0.6" },
   expired = { "lock-exclamation", "error" },
   ["logged-out"] = { "lock-off", "error" },
-  ["not-installed"] = { "lock-off", "outline" },
+  ["not-installed"] = { "lock-off", "outline_variant" },
   error = { "alert-triangle", "error" },
 }
 
@@ -76,7 +76,7 @@ local CHIP = {
 }
 
 local function chip(state)
-  local c = CHIP[state] or { "surface_variant", "on_surface/0.8" }
+  local c = CHIP[state] or { "surface_container", "on_surface/0.8" }
   return ui.row({ padding = 4, radius = 8, fill = c[1] }, {
     ui.label({ text = tr(`state.{state}`), fontSize = 11, fontWeight = "bold", color = c[2] }),
   })
@@ -104,7 +104,7 @@ local function header()
     table.insert(lines, ui.label({ text = syncedText(), fontSize = 11, color = "on_surface/0.6" }))
   end
   return ui.row({ gap = 12, align = "center" }, {
-    ui.column({ width = 44, height = 44, radius = 22, fill = "surface_variant", align = "center", justify = "center" }, {
+    ui.column({ width = 44, height = 44, radius = 22, fill = "surface_container", align = "center", justify = "center" }, {
       ui.glyph({ name = g[1], size = 22, color = g[2] }),
     }),
     ui.column({ gap = 2, flexGrow = 1 }, lines),
@@ -128,7 +128,7 @@ local function securityBox()
       ui.label({ text = text, fontSize = 11, color = "on_surface/0.8", maxLines = 2, flexGrow = 1 }),
     })
   end
-  return ui.column({ gap = 6, padding = 10, radius = 10, fill = "surface_variant/0.5" }, {
+  return ui.column({ gap = 6, padding = 10, radius = 10, fill = "surface_container/0.5" }, {
     row("key", unlock),
     row("terminal-2", tr(snapshot.tuiAuth and "panel.tui-auth" or "panel.tui-open")),
   })

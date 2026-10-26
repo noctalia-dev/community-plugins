@@ -13,6 +13,8 @@ click to unlock, lock, sync or open the vault in `rbw tui`.
 
 ## Requirements
 
+Noctalia 5.4.0 or later (plugin API 43).
+
 Install rbw-enhanced (AUR: `rbw-enhanced`, source: [rylos/rbw](https://github.com/rylos/rbw)), which provides the
 `rbw` command, on `PATH` (or set its path in the plugin settings). The plugin needs `rbw status --json` and `rbw tui`:
 the upstream rbw doesn't have them, and the panel then says so.

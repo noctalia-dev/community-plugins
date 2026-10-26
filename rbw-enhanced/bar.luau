@@ -12,7 +12,7 @@ local LOOK = {
   stopped = { glyph = "lock", color = "on_surface/0.5" },
   expired = { glyph = "lock-exclamation", color = "error" },
   ["logged-out"] = { glyph = "lock-off", color = "error" },
-  ["not-installed"] = { glyph = "lock-off", color = "outline" },
+  ["not-installed"] = { glyph = "lock-off", color = "outline_variant" },
   error = { glyph = "alert-triangle", color = "error" },
 }
 

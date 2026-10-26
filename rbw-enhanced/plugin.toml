@@ -7,7 +7,7 @@
 id = "rylos/rbw-enhanced"
 name = "rbw-enhanced"
 version = "1.1.2"
-plugin_api = 34
+plugin_api = 43
 author = "Marco Ziliani"
 license = "MIT"
 dependencies = ["rbw"]
