@@ -25,8 +25,9 @@ settings and a small number of IPC events.
 
 ## Requirements
 
-- **Noctalia** (the plugin's declared dependency, `noctalia`) at plugin API 24
-  or newer — Noctalia v5.0.0-beta.9+. The plugin shells out to `noctalia msg`
+- **Noctalia** (the plugin's declared dependency, `noctalia`) at plugin API 43
+  or newer — the `container-color-roles` level (landed upstream after
+  v5.3.0; use a recent git build). The plugin shells out to `noctalia msg`
   (with an argv table, no shell interpolation) for `status`, `brightness-set`,
   `keyboard-backlight-set` and `config-reload`; the `keyboard-backlight-set` IPC
   the keyboard feature drives arrived in v5.0.0-beta.4. The idle handshake
