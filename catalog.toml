@@ -1253,8 +1253,8 @@ tags = ["panel", "fun", "network", "privacy", "productivity", "utility"]
 [[plugin]]
 id = "alexander/screen-toolkit"
 name = "Screen Toolkit"
-version = "2.0.1"
-updated_at = 1792983494
+version = "2.1.0"
+updated_at = 1793025654
 added_at = 1785759728
 author = "alexander"
 license = "MIT"
@@ -2002,8 +2002,8 @@ tags = ["desktop", "clock", "time", "utility"]
 [[plugin]]
 id = "icefish/phone-operate"
 name = "Phone Operate"
-version = "1.0.3"
-updated_at = 1792983494
+version = "1.0.4"
+updated_at = 1793025854
 added_at = 1787152852
 author = "icefish"
 license = "MIT"
@@ -3506,8 +3506,8 @@ rev = "a2a071ba481c14bd9a9d3fba664ee4cc9cb517e6"
 [[plugin]]
 id = "strob3/dnf-updater"
 name = "DNF Updater"
-version = "1.0.4"
-updated_at = 1792983494
+version = "1.1.0"
+updated_at = 1793026477
 added_at = 1789909893
 author = "strob3"
 license = "MIT"

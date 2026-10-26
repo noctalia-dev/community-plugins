@@ -16,7 +16,7 @@ not the original implementation.
 | Field | Value |
 | --- | --- |
 | ID | `alexander/screen-toolkit` |
-| Entries | Bar widget: `widget`; control-center shortcut: `toggle`; panels: `panel` (tools, reused by every tool + layout), `result` (result view, reused by every result); service: `service` |
+| Entries | Bar widget: `widget`; control-center shortcut: `toggle`; panels: `panel` (tools, reused by every tool + layout), `result` (result view, reused by every result), `pick` (Umbriel window picker); service: `service` |
 
 ## Requirements
 
@@ -49,15 +49,19 @@ Optional:
 - **`translate-shell`** (`trans`) — OCR translation
 - **`hyprctl`** — window geometry for Annotate Window snapping (Hyprland)
 - **`niri`** — Annotate Window on Niri captures the focused window
-- **`umbriel`** — Annotate Window on Umbriel captures the focused window (slurp can't run there, so no click-to-pick)
+- **`umbriel`** — Annotate Window on Umbriel shows a window picker
 
 Screenshots and annotation use the shell's own screenshot stack
-(`screenshot-region`, `screenshot-fullscreen`, `annotate`), so captures land
-in the shell's screenshot directory with its filename pattern. `Annotate
-Window` — click a window and it snaps to that window's geometry for capture
-(Hyprland). Umbriel shows a window picker instead, since slurp can't pick
-a point there (Niri captures the focused window). Anywhere else it falls
-back to dragging a region.
+(`screenshot-region`, `screenshot-fullscreen`, `annotate`). On Noctalia
+builds with per-call screenshot options, every intermediate capture (OCR,
+QR, palette, Lens, measure, and the raw frame behind Markup) is forced into
+a plugin-owned temporary file — no clipboard copy, no annotation editor, and
+nothing in your screenshots folder — so these tools work even with file
+saving disabled in Settings → Screenshot. On older builds the plugin falls
+back to the shell's global capture policy (file saving must be enabled) and
+moves the file out of the screenshots folder afterwards. `Annotate Window`
+snaps to the clicked window on Hyprland. Umbriel shows a window picker,
+Niri captures the focused window, and other compositors fall back to a region.
 
 ## Usage
 
@@ -108,6 +112,13 @@ Open the result panel (single entry, reused for every tool output):
 noctalia msg panel-toggle alexander/screen-toolkit:result
 ```
 
+The Umbriel window picker is normally populated and opened by **Markup Window**.
+Its panel IPC command is:
+
+```sh
+noctalia msg panel-toggle alexander/screen-toolkit:pick
+```
+
 The tools panel contains the capture actions. When a capture tool finishes, a
 **result panel** opens with the output and its actions; close it to return to
 the tools panel.
@@ -129,13 +140,16 @@ gpu-screen-recorder and wl-screenrec receive their corresponding cursor
 options. wf-recorder does not expose a portable cursor flag, so its behavior
 depends on the compositor.
 
-- **Markup** captures the region and opens it in the shell's annotation
-  editor; Copy and Save deliver the annotated PNG per the shell's screenshot
-  policy. **Markup FS** captures the focused monitor. **Markup Window** snaps
-  to the clicked window and captures it (Hyprland; Umbriel shows a window
-  picker instead, Niri captures the focused window). Any other compositor
-  falls back to dragging a region, since Wayland itself has no window-query
-  API.
+- **Markup** captures the region into a temporary file and opens it in the
+  shell's annotation editor; Copy and Save deliver the annotated PNG per the
+  shell's screenshot policy, so only what you explicitly keep leaves a file
+  behind. Enable **Keep Raw Markup Captures** to also save the un-annotated
+  capture to your screenshots folder (the v2.0 behavior). This setting applies
+  to region and fullscreen captures. **Markup FS** captures the focused monitor.
+  **Markup Window** snaps to the clicked window (Hyprland), shows a window
+  picker (Umbriel), or captures the focused window (Niri). Other compositors
+  fall back to a region. The uncropped monitor frame used for window crops
+  is always temporary and never kept.
 - **Measure** reports the region's pixel size and copies it to the clipboard.
 - **OCR** extracts text and copies it to the clipboard. The result includes the
   capture preview and an editable multiline text area, so you can correct, trim,
@@ -151,10 +165,10 @@ depends on the compositor.
 
 Results are delivered to the clipboard with a notification — the panel itself
 only holds the tools. Results persist across restarts in the plugin's data
-directory. Captures land in the shell's screenshot directory and persist —
-except for the text-only tools (OCR, QR, Palette, Measure, Lens), which work
-off a temp copy and delete the screenshot right away, so they leave no file
-behind. Window crops and recording thumbnails live in `/tmp`.
+directory. Intermediate captures (text-only tools and markup raws) go
+straight to a temporary file, so nothing is left in your screenshots folder;
+with **Keep Raw Markup Captures** on, markup raws are saved there. Window
+crops and recording thumbnails live in `/tmp`.
 
 ## Settings
 
@@ -168,6 +182,7 @@ All settings live in Settings → Plugins (gear on the plugin's row).
 | `x02-api-key` | `string` | *(empty)* | up.x02.me key for longer-lived, larger uploads. |
 | `x02-expiry` | `select` | `7d` | Link lifetime when an x02 key is set: `1h`, `1d`, `7d`, `30d`, or `permanent`. |
 | `share-skip-popover` | `bool` | `false` | Compatibility setting retained from v4. The v5 result panel copies share links directly. |
+| `annotate-keep-raw` | `bool` | `false` | Save the un-annotated capture to the screenshots folder before the annotation editor opens. Off by default: the raw stays in a temporary file and only the editor's Copy / Save output is kept. |
 | `record-audio-out` | `bool` | `false` | Record the desktop's audio output. |
 | `record-audio-in` | `bool` | `false` | Record the default microphone. |
 | `hide-cursor` | `bool` | `true` | Exclude the cursor from recordings. Screenshots follow the shell's screenshot cursor setting. |
@@ -275,11 +290,39 @@ Summary of every service command:
   follows its own source selection.
 - Region coordinates are captured in physical pixels; `recordFullscreen`
   multiplies the focused output's logical geometry by its scale.
+- Intermediate captures (OCR, QR, palette, Lens, measure, markup raws, and
+  the monitor frame behind Markup Window) never touch your screenshots
+  folder on Noctalia builds with per-call screenshot options: they are
+  forced into a temporary directory under `$TMPDIR` (stale captures older
+  than a day are pruned automatically). On older builds the plugin falls
+  back to the shell's global capture policy — file saving must be enabled
+  there — and moves the picked-up file to a temporary one immediately after.
+  Your own `screenshot-region` / `screenshot-fullscreen` keybinds are never
+  affected.
+- Per-call intermediate captures disable region confirmation so its Copy
+  action cannot replace the required file output with a clipboard image.
+  Region captures use Noctalia's `-region` filename suffix. Keep Raw resolves
+  the merged shell configuration and uses the XDG Pictures directory when
+  the screenshot directory is empty.
+- The current screenshot IPC acknowledges launch, without reporting when
+  selection finishes or is cancelled. Region selection must complete within
+  the capture script's roughly ten-second file-pickup window (five seconds
+  on the legacy path). Cancelling can therefore show the no-file hint after
+  that window; reliable cancellation handling needs host IPC support.
 - Files are written to your configured screenshot/video directories and the
   plugin's persistent data directory (state, color history). Captures in `/tmp`
   are transient.
 - Network calls: Google Lens upload (uguu.se), share uploads (uguu.se or
   up.x02.me), and `xdg-open` for search/URL results.
+
+## Development checks
+
+Run `python3 -m unittest discover -s screen-toolkit/tests -v` from the
+repository root. These regression tests run the real capture script and
+ImageMagick against simulated Noctalia IPC, covering filename suffixes,
+annotation handoff, output routing, directory resolution, and legacy fallback.
+They do not replace a live capture and annotation test on a Noctalia build
+with per-call screenshot options.
 
 ## License
 

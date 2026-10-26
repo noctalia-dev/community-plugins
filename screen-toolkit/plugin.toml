@@ -8,7 +8,7 @@
 
 id = "alexander/screen-toolkit"
 name = "Screen Toolkit"
-version = "2.0.1"
+version = "2.1.0"
 plugin_api = 43
 author = "alexander"
 license = "MIT"
@@ -133,6 +133,13 @@ key = "share-skip-popover"
 type = "bool"
 label_key = "settings.share_skip_popover.label"
 description_key = "settings.share_skip_popover.description"
+default = false
+
+[[setting]]
+key = "annotate-keep-raw"
+type = "bool"
+label_key = "settings.annotate_keep_raw.label"
+description_key = "settings.annotate_keep_raw.description"
 default = false
 
 [[setting]]

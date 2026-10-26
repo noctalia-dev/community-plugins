@@ -1,6 +1,6 @@
 id = "icefish/phone-operate"
 name = "Phone Operate"
-version = "1.0.3"
+version = "1.0.4"
 plugin_api = 43
 author = "icefish"
 license = "MIT"

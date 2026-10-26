@@ -10,13 +10,17 @@
 --
 -- Screen captures go through the shell's own screenshot stack
 -- (`screenshot-region` / `screenshot-fullscreen` via `noctalia msg`), which
--- owns the output policy under [shell.screenshot]. Pixel work (OCR, QR,
--- palette, Lens uploads, window crops) runs over the picked-up file with
--- `tesseract` / `zbarimg` / `magick` / `curl`. Annotation opens the shell's
--- own editor (`annotate <file>`); the window capture lets you click one and
--- snaps to it with `hyprctl` (or takes the focused one on `niri`). Other
--- compositors fall back to a manual region: Wayland itself offers no
--- window-query API. Only region *recording* still uses
+-- owns the output policy under [shell.screenshot]. Intermediate captures
+-- (OCR, QR, palette, Lens, measure, markup raws) are captured straight into
+-- a plugin-owned temp file via per-call screenshot options, so they work
+-- with file saving disabled and never touch the screenshots folder; older
+-- shells fall back to the user's policy and move the file out (see
+-- shell-capture.sh). Pixel work (OCR, QR, palette, Lens uploads, window
+-- crops) runs over that file with `tesseract` / `zbarimg` / `magick` /
+-- `curl`. Annotation opens the shell's own editor (`annotate <file>`); the
+-- window capture lets you click one and snaps to it with `hyprctl` (or
+-- takes the focused one on `niri`). Other compositors fall back to a
+-- manual region; Umbriel uses its window picker. Only region *recording* uses
 -- `slurp`, to get a geometry for the external recorder backends.
 --
 -- Recording runs `wl-screenrec` (preferred) or `wf-recorder`. The raw output
@@ -193,30 +197,11 @@ local function shellCapture(argv, timeout, onFile)
   end, timeout)
 end
 
--- Same as shellCapture, but the screenshot is moved to a temp copy and the
--- original is deleted right away: text-only tools (OCR/QR/palette/measure/
--- lens) only need the pixels, not a file in the screenshots folder. Annotate
--- and record flows keep using shellCapture — their file is the deliverable.
-local tmpCaptureSerial = 0
-local function shellCaptureTemp(argv, timeout, onFile)
-  shellCapture(argv, timeout, function(path)
-    if path == "" then
-      onFile("")
-      return
-    end
-    tmpCaptureSerial = tmpCaptureSerial + 1
-    local tmp = string.format("/tmp/st-capture-%d-%d.png", os.time(), tmpCaptureSerial)
-    noctalia.runAsync({ "cp", path, tmp }, function(res)
-      if (res.exitCode or 1) ~= 0 then
-        noctalia.notifyError(noctalia.tr("messages.capture_failed"))
-        return
-      end
-      noctalia.runAsync({ "rm", "-f", path }, function()
-        onFile(tmp)
-      end, 15000)
-    end, 15000)
-  end)
-end
+-- Capture actions ending in "-tmp" (see shell-capture.sh) already deliver a
+-- plugin-owned temp file, so text-only tools (OCR/QR/palette/measure/lens)
+-- and markup raws call them directly: nothing is ever written to the
+-- screenshots folder. Annotate's `edit` handoff and the record flows keep
+-- plain shellCapture — their file is the deliverable.
 
 -- Opens a file in the shell's annotation editor. Silent when the editor
 -- takes it; surfaces failures instead of dying quietly.
@@ -390,7 +375,7 @@ local function runOcr()
     noctalia.notify(noctalia.tr("panel.running"))
     return
   end
-  shellCaptureTemp({ SCRIPT_SHELL, "region-file" }, SHELL_TIMEOUT_INTERACTIVE, function(path)
+  shellCapture({ SCRIPT_SHELL, "region-tmp" }, SHELL_TIMEOUT_INTERACTIVE, function(path)
     ocrRunning = true
     ocrSerial = ocrSerial + 1
     local serial = ocrSerial
@@ -520,7 +505,7 @@ end
 -- ── Tools: QR / palette / lens ─────────────────────────────────────────────
 
 local function runQr()
-  shellCaptureTemp({ SCRIPT_SHELL, "region-file" }, SHELL_TIMEOUT_INTERACTIVE, function(path)
+  shellCapture({ SCRIPT_SHELL, "region-tmp" }, SHELL_TIMEOUT_INTERACTIVE, function(path)
     noctalia.runAsync({ SCRIPT_CAPTURE, "qr", path }, function(res)
       local text = trim(res.stdout or "")
       if res.exitCode ~= 0 or text == "" then
@@ -537,7 +522,7 @@ local function runQr()
 end
 
 local function runPalette()
-  shellCaptureTemp({ SCRIPT_SHELL, "region-file" }, SHELL_TIMEOUT_INTERACTIVE, function(path)
+  shellCapture({ SCRIPT_SHELL, "region-tmp" }, SHELL_TIMEOUT_INTERACTIVE, function(path)
     noctalia.runAsync({ SCRIPT_CAPTURE, "palette", path }, function(res)
       if res.exitCode ~= 0 then
         noctalia.notifyError(noctalia.tr("messages.palette_failed"))
@@ -572,7 +557,7 @@ local function runPalette()
 end
 
 local function runLens()
-  shellCaptureTemp({ SCRIPT_SHELL, "region-file" }, SHELL_TIMEOUT_INTERACTIVE, function(path)
+  shellCapture({ SCRIPT_SHELL, "region-tmp" }, SHELL_TIMEOUT_INTERACTIVE, function(path)
     noctalia.runAsync({ SCRIPT_LENS, path }, function(res)
       if res.exitCode == 1 then
         noctalia.notifyError(noctalia.tr("messages.missing_dep", { dep = trim(res.stdout or "") }))
@@ -586,7 +571,7 @@ end
 -- ── Tools: measure ─────────────────────────────────────────────────────────
 
 local function runMeasure()
-  shellCaptureTemp({ SCRIPT_SHELL, "region-file" }, SHELL_TIMEOUT_INTERACTIVE, function(path)
+  shellCapture({ SCRIPT_SHELL, "region-tmp" }, SHELL_TIMEOUT_INTERACTIVE, function(path)
     noctalia.runAsync({ "magick", "identify", "-format", "%w %h", path }, function(res)
       local sw, sh = tostring(res.stdout or ""):match("(%d+)%s+(%d+)")
       local gw, gh = tonumber(sw), tonumber(sh)
@@ -610,12 +595,23 @@ local function afterAnnotate(path)
   saveResults()
 end
 
+-- Markup: capture + editor handoff. With "annotate-keep-raw" off (default)
+-- the raw capture stays in a plugin-owned temp file and only the editor's
+-- Copy / Save output reaches the user's outputs; with it on, the raw is
+-- kept in the shell's screenshot folder (v2.0 behavior).
+local function annotateArgv(action)
+  if cfg("annotate-keep-raw") == true then
+    return { SCRIPT_SHELL, action, "keep" }
+  end
+  return { SCRIPT_SHELL, action }
+end
+
 local function annotateRegion()
-  shellCapture({ SCRIPT_SHELL, "annotate-region" }, SHELL_TIMEOUT_INTERACTIVE, afterAnnotate)
+  shellCapture(annotateArgv("annotate-region"), SHELL_TIMEOUT_INTERACTIVE, afterAnnotate)
 end
 
 local function annotateFullscreen()
-  shellCapture({ SCRIPT_SHELL, "annotate-fullscreen" }, SHELL_TIMEOUT_QUICK, afterAnnotate)
+  shellCapture(annotateArgv("annotate-fullscreen"), SHELL_TIMEOUT_QUICK, afterAnnotate)
 end
 
 local function annotateWindow()

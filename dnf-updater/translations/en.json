@@ -1,6 +1,7 @@
 {
   "actions": {
     "check_now": "Check Now",
+    "clear_search": "Clear",
     "close": "Close",
     "collapse": "Collapse section",
     "deselect_all": "Deselect all",
@@ -8,6 +9,7 @@
     "expand": "Expand section",
     "include_pkg": "Include in update",
     "open_settings": "Settings",
+    "search_placeholder": "Search packages…",
     "select_all": "Select all",
     "update_all": "Update All",
     "update_all_size": "Update All ({count} · {size})",
@@ -44,13 +46,13 @@
       "description": "Check for and manage Flatpak application updates.",
       "label": "Enable Flatpak"
     },
-    "glyph": {
-      "description": "Icon glyph to display in the Noctalia bar widget.",
-      "label": "Widget Icon"
-    },
     "include_flatpak_runtimes": {
       "description": "Include Flatpak runtime and extension updates alongside applications.",
       "label": "Include Flatpak Runtimes"
+    },
+    "glyph": {
+      "description": "Icon glyph to display in the Noctalia bar widget.",
+      "label": "Widget Icon"
     },
     "notify_on_updates": {
       "description": "Send a desktop notification when new pending updates are found.",
@@ -79,10 +81,21 @@
     "flatpak_idle": "Flatpak idle",
     "flatpak_updating": "Updating Flatpak…",
     "flatpak_waiting": "Flatpak waiting…",
-    "last_checked": "Last checked: {time}",
+    "last_checked": "Last check {time}",
+    "last_update": "last update {time}",
     "never_checked": "Never checked",
+    "reboot_required": "Restart required to complete updates",
     "skipped": "Skipped",
     "updating": "Updating packages…"
+  },
+  "search": {
+    "no_matches": "No packages match \"{query}\""
+  },
+  "ago": {
+    "days": "{n} d ago",
+    "hours": "{n} h ago",
+    "minutes": "{n} min ago",
+    "now": "just now"
   },
   "summary": {
     "disk_size": "Disk Size",
@@ -91,6 +104,7 @@
     "flatpak": "Flatpak",
     "last_checked": "Last Checked",
     "storage": "Storage",
+    "system": "System",
     "total": "Total"
   },
   "title": "DNF Updater",

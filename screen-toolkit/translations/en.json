@@ -87,6 +87,10 @@
   },
   "plugin_name": "Screen Toolkit",
   "settings": {
+    "annotate_keep_raw": {
+      "description": "Save the un-annotated capture to the shell's screenshot folder before the annotation editor opens. Off by default: the raw capture stays in a temporary file and only what you copy or save from the editor reaches your outputs.",
+      "label": "Keep Raw Markup Captures"
+    },
     "filename_format": {
       "description": "Template for generated filenames. Extension is added automatically. Tokens: %Y %m %d %H %M %S.",
       "label": "Filename Format"

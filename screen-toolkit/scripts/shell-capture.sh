@@ -8,7 +8,9 @@
 #
 # Actions:
 #   region-file                — interactive region capture; stdout: file path
+#   region-tmp                 — region capture into a plugin-owned temp file
 #   fullscreen-file            — capture the focused monitor; stdout: file path
+#   fullscreen-tmp             — fullscreen capture into a plugin-owned temp file
 #   window-file                — click a window and snap to its geometry
 #                                (Hyprland), or capture the focused window
 #                                (Umbriel, no click-to-pick: same as Niri);
@@ -18,9 +20,15 @@
 #                                fullscreen + magick crop (socket passed as $3).
 #                                stdout: file path
 #   edit <file>                — open <file> in the shell annotation editor
-#   annotate-region            — region capture + editor; stdout: file path
-#   annotate-fullscreen        — fullscreen capture + editor; stdout: file path
+#   annotate-region [keep]     — region capture + editor; stdout: file path
+#   annotate-fullscreen [keep]  — fullscreen capture + editor; stdout: file path
+#                                Raw files are temporary unless "keep" is set.
 #   annotate-window            — focused-window capture + editor; stdout: file path
+#   annotate-window-id <id> <socket> — chosen Umbriel window + editor
+#
+# Per-call screenshot options force intermediate captures to temporary PNGs
+# without clipboard, annotation, or pipe side effects. Older shells use the
+# global policy plus file pickup, then move the file to a temporary directory.
 #
 # The capture commands print only "ok", so the file is picked up as the
 # newest file in the screenshot dir newer than (start - 2s). The shell
@@ -39,34 +47,70 @@
 
 set -u
 
-# Resolve the shell's screenshot directory. getConfig only sees plugin
-# keys, so parse the shell's own files (first match wins), then default.
-# Never write these files: the running shell owns and rewrites them.
+# Read the directory from canonical TOML, distinguishing an explicit empty
+# value (use XDG Pictures) from a missing key (try the next legacy source).
+screenshot_dir_value() {
+    awk '
+        /^[[:space:]]*\[shell\.screenshot\]/ { in_s = 1; next }
+        /^[[:space:]]*\[/ { in_s = 0 }
+        in_s && /^[[:space:]]*directory[[:space:]]*=/ {
+            line = $0
+            sub(/^[^=]*=/, "", line)
+            gsub(/^[ \t"]+|[ \t"]+$/, "", line)
+            print line
+            found = 1
+            exit
+        }
+        END { if (!found) exit 1 }
+    '
+}
+
+# Match the shell's XDG Pictures fallback without sourcing user-dirs.dirs
+# as executable shell code. Only absolute paths or $HOME-prefixed values
+# are accepted from that file, as in Noctalia's defaultPicturesDirectory.
+pictures_dir() {
+    local val="${XDG_PICTURES_DIR:-}"
+    case "$val" in
+        '$HOME'/*) val="$HOME/${val#\$HOME/}" ;;
+        '~'/*) val="$HOME/${val#\~/}" ;;
+    esac
+    if [[ "$val" = /* ]]; then
+        printf '%s\n' "$val"
+        return
+    fi
+    val=$(sed -n 's/^[[:space:]]*XDG_PICTURES_DIR="\([^"]*\)".*/\1/p' \
+        "${XDG_CONFIG_HOME:-$HOME/.config}/user-dirs.dirs" 2>/dev/null | head -1)
+    case "$val" in
+        '$HOME'/*) val="$HOME/${val#\$HOME/}" ;;
+    esac
+    [[ "$val" = /* ]] || val="$HOME/Pictures"
+    printf '%s\n' "$val"
+}
+
+# Export uses the same merged config/include stack as the shell. Older
+# builds without export retain the settings-file fallback. Never write
+# these files: the running shell owns and rewrites them.
 shell_dir() {
-    local f val
-    for f in "$HOME/.local/state/noctalia/settings.toml" "$HOME/.config/noctalia/settings.toml"; do
-        [ -f "$f" ] || continue
-        val=$(awk '
-            /^\s*\[shell\.screenshot\]/ { in_s = 1; next }
-            /^\s*\[/ { in_s = 0 }
-            in_s && /^\s*directory\s*=/ {
-                line = $0
-                sub(/^[^=]*=/, "", line)
-                gsub(/^[ \t"]+|[ \t"]+$/, "", line)
-                print line
-                exit
-            }
-        ' "$f" 2>/dev/null)
-        if [ -n "$val" ]; then
-            case "$val" in
-                "~"/*) val="$HOME/${val#\~/}" ;;
-                "~") val="$HOME" ;;
-            esac
-            printf '%s\n' "$val"
-            return 0
-        fi
-    done
-    printf '%s\n' "$HOME/Pictures/Screenshots"
+    local config f val=""
+    if config=$(noctalia config export full 2>/dev/null) \
+        && val=$(printf '%s\n' "$config" | screenshot_dir_value); then
+        :
+    else
+        for f in "${XDG_STATE_HOME:-$HOME/.local/state}/noctalia/settings.toml" \
+            "${XDG_CONFIG_HOME:-$HOME/.config}/noctalia/settings.toml"; do
+            [ -f "$f" ] || continue
+            if val=$(screenshot_dir_value < "$f"); then break; fi
+        done
+    fi
+    if [ -z "$val" ]; then
+        pictures_dir
+        return
+    fi
+    case "$val" in
+        "~"/*) val="$HOME/${val#\~/}" ;;
+        "~") val="$HOME" ;;
+    esac
+    printf '%s\n' "$val"
 }
 
 # Newest regular file in $1 newer than ($2 - 2s). Prints nothing when none.
@@ -107,6 +151,89 @@ wait_ready() {
     return 1
 }
 
+# Wait for $1 to appear at all and then be fully flushed — same stability
+# handshake as wait_ready, for captures whose path is known up front (the
+# per-call --directory/--filename-pattern flags make it deterministic).
+await_file() {
+    local prev="" cur="" i
+    for i in $(seq 1 100); do
+        cur=$(stat -c %s "$1" 2>/dev/null) || cur=""
+        if [ -n "$cur" ] && [ "$cur" != "0" ] && [ "$cur" = "$prev" ]; then
+            magick identify -format '%w %h\n' "$1" >/dev/null 2>&1 && return 0
+        fi
+        prev="$cur"
+        sleep 0.1
+    done
+    return 1
+}
+
+# Whether this Noctalia build accepts per-call [shell.screenshot] option
+# flags on the screenshot commands (save/clipboard/pipe/annotate/directory/
+# filename-pattern/format). The flag list is compiled into the CLI schema,
+# so --help answers without a running shell. An unknown option makes the
+# command a no-op, so flags are only ever passed after this probe says yes.
+# Cached in the environment for nested $0 calls (annotate-* -> *-file).
+ipc_flags() {
+    case "${ST_IPC_FLAGS:-}" in
+        1) return 0 ;;
+        0) return 1 ;;
+    esac
+    local h flag
+    h=$(noctalia msg screenshot-region --help 2>/dev/null)
+    ST_IPC_FLAGS=1
+    for flag in --save-to-file --no-copy-to-clipboard --no-pipe-to-command \
+        --no-annotate --no-confirm-region --directory --filename-pattern --format; do
+        if ! printf '%s\n' "$h" | grep -q -- "$flag"; then
+            ST_IPC_FLAGS=0
+            break
+        fi
+    done
+    export ST_IPC_FLAGS
+    [ "$ST_IPC_FLAGS" = "1" ]
+}
+
+# Temp capture files outlive this script — the annotation editor session and
+# the result panel preview keep reading them — so stale ones from earlier
+# runs are pruned by age, never on exit. Scoped to our own mktemp prefix.
+prune_tmp_caps() {
+    find "${TMPDIR:-/tmp}" -maxdepth 1 -name 'screen-toolkit-cap.*' \
+        ! -path "$1" -mtime +0 -exec rm -rf {} + >/dev/null 2>&1
+}
+
+# Capture via $1 (screenshot-region|screenshot-fullscreen) after a $2-second
+# settle (let a just-closed panel finish its animation) into a fresh temp
+# dir; prints the capture path. With per-call flags the capture is forced
+# to a plain saved PNG with no clipboard / annotate / pipe side effects, so
+# it works even with save_to_file = false. Older shells: capture per the
+# user's global policy, pick the file up, and move it into the temp dir.
+tmp_capture() {
+    local cmd="$1" delay="$2" tdir tfile dir before f
+    sleep "$delay"
+    tdir=$(mktemp -d "${TMPDIR:-/tmp}/screen-toolkit-cap.XXXXXX") || exit 11
+    tfile="$tdir/capture.png"
+    if ipc_flags; then
+        # Noctalia appends -region to the filename pattern for region
+        # captures (including frozen and multi-output regions).
+        [ "$cmd" != "screenshot-region" ] || tfile="$tdir/capture-region.png"
+        noctalia msg "$cmd" \
+            --save-to-file --no-copy-to-clipboard --no-pipe-to-command \
+            --no-annotate --no-confirm-region \
+            --directory "$tdir" --filename-pattern capture \
+            --format png >/dev/null 2>&1 || { rm -rf "$tdir"; exit 10; }
+        await_file "$tfile" || { rm -rf "$tdir"; exit 11; }
+    else
+        dir=$(shell_dir)
+        before=$(date +%s)
+        noctalia msg "$cmd" >/dev/null 2>&1 || { rm -rf "$tdir"; exit 10; }
+        f=""
+        f=$(pickup "$dir" "$before") || { rm -rf "$tdir"; exit 11; }
+        wait_ready "$f" || { rm -rf "$tdir"; exit 11; }
+        mv -f "$f" "$tfile" || { rm -rf "$tdir"; exit 11; }
+    fi
+    prune_tmp_caps "$tdir"
+    printf '%s\n' "$tfile"
+}
+
 _require() {
     command -v "$1" >/dev/null 2>&1 \
         || { echo "$1"; exit 1; }
@@ -116,29 +243,46 @@ ACTION="${1:-}"
 
 case "$ACTION" in
 
-    region-file)
+    region-file|fullscreen-file)
         _require noctalia
+        if [ "$ACTION" = "region-file" ]; then
+            _cmd="screenshot-region"
+            _settle=0.3
+        else
+            _cmd="screenshot-fullscreen"
+            _settle=0.4
+        fi
         # Let the just-closed panel finish its close animation first.
-        sleep 0.3
+        sleep "$_settle"
         _dir=$(shell_dir)
         _before=$(date +%s)
-        noctalia msg screenshot-region >/dev/null 2>&1 || exit 10
+        if ipc_flags; then
+            # Force a saved file even when the user's policy is
+            # clipboard-only, and keep the shell's own editor out of the
+            # way — the annotate-* actions hand off to `annotate` themselves.
+            noctalia msg "$_cmd" --save-to-file --no-annotate --no-confirm-region \
+                --no-copy-to-clipboard --no-pipe-to-command \
+                --directory "$_dir" >/dev/null 2>&1 || exit 10
+        else
+            noctalia msg "$_cmd" >/dev/null 2>&1 || exit 10
+        fi
         _f=""
         _f=$(pickup "$_dir" "$_before") || exit 11
         wait_ready "$_f" || exit 11
         printf '%s\n' "$_f"
         ;;
 
-    fullscreen-file)
+    region-tmp|fullscreen-tmp)
         _require noctalia
-        sleep 0.4
-        _dir=$(shell_dir)
-        _before=$(date +%s)
-        noctalia msg screenshot-fullscreen >/dev/null 2>&1 || exit 10
-        _f=""
-        _f=$(pickup "$_dir" "$_before") || exit 11
-        wait_ready "$_f" || exit 11
-        printf '%s\n' "$_f"
+        _require magick
+        if [ "$ACTION" = "region-tmp" ]; then
+            _cmd="screenshot-region"
+            _settle=0.3
+        else
+            _cmd="screenshot-fullscreen"
+            _settle=0.4
+        fi
+        tmp_capture "$_cmd" "$_settle"
         ;;
 
     window-file)
@@ -226,14 +370,14 @@ case "$ACTION" in
             _my=$(printf '%s' "$_mon" | jq -r '.y // 0')
             _scale=$(printf '%s' "$_mon" | jq -r '.scale // 1')
         fi
-        _dir=$(shell_dir)
-        _before=$(date +%s)
-        noctalia msg screenshot-fullscreen >/dev/null 2>&1 || exit 10
+        # Only the cropped window is delivered; keep its monitor frame temporary.
         _full=""
-        _full=$(pickup "$_dir" "$_before") || exit 11
-        wait_ready "$_full" || exit 11
+        _rc=0
+        _full=$(tmp_capture screenshot-fullscreen 0) || _rc=$?
+        [ "$_rc" -eq 0 ] || exit "$_rc"
+        _tdir=$(dirname "$_full")
         # Window geometry is logical pixels; the PNG is physical (x scale).
-        read -r _iw _ih < <(magick identify -format '%w %h\n' "$_full" 2>/dev/null) || exit 3
+        read -r _iw _ih < <(magick identify -format '%w %h\n' "$_full" 2>/dev/null) || { rm -rf "$_tdir"; exit 3; }
         read -r _cx _cy _cw _ch < <(awk -v wx="$_wx" -v wy="$_wy" -v ww="$_ww" -v wh="$_wh" \
             -v mx="$_mx" -v my="$_my" -v s="$_scale" -v iw="$_iw" -v ih="$_ih" 'BEGIN {
             x = int((wx - mx) * s); y = int((wy - my) * s)
@@ -247,7 +391,8 @@ case "$ACTION" in
         }')
         _out="/tmp/screen-toolkit-window-$(date +%s)-$$.png"
         magick "$_full" -crop "${_cw}x${_ch}+${_cx}+${_cy}" +repage "$_out" 2>/dev/null \
-            || exit 3
+            || { rm -rf "$_tdir"; exit 3; }
+        rm -rf "$_tdir"
         printf '%s\n' "$_out"
         ;;
 
@@ -284,13 +429,13 @@ case "$ACTION" in
         _mx=$(printf '%s' "$_mon" | jq -r '.x // 0')
         _my=$(printf '%s' "$_mon" | jq -r '.y // 0')
         _scale=$(printf '%s' "$_mon" | jq -r '.scale // 1')
-        _dir=$(shell_dir)
-        _before=$(date +%s)
-        noctalia msg screenshot-fullscreen >/dev/null 2>&1 || exit 10
+        # Only the cropped window is delivered; keep its monitor frame temporary.
         _full=""
-        _full=$(pickup "$_dir" "$_before") || exit 11
-        wait_ready "$_full" || exit 11
-        read -r _iw _ih < <(magick identify -format '%w %h\n' "$_full" 2>/dev/null) || { echo "ERR unreadable screenshot"; exit 3; }
+        _rc=0
+        _full=$(tmp_capture screenshot-fullscreen 0) || _rc=$?
+        [ "$_rc" -eq 0 ] || exit "$_rc"
+        _tdir=$(dirname "$_full")
+        read -r _iw _ih < <(magick identify -format '%w %h\n' "$_full" 2>/dev/null) || { rm -rf "$_tdir"; echo "ERR unreadable screenshot"; exit 3; }
         read -r _cx _cy _cw _ch < <(awk -v wx="$_wx" -v wy="$_wy" -v ww="$_ww" -v wh="$_wh" \
             -v mx="$_mx" -v my="$_my" -v s="$_scale" -v iw="$_iw" -v ih="$_ih" 'BEGIN {
             x = int((wx - mx) * s); y = int((wy - my) * s)
@@ -304,7 +449,8 @@ case "$ACTION" in
         }')
         _out="/tmp/screen-toolkit-window-$(date +%s)-$$.png"
         magick "$_full" -crop "${_cw}x${_ch}+${_cx}+${_cy}" +repage "$_out" 2>/dev/null \
-            || { echo "ERR window crop failed"; exit 3; }
+            || { rm -rf "$_tdir"; echo "ERR window crop failed"; exit 3; }
+        rm -rf "$_tdir"
         printf '%s\n' "$_out"
         ;;
 
@@ -339,7 +485,14 @@ case "$ACTION" in
         _kind="${_kind#annotate-}"
         _nested=""
         _rc=0
-        _nested=$("$0" "$_kind-file" "${@:2}") || _rc=$?
+        # Keep Raw applies only to region/fullscreen. Window crops always use
+        # temporary monitor frames; preserve the picker id and socket arguments.
+        case "$_kind:${2:-}" in
+            window:*|window-id:*) _sub="$_kind-file" ;;
+            *:keep)              _sub="$_kind-file" ;;
+            *)                   _sub="$_kind-tmp" ;;
+        esac
+        _nested=$("$0" "$_sub" "${@:2}") || _rc=$?
         if [ "$_rc" -ne 0 ]; then
             [ -n "$_nested" ] && printf '%s\n' "$_nested"
             exit "$_rc"
@@ -348,7 +501,7 @@ case "$ACTION" in
         ;;
 
     *)
-        echo "ERROR: unknown action '${ACTION}'. Expected: region-file | fullscreen-file | window-file | edit | annotate-region | annotate-fullscreen | annotate-window" >&2
+        echo "ERROR: unknown action '${ACTION}'. Expected: region-file | region-tmp | fullscreen-file | fullscreen-tmp | window-file | window-id-file | edit | annotate-region | annotate-fullscreen | annotate-window | annotate-window-id" >&2
         exit 2
         ;;
 
