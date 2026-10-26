@@ -2,7 +2,9 @@
 //! named by its alias (or the start of it) or picked from a numbered list,
 //! and the command waits until the transfer has ended.
 
-use crate::rpc::{ApiError, Pin, RpcRequest, RpcResponse};
+use crate::files::display_text;
+use crate::rpc::{ApiError, Pin, RpcRequest, RpcResponse, TransferState};
+use serde::Deserialize;
 use serde_json::Value;
 use std::io::{BufRead, IsTerminal, Write};
 use std::path::{Path, PathBuf};
@@ -41,12 +43,50 @@ impl Lang {
         Lang::En
     }
 
-    fn pick(self, en: &str, pl: &str) -> String {
+    fn pick(self, en: &'static str, pl: &'static str) -> &'static str {
         match self {
-            Lang::En => en.to_string(),
-            Lang::Pl => pl.to_string(),
+            Lang::En => en,
+            Lang::Pl => pl,
         }
     }
+}
+
+/// The parts of a daemon snapshot this command reads. Fields it does not
+/// know are skipped, so a newer daemon still works with it.
+#[derive(Deserialize)]
+struct SnapshotView {
+    #[serde(default)]
+    devices: Vec<DeviceView>,
+    #[serde(default)]
+    transfers: Vec<TransferView>,
+}
+
+#[derive(Deserialize)]
+struct DeviceView {
+    fingerprint: String,
+    alias: String,
+    #[serde(default)]
+    online: bool,
+    address: Option<AddressView>,
+    #[serde(default)]
+    favorite: bool,
+}
+
+#[derive(Deserialize)]
+struct AddressView {
+    host: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct TransferView {
+    id: String,
+    state: TransferState,
+    #[serde(default)]
+    completed_bytes: u64,
+    #[serde(default)]
+    total_bytes: u64,
+    error: Option<ApiError>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -75,12 +115,7 @@ pub async fn run(socket: Option<PathBuf>, items: Vec<String>, list: bool) -> i32
     }
 }
 
-async fn send(
-    socket: &PathBuf,
-    items: Vec<String>,
-    list: bool,
-    lang: Lang,
-) -> Result<i32, ApiError> {
+async fn send(socket: &Path, items: Vec<String>, list: bool, lang: Lang) -> Result<i32, ApiError> {
     if list {
         for device in online_devices(&snapshot(socket).await?) {
             println!("{}", device.alias);
@@ -100,13 +135,11 @@ async fn send(
         return Ok(EXIT_USAGE);
     }
     if let Some(missing) = files.iter().find(|file| !Path::new(file).exists()) {
-        eprintln!(
-            "{}",
-            lang.pick(
-                "No such file or folder: ",
-                "Nie ma takiego pliku ani folderu: "
-            ) + missing
+        let text = lang.pick(
+            "No such file or folder: ",
+            "Nie ma takiego pliku ani folderu: ",
         );
+        eprintln!("{text}{missing}");
         return Ok(EXIT_USAGE);
     }
     let paths = crate::absolute_paths(files.iter().map(PathBuf::from).collect())?;
@@ -122,22 +155,21 @@ async fn send(
         );
         return Ok(EXIT_FAILED);
     }
-    // A name that matches one device sends at once; anything else asks.
+    // A name that matches one favorite sends at once; anything else asks,
+    // so a stranger cannot take a favorite's name and get its files.
     let found = query
         .as_deref()
         .map(|query| matching(&devices, query))
         .unwrap_or_default();
     let device = match found.as_slice() {
-        [only] => (*only).clone(),
+        [only] if only.favorite => (*only).clone(),
         _ => {
             if let (Some(query), true) = (&query, found.is_empty()) {
-                eprintln!(
-                    "{}",
-                    lang.pick(
-                        "No online device matches ",
-                        "Żadne urządzenie online nie pasuje do "
-                    ) + &format!("\"{query}\".")
+                let text = lang.pick(
+                    "No online device matches",
+                    "Żadne urządzenie online nie pasuje do",
                 );
+                eprintln!("{text} \"{query}\".");
             }
             let candidates: Vec<&Device> = if found.is_empty() {
                 devices.iter().collect()
@@ -157,8 +189,10 @@ async fn send(
         items_label(files.len(), lang)
     };
     eprintln!(
-        "{}",
-        lang.pick("Sending ", "Wysyłam ") + &label + &lang.pick(" to ", " do ") + &device.alias
+        "{} {label} {} {}",
+        lang.pick("Sending", "Wysyłam"),
+        lang.pick("to", "do"),
+        device.alias
     );
 
     let mut pin = None;
@@ -213,7 +247,7 @@ fn split_arguments(items: &[String]) -> (Vec<String>, Option<String>) {
     }
 }
 
-async fn call(socket: &PathBuf, request: RpcRequest) -> Result<Value, ApiError> {
+async fn call(socket: &Path, request: RpcRequest) -> Result<Value, ApiError> {
     let response: RpcResponse = crate::call_daemon(socket, &request).await?;
     if response.ok {
         Ok(response.result.unwrap_or(Value::Null))
@@ -224,23 +258,28 @@ async fn call(socket: &PathBuf, request: RpcRequest) -> Result<Value, ApiError> 
     }
 }
 
-async fn snapshot(socket: &PathBuf) -> Result<Value, ApiError> {
-    call(socket, RpcRequest::Snapshot {}).await
+async fn snapshot(socket: &Path) -> Result<SnapshotView, ApiError> {
+    serde_json::from_value(call(socket, RpcRequest::Snapshot {}).await?).map_err(|_| {
+        ApiError::new(
+            "protocol_error",
+            "The daemon returned an unreadable snapshot",
+        )
+    })
 }
 
 /// Online devices with an HTTPS address, favorites first, then by alias.
-fn online_devices(snapshot: &Value) -> Vec<Device> {
-    let mut devices: Vec<Device> = snapshot["devices"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .filter(|device| device["online"] == true && device["address"].is_object())
+fn online_devices(snapshot: &SnapshotView) -> Vec<Device> {
+    let mut devices: Vec<Device> = snapshot
+        .devices
+        .iter()
+        .filter(|device| device.online)
         .filter_map(|device| {
             Some(Device {
-                fingerprint: device["fingerprint"].as_str()?.to_string(),
-                alias: device["alias"].as_str()?.to_string(),
-                host: device["address"]["host"].as_str().unwrap_or("").to_string(),
-                favorite: device["favorite"] == true,
+                fingerprint: device.fingerprint.clone(),
+                // Cleaned here too, in case the daemon is an older build.
+                alias: display_text(&device.alias),
+                host: device.address.as_ref()?.host.clone(),
+                favorite: device.favorite,
             })
         })
         .collect();
@@ -254,7 +293,7 @@ fn online_devices(snapshot: &Value) -> Vec<Device> {
 
 /// The online devices; when none is, asks the daemon to look again and
 /// waits a few seconds for answers.
-async fn devices_or_refresh(socket: &PathBuf) -> Result<Vec<Device>, ApiError> {
+async fn devices_or_refresh(socket: &Path) -> Result<Vec<Device>, ApiError> {
     let devices = online_devices(&snapshot(socket).await?);
     if !devices.is_empty() {
         return Ok(devices);
@@ -271,9 +310,22 @@ async fn devices_or_refresh(socket: &PathBuf) -> Result<Vec<Device>, ApiError> {
     Ok(Vec::new())
 }
 
+/// The favorites that match `query` when any does, else the other devices
+/// that do. Within a group, see [`best_matches`].
+fn matching<'a>(devices: &'a [Device], query: &str) -> Vec<&'a Device> {
+    let (favorites, others): (Vec<&Device>, Vec<&Device>) =
+        devices.iter().partition(|device| device.favorite);
+    let found = best_matches(&favorites, query);
+    if found.is_empty() {
+        best_matches(&others, query)
+    } else {
+        found
+    }
+}
+
 /// Devices whose alias equals the query, else starts with it, else contains
 /// it (ignoring case); else whose fingerprint starts with it.
-fn matching<'a>(devices: &'a [Device], query: &str) -> Vec<&'a Device> {
+fn best_matches<'a>(devices: &[&'a Device], query: &str) -> Vec<&'a Device> {
     let query = query.trim().to_lowercase();
     if query.is_empty() {
         return Vec::new();
@@ -286,6 +338,7 @@ fn matching<'a>(devices: &'a [Device], query: &str) -> Vec<&'a Device> {
     for test in alias_tests {
         let found: Vec<&Device> = devices
             .iter()
+            .copied()
             .filter(|device| test(&device.alias.to_lowercase(), &query))
             .collect();
         if !found.is_empty() {
@@ -294,6 +347,7 @@ fn matching<'a>(devices: &'a [Device], query: &str) -> Vec<&'a Device> {
     }
     devices
         .iter()
+        .copied()
         .filter(|device| query.len() >= 4 && device.fingerprint.to_lowercase().starts_with(&query))
         .collect()
 }
@@ -309,11 +363,12 @@ fn choose<'a>(devices: &[&'a Device], lang: Lang) -> Result<Option<&'a Device>, 
     for (index, device) in devices.iter().enumerate() {
         let pad = width - device.alias.chars().count();
         eprintln!(
-            "  {:>2}  {}{}  {}  {}",
+            "  {:>2}  {}{}  {}  {}  {}",
             index + 1,
             device.alias,
             " ".repeat(pad),
             if device.favorite { "★" } else { " " },
+            short_fingerprint(&device.fingerprint),
             device.host
         );
     }
@@ -321,13 +376,13 @@ fn choose<'a>(devices: &[&'a Device], lang: Lang) -> Result<Option<&'a Device>, 
         return Err(ApiError::new(
             "device_ambiguous",
             lang.pick(
-                "Name the device as the last argument.",
-                "Podaj urządzenie jako ostatni argument.",
+                "Name a favorite as the last argument, or run this in a terminal to pick a device.",
+                "Podaj ulubione urządzenie jako ostatni argument albo uruchom w terminalu, żeby je wybrać.",
             ),
         ));
     }
     loop {
-        let answer = prompt(&lang.pick("Number (Enter cancels): ", "Numer (Enter anuluje): "))?;
+        let answer = prompt(lang.pick("Number (Enter cancels): ", "Numer (Enter anuluje): "))?;
         let answer = answer.trim();
         if answer.is_empty() {
             return Ok(None);
@@ -342,6 +397,12 @@ fn choose<'a>(devices: &[&'a Device], lang: Lang) -> Result<Option<&'a Device>, 
             ),
         }
     }
+}
+
+/// The first characters of a fingerprint, enough to tell devices with the
+/// same alias apart (as `lib.shortFingerprint` shows them in the panel).
+fn short_fingerprint(fingerprint: &str) -> &str {
+    fingerprint.get(..8).unwrap_or(fingerprint)
 }
 
 fn prompt(text: &str) -> Result<String, ApiError> {
@@ -366,7 +427,7 @@ fn ask_pin(lang: Lang) -> Result<Option<Pin>, ApiError> {
     }
     let entered = {
         let _echo = EchoOff::new();
-        prompt(&lang.pick(
+        prompt(lang.pick(
             "Receiver's PIN (Enter cancels): ",
             "PIN odbiorcy (Enter anuluje): ",
         ))?
@@ -384,12 +445,15 @@ struct EchoOff(Option<libc::termios>);
 
 impl EchoOff {
     fn new() -> Self {
+        // SAFETY: termios is a plain C struct, valid when all zeroes.
         let mut original: libc::termios = unsafe { std::mem::zeroed() };
+        // SAFETY: `original` is a writable termios that the call fills in.
         if unsafe { libc::tcgetattr(libc::STDIN_FILENO, &mut original) } != 0 {
             return Self(None);
         }
         let mut silent = original;
         silent.c_lflag &= !libc::ECHO;
+        // SAFETY: `silent` is the settings tcgetattr returned, with echo off.
         unsafe { libc::tcsetattr(libc::STDIN_FILENO, libc::TCSANOW, &silent) };
         Self(Some(original))
     }
@@ -398,13 +462,14 @@ impl EchoOff {
 impl Drop for EchoOff {
     fn drop(&mut self) {
         if let Some(original) = &self.0 {
+            // SAFETY: `original` is the settings tcgetattr returned.
             unsafe { libc::tcsetattr(libc::STDIN_FILENO, libc::TCSANOW, original) };
         }
     }
 }
 
 async fn start(
-    socket: &PathBuf,
+    socket: &Path,
     device: &Device,
     paths: &[String],
     pin: Option<Pin>,
@@ -433,7 +498,7 @@ enum Outcome {
 
 /// Follows a transfer until it ends, showing its progress. Ctrl+C cancels
 /// it; a second Ctrl+C stops waiting.
-async fn watch(socket: &PathBuf, id: &str, lang: Lang) -> Result<Outcome, ApiError> {
+async fn watch(socket: &Path, id: &str, lang: Lang) -> Result<Outcome, ApiError> {
     let mut progress = Progress::new(lang);
     let mut cancelling = false;
     let mut ticker = tokio::time::interval(POLL_INTERVAL);
@@ -446,17 +511,16 @@ async fn watch(socket: &PathBuf, id: &str, lang: Lang) -> Result<Outcome, ApiErr
                     return Ok(Outcome::Done(EXIT_CANCELLED));
                 }
                 cancelling = true;
-                progress.say(&lang.pick("Cancelling…", "Anuluję…"));
+                progress.say(lang.pick("Cancelling…", "Anuluję…"));
                 let _ = call(socket, RpcRequest::Cancel { transfer: id.to_string() }).await;
                 continue;
             }
         }
         let snapshot = snapshot(socket).await?;
-        let Some(transfer) = snapshot["transfers"]
-            .as_array()
+        let Some(transfer) = snapshot
+            .transfers
             .into_iter()
-            .flatten()
-            .find(|transfer| transfer["id"] == id)
+            .find(|transfer| transfer.id == id)
         else {
             progress.finish();
             return Err(ApiError::new(
@@ -467,27 +531,20 @@ async fn watch(socket: &PathBuf, id: &str, lang: Lang) -> Result<Outcome, ApiErr
                 ),
             ));
         };
-        let error = transfer["error"].as_object().map(|error| {
-            ApiError::new(
-                error.get("code").and_then(Value::as_str).unwrap_or(""),
-                error.get("message").and_then(Value::as_str).unwrap_or(""),
-            )
-        });
-        match transfer["state"].as_str().unwrap_or("") {
-            "preparing" => progress.say(&lang.pick(
+        match transfer.state {
+            TransferState::Preparing => progress.say(lang.pick(
                 "Waiting for the receiver to accept…",
                 "Czekam, aż odbiorca zaakceptuje…",
             )),
-            "transferring" | "cancelling" => progress.bytes(
-                transfer["completedBytes"].as_u64().unwrap_or(0),
-                transfer["totalBytes"].as_u64().unwrap_or(0),
-            ),
-            "completed" => {
+            TransferState::Transferring | TransferState::Cancelling => {
+                progress.bytes(transfer.completed_bytes, transfer.total_bytes)
+            }
+            TransferState::Completed => {
                 progress.finish();
                 eprintln!("{}", lang.pick("Sent.", "Wysłano."));
                 return Ok(Outcome::Done(0));
             }
-            "declined" => {
+            TransferState::Declined => {
                 progress.finish();
                 eprintln!(
                     "{}",
@@ -495,21 +552,22 @@ async fn watch(socket: &PathBuf, id: &str, lang: Lang) -> Result<Outcome, ApiErr
                 );
                 return Ok(Outcome::Done(EXIT_FAILED));
             }
-            "cancelled" => {
+            TransferState::Cancelled => {
                 progress.finish();
                 eprintln!("{}", lang.pick("Cancelled.", "Anulowano."));
                 return Ok(Outcome::Done(EXIT_CANCELLED));
             }
-            "failed" => {
+            TransferState::Failed => {
                 progress.finish();
-                let error = error.unwrap_or_else(|| ApiError::new("unknown", ""));
+                let error = transfer
+                    .error
+                    .unwrap_or_else(|| ApiError::new("unknown", ""));
                 if matches!(error.code.as_str(), "pin_required" | "pin_invalid") {
                     return Ok(Outcome::NeedsPin(error));
                 }
                 eprintln!("{}", describe(&error, lang));
                 return Ok(Outcome::Done(EXIT_FAILED));
             }
-            _ => {}
         }
     }
 }
@@ -550,7 +608,7 @@ impl Progress {
         let started = *self.started.get_or_insert_with(Instant::now);
         if !self.terminal {
             let text = self.lang.pick("Transferring…", "Przesyłam…");
-            self.say(&text);
+            self.say(text);
             return;
         }
         const WIDTH: u64 = 24;
@@ -618,13 +676,11 @@ fn describe(error: &ApiError, lang: Lang) -> String {
         }
         _ => None,
     };
-    known.unwrap_or_else(|| {
-        if error.message.is_empty() {
-            error.code.clone()
-        } else {
-            error.message.clone()
-        }
-    })
+    match known {
+        Some(text) => text.to_string(),
+        None if error.message.is_empty() => error.code.clone(),
+        None => error.message.clone(),
+    }
 }
 
 #[cfg(test)]
@@ -643,7 +699,7 @@ mod tests {
     #[test]
     fn matches_the_alias_before_the_fingerprint() {
         let devices = [
-            device("Telefon Pixel", "AB12CD", true),
+            device("Telefon Pixel", "AB12CD", false),
             device("Telewizor", "EF34AB", false),
             device("Laptop", "TE99AA", false),
         ];
@@ -662,6 +718,25 @@ mod tests {
             "a short query is not a fingerprint"
         );
         assert!(aliases("  ").is_empty());
+    }
+
+    #[test]
+    fn favorites_match_before_a_stranger_with_a_closer_name() {
+        let devices = [
+            device("Pixel 8", "AB12CD34EF", true),
+            device("pixel", "9F9F9F9F9F", false),
+            device("Laptop", "TE99AA", false),
+        ];
+        let aliases = |query| -> Vec<&str> {
+            matching(&devices, query)
+                .iter()
+                .map(|d| d.alias.as_str())
+                .collect()
+        };
+        assert_eq!(aliases("pixel"), ["Pixel 8"]);
+        assert_eq!(aliases("lap"), ["Laptop"]);
+        assert_eq!(short_fingerprint(&devices[0].fingerprint), "AB12CD34");
+        assert_eq!(short_fingerprint("AB"), "AB");
     }
 
     #[test]
@@ -700,7 +775,7 @@ mod tests {
 
     #[test]
     fn lists_online_devices_with_favorites_first() {
-        let snapshot = serde_json::json!({"devices": [
+        let snapshot: SnapshotView = serde_json::from_value(serde_json::json!({"devices": [
             {"fingerprint": "A", "alias": "zeta", "online": true, "favorite": false,
              "address": {"host": "10.0.0.3", "port": 53317, "protocol": "https"}},
             {"fingerprint": "B", "alias": "Offline", "online": false, "favorite": true, "address": null},
@@ -708,7 +783,8 @@ mod tests {
              "address": {"host": "10.0.0.4", "port": 53317, "protocol": "https"}},
             {"fingerprint": "D", "alias": "alpha", "online": true, "favorite": false,
              "address": {"host": "10.0.0.5", "port": 53317, "protocol": "https"}},
-        ]});
+        ]}))
+        .unwrap();
         let aliases: Vec<String> = online_devices(&snapshot)
             .into_iter()
             .map(|d| d.alias)

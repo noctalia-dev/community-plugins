@@ -3,24 +3,39 @@
 -- snapshot to the widget and panel through noctalia.state ("ls").
 
 local lib = require("./lib.luau")
+local extras = require("./extras.luau")
+
+math.randomseed(noctalia.nowMs())
+
+-- update() runs once a second; these count its ticks.
+local STOP_GRACE_TICKS = 3 -- a daemon acknowledged the shutdown
+local STOP_TIMEOUT_TICKS = 6 -- nothing answered the shutdown
+local START_TIMEOUT_TICKS = 15
+local IDLE_POLL_TICKS = 3 -- panel closed and nothing in progress
+local MAX_POLL_FAILURES = 3
+-- Seconds before retrying a failed start, doubled after every failure.
+local FIRST_BACKOFF = 5
+local MAX_BACKOFF = 60
+
+local DEFAULT_PORT = 53317
 
 -- phase: "stopping" -> "starting" -> "running"; "failed" retries with backoff
 local phase = "stopping"
 local ticks = 0
-local gen = 0            -- generation of the daemon stream we own
-local stopAcked = false  -- a daemon answered our shutdown request
+local gen = 0 -- generation of the daemon stream we own
+local stopAcked = false -- a daemon answered our shutdown request
 local polling = false
 local failures = 0
-local backoff = 5
+local backoff = FIRST_BACKOFF
 local lastBusy = false
 local startError = nil
 local failureNotified = false -- one error notification per run of failed starts
 
 local seenTransfers = {} -- transfer id -> last state seen
 local seenIncoming = nil -- id of the pending request we notified about
-local primed = false     -- the first snapshot only records state
+local primed = false -- the first snapshot only records state
 local dataPrivate = false -- the data directory is known to be 0700
-local quietBy = {}       -- sender fingerprint -> os.time() before which its requests do not alert
+local quietBy = {} -- sender fingerprint -> os.time() before which its requests do not alert
 
 -- A request its sender withdrew before we answered silences that sender's
 -- alerts for a while, so a peer that keeps offering and withdrawing cannot
@@ -28,7 +43,27 @@ local quietBy = {}       -- sender fingerprint -> os.time() before which its req
 -- alert. (The controller also declines its requests for a minute.)
 local ABORT_QUIET_SECONDS = 30
 
-local function tr(key, args) return noctalia.tr(key, args) end
+-- Requests from devices that are not favorites alert at most this many times
+-- a minute, however many certificates and addresses a sender goes through.
+-- They still wait in the panel.
+local STRANGER_ALERTS_PER_MINUTE = 3
+local strangerAlerts = {} -- os.time() of the recent alerts
+
+local function strangerMayAlert()
+  local now = os.time()
+  local recent = {}
+  for _, at in ipairs(strangerAlerts) do
+    if now - at < 60 then table.insert(recent, at) end
+  end
+  strangerAlerts = recent
+  if #recent >= STRANGER_ALERTS_PER_MINUTE then return false end
+  table.insert(recent, now)
+  return true
+end
+
+local function tr(key, args)
+  return noctalia.tr(key, args)
+end
 
 -- A setting the panel or launcher can also change. Plugins cannot write
 -- their own settings, so the choice survives restarts in <name>.json with
@@ -46,7 +81,7 @@ local function panelChoice(name, key, valid, default)
   function choice.set(mode)
     choice.mode = mode
     if file == nil then return end
-    local ok, err = noctalia.writeFile(file, noctalia.json.encode({ mode = mode, setting = choice.setting }))
+    local ok, err = lib.writeJson(file, { mode = mode, setting = choice.setting })
     if not ok then noctalia.log("localsend: could not save " .. name .. ": " .. tostring(err)) end
     lib.restrictFile(file)
   end
@@ -75,7 +110,7 @@ end
 -- Visibility; "everyone for 10 min" is temporary on top of the chosen mode.
 local visibility = panelChoice("visibility", "visibility", lib.VISIBILITY, "everyone")
 local tempUntil = 0 -- os.time() at which a temporary "everyone" ends; 0 = none
-local visSeq = 0    -- counts visibility changes, so the panel can show each one once
+local visSeq = 0 -- counts visibility changes, so the panel can show each one once
 
 -- Auto-accept of files: favorites by default, since pinning a device means
 -- trusting it. The PIN card switches to everyone ("accept when the PIN is
@@ -106,8 +141,14 @@ local function publish()
     noctalia.state.set("ls", ls)
     return
   end
-  noctalia.state.set("ls", { up = false, phase = phase, startError = startError, install = installCommand,
-    vis = visState(), autoAcceptChoice = autoAccept.mode })
+  noctalia.state.set("ls", {
+    up = false,
+    phase = phase,
+    startError = startError,
+    install = installCommand,
+    vis = visState(),
+    autoAcceptChoice = autoAccept.mode,
+  })
 end
 
 local function fail(message)
@@ -130,7 +171,7 @@ end
 
 -- Finding the controller. A graphical session's PATH often lacks
 -- ~/.cargo/bin, where `cargo install` puts it, so that is tried too.
-local CONTROLLER_SOURCES = noctalia.pluginDir() .. "/controller"
+local CONTROLLER_SOURCES = lib.PLUGIN_DIR .. "/controller"
 
 local function versionParts(text)
   local major, minor, patch = tostring(text or ""):match("(%d+)%.(%d+)%.(%d+)")
@@ -155,15 +196,27 @@ end
 local function candidates(onPath)
   local configured = lib.trim(noctalia.getConfig("controller_path") or "")
   if configured ~= "" then return { noctalia.expandPath(configured) } end
-  return { onPath, noctalia.expandPath("~/.cargo/bin/localsend-controller"),
-    noctalia.expandPath("~/.local/bin/localsend-controller") }
+  return {
+    onPath,
+    noctalia.expandPath("~/.cargo/bin/localsend-controller"),
+    noctalia.expandPath("~/.local/bin/localsend-controller"),
+  }
 end
 
 local function controllerMissing(message)
   noctalia.state.set("controller", nil)
-  installCommand = "cargo install --locked --path " .. lib.shq(CONTROLLER_SOURCES)
+  installCommand = "cargo install --locked --path "
+    .. lib.shq(CONTROLLER_SOURCES)
     .. " --target-dir ~/.cache/localsend-plus/target"
   failAndNotify(message)
+end
+
+-- Passes onChecked the version a controller reports, or nil when it is not one.
+local function checkVersion(path, onChecked)
+  noctalia.runAsync({ path, "--version" }, function(res)
+    local data = noctalia.json.decode(lib.trim(res.stdout or ""))
+    onChecked(versionParts(type(data) == "table" and data.result and data.result.help))
+  end)
 end
 
 -- Finds a usable controller, publishes it as state "controller" and calls
@@ -177,21 +230,23 @@ local function locateController(onFound)
         break
       end
     end
-    if path == nil then return controllerMissing(tr("error.no_controller")) end
-    noctalia.runAsync({ path, "--version" }, function(ver)
-      local data = noctalia.json.decode(lib.trim(ver.stdout or ""))
-      local found = versionParts(type(data) == "table" and data.result and data.result.help)
+    if path == nil then
+      controllerMissing(tr("error.no_controller"))
+      return
+    end
+    checkVersion(path, function(found)
       local needed = requiredVersion()
       if found == nil then
-        return controllerMissing(tr("error.bad_controller", { path = path }))
+        controllerMissing(tr("error.bad_controller", { path = path }))
+      elseif needed ~= nil and olderThan(found, needed) then
+        controllerMissing(
+          tr("error.old_controller", { found = table.concat(found, "."), needed = table.concat(needed, ".") })
+        )
+      else
+        installCommand = nil
+        noctalia.state.set("controller", { path = path, version = table.concat(found, ".") })
+        onFound()
       end
-      if needed ~= nil and olderThan(found, needed) then
-        return controllerMissing(tr("error.old_controller", { found = table.concat(found, "."),
-          needed = table.concat(needed, ".") }))
-      end
-      installCommand = nil
-      noctalia.state.set("controller", { path = path, version = table.concat(found, ".") })
-      onFound()
     end)
   end)
 end
@@ -207,11 +262,19 @@ end
 local function daemonCommand()
   local dest = noctalia.expandPath(noctalia.getConfig("save_dir") or "~/Downloads/LocalSend")
   local parts = {
-    "exec", lib.shq(lib.bin()), "--socket", lib.shq(lib.SOCK), "daemon",
-    "--port", tostring(math.floor(tonumber(noctalia.getConfig("port")) or 53317)),
-    "--destination", lib.shq(dest),
-    "--state-directory", lib.shq(lib.dataFile("controller")),
-    "--auto-accept", autoAccept.mode,
+    "exec",
+    lib.shq(lib.bin()),
+    "--socket",
+    lib.shq(lib.SOCK),
+    "daemon",
+    "--port",
+    tostring(math.floor(tonumber(noctalia.getConfig("port")) or DEFAULT_PORT)),
+    "--destination",
+    lib.shq(dest),
+    "--state-directory",
+    lib.shq(lib.dataFile("controller")),
+    "--auto-accept",
+    autoAccept.mode,
   }
   local alias = lib.trim(noctalia.getConfig("alias") or "")
   if alias ~= "" then
@@ -240,7 +303,9 @@ end
 local function daemonSettings()
   local keys = { "save_dir", "port", "alias", "auto_accept", "device_model", "controller_path" }
   local values = {}
-  for _, key in ipairs(keys) do table.insert(values, tostring(noctalia.getConfig(key))) end
+  for _, key in ipairs(keys) do
+    table.insert(values, tostring(noctalia.getConfig(key)))
+  end
   return table.concat(values, "\0")
 end
 local lastDaemonSettings = daemonSettings()
@@ -248,89 +313,10 @@ local lastDaemonSettings = daemonSettings()
 local function describeStartError(message)
   message = tostring(message or "")
   if message:find("LocalSend receiver", 1, true) then
-    return tr("error.port_busy", { port = tostring(noctalia.getConfig("port") or 53317) })
+    return tr("error.port_busy", { port = tostring(noctalia.getConfig("port") or DEFAULT_PORT) })
   end
   if message:find("already running", 1, true) then return tr("error.already_running") end
   return message ~= "" and message or tr("error.unknown")
-end
-
-local spawn
-local poll
-local releaseStalePicker
-
--- Sends the current mode and favorites to a running daemon. A starting one
--- gets them as soon as it reports ready.
-local function applyVisibility()
-  publish()
-  if phase ~= "running" then return end
-  local args = { "set-visibility", "--mode", effectiveMode() }
-  for _, arg in ipairs(lib.favoriteArgs()) do table.insert(args, arg) end
-  lib.rpc(args, function(ok, _, err)
-    if not ok then
-      noctalia.notifyError(tr("notify.title"), describeStartError(err and err.message))
-    end
-    poll()
-  end)
-end
-
-local function onDaemonLine(g, line)
-  local data = noctalia.json.decode(line)
-  if type(data) ~= "table" then
-    noctalia.log("localsend-controller: " .. line)
-    return
-  end
-  if g ~= gen then return end -- a stream we already replaced
-  if data.event == "ready" then
-    phase = "running"
-    ticks = 0
-    startError = nil
-    failures = 0
-    backoff = 5
-    failureNotified = false
-    -- The mode or favorites may have changed while it was starting; one
-    -- set-visibility syncs both.
-    applyVisibility()
-  elseif data.event == "stopped" then
-    if phase == "stopping" then
-      spawn()
-    else
-      fail(tr("error.stopped"))
-    end
-  elseif data.ok == false and data.error ~= nil then
-    failAndNotify(describeStartError(data.error.message))
-  end
-end
-
-spawn = function()
-  if lib.SOCK == nil then return fail(tr("error.no_runtime_dir")) end
-  if lib.DATA_DIR == nil then return fail(tr("error.no_data_dir")) end
-  if lib.bin() == nil then return end -- locateController has reported why
-  gen = gen + 1
-  local g = gen
-  phase = "starting"
-  ticks = 0
-  publish()
-  if not noctalia.runStream(daemonCommand(), function(line) onDaemonLine(g, line) end) then
-    fail(tr("error.unknown"))
-  end
-end
-
--- Stops whatever daemon answers on our socket (ours, or one left over from an
--- earlier run with old settings), then starts a fresh one. A refused
--- connection means nothing was running, so we can start right away.
-local function restart()
-  phase = "stopping"
-  ticks = 0
-  stopAcked = false
-  publish()
-  -- Looked up on every restart, so Retry picks up a controller installed
-  -- in the meantime.
-  locateController(function()
-    lib.rpc({ "shutdown" }, function(ok)
-      if phase ~= "stopping" then return end
-      if ok then stopAcked = true else spawn() end
-    end)
-  end)
 end
 
 local function findTransfer(snap, id)
@@ -340,10 +326,7 @@ local function findTransfer(snap, id)
   return nil
 end
 
--- Failed sends the panel can retry with a PIN (pin_locked cannot be).
-local PIN_ERRORS = { pin_required = true, pin_invalid = true }
-
-local function notifyChanges(snap)
+local function notifyIncoming(snap)
   local incoming = snap.incoming
   if seenIncoming ~= nil and (incoming == nil or incoming.id ~= seenIncoming) then
     local previous = findTransfer(snap, seenIncoming)
@@ -354,58 +337,65 @@ local function notifyChanges(snap)
   for fp, untilTime in pairs(quietBy) do
     if os.time() >= untilTime then quietBy[fp] = nil end
   end
-  if incoming ~= nil and incoming.id ~= seenIncoming then
-    seenIncoming = incoming.id
-    local sender = incoming.sender and incoming.sender.fingerprint
-    if primed and (sender == nil or quietBy[sender] == nil) then
-      local name = incoming.sender and incoming.sender.alias or "?"
-      if incoming.messagePreview ~= nil then
-        noctalia.notify(tr("notify.title"), tr("notify.incoming_text", { name = name }))
-      else
-        noctalia.notify(tr("notify.title"),
-          tr("notify.incoming", { name = name, count = tostring(#(incoming.files or {})) }))
-      end
-      if not noctalia.state.get("panel_open") then noctalia.togglePanel(lib.PANEL) end
-    end
-  elseif incoming == nil then
+  if incoming == nil then
     seenIncoming = nil
+    return
   end
+  if incoming.id == seenIncoming then return end
+  seenIncoming = incoming.id
+  local sender = incoming.sender and incoming.sender.fingerprint
+  if not primed or (sender ~= nil and quietBy[sender] ~= nil) then return end
+  if lib.favoriteOf(sender) == nil and not strangerMayAlert() then return end
+  local name = lib.peerLabel(incoming.sender)
+  if incoming.messagePreview ~= nil then
+    noctalia.notify(tr("notify.title"), tr("notify.incoming_text", { name = name }))
+  else
+    noctalia.notify(
+      tr("notify.title"),
+      tr("notify.incoming", { name = name, count = tostring(#(incoming.files or {})) })
+    )
+  end
+  lib.openPanel()
+end
 
+-- Tells about a transfer that reached a new state.
+local function notifyTransfer(t, firstSeen)
+  local name = lib.peerLabel(t.peer)
+  local count = tostring(t.fileCount or #(t.files or {}))
+  local code = t.error and t.error.code
+  if firstSeen and t.autoAccepted and lib.ACTIVE[t.state] then
+    noctalia.notify(tr("notify.title"), tr("notify.auto_receiving", { name = name, count = count }))
+  elseif t.state == "failed" and lib.PIN_ERRORS[code] then
+    -- The panel asks for the PIN on this transfer's row.
+    noctalia.notify(tr("notify.title"), tr("notify." .. code, { name = name }))
+    lib.openPanel()
+  elseif t.state == "completed" then
+    if t.direction == "incoming" and t.textMessage then
+      noctalia.notify(tr("notify.title"), tr("notify.text_copied", { name = name }))
+    else
+      local key = t.direction == "incoming" and "notify.received" or "notify.sent"
+      noctalia.notify(tr("notify.title"), tr(key, { name = name, count = count }))
+    end
+  elseif t.state == "failed" then
+    noctalia.notifyError(
+      tr("notify.title"),
+      tr("notify.failed", { name = name, reason = lib.transferError(t.error) or "" })
+    )
+  elseif t.state == "declined" and t.direction == "outgoing" then
+    noctalia.notify(tr("notify.title"), tr("notify.declined", { name = name }))
+  end
+end
+
+local function notifyChanges(snap)
+  notifyIncoming(snap)
   -- Only ids the controller still lists are kept, so the table stays small.
   local seenNow = {}
-  for _, t in ipairs(snap.transfers or {}) do seenNow[t.id] = seenTransfers[t.id] end
-  seenTransfers = seenNow
-
   for _, t in ipairs(snap.transfers or {}) do
-    if seenTransfers[t.id] ~= t.state then
-      local firstSeen = seenTransfers[t.id] == nil
-      seenTransfers[t.id] = t.state
-      if primed then
-        local name = t.peer and t.peer.alias or "?"
-        local count = tostring(t.fileCount or #(t.files or {}))
-        local code = t.error and t.error.code
-        if firstSeen and t.autoAccepted and lib.ACTIVE[t.state] then
-          noctalia.notify(tr("notify.title"), tr("notify.auto_receiving", { name = name, count = count }))
-        elseif t.state == "failed" and PIN_ERRORS[code] then
-          -- The panel asks for the PIN on this transfer's row.
-          noctalia.notify(tr("notify.title"), tr("notify." .. code, { name = name }))
-          if not noctalia.state.get("panel_open") then noctalia.togglePanel(lib.PANEL) end
-        elseif t.state == "completed" then
-          if t.direction == "incoming" and t.textMessage then
-            noctalia.notify(tr("notify.title"), tr("notify.text_copied", { name = name }))
-          else
-            local key = t.direction == "incoming" and "notify.received" or "notify.sent"
-            noctalia.notify(tr("notify.title"), tr(key, { name = name, count = count }))
-          end
-        elseif t.state == "failed" then
-          noctalia.notifyError(tr("notify.title"), tr("notify.failed", {
-            name = name, reason = lib.transferError(t.error) or "" }))
-        elseif t.state == "declined" and t.direction == "outgoing" then
-          noctalia.notify(tr("notify.title"), tr("notify.declined", { name = name }))
-        end
-      end
-    end
+    local previous = seenTransfers[t.id]
+    seenNow[t.id] = t.state
+    if primed and previous ~= t.state then notifyTransfer(t, previous == nil) end
   end
+  seenTransfers = seenNow
   primed = true
 end
 
@@ -417,7 +407,7 @@ local function busy(snap)
   return false
 end
 
-poll = function()
+local function poll()
   if polling or phase ~= "running" then return end
   polling = true
   lib.rpc({ "snapshot" }, function(ok, snap)
@@ -425,7 +415,7 @@ poll = function()
     if phase ~= "running" then return end
     if not ok or type(snap) ~= "table" then
       failures = failures + 1
-      if failures >= 3 then
+      if failures >= MAX_POLL_FAILURES then
         noctalia.log("localsend: daemon not answering, restarting")
         fail(tr("error.not_answering"))
       end
@@ -443,162 +433,93 @@ poll = function()
   end)
 end
 
-function update()
-  ticks = ticks + 1
-  releaseStalePicker()
-  if tempUntil > 0 and os.time() >= tempUntil then
-    tempUntil = 0
-    visSeq = visSeq + 1
+-- Sends the current mode and favorites to a running daemon. A starting one
+-- gets them as soon as it reports ready.
+local function applyVisibility()
+  publish()
+  if phase ~= "running" then return end
+  local favorites = lib.favoriteArgs()
+  local args = table.move(favorites, 1, #favorites, 4, { "set-visibility", "--mode", effectiveMode() })
+  lib.rpc(args, function(ok, _, err)
+    if not ok then noctalia.notifyError(tr("notify.title"), describeStartError(err and err.message)) end
+    poll()
+  end)
+end
+
+local spawn -- and onDaemonLine call each other
+
+local function onDaemonLine(g, line)
+  local data = noctalia.json.decode(line)
+  if type(data) ~= "table" then
+    noctalia.log("localsend-controller: " .. line)
+    return
+  end
+  if g ~= gen then return end -- a stream we already replaced
+  if data.event == "ready" then
+    phase = "running"
+    ticks = 0
+    startError = nil
+    failures = 0
+    backoff = FIRST_BACKOFF
+    failureNotified = false
+    -- The mode or favorites may have changed while it was starting; one
+    -- set-visibility syncs both.
     applyVisibility()
-    noctalia.notify(tr("notify.title"), tr("notify.temp_ended", { mode = tr("visibility." .. visibility.mode) }))
-  end
-  if phase == "stopping" then
-    -- Fallback when no "stopped" line arrives (a daemon from an earlier run
-    -- has no stream here); the port may still be held briefly, which the
-    -- failed/backoff path absorbs.
-    if lib.bin() ~= nil and ((stopAcked and ticks >= 3) or ticks >= 6) then spawn() end
-  elseif phase == "starting" then
-    if ticks >= 15 then fail(tr("error.no_ready")) end
-  elseif phase == "running" then
-    if noctalia.state.get("panel_open") or lastBusy or ticks % 3 == 0 then poll() end
-  elseif phase == "failed" then
-    if ticks >= backoff then
-      backoff = math.min(backoff * 2, 60)
-      restart()
+  elseif data.event == "stopped" then
+    if phase == "stopping" then
+      spawn()
+    else
+      fail(tr("error.stopped"))
     end
+  elseif data.ok == false and data.error ~= nil then
+    failAndNotify(describeStartError(data.error.message))
   end
 end
 
--- Integrations copied outside the plugin's folders while their setting is
--- on: the Dolphin context menu entry, and the `localsend` command with
--- completion for fish, bash and zsh. Each shell loads its folder by itself
--- (zsh once ~/.local/share/zsh/site-functions is in fpath), so no shell
--- config is touched. A marker file in the data dir keeps the content the
--- plugin wrote to each path. The plugin replaces or removes a file only
--- while it still holds exactly that; a file with anything else belongs to
--- the user and is reported and left alone.
-local EXTRAS = {
-  {
-    setting = "dolphin_menu",
-    files = {
-      -- KDE skips service menus in the home folder that are not executable.
-      ["extras/localsend-plus.desktop"] = { path = "~/.local/share/kio/servicemenus/localsend-plus.desktop",
-        executable = true },
-    },
-  },
-  {
-    setting = "terminal_command",
-    files = {
-      ["extras/terminal/localsend"] = { path = "~/.local/bin/localsend", executable = true },
-      ["extras/terminal/localsend.fish"] = { path = "~/.local/share/fish/vendor_completions.d/localsend.fish" },
-      ["extras/terminal/localsend.bash"] = { path = "~/.local/share/bash-completion/completions/localsend" },
-      ["extras/terminal/_localsend"] = { path = "~/.local/share/zsh/site-functions/_localsend" },
-    },
-  },
-}
-
-local extraWarned = {} -- settings whose blocked install was reported this run
-
--- The content the plugin last wrote, by absolute path. A marker that does
--- not parse records nothing, so every file it named counts as the user's.
-local function readMark(mark)
-  local raw = mark and noctalia.readFile(mark)
-  local data = raw and noctalia.json.decode(raw)
-  local files = {}
-  if type(data) == "table" and type(data.files) == "table" then
-    for path, content in pairs(data.files) do
-      if type(path) == "string" and type(content) == "string" then files[path] = content end
-    end
+function spawn()
+  if lib.SOCK == nil then
+    fail(tr("error.no_runtime_dir"))
+  elseif lib.DATA_DIR == nil then
+    fail(tr("error.no_data_dir"))
+  elseif lib.bin() ~= nil then -- otherwise locateController has reported why
+    gen = gen + 1
+    local g = gen
+    phase = "starting"
+    ticks = 0
+    publish()
+    local started = noctalia.runStream(daemonCommand(), function(line)
+      onDaemonLine(g, line)
+    end)
+    if not started then fail(tr("error.unknown")) end
   end
-  return files
 end
 
-local function writeMark(mark, files)
-  if mark ~= nil then noctalia.writeFile(mark, noctalia.json.encode({ files = files })) end
-end
-
-local function syncExtra(extra)
-  local mark = lib.dataFile(extra.setting)
-  local recorded = readMark(mark)
-  local wanted = noctalia.getConfig(extra.setting) == true
-  if not wanted then extraWarned[extra.setting] = nil end
-  if wanted then
-    local plan, conflicts = {}, {}
-    for source, file in pairs(extra.files) do
-      local content = noctalia.readFile(noctalia.pluginDir() .. "/" .. source)
-      if content == nil then return end
-      local path = noctalia.expandPath(file.path)
-      local current = noctalia.readFile(path)
-      if current == nil or current == content or current == recorded[path] then
-        table.insert(plan, { path = path, content = content, write = current ~= content,
-          executable = file.executable })
+-- Stops whatever daemon answers on our socket (ours, or one left over from an
+-- earlier run with old settings), then starts a fresh one. A refused
+-- connection means nothing was running, so we can start right away.
+local function restart()
+  phase = "stopping"
+  ticks = 0
+  stopAcked = false
+  publish()
+  -- Looked up on every restart, so Retry picks up a controller installed
+  -- in the meantime.
+  locateController(function()
+    lib.rpc({ "shutdown" }, function(ok)
+      if phase ~= "stopping" then return end
+      if ok then
+        stopAcked = true
       else
-        table.insert(conflicts, path)
+        spawn()
       end
-    end
-    -- All or nothing: completions next to someone else's `localsend` would
-    -- complete the wrong command.
-    if #conflicts > 0 then
-      if not extraWarned[extra.setting] then
-        extraWarned[extra.setting] = true
-        table.sort(conflicts)
-        noctalia.notifyError(tr("notify.title"), tr("error.extra_exists", { path = table.concat(conflicts, ", ") }))
-      end
-      return
-    end
-    local files = {}
-    for path, content in pairs(recorded) do files[path] = content end
-    for _, item in ipairs(plan) do
-      if item.write then
-        local ok, err = noctalia.mkdirAll(lib.dirname(item.path))
-        if ok then ok, err = noctalia.writeFile(item.path, item.content) end
-        if not ok then
-          writeMark(mark, files) -- keeps what did get written
-          noctalia.notifyError(tr("notify.title"), tr("error.install_extra", { path = item.path, reason = tostring(err) }))
-          return
-        end
-      end
-      files[item.path] = item.content
-      if item.executable then noctalia.runAsync({ "chmod", "755", item.path }) end
-    end
-    writeMark(mark, files)
-  elseif mark ~= nil and noctalia.fileExists(mark) then
-    local kept = {}
-    for path, content in pairs(recorded) do
-      local current = noctalia.readFile(path)
-      if current == content then
-        noctalia.removeFile(path)
-      elseif current ~= nil then
-        table.insert(kept, path)
-      end
-    end
-    noctalia.removeFile(mark)
-    if #kept > 0 then
-      table.sort(kept)
-      noctalia.notify(tr("notify.title"), tr("error.extra_kept", { path = table.concat(kept, ", ") }))
-    end
-  end
+    end)
+  end)
 end
 
-local function syncExtras()
-  for _, extra in ipairs(EXTRAS) do syncExtra(extra) end
-end
-
-function onConfigChanged()
-  syncExtras()
-  if visibility.sync() then
-    tempUntil = 0
-    visSeq = visSeq + 1
-  end
-  autoAccept.sync() -- the restart below picks it up
-  local settings = daemonSettings()
-  if settings ~= lastDaemonSettings then
-    lastDaemonSettings = settings
-    primed = false
-    restart() -- the new daemon starts in the current mode
-  else
-    applyVisibility()
-  end
+-- A restart the user asked for, without waiting out the backoff.
+local function restartNow()
+  backoff = FIRST_BACKOFF
+  restart()
 end
 
 -- True when every path is absolute and exists; otherwise tells the user.
@@ -626,53 +547,17 @@ local function pathArgs(fingerprint, paths)
 end
 
 -- `send` takes absolute paths, one per line (Noctalia joins IPC arguments
--- with spaces, so a line is the only safe separator), and lets the panel
--- ask which device gets them. Only a carriage return is stripped: spaces
--- at either end belong to the file name.
+-- with spaces, so a line is the only safe separator; see lib.payloadPaths),
+-- and lets the panel ask which device gets them.
 local function askWhereToSend(payload)
-  local paths = {}
-  for _, line in ipairs(tostring(payload or ""):split("\n")) do
-    local path = line:gsub("\r$", "")
-    if path ~= "" then table.insert(paths, path) end
+  local paths = lib.payloadPaths(payload)
+  if paths == nil then
+    noctalia.notifyError(tr("notify.title"), tr("error.line_break"))
+    return
   end
   if not validPaths(paths) then return end
-  local seq = ((noctalia.state.get("send_ask") or {}).seq or 0) + 1
-  noctalia.state.set("send_ask", { seq = seq, paths = paths, at = os.time() })
-  if not noctalia.state.get("panel_open") then noctalia.togglePanel(lib.PANEL) end
-end
-
-function onIpc(event, payload)
-  if event == "refresh" then
-    lib.rpc({ "refresh" }, function() poll() end)
-  elseif event == "restart" then
-    backoff = 5
-    restart()
-  elseif event == "send" then
-    askWhereToSend(payload)
-  end
-end
-
-function onExit(signal, reason)
-  -- Detached so it still runs after this VM is gone; the runtime also ends
-  -- the stream, which the daemon handles as a graceful SIGTERM.
-  if lib.SOCK ~= nil and lib.bin() ~= nil then
-    noctalia.runAsync({ lib.bin(), "--socket", lib.SOCK, "shutdown" })
-  end
-end
-
--- Send requests from the panel and launcher ({ seq, kind, fingerprint, alias },
--- kind = files | folder | clipboard). They carry an increasing seq; anything at
--- or below the value present at startup is stale (state outlives restarts).
-local lastPick = (noctalia.state.get("pick") or {}).seq or 0
-local picking = false
-local pickStarted = 0 -- os.time() the open file dialog was started
-
--- A picker stream that ended without its exit marker (killed dialog,
--- crashed shell) would block every later pick; give up on it after a while.
-local PICK_TIMEOUT_SECONDS = 15 * 60
-
-releaseStalePicker = function()
-  if picking and os.time() - pickStarted > PICK_TIMEOUT_SECONDS then picking = false end
+  lib.post("send_ask", { paths = paths, at = os.time() })
+  lib.openPanel()
 end
 
 -- The last send, so a receiver asking for a PIN can get the same files
@@ -694,28 +579,31 @@ local function send(args, pinPath)
       lastSend = id and { id = id, args = args } or nil
       noctalia.state.set("retry_id", id)
       poll()
-      if not noctalia.state.get("panel_open") then noctalia.togglePanel(lib.PANEL) end
-    elseif err and err.code == "clipboard_secret" then
-      noctalia.notifyError(tr("notify.title"), tr("error.clipboard_secret"))
-    elseif err and err.code == "clipboard_changed" then
-      noctalia.notifyError(tr("notify.title"), tr("error.clipboard_changed"))
+      lib.openPanel()
+    elseif err and (err.code == "clipboard_secret" or err.code == "clipboard_changed") then
+      noctalia.notifyError(tr("notify.title"), tr("error." .. err.code))
     else
-      noctalia.notifyError(tr("notify.title"), (err and err.message ~= "" and err.message) or tr("error.unknown"))
+      noctalia.notifyError(tr("notify.title"), lib.errorText(err))
     end
   end)
 end
+
+-- The file dialog. runAsync kills its process after 60 s at most, too short
+-- for browsing, so the dialog runs as a stream that ends with a marker
+-- carrying its exit code. A random nonce in the marker keeps a picked file
+-- name from faking it.
+local picking = false
+local pickStarted = 0 -- os.time() the open file dialog was started
+
+-- A picker stream that ended without its exit marker (killed dialog,
+-- crashed shell) would block every later pick; give up on it after a while.
+local PICK_TIMEOUT_SECONDS = 15 * 60
 
 -- Separates the picked paths. A file name can hold a newline, so splitting
 -- on lines could turn one odd name into two paths; the unit separator is
 -- practically never part of a name.
 local PATH_SEPARATOR = "\31"
 
-math.randomseed(noctalia.nowMs())
-
--- runAsync kills its process after 5 s by default and 60 s at most, too
--- short for browsing in a file dialog, so the picker runs as a stream that
--- reports its exit code.
--- The exit marker carries a random nonce, so no picked file name can fake it.
 local function runPicker(req)
   if picking then
     noctalia.notify(tr("notify.title"), tr("error.picker_open"))
@@ -735,7 +623,7 @@ local function runPicker(req)
     table.insert(parts, "--title=" .. lib.shq(tr("panel.pick_files", { name = req.alias })))
   end
   local marker = string.format("__LS_EXIT_%d_%d__", os.time(), math.random(1, 2 ^ 30))
-  local cmd = table.concat(parts, " ") .. " 2>/dev/null; echo \"" .. marker .. "$?\""
+  local cmd = table.concat(parts, " ") .. ' 2>/dev/null; echo "' .. marker .. '$?"'
   local lines = {}
   picking = true
   pickStarted = os.time()
@@ -747,25 +635,35 @@ local function runPicker(req)
     end
     picking = false
     if code ~= "0" then return end -- 1 means cancelled
-    local args = { "send-files", "--device", req.fingerprint }
+    local paths = {}
     for _, path in ipairs(table.concat(lines, "\n"):split(PATH_SEPARATOR)) do
       if path ~= "" then
         if path:sub(1, 1) ~= "/" then
           noctalia.notifyError(tr("notify.title"), tr("error.bad_selection"))
           return
         end
-        table.insert(args, "--path")
-        table.insert(args, path)
+        table.insert(paths, path)
       end
     end
-    if #args > 3 then send(args) end
+    if #paths > 0 then send(pathArgs(req.fingerprint, paths)) end
   end)
   if not started then picking = false end
 end
 
-noctalia.state.watch("pick", function(req)
-  if type(req) ~= "table" or (req.seq or 0) <= lastPick then return end
-  lastPick = req.seq
+-- Calls `handler` with each new request posted in state `key` (lib.post).
+-- State outlives a restart, so the request present at startup is old.
+local function watchRequest(key, handler)
+  local last = (noctalia.state.get(key) or {}).seq or 0
+  noctalia.state.watch(key, function(req)
+    if type(req) ~= "table" or (req.seq or 0) <= last then return end
+    last = req.seq
+    handler(req)
+  end)
+end
+
+-- Sends from the panel and launcher: { kind, fingerprint, alias, sha, paths }
+-- with kind = files | folder | clipboard | paths.
+watchRequest("pick", function(req)
   if req.kind == "paths" then
     -- Copied files or an IPC send: the paths are already chosen.
     if validPaths(req.paths) then send(pathArgs(req.fingerprint, req.paths)) end
@@ -781,12 +679,8 @@ noctalia.state.watch("pick", function(req)
   end
 end)
 
--- Visibility changes from the panel and launcher ({ seq, mode, temp }).
-local lastVisibilityReq = (noctalia.state.get("visibility_req") or {}).seq or 0
-
-noctalia.state.watch("visibility_req", function(req)
-  if type(req) ~= "table" or (req.seq or 0) <= lastVisibilityReq then return end
-  lastVisibilityReq = req.seq
+-- Visibility changes from the panel and launcher: { mode, temp }.
+watchRequest("visibility_req", function(req)
   if req.temp then
     tempUntil = os.time() + lib.TEMP_SECONDS
   elseif lib.VISIBILITY[req.mode] then
@@ -798,21 +692,15 @@ noctalia.state.watch("visibility_req", function(req)
   visSeq = visSeq + 1
   applyVisibility()
   if not noctalia.state.get("panel_open") then
-    noctalia.notify(tr("notify.title"), tr("visibility.title", { mode = tr(req.temp and "visibility.temp" or "visibility." .. visibility.mode) }))
+    local mode = tr(req.temp and "visibility.temp" or "visibility." .. visibility.mode)
+    noctalia.notify(tr("notify.title"), tr("visibility.title", { mode = mode }))
   end
 end)
 
--- The favorites mode needs the current list (and addresses) in the daemon.
-noctalia.state.watch("favorites", function() applyVisibility() end)
-
--- The receive PIN, set or removed in the panel ({ seq, pin }). It is kept
--- in the private data dir, never in the settings, and the state entry is
--- cleared once the PIN is stored. A new PIN needs a new receiver.
-local lastPinReq = (noctalia.state.get("pin_req") or {}).seq or 0
-
-noctalia.state.watch("pin_req", function(req)
-  if type(req) ~= "table" or (req.seq or 0) <= lastPinReq then return end
-  lastPinReq = req.seq
+-- The receive PIN, set or removed in the panel: { pin }. It is kept in the
+-- private data dir, never in the settings, and the state entry is cleared
+-- once the PIN is stored. A new PIN needs a new receiver.
+watchRequest("pin_req", function(req)
   noctalia.state.set("pin_req", { seq = req.seq })
   if PIN_FILE == nil then return end
   if type(req.pin) == "string" and req.pin ~= "" then
@@ -831,32 +719,22 @@ noctalia.state.watch("pin_req", function(req)
     noctalia.removeFile(PIN_FILE)
   end
   primed = false
-  backoff = 5
-  restart()
+  restartNow()
 end)
 
--- "Accept when the PIN is right" from the PIN card ({ seq, on }). Turning
--- it off goes back to the settings value, or favorites if that is everyone.
-local lastAutoReq = (noctalia.state.get("auto_req") or {}).seq or 0
-
-noctalia.state.watch("auto_req", function(req)
-  if type(req) ~= "table" or (req.seq or 0) <= lastAutoReq then return end
-  lastAutoReq = req.seq
+-- "Accept when the PIN is right" from the PIN card: { on }. Turning it off
+-- goes back to the settings value, or favorites if that is everyone.
+watchRequest("auto_req", function(req)
   local fallback = autoAccept.setting ~= "everyone" and autoAccept.setting or "favorites"
   local mode = req.on and "everyone" or fallback
   if mode == autoAccept.mode then return end
   autoAccept.set(mode)
   primed = false
-  backoff = 5
-  restart()
+  restartNow()
 end)
 
--- A send retried with the PIN the receiver asked for ({ seq, id, pin }).
-local lastPinRetry = (noctalia.state.get("pin_retry") or {}).seq or 0
-
-noctalia.state.watch("pin_retry", function(req)
-  if type(req) ~= "table" or (req.seq or 0) <= lastPinRetry then return end
-  lastPinRetry = req.seq
+-- A send retried with the PIN the receiver asked for: { id, pin }.
+watchRequest("pin_retry", function(req)
   noctalia.state.set("pin_retry", { seq = req.seq })
   if lastSend == nil or lastSend.id ~= req.id or type(req.pin) ~= "string" or req.pin == "" then return end
   local pinPath = lib.writeSecret("send-pin", req.pin)
@@ -868,11 +746,70 @@ noctalia.state.watch("pin_retry", function(req)
   send(lastSend.args, pinPath)
 end)
 
-noctalia.state.watch("poke", function() poll() end)
-noctalia.state.watch("restart", function()
-  backoff = 5
-  restart()
-end)
+-- The favorites mode needs the current list (and addresses) in the daemon.
+noctalia.state.watch("favorites", applyVisibility)
+noctalia.state.watch("poke", poll)
+noctalia.state.watch("restart", restartNow)
+
+function update()
+  ticks = ticks + 1
+  if picking and os.time() - pickStarted > PICK_TIMEOUT_SECONDS then picking = false end
+  if tempUntil > 0 and os.time() >= tempUntil then
+    tempUntil = 0
+    visSeq = visSeq + 1
+    applyVisibility()
+    noctalia.notify(tr("notify.title"), tr("notify.temp_ended", { mode = tr("visibility." .. visibility.mode) }))
+  end
+  if phase == "stopping" then
+    -- Fallback when no "stopped" line arrives (a daemon from an earlier run
+    -- has no stream here); the port may still be held briefly, which the
+    -- failed/backoff path absorbs.
+    local waited = stopAcked and ticks >= STOP_GRACE_TICKS or ticks >= STOP_TIMEOUT_TICKS
+    if lib.bin() ~= nil and waited then spawn() end
+  elseif phase == "starting" then
+    if ticks >= START_TIMEOUT_TICKS then fail(tr("error.no_ready")) end
+  elseif phase == "running" then
+    if noctalia.state.get("panel_open") or lastBusy or ticks % IDLE_POLL_TICKS == 0 then poll() end
+  elseif phase == "failed" then
+    if ticks >= backoff then
+      backoff = math.min(backoff * 2, MAX_BACKOFF)
+      restart()
+    end
+  end
+end
+
+function onConfigChanged()
+  extras.sync()
+  if visibility.sync() then
+    tempUntil = 0
+    visSeq = visSeq + 1
+  end
+  autoAccept.sync() -- the restart below picks it up
+  local settings = daemonSettings()
+  if settings ~= lastDaemonSettings then
+    lastDaemonSettings = settings
+    primed = false
+    restart() -- the new daemon starts in the current mode
+  else
+    applyVisibility()
+  end
+end
+
+function onIpc(event, payload)
+  if event == "refresh" then
+    lib.rpc({ "refresh" }, poll)
+  elseif event == "restart" then
+    restartNow()
+  elseif event == "send" then
+    askWhereToSend(payload)
+  end
+end
+
+function onExit()
+  -- Detached so it still runs after this VM is gone; the runtime also ends
+  -- the stream, which the daemon handles as a graceful SIGTERM.
+  if lib.SOCK ~= nil and lib.bin() ~= nil then noctalia.runAsync({ lib.bin(), "--socket", lib.SOCK, "shutdown" }) end
+end
 
 -- A retry needs the arguments this run remembers, and state outlives it.
 noctalia.state.set("retry_id", nil)
@@ -888,10 +825,10 @@ if lib.DATA_DIR ~= nil then
     if not dataPrivate then noctalia.log("localsend: could not make the data directory private") end
     lib.restrictFile(PIN_FILE)
     lib.restrictFile(lib.dataFile("favorites.json"))
-    syncExtras()
+    extras.sync()
     restart()
   end)
 else
-  syncExtras()
+  extras.sync()
   restart()
 end

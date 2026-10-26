@@ -1,45 +1,42 @@
 //! The long-running daemon: the LocalSend receiver, discovery and the
 //! management socket, driven from one event loop.
 
+mod devices;
+mod incoming;
 mod management;
 mod offer;
 mod outgoing;
 
-use crate::clipboard;
-use crate::files::{
-    collect_selection, remove_empty_directories, remove_reservations, replace_invisible,
-    reserve_unique_destination, OutgoingItem, OutgoingSource,
-};
+use crate::files::{collect_selection, OutgoingItem, OutgoingSource};
 use crate::identity::Identity;
 use crate::rpc::{
-    AddressSnapshot, ApiError, ApiResult, AutoAccept, ControllerError, DaemonSnapshot,
-    DaemonStatus, DeviceSnapshot, FavoriteSpec, IncomingRequestSnapshot, OfferedFileSnapshot,
-    PeerSnapshot, Pin, RpcRequest, RpcResponse, Snapshot, TransferDirection, TransferFileSnapshot,
-    TransferFileState, TransferSnapshot, TransferState, Visibility, MIN_AUTO_ACCEPT_PIN_CHARS,
+    ApiError, ApiResult, AutoAccept, ControllerError, DaemonSnapshot, DaemonStatus, DeviceSnapshot,
+    FavoriteSpec, IncomingRequestSnapshot, Pin, RpcRequest, RpcResponse, Snapshot,
+    TransferDirection, TransferFileSnapshot, TransferFileState, TransferSnapshot, TransferState,
+    Visibility, MIN_AUTO_ACCEPT_PIN_CHARS,
 };
 use anyhow::{Context, Result};
+use devices::{device_online, device_snapshot, peer_from_device, probe_favorites, secure_channel};
+use incoming::{spawn_cancel_notification, transfer_from_pending, Cooldown};
 use localsend::discovery::{
-    ChannelStatus, DeviceChannel, DeviceIdentity, DiscoveredDevice, DiscoveryConfig,
-    DiscoveryEvent, DiscoveryHandle, HttpChannel, StatefulDevice, DEFAULT_DISCOVERY_TIMEOUT,
+    DeviceChannel, DeviceIdentity, DiscoveredDevice, DiscoveryConfig, DiscoveryEvent,
+    DiscoveryHandle, HttpChannel, DEFAULT_DISCOVERY_TIMEOUT,
 };
-use localsend::http::client::LsHttpClientV2;
 use localsend::http::dto_v2::RegisterDtoV2;
-use localsend::http::server::common::save::FileUploadTarget;
 use localsend::http::server::v2::{PrepareUploadDecisionV2, ServerEventV2, SessionEndReasonV2};
 use localsend::http::server::web::WebConfig;
 use localsend::http::server::{start_with_port, ServerConfigV2, ServerHandle};
-use localsend::model::discovery::{DeviceType, ProtocolType, PROTOCOL_VERSION_V2};
+use localsend::model::discovery::{ProtocolType, PROTOCOL_VERSION_V2};
 use localsend::model::transfer::FileDto;
 use localsend::multicast::{DEFAULT_MULTICAST_GROUP, DEFAULT_MULTICAST_GROUP_V6};
 use localsend::util::interface::{local_interface_addresses, InterfaceFilter};
 use management::{bind_management_socket, serve_management, RpcCall};
-use offer::{
-    embedded_message, message_preview, sanitize_message, validate_current_request,
-    validate_fingerprint, validate_incoming_offer, validate_sender_info, validate_uuid,
-};
+use offer::{validate_fingerprint, validate_sender_info, validate_uuid};
+use outgoing::OutgoingJob;
 use serde_json::json;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
@@ -53,22 +50,7 @@ use uuid::Uuid;
 const MAX_RECENT_TRANSFERS: usize = 8;
 const MAX_RECENT_FILES: usize = 32;
 const MAX_DEVICES: usize = 128;
-const ONLINE_TTL: Duration = Duration::from_secs(90);
 const ANNOUNCE_INTERVAL: Duration = Duration::from_secs(30);
-/// A request nobody answered is declined after this long, so a peer cannot
-/// hold the single session slot indefinitely.
-const PENDING_TIMEOUT: Duration = Duration::from_secs(5 * 60);
-/// An accepted transfer that has not received a byte for this long is
-/// cancelled: LocalSend sessions never expire on their own, and a sender
-/// that went away would otherwise keep the slot until a restart.
-const INCOMING_IDLE_TIMEOUT: Duration = Duration::from_secs(2 * 60);
-/// After a declined, withdrawn or expired request, further requests from the
-/// same sender are declined silently for this long.
-const DECLINE_COOLDOWN: Duration = Duration::from_secs(60);
-/// Free space kept beyond the incoming bytes before a transfer is accepted.
-const SPACE_RESERVE_BYTES: u64 = 64 * 1024 * 1024;
-/// How long probing one favorite may take.
-const FAVORITE_PROBE_TIMEOUT: Duration = Duration::from_secs(5);
 
 pub struct DaemonConfig {
     pub socket: PathBuf,
@@ -173,11 +155,13 @@ struct PendingIncoming {
     decision_tx: oneshot::Sender<PrepareUploadDecisionV2>,
 }
 
+/// Where to tell a sender that its transfer ended. Its request came over
+/// mutual TLS, so the reply goes over HTTPS pinned to that certificate,
+/// whatever protocol the sender claimed.
 #[derive(Clone)]
 struct SenderTarget {
     host: String,
     port: u16,
-    protocol: ProtocolType,
     fingerprint: String,
 }
 
@@ -191,7 +175,7 @@ struct IncomingActive {
     /// end up empty.
     created_dirs: Vec<PathBuf>,
     /// When a byte last arrived (or the transfer started), and the byte
-    /// count then; see [`INCOMING_IDLE_TIMEOUT`].
+    /// count then; see [`incoming::INCOMING_IDLE_TIMEOUT`].
     last_activity: Instant,
     last_bytes: u64,
 }
@@ -235,9 +219,8 @@ struct Controller {
     recent: VecDeque<TransferSnapshot>,
     refresh_id: Option<String>,
     early_remote_cancel: Option<(String, String)>,
-    /// Sender fingerprints (uppercase) whose requests are declined silently
-    /// until the given instant.
-    cooldown: HashMap<String, Instant>,
+    /// Senders recently declined, whose requests are declined silently.
+    cooldown: Cooldown,
     internal_tx: mpsc::Sender<InternalEvent>,
 }
 
@@ -251,6 +234,8 @@ pub async fn run(config: DaemonConfig) -> Result<()> {
 
     // Keep the socket private from the instant it is created; chmod below
     // narrows it further to exactly 0600.
+    // SAFETY: umask only swaps the process's file creation mask, and no
+    // other thread creates files yet.
     unsafe {
         libc::umask(0o077);
     }
@@ -327,7 +312,7 @@ pub async fn run(config: DaemonConfig) -> Result<()> {
         recent: VecDeque::new(),
         refresh_id: None,
         early_remote_cancel: None,
-        cooldown: HashMap::new(),
+        cooldown: Cooldown::default(),
         internal_tx,
     };
     if let Some(error) = controller.discovery.multicast_error() {
@@ -463,10 +448,7 @@ impl Controller {
             }
             RpcRequest::SendFiles { device, paths, pin } => {
                 if self.outgoing.is_some() || self.selecting_outgoing {
-                    let _ = call.reply.send(RpcResponse::failure(ApiError::new(
-                        "outgoing_busy",
-                        "An outgoing transfer is already active",
-                    )));
+                    let _ = call.reply.send(RpcResponse::failure(outgoing_busy()));
                 } else {
                     self.selecting_outgoing = true;
                     let internal = self.internal_tx.clone();
@@ -494,10 +476,7 @@ impl Controller {
             }
             RpcRequest::SendText { device, text, pin } => {
                 let response = if self.outgoing.is_some() || self.selecting_outgoing {
-                    RpcResponse::failure(ApiError::new(
-                        "outgoing_busy",
-                        "An outgoing transfer is already active",
-                    ))
+                    RpcResponse::failure(outgoing_busy())
                 } else {
                     RpcResponse::from_result(
                         crate::files::text_item(text)
@@ -753,8 +732,9 @@ impl Controller {
                 };
                 active.remote_session_id = Some(session_id);
                 active.record.state = TransferState::Transferring;
-                active.record.started_at = Some(now());
-                active.record.updated_at = now();
+                let at = now();
+                active.record.started_at = Some(at.clone());
+                active.record.updated_at = at;
                 for file in &mut active.record.files {
                     if !accepted.contains(&file.id) {
                         file.state = TransferFileState::Declined;
@@ -847,11 +827,12 @@ impl Controller {
         sync_record_progress(&mut active.record, &active.progress);
         active.record.state = state;
         active.record.error = error;
+        let at = now();
         if state == TransferState::Completed && active.record.started_at.is_none() {
-            active.record.started_at = Some(now());
+            active.record.started_at = Some(at.clone());
         }
-        active.record.updated_at = now();
-        active.record.finished_at = Some(now());
+        active.record.updated_at = at.clone();
+        active.record.finished_at = Some(at);
         let transfer_error = active.record.error.clone();
         for file in &mut active.record.files {
             match state {
@@ -913,93 +894,14 @@ impl Controller {
                 cert_fingerprint,
                 files,
                 decision_tx,
-            } => {
-                let Some(fingerprint) = cert_fingerprint else {
-                    let _ = decision_tx.send(PrepareUploadDecisionV2::Decline);
-                    self.set_error(
-                        "unverified_sender",
-                        "Rejected an incoming request without a TLS certificate",
-                    );
-                    return;
-                };
-                if self.pending.is_some()
-                    || self.incoming.is_some()
-                    || !self.accepts_peer(&fingerprint)
-                    || self.in_cooldown(&fingerprint)
-                {
-                    let _ = decision_tx.send(PrepareUploadDecisionV2::Decline);
-                    return;
-                }
-                if let Err(error) = validate_sender_info(&info) {
-                    let _ = decision_tx.send(PrepareUploadDecisionV2::Decline);
-                    self.set_error(error.code, error.message);
-                    return;
-                }
-                let total_bytes = match validate_incoming_offer(&files) {
-                    Ok(total) => total,
-                    Err(error) => {
-                        let _ = decision_tx.send(PrepareUploadDecisionV2::Decline);
-                        self.set_error(error.code, error.message);
-                        return;
-                    }
-                };
-
-                let host = ip.to_string();
-                self.add_confirmed_device(host.clone(), info.clone(), fingerprint.clone());
-                let address = AddressSnapshot {
-                    host: host.clone(),
-                    port: info.port,
-                    protocol: protocol_name(info.protocol).to_string(),
-                };
-                let sender = PeerSnapshot {
-                    fingerprint: fingerprint.clone(),
-                    alias: info.alias.clone(),
-                    device_type: info.device_type.as_ref().map(device_type_name),
-                    model: info.device_model.clone(),
-                    address,
-                };
-                let mut offered: Vec<OfferedFileSnapshot> = files
-                    .values()
-                    .map(|file| OfferedFileSnapshot {
-                        id: file.id.clone(),
-                        // Shown as it will be saved, with bidi and zero-width characters replaced.
-                        name: replace_invisible(&file.file_name),
-                        size: file.size,
-                        mime_type: file.file_type.clone(),
-                    })
-                    .collect();
-                offered.sort_by(|a, b| a.name.cmp(&b.name).then_with(|| a.id.cmp(&b.id)));
-                let (message_preview, message_preview_truncated) = message_preview(&files);
-                // Text is never accepted unasked: accepting replaces the clipboard.
-                let auto_accept = message_preview.is_none() && self.auto_accepts(&fingerprint);
-                self.pending = Some(PendingIncoming {
-                    snapshot: IncomingRequestSnapshot {
-                        id: session_id,
-                        sender,
-                        files: offered,
-                        total_bytes,
-                        message_preview,
-                        message_preview_truncated,
-                        received_at: now(),
-                    },
-                    received: Instant::now(),
-                    sender: SenderTarget {
-                        host,
-                        port: info.port,
-                        protocol: info.protocol,
-                        fingerprint,
-                    },
-                    files,
-                    decision_tx,
-                });
-                if auto_accept {
-                    // On failure (no space, say) the request stays for the
-                    // user to decide, with the reason shown.
-                    if let Err(error) = self.accept_files_pending(true) {
-                        self.set_error(error.code, error.message);
-                    }
-                }
-            }
+            } => self.receive_offer(
+                session_id,
+                ip.to_string(),
+                info,
+                cert_fingerprint,
+                files,
+                decision_tx,
+            ),
             ServerEventV2::FileUpload {
                 session_id,
                 file_id,
@@ -1028,7 +930,7 @@ impl Controller {
                     == Some(session_id.as_str())
                 {
                     let pending = self.pending.take().expect("pending was checked");
-                    self.start_cooldown(&pending.sender.fingerprint);
+                    self.cooldown.start(&pending.sender);
                     let mut record = transfer_from_pending(&pending, TransferState::Cancelled);
                     let finished = now();
                     record.updated_at = finished.clone();
@@ -1059,187 +961,6 @@ impl Controller {
                 self.set_error("receiver_stopped", error);
             }
         }
-    }
-
-    fn handle_file_upload(
-        &mut self,
-        session_id: String,
-        file_id: String,
-        target_tx: oneshot::Sender<FileUploadTarget>,
-    ) {
-        let Some(active) = self
-            .incoming
-            .as_mut()
-            .filter(|active| active.record.id == session_id)
-        else {
-            return;
-        };
-        if active.in_flight.contains(&file_id) {
-            return;
-        }
-        let Some(file) = active
-            .record
-            .files
-            .iter_mut()
-            .find(|file| file.id == file_id)
-        else {
-            return;
-        };
-        let Some(path) = file.destination_path.as_ref().map(PathBuf::from) else {
-            return;
-        };
-
-        let progress = active
-            .progress
-            .entry(file_id.clone())
-            .or_insert_with(|| Arc::new(AtomicU64::new(0)))
-            .clone();
-        progress.store(0, Ordering::Relaxed);
-        file.state = TransferFileState::Transferring;
-        file.completed_bytes = 0;
-        file.error = None;
-        active.in_flight.insert(file_id.clone());
-        active.record.updated_at = now();
-        active.last_activity = Instant::now();
-
-        let (progress_tx, mut progress_rx) = mpsc::channel::<u64>(16);
-        tokio::spawn(async move {
-            while let Some(written) = progress_rx.recv().await {
-                progress.store(written, Ordering::Relaxed);
-            }
-        });
-
-        let (result_tx, result_rx) = oneshot::channel::<Result<(), String>>();
-        let internal = self.internal_tx.clone();
-        tokio::spawn(async move {
-            let result = match result_rx.await {
-                Ok(result) => result,
-                Err(_) => Err("Upload aborted".to_string()),
-            };
-            let _ = internal
-                .send(InternalEvent::IncomingFileResult {
-                    transfer_id: session_id,
-                    file_id,
-                    result,
-                })
-                .await;
-        });
-
-        let _ = target_tx.send(FileUploadTarget::Path {
-            path,
-            result_tx,
-            progress_tx: Some(progress_tx),
-        });
-    }
-
-    fn handle_incoming_file_result(
-        &mut self,
-        transfer_id: &str,
-        file_id: &str,
-        result: Result<(), String>,
-    ) {
-        let Some(active) = self
-            .incoming
-            .as_mut()
-            .filter(|active| active.record.id == transfer_id)
-        else {
-            return;
-        };
-        active.in_flight.remove(file_id);
-        active.last_activity = Instant::now();
-        let Some(file) = active
-            .record
-            .files
-            .iter_mut()
-            .find(|file| file.id == file_id)
-        else {
-            return;
-        };
-        match result {
-            Ok(()) => {
-                file.state = TransferFileState::Completed;
-                file.completed_bytes = file.size;
-                file.error = None;
-            }
-            Err(_) => {
-                if let Some(path) = file.destination_path.as_deref() {
-                    let _ = fs::remove_file(path);
-                }
-                file.state = TransferFileState::Failed;
-                file.error = Some(ApiError::new(
-                    "receive_file_failed",
-                    format!("Could not receive {}", file.name),
-                ));
-            }
-        }
-        active.record.updated_at = now();
-        self.finish_incoming_if_ready();
-    }
-
-    fn finish_incoming_if_ready(&mut self) {
-        let ready = self
-            .incoming
-            .as_ref()
-            .is_some_and(|active| active.end.is_some() && active.in_flight.is_empty());
-        if !ready {
-            return;
-        }
-        let active = self.incoming.take().expect("incoming was checked");
-        self.finish_incoming(active);
-    }
-
-    /// Moves an ended incoming transfer to the recent list, removing the
-    /// files that did not arrive and the folders left empty.
-    fn finish_incoming(&mut self, mut active: IncomingActive) {
-        sync_record_progress(&mut active.record, &active.progress);
-        match active.end.unwrap_or(IncomingEnd::Cancelled) {
-            IncomingEnd::Cancelled => {
-                // A transfer the daemon gave up on failed; one the user or
-                // the sender cancelled did not.
-                active.record.state = if active.record.error.is_some() {
-                    TransferState::Failed
-                } else {
-                    TransferState::Cancelled
-                };
-                for file in &mut active.record.files {
-                    if matches!(
-                        file.state,
-                        TransferFileState::Queued | TransferFileState::Transferring
-                    ) {
-                        if let Some(path) = file.destination_path.as_deref() {
-                            let _ = fs::remove_file(path);
-                        }
-                        file.state = TransferFileState::Cancelled;
-                    }
-                }
-            }
-            IncomingEnd::Finished => {
-                if active
-                    .record
-                    .files
-                    .iter()
-                    .any(|file| file.state == TransferFileState::Failed)
-                {
-                    active.record.state = TransferState::Failed;
-                    active.record.error = Some(ApiError::new(
-                        "receive_failed",
-                        "One or more files could not be received",
-                    ));
-                } else {
-                    active.record.state = TransferState::Completed;
-                }
-            }
-        }
-        remove_empty_directories(&active.created_dirs);
-        active.record.completed_bytes = active
-            .record
-            .files
-            .iter()
-            .map(|file| file.completed_bytes)
-            .sum();
-        active.record.updated_at = now();
-        active.record.finished_at = Some(now());
-        self.push_recent(active.record);
     }
 
     fn handle_discovery_event(&mut self, event: DiscoveryEvent) {
@@ -1333,10 +1054,7 @@ impl Controller {
         pin: Option<Pin>,
     ) -> ApiResult<TransferSnapshot> {
         if self.outgoing.is_some() {
-            return Err(ApiError::new(
-                "outgoing_busy",
-                "An outgoing transfer is already active",
-            ));
+            return Err(outgoing_busy());
         }
         validate_fingerprint(fingerprint)?;
         let device = self
@@ -1407,18 +1125,18 @@ impl Controller {
             .collect();
         let cancel = CancellationToken::new();
         let by_peer = Arc::new(AtomicBool::new(false));
-        let task = tokio::spawn(outgoing::run_outgoing(
+        let task = tokio::spawn(outgoing::run_outgoing(OutgoingJob {
             transfer_id,
-            self.identity.clone(),
+            identity: self.identity.clone(),
             device,
-            http.clone(),
+            channel: http.clone(),
             items,
             pin,
-            progress.clone(),
-            cancel.clone(),
-            by_peer.clone(),
-            self.internal_tx.clone(),
-        ));
+            progress: progress.clone(),
+            cancel: cancel.clone(),
+            by_peer: by_peer.clone(),
+            internal: self.internal_tx.clone(),
+        }));
         self.outgoing = Some(OutgoingActive {
             record: record.clone(),
             progress,
@@ -1428,140 +1146,6 @@ impl Controller {
             remote_session_id: None,
             task,
         });
-        Ok(record)
-    }
-
-    async fn accept_pending(&mut self, request_id: &str) -> ApiResult<TransferSnapshot> {
-        validate_current_request(
-            self.pending
-                .as_ref()
-                .map(|pending| pending.snapshot.id.as_str()),
-            request_id,
-        )?;
-        if self.incoming.is_some() {
-            return Err(ApiError::new(
-                "incoming_busy",
-                "An incoming transfer is already active",
-            ));
-        }
-        let embedded_text = self
-            .pending
-            .as_ref()
-            .and_then(|pending| embedded_message(&pending.files))
-            .map(str::to_string);
-        if let Some(text) = embedded_text {
-            clipboard::copy(&sanitize_message(&text)).await?;
-            let pending = self.pending.take().expect("pending was validated");
-            let mut record = transfer_from_pending(&pending, TransferState::Completed);
-            pending
-                .decision_tx
-                .send(PrepareUploadDecisionV2::Accept(HashSet::new()))
-                .map_err(|_| {
-                    ApiError::new("stale_request", "Incoming request is no longer pending")
-                })?;
-            record.completed_bytes = record.total_bytes;
-            for file in &mut record.files {
-                file.state = TransferFileState::Completed;
-                file.completed_bytes = file.size;
-            }
-            record.started_at = Some(now());
-            record.updated_at = now();
-            record.finished_at = Some(now());
-            self.push_recent(record.clone());
-            return Ok(record);
-        }
-
-        self.accept_files_pending(false)
-    }
-
-    /// Accepts the pending file request while no incoming transfer runs:
-    /// checks the free space, reserves every destination path and starts
-    /// receiving.
-    fn accept_files_pending(&mut self, auto_accepted: bool) -> ApiResult<TransferSnapshot> {
-        let needed = self
-            .pending
-            .as_ref()
-            .map_or(0, |pending| pending.snapshot.total_bytes);
-        ensure_free_space(&self.destination, needed)?;
-
-        let mut offered: Vec<(String, String)> = self
-            .pending
-            .as_ref()
-            .expect("pending was validated")
-            .files
-            .iter()
-            .map(|(id, file)| (id.clone(), file.file_name.clone()))
-            .collect();
-        offered.sort_by(|a, b| a.1.cmp(&b.1).then_with(|| a.0.cmp(&b.0)));
-        let mut paths = HashMap::new();
-        let mut created_dirs = Vec::new();
-        for (id, name) in offered {
-            match reserve_unique_destination(&self.destination, &name, &mut created_dirs) {
-                Ok(path) => {
-                    paths.insert(id, path);
-                }
-                Err(error) => {
-                    remove_reservations(paths.into_values(), &created_dirs);
-                    return Err(error);
-                }
-            }
-        }
-
-        let pending = self.pending.take().expect("pending was validated");
-        let accepted: HashSet<String> = pending.files.keys().cloned().collect();
-        let mut record = transfer_from_pending(&pending, TransferState::Transferring);
-        if pending
-            .decision_tx
-            .send(PrepareUploadDecisionV2::Accept(accepted))
-            .is_err()
-        {
-            remove_reservations(paths.into_values(), &created_dirs);
-            return Err(ApiError::new(
-                "stale_request",
-                "Incoming request is no longer pending",
-            ));
-        }
-
-        record.started_at = Some(now());
-        record.updated_at = now();
-        record.auto_accepted = auto_accepted;
-        for file in &mut record.files {
-            file.destination_path = paths
-                .get(&file.id)
-                .and_then(|path| path.to_str())
-                .map(str::to_string);
-        }
-        self.incoming = Some(IncomingActive {
-            record: record.clone(),
-            sender: pending.sender,
-            progress: HashMap::new(),
-            in_flight: HashSet::new(),
-            end: None,
-            created_dirs,
-            last_activity: Instant::now(),
-            last_bytes: 0,
-        });
-        Ok(record)
-    }
-
-    fn decline_pending(&mut self, request_id: &str) -> ApiResult<TransferSnapshot> {
-        validate_current_request(
-            self.pending
-                .as_ref()
-                .map(|pending| pending.snapshot.id.as_str()),
-            request_id,
-        )?;
-        let pending = self.pending.take().expect("pending was validated");
-        self.start_cooldown(&pending.sender.fingerprint);
-        let mut record = transfer_from_pending(&pending, TransferState::Declined);
-        pending
-            .decision_tx
-            .send(PrepareUploadDecisionV2::Decline)
-            .map_err(|_| ApiError::new("stale_request", "Incoming request is no longer pending"))?;
-        let finished = now();
-        record.updated_at = finished.clone();
-        record.finished_at = Some(finished);
-        self.push_recent(record.clone());
         Ok(record)
     }
 
@@ -1585,84 +1169,6 @@ impl Controller {
             return Ok(self.cancel_incoming(None).await);
         }
         Err(ApiError::new("stale_transfer", "Transfer is not active"))
-    }
-
-    /// Ends the incoming transfer at once: the session is dropped, the
-    /// sender told, and files still being written are removed (an upload
-    /// that is still running writes to a deleted file). Waiting for those
-    /// uploads could take forever when the sender has gone away.
-    async fn cancel_incoming(&mut self, error: Option<ApiError>) -> TransferSnapshot {
-        let mut active = self.incoming.take().expect("incoming was checked");
-        if let Some(server) = &self.server {
-            server.handle.cancel_v2_session(&active.record.id).await;
-        }
-        spawn_cancel_notification(
-            self.identity.clone(),
-            active.sender.clone(),
-            active.record.id.clone(),
-        );
-        active.end = Some(IncomingEnd::Cancelled);
-        active.record.error = error;
-        let id = active.record.id.clone();
-        self.finish_incoming(active);
-        self.recent
-            .iter()
-            .find(|record| record.id == id)
-            .cloned()
-            .expect("finish_incoming keeps the record")
-    }
-
-    /// Cancels an accepted transfer that has not received a byte for
-    /// [`INCOMING_IDLE_TIMEOUT`].
-    async fn expire_incoming(&mut self) {
-        let Some(active) = self.incoming.as_mut() else {
-            return;
-        };
-        let bytes: u64 = active
-            .progress
-            .values()
-            .map(|counter| counter.load(Ordering::Relaxed))
-            .sum();
-        if bytes != active.last_bytes {
-            active.last_bytes = bytes;
-            active.last_activity = Instant::now();
-            return;
-        }
-        if active.last_activity.elapsed() >= INCOMING_IDLE_TIMEOUT {
-            self.cancel_incoming(Some(ApiError::new(
-                "receive_stalled",
-                "The sender stopped sending",
-            )))
-            .await;
-        }
-    }
-
-    fn in_cooldown(&self, fingerprint: &str) -> bool {
-        self.cooldown
-            .get(&fingerprint.to_ascii_uppercase())
-            .is_some_and(|until| Instant::now() < *until)
-    }
-
-    fn start_cooldown(&mut self, fingerprint: &str) {
-        self.cooldown.insert(
-            fingerprint.to_ascii_uppercase(),
-            Instant::now() + DECLINE_COOLDOWN,
-        );
-    }
-
-    /// Declines a request left unanswered for too long and forgets expired
-    /// cooldowns.
-    fn expire_pending(&mut self) {
-        let now = Instant::now();
-        self.cooldown.retain(|_, until| now < *until);
-        let expired = self
-            .pending
-            .as_ref()
-            .filter(|pending| now.duration_since(pending.received) >= PENDING_TIMEOUT)
-            .map(|pending| pending.snapshot.id.clone());
-        if let Some(id) = expired {
-            let _ = self.decline_pending(&id);
-        }
     }
 
     fn sync_progress(&mut self) {
@@ -1745,6 +1251,10 @@ impl Controller {
     }
 }
 
+fn outgoing_busy() -> ApiError {
+    ApiError::new("outgoing_busy", "An outgoing transfer is already active")
+}
+
 fn effective_auto_accept(mode: AutoAccept, pin: Option<&Pin>) -> AutoAccept {
     match mode {
         AutoAccept::Everyone
@@ -1754,124 +1264,6 @@ fn effective_auto_accept(mode: AutoAccept, pin: Option<&Pin>) -> AutoAccept {
         }
         mode => mode,
     }
-}
-
-/// Registers with each favorite at its known addresses. The connection is
-/// pinned to the favorite's certificate, so whoever holds an address now
-/// (another device after a DHCP change, say) fails the TLS handshake and
-/// learns nothing about this device.
-async fn probe_favorites(
-    identity: &Identity,
-    discovery: &DiscoveryHandle,
-    channels: Vec<(String, HttpChannel)>,
-) {
-    let probes = channels
-        .into_iter()
-        .map(|(fingerprint, channel)| async move {
-            let client = LsHttpClientV2::try_new(
-                &identity.key_pem,
-                &identity.cert_pem,
-                Some(fingerprint.clone()),
-                Some(FAVORITE_PROBE_TIMEOUT),
-            )
-            .ok()?;
-            let response = client
-                .register(
-                    ProtocolType::Https,
-                    &channel.host,
-                    channel.port,
-                    identity.register_dto(),
-                )
-                .await
-                .ok()?;
-            let info = response.body;
-            Some(DiscoveredDevice {
-                alias: info.alias,
-                version: info.version,
-                device_model: info.device_model,
-                device_type: info.device_type,
-                fingerprint,
-                channel: DeviceChannel::Http(channel),
-                download: info.download,
-            })
-        });
-    for device in futures_util::future::join_all(probes)
-        .await
-        .into_iter()
-        .flatten()
-    {
-        discovery.add_device(device).await;
-    }
-}
-
-fn transfer_from_pending(pending: &PendingIncoming, state: TransferState) -> TransferSnapshot {
-    let created = pending.snapshot.received_at.clone();
-    let file_state = match state {
-        TransferState::Declined => TransferFileState::Declined,
-        TransferState::Cancelled => TransferFileState::Cancelled,
-        TransferState::Completed => TransferFileState::Completed,
-        _ => TransferFileState::Queued,
-    };
-    TransferSnapshot {
-        id: pending.snapshot.id.clone(),
-        direction: TransferDirection::Incoming,
-        state,
-        peer: pending.snapshot.sender.clone(),
-        file_count: pending.snapshot.files.len(),
-        files: pending
-            .snapshot
-            .files
-            .iter()
-            .map(|file| TransferFileSnapshot {
-                id: file.id.clone(),
-                name: file.name.clone(),
-                size: file.size,
-                mime_type: file.mime_type.clone(),
-                state: file_state,
-                completed_bytes: if file_state == TransferFileState::Completed {
-                    file.size
-                } else {
-                    0
-                },
-                source_path: None,
-                destination_path: None,
-                error: None,
-            })
-            .collect(),
-        total_bytes: pending.snapshot.total_bytes,
-        completed_bytes: 0,
-        created_at: created.clone(),
-        started_at: None,
-        updated_at: created,
-        finished_at: None,
-        error: None,
-        auto_accepted: false,
-        text_message: pending.snapshot.message_preview.is_some(),
-    }
-}
-
-/// Refuses an incoming transfer that would not fit, keeping a reserve free.
-fn ensure_free_space(destination: &Path, needed: u64) -> ApiResult<()> {
-    let path = std::ffi::CString::new(destination.as_os_str().as_encoded_bytes())
-        .map_err(|_| ApiError::new("destination_error", "Destination path is invalid"))?;
-    let mut stats: libc::statvfs = unsafe { std::mem::zeroed() };
-    if unsafe { libc::statvfs(path.as_ptr(), &mut stats) } != 0 {
-        // Unknown free space does not block the transfer; writing fails
-        // cleanly if the disk fills up.
-        return Ok(());
-    }
-    let available = (stats.f_bavail as u64).saturating_mul(stats.f_frsize as u64);
-    if available < needed.saturating_add(SPACE_RESERVE_BYTES) {
-        return Err(ApiError::new(
-            "insufficient_space",
-            format!(
-                "Not enough free space: {} MiB needed, {} MiB available",
-                needed.div_ceil(1024 * 1024),
-                available / (1024 * 1024)
-            ),
-        ));
-    }
-    Ok(())
 }
 
 fn sync_record_progress(record: &mut TransferSnapshot, progress: &HashMap<String, Arc<AtomicU64>>) {
@@ -1895,118 +1287,14 @@ fn sync_record_progress(record: &mut TransferSnapshot, progress: &HashMap<String
     }
 }
 
-/// The best HTTPS channel of a device. Plain HTTP channels are skipped: their
-/// fingerprint is only claimed, so anyone on the network can announce one for
-/// a known device and would otherwise receive its transfers unencrypted.
-fn secure_channel(device: &StatefulDevice) -> Option<&HttpChannel> {
-    device
-        .get_ranked_channels()
-        .into_iter()
-        .filter_map(DeviceChannel::http)
-        .find(|channel| channel.protocol == ProtocolType::Https)
-}
-
-fn device_snapshot(device: &StatefulDevice, favorite: bool) -> DeviceSnapshot {
-    let address = secure_channel(device).map(address_snapshot);
-    DeviceSnapshot {
-        fingerprint: device.device.fingerprint.clone(),
-        alias: device.device.alias.clone(),
-        device_type: device.device.device_type.as_ref().map(device_type_name),
-        model: device.device.device_model.clone(),
-        address,
-        online: device_online(device),
-        last_seen_at: device
-            .logs
-            .last()
-            .map(|log| format_system_time(log.timestamp)),
-        favorite,
-    }
-}
-
-fn peer_from_device(device: &StatefulDevice, channel: &HttpChannel) -> PeerSnapshot {
-    PeerSnapshot {
-        fingerprint: device.device.fingerprint.clone(),
-        alias: device.device.alias.clone(),
-        device_type: device.device.device_type.as_ref().map(device_type_name),
-        model: device.device.device_model.clone(),
-        address: address_snapshot(channel),
-    }
-}
-
-fn address_snapshot(channel: &HttpChannel) -> AddressSnapshot {
-    AddressSnapshot {
-        host: channel.host.clone(),
-        port: channel.port,
-        protocol: protocol_name(channel.protocol).to_string(),
-    }
-}
-
-/// Online means an available HTTPS channel that was confirmed recently. Plain
-/// HTTP confirmations do not count: their fingerprint is only claimed, so
-/// anyone could keep an absent device looking online.
-fn device_online(device: &StatefulDevice) -> bool {
-    let now = SystemTime::now();
-    device.channels.iter().any(|(channel, status)| {
-        *status == ChannelStatus::Available
-            && channel
-                .http()
-                .is_some_and(|http| http.protocol == ProtocolType::Https)
-            && device
-                .logs
-                .iter()
-                .rev()
-                .find(|log| log.channel == *channel)
-                .is_some_and(|log| {
-                    now.duration_since(log.timestamp).unwrap_or_default() <= ONLINE_TTL
-                })
-    })
-}
-
-fn device_type_name(device_type: &DeviceType) -> String {
-    match device_type {
-        DeviceType::Mobile => "mobile",
-        DeviceType::Desktop => "desktop",
-        DeviceType::Web => "web",
-        DeviceType::Headless => "headless",
-        DeviceType::Server => "server",
-    }
-    .to_string()
-}
-
-fn protocol_name(protocol: ProtocolType) -> &'static str {
-    match protocol {
-        ProtocolType::Http => "http",
-        ProtocolType::Https => "https",
-    }
-}
-
-fn spawn_cancel_notification(identity: Arc<Identity>, sender: SenderTarget, session_id: String) {
-    tokio::spawn(async move {
-        let expected = match sender.protocol {
-            ProtocolType::Https => Some(sender.fingerprint),
-            ProtocolType::Http => None,
-        };
-        let Ok(client) = LsHttpClientV2::try_new(
-            &identity.key_pem,
-            &identity.cert_pem,
-            expected,
-            Some(Duration::from_secs(5)),
-        ) else {
-            return;
-        };
-        let _ = client
-            .cancel(sender.protocol, &sender.host, sender.port, &session_id)
-            .await;
-    });
-}
-
+/// The save folder, resolved. It may itself be a symbolic link (to another
+/// disk, say) to a directory; links inside it are refused as files arrive.
 fn prepare_destination(path: &Path) -> Result<PathBuf> {
     fs::create_dir_all(path)
         .with_context(|| format!("Could not create destination {}", path.display()))?;
-    let metadata = fs::symlink_metadata(path)
-        .with_context(|| format!("Could not inspect destination {}", path.display()))?;
-    anyhow::ensure!(metadata.is_dir(), "Destination is not a directory");
-    fs::canonicalize(path).context("Could not resolve destination")
+    let destination = fs::canonicalize(path).context("Could not resolve destination")?;
+    anyhow::ensure!(destination.is_dir(), "Destination is not a directory");
+    Ok(destination)
 }
 
 async fn shutdown_signal() {
@@ -2018,15 +1306,15 @@ async fn shutdown_signal() {
     }
 }
 
+/// One line on stdout for the plugin. Once nobody reads the pipe there is
+/// nobody to tell, so a failed write is ignored rather than a panic.
 fn emit_daemon_event(event: &str, result: serde_json::Value) {
-    let value = json!({"ok": true, "event": event, "result": result});
-    println!("{value}");
+    let line = json!({"ok": true, "event": event, "result": result});
+    let _ = writeln!(std::io::stdout().lock(), "{line}");
 }
 
 fn now() -> String {
-    OffsetDateTime::now_utc()
-        .format(&Rfc3339)
-        .unwrap_or_else(|_| "1970-01-01T00:00:00Z".to_string())
+    format_system_time(SystemTime::now())
 }
 
 fn format_system_time(time: SystemTime) -> String {
@@ -2040,13 +1328,20 @@ mod tests {
     use super::*;
 
     #[test]
-    fn free_space_check_refuses_impossible_transfers() {
-        let temp = std::env::temp_dir();
-        assert!(ensure_free_space(&temp, 0).is_ok());
+    fn the_save_folder_may_be_a_link_to_a_directory() {
+        let temp = tempfile::tempdir().unwrap();
+        let target = temp.path().join("disk");
+        fs::create_dir(&target).unwrap();
+        let link = temp.path().join("LocalSend");
+        std::os::unix::fs::symlink(&target, &link).unwrap();
         assert_eq!(
-            ensure_free_space(&temp, u64::MAX / 2).unwrap_err().code,
-            "insufficient_space"
+            prepare_destination(&link).unwrap(),
+            fs::canonicalize(&target).unwrap()
         );
+
+        let file = temp.path().join("file");
+        fs::write(&file, "x").unwrap();
+        assert!(prepare_destination(&file).is_err());
     }
 
     #[test]

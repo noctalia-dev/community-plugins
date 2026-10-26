@@ -124,12 +124,13 @@ fn validate_file_id(value: &str) -> ApiResult<()> {
 pub(super) fn validate_current_request(current: Option<&str>, provided: &str) -> ApiResult<()> {
     validate_uuid(provided, "request")?;
     if current != Some(provided) {
-        return Err(ApiError::new(
-            "stale_request",
-            "Incoming request is no longer pending",
-        ));
+        return Err(stale_request());
     }
     Ok(())
+}
+
+pub(super) fn stale_request() -> ApiError {
+    ApiError::new("stale_request", "Incoming request is no longer pending")
 }
 
 pub(super) fn validate_uuid(value: &str, kind: &str) -> ApiResult<()> {

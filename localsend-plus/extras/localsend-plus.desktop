@@ -6,4 +6,4 @@ Actions=send
 [Desktop Action send]
 Name=Send with LocalSend Plus
 Icon=document-send
-Exec=sh -c "noctalia msg plugin 0rgl/localsend-plus:service all send \\"\\$(printf '%%s\\\\n' \\"\\$@\\")\\"" _ %F
+Exec=sh -c "noctalia msg plugin 0rgl/localsend-plus:service all send \\"\\$(printf '%%s\\\\n' \\"\\$#\\" \\"\\$@\\")\\"" _ %F

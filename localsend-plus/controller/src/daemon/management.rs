@@ -1,7 +1,7 @@
 //! The management socket: one JSON request and one JSON response per
 //! connection, from processes of the same user only.
 
-use crate::rpc::{ApiError, RpcRequest, RpcResponse};
+use crate::rpc::{current_uid, ApiError, RpcRequest, RpcResponse, MAX_RPC_BYTES};
 use anyhow::{Context, Result};
 use std::fs;
 use std::io::ErrorKind;
@@ -15,7 +15,6 @@ use tokio::sync::{mpsc, oneshot, Semaphore};
 use tokio_util::sync::CancellationToken;
 use tokio_util::task::TaskTracker;
 
-const MAX_RPC_BYTES: u64 = 8 * 1024 * 1024;
 const MAX_MANAGEMENT_CONNECTIONS: usize = 32;
 const MANAGEMENT_READ_TIMEOUT: Duration = Duration::from_secs(10);
 
@@ -55,7 +54,7 @@ pub(super) fn bind_management_socket(path: &Path) -> Result<(UnixListener, Socke
         parent_metadata.is_dir() && !parent_metadata.file_type().is_symlink(),
         "Socket parent directory is invalid"
     );
-    let current_uid = unsafe { libc::geteuid() };
+    let current_uid = current_uid();
     anyhow::ensure!(
         parent_metadata.uid() == current_uid && parent_metadata.mode() & 0o022 == 0,
         "Socket parent directory must be private to the current user"
@@ -136,7 +135,7 @@ pub(super) async fn serve_management(
 }
 
 async fn handle_connection(stream: UnixStream, rpc_tx: mpsc::Sender<RpcCall>) {
-    let current_uid = unsafe { libc::geteuid() };
+    let current_uid = current_uid();
     if stream
         .peer_cred()
         .ok()

@@ -29,6 +29,19 @@ impl fmt::Display for ApiError {
 
 pub type ApiResult<T> = Result<T, ApiError>;
 
+/// The largest request or response the management socket carries.
+pub const MAX_RPC_BYTES: u64 = 8 * 1024 * 1024;
+
+/// The port LocalSend uses unless told otherwise.
+pub const DEFAULT_PORT: u16 = 53317;
+
+/// The effective user id. Both ends of the management socket must run as
+/// this user.
+pub fn current_uid() -> u32 {
+    // SAFETY: geteuid has no preconditions and cannot fail.
+    unsafe { libc::geteuid() }
+}
+
 /// Who can discover this device and send to it.
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize, clap::ValueEnum)]
 #[serde(rename_all = "kebab-case")]
@@ -360,7 +373,7 @@ pub enum TransferDirection {
     Outgoing,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TransferState {
     Preparing,

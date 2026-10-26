@@ -4,7 +4,9 @@
 
 local lib = require("./lib.luau")
 
-local function tr(key, args) return noctalia.tr(key, args) end
+local function tr(key, args)
+  return noctalia.tr(key, args)
+end
 
 local function refresh(ls)
   ls = ls or noctalia.state.get("ls") or {}
@@ -33,19 +35,25 @@ local function refresh(ls)
   local vis = ls.vis
   if vis ~= nil then
     local mode = (vis.tempUntil or 0) > 0
-      and tr("visibility.temp_left", { minutes = tostring(lib.minutesLeft(vis.tempUntil)),
-        mode = tr("visibility." .. vis.base) })
+        and tr(
+          "visibility.temp_left",
+          { minutes = tostring(lib.minutesLeft(vis.tempUntil)), mode = tr("visibility." .. vis.base) }
+        )
       or tr("visibility." .. vis.mode)
     table.insert(tip, tr("widget.visibility", { mode = mode }))
   end
   barWidget.setTooltip(table.concat(tip, "\n"))
 end
 
-function onClick() noctalia.togglePanel(lib.PANEL) end
+function onClick()
+  noctalia.togglePanel(lib.PANEL)
+end
 
-function onRightClick() noctalia.openSettings() end
+function onRightClick()
+  noctalia.openSettings()
+end
 
-function onIpc(event, payload)
+function onIpc(event)
   if event == "toggle" then noctalia.togglePanel(lib.PANEL) end
 end
 

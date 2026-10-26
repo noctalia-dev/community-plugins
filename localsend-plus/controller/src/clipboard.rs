@@ -134,8 +134,12 @@ pub fn ensure_unchanged(text: &str, expected: &str) -> ApiResult<()> {
     }
 }
 
+/// Puts received text on the clipboard as plain text. Without `--type`,
+/// wl-copy would infer a type from the content, so text that looks like HTML
+/// would be offered (and pasted) as HTML.
 pub async fn copy(text: &str) -> ApiResult<()> {
     let mut child = Command::new("wl-copy")
+        .args(["--type", "text/plain;charset=utf-8"])
         .stdin(Stdio::piped())
         .stdout(Stdio::null())
         .stderr(Stdio::null())

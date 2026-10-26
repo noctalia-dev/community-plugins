@@ -73,8 +73,10 @@ also pins a favorite's certificate when it probes it, so a stranger at an old ad
 
 Incoming file names cannot point outside the save folder. The controller rejects bidi controls and zero-width
 characters in sender names, replaces them with `_` in file names and strips them from messages, together with other
-control characters. A text
-preview appears only for a real embedded message, so a text file with a fake preview shows up as a regular file.
+control characters. It also strips them from the names and models of discovered devices before they reach the
+snapshot, so a device cannot put terminal escapes into `send` or the shell completions. A cancel goes to a sender
+over HTTPS pinned to the certificate it sent with, whatever protocol it claims. A text preview appears only for a real embedded message, so a text file with a fake preview
+shows up as a regular file.
 
 An upload stops when a source file cannot be read, so the receiver never gets a truncated file. The controller does
 not read a clipboard that a password manager marked with `x-kde-passwordManagerHint`.

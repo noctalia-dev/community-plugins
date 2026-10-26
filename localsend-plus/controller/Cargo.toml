@@ -1,6 +1,8 @@
 [package]
 name = "localsend-controller"
-version = "2.3.0"
+version = "2.3.1"
+description = "LocalSend receiver and sender for the LocalSend Plus Noctalia plugin"
+license = "MIT"
 rust-version = "1.97"
 edition = "2021"
 
@@ -21,6 +23,13 @@ tokio = { version = "1.49", features = ["full"] }
 tokio-stream = "0.1"
 tokio-util = { version = "0.7", features = ["rt"] }
 uuid = { version = "1.20", features = ["serde", "v4"] }
+
+[lints.rust]
+rust_2018_idioms = { level = "warn", priority = -1 }
+unsafe_op_in_unsafe_fn = "warn"
+
+[lints.clippy]
+undocumented_unsafe_blocks = "warn"
 
 [dev-dependencies]
 tempfile = "3.24"

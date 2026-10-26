@@ -13,6 +13,8 @@ const MAX_SELECTED_FILES: usize = 512;
 const MAX_VISITED_ENTRIES: usize = 10_000;
 const MAX_RECURSION_DEPTH: usize = 16;
 pub const MAX_TEXT_BYTES: usize = 512 * 1024;
+/// Longest peer name or model shown, as long as this device's own alias may be.
+const MAX_SHOWN_CHARS: usize = 128;
 
 #[derive(Clone)]
 pub enum OutgoingSource {
@@ -273,6 +275,22 @@ pub fn replace_invisible(name: &str) -> String {
         .collect()
 }
 
+/// Peer-supplied text as it may be shown: without control characters
+/// (terminal escapes, NUL) and invisible formatting, at most
+/// [`MAX_SHOWN_CHARS`] characters, and `?` when nothing visible is left.
+pub fn display_text(text: &str) -> String {
+    let shown: String = text
+        .chars()
+        .filter(|&c| !c.is_control() && !is_invisible_format(c))
+        .take(MAX_SHOWN_CHARS)
+        .collect();
+    if shown.trim().is_empty() {
+        "?".to_string()
+    } else {
+        shown
+    }
+}
+
 pub fn sanitize_relative_name(name: &str) -> ApiResult<Vec<String>> {
     if name.len() > 4096 {
         return Err(ApiError::new("unsafe_file_name", "File name is too long"));
@@ -481,6 +499,16 @@ mod tests {
         );
         assert_eq!(replace_invisible("a\u{200B}b\u{FEFF}"), "a_b_");
         assert!(!is_invisible_format('ą'));
+    }
+
+    #[test]
+    fn display_text_drops_escapes_and_invisible_formatting() {
+        assert_eq!(
+            display_text("Pho\u{1b}]52;c;aGk=\u{7}ne\u{202E}\0"),
+            "Pho]52;c;aGk=ne"
+        );
+        assert_eq!(display_text(&"ą".repeat(200)), "ą".repeat(MAX_SHOWN_CHARS));
+        assert_eq!(display_text("\u{1b}\u{200B} "), "?");
     }
 
     #[test]

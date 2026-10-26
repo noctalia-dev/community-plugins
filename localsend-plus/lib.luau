@@ -27,7 +27,10 @@ local M = {}
 -- copy under another id gets its own socket and runs beside this one.
 M.ID = "0rgl/localsend-plus"
 M.PANEL = M.ID .. ":panel"
+M.PLUGIN_DIR = noctalia.pluginDir() or ""
 M.ACTIVE = { preparing = true, transferring = true, cancelling = true }
+-- Failed sends the panel can retry with a PIN (pin_locked cannot be).
+M.PIN_ERRORS = { pin_required = true, pin_invalid = true }
 
 local runtime = noctalia.getenv("XDG_RUNTIME_DIR")
 local RUNTIME_PREFIX = runtime ~= nil and runtime ~= "" and (runtime .. "/" .. M.ID:gsub("/", "-")) or nil
@@ -74,7 +77,33 @@ function M.shq(s)
   return "'" .. tostring(s):gsub("'", "'\\''") .. "'"
 end
 
-function M.trim(s) return (tostring(s):gsub("^%s+", ""):gsub("%s+$", "")) end
+function M.trim(s)
+  return (tostring(s):match("^%s*(.-)%s*$"))
+end
+
+-- Saves `value` as JSON; false and the reason when that fails.
+function M.writeJson(path, value)
+  local text, err = noctalia.json.encode(value)
+  if text == nil then return false, err end
+  return noctalia.writeFile(path, text)
+end
+
+-- Posts a request to another entry in state `key`. Each one carries the
+-- next seq, so the receiver can tell it from one left over from an earlier
+-- run.
+function M.post(key, fields)
+  fields.seq = ((noctalia.state.get(key) or {}).seq or 0) + 1
+  noctalia.state.set(key, fields)
+end
+
+function M.openPanel()
+  if not noctalia.state.get("panel_open") then noctalia.togglePanel(M.PANEL) end
+end
+
+-- What to show for a failed controller call.
+function M.errorText(err)
+  return err and err.message ~= nil and err.message ~= "" and err.message or noctalia.tr("error.unknown")
+end
 
 -- Runs the controller with `args` and calls cb(ok, result, err). `err` is
 -- the controller's ApiError table ({ code, message }) or a synthetic one.
@@ -84,9 +113,7 @@ local function run(args, cb)
     if cb then cb(false, nil, { code = "no_controller", message = "localsend-controller was not found" }) end
     return
   end
-  local argv = { bin }
-  for _, a in ipairs(args) do table.insert(argv, a) end
-  noctalia.runAsync(argv, function(res)
+  noctalia.runAsync(table.move(args, 1, #args, 2, { bin }), function(res)
     if not cb then return end
     local data = noctalia.json.decode(M.trim(res.stdout or ""))
     if type(data) ~= "table" then
@@ -105,9 +132,7 @@ function M.rpc(args, cb)
     if cb then cb(false, nil, { code = "no_runtime_dir", message = "XDG_RUNTIME_DIR is not set" }) end
     return
   end
-  local argv = { "--socket", M.SOCK }
-  for _, a in ipairs(args) do table.insert(argv, a) end
-  run(argv, cb)
+  run(table.move(args, 1, #args, 3, { "--socket", M.SOCK }), cb)
 end
 
 -- Reads the clipboard for a preview: cb(ok, { sha256, preview, truncated }, err).
@@ -122,22 +147,42 @@ end
 -- the SHA-256 of the text the user confirmed; the controller refuses a
 -- changed clipboard. A paths send carries the files already chosen.
 function M.request(kind, device, sha, paths)
-  local seq = ((noctalia.state.get("pick") or {}).seq or 0) + 1
-  noctalia.state.set("pick", { seq = seq, kind = kind, fingerprint = device.fingerprint, alias = device.alias,
-    sha = sha, paths = paths })
+  M.post("pick", { kind = kind, fingerprint = device.fingerprint, alias = device.alias, sha = sha, paths = paths })
 end
 
 -- What the controller accepts as a PIN: 1 to 64 characters, no control
 -- characters. Accepting files from anyone needs at least 8.
 function M.validPin(pin)
   local length = type(pin) == "string" and utf8.len(pin) or nil
-  return length ~= nil and length >= 1 and length <= 64 and not pin:find("%c")
+  if length == nil or length < 1 or length > 64 then return false end
+  -- Control characters as Rust counts them: C0, DEL and C1.
+  for _, code in utf8.codes(pin) do
+    if code < 0x20 or (code >= 0x7F and code <= 0x9F) then return false end
+  end
+  return true
 end
 
 -- The local path of a file:// URI, percent-decoded; nil for any other URI.
 function M.pathFromUri(uri)
   local path = uri:match("^file://localhost(/.*)$") or uri:match("^file://(/.*)$")
   return path and noctalia.string.urlDecode(path) or nil
+end
+
+-- The paths in an IPC `send` payload: absolute paths, one per line. Only a
+-- carriage return is stripped, since spaces at either end belong to the file
+-- name. The file manager entries put the number of paths first; nil when the
+-- lines do not add up to it, because a name held a line break and would
+-- otherwise read as two paths.
+function M.payloadPaths(payload)
+  local paths = {}
+  for _, line in ipairs(tostring(payload or ""):split("\n")) do
+    local path = line:gsub("\r$", "")
+    if path ~= "" then table.insert(paths, path) end
+  end
+  local count = paths[1] and paths[1]:match("^%s*(%d+)%s*$")
+  if count == nil then return paths end
+  table.remove(paths, 1)
+  return #paths == tonumber(count) and paths or nil
 end
 
 -- Last path component, for showing file names.
@@ -153,18 +198,15 @@ function M.summary(list, max)
     table.insert(shown, item)
   end
   local text = table.concat(shown, ", ")
-  if #list > max then
-    text = text .. " " .. noctalia.tr("panel.more", { count = tostring(#list - max) })
-  end
+  if #list > max then text = text .. " " .. noctalia.tr("panel.more", { count = tostring(#list - max) }) end
   return text
 end
 
 -- Asks the panel to confirm a clipboard send to this device (the launcher
 -- cannot show a preview itself).
 function M.askClipboard(device)
-  local seq = ((noctalia.state.get("clip_ask") or {}).seq or 0) + 1
-  noctalia.state.set("clip_ask", { seq = seq, fingerprint = device.fingerprint, at = os.time() })
-  if not noctalia.state.get("panel_open") then noctalia.togglePanel(M.PANEL) end
+  M.post("clip_ask", { fingerprint = device.fingerprint, at = os.time() })
+  M.openPanel()
 end
 
 -- Favorites: fingerprint -> { alias, type, host, port }, persisted in the
@@ -182,7 +224,7 @@ end
 local function saveFavorites(fav)
   noctalia.state.set("favorites", fav)
   if FAV_FILE == nil then return end
-  local ok, err = noctalia.writeFile(FAV_FILE, noctalia.json.encode(fav))
+  local ok, err = M.writeJson(FAV_FILE, fav)
   if not ok then noctalia.log("localsend: could not save favorites: " .. tostring(err)) end
   M.restrictFile(FAV_FILE)
 end
@@ -206,8 +248,12 @@ function M.setFavorite(device, pinned)
   if pinned then
     local previous = fav[device.fingerprint] or {}
     local address = device.address
-    entry = { alias = device.alias, type = device.type,
-      host = address and address.host or previous.host, port = address and address.port or previous.port }
+    entry = {
+      alias = device.alias,
+      type = device.type,
+      host = address and address.host or previous.host,
+      port = address and address.port or previous.port,
+    }
   end
   fav[device.fingerprint] = entry
   saveFavorites(fav)
@@ -219,8 +265,12 @@ function M.rememberAddresses(devices)
   local changed = false
   for _, d in ipairs(devices or {}) do
     local info = fav[d.fingerprint]
-    if info ~= nil and d.online and d.address ~= nil
-      and (info.host ~= d.address.host or info.port ~= d.address.port) then
+    if
+      info ~= nil
+      and d.online
+      and d.address ~= nil
+      and (info.host ~= d.address.host or info.port ~= d.address.port)
+    then
       info.host, info.port = d.address.host, d.address.port
       changed = true
     end
@@ -251,8 +301,7 @@ M.TEMP_SECONDS = 600
 
 -- Asks the service to change the visibility (temp = everyone for a while).
 function M.requestVisibility(mode, temp)
-  local seq = ((noctalia.state.get("visibility_req") or {}).seq or 0) + 1
-  noctalia.state.set("visibility_req", { seq = seq, mode = mode, temp = temp == true })
+  M.post("visibility_req", { mode = mode, temp = temp == true })
 end
 
 function M.visibilityGlyph(mode)
@@ -286,8 +335,11 @@ function M.sortedDevices(devices)
   end
   for fp, info in pairs(fav) do
     if not seen[fp] then
-      table.insert(list, { device = { fingerprint = fp, alias = info.alias or "?", type = info.type, online = false },
-        pinned = true, order = math.huge })
+      table.insert(list, {
+        device = { fingerprint = fp, alias = info.alias or "?", type = info.type, online = false },
+        pinned = true,
+        order = math.huge,
+      })
     end
   end
   table.sort(list, function(a, b)
@@ -298,9 +350,40 @@ function M.sortedDevices(devices)
   return list
 end
 
+-- The saved favorite with this fingerprint, compared without regard to case
+-- as the controller compares them; nil for any other device.
+function M.favoriteOf(fingerprint)
+  local wanted = tostring(fingerprint or ""):upper()
+  for fp, info in pairs(M.favorites()) do
+    if tostring(fp):upper() == wanted then return info end
+  end
+  return nil
+end
+
+-- How a sender or receiver is named. A favorite goes by the alias saved when
+-- it was pinned. Anyone else goes by the alias it reports plus the start of
+-- its fingerprint, since a device can report any name; the second result is
+-- true when that name is also a favorite's.
+function M.peerLabel(peer)
+  if peer == nil then return "?", false end
+  local alias = peer.alias or "?"
+  local favorite = M.favoriteOf(peer.fingerprint)
+  if favorite ~= nil then return favorite.alias or alias, false end
+  local impostor = false
+  for _, info in pairs(M.favorites()) do
+    if type(info.alias) == "string" and info.alias:lower() == alias:lower() then
+      impostor = true
+      break
+    end
+  end
+  return string.format("%s (%s)", alias, M.shortFingerprint(peer.fingerprint)), impostor
+end
+
 -- History cleared in the panel: finished transfer ids hidden for this
 -- session (the controller keeps only a few recent ones, in memory).
-function M.hiddenTransfers() return noctalia.state.get("hidden") or {} end
+function M.hiddenTransfers()
+  return noctalia.state.get("hidden") or {}
+end
 
 -- Rebuilt from the current list, so ids the controller has dropped go too.
 function M.clearHistory(transfers)
@@ -319,7 +402,9 @@ end
 
 -- Transfer error codes with a message in the user's language.
 local TRANSFER_ERROR_KEYS = {
-  pin_required = "error.pin_required", pin_invalid = "error.pin_invalid", pin_locked = "error.pin_locked",
+  pin_required = "error.pin_required",
+  pin_invalid = "error.pin_invalid",
+  pin_locked = "error.pin_locked",
   receive_stalled = "error.receive_stalled",
 }
 

@@ -5,8 +5,11 @@ mod identity;
 mod rpc;
 mod terminal;
 
-use clap::{error::ErrorKind, Parser, Subcommand};
-use rpc::{ApiError, AutoAccept, FavoriteSpec, Pin, RpcRequest, RpcResponse, Visibility};
+use clap::{error::ErrorKind, Args, Parser, Subcommand};
+use rpc::{
+    ApiError, AutoAccept, FavoriteSpec, Pin, RpcRequest, RpcResponse, Visibility, DEFAULT_PORT,
+    MAX_RPC_BYTES,
+};
 use serde_json::json;
 use std::io::{Read, Write};
 use std::os::unix::fs::OpenOptionsExt;
@@ -15,10 +18,8 @@ use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
 
-const MAX_RPC_BYTES: u64 = 8 * 1024 * 1024;
 const RPC_TIMEOUT: Duration = Duration::from_secs(35);
-/// Port of a device added by address when the address names none.
-const DEFAULT_LOCALSEND_PORT: u16 = 53317;
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(3);
 
 #[derive(Parser)]
 #[command(
@@ -36,30 +37,33 @@ struct Cli {
     command: Command,
 }
 
+#[derive(Args)]
+struct DaemonArgs {
+    #[arg(long, default_value_t = DEFAULT_PORT)]
+    port: u16,
+    #[arg(long, value_name = "PATH")]
+    destination: PathBuf,
+    /// Name shown to other devices; a random one is picked once and kept
+    /// in the state directory when this is missing.
+    #[arg(long)]
+    alias: Option<String>,
+    #[arg(long, value_name = "PATH")]
+    state_directory: PathBuf,
+    #[arg(long, value_enum, default_value_t = Visibility::Everyone)]
+    visibility: Visibility,
+    /// File holding the PIN senders must give; it is deleted once read.
+    #[arg(long, value_name = "PATH")]
+    pin_file: Option<PathBuf>,
+    #[arg(long, value_enum, default_value_t = AutoAccept::Off)]
+    auto_accept: AutoAccept,
+    /// Model shown to other devices; defaults to the os-release name.
+    #[arg(long)]
+    device_model: Option<String>,
+}
+
 #[derive(Subcommand)]
 enum Command {
-    Daemon {
-        #[arg(long, default_value_t = 53317)]
-        port: u16,
-        #[arg(long, value_name = "PATH")]
-        destination: PathBuf,
-        /// Name shown to other devices; a random one is picked once and kept
-        /// in the state directory when this is missing.
-        #[arg(long)]
-        alias: Option<String>,
-        #[arg(long, value_name = "PATH")]
-        state_directory: PathBuf,
-        #[arg(long, value_enum, default_value_t = Visibility::Everyone)]
-        visibility: Visibility,
-        /// File holding the PIN senders must give; it is deleted once read.
-        #[arg(long, value_name = "PATH")]
-        pin_file: Option<PathBuf>,
-        #[arg(long, value_enum, default_value_t = AutoAccept::Off)]
-        auto_accept: AutoAccept,
-        /// Model shown to other devices; defaults to the os-release name.
-        #[arg(long)]
-        device_model: Option<String>,
-    },
+    Daemon(DaemonArgs),
     /// Sends files and folders from a terminal: `send FILE... [DEVICE]`.
     /// The device is the last argument unless that is an existing file;
     /// without one, or when the name fits several devices, it asks.
@@ -153,94 +157,83 @@ async fn main() {
         Err(error) => fail(ApiError::new("invalid_arguments", error.to_string()), 2),
     };
 
-    let command = match cli.command {
+    let exit_code = match cli.command {
         Command::ReadClipboard { preview_chars } => {
             match clipboard::preview(preview_chars).await {
                 Ok(preview) => emit(&RpcResponse::success(preview)),
                 Err(error) => fail(error, 1),
             }
-            std::process::exit(0);
+            0
         }
-        Command::Send { list, items } => {
-            std::process::exit(terminal::run(cli.socket, items, list).await);
-        }
-        command => command,
-    };
-
-    let Some(socket) = cli.socket else {
-        fail(
-            ApiError::new("invalid_arguments", "--socket is required"),
-            2,
-        );
-    };
-
-    let exit_code = match command {
-        Command::Daemon {
-            port,
-            destination,
-            alias,
-            state_directory,
-            visibility,
-            pin_file,
-            auto_accept,
-            device_model,
-        } => {
-            let result = async {
-                let pin = match pin_file {
-                    Some(path) => {
-                        Some(read_pin_file(&path).map_err(|error| anyhow::anyhow!(error.message))?)
-                    }
-                    None => None,
-                };
-                let device_model = identity::resolve_device_model(device_model)?;
-                daemon::run(daemon::DaemonConfig {
-                    socket,
-                    port,
-                    destination,
-                    alias,
-                    state_directory,
-                    visibility,
-                    pin,
-                    auto_accept,
-                    device_model,
-                })
-                .await
-            }
-            .await;
-            match result {
-                Ok(()) => 0,
-                Err(error) => {
-                    emit(&RpcResponse::failure(ApiError::new(
-                        "daemon_start_failed",
-                        error.to_string(),
-                    )));
-                    1
-                }
-            }
-        }
+        Command::Send { list, items } => terminal::run(cli.socket, items, list).await,
         command => {
-            let request = match command_to_request(command).await {
-                Ok(request) => request,
-                Err(error) => fail(error, 1),
+            let Some(socket) = cli.socket else {
+                fail(
+                    ApiError::new("invalid_arguments", "--socket is required"),
+                    2,
+                );
             };
-            match call_daemon(&socket, &request).await {
-                Ok(response) => {
-                    let success = response.ok;
-                    emit(&response);
-                    if success {
-                        0
-                    } else {
-                        1
-                    }
-                }
-                Err(error) => {
-                    emit(&RpcResponse::failure(error));
-                    1
-                }
+            match command {
+                Command::Daemon(args) => run_daemon(socket, args).await,
+                command => run_command(&socket, command).await,
             }
         }
     };
     std::process::exit(exit_code);
+}
+
+/// Runs the daemon until it is told to stop; only a failed start is
+/// reported here, the daemon itself reports the rest on stdout.
+async fn run_daemon(socket: PathBuf, args: DaemonArgs) -> i32 {
+    let result = async {
+        let pin = match args.pin_file {
+            Some(path) => {
+                Some(read_pin_file(&path).map_err(|error| anyhow::anyhow!(error.message))?)
+            }
+            None => None,
+        };
+        let device_model = identity::resolve_device_model(args.device_model)?;
+        daemon::run(daemon::DaemonConfig {
+            socket,
+            port: args.port,
+            destination: args.destination,
+            alias: args.alias,
+            state_directory: args.state_directory,
+            visibility: args.visibility,
+            pin,
+            auto_accept: args.auto_accept,
+            device_model,
+        })
+        .await
+    }
+    .await;
+    match result {
+        Ok(()) => 0,
+        Err(error) => {
+            emit(&RpcResponse::failure(ApiError::new(
+                "daemon_start_failed",
+                error.to_string(),
+            )));
+            1
+        }
+    }
+}
+
+/// Sends one command to the daemon and prints its answer.
+async fn run_command(socket: &Path, command: Command) -> i32 {
+    let request = match command_to_request(command).await {
+        Ok(request) => request,
+        Err(error) => fail(error, 1),
+    };
+    let response = call_daemon(socket, &request)
+        .await
+        .unwrap_or_else(RpcResponse::failure);
+    emit(&response);
+    if response.ok {
+        0
+    } else {
+        1
+    }
 }
 
 fn fail(error: ApiError, code: i32) -> ! {
@@ -285,7 +278,7 @@ async fn command_to_request(command: Command) -> Result<RpcRequest, ApiError> {
             favorites,
         },
         Command::Shutdown => RpcRequest::Shutdown {},
-        Command::Daemon { .. } | Command::ReadClipboard { .. } | Command::Send { .. } => {
+        Command::Daemon(_) | Command::ReadClipboard { .. } | Command::Send { .. } => {
             return Err(ApiError::new(
                 "invalid_arguments",
                 "This command is not sent to the daemon",
@@ -300,11 +293,16 @@ const MAX_PIN_FILE_BYTES: u64 = 1024;
 /// Reads a PIN from a file and deletes the file, also when the PIN is
 /// invalid, so a PIN never lingers on disk or appears in a command line.
 fn read_pin_file(path: &Path) -> Result<Pin, ApiError> {
+    // O_NONBLOCK keeps a FIFO from blocking the open; only a regular file is
+    // read.
     let read = std::fs::OpenOptions::new()
         .read(true)
-        .custom_flags(libc::O_NOFOLLOW)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
         .open(path)
         .and_then(|file| {
+            if !file.metadata()?.is_file() {
+                return Err(std::io::Error::other("not a regular file"));
+            }
             let mut text = String::new();
             file.take(MAX_PIN_FILE_BYTES).read_to_string(&mut text)?;
             Ok(text)
@@ -318,13 +316,28 @@ fn read_optional_pin(path: Option<PathBuf>) -> Result<Option<Pin>, ApiError> {
     path.as_deref().map(read_pin_file).transpose()
 }
 
-/// `HOST:PORT`, or a bare host or IP address on the default LocalSend port.
+/// `HOST:PORT`, `[IPV6]:PORT`, or a bare host or IP address (IPv6 with or
+/// without a zone such as `%wlan0`) on the default LocalSend port.
 fn device_address(address: &str) -> Result<(String, u16), String> {
     let address = address.trim();
-    if address.parse::<std::net::IpAddr>().is_ok() || !address.contains(':') {
-        return rpc::parse_address(&format!("{address}:{DEFAULT_LOCALSEND_PORT}"));
+    if let Some(rest) = address.strip_prefix('[') {
+        return match rest.split_once(']') {
+            Some((host, "")) => rpc::parse_address(&format!("{host}:{DEFAULT_PORT}")),
+            Some((host, port)) if port.starts_with(':') => {
+                rpc::parse_address(&format!("{host}{port}"))
+            }
+            _ => Err("address is invalid".to_string()),
+        };
     }
-    rpc::parse_address(address)
+    // A zone has no colon, so a colon after `%` starts the port.
+    let (ip, zone) = address.split_once('%').unwrap_or((address, ""));
+    let bare =
+        !address.contains(':') || (ip.parse::<std::net::IpAddr>().is_ok() && !zone.contains(':'));
+    if bare {
+        rpc::parse_address(&format!("{address}:{DEFAULT_PORT}"))
+    } else {
+        rpc::parse_address(address)
+    }
 }
 
 fn absolute_paths(paths: Vec<PathBuf>) -> Result<Vec<String>, ApiError> {
@@ -345,8 +358,8 @@ fn absolute_paths(paths: Vec<PathBuf>) -> Result<Vec<String>, ApiError> {
         .collect()
 }
 
-async fn call_daemon(socket: &PathBuf, request: &RpcRequest) -> Result<RpcResponse, ApiError> {
-    let mut stream = tokio::time::timeout(Duration::from_secs(3), UnixStream::connect(socket))
+async fn call_daemon(socket: &Path, request: &RpcRequest) -> Result<RpcResponse, ApiError> {
+    let mut stream = tokio::time::timeout(CONNECT_TIMEOUT, UnixStream::connect(socket))
         .await
         .map_err(|_| ApiError::new("daemon_unavailable", "Controller connection timed out"))?
         .map_err(|_| {
@@ -355,7 +368,7 @@ async fn call_daemon(socket: &PathBuf, request: &RpcRequest) -> Result<RpcRespon
                 format!("Could not connect to {}", socket.display()),
             )
         })?;
-    let expected_uid = unsafe { libc::geteuid() };
+    let expected_uid = rpc::current_uid();
     let daemon_uid = stream
         .peer_cred()
         .map_err(|_| ApiError::new("daemon_unavailable", "Could not verify controller identity"))?
@@ -437,6 +450,15 @@ mod tests {
         assert!(read_pin_file(&path).is_err());
         assert!(!path.exists());
         assert!(read_pin_file(&path).is_err());
+
+        let fifo = dir.path().join("fifo");
+        assert!(std::process::Command::new("mkfifo")
+            .arg(&fifo)
+            .status()
+            .unwrap()
+            .success());
+        assert!(read_pin_file(&fifo).is_err());
+        assert!(!fifo.exists());
     }
 
     #[test]
@@ -455,5 +477,19 @@ mod tests {
         );
         assert_eq!(device_address("10.0.0.2:1234").unwrap().1, 1234);
         assert!(device_address("10.0.0.2:x").is_err());
+        assert_eq!(
+            device_address("fe80::1%wlan0").unwrap(),
+            ("fe80::1%wlan0".into(), 53317)
+        );
+        assert_eq!(
+            device_address("fe80::1%3:1234").unwrap(),
+            ("fe80::1%3".into(), 1234)
+        );
+        assert_eq!(
+            device_address("[fe80::1]:1234").unwrap(),
+            ("fe80::1".into(), 1234)
+        );
+        assert_eq!(device_address("[fe80::1]").unwrap().1, 53317);
+        assert!(device_address("[fe80::1]x").is_err());
     }
 }

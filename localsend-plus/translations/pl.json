@@ -12,6 +12,14 @@
       "label": "Menu kontekstowe Dolphina",
       "description": "Dodaje „Send with LocalSend Plus” do menu Dolphina dla plików i folderów. Wyłączenie usuwa tę pozycję."
     },
+    "nautilus_menu": {
+      "label": "Menu kontekstowe Nautilusa",
+      "description": "Dodaje „Send with LocalSend Plus” do podmenu Skrypty w Nautilusie (Pliki) dla plików i folderów. Wyłączenie usuwa tę pozycję."
+    },
+    "nemo_menu": {
+      "label": "Menu kontekstowe Nemo",
+      "description": "Dodaje „Send with LocalSend Plus” do menu Nemo dla plików i folderów. Wyłączenie usuwa tę pozycję."
+    },
     "terminal_command": {
       "label": "Komenda localsend w terminalu",
       "description": "Dodaje komendę „localsend PLIK... [URZĄDZENIE]” jako ~/.local/bin/localsend, z uzupełnianiem Tab dla fish, bash i zsh (zsh potrzebuje jednej linii z fpath, zob. README). Konfiguracja powłoki zostaje nietknięta; wyłączenie usuwa te pliki."
@@ -76,6 +84,7 @@
     "text_long": "Podgląd pokazuje tylko początek, do schowka trafi całość ({size}). Sprawdź ją przed wklejeniem do terminala.",
     "fingerprint": "Odcisk: {fp}…",
     "reported_alias": "Urządzenie podaje teraz nazwę: {name}",
+    "impostor": "To nie jest Twoje przypięte urządzenie, choć ma taką samą nazwę.",
     "visible_favorites": "Widoczny dla ulubionych jako {name}",
     "hidden_as": "Ukryty ({name})",
     "install_hint": "Zbuduj go ze źródeł dołączonych do pluginu (wymaga Rusta i gcc), a potem kliknij „Spróbuj ponownie”:",
@@ -148,6 +157,7 @@
     "pin_invalid": "Błędny PIN.",
     "pin_locked": "Za dużo błędnych PIN-ów. LocalSend u odbiorcy musi się zrestartować, zanim spróbujesz ponownie.",
     "bad_path": "To nie jest istniejący plik ani folder: {path}",
+    "line_break": "Nazwa pliku zawiera znak nowej linii. Wyślij ten plik z panelu albo z terminala.",
     "no_paths": "Nie ma czego wysłać. Podaj ścieżki bezwzględne, po jednej w wierszu.",
     "bad_address": "Wpisz adres w rodzaju 192.168.1.20 albo telefon.lan:53317.",
     "device_unreachable": "Pod adresem {address} nie odpowiedziało żadne urządzenie LocalSend. Sprawdź, czy LocalSend jest tam otwarty z włączonym szyfrowaniem.",

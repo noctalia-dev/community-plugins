@@ -17,7 +17,9 @@ local VISIBILITY_ACTIONS = {
   { mode = "everyone", temp = true },
 }
 
-local function tr(key, args) return noctalia.tr(key, args) end
+local function tr(key, args)
+  return noctalia.tr(key, args)
+end
 
 -- Scores the query the way Noctalia scores an application named "LocalSend"
 -- (app_provider.cpp: name match = 3000 + fuzzy * 5, +500 when the name starts
@@ -57,8 +59,10 @@ function onQuery(text)
 
   local s = named or score(q, "LocalSend " .. tr("launcher.open"))
   if s ~= nil then
-    table.insert(results, { id = "open", title = "LocalSend", subtitle = tr("launcher.open"),
-      glyph = "send", score = s + 1 })
+    table.insert(
+      results,
+      { id = "open", title = "LocalSend", subtitle = tr("launcher.open"), glyph = "send", score = s + 1 }
+    )
   end
 
   -- Device actions follow the "open" row when the query names LocalSend.
@@ -69,8 +73,13 @@ function onQuery(text)
       rank = rank + 1
       local ds = named and named - rank * 0.01 or score(q, title .. " localsend")
       if ds ~= nil then
-        table.insert(results, { id = a.kind .. ":" .. d.fingerprint, title = title,
-          subtitle = "LocalSend · " .. (d.address.host or ""), glyph = a.glyph, score = ds })
+        table.insert(results, {
+          id = a.kind .. ":" .. d.fingerprint,
+          title = title,
+          subtitle = "LocalSend · " .. (d.address.host or ""),
+          glyph = a.glyph,
+          score = ds,
+        })
       end
     end
   end
@@ -83,12 +92,15 @@ function onQuery(text)
     local title = v.temp and tr("visibility.temp") or tr("launcher.visibility", { mode = tr("visibility." .. v.mode) })
     local current = v.temp and temp or (not v.temp and not temp and vis.base == v.mode)
     rank = rank + 1
-    local vs = named and named - rank * 0.01
-      or score(q, title .. " localsend " .. tr("launcher.visibility_words"))
+    local vs = named and named - rank * 0.01 or score(q, title .. " localsend " .. tr("launcher.visibility_words"))
     if vs ~= nil then
-      table.insert(results, { id = "vis:" .. (v.temp and "temp" or v.mode), title = title,
+      table.insert(results, {
+        id = "vis:" .. (v.temp and "temp" or v.mode),
+        title = title,
         subtitle = current and tr("launcher.current") or "LocalSend",
-        glyph = v.temp and "clock" or lib.visibilityGlyph(v.mode), score = vs })
+        glyph = v.temp and "clock" or lib.visibilityGlyph(v.mode),
+        score = vs,
+      })
     end
   end
 
@@ -97,7 +109,7 @@ end
 
 function onActivate(id)
   if id == "open" then
-    if not noctalia.state.get("panel_open") then noctalia.togglePanel(lib.PANEL) end
+    lib.openPanel()
     return
   end
   local kind, fingerprint = id:match("^(%a+):(.+)$")
@@ -113,9 +125,13 @@ function onActivate(id)
   for _, d in ipairs(devices()) do
     if d.fingerprint == fingerprint then
       -- The clipboard goes out only after the panel previewed it.
-      if kind == "clipboard" then lib.askClipboard(d) else lib.request(kind, d) end
+      if kind == "clipboard" then
+        lib.askClipboard(d)
+      else
+        lib.request(kind, d)
+      end
       return
     end
   end
-  noctalia.togglePanel(lib.PANEL) -- the device went away; show the current list
+  lib.openPanel() -- the device went away; show the current list
 end

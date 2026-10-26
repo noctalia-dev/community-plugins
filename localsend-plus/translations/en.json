@@ -12,6 +12,14 @@
       "label": "Dolphin context menu",
       "description": "Adds \"Send with LocalSend Plus\" to Dolphin's menu for files and folders. Turning it off removes the entry again."
     },
+    "nautilus_menu": {
+      "label": "Nautilus context menu",
+      "description": "Adds \"Send with LocalSend Plus\" to the Scripts submenu of Nautilus (Files) for files and folders. Turning it off removes the entry again."
+    },
+    "nemo_menu": {
+      "label": "Nemo context menu",
+      "description": "Adds \"Send with LocalSend Plus\" to Nemo's menu for files and folders. Turning it off removes the entry again."
+    },
     "terminal_command": {
       "label": "localsend command in the terminal",
       "description": "Adds \"localsend FILE... [DEVICE]\" as ~/.local/bin/localsend, with Tab completion for fish, bash and zsh (zsh needs one fpath line, see the README). Your shell config stays untouched; turning this off removes the files again."
@@ -76,6 +84,7 @@
     "text_long": "The preview shows only the beginning; the clipboard gets all of it ({size}). Check it before pasting into a terminal.",
     "fingerprint": "Fingerprint: {fp}…",
     "reported_alias": "The device now reports the name: {name}",
+    "impostor": "This is not your pinned device, even though it has the same name.",
     "visible_favorites": "Visible to favorites as {name}",
     "hidden_as": "Hidden ({name})",
     "install_hint": "Build it from the sources that come with this plugin (needs Rust and gcc), then press Retry:",
@@ -148,6 +157,7 @@
     "pin_invalid": "Wrong PIN.",
     "pin_locked": "Too many wrong PINs. LocalSend on the receiver has to restart before you can try again.",
     "bad_path": "Not an existing file or folder: {path}",
+    "line_break": "A file name contains a line break. Send that file from the panel or the terminal instead.",
     "no_paths": "Nothing to send. Give absolute paths, one per line.",
     "bad_address": "Enter an address like 192.168.1.20 or phone.lan:53317.",
     "device_unreachable": "No LocalSend device answered at {address}. Check that LocalSend is open there with encryption on.",

@@ -1,0 +1,9 @@
+[Nemo Action]
+Name=Send with LocalSend Plus
+Comment=Send the selected files and folders to a LocalSend device
+Exec=<localsend-plus-send.sh> %F
+Icon-Name=document-send
+Selection=notnone
+Extensions=any;
+Quote=double
+Dependencies=noctalia;

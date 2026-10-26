@@ -24,43 +24,102 @@ use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tokio_util::sync::CancellationToken;
 
-#[allow(clippy::too_many_arguments)]
-pub(super) async fn run_outgoing(
-    transfer_id: String,
-    identity: Arc<Identity>,
-    device: StatefulDevice,
-    channel: HttpChannel,
-    items: Vec<OutgoingItem>,
-    pin: Option<Pin>,
-    progress: HashMap<String, Arc<AtomicU64>>,
-    cancel: CancellationToken,
-    by_peer: Arc<AtomicBool>,
-    internal: mpsc::Sender<InternalEvent>,
-) {
+/// Waiting for the receiver to take note of a cancel is not worth more.
+const CANCEL_TIMEOUT: Duration = Duration::from_secs(2);
+
+/// Everything one send needs; the daemon keeps clones of `progress`,
+/// `cancel` and `by_peer` to follow and stop it.
+pub(super) struct OutgoingJob {
+    pub transfer_id: String,
+    pub identity: Arc<Identity>,
+    pub device: StatefulDevice,
+    pub channel: HttpChannel,
+    pub items: Vec<OutgoingItem>,
+    pub pin: Option<Pin>,
+    pub progress: HashMap<String, Arc<AtomicU64>>,
+    pub cancel: CancellationToken,
+    /// Set when the receiver cancelled, so it is not told again.
+    pub by_peer: Arc<AtomicBool>,
+    pub internal: mpsc::Sender<InternalEvent>,
+}
+
+/// The receiver's upload session.
+struct Session<'a> {
+    client: &'a LsHttpClientV2,
+    channel: &'a HttpChannel,
+    id: &'a str,
+}
+
+impl Session<'_> {
+    async fn upload(
+        &self,
+        file_id: &str,
+        token: &str,
+        body: reqwest::Body,
+        cancel: CancellationToken,
+    ) -> Result<(), ClientError> {
+        let channel = self.channel;
+        self.client
+            .upload(
+                channel.protocol,
+                &channel.host,
+                channel.port,
+                None,
+                self.id,
+                file_id,
+                token,
+                body,
+                cancel,
+            )
+            .await
+    }
+
+    /// Tells the receiver the transfer is over.
+    async fn cancel(&self) {
+        let channel = self.channel;
+        let _ = tokio::time::timeout(
+            CANCEL_TIMEOUT,
+            self.client
+                .cancel(channel.protocol, &channel.host, channel.port, self.id),
+        )
+        .await;
+    }
+}
+
+enum UploadError {
+    Cancelled,
+    Failed(ApiError),
+}
+
+pub(super) async fn run_outgoing(job: OutgoingJob) {
+    let OutgoingJob {
+        transfer_id,
+        identity,
+        device,
+        channel,
+        items,
+        pin,
+        progress,
+        cancel,
+        by_peer,
+        internal,
+    } = job;
     let expected_fingerprint = match channel.protocol {
         ProtocolType::Https => Some(device.device.fingerprint.clone()),
         ProtocolType::Http => None,
     };
-    let client = match LsHttpClientV2::try_new(
+    let Ok(client) = LsHttpClientV2::try_new(
         &identity.key_pem,
         &identity.cert_pem,
         expected_fingerprint,
         None,
-    ) {
-        Ok(client) => client,
-        Err(_) => {
-            send_outgoing_finished(
-                &internal,
-                transfer_id,
-                TransferState::Failed,
-                Some(ApiError::new(
-                    "tls_client_error",
-                    "Could not initialize the LocalSend TLS client",
-                )),
-            )
-            .await;
-            return;
-        }
+    ) else {
+        let error = ApiError::new(
+            "tls_client_error",
+            "Could not initialize the LocalSend TLS client",
+        );
+        send_outgoing_finished(&internal, transfer_id, TransferState::Failed, Some(error)).await;
+        return;
     };
 
     let files: HashMap<String, FileDto> = items
@@ -98,28 +157,27 @@ pub(super) async fn run_outgoing(
             return;
         }
         Err(error) => {
-            send_outgoing_finished(
-                &internal,
-                transfer_id,
-                TransferState::Failed,
-                Some(prepare_error(&error, pin.is_some())),
-            )
-            .await;
+            let error = prepare_error(&error, pin.is_some());
+            send_outgoing_finished(&internal, transfer_id, TransferState::Failed, Some(error))
+                .await;
             return;
         }
     };
 
+    // An embedded text message travels in the request itself, so there is
+    // nothing to upload once the receiver has taken it.
     let Some(response) = prepared.response else {
-        if embedded_text {
+        let state = if embedded_text {
             for (id, file) in &files {
                 if let Some(progress) = progress.get(id) {
                     progress.store(file.size, Ordering::Relaxed);
                 }
             }
-            send_outgoing_finished(&internal, transfer_id, TransferState::Completed, None).await;
+            TransferState::Completed
         } else {
-            send_outgoing_finished(&internal, transfer_id, TransferState::Declined, None).await;
-        }
+            TransferState::Declined
+        };
+        send_outgoing_finished(&internal, transfer_id, state, None).await;
         return;
     };
 
@@ -141,23 +199,16 @@ pub(super) async fn run_outgoing(
         })
         .await;
 
+    let session = Session {
+        client: &client,
+        channel: &channel,
+        id: &response.session_id,
+    };
     let mut ids: Vec<String> = accepted.into_iter().collect();
     ids.sort_by(|a, b| files[a].file_name.cmp(&files[b].file_name));
     for file_id in ids {
         if cancel.is_cancelled() {
-            if !by_peer.load(Ordering::Relaxed) {
-                let _ = tokio::time::timeout(
-                    Duration::from_secs(2),
-                    client.cancel(
-                        channel.protocol,
-                        &channel.host,
-                        channel.port,
-                        &response.session_id,
-                    ),
-                )
-                .await;
-            }
-            send_outgoing_finished(&internal, transfer_id, TransferState::Cancelled, None).await;
+            finish_cancelled(&session, &by_peer, &internal, transfer_id).await;
             return;
         }
         let _ = internal
@@ -167,53 +218,25 @@ pub(super) async fn run_outgoing(
             })
             .await;
 
-        let Some(token) = response.files.get(&file_id) else {
-            continue;
-        };
         let file_progress = progress
             .get(&file_id)
             .cloned()
             .unwrap_or_else(|| Arc::new(AtomicU64::new(0)));
-        let body = match upload_body(sources[&file_id].clone(), move |written| {
+        let result = match upload_body(sources[&file_id].clone(), move |written| {
             file_progress.store(written, Ordering::Relaxed)
         }) {
-            Ok(body) => body,
-            Err(error) => {
-                let _ = internal
-                    .send(InternalEvent::OutgoingFileFailed {
-                        transfer_id: transfer_id.clone(),
-                        file_id,
-                        error: error.clone(),
-                    })
-                    .await;
-                let _ = tokio::time::timeout(
-                    Duration::from_secs(2),
-                    client.cancel(
-                        channel.protocol,
-                        &channel.host,
-                        channel.port,
-                        &response.session_id,
-                    ),
-                )
-                .await;
-                send_outgoing_finished(&internal, transfer_id, TransferState::Failed, Some(error))
-                    .await;
-                return;
-            }
+            Ok(body) => session
+                .upload(&file_id, &response.files[&file_id], body, cancel.clone())
+                .await
+                .map_err(|error| match error {
+                    ClientError::Cancelled => UploadError::Cancelled,
+                    _ => UploadError::Failed(ApiError::new(
+                        "upload_failed",
+                        format!("Could not upload {}", files[&file_id].file_name),
+                    )),
+                }),
+            Err(error) => Err(UploadError::Failed(error)),
         };
-        let result = client
-            .upload(
-                channel.protocol,
-                &channel.host,
-                channel.port,
-                None,
-                &response.session_id,
-                &file_id,
-                token,
-                body,
-                cancel.clone(),
-            )
-            .await;
         match result {
             Ok(()) => {
                 if let Some(file_progress) = progress.get(&file_id) {
@@ -226,28 +249,11 @@ pub(super) async fn run_outgoing(
                     })
                     .await;
             }
-            Err(ClientError::Cancelled) => {
-                if !by_peer.load(Ordering::Relaxed) {
-                    let _ = tokio::time::timeout(
-                        Duration::from_secs(2),
-                        client.cancel(
-                            channel.protocol,
-                            &channel.host,
-                            channel.port,
-                            &response.session_id,
-                        ),
-                    )
-                    .await;
-                }
-                send_outgoing_finished(&internal, transfer_id, TransferState::Cancelled, None)
-                    .await;
+            Err(UploadError::Cancelled) => {
+                finish_cancelled(&session, &by_peer, &internal, transfer_id).await;
                 return;
             }
-            Err(_) => {
-                let error = ApiError::new(
-                    "upload_failed",
-                    format!("Could not upload {}", files[&file_id].file_name),
-                );
+            Err(UploadError::Failed(error)) => {
                 let _ = internal
                     .send(InternalEvent::OutgoingFileFailed {
                         transfer_id: transfer_id.clone(),
@@ -255,16 +261,7 @@ pub(super) async fn run_outgoing(
                         error: error.clone(),
                     })
                     .await;
-                let _ = tokio::time::timeout(
-                    Duration::from_secs(2),
-                    client.cancel(
-                        channel.protocol,
-                        &channel.host,
-                        channel.port,
-                        &response.session_id,
-                    ),
-                )
-                .await;
+                session.cancel().await;
                 send_outgoing_finished(&internal, transfer_id, TransferState::Failed, Some(error))
                     .await;
                 return;
@@ -273,6 +270,20 @@ pub(super) async fn run_outgoing(
     }
 
     send_outgoing_finished(&internal, transfer_id, TransferState::Completed, None).await;
+}
+
+/// Ends a send the user or the receiver cancelled; only the receiver's own
+/// cancel needs no notice.
+async fn finish_cancelled(
+    session: &Session<'_>,
+    by_peer: &AtomicBool,
+    internal: &mpsc::Sender<InternalEvent>,
+    transfer_id: String,
+) {
+    if !by_peer.load(Ordering::Relaxed) {
+        session.cancel().await;
+    }
+    send_outgoing_finished(internal, transfer_id, TransferState::Cancelled, None).await;
 }
 
 async fn send_outgoing_finished(
