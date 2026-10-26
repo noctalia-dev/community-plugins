@@ -1,6 +1,6 @@
 # Wallpaper Deck
 
-A native Noctalia wallpaper and video picker inspired by Magic: The Gathering cards, featuring Material 3 dynamic color extraction, tiered coverflow navigation, multi-monitor targeting, and Wallhaven search integration.
+A native Noctalia wallpaper picker inspired by Magic: The Gathering cards, featuring Material 3 dynamic color extraction, tiered coverflow navigation, multi-monitor targeting, and Wallhaven search integration.
 
 ![Wallpaper Deck Preview](./thumbnail.webp)
 
@@ -17,13 +17,12 @@ The plugin relies on the following tools available on `PATH`:
 
 - `python3` - Runs the background scanner and color-wheel indexer (`scripts/wallpaper_helper.py`).
 - `matugen` - Generates Material 3 color palettes and dynamic contrast tokens from wallpapers.
-- `ffmpeg` - Extracts thumbnail stills from video wallpapers and generates thumbnail webp files.
 
 ### Optional Tools
 
-- `mpvpaper` - Enables live video wallpapers on Wayland outputs in native backend mode.
 - `swww` or `awww` - Alternative wallpaper daemons supported via the custom command setting.
 - `python-pillow` - Accelerates image thumbnail resizing; if unavailable, the helper falls back to `ffmpeg`.
+- `ffmpeg` - Fallback for generating thumbnails if `python-pillow` is not installed.
 
 ## Usage
 
@@ -73,12 +72,11 @@ Configurable inside Noctalia Settings (**Settings** -> **Plugins** -> **Wallpape
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
-| `wallpaper_dir` | `folder` | `~/Pictures/Wallpapers` | Directory scanned for image and video wallpapers. |
-| `backend_mode` | `select` | `native` | Wallpaper engine mode: `native` (Noctalia surface + mpvpaper) or `custom`. |
+| `wallpaper_dir` | `folder` | `~/Pictures/Wallpapers` | Directory scanned for wallpapers. |
+| `backend_mode` | `select` | `native` | Wallpaper engine mode: `native` (Noctalia surface) or `custom`. |
 | `custom_command` | `string` | `swww img "{path}" --transition-type grow --transition-fps 60` | Shell command executed when `backend_mode` is set to `custom`. Supports `{path}` and `{output}`. |
 | `post_hook_command` | `string` | `""` | Optional shell hook executed after applying a wallpaper (e.g. `matugen image "{path}"`). |
 | `animate_selected_card` | `bool` | `true` | Enables subtle floating bobbing animation on the active center card. |
-| `play_video_preview` | `bool` | `false` | Renders animated thumbnail preview clips inside cards for motion wallpapers. |
 | `visible_deck_cards` | `int` | `7` | Number of cards rendered simultaneously in the deck (3 to 11). |
 | `wallhaven_api_key` | `string` | `""` | Optional API key for Wallhaven (unlocks user collections and NSFW filters). |
 | `wallhaven_categories` | `string` | `"111"` | Wallhaven categories bitflag (General/Anime/People, e.g. 111). |

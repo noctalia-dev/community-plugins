@@ -1,7 +1,7 @@
 --!nonstrict
 -- Headless service for Wallpaper Deck (Noctalia v5).
--- Handles directory scanning, caching, Matugen color extraction, video stills,
--- wallpaper applying (native / custom / mpvpaper), live previewing, favorites persistence,
+-- Handles directory scanning, caching, Matugen color extraction,
+-- wallpaper applying (native / custom), live previewing, favorites persistence,
 -- and Wallhaven search.
 
 local pluginDir = (type(noctalia.pluginDir) == "function" and noctalia.pluginDir())
@@ -174,17 +174,11 @@ end
 
 local function previewWallpaper(path: string)
   if not path or path == "" then return end
-  local ext = string.lower(string.match(path, "%.([^%.]+)$") or "")
-  local isVideo = (ext == "mp4" or ext == "webm" or ext == "mkv" or ext == "mov" or ext == "m4v")
-  if not isVideo then
-    noctalia.setWallpaper(path)
-  end
+  noctalia.setWallpaper(path)
 end
 
 local function applyWallpaper(path: string, outputTarget: string?)
   local mode = noctalia.getConfig("backend_mode") or "native"
-  local ext = string.lower(string.match(path, "%.([^%.]+)$") or "")
-  local isVideo = (ext == "mp4" or ext == "webm" or ext == "mkv" or ext == "mov" or ext == "m4v")
 
   if mode == "custom" then
     local cmd = noctalia.getConfig("custom_command") or ""
@@ -193,24 +187,11 @@ local function applyWallpaper(path: string, outputTarget: string?)
     noctalia.runAsync(cmd, function() end)
   else
     -- Native mode
-    if isVideo then
-      noctalia.runAsync({ "pkill", "-f", "mpvpaper" }, function()
-        if outputTarget and outputTarget ~= "*" and outputTarget ~= "ALL" then
-          noctalia.setWallpaperEnabled(outputTarget, false)
-        end
-        noctalia.runAsync({
-          "mpvpaper", "-o", "no-audio --loop-playlist", outputTarget or "*", path
-        }, function() end)
-      end)
+    if outputTarget and outputTarget ~= "*" and outputTarget ~= "ALL" then
+      noctalia.setWallpaperEnabled(outputTarget, true)
+      noctalia.setWallpaper(outputTarget, path)
     else
-      noctalia.runAsync({ "pkill", "-f", "mpvpaper" }, function()
-        if outputTarget and outputTarget ~= "*" and outputTarget ~= "ALL" then
-          noctalia.setWallpaperEnabled(outputTarget, true)
-          noctalia.setWallpaper(outputTarget, path)
-        else
-          noctalia.setWallpaper(path)
-        end
-      end)
+      noctalia.setWallpaper(path)
     end
   end
 

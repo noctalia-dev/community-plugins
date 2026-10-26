@@ -434,7 +434,6 @@ local animatedPos = 1.0
 local lastPreviewed = ""
 
 local animateSelected = noctalia.getConfig("animate_selected_card") ~= false
-local playVideoPreview = noctalia.getConfig("play_video_preview") == true
 local visibleCards = noctalia.getConfig("visible_deck_cards") or 7
 
 local function lerp(a: number, b: number, t: number): number
@@ -1556,7 +1555,7 @@ local function applyCurrent()
     end
     noctalia.state.set("deck_command", { action = "wallhaven_apply", item = item, cachedPath = cached, output = targetOut, nonce = noctalia.nowMs() })
   else
-    if type(noctalia.setWallpaper) == "function" and item.kind ~= "VID" then
+    if type(noctalia.setWallpaper) == "function" then
       if targetOut then
         noctalia.setWallpaper(targetOut, item.path)
       else
@@ -1734,7 +1733,7 @@ local function renderCard(item: any, index: number, distSigned: number)
   if currentMode == "wallhaven" then
     previewPath = requestWallhavenThumb(item, isCenter)
   else
-    previewPath = (isCenter and playVideoPreview and item.animThumb) or item.thumb or item.path
+    previewPath = item.thumb or item.path
   end
 
   local colors = item.colors or {}

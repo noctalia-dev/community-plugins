@@ -6,13 +6,13 @@
     },
     "wallpaper_dir": {
       "label": "Wallpaper Directory",
-      "description": "Directory scanned for image and video wallpapers."
+      "description": "Directory scanned for wallpapers."
     },
     "backend_mode": {
       "label": "Wallpaper Engine",
-      "description": "Use Noctalia native surface (with mpvpaper for video) or custom command.",
-      "native": "Noctalia Native + mpvpaper",
-      "custom": "Custom Command (swww / awww / mpvpaper)"
+      "description": "Use Noctalia native surface or custom command.",
+      "native": "Noctalia Native",
+      "custom": "Custom Command (swww / awww)"
     },
     "custom_command": {
       "label": "Custom Command",
@@ -25,10 +25,6 @@
     "animate_selected_card": {
       "label": "Animate Selected Card",
       "description": "Enable subtle floating and transition animation on the active center card."
-    },
-    "play_video_preview": {
-      "label": "Play Videos in Card Preview",
-      "description": "Render animated previews for video wallpapers inside the card deck."
     },
     "visible_deck_cards": {
       "label": "Visible Deck Cards",

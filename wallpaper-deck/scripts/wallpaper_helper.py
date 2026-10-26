@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Wallpaper Helper for Wallpaper Deck (Noctalia v5).
-Scans wallpaper folders, caches Material 3 palettes via matugen, extracts video stills,
+Scans wallpaper folders, caches Material 3 palettes via matugen,
 computes dimensions, file sizes, and color-wheel hue coordinates.
 Features a high-speed two-pass architecture: instantly yields all files, then refines
 color palettes in the background with multi-threaded workers.
@@ -23,9 +23,8 @@ except ImportError:
     Image = None
     HAS_PIL = False
 
-VIDEO_EXTS = {".mp4", ".webm", ".mkv", ".mov", ".m4v"}
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
-ALL_EXTS = VIDEO_EXTS | IMAGE_EXTS
+ALL_EXTS = IMAGE_EXTS
 
 FALLBACK_M3 = {
     "primary": "#80a9ff",
@@ -39,9 +38,6 @@ FALLBACK_M3 = {
 def get_ext(path):
     _, ext = os.path.splitext(path)
     return ext.lower()
-
-def is_video(ext):
-    return ext in VIDEO_EXTS
 
 def calc_hue_key(hex_color):
     try:
@@ -103,34 +99,13 @@ def fast_image_size(path):
         pass
     return 0, 0
 
-def extract_video_still(video_path, thumb_dir):
-    os.makedirs(thumb_dir, exist_ok=True)
-    file_hash = hashlib.md5(video_path.encode("utf-8")).hexdigest()[:16]
-    base = os.path.basename(video_path).replace(" ", "_")
-    still_path = os.path.join(thumb_dir, f"{file_hash}_{base}.jpg")
-    anim_path = os.path.join(thumb_dir, f"{file_hash}_{base}.webp")
-
-    if not os.path.isfile(still_path) or os.path.getsize(still_path) == 0:
-        cmd = [
-            "ffmpeg", "-y", "-ss", "00:00:01", "-i", video_path,
-            "-vframes", "1",
-            "-vf", "scale=520:760:force_original_aspect_ratio=increase,crop=520:760",
-            still_path
-        ]
-        try:
-            subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=20)
-        except Exception:
-            pass
-
-    return still_path, anim_path
-
-def make_thumbnails(file_path, thumb_dir, kind, still_path=None):
+def make_thumbnails(file_path, thumb_dir):
     os.makedirs(thumb_dir, exist_ok=True)
     file_hash = hashlib.md5(file_path.encode("utf-8")).hexdigest()[:16]
     card_thumb = os.path.join(thumb_dir, f"{file_hash}_card.webp")
     screen_thumb = os.path.join(thumb_dir, f"{file_hash}_screen.webp")
 
-    src = still_path if (kind == "VID" and still_path and os.path.isfile(still_path)) else file_path
+    src = file_path
     if not src or not os.path.isfile(src):
         return card_thumb, screen_thumb
 
@@ -226,15 +201,8 @@ def process_single(file_path, thumb_dir, cache, dir_path=None):
             and cached.get("thumb") != file_path):
         return cached
 
-    kind = "VID" if is_video(ext) else "IMG"
-    still_path = None
-    anim_path = None
-
-    if kind == "VID":
-        still_path, anim_path = extract_video_still(file_path, thumb_dir)
-        inspect_image = still_path if os.path.isfile(still_path) else None
-    else:
-        inspect_image = file_path
+    kind = "IMG"
+    inspect_image = file_path
 
     w = cached.get("width", 0) if cached else 0
     h = cached.get("height", 0) if cached else 0
@@ -257,7 +225,7 @@ def process_single(file_path, thumb_dir, cache, dir_path=None):
     else:
         size_str = f"{int(size / 1024.0)} KB"
 
-    card_thumb, screen_thumb = make_thumbnails(file_path, thumb_dir, kind, still_path)
+    card_thumb, screen_thumb = make_thumbnails(file_path, thumb_dir)
 
     rel_dir = ""
     is_subdir = False
@@ -285,7 +253,6 @@ def process_single(file_path, thumb_dir, cache, dir_path=None):
         "res": res_str,
         "thumb": card_thumb,
         "preview": screen_thumb,
-        "animThumb": anim_path if kind == "VID" and anim_path else None,
         "colors": colors,
         "sourceColor": source_color,
         "hueKey": hue_key,
@@ -393,7 +360,7 @@ def scan_directory(dir_path, cache_file, thumb_dir, max_matugen=150):
                     "base": os.path.splitext(name_b)[0],
                     "lowerName": name_b.lower(),
                     "ext": ext.lstrip(".").upper(),
-                    "kind": "VID" if is_video(ext) else "IMG",
+                    "kind": "IMG",
                     "mtime": int(st.st_mtime),
                     "size": sz,
                     "sizeStr": f"{sz / 1048576.0:.1f} MB" if sz >= 1048576 else f"{int(sz / 1024.0)} KB",
@@ -402,7 +369,6 @@ def scan_directory(dir_path, cache_file, thumb_dir, max_matugen=150):
                     "res": res_str,
                     "thumb": p,
                     "preview": p,
-                    "animThumb": None,
                     "colors": dict(FALLBACK_M3),
                     "sourceColor": "#4285f4",
                     "hueKey": 3.0,
