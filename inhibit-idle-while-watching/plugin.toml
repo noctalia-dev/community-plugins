@@ -1,11 +1,11 @@
 name = "Inhibit Idle While Watching"
 id = "zhangdm/inhibit-idle-while-watching"
 description = "Checks for a face when idle is about to act and restarts the idle countdown while you keep watching."
-version = "0.3.0"
+version = "0.4.0"
 author = "zhangdm"
 license = "MIT"
 icon = "camera"
-plugin_api = 24
+plugin_api = 43
 tags = ["service", "hardware", "privacy", "system", "utility"]
 dependencies = ["noctalia", "python3", "ffmpeg", "v4l2-ctl", "wtype"]
 
