@@ -415,7 +415,7 @@ render = function()
       ui.glyph({ name = "photo-off", size = 48, color = "on_surface_variant" }),
       ui.label({ text = tr("panel.empty"), fontSize = 15, fontWeight = "bold", color = "on_surface" }),
       ui.label({ text = tr("panel.empty_hint"), fontSize = 13, color = "on_surface_variant" }),
-      ui.label({ text = dir, fontSize = 11, color = "outline" }),
+      ui.label({ text = dir, fontSize = 11, color = "outline_variant" }),
     }))
     return
   end
@@ -471,7 +471,7 @@ render = function()
         fit = "cover",
         radius = 16,
         borderWidth = (wpCenter.path == currentWallpaper) and 3 or 1,
-        border = (wpCenter.path == currentWallpaper) and "primary" or "outline",
+        border = (wpCenter.path == currentWallpaper) and "primary" or "outline_variant",
       }),
     }),
 

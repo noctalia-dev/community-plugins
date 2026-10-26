@@ -224,7 +224,7 @@ local function renderRecentItem(color: string, index: number)
         height = 32,
         fill = color,
         radius = swatch_radius / 2.5,
-        border = "outline",
+        border = "outline_variant",
         onClick = function() handleHistoryClick(index) end,
     })
 end
@@ -298,7 +298,7 @@ local function render()
         height = 64,
         fill =  hexWithAlpha(current, opacity),
         radius = swatch_radius,
-        border = "outline",
+        border = "outline_variant",
         borderWidth = 2,
         flexGrow = 1,
         onClick = "onNativePickerClicked"

@@ -1,7 +1,7 @@
 id = "weinguyen/opencode-companion"
 name = "OpenCode Companion"
-version = "0.2.0"
-plugin_api = 21
+version = "0.2.1"
+plugin_api = 43
 author = "weinguyen"
 license = "MIT"
 icon = "code-circle"

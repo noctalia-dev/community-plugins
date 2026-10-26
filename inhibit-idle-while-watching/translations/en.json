@@ -6,11 +6,29 @@
     },
     "camera_path": {
       "label": "Camera device",
-      "description": "Video device path such as /dev/video0. Leave empty to auto-detect the first capture-capable webcam."
+      "description": "Video device path such as /dev/video0. Leave empty to auto-detect. When set, it overrides Camera mode and this exact camera is checked."
+    },
+    "camera_mode": {
+      "label": "Camera mode",
+      "description": "Which sensor to check: visible light, infrared, an ambient-light decision per check (dark uses IR), or both sensors with a face on either keeping the session awake.",
+      "options": {
+        "rgb": "RGB",
+        "ir": "IR",
+        "smart": "Smart",
+        "robust": "Robust"
+      }
+    },
+    "ir_threshold_lux": {
+      "label": "IR switch threshold (lux)",
+      "description": "Smart mode only: below this ambient light level the IR camera is used, at or above it the RGB camera. The ambient sensor is read once per check."
     },
     "detector": {
       "label": "Detector",
-      "description": "haar is cheap and runs on a small grayscale frame; dnn is more accurate but needs assets/face-dnn.onnx and more CPU. Values: haar, dnn."
+      "description": "haar is cheap and runs on a small grayscale frame; dnn is more accurate but needs assets/face-dnn.onnx and more CPU.",
+      "options": {
+        "haar": "Haar",
+        "dnn": "DNN"
+      }
     },
     "sensitivity": {
       "label": "Sensitivity",

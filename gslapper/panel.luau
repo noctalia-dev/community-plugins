@@ -499,7 +499,7 @@ local function tileFor(entry, connectors)
             height = 96,
             fit = "cover",
             radius = 8,
-            border = selected and "primary" or "outline/0.45",
+            border = selected and "primary" or "outline_variant/0.45",
             borderWidth = selected and 2 or 1,
             onClick = choose,
         })
@@ -595,7 +595,7 @@ local function loadingState(label, progress)
                 width = 210,
                 height = 128,
                 radius = 10,
-                fill = "surface_variant",
+                fill = "surface_container",
                 opacity = opacity,
             }))
         end
@@ -606,7 +606,7 @@ local function loadingState(label, progress)
             ui.label({ text = label, color = "on_surface_variant", flexGrow = 1 }),
             ui.label({ text = tostring(math.floor(progress * 100)) .. "%", color = "on_surface_variant", fontSize = 11 }),
         }),
-        ui.progress({ height = 4, progress = progress, fill = "primary", track = "surface_variant", radius = 2 }),
+        ui.progress({ height = 4, progress = progress, fill = "primary", track = "surface_container", radius = 2 }),
         ui.column({ gap = 10 }, rows),
     })
 end
@@ -636,7 +636,7 @@ local function activeStrip(connectors)
     if selectedOutput == "*" then
         local counts = mixedCounts(assignments, connectors)
         local playbackAction = videoPlaybackAction(assignments, runtime, connectors)
-        return ui.row({ align = "center", gap = 8, padding = 9, radius = 9, fill = "surface_variant/0.40" }, {
+        return ui.row({ align = "center", gap = 8, padding = 9, radius = 9, fill = "surface_container/0.40" }, {
             ui.glyph({ name = "devices", color = "primary", size = 18 }),
             ui.label({
                 text = tr("panel.mixed_summary", {
@@ -669,7 +669,7 @@ local function activeStrip(connectors)
     end
     local isVideo = assignment.kind == "video"
     local paused = live and live.status == "paused"
-    return ui.row({ align = "center", gap = 8, padding = 9, radius = 9, fill = "surface_variant/0.40" }, {
+    return ui.row({ align = "center", gap = 8, padding = 9, radius = 9, fill = "surface_container/0.40" }, {
         ui.glyph({ name = isVideo and "movie" or "photo", color = isVideo and "secondary" or "primary", size = 18 }),
         ui.column({ flexGrow = 1, gap = 2 }, {
             ui.label({ text = assignment.path:match("([^/]+)$") or assignment.path, fontWeight = "bold", maxLines = 1 }),
@@ -825,7 +825,7 @@ render = function()
         table.insert(children, loadingState(tr("panel.preparing_library"), gridProgress))
     elseif total == 0 then
         table.insert(children, ui.column({ flexGrow = 1, align = "center", justify = "center", gap = 8 }, {
-            ui.glyph({ name = "photo-off", size = 36, color = "outline" }),
+            ui.glyph({ name = "photo-off", size = 36, color = "outline_variant" }),
             ui.label({
                 text = search ~= "" and tr("panel.no_search_results") or tr("panel.directory_empty"),
                 color = "on_surface_variant",
@@ -853,7 +853,7 @@ render = function()
                 height = 3,
                 progress = thumbnails > 0 and math.min(1, done / thumbnails) or 0,
                 fill = "primary",
-                track = "surface_variant",
+                track = "surface_container",
                 radius = 2,
             }),
         }))

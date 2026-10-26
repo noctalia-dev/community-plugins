@@ -10,10 +10,10 @@
 
 id = "nightwatch75/keysmith"
 name = "keysmith"
-version = "0.1.0"
+version = "0.1.1"
 # 24 for argv runAsync: user names and passwords reach htpasswd as plain
 # arguments, with no shell to break out of.
-plugin_api = 24
+plugin_api = 43
 author = "nightwatch75"
 license = "MIT"
 dependencies = ["openssl", "htpasswd", "od", "mkfifo"]

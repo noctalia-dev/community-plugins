@@ -125,7 +125,7 @@ local function priorityColor(priority)
   elseif priority == "L" then
     return "on_surface_variant"
   end
-  return "outline"
+  return "outline_variant"
 end
 
 local function dueColor(s)

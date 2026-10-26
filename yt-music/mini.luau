@@ -134,7 +134,7 @@ local function render_mini()
 			height = 170,
 			align = "center",
 			justify = "center",
-			fill = "surface_variant/0.25",
+			fill = "surface_container/0.25",
 			borderWidth = 0,
 			radius = theme.radius,
 		}, {
@@ -149,7 +149,7 @@ local function render_mini()
 		justify = "center",
 		gap = 12,
 		padding = 6,
-		fill = "surface_variant/0.15",
+		fill = "surface_container/0.15",
 		borderWidth = 0,
 		width = "fill",
 		radius = theme.radius,
@@ -340,7 +340,7 @@ local function render_mini()
 		cover_card,
 		scrub_row,
 		controls_row,
-		ui.separator({ key = "mini-sep", color = "outline/0.3" }),
+		ui.separator({ key = "mini-sep", color = "outline_variant/0.3" }),
 		footer_row,
 	}))
 end

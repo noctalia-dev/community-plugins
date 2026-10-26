@@ -238,7 +238,7 @@ end
 local function section(title, children)
   local body = { ui.label({ text = title, fontSize = 12, fontWeight = "bold", color = "primary" }) }
   for _, c in ipairs(children) do table.insert(body, c) end
-  return ui.column({ gap = 4, padding = 12, radius = 12, fill = "surface_variant/0.45" }, body)
+  return ui.column({ gap = 4, padding = 12, radius = 12, fill = "surface_container/0.45" }, body)
 end
 
 local function legend(key, warn)
@@ -381,7 +381,7 @@ local function monitorCard(row, index, rows)
       end }))
   end
   return ui.column({ key = "mon-" .. m.name, gap = 10, padding = 14, radius = 12,
-    fill = on and "surface_variant/0.45" or "surface_variant/0.2" }, body)
+    fill = on and "surface_container/0.45" or "surface_container/0.2" }, body)
 end
 
 -- The row to scale: one box per enabled screen, sized by its logical size.
@@ -542,7 +542,7 @@ local function banner()
     table.insert(body, ui.label({ text = tr("banner.not_effective", { list = table.concat(names, ", ") }),
       fontSize = 12, color = "on_surface_variant", maxLines = 3 }))
   end
-  return ui.column({ gap = 6, padding = 12, radius = 12, fill = s == "pending" and "primary/0.12" or "surface_variant/0.6" }, body)
+  return ui.column({ gap = 6, padding = 12, radius = 12, fill = s == "pending" and "primary/0.12" or "surface_container/0.6" }, body)
 end
 
 function render()

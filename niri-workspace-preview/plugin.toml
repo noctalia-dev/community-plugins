@@ -1,7 +1,7 @@
 id           = "teagar/niri-workspace-preview"
 name         = "Niri Workspace Preview"
-version      = "1.1.0"
-plugin_api   = 17
+version      = "1.1.1"
+plugin_api   = 43
 author       = "Teagar"
 license      = "MIT"
 dependencies = ["niri"]
@@ -150,7 +150,7 @@ entry = "widget.luau"
     type            = "color"
     label_key       = "settings.normal_color.label"
     description_key = "settings.normal_color.description"
-    default         = "outline"
+    default         = "outline_variant"
 
     [[widget.setting]]
     key             = "active_color"

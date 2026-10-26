@@ -38,6 +38,7 @@ body:
         - ambient-sounds
         - anilist
         - arch-updater
+        - ask-claude
         - asus-fan
         - asus-fans-controller-ec
         - asus-gpu-mode
@@ -71,6 +72,7 @@ body:
         - cmd-runner
         - codexbar-meter
         - color_picker
+        - competitive-programming-contest-tracker
         - config-swap
         - contact-sounds
         - containers
@@ -140,6 +142,7 @@ body:
         - lid-guard
         - link-ip-monitor
         - llamanager
+        - localsend
         - lrc
         - lunar-calendar
         - lunar-workspaces
@@ -192,6 +195,7 @@ body:
         - omp-launcher
         - opencode-companion
         - opencode-go-usage
+        - opencode-monitor
         - opencodex-bar
         - openvpn3
         - opnsense
@@ -240,6 +244,7 @@ body:
         - shelf
         - shell-command
         - shelly
+        - shift
         - sing-box-status
         - sony_headphones
         - soundcore-buds
@@ -273,6 +278,8 @@ body:
         - tmux-provider
         - todo
         - todoist
+        - todoist-manager
+        - token-monitor
         - topgrade-wrapper
         - udiskie
         - um5606_fan_state

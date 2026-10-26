@@ -124,7 +124,7 @@ local function heading(text)
 end
 
 local function card(children)
-    return ui.column({ gap = 8, padding = 14, fill = "surface_variant/0.45", radius = 12, align = "stretch" }, children)
+    return ui.column({ gap = 8, padding = 14, fill = "surface_container/0.45", radius = 12, align = "stretch" }, children)
 end
 
 -- ── sessions/CLAUDE.md data loading ─────────────────────────────────────────
@@ -1195,7 +1195,7 @@ local function liveCard(s)
 
     return ui.row({
         key = "live-" .. s.id, gap = 10, align = "start", padding = 10, radius = 12,
-        fill = waiting and "error/0.08" or "surface_variant/0.45",
+        fill = waiting and "error/0.08" or "surface_container/0.45",
         border = waiting and "error/0.6" or nil, borderWidth = waiting and 1 or nil,
         tooltip = tr("tip_focus_terminal"),
         onClick = function() focusSession(s) end,

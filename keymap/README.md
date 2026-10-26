@@ -297,7 +297,7 @@ them automatically.
 | `show_undescribed` | `true` | Show Hyprland binds without descriptions and Niri binds without a `hotkey-overlay-title`. |
 | `keyboard_layout` | `100` | Default 100%, 96%, 80%, 75%, 65%, or 60% view. |
 | `columns` | `3` | One to four balanced category columns. |
-| `card_color` / `card_opacity` | `surface_variant` / `35` | Card background role or custom color and opacity. |
+| `card_color` / `card_opacity` | `surface_container` / `35` | Card background role or custom color and opacity. |
 | `category_color` | `primary` | Category heading role or custom color. |
 | `description_color` | `on_surface` | Description role or custom color. |
 | modifier color pairs | Noctalia theme roles | Background and text for Super, Ctrl, Shift, and Alt. |

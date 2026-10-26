@@ -1,7 +1,7 @@
 id          = "ahmedhossamdev/sticky-notes"
 name        = "Sticky Notes"
-version     = "1.4.0"
-plugin_api  = 26
+version     = "1.4.1"
+plugin_api  = 43
 author      = "ahmedhossamdev"
 license     = "MIT"
 icon        = "note"

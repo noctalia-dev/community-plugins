@@ -1,7 +1,7 @@
 id = "cleboost/asus-fans-controller-ec"
 name = "Asus Fans Controler EC"
-version = "1.0.0"
-plugin_api = 9
+version = "1.0.1"
+plugin_api = 43
 author = "Cleboost"
 license = "MIT"
 icon = "car-fan"

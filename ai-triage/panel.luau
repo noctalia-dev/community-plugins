@@ -33,8 +33,8 @@ local CARD = {
     gap = 8,
     padding = 12,
     radius = 11,
-    fill = "surface_variant/0.88",
-    border = "outline/0.20",
+    fill = "surface_container/0.88",
+    border = "outline_variant/0.20",
     borderWidth = 1,
 }
 
@@ -907,7 +907,7 @@ local function renderCreditCard(credit, typo)
     elseif credit.role == "defer" then
         roleBadge = ui.row({
             paddingH = 5, paddingV = 1.5, radius = 4,
-            fill = "outline/0.15", border = "outline/0.30", borderWidth = 1,
+            fill = "outline_variant/0.15", border = "outline_variant/0.30", borderWidth = 1,
         }, {
             ui.label({ text = "DEFER", fontSize = fs(9), fontWeight = "medium", color = "on_surface_variant" }),
         })
@@ -1141,7 +1141,7 @@ local function renderColumns(candidates, typo)
         end
         local deferStats = providerStats and providerStats[staggerPlan.deferProviderId]
         local deferStep
-        local deferColor = "outline"
+        local deferColor = "outline_variant"
         local deferTextColor = "on_surface_variant"
         if deferStats and deferStats.advice and deferStats.advice.lastChance then
             deferStep = string.format("2. Sprint %s as well: credit expires this cycle (~%s), burn before renewal.", deferName, expiryDay)
@@ -1340,7 +1340,7 @@ local function renderColumns(candidates, typo)
             }),
             ui.label({ text = "Session (5h)", fontSize = fs(18), fontWeight = "bold", color = "on_surface" }),
         }),
-        ui.separator({ orientation = "horizontal", color = "outline", opacity = 0.16 }),
+        ui.separator({ orientation = "horizontal", color = "outline_variant", opacity = 0.16 }),
         ui.scroll({ flexGrow = 1, gap = 6, align = "stretch" }, sessionCards),
     })
 
@@ -1361,7 +1361,7 @@ local function renderColumns(candidates, typo)
             }),
             ui.label({ text = "Weekly (7d)", fontSize = fs(18), fontWeight = "bold", color = "on_surface" }),
         }),
-        ui.separator({ orientation = "horizontal", color = "outline", opacity = 0.16 }),
+        ui.separator({ orientation = "horizontal", color = "outline_variant", opacity = 0.16 }),
         ui.scroll({ flexGrow = 1, gap = 6, align = "stretch" }, weeklyCards),
     })
 
@@ -1382,21 +1382,21 @@ local function renderColumns(candidates, typo)
             }),
             ui.label({ text = "Resets & Credits", fontSize = fs(18), fontWeight = "bold", color = "on_surface" }),
         }),
-        ui.separator({ orientation = "horizontal", color = "outline", opacity = 0.16 }),
+        ui.separator({ orientation = "horizontal", color = "outline_variant", opacity = 0.16 }),
         ui.scroll({ flexGrow = 1, gap = 6, align = "stretch" }, creditCards),
     })
 
     local columns = {
         col1,
-        ui.box({ width = 1, fill = "outline/0.20" }),
+        ui.box({ width = 1, fill = "outline_variant/0.20" }),
         col2,
-        ui.box({ width = 1, fill = "outline/0.20" }),
+        ui.box({ width = 1, fill = "outline_variant/0.20" }),
         col3,
     }
 
     local mainChildren = {
         ui.row({ gap = 8, align = "center" }, topRowChildren),
-        ui.separator({ orientation = "horizontal", color = "outline", opacity = 0.20 }),
+        ui.separator({ orientation = "horizontal", color = "outline_variant", opacity = 0.20 }),
         ui.row({ gap = 12, flexGrow = 1, align = "stretch" }, columns),
     }
 
@@ -1408,7 +1408,7 @@ local function renderColumns(candidates, typo)
         align = "stretch",
         fill = "surface/0.95",
         radius = 16,
-        border = "outline/0.25",
+        border = "outline_variant/0.25",
         borderWidth = 1,
     }, mainChildren))
 end

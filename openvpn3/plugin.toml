@@ -1,7 +1,7 @@
 id           = "vinioli/openvpn3"
 name         = "OpenVPN 3"
-version      = "1.0.0"
-plugin_api   = 24
+version      = "1.0.1"
+plugin_api   = 43
 author       = "vinioli"
 license      = "MIT"
 icon         = "shield-lock"

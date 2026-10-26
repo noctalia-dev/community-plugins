@@ -1,7 +1,7 @@
 id = "alexander/game-launcher"
 name = "Game Launcher"
-version = "1.5.1"
-plugin_api = 13
+version = "1.5.2"
+plugin_api = 43
 author = "Alexander"
 license = "MIT"
 icon = "device-gamepad-2"

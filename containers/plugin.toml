@@ -3,8 +3,8 @@
 
 id          = "davinci13/containers"
 name        = "Containers"
-version     = "1.2.0"
-plugin_api  = 9
+version     = "1.2.1"
+plugin_api  = 43
 author      = "daVinci13"
 license     = "MIT"
 dependencies = ["awk", "cut", "docker", "podman", "ss", "systemctl", "xdg-open"]

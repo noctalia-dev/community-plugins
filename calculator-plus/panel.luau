@@ -70,7 +70,7 @@ local function historyRows()
 				gap = ROW_GAP,
 				padding = ROW_PADDING,
 				radius = ROW_RADIUS,
-				fill = (hoveredRow == key) and "surface_variant/0.6" or "surface_variant/0.4",
+				fill = (hoveredRow == key) and "surface_container/0.6" or "surface_container/0.4",
 				onClick = function()
 					noctalia.copyToClipboard(h.result, "text/plain")
 					if notifyOnCopy then

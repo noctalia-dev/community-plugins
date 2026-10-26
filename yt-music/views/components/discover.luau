@@ -96,7 +96,7 @@ local function build_discover()
 						align = "center",
 						padding = 8,
 						borderWidth = 0,
-						fill = is_hovered and "primary/0.25" or "surface_variant/0.15",
+						fill = is_hovered and "primary/0.25" or "surface_container/0.15",
 						onClick = function()
 							state.view.hover_key.track = nil
 							state.open_artist(t)

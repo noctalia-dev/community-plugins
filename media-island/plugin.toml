@@ -1,7 +1,7 @@
 id = "notoxus/media-island"
 name = "Media Island"
-version = "1.0.0"
-plugin_api = 24
+version = "1.0.1"
+plugin_api = 43
 author = "notoxus"
 license = "MIT"
 dependencies = ["busctl"]

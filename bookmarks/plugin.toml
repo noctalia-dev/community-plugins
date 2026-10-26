@@ -1,13 +1,13 @@
 id           = "dunarand/bookmarks"
 name         = "Bookmarks"
-version      = "1.3.2"
-plugin_api   = 33
+version      = "1.4.1"
+plugin_api   = 43
 author       = "dunarand"
 license      = "MIT"
 icon         = "bookmark"
 description  = "A user-defined list of bookmarks. Each item has a label, a glyph, and a shell command."
 tags         = ["launcher", "panel", "productivity", "utility"]
-dependencies = ["nohup"]
+dependencies = []
 
 [[setting]]
 key             = "data_path"
@@ -16,13 +16,6 @@ label_key       = "settings.data_path.label"
 description_key = "settings.data_path.description"
 default         = ""
 extensions      = [".json"]
- 
-[[setting]]
-key             = "show_info_button"
-type            = "bool"
-label_key       = "settings.show_info_button.label"
-description_key = "settings.show_info_button.description"
-default         = true
 
 [[widget]]
 id    = "bar"
@@ -88,4 +81,23 @@ height          = 470
 placement       = "attached"
 position        = "auto"
 open_near_click = true
-capture_keys    = ["ctrl+h", "ctrl+j", "ctrl+k", "ctrl+l", "left", "down", "up", "right", "ctrl+n", "ctrl+f", "return"]
+capture_keys    = [
+    "ctrl+h",
+    "ctrl+j",
+    "ctrl+k",
+    "ctrl+l",
+    "left",
+    "down",
+    "up",
+    "right",
+    "ctrl+n",
+    "ctrl+shift+n",
+    "ctrl+f",
+    "return",
+    "ctrl+d",
+    "ctrl+e",
+    "ctrl+shift+k",
+    "ctrl+shift+up",
+    "ctrl+shift+j",
+    "ctrl+shift+down",
+]

@@ -74,6 +74,8 @@ local function helper_argv()
   local argv = {
     "python3", HELPER, "gate",
     "--camera-path", setting_string("camera_path", ""),
+    "--camera-mode", setting_string("camera_mode", "robust"),
+    "--ir-threshold-lux", tostring(setting_number("ir_threshold_lux", 10)),
     "--detector", setting_string("detector", "haar"),
     "--sensitivity", tostring(setting_number("sensitivity", 5)),
     "--capture-width", tostring(setting_number("capture_width", 640)),

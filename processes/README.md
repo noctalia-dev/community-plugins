@@ -145,9 +145,9 @@ noctalia msg panel-toggle tordex/processes:panel -mem
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
 | `delay` | `int` | `1` | Refresh rate in seconds. |
-| `sort_column_background` | `color` | `surface_variant` | Background color for the sorted column. |
+| `sort_column_background` | `color` | `surface_container` | Background color for the sorted column. |
 | `sort_column_color` | `color` | `on_surface_variant` | Text color for the sorted column. |
-| `process_hover_background` | `color` | `surface_variant` | Background color for the hovered row. |
+| `process_hover_background` | `color` | `surface_container` | Background color for the hovered row. |
 | `process_hover_color` | `color` | `on_surface_variant` | Text color for the hovered row. |
 | `show_apps` | `bool` | `true` | Show applications section. |
 | `show_processes` | `bool` | `true` | Show processes section. |

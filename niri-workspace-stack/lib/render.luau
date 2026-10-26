@@ -323,7 +323,7 @@ function R.navigatorBadge(ctx, view)
     paddingV = 2 * s,
     radius = 7 * s,
     align = "center",
-    fill = a("surface_variant", 0.6),
+    fill = a("surface_container", 0.6),
     border = nav.focused and "primary" or T,
     borderWidth = 1,
     opacity = 1,

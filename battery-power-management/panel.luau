@@ -77,7 +77,7 @@ local function render()
   local threshold = thresholdDraft or snap.threshold or 80
 
   local sections = {
-    ui.row({ gap = 10, align = "center", padding = 8, fill = "surface_variant/0.4", radius = 8 }, {
+    ui.row({ gap = 10, align = "center", padding = 8, fill = "surface_container/0.4", radius = 8 }, {
       ui.column({ align = "center", gap = 2 }, {
         ui.glyph({ name = batteryGlyph(), size = 22, color = "primary" }),
         ui.label({ text = (snap.percent or 0) .. "%", fontWeight = "bold" }),

@@ -124,7 +124,7 @@ function M.rows(list)
 	local nodes = {}
 	for index, m in ipairs(list) do
 		if index > 1 then
-			table.insert(nodes, ui.separator({ spacing = 0, color = "outline/0.25" }))
+			table.insert(nodes, ui.separator({ spacing = 0, color = "outline_variant/0.25" }))
 		end
 		table.insert(nodes, M.row(m))
 	end

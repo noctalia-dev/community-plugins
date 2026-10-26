@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+set -u
+
+state_dir="${XDG_RUNTIME_DIR:-/tmp}/ask-claude"
+pidfile="$state_dir/ask.pid"
+
+cancel_previous() {
+  local old
+  [[ -f $pidfile ]] || return 0
+  old=$(<"$pidfile")
+  rm -f "$pidfile"
+  [[ $old =~ ^[0-9]+$ ]] || return 0
+  if grep -qz '^ASK_CLAUDE=1$' "/proc/$old/environ" 2>/dev/null; then
+    kill -TERM "$old" 2>/dev/null
+  fi
+}
+
+if [[ ${1:-} == --cancel ]]; then
+  cancel_previous
+  exit 0
+fi
+
+if (( $# != 9 )); then
+  echo "usage: ask <prompt-file> <workdir> <timeout_s> <max_turns> <model> <tools> <nonce> <incognito> <extra-prompt>"
+  exit 2
+fi
+
+prompt_file=$1 dir=$2 timeout_s=$3 max_turns=$4 model=$5 tools=$6 nonce=$7 incognito=$8 extra=$9
+
+finish() { printf '\n{"type":"__exit_%s","code":%d}\n' "$nonce" "$1"; exit 0; }
+
+[[ $timeout_s =~ ^[0-9]+$ ]] || timeout_s=120
+[[ $max_turns =~ ^[0-9]+$ ]] || max_turns=8
+[[ $nonce =~ ^[A-Za-z0-9]+$ ]] || { echo "invalid nonce"; exit 2; }
+
+if ! exec 3<"$prompt_file"; then
+  echo "prompt file missing"
+  finish 2
+fi
+rm -f "$prompt_file"
+
+cd "$dir" 2>/dev/null || cd "$HOME" || finish 2
+
+note="Your answer is shown as plain text in a small desktop launcher window. \
+Reply in the language of the question. \
+Lead with the direct answer; add detail only if the question needs it. \
+No Markdown: no headings, bold, tables or code fences. Plain lines and simple '-' lists only."
+[[ -n $extra ]] && note+=" $extra"
+
+args=(
+  -p --output-format stream-json --verbose --include-partial-messages
+  --safe-mode --strict-mcp-config --setting-sources ''
+  --disallowedTools 'mcp__*'
+  --permission-mode dontAsk --permission-prompts none
+  --max-turns "$max_turns"
+  --append-system-prompt "$note"
+)
+case $model in
+  sonnet|haiku|opus) args+=(--model "$model") ;;
+esac
+if [[ $tools == web ]]; then
+  args+=(--tools 'WebSearch,WebFetch' --allowedTools 'WebSearch,WebFetch')
+else
+  args+=(--tools '')
+fi
+[[ $incognito == 1 ]] && args+=(--no-session-persistence)
+
+claude=$(command -v claude || echo "$HOME/.local/bin/claude")
+
+mkdir -p "$state_dir"
+cancel_previous
+
+ASK_CLAUDE=1 timeout "$timeout_s" "$claude" "${args[@]}" <&3 2>&1 &
+pid=$!
+exec 3<&-
+echo "$pid" >"$pidfile"
+wait "$pid"
+code=$?
+[[ -f $pidfile && $(<"$pidfile") == "$pid" ]] && rm -f "$pidfile"
+finish "$code"

@@ -140,7 +140,7 @@ local function groupedRows()
         align = "center",
         paddingH = 11,
         paddingV = 8,
-        fill = "surface_variant/0.24",
+        fill = "surface_container/0.24",
         onClick = function()
           collapsedRepos[repoName] = not collapsedRepos[repoName]
           render()
@@ -159,15 +159,15 @@ local function groupedRows()
         if shown >= MAX_ROWS then
           break
         end
-        table.insert(groupChildren, ui.separator({ thickness = 1, color = "outline/0.28", spacing = 0 }))
+        table.insert(groupChildren, ui.separator({ thickness = 1, color = "outline_variant/0.28", spacing = 0 }))
         table.insert(groupChildren, prRow(pr))
         shown += 1
       end
     end
     table.insert(rows, ui.column({
       key = `repo-group:{repo}`,
-      fill = "surface_variant/0.10",
-      border = "outline/0.40",
+      fill = "surface_container/0.10",
+      border = "outline_variant/0.40",
       borderWidth = 1,
       radius = 11,
       align = "stretch",

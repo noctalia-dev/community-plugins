@@ -1383,7 +1383,7 @@ function render()
 				end
 				table.insert(
 					body,
-					ui.column({ key = "commit-log-card", fill = "surface_variant/0.5", radius = 6, padding = 8, gap = 4 }, logLines)
+					ui.column({ key = "commit-log-card", fill = "surface_container/0.5", radius = 6, padding = 8, gap = 4 }, logLines)
 				)
 			end
 		end

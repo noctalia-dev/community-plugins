@@ -21,8 +21,8 @@
 # and the regeneration command.
 id = "liamwh/emoji-picker"
 name = "Emoji & Symbol Picker"
-version = "1.2.1"
-plugin_api = 28
+version = "1.2.2"
+plugin_api = 43
 author = "liamwh"
 license = "MIT"
 dependencies = []

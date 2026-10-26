@@ -49,11 +49,11 @@ end
 
 local function section(children)
 	return ui.column({
-		fill = "surface_variant",
+		fill = "surface_container",
 		radius = 12,
 		padding = 12,
 		gap = 8,
-		border = "outline",
+		border = "outline_variant",
 		borderWidth = 1,
 	}, children)
 end

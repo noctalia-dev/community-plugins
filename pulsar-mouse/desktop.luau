@@ -62,8 +62,8 @@ end
 local function render()
   if not wireless then
     desktopWidget.render(ui.column({ gap = 6, align = "center" }, {
-      ui.glyph({ name = "plug", size = glyphSize, color = "outline" }),
-      ui.label({ text = noctalia.tr("ui.wired"), fontSize = 12, color = "outline" }),
+      ui.glyph({ name = "plug", size = glyphSize, color = "outline_variant" }),
+      ui.label({ text = noctalia.tr("ui.wired"), fontSize = 12, color = "outline_variant" }),
     }))
     return
   end
@@ -84,7 +84,7 @@ local function render()
     -- since otherwise a broken setup would just silently show a bare glyph.
     table.insert(rows, ui.label({ key = "status", text = errorText, fontSize = 12, color = errorColor }))
   elseif showPercent and percent == nil then
-    table.insert(rows, ui.label({ key = "status", text = "--", fontSize = 20, color = "outline" }))
+    table.insert(rows, ui.label({ key = "status", text = "--", fontSize = 20, color = "outline_variant" }))
   elseif showPercent then
     local text = tostring(percent) .. "%"
     if charging then

@@ -70,7 +70,7 @@ local function ancRow(anc)
 			height = 40,
 			radius = 20,
 			fill = selected and "primary/0.18" or "on_surface/0.06",
-			border = selected and "outline/0" or "outline",
+			border = selected and "outline_variant/0" or "outline_variant",
 			onClick = function()
 				shared.sendCommand("set-anc", spec.mode, spec.mode == "anc" and "high" or nil)
 			end,
@@ -88,7 +88,7 @@ local function placeholder(text)
 		gap = 6,
 		padding = 14,
 		radius = 16,
-		fill = "surface_variant",
+		fill = "surface_container",
 		width = CARD_WIDTH,
 	}, {
 		ui.glyph({ name = "headphones-off", size = 20, color = "on_surface_variant" }),
@@ -113,7 +113,7 @@ local function render()
 		gap = 10,
 		padding = 12,
 		radius = 16,
-		fill = "surface_variant",
+		fill = "surface_container",
 		width = CARD_WIDTH,
 	}, {
 		ui.row({ justify = "space_between", gap = 6 }, {

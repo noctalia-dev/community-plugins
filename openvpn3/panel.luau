@@ -200,7 +200,7 @@ local function renderAuth()
   end
 
   if pending.kind == "url" then
-    table.insert(rows, ui.column({ gap = 8, padding = 12, fill = "surface_variant/0.5", radius = 10 }, {
+    table.insert(rows, ui.column({ gap = 8, padding = 12, fill = "surface_container/0.5", radius = 10 }, {
       ui.glyph({ name = "world", size = 28, color = "primary" }),
       ui.label({ text = noctalia.tr("panel.web-auth"), fontSize = 14, fontWeight = "bold" }),
       ui.label({ text = noctalia.tr("panel.web-auth-hint"), color = "on_surface_variant", fontSize = 12, maxLines = 4 }),
@@ -341,13 +341,13 @@ local function profileCard(profile)
     }))
   end
 
-  return ui.column({ gap = 8, padding = 10, fill = "surface_variant/0.5", radius = 10 }, rows)
+  return ui.column({ gap = 8, padding = 10, fill = "surface_container/0.5", radius = 10 }, rows)
 end
 
 -- Sessions started outside the plugin (e.g. `openvpn3 session-start` from a terminal).
 local function externalCard(session)
   local connected = session.state == "connected"
-  return ui.column({ gap = 8, padding = 10, fill = "surface_variant/0.5", radius = 10 }, {
+  return ui.column({ gap = 8, padding = 10, fill = "surface_container/0.5", radius = 10 }, {
     ui.row({ gap = 8, align = "center" }, {
       ui.glyph({ name = if connected then "shield-check" else "shield", size = 20, color = if connected then "primary" else "secondary" }),
       ui.column({ gap = 1, flexGrow = 1 }, {
@@ -605,7 +605,7 @@ local function section(title, rows)
   for _, row in ipairs(rows) do
     table.insert(children, row)
   end
-  return ui.column({ gap = 10, padding = 12, fill = "surface_variant/0.5", radius = 10 }, children)
+  return ui.column({ gap = 10, padding = 12, fill = "surface_container/0.5", radius = 10 }, children)
 end
 
 local function collectChanges(profile)

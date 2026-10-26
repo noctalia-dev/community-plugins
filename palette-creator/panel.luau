@@ -688,7 +688,7 @@ end
 local function roleRow(role)
   local displayColor = scheme and scheme[role.key] or "#000000"
   return ui.row({ gap = 12, align = "center" }, {
-    ui.box({ width = 26, height = 26, radius = 6, fill = displayColor, border = "outline", borderWidth = 1 }),
+    ui.box({ width = 26, height = 26, radius = 6, fill = displayColor, border = "outline_variant", borderWidth = 1 }),
     ui.label({ text = role.label, color = "on_surface", flexGrow = 1 }),
     ui.label({ text = displayColor, color = "on_surface_variant", fontSize = 12 }),
     ui.button({

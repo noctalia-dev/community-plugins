@@ -35,7 +35,7 @@ local function legend(glyph: string, bytesPerSecond: number, color: string)
 end
 
 local function trafficCard()
-  return ui.column({ fill = "surface_variant", radius = 12, padding = 14, gap = 8 }, {
+  return ui.column({ fill = "surface_container", radius = 12, padding = 14, gap = 8 }, {
     ui.row({ gap = 12, align = "center" }, {
       legend("download-speed", traffic.rx, "primary"),
       legend("upload-speed", traffic.tx, "secondary"),
@@ -149,7 +149,7 @@ local function portsCard()
     body = ui.scroll({ flexGrow = 1, gap = 4 }, rows)
   end
 
-  return ui.column({ fill = "surface_variant", radius = 12, padding = 14, gap = 8, flexGrow = 1 }, {
+  return ui.column({ fill = "surface_container", radius = 12, padding = 14, gap = 8, flexGrow = 1 }, {
     ui.row({ gap = 4, align = "center" }, {
       ui.glyph({ name = "plug-connected", size = 13, color = "primary" }),
       ui.label({ text = noctalia.tr("panel.listening_ports"), fontSize = 13, color = "on_surface_variant", flexGrow = 1 }),

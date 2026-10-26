@@ -104,10 +104,6 @@
       "description": "Bar widget's glyph",
       "label": "Glyph"
     },
-    "show_info_button": {
-      "description": "Show a \"?\" button on bookmarks (not folders) to view their description and command on hover.",
-      "label": "Show info button"
-    },
     "text": {
       "description": "Bar widget's label. Leave empty to display only the glyph.",
       "label": "Text"
@@ -117,6 +113,7 @@
       "label": "Tooltip"
     }
   },
+  "settings_tooltip": "Settings",
   "show_controls_tooltip": "Show reorder/edit/delete controls",
   "title": "Bookmarks"
 }

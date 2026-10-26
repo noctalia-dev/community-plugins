@@ -500,7 +500,7 @@ local function partitionCategories(categories, requestedColumns)
 end
 
 local function cardFill()
-  local color = asString(cfg("card_color"), "surface_variant")
+  local color = asString(cfg("card_color"), "surface_container")
   local opacity = math.max(0, math.min(100, tonumber(cfg("card_opacity")) or 35)) / 100
   if string.sub(color, 1, 1) == "#" then
     local alpha = string.format("%02X", math.floor(opacity * 255 + 0.5))
@@ -955,8 +955,8 @@ local function keyboardKeyNode(spec, index, signature)
       key = "keyboard-" .. spec.id,
       width = width,
       height = KEYBOARD_KEY_HEIGHT,
-      fill = colorWithOpacity(cfg("key_color"), "surface_variant", 0.28),
-      border = "outline",
+      fill = colorWithOpacity(cfg("key_color"), "surface_container", 0.28),
+      border = "outline_variant",
       borderWidth = 1,
       radius = 7,
       align = "center",
@@ -996,8 +996,8 @@ local function keyboardKeyNode(spec, index, signature)
     fill = colorWithOpacity(cfg("category_color"), "primary", 0.10)
     border = asString(cfg("category_color"), "primary")
   else
-    fill = colorWithOpacity(cfg("key_color"), "surface_variant", 0.42)
-    border = "outline"
+    fill = colorWithOpacity(cfg("key_color"), "surface_container", 0.42)
+    border = "outline_variant"
   end
 
   local displayText = asString(spec.label, "?")
@@ -1073,7 +1073,7 @@ local function keyboardLayerToolbar()
   })
   buttons[#buttons + 1] = ui.spacer({ flexGrow = 1 })
   buttons[#buttons + 1] = keyboardLegendItem(
-    colorWithOpacity(cfg("key_color"), "surface_variant", 0.42), "outline", tr("panel.keyboard.free")
+    colorWithOpacity(cfg("key_color"), "surface_container", 0.42), "outline_variant", tr("panel.keyboard.free")
   )
   buttons[#buttons + 1] = keyboardLegendItem(
     colorWithOpacity(cfg("category_color"), "primary", 0.30),
@@ -1095,8 +1095,8 @@ local function selectedKeyDetails(index)
       paddingH = 12,
       paddingV = 9,
       radius = 10,
-      fill = colorWithOpacity(cfg("card_color"), "surface_variant", 0.25),
-      border = "outline",
+      fill = colorWithOpacity(cfg("card_color"), "surface_container", 0.25),
+      border = "outline_variant",
       borderWidth = 1,
       align = "center",
       justify = "center",
@@ -1211,8 +1211,8 @@ local function selectedKeyDetails(index)
     paddingV = 9,
     gap = 5,
     radius = 10,
-    fill = colorWithOpacity(cfg("card_color"), "surface_variant", 0.25),
-    border = "outline",
+    fill = colorWithOpacity(cfg("card_color"), "surface_container", 0.25),
+    border = "outline_variant",
     borderWidth = 1,
   }, children)
 end
@@ -1458,7 +1458,7 @@ local function commandLibraryNode()
   return ui.column({
     gap = 6, paddingH = 8, paddingV = 8, radius = 8,
     fill = colorWithOpacity(cfg("card_color"), "surface", 0.35),
-    border = "outline", borderWidth = 1,
+    border = "outline_variant", borderWidth = 1,
   }, {
     ui.row({ gap = 6, align = "center" }, {
       ui.glyph({ name = "books", size = 16, color = "primary" }),
@@ -1542,7 +1542,7 @@ local function creatorForm(index)
     paddingV = 10,
     gap = 8,
     radius = 10,
-    fill = colorWithOpacity(cfg("card_color"), "surface_variant", 0.25),
+    fill = colorWithOpacity(cfg("card_color"), "surface_container", 0.25),
     border = "primary",
     borderWidth = 1,
   }, {
@@ -1717,8 +1717,8 @@ local function keyboardBody()
         gap = KEYBOARD_GAP,
         padding = 10,
         radius = 13,
-        fill = colorWithOpacity(cfg("card_color"), "surface_variant", 0.18),
-        border = "outline",
+        fill = colorWithOpacity(cfg("card_color"), "surface_container", 0.18),
+        border = "outline_variant",
         borderWidth = 1,
         align = "center",
       }, keyboardRows),
@@ -1770,7 +1770,7 @@ local function keyPill(token, isKey, compact)
   end
   return ui.row({
     fill = asString(fill, "surface"),
-    border = "outline",
+    border = "outline_variant",
     borderWidth = 1,
     radius = 7,
     paddingH = compact and 4 or 7,
@@ -2482,7 +2482,7 @@ local function categoryCard(category, columnCount)
     padding = 8,
     radius = 12,
     fill = cardFill(),
-    border = "outline",
+    border = "outline_variant",
     borderWidth = 1,
   }
   if editorMode and categoryCanAcceptDrop(categoryName) then
@@ -2766,7 +2766,7 @@ render = function()
 
   local children = {
     header(),
-    ui.separator({ orientation = "horizontal", color = "outline", opacity = 0.65 }),
+    ui.separator({ orientation = "horizontal", color = "outline_variant", opacity = 0.65 }),
   }
   if viewMode == "list" then
     children[#children + 1] = searchBar(categories)

@@ -288,7 +288,7 @@ local function providerCard(provider, index)
         ui.label({ text = updatedAge(provider), fontSize = 11, color = "on_surface_variant" }),
     })
 
-    children[#children + 1] = ui.separator({ spacing = 2, color = "outline", opacity = 0.18 })
+    children[#children + 1] = ui.separator({ spacing = 2, color = "outline_variant", opacity = 0.18 })
 
     local issue = providerError(provider)
     if issue ~= "" then
@@ -342,7 +342,7 @@ local function providerCard(provider, index)
         })
     end
 
-    return ui.column({ key = "provider-card-" .. tostring(index), fill = "surface_variant/0.58", radius = 14, padding = 11, gap = 8 }, children)
+    return ui.column({ key = "provider-card-" .. tostring(index), fill = "surface_container/0.58", radius = 14, padding = 11, gap = 8 }, children)
 end
 
 local function panelStatus()
@@ -385,7 +385,7 @@ local function render()
         }),
         ui.label({ text = "Updates every " .. tostring(refreshIntervalSec) .. " seconds", fontSize = 11, color = "on_surface_variant" }),
     })
-    children[#children + 1] = ui.separator({ spacing = 2, color = "outline", opacity = 0.20 })
+    children[#children + 1] = ui.separator({ spacing = 2, color = "outline_variant", opacity = 0.20 })
 
     if errorMsg ~= "" and #providers > 0 then
         children[#children + 1] = ui.row({ fill = "error/0.10", radius = 8, padding = 8, align = "center", gap = 7 }, {

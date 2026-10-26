@@ -38,7 +38,7 @@ end
 
 local function card(children)
   return ui.column({
-    gap = 8, padding = 14, fill = "surface_variant/0.45", radius = 12, align = "stretch",
+    gap = 8, padding = 14, fill = "surface_container/0.45", radius = 12, align = "stretch",
   }, children)
 end
 

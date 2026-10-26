@@ -1,0 +1,497 @@
+{
+  "status": {
+    "working": "Working",
+    "working_since": "Working since {time}",
+    "off": "Off",
+    "off_since": "Off since {time}",
+    "away": "Away",
+    "away_since": "Away since {time}"
+  },
+  "days": {
+    "short": {
+      "mon": "Mon",
+      "tue": "Tue",
+      "wed": "Wed",
+      "thu": "Thu",
+      "fri": "Fri",
+      "sat": "Sat",
+      "sun": "Sun"
+    }
+  },
+  "bar": {
+    "waiting": "Shift is starting…",
+    "tooltip": {
+      "status": "Status",
+      "today": "Today",
+      "remaining": "Remaining",
+      "overtime": "Overtime",
+      "week": "This week",
+      "of_target": "{worked} / {target}",
+      "remaining_eta": "{remaining} (until ~{time})",
+      "pending": "Pending",
+      "pending_count": {
+        "one": "{count} absence to review",
+        "other": "{count} absences to review"
+      },
+      "suggestion": "Suggestion",
+      "suggest_checkin": "Check in?",
+      "suggest_checkout": "Check out?"
+    }
+  },
+  "panel": {
+    "title": "Shift",
+    "waiting": "Shift is starting…",
+    "settings": "Settings",
+    "checkin": "Check in",
+    "checkout": "Check out",
+    "status": {
+      "working_since": "Working since {time}",
+      "off_since": "Off · last session ended {time}",
+      "off": "Off",
+      "away_for": {
+        "one": "Away for {count} min",
+        "other": "Away for {count} min"
+      },
+      "away_since": "Away since {time}"
+    },
+    "undo": {
+      "checkin": "Undo check in at {time}",
+      "checkout": "Undo check out at {time}",
+      "resolve": "Undo absence decision at {time}",
+      "edit": "Undo changes to {date}",
+      "day_off": "Undo day off on {date}",
+      "day_off_cleared": "Undo removing the day off on {date}",
+      "not_worked": "Undo “not worked” on {date}",
+      "not_worked_cleared": "Undo reopening {date} for review",
+      "adjust_add": "Undo adjustment added at {time}",
+      "adjust_remove": "Undo adjustment deleted at {time}",
+      "meta": "Undo balance settings changed at {time}"
+    },
+    "welcome": {
+      "title": "Welcome to Shift",
+      "body": "Shift tracks your working time. Check in when you start, check out when you stop; your contract sets the daily target.",
+      "contract": "Contract: {hours} a week · {days} · {daily} a day",
+      "settings": "Adjust settings",
+      "dismiss": "Dismiss",
+      "balance": "Set starting balance"
+    },
+    "hero": {
+      "of_target": "of {target}",
+      "left": "{remaining} left",
+      "over": "+{overtime} over",
+      "no_target": "No target today",
+      "done_at": "Done at ~{time}"
+    },
+    "stats": {
+      "week": "This week",
+      "today": "Today",
+      "balance": "Balance",
+      "with_today": "Balance with today, if the day ended now",
+      "computing": "Computing the balance over your history…"
+    },
+    "today": {
+      "empty": "No sessions yet today.",
+      "range": "{from} – {to}",
+      "now": "now",
+      "edit": "Edit",
+      "earlier": {
+        "one": "{count} earlier session",
+        "other": "{count} earlier sessions"
+      }
+    },
+    "errors": {
+      "command": "Shift did not respond. Try again.",
+      "undo_expired": "This action can no longer be undone.",
+      "rejected": "Shift could not apply this change. Check the values and try again."
+    },
+    "attention": {
+      "away": "Away {from} → {to} ({duration})",
+      "signal": {
+        "idle": "Inactive",
+        "lock": "Locked screen",
+        "sleep": "Asleep",
+        "gap": "Shift was not running"
+      },
+      "keep": "Count as work",
+      "remove": "Remove",
+      "suggest_checkin": "It’s {time}, within your work hours. Start your shift?",
+      "suggest_checkout": "Your work hours are over. Check out?",
+      "not_now": "Not now",
+      "more": {
+        "one": "+{count} more",
+        "other": "+{count} more"
+      },
+      "rule_errors": {
+        "one": "{count} automation setting is invalid and ignored",
+        "other": "{count} automation settings are invalid and ignored"
+      },
+      "edit_settings": "Edit in settings",
+      "swayidle": "Install swayidle to detect when you are away from the keyboard.",
+      "dismiss": "Dismiss",
+      "needs_review": "{date} was closed automatically. Check its end time.",
+      "review": "Review",
+      "to_review": {
+        "one": "{count} day without sessions to review",
+        "other": "{count} days without sessions to review"
+      },
+      "holidays": "Public holidays are unavailable: set your country in the settings, or check your connection."
+    },
+    "automation": {
+      "preset": {
+        "manual": "Manual",
+        "assisted": "Assisted",
+        "automatic": "Automatic",
+        "custom": "Custom"
+      },
+      "manual_summary": "Manual · automation off",
+      "idle": "Idle {minutes} min",
+      "window": "{days} {from}–{to}",
+      "no_window": "No work hours",
+      "rules": {
+        "one": "+{count} rule",
+        "other": "+{count} rules"
+      },
+      "details": "Automation details",
+      "backends": "Signals",
+      "backend": {
+        "idle": "Idle detection",
+        "logind": "Lock & sleep",
+        "holidays": "Public holidays"
+      },
+      "health": {
+        "ok": "Running",
+        "poll": "Polling",
+        "external": "External (IPC)",
+        "unavailable": "Unavailable",
+        "error": "Failing",
+        "off": "Off"
+      },
+      "preview": "Work hours this week",
+      "errors": "Invalid settings",
+      "error_line": "{setting}: “{text}” — {reason}",
+      "error_rule": "Rule {index}",
+      "reason": {
+        "time": "not a valid time (HH:MM)",
+        "order": "the end must be after the start",
+        "syntax": "expected “+ selector [HH:MM-HH:MM]”",
+        "selector": "unknown days",
+        "date": "not a valid date (YYYY-MM-DD)",
+        "range": "the range ends before it starts"
+      }
+    },
+    "tabs": {
+      "today": "Today",
+      "history": "History",
+      "balance": "Balance"
+    },
+    "history": {
+      "week": "Week",
+      "month": "Month",
+      "previous": "Previous",
+      "next": "Next",
+      "today": "Back to today",
+      "loading": "Loading…",
+      "week_total": "Week total"
+    },
+    "date": {
+      "previous": "Previous day",
+      "next": "Next day"
+    },
+    "day": {
+      "back": "Back",
+      "target": "Target {target}",
+      "worked": "Worked {worked}",
+      "status": {
+        "day_off": "Day off",
+        "missing": "To review",
+        "needs_review": "Closed automatically",
+        "pending": "Pending absences"
+      },
+      "missing_hint": "No sessions were recorded this day. What happened?",
+      "not_worked": "Not worked",
+      "mark_day_off": "Day off",
+      "add_session": "Add session",
+      "pending_hint": "Decide on these absences before editing the sessions.",
+      "before_tracking": "This day is before tracking started: it does not count toward the balance.",
+      "day_off": "Day off",
+      "sessions": "Sessions",
+      "no_sessions": "No sessions.",
+      "delete_session": "Delete session",
+      "errors": {
+        "parse": "Enter times like 9:30, 930 or 9h30.",
+        "order": "A session must end after it starts.",
+        "bounds": "Sessions must stay within this workday.",
+        "future": "A session cannot end in the future.",
+        "overlap": "Sessions cannot overlap."
+      },
+      "confirm_day_off": "This day has sessions: as a day off, all of it counts as overtime.",
+      "cancel": "Cancel",
+      "save": "Save",
+      "confirm": "Confirm"
+    },
+    "balance": {
+      "today": "Today: {delta}",
+      "breakdown": "Initial {initial} · days {days} · adjustments {adjustments}",
+      "adjustments": "Adjustments",
+      "show_all": "Show all ({count})",
+      "page": "{page} / {pages}",
+      "previous_page": "Previous page",
+      "next_page": "Next page",
+      "no_adjustments": "No adjustments yet.",
+      "delete": "Delete adjustment",
+      "add_title": "Add adjustment",
+      "add_hint": "Time off, a correction from HR, hours paid out: anything your days do not show.",
+      "amount_placeholder": "-2:00",
+      "note_placeholder": "Note (optional)",
+      "date": "Date",
+      "add": "Add",
+      "invalid_amount": "Enter a duration like -2:00, 1h30 or 1.5.",
+      "settings": "Tracking",
+      "settings_hint": "The balance counts every day from the tracking start, plus the initial balance and the adjustments.",
+      "tracking_summary": "Tracking since {date} · initial {initial}",
+      "edit_tracking": "Edit",
+      "tracking_since": "Tracking since",
+      "initial": "Initial balance",
+      "confirm": "This changes your balance. Confirm to apply.",
+      "confirm_earlier": "Days between the new and the old start without sessions will need a review. Confirm to apply."
+    }
+  },
+  "tile": {
+    "label": "Shift"
+  },
+  "settings": {
+    "weekly_hours": {
+      "label": "Weekly hours",
+      "description": "Contract hours per week, split evenly over your workdays."
+    },
+    "work_week": {
+      "label": "Work week",
+      "description": "Days your contract expects you to work.",
+      "mon_fri": "Monday to Friday",
+      "mon_sat": "Monday to Saturday",
+      "custom": "Custom"
+    },
+    "workday_mon": {
+      "label": "Monday"
+    },
+    "workday_tue": {
+      "label": "Tuesday"
+    },
+    "workday_wed": {
+      "label": "Wednesday"
+    },
+    "workday_thu": {
+      "label": "Thursday"
+    },
+    "workday_fri": {
+      "label": "Friday"
+    },
+    "workday_sat": {
+      "label": "Saturday"
+    },
+    "workday_sun": {
+      "label": "Sunday"
+    },
+    "day_start_hour": {
+      "label": "Workday starts at",
+      "description": "Hour (0–12) at which a new workday begins. Work before it counts toward the previous day."
+    },
+    "duration_format": {
+      "label": "Duration format",
+      "description": "How durations are displayed.",
+      "colon": "7:30",
+      "units": "7h 30m",
+      "decimal": "7.50 h"
+    },
+    "style": {
+      "label": "Style",
+      "description": "What the widget shows next to today’s time.",
+      "full": "Icon, time and progress ring",
+      "compact": "Icon and time",
+      "minimal": "Time only"
+    },
+    "value": {
+      "label": "Value",
+      "description": "The time the widget shows: worked today, or what is left of today’s target.",
+      "worked": "Worked today",
+      "remaining": "Remaining today"
+    },
+    "when_off": {
+      "label": "When checked out",
+      "description": "How the widget looks while you are checked out. A hidden widget comes back at the next check-in.",
+      "show": "Show normally",
+      "dim": "Dim",
+      "hide": "Hide"
+    },
+    "automation": {
+      "label": "Automation",
+      "description": "Manual: you check in and out yourself. Assisted: Shift suggests check-ins and asks about absences. Automatic: Shift checks you in and out within your work hours. Custom: choose each behavior.",
+      "manual": "Manual",
+      "assisted": "Assisted",
+      "automatic": "Automatic",
+      "custom": "Custom"
+    },
+    "window_start": {
+      "label": "Work hours start",
+      "description": "HH:MM. Automation acts only within your work hours, on your workdays."
+    },
+    "window_end": {
+      "label": "Work hours end",
+      "description": "HH:MM (24:00 allowed)."
+    },
+    "window_exclude_holidays": {
+      "label": "Not on public holidays",
+      "description": "Public holidays are outside your work hours."
+    },
+    "extra_rules": {
+      "label": "Additional rules",
+      "description": "One rule per line: \"+\" adds time, \"-\" removes it. Examples: \"- * 12:00-13:30\" (lunch), \"- fri 16:00-24:00\", \"+ sat 09:00-12:00\", \"- 2026-12-24..2027-01-02\"."
+    },
+    "auto_checkin": {
+      "label": "Check in",
+      "description": "When you start using your computer within your work hours."
+    },
+    "auto_checkout": {
+      "label": "Check out",
+      "description": "When your work hours end. Sessions started outside them are left alone."
+    },
+    "auto_mode": {
+      "off": "Off",
+      "suggest": "Suggest",
+      "auto": "Automatically"
+    },
+    "idle_action": {
+      "label": "When inactive",
+      "description": "What to do when you have been away from the keyboard."
+    },
+    "lock_action": {
+      "label": "When the screen is locked",
+      "description": "What to do with the time the screen stayed locked."
+    },
+    "sleep_action": {
+      "label": "When asleep or offline",
+      "description": "What to do with the time the computer slept, or Shift was not running."
+    },
+    "absence_action": {
+      "ignore": "Count it as work",
+      "ask": "Ask me",
+      "deduct": "Remove it",
+      "checkout": "Check out"
+    },
+    "idle_timeout_min": {
+      "label": "Inactive after (minutes)",
+      "description": "Minutes without keyboard or mouse input before you count as away."
+    },
+    "min_absence_min": {
+      "label": "Shortest absence (minutes)",
+      "description": "Shorter breaks count as work and are not recorded."
+    },
+    "unresolved_absence": {
+      "label": "Unreviewed absences",
+      "description": "What happens at the end of the day to absences you did not review.",
+      "keep": "Count them as work",
+      "remove": "Remove them"
+    },
+    "idle_backend": {
+      "label": "Idle detection",
+      "description": "Auto uses swayidle when installed. External expects \"signal idle\" and \"signal active\" over IPC.",
+      "auto": "Auto",
+      "swayidle": "swayidle",
+      "external": "External (IPC)",
+      "off": "Off"
+    },
+    "holidays_enabled": {
+      "label": "Public holidays",
+      "description": "No target on public holidays, and no automatic check-in. Fetched from date.nager.at, the plugin’s only network access."
+    },
+    "holiday_country": {
+      "label": "Holiday country",
+      "description": "Two-letter country code, such as FR or DE. Empty: from your locale."
+    },
+    "holiday_region": {
+      "label": "Holiday region",
+      "description": "Optional subdivision code for regional holidays, such as FR-67 or DE-BY."
+    },
+    "notify_target_reached": {
+      "label": "Notify when the daily target is reached",
+      "description": "Once a day, when your worked time reaches today’s target."
+    },
+    "notify_pending_absence": {
+      "label": "Notify about absences to review",
+      "description": "When you come back from an absence that asks whether it was work."
+    },
+    "notify_suggestions": {
+      "label": "Notify about suggestions",
+      "description": "When Shift suggests checking in or out, once per work-hours period."
+    }
+  },
+  "errors": {
+    "command": {
+      "title": "Shift did not respond",
+      "body": "Your action did not reach the Shift service. Try again, or disable and re-enable the plugin."
+    },
+    "overlap": {
+      "title": "Session not recorded",
+      "body": "It overlaps a session that is already recorded, probably because the system clock changed."
+    },
+    "store": {
+      "unavailable": {
+        "title": "Shift cannot save data",
+        "body": "The plugin data folder is unavailable ({file}). Tracked time will not be saved."
+      },
+      "unreadable": {
+        "title": "Shift data is unreadable",
+        "body": "{file} exists but cannot be read. Shift will not save anything until this is fixed."
+      },
+      "corrupt": {
+        "title": "Shift data was damaged",
+        "body": "{file} was damaged and set aside as .corrupt. Shift goes on without its contents."
+      },
+      "restored": {
+        "title": "Shift data was restored",
+        "body": "{file} was damaged. Restored from the backup of {date}; later changes to it are lost."
+      },
+      "migration": {
+        "title": "Shift cannot update its data",
+        "body": "Could not back up {file} before its update. Nothing will be saved until this is fixed."
+      },
+      "corrupt_stuck": {
+        "title": "Shift data was damaged",
+        "body": "{file} is damaged and could not be set aside. Nothing will be saved until it is fixed."
+      },
+      "newer": {
+        "title": "Shift data is from a newer version",
+        "body": "{file} is from a newer Shift. Update the plugin; nothing will be saved until then."
+      },
+      "write": {
+        "title": "Shift could not save data",
+        "body": "Writing {file} failed. Recent changes may be lost if Noctalia stops."
+      }
+    }
+  },
+  "format": {
+    "minutes": {
+      "one": "{count} min",
+      "other": "{count} min"
+    }
+  },
+  "notifications": {
+    "target": {
+      "title": "Daily target reached",
+      "body": "{worked} worked today",
+      "body_balance": "{worked} worked today · balance {balance}"
+    },
+    "absence": {
+      "title": "Were you working?",
+      "body": "You were away {duration}. Open Shift to review."
+    },
+    "checkin": {
+      "title": "Start your shift?",
+      "body": "You are within your work hours. Check in from the Shift widget or dashboard."
+    },
+    "checkout": {
+      "title": "Your work hours are over",
+      "body": "Check out from the Shift widget or dashboard."
+    }
+  }
+}

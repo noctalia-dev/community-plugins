@@ -191,7 +191,7 @@ local function cellNode(cell)
     justify = "center",
     radius = sz(9),
     fill = fill,
-    border = if selected then "outline" else TRANSPARENT,
+    border = if selected then "outline_variant" else TRANSPARENT,
     borderWidth = 1,
     onClick = function()
       selectedDay = cell.jd

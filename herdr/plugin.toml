@@ -1,7 +1,7 @@
 id = "hy4ri/herdr"
 name = "Herdr"
-version = "1.1.0"
-plugin_api = 26
+version = "1.1.1"
+plugin_api = 43
 author = "Hy4ri"
 license = "MIT"
 dependencies = ["herdr"]

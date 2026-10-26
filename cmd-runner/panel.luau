@@ -148,7 +148,7 @@ local function renderForm()
     ui.button({ text = tr("panel.save_button"),   variant = "primary", onClick = function() saveForm() end })
   }))
 
-  return ui.column({ fill = "surface_variant/0.3", radius = 10, padding = 12, gap = 12 }, formItems)
+  return ui.column({ fill = "surface_container/0.3", radius = 10, padding = 12, gap = 12 }, formItems)
 end
 
 -- ── Command card ──────────────────────────────────────────────────────────────
@@ -234,10 +234,10 @@ local function renderCommandCard(cmd)
       table.insert(logLines, ui.label({ text = tr("panel.status_failed", { code = tostring(exitCode) }), fontSize = 10, color = "error", fontWeight = "bold" }))
     end
     table.insert(logLines, ui.label({ text = outText, fontSize = 10, color = "on_surface_variant", maxLines = 12 }))
-    table.insert(cardItems, ui.column({ fill = "surface_variant/0.5", radius = 6, padding = 8, gap = 4 }, logLines))
+    table.insert(cardItems, ui.column({ fill = "surface_container/0.5", radius = 6, padding = 8, gap = 4 }, logLines))
   end
 
-  return ui.column({ fill = "surface_variant/0.25", radius = 8, padding = 10, gap = 8 }, cardItems)
+  return ui.column({ fill = "surface_container/0.25", radius = 8, padding = 10, gap = 8 }, cardItems)
 end
 
 -- ── Root render ───────────────────────────────────────────────────────────────

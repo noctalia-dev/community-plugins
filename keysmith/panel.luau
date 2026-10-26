@@ -525,7 +525,7 @@ local function section(title, glyph, children, titleSize)
     for _, child in ipairs(children) do
         rows[#rows + 1] = child
     end
-    return ui.column({ gap = 6, fill = "surface_variant", radius = 10, padding = 10 }, rows)
+    return ui.column({ gap = 6, fill = "surface_container", radius = 10, padding = 10 }, rows)
 end
 
 -- ── Tabs ────────────────────────────────────────────────────────────────────
@@ -1023,7 +1023,7 @@ local function jwtStatusBox(view)
     if #cols > 0 then
         children[#children + 1] = ui.row({ gap = 8 }, cols)
     end
-    return ui.column({ gap = 4, fill = "surface_variant", radius = 10, padding = 10, border = view.status.role, borderWidth = 1 }, children)
+    return ui.column({ gap = 4, fill = "surface_container", radius = 10, padding = 10, border = view.status.role, borderWidth = 1 }, children)
 end
 
 -- The decoded token as one JSON document: { "header": {...}, "payload": {...} }.

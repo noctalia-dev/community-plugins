@@ -27,8 +27,8 @@ local function render()
     gap = 8,
     padding = 12,
     radius = 12,
-    fill = "surface_variant/0.3",
-    border = "outline/0.2",
+    fill = "surface_container/0.3",
+    border = "outline_variant/0.2",
   }, {
     -- Header: Coin Symbol, Price & Change Pill
     ui.row({ align = "center", justify = "space_between" }, {
@@ -85,7 +85,7 @@ local function render()
       }),
     }),
 
-    ui.separator({ thickness = 1, color = "outline/0.15" }),
+    ui.separator({ thickness = 1, color = "outline_variant/0.15" }),
 
     -- Portfolio Summary
     ui.row({ align = "center", justify = "space_between" }, {

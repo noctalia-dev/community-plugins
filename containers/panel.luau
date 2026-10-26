@@ -97,7 +97,7 @@ local function tableRow(container)
     })
   end
 
-  local statusColor = container.running and "primary" or "outline"
+  local statusColor = container.running and "primary" or "outline_variant"
   local statusDot = container.running and "●" or "○"
   local meta = container.image ~= "" and container.image or noctalia.tr("panel.no-image")
   if container.status ~= "" then
@@ -111,8 +111,8 @@ local function tableRow(container)
     justify = "space_between",
     paddingH = 8,
     paddingV = 5,
-    fill = container.running and "surface" or "surface_variant",
-    border = "outline",
+    fill = container.running and "surface" or "surface_container",
+    border = "outline_variant",
     borderWidth = 1,
     radius = 6,
   }
@@ -210,11 +210,11 @@ local function cardRow(container)
     gap = 0,
     paddingH = 8,
     paddingV = 4,
-    fill = container.running and "surface_variant" or "surface",
+    fill = container.running and "surface_container" or "surface",
     radius = 6,
   }
   if not container.running then
-    props.border = "outline"
+    props.border = "outline_variant"
     props.borderWidth = 1
   end
   if container.webUrl ~= "" then
@@ -250,7 +250,7 @@ local function runtimeSection(info)
       align = "center",
       justify = "space_between",
       fill = "surface",
-      border = "outline",
+      border = "outline_variant",
       borderWidth = 1,
       radius = 6,
       paddingH = 8,
@@ -327,7 +327,7 @@ local function buildTree()
           sections[#sections + 1] = ui.separator({
             key = "sep_" .. info.id,
             thickness = 1,
-            color = "outline",
+            color = "outline_variant",
             spacing = 8,
           })
         end
@@ -413,9 +413,9 @@ local function buildTree()
         onChange = "onSearch",
       }),
     }),
-    ui.separator({ key = "sep_top", thickness = 1, color = "outline", spacing = 0 }),
+    ui.separator({ key = "sep_top", thickness = 1, color = "outline_variant", spacing = 0 }),
     ui.scroll({ key = "body", flexGrow = 1, gap = 6, padding = 8 }, sections),
-    ui.separator({ key = "sep_bottom", thickness = 1, color = "outline", spacing = 0 }),
+    ui.separator({ key = "sep_bottom", thickness = 1, color = "outline_variant", spacing = 0 }),
     ui.row({ key = "hint_row", padding = 8 }, {
       ui.label({
         key = "hint",

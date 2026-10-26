@@ -13,7 +13,7 @@ local function req(action, extra)
   local seq = 0
   if type(prev) == "table" and tonumber(prev.seq) then seq = tonumber(prev.seq) end
   local r = { seq = seq + 1, action = action }
-  if type(extra) == "table" then for k,v in extra do r[k]=v end end
+  if type(extra) == "table" then for k,v in pairs(extra) do r[k]=v end end
   noctalia.state.set("quran_request", r)
 end
 
@@ -24,13 +24,15 @@ local function shortName()
 end
 
 function render()
-  barWidget.setGlyph(status.playing and "player-pause-filled" or "player-play-filled")
+  local active = status.playing == true and status.paused ~= true
+  barWidget.setGlyph(active and "player-pause-filled" or "player-play-filled")
   if showName then
     barWidget.setText(shortName() ~= "" and shortName() or "Quran")
   else
     barWidget.setText("")
   end
-  barWidget.setTooltip((status.playing and "Playing: " or "Paused: ") .. (status.name or ""))
+  local label = status.playing and (status.paused and "Paused: " or "Playing: ") or "Stopped: "
+  barWidget.setTooltip(label .. (status.name or ""))
 end
 
 function update()

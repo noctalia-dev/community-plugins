@@ -28,13 +28,13 @@ local view = "folders"
 local STATE_COLORS = {
   idle = "primary",
   syncing = "secondary",
-  paused = "outline",
+  paused = "outline_variant",
   disconnected = "secondary",
   offline = "error",
   unauthorized = "error",
   error = "error",
-  unconfigured = "outline",
-  disabled = "outline",
+  unconfigured = "outline_variant",
+  disabled = "outline_variant",
 }
 
 local function tr(key, subst)
@@ -123,7 +123,7 @@ local function header()
     }),
     ui.column({ gap = 2, flexGrow = 1 }, {
       ui.label({ text = tr("panel.title"), fontSize = 16, fontWeight = "bold" }),
-      ui.label({ text = tr(`state.{state}`), fontSize = 12, color = STATE_COLORS[state] or "outline" }),
+      ui.label({ text = tr(`state.{state}`), fontSize = 12, color = STATE_COLORS[state] or "outline_variant" }),
     }),
     ui.button({
       glyph = paused and "player-play" or "player-pause",
@@ -170,7 +170,7 @@ local function ratesLabel()
 end
 
 local function statTile(value, label)
-  return ui.column({ gap = 2, padding = 8, fill = "surface_variant/0.5", radius = 8, align = "center", flexGrow = 1 }, {
+  return ui.column({ gap = 2, padding = 8, fill = "surface_container/0.5", radius = 8, align = "center", flexGrow = 1 }, {
     ui.label({ text = value, fontSize = 15, fontWeight = "bold" }),
     ui.label({ text = label, fontSize = 11, color = "on_surface/0.6" }),
   })
@@ -234,13 +234,13 @@ local function tabs()
 end
 
 local function folderRow(folder)
-  local color = STATE_COLORS[folder.state] or "outline"
+  local color = STATE_COLORS[folder.state] or "outline_variant"
   return ui.row({
     key = `folder-{folder.id}`,
     gap = 8,
     padding = 8,
     align = "center",
-    fill = "surface_variant/0.5",
+    fill = "surface_container/0.5",
     radius = 8,
   }, {
     ui.box({ width = 8, height = 8, radius = 4, fill = color }),
@@ -277,7 +277,7 @@ local function folderRow(folder)
 end
 
 local function deviceRow(device)
-  local color = device.connected and "primary" or "outline"
+  local color = device.connected and "primary" or "outline_variant"
   local subtitle
   if device.paused then
     subtitle = tr("device.paused")
@@ -294,7 +294,7 @@ local function deviceRow(device)
     gap = 8,
     padding = 8,
     align = "center",
-    fill = "surface_variant/0.5",
+    fill = "surface_container/0.5",
     radius = 8,
     opacity = device.connected and 1 or 0.7,
   }, {

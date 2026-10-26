@@ -28,7 +28,7 @@ local CELL_SIZE = 13
 local CELL_GAP = 1
 local CELL_RADIUS = 2
 local COLORS = {
-  "surface_variant",
+  "surface_container",
   "primary/0.25",
   "primary/0.45",
   "primary/0.70",
@@ -77,7 +77,7 @@ local function cardFill()
   local mode = cfg("appearance_card_background", "tinted")
   if mode == "transparent" then return "transparent" end
   if mode == "solid" then return "surface/0.68" end
-  return "surface_variant/0.38"
+  return "surface_container/0.38"
 end
 
 local function cardBorder(active, unread)
@@ -85,9 +85,9 @@ local function cardBorder(active, unread)
   local hover = cfg("appearance_hover_effect", "background")
   if unread and readConfig("notification_unread_border") ~= false then return "primary", 2 end
   if active and hover == "border" then return "primary", 2 end
-  if mode == "none" then return "outline/0", 0 end
+  if mode == "none" then return "outline_variant/0", 0 end
   if mode == "accent" then return "primary", 1 end
-  return "outline", 1
+  return "outline_variant", 1
 end
 
 local function hoverFill(active, unread)
@@ -124,7 +124,7 @@ local function loadHeatmapAppearance()
   local maxCell = math.floor((760 - 52 * CELL_GAP) / 53)
   CELL_SIZE = math.clamp(math.min(CELL_SIZE, maxCell), 8, 16)
   local mode = cfg("heatmap_color_mode", "noctalia")
-  local themed = { "surface_variant", "primary/0.25", "primary/0.45", "primary/0.70", "primary" }
+  local themed = { "surface_container", "primary/0.25", "primary/0.45", "primary/0.70", "primary" }
   if mode == "github" then
     COLORS = { "#ebedf0", "#9be9a8", "#40c463", "#30a14e", "#216e39" }
   elseif mode == "custom" then
@@ -457,7 +457,7 @@ local function card(item, glyph, context)
   local content = ui.row({
     key = key, flexGrow = 1, gap = densityValue(7, 10, 13),
     padding = inlineReadAction and 0 or densityValue(7, 10, 13), radius = inlineReadAction and 0 or cardRadius(),
-    border = inlineReadAction and "outline/0" or border, borderWidth = inlineReadAction and 0 or borderWidth,
+    border = inlineReadAction and "outline_variant/0" or border, borderWidth = inlineReadAction and 0 or borderWidth,
     fill = inlineReadAction and "transparent" or hoverFill(active, unread),
     opacity = inlineReadAction and 1 or (context == "notifications" and readOpacity or 1),
     align = "center",
@@ -624,7 +624,7 @@ local function followingGroupCard(group)
   return ui.column({
     key = "following-group-" .. group.key,
     gap = densityValue(5, 7, 10), padding = densityValue(7, 10, 13), radius = cardRadius(),
-    border = cfg("appearance_card_border", "subtle") == "none" and "outline/0" or (cfg("appearance_card_border", "subtle") == "accent" and "primary" or "outline"),
+    border = cfg("appearance_card_border", "subtle") == "none" and "outline_variant/0" or (cfg("appearance_card_border", "subtle") == "accent" and "primary" or "outline_variant"),
     borderWidth = cfg("appearance_card_border", "subtle") == "none" and 0 or 1,
     fill = cardFill(),
   }, {
@@ -766,7 +766,7 @@ local function heatmap()
   return ui.column({
     flexGrow = 1, justify = "center",
     gap = cardSpacing(), padding = densityValue(9, 12, 15), radius = cardRadius(),
-    fill = "surface/0.20", border = "outline/0.45", borderWidth = 1,
+    fill = "surface/0.20", border = "outline_variant/0.45", borderWidth = 1,
   }, {
     cachedCalendar,
     footerZone,

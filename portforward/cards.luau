@@ -83,7 +83,7 @@ function M.render(profile, state, actions)
     }))
   end
   if state.expanded then
-    table.insert(rows, ui.separator({ color = "outline" }))
+    table.insert(rows, ui.separator({ color = "outline_variant" }))
     local ports = {}
     for _, mapping in ipairs(profile.mappings) do
       local address = "127.0.0.1:" .. mapping.local_port
@@ -101,7 +101,7 @@ function M.render(profile, state, actions)
     end
     table.insert(rows, ui.column({ key = "ports", paddingH = 14, paddingV = 8, gap = 2 }, ports))
   end
-  return ui.column({ key = profile.id, gap = 0, fill = "surface_variant", radius = 8 }, rows)
+  return ui.column({ key = profile.id, gap = 0, fill = "surface_container", radius = 8 }, rows)
 end
 
 return M

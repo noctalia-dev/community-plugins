@@ -65,7 +65,7 @@ function render()
         for _, toolCall in ipairs(msg.tool_calls) do
           local command = showCommands and (toolCommand(toolCall) or commandsByToolCall[toolCall.id])
           if command then
-            table.insert(contentNodes, ui.column({ gap = 2, padding = 8, fill = "surface_variant", radius = 6 }, {
+            table.insert(contentNodes, ui.column({ gap = 2, padding = 8, fill = "surface_container", radius = 6 }, {
               ui.label({ text = "Command", fontSize = 11, color = "on_surface/0.5" }),
               ui.label({ text = "$ " .. command, fontSize = 12, color = "primary", maxWidth = 380 }),
             }))
@@ -96,7 +96,7 @@ function render()
       ui.button({ text = "Approve", variant = "primary", onClick = "onApproveTool" }),
       ui.button({ text = "Deny", variant = "ghost", onClick = "onDenyTool" }),
     }))
-    table.insert(displayMsgs, ui.column({ key = "tool-approval", gap = 8, padding = 12, fill = "surface_variant", radius = 8 }, approvalChildren))
+    table.insert(displayMsgs, ui.column({ key = "tool-approval", gap = 8, padding = 12, fill = "surface_container", radius = 8 }, approvalChildren))
   end
 
   local layout = {
@@ -104,9 +104,9 @@ function render()
       ui.button({ glyph = "refresh", variant = "ghost", onClick = "onRefreshModels" }),
       ui.select({ options = models, selectedIndex = modelIdx, flexGrow = 1, placeholder = "No models", onChange = "onModelChange" }),
     }),
-    ui.separator({ thickness = 1, color = "surface_variant" }),
+    ui.separator({ thickness = 1, color = "surface_container" }),
     ui.scroll({ flexGrow = 1, gap = 4, padding = 12, stickToBottom = true, onScroll = "onChatScroll", scrollToBottomRev = atBottom and scrollRev or nil }, displayMsgs),
-    ui.separator({ thickness = 1, color = "surface_variant" }),
+    ui.separator({ thickness = 1, color = "surface_container" }),
   }
   table.insert(layout, ui.row({ gap = 8, padding = { left = 12, right = 12, top = 8, bottom = 4 }, align = "center" }, {
     ui.input({ key = "msg-input-" .. inputKey, value = inputText, placeholder = "Ask me anything...", flexGrow = 1, focus = true, onChange = "onInputChange", onSubmit = "onSubmit", submitOnEnter = true }),
