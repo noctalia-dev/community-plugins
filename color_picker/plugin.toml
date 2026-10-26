@@ -16,8 +16,8 @@ default = "hyprpicker"
 label_key = "settings.picker_tool.label"
 description_key = "settings.picker_tool.description"
 options = [
-  { value = "hyprpicker", label_key = "hyprpicker" },
-  { value = "grim_slurp", label_key = "grim + slurp" }
+  { value = "hyprpicker", label_key = "settings.picker_tool.options.hyprpicker" },
+  { value = "grim_slurp", label_key = "settings.picker_tool.options.grim_slurp" }
 ]
 
 [[setting]]
@@ -27,9 +27,9 @@ default = "hex"
 label_key = "settings.main-colorspace.label"
 description_key = "settings.main-colorspace.description"
 options = [
-  { value = "hex", label_key = "HEX" },
-  { value = "rgb", label_key = "RGB(A)" },
-  { value = "hsl", label_key = "HSL(A)" }
+  { value = "hex", label_key = "settings.main-colorspace.options.hex" },
+  { value = "rgb", label_key = "settings.main-colorspace.options.rgb" },
+  { value = "hsl", label_key = "settings.main-colorspace.options.hsl" }
 ]
 
 [[setting]]

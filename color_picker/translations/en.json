@@ -42,16 +42,25 @@
       "label": "Lowercase Hex"
     },
     "main-colorspace": {
-      "description": "Main colorspace for hyprpicker and panel.",
-      "label": "Main Colorspace"
+        "label": "Main Colorspace",
+        "description": "Main colorspace for hyprpicker and panel.",
+        "options": {
+          "hex": "HEX",
+          "rgb": "RGB(A)",
+          "hsl": "HSL(A)"
+        }
     },
     "notify-on-copy": {
       "description": "Notify on color copy through screen pick or panel button.",
       "label": "Notify on Copy"
     },
     "picker_tool": {
-      "description": "Tool used to pick colors from the screen.",
-      "label": "Picker Tool"
+        "label": "Picker Tool",
+        "description": "Tool used to pick colors from the screen.",
+        "options": {
+          "hyprpicker": "Hyprpicker",
+          "grim_slurp": "Grim + Slurp"
+        }
     }
   },
   "tool_missing": "{tool} not installed. You can change the picker tool in the plugin settings."

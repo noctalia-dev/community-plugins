@@ -43,7 +43,12 @@
     },
     "main-colorspace": {
       "description": "Espaço de cores principal para o hyprpicker e o painel.",
-      "label": "Espaço de Cores Principal"
+      "label": "Espaço de Cores Principal",
+      "options": {
+        "hex": "HEX",
+        "rgb": "RGB(A)",
+        "hsl": "HSL(A)"
+      }
     },
     "notify-on-copy": {
       "description": "Notifica ao copiar a cor por captura de tela ou botão do painel.",
@@ -51,7 +56,11 @@
     },
     "picker_tool": {
       "description": "Ferramenta usada para selecionar cores na tela.",
-      "label": "Ferramenta de Seleção"
+      "label": "Ferramenta de Seleção",
+      "options": {
+        "hyprpicker": "Hyprpicker",
+        "grim_slurp": "Grim + Slurp"
+      }
     }
   },
   "tool_missing": "{tool} não está instalado. Você pode alterar a ferramenta de seleção nas configurações do plugin."
