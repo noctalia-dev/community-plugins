@@ -1,7 +1,7 @@
 id = "mirei124/bangumi-progress"
 name = "Bangumi Progress"
-version = "1.2.0"
-plugin_api = 15
+version = "1.2.1"
+plugin_api = 43
 author = "Mirei124"
 license = "MIT"
 icon = "device-tv"

@@ -233,7 +233,7 @@ local function fmtRatio(w, h)
 end
 
 local function infoTile(label, value)
-  return ui.column({ flexGrow = 1, gap = 2, align = "center", paddingH = 6, paddingV = 8, radius = 10, fill = "surface_variant/0.25" }, {
+  return ui.column({ flexGrow = 1, gap = 2, align = "center", paddingH = 6, paddingV = 8, radius = 10, fill = "surface_container/0.25" }, {
     ui.label({ text = label, fontSize = 10, color = "on_surface_variant" }),
     ui.label({ text = value or "—", fontSize = 13, fontWeight = "bold" }),
   })
@@ -283,8 +283,8 @@ local function recordSaveCard()
   local thumbPath = (recordThumb and recordThumb ~= "") and recordThumb or RECORD_THUMB_PATH
   local hasThumb = (noctalia.fileExists == nil) or noctalia.fileExists(thumbPath)
   local thumbEl = hasThumb
-    and ui.image({ path = thumbPath, height = 280, fit = "contain", radius = 12, borderWidth = 1, border = "outline" })
-    or ui.column({ height = 120, align = "center", justify = "center", gap = 6, radius = 12, fill = "surface_variant/0.25" }, {
+    and ui.image({ path = thumbPath, height = 280, fit = "contain", radius = 12, borderWidth = 1, border = "outline_variant" })
+    or ui.column({ height = 120, align = "center", justify = "center", gap = 6, radius = 12, fill = "surface_container/0.25" }, {
       ui.glyph({ name = "video", size = 28, color = "on_surface_variant" }),
       ui.label({ text = tr("panel.no_preview"), fontSize = 11, color = "on_surface_variant" }),
     })
@@ -311,13 +311,13 @@ end
 
 local function emptyState(glyph, text)
   return ui.column({ gap = 10, minHeight = 120, align = "center", justify = "center" }, {
-    ui.glyph({ name = glyph, size = 30, color = "outline" }),
+    ui.glyph({ name = glyph, size = 30, color = "outline_variant" }),
     ui.label({ text = text, fontSize = 12, color = "on_surface_variant" }),
   })
 end
 
 local function colorFormatRow(name, value)
-  return ui.row({ gap = 8, align = "center", paddingH = 10, paddingV = 8, radius = 10, fill = "surface_variant/0.25" }, {
+  return ui.row({ gap = 8, align = "center", paddingH = 10, paddingV = 8, radius = 10, fill = "surface_container/0.25" }, {
     ui.label({ text = name, width = 40, fontSize = 12, fontWeight = "bold", color = "on_surface_variant" }),
     ui.label({ text = value, flexGrow = 1, fontSize = 12 }),
     ui.button({ glyph = "copy", variant = "ghost", onClick = function() copyText(value) end }),
@@ -338,7 +338,7 @@ local function colorHistoryRow()
       align = "center",
       onClick = function() showHistoryColor(hex) end,
     }, {
-      ui.box({ width = 26, height = 26, radius = 8, fill = hex, borderWidth = 1, border = "outline" }),
+      ui.box({ width = 26, height = 26, radius = 8, fill = hex, borderWidth = 1, border = "outline_variant" }),
     }))
   end
   return ui.row({ gap = 8 }, swatches)
@@ -351,7 +351,7 @@ local function renderColor()
   local c = colorResult
   return ui.column({ gap = 10 }, {
     ui.row({ gap = 12, align = "center" }, {
-      ui.box({ key = "swatch", width = 76, height = 50, radius = 12, fill = c.hex, borderWidth = 2, border = "outline" }),
+      ui.box({ key = "swatch", width = 76, height = 50, radius = 12, fill = c.hex, borderWidth = 2, border = "outline_variant" }),
       ui.column({ flexGrow = 1, gap = 2 }, {
         ui.label({ text = c.hex, fontSize = 18, fontWeight = "bold", color = "on_surface" }),
         ui.label({ text = c.rgb, fontSize = 11, color = "on_surface_variant" }),
@@ -415,7 +415,7 @@ local function renderOcr()
       }),
       ui.label({ text = imgW > 0 and string.format("%dx%d", imgW, imgH) or "", fontSize = 10, color = "on_surface_variant" }),
     }))
-    table.insert(scrollChildren, ui.column({ fill = "surface_variant/0.35", radius = 12, padding = 6, borderWidth = 1, border = "outline" }, {
+    table.insert(scrollChildren, ui.column({ fill = "surface_container/0.35", radius = 12, padding = 6, borderWidth = 1, border = "outline_variant" }, {
       ui.image({
         key = "ocr-image-" .. tostring(ocrResult.cacheBust or ocrResult.capturePath),
         path = ocrResult.capturePath,
@@ -449,7 +449,7 @@ local function renderOcr()
       ui.button({ glyph = "copy", variant = "ghost", controlSize = "sm", tooltip = tr("panel.copy_text"), onClick = function() copyText(displayText) end }),
     }))
     table.insert(scrollChildren, ui.column({
-        fill = "surface_variant/0.25",
+        fill = "surface_container/0.25",
         radius = 10,
         paddingH = 10,
         paddingV = 8,
@@ -551,7 +551,7 @@ local function renderQr()
   return ui.column({ gap = 8 }, {
     ui.row({ gap = 6 }, buttons),
     ui.column({ gap = 8 }, {
-      ui.image({ path = qrResult.capturePath, height = 110, fit = "contain", radius = 12, borderWidth = 1, border = "outline" }),
+      ui.image({ path = qrResult.capturePath, height = 110, fit = "contain", radius = 12, borderWidth = 1, border = "outline_variant" }),
       ui.label({ text = text, fontSize = 13 }),
     }),
   })
@@ -570,12 +570,12 @@ local function renderPalette()
       align = "center",
       paddingV = 8,
       radius = 12,
-      fill = "surface_variant/0.25",
+      fill = "surface_container/0.25",
       borderWidth = 1,
-      border = "outline",
+      border = "outline_variant",
       onClick = function() copyText(hex) end,
     }, {
-      ui.box({ width = 34, height = 34, radius = 10, fill = hex, borderWidth = 1, border = "outline" }),
+      ui.box({ width = 34, height = 34, radius = 10, fill = hex, borderWidth = 1, border = "outline_variant" }),
       ui.label({ text = hex, fontSize = 9, color = "on_surface_variant" }),
     }))
   end
@@ -625,7 +625,7 @@ local function renderShare()
   local hasQr = shareQrPath and shareQrPath ~= "" and (noctalia.fileExists == nil or noctalia.fileExists(shareQrPath))
   if hasQr then
     table.insert(top, ui.column({ gap = 4, align = "center" }, {
-      ui.image({ path = shareQrPath, width = 180, height = 180, fit = "contain", radius = 12, borderWidth = 1, border = "outline" }),
+      ui.image({ path = shareQrPath, width = 180, height = 180, fit = "contain", radius = 12, borderWidth = 1, border = "outline_variant" }),
       ui.label({ text = tr("panel.qr_scan"), fontSize = 11, color = "on_surface_variant" }),
     }))
   end
@@ -636,7 +636,7 @@ local function renderShare()
         local u = h.url
         table.insert(rows, ui.row({
           key = "share-hist-" .. i, gap = 8, align = "center",
-          paddingV = 6, paddingH = 10, radius = 10, fill = "surface_variant/0.25",
+          paddingV = 6, paddingH = 10, radius = 10, fill = "surface_container/0.25",
           onClick = function() copyText(u) end,
         }, {
           ui.label({ text = u, flexGrow = 1, fontSize = 11, maxLines = 1 }),

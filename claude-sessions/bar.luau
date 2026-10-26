@@ -89,7 +89,7 @@ local function render()
       color = waiting > 0 and "error" or busy > 0 and "primary" or "on_surface_variant" }),
   }
   local function divider()
-    children[#children + 1] = ui.box({ width = vertical and 10 or 1, height = vertical and 1 or 10, fill = "outline/0.6" })
+    children[#children + 1] = ui.box({ width = vertical and 10 or 1, height = vertical and 1 or 10, fill = "outline_variant/0.6" })
   end
   -- With several accounts, each account's group starts with a small name tag so its dots and
   -- limits can be told apart (shorten long names with the account_labels setting).

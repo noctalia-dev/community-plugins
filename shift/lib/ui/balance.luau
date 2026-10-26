@@ -138,7 +138,7 @@ local function trackingRow(view: View, state: BalanceState, info: BalanceInfo): 
     date = Widgets.date(host, info.trackingStart, "%d %b %Y"),
     initial = Format.signed(info.initialBalanceMin * MINUTE_MS, view.snap.display.durationFormat),
   })
-  return ui.row({ align = "center", gap = 8, paddingH = 10, paddingV = 6, radius = 12, fill = "surface_variant" }, {
+  return ui.row({ align = "center", gap = 8, paddingH = 10, paddingV = 6, radius = 12, fill = "surface_container" }, {
     ui.glyph({ name = "calendar-cog", size = 14, color = "on_surface_variant" }),
     ui.label({ text = text, flexGrow = 1, fontSize = 12, color = "on_surface_variant", maxLines = 1 }),
     Widgets.editButton(host.tr("panel.balance.edit_tracking"), function()

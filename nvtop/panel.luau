@@ -76,8 +76,8 @@ local function render_no_data_message()
         if g_error_message == nil then
             panel.render(ui.row({
                 key = "no-data-row",
-                fill = "surface_variant",
-                border = "outline",
+                fill = "surface_container",
+                border = "outline_variant",
                 padding = 16,
                 radius = 12,
                 gap = 8,
@@ -99,7 +99,7 @@ local function render_no_data_message()
             panel.render(ui.column({
                 key = "no-data-row",
                 fill = "error",
-                border = "outline",
+                border = "outline_variant",
                 padding = 16,
                 radius = 12,
                 gap = 8,
@@ -316,8 +316,8 @@ local function render_gpu_info(selected_idx)
         gap = 8,
         padding = 8,
         radius = 12,
-        border = "outline",
-        fill = "surface_variant",
+        border = "outline_variant",
+        fill = "surface_container",
         borderWidth = 1,
     }, children)
 end
@@ -611,7 +611,7 @@ local function render_processes_header(gpu_idx)
     end
     return ui.row({
         gap = 8,
-        fill = "surface_variant",
+        fill = "surface_container",
         radius = 8,
     }, children)
 end
@@ -623,7 +623,7 @@ local expanded_pid = nil
 local function render_processes(gpu_idx)
     local children = {}
     local order_by = get_order_by(g_order_by_context, gpu_idx)
-    local default_hover_fill = noctalia.getConfig("process_hover_background") or "surface_variant"
+    local default_hover_fill = noctalia.getConfig("process_hover_background") or "surface_container"
     local default_hover_color = noctalia.getConfig("process_hover_color") or "on_surface_variant"
     for _, process in ipairs(nvtop_data[gpu_idx].processes) do
         local process_children = {}
@@ -634,7 +634,7 @@ local function render_processes(gpu_idx)
             local fontWeight = "medium"
             if order_by == column.data_key or order_by == "-" .. column.data_key then
                 if not is_hovered then
-                    fill = noctalia.getConfig("sort_column_background") or "surface_variant"
+                    fill = noctalia.getConfig("sort_column_background") or "surface_container"
                     color = noctalia.getConfig("sort_column_color") or "on_surface_variant"
                 end
                 fontWeight = "bold"
@@ -771,8 +771,8 @@ local function render_processes(gpu_idx)
     end
 
     return ui.column({
-        fill = "surface_variant",
-        border = "outline",
+        fill = "surface_container",
+        border = "outline_variant",
         borderWidth = 1,
         flexGrow = 1,
         radius = 12,
@@ -781,7 +781,7 @@ local function render_processes(gpu_idx)
         render_processes_header(gpu_idx),
         ui.scroll({
             flexGrow = 1,
-            border = "outline",
+            border = "outline_variant",
             borderWidth = 1,
             fill = "surface",
             radius = 10,

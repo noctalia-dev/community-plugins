@@ -219,7 +219,7 @@ end
 -- Review actions of a missing day (spec §6.6).
 local function missingActions(view: View, state: EditorState): UiNode
   local host = view.host
-  return ui.column({ gap = 8, padding = 12, radius = 12, fill = "surface_variant" }, {
+  return ui.column({ gap = 8, padding = 12, radius = 12, fill = "surface_container" }, {
     ui.label({ text = host.tr("panel.day.missing_hint"), fontSize = 13, maxLines = 2 }),
     ui.row({ gap = 6, justify = "end" }, {
       Widgets.smallButton(host.tr("panel.day.not_worked"), "ghost", function()
@@ -260,7 +260,7 @@ local function pendingList(view: View): UiNode
       end),
     }))
   end
-  return ui.column({ gap = 6, padding = 12, radius = 12, fill = "surface_variant" }, rows)
+  return ui.column({ gap = 6, padding = 12, radius = 12, fill = "surface_container" }, rows)
 end
 
 -- The editor, replacing the panel body. `day` is the edited day from `shift.history`,

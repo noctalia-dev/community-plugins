@@ -143,7 +143,7 @@ end
 
 local function appendDivider(children, key)
   local mark = barWidget.isVertical() and "─" or "│"
-  table.insert(children, ui.label({ key = key, text = mark, color = "outline", fontWeight = "light" }))
+  table.insert(children, ui.label({ key = key, text = mark, color = "outline_variant", fontWeight = "light" }))
 end
 
 local function appendGroup(children, group, key, showSeparators)

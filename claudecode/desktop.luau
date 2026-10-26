@@ -40,7 +40,7 @@ end
 
 local function card(children)
   return ui.column({
-    gap = 8, padding = PAD, fill = "surface_variant/0.45", radius = 12, width = PANEL_W,
+    gap = 8, padding = PAD, fill = "surface_container/0.45", radius = 12, width = PANEL_W,
   }, children)
 end
 

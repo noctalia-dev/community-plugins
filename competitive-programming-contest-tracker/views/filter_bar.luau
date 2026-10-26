@@ -46,7 +46,7 @@ local function platformChip(p: types.Platform, ctx: types.Ctx): UiNode
     justify = "center",
     radius = 10,
     fill = on and "primary/0.35" or "on_surface/0",
-    border = on and "primary" or "outline",
+    border = on and "primary" or "outline_variant",
     borderWidth = 1,
     tooltip = p.name,
     onClick = function()

@@ -44,7 +44,7 @@ end
 function M.colour(s)
   if s == "working" or s == "done" then return M.ACCENT end
   if s == "waiting" then return "error" end
-  return "outline"
+  return "outline_variant"
 end
 
 -- Accent while there is room, tertiary when it is getting close, red at the wall.

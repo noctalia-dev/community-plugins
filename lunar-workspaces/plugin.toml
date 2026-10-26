@@ -1,7 +1,7 @@
 id = "yuki/lunar-workspaces"
 name = "Lunar Workspaces"
-version = "1.1.0"
-plugin_api = 12
+version = "1.1.1"
+plugin_api = 43
 author = "yuki"
 license = "MIT"
 icon = "moon"
@@ -196,5 +196,5 @@ entry = "widget.luau"
   type            = "color"
   label_key       = "settings.empty_color.label"
   description_key = "settings.empty_color.description"
-  default         = "surface_variant"
+  default         = "surface_container"
   visible_when    = { key = "empty_pill_style", values = ["fill"] }

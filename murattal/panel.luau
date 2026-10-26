@@ -415,7 +415,7 @@ local function playerCard()
     and string.format("Ayah %d/%d", tonumber(status.ayah) or 1, tonumber(status.ayahCount) or 0)
     or "Surah"
 
-  return ui.column({ gap = 6, padding = 12, radius = 10, fill = "surface_variant/0.35" }, {
+  return ui.column({ gap = 6, padding = 12, radius = 10, fill = "surface_container/0.35" }, {
     ui.row({ gap = 8, align = "center" }, {
       ui.label({ text = title, fontSize = 14, fontWeight = "bold", flexGrow = 1, maxLines = 1 }),
       ui.label({ text = modeText, fontSize = 9, color = "primary" }),
@@ -581,7 +581,7 @@ local function optionsCard()
     })
   end
 
-  return ui.column({ gap = 8, padding = 10, radius = 10, fill = "surface_variant/0.25" }, rows)
+  return ui.column({ gap = 8, padding = 10, radius = 10, fill = "surface_container/0.25" }, rows)
 end
 
 -- ── tab: Surah (simple) ──────────────────────────────────────────────────────
@@ -834,7 +834,7 @@ local function renderAyah()
           gap = 4,
           padding = 8,
           radius = 8,
-          fill = emphasized and "primary/0.12" or "surface_variant/0.25",
+          fill = emphasized and "primary/0.12" or "surface_container/0.25",
           border = emphasized and "primary" or nil,
           borderWidth = emphasized and 1 or 0,
         }, rows)

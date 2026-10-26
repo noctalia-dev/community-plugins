@@ -8,8 +8,8 @@
 
 id           = "hbollon/shift"
 name         = "Shift"
-version      = "1.0.1"
-plugin_api   = 32
+version      = "1.0.2"
+plugin_api   = 43
 author       = "hbollon"
 license      = "MIT"
 icon         = "briefcase"

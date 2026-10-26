@@ -26,7 +26,7 @@ local ROW_HIT = 24
 local LINE = 10
 local MARK = 6
 local END_MARK = 22
-local MARK_FILL = "surface_variant"
+local MARK_FILL = "surface_container"
 local MARK_RADIUS = 4
 local MIN_BOX_W = 96
 local MIN_BOX_H = 58
@@ -257,7 +257,7 @@ local function canvas()
     flexGrow = 1,
     padding = 12,
     radius = controls.RADIUS,
-    fill = "surface_variant/0.35",
+    fill = "surface_container/0.35",
   }, nodes)
 end
 
@@ -283,8 +283,8 @@ local function tray()
         align = "center",
         paddingH = 12,
         paddingV = 8,
-        fill = "surface_variant",
-        border = "outline",
+        fill = "surface_container",
+        border = "outline_variant",
         borderWidth = 1,
         radius = 10,
       }, {
@@ -317,7 +317,7 @@ local function tray()
     gap = 8,
     padding = 16,
     radius = controls.RADIUS,
-    border = "outline",
+    border = "outline_variant",
     borderWidth = 1,
   }, children)
 end

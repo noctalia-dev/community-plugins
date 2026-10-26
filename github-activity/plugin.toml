@@ -1,7 +1,7 @@
 id = "alexmnrs/github-activity"
 name = "GitHub Activity"
-version = "1.4.0"
-plugin_api = 24
+version = "1.4.1"
+plugin_api = 43
 author = "AlexMnrs"
 license = "MIT"
 icon = "brand-github"

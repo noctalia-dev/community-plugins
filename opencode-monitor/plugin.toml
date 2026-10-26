@@ -1,7 +1,7 @@
 id = "faented/opencode-monitor"
 name = "OpenCode Monitor"
-version = "0.3.0"
-plugin_api = 33
+version = "0.3.1"
+plugin_api = 43
 author = "faented"
 license = "MIT"
 icon = "robot"

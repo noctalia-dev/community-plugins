@@ -1,7 +1,7 @@
 id = "soul/palettes"
 name = "Palettes"
-version = "1.0.0"
-plugin_api = 9
+version = "1.0.1"
+plugin_api = 43
 author = "soul"
 license = "MIT"
 dependencies = []

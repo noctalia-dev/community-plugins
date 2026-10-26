@@ -299,7 +299,7 @@ function render()
 
   local body = {
     -- Receiver face: tuner display + transport + volume.
-    ui.column({ gap = 10, fill = "surface_variant/0.55", radius = 18, padding = 16 }, {
+    ui.column({ gap = 10, fill = "surface_container/0.55", radius = 18, padding = 16 }, {
       ui.row({ gap = 8, align = "center" }, {
         ui.glyph({ name = status.playing and "radio" or "radio-off", size = 20, color = "primary" }),
         ui.column({ flexGrow = 1, gap = 1 }, {

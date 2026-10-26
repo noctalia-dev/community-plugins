@@ -1,7 +1,7 @@
 id = "nomadcxx/gslapper"
 name = "gSlapper Wallpaper"
-version = "0.1.1"
-plugin_api = 19
+version = "0.1.2"
+plugin_api = 43
 author = "Nomadcxx"
 license = "MIT"
 dependencies = ["find", "gslapper", "gst-launch-1.0", "pkill", "socat"]

@@ -99,7 +99,7 @@ local function ancControls(anc, personalAnc)
 				fill = selected and "primary/0.18" or "on_surface/0.06",
 				-- always reserve the border's stroke width so selecting a mode doesn't
 				-- resize the circle and shove its neighbors around; hide it via alpha instead
-				border = selected and "outline/0" or "outline",
+				border = selected and "outline_variant/0" or "outline_variant",
 				onClick = function()
 					sendCommand("set-anc", spec.mode, spec.mode == "anc" and "high" or nil)
 				end,

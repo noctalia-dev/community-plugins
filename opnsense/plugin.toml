@@ -2,8 +2,8 @@
 
 id = "davemhammer/opnsense"
 name = "OPNsense"
-version = "1.2.0"
-plugin_api = 10
+version = "1.2.1"
+plugin_api = 43
 author = "davemhammer"
 license = "MIT"
 dependencies = ["curl", "jq", "xdg-open"]

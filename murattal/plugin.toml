@@ -1,7 +1,7 @@
 id = "abuamar142/murattal"
 name = "Murattal"
-version = "0.3.0"
-plugin_api = 24
+version = "0.3.1"
+plugin_api = 43
 author = "abuamar142"
 license = "MIT"
 icon = "music-note"

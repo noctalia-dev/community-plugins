@@ -1,7 +1,7 @@
 id = "tordex/system-updater"
 name = "System Updates Manager"
-version = "2.1.0"
-plugin_api = 20
+version = "2.1.1"
+plugin_api = 43
 author = "tordex"
 license = "MIT"
 dependencies = ["pkgcli", "cargo", "cargo-install-update", "python3", "flatpak", "awk", "bash", "jq", "grep", "coreutils", "sed"]

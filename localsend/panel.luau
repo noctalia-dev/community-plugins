@@ -118,7 +118,7 @@ local function sessionRow(s)
   end
   if #buttons > 0 then table.insert(rows, ui.row({ gap = 8 }, buttons)) end
 
-  return ui.column({ gap = 4, padding = 10, radius = 10, fill = "surface_variant" }, rows)
+  return ui.column({ gap = 4, padding = 10, radius = 10, fill = "surface_container" }, rows)
 end
 
 local function render()

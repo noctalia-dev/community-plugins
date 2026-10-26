@@ -806,7 +806,7 @@ render = function()
                     height = HEIGHT,
                     gap = 14,
                     padding = 22,
-                    fill = "surface_variant/0.82",
+                    fill = "surface_container/0.82",
                     radius = 20,
                     justify = "center",
                     align = "stretch",
@@ -995,7 +995,7 @@ render = function()
                 height = HEIGHT,
                 gap = 6,
                 padding = 14,
-                fill = "surface_variant/0.82",
+                fill = "surface_container/0.82",
                 radius = 20,
                 justify = "start",
                 align = "stretch",
@@ -1012,7 +1012,7 @@ render = function()
 
                 ui.separator({
                     thickness = 1,
-                    color = "outline",
+                    color = "outline_variant",
                     spacing = 2,
                 }),
 
@@ -1054,7 +1054,7 @@ render = function()
 
                 ui.separator({
                     thickness = 1,
-                    color = "outline",
+                    color = "outline_variant",
                     spacing = 2,
                 }),
 

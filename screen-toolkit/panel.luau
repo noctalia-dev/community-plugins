@@ -240,7 +240,7 @@ local function standardToolsRow(tools)
 end
 
 local function standardSection(tools)
-  return ui.column({ gap = 4, paddingV = 4, paddingH = 6, radius = 12, fill = "surface_variant" }, { standardToolsRow(tools) })
+  return ui.column({ gap = 4, paddingV = 4, paddingH = 6, radius = 12, fill = "surface_container" }, { standardToolsRow(tools) })
 end
 
 local function standardGrid()
@@ -288,7 +288,7 @@ local function legacyTile(t)
     key = "tile-" .. t.id, flexGrow = 1, gap = 2, paddingV = 5, paddingH = 0, align = "center", justify = "center", onClick = onClick,
     onHover = function(state) setHoveredTool((state == "true") and t.id or nil); render() end,
   }, {
-    ui.column({ width = 50, height = 50, radius = 15, fill = "on_primary", border = color == "primary" and "primary" or "outline", borderWidth = isFocused and 2 or 0, align = "center", justify = "center" }, {
+    ui.column({ width = 50, height = 50, radius = 15, fill = "on_primary", border = color == "primary" and "primary" or "outline_variant", borderWidth = isFocused and 2 or 0, align = "center", justify = "center" }, {
       ui.glyph({ name = t.glyph, size = 25, color = color }),
     }),
     ui.label({ text = tr(t.label_key), maxWidth = 80, maxLines = 1, textAlign = "center", fontSize = 11, color = color }),
@@ -298,7 +298,7 @@ end
 local function legacyGrid()
   local row1, row2 = {}, {}
   for i, t in ipairs(TOOLS_LEGACY) do table.insert(i <= 4 and row1 or row2, legacyTile(t)) end
-  return ui.column({ gap = 10, paddingV = 15, paddingH = 20, radius = 18, fill = "surface_variant" }, {
+  return ui.column({ gap = 10, paddingV = 15, paddingH = 20, radius = 18, fill = "surface_container" }, {
     ui.row({ flexGrow = 1, gap = 0 }, row1), ui.row({ flexGrow = 1, gap = 0 }, row2),
   })
 end
@@ -330,7 +330,7 @@ local function MarkupSubpanel()
   local isPreviewFocused = (focusedTool == "preview_screenshot")
   local rightPreview = ui.column({
     width = 200, height = 150, align = "center", justify = "center", padding = hasCaptureFile and 4 or 8, radius = 10, fill = "surface",
-    border = isPreviewFocused and "primary" or "outline", borderWidth = isPreviewFocused and 2 or 1, onClick = openScreenshotPreview,
+    border = isPreviewFocused and "primary" or "outline_variant", borderWidth = isPreviewFocused and 2 or 1, onClick = openScreenshotPreview,
   }, hasCaptureFile and {
     ui.image({ path = lastCapturePath, width = 200, height = 130, fit = "contain", radius = 6 }),
     ui.label({ text = tr("panel.click_to_annotate"), fontSize = 10, fontWeight = "bold", color = "primary" }),
@@ -340,7 +340,7 @@ local function MarkupSubpanel()
   })
   return ui.column({ flexGrow = 1, gap = 10 }, {
     SubpanelHeader(tr("panel.markup")),
-    ui.column({ gap = 10, paddingV = 15, paddingH = 20, radius = 18, fill = "surface_variant" }, {
+    ui.column({ gap = 10, paddingV = 15, paddingH = 20, radius = 18, fill = "surface_container" }, {
       ui.row({ flexGrow = 1, gap = 10 }, { ui.column({ width = 100, gap = 6 }, leftButtons), rightPreview }),
     }),
   })
@@ -360,8 +360,8 @@ local function RecordSubpanel()
   local sysAudioFocused = hoveredAudioOut or (focusedTool == "sysAudio")
   local sysAudioBtn = ui.column({
     key = "toggle-sys-audio", width = 28, height = 28, radius = 6,
-    fill = recordAudioOut and (sysAudioFocused and "primary/0.25" or "primary/0.15") or (sysAudioFocused and "surface_variant" or "surface_variant/0.5"),
-    border = (recordAudioOut or sysAudioFocused) and "primary" or "outline", borderWidth = 1, align = "center", justify = "center",
+    fill = recordAudioOut and (sysAudioFocused and "primary/0.25" or "primary/0.15") or (sysAudioFocused and "surface_container" or "surface_container/0.5"),
+    border = (recordAudioOut or sysAudioFocused) and "primary" or "outline_variant", borderWidth = 1, align = "center", justify = "center",
     onClick = function() recordAudioOut = not recordAudioOut; send("setAudioOut", recordAudioOut); render() end,
     onHover = function(state) setHoveredTool((state == "true") and "sysAudio" or nil); render() end,
   }, { ui.glyph({ name = recordAudioOut and "volume-2" or "volume-x", size = 16, color = (recordAudioOut or sysAudioFocused) and "primary" or "on_surface_variant" }) })
@@ -369,8 +369,8 @@ local function RecordSubpanel()
   local micAudioFocused = hoveredAudioIn or (focusedTool == "micAudio")
   local micAudioBtn = ui.column({
     key = "toggle-mic-audio", width = 28, height = 28, radius = 6,
-    fill = recordAudioIn and (micAudioFocused and "primary/0.25" or "primary/0.15") or (micAudioFocused and "surface_variant" or "surface_variant/0.5"),
-    border = (recordAudioIn or micAudioFocused) and "primary" or "outline", borderWidth = 1, align = "center", justify = "center",
+    fill = recordAudioIn and (micAudioFocused and "primary/0.25" or "primary/0.15") or (micAudioFocused and "surface_container" or "surface_container/0.5"),
+    border = (recordAudioIn or micAudioFocused) and "primary" or "outline_variant", borderWidth = 1, align = "center", justify = "center",
     onClick = function() recordAudioIn = not recordAudioIn; send("setAudioIn", recordAudioIn); render() end,
     onHover = function(state) setHoveredTool((state == "true") and "micAudio" or nil); render() end,
   }, { ui.glyph({ name = recordAudioIn and "microphone" or "microphone-off", size = 16, color = (recordAudioIn or micAudioFocused) and "primary" or "on_surface_variant" }) })
@@ -388,12 +388,12 @@ local function RecordSubpanel()
     local filename = lastRecordPath and (lastRecordPath:match("([^/]+)$") or lastRecordPath) or tr("panel.saved_recording")
     rightPreview = ui.column({
       width = 200, height = 150, align = "center", justify = "center", padding = hasRecordFile and 4 or 8, radius = 10, fill = "surface",
-      border = isPreviewFocused and "primary" or "outline", borderWidth = isPreviewFocused and 2 or 1, onClick = openRecordingPreview,
+      border = isPreviewFocused and "primary" or "outline_variant", borderWidth = isPreviewFocused and 2 or 1, onClick = openRecordingPreview,
     }, { thumbElement, ui.label({ text = filename, maxWidth = 160, maxLines = 1, fontSize = 9, color = "on_surface_variant" }), ui.label({ text = tr("panel.click_to_play"), fontSize = 10, fontWeight = "bold", color = "primary" }) })
   else
     rightPreview = ui.column({
       width = 200, height = 130, align = "center", justify = "center", padding = 8, radius = 10, fill = "surface",
-      border = isPreviewFocused and "primary" or "outline", borderWidth = isPreviewFocused and 2 or 1, onClick = openRecordingPreview,
+      border = isPreviewFocused and "primary" or "outline_variant", borderWidth = isPreviewFocused and 2 or 1, onClick = openRecordingPreview,
     }, { ui.glyph({ name = "video", size = 28, color = "on_surface_variant" }), ui.label({ text = tr("panel.no_recording"), fontSize = 11, color = "on_surface_variant" }) })
   end
   local leftColumn = ui.column({ width = 100, gap = 6, align = "center" }, {
@@ -402,7 +402,7 @@ local function RecordSubpanel()
   })
   return ui.column({ flexGrow = 1, gap = 10 }, {
     SubpanelHeader(tr("panel.record")),
-    ui.column({ gap = 10, paddingV = 15, paddingH = 20, radius = 18, fill = "surface_variant" }, {
+    ui.column({ gap = 10, paddingV = 15, paddingH = 20, radius = 18, fill = "surface_container" }, {
       ui.row({ flexGrow = 1, gap = 10 }, { leftColumn, rightPreview }),
     }),
   })

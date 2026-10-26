@@ -3,10 +3,10 @@
 
 id = "micahg/nwg-displays"
 name = "NWG Display Profiles"
-version = "1.0.0"
+version = "1.0.1"
 # 26 for getSetting("shell.show_close_buttons") in the panel; 24 for the argv
 # form of runAsync, so no shell ever parses a profile name.
-plugin_api = 26
+plugin_api = 43
 author = "micahg"
 license = "MIT"
 icon = "device-desktop"

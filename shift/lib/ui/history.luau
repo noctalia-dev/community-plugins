@@ -167,7 +167,7 @@ local function bar(worked: number, target: number, scale: number): UiNode
   end
   if target > 0 then
     segment(math.max(0, worked - target), "tertiary")
-    table.insert(nodes, ui.box({ width = BAR_WIDTH + 8, height = 1, fill = "outline" }))
+    table.insert(nodes, ui.box({ width = BAR_WIDTH + 8, height = 1, fill = "outline_variant" }))
     local gap = math.round((target - math.min(worked, target)) * scale)
     if gap >= 1 then
       table.insert(nodes, ui.box({ width = BAR_WIDTH, height = gap, opacity = 0 }))

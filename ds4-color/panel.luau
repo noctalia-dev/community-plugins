@@ -35,7 +35,7 @@ local function render()
       height = 34,
       fill = "#" .. p.hex,
       radius = 8,
-      border = "outline",
+      border = "outline_variant",
       borderWidth = selected and 3 or 1,
       onClick = function() applyPreset(presetIndex) end,
     }))
@@ -53,7 +53,7 @@ local function render()
       height = 72,
       fill = "#" .. color,
       radius = 12,
-      border = "outline",
+      border = "outline_variant",
       borderWidth = 2,
       onClick = "onNativePicker",
     }),

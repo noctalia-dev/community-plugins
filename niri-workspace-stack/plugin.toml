@@ -10,8 +10,8 @@
 
 id           = "johnnyp0t/niri-workspace-stack"
 name         = "Niri Workspace Stack"
-version      = "0.3.1"
-plugin_api   = 32
+version      = "0.3.2"
+plugin_api   = 43
 author       = "johnnyp0t"
 license      = "MIT"
 dependencies = ["niri"]

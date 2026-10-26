@@ -45,8 +45,8 @@ local function row(w, idx)
   return ui.row({
     key = "pick-" .. idx, gap = 8, align = "center",
     paddingV = 8, paddingH = 10, radius = 10,
-    fill = hot and "primary/0.12" or "surface_variant/0.25",
-    border = hot and "primary" or "surface_variant/0.25", borderWidth = 1,
+    fill = hot and "primary/0.12" or "surface_container/0.25",
+    border = hot and "primary" or "surface_container/0.25", borderWidth = 1,
     onClick = function() choose(idx) end,
     onHover = function(state)
       if state == "true" then hoveredIdx = idx elseif hoveredIdx == idx then hoveredIdx = nil end
@@ -65,7 +65,7 @@ end
 local function body()
   if #wins == 0 then
     return ui.column({ gap = 10, minHeight = 120, align = "center", justify = "center" }, {
-      ui.glyph({ name = "window", size = 30, color = "outline" }),
+      ui.glyph({ name = "window", size = 30, color = "outline_variant" }),
       ui.label({ text = tr("panel.pick_empty"), fontSize = 12, color = "on_surface_variant" }),
     })
   end

@@ -2,8 +2,8 @@
 # not been published. The JSON v4 manifest stays authoritative for v4.
 id = "alpzy/deepseek-peak"
 name = "DeepSeek Peak Hours"
-version = "1.0.0"
-plugin_api = 22
+version = "1.0.1"
+plugin_api = 43
 author = "Alpzy"
 license = "MIT"
 icon = "zap"

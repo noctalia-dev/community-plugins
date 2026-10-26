@@ -337,7 +337,7 @@ local function themeTile(theme)
   local isSelected = theme.name == selected
   local width = tileWidth()
   local preview = previews[theme.name]
-  local border = isSelected and "primary" or "outline"
+  local border = isSelected and "primary" or "outline_variant"
   local borderWidth = isSelected and 3 or 1
   local onClick = function()
     selected = theme.name
@@ -355,7 +355,7 @@ local function themeTile(theme)
     })
   else
     frame = ui.box({
-      width = width, height = STRIP_HEIGHT, fill = "surface_variant",
+      width = width, height = STRIP_HEIGHT, fill = "surface_container",
       radius = 12, border = border, borderWidth = borderWidth, onClick = onClick,
     })
   end
@@ -563,7 +563,7 @@ local function mapRoleTile(st, role, byRel)
   local tip = tr(`role_{role}`)
   local isArmed = st.target == role
   local override = st.mapping[role]
-  local border = isArmed and "primary" or (override ~= nil and "tertiary" or "outline")
+  local border = isArmed and "primary" or (override ~= nil and "tertiary" or "outline_variant")
   -- An override is a pending intent: the engine only re-renders role previews
   -- on the next convert, so show the assigned file's own thumbnail meanwhile.
   -- Without this the tile keeps last convert's art (or stays empty) until the
@@ -589,7 +589,7 @@ local function mapRoleTile(st, role, byRel)
                        radius = 8, border = border, borderWidth = isArmed and 3 or 1,
                        tooltip = tip, onClick = onClick })
   else
-    frame = ui.box({ width = MAP_TILE, height = MAP_TILE, fill = "surface_variant",
+    frame = ui.box({ width = MAP_TILE, height = MAP_TILE, fill = "surface_container",
                      radius = 8, border = border, borderWidth = isArmed and 3 or 1,
                      tooltip = tip, onClick = onClick })
   end
@@ -618,7 +618,7 @@ local function mapFileTile(st, file)
   local tile = ui.column({ key = `file_{st.tab}_{file.rel}`, gap = 2, align = "center", width = 60 }, {
     ui.image({ key = `file_img_{st.tab}_{file.rel}_{st.serial}`,
                width = MAP_TILE, height = MAP_TILE, path = file.preview, fit = "contain",
-               radius = 8, border = "outline", borderWidth = 1, onClick = onClick }),
+               radius = 8, border = "outline_variant", borderWidth = 1, onClick = onClick }),
     ui.label({ text = file.file, fontSize = 10, maxLines = 1, maxWidth = 60,
                textAlign = "center", color = "on_surface_variant" }),
   })

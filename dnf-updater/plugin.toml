@@ -1,7 +1,7 @@
 id = "strob3/dnf-updater"
 name = "DNF Updater"
-version = "1.0.3"
-plugin_api = 24
+version = "1.0.4"
+plugin_api = 43
 author = "strob3"
 license = "MIT"
 icon = "package"

@@ -1,7 +1,7 @@
 id          = "quantinium/competitive-programming-contest-tracker"
 name        = "Competitive Programming Contest Tracker"
-version     = "0.1.0"
-plugin_api  = 32
+version     = "0.1.1"
+plugin_api  = 43
 author      = "quantinium"
 license     = "MIT"
 icon        = "trophy"

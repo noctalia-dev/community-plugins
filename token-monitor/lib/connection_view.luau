@@ -90,7 +90,7 @@ function Connection.render(dashboard, width)
             text(tr("title"), 20, "on_surface", 1, "bold"), text(tr("subtitle"), 11, nil, 2),
         }),
         ui.column({ key = "connection-status", width = width, padding = 16, gap = 10,
-            radius = 12, fill = "surface_variant/0.25", border = "on_surface/0.06", borderWidth = 1 }, details),
+            radius = 12, fill = "surface_container/0.25", border = "on_surface/0.06", borderWidth = 1 }, details),
         ui.column({ key = "connection-guide", width = width, height = 176, padding = 16, gap = 16,
             radius = 12, border = "on_surface/0.08", borderWidth = 1 }, {
             step(1, "step_host", "step_host_detail"),

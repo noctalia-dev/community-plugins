@@ -15,7 +15,7 @@ M.RADIUS = 14
 M.CHIP_LIMIT = 8
 
 function M.card(children)
-  return ui.column({ gap = 14, padding = M.PADDING, radius = M.RADIUS, fill = "surface_variant" }, children)
+  return ui.column({ gap = 14, padding = M.PADDING, radius = M.RADIUS, fill = "surface_container" }, children)
 end
 
 function M.heading(text, trailing)
@@ -149,7 +149,7 @@ function M.tiles(outputs, selectedName, onPick)
       paddingV = 9,
       radius = M.RADIUS,
       flexGrow = 1,
-      fill = active and "primary" or "surface_variant",
+      fill = active and "primary" or "surface_container",
       onClick = function()
         onPick(name)
       end,

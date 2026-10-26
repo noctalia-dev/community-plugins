@@ -276,7 +276,7 @@ end
 local MCP_META = {
     connected = { fill = "primary/0.12", color = "primary", dot = "primary", key = "connected" },
     failed    = { fill = "error/0.10",   color = "error",   dot = "error",   key = "failed" },
-    disabled  = { fill = "surface_variant/0.45", color = "on_surface_variant", dot = "on_surface/0.35", key = "disabled" },
+    disabled  = { fill = "surface_container/0.45", color = "on_surface_variant", dot = "on_surface/0.35", key = "disabled" },
 }
 local mcp_expanded = false
 local function render_mcp_status()
@@ -583,7 +583,7 @@ local function render_message(msg_data)
                                 cells[#cells + 1] = ui.column({
                                     padding = 8,
                                     radius = 8,
-                                    fill = "surface_variant/0.45",
+                                    fill = "surface_container/0.45",
                                 }, {
                                     ui.label({
                                         text = seg.text:gsub("\n+$", ""),

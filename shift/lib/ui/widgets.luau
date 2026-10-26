@@ -65,7 +65,7 @@ function Widgets.chip(text: string, glyph: string?, color: string?): UiNode
     table.insert(children, ui.glyph({ name = glyph, size = 12, color = color or "on_surface_variant" }))
   end
   table.insert(children, ui.label({ text = text, fontSize = 12, color = color }))
-  return ui.row({ align = "center", gap = 4, paddingH = 8, paddingV = 2, radius = 999, fill = "surface_variant" }, children)
+  return ui.row({ align = "center", gap = 4, paddingH = 8, paddingV = 2, radius = 999, fill = "surface_container" }, children)
 end
 
 -- Noon on a date: formatting it never lands on the neighbouring day.

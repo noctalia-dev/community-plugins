@@ -1,9 +1,9 @@
 id = "vn1k/cursor"
 name = "Cursor"
-version = "1.0.7"
+version = "1.0.8"
 # The highest level any entry uses: require() of shared.luau is 22. The store
 # validator does not check it, so keep it in step by hand.
-plugin_api = 22
+plugin_api = 43
 author = "Vn1k"
 license = "MIT"
 icon = "pointer"

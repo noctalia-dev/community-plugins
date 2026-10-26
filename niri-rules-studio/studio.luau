@@ -848,7 +848,7 @@ function renderInspector()
                 ui.label({ text = state.window.app_id or tr("no_app_id"), color = "on_surface_variant" }),
             }),
         }),
-        ui.column({ gap = 7, padding = 12, fill = "surface_variant/0.45", radius = 10 }, {
+        ui.column({ gap = 7, padding = 12, fill = "surface_container/0.45", radius = 10 }, {
             ui.label({ text = tr("window_inspector"), fontSize = 11, fontWeight = "bold", color = "primary" }),
             ui.label({ text = tr("app_id") .. "   " .. (state.window.app_id or "—") }),
             ui.label({ text = tr("workspace") .. "   " .. workspace }),
@@ -904,9 +904,9 @@ function renderWindowChooser()
                 key = "window-" .. windowId,
                 padding = 11,
                 gap = 4,
-                fill = state.window and state.window.id == window.id and "primary/0.14" or "surface_variant/0.4",
+                fill = state.window and state.window.id == window.id and "primary/0.14" or "surface_container/0.4",
                 radius = 9,
-                border = state.window and state.window.id == window.id and "primary" or "outline",
+                border = state.window and state.window.id == window.id and "primary" or "outline_variant",
                 onClick = function() chooseOpenWindow(item.index) end,
             }, {
                 ui.row({ gap = 8, align = "center" }, {
@@ -956,7 +956,7 @@ function renderEditor()
         ui.label({ text = tr("match_help"), color = "on_surface_variant", maxLines = 2 }),
         ui.label({ text = tr("when"), fontSize = 11, fontWeight = "bold", color = "primary" }),
         ui.input({ key = "app-id", value = state.form.appId, placeholder = tr("app_id"), onChange = "setAppId", enabled = not state.saving }),
-        ui.row({ gap = 12, padding = 10, align = "center", fill = "surface_variant/0.4", radius = 9 }, {
+        ui.row({ gap = 12, padding = 10, align = "center", fill = "surface_container/0.4", radius = 9 }, {
             ui.column({ gap = 2, flexGrow = 1 }, {
                 ui.label({ text = tr("also_match_title"), fontWeight = "bold" }),
                 ui.label({ text = tr("also_match_title_help"), fontSize = 11, color = "on_surface_variant", maxLines = 2 }),
@@ -1025,7 +1025,7 @@ function renderRules()
                 table.insert(rowChildren, ui.toggle({ checked = ruleEnabled, enabled = not state.loading, onChange = function(value) setRuleEnabled(index, value) end }))
                 table.insert(rowChildren, ui.button({ glyph = "trash", variant = "ghost", tooltip = tr("delete_rule"), onClick = function() requestDeleteRule(index) end, enabled = not state.saving }))
             end
-            table.insert(rows, ui.row({ key = "rule-" .. tostring(index), padding = 10, gap = 8, fill = ruleEnabled and "surface_variant/0.35" or "surface_variant/0.18", radius = 9, align = "center" }, rowChildren))
+            table.insert(rows, ui.row({ key = "rule-" .. tostring(index), padding = 10, gap = 8, fill = ruleEnabled and "surface_container/0.35" or "surface_container/0.18", radius = 9, align = "center" }, rowChildren))
         end
     end
     return ui.column({ flexGrow = 1, gap = 10, align = "stretch" }, {

@@ -232,7 +232,7 @@ local function toolbar()
     if not node then
       return ui.label({ text = tr("panel.select_hint"), color = "on_surface_variant" })
     end
-    return ui.column({ gap = 4, padding = 10, fill = "surface_variant/0.45", radius = 10 }, {
+    return ui.column({ gap = 4, padding = 10, fill = "surface_container/0.45", radius = 10 }, {
       ui.row({ gap = 8, align = "center" }, {
         ui.glyph({ name = ICON_NODE, size = 18, color = statusColor(node.ready) }),
         ui.label({ text = node.name, fontWeight = "bold", flexGrow = 1, maxLines = 1 }),
@@ -257,7 +257,7 @@ local function toolbar()
     if not pod then
       return ui.label({ text = tr("panel.select_hint"), color = "on_surface_variant" })
     end
-    return ui.column({ gap = 4, padding = 10, fill = "surface_variant/0.45", radius = 10 }, {
+    return ui.column({ gap = 4, padding = 10, fill = "surface_container/0.45", radius = 10 }, {
       ui.row({ gap = 8, align = "center" }, {
         ui.glyph({ name = ICON_POD, size = 18, color = statusColor(not pod.problem) }),
         ui.label({ text = `{pod.namespace}/{pod.name}`, fontWeight = "bold", flexGrow = 1, maxLines = 1 }),
@@ -287,7 +287,7 @@ local function toolbar()
     if not dep then
       return ui.label({ text = tr("panel.select_hint"), color = "on_surface_variant" })
     end
-    return ui.column({ gap = 4, padding = 10, fill = "surface_variant/0.45", radius = 10 }, {
+    return ui.column({ gap = 4, padding = 10, fill = "surface_container/0.45", radius = 10 }, {
       ui.row({ gap = 8, align = "center" }, {
         ui.glyph({ name = ICON_DEPLOY, size = 18, color = statusColor(not dep.problem) }),
         ui.label({ text = `{dep.namespace}/{dep.name}`, fontWeight = "bold", flexGrow = 1, maxLines = 1 }),
@@ -308,7 +308,7 @@ local function toolbar()
   if not ns then
     return ui.label({ text = tr("panel.select_hint"), color = "on_surface_variant" })
   end
-  return ui.column({ gap = 4, padding = 10, fill = "surface_variant/0.45", radius = 10 }, {
+  return ui.column({ gap = 4, padding = 10, fill = "surface_container/0.45", radius = 10 }, {
     ui.row({ gap = 8, align = "center" }, {
       ui.glyph({ name = ICON_NS, size = 18, color = "primary" }),
       ui.label({ text = ns.name, fontWeight = "bold", flexGrow = 1, maxLines = 1 }),

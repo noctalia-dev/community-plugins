@@ -223,7 +223,7 @@ local function hostRow(item)
     gap     = 8,
     padding = 10,
     radius  = 8,
-    fill    = "surface_variant/0.65",
+    fill    = "surface_container/0.65",
     align   = "center",
     justify = "space_between",
   }, {
@@ -249,8 +249,8 @@ end
 
 local function emptyState()
   return ui.column({ gap = 10, align = "center", padding = 32, flexGrow = 1, justify = "center" }, {
-    ui.glyph({ name = "activity", size = 32, color = "outline" }),
-    ui.label({ text = noctalia.tr("panel.empty"), color = "outline" }),
+    ui.glyph({ name = "activity", size = 32, color = "outline_variant" }),
+    ui.label({ text = noctalia.tr("panel.empty"), color = "outline_variant" }),
   })
 end
 
@@ -318,7 +318,7 @@ render = function()
       align   = "center",
       padding = 8,
       radius  = 8,
-      fill    = "surface_variant/0.65",
+      fill    = "surface_container/0.65",
     }, {
       ui.column({ flexGrow = 1, gap = 6 }, {
         ui.input({

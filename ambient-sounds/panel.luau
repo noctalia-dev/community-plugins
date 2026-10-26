@@ -9,10 +9,10 @@ end
 
 local function soundCard(sound)
     return ui.column({ gap = 12, padding = 16, flexGrow = 1, minWidth = 240,
-        fill = sound.enabled and "surface_variant/0.38" or "surface_variant/0.20", radius = 16,
-        border = sound.enabled and "primary/0.45" or "outline/0.35", borderWidth = 1 }, {
+        fill = sound.enabled and "surface_container/0.38" or "surface_container/0.20", radius = 16,
+        border = sound.enabled and "primary/0.45" or "outline_variant/0.35", borderWidth = 1 }, {
         ui.row({ gap = 12, align = "center" }, {
-            ui.row({ width = 46, height = 46, radius = 12, border = "outline/0.25", borderWidth = 1, align = "center", justify = "center" }, {
+            ui.row({ width = 46, height = 46, radius = 12, border = "outline_variant/0.25", borderWidth = 1, align = "center", justify = "center" }, {
                 soundIcon(sound),
             }),
             ui.column({ gap = 3, flexGrow = 1 }, {
@@ -27,7 +27,7 @@ local function soundCard(sound)
                 end,
             }),
         }),
-        ui.separator({ thickness = 1, color = "outline/0.25" }),
+        ui.separator({ thickness = 1, color = "outline_variant/0.25" }),
         ui.row({ gap = 10, align = "center" }, {
             ui.label({ text = "VOLUME", fontSize = 10, color = "on_surface_variant", width = 52 }),
             ui.slider({ min = 0, max = 100, step = 1, value = sound.level, controlSize = "sm", flexGrow = 1,
@@ -66,7 +66,7 @@ function render()
     end
 
     panel.render(ui.column({ gap = 18, padding = 22, height = 676, fill = "surface/0.45" }, {
-        ui.row({ gap = 18, padding = 20, align = "center", fill = "surface_variant/0.30", radius = 18,
+        ui.row({ gap = 18, padding = 20, align = "center", fill = "surface_container/0.30", radius = 18,
             border = engine.running and "primary/0.65" or "primary/0.35", borderWidth = 1 }, {
             ui.row({ width = 58, height = 58, fill = "surface/0.75", radius = 16, border = "primary/0.7", borderWidth = 1, align = "center", justify = "center" }, {
                 ui.glyph({ name = "music", size = 30, color = "primary" }),

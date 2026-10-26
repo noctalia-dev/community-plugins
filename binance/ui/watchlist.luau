@@ -347,7 +347,7 @@ local function alertForm(report, ctx)
       }),
       ui.button({ text = tr("panel.save"), variant = "primary", controlSize = "sm", onClick = save }),
     })
-  ), { key = "alert-form", fill = "surface_variant/0.7" })
+  ), { key = "alert-form", fill = "surface_container/0.7" })
 end
 
 function M.render(report, ctx): { any }
@@ -355,7 +355,7 @@ function M.render(report, ctx): { any }
   local rows = {}
   for i, ticker in watchlist do
     if i > 1 then
-      table.insert(rows, ui.separator({ color = "outline/0.15", key = `sep-{ticker.symbol}` }))
+      table.insert(rows, ui.separator({ color = "outline_variant/0.15", key = `sep-{ticker.symbol}` }))
     end
     table.insert(rows, tickerRow(ticker, i, #watchlist, report, ctx))
   end

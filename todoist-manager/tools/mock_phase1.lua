@@ -1352,7 +1352,7 @@ check("hover uses a named handler so the leave edge survives a render", doBtn ~=
 check("clicking circle reveals Not now", findButton(function(props)
 	return props.text == "ui.panel.action.not_now"
 end) ~= nil)
-check("the open pair outlines the row", (rowOf("t3") or { props = {} }).props.border == "outline/0.7", (rowOf("t3") or { props = {} }).props.border)
+check("the open pair outlines the row", (rowOf("t3") or { props = {} }).props.border == "outline_variant/0.7", (rowOf("t3") or { props = {} }).props.border)
 
 if doBtn then
 	onActionHover("true", doBtn.props.key)
@@ -1364,7 +1364,7 @@ end) ~= nil)
 if doBtn then
 	onActionHover("false", doBtn.props.key)
 end
-check("leaving Complete restores the outline", (rowOf("t3") or { props = {} }).props.border == "outline/0.7", (rowOf("t3") or { props = {} }).props.border)
+check("leaving Complete restores the outline", (rowOf("t3") or { props = {} }).props.border == "outline_variant/0.7", (rowOf("t3") or { props = {} }).props.border)
 
 local notNow = findButton(function(props)
 	return props.text == "ui.panel.action.not_now"

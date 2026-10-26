@@ -1,7 +1,7 @@
 id = "zeti1223/thinkpad-led"
 name = "ThinkPad Logo LED"
-version = "1.1.0"
-plugin_api = 3
+version = "1.1.1"
+plugin_api = 43
 author = "zeti1223"
 license = "MIT"
 dependencies = ["sh"]

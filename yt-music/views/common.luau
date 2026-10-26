@@ -64,7 +64,7 @@ local function thumb_or_placeholder(path, size, glyph, glyph_size, color, fill)
 		height = size,
 		align = "center",
 		justify = "center",
-		fill = fill or "surface_variant/0.3",
+		fill = fill or "surface_container/0.3",
 		borderWidth = 0,
 		radius = theme.radius,
 	}, {
@@ -321,7 +321,7 @@ local function media_row(item, idx, custom_click, is_active, drag, key_prefix)
 		"music",
 		20,
 		(is_current or is_hovered) and "primary" or "on_surface_variant",
-		is_current and "primary/0.2" or "surface_variant/0.3"
+		is_current and "primary/0.2" or "surface_container/0.3"
 	)
 
 	-- Trailing cluster: [✓ | ⚡?] [duration]
@@ -393,7 +393,7 @@ local function media_row(item, idx, custom_click, is_active, drag, key_prefix)
 		padding = 8,
 		borderWidth = 0,
 		fill = (is_loading or is_current) and "primary/0.2"
-			or (is_hovered and "primary/0.25" or "surface_variant/0.15"),
+			or (is_hovered and "primary/0.25" or "surface_container/0.15"),
 		onClick = function()
 			state.view.hover_key.track = nil
 			state.collapse_track()

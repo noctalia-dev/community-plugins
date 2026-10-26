@@ -248,7 +248,7 @@ local function header()
     }))
   end
   return ui.row({ align = "center", gap = 4 }, {
-    ui.row({ gap = 2, padding = 3, radius = 10, fill = "surface_variant" }, tabs),
+    ui.row({ gap = 2, padding = 3, radius = 10, fill = "surface_container" }, tabs),
     spacer(),
     ui.button({ glyph = "refresh", variant = "ghost", controlSize = "sm", tooltip = tr("panel.refresh"), onClick = refresh }),
     ui.button({
@@ -464,7 +464,7 @@ local function metricSection(s, metrics)
   end
   return ui.column({ gap = 8 }, {
     ui.label({ text = tr(`panel.{s.key}`), fontWeight = "bold" }),
-    ui.row({}, { ui.row({ gap = 2, padding = 3, radius = 10, fill = "surface_variant" }, buttons) }),
+    ui.row({}, { ui.row({ gap = 2, padding = 3, radius = 10, fill = "surface_container" }, buttons) }),
     metricList(tr(`panel.tab.{tab:lower()}`), tr("panel.visitors"), metrics[tab], if s.empty == "/" then "/" else tr(s.empty)),
   })
 end

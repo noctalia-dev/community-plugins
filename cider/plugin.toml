@@ -7,8 +7,8 @@
 
 id = "dragged/cider"
 name = "Cider"
-version = "1.11.1"
-plugin_api = 24
+version = "1.11.2"
+plugin_api = 43
 author = "dragged"
 license = "MIT"
 dependencies = ["python3", "gtk3", "gtk-layer-shell", "python-gobject", "bash", "sh", "pkill", "coreutils", "niri", "hyprctl", "umbriel", "xdotool", "parec"]

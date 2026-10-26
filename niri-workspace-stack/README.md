@@ -72,7 +72,7 @@ event stream like any other change.
 | Indicator size | `indicator_size` | double, 0.75–1.5 | `1.0` | Scales indicators, numbers and spacing |
 | Compact spacing | `compact` | bool | `false` | Tighter gaps |
 
-Colors come from the active Noctalia theme (primary, on_surface, surface_variant, error).
+Colors come from the active Noctalia theme (primary, on_surface, surface_container, error).
 
 The navigator panel uses the standard panel settings in Settings → Plugins (Attached / Floating, position, Open
 Near Click); the defaults are attached and opened near the clicked widget.

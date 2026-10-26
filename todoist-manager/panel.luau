@@ -29,7 +29,7 @@ local actionHover = nil -- nil | "do" | "dismiss"
 local expandedDescId = nil -- task id whose description is expanded inline
 
 -- Row outline while the action pair is open, then the hovered action's tint.
-local ACTION_OPEN = "outline/0.7"
+local ACTION_OPEN = "outline_variant/0.7"
 local ACTION_DO = "#16A34A"
 local ACTION_DISMISS = "#6B7280"
 
@@ -605,7 +605,7 @@ local function undoRow()
 		paddingV = 6,
 		paddingH = 8,
 		radius = 6,
-		fill = "surface_variant/0.35",
+		fill = "surface_container/0.35",
 	}, {
 		ui.label({
 			text = noctalia.tr("ui.panel.undo.completed", { content = undoTask.content }),

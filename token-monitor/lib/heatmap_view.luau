@@ -106,6 +106,6 @@ function M.render(dailyRows, ctx)
         })
     end
     return ui.column({ key = "activity-heatmap", width = width, padding = 16, gap = 10,
-        radius = 12, fill = "surface_variant/0.25", border = "on_surface/0.06", borderWidth = 1 }, children)
+        radius = 12, fill = "surface_container/0.25", border = "on_surface/0.06", borderWidth = 1 }, children)
 end
 return M

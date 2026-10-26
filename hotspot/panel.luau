@@ -62,7 +62,7 @@ local function clientRow(client)
     gap = 10,
     paddingH = 14,
     paddingV = 10,
-    fill = "surface_variant/0.35",
+    fill = "surface_container/0.35",
     radius = 10,
   }, {
     ui.glyph({ name = "device-mobile", size = 18, color = "primary" }),
@@ -116,7 +116,7 @@ render = function()
     ui.row({
       align = "center",
       gap = 10,
-      fill = "surface_variant/0.45",
+      fill = "surface_container/0.45",
       radius = 10,
       padding = 12,
     }, {

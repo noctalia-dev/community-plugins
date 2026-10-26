@@ -17,8 +17,8 @@
 
 id = "luochen1990/niri-ribbon"
 name = "Niri Ribbon"
-version = "0.2.0"
-plugin_api = 3
+version = "0.2.1"
+plugin_api = 43
 author = "luochen1990, thatonecalculator"
 license = "MIT"
 dependencies = ["niri"]
@@ -49,11 +49,11 @@ entry = "ribbon.luau"
   type = "color"
   label_key = "settings.bar_color.label"
   description_key = "settings.bar_color.description"
-  # Not surface_variant: it sits in the same color family as the capsule
+  # Not surface_container: it sits in the same color family as the capsule
   # background and becomes nearly invisible inside the capsule. outline is the
   # Material border color and contrasts clearly with the surface family in
   # both light and dark themes.
-  default = "outline"
+  default = "outline_variant"
 
   [[widget.setting]]
   key = "viewport_color"

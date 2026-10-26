@@ -1,7 +1,7 @@
 id = "m4sc/profile-switcher"
 name = "Profile Switcher"
-version = "1.0.0"
-plugin_api = 30
+version = "1.0.1"
+plugin_api = 43
 
 author = "m4sc"
 license = "MIT"

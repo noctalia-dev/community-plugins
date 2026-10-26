@@ -1,7 +1,7 @@
 id = "tphilippot/git_companion"
 name = "Git Companion"
-version = "1.4.0"
-plugin_api = 24
+version = "1.4.1"
+plugin_api = 43
 author = "thomas-philippot"
 license = "MIT"
 icon = "brand-git"

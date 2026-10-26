@@ -20,7 +20,7 @@ local function pair(name, value, strong)
 end
 local function card(ctx, key, children)
     return ui.column({ key = key, width = ctx.width or 480, padding = 16,
-        fill = "surface_variant/0.25", radius = 12, border = "on_surface/0.06", borderWidth = 1,
+        fill = "surface_container/0.25", radius = 12, border = "on_surface/0.06", borderWidth = 1,
         gap = 8 }, children)
 end
 local function money(value) return view.money(value) end

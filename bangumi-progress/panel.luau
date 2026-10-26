@@ -362,7 +362,7 @@ local function renderCover(row, width, height)
     minWidth = if type(width) == "number" then width else 0,
     height = height,
     radius = 6,
-    fill = "surface_variant",
+    fill = "surface_container",
     align = "center",
     justify = "center",
   }, {
@@ -418,7 +418,7 @@ local function renderRow(row)
   end
   return ui.row({ key = "entry-" .. tostring(subjectId), gap = 12, align = "center",
     paddingH = if plain then 0 else density.rowPadding, paddingV = if plain then 6 else density.rowPadding,
-    radius = if plain then 0 else 8, fill = if plain then "#00000000" else "surface_variant" }, childrenWithOptions(
+    radius = if plain then 0 else 8, fill = if plain then "#00000000" else "surface_container" }, childrenWithOptions(
     if appearance.covers then renderCover(row, if originalSize then 40 else density.listCoverWidth,
       if originalSize then 56 else density.listCoverHeight) else nil,
     ui.column({ key = "entry-details-" .. tostring(subjectId), gap = density.gap - 3, width = 0, flexGrow = 1, minWidth = 0, align = "stretch", justify = "center" }, details),
@@ -475,7 +475,7 @@ local function renderGridCard(row)
     })
   )
   return ui.column({ key = "grid-entry-" .. tostring(subjectId), width = 0, flexGrow = 1, minWidth = 0,
-    gap = density.gap - 2, padding = density.cardPadding, radius = 8, fill = "surface_variant", align = "stretch" }, children)
+    gap = density.gap - 2, padding = density.cardPadding, radius = 8, fill = "surface_container", align = "stretch" }, children)
 end
 
 local function setCollectionLayout(layout)
@@ -680,7 +680,7 @@ local function renderTimeline()
                 fontSize = density.detailSize, color = "on_surface_variant", maxLines = 1 }),
             }),
             ui.column({ key = "timeline-day-count-" .. tostring(weekday), paddingH = 8, paddingV = 4,
-              radius = 6, fill = "surface_variant", align = "center", justify = "center" }, {
+              radius = 6, fill = "surface_container", align = "center", justify = "center" }, {
               ui.label({ text = tr(if #rows == 1 then "timeline_day_count_one" else "timeline_day_count_many", { count = #rows }),
                 fontSize = density.detailSize, color = "on_surface_variant", maxLines = 1 }),
             }),
@@ -712,7 +712,7 @@ local function renderTimeline()
           -- Every date is a single card; header and nested entries share its
           -- numeric inset in both layouts, including optional empty dates.
           table.insert(content, ui.column({ key = "timeline-day-" .. tostring(weekday), gap = 12,
-            padding = 12, radius = 12, fill = "surface_variant/0.35",
+            padding = 12, radius = 12, fill = "surface_container/0.35",
             border = if date == today then "primary/0.45" else "on_surface_variant/0.18",
             borderWidth = 1, align = "stretch" }, dayChildren))
         end
@@ -815,7 +815,7 @@ local function renderAuthControls(initial)
     table.insert(controls, ui.label({ key = "auth-error", text = tr(key), fontSize = 12, color = "error", maxLines = 3 }))
   end
   return ui.column({ key = "account-controls", flexGrow = 0, gap = 8, padding = if initial then 0 else 10, radius = 8,
-    fill = if initial then nil else "surface_variant" }, controls)
+    fill = if initial then nil else "surface_container" }, controls)
 end
 
 local function renderNotConfigured()
@@ -875,7 +875,7 @@ local function renderContent()
       avatar = if type(viewer.avatarPath) == "string" and viewer.avatarPath:sub(1, 1) == "/" then
         ui.image({ key = "profile-avatar", path = viewer.avatarPath, width = avatarSize, height = avatarSize, radius = avatarSize / 2, fit = "cover" })
         else ui.column({ key = "profile-avatar-fallback", width = avatarSize, minWidth = avatarSize, height = avatarSize,
-          radius = avatarSize / 2, fill = "surface_variant", align = "center", justify = "center" }, {
+          radius = avatarSize / 2, fill = "surface_container", align = "center", justify = "center" }, {
           ui.glyph({ name = "user", size = density.fontSize + 6, color = "on_surface_variant" }),
         })
     end
@@ -888,7 +888,7 @@ local function renderContent()
     table.insert(children, renderAuthControls(false))
   end
 
-  table.insert(children, ui.row({ key = "main-navigation", gap = 0, padding = 0, radius = 8, fill = "surface_variant" }, {
+  table.insert(children, ui.row({ key = "main-navigation", gap = 0, padding = 0, radius = 8, fill = "surface_container" }, {
     ui.button({ key = "main-navigation-collections", width = 0, flexGrow = 1, height = 38, contentAlign = "center", text = tr("view_collections"), variant = if activeView == "collections" then "primary" else "ghost",
       onClick = function() setView("collections") end }),
     ui.button({ key = "main-navigation-timeline", width = 0, flexGrow = 1, height = 38, contentAlign = "center", text = tr("view_timeline"), variant = if activeView == "timeline" then "primary" else "ghost",

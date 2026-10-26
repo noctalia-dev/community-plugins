@@ -55,7 +55,7 @@ end
 
 -- Card chrome, matched to the community usage-bar plugin: a hairline outline on a
 -- faint surface fill, and pill-shaped chips for the values that sit on top of it.
-local CARD = { gap = 5, padding = 7, radius = 9, fill = "surface_variant/0.34", border = "outline/0.08", borderWidth = 1 }
+local CARD = { gap = 5, padding = 7, radius = 9, fill = "surface_container/0.34", border = "outline_variant/0.08", borderWidth = 1 }
 
 local function chip(text, color, fontSize, fontWeight)
 	return ui.row({ paddingH = 6, paddingV = 2, radius = 5, align = "center", justify = "center", fill = color .. "/0.10" }, {

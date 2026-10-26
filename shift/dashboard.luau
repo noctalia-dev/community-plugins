@@ -179,13 +179,13 @@ local function card(glyph: string, text: string, actions: { UiNode }): UiNode
   -- A single action fits on the text's line; two go under it.
   if #actions == 1 then
     table.insert(line, actions[1])
-    return ui.row({ align = "center", gap = 10, paddingH = 12, paddingV = 8, radius = RADIUS, fill = "surface_variant" }, line)
+    return ui.row({ align = "center", gap = 10, paddingH = 12, paddingV = 8, radius = RADIUS, fill = "surface_container" }, line)
   end
   local children = { ui.row({ align = "center", gap = 10 }, line) }
   if #actions > 0 then
     table.insert(children, ui.row({ gap = 8, justify = "end" }, actions))
   end
-  return ui.column({ gap = 8, padding = 12, radius = RADIUS, fill = "surface_variant" }, children)
+  return ui.column({ gap = 8, padding = 12, radius = RADIUS, fill = "surface_container" }, children)
 end
 
 local openEditor -- forward declaration: cards open the day editor
@@ -290,7 +290,7 @@ local function welcomeCard(snap: Snapshot): UiNode
     days = Format.workdays(contract.workdays, dayNames()),
     daily = Format.duration(contract.dailyTargetMs, fmt),
   })
-  return ui.column({ gap = 10, padding = 14, radius = RADIUS, fill = "surface_variant" }, {
+  return ui.column({ gap = 10, padding = 14, radius = RADIUS, fill = "surface_container" }, {
     ui.row({ align = "center", gap = 8 }, {
       ui.glyph({ name = "briefcase", color = "primary" }),
       ui.label({ text = host.tr("panel.welcome.title"), fontWeight = "bold", flexGrow = 1 }),
@@ -484,7 +484,7 @@ local function tile(title: string, value: string, valueColor: string?, extra: Ui
   if extra then
     table.insert(children, extra)
   end
-  return ui.column({ flexGrow = 1, gap = 4, padding = 10, radius = RADIUS, fill = "surface_variant", tooltip = tooltip }, children)
+  return ui.column({ flexGrow = 1, gap = 4, padding = 10, radius = RADIUS, fill = "surface_container", tooltip = tooltip }, children)
 end
 
 local function tiles(snap: Snapshot, live: Live): UiNode
@@ -829,7 +829,7 @@ local function tabBar(): UiNode
       end,
     }))
   end
-  return ui.row({ gap = 4, padding = 3, radius = RADIUS, fill = "surface_variant" }, buttons)
+  return ui.row({ gap = 4, padding = 3, radius = RADIUS, fill = "surface_container" }, buttons)
 end
 
 local function viewOf(snap: Snapshot, live: Live, nowS: number): Widgets.View

@@ -5,8 +5,8 @@
 
 id = "raycursive/github-prs"
 name = "GitHub Pull Requests"
-version = "0.3.0"
-plugin_api = 9
+version = "0.3.1"
+plugin_api = 43
 author = "raycursive"
 license = "MIT"
 dependencies = ["gh", "xdg-open"]

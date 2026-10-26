@@ -154,7 +154,7 @@ local function accountCard(provider, index)
         rows[#rows + 1] = label(noctalia.tr("quota.reset_credits", { count = provider.resetCredits.availableCount }), nil, 10)
     end
     return ui.column({ key = "account-" .. tostring(index), width = GRID_WIDTH,
-        fill = "surface_variant/0.25", border = "on_surface/0.06",
+        fill = "surface_container/0.25", border = "on_surface/0.06",
         borderWidth = 1, radius = 12, padding = 16, gap = compact and 8 or 12 }, rows)
 end
 

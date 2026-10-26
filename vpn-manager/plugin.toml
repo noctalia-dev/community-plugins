@@ -6,8 +6,8 @@
 
 id           = "andrewdems/vpn-manager"
 name         = "VPN Manager"
-version      = "1.0.0"
-plugin_api   = 24
+version      = "1.0.1"
+plugin_api   = 43
 author       = "andrewdems"
 license      = "MIT"
 icon         = "shield-lock"

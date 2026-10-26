@@ -38,8 +38,8 @@ local function renderMarketTab()
         align = "center",
         padding = 8,
         radius = 8,
-        fill = "surface_variant/0.2",
-        border = "outline/0.15",
+        fill = "surface_container/0.2",
+        border = "outline_variant/0.15",
       }, {
         -- Coin Icon & Name
         ui.row({ gap = 8, align = "center", width = 110 }, {
@@ -155,8 +155,8 @@ local function renderWalletsTab()
     gap = 6,
     padding = 8,
     radius = 8,
-    fill = "surface_variant/0.25",
-    border = "outline/0.2",
+    fill = "surface_container/0.25",
+    border = "outline_variant/0.2",
   }, {
     ui.label({ text = noctalia.tr("wallet.add_title"), fontWeight = "bold", fontSize = 12 }),
     ui.input({
@@ -204,8 +204,8 @@ local function renderWalletsTab()
       align = "center",
       padding = 8,
       radius = 8,
-      fill = "surface_variant/0.2",
-      border = "outline/0.15",
+      fill = "surface_container/0.2",
+      border = "outline_variant/0.15",
     }, {
       -- Chain Badge
       ui.row({
@@ -284,7 +284,7 @@ function render()
     }),
 
     -- Tab Switcher Buttons (Market Trends / Wallets & Alerts)
-    ui.row({ gap = 4, padding = 2, radius = 6, fill = "surface_variant/0.3" }, {
+    ui.row({ gap = 4, padding = 2, radius = 6, fill = "surface_container/0.3" }, {
       ui.button({
         text = noctalia.tr("tab.market"),
         glyph = "chart-line",
@@ -334,7 +334,7 @@ function render()
       fontSize = 11,
       color = "on_surface_variant",
     }),
-    ui.row({ gap = 2, padding = 2, radius = 6, fill = "surface_variant/0.3" }, {
+    ui.row({ gap = 2, padding = 2, radius = 6, fill = "surface_container/0.3" }, {
       ui.button({
         text = "USD",
         variant = if summary.currency == "usd" then "primary" else "ghost",
@@ -407,7 +407,7 @@ function render()
     header,
     currencyBar,
     body,
-    ui.separator({ thickness = 1, color = "outline/0.2" }),
+    ui.separator({ thickness = 1, color = "outline_variant/0.2" }),
     footer,
   }))
 end

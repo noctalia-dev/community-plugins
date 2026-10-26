@@ -24,14 +24,14 @@ end
 local BADGES = {
   ["needs-login"] = { glyph = "lock-exclamation", color = "error" },
   ["error"] = { glyph = "alert-triangle", color = "error" },
-  ["not-installed"] = { glyph = "x", color = "outline" },
+  ["not-installed"] = { glyph = "x", color = "outline_variant" },
 }
 
 local COLORS = {
   ["running"] = "primary",
-  ["stopped"] = "outline",
+  ["stopped"] = "outline_variant",
   ["needs-login"] = "error",
-  ["not-installed"] = "outline",
+  ["not-installed"] = "outline_variant",
   ["error"] = "error",
 }
 
@@ -53,7 +53,7 @@ local function render()
     return
   end
 
-  local color = COLORS[state] or "outline"
+  local color = COLORS[state] or "outline_variant"
   local children = { logo(state) }
   local badge = BADGES[state]
   if badge then

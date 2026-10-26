@@ -135,7 +135,7 @@ local function section(title, rows)
   for _, row in ipairs(rows) do
     table.insert(children, row)
   end
-  return ui.column({ gap = 7, padding = 10, fill = "surface_variant/0.35", radius = 8 }, children)
+  return ui.column({ gap = 7, padding = 10, fill = "surface_container/0.35", radius = 8 }, children)
 end
 
 local function render()
@@ -193,7 +193,7 @@ local function render()
       ui.button({ glyph = "refresh", variant = "ghost", tooltip = noctalia.tr("panel.refresh"), onClick = "onRefresh" }),
       ui.button({ glyph = "close", variant = "ghost", onClick = "onCloseClicked" }),
     }),
-    ui.column({ gap = 8, padding = 12, fill = "surface_variant/0.5", radius = 10 }, {
+    ui.column({ gap = 8, padding = 12, fill = "surface_container/0.5", radius = 10 }, {
       ui.row({ justify = "space_between", align = "center" }, {
         ui.column({ gap = 2 }, {
           ui.label({ text = stateLabel(status.state), color = stateColor, fontSize = 15, fontWeight = "bold" }),

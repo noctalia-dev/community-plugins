@@ -27,9 +27,9 @@ local ROLE_KEYS = {
   error = "mError",
   surface = "mSurface",
   on_surface = "mOnSurface",
-  surface_variant = "mSurfaceVariant",
+  surface_container = "mSurfaceVariant",
   on_surface_variant = "mOnSurfaceVariant",
-  outline = "mOutline",
+  outline_variant = "mOutline",
 }
 
 -- Last-resort hexes when no palette resolves and no setting is configured.
@@ -187,7 +187,7 @@ function M.setOnPaletteChanged(callback)
 end
 
 -- Palette role -> hex. `fallback` is the configured color for this slot; a role
--- name there is resolved too, so "outline" in a color setting keeps working.
+-- name there is resolved too, so "outline_variant" in a color setting keeps working.
 function M.color(role, fallback, isTrack)
   if palette and palette[role] then return palette[role] end
   if type(fallback) == "string" and fallback ~= "" then
@@ -251,7 +251,7 @@ function M.path(spec, opts)
 
   local frac = tonumber(spec.frac) or 0
   if frac < 0 then frac = 0 elseif frac > 1 then frac = 1 end
-  local track = M.color("surface_variant", opts.trackColor, true)
+  local track = M.color("surface_container", opts.trackColor, true)
   local fill = M.color(spec.role, opts.fillColor, false)
 
   local dir = noctalia.pluginDataDir()

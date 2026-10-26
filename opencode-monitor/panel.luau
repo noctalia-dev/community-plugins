@@ -72,7 +72,7 @@ local function sectionHeader(title, count, color)
   local items = {
     ui.label({ text = title, fontSize = 13, fontWeight = "bold", color = color or "on_surface" }),
     ui.label({ text = tostring(count), fontSize = 11, fontWeight = "semibold", color = "on_surface_variant" }),
-    ui.separator({ orientation = "horizontal", color = "outline", opacity = 0.18, flexGrow = 1 }),
+    ui.separator({ orientation = "horizontal", color = "outline_variant", opacity = 0.18, flexGrow = 1 }),
   }
   return ui.row({ gap = 8, align = "center", paddingV = 2 }, items)
 end
@@ -353,7 +353,7 @@ local function relatedRow(child, now)
       paddingV = 10,
       radius = 10,
       fill = "on_surface/0.06",
-      border = "outline/0.10",
+      border = "outline_variant/0.10",
       borderWidth = 1,
       align = "stretch",
     }, body),
@@ -370,7 +370,7 @@ local function relatedPanel(session, now)
     ui.glyph({ name = "corner-down-right", size = 13, color = "secondary" }),
     ui.label({ text = "Subagents", fontSize = 12, fontWeight = "bold", color = "on_surface" }),
     ui.label({ text = tostring(total), fontSize = 11, fontWeight = "semibold", color = "on_surface_variant" }),
-    ui.separator({ orientation = "horizontal", color = "outline", opacity = 0.18, flexGrow = 1 }),
+    ui.separator({ orientation = "horizontal", color = "outline_variant", opacity = 0.18, flexGrow = 1 }),
   }
   if shown < total then
     headerItems[#headerItems + 1] = ui.label({
@@ -395,7 +395,7 @@ local function relatedPanel(session, now)
     padding = 10,
     radius = 12,
     fill = "on_surface/0.03",
-    border = "outline/0.12",
+    border = "outline_variant/0.12",
     borderWidth = 1,
   }, children)
 end
@@ -480,7 +480,7 @@ local function sessionCard(session, now)
     padding = 16,
     radius = 14,
     fill = "on_surface/0.08",
-    border = "outline/0.14",
+    border = "outline_variant/0.14",
     borderWidth = 1,
   }, body)
 end
@@ -519,7 +519,7 @@ local function offlineState(server)
     padding = 24,
     radius = 14,
     fill = isError and "error/0.10" or "on_surface/0.04",
-    border = isError and "error/0.18" or "outline/0.12",
+    border = isError and "error/0.18" or "outline_variant/0.12",
     borderWidth = 1,
     align = "center",
   }, {
@@ -817,7 +817,7 @@ render = function()
       local headerChildren = {
         ui.label({ text = "Recent", fontSize = 12, fontWeight = "bold", color = "on_surface" }),
         ui.label({ text = tostring(#visibleRecent), fontSize = 10, color = "on_surface_variant" }),
-        ui.separator({ orientation = "horizontal", color = "outline", opacity = 0.2, flexGrow = 1 }),
+        ui.separator({ orientation = "horizontal", color = "outline_variant", opacity = 0.2, flexGrow = 1 }),
         ui.button({
           glyph = showRecent and "chevron-up" or "chevron-down",
           variant = "ghost",
@@ -840,7 +840,7 @@ render = function()
     end
   end
 
-  panel.render(ui.column({ gap = 14, flexGrow = 1, fill = "surface/0.88", border = "outline/0.16", borderWidth = 1, radius = 16, padding = 16 }, {
+  panel.render(ui.column({ gap = 14, flexGrow = 1, fill = "surface/0.88", border = "outline_variant/0.16", borderWidth = 1, radius = 16, padding = 16 }, {
     header(now, display),
     ui.scroll({ flexGrow = 1, gap = 12 }, content),
     footer(now),

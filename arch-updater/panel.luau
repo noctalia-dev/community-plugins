@@ -576,7 +576,7 @@ local function activityHoverRow(history)
                 width = hovered and 7 or 5,
                 height = hovered and 7 or 5,
                 radius = 4,
-                fill = hovered and "primary" or "outline/0.6",
+                fill = hovered and "primary" or "outline_variant/0.6",
             }),
         })
     end

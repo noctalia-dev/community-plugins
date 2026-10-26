@@ -309,7 +309,7 @@ end
 
 -- ---------- UI ----------
 local function swatch(hex, size)
-  return ui.box({ width = size, height = size, radius = 6, fill = hex, border = "outline", borderWidth = 1 })
+  return ui.box({ width = size, height = size, radius = 6, fill = hex, border = "outline_variant", borderWidth = 1 })
 end
 
 local function colorCell(i, c)

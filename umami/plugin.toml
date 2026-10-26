@@ -1,7 +1,7 @@
 id = "ak4duy/umami"
 name = "Umami"
-version = "1.0.0"
-plugin_api = 32
+version = "1.0.1"
+plugin_api = 43
 author = "ak4duy"
 license = "MIT"
 icon = "chart-line"

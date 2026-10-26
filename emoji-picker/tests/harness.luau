@@ -529,7 +529,7 @@ do
       if (t.opts.border == "primary") ~= on or (label.opts.color == "on_primary") ~= on then
         consistent = false
       end
-      if not on and (t.opts.fill ~= "surface_variant" or label.opts.color ~= "on_surface") then
+      if not on and (t.opts.fill ~= "surface_container" or label.opts.color ~= "on_surface") then
         consistent = false
       end
     end

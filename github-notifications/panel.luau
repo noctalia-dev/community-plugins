@@ -359,8 +359,8 @@ local function renderNotificationCard(item, d)
     paddingV = d.padV,
     paddingH = d.padH,
     gap = d.gap,
-    fill = hovered and "surface_variant/0.55" or "surface_variant/0.25",
-    border = hovered and "primary/0.45" or "outline/0.60",
+    fill = hovered and "surface_container/0.55" or "surface_container/0.25",
+    border = hovered and "primary/0.45" or "outline_variant/0.60",
     borderWidth = 1,
     align = "center",
     onHover = function(value)
@@ -651,8 +651,8 @@ local function renderUndoBar()
     paddingV = 4,
     paddingH = 10,
     gap = 8,
-    fill = "surface_variant/0.6",
-    border = "outline/0.60",
+    fill = "surface_container/0.6",
+    border = "outline_variant/0.60",
     borderWidth = 1,
     align = "center",
   }, {
@@ -684,7 +684,7 @@ function renderPanel()
       table.insert(children, filters)
     end
   end
-  table.insert(children, ui.separator({ thickness = 1, color = "outline/0.2", spacing = 0 }))
+  table.insert(children, ui.separator({ thickness = 1, color = "outline_variant/0.2", spacing = 0 }))
   table.insert(children, renderContent())
   local undoBar = renderUndoBar()
   if undoBar then
