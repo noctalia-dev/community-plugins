@@ -312,7 +312,7 @@ end
 local function toZonesButton()
   return ui.button({
     key = "to-zones",
-    text = T("editor.toZones"),
+    text = T("editor.to-zones"),
     glyph = "adjustments",
     variant = "outline",
     controlSize = "sm",
@@ -444,7 +444,7 @@ local function gradientEditor()
   end
   if hasMid and n > 3 then
     table.insert(children, ui.row({ gap = 8, align = "center" }, {
-      ui.label({ text = T("gradient.midZone"), fontSize = 12, maxLines = 1 }),
+      ui.label({ text = T("gradient.mid-zone"), fontSize = 12, maxLines = 1 }),
       ui.slider({
         min = 1, max = n - 2, step = 1, value = mid, controlSize = "sm", flexGrow = 1,
         onChange = function(x)
@@ -475,7 +475,7 @@ local function customEditor()
     colorEditor("zone-" .. selZone, list[selZone + 1], function(h) setZone(selZone, h) end),
     ui.row({ gap = 6 }, {
       ui.button({
-        key = "fill-all", text = T("custom.fillAll"), glyph = "color-swatch", variant = "outline", controlSize = "sm", flexGrow = 1,
+        key = "fill-all", text = T("custom.fill-all"), glyph = "color-swatch", variant = "outline", controlSize = "sm", flexGrow = 1,
         onClick = function()
           change(function()
             local c = P.fitCustom(profile, n)[selZone + 1]
@@ -485,7 +485,7 @@ local function customEditor()
         end,
       }),
       ui.button({
-        key = "mirror", text = T("custom.mirror"), glyph = "flip-horizontal", variant = "outline", controlSize = "sm", flexGrow = 1,
+        key = "mirror", text = T("custom.mirror.label"), glyph = "flip-horizontal", variant = "outline", controlSize = "sm", flexGrow = 1,
         tooltip = T("custom.mirror.tip"),
         onClick = function()
           change(function()
@@ -495,7 +495,7 @@ local function customEditor()
         end,
       }),
       ui.button({
-        key = "reset", text = T("custom.reset"), glyph = "refresh", variant = "outline", controlSize = "sm", flexGrow = 1,
+        key = "reset", text = T("custom.reset.label"), glyph = "refresh", variant = "outline", controlSize = "sm", flexGrow = 1,
         tooltip = T("custom.reset.tip"),
         onClick = function() change(function() profile.custom = { "ffffff" } end) end,
       }),
@@ -600,7 +600,7 @@ local function strip()
   elseif profile.mode == "custom" then
     caption = T("strip.selected", { n = tostring(selZone + 1) })
   elseif profile.mode == "gradient" and n >= 3 then
-    caption = T("strip.gradientHint")
+    caption = T("strip.gradient-hint")
   elseif profile.mode == "palette" and #P.roleColors(profile.roles) == 0 then
     caption = T("strip.nopalette")
   end

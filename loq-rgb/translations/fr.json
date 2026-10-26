@@ -1,71 +1,121 @@
 {
-  "settings.transition.label": "Durée des transitions (ms)",
-  "settings.transition.description": "Durée des fondus de couleur sur le clavier. 0 les désactive.",
-  "settings.show_label.label": "Afficher la luminosité à côté de l'icône",
-  "panel.title": "LOQ RGB",
-  "panel.close": "Fermer",
-  "mode.palette": "Palette",
-  "mode.gradient": "Dégradé",
-  "mode.custom": "Zones",
-  "mode.static": "Fixe",
-  "mode.firmware": "Auto",
-  "mode.off": "Éteint",
-  "tip.palette": "Les couleurs suivent ta palette Noctalia",
-  "tip.gradient": "Deux ou trois couleurs fondues sur le clavier",
-  "tip.custom": "Une couleur au choix pour chaque zone",
-  "tip.static": "Une seule couleur pour tout le clavier",
-  "tip.firmware": "Les effets intégrés du clavier",
-  "hint.palette": "Les couleurs sont piochées dans ta palette Noctalia et suivent ton fond d'écran.",
-  "hint.gradient": "Un fondu entre deux couleurs, avec un point central optionnel sur la zone de ton choix.",
-  "hint.custom": "Une couleur par zone : clique une zone dans l'aperçu, puis choisis sa couleur.",
-  "hint.static": "Une seule couleur sur tout le clavier.",
-  "hint.firmware": "Le clavier utilise ses propres effets.",
-  "firmware.note": "Aucun réglage ici : le clavier utilise ses propres effets et ne peut pas être atténué depuis le système.",
-  "strip.left": "gauche",
-  "strip.right": "droite",
-  "strip.zone": "Zone {n}",
-  "strip.selected": "Zone {n} sélectionnée",
-  "strip.gradientHint": "Clique une zone pour y placer le point central.",
-  "strip.off": "Clavier éteint (l'aperçu montre ton profil).",
-  "strip.nopalette": "Aucun rôle de palette disponible.",
-  "palette.roles": "Rôles de la palette (de gauche à droite)",
-  "palette.smooth": "Fondu lisse entre les couleurs",
-  "gradient.start": "Début",
-  "gradient.end": "Fin",
-  "gradient.zone": "Zone {n}",
-  "gradient.mid": "Point central (dégradé à 3 points)",
-  "gradient.midZone": "Zone centrale",
-  "custom.title": "Couleur de la zone {n}",
-  "custom.fillAll": "Tout remplir",
-  "custom.mirror": "Miroir",
-  "custom.mirror.tip": "Recopie la moitié gauche en symétrie sur la moitié droite",
-  "custom.reset": "Blanc",
-  "custom.reset.tip": "Met toutes les zones en blanc",
-  "editor.toZones": "Modifier zone par zone",
-  "color.advanced": "Sélecteur de couleur avancé",
-  "color.saturation": "Saturation",
-  "color.value": "Luminosité",
-  "footer.device": "{name} · {zones} zones",
-  "footer.grouped": "{name} · {lamps} touches regroupées en {zones} zones",
-  "banner.starting": "Démarrage…",
-  "banner.python.title": "Python 3 est requis",
-  "banner.python.body": "Ce plugin embarque un petit script Python pour dialoguer avec le clavier. Installe python3, puis rouvre ce panneau.",
-  "banner.access.title": "Accès au clavier nécessaire",
-  "banner.access.body": "{name} a été trouvé, mais ton utilisateur ne peut pas encore en contrôler l'éclairage. Une règle udev, à installer une seule fois, règle ça ; elle demande ton mot de passe dans un terminal.",
-  "banner.access.button": "Configurer l'accès",
-  "banner.none.title": "Aucun clavier compatible trouvé",
-  "banner.none.body": "Ce plugin nécessite un clavier qui expose l'interface d'éclairage standard HID LampArray. Aucun n'a été détecté sur cet ordinateur.",
-  "banner.none.button": "Copier le diagnostic",
-  "banner.none.copied": "Diagnostic copié dans le presse-papiers",
-  "banner.error.title": "Erreur du clavier",
-  "setup.noterminal": "Aucun terminal disponible pour lancer la configuration. Lance scripts/setup-access.sh depuis le dossier du plugin.",
-  "widget.waiting": "LOQ RGB : en attente du service…",
-  "widget.status": "État",
-  "widget.mode": "Mode",
-  "widget.brightness": "Luminosité",
-  "widget.state.starting": "Démarrage",
-  "widget.state.needs_python": "Python 3 manquant",
-  "widget.state.needs_access": "Accès nécessaire",
-  "widget.state.no_device": "Aucun clavier compatible",
-  "widget.state.error": "Erreur"
+  "settings": {
+    "transition": {
+      "label": "Durée des transitions (ms)",
+      "description": "Durée des fondus de couleur sur le clavier. 0 les désactive."
+    },
+    "show_label": {
+      "label": "Afficher la luminosité à côté de l'icône"
+    }
+  },
+  "panel": {
+    "title": "LOQ RGB",
+    "close": "Fermer"
+  },
+  "mode": {
+    "palette": "Palette",
+    "gradient": "Dégradé",
+    "custom": "Zones",
+    "static": "Fixe",
+    "firmware": "Auto",
+    "off": "Éteint"
+  },
+  "tip": {
+    "palette": "Les couleurs suivent ta palette Noctalia",
+    "gradient": "Deux ou trois couleurs fondues sur le clavier",
+    "custom": "Une couleur au choix pour chaque zone",
+    "static": "Une seule couleur pour tout le clavier",
+    "firmware": "Les effets intégrés du clavier"
+  },
+  "hint": {
+    "palette": "Les couleurs sont piochées dans ta palette Noctalia et suivent ton fond d'écran.",
+    "gradient": "Un fondu entre deux couleurs, avec un point central optionnel sur la zone de ton choix.",
+    "custom": "Une couleur par zone : clique une zone dans l'aperçu, puis choisis sa couleur.",
+    "static": "Une seule couleur sur tout le clavier.",
+    "firmware": "Le clavier utilise ses propres effets."
+  },
+  "firmware": {
+    "note": "Aucun réglage ici : le clavier utilise ses propres effets et ne peut pas être atténué depuis le système."
+  },
+  "strip": {
+    "left": "gauche",
+    "right": "droite",
+    "zone": "Zone {n}",
+    "selected": "Zone {n} sélectionnée",
+    "gradient-hint": "Clique une zone pour y placer le point central.",
+    "off": "Clavier éteint (l'aperçu montre ton profil).",
+    "nopalette": "Aucun rôle de palette disponible."
+  },
+  "palette": {
+    "roles": "Rôles de la palette (de gauche à droite)",
+    "smooth": "Fondu lisse entre les couleurs"
+  },
+  "gradient": {
+    "start": "Début",
+    "end": "Fin",
+    "zone": "Zone {n}",
+    "mid": "Point central (dégradé à 3 points)",
+    "mid-zone": "Zone centrale"
+  },
+  "custom": {
+    "title": "Couleur de la zone {n}",
+    "fill-all": "Tout remplir",
+    "mirror": {
+      "label": "Miroir",
+      "tip": "Recopie la moitié gauche en symétrie sur la moitié droite"
+    },
+    "reset": {
+      "label": "Blanc",
+      "tip": "Met toutes les zones en blanc"
+    }
+  },
+  "editor": {
+    "to-zones": "Modifier zone par zone"
+  },
+  "color": {
+    "advanced": "Sélecteur de couleur avancé",
+    "saturation": "Saturation",
+    "value": "Luminosité"
+  },
+  "footer": {
+    "device": "{name} · {zones} zones",
+    "grouped": "{name} · {lamps} touches regroupées en {zones} zones"
+  },
+  "banner": {
+    "starting": "Démarrage…",
+    "python": {
+      "title": "Python 3 est requis",
+      "body": "Ce plugin embarque un petit script Python pour dialoguer avec le clavier. Installe python3, puis rouvre ce panneau."
+    },
+    "access": {
+      "title": "Accès au clavier nécessaire",
+      "body": "{name} a été trouvé, mais ton utilisateur ne peut pas encore en contrôler l'éclairage. Une règle udev, à installer une seule fois, règle ça ; elle demande ton mot de passe dans un terminal.",
+      "button": "Configurer l'accès"
+    },
+    "none": {
+      "title": "Aucun clavier compatible trouvé",
+      "body": "Ce plugin nécessite un clavier qui expose l'interface d'éclairage standard HID LampArray. Aucun n'a été détecté sur cet ordinateur.",
+      "button": "Copier le diagnostic",
+      "copied": "Diagnostic copié dans le presse-papiers"
+    },
+    "error": {
+      "title": "Erreur du clavier"
+    }
+  },
+  "setup": {
+    "noterminal": "Aucun terminal disponible pour lancer la configuration. Lance scripts/setup-access.sh depuis le dossier du plugin."
+  },
+  "widget": {
+    "waiting": "LOQ RGB : en attente du service…",
+    "status": "État",
+    "mode": "Mode",
+    "brightness": "Luminosité",
+    "state": {
+      "starting": "Démarrage",
+      "needs_python": "Python 3 manquant",
+      "needs_access": "Accès nécessaire",
+      "no_device": "Aucun clavier compatible",
+      "error": "Erreur"
+    }
+  }
 }
