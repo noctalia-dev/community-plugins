@@ -5,8 +5,8 @@ plugin_api = 36
 author = "Ishan0121"
 license = "GPL-3.0"
 icon = "cards"
-description = "MTG-style animated card-deck wallpaper & video picker inspired by qs-wallpaperpicker."
-tags = ["wallpaper", "video", "animation", "theming", "desktop"]
+description = "MTG-style animated card-deck wallpaper picker inspired by qs-wallpaperpicker."
+tags = ["wallpaper", "animation", "theming", "desktop"]
 dependencies = ["ffmpeg", "matugen", "python3"]
 
 # --- Plugin Settings ---
@@ -50,12 +50,6 @@ label_key = "settings.animate_selected_card.label"
 description_key = "settings.animate_selected_card.description"
 default = true
 
-[[setting]]
-key = "play_video_preview"
-type = "bool"
-label_key = "settings.play_video_preview.label"
-description_key = "settings.play_video_preview.description"
-default = false
 
 [[setting]]
 key = "visible_deck_cards"
