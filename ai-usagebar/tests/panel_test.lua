@@ -295,7 +295,7 @@ end
 local function cards(node)
     local out = {}
     for _, column in ipairs(collect(node, "column")) do
-        if column.props.fill == "surface_variant/0.34" and #collect(column, "progress") > 0 then
+        if column.props.fill == "surface_container/0.34" and #collect(column, "progress") > 0 then
             out[#out + 1] = column
         end
     end
@@ -766,7 +766,7 @@ assert(codexLayout.props.paddingRight == agyViewport.props.paddingRight,
 local providerCards = cards(codexWithResetTree)
 local auxiliaryCard = nil
 for _, column in ipairs(collect(codexWithResetTree, "column")) do
-    if has(labels(column), "Reset credits") and column.props.fill == "surface_variant/0.34" then
+    if has(labels(column), "Reset credits") and column.props.fill == "surface_container/0.34" then
         auxiliaryCard = column
     end
 end

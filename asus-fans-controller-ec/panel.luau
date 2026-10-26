@@ -192,7 +192,7 @@ local function renderCurveGraph(points, selectedIndex)
     return ui.column({ key = "curve-graph-block", gap = 6 }, {
         ui.box({
             key = "curve-graph-frame",
-            fill = "surface_variant/0.35",
+            fill = "surface_container/0.35",
             radius = 10,
             padding = 10,
         }, {
@@ -397,7 +397,7 @@ render = function()
         if mode == MODE_AUTO then
             table.insert(scrollChildren, ui.row({
                 align = "center", gap = 10,
-                fill = "surface_variant/0.45", radius = 10, padding = 10,
+                fill = "surface_container/0.45", radius = 10, padding = 10,
             }, {
                 ui.glyph({ name = glyph, size = 16, color = color }),
                 ui.column({ gap = 2, flexGrow = 1 }, {
@@ -417,7 +417,7 @@ render = function()
             }))
         end
 
-        table.insert(scrollChildren, ui.separator({ thickness = 1, color = "outline/0.3", spacing = 4 }))
+        table.insert(scrollChildren, ui.separator({ thickness = 1, color = "outline_variant/0.3", spacing = 4 }))
 
         if mode == MODE_MANUAL then
             table.insert(scrollChildren, renderManualControls(busy))
@@ -444,7 +444,7 @@ render = function()
     else
         table.insert(scrollChildren, ui.row({
             align = "center", gap = 10,
-            fill = "surface_variant/0.45", radius = 10, padding = 10,
+            fill = "surface_container/0.45", radius = 10, padding = 10,
         }, {
             ui.glyph({ name = glyph, size = 16, color = color }),
             ui.column({ gap = 2, flexGrow = 1 }, {

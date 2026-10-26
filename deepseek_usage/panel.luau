@@ -97,7 +97,7 @@ local function renderGraphSection(values: { number }, minVal: number, maxVal: nu
       ui.label({ text = string.format("%d samples", #history), fontSize = 10, color = "on_surface_variant" }),
     }),
     ui.column({
-      fill = "surface_variant/0.2",
+      fill = "surface_container/0.2",
       radius = 8,
       padding = 8,
       gap = 4,
@@ -136,7 +136,7 @@ local function render()
   -- Unconfigured State Banner
   if isUnconfigured then
     table.insert(bodyItems, ui.column({
-      fill = "surface_variant/0.5",
+      fill = "surface_container/0.5",
       radius = 8,
       padding = 12,
       gap = 8,
@@ -169,7 +169,7 @@ local function render()
   -- Hero Balance Card
   if not isUnconfigured then
     table.insert(bodyItems, ui.column({
-      fill = "surface_variant/0.35",
+      fill = "surface_container/0.35",
       radius = 12,
       padding = 16,
       align = "center",

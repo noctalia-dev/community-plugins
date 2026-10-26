@@ -368,7 +368,7 @@ local function sectionHeader(text, count, color, onClick, glyph)
   if glyph then kids[#kids + 1] = ui.glyph({ name = glyph, size = 12, color = color }) end
   kids[#kids + 1] = ui.label({ text = string.upper(text), fontSize = 10, fontWeight = "bold", color = color })
   kids[#kids + 1] = ui.label({ text = tostring(count), fontSize = 10, color = "on_surface_variant" })
-  kids[#kids + 1] = ui.separator({ orientation = "horizontal", color = "outline", opacity = 0.2, flexGrow = 1 })
+  kids[#kids + 1] = ui.separator({ orientation = "horizontal", color = "outline_variant", opacity = 0.2, flexGrow = 1 })
   return ui.row({ gap = 6, align = "center", paddingH = 2, paddingV = onClick and 4 or 0, onClick = onClick }, kids)
 end
 

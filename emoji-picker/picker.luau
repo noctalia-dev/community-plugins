@@ -643,8 +643,8 @@ local function tile(entry, idx)
     height = gridCell - TILE_CHROME,
     align = "center",
     justify = "center",
-    fill = if selected then "primary" else "surface_variant",
-    border = if selected then "primary" else "outline",
+    fill = if selected then "primary" else "surface_container",
+    border = if selected then "primary" else "outline_variant",
     borderWidth = 1,
     radius = 6,
     onClick = function()

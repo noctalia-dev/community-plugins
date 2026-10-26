@@ -446,7 +446,7 @@ function render()
   end
 
   local body = {
-    ui.column({ gap = 10, fill = "surface_variant/0.55", radius = 18, padding = 16 }, {
+    ui.column({ gap = 10, fill = "surface_container/0.55", radius = 18, padding = 16 }, {
       ui.row({ gap = 10, align = "center" }, {
         artNode,
         ui.column({ flexGrow = 1, gap = 1 }, {

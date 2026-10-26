@@ -785,7 +785,7 @@ function render()
       height = 64,
       align = "center",
       justify = "center",
-      fill = "surface_variant/0.5",
+      fill = "surface_container/0.5",
       radius = 8
     }, {
       ui.glyph({ name = "music", size = 30, color = "primary" })
@@ -920,7 +920,7 @@ function render()
   -- Now Playing Card
   local playerCard = ui.column({
     gap = 10,
-    fill = "surface_variant/0.3",
+    fill = "surface_container/0.3",
     radius = 12,
     padding = 12,
     align = "stretch"
@@ -1019,7 +1019,7 @@ function render()
 
     table.insert(speakerCards, ui.column({
       gap = 4,
-      fill = isSelected and "surface_variant/0.25" or "surface_variant/0.1",
+      fill = isSelected and "surface_container/0.25" or "surface_container/0.1",
       radius = 8,
       padding = 8,
       align = "stretch"

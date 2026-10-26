@@ -1,7 +1,7 @@
 id = "eternalself-2328/undershell"
 name = "undershell"
-version = "1.2.1"
-plugin_api = 26
+version = "1.2.2"
+plugin_api = 43
 author = "EternalSelf-2328"
 license = "GPL-3.0-or-later"
 dependencies = ["undershell", "systemctl"]

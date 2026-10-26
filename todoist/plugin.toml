@@ -1,7 +1,7 @@
 id = "turja-roy/todoist"
 name = "Todoist"
-version = "1.1.0"
-plugin_api = 32
+version = "1.1.1"
+plugin_api = 43
 author = "turja-roy"
 license = "MIT"
 icon = "checkbox"

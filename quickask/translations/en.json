@@ -11,21 +11,22 @@
     "copied": "Copied",
     "copy": "Copy response",
     "close": "Close (Escape)",
-    "timeout": "The operation timed out. Check the keyring and connection, then retry."
+    "timeout": "The operation timed out. Check the keyring and connection, then retry.",
+    "settings": "Settings"
   },
   "credentials": {
     "missing-command": "secret-tool was not found. Install libsecret and retry.",
     "unreadable": "Could not read the key. Unlock Secret Service and save your key with the secret-tool store command in the README.",
-    "missing": "No OpenCode Go key was found. Save your key with the secret-tool store command in the README.",
+    "missing": "No key was found for the selected provider and endpoint. Store its key in Secret Service using the README instructions.",
     "invalid": "The saved key has an invalid format. Save the key to Secret Service again.",
     "startup": "Could not start key lookup. Check secret-tool and Secret Service."
   },
   "api": {
     "unauthorized": "The API key was rejected (401). Check the key in Secret Service.",
-    "forbidden": "Access denied (403). Check your Go subscription, region permissions and permitted use.",
+    "forbidden": "Access denied (403). Check your account, model permissions, region and permitted use.",
     "rate-limited": "Rate or quota limit reached (429). Wait a while and retry.",
-    "unavailable": "OpenCode Go is temporarily unavailable. Wait a while and retry.",
-    "http-error": "OpenCode Go rejected the request (HTTP {status}). Check your account and service status.",
+    "unavailable": "The API service is temporarily unavailable. Wait a while and retry.",
+    "http-error": "The API rejected the request (HTTP {status}). Check your model, account and service status.",
     "too-long": "The response reached the display limit. Partial text was preserved; try a shorter question.",
     "connection": "The connection failed or was interrupted. Check your Internet and TLS connection, then retry.",
     "service-error": "The service reported a streaming error. Partial text was preserved; you can retry.",
@@ -33,5 +34,28 @@
     "unreadable": "Could not read the response stream. Retry the request.",
     "empty": "The service returned an empty response. Retry the request.",
     "startup": "Could not start the request. Check Noctalia network access and offline mode."
+  },
+  "config": {
+    "summary": "{host} · {model}",
+    "required": "Choose a provider and model in Settings.",
+    "provider-error": "Unknown API provider. Choose OpenCode Go or OpenAI compatible in Settings.",
+    "endpoint-error": "Set a full HTTPS URL ending in /chat/completions in Settings. Credentials in URLs, queries and fragments are not supported.",
+    "model-error": "Enter a valid model ID in Settings (1–256 characters, without control characters)."
+  },
+  "settings": {
+    "provider": {
+      "label": "API provider",
+      "description": "Select the service explicitly. QuickAsk never switches providers automatically. OpenCode Go use must comply with its requirements.",
+      "go": "OpenCode Go",
+      "compatible": "OpenAI compatible"
+    },
+    "endpoint": {
+      "label": "Chat Completions URL",
+      "description": "Full HTTPS URL ending in /chat/completions. No URL credentials or query parameters. Changing it requires a key stored for that exact URL."
+    },
+    "model": {
+      "label": "Model ID",
+      "description": "Exact text model ID supported by your endpoint. It must accept system/user messages and streaming Chat Completions. No model is selected automatically."
+    }
   }
 }

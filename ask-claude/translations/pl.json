@@ -1,0 +1,93 @@
+{
+  "card": {
+    "continue": "Enter: kontynuuj w {target}",
+    "continue_manual": "Enter: kontynuuj w {target} (ręczne zatwierdzanie)",
+    "done": "gotowe",
+    "enter_copy": "Enter: kopiuj odpowiedź",
+    "error": "błąd · popraw zapytanie i naciśnij Enter, by spróbować ponownie",
+    "incognito": "incognito",
+    "model_default": "Claude",
+    "sources": "Źródła:",
+    "streaming": "Piszę…",
+    "target": {
+      "herdr": "herdr",
+      "terminal": "terminalu",
+      "tmux": "tmux",
+      "tuios": "tuios",
+      "zellij": "zellij"
+    },
+    "thinking": "Myślę…",
+    "tool": "używam {tool}…",
+    "truncated": "(skrócono, pełna odpowiedź jest w sesji)",
+    "web_used": "użyto sieci"
+  },
+  "error": {
+    "auth": "Logowanie Claude wygasło. Uruchom raz `claude` w terminalu, żeby je odświeżyć, i zapytaj ponownie.",
+    "exit": "claude zakończył się kodem {code}",
+    "no_claude": "Nie znaleziono polecenia Claude. Najpierw zainstaluj Claude Code i zaloguj się.",
+    "no_output": "(brak odpowiedzi)",
+    "no_terminal": "Nie znaleziono terminala. Ustaw $TERMINAL albo zainstaluj emulator terminala.",
+    "spawn": "Nie udało się uruchomić zapytania.",
+    "timeout": "Brak odpowiedzi w ciągu {seconds} s (timeout).",
+    "too_long": "Pytanie jest za długie (limit: {max} znaków).",
+    "unknown": "Nieznany błąd"
+  },
+  "launcher": {
+    "ask": "Ask AI",
+    "ask_incognito": "Ask AI incognito",
+    "copy": "Kopiuj ostatnią odpowiedź",
+    "hint_sub": "Wpisz pytanie i naciśnij Enter · zacznij od ! dla incognito",
+    "hint_title": "Zapytaj Claude…",
+    "last": "Ostatnia odpowiedź"
+  },
+  "settings": {
+    "extra_prompt": {
+      "description": "Dodatkowe instrukcje dopisywane do system promptu pytań z launchera",
+      "label": "Dodatkowy prompt"
+    },
+    "max_turns": {
+      "description": "Górny limit tur agenta (wyszukiwań w sieci) na jedno pytanie",
+      "label": "Maks. liczba tur"
+    },
+    "model": {
+      "description": "Model używany do pytań z launchera",
+      "label": "Model",
+      "options": {
+        "default": "Domyślny z Claude Code",
+        "haiku": "Haiku",
+        "opus": "Opus",
+        "sonnet": "Sonnet"
+      }
+    },
+    "open_target": {
+      "description": "Terminal lub multiplekser, w którym Enter na odpowiedzi kontynuuje rozmowę",
+      "label": "Kontynuuj w",
+      "options": {
+        "herdr": "Nowa karta herdr",
+        "terminal": "Nowe okno terminala",
+        "tmux": "Nowe okno tmux",
+        "tuios": "Nowe okno tuios",
+        "zellij": "Nowa karta zellij"
+      }
+    },
+    "timeout_s": {
+      "description": "Przerwij zapytanie po tylu sekundach",
+      "label": "Timeout (s)"
+    },
+    "tools": {
+      "description": "Narzędzia, których Claude może użyć przy odpowiedzi w launcherze",
+      "label": "Narzędzia",
+      "options": {
+        "none": "Brak",
+        "web": "Wyszukiwanie i pobieranie stron"
+      }
+    },
+    "workdir": {
+      "description": "Katalog roboczy pytań i wznawianych sesji",
+      "label": "Katalog roboczy"
+    }
+  },
+  "warn": {
+    "workdir": "brak katalogu roboczego, używam ~"
+  }
+}

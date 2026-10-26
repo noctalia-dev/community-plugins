@@ -1,7 +1,7 @@
 id           = "mahmoudomiesh/network-monitor"
 name         = "Network Monitor"
-version      = "2.0.0"
-plugin_api   = 26
+version      = "2.0.1"
+plugin_api   = 43
 author       = "Mahmoud Omiesh"
 license      = "MIT"
 icon         = "network"

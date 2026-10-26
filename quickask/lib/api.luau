@@ -1,7 +1,6 @@
 --!nonstrict
--- Provider is deliberately fixed. No shell, redirects, retries, or raw error logs.
+-- Shared Chat Completions transport. No shell, redirects, automatic fallback or raw logs.
 local M = {}
-local ENDPOINT = "https://opencode.ai/inference/go/openai/v1/chat/completions"
 local MAX_ANSWER_BYTES = 262144
 local sequence = 0
 
@@ -24,7 +23,7 @@ local function statusError(status)
   return noctalia.tr("api.http-error", { status = tostring(status) })
 end
 
-function M.start(question, key, session, callbacks)
+function M.start(question, key, session, connection, callbacks)
   local active = true
   local native = nil
   local done = false
@@ -45,28 +44,33 @@ function M.start(question, key, session, callbacks)
     if native then native.stop(); native = nil end
   end
 
+  local payload = {
+    model = connection.model,
+    messages = {
+      { role = "system", content = "Give clear, concise and accurate answers, preferably in the user's language. Use Markdown when useful." },
+      { role = "user", content = question },
+    },
+    stream = true,
+  }
+  local headers = {
+    "Authorization: Bearer " .. key,
+    "Content-Type: application/json",
+    "Accept: text/event-stream",
+    "User-Agent: quickask/0.2.0",
+  }
+  if connection.provider == "opencode-go" then
+    payload.thinking = { type = "disabled" }
+    table.insert(headers, "x-opencode-session: " .. session)
+  end
   local request = {
-    url = ENDPOINT,
+    url = connection.endpoint,
     method = "POST",
     follow_redirects = false,
-    body = noctalia.json.encode({
-      model = "deepseek-v4.1-flash",
-      thinking = { type = "disabled" },
-      messages = {
-        { role = "system", content = "Give clear, concise and accurate answers, preferably in the user's language. Use Markdown when useful." },
-        { role = "user", content = question },
-      },
-      stream = true,
-    }),
-    headers = {
-      "Authorization: Bearer " .. key,
-      "Content-Type: application/json",
-      "Accept: text/event-stream",
-      "User-Agent: quickask/0.1.1",
-      "x-opencode-session: " .. session,
-    },
+    body = noctalia.json.encode(payload),
+    headers = headers,
   }
   key = nil
+  headers = nil
 
   local ok, stream = pcall(noctalia.httpStream, request, function(line)
     if not active then return end

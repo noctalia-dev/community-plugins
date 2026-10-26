@@ -1,8 +1,8 @@
 id = "fel/vidi"
 license = "MIT"
 name = "Vidi"
-version = "0.3.0"
-plugin_api = 24
+version = "0.3.1"
+plugin_api = 43
 author = "fel"
 icon = "brand-youtube"
 description = "Latest videos from your Vidi subscription feed."

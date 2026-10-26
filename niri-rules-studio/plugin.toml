@@ -1,7 +1,7 @@
 id = "setyvii/niri-rules-studio"
 name = "Niri Rules Studio"
-version = "0.1.0"
-plugin_api = 24
+version = "0.1.2"
+plugin_api = 43
 author = "SetyVII"
 license = "MIT"
 icon = "adjustments-horizontal"
@@ -14,7 +14,7 @@ key = "niri_config"
 type = "file"
 label_key = "settings.niri_config.label"
 description_key = "settings.niri_config.description"
-default = "~/.config/niri/config.kdl"
+default = ""
 
 [[widget]]
 id = "rules"

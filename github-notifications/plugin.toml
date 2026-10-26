@@ -1,7 +1,7 @@
 id = "hy4ri/github-notifications"
 name = "GitHub Notifications"
-version = "0.3.0"
-plugin_api = 24
+version = "0.3.1"
+plugin_api = 43
 author = "hy4ri"
 license = "MIT"
 icon = "brand-github"

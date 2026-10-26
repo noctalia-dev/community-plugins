@@ -71,7 +71,7 @@ local function walletCard(wallet, total: number, report, ctx)
         ui.label({ text = fmt.money(h.value, currency, { privacy = privacy }), fontSize = 12 }),
       }))
     end
-    table.insert(children, ui.separator({ color = "outline/0.2" }))
+    table.insert(children, ui.separator({ color = "outline_variant/0.2" }))
     table.insert(children, ui.column({ gap = 6, paddingH = 4 }, rows))
   end
   return parts.card(children, { key = wallet.name, gap = 8 })

@@ -81,8 +81,8 @@ def get_channel(address: str) -> int:
     if os.path.exists(CHANNEL_FILE):
         try:
             with open(CHANNEL_FILE) as f:
-                cached_addr, cached_channel = f.read().strip().split(":")
-            if cached_addr == address:
+                cached_addr, cached_channel = f.read().strip().rsplit(":", 1)
+            if cached_addr == address and 1 <= int(cached_channel) <= 30:
                 return int(cached_channel)
         except (OSError, ValueError):
             pass
@@ -94,18 +94,23 @@ def get_channel(address: str) -> int:
 
 def connect(address: str) -> socket.socket:
     channel = get_channel(address)
-    sock = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_STREAM, socket.BTPROTO_RFCOMM)
-    sock.settimeout(CONNECT_TIMEOUT)
-    try:
-        sock.connect((address, channel))
-    except OSError:
-        # cached channel may be stale (e.g. after a firmware update); re-resolve once
-        if os.path.exists(CHANNEL_FILE):
-            os.remove(CHANNEL_FILE)
-        channel = get_channel(address)
-        sock.connect((address, channel))
-    sock.settimeout(0.5)
-    return sock
+    for attempt in range(2):
+        sock = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_STREAM, socket.BTPROTO_RFCOMM)
+        sock.settimeout(CONNECT_TIMEOUT)
+        try:
+            sock.connect((address, channel))
+        except OSError:
+            sock.close()
+            if attempt == 1:
+                raise
+            # A failed Bluetooth connect can invalidate the socket. Resolve
+            # a possibly stale channel and retry with a fresh socket.
+            if os.path.exists(CHANNEL_FILE):
+                os.remove(CHANNEL_FILE)
+            channel = get_channel(address)
+        else:
+            sock.settimeout(0.5)
+            return sock
 
 
 def gather(

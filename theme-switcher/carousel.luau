@@ -102,7 +102,7 @@ local function card(theme, active)
 			width = 190,
 			height = 116,
 			radius = 8,
-			fill = "surface_variant",
+			fill = "surface_container",
 			align = "center",
 			justify = "center",
 		}, { ui.glyph({ name = "palette", size = 32, color = "on_surface_variant" }) }))

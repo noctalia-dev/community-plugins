@@ -1,7 +1,7 @@
 id = "tordex/nvtop"
 name = "NVTOP"
-version = "2.3.0"
-plugin_api = 32
+version = "2.3.1"
+plugin_api = 43
 author = "tordex"
 license = "MIT"
 dependencies = ["nvtop", "python3", "pkill", "kill"]
@@ -23,7 +23,7 @@ key = "sort_column_background"
 type = "color"
 label_key = "settings.sort_column_background.label"
 description_key = "settings.sort_column_background.description"
-default = "surface_variant"
+default = "surface_container"
 
 [[setting]]
 key = "sort_column_color"
@@ -37,7 +37,7 @@ key = "process_hover_background"
 type = "color"
 label_key = "settings.process_hover_background.label"
 description_key = "settings.process_hover_background.description"
-default = "surface_variant"
+default = "surface_container"
 
 [[setting]]
 key = "process_hover_color"

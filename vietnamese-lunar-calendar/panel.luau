@@ -226,8 +226,8 @@ local function gridSection(children, cats, byDate)
                 table.insert(row, ui.column({
                     key = "day-" .. day,
                     gap = 1, padding = 3, minHeight = 50, flexGrow = 1, radius = 8,
-                    fill = isSelected and "primary/0.18" or festival and "surface_variant/0.40" or "surface/0",
-                    border = (isSelected or isToday) and "primary" or "outline/0",
+                    fill = isSelected and "primary/0.18" or festival and "surface_container/0.40" or "surface/0",
+                    border = (isSelected or isToday) and "primary" or "outline_variant/0",
                     borderWidth = (isSelected or isToday) and 1 or 0,
                     align = "center", justify = "center",
                     onClick = function()

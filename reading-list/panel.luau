@@ -428,17 +428,17 @@ end
 local function artwork(item)
   if item.image ~= "" and noctalia.fileExists(item.image) then
     return ui.image({ key = "cover-" .. item.id, path = item.image, width = 64, height = 64,
-      radius = 8, fit = "cover", border = "outline/0.35", borderWidth = 1 })
+      radius = 8, fit = "cover", border = "outline_variant/0.35", borderWidth = 1 })
   end
   if item.icon ~= "" and noctalia.fileExists(item.icon) then
     return ui.column({ key = "artwork-" .. item.id, width = 64, height = 64, align = "center",
-      justify = "center", fill = "surface_variant", radius = 8 }, {
+      justify = "center", fill = "surface_container", radius = 8 }, {
       ui.image({ key = "icon-" .. item.id, path = item.icon, width = 32, height = 32,
         radius = 6, fit = "contain" }),
     })
   end
   return ui.column({ key = "artwork-" .. item.id, width = 64, height = 64, align = "center",
-    justify = "center", fill = "surface_variant", radius = 8 }, {
+    justify = "center", fill = "surface_container", radius = 8 }, {
     ui.glyph({ name = typeGlyph(item.type), size = 27, color = "primary" }),
   })
 end
@@ -476,7 +476,7 @@ local function itemCard(item, queueIndex, queueIds)
   if item.status == "reading" and (item.progress or 0) > 0 and (item.progress or 0) < 100 then
     table.insert(contentChildren, ui.row({ gap = 7, align = "center" }, {
       ui.progress({ progress = math.min(1, (item.progress or 0) / 100), flexGrow = 1,
-        height = 4, fill = "primary", track = "outline/0.25", radius = 3 }),
+        height = 4, fill = "primary", track = "outline_variant/0.25", radius = 3 }),
       ui.label({ text = tostring(math.floor(item.progress or 0)) .. "%", width = 30,
         fontSize = 9, color = "on_surface_variant", textAlign = "end" }),
     }))
@@ -570,7 +570,7 @@ local function itemCard(item, queueIndex, queueIds)
   -- cover, title, or description changes instead of waiting for panel reopen.
   local cardKey = "card-" .. item.id .. "-" .. tostring(item.updatedAt or 0)
     .. "-" .. (item.fetching and "fetching" or "ready")
-  return ui.column({ key = cardKey, fill = "surface_variant", radius = 10,
+  return ui.column({ key = cardKey, fill = "surface_container", radius = 10,
     padding = 9, gap = 6, align = "stretch" }, children)
 end
 
@@ -592,7 +592,7 @@ local function bulkToolbar()
         controlSize = "sm", onClick = function() finishBulk("delete") end }),
     })
   end
-  return ui.column({ gap = 4, fill = "surface_variant", radius = 8, padding = 5, align = "stretch" }, {
+  return ui.column({ gap = 4, fill = "surface_container", radius = 8, padding = 5, align = "stretch" }, {
     ui.row({ gap = 3, align = "center" }, {
       ui.label({ text = tr("bulk.selected", "{count} selected", { count = count }),
         flexGrow = 1, fontSize = 10, color = "on_surface_variant" }),
@@ -817,7 +817,7 @@ local function editorView()
     table.insert(fields, fieldLabel(tr("form.image", "Cover or image")))
     if draft.image ~= "" and noctalia.fileExists(draft.image) then
       table.insert(fields, ui.image({ key = "picked-image-" .. key, path = draft.image,
-        height = 96, radius = 8, fit = "contain", border = "outline/0.35", borderWidth = 1 }))
+        height = 96, radius = 8, fit = "contain", border = "outline_variant/0.35", borderWidth = 1 }))
     end
     local imageRowChildren = {
       ui.button({ glyph = "folder-open", text = pickingImage and tr("picker.opening", "Opening…")
@@ -948,7 +948,7 @@ end
 
 local function shareView()
   return ui.column({ flexGrow = 1, gap = 12, align = "stretch", padding = 8 }, {
-    ui.column({ fill = "surface_variant", radius = 10, padding = 12, gap = 8, align = "stretch" }, {
+    ui.column({ fill = "surface_container", radius = 10, padding = 12, gap = 8, align = "stretch" }, {
       ui.glyph({ name = "share", size = 32, color = "primary" }),
       ui.label({ text = tr("share.count", "Sharing {count} items", { count = #shareIds }),
         fontSize = 14, fontWeight = "semibold", textAlign = "center" }),
@@ -1034,7 +1034,7 @@ local function reportData()
 end
 
 local function metricCard(value, label, glyph)
-  return ui.column({ flexGrow = 1, fill = "surface_variant", radius = 9,
+  return ui.column({ flexGrow = 1, fill = "surface_container", radius = 9,
     padding = 9, gap = 2, align = "stretch" }, {
     ui.row({ gap = 5, align = "center" }, {
       ui.glyph({ name = glyph, size = 15, color = "primary" }),
@@ -1073,12 +1073,12 @@ local function rankingCard(title, glyph, values)
         ui.label({ text = entry.name, width = 88, maxLines = 1, fontSize = 9,
           color = "on_surface_variant" }),
         ui.progress({ progress = entry.count / maximum, flexGrow = 1, height = 4,
-          fill = "primary", track = "outline/0.25", radius = 3 }),
+          fill = "primary", track = "outline_variant/0.25", radius = 3 }),
         ui.label({ text = tostring(entry.count), width = 18, textAlign = "end", fontSize = 9 }),
       }))
     end
   end
-  return ui.column({ flexGrow = 1, fill = "surface_variant", radius = 9,
+  return ui.column({ flexGrow = 1, fill = "surface_container", radius = 9,
     padding = 9, gap = 6, align = "stretch" }, children)
 end
 
@@ -1118,7 +1118,7 @@ local function reportsView()
       fontSize = 11, fontWeight = "semibold" }),
   }
   if #report.completed == 0 then
-    table.insert(content, ui.column({ fill = "surface_variant", radius = 9, padding = 14,
+    table.insert(content, ui.column({ fill = "surface_container", radius = 9, padding = 14,
       gap = 5, align = "center" }, {
       ui.glyph({ name = "calendar-off", size = 22, color = "on_surface_variant" }),
       ui.label({ text = tr("reports.no-completions", "Nothing completed in this period yet."),
@@ -1127,7 +1127,7 @@ local function reportsView()
   else
     for index, item in ipairs(report.completed) do
       if index > 5 then break end
-      table.insert(content, ui.row({ fill = "surface_variant", radius = 8, padding = 8,
+      table.insert(content, ui.row({ fill = "surface_container", radius = 8, padding = 8,
         gap = 7, align = "center" }, {
         ui.glyph({ name = typeGlyph(item.type), size = 15, color = "primary" }),
         ui.column({ flexGrow = 1, gap = 1, align = "stretch" }, {

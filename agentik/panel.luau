@@ -201,12 +201,12 @@ end
 local function session_fill(item)
     local contrast = configured_bool("high_contrast", false) or configured_bool("presentation_mode", false)
     if item.exited ~= nil or item.quiet == true then
-        return contrast and "surface_variant/0.30" or "surface_variant/0.12"
+        return contrast and "surface_container/0.30" or "surface_container/0.12"
     end
     local attention = attention_of(item)
     if attention == "blocked" then return contrast and "error/0.24" or "error/0.10" end
     if attention == "waiting" then return contrast and "secondary/0.24" or "secondary/0.10" end
-    return contrast and "surface_variant/0.36" or "surface_variant/0.18"
+    return contrast and "surface_container/0.36" or "surface_container/0.18"
 end
 
 local function identity_marker(item)
@@ -489,7 +489,7 @@ local function activity_view()
         local _, lines = detail:gsub("\n", "\n")
         table.insert(rows, ui.column({
             key = "panel-activity-" .. key, gap = 3, paddingH = 10, paddingV = 7,
-            radius = 8, fill = event.status == "failed" and "error/0.10" or "surface_variant/0.24",
+            radius = 8, fill = event.status == "failed" and "error/0.10" or "surface_container/0.24",
         }, {
             ui.row({ gap = 4, align = "center" }, {
                 ui.label({ text = tostring(event.tool or event.kind or "") .. " · " .. tostring(event.status or ""),
@@ -1486,7 +1486,7 @@ local function chat_code_block(lines)
         paddingH = 8,
         paddingV = 6,
         radius = 8,
-        fill = "surface_variant/0.35",
+        fill = "surface_container/0.35",
     }, {
         ui.row({ align = "center", gap = 6 }, {
             ui.label({ text = noctalia.tr("ui.chat_code"), color = "on_surface_variant", fontSize = 11, flexGrow = 1 }),
@@ -1557,7 +1557,7 @@ local function chat_message_card(message, index)
         paddingH = 10,
         paddingV = 8,
         radius = 10,
-        fill = user and "primary/0.10" or "surface_variant/0.24",
+        fill = user and "primary/0.10" or "surface_container/0.24",
     }, {
         ui.label({
             text = role,
@@ -1633,7 +1633,7 @@ local function chat_tool_output_card(event, index)
         paddingH = 10,
         paddingV = 8,
         radius = 8,
-        fill = event.error == true and "error/0.10" or "surface_variant/0.35",
+        fill = event.error == true and "error/0.10" or "surface_container/0.35",
     }, {
         ui.row({ gap = 4, align = "center" }, {
             ui.label({
@@ -1768,7 +1768,7 @@ local function chat_feed_event_card(event, index)
         paddingH = 10,
         paddingV = 7,
         radius = 8,
-        fill = kind == "tool_output" and "surface_variant/0.35" or "secondary/0.10",
+        fill = kind == "tool_output" and "surface_container/0.35" or "secondary/0.10",
     }, {
         ui.label({ text = label, color = "secondary", fontWeight = "bold", fontSize = 11 }),
         ui.label({
@@ -1865,7 +1865,7 @@ local function chat_view()
             paddingH = 10,
             paddingV = 8,
             radius = 10,
-            fill = "surface_variant/0.32",
+            fill = "surface_container/0.32",
         }, {
             identity_marker(item or { accent = chat_session_accent }),
             Orb.render({
@@ -2186,7 +2186,7 @@ local function group_header(group, is_collapsed)
         paddingH = 8,
         paddingV = 5,
         radius = 8,
-        fill = "surface_variant/0.30",
+        fill = "surface_container/0.30",
     }, {
         ui.button({
             glyph = is_collapsed and "chevron-right" or "chevron-down",
@@ -2312,7 +2312,7 @@ local function quota_view()
                 paddingH = 10,
                 paddingV = 8,
                 radius = 10,
-                fill = "surface_variant/0.30",
+                fill = "surface_container/0.30",
             }, lines))
         end
     end
@@ -2566,7 +2566,7 @@ render = function()
             paddingH = 8,
             paddingV = 6,
             radius = 12,
-            fill = "surface_variant/0.30",
+            fill = "surface_container/0.30",
         }, header),
         ui.column({ flexGrow = 1, gap = 6 }, children),
     }))

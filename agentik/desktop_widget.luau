@@ -389,7 +389,7 @@ local function activity_view()
         local _, lines = detail:gsub("\n", "\n")
         table.insert(rows, ui.column({
             key = "desktop-activity-" .. key, gap = 3, paddingH = 10, paddingV = 7,
-            radius = 8, fill = event.status == "failed" and "error/0.10" or "surface_variant/0.24",
+            radius = 8, fill = event.status == "failed" and "error/0.10" or "surface_container/0.24",
         }, {
             ui.row({ gap = 4, align = "center" }, {
                 ui.label({ text = tostring(event.tool or event.kind or "") .. " · " .. tostring(event.status or ""),

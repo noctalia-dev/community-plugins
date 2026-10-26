@@ -62,7 +62,7 @@ local function build_home()
 				"music",
 				20,
 				is_current and "primary" or "on_surface_variant",
-				is_current and "primary/0.2" or "surface_variant/0.3"
+				is_current and "primary/0.2" or "surface_container/0.3"
 			)
 			local actions = common.track_actions(t, cell_key, nil)
 
@@ -74,7 +74,7 @@ local function build_home()
 					align = "center",
 					padding = 6,
 					borderWidth = 0,
-					fill = is_current and "primary/0.2" or (is_hovered and "primary/0.25" or "surface_variant/0.15"),
+					fill = is_current and "primary/0.2" or (is_hovered and "primary/0.25" or "surface_container/0.15"),
 					flexGrow = 1,
 					radius = theme.radius,
 					onClick = function()
@@ -120,7 +120,7 @@ local function build_home()
 		)
 	end
 	table.insert(feed, ui.row({ key = "spacer-above-sep-qp", height = 4, borderWidth = 0, radius = theme.radius }))
-	table.insert(feed, ui.separator({ key = "sep-qp", color = "outline/0.3" }))
+	table.insert(feed, ui.separator({ key = "sep-qp", color = "outline_variant/0.3" }))
 
 	local lib_ids = {}
 	if type(data.library) == "table" then
@@ -195,7 +195,7 @@ local function build_home()
 						"disc",
 						38,
 						"primary",
-						mix_hovered and "primary/0.2" or "surface_variant/0.6"
+						mix_hovered and "primary/0.2" or "surface_container/0.6"
 					),
 					ui.column({ gap = 2, flexGrow = 1, radius = theme.radius }, {
 						ui.label({ text = item_title, fontSize = theme.fontTitle, maxLines = 1, color = "on_surface" }),

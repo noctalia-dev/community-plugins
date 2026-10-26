@@ -251,7 +251,7 @@ local function spectrumNode(o)
     local h = math.max(2, math.floor(level * maxH + 2))
     bars[#bars + 1] = ui.box({
       key = "sp" .. i, width = barW, height = h, radius = 1,
-      fill = spectrumActive and "primary" or "outline",
+      fill = spectrumActive and "primary" or "outline_variant",
       opacity = spectrumActive and 1 or 0.5,
     })
   end

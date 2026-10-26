@@ -103,7 +103,7 @@ local function card(title: string?, children, right, opacity: number?)
     gap = 8,
     padding = CARD_PAD,
     radius = 12,
-    fill = "surface_variant/0.45",
+    fill = "surface_container/0.45",
     opacity = opacity,
   }, content)
 end
@@ -186,7 +186,7 @@ local function noUpsCard()
   local reason = if link and link.message and link.message ~= "" then link.message else noctalia.tr("status.starting")
   return card(nil, {
     ui.row({ gap = 12, align = "center" }, {
-      ui.glyph({ name = "plug-off", size = 30, color = "outline" }),
+      ui.glyph({ name = "plug-off", size = 30, color = "outline_variant" }),
       label(reason, CAPTION, "on_surface_variant", { flexGrow = 1, maxLines = 4 }),
     }),
   })

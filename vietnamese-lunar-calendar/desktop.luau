@@ -99,8 +99,8 @@ local function grid(cats, byDate)
                 local isToday = day == td and viewMonth == tm and viewYear == ty
                 table.insert(row, ui.column({
                     key = "d-" .. day, gap = 1, padding = 3, flexGrow = 1, minHeight = 52, radius = 8,
-                    fill = isToday and "primary/0.25" or festival and "surface_variant/0.40" or "surface/0",
-                    border = isToday and "primary" or "outline/0", borderWidth = isToday and 1 or 0,
+                    fill = isToday and "primary/0.25" or festival and "surface_container/0.40" or "surface/0",
+                    border = isToday and "primary" or "outline_variant/0", borderWidth = isToday and 1 or 0,
                     align = "center", justify = "center",
                 }, {
                     ui.label({

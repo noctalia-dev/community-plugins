@@ -54,12 +54,12 @@ local T = {
   colTitle = "on_surface",
   colMeta = "on_surface_variant",
   colTime = "on_surface_variant",
-  ringTrack = "outline/0.5",      -- cover frame border (the progress control
+  ringTrack = "outline_variant/0.5",      -- cover frame border (the progress control
   lyricActive = "primary",        -- is a ui.slider, which colours itself)
   lyricNear = "on_surface",
   lyricFar = "on_surface_variant",
   footer = "on_surface_variant/0.7",
-  hairline = "outline/0.35",
+  hairline = "outline_variant/0.35",
   emptyState = "on_surface_variant",
 }
 
@@ -385,7 +385,7 @@ local function buildLyricsBody(s)
         text = defLabel,
         fontSize = T.fsFarLyric,
         color = T.lyricActive,
-        fill = "surface_variant/0.4",
+        fill = "surface_container/0.4",
         radius = 8,
         padding = 6,
         onClick = function()
@@ -403,7 +403,7 @@ local function buildLyricsBody(s)
         text = (isActive and "● " or "") .. label,
         fontSize = T.fsFarLyric,
         color = isActive and T.lyricActive or T.colTitle,
-        fill = "surface_variant/0.4",
+        fill = "surface_container/0.4",
         radius = 8,
         padding = 6,
         onClick = function()
@@ -643,7 +643,7 @@ local function buildCover(s, coverSize)
   else
     -- no art: show a fallback disc glyph
     return ui.box({ key = "coverbox", width = COVER, height = COVER,
-      fill = "surface_variant/0.6", border = "outline/0.5", borderWidth = 1,
+      fill = "surface_container/0.6", border = "outline_variant/0.5", borderWidth = 1,
       radius = T.coverRadius }, {
         ui.glyph({ name = "disc", size = math.max(28, COVER - 8), color = "on_surface_variant" }),
       })

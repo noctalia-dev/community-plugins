@@ -1,7 +1,7 @@
 id = "miguelfm/ai-triage"
 name = "AI Triage"
-version = "1.6.2"
-plugin_api = 22
+version = "1.6.3"
+plugin_api = 43
 author = "miguelfm"
 license = "MIT"
 icon = "scale"

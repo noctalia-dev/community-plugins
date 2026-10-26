@@ -19,7 +19,7 @@ local function limitBar(label, block)
       ui.spacer({ flexGrow = 1 }),
       ui.label({ text = pct .. "%", fontWeight = "bold", color = accent }),
     }),
-    ui.progress({ progress = math.min(pct, 100) / 100, fill = accent, track = "surface_variant", height = 6, radius = 3 }),
+    ui.progress({ progress = math.min(pct, 100) / 100, fill = accent, track = "surface_container", height = 6, radius = 3 }),
     ui.label({ text = shared.fmtReset(block.resets_at), fontSize = 11, color = "on_surface_variant" }),
   })
 end
@@ -38,7 +38,7 @@ local function sessionRow(s)
     align = "center",
     padding = 8,
     radius = 10,
-    fill = "surface_variant/0.5",
+    fill = "surface_container/0.5",
     onClick = s.window and function() focus(s.window) end or nil,
     tooltip = s.window and "Focus this terminal" or nil,
   }, {

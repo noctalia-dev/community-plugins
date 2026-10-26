@@ -251,9 +251,9 @@ local function itemCard(item)
     gap = 8,
     padding = 10,
     radius = 8,
-    border = "outline",
+    border = "outline_variant",
     borderWidth = 1,
-    fill = hovered and "tertiary" or "surface_variant",
+    fill = hovered and "tertiary" or "surface_container",
     onClick = function() openLink(item.url); panel.close() end,
     onHover = function(state)
       hoveredKey = (state == "true") and key or nil
@@ -298,7 +298,7 @@ local TAB_ACTIONS = {
 -- items already on screen stay readable while the CLI's own message
 -- ("Error: not found" for a mistyped repo) explains what went wrong.
 local function errorBanner()
-  return ui.row({ gap = 6, align = "center", padding = 8, radius = 8, fill = "surface_variant" }, {
+  return ui.row({ gap = 6, align = "center", padding = 8, radius = 8, fill = "surface_container" }, {
     ui.glyph({ name = "alert-triangle", size = 16, color = "error" }),
     ui.label({
       text = tr("fetch_failed", { bin = PLATFORM_BIN[noctalia.getConfig("platform")] or "gh" })

@@ -11,7 +11,7 @@ local levelByName = {
 }
 
 local colorByLevel = {
-  "surface_variant",
+  "surface_container",
   "primary/0.25",
   "primary/0.45",
   "primary/0.70",

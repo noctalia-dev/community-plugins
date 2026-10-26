@@ -278,7 +278,7 @@ local function task_card(task)
     local rest_error = type(snapshot.restError) == "string" and snapshot.restError or ""
     local hint = unavailable and (rest_error ~= "" and rest_error or tr("task.unavailable_hint"))
       or tr("task.none_due_hint")
-    return ui.column({ gap = 8, padding = 18, align = "center", radius = 10, fill = "surface_variant/0.45" }, {
+    return ui.column({ gap = 8, padding = 18, align = "center", radius = 10, fill = "surface_container/0.45" }, {
       ui.glyph({ name = unavailable and "alert-triangle" or "circle-check", size = 28, color = unavailable and "error" or "primary" }),
       ui.label({ text = unavailable and tr("task.unavailable") or tr("task.none_due"), fontWeight = "bold" }),
       ui.label({ text = hint, color = "on_surface_variant", fontSize = 11, maxLines = 4 }),
@@ -353,13 +353,13 @@ local function task_card(task)
     ui.button({ text = tr("snooze.week"), variant = "ghost", controlSize = "sm", enabled = not busy, onClick = "onSnoozeWeek" }),
   }))
 
-  return ui.column({ gap = 10, padding = 13, radius = 10, fill = "surface_variant/0.45", border = overdue and "error/0.35" or "outline/0.35", borderWidth = 1 }, details)
+  return ui.column({ gap = 10, padding = 13, radius = 10, fill = "surface_container/0.45", border = overdue and "error/0.35" or "outline_variant/0.35", borderWidth = 1 }, details)
 end
 
 local function capture_card()
   local busy = action.status == "working"
   local adding = busy and action.type == "add"
-  return ui.column({ gap = 7, padding = 11, radius = 9, fill = "surface_variant/0.25" }, {
+  return ui.column({ gap = 7, padding = 11, radius = 9, fill = "surface_container/0.25" }, {
     ui.label({ text = tr("capture.title"), fontWeight = "bold" }),
     ui.label({ text = tr("capture.hint"), color = "on_surface_variant", fontSize = 10, maxLines = 3 }),
     ui.row({ gap = 7, align = "center" }, {
@@ -442,7 +442,7 @@ local function diagnostics_card()
     ui.button({ text = tr("actions.copy_path"), glyph = "copy", variant = "outline", controlSize = "sm", onClick = "onCopyBridgePath" }),
     ui.button({ text = tr("actions.settings"), glyph = "settings", variant = "outline", controlSize = "sm", onClick = "onSettings" }),
   }))
-  return ui.column({ gap = 6, padding = 11, radius = 9, border = "outline/0.35", borderWidth = 1 }, children)
+  return ui.column({ gap = 6, padding = 11, radius = 9, border = "outline_variant/0.35", borderWidth = 1 }, children)
 end
 
 render_panel = function()

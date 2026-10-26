@@ -231,7 +231,7 @@ local function selectionToolbar()
     ui.label({ text = tostring(itemTitle(item)), fontWeight = "bold", flexGrow = 1, maxLines = 1 }),
     ui.row({ gap = 6, align = "center" }, buttons),
   }))
-  return ui.column({ gap = 3, padding = 8, fill = "surface_variant/0.45", radius = 10 }, details)
+  return ui.column({ gap = 3, padding = 8, fill = "surface_container/0.45", radius = 10 }, details)
 end
 
 local function emptyMessage()

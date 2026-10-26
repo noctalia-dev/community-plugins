@@ -420,7 +420,7 @@ function render()
             end
         end
 
-        local row = ui.row({ key = `todo-{id}`, gap = 8, align = "center", padding = 8, fill = "surface_variant/0.45", radius = 6 }, {
+        local row = ui.row({ key = `todo-{id}`, gap = 8, align = "center", padding = 8, fill = "surface_container/0.45", radius = 6 }, {
             ui.dragSource({
                 key = `grip-{id}`,
                 dragType = "todo",
@@ -533,7 +533,7 @@ function render()
         submitOnEnter = true,
         onSubmit = addTodo,
     }))
-    table.insert(children, ui.scroll({ flexGrow = 1, gap = 4, align = "stretch", fill = "surface_variant/0.25", radius = 8, padding = 8 }, todoRows))
+    table.insert(children, ui.scroll({ flexGrow = 1, gap = 4, align = "stretch", fill = "surface_container/0.25", radius = 8, padding = 8 }, todoRows))
     panel.render(ui.column({ gap = 12, flexGrow = 1, align = "stretch" }, children))
 end
 

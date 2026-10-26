@@ -324,7 +324,7 @@ local function renderGameRow(g, index)
   if cp and noctalia.fileExists(cp) then
     coverWidget = ui.image({ path = cp, width = COVER_W, height = COVER_H, radius = 6, fit = "cover" })
   else
-    coverWidget = ui.box({ width = COVER_W, height = COVER_H, radius = 6, fill = "surface_variant" })
+    coverWidget = ui.box({ width = COVER_W, height = COVER_H, radius = 6, fill = "surface_container" })
   end
   local children = {
     coverWidget,
@@ -411,7 +411,7 @@ local function render()
         renderHeader(),
         renderSearchBar(),
       }),
-      ui.separator({ thickness = 1, color = "surface_variant" }),
+      ui.separator({ thickness = 1, color = "surface_container" }),
       bodyWidget,
     }))
   end)

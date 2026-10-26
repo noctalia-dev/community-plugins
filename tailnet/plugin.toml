@@ -7,8 +7,8 @@
 
 id = "rylos/tailnet"
 name = "Tailnet"
-version = "2.1.0"
-plugin_api = 9
+version = "2.2.1"
+plugin_api = 43
 author = "Marco Ziliani"
 license = "MIT"
 dependencies = ["tailscale", "ssh", "xdg-user-dir", "gio", "xdg-open"]
@@ -96,6 +96,13 @@ entry = "bar.luau"
   label_key = "settings.show_count.label"
   description_key = "settings.show_count.description"
   default = true
+
+  [[widget.setting]]
+  key = "hide_not_installed"
+  type = "bool"
+  label_key = "settings.hide_not_installed.label"
+  description_key = "settings.hide_not_installed.description"
+  default = false
 
 [[panel]]
 id = "panel"

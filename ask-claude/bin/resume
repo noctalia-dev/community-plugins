@@ -1,0 +1,187 @@
+#!/usr/bin/env bash
+set -u
+
+# usage: resume <herdr|tmux|tuios|zellij> <session-id> <dir> <label> <web>
+# exit 0 = tab opened and window focused, 3 = multiplexer not running,
+# 4 = tab opened but nothing to focus (attach command on stdout), 1 = error
+
+mux=${1:-}
+sid=${2:-}
+dir=${3:-$HOME}
+label=${4:-claude}
+web=${5:-0}
+
+label=${label//[[:cntrl:]]/}
+title="AI: $label"
+
+if [[ ! $sid =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]]; then
+  echo "invalid session id: $sid" >&2
+  exit 1
+fi
+[[ -d $dir ]] || dir=$HOME
+
+resume=("$(command -v claude || echo "$HOME/.local/bin/claude")" --resume "$sid")
+[[ $web == 1 ]] && resume+=(--permission-mode default)
+
+command -v jq >/dev/null || exit 3
+
+shq() { printf "'%s'" "${1//\'/\'\\\'\'}"; }
+
+# one "<pid>\t<window id>" line per window
+list_windows() {
+  if [[ -n ${HYPRLAND_INSTANCE_SIGNATURE:-} ]] && command -v hyprctl >/dev/null; then
+    hyprctl clients -j 2>/dev/null | jq -r '.[] | "\(.pid)\t\(.address)"'
+  elif [[ -n ${NIRI_SOCKET:-} ]] && command -v niri >/dev/null; then
+    niri msg --json windows 2>/dev/null | jq -r '.[] | select(.pid != null) | "\(.pid)\t\(.id)"'
+  elif [[ -n ${SWAYSOCK:-} ]] && command -v swaymsg >/dev/null; then
+    swaymsg -t get_tree 2>/dev/null \
+      | jq -r '.. | objects | select(.pid? != null and .type? != "workspace") | "\(.pid)\t\(.id)"'
+  elif [[ -n ${UMBRIEL_SOCKET:-} ]] && command -v umbriel >/dev/null; then
+    umbriel windows --json 2>/dev/null | jq -r '(.ok? // .) | .[] | select(.pid > 0) | "\(.pid)\t\(.id)"'
+  fi
+}
+
+focus_window_id() {
+  local id=$1
+  if [[ -n ${HYPRLAND_INSTANCE_SIGNATURE:-} ]]; then
+    # lua config syntax, then the old dispatcher; hyprctl exits 0 on failure too
+    [[ $(hyprctl dispatch "hl.dsp.focus({ window = \"address:$id\" })" 2>/dev/null) == ok ]] \
+      || [[ $(hyprctl dispatch focuswindow "address:$id" 2>/dev/null) == ok ]]
+  elif [[ -n ${NIRI_SOCKET:-} ]]; then
+    niri msg action focus-window --id "$id" >/dev/null 2>&1
+  elif [[ -n ${SWAYSOCK:-} ]]; then
+    swaymsg "[con_id=$id] focus" >/dev/null 2>&1
+  elif [[ -n ${UMBRIEL_SOCKET:-} ]]; then
+    umbriel msg "window-focus:$id" >/dev/null 2>&1
+  else
+    return 1
+  fi
+}
+
+focus_client() {
+  local windows pid p id
+  windows=$(list_windows) || return 1
+  [[ -n $windows ]] || return 1
+  for pid in "$@"; do
+    p=$pid
+    while [[ $p =~ ^[0-9]+$ && $p -gt 1 ]]; do
+      id=$(awk -F'\t' -v p="$p" '$1 == p { print $2; exit }' <<<"$windows")
+      if [[ -n $id ]]; then
+        focus_window_id "$id" && return 0
+        return 1
+      fi
+      p=$(ps -o ppid= -p "$p" 2>/dev/null | tr -d ' ')
+    done
+  done
+  return 1
+}
+
+client_pids() {
+  local name=$1 server=$2 pid
+  for pid in $(pgrep -x "$name"); do
+    [[ $(tr '\0' ' ' <"/proc/$pid/cmdline" 2>/dev/null) == *"$server"* ]] && continue
+    echo "$pid"
+  done
+}
+
+# finish <attach command> [client pid...]
+finish() {
+  local attach=$1
+  shift
+  (($# > 0)) && focus_client "$@" && exit 0
+  echo "$attach"
+  exit 4
+}
+
+open_herdr() {
+  local H ws pane
+  H=$(command -v herdr || echo "$HOME/.local/bin/herdr")
+  [[ -x $H ]] || exit 3
+  "$H" status 2>/dev/null | grep -q 'status: running' || exit 3
+
+  ws=$("$H" workspace list 2>/dev/null \
+    | jq -r '[.result.workspaces[] | select(.focused)][0].workspace_id // empty')
+  [[ -n $ws ]] || exit 3
+
+  pane=$("$H" tab create --workspace "$ws" --cwd "$dir" --label "$title" --focus 2>/dev/null \
+    | jq -r '.result.root_pane | if type == "object" then .pane_id else . end // empty')
+  if [[ -z $pane ]]; then
+    echo "herdr: could not create a tab" >&2
+    exit 3
+  fi
+  if ! "$H" pane run "$pane" "${resume[*]}" >/dev/null 2>&1; then
+    echo "herdr: could not start claude in pane $pane" >&2
+    exit 1
+  fi
+
+  # shellcheck disable=SC2046
+  finish "$(shq "$H")" $(client_pids herdr " server")
+}
+
+open_tmux() {
+  local cpid sess
+  command -v tmux >/dev/null || exit 3
+  tmux list-sessions >/dev/null 2>&1 || exit 3
+
+  # last active client, or the last used session if nobody is attached
+  read -r _ cpid sess < <(tmux list-clients -F '#{client_activity} #{client_pid} #{session_name}' 2>/dev/null \
+    | sort -rn | head -n1)
+  if [[ -z ${sess:-} ]]; then
+    cpid=
+    read -r _ sess < <(tmux list-sessions -F '#{session_activity} #{session_name}' | sort -rn | head -n1)
+  fi
+  [[ -n ${sess:-} ]] || exit 3
+
+  if ! tmux new-window -t "$sess:" -c "$dir" -n "$title" -- "${resume[@]}" >/dev/null 2>&1; then
+    echo "tmux: could not open a window in session $sess" >&2
+    exit 1
+  fi
+
+  finish "tmux attach-session -t $(shq "$sess")" ${cpid:+"$cpid"}
+}
+
+open_tuios() {
+  local json sess
+  command -v tuios >/dev/null || exit 3
+  json=$(tuios ls --json 2>/dev/null) || exit 3 # exit 3 = no daemon
+  sess=$(jq -r 'map(select(.saved != true)) | sort_by(.attached, .last_active) | last | .name // empty' <<<"$json")
+  [[ -n $sess ]] || exit 3
+
+  if ! tuios new-window "$title" -s "$sess" --cwd "$dir" -- "${resume[@]}" >/dev/null 2>&1; then
+    echo "tuios: could not open a window in session $sess" >&2
+    exit 1
+  fi
+
+  # shellcheck disable=SC2046
+  finish "tuios attach $(shq "$sess")" \
+    $(tuios list-clients --json 2>/dev/null | jq -r --arg s "$sess" '.[]? | select(.session == $s) | .pid')
+}
+
+open_zellij() {
+  local sess
+  command -v zellij >/dev/null || exit 3
+  # newest session is listed last
+  sess=$(zellij list-sessions --no-formatting 2>/dev/null | grep -v 'EXITED' | awk 'NF { s = $1 } END { print s }')
+  [[ -n $sess ]] || exit 3
+
+  # new-tab accepts a command since 0.44, older zellij only gets a pane
+  if ! zellij --session "$sess" action new-tab --cwd "$dir" --name "$title" -- "${resume[@]}" >/dev/null 2>&1 \
+    && ! zellij --session "$sess" run --cwd "$dir" --name "$title" -- "${resume[@]}" >/dev/null 2>&1; then
+    echo "zellij: could not open a tab in session $sess" >&2
+    exit 1
+  fi
+
+  # shellcheck disable=SC2046
+  finish "zellij attach $(shq "$sess")" $(client_pids zellij "--server")
+}
+
+case $mux in
+  herdr) open_herdr ;;
+  tmux) open_tmux ;;
+  tuios) open_tuios ;;
+  zellij) open_zellij ;;
+  *)
+    echo "unknown multiplexer: $mux" >&2
+    exit 1
+    ;;
+esac

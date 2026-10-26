@@ -5,6 +5,7 @@ local function resetMock()
     now = 1000000, tree = nil, renders = 0, ticks = false, closed = 0,
     commandExists = true, processStarted = true, lookups = {}, requests = {},
     clipboard = nil, clipboardOK = true, httpMode = "normal", maxActive = 0,
+    settings = copy(settingDefaults), lookupArgs = {}, settingsOpened = 0,
   }
 end
 resetMock()
@@ -18,12 +19,22 @@ local noctalia = {
     end
     return value
   end,
+  getConfig = function(key)
+    assert(settingDefaults[key] ~= nil, "Undeclared config key")
+    return mock.settings[key]
+  end,
+  openSettings = function() mock.settingsOpened = mock.settingsOpened + 1 end,
   nowMs = function() return mock.now end,
   commandExists = function(name) assert(name == "secret-tool"); return mock.commandExists end,
   json = json,
   runAsync = function(argv, callback)
     assert(type(argv) == "table", "Credentials must never use a shell")
-    assert(table.concat(argv, "|") == "secret-tool|lookup|application|quickask|provider|opencode-go")
+    local equalPrefix = table.concat({argv[1], argv[2], argv[3], argv[4], argv[5]}, "|")
+    assert(equalPrefix == "secret-tool|lookup|application|quickask|provider")
+    assert(argv[6] == "opencode-go" or argv[6] == "openai-compatible")
+    assert(#argv == (argv[6] == "opencode-go" and 6 or 8))
+    if argv[6] == "openai-compatible" then assert(argv[7] == "endpoint") end
+    table.insert(mock.lookupArgs, copy(argv))
     if not mock.processStarted then return false end
     table.insert(mock.lookups, callback)
     return true

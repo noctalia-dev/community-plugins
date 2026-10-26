@@ -155,13 +155,13 @@ local function renderConnectionsTab()
         paddingV = 6,
         paddingH = 8,
         radius = 8,
-        fill = isCurrentCountry and "primary/0.15" or "surface_variant/0.3",
+        fill = isCurrentCountry and "primary/0.15" or "surface_container/0.3",
       }, {
         ui.row({
           width = 34,
           height = 24,
           radius = 4,
-          fill = isCurrentCountry and "primary" or "surface_variant",
+          fill = isCurrentCountry and "primary" or "surface_container",
           align = "center",
           justify = "center",
         }, {
@@ -226,7 +226,7 @@ local function renderProtectionTab()
   table.insert(rows, ui.column({
     padding = 10,
     radius = 10,
-    fill = "surface_variant/0.45",
+    fill = "surface_container/0.45",
     gap = 6,
     align = "stretch",
   }, {
@@ -252,7 +252,7 @@ local function renderProtectionTab()
   table.insert(rows, ui.column({
     padding = 10,
     radius = 10,
-    fill = "surface_variant/0.45",
+    fill = "surface_container/0.45",
     gap = 8,
     align = "stretch",
   }, {
@@ -345,7 +345,7 @@ local function renderProtectionTab()
   table.insert(rows, ui.column({
     padding = 10,
     radius = 10,
-    fill = "surface_variant/0.45",
+    fill = "surface_container/0.45",
     gap = 6,
     align = "stretch",
   }, portChildren))
@@ -395,7 +395,7 @@ local function renderProtectionTab()
         paddingV = 4,
         paddingH = 6,
         radius = 6,
-        fill = "surface_variant/0.3",
+        fill = "surface_container/0.3",
       }, {
         ui.glyph({ name = "app-window", size = 14, color = "on_surface_variant" }),
         ui.label({ text = appName, fontSize = 12, flexGrow = 1, maxLines = 1 }),
@@ -464,7 +464,7 @@ local function renderProtectionTab()
   table.insert(rows, ui.column({
     padding = 10,
     radius = 10,
-    fill = "surface_variant/0.45",
+    fill = "surface_container/0.45",
     gap = 6,
     align = "stretch",
   }, splitChildren))
@@ -489,7 +489,7 @@ local function renderAccountTab()
   table.insert(rows, ui.column({
     padding = 12,
     radius = 10,
-    fill = "surface_variant/0.45",
+    fill = "surface_container/0.45",
     gap = 8,
     align = "stretch",
   }, {
@@ -511,7 +511,7 @@ local function renderAccountTab()
   }))
 
   if not signedIn then
-    table.insert(rows, ui.column({ gap = 10, padding = 12, align = "stretch", radius = 10, fill = "surface_variant/0.35" }, {
+    table.insert(rows, ui.column({ gap = 10, padding = 12, align = "stretch", radius = 10, fill = "surface_container/0.35" }, {
       ui.label({
         text = "Enter your Proton username or email below to sign in:",
         fontSize = 12,
@@ -658,7 +658,7 @@ render = function()
   local topCard = ui.column({
     padding = 12,
     radius = 12,
-    fill = connected and "primary/0.12" or "surface_variant/0.4",
+    fill = connected and "primary/0.12" or "surface_container/0.4",
     gap = 4,
     align = "stretch",
   }, connCardChildren)

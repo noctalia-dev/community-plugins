@@ -1,13 +1,13 @@
 id = "reaperhound/ambient-sounds"
 name = "Ambient Sounds"
-version = "0.1.2"
+version = "0.1.3"
 author = "Reaper Hound"
 description = "Mix looping ambient sounds from a Noctalia panel, bar widget, or shortcut."
 license = "MIT"
 dependencies = ["mpv", "socat", "wpctl", "pkill", "rmdir"]
 tags = ["audio", "media", "bar", "panel", "shortcut"]
 icon = "headphones"
-plugin_api = 24
+plugin_api = 43
 
 
 [[panel]]

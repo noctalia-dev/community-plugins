@@ -1,7 +1,7 @@
 id = "mindnbytes/nix-status"
 name = "Nix Status"
-version = "0.2.0"
-plugin_api = 30
+version = "0.2.1"
+plugin_api = 43
 author = "mindnbytes"
 license = "MIT"
 icon = "package"

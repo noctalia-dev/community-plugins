@@ -8,8 +8,8 @@
 
 id = "mdj2812/mihomo-control"
 name = "Mihomo Control"
-version = "0.2.0"
-plugin_api = 9
+version = "0.2.1"
+plugin_api = 43
 author = "mdj2812"
 license = "MIT"
 icon = "cat"

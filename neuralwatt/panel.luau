@@ -90,7 +90,7 @@ local function section(title, rows, trailing)
 end
 
 local function divider()
-	return ui.separator({ spacing = 11, color = "outline/0.35" })
+	return ui.separator({ spacing = 11, color = "outline_variant/0.35" })
 end
 
 -- ── usage sections ───────────────────────────────────────────────────────────

@@ -10,8 +10,8 @@
 
 id = "muhammadessam/umbriel-monitor-control"
 name = "Umbriel Monitor Control"
-version = "0.3.1"
-plugin_api = 24
+version = "0.3.2"
+plugin_api = 43
 author = "muhammadessam"
 license = "MIT"
 dependencies = ["umbriel"]

@@ -354,8 +354,8 @@ local function card(titleKey, children)
   end
   return ui.column({
     gap = 10,
-    fill = "surface_variant",
-    border = "outline",
+    fill = "surface_container",
+    border = "outline_variant",
     borderWidth = 1,
     radius = 12,
     padding = 16,

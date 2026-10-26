@@ -1,7 +1,7 @@
 id = "asj/task-warrior"
 name = "Task Warrior"
-version = "2.0.0"
-plugin_api = 3
+version = "2.0.1"
+plugin_api = 43
 author = "Anders Doozer"
 license = "MIT"
 description = "Taskwarrior in your bar: see pending and overdue counts, and add, edit, complete or delete tasks."

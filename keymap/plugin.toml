@@ -1,7 +1,7 @@
 id = "blackbartblues/keymap"
 name = "Keymap"
-version = "1.5.1"
-plugin_api = 9
+version = "1.5.2"
+plugin_api = 43
 author = "blackbartblues"
 license = "MIT"
 deprecated = true
@@ -98,7 +98,7 @@ key = "card_color"
 type = "color"
 label_key = "settings.card_color.label"
 description_key = "settings.card_color.description"
-default = "surface_variant"
+default = "surface_container"
 
 [[setting]]
 key = "card_opacity"
@@ -171,7 +171,7 @@ key = "alt_color"
 type = "color"
 label_key = "settings.alt_color.label"
 description_key = "settings.modifier_color.description"
-default = "surface_variant"
+default = "surface_container"
 
 [[setting]]
 key = "alt_text_color"

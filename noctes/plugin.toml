@@ -1,7 +1,7 @@
 id          = "remo/noctes"
 name        = "Noctes"
-version     = "0.20.1"
-plugin_api  = 26
+version     = "0.20.2"
+plugin_api  = 43
 author      = "remo"
 license     = "MIT"
 icon        = "note"

@@ -34,7 +34,7 @@ local CLASSIC = {
 local INK = "#22262F"
 local INK_MUTED = "#22262FA6"
 
--- Theme papers. Only the four accent roles: `surface_variant` is the panel
+-- Theme papers. Only the four accent roles: `surface_container` is the panel
 -- background of whatever scheme is loaded, so on a dark one it hands back a
 -- near-black sheet that reads as a UI card someone forgot to style, not as
 -- paper. Four looks instead of eight is the better trade.

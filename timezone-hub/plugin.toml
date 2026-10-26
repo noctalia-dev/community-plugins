@@ -3,8 +3,8 @@
 
 id          = "ahmedhossamdev/timezone-hub"
 name        = "Timezone Hub"
-version     = "2.1.0"
-plugin_api  = 24
+version     = "2.1.1"
+plugin_api  = 43
 author      = "ahmedhossamdev"
 license     = "MIT"
 icon        = "world"

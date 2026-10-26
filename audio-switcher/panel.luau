@@ -118,7 +118,7 @@ local function volumeCard(kind)
   local volume = tonumber(isOutput and snapshot.outputVolume or snapshot.inputVolume) or 0
   local muted = (isOutput and snapshot.outputMuted == true) or (not isOutput and snapshot.inputMuted == true)
   local icon = isOutput and (muted and "volume-off" or "volume") or (muted and "microphone-mute" or "microphone")
-  return ui.column({ flexGrow = 1, gap = 8, padding = 12, radius = 12, fill = "surface_variant/0.45" }, {
+  return ui.column({ flexGrow = 1, gap = 8, padding = 12, radius = 12, fill = "surface_container/0.45" }, {
     ui.row({ align = "center", gap = 8 }, {
       ui.glyph({ name = isOutput and "volume" or "microphone", size = 18, color = isOutput and "primary" or "tertiary" }),
       ui.column({ flexGrow = 1, gap = 2 }, {
@@ -212,7 +212,7 @@ local function editor(device)
     ui.button({ text = tr("actions.cancel"), variant = "ghost", onClick = "onCancelEdit" }),
     ui.button({ text = tr("actions.save"), glyph = "device-floppy", variant = "primary", onClick = "onSaveEdit" }),
   }))
-  return ui.column({ gap = 7, padding = 10, radius = 9, fill = "surface_variant/0.45", border = "primary/0.35", borderWidth = 1 }, children)
+  return ui.column({ gap = 7, padding = 10, radius = 9, fill = "surface_container/0.45", border = "primary/0.35", borderWidth = 1 }, children)
 end
 
 local function deviceRow(device, kind)
@@ -315,7 +315,7 @@ local function deviceRow(device, kind)
   }
   for _, action in ipairs(actions) do table.insert(rowChildren, action) end
   local row = ui.column({ gap = 6 }, {
-    ui.row({ align = "center", gap = 8, padding = 7, radius = 9, border = selectedGroupOutputs[device.id] and "primary" or (device.active and "primary" or "outline/0.55"), borderWidth = 1, fill = selectedGroupOutputs[device.id] and "primary/0.1" or (device.active and "primary/0.07" or "surface/0") }, rowChildren),
+    ui.row({ align = "center", gap = 8, padding = 7, radius = 9, border = selectedGroupOutputs[device.id] and "primary" or (device.active and "primary" or "outline_variant/0.55"), borderWidth = 1, fill = selectedGroupOutputs[device.id] and "primary/0.1" or (device.active and "primary/0.07" or "surface/0") }, rowChildren),
   })
   local children = { row }
   if kind == "input" and #ports > 1 then

@@ -92,9 +92,9 @@ Note: some GPUs share an encoder/decoder. In this case, the `ENC` and `DEC` colu
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
 | `delay` | `int` | `5` | Refresh rate. `1` == `0.1s`. Valid values: `5-20`. |
-| `sort_column_background` | `color` | `surface_variant` | Background color for the sorted column. |
+| `sort_column_background` | `color` | `surface_container` | Background color for the sorted column. |
 | `sort_column_color` | `color` | `on_surface_variant` | Text color for the sorted column. |
-| `process_hover_background` | `color` | `surface_variant` | Background color for the hovered row. |
+| `process_hover_background` | `color` | `surface_container` | Background color for the hovered row. |
 | `process_hover_color` | `color` | `on_surface_variant` | Text color for the hovered row. |
 
 

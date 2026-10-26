@@ -35,7 +35,7 @@ local function artworkNode(media)
     width = 62,
     height = 62,
     radius = 14,
-    fill = "surface_variant",
+    fill = "surface_container",
     align = "center",
     justify = "center",
   }, {
@@ -65,7 +65,7 @@ local function renderEmpty()
       width = 54,
       height = 54,
       radius = 14,
-      fill = "surface_variant",
+      fill = "surface_container",
       align = "center",
       justify = "center",
     }, {
@@ -175,7 +175,7 @@ local function render()
         radius = 2,
         flexGrow = 1,
         fill = "primary",
-        track = "surface_variant",
+        track = "surface_container",
       }),
       ui.label({
         text = formatTime(lengthUs),

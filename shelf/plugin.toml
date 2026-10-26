@@ -1,7 +1,7 @@
 id           = "alok-debnath/shelf"
 name         = "Shelf"
-version      = "1.2.2"
-plugin_api   = 24
+version      = "1.2.3"
+plugin_api   = 43
 author       = "alok-debnath"
 license      = "MIT"
 icon         = "stack-2"

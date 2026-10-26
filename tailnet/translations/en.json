@@ -56,6 +56,10 @@
       "description": "Hide offline peers from the panel and launcher lists.",
       "label": "Hide offline peers"
     },
+    "hide_not_installed": {
+      "description": "Hide the widget when Tailscale is not installed.",
+      "label": "Hide widget when Tailscale is missing"
+    },
     "poll_interval": {
       "description": "How often the Tailscale status is refreshed.",
       "label": "Poll interval (seconds)"

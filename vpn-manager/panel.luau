@@ -45,7 +45,7 @@ local function statusDot(active, busy)
     width = 8,
     height = 8,
     radius = 4,
-    fill = if busy then "on_surface_variant" elseif active then "primary" else "outline",
+    fill = if busy then "on_surface_variant" elseif active then "primary" else "outline_variant",
   })
 end
 
@@ -196,7 +196,7 @@ local function connectionRow(row)
     gap = 6,
     paddingV = 6,
     paddingH = 8,
-    fill = "surface_variant/0.35",
+    fill = "surface_container/0.35",
     radius = 8,
   }, children)
 end
@@ -366,7 +366,7 @@ local function addSection()
     table.insert(banner, node)
   end
 
-  return ui.column({ gap = 8, padding = 8, fill = "surface_variant/0.25", radius = 8 }, banner)
+  return ui.column({ gap = 8, padding = 8, fill = "surface_container/0.25", radius = 8 }, banner)
 end
 
 local function trustSection()
@@ -404,7 +404,7 @@ local function trustSection()
         align = "center",
         paddingV = 3,
         paddingH = 6,
-        fill = "surface_variant/0.25",
+        fill = "surface_container/0.25",
         radius = 6,
       }, {
         ui.glyph({ name = "wifi", size = 12, color = "on_surface_variant" }),

@@ -30,7 +30,7 @@ Built for **Noctalia Shell**, extensively tested on **MangoWM** on **Arch Linux 
 
 ## Features
 
-- 🎨 **Dynamic Theme Coloring**: Automatically synchronizes with your active Noctalia color palette and wallpaper tones (using semantic `primary`, `on_surface`, and `surface_variant` tokens).
+- 🎨 **Dynamic Theme Coloring**: Automatically synchronizes with your active Noctalia color palette and wallpaper tones (using semantic `primary`, `on_surface`, and `surface_container` tokens).
 - 🛡️ **Kill Switch**: Instant standard Kill Switch toggle to prevent accidental IP leaks.
 - 🛡️ **NetShield Ad & Malware Blocker**: 3-level DNS filtering (`Off`, `Malware only`, `Malware, Ads & Trackers`).
 - ⚡ **Port Forwarding**: Automatic continuous NAT-PMP port mapping renewal every 45s with one-click port copying to clipboard for torrent clients and P2P software.

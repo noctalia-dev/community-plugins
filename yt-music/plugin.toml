@@ -1,7 +1,7 @@
 id = "aabidk20/yt-music"
 name = "YouTube Music"
-version = "0.4.0" # rc
-plugin_api = 28
+version = "0.4.1" # rc
+plugin_api = 43
 icon = "brand-youtube-filled"
 author = "Aabid"
 license = "MIT"

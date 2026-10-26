@@ -1162,7 +1162,7 @@ local function statCard(label, value, onClick)
     gap      = 2,
     padding  = 10,
     radius   = 8,
-    fill     = isHovered and "surface_variant/0.9" or "surface_variant/0.65",
+    fill     = isHovered and "surface_container/0.9" or "surface_container/0.65",
     align    = "center",
     justify  = "center",
     flexGrow = 1,
@@ -1176,7 +1176,7 @@ local function statCard(label, value, onClick)
   end
   return ui.column(props, {
     ui.label({ text = value, fontSize = 20, fontWeight = "bold", color = "primary" }),
-    ui.label({ text = label, fontSize = 11, color = "outline" }),
+    ui.label({ text = label, fontSize = 11, color = "outline_variant" }),
   })
 end
 
@@ -1189,7 +1189,7 @@ end
 
 local function centeredLabel(text, color)
   return ui.column({ flexGrow = 1, align = "center", justify = "center", padding = 32 }, {
-    ui.label({ text = text, color = color or "outline", textAlign = "center" }),
+    ui.label({ text = text, color = color or "outline_variant", textAlign = "center" }),
   })
 end
 
@@ -1198,14 +1198,14 @@ local function countryCard(c)
   local flag = flagEmoji(c.iso)
   local flagInner = (flag ~= "")
     and ui.label({ text = flag, fontSize = 14 })
-    or ui.glyph({ name = "world", size = 14, color = "outline" })
+    or ui.glyph({ name = "world", size = 14, color = "outline_variant" })
   local isHovered = (hoveredKey == key)
   return ui.column({
     key         = key,
     gap         = 4,
     padding     = 8,
     radius      = 8,
-    fill        = isHovered and "surface_variant/0.9" or "surface_variant/0.5",
+    fill        = isHovered and "surface_container/0.9" or "surface_container/0.5",
     align       = "center",
     justify     = "center",
     flexGrow    = 1,
@@ -1215,7 +1215,7 @@ local function countryCard(c)
       render()
     end,
   }, {
-    ui.column({ width = 28, height = 28, radius = 7, fill = "surface_variant/0.65", align = "center", justify = "center" }, { flagInner }),
+    ui.column({ width = 28, height = 28, radius = 7, fill = "surface_container/0.65", align = "center", justify = "center" }, { flagInner }),
     ui.label({ text = c.name, fontSize = 10, maxLines = 1, textAlign = "center" }),
     ui.column({ paddingH = 6, paddingV = 1, radius = 8, fill = "primary/0.15" }, {
       ui.label({ text = tostring(c.count), fontSize = 9, fontWeight = "bold", color = "primary" }),
@@ -1228,8 +1228,8 @@ local function countryRow(c)
   local flag = flagEmoji(c.iso)
   local flagInner = (flag ~= "")
     and ui.label({ text = flag, fontSize = 12 })
-    or ui.glyph({ name = "world", size = 13, color = "outline" })
-  local flagWidget = ui.column({ width = 24, height = 24, radius = 6, fill = "surface_variant/0.65", align = "center", justify = "center" }, { flagInner })
+    or ui.glyph({ name = "world", size = 13, color = "outline_variant" })
+  local flagWidget = ui.column({ width = 24, height = 24, radius = 6, fill = "surface_container/0.65", align = "center", justify = "center" }, { flagInner })
   local isHovered = (hoveredKey == key)
   return ui.row({
     key     = key,
@@ -1238,8 +1238,8 @@ local function countryRow(c)
     paddingH = 6,
     paddingV = 1,
     radius  = 6,
-    fill        = "surface_variant/0.4",
-    border      = "outline",
+    fill        = "surface_container/0.4",
+    border      = "outline_variant",
     borderWidth = isHovered and 1 or 0,
     onClick = function() selectCountry(c.iso, c.name) end,
     onHover = function(isHovering)
@@ -1249,8 +1249,8 @@ local function countryRow(c)
   }, {
     flagWidget,
     ui.label({ text = c.name, fontSize = 12, flexGrow = 1, maxLines = 1 }),
-    ui.label({ text = tostring(c.count), fontSize = 12, fontWeight = "bold", color = "outline" }),
-    ui.glyph({ name = "chevron-right", size = 13, color = "outline" }),
+    ui.label({ text = tostring(c.count), fontSize = 12, fontWeight = "bold", color = "outline_variant" }),
+    ui.glyph({ name = "chevron-right", size = 13, color = "outline_variant" }),
   })
 end
 
@@ -1265,14 +1265,14 @@ local function genreChip(g)
     paddingV = 4,
     radius  = 14,
     align   = "center",
-    fill    = isActive and "primary/0.2" or (isHovered and "surface_variant/0.8" or "surface_variant/0.55"),
+    fill    = isActive and "primary/0.2" or (isHovered and "surface_container/0.8" or "surface_container/0.55"),
     onClick = function() selectGenre(g) end,
     onHover = function(isHovering)
       hoveredKey = isHovering and key or nil
       render()
     end,
   }, {
-    ui.glyph({ name = g.icon, size = 11, color = isActive and "primary" or "outline" }),
+    ui.glyph({ name = g.icon, size = 11, color = isActive and "primary" or "outline_variant" }),
     ui.label({ text = g.name, fontSize = 10, color = isActive and "primary" or "on_surface" }),
   })
 end
@@ -1340,14 +1340,14 @@ renderDashboard = function()
         paddingH    = 8,
         paddingV    = 6,
         radius      = 7,
-        fill        = "surface_variant/0.5",
+        fill        = "surface_container/0.5",
         onClick     = function()
           genresExpanded = not genresExpanded
           render()
         end,
       }, {
         ui.label({ text = tr("panel.genres_title"), fontSize = 12, fontWeight = "bold", flexGrow = 1 }),
-        ui.glyph({ name = genresExpanded and "chevron-up" or "chevron-down", size = 14, color = "outline" }),
+        ui.glyph({ name = genresExpanded and "chevron-up" or "chevron-down", size = 14, color = "outline_variant" }),
       }))
       if genresExpanded then
         local chipRows = {}
@@ -1368,14 +1368,14 @@ renderDashboard = function()
         paddingH    = 8,
         paddingV    = 6,
         radius      = 7,
-        fill        = "surface_variant/0.5",
+        fill        = "surface_container/0.5",
         onClick     = function()
           decadesExpanded = not decadesExpanded
           render()
         end,
       }, {
         ui.label({ text = tr("panel.decades_title"), fontSize = 12, fontWeight = "bold", flexGrow = 1 }),
-        ui.glyph({ name = decadesExpanded and "chevron-up" or "chevron-down", size = 14, color = "outline" }),
+        ui.glyph({ name = decadesExpanded and "chevron-up" or "chevron-down", size = 14, color = "outline_variant" }),
       }))
       if decadesExpanded then
         local decadeRows = {}
@@ -1391,7 +1391,7 @@ renderDashboard = function()
 
       if #countries > 0 then
         table.insert(scrollChildren, ui.separator({}))
-        table.insert(scrollChildren, ui.label({ text = tr("panel.top_countries"), fontSize = 11, fontWeight = "bold", color = "outline" }))
+        table.insert(scrollChildren, ui.label({ text = tr("panel.top_countries"), fontSize = 11, fontWeight = "bold", color = "outline_variant" }))
         local topN = {}
         for i = 1, math.min(TOP_COUNTRIES, #countries) do
           table.insert(topN, countryCard(countries[i]))
@@ -1416,7 +1416,7 @@ renderDashboard = function()
             paddingH    = 8,
             paddingV    = 6,
             radius      = 7,
-            fill        = "surface_variant/0.5",
+            fill        = "surface_container/0.5",
             onClick     = function()
               countriesExpanded = not countriesExpanded
               if countriesExpanded then
@@ -1426,7 +1426,7 @@ renderDashboard = function()
             end,
           }, {
             ui.label({ text = tr("panel.all_countries", { count = tostring(remainingCount) }), fontSize = 12, fontWeight = "bold", flexGrow = 1 }),
-            ui.glyph({ name = countriesExpanded and "chevron-up" or "chevron-down", size = 14, color = "outline" }),
+            ui.glyph({ name = countriesExpanded and "chevron-up" or "chevron-down", size = 14, color = "outline_variant" }),
           }))
           if countriesExpanded then
             local last = math.min(#countries, TOP_COUNTRIES + countriesShown)
@@ -1470,6 +1470,38 @@ renderDashboard = function()
   return children
 end
 
+local function stationArt(thumb, size, fallbackGlyph)
+  local artSize = size or 26
+  local glyphName = fallbackGlyph or "radio"
+  local glyphSize = math.max(12, math.floor(artSize * 0.58))
+
+  if thumb ~= nil then
+    return ui.column({
+      width    = artSize,
+      height   = artSize,
+      radius   = 4,
+      overflow = "hidden",
+      align    = "center",
+      justify  = "center",
+      minWidth = artSize,
+      minHeight = artSize,
+    }, {
+      ui.image({ path = thumb, width = artSize, height = artSize, fit = "cover" }),
+    })
+  end
+
+  return ui.column({
+    width   = artSize,
+    height  = artSize,
+    radius  = 4,
+    fill    = "surface_container/0.65",
+    align   = "center",
+    justify = "center",
+    minWidth = artSize,
+    minHeight = artSize,
+  }, { ui.glyph({ name = glyphName, size = glyphSize, color = "outline_variant" }) })
+end
+
 local function stationRow(s, sourceView)
   loadFavicon(s)
   local isPlaying = playingUuid == s.uuid
@@ -1496,18 +1528,7 @@ local function stationRow(s, sourceView)
   local isHovered = (hoveredKey == key)
 
   local parts = {}
-  if thumb ~= nil then
-    table.insert(parts, ui.image({ path = thumb, width = 26, height = 26, radius = 4 }))
-  else
-    table.insert(parts, ui.column({
-      width   = 26,
-      height  = 26,
-      radius  = 4,
-      fill    = "surface_variant/0.65",
-      align   = "center",
-      justify = "center",
-    }, { ui.glyph({ name = "radio", size = 15, color = "outline" }) }))
-  end
+  table.insert(parts, stationArt(thumb, 26, "radio"))
 
   local labels = {
     ui.label({
@@ -1519,14 +1540,16 @@ local function stationRow(s, sourceView)
     }),
   }
   if metaText ~= "" then
-    table.insert(labels, ui.label({ text = metaText, fontSize = 11, color = "outline" }))
+    table.insert(labels, ui.label({ text = metaText, fontSize = 11, color = "outline_variant" }))
   end
   table.insert(parts, ui.column({
     width = 0,
     flexGrow = 1,
     minWidth = 0,
-    gap = 0,
+    gap = 2,
     align = "start",
+    justify = "center",
+    minHeight = 34,
   }, labels))
 
   if s.votes > 0 then
@@ -1565,9 +1588,11 @@ local function stationRow(s, sourceView)
     paddingH = 6,
     paddingV = 1,
     radius  = 6,
-    fill        = isPlaying and "primary/0.12" or (isHovered and "surface_variant/0.55" or "surface_variant/0.4"),
-    border      = isPlaying and "primary/0.3" or "outline",
+    fill        = isPlaying and "primary/0.12" or (isHovered and "surface_container/0.55" or "surface_container/0.4"),
+    border      = isPlaying and "primary/0.3" or "outline_variant",
     borderWidth = (isHovered or isPlaying) and 1 or 0,
+    minHeight   = 40,
+    height      = 40,
     onHover = function(isHovering)
       hoveredKey = isHovering and key or nil
       render()
@@ -1585,7 +1610,7 @@ renderCountry = function()
   end
   table.insert(headerParts, ui.column({ flexGrow = 1, gap = 0 }, {
     ui.label({ text = selectedName, fontSize = 15, fontWeight = "bold", maxLines = 1 }),
-    ui.label({ text = tr("panel.station_count", { count = tostring(countryCount(selectedCode)) }), fontSize = 11, color = "outline" }),
+    ui.label({ text = tr("panel.station_count", { count = tostring(countryCount(selectedCode)) }), fontSize = 11, color = "outline_variant" }),
   }))
   table.insert(children, ui.row({ gap = 8, align = "center" }, headerParts))
 
@@ -1643,7 +1668,7 @@ renderGenre = function()
       genreIcon,
       ui.column({ flexGrow = 1, gap = 0 }, {
         ui.label({ text = selectedGenre.name, fontSize = 15, fontWeight = "bold", maxLines = 1 }),
-        ui.label({ text = tr(selectedGenre.kind == "decade" and "panel.decade_stations" or "panel.genre_stations"), fontSize = 11, color = "outline" }),
+        ui.label({ text = tr(selectedGenre.kind == "decade" and "panel.decade_stations" or "panel.genre_stations"), fontSize = 11, color = "outline_variant" }),
       }),
     }))
   end
@@ -1700,7 +1725,7 @@ renderGlobalSearch = function()
     ui.glyph({ name = "search", size = 16, color = "primary" }),
     ui.column({ flexGrow = 1, gap = 0 }, {
       ui.label({ text = tr("panel.search_title"), fontSize = 15, fontWeight = "bold", maxLines = 1 }),
-      ui.label({ text = tr("panel.search_subtitle"), fontSize = 11, color = "outline" }),
+      ui.label({ text = tr("panel.search_subtitle"), fontSize = 11, color = "outline_variant" }),
     }),
   }))
 
@@ -1762,7 +1787,7 @@ renderCountrySearch = function()
   elseif countries ~= nil then
     local q = noctalia.string.trim(query):lower()
     if q == "" then
-      table.insert(scrollChildren, centeredLabel(tr("panel.search_countries_hint"), "outline"))
+      table.insert(scrollChildren, centeredLabel(tr("panel.search_countries_hint"), "outline_variant"))
     else
       local matches = {}
       for _, c in ipairs(countries) do
@@ -1791,7 +1816,7 @@ renderAllStations = function()
     ui.glyph({ name = "radio", size = 16, color = "primary" }),
     ui.column({ flexGrow = 1, gap = 0 }, {
       ui.label({ text = tr("panel.all_stations_title"), fontSize = 15, fontWeight = "bold", maxLines = 1 }),
-      ui.label({ text = tr("panel.station_count", { count = allStations ~= nil and tostring(#allStations) or "..." }), fontSize = 11, color = "outline" }),
+      ui.label({ text = tr("panel.station_count", { count = allStations ~= nil and tostring(#allStations) or "..." }), fontSize = 11, color = "outline_variant" }),
     }),
   }))
 
@@ -1832,7 +1857,7 @@ renderAllCountries = function()
     ui.glyph({ name = "world", size = 16, color = "primary" }),
     ui.column({ flexGrow = 1, gap = 0 }, {
       ui.label({ text = tr("panel.all_countries_title"), fontSize = 15, fontWeight = "bold", maxLines = 1 }),
-      ui.label({ text = tr("panel.all_countries_subtitle", { shown = tostring(math.min(allCountryShown, total)), total = tostring(total) }), fontSize = 11, color = "outline" }),
+      ui.label({ text = tr("panel.all_countries_subtitle", { shown = tostring(math.min(allCountryShown, total)), total = tostring(total) }), fontSize = 11, color = "outline_variant" }),
     }),
   }))
 
@@ -1874,7 +1899,7 @@ renderFavorites = function()
     ui.glyph({ name = "star-filled", size = 16, color = "warning" }),
     ui.column({ flexGrow = 1, gap = 0 }, {
       ui.label({ text = tr("panel.favorites_title"), fontSize = 15, fontWeight = "bold", maxLines = 1 }),
-      ui.label({ text = tr("panel.favorites_count", { count = tostring(#favorites) }), fontSize = 11, color = "outline" }),
+      ui.label({ text = tr("panel.favorites_count", { count = tostring(#favorites) }), fontSize = 11, color = "outline_variant" }),
     }),
   }))
 
@@ -1898,16 +1923,7 @@ local function customRow(s, index)
   local labels = { ui.label({ text = s.name, fontSize = 12, maxLines = 1 }) }
   local art = thumbs[s.uuid]
   local parts = {
-    art ~= nil
-        and ui.image({ path = art, width = 22, height = 22, radius = 4 })
-      or ui.column({
-          width   = 22,
-          height  = 22,
-          radius  = 4,
-          fill    = "surface_variant/0.65",
-          align   = "center",
-          justify = "center",
-        }, { ui.glyph({ name = "radio", size = 13, color = "outline" }) }),
+    stationArt(art, 22, "radio"),
     ui.column({ flexGrow = 1, gap = 0 }, labels),
   }
   table.insert(parts, ui.button({
@@ -1944,8 +1960,8 @@ local function customRow(s, index)
     paddingH = 6,
     paddingV = 1,
     radius  = 6,
-    fill        = isPlaying and "primary/0.12" or "surface_variant/0.4",
-    border      = isPlaying and "primary/0.3" or "outline",
+    fill        = isPlaying and "primary/0.12" or "surface_container/0.4",
+    border      = isPlaying and "primary/0.3" or "outline_variant",
     borderWidth = (isHovered or isPlaying) and 1 or 0,
     onHover = function(isHovering)
       hoveredKey = isHovering and key or nil
@@ -1961,7 +1977,7 @@ renderCustom = function()
     ui.glyph({ name = "broadcast", size = 16, color = "primary" }),
     ui.column({ flexGrow = 1, gap = 0 }, {
       ui.label({ text = tr("panel.custom_title"), fontSize = 15, fontWeight = "bold", maxLines = 1 }),
-      ui.label({ text = tr("panel.custom_count", { count = tostring(#customStations) }), fontSize = 11, color = "outline" }),
+      ui.label({ text = tr("panel.custom_count", { count = tostring(#customStations) }), fontSize = 11, color = "outline_variant" }),
     }),
     ui.button({
       glyph       = "plus",
@@ -1974,8 +1990,8 @@ renderCustom = function()
 
   if #customStations == 0 then
     table.insert(children, ui.column({ gap = 10, align = "center", padding = 32, flexGrow = 1, justify = "center" }, {
-      ui.glyph({ name = "broadcast", size = 32, color = "outline" }),
-      ui.label({ text = tr("panel.custom_empty"), color = "outline", textAlign = "center" }),
+      ui.glyph({ name = "broadcast", size = 32, color = "outline_variant" }),
+      ui.label({ text = tr("panel.custom_empty"), color = "outline_variant", textAlign = "center" }),
     }))
   else
     local rows = {}
@@ -1996,7 +2012,7 @@ renderAddCustom = function()
     ui.glyph({ name = isEdit and "pencil" or "plus", size = 16, color = "primary" }),
     ui.column({ flexGrow = 1, gap = 0 }, {
       ui.label({ text = isEdit and tr("panel.edit_custom_title") or tr("panel.add_custom_title"), fontSize = 15, fontWeight = "bold", maxLines = 1 }),
-      ui.label({ text = tr("panel.add_custom_subtitle"), fontSize = 11, color = "outline" }),
+      ui.label({ text = tr("panel.add_custom_subtitle"), fontSize = 11, color = "outline_variant" }),
     }),
   }))
 
@@ -2165,9 +2181,7 @@ renderMiniPlayer = function()
   local thumb = thumbs[playingUuid]
   local parts = {}
   table.insert(parts, ui.glyph({ name = "volume-2", size = 11, color = "primary" }))
-  if thumb ~= nil then
-    table.insert(parts, ui.image({ path = thumb, width = 22, height = 22, radius = 4 }))
-  end
+  table.insert(parts, stationArt(thumb, 22, "radio"))
   local now = noctalia.nowMs() / 1000
   local wave = (math.sin(now / 0.8 * math.pi) + 1) / 2
   local alpha = math.floor((0.20 + 0.80 * wave) * 255)
@@ -2175,8 +2189,8 @@ renderMiniPlayer = function()
   local nameColor = "on_surface"
   local infoParts = {}
   local stationLabel = playingName
-  if #stationLabel > 35 then
-    stationLabel = string.sub(stationLabel, 1, 35) .. "…"
+  if #stationLabel > 30 then
+    stationLabel = string.sub(stationLabel, 1, 30) .. "…"
   end
   local miniFlag = flagEmoji(playingStation ~= nil and playingStation.countrycode or nil)
   local nameRowParts = {}
@@ -2218,38 +2232,63 @@ renderMiniPlayer = function()
       }),
     }))
   end
-  local infoCol = ui.column({ gap = 2, align = "start", flexGrow = 1, minWidth = 0 }, infoParts)
-  table.insert(parts, infoCol)
+  local infoCol = ui.column({
+    gap = 2,
+    align = "start",
+    flexGrow = 1,
+    minWidth = 0,
+    maxWidth = 260,
+    flexShrink = 1,
+  }, infoParts)
+
+  local leftParts = {}
+  for _, child in ipairs(parts) do
+    table.insert(leftParts, child)
+  end
+  table.insert(leftParts, infoCol)
+
+  local leftGroup = ui.row({
+    gap = 6,
+    align = "center",
+    flexGrow = 1,
+    minWidth = 0,
+    maxWidth = 420,
+    flexShrink = 1,
+  }, leftParts)
+
   local hasQueue = (playQueue ~= nil and #playQueue > 1)
-  table.insert(parts, ui.button({
-    glyph       = "player-skip-back",
-    variant     = "ghost",
-    controlSize = "sm",
-    tooltip     = tr("panel.prev_tooltip"),
-    enabled     = hasQueue,
-    onClick     = function() skipPlaying(-1) end,
-  }))
-  table.insert(parts, ui.button({
-    glyph       = "dice",
-    variant     = "ghost",
-    controlSize = "sm",
-    tooltip     = tr("panel.random_tooltip"),
-    enabled     = hasQueue,
-    onClick     = playRandomStation,
-  }))
-  table.insert(parts, ui.button({
-    glyph       = "player-skip-forward",
-    variant     = "ghost",
-    controlSize = "sm",
-    tooltip     = tr("panel.next_tooltip"),
-    enabled     = hasQueue,
-    onClick     = function() skipPlaying(1) end,
-  }))
+  local controls = {
+    ui.button({
+      glyph       = "player-skip-back",
+      variant     = "ghost",
+      controlSize = "sm",
+      tooltip     = tr("panel.prev_tooltip"),
+      enabled     = hasQueue,
+      onClick     = function() skipPlaying(-1) end,
+    }),
+    ui.button({
+      glyph       = "dice",
+      variant     = "ghost",
+      controlSize = "sm",
+      tooltip     = tr("panel.random_tooltip"),
+      enabled     = hasQueue,
+      onClick     = playRandomStation,
+    }),
+    ui.button({
+      glyph       = "player-skip-forward",
+      variant     = "ghost",
+      controlSize = "sm",
+      tooltip     = tr("panel.next_tooltip"),
+      enabled     = hasQueue,
+      onClick     = function() skipPlaying(1) end,
+    }),
+  }
+
   local playingFaved = false
   if playingStation ~= nil then
     playingFaved = isFavorite(playingStation.uuid)
   end
-  table.insert(parts, ui.button({
+  table.insert(controls, ui.button({
     glyph       = playingFaved and "star-filled" or "star",
     variant     = "ghost",
     controlSize = "sm",
@@ -2261,7 +2300,7 @@ renderMiniPlayer = function()
       end
     end,
   }))
-  table.insert(parts, ui.button({
+  table.insert(controls, ui.button({
     glyph       = "playlist",
     variant     = "ghost",
     controlSize = "sm",
@@ -2269,23 +2308,33 @@ renderMiniPlayer = function()
     enabled     = (playQueue ~= nil),
     onClick     = gotoPlayingStation,
   }))
-  table.insert(parts, ui.button({
+  table.insert(controls, ui.button({
     glyph       = "square",
     variant     = "primary",
     controlSize = "sm",
     tooltip     = tr("panel.stop_tooltip"),
     onClick     = stopPlayback,
   }))
+
+  local controlCol = ui.row({
+    gap = 6,
+    align = "center",
+    flexShrink = 0,
+    marginLeft = "auto",
+  }, controls)
+
   return ui.row({
     gap         = 6,
     align       = "center",
+    justify     = "space_between",
     paddingH    = 8,
     paddingV    = 6,
     radius      = 8,
     fill        = "primary/0.12",
     border      = "primary/0.25",
     borderWidth = 1,
-  }, parts)
+    width       = "100%",
+  }, { leftGroup, controlCol })
 end
 
 render = function()

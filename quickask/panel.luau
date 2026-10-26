@@ -1,6 +1,7 @@
 --!nonstrict
 local api = require("./lib/api.luau")
 local credentials = require("./lib/credentials.luau")
+local config = require("./lib/config.luau")
 
 local state = "idle"
 local opened = false
@@ -8,6 +9,7 @@ local generation = 0
 local sessionNumber = 0
 local draft, question, answer, errorText = "", "", "", ""
 local sessionId = nil
+local connection, configError = nil, nil
 local stream = nil
 local dirty = false
 local lastRender, startedAt, lastActivity = 0, 0, 0
@@ -52,6 +54,9 @@ render = function()
   lastRender = noctalia.nowMs()
   local body = {}
   if state == "idle" then
+    if configError then
+      table.insert(body, ui.label({ text = configError, color = "error" }))
+    end
     table.insert(body, ui.input({
       key = "question-" .. tostring(sessionNumber),
       value = "", placeholder = noctalia.tr("panel.placeholder"), multiline = true,
@@ -84,7 +89,7 @@ render = function()
   if state == "idle" then
     table.insert(actions, ui.button({
       text = noctalia.tr("panel.send"), glyph = "arrow-up", variant = "primary",
-      enabled = hasContent(draft), onClick = function() onSubmit(draft) end,
+      enabled = connection ~= nil and hasContent(draft), onClick = function() onSubmit(draft) end,
     }))
   elseif busy() then
     table.insert(actions, ui.button({ text = noctalia.tr("panel.stop"), glyph = "player-stop", onClick = "onStop" }))
@@ -100,7 +105,13 @@ render = function()
   panel.render(ui.column({ flexGrow = 1, gap = 12 }, {
     ui.row({ align = "center", gap = 8 }, {
       ui.label({ text = "QuickAsk", fontSize = 16, fontWeight = "bold", flexGrow = 1 }),
+      ui.button({ glyph = "settings", tooltip = noctalia.tr("panel.settings"), variant = "ghost", onClick = "onSettingsClicked" }),
       ui.button({ glyph = "close", tooltip = noctalia.tr("panel.close"), variant = "ghost", onClick = "onCloseClicked" }),
+    }),
+    ui.label({
+      text = connection and noctalia.tr("config.summary", { host = connection.authority, model = connection.model })
+        or noctalia.tr("config.required"),
+      color = "on_surface_variant", fontSize = 12, maxLines = 2,
     }),
     ui.scroll({ key = "body-" .. tostring(sessionNumber), flexGrow = 1, gap = 12, stickToBottom = true }, body),
     ui.row({ align = "center", gap = 8 }, actions),
@@ -116,11 +127,11 @@ local function send()
   render() -- first paint precedes credential lookup and HTTP
   panel.setNeedsFrameTick(true)
 
-  credentials.lookup(function(key, message)
+  credentials.lookup(connection, function(key, message)
     if not opened or generation ~= current then return end
     if not key then fail(message); return end
     lastActivity = noctalia.nowMs()
-    local handle = api.start(question, key, sessionId, {
+    local handle = api.start(question, key, sessionId, connection, {
       onActivity = function()
         if opened and generation == current then lastActivity = noctalia.nowMs() end
       end,
@@ -152,6 +163,7 @@ function onOpen(_context)
   sessionNumber = sessionNumber + 1
   state, draft, question, answer, errorText = "idle", "", "", "", ""
   sessionId, copied, copyError = nil, false, false
+  connection, configError = config.read()
   render()
 end
 
@@ -160,6 +172,7 @@ function onSubmit(value)
   if not hasContent(value) then return end
   local trimmed = value:match("^%s*(.-)%s*$")
   if trimmed == "" then return end
+  if not connection then render(); return end
   question = trimmed
   sessionId = api.newSession()
   send()
@@ -203,6 +216,12 @@ function onClose()
   stopStream()
   state, draft, question, answer, errorText = "idle", "", "", "", ""
   sessionId, copied, copyError = nil, false, false
+  connection, configError = nil, nil
+end
+
+function onSettingsClicked()
+  onClose()
+  noctalia.openSettings()
 end
 
 function onCloseClicked()

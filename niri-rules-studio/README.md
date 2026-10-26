@@ -44,10 +44,15 @@ the plugin. Opening rules only affect new windows.
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
-| `niri_config` | `file` | `~/.config/niri/config.kdl` | Root configuration that receives the managed include and is passed to `niri validate`. |
+| `niri_config` | `file` | auto-detect | Optional root configuration override. When empty, the plugin follows `NIRI_CONFIG`, `XDG_CONFIG_HOME`, then `~/.config/niri/config.kdl`. |
 
-Change this setting when Niri uses a different root file through `--config` or
-`NIRI_CONFIG`.
+Select this setting explicitly when Niri was started with `--config`, because
+Niri does not expose its active root configuration path over IPC. A relative
+`NIRI_CONFIG` path must also be selected here as an absolute path.
+
+If Niri falls back to `/etc/niri/config.kdl`, copy that configuration to the
+user path shown by the plugin and reload Niri from the user file. The plugin
+does not modify the system configuration.
 
 ## Files written
 
@@ -71,15 +76,19 @@ or editing rules from other KDL files may be added in a future version.
 
 ## Validation
 
-Before applying a change, the plugin writes temporary candidate files beside
-the selected root configuration and runs:
+Before applying a change, the plugin stages both the editable model and KDL,
+writes temporary candidate files beside the selected root configuration, and
+runs:
 
 ```sh
 niri validate -c /path/to/.noctalia-rules-studio.validate.kdl
 ```
 
 Keeping the temporary root in the same directory preserves relative includes.
-If validation fails, the active configuration is left unchanged.
+After validation, the plugin checks that the root configuration did not change,
+backs up every file it will replace, and commits the model and KDL together. If
+any commit step fails, it rolls the earlier steps back and reports the failure
+in the panel.
 
 App IDs selected from Niri are escaped and stored as exact regular-expression
 matches. A title entered manually remains a regular expression.

@@ -1,22 +1,7 @@
--- Prefer the user-configured data_path setting; fall back to the plugin's
--- own persistent data directory when unset.
-local function resolveDataPath()
-	local configured = noctalia.getConfig("data_path")
-	if type(configured) == "string" and noctalia.string.trim(configured) ~= "" then
-		return noctalia.expandPath(noctalia.string.trim(configured)), nil
-	end
+local shared = require("./shared.luau")
 
-	local dataDir, dataDirErr = noctalia.pluginDataDir()
-	if dataDir == nil then
-		return nil, dataDirErr
-	end
-	return dataDir .. "/data.json", nil
-end
-
-local path, pathErr = resolveDataPath()
-if path == nil then
-	noctalia.log("bookmarks: could not resolve data path: " .. tostring(pathErr))
-end
+local entryType = shared.entryType
+local parseBool = shared.parseBool
 
 local view = "list" -- "list" | "new"
 local formRev = 0
@@ -32,6 +17,10 @@ local searchRev = 0 -- bumped to reseed the search input on open
 local focusSearchOnRender = false -- one-shot: grabs the search input on the next render only
 
 local selectedIndex = nil -- 1-based position within the currently visible list, or nil
+
+local DELETE_DOUBLE_PRESS_MS = 600 -- max delay between presses to confirm deletion
+local lastDeletePressTime = 0
+local lastDeleteTargetKey = nil
 
 -- Last selected index per scope, keyed by currentFolder (0 for root, since
 -- folder indices start at 1). Restores position when re-entering a folder
@@ -49,6 +38,17 @@ local function recallSelection(folder, rowCount)
 	return math.min(math.max(rememberedSelection[folder or 0] or 1, 1), rowCount)
 end
 
+local function clampSelection(list)
+	if #list == 0 then
+		selectedIndex = nil
+	elseif selectedIndex == nil then
+		selectedIndex = 1
+	else
+		selectedIndex = math.clamp(selectedIndex, 1, #list)
+	end
+	rememberSelection(currentFolder)
+end
+
 local draftKind = "bookmark" -- "bookmark" | "folder", set when the form opens
 local draftGlyph = "bookmark"
 local draftLabel = ""
@@ -59,15 +59,6 @@ local draftRunInTerminal = false
 local draftError = nil
 local editingIndex = nil -- nil = creating new, number = editing the entry at that index in the active list
 local editingRoot = false -- true when editingIndex refers to `bookmarks` (root) instead of activeList()
-
--- Coerces native booleans, string coercions, and UI event objects into a
--- strict boolean, as required by ui.toggle's `checked` prop.
-local function parseBool(val)
-	if type(val) == "table" then
-		return val.checked == true or val.value == true
-	end
-	return val == true or val == "true" or val == 1
-end
 
 -- Returns the array we're currently viewing/editing: root, or the open
 -- folder's items. Falls back to root if currentFolder points at something
@@ -85,10 +76,6 @@ local function activeList()
 	return folder.items
 end
 
-local function entryType(entry)
-	return entry.type == "folder" and "folder" or "bookmark"
-end
-
 -- Fuzzy-searches bookmark labels only (not commands, not folder names)
 -- across root and every folder's contents, using Noctalia's native
 -- matcher. Returns results sorted best-match-first, each as
@@ -102,24 +89,10 @@ local function searchBookmarks(query)
 	end
 
 	local results = {}
-	for _, entry in ipairs(bookmarks) do
-		if entryType(entry) == "folder" then
-			for _, subEntry in ipairs(entry.items or {}) do
-				if entryType(subEntry) ~= "folder" then
-					local score = noctalia.fuzzyScore(trimmed, subEntry.label or "")
-					if score ~= nil then
-						table.insert(
-							results,
-							{ entry = subEntry, path = entry.label or "", score = score }
-						)
-					end
-				end
-			end
-		else
-			local score = noctalia.fuzzyScore(trimmed, entry.label or "")
-			if score ~= nil then
-				table.insert(results, { entry = entry, path = nil, score = score })
-			end
+	for _, item in ipairs(shared.flatten(bookmarks)) do
+		local score = noctalia.fuzzyScore(trimmed, item.entry.label or "")
+		if score ~= nil then
+			table.insert(results, { entry = item.entry, path = item.path, score = score })
 		end
 	end
 
@@ -130,44 +103,13 @@ local function searchBookmarks(query)
 end
 
 local function loadBookmarks()
-	if path == nil then
-		bookmarks = {}
-		return
-	end
-	if not noctalia.fileExists(path) then
-		bookmarks = {}
-		listError = nil
-		return
-	end
-	local raw, readErr = noctalia.readFile(path)
-	if raw == nil then
-		bookmarks = {}
-		listError = noctalia.tr("err.read_failed", { error = tostring(readErr) })
-		return
-	end
-	local decoded, decodeErr = noctalia.json.decode(raw)
-	if type(decoded) ~= "table" then
-		bookmarks = {}
-		listError = noctalia.tr("err.corrupt", { error = tostring(decodeErr) })
-		return
-	end
-	bookmarks = decoded
-	listError = nil
+	local data, err = shared.loadBookmarks()
+	bookmarks = data
+	listError = err
 end
 
 local function saveBookmarks()
-	if path == nil then
-		return false, noctalia.tr("err.no_data_dir")
-	end
-	local encoded, encodeErr = noctalia.json.encode(bookmarks)
-	if encoded == nil then
-		return false, tostring(encodeErr)
-	end
-	local ok, writeErr = noctalia.writeFile(path, encoded)
-	if not ok then
-		return false, tostring(writeErr)
-	end
-	return true, nil
+	return shared.saveBookmarks(bookmarks)
 end
 
 local function snapshotArray(list)
@@ -195,12 +137,12 @@ end
 -- drop that wouldn't change order, and rolls back on write failure.
 local function moveEntryTo(list, fromIndex, beforeIndex)
 	if fromIndex < 1 or fromIndex > #list then
-		return
+		return false
 	end
 	-- Dropping onto the gap immediately above or below your own row is a
 	-- no-op, not a "move to the other side of yourself".
 	if beforeIndex == fromIndex or beforeIndex == fromIndex + 1 then
-		return
+		return false
 	end
 
 	local snapshot = snapshotArray(list)
@@ -219,7 +161,9 @@ local function moveEntryTo(list, fromIndex, beforeIndex)
 			noctalia.tr("title"),
 			noctalia.tr("err.reorder_failed", { error = err })
 		)
+		return false
 	end
+	return true
 end
 
 -- Moves a single bookmark (never a folder - nesting stays one level deep)
@@ -251,50 +195,8 @@ local function moveEntryAcross(fromList, fromIndex, toList)
 	return true, entry
 end
 
--- Runs a bookmark's command. Two distinct failure paths get a notification:
--- the shell couldn't even be spawned, or it ran and exited non-zero.
--- Success stays silent, same as file-search's xdg-open.
 local function runBookmark(entry)
-	local cmd = entry.cmd
-	if type(cmd) ~= "string" or cmd == "" then
-		noctalia.notifyError(noctalia.tr("title"), noctalia.tr("err.no_command"))
-		return
-	end
-	local label = entry.label or cmd
-
-	if parseBool(entry.runInTerminal) then
-		noctalia.runInTerminal(cmd)
-		return
-	end
-
-	local finalCmd = cmd
-	if parseBool(entry.runInBackground) then
-		finalCmd = "nohup " .. cmd .. " >/dev/null 2>&1 &"
-	end
-
-	local ok = noctalia.runAsync(finalCmd, function(result)
-		if parseBool(entry.runInBackground) then
-			return
-		end
-
-		if result.exitCode ~= 0 then
-			local detail = noctalia.string.trim(result.stderr or "")
-			local msg =
-				noctalia.tr("err.exit_code", { label = label, code = tostring(result.exitCode) })
-			if detail ~= "" then
-				msg = msg .. ": " .. detail
-			end
-			noctalia.notifyError(noctalia.tr("title"), msg)
-		end
-		-- exitCode == 0: succeeded, no notification
-	end)
-
-	if not ok then
-		noctalia.notifyError(
-			noctalia.tr("title"),
-			noctalia.tr("err.launch_failed", { label = label })
-		)
-	end
+	shared.runBookmark(entry)
 end
 
 -- Runs a bookmark and closes the panel, the standard "user picked a
@@ -315,7 +217,7 @@ local function insertionGap(anchorIndex, place)
 		accepts = { "bookmark-entry" },
 		value = place .. "|" .. anchorIndex,
 		onDrop = "_onReorderEntry",
-		height = 6,
+		height = 2,
 		expandOnDrag = true,
 		hitSlop = 20,
 	})
@@ -325,12 +227,7 @@ end
 -- target: dropping a bookmark onto it files that bookmark into the folder,
 -- appended at the end. `value` is "into|<folderIndex>", read by
 -- _onReorderEntry alongside the "before|after" insertion-gap values already
--- in use for same-list reordering. `hitSlop` matters here: the insertion
--- gaps immediately above/below this row extend their own hit area well
--- past their thin visible strip (see insertionGap), so without a
--- competing hitSlop of its own this zone would rarely win a drop even
--- when the pointer is squarely over the folder row - "closest wins" needs
--- both zones actually in the running.
+-- in use for same-list reordering.
 local function folderDropTarget(folderIndex, child)
 	return ui.dropZone({
 		key = "into-" .. folderIndex,
@@ -338,10 +235,6 @@ local function folderDropTarget(folderIndex, child)
 		value = "into|" .. folderIndex,
 		onDrop = "_onReorderEntry",
 		direction = "column",
-		radius = 8,
-		border = "primary/0.45",
-		borderWidth = 1.5,
-		expandOnDrag = true,
 		hitSlop = 20,
 	}, { child })
 end
@@ -416,6 +309,24 @@ local function activateRow(row)
 	end
 end
 
+local function bookmarkTooltip(entry)
+	if entryType(entry) == "folder" then
+		return nil
+	end
+	local description = noctalia.string.trim(entry.description or "")
+	local cmd = noctalia.string.trim(entry.cmd or "")
+	if description ~= "" and cmd ~= "" then
+		return noctalia.tr("info.description_line", { description = description })
+			.. "\n"
+			.. noctalia.tr("info.cmd_line", { cmd = cmd })
+	elseif description ~= "" then
+		return noctalia.tr("info.description_line", { description = description })
+	elseif cmd ~= "" then
+		return noctalia.tr("info.cmd_line", { cmd = cmd })
+	end
+	return nil
+end
+
 local function entryRow(entry, index)
 	local isFolder = entryType(entry) == "folder"
 
@@ -424,50 +335,43 @@ local function entryRow(entry, index)
 		table.insert(
 			trailing,
 			ui.button({
+				key = "entry-open-" .. index,
 				glyph = "chevron-right",
 				variant = "ghost",
 				controlSize = "sm",
+				width = 22,
+				height = 22,
+				glyphSize = 13,
 				tooltip = noctalia.tr("open_tooltip"),
 				onClick = function()
 					_onOpenFolder(index)
 				end,
 			})
 		)
-	elseif not editMode and parseBool(noctalia.getConfig("show_info_button")) then
-		local description = noctalia.string.trim(entry.description or "")
-		local cmd = entry.cmd or ""
-		local infoTooltip = noctalia.tr("info.cmd_line", { cmd = cmd })
-		if description ~= "" then
-			infoTooltip = infoTooltip
-				.. "\n"
-				.. noctalia.tr("info.description_line", { description = description })
-		end
-		table.insert(
-			trailing,
-			ui.button({
-				glyph = "help-circle",
-				variant = "ghost",
-				controlSize = "sm",
-				tooltip = infoTooltip,
-				onClick = function() end,
-			})
-		)
 	end
 	if not isFolder and editMode then
 		trailing = {
 			ui.button({
+				key = "entry-edit-" .. index,
 				glyph = "pencil",
-				variant = "secondary",
+				variant = "ghost",
 				controlSize = "sm",
+				width = 22,
+				height = 22,
+				glyphSize = 13,
 				tooltip = noctalia.tr("edit.edit_tooltip"),
 				onClick = function()
 					_onEditEntry(index)
 				end,
 			}),
 			ui.button({
+				key = "entry-del-" .. index,
 				glyph = "trash",
-				variant = "destructive",
+				variant = "ghost",
 				controlSize = "sm",
+				width = 22,
+				height = 22,
+				glyphSize = 13,
 				tooltip = noctalia.tr("edit.delete_tooltip"),
 				onClick = function()
 					_onDeleteEntry(index)
@@ -485,30 +389,11 @@ local function entryRow(entry, index)
 		end
 	end
 
-	-- In edit mode a folder's glyph sits in a filled chip rather than bare,
-	-- the same visual language as the move-to-root drop bar (filled
-	-- primary/border), so "this accepts a dropped bookmark" reads at a
-	-- glance instead of only revealing itself once a drag is already
-	-- underway and the host's own highlight kicks in.
-	-- Note: ui.box does not render child content (its documented props are
-	-- fill/radius/border/size only), so the chip wrapper uses ui.row -
-	-- which supports both children and the same fill/radius styling - with
-	-- align/justify = "center" to center the glyph inside it.
 	local folderGlyph = ui.glyph({
 		name = entry.glyph or (isFolder and "folder" or "bookmark"),
 		size = 16,
-		color = (isFolder and editMode) and "primary" or "on_surface",
+		color = "on_surface",
 	})
-	if isFolder and editMode then
-		folderGlyph = ui.row({
-			fill = "primary/0.12",
-			radius = 6,
-			width = 24,
-			height = 24,
-			align = "center",
-			justify = "center",
-		}, { folderGlyph })
-	end
 
 	-- Flat, single-level row: grip, glyph, label, and trailing controls are
 	-- all direct children of "bm-<index>", the same node that sits as a
@@ -546,7 +431,7 @@ local function entryRow(entry, index)
 			text = entry.label or "",
 			fontSize = 13,
 			color = isSelected and "primary" or "on_surface",
-			fontWeight = isSelected and "bold" or "regular",
+			fontWeight = isSelected and "bold" or nil,
 			flexGrow = 1,
 			maxLines = 1,
 		})
@@ -560,6 +445,7 @@ local function entryRow(entry, index)
 		gap = 8,
 		align = "center",
 		height = 30,
+		tooltip = not editMode and bookmarkTooltip(entry) or nil,
 		onClick = activateEntry,
 		onHover = function(state)
 			if state == "true" then
@@ -589,20 +475,16 @@ local function searchResultRow(result, rowIndex)
 	end
 
 	local children = {
-		ui.button({
-			glyph = entry.glyph or "bookmark",
-			variant = "ghost",
-			glyphSize = 16,
-			width = 24,
-			height = 24,
-			tooltip = entry.cmd,
-			onClick = runEntry,
+		ui.glyph({
+			name = entry.glyph or "bookmark",
+			size = 16,
+			color = "on_surface",
 		}),
 		ui.label({
 			text = entry.label or "",
 			fontSize = 13,
 			color = isSelected and "primary" or "on_surface",
-			fontWeight = isSelected and "bold" or "regular",
+			fontWeight = isSelected and "bold" or nil,
 			flexGrow = 1,
 			maxLines = 1,
 		}),
@@ -624,6 +506,7 @@ local function searchResultRow(result, rowIndex)
 		gap = 8,
 		align = "center",
 		height = 30,
+		tooltip = bookmarkTooltip(entry),
 		onClick = runEntry,
 		onHover = function(state)
 			if state == "true" then
@@ -644,8 +527,9 @@ local function listView()
 		local folder = bookmarks[currentFolder]
 		table.insert(
 			children,
-			ui.row({ gap = 8, align = "center" }, {
+			ui.row({ key = "folder-header-row", gap = 8, align = "center" }, {
 				ui.button({
+					key = "back-to-root",
 					glyph = "chevron-left",
 					variant = "ghost",
 					controlSize = "sm",
@@ -653,6 +537,7 @@ local function listView()
 					onClick = "_onBackToRoot",
 				}),
 				ui.row({
+					key = "folder-title-row",
 					gap = 6,
 					align = "center",
 					flexGrow = 1,
@@ -672,6 +557,26 @@ local function listView()
 						maxLines = 1,
 					}),
 				}),
+				ui.button({
+					key = "toggle-edit-mode",
+					glyph = editMode and "eye" or "eye-off",
+					variant = "ghost",
+					controlSize = "sm",
+					width = 32,
+					tooltip = noctalia.tr(
+						editMode and "edit.hide_controls_tooltip" or "edit.show_controls_tooltip"
+					),
+					onClick = "_onToggleEditMode",
+				}),
+				ui.button({
+					key = "open-settings",
+					glyph = "settings",
+					variant = "ghost",
+					controlSize = "sm",
+					width = 32,
+					tooltip = noctalia.tr("settings_tooltip"),
+					onClick = "_onOpenSettings",
+				}),
 			})
 		)
 	end
@@ -681,14 +586,54 @@ local function listView()
 		focusSearchOnRender = false
 		table.insert(
 			children,
-			ui.input({
-				key = "search-input-" .. searchRev,
-				value = searchQuery,
-				placeholder = noctalia.tr("search_placeholder"),
-				controlSize = "sm",
-				focus = wantsFocus,
-				onChange = "_onSearchChanged",
-				onSubmit = "_onSearchSubmit",
+			ui.row({ key = "search-header-row", gap = 8, align = "center" }, {
+				ui.row({
+					key = "search-input-box",
+					gap = 6,
+					align = "center",
+					fill = "surface_container/0.5",
+					radius = 8,
+					paddingH = 8,
+					height = 32,
+					flexGrow = 1,
+				}, {
+					ui.glyph({
+						name = "search",
+						size = 14,
+						color = "on_surface_variant",
+					}),
+					ui.input({
+						key = "search-input-" .. searchRev,
+						value = searchQuery,
+						placeholder = noctalia.tr("search_placeholder"),
+						controlSize = "sm",
+						frameVisible = false,
+						flexGrow = 1,
+						focus = wantsFocus,
+						onChange = "_onSearchChanged",
+						onSubmit = "_onSearchSubmit",
+					}),
+				}),
+				ui.button({
+					key = "toggle-edit-mode",
+					glyph = editMode and "eye" or "eye-off",
+					variant = "ghost",
+					controlSize = "sm",
+					width = 32,
+					tooltip = noctalia.tr(
+						editMode and "edit.hide_controls_tooltip" or "edit.show_controls_tooltip"
+					),
+					onClick = "_onToggleEditMode",
+				}),
+				ui.button({
+					key = "open-settings",
+					glyph = "settings",
+					variant = "ghost",
+					controlSize = "sm",
+					width = 32,
+					tooltip = noctalia.tr("settings_tooltip"),
+					onClick = "_onOpenSettings",
+				}),
 			})
 		)
 	end
@@ -725,6 +670,7 @@ local function listView()
 		return ui.column({ gap = 10, padding = 14, flexGrow = 1 }, children)
 	end
 
+	local canAdd = shared.resolveDataPath() ~= nil
 	local topButtons = {
 		ui.button({
 			key = "new-bookmark",
@@ -732,7 +678,7 @@ local function listView()
 			glyph = "plus",
 			variant = "primary",
 			flexGrow = 1,
-			enabled = path ~= nil,
+			enabled = canAdd,
 			onClick = "_onNewBookmark",
 		}),
 	}
@@ -748,28 +694,13 @@ local function listView()
 				glyph = "folder-plus",
 				variant = "secondary",
 				flexGrow = 1,
-				enabled = path ~= nil,
+				enabled = canAdd,
 				onClick = "_onNewFolder",
 			})
 		)
 	end
 
-	table.insert(
-		topButtons,
-		ui.button({
-			key = "toggle-edit-mode",
-			glyph = editMode and "eye" or "eye-off",
-			variant = "ghost",
-			controlSize = "sm",
-			width = 32,
-			tooltip = noctalia.tr(
-				editMode and "edit.hide_controls_tooltip" or "edit.show_controls_tooltip"
-			),
-			onClick = "_onToggleEditMode",
-		})
-	)
-
-	table.insert(children, ui.row({ gap = 8 }, topButtons))
+	table.insert(children, ui.row({ key = "top-action-buttons", gap = 8 }, topButtons))
 
 	-- Inside a folder, edit mode always offers a way to drop a bookmark back
 	-- out to root - including when the folder is currently empty, so it
@@ -820,7 +751,7 @@ local function listView()
 			ui.scroll({
 				key = "list-scroll-" .. tostring(currentFolder or 0),
 				flexGrow = 1,
-				gap = 2,
+				gap = editMode and 0 or 2,
 				revealKey = revealKey,
 			}, rows)
 		)
@@ -854,7 +785,7 @@ local function formView()
 	end
 
 	local children = {
-		ui.row({ align = "center", justify = "space_between" }, {
+		ui.row({ key = "form-header-row", align = "center", justify = "space_between" }, {
 			ui.label({
 				text = title,
 				fontSize = 15,
@@ -863,6 +794,7 @@ local function formView()
 				flexGrow = 1,
 			}),
 			ui.button({
+				key = "form-close-button",
 				glyph = "close",
 				variant = "ghost",
 				tooltip = noctalia.tr("entry_form.cancel_button"),
@@ -870,7 +802,15 @@ local function formView()
 			}),
 		}),
 
-		ui.row({ gap = 8, align = "center" }, {
+		ui.row({
+			key = "form-glyph-row",
+			gap = 8,
+			align = "center",
+			fill = "surface_container/0.5",
+			radius = 8,
+			paddingH = 8,
+			height = 32,
+		}, {
 			ui.glyph({
 				name = draftGlyph ~= "" and draftGlyph or (isFolder and "folder" or "bookmark"),
 				size = 18,
@@ -881,6 +821,7 @@ local function formView()
 				value = draftGlyph,
 				placeholder = noctalia.tr("entry_form.glyph_field"),
 				controlSize = "sm",
+				frameVisible = false,
 				flexGrow = 1,
 				onChange = "_onGlyphChange",
 			}),
@@ -959,13 +900,15 @@ local function formView()
 
 	table.insert(
 		children,
-		ui.row({ gap = 8, justify = "end" }, {
+		ui.row({ key = "form-bottom-buttons", gap = 8, justify = "end" }, {
 			ui.button({
+				key = "form-save-button",
 				text = noctalia.tr("entry_form.save_button"),
 				variant = "primary",
 				onClick = "_onSaveBookmark",
 			}),
 			ui.button({
+				key = "form-cancel-button",
 				text = noctalia.tr("entry_form.cancel_button"),
 				variant = "destructive",
 				onClick = "_onCancelBookmark",
@@ -1028,6 +971,8 @@ function _onOpenFolder(index)
 	if entry == nil or entryType(entry) ~= "folder" then
 		return
 	end
+	lastDeletePressTime = 0
+	lastDeleteTargetKey = nil
 	-- Remember where we were in root before diving into the folder.
 	rememberSelection(currentFolder)
 	-- currentFolder is only ever set from root (folders are one level deep),
@@ -1038,6 +983,8 @@ function _onOpenFolder(index)
 end
 
 function _onBackToRoot()
+	lastDeletePressTime = 0
+	lastDeleteTargetKey = nil
 	-- Remember where we were inside the folder before leaving it.
 	rememberSelection(currentFolder)
 	currentFolder = nil
@@ -1249,6 +1196,10 @@ function _onSaveBookmark()
 		noctalia.tr("title"),
 		noctalia.tr(editingIndex ~= nil and "entry_updated" or "entry_saved", { label = label })
 	)
+	if editingIndex == nil and not editingRoot then
+		selectedIndex = #list
+		rememberSelection(currentFolder)
+	end
 	editingIndex = nil
 	editingRoot = false
 	view = "list"
@@ -1258,6 +1209,10 @@ end
 function _onToggleEditMode()
 	editMode = not editMode
 	render()
+end
+
+function _onOpenSettings()
+	noctalia.openSettings()
 end
 
 function _onSearchChanged(value)
@@ -1301,7 +1256,10 @@ function _onReorderEntry(payload, target)
 			return
 		end
 		folder.items = folder.items or {}
-		moveEntryAcross(bookmarks, fromIndex, folder.items)
+		if moveEntryAcross(bookmarks, fromIndex, folder.items) then
+			rememberedSelection = { [0] = rememberedSelection[0] }
+			clampSelection(bookmarks)
+		end
 		render()
 		return
 	end
@@ -1313,7 +1271,9 @@ function _onReorderEntry(payload, target)
 			return
 		end
 		local list = activeList()
-		moveEntryAcross(list, fromIndex, bookmarks)
+		if moveEntryAcross(list, fromIndex, bookmarks) then
+			clampSelection(list)
+		end
 		render()
 		return
 	end
@@ -1364,6 +1324,10 @@ function _onDeleteEntry(index)
 		render()
 		return
 	end
+	if currentFolder == nil then
+		rememberedSelection = { [0] = rememberedSelection[0] }
+	end
+	clampSelection(list)
 	render()
 end
 
@@ -1385,10 +1349,12 @@ function onOpen(context)
 	currentFolder = nil
 	searchQuery = ""
 	searchRev += 1
-	selectedIndex = 1
 	rememberedSelection = {}
+	lastDeletePressTime = 0
+	lastDeleteTargetKey = nil
 	loadBookmarks()
-	noctalia.state.set("bookmarks_open", true)
+	selectedIndex = #bookmarks > 0 and 1 or nil
+	noctalia.state.set(shared.STATE_OPEN, true)
 	if context == "search" then
 		focusSearchOnRender = true
 	end
@@ -1396,7 +1362,7 @@ function onOpen(context)
 end
 
 function onClose()
-	noctalia.state.set("bookmarks_open", false)
+	noctalia.state.set(shared.STATE_OPEN, false)
 end
 
 -- Keyboard navigation:
@@ -1409,7 +1375,11 @@ end
 --   - ctrl+f focuses the search box (root view only, since folders don't
 --     have one).
 --   - ctrl+n opens the new-bookmark form.
---     root-only - same restriction as the "New Folder" button).
+--   - ctrl+shift+n opens the new-folder form (root-only).
+--   - ctrl+e opens the edit form for the selected bookmark/folder (or folder header).
+--   - ctrl+d (double press within 600ms) deletes the selected bookmark/folder (or folder).
+--   - ctrl+shift+k/up moves the selected bookmark/folder up by one.
+--   - ctrl+shift+j/down moves the selected bookmark/folder down by one.
 -- Only acts on key-down (pressed == true) so each chord fires once per press.
 function onKey(chord, pressed)
 	if not pressed then
@@ -1419,11 +1389,23 @@ function onKey(chord, pressed)
 		return
 	end
 
+	if chord ~= "ctrl+d" then
+		lastDeletePressTime = 0
+		lastDeleteTargetKey = nil
+	end
+
 	if chord == "ctrl+f" then
 		if currentFolder == nil then
 			searchRev += 1
 			focusSearchOnRender = true
 			render()
+		end
+		return
+	end
+
+	if chord == "ctrl+shift+n" then
+		if currentFolder == nil then
+			_onNewFolder()
 		end
 		return
 	end
@@ -1441,6 +1423,76 @@ function onKey(chord, pressed)
 	end
 
 	local rows = visibleRows()
+
+	if chord == "ctrl+e" then
+		local row = selectedIndex and rows[selectedIndex]
+		if row ~= nil and row.kind == "entry" then
+			_onEditEntry(row.index)
+		elseif currentFolder ~= nil and #rows == 0 then
+			_onEditFolderHeader()
+		end
+		return
+	end
+
+	if chord == "ctrl+d" then
+		local row = selectedIndex and rows[selectedIndex]
+		local targetKey = nil
+		if row ~= nil and row.kind == "entry" then
+			targetKey = "entry:" .. tostring(currentFolder or 0) .. ":" .. tostring(row.index)
+		elseif currentFolder ~= nil and #rows == 0 then
+			targetKey = "folder:" .. tostring(currentFolder)
+		end
+
+		if targetKey ~= nil then
+			local now = noctalia.nowMs()
+			if lastDeleteTargetKey == targetKey and (now - lastDeletePressTime) <= DELETE_DOUBLE_PRESS_MS then
+				lastDeletePressTime = 0
+				lastDeleteTargetKey = nil
+				if row ~= nil and row.kind == "entry" then
+					_onDeleteEntry(row.index)
+				elseif currentFolder ~= nil and #rows == 0 then
+					_onDeleteFolder()
+				end
+			else
+				lastDeletePressTime = now
+				lastDeleteTargetKey = targetKey
+			end
+		end
+		return
+	end
+
+	if chord == "ctrl+shift+k" or chord == "ctrl+shift+up" then
+		local row = selectedIndex and rows[selectedIndex]
+		if row ~= nil and row.kind == "entry" then
+			local fromIndex = row.index
+			if fromIndex > 1 then
+				local list = activeList()
+				if moveEntryTo(list, fromIndex, fromIndex - 1) then
+					selectedIndex = fromIndex - 1
+					rememberSelection(currentFolder)
+					render()
+				end
+			end
+		end
+		return
+	end
+
+	if chord == "ctrl+shift+j" or chord == "ctrl+shift+down" then
+		local row = selectedIndex and rows[selectedIndex]
+		if row ~= nil and row.kind == "entry" then
+			local fromIndex = row.index
+			local list = activeList()
+			if fromIndex < #list then
+				if moveEntryTo(list, fromIndex, fromIndex + 2) then
+					selectedIndex = fromIndex + 1
+					rememberSelection(currentFolder)
+					render()
+				end
+			end
+		end
+		return
+	end
+
 	local count = #rows
 	if count == 0 then
 		selectedIndex = nil

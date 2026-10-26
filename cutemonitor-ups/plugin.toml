@@ -7,10 +7,10 @@
 
 id = "cutecaption/cutemonitor-ups"
 name = "CuteMonitor — UPS Status"
-version = "0.1.0"
+version = "0.1.1"
 # API 29 is for the panel graph's hover tracking; nothing else needs more
 # than 24.
-plugin_api = 29
+plugin_api = 43
 author = "cutecaption"
 license = "MIT"
 icon = "plug-connected"

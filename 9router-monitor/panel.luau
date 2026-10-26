@@ -270,7 +270,7 @@ local function render_activity_view()
 
     table.insert(items, ui.column({
         key = "activity-hero",
-        fill = "surface_variant/0.4",
+        fill = "surface_container/0.4",
         border = meta_color .. "/0.3",
         borderWidth = 1,
         radius = 10,
@@ -334,7 +334,7 @@ local function render_activity_view()
     })
 
     local cost_banner = ui.row({
-        fill = "surface_variant/0.25",
+        fill = "surface_container/0.25",
         radius = 8,
         paddingH = 10,
         paddingV = 8,
@@ -350,7 +350,7 @@ local function render_activity_view()
 
     local stat_box = function(label, value, color)
         return ui.column({
-            fill = "surface_variant/0.25",
+            fill = "surface_container/0.25",
             radius = 8,
             paddingH = 10,
             paddingV = 8,
@@ -488,7 +488,7 @@ local function render_activity_view()
             })
 
             table.insert(recent_cards, ui.column({
-                fill = "surface_variant/0.25",
+                fill = "surface_container/0.25",
                 radius = 8,
                 padding = 8,
                 gap = 4,
@@ -580,7 +580,7 @@ local function render_models_view()
             table.insert(summary_parts[2].children or summary_parts, ui.label({ text = "⚡ " .. tot_cached, fontSize = 11, color = "primary" }))
         end
         table.insert(model_section_children, ui.row({
-            fill = "surface_variant/0.3",
+            fill = "surface_container/0.3",
             radius = 6,
             paddingH = 8,
             paddingV = 4,
@@ -644,7 +644,7 @@ local function render_models_view()
             })
 
             table.insert(model_section_children, ui.column({
-                fill = "surface_variant/0.25",
+                fill = "surface_container/0.25",
                 radius = 8,
                 padding = 8,
                 gap = 4,
@@ -696,7 +696,7 @@ local function render_quotas_view()
     if #qlist == 0 then
         table.insert(items, ui.column({
             key = "quotas-empty",
-            fill = "surface_variant/0.3",
+            fill = "surface_container/0.3",
             radius = 10,
             padding = 16,
             align = "center",
@@ -787,7 +787,7 @@ local function render_quotas_view()
 
                     if not q.unlimited then
                         table.insert(quota_item_col, ui.row({
-                            fill = "surface_variant/0.5",
+                            fill = "surface_container/0.5",
                             radius = 3,
                             height = 5,
                         }, {
@@ -810,7 +810,7 @@ local function render_quotas_view()
 
             table.insert(items, ui.column({
                 key = "quotas-prov-" .. (prov.provider or tostring(idx)),
-                fill = "surface_variant/0.25",
+                fill = "surface_container/0.25",
                 radius = 8,
                 padding = 10,
                 gap = 8,

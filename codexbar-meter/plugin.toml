@@ -1,7 +1,7 @@
 id           = "salemsayed/codexbar-meter"
 name         = "CodexBar Meter"
-version      = "1.0.0"
-plugin_api   = 8
+version      = "1.0.1"
+plugin_api   = 43
 author       = "salemsayed"
 license      = "MIT"
 icon         = "chart-donut-3"

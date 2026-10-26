@@ -146,9 +146,9 @@ local function vmCard(vm)
 		gap = 8,
 		padding = 10,
 		radius = 8,
-		border = "outline",
+		border = "outline_variant",
 		borderWidth = 1,
-		fill = "surface_variant/0.25",
+		fill = "surface_container/0.25",
 	}, {
 		ui.row({ align = "center", gap = 8 }, {
 			ui.label({ text = vm.name, fontSize = 14, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),

@@ -104,7 +104,7 @@ local function deviceCard(device, index)
         gap = 12,
         padding = 12,
         radius = 12,
-        fill = "surface_variant/0.4",
+        fill = "surface_container/0.4",
     }, children)
 end
 

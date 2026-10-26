@@ -18,8 +18,8 @@
 
 id = "ayagmar/binance"
 name = "Binance"
-version = "0.2.0"
-plugin_api = 32
+version = "0.2.1"
+plugin_api = 43
 author = "ayagmar"
 license = "MIT"
 icon = "currency-bitcoin"
