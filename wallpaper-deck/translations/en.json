@@ -1,0 +1,104 @@
+{
+  "title": "Wallpapers",
+  "settings": {
+    "glyph": {
+      "label": "Icon Glyph"
+    },
+    "wallpaper_dir": {
+      "label": "Primary Wallpaper Directory",
+      "description": "Main directory scanned for wallpapers."
+    },
+    "extra_wallpaper_dir": {
+      "label": "Additional Wallpaper Directory",
+      "description": "Secondary directory scanned for wallpapers (e.g. ~/Pictures/WallHaven)."
+    },
+    "include_wallhaven_downloads": {
+      "label": "Include Wallhaven Downloads in Local Deck",
+      "description": "Automatically scan and display downloaded Wallhaven wallpapers alongside your local collection."
+    },
+    "additional_wallpaper_dirs": {
+      "label": "Extra Wallpaper Directories",
+      "description": "Additional directories to scan, separated by commas or colons."
+    },
+    "backend_mode": {
+      "label": "Wallpaper Engine",
+      "description": "Use Noctalia native surface or custom command.",
+      "native": "Noctalia Native",
+      "custom": "Custom Command (swww / awww)"
+    },
+    "custom_command": {
+      "label": "Custom Command",
+      "description": "Command template executed on selection. Use {path} and {output} placeholders."
+    },
+    "post_hook_command": {
+      "label": "Post-Apply Hook",
+      "description": "Optional command run after applying a wallpaper (e.g. matugen image \"{path}\")."
+    },
+    "animate_selected_card": {
+      "label": "Animate Selected Card",
+      "description": "Enable subtle floating and transition animation on the active center card."
+    },
+    "visible_deck_cards": {
+      "label": "Visible Deck Cards",
+      "description": "Number of cards rendered simultaneously in the deck window (3 to 11)."
+    },
+    "max_deck_wallpapers": {
+      "label": "Maximum Wallpapers in Deck",
+      "description": "Maximum number of wallpapers loaded into the deck UI (favorites are always included)."
+    },
+    "wallhaven_api_key": {
+      "label": "Wallhaven API Key",
+      "description": "Optional API key for Wallhaven (unlocks NSFW and personal collections)."
+    },
+    "wallhaven_categories": {
+      "label": "Wallhaven Categories",
+      "description": "Categories bitflag (General/Anime/People, e.g. 111)."
+    },
+    "wallhaven_purity": {
+      "label": "Wallhaven Purity",
+      "description": "Purity bitflag (SFW/Sketchy/NSFW, e.g. 100 for SFW only)."
+    },
+    "wallhaven_sorting": {
+      "label": "Wallhaven Sorting",
+      "description": "Default sorting on Wallhaven (toplist, hot, relevance, views, favorites, random)."
+    },
+    "wallhaven_order": {
+      "label": "Wallhaven Order",
+      "description": "Sort order (desc or asc)."
+    },
+    "wallhaven_hires_preview": {
+      "label": "Hi-Res Wallhaven Preview",
+      "description": "Enable full resolution background previews for Wallhaven wallpapers."
+    },
+    "wallhaven_cache_limit_mb": {
+      "label": "Wallhaven Preview Cache Limit (MB)",
+      "description": "Maximum disk space for hi-res previews before older cached previews are automatically pruned (50 to 2000 MB)."
+    },
+    "wallhaven_download_dir": {
+      "label": "Wallhaven Download Directory",
+      "description": "Directory where applied Wallhaven wallpapers are saved (defaults to ~/Pictures/WallHaven)."
+    }
+  },
+  "ui": {
+    "tab_local": "Local",
+    "tab_favorites": "Favourites",
+    "tab_wallhaven": "Wallhaven",
+    "sort_name": "Name",
+    "sort_colour": "Colour",
+    "sort_newest": "Newest",
+    "current": "current",
+    "on_desktop": "On your desktop",
+    "static_wallpaper": "Static Wallpaper",
+    "motion_wallpaper": "Motion Wallpaper",
+    "no_wallpapers": "No wallpapers found in directory.",
+    "no_favorites": "No favourites yet. Press 'F' on any card to add it!",
+    "no_wallhaven": "No Wallhaven results found.",
+    "network_unavailable": "Network Unavailable",
+    "network_unavailable_desc": "Could not connect to Wallhaven. Check your internet connection and try again.",
+    "retry": "Retry",
+    "clear_search": "Clear Search",
+    "loading": "Loading...",
+    "search_placeholder": "Search wallpapers...",
+    "hints": "← → or wheel browse • Enter set • F favourite • S sort • R random • Space peek • Tab source • Esc close"
+  }
+}
