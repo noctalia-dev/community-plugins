@@ -41,7 +41,7 @@ noctalia msg plugin zhangdm-520/niri-media-idle:niri-media-idle-service all refr
 
 ## Status and limits
 
-The v1.2 consumer accepts only a version-2 record at `$XDG_RUNTIME_DIR/noctalia-niri-media-idle/status.json`. It requires `version`, a positive integer `pid`, coarse `media` (`none`, `music`, `video`, or `unknown`), `state`, and boolean `logind_idle_held`, `screensaver_held`, and `sleep_held` fields. It rejects malformed, inconsistent, or stale data, and verifies that the record PID matches `systemctl --user show --property=MainPID --value noctalia-niri-media-idle.service`. A newly active unit gets a three-second loading grace measured from systemd's monotonic active-enter timestamp before an unknown-state warning appears.
+The v1.3 consumer accepts only a version-2 record at `$XDG_RUNTIME_DIR/noctalia-niri-media-idle/status.json`. It requires `version`, a positive integer `pid`, coarse `media` (`none`, `music`, `video`, or `unknown`), `state`, and boolean `logind_idle_held`, `screensaver_held`, and `sleep_held` fields. It rejects malformed, inconsistent, or stale data, and verifies that the record PID matches `systemctl --user show --property=MainPID --value noctalia-niri-media-idle.service`. A newly active unit gets a three-second loading grace measured from systemd's monotonic active-enter timestamp before an unknown-state warning appears.
 
 - **Active + protected:** video is reported only when the current unit's record says `protected` and all three inhibitors (sleep, idle, and ScreenSaver) are held.
 - **Active + music sleep:** music holds only the sleep inhibitor; idle and ScreenSaver inhibition are not claimed.
@@ -55,7 +55,7 @@ Normal and unknown active states keep the active icon and color; the alert color
 
 The transient unit creates the runtime directory with mode `0700`; the bridge writes the status file atomically with mode `0600`. The record contains only a version, daemon PID, coarse media/state values, and inhibitor-held booleans. Tooltips identify the source as this bridge only and never show player, app, title, or URL identifiers. The widget does not infer protection from the bridge's `--once` classification.
 
-The v1.2 package pairs this consumer with its version-2 bundled bridge. Legacy version-1, malformed, stale, or PID-mismatched records remain unknown after the startup grace rather than claiming protection.
+The v1.3 package pairs this consumer with its version-2 bundled bridge. Legacy version-1, malformed, stale, or PID-mismatched records remain unknown after the startup grace rather than claiming protection.
 
 ## Notes
 

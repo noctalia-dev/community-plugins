@@ -1,7 +1,7 @@
 id = "zhangdm-520/niri-media-idle"
 name = "Niri Media Idle"
-version = "1.2.0"
-plugin_api = 30
+version = "1.3.0"
+plugin_api = 43
 author = "ZhangDM-520"
 license = "MIT"
 icon = "player-play"
