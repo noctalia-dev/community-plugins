@@ -6,10 +6,11 @@ local M = {}
 
 M.MODES = { "palette", "gradient", "custom", "static", "firmware" }
 -- Offered in the palette editor; roles unknown to the active theme are hidden.
--- Only roles available at plugin_api 32 (the *_container roles need API 43; surface_variant is retired).
+-- Only roles valid at plugin_api 32: the container roles (including surface_container) need API 43
+-- and surface_variant is retired, so none of them are listed.
 M.ROLE_CANDIDATES = {
   "primary", "secondary", "tertiary",
-  "surface", "surface_container", "on_surface", "error",
+  "surface", "on_surface", "error",
 }
 
 local function clamp(n, lo, hi)
