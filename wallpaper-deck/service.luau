@@ -297,14 +297,31 @@ local function previewWallpaper(path: string)
   noctalia.setWallpaper(path)
 end
 
+local function executeShellTemplate(template: string, path: string, outputTarget: string?)
+  if not template or template == "" then return end
+  local out = outputTarget or "*"
+
+  -- Replace placeholder patterns with shell positional parameters $1 and $2.
+  -- Both quoted and unquoted variations are mapped to "$1" / "$2" so values are
+  -- passed safely via the argv array to sh -c without command substitution or injection.
+  local script = template
+  script = string.gsub(script, '"{path}"', '"$1"')
+  script = string.gsub(script, "'{path}'", '"$1"')
+  script = string.gsub(script, "{path}", '"$1"')
+
+  script = string.gsub(script, '"{output}"', '"$2"')
+  script = string.gsub(script, "'{output}'", '"$2"')
+  script = string.gsub(script, "{output}", '"$2"')
+
+  noctalia.runAsync({ "sh", "-c", script, "wallpaper-deck", path, out }, function() end)
+end
+
 local function applyWallpaper(path: string, outputTarget: string?)
   local mode = noctalia.getConfig("backend_mode") or "native"
 
   if mode == "custom" then
     local cmd = noctalia.getConfig("custom_command") or ""
-    cmd = string.gsub(cmd, "{path}", path)
-    cmd = string.gsub(cmd, "{output}", outputTarget or "*")
-    noctalia.runAsync(cmd, function() end)
+    executeShellTemplate(cmd, path, outputTarget)
   else
     -- Native mode
     if outputTarget and outputTarget ~= "*" and outputTarget ~= "ALL" then
@@ -317,8 +334,7 @@ local function applyWallpaper(path: string, outputTarget: string?)
 
   local postHook = noctalia.getConfig("post_hook_command") or ""
   if postHook ~= "" then
-    postHook = string.gsub(postHook, "{path}", path)
-    noctalia.runAsync(postHook, function() end)
+    executeShellTemplate(postHook, path, outputTarget)
   end
 
   currentActive = path

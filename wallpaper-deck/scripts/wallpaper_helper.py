@@ -508,25 +508,22 @@ def scan_directory(dir_path, cache_file, thumb_dir, max_matugen=24, deck_limit=6
     }
 
 def run_wheel_listener(pid_file):
-    import fcntl, glob, select, time, struct, signal
+    import fcntl, glob, select, time, struct, signal, atexit
 
-    os.makedirs(os.path.dirname(os.path.abspath(pid_file)), exist_ok=True)
-    try:
-        with open(pid_file, "w") as f:
-            f.write(str(os.getpid()))
-    except Exception:
-        pass
-
-    def cleanup(*_args):
+    def cleanup():
         try:
             if os.path.exists(pid_file):
                 os.remove(pid_file)
         except Exception:
             pass
+
+    def sig_handler(*_args):
+        cleanup()
         sys.exit(0)
 
-    signal.signal(signal.SIGTERM, cleanup)
-    signal.signal(signal.SIGINT, cleanup)
+    signal.signal(signal.SIGTERM, sig_handler)
+    signal.signal(signal.SIGINT, sig_handler)
+    atexit.register(cleanup)
 
     EV_REL = 0x02
     REL_WHEEL = 0x08
@@ -534,26 +531,35 @@ def run_wheel_listener(pid_file):
     REL_WHEEL_HI_RES = 11
 
     fds = []
-    for p in sorted(glob.glob("/dev/input/event*")):
+    pid_written = False
+    try:
+        for p in sorted(glob.glob("/dev/input/event*")):
+            try:
+                fd = os.open(p, os.O_RDONLY | os.O_NONBLOCK)
+                buf = bytearray(8)
+                fcntl.ioctl(fd, 0x80084520 + EV_REL, buf)
+                mask = int.from_bytes(buf, "little")
+                if mask & ((1 << REL_WHEEL) | (1 << REL_HWHEEL)):
+                    fds.append(fd)
+                else:
+                    os.close(fd)
+            except Exception:
+                pass
+
+        if not fds:
+            return
+
         try:
-            fd = os.open(p, os.O_RDONLY | os.O_NONBLOCK)
-            buf = bytearray(8)
-            fcntl.ioctl(fd, 0x80084520 + EV_REL, buf)
-            mask = int.from_bytes(buf, "little")
-            if mask & ((1 << REL_WHEEL) | (1 << REL_HWHEEL)):
-                fds.append(fd)
-            else:
-                os.close(fd)
+            os.makedirs(os.path.dirname(os.path.abspath(pid_file)), exist_ok=True)
+            with open(pid_file, "w") as f:
+                f.write(str(os.getpid()))
+            pid_written = True
         except Exception:
             pass
 
-    if not fds:
-        return
+        last_trigger = 0.0
+        COOLDOWN = 0.06
 
-    last_trigger = 0.0
-    COOLDOWN = 0.06
-
-    try:
         while True:
             if not os.path.exists(pid_file):
                 break
@@ -590,7 +596,8 @@ def run_wheel_listener(pid_file):
                 os.close(fd)
             except Exception:
                 pass
-        cleanup()
+        if pid_written:
+            cleanup()
 
 def main():
     if len(sys.argv) < 2:

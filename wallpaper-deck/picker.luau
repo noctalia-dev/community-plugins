@@ -61,8 +61,16 @@ local function stopWheelListener()
       if pid and pid ~= "" then
         local trimmed = string.gsub(pid, "%s+", "")
         if tonumber(trimmed) then
-          noctalia.runAsync(string.format("kill -9 %s 2>/dev/null; rm -f '%s'", trimmed, WHEEL_PID_FILE))
+          local cmdline = noctalia.readFile("/proc/" .. trimmed .. "/cmdline")
+          if cmdline and string.find(cmdline, "wallpaper_helper.py", 1, true) and string.find(cmdline, "wheel", 1, true) then
+            noctalia.runAsync({ "kill", "-15", trimmed }, function() end)
+          end
         end
+      end
+      if type(noctalia.removeFile) == "function" then
+        pcall(noctalia.removeFile, WHEEL_PID_FILE)
+      else
+        noctalia.runAsync({ "rm", "-f", WHEEL_PID_FILE }, function() end)
       end
     end
   end)
@@ -98,6 +106,7 @@ local THUMB_MAX_CONCURRENT = 4
 local displayedItems = {}
 local selectedIdx = 1
 local render -- forward declaration
+local toggleCurrentFavorite -- forward declaration
 
 local function isValidFile(path: string?): boolean
   if not path or path == "" then return false end
@@ -1461,7 +1470,11 @@ local function buildStandardRow2()
         variant = (activeItem and favorites[activeItem.name]) and "primary" or "ghost",
         controlSize = "sm",
         tooltip = (activeItem and favorites[activeItem.name]) and "Remove from Favourites (F)" or "Add to Favourites (F)",
-        onClick = toggleCurrentFavorite,
+        onClick = function()
+          if toggleCurrentFavorite then
+            toggleCurrentFavorite()
+          end
+        end,
       }),
     }),
 
@@ -1709,7 +1722,7 @@ local function openMonitorMenu()
   end
 end
 
-local function toggleCurrentFavorite()
+toggleCurrentFavorite = function()
   local item = displayedItems[selectedIdx]
   if not item then return end
   noctalia.state.set("deck_command", { action = "toggle_favorite", fileName = item.name, nonce = noctalia.nowMs() })
