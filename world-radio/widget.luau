@@ -1,10 +1,13 @@
 -- widget.luau
 -- Bar widget: opens the World Radio panel; while a radio is playing it shows
 -- the station name ("tocando agora"), published through the plugin state channel.
+-- Scrolling up/down asks the background service to skip to the next/previous
+-- station through MPRIS, so switching works with the panel closed.
 
 local currentName = ""
 local currentFlag = ""
-local showName = noctalia.getConfig("show_now_playing") ~= false
+local lastSkipId = 0
+local showName = noctalia.getConfig("show_now_playing") == true
 
 local function displayText()
   if currentName == "" then
@@ -54,8 +57,34 @@ function onClick()
   noctalia.togglePanel("nilsonlinux/world-radio:Panel")
 end
 
+local function requestSkip(dir)
+  local request = noctalia.state.get("skip_request")
+  local id = lastSkipId
+  if type(request) == "table" then
+    local current = tonumber(request.id)
+    if current ~= nil and current > id then
+      id = current
+    end
+  end
+  id = id + 1
+  lastSkipId = id
+  noctalia.state.set("skip_request", { id = id, dir = dir })
+end
+
+function onScroll(axis, steps, startsGesture)
+  if axis ~= "vertical" or not startsGesture then
+    return
+  end
+  local count = tonumber(steps) or 0
+  if count == 0 or currentName == "" then
+    return
+  end
+  -- Negative steps scroll up (next station), positive scroll down (previous).
+  requestSkip(count < 0 and 1 or -1)
+end
+
 function onConfigChanged()
-  showName = noctalia.getConfig("show_now_playing") ~= false
+  showName = noctalia.getConfig("show_now_playing") == true
   render()
 end
 

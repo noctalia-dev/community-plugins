@@ -1,169 +1,33 @@
+--!nonstrict
 
--- [[panel]] entry:
--- shows the last/current picked color with a button to
--- pick a new one, a history of the last colors, and
--- color fields with real-time editing.
---
--- No hyprpicker, no disk, no history mutation here -- that all lives in
--- service.luau. This script only reads noctalia.state and dispatches IPC
--- events to the service for anything that touches picking or persistence.
---!nocheck
---!nolint UnknownGlobal
-
---==============================================
--- CONSTANTS
---==============================================
 local SERVICE = "oldirtty/color_picker:service"
-local swatch_radius = noctalia.getConfig("swatch-radius")
-local tr_color_picker = noctalia.tr("color_picker")
+local color = require("./color.luau")
+local SWATCH_SIZE = 32
 
---==============================================
--- CONTROL VARIABLES
---==============================================
 local showCloseBtn = true
 local waitingForPanelPick = false
 local initialSessionColor = nil
 local initialSessionOpacity = 1
 local initialChanged = false
 
---==============================================
--- TRANSLATION HELPER
---==============================================
-local function tr(key: string, subst: table?): string
+local render
+local colorspaces
+
+local function tr(key, subst)
   if subst then
     return noctalia.tr(key, subst)
   end
   return noctalia.tr(key)
 end
 
---==============================================
--- COLOR CONVERSION
---==============================================
-
-local function hexToRgb(hex: string)
-  local r = tonumber(hex:sub(2, 3), 16)
-  local g = tonumber(hex:sub(4, 5), 16)
-  local b = tonumber(hex:sub(6, 7), 16)
-  return r, g, b
+local function customNotify(title: string, body: string?)
+  if noctalia.getConfig("notify-on-copy") == false then
+    return
+  end
+  noctalia.notify(title, body)
 end
 
-local function rgbToHsl(r: number, g: number, b: number)
-  r, g, b = r / 255, g / 255, b / 255
-  local max, min = math.max(r, g, b), math.min(r, g, b)
-  local h, s, l = 0, 0, (max + min) / 2
-
-  if max ~= min then
-    local d = max - min
-    s = if l > 0.5 then d / (2 - max - min) else d / (max + min)
-    if max == r then
-      h = (g - b) / d + (if g < b then 6 else 0)
-    elseif max == g then
-      h = (b - r) / d + 2
-    else
-      h = (r - g) / d + 4
-    end
-    h = h / 6
-  end
-
-  return math.floor(h * 360 + 0.5), math.floor(s * 100 + 0.5), math.floor(l * 100 + 0.5)
-end
-
-local function formatHex(hex: string, alpha: number): string
-  if alpha < 1 then
-    return hex .. string.format("%02x", math.floor(alpha * 255 + 0.5))
-  end
-  return hex
-end
-
-local function formatRgb(hex: string, alpha: number): string
-  local r, g, b = hexToRgb(hex)
-  if alpha < 1 then
-    return string.format("rgba(%d, %d, %d, %.2f)", r, g, b, alpha)
-  end
-  return string.format("rgb(%d, %d, %d)", r, g, b)
-end
-
-local function formatHsl(hex: string, alpha: number): string
-  local r, g, b = hexToRgb(hex)
-  local h, s, l = rgbToHsl(r, g, b)
-  if alpha < 1 then
-    return string.format("hsla(%d, %d%%, %d%%, %.2f)", h, s, l, alpha)
-  end
-  return string.format("hsl(%d, %d%%, %d%%)", h, s, l)
-end
-
-local function hexWithAlpha(hex: string, alpha: number): string
-  if alpha >= 1 then
-    return hex
-  end
-  return hex .. string.format("%02x", math.floor(alpha * 255 + 0.5))
-end
-
---==============================================
--- COLOR TEXT PARSING (field input -> hex)
---==============================================
-
-local function parseRgbText(text: string): string?
-  local r, g, b = text:match("^%s*(%d+)%s*,%s*(%d+)%s*,%s*(%d+)")
-  if r == nil then
-    return nil
-  end
-  r, g, b = tonumber(r), tonumber(g), tonumber(b)
-  if r > 255 or g > 255 or b > 255 then
-    return nil
-  end
-  return string.format("#%02x%02x%02x", r, g, b)
-end
-
-local function parseHslText(text: string): string?
-  local h, s, l = text:match("^%s*(%d+)%s*,%s*(%d+)%%?%s*,%s*(%d+)%%?")
-  if h == nil then
-    return nil
-  end
-  h, s, l = tonumber(h), tonumber(s) / 100, tonumber(l) / 100
-
-  local function hueToRgb(p: number, q: number, t: number): number
-    if t < 0 then t = t + 1 end
-    if t > 1 then t = t - 1 end
-    if t < 1 / 6 then return p + (q - p) * 6 * t end
-    if t < 1 / 2 then return q end
-    if t < 2 / 3 then return p + (q - p) * (2 / 3 - t) * 6 end
-    return p
-  end
-
-  local r, g, b
-  if s == 0 then
-    r, g, b = l, l, l
-  else
-    local q = if l < 0.5 then l * (1 + s) else l + s - l * s
-    local p = 2 * l - q
-    local hn = h / 360
-    r = hueToRgb(p, q, hn + 1 / 3)
-    g = hueToRgb(p, q, hn)
-    b = hueToRgb(p, q, hn - 1 / 3)
-  end
-
-  return string.format(
-    "#%02x%02x%02x",
-    math.floor(r * 255 + 0.5),
-    math.floor(g * 255 + 0.5),
-    math.floor(b * 255 + 0.5)
-  )
-end
-
-local function parseHexText(text: string): string?
-  local clean = text:match("^#?(%x%x%x%x%x%x)$")
-  if clean == nil then
-    return nil
-  end
-  return "#" .. clean
-end
-
---==============================================
--- SERVICE DISPATCH
---==============================================
-
-local function sendToService(event: string, payload: string?)
+local function sendToService(event, payload)
   local cmd = "noctalia msg plugin " .. SERVICE .. " all " .. event
   if payload ~= nil then
     cmd = cmd .. " '" .. payload .. "'"
@@ -171,103 +35,394 @@ local function sendToService(event: string, payload: string?)
   noctalia.runAsync(cmd, function() end)
 end
 
-local function commitInitialColorIfFirstChange(newHex: string?)
-    if initialChanged then return end
-    if initialSessionColor == nil then return end
-    if newHex == nil or newHex == initialSessionColor then return end
-
-    initialChanged = true
-    local payload = initialSessionColor .. ":" .. tostring(initialSessionOpacity)
-    -- noctalia.notify("DEBUG", "Push initial color = ".. initialSessionColor .. "\nOpacity = " .. initialSessionOpacity)
-    sendToService("push-to-history", payload)
-end
-
---==============================================
--- STATE (read-only view + pure-UI selection)
--- These states are synced and persisted to disk by the service on close.
---==============================================
-
-local function getSelectedColor(): string?
-    return noctalia.state.get("selectedColor")
-end
-
-local function getSelectedOpacity(): number
-    return tonumber(noctalia.state.get("selectedOpacity")) or 1
-end
-
-local function setSelected(hex: string, opacity: number)
-    commitInitialColorIfFirstChange(hex)
-    noctalia.state.set("selectedColor", hex)
-    noctalia.state.set("selectedOpacity", opacity)
-end
-
---==============================================
--- RENDERING
---==============================================
-
-local function renderTitlebar()
-    local header = {
-        ui.label({ text = tr("color_picker"), fontSize = 18, fontWeight = "bold", color = "primary", flexGrow = 1 }),
-        ui.button({ glyph = "color-picker", onClick = "onPickClickedFromPanel" }),
-    }
-
-    if showCloseBtn then
-        table.insert(header, ui.button({ glyph = "close", onClick = "onCloseClicked" }))
-    end
-
-    return ui.row({ align = "center", justify = "space_between", gap = 8 }, header)
-end
-
-local function renderRecentItem(color: string, index: number)
-    return ui.box({
-        width = 32,
-        height = 32,
-        fill = color,
-        radius = swatch_radius / 2.5,
-        border = "outline_variant",
-        onClick = function() handleHistoryClick(index) end,
-    })
-end
-
--- Recent-colors row
-function renderRecent()
-    local recent = noctalia.state.get("colorHistory") or {}
-
-    if #recent == 0 then
-        return ui.label({ text = tr("no_history"), fontSize = 12, color = "muted" })
-    end
-
-    local items = {}
-    for i = #recent, 1, -1 do
-        table.insert(items, renderRecentItem(recent[i].hex, i))
-    end
-
-    return ui.row({ gap = 8, align = "center" }, items)
-end
-
-local function renderColorspaceColumn(name: string, value: string, onSubmit: string, onCopy: string, keySuffix: string)
-  local text_align = "left"
-  if name ~= "HEX" then
-    value = value:match("%((.-)%)")
-    text_align = "center"
+local function commitInitialColorIfFirstChange(newHex)
+  if initialChanged then
+    return
+  end
+  if initialSessionColor == nil then
+    return
+  end
+  if newHex == nil or newHex == initialSessionColor then
+    return
   end
 
+  initialChanged = true
+  local payload = initialSessionColor .. ":" .. tostring(initialSessionOpacity)
+  sendToService("push-to-history", payload)
+end
+
+local function getSelectedColor()
+  return noctalia.state.get("selectedColor")
+end
+
+local function getSelectedOpacity()
+  return tonumber(noctalia.state.get("selectedOpacity")) or 1
+end
+
+local function setSelected(hex, opacity)
+  commitInitialColorIfFirstChange(hex)
+  noctalia.state.set("selectedColor", hex)
+  noctalia.state.set("selectedOpacity", tonumber(opacity) or 1)
+  render()
+end
+
+--==============================================
+-- BASE UI COMPONENTS
+--==============================================
+
+local function getSystemRadius(): number
+  local setting = noctalia.getSetting("shell.corner_radius_scale")
+  local factor = (setting ~= nil) and tonumber(setting) or 1.0
+  return math.floor(8 * factor + 0.5)
+end
+
+local function renderTitlebar()
+  local header = {
+    ui.label({ text = tr("color_picker"), fontSize = 18, fontWeight = "bold", color = "primary", flexGrow = 1 }),
+  }
+  if showCloseBtn then
+    table.insert(header, ui.button({ glyph = "close", onClick = "onCloseClicked" }))
+  end
+  return ui.row({ align = "center", justify = "space_between", gap = 8 }, header)
+end
+
+local function renderRecentItem(colorHex: string, index: number)
+  local is_circular = noctalia.getConfig("circular-swatch")
+  local radius: number = is_circular and 9999 or getSystemRadius()
+
+  return ui.box({
+    width = SWATCH_SIZE,
+    height = SWATCH_SIZE,
+    fill = colorHex,
+    radius = radius,
+    border = "outline_variant",
+    onClick = function()
+      handleHistoryClick(index)
+    end,
+  })
+end
+
+function renderRecent()
+  local recent = noctalia.state.get("colorHistory") or {}
+  if #recent == 0 then
+    return ui.label({ text = tr("no_history"), fontSize = 12, color = "muted" })
+  end
+
+  local items = {}
+  for i = 1, #recent do
+    table.insert(items, renderRecentItem(recent[i].hex, i))
+  end
+  return ui.row({ gap = 6, align = "center" }, items)
+end
+
+local function renderParamPart(labelStr, valStr, keyStr, submitFunc, flexRatio)
+  return ui.row({ gap = 4, align = "center", flexGrow = flexRatio or 1 }, {
+    ui.label({ text = labelStr, fontSize = 12, color = "on_surface_variant" }),
+    ui.input({
+      key = keyStr,
+      value = valStr,
+      flexGrow = 1,
+      onSubmit = submitFunc,
+    }),
+  })
+end
+
+local function renderColorspaceColumn(name: string, value, onSubmit, onCopy, keySuffix)
   return ui.column({ gap = 4, flexGrow = 1 }, {
     ui.label({ text = name, fontSize = 14, color = "on_surface_variant" }),
     ui.row({ gap = 8, align = "center" }, {
       ui.input({
         key = name .. "-input-" .. keySuffix,
-        value = value,
-        textAlign = text_align,
+        value = value:match("%((.-)%)") or value,
         flexGrow = 1,
         onSubmit = onSubmit,
       }),
-      ui.button({ glyph = "copy", variant = "ghost", onClick = onCopy }),
+      ui.button({ glyph = "copy", variant = "ghost", controlSize = "md", onClick = onCopy }),
     }),
   })
 end
 
-local function render()
+local function buildColorspaceRow(inputs, copyAction, isPrimary)
+  local children = {}
+  for _, input in ipairs(inputs) do
+    table.insert(children, input)
+  end
+
+  if isPrimary then
+    table.insert(
+      children,
+      ui.button({ glyph = "color-picker", variant = "default", controlSize = "md", onClick = "onPickClickedFromPanel" })
+    )
+    table.insert(children, ui.button({ glyph = "copy", variant = "primary", controlSize = "md", onClick = copyAction }))
+  else
+    table.insert(children, ui.button({ glyph = "copy", variant = "ghost", onClick = copyAction }))
+  end
+
+  return ui.row({ gap = 8, align = "center", flexGrow = 1 }, children)
+end
+
+local function previewSwatch(current, opacity)
+  local radius = getSystemRadius()
+
+  -- ui.* has no layering: solid color underneath, checkerboard on top fading with (1 - alpha),
+  -- which blends to alpha * color + (1 - alpha) * checker, same as the picker's alpha strip.
+  return ui.row({
+    width = 42,
+    height = 42,
+    padding = 1,
+    radius = radius,
+    fill = current,
+    border = "outline_variant",
+  }, {
+    ui.image({
+      path = "assets/checker.svg",
+      width = 40,
+      height = 40,
+      radius = math.max(radius - 1, 0),
+      opacity = 1 - opacity,
+    }),
+  })
+end
+
+--==============================================
+-- COLORSPACES (OBJECTS)
+--==============================================
+
+local function processCopy(formatFunc)
+  local current = getSelectedColor()
+  if current == nil then
+    return
+  end
+  local text = formatFunc(current, getSelectedOpacity())
+  noctalia.copyToClipboard(text, "text/plain;charset=utf-8")
+  customNotify(tr("color_picker"), tr("color_copied", { color = text }))
+end
+
+colorspaces = {
+  hex = {
+    submit = function(text: string)
+      local hex_val, alpha_val = color.parseHexText(text)
+      if hex_val then
+        setSelected(hex_val, alpha_val or 1)
+        render()
+      end
+    end,
+    copy = function()
+      processCopy(color.formatHex)
+    end,
+    render = function(current, opacity, keySuffix, isPrimary)
+      if isPrimary then
+        local inputs = {
+          ui.input({
+            key = "HEX-input-" .. keySuffix,
+            value = color.formatHex(current, opacity),
+            flexGrow = 2,
+            onSubmit = "onSubmitHex",
+          }),
+          renderParamPart(
+            "A",
+            tostring(math.floor(opacity * 100 + 0.5)) .. "%",
+            "A-hex-" .. keySuffix,
+            "onOpacityInputSubmit",
+            1.25
+          ),
+        }
+        local row = buildColorspaceRow(inputs, "onCopyHex", true)
+
+        return ui.row({ gap = 8, align = "center" }, {
+          previewSwatch(current, opacity),
+          row,
+        })
+      else
+        return renderColorspaceColumn("HEX", color.formatHex(current, opacity), "onSubmitHex", "onCopyHex", keySuffix)
+      end
+    end,
+  },
+  rgb = {
+    submit = function(text: string)
+      local hex_val, alpha_val = color.parseRgbText(text)
+      if hex_val then
+        setSelected(hex_val, alpha_val or 1)
+        render()
+      end
+    end,
+    submitParts = function(part, newValue)
+      local current = getSelectedColor()
+      if not current then
+        return
+      end
+      local r, g, b = color.hexToRgb(current)
+
+      local num = tonumber(newValue)
+      if not num or num > 255 or num < 0 then
+        return
+      end
+
+      if part == "R" then
+        r = num
+      elseif part == "G" then
+        g = num
+      elseif part == "B" then
+        b = num
+      end
+
+      local newHex = string.format("#%02X%02X%02X", r, g, b)
+      setSelected(newHex, getSelectedOpacity())
+    end,
+    copy = function()
+      processCopy(color.formatRgb)
+    end,
+    render = function(current, opacity, keySuffix, isPrimary)
+      if isPrimary then
+        local r, g, b = color.hexToRgb(current)
+        local a = tostring(math.floor(opacity * 100 + 0.5)) .. "%"
+        local inputs = {
+          renderParamPart("R", tostring(r), "R-" .. keySuffix, "onSubmitRgbR"),
+          renderParamPart("G", tostring(g), "G-" .. keySuffix, "onSubmitRgbG"),
+          renderParamPart("B", tostring(b), "B-" .. keySuffix, "onSubmitRgbB"),
+          renderParamPart("A", a, "A-rgb-" .. keySuffix, "onOpacityInputSubmit", 1.25),
+        }
+        local row = buildColorspaceRow(inputs, "onCopyRgb", true)
+
+        return ui.row({ gap = 8, align = "center" }, {
+          previewSwatch(current, opacity),
+          row,
+        })
+      else
+        return renderColorspaceColumn(
+          "RGB(A)",
+          color.formatRgb(current, opacity),
+          "onSubmitRgb",
+          "onCopyRgb",
+          keySuffix
+        )
+      end
+    end,
+  },
+  hsl = {
+    submit = function(text: string)
+      local hex_val, alpha_val = color.parseHslText(text)
+      if hex_val then
+        setSelected(hex_val, alpha_val or 1)
+        render()
+      end
+    end,
+    submitParts = function(part, newValue)
+      local current = getSelectedColor()
+      if not current then
+        return
+      end
+      local r, g, b = color.hexToRgb(current)
+      local h, s, l = color.rgbToHsl(r, g, b)
+
+      local num = tonumber(newValue:match("%d+"))
+      if not num or num < 0 then
+        return
+      end
+
+      if part == "H" then
+        h = math.min(num, 360)
+      elseif part == "S" then
+        s = math.min(num, 100)
+      elseif part == "L" then
+        l = math.min(num, 100)
+      end
+
+      local combined = string.format("%d,%d,%d", h, s, l)
+      colorspaces.hsl.submit(combined)
+    end,
+    copy = function()
+      processCopy(color.formatHsl)
+    end,
+    render = function(current, opacity, keySuffix, isPrimary)
+      if isPrimary then
+        local r, g, b = color.hexToRgb(current)
+        local h, s, l = color.rgbToHsl(r, g, b)
+        local a = tostring(math.floor(opacity * 100 + 0.5)) .. "%"
+        local inputs = {
+          renderParamPart("H", tostring(h), "H-" .. keySuffix, "onSubmitHslH"),
+          renderParamPart("S", tostring(s), "S-" .. keySuffix, "onSubmitHslS"),
+          renderParamPart("L", tostring(l), "L-" .. keySuffix, "onSubmitHslL"),
+          renderParamPart("A", a, "A-hsl-" .. keySuffix, "onOpacityInputSubmit", 1.25),
+        }
+        local row = buildColorspaceRow(inputs, "onCopyHsl", true)
+
+        return ui.row({ gap = 8, align = "center" }, {
+          previewSwatch(current, opacity),
+          row,
+        })
+      else
+        return renderColorspaceColumn(
+          "HSL(A)",
+          color.formatHsl(current, opacity),
+          "onSubmitHsl",
+          "onCopyHsl",
+          keySuffix
+        )
+      end
+    end,
+  },
+}
+
+--==============================================
+-- GLOBAL ACTION ROUTERS
+--==============================================
+
+function onSubmitHex(text: string)
+  colorspaces.hex.submit(text)
+end
+function onSubmitRgb(text: string)
+  colorspaces.rgb.submit(text)
+end
+function onSubmitHsl(text: string)
+  colorspaces.hsl.submit(text)
+end
+
+function onSubmitRgbR(val)
+  colorspaces.rgb.submitParts("R", val)
+end
+function onSubmitRgbG(val)
+  colorspaces.rgb.submitParts("G", val)
+end
+function onSubmitRgbB(val)
+  colorspaces.rgb.submitParts("B", val)
+end
+
+function onSubmitHslH(val)
+  colorspaces.hsl.submitParts("H", val)
+end
+function onSubmitHslS(val)
+  colorspaces.hsl.submitParts("S", val)
+end
+function onSubmitHslL(val)
+  colorspaces.hsl.submitParts("L", val)
+end
+
+function onCopyHex()
+  colorspaces.hex.copy()
+end
+function onCopyRgb()
+  colorspaces.rgb.copy()
+end
+function onCopyHsl()
+  colorspaces.hsl.copy()
+end
+
+function onOpacityInputSubmit(opacityStr)
+  local val = tonumber(opacityStr:match("%d+"))
+  if not val then
+    return
+  end
+  local opacity = math.min(math.max(val / 100, 0), 1)
+  noctalia.state.set("selectedOpacity", opacity)
+  render()
+end
+
+--==============================================
+-- MAIN PANEL LOGIC
+--==============================================
+
+function render()
   local current = getSelectedColor()
   local opacity = getSelectedOpacity()
 
@@ -280,159 +435,103 @@ local function render()
     return
   end
 
-  panel.render(ui.column({ gap = 12, padding = 16 }, {
+  local function applyPickerColor(colorStr, commit)
+    local hex = colorStr:sub(1, 7)
+    local alpha = 1
+    if #colorStr == 9 then
+      alpha = (tonumber(colorStr:sub(8, 9), 16) or 255) / 255
+    end
+
+    if commit then
+      setSelected(hex, alpha)
+    else
+      noctalia.state.set("selectedOpacity", alpha)
+      noctalia.state.set("selectedColor", hex)
+    end
+    render()
+  end
+
+  local keySuffix = current .. "-" .. opacity
+  local primaryKey = noctalia.getConfig("main-colorspace") or "hex"
+  local primaryObj = colorspaces[primaryKey] or colorspaces.hex
+
+  local secondaryKeys = {}
+  for _, k in ipairs({ "hex", "rgb", "hsl" }) do
+    if k ~= primaryKey then
+      table.insert(secondaryKeys, k)
+    end
+  end
+
+  panel.render(ui.column({ gap = 12 }, {
     renderTitlebar(),
 
-    ui.row({ gap = 12, align = "stretch" }, {
-      ui.column({ gap = 8, flexGrow = 2 }, {
-        ui.label({ text = tr("recent_colors"), fontSize = 14, color = "on_surface_variant" }),
-        renderRecent(),
-      }),
-      ui.column({ gap = 8, flexGrow = 2 }, {
-        ui.label({ text = tr("opacity"), fontSize = 14, color = "on_surface_variant" }),
-        ui.slider({ min = 0, max = 1, step = 0.01, value = opacity, onChange = "onOpacityChange", onDragEnd = "onOpacityDragEnd" }),
-      }),
-      -- Render current swatch
-      ui.box({
-        width = 128,
-        height = 64,
-        fill =  hexWithAlpha(current, opacity),
-        radius = swatch_radius,
-        border = "outline_variant",
-        borderWidth = 2,
-        flexGrow = 1,
-        onClick = "onNativePickerClicked"
-      }),
+    ui.colorPicker({
+      width = 380,
+      value = color.formatHex(current, opacity),
+      alpha = true,
+      inputs = "none",
+      onChange = function(c)
+        applyPickerColor(c, false)
+      end,
+      onChangeEnd = function(c)
+        applyPickerColor(c, true)
+      end,
     }),
 
+    primaryObj.render(current, opacity, keySuffix, true),
+
+    renderRecent(),
+
     ui.row({ gap = 12 }, {
-      renderColorspaceColumn("HEX", formatHex(current, opacity), "onSubmitHex", "onCopyHex", current .. "-" .. opacity),
-      renderColorspaceColumn("RGB", formatRgb(current, opacity), "onSubmitRgb", "onCopyRgb", current .. "-" .. opacity),
-      renderColorspaceColumn("HSL", formatHsl(current, opacity), "onSubmitHsl", "onCopyHsl", current .. "-" .. opacity),
+      colorspaces[secondaryKeys[1]].render(current, opacity, keySuffix, false),
+      colorspaces[secondaryKeys[2]].render(current, opacity, keySuffix, false),
     }),
   }))
 end
-
---==============================================
--- CALLBACKS: history interaction (pure UI, no service call)
---==============================================
 
 function handleHistoryClick(index: number)
   local history = noctalia.state.get("colorHistory") or {}
   local entry = history[index]
   if entry then
     setSelected(entry.hex, entry.opacity or 1)
-    render()
   end
 end
 
---==============================================
--- CALLBACKS: colorspace fields (pure UI, no service call)
---==============================================
-
-local function processSubmit(parseText: (string) -> string?, text: string)
-  local color_value = parseText(text)
-  if color_value == nil then return end
-
-  setSelected(color_value, getSelectedOpacity())
-  render()
-end
-
-function onSubmitHex(text: string) processSubmit(parseHexText, text) end
-function onSubmitRgb(text: string) processSubmit(parseRgbText, text) end
-function onSubmitHsl(text: string) processSubmit(parseHslText, text) end
-
-local function processCopy(format: (string, number) -> string)
-  local current = getSelectedColor()
-  if current == nil then return end
-
-  local text = format(current, getSelectedOpacity())
-  noctalia.copyToClipboard(text, "text/plain;charset=utf-8")
-  noctalia.notify(tr_color_picker, tr("color_copied", { color = text }))
-end
-
-function onCopyHex() processCopy(formatHex) end
-function onCopyRgb() processCopy(formatRgb) end
-function onCopyHsl() processCopy(formatHsl) end
-
-function onOpacityChange(value)
-  local parsed = tonumber(value)
-  if parsed == nil then return end
-
-  noctalia.state.set("selectedOpacity", parsed)
-  render()
-end
-
-function onOpacityDragEnd(value)
-    local parsed = tonumber(value)
-    if parsed == nil then return end
-
-    local currentHex = getSelectedColor()
-    if currentHex then
-        setSelected(currentHex, parsed)
-    end
-end
-
---==============================================
--- CALLBACKS: picking (delegates to the service)
---==============================================
-
--- Panel's own pick button: just closes the panel (so it doesn't cover the
--- area being sampled). The actual pick is triggered from onClose(), which
--- only fires once the close animation has actually finished -- firing the
--- pick here instead would race the animation and hyprpicker would freeze
--- mid-transition.
 function onPickClickedFromPanel()
-	waitingForPanelPick = true
-	panel.close()
-end
-
-function onNativePickerClicked()
-  sendToService("picker-dialog")
+  waitingForPanelPick = true
+  panel.close()
 end
 
 function onCloseClicked()
   panel.close()
 end
 
--- Panel closed. Two cases:
--- - Technical close to hand off to hyprpicker (waitingForPanelPick): ask
---   the service to pick now that the close animation is done, then wait
---   for the selectedColor watch to reopen the panel.
---
--- - Real close (close button, Esc, click outside): save whatever is
---   currently selected to the service's SELECTED_FILE.
 function onClose()
-	if waitingForPanelPick then
-		sendToService("pick-panel")
-		return
-	end
-	sendToService("save-selected")
+  if waitingForPanelPick then
+    sendToService("pick-panel")
+    return
+  end
+  sendToService("save-selected")
 end
 
 function onOpen(context)
-    showCloseBtn = noctalia.getSetting("shell.show_close_buttons")
-    initialChanged = false
-    initialSessionColor = getSelectedColor()
-    initialSessionOpacity = getSelectedOpacity()
+  showCloseBtn = noctalia.getSetting("shell.show_close_buttons")
+  initialChanged = false
+  initialSessionColor = getSelectedColor()
+  initialSessionOpacity = getSelectedOpacity()
 
-    noctalia.state.watch("selectedColor", function(newHex: string?)
-        if waitingForPanelPick then
-        waitingForPanelPick = false
-        noctalia.togglePanel("oldirtty/color_picker:panel")
-        return
-        end
-
-        -- Covers changes the service made directly (panel pick button, native
-        -- picker dialog), which bypass this panel's setSelected().
-        commitInitialColorIfFirstChange(newHex)
-
-        render()
-    end)
-
-    noctalia.state.watch("colorHistory", function()
-        render()
-    end)
-
+  noctalia.state.watch("selectedColor", function(newHex)
+    if waitingForPanelPick then
+      waitingForPanelPick = false
+      noctalia.togglePanel("oldirtty/color_picker:panel")
+      return
+    end
+    commitInitialColorIfFirstChange(newHex)
     render()
+  end)
+
+  noctalia.state.watch("colorHistory", function()
+    render()
+  end)
+  render()
 end

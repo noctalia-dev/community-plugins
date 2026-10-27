@@ -143,6 +143,7 @@ body:
         - link-ip-monitor
         - llamanager
         - localsend
+        - localsend-plus
         - lrc
         - lunar-calendar
         - lunar-workspaces
@@ -228,6 +229,7 @@ body:
         - quranwidget
         - radio
         - razer
+        - rbw-enhanced
         - reading-list
         - region-recorder
         - remmina
@@ -245,6 +247,7 @@ body:
         - shell-command
         - shelly
         - shift
+        - shloka
         - sing-box-status
         - sony_headphones
         - soundcore-buds
@@ -299,6 +302,7 @@ body:
         - vpn-manager
         - vrchat-status
         - w-engine
+        - wallpaper-deck
         - wallpaper-switcher
         - wallpaper-widget
         - warp
@@ -308,6 +312,7 @@ body:
         - wfmu
         - wireview-pro-ii
         - wl-screen-mirror
+        - workspace-restore
         - world-radio
         - xwayland
         - youtube-search

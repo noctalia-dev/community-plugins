@@ -2,16 +2,17 @@
   "color_copied": "Cor {color} copiada.",
   "color_picked": "Cor {color} selecionada.",
   "color_picker": "Seletor de Cores",
-  "could_not_parse": "não foi possível extrair a saída do hyprpicker.",
+  "could_not_parse": "Não foi possível analisar a saída.",
   "glyph": "Símbolo",
-  "hex": "HEX",
-  "hyprpicker_not_installed": "hyprpicker não está instalado.",
   "no_color_picked": "Nenhuma cor escolhida ainda.",
   "no_history": "Ainda não há cores no histórico.",
   "opacity": "Opacidade",
-  "recent_colors": "Cores Recentes",
   "rgb": "RGB",
   "settings": {
+    "circular-swatch": {
+      "description": "Usa amostras circulares para as cores recentes; desative para seguir o arredondamento de cantos do shell",
+      "label": "Amostras Circulares"
+    },
     "hyprpicker_cursor": {
       "description": "Inclui o cursor na prévia congelada da tela.",
       "label": "Mostrar cursor"
@@ -24,12 +25,8 @@
       "description": "Formato de cor padrão para copiar para a área de transferência (Hex ou RGB).",
       "label": "Formato Padrão"
     },
-    "hyprpicker_lowercase": {
-      "description": "Exibe o código hexadecimal em letras minúsculas.",
-      "label": "Hexadecimal em Minúsculas"
-    },
     "hyprpicker_no_zoom": {
-      "description": "Dpesativa a lupa ao selecionar a cor.",
+      "description": "Desativa a lupa ao selecionar a cor.",
       "label": "Desabilitar Lupa"
     },
     "hyprpicker_radius": {
@@ -40,9 +37,31 @@
       "description": "Ampliação da lupa, de 1 a 10.",
       "label": "Escala do Zoom"
     },
-    "swatch_radius": {
-      "description": "Raio dos cantos das amostras do histórico e da prévia da cor atual.",
-      "label": "Arredondamento de Cantos das Amostras"
+    "lowercase-hex": {
+      "description": "Exibe o código hexadecimal em letras minúsculas.",
+      "label": "Hexadecimal em Minúsculas"
+    },
+    "main-colorspace": {
+      "description": "Espaço de cores principal para o hyprpicker e o painel.",
+      "label": "Espaço de Cores Principal",
+      "options": {
+        "hex": "HEX",
+        "rgb": "RGB(A)",
+        "hsl": "HSL(A)"
+      }
+    },
+    "notify-on-copy": {
+      "description": "Notifica ao copiar a cor por captura de tela ou botão do painel.",
+      "label": "Notificar ao Copiar"
+    },
+    "picker_tool": {
+      "description": "Ferramenta usada para selecionar cores na tela.",
+      "label": "Ferramenta de Seleção",
+      "options": {
+        "hyprpicker": "Hyprpicker",
+        "grim_slurp": "Grim + Slurp"
+      }
     }
-  }
+  },
+  "tool_missing": "{tool} não está instalado. Você pode alterar a ferramenta de seleção nas configurações do plugin."
 }

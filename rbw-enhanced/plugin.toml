@@ -1,0 +1,61 @@
+# rbw-enhanced — Bitwarden vault status for the bar, through rbw-enhanced (the
+# rylos/rbw fork of the rbw command line client).
+# The service polls `rbw status --json` (which never starts the agent or asks
+# for anything); the widget shows whether the vault is unlocked, and the panel
+# unlocks, locks, syncs and opens `rbw tui` in a terminal.
+
+id = "rylos/rbw-enhanced"
+name = "rbw-enhanced"
+version = "1.1.2"
+plugin_api = 43
+author = "Marco Ziliani"
+license = "MIT"
+dependencies = ["rbw"]
+tags = ["bar", "panel", "service", "privacy", "utility"]
+icon = "lock"
+description = "Bitwarden vault status for rbw-enhanced: see if it is unlocked, then unlock, lock, sync or open rbw tui."
+
+# ── Plugin-level settings ────────────────────────────────────────────────────
+
+[[setting]]
+key = "poll_interval"
+type = "int"
+label_key = "settings.poll_interval.label"
+description_key = "settings.poll_interval.description"
+default = 3
+min = 1
+max = 60
+
+[[setting]]
+key = "rbw_bin"
+type = "string"
+label_key = "settings.rbw_bin.label"
+description_key = "settings.rbw_bin.description"
+default = ""
+advanced = true
+
+# ── Entries ──────────────────────────────────────────────────────────────────
+
+[[service]]
+id = "poller"
+entry = "service.luau"
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+  [[widget.setting]]
+  key = "hide_when_unlocked"
+  type = "bool"
+  label_key = "settings.hide_when_unlocked.label"
+  description_key = "settings.hide_when_unlocked.description"
+  default = false
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 340
+height = 285
+placement = "attached"
+position = "auto"
+open_near_click = true

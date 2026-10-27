@@ -1,0 +1,192 @@
+id = "ishan0121/wallpaper-deck"
+name = "Wallpaper Deck"
+version = "1.0.0"
+plugin_api = 43
+author = "Ishan0121"
+license = "GPL-3.0"
+icon = "cards"
+description = "MTG-style animated card-deck wallpaper picker inspired by qs-wallpaperpicker."
+tags = ["wallpaper", "animation", "theming", "desktop"]
+dependencies = ["ffmpeg", "matugen", "python3", "wtype"]
+
+# --- Plugin Settings ---
+[[setting]]
+key = "wallpaper_dir"
+type = "folder"
+label_key = "settings.wallpaper_dir.label"
+description_key = "settings.wallpaper_dir.description"
+default = "~/Pictures/Wallpapers"
+
+[[setting]]
+key = "extra_wallpaper_dir"
+type = "folder"
+label_key = "settings.extra_wallpaper_dir.label"
+description_key = "settings.extra_wallpaper_dir.description"
+default = "~/Pictures/WallHaven"
+
+[[setting]]
+key = "include_wallhaven_downloads"
+type = "bool"
+label_key = "settings.include_wallhaven_downloads.label"
+description_key = "settings.include_wallhaven_downloads.description"
+default = true
+
+[[setting]]
+key = "additional_wallpaper_dirs"
+type = "string"
+label_key = "settings.additional_wallpaper_dirs.label"
+description_key = "settings.additional_wallpaper_dirs.description"
+default = ""
+
+[[setting]]
+key = "backend_mode"
+type = "select"
+label_key = "settings.backend_mode.label"
+description_key = "settings.backend_mode.description"
+default = "native"
+options = [
+  { value = "native", label_key = "settings.backend_mode.native" },
+  { value = "custom", label_key = "settings.backend_mode.custom" }
+]
+
+[[setting]]
+key = "custom_command"
+type = "string"
+label_key = "settings.custom_command.label"
+description_key = "settings.custom_command.description"
+default = "swww img \"{path}\" --transition-type grow --transition-fps 60"
+visible_when = { key = "backend_mode", values = ["custom"] }
+
+[[setting]]
+key = "post_hook_command"
+type = "string"
+label_key = "settings.post_hook_command.label"
+description_key = "settings.post_hook_command.description"
+default = ""
+
+[[setting]]
+key = "animate_selected_card"
+type = "bool"
+label_key = "settings.animate_selected_card.label"
+description_key = "settings.animate_selected_card.description"
+default = true
+
+
+[[setting]]
+key = "visible_deck_cards"
+type = "int"
+label_key = "settings.visible_deck_cards.label"
+description_key = "settings.visible_deck_cards.description"
+default = 7
+min = 3
+max = 11
+
+[[setting]]
+key = "max_deck_wallpapers"
+type = "int"
+label_key = "settings.max_deck_wallpapers.label"
+description_key = "settings.max_deck_wallpapers.description"
+default = 600
+min = 50
+max = 1500
+
+[[setting]]
+key = "wallhaven_api_key"
+type = "string"
+label_key = "settings.wallhaven_api_key.label"
+description_key = "settings.wallhaven_api_key.description"
+default = ""
+
+[[setting]]
+key = "wallhaven_categories"
+type = "string"
+label_key = "settings.wallhaven_categories.label"
+description_key = "settings.wallhaven_categories.description"
+default = "111"
+
+[[setting]]
+key = "wallhaven_purity"
+type = "string"
+label_key = "settings.wallhaven_purity.label"
+description_key = "settings.wallhaven_purity.description"
+default = "100"
+
+[[setting]]
+key = "wallhaven_sorting"
+type = "string"
+label_key = "settings.wallhaven_sorting.label"
+description_key = "settings.wallhaven_sorting.description"
+default = "date_added"
+
+[[setting]]
+key = "wallhaven_order"
+type = "string"
+label_key = "settings.wallhaven_order.label"
+description_key = "settings.wallhaven_order.description"
+default = "desc"
+
+[[setting]]
+key = "wallhaven_hires_preview"
+type = "bool"
+label_key = "settings.wallhaven_hires_preview.label"
+description_key = "settings.wallhaven_hires_preview.description"
+default = false
+
+[[setting]]
+key = "wallhaven_cache_limit_mb"
+type = "int"
+label_key = "settings.wallhaven_cache_limit_mb.label"
+description_key = "settings.wallhaven_cache_limit_mb.description"
+default = 300
+min = 50
+max = 2000
+
+[[setting]]
+key = "wallhaven_download_dir"
+type = "folder"
+label_key = "settings.wallhaven_download_dir.label"
+description_key = "settings.wallhaven_download_dir.description"
+default = "~/Pictures/WallHaven"
+
+# --- Entries ---
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[widget]]
+id = "bar"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  label_key = "settings.glyph.label"
+  default = "cards"
+
+[widget.actions]
+left = "panel-toggle ishan0121/wallpaper-deck:picker"
+
+[[shortcut]]
+id = "toggle"
+entry = "shortcut.luau"
+
+[[panel]]
+id = "picker"
+entry = "picker.luau"
+width = "fill"
+height = "fill"
+placement = "floating"
+position = "center"
+layer = "overlay"
+keyboard_focus = "exclusive"
+dismiss_on_outside_click = false
+capture_keys = [
+  "left", "right", "up", "down",
+  "h", "l", "j", "k",
+  "u", "d",
+  "space", "return", "s", "r", "f", "p", "tab", "escape", "slash",
+  "Pointer_Button4", "Pointer_Button5",
+  "Pointer_DfltBtnPrev", "Pointer_DfltBtnNext",
+  "Page_Up", "Page_Down"
+]
+

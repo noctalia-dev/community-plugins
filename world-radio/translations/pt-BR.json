@@ -1,10 +1,10 @@
 {
   "panel": {
     "add_custom_cancel": "Cancelar",
-    "add_custom_cover_placeholder": "URL da capa (opcional)",
+    "add_custom_cover_placeholder": "URL da capa (opcional, substitui a busca automática)",
     "add_custom_name_placeholder": "Nome da estação (opcional)",
     "add_custom_save": "Salvar",
-    "add_custom_subtitle": "Toque qualquer stream a partir de uma URL",
+    "add_custom_subtitle": "Toque qualquer stream a partir de uma URL. A capa é buscada automaticamente quando possível.",
     "add_custom_title": "Adicionar rádio local",
     "add_custom_tooltip": "Adicionar rádio local",
     "add_custom_url_placeholder": "https://exemplo.com/stream.mp3",
@@ -31,6 +31,8 @@
     "goto_list_tooltip": "Mostrar na lista",
     "load_more": "Carregar mais",
     "loading": "Carregando...",
+    "mpris_missing_body": "Instale o pacote mpv-mpris para que o nome e a capa da estação apareçam no painel de mídia do Noctalia.",
+    "mpris_missing_title": "A integração com o painel de mídia precisa do mpv-mpris",
     "next_tooltip": "Próxima estação",
     "play_tooltip": "Tocar",
     "prev_tooltip": "Estação anterior",

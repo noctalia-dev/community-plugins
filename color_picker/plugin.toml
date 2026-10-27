@@ -1,47 +1,57 @@
 author = "oldirtty"
 id = "oldirtty/color_picker"
 name = "Color Picker"
-description  = "Pick a color from your screen with hyprpicker."
+description = "Pick a color from your screen with hyprpicker or grim+slurp."
 license = "MIT"
-version = "1.0.8"
+version = "2.0.0"
 plugin_api = 43
 icon = "palette"
-dependencies = ["hyprpicker"]
+dependencies = ["hyprpicker", "grim", "slurp"]
 tags = ["theming", "utility", "bar", "panel"]
 
 [[setting]]
-key = "hyprpicker-format"
+key = "picker_tool"
 type = "select"
-default = "hex"
-label_key = "settings.hyprpicker_format.label"
-description_key = "settings.hyprpicker_format.description"
+default = "hyprpicker"
+label_key = "settings.picker_tool.label"
+description_key = "settings.picker_tool.description"
 options = [
-  { value = "hex", label_key = "hex" },
-  { value = "rgb", label_key = "rgb" }
+  { value = "hyprpicker", label_key = "settings.picker_tool.options.hyprpicker" },
+  { value = "grim_slurp", label_key = "settings.picker_tool.options.grim_slurp" }
 ]
 
 [[setting]]
-key = "hyprpicker-lowercase"
-type = "bool"
-label_key = "settings.hyprpicker_lowercase.label"
-description_key = "settings.hyprpicker_lowercase.description"
-visible_when = { key = "hyprpicker-format", values = ["hex"]}
-default = false
+key = "main-colorspace"
+type = "select"
+default = "hex"
+label_key = "settings.main-colorspace.label"
+description_key = "settings.main-colorspace.description"
+options = [
+  { value = "hex", label_key = "settings.main-colorspace.options.hex" },
+  { value = "rgb", label_key = "settings.main-colorspace.options.rgb" },
+  { value = "hsl", label_key = "settings.main-colorspace.options.hsl" }
+]
 
 [[setting]]
-key = "swatch-radius"
-type = "int"
-label_key = "settings.swatch_radius.label"
-description_key = "settings.swatch_radius.description"
-default = 8
-min = 0
-max = 64
+key = "circular-swatch"
+type = "bool"
+label_key = "settings.circular-swatch.label"
+description_key = "settings.circular-swatch.description"
+default = true
+
+[[setting]]
+key = "lowercase-hex"
+type = "bool"
+label_key = "settings.lowercase-hex.label"
+description_key = "settings.lowercase-hex.description"
+default = false
 
 [[setting]]
 key = "hyprpicker-no-zoom"
 type = "bool"
 label_key = "settings.hyprpicker_no_zoom.label"
 description_key = "settings.hyprpicker_no_zoom.description"
+visible_when = { key = "picker_tool", values = ["hyprpicker"] }
 default = false
 
 [[setting]]
@@ -49,7 +59,7 @@ key = "hyprpicker-scale"
 type = "int"
 label_key = "settings.hyprpicker_scale.label"
 description_key = "settings.hyprpicker_scale.description"
-visible_when = { key = "hyprpicker-no-zoom", values = ["false"]}
+visible_when = { key = "picker_tool", values = ["hyprpicker"] }
 default = 10
 min = 1
 max = 10
@@ -59,7 +69,7 @@ key = "hyprpicker-radius"
 type = "int"
 label_key = "settings.hyprpicker_radius.label"
 description_key = "settings.hyprpicker_radius.description"
-visible_when = { key = "hyprpicker-no-zoom", values = ["false"]}
+visible_when = { key = "picker_tool", values = ["hyprpicker"] }
 default = 100
 min = 1
 max = 1000
@@ -69,7 +79,7 @@ key = "hyprpicker-disable-preview"
 type = "bool"
 label_key = "settings.hyprpicker_disable_preview.label"
 description_key = "settings.hyprpicker_disable_preview.description"
-visible_when = { key = "hyprpicker-no-zoom", values = ["false"]}
+visible_when = { key = "picker_tool", values = ["hyprpicker"] }
 default = false
 
 [[setting]]
@@ -77,7 +87,15 @@ key = "hyprpicker-cursor"
 type = "bool"
 label_key = "settings.hyprpicker_cursor.label"
 description_key = "settings.hyprpicker_cursor.description"
+visible_when = { key = "picker_tool", values = ["hyprpicker"] }
 default = false
+
+[[setting]]
+key = "notify-on-copy"
+type = "bool"
+label_key = "settings.notify-on-copy.label"
+description_key = "settings.notify-on-copy.description"
+default = true
 
 [[widget]]
 id = "widget"
@@ -92,8 +110,9 @@ entry = "widget.luau"
 [[panel]]
 id = "panel"
 entry = "panel.luau"
-width = 720
-height = 240
+width = 480
+height = "content"
+max_height = 540
 placement = "floating"
 position = "center"
 

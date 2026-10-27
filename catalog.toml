@@ -92,13 +92,13 @@ tags = ["bar", "mangowc"]
 [[plugin]]
 id = "oldirtty/color_picker"
 name = "Color Picker"
-version = "1.0.8"
-updated_at = 1792983494
+version = "2.0.0"
+updated_at = 1793063366
 added_at = 1784086957
 author = "oldirtty"
 license = "MIT"
 icon = "palette"
-description = "Pick a color from your screen with hyprpicker."
+description = "Pick a color from your screen with hyprpicker or grim+slurp."
 plugin_api = 43
 tags = ["theming", "utility", "bar", "panel"]
 
@@ -244,15 +244,21 @@ tags = ["hardware"]
 [[plugin]]
 id = "rxtsel/portctl"
 name = "Portctl"
-version = "0.2.3"
-updated_at = 1792287644
+version = "0.2.4"
+updated_at = 1793026833
 added_at = 1784203448
 author = "Cristhian Melo"
 license = "MIT"
 icon = "plug"
 description = "Inspect and kill listening TCP/UDP ports."
-plugin_api = 9
+plugin_api = 43
 tags = ["network", "utility", "development", "indicator", "bar", "panel", "service"]
+
+[[plugin.release]]
+plugin_api = 9
+version = "0.2.3"
+updated_at = 1792287644
+rev = "11641ac2c772491b46547035e1aee7dab6b58bff"
 
 [[plugin.release]]
 plugin_api = 3
@@ -3372,15 +3378,15 @@ tags = ["ai", "wallpaper", "desktop"]
 [[plugin]]
 id = "nilsonlinux/world-radio"
 name = "World Radio"
-version = "1.0.8"
-updated_at = 1792983494
+version = "1.2.2"
+updated_at = 1793061396
 added_at = 1789561212
 author = "Nilsonlinux"
 license = "MIT"
 icon = "radio"
 description = "Browse thousands of radio stations from around the world with country flags."
 plugin_api = 43
-tags = ["audio", "music", "network", "panel", "bar", "utility"]
+tags = ["audio", "music", "network", "panel", "bar", "utility", "service"]
 
 [[plugin.release]]
 plugin_api = 24
@@ -4009,15 +4015,21 @@ rev = "bf83688c1343219f49a24f4415602b5fa3ee1f4e"
 [[plugin]]
 id = "zhangdm/als-brightness"
 name = "ALS Brightness"
-version = "0.7.0"
-updated_at = 1792156935
+version = "0.8.0"
+updated_at = 1793060805
 added_at = 1790805024
 author = "zhangdm"
 license = "MIT"
 icon = "sun"
 description = "Adapts panel brightness and keyboard backlight to ambient light, and hands control back the moment you touch the keys."
-plugin_api = 24
+plugin_api = 43
 tags = ["hardware", "system"]
+
+[[plugin.release]]
+plugin_api = 24
+version = "0.7.0"
+updated_at = 1792156935
+rev = "8b07dd0b74cd2d21b418b0ae0a0b872cfe23719d"
 
 [[plugin]]
 id = "ismay/sway-mode"
@@ -4112,15 +4124,21 @@ tags = ["bar", "panel", "gaming"]
 [[plugin]]
 id = "zhangdm-520/niri-media-idle"
 name = "Niri Media Idle"
-version = "1.2.0"
-updated_at = 1791146770
+version = "1.3.0"
+updated_at = 1793060761
 added_at = 1791146770
 author = "ZhangDM-520"
 license = "MIT"
 icon = "player-play"
 description = "Control the bundled media-idle bridge without exposing player details or changing idle policy."
-plugin_api = 30
+plugin_api = 43
 tags = ["bar", "indicator", "media", "niri", "service", "system", "utility", "video"]
+
+[[plugin.release]]
+plugin_api = 30
+version = "1.2.0"
+updated_at = 1791146770
+rev = "8154743d6db02123b68b75a90c3438781a76aab1"
 
 [[plugin]]
 id = "pmason314/rss-feeds"
@@ -4836,15 +4854,21 @@ rev = "4d2e9838f756ca4ebe5a599b76e3920f0650ff93"
 [[plugin]]
 id = "zhangdm/inhibit-idle-while-watching"
 name = "Inhibit Idle While Watching"
-version = "0.3.0"
-updated_at = 1792866009
+version = "0.4.0"
+updated_at = 1793060779
 added_at = 1792691474
 author = "zhangdm"
 license = "MIT"
 icon = "camera"
 description = "Checks for a face when idle is about to act and restarts the idle countdown while you keep watching."
-plugin_api = 24
+plugin_api = 43
 tags = ["service", "hardware", "privacy", "system", "utility"]
+
+[[plugin.release]]
+plugin_api = 24
+version = "0.3.0"
+updated_at = 1792866009
+rev = "a8e7a7160126e75943bd63a225599a2a16715c6e"
 
 [[plugin]]
 id = "nightwatch75/keysmith"
@@ -5074,3 +5098,68 @@ plugin_api = 32
 version = "0.1.0"
 updated_at = 1792962600
 rev = "adf2587b57874a5b626ade6375ee9734b309843b"
+
+[[plugin]]
+id = "rylos/rbw-enhanced"
+name = "rbw-enhanced"
+version = "1.1.2"
+updated_at = 1793056609
+added_at = 1793056609
+author = "Marco Ziliani"
+license = "MIT"
+icon = "lock"
+description = "Bitwarden vault status for rbw-enhanced: see if it is unlocked, then unlock, lock, sync or open rbw tui."
+plugin_api = 43
+tags = ["bar", "panel", "service", "privacy", "utility"]
+
+[[plugin]]
+id = "0rgl/localsend-plus"
+name = "LocalSend Plus"
+version = "1.2.0"
+updated_at = 1793058341
+added_at = 1793058341
+author = "0rgl"
+license = "MIT"
+icon = "lock-share"
+description = "Securely send and receive files, folders and clipboard with any LocalSend devices."
+plugin_api = 43
+tags = ["network", "utility", "bar", "panel", "launcher", "service"]
+
+[[plugin]]
+id = "ankitkumar/shloka"
+name = "Shloka"
+version = "0.1.0"
+updated_at = 1793058663
+added_at = 1793058663
+author = "AnkitKumar"
+license = "GPL-3.0-or-later"
+icon = "book"
+description = "A customizable Bhagavad Gita verse desktop widget."
+plugin_api = 12
+tags = ["desktop", "utility"]
+
+[[plugin]]
+id = "soulmanyes/workspace-restore"
+name = "Workspace Restore"
+version = "1.1.0"
+updated_at = 1793061365
+added_at = 1793061365
+author = "Soulmanyes"
+license = "CC0-1.0"
+icon = "layout-grid"
+description = "Give each Hyprland workspace a list of apps; reopen and move them back at login or with one click."
+plugin_api = 43
+tags = ["hyprland", "bar", "panel", "productivity"]
+
+[[plugin]]
+id = "ishan0121/wallpaper-deck"
+name = "Wallpaper Deck"
+version = "1.0.0"
+updated_at = 1793071179
+added_at = 1793071179
+author = "Ishan0121"
+license = "GPL-3.0"
+icon = "cards"
+description = "MTG-style animated card-deck wallpaper picker inspired by qs-wallpaperpicker."
+plugin_api = 43
+tags = ["wallpaper", "animation", "theming", "desktop"]

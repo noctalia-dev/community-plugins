@@ -9,7 +9,7 @@ local TOP_COUNTRIES = 12
 local SEARCH_DEBOUNCE_MS = 350
 local FAV_ANIM_MS = 500
 local API_BASE = "https://de1.api.radio-browser.info"
-local USER_AGENT = "nilsonlinux/world-radio/1.0.0"
+local USER_AGENT = "nilsonlinux/world-radio/1.2.0"
 
 local GENRES = {
   { name = "Rock",      icon = "guitar-pick", tag = "rock" },
@@ -175,10 +175,16 @@ local allCountryShown = COUNTRIES_PAGE
 local playingUuid = nil
 local playingName = ""
 local playingUrl = ""
+-- Art file mpv was launched with for the current station. mpv-mpris caches
+-- mpris:artUrl per stream path, so a cover that appears later only reaches the
+-- media widget after a restart.
+local playingArtPath = nil
 local playQueue = nil
 local playQueueView = nil
 local playQueueDone = true
 local playQueueOffset = 0
+local playerSession = nil
+local sessionCounter = 0
 local revealNonce = 0
 local favorites = {}
 local thumbs = {}
@@ -189,6 +195,14 @@ local customFormName = ""
 local customFormUrl = ""
 local customFormCover = ""
 local customFormIndex = nil
+
+local function saveCustomStations()
+  local ok, encoded = pcall(noctalia.json.encode, customStations)
+  if ok and encoded ~= nil then
+    noctalia.writeFile(getDataDir() .. "/custom-stations.json", encoded)
+  end
+end
+
 local currentSongTitle = ""
 local lastSongPoll = 0
 local SONG_POLL_INTERVAL = 3000
@@ -264,6 +278,10 @@ local clearPlayingState
 local playerAlive
 local restorePlayingState
 local ensureStationCountry
+local resolveAutoCover
+local ensurePlayQueue
+local startPlayerProcess
+local writePlaylist
 
 local function tr(key, subst)
   if subst == nil then
@@ -276,8 +294,79 @@ local function shellQuote(s)
   return "'" .. tostring(s):gsub("'", "'\\''") .. "'"
 end
 
+local function playlistPath()
+  return getDataDir() .. "/queue.m3u"
+end
+
+local function coversPath()
+  return getDataDir() .. "/covers.txt"
+end
+
+local function nowPath()
+  return getDataDir() .. "/now.json"
+end
+
+local function songPath()
+  return getDataDir() .. "/song.txt"
+end
+
+local function getPluginDir()
+  local ok, dir = pcall(noctalia.pluginDir)
+  if ok and type(dir) == "string" and dir ~= "" then
+    return dir
+  end
+  return nil
+end
+
+local function newSession()
+  sessionCounter = sessionCounter + 1
+  return string.format("s%d-%d", math.floor(noctalia.nowMs()), sessionCounter)
+end
+
 local playerName = noctalia.commandExists("mpv") and "mpv" or "ffplay"
 local playerArgs = playerName == "mpv" and "--no-video --no-terminal --volume=85" or "-nodisp -loglevel quiet -autoexit -volume 85"
+
+-- Noctalia's media panel only reads MPRIS. mpv needs the mpv-mpris plugin to
+-- register itself there; without it the panel reports "nothing playing".
+-- mpv auto-loads mpris.so from these directories, so an explicit --script is
+-- only needed when the plugin lives elsewhere (e.g. /usr/lib/mpv-mpris).
+local MEDIA_PLAYER_NAME = "World Radio"
+local mprisMissingWarned = false
+
+local function mprisScriptPath()
+  local function exists(path)
+    return type(path) == "string" and path ~= "" and noctalia.fileExists(path)
+  end
+
+  local autoPaths = {
+    "/etc/mpv/scripts/mpris.so",
+    noctalia.expandPath("~/.config/mpv/scripts/mpris.so"),
+  }
+  local configHome = noctalia.getenv("XDG_CONFIG_HOME")
+  if configHome ~= nil and configHome ~= "" then
+    table.insert(autoPaths, configHome .. "/mpv/scripts/mpris.so")
+  end
+  for _, path in ipairs(autoPaths) do
+    if exists(path) then
+      return nil, true
+    end
+  end
+
+  local candidates = {
+    "/usr/lib/mpv-mpris/mpris.so",
+    getDataDir() .. "/mpris.so",
+  }
+  local ok, dir = pcall(noctalia.pluginDir)
+  if ok and type(dir) == "string" and dir ~= "" then
+    table.insert(candidates, dir .. "/mpris.so")
+  end
+  for _, path in ipairs(candidates) do
+    if exists(path) then
+      return path, true
+    end
+  end
+  return nil, false
+end
 
 local FLAG_EMOJIS = {}
 do
@@ -661,25 +750,25 @@ local function publishPlaying()
     uuid = playingUuid or "",
     url = playingUrl,
     flag = flagEmoji(playingStation ~= nil and playingStation.countrycode or nil),
+    session = playerSession or "",
   })
 end
 
-local playerctlAvailable = noctalia.commandExists("playerctl")
-
 local function pollSongTitle()
-  if playingUuid == nil or not playerctlAvailable then
+  if playingUuid == nil then
     return
   end
-  noctalia.runAsync({ "playerctl", "metadata", "--player", "mpv", "--format", "{{xesam:title}}" }, function(result)
-    if result.exitCode ~= 0 then
-      return
-    end
-    local title = noctalia.string.trim(result.stdout)
-    if title ~= currentSongTitle then
-      currentSongTitle = title
-      render()
-    end
-  end)
+  -- radio.lua mirrors mpv's ICY metadata to song.txt; force-media-title keeps
+  -- the station name in MPRIS, so playerctl would never show the song there.
+  local raw = noctalia.readFile(songPath())
+  local title = noctalia.string.trim(raw or "")
+  if title == playingName then
+    title = ""
+  end
+  if title ~= currentSongTitle then
+    currentSongTitle = title
+    render()
+  end
 end
 
 local function stopPlayback()
@@ -690,37 +779,88 @@ local function stopPlayback()
   currentSongTitle = ""
   playQueue = nil
   playQueueView = nil
+  playerSession = nil
   stopLivePulse()
   clearPlayingState()
+  pcall(noctalia.removeFile, songPath())
   publishPlaying()
   noctalia.runAsync("kill $(cat " .. shellQuote(getDataDir() .. "/player.pid") .. " 2>/dev/null) 2>/dev/null")
   render()
 end
 
 local faviconJobs = {}
+local artwork = { thumbGen = {}, jobs = {}, thumbExts = { "jpg", "png", "gif", "bmp", "webp" } }
 
 local function artSource(station)
-  if station.favicon ~= "" then
+  if type(station.favicon) == "string" and station.favicon ~= "" then
     return station.favicon
   end
-  return station.cover or ""
+  if type(station.cover) == "string" and station.cover ~= "" then
+    return station.cover
+  end
+  if type(station.coverAuto) == "string" then
+    return station.coverAuto
+  end
+  return ""
 end
 
-local function artDest(station)
-  local src = artSource(station)
-  if src == "" then
+function artwork.cachedThumb(uuid)
+  if type(uuid) ~= "string" or uuid == "" then
     return nil
   end
-  local ext = src:match("%.([%w]+)$")
-  if ext == "png" or ext == "gif" or ext == "bmp" or ext == "webp" then
-    return getDataDir() .. "/thumbs/" .. station.uuid .. "." .. ext
+  for _, ext in ipairs(artwork.thumbExts) do
+    local path = getDataDir() .. "/thumbs/" .. uuid .. "." .. ext
+    if noctalia.fileInfo(path) ~= nil then
+      return path
+    end
   end
-  return getDataDir() .. "/thumbs/" .. station.uuid .. ".jpg"
+  return nil
+end
+
+function artwork.thumbFor(uuid)
+  if type(uuid) ~= "string" or uuid == "" then
+    return nil
+  end
+  local path = thumbs[uuid]
+  if path ~= nil and noctalia.fileInfo(path) ~= nil then
+    return path
+  end
+  path = artwork.cachedThumb(uuid)
+  if path ~= nil then
+    thumbs[uuid] = path
+  end
+  return path
+end
+
+-- Cover URLs often carry no extension or the wrong one, so download to a
+-- temporary file and pick the real extension from the image's magic bytes.
+function artwork.sniffImageExt(path)
+  local raw = noctalia.readFile(path)
+  if type(raw) ~= "string" or #raw < 12 then
+    return nil
+  end
+  if raw:sub(1, 8) == "\137PNG\r\n\26\n" then
+    return "png"
+  end
+  if raw:sub(1, 4) == "GIF8" then
+    return "gif"
+  end
+  if raw:sub(1, 2) == "BM" then
+    return "bmp"
+  end
+  if raw:sub(1, 3) == "\255\216\255" then
+    return "jpg"
+  end
+  if raw:sub(1, 4) == "RIFF" and raw:sub(9, 12) == "WEBP" then
+    return "webp"
+  end
+  return nil
 end
 
 local function ensureFavicon(station, onDone)
-  local dest = artDest(station)
-  if dest == nil then
+  onDone = onDone or function() end
+  local src = artSource(station)
+  if src == "" then
     onDone(nil)
     return
   end
@@ -728,8 +868,8 @@ local function ensureFavicon(station, onDone)
     onDone(nil)
     return
   end
-  if noctalia.fileInfo(dest) ~= nil then
-    thumbs[station.uuid] = thumbs[station.uuid] or dest
+  local dest = artwork.thumbFor(station.uuid)
+  if dest ~= nil then
     onDone(dest)
     return
   end
@@ -738,21 +878,45 @@ local function ensureFavicon(station, onDone)
     table.insert(list, onDone)
     return
   end
+  local gen = (artwork.thumbGen[station.uuid] or 0) + 1
+  artwork.thumbGen[station.uuid] = gen
   list = { onDone }
   faviconJobs[station.uuid] = list
   thumbPending[station.uuid] = true
-  noctalia.mkdirAll(getDataDir() .. "/thumbs")
-  noctalia.download(artSource(station), dest, function(ok)
+  local dir = getDataDir() .. "/thumbs"
+  noctalia.mkdirAll(dir)
+  local tmp = dir .. "/" .. station.uuid .. ".download"
+  noctalia.download(src, tmp, function(ok)
+    if artwork.thumbGen[station.uuid] ~= gen then
+      pcall(noctalia.removeFile, tmp)
+      return
+    end
     thumbPending[station.uuid] = nil
     faviconJobs[station.uuid] = nil
+    local saved = nil
     if ok then
-      thumbs[station.uuid] = dest
+      local ext = artwork.sniffImageExt(tmp)
+      if ext ~= nil then
+        saved = dir .. "/" .. station.uuid .. "." .. ext
+        if noctalia.fileInfo(saved) ~= nil then
+          pcall(noctalia.removeFile, saved)
+        end
+        local moved = noctalia.renameFile(tmp, saved)
+        if not moved then
+          saved = nil
+        end
+      end
+    end
+    pcall(noctalia.removeFile, tmp)
+    if saved ~= nil then
+      thumbs[station.uuid] = saved
+      failedFavicons[station.uuid] = nil
     else
       failedFavicons[station.uuid] = true
     end
     render()
     for _, cb in ipairs(list) do
-      cb(ok and dest or nil)
+      cb(saved)
     end
   end)
 end
@@ -762,14 +926,18 @@ local function loadFavicon(station)
 end
 
 local function clearArt(station)
+  artwork.thumbGen[station.uuid] = (artwork.thumbGen[station.uuid] or 0) + 1
+  faviconJobs[station.uuid] = nil
+  thumbPending[station.uuid] = nil
   thumbs[station.uuid] = nil
   failedFavicons[station.uuid] = nil
-  for _, ext in ipairs({ "jpg", "png", "gif", "bmp", "webp" }) do
+  for _, ext in ipairs(artwork.thumbExts) do
     local path = getDataDir() .. "/thumbs/" .. station.uuid .. "." .. ext
     if noctalia.fileInfo(path) ~= nil then
       pcall(noctalia.removeFile, path)
     end
   end
+  pcall(noctalia.removeFile, getDataDir() .. "/thumbs/" .. station.uuid .. ".download")
 end
 
 local playingPath = function()
@@ -789,6 +957,7 @@ savePlayingState = function()
     countryCode = selectedCode,
     countryName = selectedName,
     genre = selectedGenre,
+    session = playerSession,
   })
   if ok and encoded ~= nil then
     noctalia.writeFile(playingPath(), encoded)
@@ -797,6 +966,9 @@ end
 
 clearPlayingState = function()
   noctalia.removeFile(playingPath())
+  -- now.json belongs to the mpv process that is going away; leaving it behind
+  -- would make the sync service read a position for the wrong session.
+  noctalia.removeFile(nowPath())
 end
 
 playerAlive = function()
@@ -832,6 +1004,7 @@ restorePlayingState = function()
   playingName = tostring(st.name or "")
   playingUrl = st.url
   playingStation = st
+  playerSession = type(val.session) == "string" and val.session ~= "" and val.session or nil
   ensureStationCountry(st)
   if type(val.queue) == "table" then
     playQueue = val.queue
@@ -846,13 +1019,36 @@ restorePlayingState = function()
   if type(val.genre) == "table" then
     selectedGenre = val.genre
   end
-  if type(st.favicon) == "string" and st.favicon ~= "" then
+  -- Keep covers.txt aligned with the cached thumbnails even after a runtime
+  -- restart, so a restarted helper applies the current artwork immediately.
+  if playerName == "mpv" and type(playQueue) == "table" then
+    writePlaylist()
+  end
+  if artSource(st) ~= "" then
     ensureFavicon(st, function(dest)
       if dest ~= nil then
         thumbs[st.uuid] = dest
       end
       render()
     end)
+  else
+    resolveAutoCover(st, function()
+      render()
+    end)
+  end
+  -- If the cover appeared while no panel runtime was alive, the running mpv
+  -- still holds the old (or no) mpris:artUrl. The pid file marks when mpv was
+  -- started, so a newer cached thumbnail means one restart is needed.
+  local dest = artwork.thumbFor(st.uuid)
+  if dest ~= nil and playerName == "mpv" then
+    local artInfo = noctalia.fileInfo(dest)
+    local pidInfo = noctalia.fileInfo(getDataDir() .. "/player.pid")
+    if artInfo ~= nil and pidInfo ~= nil and artInfo.mtime > pidInfo.mtime + 2 then
+      writePlaylist()
+      startPlayerProcess(st, ensurePlayQueue(st), playerSession)
+    else
+      playingArtPath = dest
+    end
   end
   publishPlaying()
   startLivePulse()
@@ -875,15 +1071,375 @@ local function viewList(v)
   return nil
 end
 
-local function playStation(station, sourceView)
+local function sanitizePlaylistLine(value)
+  return tostring(value or ""):gsub("[\r\n]+", " ")
+end
+
+local function coverFor(station)
+  local path = artwork.thumbFor(station.uuid)
+  if path ~= nil then
+    return path
+  end
+  -- Placeholder keeps covers.txt aligned with playlist positions.
+  return "-"
+end
+
+local function writeAtomic(path, content)
+  local tmp = path .. ".tmp"
+  local ok = noctalia.writeFile(tmp, content)
+  if ok and noctalia.renameFile(tmp, path) then
+    return
+  end
+  pcall(noctalia.removeFile, tmp)
+  noctalia.writeFile(path, content)
+end
+
+writePlaylist = function()
+  local queue = playQueue or {}
+  local lines = { "#EXTM3U" }
+  local covers = {}
+  for i, station in ipairs(queue) do
+    local name = station.name
+    if name == nil or name == "" then
+      name = station.url
+    end
+    lines[#lines + 1] = "#EXTINF:-1," .. sanitizePlaylistLine(name)
+    lines[#lines + 1] = sanitizePlaylistLine(station.url)
+    covers[i] = coverFor(station)
+  end
+  writeAtomic(playlistPath(), table.concat(lines, "\n") .. "\n")
+  writeAtomic(coversPath(), table.concat(covers, "\n") .. "\n")
+end
+
+function artwork.htmlDecode(value)
+  if type(value) ~= "string" then
+    return value
+  end
+  value = value:gsub("&amp;", "&")
+  value = value:gsub("&#38;", "&")
+  value = value:gsub("&quot;", '"')
+  value = value:gsub("&#34;", '"')
+  value = value:gsub("&#39;", "'")
+  value = value:gsub("&#x27;", "'")
+  return value
+end
+
+function artwork.firstMatch(body, patterns)
+  for _, pattern in ipairs(patterns) do
+    local value = body:match(pattern)
+    if type(value) == "string" and value ~= "" then
+      return artwork.htmlDecode(value)
+    end
+  end
+  return nil
+end
+
+function artwork.absoluteUrl(base, ref)
+  if type(ref) ~= "string" or ref == "" then
+    return nil
+  end
+  if ref:match("^https?://") then
+    return ref
+  end
+  if ref:sub(1, 2) == "//" then
+    return "https:" .. ref
+  end
+  local root = base:match("^(https?://[^/]+)")
+  if root == nil then
+    return nil
+  end
+  if ref:sub(1, 1) == "/" then
+    return root .. ref
+  end
+  return root .. "/" .. ref
+end
+
+function artwork.slugify(value)
+  local text = tostring(value or ""):lower()
+  text = text:gsub("[áàâãäå]", "a")
+  text = text:gsub("[éèêë]", "e")
+  text = text:gsub("[íìîï]", "i")
+  text = text:gsub("[óòôõö]", "o")
+  text = text:gsub("[úùûü]", "u")
+  text = text:gsub("ç", "c")
+  text = text:gsub("[^%w]+", "-")
+  text = text:gsub("^%-+", ""):gsub("%-+$", "")
+  return text
+end
+
+function artwork.httpGet(url, accept, cb)
+  noctalia.http({
+    url             = url,
+    method          = "GET",
+    headers         = { "Accept: " .. accept, "User-Agent: " .. USER_AGENT },
+    follow_redirects = true,
+  }, cb)
+end
+
+function artwork.radioBrowserCover(station, cb)
+  local url = API_BASE .. "/json/stations/byurl?url=" .. noctalia.string.urlEncode(station.url)
+  artwork.httpGet(url, "application/json", function(response)
+    if not response.ok or response.status ~= 200 or type(response.body) ~= "string" then
+      cb(nil)
+      return
+    end
+    local ok, list = pcall(noctalia.json.decode, response.body)
+    if not ok or type(list) ~= "table" then
+      cb(nil)
+      return
+    end
+    for _, entry in ipairs(list) do
+      local favicon = type(entry) == "table" and entry.favicon or nil
+      if type(favicon) == "string" and favicon ~= "" then
+        cb(favicon)
+        return
+      end
+    end
+    cb(nil)
+  end)
+end
+
+function artwork.zenoImage(body)
+  -- Plain substring search is much cheaper than a pattern over the whole page,
+  -- which matters for the runtime's small CPU budget per async callback.
+  local marker = '"contentUrl":"'
+  local at = string.find(body, marker .. "https://proxy.zeno.fm/content/stations/", 1, true)
+  if at == nil then
+    return nil
+  end
+  local start = at + #marker
+  local stop = string.find(body, '"', start, true)
+  if stop == nil then
+    return nil
+  end
+  return string.sub(body, start, stop - 1)
+end
+
+function artwork.metaImage(body)
+  -- Social-card tags live in <head>; scanning only the beginning keeps the work
+  -- small even when the server returns a very large page.
+  local head = string.sub(body, 1, 131072)
+  return artwork.firstMatch(head, {
+    '<meta[^>]-property="og:image"[^>]-content="([^"]+)"',
+    "<meta[^>]-property='og:image'[^>]-content='([^']+)'",
+    '<meta[^>]-content="([^"]+)"[^>]-property="og:image"',
+    "<meta[^>]-content='([^']+)'[^>]-property='og:image'",
+    '<meta[^>]-name="twitter:image"[^>]-content="([^"]+)"',
+    '<link[^>]-rel="apple%-touch%-icon"[^>]-href="([^"]+)"',
+  })
+end
+
+function artwork.zenoCover(station, cb)
+  local host = tostring(station.url or ""):match("^https?://([^/]+)")
+  if host == nil or not host:match("zeno%.fm$") then
+    cb(nil)
+    return
+  end
+  local slug = artwork.slugify(station.name)
+  if slug == "" then
+    cb(nil)
+    return
+  end
+  artwork.httpGet("https://zeno.fm/radio/" .. slug .. "/", "text/html", function(response)
+    if not response.ok or response.status ~= 200 or type(response.body) ~= "string" then
+      cb(nil)
+      return
+    end
+    local cover = artwork.zenoImage(response.body)
+    if cover == nil then
+      cover = artwork.metaImage(response.body)
+    end
+    if cover == nil or cover == "" then
+      cb(nil)
+      return
+    end
+    cb(artwork.htmlDecode(cover))
+  end)
+end
+
+function artwork.websiteCover(station, cb)
+  local root = tostring(station.url or ""):match("^(https?://[^/]+)")
+  if root == nil then
+    cb(nil)
+    return
+  end
+  artwork.httpGet(root .. "/", "text/html", function(response)
+    if not response.ok or response.status ~= 200 or type(response.body) ~= "string" then
+      cb(nil)
+      return
+    end
+    cb(artwork.absoluteUrl(root, artwork.metaImage(response.body)))
+  end)
+end
+
+-- Best-effort artwork lookup for local radios. Radio streams have no standard
+-- station-art field, so try radio-browser, provider pages (Zeno) and finally
+-- the stream host's website. The manual cover URL always wins.
+resolveAutoCover = function(station, onDone)
+  onDone = onDone or function() end
+  local cached = artwork.thumbFor(station.uuid)
+  if cached ~= nil then
+    onDone(cached)
+    return
+  end
+  if type(station.cover) == "string" and station.cover ~= "" then
+    ensureFavicon(station, onDone)
+    return
+  end
+  if type(station.coverAuto) == "string" and station.coverAuto ~= "" then
+    ensureFavicon(station, onDone)
+    return
+  end
+  local jobs = artwork.jobs[station.uuid]
+  if jobs ~= nil then
+    table.insert(jobs, onDone)
+    return
+  end
+  jobs = { onDone }
+  artwork.jobs[station.uuid] = jobs
+
+  local function finish(url)
+    artwork.jobs[station.uuid] = nil
+    if type(url) ~= "string" or url == "" then
+      -- Clearing a cover while playing leaves mpv-mpris pointing at a deleted
+      -- file; restart once so the widget drops the old artwork.
+      if playingUuid == station.uuid and playerName == "mpv" and playingArtPath ~= nil then
+        writePlaylist()
+        startPlayerProcess(station, ensurePlayQueue(station), playerSession)
+      end
+      for _, cb in ipairs(jobs) do
+        cb(nil)
+      end
+      return
+    end
+    -- A manual cover may have been typed while the lookup was in flight.
+    if type(station.cover) == "string" and station.cover ~= "" then
+      ensureFavicon(station, function(dest)
+        for _, cb in ipairs(jobs) do
+          cb(dest)
+        end
+      end)
+      return
+    end
+    station.coverAuto = url
+    saveCustomStations()
+    ensureFavicon(station, function(dest)
+      if dest ~= nil and playingUuid == station.uuid and playerName == "mpv" then
+        writePlaylist()
+        -- The artwork was found after playback started; restart so mpv-mpris
+        -- picks up the new cover for this stream path.
+        if playingArtPath ~= dest then
+          startPlayerProcess(station, ensurePlayQueue(station), playerSession)
+        end
+      end
+      render()
+      for _, cb in ipairs(jobs) do
+        cb(dest)
+      end
+    end)
+  end
+
+  local function tryWebsite()
+    artwork.websiteCover(station, finish)
+  end
+
+  local function tryZeno()
+    local host = tostring(station.url or ""):match("^https?://([^/]+)")
+    local isZeno = host ~= nil and host:match("zeno%.fm$") ~= nil
+    artwork.zenoCover(station, function(url)
+      if url ~= nil then
+        finish(url)
+      elseif isZeno then
+        -- Avoid falling back to Zeno's own generic social-card artwork.
+        finish(nil)
+      else
+        tryWebsite()
+      end
+    end)
+  end
+
+  artwork.radioBrowserCover(station, function(url)
+    if url ~= nil then
+      finish(url)
+    else
+      tryZeno()
+    end
+  end)
+end
+
+ensurePlayQueue = function(station)
+  if type(playQueue) == "table" then
+    for i, entry in ipairs(playQueue) do
+      if entry.uuid == station.uuid then
+        return i
+      end
+    end
+  end
+  -- The source list did not contain the station (for example after restoring a
+  -- runtime whose list was never fetched). Keep playback usable with a queue
+  -- of one; skipping stays a no-op until another station is chosen.
+  playQueue = { station }
+  playQueueView = nil
+  playQueueDone = true
+  playQueueOffset = 1
+  return 1
+end
+
+startPlayerProcess = function(station, queueIndex, session)
+  playingArtPath = artwork.thumbFor(station.uuid)
   local pidFile = getDataDir() .. "/player.pid"
+  local args = playerArgs
+  local env = ""
+  if playerName == "mpv" then
+    local mprisScript, mprisFound = mprisScriptPath()
+    if not mprisFound and not mprisMissingWarned then
+      mprisMissingWarned = true
+      noctalia.notifyError(tr("panel.mpris_missing_title"), tr("panel.mpris_missing_body"))
+    end
+    local mprisArg = ""
+    if mprisScript ~= nil then
+      mprisArg = " --script=" .. shellQuote(mprisScript)
+    end
+    local helperArg = ""
+    local pluginDir = getPluginDir()
+    if pluginDir ~= nil then
+      local helper = pluginDir .. "/radio.lua"
+      if noctalia.fileExists(helper) then
+        helperArg = " --script=" .. shellQuote(helper)
+      end
+    end
+    args = args
+      .. mprisArg
+      .. helperArg
+      .. " --audio-client-name=" .. shellQuote(MEDIA_PLAYER_NAME)
+      .. " --playlist=" .. shellQuote(playlistPath())
+      -- Lua arrays are 1-based but mpv's playlist-start is 0-based.
+      .. " --playlist-start=" .. tostring(math.max(0, (tonumber(queueIndex) or 1) - 1))
+      .. " --loop-playlist=force"
+    env = "WORLD_RADIO_SESSION=" .. shellQuote(session or "")
+      .. " WORLD_RADIO_DATA=" .. shellQuote(getDataDir()) .. " "
+  else
+    args = args .. " " .. shellQuote(station.url)
+  end
+  local cmd = string.format(
+    "kill $(cat %s 2>/dev/null) 2>/dev/null; %s%s %s >/dev/null 2>&1 & echo $! > %s",
+    shellQuote(pidFile), env, playerName, args, shellQuote(pidFile)
+  )
+  noctalia.runAsync(cmd)
+end
+
+local function playStation(station, sourceView)
   playingUuid = station.uuid
   playingName = station.name
   playingUrl = station.url
   playingStation = station
+  playerSession = playerName == "mpv" and newSession() or nil
   ensureStationCountry(station)
   currentSongTitle = ""
   lastSongPoll = 0
+  -- Drop the previous station's song so the mini player never flashes it
+  -- while mpv connects to the new stream.
+  pcall(noctalia.removeFile, songPath())
   startLivePulse()
   publishPlaying()
   if sourceView ~= nil then
@@ -909,26 +1465,41 @@ local function playStation(station, sourceView)
       end
     end
   end
+
+  local queueIndex = ensurePlayQueue(station)
+  if playerName == "mpv" then
+    writePlaylist()
+  end
   render()
   savePlayingState()
-  local cover = nil
-  if playerName == "mpv" then
-    local dest = artDest(station)
-    if dest ~= nil and noctalia.fileInfo(dest) ~= nil then
-      cover = dest
-    end
+
+  if playerName ~= "mpv" then
+    startPlayerProcess(station, 1)
+    return
   end
-  local coverArg = ""
-  if cover ~= nil then
-    coverArg = " --cover-art-files=" .. shellQuote(cover)
+
+  local launchSession = playerSession
+  local dest = artwork.thumbFor(station.uuid)
+  if dest == nil and artSource(station) ~= "" and not failedFavicons[station.uuid] then
+    -- The helper applies cover-art-files when each playlist entry loads. Download
+    -- the starting station's logo first and refresh covers.txt so the media panel
+    -- gets mpris:artUrl as soon as playback begins.
+    ensureFavicon(station, function()
+      if playingUuid == station.uuid and playerSession == launchSession then
+        writePlaylist()
+        startPlayerProcess(station, queueIndex, launchSession)
+      end
+    end)
+    return
   end
-  local cmd = string.format(
-    "kill $(cat %s 2>/dev/null) 2>/dev/null; %s %s%s %s >/dev/null 2>&1 & echo $! > %s",
-    shellQuote(pidFile), playerName, playerArgs, coverArg, shellQuote(station.url), shellQuote(pidFile)
-  )
-  noctalia.runAsync(cmd)
-  if cover == nil then
-    loadFavicon(station)
+
+  startPlayerProcess(station, queueIndex, launchSession)
+  if dest == nil and artSource(station) == "" then
+    resolveAutoCover(station, function(saved)
+      if saved ~= nil and playingUuid == station.uuid and playerName == "mpv" then
+        writePlaylist()
+      end
+    end)
   end
 end
 
@@ -1033,18 +1604,19 @@ local function loadCustomStations()
     end
     customStations = clean
     for _, s in ipairs(customStations) do
-      local dest = artDest(s)
-      if dest ~= nil and noctalia.fileInfo(dest) ~= nil then
-        thumbs[s.uuid] = thumbs[s.uuid] or dest
+      local dest = artwork.cachedThumb(s.uuid)
+      if dest ~= nil then
+        thumbs[s.uuid] = dest
+      elseif artSource(s) ~= "" then
+        loadFavicon(s)
+      else
+        -- Warm the cache for stations with no stored art, so starting one is
+        -- immediate and already shows a cover in the media widget.
+        resolveAutoCover(s, function()
+          render()
+        end)
       end
     end
-  end
-end
-
-local function saveCustomStations()
-  local ok, encoded = pcall(noctalia.json.encode, customStations)
-  if ok and encoded ~= nil then
-    noctalia.writeFile(getDataDir() .. "/custom-stations.json", encoded)
   end
 end
 
@@ -1080,6 +1652,25 @@ local function openEditCustom(index)
   render()
 end
 
+function artwork.syncStationRefs(station)
+  if type(playQueue) == "table" then
+    for _, entry in ipairs(playQueue) do
+      if type(entry) == "table" and entry.uuid == station.uuid then
+        entry.name = station.name
+        entry.url = station.url
+        entry.cover = station.cover
+        entry.coverAuto = station.coverAuto
+        entry.favicon = station.favicon
+      end
+    end
+  end
+  if playingUuid == station.uuid then
+    playingStation = station
+    playingName = station.name
+    playingUrl = station.url
+  end
+end
+
 local function saveCustomStation()
   local url = noctalia.string.trim(customFormUrl)
   if url == "" then
@@ -1098,19 +1689,43 @@ local function saveCustomStation()
     end
   end
   if edited ~= nil then
-    local oldCover = edited.cover or ""
+    local oldCover = type(edited.cover) == "string" and edited.cover or ""
+    local oldUrl = tostring(edited.url or "")
+    local oldName = tostring(edited.name or "")
+    local coverChanged = oldCover ~= cover
+    local urlChanged = oldUrl ~= url
+    local nameChanged = oldName ~= name
     edited.name = name
     edited.url = url
     edited.cover = cover
-    saveCustomStations()
-    if oldCover ~= cover then
+    if coverChanged or (cover == "" and (urlChanged or nameChanged)) then
+      edited.coverAuto = nil
       clearArt(edited)
-      if cover ~= "" then
-        ensureFavicon(edited, function() end)
-      end
     end
-    if playingUuid == edited.uuid then
-      savePlayingState()
+    artwork.syncStationRefs(edited)
+    saveCustomStations()
+
+    local function afterArt(dest)
+      if playingUuid == edited.uuid then
+        if coverChanged or urlChanged then
+          writePlaylist()
+        end
+        savePlayingState()
+        -- mpv-mpris caches mpris:artUrl per stream path, so a live cover edit
+        -- only reaches the media widget after the player restarts.
+        -- resolveAutoCover restarts by itself once it finds artwork; this only
+        -- covers manual covers and stream URL changes.
+        if playerName == "mpv" and (urlChanged or (coverChanged and cover ~= "")) then
+          startPlayerProcess(edited, ensurePlayQueue(edited), playerSession)
+        end
+      end
+      render()
+    end
+
+    if cover ~= "" then
+      ensureFavicon(edited, afterArt)
+    else
+      resolveAutoCover(edited, afterArt)
     end
   else
     local station = {
@@ -1119,6 +1734,7 @@ local function saveCustomStation()
       url = url,
       favicon = "",
       cover = cover,
+      coverAuto = nil,
       codec = "",
       bitrate = 0,
       votes = 0,
@@ -1127,6 +1743,8 @@ local function saveCustomStation()
     saveCustomStations()
     if cover ~= "" then
       ensureFavicon(station, function() end)
+    else
+      resolveAutoCover(station, function() end)
     end
   end
   customFormIndex = nil
@@ -1505,7 +2123,7 @@ end
 local function stationRow(s, sourceView)
   loadFavicon(s)
   local isPlaying = playingUuid == s.uuid
-  local thumb = thumbs[s.uuid]
+  local thumb = artwork.thumbFor(s.uuid)
   local showFlag = (sourceView == "all_stations" or sourceView == "favorites" or sourceView == "genre")
   if showFlag then
     ensureStationCountry(s)
@@ -1921,7 +2539,7 @@ local function customRow(s, index)
   local isPlaying = playingUuid == s.uuid
   local isHovered = (hoveredKey == key)
   local labels = { ui.label({ text = s.name, fontSize = 12, maxLines = 1 }) }
-  local art = thumbs[s.uuid]
+  local art = artwork.thumbFor(s.uuid)
   local parts = {
     stationArt(art, 22, "radio"),
     ui.column({ flexGrow = 1, gap = 0 }, labels),
@@ -2178,7 +2796,7 @@ renderMiniPlayer = function()
     return nil
   end
   panel.setNeedsFrameTick(true)
-  local thumb = thumbs[playingUuid]
+  local thumb = artwork.thumbFor(playingUuid)
   local parts = {}
   table.insert(parts, ui.glyph({ name = "volume-2", size = 11, color = "primary" }))
   table.insert(parts, stationArt(thumb, 22, "radio"))
@@ -2613,3 +3231,42 @@ end
 function onConfigChanged()
   render()
 end
+
+-- Adopt station changes made outside the panel (native media Next/Previous, or
+-- a wheel gesture on the bar widget). The sync service publishes the station it
+-- reads from now.json, keyed by the mpv session started above.
+noctalia.state.watch("playing", function(value)
+  if type(value) ~= "table" then
+    return
+  end
+  if playerSession == nil or playerSession == "" then
+    return
+  end
+  if value.session ~= playerSession then
+    return
+  end
+  local uuid = value.uuid
+  if type(uuid) ~= "string" or uuid == "" or uuid == playingUuid then
+    return
+  end
+  if type(playQueue) ~= "table" then
+    return
+  end
+  local station = nil
+  for _, entry in ipairs(playQueue) do
+    if entry.uuid == uuid then
+      station = entry
+      break
+    end
+  end
+  if station == nil then
+    return
+  end
+  playingUuid = uuid
+  playingName = tostring(station.name or "")
+  playingUrl = tostring(station.url or "")
+  playingStation = station
+  currentSongTitle = ""
+  ensureStationCountry(station)
+  render()
+end)

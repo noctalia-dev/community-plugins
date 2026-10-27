@@ -2,16 +2,17 @@
   "color_copied": "Color {color} copied.",
   "color_picked": "Color {color} picked.",
   "color_picker": "Color Picker",
-  "could_not_parse": "could not parse hyprpicker output.",
+  "could_not_parse": "Could not parse output.",
   "glyph": "Glyph",
-  "hex": "HEX",
-  "hyprpicker_not_installed": "hyprpicker is not installed.",
   "no_color_picked": "No color picked yet.",
   "no_history": "No colors in history yet.",
   "opacity": "Opacity",
-  "recent_colors": "Recent Colors",
   "rgb": "RGB",
   "settings": {
+    "circular-swatch": {
+      "description": "Use circular swatches for recent colors; disable to follow the shell's corner roundness",
+      "label": "Circular Swatches"
+    },
     "hyprpicker_cursor": {
       "description": "Includes the cursor in the frozen screen preview.",
       "label": "Show cursor"
@@ -23,10 +24,6 @@
     "hyprpicker_format": {
       "description": "Default color format to copy to clipboard (Hex or RGB).",
       "label": "Default Format"
-    },
-    "hyprpicker_lowercase": {
-      "description": "Outputs the hexcode in lowercase.",
-      "label": "Lowercase Hex"
     },
     "hyprpicker_no_zoom": {
       "description": "Turns off the magnifying zoom lens while picking.",
@@ -40,9 +37,31 @@
       "description": "Zoom lens magnification, from 1 to 10.",
       "label": "Zoom Scale"
     },
-    "swatch_radius": {
-      "description": "Corner radius of the history swatches and current-color preview.",
-      "label": "Swatches Corner Roundness"
+    "lowercase-hex": {
+      "description": "Outputs the hexcode in lowercase.",
+      "label": "Lowercase Hex"
+    },
+    "main-colorspace": {
+        "label": "Main Colorspace",
+        "description": "Main colorspace for hyprpicker and panel.",
+        "options": {
+          "hex": "HEX",
+          "rgb": "RGB(A)",
+          "hsl": "HSL(A)"
+        }
+    },
+    "notify-on-copy": {
+      "description": "Notify on color copy through screen pick or panel button.",
+      "label": "Notify on Copy"
+    },
+    "picker_tool": {
+        "label": "Picker Tool",
+        "description": "Tool used to pick colors from the screen.",
+        "options": {
+          "hyprpicker": "Hyprpicker",
+          "grim_slurp": "Grim + Slurp"
+        }
     }
-  }
+  },
+  "tool_missing": "{tool} not installed. You can change the picker tool in the plugin settings."
 }

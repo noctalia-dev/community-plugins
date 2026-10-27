@@ -1,13 +1,13 @@
 id          = "nilsonlinux/world-radio"
 name        = "World Radio"
-version     = "1.0.8"
+version     = "1.2.2"
 plugin_api  = 43
 author      = "Nilsonlinux"
 license     = "MIT"
 icon        = "radio"
 description = "Browse thousands of radio stations from around the world with country flags."
-tags        = ["audio", "music", "network", "panel", "bar", "utility"]
-dependencies = ["mpv", "ffmpeg", "playerctl"]
+tags        = ["audio", "music", "network", "panel", "bar", "utility", "service"]
+dependencies = ["mpv", "ffmpeg", "mpv-mpris", "glib2"]
 
 # ---------------------------------------------------------------------------
 # Bar widget: opens the World Radio panel
@@ -29,7 +29,7 @@ entry = "widget.luau"
   type            = "bool"
   label_key       = "settings.show_now_playing.label"
   description_key = "settings.show_now_playing.description"
-  default         = true
+  default         = false
 
 # ---------------------------------------------------------------------------
 # Panel: dashboard with countries + stations
@@ -40,6 +40,15 @@ id              = "Panel"
 entry           = "panel.luau"
 width           = 540
 height          = 720
-placement       = "attached"
-position        = "auto"
-open_near_click = true
+placement       = "floating"
+position        = "center"
+open_near_click = false
+
+# ---------------------------------------------------------------------------
+# Service: follows mpv's MPRIS playback and services wheel-skip requests even
+# while the panel is closed.
+# ---------------------------------------------------------------------------
+
+[[service]]
+id    = "sync"
+entry = "sync.luau"
