@@ -67,6 +67,7 @@ body:
         - cider
         - claude-cockpit
         - claude-companion
+        - claude-operator
         - claude-sessions
         - claudecode
         - cmd-runner
@@ -200,6 +201,7 @@ body:
         - opencodex-bar
         - openvpn3
         - opnsense
+        - opnsense-traffic
         - oppo-pods
         - owntone-control
         - paged-todo
@@ -241,6 +243,7 @@ body:
         - saved-desktop-widgets
         - screen-capture
         - screen-toolkit
+        - settings-to-nix
         - share-wifi
         - sharednd
         - shelf

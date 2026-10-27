@@ -1,5 +1,6 @@
 {
   "error": {
+    "access_redirect": "Umami redirected to a login page (HTTP 302). If it is behind Cloudflare Access, set a service token in the plugin settings.",
     "bad_json": "Umami sent a response that could not be read.",
     "http_status": "Umami returned HTTP {status}.",
     "network": "Could not reach Umami.",
@@ -67,6 +68,14 @@
     "api_url": {
       "description": "Umami Cloud: https://api.umami.is/v1. Self-hosted: your instance URL followed by /api, for example https://umami.example.com/api.",
       "label": "API URL"
+    },
+    "cf_access_client_id": {
+      "description": "Only for Umami behind Cloudflare Access. Create it under Zero Trust → Access controls → Service credentials, then add a Service Auth policy to the application. See the README.",
+      "label": "Cloudflare Access Client ID"
+    },
+    "cf_access_client_secret": {
+      "description": "Cloudflare Access service token Client Secret, shown only once when the token is created. Stored in plain text in your Noctalia config.",
+      "label": "Cloudflare Access Client Secret"
     },
     "password": {
       "description": "Self-hosted login password, used only when no API key is set. Stored in plain text in your Noctalia config.",

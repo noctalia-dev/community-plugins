@@ -70,6 +70,12 @@ assert(shared.isSessionStarted({ percent = 0, reset_at = claudeSlotIso, detail =
 assert(shared.isSessionStarted({ percent = 0, reset_at = fullWindowIso, detail = "Resets in 4h 59m" }) == false,
     "Antigravity Claude & GPT OSS fresh session (4h 59m left) must mean session is not started")
 
+assert(shared.isSessionStarted({ percent = 0, started = true, reset_at = fullWindowIso }) == true,
+    "metric with started == true must mean session is started even at 0% and full window")
+
+assert(shared.isSessionStarted({ percent = 1, reset_at = fullWindowIso }) == true,
+    "metric with percent = 1 must mean session is started even with full window")
+
 assert(shared.isSessionStarted(nil) == false,
     "nil metric must return false")
 

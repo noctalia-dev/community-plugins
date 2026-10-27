@@ -20,7 +20,6 @@ local elapsedPercent = shared.elapsedPercent
 local requestRefresh = shared.requestRefresh
 local unavailable = shared.unavailable
 local NO_FAILURE, asFailure = shared.NO_FAILURE, shared.asFailure
-local isConfigured = shared.isConfigured
 local kickstartTarget = shared.kickstartTarget
 local collectModelItems = shared.collectModelItems
 local collectResetCredits = shared.collectResetCredits
@@ -49,10 +48,6 @@ local function cardStyle(gap, fill, border, padding)
     }
 end
 
-local function configured(entry)
-    return isConfigured(entry)
-end
-
 local function entries()
     return shared.entries(report)
 end
@@ -61,7 +56,9 @@ local function panelCandidates()
     if type(report) ~= "table" or type(report.entries) ~= "table" then return {} end
     local list = {}
     for _, entry in ipairs(report.entries) do
-        if type(entry) == "table" and not shared.terminalAuth(entry) and configured(entry) then
+        -- A provider included by the CLI remains visible after authentication
+        -- failures. Only the user's explicit visibility filters hide it.
+        if type(entry) == "table" then
             local id = entry.id
             local name = entry.display_name or entry.name or entry.id
             if not shared.isModelHidden(id, name) then
@@ -136,6 +133,7 @@ end
 
 local function formatResetTime(metric, windowLabel, isStarted)
     local isWeekly = windowLabel == "7d"
+    if isWeekly and shared.weeklyResetStatus(metric) == "pending" then return "Pending confirmation" end
     local active = isWeekly or isStarted or isSessionStarted(metric)
     if not active then
         return ""
@@ -239,10 +237,16 @@ local function assessTriage(metric, percent, elapsedPct, windowLabel, item, stag
     local wMetric = item and item.weeklyMetric
     local wPct = wMetric and tonumber(wMetric.percent) or 0
     local isWeeklyExhausted = (wMetric ~= nil and wPct >= 100)
-    local baseId = item and shared.baseProvider(item.providerId or (item.entry and item.entry.id))
+    local baseId = item and ((item.entry and item.entry.id) or item.providerId)
 
     -- Reset credit advice: a claim only pays with enough active hours left before the renewal
     local advice = staggerPlan and staggerPlan.creditAdvice and baseId and staggerPlan.creditAdvice[baseId]
+
+    if isWeekly and shared.weeklyResetStatus(metric, item and item.entry) ~= "announced" then
+        return { status = "unconfirmed", label = "Check", glyph = "clock",
+            color = "on_surface_variant", bg = "on_surface/0.06", border = "outline_variant/0.20",
+            summary = shared.weeklyResetTooltip(metric, item and item.entry) }
+    end
 
     if isWeekly and advice and advice.status == "claim" then
         return {
@@ -276,6 +280,13 @@ local function assessTriage(metric, percent, elapsedPct, windowLabel, item, stag
 
     if isWeekly and advice and staggerPlan.fastTrack and staggerPlan.fastTrack[baseId] then
         local isLeader = staggerPlan.hasCollision and staggerPlan.advanceProviderId == baseId
+        local urgency = advice.urgency
+        local summary = advice.summary
+        if urgency then
+            summary = string.format("Claim before %s · ~%.1fh needed / %.1fh available · up to ~%d%% extra quota%s",
+                os.date("%b %d %H:%M %Z", urgency.deadlineAt), urgency.neededHours, urgency.availableHours,
+                math.floor(advice.cycleGain + 0.5), urgency.feasible and "" or " · 95% may be unreachable in this window")
+        end
         return {
             status = "fast_track",
             label = "Fast-track",
@@ -284,9 +295,7 @@ local function assessTriage(metric, percent, elapsedPct, windowLabel, item, stag
             bg = "primary/0.20",
             border = "primary/0.50",
             cardBorder = "primary/0.50",
-            summary = string.format("%s: burn remaining %d%% (~%d sessions), then claim · worth ~%d%% of a week",
-                isLeader and "Advance reset" or "Last cycle for the reset credit",
-                remainingQuota, math.max(1, math.ceil(advice.sessionsToSpend - 0.25)), math.floor(advice.cycleGain + 0.5)),
+            summary = (isLeader and "Advance reset: " or "Reset credit: ") .. summary,
         }
     end
 
@@ -503,8 +512,39 @@ local function renderMetricCard(item, metric, windowLabel, staggerPlan, typo)
         })
     end
 
-    if metric == nil or unavailable(item.entry) then
-        local unavail = unavailable(item.entry)
+    if unavailable(item.entry) then
+        local issue = shared.diagnostic(item.entry)
+        local children = {
+            ui.row({ gap = 6, align = "center" }, titleChildren),
+            ui.label({ text = noctalia.tr(issue.titleKey), fontSize = fs(13),
+                fontWeight = "semibold", color = "error", maxLines = 2 }),
+            ui.label({ text = noctalia.tr(issue.actionKey, issue.actionArgs), fontSize = fs(12),
+                color = "on_surface", maxLines = 3 }),
+        }
+        if issue.command then
+            children[#children + 1] = ui.label({ text = issue.command, fontSize = fs(11),
+                fontFamily = "monospace", color = "on_surface", maxLines = 2 })
+        end
+        if issue.detail ~= "" then
+            children[#children + 1] = ui.label({ text = issue.detail, fontSize = fs(10),
+                color = "on_surface_variant", maxLines = 3, tooltip = issue.detail })
+        end
+        local actions = {}
+        if issue.command and type(noctalia.copyToClipboard) == "function" then
+            actions[#actions + 1] = ui.button({ text = noctalia.tr("ui.diagnostic.copy_command"),
+                glyph = "copy", variant = "outline", controlSize = "sm",
+                onClick = function() noctalia.copyToClipboard(issue.command) end })
+        end
+        if issue.retryable then
+            actions[#actions + 1] = ui.button({ text = noctalia.tr("ui.refresh"),
+                glyph = "refresh", variant = "outline", controlSize = "sm",
+                enabled = not polling, onClick = requestRefresh })
+        end
+        if #actions > 0 then children[#children + 1] = ui.row({ gap = 6 }, actions) end
+        return ui.column(cardStyle(6, "error/0.06", "error/0.25", 10), children)
+    end
+
+    if metric == nil then
         return ui.column({
             gap = 6,
             paddingH = 10,
@@ -517,10 +557,7 @@ local function renderMetricCard(item, metric, windowLabel, staggerPlan, typo)
             ui.row({ gap = 4, align = "center" }, {
                 ui.row({ gap = 4, align = "center" }, titleChildren),
                 ui.spacer({ flexGrow = 1 }),
-                unavail and ui.row({ gap = 4, align = "center", paddingH = 6, paddingV = 2, radius = 5, fill = "error/0.12" }, {
-                    ui.glyph({ name = "alert-circle", size = gs(12), color = "error" }),
-                    ui.label({ text = noctalia.tr("ui.unavailable"), fontSize = fs(12), fontWeight = "medium", color = "error" }),
-                }) or ui.label({ text = "—", fontSize = fs(14), color = "on_surface_variant" }),
+                ui.label({ text = "—", fontSize = fs(14), color = "on_surface_variant" }),
             }),
             ui.column({ gap = 1, align = "stretch" }, {
                 ui.progress({ progress = 0, fill = "on_surface/0.10", track = "on_surface/0.05", radius = 4, height = 8 }),
@@ -529,7 +566,7 @@ local function renderMetricCard(item, metric, windowLabel, staggerPlan, typo)
             ui.row({ gap = 8, align = "center", justify = "center" }, {
                 ui.row({ gap = 5, align = "center", paddingH = 8, paddingV = 2, radius = 5, fill = "on_surface/0.06" }, {
                     ui.glyph({ name = "slash", size = gs(12), color = "on_surface_variant" }),
-                    ui.label({ text = "Offline", fontSize = fs(12), color = "on_surface_variant" }),
+                    ui.label({ text = "Not reported", fontSize = fs(12), color = "on_surface_variant" }),
                 }),
             }),
         })
@@ -557,6 +594,7 @@ local function renderMetricCard(item, metric, windowLabel, staggerPlan, typo)
         end
     end
     local resetTooltip = leftDuration ~= "" and ("Renews in " .. leftDuration) or nil
+    if isWeekly then resetTooltip = shared.weeklyResetTooltip(metric, item and item.entry) end
 
     local elapsedPct = calculateElapsed(metric, windowLabel, isStarted)
     local triage = assessTriage(metric, percent, elapsedPct, windowLabel, item, staggerPlan, isStarted)
@@ -1049,13 +1087,19 @@ local function renderColumns(candidates, typo)
     topRowChildren[#topRowChildren + 1] = ui.row({ gap = 4, align = "center" }, headerActions)
 
     local modelItems = collectModelItems(candidates)
-    local staggerPlan, providerStats = shared.analyzeResetCredits(candidates)
-    local resetCredits = collectResetCredits(candidates, staggerPlan)
+    local healthy = {}
+    for _, entry in ipairs(candidates) do
+        if not unavailable(entry) then healthy[#healthy + 1] = entry end
+    end
+    local staggerPlan, providerStats = shared.analyzeResetCredits(healthy)
+    local resetCredits = collectResetCredits(healthy, staggerPlan)
 
     local scheduleConfig = getScheduleConfig()
 
     -- Sort models by triage score (considering session & weekly pacing, schedule-aware active hours, and staggering)
     table.sort(modelItems, function(a, b)
+        local aFailed, bFailed = unavailable(a.entry), unavailable(b.entry)
+        if aFailed ~= bFailed then return not aFailed end
         local aScore = calculateModelTriageScore(a, staggerPlan, os.time(), scheduleConfig, true)
         local bScore = calculateModelTriageScore(b, staggerPlan, os.time(), scheduleConfig, true)
         if math.abs(aScore - bScore) > 0.01 then
@@ -1098,12 +1142,12 @@ local function renderColumns(candidates, typo)
     local seenWeekly = {}
     for _, item in ipairs(modelItems) do
         local wM = item.weeklyMetric
-        local baseId = shared.baseProvider(item.providerId or (item.entry and item.entry.id))
-        if wM and not seenWeekly[baseId] then
+        local baseId = item.providerId or (item.entry and item.entry.id)
+        if wM and not unavailable(item.entry) and not seenWeekly[baseId] then
             seenWeekly[baseId] = true
             local at = parseIso(wM.reset_at)
-            local wWindow = tonumber(wM.window_secs) or 604800
-            local remSecs = (at and at > os.time()) and (at - os.time()) or wWindow
+            local resetStatus = shared.weeklyResetStatus(wM, item.entry)
+            local remSecs = at and math.max(0, at - os.time()) or math.huge
             local wPct = tonumber(wM.percent) or 0
             local wFree = math.max(0, 100 - wPct)
             weeklySchedules[#weeklySchedules + 1] = {
@@ -1114,6 +1158,9 @@ local function renderColumns(candidates, typo)
                 remainingSecs = remSecs,
                 percent = wPct,
                 free = wFree,
+                status = resetStatus,
+                tooltip = shared.weeklyResetTooltip(wM, item.entry),
+                change = shared.weeklyResetChange(wM),
             }
         end
     end
@@ -1182,20 +1229,22 @@ local function renderColumns(candidates, typo)
 
     if #weeklySchedules > 0 then
         local scheduleRows = {}
-        local remColWidth = math.floor(52 * factor + 0.5)
+        local remColWidth = math.floor(60 * factor + 0.5)
         local dayColWidth = math.floor(32 * factor + 0.5)
         local timeColWidth = math.floor(40 * factor + 0.5)
         for _, ws in ipairs(weeklySchedules) do
-            local remSecs = math.max(0, ws.remainingSecs or 0)
+            local remSecs = ws.remainingSecs ~= math.huge and math.max(0, ws.remainingSecs or 0) or 0
             local remDays = math.floor(remSecs / 86400)
             local remHours = math.floor((remSecs % 86400) / 3600)
             local remStr = string.format("%dd %02dh", remDays, remHours)
-            local dayStr = ws.resetAt and os.date("%a", ws.resetAt) or "---"
-            local timeStr = ws.resetAt and noctalia.formatTime(noctalia.timeFormat(), ws.resetAt) or "--:--"
+            if ws.status == "pending" then remStr = "Check"
+            elseif ws.status == "stale" then remStr = "~" .. remStr end
+            local dayStr = ws.status ~= "pending" and ws.resetAt and os.date("%a", ws.resetAt) or "---"
+            local timeStr = ws.status ~= "pending" and ws.resetAt and noctalia.formatTime(noctalia.timeFormat(), ws.resetAt) or "--:--"
             if timeStr:match("^%d:%d%d") then
                 timeStr = "0" .. timeStr
             end
-            scheduleRows[#scheduleRows + 1] = ui.row({ gap = 6, align = "center" }, {
+            scheduleRows[#scheduleRows + 1] = ui.row({ gap = 6, align = "center", tooltip = ws.tooltip }, {
                 ui.glyph({ name = ws.glyph, size = gs(13), color = "secondary" }),
                 ui.label({ text = ws.name, fontSize = fs(12), fontWeight = "semibold", color = "on_surface", maxLines = 1 }),
                 ui.spacer({ flexGrow = 1 }),
@@ -1275,7 +1324,7 @@ local function renderColumns(candidates, typo)
 
     -- Urgent weekly reset alerts: prominently displayed at the top of Column 3
     for _, ws in ipairs(weeklySchedules) do
-        if ws.remainingSecs <= 48 * 3600 and ws.free >= 10 then
+        if ws.status == "announced" and ws.remainingSecs <= 48 * 3600 and ws.free >= 10 then
             local remHours = math.max(0.1, ws.remainingSecs / 3600)
             local timeStr = remHours < 24 and string.format("%.1fh", remHours) or string.format("%.1fd", remHours / 24)
             local dateStr = ws.resetAt and string.format("%s %s", os.date("%a", ws.resetAt), noctalia.formatTime(noctalia.timeFormat(), ws.resetAt)) or ""
@@ -1295,6 +1344,37 @@ local function renderColumns(candidates, typo)
             })
             table.insert(creditCards, 1, alertCard)
         end
+    end
+
+    -- Keep this first-day informational notice below the daily routing advice.
+    -- It describes a past observation, independently of stale quota/sprint advice.
+    local changeRows = {}
+    for _, ws in ipairs(weeklySchedules) do
+        local event = ws.change
+        if event then
+            local function date(at)
+                return tonumber(at) and os.date("%d %b %H:%M %Z", at) or "Unknown"
+            end
+            changeRows[#changeRows + 1] = ui.column({ gap = 2, tooltip = ws.tooltip }, {
+                ui.label({ text = ws.name .. (event.kind == "early_renewal"
+                    and " · Early renewal observed" or " · Renewal not confirmed"),
+                    fontSize = fs(11), fontWeight = "semibold", color = "on_surface" }),
+                ui.label({ text = "Before: " .. date(event.previous_reset_at),
+                    fontSize = fs(11), color = "on_surface_variant" }),
+                ui.label({ text = "Now announced: " .. date(ws.resetAt or event.reset_at),
+                    fontSize = fs(11), color = "on_surface_variant" }),
+            })
+        end
+    end
+    if #changeRows > 0 then
+        creditCards[#creditCards + 1] = ui.column(cardStyle(6, "primary/0.08", "primary/0.25", 8), {
+            ui.row({ gap = 6, align = "center" }, {
+                ui.glyph({ name = "calendar-clock", size = gs(14), color = "primary" }),
+                ui.label({ text = "Weekly reset changed", fontSize = fs(13),
+                    fontWeight = "bold", color = "primary" }),
+            }),
+            ui.column({ gap = 6, align = "stretch" }, changeRows),
+        })
     end
 
     if #creditCards == 0 then
@@ -1399,6 +1479,8 @@ local function renderColumns(candidates, typo)
         ui.separator({ orientation = "horizontal", color = "outline_variant", opacity = 0.20 }),
         ui.row({ gap = 12, flexGrow = 1, align = "stretch" }, columns),
     }
+    -- Keep a failed overall refresh visible even when an earlier report exists.
+    if failure.code ~= "" then table.insert(mainChildren, 3, errorBlock(typo)) end
 
     panel.render(ui.column({
         gap = 8,
@@ -1417,7 +1499,8 @@ function render()
     local typo = getTypography()
     local fs = typo.fontSize
     local gs = typo.glyphSize
-    if failure.code ~= "" and report == nil then
+    local candidates = panelCandidates()
+    if failure.code ~= "" and #candidates == 0 then
         panel.render(ui.column({ flexGrow = 1, padding = 14, align = "center", justify = "center" }, {
             ui.column({ gap = 10, width = 320 }, {
                 ui.row({ gap = 8, align = "center" }, {
@@ -1430,8 +1513,6 @@ function render()
         }))
         return
     end
-
-    local candidates = panelCandidates()
 
     if #candidates > 0 then
         renderColumns(candidates, typo)

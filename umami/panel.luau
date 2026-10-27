@@ -1,5 +1,6 @@
 --!nonstrict
 local umami = require("./umami.luau")
+local geo = require("./geo.luau")
 local tr = noctalia.tr
 
 local PERIODS = {
@@ -421,10 +422,15 @@ local function barChart(entry)
   })
 end
 
-local function metricList(title, column, rows, fallbackName)
+local FORMATTERS = { country = geo.country, region = geo.region }
+
+local function metricList(title, column, rows, fallbackName, format)
   local children = { ui.row({ paddingH = 8 }, { muted(title), spacer(), muted(column) }) }
   for i, row in rows or {} do
     local name = tostring(row.x or "")
+    if name ~= "" and format then
+      name = format(name)
+    end
     table.insert(children, ui.row({
       key = `{title}-{i}`,
       paddingH = 8,
@@ -465,7 +471,7 @@ local function metricSection(s, metrics)
   return ui.column({ gap = 8 }, {
     ui.label({ text = tr(`panel.{s.key}`), fontWeight = "bold" }),
     ui.row({}, { ui.row({ gap = 2, padding = 3, radius = 10, fill = "surface_container" }, buttons) }),
-    metricList(tr(`panel.tab.{tab:lower()}`), tr("panel.visitors"), metrics[tab], if s.empty == "/" then "/" else tr(s.empty)),
+    metricList(tr(`panel.tab.{tab:lower()}`), tr("panel.visitors"), metrics[tab], if s.empty == "/" then "/" else tr(s.empty), FORMATTERS[tab]),
   })
 end
 

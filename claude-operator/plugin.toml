@@ -1,0 +1,224 @@
+# Claude Operator: every Claude Code session on one switchboard.
+#
+# Merges claude-cockpit (nightwatch75) and claude-sessions (lfdominguez), both MIT.
+# One service owns all data (see docs/DESIGN.md in the repo); the widget, panel and
+# launcher only render what it publishes.
+
+id = "edward/claude-operator"
+name = "Claude Operator"
+version = "0.7.3"
+# 43 (noctalia 5.4): the surface_container / outline_variant color roles that replace
+# surface_variant / outline.
+# 33: revealKey on ui.scroll (session browser keeps the selection in view).
+# 31: noctalia.getColor for the bar's SVG rings. 24: argv process execution.
+# 22: relative luau imports.
+plugin_api = 43
+author = "edward"
+license = "MIT"
+# The scripts' tools. kitty (exact-tab focus, new sessions as tabs), hyprctl, niri,
+# swaymsg (window focus) and code / zed (CLAUDE.md editor) are optional and checked at
+# run time, so they are not listed.
+dependencies = [
+  "bash", "jq", "curl", "find", "grep", "sed", "awk", "tac", "stat", "sort", "head", "tail",
+  "tr", "cut", "xargs", "date", "basename", "dirname", "readlink", "cat", "mkdir", "mv", "rm",
+  "pgrep", "kill", "xdg-open", "claude",
+]
+tags = ["ai", "development", "bar", "desktop", "panel", "launcher", "service", "productivity"]
+icon = "headset"
+description = "Live Claude Code sessions, plan limits and cost on the bar; jump to, resume and manage every session."
+
+[[setting]]
+key = "notify_waiting"
+type = "bool"
+label_key = "settings.notify_waiting.label"
+description_key = "settings.notify_waiting.description"
+default = true
+
+[[setting]]
+key = "notify_finished"
+type = "bool"
+label_key = "settings.notify_finished.label"
+description_key = "settings.notify_finished.description"
+default = true
+
+[[setting]]
+key = "finished_min_minutes"
+type = "int"
+label_key = "settings.finished_min_minutes.label"
+description_key = "settings.finished_min_minutes.description"
+default = 2
+min = 0
+max = 240
+visible_when = { key = "notify_finished", values = ["true"] }
+
+[[setting]]
+key = "notify_limits"
+type = "bool"
+label_key = "settings.notify_limits.label"
+description_key = "settings.notify_limits.description"
+default = true
+
+[[setting]]
+key = "show_elsewhere"
+type = "bool"
+label_key = "settings.show_elsewhere.label"
+description_key = "settings.show_elsewhere.description"
+default = true
+
+[[setting]]
+key = "hide_idle_hours"
+type = "int"
+label_key = "settings.hide_idle_hours.label"
+description_key = "settings.hide_idle_hours.description"
+default = 0
+min = 0
+max = 720
+
+[[setting]]
+key = "recent_count"
+type = "int"
+label_key = "settings.recent_count.label"
+description_key = "settings.recent_count.description"
+default = 8
+min = 0
+max = 30
+
+[[setting]]
+key = "limits_refresh_minutes"
+type = "int"
+label_key = "settings.limits_refresh_minutes.label"
+description_key = "settings.limits_refresh_minutes.description"
+default = 5
+min = 2
+max = 30
+
+[[setting]]
+key = "currency"
+type = "select"
+label_key = "settings.currency.label"
+description_key = "settings.currency.description"
+default = "usd"
+options = [
+  { value = "usd", label_key = "settings.currency.options.usd" },
+  { value = "eur", label_key = "settings.currency.options.eur" },
+  { value = "gbp", label_key = "settings.currency.options.gbp" },
+  { value = "jpy", label_key = "settings.currency.options.jpy" },
+  { value = "cny", label_key = "settings.currency.options.cny" },
+  { value = "chf", label_key = "settings.currency.options.chf" },
+  { value = "aud", label_key = "settings.currency.options.aud" },
+  { value = "cad", label_key = "settings.currency.options.cad" },
+  { value = "inr", label_key = "settings.currency.options.inr" },
+]
+
+# Exchange rates for non-USD currencies, fetched once a day in one request.
+[[setting]]
+key = "currency_api_url"
+type = "string"
+label_key = "settings.currency_api_url.label"
+description_key = "settings.currency_api_url.description"
+default = "https://api.frankfurter.dev/v1/latest"
+advanced = true
+
+# Empty: kitty remote control when available, else Noctalia's terminal discovery.
+[[setting]]
+key = "terminal"
+type = "string"
+label_key = "settings.terminal.label"
+description_key = "settings.terminal.description"
+default = ""
+
+# Empty: try code, then zed.
+[[setting]]
+key = "editor_command"
+type = "string"
+label_key = "settings.editor_command.label"
+description_key = "settings.editor_command.description"
+default = ""
+
+[[setting]]
+key = "work_root"
+type = "folder"
+label_key = "settings.work_root.label"
+description_key = "settings.work_root.description"
+default = ""
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[widget]]
+id = "widget"
+entry = "widget.luau"
+
+[widget.actions]
+  left = "panel-toggle edward/claude-operator:panel"
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  label_key = "settings.glyph.label"
+  description_key = "settings.glyph.description"
+  default = "headset"
+
+  [[widget.setting]]
+  key = "bar_style"
+  type = "select"
+  label_key = "settings.bar_style.label"
+  description_key = "settings.bar_style.description"
+  default = "dots"
+  options = [
+    { value = "dots", label_key = "settings.bar_style.options.dots" },
+    { value = "counts", label_key = "settings.bar_style.options.counts" },
+  ]
+
+  [[widget.setting]]
+  key = "bar_limits"
+  type = "select"
+  label_key = "settings.bar_limits.label"
+  description_key = "settings.bar_limits.description"
+  default = "5h_7d"
+  options = [
+    { value = "5h", label_key = "settings.bar_limits.options.five_hour" },
+    { value = "7d", label_key = "settings.bar_limits.options.seven_day" },
+    { value = "5h_7d", label_key = "settings.bar_limits.options.both" },
+    { value = "all", label_key = "settings.bar_limits.options.all" },
+    { value = "none", label_key = "settings.bar_limits.options.none" },
+  ]
+
+  [[widget.setting]]
+  key = "bar_limits_style"
+  type = "select"
+  label_key = "settings.bar_limits_style.label"
+  description_key = "settings.bar_limits_style.description"
+  default = "gauge"
+  options = [
+    { value = "gauge", label_key = "settings.bar_limits_style.options.gauge" },
+    { value = "bar", label_key = "settings.bar_limits_style.options.bar" },
+    { value = "text", label_key = "settings.bar_limits_style.options.text" },
+  ]
+  visible_when = { key = "bar_limits", values = ["5h", "7d", "5h_7d", "all"] }
+
+# The switchboard on the desktop: gauge, outlooks, lines and status. Add it from the
+# desktop widgets editor.
+[[desktop_widget]]
+id = "desktop"
+entry = "desktop.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 700
+height = 720
+# Only navigation keys: letters stay with the session browser's filter input.
+capture_keys = ["up", "down", "Return", "KP_Enter"]
+# The default only: noctalia's own Placement / Position / Layer settings for this panel
+# (Settings > Plugins) let each user float it instead.
+placement = "attached"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[launcher_provider]]
+id = "search"
+entry = "launcher.luau"
+prefix = "co"
+glyph = "headset"

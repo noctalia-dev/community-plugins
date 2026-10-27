@@ -1,9 +1,5 @@
 {
   "settings": {
-    "bar_font_scale": {
-      "description": "Ajusta os tamanhos de fonte e ícones para esta cápsula da barra.",
-      "label": "Tamanho da fonte da cápsula"
-    },
     "color_by_usage": {
       "description": "Confere uma tonalidade à leitura à medida que a cota se esgota. A opção \"Off\" mantém a cápsula na cor da própria barra.",
       "label": "Cor por uso"
@@ -18,6 +14,10 @@
         "pace": "Corra contra o relógio"
       }
     },
+    "bar_font_scale": {
+      "description": "Ajusta os tamanhos de fonte e ícones para esta cápsula da barra.",
+      "label": "Tamanho da fonte da cápsula"
+    },
     "font_scale": {
       "description": "Ajusta os tamanhos de fonte e ícones proporcionalmente no painel e na barra.",
       "label": "Tamanho da fonte",
@@ -29,26 +29,6 @@
         "normal": "Normal (100%)"
       }
     },
-    "gearing_anthropic": {
-      "description": "Estimativa de sessões completas de 5h por cota semanal para Claude Pro. O painel mostra números inteiros; os cálculos e a calibração automática mantêm a precisão decimal.",
-      "label": "Razão de escalonamento: Claude Pro (sessões/sem)"
-    },
-    "gearing_claude_oss": {
-      "description": "Estimativa de sessões completas de 5h por cota semanal para Claude & GPT OSS. O painel mostra números inteiros; os cálculos e a calibração automática mantêm a precisão decimal.",
-      "label": "Razão de escalonamento: Claude & GPT OSS (sessões/sem)"
-    },
-    "gearing_default": {
-      "description": "Estimativa de sessões completas de 5h por cota semanal para outros modelos. O painel mostra números inteiros; os cálculos e a calibração automática mantêm a precisão decimal.",
-      "label": "Razão de escalonamento: Padrão (sessões/sem)"
-    },
-    "gearing_gemini": {
-      "description": "Estimativa de sessões completas de 5h por cota semanal para Gemini. O painel mostra números inteiros; os cálculos e a calibração automática mantêm a precisão decimal.",
-      "label": "Razão de escalonamento: Gemini (sessões/sem)"
-    },
-    "gearing_openai": {
-      "description": "Estimativa de sessões completas de 5h por cota semanal para OpenAI / Codex. O painel mostra números inteiros; os cálculos e a calibração automática mantêm a precisão decimal.",
-      "label": "Razão de escalonamento: Codex / OpenAI (sessões/sem)"
-    },
     "glyph_position": {
       "description": "Em qual lado da leitura o ícone está posicionado.",
       "label": "Posição do ícone",
@@ -56,18 +36,6 @@
         "after": "Depois",
         "before": "Antes"
       }
-    },
-    "hidden_services": {
-      "description": "Lista separada por vírgulas de IDs de provedores ou modelos para ocultar da barra e do painel.",
-      "label": "Serviços e modelos ocultos"
-    },
-    "hide_claude_oss": {
-      "description": "Oculta o nível Claude & GPT OSS do Antigravity na barra e no painel, mantendo o Gemini ativo.",
-      "label": "Ocultar Claude & GPT OSS"
-    },
-    "meal_pause_hours": {
-      "description": "Horas estimadas de pausa durante o dia para almoço, jantar ou descanso.",
-      "label": "Pausa diária para refeições (horas)"
     },
     "provider_limit": {
       "description": "Define quantos provedores uma cápsula exibe, começando pelos mais movimentados e indicando o restante como \"+N\". Aplica-se apenas quando o provedor é definido como \"Automático\".",
@@ -81,6 +49,54 @@
       "description": "Desconta horas de sono, refeições e descanso para calcular a velocidade de consumo sobre horas ativas reais.",
       "label": "Triagem ciente da rotina"
     },
+    "sleep_start_hour": {
+      "description": "Início do repouso em dias úteis, em passos de meia hora (ex.: 22 para 22h, 22.5 para 22h30).",
+      "label": "Início do repouso (dias úteis)"
+    },
+    "sleep_end_hour": {
+      "description": "Retorno às horas ativas em dias úteis, em passos de meia hora (ex.: 8.5 para 8h30).",
+      "label": "Fim do repouso (dias úteis)"
+    },
+    "weekend_sleep_start_hour": {
+      "description": "Início do repouso nos fins de semana, em passos de meia hora (ex.: 22 para 22h).",
+      "label": "Início do repouso (fins de semana)"
+    },
+    "weekend_sleep_end_hour": {
+      "description": "Retorno às horas ativas nos fins de semana, em passos de meia hora (ex.: 8.5 para 8h30).",
+      "label": "Fim do repouso (fins de semana)"
+    },
+    "meal_pause_hours": {
+      "description": "Horas diárias indisponíveis para refeições, pausas ou outras tarefas (0–24). Distribuídas proporcionalmente pelas horas acordadas, sem horários fixos.",
+      "label": "Outras horas indisponíveis por dia"
+    },
+    "hide_claude_oss": {
+      "description": "Oculta o nível Claude & GPT OSS do Antigravity na barra e no painel, mantendo o Gemini ativo.",
+      "label": "Ocultar Claude & GPT OSS"
+    },
+    "hidden_services": {
+      "description": "Lista separada por vírgulas de IDs de provedores ou modelos para ocultar da barra e do painel.",
+      "label": "Serviços e modelos ocultos"
+    },
+    "gearing_claude_oss": {
+      "description": "Estimativa de sessões completas de 5h por cota semanal para Claude & GPT OSS. O painel mostra números inteiros; os cálculos e a calibração automática mantêm a precisão decimal.",
+      "label": "Razão de escalonamento: Claude & GPT OSS (sessões/sem)"
+    },
+    "gearing_gemini": {
+      "description": "Estimativa de sessões completas de 5h por cota semanal para Gemini. O painel mostra números inteiros; os cálculos e a calibração automática mantêm a precisão decimal.",
+      "label": "Razão de escalonamento: Gemini (sessões/sem)"
+    },
+    "gearing_anthropic": {
+      "description": "Estimativa de sessões completas de 5h por cota semanal para Claude Pro. O painel mostra números inteiros; os cálculos e a calibração automática mantêm a precisão decimal.",
+      "label": "Razão de escalonamento: Claude Pro (sessões/sem)"
+    },
+    "gearing_openai": {
+      "description": "Estimativa de sessões completas de 5h por cota semanal para OpenAI / Codex. O painel mostra números inteiros; os cálculos e a calibração automática mantêm a precisão decimal.",
+      "label": "Razão de escalonamento: Codex / OpenAI (sessões/sem)"
+    },
+    "gearing_default": {
+      "description": "Estimativa de sessões completas de 5h por cota semanal para outros modelos. O painel mostra números inteiros; os cálculos e a calibração automática mantêm a precisão decimal.",
+      "label": "Razão de escalonamento: Padrão (sessões/sem)"
+    },
     "show_glyph": {
       "description": "O ícone do provedor. A opção \"Desligado\" deixa a leitura por conta própria.",
       "label": "Mostrar ícone"
@@ -92,14 +108,6 @@
     "show_value": {
       "description": "A porcentagem como texto. A opção \"Off\" faz com que o indicador a exiba.",
       "label": "Mostrar valor"
-    },
-    "sleep_end_hour": {
-      "description": "Hora em que a rotina ativa recomeça pela manhã em dias úteis (ex: 8 para 8h).",
-      "label": "Fim do repouso (dias úteis)"
-    },
-    "sleep_start_hour": {
-      "description": "Hora em que o sono ou período de descanso começa em dias úteis (ex: 0 para meia-noite, 23 para 23h).",
-      "label": "Início do repouso (dias úteis)"
     },
     "style": {
       "description": "Como esta cápsula fica no bar.",
@@ -123,16 +131,36 @@
         "deepseek": "DeepSeek",
         "gemini": "Gemini",
         "grok": "Grok",
-        "kilo": "Quilo"
+        "kilo": "Quilo",
+        "deepinfra": "DeepInfra",
+        "synthetic": "Synthetic",
+        "grokbot": "Grok Bot",
+        "ollama": "Ollama Cloud",
+        "orcarouter": "OrcaRouter",
+        "modelstudio": "Model Studio",
+        "lyceum": "Lyceum",
+        "devin": "Devin",
+        "muse_code": "Muse Code",
+        "cline": "Cline",
+        "antigravity": "Antigravity",
+        "commandcode": "Command Code",
+        "copilot": "GitHub Copilot",
+        "kimi": "Kimi",
+        "kiro": "Kiro",
+        "minimax": "MiniMax",
+        "moonshot": "Moonshot",
+        "nous": "Nous Research",
+        "novita": "Novita",
+        "openai": "Codex",
+        "opencode_go": "OpenCode Go",
+        "openrouter": "OpenRouter",
+        "supergrok": "SuperGrok",
+        "zai": "Z.AI"
       }
     },
-    "weekend_sleep_end_hour": {
-      "description": "Hora em que a rotina ativa recomeça aos fins de semana (ex: 9 para 9h).",
-      "label": "Fim do repouso (fins de semana)"
-    },
-    "weekend_sleep_start_hour": {
-      "description": "Hora em que o sono ou descanso começa aos fins de semana (ex: 1 para 1h).",
-      "label": "Início do repouso (fins de semana)"
+    "query_timeout_seconds": {
+      "label": "Tempo limite da consulta de cotas (segundos)",
+      "description": "Tempo máximo de espera por todos os provedores. Aumente para muitas contas ou inicialização lenta do Antigravity."
     }
   },
   "ui": {
@@ -148,7 +176,7 @@
       "spawn_failed": "Não foi possível iniciar o ai-usagebar",
       "spawn_failed_hint": "O processo nunca foi iniciado. Tente novamente em instantes.",
       "timed_out": "ai-usagebar não respondeu",
-      "timed_out_hint": "A leitura demorou muito. Um provedor pode estar respondendo lentamente."
+      "timed_out_hint": "Verifique a conexão e a disponibilidade do provedor e tente novamente. Aumente o tempo limite da consulta de cotas nas configurações se as leituras continuarem lentas."
     },
     "hidden_label": "Não exibido",
     "hidden_value": "Mais {count}, clique para abrir o painel",
@@ -160,6 +188,39 @@
     "retry": "Tente novamente",
     "stale_hint": "exibindo os últimos dados conhecidos",
     "title": "AI Triage",
-    "unavailable": "Indisponível"
+    "unavailable": "Indisponível",
+    "diagnostic": {
+      "cause": {
+        "signed_out": "Login necessário",
+        "authentication": "Falha de autenticação",
+        "missing_key": "Chave de API ausente",
+        "permission": "Acesso negado",
+        "rate_limited": "Limite de consultas atingido",
+        "server": "Erro no servidor do provedor",
+        "timeout": "A consulta de cotas excedeu o tempo limite",
+        "network": "Falha de conexão",
+        "schema": "Resposta de uso não reconhecida",
+        "local_server": "Sessão do Antigravity indisponível",
+        "credentials": "Problema nas credenciais",
+        "unknown": "Uso indisponível"
+      },
+      "action": {
+        "login": "Entre na conta pelo terminal e atualize:",
+        "named_account": "Reconecte a conta {account} no ai-usagebar e atualize.",
+        "missing_key": "Verifique a chave de API deste provedor no ai-usagebar e atualize.",
+        "reconnect": "Entre novamente no aplicativo ou CLI do provedor e atualize.",
+        "permission": "Verifique as permissões e a assinatura da conta e atualize.",
+        "rate_limited": "Aguarde o prazo de nova tentativa. A próxima atualização automática tentará novamente.",
+        "server": "Aguarde a recuperação do provedor e atualize.",
+        "timeout": "Verifique a conexão e a disponibilidade do provedor e atualize. Aumente o tempo limite se o problema persistir.",
+        "network": "Verifique a conexão com a internet, VPN ou proxy e atualize.",
+        "schema": "Atualize o ai-usagebar e consulte novamente. Se persistir, reporte o erro no formato da resposta.",
+        "local_server": "Abra o Antigravity ou uma sessão do agy, entre na conta se necessário e atualize.",
+        "credentials": "Verifique as credenciais salvas e as permissões dos arquivos no ai-usagebar e atualize.",
+        "unknown": "Atualize e verifique o estado do provedor se o problema persistir."
+      },
+      "copy_command": "Copiar comando de login",
+      "recommended_action": "Ação recomendada"
+    }
   }
 }

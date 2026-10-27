@@ -49,10 +49,35 @@ local q1 = shared.parseAgyStatuslineObservation(sampleObservation)
 assert(q1 ~= nil, "q1 should not be nil")
 assert(q1.gemini_5h ~= nil, "gemini_5h should be present")
 assert(q1.gemini_5h.percent == 29, "gemini_5h percent should be 29 (1 - 0.7086)")
+assert(q1.gemini_5h.started == true, "gemini_5h started should be true")
 assert(q1.gemini_5h.reset_at == "2026-10-19T21:33:10Z", "gemini_5h reset_at mismatch")
 assert(q1.gemini_weekly.percent == 75, "gemini_weekly percent should be 75 (1 - 0.2513)")
 assert(q1.gemini_weekly.reset_at == "2026-10-24T07:10:44Z", "gemini_weekly reset_at mismatch")
 assert(q1.third_party_weekly.percent == 1, "third_party_weekly percent should be 1")
+
+-- Fractional usage test (e.g. 0.2% used from a single prompt)
+local smallPromptObservation = {
+    payload = {
+        quota = {
+            ["gemini-5h"] = {
+                remaining_fraction = 0.998,
+                reset_in_seconds = 17800,
+                reset_time = "2026-10-21T13:30:00Z",
+            },
+            ["3p-5h"] = {
+                remaining_fraction = 1.0,
+                reset_in_seconds = 18000,
+                reset_time = "2026-10-21T13:30:00Z",
+            },
+        },
+    },
+}
+local qSmall = shared.parseAgyStatuslineObservation(smallPromptObservation)
+assert(qSmall ~= nil, "qSmall should not be nil")
+assert(qSmall.gemini_5h.started == true, "small prompt (<0.5%) must be detected as started")
+assert(qSmall.gemini_5h.percent == 1, "small prompt (<0.5%) must floor to at least 1% used")
+assert(qSmall.third_party_5h.started == false, "100% remaining must not be marked as started")
+assert(qSmall.third_party_5h.percent == 0, "100% remaining must be 0% used")
 
 -- Fallback with snapshot.windows
 local sampleSnapshot = {
@@ -177,5 +202,45 @@ assert(mGeminiWeekly.severity == "high", "Gemini weekly severity should be high 
 -- Source in sections
 local sourceSection = dummyAntigravity.sections[4]
 assert(sourceSection.value == "Local agy session", "Source section should be updated to Local agy session")
+
+print("--- Testing enrichment when Gemini is omitted by ai-usagebar ---")
+
+local omittedGeminiEntry = {
+    brand = "antigravity",
+    id = "antigravity",
+    name = "antigravity",
+    plan = "Antigravity",
+    metrics = {
+        {
+            detail = "Resets in 4h 59m",
+            headline = "percent",
+            label = "Claude & GPT OSS",
+            percent = 0,
+            reset_at = "2026-10-21T14:00:00Z",
+            severity = "low",
+            value = "0%",
+            window_secs = 18000,
+        },
+        {
+            detail = "Resets in 6d 9h",
+            headline = "percent",
+            label = "Claude & GPT OSS",
+            percent = 0,
+            reset_at = "2026-10-27T17:44:01Z",
+            severity = "low",
+            value = "0%",
+            window_secs = 604800,
+        },
+    },
+}
+
+shared.enrichAntigravityEntry(omittedGeminiEntry, qSmall)
+assert(#omittedGeminiEntry.metrics >= 3, "Gemini metrics should be inserted when missing")
+local insertedGemini5h = omittedGeminiEntry.metrics[1]
+assert(insertedGemini5h.label == "Gemini", "First metric should be Gemini")
+assert(insertedGemini5h.window_secs == 18000, "Should be 5h window")
+assert(insertedGemini5h.percent == 1, "Should have 1% used")
+assert(insertedGemini5h.started == true, "Should be started")
+assert(shared.isSessionStarted(insertedGemini5h) == true, "Inserted Gemini 5h must be started")
 
 print("ok: all Antigravity enrichment tests passed!")

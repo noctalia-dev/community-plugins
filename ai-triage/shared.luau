@@ -1,7 +1,7 @@
 --!nonstrict
 -- What the capsule and the panel both need, in one copy, so the parsing and the
--- severity tiers cannot drift between two entries that agree on screen. Needs
--- plugin_api 22, where require() arrived.
+-- severity tiers cannot drift between two entries that agree on screen.
+-- Relative require() arrived in API 22; the plugin manifest requires API 43.
 
 local M = {}
 
@@ -41,6 +41,16 @@ local PROVIDER_GLYPHS = {
     ["opencode-go"] = "code",
     commandcode = "terminal-2",
     copilot = "brand-github-copilot",
+    ["deepinfra"] = "cloud",
+    ["synthetic"] = "flask",
+    ["grokbot"] = "brand-x",
+    ["ollama"] = "cloud",
+    ["orcarouter"] = "route",
+    ["modelstudio"] = "code",
+    ["lyceum"] = "school",
+    ["devin"] = "terminal-2",
+    ["muse-code"] = "brand-meta",
+    ["cline"] = "terminal-2",
     gemini = "brand-google",
     ["claude-oss"] = "robot",
     ["claude_oss"] = "robot",
@@ -58,6 +68,16 @@ local PROVIDER_DASHBOARDS = {
     moonshot = "https://platform.moonshot.cn/",
     grok = "https://console.x.ai/",
     supergrok = "https://grok.com/",
+    ["deepinfra"] = "https://deepinfra.com/",
+    ["synthetic"] = "https://synthetic.new/",
+    ["grokbot"] = "https://grok.com/",
+    ["ollama"] = "https://ollama.com/settings",
+    ["orcarouter"] = "https://orcarouter.ai/",
+    ["modelstudio"] = "https://modelstudio.console.alibabacloud.com/",
+    ["lyceum"] = "https://lyceum.technology/",
+    ["devin"] = "https://app.devin.ai/",
+    ["muse-code"] = "https://dev.meta.ai/docs/muse-code",
+    ["cline"] = "https://app.cline.bot/",
     gemini = "https://aistudio.google.com/",
     copilot = "https://github.com/settings/copilot",
     minimax = "https://platform.minimaxi.com/",
@@ -138,6 +158,9 @@ function M.warning(entry)
     for _, section in ipairs(sections) do
         if type(section) == "table" and section.type == "text" then
             local value = tostring(section.value or "")
+            if M.transportError(section.label) then
+                return trim(tostring(section.label)) .. (value ~= "" and (": " .. trim(value)) or "")
+            end
             if M.saysError(value) then
                 return noctalia.string.trim(value)
             end
@@ -164,6 +187,85 @@ end
 function M.readFailure(entry)
     return type(entry) == "table" and entry.status == "error"
         and tostring(entry.error or ""):find("^schema mismatch:") ~= nil
+end
+
+-- Diagnose the failed read, rather than inferring whether the provider itself
+-- is usable. In particular, 429/5xx must never tell the user to log out.
+local API_KEY_PROVIDERS = {
+    anthropic_api = true, zai = true, openrouter = true, deepseek = true,
+    deepinfra = true, kilo = true, novita = true, synthetic = true,
+    moonshot = true, grok = true, minimax = true, ["opencode-go"] = true,
+    ollama = true, orcarouter = true, lyceum = true,
+}
+
+function M.diagnostic(entry)
+    if type(entry) ~= "table" or not M.unavailable(entry) then return nil end
+    local detail = M.warning(entry)
+    local text = detail:lower()
+    local status = tonumber(text:match("http%s*:?%s*(%d%d%d)"))
+    local function has(...)
+        for _, phrase in ipairs({ ... }) do
+            if text:find(phrase, 1, true) then return true end
+        end
+        return false
+    end
+    local code
+    if status == 429 or has("rate limited", "rate limit", "too many requests") then
+        code = "rate_limited"
+    elseif status and status >= 500 then
+        code = "server"
+    elseif has("no local server found", "requires a csrf token", "no usable local server") then
+        code = "local_server"
+    elseif has("timed out", "timeout", "time out") then
+        code = "timeout"
+    elseif has("network transport error", "connection", "dns", "resolve host", "tls", "http 000") then
+        code = "network"
+    elseif has("schema mismatch:", "json error:") then
+        code = "schema"
+    elseif has("no api key", "missing api key", "api key is not set") then
+        code = "missing_key"
+    elseif has("no access token", "not logged in", "signed out", "run `claude` to log in") then
+        code = "signed_out"
+    elseif status == 401 or M.terminalAuth(entry)
+        or has("authentication rejected", "invalid_grant", "token expired", "token has expired",
+            "invalid api key", "api key is invalid", "unauthorized") then
+        code = "authentication"
+    elseif status == 403 then
+        code = "permission"
+    elseif has("credentials error:") then
+        code = "credentials"
+    else
+        code = "unknown"
+    end
+
+    local action = code
+    local command = nil
+    local account = tostring(entry and entry.id or ""):match("@(.+)$")
+    if code == "signed_out" or code == "authentication" then
+        local provider = M.baseProvider(entry and entry.id)
+        if account then
+            action = "named_account"
+        elseif provider == "anthropic" then
+            action, command = "login", "claude auth login"
+        elseif provider == "openai" then
+            action, command = "login", "codex login"
+        elseif provider == "copilot" then
+            action, command = "login", "gh auth login"
+        elseif provider == "kiro" then
+            action, command = "login", "kiro-cli login"
+        elseif provider == "nous" then
+            action, command = "login", "ai-usagebar auth nous login"
+        elseif provider == "antigravity" then
+            action = "local_server"
+        elseif API_KEY_PROVIDERS[provider] then
+            action = "missing_key"
+        else
+            action = "reconnect"
+        end
+    end
+    return { code = code, titleKey = "ui.diagnostic.cause." .. code,
+        actionKey = "ui.diagnostic.action." .. action, actionArgs = { account = account or "" },
+        command = command, detail = detail, retryable = code ~= "rate_limited" }
 end
 
 -- Anything else in the `error` slot means no failure.
@@ -267,6 +369,9 @@ end
 -- Whether a 5h rolling session has actively started consumption/countdown.
 function M.isSessionStarted(metric)
     if type(metric) ~= "table" then return false end
+    if metric.started == true then
+        return true
+    end
     local pct = tonumber(metric.percent)
     if pct == nil then
         pct = tonumber(tostring(metric.value or ""):match("(%d+)")) or 0
@@ -384,7 +489,7 @@ end
 function M.blockingMetric(metrics, providerId)
     local blocking = nil
     for _, metric in ipairs(metrics or {}) do
-        if type(metric) == "table" and (tonumber(metric.percent) or 0) >= 100 then
+        if M.isQuotaMetric(metric) and (tonumber(metric.percent) or 0) >= 100 then
             local lbl = tostring(metric.label or "")
             if not M.isModelHidden(providerId or lbl, lbl) then
                 local reset = M.parseIso(metric.reset_at) or -1
@@ -396,6 +501,21 @@ function M.blockingMetric(metrics, providerId)
     return blocking
 end
 
+-- Grouped rows describe context windows or product breakdowns, rather than
+-- another shared quota. They must not block the account or fill a missing 5h/7d.
+function M.isQuotaMetric(metric)
+    return type(metric) == "table" and trim(tostring(metric.group or "")) == ""
+end
+
+function M.metricText(metric)
+    if type(metric) ~= "table" then return nil end
+    if metric.headline == "value" and trim(tostring(metric.value or "")) ~= "" then
+        return tostring(metric.value)
+    end
+    local percent = tonumber(metric.percent)
+    return percent and string.format("%d%%", percent) or tostring(metric.value or "")
+end
+
 function M.headline(entry)
     if type(entry) ~= "table" or type(entry.metrics) ~= "table" then return nil end
     local metrics = entry.metrics
@@ -403,14 +523,14 @@ function M.headline(entry)
 
     local visibleMetrics = {}
     for _, m in ipairs(metrics) do
-        if type(m) == "table" then
+        if M.isQuotaMetric(m) then
             local lbl = tostring(m.label or "")
             if not M.isModelHidden(entry.id, lbl) then
                 visibleMetrics[#visibleMetrics + 1] = m
             end
         end
     end
-    if #visibleMetrics == 0 then visibleMetrics = metrics end
+    if #visibleMetrics == 0 then return nil end
 
     -- Per-model quota pools (ai-usagebar 1.40+ model_pool) should not block the headline
     -- if shared provider windows still have capacity
@@ -445,7 +565,7 @@ function M.headline(entry)
     end
 
     -- Otherwise keep the primary window selected by the CLI.
-    for _, metric in ipairs(visibleMetrics) do
+    for _, metric in ipairs(candidateMetrics) do
         if type(metric) == "table" then return metric end
     end
     return nil
@@ -508,16 +628,23 @@ function M.parseAgyStatuslineObservation(data)
     if q then
         if type(q["gemini-5h"]) == "table" then
             local rem = tonumber(q["gemini-5h"].remaining_fraction) or 1
-            local used = math.max(0, math.min(100, math.floor((1 - rem) * 100 + 0.5)))
+            local rawUsed = (1 - rem) * 100
+            local used = math.max(0, math.min(100, math.floor(rawUsed + 0.5)))
+            local started = rem < 0.9999 or rawUsed > 0.001
+            if started and used == 0 then
+                used = 1
+            end
             quota.gemini_5h = {
                 percent = used,
                 reset_at = q["gemini-5h"].reset_time,
                 remaining_secs = tonumber(q["gemini-5h"].reset_in_seconds),
+                started = started,
             }
         end
         if type(q["gemini-weekly"]) == "table" then
             local rem = tonumber(q["gemini-weekly"].remaining_fraction) or 1
-            local used = math.max(0, math.min(100, math.floor((1 - rem) * 100 + 0.5)))
+            local rawUsed = (1 - rem) * 100
+            local used = math.max(0, math.min(100, math.floor(rawUsed + 0.5)))
             quota.gemini_weekly = {
                 percent = used,
                 reset_at = q["gemini-weekly"].reset_time,
@@ -526,16 +653,23 @@ function M.parseAgyStatuslineObservation(data)
         end
         if type(q["3p-5h"]) == "table" then
             local rem = tonumber(q["3p-5h"].remaining_fraction) or 1
-            local used = math.max(0, math.min(100, math.floor((1 - rem) * 100 + 0.5)))
+            local rawUsed = (1 - rem) * 100
+            local used = math.max(0, math.min(100, math.floor(rawUsed + 0.5)))
+            local started = rem < 0.9999 or rawUsed > 0.001
+            if started and used == 0 then
+                used = 1
+            end
             quota.third_party_5h = {
                 percent = used,
                 reset_at = q["3p-5h"].reset_time,
                 remaining_secs = tonumber(q["3p-5h"].reset_in_seconds),
+                started = started,
             }
         end
         if type(q["3p-weekly"]) == "table" then
             local rem = tonumber(q["3p-weekly"].remaining_fraction) or 1
-            local used = math.max(0, math.min(100, math.floor((1 - rem) * 100 + 0.5)))
+            local rawUsed = (1 - rem) * 100
+            local used = math.max(0, math.min(100, math.floor(rawUsed + 0.5)))
             quota.third_party_weekly = {
                 percent = used,
                 reset_at = q["3p-weekly"].reset_time,
@@ -548,11 +682,15 @@ function M.parseAgyStatuslineObservation(data)
         for _, w in ipairs(data.snapshot.windows) do
             if type(w) == "table" then
                 local kind = w.kind
-                local used = tonumber(w.used_percent)
-                if used == nil and w.remaining_percent ~= nil then
-                    used = 100 - tonumber(w.remaining_percent)
+                local rawUsed = tonumber(w.used_percent)
+                if rawUsed == nil and w.remaining_percent ~= nil then
+                    rawUsed = 100 - tonumber(w.remaining_percent)
                 end
-                used = math.max(0, math.min(100, math.floor((used or 0) + 0.5)))
+                local used = math.max(0, math.min(100, math.floor((rawUsed or 0) + 0.5)))
+                local started = (rawUsed and rawUsed > 0.001) or (w.remaining_percent and tonumber(w.remaining_percent) < 99.99)
+                if started and used == 0 then
+                    used = 1
+                end
                 local resetIso = nil
                 local remSecs = nil
                 if w.resets_at then
@@ -567,6 +705,7 @@ function M.parseAgyStatuslineObservation(data)
                         percent = used,
                         reset_at = resetIso,
                         remaining_secs = remSecs,
+                        started = started,
                     }
                 elseif kind == "weekly" then
                     quota.gemini_weekly = {
@@ -608,6 +747,7 @@ function M.parseAgyCliQuota(text)
                 percent = used,
                 reset_at = iso,
                 remaining_secs = math.max(0, localTs - os.time()),
+                started = used > 0,
             }
             if isGemini and is5h then
                 quota.gemini_5h = item
@@ -656,7 +796,13 @@ function M.enrichAntigravityEntry(entry, quotaData)
                 m.detail = "Resets now"
             end
         end
+        if qd.started ~= nil then
+            m.started = qd.started
+        end
     end
+
+    local foundGemini5h = false
+    local foundGeminiWeekly = false
 
     for _, m in ipairs(entry.metrics) do
         if type(m) == "table" and type(m.label) == "string" then
@@ -664,8 +810,10 @@ function M.enrichAntigravityEntry(entry, quotaData)
             local window = tonumber(m.window_secs) or 0
             if label:find("gemini") then
                 if window <= 43200 then
+                    foundGemini5h = true
                     applyUpdate(m, quotaData.gemini_5h)
                 else
+                    foundGeminiWeekly = true
                     applyUpdate(m, quotaData.gemini_weekly)
                 end
             elseif label:find("claude") or label:find("gpt") or label:find("oss") then
@@ -675,6 +823,52 @@ function M.enrichAntigravityEntry(entry, quotaData)
                     applyUpdate(m, quotaData.third_party_weekly)
                 end
             end
+        end
+    end
+
+    local function makeMetric(label, windowSecs, qd)
+        if not qd then return nil end
+        local remainingText = qd.reset_at and M.countdown({ reset_at = qd.reset_at }) or ""
+        local detail = remainingText ~= "" and ("Resets in " .. remainingText) or "Resets now"
+        local pct = qd.percent or 0
+        local sev = "low"
+        if pct >= 90 then sev = "critical"
+        elseif pct >= 75 then sev = "high"
+        elseif pct >= 50 then sev = "mid"
+        end
+        return {
+            detail = detail,
+            headline = "percent",
+            label = label,
+            percent = pct,
+            reset_at = qd.reset_at,
+            severity = sev,
+            value = string.format("%d%%", pct),
+            window_secs = windowSecs,
+            started = qd.started,
+        }
+    end
+
+    if not foundGemini5h and quotaData.gemini_5h then
+        local m = makeMetric("Gemini", 18000, quotaData.gemini_5h)
+        if m then
+            table.insert(entry.metrics, 1, m)
+            foundGemini5h = true
+        end
+    end
+
+    if not foundGeminiWeekly and quotaData.gemini_weekly then
+        local m = makeMetric("Gemini", 604800, quotaData.gemini_weekly)
+        if m then
+            local insertPos = 2
+            for idx, item in ipairs(entry.metrics) do
+                if item.label == "Gemini" and (tonumber(item.window_secs) or 0) <= 43200 then
+                    insertPos = idx + 1
+                    break
+                end
+            end
+            table.insert(entry.metrics, insertPos, m)
+            foundGeminiWeekly = true
         end
     end
 
@@ -748,7 +942,7 @@ function M.dualMetrics(metrics)
     if type(metrics) ~= "table" then return nil, nil end
     local valid = {}
     for _, metric in ipairs(metrics) do
-        if type(metric) == "table" then valid[#valid + 1] = metric end
+        if M.isQuotaMetric(metric) then valid[#valid + 1] = metric end
     end
     metrics = valid
     if #metrics == 0 then return nil, nil end
@@ -789,20 +983,8 @@ function M.dualMetrics(metrics)
         end
     end
 
-    if shortMetric ~= nil and weeklyMetric ~= nil then
+    if shortMetric ~= nil or weeklyMetric ~= nil then
         return shortMetric, weeklyMetric
-    end
-
-    if shortMetric ~= nil and weeklyMetric == nil and #metrics >= 2 then
-        for _, m in ipairs(metrics) do
-            if m ~= shortMetric then return shortMetric, m end
-        end
-    end
-
-    if weeklyMetric ~= nil and shortMetric == nil and #metrics >= 2 then
-        for _, m in ipairs(metrics) do
-            if m ~= weeklyMetric then return m, weeklyMetric end
-        end
     end
 
     return metrics[1], metrics[2]
@@ -870,6 +1052,8 @@ end
 -- the week, the same C_max the weekly triage uses.
 M.CLAIM_MIN_WEEKLY_PCT = 95 -- the week is effectively spent
 M.CLAIM_VALUE_RATIO = 0.5   -- spend it now only for at least half of what it is worth later
+M.CLAIM_MARGIN_ACTIVE_HOURS = 1.0
+M.CREDIT_MAX_BONUS = 300.0 -- a full extra week at (or beyond) the required burn pace
 
 local function sessionCapacity(activeHours, gearing)
     return math.max(0.0, activeHours) * 20.0 / gearing
@@ -889,6 +1073,18 @@ end
 -- When to spend a provider's earliest-expiring credit: "claim" now, "advance"
 -- (worth spending this cycle once the week runs out), or "hold" for a later cycle.
 local function adviseResetCredit(stats, gearing, nowTime, config)
+    if not stats.weeklyReported then
+        return { status = "hold", summary = "Keep the reset: weekly quota not reported",
+            nowGain = 0, cycleGain = 0, laterGain = 0, lastChance = false }
+    end
+    if stats.weeklyScheduleKnown == false then
+        return { status = "hold", summary = "Keep the reset: refresh to confirm the weekly schedule",
+            nowGain = 0, cycleGain = 0, laterGain = 0, lastChance = false }
+    end
+    if stats.earliestExpiry == nil then
+        return { status = "hold", summary = "Keep the reset: expiration not reported",
+            nowGain = 0, cycleGain = 0, laterGain = 0, lastChance = false }
+    end
     local renewAt = stats.weeklyResetAt
     local window = stats.weeklyWindowSecs
     local expiresAt = stats.earliestExpiry
@@ -937,7 +1133,8 @@ local function adviseResetCredit(stats, gearing, nowTime, config)
         cycleGain = cycleGain,
         laterGain = laterGain,
         lastChance = lastChance,
-        sessionsToSpend = wFree / oneSession,
+        expiresAt = expiresAt,
+        sessionsToSpend = math.max(0, M.CLAIM_MIN_WEEKLY_PCT - stats.weeklyPercent) / oneSession,
     }
     if worthIt and (spent or canClaimPeril or (expiryFirst and expiryHours <= 2.0)) then
         advice.status = "claim"
@@ -948,7 +1145,11 @@ local function adviseResetCredit(stats, gearing, nowTime, config)
                 expiresIn, math.floor(nowGain + 0.5))
     elseif worthIt then
         advice.status = "advance"
-        if lastChance and (renewAt - nowTime) <= (7 * 86400) and not expiryFirst then
+        if expiresAt < renewAt then
+            advice.summary = string.format("Claim before %s · burn remaining %d%% early · worth up to ~%d%% of a week",
+                os.date("%b %d %H:%M %Z", expiresAt),
+                math.floor(math.max(0, M.CLAIM_MIN_WEEKLY_PCT - stats.weeklyPercent) + 0.5), math.floor(cycleGain + 0.5))
+        elseif lastChance and (renewAt - nowTime) <= (7 * 86400) and not expiryFirst then
             advice.summary = string.format("Claim before renewal in %s · burn remaining %d%% early · worth ~%d%% of a week",
                 renewIn, math.floor(wFree + 0.5), math.floor(cycleGain + 0.5))
         elseif expiryFirst then
@@ -967,6 +1168,52 @@ local function adviseResetCredit(stats, gearing, nowTime, config)
                 math.floor(cycleGain + 0.5))
     end
     return advice
+end
+
+-- Credit expiry is a separate opportunity, not an expiry of the current quota.
+-- Keep its score bounded by the extra quota it can buy, using the real deadline
+-- and remaining burn work. Ordinary weekly/session urgency remains unchanged.
+function M.resetCreditUrgency(item, advice, nowTime, config, isUserActiveNow)
+    if not item or not advice or advice.status ~= "advance" then return nil end
+    local now = nowTime or os.time()
+    config = config or M.getScheduleConfig()
+    if M.unavailable(item.entry) or M.weeklyResetStatus(item.weeklyMetric, item.entry, now) ~= "announced" then return nil end
+    local expiresAt = tonumber(advice.expiresAt)
+    local renewAt = M.parseIso(item.weeklyMetric and item.weeklyMetric.reset_at)
+    local gain = math.min(100, math.max(0, tonumber(advice.cycleGain) or 0))
+    if not expiresAt or expiresAt <= now or not renewAt or gain <= 0 then return nil end
+
+    local gearing = M.getModelGearing(item.providerId or (item.entry and item.entry.id), item.name)
+    local percent = tonumber(item.weeklyMetric.percent) or 0
+    local toSpend = math.max(0, M.CLAIM_MIN_WEEKLY_PCT - percent)
+    local needed = toSpend * gearing / 20.0
+    if needed <= 0 then return nil end
+
+    local deadline = math.min(expiresAt, renewAt)
+    local expiryHours = M.calculateActiveHours(now, deadline, config, isUserActiveNow)
+    local cycleHours = M.calculateActiveHours(now, renewAt, config, isUserActiveNow)
+    -- Leave at least one full session to use the refill before natural renewal.
+    -- The credit analysis already withholds claims that are not worth that much.
+    local budget = math.max(0, math.min(expiryHours, cycleHours - 5.0) - M.CLAIM_MARGIN_ACTIVE_HOURS)
+    local session = item.sessionMetric
+    local sessionAt = M.parseIso(session and session.reset_at)
+    local blockedHours = 0
+    if sessionAt and sessionAt > now then
+        local beforeReset = M.calculateActiveHours(now, math.min(sessionAt, deadline), config, isUserActiveNow)
+        local sessionFree = math.max(0, 100 - (tonumber(session.percent) or 0))
+        -- Until the current session resets, unused active time beyond its
+        -- remaining allowance cannot help reach the weekly claim threshold.
+        blockedHours = math.max(0, beforeReset - sessionFree / 20.0)
+    end
+    local available = math.max(0, budget - blockedHours)
+    local pressure = needed / math.max(0.25, available)
+    return {
+        expiresAt = expiresAt, deadlineAt = deadline,
+        neededHours = needed, availableHours = available, blockedHours = blockedHours,
+        marginHours = M.CLAIM_MARGIN_ACTIVE_HOURS, percentToSpend = toSpend,
+        pressure = pressure, feasible = needed <= available,
+        bonus = M.CREDIT_MAX_BONUS * (gain / 100.0) * math.min(1, pressure) ^ 2,
+    }
 end
 
 -- When two or more providers have weekly reset credits/promotions expiring
@@ -1001,7 +1248,7 @@ function M.analyzeResetCredits(entries, nowTime, scheduleConfig)
         local wRemainingSecs = wAt - nowTime
 
         local list = {}
-        if rawCredits and #rawCredits > 0 then
+        if type(rawCredits) == "table" and #rawCredits > 0 and availableCount ~= 0 then
             for _, rc in ipairs(rawCredits) do
                 local expAt = M.parseIso(rc.expires_at)
                 if expAt and expAt > nowTime then
@@ -1014,7 +1261,7 @@ function M.analyzeResetCredits(entries, nowTime, scheduleConfig)
             end
         end
 
-        if #list == 0 then
+        if type(entry.reset_credits) ~= "table" then
             for _, section in ipairs(sections) do
                 if type(section) == "table" and section.type == "block" and tostring(section.label or ""):lower():find("reset credit") then
                     local lines = type(section.body) == "table" and section.body or {}
@@ -1047,16 +1294,19 @@ function M.analyzeResetCredits(entries, nowTime, scheduleConfig)
                 glyph = M.providerGlyph(baseId),
                 available = count,
                 credits = list,
-                earliestExpiry = earliest and earliest.expiresAt or (nowTime + 604800 * 2),
-                earliestRemainingSecs = earliest and earliest.remainingSecs or (604800 * 2),
+                earliestExpiry = earliest and earliest.expiresAt,
+                earliestRemainingSecs = earliest and earliest.remainingSecs,
                 weeklyPercent = wPct,
+                weeklyReported = wMetric ~= nil,
+                weeklyScheduleKnown = wMetric ~= nil and M.weeklyResetStatus(wMetric, entry, nowTime) == "announced",
                 weeklyResetAt = wAt,
                 weeklyWindowSecs = wWindow,
                 weeklyRemainingSecs = wRemainingSecs,
+                entry = entry,
             }
             stats.advice = adviseResetCredit(stats, M.getModelGearing(id, displayName), nowTime, scheduleConfig)
             stats.canClaimNow = stats.advice.status == "claim"
-            providerStats[baseId] = stats
+            providerStats[id] = stats
             if earliest then
                 allExpiring[#allExpiring + 1] = stats
             end
@@ -1130,13 +1380,13 @@ function M.analyzeResetCredits(entries, nowTime, scheduleConfig)
                 local advanceP = (p1Score >= p2Score) and p1 or p2
                 local deferP = (p1Score >= p2Score) and p2 or p1
 
-                staggerPlan.advanceProviderId = advanceP.baseId
+                staggerPlan.advanceProviderId = advanceP.id
                 staggerPlan.advanceName = advanceP.name
-                staggerPlan.deferProviderId = deferP.baseId
+                staggerPlan.deferProviderId = deferP.id
                 staggerPlan.deferName = deferP.name
                 staggerPlan.advanceNow = advanceP.advice.status == "advance"
                 if staggerPlan.advanceNow then
-                    staggerPlan.fastTrack[advanceP.baseId] = true
+                    staggerPlan.fastTrack[advanceP.id] = true
                 end
                 -- The deferred credit waits for a later cycle while that one can still pay it back.
                 if deferP.advice.status == "advance" and not deferP.advice.lastChance then
@@ -1149,6 +1399,14 @@ function M.analyzeResetCredits(entries, nowTime, scheduleConfig)
         end
     end
 
+    for id, stats in pairs(providerStats) do
+        if staggerPlan.fastTrack[id] then
+            local session, weekly = M.dualMetrics(stats.entry.metrics)
+            stats.advice.urgency = M.resetCreditUrgency({ entry = stats.entry, providerId = id,
+                name = stats.name, sessionMetric = session, weeklyMetric = weekly },
+                stats.advice, nowTime, scheduleConfig, true)
+        end
+    end
     return staggerPlan, providerStats
 end
 
@@ -1172,6 +1430,8 @@ function M.kickstartTarget(itemOrId, optionalName)
         id = tostring(itemOrId)
         name = tostring(optionalName or ""):lower()
     end
+    -- The helper runs the CLI's current login; it cannot select a named account.
+    if id:find("@", 1, true) or id:find(":", 1, true) then return nil end
     if id == "anthropic" or name:find("^claude$") then
         return "claude"
     elseif id == "openai" or name:find("^codex") then
@@ -1181,10 +1441,10 @@ function M.kickstartTarget(itemOrId, optionalName)
     elseif id == "claude-oss" or id == "claude_oss" or name:find("oss") then
         return "claude-oss"
     elseif id == "antigravity" then
-        if name:find("gemini") then
-            return "gemini"
-        elseif name:find("claude") or name:find("oss") then
+        if name:find("claude") or name:find("oss") then
             return "claude-oss"
+        else
+            return "gemini"
         end
     end
     return nil
@@ -1205,9 +1465,14 @@ function M.collectModelItems(candidates)
             if #models > 0 then
                 for _, model in ipairs(models) do
                     local sMetric, wMetric = M.dualMetrics(model.metrics)
-                    local subId = (model.displayName == "Gemini" or tostring(model.name or ""):lower():find("gemini"))
-                        and "gemini"
-                        or "claude-oss"
+                    local modelName = tostring(model.model or ""):lower()
+                    local subId = modelName == "gemini" and "gemini"
+                        or (modelName:find("claude") or modelName:find("oss")) and "claude-oss"
+                        or (id .. ":" .. modelName)
+                    local suffix = tostring(id):match("(@.*)$")
+                    if suffix and (subId == "gemini" or subId == "claude-oss") then
+                        subId = subId .. suffix
+                    end
                     items[#items + 1] = {
                         providerId = subId,
                         providerName = model.displayName,
@@ -1264,90 +1529,77 @@ end
 function M.collectResetCredits(candidates, staggerPlan)
     local credits = {}
     if type(candidates) ~= "table" then return credits end
+    local now = os.time()
     for _, entry in ipairs(candidates) do
-        local providerName = tostring(entry.display_name or entry.name or entry.id or "")
         local providerId = entry.id
-        local baseId = M.baseProvider(providerId)
-        local sections = type(entry.sections) == "table" and entry.sections or {}
-        local rawCredits = type(entry.reset_credits) == "table" and entry.reset_credits.credits or nil
-
-        for _, section in ipairs(sections) do
-            if type(section) == "table" and section.type == "block" and tostring(section.label or ""):lower():find("reset credit") then
-                local lines = type(section.body) == "table" and section.body or {}
-                for lineIndex, line in ipairs(lines) do
-                    local text = trim(tostring(line))
-                    local kind, expiry = text:match("^(.-)%s+·%s+(.+)$")
-                    local expiryText = ""
-                    if expiry then
-                        expiryText = expiry:gsub("^[Ee]xpires%s*", "")
-                    elseif text:find("[Ee]xpires") then
-                        expiryText = text:gsub("^[Ee]xpires%s*", "")
-                    else
-                        expiryText = text
-                    end
-
-                    local expireTimestamp = nil
-                    if rawCredits and rawCredits[lineIndex] and rawCredits[lineIndex].expires_at then
-                        expireTimestamp = M.parseIso(rawCredits[lineIndex].expires_at)
-                    end
-                    if expireTimestamp == nil and rawCredits then
-                        for _, rc in ipairs(rawCredits) do
-                            if kind and rc.title and rc.title == kind then
-                                expireTimestamp = M.parseIso(rc.expires_at)
-                                break
-                            end
-                        end
-                    end
-                    if expireTimestamp == nil then
+        local function add(title, expiresAt, expiryText)
+            if expiresAt and expiresAt <= now then return end
+            local role = nil
+            if staggerPlan and staggerPlan.hasCollision then
+                if providerId == staggerPlan.advanceProviderId then role = "advance"
+                elseif providerId == staggerPlan.deferProviderId then role = "defer" end
+            end
+            credits[#credits + 1] = {
+                baseId = M.baseProvider(providerId),
+                providerId = providerId,
+                providerName = tostring(entry.display_name or entry.name or providerId or ""),
+                glyph = M.providerGlyph(providerId),
+                expiry = expiryText or "Expiration not reported",
+                fullTitle = title or "Full reset",
+                expiresAt = expiresAt or math.huge,
+                role = role,
+            }
+        end
+        if type(entry.reset_credits) == "table" then
+            -- The structured inventory is authoritative, including an explicit
+            -- zero. Relative dates in cached text must not resurrect credits.
+            local inventory = entry.reset_credits
+            local list = type(inventory.credits) == "table" and inventory.credits or {}
+            if tonumber(inventory.available) ~= 0 then
+                for _, rc in ipairs(list) do
+                    local at = M.parseIso(rc.expires_at)
+                    add(rc.title, at, at and os.date("%b %d %H:%M", at) or nil)
+                end
+                if #list == 0 and (tonumber(inventory.available) or 0) > 0 then
+                    add(tostring(inventory.available) .. " reset credits")
+                end
+            end
+        else
+            -- Older reports only supplied a human-readable block.
+            local sections = type(entry.sections) == "table" and entry.sections or {}
+            for _, section in ipairs(sections) do
+                if type(section) == "table" and section.type == "block"
+                    and tostring(section.label or ""):lower():find("reset credit") then
+                    for _, line in ipairs(type(section.body) == "table" and section.body or {}) do
+                        local text = trim(tostring(line))
+                        local kind, expiry = text:match("^(.-)%s+·%s+(.+)$")
+                        local expiryText = (expiry or text):gsub("^[Ee]xpires%s*", "")
                         local days = tonumber(expiryText:match("(%d+)d")) or 0
                         local hours = tonumber(expiryText:match("(%d+)h")) or 0
-                        expireTimestamp = os.time() + (days * 86400) + (hours * 3600)
-                    end
-
-                    local role = nil
-                    if staggerPlan and staggerPlan.hasCollision then
-                        if baseId == staggerPlan.advanceProviderId then
-                            role = "advance"
-                        elseif baseId == staggerPlan.deferProviderId then
-                            role = "defer"
+                        if days > 0 or hours > 0 then
+                            add(kind or text, now + days * 86400 + hours * 3600, expiryText)
                         end
                     end
-
-                    credits[#credits + 1] = {
-                        baseId = baseId,
-                        providerId = providerId,
-                        providerName = providerName,
-                        glyph = M.providerGlyph(providerId),
-                        expiry = expiryText,
-                        fullTitle = kind or text,
-                        expiresAt = expireTimestamp or math.huge,
-                        role = role,
-                    }
                 end
             end
         end
     end
-
     table.sort(credits, function(a, b)
-        if a.expiresAt ~= b.expiresAt then
-            return a.expiresAt < b.expiresAt
-        end
+        if a.expiresAt ~= b.expiresAt then return a.expiresAt < b.expiresAt end
         return (a.providerName or "") < (b.providerName or "")
     end)
-
-    -- Only the earliest-expiring credit of a provider is the next one to spend.
     local seen = {}
     for _, credit in ipairs(credits) do
-        if not seen[credit.baseId] then
-            seen[credit.baseId] = true
-            local advice = staggerPlan and staggerPlan.creditAdvice and staggerPlan.creditAdvice[credit.baseId]
+        local id = credit.providerId
+        if not seen[id] then
+            seen[id] = true
+            local advice = staggerPlan and staggerPlan.creditAdvice and staggerPlan.creditAdvice[id]
             credit.advice = advice and advice.summary or nil
-            if staggerPlan and staggerPlan.optimalClaimProviders and staggerPlan.optimalClaimProviders[credit.baseId] then
+            if staggerPlan and staggerPlan.optimalClaimProviders and staggerPlan.optimalClaimProviders[id] then
                 credit.role = "claim"
             end
         end
     end
-
     return credits
 end
 
@@ -1364,7 +1616,7 @@ M.DEFAULT_SCHEDULE = {
     sleepEndHour = 8,           -- 08:00 AM on weekdays
     weekendSleepStartHour = 1,  -- 01:00 AM on weekends
     weekendSleepEndHour = 9,    -- 09:00 AM on weekends
-    mealPauseHours = 1,         -- 1h pause for lunch/dinner
+    mealPauseHours = 1,         -- Unscheduled daytime unavailability, spread across waking hours
     burstDurationHours = 2.0,   -- 2h active awake burst when active out-of-schedule
 }
 
@@ -1389,13 +1641,38 @@ function M.getScheduleConfig()
 
     return {
         scheduleAware = aware,
-        sleepStartHour = numConfig("sleep_start_hour", 0, 0, 23),
-        sleepEndHour = numConfig("sleep_end_hour", 8, 0, 23),
-        weekendSleepStartHour = numConfig("weekend_sleep_start_hour", 1, 0, 23),
-        weekendSleepEndHour = numConfig("weekend_sleep_end_hour", 9, 0, 23),
-        mealPauseHours = numConfig("meal_pause_hours", 1, 0, 3),
+        sleepStartHour = numConfig("sleep_start_hour", 0, 0, 23.5),
+        sleepEndHour = numConfig("sleep_end_hour", 8, 0, 23.5),
+        weekendSleepStartHour = numConfig("weekend_sleep_start_hour", 1, 0, 23.5),
+        weekendSleepEndHour = numConfig("weekend_sleep_end_hour", 9, 0, 23.5),
+        mealPauseHours = numConfig("meal_pause_hours", 1, 0, 24),
         burstDurationHours = 2.0,
     }
+end
+
+local function sleepWindow(config, date)
+    local weekend = date.wday == 1 or date.wday == 7
+    return weekend and config.weekendSleepStartHour or config.sleepStartHour,
+        weekend and config.weekendSleepEndHour or config.sleepEndHour
+end
+
+local function inSleepWindow(hour, startHour, endHour)
+    if startHour == endHour then return false end
+    if startHour < endHour then return hour >= startHour and hour < endHour end
+    return hour >= startHour or hour < endHour
+end
+
+-- Sustainable weekly pace follows the configured budget, rather than assuming
+-- 15 hours available every day regardless of the user's actual schedule.
+function M.nominalWeeklyActiveHours(config)
+    config = config or M.getScheduleConfig()
+    if not config.scheduleAware then return 105.0 end
+    local function daily(startHour, endHour)
+        local sleep = (endHour - startHour) % 24
+        return math.max(0, 24 - sleep - (config.mealPauseHours or 0))
+    end
+    return daily(config.sleepStartHour, config.sleepEndHour) * 5
+        + daily(config.weekendSleepStartHour, config.weekendSleepEndHour) * 2
 end
 
 -- Calculates effective active working hours between tStart and tEnd.
@@ -1414,76 +1691,55 @@ function M.calculateActiveHours(tStart, tEnd, config, isUserActiveNow)
         isUserActiveNow = true
     end
 
+    local current = os.date("*t", tStart)
+    local sleepStart, sleepEnd = sleepWindow(config, current)
     local burstUntil = tStart
-    if isUserActiveNow then
+    if isUserActiveNow and inSleepWindow(current.hour + current.min / 60, sleepStart, sleepEnd) then
         burstUntil = tStart + ((config.burstDurationHours or 2.0) * 3600)
     end
 
     local totalActiveHours = 0.0
     local cur = tStart
-    local step = 3600 -- 1-hour integration step
-
     while cur < tEnd do
-        -- Fast-path for far time horizons beyond 48 hours:
-        -- Beyond 2 days, exact circadian boundaries have zero differential effect on triage;
-        -- add nominal active working ratio (0.65 ~= 15.6 active hours / 24h) and break.
-        if (cur - tStart) >= 172800 then
-            local farHours = (tEnd - cur) / 3600.0
-            totalActiveHours = totalActiveHours + (farHours * 0.65)
-            break
+        local date = os.date("*t", cur)
+        local function localTime(hour, dayOffset)
+            return os.time({ year = date.year, month = date.month, day = date.day + (dayOffset or 0),
+                hour = math.floor(hour), min = math.floor((hour % 1) * 60 + 0.5), sec = 0 })
         end
-
-        local nextCur = math.min(tEnd, cur + step)
-        local dtHours = (nextCur - cur) / 3600.0
-        local mid = (cur + nextCur) * 0.5
-
-        local weight = 1.0
-        if mid < burstUntil then
-            -- Active out-of-schedule or immediate awake burst
-            weight = 1.0
-        else
-            local date = os.date("*t", math.floor(mid))
-            local wday = date.wday -- 1 = Sunday, 7 = Saturday
-            local isWeekend = (wday == 1 or wday == 7)
-            local hour = date.hour + date.min / 60.0
-
-            local sStart = isWeekend and config.weekendSleepStartHour or config.sleepStartHour
-            local sEnd = isWeekend and config.weekendSleepEndHour or config.sleepEndHour
-
-            local inSleep = false
-            if sStart == sEnd then
-                inSleep = false
-            elseif sStart < sEnd then
-                inSleep = (hour >= sStart and hour < sEnd)
-            else
-                inSleep = (hour >= sStart or hour < sEnd)
+        local dayStart, dayEnd = localTime(0), localTime(0, 1)
+        local sStart, sEnd = sleepWindow(config, date)
+        local boundaries = { dayStart, dayEnd, localTime(sStart), localTime(sEnd) }
+        table.sort(boundaries)
+        local awakeHours = 0
+        local spans = {}
+        for index = 1, #boundaries - 1 do
+            local first, last = boundaries[index], boundaries[index + 1]
+            if last > first then
+                local mid = os.date("*t", math.floor((first + last) / 2))
+                local sleeping = inSleepWindow(mid.hour + mid.min / 60, sStart, sEnd)
+                spans[#spans + 1] = { first = first, last = last, sleeping = sleeping }
+                if not sleeping then awakeHours = awakeHours + (last - first) / 3600 end
             end
-
-            if inSleep then
-                weight = 0.0
-            else
-                if config.mealPauseHours and config.mealPauseHours > 0 then
-                    local lunchStart = 14.0
-                    local lunchEnd = 14.0 + config.mealPauseHours
-                    if hour >= lunchStart and hour < lunchEnd then
-                        weight = 0.15
-                    else
-                        weight = 1.0
-                    end
+        end
+        local daytimeWeight = awakeHours > 0
+            and math.max(0, 1 - (config.mealPauseHours or 0) / awakeHours) or 0
+        for _, span in ipairs(spans) do
+            local first, last = math.max(cur, span.first), math.min(tEnd, span.last)
+            if last > first then
+                if span.sleeping then
+                    totalActiveHours = totalActiveHours + math.max(0, math.min(last, burstUntil) - first) / 3600
                 else
-                    weight = 1.0
+                    totalActiveHours = totalActiveHours + (last - first) / 3600 * daytimeWeight
                 end
             end
         end
-
-        totalActiveHours = totalActiveHours + (dtHours * weight)
-        cur = nextCur
+        cur = dayEnd
     end
 
     return math.max(0.25, totalActiveHours)
 end
 
--- Nominal weekly active waking hours: 7 days * ~15 active hours/day (discounting sleep and meal breaks)
+-- Default reference only; scoring uses nominalWeeklyActiveHours(config).
 M.NOMINAL_WEEKLY_ACTIVE_HOURS = 105.0
 
 -- Model Quota Gearing Ratios (K_m = L_weekly / L_session):
@@ -1505,6 +1761,8 @@ M.telemetryBaselines = {}
 function M.modelTelemetryKey(providerId, modelName)
     local pid = tostring(providerId or ""):lower()
     local mname = tostring(modelName or ""):lower()
+    local base, suffix = pid:match("^(.-)(@.*)$")
+    if suffix then return M.modelTelemetryKey(base, modelName) .. suffix end
     if pid:find("oss") or mname:find("oss") then
         return "claude-oss"
     elseif pid:find("gemini") or mname:find("gemini") then
@@ -1522,6 +1780,7 @@ end
 -- K_obs = Delta Session % / Delta Weekly %
 function M.recordTelemetrySample(item)
     if type(item) ~= "table" then return end
+    if item.entry and M.unavailable(item.entry) then return end
     local sMetric = item.sessionMetric
     local wMetric = item.weeklyMetric
     if type(sMetric) ~= "table" or type(wMetric) ~= "table" then return end
@@ -1597,12 +1856,14 @@ function M.getModelGearing(providerId, modelName, item)
     local rawName = tostring(modelName or ""):lower()
     local key = M.modelTelemetryKey(providerId, modelName)
 
+    local baseKey = M.baseProvider(key)
+
     -- 1. Check user manual override in configuration
     if type(noctalia) == "table" and type(noctalia.getConfig) == "function" then
-        local configKey = "gearing_" .. (key:gsub("%-", "_"))
+        local configKey = "gearing_" .. (baseKey:gsub("%-", "_"))
         local v = tonumber(noctalia.getConfig(configKey))
         if v and v > 0 then
-            local defVal = M.DEFAULT_GEARING[key] or 10.0
+            local defVal = M.DEFAULT_GEARING[baseKey] or 10.0
             if math.abs(v - defVal) > 0.05 then
                 return v, false
             end
@@ -1621,13 +1882,171 @@ function M.getModelGearing(providerId, modelName, item)
     end
 
     -- 3. Default empirical baseline
-    local def = M.DEFAULT_GEARING[key] or M.DEFAULT_GEARING["default"]
+    local def = M.DEFAULT_GEARING[baseKey] or M.DEFAULT_GEARING["default"]
     return def, false
 end
 
 -- Upstream dynamic weekly cycle passthrough (the upstream reset_at is authoritative)
 function M.reconcileReportCycles(report, _nowTime)
     return report
+end
+
+-- Keep observations, never a second calendar. The service archives new events;
+-- only the recent 32 and the latest baseline are needed in the working state.
+function M.trackWeeklyResets(report, history, nowTime, changes)
+    local now = nowTime or os.time()
+    changes = changes or {}
+    history = type(history) == "table" and history.version == 1 and history or {}
+    history.version = 1
+    history.samples = type(history.samples) == "table" and history.samples or {}
+    history.events = type(history.events) == "table" and history.events or {}
+    for _, entry in ipairs(type(report) == "table" and type(report.entries) == "table" and report.entries or {}) do
+        if type(entry) == "table" and type(entry.id) == "string" then
+            local samples = history.samples[entry.id]
+            samples = type(samples) == "table" and samples or {}
+            local source = "ai-usagebar"
+            for _, section in ipairs(type(entry.sections) == "table" and entry.sections or {}) do
+                if type(section) == "table" and section.label == "Source" then
+                    source = tostring(section.value or source)
+                end
+            end
+            for _, metric in ipairs(type(entry.metrics) == "table" and entry.metrics or {}) do
+                local _, weekly = M.dualMetrics({ metric })
+                if weekly then
+                    local key = tostring(metric.label or "Weekly") .. "/" .. tostring(metric.window_secs or 604800)
+                    local previous = samples[key]
+                    previous = type(previous) == "table" and previous or nil
+                    local at = M.parseIso(entry.fetched_at) or now
+                    local reset = M.parseIso(metric.reset_at)
+                    local percent = tonumber(metric.percent)
+                    local credits = type(entry.reset_credits) == "table" and tonumber(entry.reset_credits.available) or nil
+                    local minutes = type(noctalia) == "table" and type(noctalia.getConfig) == "function"
+                        and tonumber(noctalia.getConfig("refresh_minutes")) or 5
+                    local fresh = not M.unavailable(entry) and entry.stale ~= true and at <= now + 60
+                        and now - at <= math.max(900, (minutes or 5) * 120)
+                        and (not previous or at > (tonumber(previous.at) or 0))
+                    if fresh and reset and percent then
+                        local event = previous and previous.event
+                        local oldReset = previous and tonumber(previous.reset_at)
+                        if oldReset and math.abs(reset - oldReset) > 60 then
+                            local kind = nil
+                            if previous.source == source and reset > oldReset
+                                and (tonumber(previous.percent) or 0) - percent >= 5 then
+                                kind = at < oldReset - 60 and "early_renewal" or "renewal"
+                            elseif math.abs(reset - oldReset) >= 3600 then
+                                kind = "schedule_changed"
+                            end
+                            if kind then
+                                local window = tonumber(metric.window_secs) or 604800
+                                local fewer_credits = credits ~= nil and tonumber(previous.credits) ~= nil
+                                    and credits < tonumber(previous.credits) or false
+                                local isFloating = (percent == 0 and math.abs(reset - at - window) <= 60 and not fewer_credits)
+                                    or (percent == 0 and previous.percent == 0
+                                        and tonumber(previous.at) ~= nil
+                                        and math.abs(reset - at - window) <= 60
+                                        and math.abs(oldReset - previous.at - window) <= 60)
+                                event = { kind = kind, at = at, detected_at = now,
+                                    previous_at = previous.at, previous_reset_at = oldReset, reset_at = reset,
+                                    previous_reset_at_raw = previous.reset_at_raw, reset_at_raw = metric.reset_at,
+                                    previous_fetched_at = previous.fetched_at, fetched_at = entry.fetched_at,
+                                    previous_source = previous.source, source = source,
+                                    previous_percent = previous.percent, percent = percent,
+                                    previous_credits = previous.credits, credits = credits,
+                                    expected = kind == "renewal" or (at >= oldReset - 60
+                                        and math.abs(reset - oldReset - window) <= 300),
+                                    floating = isFloating,
+                                    fewer_credits = fewer_credits }
+                                local record = { provider = entry.id, window = key, change = event }
+                                history.events[#history.events + 1] = record
+                                changes[#changes + 1] = record
+                            end
+                        end
+                        previous = { at = at, reset_at = reset, percent = percent, credits = credits,
+                            source = source, event = event, fetched_at = entry.fetched_at,
+                            reset_at_raw = metric.reset_at }
+                        samples[key] = previous
+                        history.samples[entry.id] = samples
+                    end
+                    -- A cached/out-of-order read must not acquire a fresh timestamp
+                    -- or attach an event belonging to a different calendar.
+                    metric.reset_observation = {
+                        at = M.parseIso(entry.fetched_at) or (fresh and now or previous and previous.at),
+                        source = source,
+                        event = previous and reset == previous.reset_at and previous.event or nil,
+                    }
+                end
+            end
+        end
+    end
+    while #history.events > 32 do table.remove(history.events, 1) end
+    for id, samples in pairs(history.samples) do
+        if type(samples) ~= "table" then
+            history.samples[id] = nil
+        else
+            for key, sample in pairs(samples) do
+                if type(sample) ~= "table" or now - (tonumber(sample.at) or 0) > 30 * 86400 then samples[key] = nil end
+            end
+            if next(samples) == nil then history.samples[id] = nil end
+        end
+    end
+    return history
+end
+
+-- Detection time controls the 24h notice. Old v1 histories only have reading time.
+function M.weeklyResetChange(metric, nowTime)
+    local observation = metric and metric.reset_observation
+    local event = type(observation) == "table" and observation.event
+    if type(event) ~= "table" then return nil end
+    local now = nowTime or os.time()
+    local at = tonumber(event.detected_at) or tonumber(event.at)
+    if not at or at > now or now - at >= 86400 then return nil end
+    if event.kind ~= "early_renewal" and event.kind ~= "schedule_changed" then return nil end
+    if event.expected or event.floating then return nil end
+    return event
+end
+
+function M.weeklyResetStatus(metric, entry, nowTime)
+    local now = nowTime or os.time()
+    local at = M.parseIso(metric and metric.reset_at)
+    if not at or at <= now then return "pending" end
+    local observation = metric and metric.reset_observation
+    local fetched = type(observation) == "table" and tonumber(observation.at) or M.parseIso(entry and entry.fetched_at)
+    local minutes = type(noctalia) == "table" and type(noctalia.getConfig) == "function"
+        and tonumber(noctalia.getConfig("refresh_minutes")) or 5
+    if (entry and entry.stale == true) or (fetched and now - fetched > math.max(900, (minutes or 5) * 120)) then
+        return "stale"
+    end
+    return "announced"
+end
+
+function M.weeklyResetTooltip(metric, entry, nowTime)
+    local status = M.weeklyResetStatus(metric, entry, nowTime)
+    local lines = { "Next weekly reset announced by the provider." }
+    if status == "pending" then
+        lines[1] = "Weekly renewal pending confirmation. Refresh to check the provider."
+    elseif status == "stale" then
+        lines[#lines + 1] = "Reading is old; refresh to confirm the schedule."
+    end
+    local observation = metric and metric.reset_observation
+    local fetched = type(observation) == "table" and tonumber(observation.at) or M.parseIso(entry and entry.fetched_at)
+    local function date(at) return os.date("%Y-%m-%d %H:%M %Z", at) end
+    lines[#lines + 1] = fetched and ("Last quota reading: " .. date(fetched)) or "Last quota reading: unavailable."
+    if type(observation) == "table" then
+        lines[#lines + 1] = "Source: " .. tostring(observation.source or "ai-usagebar")
+        local event = observation.event
+        -- Keep the full history on disk; only explain a recent change on hover.
+        local detected = type(event) == "table" and (tonumber(event.detected_at) or tonumber(event.at))
+        local age = detected and (nowTime or os.time()) - detected
+        if age and age >= 0 and age < 86400 and not event.floating then
+            local descriptions = { early_renewal = "Early renewal detected", renewal = "Renewal detected",
+                schedule_changed = "Schedule changed; renewal not confirmed" }
+            lines[#lines + 1] = (descriptions[event.kind] or "Schedule changed") .. " at " .. date(event.at) .. "."
+            if tonumber(event.previous_reset_at) then lines[#lines + 1] = "Previously announced: " .. date(event.previous_reset_at) end
+            if tonumber(event.reset_at) then lines[#lines + 1] = "Changed to: " .. date(event.reset_at) end
+            if event.fewer_credits then lines[#lines + 1] = "Fewer reset credits available in this reading." end
+        end
+    end
+    return table.concat(lines, "\n")
 end
 
 -- Mathematical triage model for dynamic multi-provider resource optimization:
@@ -1639,8 +2058,8 @@ end
 -- fit in a weekly quota (e.g. ~2.5 for Claude & GPT OSS vs ~6.3 for Codex).
 -- Time-arbitrage & perishability: When weekly reset is within active reach (<= 24 active hours),
 -- unspent quota risks permanent loss and receives an urgency multiplier.
--- Collision staggering: When designated as the advance leader, the weekly target pace is
--- compressed to reach 100% in half the cycle (~3.5d / ~45 active hours) to trigger the mid-cycle reset.
+-- Reset credits add their own value/deadline bonus without moving the provider's
+-- weekly horizon or treating credit expiry as expiry of the current allowance.
 function M.calculateModelTriageScore(item, staggerPlan, nowTime, scheduleConfig, isUserActiveNow)
     if item == nil or M.unavailable(item.entry) then
         return -1000
@@ -1682,34 +2101,18 @@ function M.calculateModelTriageScore(item, staggerPlan, nowTime, scheduleConfig,
     local dutyCycle = 0.0
     local H_w = 0.0
 
-    if wMetric ~= nil then
+    if wMetric ~= nil and M.weeklyResetStatus(wMetric, item.entry, nowTime) == "announced" then
         local wAt = wMetric and M.parseIso(wMetric.reset_at)
         H_w = M.calculateActiveHours(nowTime, wAt, scheduleConfig, isUserActiveNow)
         if H_w < 0.5 then H_w = 0.5 end
 
-        -- If this model belongs to a provider fast-tracking its reset credit (stagger leader,
-        -- or the last cycle in which the credit pays off): burn 100% of the weekly quota in
-        -- half the time (~3.5d / ~45 active hours) to claim the reset mid-cycle and double
-        -- weekly throughput. A cycle too short for the claim to pay is never fast-tracked.
-        local isStaggerLeader = false
-        if staggerPlan and staggerPlan.fastTrack then
-            local baseId = M.baseProvider(item.providerId or (item.entry and item.entry.id))
-            isStaggerLeader = staggerPlan.fastTrack[baseId] == true
-        end
-
-        local targetH_w = H_w
-        if isStaggerLeader then
-            -- Compressed horizon at half the cycle (minimum 6 active hours)
-            targetH_w = math.min(H_w, math.max(6.0, H_w * 0.50))
-        end
-
         -- Capacity and session duty cycle:
-        -- In targetH_w active hours, max sessions = targetH_w / 5.0, each session burns (100 / gearing)%
-        local C_max = (targetH_w * 20.0) / gearing
+        -- In H_w active hours, max sessions = H_w / 5.0, each session burns (100 / gearing)%
+        local C_max = (H_w * 20.0) / gearing
         dutyCycle = wFree / math.max(1.0, C_max)
 
         -- Required weekly consumption velocity ratio Pi_w relative to nominal active pace:
-        local Pi_w = (wFree / targetH_w) * (M.NOMINAL_WEEKLY_ACTIVE_HOURS / 100.0)
+        local Pi_w = (wFree / H_w) * (M.nominalWeeklyActiveHours(scheduleConfig) / 100.0)
         local defaultGearing = M.DEFAULT_GEARING["default"] or 10.0
         local gearedPi_w = Pi_w * ((gearing / defaultGearing) ^ 0.60)
 
@@ -1718,10 +2121,10 @@ function M.calculateModelTriageScore(item, staggerPlan, nowTime, scheduleConfig,
         local lowHeadroomPct = math.min(30.0, math.max(8.0, oneSessionPct * 0.80))
 
         -- Temporal distribution & anti-burst smoothing (prevents concentration of usage followed by voids):
-        -- When there are still many active hours left in the week (H_w > 24.0) and not fast-tracking:
+        -- When there are still many active hours left in the week (H_w > 24.0):
         -- Evaluate pacing relative to elapsed time in the 7-day cycle.
         local paceSmooth = 1.0
-        if H_w > 24.0 and not isStaggerLeader and wMetric.window_secs then
+        if H_w > 24.0 and wMetric.window_secs then
             local wWindow = tonumber(wMetric.window_secs) or 604800
             local wRemSecs = (wAt and wAt > nowTime) and (wAt - nowTime) or 0
             local wElapsedRatio = math.min(1.0, math.max(0.0, (wWindow - wRemSecs) / wWindow))
@@ -1736,18 +2139,17 @@ function M.calculateModelTriageScore(item, staggerPlan, nowTime, scheduleConfig,
             end
         end
 
-        if wFree <= lowHeadroomPct and H_w > 24.0 and not isStaggerLeader then
+        if wFree <= lowHeadroomPct and H_w > 24.0 then
             wFactor = (0.08 + 0.15 * (wFree / lowHeadroomPct)) * paceSmooth
         else
             -- Continuous weighting function: smooth scaling modulated by temporal pacing
-            local maxWeight = isStaggerLeader and 2.20 or 1.80
-            wFactor = math.min(maxWeight, math.max(0.20, (0.40 + 0.60 * gearedPi_w) * paceSmooth))
+            wFactor = math.min(1.80, math.max(0.20, (0.40 + 0.60 * gearedPi_w) * paceSmooth))
         end
 
         -- Time-arbitrage and perishability urgency for imminent weekly reset (<= 24 active hours):
         -- Reflects that quotas expire permanently if not consumed.
-        -- When active hours <= 24h (or targetH_w <= 24h for fast-track leaders), remaining 5h sessions are scarce.
-        local sprintH = isStaggerLeader and targetH_w or H_w
+        -- When active hours <= 24h, remaining 5h sessions are scarce.
+        local sprintH = H_w
         if sprintH <= 24.0 and wFree > 0.5 then
             local ratio = math.min(8.0, (24.0 / math.max(0.5, sprintH)) ^ 1.25)
             local sprintBonus = sprintH <= 3.0 and (220.0 * (3.0 - sprintH) / 3.0) or 0.0
@@ -1803,6 +2205,12 @@ function M.calculateModelTriageScore(item, staggerPlan, nowTime, scheduleConfig,
         score = (wFree * wFactor) + uResetWeekly + uBottleneck
     end
 
+    local providerId = (item.entry and item.entry.id) or item.providerId
+    if staggerPlan and staggerPlan.fastTrack and staggerPlan.fastTrack[providerId] then
+        local advice = staggerPlan.creditAdvice and staggerPlan.creditAdvice[providerId]
+        local urgency = M.resetCreditUrgency(item, advice, nowTime, scheduleConfig, isUserActiveNow)
+        if urgency then score = score + urgency.bonus end
+    end
     return score
 end
 

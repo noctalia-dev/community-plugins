@@ -207,6 +207,9 @@ struct Controller {
     /// Favorite fingerprints (uppercase) with their last known HTTPS address.
     favorites: HashMap<String, Option<HttpChannel>>,
     discovery: Arc<DiscoveryHandle>,
+    discovery_tx: mpsc::Sender<DiscoveryEvent>,
+    discovery_stop_tx: Option<oneshot::Sender<()>>,
+    multicast_down: bool,
     socket: PathBuf,
     destination: PathBuf,
     started_at: String,
@@ -262,26 +265,7 @@ pub async fn run(config: DaemonConfig) -> Result<()> {
     };
 
     let (discovery_tx, mut discovery_rx) = mpsc::channel::<DiscoveryEvent>(64);
-    let (discovery_stop_tx, discovery_stop_rx) = oneshot::channel();
-    let discovery = Arc::new(
-        localsend::discovery::start(
-            DiscoveryConfig {
-                group: DEFAULT_MULTICAST_GROUP,
-                group_v6: Some(DEFAULT_MULTICAST_GROUP_V6),
-                port: config.port,
-                interface_filter: InterfaceFilter::default(),
-                device: identity.multicast_device(),
-                identity: DeviceIdentity {
-                    cert_pem: identity.cert_pem.clone(),
-                    private_key_pem: identity.key_pem.clone(),
-                },
-                timeout: DEFAULT_DISCOVERY_TIMEOUT,
-                event_tx: Some(discovery_tx),
-            },
-            discovery_stop_rx,
-        )
-        .await,
-    );
+    let (discovery, discovery_stop_tx) = start_discovery(&identity, discovery_tx.clone()).await;
     // Answering an announcement registers with the announcer, revealing this
     // device, so only the everyone mode does it.
     discovery.set_answer_announcements(config.visibility == Visibility::Everyone);
@@ -299,7 +283,10 @@ pub async fn run(config: DaemonConfig) -> Result<()> {
         auto_accept: config.auto_accept,
         visibility: config.visibility,
         favorites: HashMap::new(),
+        multicast_down: discovery.multicast_error().is_some(),
         discovery,
+        discovery_tx,
+        discovery_stop_tx: Some(discovery_stop_tx),
         socket: config.socket,
         destination,
         started_at: now(),
@@ -373,6 +360,7 @@ pub async fn run(config: DaemonConfig) -> Result<()> {
                 controller.expire_incoming().await;
             }
             _ = announce_tick.tick() => {
+                controller.retry_multicast().await;
                 match controller.visibility {
                     Visibility::Everyone if controller.refresh_id.is_none() => {
                         let discovery = controller.discovery.clone();
@@ -415,7 +403,9 @@ pub async fn run(config: DaemonConfig) -> Result<()> {
         );
     }
 
-    let _ = discovery_stop_tx.send(());
+    if let Some(stop_tx) = controller.discovery_stop_tx.take() {
+        let _ = stop_tx.send(());
+    }
     socket_cancel.cancel();
 
     controller.stop_server().await;
@@ -965,10 +955,44 @@ impl Controller {
 
     fn handle_discovery_event(&mut self, event: DiscoveryEvent) {
         if matches!(event, DiscoveryEvent::MulticastFailed) {
+            self.multicast_down = true;
             self.set_error(
                 "multicast_stopped",
                 "Multicast discovery stopped; manual HTTP refresh remains available",
             );
+        }
+    }
+
+    /// Multicast needs a network interface when discovery starts, which the
+    /// network may not have yet at login. The new discovery replaces the old
+    /// one, and its devices, only once its multicast works.
+    async fn retry_multicast(&mut self) {
+        if !self.multicast_down {
+            return;
+        }
+        let (discovery, stop_tx) = start_discovery(&self.identity, self.discovery_tx.clone()).await;
+        if discovery.multicast_error().is_some() {
+            let _ = stop_tx.send(());
+            return;
+        }
+        if let Some(old_stop_tx) = self.discovery_stop_tx.replace(stop_tx) {
+            let _ = old_stop_tx.send(());
+        }
+        self.discovery = discovery;
+        self.discovery
+            .set_answer_announcements(self.visibility == Visibility::Everyone);
+        self.multicast_down = false;
+        if self.error.as_ref().is_some_and(|error| {
+            matches!(
+                error.code.as_str(),
+                "multicast_unavailable" | "multicast_stopped"
+            )
+        }) {
+            self.error = None;
+        }
+        if self.visibility != Visibility::Hidden {
+            self.refresh_id = None;
+            self.start_refresh();
         }
     }
 
@@ -1249,6 +1273,31 @@ impl Controller {
         self.recent.push_front(record);
         self.recent.truncate(MAX_RECENT_TRANSFERS);
     }
+}
+
+async fn start_discovery(
+    identity: &Identity,
+    event_tx: mpsc::Sender<DiscoveryEvent>,
+) -> (Arc<DiscoveryHandle>, oneshot::Sender<()>) {
+    let (stop_tx, stop_rx) = oneshot::channel();
+    let discovery = localsend::discovery::start(
+        DiscoveryConfig {
+            group: DEFAULT_MULTICAST_GROUP,
+            group_v6: Some(DEFAULT_MULTICAST_GROUP_V6),
+            port: identity.port,
+            interface_filter: InterfaceFilter::default(),
+            device: identity.multicast_device(),
+            identity: DeviceIdentity {
+                cert_pem: identity.cert_pem.clone(),
+                private_key_pem: identity.key_pem.clone(),
+            },
+            timeout: DEFAULT_DISCOVERY_TIMEOUT,
+            event_tx: Some(event_tx),
+        },
+        stop_rx,
+    )
+    .await;
+    (Arc::new(discovery), stop_tx)
 }
 
 fn outgoing_busy() -> ApiError {

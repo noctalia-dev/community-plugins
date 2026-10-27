@@ -505,7 +505,7 @@ local cfg = {
 local monMorning = os.time({ year = 2026, month = 10, day = 12, hour = 8, min = 0, sec = 0 })
 local tueMorning = os.time({ year = 2026, month = 10, day = 13, hour = 8, min = 0, sec = 0 })
 local active24h = shared.calculateActiveHours(monMorning, tueMorning, cfg, true)
-assert(math.abs(active24h - 15.15) < 0.6,
+assert(math.abs(active24h - 15.0) < 0.000001,
     string.format("active hours in 24h should discount sleep and meal pause, got %f", active24h))
 
 -- Out-of-schedule awake burst within weekend sleep window (01:00 to 09:00):
@@ -947,6 +947,35 @@ local creditPlan = shared.analyzeResetCredits({ postResetCodex }, now, scheduleC
 assert(creditPlan ~= nil, "credit plan must be generated")
 assert(creditPlan.creditAdvice["openai"] ~= nil, "openai credit advice must be generated")
 assert(creditPlan.hasCollision == false, "single provider should not have collision")
+
+-- ai-usagebar 1.43: context/group rows are supplementary, never account quota.
+local contextOnly = { label = "chat", percent = 100, severity = "critical", group = "Sessions" }
+local quotaSession = { label = "Session (5h)", percent = 12, severity = "low", window_secs = 18000 }
+local quotaWeekly = { label = "Weekly (7d)", percent = 34, severity = "low", window_secs = 604800 }
+local contextEntry = { id = "anthropic", metrics = { quotaSession, contextOnly } }
+assert(shared.headline(contextEntry) == quotaSession, "a full context window must not exhaust Claude quota")
+local cs, cw = shared.dualMetrics(contextEntry.metrics)
+assert(cs == quotaSession and cw == nil, "context must not fill an unreported weekly window")
+assert(shared.headline({ id = "anthropic", metrics = { contextOnly } }) == nil,
+    "context-only reports must not invent quota")
+cs, cw = shared.dualMetrics({ quotaWeekly, contextOnly })
+assert(cs == nil and cw == quotaWeekly, "context must not fill an unreported 5h window")
+
+-- Several metrics from the same explicit window are not a second window.
+cs, cw = shared.dualMetrics({ quotaSession, { label = "Other session", percent = 10, window_secs = 18000 } })
+assert(cs == quotaSession and cw == nil, "two short limits must not fabricate a weekly limit")
+cs, cw = shared.dualMetrics({ quotaWeekly, { label = "Other weekly", percent = 10, window_secs = 604800 } })
+assert(cs == nil and cw == quotaWeekly, "two long limits must not fabricate a session")
+
+-- Per-model pools keep their own identity and never become Claude/GPT OSS.
+local argonEntry = { id = "antigravity", metrics = {
+    quotaSession,
+    { label = "Gemini 4 Argon", percent = 20, window_secs = 18000, model_pool = true },
+} }
+local argonItems = shared.collectModelItems({ argonEntry })
+assert(argonItems[2].providerId ~= "claude-oss", "Argon must not inherit the Claude/OSS identity")
+assert(shared.kickstartTarget({ providerId = "anthropic@work", name = "Claude · work" }) == nil,
+    "named accounts cannot be kickstarted with the default CLI login")
 
 io.write("ok: shared timestamps, availability, provider order, mathematical triage score, reset staggering, typography scale presets, and 1.40 compat\n")
 

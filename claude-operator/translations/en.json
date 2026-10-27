@@ -1,0 +1,99 @@
+{
+  "settings": {
+    "notify_waiting": {
+      "label": "Notify when a session needs you",
+      "description": "Desktop notification when a session starts waiting for a permission or an answer."
+    },
+    "notify_finished": {
+      "label": "Notify when a session finishes",
+      "description": "Desktop notification when a session goes from working to idle."
+    },
+    "finished_min_minutes": {
+      "label": "Minimum turn length (minutes)",
+      "description": "Only notify about turns that took at least this long."
+    },
+    "show_elsewhere": {
+      "label": "Show Remote Control sessions on other machines",
+      "description": "Lists your live Remote Control sessions running elsewhere, checked once a minute through Claude Code's internal session list."
+    },
+    "hide_idle_hours": {
+      "label": "Hide sessions idle for (hours)",
+      "description": "Hide live sessions idle longer than this. 0 shows all."
+    },
+    "recent_count": {
+      "label": "Recent sessions",
+      "description": "Closed sessions offered for resume in the panel and the launcher. 0 turns Recent off."
+    },
+    "limits_refresh_minutes": {
+      "label": "Plan limits refresh (minutes)",
+      "description": "Minutes between plan-limit and usage refreshes."
+    },
+    "currency": {
+      "label": "Currency",
+      "description": "Currency for cost estimates. Non-USD amounts use daily exchange rates.",
+      "options": {
+        "usd": "US dollar ($)",
+        "eur": "Euro (€)",
+        "gbp": "Pound sterling (£)",
+        "jpy": "Japanese yen (¥)",
+        "cny": "Chinese yuan (CN¥)",
+        "chf": "Swiss franc (CHF)",
+        "aud": "Australian dollar (A$)",
+        "cad": "Canadian dollar (C$)",
+        "inr": "Indian rupee (₹)"
+      }
+    },
+    "currency_api_url": {
+      "label": "Exchange-rate API",
+      "description": "Frankfurter-compatible endpoint the daily exchange rates come from."
+    },
+    "terminal": {
+      "label": "Terminal",
+      "description": "Terminal for new and resumed sessions. Empty opens a kitty tab when kitty remote control is on, else Noctalia's terminal."
+    },
+    "editor_command": {
+      "label": "Editor command",
+      "description": "Command that opens a CLAUDE.md. Empty tries code, then zed."
+    },
+    "work_root": {
+      "label": "Projects folder",
+      "description": "Project paths under this folder are shown relative to it. Empty shows full paths."
+    },
+    "glyph": {
+      "label": "Glyph",
+      "description": "Bar widget glyph. It turns into a red bell while a session needs you."
+    },
+    "bar_style": {
+      "label": "Bar style",
+      "description": "How the bar shows running sessions.",
+      "options": {
+        "dots": "One dot per session",
+        "counts": "Counts"
+      }
+    },
+    "bar_limits": {
+      "label": "Bar limits",
+      "description": "Plan usage windows shown on the bar.",
+      "options": {
+        "five_hour": "5-hour window",
+        "seven_day": "7-day window",
+        "both": "5-hour and 7-day windows",
+        "all": "All windows, including per-model ones",
+        "none": "Hidden"
+      }
+    },
+    "bar_limits_style": {
+      "label": "Bar limits style",
+      "description": "How each window is drawn on the bar.",
+      "options": {
+        "gauge": "Nested gauge (5h inside 7d, faint arc = projection)",
+        "bar": "Linear bar",
+        "text": "Percentage only"
+      }
+    },
+    "notify_limits": {
+      "label": "Warn before a limit",
+      "description": "Notify once per window when the current rate reaches the 5-hour limit within the hour, or a weekly limit within a day."
+    }
+  }
+}

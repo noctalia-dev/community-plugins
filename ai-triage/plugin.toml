@@ -1,6 +1,6 @@
 id = "miguelfm/ai-triage"
 name = "AI Triage"
-version = "1.6.3"
+version = "1.8.0"
 plugin_api = 43
 author = "miguelfm"
 license = "MIT"
@@ -12,7 +12,7 @@ tags = ["bar", "panel", "ai", "indicator", "utility"]
 # Optional backend CLIs for `bin/ai-kickstart`: `claude`, `codex`, `agy`.
 # Note: ai-usagebar must query production `cloudcode-pa.googleapis.com` to report
 # Antigravity's Gemini quota buckets alongside Claude & GPT OSS.
-dependencies = ["ai-usagebar", "xdg-open"]
+dependencies = ["ai-usagebar", "xdg-open", "timeout"]
 
 # ── Plugin-level settings (shared by the poller, every capsule and the panel) ──
 
@@ -27,6 +27,17 @@ default = 5
 min = 1
 max = 120
 step = 1
+
+[[setting]]
+key = "query_timeout_seconds"
+type = "int"
+label_key = "settings.query_timeout_seconds.label"
+description_key = "settings.query_timeout_seconds.description"
+default = 180
+min = 30
+max = 600
+step = 30
+advanced = true
 
 [[setting]]
 key = "font_scale"
@@ -50,57 +61,57 @@ default = true
 
 [[setting]]
 key = "sleep_start_hour"
-type = "int"
+type = "double"
 label_key = "settings.sleep_start_hour.label"
 description_key = "settings.sleep_start_hour.description"
 default = 0
 min = 0
-max = 23
-step = 1
+max = 23.5
+step = 0.5
 visible_when = { key = "schedule_aware_triage", values = ["true"] }
 
 [[setting]]
 key = "sleep_end_hour"
-type = "int"
+type = "double"
 label_key = "settings.sleep_end_hour.label"
 description_key = "settings.sleep_end_hour.description"
 default = 8
 min = 0
-max = 23
-step = 1
+max = 23.5
+step = 0.5
 visible_when = { key = "schedule_aware_triage", values = ["true"] }
 
 [[setting]]
 key = "weekend_sleep_start_hour"
-type = "int"
+type = "double"
 label_key = "settings.weekend_sleep_start_hour.label"
 description_key = "settings.weekend_sleep_start_hour.description"
 default = 1
 min = 0
-max = 23
-step = 1
+max = 23.5
+step = 0.5
 visible_when = { key = "schedule_aware_triage", values = ["true"] }
 
 [[setting]]
 key = "weekend_sleep_end_hour"
-type = "int"
+type = "double"
 label_key = "settings.weekend_sleep_end_hour.label"
 description_key = "settings.weekend_sleep_end_hour.description"
 default = 9
 min = 0
-max = 23
-step = 1
+max = 23.5
+step = 0.5
 visible_when = { key = "schedule_aware_triage", values = ["true"] }
 
 [[setting]]
 key = "meal_pause_hours"
-type = "int"
+type = "double"
 label_key = "settings.meal_pause_hours.label"
 description_key = "settings.meal_pause_hours.description"
 default = 1
 min = 0
-max = 3
-step = 1
+max = 24
+step = 0.5
 visible_when = { key = "schedule_aware_triage", values = ["true"] }
 
 # Service & model filtering: Allows hiding specific models or providers.
@@ -232,6 +243,16 @@ options = [
   { value = "opencode-go", label_key = "settings.vendor.option.opencode_go" },
   { value = "commandcode", label_key = "settings.vendor.option.commandcode" },
   { value = "copilot", label_key = "settings.vendor.option.copilot" },
+  { value = "deepinfra", label_key = "settings.vendor.option.deepinfra" },
+  { value = "synthetic", label_key = "settings.vendor.option.synthetic" },
+  { value = "grokbot", label_key = "settings.vendor.option.grokbot" },
+  { value = "ollama", label_key = "settings.vendor.option.ollama" },
+  { value = "orcarouter", label_key = "settings.vendor.option.orcarouter" },
+  { value = "modelstudio", label_key = "settings.vendor.option.modelstudio" },
+  { value = "lyceum", label_key = "settings.vendor.option.lyceum" },
+  { value = "devin", label_key = "settings.vendor.option.devin" },
+  { value = "muse-code", label_key = "settings.vendor.option.muse_code" },
+  { value = "cline", label_key = "settings.vendor.option.cline" },
 ]
 
 # One capsule can carry more than one provider; "auto" fills it with the busiest.
@@ -340,10 +361,10 @@ options = [
 [[panel]]
 id = "panel"
 entry = "panel.luau"
-# Provider tabs at the top, detailed charts and accessory cards below.
-# Scaled to 780px to accommodate all cards comfortably under huge typography presets.
+# Fit standard reports and empty/error states; longer columns scroll independently.
 width = 1520
-height = 780
+height = "content"
+max_height = 560
 # The shell draws the Placement and Position rows for every plugin panel whether
 # or not they are declared; declaring them only picks the default the user gets.
 placement = "attached"

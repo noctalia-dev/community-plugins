@@ -35,16 +35,31 @@ For each active provider / model tier $i$:
 #### 1.2.1 Circadian Schedule & Effective Active Hours ($H_{\text{active}}$)
 Calendar seconds overestimate usable time by including sleep and off-work periods. We project future time intervals $[t_{\text{now}}, t_{\text{target}}]$ into **effective active working hours** $H(t_{\text{now}}, t_{\text{target}})$:
 
-- **Nominal Sleep Windows**:
+- **Default Sleep Windows** (configurable in half-hour steps):
   - Weekdays (Mon–Fri): 00:00 – 08:00 (8h discounted).
   - Weekends (Sat–Sun): 01:00 – 09:00 (8h discounted).
-- **Nominal Meal / Rest Window**:
-  - Daily: 14:00 – 15:00 (1h discounted).
+- **Flexible Daily Unavailability**:
+  - `meal_pause_hours` is the total estimated daily time unavailable for meals,
+    breaks and other tasks (default 1h). No particular meal or rest times are assumed.
+  - For a local day with $A$ waking hours and $B$ unavailable hours, waking
+    intervals receive weight $\max(0, 1-B/A)$. Sleep intervals receive zero weight.
+  - For example, 22:00–08:30 off-hours leaves 13.5 waking hours; subtracting 5h
+    of other unavailability gives an estimated 8.5h/day, or 59.5h/week when the
+    weekday and weekend schedules match. This is available capacity, not a
+    prediction of continuous AI use.
+  - Local-day and exact sleep boundaries are integrated throughout the horizon,
+    including half-hours, weekends and DST changes. Forecasts beyond 48h use the
+    same schedule, rather than a fixed availability percentage.
 - **Out-of-Schedule Awake Burst Credit ($T_{\text{burst}}$)**:
   - If the user interacts with or runs the triage tool during nominal sleep/off-hours ($t_{\text{now}} \in \text{SleepWindow}$), an immediate awake burst of $T_{\text{burst}} = 2.0\text{h}$ is credited at $100\%$ active weight ($w_t = 1.0$), after which the trajectory smoothly reverts to the baseline schedule.
 - **Active Hours Metric**:
   $$H_{\text{active}}(t_1, t_2) = \int_{t_1}^{t_2} \alpha(t) \, dt$$
-  where $\alpha(t) = 1.0$ during active waking intervals and $\alpha(t) = 0.0$ during sleep intervals (except during active burst overrides).
+  where $\alpha(t)$ is the proportional waking weight above, or zero during
+  sleep intervals (except during active burst overrides). The burst is only
+  enabled when the interval starts during off-hours and the caller marks the
+  user active; ordinary daytime use does not extend the evening cutoff or
+  bypass the daily unavailable-time allowance. A positive horizon retains a
+  0.25h numerical floor to prevent division by zero.
 
 For model triage, we calculate:
 - $H_w = \max(0.5, H_{\text{active}}(t_{\text{now}}, t_{\text{weekly\_reset}}))$: Effective active hours until weekly reset.
@@ -75,8 +90,8 @@ $$K_{\text{calibrated}} \leftarrow \alpha K_{\text{obs}} + (1 - \alpha) K_{\text
 This allows the plugin to automatically self-tune to the user's actual prompt size, reasoning effort, and model mix (e.g. Claude 3.7 Sonnet vs Opus vs Haiku).
 
 ##### Capacity Stress & Session Duty Cycle:
-In $H_w^*$ remaining active hours, assuming an average session consumes over $5\text{h}$:
-$$C_{\max} = \frac{H_w^* \times 20.0}{K_m}$$
+In $H_w$ remaining active hours, assuming an average session consumes over $5\text{h}$:
+$$C_{\max} = \frac{H_w \times 20.0}{K_m}$$
 $$\text{DutyCycle} = \frac{w_{\text{free}}}{\max(1.0, C_{\max})}$$
 - When $\text{DutyCycle} \ge 0.70$: A model requiring many sessions relative to the remaining active hours faces a **session capacity bottleneck**—there are not enough 5h session slots left before the reset to exhaust the remaining quota unless consumed continuously.
 - When $\text{DutyCycle} \le 0.65$ with $K_m \le 3.5$: A low-gearing model (e.g. Claude & GPT OSS) risks **premature weekly exhaustion** and must be conserved.
@@ -84,8 +99,12 @@ $$\text{DutyCycle} = \frac{w_{\text{free}}}{\max(1.0, C_{\max})}$$
 ---
 
 #### 1.2.3 Geared Weekly Consumption Velocity ($\Pi_{w, \text{geared}}$) & Pacing Factor ($W_{\text{weekly}}$)
-The required weekly burn velocity $\Pi_w$ normalized relative to nominal sustainable active pace ($H_{\text{weekly\_active}} = 105.0\text{h}$, representing 7 days × 15 active waking hours/day):
-$$\Pi_w = \left(\frac{w_{\text{free}}}{H_w^*}\right) \times \left(\frac{105.0}{100.0}\right) = \left(\frac{w_{\text{free}}}{H_w^*}\right) \times 1.05$$
+The required weekly burn velocity $\Pi_w$ is normalized relative to the configured
+sustainable active pace: $H_{\text{weekly\_active}} = 5A_{\text{weekday}} + 2A_{\text{weekend}}$,
+after subtracting the daily unavailability budget. The default schedule gives
+105h/week; the example above gives 59.5h/week. When schedule adaptation is disabled,
+calendar-time forecasts and the original 105h reference are retained.
+$$\Pi_w = \left(\frac{w_{\text{free}}}{H_w}\right) \times \left(\frac{H_{\text{weekly\_active}}}{100.0}\right)$$
 $$\Pi_{w, \text{geared}} = \Pi_w \times \left(\frac{K_m}{K_0}\right)^{0.60}$$
 where $K_0 = 10.0$ is the reference baseline gearing.
 
@@ -97,7 +116,7 @@ $$\text{lowHeadroomPct} = \min(30.0, \max(8.0, \text{oneSessionPct} \times 0.80)
 ##### Temporal Distribution & Anti-Burst Smoothing ($P_{\text{smooth}}$):
 To optimize global multi-service consumption while preventing rapid quota concentration followed by availability droughts ("baleiros"), the model monitors deviation from nominal weekly pace:
 $$\Delta_{\text{pace}} = U_{i,w} - \left(\frac{T_w - \tau_w}{T_w} \times 100\right)$$
-When $H_w > 24.0\text{h}$ and the model is not fast-tracking a reset credit:
+When $H_w > 24.0\text{h}$:
 $$P_{\text{smooth}} = \begin{cases}
 \max\left(0.35, 1.0 - 0.02 \times (\Delta_{\text{pace}} - 15.0)\right) & \text{if } \Delta_{\text{pace}} > 15.0\% \text{ (ahead of pace)} \\
 \min\left(1.35, 1.0 + 0.015 \times (-\Delta_{\text{pace}} - 15.0)\right) & \text{if } \Delta_{\text{pace}} < -15.0\% \text{ (lagging behind pace)} \\
@@ -107,10 +126,11 @@ When $H_w \le 24.0\text{h}$, $P_{\text{smooth}} = 1.0$ (damping is released for 
 
 ##### Weekly Modulation Factor $W_{\text{weekly}}$:
 $$W_{\text{weekly}} = \begin{cases}
-\left(0.08 + 0.15 \times \left(\frac{w_{\text{free}}}{\text{lowHeadroomPct}}\right)\right) \times P_{\text{smooth}} & \text{if } w_{\text{free}} \le \text{lowHeadroomPct} \text{ and } H_w > 24\text{h} \text{ and not StaggerLeader} \\
+\left(0.08 + 0.15 \times \left(\frac{w_{\text{free}}}{\text{lowHeadroomPct}}\right)\right) \times P_{\text{smooth}} & \text{if } w_{\text{free}} \le \text{lowHeadroomPct} \text{ and } H_w > 24\text{h} \\
 \min\left(W_{\max}, \max\left(0.20, (0.40 + 0.60 \times \Pi_{w, \text{geared}}) \times P_{\text{smooth}}\right)\right) & \text{otherwise}
 \end{cases}$$
-where $W_{\max} = 2.20$ if the model is the designated Stagger Advance Leader, and $1.80$ otherwise.
+where $W_{\max} = 1.80$. Credit incentives are added separately; they do not alter
+weekly smoothing, conservation or the natural renewal horizon.
 
 ---
 
@@ -150,14 +170,14 @@ $$U_{\text{burn}, s} = \begin{cases}
 0.0 & \text{otherwise}
 \end{cases}$$
 
-$$J_i(t) = (\text{baseSession} \times W_{\text{weekly}}) + U_{\text{burn}, s} + U_{\text{reset\_weekly}} + U_{\text{bottleneck}}$$
+$$J_i(t) = (\text{baseSession} \times W_{\text{weekly}}) + U_{\text{burn}, s} + U_{\text{reset\_weekly}} + U_{\text{bottleneck}} + U_{\text{credit}}$$
 
 ##### Case B: Unstarted Session ($s_{\text{started}} = \text{false}$, $U_{i,s} = 0\%$)
 Unstarted sessions are discounted based on available active hours before sleep:
 $$\text{availabilityDiscount} = \min\left(1.0, \max\left(0.35, \frac{H_s}{5.0}\right)\right)$$
 $$\text{baseSession} = s_{\text{free}} \times 0.75 \times \text{availabilityDiscount}$$
 
-$$J_i(t) = (\text{baseSession} \times W_{\text{weekly}}) + U_{\text{reset\_weekly}} + U_{\text{bottleneck}}$$
+$$J_i(t) = (\text{baseSession} \times W_{\text{weekly}}) + U_{\text{reset\_weekly}} + U_{\text{bottleneck}} + U_{\text{credit}}$$
 
 ##### Case C: Hard Constraints (Lockouts)
 $$J_i(t) = \begin{cases}
@@ -185,20 +205,51 @@ The engine compares two quantities:
 - **Next cycle** ($G_{\text{later}}$): evaluated only if the credit outlives the renewal by at least a viable runway ($E > R + 72\text{h}$) and allows burning at least $\approx 40\%$ of the fresh week naturally. For credits expiring on the same day as renewal or within 72h, $G_{\text{later}} = 0$.
 
 A credit is flagged as **`lastChance = true`** whenever:
-$$E \le R + 72\text{h} \quad\lor\quad G_{\text{later}} < \max(40, 100/K_m) \quad\lor\quad G_{\text{later}} < 0.65\, G_{\text{cycle}}$$
+$$E \le R + 72\text{h} \quad\lor\quad G_{\text{later}} < \max(40, 100/K_m) \quad\lor\quad (G_{\text{cycle}} \ge 50 \land G_{\text{later}} < 0.65\, G_{\text{cycle}})$$
 
 It recommends:
-- **`claim`** when the week is effectively spent ($U_{i,w} \ge 95\%$), or the credit is in imminent expiry peril ($\tau_{\text{expiry}} \le 6\text{h}$ calendar or $H_{\text{expiry}} \le 4\text{h}$ active with $U_{i,w} \ge 80\%$), and $G_{\text{cycle}} \ge \max(100 / K_m,\ 0.5\, G_{\text{later}})$.
+- **`claim`** only when $G_{\text{cycle}} \ge \max(100 / K_m,\ 0.5\, G_{\text{later}})$
+  and at least one of these holds: the week is effectively spent ($U_{i,w} \ge 95\%$);
+  expiry is imminent (at most 6 calendar hours or 4 available hours) and either
+  $U_{i,w} \ge 80\%$ or $G_{\text{now}} \ge 100/K_m$; or the credit expires before
+  the remaining allowance can be spent and at most 2 available hours remain to expiry.
 - **`advance`** when that condition on $G_{\text{cycle}}$ holds but the week is not ready to claim yet. If `lastChance` is active, the engine advises a proactive sprint before renewal.
 - **`hold`** otherwise, showing $G_{\text{cycle}}$ against $G_{\text{later}}$.
 
-When a credit is on its `lastChance` (or chosen as advance leader), it enters `fastTrack` mode, compressing the target weekly horizon to half the cycle ($\text{target}H_w = \max(6.0, 0.5\, H_w)$) and engaging urgency sprint scoring whenever $\text{target}H_w \le 24\text{h}$.
+When an `advance` credit is on its `lastChance` (or chosen as advance leader), it
+enters `fastTrack` mode. Its incentive is calculated independently of weekly urgency:
+
+- The claim deadline is $D = \min(E, R)$, the earlier of actual credit expiry and
+  natural renewal. Let $H_D = H(\text{now}, D)$ and $H_R = H(\text{now}, R)$.
+- The claim budget is $A = \max(0, \min(H_D, H_R - 5) - 1 - B_s)$: reserve one
+  available hour for the claim and at least one full session to use the refill
+  before natural renewal. $B_s$ is active time unusable before the current session
+  resets, due to its remaining allowance: $\max(0, H(\text{now}, \min(S,D)) - s_{\text{free}}/20)$,
+  where $S$ is the future session reset; otherwise $B_s = 0$.
+- Required work to reach the normal claim threshold is
+  $N = \max(0, 95-U_{i,w}) K_m / 20$ available hours.
+- Pressure is $P = N/\max(0.25,A)$. The bounded, value-weighted incentive is
+  $$U_{\text{credit}} = 300 \times \frac{\min(100,G_{\text{cycle}})}{100} \times \min(1,P)^2.$$
+
+The incentive is zero for held or claim-ready credits, expired or unknown
+deadlines, missing/stale weekly schedules and unavailable providers. It cannot
+override session/weekly lockouts. Only the earliest valid credit of the account
+is considered; additional credits do not stack bonuses. The natural weekly
+score is unchanged, including its pacing/conservation factors. There is no
+six-hour minimum that could push a claim target past expiry.
+
+Fast-track tooltips show the real deadline and required/available time. If
+$N>A$, the target is marked potentially unreachable, rather than promised.
+These are estimates at the model's nominal session pace, not guaranteed user
+throughput or an automatic redemption; the original value and claim guards
+still determine whether to claim or hold.
 
 ### 2.3 Desynchronization Algorithm
 1. **Collision Detection**: Identifies expiring credits across distinct providers separated by $< 7$ days within a 16-day window.
 2. **Advance Leader Selection**:
    - Evaluates reserve scarcity and cycle progress. Providers on their `lastChance` receive an immediate $+100\text{pt}$ fitness priority to prevent credit forfeiture, regardless of nominal total reserves.
-   - Designates the leader to **Advance**: burn remaining weekly quota early ($\approx 3.5\text{d} / 45\text{h}$ active time) and claim its reset credit mid-cycle.
+   - Designates the leader to **Advance**, applying the real-deadline incentive
+     above to reach the claim threshold in time.
    - For the secondary provider: if its credit also expires in this cycle (`lastChance = true`), it is **never deferred to `hold`**; both providers are fast-tracked and directed to sprint and claim before expiration. Only credits with safe runway into the subsequent cycle are deferred.
 3. **Claim Window**:
    - When a provider's advice is `claim`, the engine generates a prominent `⭐ Claim Reset` action card with the quota it buys back and a one-click dashboard link (`xdg-open`). Only the earliest-expiring credit of a provider is marked to claim.
@@ -282,6 +333,38 @@ Because the upstream API timestamp ($R_{\text{API}}$) reflects the genuine new 7
 - **Authoritative Telemetry**: `ai-triage` synchronizes directly with $R_{\text{API}}$, calculating remaining active working hours $H_w$ over the authentic newly opened 7-day period.
 - **Sprint Urgency Calibration**: Artificially anchoring to a superseded pre-reset date would incorrectly calculate a dangerously short runway, triggering false sprint urgency ($U_{\text{reset\_weekly}}$) and leading the user to burn through quota prematurely days before the real renewal arrives.
 - **Reset Staggering Coupling**: The Reset Staggering Engine (Section 4) evaluates remaining banked credits and expirations against the authentic post-advancement weekly schedule, guaranteeing optimal token arbitrage without distorted deadlines.
+
+### 6.3 Observations and Unconfirmed Schedules (1.7.1)
+
+The poller persists one last valid observation per provider/account, metric label
+and window, plus 32 recent changes in `weekly-resets.json` under Noctalia's plugin
+data directory. Baselines expire after 30 days. This history never changes
+`reset_at` and does not infer renewal dates from credit expirations.
+
+A usage drop of at least 5 percentage points combined with a later reset date
+(more than 60 seconds of drift) indicates a renewal. If observed before the old
+deadline, it is recorded as early. A date shift of at least one hour without that
+usage evidence, or across different sources, is only a schedule change. A lower
+credit count is recorded as supporting evidence, without asserting a manual
+claim. Cached, failed and out-of-order readings cannot replace valid baselines.
+Waking up or clearing usage to 0% with an unanchored deadline aligned to the full window
+($|R - t_{\text{now}} - T_w| \le 60\text{s}$) in the absence of spent credits is
+classified as a floating idle timer rather than an early renewal, suppressing
+false-positive notices.
+
+The existing weekly clock and schedule row expose source, reading time and recent
+changes in tooltips; change explanations disappear after 24 hours. An expired or
+missing date shows `Check` / `Pending confirmation`, never a fabricated new week.
+Readings older than the greater of 15 minutes or twice the configured polling
+interval show `~` in the schedule. Unconfirmed/old schedules do not generate
+weekly sprint urgency or reset-credit advice; reported exhaustion still blocks
+routing until a fresh reading confirms available quota.
+
+Polling is brought forward to the announced deadline. An expired deadline is
+retried at the smaller of one minute and the configured interval, including after
+query failures. Successful confirmation restores normal polling. Broken history
+files do not interrupt quota reads. History starts with the first valid reading;
+it cannot retrospectively identify or predict an unannounced provider reset.
 
 ---
 

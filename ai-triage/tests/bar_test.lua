@@ -203,7 +203,7 @@ local names = {}
 for _, row in ipairs(dropped.tooltip()) do names[#names + 1] = row.key end
 local listed = false
 for _, name in ipairs(names) do if name == "Antigravity" then listed = true end end
-assert(not listed, "a provider that is down leaves the bar")
+assert(listed, "a failed provider must remain in the tooltip with a diagnosis")
 -- Ranked first on severity, it would have led the capsule; the rest still show.
 -- Each provider contributes its name and then its readings.
 assert(names[1] == "Codex" and names[2] == "Claude", "the rest keep their order")
@@ -221,17 +221,36 @@ local withoutRejected = loadBar({
     provider_limit = 2,
 }, { entries = { rejected, entry("openai", "Codex", 20) } })
 local rejectedRows = withoutRejected.tooltip()
-assert(rejectedRows[1].key == "Codex" and #rejectedRows == 1,
-       "a terminal provider should leave the bar immediately")
+assert(rejectedRows[1].key == "Codex" and rejectedRows[2].key == "Claude"
+    and rejectedRows[3].value:find("claude auth login", 1, true),
+       "healthy providers retain the meter while a failed login remains actionable in the tooltip")
 
 local pinnedDown = loadBar({
     vendor = "antigravity", account = "", extras = "none", visualization = "none",
 }, { entries = { downEntry("antigravity", "Antigravity", 90) } })
 local pinnedRow = pinnedDown.tooltip()[1]
 assert(pinnedRow.key == "Antigravity", "pinned provider that is down should identify itself")
-assert(pinnedRow.value:find("no local server found"), "pinned provider that is down should show CLI warning in tooltip")
+assert(pinnedRow.value == "ui.diagnostic.cause.local_server"
+    and pinnedDown.tooltip()[3].value:find("no local server found"),
+    "a pinned failure must show its cause, recommended action and CLI detail")
 assert(pinnedDown.rendered().children[1].props.name == "sparkles", "pinned provider that is down should render its own glyph")
 assert(pinnedDown.rendered().children[1].props.color == "error", "pinned provider that is down should render glyph in error color")
+
+local onlyFailed = loadBar({ vendor = "auto" }, { entries = { rejected } })
+assert(containsGlyph(onlyFailed.rendered(), "asterisk-simple"), "an all-failed capsule must retain provider identity")
+assert(onlyFailed.tooltip()[1].value == "ui.diagnostic.cause.authentication"
+    and onlyFailed.tooltip()[2].value:find("claude auth login", 1, true),
+    "an all-failed automatic capsule must explain the login failure instead of waiting for data")
+local hiddenFailure = loadBar({ vendor = "auto", hidden_services = "anthropic" },
+    { entries = { rejected, entry("openai", "Codex", 20) } })
+assert(#hiddenFailure.tooltip() == 1 and hiddenFailure.tooltip()[1].key == "Codex",
+    "hidden providers must not leak diagnostics into the automatic tooltip")
+local namedFailure = entry("openai@work", "Codex · work", 90)
+namedFailure.status, namedFailure.error = "error", "HTTP 401: authentication rejected"
+local fallbackFailure = loadBar({ vendor = "openai" }, { entries = { namedFailure } })
+assert(fallbackFailure.tooltip()[1].key == "Codex · work"
+    and fallbackFailure.tooltip()[2].value == "ui.diagnostic.action.named_account",
+    "a provider whose default row was replaced by a named account must retain its diagnosis")
 
 -- `[ui] primary` can come back as a full account id, and the tie-break has to
 -- recognise it in that form as well as the bare provider one.

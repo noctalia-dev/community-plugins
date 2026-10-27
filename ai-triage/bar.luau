@@ -25,7 +25,7 @@ local ratio, headline, elapsedPercent = shared.ratio, shared.headline, shared.el
 local modelHeadlines, isCritical, dualMetrics = shared.modelHeadlines, shared.isCritical, shared.dualMetrics
 local pace, SEVERITY_RANK = shared.pace, shared.SEVERITY_RANK
 local NO_FAILURE, asFailure = shared.NO_FAILURE, shared.asFailure
-local unavailable, warning = shared.unavailable, shared.warning
+local unavailable = shared.unavailable
 local getTypography = shared.getTypography
 
 local function getBarTypography()
@@ -47,6 +47,15 @@ local function entries() return shared.entries(report) end
 local function wantedEntryId()
     if vendor == "auto" or account == "" then return vendor end
     return vendor .. "@" .. account
+end
+
+local function matchesAntigravity(entry)
+    return baseProvider(entry.id) == "antigravity"
+        and (account == "" or entry.id == "antigravity@" .. account)
+end
+
+local function isModelVendor()
+    return vendor == "gemini" or vendor == "claude-oss" or vendor == "claude_oss"
 end
 
 local function rank(entry)
@@ -89,12 +98,18 @@ local function shown()
                 return { entry }, 0
             end
         end
-        if wanted == "gemini" or wanted == "claude-oss" or wanted == "claude_oss" then
+        if isModelVendor() then
             for _, entry in ipairs(all) do
-                if baseProvider(entry.id) == "antigravity" then
+                if matchesAntigravity(entry) then
                     if unavailable(entry) and not shared.readFailure(entry) then return {}, 0 end
                     return { entry }, 0
                 end
+            end
+        end
+        -- A statusline account can replace the default provider entry entirely.
+        if account == "" then
+            for _, entry in ipairs(all) do
+                if baseProvider(entry.id) == vendor then return { entry }, 0 end
             end
         end
         return {}, 0
@@ -168,12 +183,42 @@ local function pinnedDown()
     local wanted = wantedEntryId()
     for _, entry in ipairs(rawReportEntries()) do
         if entry.id == wanted and unavailable(entry) then return entry end
-        if (wanted == "gemini" or wanted == "claude-oss" or wanted == "claude_oss")
-            and baseProvider(entry.id) == "antigravity" and unavailable(entry) then
+        if isModelVendor() and matchesAntigravity(entry) and unavailable(entry) then
             return entry
         end
     end
+    if account == "" then
+        for _, entry in ipairs(rawReportEntries()) do
+            if baseProvider(entry.id) == vendor and unavailable(entry)
+                and not shared.isModelHidden(entry.id, entry.display_name or entry.id) then
+                return entry
+            end
+        end
+    end
     return nil
+end
+
+local function failedEntries()
+    local failed = {}
+    for _, entry in ipairs(rawReportEntries()) do
+        if type(entry) == "table" and unavailable(entry)
+            and not shared.isModelHidden(entry.id, entry.display_name or entry.name or entry.id) then
+            failed[#failed + 1] = entry
+        end
+    end
+    return failed
+end
+
+local function appendDiagnostic(rows, entry)
+    local issue = shared.diagnostic(entry)
+    if not issue then return end
+    rows[#rows + 1] = { key = tostring(entry.display_name or entry.id), value = noctalia.tr(issue.titleKey) }
+    local action = noctalia.tr(issue.actionKey, issue.actionArgs)
+    if issue.command then action = action .. " " .. issue.command end
+    rows[#rows + 1] = { key = noctalia.tr("ui.diagnostic.recommended_action"), value = action }
+    if issue.detail ~= "" then
+        rows[#rows + 1] = { key = noctalia.tr("ui.details"), value = issue.detail }
+    end
 end
 
 -- `calm` is the colour when the CLI has raised nothing, and every colour when
@@ -298,7 +343,7 @@ local function chip(entry, flagged, isVert, typo)
     local balance = metric == nil and shared.balanceText(entry) or nil
     local tint = severityRole(metric, "on_surface")
     local percent = metric ~= nil and tonumber(metric.percent) or nil
-    local text = percent ~= nil and string.format("%d%%", percent) or (balance or "—")
+    local text = shared.metricText(metric) or balance or "—"
     local fill = severityRole(metric, "primary")
     -- The mark says which provider, never how full it is; severity rides on the
     -- reading and the gauge. A failed read is the one thing that colours it, and
@@ -464,11 +509,8 @@ local function formatDualMetric(m1, m2)
     m2 = type(m2) == "table" and m2 or nil
     if m1 == nil and m2 == nil then return "" end
 
-    local p1 = m1 and (m1.percent ~= nil and tonumber(m1.percent) or tostring(m1.value or ""))
-    local p2 = m2 and (m2.percent ~= nil and tonumber(m2.percent) or tostring(m2.value or ""))
-
-    local str1 = type(p1) == "number" and string.format("%d%%", p1) or tostring(p1 or ""):gsub(" of ", " / ")
-    local str2 = type(p2) == "number" and string.format("%d%%", p2) or (p2 ~= nil and tostring(p2):gsub(" of ", " / ") or nil)
+    local str1 = shared.metricText(m1)
+    local str2 = shared.metricText(m2)
 
     -- If one window is exhausted, its reset is the real unlock time. Showing
     -- the shorter session reset would promise availability while the weekly
@@ -478,8 +520,8 @@ local function formatDualMetric(m1, m2)
     local c2 = m2 ~= nil and fixedCountdown(m2) or ""
 
     local left = ""
-    local p1Num = tonumber(p1) or 0
-    local p2Num = tonumber(p2) or 0
+    local p1Num = tonumber(m1 and m1.percent) or 0
+    local p2Num = tonumber(m2 and m2.percent) or 0
     if blocking ~= nil and (p2Num >= 100 or p1Num < 100) then
         left = fixedCountdown(blocking)
     elseif c1 ~= "" and c2 ~= "" then
@@ -490,8 +532,8 @@ local function formatDualMetric(m1, m2)
         left = c2
     end
 
-    local val = str1
-    if str2 ~= nil and str2 ~= "" then
+    local val = str1 or str2 or ""
+    if str1 ~= nil and str2 ~= nil and str2 ~= "" then
         val = val .. " / " .. str2
     end
     return val, left
@@ -512,9 +554,14 @@ local function tooltip(picked, hidden)
         -- config for a failure the CLI already worded.
         local down = pinnedDown()
         if down ~= nil then
-            local warn = warning(down)
-            if warn == "" then warn = noctalia.tr("ui.unavailable") end
-            return { { key = tostring(down.display_name or down.id), value = warn } }
+            local rows = {}
+            appendDiagnostic(rows, down)
+            return rows
+        end
+        if vendor == "auto" then
+            local rows = {}
+            for _, entry in ipairs(failedEntries()) do appendDiagnostic(rows, entry) end
+            if #rows > 0 then return rows end
         end
         local waiting = vendor == "auto" and noctalia.tr("ui.waiting")
             or noctalia.tr("ui.not_configured", { vendor = wantedEntryId() })
@@ -525,7 +572,7 @@ local function tooltip(picked, hidden)
     for _, entry in ipairs(picked) do
         local title = tostring(entry.display_name or entry.id)
         if entry.status == "error" then
-            rows[#rows + 1] = { key = title, value = tostring(entry.error or noctalia.tr("ui.unavailable")) }
+            appendDiagnostic(rows, entry)
         else
             local submodels = modelHeadlines(entry)
             if vendor == "gemini" then
@@ -580,6 +627,11 @@ local function tooltip(picked, hidden)
             end
         end
     end
+    if vendor == "auto" then
+        for _, entry in ipairs(failedEntries()) do
+            if not shared.readFailure(entry) then appendDiagnostic(rows, entry) end
+        end
+    end
     if hidden > 0 then
         rows[#rows + 1] = { key = noctalia.tr("ui.hidden_label"), value = noctalia.tr("ui.hidden_value", { count = hidden }) }
     end
@@ -628,6 +680,7 @@ local function render()
         -- One glyph, coloured by the state. A pinned provider that is down or
         -- waiting uses its own glyph so the capsule remains identifiable.
         local down = pinnedDown()
+        if down == nil and vendor == "auto" then down = failedEntries()[1] end
         local glyphName = (down ~= nil and providerGlyph(down.id))
             or (vendor ~= "auto" and providerGlyph(wantedEntryId()))
             or "scale"

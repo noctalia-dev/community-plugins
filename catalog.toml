@@ -1717,8 +1717,8 @@ tags = ["launcher", "system", "utility"]
 [[plugin]]
 id = "decksters-lab/palette-creator"
 name = "Palette Creator"
-version = "1.0.1"
-updated_at = 1792983494
+version = "1.0.2"
+updated_at = 1793110598
 added_at = 1786747169
 author = "decksters-lab"
 license = "MIT"
@@ -4381,8 +4381,8 @@ tags = ["bar", "launcher", "panel", "utility"]
 [[plugin]]
 id = "miguelfm/ai-triage"
 name = "AI Triage"
-version = "1.6.3"
-updated_at = 1792983494
+version = "1.8.0"
+updated_at = 1793110625
 added_at = 1791591274
 author = "miguelfm"
 license = "MIT"
@@ -4924,8 +4924,8 @@ tags = ["panel", "ai", "productivity", "hyprland"]
 [[plugin]]
 id = "ak4duy/umami"
 name = "Umami"
-version = "1.0.1"
-updated_at = 1792983494
+version = "1.0.2"
+updated_at = 1793110514
 added_at = 1792782798
 author = "ak4duy"
 license = "MIT"
@@ -5115,8 +5115,8 @@ tags = ["bar", "panel", "service", "privacy", "utility"]
 [[plugin]]
 id = "0rgl/localsend-plus"
 name = "LocalSend Plus"
-version = "1.2.0"
-updated_at = 1793058341
+version = "1.2.1"
+updated_at = 1793110152
 added_at = 1793058341
 author = "0rgl"
 license = "MIT"
@@ -5163,3 +5163,42 @@ icon = "cards"
 description = "MTG-style animated card-deck wallpaper picker inspired by qs-wallpaperpicker."
 plugin_api = 43
 tags = ["wallpaper", "animation", "theming", "desktop"]
+
+[[plugin]]
+id = "dmopp/settings-to-nix"
+name = "Settings to Nix"
+version = "1.0.0"
+updated_at = 1793111197
+added_at = 1793111197
+author = "dMopp"
+license = "MIT"
+icon = "snowflake"
+description = "Backs up your Noctalia GUI settings as a Nix file that restores them with one nix-build command."
+plugin_api = 24
+tags = ["shortcut", "service", "nixos", "utility"]
+
+[[plugin]]
+id = "edward/claude-operator"
+name = "Claude Operator"
+version = "0.7.3"
+updated_at = 1793111940
+added_at = 1793111940
+author = "edward"
+license = "MIT"
+icon = "headset"
+description = "Live Claude Code sessions, plan limits and cost on the bar; jump to, resume and manage every session."
+plugin_api = 43
+tags = ["ai", "development", "bar", "desktop", "panel", "launcher", "service", "productivity"]
+
+[[plugin]]
+id = "dmopp/opnsense-traffic"
+name = "OPNsense Traffic"
+version = "1.0.0"
+updated_at = 1793112472
+added_at = 1793112472
+author = "dMopp"
+license = "MIT"
+icon = "router"
+description = "Download and upload rate of an OPNsense interface in the bar, styled like the built-in network widgets."
+plugin_api = 42
+tags = ["bar", "panel", "service", "network", "indicator"]

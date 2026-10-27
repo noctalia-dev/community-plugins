@@ -37,22 +37,22 @@ local PREVIEW_NAME = "_live_preview"
 
 -- ── Color roles (same 16 MD3 roles v4 used, same order) ───────────────────
 local ROLES = {
-  { key = "mPrimary", label = "Primary" },
-  { key = "mOnPrimary", label = "On Primary" },
-  { key = "mSecondary", label = "Secondary" },
-  { key = "mOnSecondary", label = "On Secondary" },
-  { key = "mTertiary", label = "Tertiary" },
-  { key = "mOnTertiary", label = "On Tertiary" },
-  { key = "mError", label = "Error" },
-  { key = "mOnError", label = "On Error" },
-  { key = "mSurface", label = "Surface" },
-  { key = "mOnSurface", label = "On Surface" },
-  { key = "mSurfaceVariant", label = "Surface Variant" },
-  { key = "mOnSurfaceVariant", label = "On Surface Variant" },
-  { key = "mOutline", label = "Outline" },
-  { key = "mShadow", label = "Shadow" },
-  { key = "mHover", label = "Hover" },
-  { key = "mOnHover", label = "On Hover" },
+  { key = "mPrimary", label = "primary" },
+  { key = "mOnPrimary", label = "on_primary" },
+  { key = "mSecondary", label = "secondary" },
+  { key = "mOnSecondary", label = "on_secondary" },
+  { key = "mTertiary", label = "tertiary" },
+  { key = "mOnTertiary", label = "on_tertiary" },
+  { key = "mError", label = "error" },
+  { key = "mOnError", label = "on_error" },
+  { key = "mSurface", label = "surface" },
+  { key = "mOnSurface", label = "on_surface" },
+  { key = "mSurfaceVariant", label = "surface_container" },
+  { key = "mOnSurfaceVariant", label = "on_surface_variant" },
+  { key = "mOutline", label = "outline_variant" },
+  { key = "mShadow", label = "shadow" },
+  { key = "mHover", label = "hover" },
+  { key = "mOnHover", label = "on_hover" },
 }
 
 -- Neutral fallback seed, used only when we can't read your actual active
@@ -549,7 +549,7 @@ applyPreview = function()
   local encoded = noctalia.json.encode({ dark = payload, light = payload })
   if encoded then
     noctalia.writeFile(palettesDir() .. "/" .. PREVIEW_NAME .. ".json", encoded)
-    noctalia.runAsync(("noctalia msg color-scheme-set custom %s"):format(PREVIEW_NAME))
+    noctalia.runAsync({ "noctalia", "msg", "color-scheme-set", "custom", PREVIEW_NAME })
   end
 end
 
@@ -698,7 +698,7 @@ local function roleRow(role)
         local initial = scheme[role.key]
         local accepted = noctalia.openColorPicker(initial, function(newColor)
           if newColor ~= nil then
-            scheme[role.key] = newColor:lower()
+            scheme[role.key] = sanitizeHex(newColor)
             saveWip()
             if previewActive then
               applyPreview()

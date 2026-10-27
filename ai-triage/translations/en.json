@@ -4,10 +4,6 @@
       "description": "Optional named account label from ai-usagebar. Leave empty for the default account. Ignored when the provider is Automatic.",
       "label": "Account label"
     },
-    "bar_font_scale": {
-      "description": "Adjusts font and icon sizes for this specific bar capsule.",
-      "label": "Capsule font size"
-    },
     "color_by_usage": {
       "description": "Tints the reading as the quota gets tight. Off keeps the capsule in the bar's own colour.",
       "label": "Color by usage"
@@ -22,6 +18,10 @@
         "pace": "Pace against the clock"
       }
     },
+    "bar_font_scale": {
+      "description": "Adjusts font and icon sizes for this specific bar capsule.",
+      "label": "Capsule font size"
+    },
     "font_scale": {
       "description": "Adjusts font and icon sizes proportionally across the panel and bar.",
       "label": "Font size",
@@ -33,26 +33,6 @@
         "normal": "Normal (100%)"
       }
     },
-    "gearing_anthropic": {
-      "description": "Estimated full 5h sessions per weekly quota for Claude Pro. The panel displays whole numbers; calculations and automatic calibration retain decimal precision.",
-      "label": "Gearing ratio: Claude Pro (sessions/wk)"
-    },
-    "gearing_claude_oss": {
-      "description": "Estimated full 5h sessions per weekly quota for Claude & GPT OSS. The panel displays whole numbers; calculations and automatic calibration retain decimal precision.",
-      "label": "Gearing ratio: Claude & GPT OSS (sessions/wk)"
-    },
-    "gearing_default": {
-      "description": "Estimated full 5h sessions per weekly quota for unlisted models. The panel displays whole numbers; calculations and automatic calibration retain decimal precision.",
-      "label": "Gearing ratio: Default (sessions/wk)"
-    },
-    "gearing_gemini": {
-      "description": "Estimated full 5h sessions per weekly quota for Gemini. The panel displays whole numbers; calculations and automatic calibration retain decimal precision.",
-      "label": "Gearing ratio: Gemini (sessions/wk)"
-    },
-    "gearing_openai": {
-      "description": "Estimated full 5h sessions per weekly quota for OpenAI / Codex. The panel displays whole numbers; calculations and automatic calibration retain decimal precision.",
-      "label": "Gearing ratio: Codex / OpenAI (sessions/wk)"
-    },
     "glyph_position": {
       "description": "Which side of the reading the icon sits on.",
       "label": "Icon position",
@@ -60,18 +40,6 @@
         "after": "After",
         "before": "Before"
       }
-    },
-    "hidden_services": {
-      "description": "Comma-separated list of provider or model IDs to hide from both the bar and panel (e.g. claude-oss, moonshot).",
-      "label": "Hidden services & models"
-    },
-    "hide_claude_oss": {
-      "description": "Hides the Claude & GPT OSS tier from Antigravity in both the bar and panel, keeping Gemini active.",
-      "label": "Hide Claude & GPT OSS"
-    },
-    "meal_pause_hours": {
-      "description": "Estimated inactive hours during daytime for lunch, dinner, or rest breaks.",
-      "label": "Daily meal & break pause (hours)"
     },
     "provider_limit": {
       "description": "How many providers one capsule shows, busiest first, with a +N for the rest. Only applies when the provider is Automatic.",
@@ -85,6 +53,54 @@
       "description": "Discount sleep, meals, and off-hours to pace quota consumption against real active working hours.",
       "label": "Schedule-aware triage"
     },
+    "sleep_start_hour": {
+      "description": "Weekday off-hours start, in half-hour steps (e.g. 22 for 22:00, 22.5 for 22:30).",
+      "label": "Sleep / off-hours start (weekdays)"
+    },
+    "sleep_end_hour": {
+      "description": "Weekday active hours resume, in half-hour steps (e.g. 8.5 for 08:30).",
+      "label": "Wake / active hours resume (weekdays)"
+    },
+    "weekend_sleep_start_hour": {
+      "description": "Weekend off-hours start, in half-hour steps (e.g. 22 for 22:00).",
+      "label": "Sleep / off-hours start (weekends)"
+    },
+    "weekend_sleep_end_hour": {
+      "description": "Weekend active hours resume, in half-hour steps (e.g. 8.5 for 08:30).",
+      "label": "Wake / active hours resume (weekends)"
+    },
+    "meal_pause_hours": {
+      "description": "Daily hours unavailable for meals, breaks or other tasks (0–24). Spread proportionally across waking hours; no fixed break times.",
+      "label": "Other daily unavailable time (hours)"
+    },
+    "hide_claude_oss": {
+      "description": "Hides the Claude & GPT OSS tier from Antigravity in both the bar and panel, keeping Gemini active.",
+      "label": "Hide Claude & GPT OSS"
+    },
+    "hidden_services": {
+      "description": "Comma-separated list of provider or model IDs to hide from both the bar and panel (e.g. claude-oss, moonshot).",
+      "label": "Hidden services & models"
+    },
+    "gearing_claude_oss": {
+      "description": "Estimated full 5h sessions per weekly quota for Claude & GPT OSS. The panel displays whole numbers; calculations and automatic calibration retain decimal precision.",
+      "label": "Gearing ratio: Claude & GPT OSS (sessions/wk)"
+    },
+    "gearing_gemini": {
+      "description": "Estimated full 5h sessions per weekly quota for Gemini. The panel displays whole numbers; calculations and automatic calibration retain decimal precision.",
+      "label": "Gearing ratio: Gemini (sessions/wk)"
+    },
+    "gearing_anthropic": {
+      "description": "Estimated full 5h sessions per weekly quota for Claude Pro. The panel displays whole numbers; calculations and automatic calibration retain decimal precision.",
+      "label": "Gearing ratio: Claude Pro (sessions/wk)"
+    },
+    "gearing_openai": {
+      "description": "Estimated full 5h sessions per weekly quota for OpenAI / Codex. The panel displays whole numbers; calculations and automatic calibration retain decimal precision.",
+      "label": "Gearing ratio: Codex / OpenAI (sessions/wk)"
+    },
+    "gearing_default": {
+      "description": "Estimated full 5h sessions per weekly quota for unlisted models. The panel displays whole numbers; calculations and automatic calibration retain decimal precision.",
+      "label": "Gearing ratio: Default (sessions/wk)"
+    },
     "show_glyph": {
       "description": "The provider's icon. Off leaves the reading on its own.",
       "label": "Show icon"
@@ -96,14 +112,6 @@
     "show_value": {
       "description": "The percentage as text. Off leaves the gauge to say it.",
       "label": "Show value"
-    },
-    "sleep_end_hour": {
-      "description": "Hour when active usage resumes in the morning on weekdays (e.g. 8 for 8 AM).",
-      "label": "Wake / active hours resume (weekdays)"
-    },
-    "sleep_start_hour": {
-      "description": "Hour when sleep or off-hours begin on weekdays (e.g. 0 for midnight, 23 for 11 PM).",
-      "label": "Sleep / off-hours start (weekdays)"
     },
     "style": {
       "description": "How this capsule looks in the bar.",
@@ -141,7 +149,17 @@
         "opencode_go": "OpenCode Go",
         "openrouter": "OpenRouter",
         "supergrok": "SuperGrok",
-        "zai": "Z.AI"
+        "zai": "Z.AI",
+        "deepinfra": "DeepInfra",
+        "synthetic": "Synthetic",
+        "grokbot": "Grok Bot",
+        "ollama": "Ollama Cloud",
+        "orcarouter": "OrcaRouter",
+        "modelstudio": "Model Studio",
+        "lyceum": "Lyceum",
+        "devin": "Devin",
+        "muse_code": "Muse Code",
+        "cline": "Cline"
       }
     },
     "visualization": {
@@ -152,13 +170,9 @@
         "none": "Nothing"
       }
     },
-    "weekend_sleep_end_hour": {
-      "description": "Hour when active usage resumes on weekends (e.g. 9 for 9 AM).",
-      "label": "Wake / active hours resume (weekends)"
-    },
-    "weekend_sleep_start_hour": {
-      "description": "Hour when sleep or off-hours begin on weekends (e.g. 1 for 1 AM).",
-      "label": "Sleep / off-hours start (weekends)"
+    "query_timeout_seconds": {
+      "label": "Quota query timeout (seconds)",
+      "description": "Maximum time to wait for all providers. Increase for many accounts or slow Antigravity startup."
     }
   },
   "ui": {
@@ -174,7 +188,7 @@
       "spawn_failed": "Could not start ai-usagebar",
       "spawn_failed_hint": "The process never started. Try again in a moment.",
       "timed_out": "ai-usagebar did not answer",
-      "timed_out_hint": "The read took too long. A provider may be answering slowly."
+      "timed_out_hint": "Check the connection and provider availability, then try again. Increase the quota query timeout in settings if reads remain slow."
     },
     "hidden_label": "Not shown",
     "hidden_value": "{count} more, click to open the panel",
@@ -205,6 +219,39 @@
     "updated": "Updated",
     "updated_ago": "Updated {minutes} min ago",
     "updated_now": "Updated just now",
-    "waiting": "Waiting for usage data"
+    "waiting": "Waiting for usage data",
+    "diagnostic": {
+      "cause": {
+        "signed_out": "Sign-in required",
+        "authentication": "Authentication failed",
+        "missing_key": "API key missing",
+        "permission": "Access denied",
+        "rate_limited": "Requests rate limited",
+        "server": "Provider server error",
+        "timeout": "Quota query timed out",
+        "network": "Connection failed",
+        "schema": "Usage response not understood",
+        "local_server": "Antigravity session unavailable",
+        "credentials": "Credential problem",
+        "unknown": "Usage unavailable"
+      },
+      "action": {
+        "login": "Sign in from a terminal, then refresh:",
+        "named_account": "Reconnect account {account} in ai-usagebar, then refresh.",
+        "missing_key": "Check this provider’s API key in ai-usagebar, then refresh.",
+        "reconnect": "Sign in again in the provider’s app or CLI, then refresh.",
+        "permission": "Check the account’s permissions and subscription, then refresh.",
+        "rate_limited": "Wait for the retry window. The next automatic refresh will try again.",
+        "server": "Wait for the provider to recover, then refresh.",
+        "timeout": "Check the connection and provider availability, then refresh. Increase the query timeout if it keeps happening.",
+        "network": "Check the internet connection, VPN or proxy, then refresh.",
+        "schema": "Update ai-usagebar and refresh. If it persists, report the response format error.",
+        "local_server": "Open Antigravity or an agy session, sign in if needed, then refresh.",
+        "credentials": "Check the saved credentials and file permissions in ai-usagebar, then refresh.",
+        "unknown": "Refresh and check the provider’s status if the problem persists."
+      },
+      "copy_command": "Copy sign-in command",
+      "recommended_action": "Recommended action"
+    }
   }
 }

@@ -35,13 +35,26 @@ function M.dashboardUrl(path)
   return (root:gsub("/api$", "")) .. path
 end
 
+local function withAccessHeaders(request)
+  local id, secret = setting("cf_access_client_id"), setting("cf_access_client_secret")
+  if id ~= "" and secret ~= "" then
+    local headers = table.clone(request.headers or {})
+    table.insert(headers, `CF-Access-Client-Id: {id}`)
+    table.insert(headers, `CF-Access-Client-Secret: {secret}`)
+    request.headers = headers
+  end
+  return request
+end
+
 local function call(request, onBody, onFail)
-  local started = noctalia.http(request, function(res)
+  local started = noctalia.http(withAccessHeaders(request), function(res)
     if not res.ok then
       onFail("error.network")
     elseif res.status == 401 then
       token = nil
       onFail("error.unauthorized")
+    elseif res.status == 302 then
+      onFail("error.access_redirect")
     elseif res.status ~= 200 then
       onFail("error.http_status", { status = res.status })
     else

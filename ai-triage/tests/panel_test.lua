@@ -151,8 +151,52 @@ local rejectedProvider = {
     },
 }
 local rejectedLabels = labels(loadPanel(rejectedProvider))
-assert(not has(rejectedLabels, "Claude"),
-       "a terminal provider should leave the panel immediately")
+assert(has(rejectedLabels, "Claude") and has(rejectedLabels, "ui.diagnostic.cause.authentication"),
+       "an authentication failure must keep its provider and cause visible")
+assert(has(rejectedLabels, "claude auth login"), "Claude must show the command that restores sign-in")
+
+local diagnosticCases = {
+    { "credentials error: no access token; run `claude` to log in", "signed_out", "login" },
+    { "HTTP 429: Rate limited", "rate_limited", "rate_limited" },
+    { "HTTP 503: authentication service unavailable", "server", "server" },
+    { "HTTP 403: forbidden", "permission", "permission" },
+    { "network transport error: DNS lookup failed", "network", "network" },
+    { "network transport error: request timed out", "timeout", "timeout" },
+}
+for _, case in ipairs(diagnosticCases) do
+    local diagnosticTree = loadPanel({ id = "anthropic", display_name = "Claude", status = "error",
+        error = case[1], metrics = { { label = "Weekly", percent = 95, window_secs = 604800 } } })
+    local texts = labels(diagnosticTree)
+    assert(has(texts, "Claude") and has(texts, "ui.diagnostic.cause." .. case[2]), "failed provider must explain its cause")
+    assert(has(texts, "ui.diagnostic.action." .. case[3]) and has(texts, case[1]), "recommendation and CLI detail must be visible")
+    assert(not has(texts, "95%"), "old quota must not appear current after the read fails")
+    if case[2] ~= "signed_out" then
+        assert(not has(texts, "claude auth login"), "transient and permission failures must not suggest logging in again")
+    end
+end
+
+local signedOut = { id = "anthropic", display_name = "Claude", status = "error",
+    error = "credentials error: no access token", metrics = {} }
+local loginTree, publishLogin, _, loginOpened, loginCopied = loadPanel(signedOut)
+assert(#loginOpened == 0, "rendering a sign-in hint must not run a command")
+for _, button in ipairs(collect(loginTree, "button")) do
+    if button.props.text == "ui.diagnostic.copy_command" then button.props.onClick() break end
+end
+assert(#loginCopied == 1 and loginCopied[1].text == "claude auth login", "the copy action must supply the recommended command")
+local recoveredLabels = labels(publishLogin({ id = "anthropic", display_name = "Claude", status = "ready",
+    metrics = { { label = "Session", percent = 10, window_secs = 18000 } } }))
+assert(not has(recoveredLabels, "claude auth login") and not has(recoveredLabels, "ui.diagnostic.cause.signed_out"),
+    "a successful read must remove the old sign-in warning")
+assert(not has(labels(loadPanel(signedOut, nil, { hidden_services = "anthropic" })), "Claude"),
+    "explicitly hidden providers must remain hidden even after authentication failure")
+
+local globalErrorLabels = labels(loadPanel({ id = "openai", display_name = "Codex", status = "ready",
+    metrics = { { label = "Session", percent = 20, window_secs = 18000 } } },
+    { code = "timed_out", detail = "quota command exceeded its deadline" }))
+assert(has(globalErrorLabels, "ui.error.timed_out") and has(globalErrorLabels, "quota command exceeded its deadline"),
+    "a failed refresh must remain visible alongside the earlier report")
+assert(has(labels(loadPanel({ entries = {} }, { code = "timed_out", detail = "empty previous report" })),
+    "ui.error.timed_out"), "an empty earlier report must not conceal a failed refresh")
 
 local normalReport = {
     entries = {
@@ -276,6 +320,26 @@ assert(has(spentLabels, "Optimal Reset Window!") and has(spentLabels, "CLAIM NOW
     "a spent week with days left must recommend the claim")
 assert(mentions(spentLabels, "claim now: ~100% of a week back"), "the claim must state what it buys back")
 
+-- Credit pacing names its real deadline and exposes the available-time estimate.
+local datedCredit = creditEntry("openai", "Codex", 60, 168, { 24 })
+local datedTree, _, datedEnv = loadPanel(datedCredit, nil, calendarConfig)
+local datedShared = datedEnv.require("./shared.luau")
+local expiry = datedShared.parseIso(datedCredit.reset_credits.credits[1].expires_at)
+local deadlineTip = false
+for _, row in ipairs(collect(datedTree, "row")) do
+    local tip = row.props.tooltip or ""
+    if tip:find("Claim before " .. os.date("%b %d %H:%M %Z", expiry), 1, true)
+        and tip:find("h needed /", 1, true) and tip:find("h available", 1, true) then deadlineTip = true end
+end
+assert(deadlineTip and has(labels(datedTree), "Fast-track"),
+    "fast-track must explain the real credit deadline and required/available time")
+local shortTree = loadPanel(creditEntry("openai", "Codex", 10, 168, { 5.5 }), nil, calendarConfig)
+local limitedTime = false
+for _, row in ipairs(collect(shortTree, "row")) do
+    if tostring(row.props.tooltip or ""):find("95% may be unreachable", 1, true) then limitedTime = true end
+end
+assert(limitedTime, "an infeasible 95% target must not be presented as assured")
+
 -- Weekly Reset Schedule visibility in Column 3
 assert(has(holdLabels, "Weekly Reset Schedule"), "Column 3 must display the Weekly Reset Schedule")
 assert(has(holdLabels, "0d 05h") and has(holdLabels, "5d 12h"), "Column 3 schedule rows must display remaining time as Xd Yh in its own cell")
@@ -318,5 +382,51 @@ local filteredPanelLabels = labels(loadPanel(panelAgyReport, nil, { hide_claude_
 assert(has(filteredPanelLabels, "Gemini"), "Gemini must remain visible in panel when Claude OSS is hidden")
 assert(not has(filteredPanelLabels, "Claude & GPT OSS"), "Claude & GPT OSS must NOT be rendered anywhere in panel when hidden")
 assert(has(filteredPanelLabels, "Claude"), "Anthropic Claude Pro must NOT be hidden in panel")
+
+-- Unexpected changes remain visible for 24h, with explicit before/after dates.
+local resetEntry = creditEntry("openai", "Codex", 50, 2.5, {})
+local weekly = resetEntry.metrics[2]
+weekly.reset_observation = { at = os.time(), source = "ai-usagebar", event = {
+    kind = "early_renewal", at = os.time(), previous_reset_at = os.time() + 3600,
+    reset_at = os.time() + 7200,
+} }
+local resetTree = loadPanel(resetEntry)
+local resetLabels = labels(resetTree)
+assert(has(resetLabels, "Weekly reset changed") and has(resetLabels, "Codex · Early renewal observed")
+    and mentions(resetLabels, "Before:") and mentions(resetLabels, "Now announced:"),
+    "a recent unexpected renewal must show a compact before/after notice")
+local tips = {}
+for _, row in ipairs(collect(resetTree, "row")) do tips[#tips + 1] = row.props.tooltip or "" end
+assert(mentions(tips, "Early renewal detected") and mentions(tips, "Next weekly reset announced"),
+    "both the clock and schedule must explain provider dates on hover")
+local event = weekly.reset_observation.event
+event.kind = "schedule_changed"
+assert(has(labels(loadPanel(resetEntry)), "Codex · Renewal not confirmed"),
+    "a date-only change must not claim a renewal")
+event.at = os.time() - 86401
+assert(not has(labels(loadPanel(resetEntry)), "Weekly reset changed"), "the notice must disappear after 24h")
+event.detected_at = os.time()
+assert(has(labels(loadPanel(resetEntry)), "Weekly reset changed"), "the notice starts at detection, not old reading time")
+event.expected = true
+assert(not has(labels(loadPanel(resetEntry)), "Weekly reset changed"), "scheduled rollovers must not create unexpected-change alerts")
+event.expected, event.floating = false, true
+assert(not has(labels(loadPanel(resetEntry)), "Weekly reset changed"), "idle floating timers must not create unexpected-change alerts")
+event.floating, event.kind = false, "renewal"
+assert(not has(labels(loadPanel(resetEntry)), "Weekly reset changed"), "normal renewals must stay quiet")
+
+weekly.reset_at = isoIn(-60)
+local pendingLabels = labels(loadPanel(resetEntry))
+assert(has(pendingLabels, "Check") and has(pendingLabels, "Pending confirmation"),
+    "expired schedules need a compact confirmation state")
+assert(not has(pendingLabels, "0d 00h") and not has(pendingLabels, "7d 00h"),
+    "an expired weekly deadline must not turn into a new countdown")
+assert(not has(pendingLabels, "Weekly Reset Imminent!"), "unconfirmed renewals must not generate sprint alerts")
+weekly.reset_at = nil
+assert(has(labels(loadPanel(resetEntry)), "Pending confirmation"), "missing dates need confirmation too")
+weekly.reset_at = isoIn(2.5 * 3600)
+weekly.reset_observation.at = os.time() - 1800
+local staleLabels = labels(loadPanel(resetEntry))
+assert(has(staleLabels, "~0d 02h"), "old countdowns need a discreet approximation marker")
+assert(not has(staleLabels, "Weekly Reset Imminent!"), "old readings must not create urgency")
 
 io.write("ok: panel rendering, typography, and rounded session estimates with precise calibration\n")
