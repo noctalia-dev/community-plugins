@@ -1,13 +1,13 @@
 id = "ishan0121/wallpaper-deck"
 name = "Wallpaper Deck"
-version = "1.0.0"
+version = "1.1.0"
 plugin_api = 43
 author = "Ishan0121"
 license = "GPL-3.0"
 icon = "cards"
 description = "MTG-style animated card-deck wallpaper picker inspired by qs-wallpaperpicker."
 tags = ["wallpaper", "animation", "theming", "desktop"]
-dependencies = ["ffmpeg", "matugen", "python3", "wtype"]
+dependencies = ["ffmpeg", "matugen"]
 
 # --- Plugin Settings ---
 [[setting]]
@@ -33,10 +33,17 @@ default = true
 
 [[setting]]
 key = "additional_wallpaper_dirs"
-type = "string"
+type = "string_list"
 label_key = "settings.additional_wallpaper_dirs.label"
 description_key = "settings.additional_wallpaper_dirs.description"
-default = ""
+default = []
+
+[[setting]]
+key = "scan_subdirectories"
+type = "bool"
+label_key = "settings.scan_subdirectories.label"
+description_key = "settings.scan_subdirectories.description"
+default = true
 
 [[setting]]
 key = "backend_mode"

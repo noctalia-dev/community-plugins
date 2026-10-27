@@ -13,17 +13,13 @@ A native Noctalia wallpaper picker inspired by Magic: The Gathering cards, featu
 
 ## Requirements
 
-The plugin relies on the following tools available on `PATH`:
-
-- `python3` - Runs the background scanner and color-wheel indexer (`scripts/wallpaper_helper.py`).
-- `matugen` - Generates Material 3 color palettes and dynamic contrast tokens from wallpapers.
-- `ffmpeg` - Extracts frames and generates fast thumbnail previews.
-- `wtype` - Simulates keypress events for smooth swipe gestures.
+The plugin works out of the box with native Luau scanning. For enhanced features, the following optional tools are supported:
 
 ### Optional Tools
 
+- `matugen` - Generates Material 3 color palettes and dynamic contrast tokens from wallpapers.
+- `ffmpeg` or `imagemagick` - Generates cached thumbnails for faster rendering.
 - `swww` or `awww` - Alternative wallpaper daemons supported via the custom command setting.
-- `python-pillow` - Accelerates image thumbnail resizing.
 
 ## Usage
 
@@ -76,7 +72,8 @@ Configurable inside Noctalia Settings (**Settings** -> **Plugins** -> **Wallpape
 | `wallpaper_dir` | `folder` | `~/Pictures/wallpapers` | Primary directory scanned for wallpapers. |
 | `extra_wallpaper_dir` | `folder` | `~/Pictures/WallHaven` | Additional secondary directory scanned for wallpapers. |
 | `include_wallhaven_downloads` | `bool` | `true` | Automatically includes the Wallhaven download directory in the local deck. |
-| `additional_wallpaper_dirs` | `string` | `""` | Extra directories to scan, separated by commas or colons. |
+| `additional_wallpaper_dirs` | `string_list` | `[]` | List of extra directories to scan (add more using the '+' button in Settings). |
+| `scan_subdirectories` | `bool` | `true` | Recursively search subdirectories inside wallpaper folders. |
 | `backend_mode` | `select` | `native` | Wallpaper engine mode: `native` (Noctalia surface) or `custom`. |
 | `custom_command` | `string` | `swww img "{path}" --transition-type grow --transition-fps 60` | Shell command executed when `backend_mode` is set to `custom`. Supports `{path}` and `{output}`. |
 | `post_hook_command` | `string` | `""` | Optional shell hook executed after applying a wallpaper (e.g. `matugen image "{path}"`). |
@@ -109,6 +106,6 @@ noctalia msg panel-close ishan0121/wallpaper-deck:picker
 ## Notes
 
 - **Filesystem & Cache**: Cached thumbnails, Material 3 palettes, and favourites are stored in `~/.cache/wallpaper-deck/`.
-- **Processes**: On folder scan, `wallpaper_helper.py` runs asynchronously with thread-pool workers to extract metadata and palettes without blocking the UI thread.
+- **Processes**: Folder scanning runs natively in Luau asynchronously without blocking the UI thread. Palettes and thumbnails are extracted in the background when supported tools are available.
 - **Network**: Wallhaven mode queries `https://wallhaven.cc/api/v1` strictly upon user request or search query. Local and Favourites modes do not perform any network operations.
 - **Compositor Support**: Compatible with Wayland compositors including Niri, Hyprland, Sway, River, MangoWC, and Labwc.

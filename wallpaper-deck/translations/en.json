@@ -17,8 +17,12 @@
       "description": "Automatically scan and display downloaded Wallhaven wallpapers alongside your local collection."
     },
     "additional_wallpaper_dirs": {
-      "label": "Extra Wallpaper Directories",
-      "description": "Additional directories to scan, separated by commas or colons."
+      "label": "Additional Wallpaper Directories",
+      "description": "Add extra folders to scan for wallpapers using the '+' button."
+    },
+    "scan_subdirectories": {
+      "label": "Scan Subdirectories",
+      "description": "Recursively search folders inside your wallpaper directory for wallpapers."
     },
     "backend_mode": {
       "label": "Wallpaper Engine",

@@ -38,21 +38,27 @@ local wallhavenLoadingStartMs = 0
 local WALLHAVEN_CACHE_DIR = noctalia.expandPath("~/.local/state/noctalia/wallhaven/thumbs")
 pcall(noctalia.mkdirAll, WALLHAVEN_CACHE_DIR)
 
-local pluginDir = (type(noctalia.pluginDir) == "function" and noctalia.pluginDir())
-  or noctalia.expandPath("~/.local/share/noctalia/plugins/wallpaper-deck")
-
-local HELPER_SCRIPT = pluginDir .. "/scripts/wallpaper_helper.py"
-if not noctalia.fileExists(HELPER_SCRIPT) then
-  local devHelper = noctalia.expandPath("~/Documents/Codes/Aetheris/noctalia/plugins/wallpaper-deck/scripts/wallpaper_helper.py")
-  if noctalia.fileExists(devHelper) then
-    HELPER_SCRIPT = devHelper
-  end
-end
-
 local STATE_DIR = (type(noctalia.pluginDataDir) == "function" and noctalia.pluginDataDir())
   or noctalia.expandPath("~/.local/state/noctalia/plugins/data/ishan0121/wallpaper-deck")
 
+local displayedBgPath = ""
+
 local WHEEL_PID_FILE = STATE_DIR .. "/wheel_listener.pid"
+
+local function getWheelScript(): string?
+  local candidates = {
+    (type(noctalia.pluginDir) == "function" and (noctalia.pluginDir() .. "/scripts/wheel_listener.py")),
+    noctalia.expandPath("~/.local/state/noctalia/plugins/materialized/community/wallpaper-deck/scripts/wheel_listener.py"),
+    noctalia.expandPath("~/.local/share/noctalia/plugins/wallpaper-deck/scripts/wheel_listener.py"),
+    noctalia.expandPath("~/Documents/Codes/Aetheris/noctalia/community-plugins/wallpaper-deck/scripts/wheel_listener.py"),
+  }
+  for _, path in ipairs(candidates) do
+    if path and noctalia.fileExists(path) then
+      return path
+    end
+  end
+  return nil
+end
 
 local function stopWheelListener()
   pcall(function()
@@ -61,16 +67,8 @@ local function stopWheelListener()
       if pid and pid ~= "" then
         local trimmed = string.gsub(pid, "%s+", "")
         if tonumber(trimmed) then
-          local cmdline = noctalia.readFile("/proc/" .. trimmed .. "/cmdline")
-          if cmdline and string.find(cmdline, "wallpaper_helper.py", 1, true) and string.find(cmdline, "wheel", 1, true) then
-            noctalia.runAsync({ "kill", "-15", trimmed }, function() end)
-          end
+          noctalia.runAsync(string.format("kill -9 %s 2>/dev/null; rm -f '%s'", trimmed, WHEEL_PID_FILE))
         end
-      end
-      if type(noctalia.removeFile) == "function" then
-        pcall(noctalia.removeFile, WHEEL_PID_FILE)
-      else
-        noctalia.runAsync({ "rm", "-f", WHEEL_PID_FILE }, function() end)
       end
     end
   end)
@@ -79,12 +77,13 @@ end
 local function startWheelListener()
   pcall(function()
     stopWheelListener()
-    local cmd = string.format("python3 '%s' wheel '%s' &", HELPER_SCRIPT, WHEEL_PID_FILE)
+    local script = getWheelScript()
+    if not script then return end
+    pcall(noctalia.mkdirAll, STATE_DIR)
+    local cmd = string.format("python3 '%s' '%s' &", script, WHEEL_PID_FILE)
     noctalia.runAsync(cmd)
   end)
 end
-
-local displayedBgPath = ""
 local cachedFavCount = -1
 local function getFavCount(): number
   if cachedFavCount >= 0 then
@@ -382,7 +381,8 @@ local currentSort = "name"  -- "name" | "colour" | "newest"
 local searchQuery = ""
 local searchActive = false
 local isPeeking = false
-local isFlattened = false
+local cfgScanSub = noctalia.getConfig("scan_subdirectories")
+local isFlattened = if cfgScanSub ~= nil then (cfgScanSub == true or cfgScanSub == "true" or cfgScanSub == 1) else true
 
 local WH_SORT_LABELS = { "Date Added", "Toplist", "Hot", "Views", "Favorites", "Relevance", "Random" }
 local WH_SORT_VALUES = { "date_added", "toplist", "hot", "views", "favorites", "relevance", "random" }
@@ -745,14 +745,19 @@ local function baseName(name: string): string
   return name
 end
 
-local rootWpDir = (currentWallDir ~= "" and noctalia.expandPath(currentWallDir))
-  or (noctalia.getConfig("wallpaper_dir") and noctalia.expandPath(noctalia.getConfig("wallpaper_dir")))
-  or noctalia.expandPath("~/Pictures/Wallpapers")
+local rawRoot = (currentWallDir ~= "" and currentWallDir)
+  or noctalia.getConfig("wallpaper_dir")
+  or "~/Pictures/Wallpapers"
+local rootWpDir = string.gsub(noctalia.expandPath(rawRoot) or "", "/+$", "")
 local rootWpDirLen = #rootWpDir
 
 local function updateRootWpDir(newDir: string)
   if newDir and newDir ~= "" then
-    rootWpDir = noctalia.expandPath(newDir)
+    local exp = noctalia.expandPath(newDir)
+    if exp and exp ~= "" then
+      exp = string.gsub(exp, "/+$", "")
+    end
+    rootWpDir = exp or ""
     rootWpDirLen = #rootWpDir
   end
 end
@@ -1637,7 +1642,7 @@ local function triggerPreview()
     checkWallhavenLazyLoad()
     return
   end
-  local pPath = item.preview or item.path
+  local pPath = (item.path and item.path ~= "" and noctalia.fileExists(item.path)) and item.path or (item.preview or item.thumb or "")
   if lastPreviewed ~= pPath then
     lastPreviewed = pPath
   end
@@ -1659,7 +1664,8 @@ local function applyCurrent()
     end
     noctalia.state.set("deck_command", { action = "wallhaven_apply", item = item, cachedPath = cached, output = targetOut, nonce = noctalia.nowMs() })
   else
-    if type(noctalia.setWallpaper) == "function" then
+    local mode = noctalia.getConfig("backend_mode") or "native"
+    if mode ~= "custom" and type(noctalia.setWallpaper) == "function" then
       if targetOut then
         noctalia.setWallpaper(targetOut, item.path)
       else
@@ -1854,7 +1860,7 @@ local function renderCard(item: any, index: number, distSigned: number)
     if item._previewPath ~= nil then
       previewPath = (item._previewPath ~= "") and item._previewPath or nil
     else
-      local p = item.thumb or item.path
+      local p = item.thumb or item.preview or item.path
       if p and p ~= "" and noctalia.fileExists(p) then
         item._previewPath = p
         previewPath = p
@@ -2267,6 +2273,30 @@ local function renderEmptyState(paletteColors: any)
         }
       end
     end
+  elseif not isFlattened and #allWallpapers > 0 then
+    glyphName = "folder-tree"
+    title = "Subdirectory wallpapers hidden"
+    subtitle = "Wallpapers were found in subdirectories. Enable Flatten to display them."
+    buttons = {
+      ui.button({
+        text = "Show Subdirectory Wallpapers",
+        glyph = "folder",
+        variant = "primary",
+        controlSize = "md",
+        onClick = function()
+          isFlattened = true
+          rebuildList()
+          render()
+        end,
+      }),
+      ui.button({
+        text = "Open Settings",
+        glyph = "settings",
+        variant = "secondary",
+        controlSize = "md",
+        onClick = openPluginSettings,
+      }),
+    }
   else
     glyphName = "folder-off"
     title = "This directory is empty"
@@ -2376,7 +2406,7 @@ function render()
         activeBg = requestWallhavenThumb(activeItem, true) or ""
       end
     else
-      activeBg = activeItem.preview or activeItem.path or ""
+      activeBg = (activeItem.path and activeItem.path ~= "" and noctalia.fileExists(activeItem.path)) and activeItem.path or (activeItem.preview or activeItem.thumb or "")
     end
   end
 
@@ -2660,8 +2690,7 @@ function render()
           }),
         }),
 
-        -- Center: Mode selector pills (centered in panel)
-        -- Left: Source Switcher (Local / Favourites / Wallhaven)
+        -- Center: Mode selector pills (always in the middle)
         ui.row({
           align = "center",
           gap = 4,
@@ -2671,83 +2700,93 @@ function render()
           radius = R(20),
           padding = 3,
         }, {
-            ui.button({
-              text = "Local",
-              variant = currentMode == "local" and "primary" or "ghost",
-              controlSize = "sm",
-              onClick = function()
-                currentMode = "local"
-                selectedIdx = 1
-                animatedPos = 1.0
-                rebuildList()
-                triggerPreview()
-                render()
-              end,
-            }),
-            ui.button({
-              text = string.format("Favourites %d", favCount),
-              glyph = "heart",
-              variant = currentMode == "favorites" and "primary" or "ghost",
-              controlSize = "sm",
-              onClick = function()
-                currentMode = "favorites"
-                selectedIdx = 1
-                animatedPos = 1.0
-                rebuildList()
-                triggerPreview()
-                render()
-              end,
-            }),
-            ui.button({
-              text = "Wallhaven",
-              glyph = "world",
-              variant = currentMode == "wallhaven" and "primary" or "ghost",
-              controlSize = "sm",
-              onClick = function()
-                currentMode = "wallhaven"
-                selectedIdx = 1
-                animatedPos = 1.0
-                if #((wallhavenData and wallhavenData.items) or {}) == 0 then
-                  doWallhavenSearch(true)
-                end
-                rebuildList()
-                render()
-              end,
-            }),
+          ui.button({
+            text = "Local",
+            variant = currentMode == "local" and "primary" or "ghost",
+            controlSize = "sm",
+            onClick = function()
+              currentMode = "local"
+              selectedIdx = 1
+              animatedPos = 1.0
+              rebuildList()
+              triggerPreview()
+              render()
+            end,
           }),
+          ui.button({
+            text = string.format("Favourites %d", favCount),
+            glyph = "heart",
+            variant = currentMode == "favorites" and "primary" or "ghost",
+            controlSize = "sm",
+            onClick = function()
+              currentMode = "favorites"
+              selectedIdx = 1
+              animatedPos = 1.0
+              rebuildList()
+              triggerPreview()
+              render()
+            end,
+          }),
+          ui.button({
+            text = "Wallhaven",
+            glyph = "world",
+            variant = currentMode == "wallhaven" and "primary" or "ghost",
+            controlSize = "sm",
+            onClick = function()
+              currentMode = "wallhaven"
+              selectedIdx = 1
+              animatedPos = 1.0
+              if #((wallhavenData and wallhavenData.items) or {}) == 0 then
+                doWallhavenSearch(true)
+              end
+              rebuildList()
+              render()
+            end,
+          }),
+        }),
 
-        -- Right: Flatten toggle + Output select + Action icons
+        -- Right: Hi-Res preview button (spawns next to Wallhaven) + Flatten toggle + Action icons
         ui.row({
           flexGrow = 1,
           align = "center",
-          justify = "end",
           gap = 12,
         }, {
-          -- Hi-Res Preview Button (Wallhaven) / Flatten Toggle (Local)
-          (currentMode == "wallhaven") and (function()
-            local isLoadingHiRes = hiResPreview and activeItem and (hiResPending[activeItem.id] == true or (function()
-              for _, it in ipairs(hiResQueue) do
-                if it.id == (activeItem and activeItem.id) then return true end
-              end
-              return false
-            end)())
-
-            return ui.button({
-              text = isLoadingHiRes and "Hi-Res (Loading...)" or (hiResPreview and "Hi-Res ON" or "Hi-Res OFF"),
-              glyph = isLoadingHiRes and "loader-2" or "sparkles",
-              variant = hiResPreview and "primary" or "secondary",
-              controlSize = "sm",
-              tooltip = hiResPreview and "Hi-Res Preview is ON (caching full HD for preview)" or "Enable Hi-Res Preview (downloads full HD to cache)",
-              onClick = function()
-                hiResPreview = not hiResPreview
-                if not hiResPreview then
-                  hiResQueue = {}
+          -- Hi-Res Preview Button (spawns directly next to the Wallhaven option with a clean 8px gap)
+          (currentMode == "wallhaven") and ui.row({
+            align = "center",
+            gap = 0,
+          }, {
+            ui.spacer({ width = 8 }),
+            (function()
+              local isLoadingHiRes = hiResPreview and activeItem and (hiResPending[activeItem.id] == true or (function()
+                for _, it in ipairs(hiResQueue) do
+                  if it.id == (activeItem and activeItem.id) then return true end
                 end
-                triggerPreview()
-                render()
-              end,
-            })
-          end)() or (currentMode ~= "wallhaven" and ui.row({ align = "center", gap = 8 }, {
+                return false
+              end)())
+
+              return ui.button({
+                text = isLoadingHiRes and "Hi-Res..." or (hiResPreview and "Hi-Res ON" or "Hi-Res OFF"),
+                glyph = isLoadingHiRes and "loader-2" or "sparkles",
+                variant = hiResPreview and "primary" or "secondary",
+                controlSize = "sm",
+                tooltip = hiResPreview and "Hi-Res Preview is ON (caching full HD for preview) [Press P]" or "Enable Hi-Res Preview (downloads full HD to cache) [Press P]",
+                onClick = function()
+                  hiResPreview = not hiResPreview
+                  if not hiResPreview then
+                    hiResQueue = {}
+                  end
+                  triggerPreview()
+                  render()
+                end,
+              })
+            end)(),
+          }) or ui.spacer({ width = 1 }),
+
+          -- Spacer pushes the remaining action buttons to the far right
+          ui.spacer({ flexGrow = 1 }),
+          -- Flatten Toggle (Local)
+          (currentMode ~= "wallhaven" and ui.row({ align = "center", gap = 8 }, {
             ui.label({ text = "Flatten", fontSize = 12, color = isFlattened and paletteColors.accent or paletteColors.primaryText }),
             ui.toggle({
               checked = isFlattened,
@@ -3155,6 +3194,11 @@ function onKey(chord: string, pressed: boolean)
     elseif isPeeking then
       isPeeking = false
       render()
+    elseif searchActive then
+      searchActive = false
+      searchQuery = ""
+      rebuildList()
+      render()
     else
       cancelAndClose()
     end
@@ -3162,15 +3206,43 @@ function onKey(chord: string, pressed: boolean)
 end
 
 
+local lastScrollTime = 0
+
 function onScroll(_axis: any, steps: number, _startsGesture: any)
-  if steps > 0 then
+  if #displayedItems == 0 then return end
+  local now = os.clock()
+  if now - lastScrollTime < 0.08 then return end
+  lastScrollTime = now
+
+  local stepVal = steps or 0
+  if stepVal < 0 then
+    if selectedIdx < #displayedItems then
+      selectedIdx = selectedIdx + 1
+      panel.setNeedsFrameTick(true)
+      triggerPreview()
+      render()
+    else
+      checkWallhavenLazyLoad()
+    end
+  elseif stepVal > 0 then
     if selectedIdx > 1 then
       selectedIdx = selectedIdx - 1
       panel.setNeedsFrameTick(true)
       triggerPreview()
       render()
     end
-  elseif steps < 0 then
+  end
+end
+
+function onIpc(event: string, _payload: string?)
+  if event == "prev" or event == "step_left" or event == "left" then
+    if selectedIdx > 1 then
+      selectedIdx = selectedIdx - 1
+      panel.setNeedsFrameTick(true)
+      triggerPreview()
+      render()
+    end
+  elseif event == "next" or event == "step_right" or event == "right" then
     if selectedIdx < #displayedItems then
       selectedIdx = selectedIdx + 1
       panel.setNeedsFrameTick(true)
@@ -3184,12 +3256,28 @@ end
 
 noctalia.state.watch("wallpapers", function(val)
   if type(val) == "table" then
+    local currentItem = displayedItems and displayedItems[selectedIdx] or nil
+    local currentPath = currentItem and (currentItem.path or currentItem.id) or nil
     allWallpapers = val
     cachedFavCount = -1
     cachedRibbon = nil
-    selectedIdx = 1
-    animatedPos = 1.0
     rebuildList()
+    if currentPath and #displayedItems > 0 then
+      local found = false
+      for idx, it in ipairs(displayedItems) do
+        if (it.path or it.id) == currentPath then
+          selectedIdx = idx
+          found = true
+          break
+        end
+      end
+      if not found then
+        selectedIdx = clamp(selectedIdx, 1, #displayedItems)
+      end
+    else
+      selectedIdx = 1
+      animatedPos = 1.0
+    end
     triggerPreview()
     render()
   end
@@ -3272,7 +3360,7 @@ noctalia.state.watch("wallhaven_results", function(value)
 end)
 
 noctalia.state.watch("wallpaper_dir", function(val)
-  if type(val) == "string" and val ~= "" then
+  if type(val) == "string" and val ~= "" and val ~= currentWallDir then
     currentWallDir = val
     updateRootWpDir(val)
     selectedIdx = 1
@@ -3293,6 +3381,10 @@ function onConfigChanged()
     local exp = noctalia.expandPath(cfgDir)
     currentWallDir = exp
     updateRootWpDir(exp)
+  end
+  local cfgScanSub = noctalia.getConfig("scan_subdirectories")
+  if cfgScanSub ~= nil then
+    isFlattened = (cfgScanSub == true or cfgScanSub == "true" or cfgScanSub == 1)
   end
   selectedIdx = 1
   animatedPos = 1.0
