@@ -1,0 +1,37 @@
+{
+  "title": "OmaVibes",
+  "tooltip": "Toggle OmaVibes panel",
+  "tooltip_playing": "Playing: {pack}",
+  "tooltip_off": "Turned off",
+  "tab_packs": "Packs",
+  "tab_profile": "Profile",
+  "tab_analytics": "Analytics",
+  "tab_settings": "Settings",
+  "search_placeholder": "Search soundpacks...",
+  "btn_random": "Random Soundpack",
+  "btn_turn_off": "Turn Off",
+  "volume_label": "Volume",
+  "rank_novice": "Novice Typist",
+  "rank_touch": "Touch Typist",
+  "rank_enthusiast": "Mechanical Enthusiast",
+  "rank_wizard": "Keystroke Wizard",
+  "words_today": "Words Today",
+  "typing_time": "Typing Time",
+  "total_keys": "Total Keypresses",
+  "achievements": "Achievements",
+  "most_used_keys": "Most Used Keys",
+  "settings": {
+    "default_volume": {
+      "label": "Default Volume",
+      "description": "Default playback volume level (1-10) for new soundpacks."
+    },
+    "auto_start": {
+      "label": "Auto Start",
+      "description": "Automatically restore typing sound playback on login."
+    },
+    "glyph": {
+      "label": "Bar Icon",
+      "description": "Icon glyph to display on the bar."
+    }
+  }
+}

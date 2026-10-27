@@ -1,0 +1,50 @@
+id = "viksit-garg/omavibes"
+name = "OmaVibes"
+version = "1.0.0"
+plugin_api = 43
+author = "viksit-garg"
+license = "MIT"
+icon = "keyboard"
+description = "Cozy typing sounds with 40+ sound effects, typing profile, ranks, and local analytics."
+tags = ["audio", "bar", "panel", "fun", "utility"]
+dependencies = ["g++", "make", "libevdev", "tar", "zstd"]
+
+[[widget]]
+id = "omavibes"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  label_key = "settings.glyph.label"
+  description_key = "settings.glyph.description"
+  default = "keyboard"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 560
+height = 700
+placement = "floating"
+position = "auto"
+open_near_click = true
+
+[[service]]
+id = "daemon"
+entry = "service.luau"
+
+[[setting]]
+key = "default_volume"
+type = "int"
+label_key = "settings.default_volume.label"
+description_key = "settings.default_volume.description"
+default = 3
+min = 1
+max = 10
+
+[[setting]]
+key = "auto_start"
+type = "bool"
+label_key = "settings.auto_start.label"
+description_key = "settings.auto_start.description"
+default = false
