@@ -49,10 +49,10 @@ The `set-mode` event accepts `warp`, `doh`, `warp+doh`, `dot`, `warp+dot`, `prox
 By default, Cloudflare WARP requires `warp-svc.service` to run continuously in the background. If you prefer to save RAM by only running the daemon while connected:
 
 1. Enable **On-demand daemon** in Noctalia Settings $\rightarrow$ Plugins $\rightarrow$ Cloudflare WARP.
-2. Allow your user to start and stop `warp-svc.service` without a password prompt by adding a Polkit rule:
+2. Allow your user to start and stop `warp-svc.service` without a password prompt by adding a Polkit rule (one-time setup):
 
-```javascript
-// /etc/polkit-1/rules.d/50-warp-svc.rules
+```sh
+sudo tee /etc/polkit-1/rules.d/50-warp-svc.rules << 'EOF'
 polkit.addRule(function(action, subject) {
     if (action.id == "org.freedesktop.systemd1.manage-units") {
         if (action.lookup("unit") == "warp-svc.service") {
@@ -63,6 +63,7 @@ polkit.addRule(function(action, subject) {
         }
     }
 });
+EOF
 ```
 
 3. Disable `warp-svc` from automatically starting at boot:
