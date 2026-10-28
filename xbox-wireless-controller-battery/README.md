@@ -8,7 +8,7 @@ power-supply entries, so it needs no UPower and no helper process.
 
 | Field | Value |
 | --- | --- |
-| ID | `blanchedeadwood/xbox-controller-battery` |
+| ID | `blanchedeadwood/xbox-wireless-controller-battery` |
 | Entries | Bar widget: `battery` |
 
 ## Requirements
@@ -26,7 +26,7 @@ Wired controllers on the stock `xpad` driver do not report a battery.
 ## Usage
 
 Add the **Xbox Wireless Controller Battery** widget
-(`blanchedeadwood/xbox-controller-battery:battery`) to a bar. It appears within
+(`blanchedeadwood/xbox-wireless-controller-battery:battery`) to a bar. It appears within
 two seconds of a controller connecting and hides when none is left. Hover it
 for each controller's name, level and charging state. Left click re-reads the
 batteries immediately.
@@ -57,7 +57,7 @@ batteries immediately.
 Re-read the batteries right away:
 
 ```sh
-noctalia msg plugin blanchedeadwood/xbox-controller-battery:battery all refresh
+noctalia msg plugin blanchedeadwood/xbox-wireless-controller-battery:battery all refresh
 ```
 
 ## Notes

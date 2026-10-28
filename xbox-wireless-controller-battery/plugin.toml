@@ -2,7 +2,7 @@
 # /sys/class/power_supply (xpadneo, xone, kernel Bluetooth HID), so it needs
 # neither UPower nor a helper process.
 
-id = "blanchedeadwood/xbox-controller-battery"
+id = "blanchedeadwood/xbox-wireless-controller-battery"
 name = "Xbox Wireless Controller Battery"
 version = "0.2.0"
 plugin_api = 24
