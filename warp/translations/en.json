@@ -35,6 +35,12 @@
     "tls": "TLS",
     "traffic": "Traffic"
   },
+  "settings": {
+    "manage_daemon": {
+      "description": "Start warp-svc on connect and stop it on disconnect to save RAM. Requires passwordless service management (e.g. Polkit).",
+      "label": "On-demand daemon"
+    }
+  },
   "shortcut": {
     "error": "WARP error",
     "off": "WARP Off",
