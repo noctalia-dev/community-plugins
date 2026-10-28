@@ -5,15 +5,19 @@ local Data = require("./lib/data.luau")
 
 local CACHE_FILE = "dashboard.json"
 local DATA_KEYS = {
-  "profile", "contributions", "following_events", "following_repos",
+  "profile", "contributions", "following_users", "following_events", "following_repos",
   "following_repo_events", "my_prs", "review_prs", "authored_issues", "issues", "repositories", "actions",
 }
 local dashboard = { errors = {} }
-local cachePath
+local cachePath, cachedDashboard
+local account, generation = nil, 0
 local inFlight = false
+local refreshSerial, refreshDeadline = 0, 0
 local hasCachedData = false
 local followingAvatarPaths = {}
 local repositoryAvatarPaths = {}
+local cachedAvatarUrl, cachedAvatarPath = nil, nil
+local ownedAvatarPaths, pendingAvatarPaths = {}, {}
 
 local function refreshInterval()
   return math.clamp(tonumber(noctalia.getConfig("refresh_interval_minutes")) or 15, 5, 30) * 60 * 1000
@@ -89,9 +93,26 @@ end
 
 local persist
 
-local function list() return {} end
+-- Only remove files this service instance explicitly downloaded. Shared owner
+-- images can have several references; pending downloads clean up on completion.
+local function releaseAvatar(path)
+  if not path or not ownedAvatarPaths[path] or pendingAvatarPaths[path] or cachedAvatarPath == path then return end
+  for _, current in pairs(followingAvatarPaths) do if current == path then return end end
+  for _, current in pairs(repositoryAvatarPaths) do if current == path then return end end
+  if noctalia.removeFile(path) or not noctalia.fileExists(path) then ownedAvatarPaths[path] = nil end
+end
+
+local function pruneAvatars()
+  local users, repositories = {}, {}
+  for _, item in ipairs(dashboard.following_events or {}) do users[item.actor] = true end
+  for _, item in ipairs(dashboard.following_repo_events or {}) do repositories[item.repository] = true end
+  for login in pairs(followingAvatarPaths) do if not users[login] then followingAvatarPaths[login] = nil end end
+  for name in pairs(repositoryAvatarPaths) do if not repositories[name] then repositoryAvatarPaths[name] = nil end end
+  for path in pairs(ownedAvatarPaths) do releaseAvatar(path) end
+end
 
 local function publishFollowingAvatar(login, path)
+  local previous = followingAvatarPaths[login]
   followingAvatarPaths[login] = path
   local changed = false
   for _, item in ipairs(dashboard.following_events or {}) do
@@ -101,9 +122,13 @@ local function publishFollowingAvatar(login, path)
     end
   end
   if changed then publish("following_events", dashboard.following_events) end
+  releaseAvatar(previous)
 end
 
-local function cacheFollowingAvatars(users, index)
+local function cacheFollowingAvatars(users, index, expectedGeneration, expectedSerial)
+  expectedGeneration = expectedGeneration or generation
+  expectedSerial = expectedSerial or refreshSerial
+  if expectedGeneration ~= generation or expectedSerial ~= refreshSerial then return end
   index = index or 1
   if index > #users then return end
   local user = users[index]
@@ -111,31 +136,38 @@ local function cacheFollowingAvatars(users, index)
   local url = tostring(user.avatarUrl or "")
   local dir = noctalia.pluginDataDir()
   if login == "" or url == "" or not dir then
-    cacheFollowingAvatars(users, index + 1)
+    cacheFollowingAvatars(users, index + 1, expectedGeneration, expectedSerial)
     return
   end
-  local dest = dir .. "/following-avatar-" .. login:gsub("[^%w%-]", "_")
+  local dest = dir .. "/following-avatar-" .. account .. "-" .. tostring(generation) .. "-" .. tostring(refreshSerial) .. "-" .. login:gsub("[^%w%-]", "_")
+  ownedAvatarPaths[dest], pendingAvatarPaths[dest] = true, true
   noctalia.download(url, dest, function(ok)
-    if ok then publishFollowingAvatar(login, dest) end
-    cacheFollowingAvatars(users, index + 1)
+    pendingAvatarPaths[dest] = nil
+    if expectedGeneration ~= generation or expectedSerial ~= refreshSerial then releaseAvatar(dest); return end
+    if ok then publishFollowingAvatar(login, dest) else releaseAvatar(dest) end
+    cacheFollowingAvatars(users, index + 1, expectedGeneration, expectedSerial)
   end)
 end
 
-local cachedAvatarUrl = nil
 local function avatarDest()
   local dir = noctalia.pluginDataDir()
-  return dir and (dir .. "/profile-avatar") or nil
+  return dir and account and (dir .. "/profile-avatar-" .. account .. "-" .. tostring(generation) .. "-" .. tostring(refreshSerial)) or nil
 end
 local function cacheProfileAvatar(profile)
   local url = tostring(profile and profile.avatarUrl or "")
   local dest = avatarDest()
   if url == "" or not dest then return end
-  if url == cachedAvatarUrl and noctalia.fileExists(dest) then return end
+  if url == cachedAvatarUrl and cachedAvatarPath and noctalia.fileExists(cachedAvatarPath) then return end
+  local expectedGeneration, expectedSerial = generation, refreshSerial
+  ownedAvatarPaths[dest], pendingAvatarPaths[dest] = true, true
   noctalia.download(url, dest, function(ok)
-    if not ok or dashboard.profile ~= profile then return end
+    pendingAvatarPaths[dest] = nil
+    if expectedGeneration ~= generation or expectedSerial ~= refreshSerial or not ok or dashboard.profile ~= profile then releaseAvatar(dest); return end
+    local previous = cachedAvatarPath
     local changed = cachedAvatarUrl ~= url or profile.avatarPath ~= dest
-    cachedAvatarUrl = url
+    cachedAvatarUrl, cachedAvatarPath = url, dest
     profile.avatarPath = dest
+    releaseAvatar(previous)
     if changed then
       publish("profile", profile)
       persist()
@@ -144,6 +176,7 @@ local function cacheProfileAvatar(profile)
 end
 
 local function publishRepositoryAvatar(fullName, path)
+  local previous = repositoryAvatarPaths[fullName]
   repositoryAvatarPaths[fullName] = path
   local changed = false
   for _, item in ipairs(dashboard.following_repo_events or {}) do
@@ -153,9 +186,13 @@ local function publishRepositoryAvatar(fullName, path)
     end
   end
   if changed then publish("following_repo_events", dashboard.following_repo_events) end
+  releaseAvatar(previous)
 end
 
-local function cacheRepositoryAvatars(repositories, index)
+local function cacheRepositoryAvatars(repositories, index, expectedGeneration, expectedSerial)
+  expectedGeneration = expectedGeneration or generation
+  expectedSerial = expectedSerial or refreshSerial
+  if expectedGeneration ~= generation or expectedSerial ~= refreshSerial then return end
   index = index or 1
   if index > #repositories then return end
   local repository = repositories[index]
@@ -163,19 +200,28 @@ local function cacheRepositoryAvatars(repositories, index)
   local url = tostring(repository.ownerAvatarUrl or "")
   local dir = noctalia.pluginDataDir()
   if fullName == "" or url == "" or not dir then
-    cacheRepositoryAvatars(repositories, index + 1)
+    cacheRepositoryAvatars(repositories, index + 1, expectedGeneration, expectedSerial)
     return
   end
   local owner = tostring(repository.ownerLogin or fullName:match("^([^/]+)") or "owner")
-  local dest = dir .. "/repository-owner-avatar-" .. owner:gsub("[^%w%-]", "_")
+  local dest = dir .. "/repository-owner-avatar-" .. account .. "-" .. tostring(generation) .. "-" .. tostring(refreshSerial) .. "-" .. owner:gsub("[^%w%-]", "_")
+  -- Several starred repositories can share an owner and this round's image.
+  if ownedAvatarPaths[dest] and not pendingAvatarPaths[dest] and noctalia.fileExists(dest) then
+    publishRepositoryAvatar(fullName, dest)
+    cacheRepositoryAvatars(repositories, index + 1, expectedGeneration, expectedSerial)
+    return
+  end
+  ownedAvatarPaths[dest], pendingAvatarPaths[dest] = true, true
   noctalia.download(url, dest, function(ok)
-    if ok then publishRepositoryAvatar(fullName, dest) end
-    cacheRepositoryAvatars(repositories, index + 1)
+    pendingAvatarPaths[dest] = nil
+    if expectedGeneration ~= generation or expectedSerial ~= refreshSerial then releaseAvatar(dest); return end
+    if ok then publishRepositoryAvatar(fullName, dest) else releaseAvatar(dest) end
+    cacheRepositoryAvatars(repositories, index + 1, expectedGeneration, expectedSerial)
   end)
 end
 
 persist = function()
-  if not cachePath then return end
+  if not cachePath or not account then return end
   local encoded = noctalia.json.encode(dashboard)
   if encoded then noctalia.writeFile(cachePath, encoded) end
 end
@@ -187,22 +233,42 @@ local function loadCache()
   local raw = noctalia.readFile(cachePath)
   if not raw then return end
   local cached = noctalia.json.decode(raw)
-  if type(cached) ~= "table" then return end
-  for _, key in ipairs(DATA_KEYS) do
-    if cached[key] ~= nil then
-      dashboard[key] = cached[key]
-      noctalia.state.set(key, cached[key])
+  if type(cached) == "table" then cachedDashboard = cached end
+end
+
+local function setAccount(login)
+  login = string.lower(login)
+  if account == login then return end
+  account, generation = login, generation + 1
+  hasCachedData = false
+  followingAvatarPaths, repositoryAvatarPaths, cachedAvatarUrl, cachedAvatarPath = {}, {}, nil, nil
+  for _, key in ipairs(DATA_KEYS) do publish(key, {}) end
+  pruneAvatars()
+  dashboard.last_update, dashboard.login = nil, login
+  noctalia.state.set("last_update", "")
+  noctalia.state.set("login", login)
+  local cached = cachedDashboard
+  cachedDashboard = nil
+  -- Older dashboard caches stored their owner in profile.login only.
+  local owner = cached and (cached.login or (cached.profile and cached.profile.login))
+  if type(owner) == "string" and string.lower(owner) == login then
+    for _, key in ipairs(DATA_KEYS) do
+      local value = cached[key]
+      if type(value) == "table" then
+        -- Legacy avatar files were shared between accounts. Only freshly
+        -- verified downloads may attach an avatar path to restored data.
+        if key == "profile" then value.avatarPath = nil end
+        for _, item in ipairs(value) do
+          if type(item) == "table" then item.actorAvatarPath, item.repositoryOwnerAvatarPath = nil, nil end
+        end
+        publish(key, value)
+      end
     end
+    hasCachedData = true
+    dashboard.last_update = type(cached.last_update) == "number" and cached.last_update or nil
+    noctalia.state.set("last_update", dashboard.last_update or "")
   end
-  hasCachedData = true
-  dashboard.errors = {}
-  if type(cached.last_update) == "number" then dashboard.last_update = cached.last_update end
-  dashboard.stale = true
-  dashboard.status = "stale"
   noctalia.state.set("dashboard", dashboard)
-  noctalia.state.set("last_update", dashboard.last_update or "")
-  noctalia.state.set("stale", true)
-  noctalia.state.set("status", "stale")
 end
 
 local function decode(result)
@@ -230,6 +296,10 @@ local function refresh()
   end
 
   inFlight = true
+  refreshSerial += 1
+  local serial = refreshSerial
+  refreshDeadline = noctalia.nowMs() + 120000
+  noctalia.setUpdateInterval(1000)
   dashboard.status = "loading"
   dashboard.stale = true
   dashboard.errors = {}
@@ -238,21 +308,88 @@ local function refresh()
   noctalia.state.set("errors", dashboard.errors)
 
   local pending = 0
-  local scheduling = true
-  local function finalizeRefresh()
-    if scheduling or pending ~= 0 then return end
-    inFlight = false
+  local scheduling, verifying, authenticated = true, false, false
+  local commands = GitHub.commands()
+  local staged, followingAvatars, repositoryAvatars = {}, nil, nil
+  local publishNow = publish
+  local function publish(key, value) staged[key] = value end
+  local function reportFailure(key, err)
+    local message = tostring(err)
+    dashboard.errors[key] = message
+    local lower = string.lower(message)
+    if lower:find("auth", 1, true) or lower:find("token", 1, true) or lower:find("401", 1, true) then
+      dashboard.errors.auth = noctalia.tr("status.auth_error")
+    end
+  end
+  local function finishRefresh(commit)
+    -- Normal errors finish below. A hard callback-budget abort may interrupt
+    -- that cleanup too, so retain the busy slot until state publication ends;
+    -- the absolute watchdog can then recover it on an independent update.
+    local ok, err = pcall(function()
+      if commit then
+        for key, value in pairs(staged) do publishNow(key, value) end
+        hasCachedData = true
+        dashboard.last_update = os.time()
+        pruneAvatars()
+        cacheProfileAvatar(dashboard.profile)
+        if followingAvatars then cacheFollowingAvatars(followingAvatars) end
+        if repositoryAvatars then cacheRepositoryAvatars(repositoryAvatars) end
+      end
+    end)
+    if not ok then
+      reportFailure("processing", noctalia.tr("status.unexpected_data"))
+      noctalia.log("Dashboard processing failed: " .. tostring(err):sub(1, 300))
+    end
     dashboard.status = dashboard.errors.auth and "auth_error" or (next(dashboard.errors) and "partial" or "ready")
     dashboard.stale = dashboard.status ~= "ready" and hasCachedData
-    local errorText = dashboard.errors.auth or (dashboard.status == "partial" and noctalia.tr("status.request_error") or "")
-    noctalia.state.set("error", errorText)
-    dashboard.last_update = os.time()
-    noctalia.state.set("last_update", dashboard.last_update)
+    noctalia.state.set("error", dashboard.errors.auth or (dashboard.status == "partial" and noctalia.tr("status.request_error") or ""))
+    noctalia.state.set("last_update", dashboard.last_update or "")
     noctalia.state.set("status", dashboard.status)
     noctalia.state.set("stale", dashboard.stale)
     noctalia.state.set("errors", dashboard.errors)
     noctalia.state.set("dashboard", dashboard)
-    persist()
+    inFlight = false
+    noctalia.setUpdateInterval(refreshInterval())
+    if commit and ok then persist() end
+  end
+  local function verifiedProfile(raw)
+    local profile = Data.profile(raw)
+    if not profile or type(profile.login) ~= "string" or not profile.login:match("^[%w%-]+$") then
+      return nil
+    end
+    return profile
+  end
+  local function finalizeRefresh()
+    if scheduling or pending ~= 0 or verifying then return end
+    if not authenticated then finishRefresh(false); return end
+    -- gh reads its active account per command. Do not publish the data round
+    -- unless identity still matches after every section has completed.
+    verifying = true
+    local called = false
+    local expectedGeneration = generation
+    local function verified(result)
+      if called or serial ~= refreshSerial or not inFlight then return end
+      called = true
+      local ok, err = pcall(function()
+        local raw, failure = decode(result)
+        local profile = raw and verifiedProfile(raw)
+        if not profile then reportFailure("profile", failure or noctalia.tr("status.unexpected_data")); finishRefresh(false); return end
+        if expectedGeneration ~= generation or string.lower(profile.login) ~= account then
+          setAccount(profile.login)
+          publishNow("profile", profile)
+          reportFailure("auth", noctalia.tr("status.auth_error"))
+          finishRefresh(false)
+          return
+        end
+        finishRefresh(true)
+      end)
+      if not ok then
+        -- The watchdog owns cleanup if even final status publication aborted.
+        noctalia.log("Dashboard identity verification failed: " .. tostring(err):sub(1, 300))
+      end
+    end
+    local started = noctalia.runAsync(commands.profile, verified)
+    if not started and not called then verified({exitCode = -1, stderr = noctalia.tr("status.cli_start_failed")}) end
   end
   local function finishOne()
     pending -= 1
@@ -261,44 +398,39 @@ local function refresh()
 
   local function request(key, argv, normalize, after, publishResult, complete)
     pending += 1
-    local started = noctalia.runAsync(argv, function(result)
+    local called, expectedGeneration = false, generation
+    local function replied(result)
+      if called or serial ~= refreshSerial or not inFlight then return end
+      called = true
       local succeeded = false
-      local decoded, err = decode(result)
-      if decoded == nil then
-        dashboard.errors[key] = err
-        local lower = string.lower(err)
-        if lower:find("auth", 1, true) or lower:find("token", 1, true) or lower:find("401", 1, true) then
-          dashboard.status = "auth_error"
-          dashboard.errors.auth = noctalia.tr("status.auth_error")
-          noctalia.state.set("error", dashboard.errors.auth)
-        end
-        noctalia.state.set("errors", dashboard.errors)
-      else
+      local ok, err = pcall(function()
+        if key ~= "profile" and expectedGeneration ~= generation then return end
+        local decoded, failure = decode(result)
+        if not decoded then reportFailure(key, failure); return end
         local value = normalize(decoded)
-        if value == nil then
-          dashboard.errors[key] = noctalia.tr("status.unexpected_data")
-          noctalia.state.set("errors", dashboard.errors)
-        else
-          dashboard.errors[key] = nil
-          hasCachedData = true
-          succeeded = true
-          if publishResult ~= false then publish(key, value) end
-          if after then
-            after(decoded, value)
-          end
+        if value == nil then reportFailure(key, noctalia.tr("status.unexpected_data")); return end
+        dashboard.errors[key] = nil
+        if publishResult ~= false then publish(key, value) end
+        if after then after(decoded, value) end
+        succeeded = true
+      end)
+      if not ok then
+        reportFailure(key, noctalia.tr("status.unexpected_data"))
+        noctalia.log("Dashboard request processing failed: " .. tostring(err):sub(1, 300))
+      end
+      if complete then
+        local completed, error = pcall(complete, succeeded)
+        if not completed then
+          reportFailure(key, noctalia.tr("status.unexpected_data"))
+          noctalia.log("Dashboard series processing failed: " .. tostring(error):sub(1, 300))
         end
       end
-      if complete then complete(succeeded) end
-      finishOne()
-    end)
-    if not started then
-      dashboard.errors[key] = noctalia.tr("status.cli_start_failed")
-      if complete then complete(false) end
       finishOne()
     end
+    local started = noctalia.runAsync(argv, replied)
+    if not started and not called then replied({exitCode = -1, stderr = noctalia.tr("status.cli_start_failed")}) end
   end
 
-  local commands = GitHub.commands()
   local function requestSeries(items, limit, outputKey, errorKey, command, normalize)
     local result = {}
     local index = 1
@@ -332,109 +464,105 @@ local function refresh()
     end)
   end
 
-  request("profile", commands.profile, function(raw)
-    local value = Data.profile(raw)
-    if value then
-      local dest = avatarDest()
-      if dest and noctalia.fileExists(dest) then value.avatarPath = dest end
-    end
-    return value
-  end, function(_, profile)
-    dashboard.login = profile.login
-    noctalia.state.set("login", profile.login)
-    noctalia.state.set("dashboard", dashboard)
-    cacheProfileAvatar(profile)
-  end)
-  request("contributions", commands.contributions, Data.contributions)
-  requestRepositories()
-  request("following", commands.following, function(raw)
-    local out = {}
-    local ignoredUsers = configSet("following_ignored_users")
-    local hideBots = noctalia.getConfig("following_hide_bots") == true
-    for _, user in ipairs(raw) do
-      local login = user.login or ""
-      local isBot = user.type == "Bot" or string.lower(login):match("%[bot%]$") ~= nil
-      if not ignoredUsers[string.lower(login)] and (not hideBots or not isBot) then
-        table.insert(out, { login = login, name = user.name or login, avatarUrl = user.avatar_url or "", url = user.html_url or "", type = user.type or "" })
+  local function requestDashboard()
+    request("contributions", commands.contributions, Data.contributions)
+    requestRepositories()
+    request("following", commands.following, function(raw)
+      local out = {}
+      local ignoredUsers = configSet("following_ignored_users")
+      local hideBots = noctalia.getConfig("following_hide_bots") == true
+      for _, user in ipairs(raw) do
+        local login = user.login or ""
+        local isBot = user.type == "Bot" or string.lower(login):match("%[bot%]$") ~= nil
+        if not ignoredUsers[string.lower(login)] and (not hideBots or not isBot) then
+          table.insert(out, { login = login, name = user.name or login, avatarUrl = user.avatar_url or "", url = user.html_url or "", type = user.type or "" })
+        end
       end
-    end
-    return out
-  end, function(_, users)
-    local userLimit = configInt("following_user_limit", 4, 1, 12)
-    local eventLimit = configInt("following_events_per_user", 30, 1, 30)
-    local selectedUsers = {}
-    for index = 1, math.min(#users, userLimit) do selectedUsers[#selectedUsers + 1] = users[index] end
-    requestSeries(selectedUsers, userLimit, "following_events", "following_events", function(user)
-      return GitHub.events(user.login, eventLimit)
-    end, function(raw, user)
-      local events = filterFollowingEvents(Data.events(raw, "user", user.name or user.login))
-      for _, event in ipairs(events) do event.actorAvatarPath = followingAvatarPaths[event.actor] end
-      return events
+      return out
+    end, function(_, users)
+      local userLimit = configInt("following_user_limit", 4, 1, 12)
+      local eventLimit = configInt("following_events_per_user", 30, 1, 30)
+      local selectedUsers = {}
+      for index = 1, math.min(#users, userLimit) do selectedUsers[#selectedUsers + 1] = users[index] end
+      requestSeries(selectedUsers, userLimit, "following_events", "following_events", function(user)
+        return GitHub.events(user.login, eventLimit)
+      end, function(raw, user)
+        local events = filterFollowingEvents(Data.events(raw, "user", user.name or user.login))
+        for _, event in ipairs(events) do event.actorAvatarPath = followingAvatarPaths[event.actor] end
+        return events
+      end)
+      publish("following_users", selectedUsers)
+      followingAvatars = selectedUsers
     end)
-    publish("following_users", selectedUsers)
-    cacheFollowingAvatars(selectedUsers)
-  end)
-  local function filterReleaseFeed(raw)
-    local feed = Data.starredReleaseFeed(raw)
-    local ignoredRepositories = configSet("following_ignored_repositories")
-    local includePrereleases = noctalia.getConfig("following_include_prereleases") ~= false
-    local releasesEnabled = noctalia.getConfig("following_show_releases") ~= false
-    local filtered = {}
-    for _, event in ipairs(recentFollowingItems(feed.events)) do
-      if releasesEnabled and (includePrereleases or not event.prerelease)
-        and not ignoredRepositories[string.lower(event.repository or "")] then
-        filtered[#filtered + 1] = event
+    local function filterReleaseFeed(raw)
+      local feed = Data.starredReleaseFeed(raw)
+      local ignoredRepositories = configSet("following_ignored_repositories")
+      local includePrereleases = noctalia.getConfig("following_include_prereleases") ~= false
+      local releasesEnabled = noctalia.getConfig("following_show_releases") ~= false
+      local filtered = {}
+      for _, event in ipairs(recentFollowingItems(feed.events)) do
+        if releasesEnabled and (includePrereleases or not event.prerelease)
+          and not ignoredRepositories[string.lower(event.repository or "")] then
+          filtered[#filtered + 1] = event
+        end
       end
-    end
-    feed.events = filtered
-    local selected, byName = {}, {}
-    for _, repository in ipairs(feed.repositories) do byName[repository.fullName] = repository end
-    for _, event in ipairs(feed.events) do selected[#selected + 1] = byName[event.repository] end
-    feed.repositories = selected
-    return feed
-  end
-  local function publishReleaseFeed(feed)
-    for _, event in ipairs(feed.events) do event.repositoryOwnerAvatarPath = repositoryAvatarPaths[event.repository] end
-    publish("following_repos", feed.repositories)
-    publish("following_repo_events", feed.events)
-    cacheRepositoryAvatars(feed.repositories)
-  end
-  local starredLimit = configInt("starred_repository_limit", 100, 10, 100)
-  local firstPageCount = math.min(50, starredLimit)
-  request("following_repos", GitHub.starredReleases(firstPageCount), filterReleaseFeed, function(raw, firstFeed)
-    local connection = raw.data and raw.data.viewer and raw.data.viewer.starredRepositories
-    local pageInfo = connection and connection.pageInfo or {}
-    local remaining = starredLimit - firstPageCount
-    if remaining <= 0 or not pageInfo.hasNextPage or not pageInfo.endCursor then
-      publishReleaseFeed(firstFeed)
-      return
-    end
-    request("following_repos", GitHub.starredReleases(math.min(50, remaining), pageInfo.endCursor), filterReleaseFeed, function(_, secondFeed)
-      local repositories, events = {}, {}
-      for _, repository in ipairs(firstFeed.repositories) do repositories[#repositories + 1] = repository end
-      for _, repository in ipairs(secondFeed.repositories) do repositories[#repositories + 1] = repository end
-      for _, event in ipairs(firstFeed.events) do events[#events + 1] = event end
-      for _, event in ipairs(secondFeed.events) do events[#events + 1] = event end
-      table.sort(events, function(a, b) return a.createdAt > b.createdAt end)
-      while #events > Data.RELEASE_FEED_LIMIT do table.remove(events) end
+      feed.events = filtered
       local selected, byName = {}, {}
-      for _, repository in ipairs(repositories) do byName[repository.fullName] = repository end
-      for _, event in ipairs(events) do selected[#selected + 1] = byName[event.repository] end
-      publishReleaseFeed({ repositories = selected, events = events })
+      for _, repository in ipairs(feed.repositories) do byName[repository.fullName] = repository end
+      for _, event in ipairs(feed.events) do selected[#selected + 1] = byName[event.repository] end
+      feed.repositories = selected
+      return feed
+    end
+    local function publishReleaseFeed(feed)
+      table.sort(feed.events, function(a, b) return a.createdAt > b.createdAt end)
+      while #feed.events > Data.RELEASE_FEED_LIMIT do table.remove(feed.events) end
+      local byName, repositories = {}, {}
+      for _, repository in ipairs(feed.repositories) do byName[repository.fullName] = repository end
+      for _, event in ipairs(feed.events) do repositories[#repositories + 1] = byName[event.repository] end
+      feed.repositories = repositories
+      for _, event in ipairs(feed.events) do event.repositoryOwnerAvatarPath = repositoryAvatarPaths[event.repository] end
+      publish("following_repos", feed.repositories)
+      publish("following_repo_events", feed.events)
+      repositoryAvatars = feed.repositories
+    end
+    local starredLimit = configInt("starred_repository_limit", 100, 10, 100)
+    local firstPageCount = math.min(50, starredLimit)
+    request("following_repos", GitHub.starredReleases(firstPageCount), filterReleaseFeed, function(raw, firstFeed)
+      local connection = raw.data and raw.data.viewer and raw.data.viewer.starredRepositories
+      local pageInfo = connection and connection.pageInfo or {}
+      local remaining = starredLimit - firstPageCount
+      if remaining <= 0 or not pageInfo.hasNextPage or not pageInfo.endCursor then
+        publishReleaseFeed(firstFeed)
+        return
+      end
+      request("following_repos", GitHub.starredReleases(math.min(50, remaining), pageInfo.endCursor), filterReleaseFeed, function(_, secondFeed)
+        local repositories, events = {}, {}
+        for _, repository in ipairs(firstFeed.repositories) do repositories[#repositories + 1] = repository end
+        for _, repository in ipairs(secondFeed.repositories) do repositories[#repositories + 1] = repository end
+        for _, event in ipairs(firstFeed.events) do events[#events + 1] = event end
+        for _, event in ipairs(secondFeed.events) do events[#events + 1] = event end
+        publishReleaseFeed({ repositories = repositories, events = events })
+      end, false)
     end, false)
-  end, false)
-  request("my_prs", commands.my_prs, function(raw) return recentItems(Data.issues(raw, "author"), activityHistoryDays()) end)
-  request("review_prs", commands.review_prs, function(raw) return recentItems(Data.issues(raw, "review_requested"), activityHistoryDays()) end)
-  request("authored_issues", commands.authored_issues, function(raw)
-    return recentItems(Data.issues(raw, "author"), activityHistoryDays())
-  end, nil, nil, function()
-    request("issues", commands.issues, function(raw)
-      return recentItems(Data.issues(raw, "assignee"), activityHistoryDays())
+    request("my_prs", commands.my_prs, function(raw) return recentItems(Data.issues(raw, "author"), activityHistoryDays()) end)
+    request("review_prs", commands.review_prs, function(raw) return recentItems(Data.issues(raw, "review_requested"), activityHistoryDays()) end)
+    request("authored_issues", commands.authored_issues, function(raw)
+      return recentItems(Data.issues(raw, "author"), activityHistoryDays())
+    end, nil, nil, function()
+      request("issues", commands.issues, function(raw)
+        return recentItems(Data.issues(raw, "assignee"), activityHistoryDays())
+      end)
     end)
-  end)
-  for _, key in ipairs({ "notifications", "following_events", "following_repo_events", "my_prs", "review_prs", "authored_issues", "issues", "repositories", "following_repos" }) do
-    if dashboard[key] == nil then publish(key, list()) end
   end
+  request("profile", commands.profile, verifiedProfile, function(_, profile)
+    setAccount(profile.login)
+    authenticated = true
+    if cachedAvatarUrl == profile.avatarUrl and cachedAvatarPath and noctalia.fileExists(cachedAvatarPath) then
+      profile.avatarPath = cachedAvatarPath
+    end
+    publishNow("profile", profile)
+    requestDashboard()
+  end, false)
   scheduling = false
   finalizeRefresh()
 end
@@ -452,10 +580,29 @@ noctalia.state.set("dashboard", dashboard)
 loadCache()
 refresh()
 
-function update() refresh() end
+function update()
+  if inFlight then
+    if noctalia.nowMs() < refreshDeadline then return end
+    -- Native callback-budget aborts can bypass Lua cleanup. Invalidate every
+    -- late reply before releasing the slot; retain the last verified snapshot.
+    refreshSerial += 1
+    inFlight = false
+    noctalia.setUpdateInterval(refreshInterval())
+    dashboard.errors.refresh = noctalia.tr("status.request_error")
+    dashboard.status, dashboard.stale = "partial", hasCachedData
+    noctalia.state.set("error", dashboard.errors.refresh)
+    noctalia.state.set("errors", dashboard.errors)
+    noctalia.state.set("status", dashboard.status)
+    noctalia.state.set("stale", dashboard.stale)
+    noctalia.state.set("dashboard", dashboard)
+    noctalia.log("Dashboard refresh timed out; retained the last verified snapshot")
+    return
+  end
+  refresh()
+end
 function onEnable() refresh() end
 function onConfigChanged()
-  noctalia.setUpdateInterval(refreshInterval())
+  noctalia.setUpdateInterval(inFlight and 1000 or refreshInterval())
   refresh()
 end
 local function refreshAll()

@@ -91,11 +91,28 @@ end
 
 Data.RELEASE_FEED_LIMIT = 20
 
+-- Keep byte limits for the callback budget, but never split a UTF-8 codepoint.
+local function truncateUtf8(value, limit)
+  if #value <= limit then return value end
+  local nextByte = limit + 1
+  while nextByte > 1 do
+    local byte = string.byte(value, nextByte)
+    if not byte or byte < 128 or byte >= 192 then break end
+    nextByte -= 1
+  end
+  return value:sub(1, nextByte - 1)
+end
+
 local function collapseWhitespace(value, maxInput)
   -- Cap input before collapsing; callers truncate output to ~140-180 chars.
-  value = tostring(value or ""):match("^%s*(.*)$") or ""
-  if #value > maxInput then value = value:sub(1, maxInput) end
-  return value:gsub("[%s\r\n]+", " "):match("^%s*(.-)%s*$") or ""
+  value = tostring(value or "")
+  if #value > maxInput then value = truncateUtf8(value, maxInput) end
+  value = value:gsub("%s+", " ")
+  -- Every whitespace run is now one ASCII space. Avoid a second pattern
+  -- search (and its backtracking) over multibyte comment/release text.
+  local first = value:byte(1) == 32 and 2 or 1
+  local last = value:byte(-1) == 32 and #value - 1 or #value
+  return value:sub(first, last)
 end
 
 function Data.starredReleaseFeed(raw)
@@ -108,7 +125,7 @@ function Data.starredReleaseFeed(raw)
       local description = collapseWhitespace(release.description, 2000)
       local releaseName = release.name or release.tagName or ""
       local summary = description ~= "" and (releaseName .. " — " .. description) or releaseName
-      if #summary > 180 then summary = summary:sub(1, 177) .. "..." end
+      if #summary > 180 then summary = truncateUtf8(summary, 177) .. "..." end
       repositories[#repositories + 1] = {
         name = tostring(item.nameWithOwner or ""):match("/([^/]+)$") or "",
         fullName = item.nameWithOwner or "",
@@ -134,7 +151,6 @@ function Data.starredReleaseFeed(raw)
     end
   end
   table.sort(events, function(a, b) return a.createdAt > b.createdAt end)
-  while #events > Data.RELEASE_FEED_LIMIT do table.remove(events) end
   local repositoriesByName, selectedRepositories = {}, {}
   for _, repository in ipairs(repositories) do repositoriesByName[repository.fullName] = repository end
   for _, event in ipairs(events) do selectedRepositories[#selectedRepositories + 1] = repositoriesByName[event.repository] end
@@ -288,7 +304,7 @@ local function eventSummary(raw)
   summary = summary or comment.body or pullRequest.title or issue.title or release.name or release.tag_name
     or page.title or commit.message or fork.full_name or member.login or payload.ref or payload.action or ""
   summary = collapseWhitespace(summary, 2000)
-  if #summary > 140 then summary = summary:sub(1, 137) .. "..." end
+  if #summary > 140 then summary = truncateUtf8(summary, 137) .. "..." end
   return summary, summaryKey, summaryArgs
 end
 
