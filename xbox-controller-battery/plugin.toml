@@ -1,0 +1,78 @@
+# Xbox controller battery for Noctalia. Reads the controllers' entries in
+# /sys/class/power_supply (xpadneo, xone, kernel Bluetooth HID), so it needs
+# neither UPower nor a helper process.
+
+id = "blanchedeadwood/xbox-controller-battery"
+name = "Xbox Controller Battery"
+version = "0.2.0"
+plugin_api = 24
+author = "blanchedeadwood"
+license = "MIT"
+icon = "device-gamepad-2"
+description = "Battery level of connected Xbox controllers, with low-battery notifications."
+tags = ["bar", "gaming", "hardware", "indicator"]
+dependencies = []
+
+[[widget]]
+id = "battery"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "poll_interval"
+  type = "int"
+  label_key = "settings.poll_interval.label"
+  description_key = "gamepad.settings.poll_interval"
+  default = 30
+  min = 5
+  max = 600
+
+  [[widget.setting]]
+  key = "low_threshold"
+  type = "int"
+  label_key = "settings.low_threshold.label"
+  description_key = "settings.low_threshold.description"
+  default = 20
+  min = 5
+  max = 50
+
+  [[widget.setting]]
+  key = "show_lowest_only"
+  type = "bool"
+  label_key = "gamepad.settings.show_lowest_only.label"
+  description_key = "gamepad.settings.show_lowest_only.description"
+  default = false
+
+  [[widget.setting]]
+  key = "match"
+  type = "string"
+  label_key = "gamepad.settings.match.label"
+  description_key = "gamepad.settings.match.description"
+  default = "xpadneo,gip,xbox"
+
+  [[widget.setting]]
+  key = "notify_low"
+  type = "bool"
+  label_key = "settings.notify_low.label"
+  description_key = "settings.notify_low.description"
+  default = true
+
+  [[widget.setting]]
+  key = "notify_full"
+  type = "bool"
+  label_key = "settings.notify_full.label"
+  description_key = "settings.notify_full.description"
+  default = false
+
+  [[widget.setting]]
+  key = "battery_glyph"
+  type = "bool"
+  label_key = "settings.battery_glyph.label"
+  description_key = "settings.battery_glyph.description"
+  default = false
+
+  [[widget.setting]]
+  key = "icon_only"
+  type = "bool"
+  label_key = "settings.icon_only.label"
+  description_key = "settings.icon_only.description"
+  default = false

@@ -1,0 +1,57 @@
+{
+  "common": {
+    "charging": "charging",
+    "discharging": "on battery"
+  },
+  "gamepad": {
+    "level": {
+      "critical": "Critical",
+      "full": "Full",
+      "high": "High",
+      "low": "Low",
+      "normal": "Normal"
+    },
+    "name": "Xbox controller",
+    "settings": {
+      "match": {
+        "description": "Comma-separated parts of a power-supply name or model name that mark a controller (xpadneo, xone, Bluetooth HID).",
+        "label": "Device match"
+      },
+      "poll_interval": "How often the controller battery is read. Connecting or disconnecting a controller shows up within two seconds regardless.",
+      "show_lowest_only": {
+        "description": "With several controllers, show only the emptiest one in the bar; the tooltip still lists all.",
+        "label": "Only show the lowest controller"
+      }
+    }
+  },
+  "notify": {
+    "full_title": "{name} fully charged",
+    "low_body": "Battery at {level}% - time to charge.",
+    "low_title": "{name} battery low"
+  },
+  "settings": {
+    "battery_glyph": {
+      "description": "Show a battery glyph with the fill level instead of the device glyph.",
+      "label": "Battery glyph"
+    },
+    "icon_only": {
+      "description": "Show only the battery glyph, without the percentage. The tooltip still has the details.",
+      "label": "Icon only"
+    },
+    "low_threshold": {
+      "description": "At or below this level the entry turns red and a notification is sent.",
+      "label": "Low battery (%)"
+    },
+    "notify_full": {
+      "description": "Send a notification once the device is fully charged.",
+      "label": "Notify when full"
+    },
+    "notify_low": {
+      "description": "Send a notification once when the battery drops to the low threshold.",
+      "label": "Notify when low"
+    },
+    "poll_interval": {
+      "label": "Poll interval (seconds)"
+    }
+  }
+}
