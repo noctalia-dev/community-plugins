@@ -17,6 +17,7 @@ import secrets
 import struct
 import zlib
 import shutil
+import signal
 import subprocess
 import tempfile
 import threading
@@ -196,6 +197,7 @@ def main():
     parser.add_argument("--settings-json", default="{}", help="Public presentation settings as a JSON object; applied through native plugin_settings")
     parser.add_argument("--exercise-provider-icons", action="store_true", help="Separate fixture-only all-provider native card, pinned-bar and icon-gallery acceptance")
     parser.add_argument("--exercise-ui", action="store_true", help="Drive fixture panel handlers through test-only IPC and verify native trees")
+    parser.add_argument("--session-model-overflow", action="store_true", help="With --exercise-ui, run only focused session-model truncation UI acceptance using 130 models per session")
     parser.add_argument("--capture-settings", action="store_true", help="Open native plugin settings and retain a fixture-only screenshot")
     parser.add_argument("--heatmap-showcase", action="store_true", help="Use richer, strictly synthetic 26-week heatmap history")
     parser.add_argument("--capture-transitions", action="store_true", help="Fixture-only native tab transition frames and unchanged ghost-button background assertions; skips the full UI/recovery suite")
@@ -203,6 +205,8 @@ def main():
     parser.add_argument("--large-quotas", action="store_true", help="Fixture-only maximum supported 512 total windows, plus over-limit snapshot retention")
     parser.add_argument("--exercise-connection", choices=("automatic", "manual"), help="Separate fixture-only connection acceptance suite")
     args = parser.parse_args()
+    if args.session_model_overflow and (not args.exercise_ui or args.hub_url):
+        parser.error("--session-model-overflow requires the synthetic --exercise-ui suite")
     if args.large_quotas and (args.hub_url or args.exercise_provider_icons or args.exercise_ui or args.exercise_connection
                              or args.large_stats or args.heatmap_showcase or args.capture_transitions or args.capture_settings):
         parser.error("--large-quotas is a separate fixture-only quota budget suite")
@@ -274,7 +278,7 @@ def main():
               for p in source.rglob("*") if p.is_file() and (p.suffix in (".luau", ".toml", ".json")
                                                           or "assets" in p.relative_to(source).parts)}
     evidence = {"mode": "real-hub-read-only" if args.hub_url else "simulated-hub-native-http",
-                "provider_icon_suite": args.exercise_provider_icons, "connection_suite": args.exercise_connection, "large_stats": args.large_stats, "large_quotas": args.large_quotas, "actual_noctalia": True, "heatmap_showcase": args.heatmap_showcase, "isolated_headless_compositor": True,
+                "provider_icon_suite": args.exercise_provider_icons, "connection_suite": args.exercise_connection, "session_model_overflow": args.session_model_overflow, "large_stats": args.large_stats, "large_quotas": args.large_quotas, "actual_noctalia": True, "heatmap_showcase": args.heatmap_showcase, "isolated_headless_compositor": True,
                 "plugin_id": PLUGIN_ID, "plugin_api": tomllib.loads((source / "plugin.toml").read_text())["plugin_api"],
                 "probe_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                 "source_sha256": hashes, "settings": settings, "samples": [], "commands": [], "passed": False,
@@ -315,6 +319,10 @@ def main():
                     self.send_header("Content-Type", "application/json")
                     self.end_headers()
                     body = (fixture_dashboard(fixture["reordered"], fixture["missingPin"]) if kind == "stats" else history_fixture)
+                    if kind == "stats" and args.session_model_overflow:
+                        for name in ("today", "month"):
+                            for session in body["periods"][name]["sessions"].values():
+                                session["models"] = {"Synthetic detail model " + str(i): i for i in range(130)}
                     if status == 200 and kind == "stats" and args.large_quotas:
                         body["limits"]["providers"] = [
                             {"provider": "codex", "accountKey": "maximum-quota-" + str(index),
@@ -535,6 +543,28 @@ function onIpc(event, payload)
   end
 end
 """.replace("__SELECT_DAY__", json.dumps((date.today() - timedelta(days=1)).isoformat() if args.heatmap_showcase else "2026-10-22")).replace("__BUCKET_DAY__", json.dumps(history_fixture["daily"][-1]["date"])))
+        if args.session_model_overflow:
+            # Screenshot navigation only: reveal the production notice using
+            # native scrolling without changing its text, layout or source data.
+            with panel_entry.open("a") as out:
+                out.write('''
+local captureOriginalIpc = onIpc
+function onIpc(event, payload)
+  if event ~= "test_reveal_model_notice" then return captureOriginalIpc(event, payload) end
+  local function reveal(node)
+    if type(node) ~= "table" then return end
+    if node.text == "This list was limited locally; totals may include additional records." then
+      node.key = "probe-model-notice"
+    end
+    if type(node.key) == "string" and node.key:sub(1, 17) == "content-sessions-" then
+      node.revealKey = "probe-model-notice"
+    end
+    for _, child in pairs(node) do if type(child) == "table" then reveal(child) end end
+  end
+  reveal(probePanelTree)
+  nativeProbePanel.render(probePanelTree)
+end
+''')
         manifest = source / "plugin.toml"
         manifest.write_text(re.sub(r'placement\s*=\s*"attached"', 'placement = "floating"', manifest.read_text()))
         config = private / "config/noctalia"
@@ -587,7 +617,7 @@ location = ''' + json.dumps(str(private / "source")) + "\n\n[plugin_settings." +
             env.pop(key, None)
         def launch(argv, name):
             with (base / name).open("a") as log:
-                p = subprocess.Popen(argv, env=env, stdout=log, stderr=log)
+                p = subprocess.Popen(argv, env=env, stdout=log, stderr=log, start_new_session=True)
             processes.append(p)
             return p
         sway = launch([args.sway, "--unsupported-gpu", "-c", str(private / "sway.config")], "sway.log")
@@ -934,6 +964,21 @@ location = ''' + json.dumps(str(private / "source")) + "\n\n[plugin_settings." +
                     evidence.setdefault("view_screenshots", {})[name] = name + ".png"
             def texts(tree):
                 return "\n".join(tree.get("texts", []))
+            if args.session_model_overflow:
+                action("sessions")
+                action("today")
+                expanded = action("expandSession")
+                assert "122 additional models are not shown." in texts(expanded), expanded
+                assert "This list was limited locally; totals may include additional records." in texts(expanded), expanded
+                if not args.no_screenshot:
+                    command("plugin", PLUGIN_ID + ":panel", "all", "test_reveal_model_notice")
+                    evidence["screenshot_navigation"] = "Native revealKey scrolls the existing production truncation notice into view."
+                screenshot("session-model-truncation")
+                log = (base / "runtime.log").read_text()
+                assert "exceeded its CPU budget" not in log and "Token Monitor processing:" not in log
+                evidence["native_session_model_truncation_passed"] = True
+                evidence["passed"] = True
+                return 0
             action("quotas")
             assert len(cards(action("codex"))) == 1
             assert len(cards(action("deepseek"))) == 1
@@ -1066,7 +1111,7 @@ location = ''' + json.dumps(str(private / "source")) + "\n\n[plugin_settings." +
             assert selection.get("key") == pinned["pinKey"], "selected stable identity was not persisted"
             wait_idle()
             # Restart only the isolated Noctalia process to prove restoration through disk.
-            process.terminate()
+            os.killpg(process.pid, signal.SIGTERM)
             process.wait(timeout=5)
             before_restart = fixture["authorizedRequests"]
             process = launch(["noctalia"], "runtime.log")
@@ -1140,16 +1185,21 @@ location = ''' + json.dumps(str(private / "source")) + "\n\n[plugin_settings." +
         evidence["failure"] = str(error)
     finally:
         for process in reversed(processes):
-            if process.poll() is None:
-                process.terminate()
-                try:
-                    process.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    process.kill(); process.wait(timeout=5)
+            # The Nix sway wrapper may exit before its child compositor. Stop
+            # its private process group even when the wrapper has already exited.
+            try:
+                os.killpg(process.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                os.killpg(process.pid, signal.SIGKILL); process.wait(timeout=5)
         if server:
             server.shutdown(); server.server_close()
         evidence["fixture"] = fixture if not args.hub_url else None
         evidence["processes_reaped"] = all(p.poll() is not None for p in processes)
+        evidence["process_groups"] = [p.pid for p in processes]
         # Private tree includes fixture secret; retain only sanitized evidence/logs.
         shutil.rmtree(private)
         (base / "evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")

@@ -13,8 +13,8 @@ Noctalia panel and bar widget.
 
 ## Requirements
 
-- Noctalia 5.2.0 or newer (plugin API 32 or newer); tested on Noctalia 5.3.0.
-  Native container tooltips used by this plugin set the minimum API requirement.
+- Noctalia with plugin API 43 or newer; tested on Noctalia 5.4.0.
+  The current theme roles used by this plugin require API 43.
 - A running Token Monitor Hub. Tested against Token Monitor 0.68.0.
   In Token Monitor, choose **Settings → Sync method → Host hub on this device**.
   The default **Local only** mode does not expose the HTTP Hub.
@@ -147,6 +147,13 @@ noctalia msg plugin shangshui0302/token-monitor:panel all view activity
   while retaining the previous data. Other displayed detail has explicit size limits. Missing values stay
   unknown; a successful Hub request does not imply fresh provider collection.
   [API coverage and limitations](docs/hub-api-assessment.md) describe the contract.
+- Session model detail shares a 512-row allowance across today's and this month's
+  retained sessions. Each period still supports 200 sessions and 128 aggregate
+  model rows. Session and period totals are unchanged; expanded sessions report
+  additional models and local truncation when detail is omitted.
+- Repeated daily or monthly history dates use the last source row before applying
+  retention limits. Counts refer to distinct dates, and cache restores preserve
+  the selected values.
 - English strings ship in `translations/en.json`; additional languages use
   Noctalia Translate's human review/export workflow.
 

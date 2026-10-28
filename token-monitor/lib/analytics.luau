@@ -2,6 +2,9 @@
 local Time = require("./time.luau")
 local Analytics = {}
 local MAX_MODELS, MAX_SESSIONS, MAX_DAYS, MAX_MONTHS = 128, 200, 370, 1200
+-- Shared across today/month session detail. Period model aggregates have their
+-- own 128-row caps; history attribution and quota windows are bounded separately.
+local MAX_SESSION_MODELS = 512
 local components = { "outputTokens", "cacheReadTokens", "cacheWriteTokens", "unclassifiedTokens" }
 local function number(value)
   return type(value) == "number" and value == value and value >= 0 and value < math.huge and value or nil
@@ -55,10 +58,10 @@ local function top(source, maximum, rank, step, rowType)
   table.sort(heap, function(a, b) return compare(b, a) end)
   return heap, count
 end
-local function models(source, costs, extras, step)
+local function models(source, costs, extras, step, maximum)
   if type(source) ~= "table" then return {}, 0, false end
   local rows, count = {}, 0
-  local selected, count = top(source, MAX_MODELS, function(value) return number(value) or 0 end, step, "number")
+  local selected, count = top(source, maximum or MAX_MODELS, function(value) return number(value) or 0 end, step, "number")
   for _, item in ipairs(selected) do
     local row = { name = text(item.key), key = #item.key <= 512 and item.key or "", tokens = number(item.row),
       cost = type(costs) == "table" and number(costs[item.key]) or nil }
@@ -74,11 +77,13 @@ end
 local sessionFields = { "totalTokens", "costUsd", "messageCount", "inputTokens", "outputTokens",
   "cacheReadTokens", "cacheWriteTokens", "reasoningTokens", "timedOutputTokens", "timedDurationMs",
   "contextTokens", "contextWindow" }
-local function sessions(source, step)
+local function selectSessions(source, step)
   if type(source) ~= "table" then return {}, 0 end
-  local selected, count = top(source, MAX_SESSIONS, function(row)
+  return top(source, MAX_SESSIONS, function(row)
     return Time.parse(row.lastUsedAt) or -math.huge
   end, step)
+end
+local function sessions(selected, step, budget)
   local rows = {}
   for index, item in ipairs(selected) do
     local raw, row = item.row, metrics(item.row, sessionFields)
@@ -88,11 +93,16 @@ local function sessions(source, step)
     end
     row.startedAt, row.lastUsedAt = text(raw.startedAt, 64), text(raw.lastUsedAt, 64)
     row.archived, row.turnEnded = raw.archived == true, raw.turnEnded == true
-    row.models, row.modelCount, row.modelsTruncated = models(raw.models, raw.modelCosts, nil, step)
+    -- Give every retained session a share before distributing unused capacity
+    -- to later rows. A full today list must not consume month's entire budget.
+    local maximum = math.min(MAX_MODELS, math.ceil(budget.remaining / budget.sessions))
+    row.models, row.modelCount, row.modelsTruncated = models(raw.models, raw.modelCosts, nil, step, maximum)
+    budget.remaining -= #row.models
+    budget.sessions -= 1
     rows[#rows + 1] = row
     checkpoint(step, index)
   end
-  return rows, count
+  return rows
 end
 local function freshness(devices, step)
   if type(devices) ~= "table" then return { available = false } end
@@ -120,6 +130,13 @@ function Analytics.normalize(data, step)
     return { status = "unavailable", error = "", periods = {} }
   end
   local result = { status = "unavailable", error = "", periods = {}, freshness = freshness(data.devices, step) }
+  local selectedSessions, sessionCounts = {}, {}
+  local budget = { remaining = MAX_SESSION_MODELS, sessions = 0 }
+  for _, name in ipairs({ "today", "month" }) do
+    local raw = data.periods[name]
+    selectedSessions[name], sessionCounts[name] = selectSessions(type(raw) == "table" and raw.sessions or nil, step)
+    budget.sessions += #selectedSessions[name]
+  end
   for _, name in ipairs({ "today", "month", "allTime" }) do
     local raw = data.periods[name]
     if type(raw) == "table" then
@@ -138,7 +155,9 @@ function Analytics.normalize(data, step)
       local modelRows, modelCount, modelTruncated = models(raw.models, raw.modelCosts, extra, step)
       local available = name ~= "allTime" and type(raw.sessions) == "table"
       local sessionRows, sessionCount = {}, 0
-      if available then sessionRows, sessionCount = sessions(raw.sessions, step) end
+      if available then
+        sessionRows, sessionCount = sessions(selectedSessions[name], step, budget), sessionCounts[name]
+      end
       local omitted = type(data.sessionDetailsOmitted) == "table" and number(data.sessionDetailsOmitted[name]) or nil
       result.periods[name] = { available = true, totals = totals, tokenComponentsAvailable = hasComponents,
         models = modelRows, modelCount = modelCount, modelsTruncated = modelTruncated,
@@ -178,10 +197,12 @@ local function buckets(raw, label, maximum, step, budget)
         or not value[label]:match(label == "date" and "^%d%d%d%d%-%d%d%-%d%d$" or "^%d%d%d%d%-%d%d$") then return nil end
     local stamp = value[label] .. (label == "date" and "T00:00:00Z" or "-01T00:00:00Z")
     if not Time.parse(stamp) then return nil end
-    map[tostring(index)] = value
+    -- Resolve duplicates in source order before applying retention. Both the
+    -- heatmap and selected-day detail use the last reported value for a date.
+    map[value[label]] = value
     checkpoint(step, count)
   end
-  local selected = top(map, maximum, function(row) return row[label] end, step)
+  local selected, uniqueCount = top(map, maximum, function(row) return row[label] end, step)
   for index, item in ipairs(selected) do
     local source = item.row
     local row = metrics(source, historyFields)
@@ -199,7 +220,7 @@ local function buckets(raw, label, maximum, step, budget)
   end
   -- Time series are chronological; views can reverse without altering the underlying totals.
   table.sort(rows, function(a, b) return a[label] < b[label] end)
-  return rows, count
+  return rows, uniqueCount
 end
 function Analytics.history(data, step)
   if type(data) ~= "table" or type(data.daily) ~= "table" or type(data.monthly) ~= "table"
@@ -218,7 +239,8 @@ end
 -- Rebuild supported wire fields from the bounded display projection. Restoring this
 -- through normal validators prevents unknown cache fields from becoming UI state.
 function Analytics.cacheUsage(value, step)
-  local raw = { periods = {}, sessionDetailsOmitted = {}, snapshotCounts = {}, snapshotFreshness = value.freshness }
+  local raw = { periods = {}, sessionDetailsOmitted = {}, snapshotCounts = {},
+    snapshotSessionModelCounts = {}, snapshotFreshness = value.freshness }
   for name, period in pairs(value.periods or {}) do
     if period.available then
       local out = { totalTokens = period.totals.tokens, costUsd = period.totals.cost,
@@ -235,6 +257,7 @@ function Analytics.cacheUsage(value, step)
           out.modelCacheWrites[model.key], out.modelUnclassifiedTokens[model.key] = model.cacheWriteTokens, model.unclassifiedTokens
         end
       end
+      local sessionModelCounts = {}
       for index, row in ipairs(period.sessions) do
         if row.key ~= "" then
           local session = metrics(row, sessionFields)
@@ -246,10 +269,12 @@ function Analytics.cacheUsage(value, step)
             if model.key ~= "" then session.models[model.key], session.modelCosts[model.key] = model.tokens, model.cost end
           end
           out.sessions[row.key] = session
+          sessionModelCounts[row.key] = row.modelCount
         end
         checkpoint(step, index)
       end
       raw.periods[name] = out
+      raw.snapshotSessionModelCounts[name] = sessionModelCounts
       raw.snapshotCounts[name] = { modelCount = period.modelCount, sessionCount = period.sessionCount,
         sessionOmitted = period.sessionOmitted, sessionsAvailable = period.sessionsAvailable }
       -- Already discarded local rows are also omitted from cached detail.
@@ -308,6 +333,13 @@ function Analytics.restoreUsage(raw, step)
       period.sessionsAvailable = name ~= "allTime" and counts.sessionsAvailable == true
       period.sessionTruncated = period.sessionCount > #period.sessions
       period.sessionsIncomplete = period.sessionOmitted > 0 or period.sessionTruncated
+    end
+    local modelCounts = type(raw.snapshotSessionModelCounts) == "table" and raw.snapshotSessionModelCounts[name] or nil
+    if type(modelCounts) == "table" then
+      for _, session in ipairs(period.sessions) do
+        session.modelCount = restoredCount(modelCounts[session.key], #session.models)
+        session.modelsTruncated = session.modelCount > #session.models
+      end
     end
   end
   return result
