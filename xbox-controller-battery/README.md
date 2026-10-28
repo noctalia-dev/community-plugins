@@ -1,4 +1,4 @@
-# Xbox Controller Battery
+# Xbox Wireless Controller Battery
 
 Shows the battery level of every connected Xbox controller in the bar and
 sends a notification before a controller runs out. It reads the kernel's
@@ -25,7 +25,7 @@ Wired controllers on the stock `xpad` driver do not report a battery.
 
 ## Usage
 
-Add the **Xbox Controller Battery** widget
+Add the **Xbox Wireless Controller Battery** widget
 (`blanchedeadwood/xbox-controller-battery:battery`) to a bar. It appears within
 two seconds of a controller connecting and hides when none is left. Hover it
 for each controller's name, level and charging state. Left click re-reads the

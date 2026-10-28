@@ -1,9 +1,9 @@
-# Xbox controller battery for Noctalia. Reads the controllers' entries in
+# Xbox Wireless Controller battery for Noctalia. Reads the controllers' entries in
 # /sys/class/power_supply (xpadneo, xone, kernel Bluetooth HID), so it needs
 # neither UPower nor a helper process.
 
 id = "blanchedeadwood/xbox-controller-battery"
-name = "Xbox Controller Battery"
+name = "Xbox Wireless Controller Battery"
 version = "0.2.0"
 plugin_api = 24
 author = "blanchedeadwood"
