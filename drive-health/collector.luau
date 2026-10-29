@@ -10,6 +10,8 @@ local RAW_CACHE = "/run/" .. SYSTEM_NAMESPACE .. "/raw.json"
 -- service refreshes lsblk and sysfs temperatures between those runs, so allow
 -- a little scheduler slack before falling back to an expensive direct read.
 local CACHE_MAX_AGE_SECONDS = 1200
+local SYSTEM_TIMER_DROPIN_DIR = "/etc/systemd/system/" .. SYSTEM_NAMESPACE .. ".timer.d"
+local SYSTEM_TIMER_BASE = "/etc/systemd/system/" .. SYSTEM_NAMESPACE .. ".timer"
 local LSBLK_INVENTORY_COMMAND = "lsblk --json --bytes --paths --output "
   .. "NAME,KNAME,PATH,PKNAME,TYPE,TRAN,ROTA,RM,HOTPLUG,SIZE,LOG-SEC,PHY-SEC,MODEL,SERIAL,FSTYPE,FSSIZE,FSUSED,FSAVAIL,MOUNTPOINTS"
 local NVME_DATA_UNIT_BYTES = 512000
@@ -91,6 +93,98 @@ local function fullSmartRefreshMinutes()
   return math.max(1, math.min(1440, math.floor(configured)))
 end
 
+local function listDirectory(path)
+  local entries = noctalia.listDir(path)
+  return type(entries) == "table" and entries or {}
+end
+
+local function parseTimerIntervalMinutes(content)
+  if type(content) ~= "string" or content == "" then
+    return nil
+  end
+  local lastValue = nil
+  for line in content:gmatch("[^\r\n]+") do
+    local key, val = line:match("^%s*([%w_]+)%s*=%s*(.*)$")
+    if key == "OnUnitActiveSec" then
+      val = val:match("^%s*(.-)%s*$")
+      if val ~= "" then
+        lastValue = val
+      else
+        lastValue = nil
+      end
+    end
+  end
+  if lastValue == nil or lastValue == "" then
+    return nil
+  end
+
+  local totalSeconds = 0
+  local matchedAny = false
+  for numStr, unit in lastValue:gmatch("([%d%.]+)%s*([%a]*)") do
+    local n = tonumber(numStr)
+    if n ~= nil and n > 0 then
+      matchedAny = true
+      local u = unit:lower()
+      if u == "" or u == "s" or u == "sec" or u == "second" or u == "seconds" then
+        totalSeconds = totalSeconds + n
+      elseif u == "m" or u == "min" or u == "minute" or u == "minutes" then
+        totalSeconds = totalSeconds + (n * 60)
+      elseif u == "h" or u == "hr" or u == "hour" or u == "hours" then
+        totalSeconds = totalSeconds + (n * 3600)
+      elseif u == "d" or u == "day" or u == "days" then
+        totalSeconds = totalSeconds + (n * 86400)
+      elseif u == "w" or u == "week" or u == "weeks" then
+        totalSeconds = totalSeconds + (n * 604800)
+      end
+    end
+  end
+
+  if matchedAny and totalSeconds > 0 then
+    local minutes = math.floor(totalSeconds / 60)
+    return math.max(1, math.min(1440, minutes))
+  end
+  return nil
+end
+
+local function appliedSmartRefreshMinutes()
+  -- If timer drop-ins exist, systemd applies all *.conf files in lexicographical order.
+  local dropins = listDirectory(SYSTEM_TIMER_DROPIN_DIR)
+  local confFiles = {}
+  for _, entry in ipairs(dropins) do
+    local name = type(entry) == "table" and entry.name or entry
+    if type(name) == "string" and name:match("%.conf$") then
+      table.insert(confFiles, name)
+    end
+  end
+
+  if #confFiles > 0 then
+    table.sort(confFiles)
+    local dropinParsed = nil
+    for _, name in ipairs(confFiles) do
+      local path = SYSTEM_TIMER_DROPIN_DIR .. "/" .. name
+      local content = noctalia.readFile(path)
+      local parsed = parseTimerIntervalMinutes(content)
+      if parsed ~= nil then
+        dropinParsed = parsed
+      elseif content ~= nil and content:match("OnUnitActiveSec%s*=") then
+        -- A drop-in explicitly reset OnUnitActiveSec without defining a valid interval.
+        dropinParsed = nil
+      end
+    end
+    if dropinParsed ~= nil then
+      return dropinParsed
+    end
+  end
+
+  local base = noctalia.readFile(SYSTEM_TIMER_BASE)
+  local baseParsed = parseTimerIntervalMinutes(base)
+  if baseParsed ~= nil then
+    return baseParsed
+  end
+
+  return 15
+end
+
 local function numeric(value)
   if value == nil or type(value) == "boolean" then
     return nil
@@ -147,11 +241,6 @@ end
 local function deviceBasename(value)
   local normalized = tostring(value or ""):gsub("/+$", "")
   return normalized:match("([^/]+)$") or ""
-end
-
-local function listDirectory(path)
-  local entries = noctalia.listDir(path)
-  return type(entries) == "table" and entries or {}
 end
 
 local function readTemperatureFile(path)
@@ -743,6 +832,7 @@ local function systemCollectorState(raw, source)
   local reportedVersion = type(raw) == "table" and tostring(raw.collector_version or "") or ""
   local version = source == "system-cache" and reportedVersion or ""
   local refreshMinutes = fullSmartRefreshMinutes()
+  local appliedMinutes = appliedSmartRefreshMinutes()
   local intervalScript = SYSTEM_LIBEXEC .. "/set-collector-interval.sh"
   local manageScript = SYSTEM_LIBEXEC .. "/manage-collector.sh"
   local uninstallScript = SYSTEM_LIBEXEC .. "/uninstall-collector.sh"
@@ -776,6 +866,7 @@ local function systemCollectorState(raw, source)
     version = version ~= "" and version or nil,
     expected_version = EXPECTED_COLLECTOR_VERSION,
     smart_refresh_minutes = refreshMinutes,
+    applied_smart_refresh_minutes = appliedMinutes,
     helper_installed = noctalia.fileExists(SYSTEM_LIBEXEC .. "/smart-action.sh"),
     helper_available = enabled
       and noctalia.fileExists(SYSTEM_LIBEXEC .. "/smart-action.sh"),
@@ -1047,7 +1138,8 @@ local function freshJson(path)
     return nil
   end
   local age = os.time() - tonumber(info.mtime)
-  if age < 0 or age > CACHE_MAX_AGE_SECONDS then
+  local maxAge = math.max(CACHE_MAX_AGE_SECONDS, (appliedSmartRefreshMinutes() * 60) + 300)
+  if age < 0 or age > maxAge then
     return nil
   end
   local encoded = noctalia.readFile(path)
