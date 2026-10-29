@@ -1,0 +1,80 @@
+# Keychron M3 mini battery for Noctalia. The widget asks the mouse directly
+# through the Keychron 4K Link receiver (keychron-query.py), no kernel module
+# or UPower needed.
+
+id = "blanchedeadwood/keychron-m3-battery"
+name = "Keychron M3 Battery"
+version = "0.2.0"
+plugin_api = 24
+author = "blanchedeadwood"
+license = "MIT"
+icon = "mouse"
+description = "Battery level of a Keychron M3 mini (4K Link receiver) in the bar, with low-battery notifications."
+tags = ["bar", "hardware", "indicator"]
+dependencies = ["python3"]
+
+[[widget]]
+id = "battery"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "poll_interval"
+  type = "int"
+  label_key = "settings.poll_interval.label"
+  description_key = "mouse.settings.poll_interval"
+  default = 60
+  min = 10
+  max = 900
+
+  [[widget.setting]]
+  key = "low_threshold"
+  type = "int"
+  label_key = "settings.low_threshold.label"
+  description_key = "settings.low_threshold.description"
+  default = 20
+  min = 5
+  max = 50
+
+  [[widget.setting]]
+  key = "keep_last"
+  type = "int"
+  label_key = "mouse.settings.keep_last.label"
+  description_key = "mouse.settings.keep_last.description"
+  default = 60
+  min = 0
+  max = 1440
+
+  [[widget.setting]]
+  key = "hide_when_unavailable"
+  type = "bool"
+  label_key = "mouse.settings.hide_when_unavailable.label"
+  description_key = "mouse.settings.hide_when_unavailable.description"
+  default = true
+
+  [[widget.setting]]
+  key = "notify_low"
+  type = "bool"
+  label_key = "settings.notify_low.label"
+  description_key = "settings.notify_low.description"
+  default = true
+
+  [[widget.setting]]
+  key = "notify_full"
+  type = "bool"
+  label_key = "settings.notify_full.label"
+  description_key = "settings.notify_full.description"
+  default = false
+
+  [[widget.setting]]
+  key = "battery_glyph"
+  type = "bool"
+  label_key = "settings.battery_glyph.label"
+  description_key = "settings.battery_glyph.description"
+  default = false
+
+  [[widget.setting]]
+  key = "icon_only"
+  type = "bool"
+  label_key = "settings.icon_only.label"
+  description_key = "settings.icon_only.description"
+  default = false
