@@ -20,13 +20,17 @@
     ]
   },
   "hypr_lua": {
-    "count": 5,
+    "count": 6,
     "categories": [
       "Applications",
       "Workspaces",
       "Media",
       "Volume",
       "Without Description"
+    ],
+    "keys": [
+      "1",
+      "2"
     ]
   },
   "niri": {
