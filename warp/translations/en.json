@@ -37,7 +37,7 @@
   },
   "settings": {
     "manage_daemon": {
-      "description": "Start warp-svc on connect and stop it on disconnect to save RAM. Requires passwordless service management (e.g. Polkit).",
+      "description": "Start warp-svc on connect and stop it on disconnect to save RAM. Uses Polkit authentication (passwordless rule is optional, see README).",
       "label": "On-demand daemon"
     }
   },

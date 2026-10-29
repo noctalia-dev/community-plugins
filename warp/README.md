@@ -46,31 +46,38 @@ The `set-mode` event accepts `warp`, `doh`, `warp+doh`, `dot`, `warp+dot`, `prox
 
 ## On-Demand Daemon (Optional)
 
-By default, Cloudflare WARP requires `warp-svc.service` to run continuously in the background. If you prefer to save RAM by only running the daemon while connected:
+By default, Cloudflare WARP requires `warp-svc.service` to run continuously in the background (~115MB RAM). If you prefer to save RAM by only running the daemon while connected:
 
 1. Enable **On-demand daemon** in Noctalia Settings $\rightarrow$ Plugins $\rightarrow$ Cloudflare WARP.
-2. Allow your user to start and stop `warp-svc.service` without a password prompt by adding a Polkit rule (one-time setup):
+2. Disable `warp-svc` from automatically starting at boot:
+
+```sh
+sudo systemctl disable warp-svc
+```
+
+### Passwordless Management (Optional)
+
+By default, managing system services through systemd prompts for authentication via your desktop's Polkit agent (e.g., when clicking connect or disconnect). 
+
+If you prefer seamless, passwordless toggling from the bar, you can **optionally** install a Polkit rule scoped strictly to `warp-svc.service` for local administrators (`wheel` group):
 
 ```sh
 sudo tee /etc/polkit-1/rules.d/50-warp-svc.rules << 'EOF'
 polkit.addRule(function(action, subject) {
-    if (action.id == "org.freedesktop.systemd1.manage-units") {
-        if (action.lookup("unit") == "warp-svc.service") {
-            var verb = action.lookup("verb");
-            if (verb == "start" || verb == "stop" || verb == "restart") {
-                return polkit.Result.YES;
-            }
+    if (action.id == "org.freedesktop.systemd1.manage-units" &&
+        action.lookup("unit") == "warp-svc.service" &&
+        subject.isInGroup("wheel") &&
+        subject.local) {
+        var verb = action.lookup("verb");
+        if (verb == "start" || verb == "stop" || verb == "restart") {
+            return polkit.Result.YES;
         }
     }
 });
 EOF
 ```
 
-3. Disable `warp-svc` from automatically starting at boot:
-
-```sh
-sudo systemctl disable warp-svc
-```
+> **Security Note:** This rule only grants permission to start, stop, or restart `warp-svc.service` for local users in the `wheel` group. It does not grant general root privileges. If you prefer not to install custom Polkit rules, leave it omitted — the plugin will simply trigger your desktop's standard graphical password prompt when toggled.
 
 ## Notes
 
