@@ -5,6 +5,9 @@ Sony Headphones backend for Noctalia â€” MDR V2 (WH/WF-1000X series, LinkBuds, â
 Speaks Sony's reverse-engineered MDR V2 binary protocol over Bluetooth RFCOMM
 (the same protocol the official Sound Connect app uses), using only the
 standard library: `socket.AF_BLUETOOTH` + BlueZ (`bluetoothctl`/`sdptool`).
+MDR V1 devices are detected from their SDP service UUID and model name, then
+handled through BlueZ only: sending a V2 handshake to some of them (e.g.
+WH-1000XM4) makes the headphones power off.
 
 Frame format (verified against mos9527/libmdr, Keller18306/SonyHeadphonesProtocol,
 ibatra/sony-headphones-client, MamaJo3/sony-mx5-desktop-toggle):
@@ -38,6 +41,7 @@ import time
 # ---------------------------------------------------------------- constants
 
 V2_UUID = "956c7b26-d49a-4ba8-b03f-b17d393cb6e2"
+V1_UUID = "96cc203e-5068-46ad-b32d-e316f5e069ba"
 DEFAULT_CHANNEL = 9
 
 TYPE_DATA = 0x0C
@@ -64,6 +68,7 @@ MODEL_NAMES = {
     "WH-1000XM5": "WH-1000XM5",
     "WH-1000XM4": "WH-1000XM4",
     "WH-1000XM3": "WH-1000XM3",
+    "WH-1000XM2": "WH-1000XM2",
     "WF-1000XM5": "WF-1000XM5",
     "WF-1000XM4": "WF-1000XM4",
     "WF-1000XM3": "WF-1000XM3",
@@ -73,6 +78,15 @@ MODEL_NAMES = {
     "1000X THE COLLEXION": "WH-1000XX",
     "1000X THE COLLECTION": "WH-1000XX",
     "ULT WEAR": "ULT WEAR",
+}
+
+# Models known to speak the older MDR V1 protocol. Some of them (notably the
+# WH-1000XM4) interpret an unexpected V2 handshake as a reason to power
+# themselves off, so we must never open an RFCOMM/V2 session for these.
+V1_MODELS = {
+    "WH-1000XM2",
+    "WH-1000XM3",
+    "WH-1000XM4",
 }
 
 # ---------------------------------------------------------------- framing
@@ -157,14 +171,29 @@ def parse_frame(raw: bytes):
 # ---------------------------------------------------------------- transport
 
 
-def resolve_channel(mac: str) -> int:
-    """Resolve the RFCOMM channel for the Sony HPC UUID via sdptool. Falls back to 9."""
+def browse_sdp(mac: str) -> str:
+    """Return `sdptool browse <mac>` output, or "" when unavailable."""
     try:
-        out = subprocess.check_output(
+        return subprocess.check_output(
             ["sdptool", "browse", mac], text=True, stderr=subprocess.DEVNULL, timeout=10
         )
     except Exception:
-        return DEFAULT_CHANNEL
+        return ""
+
+
+def detect_protocol(sdp_out: str):
+    """Return "v1"/"v2" from the advertised SDP service UUIDs, or None."""
+    low = (sdp_out or "").lower()
+    if V1_UUID.lower() in low:
+        return "v1"
+    if V2_UUID.lower() in low:
+        return "v2"
+    return None
+
+
+def resolve_channel(mac: str, sdp_out=None) -> int:
+    """Resolve the RFCOMM channel for the Sony HPC UUID via sdptool. Falls back to 9."""
+    out = browse_sdp(mac) if sdp_out is None else sdp_out
     # Find the service block mentioning our UUID, then its Channel line.
     blocks = re.split(r"Service (?:Name|RecHandle)", out)
     for block in blocks:
@@ -195,14 +224,29 @@ def find_connected_device():
     return None, None
 
 
-def bluez_battery(mac: str):
-    """Fallback battery % from BlueZ (`bluetoothctl info`), e.g. 0x5a -> 90."""
+def bluez_info(mac: str) -> str:
+    """Return `bluetoothctl info <mac>` output, or "" when unavailable."""
     try:
-        out = subprocess.check_output(
+        return subprocess.check_output(
             ["bluetoothctl", "info", mac], text=True, stderr=subprocess.DEVNULL
         )
     except Exception:
-        return None
+        return ""
+
+
+def bluez_device_name(mac: str):
+    """Read the advertised name/alias from BlueZ (works even with --mac)."""
+    out = bluez_info(mac)
+    for key in ("Name", "Alias"):
+        m = re.search(r"^\s*%s:\s*(.+?)\s*$" % key, out, re.MULTILINE)
+        if m:
+            return m.group(1)
+    return None
+
+
+def bluez_battery(mac: str):
+    """Fallback battery % from BlueZ (`bluetoothctl info`), e.g. 0x5a -> 90."""
+    out = bluez_info(mac)
     m = re.search(r"Battery Percentage:\s*0x([0-9a-fA-F]+)", out)
     if m:
         try:
@@ -391,13 +435,55 @@ def _canonical_model(name):
     return None
 
 
+def _is_v1_model(name):
+    """True when the model is known to speak MDR V1 (never send V2 frames)."""
+    canonical = _canonical_model(name)
+    return (canonical or name or "").upper() in V1_MODELS
+
+
+def _resolve_model(mac, prev=None, device_name=None):
+    """Best-effort canonical model name, consulting BlueZ if needed."""
+    prev = prev or {}
+    names = [device_name]
+    if prev.get("mac") == mac:
+        names.extend([prev.get("device_name"), prev.get("model_name")])
+    for name in names:
+        canonical = _canonical_model(name)
+        if canonical:
+            return canonical
+    looked_up = bluez_device_name(mac)
+    canonical = _canonical_model(looked_up)
+    if canonical:
+        return canonical
+    for name in names + [looked_up]:
+        if name:
+            return name
+    return None
+
+
 def query_device(mac: str, device_name=None):
     prev = _load_cache()
+    model = _resolve_model(mac, prev, device_name)
+    same_device_prev = prev if prev.get("mac") == mac else {}
+
+    # A model-name check catches known V1 hardware; SDP catches everything
+    # else before we ever send a frame the device might not understand.
+    v1 = _is_v1_model(model)
+    sdp_out = ""
+    if not v1:
+        sdp_out = browse_sdp(mac)
+        v1 = detect_protocol(sdp_out) == "v1"
+
     state = {
         "connected": True,
         "mac": mac,
-        "device_name": device_name or prev.get("device_name") or "Sony Headphones",
-        "model_name": device_name or prev.get("model_name") or "Sony Headphones",
+        "device_name": (
+            device_name
+            or same_device_prev.get("device_name")
+            or model
+            or "Sony Headphones"
+        ),
+        "model_name": model or same_device_prev.get("model_name") or "Sony Headphones",
         "noise_mode": prev.get("noise_mode", "unknown"),
         "ambient_level": prev.get("ambient_level", 0),
         "focus_voice": prev.get("focus_voice", False),
@@ -406,13 +492,24 @@ def query_device(mac: str, device_name=None):
         "battery_right": prev.get("battery_right", -1),
         "battery_case": prev.get("battery_case", -1),
         "charging": prev.get("charging", False),
+        "noise_control": not v1,
+        "protocol": "v1" if v1 else "v2",
         "timestamp": int(time.time()),
     }
-    canonical = _canonical_model(state["device_name"])
-    if canonical:
-        state["model_name"] = canonical
 
-    channel = resolve_channel(mac)
+    if v1:
+        # These devices may power off when they receive an MDR V2 handshake.
+        # Stay passive: report the BlueZ battery and skip RFCOMM entirely.
+        bz = bluez_battery(mac)
+        if bz is not None:
+            state["battery"] = bz
+            state["battery_left"] = bz
+            state["battery_right"] = bz
+        state.pop("error", None)
+        _save_cache(state)
+        return state
+
+    channel = resolve_channel(mac, sdp_out)
     sess = SonySession(mac, channel)
     if not sess.open():
         # Transport busy/refused: fall back to cache + BlueZ battery.
@@ -486,8 +583,16 @@ def set_nc_mode(mac: str, mode: str, level: int = 0):
     if mode not in (MODE_ANC, MODE_TRANSPARENCY, MODE_OFF):
         return {"success": False, "error": "Invalid mode: %s" % mode}
     prev = _load_cache()
+    model = _resolve_model(mac, prev)
+    sdp_out = "" if _is_v1_model(model) else browse_sdp(mac)
+    if _is_v1_model(model) or detect_protocol(sdp_out) == "v1":
+        return {
+            "success": False,
+            "error": "Noise control is not supported for %s (MDR V1); battery only"
+            % (model or "this model"),
+        }
     subtype = prev.get("nc_subtype", 0x17)
-    sess = SonySession(mac, resolve_channel(mac))
+    sess = SonySession(mac, resolve_channel(mac, sdp_out))
     if not sess.open():
         return {"success": False, "error": "Could not connect to Sony RFCOMM"}
     try:
