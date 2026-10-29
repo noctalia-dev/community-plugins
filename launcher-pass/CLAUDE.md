@@ -446,9 +446,8 @@ Its own `+` prefix (never produced by browsing), `+!` for the confirm step
   does nothing but re-assert `lastQuery` via `setQuery`, so the host keeps the
   creation menu open instead of closing the launcher.
 - `onQuery` `+!<path>` → `renderCreateConfirmRows(path)`: **"Create entry now"**
-  (`newrun:<path>`) first, then **Cancel** (`query` back to `"+"..path.." "`, the
-  editable menu). Static rows; create is first because the user reached this
-  view through the create row and the host preselects row 0.
+  (`newrun:<path>`) and **Cancel** (`query` back to `"+"..path.." "`, the editable
+  menu). Static rows.
 - `onActivate` `newrun:<path>` → `newEntry(path)`: re-`trim`s and rejects an
   empty / trailing-`/` path (`notification.create-failed`). Then repeats the
   `test -e <storeDir>/<path>.gpg` guard as a TOCTOU safety net (and for a

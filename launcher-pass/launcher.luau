@@ -1034,9 +1034,6 @@ local function showCreateMenu(text, rest)
     return
   end
 
-  -- Primary action first: the host preselects the first row, so typing a leaf
-  -- name and pressing Enter goes straight to the confirm step instead of
-  -- activating "Go back" (the row order used to do exactly that).
   launcher.setResults(text, {
     {
       id = "create-go",
