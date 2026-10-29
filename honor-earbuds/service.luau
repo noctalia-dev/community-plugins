@@ -8,22 +8,45 @@ local scriptPath = noctalia.pluginDir() .. "/scripts/honor_ctl.py"
 
 local wasConnected = false
 local hasNotifiedBattery = false
+local pollInterval = noctalia.getConfig("poll_interval") or 2500
+local isExecuting = false  -- Guard against concurrent RFCOMM connections
+
+-- Allowlist of valid noise modes (prevents shell injection in argv dispatch)
+local VALID_NOISE_MODES = {
+	["anc"] = true,
+	["transparency"] = true,
+	["off"] = true,
+}
+
+local function earbudsAvailableForNoise()
+	local cur = noctalia.state.get(SNAPSHOT_KEY)
+	if type(cur) ~= "table" then
+		return true
+	end
+	local function available(level)
+		return level == nil or level > 0
+	end
+	return available(cur.battery_left) and available(cur.battery_right)
+end
 
 local function isNotifyEnabled()
 	return noctalia.getConfig("notify_on_connect") ~= false
 end
 
-function onConfigChanged()
-	-- Config reloaded
-end
-
-local function getCliCmd(args)
+local function getCliArgs(extraArgs)
 	local mac = noctalia.getConfig("device_mac")
-	local cmd = "python3 " .. scriptPath .. " " .. args
-	if mac and mac ~= "" then
-		cmd = cmd .. " --mac " .. mac
+	local parts = { "python3", scriptPath }
+
+	for _, v in ipairs(extraArgs) do
+		table.insert(parts, v)
 	end
-	return cmd
+
+	if mac and mac ~= "" then
+		table.insert(parts, "--mac")
+		table.insert(parts, mac)
+	end
+
+	return parts
 end
 
 local function notifyBattery(data)
@@ -70,8 +93,11 @@ local function updateSnapshot(data)
 end
 
 local function pollStatus()
-	local cmd = getCliCmd("status")
-	noctalia.runAsync(cmd, function(result)
+	if isExecuting then
+		return
+	end
+	local args = getCliArgs({ "status" })
+	noctalia.runAsync(args, function(result)
 		if result and result.stdout and result.stdout ~= "" then
 			local ok, parsed = pcall(function()
 				return noctalia.json.decode(result.stdout)
@@ -92,8 +118,17 @@ local function notifyMode(mode)
 end
 
 local function handleNoiseAction(action, arg)
-	local cmd = getCliCmd(action .. (arg and (" " .. tostring(arg)) or ""))
-	noctalia.runAsync(cmd, function(result)
+	if isExecuting or not earbudsAvailableForNoise() then
+		return
+	end
+	isExecuting = true
+	local extra = { action }
+	if arg then
+		table.insert(extra, tostring(arg))
+	end
+	local args = getCliArgs(extra)
+	noctalia.runAsync(args, function(result)
+		isExecuting = false
 		if result and result.stdout and result.stdout ~= "" then
 			local ok, parsed = pcall(function() return noctalia.json.decode(result.stdout) end)
 			if ok and parsed then
@@ -113,10 +148,23 @@ noctalia.state.watch(COMMAND_KEY, function(cmdObj)
 	if type(cmdObj) ~= "table" or not cmdObj.action then
 		return
 	end
-	if cmdObj.action == "set-noise" and cmdObj.value then
+	if cmdObj.action == "set-noise" and cmdObj.value and VALID_NOISE_MODES[cmdObj.value] then
 		handleNoiseAction("set-anc", cmdObj.value)
 	elseif cmdObj.action == "cycle-noise" then
-		handleNoiseAction("cycle-anc")
+		-- Calculate next mode locally from snapshot, avoids a second RFCOMM connection
+		local cur = noctalia.state.get(SNAPSHOT_KEY)
+		local curMode = (cur and cur.noise_mode) or "off"
+		local modeOrder = { "off", "anc", "transparency" }
+		local nextMode = "anc"
+		for i, m in ipairs(modeOrder) do
+			if m == curMode then
+				nextMode = modeOrder[(i % #modeOrder) + 1]
+				break
+			end
+		end
+		if VALID_NOISE_MODES[nextMode] then
+			handleNoiseAction("set-anc", nextMode)
+		end
 	elseif cmdObj.action == "refresh" then
 		pollStatus()
 	end
@@ -125,8 +173,20 @@ end)
 -- Handle IPC events
 function onIpc(event, payload)
 	if event == "cycle-noise" then
-		handleNoiseAction("cycle-anc")
-	elseif event == "set-noise" and payload then
+		local cur = noctalia.state.get(SNAPSHOT_KEY)
+		local curMode = (cur and cur.noise_mode) or "off"
+		local modeOrder = { "off", "anc", "transparency" }
+		local nextMode = "anc"
+		for i, m in ipairs(modeOrder) do
+			if m == curMode then
+				nextMode = modeOrder[(i % #modeOrder) + 1]
+				break
+			end
+		end
+		if VALID_NOISE_MODES[nextMode] then
+			handleNoiseAction("set-anc", nextMode)
+		end
+	elseif event == "set-noise" and payload and VALID_NOISE_MODES[payload] then
 		handleNoiseAction("set-anc", payload)
 	elseif event == "notify-battery" then
 		local cur = noctalia.state.get(SNAPSHOT_KEY)
@@ -140,7 +200,12 @@ function onIpc(event, payload)
 	end
 end
 
-noctalia.setUpdateInterval(2500)
+noctalia.setUpdateInterval(pollInterval)
+
+function onConfigChanged()
+	pollInterval = noctalia.getConfig("poll_interval") or 2500
+	noctalia.setUpdateInterval(pollInterval)
+end
 
 function update()
 	pollStatus()
