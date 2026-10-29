@@ -1034,8 +1034,10 @@ local function showCreateMenu(text, rest)
     return
   end
 
+  -- Primary action first: the host preselects the first row, so typing a leaf
+  -- name and pressing Enter goes straight to the confirm step instead of
+  -- activating "Go back" (the row order used to do exactly that).
   launcher.setResults(text, {
-    backRow,
     {
       id = "create-go",
       query = "+!" .. path .. " ",
@@ -1043,6 +1045,7 @@ local function showCreateMenu(text, rest)
       subtitle = path,
       glyph = "plus",
     },
+    backRow,
   })
 
   noctalia.runAsync({ "test", "-e", storeDir() .. "/" .. path .. ".gpg" }, function(res)
@@ -1057,14 +1060,16 @@ local function showCreateMenu(text, rest)
       noctalia.log("launcher-pass: existence check for '" .. path .. "' failed (exit "
         .. tostring(res.exitCode) .. (res.timedOut and ", timed out" or "") .. ")")
     end
+    -- Keep the status row first too: the user is still editing this path, and
+    -- Enter on the inert row re-asserts the query instead of backing out.
     launcher.setResults(text, {
-      backRow,
       {
         id = taken and "create-exists" or "create-error",
         title = tr(taken and "action.create-exists" or "action.create-error"),
         subtitle = path,
         glyph = "alert-triangle",
       },
+      backRow,
     })
   end)
 end
@@ -1073,19 +1078,21 @@ end
 -- editable menu; "Create entry now" is a newrun:<path> row onActivate hands to
 -- newEntry. Static rows, no subprocess here.
 local function renderCreateConfirmRows(path)
+  -- Create first for the same preselection reason: the user reached this view
+  -- through the "Create entry" row, so Enter should confirm rather than cancel.
   return {
+    {
+      id = "newrun:" .. path,
+      title = tr("action.create-confirm"),
+      subtitle = path,
+      glyph = "alert-triangle",
+    },
     {
       id = "create-cancel",
       query = "+" .. path .. " ",
       title = tr("action.create-cancel"),
       subtitle = tr("action.create-cancel-desc"),
       glyph = "arrow-left",
-    },
-    {
-      id = "newrun:" .. path,
-      title = tr("action.create-confirm"),
-      subtitle = path,
-      glyph = "alert-triangle",
     },
   }
 end
