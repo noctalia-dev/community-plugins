@@ -23,6 +23,7 @@
     "add-title": "Add a profile",
     "apply": "Apply",
     "auth-hint": "Credentials are sent to OpenVPN 3 and are not stored.",
+    "auth-hint-saved": "Username and password are saved in the system keyring after a successful connection. One-time codes are never saved.",
     "auth-needed": "Sign-in required",
     "auth-title": "Sign in",
     "browse": "Browse",
@@ -142,6 +143,10 @@
     "poll_seconds": {
       "description": "How often sessions and traffic are polled.",
       "label": "Refresh interval (seconds)"
+    },
+    "remember_credentials": {
+      "description": "Save the username and password of each profile in the system keyring (secret-tool) after a successful connection, and fill them in next time.",
+      "label": "Remember credentials"
     },
     "single_session": {
       "description": "Disconnect other sessions before connecting a new profile.",

@@ -19,6 +19,9 @@ desktop OpenVPN clients.
 - `busctl`, which ships with systemd. The plugin talks to the client over the system D-Bus with it.
 - Optional: `curl` for importing a profile from a URL, and `xdg-open` for web (SSO) sign-in. Both are only started when
   you use those features.
+- Optional: `secret-tool` (package `libsecret-tools` on Debian/Ubuntu, `libsecret` on Arch and Fedora) and a running
+  Secret Service keyring (GNOME Keyring, KeePassXC, KWallet 5.97+) to remember usernames and passwords between sessions.
+  Without it the sign-in form works as before, but nothing is saved.
 
 Tested against `openvpn3` 27.1 on Fedora with Niri.
 
@@ -48,9 +51,12 @@ and a log button. A connected card shows the server, interface, bytes transferre
 Restart. Sessions you started from a terminal show up too.
 
 **Sign-in.** If the profile needs input, the panel shows a form with exactly the fields the client asks for: username and
-password, a one-time code, a private-key passphrase, or a challenge response. Credentials go to OpenVPN 3 and are not
-stored by the plugin. Web (SSO) logins open your browser and the panel waits until you are connected. A notification
-tells you when input is needed while the panel is closed.
+password, a one-time code, a private-key passphrase, or a challenge response. After a successful connection the username
+and password are saved per profile in the system keyring (through `secret-tool`) and filled in the next time, also after
+a restart. One-time codes, passphrases and challenge responses are never saved. Turn this off with **Remember
+credentials** in the settings; removing a profile also removes its saved credentials. Web (SSO) logins open your
+browser and the panel waits until you are connected. A notification tells you when input is needed while the panel is
+closed.
 
 **Options.** The adjustments button on a card opens the profile options, stored on the profile by OpenVPN 3
 (`openvpn3 config-manage`). Change what you need and press **Apply**.
@@ -84,6 +90,7 @@ Configured under **Settings → Plugins**, on the gear of this plugin.
 | `default_profile` | `string` | empty | Profile name used by the right click and the Control Center shortcut. Empty uses the first valid profile. |
 | `notifications` | `bool` | `true` | Notify about connections that are made, lost, paused or failed. |
 | `single_session` | `bool` | `true` | Disconnect other sessions before connecting a profile. |
+| `remember_credentials` | `bool` | `true` | Save each profile's username and password in the system keyring (`secret-tool`) after a successful connection and fill them in next time. |
 | `connect_timeout` | `int` | `45` | Seconds to wait for a connection before giving up (10 to 300). It does not run while waiting for your input. |
 | `poll_seconds` | `int` | `5` | How often sessions and traffic are refreshed (2 to 60). While connecting it refreshes every second. |
 | `display_mode` | `select` | `name` | `icon` shows only the icon, `name` also shows the active profile. |
@@ -111,12 +118,15 @@ The panel and picker use the same commands, so every action can be scripted.
 ## Notes
 
 - **Processes:** `openvpn3` and `busctl` for everything. `curl` (and `mktemp`/`rm`) for URL imports, `xdg-open` for web
-  sign-in, `find` to list folders in the file picker, and `timeout` around `openvpn3 log`. Nothing runs with elevated
+  sign-in, `secret-tool` to remember credentials (optional), `find` to list folders in the file picker, and `timeout` around `openvpn3 log`. Nothing runs with elevated
   privileges: the OpenVPN 3 services do the privileged work.
 - **Network:** only what you ask for. A URL import downloads the one address you enter, over `http` or `https`.
 - **Files:** none are written by the plugin. A URL import uses a temporary file that is deleted right after the import.
 - **Credentials:** they are passed to the OpenVPN 3 session manager through `busctl` arguments, so another process
-  running as the same user could read them from the process list for a few milliseconds. The proxy password is
+  running as the same user could read them from the process list for a few milliseconds. The same applies to saving
+  them: `secret-tool` reads the secret from stdin, fed by a short `sh` call. Saved credentials live in the keyring under
+  `application=noctalia-openvpn3`, one item per profile and field; `secret-tool clear application noctalia-openvpn3`
+  forgets them all. The proxy password is
   write-only and is never shown or logged. The plugin logs option names, never values.
 - **Single user:** profiles are owned by the user who imported them, as with the `openvpn3` command line.
 - **State mapping:** session states follow the `StatusMinor` codes of the client. If a profile shows an unexpected state,
