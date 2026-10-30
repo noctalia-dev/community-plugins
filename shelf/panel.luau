@@ -17,7 +17,7 @@ local hovered = nil
 local flash = nil -- { text = string, untilMs = number, isError = bool }
 local helperOpen = noctalia.state.get(store.HELPER_KEY) == true
 
-local borderRadius = noctalia.getSetting("shell.corner_radius_scale")
+local borderRadius = nil
 -- While the panel is closed nothing is stat'ed or rendered: fileInfo runs on
 -- the shell's thread, and a large shelf or a stalled network mount would stall
 -- the shell for a panel nobody sees. onOpen catches up.
@@ -653,6 +653,7 @@ function onOpen()
   helperOpen = noctalia.state.get(store.HELPER_KEY) == true
   hovered, rowHovered, buttonHovered = nil, nil, nil
   render()
+  borderRadius = noctalia.getSetting("shell.corner_radius_scale")
 end
 
 function onClose()
