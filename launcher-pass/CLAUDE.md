@@ -445,9 +445,9 @@ Its own `+` prefix (never produced by browsing), `+!` for the confirm step
   `create-hint` / `create-exists` / `create-error` are inert: activating one
   does nothing but re-assert `lastQuery` via `setQuery`, so the host keeps the
   creation menu open instead of closing the launcher.
-- `onQuery` `+!<path>` → `renderCreateConfirmRows(path)`: **Cancel** (`query`
-  back to `"+"..path.." "`, the editable menu) and **"Create entry now"**
-  (`newrun:<path>`). Static rows.
+- `onQuery` `+!<path>` → `renderCreateConfirmRows(path)`: **"Create entry now"**
+  (`newrun:<path>`) and **Cancel** (`query` back to `"+"..path.." "`, the editable
+  menu). Static rows.
 - `onActivate` `newrun:<path>` → `newEntry(path)`: re-`trim`s and rejects an
   empty / trailing-`/` path (`notification.create-failed`). Then repeats the
   `test -e <storeDir>/<path>.gpg` guard as a TOCTOU safety net (and for a
