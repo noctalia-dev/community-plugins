@@ -1,38 +1,45 @@
-# Modern Clock for Noctalia
+- # Modern Clock for Noctalia
++ # modernclock
 
-Inspired by KDE Modern Clock, featuring the rainwater skin “Mond”.
+- ## Plugin
++ ## Plugin
 
-Features the iconic geometric futuristic day title in **Anurati** font, alongside clean date and time formatted in **Poppins**.
+- | id | styrish/modernclock |
++ | id | `styrish/modernclock` |
 
----
+- | author | Styrish007 |
++ | author | Styrish007 |
++ | desktop_widget | `clock` |
 
-## Plugin
++ ## Usage
++ Add the `clock` desktop widget to your layout via the Noctalia desktop configuration or settings UI.
++ 
++ ### Adding to Desktop
++ 1. Open Noctalia Desktop Widget Editor:
++ ```bash
++ noctalia msg desktop-widgets-toggle-edit
++ ```
++ 2. Click **Add Widget** and select **Modern Clock**.
++ 3. Position and resize the widget as desired.
++ 4. Exit the editor (`noctalia msg desktop-widgets-exit`).
 
-| Field | Value |
-|---|---|
-| id | styrish/modernclock |
-| version | 1.0.0 |
-| author | Styrish007 |
-| license | GPL-3.0 |
-| tags | desktop, clock, time |
-| description | A sleek, configurable desktop clock for Noctalia. |
-
-## Features
-
-- **Exact Visual Match**: Uses the bundled **Anurati** and **Poppins** typography.
-- **Native Noctalia Plugin**: Zero external dependencies; runs natively within Noctalia's Luau engine.
-- **Full Configuration**:
-  - Toggle Day, Date, and Time visibility independently.
-  - Customize font sizes and text colors.
-  - Adjust letter spacing.
-  - Toggle 12-hour (`hh:mm AM/PM`) and 24-hour (`HH:mm`) formats.
-  - Custom date format string (default: `%d %b %Y`).
-  - Customizable time delimiter character (default: `-`).
-- **Interactive Placement**: Use Noctalia's Desktop Widget Editor to place and resize the widget anywhere on any monitor.
-
----
-
-## License
-
-GPL-3.0 (same as upstream KDE Modern Clock).
-Fonts: Anurati & Poppins.
++ ## Settings
++ Settings are configurable through the Noctalia Settings UI under **Plugins → Modern Clock**.
++ 
++ | Key | Type | Description |
++ |---|---|---|
++ | `show_day` | bool | Toggle day display |
++ | `day_font_size` | int | Font size for day label |
++ | `day_font_color` | color | Hex color for day text |
++ | `day_letter_spacing` | int | Letter spacing for day text |
++ | `show_date` | bool | Toggle date display |
++ | `date_font_size` | int | Font size for date label |
++ | `date_font_color` | color | Hex color for date text |
++ | `date_letter_spacing` | int | Letter spacing for date text |
++ | `date_format` | string | Strftime date format string |
++ | `show_time` | bool | Toggle time display |
++ | `time_font_size` | int | Font size for time label |
++ | `time_font_color` | color | Hex color for time text |
++ | `time_letter_spacing` | int | Letter spacing for time text |
++ | `use_24_hour_format` | bool | Use 24‑hour time instead of 12‑hour |
++ | `time_character` | string | Delimiter character between time components |
