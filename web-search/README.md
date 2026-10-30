@@ -28,6 +28,7 @@ Configured sites are ordered by most recent activation. Sites that have never be
 | --- | --- | --- | --- |
 | `provider` | `select` | `google` | Search engine used for the Search result: `google`, `duckduckgo`, `ecosia`, `bing`, `brave`, `mojeek` or `kagi`. |
 | `links` | `string_list` | `GitHub|https://github.com`, `GitLab|https://gitlab.com`, `Codeberg|https://codeberg.org`, `Reddit|https://reddit.com`, `YouTube|https://youtube.com`, `Gmail|https://mail.google.com` | Websites displayed by `/web`. Each entry must be `Name|https://example.com`; entries without a non-empty name or an `http://`/`https://` URL are ignored. |
+| `search_priority` | `select` | `top` | Where the **Search `<Provider>`** result sits in the launcher: `top` pins it above all other results; `relevance` ranks it by match quality, so built-in actions like session/power can sort above it. |
 
 ## Notes
 
