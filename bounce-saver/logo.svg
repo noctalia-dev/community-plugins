@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- bounce-saver default logo: crescent moon and sparkles. White so it can be tinted. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="210" height="120" viewBox="0 0 210 120">
+  <g fill="#fff">
+    <path d="M105.45 39.15A50 50 0 1 0 60.37 110.01A42 42 0 1 1 105.45 39.15Z"/>
+    <path d="M150 22Q150 40 168 40Q150 40 150 58Q150 40 132 40Q150 40 150 22Z"/>
+    <path d="M190 66Q190 78 202 78Q190 78 190 90Q190 78 178 78Q190 78 190 66Z"/>
+    <path d="M140 82Q140 90 148 90Q140 90 140 98Q140 90 132 90Q140 90 140 82Z"/>
+  </g>
+</svg>
