@@ -1,0 +1,51 @@
+id = "swashx-dev/minimize"
+name = "Noctalia Minimize"
+version = "1.0.1"
+plugin_api = 45
+author = "SwashX-dev"
+license = "MIT"
+icon = "window-minimize"
+description = "Minimize focused windows into a Niri parking workspace and restore them from a native panel."
+dependencies = ["noctalia-minimizer", "niri"]
+tags = ["bar", "panel", "shortcut", "service", "niri", "utility"]
+
+[[setting]]
+key = "enabled"
+type = "bool"
+label_key = "settings.enabled"
+default = true
+
+[[setting]]
+key = "auto_restore"
+type = "bool"
+label_key = "settings.auto_restore.label"
+description_key = "settings.auto_restore.description"
+default = true
+
+[[setting]]
+key = "confirm_minimize_all"
+type = "bool"
+label_key = "settings.confirm_minimize_all"
+default = true
+
+[[widget]]
+id = "minimize-button"
+entry = "widget.luau"
+
+[[panel]]
+id = "windows"
+entry = "panel.luau"
+width = 620
+height = 640
+placement = "floating"
+position = "center"
+keyboard_focus = "exclusive"
+capture_keys = ["up", "down", "Return", "ctrl+r", "ctrl+a"]
+
+[[service]]
+id = "actions"
+entry = "actions.luau"
+
+[[shortcut]]
+id = "minimize"
+entry = "shortcut.luau"
