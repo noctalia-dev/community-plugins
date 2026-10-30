@@ -212,7 +212,14 @@ local function refreshStats()
   end
 end
 
+local function isManageDaemon(): boolean
+  return noctalia.getConfig ~= nil and noctalia.getConfig("manage_daemon") == true
+end
+
 local function refreshDetails()
+  if isManageDaemon() and status.state == "disconnected" then
+    return
+  end
   refreshSettings()
   refreshStats()
 end
@@ -274,9 +281,23 @@ refreshStatus = function()
     return
   end
 
+  local statusCmd = if isManageDaemon() then `systemctl is-active --quiet warp-svc && {CLI} status` else `{CLI} status`
+
   statusInFlight = true
-  local accepted = noctalia.runAsync(`{CLI} status`, function(result)
+  local accepted = noctalia.runAsync(statusCmd, function(result)
     statusInFlight = false
+
+    if isManageDaemon() and result.exitCode ~= 0 then
+      patchStatus({
+        state = "disconnected",
+        available = true,
+        busy = false,
+        message = "",
+        statsAvailable = false,
+      })
+      return
+    end
+
     local decoded = noctalia.json.decode(result.stdout or "")
 
     if result.exitCode == 0 and type(decoded) == "table" and type(decoded.status) == "string" then
@@ -329,7 +350,18 @@ local function toggle()
     message = "",
   })
 
-  local accepted = noctalia.runAsync(`{CLI} {command}`, function(result)
+  local cmd = `{CLI} {command}`
+  local timeout = 15000
+  if isManageDaemon() then
+    if command == "connect" then
+      cmd = `systemctl start warp-svc && sleep 1.2 && {CLI} connect`
+      timeout = 20000
+    else
+      cmd = `{CLI} disconnect; systemctl stop warp-svc`
+    end
+  end
+
+  local accepted = noctalia.runAsync(cmd, function(result)
     actionInFlight = false
     local decoded = noctalia.json.decode(result.stdout or "")
     local failed = result.exitCode ~= 0 or (type(decoded) == "table" and (decoded.error ~= nil or decoded.code ~= nil))
@@ -342,7 +374,7 @@ local function toggle()
     end
 
     refreshStatus()
-  end, 15000)
+  end, timeout)
   if not accepted then
     actionInFlight = false
     patchStatus({
