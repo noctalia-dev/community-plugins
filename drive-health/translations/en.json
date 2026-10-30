@@ -48,6 +48,7 @@
     "full_features": "Reliable health, endurance, error counters, sensor details, and background self-test progress.",
     "full_title": "Full SMART — optional",
     "install": "Install collector",
+    "apply_interval": "Apply interval ({minutes} min)",
     "interval": "Full SMART refresh: every {minutes} min",
     "interval_applied": "Full SMART refresh schedule updated.",
     "interval_authorizing": "Waiting for administrator approval to update the full SMART schedule…",
