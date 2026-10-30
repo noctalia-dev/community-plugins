@@ -1,0 +1,7 @@
+syntax = "Luau"
+column_width = 100
+indent_type = "Tabs"
+indent_width = 4
+quote_style = "AutoPreferDouble"
+collapse_simple_statement = "Never"
+
