@@ -16,6 +16,8 @@ local totalBytes, missingCount = 0, 0
 local hovered = nil
 local flash = nil -- { text = string, untilMs = number, isError = bool }
 local helperOpen = noctalia.state.get(store.HELPER_KEY) == true
+
+local borderRadius = noctalia.getSetting("shell.corner_radius_scale")
 -- While the panel is closed nothing is stat'ed or rendered: fileInfo runs on
 -- the shell's thread, and a large shelf or a stalled network mount would stall
 -- the shell for a panel nobody sees. onOpen catches up.
@@ -227,7 +229,7 @@ end
 
 local function codeBlock(text)
   return ui.column({
-    key = "shortcut-code", fill = "surface_variant", radius = 8 * noctalia.getSetting("shell.corner_radius_scale"), paddingH = 10, paddingV = 8, align = "stretch",
+    key = "shortcut-code", fill = "surface_variant", radius = 8 * borderRadius, paddingH = 10, paddingV = 8, align = "stretch",
   }, {
     ui.label({ text = text, fontSize = 11, fontFamily = "monospace", color = "on_surface" }),
   })
@@ -341,7 +343,7 @@ local function shortcutSection()
   -- Keyed and fully specified, so the reconciler never reuses the empty
   -- state's centred column for it.
   return ui.column({
-    key = "shortcut-section", gap = 8, padding = 12, radius = 14 * noctalia.getSetting("shell.corner_radius_scale"), align = "stretch", justify = "start",
+    key = "shortcut-section", gap = 8, padding = 12, radius = 14 * borderRadius, align = "stretch", justify = "start",
     fill = "surface_variant/0.45", border = "outline/0.5", borderWidth = 1,
   }, children)
 end
@@ -349,7 +351,7 @@ end
 local function header(summary, showDropButton)
   return ui.row({ key = "header", gap = 10, align = "center" }, {
     ui.column({
-      width = 36, height = 36, radius = 12 * noctalia.getSetting("shell.corner_radius_scale"), fill = "primary/0.16", align = "center", justify = "center",
+      width = 36, height = 36, radius = 12 * borderRadius, fill = "primary/0.16", align = "center", justify = "center",
     }, {
       ui.glyph({ name = "stack-2", size = 20, color = "primary" }),
     }),
@@ -391,11 +393,11 @@ local function emptyState()
   return ui.column({
     key = "empty-state",
     flexGrow = 1, gap = 10, align = "center", justify = "center",
-    fill = "surface_variant/0.45", radius = 18 * noctalia.getSetting("shell.corner_radius_scale"), padding = 24,
+    fill = "surface_variant/0.45", radius = 18 * borderRadius, padding = 24,
     border = "outline/0.5", borderWidth = 1,
   }, {
     ui.column({
-      width = 64, height = 64, radius = 32 * noctalia.getSetting("shell.corner_radius_scale"), fill = "primary/0.14", align = "center", justify = "center",
+      width = 64, height = 64, radius = 32 * borderRadius, fill = "primary/0.14", align = "center", justify = "center",
     }, {
       ui.glyph({ name = "drag-drop", size = 30, color = "primary" }),
     }),
@@ -421,11 +423,11 @@ end
 
 local function thumbnail(path, info)
   if info ~= nil and not info.isDir and store.isImage(path) and info.size <= MAX_THUMB_BYTES then
-    return ui.image({ path = path, width = 40, height = 40, radius = 10 * noctalia.getSetting("shell.corner_radius_scale"), fit = "cover" })
+    return ui.image({ path = path, width = 40, height = 40, radius = 10 * borderRadius, fit = "cover" })
   end
   local missing = info == nil
   return ui.column({
-    width = 40, height = 40, radius = 10 * noctalia.getSetting("shell.corner_radius_scale"), align = "center", justify = "center",
+    width = 40, height = 40, radius = 10 * borderRadius, align = "center", justify = "center",
     fill = missing and "error/0.14" or "surface_variant",
   }, {
     ui.glyph({
@@ -485,7 +487,7 @@ local function row(item, info)
     align = "center",
     paddingH = 6,
     paddingV = 6,
-    radius = 12 * noctalia.getSetting("shell.corner_radius_scale"),
+    radius = 12 * borderRadius,
     fill = isHovered and "on_surface/0.07" or "#00000000",
     onHover = "onRowHover",
     onClick = function() openItem(path) end,
@@ -583,7 +585,7 @@ render = function()
   if flash ~= nil then
     local tone = flash.isError and "error" or "primary"
     table.insert(children, ui.row({
-      key = "flash", gap = 8, align = "center", justify = "center", paddingV = 6, paddingH = 12, radius = 14 * noctalia.getSetting("shell.corner_radius_scale"),
+      key = "flash", gap = 8, align = "center", justify = "center", paddingV = 6, paddingH = 12, radius = 14 * borderRadius,
       fill = tone .. "/0.16",
     }, {
       ui.glyph({ name = flash.isError and "alert-triangle" or "check", size = 14, color = tone }),
