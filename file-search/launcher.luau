@@ -288,6 +288,9 @@ function onActivate(id)
         forceBuild = true
         shared.mountsAt = 0 -- rescan: a disk may have been plugged in since
         launcher.setQuery("")
+        -- The query is already "" here, so the host may not re-enter onQuery on
+        -- its own; run it directly so the walk starts now, not on the next open.
+        onQuery("")
         return
     end
     local rel = id:match("^open:(.+)$")
