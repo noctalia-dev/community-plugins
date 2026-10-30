@@ -1,0 +1,41 @@
+id = "swashx-dev/boot"
+name = "Noctalia Boot"
+version = "1.0.1"
+plugin_api = 45
+author = "SwashX-dev"
+license = "MIT"
+icon = "device-desktop"
+description = "Select a one-time systemd-boot entry and restart after confirmation and administrator authentication."
+dependencies = ["noctalia-switch-os"]
+tags = ["bar", "panel", "shortcut", "system", "utility"]
+
+[[setting]]
+key = "enabled"
+type = "bool"
+label_key = "settings.enabled"
+default = true
+
+[[setting]]
+key = "show_all_generations"
+type = "bool"
+label_key = "settings.show_all_generations.label"
+description_key = "settings.show_all_generations.description"
+default = false
+
+[[widget]]
+id = "boot-button"
+entry = "widget.luau"
+
+[[panel]]
+id = "switcher"
+entry = "panel.luau"
+width = 600
+height = 640
+placement = "floating"
+position = "center"
+keyboard_focus = "exclusive"
+capture_keys = ["up", "down", "Return", "ctrl+Return", "ctrl+r"]
+
+[[shortcut]]
+id = "switch-os"
+entry = "shortcut.luau"
