@@ -398,6 +398,19 @@ local function goBackRow(parent, subtitle)
   }
 end
 
+-- Path-scoped id: Noctalia restores the previous selection by id, so a stable
+-- "back:<parent>" would steal the first keystroke. The query still navigates.
+local function createBackRow(path)
+  local parent = parentOf(path)
+  return {
+    id = "createback:" .. path,
+    query = parent ~= "" and (parent .. "/") or " ",
+    title = tr("result.go-back"),
+    subtitle = path ~= "" and path or tr("action.new"),
+    glyph = "arrow-left",
+  }
+end
+
 local function fragments(search)
   local frags = {}
   for f in search:lower():gmatch("%S+") do
@@ -1024,7 +1037,7 @@ end
 -- can't be created. Stale callbacks are dropped on `lastQuery`.
 local function showCreateMenu(text, rest)
   local path = trim(rest)
-  local backRow = goBackRow(parentOf(path), path ~= "" and path or tr("action.new"))
+  local backRow = createBackRow(path)
 
   if path == "" or path:sub(-1) == "/" then
     launcher.setResults(text, {
@@ -1841,6 +1854,9 @@ function onActivate(id)
     launcher.setQuery(rest .. "/")
   elseif kind == "back" then
     launcher.setQuery(rest ~= "" and (rest .. "/") or " ")
+  elseif kind == "createback" then
+    local parent = parentOf(rest)
+    launcher.setQuery(parent ~= "" and (parent .. "/") or " ")
   elseif kind == "entry" then
     -- Trailing space: detail mode is ":<path> <filter>", so the just-opened
     -- state is ":<path> " with an empty filter, ready for the user to type a
