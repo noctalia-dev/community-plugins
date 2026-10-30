@@ -1,0 +1,12 @@
+{
+  "settings": {
+    "language": {
+      "label": "Language",
+      "description": "Word language for new sessions: \"en\" (English) or \"es\" (Spanish). Changeable per session in the panel."
+    },
+    "mode": {
+      "label": "Mode",
+      "description": "Default session mode: \"time\" (15/30/60 seconds) or \"words\" (15/25/50 words). Changeable per session in the panel."
+    }
+  }
+}
