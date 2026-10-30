@@ -1,0 +1,20 @@
+{
+  "title": "Charge mode",
+  "label": {
+    "long_life": "Eco",
+    "standard": "Normal",
+    "fast": "Fast",
+    "unavailable": "Charge mode N/A"
+  },
+  "notify": {
+    "changed": "Charging: {mode}",
+    "setup_running": "One-time setup needs your password in the terminal window. Click the tile again afterwards.",
+    "setup_done": "Setup complete. Charge mode now switches without a password prompt."
+  },
+  "error": {
+    "write_failed": "The charge type could not be written.",
+    "no_plugin_dir": "The plugin directory could not be found to run the setup script.",
+    "setup_failed": "Setup failed: {error}",
+    "setup_manual": "Setup failed. Run scripts/setup.sh inside the plugin directory with sudo, then click the tile again."
+  }
+}
