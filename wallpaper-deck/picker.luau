@@ -127,12 +127,24 @@ local THUMB_MAX_CONCURRENT = 4
 local displayedItems = {}
 local selectedIdx = 1
 local isPickerOpen = false
+local isDeckAreaHovered = false
+local hoveredDeckKeys: { [string]: boolean } = {}
 local currentMode = "local" -- "local" | "favorites" | "wallhaven"
 local pendingStepAfterAppend = false
 local render: () -> ()
 local toggleCurrentFavorite -- forward declaration
 local toggleFavoriteItem -- forward declaration
 local changeSort -- forward declaration
+
+function onDeckHover(state: any, key: string?)
+  local k = key or "deck_bottom_section"
+  if state == "true" or state == true then
+    hoveredDeckKeys[k] = true
+  else
+    hoveredDeckKeys[k] = nil
+  end
+  isDeckAreaHovered = next(hoveredDeckKeys) ~= nil
+end
 
 local function isValidFile(path: string?): boolean
   if not path or path == "" then return false end
@@ -2277,6 +2289,7 @@ local function renderCard(item: any, index: number, distSigned: number, scale: n
     align = "center",
     justify = "end",
     opacity = opacity,
+    onHover = "onDeckHover",
   }, {
     ui.column({
       key = "card_" .. itemKey,
@@ -2284,6 +2297,7 @@ local function renderCard(item: any, index: number, distSigned: number, scale: n
       height = slotH,
       align = "center",
       justify = "start",
+      onHover = "onDeckHover",
       onClick = function()
         if selectedIdx == index then
           applyCurrent()
@@ -3316,9 +3330,12 @@ function render()
       -- 2. Bottom Section: Action Bar + Arched Deck docked cleanly together
       ui.column({
         key = "deck_bottom_section",
+        width = panelW,
+        fill = "#00000000",
         align = "center",
         justify = "end",
         gap = 12,
+        onHover = "onDeckHover",
       }, {
         -- Monitor Selection Dropdown Popover (floating directly above the action buttons)
         (activeItem and monitorDropdownOpen) and ui.row({
@@ -3332,6 +3349,7 @@ function render()
           paddingH = 6,
           paddingV = 4,
           gap = 4,
+          onHover = "onDeckHover",
         }, (function()
           local rows = {}
           for idx, outName in ipairs(connectedOutputs) do
@@ -3359,6 +3377,7 @@ function render()
           justify = "center",
           gap = 8,
           height = 36,
+          onHover = "onDeckHover",
         }, {
           -- Favourite Button
           ui.button({
@@ -3412,6 +3431,8 @@ function render()
           paddingV = 0,
           borderWidth = 0,
           radius = 0,
+          fill = "#00000000",
+          onHover = "onDeckHover",
         }, deckCards),
         ui.spacer({ height = 16 }),
       }),
@@ -3422,6 +3443,8 @@ end
 
 function onOpen(context: any?)
   isPickerOpen = true
+  isDeckAreaHovered = false
+  hoveredDeckKeys = {}
   noctalia.state.set("deck_command", { action = "panel_state", open = true })
   updatePanelGeometry()
   updateCornerRadiusScale()
@@ -3585,6 +3608,10 @@ function onKey(chord: string, pressed: boolean)
     pickRandom()
   elseif chord == "space" then
     isPeeking = not isPeeking
+    if isPeeking then
+      isDeckAreaHovered = false
+      hoveredDeckKeys = {}
+    end
     render()
   elseif chord == "p" then
     if currentMode == "wallhaven" then
@@ -3599,6 +3626,10 @@ function onKey(chord: string, pressed: boolean)
       render()
     else
       isPeeking = not isPeeking
+      if isPeeking then
+        isDeckAreaHovered = false
+        hoveredDeckKeys = {}
+      end
       render()
     end
   elseif chord == "m" then
@@ -3608,13 +3639,28 @@ function onKey(chord: string, pressed: boolean)
   elseif chord == "/" or chord == "slash" then
     searchActive = not searchActive
     render()
-  elseif chord == "Pointer_Button4" or chord == "Pointer_DfltBtnPrev" or chord == "Page_Up" or chord == "Prior" then
-    if selectedIdx > 1 then
+  elseif chord == "Pointer_Button4" or chord == "Pointer_DfltBtnPrev" then
+    if isDeckAreaHovered and selectedIdx > 1 then
       selectCardIndex(selectedIdx - 1)
     end
-  elseif chord == "Pointer_Button5" or chord == "Pointer_DfltBtnNext" or chord == "Page_Down" or chord == "Next" then
-    if selectedIdx < #displayedItems then
-      selectCardIndex(selectedIdx + 1)
+  elseif chord == "Pointer_Button5" or chord == "Pointer_DfltBtnNext" then
+    if isDeckAreaHovered then
+      if selectedIdx < #displayedItems then
+        selectCardIndex(selectedIdx + 1)
+      else
+        pendingStepAfterAppend = true
+        checkWallhavenLazyLoad()
+      end
+    end
+  elseif chord == "Page_Up" or chord == "Prior" then
+    local newIdx = math.max(1, selectedIdx - 5)
+    if newIdx ~= selectedIdx then
+      selectCardIndex(newIdx)
+    end
+  elseif chord == "Page_Down" or chord == "Next" then
+    local newIdx = math.min(#displayedItems, selectedIdx + 5)
+    if newIdx ~= selectedIdx then
+      selectCardIndex(newIdx)
     else
       pendingStepAfterAppend = true
       checkWallhavenLazyLoad()
@@ -3641,7 +3687,7 @@ end
 local lastScrollMs = 0
 
 function onScroll(_axis: any, steps: number, _startsGesture: any)
-  if #displayedItems == 0 then return end
+  if #displayedItems == 0 or not isDeckAreaHovered then return end
   local nowMs = noctalia.nowMs()
   if nowMs - lastScrollMs < 35 then return end
   lastScrollMs = nowMs
@@ -3663,10 +3709,12 @@ end
 
 function onIpc(event: string, _payload: string?)
   if event == "prev" or event == "step_left" or event == "left" then
+    if not isDeckAreaHovered then return end
     if selectedIdx > 1 then
       selectCardIndex(selectedIdx - 1)
     end
   elseif event == "next" or event == "step_right" or event == "right" then
+    if not isDeckAreaHovered then return end
     if selectedIdx < #displayedItems then
       selectCardIndex(selectedIdx + 1)
     else
@@ -3929,6 +3977,8 @@ end
 
 function onClose()
   isPickerOpen = false
+  isDeckAreaHovered = false
+  hoveredDeckKeys = {}
   stopWheelListener()
   if isPeeking then
     isPeeking = false
