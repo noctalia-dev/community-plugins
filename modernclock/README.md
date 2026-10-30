@@ -1,33 +1,41 @@
-- # Modern Clock for Noctalia
-+ # modernclock
+# Modern Clock
 
-- | id | styrish/modernclock |
-+ | id | `styrish/modernclock` |
+A sleek, configurable desktop clock widget for Noctalia compositors. It provides a highly customizable digital clock that can be placed anywhere on the desktop using the widget editor.
 
-- | author | Styrish007 |
-+ | author | Styrish007 |
-+ | desktop_widget | `clock` |
+## Plugin
 
-+ ## Usage
-+ Add the `clock` desktop widget via Noctalia’s settings or configuration.
+| Field | Value |
+|---|---|
+| **ID** | `styrish/modernclock` |
+| **Entries** | Desktop widget: `clock` |
+| **Launcher Prefix** | None |
 
-+ ## Settings
-+ Settings can be edited in Noctalia Settings → Plugins → Modern Clock.
+## Usage
 
-+ | Key | Type | Description |
-+ |---|---|---|
-+ | `show_day` | bool | Toggle day display |
-+ | `day_font_size` | int | Font size for day label |
-+ | `day_font_color` | color | Hex color for day text |
-+ | `day_letter_spacing` | int | Letter spacing for day text |
-+ | `show_date` | bool | Toggle date display |
-+ | `date_font_size` | int | Font size for date label |
-+ | `date_font_color` | color | Hex color for date text |
-+ | `date_letter_spacing` | int | Letter spacing for date text |
-+ | `date_format` | string | Strftime date format |
-+ | `show_time` | bool | Toggle time display |
-+ | `time_font_size` | int | Font size for time label |
-+ | `time_font_color` | color | Hex color for time text |
-+ | `time_letter_spacing` | int | Letter spacing for time text |
-+ | `use_24_hour_format` | bool | Use 24‑hour format |
-+ | `time_character` | string | Delimiter between time components |
+Add the `clock` desktop widget through the Noctalia Desktop Widget Editor.
+
+## Settings
+
+| Setting | Type | Default | Description |
+|---|---|---|---|
+| `show_day` | `bool` | `true` | Show or hide the day label. |
+| `day_font_size` | `int` | `72` | Font size (pt) for the day label. |
+| `day_font_color` | `color` | `#FFFFFF` | Hex color of the day text. |
+| `day_letter_spacing` | `int` | `2` | Letter spacing for the day label. |
+| `show_date` | `bool` | `true` | Show or hide the date label. |
+| `date_font_size` | `int` | `19` | Font size (pt) for the date label. |
+| `date_font_color` | `color` | `#FFFFFF` | Hex color of the date text. |
+| `date_letter_spacing` | `int` | `1` | Letter spacing for the date label. |
+| `date_format` | `string` | `%d %b %Y` | `strftime` format string for the date. |
+| `show_time` | `bool` | `true` | Show or hide the time label. |
+| `time_font_size` | `int` | `19` | Font size (pt) for the time label. |
+| `time_font_color` | `color` | `#FFFFFF` | Hex color of the time text. |
+| `time_letter_spacing` | `int` | `1` | Letter spacing for the time label. |
+| `use_24_hour_format` | `bool` | `false` | Use 24-hour (`true`) or 12-hour (`false`) time format. |
+| `time_character` | `string` | `-` | Delimiter character between hour, minute, and second. |
+
+## Notes
+
+- No external dependencies are required.
+- Runs entirely inside Noctalia's Luau VM.
+- Fonts, colors, sizes, and visibility can be customized through the plugin settings UI.
