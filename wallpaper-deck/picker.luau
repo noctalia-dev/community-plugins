@@ -722,58 +722,70 @@ end
 
 local visibleCards = VISIBLE_DECK_CARDS
 
-local function getScreenGeometry()
+local function getScreenGeometry(): (number, number)
   local w = 1920
   local h = 1080
-  local focusedName = type(noctalia.focusedOutputName) == "function" and noctalia.focusedOutputName()
   if type(noctalia.outputs) == "function" then
-    for _, out in ipairs(noctalia.outputs()) do
-      if out.name == focusedName or out.focused then
-        w = math.floor(out.width / math.max(out.scale or 1, 1))
-        h = math.floor(out.height / math.max(out.scale or 1, 1))
-        break
+    local ok, outs = pcall(noctalia.outputs)
+    if ok and type(outs) == "table" and #outs > 0 then
+      local focusedName = type(noctalia.focusedOutputName) == "function" and noctalia.focusedOutputName()
+      local chosen = nil
+
+      -- 1. Try currently selected monitor in dropdown (if not ALL)
+      if selectedOutput and selectedOutput ~= "ALL" then
+        for _, out in ipairs(outs) do
+          if out.name == selectedOutput then
+            chosen = out
+            break
+          end
+        end
+      end
+
+      -- 2. Try focusedOutputName
+      if not chosen and focusedName and focusedName ~= "" then
+        for _, out in ipairs(outs) do
+          if out.name == focusedName then
+            chosen = out
+            break
+          end
+        end
+      end
+
+      -- 3. Try output with focused == true
+      if not chosen then
+        for _, out in ipairs(outs) do
+          if out.focused then
+            chosen = out
+            break
+          end
+        end
+      end
+
+      -- 4. Fallback to the first output in the list
+      if not chosen then
+        chosen = outs[1]
+      end
+
+      if chosen then
+        local cw = tonumber(chosen.width)
+        local ch = tonumber(chosen.height)
+        if cw and cw > 0 and ch and ch > 0 then
+          w = math.floor(cw)
+          h = math.floor(ch)
+        end
       end
     end
   end
   return w, h
 end
 
-local cachedPanelW = 1876
-local cachedPanelH = 1036
+local cachedPanelW = 1920
+local cachedPanelH = 1080
 
 local function updatePanelGeometry()
   local screenW, screenH = getScreenGeometry()
-  local barThicknessLeft = 0
-  local barThicknessRight = 0
-  local barThicknessTop = 0
-  local barThicknessBottom = 0
-
-  if type(noctalia.getSetting) == "function" then
-    local pcallOk, bars = pcall(noctalia.getSetting, "bar")
-    if pcallOk and type(bars) == "table" then
-      for k, bar in pairs(bars) do
-        if k ~= "order" and type(bar) == "table" and type(bar.position) == "string" and bar.enabled ~= false and not bar.auto_hide and bar.reserve_space ~= false then
-          local pos = bar.position
-          local th = tonumber(bar.thickness) or 34
-          if pos == "left" then
-            barThicknessLeft = math.max(barThicknessLeft, th)
-          elseif pos == "right" then
-            barThicknessRight = math.max(barThicknessRight, th)
-          elseif pos == "top" then
-            barThicknessTop = math.max(barThicknessTop, th)
-          elseif pos == "bottom" then
-            barThicknessBottom = math.max(barThicknessBottom, th)
-          end
-        end
-      end
-    end
-  end
-
-  local totalPadH = (8 + 14) * 2
-  local totalPadV = (8 + 14) * 2
-
-  cachedPanelW = math.max(800, screenW - barThicknessLeft - barThicknessRight - totalPadH)
-  cachedPanelH = math.max(600, screenH - barThicknessTop - barThicknessBottom - totalPadV)
+  cachedPanelW = math.max(640, screenW)
+  cachedPanelH = math.max(480, screenH)
 end
 updatePanelGeometry()
 
@@ -2029,6 +2041,7 @@ local function cycleOutput()
   refreshConnectedOutputs()
   selectedOutputIdx = (selectedOutputIdx % #connectedOutputs) + 1
   selectedOutput = connectedOutputs[selectedOutputIdx] or "ALL"
+  updatePanelGeometry()
   render()
 end
 
@@ -2038,6 +2051,7 @@ function onSelectMonitorOutput(outName)
     if name == outName then
       selectedOutputIdx = idx
       selectedOutput = name
+      updatePanelGeometry()
       render()
       break
     end
@@ -2844,6 +2858,7 @@ local function renderBgLayer(panelW: number, panelH: number, activeItem: any)
 end
 
 function render()
+  updatePanelGeometry()
   local panelW, panelH = getPanelGeometry()
   local screenW, screenH = getScreenGeometry()
   local centerIdx = clamp(math.floor(animatedPos + 0.5), 1, math.max(1, #displayedItems))
@@ -3816,14 +3831,14 @@ end
 
 local lastScrollMs = 0
 
-function onScroll(_axis: any, steps: number, _startsGesture: any)
+function onScroll(_axis: any, steps: any, _startsGesture: any)
   if #displayedItems == 0 or not isDeckAreaHovered then return end
   isSearchFocused = false
   local nowMs = noctalia.nowMs()
   if nowMs - lastScrollMs < 35 then return end
   lastScrollMs = nowMs
 
-  local stepVal = steps or 0
+  local stepVal = tonumber(steps) or 0
   if stepVal < 0 then
     if selectedIdx < #displayedItems then
       selectCardIndex(selectedIdx + 1)
