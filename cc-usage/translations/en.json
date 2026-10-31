@@ -1,0 +1,19 @@
+{
+  "settings": {
+    "plan": {
+      "label": "Plan",
+      "go": "Go",
+      "goat": "GOAT",
+      "pro": "Pro",
+      "max20": "Max 20x"
+    },
+    "multiplier": {
+      "label": "Credits per USD of usage",
+      "description": "Your model's credit draw, calibrated against /usage (1.0 = full-allowance model)."
+    },
+    "billing_day": {
+      "label": "Billing cycle start day",
+      "description": "Day of the month your Command Code subscription renews."
+    }
+  }
+}
