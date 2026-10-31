@@ -3670,28 +3670,18 @@ function onKey(chord: string, pressed: boolean)
   local isReturn = (chordLower == "return" or chordLower == "enter" or chordLower == "kp_enter")
 
   if isReturn then
-    if isSearchFocused then
+    if currentMode == "wallhaven" then
       executeSearch()
       return
     end
 
-    if currentMode == "wallhaven" then
-      if not isDeckAreaHovered then
-        executeSearch()
-        return
-      else
-        applyCurrent()
-        return
-      end
-    else
-      if searchQuery ~= "" and not isDeckAreaHovered then
-        executeSearch()
-        return
-      else
-        applyCurrent()
-        return
-      end
+    if isSearchFocused or (searchQuery and searchQuery ~= "") then
+      executeSearch()
+      return
     end
+
+    applyCurrent()
+    return
   end
 
   if chordLower == "escape" then
