@@ -192,7 +192,7 @@ local function render()
       if settings.whenUnavailable == "hide" then
         return hide()
       end
-      local tip = state == "error" and conn.message == "noPython" and noctalia.tr("np.noPython.title")
+      local tip = state == "error" and conn.message == "noPython" and noctalia.tr("np.no_python.title")
         or noctalia.tr("bar.tooltip.unavailable")
       return show(glyphOnly("music-off", "on_surface_variant"), tip)
     end
@@ -210,7 +210,7 @@ local function render()
     if settings.whenIdle == "hide" then
       return hide()
     end
-    return show(glyphOnly("music"), noctalia.tr("np.nothingPlaying"))
+    return show(glyphOnly("music"), noctalia.tr("np.nothing_playing.title"))
   end
 
   local player = S.get(S.PLAYER)

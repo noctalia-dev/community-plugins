@@ -105,7 +105,7 @@ local function body(text)
 end
 
 local function credit()
-  return ui.label({ text = tr("np.usesSonolith"), fontSize = 11, color = "on_surface_variant" })
+  return ui.label({ text = tr("np.uses_sonolith"), fontSize = 11, color = "on_surface_variant" })
 end
 
 local function button(text, glyph, handler, variant, enabled)
@@ -172,7 +172,7 @@ end
 local function connectionScreen(conn)
   local state = conn.state
   if state == "error" and conn.message == "noPython" then
-    return statusScreen("alert-triangle", tr("np.noPython.title"), tr("np.noPython.body"), nil, "error")
+    return statusScreen("alert-triangle", tr("np.no_python.title"), tr("np.no_python.body"), nil, "error")
   elseif state == "error" and conn.message == "unsupportedVersion" then
     return statusScreen("alert-triangle", tr("np.unsupported.title"), tr("np.unsupported.body"), nil, "error")
   elseif state == "error" then
@@ -181,7 +181,7 @@ local function connectionScreen(conn)
     return statusScreen("loader-2", tr("np.starting.title"), nil, nil)
   elseif state == "unavailable" then
     return statusScreen("music-off", tr("np.unavailable.title"), tr("np.unavailable.body"), {
-      button(tr("np.openSonolith"), "external-link", "onOpenSonolith", "primary"),
+      button(tr("np.open_sonolith"), "external-link", "onOpenSonolith", "primary"),
     }, "on_surface_variant")
   elseif state == "unregistered" then
     return statusScreen("plug-connected", tr("np.unregistered.title"), tr("np.unregistered.body"), {
@@ -197,11 +197,11 @@ local function connectionScreen(conn)
     local text = left > 0 and tr("np.denied.wait", { time = format.wait(left) }) or tr("np.denied.ready")
     local handler = conn.kind == "identity" and "onRetry" or "onConnect"
     return statusScreen("ban", heading, text, {
-      button(tr("np.tryAgain"), "refresh", handler, "primary", left <= 0),
+      button(tr("np.try_again"), "refresh", handler, "primary", left <= 0),
     }, "on_surface_variant")
   elseif state == "blocked" then
     return statusScreen("lock", tr("np.blocked.title"), tr("np.blocked.body"), {
-      button(tr("np.tryAgain"), "refresh", "onConnect", "outline"),
+      button(tr("np.try_again"), "refresh", "onConnect", "outline"),
     }, "error")
   elseif state == "disconnected" then
     return statusScreen("plug-connected-x", tr("np.disconnected.title"), tr("np.disconnected.body"), {
@@ -251,10 +251,10 @@ local function menu()
     return ui.button({ text = text, glyph = glyph, variant = "ghost", controlSize = "sm", onClick = handler, enabled = not busy })
   end
   return ui.row({ key = "menu", gap = 8, paddingH = 8, height = 44, radius = 12, align = "center", fill = "surface_container_high" }, {
-    item(tr("np.openSonolith"), "external-link", "onOpenSonolith"),
+    item(tr("np.open_sonolith"), "external-link", "onOpenSonolith"),
     item(tr("np.settings"), "settings", "onOpenSettings"),
     item(tr("np.disconnect"), "logout", "onDisconnect"),
-    ui.label({ text = tr("np.usesSonolith"), fontSize = 11, color = "on_surface_variant", flexGrow = 1, textAlign = "end" }),
+    ui.label({ text = tr("np.uses_sonolith"), fontSize = 11, color = "on_surface_variant", flexGrow = 1, textAlign = "end" }),
   })
 end
 
@@ -344,7 +344,7 @@ function onSaveToPlaylist(index, text)
     if ok and result and (result.added or 0) == 0 then
       showFlash(tr("np.saved.already", { playlist = playlist.title }))
     elseif ok then
-      showFlash(tr("np.saved", { playlist = playlist.title }))
+      showFlash(tr("np.saved.done", { playlist = playlist.title }))
     else
       showFlash(tr("np.saved.failed"))
     end
@@ -498,7 +498,7 @@ end
 
 local function queueMenuItems()
   return {
-    { id = "next", label = tr("np.queue.playNext") },
+    { id = "next", label = tr("np.queue.play_next") },
     { id = "remove", label = tr("np.queue.remove") },
   }
 end
@@ -536,7 +536,7 @@ local function queueSection(limit)
         }))
         if openRow == entryId then
           table.insert(rows, ui.row({ key = "qa-" .. entryId, gap = 8, paddingH = 8, justify = "end" }, {
-            ui.button({ text = tr("np.queue.playNext"), glyph = "arrow-bar-to-up", variant = "ghost", controlSize = "sm", onClick = function()
+            ui.button({ text = tr("np.queue.play_next"), glyph = "arrow-bar-to-up", variant = "ghost", controlSize = "sm", onClick = function()
               queueAction("next", entryId)
             end }),
             ui.button({ text = tr("np.queue.remove"), glyph = "trash", variant = "ghost", controlSize = "sm", onClick = function()
@@ -676,7 +676,7 @@ local function infoBlock(item)
     if playlists and #playlists > 0 then
       -- The first option is the prompt and stays selected; a select never shows its placeholder once it
       -- has options.
-      local names = { tr("np.saveTo") }
+      local names = { tr("np.save_to") }
       for _, p in ipairs(playlists) do
         table.insert(names, p.title)
       end
@@ -776,7 +776,7 @@ local function playerScreen()
   local player = S.get(S.PLAYER)
   if not item or type(player) ~= "table" then
     local buttons = (can("library:read") or can("search")) and { button(tr("np.library"), "books", "onOpenLibrary", "primary") } or nil
-    return statusScreen("music", tr("np.nothingPlaying"), tr("np.nothingPlaying.body"), buttons, "on_surface_variant")
+    return statusScreen("music", tr("np.nothing_playing.title"), tr("np.nothing_playing.body"), buttons, "on_surface_variant")
   end
 
   local artSize = cfg("np_layout", "compact") == "large_art" and 340 or 260

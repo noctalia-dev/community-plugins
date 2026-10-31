@@ -364,7 +364,7 @@ end
 
 local function failed(err, fallback)
   if err and err.name == "NotSignedIn" then
-    showFlash(tr("lib.signedOut"))
+    showFlash(tr("lib.signed_out"))
   elseif err and err.name ~= "Timeout" then
     showFlash(fallback)
   end
@@ -382,7 +382,7 @@ local function playItem(item, context, shuffle)
   end
   send("player.playItem", params, function(ok, _, err)
     if not ok then
-      failed(err, tr("lib.playFailed"))
+      failed(err, tr("lib.play_failed"))
     end
   end)
 end
@@ -390,9 +390,9 @@ end
 local function enqueue(item, nextUp)
   send(nextUp and "queue.playNext" or "queue.add", { items = { ref(item) } }, function(ok, _, err)
     if ok then
-      showFlash(nextUp and tr("lib.playingNext", { name = format.name(item) }) or tr("lib.addedToQueue", { name = format.name(item) }))
+      showFlash(nextUp and tr("lib.playing_next", { name = format.name(item) }) or tr("lib.added_to_queue", { name = format.name(item) }))
     else
-      failed(err, tr("lib.queueFailed"))
+      failed(err, tr("lib.queue_failed"))
     end
   end)
 end
@@ -404,7 +404,7 @@ local function setRating(item)
       item.rating = target
       showFlash(target == "like" and tr("lib.liked") or tr("lib.unliked"))
     else
-      failed(err, tr("lib.rateFailed"))
+      failed(err, tr("lib.rate_failed"))
     end
   end)
 end
@@ -414,7 +414,7 @@ local function saveTo(item, playlist)
     if ok and result and (result.added or 0) == 0 then
       showFlash(tr("np.saved.already", { playlist = playlist.title }))
     elseif ok then
-      showFlash(tr("np.saved", { playlist = playlist.title }))
+      showFlash(tr("np.saved.done", { playlist = playlist.title }))
     else
       failed(err, tr("np.saved.failed"))
     end
@@ -424,7 +424,7 @@ end
 local function removeFromPlaylist(playlistId, entryId)
   send("playlist.removeTracks", { id = playlistId, entryIds = { entryId } }, function(ok, _, err)
     if not ok then
-      failed(err, tr("lib.removeFailed"))
+      failed(err, tr("lib.remove_failed"))
       return
     end
     local d = data["detail:playlist:" .. playlistId]
@@ -479,24 +479,24 @@ local function actionsFor(target)
     end
   end
   if PLAYABLE[item.type] and can("queue:write") then
-    add("next", tr("np.queue.playNext"))
-    add("queue", tr("lib.addToQueue"))
+    add("next", tr("np.queue.play_next"))
+    add("queue", tr("lib.add_to_queue"))
   end
   if PLAYABLE[item.type] and can("library:write") and signedIn and item.type ~= "podcast" then
     add("rate", item.rating == "like" and tr("lib.unlike") or tr("lib.like"))
   end
   if item.type == "track" and item.album and item.album.id then
-    add("album", tr("lib.goAlbum"))
+    add("album", tr("lib.go_album"))
   end
   if (item.type == "track" or item.type == "album") and item.artists and item.artists[1] and item.artists[1].id then
-    add("artist", tr("lib.goArtist"))
+    add("artist", tr("lib.go_artist"))
   end
   if item.type == "episode" and item.podcast and item.podcast.id then
-    add("podcast", tr("lib.goPodcast"))
+    add("podcast", tr("lib.go_podcast"))
   end
   if not COLLECTIONS[item.type] and item.type ~= "artist" then
     if target.playlistId and target.entryId and can("library:write") then
-      add("remove", tr("lib.removeFromPlaylist"))
+      add("remove", tr("lib.remove_from_playlist"))
     end
   end
   return list
@@ -549,7 +549,7 @@ local function openMenu(target)
   local item = target.item
   if (item.type == "track" or item.type == "episode") and can("library:write") and editablePlaylists and #editablePlaylists > 0 then
     table.insert(items, { kind = "separator" })
-    table.insert(items, { kind = "header", label = tr("lib.saveToPlaylist") })
+    table.insert(items, { kind = "header", label = tr("lib.save_to_playlist") })
     for i, p in ipairs(editablePlaylists) do
       if i > 40 then
         break
@@ -581,12 +581,12 @@ end
 
 local function errorState(d, view)
   local err = d.error or {}
-  local text = err.name == "NotSignedIn" and tr("lib.signedOut")
-    or err.name == "PermissionDenied" and tr("lib.noPermission")
-    or err.name == "NotFound" and tr("lib.notFound")
-    or tr("lib.loadFailed")
+  local text = err.name == "NotSignedIn" and tr("lib.signed_out")
+    or err.name == "PermissionDenied" and tr("lib.no_permission")
+    or err.name == "NotFound" and tr("lib.not_found")
+    or tr("lib.load_failed")
   return emptyState("alert-triangle", text, {
-    ui.button({ text = tr("np.tryAgain"), glyph = "refresh", variant = "outline", onClick = function()
+    ui.button({ text = tr("np.try_again"), glyph = "refresh", variant = "outline", onClick = function()
       load(view, false)
     end }),
   })
@@ -598,7 +598,7 @@ local function loadMore(view, d)
   end
   return ui.row({ key = "more", justify = "center", paddingV = 8 }, {
     ui.button({
-      text = d.loading and tr("lib.loading") or tr("lib.loadMore"),
+      text = d.loading and tr("lib.loading") or tr("lib.load_more"),
       variant = "outline",
       enabled = not d.loading,
       onClick = function()
@@ -683,7 +683,7 @@ local function card(item, index, prefix)
     artPath = thumb(item),
     size = CARD,
     round = item.type == "artist",
-    playTooltip = tr("lib.playHint"),
+    playTooltip = tr("lib.play_hint"),
     onClick = function()
       openItem(item)
     end,
@@ -782,7 +782,7 @@ local function detailHeader(view, d)
     end
   end
   if COLLECTIONS[t] and can("queue:write") then
-    table.insert(buttons, ui.button({ text = tr("lib.addToQueue"), glyph = "playlist-add", variant = "ghost", controlSize = "sm", onClick = function()
+    table.insert(buttons, ui.button({ text = tr("lib.add_to_queue"), glyph = "playlist-add", variant = "ghost", controlSize = "sm", onClick = function()
       enqueue({ type = t, id = view.ref.id, title = format.name(h) }, false)
     end }))
   end
@@ -916,7 +916,7 @@ local function searchBody(view)
     return out
   end
   if #d.items == 0 and not d.topResult then
-    table.insert(out, emptyState("search", tr("lib.noResults", { query = view.query })))
+    table.insert(out, emptyState("search", tr("lib.no_results", { query = view.query })))
     return out
   end
   if d.topResult then
@@ -952,7 +952,7 @@ local function suggestBody()
     end
   end
   if #out == 0 then
-    table.insert(out, emptyState("search", tr("lib.searchHint")))
+    table.insert(out, emptyState("search", tr("lib.search_hint")))
   end
   return out
 end
@@ -961,13 +961,13 @@ local function homeBody()
   if not can("library:read") then
     local req = S.get(S.SCOPE_REQUEST)
     local wait = type(req) == "table" and req.retryAt and math.max(0, req.retryAt - now()) or 0
-    local text = tr("lib.noLibrary")
+    local text = tr("lib.no_library.body")
     if type(req) == "table" and req.status == "denied" and wait > 0 then
-      text = tr("lib.noLibrary.denied", { time = format.wait(wait) })
+      text = tr("lib.no_library.denied", { time = format.wait(wait) })
     end
     return { emptyState("books", text, {
       ui.button({
-        text = tr("lib.allowLibrary"),
+        text = tr("lib.allow_library"),
         glyph = "lock-open",
         variant = "primary",
         enabled = not scopeRequestBusy and wait <= 0,
@@ -976,9 +976,9 @@ local function homeBody()
     }) }
   end
   if S.get(S.SIGNED_IN) == false then
-    return { emptyState("user", tr("lib.signedOut")) }
+    return { emptyState("user", tr("lib.signed_out")) }
   end
-  return { emptyState("search", tr("lib.searchHint")) }
+  return { emptyState("search", tr("lib.search_hint")) }
 end
 
 function onAllowLibrary()
@@ -987,9 +987,9 @@ function onAllowLibrary()
   send("bridge.requestScopes", { scopes = { "library:read" } }, function(ok, result, err)
     scopeRequestBusy = false
     if not ok then
-      failed(err, tr("lib.requestFailed"))
+      failed(err, tr("lib.request_failed"))
     elseif result and result.status == "pending" then
-      showFlash(tr("lib.approveInSonolith"))
+      showFlash(tr("lib.approve_in_sonolith"))
     end
     markDirty()
   end)
@@ -1090,7 +1090,7 @@ local function rail()
     table.insert(children, ui.input({
       key = "search-" .. searchKey,
       value = query,
-      placeholder = tr("lib.searchPlaceholder"),
+      placeholder = tr("lib.search_placeholder"),
       controlSize = "sm",
       submitOnEnter = true,
       onChange = "onSearchChange",
@@ -1120,7 +1120,7 @@ local function rail()
     end
     table.insert(children, ui.column({ key = "tabs", gap = 2 }, tabs))
     if not signedIn then
-      table.insert(children, ui.label({ text = tr("lib.signedOut"), fontSize = 11, color = "on_surface_variant", maxLines = 3 }))
+      table.insert(children, ui.label({ text = tr("lib.signed_out"), fontSize = 11, color = "on_surface_variant", maxLines = 3 }))
     end
   end
   return ui.column({ key = "rail", width = 180, gap = 12, padding = 8, radius = 12, fill = "surface_container_high" }, children)
@@ -1134,10 +1134,10 @@ local function contentHeader(view)
     title = tr("lib.tab." .. view.tab)
     local d = data[viewKey(view)]
     if d and #d.items > 0 then
-      count = d.nextCursor and tr("lib.countMore", { count = #d.items }) or tostring(#d.items)
+      count = d.nextCursor and tr("lib.count_more", { count = #d.items }) or tostring(#d.items)
     end
   elseif view.kind == "search" then
-    title = tr("lib.resultsFor", { query = view.query })
+    title = tr("lib.results_for", { query = view.query })
   elseif view.kind == "suggest" then
     title = tr("lib.suggestions")
   elseif view.kind == "detail" then
@@ -1178,7 +1178,7 @@ end
 local function notConnected()
   return ui.column({ key = "nc", flexGrow = 1, align = "center", justify = "center", gap = 12 }, {
     ui.glyph({ name = "plug-connected-x", size = 36, color = "on_surface_variant" }),
-    ui.label({ text = tr("lib.notConnected"), color = "on_surface_variant" }),
+    ui.label({ text = tr("lib.not_connected"), color = "on_surface_variant" }),
     ui.button({ text = tr("np.title"), glyph = "arrow-left", variant = "primary", onClick = "onNowPlaying" }),
   })
 end

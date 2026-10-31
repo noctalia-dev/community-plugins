@@ -163,7 +163,7 @@ local function run(method, params, cb, retried)
       elseif err.name == "Timeout" then
         toast(noctalia.tr("toast.timeout.title"), noctalia.tr("toast.timeout.body"))
       elseif err.name == "NotSignedIn" then
-        toast(noctalia.tr("toast.signedOut.title"), noctalia.tr("toast.signedOut.body"))
+        toast(noctalia.tr("toast.signed_out.title"), noctalia.tr("toast.signed_out.body"))
       elseif err.name ~= "Unavailable" and err.name ~= "PermissionDenied" and err.name ~= "NotConnected" then
         log(`{method} failed: {err.name} {err.reason or ""}`)
       end
