@@ -5,6 +5,17 @@
 
 local M = {}
 
+function M.quote(s)
+	return "'" .. (tostring(s):gsub("'", "'\\''")) .. "'"
+end
+
+-- The whole update command goes to the terminal as one argument, so that
+-- `a && b` runs in it entirely. A prefix can hold several words and its own
+-- quoting; the setting is the user's own, like the update command.
+function M.terminalCommand(terminal, cmd)
+	return terminal .. " sh -lc " .. M.quote(cmd)
+end
+
 -- Links come from flake.lock and package metadata, i.e. from whoever controls
 -- an input. Only plain http(s) URLs pass: a host, then a port, path, query or
 -- fragment. That rules out file://, local paths, a leading dash xdg-open could

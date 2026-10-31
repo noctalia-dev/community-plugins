@@ -120,6 +120,10 @@
     "show_zero": {
       "label": "Show 0 when up to date"
     },
+    "terminal": {
+      "description": "Terminal command the Update button starts the update command with, for example: kitty --class nixos-updates -e. Include the option your terminal needs to run a command. Give it its own window class or app id, then match that in a compositor window rule to float it without affecting other terminals. Empty: Noctalia's default terminal.",
+      "label": "Terminal command"
+    },
     "update_command": {
       "description": "Runs in a terminal from the panel's Update button, for example: nix flake update --flake /etc/nixos && sudo nixos-rebuild switch --flake /etc/nixos && flatpak update -y. Empty: no Update button.",
       "label": "Update command"

@@ -102,6 +102,7 @@ Plugin settings:
 | `check_flatpak` | `bool` | `true` | List pending Flatpak updates of the system and user installations. |
 | `check_interval_hours` | `int` | `6` | Hours between two checks (1-168). After a failed check at most 15 minutes. |
 | `update_command` | `string` | `""` | Shell command for the **Update** button, run in a terminal when you press it, never on its own. Empty: the button opens the settings instead. |
+| `terminal` | `string` | `""` | Terminal command the **Update** button starts the update command with, e.g. `kitty --class nixos-updates -e`. Include the option your terminal needs to run a command. Give it its own window class or app id, then match that in a compositor window rule to float it without affecting other terminals. Empty: Noctalia's default terminal. |
 | `github_token_file` | `file` | `""` | Optional. Path to a file with a GitHub token, see [GitHub rate limit](#github-rate-limit). The token itself never goes into the settings. |
 | `notify` | `bool` | `true` | Notify when a check finds updates that were not pending before. |
 | `ignored_inputs` | `string_list` | `[]` | Advanced. Input names left out of the input list. Packages they change are still listed. |
@@ -251,7 +252,8 @@ noctalia msg plugin dmopp/nixos-updates:service all update   # run the update co
   `~/.cache/nix`.
 - **Processes:** `sh scripts/check.sh` (with the `nix` and `flatpak` calls
   above), `xdg-open <url>` on a click on a row with a changes link, and the
-  configured update command in a terminal on **Update**.
+  configured update command in a terminal on **Update** (with `terminal` set,
+  `<terminal> sh -lc '<update_command>'`).
 - Only packages listed in `environment.systemPackages` (and the kernel) are
   compared, not their dependencies or services. Home Manager packages are not
   included. A package built from an input can get new commits without a new
