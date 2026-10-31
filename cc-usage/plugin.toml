@@ -1,0 +1,44 @@
+id = "wennington/cc-usage"
+name = "Command Code Usage"
+version = "1.0.0"
+plugin_api = 3
+author = "wennington"
+license = "MIT"
+icon = "chart-pie"
+description = "Command Code monthly, 5-hour and weekly usage meters on a desktop widget (computed from local transcripts)."
+tags = ["usage", "command-code", "desktop-widget"]
+dependencies = ["python3"]
+
+[[setting]]
+key = "plan"
+type = "select"
+label_key = "settings.plan.label"
+default = "GOAT"
+options = [
+  { value = "GO", label_key = "settings.plan.go" },
+  { value = "GOAT", label_key = "settings.plan.goat" },
+  { value = "PRO", label_key = "settings.plan.pro" },
+  { value = "MAX20", label_key = "settings.plan.max20" },
+]
+
+[[setting]]
+key = "multiplier"
+type = "double"
+label_key = "settings.multiplier.label"
+description_key = "settings.multiplier.description"
+default = 2.5
+min = 0.1
+max = 100.0
+
+[[setting]]
+key = "billing_day"
+type = "int"
+label_key = "settings.billing_day.label"
+description_key = "settings.billing_day.description"
+default = 28
+min = 1
+max = 28
+
+[[desktop_widget]]
+id = "usage"
+entry = "widget.luau"
