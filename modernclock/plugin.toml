@@ -37,7 +37,7 @@ key = "day_letter_spacing"
 type = "int"
 label_key = "settings.day_letter_spacing.label"
 description_key = "settings.day_letter_spacing.description"
-default = 2
+default = 1
 min = 0
 max = 10
 

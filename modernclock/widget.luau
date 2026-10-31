@@ -1,8 +1,8 @@
 --!nonstrict
 local dir = noctalia.pluginDir() or "."
-local fontAnurati = noctalia.loadFont("fonts/Anurati.otf")
-  or (noctalia.pluginDir() and noctalia.loadFont(noctalia.pluginDir() .. "/fonts/Anurati.otf"))
-  or "Anurati"
+local fontOctahedron = noctalia.loadFont("fonts/fn-octahedron-v11.otf")
+  or (noctalia.pluginDir() and noctalia.loadFont(noctalia.pluginDir() .. "/fonts/fn-octahedron-v11.otf"))
+  or "FN OCTAHEDRON"
 
 local fontPoppins = noctalia.loadFont("fonts/Poppins.ttf")
   or (noctalia.pluginDir() and noctalia.loadFont(noctalia.pluginDir() .. "/fonts/Poppins.ttf"))
@@ -66,7 +66,7 @@ function update()
   if show_day == nil then show_day = true end
   local day_font_size = noctalia.getConfig("day_font_size") or 72
   local day_font_color = noctalia.getConfig("day_font_color") or "#FFFFFF"
-  local day_letter_spacing = noctalia.getConfig("day_letter_spacing") or 2
+  local day_letter_spacing = noctalia.getConfig("day_letter_spacing") or 1
 
   local show_date = noctalia.getConfig("show_date")
   if show_date == nil then show_date = true end
@@ -94,7 +94,7 @@ function update()
     end
     table.insert(items, ui.label({
       text = day_str,
-      fontFamily = fontAnurati,
+      fontFamily = fontOctahedron,
       fontSize = day_font_size,
       color = day_font_color,
       textAlign = "center",
@@ -113,7 +113,8 @@ function update()
       fontSize = date_font_size,
       color = date_font_color,
       textAlign = "center",
-      baseline = "text"
+      baseline = "text",
+      marginTop = show_day and -3 or 0
     }))
   end
 
