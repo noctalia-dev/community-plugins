@@ -1,0 +1,62 @@
+{
+  "settings": {
+    "api_address": {
+      "label": "Throne API address",
+      "description": "Local API endpoint. Keep Throne on loopback unless you deliberately configure a secure remote connection."
+    },
+    "api_key_file": {
+      "label": "API key file",
+      "description": "Path to the existing key file configured in Throne. Do not paste the key value."
+    },
+    "thronectl_path": {
+      "label": "thronectl executable",
+      "description": "Executable on PATH, or a full path. A leading ~ is expanded by the helper."
+    },
+    "poll_seconds": {
+      "label": "Refresh interval (seconds)",
+      "description": "Read status and stored test results every 2–60 seconds. No new speed tests are started."
+    }
+  },
+  "errors": {
+    "timeout": "Throne timed out or returned an incomplete response.",
+    "command": "Throne did not complete the action.",
+    "response": "Could not read Throne. Check python3, thronectl and plugin settings.",
+    "launch": "Could not launch the bundled Python helper."
+  },
+  "panel": {
+    "subtitle": "VPN profiles",
+    "refresh": "Refresh saved results",
+    "close": "Close",
+    "choose": "Select a server below",
+    "current_route": "Current Throne setting",
+    "disconnect": "Disconnect",
+    "last": "Last profile",
+    "search": "Find a profile…",
+    "server": "Server · download order",
+    "empty": "No matching profiles",
+    "waiting": "Waiting for Throne…",
+    "footer": "Saved Throne tests · download descending · Σ = accumulated traffic",
+    "route_prefix": "Route: ",
+    "degraded_prefix": "Throne reports a problem: ",
+    "permissions": "ThroneCore needs TUN privileges. Grant them in Throne; see the permissions guide."
+  },
+  "status": {
+    "off": "VPN disconnected",
+    "unavailable": "Throne unavailable",
+    "busy": "Applying action…",
+    "connecting": "Connecting…",
+    "stopping": "Disconnecting…",
+    "tun": "VPN connected · TUN",
+    "proxy": "Proxy running · TUN disabled",
+    "loading": "Connecting to the Throne API…"
+  },
+  "widget": {
+    "off": "Throne · VPN disconnected",
+    "loading": "Throne · loading…",
+    "busy": "Throne · action in progress…",
+    "degraded": "Throne · degraded connection",
+    "unavailable": "unavailable",
+    "proxy_prefix": "Proxy · ",
+    "controls": "Left click: open/close · Right click: close"
+  }
+}
