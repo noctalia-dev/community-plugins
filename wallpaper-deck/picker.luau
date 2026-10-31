@@ -1948,7 +1948,7 @@ end
 local lastSearchMs = 0
 local function executeSearch()
   local now = noctalia.nowMs()
-  if now - lastSearchMs < 250 then return end
+  if now - lastSearchMs < 150 then return end
   lastSearchMs = now
 
   if currentMode == "wallhaven" then
@@ -3077,12 +3077,14 @@ function render()
                 color = (isSearchFocused or (currentMode == "wallhaven" and whQuery ~= "") or (currentMode ~= "wallhaven" and searchQuery ~= "")) and paletteColors.accent or paletteColors.muted,
               }),
               ui.input({
+                key = "deck_search_input_" .. (currentMode == "wallhaven" and "wh" or "local"),
                 value = (currentMode == "wallhaven") and whQuery or searchQuery,
                 placeholder = (currentMode == "wallhaven") and "Search tags..." or "Filter...",
                 controlSize = "sm",
                 frameVisible = false,
                 flexGrow = 1,
-                focus = isSearchFocused,
+                focus = isSearchFocused and true or nil,
+                submitOnEnter = true,
                 width = (currentMode == "wallhaven") and 270 or 180,
                 onChange = function(val)
                   isSearchFocused = true
@@ -3098,6 +3100,13 @@ function render()
                   end
                 end,
                 onSubmit = function(val)
+                  if val and val ~= "" then
+                    if currentMode == "wallhaven" then
+                      whQuery = val
+                    else
+                      searchQuery = val
+                    end
+                  end
                   executeSearch()
                 end,
               }),
@@ -3657,36 +3666,80 @@ end
 function onKey(chord: string, pressed: boolean)
   if not pressed then return end
 
-  if isSearchFocused then
-    if chord == "return" then
+  local chordLower = string.lower(chord)
+  local isReturn = (chordLower == "return" or chordLower == "enter" or chordLower == "kp_enter")
+
+  if isReturn then
+    if isSearchFocused then
       executeSearch()
-    elseif chord == "escape" then
+      return
+    end
+
+    if currentMode == "wallhaven" then
+      if not isDeckAreaHovered then
+        executeSearch()
+        return
+      else
+        applyCurrent()
+        return
+      end
+    else
+      if searchQuery ~= "" and not isDeckAreaHovered then
+        executeSearch()
+        return
+      else
+        applyCurrent()
+        return
+      end
+    end
+  end
+
+  if chordLower == "escape" then
+    if monitorDropdownOpen then
+      monitorDropdownOpen = false
+      render()
+    elseif isPeeking then
+      isPeeking = false
+      render()
+    elseif isSearchFocused then
       isSearchFocused = false
       render()
-    elseif chord == "down" then
-      isSearchFocused = false
-      render()
+    else
+      cancelAndClose()
     end
     return
   end
 
-  if chord == "left" or chord == "h" then
+  if chordLower == "left" or chordLower == "h" then
+    isSearchFocused = false
+    isDeckAreaHovered = true
     if selectedIdx > 1 then
       selectCardIndex(selectedIdx - 1)
     end
-  elseif chord == "right" or chord == "l" then
+  elseif chordLower == "right" or chordLower == "l" then
+    isSearchFocused = false
+    isDeckAreaHovered = true
     if selectedIdx < #displayedItems then
       selectCardIndex(selectedIdx + 1)
     else
       pendingStepAfterAppend = true
       checkWallhavenLazyLoad()
     end
-  elseif chord == "up" or chord == "k" or chord == "u" then
+  elseif chordLower == "up" or chordLower == "k" or chordLower == "u" then
+    isSearchFocused = false
+    isDeckAreaHovered = true
     local newIdx = math.max(1, selectedIdx - 5)
     if newIdx ~= selectedIdx then
       selectCardIndex(newIdx)
     end
-  elseif chord == "down" or chord == "j" or chord == "d" then
+  elseif chordLower == "down" or chordLower == "j" or chordLower == "d" then
+    if isSearchFocused then
+      isSearchFocused = false
+      isDeckAreaHovered = true
+      render()
+      return
+    end
+    isDeckAreaHovered = true
     local newIdx = math.min(#displayedItems, selectedIdx + 5)
     if newIdx ~= selectedIdx then
       selectCardIndex(newIdx)
@@ -3694,24 +3747,22 @@ function onKey(chord: string, pressed: boolean)
       pendingStepAfterAppend = true
       checkWallhavenLazyLoad()
     end
-  elseif chord == "return" then
-    applyCurrent()
-  elseif chord == "f" then
+  elseif chordLower == "f" then
     toggleCurrentFavorite()
-  elseif chord == "s" then
+  elseif chordLower == "s" then
     cycleSort()
-  elseif chord == "tab" then
+  elseif chordLower == "tab" then
     cycleMode()
-  elseif chord == "r" then
+  elseif chordLower == "r" then
     pickRandom()
-  elseif chord == "space" then
+  elseif chordLower == "space" then
     isPeeking = not isPeeking
     if isPeeking then
       isDeckAreaHovered = false
       hoveredDeckKeys = {}
     end
     render()
-  elseif chord == "p" then
+  elseif chordLower == "p" then
     if currentMode == "wallhaven" then
       hiResPreview = not hiResPreview
       if not hiResPreview then
@@ -3732,21 +3783,21 @@ function onKey(chord: string, pressed: boolean)
       end
       render()
     end
-  elseif chord == "m" then
+  elseif chordLower == "m" then
     refreshConnectedOutputs()
     monitorDropdownOpen = not monitorDropdownOpen
     render()
-  elseif chord == "/" or chord == "slash" then
+  elseif chordLower == "/" or chordLower == "slash" then
     isSearchFocused = not isSearchFocused
     render()
-  elseif chord == "Pointer_Button4" or chord == "Pointer_DfltBtnPrev" then
+  elseif chordLower == "pointer_button4" or chordLower == "pointer_dfltbtnprev" then
     if isDeckAreaHovered then
       isSearchFocused = false
       if selectedIdx > 1 then
         selectCardIndex(selectedIdx - 1)
       end
     end
-  elseif chord == "Pointer_Button5" or chord == "Pointer_DfltBtnNext" then
+  elseif chordLower == "pointer_button5" or chordLower == "pointer_dfltbtnnext" then
     if isDeckAreaHovered then
       isSearchFocused = false
       if selectedIdx < #displayedItems then
@@ -3756,31 +3807,18 @@ function onKey(chord: string, pressed: boolean)
         checkWallhavenLazyLoad()
       end
     end
-  elseif chord == "Page_Up" or chord == "Prior" then
+  elseif chordLower == "page_up" or chordLower == "prior" then
     local newIdx = math.max(1, selectedIdx - 5)
     if newIdx ~= selectedIdx then
       selectCardIndex(newIdx)
     end
-  elseif chord == "Page_Down" or chord == "Next" then
+  elseif chordLower == "page_down" or chordLower == "next" then
     local newIdx = math.min(#displayedItems, selectedIdx + 5)
     if newIdx ~= selectedIdx then
       selectCardIndex(newIdx)
     else
       pendingStepAfterAppend = true
       checkWallhavenLazyLoad()
-    end
-  elseif chord == "escape" then
-    if monitorDropdownOpen then
-      monitorDropdownOpen = false
-      render()
-    elseif isPeeking then
-      isPeeking = false
-      render()
-    elseif isSearchFocused then
-      isSearchFocused = false
-      render()
-    else
-      cancelAndClose()
     end
   end
 end
