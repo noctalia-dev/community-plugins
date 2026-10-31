@@ -3671,8 +3671,8 @@ rev = "3c9bc784022a498804ec6e1371cd2caa06b8d846"
 [[plugin]]
 id = "hy4ri/herdr"
 name = "Herdr"
-version = "1.2.0"
-updated_at = 1793375867
+version = "1.2.1"
+updated_at = 1793478890
 added_at = 1790164461
 author = "Hy4ri"
 license = "MIT"
@@ -5276,8 +5276,8 @@ tags = ["hardware", "shortcut", "system", "nixos"]
 [[plugin]]
 id = "dmopp/nixos-updates"
 name = "NixOS Updates"
-version = "1.0.0"
-updated_at = 1793405161
+version = "1.1.0"
+updated_at = 1793478957
 added_at = 1793405161
 author = "dMopp"
 license = "MIT"
@@ -5285,3 +5285,16 @@ icon = "snowflake"
 description = "Pending flake input, package and Flatpak updates on NixOS, like apt list --upgradable."
 plugin_api = 43
 tags = ["bar", "panel", "service", "system", "nixos", "indicator"]
+
+[[plugin]]
+id = "wennington/cc-usage"
+name = "Command Code Usage"
+version = "1.0.0"
+updated_at = 1793478920
+added_at = 1793478920
+author = "wennington"
+license = "MIT"
+icon = "chart-pie"
+description = "Command Code monthly, 5-hour and weekly usage meters on a desktop widget (computed from local transcripts)."
+plugin_api = 3
+tags = ["desktop", "utility", "ai"]
