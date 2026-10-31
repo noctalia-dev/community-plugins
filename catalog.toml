@@ -5298,3 +5298,16 @@ icon = "chart-pie"
 description = "Command Code monthly, 5-hour and weekly usage meters on a desktop widget (computed from local transcripts)."
 plugin_api = 3
 tags = ["desktop", "utility", "ai"]
+
+[[plugin]]
+id = "opecko/sonolith"
+name = "Sonolith"
+version = "1.0.0"
+updated_at = 1793479386
+added_at = 1793479386
+author = "opecko"
+license = "MIT"
+icon = "music"
+description = "What's playing in Sonolith, in your bar: playback controls, lyrics, queue and your YouTube Music library."
+plugin_api = 43
+tags = ["bar", "panel", "service", "media", "music"]
