@@ -1,0 +1,191 @@
+# Lanzador de widgets de terminal en ventanas flotantes de Hyprland.
+#
+# Cada widget (nombre + comando) se convierte en una tarjeta del panel; al
+# pulsarla se abre kitty con clase/título propios y su geometría.
+#
+# La lista vive en el `store.json` del plugin y se edita desde el propio panel.
+# Los defaults integrados (lib/defaults.luau) solo rellenan la lista inicial;
+# Ajustes de Noctalia ya no es una segunda fuente de verdad.
+
+id = "faminec/terminal-widgets"
+name = "Terminal Widgets"
+version = "2.2.0"
+plugin_api = 43
+author = "faminec"
+license = "MIT"
+dependencies = ["kitty", "hyprland", "grim", "python3"]
+tags = ["utility", "system", "hyprland", "music", "launcher"]
+icon = "terminal-2"
+description = "Launch terminal apps in floating windows, with a card grid, per-command geometry and rotation."
+
+[[setting]]
+key = "margin"
+type = "int"
+label_key = "settings.margin.label"
+description_key = "settings.margin.description"
+default = 16
+min = 0
+max = 500
+
+[[setting]]
+key = "output"
+type = "string"
+label_key = "settings.output.label"
+description_key = "settings.output.description"
+default = ""
+
+[[setting]]
+key = "reuse_existing"
+type = "bool"
+label_key = "settings.reuse_existing.label"
+description_key = "settings.reuse_existing.description"
+default = true
+
+[[setting]]
+key = "terminal"
+type = "string"
+label_key = "settings.terminal.label"
+description_key = "settings.terminal.description"
+default = "kitty"
+
+[[setting]]
+key = "glyph"
+type = "glyph"
+label_key = "settings.glyph.label"
+description_key = "settings.glyph.description"
+default = "terminal-2"
+
+[[setting]]
+key = "close_on_launch"
+type = "bool"
+label_key = "settings.close_on_launch.label"
+description_key = "settings.close_on_launch.description"
+default = false
+
+[[setting]]
+key = "rotation"
+type = "select"
+label_key = "settings.rotation.label"
+description_key = "settings.rotation.description"
+default = "clockwise"
+options = [
+  { value = "clockwise", label_key = "settings.rotation.options.clockwise" },
+  { value = "counterclockwise", label_key = "settings.rotation.options.counterclockwise" },
+  { value = "opposite", label_key = "settings.rotation.options.opposite" },
+  { value = "pairs", label_key = "settings.rotation.options.pairs" },
+  { value = "shuffle", label_key = "settings.rotation.options.shuffle" },
+]
+
+[[setting]]
+key = "rotation_sizes"
+type = "bool"
+label_key = "settings.rotation_sizes.label"
+description_key = "settings.rotation_sizes.description"
+default = true
+
+[[setting]]
+key = "columns"
+type = "int"
+label_key = "settings.columns.label"
+description_key = "settings.columns.description"
+default = 2
+min = 1
+max = 3
+
+[[setting]]
+key = "card_preview"
+type = "select"
+label_key = "settings.card_preview.label"
+description_key = "settings.card_preview.description"
+default = "auto"
+options = [
+  { value = "auto", label_key = "settings.card_preview.options.auto" },
+  { value = "screenshot", label_key = "settings.card_preview.options.screenshot" },
+  { value = "live", label_key = "settings.card_preview.options.live" },
+  { value = "gif", label_key = "settings.card_preview.options.gif" },
+  { value = "mock", label_key = "settings.card_preview.options.mock" },
+]
+
+[[setting]]
+key = "preview_interval"
+type = "int"
+label_key = "settings.preview_interval.label"
+description_key = "settings.preview_interval.description"
+default = 3000
+min = 1000
+max = 60000
+visible_when = { key = "card_preview", values = ["auto", "live", "gif"] }
+
+[[setting]]
+key = "fallback_mode"
+type = "select"
+label_key = "settings.fallback_mode.label"
+description_key = "settings.fallback_mode.description"
+default = "random"
+options = [
+  { value = "random", label_key = "settings.fallback_mode.options.random" },
+  { value = "custom", label_key = "settings.fallback_mode.options.custom" },
+]
+[[setting]]
+key = "width"
+type = "int"
+label_key = "settings.width.label"
+description_key = "settings.width.description"
+default = 900
+min = 200
+max = 3000
+visible_when = { key = "fallback_mode", values = ["custom"] }
+
+[[setting]]
+key = "height"
+type = "int"
+label_key = "settings.height.label"
+description_key = "settings.height.description"
+default = 830
+min = 150
+max = 2000
+visible_when = { key = "fallback_mode", values = ["custom"] }
+
+[[setting]]
+key = "x"
+type = "int"
+label_key = "settings.x.label"
+description_key = "settings.x.description"
+default = 120
+min = -3000
+max = 6000
+visible_when = { key = "fallback_mode", values = ["custom"] }
+
+[[setting]]
+key = "y"
+type = "int"
+label_key = "settings.y.label"
+description_key = "settings.y.description"
+default = 140
+min = -2000
+max = 4000
+visible_when = { key = "fallback_mode", values = ["custom"] }
+
+[[setting]]
+key = "fallback_random_resize"
+type = "bool"
+label_key = "settings.fallback_random_resize.label"
+description_key = "settings.fallback_random_resize.description"
+default = false
+visible_when = { key = "fallback_mode", values = ["random"] }
+
+[[widget]]
+id = "launcher"
+entry = "widget.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+# El tamaño del panel se mide en píxeles lógicos: Noctalia lo multiplica por
+# `accessibility.ui_scale` y le suma el sangrado de la sombra (~28 px de ancho
+# y ~30 px de alto). Con ui_scale = 1.2, 520x715 se ven como ~652x888 px, justo
+# para cuatro filas de miniaturas sin barra de scroll.
+width = 520
+height = 715
+placement = "attached"
+open_near_click = true
