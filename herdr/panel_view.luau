@@ -119,13 +119,16 @@ function M.build(snapshot, options)
         ui.label({ text = subtitle, fontSize = 11, color = "on_surface_variant" }),
       }),
       ui.button({
+        key = "refresh",
         glyph = "refresh",
         variant = "ghost",
         controlSize = "sm",
         tooltip = tr("actions.refresh"),
-        enabled = snapshot.refreshing ~= true,
         onClick = function()
-          request("refresh")
+          -- Background polls must not disable the control and discard focus.
+          if snapshot.refreshing ~= true then
+            request("refresh")
+          end
         end,
       }),
       ui.button({
