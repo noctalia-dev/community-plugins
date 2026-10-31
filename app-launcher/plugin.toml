@@ -1,0 +1,89 @@
+id           = "xrtsx/app-launcher"
+name         = "App Launcher"
+version      = "1.0.0"
+plugin_api   = 24
+author       = "xrtsx"
+license      = "MIT"
+icon         = "apps"
+description  = "Launcher panel with a fixed size, Pinned / All tabs and a scrollable app grid."
+tags         = ["launcher", "panel", "utility"]
+dependencies = []
+
+# ---- Plugin settings (Settings -> Plugins) ----
+
+[[setting]]
+key             = "icon_size"
+type            = "int"
+label_key       = "settings.icon_size.label"
+description_key = "settings.icon_size.description"
+default         = 48
+min             = 24
+max             = 128
+
+[[setting]]
+key             = "columns"
+type            = "int"
+label_key       = "settings.columns.label"
+description_key = "settings.columns.description"
+default         = 6
+min             = 2
+max             = 12
+
+[[setting]]
+key             = "panel_size"
+type            = "select"
+label_key       = "settings.size.label"
+description_key = "settings.size.description"
+default         = "small"
+options         = [
+    { value = "small",  label_key = "settings.size.option.small" },
+    { value = "medium", label_key = "settings.size.option.medium" },
+    { value = "large",  label_key = "settings.size.option.large" },
+    { value = "xl",     label_key = "settings.size.option.xl" },
+]
+
+# ---- Service and UI ----
+
+# Background indexer: reads .desktop files and icons in small steps
+[[service]]
+id    = "indexer"
+entry = "indexer.luau"
+
+# Small size. A panel's size is fixed by its manifest entry and cannot change at runtime,
+# so each size is a separate [[panel]] with the same entry and other width/height.
+[[panel]]
+id        = "launcher"
+entry     = "panel.luau"
+width     = 900
+height    = 780
+placement = "floating"
+position  = "center"
+
+[[panel]]
+id        = "launcher_medium"
+entry     = "panel.luau"
+width     = 1100
+height    = 880
+placement = "floating"
+position  = "center"
+
+[[panel]]
+id        = "launcher_large"
+entry     = "panel.luau"
+width     = 1300
+height    = 980
+placement = "floating"
+position  = "center"
+
+[[panel]]
+id        = "launcher_xl"
+entry     = "panel.luau"
+width     = 1900
+height    = 980
+placement = "floating"
+position  = "center"
+
+# Bar button: a click opens the panel
+[[widget]]
+id    = "button"
+entry = "button.luau"

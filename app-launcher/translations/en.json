@@ -1,0 +1,22 @@
+{
+  "title": "Applications",
+  "tab.pinned": "Pinned",
+  "tab.all": "All",
+  "empty": "No applications to show",
+  "settings.icon_size.label": "Icon size (px)",
+  "settings.icon_size.description": "Size of app icons in the grid.",
+  "settings.columns.label": "Columns",
+  "settings.columns.description": "Number of columns in the grid.",
+  "settings.size.label": "Window size",
+  "edit.start": "Edit",
+  "edit.done": "Done",
+  "title.edit": "Pin mode: click an app",
+  "settings.size.option.small": "Small (900x780)",
+  "settings.size.option.medium": "Medium (1100x880)",
+  "settings.size.option.large": "Large (1300x980)",
+  "settings.size.option.xl": "Extra large (1900x980)",
+  "settings.size.description": "Size of the launcher panel. Applies the next time it opens.",
+  "loading": "Loading applications…",
+  "refresh.start": "Refresh",
+  "refresh.busy": "Refreshing…"
+}
