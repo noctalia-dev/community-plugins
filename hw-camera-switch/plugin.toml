@@ -1,0 +1,64 @@
+id = "augussst/hw-camera-switch"
+name = "Hardware Camera Switch"
+version = "1.2.0"
+# 39 for noctalia.osd.show: the switch toggle uses the native shell OSD.
+plugin_api = 39
+author = "augussst"
+license = "MIT"
+icon = "camera"
+description = "Camera hardware switch indicator widget with native OSD on toggle."
+dependencies = ["od"]
+tags = ["hardware", "indicator", "privacy", "bar"]
+
+[[setting]]
+key = "ec_path"
+type = "string"
+label_key = "settings.ec_path.label"
+description_key = "settings.ec_path.description"
+default = "/sys/kernel/debug/ec/ec0/io"
+
+[[setting]]
+key = "ec_offset"
+type = "int"
+label_key = "settings.ec_offset.label"
+description_key = "settings.ec_offset.description"
+default = 31
+min = 0
+max = 255
+
+[[setting]]
+key = "ec_mask"
+type = "int"
+label_key = "settings.ec_mask.label"
+description_key = "settings.ec_mask.description"
+default = 64
+min = 1
+max = 128
+
+[[setting]]
+key = "ec_invert"
+type = "bool"
+label_key = "settings.ec_invert.label"
+description_key = "settings.ec_invert.description"
+default = false
+
+[[setting]]
+key = "poll_ms"
+type = "int"
+label_key = "settings.poll_ms.label"
+description_key = "settings.poll_ms.description"
+default = 500
+min = 200
+max = 5000
+
+[[setting]]
+key = "show_osd"
+type = "bool"
+label_key = "settings.show_osd.label"
+description_key = "settings.show_osd.description"
+default = true
+
+
+[[widget]]
+id = "indicator"
+entry = "widget.luau"

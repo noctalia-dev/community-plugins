@@ -1,0 +1,28 @@
+{
+  "settings": {
+    "ec_path": {
+      "label": "EC register file",
+      "description": "File that exposes the embedded controller's memory. Usually /sys/kernel/debug/ec/ec0/io (needs the ec_sys module)."
+    },
+    "ec_offset": {
+      "label": "EC byte offset",
+      "description": "Which byte of the EC memory holds the camera switch state (decimal). The Lenovo LOQ 15IRX9 uses 31 (0x1F). See the README for how to find yours."
+    },
+    "ec_mask": {
+      "label": "EC bit mask",
+      "description": "Which bit of that byte is set when the camera is ON, as a single-bit value (1, 2, 4, 8, 16, 32, 64 or 128). The LOQ 15IRX9 uses 64."
+    },
+    "ec_invert": {
+      "label": "Invert state",
+      "description": "Turn on if your laptop sets the bit when the camera is OFF."
+    },
+    "poll_ms": {
+      "label": "Check interval (ms)",
+      "description": "How often the switch is read. Lower is more responsive; 500 is plenty."
+    },
+    "show_osd": {
+      "label": "Show on-screen popup",
+      "description": "Show Noctalia's OSD when the switch changes."
+    }
+  }
+}
