@@ -61,6 +61,10 @@ local state = {
 }
 
 local previousByName = {}
+-- Explicit user choices disambiguate terminals that share a process. Revalidate
+-- against the live window/PID mapping each time; IDs are not persisted to disk.
+local niriSelectedWindows = {}
+local niriFocusInFlight = false
 local refreshInFlight = false
 local refreshAgain = false
 local refreshGeneration = 0
@@ -678,6 +682,8 @@ local function sessionFromArgs(args)
         local token = words[cursor]
         if token == "--remote" or token:match("^%-%-remote=") then
           return nil
+        elseif token == "--handoff" then
+          cursor = cursor + 1
         elseif token == "--session" then
           name = words[cursor + 1] or ""
           cursor = cursor + 2
@@ -697,7 +703,8 @@ local function sessionFromArgs(args)
         end
       end
 
-      if command == "server" or not validSessionName(name) then
+      -- Short-lived API commands are not attached terminal clients.
+      if (command ~= nil and command ~= "attach") or not validSessionName(name) then
         return nil
       end
       return name
@@ -794,6 +801,168 @@ local function detectHyprlandWindows(callback)
   end
 end
 
+local function useNiri()
+  return trim(noctalia.getenv("NIRI_SOCKET")) ~= "" and noctalia.commandExists("niri")
+end
+
+local function detectNiriWindows(callback)
+  state.hyprland_focus = false
+  if not noctalia.commandExists("ps") then
+    callback({}, "error.command_failed")
+    return
+  end
+
+  local started = noctalia.runAsync({ "niri", "msg", "--json", "windows" }, function(result)
+    local clients = result.exitCode == 0 and not result.timedOut
+      and noctalia.json.decode(result.stdout or "") or nil
+    if type(clients) ~= "table" then
+      callback({}, "error.command_failed")
+      return
+    end
+
+    local windowsByPid = {}
+    local titlesById = {}
+    for _, client in ipairs(clients) do
+      local pid = type(client) == "table" and tonumber(client.pid) or nil
+      local id = type(client) == "table" and tonumber(client.id) or nil
+      if pid ~= nil and pid > 0 and pid == math.floor(pid)
+        and id ~= nil and id >= 0 and id == math.floor(id) and id <= 9007199254740991 then
+        local key = string.format("%.0f", pid)
+        if windowsByPid[key] == nil then
+          windowsByPid[key] = {}
+        end
+        -- Ghostty and other terminals can own several windows in one process.
+        local windowId = string.format("%.0f", id)
+        windowsByPid[key][windowId] = true
+        titlesById[windowId] = type(client.title) == "string" and trim(client.title) or ""
+      end
+    end
+
+    if next(windowsByPid) == nil then
+      callback({})
+      return
+    end
+
+    local psStarted = noctalia.runAsync({ "ps", "-C", "herdr", "-o", "pid=,args=" }, function(psResult)
+      if psResult.timedOut or (psResult.exitCode ~= 0 and psResult.exitCode ~= 1) then
+        callback({}, "error.command_failed")
+        return
+      end
+      local windows = {}
+      for line in tostring(psResult.stdout or ""):gmatch("[^\r\n]+") do
+        local pid, args = line:match("^%s*(%d+)%s+(.+)$")
+        local name = sessionFromArgs(args)
+        if name ~= nil then
+          local ancestor = pid
+          for _ = 0, 12 do
+            if windowsByPid[ancestor] ~= nil then
+              local candidate = windowsByPid[ancestor]
+              -- One session can have clients under different terminal PIDs.
+              -- Collect every candidate before validating a remembered choice.
+              if windows[name] == nil then
+                windows[name] = { compositor = "niri", ids = {} }
+              end
+              for id in pairs(candidate) do
+                windows[name].ids[id] = true
+              end
+              break
+            end
+            local parent = parentPid(ancestor)
+            if parent == nil or parent == "0" or parent == "1" or parent == ancestor then
+              break
+            end
+            ancestor = parent
+          end
+        end
+      end
+
+      -- Herdr 0.9.5 defaults to "{hostname}: {workspace}". Reuse the workspace
+      -- labels already polled by this service; no title changes or extra IPC.
+      local hostname = trim(noctalia.readFile("/proc/sys/kernel/hostname"))
+      local expectedTitles = {}
+      if hostname ~= "" then
+        for _, session in ipairs(state.sessions or {}) do
+          if session.remote ~= true then
+            local titles = {}
+            for _, project in ipairs(session.projects or {}) do
+              titles[hostname .. ": " .. project] = true
+            end
+            expectedTitles[session.name] = titles
+          end
+        end
+      end
+
+      local function hasSession(title, name)
+        local escaped = name:gsub("(%W)", "%%%1")
+        return title:find("%f[%w_.%-]" .. escaped .. "%f[^%w_.%-]") ~= nil
+      end
+
+      local function titleScore(name, id)
+        local title = titlesById[id] or ""
+        local lower = string.lower(title)
+        local marked = lower == "herdr" or lower:match("^herdr[%s:%[%(%-]") ~= nil
+        local body = marked and trim(title:sub(6):gsub("^[%s:%-]+", "")) or title
+        local exact = expectedTitles[name] ~= nil and expectedTitles[name][body] == true
+        local named = marked and hasSession(title, name)
+        if not exact and not marked then return 0 end
+        -- A generic "herdr" title cannot identify a session when its terminal
+        -- process also hosts another session. Require a distinct session title.
+        for other, candidate in pairs(windows) do
+          if other ~= name and candidate.ids[id] then
+            if exact then
+              if expectedTitles[other] and expectedTitles[other][body] then return 0 end
+            elseif not named or hasSession(title, other) then
+              return 0
+            end
+          end
+        end
+        return (exact or named) and 2 or 1
+      end
+
+      for name, window in pairs(windows) do
+        local selected = niriSelectedWindows[name]
+        if selected ~= nil and window.ids[selected] then
+          window.id = selected
+        else
+          -- Polling can observe incomplete process/window lists. Only a click
+          -- may invalidate a remembered choice after checking fresh candidates.
+          local preferred, bestScore, matches = nil, 0, 0
+          for id in pairs(window.ids) do
+            local score = titleScore(name, id)
+            if score > bestScore then
+              preferred, bestScore, matches = id, score, 1
+            elseif score > 0 and score == bestScore then
+              matches = matches + 1
+            end
+          end
+          local count = 0
+          for id in pairs(window.ids) do
+            window.id = id
+            count = count + 1
+          end
+          if matches == 1 then window.id = preferred end
+          window.ambiguous = matches ~= 1 and count > 1
+        end
+      end
+      callback(windows)
+    end, COMMAND_TIMEOUT_MS)
+    if not psStarted then
+      callback({}, "error.command_failed")
+    end
+  end, COMMAND_TIMEOUT_MS)
+  if not started then
+    callback({}, "error.command_failed")
+  end
+end
+
+local function detectSessionWindows(callback)
+  if useNiri() then
+    detectNiriWindows(callback)
+  else
+    detectHyprlandWindows(callback)
+  end
+end
+
 local function chooseInterval()
   if panelOpen then
     return PANEL_INTERVAL_MS
@@ -876,7 +1045,7 @@ local function appendMachineRows(sessions)
 end
 
 local function finishRefresh(generation, sessions)
-  detectHyprlandWindows(function(windows)
+  detectSessionWindows(function(windows)
     if generation ~= refreshGeneration then
       return
     end
@@ -1046,6 +1215,15 @@ local function setAction(status, sessionName, message)
   publish()
 end
 
+local function setFocusAction(status, sessionName, message)
+  -- Stop/delete and validation errors may finish while a picker is still open.
+  -- Only the focus operation itself owns this lock.
+  if status ~= "busy" then
+    niriFocusInFlight = false
+  end
+  setAction(status, sessionName, message)
+end
+
 local function sessionRow(name)
   for _, session in ipairs(state.sessions or {}) do
     if session.name == name then
@@ -1062,11 +1240,11 @@ local function runInHerdrTerminal(sessionName)
   end
 
   if noctalia.runInTerminal(command) then
-    setAction("success", sessionName, noctalia.tr("action.opened"))
+    setFocusAction("success", sessionName, noctalia.tr("action.opened"))
     refresh()
   else
     local reason = noctalia.tr("error.no_terminal")
-    setAction("error", sessionName, reason)
+    setFocusAction("error", sessionName, reason)
     noctalia.notifyError(noctalia.tr("notify.action_failed"), reason)
   end
 end
@@ -1081,7 +1259,106 @@ local function luaString(value)
   return '"' .. text .. '"'
 end
 
-local function focusWindowOrOpen(sessionName)
+local function focusWindowOrOpen(sessionName, continuing)
+  if useNiri() then
+    if niriFocusInFlight and not continuing then
+      return
+    end
+    niriFocusInFlight = true
+    -- Re-resolve at click time: a terminal may have closed since the last poll.
+    detectNiriWindows(function(windows, errorKey)
+      local window = windows[sessionName]
+      if errorKey ~= nil then
+        local reason = noctalia.tr(errorKey)
+        setFocusAction("error", sessionName, reason)
+        noctalia.notifyError(noctalia.tr("notify.action_failed"), reason)
+        return
+      end
+      local selected = niriSelectedWindows[sessionName]
+      if selected ~= nil and (window == nil or not window.ids[selected]) then
+        niriSelectedWindows[sessionName] = nil
+      end
+      if window ~= nil and window.ambiguous then
+        local prompt = noctalia.tr("action.pick_window", { session = sessionName })
+        setFocusAction("busy", sessionName, prompt)
+        noctalia.notify(noctalia.tr("notify.pick_window"), prompt)
+        local function pickFailed(key, detail)
+          noctalia.log("HerdR Niri picker: " .. detail)
+          local reason = noctalia.tr(key)
+          setFocusAction("error", sessionName, reason)
+          noctalia.notifyError(noctalia.tr("notify.action_failed"), reason)
+        end
+        local picking = noctalia.runAsync({ "niri", "msg", "--json", "pick-window" }, function(result)
+          if result.timedOut or result.exitCode ~= 0 then
+            pickFailed("error.niri_picker_failed", "exit=" .. tostring(result.exitCode)
+              .. ", timedOut=" .. tostring(result.timedOut == true))
+            return
+          end
+          -- Niri returns JSON null when Escape cancels the picker or a click
+          -- does not select an application window. That is not a plugin error.
+          local raw = trim(result.stdout)
+          if raw == "null" then
+            setFocusAction("cancelled", sessionName, noctalia.tr("action.selection_cancelled"))
+            return
+          end
+          local picked = noctalia.json.decode(raw)
+          local id = type(picked) == "table" and tonumber(picked.id) or nil
+          local selected = id ~= nil and id >= 0 and id == math.floor(id)
+            and id <= 9007199254740991 and string.format("%.0f", id) or nil
+          if selected == nil then
+            pickFailed("error.niri_picker_failed", "invalid selected-window response")
+            return
+          end
+          -- Recheck against all live clients after the selection, not the
+          -- potentially stale PID/window snapshot taken before it.
+          detectNiriWindows(function(current, validationError)
+            local candidates = current[sessionName]
+            if validationError ~= nil then
+              pickFailed(validationError, "could not revalidate selected window")
+            elseif candidates == nil or not candidates.ids[selected] then
+              noctalia.log("HerdR Niri picker: selected window is outside session candidates")
+              setFocusAction("cancelled", sessionName, noctalia.tr("action.selection_cancelled"))
+              noctalia.notify("Herdr", noctalia.tr("error.ambiguous_niri_window"))
+            else
+              niriSelectedWindows[sessionName] = selected
+              focusWindowOrOpen(sessionName, true)
+            end
+          end)
+        end, 60000)
+        if not picking then
+          pickFailed("error.niri_picker_failed", "could not start picker")
+        end
+        return
+      end
+      if window == nil then
+        runInHerdrTerminal(sessionName)
+        return
+      end
+      local function focusFailed()
+        local reason = noctalia.tr("error.niri_focus_failed")
+        setFocusAction("error", sessionName, reason)
+        noctalia.notifyError(noctalia.tr("notify.action_failed"), reason)
+      end
+      local started = noctalia.runAsync(
+        { "niri", "msg", "action", "focus-window", "--id", window.id },
+        function(result)
+          if result.exitCode == 0 and not result.timedOut then
+            setFocusAction("success", sessionName, noctalia.tr("action.focused"))
+            refresh()
+          else
+            -- Do not create duplicate terminals on an IPC error. Refresh/retry
+            -- can discover whether the original window has since closed.
+            focusFailed()
+          end
+        end,
+        COMMAND_TIMEOUT_MS
+      )
+      if not started then
+        focusFailed()
+      end
+    end)
+    return
+  end
   local row = sessionRow(sessionName)
   local window = type(row) == "table" and row.window or nil
   if type(window) ~= "table" or type(window.address) ~= "string"
@@ -1096,7 +1373,7 @@ local function focusWindowOrOpen(sessionName)
       { "hyprctl", "dispatch", expression },
       function(result)
         if result.exitCode == 0 and not result.timedOut then
-          setAction("success", sessionName, noctalia.tr("action.focused"))
+          setFocusAction("success", sessionName, noctalia.tr("action.focused"))
           refresh()
         else
           runInHerdrTerminal(sessionName)
@@ -1131,9 +1408,16 @@ local function focusWindowOrOpen(sessionName)
 end
 
 local function focusAgent(sessionName, pane)
-  if not validPaneId(pane) then
-    setAction("error", sessionName, noctalia.tr("error.invalid_target"))
+  if useNiri() and niriFocusInFlight then
     return
+  end
+  if not validPaneId(pane) then
+    setFocusAction("error", sessionName, noctalia.tr("error.invalid_target"))
+    return
+  end
+
+  if useNiri() then
+    niriFocusInFlight = true
   end
 
   local argv
@@ -1143,21 +1427,21 @@ local function focusAgent(sessionName, pane)
     argv = { "herdr", "--session", sessionName, "agent", "focus", pane }
   end
 
-  setAction("busy", sessionName, noctalia.tr("action.focusing"))
+  setFocusAction("busy", sessionName, noctalia.tr("action.focusing"))
   local started = noctalia.runAsync(argv, function(result)
     if result.exitCode ~= 0 or result.timedOut then
       local reason = failureReason(result)
-      setAction("error", sessionName, reason)
+      setFocusAction("error", sessionName, reason)
       noctalia.notifyError(noctalia.tr("notify.action_failed"), reason)
       refresh()
       return
     end
-    focusWindowOrOpen(sessionName)
+    focusWindowOrOpen(sessionName, true)
   end, COMMAND_TIMEOUT_MS)
 
   if not started then
     local reason = noctalia.tr("error.command_failed")
-    setAction("error", sessionName, reason)
+    setFocusAction("error", sessionName, reason)
     noctalia.notifyError(noctalia.tr("notify.action_failed"), reason)
   end
 end
@@ -1230,6 +1514,9 @@ noctalia.state.watch("herdr.command", function(command)
   end
 
   local action = command.action
+  if niriFocusInFlight and (action == "focus_agent" or action == "open_session") then
+    return
+  end
   if action == "refresh" then
     state.action = nil
     publish()
@@ -1251,7 +1538,7 @@ noctalia.state.watch("herdr.command", function(command)
   end
 
   if action == "open_session" then
-    setAction("busy", sessionName, noctalia.tr("action.opening"))
+    setFocusAction("busy", sessionName, noctalia.tr("action.opening"))
     focusWindowOrOpen(sessionName)
   elseif action == "focus_agent" then
     focusAgent(sessionName, command.pane)

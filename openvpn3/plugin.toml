@@ -1,13 +1,13 @@
 id           = "vinioli/openvpn3"
 name         = "OpenVPN 3"
-version      = "1.0.1"
+version      = "1.1.0"
 plugin_api   = 43
 author       = "vinioli"
 license      = "MIT"
 icon         = "shield-lock"
 description  = "Import profiles, connect, answer password and OTP prompts and monitor OpenVPN 3 Linux client sessions."
 tags         = ["bar", "panel", "service", "shortcut", "network", "privacy", "indicator"]
-dependencies = ["openvpn3", "busctl"]
+dependencies = ["openvpn3", "busctl", "secret-tool"]
 
 [[setting]]
 key             = "default_profile"
@@ -28,6 +28,13 @@ key             = "single_session"
 type            = "bool"
 label_key       = "settings.single_session.label"
 description_key = "settings.single_session.description"
+default         = true
+
+[[setting]]
+key             = "remember_credentials"
+type            = "bool"
+label_key       = "settings.remember_credentials.label"
+description_key = "settings.remember_credentials.description"
 default         = true
 
 [[setting]]

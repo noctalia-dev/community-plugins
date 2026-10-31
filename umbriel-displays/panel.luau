@@ -10,9 +10,10 @@
 local displays = require("./outputs.luau")
 local controls = require("./controls.luau")
 
--- Umbriel takes any positive scale, but fractional factors off this ladder
--- produce blurry integer-scaled clients more often than they help.
-local SCALE_STEPS = { 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 3.0 }
+-- Scales run from 0.25 to 3.0; the steps below 1x fit more on big monitors
+-- with poor resolution. Fractional factors off this ladder produce blurry
+-- integer-scaled clients more often than they help.
+local SCALE_STEPS = { 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 3.0 }
 
 local opened = false
 local outputs = {}

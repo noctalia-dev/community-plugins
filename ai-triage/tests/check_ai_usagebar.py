@@ -61,7 +61,7 @@ def main():
     offered = next(s for widget in manifest["widget"] for s in widget.get("setting", [])
                    if s["key"] == "vendor")["options"]
     catalog = json.loads(cli("vendors", "--json"))["vendors"]
-    expected = json.loads(Path("tests/fixtures/ai_usagebar_1_43_catalog.json").read_text())
+    expected = json.loads(Path("tests/fixtures/ai_usagebar_1_44_catalog.json").read_text())
     ids = {entry["id"] for entry in catalog}
     assert ids == {entry["id"] for entry in expected}, "CLI provider catalog changed: review compatibility"
     assert ids <= {option["value"] for option in offered}, "provider selector misses CLI providers"

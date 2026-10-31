@@ -1,4 +1,4 @@
--- Contract regressions for ai-usagebar v1.43.0 (schema_version = 1).
+-- Contract regressions for ai-usagebar v1.44.0 (schema_version = 1).
 -- An optional Lua document, emitted by check_ai_usagebar.py --live, exercises
 -- the same service -> state -> bar/panel path with the installed CLI's output.
 local function source(path)
@@ -115,6 +115,36 @@ h.env.onOpen()
 assert(hasText(h.tree(), "Not reported"), "missing quota is not an offline provider")
 assert(not hasText(h.tree(), "Offline"), "partial ready reports must stay online")
 
+-- Droid reuses the common schema: Standard windows precede monthly/Core
+-- details. Pinning it must keep its identity without selecting another vendor.
+local droidSession = metric("5-hour quota", 20, 18000)
+local droidWeekly = metric("Weekly quota", 40, 604800)
+local droidMonthly = metric("Monthly quota", 60, 2592000)
+local droid = { id = "droid", name = "Droid", display_name = "Droid", status = "ready",
+    metrics = { droidSession, droidWeekly, droidMonthly },
+    sections = {
+        { type = "text", label = "Standard", value = "" },
+        { type = "metric", label = "5-hour quota", percent = 20, value = "20%", window_secs = 18000 },
+        { type = "metric", label = "Weekly quota", percent = 40, value = "40%", window_secs = 604800 },
+        { type = "metric", label = "Monthly quota", percent = 60, value = "60%", window_secs = 2592000 },
+        { type = "text", label = "Droid Core", value = "not used yet" },
+        { type = "text", label = "Extra usage balance", value = "$12.50" },
+    },
+}
+h = host({ schema_version = 1, entries = { partial.entries[1], droid } }, { vendor = "droid" })
+assert(h.shared.providerGlyph("droid") == "robot", "Droid needs a provider glyph")
+assert(h.shared.providerDashboard("droid") == "https://app.factory.ai/", "Droid opens Factory")
+h.load("bar.luau")
+assert(h.tooltip()[1].key == "Droid" and h.tooltip()[1].value == "20% / 40%",
+    "a pinned Droid capsule must show its Standard 5h/weekly quotas")
+h.load("panel.luau")
+h.env.onOpen()
+assert(hasText(h.tree(), "Droid"), "Droid must render in the triage panel")
+h.load("service.luau")
+h.runs[1].callback({ exitCode = 0, stdout = "{}" })
+assert(h.values.error.code == "" and h.values.polling == false,
+    "the poller must publish Droid through the common schema without errors")
+
 local money = metric("Spend", 25, 604800)
 money.headline, money.value = "value", "$5 / $20"
 h = host({ entries = { { id = "anthropic_api", status = "ready", metrics = { money } } } },
@@ -214,4 +244,4 @@ if arg[1] then
         assert(h.bar() and h.tree() and #h.tooltip() > 0, "CLI entries must render in both surfaces")
     end
 end
-io.write("ok: 1.43 contract, partial quotas, amounts, accounts, reset inventories, timeout and diagnostics\n")
+io.write("ok: 1.44 contract, Droid selection/rendering, partial quotas, amounts, accounts, reset inventories, timeout and diagnostics\n")

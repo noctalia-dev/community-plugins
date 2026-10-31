@@ -1,6 +1,6 @@
 id = "miguelfm/ai-triage"
 name = "AI Triage"
-version = "1.8.0"
+version = "1.8.2"
 plugin_api = 43
 author = "miguelfm"
 license = "MIT"
@@ -253,6 +253,7 @@ options = [
   { value = "devin", label_key = "settings.vendor.option.devin" },
   { value = "muse-code", label_key = "settings.vendor.option.muse_code" },
   { value = "cline", label_key = "settings.vendor.option.cline" },
+  { value = "droid", label_key = "settings.vendor.option.droid" },
 ]
 
 # One capsule can carry more than one provider; "auto" fills it with the busiest.

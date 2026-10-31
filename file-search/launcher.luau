@@ -46,7 +46,7 @@ local function scopeRow()
 end
 
 -- Activating this is what authorises a walk. It is always offered on an empty
--- query, and pushed to the top when the index for a disk scope is missing or
+-- query (above the results), and pushed to the top when the index for a disk scope is missing or
 -- out of date, since nothing else will rebuild it.
 local function reindexRow()
     return {
@@ -169,8 +169,8 @@ runQuery = function(query)
             table.insert(rows, noopRow("launcher.no_results"))
         end
         if text == "" then
-            table.insert(rows, scopeRow())
-            table.insert(rows, reindexRow())
+            table.insert(rows, 1, scopeRow())
+            table.insert(rows, 2, reindexRow())
         elseif staleIndex then
             -- Results came from an index that no longer matches the disks;
             -- the way to fix that travels with them.
@@ -239,7 +239,7 @@ function onQuery(query)
         -- How to read what is on disk right now; a walk below overwrites both.
         shared.indexRoots = shared.indexRootsOf(dir) or shared.roots
         shared.absoluteRecords = #shared.indexRoots > 1
-        if shared.cacheFresh(dir) then
+        if shared.cacheFresh(dir) and not forceBuild then
             staleIndex = false
             runQuery(current)
             return
@@ -288,6 +288,9 @@ function onActivate(id)
         forceBuild = true
         shared.mountsAt = 0 -- rescan: a disk may have been plugged in since
         launcher.setQuery("")
+        -- The query is already "" here, so the host may not re-enter onQuery on
+        -- its own; run it directly so the walk starts now, not on the next open.
+        onQuery("")
         return
     end
     local rel = id:match("^open:(.+)$")

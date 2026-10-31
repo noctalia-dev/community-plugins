@@ -502,16 +502,94 @@ local function collectFields(sessionPath, cb)
   end)
 end
 
-local function requestInput(fields, errorMessage)
-  if attempt == nil then
+-- ---------------------------------------------------------------------------
+-- Remembered credentials (system keyring through secret-tool)
+-- ---------------------------------------------------------------------------
+
+-- Only the username / password pair (ClientAttentionGroup USER_PASSWORD) is
+-- remembered; one-time codes, challenges and passphrases are always asked for.
+local KEYRING_APP = "noctalia-openvpn3"
+local REMEMBERED = { username = true, password = true }
+
+local function rememberable(field)
+  return tonumber(field.group) == 1 and REMEMBERED[field.name] == true
+end
+
+local function keyringEnabled()
+  return noctalia.getConfig("remember_credentials") ~= false and noctalia.commandExists("secret-tool")
+end
+
+-- cb receives an array aligned with fields: the saved value, or "".
+local function lookupSaved(profilePath, fields, cb)
+  local saved = {}
+  for index = 1, #fields do
+    saved[index] = ""
+  end
+  if profilePath == nil or profilePath == "" or not keyringEnabled() then
+    cb(saved)
     return
   end
-  attempt.phase = "input"
-  noctalia.notify(noctalia.tr("title"), `{noctalia.tr("panel.auth-needed")}: {attempt.profile}`)
-  patch({
-    pending = { kind = "credentials", profile = attempt.profile, fields = fields, error = errorMessage or "" },
-    busy = true,
-  })
+  local function nextField(index)
+    local field = fields[index]
+    if field == nil then
+      cb(saved)
+      return
+    end
+    if not rememberable(field) then
+      nextField(index + 1)
+      return
+    end
+    noctalia.runAsync({ "secret-tool", "lookup", "application", KEYRING_APP, "profile", profilePath, "field", field.name }, function(result)
+      if result.exitCode == 0 and not result.timedOut and type(result.stdout) == "string" then
+        saved[index] = string.gsub(result.stdout, "\n$", "")
+      end
+      nextField(index + 1)
+    end, 5000)
+  end
+  nextField(1)
+end
+
+-- values: field name -> value, as submitted for a connection that succeeded.
+local function storeSaved(profilePath, profileName, values)
+  if profilePath == nil or profilePath == "" or not keyringEnabled() then
+    return
+  end
+  for name, value in pairs(values) do
+    -- secret-tool reads the secret from stdin. It is still an argument of sh
+    -- for a moment, the same exposure as the busctl calls that answer prompts.
+    noctalia.runAsync({
+      "sh", "-c", 'printf %s "$1" | secret-tool store --label "$2" application "$3" profile "$4" field "$5"',
+      "sh", value, `OpenVPN 3: {profileName} ({name})`, KEYRING_APP, profilePath, name,
+    }, function(result)
+      if result.exitCode ~= 0 then
+        noctalia.log(`openvpn3: could not save the {name} of {profileName} to the keyring`)
+      end
+    end, 10000)
+  end
+end
+
+local function clearSaved(profilePath)
+  if profilePath ~= nil and profilePath ~= "" and noctalia.commandExists("secret-tool") then
+    noctalia.runAsync({ "secret-tool", "clear", "application", KEYRING_APP, "profile", profilePath })
+  end
+end
+
+local function requestInput(fields, errorMessage)
+  local cur = attempt
+  if cur == nil then
+    return
+  end
+  cur.phase = "input"
+  noctalia.notify(noctalia.tr("title"), `{noctalia.tr("panel.auth-needed")}: {cur.profile}`)
+  patch({ busy = true })
+  lookupSaved(cur.path, fields, function(saved)
+    if attempt ~= cur or cur.phase ~= "input" then
+      return
+    end
+    patch({
+      pending = { kind = "credentials", profile = cur.profile, fields = fields, saved = saved, remember = keyringEnabled(), error = errorMessage or "" },
+    })
+  end)
 end
 
 local function startConnect(sessionPath)
@@ -622,6 +700,7 @@ local function connect(name, path)
 
   attempt = {
     profile = profile.name,
+    path = profile.path,
     session = "",
     phase = "starting",
     deadline = os.time() + (noctalia.getConfig("connect_timeout") or 45) + 10,
@@ -663,6 +742,14 @@ local function submitInput(values)
   local fields = status.pending.fields
   local sessionPath = attempt.session
   local cur = attempt
+  -- Kept until the connection succeeds, so wrong credentials are never saved.
+  cur.remember = cur.remember or {}
+  for index, field in ipairs(fields) do
+    local value = if type(values) == "table" then tostring(values[index] or "") else ""
+    if rememberable(field) and value ~= "" then
+      cur.remember[field.name] = value
+    end
+  end
   attempt.phase = "starting"
   attempt.deadline = os.time() + (noctalia.getConfig("connect_timeout") or 45) + 10
   patch({ pending = false })
@@ -733,6 +820,9 @@ local function checkAttempt()
   if session.state == "connected" then
     endAttempt()
     patch({ message = "" })
+    if cur.remember ~= nil then
+      storeSaved(cur.path, cur.profile, cur.remember)
+    end
     return
   end
   if cur.phase == "input" then
@@ -951,6 +1041,7 @@ local function removeProfile(path)
       disconnectPaths({ s.path }, 1, function() end)
     end
   end
+  clearSaved(path)
   runManaged({ "openvpn3", "config-remove", "--path", path, "--force" }, { kind = "removed", nonce = nonce() })
 end
 

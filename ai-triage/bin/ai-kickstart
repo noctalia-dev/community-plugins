@@ -25,7 +25,7 @@ case "$TARGET" in
     fi
     notify "Claude (Anthropic)" "Sending minimal ping to start 5h window..."
     if OUT="$("$CMD" -p "1" --tools "" --strict-mcp-config 2>&1)"; then
-      [ command -v noctalia >/dev/null 2>&1 ] && noctalia msg plugin miguelfm/ai-triage:poller all kickstart "claude" >/dev/null 2>&1 || true
+      command -v noctalia >/dev/null 2>&1 && noctalia msg plugin miguelfm/ai-triage:poller all kickstart "claude" >/dev/null 2>&1 || true
       notify "Claude (Anthropic)" "✓ 5h window started! Quota resets in 5 hours."
     else
       ERR_LINE="$(echo "$OUT" | grep -iE "error|429|exhaust" | head -n 1)"
@@ -44,7 +44,7 @@ case "$TARGET" in
     fi
     notify "Codex (OpenAI)" "Sending minimal ping to start 5h window..."
     if OUT="$("$CMD" exec -C /tmp --skip-git-repo-check --ephemeral -s read-only -m gpt-6.1-sol -c model_reasoning_effort="low" "1" </dev/null 2>&1)"; then
-      [ command -v noctalia >/dev/null 2>&1 ] && noctalia msg plugin miguelfm/ai-triage:poller all kickstart "codex" >/dev/null 2>&1 || true
+      command -v noctalia >/dev/null 2>&1 && noctalia msg plugin miguelfm/ai-triage:poller all kickstart "codex" >/dev/null 2>&1 || true
       notify "Codex (OpenAI)" "✓ 5h window started! Quota resets in 5 hours."
     else
       ERR_LINE="$(echo "$OUT" | grep -iE "error|429|exhaust" | head -n 1)"
@@ -63,7 +63,7 @@ case "$TARGET" in
     fi
     notify "Gemini (Antigravity)" "Sending minimal ping to start 5h window..."
     if OUT="$("$CMD" --dangerously-skip-permissions --model gemini-3.8-flash-low --disable-slash-commands -p "1" 2>&1)"; then
-      [ command -v noctalia >/dev/null 2>&1 ] && noctalia msg plugin miguelfm/ai-triage:poller all kickstart "gemini" >/dev/null 2>&1 || true
+      command -v noctalia >/dev/null 2>&1 && noctalia msg plugin miguelfm/ai-triage:poller all kickstart "gemini" >/dev/null 2>&1 || true
       notify "Gemini (Antigravity)" "✓ 5h window started! Quota resets in 5 hours."
     else
       ERR_LINE="$(echo "$OUT" | grep -iE "error|429|exhaust" | head -n 1)"
@@ -83,7 +83,7 @@ case "$TARGET" in
     notify "Claude & GPT OSS (Antigravity)" "Sending minimal ping to start 5h window..."
     if OUT="$("$CMD" --dangerously-skip-permissions --model gpt-oss-120b-medium --disable-slash-commands -p "1" 2>&1 || \
              "$CMD" --dangerously-skip-permissions --model claude-sonnet-4-6 --disable-slash-commands -p "1" 2>&1)"; then
-      [ command -v noctalia >/dev/null 2>&1 ] && noctalia msg plugin miguelfm/ai-triage:poller all kickstart "claude-oss" >/dev/null 2>&1 || true
+      command -v noctalia >/dev/null 2>&1 && noctalia msg plugin miguelfm/ai-triage:poller all kickstart "claude-oss" >/dev/null 2>&1 || true
       notify "Claude & GPT OSS (Antigravity)" "✓ 5h window started! Quota resets in 5 hours."
     else
       ERR_LINE="$(echo "$OUT" | grep -iE "error|429|exhaust" | head -n 1)"

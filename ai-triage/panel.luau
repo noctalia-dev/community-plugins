@@ -445,7 +445,14 @@ local function kickstartWindow(target)
         render()
     end
     if type(noctalia.runAsync) == "function" then
-        local cmd = string.format('export PATH="$HOME/.local/bin:$PATH"; if [ -x "$HOME/.local/bin/ai-kickstart" ]; then exec "$HOME/.local/bin/ai-kickstart" %s; else exec ai-kickstart %s; fi', target, target)
+        local pluginDir = type(noctalia.pluginDir) == "function" and noctalia.pluginDir() or nil
+        local bundled = (type(pluginDir) == "string" and pluginDir ~= "") and (pluginDir .. "/bin/ai-kickstart") or nil
+        local cmd
+        if bundled then
+            cmd = string.format('export PATH="$HOME/.local/bin:$PATH"; if [ -x "%s" ]; then exec "%s" %s; elif [ -f "%s" ]; then exec /usr/bin/env bash "%s" %s; elif [ -x "$HOME/.local/bin/ai-kickstart" ]; then exec "$HOME/.local/bin/ai-kickstart" %s; else exec ai-kickstart %s; fi', bundled, bundled, target, bundled, bundled, target, target, target)
+        else
+            cmd = string.format('export PATH="$HOME/.local/bin:$PATH"; if [ -x "$HOME/.local/bin/ai-kickstart" ]; then exec "$HOME/.local/bin/ai-kickstart" %s; else exec ai-kickstart %s; fi', target, target)
+        end
         local launched = noctalia.runAsync(cmd, function(result)
             kickstarting[target] = nil
             local ok = result == nil or result == true or result.exitCode == 0

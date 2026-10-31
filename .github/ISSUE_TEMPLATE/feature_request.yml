@@ -65,6 +65,7 @@ body:
         - calibre
         - case-convert
         - cat
+        - charge-mode
         - cider
         - claude-cockpit
         - claude-companion
@@ -185,6 +186,7 @@ body:
         - nix-monitor
         - nix-search
         - nix-status
+        - nixos-updates
         - noctaproton-vpn
         - noctes
         - noctwhspr

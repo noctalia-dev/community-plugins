@@ -301,8 +301,8 @@ rev = "681e8ee0576211ce3d1f6bb1de8cb2244bfc20bd"
 [[plugin]]
 id = "nightwatch75/file-search"
 name = "File Search"
-version = "0.4.0"
-updated_at = 1791639775
+version = "0.4.2"
+updated_at = 1793396850
 added_at = 1784296152
 author = "nightwatch75"
 license = "MIT"
@@ -720,8 +720,8 @@ rev = "0162521282828e0f6313b76bbf45ac919505f251"
 [[plugin]]
 id = "blackbartblues/audio-switcher"
 name = "Audio Switcher"
-version = "0.6.2"
-updated_at = 1792983494
+version = "0.6.3"
+updated_at = 1793454395
 added_at = 1784847459
 author = "blackbartblues"
 license = "MIT"
@@ -3041,8 +3041,8 @@ rev = "342d37313974ccd6afa86276e82c3c8d3ad32785"
 [[plugin]]
 id = "prponkshe/umbriel-displays"
 name = "Umbriel Displays"
-version = "1.0.4"
-updated_at = 1792983494
+version = "1.0.5"
+updated_at = 1793455620
 added_at = 1789086907
 author = "prponkshe"
 license = "MIT"
@@ -3671,8 +3671,8 @@ rev = "3c9bc784022a498804ec6e1371cd2caa06b8d846"
 [[plugin]]
 id = "hy4ri/herdr"
 name = "Herdr"
-version = "1.1.1"
-updated_at = 1792983494
+version = "1.2.0"
+updated_at = 1793375867
 added_at = 1790164461
 author = "Hy4ri"
 license = "MIT"
@@ -4393,8 +4393,8 @@ tags = ["bar", "launcher", "panel", "utility"]
 [[plugin]]
 id = "miguelfm/ai-triage"
 name = "AI Triage"
-version = "1.8.0"
-updated_at = 1793110625
+version = "1.8.2"
+updated_at = 1793396809
 added_at = 1791591274
 author = "miguelfm"
 license = "MIT"
@@ -4559,8 +4559,8 @@ tags = ["panel", "network", "privacy", "utility"]
 [[plugin]]
 id = "vinioli/openvpn3"
 name = "OpenVPN 3"
-version = "1.0.1"
-updated_at = 1792983494
+version = "1.1.0"
+updated_at = 1793398227
 added_at = 1791921361
 author = "vinioli"
 license = "MIT"
@@ -5259,3 +5259,29 @@ icon = "icons"
 description = "Pick, preview and install icon themes, browse gnome-look.org, and recolor Papirus folders."
 plugin_api = 43
 tags = ["panel", "shortcut", "theming", "utility"]
+
+[[plugin]]
+id = "neoscaler/charge-mode"
+name = "Charge Mode"
+version = "1.0.6"
+updated_at = 1793375729
+added_at = 1793375729
+author = "neoscaler"
+license = "MIT"
+icon = "battery-charging"
+description = "Cycles the battery charge type: conservation, normal or fast charge."
+plugin_api = 43
+tags = ["hardware", "shortcut", "system", "nixos"]
+
+[[plugin]]
+id = "dmopp/nixos-updates"
+name = "NixOS Updates"
+version = "1.0.0"
+updated_at = 1793405161
+added_at = 1793405161
+author = "dMopp"
+license = "MIT"
+icon = "snowflake"
+description = "Pending flake input, package and Flatpak updates on NixOS, like apt list --upgradable."
+plugin_api = 43
+tags = ["bar", "panel", "service", "system", "nixos", "indicator"]

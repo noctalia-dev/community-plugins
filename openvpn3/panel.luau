@@ -230,7 +230,7 @@ local function renderAuth()
         end,
       }))
     end
-    table.insert(rows, ui.label({ text = noctalia.tr("panel.auth-hint"), color = "on_surface_variant", fontSize = 11, maxLines = 2 }))
+    table.insert(rows, ui.label({ text = noctalia.tr(if pending.remember then "panel.auth-hint-saved" else "panel.auth-hint"), color = "on_surface_variant", fontSize = 11, maxLines = 2 }))
     table.insert(rows, ui.row({ gap = 8, justify = "end" }, {
       ui.button({ text = noctalia.tr("panel.cancel"), variant = "ghost", onClick = function() send("cancel-auth") end }),
       ui.button({
@@ -767,7 +767,11 @@ local function applyStatus(value)
     status.pending = value.pending
     status.notice = value.notice
     if status.pending ~= nil and not hadPending then
+      -- Start from what the keyring remembers for this profile (username / password).
       authValues = {}
+      for index, value in ipairs(status.pending.saved or {}) do
+        authValues[index] = value
+      end
       authKey += 1
     end
     -- Drop pending edits the profile now reflects (they were just saved).
@@ -828,6 +832,10 @@ function onOpen(_context)
     noctalia.state.set("openvpn3.resume", { view = "" })
   end
   removeArmed = ""
+  -- The host keeps a keyed input's own text across a close, and that text can
+  -- lag behind authValues (typing does not re-render). Fresh keys rebuild the
+  -- inputs from authValues, so what was typed is back on the first reopen.
+  authKey += 1
   applyStatus(noctalia.state.get("openvpn3.status"))
   send("refresh")
 end

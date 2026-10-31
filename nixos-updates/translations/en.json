@@ -1,0 +1,142 @@
+{
+  "details": {
+    "all": "All ({count})",
+    "changes": "Changes",
+    "flatpak": "Flatpak ({count})",
+    "inputs": "Flake inputs ({count})",
+    "installed": "Installed",
+    "link_changelog": "Changelog",
+    "link_commits": "Compare commits",
+    "link_flathub": "Release notes on Flathub",
+    "link_releases": "GitHub releases",
+    "name": "Name",
+    "new": "New",
+    "no_changelog": "No changelog",
+    "no_compare": "No comparison available",
+    "no_match": "Nothing matches the search.",
+    "not_installed": "not installed",
+    "nothing": "Nothing to update.",
+    "incomplete": "Nothing to show: the check did not complete.",
+    "packages": "Packages ({count})",
+    "removed": "removed",
+    "search": "Search by name or version"
+  },
+  "errors": {
+    "bad_flake_dir": "The flake directory must be an absolute path without ? or #: {dir}",
+    "bad_result": "The check finished, but its results could not be read",
+    "lock_bad_token": "GitHub rejected the token (expired or revoked?). Create a new one or clear the token file setting.",
+    "lock_rate_limit": "GitHub's API rate limit is reached, so updates could not be checked. The list shows the last known state. It resets within an hour; a token (see the settings) raises the limit.",
+    "lock_stale": "Could not ask every flake input for its latest revision (no network?). The list shows the last known state.",
+    "no_flake": "No flake.nix in {dir}",
+    "no_lock": "No flake.lock in {dir}",
+    "no_nix": "nix is not on PATH",
+    "not_started": "Could not start the update check",
+    "open_failed": "Could not open the link",
+    "step_failed": "{step} failed: {message}",
+    "token_format": "The first line of the token file is not a GitHub token. Not used: {path}",
+    "token_in_flake": "The token file is inside the flake directory, from where Nix could copy it to the world-readable store. Not used: {path}",
+    "token_missing": "Token file not found: {path}. Checking without a token.",
+    "token_mode": "Other users could read the token file. Not used until you run chmod 600 on it: {path}",
+    "token_owner": "The token file belongs to another user. Not used: {path}"
+  },
+  "notify": {
+    "body": {
+      "one": "{count} update available",
+      "other": "{count} updates available"
+    },
+    "title": "NixOS Updates"
+  },
+  "panel": {
+    "added": "new: {version}",
+    "check_now": "Check now",
+    "checking": "Checking for updates…",
+    "checking_step": "Checking for updates: {step}…",
+    "flatpak": "Flatpak updates: {count}",
+    "inputs": "Flake inputs with new commits: {count}",
+    "more_updates": "{hidden} more · show all {count} updates",
+    "never_checked": "Not checked yet",
+    "new_commit": "new build",
+    "no_package_list": "Package versions are not compared (turned off in the settings or the evaluation failed).",
+    "open_compare": "Open the commits between both revisions",
+    "open_details": "Open the full list",
+    "packages": "Package changes: {count}",
+    "pending": {
+      "one": "{count} update · checked {time}",
+      "other": "{count} updates · checked {time}"
+    },
+    "removed": "removed: {version}",
+    "set_update_command": "Set update command",
+    "title": "NixOS Updates",
+    "up_to_date": "Everything is up to date · checked {time}",
+    "check_incomplete": "Check did not complete · tried {time}",
+    "update": "Update"
+  },
+  "settings": {
+    "check_flatpak": {
+      "description": "List pending updates of system and user Flatpaks (flatpak remote-ls --updates).",
+      "label": "Check Flatpaks"
+    },
+    "check_interval_hours": {
+      "description": "Hours between two checks. Updating flake.lock or a Flatpak installation triggers a check on its own.",
+      "label": "Check interval (hours)"
+    },
+    "check_packages": {
+      "description": "Evaluate the NixOS configuration with the current and the updated lock and list the package versions that change. This evaluates the code of input revisions you have not accepted yet; nothing is built. Takes a few seconds of CPU per check, longer when a new nixpkgs has to be downloaded.",
+      "label": "Compare package versions"
+    },
+    "flake_dir": {
+      "description": "Directory with flake.nix and flake.lock, as an absolute path. Not written to; the updated lock goes to the plugin's data directory. Empty: only Flatpaks.",
+      "label": "Flake directory"
+    },
+    "github_token_file": {
+      "label": "GitHub token file (optional)",
+      "description": "Only needed if you reach GitHub's rate limit of 60 requests per hour. Path to a file holding a token without permissions, chmod 600, outside the flake directory. The README shows how to create it. Never paste the token itself here."
+    },
+    "glyph": {
+      "label": "Glyph"
+    },
+    "hide_when_up_to_date": {
+      "description": "Hide the widget while there is nothing to update and no error.",
+      "label": "Hide when up to date"
+    },
+    "highlight_color": {
+      "label": "Badge color with updates"
+    },
+    "ignored_inputs": {
+      "description": "Flake input names to leave out of the input list, for example ones you update on your own schedule.",
+      "label": "Ignored inputs"
+    },
+    "nixos_configuration": {
+      "description": "Name under nixosConfigurations to evaluate. Empty: this machine's hostname.",
+      "label": "NixOS configuration"
+    },
+    "notify": {
+      "description": "Show a notification when a check finds updates that were not pending before.",
+      "label": "Notify about new updates"
+    },
+    "show_count": {
+      "label": "Show count"
+    },
+    "show_zero": {
+      "label": "Show 0 when up to date"
+    },
+    "update_command": {
+      "description": "Runs in a terminal from the panel's Update button, for example: nix flake update --flake /etc/nixos && sudo nixos-rebuild switch --flake /etc/nixos && flatpak update -y. Empty: no Update button.",
+      "label": "Update command"
+    }
+  },
+  "steps": {
+    "eval-new": "evaluating the updated configuration",
+    "eval-old": "evaluating the current configuration",
+    "flatpak": "Flatpak",
+    "lock": "flake update"
+  },
+  "widget": {
+    "checked": "Checked",
+    "error": "Error",
+    "flatpak": "Flatpak updates",
+    "inputs": "Changed flake inputs",
+    "packages": "Package changes",
+    "title": "NixOS Updates"
+  }
+}

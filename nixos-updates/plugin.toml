@@ -1,0 +1,143 @@
+# NixOS updates for Noctalia. The service asks `nix flake update` which lock
+# file it would write (without touching flake.lock), compares the package
+# versions of the NixOS configuration under both locks and lists pending
+# Flatpak updates; the bar widget shows the count, the panel the details.
+
+id = "dmopp/nixos-updates"
+name = "NixOS Updates"
+version = "1.0.0"
+plugin_api = 43
+author = "dMopp"
+license = "MIT"
+icon = "snowflake"
+description = "Pending flake input, package and Flatpak updates on NixOS, like apt list --upgradable."
+tags = ["bar", "panel", "service", "system", "nixos", "indicator"]
+dependencies = ["nix", "sh", "timeout", "cat", "cmp", "cp", "cut", "grep", "head", "id", "mv", "readlink", "rm", "sed", "stat", "tail", "tr", "flatpak", "xdg-open"]
+
+[[setting]]
+key = "flake_dir"
+type = "folder"
+label_key = "settings.flake_dir.label"
+description_key = "settings.flake_dir.description"
+default = "/etc/nixos"
+
+[[setting]]
+key = "nixos_configuration"
+type = "string"
+label_key = "settings.nixos_configuration.label"
+description_key = "settings.nixos_configuration.description"
+default = ""
+
+[[setting]]
+key = "check_packages"
+type = "bool"
+label_key = "settings.check_packages.label"
+description_key = "settings.check_packages.description"
+default = true
+
+[[setting]]
+key = "check_flatpak"
+type = "bool"
+label_key = "settings.check_flatpak.label"
+description_key = "settings.check_flatpak.description"
+default = true
+
+[[setting]]
+key = "check_interval_hours"
+type = "int"
+label_key = "settings.check_interval_hours.label"
+description_key = "settings.check_interval_hours.description"
+default = 6
+min = 1
+max = 168
+
+[[setting]]
+key = "update_command"
+type = "string"
+label_key = "settings.update_command.label"
+description_key = "settings.update_command.description"
+default = ""
+
+[[setting]]
+key = "github_token_file"
+type = "file"
+label_key = "settings.github_token_file.label"
+description_key = "settings.github_token_file.description"
+default = ""
+
+[[setting]]
+key = "notify"
+type = "bool"
+label_key = "settings.notify.label"
+description_key = "settings.notify.description"
+default = true
+
+[[setting]]
+key = "ignored_inputs"
+type = "string_list"
+label_key = "settings.ignored_inputs.label"
+description_key = "settings.ignored_inputs.description"
+default = []
+advanced = true
+
+[[widget]]
+id = "updates"
+entry = "widget.luau"
+
+  [widget.actions]
+  left = "panel-toggle dmopp/nixos-updates:panel"
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  label_key = "settings.glyph.label"
+  default = "package"
+
+  [[widget.setting]]
+  key = "show_count"
+  type = "bool"
+  label_key = "settings.show_count.label"
+  default = true
+
+  [[widget.setting]]
+  key = "show_zero"
+  type = "bool"
+  label_key = "settings.show_zero.label"
+  default = false
+  visible_when = { key = "show_count", values = ["true"] }
+
+  [[widget.setting]]
+  key = "hide_when_up_to_date"
+  type = "bool"
+  label_key = "settings.hide_when_up_to_date.label"
+  description_key = "settings.hide_when_up_to_date.description"
+  default = false
+
+  [[widget.setting]]
+  key = "highlight_color"
+  type = "color"
+  label_key = "settings.highlight_color.label"
+  default = "tertiary"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 460
+height = "content"
+max_height = 760
+placement = "attached"
+position = "top_right"
+open_near_click = true
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[panel]]
+id = "details"
+entry = "details.luau"
+width = 1000
+height = 720
+placement = "floating"
+position = "center"
+keyboard_focus = "exclusive"
