@@ -1,0 +1,33 @@
+id = "teslaoruz/bounce-saver"
+name = "Bounce Saver"
+version = "1.0.0"
+plugin_api = 34
+author = "teslaoruz"
+license = "MIT"
+icon = "device-desktop"
+description = "OLED-safe screensaver: a logo bouncing on pure black, changing colour on every wall hit."
+tags = ["service", "animation", "fun", "utility", "niri"]
+# The overlay is drawn by Quickshell (qs); niri is optional, used to spot fullscreen video.
+dependencies = ["quickshell"]
+
+[[setting]]
+key = "timeout"
+type = "int"
+label_key = "settings.timeout.label"
+description_key = "settings.timeout.description"
+default = 120
+min = 10
+max = 3600
+
+[[setting]]
+key = "logo"
+type = "file"
+label_key = "settings.logo.label"
+description_key = "settings.logo.description"
+default = ""
+extensions = [".svg", ".png", ".webp"]
+
+# Keeps the screensaver process running while the plugin is enabled.
+[[service]]
+id = "saver"
+entry = "service.luau"
