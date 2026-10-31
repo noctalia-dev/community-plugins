@@ -1,0 +1,131 @@
+id = "styrish/modernclock"
+name = "Modern Clock"
+version = "1.0.0"
+plugin_api = 43
+author = "Styrish007"
+license = "GPL-3.0"
+dependencies = []
+icon = "clock"
+description = "A port of KDE Modern Clock to Noctalia on Wayland/Niri."
+tags = ["desktop", "clock", "time"]
+
+[[setting]]
+key = "show_day"
+type = "bool"
+label_key = "settings.show_day.label"
+description_key = "settings.show_day.description"
+default = true
+
+[[setting]]
+key = "day_font_size"
+type = "int"
+label_key = "settings.day_font_size.label"
+description_key = "settings.day_font_size.description"
+default = 72
+min = 12
+max = 200
+
+[[setting]]
+key = "day_font_color"
+type = "color"
+label_key = "settings.day_font_color.label"
+description_key = "settings.day_font_color.description"
+default = "#FFFFFF"
+
+[[setting]]
+key = "day_letter_spacing"
+type = "int"
+label_key = "settings.day_letter_spacing.label"
+description_key = "settings.day_letter_spacing.description"
+default = 2
+min = 0
+max = 10
+
+[[setting]]
+key = "show_date"
+type = "bool"
+label_key = "settings.show_date.label"
+description_key = "settings.show_date.description"
+default = true
+
+[[setting]]
+key = "date_font_size"
+type = "int"
+label_key = "settings.date_font_size.label"
+description_key = "settings.date_font_size.description"
+default = 19
+min = 8
+max = 100
+
+[[setting]]
+key = "date_font_color"
+type = "color"
+label_key = "settings.date_font_color.label"
+description_key = "settings.date_font_color.description"
+default = "#FFFFFF"
+
+[[setting]]
+key = "date_letter_spacing"
+type = "int"
+label_key = "settings.date_letter_spacing.label"
+description_key = "settings.date_letter_spacing.description"
+default = 1
+min = 0
+max = 10
+
+[[setting]]
+key = "date_format"
+type = "string"
+label_key = "settings.date_format.label"
+description_key = "settings.date_format.description"
+default = "%d %b %Y"
+
+[[setting]]
+key = "show_time"
+type = "bool"
+label_key = "settings.show_time.label"
+description_key = "settings.show_time.description"
+default = true
+
+[[setting]]
+key = "time_font_size"
+type = "int"
+label_key = "settings.time_font_size.label"
+description_key = "settings.time_font_size.description"
+default = 19
+min = 8
+max = 100
+
+[[setting]]
+key = "time_font_color"
+type = "color"
+label_key = "settings.time_font_color.label"
+description_key = "settings.time_font_color.description"
+default = "#FFFFFF"
+
+[[setting]]
+key = "time_letter_spacing"
+type = "int"
+label_key = "settings.time_letter_spacing.label"
+description_key = "settings.time_letter_spacing.description"
+default = 1
+min = 0
+max = 10
+
+[[setting]]
+key = "use_24_hour_format"
+type = "bool"
+label_key = "settings.use_24_hour_format.label"
+description_key = "settings.use_24_hour_format.description"
+default = false
+
+[[setting]]
+key = "time_character"
+type = "string"
+label_key = "settings.time_character.label"
+description_key = "settings.time_character.description"
+default = "-"
+
+[[desktop_widget]]
+id = "clock"
+entry = "widget.luau"
