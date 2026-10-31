@@ -44,6 +44,9 @@ Click the widget to open the `panel` anchored next to the bar. A running session
 
 The default session can be stopped and started, but cannot be deleted.
 
+Refresh stays focusable during background polling. Clicking it while a refresh
+is already running does not queue another refresh.
+
 Opening a session or focusing an agent closes the popup before switching windows
 on both Niri and Hyprland.
 
@@ -204,6 +207,9 @@ unrelated titles/windows, remembered choices and title changes between clicks.
 Notification cases check the session name, cancellation hint, prompt-before-picker
 ordering, and that direct focus, remembered choices and rapid clicks do not emit
 unnecessary or duplicate prompts.
+
+The panel regression also checks that Refresh stays enabled with a stable control
+key during polling, ignores busy clicks and accepts clicks after polling finishes.
 
 Representative Niri JSON fixtures also pass through Python's standard JSON parser
 at the mocked `noctalia.json.decode` boundary, covering window arrays, picked-window
