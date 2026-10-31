@@ -6,7 +6,7 @@ author = "wennington"
 license = "MIT"
 icon = "chart-pie"
 description = "Command Code monthly, 5-hour and weekly usage meters on a desktop widget (computed from local transcripts)."
-tags = ["usage", "command-code", "desktop-widget"]
+tags = ["desktop", "utility", "ai"]
 dependencies = ["python3"]
 
 [[setting]]

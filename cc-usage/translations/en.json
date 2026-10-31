@@ -1,11 +1,19 @@
 {
-  "settings.plan.label": "Plan",
-  "settings.plan.go": "Go",
-  "settings.plan.goat": "GOAT",
-  "settings.plan.pro": "Pro",
-  "settings.plan.max20": "Max 20x",
-  "settings.multiplier.label": "Credits per USD of usage",
-  "settings.multiplier.description": "Your model's credit draw, calibrated against /usage (1.0 = full-allowance model).",
-  "settings.billing_day.label": "Billing cycle start day",
-  "settings.billing_day.description": "Day of the month your Command Code subscription renews."
+  "settings": {
+    "plan": {
+      "label": "Plan",
+      "go": "Go",
+      "goat": "GOAT",
+      "pro": "Pro",
+      "max20": "Max 20x"
+    },
+    "multiplier": {
+      "label": "Credits per USD of usage",
+      "description": "Your model's credit draw, calibrated against /usage (1.0 = full-allowance model)."
+    },
+    "billing_day": {
+      "label": "Billing cycle start day",
+      "description": "Day of the month your Command Code subscription renews."
+    }
+  }
 }
