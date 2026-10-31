@@ -722,9 +722,10 @@ end
 
 local visibleCards = VISIBLE_DECK_CARDS
 
-local function getScreenGeometry(): (number, number)
+local function getScreenGeometry(): (number, number, string)
   local w = 1920
   local h = 1080
+  local currentMonitorName = ""
   if type(noctalia.outputs) == "function" then
     local ok, outs = pcall(noctalia.outputs)
     if ok and type(outs) == "table" and #outs > 0 then
@@ -767,6 +768,7 @@ local function getScreenGeometry(): (number, number)
       end
 
       if chosen then
+        currentMonitorName = chosen.name or ""
         local cw = tonumber(chosen.width)
         local ch = tonumber(chosen.height)
         if cw and cw > 0 and ch and ch > 0 then
@@ -776,16 +778,77 @@ local function getScreenGeometry(): (number, number)
       end
     end
   end
-  return w, h
+  return w, h, currentMonitorName
 end
 
-local cachedPanelW = 1920
-local cachedPanelH = 1080
+local cachedPanelW = 1860
+local cachedPanelH = 1040
 
 local function updatePanelGeometry()
-  local screenW, screenH = getScreenGeometry()
-  cachedPanelW = math.max(640, screenW)
-  cachedPanelH = math.max(480, screenH)
+  local screenW, screenH, currentMonitorName = getScreenGeometry()
+  local barThicknessLeft = 0
+  local barThicknessRight = 0
+  local barThicknessTop = 0
+  local barThicknessBottom = 0
+
+  if type(noctalia.getSetting) == "function" then
+    local pcallOk, bars = pcall(noctalia.getSetting, "bar")
+    if pcallOk and type(bars) == "table" then
+      for k, bar in pairs(bars) do
+        if k ~= "order" and type(bar) == "table" and type(bar.position) == "string" and bar.enabled ~= false and not bar.auto_hide and bar.reserve_space ~= false then
+          local barMon = bar.monitor
+          local matchesMon = (not barMon or barMon == "" or barMon == "ALL" or currentMonitorName == "" or barMon == currentMonitorName)
+          if matchesMon then
+            local pos = bar.position
+            local th = tonumber(bar.thickness) or 34
+            if pos == "left" then
+              barThicknessLeft = math.max(barThicknessLeft, th)
+            elseif pos == "right" then
+              barThicknessRight = math.max(barThicknessRight, th)
+            elseif pos == "top" then
+              barThicknessTop = math.max(barThicknessTop, th)
+            elseif pos == "bottom" then
+              barThicknessBottom = math.max(barThicknessBottom, th)
+            end
+          end
+        end
+      end
+    end
+
+    local pcallDock, dock = pcall(noctalia.getSetting, "dock")
+    if pcallDock and type(dock) == "table" and dock.enabled ~= false and not dock.auto_hide and dock.reserve_space == true then
+      local dockMon = dock.monitor
+      local matchesDockMon = (not dockMon or dockMon == "" or dockMon == "ALL" or currentMonitorName == "" or dockMon == currentMonitorName)
+      if matchesDockMon then
+        local dpos = dock.position
+        local dth = tonumber(dock.thickness) or 48
+        if dpos == "left" then
+          barThicknessLeft = math.max(barThicknessLeft, dth)
+        elseif dpos == "right" then
+          barThicknessRight = math.max(barThicknessRight, dth)
+        elseif dpos == "top" then
+          barThicknessTop = math.max(barThicknessTop, dth)
+        elseif dpos == "bottom" then
+          barThicknessBottom = math.max(barThicknessBottom, dth)
+        end
+      end
+    end
+  end
+
+  local floatingOffset = 8
+  if type(noctalia.getSetting) == "function" then
+    local okFo, fo = pcall(noctalia.getSetting, "shell.panel.floating_offset")
+    if okFo and type(fo) == "number" then
+      floatingOffset = fo
+    end
+  end
+
+  -- Symmetrically calculate effective floating window dimensions avoiding reserved bars and panel offsets
+  local padH = (floatingOffset > 0) and (floatingOffset * 2) or 0
+  local padV = (floatingOffset > 0) and (floatingOffset * 2) or 0
+
+  cachedPanelW = math.max(640, screenW - barThicknessLeft - barThicknessRight - padH)
+  cachedPanelH = math.max(480, screenH - barThicknessTop - barThicknessBottom - padV)
 end
 updatePanelGeometry()
 
@@ -3122,7 +3185,9 @@ function render()
                       searchQuery = val
                     end
                   end
+                  isSearchFocused = false
                   executeSearch()
+                  render()
                 end,
               }),
               ((currentMode == "wallhaven" and whQuery ~= "") or (currentMode ~= "wallhaven" and searchQuery ~= "")) and ui.button({
@@ -3685,18 +3750,15 @@ function onKey(chord: string, pressed: boolean)
   local isReturn = (chordLower == "return" or chordLower == "enter" or chordLower == "kp_enter")
 
   if isReturn then
-    if currentMode == "wallhaven" then
+    if isSearchFocused then
+      isSearchFocused = false
       executeSearch()
+      render()
+      return
+    else
+      applyCurrent()
       return
     end
-
-    if isSearchFocused or (searchQuery and searchQuery ~= "") then
-      executeSearch()
-      return
-    end
-
-    applyCurrent()
-    return
   end
 
   if chordLower == "escape" then
