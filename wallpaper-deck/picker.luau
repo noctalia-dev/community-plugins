@@ -43,11 +43,11 @@ local function loadFavoritesDirect(): { [string]: boolean }
 end
 
 local stateWps = noctalia.state.get("wallpapers")
-local allWallpapers = (type(stateWps) == "table" and #stateWps > 0) and stateWps or loadCacheDirect()
+local allWallpapers = (type(stateWps) == "table" and #stateWps > 0) and stateWps or {}
 local allWallpapersNewest: { any }? = noctalia.state.get("wallpapers_newest")
 local allWallpapersColour: { any }? = noctalia.state.get("wallpapers_colour")
 local stateFavs = noctalia.state.get("favorites")
-local favorites = (type(stateFavs) == "table" and next(stateFavs) ~= nil) and stateFavs or loadFavoritesDirect()
+local favorites = (type(stateFavs) == "table" and next(stateFavs) ~= nil) and stateFavs or {}
 local activeWallpaper = noctalia.state.get("active_wallpaper") or ""
 local initialWallpaper = activeWallpaper
 local currentWallDir = noctalia.state.get("wallpaper_dir") or noctalia.getConfig("wallpaper_dir") or ""
@@ -728,52 +728,55 @@ local function getScreenGeometry(): (number, number, string)
   local currentMonitorName = ""
   if type(noctalia.outputs) == "function" then
     local ok, outs = pcall(noctalia.outputs)
-    if ok and type(outs) == "table" and #outs > 0 then
-      local focusedName = type(noctalia.focusedOutputName) == "function" and noctalia.focusedOutputName()
-      local chosen = nil
+    if ok and type(outs) == "table" then
+      local outList = outs.outputs or outs
+      if type(outList) == "table" and #outList > 0 then
+        local focusedName = type(noctalia.focusedOutputName) == "function" and noctalia.focusedOutputName()
+        local chosen = nil
 
-      -- 1. Try currently selected monitor in dropdown (if not ALL)
-      if selectedOutput and selectedOutput ~= "ALL" then
-        for _, out in ipairs(outs) do
-          if out.name == selectedOutput then
-            chosen = out
-            break
+        -- 1. Try currently selected monitor in dropdown (if not ALL)
+        if selectedOutput and selectedOutput ~= "ALL" then
+          for _, out in ipairs(outList) do
+            if out.name == selectedOutput then
+              chosen = out
+              break
+            end
           end
         end
-      end
 
-      -- 2. Try focusedOutputName
-      if not chosen and focusedName and focusedName ~= "" then
-        for _, out in ipairs(outs) do
-          if out.name == focusedName then
-            chosen = out
-            break
+        -- 2. Try focusedOutputName
+        if not chosen and focusedName and focusedName ~= "" then
+          for _, out in ipairs(outList) do
+            if out.name == focusedName then
+              chosen = out
+              break
+            end
           end
         end
-      end
 
-      -- 3. Try output with focused == true
-      if not chosen then
-        for _, out in ipairs(outs) do
-          if out.focused then
-            chosen = out
-            break
+        -- 3. Try output with focused == true
+        if not chosen then
+          for _, out in ipairs(outList) do
+            if out.focused == true then
+              chosen = out
+              break
+            end
           end
         end
-      end
 
-      -- 4. Fallback to the first output in the list
-      if not chosen then
-        chosen = outs[1]
-      end
+        -- 4. Fallback to the first output in the list
+        if not chosen then
+          chosen = outList[1]
+        end
 
-      if chosen then
-        currentMonitorName = chosen.name or ""
-        local cw = tonumber(chosen.width)
-        local ch = tonumber(chosen.height)
-        if cw and cw > 0 and ch and ch > 0 then
-          w = math.floor(cw)
-          h = math.floor(ch)
+        if chosen then
+          currentMonitorName = chosen.name or ""
+          local cw = tonumber(chosen.width)
+          local ch = tonumber(chosen.height)
+          if cw and cw > 0 and ch and ch > 0 then
+            w = math.floor(cw)
+            h = math.floor(ch)
+          end
         end
       end
     end
@@ -1120,9 +1123,15 @@ end
 local function refreshConnectedOutputs()
   connectedOutputs = { "ALL" }
   if type(noctalia.outputs) == "function" then
-    for _, out in ipairs(noctalia.outputs()) do
-      if out.name and out.name ~= "" then
-        table.insert(connectedOutputs, out.name)
+    local ok, outs = pcall(noctalia.outputs)
+    if ok and type(outs) == "table" then
+      local outList = outs.outputs or outs
+      if type(outList) == "table" then
+        for _, out in ipairs(outList) do
+          if out.name and out.name ~= "" then
+            table.insert(connectedOutputs, out.name)
+          end
+        end
       end
     end
   end
@@ -3464,8 +3473,36 @@ function render()
       align = "stretch",
       justify = "space_between",
     }, {
-      -- 1. Middle Spacer (unobstructed fullscreen wallpaper preview)
-      ui.spacer({ flexGrow = 1 }),
+      -- 1. Middle Spacer / Empty & Scanning State
+      (#displayedItems == 0) and ui.column({
+        key = "deck_empty_state",
+        align = "center",
+        justify = "center",
+        flexGrow = 1,
+        gap = 12,
+      }, {
+        ui.glyph({ name = isScanning and "loader-2" or "image", size = 36, color = "primary" }),
+        ui.label({
+          text = isScanning and "Scanning wallpapers..." or "No wallpapers found in library",
+          fontSize = 15,
+          fontWeight = "bold",
+          color = paletteColors.primaryText or "on_surface",
+        }),
+        ui.label({
+          text = (currentWallDir ~= "" and currentWallDir) or "Check wallpaper directory in settings",
+          fontSize = 11,
+          color = paletteColors.muted or "on_surface_variant",
+        }),
+        not isScanning and ui.button({
+          text = "Rescan Library",
+          glyph = "refresh-cw",
+          variant = "secondary",
+          controlSize = "sm",
+          onClick = function()
+            noctalia.state.set("deck_command", { action = "rescan", nonce = noctalia.nowMs() })
+          end,
+        }) or ui.spacer({ width = 1, height = 1 }),
+      }) or ui.spacer({ flexGrow = 1 }),
 
       -- 2. Bottom Section: Action Bar + Arched Deck docked cleanly together
       ui.column({
@@ -3644,9 +3681,7 @@ function onOpen(context: any?)
     if type(stateWps) == "table" and #stateWps > 0 then
       allWallpapers = stateWps
     else
-      pcall(function()
-        allWallpapers = loadCacheDirect()
-      end)
+      noctalia.state.set("deck_command", { action = "rescan", dir = currentWallDir, nonce = noctalia.nowMs() })
     end
   end
 

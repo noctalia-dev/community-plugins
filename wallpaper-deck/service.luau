@@ -393,78 +393,80 @@ local function prioritizePalette(p: string)
   end
   if not p or not noctalia.fileExists(p) then return end
 
-  local cache = loadCache()
-  if cache[p] and cache[p].colors and cache[p].colors.primary ~= "#80a9ff" then
-    local entry = cache[p]
-    noctalia.state.set("palette_update", {
-      path = p,
-      colors = entry.colors,
-      sourceColor = entry.sourceColor,
-      hueKey = entry.hueKey or calcHueKey(entry.sourceColor or entry.colors.primary),
-    })
-    return
-  end
+  noctalia.runAsync({ "true" }, function()
+    local cache = loadCache()
+    if cache[p] and cache[p].colors and cache[p].colors.primary ~= "#80a9ff" then
+      local entry = cache[p]
+      noctalia.state.set("palette_update", {
+        path = p,
+        colors = entry.colors,
+        sourceColor = entry.sourceColor,
+        hueKey = entry.hueKey or calcHueKey(entry.sourceColor or entry.colors.primary),
+      })
+      return
+    end
 
-  local key = hashKey(p)
-  local cardThumb = THUMB_DIR .. "/" .. key .. "_card.webp"
-  local inputPath = noctalia.fileExists(cardThumb) and cardThumb or p
+    local key = hashKey(p)
+    local cardThumb = THUMB_DIR .. "/" .. key .. "_card.webp"
+    local inputPath = noctalia.fileExists(cardThumb) and cardThumb or p
 
-  noctalia.runAsync({ "matugen", "image", inputPath, "--source-color-index", "0", "--dry-run", "-j", "hex", "-q" }, function(res)
-    if res and res.exitCode == 0 and res.stdout and res.stdout ~= "" then
-      local ok, data = pcall(noctalia.json.decode, res.stdout)
-      if ok and type(data) == "table" and type(data.colors) == "table" then
-        local colors = data.colors
-        local function getCol(role)
-          local c = colors[role]
-          if type(c) == "table" then
-            local d = c["default"] or c["dark"]
-            if type(d) == "table" then return d.color end
+    noctalia.runAsync({ "matugen", "image", inputPath, "--source-color-index", "0", "--dry-run", "-j", "hex", "-q" }, function(res)
+      if res and res.exitCode == 0 and res.stdout and res.stdout ~= "" then
+        local ok, data = pcall(noctalia.json.decode, res.stdout)
+        if ok and type(data) == "table" and type(data.colors) == "table" then
+          local colors = data.colors
+          local function getCol(role)
+            local c = colors[role]
+            if type(c) == "table" then
+              local d = c["default"] or c["dark"]
+              if type(d) == "table" then return d.color end
+            end
+            return nil
           end
-          return nil
-        end
-        local prim = getCol("primary")
-        local sec = getCol("secondary")
-        local tert = getCol("tertiary")
-        local pc = getCol("primary_container")
-        local sch = getCol("surface_container_highest") or getCol("surface_container") or getCol("surface")
-        local sc = getCol("source_color") or prim
-        if prim and sec then
-          local m3 = {
-            primary = prim,
-            secondary = sec,
-            tertiary = tert or sec,
-            primary_container = pc or prim,
-            surface_container_highest = sch or "#33353b",
-            source_color = sc or prim,
-          }
-          local hueKey = calcHueKey(sc or prim)
+          local prim = getCol("primary")
+          local sec = getCol("secondary")
+          local tert = getCol("tertiary")
+          local pc = getCol("primary_container")
+          local sch = getCol("surface_container_highest") or getCol("surface_container") or getCol("surface")
+          local sc = getCol("source_color") or prim
+          if prim and sec then
+            local m3 = {
+              primary = prim,
+              secondary = sec,
+              tertiary = tert or sec,
+              primary_container = pc or prim,
+              surface_container_highest = sch or "#33353b",
+              source_color = sc or prim,
+            }
+            local hueKey = calcHueKey(sc or prim)
 
-          if not cache[p] then cache[p] = {} end
-          cache[p].colors = m3
-          cache[p].sourceColor = sc or prim
-          cache[p].hueKey = hueKey
-          cacheNeedsSave = true
+            if not cache[p] then cache[p] = {} end
+            cache[p].colors = m3
+            cache[p].sourceColor = sc or prim
+            cache[p].hueKey = hueKey
+            cacheNeedsSave = true
 
-          noctalia.state.set("palette_update", {
-            path = p,
-            colors = m3,
-            sourceColor = sc or prim,
-            hueKey = hueKey,
-          })
+            noctalia.state.set("palette_update", {
+              path = p,
+              colors = m3,
+              sourceColor = sc or prim,
+              hueKey = hueKey,
+            })
 
-          if #activeDeckInMemory > 0 then
-            for _, it in ipairs(activeDeckInMemory) do
-              if it.path == p then
-                it.colors = m3
-                it.sourceColor = sc or prim
-                it.hueKey = hueKey
-                break
+            if #activeDeckInMemory > 0 then
+              for _, it in ipairs(activeDeckInMemory) do
+                if it.path == p then
+                  it.colors = m3
+                  it.sourceColor = sc or prim
+                  it.hueKey = hueKey
+                  break
+                end
               end
             end
           end
         end
       end
-    end
+    end)
   end)
 end
 
@@ -653,7 +655,7 @@ local function processScanOutput(stdout: string, dirs: {string}, primaryDir: str
   end
 
   local lineIdx = 1
-  local BATCH_SIZE = 50
+  local BATCH_SIZE = 15
 
   local function fastFileName(p: string): string
     for j = #p, 1, -1 do
