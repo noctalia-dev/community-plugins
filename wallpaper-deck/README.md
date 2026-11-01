@@ -77,7 +77,7 @@ Configurable inside Noctalia Settings (**Settings** -> **Plugins** -> **Wallpape
 | `animate_selected_card` | `bool` | `true` | Enables subtle floating bobbing animation on the active center card. |
 | `preview_fit` | `select` | `cover` | How the fullscreen background preview fits the panel (`cover`, `contain`, `stretch`). |
 | `scale_compensation` | `select` | `auto` | Controls how monitor HiDPI scaling is applied to panel preview dimensions (`auto`, `scaled`, `unscaled`). |
-| `panel_padding_offset` | `int` | `24` | Total horizontal/vertical inset subtracted for panel chrome and borders. |
+| `panel_padding_offset` | `int` | `0` | Total horizontal/vertical inset subtracted for panel chrome and borders. |
 | `wallhaven_api_key` | `string` | `""` | Optional API key for Wallhaven (unlocks user collections and NSFW filters). |
 | `wallhaven_categories` | `string` | `"111"` | Wallhaven categories bitflag (General/Anime/People, e.g. 111). |
 | `wallhaven_purity` | `string` | `"100"` | Wallhaven purity bitflag (SFW/Sketchy/NSFW, e.g. 100 for SFW). |

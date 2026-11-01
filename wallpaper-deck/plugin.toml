@@ -5,7 +5,7 @@ plugin_api = 43
 author = "Ishan0121"
 license = "GPL-3.0"
 icon = "cards"
-description = "MTG-style animated card-deck wallpaper picker inspired by qs-wallpaperpicker."
+description = "Card-deck wallpaper picker with Wallhaven built-in, smooth 3D coverflow animations."
 tags = ["wallpaper", "animation", "theming", "desktop"]
 dependencies = ["ffmpeg", "matugen"]
 
