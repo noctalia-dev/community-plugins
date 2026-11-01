@@ -1,4 +1,4 @@
-# modernclock
+# Modern Clock
 
 A sleek, modern desktop clock widget for Noctalia compositors.
 
