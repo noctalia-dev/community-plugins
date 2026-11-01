@@ -5289,8 +5289,8 @@ tags = ["bar", "panel", "service", "system", "nixos", "indicator"]
 [[plugin]]
 id = "wennington/cc-usage"
 name = "Command Code Usage"
-version = "1.0.0"
-updated_at = 1793478920
+version = "1.0.1"
+updated_at = 1793549775
 added_at = 1793478920
 author = "wennington"
 license = "MIT"
