@@ -4802,8 +4802,8 @@ rev = "a6dd9f9abbb2abf222a0410bb5bcfb5e5f7f3d88"
 [[plugin]]
 id = "amaurisd97/screen-capture"
 name = "Screen Capture"
-version = "0.1.0"
-updated_at = 1792588666
+version = "0.1.1"
+updated_at = 1793493245
 added_at = 1792588666
 author = "amaurisd97"
 license = "MIT"
