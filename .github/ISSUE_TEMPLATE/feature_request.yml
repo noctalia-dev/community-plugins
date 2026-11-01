@@ -166,6 +166,7 @@ body:
         - mimir
         - mini-docker
         - misr-quran-radio
+        - modernclock
         - murattal
         - mx-control
         - nan-usage
