@@ -59,6 +59,10 @@
     "transcribing_glyph": {
       "description": "Noctalia glyph shown while Voxtype is transcribing recorded audio.",
       "label": "Transcribing icon"
+    },
+    "osd_enabled": {
+      "label": "Live dictation overlay",
+      "description": "Show a small themed overlay with live microphone bars and a processing animation. No bar widget is needed."
     }
   },
   "widget": {
