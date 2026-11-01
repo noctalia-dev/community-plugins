@@ -283,6 +283,7 @@ body:
         - tailnet
         - tailscale
         - task-warrior
+        - terminal-widgets
         - theme-switcher
         - thinkpad-fan
         - thinkpad-led
