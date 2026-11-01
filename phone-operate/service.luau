@@ -518,19 +518,38 @@ local function pollPendingPick()
 	if not pendingPick then return end
 	local raw = noctalia.readFile(pendingPick.path)
 	if raw and raw ~= "" then
-		local p = raw:gsub("[\r\n%s]+$", "")
-		if p ~= "" then
+		local files = {}
+		for part in raw:gmatch("[^\r\n|]+") do
+			local f = part:gsub("^%s+", ""):gsub("%s+$", "")
+			if f ~= "" then
+				table.insert(files, f)
+			end
+		end
+		if #files > 0 then
 			if pendingPick.purpose == "share" then
+				local quoted = {}
+				for _, f in ipairs(files) do
+					table.insert(quoted, shellQuote(f))
+				end
 				noctalia.runAsync(
-					"kdeconnect-cli --share " .. shellQuote(p)
+					"kdeconnect-cli --share " .. table.concat(quoted, " ")
 						.. " -d " .. shellQuote(pendingPick.device),
 					function(res)
 						if res and res.exitCode ~= 0 then
 							noctalia.notifyError(t("error.share_failed"), res.stderr or "")
 						end
 					end)
-				noctalia.notify(t("notify.file_shared"), p)
+				local detail
+				if #files == 1 then
+					detail = files[1]
+				elseif #files <= 3 then
+					detail = table.concat(files, ", ")
+				else
+					detail = tostring(#files) .. " files (" .. files[1] .. ", " .. files[2] .. ", ...)"
+				end
+				noctalia.notify(t("notify.file_shared"), detail)
 			else
+				local p = files[1]
 				local map = noctalia.state.get("pc.imageMap") or {}
 				map[pendingPick.device] = p
 				noctalia.state.set("pc.imageMap", map)
@@ -540,11 +559,14 @@ local function pollPendingPick()
 		end
 		noctalia.removeFile(pendingPick.path)
 		pendingPick = nil
+		noctalia.setUpdateInterval(combinedIntervalMs())
 	elseif os.time() - pendingPick.started > 120 then
 		noctalia.removeFile(pendingPick.path)
 		pendingPick = nil
+		noctalia.setUpdateInterval(combinedIntervalMs())
 	end
 end
+
 
 -- ── gdbus 子接口方法 ──────────────────────────────────────────────────────────
 local function gdbusDeviceMethod(id, method, cb)
@@ -710,7 +732,14 @@ local function handleCommand(cmd)
 	elseif op == "share_text" then
 		runCli("--share-text " .. shellQuote(cmd.text or "") .. " -d " .. shellQuote(dev))
 	elseif op == "share_file" then
-		runCli("--share " .. shellQuote(cmd.path or "") .. " -d " .. shellQuote(dev))
+		local paths = cmd.paths or (cmd.path and { cmd.path }) or {}
+		if #paths > 0 then
+			local quoted = {}
+			for _, p in ipairs(paths) do
+				table.insert(quoted, shellQuote(p))
+			end
+			runCli("--share " .. table.concat(quoted, " ") .. " -d " .. shellQuote(dev))
+		end
 	elseif op == "set_alias" then
 		local map = noctalia.state.get("pc.aliasMap") or {}
 		local alias = cmd.alias or ""
@@ -722,13 +751,24 @@ local function handleCommand(cmd)
 			noctalia.notifyError(t("error.pick_in_progress"))
 		else
 			local picker
-			if noctalia.commandExists("kdialog") then
-				picker = "kdialog --getopenfilename ~ ''"
-			elseif noctalia.commandExists("zenity") then
-				picker = "zenity --file-selection"
+			if op == "pick_share" then
+				if noctalia.commandExists("kdialog") then
+					picker = "kdialog --multiple --separate-output --getopenfilename ~ ''"
+				elseif noctalia.commandExists("zenity") then
+					picker = "zenity --file-selection --multiple"
+				else
+					noctalia.notifyError(t("error.pick_failed"), "kdialog/zenity not found")
+					return
+				end
 			else
-				noctalia.notifyError(t("error.pick_failed"), "kdialog/zenity not found")
-				return
+				if noctalia.commandExists("kdialog") then
+					picker = "kdialog --getopenfilename ~ ''"
+				elseif noctalia.commandExists("zenity") then
+					picker = "zenity --file-selection"
+				else
+					noctalia.notifyError(t("error.pick_failed"), "kdialog/zenity not found")
+					return
+				end
 			end
 			local tmp = noctalia.pluginDataDir() .. "/pick-" .. tostring(dev) .. ".tmp"
 			pendingPick = {
@@ -739,6 +779,7 @@ local function handleCommand(cmd)
 			}
 			noctalia.removeFile(tmp)
 			noctalia.runAsync(picker .. " > " .. shellQuote(tmp) .. " 2>/dev/null &")
+			noctalia.setUpdateInterval(combinedIntervalMs())
 		end
 	elseif op == "pair" then
 		mutating(function(cb) gdbusDeviceMethod(dev, "requestPairing", cb) end)
@@ -1001,7 +1042,7 @@ end
 
 -- ── 轮询间隔合并（kde 与 adb 取较快） ─────────────────────────────────────────
 intervalMs = function()
-	if pendingPick then return 1000 end
+	if pendingPick then return 200 end
 	local secs = tonumber(noctalia.getConfig("state_update_interval")) or 30
 	if secs <= 0 then return 3600000 end
 	for _, d in pairs(devices) do
@@ -1024,6 +1065,7 @@ function update()
 	local secs = tonumber(noctalia.getConfig("state_update_interval")) or 30
 	noctalia.setUpdateInterval(combinedIntervalMs())
 	pollPendingPick()
+	if pendingPick then return end
 	refreshAdbDevices()
 	if secs <= 0 then
 		-- kde 自动刷新被禁用；adb 仍轮询
