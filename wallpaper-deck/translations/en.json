@@ -42,6 +42,24 @@
       "label": "Animate Selected Card",
       "description": "Enable subtle floating and transition animation on the active center card."
     },
+    "preview_fit": {
+      "label": "Background Preview Fit",
+      "description": "How the fullscreen background preview fits the panel (press V in picker to cycle).",
+      "cover": "Cover (Fill Panel)",
+      "contain": "Contain (Show Full Image)",
+      "stretch": "Stretch (Exact Edges)"
+    },
+    "scale_compensation": {
+      "label": "Display Scale Compensation",
+      "description": "Controls how monitor HiDPI scaling is applied to panel preview dimensions.",
+      "auto": "Auto-Detect (Recommended)",
+      "scaled": "Divide by Output Scale (HiDPI)",
+      "unscaled": "Use Raw Output Resolution"
+    },
+    "panel_padding_offset": {
+      "label": "Panel Inner Padding Offset (px)",
+      "description": "Total horizontal/vertical inset subtracted for panel chrome and borders (default 24)."
+    },
     "wallhaven_api_key": {
       "label": "Wallhaven API Key",
       "description": "Optional API key for Wallhaven (unlocks NSFW and personal collections)."
@@ -95,6 +113,6 @@
     "clear_search": "Clear Search",
     "loading": "Loading...",
     "search_placeholder": "Search wallpapers...",
-    "hints": "← → or wheel browse • Enter set • F favourite • S sort • R random • Space peek • Tab source • Esc close"
+    "hints": "← → or wheel browse • Enter apply • F favourite • S sort • R random • V fit • Space peek • Tab source • Esc close"
   }
 }

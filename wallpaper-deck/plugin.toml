@@ -1,6 +1,6 @@
 id = "ishan0121/wallpaper-deck"
 name = "Wallpaper Deck"
-version = "1.2.4"
+version = "1.3.0"
 plugin_api = 43
 author = "Ishan0121"
 license = "GPL-3.0"
@@ -77,6 +77,41 @@ type = "bool"
 label_key = "settings.animate_selected_card.label"
 description_key = "settings.animate_selected_card.description"
 default = true
+
+[[setting]]
+key = "preview_fit"
+type = "select"
+label_key = "settings.preview_fit.label"
+description_key = "settings.preview_fit.description"
+default = "cover"
+options = [
+  { value = "cover", label_key = "settings.preview_fit.cover" },
+  { value = "contain", label_key = "settings.preview_fit.contain" },
+  { value = "stretch", label_key = "settings.preview_fit.stretch" }
+]
+
+[[setting]]
+key = "scale_compensation"
+type = "select"
+label_key = "settings.scale_compensation.label"
+description_key = "settings.scale_compensation.description"
+default = "auto"
+advanced = true
+options = [
+  { value = "auto", label_key = "settings.scale_compensation.auto" },
+  { value = "scaled", label_key = "settings.scale_compensation.scaled" },
+  { value = "unscaled", label_key = "settings.scale_compensation.unscaled" }
+]
+
+[[setting]]
+key = "panel_padding_offset"
+type = "int"
+label_key = "settings.panel_padding_offset.label"
+description_key = "settings.panel_padding_offset.description"
+default = 24
+min = -100
+max = 200
+advanced = true
 
 [[setting]]
 key = "wallhaven_api_key"
@@ -172,9 +207,8 @@ capture_keys = [
   "left", "right", "up", "down",
   "h", "l", "j", "k",
   "u", "d",
-  "space", "return", "s", "r", "f", "p", "tab", "escape", "slash",
+  "space", "return", "s", "r", "f", "p", "m", "v", "tab", "escape", "slash",
   "Pointer_Button4", "Pointer_Button5",
   "Pointer_DfltBtnPrev", "Pointer_DfltBtnNext",
   "Page_Up", "Page_Down"
 ]
-
