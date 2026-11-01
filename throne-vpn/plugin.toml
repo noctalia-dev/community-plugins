@@ -1,0 +1,59 @@
+id = "lonefrogg/throne-vpn"
+name = "Throne VPN"
+version = "2.1.2"
+plugin_api = 24
+author = "lonefrogg"
+license = "MIT"
+icon = "shield"
+description = "Control Throne TUN profiles and view saved speed tests from a native panel."
+tags = ["bar", "panel", "service", "network", "privacy"]
+dependencies = ["python3", "thronectl"]
+
+[[setting]]
+key = "api_address"
+type = "string"
+label_key = "settings.api_address.label"
+description_key = "settings.api_address.description"
+default = "127.0.0.1:9095"
+
+[[setting]]
+key = "api_key_file"
+type = "file"
+label_key = "settings.api_key_file.label"
+description_key = "settings.api_key_file.description"
+default = ""
+
+[[setting]]
+key = "thronectl_path"
+type = "string"
+label_key = "settings.thronectl_path.label"
+description_key = "settings.thronectl_path.description"
+default = "thronectl"
+
+[[setting]]
+key = "poll_seconds"
+type = "int"
+label_key = "settings.poll_seconds.label"
+description_key = "settings.poll_seconds.description"
+default = 3
+min = 2
+max = 60
+
+[[service]]
+id = "backend"
+entry = "service.luau"
+
+[[widget]]
+id = "bar"
+entry = "widget.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 740
+height = 620
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+keyboard_focus = "on_demand"
