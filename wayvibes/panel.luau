@@ -4,12 +4,13 @@
 
 local activeTab = "packs"
 local searchFilter = ""
-local currentVolume = 3
-local activePack = ""
-local isPlaying = false
-local currentDevice = ""
-local packs = {}
-local devices = {}
+-- Watches only deliver future changes; the service may already be initialized.
+local currentVolume = tonumber(noctalia.state.get("wayvibes_volume")) or 3
+local activePack = tostring(noctalia.state.get("wayvibes_pack") or "")
+local isPlaying = noctalia.state.get("wayvibes_playing") == true
+local currentDevice = tostring(noctalia.state.get("wayvibes_device") or "")
+local packs = noctalia.state.get("wayvibes_packs") or {}
+local devices = noctalia.state.get("wayvibes_devices") or {}
 
 local render
 
@@ -209,7 +210,12 @@ local function buildDevicesTab()
 
     local devRows = {}
     for index, dev in ipairs(devices) do
-        local isCurrent = (dev.path == currentDevice)
+        local isCurrent = (currentDevice ~= "" and (
+            dev.path == currentDevice
+            or dev.name == currentDevice
+            or currentDevice == "NAME:" .. dev.name
+            or currentDevice == "PATH:" .. dev.path
+        ))
         table.insert(devRows, ui.row({
             key = "dev_" .. tostring(index),
             gap = 10,
@@ -235,7 +241,7 @@ local function buildDevicesTab()
                 variant = isCurrent and "primary" or "outline",
                 controlSize = "sm",
                 onClick = function()
-                    sendCmd({ action = "select_device", devicePath = dev.path })
+                    sendCmd({ action = "select_device", devicePath = dev.path, deviceName = dev.name })
                 end,
             }),
         }))

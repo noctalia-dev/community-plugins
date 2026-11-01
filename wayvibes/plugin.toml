@@ -1,13 +1,13 @@
 id = "viksit-garg/wayvibes"
 name = "WayVibes"
-version = "1.0.0"
+version = "1.0.1"
 plugin_api = 43
 author = "viksit-garg"
 license = "MIT"
 icon = "keyboard"
 description = "Mechanical keyboard typing sounds for Noctalia on Wayland, powered by wayvibes."
 tags = ["audio", "bar", "panel", "utility"]
-dependencies = ["wayvibes", "pkill"]
+dependencies = ["wayvibes", "pkill", "pgrep", "sleep"]
 
 [[widget]]
 id = "wayvibes"

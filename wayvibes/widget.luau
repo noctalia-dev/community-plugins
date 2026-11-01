@@ -3,9 +3,10 @@
 -- Toggles the WayVibes panel and displays active typing audio status.
 
 local PANEL_ID = "viksit-garg/wayvibes:panel"
-local isPlaying = false
-local currentPack = ""
-local currentVolume = 3
+-- Newly added widgets must reflect service state published before they existed.
+local isPlaying = noctalia.state.get("wayvibes_playing") == true
+local currentPack = tostring(noctalia.state.get("wayvibes_pack") or "")
+local currentVolume = tonumber(noctalia.state.get("wayvibes_volume")) or 3
 
 local function render()
     local glyph = noctalia.getConfig("glyph") or "keyboard"
