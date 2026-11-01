@@ -5337,3 +5337,16 @@ icon = "clock"
 description = "A port of KDE Modern Clock to Noctalia on Wayland/Niri."
 plugin_api = 43
 tags = ["desktop", "clock", "time"]
+
+[[plugin]]
+id = "amirfarzamnia/autoclicker"
+name = "Auto Clicker"
+version = "1.0.0"
+updated_at = 1793567340
+added_at = 1793567340
+author = "amirfarzamnia"
+license = "MIT"
+icon = "click"
+description = "Repeats any ydotool command on an interval, driven entirely over IPC. Bar indicator while running."
+plugin_api = 24
+tags = ["utility"]
