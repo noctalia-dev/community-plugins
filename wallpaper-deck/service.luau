@@ -72,7 +72,6 @@ local function hashKey(s: string): string
   return res
 end
 
-
 local favorites = {}
 local isScanning = false
 local scanToken = 0
@@ -226,8 +225,8 @@ local function loadFavorites()
   favorites = {}
   local raw = noctalia.readFile(FAVORITES_FILE)
   if raw and raw ~= "" then
-    local decoded = noctalia.json.decode(raw)
-    if type(decoded) == "table" then
+    local ok, decoded = pcall(noctalia.json.decode, raw)
+    if ok and type(decoded) == "table" then
       for k, v in pairs(decoded) do
         if v == true then
           favorites[k] = true
@@ -240,24 +239,71 @@ end
 
 local function saveFavorites()
   noctalia.mkdirAll(STATE_DIR)
-  local enc = noctalia.json.encode(favorites)
-  if enc then
+  local ok, enc = pcall(noctalia.json.encode, favorites)
+  if ok and enc then
     noctalia.writeFile(FAVORITES_FILE, enc)
   end
   noctalia.state.set("favorites", favorites)
 end
 
-local function toggleFavorite(fileName: string)
+local function stripExtension(name: string): string
+  local dot = string.find(name, "%.[^%.]+$")
+  if dot and dot > 1 then
+    return string.sub(name, 1, dot - 1)
+  end
+  return name
+end
+
+local function toggleFavorite(fileName: string, itemPath: string?)
   if not fileName or fileName == "" then return end
-  if favorites[fileName] then
+  local base = stripExtension(fileName)
+  local isCurrentlyFav = favorites[fileName] or favorites[base] or (itemPath and favorites[itemPath])
+
+  if isCurrentlyFav then
     favorites[fileName] = nil
+    favorites[base] = nil
+    if itemPath and itemPath ~= "" then
+      favorites[itemPath] = nil
+    end
+    for _, ext in ipairs({ ".jpg", ".jpeg", ".png", ".webp" }) do
+      favorites[base .. ext] = nil
+    end
   else
     favorites[fileName] = true
+    if string.sub(base, 1, 10) == "wallhaven-" then
+      favorites[base] = true
+      for _, ext in ipairs({ ".jpg", ".png", ".webp" }) do
+        favorites[base .. ext] = true
+      end
+    end
   end
   saveFavorites()
 end
 
 local function detectActiveWallpaper()
+  -- 1. Try native in-process Noctalia API first (plugin_api >= 25)
+  if type(noctalia.wallpaperPath) == "function" then
+    local conn = (type(noctalia.focusedOutputName) == "function" and noctalia.focusedOutputName()) or nil
+    if not conn and type(noctalia.outputs) == "function" then
+      local ok, outs = pcall(noctalia.outputs)
+      if ok and type(outs) == "table" and #outs > 0 then
+        conn = outs[1].name
+      end
+    end
+    if conn and conn ~= "" then
+      local ok, wp = pcall(noctalia.wallpaperPath, conn)
+      if ok and type(wp) == "string" and wp ~= "" then
+        currentActive = wp
+        if initialWallpaper == "" then
+          initialWallpaper = wp
+        end
+        noctalia.state.set("active_wallpaper", wp)
+        return
+      end
+    end
+  end
+
+  -- 2. Fallback to CLI query
   noctalia.runAsync({ "noctalia", "msg", "wallpaper-get" }, function(res)
     if res and res.exitCode == 0 and res.stdout and res.stdout ~= "" then
       local line = string.match(res.stdout, "[^\r\n]+")
@@ -339,7 +385,8 @@ local function pruneCacheToDeck(cache: { [string]: any }, deck: { any }?): { [st
   end
   local pruned = {}
   for p, entry in pairs(cache) do
-    if activePaths[p] or favorites[p] then
+    local fname = string.match(p, "([^/]+)$") or p
+    if activePaths[p] or favorites[p] or favorites[fname] then
       pruned[p] = entry
     end
   end
@@ -355,8 +402,8 @@ end
 
 local function saveCacheToDisk(cache: { [string]: any })
   noctalia.mkdirAll(STATE_DIR)
-  local enc = noctalia.json.encode(cache)
-  if enc then
+  local ok, enc = pcall(noctalia.json.encode, cache)
+  if ok and enc then
     writeTextFile(CACHE_FILE, enc)
   end
 end
@@ -368,19 +415,32 @@ local pickerPanelOpen = false
 
 local function scheduleCacheAndStateSync(deck: { any }, cache: { [string]: any }, force: boolean?)
   cacheNeedsSave = true
+  -- Do not serialize full state or write large JSON files while the picker panel is open;
+  -- incremental updates are already sent via thumb_update and palette_update!
+  if pickerPanelOpen and not force then
+    return
+  end
   local now = (type(noctalia.nowMs) == "function") and noctalia.nowMs() or 0
-  if not syncInProgress and (force or (now - lastStateSyncTime >= 2500)) then
+  if not syncInProgress and (force or (now - lastStateSyncTime >= 3500)) then
     lastStateSyncTime = now
     syncInProgress = true
     noctalia.runAsync({ "true" }, function()
-      syncInProgress = false
-      if not cacheNeedsSave then return end
+      if not cacheNeedsSave then
+        syncInProgress = false
+        return
+      end
       cacheNeedsSave = false
-      noctalia.state.set("wallpapers", deck)
+      if not pickerPanelOpen then
+        noctalia.state.set("wallpapers", deck)
+      end
       noctalia.runAsync({ "true" }, function()
-        pcall(saveCacheToDisk, cache)
+        local pruned = pruneCacheToDeck(cache, deck)
         noctalia.runAsync({ "true" }, function()
-          pcall(saveDeckToDisk, deck)
+          pcall(saveCacheToDisk, pruned)
+          noctalia.runAsync({ "true" }, function()
+            pcall(saveDeckToDisk, deck)
+            syncInProgress = false
+          end)
         end)
       end)
     end)
@@ -393,78 +453,81 @@ local function prioritizePalette(p: string)
   end
   if not p or not noctalia.fileExists(p) then return end
 
-  local cache = loadCache()
-  if cache[p] and cache[p].colors and cache[p].colors.primary ~= "#80a9ff" then
-    local entry = cache[p]
-    noctalia.state.set("palette_update", {
-      path = p,
-      colors = entry.colors,
-      sourceColor = entry.sourceColor,
-      hueKey = entry.hueKey or calcHueKey(entry.sourceColor or entry.colors.primary),
-    })
-    return
-  end
+  noctalia.runAsync({ "true" }, function()
+    local cache = loadCache()
+    if cache[p] and cache[p].colors and cache[p].colors.primary ~= "#80a9ff" then
+      local entry = cache[p]
+      noctalia.state.set("palette_update", {
+        path = p,
+        colors = entry.colors,
+        sourceColor = entry.sourceColor,
+        hueKey = entry.hueKey or calcHueKey(entry.sourceColor or entry.colors.primary),
+      })
+      return
+    end
 
-  local key = hashKey(p)
-  local cardThumb = THUMB_DIR .. "/" .. key .. "_card.webp"
-  local inputPath = noctalia.fileExists(cardThumb) and cardThumb or p
+    local key = hashKey(p)
+    local cardThumb = THUMB_DIR .. "/" .. key .. "_card.webp"
+    local inputPath = noctalia.fileExists(cardThumb) and cardThumb or p
 
-  noctalia.runAsync({ "matugen", "image", inputPath, "--source-color-index", "0", "--dry-run", "-j", "hex", "-q" }, function(res)
-    if res and res.exitCode == 0 and res.stdout and res.stdout ~= "" then
-      local ok, data = pcall(noctalia.json.decode, res.stdout)
-      if ok and type(data) == "table" and type(data.colors) == "table" then
-        local colors = data.colors
-        local function getCol(role)
-          local c = colors[role]
-          if type(c) == "table" then
-            local d = c["default"] or c["dark"]
-            if type(d) == "table" then return d.color end
+    noctalia.runAsync({ "matugen", "image", inputPath, "--source-color-index", "0", "--dry-run", "-j", "hex", "-q" }, function(res)
+      if res and res.exitCode == 0 and res.stdout and res.stdout ~= "" then
+        local ok, data = pcall(noctalia.json.decode, res.stdout)
+        if ok and type(data) == "table" and type(data.colors) == "table" then
+          local colors = data.colors
+          local function getCol(role)
+            local c = colors[role]
+            if type(c) == "table" then
+              local d = c["default"] or c["dark"]
+              if type(d) == "table" then return d.color end
+            end
+            return nil
           end
-          return nil
-        end
-        local prim = getCol("primary")
-        local sec = getCol("secondary")
-        local tert = getCol("tertiary")
-        local pc = getCol("primary_container")
-        local sch = getCol("surface_container_highest") or getCol("surface_container") or getCol("surface")
-        local sc = getCol("source_color") or prim
-        if prim and sec then
-          local m3 = {
-            primary = prim,
-            secondary = sec,
-            tertiary = tert or sec,
-            primary_container = pc or prim,
-            surface_container_highest = sch or "#33353b",
-            source_color = sc or prim,
-          }
-          local hueKey = calcHueKey(sc or prim)
+          local prim = getCol("primary")
+          local sec = getCol("secondary")
+          local tert = getCol("tertiary")
+          local pc = getCol("primary_container")
+          local sch = getCol("surface_container_highest") or getCol("surface_container") or getCol("surface")
+          local sc = getCol("source_color") or prim
+          if prim and sec then
+            local m3 = {
+              primary = prim,
+              secondary = sec,
+              tertiary = tert or sec,
+              primary_container = pc or prim,
+              surface_container_highest = sch or "#33353b",
+              source_color = sc or prim,
+            }
+            local hueKey = calcHueKey(sc or prim)
 
-          if not cache[p] then cache[p] = {} end
-          cache[p].colors = m3
-          cache[p].sourceColor = sc or prim
-          cache[p].hueKey = hueKey
-          cacheNeedsSave = true
+            if not cache[p] then cache[p] = {} end
+            cache[p].colors = m3
+            cache[p].sourceColor = sc or prim
+            cache[p].hueKey = hueKey
+            cacheNeedsSave = true
 
-          noctalia.state.set("palette_update", {
-            path = p,
-            colors = m3,
-            sourceColor = sc or prim,
-            hueKey = hueKey,
-          })
+            noctalia.state.set("palette_update", {
+              path = p,
+              colors = m3,
+              sourceColor = sc or prim,
+              hueKey = hueKey,
+            })
 
-          if #activeDeckInMemory > 0 then
-            for _, it in ipairs(activeDeckInMemory) do
-              if it.path == p then
-                it.colors = m3
-                it.sourceColor = sc or prim
-                it.hueKey = hueKey
-                break
+            if #activeDeckInMemory > 0 then
+              for _, it in ipairs(activeDeckInMemory) do
+                if it.path == p then
+                  it.colors = m3
+                  it.sourceColor = sc or prim
+                  it.hueKey = hueKey
+                  break
+                end
               end
+              scheduleCacheAndStateSync(activeDeckInMemory, cache, false)
             end
           end
         end
       end
-    end
+    end)
   end)
 end
 
@@ -472,11 +535,13 @@ local matugenQueueHead = 1
 local matugenProcessedSinceSync = 0
 
 local function pumpMatugenQueue(token: number, cache: { [string]: any }, deck: { any })
+  if pickerPanelOpen then
+    return
+  end
   if not (type(noctalia.commandExists) == "function" and noctalia.commandExists("matugen")) then
     return
   end
-  -- When picker panel is open, throttle background processing so animation stays 60fps smooth
-  local maxJobs = pickerPanelOpen and 0 or MAX_MATUGEN_JOBS
+  local maxJobs = MAX_MATUGEN_JOBS
   while matugenActive < maxJobs and matugenQueueHead <= #matugenQueue do
     if token ~= scanToken then return end
     local item = matugenQueue[matugenQueueHead]
@@ -493,7 +558,7 @@ local function pumpMatugenQueue(token: number, cache: { [string]: any }, deck: {
 
       matugenActive = matugenActive + 1
       noctalia.runAsync({ "matugen", "image", inputPath, "--source-color-index", "0", "--dry-run", "-j", "hex", "-q" }, function(res)
-        matugenActive = matugenActive - 1
+        matugenActive = math.max(0, matugenActive - 1)
         if token ~= scanToken then return end
         if res and res.exitCode == 0 and res.stdout and res.stdout ~= "" then
           local ok, data = pcall(noctalia.json.decode, res.stdout)
@@ -533,12 +598,19 @@ local function pumpMatugenQueue(token: number, cache: { [string]: any }, deck: {
               cache[p].mtime = item.mtime
               cache[p].size = item.size
               cacheNeedsSave = true
+
+              noctalia.state.set("palette_update", {
+                path = p,
+                colors = m3,
+                sourceColor = sc or prim,
+                hueKey = item.hueKey,
+              })
             end
           end
         end
 
         matugenProcessedSinceSync = matugenProcessedSinceSync + 1
-        if matugenProcessedSinceSync >= 20 then
+        if matugenProcessedSinceSync >= 15 then
           matugenProcessedSinceSync = 0
           scheduleCacheAndStateSync(deck, cache, false)
         end
@@ -568,12 +640,16 @@ local function pumpThumbQueue(token: number, cache: { [string]: any }, deck: { a
       tool = "magick"
     end
   end
-  if not tool then return end
+  if not tool then
+    pumpMatugenQueue(token, cache, deck)
+    return
+  end
 
   local checkedInTick = 0
-  local MAX_CHECK_PER_TICK = 30
+  local MAX_CHECK_PER_TICK = 12
+  local maxThumbJobs = pickerPanelOpen and 1 or MAX_THUMB_JOBS
 
-  while thumbActive < MAX_THUMB_JOBS and thumbQueueHead <= #thumbQueue do
+  while thumbActive < maxThumbJobs and thumbQueueHead <= #thumbQueue do
     if token ~= scanToken then return end
     local item = thumbQueue[thumbQueueHead]
     thumbQueueHead = thumbQueueHead + 1
@@ -605,7 +681,7 @@ local function pumpThumbQueue(token: number, cache: { [string]: any }, deck: { a
       end
 
       noctalia.runAsync(argv, function(res)
-        thumbActive = thumbActive - 1
+        thumbActive = math.max(0, thumbActive - 1)
         if token ~= scanToken then return end
         if res and res.exitCode == 0 and noctalia.fileExists(cardThumb) then
           item.thumb = cardThumb
@@ -616,6 +692,11 @@ local function pumpThumbQueue(token: number, cache: { [string]: any }, deck: { a
           cache[p].mtime = item.mtime
           cache[p].size = item.size
           cacheNeedsSave = true
+          noctalia.state.set("thumb_update", {
+            path = p,
+            thumb = cardThumb,
+            nonce = noctalia.nowMs(),
+          })
         end
         pumpThumbQueue(token, cache, deck)
       end)
@@ -628,17 +709,18 @@ local function pumpThumbQueue(token: number, cache: { [string]: any }, deck: { a
     if cacheNeedsSave then
       scheduleCacheAndStateSync(deck, cache, true)
     end
+    pumpMatugenQueue(token, cache, deck)
   end
 end
 
 local function processScanOutput(stdout: string, dirs: {string}, primaryDir: string, token: number, hasStats: boolean)
   if token ~= scanToken then return end
 
-  local cache = loadCache()
   local rawLines = string.split(stdout, "\n")
   local seen = {}
   local results = {}
   matugenQueue = {}
+  matugenQueueHead = 1
   thumbQueue = {}
   thumbQueueHead = 1
 
@@ -652,8 +734,10 @@ local function processScanOutput(stdout: string, dirs: {string}, primaryDir: str
     })
   end
 
+  local cache: { [string]: any } = {}
+  local cacheLoaded = false
   local lineIdx = 1
-  local BATCH_SIZE = 50
+  local BATCH_SIZE = 15
 
   local function fastFileName(p: string): string
     for j = #p, 1, -1 do
@@ -688,6 +772,12 @@ local function processScanOutput(stdout: string, dirs: {string}, primaryDir: str
 
   local function processBatch()
     if token ~= scanToken then return end
+    if not cacheLoaded then
+      cache = loadCache()
+      cacheLoaded = true
+      noctalia.runAsync({ "true" }, processBatch)
+      return
+    end
 
     local endIdx = math.min(#rawLines, lineIdx + BATCH_SIZE - 1)
     for i = lineIdx, endIdx do
@@ -777,23 +867,29 @@ local function processScanOutput(stdout: string, dirs: {string}, primaryDir: str
                 isLight = cached.isLight
               end
 
-              local key = hashKey(filePath)
-              local cardThumb = THUMB_DIR .. "/" .. key .. "_card.webp"
-
-              local hasCardThumb = noctalia.fileExists(cardThumb)
-              local effectiveThumb = (hasCardThumb and cardThumb) or (thumb and thumb ~= filePath and thumb) or nil
+              local effectiveThumb = (thumb and thumb ~= filePath and thumb) or nil
+              if not effectiveThumb then
+                local key = hashKey(filePath)
+                local cardThumb = THUMB_DIR .. "/" .. key .. "_card.webp"
+                if noctalia.fileExists(cardThumb) then
+                  effectiveThumb = cardThumb
+                end
+              end
 
               local item: { [string]: any } = {
                 path = filePath,
                 name = fileName,
+                base = base,
+                ext = (ext ~= "" and ext) or "IMG",
                 lowerName = string.lower(fileName),
                 mtime = mtime,
                 size = size,
               }
-              if colors and colors.primary ~= "#80a9ff" then
+              local hasRealColors = (colors and colors.primary and colors.primary ~= "#80a9ff")
+              if hasRealColors then
                 item.colors = colors
                 item.sourceColor = sourceColor
-                item.hueKey = hueKey
+                item.hueKey = hueKey or calcHueKey(sourceColor or colors.primary)
               end
               if topLum ~= nil then item.topLum = topLum end
               if isLight ~= nil then item.isLight = isLight end
@@ -811,6 +907,9 @@ local function processScanOutput(stdout: string, dirs: {string}, primaryDir: str
               if not effectiveThumb then
                 table.insert(thumbQueue, item)
               end
+              if not hasRealColors then
+                table.insert(matugenQueue, item)
+              end
             end
           end
         end
@@ -827,7 +926,6 @@ local function processScanOutput(stdout: string, dirs: {string}, primaryDir: str
     noctalia.runAsync({ "true" }, function()
       if token ~= scanToken then return end
 
-      -- results is ALREADY sorted Name A-Z natively by sort -f in find command!
       local selectedDeck = results
       activeDeckInMemory = selectedDeck
       activeCacheInMemory = cache
@@ -841,61 +939,16 @@ local function processScanOutput(stdout: string, dirs: {string}, primaryDir: str
         isScanning = false
         noctalia.state.set("is_scanning", false)
 
-        -- Save deck to disk asynchronously in background so it never blocks or exceeds CPU budget
         noctalia.runAsync({ "true" }, function()
           local ok, deckJson = pcall(noctalia.json.encode, selectedDeck)
           if ok and deckJson then
-            writeTextFile(DECK_FILE, deckJson)
+            noctalia.runAsync({ "true" }, function()
+              writeTextFile(DECK_FILE, deckJson)
+            end)
           end
         end)
 
-        -- Generate and broadcast newestDeck and colourDeck in decoupled async ticks
-        local isSub = if scanSubdirs == nil then true else (scanSubdirs == true or scanSubdirs == "true" or scanSubdirs == 1)
-        local depthPart = if not isSub then "-maxdepth 1 " else ""
-        local newestCmd = { "sh", "-c", [[find -L "$@" ]] .. depthPart .. [[\( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.webp" -o -iname "*.gif" -o -iname "*.bmp" -o -iname "*.avif" \) -printf "%T@\t%p\n" | sort -rn | cut -f 2]], "sh" }
-        for _, d in ipairs(dirs) do table.insert(newestCmd, d) end
-
-        noctalia.runAsync(newestCmd, function(nRes)
-          if token ~= scanToken then return end
-          if nRes and nRes.exitCode == 0 and nRes.stdout and nRes.stdout ~= "" then
-            local byPath = {}
-            for _, it in ipairs(selectedDeck) do
-              if it.path then byPath[it.path] = it end
-            end
-            local newestDeck = {}
-            local pLines = string.split(nRes.stdout, "\n")
-            for _, p in ipairs(pLines) do
-              local it = byPath[p]
-              if it then table.insert(newestDeck, it) end
-            end
-            if #newestDeck > 0 then
-              noctalia.state.set("wallpapers_newest", newestDeck)
-            end
-          end
-
-          -- Decoupled async tick for colour deck (only items with hueKey, safe instruction count):
-          noctalia.runAsync({ "true" }, function()
-            if token ~= scanToken then return end
-            local withHue = {}
-            local withoutHue = {}
-            for _, it in ipairs(selectedDeck) do
-              if it.hueKey then
-                table.insert(withHue, it)
-              else
-                table.insert(withoutHue, it)
-              end
-            end
-            if #withHue > 1 then
-              table.sort(withHue, function(a, b) return (a.hueKey or 0) < (b.hueKey or 0) end)
-            end
-            for _, it in ipairs(withoutHue) do
-              table.insert(withHue, it)
-            end
-            noctalia.state.set("wallpapers_colour", withHue)
-          end)
-        end)
-
-        -- Start thumbnail generator for items without thumbnails
+        -- Start thumbnail generator (which chains into Matugen palette extraction)
         noctalia.runAsync({ "true" }, function()
           if token ~= scanToken then return end
           pumpThumbQueue(token, cache, selectedDeck)
@@ -955,7 +1008,6 @@ local function scanWallpapers(targetDir: any?)
     end
 
     if not res or res.exitCode ~= 0 or not res.stdout or res.stdout == "" then
-      -- Fallback to standard find without -printf if -printf is unsupported
       local fallbackArgs = { "find", "-L" }
       for _, d in ipairs(dirs) do
         table.insert(fallbackArgs, d)
@@ -1020,9 +1072,6 @@ local function executeShellTemplate(template: string, path: string, outputTarget
   if not template or template == "" then return end
   local out = outputTarget or "*"
 
-  -- Replace placeholder patterns with shell positional parameters $1 and $2.
-  -- Both quoted and unquoted variations are mapped to "$1" / "$2" so values are
-  -- passed safely via the argv array to sh -c without command substitution or injection.
   local script = template
   script = string.gsub(script, '"{path}"', '"$1"')
   script = string.gsub(script, "'{path}'", '"$1"')
@@ -1042,7 +1091,6 @@ local function applyWallpaper(path: string, outputTarget: string?)
     local cmd = noctalia.getConfig("custom_command") or ""
     executeShellTemplate(cmd, path, outputTarget)
   else
-    -- Native mode
     if outputTarget and outputTarget ~= "*" and outputTarget ~= "ALL" then
       noctalia.setWallpaperEnabled(outputTarget, true)
       noctalia.setWallpaper(outputTarget, path)
@@ -1110,17 +1158,9 @@ local function prunePreviewCache()
   end
 
   if #entries > 1 then
-    local keys = {}
-    for i, it in ipairs(entries) do
-      keys[i] = string.format("%012d:%d", it.mtime or 0, i)
-    end
-    table.sort(keys)
-    local sorted = {}
-    for i, k in ipairs(keys) do
-      local idx = tonumber(string.match(k, ":(%d+)"))
-      sorted[i] = entries[idx]
-    end
-    entries = sorted
+    table.sort(entries, function(a, b)
+      return (a.mtime or 0) < (b.mtime or 0)
+    end)
   end
 
   local targetBytes = math.floor(maxBytes * 0.75)
@@ -1160,13 +1200,7 @@ local function searchWallhaven(query: string, pageNum: number, append: boolean?,
   end
   filters = filters or {}
 
-  local apiKey = noctalia.getConfig("wallhaven_api_key") or ""
-  if apiKey == "" and type(noctalia.getSetting) == "function" then
-    local pcallOk, officialKey = pcall(noctalia.getSetting, "plugin_settings.noctalia/wallhaven.api_key")
-    if pcallOk and type(officialKey) == "string" and officialKey ~= "" then
-      apiKey = officialKey
-    end
-  end
+  local apiKey = noctalia.getConfig("wallhaven_api_key") or "" 
 
   local categories = filters.categories or noctalia.getConfig("wallhaven_categories") or "111"
   local purity = filters.purity or noctalia.getConfig("wallhaven_purity") or "100"
@@ -1260,8 +1294,8 @@ local function searchWallhaven(query: string, pageNum: number, append: boolean?,
       return
     end
 
-    local data = noctalia.json.decode(resp.body)
-    if not data or not data.data then
+    local ok, data = pcall(noctalia.json.decode, resp.body)
+    if not ok or not data or not data.data then
       noctalia.state.set("wallhaven_loading", false)
       noctalia.state.set("wallhaven_error", {
         type = "invalid_response",
@@ -1297,6 +1331,7 @@ local function searchWallhaven(query: string, pageNum: number, append: boolean?,
       table.insert(results, {
         id = item.id,
         name = "wallhaven-" .. item.id,
+        base = "wallhaven-" .. item.id,
         path = item.path,
         fullUrl = item.path,
         thumbUrl = thumbUrl,
@@ -1314,7 +1349,7 @@ local function searchWallhaven(query: string, pageNum: number, append: boolean?,
           source_color = primaryCol,
         },
         sourceColor = primaryCol,
-        hueKey = 0.5,
+        hueKey = calcHueKey(primaryCol),
         kind = "IMG",
         ext = string.upper(item.file_type and string.match(item.file_type, "/([^/]+)$") or "JPG"),
       })
@@ -1467,7 +1502,7 @@ noctalia.state.watch("deck_command", function(cmd)
     isScanning = false
     scanWallpapers(cmd.dir)
   elseif action == "toggle_favorite" and cmd.fileName then
-    toggleFavorite(cmd.fileName)
+    toggleFavorite(cmd.fileName, cmd.path)
   elseif action == "wallhaven_search" then
     searchWallhaven(cmd.query or "", cmd.page or 1, cmd.append == true, cmd.filters)
   elseif action == "wallhaven_apply" and cmd.item then
@@ -1478,7 +1513,10 @@ noctalia.state.watch("deck_command", function(cmd)
   elseif action == "panel_state" then
     pickerPanelOpen = (cmd.open == true)
     if not pickerPanelOpen and #activeDeckInMemory > 0 then
-      pumpMatugenQueue(scanToken, activeCacheInMemory, activeDeckInMemory)
+      if cacheNeedsSave then
+        scheduleCacheAndStateSync(activeDeckInMemory, activeCacheInMemory, true)
+      end
+      pumpThumbQueue(scanToken, activeCacheInMemory, activeDeckInMemory)
     end
   elseif action == "prune_cache" then
     noctalia.runAsync({ "true" }, prunePreviewCache)
@@ -1496,6 +1534,11 @@ function onEnable()
   noctalia.runAsync({ "true" }, function()
     prunePreviewCache()
   end)
+end
+
+function onOutputsChanged()
+  detectActiveWallpaper()
+  noctalia.state.set("outputs_changed", noctalia.nowMs())
 end
 
 function onConfigChanged()
@@ -1520,7 +1563,7 @@ function onIpc(event: string, payload: string?)
   elseif event == "revert" then
     revertPreview()
   elseif event == "toggle_favorite" and payload then
-    toggleFavorite(payload)
+    toggleFavorite(payload, nil)
   elseif event == "prune_cache" then
     prunePreviewCache()
   elseif event == "clear_preview_cache" then
