@@ -124,10 +124,14 @@ def process_identity(pid):
         return None
 
 
+# NixOS wraps the binary, so the running process is named .obs-wrapped.
+OBS_PROCESS_NAMES = r"obs|\.obs-wrapped"
+
+
 def obs_running():
     return (
         subprocess.run(
-            ["pgrep", "-x", "obs"], check=False, stdout=subprocess.DEVNULL
+            ["pgrep", "-x", OBS_PROCESS_NAMES], check=False, stdout=subprocess.DEVNULL
         ).returncode
         == 0
     )
