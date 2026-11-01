@@ -12,30 +12,28 @@ Configure Logitech MX Master 3/3S thumb-button gestures and per-window profiles 
 ## Requirements
 
 - Niri and `niri` on `PATH`. This plugin currently supports Niri for window focus and action dispatch.
-- Noctalia Shell, which hosts the settings panel, status display, and notifications.
-- The [`nnmxd` service](https://github.com/uheplm/nnmxd), required to read mouse input and apply profiles. Install it automatically with the panel's installation wizard or manually using the instructions in the [nnmxd README](https://github.com/uheplm/nnmxd#readme).
+- The `noctalia` CLI from Noctalia Shell, which hosts the settings panel, status display, and notifications.
+- The [`nnmxd` service](https://github.com/uheplm/nnmxd), required to read mouse input and apply profiles. Install it manually using the instructions below and in the [nnmxd README](https://github.com/uheplm/nnmxd#readme).
+- `install`, `systemctl`, and `journalctl` for installing the locally built service files, controlling the `nnmxd` user service, and viewing its logs.
 - A user systemd manager and access for your user to the mouse's evdev device and `/dev/uinput`. DPI control also needs access to the receiver's HID++ `/dev/hidraw*` node. See [nnmxd input permissions](https://github.com/uheplm/nnmxd#input-permissions).
 
 Other compositors and shells are not supported by this plugin. `nnmxd` can run with custom configuration and shell commands, but integrations other than Niri and Noctalia have not been implemented.
 
 ## Installation
 
-Install the plugin from the Noctalia community catalog. The panel checks whether `nnmxd` is installed and offers to install it if missing.
-
-The optional automatic installation wizard:
-
-1. Clones [`uheplm/nnmxd`](https://github.com/uheplm/nnmxd) to `~/.local/src/nnmxd`.
-2. Runs `make install` to build the service locally and install it to `~/.local/bin`.
-3. Installs, enables, and starts the `nnmxd.service` user unit.
-
-The wizard does not use `sudo`; Go downloads the build dependencies. Review the source and configure device permissions before starting the service.
-
-To install manually, follow the [nnmxd installation guide](https://github.com/uheplm/nnmxd#install):
+Install the plugin from the Noctalia community catalog. If `nnmxd` is missing, the panel guides you through building it yourself. Review and run these commands in a terminal:
 
 ```sh
+mkdir -p ~/.local/src
 git clone https://github.com/uheplm/nnmxd.git ~/.local/src/nnmxd
-make -C ~/.local/src/nnmxd install
+make -C ~/.local/src/nnmxd build
 ```
+
+If you already cloned the repository to that location, skip the `git clone` command and build the existing checkout.
+
+The manual build requires Git, Make, and Go. Review the [nnmxd source](https://github.com/uheplm/nnmxd) before building. Once the local build is detected, choose **Configure service** in the panel: it copies the built binary and service unit into your user directories, reloads systemd, and enables and starts `nnmxd.service`. This does not use elevated privileges. Configure device permissions before running the service.
+
+For alternative install methods and service details, see the [nnmxd installation guide](https://github.com/uheplm/nnmxd#install).
 
 ## Usage
 
@@ -92,21 +90,16 @@ For the complete configuration schema, service lifecycle, runtime status fields,
 
 ## Settings
 
-The `modifier` bar widget can be configured to **Hide when inactive**. When visible, it shows `META` while a modifier is latched; clicking the widget opens the MX Mouse panel.
+| Setting | Type | Default | Description |
+| --- | --- | --- | --- |
+| `hide_when_off` | `bool` | `true` | Hide the `modifier` bar widget when no modifier is latched. When visible, it shows `META` while latched; clicking it opens the MX Mouse panel. |
 
 ## Notes
 
 - `nnmxd` grabs the physical mouse while running and forwards ordinary pointer events through a virtual uinput clone. Gesture input is consumed while the thumb button is held.
 - DPI is set using the mouse's native HID++ adjustable-DPI feature; Solaar, LogiOps, and logid are not required. Device support varies, and onboard profile settings can override a host-set DPI.
 - The `modifier` widget reads the daemon's runtime status file. `nnmxd` itself has no Waybar-specific output or integration.
-- The service and action dispatch run locally. The automatic installer needs network access to clone the repository and download Go modules.
-
-## Development
-
-```sh
-make test
-make build
-```
+- The plugin does not clone or build nnmxd. It installs the binary and service unit from the local source/build paths after you build them yourself. The manual commands above require network access to clone the repository and download Go modules.
 
 ## License
 

@@ -1,12 +1,12 @@
 id = "ffngs/mxmouse"
 name = "MX Mouse"
-version = "1.0.13"
+version = "1.0.14"
 plugin_api = 43
 author = "ffngs"
 license = "MIT"
 icon = "mouse"
 description = "Configure MX Master gestures and per-window presets for Niri."
-dependencies = ["niri"]
+dependencies = ["niri", "nnmxd", "noctalia", "install", "systemctl", "journalctl"]
 tags = ["niri", "utility", "panel", "bar"]
 
 [[widget]]

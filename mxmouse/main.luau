@@ -63,9 +63,9 @@ local verticalScrollInput = "100"
 local horizontalScrollInput = "100"
 local message = ""
 local saving = false
-local installing = false
-local installStep = ""
-local installOutput = ""
+local configuringService = false
+local localSourceAvailable = false
+local localBuildAvailable = false
 local activePage = "overview"
 local nextPresetNumber = 0
 local selectedActionKey = "left"
@@ -84,8 +84,6 @@ local notifiedServiceError = ""
 local pendingConfigGeneration = nil
 local load_status
 local render
-
-local DAEMON_REPOSITORY = "https://github.com/uheplm/nnmxd.git"
 
 local function default_config()
     local defaults = noctalia.json.decode(noctalia.json.encode(DEFAULTS))
@@ -276,9 +274,17 @@ end
 local function check_daemon()
     daemonInstalled = nil
     serviceEnabled = nil
+    localSourceAvailable = false
+    localBuildAvailable = false
     render()
-    local daemonCommand = "nnmxd"
     local home = noctalia.getenv("HOME")
+    if type(home) == "string" and home ~= "" then
+        local sourcePath = home .. "/.local/src/nnmxd"
+        localSourceAvailable = noctalia.fileExists(sourcePath .. "/Makefile")
+        localBuildAvailable = noctalia.fileExists(sourcePath .. "/bin/nnmxd")
+            and noctalia.fileExists(sourcePath .. "/configs/nnmxd.service")
+    end
+    local daemonCommand = "nnmxd"
     if type(home) == "string" and home ~= "" and noctalia.fileExists(home .. "/.local/bin/nnmxd") then
         daemonCommand = home .. "/.local/bin/nnmxd"
     end
@@ -299,132 +305,116 @@ local function check_daemon()
     end
 end
 
-local function append_install_output(label, result)
-    local chunks = {}
-    if type(result.stdout) == "string" and result.stdout ~= "" then
-        table.insert(chunks, result.stdout)
-    end
-    if type(result.stderr) == "string" and result.stderr ~= "" then
-        table.insert(chunks, result.stderr)
-    end
-    if #chunks > 0 then
-        installOutput ..= `\n$ {label}\n{table.concat(chunks, "\n")}`
-        if #installOutput > 6000 then
-            installOutput = string.sub(installOutput, #installOutput - 5999)
-        end
-    end
-end
-
-local function install_failed(label, result)
-    installing = false
-    installStep = ""
-    local detail = result.stderr ~= "" and result.stderr
-        or result.stdout ~= "" and result.stdout
-    if detail == nil or detail == "" then
-        detail = if result.timedOut then "command timed out" else `exit status {result.exitCode}`
-    end
-    message = `nnmxd installation failed during {label}: {detail}`
-    render()
-end
-
-local function install_nnmxd()
-    if installing then
+local function configure_service()
+    if configuringService then
         return
     end
     local home = noctalia.getenv("HOME")
     if type(home) ~= "string" or home == "" then
-        message = "Could not resolve HOME; cannot install nnmxd."
+        message = "Could not resolve HOME; cannot configure nnmxd.service."
         render()
         return
     end
+
     local sourcePath = home .. "/.local/src/nnmxd"
-    local sourceParent = home .. "/.local/src"
-    installing = true
-    installOutput = ""
-    installStep = "Preparing source directory"
-    message = "The wizard will clone the source, build nnmxd, install its user unit, and enable the service."
+    local installBuild = localBuildAvailable
+    if installBuild and not localBuildAvailable then
+        message = "Build nnmxd from the reviewed source first, then check again."
+        render()
+        return
+    end
+
+    configuringService = true
+    message = if installBuild then "Installing the locally built daemon and service unit..."
+        else "Reloading the user service manager..."
     render()
 
-    local function run_install()
-        local function install_project()
-            installStep = "Building and installing nnmxd"
-            render()
-            local started = noctalia.runAsync({ "make", "-C", sourcePath, "install" }, function(result)
-                append_install_output("make install", result)
-                if result.timedOut or result.exitCode ~= 0 then
-                    install_failed("make install", result)
-                    return
-                end
-
-                installStep = "Verifying installation"
-                render()
-                local binary = home .. "/.local/bin/nnmxd"
-                local verifyStarted = noctalia.runAsync({ binary, "--version" }, function(verifyResult)
-                    append_install_output("nnmxd --version", verifyResult)
-                    if verifyResult.timedOut or verifyResult.exitCode ~= 0 then
-                        install_failed("verification", verifyResult)
-                        return
-                    end
-                    installing = false
-                    installStep = ""
-                    daemonInstalled = true
-                    message = "nnmxd installed; its user service was enabled and started."
-                    check_service()
-                    render()
-                end, 3000)
-                if not verifyStarted then
-                    installing = false
-                    installStep = ""
-                    daemonInstalled = false
-                    message = "Installation finished, but the nnmxd binary could not be started for verification."
-                    render()
-                end
-            end, 300000)
-            if not started then
-                installing = false
-                installStep = ""
-                message = "Could not start make to build nnmxd."
-                render()
-            end
-        end
-
-        if noctalia.fileExists(sourcePath .. "/Makefile") then
-            install_project()
-            return
-        end
-
-        installStep = "Cloning nnmxd source"
+    local function reload_and_enable()
+        message = "Reloading the user service manager..."
         render()
-        local cloneStarted = noctalia.runAsync({
-            "git", "clone", "--depth", "1", DAEMON_REPOSITORY, sourcePath,
-        }, function(result)
-            append_install_output("git clone", result)
-            if result.timedOut or result.exitCode ~= 0 then
-                install_failed("git clone", result)
+        local reloadStarted = noctalia.runAsync({ "systemctl", "--user", "daemon-reload" }, function(reloadResult)
+            if reloadResult.timedOut or reloadResult.exitCode ~= 0 then
+                configuringService = false
+                local detail = reloadResult.stderr ~= "" and reloadResult.stderr
+                    or reloadResult.stdout ~= "" and reloadResult.stdout
+                    or `exit status {reloadResult.exitCode}`
+                message = `Could not reload the user service manager: {detail}`
+                render()
                 return
             end
-            install_project()
-        end, 120000)
-        if not cloneStarted then
-            installing = false
-            installStep = ""
-            message = "Could not start git to clone nnmxd."
+
+            message = "Enabling and starting nnmxd.service..."
+            render()
+            local enableStarted = noctalia.runAsync({
+                "systemctl", "--user", "enable", "--now", "nnmxd.service",
+            }, function(enableResult)
+                configuringService = false
+                if enableResult.timedOut or enableResult.exitCode ~= 0 then
+                    local detail = enableResult.stderr ~= "" and enableResult.stderr
+                        or enableResult.stdout ~= "" and enableResult.stdout
+                        or `exit status {enableResult.exitCode}`
+                    message = `Could not enable and start nnmxd.service: {detail}`
+                    render()
+                    return
+                end
+                message = "nnmxd.service is enabled and started."
+                check_daemon()
+            end, 10000)
+            if not enableStarted then
+                configuringService = false
+                message = "Could not start systemctl to enable nnmxd.service."
+                render()
+            end
+        end, 10000)
+        if not reloadStarted then
+            configuringService = false
+            message = "Could not start systemctl to reload the user service manager."
             render()
         end
     end
 
-    local mkdirStarted = noctalia.runAsync({ "mkdir", "-p", sourceParent }, function(result)
-        append_install_output("mkdir source directory", result)
-        if result.timedOut or result.exitCode ~= 0 then
-            install_failed("source directory setup", result)
+    if not installBuild then
+        reload_and_enable()
+        return
+    end
+
+    local binaryStarted = noctalia.runAsync({
+        "install", "-Dm0755", sourcePath .. "/bin/nnmxd", home .. "/.local/bin/nnmxd",
+    }, function(binaryResult)
+        if binaryResult.timedOut or binaryResult.exitCode ~= 0 then
+            configuringService = false
+            local detail = binaryResult.stderr ~= "" and binaryResult.stderr
+                or binaryResult.stdout ~= "" and binaryResult.stdout
+                or `exit status {binaryResult.exitCode}`
+            message = `Could not install the locally built nnmxd binary: {detail}`
+            render()
             return
         end
-        run_install()
-    end, 5000)
-    if not mkdirStarted then
-        installing = false
-        installStep = ""
-        message = "Could not create the nnmxd source directory."
+
+        local unitStarted = noctalia.runAsync({
+            "install", "-Dm0644", sourcePath .. "/configs/nnmxd.service",
+            home .. "/.config/systemd/user/nnmxd.service",
+        }, function(unitResult)
+            if unitResult.timedOut or unitResult.exitCode ~= 0 then
+                configuringService = false
+                local detail = unitResult.stderr ~= "" and unitResult.stderr
+                    or unitResult.stdout ~= "" and unitResult.stdout
+                    or `exit status {unitResult.exitCode}`
+                message = `Could not install nnmxd.service: {detail}`
+                render()
+                return
+            end
+            reload_and_enable()
+        end, 10000)
+        if not unitStarted then
+            configuringService = false
+            message = "Could not start install to configure nnmxd.service."
+            render()
+        end
+    end, 10000)
+    if not binaryStarted then
+        configuringService = false
+        message = "Could not start install to configure the nnmxd binary."
         render()
     end
 end
@@ -1568,39 +1558,60 @@ render = function()
             then "Checking the nnmxd user service..."
             elseif daemonInstalled == true
             then "The daemon is installed, but its user service is not enabled."
-            else "Install the local daemon to start configuring your mouse."
+            elseif localBuildAvailable
+            then "Local nnmxd build found; configure the user service."
+            else "Install nnmxd manually to start configuring your mouse."
         table.insert(setupContent, ui.column({ gap = 8, padding = 18, fill = "surface_container", radius = 16 }, {
             ui.label({ text = setupStatus, fontSize = 17, fontWeight = "bold" }),
             ui.label({
-                text = "The setup wizard clones nnmxd from GitHub, builds it on this machine, and installs it as a user service. It requires git, make, Go, and input-device permissions. No sudo is used.",
+                text = if daemonInstalled == false and not localBuildAvailable and localSourceAvailable
+                    then "The nnmxd source is present. Review it and run its Makefile yourself. Afterward, this panel can install the local build and configure the service. The build requires Make, Go, and input-device permissions."
+                    else if daemonInstalled == false and not localBuildAvailable
+                    then "Review the nnmxd source, clone it, and run its Makefile yourself. Afterward, this panel can install the local build and configure the service. The build requires Git, Make, Go, and input-device permissions."
+                    else if localBuildAvailable
+                    then "The panel can install your local build and service unit, then reload the user service manager and enable and start nnmxd.service. No elevated privileges are used."
+                    else "The panel can reload the user service manager and enable and start nnmxd.service. No elevated privileges are used.",
                 color = "on_surface_variant",
-                maxLines = 4,
+                maxLines = 5,
             }),
         }))
-        if daemonInstalled == false or serviceEnabled == false then
-            table.insert(setupContent, ui.row({ gap = 8 }, {
-                ui.button({
-                    text = if installing then installStep else "Install nnmxd",
-                    glyph = if installing then "loader" else "download",
-                    enabled = not installing,
-                    variant = "primary",
-                    onClick = install_nnmxd,
+        if daemonInstalled == false and not localBuildAvailable then
+            table.insert(setupContent, ui.column({ gap = 6, padding = 12, fill = "surface_container_high", radius = 12 }, {
+                ui.label({
+                    text = if localSourceAvailable then "Build the reviewed local source in a terminal:"
+                        else "Clone and build nnmxd in a terminal. Skip the clone command if you already have this checkout:",
+                    fontWeight = "semibold",
                 }),
-                ui.button({
-                    text = "Check again",
-                    glyph = "refresh",
-                    enabled = not installing,
-                    onClick = check_daemon,
+                ui.label({
+                    text = if localSourceAvailable
+                        then "make -C ~/.local/src/nnmxd build"
+                        else "mkdir -p ~/.local/src\ngit clone https://github.com/uheplm/nnmxd.git ~/.local/src/nnmxd\nmake -C ~/.local/src/nnmxd build",
+                    fontFamily = "monospace",
+                    color = "on_surface_variant",
                 }),
             }))
+        end
+        if daemonInstalled == false or serviceEnabled == false then
+            local setupButtons = {}
+            if localBuildAvailable or (daemonInstalled == true and serviceEnabled == false) then
+                table.insert(setupButtons, ui.button({
+                    text = if configuringService then "Configuring service..." else "Configure service",
+                    glyph = if configuringService then "loader" else "play",
+                    enabled = not configuringService,
+                    variant = "primary",
+                    onClick = configure_service,
+                }))
+            end
+            table.insert(setupButtons, ui.button({
+                text = "Check again",
+                glyph = "refresh",
+                enabled = not configuringService,
+                onClick = check_daemon,
+            }))
+            table.insert(setupContent, ui.row({ gap = 8 }, setupButtons))
         end
         if message ~= "" then
             table.insert(setupContent, ui.label({ text = message, color = "on_surface_variant" }))
-        end
-        if installOutput ~= "" then
-            table.insert(setupContent, ui.scroll({ flexGrow = 1, gap = 4 }, {
-                ui.label({ text = installOutput, color = "on_surface_variant" }),
-            }))
         end
         panel.render(ui.column({ flexGrow = 1, gap = 14, padding = 18 }, setupContent))
         return
