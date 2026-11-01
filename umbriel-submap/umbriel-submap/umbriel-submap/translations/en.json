@@ -1,0 +1,14 @@
+{
+  "settings": {
+    "enable_osd": {
+      "label": "Enable OSD"
+    },
+    "show_glyph": {
+      "label": "Show Glyph"
+    },
+    "custom_labels": {
+      "label": "Custom Labels",
+      "description": "Key-value pairs mapping submap to its display name"
+    }
+  }
+}

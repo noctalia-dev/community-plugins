@@ -1,0 +1,36 @@
+id          = "ezio-noir/umbriel-submap"
+name        = "Umbriel Submap"
+version     = "1.0.0"
+author      = "ezio-noir"
+license     = "MIT"
+icon        = "keyboard"
+plugin_api  = 43
+description = "Display Umbriel submap as widget or OSD"
+tags        = [ "widget", "service", "indicator", "umbriel" ]
+
+[[setting]]
+key       = "enable_osd"
+type      = "bool"
+label_key = "settings.enable_osd.label"
+default   = false
+
+[[widget]]
+id    = "widget"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key       = "show_glyph"
+  type      = "bool"
+  label_key = "settings.show_glyph.label"
+  default   = false
+
+  [[widget.setting]]
+  key       = "custom_labels"
+  type      = "string_map"
+  label_key = "settings.custom_labels.label"
+  description_key = "settings.custom_labels.description"
+  default   = {}
+
+[[service]]
+id    = "service"
+entry = "service.luau"
