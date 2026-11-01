@@ -25,15 +25,39 @@ Then add the **launcher** widget from Noctalia's widget picker.
 
 ## Requirements
 
+The plugin works on **Hyprland 0.56 or newer only**: the window management uses the
+Hyprland Lua API (`hl.dsp.exec_cmd`) to float and place every window, and there is no
+Niri or Sway backend.
+
 The following executables must be installed and available on `PATH`:
 
-- `kitty` — the terminal the plugin launches (any other terminal can be set instead).
-- `hyprland` — the compositor; the plugin uses the Hyprland 0.56 Lua API to float and
-  place every window.
-- `grim` — used to take the preview screenshot of an open window. Only needed for the
-  card previews; without it the cards fall back to a static or mock preview.
-- `python3` with `python-pillow` — used to crop those screenshots and to extract the
-  frames of an animated preview. Also only needed for the card previews.
+| Executable | Package | What it is used for |
+| --- | --- | --- |
+| `kitty` | `kitty` | The terminal the plugin launches (any other terminal can be set instead). |
+| `hyprctl` | `hyprland` | Lists, moves, resizes, focuses and closes the windows. |
+| `grim` | `grim` | Takes the preview screenshot of an open window. Only needed for the card previews; without it the cards fall back to a static or mock preview. |
+| `python3` | `python` | Crops those screenshots and extracts the frames of an animated preview. Also only needed for the card previews. |
+
+`python3` needs Pillow (`python-pillow`) for that work. The plugin never installs
+anything: every dependency has to be there before the plugin is enabled.
+
+### The bundled cards
+
+A fresh install starts with six cards, one per default command. Each card runs its own
+program, so the programs are optional in the sense that the plugin works without them —
+but the card whose program is missing does nothing when you click it.
+
+| Card | Command | Package |
+| --- | --- | --- |
+| `cava` | `cava` | `cava` |
+| `cbonsai` | `cbonsai -l -i` | `cbonsai` |
+| `unimatrix` | `unimatrix -s 96 -l o` | `unimatrix` (`unimatrix-git` in the AUR) |
+| `pipes` | `pipes.sh` | `pipes.sh` |
+| `btop` | `btop` | `btop` |
+| `lavat` | `lavat -k green -c black` | `lavat` |
+
+Two names differ from the command they run: `hyprctl` comes from the `hyprland`
+package, and the `pipes` card runs `pipes.sh`.
 
 ## Usage
 
@@ -264,8 +288,10 @@ lines are still reviewed before exiting.
 
 `thumbnail.webp` was exported with the
 [official thumbnail generator](https://assets.noctalia.dev/plugins/thumbnail-generator.html) from
-`screenshots/panel.webp`, with the title `Terminal Widgets`, the tag `Terminal · Widget` and the
-`iris` accent.
+`screenshots/panel.webp`, with the title `Terminal Widgets`, the tag `Hyprland 0.56+ · Widget`,
+the description `Hyprland 0.56+ only. Terminal apps in floating windows, with previews and
+rotation` and the `iris` accent. The label is in the thumbnail on purpose: the plugin only
+works on Hyprland 0.56+, and that has to be visible before installing it.
 
 ### Implementation notes
 

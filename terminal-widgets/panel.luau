@@ -109,6 +109,7 @@ local editorCard
 local launch
 local startEditing
 local deleteWidget
+local syncFrameTicks
 local saveForm
 local refreshWindows
 local captureThumbs
@@ -1663,11 +1664,16 @@ render = function()
 
   -- Las rutas en uso las ha ido rellenando `previewImage` al construir las
   -- tarjetas: son las que el árbol acaba de referenciar.
+
+  -- Ahora se sabe si hay algo que animar (una tarjeta cerrada con capturas en
+  -- modo Automático, un GIF): se pide o se quita el tick de frame.
+  syncFrameTicks()
 end
 
 -- ------------------------------------------------------------- ciclo de vida --
 
--- ¿Hay algo que animar con ticks de frame? (GIF personalizado o modo GIF).
+-- ¿Hay algo que animar con ticks de frame? (GIF personalizado, modo GIF o las
+-- capturas de una tarjeta cerrada en modo Automático).
 local function needsFrameTicks()
   if cfg.cardPreview == "gif" then
     return true
@@ -1677,10 +1683,20 @@ local function needsFrameTicks()
       return true
     end
   end
+  -- Modo Automático: una tarjeta cuya ventana está cerrada muestra sus
+  -- capturas como una animación, y esa animación solo avanza con ticks de
+  -- frame (los pide `render()`, que es quien sabe si hay capturas).
+  if cfg.cardPreview == "auto" then
+    for name, anim in pairs(state.captureAnim or {}) do
+      if anim ~= nil and state.windows[name] == nil then
+        return true
+      end
+    end
+  end
   return false
 end
 
-local function syncFrameTicks()
+syncFrameTicks = function()
   pcall(panel.setNeedsFrameTick, needsFrameTicks())
 end
 
@@ -1776,13 +1792,20 @@ function onFrameTick(deltaMs)
     local showFrames = cfg.cardPreview == "gif"
       or (cfg.cardPreview == "auto" and state.windows[name] == nil)
     if showFrames then
-      local frames = captureFrames(name, 8)
-      if #frames > 1 then
-        anim.elapsed = anim.elapsed + deltaMs
-        while anim.elapsed >= captureInterval do
-          anim.elapsed = anim.elapsed - captureInterval
-          anim.index = (anim.index % #frames) + 1
-          changed = true
+      anim.elapsed = anim.elapsed + deltaMs
+      -- La lista de fotogramas se relee solo cuando toca avanzar la animación:
+      -- `captureFrames` consulta el disco, y leerla en cada frame gastaría CPU
+      -- sin que cambiara nada.
+      if anim.elapsed >= captureInterval then
+        local frames = captureFrames(name, 8)
+        if #frames > 1 then
+          while anim.elapsed >= captureInterval do
+            anim.elapsed = anim.elapsed - captureInterval
+            anim.index = (anim.index % #frames) + 1
+            changed = true
+          end
+        else
+          anim.elapsed = 0
         end
       end
     end

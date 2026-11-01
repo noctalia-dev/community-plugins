@@ -17,6 +17,15 @@
 --
 -- Sale con código distinto de 0 si algún caso falla.
 
+-- El runtime real es Luau, que sí trae `math.atan2`; Lua 5.4 no lo trae (solo
+-- desde 5.4.9). `math.atan(y, x)` de Lua 5.4 es atan2, así que se usa como
+-- sustituto cuando falta, para que el comando documentado funcione en
+-- cualquier Lua 5.4 (5.4.4 de Ubuntu, 5.4.8 de otros sistemas) sin tocar el
+-- runtime del plugin.
+if type(math.atan2) ~= "function" then
+  math.atan2 = math.atan
+end
+
 local function scriptDir()
   local self = arg and arg[0] or ""
   return self:match("^(.*)[/\\][^/\\]+$") or "."
@@ -426,6 +435,46 @@ defaults.reset()
 local base4 = defaults.load()
 check("sin manifiesto: respaldo", base4.commands.cava, "cava")
 check("sin manifiesto: respaldo de posiciones", base4.layouts.unimatrix, "right-center, 869x1424")
+
+-- El manifiesto tiene que declarar todo lo que el plugin lanza: el revisor del
+-- upstream lo comprueba contra `dependencies` y contra el README. Se lee el
+-- `plugin.toml` real del disco (el simulador solo intercepta `noctalia.readFile`).
+local function readRealFile(path)
+  local handle = io.open(path, "r")
+  if handle == nil then
+    return nil
+  end
+  local content = handle:read("*a")
+  handle:close()
+  return content
+end
+
+local manifestText = readRealFile(DIR .. "plugin.toml")
+check("se puede leer el manifiesto real", true, manifestText ~= nil)
+
+local declared = {}
+if manifestText ~= nil then
+  local block = manifestText:match("dependencies%s*=%s*%[(.-)%]")
+  if block ~= nil then
+    for name in block:gmatch('"([^"]+)"') do
+      declared[name] = true
+    end
+  end
+end
+
+check("el manifiesto declara dependencias", true, next(declared) ~= nil)
+check("declara hyprctl", true, declared["hyprctl"] == true)
+
+-- Cada comando de las tarjetas por defecto tiene que estar declarado: el
+-- ejecutable es la primera palabra del comando.
+for name, command in pairs(base4.commands) do
+  local executable = tostring(command):match("^(%S+)")
+  check(
+    "el comando por defecto '" .. name .. "' está declarado en dependencies",
+    true,
+    executable ~= nil and declared[executable] == true
+  )
+end
 
 -- ------------------------------------------------------------ zonas ocupadas --
 
@@ -1092,6 +1141,86 @@ config.fallback_random_resize = false
 config.fallback_mode = "custom"
 clients = {}
 
+
+-- ------------------------------------------------------------- ticks de frame --
+
+print("\n== ticks de frame ==")
+
+-- El host solo entrega `onFrameTick` cuando se le pide con
+-- `panel.setNeedsFrameTick(true)`. En modo automático las tarjetas cerradas
+-- animan sus capturas, así que tienen que pedir ticks: sin ellos la
+-- animación se queda congelada en el primer fotograma.
+local frameTicks = {}
+panelMock.setNeedsFrameTick = function(value)
+  frameTicks[#frameTicks + 1] = value
+end
+
+-- Un widget con dos capturas y sin ventana abierta. La lista de widgets vive
+-- en el store, así que se añade por el IPC (el camino real del plugin).
+-- Las capturas se.existían antes: la lista de fotogramas se cachea, y el
+-- reloj del simulador no avanza.
+fs["anim-1.png"] = true
+fs["anim-2.png"] = true
+local previousFileInfo = mock.fileInfo
+mock.fileInfo = function(path)
+  local name = path:match("([^/]+)$")
+  -- Mtimes distintos: el orden de los fotogramas no depende del desempate
+  -- del `table.sort` (que no es estable).
+  if name == "anim-1.png" then
+    return { size = 10, mtime = os.time() - 10, isDir = false }
+  end
+  if name == "anim-2.png" then
+    return { size = 10, mtime = os.time(), isDir = false }
+  end
+  return previousFileInfo(path)
+end
+env.onIpc("add", "anim|anim|center, 500x300")
+
+frameTicks = {}
+env.onOpen("")
+local lastTick = frameTicks[#frameTicks]
+check("en modo auto con capturas se piden ticks de frame", true, lastTick == true)
+
+-- La imagen que pinta una tarjeta (para ver qué fotograma se muestra).
+local function cardImage(name)
+  local card = findNode(lastTree, "card-" .. name)
+  if card == nil then
+    return nil
+  end
+  local found = nil
+  local function walk(node)
+    if found ~= nil or type(node) ~= "table" then
+      return
+    end
+    if node.type == "image" and type(node.props) == "table" and node.props.path ~= nil then
+      found = node.props.path
+      return
+    end
+    for _, child in ipairs(node.children or {}) do
+      walk(child)
+    end
+  end
+  walk(card)
+  return found
+end
+
+local frameBefore = cardImage("anim")
+check("la tarjeta con capturas pinta un fotograma", true, frameBefore ~= nil)
+env.onFrameTick(300)
+local frameAfter = cardImage("anim")
+check(
+  "la animación de la tarjeta cerrada avanza",
+  true,
+  frameAfter ~= nil and frameBefore ~= nil and frameAfter ~= frameBefore
+)
+
+-- En modo mock no hay nada que animar: los ticks se apagan.
+config.card_preview = "mock"
+frameTicks = {}
+env.onOpen("")
+check("en modo mock no se piden ticks de frame", false, frameTicks[#frameTicks])
+config.card_preview = "auto"
+mock.fileInfo = previousFileInfo
 
 print(string.format("\n%d comprobaciones, %d fallos", PASSED + FAILED, FAILED))
 os.exit(FAILED == 0 and 0 or 1)
