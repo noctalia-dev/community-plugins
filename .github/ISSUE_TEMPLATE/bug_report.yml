@@ -65,6 +65,7 @@ body:
         - calibre
         - case-convert
         - cat
+        - cc-usage
         - charge-mode
         - cider
         - claude-cockpit
@@ -257,6 +258,7 @@ body:
         - shift
         - shloka
         - sing-box-status
+        - sonolith
         - sony_headphones
         - soundcore-buds
         - special-workspaces

@@ -5,7 +5,7 @@
 
 id = "dmopp/nixos-updates"
 name = "NixOS Updates"
-version = "1.0.0"
+version = "1.1.0"
 plugin_api = 43
 author = "dMopp"
 license = "MIT"
@@ -56,6 +56,13 @@ key = "update_command"
 type = "string"
 label_key = "settings.update_command.label"
 description_key = "settings.update_command.description"
+default = ""
+
+[[setting]]
+key = "terminal"
+type = "string"
+label_key = "settings.terminal.label"
+description_key = "settings.terminal.description"
 default = ""
 
 [[setting]]

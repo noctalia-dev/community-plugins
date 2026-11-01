@@ -654,4 +654,46 @@ test("Hyprland focus behavior remains available outside Niri", function()
   assert(#opened == 0)
 end)
 
+test("Refresh keeps its identity through polling and ignores clicks while busy", function()
+  local snapshot = { available = true, sessions = {}, refreshing = false }
+  local watches, commands, tree = {}, {}, nil
+  local ui = setmetatable({}, { __index = function(_, kind)
+    return function(props, children) return { props = props, children = children or {} } end
+  end })
+  local env = setmetatable({ ui = ui, noctalia = {
+    tr = function(key) return key end,
+    state = {
+      get = function(key) if key == "herdr.state" then return snapshot end end,
+      watch = function(key, callback) watches[key] = callback end,
+      set = function(key, value) if key == "herdr.command" then table.insert(commands, value) end end,
+    },
+  }, panel = { render = function(value) tree = value end, close = function() end } }, { __index = _G })
+  local view = assert(loadfile("herdr/panel_view.luau", "t", env))()
+  env.require = function() return view end
+  assert(loadfile("herdr/panel.luau", "t", env))()
+  local function refreshButton(node)
+    if node.props.glyph == "refresh" then return node.props end
+    for _, child in ipairs(node.children) do
+      local found = refreshButton(child)
+      if found then return found end
+    end
+  end
+  for cycle = 1, 3 do
+    snapshot.refreshing = true
+    watches["herdr.state"](snapshot)
+    local busy = assert(refreshButton(tree))
+    assert(busy.enabled ~= false, "background polling must not disable the focused button")
+    assert(busy.key == "refresh", "keep the same control identity across renders")
+    busy.onClick()
+    assert(#commands == cycle - 1, "clicks during polling must not queue another refresh")
+
+    snapshot.refreshing = false
+    watches["herdr.state"](snapshot)
+    local ready = assert(refreshButton(tree))
+    assert(ready.enabled ~= false and ready.key == busy.key)
+    ready.onClick()
+    assert(#commands == cycle and commands[cycle].action == "refresh")
+  end
+end)
+
 print(count .. " tests passed")

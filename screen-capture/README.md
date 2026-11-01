@@ -87,6 +87,11 @@ from the region being recorded and anchored to its bottom-right corner. Because
 the recorder captures the screen, the camera is baked into a single encode: one
 encoder pass, no compositing.
 
+The overlay asks the camera for a mode that actually runs at 30 fps. Some
+cameras only offer 1280x720 as raw YUYV at 10 fps and reach 30 fps through
+MJPG; in that case MJPG is requested explicitly, and if the device cannot do
+30 fps at 720p the overlay falls back to a smaller 30 fps mode.
+
 `float`, `pin`, resize and move are dispatched at runtime, so the plugin needs
 no Hyprland window rules of its own.
 

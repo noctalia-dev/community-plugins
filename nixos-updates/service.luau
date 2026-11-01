@@ -227,9 +227,7 @@ local function finish()
 	publish()
 end
 
-local function quote(s)
-	return "'" .. (tostring(s):gsub("'", "'\\''")) .. "'"
-end
+local quote = diff.quote
 
 local function check()
 	if running then
@@ -298,7 +296,13 @@ local function runUpdate()
 		noctalia.openSettings()
 		return
 	end
-	noctalia.runInTerminal(cmd)
+	local terminal = noctalia.string.trim(tostring(config("terminal", "")))
+	if terminal == "" then
+		noctalia.runInTerminal(cmd)
+		return
+	end
+	-- Not runInTerminal: that would open Noctalia's terminal around this one.
+	noctalia.runAsync(diff.terminalCommand(terminal, cmd))
 end
 
 local function offline()
