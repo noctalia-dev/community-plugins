@@ -4,10 +4,10 @@ A [Noctalia](https://docs.noctalia.dev) plugin that repeats a [ydotool](https://
 
 ## Plugin
 
-| Field   | Value                                                                                        |
-| ------- | -------------------------------------------------------------------------------------------- |
-| ID      | `amirfarzamnia/autoclicker`                                                                  |
-| Entries | Bar widget: `amirfarzamnia/autoclicker:widget`; service: `amirfarzamnia/autoclicker:service` |
+| Field   | Value                                    |
+| ------- | ---------------------------------------- |
+| ID      | `amirfarzamnia/autoclicker`              |
+| Entries | Bar widget: `widget`; service: `service` |
 
 ## Requirements
 
@@ -127,5 +127,5 @@ Key codes are the `KEY_*` values in `/usr/include/linux/input-event-codes.h` (En
 
 - **"ydotool was not found on PATH"**: install ydotool and make sure it is on the `PATH` Noctalia runs with.
 - **"ydotool failed, stopped"**: read the message for ydotool's error. Usually the arguments are wrong, `ydotoold` is not running, or `YDOTOOL_SOCKET` points to the wrong place in Noctalia's environment.
-- **Widget never appears**: confirm the plugin is enabled and the bar entry uses `amirfarzamnia/autoclicker:widget`.
+- **Widget never appears**: confirm the plugin is enabled and the bar entry uses plugin's widget.
 - **Hotkey does nothing**: run the `noctalia msg plugin ...` command in a terminal to check it works outside your compositor config.
