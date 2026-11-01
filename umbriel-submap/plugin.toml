@@ -1,12 +1,13 @@
-id          = "ezio-noir/umbriel-submap"
-name        = "Umbriel Submap"
-version     = "1.0.0"
-author      = "ezio-noir"
-license     = "MIT"
-icon        = "keyboard"
-plugin_api  = 43
-description = "Display Umbriel submap as widget or OSD"
-tags        = [ "widget", "service", "indicator", "umbriel" ]
+id            = "ezio-noir/umbriel-submap"
+name          = "Umbriel Submap"
+version       = "1.0.0"
+author        = "ezio-noir"
+license       = "MIT"
+icon          = "keyboard"
+plugin_api    = 43
+description   = "Display Umbriel submap as widget or OSD"
+tags          = [ "bar", "service", "indicator", "umbriel" ]
+dependencies  = [ "umbriel" ]
 
 [[setting]]
 key       = "enable_osd"
