@@ -122,7 +122,7 @@ local function pidPathFor(id)
   if not dir then
     dir = noctalia.getenv("XDG_RUNTIME_DIR") or "/tmp"
   end
-  return dir .. "/ydotool-" .. id .. ".pid"
+  return dir .. "/ydotool-" .. noctalia.nowMs() .. "-" .. id .. ".pid"
 end
 
 local function readPid(cmd)
@@ -257,6 +257,7 @@ function update()
     table.insert(argv, a)
   end
 
+  noctalia.removeFile(cmd.pidPath) -- never read a stale PID from an earlier process
   inflight = cmd
   local accepted = noctalia.runAsync(argv, function(result)
     -- Only this command's own callback releases its slot.
