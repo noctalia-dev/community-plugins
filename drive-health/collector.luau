@@ -1047,7 +1047,8 @@ local function freshJson(path)
     return nil
   end
   local age = os.time() - tonumber(info.mtime)
-  if age < 0 or age > CACHE_MAX_AGE_SECONDS then
+  local maxAge = math.max(CACHE_MAX_AGE_SECONDS, (fullSmartRefreshMinutes() * 60) + 300)
+  if age < 0 or age > maxAge then
     return nil
   end
   local encoded = noctalia.readFile(path)
