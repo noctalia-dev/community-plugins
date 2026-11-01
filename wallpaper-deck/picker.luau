@@ -184,8 +184,9 @@ local THUMB_MAX_CONCURRENT = 4
 local displayedItems = {}
 local selectedIdx = 1
 local isPickerOpen = false
-local isDeckAreaHovered = true
+local isDeckAreaHovered = false
 local hoveredDeckKeys: { [string]: boolean } = {}
+local isSearchBoxHovered = false
 local currentMode = "local" -- "local" | "favorites" | "wallhaven"
 local pendingStepAfterAppend = false
 local render: () -> ()
@@ -193,14 +194,92 @@ local toggleCurrentFavorite -- forward declaration
 local toggleFavoriteItem -- forward declaration
 local changeSort -- forward declaration
 
-function onDeckHover(state: any, key: string?)
-  local k = key or "deck_bottom_section"
-  if state == "true" or state == true then
+local function isHoverTruthy(state: any): boolean
+  if state == "true" or state == true or state == 1 then
+    return true
+  end
+  if type(state) == "table" then
+    return state.hovered == true or state.state == true or state.hovered == "true" or state.state == "true"
+  end
+  return false
+end
+
+local function updateDeckHoverState(state: any, fallbackKey: string, explicitKey: string?)
+  local k = (type(explicitKey) == "string" and explicitKey ~= "") and explicitKey or fallbackKey
+  if isHoverTruthy(state) then
     hoveredDeckKeys[k] = true
+    isSearchBoxHovered = false
   else
     hoveredDeckKeys[k] = nil
   end
-  isDeckAreaHovered = true
+  isDeckAreaHovered = (next(hoveredDeckKeys) ~= nil)
+end
+
+function onDeckHover(state: any, key: string?)
+  if isHoverTruthy(state) then
+    local k = (type(key) == "string" and key ~= "") and key or "deck_bottom_section"
+    hoveredDeckKeys[k] = true
+    isDeckAreaHovered = true
+    isSearchBoxHovered = false
+  else
+    hoveredDeckKeys = {}
+    isDeckAreaHovered = false
+  end
+end
+
+function onDeckContainerHover(state: any, key: string?)
+  if isHoverTruthy(state) then
+    local k = (type(key) == "string" and key ~= "") and key or "deck_cards_outer_row"
+    hoveredDeckKeys[k] = true
+    isDeckAreaHovered = true
+    isSearchBoxHovered = false
+  else
+    hoveredDeckKeys["deck_cards_outer_row"] = nil
+    hoveredDeckKeys["deck_cards_row"] = nil
+    hoveredDeckKeys["deck_card_slot"] = nil
+    hoveredDeckKeys["deck_card_item"] = nil
+    if type(key) == "string" and key ~= "" then
+      hoveredDeckKeys[key] = nil
+    end
+    isDeckAreaHovered = (next(hoveredDeckKeys) ~= nil)
+  end
+end
+
+function onDeckRowHover(state: any, key: string?)
+  updateDeckHoverState(state, "deck_cards_row", key)
+end
+
+function onDeckActionHover(state: any, key: string?)
+  updateDeckHoverState(state, "deck_action_bar", key)
+end
+
+function onDeckPopoverHover(state: any, key: string?)
+  updateDeckHoverState(state, "monitor_dropdown_popover", key)
+end
+
+function onDeckSlotHover(state: any, key: string?)
+  updateDeckHoverState(state, "deck_card_slot", key)
+end
+
+function onDeckCardHover(state: any, key: string?)
+  updateDeckHoverState(state, "deck_card_item", key)
+end
+
+function onOutsideDeckHover(state: any, _key: string?)
+  if isHoverTruthy(state) then
+    hoveredDeckKeys = {}
+    isDeckAreaHovered = false
+  end
+end
+
+function onSearchBoxHover(state: any, _key: string?)
+  if isHoverTruthy(state) then
+    isSearchBoxHovered = true
+    hoveredDeckKeys = {}
+    isDeckAreaHovered = false
+  else
+    isSearchBoxHovered = false
+  end
 end
 
 local function isValidFile(path: string?): boolean
@@ -560,7 +639,21 @@ end
 local currentSort = "name_asc" -- "name_asc" | "name_desc" | "colour" | "newest" | "oldest"
 local searchQuery = ""
 local isSearchFocused = false
+local whQueryDirty = false
+local whResDirty = false
+local searchInputNonce = 0
+local lastSearchSubmitMs = 0
 local isPeeking = false
+
+local function unfocusSearch()
+  isSearchBoxHovered = false
+  if isSearchFocused or whQueryDirty or whResDirty then
+    isSearchFocused = false
+    whQueryDirty = false
+    whResDirty = false
+    searchInputNonce = searchInputNonce + 1
+  end
+end
 local cfgScanSub = noctalia.getConfig("scan_subdirectories")
 local isFlattened = if cfgScanSub ~= nil then (cfgScanSub == true or cfgScanSub == "true" or cfgScanSub == 1) else true
 
@@ -1554,6 +1647,7 @@ local function doWallhavenSearch(resetPage: boolean?, skipRender: boolean?)
   wallhavenError = nil
   pendingStepAfterAppend = false
   if resetPage then
+    unfocusSearch()
     selectedIdx = 1
     resetDeckAnimation(1.0)
     thumbQueue = {}
@@ -1762,7 +1856,7 @@ local function buildWallhavenRow2(paletteColors: any?, panelW: number?)
       }),
 
       -- 5. Resolution & Clear
-      ui.row({ align = "center", gap = 4 }, {
+      ui.row({ key = "wh_res_row", align = "center", gap = 4, onHover = "onSearchBoxHover" }, {
         not isCompact and ui.label({ text = "Res", fontSize = 11, fontWeight = "bold", color = pColors.muted }) or ui.spacer({ width = 1 }),
         ui.select({
           key = "wh_res_mode_select_" .. tostring(whResModeIdx),
@@ -1797,6 +1891,7 @@ local function buildWallhavenRow2(paletteColors: any?, panelW: number?)
           width = isCompact and 58 or 76,
           onChange = function(val)
             isSearchFocused = true
+            whResDirty = true
             whResWidth = noctalia.string.trim(val or "")
             local mw, mh = string.match(whResWidth, "(%d+)[xX%*×%s]+(%d+)")
             if mw and mh then
@@ -1808,6 +1903,8 @@ local function buildWallhavenRow2(paletteColors: any?, panelW: number?)
           end,
           onSubmit = function(val)
             whResWidth = noctalia.string.trim(val or "")
+            unfocusSearch()
+            lastSearchSubmitMs = noctalia.nowMs()
             local res, _ = getResolutionParam()
             if res then
               doWallhavenSearch(true)
@@ -1823,6 +1920,7 @@ local function buildWallhavenRow2(paletteColors: any?, panelW: number?)
           width = isCompact and 58 or 76,
           onChange = function(val)
             isSearchFocused = true
+            whResDirty = true
             whResHeight = noctalia.string.trim(val or "")
             local mw, mh = string.match(whResHeight, "(%d+)[xX%*×%s]+(%d+)")
             if mw and mh then
@@ -1834,6 +1932,8 @@ local function buildWallhavenRow2(paletteColors: any?, panelW: number?)
           end,
           onSubmit = function(val)
             whResHeight = noctalia.string.trim(val or "")
+            unfocusSearch()
+            lastSearchSubmitMs = noctalia.nowMs()
             local res, _ = getResolutionParam()
             if res then
               doWallhavenSearch(true)
@@ -2419,6 +2519,7 @@ local function cycleSort()
 end
 
 local function cycleMode()
+  unfocusSearch()
   if currentMode == "local" then
     currentMode = "favorites"
   elseif currentMode == "favorites" then
@@ -2645,7 +2746,7 @@ local function renderCard(item: any, index: number, distSigned: number, scale: n
     align = "center",
     justify = "end",
     opacity = opacity,
-    onHover = "onDeckHover",
+    onHover = "onDeckSlotHover",
   }, {
     ui.column({
       key = "card_" .. itemKey,
@@ -2653,9 +2754,9 @@ local function renderCard(item: any, index: number, distSigned: number, scale: n
       height = slotH,
       align = "center",
       justify = "start",
-      onHover = "onDeckHover",
+      onHover = "onDeckCardHover",
       onClick = function()
-        isSearchFocused = false
+        unfocusSearch()
         if selectedIdx == index then
           applyCurrent()
         else
@@ -3079,6 +3180,7 @@ local function renderBgLayer(panelW: number, panelH: number, activeItem: any)
       fill = (previewFit == "contain") and bgFill or nil,
       align = "stretch",
       justify = "start",
+      onHover = "onOutsideDeckHover",
     }, {
       ui.image({
         key = "deck_bg_curr_img_" .. displayedBgPath,
@@ -3099,6 +3201,7 @@ local function renderBgLayer(panelW: number, panelH: number, activeItem: any)
     fill = bgFill,
     align = "center",
     justify = "center",
+    onHover = "onOutsideDeckHover",
   }, {
     (#displayedItems > 0 and currentMode == "wallhaven") and ui.row({
       align = "center",
@@ -3195,10 +3298,38 @@ function render()
       end
     end
 
-    for idx = minIdx, maxIdx do
-      local distSigned = idx - pos
-      table.insert(deckCards, renderCard(displayedItems[idx], idx, distSigned, deckScale))
+    local activeHoverKeys: { [string]: boolean } = {
+      deck_bottom_section = true,
+      deck_cards_outer_row = true,
+      deck_cards_row = true,
+      deck_card_slot = true,
+      deck_card_item = true,
+    }
+    if activeItem then
+      activeHoverKeys["deck_action_bar"] = true
+      if monitorDropdownOpen then
+        activeHoverKeys["monitor_dropdown_popover"] = true
+      end
     end
+
+    for idx = minIdx, maxIdx do
+      local it = displayedItems[idx]
+      local itKey = tostring(it and (it.path or it.id or it.name) or idx)
+      activeHoverKeys["slot_wrap_" .. itKey] = true
+      activeHoverKeys["card_" .. itKey] = true
+      local distSigned = idx - pos
+      table.insert(deckCards, renderCard(it, idx, distSigned, deckScale))
+    end
+
+    for k in pairs(hoveredDeckKeys) do
+      if not activeHoverKeys[k] then
+        hoveredDeckKeys[k] = nil
+      end
+    end
+    isDeckAreaHovered = (next(hoveredDeckKeys) ~= nil)
+  else
+    hoveredDeckKeys = {}
+    isDeckAreaHovered = false
   end
 
   local favCount = getFavCount()
@@ -3264,6 +3395,8 @@ function render()
   end
 
   if isPeeking then
+    hoveredDeckKeys = {}
+    isDeckAreaHovered = false
     panel.render(wrapFullBleed(ui.column({
       key = "panel_root",
       width = panelW,
@@ -3351,7 +3484,7 @@ function render()
       justify = "space_between",
     }, {
       -- ── TOP HEADER SECTION ─────────────────────────────────────────
-      ui.column({ width = panelW, gap = 8, paddingH = 32, paddingV = 14 }, {
+      ui.column({ key = "deck_header_section", width = panelW, gap = 8, paddingH = 32, paddingV = 14, onHover = "onOutsideDeckHover" }, {
         -- Row 1: App Info + Filter Input | Mode Pills | Flatten Toggle + Action Icons
         ui.row({
           align = "center",
@@ -3392,6 +3525,7 @@ function render()
               gap = 6,
             }, {
               ui.row({
+                key = "deck_search_box",
                 align = "center",
                 gap = 6,
                 fill = "surface/0.85",
@@ -3401,6 +3535,7 @@ function render()
                 paddingH = 10,
                 height = 32,
                 width = searchBoxW,
+                onHover = "onSearchBoxHover",
                 onClick = function()
                   isSearchFocused = true
                   render()
@@ -3412,7 +3547,7 @@ function render()
                   color = (isSearchFocused or (currentMode == "wallhaven" and whQuery ~= "") or (currentMode ~= "wallhaven" and searchQuery ~= "")) and paletteColors.accent or paletteColors.muted,
                 }),
                 ui.input({
-                  key = "deck_search_input_" .. (currentMode == "wallhaven" and "wh" or "local"),
+                  key = "deck_search_input_" .. (currentMode == "wallhaven" and "wh_" or "local_") .. tostring(searchInputNonce),
                   value = (currentMode == "wallhaven") and whQuery or searchQuery,
                   placeholder = (currentMode == "wallhaven") and "Search tags..." or trText("ui.search_placeholder", "Filter..."),
                   controlSize = "sm",
@@ -3425,6 +3560,8 @@ function render()
                     isSearchFocused = true
                     if currentMode == "wallhaven" then
                       whQuery = val or ""
+                      whQueryDirty = true
+                      whResDirty = false
                     else
                       searchQuery = val or ""
                       selectedIdx = 1
@@ -3435,15 +3572,21 @@ function render()
                     end
                   end,
                   onSubmit = function(val)
-                    if val and val ~= "" then
+                    if type(val) == "string" then
                       if currentMode == "wallhaven" then
                         whQuery = val
                       else
                         searchQuery = val
                       end
                     end
-                    isSearchFocused = false
-                    executeSearch()
+                    local isWh = (currentMode == "wallhaven")
+                    unfocusSearch()
+                    lastSearchSubmitMs = noctalia.nowMs()
+                    if isWh then
+                      executeSearch()
+                    else
+                      applyCurrent()
+                    end
                   end,
                 }),
                 ((currentMode == "wallhaven" and whQuery ~= "") or (currentMode ~= "wallhaven" and searchQuery ~= "")) and ui.button({
@@ -3451,6 +3594,7 @@ function render()
                   variant = "ghost",
                   controlSize = "sm",
                   onClick = function()
+                    unfocusSearch()
                     if currentMode == "wallhaven" then
                       whQuery = ""
                       if whSortIdx == 5 then
@@ -3474,6 +3618,7 @@ function render()
                 variant = "primary",
                 controlSize = "sm",
                 onClick = function()
+                  unfocusSearch()
                   executeSearch()
                 end,
               }) or ui.spacer({ width = 1 }),
@@ -3495,7 +3640,7 @@ function render()
               variant = currentMode == "local" and "primary" or "ghost",
               controlSize = "sm",
               onClick = function()
-                isSearchFocused = false
+                unfocusSearch()
                 currentMode = "local"
                 selectedIdx = 1
                 resetDeckAnimation(1.0)
@@ -3510,7 +3655,7 @@ function render()
               variant = currentMode == "favorites" and "primary" or "ghost",
               controlSize = "sm",
               onClick = function()
-                isSearchFocused = false
+                unfocusSearch()
                 currentMode = "favorites"
                 selectedIdx = 1
                 resetDeckAnimation(1.0)
@@ -3525,7 +3670,7 @@ function render()
               variant = currentMode == "wallhaven" and "primary" or "ghost",
               controlSize = "sm",
               onClick = function()
-                isSearchFocused = false
+                unfocusSearch()
                 currentMode = "wallhaven"
                 selectedIdx = 1
                 resetDeckAnimation(1.0)
@@ -3729,20 +3874,32 @@ function render()
         align = "stretch",
         justify = "space_between",
       }, {
-        ui.spacer({ flexGrow = 1 }),
+        ui.box({
+          key = "deck_upper_spacer",
+          width = panelW,
+          flexGrow = 1,
+          fill = "#00000001",
+          onHover = "onOutsideDeckHover",
+          onClick = function()
+            if isSearchFocused or whQueryDirty or whResDirty then
+              unfocusSearch()
+              render()
+            end
+          end,
+        }),
 
         -- Bottom Section: Action Bar + Arched Deck docked cleanly together
         ui.column({
           key = "deck_bottom_section",
           width = panelW,
-          fill = "#00000000",
+          fill = "#00000001",
           align = "center",
           justify = "end",
           gap = 10,
           onHover = "onDeckHover",
           onClick = function()
-            if isSearchFocused then
-              isSearchFocused = false
+            if isSearchFocused or whQueryDirty or whResDirty then
+              unfocusSearch()
               render()
             end
           end,
@@ -3759,7 +3916,7 @@ function render()
             paddingH = 6,
             paddingV = 4,
             gap = 4,
-            onHover = "onDeckHover",
+            onHover = "onDeckPopoverHover",
           }, (function()
             local rows = {}
             for idx, outName in ipairs(connectedOutputs) do
@@ -3787,7 +3944,7 @@ function render()
             justify = "center",
             gap = 8,
             height = 36,
-            onHover = "onDeckHover",
+            onHover = "onDeckActionHover",
           }, {
             ui.button({
               glyph = isFav and "heart-filled" or "heart",
@@ -3839,11 +3996,11 @@ function render()
             paddingV = 0,
             borderWidth = 0,
             radius = 0,
-            fill = "#00000000",
-            onHover = "onDeckHover",
+            fill = "#00000001",
+            onHover = "onDeckContainerHover",
             onClick = function()
-              if isSearchFocused then
-                isSearchFocused = false
+              if isSearchFocused or whQueryDirty or whResDirty then
+                unfocusSearch()
                 render()
               end
             end,
@@ -3862,7 +4019,8 @@ function render()
               paddingV = 0,
               borderWidth = 0,
               radius = 0,
-              fill = "#00000000",
+              fill = "#00000001",
+              onHover = "onDeckRowHover",
             }, deckCards),
           }),
           ui.spacer({ height = 12 }),
@@ -3876,7 +4034,8 @@ local nativeScrollActive = false
 
 function onOpen(context: any?)
   isPickerOpen = true
-  isDeckAreaHovered = true
+  isDeckAreaHovered = false
+  isSearchBoxHovered = false
   nativeScrollActive = false
   hoveredDeckKeys = {}
   noctalia.state.set("deck_command", { action = "panel_state", open = true })
@@ -3904,6 +4063,9 @@ function onOpen(context: any?)
     currentMode = "local"
   end
   isSearchFocused = false
+  whQueryDirty = false
+  whResDirty = false
+  lastSearchSubmitMs = 0
   isPeeking = false
   monitorDropdownOpen = false
   searchQuery = ""
@@ -4015,11 +4177,26 @@ function onKey(chord: string, pressed: boolean)
   local isReturn = (chordLower == "return" or chordLower == "enter" or chordLower == "kp_enter")
 
   if isReturn then
-    if isSearchFocused then
-      isSearchFocused = false
+    local nowMs = noctalia.nowMs()
+    if nowMs - lastSearchSubmitMs < 300 then
+      return
+    end
+    if currentMode == "wallhaven" and (isSearchFocused or isSearchBoxHovered or whQueryDirty or whResDirty) then
+      local wasResDirty = whResDirty
+      unfocusSearch()
+      lastSearchSubmitMs = nowMs
+      if wasResDirty then
+        local res, _ = getResolutionParam()
+        if res then
+          doWallhavenSearch(true)
+          return
+        end
+      end
       executeSearch()
       return
     else
+      unfocusSearch()
+      lastSearchSubmitMs = nowMs
       applyCurrent()
       return
     end
@@ -4032,8 +4209,8 @@ function onKey(chord: string, pressed: boolean)
     elseif isPeeking then
       isPeeking = false
       render()
-    elseif isSearchFocused then
-      isSearchFocused = false
+    elseif isSearchFocused or whQueryDirty or whResDirty then
+      unfocusSearch()
       render()
     else
       cancelAndClose()
@@ -4041,13 +4218,51 @@ function onKey(chord: string, pressed: boolean)
     return
   end
 
+  if chordLower == "pointer_button4" or chordLower == "pointer_dfltbtnprev" then
+    if not nativeScrollActive then
+      nativeScrollActive = true
+      stopWheelListener()
+    end
+    if not isDeckAreaHovered or isPeeking then return end
+    unfocusSearch()
+    if selectedIdx > 1 then
+      selectCardIndex(selectedIdx - 1)
+    end
+    return
+  elseif chordLower == "pointer_button5" or chordLower == "pointer_dfltbtnnext" then
+    if not nativeScrollActive then
+      nativeScrollActive = true
+      stopWheelListener()
+    end
+    if not isDeckAreaHovered or isPeeking then return end
+    unfocusSearch()
+    if selectedIdx < #displayedItems then
+      selectCardIndex(selectedIdx + 1)
+    else
+      pendingStepAfterAppend = true
+      checkWallhavenLazyLoad()
+    end
+    return
+  end
+
+  if isSearchFocused or isSearchBoxHovered then
+    if chordLower == "down" or chordLower == "up" then
+      unfocusSearch()
+      render()
+    elseif chordLower == "tab" then
+      unfocusSearch()
+      cycleMode()
+    end
+    return
+  end
+
   if chordLower == "left" or chordLower == "h" then
-    isSearchFocused = false
+    unfocusSearch()
     if selectedIdx > 1 then
       selectCardIndex(selectedIdx - 1)
     end
   elseif chordLower == "right" or chordLower == "l" then
-    isSearchFocused = false
+    unfocusSearch()
     if selectedIdx < #displayedItems then
       selectCardIndex(selectedIdx + 1)
     else
@@ -4055,17 +4270,13 @@ function onKey(chord: string, pressed: boolean)
       checkWallhavenLazyLoad()
     end
   elseif chordLower == "up" or chordLower == "k" or chordLower == "u" then
-    isSearchFocused = false
+    unfocusSearch()
     local newIdx = math.max(1, selectedIdx - 5)
     if newIdx ~= selectedIdx then
       selectCardIndex(newIdx)
     end
   elseif chordLower == "down" or chordLower == "j" or chordLower == "d" then
-    if isSearchFocused then
-      isSearchFocused = false
-      render()
-      return
-    end
+    unfocusSearch()
     local newIdx = math.min(#displayedItems, selectedIdx + 5)
     if newIdx ~= selectedIdx then
       selectCardIndex(newIdx)
@@ -4106,29 +4317,8 @@ function onKey(chord: string, pressed: boolean)
     monitorDropdownOpen = not monitorDropdownOpen
     render()
   elseif chordLower == "/" or chordLower == "slash" then
-    isSearchFocused = not isSearchFocused
+    isSearchFocused = true
     render()
-  elseif chordLower == "pointer_button4" or chordLower == "pointer_dfltbtnprev" then
-    if not nativeScrollActive then
-      nativeScrollActive = true
-      stopWheelListener()
-    end
-    isSearchFocused = false
-    if selectedIdx > 1 then
-      selectCardIndex(selectedIdx - 1)
-    end
-  elseif chordLower == "pointer_button5" or chordLower == "pointer_dfltbtnnext" then
-    if not nativeScrollActive then
-      nativeScrollActive = true
-      stopWheelListener()
-    end
-    isSearchFocused = false
-    if selectedIdx < #displayedItems then
-      selectCardIndex(selectedIdx + 1)
-    else
-      pendingStepAfterAppend = true
-      checkWallhavenLazyLoad()
-    end
   elseif chordLower == "page_up" or chordLower == "prior" then
     local newIdx = math.max(1, selectedIdx - 5)
     if newIdx ~= selectedIdx then
@@ -4153,7 +4343,8 @@ function onScroll(_axis: any, steps: any, _startsGesture: any)
     nativeScrollActive = true
     stopWheelListener()
   end
-  isSearchFocused = false
+  if not isDeckAreaHovered or isPeeking then return end
+  unfocusSearch()
   local nowMs = noctalia.nowMs()
   if nowMs - lastScrollMs < 35 then return end
   lastScrollMs = nowMs
@@ -4175,20 +4366,20 @@ end
 
 function onIpc(event: string, _payload: string?)
   if event == "prev" or event == "step_left" or event == "left" then
-    if not isPickerOpen or nativeScrollActive then return end
+    if not isPickerOpen or nativeScrollActive or not isDeckAreaHovered or isPeeking then return end
     local nowMs = noctalia.nowMs()
     if nowMs - lastScrollMs < 35 then return end
     lastScrollMs = nowMs
-    isSearchFocused = false
+    unfocusSearch()
     if selectedIdx > 1 then
       selectCardIndex(selectedIdx - 1)
     end
   elseif event == "next" or event == "step_right" or event == "right" then
-    if not isPickerOpen or nativeScrollActive then return end
+    if not isPickerOpen or nativeScrollActive or not isDeckAreaHovered or isPeeking then return end
     local nowMs = noctalia.nowMs()
     if nowMs - lastScrollMs < 35 then return end
     lastScrollMs = nowMs
-    isSearchFocused = false
+    unfocusSearch()
     if selectedIdx < #displayedItems then
       selectCardIndex(selectedIdx + 1)
     else
@@ -4503,6 +4694,7 @@ end
 function onClose()
   isPickerOpen = false
   isDeckAreaHovered = false
+  isSearchBoxHovered = false
   hoveredDeckKeys = {}
   stopWheelListener()
   if isPeeking then

@@ -42,10 +42,10 @@ Enable the `toggle` shortcut in Noctalia Settings or bind `noctalia msg panel-to
 | Key / Gesture | Action |
 | --- | --- |
 | `←` / `→` or `h` / `l` | Browse cards left / right |
-| `Mouse Wheel` | Scroll smoothly through the card deck anywhere in the panel |
+| `Mouse Wheel` | Scroll smoothly through the card deck when hovering over the cards or lower card container |
 | `↑` / `↓` or `j` / `k` or `u` / `d` | Jump 5 cards |
 | `Page_Up` / `Page_Down` | Jump 5 cards |
-| `Enter` / `Return` | Apply selected wallpaper to active target monitor |
+| `Enter` / `Return` | Trigger Wallhaven search when Wallhaven search input is focused; otherwise apply selected wallpaper |
 | `Space` | Toggle Peek mode (temporarily hides deck to inspect full wallpaper) |
 | `V` | Cycle background preview fit mode (`cover` -> `contain` -> `stretch`) |
 | `F` | Toggle favourite status on current wallpaper |
