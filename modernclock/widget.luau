@@ -67,6 +67,9 @@ function update()
   local day_font_size = noctalia.getConfig("day_font_size") or 72
   local day_font_color = noctalia.getConfig("day_font_color") or "#FFFFFF"
   local day_letter_spacing = noctalia.getConfig("day_letter_spacing") or 1
+  local day_font_path = noctalia.getConfig("day_font_path")
+  local custom_font = (day_font_path and string.match(day_font_path, "%S")) and (noctalia.loadFont(day_font_path) or day_font_path) or nil
+  local resolved_day_font = custom_font or fontOctahedron
 
   local show_date = noctalia.getConfig("show_date")
   if show_date == nil then show_date = true end
@@ -94,7 +97,7 @@ function update()
     end
     table.insert(items, ui.label({
       text = day_str,
-      fontFamily = fontOctahedron,
+      fontFamily = resolved_day_font,
       fontSize = day_font_size,
       color = day_font_color,
       textAlign = "center",

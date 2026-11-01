@@ -2,7 +2,7 @@ id = "styrish/modernclock"
 name = "Modern Clock"
 version = "1.0.0"
 plugin_api = 43
-author = "Styrish007"
+author = "styrish"
 license = "GPL-3.0"
 dependencies = []
 icon = "clock"
@@ -40,6 +40,13 @@ description_key = "settings.day_letter_spacing.description"
 default = 1
 min = 0
 max = 10
+
+[[setting]]
+key = "day_font_path"
+type = "file"
+label_key = "settings.day_font_path.label"
+description_key = "settings.day_font_path.description"
+default = ""
 
 [[setting]]
 key = "show_date"

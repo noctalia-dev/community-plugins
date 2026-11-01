@@ -4,6 +4,7 @@
     "day_font_size": { "label": "Day Font Size", "description": "Font size for the day" },
     "day_font_color": { "label": "Day Color", "description": "Color for the day text" },
     "day_letter_spacing": { "label": "Day Spacing", "description": "Letter spacing for day text" },
+    "day_font_path": { "label": "Custom Day Font", "description": "Select font file (.otf/.ttf; leave empty for bundled FN Octahedron)" },
     "show_date": { "label": "Show Date", "description": "Display current date" },
     "date_font_size": { "label": "Date Font Size", "description": "Font size for the date" },
     "date_font_color": { "label": "Date Color", "description": "Color for the date text" },
