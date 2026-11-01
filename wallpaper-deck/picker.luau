@@ -54,10 +54,9 @@ end
 
 local stateWps = noctalia.state.get("wallpapers")
 local allWallpapers = (type(stateWps) == "table" and #stateWps > 0) and stateWps or loadCacheDirect()
-local allWallpapersNewest: { any }? = noctalia.state.get("wallpapers_newest")
-local allWallpapersColour: { any }? = noctalia.state.get("wallpapers_colour")
 local stateFavs = noctalia.state.get("favorites")
 local favorites = (type(stateFavs) == "table" and next(stateFavs) ~= nil) and stateFavs or loadFavoritesDirect()
+local hasAnyFavorites = (type(favorites) == "table" and next(favorites) ~= nil)
 local activeWallpaper = noctalia.state.get("active_wallpaper") or ""
 local initialWallpaper = activeWallpaper
 local currentWallDir = noctalia.state.get("wallpaper_dir") or noctalia.getConfig("wallpaper_dir") or ""
@@ -74,9 +73,6 @@ local STATE_DIR = (type(noctalia.pluginDataDir) == "function" and noctalia.plugi
   or noctalia.expandPath("~/.local/state/noctalia/plugins/data/ishan0121/wallpaper-deck")
 
 local displayedBgPath = ""
-local prevBgPath = ""
-local bgTransitionProgress = 1.0
-local BG_TRANSITION_DURATION = 0.28 -- 280ms smooth crossfade duration
 local previewFit = noctalia.getConfig("preview_fit") or "cover"
 if previewFit ~= "cover" and previewFit ~= "contain" and previewFit ~= "stretch" then
   previewFit = "cover"
@@ -88,21 +84,8 @@ local function clampVal(val: number, minVal: number, maxVal: number): number
   return val
 end
 
-local function easeBg(t: number): number
-  local c = clampVal(t, 0.0, 1.0)
-  return c * c * (3.0 - 2.0 * c)
-end
-
 local function setDisplayedBackground(newPath: string)
   if not newPath or newPath == "" or displayedBgPath == newPath then return end
-  if displayedBgPath ~= "" and noctalia.fileExists(displayedBgPath) then
-    prevBgPath = displayedBgPath
-    bgTransitionProgress = 0.0
-    panel.setNeedsFrameTick(true)
-  else
-    prevBgPath = ""
-    bgTransitionProgress = 1.0
-  end
   displayedBgPath = newPath
 end
 
@@ -149,18 +132,23 @@ local function startWheelListener()
 end
 
 local function baseName(name: string): string
-  local dot = string.find(name, "%.[^%.]+$")
-  if dot and dot > 1 then
-    return string.sub(name, 1, dot - 1)
+  for j = #name, 2, -1 do
+    if string.byte(name, j) == 46 then
+      return string.sub(name, 1, j - 1)
+    end
   end
   return name
 end
 
 local function isItemFavorite(item: any?): boolean
-  if not item then return false end
+  if not item or not hasAnyFavorites then return false end
   if item.path and favorites[item.path] then return true end
   if item.name and favorites[item.name] then return true end
-  local b = item.base or (item.name and baseName(item.name))
+  local b = item.base
+  if not b and item.name then
+    b = baseName(item.name)
+    item.base = b
+  end
   if b and favorites[b] then return true end
   if item.id then
     local whName = "wallhaven-" .. tostring(item.id)
@@ -173,6 +161,10 @@ end
 
 local cachedFavCount = -1
 local function getFavCount(): number
+  if not hasAnyFavorites then
+    cachedFavCount = 0
+    return 0
+  end
   if cachedFavCount >= 0 then
     return cachedFavCount
   end
@@ -245,11 +237,13 @@ local function pumpThumbQueue()
               if ok and isValidFile(dest) then
                 item.thumb = dest
                 item.preview = dest
+                item._thumbValid = true
                 if displayedItems then
                   for _, it in ipairs(displayedItems) do
                     if it.id == id then
                       it.thumb = dest
                       it.preview = dest
+                      it._thumbValid = true
                     end
                   end
                 end
@@ -267,11 +261,13 @@ local function pumpThumbQueue()
               if res and res.exitCode == 0 and isValidFile(dest) then
                 item.thumb = dest
                 item.preview = dest
+                item._thumbValid = true
                 if displayedItems then
                   for _, it in ipairs(displayedItems) do
                     if it.id == id then
                       it.thumb = dest
                       it.preview = dest
+                      it._thumbValid = true
                     end
                   end
                 end
@@ -293,43 +289,60 @@ local function requestWallhavenThumb(item: any, priority: boolean?): string?
   if item.thumb and item._thumbValid then
     return item.thumb
   end
-  if item.thumb and isValidFile(item.thumb) then
-    item.preview = item.thumb
-    item._thumbValid = true
-    return item.thumb
+  if thumbPending[item.id] then
+    return nil
   end
-  local dest = WALLHAVEN_CACHE_DIR .. "/" .. item.id .. ".jpg"
-  if isValidFile(dest) then
-    item.thumb = dest
-    item.preview = dest
-    item._thumbValid = true
-    return dest
-  end
-  if noctalia.fileExists(dest) then
-    pcall(noctalia.removeFile, dest)
-  end
-  if not thumbPending[item.id] then
-    local found = false
-    for _, it in ipairs(thumbQueue) do
-      if it.id == item.id then
-        found = true
-        break
-      end
+  if not item._thumbDiskChecked then
+    item._thumbDiskChecked = true
+    if item.thumb and isValidFile(item.thumb) then
+      item.preview = item.thumb
+      item._thumbValid = true
+      return item.thumb
     end
-    if not found then
-      if priority then
+    local dest = WALLHAVEN_CACHE_DIR .. "/" .. item.id .. ".jpg"
+    if isValidFile(dest) then
+      item.thumb = dest
+      item.preview = dest
+      item._thumbValid = true
+      return dest
+    end
+    if noctalia.fileExists(dest) then
+      pcall(noctalia.removeFile, dest)
+    end
+  end
+  local found = false
+  for i, it in ipairs(thumbQueue) do
+    if it.id == item.id then
+      found = true
+      if priority and i > 1 then
+        table.remove(thumbQueue, i)
         table.insert(thumbQueue, 1, item)
-      else
-        table.insert(thumbQueue, item)
       end
-      pumpThumbQueue()
+      break
     end
+  end
+  if not found then
+    if priority then
+      table.insert(thumbQueue, 1, item)
+    else
+      table.insert(thumbQueue, item)
+    end
+    pumpThumbQueue()
   end
   return nil
 end
 
 local WALLHAVEN_PREVIEW_DIR = noctalia.expandPath("~/.cache/noctalia/wallhaven-previews")
 pcall(noctalia.mkdirAll, WALLHAVEN_PREVIEW_DIR)
+
+local PERMANENT_WH_DIRS = {
+  noctalia.expandPath("~/Pictures/Wallpapers/WallHaven"),
+  noctalia.expandPath("~/Pictures/WallHaven"),
+  noctalia.expandPath("~/Pictures/Wallpapers"),
+  noctalia.expandPath("~/Pictures/wallpapers/WallHaven"),
+  noctalia.expandPath("~/Pictures/wallhaven"),
+  noctalia.expandPath("~/Pictures/wallpapers"),
+}
 
 local hiResPreview = noctalia.getConfig("wallhaven_hires_preview") == true
 local hiResQueue = {}
@@ -368,16 +381,8 @@ local function pumpHiResQueue()
         if noctalia.fileExists(dest) then
           pcall(noctalia.removeFile, dest)
         end
-        local permanentDirs = {
-          noctalia.expandPath("~/Pictures/Wallpapers/WallHaven"),
-          noctalia.expandPath("~/Pictures/WallHaven"),
-          noctalia.expandPath("~/Pictures/Wallpapers"),
-          noctalia.expandPath("~/Pictures/wallpapers/WallHaven"),
-          noctalia.expandPath("~/Pictures/wallhaven"),
-          noctalia.expandPath("~/Pictures/wallpapers"),
-        }
         local alreadySaved = false
-        for _, pdir in ipairs(permanentDirs) do
+        for _, pdir in ipairs(PERMANENT_WH_DIRS) do
           local pf = pdir .. "/wallhaven-" .. id .. "." .. ext
           if isValidFile(pf) then
             item.hiResPath = pf
@@ -445,6 +450,11 @@ local function getWallhavenHiResCached(item: any): string?
   if item.hiResPath and item._hiResValid then
     return item.hiResPath
   end
+  if hiResPending[item.id] or item._hiResDiskChecked then
+    return nil
+  end
+  item._hiResDiskChecked = true
+
   local urlExt = string.match(item.fullUrl or "", "%.([^%.]+)$") or item.ext or "jpg"
   local ext = string.lower(urlExt)
   if ext == "jpeg" then ext = "jpg" end
@@ -456,15 +466,7 @@ local function getWallhavenHiResCached(item: any): string?
     return dest
   end
 
-  local permanentDirs = {
-    noctalia.expandPath("~/Pictures/Wallpapers/WallHaven"),
-    noctalia.expandPath("~/Pictures/WallHaven"),
-    noctalia.expandPath("~/Pictures/Wallpapers"),
-    noctalia.expandPath("~/Pictures/wallpapers/WallHaven"),
-    noctalia.expandPath("~/Pictures/wallhaven"),
-    noctalia.expandPath("~/Pictures/wallpapers"),
-  }
-  for _, pdir in ipairs(permanentDirs) do
+  for _, pdir in ipairs(PERMANENT_WH_DIRS) do
     local pf = pdir .. "/wallhaven-" .. item.id .. "." .. ext
     if isValidFile(pf) then
       item.hiResPath = pf
@@ -519,14 +521,24 @@ local function requestWallhavenHiRes(item: any, priority: boolean?): string?
 end
 
 local function onCardSettled()
-  if currentMode ~= "wallhaven" or not hiResPreview then return end
   local item = displayedItems[selectedIdx]
-  if not item or not item.id or not item.fullUrl then return end
+  if not item then return end
+
+  if currentMode ~= "wallhaven" then
+    local colors = item.colors
+    local hasRealColors = (colors and colors.primary and colors.primary ~= "#80a9ff")
+    if not hasRealColors and not item._paletteRequested and item.path then
+      item._paletteRequested = true
+      noctalia.state.set("deck_command", { action = "prioritize_palette", path = item.path })
+    end
+    return
+  end
+
+  if not hiResPreview or not item.id or not item.fullUrl then return end
 
   local cached = getWallhavenHiResCached(item)
   if cached then
     setDisplayedBackground(cached)
-    if type(render) == "function" then render() end
   else
     requestWallhavenHiRes(item, true)
   end
@@ -541,15 +553,8 @@ local function onCardSettled()
   end
 end
 
-local settleToken = 0
 local function scheduleSettle()
-  if currentMode ~= "wallhaven" or not hiResPreview then return end
-  settleToken = settleToken + 1
-  local myToken = settleToken
-  noctalia.runAsync({ "sleep", "0.2" }, function()
-    if myToken ~= settleToken or not isPickerOpen then return end
-    onCardSettled()
-  end)
+  -- Handled deterministically when spring animation completes in onFrameTick
 end
 
 local currentSort = "name_asc" -- "name_asc" | "name_desc" | "colour" | "newest" | "oldest"
@@ -609,11 +614,6 @@ local function updateCornerRadiusScale()
     local pcallOk, scale = pcall(noctalia.getSetting, "shell.corner_radius_scale")
     if pcallOk and type(scale) == "number" then
       cachedRadiusScale = scale
-      return
-    end
-    local pcallOk2, scale2 = pcall(noctalia.getSetting, "corner_radius_scale")
-    if pcallOk2 and type(scale2) == "number" then
-      cachedRadiusScale = scale2
       return
     end
   end
@@ -715,11 +715,15 @@ end
 local VISIBLE_DECK_CARDS = 11
 local DECK_K = 5
 
-local function getCardWidth(dist: number, scale: number): number
+local function getCardWidthFloat(dist: number, scale: number): number
   local t = clamp(math.abs(dist) / DECK_K, 0.0, 1.0)
-  local centerW = 224 * scale
-  local sideW = 132 * scale
-  return math.floor(lerp(centerW, sideW, t))
+  local centerW = 224.0 * scale
+  local sideW = 132.0 * scale
+  return lerp(centerW, sideW, t)
+end
+
+local function getCardWidth(dist: number, scale: number): number
+  return math.floor(getCardWidthFloat(dist, scale) + 0.5)
 end
 
 local function getCardHeight(dist: number, scale: number): number
@@ -866,6 +870,7 @@ end
 
 local cachedPanelW = 1860
 local cachedPanelH = 1040
+local panelInnerPad = 14
 
 local function monitorMatchesList(monList: any, monString: any, currentMonitorName: string): boolean
   if currentMonitorName == "" then return true end
@@ -884,6 +889,22 @@ local function monitorMatchesList(monList: any, monString: any, currentMonitorNa
   return true
 end
 
+local function resolveBarMonitorOverride(monTable: any, currentMonitorName: string): any
+  if type(monTable) ~= "table" or currentMonitorName == "" then return nil end
+  if type(monTable[currentMonitorName]) == "table" then
+    return monTable[currentMonitorName]
+  end
+  for k, v in pairs(monTable) do
+    if type(v) == "table" then
+      local m = v.match or k
+      if m == currentMonitorName then
+        return v
+      end
+    end
+  end
+  return nil
+end
+
 local function updatePanelGeometry()
   local screenW, screenH, currentMonitorName, _ = getScreenGeometry()
   local barThicknessLeft = 0
@@ -896,14 +917,13 @@ local function updatePanelGeometry()
     if pcallOk and type(bars) == "table" then
       for k, bar in pairs(bars) do
         if k ~= "order" and type(bar) == "table" then
-          -- Support per-monitor bar overrides under bar.<name>.monitor.<connector>
-          local monOverride = (type(bar.monitor) == "table" and currentMonitorName ~= "" and bar.monitor[currentMonitorName]) or nil
+          local monOverride = resolveBarMonitorOverride(bar.monitor, currentMonitorName)
           local effEnabled = (monOverride and monOverride.enabled ~= nil) and monOverride.enabled or bar.enabled
           local effAutoHide = (monOverride and monOverride.auto_hide ~= nil) and monOverride.auto_hide or bar.auto_hide
           local effReserve = (monOverride and monOverride.reserve_space ~= nil) and monOverride.reserve_space or bar.reserve_space
           local effPos = (monOverride and type(monOverride.position) == "string" and monOverride.position)
             or (type(bar.position) == "string" and bar.position)
-            or "top" -- Noctalia default bar position is "top"
+            or "top"
 
           if effEnabled ~= false and not effAutoHide and effReserve ~= false then
             local matchesMon = monitorMatchesList(bar.monitors, type(bar.monitor) == "string" and bar.monitor or nil, currentMonitorName)
@@ -952,7 +972,6 @@ local function updatePanelGeometry()
   end
 
   local floatingOffset = 8
-  local isAttached = false
   local borderWidth = 1
   local uiScale = 1.0
 
@@ -960,10 +979,6 @@ local function updatePanelGeometry()
     local okFo, fo = pcall(noctalia.getSetting, "shell.panel.floating_offset")
     if okFo and type(fo) == "number" then
       floatingOffset = fo
-    end
-    local okPl, pl = pcall(noctalia.getSetting, "plugin_settings.ishan0121/wallpaper-deck.picker_placement")
-    if okPl and pl == "attached" then
-      isAttached = true
     end
     local okBorders, hasBorders = pcall(noctalia.getSetting, "shell.panel.borders")
     if okBorders and hasBorders == false then
@@ -980,11 +995,15 @@ local function updatePanelGeometry()
     end
   end
 
-  local padFloat = (not isAttached and floatingOffset > 0) and (floatingOffset * 2) or 0
+  local padFloat = (floatingOffset > 0) and (floatingOffset * 2) or 0
   local chromeInset = tonumber(noctalia.getConfig("panel_padding_offset"))
-  if chromeInset == nil then
-    chromeInset = 24
+  -- Treat legacy default 24 or nil as 0 (full bleed, zero panel padding)
+  if chromeInset == nil or chromeInset == 24 then
+    chromeInset = 0
   end
+
+  -- Offset the host's built-in 14px panel inner padding so panel_root starts at (0, 0)
+  panelInnerPad = math.max(0, 14 - math.floor(chromeInset / 2 + 0.5))
   local totalChrome = chromeInset + (borderWidth * 2)
 
   local rawW = screenW - barThicknessLeft - barThicknessRight - padFloat - totalChrome
@@ -1232,6 +1251,11 @@ local function updateThemeFromSystem()
 
   noctalia.runAsync({ "noctalia", "msg", "color-scheme-get" }, function(res)
     if res and res.exitCode == 0 and res.stdout and res.stdout ~= "" then
+      local prevSource = currentPaletteSource
+      local prevBuiltin = selectedBuiltinIdx
+      local prevCommunity = selectedCommunityIdx
+      local prevScheme = selectedSchemeIdx
+
       local src, scheme = string.match(res.stdout, "(%S+)%s+(.+)")
       if src and src ~= "" then
         src = string.lower(noctalia.string.trim(src))
@@ -1264,7 +1288,11 @@ local function updateThemeFromSystem()
           end
         end
       end
-      if isPickerOpen then render() end
+      local changed = (prevSource ~= currentPaletteSource)
+        or (prevBuiltin ~= selectedBuiltinIdx)
+        or (prevCommunity ~= selectedCommunityIdx)
+        or (prevScheme ~= selectedSchemeIdx)
+      if changed and isPickerOpen then render() end
     end
   end)
 end
@@ -1317,13 +1345,58 @@ local function sortItemsInPlace(arr: { any }, sortMode: string)
   end
 end
 
+local sortedListCache: { [string]: { any } } = {}
+
 local function invalidateSortCache()
-  -- No-op
+  sortedListCache = {}
 end
 
 local cachedRibbon = nil
 local cachedRibbonIdx = -1
 local cachedRibbonCount = -1
+local cachedRibbonW = -1
+
+local function getCachedLocalList(sortMode: string, flattened: boolean): { any }
+  local cacheKey = sortMode .. "_" .. (flattened and "1" or "0")
+  if sortedListCache[cacheKey] then
+    return sortedListCache[cacheKey]
+  end
+
+  local base: { any }
+  if flattened then
+    if sortMode == "name_asc" or sortMode == "name" then
+      sortedListCache[cacheKey] = allWallpapers
+      return allWallpapers
+    elseif sortMode == "name_desc" then
+      local rev = reverseArray(allWallpapers)
+      sortedListCache[cacheKey] = rev
+      return rev
+    end
+    base = table.create(#allWallpapers)
+    for i, it in ipairs(allWallpapers) do
+      base[i] = it
+    end
+  else
+    base = {}
+    for _, it in ipairs(allWallpapers) do
+      if not itemIsSubdir(it) then
+        table.insert(base, it)
+      end
+    end
+    if sortMode == "name_asc" or sortMode == "name" then
+      sortedListCache[cacheKey] = base
+      return base
+    elseif sortMode == "name_desc" then
+      local rev = reverseArray(base)
+      sortedListCache[cacheKey] = rev
+      return rev
+    end
+  end
+
+  sortItemsInPlace(base, sortMode)
+  sortedListCache[cacheKey] = base
+  return base
+end
 
 local function rebuildList()
   if currentMode == "wallhaven" then
@@ -1346,26 +1419,28 @@ local function rebuildList()
 
   local src = {}
   if currentMode == "favorites" then
-    for _, item in ipairs(allWallpapers) do
-      if isItemFavorite(item) then
-        if isFlattened or not itemIsSubdir(item) then
-          table.insert(src, item)
+    if hasAnyFavorites then
+      for _, item in ipairs(allWallpapers) do
+        if isItemFavorite(item) then
+          if isFlattened or not itemIsSubdir(item) then
+            table.insert(src, item)
+          end
         end
       end
-    end
-    if hasSearch then
-      local q = string.lower(searchQuery)
-      local filtered = {}
-      for _, item in ipairs(src) do
-        local ln = item.lowerName or string.lower(item.name or "")
-        local rel = item.relDir and string.lower(item.relDir) or ""
-        if string.find(ln, q, 1, true) or (rel ~= "" and string.find(rel, q, 1, true)) then
-          table.insert(filtered, item)
+      if hasSearch then
+        local q = string.lower(searchQuery)
+        local filtered = {}
+        for _, item in ipairs(src) do
+          local ln = item.lowerName or string.lower(item.name or "")
+          local rel = item.relDir and string.lower(item.relDir) or ""
+          if string.find(ln, q, 1, true) or (rel ~= "" and string.find(rel, q, 1, true)) then
+            table.insert(filtered, item)
+          end
         end
+        src = filtered
       end
-      src = filtered
+      sortItemsInPlace(src, currentSort)
     end
-    sortItemsInPlace(src, currentSort)
   else
     -- Local mode
     if hasSearch then
@@ -1383,36 +1458,7 @@ local function rebuildList()
       src = filtered
       sortItemsInPlace(src, currentSort)
     else
-      if isFlattened then
-        if currentSort == "name_asc" then
-          src = allWallpapers
-        elseif currentSort == "name_desc" then
-          src = reverseArray(allWallpapers)
-        elseif currentSort == "newest" then
-          src = allWallpapersNewest or allWallpapers
-        elseif currentSort == "oldest" then
-          src = reverseArray(allWallpapersNewest or allWallpapers)
-        elseif currentSort == "colour" then
-          src = allWallpapersColour or allWallpapers
-        else
-          src = allWallpapers
-        end
-      else
-        local base = {}
-        for _, it in ipairs(allWallpapers) do
-          if not itemIsSubdir(it) then
-            table.insert(base, it)
-          end
-        end
-        if currentSort == "name_desc" then
-          src = reverseArray(base)
-        elseif currentSort == "newest" or currentSort == "oldest" or currentSort == "colour" then
-          sortItemsInPlace(base, currentSort)
-          src = base
-        else
-          src = base
-        end
-      end
+      src = getCachedLocalList(currentSort, isFlattened)
     end
   end
 
@@ -1421,15 +1467,9 @@ local function rebuildList()
   selectedIdx = clamp(selectedIdx, 1, math.max(1, #displayedItems))
 end
 
+local cachedApiKey = noctalia.getConfig("wallhaven_api_key") or ""
 local function getApiKey(): string
-  local key = noctalia.getConfig("wallhaven_api_key") or ""
-  if key == "" and type(noctalia.getSetting) == "function" then
-    local pcallOk, officialKey = pcall(noctalia.getSetting, "plugin_settings.noctalia/wallhaven.api_key")
-    if pcallOk and type(officialKey) == "string" and officialKey ~= "" then
-      key = officialKey
-    end
-  end
-  return key
+  return cachedApiKey
 end
 
 local function isNsfwAllowed(): boolean
@@ -1508,7 +1548,7 @@ local function getActiveFilters(): any
   }
 end
 
-local function doWallhavenSearch(resetPage: boolean?)
+local function doWallhavenSearch(resetPage: boolean?, skipRender: boolean?)
   local targetPage = resetPage and 1 or (wallhavenData.page or 1)
   wallhavenLoadingMore = false
   wallhavenError = nil
@@ -1527,7 +1567,7 @@ local function doWallhavenSearch(resetPage: boolean?)
     filters = getActiveFilters(),
     nonce = noctalia.nowMs(),
   })
-  if type(render) == "function" then
+  if not skipRender and type(render) == "function" then
     render()
   end
 end
@@ -2334,6 +2374,7 @@ toggleFavoriteItem = function(item: any)
       end
     end
   end
+  hasAnyFavorites = (next(favorites) ~= nil)
   cachedFavCount = -1
   if currentMode == "favorites" then
     rebuildList()
@@ -2383,7 +2424,7 @@ local function cycleMode()
   elseif currentMode == "favorites" then
     currentMode = "wallhaven"
     if #((wallhavenData and wallhavenData.items) or {}) == 0 then
-      doWallhavenSearch(true)
+      doWallhavenSearch(true, true)
     end
   else
     currentMode = "local"
@@ -2562,10 +2603,7 @@ local function renderCard(item: any, index: number, distSigned: number, scale: n
     end
   end
 
-  if currentMode ~= "wallhaven" and not hasRealColors and not item._paletteRequested and item.path then
-    item._paletteRequested = true
-    noctalia.state.set("deck_command", { action = "prioritize_palette", path = item.path })
-  end
+  -- Palette prioritization is triggered on settle (onCardSettled) to keep render() pure and fast
 
   local chipsElement = (cardH >= 210) and ui.column({ gap = 2 }, chipRows) or chipStrip
 
@@ -3030,41 +3068,14 @@ local function renderEmptyState(paletteColors: any)
 end
 
 local function renderBgLayer(panelW: number, panelH: number, activeItem: any)
-  local bgChildren = {}
-  local ease = easeBg(bgTransitionProgress)
   local bgFill = (#displayedItems > 0 and activeItem and activeItem.sourceColor) or "surface"
 
-  if prevBgPath ~= "" and bgTransitionProgress < 1.0 and noctalia.fileExists(prevBgPath) then
-    local prevAlpha = clampVal(1.0 - ease, 0.0, 1.0)
-    table.insert(bgChildren, ui.column({
-      key = "deck_bg_prev_wrap",
+  if displayedBgPath ~= "" then
+    return ui.column({
+      key = "bg_layer",
       width = panelW,
       height = panelH,
       padding = 0,
-      opacity = prevAlpha,
-      fill = bgFill,
-      align = "stretch",
-      justify = "start",
-    }, {
-      ui.image({
-        key = "deck_bg_prev_img_" .. prevBgPath,
-        path = prevBgPath,
-        width = panelW,
-        height = panelH,
-        radius = R(12),
-        fit = previewFit,
-      }),
-    }))
-  end
-
-  if displayedBgPath ~= "" and noctalia.fileExists(displayedBgPath) then
-    local currAlpha = (prevBgPath ~= "" and bgTransitionProgress < 1.0) and ease or 1.0
-    table.insert(bgChildren, ui.column({
-      key = "deck_bg_curr_wrap",
-      width = panelW,
-      height = panelH,
-      padding = 0,
-      opacity = currAlpha,
       fill = (previewFit == "contain") and bgFill or nil,
       align = "stretch",
       justify = "start",
@@ -3077,48 +3088,36 @@ local function renderBgLayer(panelW: number, panelH: number, activeItem: any)
         radius = R(12),
         fit = previewFit,
       }),
-    }))
-  else
-    table.insert(bgChildren, ui.column({
-      key = "bg_fallback",
-      width = panelW,
-      height = panelH,
-      radius = R(12),
-      fill = bgFill,
-      align = "center",
-      justify = "center",
-    }, {
-      (#displayedItems > 0 and currentMode == "wallhaven" and (not displayedBgPath or displayedBgPath == "")) and ui.row({
-        align = "center",
-        justify = "center",
-        paddingH = 18,
-        paddingV = 9,
-        radius = R(20),
-        fill = "surface/0.8",
-        border = "outline_variant/0.3",
-        borderWidth = 1,
-        gap = 8,
-      }, {
-        ui.glyph({ name = "loader-2", size = 16, color = "primary" }),
-        ui.label({ text = trText("ui.loading", "Loading preview..."), fontSize = 11, fontWeight = "bold", color = "on_surface" }),
-      }) or ui.spacer({ width = 1, height = 1 }),
-    }))
+    })
   end
 
-  local isStacked = (#bgChildren > 1)
   return ui.column({
     key = "bg_layer",
     width = panelW,
     height = panelH,
-    padding = 0,
-    gap = isStacked and -panelH or 0,
-    align = "stretch",
-    justify = "start",
-  }, bgChildren)
+    radius = R(12),
+    fill = bgFill,
+    align = "center",
+    justify = "center",
+  }, {
+    (#displayedItems > 0 and currentMode == "wallhaven") and ui.row({
+      align = "center",
+      justify = "center",
+      paddingH = 18,
+      paddingV = 9,
+      radius = R(20),
+      fill = "surface/0.8",
+      border = "outline_variant/0.3",
+      borderWidth = 1,
+      gap = 8,
+    }, {
+      ui.glyph({ name = "loader-2", size = 16, color = "primary" }),
+      ui.label({ text = trText("ui.loading", "Loading preview..."), fontSize = 11, fontWeight = "bold", color = "on_surface" }),
+    }) or ui.spacer({ width = 1, height = 1 }),
+  })
 end
 
 function render()
-  updatePanelGeometry()
   local panelW, panelH = getPanelGeometry()
   local centerIdx = clamp(math.floor(animatedPos + 0.5), 1, math.max(1, #displayedItems))
   local activeItem = displayedItems[centerIdx]
@@ -3133,37 +3132,42 @@ function render()
   local stripeBorder = isStripeWhite and (paletteColors.accent .. "30") or "outline_variant/0.2"
 
   local deckCards = {}
-  local screenCenterX = panelW / 2
+  local leftSpacerWidth = 0
+  local screenCenterX = panelW / 2.0
   local deckScale = getDeckScale(panelW, panelH)
   local gap = math.max(6, math.floor(12 * deckScale))
   local maxDeckH = math.floor(344 * deckScale + 80 * deckScale)
 
   if #displayedItems > 0 then
     local pos = clamp(animatedPos, 1.0, #displayedItems)
-    local C = math.floor(pos)
+    -- Anchor the visible card window to the nearest integer index so the card window
+    -- switches at the midpoint (frac = +/-0.5) and stays 100% constant while settling!
+    local C = clamp(math.floor(pos + 0.5), 1, #displayedItems)
     local frac = pos - C
 
     local minIdx = math.max(1, C - DECK_K)
-    -- Only include C + DECK_K + 1 during active fractional interpolation (frac > 0.001)
-    -- so that when settled (frac == 0), the deck is strictly symmetric (DECK_K left, DECK_K right)
-    local maxIdx = math.min(#displayedItems, C + DECK_K + ((frac > 0.001) and 1 or 0))
+    local maxIdx = math.min(#displayedItems, C + DECK_K)
 
     local cardWidths = {}
+    local cardWidthsFloat = {}
     for idx = minIdx, maxIdx do
-      cardWidths[idx] = getCardWidth(idx - pos, deckScale)
+      local d = idx - pos
+      cardWidthsFloat[idx] = getCardWidthFloat(d, deckScale)
+      cardWidths[idx] = math.floor(cardWidthsFloat[idx] + 0.5)
     end
 
-    local wC = cardWidths[C] or getCardWidth(0, deckScale)
-    local wC_next = cardWidths[C + 1] or wC
-    local pitchC = (wC + wC_next) / 2.0 + gap
+    local wCFloat = cardWidthsFloat[C] or getCardWidthFloat(0, deckScale)
+    local neighborIdx = (frac >= 0) and (C + 1) or (C - 1)
+    local wNeighborFloat = cardWidthsFloat[neighborIdx] or getCardWidthFloat(1.0 - math.abs(frac), deckScale)
+    local pitchC = (wCFloat + wNeighborFloat) / 2.0 + gap
 
     -- Dynamically ensure left and right card spans never overflow panelW
     while minIdx < C do
-      local sumLeftTmp = 0
+      local sumLeftTmp = 0.0
       for idx = minIdx, C - 1 do
         sumLeftTmp = sumLeftTmp + cardWidths[idx] + gap
       end
-      local testLeft = screenCenterX - (wC / 2.0) - sumLeftTmp - (frac * pitchC)
+      local testLeft = screenCenterX - (wCFloat / 2.0) - sumLeftTmp - (frac * pitchC)
       if testLeft < 8 then
         minIdx = minIdx + 1
       else
@@ -3171,34 +3175,24 @@ function render()
       end
     end
 
-    local sumLeft = 0
+    local sumLeft = 0.0
     for idx = minIdx, C - 1 do
       sumLeft = sumLeft + cardWidths[idx] + gap
     end
 
-    local leftEdgeMin = screenCenterX - (wC / 2.0) - sumLeft - (frac * pitchC)
-    local hasLeftSpacer = (leftEdgeMin > gap)
-    local leftSpacerWidth = hasLeftSpacer and math.max(1, math.floor(leftEdgeMin - gap)) or 0
-    local actualStartX = hasLeftSpacer and (leftSpacerWidth + gap) or 0
+    local leftEdgeMin = screenCenterX - (wCFloat / 2.0) - sumLeft - (frac * pitchC)
+    leftSpacerWidth = math.max(0, math.floor(leftEdgeMin + 0.5))
 
     while maxIdx > C do
       local totalCardsW = 0
       for idx = minIdx, maxIdx do
         totalCardsW = totalCardsW + cardWidths[idx] + ((idx < maxIdx) and gap or 0)
       end
-      if actualStartX + totalCardsW > panelW - 8 then
+      if leftSpacerWidth + totalCardsW > panelW - 8 then
         maxIdx = maxIdx - 1
       else
         break
       end
-    end
-
-    if hasLeftSpacer then
-      table.insert(deckCards, ui.box({
-        key = "deck_left_spacer",
-        width = leftSpacerWidth,
-        height = 1,
-      }))
     end
 
     for idx = minIdx, maxIdx do
@@ -3232,17 +3226,45 @@ function render()
 
   if #displayedItems == 0 then
     displayedBgPath = ""
-    prevBgPath = ""
-    bgTransitionProgress = 1.0
   else
-    local isSettled = (not animateSelected) or (math.abs(animatedPos - selectedIdx) < 0.05)
+    -- Only update the full-screen background when the card has settled at its target index so card movement is 60fps smooth
+    local isSettled = (not animateSelected) or (animatedPos == selectedIdx)
     if (isSettled or displayedBgPath == "") and activeBg ~= "" then
       setDisplayedBackground(activeBg)
     end
   end
 
+  local function wrapFullBleed(rootNode: any)
+    if panelInnerPad <= 0 then
+      return rootNode
+    end
+    return ui.column({
+      key = "panel_bleed_v",
+      width = panelW,
+      height = panelH,
+      padding = 0,
+      gap = -(panelInnerPad + 1),
+      align = "start",
+      justify = "start",
+    }, {
+      ui.box({ key = "bleed_anchor_v", width = 1, height = 1 }),
+      ui.row({
+        key = "panel_bleed_h",
+        width = panelW,
+        height = panelH,
+        padding = 0,
+        gap = -(panelInnerPad + 1),
+        align = "start",
+        justify = "start",
+      }, {
+        ui.box({ key = "bleed_anchor_h", width = 1, height = 1 }),
+        rootNode,
+      }),
+    })
+  end
+
   if isPeeking then
-    panel.render(ui.column({
+    panel.render(wrapFullBleed(ui.column({
       key = "panel_root",
       width = panelW,
       height = panelH,
@@ -3296,7 +3318,7 @@ function render()
           }),
         }),
       }),
-    }))
+    })))
     return
   end
 
@@ -3304,7 +3326,7 @@ function render()
   local searchInputW = math.max(80, searchBoxW - 64)
 
   -- Fullscreen Immersive Overlay with Fullscreen Wallpaper Background
-  panel.render(ui.column({
+  panel.render(wrapFullBleed(ui.column({
     key = "panel_root",
     width = panelW,
     height = panelH,
@@ -3422,7 +3444,6 @@ function render()
                     end
                     isSearchFocused = false
                     executeSearch()
-                    render()
                   end,
                 }),
                 ((currentMode == "wallhaven" and whQuery ~= "") or (currentMode ~= "wallhaven" and searchQuery ~= "")) and ui.button({
@@ -3549,9 +3570,7 @@ function render()
                     if not hiResPreview then
                       hiResQueue = {}
                     else
-                      displayedBgPath = ""
-                      prevBgPath = ""
-                      bgTransitionProgress = 1.0
+                      displayedBgPath = "" 
                       onCardSettled()
                     end
                     triggerPreview()
@@ -3809,13 +3828,13 @@ function render()
             }),
           }) or ui.spacer({ width = 1, height = 1 }),
 
-          -- Bottom: Arched Coverflow Card Deck Row
+          -- Bottom: Arched Coverflow Card Deck Row (outer gap=0 wrapper eliminates spacer gap jump)
           ui.row({
-            key = "deck_cards_row",
+            key = "deck_cards_outer_row",
             width = panelW,
             align = "end",
             justify = "start",
-            gap = gap,
+            gap = 0,
             height = maxDeckH,
             paddingV = 0,
             borderWidth = 0,
@@ -3828,42 +3847,58 @@ function render()
                 render()
               end
             end,
-          }, deckCards),
+          }, {
+            (leftSpacerWidth > 0) and ui.box({
+              key = "deck_left_spacer",
+              width = leftSpacerWidth,
+              height = 1,
+            }) or nil,
+            ui.row({
+              key = "deck_cards_row",
+              align = "end",
+              justify = "start",
+              gap = gap,
+              height = maxDeckH,
+              paddingV = 0,
+              borderWidth = 0,
+              radius = 0,
+              fill = "#00000000",
+            }, deckCards),
+          }),
           ui.spacer({ height = 12 }),
         }),
       }),
     }),
-  }))
+  })))
 end
+
+local nativeScrollActive = false
 
 function onOpen(context: any?)
   isPickerOpen = true
   isDeckAreaHovered = true
+  nativeScrollActive = false
   hoveredDeckKeys = {}
   noctalia.state.set("deck_command", { action = "panel_state", open = true })
   updatePanelGeometry()
   updateCornerRadiusScale()
   animateSelected = noctalia.getConfig("animate_selected_card") ~= false
+  cachedApiKey = noctalia.getConfig("wallhaven_api_key") or ""
   local cfgFit = noctalia.getConfig("preview_fit")
   if cfgFit == "cover" or cfgFit == "contain" or cfgFit == "stretch" then
     previewFit = cfgFit
   end
   displayedBgPath = ""
-  prevBgPath = ""
-  bgTransitionProgress = 1.0
-  cachedFavCount = -1
   cachedRibbon = nil
-  startWheelListener()
-
-  local savedSort = noctalia.state.get("wallhaven_sort") or noctalia.getConfig("wallhaven_sorting") or "date_added"
-  whSortIdx = getSortIndexFromValue(savedSort)
-  local savedOrder = noctalia.state.get("wallhaven_order") or noctalia.getConfig("wallhaven_order") or "desc"
-  whOrder = (savedOrder == "asc") and "asc" or "desc"
 
   if context == "wallhaven" then
     currentMode = "wallhaven"
+    local stateWallhaven = noctalia.state.get("wallhaven_results")
+    if type(stateWallhaven) == "table" then
+      wallhavenData = stateWallhaven
+    end
     if #((wallhavenData and wallhavenData.items) or {}) == 0 then
-      doWallhavenSearch(true)
+      doWallhavenSearch(true, true)
     end
   else
     currentMode = "local"
@@ -3875,28 +3910,17 @@ function onOpen(context: any?)
   wallhavenLoadingMore = false
   wallhavenLoadingStartMs = 0
 
-  local stateWallhaven = noctalia.state.get("wallhaven_results")
-  if type(stateWallhaven) == "table" then
-    wallhavenData = stateWallhaven
-  end
-
-  refreshConnectedOutputs()
-  if not communityPalettes or #communityPalettes == 0 then
-    communityPalettes = loadCommunityPalettes()
-  end
-  updateThemeFromSystem()
-
   if #allWallpapers == 0 then
     local stateWps = noctalia.state.get("wallpapers")
     if type(stateWps) == "table" and #stateWps > 0 then
       allWallpapers = stateWps
+      invalidateSortCache()
     else
       noctalia.state.set("deck_command", { action = "rescan", dir = currentWallDir, nonce = noctalia.nowMs() })
     end
   end
 
-  favorites = noctalia.state.get("favorites") or favorites or {}
-  local stateActive = noctalia.state.get("active_wallpaper") or noctalia.state.get("current_wallpaper") or ""
+  local stateActive = noctalia.state.get("active_wallpaper") or activeWallpaper
   if stateActive ~= "" and not string.find(stateActive, "_screen%.webp") and not string.find(stateActive, "_card%.webp") then
     activeWallpaper = stateActive
     initialWallpaper = stateActive
@@ -3923,6 +3947,14 @@ function onOpen(context: any?)
   panel.setNeedsFrameTick(false)
   onCardSettled()
   render()
+
+  -- Defer non-critical background initialization to a separate async tick so onOpen stays well within CPU budget
+  noctalia.runAsync({ "true" }, function()
+    if not isPickerOpen then return end
+    refreshConnectedOutputs()
+    updateThemeFromSystem()
+    startWheelListener()
+  end)
 end
 
 function onFrameTick(deltaMs: any)
@@ -3932,8 +3964,8 @@ function onFrameTick(deltaMs: any)
     local dt = 0.016
     if lastFrameMs > 0 then
       local elapsed = (nowMs - lastFrameMs) / 1000.0
-      if elapsed > 0.0005 and elapsed < 0.1 then
-        dt = elapsed
+      if elapsed > 0.0005 then
+        dt = clamp(elapsed, 0.001, 0.15)
       end
     elseif numDelta and numDelta > 0 then
       dt = clamp(numDelta / 1000.0, 0.001, 0.05)
@@ -3947,7 +3979,7 @@ function onFrameTick(deltaMs: any)
       animVel = 0.0
     else
       local diff = animatedPos - animTargetPos
-      if math.abs(diff) < 0.002 and math.abs(animVel) < 0.05 then
+      if math.abs(diff) < 0.008 and math.abs(animVel) < 0.15 then
         local wasMoving = (animatedPos ~= animTargetPos or animVel ~= 0.0)
         animatedPos = animTargetPos
         animVel = 0.0
@@ -3956,7 +3988,7 @@ function onFrameTick(deltaMs: any)
         end
       else
         isSpringActive = true
-        local omega = 26.0
+        local omega = 32.0
         local c = (animVel + omega * diff) * dt
         local e = math.exp(-omega * dt)
         animatedPos = animTargetPos + (diff + c) * e
@@ -3964,18 +3996,7 @@ function onFrameTick(deltaMs: any)
       end
     end
 
-    local isBgActive = false
-    if bgTransitionProgress < 1.0 then
-      local step = (dt > 0 and dt or 0.016) / BG_TRANSITION_DURATION
-      bgTransitionProgress = math.min(1.0, bgTransitionProgress + step)
-      if bgTransitionProgress < 1.0 then
-        isBgActive = true
-      else
-        prevBgPath = ""
-      end
-    end
-
-    panel.setNeedsFrameTick(isSpringActive or isBgActive)
+    panel.setNeedsFrameTick(isSpringActive)
     render()
   end)
 
@@ -3997,7 +4018,6 @@ function onKey(chord: string, pressed: boolean)
     if isSearchFocused then
       isSearchFocused = false
       executeSearch()
-      render()
       return
     else
       applyCurrent()
@@ -4072,9 +4092,7 @@ function onKey(chord: string, pressed: boolean)
       if not hiResPreview then
         hiResQueue = {}
       else
-        displayedBgPath = ""
-        prevBgPath = ""
-        bgTransitionProgress = 1.0
+        displayedBgPath = "" 
         onCardSettled()
       end
       triggerPreview()
@@ -4091,11 +4109,19 @@ function onKey(chord: string, pressed: boolean)
     isSearchFocused = not isSearchFocused
     render()
   elseif chordLower == "pointer_button4" or chordLower == "pointer_dfltbtnprev" then
+    if not nativeScrollActive then
+      nativeScrollActive = true
+      stopWheelListener()
+    end
     isSearchFocused = false
     if selectedIdx > 1 then
       selectCardIndex(selectedIdx - 1)
     end
   elseif chordLower == "pointer_button5" or chordLower == "pointer_dfltbtnnext" then
+    if not nativeScrollActive then
+      nativeScrollActive = true
+      stopWheelListener()
+    end
     isSearchFocused = false
     if selectedIdx < #displayedItems then
       selectCardIndex(selectedIdx + 1)
@@ -4123,6 +4149,10 @@ local lastScrollMs = 0
 
 function onScroll(_axis: any, steps: any, _startsGesture: any)
   if not isPickerOpen or #displayedItems == 0 then return end
+  if not nativeScrollActive then
+    nativeScrollActive = true
+    stopWheelListener()
+  end
   isSearchFocused = false
   local nowMs = noctalia.nowMs()
   if nowMs - lastScrollMs < 35 then return end
@@ -4145,13 +4175,19 @@ end
 
 function onIpc(event: string, _payload: string?)
   if event == "prev" or event == "step_left" or event == "left" then
-    if not isPickerOpen then return end
+    if not isPickerOpen or nativeScrollActive then return end
+    local nowMs = noctalia.nowMs()
+    if nowMs - lastScrollMs < 35 then return end
+    lastScrollMs = nowMs
     isSearchFocused = false
     if selectedIdx > 1 then
       selectCardIndex(selectedIdx - 1)
     end
   elseif event == "next" or event == "step_right" or event == "right" then
-    if not isPickerOpen then return end
+    if not isPickerOpen or nativeScrollActive then return end
+    local nowMs = noctalia.nowMs()
+    if nowMs - lastScrollMs < 35 then return end
+    lastScrollMs = nowMs
     isSearchFocused = false
     if selectedIdx < #displayedItems then
       selectCardIndex(selectedIdx + 1)
@@ -4177,9 +4213,7 @@ function onIpc(event: string, _payload: string?)
       if not hiResPreview then
         hiResQueue = {}
       else
-        displayedBgPath = ""
-        prevBgPath = ""
-        bgTransitionProgress = 1.0
+        displayedBgPath = "" 
         onCardSettled()
       end
       triggerPreview()
@@ -4192,7 +4226,7 @@ function onIpc(event: string, _payload: string?)
     selectedIdx = 1
     resetDeckAnimation(1.0)
     if #((wallhavenData and wallhavenData.items) or {}) == 0 then
-      doWallhavenSearch(true)
+      doWallhavenSearch(true, true)
     end
     rebuildList()
     triggerPreview()
@@ -4242,27 +4276,7 @@ noctalia.state.watch("wallpapers", function(val)
   end
 end)
 
-noctalia.state.watch("wallpapers_newest", function(val)
-  if type(val) == "table" and #val > 0 then
-    allWallpapersNewest = val
-    if isPickerOpen and currentMode == "local" and (currentSort == "newest" or currentSort == "oldest") and searchQuery == "" then
-      rebuildList()
-      resetDeckAnimation(selectedIdx)
-      render()
-    end
-  end
-end)
-
-noctalia.state.watch("wallpapers_colour", function(val)
-  if type(val) == "table" and #val > 0 then
-    allWallpapersColour = val
-    if isPickerOpen and currentMode == "local" and currentSort == "colour" and searchQuery == "" then
-      rebuildList()
-      resetDeckAnimation(selectedIdx)
-      render()
-    end
-  end
-end)
+-- Sorted views (newest/oldest/colour) are computed and cached on-demand in picker.luau via sortedListCache
 
 noctalia.state.watch("palette_update", function(update)
   if type(update) == "table" and update.path and update.colors then
@@ -4297,6 +4311,8 @@ noctalia.state.watch("palette_update", function(update)
     end
     if changed then
       cachedRibbon = nil
+      sortedListCache["colour_1"] = nil
+      sortedListCache["colour_0"] = nil
       if isPickerOpen then
         render()
       end
@@ -4345,9 +4361,12 @@ end)
 noctalia.state.watch("favorites", function(val)
   if type(val) == "table" then
     favorites = val
+    hasAnyFavorites = (next(favorites) ~= nil)
     cachedFavCount = -1
     if isPickerOpen then
-      rebuildList()
+      if currentMode == "favorites" then
+        rebuildList()
+      end
       render()
     end
   end
@@ -4457,6 +4476,7 @@ function onConfigChanged()
   updatePanelGeometry()
   updateCornerRadiusScale()
   animateSelected = noctalia.getConfig("animate_selected_card") ~= false
+  cachedApiKey = noctalia.getConfig("wallhaven_api_key") or "" 
   local cfgFit = noctalia.getConfig("preview_fit")
   if cfgFit == "cover" or cfgFit == "contain" or cfgFit == "stretch" then
     previewFit = cfgFit

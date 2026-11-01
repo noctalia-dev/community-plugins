@@ -408,26 +408,6 @@ local function saveCacheToDisk(cache: { [string]: any })
   end
 end
 
-local function rebuildAndPublishColourDeck(deck: { any })
-  if not deck or #deck == 0 then return end
-  local withHue = {}
-  local withoutHue = {}
-  for _, it in ipairs(deck) do
-    if it.hueKey then
-      table.insert(withHue, it)
-    else
-      table.insert(withoutHue, it)
-    end
-  end
-  if #withHue > 1 then
-    table.sort(withHue, function(a, b) return (a.hueKey or 0) < (b.hueKey or 0) end)
-  end
-  for _, it in ipairs(withoutHue) do
-    table.insert(withHue, it)
-  end
-  noctalia.state.set("wallpapers_colour", withHue)
-end
-
 local lastStateSyncTime = 0
 local cacheNeedsSave = false
 local syncInProgress = false
@@ -435,20 +415,32 @@ local pickerPanelOpen = false
 
 local function scheduleCacheAndStateSync(deck: { any }, cache: { [string]: any }, force: boolean?)
   cacheNeedsSave = true
+  -- Do not serialize full state or write large JSON files while the picker panel is open;
+  -- incremental updates are already sent via thumb_update and palette_update!
+  if pickerPanelOpen and not force then
+    return
+  end
   local now = (type(noctalia.nowMs) == "function") and noctalia.nowMs() or 0
-  if not syncInProgress and (force or (now - lastStateSyncTime >= 2500)) then
+  if not syncInProgress and (force or (now - lastStateSyncTime >= 3500)) then
     lastStateSyncTime = now
     syncInProgress = true
     noctalia.runAsync({ "true" }, function()
-      syncInProgress = false
-      if not cacheNeedsSave then return end
+      if not cacheNeedsSave then
+        syncInProgress = false
+        return
+      end
       cacheNeedsSave = false
-      noctalia.state.set("wallpapers", deck)
-      rebuildAndPublishColourDeck(deck)
+      if not pickerPanelOpen then
+        noctalia.state.set("wallpapers", deck)
+      end
       noctalia.runAsync({ "true" }, function()
-        pcall(saveCacheToDisk, pruneCacheToDeck(cache, deck))
+        local pruned = pruneCacheToDeck(cache, deck)
         noctalia.runAsync({ "true" }, function()
-          pcall(saveDeckToDisk, deck)
+          pcall(saveCacheToDisk, pruned)
+          noctalia.runAsync({ "true" }, function()
+            pcall(saveDeckToDisk, deck)
+            syncInProgress = false
+          end)
         end)
       end)
     end)
@@ -543,11 +535,13 @@ local matugenQueueHead = 1
 local matugenProcessedSinceSync = 0
 
 local function pumpMatugenQueue(token: number, cache: { [string]: any }, deck: { any })
+  if pickerPanelOpen then
+    return
+  end
   if not (type(noctalia.commandExists) == "function" and noctalia.commandExists("matugen")) then
     return
   end
-  -- Throttle to 1 background job while panel is open so animations stay 60fps smooth
-  local maxJobs = pickerPanelOpen and 1 or MAX_MATUGEN_JOBS
+  local maxJobs = MAX_MATUGEN_JOBS
   while matugenActive < maxJobs and matugenQueueHead <= #matugenQueue do
     if token ~= scanToken then return end
     local item = matugenQueue[matugenQueueHead]
@@ -652,9 +646,10 @@ local function pumpThumbQueue(token: number, cache: { [string]: any }, deck: { a
   end
 
   local checkedInTick = 0
-  local MAX_CHECK_PER_TICK = 30
+  local MAX_CHECK_PER_TICK = 12
+  local maxThumbJobs = pickerPanelOpen and 1 or MAX_THUMB_JOBS
 
-  while thumbActive < MAX_THUMB_JOBS and thumbQueueHead <= #thumbQueue do
+  while thumbActive < maxThumbJobs and thumbQueueHead <= #thumbQueue do
     if token ~= scanToken then return end
     local item = thumbQueue[thumbQueueHead]
     thumbQueueHead = thumbQueueHead + 1
@@ -721,7 +716,6 @@ end
 local function processScanOutput(stdout: string, dirs: {string}, primaryDir: string, token: number, hasStats: boolean)
   if token ~= scanToken then return end
 
-  local cache = loadCache()
   local rawLines = string.split(stdout, "\n")
   local seen = {}
   local results = {}
@@ -740,8 +734,10 @@ local function processScanOutput(stdout: string, dirs: {string}, primaryDir: str
     })
   end
 
+  local cache: { [string]: any } = {}
+  local cacheLoaded = false
   local lineIdx = 1
-  local BATCH_SIZE = 20
+  local BATCH_SIZE = 15
 
   local function fastFileName(p: string): string
     for j = #p, 1, -1 do
@@ -776,6 +772,12 @@ local function processScanOutput(stdout: string, dirs: {string}, primaryDir: str
 
   local function processBatch()
     if token ~= scanToken then return end
+    if not cacheLoaded then
+      cache = loadCache()
+      cacheLoaded = true
+      noctalia.runAsync({ "true" }, processBatch)
+      return
+    end
 
     local endIdx = math.min(#rawLines, lineIdx + BATCH_SIZE - 1)
     for i = lineIdx, endIdx do
@@ -865,11 +867,14 @@ local function processScanOutput(stdout: string, dirs: {string}, primaryDir: str
                 isLight = cached.isLight
               end
 
-              local key = hashKey(filePath)
-              local cardThumb = THUMB_DIR .. "/" .. key .. "_card.webp"
-
-              local hasCardThumb = noctalia.fileExists(cardThumb)
-              local effectiveThumb = (hasCardThumb and cardThumb) or (thumb and thumb ~= filePath and thumb) or nil
+              local effectiveThumb = (thumb and thumb ~= filePath and thumb) or nil
+              if not effectiveThumb then
+                local key = hashKey(filePath)
+                local cardThumb = THUMB_DIR .. "/" .. key .. "_card.webp"
+                if noctalia.fileExists(cardThumb) then
+                  effectiveThumb = cardThumb
+                end
+              end
 
               local item: { [string]: any } = {
                 path = filePath,
@@ -937,38 +942,10 @@ local function processScanOutput(stdout: string, dirs: {string}, primaryDir: str
         noctalia.runAsync({ "true" }, function()
           local ok, deckJson = pcall(noctalia.json.encode, selectedDeck)
           if ok and deckJson then
-            writeTextFile(DECK_FILE, deckJson)
+            noctalia.runAsync({ "true" }, function()
+              writeTextFile(DECK_FILE, deckJson)
+            end)
           end
-        end)
-
-        -- Generate and broadcast newestDeck and colourDeck in decoupled async ticks
-        local isSub = if scanSubdirs == nil then true else (scanSubdirs == true or scanSubdirs == "true" or scanSubdirs == 1)
-        local depthPart = if not isSub then "-maxdepth 1 " else ""
-        local newestCmd = { "sh", "-c", [[find -L "$@" ]] .. depthPart .. [[\( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.webp" -o -iname "*.gif" -o -iname "*.bmp" -o -iname "*.avif" \) -printf "%T@\t%p\n" | sort -rn | cut -f 2]], "sh" }
-        for _, d in ipairs(dirs) do table.insert(newestCmd, d) end
-
-        noctalia.runAsync(newestCmd, function(nRes)
-          if token ~= scanToken then return end
-          if nRes and nRes.exitCode == 0 and nRes.stdout and nRes.stdout ~= "" then
-            local byPath = {}
-            for _, it in ipairs(selectedDeck) do
-              if it.path then byPath[it.path] = it end
-            end
-            local newestDeck = {}
-            local pLines = string.split(nRes.stdout, "\n")
-            for _, p in ipairs(pLines) do
-              local it = byPath[p]
-              if it then table.insert(newestDeck, it) end
-            end
-            if #newestDeck > 0 then
-              noctalia.state.set("wallpapers_newest", newestDeck)
-            end
-          end
-
-          noctalia.runAsync({ "true" }, function()
-            if token ~= scanToken then return end
-            rebuildAndPublishColourDeck(selectedDeck)
-          end)
         end)
 
         -- Start thumbnail generator (which chains into Matugen palette extraction)
@@ -1223,13 +1200,7 @@ local function searchWallhaven(query: string, pageNum: number, append: boolean?,
   end
   filters = filters or {}
 
-  local apiKey = noctalia.getConfig("wallhaven_api_key") or ""
-  if apiKey == "" and type(noctalia.getSetting) == "function" then
-    local pcallOk, officialKey = pcall(noctalia.getSetting, "plugin_settings.noctalia/wallhaven.api_key")
-    if pcallOk and type(officialKey) == "string" and officialKey ~= "" then
-      apiKey = officialKey
-    end
-  end
+  local apiKey = noctalia.getConfig("wallhaven_api_key") or "" 
 
   local categories = filters.categories or noctalia.getConfig("wallhaven_categories") or "111"
   local purity = filters.purity or noctalia.getConfig("wallhaven_purity") or "100"
@@ -1542,7 +1513,10 @@ noctalia.state.watch("deck_command", function(cmd)
   elseif action == "panel_state" then
     pickerPanelOpen = (cmd.open == true)
     if not pickerPanelOpen and #activeDeckInMemory > 0 then
-      pumpMatugenQueue(scanToken, activeCacheInMemory, activeDeckInMemory)
+      if cacheNeedsSave then
+        scheduleCacheAndStateSync(activeDeckInMemory, activeCacheInMemory, true)
+      end
+      pumpThumbQueue(scanToken, activeCacheInMemory, activeDeckInMemory)
     end
   elseif action == "prune_cache" then
     noctalia.runAsync({ "true" }, prunePreviewCache)
