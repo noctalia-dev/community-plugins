@@ -117,11 +117,12 @@ Key codes are the `KEY_*` values in `/usr/include/linux/input-event-codes.h` (En
 
 ### How It Works
 
-- A background **service** owns the on/off state and runs `ydotool <your args>` once per interval. A run is skipped if the previous one has not finished yet, so slow commands never pile up.
+- A background **service** owns the on/off state and runs `ydotool <your args>` once per interval. A run is skipped if the previous one has not finished yet, so slow commands never pile up. Stopping terminates the in-flight `ydotool` process (SIGTERM, then SIGKILL after 1 s), and a restart waits until that process is gone before launching a new one.
 - The **widget** only shows or hides itself based on the service's state, so multiple bars never start duplicate clickers.
 - If `ydotool` exits with an error (bad arguments, `ydotoold` not running), the plugin stops and shows ydotool's error output instead of looping silently.
 - Invalid payloads (bad `-i` value, unterminated quote) show an error and nothing starts.
 - Nothing keeps running if Noctalia exits.
+- Because stop kills the running command, a long `click -r N` can be cut off between a button's down and up events; if a button ever seems held, send `ydotool click 0x80` (left up), `0x81` (right up), etc.
 
 ### Troubleshooting
 

@@ -7,8 +7,18 @@ local MIN_INTERVAL = 10
 local IDLE_INTERVAL = 1000 -- update() poll rate while stopped
 local DEFAULT_ARGS = { "click", "0xC0" } -- left click, used when no command is given
 
+local CANCEL_POLL_INTERVAL = 25 -- update() poll rate while waiting to terminate a command
+local KILL_ESCALATE_MS = 1000 -- send SIGKILL if SIGTERM did not end the command by then
+
+-- Runs "ydotool <args>" after recording its PID. The shell replaces itself
+-- with ydotool (exec), so the recorded PID is ydotool's own and stop() can
+-- terminate exactly that process.
+local WRAPPER = 'echo $$ > "$1" && shift && exec "$@"'
+
 local running = false
-local busy = false -- a ydotool call is still in flight
+local runId = 0 -- bumped on every start; ties callbacks to the run that spawned them
+local inflight = nil -- the single outstanding ydotool command, until its callback fires
+local seq = 0
 local interval = DEFAULT_INTERVAL
 local args = DEFAULT_ARGS
 
@@ -107,12 +117,67 @@ local function parse(payload)
   return ms, rest
 end
 
+local function pidPathFor(id)
+  local dir = noctalia.pluginDataDir()
+  if not dir then
+    dir = noctalia.getenv("XDG_RUNTIME_DIR") or "/tmp"
+  end
+  return dir .. "/ydotool-" .. id .. ".pid"
+end
+
+local function readPid(cmd)
+  local raw = noctalia.readFile(cmd.pidPath)
+  local pid = raw and tonumber(noctalia.string.trim(raw))
+  if pid and pid > 1 and pid == math.floor(pid) then
+    return pid
+  end
+  return nil -- not written yet (or unreadable)
+end
+
+-- Terminates the in-flight command, if any. Safe to call repeatedly: it is
+-- retried from update() until the command's callback confirms it is gone.
+-- Single-flight tracking (inflight) is deliberately left in place; only the
+-- command's own callback clears it.
+local function pollEvery(ms)
+  -- While running, the user's interval already paces update(); don't override it.
+  if not running then
+    noctalia.setUpdateInterval(ms)
+  end
+end
+
+local function terminateInflight()
+  local cmd = inflight
+  if not cmd then
+    return
+  end
+  cmd.cancelled = true
+
+  local now = noctalia.nowMs()
+  if cmd.termAt and now - cmd.termAt < KILL_ESCALATE_MS then
+    return -- SIGTERM already sent; give it time
+  end
+
+  local pid = readPid(cmd)
+  if not pid then
+    pollEvery(CANCEL_POLL_INTERVAL) -- wrapper has not recorded its PID yet
+    return
+  end
+
+  local signal = "-TERM"
+  if cmd.termAt then
+    signal = "-KILL"
+  end
+  cmd.termAt = now
+  noctalia.runAsync({ "kill", signal, tostring(pid) })
+  pollEvery(KILL_ESCALATE_MS)
+end
+
 local function setRunning(value)
   running = value
   noctalia.state.set("running", value)
   if not value then
-    busy = false
     noctalia.setUpdateInterval(IDLE_INTERVAL)
+    terminateInflight()
   end
 end
 
@@ -143,6 +208,7 @@ local function start(payload)
   end
 
   configure(ms, newArgs)
+  runId = runId + 1
   setRunning(true)
 end
 
@@ -164,26 +230,61 @@ noctalia.state.watch("stop_request", function(value)
 end)
 
 function update()
-  if not running or busy then
+  if not running then
+    -- Stopped: only keep working until the cancelled command is really gone.
+    if inflight then
+      terminateInflight()
+    else
+      noctalia.setUpdateInterval(IDLE_INTERVAL)
+    end
     return
   end
 
-  local argv = { "ydotool" }
+  -- Single-flight: never launch while a command is outstanding, even one
+  -- left over from a previous run that is still being terminated.
+  if inflight then
+    if inflight.cancelled then
+      terminateInflight() -- restarted before the old command died: keep trying
+    end
+    return
+  end
+
+  seq = seq + 1
+  local cmd = { runId = runId, pidPath = pidPathFor(seq), cancelled = false, termAt = nil }
+
+  local argv = { "/bin/sh", "-c", WRAPPER, "ydotool-run", cmd.pidPath, "ydotool" }
   for _, a in ipairs(args) do
     table.insert(argv, a)
   end
 
-  busy = true
-  noctalia.runAsync(argv, function(result)
-    busy = false
+  inflight = cmd
+  local accepted = noctalia.runAsync(argv, function(result)
+    -- Only this command's own callback releases its slot.
+    if inflight == cmd then
+      inflight = nil
+    end
+    noctalia.removeFile(cmd.pidPath)
+
+    -- Ignore results from a command that was cancelled or belongs to an
+    -- older run: they must not stop or alter the current run.
+    if cmd.cancelled or cmd.runId ~= runId or not running then
+      return
+    end
+
     -- If ydotool starts failing (bad args, ydotoold not running), stop
     -- rather than silently spinning forever.
-    if result.exitCode ~= 0 and running then
+    if result.exitCode ~= 0 then
       setRunning(false)
       local detail = noctalia.string.trim(result.stderr or "")
       noctalia.notifyError(TITLE, "ydotool failed, stopped. " .. detail)
     end
   end)
+
+  if not accepted then
+    inflight = nil
+    setRunning(false)
+    noctalia.notifyError(TITLE, "could not launch ydotool, stopped")
+  end
 end
 
 function onIpc(event, payload)
