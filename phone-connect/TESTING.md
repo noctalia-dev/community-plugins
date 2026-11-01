@@ -27,7 +27,12 @@ send SMS messages, dismiss notifications, or change phone settings.
 | `panel.lua` | Default-page options and fallback, collapsed/expanded contacts, number selection, inline device address, compact navigation and bounded history rendering. Large fixtures cover 1,000 contacts and 2,000 conversations, full-cache search, watched snapshot reuse and frame-coalesced updates. |
 | `regressions.lua` | Existing device controls, media interactions, persistence and panel behavior. |
 
-All 14 Python tests and the Lua suites pass. Repository validation passes for
+Dependency coverage forces the `gi` import to fail and checks the JSON package
+guidance. Lua tests cover missing Python, a failed dependency probe, prompt
+command failure with draft retention, successful recovery, the notice on all
+three enhanced tabs, and Device actions while the helper is unavailable.
+
+All 15 Python tests and the Lua suites pass. Repository validation passes for
 299 manifests. Plugin lint reports no errors and one existing unused-setting
 warning for `migrated_notice`.
 
@@ -50,6 +55,15 @@ Environment: Noctalia 5.4.0, KDE Connect 26.08.2, Hyprland and 1.333 display sca
 - Removing only the local override symlink restored community version 0.2.1.
   Restoring the symlink loaded local 0.3.0. The settings file remained unchanged,
   and exactly one bridge watcher ran after restoration.
+- Small-display checks used a separate Hyprland 0.56.2 compositor with a
+  1366×768 headless output at 1.25× and 1.5×, a 38-logical-pixel bar, and Noctalia
+  5.4.0. All three placements rendered all tabs and wide/compact Messages with
+  synthetic data. The host clamped the 800×640 request to the smaller display;
+  the composer, Send and Device action labels remained visible. These are
+  native rendering checks, not physical-display or manual keyboard tests.
+- Starting the isolated shell with `python3 -S` reproduced a missing PyGObject
+  import without uninstalling packages. The panel displayed the dependency
+  notice and package names, with an Open Device controls action.
 
 ## Live verification checklist
 
@@ -59,7 +73,8 @@ following checks remain unverified on the phone:
 
 - [ ] Receive an SMS and verify that its conversation and preview update.
 - [ ] Send an SMS to a designated test recipient and confirm it on the phone.
-- [ ] Open a real conversation and verify its history and older pages.
+- [ ] Open a real conversation, load beyond the first 50 messages, and verify
+  ordering, page boundaries and duplicates against the phone.
 - [ ] Reply to an app notification that supplies a reply action; verify the reply.
 - [ ] Dismiss a mirrored notification and confirm its removal on the phone.
 - [ ] Disconnect/reconnect the phone with populated caches and verify recovery.

@@ -398,7 +398,6 @@ local function contactPicker(id, deviceMessages, pick)
 				gap = 10,
 				align = "center",
 				onClick = toggle,
-				tooltip = t(expanded and "chat.collapse_contact" or "chat.expand_contact"),
 			}, {
 				avatar,
 				ui.column({ gap = 2, flexGrow = 1, minWidth = 0 }, {
@@ -903,7 +902,6 @@ local function deviceView(device)
 				fontWeight = "medium",
 				maxWidth = 240,
 				maxLines = 1,
-				tooltip = name,
 			})
 		)
 		editAction = icon("pencil", "chat.rename", function()
@@ -912,10 +910,9 @@ local function deviceView(device)
 			render()
 		end)
 	end
-	local address, family = device.ipv4, "IPv4"
+	local address = device.ipv4
 	if type(address) ~= "string" or not address:match("%S") then
 		address = device.ipv6
-		family = "IPv6"
 	end
 	if type(address) == "string" and address:match("%S") then
 		address = address:match("^%s*(.-)%s*$")
@@ -926,7 +923,6 @@ local function deviceView(device)
 				fontSize = 10,
 				color = "on_surface_variant",
 				maxLines = 1,
-				tooltip = family .. ": " .. address,
 			})
 		)
 	end
@@ -1010,6 +1006,22 @@ local function deviceView(device)
 	return ui.scroll({ flexGrow = 1, gap = 16 }, rows)
 end
 
+-- A missing Python/Gio runtime must not resemble an empty cache or offline
+-- phone. Keep the error inside the scroll area and offer the independent tab.
+local function bridgeUnavailable(state)
+	return ui.scroll({ key = "bridge-unavailable", flexGrow = 1, gap = 14 }, {
+		label(t("chat.helper_unavailable"), { fontSize = 17, fontWeight = "bold", maxLines = 3 }),
+		note(t("chat.helper_required")),
+		note(state.error, true),
+		note(t("chat.helper_recovery")),
+		button("chat.open_device", "device-mobile", function()
+			preferences.tab = "device"
+			saveView()
+			render()
+		end, { variant = "primary" }),
+	})
+end
+
 -- Rendering must stay within the host callback budget. Reuse watch-delivered
 -- snapshots; never reread full message state here or inside input callbacks.
 function render()
@@ -1039,8 +1051,10 @@ function render()
 		table.insert(body, note(t("chat.preview")))
 	end
 	local count = 0
-	for _ in pairs(deviceMessages.notifications) do
-		count = count + 1
+	if state.bridgeStatus ~= "unavailable" then
+		for _ in pairs(deviceMessages.notifications) do
+			count = count + 1
+		end
 	end
 	for _, tab in ipairs({ "messages", "notifications", "contacts", "device" }) do
 		local text = t("chat.tab_" .. tab)
@@ -1065,10 +1079,12 @@ function render()
 	end
 	table.insert(body, ui.row({ gap = 6 }, tabs))
 	table.insert(body, ui.separator({}))
-	if not device then
+	if state.bridgeStatus == "unavailable" and preferences.tab ~= "device" then
+		table.insert(body, bridgeUnavailable(state))
+	elseif not device then
 		table.insert(body, empty("device-mobile", "panel.title", "panel.empty"))
 	else
-		if state.error and state.error ~= "" then
+		if state.bridgeStatus ~= "unavailable" and state.error and state.error ~= "" then
 			table.insert(body, note(state.error, true))
 		end
 		if deviceMessages.error and deviceMessages.error ~= "" then

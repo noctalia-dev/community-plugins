@@ -186,4 +186,30 @@ assert(not state["pc.messaging"].devices.b.connected)
 clock = clock + 40
 service.tick()
 assert(#callbacks == 1, "Dead stream should be restarted")
+
+-- Dependency failures are published separately from phone connection state.
+state, callbacks, streams = {}, {}, {}
+service = assert(loadfile(directory .. "/messaging-service.luau", "t", env))().start(api)
+complete(false)
+assert(state["pc.messaging"].bridgeStatus == "unavailable")
+assert(state["pc.messaging"].error == "Test failure")
+assert(#streams == 0, "A failed dependency probe must not start a watcher")
+state["pc.drafts"] = { ["a:sms:42"] = { text = "Keep this", rev = 0 } }
+service.command(command)
+assert(#callbacks == 0, "Unavailable helper must reject commands without spawning")
+assert(not state["pc.messaging"].results["a:sms:42"].ok)
+assert(state["pc.drafts"]["a:sms:42"].text == "Keep this")
+clock = clock + 40
+service.tick()
+complete(true)
+emit({ type = "ready" })
+assert(state["pc.messaging"].bridgeStatus == "ready", "Installing dependencies must recover")
+assert(state["pc.messaging"].error == "")
+
+api.runAsync = function()
+	return false
+end
+service = assert(loadfile(directory .. "/messaging-service.luau", "t", env))().start(api)
+assert(state["pc.messaging"].bridgeStatus == "unavailable", "Missing Python must be visible")
+assert(state["pc.messaging"].error:find("Python 3", 1, true))
 print("Messaging model and service regressions passed")

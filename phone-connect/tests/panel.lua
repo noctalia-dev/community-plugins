@@ -337,4 +337,26 @@ assert(
 	commands[#commands].op == "sync",
 	"An empty conversation cache must still request synchronization"
 )
+-- Local helper failure must not show misleading empty/offline phone guidance.
+local helperFailure = {
+	devices = {},
+	pending = {},
+	results = {},
+	bridgeStatus = "unavailable",
+	error = "Install Python 3 and PyGObject (python-gobject or python3-gi).",
+}
+watchers["pc.messaging"](helperFailure)
+for _, tab in ipairs({ "messages", "contacts", "notifications" }) do
+	env.onIpc("view", { tab = tab })
+	text("chat.helper_unavailable")
+	text(helperFailure.error)
+	assert(not find(function(node)
+		return node.props.text == "chat.offline" or node.props.text == "chat.no_notifications"
+	end), "Missing local dependencies must not be presented as phone status")
+end
+text("chat.open_device").props.onClick()
+assert(text("chat.find_phone").props.enabled, "Device controls must remain usable")
+before = #commands
+text("chat.find_phone").props.onClick()
+assert(#commands == before + 1 and commands[#commands].op == "ring")
 print("Panel interaction regressions passed")

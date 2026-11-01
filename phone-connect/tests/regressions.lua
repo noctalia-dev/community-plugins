@@ -90,6 +90,7 @@ if mode == "service" then
 		index = index + 1
 	end
 	assert(values["pc.devices"].test_phone.batteryCharge == 45)
+	assert(values["pc.messaging"].bridgeStatus == "unavailable")
 	local refreshed = false
 	for _, command in ipairs(commands) do
 		if type(command) == "string" and command:find("kdeconnect-cli --refresh", 1, true) then

@@ -13,6 +13,12 @@
 | `widget.luau`, `tile.luau` | Compact entry points that display device status and open the selected panel placement. |
 | `plugin.toml`, `translations/` | Entry IDs, dependencies, settings and translations. English supplies fallback strings. |
 
+All files remain inside the single `phone-connect/` plugin directory, following
+the repository's layout. `tests/`, `screenshots/` and the development documents
+are supporting material, not runtime entries. The 28 tracked files total about
+850 KiB, including about 580 KiB of synthetic screenshots. They are included in
+the plugin checkout; only manifest entries and their required modules execute.
+
 The backend owns phone data. Views issue commands and render shared snapshots;
 they do not call D-Bus or parse contact files directly.
 
@@ -27,7 +33,7 @@ Noctalia shared state is session memory, cleared when the plugin stops.
 | `pc.aliasMap`, `pc.imageMap` | Device service: per-device aliases and custom image paths, also saved in `state.json`. |
 | `pc.trTable` | Device service: flattened translation keys with English fallback. |
 | `pc.cmd` | UI/IPC command channel consumed by the service. Each command has an operation, optional device/arguments and a sequence number. |
-| `pc.messaging` | Messaging service: `{devices, pending, results, error}`. Device entries contain contacts, threads, fetched messages, notifications, calls, capabilities and loading state. |
+| `pc.messaging` | Messaging service: `{devices, pending, results, error, bridgeStatus}`. Device entries contain contacts, threads, fetched messages, notifications, calls, capabilities and loading state. |
 | `pc.drafts` | Panel edits; the messaging service clears accepted text. Maps a target to `{text, rev}`. |
 | `pc.view` | Panel: active tab, compact mode and per-device selection/search/page preferences. |
 
@@ -87,6 +93,13 @@ an incomplete frame. Neither fragment contents nor full events should be logged:
 they can contain personal content.
 
 ## Requests, drafts and reconnection
+
+`bridgeStatus` is `starting`, `ready` or `unavailable`. Failed dependency probes
+publish an actionable error without interrupting the independent device service.
+Enhanced tabs replace their content with a dependency notice, rather than showing
+empty caches or a disconnected phone. Commands fail promptly while unavailable,
+retaining drafts. The watcher health check retries startup after 35 seconds;
+a successful `ready` event clears the error and restores the enhanced tabs.
 
 The service allows one pending request per target. SMS targets include the
 device and thread or recipient; notification replies also include notification
@@ -149,6 +162,11 @@ One helper process watches signals. Short-lived helpers handle requests through
 argument arrays, so message text is not shell-interpreted. Existing device
 controls use `gdbus`, `kdeconnect-cli`, file pickers and openers. Do not include
 message arguments in logs or error reports.
+
+The API 24 process binding accepts a command/argv, callback and timeout, with no
+stdin payload. Request text therefore remains visible in process arguments
+while the helper runs, subject to local process-visibility permissions. This is
+the documented 0.3.0 transport trade-off; it is not a claim of argument privacy.
 
 ## Code style and validation
 

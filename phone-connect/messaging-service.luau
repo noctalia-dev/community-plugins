@@ -27,6 +27,7 @@ function MessagingService.start(api)
 	local command -- Forward declaration: ready events release deferred commands.
 
 	local bridgeError = ""
+	local bridgeStatus = "starting"
 	local snapshotDirty = false
 	local snapshotChunks = {}
 	local snapshotChunkCount = 0
@@ -39,10 +40,13 @@ function MessagingService.start(api)
 	-- Commands publish immediately; incoming signals share one publication per tick.
 	local function publish()
 		snapshotDirty = false
-		api.state.set(
-			"pc.messaging",
-			{ devices = devices, pending = pending, results = results, error = bridgeError }
-		)
+		api.state.set("pc.messaging", {
+			devices = devices,
+			pending = pending,
+			results = results,
+			error = bridgeError,
+			bridgeStatus = bridgeStatus,
+		})
 	end
 
 	local function deviceFor(id)
@@ -63,6 +67,7 @@ function MessagingService.start(api)
 		end
 		if bridgeEvent.type == "ready" then
 			bridgeError = ""
+			bridgeStatus = "ready"
 			watcherReady = true
 			local waiting = deferredRequests
 			deferredRequests = {}
@@ -71,6 +76,7 @@ function MessagingService.start(api)
 				command(item.cmd)
 			end
 		elseif bridgeEvent.type == "reset" then
+			bridgeStatus = "starting"
 			watcherReady = false
 			generation = generation + 1
 			for _, deviceState in pairs(devices) do
@@ -161,12 +167,14 @@ function MessagingService.start(api)
 		end
 		watcherStarting = true
 		watcherReady = false
+		bridgeStatus = "starting"
 		snapshotChunks = {}
 		snapshotChunkCount = 0
 		local launched = api.runAsync({ "python3", helperPath, "check" }, function(processResult)
 			watcherStarting = false
 			local result = decodeObject(processResult and processResult.stdout)
 			if not processResult or processResult.exitCode ~= 0 or not result or not result.ok then
+				bridgeStatus = "unavailable"
 				bridgeError = result and result.message
 					or "Install Python 3 and PyGObject to use messages and notifications."
 				lastHeartbeat = now()
@@ -176,6 +184,7 @@ function MessagingService.start(api)
 			local quoted = "'" .. helperPath:gsub("'", "'\\''") .. "'"
 			local ok = api.runStream("exec python3 -u " .. quoted .. " watch", receiveStreamLine)
 			if not ok then
+				bridgeStatus = "unavailable"
 				bridgeError = "Could not start the KDE Connect bridge"
 			end
 			lastHeartbeat = now()
@@ -183,6 +192,7 @@ function MessagingService.start(api)
 		end)
 		if not launched then
 			watcherStarting = false
+			bridgeStatus = "unavailable"
 			lastHeartbeat = now()
 			bridgeError = "Install Python 3 and PyGObject to use messages and notifications."
 			publish()
@@ -219,6 +229,12 @@ function MessagingService.start(api)
 			return
 		end
 		cmd.requestId = cmd.requestId or tostring(api.nowMs())
+		-- A missing helper is local to the enhanced tabs. Fail commands promptly
+		-- without starting another process or changing any retained draft.
+		if bridgeStatus == "unavailable" then
+			finishRequest(target, cmd, false, bridgeError)
+			return
+		end
 		pending[target] = { requestId = cmd.requestId, since = now() }
 		results[target] = nil
 		-- The watcher announces ready only after subscribing. A panel can open

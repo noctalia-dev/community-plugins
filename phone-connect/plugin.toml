@@ -1,5 +1,7 @@
 # Phone Connect uses KDE Connect for device communication.
-# API 24: modules, chat scrolling and argument-array subprocess calls.
+# API 18: frame-coalesced rendering; 21: chat scrolling and multiline submission;
+# 22: relative modules; 24: direct argument-array subprocess calls.
+# Lowering this value alone cannot make the redesigned panel run on API 16.
 
 id = "icefish/phone-connect"
 name = "Phone Connect"

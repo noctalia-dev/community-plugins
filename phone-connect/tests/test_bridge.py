@@ -3,6 +3,7 @@ import importlib.util
 import io
 import json
 import os
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -24,6 +25,21 @@ class Variant:
 
 
 class BridgeTests(unittest.TestCase):
+    def test_missing_pygobject_reports_actionable_json_error(self):
+        output = io.StringIO()
+        with (
+            patch.dict(sys.modules, {"gi": None, "gi.repository": None}),
+            patch("sys.argv", ["bridge.py", "check"]),
+            patch("sys.stdout", output),
+        ):
+            self.assertEqual(bridge.main(), 1)
+
+        response = json.loads(output.getvalue())
+        self.assertFalse(response["ok"])
+        self.assertIn("PyGObject", response["message"])
+        self.assertIn("python-gobject", response["message"])
+        self.assertIn("python3-gi", response["message"])
+
     def test_large_request_reply_is_one_json_object(self):
         event = {
             "type": "threads",

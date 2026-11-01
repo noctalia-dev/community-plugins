@@ -83,6 +83,25 @@ Existing file/image pickers use `zenity` or `kdialog` when installed; browsing
 uses `xdg-open`. The helper reads typed D-Bus values rather than parsing message
 text from shell output. Noctalia plugin API 24 or newer is required.
 
+Python 3 and PyGObject are required for **Messages, Contacts, and mirrored
+Notifications**. If either is missing, those tabs show a dependency notice with
+package names and an action to open Device controls. Device discovery, battery,
+media, Find phone and the existing CLI/gdbus controls continue working. There is
+no separate notification fallback. The service retries a failed helper startup
+automatically; restarting the plugin retries immediately after installation.
+
+### API compatibility
+
+The API floor is 24 because the implementation uses direct argument arrays for
+helper requests. Relative modules require 22, chat scrolling and input submission
+controls require 21, and frame-coalesced rendering requires 18. Lowering the
+manifest alone would make older hosts load code they cannot execute.
+
+Noctalia's [API version history](https://docs.noctalia.dev/noctalia/plugins/development/plugin-api/)
+places API 24 in v5.0.0-beta.9, before the stable v5.0.0 series. Hosts below API 24
+need the older plugin revision. The API floor does not establish a test claim
+for every compatible shell version; tested versions are listed in TESTING.md.
+
 ## Settings
 
 | Setting | Default | Description |
@@ -139,8 +158,12 @@ the stream on reload/disable. Device controls retain their `gdbus`,
 `kdeconnect-cli`, picker, `sleep`, and file-opener processes. Phone actions are
 only invoked from explicit UI/IPC commands. Message text is passed as an argument
 array, never interpreted by a shell. Do not log helper JSON: it contains personal data.
-Command arguments contain message text while a request is running and can be
-visible to local process-inspection tools.
+**Process-argument trade-off:** API 24's `runAsync` has no stdin payload option.
+The request JSON therefore contains SMS/reply text in argv for the duration of
+the short-lived helper process. It can be visible through `ps` or `/proc` to
+other local accounts when process visibility permissions allow it. This is a
+known trade-off in 0.3.0; direct execution avoids shell interpretation, but does
+not make arguments private. No message handoff files are created.
 
 Aliases, images, and the selected device remain in `pluginDataDir()/state.json`.
 Picker handoff files are temporary and removed after use. Message data,
