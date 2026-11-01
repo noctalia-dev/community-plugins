@@ -8,12 +8,28 @@
       "max20": "Max 20x"
     },
     "multiplier": {
-      "label": "Credits per USD of usage",
-      "description": "Your model's credit draw, calibrated against /usage (1.0 = full-allowance model)."
+      "label": "5-hour multiplier",
+      "description": "Credits per USD of usage inside the 5-hour window, calibrated against /usage."
     },
     "billing_day": {
       "label": "Billing cycle start day",
       "description": "Day of the month your Command Code subscription renews."
+    },
+    "weekly_multiplier": {
+      "label": "Weekly multiplier",
+      "description": "Credits per USD of usage inside the weekly window."
+    },
+    "month_multiplier": {
+      "label": "Monthly multiplier",
+      "description": "Credits per USD of usage for the monthly cycle."
+    },
+    "usage_command": {
+      "label": "Server usage command (optional)",
+      "description": "Command that prints the meter JSON on stdout. Leave empty to use the local-transcript estimate. Run at most once per interval."
+    },
+    "usage_interval_minutes": {
+      "label": "Server usage interval (minutes)",
+      "description": "How often the optional server usage command runs."
     }
   }
 }

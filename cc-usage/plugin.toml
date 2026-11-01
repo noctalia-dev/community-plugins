@@ -1,6 +1,6 @@
 id = "wennington/cc-usage"
 name = "Command Code Usage"
-version = "1.0.0"
+version = "1.0.1"
 plugin_api = 3
 author = "wennington"
 license = "MIT"
@@ -38,6 +38,40 @@ description_key = "settings.billing_day.description"
 default = 28
 min = 1
 max = 28
+
+[[setting]]
+key = "weekly_multiplier"
+type = "double"
+label_key = "settings.weekly_multiplier.label"
+description_key = "settings.weekly_multiplier.description"
+default = 2.5
+min = 0.1
+max = 100.0
+
+[[setting]]
+key = "month_multiplier"
+type = "double"
+label_key = "settings.month_multiplier.label"
+description_key = "settings.month_multiplier.description"
+default = 2.5
+min = 0.1
+max = 100.0
+
+[[setting]]
+key = "usage_command"
+type = "string"
+label_key = "settings.usage_command.label"
+description_key = "settings.usage_command.description"
+default = ""
+
+[[setting]]
+key = "usage_interval_minutes"
+type = "int"
+label_key = "settings.usage_interval_minutes.label"
+description_key = "settings.usage_interval_minutes.description"
+default = 60
+min = 1
+max = 1440
 
 [[desktop_widget]]
 id = "usage"
