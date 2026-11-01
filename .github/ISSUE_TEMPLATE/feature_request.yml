@@ -170,6 +170,7 @@ body:
         - modernclock
         - murattal
         - mx-control
+        - mxmouse
         - nan-usage
         - ncs-visualizer
         - network-control
