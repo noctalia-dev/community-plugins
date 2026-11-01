@@ -1,0 +1,21 @@
+{
+  "title": "Stasis",
+  "status.not_running": "Stasis no está en ejecución",
+  "status.unparsed": "No se pudo leer stasis info --json",
+  "settings.interval.label": "Intervalo de refresco",
+  "settings.interval.description": "Segundos entre llamadas a stasis info --json.",
+  "settings.show_tooltip.label": "Mostrar tooltip",
+  "settings.show_tooltip.description": "Muestra el estado completo de Stasis al pasar el ratón.",
+  "settings.glyph_active.label": "Glifo: activo",
+  "settings.glyph_active.description": "Glifo para los estados active e idle_active.",
+  "settings.glyph_idle_waiting.label": "Glifo: esperando inactividad",
+  "settings.glyph_idle_waiting.description": "Glifo mientras espera para quedar inactivo.",
+  "settings.glyph_manually_inhibited.label": "Glifo: inhibido manualmente",
+  "settings.glyph_manually_inhibited.description": "Glifo cuando la inactividad se inhibe manualmente.",
+  "settings.glyph_idle_inhibited.label": "Glifo: inactividad inhibida",
+  "settings.glyph_idle_inhibited.description": "Glifo cuando una app o regla inhibe la inactividad.",
+  "settings.glyph_not_running.label": "Glifo: no en ejecución",
+  "settings.glyph_not_running.description": "Glifo cuando Stasis no está en ejecución.",
+  "settings.glyph_unknown.label": "Glifo: desconocido",
+  "settings.glyph_unknown.description": "Glifo de reserva para un estado no reconocido."
+}

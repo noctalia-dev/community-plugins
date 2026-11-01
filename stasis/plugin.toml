@@ -1,0 +1,86 @@
+# Stasis — muestra el estado del gestor de inactividad Stasis en la barra.
+#
+# El widget ejecuta `stasis info --json` cada pocos segundos, lee el campo
+# "class" y pinta un glifo según el estado, con el tooltip completo que
+# devuelve Stasis. El color del glifo es el de icono por defecto de Noctalia.
+# Los glifos son configurables desde Ajustes > Plugins > Stasis.
+
+id           = "rober/stasis"
+name         = "Stasis"
+version      = "1.0.0"
+# 14 = tabla [widget.actions] (bindings de gestos por defecto).
+plugin_api   = 14
+author       = "rober"
+license      = "MIT"
+icon         = "moon"
+description  = "Muestra el estado del gestor de inactividad Stasis en la barra."
+dependencies = ["stasis"]
+tags         = ["bar", "system", "utility"]
+
+[[widget]]
+id    = "stasis"
+entry = "stasis.luau"
+
+  # Gestos por defecto: se pueden reasignar por instancia desde los ajustes
+  # de gestos del widget. Clic derecho alterna la inhibición manual
+  # (pausar / reanudar Stasis).
+  [widget.actions]
+  right = "exec stasis toggle-inhibit"
+
+  [[widget.setting]]
+  key             = "interval"
+  type            = "int"
+  label_key       = "settings.interval.label"
+  description_key = "settings.interval.description"
+  default         = 2
+  min             = 1
+  max             = 60
+
+  [[widget.setting]]
+  key             = "show_tooltip"
+  type            = "bool"
+  label_key       = "settings.show_tooltip.label"
+  description_key = "settings.show_tooltip.description"
+  default         = true
+
+  [[widget.setting]]
+  key             = "glyph_active"
+  type            = "glyph"
+  label_key       = "settings.glyph_active.label"
+  description_key = "settings.glyph_active.description"
+  default         = "coffee"
+
+  [[widget.setting]]
+  key             = "glyph_idle_waiting"
+  type            = "glyph"
+  label_key       = "settings.glyph_idle_waiting.label"
+  description_key = "settings.glyph_idle_waiting.description"
+  default         = "hourglass"
+
+  [[widget.setting]]
+  key             = "glyph_manually_inhibited"
+  type            = "glyph"
+  label_key       = "settings.glyph_manually_inhibited.label"
+  description_key = "settings.glyph_manually_inhibited.description"
+  default         = "hand-stop"
+
+  [[widget.setting]]
+  key             = "glyph_idle_inhibited"
+  type            = "glyph"
+  label_key       = "settings.glyph_idle_inhibited.label"
+  description_key = "settings.glyph_idle_inhibited.description"
+  default         = "player-pause"
+
+  [[widget.setting]]
+  key             = "glyph_not_running"
+  type            = "glyph"
+  label_key       = "settings.glyph_not_running.label"
+  description_key = "settings.glyph_not_running.description"
+  default         = "moon"
+
+  [[widget.setting]]
+  key             = "glyph_unknown"
+  type            = "glyph"
+  label_key       = "settings.glyph_unknown.label"
+  description_key = "settings.glyph_unknown.description"
+  default         = "question-mark"
