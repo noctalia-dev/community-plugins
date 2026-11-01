@@ -1,0 +1,30 @@
+id = "ffngs/mxmouse"
+name = "MX Mouse"
+version = "1.0.13"
+plugin_api = 43
+author = "ffngs"
+license = "MIT"
+icon = "mouse"
+description = "Configure MX Master gestures and per-window presets for Niri."
+dependencies = ["niri"]
+tags = ["niri", "utility", "panel", "bar"]
+
+[[widget]]
+id = "modifier"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "hide_when_off"
+  type = "bool"
+  label_key = "settings.hide_when_off.label"
+  description_key = "settings.hide_when_off.description"
+  default = true
+
+[[panel]]
+id = "manager"
+entry = "main.luau"
+width = 760
+height = 700
+placement = "floating"
+position = "center"
+capture_keys = ["Escape"]
