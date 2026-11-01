@@ -5324,3 +5324,16 @@ icon = "terminal-2"
 description = "Launch terminal apps in floating windows, with a card grid, per-command geometry and rotation."
 plugin_api = 43
 tags = ["utility", "system", "hyprland", "music", "launcher"]
+
+[[plugin]]
+id = "styrish/modernclock"
+name = "Modern Clock"
+version = "1.0.0"
+updated_at = 1793549106
+added_at = 1793549106
+author = "styrish"
+license = "GPL-3.0"
+icon = "clock"
+description = "A port of KDE Modern Clock to Noctalia on Wayland/Niri."
+plugin_api = 43
+tags = ["desktop", "clock", "time"]
