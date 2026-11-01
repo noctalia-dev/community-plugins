@@ -5311,3 +5311,16 @@ icon = "music"
 description = "What's playing in Sonolith, in your bar: playback controls, lyrics, queue and your YouTube Music library."
 plugin_api = 43
 tags = ["bar", "panel", "service", "media", "music"]
+
+[[plugin]]
+id = "faminec/terminal-widgets"
+name = "Terminal Widgets"
+version = "2.2.0"
+updated_at = 1793546917
+added_at = 1793546917
+author = "faminec"
+license = "MIT"
+icon = "terminal-2"
+description = "Launch terminal apps in floating windows, with a card grid, per-command geometry and rotation."
+plugin_api = 43
+tags = ["utility", "system", "hyprland", "music", "launcher"]
