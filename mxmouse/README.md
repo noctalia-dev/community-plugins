@@ -6,7 +6,7 @@ Configure Logitech MX Master 3/3S thumb-button gestures and per-window profiles 
 
 | Field | Value |
 | --- | --- |
-| ID | `ffngs/mxmouse` |
+| ID | `uheplm/mxmouse` |
 | Entries | Panel: `manager`; bar widget: `modifier` |
 
 ## Requirements
@@ -40,7 +40,7 @@ For alternative install methods and service details, see the [nnmxd installation
 Open the panel from the plugin entry or run:
 
 ```sh
-noctalia msg panel-toggle ffngs/mxmouse:manager
+noctalia msg panel-toggle uheplm/mxmouse:manager
 ```
 
 ### Overview
