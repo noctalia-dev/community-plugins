@@ -9,6 +9,9 @@ engine and your command history, so they stay in sync with what's actually on
 your system. Commands run through your own `$SHELL` in interactive mode, so
 aliases, functions and environment from your rc config are available.
 
+Use `/shb` instead to run a command in the background, without opening a
+terminal at all — handy for launching scripts and GUI apps.
+
 ## Features
 
 - **Instant command run** — `/sh ls -la ~/projects` opens the command in your
@@ -35,20 +38,23 @@ aliases, functions and environment from your rc config are available.
 - **Stay-open terminal** — after a fast command (e.g. `git status`) the terminal
   holds its output, shows a `[Press Enter to continue]` prompt, then drops you
   into an interactive shell.
+- **Background run** — `/shb <command>` runs the command detached, with no
+  terminal window. Same suggestions, snippets and snap-complete as `/sh`, with
+  its own history.
 - **Workspace-aware** — when a default workspace is set, commands start in that
   directory.
 
 ## Plugin
 
-| Field           | Value                         |
-| --------------- | ----------------------------- |
-| ID              | `weinguyen/shell-command`     |
-| Entry           | Launcher provider: `provider` |
-| Launcher Prefix | `/sh`                         |
+| Field             | Value                                        |
+| ----------------- | -------------------------------------------- |
+| ID                | `weinguyen/shell-command`                    |
+| Entries           | Launcher providers: `provider`, `background` |
+| Launcher Prefixes | `/sh` (`provider`), `/shb` (`background`)    |
 
 ## Requirements
 
-- Noctalia v5.0.0 or higher.
+- A Noctalia version supporting plugin API 22 or newer.
 - `runInTerminal` needs a default terminal configured in Noctalia.
 - A shell at `$SHELL` (falls back to `sh`).
 - Optional: Fish (richer completions; falls back to bash otherwise).
@@ -97,6 +103,18 @@ the current parent directory.
 Navigates into `~/Builds` and runs `make` there. Paths may contain spaces,
 quotes and `\ ` escapes.
 
+### Run a command in the background
+
+```
+/shb ~/scripts/workenv
+/shb cd ~/proj && make
+```
+
+Press Enter on the "Run in background:" row to start the command without a
+terminal. It keeps running after the launcher closes. Output is discarded, and
+stdin is closed, so commands that need input or a TTY belong in `/sh`. Folder
+browsing (`/shb cd`) is not available here, but `cd <dir> && <cmd>` works.
+
 ## Settings
 
 | Setting             | Type          | Default | Description                                                                     |
@@ -115,9 +133,14 @@ quotes and `\ ` escapes.
 - Completion suggestions update dynamically as Fish completions and installed
   binaries change — there is no hardcoded list to maintain.
 - History is stored per-plugin (XDG state directory), capped at 100 entries,
-  deduplicated, most recent command first.
+  deduplicated, most recent command first. `/sh` and `/shb` keep separate
+  history files (`history` and `history_background`).
+- `/shb` commands are spawned detached through `$SHELL -ic`. Nothing reports
+  whether they succeed, so check a command with `/sh` first if unsure.
 
 ## Development
 
-- `shell_provider.luau` — the launcher provider entry.
+- `shell_core.luau` — the provider logic shared by both launcher entries.
+- `shell_provider.luau` — the `/sh` launcher provider entry.
+- `shell_background_provider.luau` — the `/shb` launcher provider entry.
 - `translations/en.json`, `translations/vi.json` — user-facing strings.
