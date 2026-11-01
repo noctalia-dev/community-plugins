@@ -7,6 +7,9 @@
 local prevMountedDevices = {}
 local prevAllDevices = {}
 local isInitialFetch = true
+-- 同一服务内串行执行设备操作，避免卸载过程中再次挂载或重复断电。
+local operationBusy = false
+noctalia.state.set("udiskie_busy", false)
 
 local function isTrue(val)
     return type(val) == "string" and val:lower() == "true"
@@ -211,53 +214,96 @@ local function cleanError(stderr, fallback)
     return clean ~= "" and clean or fallback
 end
 
--- IPC Handlers for Panel and Shortcuts
+-- 结束一次操作并刷新状态；命令超时或未返回结果也必须作为失败显示。
+local function finishOperation(res, titleKey, fallback)
+    operationBusy = false
+    noctalia.state.set("udiskie_busy", false)
+    if (not res or res.exitCode ~= 0) and noctalia.getConfig("enable_notifications") ~= false then
+        noctalia.notifyError(noctalia.tr(titleKey), cleanError(res and res.stderr, fallback))
+    end
+    fetchDevices()
+end
+
+-- 普通挂载和卸载也经过同一把操作锁；超时后不自动重试设备写操作。
+local function runOperation(command, titleKey, fallback)
+    operationBusy = true
+    noctalia.state.set("udiskie_busy", true)
+    noctalia.runAsync(command, function(res)
+        finishOperation(res, titleKey, fallback)
+    end, 120000)
+end
+
+-- 先读取当前整盘能力，再以两阶段命令执行安全移除。
+-- requestedMode 保留旧 eject/detach IPC 的含义；safe_remove 自动选择可用操作。
+local function safelyRemove(payload, requestedMode)
+    operationBusy = true
+    noctalia.state.set("udiskie_busy", true)
+    local titleKey = "notif_safe_remove_failed_title"
+    local fallback = noctalia.tr("notif_safe_remove_failed_fallback", { device = payload })
+    if requestedMode == "eject" then
+        titleKey = "notif_eject_failed_title"
+        fallback = noctalia.tr("notif_eject_failed_fallback", { device = payload })
+    elseif requestedMode == "detach" then
+        titleKey = "notif_poweroff_failed_title"
+        fallback = noctalia.tr("notif_poweroff_failed_fallback", { device = payload })
+    end
+    local query = "udiskie-info -o " .. shellQuote("{is_toplevel}\t{is_ejectable}\t{is_detachable}\t{device_id}") .. " " .. shellQuote(payload)
+
+    -- 1. 不信任面板缓存：设备拔出、权限变化或查询失败时直接停止。
+    noctalia.runAsync(query, function(res)
+        if not res or res.exitCode ~= 0 then
+            finishOperation(res, titleKey, fallback)
+            return
+        end
+        local top, ejectable, detachable, deviceId = (res.stdout or ""):match("^([^\t]*)\t([^\t]*)\t([^\t]*)\t([^\r\n]*)[\r\n]*$")
+        local mode = requestedMode
+        if mode == "safe_remove" then
+            mode = isTrue(ejectable) and "eject" or "detach"
+        end
+        if not isTrue(top) or (mode == "eject" and not isTrue(ejectable)) or (mode == "detach" and not isTrue(detachable)) then
+            finishOperation({ exitCode = 1 }, titleKey, noctalia.tr("error_remove_unsupported"))
+            return
+        end
+
+        -- 2. 优先使用持久设备路径，减少 /dev/sdX 在两阶段之间被复用的风险。
+        local target = payload
+        if deviceId and deviceId ~= "" and deviceId ~= "None" and not deviceId:find("/", 1, true) then
+            target = "/dev/disk/by-id/" .. deviceId
+        end
+        local quotedTarget = shellQuote(target)
+        -- udiskie 的 --force 表示递归处理子设备，不是强制/延迟卸载忙碌文件系统。
+        -- 显式禁止第一阶段弹出或断电；&& 保证任一卸载失败都不会进入第二阶段。
+        local unmount = "udiskie-umount --force --no-detach --no-eject " .. quotedTarget
+        local remove = mode == "eject"
+            and "udiskie-umount --no-force --no-detach --eject "
+            or "udiskie-umount --no-force --no-eject --detach "
+        noctalia.runAsync(unmount .. " && " .. remove .. quotedTarget, function(result)
+            finishOperation(result, titleKey, fallback)
+        end, 120000)
+    end, 5000)
+end
+
+-- 面板与快捷键共用入口；只读刷新始终可用，设备变更在服务内部串行化。
 function onIpc(event, payload)
+    if event == "refresh" then
+        fetchDevices()
+        return
+    end
+    if operationBusy then
+        return
+    end
     if event == "mount" and payload then
-        noctalia.runAsync("udiskie-mount -r " .. shellQuote(payload), function(res)
-            if res and res.exitCode ~= 0 and noctalia.getConfig("enable_notifications") ~= false then
-                noctalia.notifyError(noctalia.tr("notif_mount_failed_title"), cleanError(res.stderr, noctalia.tr("notif_mount_failed_fallback", { device = payload })))
-            end
-            fetchDevices()
-        end, 30000)
+        runOperation("udiskie-mount -r " .. shellQuote(payload), "notif_mount_failed_title", noctalia.tr("notif_mount_failed_fallback", { device = payload }))
     elseif event == "mount_all" then
-        noctalia.runAsync("udiskie-mount -a", function(res)
-            if res and res.exitCode ~= 0 and noctalia.getConfig("enable_notifications") ~= false then
-                noctalia.notifyError(noctalia.tr("notif_mount_all_failed_title"), cleanError(res and res.stderr, noctalia.tr("notif_mount_all_failed_fallback")))
-            end
-            fetchDevices()
-        end, 10000)
+        runOperation("udiskie-mount -a", "notif_mount_all_failed_title", noctalia.tr("notif_mount_all_failed_fallback"))
     elseif event == "unmount" and payload then
-        noctalia.runAsync("udiskie-umount " .. shellQuote(payload), function(res)
-            if res and res.exitCode ~= 0 and noctalia.getConfig("enable_notifications") ~= false then
-                noctalia.notifyError(noctalia.tr("notif_unmount_failed_title"), cleanError(res.stderr, noctalia.tr("notif_unmount_failed_fallback", { device = payload })))
-            end
-            fetchDevices()
-        end, 10000)
+        -- 卸载仅处理文件系统，明确覆盖用户配置中可能启用的弹出或断电选项。
+        runOperation("udiskie-umount --no-detach --no-eject " .. shellQuote(payload), "notif_unmount_failed_title", noctalia.tr("notif_unmount_failed_fallback", { device = payload }))
     elseif event == "unmount_all" then
-        noctalia.runAsync("udiskie-umount -a", function(res)
-            if res and res.exitCode ~= 0 and noctalia.getConfig("enable_notifications") ~= false then
-                noctalia.notifyError(noctalia.tr("notif_unmount_all_failed_title"), cleanError(res and res.stderr, noctalia.tr("notif_unmount_all_failed_fallback")))
-            end
-            fetchDevices()
-        end, 10000)
-    elseif event == "eject" and payload then
-        noctalia.runAsync("udiskie-umount -e " .. shellQuote(payload), function(res)
-            if res and res.exitCode ~= 0 and noctalia.getConfig("enable_notifications") ~= false then
-                noctalia.notifyError(noctalia.tr("notif_eject_failed_title"), cleanError(res.stderr, noctalia.tr("notif_eject_failed_fallback", { device = payload })))
-            end
-            fetchDevices()
-        end, 10000)
-    elseif event == "detach" and payload then
-        noctalia.runAsync("udiskie-umount -d " .. shellQuote(payload), function(res)
-            if res and res.exitCode ~= 0 and noctalia.getConfig("enable_notifications") ~= false then
-                noctalia.notifyError(noctalia.tr("notif_poweroff_failed_title"), cleanError(res.stderr, noctalia.tr("notif_poweroff_failed_fallback", { device = payload })))
-            end
-            fetchDevices()
-        end)
+        runOperation("udiskie-umount -a --no-detach --no-eject", "notif_unmount_all_failed_title", noctalia.tr("notif_unmount_all_failed_fallback"))
+    elseif (event == "safe_remove" or event == "eject" or event == "detach") and payload then
+        safelyRemove(payload, event)
     elseif event == "open" and payload then
         openWithFileManager(payload)
-    elseif event == "refresh" then
-        fetchDevices()
     end
 end

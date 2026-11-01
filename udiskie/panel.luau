@@ -17,12 +17,29 @@ local function unmountDevice(dev)
     noctalia.runAsync("noctalia msg plugin aristides/udiskie:service all unmount " .. shellQuote(dev))
 end
 
-local function ejectDevice(dev)
-    noctalia.runAsync("noctalia msg plugin aristides/udiskie:service all eject " .. shellQuote(dev))
+-- 将整盘移除交给服务处理；服务会重新查询能力并先卸载，再弹出或断电。
+local function safelyRemoveDevice(dev)
+    noctalia.runAsync("noctalia msg plugin aristides/udiskie:service all safe_remove " .. shellQuote(dev))
 end
 
-local function detachDevice(dev)
-    noctalia.runAsync("noctalia msg plugin aristides/udiskie:service all detach " .. shellQuote(dev))
+local function operationBusy()
+    return noctalia.state.get("udiskie_busy") == true
+end
+
+-- 无分区文件系统也可能直接位于整盘上，因此两种行布局共用能力判断。
+local function safeRemoveButton(dev)
+    if not dev.isEjectable and not dev.isDetachable then
+        return nil
+    end
+    return ui.button({
+        text = noctalia.tr("btn_safe_remove"),
+        glyph = "player-eject",
+        tooltip = noctalia.tr(dev.isEjectable and "btn_eject" or "btn_poweroff"),
+        variant = "outline",
+        controlSize = "sm",
+        enabled = not operationBusy(),
+        onClick = function() safelyRemoveDevice(dev.device) end,
+    })
 end
 
 local function openPath(path)
@@ -86,10 +103,12 @@ local function renderPartitionRow(part)
             }))
         end
         table.insert(actions, ui.button({
+            text = noctalia.tr("btn_unmount"),
             glyph = "player-stop",
             tooltip = noctalia.tr("btn_unmount"),
             variant = "ghost",
             controlSize = "sm",
+            enabled = not operationBusy(),
             onClick = function() unmountDevice(part.device) end,
         }))
     else
@@ -99,6 +118,7 @@ local function renderPartitionRow(part)
                 glyph = "lock-open",
                 variant = "ghost",
                 controlSize = "sm",
+                enabled = not operationBusy(),
                 onClick = function() mountDevice(part.device) end,
             }))
         else
@@ -107,9 +127,15 @@ local function renderPartitionRow(part)
                 glyph = "player-play",
                 variant = "ghost",
                 controlSize = "sm",
+                enabled = not operationBusy(),
                 onClick = function() mountDevice(part.device) end,
             }))
         end
+    end
+
+    local removeButton = safeRemoveButton(part)
+    if removeButton then
+        table.insert(actions, removeButton)
     end
 
     return ui.row({
@@ -152,22 +178,12 @@ local function renderDriveCard(drvItem)
     local parts = drvItem.partitions or {}
     local sizeStr = formatSize(drv.size)
 
-    local driveHeaderActions = {
-        ui.button({
-            text = noctalia.tr("btn_eject"),
-            glyph = "player-eject",
-            variant = "outline",
-            controlSize = "sm",
-            onClick = function() ejectDevice(drv.device) end,
-        }),
-        ui.button({
-            glyph = "plug-off",
-            tooltip = noctalia.tr("btn_poweroff"),
-            variant = "destructive",
-            controlSize = "sm",
-            onClick = function() detachDevice(drv.device) end,
-        }),
-    }
+    -- 能力均不支持时不提供整盘移除；分区的卸载入口仍独立保留。
+    local driveHeaderActions = {}
+    local removeButton = safeRemoveButton(drv)
+    if removeButton then
+        table.insert(driveHeaderActions, removeButton)
+    end
 
     local partRows = {}
     if #parts == 0 then
@@ -226,6 +242,7 @@ local function renderHeaderRow()
                 glyph = "link",
                 variant = "secondary",
                 controlSize = "sm",
+                enabled = not operationBusy(),
                 onClick = function() noctalia.runAsync("noctalia msg plugin aristides/udiskie:service all mount_all") end,
             }),
             ui.button({
@@ -233,6 +250,7 @@ local function renderHeaderRow()
                 tooltip = noctalia.tr("btn_unmount_all"),
                 variant = "destructive",
                 controlSize = "sm",
+                enabled = not operationBusy(),
                 onClick = function() noctalia.runAsync("noctalia msg plugin aristides/udiskie:service all unmount_all") end,
             }),
         }),
@@ -251,7 +269,7 @@ local function render()
 
     if data.error then
         table.insert(children, ui.column({ align = "center", justify = "center", paddingV = 24, gap = 12 }, {
-            ui.glyph({ name = "alert-triangle", size = 36, color = "warning" }),
+            ui.glyph({ name = "alert-triangle", size = 36, color = "error" }),
             ui.label({ text = noctalia.tr("error_missing_dep"), color = "on_surface" }),
             ui.row({ gap = 8, align = "center" }, {
                 ui.button({
@@ -301,6 +319,10 @@ function onOpen()
 end
 
 noctalia.state.watch("udiskie_devices", function()
+    render()
+end)
+
+noctalia.state.watch("udiskie_busy", function()
     render()
 end)
 
