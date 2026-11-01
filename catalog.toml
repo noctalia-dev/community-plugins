@@ -4110,8 +4110,8 @@ tags = ["bar", "sway", "indicator"]
 [[plugin]]
 id = "ayagmar/obs-control"
 name = "OBS Control"
-version = "1.0.0"
-updated_at = 1791074600
+version = "1.0.1"
+updated_at = 1793567498
 added_at = 1791074600
 author = "ayagmar"
 license = "MIT"
@@ -5350,3 +5350,16 @@ icon = "click"
 description = "Repeats any ydotool command on an interval, driven entirely over IPC. Bar indicator while running."
 plugin_api = 24
 tags = ["utility"]
+
+[[plugin]]
+id = "uheplm/mxmouse"
+name = "MX Mouse"
+version = "1.0.14"
+updated_at = 1793567465
+added_at = 1793567465
+author = "ffngs"
+license = "MIT"
+icon = "mouse"
+description = "Configure MX Master gestures and per-window presets for Niri."
+plugin_api = 43
+tags = ["niri", "utility", "panel", "bar"]
