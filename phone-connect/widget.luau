@@ -25,22 +25,44 @@ end
 
 local function glyphFor(d)
 	-- connected = paired AND reachable; reachable alone is mere visibility
-	if not d or not (d.isPaired and d.isReachable) then return "phone-off" end
+	if not d or not (d.isPaired and d.isReachable) then
+		return "phone-off"
+	end
 	local t = d.type
-	if t == "tablet" then return "device-tablet" end
-	if t == "laptop" then return "device-laptop" end
-	if t == "desktop" or t == "computer" then return "device-desktop" end
-	if t == "tv" then return "device-tv" end
+	if t == "tablet" then
+		return "device-tablet"
+	end
+	if t == "laptop" then
+		return "device-laptop"
+	end
+	if t == "desktop" or t == "computer" then
+		return "device-desktop"
+	end
+	if t == "tv" then
+		return "device-tv"
+	end
 	return "device-mobile"
 end
 
 local function batteryGlyph(charge, charging)
-	if charging then return "battery-charging" end
-	if type(charge) ~= "number" then return "battery" end
-	if charge >= 90 then return "battery" end
-	if charge >= 60 then return "battery-3" end
-	if charge >= 30 then return "battery-2" end
-	if charge > 0 then return "battery-1" end
+	if charging then
+		return "battery-charging"
+	end
+	if type(charge) ~= "number" then
+		return "battery"
+	end
+	if charge >= 90 then
+		return "battery"
+	end
+	if charge >= 60 then
+		return "battery-3"
+	end
+	if charge >= 30 then
+		return "battery-2"
+	end
+	if charge > 0 then
+		return "battery-1"
+	end
 	return "battery-off"
 end
 
@@ -49,8 +71,12 @@ local function selectedDevice()
 	local order = noctalia.state.get("pc.order") or {}
 	local sel = noctalia.state.get("pc.selected")
 	local id = sel
-	if not id or not devices[id] then id = order[1] end
-	if id then return devices[id] end
+	if not id or not devices[id] then
+		id = order[1]
+	end
+	if id then
+		return devices[id]
+	end
 	return nil
 end
 
@@ -66,14 +92,12 @@ local function render()
 		-- no backend: dim phone-off glyph + localized status
 		children = {
 			ui.glyph({ name = "phone-off", size = 14, color = "on_surface/0.4" }),
-			ui.label({ text = t("status.no_backend"), fontSize = 10,
-				color = "on_surface/0.5" }),
+			ui.label({ text = t("status.no_backend"), fontSize = 10, color = "on_surface/0.5" }),
 		}
 	elseif not d then
 		children = {
 			ui.glyph({ name = "phone-off", size = 14, color = "on_surface/0.4" }),
-			ui.label({ text = t("status.no_devices"), fontSize = 10,
-				color = "on_surface/0.5" }),
+			ui.label({ text = t("status.no_devices"), fontSize = 10, color = "on_surface/0.5" }),
 		}
 	else
 		-- connected = paired AND reachable; reachable alone is mere visibility
@@ -99,23 +123,35 @@ local function render()
 
 		if reachable and hasCharge then
 			local batColor = "on_surface"
-			if charging then batColor = "primary"
-			elseif charge <= 20 then batColor = "error" end
+			if charging then
+				batColor = "primary"
+			elseif charge <= 20 then
+				batColor = "error"
+			end
 
 			if batteryDisplay == "icon_and_percent" or batteryDisplay == "icon" then
-				table.insert(kids, ui.glyph({ name = batteryGlyph(charge, charging),
-					size = 12, color = batColor }))
+				table.insert(
+					kids,
+					ui.glyph({ name = batteryGlyph(charge, charging), size = 12, color = batColor })
+				)
 			end
 			if batteryDisplay == "icon_and_percent" or batteryDisplay == "percent" then
-				table.insert(kids, ui.label({
-					text = tostring(charge) .. "%", fontSize = 11,
-					fontWeight = "medium", color = batColor,
-				}))
+				table.insert(
+					kids,
+					ui.label({
+						text = tostring(charge) .. "%",
+						fontSize = 11,
+						fontWeight = "medium",
+						color = batColor,
+					})
+				)
 			end
 		elseif not reachable and d.isPaired then
 			-- Offline status remains visible even when other elements are hidden.
-			table.insert(kids, ui.label({ text = t("status.offline"),
-				fontSize = 10, color = "on_surface/0.5" }))
+			table.insert(
+				kids,
+				ui.label({ text = t("status.offline"), fontSize = 10, color = "on_surface/0.5" })
+			)
 		end
 		children = kids
 	end

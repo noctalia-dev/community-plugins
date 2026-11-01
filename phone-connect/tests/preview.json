@@ -1,0 +1,182 @@
+{
+  "devices": {
+    "preview": {
+      "id": "preview",
+      "name": "Galaxy S25+",
+      "type": "phone",
+      "ipv4": "192.0.2.10",
+      "ipv6": "2001:db8:1234:5678:90ab:cdef:1234:5678",
+      "isPaired": true,
+      "isReachable": true,
+      "batteryCharge": 76,
+      "batteryCharging": false,
+      "networkType": "5G",
+      "mediavolume": 50
+    }
+  },
+  "order": [
+    "preview"
+  ],
+  "selected": "preview",
+  "thread": "42",
+  "messaging": {
+    "devices": {
+      "preview": {
+        "connected": true,
+        "capabilities": {
+          "messages": true,
+          "contacts": true,
+          "notifications": true,
+          "calls": true
+        },
+        "contacts": [
+          {
+            "id": "a",
+            "name": "Alex Morgan",
+            "numbers": [
+              "+1 202-555-0100"
+            ],
+            "search": "alex morgan +1 202-555-0100"
+          },
+          {
+            "id": "sample3",
+            "name": "Casey Rivera",
+            "numbers": [
+              "+1 202-555-0103"
+            ],
+            "search": "casey rivera +1 202-555-0103"
+          },
+          {
+            "id": "b",
+            "name": "Jamie Chen",
+            "numbers": [
+              "+1 202-555-0101",
+              "+1 202-555-0102"
+            ],
+            "search": "jamie chen +1 202-555-0101"
+          },
+          {
+            "id": "sample4",
+            "name": "Jordan Kim",
+            "numbers": [
+              "+1 202-555-0104"
+            ],
+            "search": "jordan kim +1 202-555-0104"
+          },
+          {
+            "id": "sample5",
+            "name": "Morgan Lee",
+            "numbers": [
+              "+1 202-555-0105"
+            ],
+            "search": "morgan lee +1 202-555-0105"
+          },
+          {
+            "id": "sample6",
+            "name": "Riley Brooks",
+            "numbers": [
+              "+1 202-555-0106"
+            ],
+            "search": "riley brooks +1 202-555-0106"
+          },
+          {
+            "id": "sample7",
+            "name": "Sam Patel",
+            "numbers": [
+              "+1 202-555-0107"
+            ],
+            "search": "sam patel +1 202-555-0107"
+          },
+          {
+            "id": "sample8",
+            "name": "Taylor Reed",
+            "numbers": [
+              "+1 202-555-0108"
+            ],
+            "search": "taylor reed +1 202-555-0108"
+          }
+        ],
+        "threads": {
+          "42": {
+            "id": "2",
+            "thread": "42",
+            "body": "Yes! I’ll be there around six. See you then 👋",
+            "addresses": [
+              "+1 202-555-0100"
+            ],
+            "date": 1793203320000,
+            "outgoing": true,
+            "attachments": 0
+          },
+          "43": {
+            "id": "3",
+            "thread": "43",
+            "body": "The photos look great. Thank you!",
+            "addresses": [
+              "+1 202-555-0101"
+            ],
+            "date": 1793199600000,
+            "outgoing": false,
+            "attachments": 0
+          }
+        },
+        "messages": {
+          "42": {
+            "1": {
+              "id": "1",
+              "thread": "42",
+              "body": "Are we still meeting at the café after work?",
+              "addresses": [
+                "+1 202-555-0100"
+              ],
+              "date": 1793203200000,
+              "outgoing": false,
+              "attachments": 0
+            },
+            "2": {
+              "id": "2",
+              "thread": "42",
+              "body": "Yes! I’ll be there around six. See you then 👋",
+              "addresses": [
+                "+1 202-555-0100"
+              ],
+              "date": 1793203320000,
+              "outgoing": true,
+              "attachments": 0
+            }
+          }
+        },
+        "history": {},
+        "notifications": {
+          "1": {
+            "id": "1",
+            "app": "Calendar",
+            "title": "Team coffee · 6:00 PM",
+            "text": "Bring your ideas for next month.",
+            "replyId": "",
+            "dismissable": true
+          },
+          "2": {
+            "id": "2",
+            "app": "Messages",
+            "title": "Jamie Chen",
+            "text": "Thanks again for your help today!",
+            "replyId": "sample-reply",
+            "dismissable": true
+          }
+        },
+        "calls": [],
+        "status": {
+          "messages": "ready",
+          "contacts": "ready",
+          "notifications": "ready"
+        },
+        "error": ""
+      }
+    },
+    "pending": {},
+    "results": {},
+    "error": ""
+  },
+  "expandedContact": "b"
+}

@@ -1,12 +1,7 @@
--- entries/service.luau
--- Phone Connect - KDE Connect backend service (the single owner of DBus logic).
---
--- Architecture: Noctalia plugin scripts run in an isolated sandbox with NO
--- `require`/`dofile`/`loadfile`. So all KDE Connect interaction lives here and
--- is published to UI entries (widget/tile/panel) as plain data via
--- `noctalia.state`. A future Valent backend would replace this file's internals
--- only; the state contract below stays unchanged so UI entries need no edits.
---
+-- Owns KDE Connect device discovery, controls, settings and persistent metadata.
+-- The messaging service owns the Python/Gio
+-- bridge and publishes device-scoped conversation/contact/notification state.
+-- API 24 provides relative modules and argument-array subprocess calls.
 
 -- Local translation: reads from pc.trTable (published by service) so users
 -- can switch language at runtime, unlike noctalia.tr() which follows system locale.
@@ -14,6 +9,8 @@ local function t(key)
 	local table = noctalia.state.get("pc.trTable") or {}
 	return table[key] or key
 end
+
+local messaging = require("./messaging-service.luau").start(noctalia)
 
 -- ── State contract (read by UI entries) ──────────────────────────────────────
 --   noctalia.state "pc.backend"   : { available=bool, name="KDE Connect"|"None",
@@ -55,7 +52,7 @@ end
 --   sftp      : <dev>/sftp  methods: startBrowsing()->b, mount(), mountAndWait()->b,
 --               mountPoint()->s, isMounted()->b
 
--- ── Shell helpers (duplicated per the sandbox constraint; keep tiny) ─────────
+-- ── Shell helpers for legacy device controls ────────────────────────────────
 local function shellQuote(s)
 	return "'" .. tostring(s):gsub("'", "'\\''") .. "'"
 end
@@ -74,9 +71,12 @@ local MPRIS_IFACE = "org.kde.kdeconnect.device.mprisremote"
 local function gdbusGetAll(devPath, iface)
 	return table.concat({
 		"gdbus call --session",
-		"--dest", shellQuote(SVC),
-		"--object-path", shellQuote(devPath),
-		"--method", shellQuote(PROPS_IFACE .. ".GetAll"),
+		"--dest",
+		shellQuote(SVC),
+		"--object-path",
+		shellQuote(devPath),
+		"--method",
+		shellQuote(PROPS_IFACE .. ".GetAll"),
 		shellQuote(iface),
 	}, " ")
 end
@@ -88,37 +88,61 @@ end
 --   bare bool      : (true,)            (non-variant, e.g. NameHasOwner)
 -- Validated against real kdeconnect gdbus output.
 local function parseGdbusValue(raw)
-	if raw == nil then return nil end
+	if raw == nil then
+		return nil
+	end
 	raw = raw:gsub("^%s+", ""):gsub("%s+$", "")
 	-- variant form: (<value>,)
 	local inner = raw:match("^%(<(.+)>%,?%)?$")
-		if inner then
-			if inner == "true" then return true end
-			if inner == "false" then return false end
-			local n = tonumber(inner)
-			if n then return n end
-			local s = inner:match("^'(.*)'$") or inner:match('^"(.*)"$')
-			if s then return s end
-			return inner
+	if inner then
+		if inner == "true" then
+			return true
 		end
-		-- bare form: (true,) (false,) (-1,)  -> strip tuple parens and trailing comma
-		local bare = raw:match("^%((.-)%,?%)$")
-		if bare == nil then bare = raw end
-		bare = bare:gsub("%s+$", ""):gsub(",%s*$", "")
-		if bare == "true" then return true end
-		if bare == "false" then return false end
-		local n = tonumber(bare)
-		if n then return n end
-		local s = bare:match("^'(.*)'$") or bare:match('^"(.*)"$')
-		if s then return s end
-		return bare
+		if inner == "false" then
+			return false
+		end
+		local n = tonumber(inner)
+		if n then
+			return n
+		end
+		local s = inner:match("^'(.*)'$") or inner:match('^"(.*)"$')
+		if s then
+			return s
+		end
+		return inner
+	end
+	-- bare form: (true,) (false,) (-1,)  -> strip tuple parens and trailing comma
+	local bare = raw:match("^%((.-)%,?%)$")
+	if bare == nil then
+		bare = raw
+	end
+	bare = bare:gsub("%s+$", ""):gsub(",%s*$", "")
+	if bare == "true" then
+		return true
+	end
+	if bare == "false" then
+		return false
+	end
+	local n = tonumber(bare)
+	if n then
+		return n
+	end
+	local s = bare:match("^'(.*)'$") or bare:match('^"(.*)"$')
+	if s then
+		return s
+	end
+	return bare
 end
 
 -- Parse gdbus array-of-strings tuple like: (['id1', 'id2'],)
 local function parseGdbusStringArray(raw)
-	if raw == nil then return {} end
+	if raw == nil then
+		return {}
+	end
 	local arr = raw:match("%[(.-)%]")
-	if arr == nil then return {} end
+	if arr == nil then
+		return {}
+	end
 	local out = {}
 	for item in arr:gmatch("'([^']*)'") do
 		table.insert(out, item)
@@ -129,16 +153,28 @@ end
 -- Parse one value from inside a `<>` variant of a GetAll dict:
 --   true/false | number | 'string' | "string" | ['a','b'] array
 local function parseVariantInner(v)
-	if v == "true" then return true end
-	if v == "false" then return false end
+	if v == "true" then
+		return true
+	end
+	if v == "false" then
+		return false
+	end
 	local n = tonumber(v)
-	if n then return n end
+	if n then
+		return n
+	end
 	local s = v:match("^'(.*)'$") or v:match('^"(.*)"$')
-	if s ~= nil then return s end
+	if s ~= nil then
+		return s
+	end
 	if v:sub(1, 1) == "[" then
 		local arr = {}
-		for item in v:gmatch("'([^']*)'") do table.insert(arr, item) end
-		for item in v:gmatch('"([^"]*)"') do table.insert(arr, item) end
+		for item in v:gmatch("'([^']*)'") do
+			table.insert(arr, item)
+		end
+		for item in v:gmatch('"([^"]*)"') do
+			table.insert(arr, item)
+		end
 		return arr
 	end
 	return v
@@ -150,7 +186,9 @@ end
 -- (arrays) intact; keys are always single-quoted.
 local function parseGdbusVariantDict(raw)
 	local out = {}
-	if raw == nil then return out end
+	if raw == nil then
+		return out
+	end
 	for key, vraw in raw:gmatch("'([^']+)'%s*:%s*(%b<>)") do
 		out[key] = parseVariantInner(vraw:sub(2, -2))
 	end
@@ -158,9 +196,9 @@ local function parseGdbusVariantDict(raw)
 end
 
 -- ── Device data model ────────────────────────────────────────────────────────
--- In-memory device table keyed by id (mirrors original PhoneConnectService.devices).
-local devices= {}
-local deviceOrder= {}
+-- In-memory device table keyed by KDE Connect device ID.
+local devices = {}
+local deviceOrder = {}
 -- forward-declared: fetchMpris re-evaluates the poll interval; the definition
 -- lives in the Lifecycle section below.
 local intervalMs
@@ -171,7 +209,9 @@ local function snapshotDevices()
 	local snap = {}
 	for _, id in ipairs(deviceOrder) do
 		local d = devices[id]
-		if d then snap[id] = d end
+		if d then
+			snap[id] = d
+		end
 	end
 	return snap
 end
@@ -183,99 +223,126 @@ end
 
 -- ── Persistent state (selected device) ──────────────────────────────────────
 -- noctalia.state is in-memory only and cleared when the plugin stops, so the
--- last selected device is persisted to pluginDataDir()/state.json. Per-device
--- image/type/recent-images maps will live here too once their UI lands.
+-- last selected device, image paths and aliases are persisted to
+-- pluginDataDir()/state.json. Message data and drafts are never written here.
 local DATA_FILE -- resolved lazily; pluginDataDir() may be nil very early
 
 local function dataPath()
-	if DATA_FILE then return DATA_FILE end
+	if DATA_FILE then
+		return DATA_FILE
+	end
 	local dir = noctalia.pluginDataDir()
-	if not dir then return nil end
+	if not dir then
+		return nil
+	end
 	DATA_FILE = dir .. "/state.json"
 	return DATA_FILE
 end
 
 local function loadData()
 	local p = dataPath()
-	if not p then return {} end
+	if not p then
+		return {}
+	end
 	local raw = noctalia.readFile(p)
-	if not raw then return {} end
+	if not raw then
+		return {}
+	end
 	local ok, data = pcall(noctalia.json.decode, raw)
-	if ok and type(data) == "table" then return data end
+	if ok and type(data) == "table" then
+		return data
+	end
 	return {}
 end
 
 local function saveData(data)
 	local p = dataPath()
-	if not p then return end
+	if not p then
+		return
+	end
 	local ok, encoded = pcall(noctalia.json.encode, data)
-	if ok and encoded then noctalia.writeFile(p, encoded) end
+	if ok and encoded then
+		noctalia.writeFile(p, encoded)
+	end
 end
 
-	local function persistSelected(dev)
-		local data = loadData()
-		data.selected = dev
-		saveData(data)
-	end
+local function persistSelected(dev)
+	local data = loadData()
+	data.selected = dev
+	saveData(data)
+end
 
-	local function persistImageMap(map)
-		local data = loadData()
-		data.imageMap = map
-		saveData(data)
-	end
+local function persistImageMap(map)
+	local data = loadData()
+	data.imageMap = map
+	saveData(data)
+end
 
-	local function persistAliasMap(map)
-		local data = loadData()
-		data.aliasMap = map
-		saveData(data)
-	end
+local function persistAliasMap(map)
+	local data = loadData()
+	data.aliasMap = map
+	saveData(data)
+end
 
-	-- restore last selection and image map at load
-	do
-		local saved = loadData()
-		if saved.selected and type(saved.selected) == "string" and saved.selected ~= "" then
-			noctalia.state.set("pc.selected", saved.selected)
-		end
-		noctalia.state.set("pc.imageMap", saved.imageMap or {})
-		noctalia.state.set("pc.aliasMap", saved.aliasMap or {})
+-- restore last selection and image map at load
+do
+	local saved = loadData()
+	if saved.selected and type(saved.selected) == "string" and saved.selected ~= "" then
+		noctalia.state.set("pc.selected", saved.selected)
 	end
+	noctalia.state.set("pc.imageMap", saved.imageMap or {})
+	noctalia.state.set("pc.aliasMap", saved.aliasMap or {})
+end
 
-	-- ── Translation loader ──────────────────────────────────────────────────
-	-- noctalia.tr() follows system locale and can't be switched at runtime,
-	-- so we load both translations ourselves and publish the active one
-	-- to state. Each UI entry reads pc.trTable for a local t(key) wrapper.
-	local function flattenTable(t, prefix)
-		local out = {}
-		for k, v in pairs(t) do
-			local full = prefix and (prefix .. "." .. k) or k
-			if type(v) == "table" then
-				local sub = flattenTable(v, full)
-				for sk, sv in pairs(sub) do out[sk] = sv end
-			else
-				out[full] = v
+-- ── Translation loader ──────────────────────────────────────────────────
+-- noctalia.tr() follows system locale and can't be switched at runtime,
+-- so we load both translations ourselves and publish the active one
+-- to state. Each UI entry reads pc.trTable for a local t(key) wrapper.
+local function flattenTable(t, prefix)
+	local out = {}
+	for k, v in pairs(t) do
+		local full = prefix and (prefix .. "." .. k) or k
+		if type(v) == "table" then
+			local sub = flattenTable(v, full)
+			for sk, sv in pairs(sub) do
+				out[sk] = sv
 			end
+		else
+			out[full] = v
 		end
-		return out
 	end
+	return out
+end
 
-	local function loadTranslations(lang)
-		local dir = noctalia.pluginDir()
-		if not dir then return {} end
-		local raw = noctalia.readFile(dir .. "/translations/" .. lang .. ".json")
-		if not raw then return {} end
-		local ok, data = pcall(noctalia.json.decode, raw)
-		if ok and type(data) == "table" then return flattenTable(data) end
+local function loadTranslations(lang)
+	local dir = noctalia.pluginDir()
+	if not dir then
 		return {}
 	end
-
-	local function publishTranslations(lang)
-		local table = loadTranslations(lang or "en")
-		noctalia.state.set("pc.trTable", table)
-		noctalia.state.set("pc.lang", lang)
+	local raw = noctalia.readFile(dir .. "/translations/" .. lang .. ".json")
+	if not raw then
+		return {}
 	end
+	local ok, data = pcall(noctalia.json.decode, raw)
+	if ok and type(data) == "table" then
+		return flattenTable(data)
+	end
+	return {}
+end
 
-	-- initial load
-	publishTranslations(noctalia.getConfig("language") or "en")
+local function publishTranslations(lang)
+	local table = loadTranslations("en")
+	if lang and lang ~= "en" then
+		for key, value in pairs(loadTranslations(lang)) do
+			table[key] = value
+		end
+	end
+	noctalia.state.set("pc.trTable", table)
+	noctalia.state.set("pc.lang", lang)
+end
+
+-- initial load
+publishTranslations(noctalia.getConfig("language") or "en")
 
 -- ── Backend availability ─────────────────────────────────────────────────────
 local function detectBackend()
@@ -337,8 +404,12 @@ local function fetchDeviceProps(id, cb)
 			if type(p.reachableAddresses) == "table" then
 				for _, a in ipairs(p.reachableAddresses) do
 					if type(a) == "string" then
-						if not v4 and a:find(".", 1, true) then v4 = a end
-						if not v6 and a:find(":", 1, true) then v6 = a end
+						if not v4 and a:find(".", 1, true) then
+							v4 = a
+						end
+						if not v6 and a:find(":", 1, true) then
+							v6 = a
+						end
 					end
 				end
 			end
@@ -353,7 +424,9 @@ local function fetchDeviceProps(id, cb)
 		end
 		devices[id] = d
 		publishDevices()
-		if cb then cb() end
+		if cb then
+			cb()
+		end
 	end)
 end
 
@@ -363,7 +436,9 @@ end
 local function fetchMpris(id, cb)
 	local d = devices[id]
 	if not d then
-		if cb then cb() end
+		if cb then
+			cb()
+		end
 		return
 	end
 	local devPath = DAEMON_PATH .. "/devices/" .. id
@@ -382,7 +457,9 @@ local function fetchMpris(id, cb)
 			d2.mediacanSeek = p.canSeek
 			local art = d2.medialocalAlbumArtUrl
 			if art and art ~= "" then
-				if art:sub(1, 7) == "file://" then art = art:sub(8) end
+				if art:sub(1, 7) == "file://" then
+					art = art:sub(8)
+				end
 				d2.mediaArtPath = art
 			end
 			devices[id] = d2
@@ -393,15 +470,21 @@ local function fetchMpris(id, cb)
 		-- on the next update() (up to 30s later), because intervalMs() runs
 		-- before refreshDevices() in update().
 		noctalia.setUpdateInterval(intervalMs())
-		if cb then cb() end
+		if cb then
+			cb()
+		end
 	end)
 end
 
 -- Fetch battery + connectivity sub-interface properties (only if paired+reachable).
 local function fetchDeviceExtras(id)
 	local d = devices[id]
-	if not d then return end
-	if not (d.isPaired and d.isReachable) then return end
+	if not d then
+		return
+	end
+	if not (d.isPaired and d.isReachable) then
+		return
+	end
 	local devPath = DAEMON_PATH .. "/devices/" .. id
 	-- battery.charge / battery.isCharging in one GetAll
 	noctalia.runAsync(gdbusGetAll(devPath .. "/battery", BATTERY_IFACE), function(res)
@@ -417,39 +500,40 @@ local function fetchDeviceExtras(id)
 		end
 	end)
 	-- connectivity in one GetAll
-	noctalia.runAsync(gdbusGetAll(devPath .. "/connectivity_report", CONN_IFACE),
-		function(res)
-			if res and not res.error then
-				local d2 = devices[id]
-				if d2 then
-					local p = parseGdbusVariantDict(res.stdout or "")
-					d2.networkType = p.cellularNetworkType
-					d2.networkStrength = p.cellularNetworkStrength
-					devices[id] = d2
-					publishDevices()
-					-- if network still default, nudge the phone to report
-					-- (but not more than once per 120s)
-					if (type(d2.networkType) ~= "string" or d2.networkType == "")
-						and d2.networkStrength == -1 then
-						local now = os.time()
-						local last = d2._netRefreshAt or 0
-						if now - last > 120 then
-							d2._netRefreshAt = now
-							devices[id] = d2
-							runCli("--refresh -d " .. shellQuote(id))
-						end
+	noctalia.runAsync(gdbusGetAll(devPath .. "/connectivity_report", CONN_IFACE), function(res)
+		if res and not res.error then
+			local d2 = devices[id]
+			if d2 then
+				local p = parseGdbusVariantDict(res.stdout or "")
+				d2.networkType = p.cellularNetworkType
+				d2.networkStrength = p.cellularNetworkStrength
+				devices[id] = d2
+				publishDevices()
+				-- if network still default, nudge the phone to report
+				-- (but not more than once per 120s)
+				if
+					(type(d2.networkType) ~= "string" or d2.networkType == "")
+					and d2.networkStrength == -1
+				then
+					local now = os.time()
+					local last = d2._netRefreshAt or 0
+					if now - last > 120 then
+						d2._netRefreshAt = now
+						devices[id] = d2
+						runCli("--refresh -d " .. shellQuote(id))
 					end
 				end
 			end
-		end)
+		end
+	end)
 	-- mprisremote: media fields fetched in one GetAll via fetchMpris; it
-		-- resolves album art and publishes once.
-		fetchMpris(id)
+	-- resolves album art and publishes once.
+	fetchMpris(id)
 end
 
 -- ── Full device list refresh ─────────────────────────────────────────────────
 local refreshing = false
-local refreshLockedAt = 0  -- os.clock() when the lock was taken
+local refreshLockedAt = 0 -- os.clock() when the lock was taken
 -- forward-declared: refreshDevices calls ensureMonitors, defined below
 local ensureMonitors
 local function refreshDevices()
@@ -467,20 +551,25 @@ local function refreshDevices()
 	refreshing = true
 	refreshLockedAt = os.clock()
 	noctalia.runAsync(
-		"gdbus call --session --dest " .. SVC
-			.. " --object-path " .. DAEMON_PATH
-			.. " --method " .. DAEMON_IFACE .. ".devices false false",
+		"gdbus call --session --dest "
+			.. SVC
+			.. " --object-path "
+			.. DAEMON_PATH
+			.. " --method "
+			.. DAEMON_IFACE
+			.. ".devices false false",
 		function(res)
 			refreshing = false
 			if not res or res.error then
-				noctalia.log("[phone-connect] devices() failed: "
-					.. (res and res.error or "nil"))
+				noctalia.log("[phone-connect] devices() failed: " .. (res and res.error or "nil"))
 				return
 			end
 			local ids = parseGdbusStringArray(res.stdout or "")
 			-- remove gone devices
 			local seen = {}
-			for _, id in ipairs(ids) do seen[id] = true end
+			for _, id in ipairs(ids) do
+				seen[id] = true
+			end
 			for i = #deviceOrder, 1, -1 do
 				if not seen[deviceOrder[i]] then
 					devices[deviceOrder[i]] = nil
@@ -513,7 +602,8 @@ local function refreshDevices()
 				fetchDeviceProps(id, fetchNext)
 			end
 			fetchNext()
-		end)
+		end
+	)
 end
 
 -- ── Real-time media sync via gdbus monitor ──────────────────────────────────
@@ -526,19 +616,20 @@ end
 -- stops, so we only track which devices already have a stream. If a stream
 -- fails to start, ensureMonitors() simply retries on the next refresh — the
 -- poll path keeps working either way, so this layer is best-effort.
-local monitors = {}          -- [deviceId] = true when a stream is active
+local monitors = {} -- [deviceId] = true when a stream is active
 local daemonMonitorActive = false
-local lastDaemonEventAt = 0  -- os.clock() of the last handled daemon signal
-local lastMediaEventAt = {}  -- [deviceId] = os.clock() of last handled signal
+local lastDaemonEventAt = 0 -- os.clock() of the last handled daemon signal
+local lastMediaEventAt = {} -- [deviceId] = os.clock() of last handled signal
 
 ensureMonitors = function()
 	-- daemon-level stream: device added/removed/visibility/list changes.
 	if not daemonMonitorActive then
 		local ok = noctalia.runStream(
-			"gdbus monitor --session --dest " .. SVC
-				.. " --object-path " .. shellQuote(DAEMON_PATH),
+			"gdbus monitor --session --dest " .. SVC .. " --object-path " .. shellQuote(DAEMON_PATH),
 			function(line)
-				if line == nil or line == "" then return end
+				if line == nil or line == "" then
+					return
+				end
 				-- deviceListChanged is usually preceded by several per-device
 				-- lines; debounce so one burst becomes one refresh.
 				local now = os.clock()
@@ -546,21 +637,30 @@ ensureMonitors = function()
 					lastDaemonEventAt = now
 					refreshDevices()
 				end
-			end)
-		if ok then daemonMonitorActive = true end
+			end
+		)
+		if ok then
+			daemonMonitorActive = true
+		end
 	end
 	-- per-device media streams. Only paired+reachable devices emit signals.
 	for _, id in ipairs(deviceOrder) do
 		local d = devices[id]
 		if not monitors[id] and d and d.isPaired and d.isReachable then
 			local ok = noctalia.runStream(
-				"gdbus monitor --session --dest " .. SVC
-					.. " --object-path " .. shellQuote(DAEMON_PATH .. "/devices/" .. id .. "/mprisremote"),
+				"gdbus monitor --session --dest "
+					.. SVC
+					.. " --object-path "
+					.. shellQuote(DAEMON_PATH .. "/devices/" .. id .. "/mprisremote"),
 				function(line)
-					if line == nil or line == "" then return end
+					if line == nil or line == "" then
+						return
+					end
 					-- kdeconnectd emits lowercase "propertiesChanged"; match
 					-- case-insensitively so both spellings are caught.
-					if not line:lower():find("propertieschanged") then return end
+					if not line:lower():find("propertieschanged") then
+						return
+					end
 					-- position ticks arrive frequently while playing; debounce
 					-- so we don't spam fetchMpris (9 serialized gdbus calls).
 					local now = os.clock()
@@ -569,13 +669,18 @@ ensureMonitors = function()
 						lastMediaEventAt[id] = now
 						fetchMpris(id)
 					end
-				end)
-			if ok then monitors[id] = true end
+				end
+			)
+			if ok then
+				monitors[id] = true
+			end
 		end
 	end
 	-- drop bookkeeping for devices that are gone
 	for id in pairs(monitors) do
-		if not devices[id] then monitors[id] = nil end
+		if not devices[id] then
+			monitors[id] = nil
+		end
 	end
 end
 
@@ -593,22 +698,27 @@ end
 -- pendingPick.purpose decides what happens with the chosen path:
 --   "image" -> set the device's avatar (pc.imageMap)
 --   "share" -> send the file to the device via kdeconnect-cli --share
-local pendingPick = nil   -- { device, path, started, purpose }
+local pendingPick = nil -- { device, path, started, purpose }
 local function pollPendingPick()
-	if not pendingPick then return end
+	if not pendingPick then
+		return
+	end
 	local raw = noctalia.readFile(pendingPick.path)
 	if raw and raw ~= "" then
 		local p = raw:gsub("[\r\n%s]+$", "")
 		if p ~= "" then
 			if pendingPick.purpose == "share" then
 				noctalia.runAsync(
-					"kdeconnect-cli --share " .. shellQuote(p)
-						.. " -d " .. shellQuote(pendingPick.device),
+					"kdeconnect-cli --share "
+						.. shellQuote(p)
+						.. " -d "
+						.. shellQuote(pendingPick.device),
 					function(res)
 						if res and res.error then
 							noctalia.notifyError(t("error.share_failed"), res.error)
 						end
-					end)
+					end
+				)
 				noctalia.notify(t("notify.file_shared"), p)
 			else
 				local map = noctalia.state.get("pc.imageMap") or {}
@@ -632,22 +742,32 @@ runCli = function(args, cb)
 		if res and res.error then
 			noctalia.notifyError(t("error.cli_failed"), res.error)
 		end
-		if cb then cb(res) end
+		if cb then
+			cb(res)
+		end
 	end)
 end
 
 local function gdbusDeviceMethod(id, method, cb)
 	local path = DAEMON_PATH .. "/devices/" .. id
 	noctalia.runAsync(
-		"gdbus call --session --dest " .. SVC
-			.. " --object-path " .. path
-			.. " --method " .. DEV_IFACE .. "." .. method,
+		"gdbus call --session --dest "
+			.. SVC
+			.. " --object-path "
+			.. path
+			.. " --method "
+			.. DEV_IFACE
+			.. "."
+			.. method,
 		function(res)
 			if res and res.error then
 				noctalia.log("[phone-connect] " .. method .. " failed: " .. res.error)
 			end
-			if cb then cb(res) end
-		end)
+			if cb then
+				cb(res)
+			end
+		end
+	)
 end
 
 -- Call a method on a device sub-interface (e.g. sftp, mprisremote, sms).
@@ -656,33 +776,58 @@ end
 local function gdbusSubMethod(id, sub, method, extraArgs, cb)
 	local path = DAEMON_PATH .. "/devices/" .. id .. "/" .. sub
 	local iface = "org.kde.kdeconnect.device." .. sub
-	local cmd = "gdbus call --session --dest " .. SVC
-		.. " --object-path " .. shellQuote(path)
-		.. " --method " .. shellQuote(iface .. "." .. method)
-	if extraArgs and extraArgs ~= "" then cmd = cmd .. " " .. extraArgs end
+	local cmd = "gdbus call --session --dest "
+		.. SVC
+		.. " --object-path "
+		.. shellQuote(path)
+		.. " --method "
+		.. shellQuote(iface .. "." .. method)
+	if extraArgs and extraArgs ~= "" then
+		cmd = cmd .. " " .. extraArgs
+	end
 	noctalia.runAsync(cmd, function(res)
 		if res and res.error then
 			noctalia.log("[phone-connect] " .. sub .. "." .. method .. " failed: " .. res.error)
 		end
-		if cb then cb(res) end
+		if cb then
+			cb(res)
+		end
 	end)
 end
 
 -- Call a sub-interface method that returns a single value; parse the result.
 local function gdbusSubMethodValue(id, sub, method, cb)
 	gdbusSubMethod(id, sub, method, "", function(res)
-		if not res or res.error then cb(nil) return end
+		if not res or res.error then
+			cb(nil)
+			return
+		end
 		cb(parseGdbusValue(res.stdout or ""))
 	end)
 end
 
 local function handleCommand(cmd)
-	if type(cmd) ~= "table" then return end
+	if type(cmd) ~= "table" then
+		return
+	end
 	local op = cmd.op
 	local dev = cmd.device or ""
+	if
+		op == "sync"
+		or op == "contacts_sync"
+		or op == "history"
+		or op == "sms_send"
+		or op == "notification_reply"
+		or op == "notification_dismiss"
+	then
+		messaging.command(cmd)
+		return
+	end
 	-- helper: run a mutating op, then refresh so the UI updates immediately
 	local function mutating(fn)
-		fn(function() refreshDevices() end)
+		fn(function()
+			refreshDevices()
+		end)
 	end
 	if op == "refresh" then
 		refreshDevices()
@@ -709,14 +854,22 @@ local function handleCommand(cmd)
 	elseif op == "set_image" then
 		local map = noctalia.state.get("pc.imageMap") or {}
 		local path = cmd.path or ""
-		if path == "" then map[dev] = nil else map[dev] = path end
+		if path == "" then
+			map[dev] = nil
+		else
+			map[dev] = path
+		end
 		noctalia.state.set("pc.imageMap", map)
 		persistImageMap(map)
 	elseif op == "set_alias" then
 		-- per-device alias; empty clears back to the device's real name
 		local map = noctalia.state.get("pc.aliasMap") or {}
 		local alias = cmd.alias or ""
-		if alias == "" then map[dev] = nil else map[dev] = alias end
+		if alias == "" then
+			map[dev] = nil
+		else
+			map[dev] = alias
+		end
 		noctalia.state.set("pc.aliasMap", map)
 		persistAliasMap(map)
 	elseif op == "pick_image" or op == "pick_share" then
@@ -748,13 +901,21 @@ local function handleCommand(cmd)
 			noctalia.runAsync(picker .. " > " .. shellQuote(tmp) .. " 2>/dev/null &")
 		end
 	elseif op == "pair" then
-		mutating(function(cb) gdbusDeviceMethod(dev, "requestPairing", cb) end)
+		mutating(function(cb)
+			gdbusDeviceMethod(dev, "requestPairing", cb)
+		end)
 	elseif op == "accept" then
-		mutating(function(cb) gdbusDeviceMethod(dev, "acceptPairing", cb) end)
+		mutating(function(cb)
+			gdbusDeviceMethod(dev, "acceptPairing", cb)
+		end)
 	elseif op == "reject" then
-		mutating(function(cb) gdbusDeviceMethod(dev, "cancelPairing", cb) end)
+		mutating(function(cb)
+			gdbusDeviceMethod(dev, "cancelPairing", cb)
+		end)
 	elseif op == "unpair" then
-		mutating(function(cb) gdbusDeviceMethod(dev, "unpair", cb) end)
+		mutating(function(cb)
+			gdbusDeviceMethod(dev, "unpair", cb)
+		end)
 	elseif op == "browse" then
 		-- SFTP: ensure mounted, then open the phone's storage directory.
 		local function tryOpen()
@@ -766,8 +927,10 @@ local function handleCommand(cmd)
 				-- getDirectories returns a{sv}, we need to parse it differently.
 				-- Use a raw gdbus call and extract the first directory path.
 				local path = DAEMON_PATH .. "/devices/" .. dev .. "/sftp"
-				local cmd = "gdbus call --session --dest " .. SVC
-					.. " --object-path " .. shellQuote(path)
+				local cmd = "gdbus call --session --dest "
+					.. SVC
+					.. " --object-path "
+					.. shellQuote(path)
 					.. " --method org.kde.kdeconnect.device.sftp.getDirectories"
 				noctalia.runAsync(cmd, function(res)
 					local dirPath = mp
@@ -775,7 +938,9 @@ local function handleCommand(cmd)
 						-- output like: ({'/run/.../storage/emulated/0': <'Internal'>,},)
 						-- extract the first path in single quotes
 						local first = (res.stdout or ""):match("'([^']+)'")
-						if first then dirPath = first end
+						if first then
+							dirPath = first
+						end
 					end
 					noctalia.runAsync("xdg-open " .. shellQuote(dirPath))
 					noctalia.notify(t("notify.opening_browser"), dirPath)
@@ -791,24 +956,13 @@ local function handleCommand(cmd)
 						tryOpen()
 					else
 						gdbusSubMethodValue(dev, "sftp", "getMountError", function(errMsg)
-							noctalia.notifyError(t("error.browse_failed"),
-								errMsg or "mount failed (sshfs installed?)")
+							noctalia.notifyError(
+								t("error.browse_failed"),
+								errMsg or "mount failed (sshfs installed?)"
+							)
 						end)
 					end
 				end)
-			end
-		end)
-	elseif op == "sms_send" then
-		-- Send an SMS via kdeconnect-cli (handles address/message/attachment).
-		local args = "--send-sms " .. shellQuote(cmd.text or "")
-			.. " --destination " .. shellQuote(cmd.destination or "")
-			.. " -d " .. shellQuote(dev)
-		if cmd.attachment and cmd.attachment ~= "" then
-			args = args .. " --attachment " .. shellQuote(cmd.attachment)
-		end
-		runCli(args, function(res)
-			if res and not res.error then
-				noctalia.notify(t("notify.sms_sent"), cmd.destination or "")
 			end
 		end)
 	elseif op == "launch_sms_app" then
@@ -816,37 +970,52 @@ local function handleCommand(cmd)
 	elseif op == "media" then
 		-- MPRIS control. action: Play|Pause|PlayPause|Next|Previous|Stop
 		local action = cmd.action or "PlayPause"
-		gdbusSubMethod(dev, "mprisremote", "sendAction",
-			shellQuote(action), function()
-				-- delay 600ms for phone to update MPRIS state
-				noctalia.runAsync("sleep 0.6", function()
-					refreshDevices()
-				end)
+		gdbusSubMethod(dev, "mprisremote", "sendAction", shellQuote(action), function()
+			-- delay 600ms for phone to update MPRIS state
+			noctalia.runAsync("sleep 0.6", function()
+				refreshDevices()
 			end)
+		end)
 	elseif op == "media_seek" then
 		-- set position property directly (seek method is unreliable)
 		local offset = tonumber(cmd.offset) or 0
 		local path = DAEMON_PATH .. "/devices/" .. dev .. "/mprisremote"
 		noctalia.runAsync(
-			"gdbus call --session --dest " .. SVC
-				.. " --object-path " .. shellQuote(path)
-				.. " --method " .. shellQuote(PROPS_IFACE .. ".Set")
-				.. " " .. MPRIS_IFACE .. " position "
+			"gdbus call --session --dest "
+				.. SVC
+				.. " --object-path "
+				.. shellQuote(path)
+				.. " --method "
+				.. shellQuote(PROPS_IFACE .. ".Set")
+				.. " "
+				.. MPRIS_IFACE
+				.. " position "
 				.. shellQuote("<int32 " .. tostring(offset) .. ">"),
 			function()
-				noctalia.runAsync("sleep 0.3", function() refreshDevices() end)
-			end)
+				noctalia.runAsync("sleep 0.3", function()
+					refreshDevices()
+				end)
+			end
+		)
 	elseif op == "media_set_volume" then
 		-- volume is a readwrite property; use gdbus Set.
 		local vol = tonumber(cmd.volume) or 0
 		local path = DAEMON_PATH .. "/devices/" .. dev .. "/mprisremote"
 		noctalia.runAsync(
-			"gdbus call --session --dest " .. SVC
-				.. " --object-path " .. shellQuote(path)
-				.. " --method " .. shellQuote(PROPS_IFACE .. ".Set")
-				.. " " .. shellQuote(MPRIS_IFACE) .. " volume "
+			"gdbus call --session --dest "
+				.. SVC
+				.. " --object-path "
+				.. shellQuote(path)
+				.. " --method "
+				.. shellQuote(PROPS_IFACE .. ".Set")
+				.. " "
+				.. shellQuote(MPRIS_IFACE)
+				.. " volume "
 				.. shellQuote("<int32 " .. tostring(vol) .. ">"),
-			function() refreshDevices() end)
+			function()
+				refreshDevices()
+			end
+		)
 	else
 		noctalia.log("[phone-connect] unknown cmd op: " .. tostring(op))
 	end
@@ -854,21 +1023,28 @@ end
 
 -- ── Lifecycle ────────────────────────────────────────────────────────────────
 intervalMs = function()
-	if pendingPick then return 1000 end  -- poll the picker result promptly
-	local secs = tonumber(noctalia.getConfig("state_update_interval")) or 30
-	if secs <= 0 then return 3600000 end   -- disabled: large interval to minimize wakeups
-	-- if media is playing, poll faster for live position updates
-	for _, d in pairs(devices) do
-		if d.mediaisPlaying == true then return 1000 end
-	end
-	return secs * 1000
+	return 1000 -- Lightweight bridge deadlines; device polling keeps its configured cadence.
 end
 
+local lastDevicePoll = 0
 function update()
 	local secs = tonumber(noctalia.getConfig("state_update_interval")) or 30
 	noctalia.setUpdateInterval(intervalMs())
 	pollPendingPick()
-	if secs <= 0 then return end            -- disabled: skip auto-refresh
+	messaging.tick()
+	if secs <= 0 then
+		return
+	end -- disabled: skip auto-refresh
+	for _, d in pairs(devices) do
+		if d.mediaisPlaying then
+			secs = 1
+			break
+		end
+	end
+	if os.time() - lastDevicePoll < secs then
+		return
+	end
+	lastDevicePoll = os.time()
 	detectBackend()
 	refreshDevices()
 end
@@ -906,10 +1082,13 @@ refreshDevices()
 -- a counter which would cause commands to be silently dropped after UI reload).
 local lastCmdSeq = 0
 noctalia.state.watch("pc.cmd", function(cmd)
-	if type(cmd) ~= "table" then return end
+	if type(cmd) ~= "table" then
+		return
+	end
 	local seq = tonumber(cmd.seq) or 0
-	if seq <= lastCmdSeq then return end
+	if seq <= lastCmdSeq then
+		return
+	end
 	lastCmdSeq = seq
-	cmd.seq = nil
 	handleCommand(cmd)
 end)

@@ -1,26 +1,19 @@
-# Noctalia v5 plugin manifest for Phone Connect (KDE Connect backend only)
-# Plugin system is beta; APIs may change before v5 stable.
-#
-# plugin_api = 16: targets the last released level of v5.0.0. We avoid 17/18
-# (Unreleased) so the plugin loads on stable v5.0.0. None of our code relies on
-# 17+ features: onExit is unused, onConfigChanged is a baseline service hook.
-#
-# Status: KDE Connect only. Valent backend is intentionally out of scope for
-# now, but the service entry (service.luau) is written as a swappable backend
-# owner that publishes state to UI entries, so Valent can replace its internals
-# later without UI changes.
+# Phone Connect uses KDE Connect for device communication.
+# API 18: frame-coalesced rendering; 21: chat scrolling and multiline submission;
+# 22: relative modules; 24: direct argument-array subprocess calls.
+# Lowering this value alone cannot make the redesigned panel run on API 16.
 
 id = "icefish/phone-connect"
 name = "Phone Connect"
-version = "0.2.1"
-plugin_api = 16
+version = "0.3.0"
+plugin_api = 24
 author = "icefish"
 license = "MIT"
 deprecated = false
 icon = "devices"
-description = "Control paired phones via KDE Connect — battery, ring, ping, share, clipboard, pairing."
+description = "Messages, contacts, phone notifications and device controls through KDE Connect."
 tags = ["bar", "panel", "service", "media"]
-dependencies = ["kdeconnect", "sshfs"]
+dependencies = ["kdeconnect", "gdbus", "python3", "PyGObject", "sshfs"]
 
 # ── Plugin-level settings (shared across all entries) ───────────────────────
 # Mirrors the persisted keys of the original DankKDEConnect plugin where they
@@ -91,6 +84,19 @@ description_key = "settings.enable_clipboard_action.description"
 default = true
 
 [[setting]]
+key = "default_page"
+type = "select"
+label_key = "settings.default_page.label"
+description_key = "settings.default_page.description"
+default = "messages"
+options = [
+  { value = "messages", label_key = "chat.tab_messages" },
+  { value = "notifications", label_key = "chat.tab_notifications" },
+  { value = "contacts", label_key = "chat.tab_contacts" },
+  { value = "device", label_key = "chat.tab_device" },
+]
+
+[[setting]]
 key = "panel_placement"
 type = "select"
 label_key = "settings.panel_placement.label"
@@ -126,8 +132,8 @@ entry = "tile.luau"
 [[panel]]
 id = "details"
 entry = "panel.luau"
-width = 520
-height = 600
+width = 800
+height = 640
 placement = "attached"
 position = "auto"
 open_near_click = true
@@ -139,8 +145,8 @@ keyboard_focus = "on_demand"
 [[panel]]
 id = "details_floating"
 entry = "panel.luau"
-width = 520
-height = 600
+width = 800
+height = 640
 placement = "floating"
 position = "center"
 keyboard_focus = "on_demand"
@@ -151,8 +157,8 @@ keyboard_focus = "on_demand"
 [[panel]]
 id = "details_widget"
 entry = "panel.luau"
-width = 520
-height = 600
+width = 800
+height = 640
 placement = "floating"
 position = "auto"
 open_near_click = true

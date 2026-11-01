@@ -28,8 +28,12 @@ local function selectedDevice()
 	local order = noctalia.state.get("pc.order") or {}
 	local sel = noctalia.state.get("pc.selected")
 	local id = sel
-	if not id or not devices[id] then id = order[1] end
-	if id then return devices[id] end
+	if not id or not devices[id] then
+		id = order[1]
+	end
+	if id then
+		return devices[id]
+	end
 	return nil
 end
 
@@ -40,7 +44,9 @@ local function countReachable()
 	for _, id in ipairs(order) do
 		local d = devices[id]
 		-- connected = paired AND reachable; reachable alone is mere visibility
-		if d and d.isPaired and d.isReachable == true then n = n + 1 end
+		if d and d.isPaired and d.isReachable == true then
+			n = n + 1
+		end
 	end
 	return n
 end
@@ -60,15 +66,22 @@ local function render()
 	shortcut.setEnabled(true)
 
 	-- connected = paired AND reachable; reachable alone is mere visibility
-	if d and d.isPaired and d.isReachable and type(d.batteryCharge) == "number" and d.batteryCharge >= 0 then
+	if
+		d
+		and d.isPaired
+		and d.isReachable
+		and type(d.batteryCharge) == "number"
+		and d.batteryCharge >= 0
+	then
 		-- show selected device battery when reachable
 		shortcut.setIcon("device-mobile")
 		shortcut.setLabel(tostring(d.batteryCharge) .. "%")
 		shortcut.setActive(true)
 	else
 		shortcut.setIcon("device-mobile")
-		shortcut.setLabel(n > 0 and (tostring(n) .. " " .. t("status.connected"))
-			or t("status.no_devices"))
+		shortcut.setLabel(
+			n > 0 and (tostring(n) .. " " .. t("status.connected")) or t("status.no_devices")
+		)
 		shortcut.setActive(n > 0)
 	end
 end
