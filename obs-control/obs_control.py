@@ -237,8 +237,9 @@ def main():
     with (directory / "action.lock").open("a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         if args.action == "launch":
-            if not obs_running():
-                launch(owner_file, False)
+            if obs_running():
+                return {"message": "OBS is already running"}
+            launch(owner_file, False)
             return {"message": "OBS launched"}
         port, password = load_config()
         running = obs_running()
