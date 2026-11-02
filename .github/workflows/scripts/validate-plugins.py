@@ -200,9 +200,11 @@ SETTING_FIELDS = {
     "step",
     "visible_when",
     "advanced",
+    "secret",
 }
 OPTION_FIELDS = {"value", "label_key"}
 VISIBLE_WHEN_FIELDS = {"key", "values"}
+SECRET_SETTING_TYPES = {"string", "string_list", "string_map"}
 
 # Raw HTML is not supported on plugin pages. Markdown autolinks such as
 # <https://example.com> do not match this expression.
@@ -1251,6 +1253,17 @@ class Validator:
 
             if "advanced" in setting and not isinstance(setting["advanced"], bool):
                 self.add_context_error(manifest_path, context, "advanced must be a bool")
+
+            # Mirrors the shell parser: API 47, string-valued types only.
+            if "secret" in setting:
+                if not is_int(plugin_api) or plugin_api < 47:
+                    self.add_context_error(manifest_path, context, "secret requires plugin_api >= 47")
+                elif not isinstance(setting["secret"], bool):
+                    self.add_context_error(manifest_path, context, "secret must be a bool")
+                elif setting["secret"] and setting_type not in SECRET_SETTING_TYPES:
+                    self.add_context_error(
+                        manifest_path, context, "secret is only valid for string, string_list, and string_map settings"
+                    )
 
     def validate_translation_keys(self, plugin_dir: Path, translations: Any | None) -> None:
         # The store rejects the whole plugin if any translation key is not lowercase, so catch
