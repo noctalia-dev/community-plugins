@@ -49,6 +49,12 @@ local function check(name, expected, got)
   end
 end
 
+-- Una comprobación que no aplica en esta ejecución (no cuenta ni como
+-- fallo ni como buena): se informa, pero no se puntúa.
+local function skip(name, reason)
+  print(string.format("  --   %-58s %s", name, tostring(reason or "omitida")))
+end
+
 -- --------------------------------------------------------------- simulador --
 
 local files = {}
@@ -450,30 +456,37 @@ local function readRealFile(path)
 end
 
 local manifestText = readRealFile(DIR .. "plugin.toml")
-check("se puede leer el manifiesto real", true, manifestText ~= nil)
-
-local declared = {}
-if manifestText ~= nil then
+if manifestText == nil then
+  -- El README documenta ejecutar el arnés contra otra copia
+  -- (`lua5.4 test-panel.lua /ruta/otra`), y esa copia puede no traer
+  -- `plugin.toml`: entonces no hay manifiesto que validar y las
+  -- comprobaciones se omiten en vez de fallar.
+  skip("las dependencias declaradas", "esta copia no tiene plugin.toml")
+else
+  local declared = {}
   local block = manifestText:match("dependencies%s*=%s*%[(.-)%]")
   if block ~= nil then
     for name in block:gmatch('"([^"]+)"') do
       declared[name] = true
     end
   end
-end
 
-check("el manifiesto declara dependencias", true, next(declared) ~= nil)
-check("declara hyprctl", true, declared["hyprctl"] == true)
+  check("el manifiesto declara dependencias", true, next(declared) ~= nil)
+  check("declara hyprctl", true, declared["hyprctl"] == true)
 
--- Cada comando de las tarjetas por defecto tiene que estar declarado: el
--- ejecutable es la primera palabra del comando.
-for name, command in pairs(base4.commands) do
-  local executable = tostring(command):match("^(%S+)")
-  check(
-    "el comando por defecto '" .. name .. "' está declarado en dependencies",
-    true,
-    executable ~= nil and declared[executable] == true
-  )
+  -- Cada comando de las tarjetas por defecto tiene que estar declarado: el
+  -- ejecutable es la primera palabra del comando. La lista es la de los
+  -- valores de fábrica de `lib/defaults.luau` (`base4`, el respaldo que se
+  -- usa cuando no hay manifiesto): el manifiesto no define comandos, así que
+  -- es la lista de las tarjetas que se instalan de serie.
+  for name, command in pairs(base4.commands) do
+    local executable = tostring(command):match("^(%S+)")
+    check(
+      "el comando por defecto '" .. name .. "' está declarado en dependencies",
+      true,
+      executable ~= nil and declared[executable] == true
+    )
+  end
 end
 
 -- ------------------------------------------------------------ zonas ocupadas --
@@ -1161,9 +1174,16 @@ end
 -- reloj del simulador no avanza.
 fs["anim-1.png"] = true
 fs["anim-2.png"] = true
+local frameReads = 0
 local previousFileInfo = mock.fileInfo
 mock.fileInfo = function(path)
   local name = path:match("([^/]+)$")
+  -- Cada relectura de la lista de fotogramas llama a `fileInfo` una vez por
+  -- fotograma: contando estas llamadas se sabe cuántas veces se ha releído
+  -- el disco para este widget.
+  if name:match("^anim%-") then
+    frameReads = frameReads + 1
+  end
   -- Mtimes distintos: el orden de los fotogramas no depende del desempate
   -- del `table.sort` (que no es estable).
   if name == "anim-1.png" then
@@ -1174,6 +1194,40 @@ mock.fileInfo = function(path)
   end
   return previousFileInfo(path)
 end
+
+-- Los casos de los ticks necesitan saber exactamente qué widgets hay: se
+-- vacían los que dejaron las secciones anteriores.
+local function cardNames()
+  local names = {}
+  local function walk(node)
+    if type(node) ~= "table" then
+      return
+    end
+    if type(node.props) == "table" and type(node.props.key) == "string"
+      and node.props.key:sub(1, 5) == "card-" then
+      names[#names + 1] = node.props.key:sub(6)
+    end
+    for _, child in ipairs(node.children or {}) do
+      walk(child)
+    end
+  end
+  walk(lastTree)
+  return names
+end
+for _, name in ipairs(cardNames()) do
+  env.onIpc("remove", name)
+end
+
+frameTicks = {}
+env.onOpen("")
+check("sin tarjetas no se piden ticks de frame", false, frameTicks[#frameTicks])
+
+-- Una tarjeta con una sola captura no tiene nada que animar: no hay
+-- fotogramas que alternar, así que pedir ticks sería un bucle vacío.
+fs["uno-1.png"] = true
+env.onIpc("add", "uno|uno|center, 500x300")
+check("una tarjeta con una sola captura no pide ticks de frame", false, frameTicks[#frameTicks])
+
 env.onIpc("add", "anim|anim|center, 500x300")
 
 frameTicks = {}
@@ -1213,6 +1267,31 @@ check(
   true,
   frameAfter ~= nil and frameBefore ~= nil and frameAfter ~= frameBefore
 )
+
+-- Los ticks no pueden releer el disco en cada frame: la lista de fotogramas
+-- se relee solo cuando toca avanzar (cada 250 ms). Con 60 ticks de 16 ms
+-- (casi un segundo) hay como mucho cuatro ventanas de 250 ms, así que las
+-- lecturas del disco tienen a ser unas pocas, no una por tick.
+--
+-- El reloj del simulador avanza con cada tick a propósito: si no, la caché
+-- de un segundo de `preview.frames` taparía las lecturas que se cuentan.
+frameReads = 0
+for _ = 1, 60 do
+  clock = clock + 1000
+  env.onFrameTick(16)
+end
+check(
+  "los ticks no releen el disco en cada frame",
+  true,
+  frameReads <= 24
+)
+
+-- Al borrar una tarjeta su entrada en la tabla de animaciones es basura:
+-- si se queda, el panel seguiría pidiendo ticks para algo que ya no existe.
+env.onIpc("remove", "anim")
+check("al borrar una tarjeta animada se apagan los ticks de frame", false, frameTicks[#frameTicks])
+env.onIpc("remove", "uno")
+check("al borrar la última tarjeta se apagan los ticks de frame", false, frameTicks[#frameTicks])
 
 -- En modo mock no hay nada que animar: los ticks se apagan.
 config.card_preview = "mock"

@@ -1002,6 +1002,10 @@ local function removeWidget(name)
   if not saved then
     return false, tr("save_failed", { detail = tostring(err or "") })
   end
+  -- La tarjeta ya no existe: su entrada en la tabla de animaciones es
+  -- basura, y si se queda el panel seguiría pidiendo ticks de frame para
+  -- algo que no está.
+  state.captureAnim[name] = nil
   loadWidgets()
   return true, nil
 end
@@ -1261,6 +1265,10 @@ local function cardPreview(name)
         anim = { index = 1, elapsed = 0 }
         state.captureAnim[name] = anim
       end
+      -- Con una sola captura no hay animación: no hay fotogramas que
+      -- alternar. Se marca aquí, que es donde se sabe cuántos hay, para que
+      -- no se pidan ticks de frame para una tarjeta que no puede moverse.
+      anim.animatable = #frames > 1
       local index = ((anim.index - 1) % #frames) + 1
       return previewImage(frames[index], cardWidth() - 2 * CARD_PADDING)
     end
@@ -1686,9 +1694,15 @@ local function needsFrameTicks()
   -- Modo Automático: una tarjeta cuya ventana está cerrada muestra sus
   -- capturas como una animación, y esa animación solo avanza con ticks de
   -- frame (los pide `render()`, que es quien sabe si hay capturas).
+  --
+  -- Solo cuentan las tarjetas que siguen existiendo y que tienen más de un
+  -- fotograma: una tarjeta borrada deja su entrada en `captureAnim` (que es
+  -- basura) y una tarjeta con una sola captura no tiene nada que animar.
   if cfg.cardPreview == "auto" then
     for name, anim in pairs(state.captureAnim or {}) do
-      if anim ~= nil and state.windows[name] == nil then
+      if anim ~= nil and anim.animatable
+        and (state.commands or {})[name] ~= nil
+        and state.windows[name] == nil then
         return true
       end
     end
@@ -1789,8 +1803,11 @@ function onFrameTick(deltaMs)
 
   local captureInterval = 250
   for name, anim in pairs(state.captureAnim) do
-    local showFrames = cfg.cardPreview == "gif"
-      or (cfg.cardPreview == "auto" and state.windows[name] == nil)
+    -- Una tarjeta con una sola captura no tiene nada que animar: se salta
+    -- para no releer su lista de fotogramas del disco sin motivo.
+    local showFrames = anim.animatable ~= false
+      and (cfg.cardPreview == "gif"
+        or (cfg.cardPreview == "auto" and state.windows[name] == nil))
     if showFrames then
       anim.elapsed = anim.elapsed + deltaMs
       -- La lista de fotogramas se relee solo cuando toca avanzar la animación:
