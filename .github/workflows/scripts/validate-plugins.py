@@ -132,7 +132,7 @@ SETTING_TYPES = {
 }
 PANEL_PLACEMENTS = {"attached", "floating"}
 PANEL_KEYBOARD_FOCUS = {"on_demand", "exclusive", "none"}
-PANEL_LAYERS = {"top", "overlay"}
+PANEL_LAYERS = {"follow", "top", "overlay"}
 WIDGET_GESTURES = {
     "left",
     "right",
@@ -858,6 +858,8 @@ class Validator:
             elif not isinstance(entry["layer"], str) or entry["layer"] not in PANEL_LAYERS:
                 valid = ", ".join(sorted(PANEL_LAYERS))
                 self.add_context_error(manifest_path, context, f"layer must be one of: {valid}")
+            elif entry["layer"] == "follow" and plugin_api < 49:
+                self.add_context_error(manifest_path, context, 'layer "follow" requires plugin_api >= 49')
 
         if "dismiss_on_outside_click" in entry:
             if not is_int(plugin_api) or plugin_api < 8:

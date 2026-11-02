@@ -528,6 +528,15 @@ class PanelLayerTests(unittest.TestCase):
                 errors = self.validate_layer({"layer": "overlay"}, api)
                 self.assertTrue(any("requires plugin_api >= 30" in error for error in errors))
 
+    def test_accepts_follow_from_api_49(self) -> None:
+        self.assertEqual(self.validate_layer({"layer": "follow"}, 49), [])
+
+    def test_rejects_follow_below_api_49(self) -> None:
+        self.assertEqual(
+            self.validate_layer({"layer": "follow"}, 48),
+            ['example/plugin.toml: panel[0]: layer "follow" requires plugin_api >= 49'],
+        )
+
     def test_rejects_invalid_layers_and_types(self) -> None:
         for layer in ("background", "bottom", "Overlay", "", 1, True, [], {}):
             with self.subTest(layer=layer):
