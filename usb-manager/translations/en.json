@@ -18,9 +18,8 @@
     "unmount": "Could not unmount {name}: {reason}"
   },
   "notify": {
-    "connected": "{name} connected",
-    "removed": "{name} disconnected",
-    "safe": "{name} can be removed safely"
+    "safe": "{name} can be removed safely",
+    "unsafe": "{name} was unplugged while still mounted: files being written may be lost"
   },
   "panel": {
     "busy": "Writing…",
@@ -74,7 +73,7 @@
       "label": "Hide when empty"
     },
     "notifications": {
-      "description": "Notify when a drive is plugged in, unplugged, or can be removed safely. Errors are always shown.",
+      "description": "Notify when a drive can be removed safely. Errors and drives unplugged while mounted are always shown.",
       "label": "Notifications"
     },
     "open_after_mount": {

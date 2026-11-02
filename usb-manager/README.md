@@ -72,7 +72,7 @@ The header holds **Mount all**, **Remove all safely**, the plugin settings and
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
-| `notifications` | `bool` | `true` | Notify when a drive is plugged in, unplugged, or can be removed safely. Errors are always shown. |
+| `notifications` | `bool` | `true` | Notify when a drive can be removed safely. Errors, and a drive unplugged while a volume was still mounted, are always shown. |
 | `auto_mount` | `bool` | `false` | Mount the filesystems of a drive as soon as it is plugged in. Encrypted volumes still wait for their passphrase. |
 | `open_after_mount` | `bool` | `false` | Open the folder in the file manager after mounting a volume. |
 | `file_manager` | `string` | `""` | Command that opens a folder, which is passed as the last argument (e.g. `nautilus`). Empty uses `xdg-open`. Advanced. |
@@ -123,6 +123,11 @@ so that a passphrase never ends up in a command line or in shell history.
   in a process list. It is not stored anywhere else.
 - **Permissions**: whether mounting or powering off asks for a password is up
   to udisks and polkit; on a normal desktop session removable drives need none.
+- **Notifications**: plugging and unplugging a drive is not notified: the
+  widget appears and disappears, and most desktops already announce USB
+  devices. The plugin notifies when a drive can be removed safely (setting
+  `notifications`), when an action fails, and when a drive is pulled while a
+  volume is still mounted.
 - **Busy drives**: when a volume is in use, unmounting fails and the
   notification says so; close the files and terminals that use the drive and
   try again.

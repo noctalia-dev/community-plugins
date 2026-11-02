@@ -21,7 +21,7 @@ local snapshot = nil
 local lastEncoded = nil
 local lastCmdNonce = nil
 local firstScan = true
-local known = {} -- drive name -> display name, to notify arrivals/removals
+local known = {} -- drive name -> { title, mounted } at the last full scan
 local lastWritten = {} -- drive name -> sectors written at the previous scan
 local pending = {} -- device path -> action in progress
 local scanning = false
@@ -427,22 +427,27 @@ local function fullScan(names, mountinfo)
     end
   end
 
-  -- arrivals and removals, not on the first scan after start
+  -- Arrivals and removals are not notified: the widget shows them, and the
+  -- desktop usually announces USB devices already. The one removal worth a
+  -- notification is a drive pulled while a volume was still mounted.
   for name, drive in present do
-    if known[name] == nil then
-      known[name] = drive.title
-      if not firstScan then
-        notify(tr("notify.connected", { name = drive.title }))
-        autoMount(drive)
+    local mounted = false
+    for _, volume in drive.volumes do
+      if volume.mountPoint then
+        mounted = true
       end
     end
+    if known[name] == nil and not firstScan then
+      autoMount(drive)
+    end
+    known[name] = { title = drive.title, mounted = mounted }
   end
-  for name, title in known do
+  for name, last in known do
     if present[name] == nil then
       known[name] = nil
       lastWritten[name] = nil
-      if not firstScan then
-        notify(tr("notify.removed", { name = title }))
+      if last.mounted then
+        notifyError(tr("notify.unsafe", { name = last.title }))
       end
     end
   end
