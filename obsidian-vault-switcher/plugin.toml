@@ -1,0 +1,19 @@
+id = "0b10headedcalf/obsidian-vault-switcher"
+name = "Obsidian Vault Switcher"
+version = "1.0.0"
+plugin_api = 43
+author = "0b10headedcalf"
+license = "MIT"
+description = "Find and open Obsidian vaults from the launcher."
+tags = ["launcher", "productivity", "utility"]
+icon = "book"
+dependencies = ["xdg-open"]
+
+[[launcher_provider]]
+id = "vaults"
+entry = "launcher.luau"
+prefix = "vault"
+glyph = "book"
+include_in_global_search = true
+debounce_ms = 0
+
