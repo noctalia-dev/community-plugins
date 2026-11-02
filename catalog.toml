@@ -2404,8 +2404,8 @@ tags = ["hyprland", "animation", "theming", "panel", "bar"]
 [[plugin]]
 id = "mellotanica/launcher-pass"
 name = "Launcher pass"
-version = "2.7.1"
-updated_at = 1793363494
+version = "2.7.2"
+updated_at = 1793622634
 added_at = 1788118014
 author = "Marco Melletti"
 license = "MIT"
@@ -5363,3 +5363,16 @@ icon = "mouse"
 description = "Configure MX Master gestures and per-window presets for Niri."
 plugin_api = 43
 tags = ["niri", "utility", "panel", "bar"]
+
+[[plugin]]
+id = "ezio-noir/umbriel-submap"
+name = "Umbriel Submap"
+version = "1.0.0"
+updated_at = 1793622662
+added_at = 1793622662
+author = "ezio-noir"
+license = "MIT"
+icon = "keyboard"
+description = "Display Umbriel submap as widget or OSD"
+plugin_api = 43
+tags = ["bar", "service", "indicator", "umbriel"]
