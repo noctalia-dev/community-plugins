@@ -1301,5 +1301,119 @@ check("en modo mock no se piden ticks de frame", false, frameTicks[#frameTicks])
 config.card_preview = "auto"
 mock.fileInfo = previousFileInfo
 
+-- ------------------------------------------------------- fotogramas recientes --
+
+print("\n== fotogramas recientes ==")
+
+-- El panel guarda ocho capturas por widget y las usa para animar la tarjeta
+-- cuando su ventana está cerrada. Al llegar a nueve descarta la más antigua y
+-- borra su fichero. Si el árbol de UI todavía apunta a ese fichero, el host lo
+-- vuelve a pedir al reabrir el panel y avisa "image failed to load" porque el
+-- fichero ya no existe: un fichero en uso no se puede borrar hasta que el
+-- árbol deje de usarlo.
+
+-- `snapshot.py` no se ejecuta en el simulador, así que el mock crea los
+-- ficheros de las miniaturas. La captura se deja *pendiente* para poder
+-- simular una que llega con la ventana ya cerrada: es justo cuando el árbol
+-- se queda apuntando a un fichero que el plugin va a borrar.
+--
+-- El `removeFile` del simulador borra de la tabla de la sección de
+-- miniaturas; aquí interesa el mismo disco que se usa para crear los
+-- ficheros de las capturas.
+local previousRemoveFile = mock.removeFile
+mock.removeFile = function(path)
+  files[path] = nil
+  return true
+end
+
+local pendingCapture = nil
+local capturedFrames = {}
+
+local previousRunAsync = mock.runAsync
+mock.runAsync = function(argv, callback)
+  if type(argv) == "table" and argv[1] == "python3" then
+    local batchPath = argv[3]
+    pendingCapture = function()
+      pendingCapture = nil
+      local raw = files[batchPath]
+      if raw ~= nil then
+        -- El codificador del simulador no produce arrays, así que las rutas
+        -- se leen del texto del lote.
+        for out in raw:gmatch('"out":"([^"]*)"') do
+          files[out] = true
+          capturedFrames[#capturedFrames + 1] = out
+        end
+        for current in raw:gmatch('"current_out":"([^"]*)"') do
+          files[current] = true
+        end
+      end
+      if callback ~= nil then
+        callback({ exitCode = 0, stdout = "", stderr = "" })
+      end
+    end
+    return true
+  end
+  return previousRunAsync(argv, callback)
+end
+
+local function finishCapture()
+  local pending = pendingCapture
+  pendingCapture = nil
+  if pending ~= nil then
+    pending()
+  end
+end
+
+-- Las secciones anteriores dejan tarjetas sueltas: se borran para que la
+-- cuenta de capturas sea solo del widget de esta sección.
+for _, name in ipairs(cardNames()) do
+  env.onIpc("remove", name)
+end
+env.onIpc("add", "marco|echo hola|")
+
+clients = {
+  { address = "0x1", class = "noctalia-term-marco", x = 100, y = 100, w = 600, h = 400, monitor = "1" },
+}
+env.onOpen("")
+
+-- Ocho capturas: la lista de fotogramas llega al tope.
+for _ = 1, 8 do
+  finishCapture()
+  clock = clock + 4000
+  env.update()
+end
+check("el widget guarda ocho capturas", 8, #capturedFrames)
+
+-- La ventana se cierra con la novena captura en marcha: la tarjeta pasa a
+-- animar los fotogramas guardados y el árbol los marca como en uso.
+clients = {}
+env.onIpc("refresh", "")
+
+-- Llega la novena captura: la lista se pasa de ocho y se descarta la más
+-- antigua, que el árbol está usando.
+finishCapture()
+check("el widget guarda nueve capturas", 9, #capturedFrames)
+local oldestFrame = capturedFrames[1]
+check(
+  "el fotograma que el árbol usa no se borra al descartarlo",
+  true,
+  files[oldestFrame] ~= nil
+)
+
+-- Cuando el árbol deja de usarlo, el fichero descartado sí se borra.
+clock = clock + 4000
+env.update()
+clock = clock + 4000
+env.update()
+check(
+  "el fotograma descartado se borra cuando el árbol deja de usarlo",
+  true,
+  files[oldestFrame] == nil
+)
+
+mock.runAsync = previousRunAsync
+mock.removeFile = previousRemoveFile
+clients = {}
+
 print(string.format("\n%d comprobaciones, %d fallos", PASSED + FAILED, FAILED))
 os.exit(FAILED == 0 and 0 or 1)

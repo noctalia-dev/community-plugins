@@ -87,6 +87,9 @@ local state = {
   lastSize = {},
   -- Rutas de las capturas recientes de cada widget (animación tipo GIF).
   recentFrames = {},
+  -- Ficheros que se descartaron de la lista de capturas mientras el árbol de
+  -- UI todavía los usaba: no se pueden borrar hasta que el árbol los suelte.
+  pendingDrop = {},
   capturing = false,
   lastCapture = 0,
   tick = 0,
@@ -487,6 +490,21 @@ local function applyRememberedSize(geometry, name, source)
   end
 end
 
+-- Borra un fotograma que se queda fuera de la lista de los recientes.
+--
+-- Si el árbol de UI todavía lo está usando no se borra: el host guarda el
+-- último árbol y lo vuelve a aplicar al reabrir el panel, así que pediría esa
+-- imagen otra vez y avisaría "image failed to load" si el fichero ya no
+-- existiera. Esos ficheros se borran más tarde, cuando ninguna tarjeta los
+-- usa (ver `cleanup`).
+local function dropFrame(path)
+  if (state.thumbUsed or {})[path] then
+    state.pendingDrop[path] = true
+    return
+  end
+  pcall(noctalia.removeFile, path)
+end
+
 local function addRecentFrame(name, path)
   if path == nil then
     return
@@ -500,7 +518,7 @@ local function addRecentFrame(name, path)
   while #list > 8 do
     local dropped = table.remove(list)
     if dropped ~= path then
-      pcall(noctalia.removeFile, dropped)
+      dropFrame(dropped)
     end
   end
 end
@@ -608,6 +626,14 @@ captureThumbs = function(force)
         used[path] = true
       end
       preview.pruneUnused(used, 1800)
+      -- Los fotogramas que se descartaron de la lista mientras el árbol los
+      -- usaba ya se pueden borrar: el árbol ha dejado de pedirlos.
+      for path in pairs(state.pendingDrop or {}) do
+        if not used[path] then
+          state.pendingDrop[path] = nil
+          pcall(noctalia.removeFile, path)
+        end
+      end
       state.capturing = false
     end
 
