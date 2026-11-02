@@ -129,8 +129,15 @@ end
 
 -- ── sessions/CLAUDE.md data loading ─────────────────────────────────────────
 
+local reloadQueued = false -- a forced reload asked for while a scan was running
+
 local function loadSessions(force)
     if sessionsState.loading then
+        -- The running scan may have read the sessions before a delete: scan
+        -- again once it finishes instead of dropping the request.
+        if force then
+            reloadQueued = true
+        end
         return
     end
     if sessionsState.projects ~= nil and not force then
@@ -156,6 +163,10 @@ local function loadSessions(force)
             end
         end
         render()
+        if reloadQueued then
+            reloadQueued = false
+            loadSessions(true)
+        end
     end)
 end
 
@@ -824,25 +835,16 @@ end
 local function cleanEmpty()
     confirmingClean = false
     local list = deletableEmpty()
-    local pending, failed = #list, 0
-    if pending == 0 then
+    if #list == 0 then
         render()
         return
     end
-    for _, session in ipairs(list) do
-        sessions.deleteSession(session, function(ok)
-            pending -= 1
-            if not ok then
-                failed += 1
-            end
-            if pending == 0 then
-                if failed > 0 then
-                    noctalia.notifyError(tr("title"), tr("err_delete_failed"))
-                end
-                loadSessions(true)
-            end
-        end)
-    end
+    sessions.deleteSessions(list, function(failed)
+        if failed > 0 then
+            noctalia.notifyError(tr("title"), tr("err_delete_failed"))
+        end
+        loadSessions(true)
+    end)
 end
 
 local function sortButton(key, labelKey)
