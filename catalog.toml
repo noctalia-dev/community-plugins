@@ -4559,8 +4559,8 @@ tags = ["panel", "network", "privacy", "utility"]
 [[plugin]]
 id = "vinioli/openvpn3"
 name = "OpenVPN 3"
-version = "1.1.0"
-updated_at = 1793398227
+version = "1.2.0"
+updated_at = 1793657910
 added_at = 1791921361
 author = "vinioli"
 license = "MIT"
