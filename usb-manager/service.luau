@@ -23,6 +23,7 @@ local lastCmdNonce = nil
 local firstScan = true
 local known = {} -- drive name -> { title, mounted } at the last full scan
 local lastWritten = {} -- drive name -> sectors written at the previous scan
+local released = {} -- drive name -> true while a safe removal released it
 local pending = {} -- device path -> action in progress
 local scanning = false
 
@@ -441,12 +442,17 @@ local function fullScan(names, mountinfo)
       autoMount(drive)
     end
     known[name] = { title = drive.title, mounted = mounted }
+    if not mounted then
+      released[name] = nil -- seen released: a later remount counts again
+    end
   end
   for name, last in known do
     if present[name] == nil then
       known[name] = nil
       lastWritten[name] = nil
-      if last.mounted then
+      local wasReleased = released[name]
+      released[name] = nil
+      if last.mounted and not wasReleased then
         notifyError(tr("notify.unsafe", { name = last.title }))
       end
     end
@@ -691,8 +697,12 @@ local function safeRemove(drive, done)
     table.insert(steps, { "udisksctl", "power-off", "-b", drive.dev })
   end
   setPending(drive.dev, "remove")
+  -- Power-off makes the drive vanish before the next full scan sees it
+  -- unmounted: remember the release so it is not reported as unsafe.
+  released[drive.name] = true
   runSteps(steps, function(ok, err)
     if not ok then
+      released[drive.name] = nil
       notifyError(tr("error.remove", { name = drive.title, reason = cleanError(err, drive.dev) }))
       clearPending(drive.dev)
       if done then
