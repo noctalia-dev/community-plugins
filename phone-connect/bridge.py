@@ -30,6 +30,10 @@ PAGE_SIZE = 50
 MAX_PHOTO_BYTES = 256 * 1024
 
 
+class DependencyError(RuntimeError):
+    """Actionable local setup guidance that is safe to show in the panel."""
+
+
 def unpack(value):
     """Recursively unwrap variants, including variants inside message structs."""
     if hasattr(value, "unpack"):
@@ -348,7 +352,7 @@ class Bridge:
         try:
             from gi.repository import Gio, GLib
         except ImportError as exc:
-            raise RuntimeError(
+            raise DependencyError(
                 "Install Python 3 and PyGObject (python-gobject on Arch; python3-gi on Debian/Ubuntu)."
             ) from exc
         self.Gio, self.GLib = Gio, GLib
@@ -431,8 +435,10 @@ class Bridge:
             for public_id in ids:
                 try:
                     items.append(self.notification(device, public_id))
-                except self.GLib.Error:
-                    pass  # Dismissed between listing and reading.
+                except self.GLib.Error as exc:
+                    if not exc.matches(self.Gio.dbus_error_quark(), self.Gio.DBusError.UNKNOWN_OBJECT):
+                        raise
+                    # Dismissed between listing and reading.
             events.append({"type": "notifications", "device": device, "items": items})
         return events
 
@@ -536,6 +542,7 @@ class Bridge:
 
     def signal(self, _bus, _sender, path, interface, signal, params, _data=None):
         """Map subscribed KDE Connect signals to typed, device-scoped events."""
+        device = None
         try:
             values = unpack(params)
             if path == ROOT:
@@ -560,9 +567,18 @@ class Bridge:
                     return
             elif interface == DEVICE + ".notifications":
                 if signal in ("notificationPosted", "notificationUpdated"):
-                    event.update(
-                        type="notification", notification=self.notification(device, values[0])
-                    )
+                    try:
+                        notification = self.notification(device, values[0])
+                    except self.GLib.Error as exc:
+                        if not exc.matches(
+                            self.Gio.dbus_error_quark(), self.Gio.DBusError.UNKNOWN_OBJECT
+                        ):
+                            raise
+                        # A queued post/update can outlive its D-Bus object.
+                        # Remove any cached row without raising a panel error.
+                        event.update(type="notification_removed", id=values[0])
+                    else:
+                        event.update(type="notification", notification=notification)
                 elif signal == "notificationRemoved":
                     event.update(type="notification_removed", id=values[0])
                 elif signal == "allNotificationsRemoved":
@@ -592,7 +608,10 @@ class Bridge:
                 return
             emit(event)
         except (self.GLib.Error, ValueError, IndexError, TypeError) as exc:
-            emit({"type": "error", "message": safe_error(exc)})
+            event = {"type": "error", "message": safe_error(exc)}
+            if device:
+                event["device"] = device
+            emit(event)
 
     def initial(self):
         """Queue paired-device snapshots and release deferred service requests."""
@@ -639,7 +658,9 @@ class Bridge:
 
 def safe_error(exc):
     """Map backend errors to UI text without including message bodies or arguments."""
-    if isinstance(exc, (ValueError, RuntimeError)):
+    # GLib.Error inherits RuntimeError too; only our explicit setup exception
+    # may bypass sanitization alongside validated command errors.
+    if isinstance(exc, (ValueError, DependencyError)):
         return str(exc)
     text = str(exc)
     if "UnknownObject" in text or "UnknownMethod" in text:

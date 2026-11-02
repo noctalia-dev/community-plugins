@@ -20,7 +20,7 @@ send SMS messages, dismiss notifications, or change phone settings.
 
 | Suite | Coverage |
 |-------|----------|
-| `test_bridge.py` | Current and legacy typed message tuples, Unicode, attachments, pagination, thread replies, expired notifications, offline actions and sanitized errors. |
+| `test_bridge.py` | Current and legacy typed message tuples, Unicode, attachments, pagination, thread replies, expired notification signals/snapshots, offline actions and sanitized GLib errors. |
 | `test_bridge.py` contacts | Folded vCards, quoted-printable soft lines, base64 names, legacy charsets, multiple numbers and device-scoped caches. Embedded photos cover raster validation, size limits, remote URI rejection, private runtime files, replacement/removal and fallback. |
 | `test_bridge.py` transport | Large Unicode watch events reconstruct from bounded stream frames. Large one-shot request replies remain a single JSON object. |
 | `messaging.lua` | Duplicate/out-of-order messages, loaded-message search, failed-send draft retention, duplicate sends, device changes, reconnection, subscription ordering and late notification snapshots. A 700-message signal burst publishes once per tick; pending sends publish immediately; incomplete frames are discarded. |
@@ -32,7 +32,7 @@ guidance. Lua tests cover missing Python, a failed dependency probe, prompt
 command failure with draft retention, successful recovery, the notice on all
 three enhanced tabs, and Device actions while the helper is unavailable.
 
-All 15 Python tests and the Lua suites pass. Repository validation passes for
+All 19 Python tests and the Lua suites pass. Repository validation passes for
 299 manifests. Plugin lint reports no errors and one existing unused-setting
 warning for `migrated_notice`.
 

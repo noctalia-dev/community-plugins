@@ -7,6 +7,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location(
@@ -22,6 +23,21 @@ class Variant:
 
     def unpack(self):
         return self.value
+
+
+class DBusError(RuntimeError):
+    """GLib errors also inherit RuntimeError, including remote D-Bus failures."""
+
+    def __init__(self, name="UnknownObject"):
+        super().__init__(
+            "g-dbus-error-quark: GDBus.Error:org.freedesktop.DBus.Error."
+            + name
+            + ": No such object path '/modules/kdeconnect/devices/phone/notifications/100' (41)"
+        )
+        self.name = name
+
+    def matches(self, domain, code):
+        return domain == "g-dbus-error-quark" and code == self.name
 
 
 class BridgeTests(unittest.TestCase):
@@ -201,6 +217,11 @@ class BridgeTests(unittest.TestCase):
 
     def fake_bridge(self):
         obj = bridge.Bridge.__new__(bridge.Bridge)
+        obj.GLib = SimpleNamespace(Error=DBusError)
+        obj.Gio = SimpleNamespace(
+            dbus_error_quark=lambda: "g-dbus-error-quark",
+            DBusError=SimpleNamespace(UNKNOWN_OBJECT="UnknownObject"),
+        )
         obj.available = lambda device: True
         obj.calls = []
         obj.call = lambda *args: obj.calls.append(args)
@@ -234,10 +255,76 @@ class BridgeTests(unittest.TestCase):
             obj.request({"op": "sms_send", "device": "phone", "text": "hi"})
         self.assertEqual(obj.calls, [])
 
+    def test_notification_expires_before_posted_or_updated_signal_is_read(self):
+        obj = self.fake_bridge()
+        with (
+            patch.object(obj, "properties", side_effect=DBusError()),
+            patch.object(bridge, "emit") as emit,
+        ):
+            for signal in ("notificationPosted", "notificationUpdated"):
+                with self.subTest(signal=signal):
+                    obj.signal(
+                        None,
+                        None,
+                        obj.path("phone") + "/notifications",
+                        bridge.DEVICE + ".notifications",
+                        signal,
+                        Variant(("100",)),
+                    )
+                    emit.assert_called_with(
+                        {"type": "notification_removed", "device": "phone", "id": "100"}
+                    )
+            self.assertEqual(emit.call_count, 2)
+        self.assertEqual(obj.calls, [], "Expiration must not perform a phone action")
+
+    def test_notification_signal_keeps_other_bus_failures_visible(self):
+        obj = self.fake_bridge()
+        with (
+            patch.object(obj, "properties", side_effect=DBusError("AccessDenied")),
+            patch.object(bridge, "emit") as emit,
+        ):
+            obj.signal(
+                None,
+                None,
+                obj.path("phone") + "/notifications",
+                bridge.DEVICE + ".notifications",
+                "notificationPosted",
+                Variant(("100",)),
+            )
+        self.assertEqual(emit.call_count, 1)
+        self.assertEqual(emit.call_args.args[0]["type"], "error")
+        self.assertEqual(emit.call_args.args[0]["device"], "phone")
+        self.assertNotIn("g-dbus", emit.call_args.args[0]["message"])
+
+    def test_notification_snapshot_skips_only_expired_objects(self):
+        obj = self.fake_bridge()
+        obj.interfaces = lambda _: set()
+        obj.call = lambda path, interface, method: {
+            "loadedPlugins": [["kdeconnect_notifications"]],
+            "activeNotifications": [["100", "101"]],
+        }[method]
+        current = {"id": "101", "title": "Current notification"}
+        with patch.object(obj, "notification", side_effect=[DBusError(), current]):
+            events = obj.snapshot("phone")
+        self.assertEqual(
+            events[-1], {"type": "notifications", "device": "phone", "items": [current]}
+        )
+        with patch.object(obj, "notification", side_effect=DBusError("AccessDenied")):
+            with self.assertRaises(DBusError):
+                obj.snapshot("phone")
+
     def test_error_does_not_expose_message_arguments(self):
         error = Exception("GDBus call failed sending private message text")
         self.assertNotIn("private", bridge.safe_error(error))
         self.assertIn("unknown", bridge.safe_error(Exception("operation timed out")))
+
+    def test_glib_runtime_errors_are_sanitized(self):
+        self.assertEqual(
+            bridge.safe_error(DBusError()),
+            "KDE Connect feature or notification is no longer available",
+        )
+        self.assertNotIn("/modules/", bridge.safe_error(DBusError("AccessDenied")))
+        self.assertNotIn("private", bridge.safe_error(RuntimeError("private backend details")))
 
 
 if __name__ == "__main__":
