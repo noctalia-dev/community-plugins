@@ -9,7 +9,7 @@
 
 id = "faminec/terminal-widgets"
 name = "Terminal Widgets"
-version = "2.2.0"
+version = "2.2.2"
 plugin_api = 43
 author = "faminec"
 license = "MIT"
