@@ -5,14 +5,14 @@
 
 id = "dmopp/nixos-updates"
 name = "NixOS Updates"
-version = "1.1.0"
+version = "1.1.1"
 plugin_api = 43
 author = "dMopp"
 license = "MIT"
 icon = "snowflake"
 description = "Pending flake input, package and Flatpak updates on NixOS, like apt list --upgradable."
 tags = ["bar", "panel", "service", "system", "nixos", "indicator"]
-dependencies = ["nix", "sh", "timeout", "cat", "cmp", "cp", "cut", "grep", "head", "id", "mv", "readlink", "rm", "sed", "stat", "tail", "tr", "flatpak", "xdg-open"]
+dependencies = ["nix", "sh", "timeout", "cat", "cmp", "cp", "cut", "grep", "head", "id", "mv", "readlink", "rm", "sed", "stat", "tail", "tr", "flatpak", "xdg-open", "systemd-run"]
 
 [[setting]]
 key = "flake_dir"
