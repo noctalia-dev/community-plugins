@@ -44,9 +44,12 @@ Re-checked against noctalia `main` @ `47945ec` (2026-10-18, `plugin_api` 34): st
 
 ### List item preselection
 
-In every menu where the `Go Back` button is shown, the second item (the one after the back button) should be preselected at the submenu entry.
+Menus with a `Go Back` row put the primary action first, because Noctalia always
+preselects row 0 and has no API to request another row.
 
-The current noctalia plugin api does not provide a way to do so, it should be implemented as soon as the plugin interface adds a method to preselect launcher list entries.
+The host preserves the previous selection by id `back:<path>` across refreshes, so
+the creation menu's back row uses a path-scoped `createback:<path>` id to keep it
+from stealing that selection.
 
 ### Settings grouping
 
