@@ -110,13 +110,22 @@ local function sessionFor(profile)
   return nil
 end
 
-local TEXT_KEYS = { "server-override", "port-override", "proxy-host", "proxy-port", "proxy-username", "proxy-password" }
+local TEXT_KEYS = { "server-override", "port-override", "proxy-host", "proxy-port", "proxy-username", "proxy-password", "dns-routes" }
+
+-- Stored value of a text option: an override, except the DNS routing domains
+-- which live in profile tags.
+local function textOriginal(profile, key)
+  if key == "dns-routes" then
+    return profile.dnsRoutes or ""
+  end
+  local value = if profile.overrides ~= nil then profile.overrides[key] else nil
+  return if value == nil then "" else tostring(value)
+end
 
 function resetDrafts(profile)
   drafts = {}
   for _, key in ipairs(TEXT_KEYS) do
-    local value = if profile.overrides ~= nil then profile.overrides[key] else nil
-    drafts[key] = if key == "proxy-password" or value == nil then "" else tostring(value)
+    drafts[key] = if key == "proxy-password" then "" else textOriginal(profile, key)
   end
   draftName = profile.name
   edits = {}
@@ -614,8 +623,17 @@ local function collectChanges(profile)
     options[key] = value
   end
   for _, key in ipairs(TEXT_KEYS) do
-    local original = if profile.overrides ~= nil and profile.overrides[key] ~= nil then tostring(profile.overrides[key]) else ""
+    local original = textOriginal(profile, key)
     local draft = drafts[key] or ""
+    if key == "dns-routes" then
+      -- Normalise spacing and order so only real changes count.
+      local parts = {}
+      for domain in string.gmatch(draft, "%S+") do
+        table.insert(parts, domain)
+      end
+      table.sort(parts)
+      draft = table.concat(parts, " ")
+    end
     if key == "proxy-password" then
       if draft ~= "" then
         options[key] = draft
@@ -682,6 +700,7 @@ local function renderDetail()
       toggleRow(profile, "dns-fallback-google", noctalia.tr("panel.opt.dns-google"), noctalia.tr("panel.opt.dns-google-hint")),
       toggleRow(profile, "dns-setup-disabled", noctalia.tr("panel.opt.dns-disabled"), noctalia.tr("panel.opt.dns-disabled-hint")),
       toggleRow(profile, "dns-sync-lookup", noctalia.tr("panel.opt.dns-sync"), nil),
+      textRow("dns-routes", noctalia.tr("panel.opt.dns-routes"), noctalia.tr("panel.opt.dns-routes-hint"), false),
     }),
     section(noctalia.tr("panel.sec.proxy"), {
       textRow("proxy-host", noctalia.tr("panel.opt.proxy-host"), "proxy.example.com", false),
