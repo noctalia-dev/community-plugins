@@ -21,7 +21,8 @@ local function render(submap)
 end
 
 noctalia.state.watch("umbriel_submap", function(value)
-  render(value.current)
+  render(value and value.current)
 end)
 
-render(noctalia.state.get("umbriel_submap").current)
+local initial = noctalia.state.get("umbriel_submap")
+render(initial and initial.current)
