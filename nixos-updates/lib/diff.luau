@@ -13,7 +13,7 @@ end
 -- `a && b` runs in it entirely. A prefix can hold several words and its own
 -- quoting; the setting is the user's own, like the update command.
 function M.terminalCommand(terminal, cmd)
-	return terminal .. " sh -lc " .. M.quote(cmd)
+	return "systemd-run --user --scope --collect --quiet " .. terminal .. " sh -lc " .. M.quote(cmd)
 end
 
 -- Links come from flake.lock and package metadata, i.e. from whoever controls

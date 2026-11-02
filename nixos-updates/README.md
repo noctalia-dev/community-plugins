@@ -26,6 +26,7 @@ the panel's **Update** button.
   `readlink`, `rm`, `sed`, `stat`, `tail`, `tr` (a shell, coreutils, diffutils,
   grep, sed).
 - Optional: `flatpak` for the Flatpak list; without it that section is left out.
+- `systemd-run` for the update process scope (part of any systemd-based Linux installation).
 - Optional: `xdg-open` to open changelogs and commit comparisons from the panels.
 
 ## Usage
@@ -253,7 +254,7 @@ noctalia msg plugin dmopp/nixos-updates:service all update   # run the update co
 - **Processes:** `sh scripts/check.sh` (with the `nix` and `flatpak` calls
   above), `xdg-open <url>` on a click on a row with a changes link, and the
   configured update command in a terminal on **Update** (with `terminal` set,
-  `<terminal> sh -lc '<update_command>'`).
+  `systemd-run --user --scope --collect --quiet <terminal> sh -lc '<update_command>'`).
 - Only packages listed in `environment.systemPackages` (and the kernel) are
   compared, not their dependencies or services. Home Manager packages are not
   included. A package built from an input can get new commits without a new
