@@ -5114,8 +5114,8 @@ rev = "adf2587b57874a5b626ade6375ee9734b309843b"
 [[plugin]]
 id = "rylos/rbw-enhanced"
 name = "rbw-enhanced"
-version = "1.1.2"
-updated_at = 1793056609
+version = "1.1.3"
+updated_at = 1793634836
 added_at = 1793056609
 author = "Marco Ziliani"
 license = "MIT"
