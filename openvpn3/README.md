@@ -66,9 +66,27 @@ closed.
 | General | Rename, Data Channel Offload, persistent tunnel, connect at startup, retry after auth failure, automatic restart |
 | Connection | Server and port override, IPv6, compression |
 | Security | Minimum TLS version, TLS certificate profile, legacy algorithms |
-| DNS | DNS scope, fall back to Google DNS, do not configure DNS, synchronous lookup |
+| DNS | DNS scope, fall back to Google DNS, do not configure DNS, synchronous lookup, DNS routing domains |
 | HTTP proxy | Host, port, username, password (write-only), cleartext authentication |
 | Logging | Log level |
+
+**DNS routing domains.** Some gateways push a DNS server but no DNS domains. With the `tunnel` DNS scope,
+systemd-resolved then never sends a query to that server. The per-profile option **DNS routing domains** (profile
+options, DNS section, space separated, for example `example.internal`) runs `resolvectl domain <tun> ~domain` once that
+profile's session reaches `connected`. It is stored on the profile as `noctalia-dns-route:<domain>` tags, like
+Connect at startup. `openvpn3` 27.1 ignores client-side `dhcp-option DOMAIN[-ROUTE]` and `dns ...` lines in the
+profile (tested), so the plugin sets the domains itself after connect. `resolvectl domain` needs the polkit action
+`org.freedesktop.resolve1.set-domains`, which asks for admin authentication by default. Allow it for your local active
+user with a rule such as `/etc/polkit-1/rules.d/50-resolved-vpn-domains.rules`:
+
+```js
+polkit.addRule(function(action, subject) {
+  if (action.id == "org.freedesktop.resolve1.set-domains" &&
+      subject.user == "your-user" && subject.local && subject.active) {
+    return polkit.Result.YES;
+  }
+});
+```
 
 "Profile default" removes an override. Only one profile can have **Connect at startup**: it is stored as the
 `noctalia-autoconnect` tag on the profile, and the plugin connects it once when Noctalia starts if nothing is connected
