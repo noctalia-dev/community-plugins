@@ -38,6 +38,7 @@
     "mount": "Mount",
     "mount-all": "Mount all",
     "mounted-count": "{count} mounted",
+    "mounted-count-one": "1 mounted",
     "no-media": "No medium",
     "not-mounted": "Not mounted",
     "open": "Open in the file manager",
