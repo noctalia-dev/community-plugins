@@ -34,8 +34,12 @@ local function pendingOf(dev)
   return snapshot and snapshot.pending and snapshot.pending[dev] or nil
 end
 
+-- Every prop is always set: rows are rebuilt in place, and a button that
+-- takes the slot of a disabled one would otherwise keep it disabled.
 local function iconButton(glyph, tooltip, onClick, opts)
   local props = {
+    key = glyph,
+    enabled = true,
     glyph = glyph,
     variant = "ghost",
     controlSize = "sm",
