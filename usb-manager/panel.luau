@@ -302,7 +302,13 @@ local function driveCard(drive)
     ui.row({ width = 34, height = 34, radius = 10, fill = "primary/0.14", align = "center", justify = "center" }, {
       ui.glyph({ name = shared.driveGlyph(drive), size = 18, color = "primary" }),
     }),
-    ui.column({ gap = 2, flexGrow = 1 }, {
+    -- the title is cut when the remove button is wide (longer translations):
+    -- the tooltip keeps the full name, with the serial to tell twins apart
+    ui.column({
+      gap = 2,
+      flexGrow = 1,
+      tooltip = drive.serial ~= "" and `{drive.title} · {drive.serial}` or drive.title,
+    }, {
       ui.label({ text = drive.title, fontWeight = "bold", fontSize = 14, maxLines = 1 }),
       ui.label({ text = subtitle, fontSize = 11, color = subtitleColor, maxLines = 1 }),
     }),
