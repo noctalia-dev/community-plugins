@@ -1,0 +1,86 @@
+{
+  "settings": {
+    "glyph": {
+      "label": "Icon",
+      "description": "Bar icon"
+    }
+  },
+  "widget": {
+    "tooltip": "2FA codes · accounts: {count}",
+    "error": "2FA: could not read the keyring"
+  },
+  "common": {
+    "seconds": "{n}s"
+  },
+  "notify": {
+    "title": "2FA",
+    "copied": "{name}: code copied, valid for {n}s",
+    "bad_secret": "This account's secret key is invalid"
+  },
+  "launcher": {
+    "empty": "No accounts yet - add them from the 2FA panel",
+    "no_match": "No matching accounts",
+    "error": "Could not read the keyring"
+  },
+  "panel": {
+    "title": "2FA codes",
+    "close": "Close",
+    "add": "Add account",
+    "edit": "Rename or delete",
+    "search": "Search",
+    "loading": "Reading the keyring…",
+    "error": "Could not read the keyring: {error}",
+    "retry": "Retry",
+    "empty": "No accounts yet",
+    "no_match": "Nothing matches “{query}”",
+    "rename": "Rename",
+    "delete": "Delete",
+    "confirm_delete": "Delete?",
+    "deleted": "{name} deleted",
+    "delete_failed": "Could not delete {name}",
+    "back": "Back",
+    "edit_done": "Done",
+    "hint_count": "Accounts: {count} · click a code to copy it",
+    "hint_enter": "Enter copies the code for {name}",
+    "hint_edit": "✎ rename · 🗑 delete (click twice)"
+  },
+  "add": {
+    "title": "Add account",
+    "import_title": "Import",
+    "scan": "Scan QR on screen",
+    "paste": "Paste",
+    "import_hint": "A QR code or otpauth:// link from a website, or a Google Authenticator export (Transfer accounts → Export).",
+    "manual_title": "Enter a key",
+    "issuer": "Service",
+    "issuer_placeholder": "e.g. GitHub",
+    "account": "Account",
+    "account_placeholder": "e.g. you@example.com",
+    "secret": "Secret key",
+    "secret_placeholder": "Base32 key shown instead of the QR",
+    "save": "Add",
+    "need_name": "Enter a service or an account name"
+  },
+  "rename": {
+    "title": "Rename",
+    "save": "Save",
+    "failed": "Could not save",
+    "section": "New name",
+    "cancel": "Cancel"
+  },
+  "import": {
+    "saving": "Saving to the keyring…",
+    "result": "Added: {added}, already present: {duplicates}, unsupported: {skipped}",
+    "store_failed": "Could not save to the keyring: {error}",
+    "no_qr": "No QR code found in the selected area",
+    "nothing_found": "No otpauth:// link found",
+    "not_otpauth": "Not an otpauth:// link",
+    "unsupported_type": "Only time-based (TOTP) codes are supported",
+    "unsupported_algorithm": "Only SHA1 codes are supported",
+    "bad_secret": "The secret key is not valid Base32",
+    "bad_parameters": "Unsupported digits or period",
+    "not_migration": "Not a Google Authenticator export",
+    "bad_migration": "The Google Authenticator export is damaged",
+    "read_failed": "Could not read the file: {error}",
+    "clipboard_cleared": "The clipboard was cleared. If clipboard history is on, delete the link from it too."
+  }
+}
