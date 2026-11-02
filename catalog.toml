@@ -5276,8 +5276,8 @@ tags = ["hardware", "shortcut", "system", "nixos"]
 [[plugin]]
 id = "dmopp/nixos-updates"
 name = "NixOS Updates"
-version = "1.1.0"
-updated_at = 1793478957
+version = "1.1.1"
+updated_at = 1793622822
 added_at = 1793405161
 author = "dMopp"
 license = "MIT"
@@ -5315,8 +5315,8 @@ tags = ["bar", "panel", "service", "media", "music"]
 [[plugin]]
 id = "faminec/terminal-widgets"
 name = "Terminal Widgets"
-version = "2.2.0"
-updated_at = 1793546917
+version = "2.2.2"
+updated_at = 1793622740
 added_at = 1793546917
 author = "faminec"
 license = "MIT"
