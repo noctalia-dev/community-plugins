@@ -199,6 +199,12 @@ runtime is created on demand.
 
 ## Changelog
 
+### 2.2.2
+
+- A thumbnail that the panel still shows is no longer deleted while the card animates its
+  captures. Noctalia keeps the last tree it applied, so reopening the panel used to ask
+  for an image that was already gone and the host logged "image failed to load".
+
 ### 2.2.1
 
 - The panel no longer asks for animation frames when there is nothing to animate: a
