@@ -100,6 +100,12 @@ end
 
 -- Runs list-claude-sessions and hands the grouped project list to
 -- done(projects, err) — err is nil on success.
+-- The scan reads every transcript under ~/.claude/projects (about 30 s for
+-- ~300 sessions, 400 MB), so it needs a longer timeout than runAsync's
+-- default of a few seconds, which kills it (exit 143) and leaves the tab empty.
+-- 60 s is the most runAsync accepts (it clamps timeoutMs to [50, 60000]).
+local SCAN_TIMEOUT_MS = 60000
+
 function M.refresh(done)
     local ok = noctalia.runAsync(`bash '{scriptPath}'`, function(result)
         if type(result) ~= "table" or result.success == false or result.exitCode ~= 0 then
@@ -112,7 +118,7 @@ function M.refresh(done)
             return
         end
         done(M.groupByProject(data.sessions), nil)
-    end)
+    end, SCAN_TIMEOUT_MS)
     if not ok then
         done(nil, noctalia.tr("err_sessions_launch"))
     end
