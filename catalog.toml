@@ -5389,3 +5389,16 @@ icon = "keyboard"
 description = "Mechanical keyboard typing sounds for Noctalia on Wayland, powered by wayvibes."
 plugin_api = 43
 tags = ["audio", "bar", "panel", "utility"]
+
+[[plugin]]
+id = "rylos/usb-manager"
+name = "USB Manager"
+version = "1.0.0"
+updated_at = 1793635887
+added_at = 1793635887
+author = "Marco Ziliani"
+license = "MIT"
+icon = "usb"
+description = "USB drives, SD cards and optical media: mount, unlock, open, and remove them safely with one click."
+plugin_api = 43
+tags = ["bar", "panel", "service", "hardware", "system", "utility"]
