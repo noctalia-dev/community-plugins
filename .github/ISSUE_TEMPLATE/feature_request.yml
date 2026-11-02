@@ -303,6 +303,7 @@ body:
         - umami
         - umbriel-displays
         - umbriel-monitor-control
+        - umbriel-submap
         - undershell
         - upbeat
         - usbeehive
