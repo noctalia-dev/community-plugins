@@ -71,7 +71,7 @@ local function header()
   else
     subtitle = count == 1 and tr("panel.count-one") or tr("panel.count", { count = count })
     if mounted > 0 then
-      subtitle ..= ` · {mounted} {tr("panel.mounted"):lower()}`
+      subtitle ..= ` · {tr("panel.mounted-count", { count = mounted })}`
     end
   end
   local anyUnmounted = false

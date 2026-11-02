@@ -38,7 +38,7 @@
     "locked": "Locked",
     "mount": "Mount",
     "mount-all": "Mount all",
-    "mounted": "Mounted",
+    "mounted-count": "{count} mounted",
     "no-media": "No medium",
     "not-mounted": "Not mounted",
     "open": "Open in the file manager",
