@@ -67,6 +67,12 @@ local sessionsState = { loading = false, error = nil, projects = nil }
 local mdState = { loading = false, error = nil, paths = nil }
 local searchText = ""
 local expandedGroups = {} -- cwd -> bool, seeded on first load (see loadSessions)
+local GROUP_PAGE = 20 -- session rows drawn per project, and added per "show more"
+local groupShown = {} -- cwd -> how many rows that project draws
+
+local function groupLimit(cwd)
+    return groupShown[cwd] or GROUP_PAGE
+end
 local expandedSessionId = nil -- one preview open at a time
 local confirmingDeleteId = nil
 local confirmingClean = false -- inline confirm strip for "delete all empty sessions"
@@ -746,7 +752,7 @@ local function sessionRow(session, selected, isLive)
         }))
     end
 
-    return ui.column({ key = sessionWrapKey(session), gap = 4, align = "stretch", paddingL = 20 }, blocks)
+    return ui.column({ key = sessionWrapKey(session), gap = 4, align = "stretch" }, blocks)
 end
 
 local function groupHeader(group, count, selected, hasLive)
@@ -988,7 +994,7 @@ local function renderSessionsTab()
         -- Clamp after the filter shrank the list, then draw with the final sel.
         local total = 0
         for _, entry in ipairs(shown) do
-            total += 1 + (expandedGroups[entry.cwd] == true and #entry.matches or 0)
+            total += 1 + (expandedGroups[entry.cwd] == true and math.min(#entry.matches, groupLimit(entry.cwd)) or 0)
         end
         sel = math.max(1, math.min(sel, total))
         local revealKey = nil
@@ -1008,8 +1014,26 @@ local function renderSessionsTab()
             end
             table.insert(rows, groupHeader(group, #entry.matches, track("grp-" .. group.cwd, function() toggleGroup(group.cwd) end), hasLive))
             if expandedGroups[group.cwd] == true then
-                for _, session in ipairs(entry.matches) do
+                -- Only the first few rows are built: a callback that draws a
+                -- few hundred sessions in one go exceeds the host's CPU
+                -- budget and gets the panel disabled.
+                local limit = groupLimit(group.cwd)
+                local drawn = math.min(#entry.matches, limit)
+                for i = 1, drawn do
+                    local session = entry.matches[i]
                     table.insert(rows, sessionRow(session, track(sessionWrapKey(session), function() resumeSession(session) end), running[session.id] == true))
+                end
+                if drawn < #entry.matches then
+                    local remaining = #entry.matches - drawn
+                    table.insert(rows, ui.button({
+                        key = "more-" .. group.cwd,
+                        text = tr("show_more", { n = math.min(remaining, GROUP_PAGE), total = remaining }),
+                        variant = "ghost", controlSize = "sm",
+                        onClick = function()
+                            groupShown[group.cwd] = limit + GROUP_PAGE
+                            render()
+                        end,
+                    }))
                 end
             end
         end
@@ -1288,7 +1312,7 @@ local function askConfirm(key)
 end
 
 local function confirmStrip(key, text, yesText, onYes)
-    return ui.row({ key = "confirm-" .. key, gap = 8, align = "center", paddingL = 20 }, {
+    return ui.row({ key = "confirm-" .. key, gap = 8, align = "center" }, {
         ui.label({ text = text, fontSize = 12, color = "on_surface", flexGrow = 1, maxLines = 2 }),
         ui.button({ text = yesText, variant = "destructive", controlSize = "sm", onClick = onYes }),
         ui.button({ text = tr("no"), variant = "ghost", controlSize = "sm", onClick = function() askConfirm(nil) end }),
@@ -1316,7 +1340,7 @@ local function pluginRow(p, rows)
     if not p.enabled then
         meta = meta .. " · " .. tr("plugin_disabled")
     end
-    table.insert(rows, ui.row({ key = "row-" .. key, gap = 8, align = "center", paddingL = 20 }, compact(
+    table.insert(rows, ui.row({ key = "row-" .. key, gap = 8, align = "center" }, compact(
         ui.glyph({ name = "puzzle", size = 14, color = p.enabled and "primary" or "on_surface_variant" }),
         ui.column({ gap = 0, flexGrow = 1 }, {
             ui.label({ text = p.name, fontSize = 13, maxLines = 1 }),
@@ -1368,7 +1392,7 @@ end
 local function localSkillRow(skill, rows)
     local name = skill.name
     local key = "local:" .. name
-    table.insert(rows, ui.row({ key = "row-" .. key, gap = 8, align = "center", paddingL = 20 }, compact(
+    table.insert(rows, ui.row({ key = "row-" .. key, gap = 8, align = "center" }, compact(
         ui.glyph({ name = "file-text", size = 14, color = "primary" }),
         ui.label({ text = name, fontSize = 13, flexGrow = 1, maxLines = 1 }),
         linkButton(skill.url),
