@@ -5376,3 +5376,16 @@ icon = "keyboard"
 description = "Display Umbriel submap as widget or OSD"
 plugin_api = 43
 tags = ["bar", "service", "indicator", "umbriel"]
+
+[[plugin]]
+id = "viksit-garg/wayvibes"
+name = "WayVibes"
+version = "1.0.1"
+updated_at = 1793623561
+added_at = 1793623561
+author = "viksit-garg"
+license = "MIT"
+icon = "keyboard"
+description = "Mechanical keyboard typing sounds for Noctalia on Wayland, powered by wayvibes."
+plugin_api = 43
+tags = ["audio", "bar", "panel", "utility"]
