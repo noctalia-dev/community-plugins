@@ -1,0 +1,66 @@
+{
+  "settings": {
+    "enabled": {
+      "label": "Count typing",
+      "description": "Count printable keys while the plugin is loaded."
+    },
+    "block_size": {
+      "label": "Characters per block",
+      "description": "How many characters make the counter advance by one (100 by default)."
+    },
+    "thresholds": {
+      "label": "Heatmap thresholds",
+      "description": "Four comma-separated daily character counts for levels 1, 2, 3 and 4. Below the first value is level 0. Default 500,1000,2000,5000."
+    },
+    "level_notify": {
+      "label": "Notify on a new level",
+      "description": "Send a notification when today's typing reaches a new heatmap level."
+    },
+    "filter_mode": {
+      "label": "Window filter",
+      "description": "Count only certain windows (whitelist) or skip certain windows (blacklist), using the niri app_id of the focused window.",
+      "off": "Off",
+      "whitelist": "Whitelist",
+      "blacklist": "Blacklist"
+    },
+    "filter_apps": {
+      "label": "Filter app IDs",
+      "description": "One niri app_id per entry, case-insensitive (for example Alacritty, wechat, firefox). An empty whitelist counts nothing; an empty blacklist counts everything."
+    }
+  },
+  "widget": {
+    "next": "Next block",
+    "mode": {
+      "today": "Today (click to switch)",
+      "total": "All time (click to switch)",
+      "label": "Mode"
+    },
+    "today": "Today",
+    "total": "All time"
+  },
+  "shortcut": {
+    "reset": "Reset typing stats",
+    "heatmap": "Typing heatmap"
+  },
+  "notify": {
+    "reset": {
+      "title": "Typing stats reset",
+      "body": "The character counter is back to 0."
+    },
+    "no_access": {
+      "title": "Typing Stats needs input access",
+      "body": "Run setup.sh in the plugin directory once to install the udev rule, then reload the plugin."
+    },
+    "level": {
+      "title": "Typing level up",
+      "body": "Today: {count} characters · level {level}"
+    }
+  },
+  "panel": {
+    "title": "Typing heatmap",
+    "summary": "This month {month} chars · today {today} chars",
+    "day_tooltip": "{date} · {count} chars",
+    "less": "Less",
+    "more": "More"
+  }
+}
