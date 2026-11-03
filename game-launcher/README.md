@@ -9,6 +9,7 @@ Browse and launch games from Steam, Lutris, and Heroic Games Launcher directly f
 | ID | `alexander/game-launcher` |
 | Entries | Bar widget: `launcher`; panels: `browser` (sidebar dock), `original` (center box); launcher provider: `search` |
 | Launcher Prefix | `/g` |
+| Plugin API | `39` (all current levels, needs unreleased / git Noctalia) |
 
 ## Requirements
 
