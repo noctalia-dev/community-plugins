@@ -51,6 +51,14 @@
       "label": "Terminal",
       "description": "Terminal for new and resumed sessions. Empty opens a kitty tab when kitty remote control is on, else Noctalia's terminal."
     },
+    "open_in": {
+      "label": "Open sessions in",
+      "description": "Where new and resumed sessions open when kitty remote control is on. Other terminals always open a new window.",
+      "options": {
+        "tab": "New kitty tab",
+        "window": "New kitty window"
+      }
+    },
     "editor_command": {
       "label": "Editor command",
       "description": "Command that opens a CLAUDE.md. Empty tries code, then zed."
