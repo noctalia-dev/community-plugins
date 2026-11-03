@@ -51,6 +51,20 @@ local shared = require("./shared.luau")
 -- the bar widget and the launcher have no chart to draw.
 local usage = require("./usage.luau")
 
+-- The Space tab's body. Same require() route as above.
+local space = require("./space.luau")
+-- Late-bound: onSearchHere is the global defined further down this file.
+space.onSearchHere = function(path) onSearchHere(path) end
+
+-- Which tab is showing: "search" | "space". Reset to search on every open.
+local activeTab = "search"
+
+-- The Space tab can be turned off in the settings (nil = not set = on). Every
+-- call into `space` below sits behind this.
+local function spaceOn()
+    return noctalia.getConfig("space_enabled") ~= false
+end
+
 -- Read out of the plugin's own manifest (readFile resolves a relative path
 -- against the plugin directory), so the header cannot drift from the version
 -- the store shows. Empty when unreadable — a missing version is not worth an
@@ -119,9 +133,10 @@ local spinnerIndex = 1
 local spinnerAccumMs = 0
 local spinnerTicking = false
 
--- The frame tick has two users, the spinner and a held arrow key.
+-- The frame tick has three users: the spinner, a held arrow key and the
+-- Space tab's scan engine (space.step).
 local function syncFrameTick()
-    panel.setNeedsFrameTick(spinnerTicking or heldStep ~= 0)
+    panel.setNeedsFrameTick(spinnerTicking or heldStep ~= 0 or (spaceOn() and space.needsTick()))
 end
 
 local function setSpinnerTicking(on)
@@ -469,61 +484,14 @@ local function copyName(rel)
     noctalia.notify(shared.tr("title"), shared.tr("copied_name"))
 end
 
--- file:// URI for a local path. Every byte outside the unreserved set is
--- percent-encoded one byte at a time, which is also the correct encoding for
--- the UTF-8 sequences of a non-ASCII name — and it leaves the result free of
--- quotes and spaces, so it can be dropped into a GVariant literal as-is.
-local function fileUri(path)
-    return "file://" .. (path:gsub("[^%w%-%._~/]", function(byte)
-        return string.format("%%%02X", string.byte(byte))
-    end))
-end
-
--- Show the entry in the system file manager: its containing folder opens with
--- the entry itself selected, for a directory too (its parent opens, with the
--- directory highlighted) — left click is what enters a directory.
---
--- ShowItems on the org.freedesktop.FileManager1 interface is the portable way
--- to say "reveal this": Thunar, Nautilus, Dolphin, Nemo, Caja and PCManFM-Qt
--- all implement it, and the session bus activates the handler on demand, so
--- the file manager does not need to be running. When there is no such handler,
--- or no gdbus at all (execvp failing is a 127 exit like any other), the
--- fallback opens the containing folder through the MIME association, which is
--- the same window minus the selection.
---
--- An argv (plugin_api >= 24) rather than a shell line: the GVariant literal
--- carries a file name straight from the index and nothing parses it. That moves
--- the `||` fallback out of the shell and into the callback.
+-- Show the entry in the system file manager (see shared.revealPath).
 local function revealEntry(rel)
     local path = shared.absolutePath(rel)
     if path == nil then
         rejectRecord(rel)
         return
     end
-    local parent = path:match("^(.*)/[^/]+$")
-    if parent == nil or parent == "" then
-        parent = "/"
-    end
-    local ok = noctalia.runAsync({
-        "gdbus",
-        "call",
-        "--session",
-        "--dest",
-        "org.freedesktop.FileManager1",
-        "--object-path",
-        "/org/freedesktop/FileManager1",
-        "--method",
-        "org.freedesktop.FileManager1.ShowItems",
-        '["' .. fileUri(path) .. '"]',
-        "",
-    }, function(result)
-        if result.exitCode ~= 0 or result.timedOut then
-            shared.openPath(parent)
-        end
-    end, 5000)
-    if not ok then
-        shared.openPath(parent)
-    end
+    shared.revealPath(path)
 end
 
 -- The result row's right-click menu (plugin_api >= 28). Only a ui.button's
@@ -997,35 +965,84 @@ local function stopKeyRepeat()
     syncFrameTick()
 end
 
+-- Tab bar under the header: Search (this file) and Space (space.luau). The
+-- ids double as node keys ("tab-<id>"), so both stay stable across renders.
+local TABS = { "search", "space" }
+local TAB_GLYPH = { search = "search", space = "chart-pie" }
+
+local function setActiveTab(id)
+    if id == activeTab or (id == "space" and not spaceOn()) then
+        return
+    end
+    activeTab = id
+    stopKeyRepeat()
+    if id == "space" then
+        -- Not on panel open: a Search-only session never starts an ncdu scan.
+        space.onOpen(render)
+    elseif spaceOn() then
+        space.onClose() -- its scan events stop re-rendering this tab
+    end
+    render()
+end
+
+local function tabSelector()
+    local buttons = {}
+    for _, id in ipairs(TABS) do
+        table.insert(buttons, ui.button({
+            key = "tab-" .. id,
+            glyph = TAB_GLYPH[id],
+            text = shared.tr("tab_" .. id),
+            variant = "ghost", controlSize = "sm", flexGrow = 1,
+            selected = (activeTab == id),
+            onClick = function() setActiveTab(id) end,
+        }))
+    end
+    return ui.row({ key = "tabs", gap = 4, align = "center" }, buttons)
+end
+
 render = function()
     setSpinnerTicking(indexing and #results == 0)
+    syncFrameTick() -- also follows space.needsTick(), which changes outside this file
     -- Clamped here, so a list that shrank or emptied needs no call of its own.
     sel = math.max(1, math.min(sel, #results))
 
     -- Every child of the panel and of the header carries a stable key, so the
     -- reconciler matches roles instead of guessing by position and type.
-    local children = {
-        ui.row({ key = "header", gap = 6, align = "center" }, {
-            ui.label({
-                key = "title",
-                text = shared.tr("title"),
-                fontSize = 16,
-                fontWeight = "bold",
-                color = "on_surface",
-            }),
-            -- Version off the manifest, small and dimmed: it answers "which
-            -- build am I running" without competing with the title. The spacer
-            -- rather than a flexGrow title keeps the two together on the left.
-            ui.label({ key = "version", text = pluginVersion, fontSize = 10, color = "on_surface_variant" }),
-            ui.spacer({ key = "gap", flexGrow = 1 }),
-            rankingButton(),
-            usageButton(),
-            wholeButton(),
-            scopeButton(),
-            ui.button({ key = "refresh", glyph = "refresh", variant = "ghost", tooltip = shared.tr("tip_refresh"), onClick = "onRefreshIndex" }),
-            ui.button({ key = "settings", glyph = "settings", variant = "ghost", tooltip = shared.tr("tip_settings"), onClick = "onOpenSettings" }),
-            ui.button({ key = "close", glyph = "close", variant = "ghost", tooltip = shared.tr("tip_close"), onClick = "onClosePanel" }),
+    local headerItems = {
+        ui.label({
+            key = "title",
+            text = shared.tr("title"),
+            fontSize = 16,
+            fontWeight = "bold",
+            color = "on_surface",
         }),
+        -- Version off the manifest, small and dimmed: it answers "which
+        -- build am I running" without competing with the title. The spacer
+        -- rather than a flexGrow title keeps the two together on the left.
+        ui.label({ key = "version", text = pluginVersion, fontSize = 10, color = "on_surface_variant" }),
+        ui.spacer({ key = "gap", flexGrow = 1 }),
+    }
+    -- Search-only buttons; the Space tab has its own row.
+    if activeTab == "search" then
+        table.insert(headerItems, rankingButton())
+        table.insert(headerItems, usageButton())
+        table.insert(headerItems, wholeButton())
+        table.insert(headerItems, scopeButton())
+        table.insert(headerItems, ui.button({ key = "refresh", glyph = "refresh", variant = "ghost", tooltip = shared.tr("tip_refresh"), onClick = "onRefreshIndex" }))
+    end
+    table.insert(headerItems, ui.button({ key = "settings", glyph = "settings", variant = "ghost", tooltip = shared.tr("tip_settings"), onClick = "onOpenSettings" }))
+    table.insert(headerItems, ui.button({ key = "close", glyph = "close", variant = "ghost", tooltip = shared.tr("tip_close"), onClick = "onClosePanel" }))
+    local header = ui.row({ key = "header", gap = 6, align = "center" }, headerItems)
+
+    if activeTab == "space" and spaceOn() then
+        panel.render(ui.column({ flexGrow = 1, gap = 12, align = "stretch" }, {
+            header, tabSelector(), space.render(),
+        }))
+        return
+    end
+
+    local children = {
+        header,
         ui.input({
             key = "query-" .. inputRev,
             value = query,
@@ -1036,6 +1053,9 @@ render = function()
         }),
         syntaxLegend(),
     }
+    if spaceOn() then
+        table.insert(children, 2, tabSelector())
+    end
 
     local strip = usageFilterStrip()
     if strip ~= nil then
@@ -1181,6 +1201,7 @@ end
 
 function onOpen(_context)
     fzfMissing = not noctalia.commandExists("fzf")
+    activeTab = "search"
     query = ""
     results = {}
     errMsg = nil
@@ -1229,12 +1250,22 @@ function onClose()
     setSpinnerTicking(false)
     stopKeyRepeat() -- a key held while the panel closes never reports its release
     noctalia.state.set("file_search_open", false)
+    if spaceOn() then
+        space.onClose()
+    end
+    panel.setNeedsFrameTick(false) -- a running scan resumes on the next open
 end
 
 -- plugin_api >= 18. Throttled to SPINNER_STEP_MS regardless of the host's
 -- actual tick rate; render() itself flips setNeedsFrameTick off once indexing
 -- ends or results stop being empty, so this never spins forever unattended.
 function onFrameTick(deltaMs)
+    -- The tick follows needsTick() after every step: a step can end a load
+    -- (whose redraw turns the tick off) and then start the deferred rescan.
+    if spaceOn() and space.needsTick() then
+        space.step()
+        syncFrameTick()
+    end
     if heldStep ~= 0 then
         repeatInMs -= deltaMs
         if repeatInMs <= 0 then
@@ -1259,6 +1290,17 @@ function onFrameTick(deltaMs)
 end
 
 function onConfigChanged()
+    if spaceOn() then
+        space.onConfigChanged() -- before the Search side's early return
+    elseif activeTab == "space" then
+        activeTab = "search"
+        space.onClose()
+        space.onDisabled()
+        stopKeyRepeat()
+        render()
+    else
+        space.onDisabled() -- a scan left running by a closed panel
+    end
     if fzfMissing or indexing then
         return
     end
@@ -1296,7 +1338,7 @@ end
 -- while the query input has focus; typing still goes to the input.
 function onKey(chord, pressed)
     local step = KEY_STEPS[chord]
-    if step == nil then
+    if step == nil or (activeTab == "space" and spaceOn()) then
         return
     end
     if not pressed then
@@ -1325,6 +1367,40 @@ function onRefreshIndex()
     requestReload(true, true)
     -- TTL ignored: "refresh" has to mean everything the panel shows.
     requestUsage(true)
+end
+
+-- The Space tab's "search here" button. Records are relative to the single
+-- search root, so a folder below it is just a longer prefix for folderToken
+-- ("^a/b/"); the root itself means no restriction. Anything else (another
+-- root, the home when the search folder is elsewhere, several roots) cannot
+-- be expressed, so it is a notice and the tab stays. So is a path with a
+-- control character (it comes from a disk name).
+function onSearchHere(path)
+    if not spaceOn() then
+        return
+    end
+    local root = shared.roots[1]
+    -- Only the folder scope on the search folder has records relative to one
+    -- root (the only place the restriction strip and chart exist).
+    if shared.scope ~= "folder" or shared.whole or #shared.roots ~= 1 or root == nil or path:find("%c") then
+        noctalia.notify(shared.tr("title"), shared.tr("space_search_unavailable"))
+        return
+    end
+    local prefix = root == "/" and "/" or root .. "/"
+    local rel = nil
+    if path == root then
+        rel = ""
+    elseif shared.startsWith(path, prefix) then
+        rel = path:sub(#prefix + 1)
+    end
+    if rel == nil then
+        noctalia.notify(shared.tr("title"), shared.tr("space_search_outside"))
+        return
+    end
+    usageFilter = rel ~= "" and rel or nil
+    setActiveTab("search")
+    render()
+    runSearch()
 end
 
 -- The strip's ✕. Same effect as re-clicking the highlighted legend row, offered
@@ -1427,6 +1503,14 @@ function onResultMenu(action, context)
     elseif action == "copy_name" then
         copyName(context)
     end
+end
+
+-- Global because openContextMenu names its handler; the logic lives in space.luau.
+function onSpaceMenu(action, context)
+    if not spaceOn() then
+        return
+    end
+    space.menuAction(action, context)
 end
 
 -- Opens the settings window on this plugin's own page (the host supplies the

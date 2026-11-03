@@ -7,10 +7,14 @@
 # button widens the search to the mounted USB/removable volumes, detected
 # with `lsblk`. The globe button widens the search folder to the whole system
 # (`/`), still pruning network, FUSE and pseudo filesystems.
+# The panel's second tab, Space, is a disk-usage browser: `ncdu` (2.0+) scans
+# the disk once in a detached shell at low priority (`nice`), `jq` reduces the
+# scan to a small cached index, and the tab shows a donut, a sortable list and
+# a file-type view from it.
 
 id = "nightwatch75/file-search"
 name = "File Search"
-version = "0.4.2"
+version = "0.5.0"
 # 33 for `revealKey` on ui.scroll: the result list follows the keyboard
 # selection. Also 28 for panel.openContextMenu, a result row's right-click
 # menu; 22 for relative luau imports — the three entries share shared.luau,
@@ -22,11 +26,12 @@ version = "0.4.2"
 plugin_api = 33
 author = "nightwatch75"
 license = "MIT"
-# The exact commands the plugin spawns (fzf, lsblk and gdbus aside, findutils +
-# coreutils + xdg-utils on any Linux desktop). lsblk only runs while the search
+# The exact commands the plugin spawns (fzf, lsblk, gdbus, ncdu and jq aside,
+# findutils + coreutils + xdg-utils on any Linux desktop). ncdu and jq only
+# run for the Space tab. lsblk only runs while the search
 # scope includes the external disks, gdbus only on a reveal-in-file-manager
 # click, and that one falls back to xdg-open when it is missing.
-dependencies = ["fzf", "find", "lsblk", "gdbus", "mktemp", "mv", "wc", "head", "rm", "date", "xdg-open", "du"]
+dependencies = ["fzf", "find", "lsblk", "gdbus", "mktemp", "mv", "wc", "head", "rm", "date", "xdg-open", "du", "ncdu", "jq", "nice"]
 tags = ["bar", "launcher", "panel", "utility", "productivity"]
 icon = "search"
 description = "Search files and folders as you type, fuzzy-matched with fzf; open results with the system MIME association."
@@ -66,6 +71,31 @@ label_key = "settings.usage_exclude_dirs.label"
 description_key = "settings.usage_exclude_dirs.description"
 default = ""
 
+# Space tab off switch. Read as on unless it is a literal false.
+[[setting]]
+key = "space_enabled"
+type = "bool"
+label_key = "settings.space_enabled.label"
+description_key = "settings.space_enabled.description"
+default = true
+
+# Space tab: ncdu never uses -x (on "/" it would skip a separate /home), so
+# network/FUSE and removable mounts are left out with --exclude instead.
+# Pseudo filesystems (proc, overlay, squashfs…) are always left out.
+[[setting]]
+key = "space_skip_network"
+type = "bool"
+label_key = "settings.space_skip_network.label"
+description_key = "settings.space_skip_network.description"
+default = true
+
+[[setting]]
+key = "space_skip_external"
+type = "bool"
+label_key = "settings.space_skip_external.label"
+description_key = "settings.space_skip_external.description"
+default = true
+
 [[setting]]
 key = "max_results"
 type = "int"
@@ -88,7 +118,10 @@ include_in_global_search = false
 [[panel]]
 id = "panel"
 entry = "panel.luau"
-width = 520
+# 900 x 720: the width is for the Space tab, whose treemap needs room for
+# readable labels, and the Search layout stretches to fill it. The panel size
+# is read once from here and shared by both tabs.
+width = 900
 # 720, up from 480, because the usage chart added ~200px under the results:
 # a 108px donut, seven legend rows, the click hint and the skipped-mounts line,
 # which between them are taller than the chart itself. At 600 the result list
