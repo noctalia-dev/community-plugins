@@ -1,0 +1,98 @@
+# Typing Stats - a bar capsule with a 100-character progress counter.
+#
+#   [[service]]  reads printable key presses (evdev), keeps the all-time total
+#                and a per-day history for the capsule and the calendar panel.
+#   [[widget]]   the capsule: a today/total glyph, a progress bar to the next
+#                100 characters, and the completed-block count after it.
+#   [[panel]]    the interactive month-calendar heatmap with per-day hover.
+#   [[shortcut]] optional control-center reset tile and heatmap-panel tile.
+#
+# Reading /dev/input needs read access. setup.sh installs one udev rule that
+# tags keyboard event nodes with uaccess; the active local session user then
+# gets an ACL on them (no group change, no re-login). See README.md.
+
+id          = "goldesquemoon/typing-stats"
+name        = "Typing Stats"
+version     = "1.2.0"
+plugin_api  = 43
+author      = "goldesquemoon"
+license     = "MIT"
+icon        = "chart-bar"
+description = "A bar capsule that counts typed characters, with an interactive calendar heatmap and an optional window filter."
+tags        = ["utility", "bar", "indicator"]
+dependencies = ["python3", "udevadm", "niri (focused-window filter)"]
+
+[[setting]]
+key             = "enabled"
+type            = "bool"
+label_key       = "settings.enabled.label"
+description_key = "settings.enabled.description"
+default         = true
+
+[[setting]]
+key             = "block_size"
+type            = "int"
+label_key       = "settings.block_size.label"
+description_key = "settings.block_size.description"
+default         = 100
+min             = 10
+max             = 100000
+step            = 10
+
+[[setting]]
+key             = "thresholds"
+type            = "string"
+label_key       = "settings.thresholds.label"
+description_key = "settings.thresholds.description"
+default         = "500,1000,2000,5000"
+
+[[setting]]
+key             = "level_notify"
+type            = "bool"
+label_key       = "settings.level_notify.label"
+description_key = "settings.level_notify.description"
+default         = true
+
+[[setting]]
+key             = "filter_mode"
+type            = "select"
+label_key       = "settings.filter_mode.label"
+description_key = "settings.filter_mode.description"
+default         = "off"
+options         = [
+  { value = "off", label_key = "settings.filter_mode.off" },
+  { value = "whitelist", label_key = "settings.filter_mode.whitelist" },
+  { value = "blacklist", label_key = "settings.filter_mode.blacklist" },
+]
+
+[[setting]]
+key             = "filter_apps"
+type            = "string_list"
+label_key       = "settings.filter_apps.label"
+description_key = "settings.filter_apps.description"
+default         = []
+
+[[service]]
+id    = "counter"
+entry = "service.luau"
+
+[[widget]]
+id    = "capsule"
+entry = "widget.luau"
+
+[[panel]]
+id              = "calendar"
+entry           = "panel.luau"
+width           = 380
+height          = 500
+placement       = "attached"
+position        = "auto"
+open_near_click = true
+
+[[shortcut]]
+id    = "reset"
+entry = "shortcut.luau"
+
+[[shortcut]]
+id    = "heatmap"
+entry = "heatmap.luau"

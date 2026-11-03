@@ -1,0 +1,66 @@
+{
+  "settings": {
+    "enabled": {
+      "label": "统计输入",
+      "description": "插件启用期间统计可打印字符的按键。"
+    },
+    "block_size": {
+      "label": "每格字符数",
+      "description": "每输入多少个字符让计数加一（默认 100）。"
+    },
+    "thresholds": {
+      "label": "热力图色阶阈值",
+      "description": "用逗号分隔的四个每日字符数阈值，分别对应 1、2、3、4 级；低于第一个值即为 0 级。默认 500,1000,2000,5000。"
+    },
+    "level_notify": {
+      "label": "达到新等级时通知",
+      "description": "今天的输入量进入新的热力图等级时发送通知。"
+    },
+    "filter_mode": {
+      "label": "窗口过滤",
+      "description": "按当前焦点窗口的 niri app_id 只统计某些窗口（白名单），或排除某些窗口（黑名单）。",
+      "off": "关闭",
+      "whitelist": "白名单",
+      "blacklist": "黑名单"
+    },
+    "filter_apps": {
+      "label": "过滤应用 ID",
+      "description": "每行一个 niri app_id，不区分大小写（例如 Alacritty、wechat、firefox）。空白名单不统计任何窗口；空黑名单统计所有窗口。"
+    }
+  },
+  "widget": {
+    "next": "下一格",
+    "mode": {
+      "today": "今天（点击切换）",
+      "total": "历史总计（点击切换）",
+      "label": "显示模式"
+    },
+    "today": "今天",
+    "total": "历史总计"
+  },
+  "shortcut": {
+    "reset": "重置输入统计",
+    "heatmap": "输入热力图"
+  },
+  "notify": {
+    "reset": {
+      "title": "输入统计已重置",
+      "body": "字符计数已归零。"
+    },
+    "no_access": {
+      "title": "输入统计需要键盘权限",
+      "body": "请在插件目录运行一次 setup.sh 安装 udev 规则，然后重新加载插件。"
+    },
+    "level": {
+      "title": "输入等级提升",
+      "body": "今天：{count} 字符 · {level} 级"
+    }
+  },
+  "panel": {
+    "title": "输入热力图",
+    "summary": "本月 {month} 字符 · 今天 {today} 字符",
+    "day_tooltip": "{date} · {count} 字符",
+    "less": "少",
+    "more": "多"
+  }
+}
