@@ -1,0 +1,54 @@
+{
+  "settings": {
+    "enabled_on_start": {
+      "label": "启动时默认开启",
+      "description": "随桌面启动就打开镜像。关掉它则只在按开关后才镜像。注意：关闭状态不会跨登录保存，每次登录都从这个值开始。"
+    },
+    "show_osd": {
+      "label": "显示 OSD 提示",
+      "description": "开关镜像时弹一条 shell OSD（没有 OSD 时退化为通知），用快捷键切换也会提示。"
+    },
+    "excluded_outputs": {
+      "label": "排除的显示器",
+      "description": "永远不做镜像的显示器连接名，一行一个（例如 HDMI-A-1），接上也不会创建镜像窗口。用 `niri-mirror --list-outputs` 可以看准确名字；也接受模糊匹配，比如只写 `hdmi`。"
+    },
+    "source_output": {
+      "label": "镜像源显示器",
+      "description": "作为镜像来源的显示器连接名。留空则用启动时聚焦的屏，源消失后自动重新选举。用 `niri-mirror --list-outputs` 可以看准确名字；也接受模糊匹配，比如只写 `hdmi`。"
+    },
+    "scaling": {
+      "label": "缩放方式",
+      "description": "wl-mirror 把画面铺到目标屏上的方式。",
+      "fit": "适应（保持比例，留黑边）",
+      "cover": "铺满（裁掉超出部分）",
+      "exact": "精确（仅整数倍缩放）"
+    },
+    "poll_interval": {
+      "label": "刷新间隔（毫秒）",
+      "description": "磁贴与挂件重新读取守护进程状态文件的频率。守护进程自己监听 niri 事件，这里只影响界面。"
+    }
+  },
+  "shortcut": {
+    "label-on": "镜像开",
+    "label-off": "镜像关"
+  },
+  "widget": {
+    "tooltip": {
+      "state": "镜像状态",
+      "source": "来源",
+      "targets": "目标",
+      "daemon": "守护进程",
+      "stopped": "未运行"
+    }
+  },
+  "notify": {
+    "failed": {
+      "title": "屏幕镜像操作失败",
+      "body": "niri-mirror 守护进程没有给出更多细节。"
+    },
+    "missing": {
+      "title": "屏幕镜像还没安装",
+      "body": "请先安装 niri-mirror 命令行（在其仓库里运行 install.sh），然后重新启用这个插件。"
+    }
+  }
+}
