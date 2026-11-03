@@ -201,6 +201,7 @@ body:
         - obs-control
         - obs-integration
         - obsidian
+        - obsidian-vault-switcher
         - ocr
         - omniroute-quota
         - omp-launcher
