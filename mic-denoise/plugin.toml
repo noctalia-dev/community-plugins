@@ -1,0 +1,56 @@
+# Mic Denoise - RNNoise microphone noise suppression for PipeWire.
+#
+# Creates a virtual "Mic Denoise (RNNoise)" source and toggles between it and the
+# raw microphone. Switching off leaves the filter-chain without a consumer, so
+# PipeWire suspends it: no DSP work, no CPU cost.
+#
+# This manifest follows the official Noctalia plugin layout: one headless
+# [[service]] owns the logic and publishes status through noctalia.state; the
+# [[shortcut]] tile and the optional [[widget]] are thin clients.
+
+id          = "goldesquemoon/mic-denoise"
+name        = "Mic Denoise"
+version     = "1.3.1"
+plugin_api  = 24
+author      = "goldesquemoon"
+license     = "MIT"
+icon        = "microphone"
+description = "Toggle RNNoise microphone noise suppression from the control center or the bar."
+tags        = ["audio", "utility"]
+
+dependencies = ["pipewire", "noise-suppression-for-voice", "libpulse"]
+
+[[setting]]
+key         = "hardware_source"
+type        = "string"
+label_key   = "settings.hardware_source.label"
+description_key = "settings.hardware_source.description"
+default     = ""
+
+[[setting]]
+key         = "source"
+type        = "string"
+label_key   = "settings.source.label"
+description_key = "settings.source.description"
+default     = "rnnoise_source"
+
+[[setting]]
+key         = "poll_interval"
+type        = "int"
+label_key   = "settings.poll_interval.label"
+description_key = "settings.poll_interval.description"
+default     = 5000
+min         = 500
+
+[[service]]
+id    = "state"
+entry = "service.luau"
+
+[[shortcut]]
+id    = "denoise"
+entry = "shortcut.luau"
+
+[[widget]]
+id    = "mic-denoise"
+entry = "widget.luau"
+
