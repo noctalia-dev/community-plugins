@@ -15,7 +15,7 @@ local probeCalls = 0
 local probeAction = nil
 local failNextLaunch = false
 local nextAsyncResult = nil
-local collectorEnabled = mode == "raw-cache" or mode == "outdated-raw-cache"
+local collectorEnabled = mode == "raw-cache" or mode == "outdated-raw-cache" or mode == "nixos"
 
 local available = {
   lsblk = mode ~= "missing-lsblk",
@@ -39,6 +39,10 @@ if mode == "raw-cache" or mode == "outdated-raw-cache" then
   files["/usr/local/libexec/noctalia-drive-health/manage-collector.sh"] = "installed"
 end
 
+if mode == "nixos" then
+  files["/etc/NIXOS"] = ""
+end
+
 local function translate(key, substitutions)
   local value = key
   for name, replacement in pairs(substitutions or {}) do
@@ -59,7 +63,7 @@ noctalia = {
   pluginDir = function() return "/mock/plugin" end,
   pluginDataDir = function() return "/mock/plugin-data" end,
   fileInfo = function(path)
-    if (mode == "raw-cache" or mode == "outdated-raw-cache" or mode == "collector-disabled")
+    if (mode == "raw-cache" or mode == "outdated-raw-cache" or mode == "collector-disabled" or mode == "nixos")
         and path:match("raw%.json$") then
       return { isDir = false, mtime = os.time() }
     end
@@ -68,7 +72,7 @@ noctalia = {
   fileExists = function(path) return files[path] ~= nil end,
   listDir = function(path) return directories[path] or {} end,
   readFile = function(path)
-    if (mode == "raw-cache" or mode == "outdated-raw-cache" or mode == "collector-disabled")
+    if (mode == "raw-cache" or mode == "outdated-raw-cache" or mode == "collector-disabled" or mode == "nixos")
         and path:match("raw%.json$") then
       return "raw-cache"
     end
@@ -255,7 +259,21 @@ elseif mode == "raw-cache" then
     and snapshot.system_collector.expected_version == "2.0.1"
     and snapshot.system_collector.smart_refresh_minutes == 15,
     "current system collector was not reported healthy")
+  assert(snapshot.system_collector.is_nixos == false and snapshot.system_collector.install_command ~= nil,
+    "non-NixOS system lost its install command")
   assert(not (launchedCommand or ""):match("collect_raw%.sh"), "collector launched despite a fresh raw cache")
+  print("collector initialization test passed: " .. mode)
+  return
+elseif mode == "nixos" then
+  local collector = snapshot.system_collector
+  assert(collector.is_nixos == true and collector.installed == true,
+    "declarative NixOS collector was not recognised as installed")
+  assert(collector.install_command == nil, "NixOS still offered the imperative install command")
+  assert(collector.nixos_hint == "collector.nixos_hint", "NixOS collector lost its hint")
+  assert(collector.status == "healthy" and collector.version == "2.0.1"
+    and collector.expected_version == "2.0.1",
+    "current declarative NixOS collector was not reported healthy")
+  assert(#notifications == 0, "current declarative NixOS collector produced an upgrade notification")
   print("collector initialization test passed: " .. mode)
   return
 elseif mode == "outdated-raw-cache" then

@@ -1,0 +1,560 @@
+{
+  "bar": {
+    "starting": "Binance: starting",
+    "tooltip": {
+      "connect_hint": "Click to open · connect a read-only key to see your portfolio",
+      "crypto": "Crypto",
+      "partial": "partial",
+      "status": "Status",
+      "stocks": "Stocks",
+      "today": "Today",
+      "total": "Total",
+      "updated": "Updated"
+    }
+  },
+  "desktop": {
+    "keyless": "Connect a read-only key to see your portfolio here.",
+    "market_return": "{range} market return",
+    "movers": "Top movers today",
+    "open": "Open Binance",
+    "return": "{range} return",
+    "return_since": "Return since {day}",
+    "starting": "Starting…",
+    "syncing": "Fetching your balances for the first time…",
+    "title": "Binance",
+    "updated": "Updated {ago}"
+  },
+  "errors": {
+    "api_error": "Binance returned an error.",
+    "auth_rejected": "Binance rejected the key. It may have been deleted, or your IP isn't on its allow list.",
+    "bad_output": "The helper sent an unexpected answer.",
+    "bad_response": "Binance sent an unexpected response.",
+    "busy": "Another Binance job is running. Retrying.",
+    "clipboard_empty": "The clipboard is empty. Copy the API key from Binance, then try again.",
+    "clock_skew": "Your system clock is off. Sync it and try again.",
+    "helper_failed": "The helper stopped before answering. Restart the plugin; if it keeps happening, check that binance_helper.py is installed.",
+    "host_not_allowed": "Blocked a request to an unexpected host.",
+    "internal": "The helper failed unexpectedly.",
+    "invalid_data_dir": "The plugin's data folder can't be used.",
+    "invalid_key_format": "The clipboard doesn't hold a Binance API key (64 letters and digits).",
+    "item_missing": "No key is stored. Connect your account again.",
+    "keyring_corrupt": "The stored key can't be read. Disconnect and connect again.",
+    "keyring_error": "The keyring reported an error.",
+    "keyring_locked": "The keyring is locked. Click to unlock and retry.",
+    "keyring_readback_failed": "The keyring didn't keep the key. Try again.",
+    "missing_dependency": "The Python module cryptography is missing. Install it with: sudo pacman -S python-cryptography",
+    "network_error": "Can't reach Binance.",
+    "no_pending_key": "Generate a key first.",
+    "no_secret_service": "No keyring service is running. Install and start gnome-keyring or KWallet.",
+    "not_implemented": "Not available yet.",
+    "pending_incomplete": "Save the API key from your clipboard first.",
+    "permissions_too_broad": "This key can do more than read. In Binance API Management, leave only \"Enable Reading\" on.",
+    "rate_limited": "Binance asked to slow down. Retrying later.",
+    "response_too_large": "Binance sent an unexpectedly large response.",
+    "spawn_failed": "Couldn't start python3.",
+    "timeout": "The helper took too long.",
+    "unsupported_version": "Cached data is from a newer version of the plugin."
+  },
+  "launcher": {
+    "change": "{pct} 24h",
+    "copy_hint": "Enter copies the price",
+    "crypto": "Crypto {value}",
+    "empty_hint": "Type a coin or pair, e.g. sol or ETHUSDT",
+    "empty_title": "Binance",
+    "holding": "{asset}  {value}",
+    "lookup_failed": "Lookup failed",
+    "no_match": "No Binance pair matches \"{query}\"",
+    "portfolio": "Portfolio {value}",
+    "range": "L {low} · H {high}",
+    "searching": "Looking up \"{query}\"…",
+    "stocks": "Stocks {value}",
+    "today": "Today {value}",
+    "watch_hint": "Enter adds to watchlist"
+  },
+  "notify": {
+    "alert": {
+      "above": {
+        "body": "Now {price}",
+        "title": "{symbol} above {value}"
+      },
+      "below": {
+        "body": "Now {price}",
+        "title": "{symbol} below {value}"
+      },
+      "move_pct": {
+        "body": "Now {price} (24h change)",
+        "body_stock": "Now {price} (change since the previous day's last quote)",
+        "title": "{symbol} moved {value}"
+      }
+    },
+    "drift": {
+      "body": "{share} of your portfolio, target {target}",
+      "title": "{class} is off target"
+    },
+    "export": {
+      "body": "{name} in {dir}",
+      "title": "Portfolio exported"
+    },
+    "summary": {
+      "mover": "Biggest mover {asset} {pct}",
+      "title": "Binance today",
+      "today": "Today {change}",
+      "total": "Total {value}"
+    }
+  },
+  "panel": {
+    "account": {
+      "api_management": "API Management",
+      "bar_mode": "Bar shows",
+      "bar_mode_body": "Right-click the bar widget to switch too.",
+      "bar_mode_full": "Value and change",
+      "bar_mode_icon": "Icon only",
+      "bar_mode_value": "Value only",
+      "connected": "Connected",
+      "disconnect": "Disconnect",
+      "disconnect_confirm": "Click to confirm",
+      "disconnect_note": "Removes the keys from your keyring and the cached data. Also delete the key in Binance API Management.",
+      "display": "Display",
+      "existing_body": "If you set up a key from the command line before, verify it here instead of making a new one.",
+      "existing_title": "Created a key with the helper?",
+      "not_verified": "Not verified yet: click Verify now",
+      "privacy": "Hide amounts",
+      "privacy_body": "Masks balances and quantities in the bar, panel and launcher. Percentages stay visible.",
+      "recheck_failed": "The last check failed {ago}. Data refresh is paused until the key passes again.",
+      "rotate": "Rotate key",
+      "rotate_tooltip": "Replace the key. The current one keeps working until the new one is verified.",
+      "stocks_permission_note": "Binance does not report the Stocks trading permission. Keep it off in API Management.",
+      "untick": "Untick in API Management: {list}",
+      "verified": "Read-only key verified",
+      "verified_at": "Checked {ago} · checked again every day",
+      "verify_existing": "Verify existing key",
+      "verify_now": "Verify now"
+    },
+    "alerts": {
+      "bad_value": "Enter a number above zero.",
+      "edit": "Edit",
+      "edit_title": "Edit alert",
+      "empty": "No alerts. Use the bell on a pair to add one.",
+      "every": "At most every {d}",
+      "form_hint": "You get a notification when the condition is met, then not again until the wait has passed.",
+      "kind_above": "Price above",
+      "kind_below": "Price below",
+      "kind_move_pct": "24h move of at least",
+      "kind_move_pct_stock": "Day move of at least",
+      "last_fired": "last fired {ago}",
+      "need_symbol": "Add a pair to the watchlist first",
+      "new": "New alert",
+      "new_title": "New alert",
+      "remove": "Delete alert",
+      "text_above": "{pair} above {price}",
+      "text_below": "{pair} below {price}",
+      "text_move": "{pair} moves {pct} in 24h",
+      "text_move_stock": "{pair} moves {pct} in a day",
+      "title": "Alerts",
+      "value_pct": "Percent, e.g. 5",
+      "value_price": "Price"
+    },
+    "busy": {
+      "balances": "Refreshing balances…",
+      "disconnect": "Disconnecting…",
+      "flows": "Syncing deposits…",
+      "generic": "Refreshing…",
+      "keygen": "Generating…",
+      "prices": "Refreshing prices…",
+      "stocks": "Syncing stocks…",
+      "store_api_key": "Saving…",
+      "trades": "Reading trades…",
+      "verify": "Verifying…"
+    },
+    "cancel": "Cancel",
+    "copied": "Copied",
+    "copy_command": "Copy command",
+    "date": "{month} {day}",
+    "date_year": "{month} {day}, {year}",
+    "export": {
+      "button": "Export CSV",
+      "error_no_data": "Nothing to export until balances have loaded.",
+      "error_write_failed": "Couldn't write the file in {dir}.",
+      "open": "Open",
+      "saved": "Saved {name}",
+      "tooltip": "Save holdings and the return on deposits, with the range picked on Overview, as a CSV in your Downloads folder. Amounts are written even with Hide amounts on."
+    },
+    "gap": {
+      "dividends": "stock dividends",
+      "splits": "stock splits"
+    },
+    "holdings": {
+      "avg": "avg {price}",
+      "avg_approx": "avg ≈{price}",
+      "copy_link": "Click to copy the binance.com link for {asset}",
+      "cost": "Cost basis {value}",
+      "cost_approx": "Approximate: your order history doesn't add up to the shares in your wallet (a split or transfer?). The wallet count is used.",
+      "cost_approx_crypto": "Approximate: your trades and deposits don't add up to the wallet amount (Earn rewards, Convert or an airdrop?). The wallet amount is used at the average cost of what the history shows.",
+      "empty": "No holdings yet. They appear after the first balance refresh.",
+      "filter_all": "All {n}",
+      "filter_crypto": "Crypto {n}",
+      "filter_stocks": "Stocks {n}",
+      "floating": "Unrealized",
+      "no_price": "no price",
+      "open": "Open {asset} on binance.com",
+      "other": "Other",
+      "realized": "Realized P&L {value}",
+      "shares": "{qty} sh",
+      "small_hidden": "Show {n} small balances",
+      "stale_quote_tooltip": "Last quote {ago}: the market is closed or Binance returned no quote",
+      "stock_tag": "STOCK",
+      "stocks_note": "Stock values use the bid/ask midpoint. Dividends and splits are not tracked.",
+      "tokenized": "{qty} held as tokens (included)"
+    },
+    "intro": {
+      "connect": "Connect read-only key",
+      "connect_time": "About 2 minutes",
+      "point_keyring": "Keys are stored in your system keyring and only sign read requests to Binance.",
+      "point_portfolio": "Total value, today's change and history across every wallet, including Binance Stocks.",
+      "point_readonly": "Read-only by design: the plugin refuses any key that can trade, transfer or withdraw.",
+      "subtitle": "Prices and alerts work right away. Connect a read-only key to add your balances.",
+      "title": "Your Binance portfolio in the bar"
+    },
+    "issue": {
+      "banned_title": "Binance has paused this IP",
+      "dependency_body": "Account data needs it. Install it with: {command}",
+      "dependency_title": "{package} is not installed",
+      "hint": {
+        "auth_rejected": "Check the key in Account",
+        "clock_skew": "Turn on time sync: timedatectl set-ntp true",
+        "item_missing": "Reconnect in Account",
+        "network_error": "Retrying automatically.",
+        "timeout": "Retrying automatically."
+      },
+      "keyring_locked_body": "Unlock it and click Retry. Prices keep updating.",
+      "keyring_locked_title": "Keyring locked: account data paused",
+      "no_service_body": "Install and start gnome-keyring or KWallet, then click Retry.",
+      "no_service_title": "No keyring service found",
+      "rate_limited_all": "All requests resume in {left}.",
+      "rate_limited_public": "Prices resume in {left}. Account data is unaffected.",
+      "rate_limited_title": "Binance rate limit reached",
+      "sources_updated": "{sources} · last updated {ago}",
+      "stale_title": "Showing saved data from {ago}"
+    },
+    "months": "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec",
+    "not_refreshed": "Not refreshed yet",
+    "overview": {
+      "approx_usd": "≈ {value}",
+      "class": {
+        "crypto": "Crypto",
+        "other": "Cash",
+        "stable": "Stablecoins",
+        "stocks": "Stocks"
+      },
+      "crypto": "Crypto",
+      "drift": {
+        "asset_add": "Target a holding",
+        "asset_bad": "Enter a share between 0 and 100%.",
+        "asset_cancel": "Cancel",
+        "asset_edit": "Edit the {asset} target",
+        "asset_none": "No holding left to target",
+        "asset_now": "now {share}",
+        "asset_placeholder": "Share",
+        "asset_remove": "Remove",
+        "asset_save": "Save",
+        "band_tooltip": "Off target means more than {band} points from the target.",
+        "crowded": "Holding targets in {class} add up to more than its class target.",
+        "edit": "Edit targets",
+        "next_deposit": "Next deposit",
+        "no_targets": "Set class weights in the settings, or target a holding.",
+        "on_target": "On target",
+        "over": "{pts} pts over",
+        "plan_empty": "Enter an amount to see where it should go.",
+        "plan_hint": "Buys only. Nothing is sold, and nothing is placed on Binance.",
+        "plan_left": "{amount} left over: everything you target reaches its target.",
+        "plan_none": "Everything is at or above its target; split it by your targets.",
+        "plan_placeholder": "Amount in {currency}",
+        "plan_qty": "≈ {qty}",
+        "rest": "Other {class}",
+        "target": "target {target}",
+        "title": "Target allocation",
+        "under": "{pts} pts under"
+      },
+      "first_sync": "Fetching your balances for the first time…",
+      "history": "Value history",
+      "history_empty": "The chart starts after the plugin has seen your balances on two different days.",
+      "history_grows": "History starts {from} and grows each day; longer ranges unlock as it fills.",
+      "legend_net": "Net deposits",
+      "market_return": "Market return",
+      "market_tooltip": "Price moves only. Deposits and withdrawals in this range are not netted out yet.",
+      "net_none": "No deposits found on this account.",
+      "net_pending": "Return on deposits appears once your deposit history is synced.",
+      "net_since": "Return on deposits since {day}",
+      "net_tooltip": "Change in value minus deposits plus withdrawals in this range.",
+      "net_unavailable": "not available",
+      "net_uncovered": "Not counted: {list}",
+      "not_included": "Not included: {list}",
+      "range_outside": "That range starts before your history (from {from}).",
+      "return": "Return",
+      "stocks": "Stocks",
+      "stocks_at_cost": "Stocks are valued at cost until {day}, before the first market price was recorded.",
+      "sync_now": "Sync now",
+      "today": "today",
+      "today_partial_tooltip": "Some holdings have no opening price yet; stocks get one from the plugin's first quote of a previous day. They are left out of today's change, which stays hidden while they hold most of the value.",
+      "today_pending": "Today's change appears once opening prices load",
+      "total": "Total balance · {currency}",
+      "unavailable": {
+        "unpriced_flows": "Too many deposits or withdrawals have no price from the time they happened. In EUR, that includes everything before EURUSDT listed in January 2020."
+      },
+      "watchlist": "Watchlist"
+    },
+    "privacy_off": "Show amounts",
+    "privacy_on": "Hide amounts",
+    "range": {
+      "30d": "30D",
+      "7d": "7D",
+      "all": "All",
+      "apply": "Apply",
+      "bad_bounds": "Pick dates between {from} and {to}.",
+      "bad_format": "Use dates like 2026-10-01.",
+      "bad_order": "The start date must be before the end date.",
+      "custom": "Custom",
+      "custom_hint": "YYYY-MM-DD, between {from} and {to}",
+      "unavailable": "Not enough history yet (starts {from})",
+      "ytd": "YTD"
+    },
+    "refresh": "Refresh now",
+    "retry": "Retry",
+    "save": "Save",
+    "session": {
+      "closed": "CLOSED",
+      "open": "OPEN",
+      "overnight": "OVERNIGHT",
+      "post": "AFTER HOURS",
+      "pre": "PRE-MARKET",
+      "tooltip": "US market session on Binance Stocks (New York time). Outside the regular session prices move less and quotes can be old."
+    },
+    "settings": "Settings",
+    "source": {
+      "balances": "Balances",
+      "flows": "Deposits",
+      "prices": "Prices",
+      "quotes": "Stock quotes",
+      "stocks": "Stocks",
+      "trades": "Cost basis"
+    },
+    "starting": "Starting…",
+    "starting_body": "Waiting for the first prices. This takes a few seconds after Noctalia starts.",
+    "tab": {
+      "account": "Account",
+      "account_attention": "Your account needs attention",
+      "holdings": "Holdings",
+      "overview": "Overview",
+      "wallets": "Wallets",
+      "watchlist": "Watchlist"
+    },
+    "time": {
+      "ago": "{d} ago",
+      "days": "{n}d",
+      "hours": "{n}h",
+      "hours_minutes": "{h}h {m}m",
+      "just_now": "just now",
+      "minutes": "{n}m",
+      "minutes_seconds": "{m}m {s}s",
+      "seconds": "{n}s"
+    },
+    "title": "Binance",
+    "uncovered": {
+      "card_buy_unavailable": "card purchases (Binance refused the request)",
+      "deposit_unavailable": "crypto deposits (Binance refused the request)",
+      "fiat_deposit_unavailable": "bank deposits (Binance refused the request)",
+      "fiat_withdraw_unavailable": "bank withdrawals (Binance refused the request)",
+      "gifts_and_rewards": "gifts, rewards and airdrops",
+      "p2p_older_than_6_months": "P2P older than 6 months",
+      "p2p_unavailable": "P2P trades (Binance refused the request)",
+      "pay_older_than_18_months": "Pay older than 18 months",
+      "pay_unavailable": "Binance Pay (Binance refused the request)",
+      "unpriced_flows": "deposits with no price at the time",
+      "withdraw_unavailable": "crypto withdrawals (Binance refused the request)"
+    },
+    "unsupported_body": "This panel is older than the plugin's data. Update the plugin.",
+    "updated": "Updated {ago}",
+    "wallets": {
+      "assets": {
+        "one": "{n} asset",
+        "other": "{n} assets"
+      },
+      "empty": "Empty: {list}",
+      "empty_all": "No wallet holds anything yet."
+    },
+    "watch": {
+      "add": "Add",
+      "add_alert": "Add a price alert",
+      "add_placeholder": "Add a pair or a stock, e.g. SOLUSDT or AAPL",
+      "alerts_count": {
+        "one": "{n} alert on this pair",
+        "other": "{n} alerts on this pair"
+      },
+      "done": "Done",
+      "edit": "Edit",
+      "empty": "Nothing watched yet. Add a pair such as BTCUSDT, or a stock such as AAPL.",
+      "move_down": "Move down",
+      "move_up": "Move up",
+      "no_price": "No price yet",
+      "notice_stocks_need_account": "{symbol} is not a Binance pair. Stock tickers need a connected account.",
+      "notice_stocks_unavailable": "Couldn't check {symbol} against Binance Stocks right now. Try again shortly.",
+      "notice_unknown_symbol": "{symbol} is not a Binance pair or stock.",
+      "range": "24h {low} – {high}",
+      "remove": "Remove from watchlist",
+      "stock_needs_account": "Connect your account to see stock prices",
+      "stock_quote": "USD midpoint",
+      "stock_stale": "Last quote {ago}",
+      "stock_unknown_stock": "Not listed on Binance Stocks",
+      "title": "Watchlist"
+    }
+  },
+  "settings": {
+    "bar_assets": {
+      "description": "Watchlist pairs or holdings, such as BTC, ETHBTC or NVDA. Price shows the first; Cycle shows the total, today's P&L, then each of these. Without a key, only watchlist pairs have a price.",
+      "label": "Assets"
+    },
+    "bar_cycle_seconds": {
+      "description": "How long each view stays before the next one.",
+      "label": "Seconds per view"
+    },
+    "bar_show": {
+      "description": "Privacy hides the total and P&L amounts; percentages and prices stay visible.",
+      "label": "Show in the bar",
+      "option": {
+        "cycle": "Cycle through them",
+        "price": "An asset's price",
+        "today": "Today's P&L",
+        "total": "Total value"
+      }
+    },
+    "daily_summary": {
+      "description": "A notification once a day with your total, today's change and the biggest mover. Needs a connected account. With Hide amounts on it shows percentages only.",
+      "label": "Daily summary"
+    },
+    "daily_summary_time": {
+      "description": "Local time as HH:MM, 24-hour. If prices or balances are out of date then, it waits until they refresh, and skips the day if they don't.",
+      "label": "Summary time"
+    },
+    "day_boundary": {
+      "description": "When \"today\" begins for today's P&L. Binance uses midnight UTC.",
+      "label": "Day starts at",
+      "option": {
+        "local": "Local midnight",
+        "utc": "Midnight UTC (like Binance)"
+      }
+    },
+    "desktop_movers": {
+      "description": "The three holdings that moved most today, stablecoins left out.",
+      "label": "Show today's top movers"
+    },
+    "desktop_size": {
+      "description": "Large is 480 px wide, like Noctalia's clock and calendar; Small is 260 px and shows only the total, today's change and the return. A box you draw scales the card evenly.",
+      "label": "Layout",
+      "option": {
+        "large": "Large",
+        "small": "Small"
+      }
+    },
+    "desktop_sparkline": {
+      "description": "Your total value over the last 7 days.",
+      "label": "Show the 7-day sparkline"
+    },
+    "display_currency": {
+      "description": "Currency for totals, holdings and P&L. Past values use that day's EUR rate.",
+      "label": "Display currency",
+      "option": {
+        "eur": "EUR",
+        "usdt": "USDT"
+      }
+    },
+    "drift_band": {
+      "description": "How far, in percentage points, a class can move from its target before it counts as off target.",
+      "label": "Drift band (%)"
+    },
+    "drift_notify": {
+      "description": "Send a notification when a class or targeted holding leaves the band. It notifies again only after it has come back well inside.",
+      "label": "Notify on drift"
+    },
+    "target_crypto": {
+      "label": "Crypto weight"
+    },
+    "target_other": {
+      "label": "Cash weight"
+    },
+    "target_stable": {
+      "label": "Stablecoins weight"
+    },
+    "target_stocks": {
+      "label": "Stocks weight"
+    },
+    "target_weight": {
+      "description": "Relative weight. The weights don't need to add up to 100: 6, 3 and 1 mean the same as 60, 30 and 10."
+    },
+    "targets_enabled": {
+      "description": "Set how you want the portfolio split by asset class, and optionally by single holdings (\"20% NVDA\") from the Overview. It shows how far each is from its target and where your next deposit should go.",
+      "label": "Target allocation"
+    }
+  },
+  "wizard": {
+    "bar_tip": "Then put it in your bar: Settings → Bar → add the Binance widget.",
+    "copy_command": "Copy command",
+    "copy_public_key": "Copy again",
+    "fix": {
+      "auth_rejected": "Binance rejected the key (code {code}). Check it still exists in API Management and, if it is restricted to an IP, that this computer's IP is allowed.",
+      "busy": "Another key operation is still running. Try again in a moment.",
+      "clipboard_empty": "The clipboard is empty. Copy the API Key on Binance, then click Save again.",
+      "clock_skew": "Your system clock is off, so Binance rejects signed requests. Turn on time sync with {command}, then try again.",
+      "invalid_key_format": "The clipboard doesn't hold an API key (64 letters and digits). Copy the API Key field, not the public key.",
+      "item_missing": "No key was found in your keyring. Start over from step 1.",
+      "keyring_corrupt": "The stored key can't be read. Start over to create a new one.",
+      "keyring_error": "The keyring refused the request. Make sure it is unlocked and try again.",
+      "keyring_locked": "Your keyring is locked, or its unlock prompt was closed. Unlock it and try again.",
+      "keyring_readback_failed": "The key didn't stick in the keyring. Start over; if it happens again, check that your keyring is unlocked.",
+      "missing_dependency": "The helper needs python-cryptography. Install it with: {command}",
+      "network_error": "Couldn't reach Binance. Check your connection and try again.",
+      "no_pending_key": "The key pair from step 1 is gone. Start over from step 1.",
+      "no_secret_service": "No keyring service is running. Install one and log in again: {command} (or use KWallet).",
+      "pending_incomplete": "Only half of the new key is stored. Start over from step 1.",
+      "permissions_after": "Then click Verify again. You don't need a new key.",
+      "permissions_too_broad": "This key can do more than read. Edit it in API Management and untick:",
+      "rate_limited": "Binance is rate-limiting requests. Try again in {until_time}.",
+      "timeout": "Binance took too long to answer. Try again.",
+      "unsupported_version": "This plugin version can't read the stored data. Update the plugin."
+    },
+    "flag": {
+      "enable_fix_api_trade": "Enable FIX API Trading",
+      "enable_futures": "Enable Futures",
+      "enable_internal_transfer": "Permits Internal Transfer",
+      "enable_margin": "Enable Margin Loan, Repay & Transfer",
+      "enable_spot_and_margin_trading": "Enable Spot & Margin Trading",
+      "enable_vanilla_options": "Enable European Options",
+      "enable_withdrawals": "Enable Withdrawals",
+      "permits_universal_transfer": "Permits Universal Transfer"
+    },
+    "history_body": "The clipboard itself was cleared, but Noctalia's clipboard history or cliphist may still hold a copy. Delete that entry.",
+    "history_title": "Remove the API key from your clipboard history",
+    "keyring_prompt": "Your keyring may ask you to unlock it.",
+    "open_api_management": "Open API Management",
+    "rotate_subtitle": "Your current key keeps working until the new one is verified.",
+    "rotate_title": "Rotate your key",
+    "start_over": "Start over",
+    "start_over_tooltip": "Generate a new key pair and begin again. Your active key, if any, is not touched.",
+    "step1_action": "Generate key",
+    "step1_body": "Creates an Ed25519 key. The private half goes into your system keyring and never leaves this computer. The public half is copied to your clipboard for the next step.",
+    "step1_done": "Public key copied to the clipboard.",
+    "step1_title": "Generate a key pair",
+    "step2_open": "Open API Management, click Create API and choose Self-generated.",
+    "step2_paste": "Paste the public key, including the BEGIN and END lines.",
+    "step2_reading": "Leave only Enable Reading ticked. Restricting the key to your IP is fine.",
+    "step2_title": "Register it on Binance",
+    "step3_action": "Save API key from clipboard",
+    "step3_body": "Copy the API Key Binance shows you, then click Save. It goes from the clipboard straight to your keyring, and the clipboard is cleared.",
+    "step3_title": "Save the API key",
+    "step4_action": "Verify",
+    "step4_body": "Checks that the key can read and nothing more, then turns on account data.",
+    "step4_title": "Verify",
+    "subtitle": "Four steps. The private key stays in your keyring; Binance only gets the public key.",
+    "title": "Connect Binance",
+    "try_again": "Try again"
+  }
+}

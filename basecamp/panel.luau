@@ -378,7 +378,7 @@ local function setupCard()
 	local plan = setupPlan()
 	local running = summary.setupRunning == true
 	local children = {
-		ui.glyph({ name = "campfire", size = 30, color = "outline" }),
+		ui.glyph({ name = "campfire", size = 30, color = "outline_variant" }),
 		ui.label({ text = tr(plan.titleKey), fontSize = 13, fontWeight = "bold", textAlign = "center" }),
 		ui.label({
 			text = model.formatTemplate(tr(plan.bodyKey), { version = summary.cliVersion or "" }),
@@ -423,7 +423,7 @@ local function emptyState()
 		key = "empty.caught_up"
 	end
 	return ui.column({ flexGrow = 1, align = "center", justify = "center", gap = 8 }, {
-		ui.glyph({ name = "campfire", size = 30, color = "outline" }),
+		ui.glyph({ name = "campfire", size = 30, color = "outline_variant" }),
 		ui.label({ text = tr(key), fontSize = 12, color = "on_surface_variant" }),
 	})
 end

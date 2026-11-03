@@ -9,7 +9,7 @@ local snapshot = nil
 local function render()
   local state = snapshot and snapshot.state or "stopped"
   local running = state == "running"
-  local color = running and "primary" or (state == "stopped" and "outline" or "error")
+  local color = running and "primary" or (state == "stopped" and "outline_variant" or "error")
 
   local children = {
     ui.row({ gap = 8, align = "center" }, {
@@ -46,7 +46,7 @@ local function render()
     }))
   end
 
-  desktopWidget.render(ui.column({ gap = 6, padding = 10, fill = "surface_variant/0.4", radius = 12 }, children))
+  desktopWidget.render(ui.column({ gap = 6, padding = 10, fill = "surface_container/0.4", radius = 12 }, children))
 end
 
 noctalia.state.watch("tn.snapshot", function(encoded)

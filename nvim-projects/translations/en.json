@@ -5,6 +5,10 @@
   "no-projects-found": "No projects found",
   "no-recent-projects": "No recent Neovim projects",
   "settings": {
+    "command": {
+      "description": "The Neovim executable or frontend to use. GUI frontends should include `--` after the command, e.g. `nvim-qt --`.",
+      "label": "Neovim command"
+    },
     "max_results": {
       "description": "Maximum number of recent projects to show in the launcher",
       "label": "Max Results"
@@ -13,17 +17,13 @@
       "description": "Directory containing your coding projects (e.g. ~/Projects)",
       "label": "Projects Directory"
     },
-    "terminal": {
-      "description": "Custom terminal command (leave empty to use Noctalia default)",
-      "label": "Custom Terminal"
-    },
-    "command": {
-      "description": "The Neovim executable or frontend to use. GUI frontends should include `--` after the command, e.g. `nvim-qt --`.",
-      "label": "Neovim command"
-    },
     "run_in_terminal": {
       "description": "Whether to run the command in a terminal emulator. Should be enabled when using plain text-based nvim, and disabled when using a GUI frontend.",
       "label": "Run in terminal"
+    },
+    "terminal": {
+      "description": "Custom terminal command (leave empty to use Noctalia default)",
+      "label": "Custom Terminal"
     }
   }
 }

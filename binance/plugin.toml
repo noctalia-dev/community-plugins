@@ -1,0 +1,232 @@
+# Binance: portfolio, Binance Stocks, watchlist and price alerts in the bar.
+#
+# Architecture: the [[service]] is the only entry that fetches. Public prices
+# come from data-api.binance.vision over noctalia.http, without a key. Account
+# data comes from binance_helper.py, the only process that holds keys (an
+# Ed25519 pair in the Secret Service keyring, read-only API permission
+# enforced on every verify). The service publishes one report through
+# noctalia.state; the bar [[widget]], [[desktop_widget]], [[panel]] and
+# [[launcher_provider]] only draw it (lib/state.luau, contract in the repo
+# history).
+#
+# Colours follow the theme, except gains: the palette has no green role, so
+# gains use a fixed green (#16a34a, ui/fmt.luau GAIN) and losses the theme's
+# error colour. Every change also carries a sign and an arrow.
+#
+# plugin_api 32: container tooltips on rows/columns/boxes (32), graph pointer
+# tracking (29), argv runAsync (24), relative require (22), nowMs (12).
+
+id = "ayagmar/binance"
+name = "Binance"
+version = "0.2.1"
+plugin_api = 43
+author = "ayagmar"
+license = "MIT"
+icon = "currency-bitcoin"
+description = "Your Binance portfolio, Binance Stocks, a watchlist and price alerts, with a read-only key kept in your keyring."
+tags = ["bar", "panel", "service", "launcher", "desktop", "indicator", "privacy"]
+# python3 and the rest power the optional account connection; the watchlist,
+# prices and alerts work without them. xdg-open opens Binance API Management
+# and clicked holdings on binance.com (without it the panel copies the URL).
+dependencies = ["python3", "secret-tool", "wl-copy", "wl-paste", "xdg-open"]
+
+# ── Settings ────────────────────────────────────────────────────────────────
+
+[[setting]]
+key = "display_currency"
+type = "select"
+label_key = "settings.display_currency.label"
+description_key = "settings.display_currency.description"
+default = "USDT"
+options = [
+  { value = "USDT", label_key = "settings.display_currency.option.usdt" },
+  { value = "EUR", label_key = "settings.display_currency.option.eur" },
+]
+
+[[setting]]
+key = "day_boundary"
+type = "select"
+label_key = "settings.day_boundary.label"
+description_key = "settings.day_boundary.description"
+default = "utc"
+options = [
+  { value = "utc", label_key = "settings.day_boundary.option.utc" },
+  { value = "local", label_key = "settings.day_boundary.option.local" },
+]
+
+[[setting]]
+key = "daily_summary"
+type = "bool"
+label_key = "settings.daily_summary.label"
+description_key = "settings.daily_summary.description"
+default = false
+
+[[setting]]
+key = "daily_summary_time"
+type = "string"
+label_key = "settings.daily_summary_time.label"
+description_key = "settings.daily_summary_time.description"
+default = "20:00"
+visible_when = { key = "daily_summary", values = ["true"] }
+
+# Target allocation by asset class. The weights are normalized, so they need
+# not add up to 100.
+[[setting]]
+key = "targets_enabled"
+type = "bool"
+label_key = "settings.targets_enabled.label"
+description_key = "settings.targets_enabled.description"
+default = false
+
+[[setting]]
+key = "target_crypto"
+type = "int"
+label_key = "settings.target_crypto.label"
+description_key = "settings.target_weight.description"
+default = 60
+min = 0
+max = 100
+visible_when = { key = "targets_enabled", values = ["true"] }
+
+[[setting]]
+key = "target_stocks"
+type = "int"
+label_key = "settings.target_stocks.label"
+description_key = "settings.target_weight.description"
+default = 30
+min = 0
+max = 100
+visible_when = { key = "targets_enabled", values = ["true"] }
+
+[[setting]]
+key = "target_stable"
+type = "int"
+label_key = "settings.target_stable.label"
+description_key = "settings.target_weight.description"
+default = 10
+min = 0
+max = 100
+visible_when = { key = "targets_enabled", values = ["true"] }
+
+[[setting]]
+key = "target_other"
+type = "int"
+label_key = "settings.target_other.label"
+description_key = "settings.target_weight.description"
+default = 0
+min = 0
+max = 100
+visible_when = { key = "targets_enabled", values = ["true"] }
+
+[[setting]]
+key = "drift_band"
+type = "int"
+label_key = "settings.drift_band.label"
+description_key = "settings.drift_band.description"
+default = 5
+min = 1
+max = 50
+visible_when = { key = "targets_enabled", values = ["true"] }
+
+[[setting]]
+key = "drift_notify"
+type = "bool"
+label_key = "settings.drift_notify.label"
+description_key = "settings.drift_notify.description"
+default = true
+visible_when = { key = "targets_enabled", values = ["true"] }
+
+# ── Entries ─────────────────────────────────────────────────────────────────
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+  # Middle click refreshes (a binding, so users can rebind it).
+  [widget.actions]
+  middle = "plugin ayagmar/binance:service all refresh"
+
+  # What the capsule shows, per bar widget instance.
+  [[widget.setting]]
+  key = "show"
+  type = "select"
+  label_key = "settings.bar_show.label"
+  description_key = "settings.bar_show.description"
+  default = "total"
+  options = [
+    { value = "total", label_key = "settings.bar_show.option.total" },
+    { value = "today", label_key = "settings.bar_show.option.today" },
+    { value = "price", label_key = "settings.bar_show.option.price" },
+    { value = "cycle", label_key = "settings.bar_show.option.cycle" },
+  ]
+
+  [[widget.setting]]
+  key = "assets"
+  type = "string_list"
+  label_key = "settings.bar_assets.label"
+  description_key = "settings.bar_assets.description"
+  default = ["BTC"]
+  visible_when = { key = "show", values = ["price", "cycle"] }
+
+  [[widget.setting]]
+  key = "cycle_seconds"
+  type = "int"
+  label_key = "settings.bar_cycle_seconds.label"
+  description_key = "settings.bar_cycle_seconds.description"
+  default = 10
+  min = 3
+  max = 300
+  visible_when = { key = "show", values = ["cycle"] }
+
+# Portfolio card for the desktop. Currency follows display_currency.
+[[desktop_widget]]
+id = "desktop"
+entry = "desktop.luau"
+
+  [[desktop_widget.setting]]
+  key = "size"
+  type = "select"
+  label_key = "settings.desktop_size.label"
+  description_key = "settings.desktop_size.description"
+  default = "large"
+  options = [
+    { value = "large", label_key = "settings.desktop_size.option.large" },
+    { value = "small", label_key = "settings.desktop_size.option.small" },
+  ]
+
+  [[desktop_widget.setting]]
+  key = "show_sparkline"
+  type = "bool"
+  label_key = "settings.desktop_sparkline.label"
+  description_key = "settings.desktop_sparkline.description"
+  default = true
+  visible_when = { key = "size", values = ["large"] }
+
+  [[desktop_widget.setting]]
+  key = "show_movers"
+  type = "bool"
+  label_key = "settings.desktop_movers.label"
+  description_key = "settings.desktop_movers.description"
+  default = true
+  visible_when = { key = "size", values = ["large"] }
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 460
+height = 660
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[launcher_provider]]
+id = "launcher"
+entry = "launcher.luau"
+prefix = "bn"
+glyph = "currency-bitcoin"
+debounce_ms = 300

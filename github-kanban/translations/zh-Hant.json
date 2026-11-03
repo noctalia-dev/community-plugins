@@ -1,0 +1,564 @@
+{
+  "action": {
+    "close": "關閉",
+    "mark_read": "標示為已讀",
+    "mark_visible_read": "將目前清單標示為已讀",
+    "marking_read": "正在標示為已讀…",
+    "open": "在 GitHub 上開啟",
+    "refresh": "重新整理"
+  },
+  "contributions": {
+    "best_streak": "最長連續貢獻",
+    "current_streak": "目前連續貢獻",
+    "last_year": {
+      "one": "過去一年共 {count} 次貢獻",
+      "other": "過去一年共 {count} 次貢獻"
+    },
+    "selected_day": {
+      "one": "{date} · {count} 次貢獻",
+      "other": "{date} · {count} 次貢獻"
+    },
+    "this_year": "今年",
+    "today": "今天"
+  },
+  "events": {
+    "activity": "動態",
+    "branch_created": "建立了分支",
+    "branch_deleted": "刪除了分支",
+    "collaborators_updated": "更新了協作者",
+    "commit_comment": "對提交發表了留言",
+    "created": "建立了內容",
+    "deleted": "刪除了內容",
+    "forked": "Fork 了儲存庫",
+    "issue_comment": "對 Issue 發表了留言",
+    "issue_updated": "更新了 Issue",
+    "made_public": "設為公開",
+    "pull_request_reviewed": "審查了 PR",
+    "pull_request_updated": "更新了 PR",
+    "pushed": "推送了變更",
+    "release": "發佈版本",
+    "release_published": "發佈了新版本",
+    "repository_created": "建立了儲存庫",
+    "review_comment": "發表了審查留言",
+    "starred": "已加星",
+    "summary": {
+      "created_branch": "建立了 {ref} 分支",
+      "created_reference": "建立了 {ref} 參照",
+      "created_repository": "建立了此儲存庫",
+      "created_tag": "建立了 {ref} 標籤",
+      "deleted_branch": "刪除了 {ref} 分支",
+      "deleted_reference": "刪除了 {ref} 參照",
+      "deleted_repository": "刪除了此儲存庫",
+      "deleted_tag": "刪除了 {ref} 標籤",
+      "pushed_commits": "推送了新提交",
+      "starred_repository": "為此儲存庫加上星號",
+      "updated_branch": "更新了 {ref} 分支"
+    },
+    "tag_created": "建立了標籤",
+    "tag_deleted": "刪除了標籤",
+    "wiki_updated": "更新了 Wiki"
+  },
+  "fallback": {
+    "github": "GitHub",
+    "github_activity": "GitHub 動態",
+    "github_repository": "GitHub 儲存庫",
+    "github_user": "GitHub 使用者",
+    "repository": "儲存庫",
+    "untitled": "無標題"
+  },
+  "filter": {
+    "all": "全部",
+    "assigned": "已指派",
+    "assigned_to_me": "指派給我",
+    "attention": "需要關注",
+    "closed": "已關閉",
+    "created_by_me": "由我建立",
+    "open": "未關閉",
+    "read": "已讀",
+    "repositories": "儲存庫",
+    "review_requested": "請求我審查",
+    "unread": "未讀",
+    "updates": "更新",
+    "users": "使用者"
+  },
+  "github": {
+    "reason": {
+      "assign": "被指派",
+      "author": "作者",
+      "ci_activity": "CI 動態",
+      "comment": "留言",
+      "invitation": "邀請",
+      "manual": "手動訂閱",
+      "mention": "被提及",
+      "review_requested": "收到審查請求",
+      "security_alert": "安全性警示",
+      "state_change": "狀態變更",
+      "subscribed": "已訂閱",
+      "team_mention": "團隊被提及"
+    },
+    "status": {
+      "action_required": "需要採取動作",
+      "cancelled": "已取消",
+      "closed": "已關閉",
+      "completed": "已完成",
+      "failure": "失敗",
+      "in_progress": "進行中",
+      "neutral": "中立",
+      "open": "未關閉",
+      "pending": "待處理",
+      "queued": "佇列中",
+      "skipped": "已略過",
+      "stale": "已過時",
+      "success": "成功",
+      "timed_out": "已逾時"
+    }
+  },
+  "heatmap": {
+    "less": "少",
+    "more": "多"
+  },
+  "panel": {
+    "actions": "Actions",
+    "activity": "動態",
+    "contributions": "貢獻",
+    "feed": "追蹤",
+    "issues": "Issue",
+    "notifications": "通知",
+    "overview": "總覽",
+    "profile": "個人資料",
+    "pull_requests": "PR",
+    "repositories": "儲存庫",
+    "reviews": "審查",
+    "show_more": {
+      "one": "再顯示 {count} 項 · 剩餘 {remaining} 項",
+      "other": "再顯示 {count} 項 · 剩餘 {remaining} 項"
+    },
+    "title": "GitHub Kanban"
+  },
+  "profile": {
+    "contributions": "貢獻",
+    "followers": "追蹤者",
+    "following": "追蹤",
+    "repositories": "儲存庫"
+  },
+  "repository": {
+    "forks": "Fork {count}",
+    "stars": "★ {count}"
+  },
+  "settings": {
+    "activity": {
+      "history_days": {
+        "description": "僅顯示最近指定天數內的 PR、審查、Issue 和 Actions。",
+        "label": "動態 · 歷史範圍（天）"
+      },
+      "issue_default_filter": {
+        "description": "開啟動態面板時預設選取的 Issue 來源篩選條件。",
+        "label": "動態 · 預設 Issue 篩選"
+      },
+      "pr_default_filter": {
+        "description": "開啟動態面板時預設選取的 PR 來源篩選條件。",
+        "label": "動態 · 預設 PR 篩選"
+      },
+      "show": {
+        "description": "顯示動態面板分頁。",
+        "label": "動態 · 顯示面板"
+      }
+    },
+    "appearance": {
+      "activity_repository_emphasis": {
+        "description": "在動態項目中凸顯儲存庫名稱。",
+        "label": "外觀 · 動態 · 凸顯儲存庫名稱"
+      },
+      "activity_show_status_badges": {
+        "description": "在動態項目上顯示狀態徽章。",
+        "label": "外觀 · 動態 · 狀態徽章"
+      },
+      "activity_show_type_icons": {
+        "description": "顯示代表動態項目類型的圖示。",
+        "label": "外觀 · 動態 · 類型圖示"
+      },
+      "appearance_animations": {
+        "description": "在面板卡片上啟用即時游標停留回饋。",
+        "label": "外觀 · 動畫"
+      },
+      "appearance_avatar_shape": {
+        "description": "選擇個人大頭貼的形狀。",
+        "label": "外觀 · 大頭貼形狀",
+        "options": {
+          "circle": "圓形",
+          "rounded": "圓角"
+        }
+      },
+      "appearance_avatar_size": {
+        "description": "選擇個人大頭貼的大小。",
+        "label": "外觀 · 大頭貼大小",
+        "options": {
+          "large": "大",
+          "medium": "中",
+          "small": "小"
+        }
+      },
+      "appearance_card_background": {
+        "description": "選擇透明、淺色調或較不透明的半透明佈景主題背景。",
+        "label": "外觀 · 卡片背景",
+        "options": {
+          "solid": "濃色",
+          "tinted": "淺色調",
+          "transparent": "透明"
+        }
+      },
+      "appearance_card_border": {
+        "description": "選擇卡片邊框的顯示方式。",
+        "label": "外觀 · 卡片邊框",
+        "options": {
+          "accent": "強調色",
+          "none": "無",
+          "subtle": "淡色"
+        }
+      },
+      "appearance_card_radius": {
+        "description": "卡片的圓角程度。",
+        "label": "外觀 · 卡片圓角半徑"
+      },
+      "appearance_card_spacing": {
+        "description": "卡片之間的間距。",
+        "label": "外觀 · 卡片間距"
+      },
+      "appearance_density": {
+        "description": "選擇整體間距和資訊密度。",
+        "label": "外觀 · 內容密度",
+        "options": {
+          "comfortable": "寬鬆",
+          "compact": "緊密",
+          "standard": "標準"
+        }
+      },
+      "appearance_font_scale": {
+        "description": "縮放整個面板的文字。",
+        "label": "外觀 · 字型縮放"
+      },
+      "appearance_hover_effect": {
+        "description": "選擇游標停留在卡片上時的視覺效果。",
+        "label": "外觀 · 游標停留效果",
+        "options": {
+          "background": "背景",
+          "border": "邊框",
+          "none": "無"
+        }
+      },
+      "appearance_icon_style": {
+        "description": "選擇面板圖示的外觀。",
+        "label": "外觀 · 圖示樣式",
+        "options": {
+          "color": "彩色",
+          "muted": "柔和色",
+          "theme": "佈景主題色"
+        }
+      },
+      "appearance_secondary_text": {
+        "description": "選擇次要文字的顯示方式。",
+        "label": "外觀 · 次要文字",
+        "options": {
+          "full": "完整顯示",
+          "hidden": "隱藏",
+          "truncate": "截短"
+        }
+      },
+      "appearance_show_empty_illustration": {
+        "description": "區塊沒有項目時顯示插圖。",
+        "label": "外觀 · 空白狀態插圖"
+      },
+      "appearance_time_format": {
+        "description": "選擇日期和時間的顯示格式。",
+        "label": "外觀 · 時間格式",
+        "options": {
+          "iso": "ISO 8601",
+          "local": "本機時間",
+          "relative": "相對時間"
+        }
+      },
+      "following_content_lines": {
+        "description": "追蹤事件最多顯示的內容行數。",
+        "label": "外觀 · 追蹤 · 內容行數"
+      },
+      "following_event_spacing": {
+        "description": "追蹤檢視中事件之間的間距。",
+        "label": "外觀 · 追蹤 · 事件間距"
+      },
+      "heatmap_cell_gap": {
+        "description": "貢獻日曆儲存格之間的間距。",
+        "label": "外觀 · 熱度圖 · 儲存格間距"
+      },
+      "heatmap_cell_radius": {
+        "description": "貢獻日曆儲存格的圓角程度。",
+        "label": "外觀 · 熱度圖 · 儲存格圓角半徑"
+      },
+      "heatmap_cell_size": {
+        "description": "貢獻日曆中每個儲存格的大小。",
+        "label": "外觀 · 熱度圖 · 儲存格大小"
+      },
+      "heatmap_color_mode": {
+        "description": "選擇貢獻熱度圖的色彩來源。",
+        "label": "外觀 · 熱度圖 · 配色模式",
+        "options": {
+          "custom": "自訂",
+          "github": "GitHub",
+          "noctalia": "Noctalia 佈景主題"
+        }
+      },
+      "heatmap_custom_level_0": {
+        "description": "使用 #RRGGBB 格式的十六進位色碼。留空則跟隨佈景主題。",
+        "label": "外觀 · 熱度圖 · 自訂等級 0"
+      },
+      "heatmap_custom_level_1": {
+        "description": "使用 #RRGGBB 格式的十六進位色碼。留空則跟隨佈景主題。",
+        "label": "外觀 · 熱度圖 · 自訂等級 1"
+      },
+      "heatmap_custom_level_2": {
+        "description": "使用 #RRGGBB 格式的十六進位色碼。留空則跟隨佈景主題。",
+        "label": "外觀 · 熱度圖 · 自訂等級 2"
+      },
+      "heatmap_custom_level_3": {
+        "description": "使用 #RRGGBB 格式的十六進位色碼。留空則跟隨佈景主題。",
+        "label": "外觀 · 熱度圖 · 自訂等級 3"
+      },
+      "heatmap_custom_level_4": {
+        "description": "使用 #RRGGBB 格式的十六進位色碼。留空則跟隨佈景主題。",
+        "label": "外觀 · 熱度圖 · 自訂等級 4"
+      },
+      "heatmap_empty_style": {
+        "description": "為沒有貢獻的日期使用標準淡邊框，或更醒目的外框。",
+        "label": "外觀 · 熱度圖 · 空白儲存格樣式",
+        "options": {
+          "background": "背景",
+          "outline": "外框"
+        }
+      },
+      "heatmap_levels": {
+        "description": "選擇貢獻強度的等級數量。",
+        "label": "外觀 · 熱度圖 · 活躍程度等級",
+        "options": {
+          "4": "4 級",
+          "5": "5 級",
+          "five": "5 級",
+          "four": "4 級"
+        }
+      },
+      "heatmap_show_legend": {
+        "description": "顯示貢獻強度圖例。",
+        "label": "外觀 · 熱度圖 · 顯示強度圖例"
+      },
+      "heatmap_show_months": {
+        "description": "在貢獻日曆上方顯示月份標籤。",
+        "label": "外觀 · 熱度圖 · 顯示月份標籤"
+      },
+      "heatmap_show_total": {
+        "description": "顯示年度貢獻總數。",
+        "label": "外觀 · 熱度圖 · 顯示貢獻總數"
+      },
+      "heatmap_show_weekdays": {
+        "description": "在貢獻日曆旁顯示星期標籤。",
+        "label": "外觀 · 熱度圖 · 顯示星期標籤"
+      },
+      "notification_read_opacity": {
+        "description": "已讀通知卡片使用的不透明度。",
+        "label": "外觀 · 通知 · 已讀卡片不透明度"
+      },
+      "notification_unread_border": {
+        "description": "以邊框凸顯未讀通知卡片。",
+        "label": "外觀 · 通知 · 未讀卡片邊框"
+      },
+      "notification_unread_dot": {
+        "description": "在未讀通知卡片上顯示圓點。",
+        "label": "外觀 · 通知 · 未讀狀態圓點"
+      },
+      "overview_stats_layout": {
+        "description": "選擇總覽統計資料的排列方式。",
+        "label": "外觀 · 總覽 · 統計配置",
+        "options": {
+          "columns4": "四欄",
+          "compact": "緊密",
+          "grid": "格狀"
+        }
+      },
+      "repositories_layout": {
+        "description": "選擇儲存庫卡片的排列方式。",
+        "label": "外觀 · 儲存庫 · 儲存庫配置",
+        "options": {
+          "grid": "格狀",
+          "list": "清單"
+        }
+      },
+      "repositories_show_language": {
+        "description": "顯示每個儲存庫的主要程式語言。",
+        "label": "外觀 · 儲存庫 · 顯示儲存庫語言"
+      },
+      "repositories_show_stats": {
+        "description": "顯示儲存庫的星號數和 fork 數。",
+        "label": "外觀 · 儲存庫 · 顯示儲存庫統計"
+      }
+    },
+    "following": {
+      "card_max_height": {
+        "description": "每張分組追蹤卡片的高度上限，單位為像素。",
+        "label": "追蹤 · 卡片高度上限"
+      },
+      "events_per_user": {
+        "description": "向 GitHub 請求的每人近期公開事件數量上限。",
+        "label": "追蹤 · 每人事件數"
+      },
+      "hide_bots": {
+        "description": "隱藏 GitHub 機器人帳號的事件。",
+        "label": "追蹤 · 隱藏機器人"
+      },
+      "history_days": {
+        "description": "僅顯示最近指定天數內的追蹤動態。",
+        "label": "追蹤 · 歷史範圍（天）"
+      },
+      "ignored_repositories": {
+        "description": "要排除的儲存庫，格式為 owner/name，比對時不區分大小寫。",
+        "label": "追蹤 · 忽略的儲存庫"
+      },
+      "ignored_users": {
+        "description": "要從追蹤中排除的 GitHub 登入名稱，比對時不區分大小寫。",
+        "label": "追蹤 · 忽略的使用者"
+      },
+      "include_prereleases": {
+        "description": "包含 nightly 和候選發佈版等預先發佈版本。",
+        "label": "追蹤 · 包含預先發佈版本"
+      },
+      "show": {
+        "description": "顯示追蹤面板分頁。",
+        "label": "追蹤 · 顯示面板"
+      },
+      "starred_repository_limit": {
+        "description": "檢查發佈版本的近期已加星儲存庫數量上限。",
+        "label": "追蹤 · 掃描的已加星儲存庫數"
+      },
+      "types": {
+        "forks": "追蹤 · 顯示 fork",
+        "issues": "追蹤 · 顯示 Issue 和留言",
+        "other": "追蹤 · 顯示其他事件",
+        "pull_requests": "追蹤 · 顯示 PR 和審查",
+        "pushes": "追蹤 · 顯示推送",
+        "releases": "追蹤 · 顯示發佈版本",
+        "stars": "追蹤 · 顯示星號"
+      },
+      "user_limit": {
+        "description": "擷取公開事件的已追蹤使用者人數上限。",
+        "label": "追蹤 · 擷取動態的人數"
+      }
+    },
+    "general": {
+      "bar_display_mode": {
+        "description": "選擇狀態列元件顯示 GitHub 圖示、未讀數，或同時顯示兩者。",
+        "label": "一般 · 狀態列顯示",
+        "options": {
+          "both": "圖示和未讀數",
+          "count": "未讀數",
+          "icon": "圖示"
+        }
+      },
+      "default_dashboard": {
+        "description": "開啟 GitHub Kanban 時顯示的面板。",
+        "label": "一般 · 預設面板"
+      }
+    },
+    "notifications": {
+      "default_filter": {
+        "description": "開啟通知面板時預設選取的狀態篩選條件。",
+        "label": "通知 · 預設狀態篩選"
+      },
+      "history_days": {
+        "label": "通知 · 歷史範圍（天）"
+      },
+      "mark_read_on_open": {
+        "description": "在同步模式下，成功啟動瀏覽器開啟程式後，將該則未讀通知在 GitHub 上標示為已讀。",
+        "label": "通知 · 開啟通知時標示為已讀"
+      },
+      "refresh_interval": {
+        "description": "同步模式獨立於面板重新整理通知的時間間隔。",
+        "label": "通知 · 重新整理間隔",
+        "options": {
+          "one_twenty": "每 120 秒",
+          "sixty": "每 60 秒",
+          "three_hundred": "每 300 秒"
+        }
+      },
+      "refresh_on_open": {
+        "description": "在同步模式下，開啟面板時重新整理通知。",
+        "label": "通知 · 開啟面板時重新整理"
+      },
+      "show": {
+        "description": "顯示通知面板分頁。",
+        "label": "通知 · 顯示面板"
+      },
+      "sync_mode": {
+        "description": "舊模式下通知為唯讀，重新整理間隔與面板一致。同步模式獨立重新整理通知，並可在 GitHub 上將通知標示為已讀。",
+        "label": "通知 · 同步模式",
+        "options": {
+          "legacy": "舊模式（唯讀）",
+          "synced": "同步模式"
+        }
+      }
+    },
+    "overview": {
+      "show": {
+        "description": "顯示總覽面板分頁。",
+        "label": "總覽 · 顯示面板"
+      }
+    },
+    "refresh_interval": {
+      "description": "GitHub Kanban 重新整理 GitHub 資料的時間間隔。",
+      "label": "重新整理間隔",
+      "options": {
+        "fifteen": "每 15 分鐘",
+        "five": "每 5 分鐘",
+        "thirty": "每 30 分鐘"
+      }
+    },
+    "repositories": {
+      "show": {
+        "description": "顯示儲存庫面板分頁。",
+        "label": "儲存庫 · 顯示面板"
+      }
+    }
+  },
+  "status": {
+    "auth_error": "GitHub CLI 需要登入驗證：gh auth login -h github.com",
+    "cli_start_failed": "無法啟動 GitHub CLI。",
+    "empty": "目前沒有內容。",
+    "gh_request_failed": "GitHub CLI 請求失敗。",
+    "invalid_json": "GitHub 傳回了無效的 JSON。",
+    "loading": "正在載入 GitHub 資料…",
+    "missing_gh": "需要安裝 GitHub CLI（gh）。",
+    "missing_xdg_open": "需要 xdg-open 才能開啟 GitHub。",
+    "notification_changed": "此通知有了更新。請重新整理並閱讀新內容後，再將其標示為已讀。",
+    "notifications_refreshing": "正在重新整理通知…",
+    "preparing_contribution_calendar": "正在準備貢獻日曆…",
+    "request_error": "無法重新整理部分 GitHub 資料。",
+    "stale": "正在顯示最新的快取資料。",
+    "unexpected_data": "GitHub 傳回了非預期的資料。"
+  },
+  "time": {
+    "days_ago": {
+      "one": "{count} 天前",
+      "other": "{count} 天前"
+    },
+    "hours_ago": {
+      "one": "{count} 小時前",
+      "other": "{count} 小時前"
+    },
+    "just_now": "剛剛",
+    "minutes_ago": {
+      "one": "{count} 分鐘前",
+      "other": "{count} 分鐘前"
+    }
+  },
+  "widget": {
+    "tooltip": {
+      "one": "GitHub Kanban\n{count} 則未讀通知",
+      "other": "GitHub Kanban\n{count} 則未讀通知"
+    }
+  }
+}

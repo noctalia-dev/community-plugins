@@ -372,7 +372,7 @@ local function render()
     else
         for index, entry in ipairs(selected) do
             if index > 1 then
-                rows[#rows + 1] = ui.box({ width = 1, height = 15, fill = "outline/0.35" })
+                rows[#rows + 1] = ui.box({ width = 1, height = 15, fill = "outline_variant/0.35" })
             end
             rows[#rows + 1] = providerSegment(entry)
         end

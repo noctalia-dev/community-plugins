@@ -127,6 +127,130 @@ if [ -n "$PRICING_JSON" ]; then
     USD_EUR_RATE=$(echo "$PRICING_JSON" | jq -r '.usd_eur_rate // 0' 2>/dev/null || echo "0")
 fi
 
+# --- Assistant rows, with a per-file cache ---
+# Turning the JSONL history into rows is the slow part of a run, and between two
+# refreshes almost every file is unchanged. Each source file's rows are cached in a file
+# whose name carries the source's size and mtime; a source is re-read only when no cache
+# file carries its current stamp. Rows hold no prices, so a pricing refresh applies at once.
+ROWS_CACHE_ROOT="${XDG_CACHE_HOME:-${HOME}/.cache}/noctalia-claudecode/rows-v1"
+
+# One assistant record as a row: date model input output cache_read cache_write sessionId
+# messageId. One API response is written as several lines sharing message.id; the
+# aggregation keeps one row per id.
+ROW_JQ='"\(.timestamp[:10]) \(.message.model // "unknown") \(.message.usage.input_tokens // 0) \(.message.usage.output_tokens // 0) \(.message.usage.cache_read_input_tokens // 0) \(.message.usage.cache_creation_input_tokens // 0) \(.sessionId // "unknown") \(.message.id // "-")"'
+
+# The jq filter that keeps assistant records, shared by both paths below.
+ASSISTANT_JQ='fromjson? | select(.type == "assistant")'
+
+# The grep pre-filter, shared by both paths below, as an argv so find -exec and xargs
+# can run it. jq then parses only assistant lines: user messages and tool results are most
+# of the bytes. Claude Code writes JSONL compactly, so the literal matches every assistant
+# line; jq's select still drops any false positive. -a, because a stray NUL (a crash can
+# leave one) would otherwise make grep print nothing for the whole file.
+GREP_ASSISTANT=(grep -aF '"type":"assistant"')
+
+# Changed files are extracted in batches of this many, each saved before the next starts,
+# so a run killed by the runAsync time limit still leaves its finished batches cached.
+ROWS_BATCH=100
+
+# Usage: emit_rows_direct <projects_dir>
+# Prints the rows of every JSONL file modified in the last 31 days, without the cache.
+emit_rows_direct() {
+    find "$1" -name "*.jsonl" -mtime -31 -exec "${GREP_ASSISTANT[@]}" -h -- {} + 2>/dev/null \
+        | jq -r -R "$ASSISTANT_JQ"' | '"$ROW_JQ" 2>/dev/null
+}
+
+# Usage: extract_rows_batch <projects_dir> <cache_dir> <batch file> <tmp suffix>
+# Extracts the rows of each "<source>\t<cache file>" line in the batch file and saves them
+# under the cache name. One grep and one jq for the whole batch, so a cold run costs about
+# the same as emit_rows_direct: grep -H prefixes each line with its file and jq splits
+# there. Every file gets a cache file, empty when it has no assistant lines. Rows are
+# written under a temp name and renamed only once jq and awk have both succeeded, so a
+# failed or killed batch leaves no empty or truncated file carrying a valid stamp.
+# Returns 1, with the batch's temp files removed, when extraction failed.
+extract_rows_batch() {
+    local proj_dir="$1" cache_dir="$2" batch="$3" tmp_suffix="$4"
+
+    cut -f1 "$batch" \
+        | (cd "$proj_dir" && xargs -r -d '\n' "${GREP_ASSISTANT[@]}" -H -- 2>/dev/null) \
+        | jq -r -R '(index(":{")) as $i | select($i != null) | .[:$i] as $f | .[$i + 1:]
+            | '"$ASSISTANT_JQ"' | "\($f)\t" + '"$ROW_JQ" 2>/dev/null \
+        | awk -F '\t' -v dir="$cache_dir" -v suffix="$tmp_suffix" -v batch="$batch" '
+            BEGIN {
+                while ((getline line < batch) > 0) {
+                    split(line, t, "\t")
+                    target[t[1]] = dir "/" t[2] suffix
+                    printf "" > target[t[1]]
+                    close(target[t[1]])
+                }
+            }
+            ($1 in target) {
+                if (target[$1] != current) {
+                    if (current != "") close(current)
+                    current = target[$1]
+                }
+                print $2 >> current
+            }'
+    local status=("${PIPESTATUS[@]}")
+
+    local src cached
+    if [ "${status[2]}" -ne 0 ] || [ "${status[3]}" -ne 0 ]; then
+        while IFS=$'\t' read -r src cached; do
+            rm -f "$cache_dir/$cached$tmp_suffix"
+        done < "$batch"
+        return 1
+    fi
+    while IFS=$'\t' read -r src cached; do
+        mv -f "$cache_dir/$cached$tmp_suffix" "$cache_dir/$cached" 2>/dev/null
+    done < "$batch"
+}
+
+# Usage: emit_rows_cached <projects_dir>
+# Same output as emit_rows_direct, re-reading only the files that changed since the last
+# run. Returns 1, having printed nothing, when the cache is unusable or extraction failed;
+# batches saved before a failure are kept.
+emit_rows_cached() {
+    local proj_dir="$1"
+    local cache_dir="${ROWS_CACHE_ROOT}${proj_dir}"
+    mkdir -p "$cache_dir" 2>/dev/null && [ -w "$cache_dir" ] || return 1
+
+    local work
+    work=$(mktemp -d "$TMPDIR_ROOT/rows_XXXXXX") || return 1
+    local tmp_suffix=".tmp.$$"
+
+    # wanted: "<source>\t<cache file>" per source file, both relative.
+    find "$proj_dir" -name "*.jsonl" -mtime -31 -printf '%P\t%P.%s-%T@.rows\n' 2>/dev/null > "$work/wanted"
+    find "$cache_dir" -name '*.rows' -printf '%P\n' 2>/dev/null > "$work/have"
+    awk -F '\t' -v todo="$work/todo" -v stale="$work/stale" '
+        FILENAME == ARGV[1] { have[$0] = 1; next }
+        { want[$2] = 1; if (!($2 in have)) print > todo }
+        END { for (h in have) if (!(h in want)) print h > stale }
+    ' "$work/have" "$work/wanted"
+
+    if [ -s "$work/todo" ]; then
+        # Directories for nested sources (subagent transcripts live under a session dir).
+        awk -F '\t' '{ n = split($1, p, "/"); if (n > 1) print substr($1, 1, length($1) - length(p[n]) - 1) }' "$work/todo" \
+            | sort -u | (cd "$cache_dir" && xargs -r -d '\n' mkdir -p --)
+
+        awk -v dir="$work" -v size="$ROWS_BATCH" '
+            { f = dir "/batch." int((NR - 1) / size); if (f != last) { if (last != "") close(last); last = f }; print > f }
+        ' "$work/todo"
+        local batch
+        for batch in "$work"/batch.*; do
+            extract_rows_batch "$proj_dir" "$cache_dir" "$batch" "$tmp_suffix" || return 1
+        done
+    fi
+
+    # Old stamps and files that left the 31-day window; then what a killed run left.
+    if [ -s "$work/stale" ]; then
+        (cd "$cache_dir" && xargs -r -d '\n' rm -f -- < "$work/stale")
+    fi
+    find "$cache_dir" -name '*.rows.tmp.*' -mmin +10 -delete 2>/dev/null
+
+    cut -f2 "$work/wanted" | (cd "$cache_dir" && xargs -r -d '\n' cat -- 2>/dev/null)
+    return 0
+}
+
 # --- Per-profile token counting ---
 # Usage: count_profile_tokens <projects_dir> <tmpfile>
 # Writes WEEK_TOKENS=N, WEEK_MESSAGES=N, ... to tmpfile
@@ -142,8 +266,9 @@ count_profile_tokens() {
         day_dates="${day_dates:+${day_dates},}${d}"
     done
 
-    find "$proj_dir" -name "*.jsonl" -mtime -31 -exec cat {} + 2>/dev/null \
-        | jq -r -R 'fromjson? | select(.type == "assistant") | "\(.timestamp[:10]) \(.message.model // "unknown") \(.message.usage.input_tokens // 0) \(.message.usage.output_tokens // 0) \(.message.usage.cache_read_input_tokens // 0) \(.message.usage.cache_creation_input_tokens // 0) \(.sessionId // "unknown")"' \
+    # Called on the left of ||, so errexit is off inside: a failing step degrades the
+    # numbers for one run instead of killing the profile's subshell.
+    { emit_rows_cached "$proj_dir" || emit_rows_direct "$proj_dir"; } \
         | awk -v week_start="$WEEK_START" -v month_start="$MONTH_START" -v today="$TODAY" -v day_dates="$day_dates" -v pricing="$PRICING_AWK" '
         BEGIN {
             split(day_dates, dates, ",")
@@ -160,10 +285,22 @@ count_profile_tokens() {
                 has_pricing = 1
             }
         }
+        # Keep one row per message id: the copies carry the same usage, except that
+        # output_tokens can grow while a response streams, so the largest one wins. On a
+        # tie (a resumed session copies earlier messages) the smaller row wins, so the
+        # result does not depend on file order. Rows without an id are never merged.
+        $8 == "-" || $8 == "" { tally($0); next }
         {
-            date = $1; model = $2
-            inp = $3 + 0; out = $4 + 0; cr = $5 + 0; cw = $6 + 0
-            sess = $7
+            if (!($8 in best) || $4 + 0 > best_out[$8] || ($4 + 0 == best_out[$8] && $0 < best[$8])) {
+                best[$8] = $0
+                best_out[$8] = $4 + 0
+            }
+        }
+        function tally(row,    f, date, model, inp, out, cr, cw, sess, total, n_parts, mparts, family, cost) {
+            split(row, f, " ")
+            date = f[1]; model = f[2]
+            inp = f[3] + 0; out = f[4] + 0; cr = f[5] + 0; cw = f[6] + 0
+            sess = f[7]
             total = inp + out + cr + cw
 
             n_parts = split(model, mparts, "-")
@@ -186,6 +323,8 @@ count_profile_tokens() {
             }
         }
         END {
+            for (k in best) tally(best[k])
+
             printf "WEEK_TOKENS=%d\n", week_tokens + 0
             printf "WEEK_MESSAGES=%d\n", week_msgs + 0
             n = 0; for (s in week_sess) n++

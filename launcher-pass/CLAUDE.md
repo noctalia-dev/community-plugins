@@ -16,7 +16,7 @@ fields.
 
 ```
 launcher-pass/
-├── plugin.toml          manifest: id, plugin_api, dependencies, [[setting]] × 12, [[service]], [[launcher_provider]]
+├── plugin.toml          manifest: id, plugin_api, dependencies, [[setting]] × 13, [[service]], [[launcher_provider]]
 ├── launcher.luau         the whole feature — backs BOTH the [[launcher_provider]] (onQuery/onActivate) and the [[service]] (onIpc); separate VMs, one file
 ├── translations/         en.json (canonical) + 10 locales, nested JSON, identical key set
 │   └── en it
@@ -34,17 +34,22 @@ something newer.
 
 As of now (`noctalia 5.0.0-beta9.3`, `plugin_api` 28), there are still some open points that will need to be covered when possible:
 
-### wtype cmdline leak
+### Typing backend cmdline leak
 
-Right now `noctalia.runAsync(cmdOrArgv)` does not let the plugin pass data to the supbrocess standard input, nor export environment variables, so the only way to pass the password/login/OTP/field values to `wtype` to perform autofill is by adding the values to the commandline, exposing them to external processes inspecting the `wtype` process commandline.
+Right now `noctalia.runAsync(cmdOrArgv)` does not let the plugin pass data to the subprocess standard input, nor export environment variables, so the only way to pass the password/login/OTP/field values to the typing backend (`ydotool type` / `wtype`) to perform autofill is by adding the values to the commandline, exposing them to external processes inspecting the backend process commandline.
 
-As soon as a more secure option is available, the `wtype` execution needs to be updated to a more secure variant.
+As soon as `runAsync` can feed stdin, switch the text steps to stdin: `ydotool type -e 0 -f -` (escapes are already off for file/stdin input, `-e 0` just keeps it explicit) and `wtype -` (reads text from stdin). A temp file for `ydotool type -f <path>` is not an improvement — it puts the secret on disk.
+
+Re-checked against noctalia `main` @ `47945ec` (2026-10-18, `plugin_api` 34): still no stdin/env option, and no native typing — no `noctalia.*` binding reaches `VirtualKeyboardService`, and `PluginLauncherProvider` still doesn't override `supportsAutoPaste()`.
 
 ### List item preselection
 
-In every menu where the `Go Back` button is shown, the second item (the one after the back button) should be preselected at the submenu entry.
+Menus with a `Go Back` row put the primary action first, because Noctalia always
+preselects row 0 and has no API to request another row.
 
-The current noctalia plugin api does not provide a way to do so, it should be implemented as soon as the plugin interface adds a method to preselect launcher list entries.
+The host preserves the previous selection by id `back:<path>` across refreshes, so
+the creation menu's back row uses a path-scoped `createback:<path>` id to keep it
+from stealing that selection.
 
 ### Settings grouping
 
@@ -181,10 +186,10 @@ path; browse rows the basename.
   first) and `detailActionGrouping` (pair per value, or all-Copy-then-all-Type).
   `actionRow(entryPath, spec, verb, n)` returns one row and records its context
   in `detailActions["act:"..n]` (an explicit counter). Type rows are omitted
-  entirely when `wtype` is absent (`wtypeAvailable`, memoised). An **Autotype**
+  entirely when *no* typing backend is installed (`typerAvailable`; binaries re-probed after `PROBE_TTL_MS`, 2 s). An **Autotype**
   row (`id = "autotype:"..entryPath`, `autotypeRowFor`) is spliced in right
   after the username's first rendered row — between the login values and the
-  remaining-field rows — when the `autotypeEnabled` setting is on *and* `wtype`
+  remaining-field rows — when the `autotypeEnabled` setting is on *and* the typing backend
   is present (in grouped mode it lands inside the first verb block, still
   between username and fields). Not an `act:` row: `onActivate` dispatches
   `autotype:` straight to `autotypeEntry`. An **Edit** row
@@ -221,26 +226,76 @@ int) → nil (let `pass` default).
 | Copy Password | `copyViaPass({"pass","-c",entryPath})` |
 | Copy OTP | `copyViaPass({"pass","otp","-c",entryPath})` |
 | Copy Username / field | `copyPlain(ctx.value)` |
-| Type Password / Username / field | `typeViaWtype(ctx.value)` |
+| Type Password / Username / field | `typeViaBackend(ctx.value)` |
 | Type OTP | `typeOtp(entryPath)` — `pass otp` (no `-c`) → `typeValue(code)` |
 
 - **`copyViaPass`** closes the launcher first (so a pinentry prompt from an
-  expired gpg-agent cache gets focus — no reopen dance), runs the command with
-  `DECRYPT_TIMEOUT_MS`, and posts `notification.copied` / `notification.copyFailed`.
+  expired gpg-agent cache gets focus — no reopen dance), runs the command through
+  `runUnbounded` (no timeout — see *Long-running subprocesses*), and posts `notification.copied` / `notification.copyFailed`.
   `pass -c` / `pass otp -c` do the clipboard auto-clear themselves.
 - **`copyPlain`** — `noctalia.copyToClipboard(value or "", "text/plain")` (the
   MIME arg is mandatory), `notification.copied`, close launcher. No auto-clear.
+- **Typing backends** — `TYPE_BACKENDS`, one entry per tool: `bin` (probed by
+  `backendInstalled`, result cached `PROBE_TTL_MS` = 2 s so installs /
+  removals show up without a plugin reload), `textArgv(value, delay)`, `keyArgv.tab` /
+  `keyArgv.enter`, `unavailableHints` (stdout/stderr substrings meaning "can't type
+  here at all"), `unavailableKey` (notification body for that). The
+  `typeBackend` select setting names the **preferred** backend (`ydotool`
+  default / `wtype`; unknown value → ydotool); `typeBackends()` returns the
+  *installed* ones in try order — preferred first, then the rest of
+  `TYPE_BACKEND_ORDER`. `typerAvailable()` = at least one installed.
+
+  | backend | text step | Tab / Enter |
+  |---|---|---|
+  | `ydotool` | `{"ydotool","type","-e","0","-d",<keyDelay>,"--",value}` | `{"ydotool","key","15:1","15:0"}` / `28:1 28:0` (raw input-event keycodes) |
+  | `wtype` | `{"wtype","-d",<keyDelay>,"--",value}` | `{"wtype","-k","Tab"}` / `{"wtype","-k","Return"}` (keysyms) |
+
+  **`-e 0` is mandatory for ydotool**: `ydotool type` interprets backslash
+  escapes in argv strings by default, so a `\n` / `\t` inside a password would
+  be typed as Enter / Tab. Both put the value after `--`, so a leading `-` is
+  still literal text; argv only, no shell escaping. ydotool needs `ydotoold`
+  (uinput access) and maps characters to **US-layout** keycodes (symbols can
+  come out wrong on another layout, non-ASCII can't be typed); wtype uploads
+  its own keymap, so it is layout agnostic, and needs no daemon. Only binaries are probed; whether a backend can actually
+  type is discovered per action.
+- **Shown backend** — Type / Autotype row subtitles end with the backend that
+  will actually type (`action.type-subtitle` = `{subtitle} · {backend}`,
+  `action.autotype-desc` has `{backend}`), from `shownBackend()`:
+  `typeBackends()[1]`, skipping ydotool when `ydotooldUp == false` and another
+  backend is installed. `probeYdotoold()` (kicked from `renderDetailRows`,
+  result cached `PROBE_TTL_MS`) runs `ydotool debug` — it connects to the
+  daemon socket first and sends no input events: exit 0 = up, exit 2 +
+  "ydotoold" on stdout = down (the socket file alone can be stale, "Connection
+  refused"). Async, so a render uses the last known state; when the shown
+  backend flips, `onYdotooldChange` re-renders the open detail view from the
+  warm cache (`lastDetailRender`). Display only — actions still try the
+  preferred backend and fall back on the real error.
+- **`runTypeSteps(steps, subject)`** — the one runner for every Type path.
+  Steps are backend-neutral (`{text = v}` / `{key = "tab" | "enter"}`) and
+  turned into argv by `stepArgv(backend, step)` only once a backend is picked.
+  Runs them in order on `typeBackends()[1]`, one process each. **Fallback:** if
+  step **1** fails and `backendUnavailable` matches stdout or stderr — ydotool:
+  `ydotoold` ("Please check if ydotoold is running.", exit 2, printed on
+  **stdout**; wtype has no
+  hints — it has no daemon to be missing) — nothing has been typed yet (it
+  fails while connecting), so the whole list is replayed on the next installed
+  backend; logged, no notification. Any other failure, or a failure past step
+  1, aborts with one `notification.type-failed`, body: the backend's
+  `unavailableKey` (`notification.ydotoold-not-running`) when it was
+  unavailable with no backend left to try, else the entry name. Nothing is cached about
+  unavailability — the daemon may be started later, so each action re-tries
+  the preferred backend first (its failure is a fast connect error).
 - **`typeValue(value)`** — `runAsync({"sleep", <typeDelay/1000>})` then
-  `runAsync({"wtype", "-d", <wtypeDelay>, "--", value})`. Argv only: the value
-  after `--` is literal text even if it starts with `-`, so no `printf | wtype -`
-  pipe and no shell escaping. `typeViaWtype` closes the launcher first (wtype
-  types into the focused window); the `typeDelay` sleep lets the compositor
-  restore focus. Failures → `notification.typeFailed`.
-- `typeDelay` / `wtypeDelay` are **milliseconds** (`intSetting`, 0 allowed).
+  `runTypeSteps({{text = value}})`. `typeViaBackend` closes the launcher first
+  (the injected keys go to the focused window); the `typeDelay` sleep lets the
+  compositor restore focus.
+- `typeDelay` / `keyDelay` are **milliseconds** (`intSetting`, 0 allowed).
+  `keyDelay` is the backend's `-d`; it replaced the `wtypeDelay` setting key in
+  v2.7.0.
 
 ### Autotype action
 
-`autotypeEntry(entryPath)` types a whole login in sequence with `wtype`. It is
+`autotypeEntry(entryPath)` types a whole login in sequence with the typing backend. It is
 reached both from the Autotype detail row (launcher open, `detailCache` warm)
 and from the `autotype` quick-action IPC event (launcher closed, cache cold),
 so it closes the panel up front and resolves the entry through `withEntryData`
@@ -248,25 +303,26 @@ so it closes the panel up front and resolves the entry through `withEntryData`
 no typing. Sequence:
 
 1. `username`
-2. the **separator key** — `autotypeSeparator`: `Tab` (default) or `Return`
+2. the **separator key** — `autotypeSeparator`: `Tab` (default) or `Enter`
 3. `password`
-4. `Return` — emitted when an OTP follows in step 5, **or** when `autotypeSubmit`
+4. `Enter` — emitted when an OTP follows in step 5, **or** when `autotypeSubmit`
    is on
 5. when `hasOtp`: `pass otp <entryPath>` (no `-c`) → type the code
-   5.2. `Return` — emitted only when `autotypeSubmit` is on
+   5.2. `Enter` — emitted only when `autotypeSubmit` is on
 
-So `autotypeSubmit` (default on) toggles just the **final** `Return`: after the
+So `autotypeSubmit` (default on) toggles just the **final** `Enter`: after the
 OTP when present, otherwise after the password.
 
-Each step is its own `wtype` process, chained through `runWtypeSteps` (a first
-failed step aborts the rest with one `notification.type-failed`): a text step is
-`{"wtype","-d",<wtypeDelay>,"--",value}` (same `-- value` literal-text form as
-`typeValue`), a key step is `{"wtype","-k",<keysym>}`. They are **not** merged
-into one `wtype` call: `wtype` allows a single terminal `--` (everything after it
-is text), so literal text and `-k` keys can't be interleaved safely for
-arbitrary values. `autotypeEntry` closes the launcher first (like the Type
-paths), then — after the OTP fetch, if any — a single `typeDelay` sleep lets the
-compositor restore focus before the chain runs.
+Each step is its own backend process, chained through `runTypeSteps` (with
+its backend fallback; a failed step aborts the rest with one notification): a
+text step is `{text = value}`, a key step `{key = "tab" | "enter"}` (argv per
+the backend table above). They are **not** merged into one call: ydotool splits
+text and keys into separate subcommands (and with `-e 0` has no in-band
+`\t` / `\n`), and wtype allows a single terminal `--` after which everything
+is text, so no `-k` can follow an arbitrary value. `autotypeEntry` closes the
+launcher first (like the Type paths), then — after the OTP fetch, if any — a
+single `typeDelay` sleep lets the compositor restore focus before the chain
+runs.
 
 ### Quick-action IPC
 
@@ -341,11 +397,11 @@ when non-empty — blank leaves `EDITOR` unset. The term prefix is
 `terminalArgv()`: the `terminalCommand` setting split on whitespace (a full argv
 prefix that takes a command, exec flag included — `foot -e`, `gnome-terminal
 --`); else `{$TERMINAL, "-e"}`; else `{<first of TERMINAL_CANDIDATES on PATH>,
-"-e"}` (`detectedTerminal`, memoised like `wtypeAvailable`); else nil. On the
-`runAsync` callback `detailCache[entryPath]` is cleared so the next detail view
-re-decrypts the edited file. The `runAsync` call passes **`EDIT_TIMEOUT_MS`**
-(24 h) — `noctalia.runAsync` applies a short default bound when the 3rd arg is
-omitted, which would kill the terminal a few seconds into the edit. When
+"-e"}` (`detectedTerminal`, cached for `PROBE_TTL_MS` like `typerAvailable`); else nil. On the
+callback `detailCache[entryPath]` is cleared so the next detail view
+re-decrypts the edited file. The run goes through **`runUnbounded`** —
+`noctalia.runAsync` caps every run at 60 s and then SIGTERMs the whole process
+group, which would kill the terminal (and the unsaved edit) a minute in. When
 `terminalArgv()` is nil the row was never rendered; a defensive `editEntry`
 call still fires `notification.edit-failed`.
 
@@ -392,9 +448,9 @@ Its own `+` prefix (never produced by browsing), `+!` for the confirm step
   `create-hint` / `create-exists` / `create-error` are inert: activating one
   does nothing but re-assert `lastQuery` via `setQuery`, so the host keeps the
   creation menu open instead of closing the launcher.
-- `onQuery` `+!<path>` → `renderCreateConfirmRows(path)`: **Cancel** (`query`
-  back to `"+"..path.." "`, the editable menu) and **"Create entry now"**
-  (`newrun:<path>`). Static rows.
+- `onQuery` `+!<path>` → `renderCreateConfirmRows(path)`: **"Create entry now"**
+  (`newrun:<path>`) and **Cancel** (`query` back to `"+"..path.." "`, the editable
+  menu). Static rows.
 - `onActivate` `newrun:<path>` → `newEntry(path)`: re-`trim`s and rejects an
   empty / trailing-`/` path (`notification.create-failed`). Then repeats the
   `test -e <storeDir>/<path>.gpg` guard as a TOCTOU safety net (and for a
@@ -404,11 +460,11 @@ Its own `+` prefix (never produced by browsing), `+!` for the confirm step
   "does not exist" proceeds; exit 0 → `notification.create-exists`, anything
   else → `notification.create-failed`. On "proceed": close the panel, run
   `pass generate <path>` (no `-i` — brand-new entry, encrypt only, no pinentry;
-  `pass` still rejects `..`; `DECRYPT_TIMEOUT_MS` safety net). On success
+  `pass` still rejects `..`; via `runUnbounded`). On success
   `buildIndex(nil)` (new entry enters the store index); then if `terminalArgv()`
   resolves, spawn `pass edit <path>` in that terminal (EDITOR from
-  `editorCommand`, as in `editEntry`) with **`EDIT_TIMEOUT_MS`** — omitting the
-  bound lets a short runAsync default kill the terminal mid-edit. The launcher
+  `editorCommand`, as in `editEntry`) via **`runUnbounded`** — runAsync's 60 s
+  ceiling would kill the terminal mid-edit. The launcher
   **stays closed** either way; the only completion signal is
   `notification.created`, fired when `pass edit` returns (or right after
   `pass generate` when there is no terminal). No reopen into the detail view —
@@ -418,7 +474,7 @@ Its own `+` prefix (never produced by browsing), `+!` for the confirm step
 in the Noctalia source fires `shell.launcher.auto_paste` only when
 `provider.supportsAutoPaste()`, which `PluginLauncherProvider` never overrides;
 there is no manifest key / `noctalia.*` call / `noctalia msg` command to flip it.
-`wtype` is the only insertion path this plugin has.
+The typing backend (`ydotool` / `wtype`) is the only insertion path this plugin has.
 
 ### The pinentry dance
 
@@ -429,8 +485,8 @@ window, so the panel is closed and reopened via CLI IPC:
 `noctalia msg panel-close launcher` / `noctalia msg panel-open launcher
 <context>` (safe to call when already closed).
 
-`fetchDetail` races `pass show` (`runAsync(passArgv{...}, cb,
-DECRYPT_TIMEOUT_MS)` — 5 min, a safety net for a slow passphrase / hardware key)
+`fetchDetail` races `pass show` (`runUnbounded(passArgv{...}, cb)` — no
+timeout, so a slow passphrase / hardware-key touch is never cut short)
 against a `{"sleep", <pinentryGraceMs/1000>}` (default 50 ms — lower values let a
 real pinentry dialog take focus more easily but flicker the launcher more often;
 higher values, ~200/300 ms, keep the launcher steadier but give a pinentry
@@ -443,7 +499,7 @@ text`, which the host re-delivers as a fresh `onQuery` that finds the now-warm
 `detailCache` and re-renders. `<leader>` is
 `noctalia.getSetting("shell.launcher.provider_prefix")` (fallback `">"`) —
 **never hardcode it**, or the reopened context isn't recognised as a command.
-`copyViaPass` / `typeViaWtype` sidestep all this by closing the launcher up front
+`copyViaPass` / `typeViaBackend` sidestep all this by closing the launcher up front
 and never reopening.
 
 The reopen is **conditional on the decrypt succeeding**. If `pass show` exits
@@ -471,9 +527,9 @@ Do not regress these without a deliberate reason:
    search *and* the detail row filter.
 3. **Detail rows** — Copy Password, Copy OTP (**only if** the body has
    `otpauth://`), Copy Username, then Copy for each remaining `key: value` field
-   in file order; a Type counterpart for each when `wtype` is present; an
+   in file order; a Type counterpart for each when the typing backend is present; an
    "Autotype" row between the Username row(s) and the first field row when
-   `autotypeEnabled` is on and `wtype` is present; an "Edit" row after all of
+   `autotypeEnabled` is on and the typing backend is present; an "Edit" row after all of
    those when a terminal resolves (`terminalArgv()`); a "Generate" row after
    Edit (always); a "Go back" row. Order/grouping of Copy vs Type per
    `detailActionOrder` / `detailActionGrouping`; value order is fixed. Autotype
@@ -497,11 +553,15 @@ Do not regress these without a deliberate reason:
 6. **Clipboard timeout** — `clipTimeout` setting (positive int) wins, else
    `PASSWORD_STORE_CLIP_TIME` env, else `pass`'s default. Applies to Copy
    Password / Copy OTP (`pass -c` / `pass otp -c`).
-7. **Typing** — `sleep(typeDelay/1000)` then `wtype -d <wtypeDelay>`. Both are ms.
+7. **Typing** — `sleep(typeDelay/1000)` then the preferred backend's text step:
+   `ydotool type -e 0 -d <keyDelay> -- <value>` or `wtype -d <keyDelay> --
+   <value>`. Both are ms. Values are typed verbatim (ydotool escapes off). If
+   the preferred backend is not installed or reports itself unavailable on the
+   first step, the other installed backend runs the same steps.
 8. **Store path** — `storePath` setting or `~/.password-store` (expanded),
    exported as `PASSWORD_STORE_DIR` on every `pass` call.
 9. **OTP copy vs type** — `pass otp -c` for copy (with clip env), `pass otp` +
-   `wtype` for type.
+   the typing backend for type.
 10. **Notifications** — a "Copied to clipboard" notice after a successful copy.
 11. **i18n** — no hard-coded user-facing strings; every string through
     `noctalia.tr`, every key in every locale file.
@@ -544,8 +604,10 @@ should survive into future changes:
   (`settings.detail-action-order.options.copy`) — the plugin-store validator
   rejects any uppercase or dotted-into-one segment in `translations/*.json`
   keys and in `label_key` / `description_key` values.
-- **Twelve settings.** `storePath` (folder), `clipTimeout` (string — kept a
-  string so `""` means "fall back to env"), `typeDelay` / `wtypeDelay` /
+- **Thirteen settings.** `storePath` (folder), `clipTimeout` (string — kept a
+  string so `""` means "fall back to env"), `typeBackend` (select
+  `ydotool`/`wtype`, default `ydotool` — the *preferred* backend, the other is
+  an automatic fallback), `typeDelay` / `keyDelay` /
   `pinentryGraceMs` (int, `advanced`), `detailActionOrder` /
   `detailActionGrouping` (select, `advanced`), `terminalCommand` (string,
   `advanced` — `""` means auto-detect the terminal for the Edit action),
@@ -592,16 +654,44 @@ should survive into future changes:
   segment) — then that one folder leads, since the user clearly meant to drill
   in. It's an ordered exact check, not "all segments hit somewhere", so `a b`
   won't count as fully typing `b/a`.
-- **`typeValue` passes the secret as a positional arg after `wtype … --`**, not
-  over a `printf %s '<val>' | wtype -` pipe. Argv-only means no shell, no
-  single-quote escaping, and a value with a leading `-` is still literal text.
-- **Autotype is a chain of one-shot `wtype` processes, not a single call.**
-  `wtype`'s grammar is `[OPTION_OR_TEXT]… -- [TEXT]…` with one terminal `--`, so
-  once you switch to literal-text mode for an arbitrary value you can't emit a
-  `-k` key after it. Each username/password/OTP segment therefore gets its own
-  `wtype … -- <value>` and each separator/Enter its own `wtype -k <keysym>`,
-  run in sequence (`runWtypeSteps`); the alternative — bare text args before
-  `--` — would misparse a value starting with `-` as an option.
+- **Two selectable typing backends, `ydotool` by default** (since v2.7.0).
+  Issue #995 asked to drop `wtype` (unmaintained, mistypes some punctuation —
+  atx/wtype#71) for `ydotool` (`/dev/uinput` via `ydotoold`). But `ydotool type` assumes a US layout, which breaks symbols for
+  anyone on another layout, while `wtype` is layout agnostic — neither strictly
+  wins, so `typeBackend` picks the *preferred* one. Backend differences live
+  only in `TYPE_BACKENDS`; every Type / Autotype / quick-action path goes
+  through `runTypeSteps`. There is no native alternative (see *Open Points*).
+- **The non-preferred backend is an automatic fallback, decided per action
+  by trying.** The default (ydotool) silently doesn't work until the user sets
+  up `ydotoold`, so a user with wtype installed would otherwise get failures
+  out of the box. Probing ahead (socket file, `processMatches("ydotoold")`)
+  can be stale or wrong (custom `YDOTOOL_SOCKET`, user vs system service);
+  the backend's own connect error is authoritative and arrives before any key
+  is sent, so retrying the identical step list on the next backend can't
+  double-type. Only step-1 "unavailable" failures fall back — a failure
+  mid-chain means text was already typed, so it aborts instead.
+- **`typeValue` passes the secret as a positional arg after `… --`**, not over
+  a `printf %s '<val>' | …` pipe. Argv-only means no shell, no single-quote
+  escaping, and a value with a leading `-` is still literal text. For ydotool,
+  `-e 0` disables its argv backslash-escape processing so `\` sequences in a
+  secret are typed verbatim.
+- **Autotype is a chain of one-shot backend processes, not a single call.**
+  ydotool: text (`type`) and keys (`key`) are different subcommands, and the
+  escape-based `\t` / `\n` shortcut is unusable once `-e 0` is set. wtype: one
+  terminal `--`, after which everything is text, so no `-k` can follow an
+  arbitrary value; bare text before `--` would misparse a leading `-`. Each
+  username/password/OTP segment therefore gets its own text step and each
+  separator/Enter its own key step, run in sequence (`runTypeSteps`).
+- **User-paced runs use `runStream` + an exit marker, not `runAsync`.**
+  `runAsync`'s timeout is clamped to 60 s and expiry kills the process group,
+  so the earlier 5 min decrypt / 24 h edit bounds were silently cut to a minute
+  — killing the Edit terminal with its unsaved buffer, and any pinentry wait
+  past 60 s. `runStream` is the only unbounded primitive; it lacks an exit
+  status and stderr, which `runUnbounded` restores with a marker line and a
+  stderr side file. Decrypts were moved too (not just Edit), so a slow
+  passphrase / hardware key is never cut short. Cost: a wedged gpg-agent now
+  holds a stream slot until the plugin reloads — `runUnbounded` falls back to a
+  bounded `runAsync` when the 4 slots are taken.
 - **Copy/Type close the launcher up front and never reopen.** QML did the same
   (`launcher.close()` before `pass -c`); with the panel gone a pinentry prompt
   gets focus on its own, so these paths skip the close/reopen dance that
@@ -644,7 +734,7 @@ should survive into future changes:
   are shaped. `en.json` is canonical; every key must exist in all 11 locales
   (verified by regenerating all of them from one source whenever keys change).
 - **Native auto-paste** — verified unreachable from a plugin (see the pinentry /
-  actions sections). `wtype` is the fallback; a native path would need an
+  actions sections). The typing backend is the fallback; a native path would need an
   upstream `auto_paste` flag on the `[[launcher_provider]]` manifest block.
 
 ---
@@ -670,14 +760,16 @@ order is already the sorted order).
 
 | Call | Notes |
 |---|---|
-| `runAsync(argvOrString, cb [, timeoutMs])` | argv array = no shell; string = `sh -c`. `cb` gets `{exitCode, stdout, stderr, timedOut, stdoutTruncated, stderrTruncated}`. 3rd arg (undocumented but established across sibling plugins) bounds the run. No `env` option — prepend `env KEY=VAL …` argv elements. |
+| `runAsync(argvOrString, cb [, timeoutMs])` | argv array = no shell; string = `sh -c`. `cb` gets `{exitCode, stdout, stderr, timedOut, stdoutTruncated, stderrTruncated}`. 3rd arg bounds the run, **clamped to [50 ms, 60 s], 5 s when omitted**; on expiry the host SIGTERMs then SIGKILLs the child's whole process group. No `cb` = detached fire-and-forget. No `env` / stdin option — prepend `env KEY=VAL …` argv elements. Only for short runs; anything waiting on the user goes through `runUnbounded`. |
+| `runStream(shellString, onLine)` | `sh -c`, **no timeout**; `onLine(line)` per stdout line (`\r` stripped, a final unterminated line is dropped); no stderr, no exit callback. Max 4 live streams per VM; stopped on plugin reload. Returns false when refused. Wrapped by `runUnbounded`. |
+| `readFile(path)` / `removeFile(path)` | sync; absolute paths as-is. `runUnbounded`'s stderr side file. |
 | `getConfig(key)` | manifest setting value (default from the manifest) |
 | `getSetting("shell.launcher.provider_prefix")` | host config; `plugin_api ≥ 26` |
 | `getenv(name)` / `expandPath(p)` | environment / `~` expansion |
 | `copyToClipboard(text, mime)` | `mime` is **mandatory** (`"text/plain"`) |
 | `notify(title, body)` / `notifyError(title, body)` | toasts |
 | `fuzzyScore(pattern, text)` | fzy scorer; `nil` on no match, `1024` on exact, else a `double`. Subsequence/order-dependent. |
-| `commandExists(name)` | probe optional deps (`wtype`) |
+| `commandExists(name)` | probe optional deps (the typing backend binary) |
 | `pluginDataDir()` | persistent per-plugin dir (the index file) |
 | `nowMs()` | monotonic ms |
 | `state.set(key, value)` / `state.get(key)` | cross-entry key-value the host brokers between a plugin's VMs — the only way the `[[service]]` VM sees the launcher VM's `currentEntry`. (`state.watch` exists too; unused here — `onIpc` reads `get` at call time.) |
@@ -700,6 +792,22 @@ to subprocesses (`grep`), parse only capped output, cap C-boundary calls
 - **String form = `sh -c`.** Needed only for pipes / redirects (`find … > file`,
   the `grep -iF` AND-chain). `shq(s)` single-quote-escapes; `reEsc(s)` escapes
   ERE metachars for a `grep -E` pattern.
+- **Long-running subprocesses → `runUnbounded(argv, cb)`.** `runAsync` is capped
+  at 60 s (see above), so every run that can wait on the user — `pass show` /
+  `pass -c` / `pass otp [-c]` / `pass generate [-i]` (pinentry, hardware key)
+  and the terminal running `pass edit` — goes through `runUnbounded` instead.
+  It builds `'arg'… </dev/null 2>'<errFile>'; printf '\n%s %d\n' '<marker>'
+  "$?"` from the argv (`shq` per element), runs it with `runStream`, collects
+  stdout lines until the marker line, then calls `cb` with a runAsync-shaped
+  `{exitCode, stdout, stderr, timedOut = false}` — `stdout` rebuilt exactly
+  (the leading `\n` terminates a final partial line), `stderr` read back from
+  `<pluginDataDir>/<marker>.err` and the file removed. The marker is
+  `__launcher_pass_exit_<VM_TAG>_<nowMs>_<seq>__`, `VM_TAG` a table address so
+  the launcher and service VMs (shared `pluginDataDir`) never collide. Ends on
+  the command's exit, not EOF. If `runStream` is missing or refuses (4-slot
+  cap), it logs and falls back to `runAsync(argv, cb, RUNASYNC_MAX_TIMEOUT_MS)`.
+  Short runs (`find`, `grep`, `test -e`, `sleep`, typing-backend steps,
+  `noctalia msg`) stay on `runAsync`.
 
 ---
 

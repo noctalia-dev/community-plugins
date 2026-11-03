@@ -5,33 +5,45 @@
     "stream_failed": "Could not start the media player status stream."
   },
   "settings": {
-    "playing_glyph": {
-      "description": "Glyph to display when a media player is playing",
-      "label": "Playing glyph"
-    },
-    "playing_color": {
-      "description": "Color to use for the playing status glyph",
-      "label": "Playing color"
-    },
-    "paused_glyph": {
-      "description": "Glyph to display when a media player is paused",
-      "label": "Paused glyph"
-    },
-    "paused_color": {
-      "description": "Color to use for the paused status glyph",
-      "label": "Paused color"
+    "hide_missing": {
+      "description": "Hide the media player indicator when no media player is running",
+      "label": "Hide Missing"
     },
     "hide_stopped": {
       "description": "Hide the media player indicator when playback is stopped",
       "label": "Hide Stopped"
     },
-    "stopped_glyph": {
-      "description": "Glyph to display when a media player is stopped",
-      "label": "Stopped glyph"
+    "missing_color": {
+      "description": "Color to use for the missing status glyph",
+      "label": "Missing color"
+    },
+    "missing_glyph": {
+      "description": "Glyph to display when no media player is running",
+      "label": "Missing glyph"
+    },
+    "paused_color": {
+      "description": "Color to use for the paused status glyph",
+      "label": "Paused color"
+    },
+    "paused_glyph": {
+      "description": "Glyph to display when a media player is paused",
+      "label": "Paused glyph"
+    },
+    "playing_color": {
+      "description": "Color to use for the playing status glyph",
+      "label": "Playing color"
+    },
+    "playing_glyph": {
+      "description": "Glyph to display when a media player is playing",
+      "label": "Playing glyph"
     },
     "stopped_color": {
       "description": "Color to use for the stopped status glyph",
       "label": "Stopped color"
+    },
+    "stopped_glyph": {
+      "description": "Glyph to display when a media player is stopped",
+      "label": "Stopped glyph"
     }
   }
 }

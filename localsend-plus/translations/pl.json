@@ -1,0 +1,211 @@
+{
+  "settings": {
+    "alias": {
+      "label": "Nazwa urządzenia",
+      "description": "Nazwa widoczna na innych urządzeniach. Puste pole: losowa nazwa."
+    },
+    "save_dir": {
+      "label": "Folder zapisu",
+      "description": "Gdzie trafiają odebrane pliki."
+    },
+    "dolphin_menu": {
+      "label": "Menu kontekstowe Dolphina",
+      "description": "Dodaje „Send with LocalSend Plus” do menu Dolphina dla plików i folderów. Wyłączenie usuwa tę pozycję."
+    },
+    "nautilus_menu": {
+      "label": "Menu kontekstowe Nautilusa",
+      "description": "Dodaje „Send with LocalSend Plus” do podmenu Skrypty w Nautilusie (Pliki) dla plików i folderów. Wyłączenie usuwa tę pozycję."
+    },
+    "nemo_menu": {
+      "label": "Menu kontekstowe Nemo",
+      "description": "Dodaje „Send with LocalSend Plus” do menu Nemo dla plików i folderów. Wyłączenie usuwa tę pozycję."
+    },
+    "terminal_command": {
+      "label": "Komenda localsend w terminalu",
+      "description": "Dodaje komendę „localsend PLIK... [URZĄDZENIE]” jako ~/.local/bin/localsend, z uzupełnianiem Tab dla fish, bash i zsh (zsh potrzebuje jednej linii z fpath, zob. README). Konfiguracja powłoki zostaje nietknięta; wyłączenie usuwa te pliki."
+    },
+    "port": {
+      "label": "Port LocalSend",
+      "description": "Jeśli aplikacja LocalSend używa tego samego portu, najpierw ją zamknij."
+    },
+    "visibility": {
+      "label": "Widoczność",
+      "description": "Kto może cię znaleźć i wysłać ci pliki. Zmiana tutaj działa od razu. Panel i launcher mogą ją potem zmienić, a plugin pamięta ostatni wybór."
+    },
+    "auto_accept": {
+      "label": "Automatyczny odbiór plików",
+      "description": "Przyjmuje pliki bez pytania. Wiadomości tekstowe zawsze czekają na decyzję. Domyślnie od ulubionych. „Od każdego z PIN-em” wymaga PIN-u odbioru z co najmniej 8 znakami (ten sam przełącznik jest w karcie PIN). Bez niego działa jak „od ulubionych”."
+    },
+    "device_model": {
+      "label": "Model urządzenia",
+      "description": "Widoczny na innych urządzeniach pod nazwą. Puste pole oznacza nazwę twojej dystrybucji."
+    },
+    "controller_path": {
+      "label": "Ścieżka kontrolera",
+      "description": "Który localsend-controller uruchamiać. Puste pole: szukanie w PATH, ~/.cargo/bin i ~/.local/bin."
+    }
+  },
+  "panel": {
+    "title": "LocalSend Plus",
+    "refresh": "Odśwież urządzenia",
+    "settings": "Ustawienia",
+    "starting": "Uruchamianie odbiornika…",
+    "retry": "Spróbuj ponownie",
+    "nearby": "Urządzenia w pobliżu",
+    "no_devices": "Nie znaleziono urządzeń. Otwórz LocalSend na innym urządzeniu w tej sieci.",
+    "offline": "Urządzenie dawno się nie zgłaszało. Najpierw odśwież listę.",
+    "send_files": "Wyślij pliki do {name}",
+    "send_folder": "Wyślij folder do {name}",
+    "send_clipboard": "Wyślij schowek (tekst albo skopiowane pliki) do {name}",
+    "pick_files": "Wyślij pliki do {name}",
+    "pick_folder": "Wyślij folder do {name}",
+    "incoming_from": "{name} chce coś wysłać",
+    "text_hint": "Akceptacja skopiuje tekst do schowka.",
+    "accept": "Akceptuj",
+    "decline": "Odrzuć",
+    "cancel": "Anuluj",
+    "transfers": "Transfery",
+    "clear_history": "Wyczyść zakończone transfery",
+    "pin": "Przypnij do ulubionych",
+    "pin_auto": "Przypnij do ulubionych. Pliki od ulubionych są przyjmowane bez pytania.",
+    "unpin": "Odepnij",
+    "from": "Od {name}",
+    "to": "Do {name}",
+    "more": "i {count} więcej",
+    "open_folder": "Otwórz folder",
+    "in_clipboard": "Skopiowano do schowka",
+    "text_message": "Wiadomość tekstowa",
+    "visible_as": "Widoczny jako {name}",
+    "saving_to": "Zapis do {dir}",
+    "clip_confirm": "Wysłać schowek do {name}?",
+    "clip_send": "Wyślij",
+    "clip_loading": "Wczytywanie schowka…",
+    "clip_empty": "Schowek jest pusty albo nie zawiera tekstu.",
+    "text_long": "Podgląd pokazuje tylko początek, do schowka trafi całość ({size}). Sprawdź ją przed wklejeniem do terminala.",
+    "fingerprint": "Odcisk: {fp}…",
+    "reported_alias": "Urządzenie podaje teraz nazwę: {name}",
+    "impostor": "To nie jest Twoje przypięte urządzenie, choć ma taką samą nazwę.",
+    "visible_favorites": "Widoczny dla ulubionych jako {name}",
+    "hidden_as": "Ukryty ({name})",
+    "install_hint": "Zbuduj go ze źródeł dołączonych do pluginu. Skrypt aktualizacji sprawdzi Rusta i kompilator C, podpowie, jak doinstalować brakujące, zbuduje kontroler i uruchomi LocalSend ponownie. Możesz go też uruchomić w dowolnym terminalu:",
+    "update_in_terminal": "Zaktualizuj w terminalu",
+    "copy_command": "Kopiuj polecenie",
+    "files_confirm": "Wysłać skopiowane pliki ({count}) do {name}?",
+    "files_not_local": "Schowek zawiera odnośniki, które nie są lokalnymi plikami, więc nie ma czego wysłać.",
+    "send_ask": "Wyślij elementy ({count}) do…",
+    "add_device": "Dodaj urządzenie po adresie",
+    "add_desc": "Dla sieci, w których urządzenia się nie widzą. To urządzenie przedstawi się pod tym adresem.",
+    "add_placeholder": "192.168.1.20 albo telefon.lan:53317",
+    "add": "Dodaj",
+    "from_folders": "Z folderów: {folders}"
+  },
+  "status": {
+    "preparing": "Oczekuje",
+    "transferring": "W toku",
+    "cancelling": "Anulowanie",
+    "completed": "Gotowe",
+    "declined": "Odrzucone",
+    "cancelled": "Anulowane",
+    "failed": "Błąd"
+  },
+  "launcher": {
+    "open": "Otwórz panel",
+    "send_files": "Wyślij pliki do {name}",
+    "send_folder": "Wyślij folder do {name}",
+    "send_clipboard": "Wyślij schowek do {name}",
+    "visibility": "Widoczność: {mode}",
+    "current": "LocalSend Plus · aktualnie",
+    "visibility_words": "widoczność widoczny ukryj ukryty schowaj ulubione visibility visible hide hidden favorites"
+  },
+  "widget": {
+    "tooltip": "LocalSend Plus",
+    "request": "Prośba o przesłanie",
+    "active": "Transfery w toku: {count}",
+    "visibility": "Widoczność: {mode}"
+  },
+  "notify": {
+    "title": "LocalSend Plus",
+    "incoming": "{name} chce wysłać pliki: {count}",
+    "incoming_text": "{name} chce wysłać wiadomość",
+    "received": "Odebrano pliki od {name}: {count}",
+    "sent": "Wysłano pliki do {name}: {count}",
+    "text_copied": "Wiadomość od {name} skopiowana do schowka",
+    "declined": "{name} odrzucił transfer",
+    "failed": "Transfer z {name} nie powiódł się. {reason}",
+    "temp_ended": "Koniec tymczasowej widoczności. Teraz: {mode}",
+    "auto_receiving": "Odbiór plików ({count}) od {name} (przyjęte automatycznie)",
+    "pin_required": "{name} prosi o PIN. Wpisz go w panelu, żeby wysłać ponownie.",
+    "pin_invalid": "Błędny PIN dla {name}. Spróbuj ponownie w panelu.",
+    "device_added": "Znaleziono {name}. Przypnij, żeby zostało na liście."
+  },
+  "error": {
+    "port_busy": "Nie udało się otworzyć portu {port}. Zamknij aplikację LocalSend albo zmień port w ustawieniach.",
+    "already_running": "Inny kontroler już używa gniazda.",
+    "no_runtime_dir": "Brak zmiennej XDG_RUNTIME_DIR.",
+    "not_answering": "Odbiornik przestał odpowiadać. Restart…",
+    "no_ready": "Odbiornik nie uruchomił się na czas.",
+    "stopped": "Odbiornik nieoczekiwanie się zatrzymał.",
+    "unknown": "Nieznany błąd.",
+    "no_zenity": "Brak programu zenity, potrzebnego do wyboru plików.",
+    "bad_selection": "Wybór plików zwrócił nieprawidłową ścieżkę. Nic nie wysłano.",
+    "clipboard_secret": "Schowek zawiera hasło z menedżera haseł, więc nie został wysłany.",
+    "clipboard_changed": "Schowek zmienił się po podglądzie albo nie został odczytany, więc nic nie wysłano. Otwórz podgląd ponownie.",
+    "insufficient_space": "Za mało wolnego miejsca w folderze zapisu. Przesyłanie nie zostało przyjęte.",
+    "no_controller": "localsend-controller nie jest zainstalowany.",
+    "no_terminal": "Nie znaleziono terminala. Skopiuj polecenie i uruchom je w terminalu.",
+    "old_controller": "localsend-controller {found} jest za stary; ten plugin wymaga {needed}.",
+    "bad_controller": "{path} nie podał wersji localsend-controller.",
+    "pin_required": "Odbiorca prosi o PIN.",
+    "pin_invalid": "Błędny PIN.",
+    "pin_locked": "Za dużo błędnych PIN-ów. LocalSend u odbiorcy musi się zrestartować, zanim spróbujesz ponownie.",
+    "bad_path": "To nie jest istniejący plik ani folder: {path}",
+    "line_break": "Nazwa pliku zawiera znak nowej linii. Wyślij ten plik z panelu albo z terminala.",
+    "no_paths": "Nie ma czego wysłać. Podaj ścieżki bezwzględne, po jednej w wierszu.",
+    "bad_address": "Wpisz adres w rodzaju 192.168.1.20 albo telefon.lan:53317.",
+    "device_unreachable": "Pod adresem {address} nie odpowiedziało żadne urządzenie LocalSend. Sprawdź, czy LocalSend jest tam otwarty z włączonym szyfrowaniem.",
+    "no_data_dir": "Noctalia nie dała pluginowi katalogu na dane.",
+    "data_not_private": "Nie udało się zamknąć katalogu danych pluginu przed innymi, więc PIN nie został zapisany.",
+    "picker_open": "Okno wyboru plików jest już otwarte.",
+    "receive_stalled": "Nadawca przestał wysyłać, więc odbiór został anulowany.",
+    "install_extra": "Nie udało się zapisać {path}: {reason}",
+    "extra_exists": "{path} już istnieje i zawiera coś innego, więc plugin go nie ruszył. Usuń go albo zmień nazwę, potem wyłącz i włącz ustawienie.",
+    "extra_kept": "Plugin nie usunął plików zmienionych po instalacji: {path}"
+  },
+  "visibility": {
+    "everyone": "Wszyscy",
+    "favorites": "Tylko ulubione",
+    "hidden": "Ukryty",
+    "short_everyone": "Wszyscy",
+    "short_favorites": "Ulubione",
+    "short_hidden": "Ukryty",
+    "temp": "Wszyscy przez 10 min",
+    "title": "Widoczność: {mode}",
+    "temp_left": "Wszyscy jeszcze przez {minutes} min, potem: {mode}",
+    "change": "Zmień widoczność",
+    "desc_everyone": "Widzą cię wszystkie urządzenia w sieci i każde może spróbować ci coś wysłać.",
+    "desc_favorites": "Nie ogłaszasz się w sieci. Wysyłać mogą tylko przypięte urządzenia - prośby od innych są odrzucane. Aktywny skan sieci wciąż pokaże twoją nazwę. Pełne ukrycie daje tryb Ukryty.",
+    "desc_hidden": "Odbiornik wyłączony: nikt cię nie znajdzie ani nic ci nie wyśle. Wysyłać możesz dalej - Odśwież pyta tylko ulubione, które wtedy się o tobie dowiadują.",
+    "no_favorites": "Nie masz jeszcze przypiętych urządzeń, więc nikt nie może ci teraz nic wysłać.",
+    "draining": "Odbiornik wyłączy się po zakończeniu trwającego odbioru."
+  },
+  "auto_accept": {
+    "off": "Wyłączony",
+    "favorites": "Od ulubionych",
+    "everyone": "Od każdego z PIN-em",
+    "active": "Pliki od każdego, kto poda dobry PIN, są przyjmowane bez pytania. Zmienisz to w karcie PIN albo w ustawieniach.",
+    "needs_pin": "Automatyczny odbiór od wszystkich wymaga PIN-u odbioru z co najmniej 8 znakami. Dopóki go nie ustawisz, automatycznie przyjmowane są tylko ulubione."
+  },
+  "pin": {
+    "on": "PIN odbioru włączony",
+    "off": "Brak PIN-u odbioru",
+    "desc": "Nadawca musi podać ten PIN, zanim jego prośba do ciebie dotrze. PIN jest zapisany tylko na tym komputerze. Trzy błędne próby z jednego adresu blokują ten adres do restartu odbiornika. Nadawca, który zmienia adresy, może zgadywać dalej, więc przy odbiorze bez pytania użyj co najmniej 8 znaków.",
+    "placeholder": "Nowy PIN",
+    "change_placeholder": "Nowy PIN (zastąpi obecny)",
+    "set": "Ustaw PIN",
+    "remove": "Usuń PIN",
+    "invalid": "PIN ma od 1 do 64 znaków.",
+    "receiver_placeholder": "PIN odbiorcy",
+    "send": "Wyślij z PIN-em",
+    "auto": "Przyjmuj pliki bez pytania, gdy PIN jest poprawny (tekst nadal pyta)"
+  }
+}

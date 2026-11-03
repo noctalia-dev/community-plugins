@@ -1,6 +1,6 @@
 id = "ismay/media-player-icon"
 name = "Media Player Icon"
-version = "1.0.0"
+version = "1.1.0"
 plugin_api = 24
 author = "ismay"
 license = "MIT"
@@ -67,6 +67,29 @@ right = "panel-open control-center media"
     description_key = "settings.stopped_color.description"
     default = "on_surface"
     visible_when = { key = "hide_stopped", values = ["false"] }
+
+    [[widget.setting]]
+    key = "hide_missing"
+    type = "bool"
+    label_key = "settings.hide_missing.label"
+    description_key = "settings.hide_missing.description"
+    default = true
+
+    [[widget.setting]]
+    key = "missing_glyph"
+    type = "glyph"
+    label_key = "settings.missing_glyph.label"
+    description_key = "settings.missing_glyph.description"
+    default = "disc"
+    visible_when = { key = "hide_missing", values = ["false"] }
+
+    [[widget.setting]]
+    key = "missing_color"
+    type = "color"
+    label_key = "settings.missing_color.label"
+    description_key = "settings.missing_color.description"
+    default = "on_surface_variant"
+    visible_when = { key = "hide_missing", values = ["false"] }
 
 [[service]]
 id = "service"

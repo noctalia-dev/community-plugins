@@ -1,0 +1,45 @@
+{
+  "settings": {
+    "backend": {
+      "label": "Backend command",
+      "description": "Path of the internal-keyboard CLI installed by setup.sh. Only change it if you installed the backend somewhere else."
+    },
+    "show_osd": {
+      "label": "Show OSD popup",
+      "description": "Show the Noctalia popup with the new state whenever the keyboard is switched."
+    },
+    "poll_interval": {
+      "label": "Refresh interval (ms)",
+      "description": "How often the tile and the widget re-read the keyboard state."
+    },
+    "device": {
+      "label": "Keyboard",
+      "description": "Exact device name to switch; leave empty for the keyboard setup.sh picked. Run `internal-keyboard devices` in a terminal to list the names."
+    }
+  },
+  "shortcut": {
+    "state": {
+      "on": "Keyboard On",
+      "off": "Keyboard Off"
+    }
+  },
+  "widget": {
+    "tooltip": {
+      "state": "Built-in keyboard",
+      "device": "Device"
+    }
+  },
+  "notify": {
+    "failed": {
+      "title": "Internal keyboard switch failed",
+      "hint": "Check /etc/sudoers.d/internal-keyboard and /etc/udev/rules.d/90-internal-keyboard.rules."
+    },
+    "select": {
+      "title": "Cannot switch that keyboard"
+    },
+    "setup": {
+      "title": "Internal Keyboard needs setup",
+      "hint": "Run this once in a terminal, then reload the plugin: sudo %s/setup.sh"
+    }
+  }
+}

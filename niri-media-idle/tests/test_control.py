@@ -238,7 +238,7 @@ if os.environ.get("FAKE_SYSTEMD_RUN_NO_CHANGE") != "1":
 
     def test_manifest_settings_and_state_tooltips(self) -> None:
         manifest = tomllib.loads((PLUGIN_DIR / "plugin.toml").read_text(encoding="utf-8"))
-        self.assertEqual(manifest["version"], "1.2.0")
+        self.assertEqual(manifest["version"], "1.3.0")
         setting = next(
             item for item in manifest["setting"] if item["key"] == "auto_start"
         )

@@ -39,7 +39,7 @@ local function render()
       width = ART,
       height = ART,
       radius = 14,
-      fill = "surface_variant",
+      fill = "surface_container",
       align = "center",
       justify = "center",
     }, {
@@ -78,7 +78,7 @@ local function render()
         radius = 2,
         flexGrow = 1,
         fill = "primary",
-        track = "surface_variant",
+        track = "surface_container",
       }),
       ui.label({
         text = remaining,

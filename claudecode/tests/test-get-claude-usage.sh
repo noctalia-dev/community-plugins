@@ -16,6 +16,10 @@ assert_match() {
     if echo "$1" | grep -qE "$2"; then pass "$3"; else fail "$3 (no match for '$2')"; fi
 }
 
+# The script caches per-file rows under $XDG_CACHE_HOME (default $HOME/.cache). Every
+# test overrides HOME; drop any inherited XDG_CACHE_HOME so no run touches the real cache.
+unset XDG_CACHE_HOME
+
 # --- Setup isolated environment ---
 TMPDIR_ROOT=$(mktemp -d)
 trap 'rm -rf "$TMPDIR_ROOT"' EXIT
@@ -42,11 +46,19 @@ run_script() {
 }
 
 # Build a JSONL fixture line
-# Usage: make_jsonl_line <date> <model> <input> <output> <cache_read> <cache_write> <sessionId>
+# Usage: make_jsonl_line <date> <model> <input> <output> <cache_read> <cache_write> <sessionId> [msgId]
+# Without msgId the line carries no message.id, like the fixtures written before dedup.
 make_jsonl_line() {
-    local date="$1" model="$2" inp="$3" out="$4" cr="$5" cw="$6" sess="$7"
-    printf '{"type":"assistant","timestamp":"%sT12:00:00Z","sessionId":"%s","message":{"model":"%s","usage":{"input_tokens":%d,"output_tokens":%d,"cache_read_input_tokens":%d,"cache_creation_input_tokens":%d}}}\n' \
-        "$date" "$sess" "$model" "$inp" "$out" "$cr" "$cw"
+    local date="$1" model="$2" inp="$3" out="$4" cr="$5" cw="$6" sess="$7" msg_id="${8:-}"
+    local id_field=""
+    [ -n "$msg_id" ] && id_field="\"id\":\"${msg_id}\","
+    printf '{"type":"assistant","timestamp":"%sT12:00:00Z","sessionId":"%s","message":{%s"model":"%s","usage":{"input_tokens":%d,"output_tokens":%d,"cache_read_input_tokens":%d,"cache_creation_input_tokens":%d}}}\n' \
+        "$date" "$sess" "$id_field" "$model" "$inp" "$out" "$cr" "$cw"
+}
+
+# The rows cache for a test env's default profile.
+rows_cache_dir() {
+    echo "$1/.cache/noctalia-claudecode/rows-v1$1/.claude/projects"
 }
 
 # ============================================================
@@ -985,6 +997,167 @@ assert_eq "$HITS28" "1" "a rejected refresh token is tried once, not on every ru
 
 DEAD_RT=$(jq -r '.claudeAiOauth.refreshToken' "$ENV28/.claude/.credentials.json")
 assert_eq "$DEAD_RT" "dead-refresh" "credentials are untouched after a rejected refresh"
+
+# ============================================================
+echo "=== Test 29: one API response split over several lines is counted once ==="
+# ============================================================
+ENV29=$(setup_env "test29")
+{
+    make_jsonl_line "$TODAY" "claude-sonnet-4-20250514" 100 50 0 0 "sess-d" "msg_a"
+    make_jsonl_line "$TODAY" "claude-sonnet-4-20250514" 100 50 0 0 "sess-d" "msg_a"
+    make_jsonl_line "$TODAY" "claude-sonnet-4-20250514" 100 50 0 0 "sess-d" "msg_a"
+    make_jsonl_line "$TODAY" "claude-sonnet-4-20250514" 10 10 0 0 "sess-d" "msg_b"
+} > "$ENV29/.claude/projects/test-project/test.jsonl"
+OUTPUT29=$(run_script "$ENV29")
+assert_eq "$(echo "$OUTPUT29" | grep "^WEEK_TOKENS=" | cut -d= -f2)" "170" "duplicate message.id lines counted once"
+assert_eq "$(echo "$OUTPUT29" | grep "^WEEK_MESSAGES=" | cut -d= -f2)" "2" "duplicate message.id lines are one message"
+
+# ============================================================
+echo "=== Test 30: duplicates with growing output_tokens keep the largest ==="
+# ============================================================
+ENV30=$(setup_env "test30")
+{
+    make_jsonl_line "$TODAY" "claude-sonnet-4-20250514" 2 8 0 100 "sess-g" "msg_g"
+    make_jsonl_line "$TODAY" "claude-sonnet-4-20250514" 2 139 0 100 "sess-g" "msg_g"
+    make_jsonl_line "$TODAY" "claude-sonnet-4-20250514" 2 40 0 100 "sess-g" "msg_g"
+} > "$ENV30/.claude/projects/test-project/test.jsonl"
+OUTPUT30=$(run_script "$ENV30")
+assert_eq "$(echo "$OUTPUT30" | grep "^WEEK_TOKENS=" | cut -d= -f2)" "241" "the line with the largest output_tokens wins"
+
+# ============================================================
+echo "=== Test 31: the same message in two files (resumed session) is counted once ==="
+# ============================================================
+ENV31=$(setup_env "test31")
+make_jsonl_line "$TODAY" "claude-sonnet-4-20250514" 100 100 0 0 "sess-1" "msg_r" > "$ENV31/.claude/projects/test-project/one.jsonl"
+{
+    make_jsonl_line "$TODAY" "claude-sonnet-4-20250514" 100 100 0 0 "sess-2" "msg_r"
+    make_jsonl_line "$TODAY" "claude-sonnet-4-20250514" 5 5 0 0 "sess-2" "msg_s"
+} > "$ENV31/.claude/projects/test-project/two.jsonl"
+OUTPUT31=$(run_script "$ENV31")
+assert_eq "$(echo "$OUTPUT31" | grep "^WEEK_TOKENS=" | cut -d= -f2)" "210" "a message copied into a second file is counted once"
+
+# ============================================================
+echo "=== Test 32: an unchanged history is served from the cache ==="
+# ============================================================
+ENV32=$(setup_env "test32")
+{
+    make_jsonl_line "$TODAY" "claude-sonnet-4-20250514" 100 100 0 0 "sess-c" "msg_1"
+} > "$ENV32/.claude/projects/test-project/test.jsonl"
+OUTPUT32A=$(run_script "$ENV32")
+CACHE32=$(rows_cache_dir "$ENV32")
+FILES32A=$(find "$CACHE32" -name '*.rows' -printf '%P %T@\n' 2>/dev/null | sort)
+assert_eq "$(echo "$FILES32A" | grep -c '^test-project/test.jsonl\.')" "1" "one stamped cache file per source file"
+OUTPUT32B=$(run_script "$ENV32")
+FILES32B=$(find "$CACHE32" -name '*.rows' -printf '%P %T@\n' 2>/dev/null | sort)
+assert_eq "$OUTPUT32B" "$OUTPUT32A" "second run gives identical output"
+assert_eq "$FILES32B" "$FILES32A" "second run does not rewrite the cache"
+# Prove the second run read the cache, not the source: change a cached row in place.
+sed -i 's/ 100 100 / 300 300 /' "$CACHE32"/test-project/test.jsonl.*.rows
+OUTPUT32C=$(run_script "$ENV32")
+assert_eq "$(echo "$OUTPUT32C" | grep "^WEEK_TOKENS=" | cut -d= -f2)" "600" "unchanged source files are not re-read"
+
+# ============================================================
+echo "=== Test 33: an appended file is re-read and its old cache entry dropped ==="
+# ============================================================
+ENV33=$(setup_env "test33")
+SRC33="$ENV33/.claude/projects/test-project/test.jsonl"
+make_jsonl_line "$TODAY" "claude-sonnet-4-20250514" 100 100 0 0 "sess-p" "msg_1" > "$SRC33"
+run_script "$ENV33" >/dev/null
+make_jsonl_line "$TODAY" "claude-sonnet-4-20250514" 50 50 0 0 "sess-p" "msg_2" >> "$SRC33"
+OUTPUT33=$(run_script "$ENV33")
+assert_eq "$(echo "$OUTPUT33" | grep "^WEEK_TOKENS=" | cut -d= -f2)" "300" "appended rows are counted"
+assert_eq "$(find "$(rows_cache_dir "$ENV33")" -name '*.rows' | wc -l)" "1" "the stale stamp is removed"
+
+# ============================================================
+echo "=== Test 34: a deleted file drops out of the totals and the cache ==="
+# ============================================================
+ENV34=$(setup_env "test34")
+make_jsonl_line "$TODAY" "claude-sonnet-4-20250514" 100 100 0 0 "sess-k" "msg_k" > "$ENV34/.claude/projects/test-project/keep.jsonl"
+make_jsonl_line "$TODAY" "claude-sonnet-4-20250514" 7 7 0 0 "sess-x" "msg_x" > "$ENV34/.claude/projects/test-project/gone.jsonl"
+run_script "$ENV34" >/dev/null
+rm "$ENV34/.claude/projects/test-project/gone.jsonl"
+OUTPUT34=$(run_script "$ENV34")
+assert_eq "$(echo "$OUTPUT34" | grep "^WEEK_TOKENS=" | cut -d= -f2)" "200" "a deleted file's tokens drop out"
+assert_eq "$(find "$(rows_cache_dir "$ENV34")" -name 'gone.jsonl.*' | wc -l)" "0" "a deleted file's cache entry is removed"
+
+# ============================================================
+echo "=== Test 35: a file with no assistant lines is still cached ==="
+# ============================================================
+ENV35=$(setup_env "test35")
+printf '{"type":"user","timestamp":"%sT12:00:00Z","sessionId":"s","message":{}}\n' "$TODAY" > "$ENV35/.claude/projects/test-project/user-only.jsonl"
+run_script "$ENV35" >/dev/null
+assert_eq "$(find "$(rows_cache_dir "$ENV35")" -name 'user-only.jsonl.*.rows' -empty | wc -l)" "1" "an empty stamped cache file marks it as read"
+
+# ============================================================
+echo "=== Test 36: an unwritable cache falls back to reading the history directly ==="
+# ============================================================
+ENV36=$(setup_env "test36")
+{
+    make_jsonl_line "$TODAY" "claude-sonnet-4-20250514" 100 100 0 0 "sess-f" "msg_f"
+    make_jsonl_line "$TODAY" "claude-sonnet-4-20250514" 100 100 0 0 "sess-f" "msg_f"
+} > "$ENV36/.claude/projects/test-project/test.jsonl"
+# A regular file where the cache directory should be: mkdir fails, as on a read-only HOME.
+printf 'not a directory' > "$ENV36/.cache"
+OUTPUT36=$(run_script "$ENV36")
+assert_eq "$(echo "$OUTPUT36" | grep "^WEEK_TOKENS=" | cut -d= -f2)" "200" "totals are right (and deduplicated) without a cache"
+
+# ============================================================
+echo "=== Test 37: a file with a NUL byte is still read ==="
+# ============================================================
+ENV37=$(setup_env "test37")
+{
+    printf '{"type":"user","junk":"\000"}\n'
+    make_jsonl_line "$TODAY" "claude-sonnet-4-20250514" 100 100 0 0 "sess-n" "msg_n"
+} > "$ENV37/.claude/projects/test-project/test.jsonl"
+OUTPUT37=$(run_script "$ENV37")
+assert_eq "$(echo "$OUTPUT37" | grep "^WEEK_TOKENS=" | cut -d= -f2)" "200" "grep does not treat the file as binary"
+
+# ============================================================
+echo "=== Test 38: a failed batch saves no cache files but keeps earlier batches ==="
+# ============================================================
+ENV38=$(setup_env "test38")
+for i in $(seq 1 150); do
+    make_jsonl_line "$TODAY" "claude-sonnet-4-20250514" 1 1 0 0 "sess-$i" "msg_$i" \
+        > "$ENV38/.claude/projects/test-project/$(printf 'f%03d' "$i").jsonl"
+done
+# A jq that fails the second cached-extraction batch (recognised by its index(":{") split)
+# and passes every other call through to the real jq.
+MOCK38="$TMPDIR_ROOT/mock38"
+mkdir -p "$MOCK38"
+REAL_JQ=$(command -v jq)
+cat > "$MOCK38/jq" << JQEOF
+#!/usr/bin/env bash
+case "\$*" in
+    *'index(":{")'*)
+        n=\$(( \$(cat "$MOCK38/count" 2>/dev/null || echo 0) + 1 ))
+        echo "\$n" > "$MOCK38/count"
+        if [ "\$n" -eq 2 ]; then cat >/dev/null; exit 5; fi ;;
+esac
+exec "$REAL_JQ" "\$@"
+JQEOF
+chmod +x "$MOCK38/jq"
+OUTPUT38=$(HOME="$ENV38" PATH="$MOCK38:$TMPDIR_ROOT:$PATH" bash "$SCRIPT" 2>/dev/null)
+CACHE38=$(rows_cache_dir "$ENV38")
+assert_eq "$(echo "$OUTPUT38" | grep "^WEEK_TOKENS=" | cut -d= -f2)" "300" "a failed batch falls back to reading the history directly"
+assert_eq "$(find "$CACHE38" -name '*.rows' | wc -l)" "100" "the batch saved before the failure is kept"
+assert_eq "$(find "$CACHE38" -name '*.rows.tmp.*' | wc -l)" "0" "the failed batch leaves no temp files"
+OUTPUT38B=$(run_script "$ENV38")
+assert_eq "$(echo "$OUTPUT38B" | grep "^WEEK_TOKENS=" | cut -d= -f2)" "300" "the next run finishes the cache"
+assert_eq "$(find "$CACHE38" -name '*.rows' | wc -l)" "150" "every file is cached after the next run"
+
+# ============================================================
+echo "=== Test 39: a tie between copies of a message resolves the same way every time ==="
+# ============================================================
+ENV39=$(setup_env "test39")
+# Same message in two sessions on two days; the copy with the smaller row (earlier date) wins.
+OTHER39=$(date -d "1 day ago" +%Y-%m-%d)
+make_jsonl_line "$TODAY" "claude-sonnet-4-20250514" 10 10 0 0 "sess-b" "msg_t" > "$ENV39/.claude/projects/test-project/a.jsonl"
+make_jsonl_line "$OTHER39" "claude-sonnet-4-20250514" 10 10 0 0 "sess-a" "msg_t" > "$ENV39/.claude/projects/test-project/b.jsonl"
+DAILY39A=$(run_script "$ENV39" | grep "^DAILY=")
+rm -rf "$ENV39/.cache"
+mv "$ENV39/.claude/projects/test-project/a.jsonl" "$ENV39/.claude/projects/test-project/c.jsonl"
+DAILY39B=$(run_script "$ENV39" | grep "^DAILY=")
+assert_eq "$DAILY39B" "$DAILY39A" "renaming files does not move the message to another day"
 
 # ============================================================
 echo ""

@@ -470,7 +470,7 @@
         "label": "Notifications · Default status filter"
       },
       "history_days": {
-        "description": "Only show notifications updated within this many recent days.",
+        "description": "Limits read notification history. Unread notifications are always included, regardless of age.",
         "label": "Notifications · History range (days)"
       },
       "mark_read_on_open": {
@@ -535,6 +535,9 @@
     "missing_gh": "GitHub CLI (gh) is required.",
     "missing_xdg_open": "xdg-open is required to open GitHub.",
     "notification_changed": "This notification has a newer update. Refresh and read the new content before marking it as read.",
+    "notification_refresh_failed": "Notification refresh could not be processed. It will retry automatically.",
+    "notification_refresh_timeout": "Notification refresh timed out. It will retry automatically.",
+    "notification_write_timeout": "Marking notifications as read timed out. Refresh to check their status before trying again.",
     "notifications_refreshing": "Refreshing notifications…",
     "preparing_contribution_calendar": "Preparing contribution calendar…",
     "request_error": "Some GitHub data could not be refreshed.",

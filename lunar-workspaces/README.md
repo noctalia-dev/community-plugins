@@ -88,7 +88,7 @@ or add it to your bar config manually (see Usage above).
 | Focused / Urgent / Occupied / Empty icon | file | 🌕 / 🌟 / 🌗 / 🌙 | Emoji, or an absolute path to an image or gif. Animated gifs need ImageMagick installed |
 | Focused / Urgent / Occupied / Empty size | int (8-64) | `22` / `20` / `18` / `16` | Icon size in pixels per state |
 | Focused / Urgent / Occupied / Empty pill background | select | `fill` / `fill` / `ghost` / `ghost` | `fill` (colored pill behind the icon) or `ghost` (bare icon, no background at all) |
-| Focused / Urgent / Occupied / Empty pill color | color | `primary` / `error` / `secondary` / `surface_variant` | Fill color, used when the matching pill background is `fill`. Accepts a palette role, a role with alpha (`primary/0.6`), or a hex color (`#rrggbbaa`) |
+| Focused / Urgent / Occupied / Empty pill color | color | `primary` / `error` / `secondary` / `surface_container` | Fill color, used when the matching pill background is `fill`. Accepts a palette role, a role with alpha (`primary/0.6`), or a hex color (`#rrggbbaa`) |
 
 ## IPC
 

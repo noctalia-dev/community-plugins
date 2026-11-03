@@ -1,7 +1,7 @@
 id           = "goodroot/noctwhspr"
 name         = "noctwhspr"
-version      = "1.0.0"
-plugin_api   = 3
+version      = "1.0.1"
+plugin_api   = 43
 author       = "goodroot"
 license      = "MIT"
 icon         = "microphone"

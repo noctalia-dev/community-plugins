@@ -308,7 +308,7 @@ local function renderDueEditor()
   local timeValues, timeLabels, timeIndex = timeSelectData()
   return ui.column({
     key = "due-editor-" .. tostring(dueEditor.generation),
-    fill = "surface_variant",
+    fill = "surface_container",
     radius = 10,
     padding = 10,
     gap = 6,
@@ -1638,7 +1638,7 @@ render = function()
     padding = 14,
     fill = "surface",
     radius = 16,
-    border = "outline",
+    border = "outline_variant",
     borderWidth = 1,
     flexGrow = 1,
   }, children))

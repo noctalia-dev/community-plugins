@@ -41,6 +41,19 @@ local function cfg(key, fallback)
   return v
 end
 
+-- runAsync fork()s the whole shell, ~13 ms at its ~550 MB, so two in one tick blew the 25 ms
+-- callback budget and the tick died before publishing. Queue them; poll() starts one per tick, last.
+-- ponytail: one fork per 2 s tick, so with N busy sessions each one's details lag up to ~2N s;
+-- batch transcripts into one details.sh call if that gets noticeable.
+local spawnQueue = {}
+local function spawn(argv, onResult, timeoutMs)
+  spawnQueue[#spawnQueue + 1] = { argv, onResult, timeoutMs }
+end
+local function spawnNext()
+  local job = table.remove(spawnQueue, 1)
+  if job and not noctalia.runAsync(job[1], job[2], job[3]) then job[2]({ exitCode = -1, stdout = "", stderr = "" }) end
+end
+
 local function normDir(dir)
   if type(dir) ~= "string" or dir == "" then return nil end
   return (string.gsub(noctalia.expandPath(dir), "/+$", ""))
@@ -74,7 +87,8 @@ local function refreshAccountInfo(a)
     a.email = type(info) == "table" and type(info.oauthAccount) == "table" and info.oauthAccount.emailAddress or nil
     a.infoStamp = stamp
   end
-  a.hashPending = noctalia.runAsync({ PLUGIN .. "/limits.sh", a.dir, "hash" }, function(r)
+  a.hashPending = true
+  spawn({ PLUGIN .. "/limits.sh", a.dir, "hash" }, function(r)
     a.hash = r.exitCode == 0 and noctalia.string.trim(r.stdout or "") or nil
     a.hashPending = false
   end, 5000)
@@ -119,7 +133,7 @@ local function discoverAccounts()
     if noctalia.fileExists(dir) then refreshAccountInfo(a) else accounts[dir] = nil; added = true end
   end
   if added then saveAccounts() end
-  noctalia.runAsync({ PLUGIN .. "/running.sh" }, function(r)
+  spawn({ PLUGIN .. "/running.sh" }, function(r)
     local found = false
     for line in string.gmatch(r.stdout or "", "[^\n]+") do found = addAccount(line) or found end
     if found then saveAccounts() end
@@ -194,7 +208,7 @@ local function fetchApiLimits(a)
   local api = a.api
   if api.pending then return end
   api.pending, api.lastTry = true, noctalia.nowMs()
-  local started = noctalia.runAsync({ PLUGIN .. "/limits.sh", a.dir, "fetch" }, function(r)
+  spawn({ PLUGIN .. "/limits.sh", a.dir, "fetch" }, function(r)
     api.pending = false
     local list = r.exitCode == 0 and noctalia.json.decode(r.stdout) or nil
     if type(list) == "table" then
@@ -205,7 +219,6 @@ local function fetchApiLimits(a)
       noctalia.log(`claude-sessions: limits API ({a.label}): {noctalia.string.trim(r.stderr)}`)
     end
   end, 20000)
-  if not started then api.pending = false end
 end
 
 local function readLimits(a)
@@ -259,7 +272,7 @@ local function fetchRemote(a)
   local rem = a.remote
   if rem.pending or noctalia.nowMs() - rem.lastTry < REMOTE_MS then return end
   rem.pending, rem.lastTry = true, noctalia.nowMs()
-  local started = noctalia.runAsync({ PLUGIN .. "/remote.sh", a.dir }, function(r)
+  spawn({ PLUGIN .. "/remote.sh", a.dir }, function(r)
     rem.pending = false
     local list = r.exitCode == 0 and noctalia.json.decode(r.stdout) or nil
     if type(list) == "table" then
@@ -269,7 +282,6 @@ local function fetchRemote(a)
       noctalia.log(`claude-sessions: remote sessions ({a.label}): {noctalia.string.trim(r.stderr)}`)
     end
   end, 20000)
-  if not started then rem.pending = false end
 end
 
 -- ── Sessions ────────────────────────────────────────────────────────────────
@@ -307,7 +319,7 @@ local function refreshDetails(s)
   details[s.pid] = d
   if d.pending or d.mtime == info.mtime then return end
   d.pending = true
-  local started = noctalia.runAsync({ PLUGIN .. "/details.sh", path, s.sessionId, s.account }, function(r)
+  spawn({ PLUGIN .. "/details.sh", path, s.sessionId, s.account }, function(r)
     d.pending = false
     local data = r.exitCode == 0 and noctalia.json.decode(r.stdout) or nil
     if type(data) == "table" then
@@ -316,7 +328,6 @@ local function refreshDetails(s)
       publish()
     end
   end, 15000)
-  if not started then d.pending = false end
 end
 
 local function refreshRecent()
@@ -326,7 +337,7 @@ local function refreshRecent()
   recentPending = true
   local cmd = { PLUGIN .. "/recent.sh", tostring(count + 10) }
   for _, a in ipairs(accountList()) do cmd[#cmd + 1] = a.dir end
-  local started = noctalia.runAsync(cmd, function(r)
+  spawn(cmd, function(r)
     recentPending = false
     local list = r.exitCode == 0 and noctalia.json.decode(r.stdout) or nil
     if type(list) ~= "table" then return end
@@ -338,7 +349,6 @@ local function refreshRecent()
     end
     noctalia.state.set("recent", out)
   end, 15000)
-  if not started then recentPending = false end
 end
 
 local function label(s)
@@ -407,7 +417,10 @@ local function readSessions(a, into)
 end
 
 local function poll()
-  if ticks % SLOW_EVERY == 0 then discoverAccounts() end
+  -- Advance first: a tick that dies over budget must not pin us on the discovery tick.
+  local tick = ticks
+  ticks += 1
+  if tick % SLOW_EVERY == 0 then discoverAccounts() end
   local hideMs = (tonumber(cfg("hide_idle_hours", 0)) or 0) * 3600000
   local now = noctalia.nowMs()
   local sessions = {}
@@ -435,8 +448,8 @@ local function poll()
   publishAccounts()
   publish()
   publishElsewhere()
-  if gone or ticks % SLOW_EVERY == 1 then refreshRecent() end
-  ticks += 1
+  if gone or tick % SLOW_EVERY == 1 then refreshRecent() end
+  spawnNext()
 end
 
 noctalia.state.watch("command", function(v)

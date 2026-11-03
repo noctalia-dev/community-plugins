@@ -158,7 +158,7 @@ function render()
         ui.label({ text = tr("panel.title"), fontSize = 16, fontWeight = "bold" })
       }),
       ui.row({
-        fill = (state.active or state.starting) and "primary/0.2" or "surface_variant/0.5",
+        fill = (state.active or state.starting) and "primary/0.2" or "surface_container/0.5",
         radius = 6,
         paddingH = 8,
         paddingV = 4,

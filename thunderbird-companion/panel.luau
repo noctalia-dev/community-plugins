@@ -56,7 +56,7 @@ local function status_chip()
   return ui.row({
     gap = 6,
     align = "center",
-    fill = "surface_variant/0.5",
+    fill = "surface_container/0.5",
     radius = 999,
     paddingH = 9,
     paddingV = 4,
@@ -101,8 +101,8 @@ local function message_row(message)
     gap = 8,
     padding = 10,
     radius = 9,
-    fill = "surface_variant/0.35",
-    border = "outline",
+    fill = "surface_container/0.35",
+    border = "outline_variant",
     borderWidth = 1,
     align = "center",
   }, {
@@ -135,7 +135,7 @@ local function message_row(message)
       ui.label({
         text = message_location(message),
         fontSize = 10,
-        color = "outline",
+        color = "outline_variant",
         maxLines = 1,
       }),
     }),
@@ -303,8 +303,8 @@ local function connection_callout()
     gap = 8,
     padding = 12,
     radius = 10,
-    fill = "surface_variant/0.35",
-    border = "outline",
+    fill = "surface_container/0.35",
+    border = "outline_variant",
     borderWidth = 1,
   }, {
     ui.label({ text = title, fontWeight = "bold" }),
@@ -403,7 +403,7 @@ render = function()
       ui.label({
         text = sync_text ~= "" and noctalia.tr("panel.last_sync", { time = sync_text }) or "",
         fontSize = 10,
-        color = "outline",
+        color = "outline_variant",
       }),
     }),
     ui.separator({}),

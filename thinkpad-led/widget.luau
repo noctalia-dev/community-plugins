@@ -29,7 +29,7 @@ local function statusColor()
   if ledOn then
     return "error"
   else
-    return "outline"
+    return "outline_variant"
   end
 end
 
@@ -39,7 +39,7 @@ local function render()
     height = 10,
     radius = 5,
     fill = statusColor(),
-    border = "outline",
+    border = "outline_variant",
     borderWidth = 1,
   }))
 

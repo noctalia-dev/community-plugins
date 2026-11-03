@@ -277,9 +277,9 @@ local function buildSection(title, items)
     table.insert(rows, buildInfoRow(item.label, item.value))
   end
   return ui.column({
-    fill = "surface_variant/0.4",
+    fill = "surface_container/0.4",
     radius = 10,
-    border = "outline/0.2",
+    border = "outline_variant/0.2",
     borderWidth = 1,
     padding = 12,
     gap = 4,

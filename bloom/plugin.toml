@@ -1,8 +1,8 @@
 id = "teslaoruz/bloom"
 name = "Bloom"
-version = "1.0.0"
+version = "1.0.1"
 # 32: container tooltips. Also uses closures (9), require (22), readFileAsync (23), argv runAsync (24).
-plugin_api = 32
+plugin_api = 43
 author = "teslaoruz"
 license = "MIT"
 icon = "flower"

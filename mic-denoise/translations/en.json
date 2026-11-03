@@ -1,0 +1,55 @@
+{
+  "settings": {
+    "source": {
+      "label": "Denoised source",
+      "description": "Name of the virtual PipeWire source created by the bundled filter-chain config."
+    },
+    "poll_interval": {
+      "label": "Refresh interval (ms)",
+      "description": "How often the tile and widget re-read the current state."
+    },
+    "hardware_source": {
+      "label": "Microphone",
+      "description": "Source name of the physical microphone; leave empty for automatic (last used input, then the first available one). To see the names, run \"pactl list short sources\" in a terminal - the microphone is an alsa_input.* entry."
+    }
+  },
+  "shortcut": {
+    "label-on": "Denoise On",
+    "label-off": "Denoise Off"
+  },
+  "widget": {
+    "tooltip": {
+      "state": "Noise suppression",
+      "input": "Input"
+    }
+  },
+  "notify": {
+    "config-installed": {
+      "title": "Mic Denoise ready",
+      "body": "PipeWire filter-chain config installed. Restart PipeWire once, then toggle denoising on."
+    },
+    "failed": {
+      "title": "Mic Denoise failed",
+      "body": "The audio backend reported no details."
+    },
+    "timeout": {
+      "body": "pactl did not answer in time; is PipeWire running?"
+    },
+    "spawn-failed": {
+      "body": "Could not run the bundled backend script."
+    },
+    "mic-changed": {
+      "title": "Microphone changed",
+      "body": "The filter-chain now captures from the new microphone.",
+      "body-restarted": "PipeWire was restarted so the filter-chain loads the new capture target."
+    },
+    "ladspa": {
+      "title": "Mic Denoise needs noise-suppression-for-voice",
+      "body": "The RNNoise LADSPA plugin is missing, so the denoised source cannot exist. Install noise-suppression-for-voice, restart PipeWire, then enable denoising again."
+    },
+    "not-ready": {
+      "title": "Mic Denoise is not ready",
+      "body": "The denoised source is missing. Restart PipeWire to load the filter-chain: systemctl --user restart pipewire pipewire-pulse wireplumber"
+    }
+  }
+}

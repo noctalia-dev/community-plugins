@@ -43,7 +43,7 @@ local function getStyle()
   local style = noctalia.getConfig("badge_style") or "glass"
 
   if style == "solid" then
-    return { fill = "surface_container_high", border = "outline", borderWidth = 1, textColor = "on_surface", isKeycap = false }
+    return { fill = "surface_container_high", border = "outline_variant", borderWidth = 1, textColor = "on_surface", isKeycap = false }
   elseif style == "accent" then
     return { fill = "primary/0.16", border = "primary/0.75", borderWidth = 1, textColor = "primary", isKeycap = false }
   elseif style == "keycap_dark" then
@@ -52,7 +52,7 @@ local function getStyle()
     return { fill = "#f5f5f7", border = "#ffffff", textColor = "#111116", isKeycap = true, baseColor = "#000000", shadowColor = "#000000" }
   end
 
-  return { fill = "surface_container_high/0.92", border = "outline/0.55", borderWidth = 1, textColor = "on_surface", isKeycap = false }
+  return { fill = "surface_container_high/0.92", border = "outline_variant/0.55", borderWidth = 1, textColor = "on_surface", isKeycap = false }
 end
 
 local function render()

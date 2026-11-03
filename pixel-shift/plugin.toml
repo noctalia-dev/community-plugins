@@ -1,7 +1,7 @@
 id = "mgeldi/pixel-shift"
 name = "Pixel Shift"
-version = "1.2.0"
-plugin_api = 30
+version = "1.2.1"
+plugin_api = 43
 author = "mgeldi"
 license = "MIT"
 dependencies = ["grim", "hyprctl", "swaymsg"]

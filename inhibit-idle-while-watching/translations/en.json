@@ -1,0 +1,50 @@
+{
+  "settings": {
+    "enabled": {
+      "label": "Enable face checks",
+      "description": "Master switch. When off, the plugin never touches the camera and the idle chain runs unmodified."
+    },
+    "camera_path": {
+      "label": "Camera device",
+      "description": "Video device path such as /dev/video0. Leave empty to auto-detect. When set, it overrides Camera mode and this exact camera is checked."
+    },
+    "camera_mode": {
+      "label": "Camera mode",
+      "description": "Which sensor to check: visible light, infrared, an ambient-light decision per check (dark uses IR), or both sensors with a face on either keeping the session awake.",
+      "options": {
+        "rgb": "RGB",
+        "ir": "IR",
+        "smart": "Smart",
+        "robust": "Robust"
+      }
+    },
+    "ir_threshold_lux": {
+      "label": "IR switch threshold (lux)",
+      "description": "Smart mode only: below this ambient light level the IR camera is used, at or above it the RGB camera. The ambient sensor is read once per check."
+    },
+    "detector": {
+      "label": "Detector",
+      "description": "haar is cheap and runs on a small grayscale frame; dnn is more accurate but needs assets/face-dnn.onnx and more CPU.",
+      "options": {
+        "haar": "Haar",
+        "dnn": "DNN"
+      }
+    },
+    "sensitivity": {
+      "label": "Sensitivity",
+      "description": "1 is lenient (more false faces, session stays awake more easily), 10 is strict. Applies to both detectors."
+    },
+    "capture_width": {
+      "label": "Capture width",
+      "description": "Frame width in pixels for each check; height follows 4:3. Detection runs on a 320 px-wide downscale regardless, so this mainly trades camera bandwidth."
+    },
+    "cooldown_s": {
+      "label": "Spawn cooldown",
+      "description": "Minimum seconds between gate runs, bounding camera wake-ups if idle triggers stack up."
+    },
+    "debug_log": {
+      "label": "Debug log",
+      "description": "Write the helper's activity log to the plugin data directory. Off by default; the log records verdicts and camera details, never images."
+    }
+  }
+}

@@ -1,7 +1,7 @@
 id          = "danielel/owntone-control"
 name        = "OwnTone Control"
-version     = "0.3.1"
-plugin_api  = 12
+version     = "0.3.2"
+plugin_api  = 43
 author      = "danielel"
 license     = "MIT"
 icon        = "music"

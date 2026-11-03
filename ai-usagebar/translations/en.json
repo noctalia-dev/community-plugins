@@ -1,25 +1,29 @@
 {
   "settings": {
     "account": {
-      "description": "Named CLI account. Empty uses the default. Ignored with Automatic.",
+      "description": "Optional named account label from ai-usagebar. Leave empty for the default account. Ignored when the provider is Automatic.",
       "label": "Account label"
     },
+    "auto_providers": {
+      "description": "Provider IDs or provider@account. Empty includes all. Automatic only.",
+      "label": "Automatic filter"
+    },
     "color_by_usage": {
-      "description": "Color the reading by usage. Off uses the bar color.",
+      "description": "Tints the reading as the quota gets tight. Off keeps the capsule in the bar's own colour.",
       "label": "Color by usage"
     },
     "extras": {
-      "description": "Show reset time or usage pace against elapsed time.",
-      "label": "Extra information",
+      "description": "The time left in the window, how far the spend is from the clock, both, or neither.",
+      "label": "Extra reading",
       "option": {
         "both": "Both",
         "countdown": "Time until reset",
-        "none": "None",
-        "pace": "Usage pace"
+        "none": "Neither",
+        "pace": "Pace against the clock"
       }
     },
     "glyph_position": {
-      "description": "Place the icon before or after the reading.",
+      "description": "Which side of the reading the icon sits on.",
       "label": "Icon position",
       "option": {
         "after": "After",
@@ -27,96 +31,120 @@
       }
     },
     "provider_limit": {
-      "description": "Automatic only. Order: severity, then usage. +N counts the rest.",
-      "label": "Provider limit"
+      "description": "How many providers one capsule shows, busiest first, with a +N for the rest. Only applies when the provider is Automatic.",
+      "label": "Providers in the capsule"
+    },
+    "quota_window": {
+      "description": "Exhausted windows take priority. No percentage if unavailable.",
+      "label": "Quota window",
+      "option": {
+        "auto": "Automatic",
+        "monthly": "Monthly",
+        "session": "Session",
+        "weekly": "Weekly"
+      }
     },
     "refresh_minutes": {
-      "description": "Fetch usage at this interval. Countdowns update between reads.",
+      "description": "How often the CLI is asked for fresh usage. Countdowns tick locally between calls.",
       "label": "Refresh interval (minutes)"
     },
     "show_glyph": {
-      "description": "Show the provider icon beside the reading.",
+      "description": "The provider's icon. Off leaves the reading on its own.",
       "label": "Show icon"
     },
     "show_name": {
-      "description": "Show provider or model names beside their readings.",
-      "label": "Show names"
+      "description": "Adds the product name next to the percentage, so two capsules do not look alike.",
+      "label": "Show provider name"
     },
     "show_value": {
-      "description": "Show the reported percentage or amount.",
+      "description": "The percentage as text. Off leaves the gauge to say it.",
       "label": "Show value"
     },
+    "style": {
+      "description": "How this capsule looks in the bar.",
+      "label": "Style",
+      "option": {
+        "gauge": "Gauge and percentage",
+        "label": "Name, gauge and percentage",
+        "meter": "Segments",
+        "pill": "Percentage"
+      }
+    },
+    "usage_display": {
+      "description": "Used or remaining quota. Colors and priority follow usage.",
+      "label": "Show quota as",
+      "option": {
+        "remaining": "Remaining",
+        "used": "Used"
+      }
+    },
     "vendor": {
-      "description": "Automatic ranks by severity, then usage.",
+      "description": "Which plan this capsule tracks. Add the widget twice to watch two.",
       "label": "Provider",
       "option": {
         "anthropic": "Claude",
         "anthropic_api": "Anthropic API",
         "antigravity": "Antigravity",
-        "auto": "Automatic",
+        "auto": "Automatic (primary)",
+        "cline": "Cline",
         "commandcode": "Command Code",
         "copilot": "GitHub Copilot",
         "cursor": "Cursor",
+        "deepinfra": "DeepInfra",
         "deepseek": "DeepSeek",
+        "devin": "Devin",
         "grok": "Grok",
+        "grokbot": "Grok Bot",
         "kilo": "Kilo",
         "kimi": "Kimi",
         "kiro": "Kiro",
+        "lyceum": "Lyceum",
         "minimax": "MiniMax",
+        "modelstudio": "Model Studio",
         "moonshot": "Moonshot",
+        "muse_code": "Muse Code",
         "nous": "Nous Research",
         "novita": "Novita",
+        "ollama": "Ollama Cloud",
         "openai": "Codex",
         "opencode_go": "OpenCode Go",
         "openrouter": "OpenRouter",
-        "supergrok": "SuperGrok",
-        "zai": "Z.AI",
-        "deepinfra": "DeepInfra",
-        "grokbot": "Grok Bot",
-        "ollama": "Ollama Cloud",
         "orcarouter": "OrcaRouter",
-        "modelstudio": "Model Studio",
-        "lyceum": "Lyceum",
-        "devin": "Devin",
-        "cline": "Cline",
-        "muse_code": "Muse Code",
-        "synthetic": "Synthetic"
+        "supergrok": "SuperGrok",
+        "synthetic": "Synthetic",
+        "zai": "Z.AI"
       }
     },
     "visualization": {
-      "description": "Show a quota bar beside the reading.",
+      "description": "A gauge beside the reading, or nothing.",
       "label": "Visualization",
       "option": {
         "gauge": "Quota bar",
-        "none": "None"
+        "none": "Nothing"
       }
-    },
-    "usage_display": {
-      "label": "Show quota as",
-      "description": "Used or remaining quota. Colors and priority follow usage.",
-      "option": {
-        "used": "Used",
-        "remaining": "Remaining"
-      }
-    },
-    "quota_window": {
-      "label": "Quota window",
-      "description": "Exhausted windows take priority. No percentage if unavailable.",
-      "option": {
-        "auto": "Automatic",
-        "session": "Session",
-        "weekly": "Weekly",
-        "monthly": "Monthly"
-      }
-    },
-    "auto_providers": {
-      "label": "Automatic filter",
-      "description": "Provider IDs or provider@account. Empty includes all. Automatic only."
     }
   },
   "ui": {
+    "back_to_usage": "Back to usage",
+    "close": "Close",
+    "copy_summary": "Copy usage summary",
     "details": "Details",
-    "elapsed": "{percent}% elapsed",
+    "diagnostics_check_cli": "Check this provider and account in ai-usagebar for more details, then refresh usage.",
+    "diagnostics_configure": "Configure this provider's credentials for ai-usagebar, then refresh status and usage.",
+    "diagnostics_disabled": "Disabled providers ({count})",
+    "diagnostics_enabled": "Other enabled providers ({count})",
+    "diagnostics_local_app": "If Antigravity is closed, open it so its local server can run, then refresh usage. No API key is required.",
+    "diagnostics_login": "Check this account's credentials and access with the provider, then refresh usage.",
+    "diagnostics_no_problems": "No problems found in the available reports. Credential presence does not confirm a working connection.",
+    "diagnostics_no_usage": "Current usage is unavailable.",
+    "diagnostics_old_usage": "The displayed usage is an old reading.",
+    "diagnostics_recheck": "Refresh usage to check whether this earlier problem persists.",
+    "diagnostics_refresh_status": "Refresh status",
+    "diagnostics_refresh_usage": "Refresh usage",
+    "diagnostics_retry": "Wait a moment, then refresh usage.",
+    "diagnostics_update_cli": "Update ai-usagebar, then refresh usage to retry reading this report.",
+    "diagnostics_usage_status": "Usage report unavailable",
+    "elapsed": "{percent}% of the window elapsed",
     "error": {
       "failed": "Could not read usage",
       "failed_hint": "ai-usagebar exited with an error.",
@@ -130,72 +158,54 @@
       "timed_out_hint": "The read took too long. A provider may be answering slowly."
     },
     "hidden_label": "Not shown",
-    "hidden_value": "{count} more providers in the panel",
+    "hidden_value": "{count} more, click to open the panel",
     "install": "Install page",
     "last_reading": "Last reading, {minutes} min ago",
     "last_reading_now": "Last reading, moments ago",
     "loading": "Loading…",
+    "more_actions": "More actions",
+    "no_matching_providers": "No matching providers",
     "no_usage": "No usage reported",
     "not_configured": "`{vendor}` is not configured in ai-usagebar",
     "now": "now",
+    "open_dashboard": "Open dashboard",
     "plan_changed": "The plan changed; readings taken under the previous one were dropped.",
+    "provider_setup": "Diagnostics",
     "quota_exhausted": "Quota exhausted",
     "quota_reset": "Renews in {time}",
-    "refresh": "Refresh usage",
+    "refresh": "Refresh now",
     "refresh_queued": "Refresh queued",
-    "refreshing": "Refreshing…",
+    "refreshing": "Refreshing usage",
+    "remaining": "Remaining",
+    "reset": "Reset",
     "retry": "Try again",
+    "session": "Session",
     "settings": "Plugin settings",
+    "setup_credentials_found": "Credentials found",
+    "setup_disabled": "Disabled in ai-usagebar",
+    "setup_empty": "No providers reported",
+    "setup_hint": "Check reported failures and local provider configuration.",
+    "setup_loading": "Reading providers…",
+    "setup_no_credential": "No credential required",
+    "setup_notifications": "The CLI manages alerts. To turn them off, set enabled = false under [notifications] in its config.toml.",
+    "setup_required": "Setup required",
+    "setup_unavailable": "Provider status unavailable",
     "severity": {
       "critical": "critical",
       "high": "high"
     },
     "stale": "stale",
     "stale_hint": "showing last known data",
+    "time_remaining": "{percent}% of the window remaining",
     "title": "AI Usage",
+    "tooltip_more": "Click the widget for details.",
     "unavailable": "Unavailable",
     "updated": "Updated",
     "updated_ago": "Updated {minutes} min ago",
     "updated_now": "Updated just now",
-    "waiting": "Waiting for usage data",
-    "reset": "Reset",
-    "session": "Session",
-    "weekly": "Weekly",
-    "copy_summary": "Copy usage summary",
-    "open_dashboard": "Open dashboard",
-    "close": "Close",
     "used": "Used",
-    "remaining": "Remaining",
-    "window_unavailable": "This window is not reported",
-    "no_matching_providers": "No matching providers",
-    "provider_setup": "Diagnostics",
-    "back_to_usage": "Back to usage",
-    "setup_loading": "Reading providers…",
-    "setup_unavailable": "Provider status unavailable",
-    "setup_empty": "No providers reported",
-    "setup_disabled": "Disabled in ai-usagebar",
-    "setup_required": "Setup required",
-    "setup_credentials_found": "Credentials found",
-    "setup_no_credential": "No credential required",
-    "setup_hint": "Check reported failures and local provider configuration.",
-    "setup_notifications": "The CLI manages alerts. To turn them off, set enabled = false under [notifications] in its config.toml.",
-    "more_actions": "More actions",
-    "time_remaining": "{percent}% of the window remaining",
-    "diagnostics_login": "Check this account's credentials and access with the provider, then refresh usage.",
-    "diagnostics_local_app": "If Antigravity is closed, open it so its local server can run, then refresh usage. No API key is required.",
-    "diagnostics_configure": "Configure this provider's credentials for ai-usagebar, then refresh status and usage.",
-    "diagnostics_update_cli": "Update ai-usagebar, then refresh usage to retry reading this report.",
-    "diagnostics_retry": "Wait a moment, then refresh usage.",
-    "diagnostics_check_cli": "Check this provider and account in ai-usagebar for more details, then refresh usage.",
-    "diagnostics_old_usage": "The displayed usage is an old reading.",
-    "diagnostics_no_usage": "Current usage is unavailable.",
-    "diagnostics_usage_status": "Usage report unavailable",
-    "diagnostics_no_problems": "No problems found in the available reports. Credential presence does not confirm a working connection.",
-    "diagnostics_refresh_status": "Refresh status",
-    "diagnostics_refresh_usage": "Refresh usage",
-    "diagnostics_enabled": "Other enabled providers ({count})",
-    "diagnostics_disabled": "Disabled providers ({count})",
-    "diagnostics_recheck": "Refresh usage to check whether this earlier problem persists.",
-    "tooltip_more": "Click the widget for details."
+    "waiting": "Waiting for usage data",
+    "weekly": "Weekly",
+    "window_unavailable": "This window is not reported"
   }
 }

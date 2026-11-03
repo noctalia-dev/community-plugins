@@ -658,8 +658,8 @@ local function rowCard(children, contact)
     gap         = 6,
     padding     = 8,
     radius      = 8,
-    fill        = "surface_variant/0.4",
-    border      = "outline",
+    fill        = "surface_container/0.4",
+    border      = "outline_variant",
     borderWidth = 1,
   }, children)
 end
@@ -701,7 +701,7 @@ render = function()
         ui.row({
           gap       = 6,
           align     = "center",
-          fill      = "surface_variant/0.5",
+          fill      = "surface_container/0.5",
           radius    = 999,
           paddingH  = 10,
           paddingV  = 3,
@@ -785,8 +785,8 @@ render = function()
       body = ui.spacer({ flexGrow = 1 })
     else
       body = ui.column({ gap = 10, align = "center", flexGrow = 1, justify = "center" }, {
-        ui.glyph({ name = "bell-ringing", size = 36, color = "outline" }),
-        ui.label({ text = tr("panel.empty_state"), color = "outline", textAlign = "center" }),
+        ui.glyph({ name = "bell-ringing", size = 36, color = "outline_variant" }),
+        ui.label({ text = tr("panel.empty_state"), color = "outline_variant", textAlign = "center" }),
       })
     end
   else

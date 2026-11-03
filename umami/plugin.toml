@@ -1,0 +1,102 @@
+id = "ak4duy/umami"
+name = "Umami"
+version = "1.0.2"
+plugin_api = 43
+author = "ak4duy"
+license = "MIT"
+icon = "chart-line"
+description = "Live visitor count in the bar and a dashboard of every Umami Analytics website."
+tags = ["bar", "network", "utility", "indicator"]
+dependencies = ["xdg-open"]
+
+[[setting]]
+key = "api_url"
+type = "string"
+label_key = "settings.api_url.label"
+description_key = "settings.api_url.description"
+default = "https://api.umami.is/v1"
+
+[[setting]]
+key = "api_key"
+type = "string"
+label_key = "settings.api_key.label"
+description_key = "settings.api_key.description"
+default = ""
+
+[[setting]]
+key = "username"
+type = "string"
+label_key = "settings.username.label"
+description_key = "settings.username.description"
+default = ""
+
+[[setting]]
+key = "password"
+type = "string"
+label_key = "settings.password.label"
+description_key = "settings.password.description"
+default = ""
+
+[[setting]]
+key = "cf_access_client_id"
+type = "string"
+label_key = "settings.cf_access_client_id.label"
+description_key = "settings.cf_access_client_id.description"
+default = ""
+
+[[setting]]
+key = "cf_access_client_secret"
+type = "string"
+label_key = "settings.cf_access_client_secret.label"
+description_key = "settings.cf_access_client_secret.description"
+default = ""
+
+[[setting]]
+key = "refresh_seconds"
+type = "int"
+label_key = "settings.refresh_seconds.label"
+description_key = "settings.refresh_seconds.description"
+default = 60
+min = 15
+max = 3600
+
+[[setting]]
+key = "show_pages"
+type = "bool"
+label_key = "settings.show_pages.label"
+description_key = "settings.show_pages.description"
+default = true
+
+[[setting]]
+key = "show_sources"
+type = "bool"
+label_key = "settings.show_sources.label"
+description_key = "settings.show_sources.description"
+default = true
+
+[[setting]]
+key = "show_environment"
+type = "bool"
+label_key = "settings.show_environment.label"
+description_key = "settings.show_environment.description"
+default = true
+
+[[setting]]
+key = "show_location"
+type = "bool"
+label_key = "settings.show_location.label"
+description_key = "settings.show_location.description"
+default = true
+
+[[widget]]
+id = "bar"
+entry = "widget.luau"
+
+[[panel]]
+id = "dashboard"
+entry = "panel.luau"
+width = 380
+height = 560
+placement = "attached"
+position = "auto"
+open_near_click = true

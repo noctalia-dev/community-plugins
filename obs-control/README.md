@@ -1,6 +1,6 @@
 # OBS Control
 
-Control OBS Studio from a themed bar widget, a panel or Niri shortcuts. This is the native Noctalia v5 port of the v4 OBS Control plugin.
+Start and stop OBS Studio recording, replay buffer and streaming from the bar, a panel, the control center or a keybind, without switching to the OBS window. It replaces the v4 OBS Control plugin.
 
 ## Plugin
 
@@ -17,7 +17,9 @@ Install `python3`, the Python module `websocket-client`, `obs`, `pgrep` and `xdg
 sudo pacman -S obs-studio python-websocket-client procps-ng xdg-utils
 ```
 
-The executable selected in settings must have `websocket-client` installed. Python 3.10 or newer is supported. `requirements.txt` pins the tested websocket-client version (1.9.2). In OBS, enable **Tools → WebSocket Server Settings → Enable WebSocket server**. Authentication may stay enabled: the helper reads the port and password directly from OBS's local config.
+The Python executable set in settings must be 3.10 or newer and have `websocket-client` installed; `requirements.txt` pins the tested version, 1.9.2. In OBS, enable **Tools → WebSocket Server Settings → Enable WebSocket server**. You can keep authentication on: the helper reads the port and password from OBS's local config.
+
+The `obs` command must be on `PATH`. A running OBS is detected by the process name `obs`, or `.obs-wrapped` on NixOS.
 
 ## Usage
 
@@ -33,14 +35,14 @@ The panel controls recording, replay buffer and streaming, saves replays, launch
 
 ## Settings
 
-| Setting | Default | Behavior |
-| --- | --- | --- |
-| `python_executable` | `python3` | Interpreter with websocket-client; a virtual environment executable also works. |
-| `poll_interval_ms` | `2500` | Polling interval in milliseconds, from 1000 to 30000. |
-| `auto_close_managed_obs` | `true` | After stopping an output, close only a process started by the plugin, and only when recording, replay, streaming and virtual camera are all inactive. |
-| `open_videos_after_stop` | `true` | Open the parent folder of a completed recording via xdg-open. |
-| `show_when_idle` | `true` | Keep the widget visible when no output is active. |
-| `show_elapsed_in_bar` | `false` | Add recording duration to the bar label. |
+| Setting | Type | Default | Description |
+| --- | --- | --- | --- |
+| `python_executable` | `string` | `python3` | Python with websocket-client installed. A virtual environment's `bin/python` works. |
+| `poll_interval_ms` | `int` | `2500` | How often to poll OBS, in milliseconds, from 1000 to 30000. |
+| `auto_close_managed_obs` | `bool` | `true` | After you stop an output, close OBS if the plugin started it and recording, replay, streaming and virtual camera are all off. |
+| `open_videos_after_stop` | `bool` | `true` | Open the folder of a finished recording with xdg-open. |
+| `show_when_idle` | `bool` | `true` | Keep the widget visible when nothing is recording or streaming. |
+| `show_elapsed_in_bar` | `bool` | `false` | Add the recording duration to the bar label. |
 
 ## IPC
 
@@ -54,14 +56,12 @@ noctalia msg plugin ayagmar/obs-control:controller all open-videos
 noctalia msg plugin ayagmar/obs-control:controller all status
 ```
 
-`launch` opens OBS without claiming it for automatic closure. Recording status shows REC, replay shows REPLAY, streaming shows LIVE; errors appear in the panel and action notifications.
+`launch` starts OBS but never closes it automatically, unlike an OBS started by a toggle. An action sent while a status poll is running waits for the poll to finish. The bar label shows REC, REPLAY and LIVE for active outputs. Errors appear in the panel and in action notifications.
 
 ## Notes
 
-The Python helper connects only to `127.0.0.1`, using OBS WebSocket protocol v5 and its challenge-response authentication. No remote service is contacted. Passwords are never passed as arguments or included in status output. It reads `$XDG_CONFIG_HOME/obs-studio/plugin_config/obs-websocket/config.json` and `/proc/<pid>/stat`.
+The Python helper connects only to `127.0.0.1` with OBS WebSocket protocol v5 and contacts no remote service. The password stays inside the helper: it is never passed as an argument or included in status output. The helper reads `$XDG_CONFIG_HOME/obs-studio/plugin_config/obs-websocket/config.json` and `/proc/<pid>/stat`.
 
-Session ownership and an action lock live in `$XDG_RUNTIME_DIR/noctalia-obs-control/`. PID start time is checked before sending SIGTERM, so an unrelated process cannot be closed after PID reuse. Commands are serialized; the plugin never kills an OBS process it did not launch. Disabling the plugin or restarting Noctalia leaves OBS and active outputs running.
+The helper writes the PID of an OBS it started, and an action lock, to `$XDG_RUNTIME_DIR/noctalia-obs-control/`. Before sending SIGTERM it checks the process start time, so a reused PID never gets closed. The plugin never kills an OBS it did not start. Disabling the plugin or restarting Noctalia leaves OBS and active outputs running.
 
-The helper spawns `pgrep` for process detection, `obs --minimize-to-tray` when requested, and `xdg-open` for recording folders. No scripts or dependencies are downloaded at runtime. Noctalia handles all widget and panel colors, including palette changes.
-
-Elapsed time is available in the tooltip and optionally the bar label. Launches always minimize to the tray. The recording directory comes from OBS instead of a second plugin path setting.
+The helper runs `pgrep` to detect OBS, `obs --minimize-to-tray` to start it, and `xdg-open` for the recording folder, which it asks OBS for. Nothing is downloaded at runtime. The tooltip always shows elapsed recording time.

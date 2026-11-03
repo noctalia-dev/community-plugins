@@ -1,22 +1,22 @@
 {
   "settings": {
-    "source": {
-      "label": "Source currency",
-      "description": "Three-letter code, e.g. USD"
-    },
-    "target": {
-      "label": "Target currency",
-      "description": "Three-letter code, e.g. BRL"
+    "display": {
+      "compact": "Rate only",
+      "full": "Pair and rate",
+      "icon": "Icon only",
+      "label": "Bar display"
     },
     "refresh": {
-      "label": "Refresh (minutes)",
-      "description": "How often rates are fetched"
+      "description": "How often rates are fetched",
+      "label": "Refresh (minutes)"
     },
-    "display": {
-      "label": "Bar display",
-      "icon": "Icon only",
-      "compact": "Rate only",
-      "full": "Pair and rate"
+    "source": {
+      "description": "Three-letter code, e.g. USD",
+      "label": "Source currency"
+    },
+    "target": {
+      "description": "Three-letter code, e.g. BRL",
+      "label": "Target currency"
     }
   }
 }

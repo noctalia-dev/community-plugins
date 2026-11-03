@@ -11,7 +11,11 @@ local current = noctalia.state.get("layout") or "dwindle"
 
 local function render()
   barWidget.setGlyph(glyphs[current] or "layout-grid")
-  barWidget.setText(current:sub(1, 1):upper() .. current:sub(2))
+  if noctalia.getConfig("show_label") == false then
+    barWidget.setText("")
+  else
+    barWidget.setText(current:sub(1, 1):upper() .. current:sub(2))
+  end
 end
 
 noctalia.state.watch("layout", function(value)

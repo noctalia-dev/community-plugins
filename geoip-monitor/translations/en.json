@@ -1,10 +1,22 @@
 {
   "settings": {
-    "show_ip": { "label": "Show IP address" },
-    "show_city": { "label": "Show city" },
-    "show_state": { "label": "Show state/region" },
-    "show_icon": { "label": "Show icon" },
-    "separator": { "label": "Separator" },
-    "interval": { "label": "Refresh interval (seconds)" }
+    "interval": {
+      "label": "Refresh interval (seconds)"
+    },
+    "separator": {
+      "label": "Separator"
+    },
+    "show_city": {
+      "label": "Show city"
+    },
+    "show_icon": {
+      "label": "Show icon"
+    },
+    "show_ip": {
+      "label": "Show IP address"
+    },
+    "show_state": {
+      "label": "Show state/region"
+    }
   }
 }

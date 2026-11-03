@@ -15,7 +15,7 @@ local NAV_ITEMS = {
 
 local function sidebar_row(key, icon, label, subtext, active, onClick, thumb_path, bold_active, text_color)
 	local is_hovered = (state.view.hover_key.sidebar == key)
-	local fill_color = active and "primary/0.2" or (is_hovered and "primary/0.25" or "surface_variant/0.15")
+	local fill_color = active and "primary/0.2" or (is_hovered and "primary/0.25" or "surface_container/0.15")
 	local glyph_color = (active or is_hovered) and "primary" or "on_surface_variant"
 
 	local icon_elem
@@ -99,7 +99,7 @@ local function build_sidebar()
 		})
 	)
 
-	table.insert(sidebar_items, ui.separator({ key = "sep-brand", color = "outline", spacing = 8 }))
+	table.insert(sidebar_items, ui.separator({ key = "sep-brand", color = "outline_variant", spacing = 8 }))
 
 	for idx, item in ipairs(NAV_ITEMS) do
 		local key = "nav-" .. idx
@@ -130,7 +130,7 @@ local function build_sidebar()
 		)
 	end
 
-	table.insert(sidebar_items, ui.separator({ key = "sep-side", color = "outline", spacing = 8 }))
+	table.insert(sidebar_items, ui.separator({ key = "sep-side", color = "outline_variant", spacing = 8 }))
 
 	-- Hide stale cached history while signed out; reappears reactively once
 	-- cookies land and status flips to ready.
@@ -164,7 +164,7 @@ local function build_sidebar()
 			)
 		end
 
-		table.insert(sidebar_items, ui.separator({ key = "sep-recent", color = "outline", spacing = 8 }))
+		table.insert(sidebar_items, ui.separator({ key = "sep-recent", color = "outline_variant", spacing = 8 }))
 	end
 
 	local is_refreshing_lib = (data.refreshing_library == true)

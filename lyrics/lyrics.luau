@@ -28,8 +28,14 @@ local textAlignment = noctalia.getConfig("text_alignment") or "left"
 local gradientOn = noctalia.getConfig("gradient")
 if gradientOn == nil then gradientOn = true end
 local animation = noctalia.getConfig("animation") or "karaoke"
+local showCues = noctalia.getConfig("show_cues")
+if showCues == nil then showCues = true end
 local cueText = noctalia.getConfig("cue_text") or "•••••"
 if cueText == "" then cueText = "•••••" end
+local introMinMs = tonumber(noctalia.getConfig("intro_min_ms")) or 6000
+local interludeMinMs = tonumber(noctalia.getConfig("interlude_min_ms")) or 5000
+local interludeLeadMs = tonumber(noctalia.getConfig("interlude_lead_ms")) or 1000
+local interludeGapMs = tonumber(noctalia.getConfig("interlude_gap_ms")) or 7000
 local cueFontMode = noctalia.getConfig("cue_font_mode") or "follow"
 local cueFontFamily = noctalia.getConfig("cue_font_family") or "sans-serif"
 if cueFontFamily == "" then cueFontFamily = "sans-serif" end
@@ -60,20 +66,9 @@ local cover = nil
 local playing = false
 local showMode = displayMode == "track" and "track" or "auto"
 local rendered = false
-local playerInstance = ""
+local hovered = false
 local sourceUsed = ""
-local lyricsCandidates = {}
-local hovering = false
-local hoverElapsed = 0
-local selectorOpenRequested = false
-
-local function trackKey(value)
-  if type(value) ~= "table" then return "" end
-  local durationSeconds = math.floor((tonumber(value.duration) or 0) / 1000000)
-  return (value.playerInstance or "") .. "|" .. (value.trackId or "") .. "|"
-    .. (value.title or "") .. "|" .. (value.artist or "") .. "|" .. (value.album or "")
-    .. "|" .. tostring(durationSeconds)
-end
+local lyricsLoading = false
 
 local baselinePosition = 0
 local baselineClock = os.clock()
@@ -89,14 +84,6 @@ local FADE_OUT_MS = 130
 local FADE_IN_MS = 260
 local MARQUEE_HOLD = 1.1
 local BLEND_MS = 350
-local INTERLUDE_GAP_MS = 7000
-local INTRO_MIN_MS = 6000
-local INTERLUDE_MIN_MS = 5000
-local INTERLUDE_LEAD_MS = 1000
-
-local function shellQuote(value)
-  return "'" .. tostring(value):gsub("'", "'\\''") .. "'"
-end
 
 local function clamp(value, low, high)
   return math.min(high, math.max(low, value))
@@ -158,7 +145,7 @@ local function getLineInfo()
   end
 
   local firstTime = lyrics[1].time
-  if firstTime >= INTRO_MIN_MS and position < firstTime then
+  if showCues and firstTime >= introMinMs and position < firstTime then
     return {
       key = "intro",
       index = 0,
@@ -189,7 +176,7 @@ local function getLineInfo()
 
   if line.duration and line.duration > 0 and line.duration_inferred ~= true then
     lineEnd = math.min(nextTime, startTime + line.duration)
-  elseif nextTime - startTime >= INTERLUDE_GAP_MS then
+  elseif nextTime - startTime >= interludeGapMs then
     -- LRC only marks line starts. Do not stretch a lyric across a long instrumental gap.
     local firstCharTime = line.chars and tonumber(line.chars[1]) or nil
     local lastCharTime = line.chars and tonumber(line.chars[#line.chars]) or nil
@@ -205,8 +192,8 @@ local function getLineInfo()
 
   -- Only show an interlude between two real lyric lines. The final lyric stays
   -- visible through the outro instead of turning the whole song ending into dots.
-  local interludeStart = math.max(startTime, lineEnd - INTERLUDE_LEAD_MS)
-  if nextLine and nextTime - lineEnd >= INTERLUDE_MIN_MS and position >= interludeStart then
+  local interludeStart = math.max(startTime, lineEnd - interludeLeadMs)
+  if showCues and nextLine and nextTime - lineEnd >= interludeMinMs and position >= interludeStart then
     return {
       key = "interlude-" .. tostring(index),
       index = index,
@@ -453,7 +440,8 @@ end
 
 local function render()
   local showingTrack = displayMode == "track" or showMode == "track"
-  if hideWhenPaused and not playing or hideWhenNoLyrics and not showingTrack and not hasLyrics() then
+  if hideWhenPaused and not playing
+    or hideWhenNoLyrics and not showingTrack and not hasLyrics() and not lyricsLoading then
     barWidget.setVisible(false)
     return
   end
@@ -583,41 +571,23 @@ local function render()
   rendered = true
 end
 
-function onClick()
+local function toggleView()
   if displayMode ~= "toggle" then return end
   showMode = showMode == "auto" and "track" or "auto"
   marqueeElapsed = 0
   if rendered then render() end
 end
 
-function onHover(value)
-  hovering = value == true
-  if not hovering then
-    hoverElapsed = 0
-    selectorOpenRequested = false
-  end
+function onClick()
+  toggleView()
 end
 
-function onRightClick()
-  if playerInstance == "" then return end
-  noctalia.runAsync("playerctl --player " .. shellQuote(playerInstance) .. " play-pause", function(result)
-    if result.exitCode == 0 then
-      local wasPlaying = playing
-      if wasPlaying then baselinePosition = getProgressMs() * 1000 end
-      playing = not wasPlaying
-      noctalia.state.set("playing", playing)
-      baselineClock = os.clock()
-      render()
-    end
-  end)
+function onHover(entered)
+  hovered = entered == true
 end
 
-function onScroll(axis, steps)
-  if axis ~= "vertical" or playerInstance == "" then return end
-  local direction = tonumber(steps) or 0
-  if direction == 0 then return end
-  local action = direction < 0 and "next" or "previous"
-  noctalia.runAsync("playerctl --player " .. shellQuote(playerInstance) .. " " .. action, function() end)
+function onIpc(event, _payload)
+  if event == "toggle-view" and hovered then toggleView() end
 end
 
 function update()
@@ -629,22 +599,8 @@ function update()
   lyrics = noctalia.state.get("lyrics")
   cover = noctalia.state.get("cover")
   playing = noctalia.state.get("playing") == true
-  playerInstance = noctalia.state.get("player_instance") or ""
   sourceUsed = noctalia.state.get("lyrics_source_used") or ""
-  local candidateState = noctalia.state.get("lyrics_candidate_state")
-  lyricsCandidates = type(candidateState) == "table" and candidateState.track_key == trackKey(track)
-    and candidateState.candidates or {}
-  local selectorOpen = noctalia.state.get("lyrics_selector_open") == true
-  if hovering and #lyricsCandidates > 1 and not selectorOpen and not selectorOpenRequested then
-    hoverElapsed = hoverElapsed + delta
-    if hoverElapsed >= 0.4 then
-      selectorOpenRequested = true
-      hoverElapsed = 0
-      noctalia.togglePanel("h465855hgg/lyrics:selector")
-    end
-  else
-    hoverElapsed = 0
-  end
+  lyricsLoading = noctalia.state.get("lyrics_loading") == true
 
   local info = getLineInfo()
   local nextKey = info and info.key or "fallback"

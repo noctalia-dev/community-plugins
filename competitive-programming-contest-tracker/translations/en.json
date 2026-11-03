@@ -1,0 +1,92 @@
+{
+  "settings": {
+    "refresh_minutes": {
+      "label": "Refresh interval (minutes)",
+      "description": "How often the contest lists are fetched."
+    },
+    "hide_longer_than_days": {
+      "label": "Hide events longer than (days)",
+      "description": "Hides multi-day events such as long practice rounds or online challenges. Contests you have hearted are always shown. 0 shows everything."
+    },
+    "reminders_enabled": {
+      "label": "Contest reminders",
+      "description": "Send a notification for contests you have marked with the heart."
+    },
+    "remind_minutes": {
+      "label": "Remind me before start (minutes)",
+      "description": "How long before the start the reminder is sent. 0 turns off the early reminder."
+    },
+    "remind_at_start": {
+      "label": "Remind me when it starts",
+      "description": "Send a second notification at the start time."
+    },
+    "past_days": {
+      "label": "Recent contests window (days)",
+      "description": "How long finished contests stay in the Previous list. Contests you saved for upsolving stay until you unsave them."
+    },
+    "widget_width": {
+      "label": "Desktop widget width (px)",
+      "description": "Width of the desktop widget."
+    },
+    "visible_items": {
+      "label": "Desktop widget contests",
+      "description": "How many upcoming contests the desktop widget lists."
+    }
+  },
+  "panel": {
+    "title": "Contests",
+    "refresh": "Refresh",
+    "empty_upcoming": "No contests match these filters.",
+    "empty_saved": "Nothing saved yet - bookmark a finished contest to upsolve it later.",
+    "empty_previous": "No recent contests match these filters."
+  },
+  "tabs": {
+    "upcoming": "Upcoming {count}",
+    "previous": "Previous {count}"
+  },
+  "filters": {
+    "all": "All",
+    "all_tooltip": "Show every platform",
+    "favorites_tooltip": "Only contests I'm taking part in",
+    "saved_tooltip": "Only contests saved for upsolving",
+    "starts_within": "Starts within",
+    "range_24h": "24h",
+    "range_7d": "7 days",
+    "range_all": "All"
+  },
+  "rows": {
+    "live": "live, ends in {time}",
+    "starts": "{when} - in {time}",
+    "fav_on": "Taking part - click to remove",
+    "fav_off": "Mark as taking part",
+    "saved_on": "Saved for upsolving - click to remove",
+    "saved_off": "Save for upsolving",
+    "past_subtitle": "{date} · ended {ago} ago · {duration}",
+    "saved_section": "Saved for upsolving",
+    "recent_section": "Recent"
+  },
+  "widget": {
+    "none": "No contests",
+    "click": "Click to open",
+    "live": "{src} live",
+    "next": "{src} {time}",
+    "row_live": "live",
+    "row_in": "in {time}"
+  },
+  "reminders": {
+    "open": "Open contest page",
+    "starts_in": "Starts in {time}",
+    "starting_now": "Starting now",
+    "test": "Test reminder - starts in {time}"
+  },
+  "time": {
+    "days_hours": "{d}d {h}h",
+    "hours_minutes": "{h}h {m}m",
+    "minutes": "{m}m"
+  },
+  "desktop": {
+    "title": "Upcoming contests",
+    "empty": "No upcoming contests",
+    "loading": "Loading…"
+  }
+}

@@ -1,0 +1,183 @@
+{
+ "v": 1,
+ "at": 1792411200000,
+ "currency": "USD",
+ "privacy": false,
+ "barMode": "full",
+ "mode": "keyless",
+ "status": {
+  "busy": false,
+  "lastRefreshAt": 1792411180000,
+  "stale": false,
+  "sources": {
+   "prices": {
+    "okAt": 1792411180000,
+    "stale": false
+   }
+  }
+ },
+ "account": {
+  "stage": "none",
+  "rotating": false
+ },
+ "holdings": [],
+ "wallets": [],
+ "watchlist": [
+  {
+   "symbol": "BTCUSDT",
+   "base": "BTC",
+   "quote": "USDT",
+   "price": 68000.0,
+   "change24h": 0.0182,
+   "high24h": 68650.0,
+   "low24h": 66400.0,
+   "spark": [
+    66640.0,
+    67648.67,
+    67161.33,
+    68170.0,
+    67682.67,
+    67195.33,
+    68204.0,
+    67716.67,
+    67229.33,
+    68238.0,
+    67750.67,
+    67263.33,
+    68272.0,
+    67784.67,
+    68793.33,
+    68306.0,
+    67818.67,
+    68827.33,
+    68340.0,
+    67852.67,
+    68861.33,
+    68374.0,
+    67886.67,
+    68895.33
+   ],
+   "alerts": 1
+  },
+  {
+   "symbol": "ETHUSDT",
+   "base": "ETH",
+   "quote": "USDT",
+   "price": 2500.0,
+   "change24h": -0.0231,
+   "high24h": 2580.0,
+   "low24h": 2480.0,
+   "spark": [
+    2425.0,
+    2480.62,
+    2453.75,
+    2509.38,
+    2482.5,
+    2455.62,
+    2511.25,
+    2484.38,
+    2457.5,
+    2513.12,
+    2486.25,
+    2459.38,
+    2515.0,
+    2488.12,
+    2543.75,
+    2516.88,
+    2490.0,
+    2545.63,
+    2518.75,
+    2491.88,
+    2547.5,
+    2520.62,
+    2493.75,
+    2549.38
+   ],
+   "alerts": 1
+  },
+  {
+   "symbol": "SOLUSDT",
+   "base": "SOL",
+   "quote": "USDT",
+   "price": 150.0,
+   "change24h": 0.0274,
+   "high24h": 152.1,
+   "low24h": 144.9,
+   "spark": [
+    144.0,
+    148.45,
+    146.3,
+    150.75,
+    148.6,
+    146.45,
+    150.9,
+    148.75,
+    146.6,
+    151.05,
+    148.9,
+    146.75,
+    151.2,
+    149.05,
+    153.5,
+    151.35,
+    149.2,
+    153.65,
+    151.5,
+    149.35,
+    153.8,
+    151.65,
+    149.5,
+    153.95
+   ],
+   "alerts": 0
+  },
+  {
+   "symbol": "DOGEUSDT",
+   "base": "DOGE",
+   "quote": "USDT",
+   "alerts": 0
+  },
+  {
+   "symbol": "EQ_AAPL",
+   "base": "AAPL",
+   "quote": "USD",
+   "kind": "stock",
+   "note": "needs_account",
+   "alerts": 0,
+   "session": "open"
+  }
+ ],
+ "alerts": [
+  {
+   "id": "a1",
+   "symbol": "BTCUSDT",
+   "kind": "above",
+   "value": 70000,
+   "cooldownMin": 60,
+   "enabled": true
+  },
+  {
+   "id": "a2",
+   "symbol": "ETHUSDT",
+   "kind": "move_pct",
+   "value": 0.05,
+   "cooldownMin": 240,
+   "enabled": true,
+   "lastFiredAt": 1792238400000
+  },
+  {
+   "id": "a3",
+   "symbol": "SOLUSDT",
+   "kind": "below",
+   "value": 120,
+   "cooldownMin": 60,
+   "enabled": false
+  }
+ ],
+ "gaps": [],
+ "watchNotice": {
+  "symbol": "NVDA",
+  "code": "stocks_need_account",
+  "at": 1792411190000
+ }
+}

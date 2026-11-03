@@ -669,7 +669,7 @@ local function render()
         radius = 10,
         fill = display_state ~= nil
             and (tone .. (configured_bool("presentation_mode", false) and "/0.24" or "/0.10"))
-            or "surface_variant/0.10",
+            or "surface_container/0.10",
         align = "center",
     }, children))
 end

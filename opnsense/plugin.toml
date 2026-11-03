@@ -2,8 +2,8 @@
 
 id = "davemhammer/opnsense"
 name = "OPNsense"
-version = "1.1.8"
-plugin_api = 10
+version = "1.2.1"
+plugin_api = 43
 author = "davemhammer"
 license = "MIT"
 dependencies = ["curl", "jq", "xdg-open"]
@@ -31,6 +31,14 @@ type = "string"
 label_key = "settings.api_secret.label"
 description_key = "settings.api_secret.description"
 default = ""
+
+[[setting]]
+key = "instances"
+type = "string"
+label_key = "settings.instances.label"
+description_key = "settings.instances.description"
+default = ""
+advanced = true
 
 [[setting]]
 key = "allow_insecure_tls"
@@ -66,6 +74,13 @@ advanced = true
 [[widget]]
 id = "status"
 entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "instance"
+  type = "string"
+  label_key = "settings.instance.label"
+  description_key = "settings.instance.description"
+  default = ""
 
   [[widget.setting]]
   key = "show_label"

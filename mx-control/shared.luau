@@ -13,8 +13,10 @@ local STALE_SEC = 150
 local HELPER_RESTART_SEC = 90
 
 -- A running serve, from any copy of the plugin; anchored so a shell or grep
--- that merely mentions it is never killed.
-M.HELPER_PATTERN = "^python3 [^ ]*/mxctl\\.py serve$"
+-- that merely mentions it is never killed. The interpreter may be a bare name
+-- or a path: serve started by runAsync({ "python3", ... }) shows up in the
+-- process list as /usr/bin/python3.
+M.HELPER_PATTERN = "^[^ ]*python3 [^ ]*/mxctl\\.py serve$"
 
 function M.helperNeedsStart(ts, nowSec)
     ts = tonumber(ts)

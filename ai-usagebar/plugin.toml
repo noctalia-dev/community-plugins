@@ -1,7 +1,7 @@
 id = "felipeartur/ai-usagebar"
 name = "AI Usage"
-version = "2.11.1"
-plugin_api = 32
+version = "2.11.2"
+plugin_api = 43
 author = "felipeartur"
 license = "MIT"
 icon = "brain"

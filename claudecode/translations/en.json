@@ -73,7 +73,7 @@
       "label": "Refresh interval"
     },
     "ring_color": {
-      "description": "Used only when the palette cannot be read, as with built-in themes.",
+      "description": "Used only when the palette role does not resolve.",
       "label": "Ring fallback color"
     },
     "ring_size": {

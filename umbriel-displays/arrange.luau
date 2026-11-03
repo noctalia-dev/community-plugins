@@ -3,9 +3,9 @@
 -- or below, or into the tray to turn it off.
 --
 -- Noctalia's panel tree is flexbox with discrete drag targets, so this is not a
--- free canvas: the reachable arrangements are the edge-to-edge ones, which is
--- the set worth having anyway. No drop can leave an overlap or a hole, since
--- positions are a running sum recomputed from the row order every time.
+-- free canvas: displays stay edge to edge within a row, while shorter rows are
+-- centred under the widest one. Positions are recomputed from the row order
+-- after every drop, so the saved layout matches the canvas.
 
 local displays = require("./outputs.luau")
 local controls = require("./controls.luau")
@@ -26,7 +26,7 @@ local ROW_HIT = 24
 local LINE = 10
 local MARK = 6
 local END_MARK = 22
-local MARK_FILL = "surface_variant"
+local MARK_FILL = "surface_container"
 local MARK_RADIUS = 4
 local MIN_BOX_W = 96
 local MIN_BOX_H = 58
@@ -257,7 +257,7 @@ local function canvas()
     flexGrow = 1,
     padding = 12,
     radius = controls.RADIUS,
-    fill = "surface_variant/0.35",
+    fill = "surface_container/0.35",
   }, nodes)
 end
 
@@ -283,8 +283,8 @@ local function tray()
         align = "center",
         paddingH = 12,
         paddingV = 8,
-        fill = "surface_variant",
-        border = "outline",
+        fill = "surface_container",
+        border = "outline_variant",
         borderWidth = 1,
         radius = 10,
       }, {
@@ -317,7 +317,7 @@ local function tray()
     gap = 8,
     padding = 16,
     radius = controls.RADIUS,
-    border = "outline",
+    border = "outline_variant",
     borderWidth = 1,
   }, children)
 end
@@ -325,6 +325,7 @@ end
 render = function()
   local nodes = {
     controls.header(tr("arrange.title"), {
+      ui.button({ glyph = "arrow-left", variant = "ghost", controlSize = "sm", tooltip = tr("action.back"), onClick = "onBack" }),
       ui.label({ text = tr("arrange.hint"), fontSize = 11, color = "on_surface_variant" }),
       ui.button({ glyph = "refresh", variant = "ghost", controlSize = "sm", tooltip = tr("action.refresh"), onClick = "onRefresh" }),
       ui.button({ glyph = "x", variant = "ghost", controlSize = "sm", onClick = "onCloseClick" }),
@@ -409,11 +410,15 @@ function onDrop(payload, value)
   commit()
 end
 
+function onBack()
+  panel.close()
+  noctalia.togglePanel("prponkshe/umbriel-displays:panel")
+end
+
 -- Escape walks back to the panel this window was opened from, rather than
 -- leaving the user on the desktop.
 function onKey(chord, pressed)
   if pressed and chord == "escape" then
-    panel.close()
-    noctalia.togglePanel("prponkshe/umbriel-displays:panel")
+    onBack()
   end
 end

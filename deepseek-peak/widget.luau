@@ -83,7 +83,7 @@ local function render()
       ui.progress({
         progress = progress,
         fill = stateColor,
-        track = "surface_variant",
+        track = "surface_container",
         radius = 2,
         height = 3,
         width = 56,

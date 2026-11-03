@@ -65,7 +65,7 @@ function M.render(form, busy, callbacks)
   }
   for index, mapping in ipairs(form.mappings) do
     local key = form.session .. "-" .. mapping.key
-    table.insert(rows, ui.column({ key = "mapping-" .. key, gap = 8, padding = 12, fill = "surface_variant", radius = 8 }, {
+    table.insert(rows, ui.column({ key = "mapping-" .. key, gap = 8, padding = 12, fill = "surface_container", radius = 8 }, {
       ui.row({ gap = 8, align = "center" }, {
         ui.label({ text = tr("editor.mapping") .. " " .. index, flexGrow = 1, fontSize = 12, fontWeight = "medium" }),
         ui.button({ glyph = "x", tooltip = tr("editor.remove_port"), width = 28, controlSize = "sm",
@@ -113,7 +113,7 @@ function M.render(form, busy, callbacks)
       ui.label({ text = form.existing and tr("editor.edit") or tr("editor.new"), fontSize = 17, fontWeight = "medium" }),
     }),
     ui.scroll({ flexGrow = 1 }, { ui.column({ gap = 16, paddingH = 16, paddingV = 8 }, rows) }),
-    ui.separator({ color = "outline" }),
+    ui.separator({ color = "outline_variant" }),
     ui.row({ gap = 8, paddingH = 16, paddingV = 12, justify = "end" }, {
       ui.button({ text = tr("cancel"), variant = "ghost", enabled = not busy, onClick = callbacks.cancel }),
       ui.button({ text = tr(form.live and "save_reconnect" or "save"), variant = "default", enabled = not busy, onClick = callbacks.save }),

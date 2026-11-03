@@ -96,7 +96,7 @@ local function deviceCard(d)
     gap = 6,
     padding = 10,
     radius = 10,
-    fill = "surface_variant/0.5",
+    fill = "surface_container/0.5",
     onClick = function()
       expanded[d.key] = not isExpanded or nil
       render()

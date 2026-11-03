@@ -1,96 +1,96 @@
 {
   "settings": {
-    "target": {
-      "label": "Capture target",
-      "description": "Sink name to monitor. Empty uses the default audio output."
-    },
-    "fps": {
-      "label": "Frame rate",
-      "description": "How often the waveform refreshes, in frames per second."
-    },
-    "cols": {
-      "label": "Horizontal resolution",
-      "description": "Number of waveform columns across the widget."
-    },
-    "sensitivity": {
-      "label": "Sensitivity",
-      "description": "Amplitude gain. Higher shows quieter audio larger."
-    },
-    "smoothing": {
-      "label": "Smoothing",
-      "description": "Trace smoothing from 0 (raw) to 0.99 (heavy)."
-    },
-    "gate": {
-      "label": "Silence threshold",
-      "description": "Level below which the trace is drawn flat."
-    },
-    "width": {
-      "label": "Width",
-      "description": "Width of the waveform in pixels."
-    },
-    "height": {
-      "label": "Height",
-      "description": "Height of the waveform in pixels."
-    },
     "color": {
-      "label": "Trace color",
-      "description": "Color of the waveform line."
+      "description": "Color of the waveform line.",
+      "label": "Trace color"
     },
     "color2": {
-      "label": "Band color",
-      "description": "Color of the lower envelope when the band view is enabled."
+      "description": "Color of the lower envelope when the band view is enabled.",
+      "label": "Band color"
     },
-    "line_width": {
-      "label": "Line width",
-      "description": "Width of the waveform line in pixels."
-    },
-    "fill_opacity": {
-      "label": "Fill opacity",
-      "description": "Opacity of the area under the trace, from 0 to 0.6."
+    "cols": {
+      "description": "Number of waveform columns across the widget.",
+      "label": "Horizontal resolution"
     },
     "draw_band": {
-      "label": "Draw envelope band",
-      "description": "Fill the min/max envelope instead of drawing a single line."
+      "description": "Fill the min/max envelope instead of drawing a single line.",
+      "label": "Draw envelope band"
     },
-    "show_meter_labels": {
-      "label": "Meter labels",
-      "description": "Show the RMS/PK text next to the level meters."
+    "fill_opacity": {
+      "description": "Opacity of the area under the trace, from 0 to 0.6.",
+      "label": "Fill opacity"
     },
-    "rms_color": {
-      "label": "RMS meter color",
-      "description": "Color of the RMS level meter bar."
+    "fps": {
+      "description": "How often the waveform refreshes, in frames per second.",
+      "label": "Frame rate"
     },
-    "peak_color": {
-      "label": "Peak meter color",
-      "description": "Color of the peak level meter bar."
+    "gate": {
+      "description": "Level below which the trace is drawn flat.",
+      "label": "Silence threshold"
     },
-    "meter_radius": {
-      "label": "Meter corner radius",
-      "description": "Corner radius of the meter bars, in pixels."
+    "height": {
+      "description": "Height of the waveform in pixels.",
+      "label": "Height"
     },
-    "meter_width": {
-      "label": "Meter width",
-      "description": "Maximum width of the level meter bars in pixels."
-    },
-    "meter_height": {
-      "label": "Meter height",
-      "description": "Height of the level meter bars in pixels."
+    "line_width": {
+      "description": "Width of the waveform line in pixels.",
+      "label": "Line width"
     },
     "meter_gap": {
-      "label": "Meter spacing",
-      "description": "Gap between the waveform and the level meters, in pixels."
+      "description": "Gap between the waveform and the level meters, in pixels.",
+      "label": "Meter spacing"
+    },
+    "meter_height": {
+      "description": "Height of the level meter bars in pixels.",
+      "label": "Meter height"
+    },
+    "meter_radius": {
+      "description": "Corner radius of the meter bars, in pixels.",
+      "label": "Meter corner radius"
+    },
+    "meter_width": {
+      "description": "Maximum width of the level meter bars in pixels.",
+      "label": "Meter width"
+    },
+    "peak_color": {
+      "description": "Color of the peak level meter bar.",
+      "label": "Peak meter color"
+    },
+    "rms_color": {
+      "description": "Color of the RMS level meter bar.",
+      "label": "RMS meter color"
+    },
+    "sensitivity": {
+      "description": "Amplitude gain. Higher shows quieter audio larger.",
+      "label": "Sensitivity"
+    },
+    "show_meter_labels": {
+      "description": "Show the RMS/PK text next to the level meters.",
+      "label": "Meter labels"
+    },
+    "smoothing": {
+      "description": "Trace smoothing from 0 (raw) to 0.99 (heavy).",
+      "label": "Smoothing"
+    },
+    "target": {
+      "description": "Sink name to monitor. Empty uses the default audio output.",
+      "label": "Capture target"
+    },
+    "width": {
+      "description": "Width of the waveform in pixels.",
+      "label": "Width"
     }
   },
-  "widget": {
-    "waiting": "Waiting for audio\u2026",
-    "unavailable": "pwscope failed to start",
-    "build_failed": "Helper build failed: install cc, make, pkg-config and the libpipewire-0.3 development headers, then run make in the plugin's native/ directory."
-  },
   "tooltip": {
-    "target": "Output",
-    "rms": "RMS",
-    "peak": "Peak",
     "frame": "Frame",
-    "pitch": "Pitch"
+    "peak": "Peak",
+    "pitch": "Pitch",
+    "rms": "RMS",
+    "target": "Output"
+  },
+  "widget": {
+    "build_failed": "Helper build failed: install cc, make, pkg-config and the libpipewire-0.3 development headers, then run make in the plugin's native/ directory.",
+    "unavailable": "pwscope failed to start",
+    "waiting": "Waiting for audio…"
   }
 }

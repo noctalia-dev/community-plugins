@@ -1,6 +1,6 @@
 id = "nickh/maildir"
 name = "Maildir"
-version = "0.0.4"
+version = "0.0.5"
 plugin_api = 3
 author = "Nick Hastings"
 license = "MIT"

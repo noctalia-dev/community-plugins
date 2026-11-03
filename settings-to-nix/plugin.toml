@@ -1,0 +1,39 @@
+# Settings to Nix. The service mirrors Noctalia's GUI layer (settings.toml in the state
+# dir) into a Nix file that the user backs up and, run by hand with nix-build, writes
+# settings.toml back on a new install. The shortcut tile opens the panel (right-click
+# exports). Nothing is built or switched by the plugin.
+
+id = "dmopp/settings-to-nix"
+name = "Settings to Nix"
+version = "1.0.0"
+plugin_api = 24
+author = "dMopp"
+license = "MIT"
+icon = "snowflake"
+description = "Backs up your Noctalia GUI settings as a Nix file that restores them with one nix-build command."
+tags = ["shortcut", "service", "nixos", "utility"]
+dependencies = ["nix", "coreutils"]
+
+[[setting]]
+key = "target_path"
+type = "file"
+label_key = "settings.target_path.label"
+description_key = "settings.target_path.description"
+default = "~/.config/noctalia/gui-settings.nix"
+extensions = [".nix"]
+
+[[shortcut]]
+id = "export"
+entry = "shortcut.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 420
+height = 330
+placement = "attached"
+position = "top_right"
+
+[[service]]
+id = "service"
+entry = "service.luau"

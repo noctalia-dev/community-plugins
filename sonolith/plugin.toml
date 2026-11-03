@@ -1,0 +1,238 @@
+# Sonolith for Noctalia: what's playing in your bar, a Now Playing panel and your library.
+#
+#   service.luau     the only entry that talks to Sonolith (through bridge/sonolith-bridge.py); publishes
+#                    noctalia.state and runs the UI entries' commands
+#   bar.luau         bar widget: art, title, artist; opens Now Playing
+#   nowplaying.luau  the Now Playing panel (and the connect screens)
+#   library.luau     the Library panel: library tabs, search, playlist/album/artist/podcast pages
+#
+# IPC: noctalia msg plugin opecko/sonolith:service all <toggle|next|previous|like|volume-up|volume-down|open|library>
+
+id = "opecko/sonolith"
+name = "Sonolith"
+version = "1.0.0"
+plugin_api = 43
+author = "opecko"
+license = "MIT"
+icon = "music"
+description = "What's playing in Sonolith, in your bar: playback controls, lyrics, queue and your YouTube Music library."
+tags = ["bar", "panel", "service", "media", "music"]
+dependencies = ["python3", "sonolith", "imagemagick", "libsecret"]
+
+[[setting]]
+key = "volume_step"
+type = "int"
+label_key = "settings.volume_step.label"
+description_key = "settings.volume_step.description"
+default = 5
+min = 1
+max = 20
+
+[[setting]]
+key = "osd_on_track_change"
+type = "bool"
+label_key = "settings.osd_on_track_change.label"
+description_key = "settings.osd_on_track_change.description"
+default = false
+
+[[setting]]
+key = "np_layout"
+type = "select"
+label_key = "settings.np_layout.label"
+default = "compact"
+options = [
+  { value = "compact", label_key = "settings.np_layout.compact" },
+  { value = "large_art", label_key = "settings.np_layout.large_art" },
+]
+
+[[setting]]
+key = "np_show_lyrics"
+type = "bool"
+label_key = "settings.np_show_lyrics.label"
+default = true
+
+[[setting]]
+key = "np_show_queue"
+type = "bool"
+label_key = "settings.np_show_queue.label"
+default = true
+
+[[setting]]
+key = "np_queue_preview"
+type = "int"
+label_key = "settings.np_queue_preview.label"
+default = 6
+min = 1
+max = 20
+visible_when = { key = "np_show_queue", values = ["true"] }
+
+[[setting]]
+key = "library_default_tab"
+type = "select"
+label_key = "settings.library_default_tab.label"
+default = "last"
+options = [
+  { value = "last", label_key = "settings.library_default_tab.last" },
+  { value = "playlists", label_key = "lib.tab.playlists" },
+  { value = "liked", label_key = "lib.tab.liked" },
+  { value = "albums", label_key = "lib.tab.albums" },
+  { value = "artists", label_key = "lib.tab.artists" },
+  { value = "podcasts", label_key = "lib.tab.podcasts" },
+  { value = "later", label_key = "lib.tab.later" },
+  { value = "history", label_key = "lib.tab.history" },
+]
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+  [[widget.setting]]
+  key = "show_art"
+  type = "bool"
+  label_key = "settings.show_art.label"
+  default = true
+
+  [[widget.setting]]
+  key = "show_title"
+  type = "bool"
+  label_key = "settings.show_title.label"
+  default = true
+
+  [[widget.setting]]
+  key = "show_artist"
+  type = "bool"
+  label_key = "settings.show_artist.label"
+  default = true
+
+  [[widget.setting]]
+  key = "layout"
+  type = "select"
+  label_key = "settings.layout.label"
+  description_key = "settings.layout.description"
+  default = "inline"
+  options = [
+    { value = "inline", label_key = "settings.layout.inline" },
+    { value = "stacked", label_key = "settings.layout.stacked" },
+  ]
+
+  [[widget.setting]]
+  key = "text_format"
+  type = "string"
+  label_key = "settings.text_format.label"
+  description_key = "settings.text_format.description"
+  default = "{title} · {artist}"
+  visible_when = { key = "layout", values = ["inline"] }
+
+  [[widget.setting]]
+  key = "order"
+  type = "select"
+  label_key = "settings.order.label"
+  default = "title_first"
+  visible_when = { key = "layout", values = ["stacked"] }
+  options = [
+    { value = "title_first", label_key = "settings.order.title_first" },
+    { value = "artist_first", label_key = "settings.order.artist_first" },
+  ]
+
+  [[widget.setting]]
+  key = "art_size"
+  type = "int"
+  label_key = "settings.art_size.label"
+  default = 22
+  min = 14
+  max = 40
+  visible_when = { key = "show_art", values = ["true"] }
+
+  [[widget.setting]]
+  key = "art_radius"
+  type = "int"
+  label_key = "settings.art_radius.label"
+  default = 6
+  min = 0
+  max = 20
+  visible_when = { key = "show_art", values = ["true"] }
+
+  [[widget.setting]]
+  key = "max_width"
+  type = "int"
+  label_key = "settings.max_width.label"
+  description_key = "settings.max_width.description"
+  default = 240
+  min = 60
+  max = 600
+
+  [[widget.setting]]
+  key = "show_state_icon"
+  type = "bool"
+  label_key = "settings.show_state_icon.label"
+  default = true
+
+  [[widget.setting]]
+  key = "show_progress"
+  type = "bool"
+  label_key = "settings.show_progress.label"
+  default = false
+
+  [[widget.setting]]
+  key = "when_idle"
+  type = "select"
+  label_key = "settings.when_idle.label"
+  default = "glyph"
+  options = [
+    { value = "glyph", label_key = "settings.when_idle.glyph" },
+    { value = "hide", label_key = "settings.when.hide" },
+    { value = "last_track", label_key = "settings.when_idle.last_track" },
+  ]
+
+  [[widget.setting]]
+  key = "when_unavailable"
+  type = "select"
+  label_key = "settings.when_unavailable.label"
+  default = "glyph"
+  options = [
+    { value = "glyph", label_key = "settings.when_unavailable.glyph" },
+    { value = "hide", label_key = "settings.when.hide" },
+  ]
+
+  [[widget.setting]]
+  key = "scroll_action"
+  type = "select"
+  label_key = "settings.scroll_action.label"
+  default = "volume"
+  options = [
+    { value = "volume", label_key = "settings.scroll_action.volume" },
+    { value = "track", label_key = "settings.scroll_action.track" },
+    { value = "none", label_key = "settings.scroll_action.none" },
+  ]
+
+  [[widget.setting]]
+  key = "scroll_long_text"
+  type = "bool"
+  label_key = "settings.scroll_long_text.label"
+  description_key = "settings.scroll_long_text.description"
+  default = false
+  advanced = true
+
+[[panel]]
+id = "nowplaying"
+entry = "nowplaying.luau"
+width = 780
+height = "content"
+max_height = 600
+placement = "attached"
+position = "auto"
+open_near_click = true
+
+[[panel]]
+id = "library"
+entry = "library.luau"
+width = 780
+height = 560
+placement = "attached"
+position = "auto"
+open_near_click = true
+keyboard_focus = "on_demand"

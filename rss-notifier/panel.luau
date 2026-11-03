@@ -69,8 +69,8 @@ itemRow = function(item)
     if item.image and item.image ~= "" then
       table.insert(rowChildren, ui.image({ path = item.image, width = 120, height = 80, radius = 10, fit = "cover" }))
     else
-      table.insert(rowChildren, ui.row({ width = 120, height = 80, radius = 10, fill = "surface_variant/0.7", align = "center", justify = "center" }, {
-        ui.glyph({ name = "rss", size = 26, color = "outline" }),
+      table.insert(rowChildren, ui.row({ width = 120, height = 80, radius = 10, fill = "surface_container/0.7", align = "center", justify = "center" }, {
+        ui.glyph({ name = "rss", size = 26, color = "outline_variant" }),
       }))
     end
   end
@@ -81,7 +81,7 @@ itemRow = function(item)
     onClick  = function() openLink(item.link) end,
   }, {
     ui.label({ text = item.title or tr("panel.untitled_item"), fontWeight = "bold", maxLines = 2 }),
-    ui.label({ text = item.description or item.feedTitle or "", fontSize = 12, color = "outline", maxLines = 3 }),
+    ui.label({ text = item.description or item.feedTitle or "", fontSize = 12, color = "outline_variant", maxLines = 3 }),
   }))
 
   table.insert(rowChildren, ui.button({
@@ -97,9 +97,9 @@ itemRow = function(item)
     gap         = 8,
     padding     = 10,
     radius      = 8,
-    fill        = "surface_variant/0.4",
+    fill        = "surface_container/0.4",
     align       = "center",
-    border      = "outline",
+    border      = "outline_variant",
     borderWidth = hovered and 1 or 0,
     onHover     = function(isHovering)
       hoveredKey = isHovering and key or nil
@@ -110,8 +110,8 @@ end
 
 emptyState = function()
   return ui.column({ gap = 10, align = "center", padding = 32, flexGrow = 1, justify = "center" }, {
-    ui.glyph({ name = "rss", size = 32, color = "outline" }),
-    ui.label({ text = tr("panel.empty_state"), color = "outline" }),
+    ui.glyph({ name = "rss", size = 32, color = "outline_variant" }),
+    ui.label({ text = tr("panel.empty_state"), color = "outline_variant" }),
   })
 end
 
@@ -158,7 +158,7 @@ render = function()
     for i, url in ipairs(feeds) do
       local isEditing = url == editingFeed
       table.insert(feedRows, ui.row({ key = "feed-row-" .. i, gap = 6, align = "center" }, {
-        ui.glyph({ name = "rss", size = 13, color = "outline" }),
+        ui.glyph({ name = "rss", size = 13, color = "outline_variant" }),
         ui.label({ text = url, fontSize = 12, flexGrow = 1, maxLines = 1 }),
         ui.button({
           glyph       = "pencil",
@@ -216,12 +216,12 @@ render = function()
       table.insert(children, element)
     end
     table.insert(children, ui.separator({}))
-    table.insert(children, ui.label({ text = tr("panel.feeds_title"), fontSize = 12, color = "outline", fontWeight = "bold" }))
+    table.insert(children, ui.label({ text = tr("panel.feeds_title"), fontSize = 12, color = "outline_variant", fontWeight = "bold" }))
     if #feeds > 0 then
       table.insert(children, ui.scroll({ gap = 4, flexGrow = 1 }, feedRows))
     else
       table.insert(children, ui.column({ flexGrow = 1, align = "center", justify = "center" }, {
-        ui.label({ text = tr("panel.feeds_empty"), color = "outline" }),
+        ui.label({ text = tr("panel.feeds_empty"), color = "outline_variant" }),
       }))
     end
   else

@@ -46,7 +46,7 @@ local function profileRow(profile)
     gap = 8,
     padding = 8,
     align = "center",
-    fill = "surface_variant/0.5",
+    fill = "surface_container/0.5",
     radius = 8,
     tooltip = tr("panel.open-tooltip", { name = profile.name }),
     onClick = function()

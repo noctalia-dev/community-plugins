@@ -303,7 +303,7 @@ local function taskToolbar(busy)
   if task == nil then
     return ui.label({ text = tr("panel.select_hint"), color = "on_surface_variant" })
   end
-  return ui.column({ gap = 4, padding = 10, fill = "surface_variant/0.45", radius = 10, align = "stretch" }, {
+  return ui.column({ gap = 4, padding = 10, fill = "surface_container/0.45", radius = 10, align = "stretch" }, {
     ui.row({ gap = 8, align = "center" }, {
       ui.glyph({
         name = task.bucket == "overdue" and "alert-triangle" or "checkbox",

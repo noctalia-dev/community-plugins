@@ -4,12 +4,12 @@
 # the state it publishes.
 id = "omertahaoztop/neuralwatt"
 name = "Neuralwatt"
-version = "1.0.1"
+version = "1.0.2"
 # 22 for require("./lib/util.luau") (shared formatting, severity and dates) and
 # 10 for keyboard_focus = "exclusive" on the panels. Everything else is older:
 # declarative ui.* trees, panel/service entries, noctalia.http, shared state and
 # noctalia.getConfig.
-plugin_api = 22
+plugin_api = 43
 author = "omertahaoztop"
 license = "MIT"
 icon = "bolt"

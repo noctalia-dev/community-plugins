@@ -39,16 +39,51 @@ local render
 local favorites_path = data_dir .. "/favorites.json"
 local favorites = {}
 
+-- The Archives and Favorites sections can be listed A-Z (the default, and how
+-- the fetcher writes the list) or newest-first.
+local sort_path = data_dir .. "/sort.txt"
+local sortMode = "name"
+
+-- Wording for the archive-sort tooltip: the current mode, then the count of
+-- streams it is sorting.
+local SORT_OPTIONS = { "A-Z", "Latest" }
+
 local function showKey(name)
   local k = noctalia.string.trim((name or ""):gsub("%s*%b()%s*$", ""))
   return string.lower(k)
 end
 
+-- WFMU's own stream titles read "<Show> from <date>" ("Flot's Spot from
+-- 10/16/2026"); shave the date off so the now-playing line reads as a track
+-- name. Keep in sync with stripDate() in widget.luau.
+local function stripDate(text)
+  local t = text or ""
+  t = t:gsub("%s*%b()%s*$", " ")
+  t = t:gsub("%s*[Ff]rom%s+[^%d]*%d[%d%p%s:-]*$", " ")
+  do
+    local lower = string.lower(t)
+    for _, m in ipairs({ "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec" }) do
+      local match = lower:match("%s+" .. m .. "[a-z]*%s+%d%d?,?%s*%d%d%d%d%s*$")
+      if match then
+        -- The match is a plain-ASCII date suffix, so its byte length is the same
+        -- in the original; cut it off instead of replacing the value with its
+        -- lowercased form, which would lowercase the show name as well.
+        t = t:sub(1, #t - #match)
+        break
+      end
+    end
+  end
+  t = t:gsub("%s*[%-–—:]?%s*%d%d%d%d%-%d%d%-%d%d%s*$", " ")
+  t = t:gsub("%s*[%-–—:]?%s*%d?%d/%d?%d/%d%d%d%d%s*$", " ")
+  t = t:gsub("%s+", " ")
+  return noctalia.string.trim(t)
+end
+
 local function loadFavorites()
   local raw = noctalia.readFile(favorites_path)
   if raw then
-    local data = noctalia.json.decode(raw)
-    if type(data) == "table" then
+    local ok, data = pcall(noctalia.json.decode, raw)
+    if ok and type(data) == "table" then
       favorites = data
     end
   end
@@ -56,6 +91,25 @@ end
 
 local function saveFavorites()
   noctalia.writeFile(favorites_path, noctalia.json.encode(favorites, true))
+end
+
+local function loadSortMode()
+  local raw = noctalia.readFile(sort_path)
+  if raw and noctalia.string.trim(raw) == "date" then
+    sortMode = "date"
+  end
+end
+
+local function setSortMode(mode)
+  if mode ~= "date" then
+    mode = "name"
+  end
+  if mode == sortMode then
+    return
+  end
+  sortMode = mode
+  noctalia.writeFile(sort_path, mode .. "\n")
+  render()
 end
 
 local function migrateLegacyFavorites()
@@ -97,6 +151,7 @@ local function toggleFavorite(it)
 end
 
 loadFavorites()
+loadSortMode()
 
 local function stopPlayback()
   if pid_file ~= "" then
@@ -105,6 +160,7 @@ local function stopPlayback()
       shq(pid_file), shq(pid_file), shq(pid_file), shq(ipc_sock)))
   end
   noctalia.state.set("now", nil)
+  noctalia.state.set("now_playing", nil)
   noctalia.state.set("paused", false)
 end
 
@@ -124,12 +180,16 @@ local function parseList(contents)
     local tab = string.find(line, "\t", 1, true)
     if tab then
       local name = noctalia.string.trim(line:sub(1, tab - 1))
-      local url = noctalia.string.trim(line:sub(tab + 1))
+      -- The fetcher writes "<label>\t<url>" and appends an ordering stamp as a
+      -- third column for archives. Older lists, and the live seed, only have two.
+      local url, aired = string.match(line:sub(tab + 1), "^([^\t]*)\t?(.*)$")
+      url = noctalia.string.trim(url or "")
       if url ~= "" then
         out[#out + 1] = {
           name = name,
           nameLower = string.lower(name),
           url = url,
+          aired = noctalia.string.trim(aired or ""),
           isArchive = isArchiveUrl(url),
         }
       end
@@ -173,6 +233,7 @@ local function playRandom()
     noctalia.notify("WFMU", "no streams to pick from")
     return
   end
+  math.randomseed(os.time())
   local pick = candidates[math.random(1, #candidates)]
   if startPlayback(pick.name, pick.url) then
     render()
@@ -227,17 +288,42 @@ render = function()
     saveFavorites()
   end
 
+  -- Both the Favorites and Archives sections follow the sort picked in the
+  -- heading row. Name order is applied explicitly rather than relying on the
+  -- order the fetcher happened to write the list in.
+  local function byName(a, b)
+    return a.nameLower < b.nameLower
+  end
+  -- "Newest first" sorts on the ordering stamp the fetcher appends to archive
+  -- lines: the day the feed says the show aired, a space, then the instant its
+  -- archive was published ("2026-10-16 2026-10-17T04:14:53Z"). The day half
+  -- keeps a show inside the day it aired; the publish half puts same-day shows
+  -- in the order they went out and keeps a late-night show (published just
+  -- after midnight) at the end of its day rather than the start. It is a
+  -- plain string compare. Lines with no stamp (live streams, a list fetched by
+  -- an older version) sort last.
+  local function byDate(a, b)
+    if a.aired ~= b.aired then
+      return a.aired > b.aired
+    end
+    return a.nameLower < b.nameLower
+  end
+  local order = sortMode == "date" and byDate or byName
+  table.sort(faved, order)
+  table.sort(rest, order)
+
   local rows = {}
   local sections = {
     { items = live, label = "Live" },
-    { items = faved, label = "Favourites" },
+    { items = faved, label = "Favorites" },
     { items = rest, label = "Archives" },
   }
   for _, section in ipairs(sections) do
     if #section.items > 0 then
-      rows[#rows + 1] = ui.column({ key = "section-" .. section.label, paddingV = 4 }, {
-        ui.label({ text = section.label, fontSize = 12, fontWeight = "bold", color = "secondary" }),
-      })
+      local heading = {
+        ui.label({ text = section.label, flexGrow = 1, fontSize = 12, fontWeight = "bold", color = "secondary" }),
+      }
+      rows[#rows + 1] = ui.row({ key = "section-" .. section.label, align = "center", gap = 8, paddingV = 4 }, heading)
     end
     for _, it in ipairs(section.items) do
       local row = {
@@ -245,11 +331,6 @@ render = function()
           play(it.name, it.url)
         end }),
       }
-      if it.isArchive and favorites[showKey(it.name)] then
-        row[#row + 1] = ui.button({ key = it.url .. "-fav", glyph = "star", tooltip = "Remove from favourites", selected = true, variant = "ghost", controlSize = "sm", onClick = function()
-          toggleFavorite(it)
-        end })
-      end
       table.insert(rows, ui.row({ key = it.url .. "-row", gap = 4, align = "center" }, row))
     end
   end
@@ -257,17 +338,32 @@ render = function()
   local now = noctalia.state.get("now")
   local nowUrl = now and now ~= "" and noctalia.state.get("last_url") or ""
   local headerRow = {
-    ui.image({ path = "wfmu.png", width = 24, height = 24, radius = 6 }),
+    ui.image({ path = "wfmu.png", width = 24, height = 24, radius = 6, tooltip = "Open wfmu.org", onClick = "onOpenSite" }),
     ui.label({ text = "WFMU", fontSize = 16, fontWeight = "bold", color = "primary", flexGrow = 1 }),
-    ui.label({ text = tostring(viewCount) .. " stream" .. (viewCount == 1 and "" or "s"), fontSize = 12 }),
-    ui.button({ glyph = "shuffle", variant = "ghost", controlSize = "sm", tooltip = "Play random stream", onClick = "onPlayRandom" }),
   }
+  -- Favorite star for the playing archive, leftmost of the icon cluster.
   if now and now ~= "" and nowUrl ~= "" and isArchiveUrl(nowUrl) then
     local nowKey = showKey(now)
-    headerRow[#headerRow + 1] = ui.button({ key = "fav-now", glyph = "star", tooltip = favorites[nowKey] and "Remove from favourites" or "Add to favourites", selected = favorites[nowKey] ~= nil, variant = "ghost", controlSize = "sm", onClick = function()
+    headerRow[#headerRow + 1] = ui.button({ key = "fav-now", glyph = "star", tooltip = favorites[nowKey] and "Remove from favorites" or "Add to favorites", selected = favorites[nowKey] ~= nil, variant = "ghost", controlSize = "sm", onClick = function()
       toggleFavorite({ name = now, url = nowUrl })
     end })
   end
+  -- Archive sort toggle: a clock while the list runs newest first, an A-Z
+  -- while it is alphabetical. Buttons are plain callbacks - a ui.select here
+  -- re-fired onChange on every render until the shell disabled the panel. The
+  -- stream count lives in its tooltip rather than as its own label.
+  headerRow[#headerRow + 1] = ui.button({
+    key = "archives-sort",
+    glyph = sortMode == "date" and "clock" or "sort-a-z",
+    variant = "ghost",
+    controlSize = "sm",
+    tooltip = (sortMode == "date" and SORT_OPTIONS[2] or SORT_OPTIONS[1])
+      .. " - " .. tostring(viewCount) .. " stream" .. (viewCount == 1 and "" or "s"),
+    onClick = function()
+      setSortMode(sortMode == "date" and "name" or "date")
+    end,
+  })
+  headerRow[#headerRow + 1] = ui.button({ glyph = "shuffle", variant = "ghost", controlSize = "sm", tooltip = "Play random stream", onClick = "onPlayRandom" })
   headerRow[#headerRow + 1] = ui.button({ glyph = "refresh", variant = "ghost", controlSize = "sm", tooltip = "Refresh stream list", onClick = "onRefresh" })
   headerRow[#headerRow + 1] = ui.button({ glyph = "close", variant = "ghost", onClick = "onCloseClicked" })
 
@@ -279,23 +375,26 @@ render = function()
     local paused = noctalia.state.get("paused") == true
     local row = {
       ui.label({ text = now, flexGrow = 1, maxLines = 1, fontWeight = "bold" }),
-      ui.button({ glyph = paused and "player-play" or "player-pause", tooltip = paused and "Resume" or "Pause", variant = "secondary", controlSize = "sm", onClick = "onTogglePause" }),
+      ui.button({ glyph = paused and "player-play" or "player-pause", tooltip = paused and "Resume" or "Pause", variant = "ghost", controlSize = "sm", onClick = "onTogglePause" }),
     }
     if noctalia.state.get("seekable") then
-      row[#row + 1] = ui.button({ glyph = "chevron-left", tooltip = "Back 1 min", variant = "secondary", controlSize = "sm", onClick = function()
+      row[#row + 1] = ui.button({ glyph = "chevron-left", tooltip = "1 min (left-click)\n3 min (right-click)", variant = "ghost", controlSize = "sm", onClick = function()
         seekBy(-60)
+      end, onRightClick = function()
+        seekBy(-180)
       end })
-      row[#row + 1] = ui.button({ glyph = "chevron-right", tooltip = "Skip 1 min", variant = "secondary", controlSize = "sm", onClick = function()
+      row[#row + 1] = ui.button({ glyph = "chevron-right", tooltip = "1 min (left-click)\n3 min (right-click)", variant = "ghost", controlSize = "sm", onClick = function()
         seekBy(60)
-      end })
-      row[#row + 1] = ui.button({ glyph = "chevrons-right", tooltip = "Skip 3 min", variant = "secondary", controlSize = "sm", onClick = function()
+      end, onRightClick = function()
         seekBy(180)
       end })
     end
-    row[#row + 1] = ui.button({ glyph = "player-stop", tooltip = "Stop", variant = "destructive", controlSize = "sm", onClick = "onStop" })
-    children[#children + 1] = ui.row({ align = "center", gap = 8, padding = 8, fill = "surface_variant/0.5", radius = 8 }, row)
-    local np = noctalia.state.get("now_playing")
-    if np and np ~= "" then
+    row[#row + 1] = ui.button({ glyph = "player-stop", tooltip = "Stop", variant = "ghost", controlSize = "sm", onClick = "onStop" })
+    children[#children + 1] = ui.row({ align = "center", gap = 8, padding = 8, radius = 8 }, row)
+    -- mpv reports the stream name again when it has no song metadata (common on
+    -- the live streams); show that line once rather than twice.
+    local np = stripDate(noctalia.state.get("now_playing"))
+    if np ~= "" and string.lower(np) ~= string.lower(stripDate(now)) then
       children[#children + 1] = ui.label({ text = np, fontSize = 12, maxLines = 1, color = "secondary" })
     end
   end
@@ -394,6 +493,11 @@ end
 
 function onPlayRandom()
   playRandom()
+end
+
+-- Clicking the WFMU logo in the header opens the station's website.
+function onOpenSite()
+  noctalia.runAsync({ "xdg-open", "https://wfmu.org/" })
 end
 
 function onCloseClicked()

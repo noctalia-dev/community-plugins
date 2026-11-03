@@ -207,8 +207,8 @@ local function metricRows(section, title)
     return body
 end
 
-local CARD = { gap = 3, padding = 10, radius = 9, fill = "surface_variant/0.34",
-               border = "outline/0.08", borderWidth = 1 }
+local CARD = { gap = 3, padding = 10, radius = 9, fill = "surface_container/0.34",
+               border = "outline_variant/0.08", borderWidth = 1 }
 
 local function cardStyle(gap, fill, border)
     return { gap = gap, padding = CARD.padding, radius = CARD.radius,
@@ -228,7 +228,7 @@ local function stackCard(name, readings, glyph)
     end
     for index, reading in ipairs(readings) do
         if index > 1 then
-            body[#body + 1] = ui.box({ height = 1, fill = "outline/0.14" })
+            body[#body + 1] = ui.box({ height = 1, fill = "outline_variant/0.14" })
         end
         for _, node in ipairs(metricRows(reading.section, reading.title)) do
             body[#body + 1] = node
@@ -304,7 +304,7 @@ local function noteCard(text, failureLabel)
     end
     return ui.row({ gap = 8, align = "start", padding = CARD.padding, radius = CARD.radius,
                     fill = failureLabel and "error/0.07" or "secondary/0.07",
-                    border = failureLabel and "error/0.16" or "outline/0.06",
+                    border = failureLabel and "error/0.16" or "outline_variant/0.06",
                     borderWidth = CARD.borderWidth }, {
         ui.glyph({ name = "alert-triangle", size = 14, color = failureLabel and "error" or "secondary" }),
         ui.column({ gap = 3, flexGrow = 1 }, content),
@@ -528,8 +528,8 @@ local function providerRow(entry, selected, compact)
         paddingV = 4,
         radius = 8,
         flexGrow = 1,
-        fill = selected and "primary/0.14" or "surface_variant/0.22",
-        border = selected and "primary/0.45" or "outline/0.08",
+        fill = selected and "primary/0.14" or "surface_container/0.22",
+        border = selected and "primary/0.45" or "outline_variant/0.08",
         borderWidth = 1,
         onClick = function()
             noctalia.state.set("selected", tostring(entry.id))
@@ -1029,7 +1029,7 @@ function render()
                 ui.spacer({ flexGrow = 1 }),
                 setupButton(),
             }),
-            ui.separator({ orientation = "horizontal", color = "outline", opacity = 0.15 }),
+            ui.separator({ orientation = "horizontal", color = "outline_variant", opacity = 0.15 }),
             setupPane(),
         }))
         return
@@ -1171,7 +1171,7 @@ function render()
     -- Distinct screens must not reuse controls with different retained layout props.
     panel.render(ui.column({ key = "usage", gap = 6, paddingH = 10, paddingV = 8, flexGrow = 1, align = "stretch" }, {
         ui.column({ gap = 6 }, topChildren),
-        ui.separator({ orientation = "horizontal", color = "outline", opacity = 0.15 }),
+        ui.separator({ orientation = "horizontal", color = "outline_variant", opacity = 0.15 }),
         detailPane(entry),
         footer,
     }))

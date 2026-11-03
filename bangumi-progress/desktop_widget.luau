@@ -111,7 +111,7 @@ local function renderCover(row, showCovers)
     width = COVER_WIDTH,
     height = COVER_HEIGHT,
     radius = 4,
-    fill = "surface_variant",
+    fill = "surface_container",
     align = "center",
     justify = "center",
   }, {

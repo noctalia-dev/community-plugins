@@ -1,13 +1,13 @@
 id           = "quaversa/wfmu"
 name         = "WFMU"
-version      = "1.0.0"
+version      = "1.0.1"
 plugin_api   = 32
 author       = "quaversa"
 license      = "MIT"
 icon         = "radio-2"
 description  = "Play WFMU live streams and the latest archived show of every WFMU show."
 tags         = ["music", "media", "bar", "panel"]
-dependencies = ["mpv", "python3"]
+dependencies = ["mpv", "python3", "xdg-open"]
 
 [[setting]]
 key             = "refresh_cmd"

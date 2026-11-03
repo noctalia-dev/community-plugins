@@ -29,6 +29,7 @@
     "type-otp": "Type OTP",
     "type-password": "Type Password",
     "type-password-desc": "Type password using wtype",
+    "type-subtitle": "{subtitle} · {backend}",
     "type-username": "Type Username"
   },
   "command": {
@@ -50,7 +51,8 @@
     "no-current-entry": "Open a password entry first",
     "quick-action-failed": "Quick action failed",
     "quick-action-unknown": "Unknown quick action",
-    "type-failed": "Type failed"
+    "type-failed": "Type failed",
+    "ydotoold-not-running": "ydotoold is not running — start the ydotool daemon"
   },
   "result": {
     "folder": "Folder",
@@ -99,6 +101,10 @@
       "desc": "Editor for the Edit action, exported as EDITOR to pass edit (e.g. nvim, code --wait). Blank leaves EDITOR unset so pass uses its own default",
       "label": "Editor command"
     },
+    "key-delay": {
+      "desc": "Delay between keystrokes in milliseconds for the typing backend (default: 12)",
+      "label": "Keystroke delay"
+    },
     "pinentry-grace-ms": {
       "desc": "Milliseconds to wait for a password to decrypt before assuming a GPG pinentry prompt needs focus and hiding the launcher (default: 200)",
       "label": "Pinentry grace period"
@@ -110,6 +116,14 @@
     "terminal-command": {
       "desc": "Terminal used to run pass edit, with its exec flag (e.g. foot -e, kitty -e, gnome-terminal --). Blank = auto-detect from $TERMINAL or a common terminal on PATH",
       "label": "Terminal command"
+    },
+    "type-backend": {
+      "desc": "Tool tried first by the Type and Autotype actions; when it is not installed (or ydotoold is not running) the other one is used automatically. ydotool needs the ydotoold daemon and assumes a US keyboard layout; wtype follows your keyboard layout",
+      "label": "Preferred typing backend",
+      "options": {
+        "wtype": "wtype (any layout)",
+        "ydotool": "ydotool (US layout)"
+      }
     },
     "type-delay": {
       "desc": "Delay in milliseconds before typing starts (default: 500)",

@@ -17,8 +17,8 @@
 
 id = "muhammadessam/network-control"
 name = "Network Control"
-version = "0.2.0"
-plugin_api = 24
+version = "0.2.1"
+plugin_api = 43
 author = "muhammadessam"
 license = "MIT"
 dependencies = ["nmcli", "ip", "install", "chmod"]

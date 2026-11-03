@@ -88,6 +88,7 @@ sudo tailscale set --operator=$USER
 | `admin_url` | `string` | `""` | URL opened by the admin button. Empty = the Tailscale admin console (advanced). |
 | `show_ip` | `bool` | `false` | Bar widget: show this node's Tailscale IP. |
 | `show_count` | `bool` | `true` | Bar widget: show the online/total peer count. |
+| `hide_not_installed` | `bool` | `false` | Bar widget: hide the widget entirely when Tailscale is not installed. |
 
 ## IPC
 

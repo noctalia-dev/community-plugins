@@ -1,7 +1,7 @@
 id = "lfdominguez/claude-sessions"
 name = "Claude Sessions"
-version = "1.6.3"
-plugin_api = 24
+version = "1.6.5"
+plugin_api = 43
 author = "lfdominguez"
 icon = "brain"
 license = "MIT"

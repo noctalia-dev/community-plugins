@@ -309,7 +309,7 @@ local COLOR_BUCKETS = {
   { id = "number", label = "Numbers", background = "tertiary/0.25", text = "tertiary", picker = "#FFD8E4" },
   { id = "mouse", label = "Mouse", background = "error/0.2", text = "error", picker = "#F9DEDC" },
   { id = "print", label = "Print", background = "primary/0.25", text = "primary", picker = "#EADDFF" },
-  { id = "default", label = "Other keys", background = "surface_variant", text = "on_surface_variant", picker = "#E7E0EC" },
+  { id = "default", label = "Other keys", background = "surface_container", text = "on_surface_variant", picker = "#E7E0EC" },
   { id = "description", label = "Descriptions", background = "surface", text = "on_surface", picker = "#1D1B20" },
 }
 
@@ -847,7 +847,7 @@ end
 local function categoryNode(group)
   local children = {
     ui.label({ text = string.upper(group.name), color = "primary", fontSize = 14, fontWeight = "bold" }),
-    ui.separator({ color = "outline", thickness = 1, spacing = 1 }),
+    ui.separator({ color = "outline_variant", thickness = 1, spacing = 1 }),
   }
   local occurrences = {}
   for _, binding in ipairs(group.bindings) do
@@ -900,7 +900,7 @@ local function colorControl(bucket, property)
     end
   end)
   return ui.row({ gap = 5, align = "center", flexGrow = 1 }, {
-    ui.box({ width = 24, height = 24, radius = 5, fill = colorValue(bucket.id, property), border = "outline", borderWidth = 1 }),
+    ui.box({ width = 24, height = 24, radius = 5, fill = colorValue(bucket.id, property), border = "outline_variant", borderWidth = 1 }),
     ui.button({ text = property == "background" and tr("background") or tr("text"), variant = "ghost", controlSize = "sm", flexGrow = 1, onClick = choose }),
     ui.button({ glyph = "clipboard", variant = "ghost", controlSize = "sm", tooltip = tr("paste"), onClick = paste }),
     ui.button({ glyph = "restore", variant = "ghost", controlSize = "sm", tooltip = tr("reset"), onClick = reset }),

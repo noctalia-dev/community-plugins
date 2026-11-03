@@ -164,7 +164,7 @@
     },
     "max_providers": {
       "description": "The bar shows at most this many. If more qualify, it keeps the ones closest to their limits.",
-      "label": "Bar · Maximum shown"
+      "label": "Bar · Maximum providers"
     },
     "notify": {
       "description": "Notify once when a window crosses the critical threshold, and again when it resets.",

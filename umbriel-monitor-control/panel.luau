@@ -369,7 +369,7 @@ local function outputCard(output)
     }))
   end
 
-  return ui.column({ gap = 8, padding = 10, radius = 8, border = "outline/0.4", borderWidth = 1 }, children)
+  return ui.column({ gap = 8, padding = 10, radius = 8, border = "outline_variant/0.4", borderWidth = 1 }, children)
 end
 
 -- The arrangement itself: every enabled output as a rectangle at its real
@@ -441,7 +441,7 @@ local function layoutMap(outputs)
   return {
     ui.column({
       width = MAP_WIDTH, height = MAP_HEIGHT, gap = 0, padding = 0, radius = 8,
-      fill = "surface_variant/0.3", border = "outline/0.4", borderWidth = 1,
+      fill = "surface_container/0.3", border = "outline_variant/0.4", borderWidth = 1,
     }, cells),
     ui.column({ gap = 4 }, legend),
   }
@@ -458,7 +458,7 @@ function render()
   if snapshot.available ~= true then
     panel.render(ui.column({ flexGrow = 1, gap = 8, padding = 10 }, {
       header,
-      ui.row({ gap = 10, align = "center", padding = 10, radius = 8, fill = "surface_variant/0.35" }, {
+      ui.row({ gap = 10, align = "center", padding = 10, radius = 8, fill = "surface_container/0.35" }, {
         ui.glyph({ name = "alert-triangle", size = 20, color = "error" }),
         ui.label({ text = tr("panel.unavailable"), color = "on_surface_variant", fontSize = 12, flexGrow = 1 }),
       }),

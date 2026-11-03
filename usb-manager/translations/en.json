@@ -1,0 +1,99 @@
+{
+  "bus": {
+    "optical": "Optical drive",
+    "other": "Removable drive",
+    "sd": "SD card",
+    "usb": "USB"
+  },
+  "error": {
+    "busy": "it is in use: close the files and windows that use it",
+    "lock": "Could not lock {name}: {reason}",
+    "mount": "Could not mount {name}: {reason}",
+    "no-udisks": "udisksctl is not available: install udisks2",
+    "not-authorized": "not authorized",
+    "passphrase": "wrong passphrase",
+    "remove": "Could not remove {name}: {reason}",
+    "timeout": "udisks did not answer in time",
+    "unlock": "Could not unlock {name}: {reason}",
+    "unmount": "Could not unmount {name}: {reason}"
+  },
+  "notify": {
+    "safe": "{name} can be removed safely",
+    "unsafe": "{name} was unplugged while still mounted: files being written may be lost"
+  },
+  "panel": {
+    "busy": "Writing…",
+    "cancel": "Cancel",
+    "copied": "Path copied",
+    "copy-path": "Copy the mount path",
+    "count": "{count} drives",
+    "count-one": "1 drive",
+    "eject-hint": "Ejects the medium",
+    "empty": "No removable drives",
+    "empty-hint": "Plug in a USB drive or an SD card.",
+    "encrypted": "Encrypted volume: unlock it with its passphrase",
+    "free": "{free} free of {total}",
+    "lock": "Lock",
+    "locked": "Locked",
+    "mount": "Mount",
+    "mount-all": "Mount all",
+    "mounted-count": "{count} mounted",
+    "no-media": "No medium",
+    "not-mounted": "Not mounted",
+    "open": "Open in the file manager",
+    "passphrase": "Passphrase for {name}",
+    "pending-lock": "Locking…",
+    "pending-mount": "Mounting…",
+    "pending-remove": "Preparing for removal…",
+    "pending-unlock": "Unlocking…",
+    "pending-unmount": "Unmounting…",
+    "power-off-hint": "Unmounts everything and powers the drive off",
+    "read-only": "read-only",
+    "refresh": "Refresh",
+    "release-hint": "Unmounts everything",
+    "remove": "Remove safely",
+    "remove-all": "Remove all safely",
+    "settings": "Settings",
+    "unlock": "Unlock",
+    "unlocked": "Unlocked",
+    "unmount": "Unmount",
+    "unnamed": "Untitled"
+  },
+  "settings": {
+    "auto_mount": {
+      "description": "Mount the filesystems of a drive as soon as it is plugged in. Encrypted volumes still wait for their passphrase.",
+      "label": "Mount automatically"
+    },
+    "file_manager": {
+      "description": "Command that opens a folder, which is passed as the last argument. Empty uses xdg-open.",
+      "label": "File manager command"
+    },
+    "hide_when_empty": {
+      "description": "Hide the widget while no removable drive is plugged in.",
+      "label": "Hide when empty"
+    },
+    "notifications": {
+      "description": "Notify when a drive can be removed safely. Errors and drives unplugged while mounted are always shown.",
+      "label": "Notifications"
+    },
+    "open_after_mount": {
+      "description": "Open the folder in the file manager after mounting a volume.",
+      "label": "Open after mounting"
+    },
+    "scan_interval": {
+      "description": "Seconds between two reads of the kernel's device list.",
+      "label": "Scan interval"
+    },
+    "show_count": {
+      "description": "Show the number of drives next to the icon.",
+      "label": "Show the count"
+    }
+  },
+  "title": "USB Manager",
+  "tooltip": {
+    "mounted": "mounted at {path}",
+    "not-mounted": "not mounted",
+    "remove-all": "remove all drives safely",
+    "right-click": "Right click"
+  }
+}

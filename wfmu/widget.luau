@@ -63,13 +63,19 @@ local function startPlayback(name, url)
   noctalia.state.set("paused", false)
 end
 
+-- "<label>\t<url>" lines. Archives carry a third column with an ordering stamp;
+-- the URL is always the field right after the first tab.
+local function urlField(line, tab)
+  return noctalia.string.trim(line:sub(tab + 1):match("^[^\t]*") or "")
+end
+
 local function playRandom()
   local raw = readList()
   local list = {}
   for line in raw:gmatch("[^\r\n]+") do
     local tab = string.find(line, "\t", 1, true)
     if tab then
-      local url = noctalia.string.trim(line:sub(tab + 1))
+      local url = urlField(line, tab)
       local name = noctalia.string.trim(line:sub(1, tab - 1))
       if url ~= "" then
         list[#list + 1] = { name = name, url = url }
@@ -80,6 +86,7 @@ local function playRandom()
     noctalia.notifyError("WFMU", "no streams to pick from")
     return
   end
+  math.randomseed(os.time())
   local pick = list[math.random(1, #list)]
   startPlayback(pick.name, pick.url)
 end
@@ -126,15 +133,42 @@ end
 
 noctalia.setUpdateInterval(idle_interval)
 
+-- Our labels carry the air date ("Smile for the Camera (Sep 19)") and WFMU's own
+-- stream titles read "<Show> from <date>". Both lines get the date shaved off:
+-- line 1 is the show, line 2 the song. When the title was only the show over
+-- again, the second line is dropped rather than repeated. Keep in sync with
+-- stripDate() in panel.luau.
+local function stripDate(text)
+  local t = text or ""
+  t = t:gsub("%s*%b()%s*$", " ")
+  t = t:gsub("%s*[Ff]rom%s+[^%d]*%d[%d%p%s:-]*$", " ")
+  do
+    local lower = string.lower(t)
+    for _, m in ipairs({ "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec" }) do
+      local match = lower:match("%s+" .. m .. "[a-z]*%s+%d%d?,?%s*%d%d%d%d%s*$")
+      if match then
+        -- The match is a plain-ASCII date suffix, so its byte length is the same
+        -- in the original; cut it off instead of replacing the value with its
+        -- lowercased form, which would lowercase the show name as well.
+        t = t:sub(1, #t - #match)
+        break
+      end
+    end
+  end
+  t = t:gsub("%s*[%-–—:]?%s*%d%d%d%d%-%d%d%-%d%d%s*$", " ")
+  t = t:gsub("%s*[%-–—:]?%s*%d?%d/%d?%d/%d%d%d%d%s*$", " ")
+  t = t:gsub("%s+", " ")
+  return noctalia.string.trim(t)
+end
+
 local function show()
   local now = noctalia.state.get("now")
   local lines = {}
-  lines[1] = (now and now ~= "") and now or "WFMU"
-  if now and now ~= "" then
-    local np = noctalia.state.get("now_playing")
-    if np and np ~= "" then
-      lines[#lines + 1] = np
-    end
+  local showName = stripDate(now)
+  lines[1] = showName ~= "" and showName or "WFMU"
+  local song = stripDate(noctalia.state.get("now_playing"))
+  if song ~= "" and string.lower(song) ~= string.lower(showName) then
+    lines[#lines + 1] = song
   end
   if refreshing then
     lines[#lines + 1] = "updating stream list…"
@@ -159,7 +193,7 @@ local function playDefault()
   for line in raw:gmatch("[^\r\n]+") do
     local tab = string.find(line, "\t", 1, true)
     if tab then
-      local url = noctalia.string.trim(line:sub(tab + 1))
+      local url = urlField(line, tab)
       local name = noctalia.string.trim(line:sub(1, tab - 1))
       if url ~= "" and string.find(url, "wfmu.org", 1, true) and not string.find(url, "mp3archives", 1, true) then
         startPlayback(name, url)

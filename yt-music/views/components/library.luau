@@ -192,7 +192,7 @@ local function build_library()
 						icon_name,
 						38,
 						"primary",
-						is_hovered and "primary/0.2" or "surface_variant/0.6"
+						is_hovered and "primary/0.2" or "surface_container/0.6"
 					),
 					ui.column({ gap = 2, flexGrow = 1, radius = theme.radius }, {
 						ui.label({

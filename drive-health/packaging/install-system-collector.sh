@@ -50,6 +50,13 @@ if [[ -z "$target_user" || "$target_user" == root ]] || ! id "$target_user" >/de
 fi
 target_gid="$(id -g "$target_user")"
 
+if [[ ! -w /etc/systemd/system ]]; then
+  echo "Cannot write to /etc/systemd/system -- this looks like an immutable" >&2
+  echo "/etc (e.g. NixOS, where systemd units are generated from system config)." >&2
+  echo "See this plugin's README.md for the declarative NixOS setup instead." >&2
+  exit 1
+fi
+
 for dependency in sh smartctl lsblk systemctl install sed mktemp id; do
   if ! command -v "$dependency" >/dev/null 2>&1; then
     echo "Missing required command: $dependency" >&2

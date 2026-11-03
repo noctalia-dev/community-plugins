@@ -1,7 +1,7 @@
 id = "hakanct/saved-desktop-widgets"
 name = "Saved Desktop Widgets"
-version = "1.0.1"
-plugin_api = 26
+version = "1.0.2"
+plugin_api = 43
 author = "hakanct"
 license = "MIT"
 dependencies = []

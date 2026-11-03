@@ -119,6 +119,10 @@
       "description": "On Umbriel, switch to Cider's saved workspace before showing it. Off: use your current workspace where supported (Xwayland window control).",
       "label": "Remember Cider workspace"
     },
+    "save_to_history": {
+      "description": "When using notifications, also keep them in notification history. Off by default.",
+      "label": "Save track alerts to history"
+    },
     "show_cover": {
       "description": "Show the current Cider artwork on the bar chip when a local cover file is available.",
       "label": "Show cover"

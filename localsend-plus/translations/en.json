@@ -1,0 +1,211 @@
+{
+  "settings": {
+    "alias": {
+      "label": "Device name",
+      "description": "Name other devices see. Empty picks a random name once, like the LocalSend app does, so your hostname stays private."
+    },
+    "save_dir": {
+      "label": "Save folder",
+      "description": "Where received files are written."
+    },
+    "dolphin_menu": {
+      "label": "Dolphin context menu",
+      "description": "Adds \"Send with LocalSend Plus\" to Dolphin's menu for files and folders. Turning it off removes the entry again."
+    },
+    "nautilus_menu": {
+      "label": "Nautilus context menu",
+      "description": "Adds \"Send with LocalSend Plus\" to the Scripts submenu of Nautilus (Files) for files and folders. Turning it off removes the entry again."
+    },
+    "nemo_menu": {
+      "label": "Nemo context menu",
+      "description": "Adds \"Send with LocalSend Plus\" to Nemo's menu for files and folders. Turning it off removes the entry again."
+    },
+    "terminal_command": {
+      "label": "localsend command in the terminal",
+      "description": "Adds \"localsend FILE... [DEVICE]\" as ~/.local/bin/localsend, with Tab completion for fish, bash and zsh (zsh needs one fpath line, see the README). Your shell config stays untouched; turning this off removes the files again."
+    },
+    "port": {
+      "label": "LocalSend port",
+      "description": "Close the LocalSend app first if it uses the same port."
+    },
+    "visibility": {
+      "label": "Visibility",
+      "description": "Who can find you and send you files. A change here applies at once; the panel and launcher can change it later, and the plugin remembers the last choice."
+    },
+    "auto_accept": {
+      "label": "Auto-accept files",
+      "description": "Accept incoming files without asking. Text messages always ask. From favorites is the default. From everyone needs a receive PIN of at least 8 characters (the PIN card has the same switch); until then it acts as from favorites."
+    },
+    "device_model": {
+      "label": "Device model",
+      "description": "Shown to other devices under the name. Empty uses your distribution's name."
+    },
+    "controller_path": {
+      "label": "Controller path",
+      "description": "localsend-controller to run. Empty looks in PATH, ~/.cargo/bin and ~/.local/bin."
+    }
+  },
+  "panel": {
+    "title": "LocalSend Plus",
+    "refresh": "Refresh devices",
+    "settings": "Settings",
+    "starting": "Starting the receiver…",
+    "retry": "Retry",
+    "nearby": "Nearby devices",
+    "no_devices": "No devices found. Open LocalSend on another device on this network.",
+    "offline": "Device not confirmed recently. Refresh first.",
+    "send_files": "Send files to {name}",
+    "send_folder": "Send a folder to {name}",
+    "send_clipboard": "Send the clipboard (text or copied files) to {name}",
+    "pick_files": "Send files to {name}",
+    "pick_folder": "Send a folder to {name}",
+    "incoming_from": "{name} wants to send",
+    "text_hint": "Accepting copies the text to the clipboard.",
+    "accept": "Accept",
+    "decline": "Decline",
+    "cancel": "Cancel",
+    "transfers": "Transfers",
+    "clear_history": "Clear finished transfers",
+    "pin": "Pin to favorites",
+    "pin_auto": "Pin to favorites. Files from favorites are accepted without asking.",
+    "unpin": "Unpin",
+    "from": "From {name}",
+    "to": "To {name}",
+    "more": "and {count} more",
+    "open_folder": "Open folder",
+    "in_clipboard": "Copied to clipboard",
+    "text_message": "Text message",
+    "visible_as": "Visible as {name}",
+    "saving_to": "Saving to {dir}",
+    "clip_confirm": "Send the clipboard to {name}?",
+    "clip_send": "Send",
+    "clip_loading": "Reading the clipboard…",
+    "clip_empty": "The clipboard is empty or holds no text.",
+    "text_long": "The preview shows only the beginning; the clipboard gets all of it ({size}). Check it before pasting into a terminal.",
+    "fingerprint": "Fingerprint: {fp}…",
+    "reported_alias": "The device now reports the name: {name}",
+    "impostor": "This is not your pinned device, even though it has the same name.",
+    "visible_favorites": "Visible to favorites as {name}",
+    "hidden_as": "Hidden ({name})",
+    "install_hint": "Build it from the sources that come with this plugin. The update script checks for Rust and a C compiler, tells you how to install what is missing, builds the controller and restarts LocalSend. You can also run it from any terminal:",
+    "update_in_terminal": "Update in terminal",
+    "copy_command": "Copy command",
+    "files_confirm": "Send {count} copied file(s) to {name}?",
+    "files_not_local": "The clipboard holds links that are not local files, so nothing can be sent.",
+    "send_ask": "Send {count} item(s) to…",
+    "add_device": "Add a device by address",
+    "add_desc": "For networks where devices cannot find each other. This device introduces itself to that address.",
+    "add_placeholder": "192.168.1.20 or phone.lan:53317",
+    "add": "Add",
+    "from_folders": "From: {folders}"
+  },
+  "status": {
+    "preparing": "Waiting",
+    "transferring": "Transferring",
+    "cancelling": "Cancelling",
+    "completed": "Done",
+    "declined": "Declined",
+    "cancelled": "Cancelled",
+    "failed": "Failed"
+  },
+  "launcher": {
+    "open": "Open the panel",
+    "send_files": "Send files to {name}",
+    "send_folder": "Send a folder to {name}",
+    "send_clipboard": "Send clipboard to {name}",
+    "visibility": "Visibility: {mode}",
+    "current": "LocalSend Plus · current",
+    "visibility_words": "visibility visible hide hidden favorites widoczność ukryj"
+  },
+  "widget": {
+    "tooltip": "LocalSend Plus",
+    "request": "Incoming request",
+    "active": "{count} transfer(s) in progress",
+    "visibility": "Visibility: {mode}"
+  },
+  "notify": {
+    "title": "LocalSend Plus",
+    "incoming": "{name} wants to send {count} file(s)",
+    "incoming_text": "{name} wants to send a message",
+    "received": "Received {count} file(s) from {name}",
+    "sent": "Sent {count} file(s) to {name}",
+    "text_copied": "Message from {name} copied to the clipboard",
+    "declined": "{name} declined the transfer",
+    "failed": "Transfer with {name} failed. {reason}",
+    "temp_ended": "Temporary visibility ended. Now: {mode}",
+    "auto_receiving": "Receiving {count} file(s) from {name} (auto-accepted)",
+    "pin_required": "{name} asks for a PIN. Enter it in the panel to send again.",
+    "pin_invalid": "Wrong PIN for {name}. Try again in the panel.",
+    "device_added": "Found {name}. Pin it to keep it in the list."
+  },
+  "error": {
+    "port_busy": "Could not open port {port}. Close the LocalSend app or change the port in settings.",
+    "already_running": "Another controller is already using the socket.",
+    "no_runtime_dir": "XDG_RUNTIME_DIR is not set.",
+    "not_answering": "The receiver stopped answering. Restarting…",
+    "no_ready": "The receiver did not start in time.",
+    "stopped": "The receiver stopped unexpectedly.",
+    "unknown": "Unknown error.",
+    "no_zenity": "zenity, needed to pick files, is not installed.",
+    "bad_selection": "The file picker returned an invalid path. Nothing was sent.",
+    "clipboard_secret": "The clipboard holds a password from a password manager, so it was not sent.",
+    "clipboard_changed": "The clipboard changed after the preview or could not be read, so nothing was sent. Open the preview again.",
+    "insufficient_space": "Not enough free space in the save folder. The transfer was not accepted.",
+    "no_controller": "localsend-controller is not installed.",
+    "no_terminal": "No terminal found. Copy the command and run it in a terminal.",
+    "old_controller": "localsend-controller {found} is too old; this plugin needs {needed}.",
+    "bad_controller": "{path} did not report a localsend-controller version.",
+    "pin_required": "The receiver asks for a PIN.",
+    "pin_invalid": "Wrong PIN.",
+    "pin_locked": "Too many wrong PINs. LocalSend on the receiver has to restart before you can try again.",
+    "bad_path": "Not an existing file or folder: {path}",
+    "line_break": "A file name contains a line break. Send that file from the panel or the terminal instead.",
+    "no_paths": "Nothing to send. Give absolute paths, one per line.",
+    "bad_address": "Enter an address like 192.168.1.20 or phone.lan:53317.",
+    "device_unreachable": "No LocalSend device answered at {address}. Check that LocalSend is open there with encryption on.",
+    "no_data_dir": "Noctalia gave this plugin no data folder.",
+    "data_not_private": "The plugin data folder could not be made private, so the PIN was not saved.",
+    "picker_open": "A file picker is already open.",
+    "receive_stalled": "The sender stopped sending, so the transfer was cancelled.",
+    "install_extra": "Could not write {path}: {reason}",
+    "extra_exists": "{path} already exists with other content, so it was left alone. Remove or rename it and switch the setting off and on.",
+    "extra_kept": "Files changed after the plugin installed them were left in place: {path}"
+  },
+  "visibility": {
+    "everyone": "Everyone",
+    "favorites": "Favorites only",
+    "hidden": "Hidden",
+    "short_everyone": "Everyone",
+    "short_favorites": "Favorites",
+    "short_hidden": "Hidden",
+    "temp": "Everyone for 10 min",
+    "title": "Visibility: {mode}",
+    "temp_left": "Everyone for {minutes} more min, then: {mode}",
+    "change": "Change visibility",
+    "desc_everyone": "Every device on the network sees you and can ask to send.",
+    "desc_favorites": "You do not announce yourself. Only pinned devices can send; requests from others are declined. An active network scan still shows your name. Hidden mode hides you completely.",
+    "desc_hidden": "Receiver off: nobody finds you or sends you anything. You can still send; Refresh asks only your favorites, which then learn about you.",
+    "no_favorites": "You have no pinned devices yet, so nobody can send to you now.",
+    "draining": "The receiver turns off once the current incoming transfer ends."
+  },
+  "auto_accept": {
+    "off": "Off",
+    "favorites": "From favorites",
+    "everyone": "From anyone with the PIN",
+    "active": "Files from anyone with the right PIN are accepted without asking. Change it in the PIN card or the settings.",
+    "needs_pin": "Auto-accept from everyone needs a receive PIN of at least 8 characters. Until you set one, only favorites are accepted automatically."
+  },
+  "pin": {
+    "on": "Receive PIN is on",
+    "off": "No receive PIN",
+    "desc": "Senders must enter this PIN before their request reaches you. It is stored only on this computer. Three wrong tries from one address block that address until the receiver restarts; a sender that changes addresses can keep guessing, so use at least 8 characters if you accept files without asking.",
+    "placeholder": "New PIN",
+    "change_placeholder": "New PIN (replaces the current one)",
+    "set": "Set PIN",
+    "remove": "Remove PIN",
+    "invalid": "A PIN has 1 to 64 characters.",
+    "receiver_placeholder": "The receiver's PIN",
+    "send": "Send with PIN",
+    "auto": "Accept files without asking when the PIN is right (text still asks)"
+  }
+}

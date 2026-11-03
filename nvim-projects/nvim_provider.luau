@@ -45,6 +45,12 @@ local function shellQuote(s: string): string
 	return "'" .. s:gsub("'", "'\"'\"'") .. "'"
 end
 
+local function escapeVim(s: string): string
+    -- Only return first value from gsub
+    local replaced =  s:gsub("[%%#]", "\\%0")
+    return replaced
+end
+
 local function split(haystack: string, separator: string): {string}
     local t = {}
     local start = 1
@@ -225,10 +231,10 @@ function onActivate(id: string)
     local args = split(getBaseCommand(), ' ')
     if project.session_file ~= nil then
         table.insert(args, "-S")
-        table.insert(args, project.session_file)
+        table.insert(args, escapeVim(project.session_file))
     else
         table.insert(args, "-c")
-        table.insert(args, "cd "..project.dir)
+        table.insert(args, "cd "..escapeVim(project.dir))
         table.insert(args, "--")
         table.insert(args, project.dir)
     end
@@ -245,8 +251,20 @@ function onActivate(id: string)
                 cmd = cmd .. shellQuote(arg)
                 cmd = cmd .. " "
             end
-            -- We shellQuote the entire thing again here, otherwise sh only executes the first word
-            noctalia.runInTerminal(shellQuote(cmd))
+            -- This is a bit of a hack, so bear with me
+            -- Noctala executes `runInTerminal` by putting `sh -lc` in front of our command
+            -- Unfortunately, depending on the implementation of sh, it will interpret the command line differently
+            -- Dash (used by Ubuntu, Debian, Void) will only take the next word
+            --  as the argument to -c, so you need to quote the whole command if
+            --  you want to give an executable with arguments
+            -- Bash (used by Arch, Fedora) will take the rest of the line as
+            --  the argument to -c, so no quoting is needed. However, if you do
+            --  quote it, it will interpret the entire quoted command line as
+            --  the name of the executable file to run, and fail
+            -- The exception is, if Dash sees a special character (like ; or && or | or >, etc)
+            --  then it will execute the whole command instead of just the first word. So we
+            --  add a no-op command in front (:), then unconditionally continue on to the real command 
+            noctalia.runInTerminal(':; '..cmd)
         end
     else
         noctalia.runAsync(args)

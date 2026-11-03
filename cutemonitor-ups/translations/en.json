@@ -13,7 +13,11 @@
     "test": "Self-test",
     "test_tip": "Run a quick battery self-test"
   },
-  "beeper": { "disabled": "Disabled", "enabled": "Enabled", "muted": "Muted" },
+  "beeper": {
+    "disabled": "Disabled",
+    "enabled": "Enabled",
+    "muted": "Muted"
+  },
   "caption": {
     "battery_pct": "Battery",
     "input_hz": "Input",
@@ -24,8 +28,14 @@
     "output_v": "Output",
     "runtime": "Runtime"
   },
-  "charging": { "charging": "Charging", "discharging": "Discharging", "idle": "Not charging" },
-  "detail": { "runtime_left": "{time} left" },
+  "charging": {
+    "charging": "Charging",
+    "discharging": "Discharging",
+    "idle": "Not charging"
+  },
+  "detail": {
+    "runtime_left": "{time} left"
+  },
   "details": {
     "last_event": "Last Power Event",
     "line": "Line Interaction",
@@ -58,9 +68,17 @@
     "test_warning": "Self-test warning",
     "under_voltage": "Under voltage"
   },
-  "gauges": { "empty": "Choose at least one bar in this widget's settings" },
-  "line": { "boost": "Boost", "buck": "Buck", "none": "None" },
-  "link": { "lost": "Lost communication · last data {age} ago" },
+  "gauges": {
+    "empty": "Choose at least one bar in this widget's settings"
+  },
+  "line": {
+    "boost": "Boost",
+    "buck": "Buck",
+    "none": "None"
+  },
+  "link": {
+    "lost": "Lost communication · last data {age} ago"
+  },
   "panel": {
     "events_empty": "No events recorded yet",
     "events_kept": "{count} kept",
@@ -74,7 +92,11 @@
       "readout": "Status"
     },
     "settings": "Plugin settings",
-    "span": { "10m": "10 min", "1h": "1 h", "2m": "2 min" },
+    "span": {
+      "10m": "10 min",
+      "1h": "1 h",
+      "2m": "2 min"
+    },
     "title": "UPS",
     "updated": "{source} · updated {age} ago",
     "updated_now": "{source} · updated just now"
@@ -88,11 +110,13 @@
     "off": "Off",
     "on": "On",
     "power_failure": "On power failure",
-    "shuts_down": "shuts down",
     "shutdown_after": "Shut down after {time}",
+    "shuts_down": "shuts down",
     "unknown": "No policy information from the data source"
   },
-  "readout": { "empty": "Turn on rows in this widget's settings" },
+  "readout": {
+    "empty": "Turn on rows in this widget's settings"
+  },
   "reason": {
     "busy": "too many commands running; retrying",
     "nut_invalid": "\"{ups}\" isn't a valid NUT UPS name",
@@ -137,18 +161,34 @@
       "description": "Low battery, overload, fault, and load above the High Load threshold.",
       "label": "Alert Color"
     },
-    "bar1": { "label": "Bar 1" },
-    "bar2": { "label": "Bar 2" },
-    "bar3": { "label": "Bar 3" },
+    "bar1": {
+      "label": "Bar 1"
+    },
+    "bar2": {
+      "label": "Bar 2"
+    },
+    "bar3": {
+      "label": "Bar 3"
+    },
     "battery_color": {
       "description": "Outline and charge of the drawn battery. Outages and alerts use the Warning and Alert colors.",
       "label": "Battery Color"
     },
-    "big1": { "label": "Big Number" },
-    "big2": { "label": "Second Big Number" },
-    "color": { "label": "Color" },
-    "color2": { "label": "Color 2" },
-    "color3": { "label": "Color 3" },
+    "big1": {
+      "label": "Big Number"
+    },
+    "big2": {
+      "label": "Second Big Number"
+    },
+    "color": {
+      "label": "Color"
+    },
+    "color2": {
+      "label": "Color 2"
+    },
+    "color3": {
+      "label": "Color 3"
+    },
     "data_source": {
       "description": "Where readings come from. Auto tries pwrstat first, then NUT on this machine.",
       "label": "Data Source",
@@ -166,9 +206,15 @@
         "short": "Short (Oct 5, 08:22)"
       }
     },
-    "detail1": { "label": "Detail 1" },
-    "detail2": { "label": "Detail 2" },
-    "detail3": { "label": "Detail 3" },
+    "detail1": {
+      "label": "Detail 1"
+    },
+    "detail2": {
+      "label": "Detail 2"
+    },
+    "detail3": {
+      "label": "Detail 3"
+    },
     "display": {
       "label": "Display",
       "options": {
@@ -208,8 +254,12 @@
         "battery_load": "Battery · Load"
       }
     },
-    "line1": { "label": "Line 1" },
-    "line2": { "label": "Line 2" },
+    "line1": {
+      "label": "Line 1"
+    },
+    "line2": {
+      "label": "Line 2"
+    },
     "log_communication": {
       "description": "Lost and restored contact with the UPS or NUT server.",
       "label": "Log Communication"
@@ -222,7 +272,9 @@
       "description": "On battery, power restored, low battery, overload, and fault.",
       "label": "Log Outages and Critical States"
     },
-    "log_self_test": { "label": "Log Self-Test Results" },
+    "log_self_test": {
+      "label": "Log Self-Test Results"
+    },
     "log_voltage": {
       "description": "Boost and Buck switching on or off. Can be frequent on a noisy line.",
       "label": "Log Voltage Correction"
@@ -242,32 +294,66 @@
       "description": "Hide this item while the UPS runs on utility power.",
       "label": "Show Only on Battery"
     },
-    "panel_actions": { "label": "Show Actions" },
-    "panel_events": { "label": "Show Event Log" },
-    "panel_graph": { "label": "Show Live Graph" },
-    "panel_hero": { "label": "Show Big Numbers" },
-    "panel_protection": { "label": "Show Protection" },
-    "panel_readout": { "label": "Show Full Readout" },
+    "panel_actions": {
+      "label": "Show Actions"
+    },
+    "panel_events": {
+      "label": "Show Event Log"
+    },
+    "panel_graph": {
+      "label": "Show Live Graph"
+    },
+    "panel_hero": {
+      "label": "Show Big Numbers"
+    },
+    "panel_protection": {
+      "label": "Show Protection"
+    },
+    "panel_readout": {
+      "label": "Show Full Readout"
+    },
     "poll_interval": {
       "description": "How often the UPS is read. Polling faster than the data source refreshes adds no new information.",
       "label": "Poll Interval",
       "options": {
         "1": "1 Second",
-        "10": "10 Seconds",
         "2": "2 Seconds",
-        "30": "30 Seconds",
         "5": "5 Seconds",
+        "10": "10 Seconds",
+        "30": "30 Seconds",
         "60": "1 Minute"
       }
     },
-    "row_battery": { "description": "Battery Capacity and Remaining Runtime.", "label": "Battery & Runtime" },
-    "row_frequencies": { "description": "Utility Frequency and Output Frequency.", "label": "Frequencies" },
-    "row_model_firmware": { "description": "Model Name and Firmware Number.", "label": "Model & Firmware" },
-    "row_ratings": { "description": "Rating Voltage and Rating Power.", "label": "Ratings" },
-    "row_state": { "description": "State and Power Supply by.", "label": "State & Power Source" },
-    "row_voltages": { "description": "Utility Voltage and Output Voltage.", "label": "Voltages" },
-    "show_label": { "label": "Show Label" },
-    "status_line": { "label": "Status Line" },
+    "row_battery": {
+      "description": "Battery Capacity and Remaining Runtime.",
+      "label": "Battery & Runtime"
+    },
+    "row_frequencies": {
+      "description": "Utility Frequency and Output Frequency.",
+      "label": "Frequencies"
+    },
+    "row_model_firmware": {
+      "description": "Model Name and Firmware Number.",
+      "label": "Model & Firmware"
+    },
+    "row_ratings": {
+      "description": "Rating Voltage and Rating Power.",
+      "label": "Ratings"
+    },
+    "row_state": {
+      "description": "State and Power Supply by.",
+      "label": "State & Power Source"
+    },
+    "row_voltages": {
+      "description": "Utility Voltage and Output Voltage.",
+      "label": "Voltages"
+    },
+    "show_label": {
+      "label": "Show Label"
+    },
+    "status_line": {
+      "label": "Status Line"
+    },
     "time_span": {
       "label": "Time Span",
       "options": {
@@ -281,7 +367,10 @@
       "label": "Warning Color"
     }
   },
-  "source": { "battery": "Battery power", "utility": "Utility power" },
+  "source": {
+    "battery": "Battery power",
+    "utility": "Utility power"
+  },
   "stats": {
     "battery_pct": "Battery %",
     "input_hz": "Input Frequency",
@@ -297,8 +386,8 @@
     "bypass": "Bypass",
     "calibrating": "Calibrating",
     "fault": "Fault",
-    "low_battery": "Low battery",
     "lost_comm": "Lost communication",
+    "low_battery": "Low battery",
     "none": "No UPS connected",
     "normal": "Normal",
     "off": "Off",
@@ -320,9 +409,18 @@
     "warning": "Warning"
   },
   "time": {
-    "days_ago": { "one": "{count} day ago", "other": "{count} days ago" },
-    "hours_ago": { "one": "{count} h ago", "other": "{count} h ago" },
+    "days_ago": {
+      "one": "{count} day ago",
+      "other": "{count} days ago"
+    },
+    "hours_ago": {
+      "one": "{count} h ago",
+      "other": "{count} h ago"
+    },
     "just_now": "just now",
-    "minutes_ago": { "one": "{count} min ago", "other": "{count} min ago" }
+    "minutes_ago": {
+      "one": "{count} min ago",
+      "other": "{count} min ago"
+    }
   }
 }

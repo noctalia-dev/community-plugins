@@ -35,6 +35,13 @@ local function pending()
         and (snapshot.total or 0) > 0
 end
 
+local function configPending()
+    return snapshot ~= nil
+        and snapshot.configReviewEnabled == true
+        and noctalia.getConfig("config_badge") == true
+        and (tonumber(snapshot.configCount) or 0) > 0
+end
+
 -- "Pacman 12 · AUR (yay) 3 · Flatpak 1": non-zero sources only.
 local function breakdown()
     if snapshot == nil then
@@ -95,6 +102,8 @@ local function render()
         barWidget.setGlyphColor("warning")
     elseif pending() then
         barWidget.setGlyphColor("primary")
+    elseif configPending() then
+        barWidget.setGlyphColor("warning")
     else
         barWidget.setGlyphColor("on_surface")
     end
@@ -107,12 +116,14 @@ local function render()
         barWidget.setText(tostring(math.min(math.floor(done / expect * 100), 100)) .. "%")
     elseif pending() and noctalia.getConfig("show_count") == true then
         barWidget.setText(tostring(snapshot.total))
+    elseif not pending() and configPending() then
+        barWidget.setText(tostring(snapshot.configCount))
     else
         barWidget.setText("")
     end
 
     local empty = snapshot == nil or (snapshot.total or 0) == 0
-    barWidget.setVisible(not (noctalia.getConfig("hide_on_empty") == true and empty and not reboot))
+    barWidget.setVisible(not (noctalia.getConfig("hide_on_empty") == true and empty and not reboot and not configPending()))
 
     local rows = { { key = tr("tooltip_status"), value = statusLabel() } }
     local detail = breakdown()
@@ -121,6 +132,12 @@ local function render()
     end
     if reboot then
         table.insert(rows, { key = tr("tooltip_reboot_key"), value = tr("tooltip_reboot_value") })
+    end
+    if configPending() then
+        table.insert(rows, {
+            key = tr("tooltip_config_key"),
+            value = noctalia.trp("tooltip_config_value", snapshot.configCount, { count = snapshot.configCount }),
+        })
     end
     if snapshot ~= nil and (snapshot.newsUnread or 0) > 0 then
         table.insert(rows, { key = tr("tooltip_news"), value = noctalia.trp("tooltip_news_value", snapshot.newsUnread, {}) })

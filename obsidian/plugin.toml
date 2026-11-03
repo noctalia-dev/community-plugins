@@ -2,8 +2,8 @@
 
 id = "davemhammer/obsidian"
 name = "Obsidian"
-version = "1.0.7"
-plugin_api = 10
+version = "1.0.8"
+plugin_api = 43
 author = "davemhammer"
 license = "MIT"
 dependencies = ["obsidian", "git", "xdg-open", "find", "sort", "head", "realpath"]

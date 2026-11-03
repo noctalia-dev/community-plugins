@@ -1,16 +1,18 @@
 id = "miguelfm/ai-triage"
 name = "AI Triage"
-version = "1.0.0"
-plugin_api = 22
+version = "1.8.2"
+plugin_api = 43
 author = "miguelfm"
 license = "MIT"
-icon = "brain"
+icon = "scale"
 description = "AI quota triage, smart model routing and rolling window kickstarting."
 tags = ["bar", "panel", "ai", "indicator", "utility"]
 # The CLI owns credentials, vendor endpoints and caching. This plugin only runs
 # `ai-usagebar usage --json` and draws the result.
 # Optional backend CLIs for `bin/ai-kickstart`: `claude`, `codex`, `agy`.
-dependencies = ["ai-usagebar", "xdg-open"]
+# Note: ai-usagebar must query production `cloudcode-pa.googleapis.com` to report
+# Antigravity's Gemini quota buckets alongside Claude & GPT OSS.
+dependencies = ["ai-usagebar", "xdg-open", "timeout"]
 
 # ── Plugin-level settings (shared by the poller, every capsule and the panel) ──
 
@@ -24,6 +26,169 @@ description_key = "settings.refresh_minutes.description"
 default = 5
 min = 1
 max = 120
+step = 1
+
+[[setting]]
+key = "query_timeout_seconds"
+type = "int"
+label_key = "settings.query_timeout_seconds.label"
+description_key = "settings.query_timeout_seconds.description"
+default = 180
+min = 30
+max = 600
+step = 30
+advanced = true
+
+[[setting]]
+key = "font_scale"
+type = "select"
+label_key = "settings.font_scale.label"
+description_key = "settings.font_scale.description"
+default = "normal"
+options = [
+  { value = "compact", label_key = "settings.font_scale.option.compact" },
+  { value = "normal", label_key = "settings.font_scale.option.normal" },
+  { value = "large", label_key = "settings.font_scale.option.large" },
+  { value = "huge", label_key = "settings.font_scale.option.huge" },
+]
+
+[[setting]]
+key = "schedule_aware_triage"
+type = "bool"
+label_key = "settings.schedule_aware_triage.label"
+description_key = "settings.schedule_aware_triage.description"
+default = true
+
+[[setting]]
+key = "sleep_start_hour"
+type = "double"
+label_key = "settings.sleep_start_hour.label"
+description_key = "settings.sleep_start_hour.description"
+default = 0
+min = 0
+max = 23.5
+step = 0.5
+visible_when = { key = "schedule_aware_triage", values = ["true"] }
+
+[[setting]]
+key = "sleep_end_hour"
+type = "double"
+label_key = "settings.sleep_end_hour.label"
+description_key = "settings.sleep_end_hour.description"
+default = 8
+min = 0
+max = 23.5
+step = 0.5
+visible_when = { key = "schedule_aware_triage", values = ["true"] }
+
+[[setting]]
+key = "weekend_sleep_start_hour"
+type = "double"
+label_key = "settings.weekend_sleep_start_hour.label"
+description_key = "settings.weekend_sleep_start_hour.description"
+default = 1
+min = 0
+max = 23.5
+step = 0.5
+visible_when = { key = "schedule_aware_triage", values = ["true"] }
+
+[[setting]]
+key = "weekend_sleep_end_hour"
+type = "double"
+label_key = "settings.weekend_sleep_end_hour.label"
+description_key = "settings.weekend_sleep_end_hour.description"
+default = 9
+min = 0
+max = 23.5
+step = 0.5
+visible_when = { key = "schedule_aware_triage", values = ["true"] }
+
+[[setting]]
+key = "meal_pause_hours"
+type = "double"
+label_key = "settings.meal_pause_hours.label"
+description_key = "settings.meal_pause_hours.description"
+default = 1
+min = 0
+max = 24
+step = 0.5
+visible_when = { key = "schedule_aware_triage", values = ["true"] }
+
+# Service & model filtering: Allows hiding specific models or providers.
+
+[[setting]]
+key = "hide_claude_oss"
+type = "bool"
+label_key = "settings.hide_claude_oss.label"
+description_key = "settings.hide_claude_oss.description"
+default = false
+
+[[setting]]
+key = "hidden_services"
+type = "string"
+label_key = "settings.hidden_services.label"
+description_key = "settings.hidden_services.description"
+default = ""
+advanced = true
+
+# Gearing ratios: Decimal numbers (sessions per weekly quota).
+# Automatically calibrated at runtime from usage telemetry unless customized here.
+# Flagged advanced to keep standard settings concise.
+
+[[setting]]
+key = "gearing_claude_oss"
+type = "double"
+label_key = "settings.gearing_claude_oss.label"
+description_key = "settings.gearing_claude_oss.description"
+default = 2.5
+min = 0.5
+max = 30.0
+step = 0.1
+advanced = true
+
+[[setting]]
+key = "gearing_gemini"
+type = "double"
+label_key = "settings.gearing_gemini.label"
+description_key = "settings.gearing_gemini.description"
+default = 8.0
+min = 0.5
+max = 30.0
+step = 0.1
+advanced = true
+
+[[setting]]
+key = "gearing_anthropic"
+type = "double"
+label_key = "settings.gearing_anthropic.label"
+description_key = "settings.gearing_anthropic.description"
+default = 7.0
+min = 0.5
+max = 30.0
+step = 0.1
+advanced = true
+
+[[setting]]
+key = "gearing_openai"
+type = "double"
+label_key = "settings.gearing_openai.label"
+description_key = "settings.gearing_openai.description"
+default = 6.3
+min = 0.5
+max = 30.0
+step = 0.1
+advanced = true
+
+[[setting]]
+key = "gearing_default"
+type = "double"
+label_key = "settings.gearing_default.label"
+description_key = "settings.gearing_default.description"
+default = 10.0
+min = 0.5
+max = 30.0
+step = 0.1
+advanced = true
 
 # ── Entries ───────────────────────────────────────────────────────────────────
 
@@ -69,6 +234,8 @@ options = [
   { value = "grok", label_key = "settings.vendor.option.grok" },
   { value = "supergrok", label_key = "settings.vendor.option.supergrok" },
   { value = "antigravity", label_key = "settings.vendor.option.antigravity" },
+  { value = "gemini", label_key = "settings.vendor.option.gemini" },
+  { value = "claude-oss", label_key = "settings.vendor.option.claude_oss" },
   { value = "cursor", label_key = "settings.vendor.option.cursor" },
   { value = "minimax", label_key = "settings.vendor.option.minimax" },
   { value = "kiro", label_key = "settings.vendor.option.kiro" },
@@ -76,17 +243,41 @@ options = [
   { value = "opencode-go", label_key = "settings.vendor.option.opencode_go" },
   { value = "commandcode", label_key = "settings.vendor.option.commandcode" },
   { value = "copilot", label_key = "settings.vendor.option.copilot" },
+  { value = "deepinfra", label_key = "settings.vendor.option.deepinfra" },
+  { value = "synthetic", label_key = "settings.vendor.option.synthetic" },
+  { value = "grokbot", label_key = "settings.vendor.option.grokbot" },
+  { value = "ollama", label_key = "settings.vendor.option.ollama" },
+  { value = "orcarouter", label_key = "settings.vendor.option.orcarouter" },
+  { value = "modelstudio", label_key = "settings.vendor.option.modelstudio" },
+  { value = "lyceum", label_key = "settings.vendor.option.lyceum" },
+  { value = "devin", label_key = "settings.vendor.option.devin" },
+  { value = "muse-code", label_key = "settings.vendor.option.muse_code" },
+  { value = "cline", label_key = "settings.vendor.option.cline" },
+  { value = "droid", label_key = "settings.vendor.option.droid" },
 ]
 
-# Named CLI accounts use stable `<provider>@<label>` entry ids. Keeping the
-# account separate preserves the provider dropdown while allowing any label the
-# user's ai-usagebar config declares.
+# One capsule can carry more than one provider; "auto" fills it with the busiest.
+# Visible only when vendor is auto because pinned providers show exactly themselves.
+[[widget.setting]]
+key = "provider_limit"
+type = "int"
+label_key = "settings.provider_limit.label"
+description_key = "settings.provider_limit.description"
+default = 1
+min = 1
+max = 4
+step = 1
+visible_when = { key = "vendor", values = ["auto"] }
+
+# Named CLI accounts use stable `<provider>@<label>` entry ids.
+# Kept in advanced so single-account users have a clean settings view.
 [[widget.setting]]
 key = "account"
 type = "string"
 label_key = "settings.account.label"
 description_key = "settings.account.description"
 default = ""
+advanced = true
 
 # Keys named after the core `sysmon` widget, so the CPU capsule and this one are
 # configured with the same vocabulary.
@@ -102,11 +293,25 @@ options = [
 ]
 
 [[widget.setting]]
+key = "color_by_usage"
+type = "bool"
+label_key = "settings.color_by_usage.label"
+description_key = "settings.color_by_usage.description"
+default = true
+
+[[widget.setting]]
 key = "show_value"
 type = "bool"
 label_key = "settings.show_value.label"
 description_key = "settings.show_value.description"
 default = true
+
+[[widget.setting]]
+key = "show_name"
+type = "bool"
+label_key = "settings.show_name.label"
+description_key = "settings.show_name.description"
+default = false
 
 [[widget.setting]]
 key = "show_glyph"
@@ -125,16 +330,7 @@ options = [
   { value = "before", label_key = "settings.glyph_position.option.before" },
   { value = "after", label_key = "settings.glyph_position.option.after" },
 ]
-
-# One capsule can carry more than one provider; "auto" fills it with the busiest.
-[[widget.setting]]
-key = "provider_limit"
-type = "int"
-label_key = "settings.provider_limit.label"
-description_key = "settings.provider_limit.description"
-default = 1
-min = 1
-max = 4
+visible_when = { key = "show_glyph", values = ["true"] }
 
 [[widget.setting]]
 key = "extras"
@@ -150,25 +346,26 @@ options = [
 ]
 
 [[widget.setting]]
-key = "show_name"
-type = "bool"
-label_key = "settings.show_name.label"
-description_key = "settings.show_name.description"
-default = false
-
-[[widget.setting]]
-key = "color_by_usage"
-type = "bool"
-label_key = "settings.color_by_usage.label"
-description_key = "settings.color_by_usage.description"
-default = true
+key = "bar_font_scale"
+type = "select"
+label_key = "settings.bar_font_scale.label"
+description_key = "settings.bar_font_scale.description"
+default = "inherit"
+options = [
+  { value = "inherit", label_key = "settings.font_scale.option.inherit" },
+  { value = "compact", label_key = "settings.font_scale.option.compact" },
+  { value = "normal", label_key = "settings.font_scale.option.normal" },
+  { value = "large", label_key = "settings.font_scale.option.large" },
+  { value = "huge", label_key = "settings.font_scale.option.huge" },
+]
 
 [[panel]]
 id = "panel"
 entry = "panel.luau"
-# Provider tabs at the top, detailed charts and accessory cards below.
+# Fit standard reports and empty/error states; longer columns scroll independently.
 width = 1520
-height = 710
+height = "content"
+max_height = 560
 # The shell draws the Placement and Position rows for every plugin panel whether
 # or not they are declared; declaring them only picks the default the user gets.
 placement = "attached"

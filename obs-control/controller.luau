@@ -1,13 +1,29 @@
 --!nonstrict
 
 local busy = false
+-- A keybind or click can land while a status poll runs; keep it for after the poll.
+local pending = nil
 local actions = {
     status = true, launch = true, ["open-videos"] = true, ["save-replay"] = true,
     ["toggle-record"] = true, ["toggle-replay"] = true, ["toggle-stream"] = true,
 }
 
-local function run(action)
-    if busy or not actions[action] then return end
+local run
+
+local function finish()
+    busy = false
+    noctalia.state.set("busy", false)
+    local queued = pending
+    pending = nil
+    if queued then run(queued) end
+end
+
+function run(action)
+    if not actions[action] then return end
+    if busy then
+        if action ~= "status" then pending = action end
+        return
+    end
     busy = true
     noctalia.state.set("busy", true)
     local argv = {
@@ -17,8 +33,6 @@ local function run(action)
     if noctalia.getConfig("auto_close_managed_obs") then table.insert(argv, "--auto-close") end
     if noctalia.getConfig("open_videos_after_stop") then table.insert(argv, "--open-videos") end
     local accepted = noctalia.runAsync(argv, function(result)
-        busy = false
-        noctalia.state.set("busy", false)
         local data = noctalia.json.decode(result.stdout or "")
         if type(data) ~= "table" then
             data = { connected = false, error = noctalia.tr("helper-failed") }
@@ -27,11 +41,11 @@ local function run(action)
         if action ~= "status" then
             noctalia.notify("OBS Control", data.error or data.message or noctalia.tr("done"))
         end
+        finish()
     end, 30000)
     if not accepted then
-        busy = false
-        noctalia.state.set("busy", false)
         noctalia.state.set("status", { connected = false, error = noctalia.tr("helper-failed") })
+        finish()
     end
 end
 

@@ -28,6 +28,14 @@
     "untitled_item": "(untitled)"
   },
   "settings": {
+    "feed_urls": {
+      "description": "One RSS or Atom feed URL per entry (e.g. https://example.com/feed.xml).",
+      "label": "Feed URLs"
+    },
+    "feeds": {
+      "description": "List of feed URLs to monitor (can be set declaratively).",
+      "label": "Feeds"
+    },
     "glyph": {
       "description": "Icon shown in the bar for this widget.",
       "label": "Icon"
@@ -45,12 +53,8 @@
       "label": "Refresh interval (minutes)"
     },
     "show_feed_images": {
-      "description": "Show the feed's photo (logo) on the cards, with the item's cover or the site's favicon as fallback.",
+      "description": "Show each item's cover image (or the site's favicon as a fallback) in the item list.",
       "label": "Show feed images"
-    },
-    "feeds": {
-      "description": "List of feed URLs to monitor (can be set declaratively).",
-      "label": "Feeds"
     }
   },
   "widget": {

@@ -56,6 +56,7 @@
     "interval_failed": "Could not update the full SMART schedule: {error}",
     "interval_launch_failed": "Could not open the administrator authorization dialog.",
     "interval_timeout": "Administrator approval timed out. Try again when you are ready to approve it.",
+    "nixos_hint": "NixOS detected: /etc is generated from system config, so the system collector is managed declaratively. See the NixOS section of the plugin README instead of using the install button.",
     "open_settings": "Open Plugins page",
     "pause": "Pause service",
     "pause_terminal_opened": "A terminal opened. Review the command and approve sudo to stop the collector timer.",
@@ -100,6 +101,7 @@
     "install_title": "Install dependencies",
     "manual_install": "No supported package manager with desktop authorization was detected. Install the listed commands manually, then recheck.",
     "missing": "Missing commands: {missing}",
+    "nixos_hint": "NixOS detected: add smartmontools and util-linux to environment.systemPackages. See the NixOS section of the plugin README for the full SMART collector.",
     "package_manager": "package manager",
     "recheck": "Recheck",
     "title": "Required dependencies are missing"

@@ -23,6 +23,7 @@ bash -n "$manage_script"
 grep -Fq "OnUnitActiveSec=\\nOnBootSec=20s\\nOnUnitActiveSec=%smin" "$interval_script"
 grep -q 'packaging/manage-collector.sh' "$project_dir/packaging/install-system-collector.sh"
 grep -q 'packaging/uninstall-system-collector.sh' "$project_dir/packaging/install-system-collector.sh"
+grep -Fq '! -w /etc/systemd/system' "$project_dir/packaging/install-system-collector.sh"
 grep -Fq '"/etc/systemd/system/$service_name.timer.d"' \
   "$project_dir/packaging/uninstall-system-collector.sh"
 

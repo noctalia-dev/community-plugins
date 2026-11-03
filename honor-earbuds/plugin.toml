@@ -1,0 +1,60 @@
+# Honor Choice Earbuds X5 / X5 Pro plugin for Noctalia Shell v5
+id = "nezerkill/honor-earbuds"
+name = "Honor Earbuds"
+version = "1.1.0"
+plugin_api = 43
+author = "nezerkill"
+license = "MIT"
+icon = "headphones"
+description = "Управление шумоподавлением и батареей для наушников серии HONOR CHOICE (X5, X5 Pro, X3, X3 Lite, X2, Moecen)"
+tags = ["audio", "bar", "panel", "service", "hardware", "indicator"]
+dependencies = ["python3", "bluetoothctl"]
+
+[[setting]]
+key = "device_mac"
+type = "string"
+label_key = "settings.device_mac.label"
+description_key = "settings.device_mac.description"
+default = ""
+
+[[setting]]
+key = "notify_on_connect"
+type = "bool"
+label_key = "settings.notify_on_connect.label"
+description_key = "settings.notify_on_connect.description"
+default = true
+
+[[setting]]
+key = "poll_interval"
+type = "int"
+label_key = "settings.poll_interval.label"
+description_key = "settings.poll_interval.description"
+default = 2500
+
+[[widget]]
+id = "honor-earbuds"
+entry = "widget.luau"
+
+  [widget.actions]
+  left = "panel-toggle nezerkill/honor-earbuds:panel"
+  right = "plugin nezerkill/honor-earbuds:service all cycle-noise"
+
+  [[widget.setting]]
+  key = "hide_when_disconnected"
+  type = "bool"
+  label_key = "settings.hide_when_disconnected.label"
+  description_key = "settings.hide_when_disconnected.description"
+  default = false
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 345
+height = 375
+placement = "attached"
+position = "top_right"
+open_near_click = true
+
+[[service]]
+id = "service"
+entry = "service.luau"

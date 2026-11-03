@@ -9,12 +9,12 @@ local snapshot = nil
 local STATE_COLORS = {
   idle = "primary",
   syncing = "secondary",
-  paused = "outline",
+  paused = "outline_variant",
   disconnected = "secondary",
   offline = "error",
   unauthorized = "error",
   error = "error",
-  unconfigured = "outline",
+  unconfigured = "outline_variant",
 }
 
 local function formatRate(bytesPerSec)
@@ -38,7 +38,7 @@ end
 
 local function render()
   local state = snapshot and snapshot.state or "unconfigured"
-  local color = STATE_COLORS[state] or "outline"
+  local color = STATE_COLORS[state] or "outline_variant"
   local devices = snapshot and `{snapshot.devices.connected}/{snapshot.devices.configured}` or "-"
   local folders = snapshot and tostring(snapshot.totals.monitoredFolders) or "-"
   local pending = snapshot and tostring(snapshot.totals.needItems) or "-"
@@ -73,7 +73,7 @@ local function render()
     }))
   end
 
-  desktopWidget.render(ui.column({ gap = 8, padding = 10, fill = "surface_variant/0.4", radius = 12 }, children))
+  desktopWidget.render(ui.column({ gap = 8, padding = 10, fill = "surface_container/0.4", radius = 12 }, children))
 end
 
 noctalia.state.watch("st.snapshot", function(encoded)

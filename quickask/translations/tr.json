@@ -1,0 +1,61 @@
+{
+  "panel": {
+    "placeholder": "Bir şey sor…",
+    "keyboard-help": "Enter: gönder · Shift+Enter: yeni satır\nEscape: kapat",
+    "loading": "Yanıt hazırlanıyor…",
+    "cancelled": "Durduruldu. Yeni bir soru için paneli kapatıp aç.",
+    "copy-error": "Yanıt panoya kopyalanamadı. Tekrar deneyebilirsin.",
+    "send": "Gönder",
+    "stop": "Durdur",
+    "retry": "Tekrar dene",
+    "copied": "Kopyalandı",
+    "copy": "Yanıtı kopyala",
+    "close": "Kapat (Escape)",
+    "timeout": "İşlem zaman aşımına uğradı. Anahtarlığı ve bağlantıyı kontrol edip tekrar dene.",
+    "settings": "Ayarlar"
+  },
+  "credentials": {
+    "missing-command": "secret-tool bulunamadı. libsecret paketini kur ve tekrar dene.",
+    "unreadable": "Anahtar okunamadı. Secret Service anahtarlığını aç ve README içindeki secret-tool store komutuyla anahtarını kaydet.",
+    "missing": "Seçilen sağlayıcı ve adres için anahtar bulunamadı. README adımlarını izleyerek anahtarı Secret Service içine kaydet.",
+    "invalid": "Kayıtlı anahtarın biçimi geçersiz. Anahtarı Secret Service içine yeniden kaydet.",
+    "startup": "Anahtar sorgusu başlatılamadı. secret-tool ve Secret Service durumunu kontrol et."
+  },
+  "api": {
+    "unauthorized": "API anahtarı kabul edilmedi (401). Secret Service kaydını kontrol et.",
+    "forbidden": "Erişim reddedildi (403). Hesap, model izni, bölge ve kullanım koşullarını kontrol et.",
+    "rate-limited": "Kullanım sınırına ulaşıldı (429). Biraz bekleyip tekrar dene.",
+    "unavailable": "API hizmeti şu anda kullanılamıyor. Biraz bekleyip tekrar dene.",
+    "http-error": "API isteği reddetti (HTTP {status}). Modeli, hesabı ve hizmet durumunu kontrol et.",
+    "too-long": "Yanıt boyut sınırına ulaştı. Gelen metin korundu; daha kısa bir soru ile tekrar dene.",
+    "connection": "Bağlantı kurulamadı veya kesildi. İnternet ve TLS bağlantını kontrol edip tekrar dene.",
+    "service-error": "Hizmet streaming hatası bildirdi. Gelen metin korundu; tekrar deneyebilirsin.",
+    "incomplete": "Yanıt tamamlanmadan bağlantı kapandı. Gelen metin korundu; tekrar deneyebilirsin.",
+    "unreadable": "Yanıt akışı okunamadı. Tekrar deneyebilirsin.",
+    "empty": "Hizmet boş yanıt döndürdü. Tekrar deneyebilirsin.",
+    "startup": "İstek başlatılamadı. Noctalia ağ erişimini ve çevrimdışı modunu kontrol et."
+  },
+  "config": {
+    "summary": "{host} · {model}",
+    "required": "Ayarlardan sağlayıcı ve model seç.",
+    "provider-error": "Bilinmeyen API sağlayıcısı. Ayarlardan OpenCode Go veya OpenAI uyumlu seç.",
+    "endpoint-error": "Ayarlara /chat/completions ile biten tam bir HTTPS adresi yaz. Adreste kimlik bilgisi, sorgu ve parça desteklenmez.",
+    "model-error": "Ayarlara geçerli bir model kimliği yaz (1–256 karakter, kontrol karakteri olmadan)."
+  },
+  "settings": {
+    "provider": {
+      "label": "API sağlayıcısı",
+      "description": "Hizmeti kendin seç. QuickAsk sağlayıcıyı otomatik değiştirmez. OpenCode Go kullanımı sağlayıcı koşullarına uygun olmalıdır.",
+      "go": "OpenCode Go",
+      "compatible": "OpenAI uyumlu"
+    },
+    "endpoint": {
+      "label": "Chat Completions adresi",
+      "description": "/chat/completions ile biten tam HTTPS adresi. Adreste kimlik bilgisi veya sorgu bulunamaz. Adres değişirse tam bu adres için ayrı anahtar kaydı gerekir."
+    },
+    "model": {
+      "label": "Model kimliği",
+      "description": "Hizmetin desteklediği tam metin modeli kimliği. Model system/user iletilerini ve Chat Completions streaming biçimini desteklemelidir. Otomatik model seçilmez."
+    }
+  }
+}

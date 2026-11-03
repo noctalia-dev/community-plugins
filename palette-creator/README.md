@@ -35,6 +35,8 @@ Control Center shortcut), then click it to open the editor:
 noctalia msg panel-toggle decksters-lab/palette-creator:creator
 ```
 
+- Each row uses the same role name as Settings → Appearance → Theme →
+  Palette Inspector (`primary`, `surface_container`, `outline_variant`, …)
 - **Edit** opens Noctalia's color picker for that role
 - The eyedropper next to it picks a color straight off your screen
 - **Preview** shows your edits live across the shell before you commit
@@ -83,4 +85,8 @@ found a way to make this instant.
   needs it out of the way to sample what's behind it.
 - Colors are normalized to plain 6-digit hex; Noctalia's palette format
   doesn't support per-role alpha.
+- Saves palettes in Noctalia's palette format 2 (`"version": 2`, keys named after
+  the color roles: `on_primary`, `surface_container`, terminal `selection_fg`), so it
+  needs a Noctalia release with plugin API 44. Older format 1 palettes
+  (`mOnPrimary`-style keys) still load in the editor.
 - No network access.

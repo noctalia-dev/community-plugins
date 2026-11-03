@@ -13,6 +13,14 @@ import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 
+try:
+    import ssl  # noqa: F401
+    SSL_AVAILABLE = True
+except ImportError:
+    SSL_AVAILABLE = False
+
+from music_sources import CatalogueClient, decode_lyric, direct_song
+
 
 USER_AGENT = "Noctalia-Lyrics/1.0"
 TIME_TAG = re.compile(r"\[(\d{1,3}):(\d{1,2}(?:[.:]\d{1,3})?)\]")
@@ -27,6 +35,10 @@ CREDIT_LINE = re.compile(r"^(词|曲|作词|作曲|编曲|制作人|lyricist|com
 
 def empty(source, *diag):
     return {"type": "none", "source": source, "lines": [], "diag": list(diag)}
+
+
+def ssl_missing(source):
+    return empty(source, "python3: missing ssl module (_ssl); install full python3, not python3-minimal")
 
 
 def clean_text(value):
@@ -60,13 +72,18 @@ def duration_ms(value):
 
 
 def line(time=-1, duration=0, text="", translation="", romanization="", chars=None):
+    visible = html.unescape(str(text or "")).replace("\ufeff", "")
+    timings = [number(item) for item in (chars or [])]
+    if len(timings) == len(visible):
+        leading = len(visible) - len(visible.lstrip())
+        timings = timings[leading:len(visible.rstrip())]
     return {
         "time": number(time, -1),
         "duration": max(0, number(duration)),
         "text": clean_text(text),
         "translation": clean_text(translation),
         "romanization": clean_text(romanization),
-        "chars": [number(item) for item in (chars or [])],
+        "chars": timings,
     }
 
 
@@ -234,10 +251,11 @@ def parse_lrc(text):
             if pieces:
                 content, chars = "", []
                 for word, word_offset, word_duration in pieces:
+                    word = html.unescape(word)
                     for index, character in enumerate(word):
                         content += character
                         word_start = word_offset if absolute_word_times else start + word_offset
-                        chars.append(word_start + (index * word_duration // max(1, len(word))))
+                        chars.append(word_start + offset + (index * word_duration // max(1, len(word))))
                 if clean_text(content):
                     result.append(line(start + offset, duration, content, chars=chars))
                     continue
@@ -438,14 +456,18 @@ def request_data(url, headers=None, data=None, method=None, timeout=15):
         body = data if isinstance(data, bytes) else urllib.parse.urlencode(data).encode("utf-8")
     request = urllib.request.Request(url, data=body, headers=safe_headers, method=method)
     with urllib.request.urlopen(request, timeout=timeout) as response:
-        return response.read(), response.headers.get_content_charset() or "utf-8"
+        body = response.read(2_000_001)
+        if len(body) > 2_000_000:
+            raise ValueError("source response exceeds size limit")
+        return body, response.headers.get_content_charset() or "utf-8"
 
 
 def request_json(url, headers=None, data=None, method=None, timeout=15):
     body, charset = request_data(url, headers, data, method, timeout)
-    text = body.decode(charset, "replace").strip()
-    if text.startswith("callback(") and text.endswith(")"):
-        text = text[9:-1]
+    text = body.decode(charset, "replace").strip().lstrip("\ufeff")
+    wrapped = re.fullmatch(r"[A-Za-z_$][\w.$]*\s*\(([\s\S]*)\)\s*;?", text)
+    if wrapped:
+        text = wrapped.group(1)
     return json.loads(text)
 
 
@@ -646,73 +668,65 @@ def adapter_lrclib(track, credentials, options):
     return response
 
 
-def adapter_netease(track, credentials, options):
-    source = "netease"
-    search = request_json(query_url("https://music.163.com/api/search/get", {
-        "type": 1, "s": " ".join(filter(None, (track.get("title"), track.get("artist")))), "limit": 10
-    }), {"Referer": "https://music.163.com/"})
-    songs = search.get("result", {}).get("songs", [])
-    best = best_match(songs, track, lambda x: x.get("name", ""),
-                      lambda x: " ".join(a.get("name", "") for a in x.get("artists", [])),
-                      lambda x: x.get("album", {}).get("name", ""))
-    if not best:
-        return empty(source, "netease: no match")
-    album = best.get("album") if isinstance(best.get("album"), dict) else {}
-    cover = first_cover(album.get("picUrl"), album.get("blurPicUrl"), best.get("picUrl"), best.get("albumPic"))
-    if cover and "music.126.net" in cover:
-        if re.search(r"[?&]param=\d+y\d+", cover):
-            cover = re.sub(r"param=\d+y\d+", "param=400y400", cover)
-        else:
-            cover = cover + ("&" if "?" in cover else "?") + "param=400y400"
-    data = request_json(query_url("https://music.163.com/api/song/lyric", {
-        "id": best.get("id"), "lv": 1, "kv": 1, "tv": 1, "rv": 1, "yv": 1
-    }), {"Referer": "https://music.163.com/"})
+def lyric_field(payload, name):
+    value = payload.get(name, "")
+    return decode_lyric(value.get("lyric", "") if isinstance(value, dict) else value)
+
+
+def provider_lines(payload, source):
+    if source == "netease":
+        primary_fields = ("yrc", "klyric", "lrc")
+        translation_fields = ("ytlrc", "ytrans", "ytlyric", "tlyric")
+        romanization_fields = ("yromalrc", "romalrc")
+    else:
+        primary_fields = ("qrc", "lyric", "lrc")
+        translation_fields = ("trans", "tlyric")
+        romanization_fields = ("roma", "romalrc")
     lines = []
-    for name in ("yrc", "klyric", "lrc"):
-        main = data.get(name, {})
-        main = main.get("lyric", "") if isinstance(main, dict) else main
-        lines = parse_lrc(main) if main else []
+    for name in primary_fields:
+        content = qrc_content(lyric_field(payload, name))
+        lines = parse_lrc(content)
         if lines:
             break
-    translation = data.get("tlyric", {})
-    romanization = data.get("romalrc", {})
-    merge_timed(lines, parse_lrc(translation.get("lyric", "") if isinstance(translation, dict) else translation), "translation")
-    merge_timed(lines, parse_lrc(romanization.get("lyric", "") if isinstance(romanization, dict) else romanization), "romanization")
-    return success(source, lines, ["netease: match"], duration_ms(track.get("duration")), cover)
+    if not lines:
+        content = lyric_field(payload, "lrc" if source == "netease" else "lyric")
+        # Do not display HTML error pages or metadata-only payloads as lyrics.
+        if content and not content.startswith(("<", "{")) and not META_TAG.match(content):
+            lines = parse_plain(content)
+    for field, names in (("translation", translation_fields), ("romanization", romanization_fields)):
+        for name in names:
+            secondary = parse_lrc(lyric_field(payload, name))
+            if secondary:
+                merge_timed(lines, secondary, field)
+    return lines
+
+
+def adapter_catalogue(track, source):
+    client = CatalogueClient(request_json, source)
+    direct = direct_song(track, source)
+    candidates = [direct] if direct else []
+    searched = False
+    while True:
+        for song in candidates:
+            for payload in client.lyric_responses(song):
+                lines = provider_lines(payload, source)
+                if lines:
+                    return success(source, lines,
+                                   [source + ": match " + (song.get("mid") or song["id"])],
+                                   duration_ms(track.get("duration")), song.get("cover", ""))
+        if searched or time.monotonic() >= client.deadline:
+            break
+        candidates = client.search(track)
+        searched = True
+    return empty(source, source + ": lyrics unavailable", *client.diag[-3:])
+
+
+def adapter_netease(track, credentials, options):
+    return adapter_catalogue(track, "netease")
 
 
 def adapter_qqmusic(track, credentials, options):
-    source = "qqmusic"
-    search = request_json(query_url("https://c.y.qq.com/soso/fcgi-bin/client_search_cp", {
-        "format": "json", "p": 1, "n": 10, "w": " ".join(filter(None, (track.get("title"), track.get("artist"))))
-    }), {"Referer": "https://y.qq.com/"})
-    songs = search.get("data", {}).get("song", {}).get("list", [])
-    best = best_match(songs, track, lambda x: x.get("songname", x.get("title", "")),
-                      lambda x: " ".join(a.get("name", "") for a in x.get("singer", [])),
-                      lambda x: x.get("albumname", ""))
-    if not best:
-        return empty(source, "qqmusic: no match")
-    albummid = clean_text(best.get("albummid") or best.get("albumMid"))
-    cover = ""
-    if albummid:
-        cover = "https://y.gtimg.cn/music/photo_new/T002R300x300M000" + albummid + ".jpg"
-    cover = first_cover(cover, best.get("albumPic"), best.get("pic"), best.get("strAlbumPic"))
-    data = request_json(query_url("https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg", {
-        "songmid": best.get("songmid", best.get("mid", "")), "format": "json", "nobase64": 1,
-        "g_tk": 5381
-    }), {"Referer": "https://y.qq.com/portal/player.html"})
-    def decoded(name):
-        value = data.get(name, "")
-        if not value:
-            return ""
-        try:
-            return base64.b64decode(value).decode("utf-8", "replace") if not TIME_TAG.search(value) else value
-        except (ValueError, TypeError):
-            return value
-    lines = parse_lrc(decoded("lyric"))
-    merge_timed(lines, parse_lrc(decoded("trans")), "translation")
-    merge_timed(lines, parse_lrc(decoded("roma")), "romanization")
-    return success(source, lines, ["qqmusic: match"], duration_ms(track.get("duration")), cover)
+    return adapter_catalogue(track, "qqmusic")
 
 
 def adapter_splayer(track, credentials, options):
@@ -984,12 +998,14 @@ def main():
                         response = empty(source, "request: unknown source")
                     elif not clean_text(track.get("title")):
                         response = empty(source, "request: track title required")
+                    elif not SSL_AVAILABLE and source not in ("splayer", "qishui"):
+                        response = ssl_missing(source)
                     else:
                         response = adapter(track, credentials, options)
             except urllib.error.HTTPError as error:
                 response = empty(source, "source: HTTP " + str(error.code))
             except (urllib.error.URLError, TimeoutError):
-                response = empty(source, "source: network failure")
+                response = ssl_missing(source) if not SSL_AVAILABLE else empty(source, "source: network failure")
             except (ValueError, ET.ParseError):
                 response = empty(source, "source: invalid response")
             except Exception:

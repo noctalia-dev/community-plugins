@@ -29,7 +29,7 @@ local SHOW_FLOATING = noctalia.getConfig("show_floating") ~= false
 local FLOATING_MODE = noctalia.getConfig("floating_mode") or "strip"
 local FLOATING_COLOR = noctalia.getConfig("floating_color") or "#ffb74d"
 local HIGHLIGHT_FOCUSED = noctalia.getConfig("highlight_focused") ~= false
-local NORMAL_COLOR = noctalia.getConfig("normal_color") or "outline"
+local NORMAL_COLOR = noctalia.getConfig("normal_color") or "outline_variant"
 local ACTIVE_COLOR = noctalia.getConfig("active_color") or "secondary"
 local FOCUSED_COLOR = noctalia.getConfig("focused_color") or "primary"
 local URGENT_COLOR = noctalia.getConfig("urgent_color") or "error"
@@ -41,7 +41,6 @@ local OUTPUT_NAMES = tostring(noctalia.getConfig("output_names") or "")
 local generatedFiles = {}
 local generatedByOutput = {}
 local exactCache = {}
-local themeColors = nil
 local exactFocusCursor = {}
 local windowClickTargets = {}
 local windowClickSlots = {}
@@ -315,7 +314,7 @@ local function windowNode(window, width, height, floating, clickable, borderOver
   local hovered = HIGHLIGHT_HOVERED and hoveredWindowIds[window.id] == true
   local hoverActive = hovered and not focused and window.is_urgent ~= true
   local fill = focused and colorWithAlpha(FOCUSED_COLOR, "0.32", "52")
-    or (floating and colorWithAlpha(FLOATING_COLOR, "0.22", "38") or "surface_variant")
+    or (floating and colorWithAlpha(FLOATING_COLOR, "0.22", "38") or "surface_container")
   local border = focused and FOCUSED_COLOR
     or (window.is_urgent and URGENT_COLOR
     or (hovered and HOVER_COLOR
@@ -357,46 +356,10 @@ local function xmlEscape(value)
   return tostring(value):gsub("&", "&amp;"):gsub('"', "&quot;"):gsub("<", "&lt;"):gsub(">", "&gt;")
 end
 
-local THEME_COLOR_KEYS = {
-  primary = "mPrimary",
-  on_primary = "mOnPrimary",
-  secondary = "mSecondary",
-  on_secondary = "mOnSecondary",
-  tertiary = "mTertiary",
-  on_tertiary = "mOnTertiary",
-  error = "mError",
-  on_error = "mOnError",
-  surface = "mSurface",
-  on_surface = "mOnSurface",
-  surface_variant = "mSurfaceVariant",
-  on_surface_variant = "mOnSurfaceVariant",
-  outline = "mOutline",
-  shadow = "mShadow",
-  hover = "mHover",
-  on_hover = "mOnHover",
-}
-
-local function loadThemeColors()
-  if themeColors ~= nil then return themeColors end
-  themeColors = {}
-  local configHome = noctalia.getenv("XDG_CONFIG_HOME")
-  if configHome == nil or configHome == "" then
-    configHome = (noctalia.getenv("HOME") or "") .. "/.config"
-  end
-  local contents = noctalia.readFile(configHome .. "/noctalia/config.toml")
-  if contents ~= nil then
-    for role, key in pairs(THEME_COLOR_KEYS) do
-      local color = contents:match(key .. '%s*=%s*"(#[%x]+)"')
-      if color ~= nil then themeColors[role] = color end
-    end
-  end
-  return themeColors
-end
-
 local function svgColor(value)
   local color = tostring(value or "")
   if color:match("^#%x%x%x%x%x%x$") or color:match("^#%x%x%x%x%x%x%x%x$") then return color end
-  local resolved = loadThemeColors()[color]
+  local resolved = noctalia.getColor(color)
   if type(resolved) == "string" then return resolved end
   return "#ffb74d"
 end
@@ -697,7 +660,7 @@ end
 local function tiledNode(windows, width, height, scale, visibleIds, keyPrefix, activeWindowId)
   if #windows == 0 then
     return ui.column({ width = width, height = height, align = "center", justify = "center" }, {
-      ui.glyph({ name = "layout-dashboard", size = math.max(6, math.min(width, height) - 4), color = "outline" }),
+      ui.glyph({ name = "layout-dashboard", size = math.max(6, math.min(width, height) - 4), color = "outline_variant" }),
     })
   end
   local columns, order = groupedColumns(windows)
@@ -754,7 +717,7 @@ local function workspaceNode(output, width, height, viewportOnly)
   local floating = {}
   local visibleIds = nil
   if workspace == nil then
-    screenChildren[1] = ui.glyph({ name = "plug-off", size = math.max(6, math.min(innerWidth, innerHeight) - 4), color = "outline" })
+    screenChildren[1] = ui.glyph({ name = "plug-off", size = math.max(6, math.min(innerWidth, innerHeight) - 4), color = "outline_variant" })
   else
     local tiled
     tiled, floating = workspaceWindows(workspace.id)
@@ -784,7 +747,7 @@ local function workspaceNode(output, width, height, viewportOnly)
     height = height,
     padding = 1,
     fill = "surface/0.72",
-    border = viewportOnly and VIEWPORT_COLOR or (output.focused and "primary" or "outline"),
+    border = viewportOnly and VIEWPORT_COLOR or (output.focused and "primary" or "outline_variant"),
     borderWidth = viewportOnly and VIEWPORT_BORDER_WIDTH or 1,
     radius = 3,
     align = "center",
@@ -901,7 +864,7 @@ render = function()
     end
   end
   if #children == 0 then
-    children[1] = ui.glyph({ name = snapshot and "alert-circle" or "loader", size = math.min(PREVIEW_SIZE, 16), color = "outline" })
+    children[1] = ui.glyph({ name = snapshot and "alert-circle" or "loader", size = math.min(PREVIEW_SIZE, 16), color = "outline_variant" })
   end
   barWidget.render(container({ gap = OUTPUT_GAP, align = "center", justify = "center" }, children))
   updateTooltip(outputs)

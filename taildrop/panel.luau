@@ -155,7 +155,7 @@ local function toolbar()
     }))
   end
 
-  return ui.column({ gap = 6, padding = 10, fill = "surface_variant/0.45", radius = 10, align = "stretch" }, items)
+  return ui.column({ gap = 6, padding = 10, fill = "surface_container/0.45", radius = 10, align = "stretch" }, items)
 end
 
 local function render()

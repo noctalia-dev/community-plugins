@@ -1,7 +1,7 @@
 id = "h465855hgg/lyrics"
 name = "Lyrics"
-version = "1.5.5"
-plugin_api = 3
+version = "1.5.8"
+plugin_api = 14
 author = "h465855hgg"
 license = "MIT"
 dependencies = ["playerctl", "python3", "cp", "chmod", "timeout"]
@@ -211,6 +211,13 @@ open_near_click = true
 id = "lyrics"
 entry = "lyrics.luau"
 
+# Default pointer bindings, editable per widget under Actions in the bar settings.
+[widget.actions]
+left = "plugin h465855hgg/lyrics:lyrics all toggle-view"
+right = "plugin h465855hgg/lyrics:service all toggle-playback"
+scroll_up = "plugin h465855hgg/lyrics:service all next"
+scroll_down = "plugin h465855hgg/lyrics:service all previous"
+
   [[widget.setting]]
   key = "show_glyph"
   type = "bool"
@@ -272,7 +279,7 @@ entry = "lyrics.luau"
   type = "bool"
   label_key = "settings.double_line.label"
   description_key = "settings.double_line.description"
-  default = true
+  default = false
 
   [[widget.setting]]
   key = "show_translation"
@@ -492,11 +499,19 @@ entry = "lyrics.luau"
   advanced = true
 
   [[widget.setting]]
+  key = "show_cues"
+  type = "bool"
+  label_key = "settings.show_cues.label"
+  description_key = "settings.show_cues.description"
+  default = true
+
+  [[widget.setting]]
   key = "cue_text"
   type = "string"
   label_key = "settings.cue_text.label"
   description_key = "settings.cue_text.description"
   default = "•••••"
+  visible_when = { key = "show_cues", values = ["true"] }
 
   [[widget.setting]]
   key = "cue_font_mode"
@@ -508,6 +523,7 @@ entry = "lyrics.luau"
     { value = "follow", label_key = "settings.cue_font_mode.options.follow" },
     { value = "custom", label_key = "settings.cue_font_mode.options.custom" },
   ]
+  visible_when = { key = "show_cues", values = ["true"] }
   advanced = true
 
   [[widget.setting]]
@@ -516,7 +532,50 @@ entry = "lyrics.luau"
   label_key = "settings.cue_font_family.label"
   description_key = "settings.cue_font_family.description"
   default = "sans-serif"
-  visible_when = { key = "cue_font_mode", values = ["custom"] }
+  visible_when = { key = "show_cues", values = ["true"] }
+  advanced = true
+
+  [[widget.setting]]
+  key = "intro_min_ms"
+  type = "int"
+  label_key = "settings.intro_min_ms.label"
+  description_key = "settings.intro_min_ms.description"
+  default = 6000
+  min = 0
+  max = 60000
+  visible_when = { key = "show_cues", values = ["true"] }
+  advanced = true
+
+  [[widget.setting]]
+  key = "interlude_gap_ms"
+  type = "int"
+  label_key = "settings.interlude_gap_ms.label"
+  description_key = "settings.interlude_gap_ms.description"
+  default = 7000
+  min = 2000
+  max = 60000
+  advanced = true
+
+  [[widget.setting]]
+  key = "interlude_min_ms"
+  type = "int"
+  label_key = "settings.interlude_min_ms.label"
+  description_key = "settings.interlude_min_ms.description"
+  default = 5000
+  min = 0
+  max = 60000
+  visible_when = { key = "show_cues", values = ["true"] }
+  advanced = true
+
+  [[widget.setting]]
+  key = "interlude_lead_ms"
+  type = "int"
+  label_key = "settings.interlude_lead_ms.label"
+  description_key = "settings.interlude_lead_ms.description"
+  default = 1000
+  min = 0
+  max = 10000
+  visible_when = { key = "show_cues", values = ["true"] }
   advanced = true
 
   [[widget.setting]]

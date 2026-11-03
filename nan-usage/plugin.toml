@@ -11,10 +11,10 @@
 
 id = "cmoro-deusto/nan-usage"
 name = "NaN Usage"
-version = "1.0.0"
+version = "1.0.1"
 # 22 is what require() needs for shared.luau, the model the three entries share;
 # 15 of it is noctalia.openSettings(), behind the cog and the right-click.
-plugin_api = 22
+plugin_api = 43
 # The first half of every entry id ("cmoro-deusto/nan-usage:bar"), so it has to
 # stay put once someone has the widget on their bar.
 author = "cmoro-deusto"

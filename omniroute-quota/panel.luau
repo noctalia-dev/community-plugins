@@ -46,7 +46,7 @@ end
 local function quota_card(window)
     local remaining = tonumber(window.remainingPercent) or 0
     local color = remaining_color(remaining)
-    return ui.column({ gap = 6, padding = 10, radius = 8, fill = "surface_variant/0.45", border = "outline/0.16", borderWidth = 1 }, {
+    return ui.column({ gap = 6, padding = 10, radius = 8, fill = "surface_container/0.45", border = "outline_variant/0.16", borderWidth = 1 }, {
         ui.row({ align = "center", gap = 8 }, {
             ui.label({ text = tostring(window.label or window.key), fontSize = 12, fontWeight = "semibold", color = "on_surface" }),
             ui.spacer({ flexGrow = 1 }),
@@ -91,7 +91,7 @@ local function account_card(account)
         ui.label({ text = tostring(usage.requests or 0) .. " req · " .. compact_number(tokens) .. " tokens", fontSize = 10, color = "on_surface" }),
     })
 
-    return ui.column({ gap = 9, padding = 12, radius = 10, fill = "surface/0.72", border = "outline/0.18", borderWidth = 1 }, children)
+    return ui.column({ gap = 9, padding = 12, radius = 10, fill = "surface/0.72", border = "outline_variant/0.18", borderWidth = 1 }, children)
 end
 
 function render()

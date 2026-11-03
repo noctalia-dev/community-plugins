@@ -9,14 +9,14 @@
 
 id = "mellotanica/launcher-pass"
 name = "Launcher pass"
-version = "2.6.0"
+version = "2.7.2"
 plugin_api = 26
 author = "Marco Melletti"
 license = "MIT"
 icon = "lock"
 description = "Noctalia launcher provider for the GNU Pass password store with autotype and advanced search"
 tags = ["launcher", "privacy", "productivity", "utility"]
-dependencies = ["pass", "find", "grep", "pass-otp", "wtype", "sleep", "coreutils"]
+dependencies = ["pass", "find", "grep", "pass-otp", "ydotool", "wtype", "sleep", "coreutils"]
 
 # Settings are declared plugin-wide ([[setting]], the form the sibling launcher
 # plugins use) rather than nested under [[launcher_provider.setting]]; this plugin
@@ -38,6 +38,23 @@ description_key = "settings.clip-timeout.desc"
 default = ""
 advanced = true
 
+# Preferred keystroke-injection tool for the Type rows, Autotype and the
+# type-* / autotype quick actions. "ydotool": /dev/uinput via the ydotoold
+# daemon, assumes a US keyboard layout. "wtype": follows any layout. When the
+# preferred one is not installed (or, for ydotool, ydotoold is down) the other
+# is used automatically.
+# See TYPE_BACKENDS / runTypeSteps in launcher.luau.
+[[setting]]
+key = "typeBackend"
+type = "select"
+label_key = "settings.type-backend.label"
+description_key = "settings.type-backend.desc"
+default = "ydotool"
+options = [
+  { value = "ydotool", label_key = "settings.type-backend.options.ydotool" },
+  { value = "wtype", label_key = "settings.type-backend.options.wtype" },
+]
+
 [[setting]]
 key = "typeDelay"
 type = "int"
@@ -49,10 +66,10 @@ max = 5000
 advanced = true
 
 [[setting]]
-key = "wtypeDelay"
+key = "keyDelay"
 type = "int"
-label_key = "settings.wtype-delay.label"
-description_key = "settings.wtype-delay.desc"
+label_key = "settings.key-delay.label"
+description_key = "settings.key-delay.desc"
 default = 12                        # milliseconds between keystrokes
 min = 0
 advanced = true
@@ -119,7 +136,7 @@ options = [
 # Autotype: a single detail-view row (sorted just after the username row, before
 # the "remaining fields" rows) that types the whole login in sequence — username,
 # a separator key, password, Enter, then the OTP + Enter when the entry has one.
-# Off by default; needs `wtype`, like the Type rows. See autotypeEntry() in
+# Off by default; needs the typing backend, like the Type rows. See autotypeEntry() in
 # launcher.luau.
 [[setting]]
 key = "autotypeEnabled"

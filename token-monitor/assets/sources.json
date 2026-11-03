@@ -1,0 +1,205 @@
+[
+  {
+    "file": "alibabacloud.svg",
+    "repo": "https://github.com/lobehub/lobe-icons",
+    "path": "packages/static-svg/icons/alibabacloud.svg",
+    "ref": "4a8f668e23d98759555288505aec3c895a539b2f",
+    "sha256": "7a62c43622e764c416b9069a8ce505d2560f4b4bcf71ed46bbc32d7259416c56"
+  },
+  {
+    "file": "antigravity.svg",
+    "repo": "https://github.com/lobehub/lobe-icons",
+    "path": "packages/static-svg/icons/antigravity.svg",
+    "ref": "4a8f668e23d98759555288505aec3c895a539b2f",
+    "sha256": "43f551fd125c17fb54c8c74eb461924fb97f32bb64ac89f73bb73852753a6461"
+  },
+  {
+    "file": "claude.svg",
+    "repo": "https://github.com/lobehub/lobe-icons",
+    "path": "packages/static-svg/icons/claude.svg",
+    "ref": "4a8f668e23d98759555288505aec3c895a539b2f",
+    "sha256": "365a70a7eb3956d9b9a96086058ebe04e1dbd8e291a756ad964e8a283fbd6d38"
+  },
+  {
+    "file": "cline.svg",
+    "repo": "https://github.com/lobehub/lobe-icons",
+    "path": "packages/static-svg/icons/cline.svg",
+    "ref": "4a8f668e23d98759555288505aec3c895a539b2f",
+    "sha256": "9003d2cdce82b016147b732abb4def60af55c348ba2cea2ba0b69a3c7d159b19"
+  },
+  {
+    "file": "commandcode.svg",
+    "repo": "https://github.com/lobehub/lobe-icons",
+    "path": "packages/static-svg/icons/commandcode.svg",
+    "ref": "4a8f668e23d98759555288505aec3c895a539b2f",
+    "sha256": "0b3090f6e9194f32520e5b98ea43c5bc1a0f04644c94d1bade69fab7413e1531"
+  },
+  {
+    "file": "cursor.svg",
+    "repo": "https://github.com/lobehub/lobe-icons",
+    "path": "packages/static-svg/icons/cursor.svg",
+    "ref": "4a8f668e23d98759555288505aec3c895a539b2f",
+    "sha256": "0cb51bddf264ae108926fd554c063ef40fc1aac3c5c921ddb39ad184e4e5d0ef"
+  },
+  {
+    "file": "deepseek.svg",
+    "repo": "https://github.com/lobehub/lobe-icons",
+    "path": "packages/static-svg/icons/deepseek.svg",
+    "ref": "4a8f668e23d98759555288505aec3c895a539b2f",
+    "sha256": "8f9443e351b6dacce71871790201b799d92e8bf96a45ef79aeb5e9bf4db423e2"
+  },
+  {
+    "file": "devin.svg",
+    "repo": "https://github.com/lobehub/lobe-icons",
+    "path": "packages/static-svg/icons/devin.svg",
+    "ref": "4a8f668e23d98759555288505aec3c895a539b2f",
+    "sha256": "8d197b0c31522517ffa896cd4a1ee65719eb73bff9eb9bbf7edf64db6b1a573d"
+  },
+  {
+    "file": "factory.svg",
+    "repo": "https://github.com/Javis603/token-monitor",
+    "path": "assets/icons/droid.svg",
+    "ref": "v0.68.0",
+    "sha256": "30ff3ae5779e297119451b6a015e0f449cbc61fa5dc706588ee1154d6f09f6c0"
+  },
+  {
+    "file": "githubcopilot.svg",
+    "repo": "https://github.com/lobehub/lobe-icons",
+    "path": "packages/static-svg/icons/githubcopilot.svg",
+    "ref": "4a8f668e23d98759555288505aec3c895a539b2f",
+    "sha256": "bbc7fddc13448236e5edea8c399d2072dc40aa5da5bca07f7a2f412405c500a3"
+  },
+  {
+    "file": "grok.svg",
+    "repo": "https://github.com/lobehub/lobe-icons",
+    "path": "packages/static-svg/icons/grok.svg",
+    "ref": "4a8f668e23d98759555288505aec3c895a539b2f",
+    "sha256": "9175fc90c22655160231976c849f25a03b888d7cc0e04c5f1b987b659bb07c95"
+  },
+  {
+    "file": "kimi.svg",
+    "repo": "https://github.com/lobehub/lobe-icons",
+    "path": "packages/static-svg/icons/kimi.svg",
+    "ref": "4a8f668e23d98759555288505aec3c895a539b2f",
+    "sha256": "ed08131b46acf70e6e2144eceb775e74098b58ea65fa21eaee04be7b05cfe63b"
+  },
+  {
+    "file": "kiro.svg",
+    "repo": "https://github.com/lobehub/lobe-icons",
+    "path": "packages/static-svg/icons/kiro.svg",
+    "ref": "4a8f668e23d98759555288505aec3c895a539b2f",
+    "sha256": "1e56073e35799b0d7075d5376ca2d99c3d3bbf51a000a1ec3d4b0df7612c91d6"
+  },
+  {
+    "file": "minimax.svg",
+    "repo": "https://github.com/lobehub/lobe-icons",
+    "path": "packages/static-svg/icons/minimax.svg",
+    "ref": "4a8f668e23d98759555288505aec3c895a539b2f",
+    "sha256": "bb96e2005081494716de6af5fd030701ae551ee68393ad61b325c07325607848"
+  },
+  {
+    "file": "newapi.svg",
+    "repo": "https://github.com/lobehub/lobe-icons",
+    "path": "packages/static-svg/icons/newapi.svg",
+    "ref": "4a8f668e23d98759555288505aec3c895a539b2f",
+    "sha256": "05ec0868ab6bccc17f716d0611f98448f14f6c39e96915888b448609981267df"
+  },
+  {
+    "file": "ollama.svg",
+    "repo": "https://github.com/lobehub/lobe-icons",
+    "path": "packages/static-svg/icons/ollama.svg",
+    "ref": "4a8f668e23d98759555288505aec3c895a539b2f",
+    "sha256": "3a268218fb2e6e81fa31df70f70b51331625047794db81db21d35359428fae7a"
+  },
+  {
+    "file": "openai.svg",
+    "repo": "https://github.com/lobehub/lobe-icons",
+    "path": "packages/static-svg/icons/openai.svg",
+    "ref": "4a8f668e23d98759555288505aec3c895a539b2f",
+    "sha256": "a595df6b423920c67a7f8f73c063e4bfb72d415948097b6cac063a2366bb5186"
+  },
+  {
+    "file": "opencode.svg",
+    "repo": "https://github.com/lobehub/lobe-icons",
+    "path": "packages/static-svg/icons/opencode.svg",
+    "ref": "4a8f668e23d98759555288505aec3c895a539b2f",
+    "sha256": "7cfa6e9d6726f7c9fa26c7d9aef0dfec52d20a137380454340f30f12ccbfd302"
+  },
+  {
+    "file": "openrouter.svg",
+    "repo": "https://github.com/lobehub/lobe-icons",
+    "path": "packages/static-svg/icons/openrouter.svg",
+    "ref": "4a8f668e23d98759555288505aec3c895a539b2f",
+    "sha256": "ae671cc83de9bd45db97a47ed5e38a4e1bd9f93a12be495ba4b4f8b284026bca"
+  },
+  {
+    "file": "qoder.svg",
+    "repo": "https://github.com/lobehub/lobe-icons",
+    "path": "packages/static-svg/icons/qoder.svg",
+    "ref": "4a8f668e23d98759555288505aec3c895a539b2f",
+    "sha256": "f8503aacc41a58e723430488d082f6730c8a6a9ffecdd0a00c522e6bcdb4abb9"
+  },
+  {
+    "file": "stepfun.svg",
+    "repo": "https://github.com/lobehub/lobe-icons",
+    "path": "packages/static-svg/icons/stepfun.svg",
+    "ref": "4a8f668e23d98759555288505aec3c895a539b2f",
+    "sha256": "90138fab370e3c0ce3105d38a496d6796ce73d44f9829d8e1045013dc064bcd2"
+  },
+  {
+    "file": "sub2api.svg",
+    "repo": "https://github.com/lobehub/lobe-icons",
+    "path": "packages/static-svg/icons/sub2api.svg",
+    "ref": "4a8f668e23d98759555288505aec3c895a539b2f",
+    "sha256": "be2369ebfb29f23fdbd5b34550d24327994ce2860d4b4a23c0ca01e5c702e557"
+  },
+  {
+    "file": "trae.svg",
+    "repo": "https://github.com/lobehub/lobe-icons",
+    "path": "packages/static-svg/icons/trae.svg",
+    "ref": "4a8f668e23d98759555288505aec3c895a539b2f",
+    "sha256": "59ef6255dfce52d4b1e77aff4e1b4ee3cda71cda735b4fb45575e9874a1c11f6"
+  },
+  {
+    "file": "typesafeai.svg",
+    "repo": "https://github.com/lobehub/lobe-icons",
+    "path": "packages/static-svg/icons/typesafeai.svg",
+    "ref": "4a8f668e23d98759555288505aec3c895a539b2f",
+    "sha256": "774171d3a45ce20a1ca2287efffa574e5d7f85d83fa52fff47eed0035a2242de"
+  },
+  {
+    "file": "volcengine.svg",
+    "repo": "https://github.com/lobehub/lobe-icons",
+    "path": "packages/static-svg/icons/volcengine.svg",
+    "ref": "4a8f668e23d98759555288505aec3c895a539b2f",
+    "sha256": "f29d0bdc284b33d8664ef221add7fbf06a5b370ef92767fa33f6020c914d3d33"
+  },
+  {
+    "file": "workbuddy.svg",
+    "repo": "https://github.com/lobehub/lobe-icons",
+    "path": "packages/static-svg/icons/workbuddy.svg",
+    "ref": "4a8f668e23d98759555288505aec3c895a539b2f",
+    "sha256": "dffe0ba60e3bf99dc296c7f862cfe7dc38a1f32f6b7c79251e4091987d84b2db"
+  },
+  {
+    "file": "xiaomi.svg",
+    "repo": "https://github.com/Javis603/token-monitor",
+    "path": "assets/icons/xiaomi.svg",
+    "ref": "v0.68.0",
+    "sha256": "20fb26a3565ed90895c0f29ad006301a5dd9cede687b3ff4a27a0758ad0f9ede"
+  },
+  {
+    "file": "zai.svg",
+    "repo": "https://github.com/lobehub/lobe-icons",
+    "path": "packages/static-svg/icons/zai.svg",
+    "ref": "4a8f668e23d98759555288505aec3c895a539b2f",
+    "sha256": "e748cb5108ce37b116d7a5ba97d37e0ae97eadf6849b0de11afb248e244a01e1"
+  },
+  {
+    "file": "zed.svg",
+    "repo": "https://github.com/Javis603/token-monitor",
+    "path": "assets/icons/zed.svg",
+    "ref": "v0.68.0",
+    "sha256": "3541c8805ebe991a8001e2fc3e516719de02ec2619d21c47ba7e35eff42299f1"
+  }
+]

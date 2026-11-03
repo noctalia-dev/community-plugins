@@ -1,7 +1,7 @@
 id = "levi/warp"
 name = "Cloudflare WARP"
-version = "1.2.0"
-plugin_api = 3
+version = "1.2.1"
+plugin_api = 43
 author = "Levi"
 license = "MIT"
 dependencies = ["warp-cli"]

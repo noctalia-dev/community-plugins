@@ -160,7 +160,7 @@ render = function()
         flexGrow = 1,
         gap = 8,
         align = "stretch",
-        fill = "surface_variant/0.25",
+        fill = "surface_container/0.25",
         radius = 8,
         padding = 8,
     }, modeButtons))

@@ -61,6 +61,7 @@ local function loadBar(config, report, err)
     local barWidget = {
         render = function(node) rendered = node end,
         setTooltip = function(rows) tooltip = rows end,
+        setVisible = function(v) visible = v end,
         isVertical = function() return config.vertical == true end,
     }
     local sharedEnv = setmetatable({ noctalia = noctalia }, { __index = _G })
@@ -80,6 +81,7 @@ local function loadBar(config, report, err)
         values = values,
         rendered = function() return rendered end,
         tooltip = function() return tooltip end,
+        visible = function() return visible end,
         publish = function(nextReport)
             values.report = nextReport
             watchers.report(nextReport)
@@ -201,7 +203,7 @@ local names = {}
 for _, row in ipairs(dropped.tooltip()) do names[#names + 1] = row.key end
 local listed = false
 for _, name in ipairs(names) do if name == "Antigravity" then listed = true end end
-assert(not listed, "a provider that is down leaves the bar")
+assert(listed, "a failed provider must remain in the tooltip with a diagnosis")
 -- Ranked first on severity, it would have led the capsule; the rest still show.
 -- Each provider contributes its name and then its readings.
 assert(names[1] == "Codex" and names[2] == "Claude", "the rest keep their order")
@@ -219,15 +221,36 @@ local withoutRejected = loadBar({
     provider_limit = 2,
 }, { entries = { rejected, entry("openai", "Codex", 20) } })
 local rejectedRows = withoutRejected.tooltip()
-assert(rejectedRows[1].key == "Codex" and #rejectedRows == 1,
-       "a terminal provider should leave the bar immediately")
+assert(rejectedRows[1].key == "Codex" and rejectedRows[2].key == "Claude"
+    and rejectedRows[3].value:find("claude auth login", 1, true),
+       "healthy providers retain the meter while a failed login remains actionable in the tooltip")
 
 local pinnedDown = loadBar({
     vendor = "antigravity", account = "", extras = "none", visualization = "none",
 }, { entries = { downEntry("antigravity", "Antigravity", 90) } })
 local pinnedRow = pinnedDown.tooltip()[1]
-assert(pinnedRow.value == "antigravity not configured",
-       "a pinned provider with its own failure should leave the bar")
+assert(pinnedRow.key == "Antigravity", "pinned provider that is down should identify itself")
+assert(pinnedRow.value == "ui.diagnostic.cause.local_server"
+    and pinnedDown.tooltip()[3].value:find("no local server found"),
+    "a pinned failure must show its cause, recommended action and CLI detail")
+assert(pinnedDown.rendered().children[1].props.name == "sparkles", "pinned provider that is down should render its own glyph")
+assert(pinnedDown.rendered().children[1].props.color == "error", "pinned provider that is down should render glyph in error color")
+
+local onlyFailed = loadBar({ vendor = "auto" }, { entries = { rejected } })
+assert(containsGlyph(onlyFailed.rendered(), "asterisk-simple"), "an all-failed capsule must retain provider identity")
+assert(onlyFailed.tooltip()[1].value == "ui.diagnostic.cause.authentication"
+    and onlyFailed.tooltip()[2].value:find("claude auth login", 1, true),
+    "an all-failed automatic capsule must explain the login failure instead of waiting for data")
+local hiddenFailure = loadBar({ vendor = "auto", hidden_services = "anthropic" },
+    { entries = { rejected, entry("openai", "Codex", 20) } })
+assert(#hiddenFailure.tooltip() == 1 and hiddenFailure.tooltip()[1].key == "Codex",
+    "hidden providers must not leak diagnostics into the automatic tooltip")
+local namedFailure = entry("openai@work", "Codex · work", 90)
+namedFailure.status, namedFailure.error = "error", "HTTP 401: authentication rejected"
+local fallbackFailure = loadBar({ vendor = "openai" }, { entries = { namedFailure } })
+assert(fallbackFailure.tooltip()[1].key == "Codex · work"
+    and fallbackFailure.tooltip()[2].value == "ui.diagnostic.action.named_account",
+    "a provider whose default row was replaced by a named account must retain its diagnosis")
 
 -- `[ui] primary` can come back as a full account id, and the tie-break has to
 -- recognise it in that form as well as the bare provider one.
@@ -533,6 +556,54 @@ assert(agyBars[2].props.height == 3 and agyBars[2].props.progress == 0.80, "Gemi
 assert(agyBars[3].props.height == 6 and agyBars[3].props.progress == 0.40, "Claude top bar is 5h")
 assert(agyBars[4].props.height == 3 and agyBars[4].props.progress == 1.0, "Claude bottom bar is weekly")
 
+local geminiBar = loadBar({ vendor = "gemini", visualization = "gauge" }, {
+    entries = {
+        {
+            id = "antigravity",
+            display_name = "Antigravity",
+            status = "ready",
+            metrics = {
+                { label = "Gemini", percent = 15, window_secs = 18000 },
+                { label = "Claude & GPT OSS", percent = 40, window_secs = 18000 },
+                { label = "Gemini", percent = 80, window_secs = 604800 },
+                { label = "Claude & GPT OSS", percent = 100, window_secs = 604800 },
+            },
+        },
+    },
+})
+local geminiBars = findAllNodes(geminiBar.rendered(), function(n) return n.kind == "progress" end)
+assert(#geminiBars == 2, "vendor=gemini should only render 2 progress bars (Gemini 5h and weekly)")
+assert(geminiBars[1].props.progress == 0.15, "Gemini top bar is 15%")
+assert(geminiBars[2].props.progress == 0.80, "Gemini weekly bar is 80%")
+assert(containsText(geminiBar.rendered(), "15%"), "Gemini capsule should show 15%")
+assert(not containsText(geminiBar.rendered(), "40%"), "Gemini capsule should NOT show Claude 40%")
+geminiBar.env.onClick()
+assert(geminiBar.values.selected == "gemini", "clicking vendor=gemini widget must set selected to 'gemini'")
+
+local claudeOssBar = loadBar({ vendor = "claude-oss", visualization = "gauge" }, {
+    entries = {
+        {
+            id = "antigravity",
+            display_name = "Antigravity",
+            status = "ready",
+            metrics = {
+                { label = "Gemini", percent = 15, window_secs = 18000 },
+                { label = "Claude & GPT OSS", percent = 40, window_secs = 18000 },
+                { label = "Gemini", percent = 80, window_secs = 604800 },
+                { label = "Claude & GPT OSS", percent = 60, window_secs = 604800 },
+            },
+        },
+    },
+})
+local claudeOssBars = findAllNodes(claudeOssBar.rendered(), function(n) return n.kind == "progress" end)
+assert(#claudeOssBars == 2, "vendor=claude-oss should only render 2 progress bars (Claude 5h and weekly)")
+assert(claudeOssBars[1].props.progress == 0.40, "Claude top bar is 40%")
+assert(claudeOssBars[2].props.progress == 0.60, "Claude weekly bar is 60%")
+assert(containsText(claudeOssBar.rendered(), "40%"), "Claude-OSS capsule should show 40%")
+assert(not containsText(claudeOssBar.rendered(), "15%"), "Claude-OSS capsule should NOT show Gemini 15%")
+claudeOssBar.env.onClick()
+assert(claudeOssBar.values.selected == "claude-oss", "clicking vendor=claude-oss widget must set selected to 'claude-oss'")
+
 -- A balance-only provider has no percentage to draw: the capsule prints its
 -- balance where a quota vendor prints a percentage, and keeps its identity mark.
 local balanceBar = loadBar({ vendor = "deepseek", extras = "countdown", visualization = "gauge" }, {
@@ -570,4 +641,106 @@ assert(#balanceRows == 1 and balanceRows[1].key == "DeepSeek" and balanceRows[1]
 local nousRows = nousBalanceBar.tooltip()
 assert(#nousRows == 1 and nousRows[1].key == "Nous Research" and nousRows[1].value == "8.19",
     "a balance provider's tooltip should not report no usage")
+
+-- Typography scaling verification in bar
+local hugeBar = loadBar({ vendor = "openai", bar_font_scale = "huge" }, {
+    entries = { entry("openai", "Codex", 50) }
+})
+local hugePercent = findNode(hugeBar.rendered(), function(n) return n.kind == "label" and n.props.text == "50%" end)
+assert(hugePercent and hugePercent.props.fontSize == 14,
+    "Huge bar preset must scale 11px font to 14px, got " .. tostring(hugePercent and hugePercent.props.fontSize))
+local hugeGlyph = findNode(hugeBar.rendered(), function(n) return n.kind == "glyph" and n.props.name == "brand-openai" end)
+assert(hugeGlyph and hugeGlyph.props.size == 18,
+    "Huge bar preset must scale 14px glyph to 18px, got " .. tostring(hugeGlyph and hugeGlyph.props.size))
+
+local compactBar = loadBar({ vendor = "openai", bar_font_scale = "compact" }, {
+    entries = { entry("openai", "Codex", 50) }
+})
+local compactPercent = findNode(compactBar.rendered(), function(n) return n.kind == "label" and n.props.text == "50%" end)
+assert(compactPercent and compactPercent.props.fontSize == 9,
+    "Compact bar preset must scale 11px font to 9px, got " .. tostring(compactPercent and compactPercent.props.fontSize))
+
+local inheritedBar = loadBar({ vendor = "openai", font_scale = "large", bar_font_scale = "inherit" }, {
+    entries = { entry("openai", "Codex", 50) }
+})
+local inheritedPercent = findNode(inheritedBar.rendered(), function(n) return n.kind == "label" and n.props.text == "50%" end)
+assert(inheritedPercent and inheritedPercent.props.fontSize == 13,
+    "Inherited large font_scale must scale 11px font to 13px, got " .. tostring(inheritedPercent and inheritedPercent.props.fontSize))
+
+-- Dual window countdown tooltip visibility (session + weekly)
+local dualWindowEntry = {
+    id = "openai",
+    display_name = "Codex",
+    plan = "Plus",
+    status = "ready",
+    metrics = {
+        { label = "Session", percent = 50, window_secs = 18000, reset_at = os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() + 10800) },
+        { label = "Weekly", percent = 20, window_secs = 604800, reset_at = os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() + 471600) },
+    },
+}
+local dualBar = loadBar({ vendor = "openai" }, { entries = { dualWindowEntry } })
+local dualRows = dualBar.tooltip()
+assert(#dualRows == 2 and dualRows[1].value == "50% / 20%", "dual metric should display both percentages")
+assert(dualRows[2].key == "Reset" and dualRows[2].value:find("3h") and dualRows[2].value:find("7d: 5d 11h"),
+    "dual metric tooltip should display both session and weekly countdowns: got " .. tostring(dualRows[2].value))
+
+-- ============================================================================
+-- Service & Model Filtering in Bar (hide_claude_oss)
+-- ============================================================================
+local agyDualReport = {
+    entries = {
+        {
+            id = "antigravity",
+            display_name = "Antigravity",
+            status = "ready",
+            metrics = {
+                { label = "Gemini", percent = 15, window_secs = 18000, reset_at = os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() + 10800) },
+                { label = "Claude & GPT OSS", percent = 100, severity = "critical", window_secs = 18000, reset_at = os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() + 7200) },
+                { label = "Gemini", percent = 80, window_secs = 604800, reset_at = os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() + 400000) },
+                { label = "Claude & GPT OSS", percent = 100, severity = "critical", window_secs = 604800, reset_at = os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() + 300000) },
+            },
+        },
+    },
+}
+
+-- 1. With hide_claude_oss = true:
+local hiddenAgyBar = loadBar({ vendor = "antigravity", hide_claude_oss = true, visualization = "gauge" }, agyDualReport)
+local hiddenAgyProgress = findAllNodes(hiddenAgyBar.rendered(), function(n) return n.kind == "progress" end)
+assert(#hiddenAgyProgress == 2, "hidden Claude OSS should result in only 2 progress bars (Gemini session + weekly)")
+assert(containsText(hiddenAgyBar.rendered(), "15%"), "hidden Claude OSS should leave Gemini 15% in capsule")
+assert(not containsText(hiddenAgyBar.rendered(), "100%"), "hidden Claude OSS 100% must NOT be shown in capsule")
+
+local hiddenAgyTooltip = hiddenAgyBar.tooltip()
+local hasGeminiRow = false
+local hasClaudeRow = false
+for _, row in ipairs(hiddenAgyTooltip) do
+    if row.key == "Gemini" then hasGeminiRow = true end
+    if row.key == "Claude & GPT OSS" or row.key:find("Claude") then hasClaudeRow = true end
+end
+assert(hasGeminiRow == true, "Gemini must be present in Antigravity tooltip")
+assert(hasClaudeRow == false, "Claude & GPT OSS must NOT be present in Antigravity tooltip when hidden")
+
+-- 2. Pinned vendor = "claude-oss" with hide_claude_oss = true should completely hide the capsule
+local hiddenPinnedBar = loadBar({ vendor = "claude-oss", hide_claude_oss = true }, agyDualReport)
+assert(hiddenPinnedBar.visible() == false, "pinned claude-oss when hidden must hide the capsule via barWidget.setVisible(false)")
+assert(hiddenPinnedBar.rendered() == nil, "pinned claude-oss when hidden must not render anything (no scale icon)")
+
+-- 2b. Pinned vendor = "claude-oss" with hide_claude_oss = false should be visible
+local visiblePinnedBar = loadBar({ vendor = "claude-oss", hide_claude_oss = false }, agyDualReport)
+assert(visiblePinnedBar.visible() == true, "pinned claude-oss when not hidden must be visible")
+assert(containsText(visiblePinnedBar.rendered(), "100%"), "pinned claude-oss when not hidden must render 100%")
+assert(not containsText(visiblePinnedBar.rendered(), "15%"), "pinned claude-oss when not hidden must NOT render Gemini 15%")
+
+-- 3. Anthropic Claude Pro must NOT be hidden by hide_claude_oss = true
+local anthropicReport = {
+    entries = {
+        entry("anthropic", "Claude", 25),
+    },
+}
+local anthropicBar = loadBar({ vendor = "anthropic", hide_claude_oss = true }, anthropicReport)
+assert(anthropicBar.visible() == true, "Anthropic Claude Pro must be visible")
+assert(containsText(anthropicBar.rendered(), "25%"), "Anthropic Claude Pro must NOT be hidden by hide_claude_oss")
+
+io.write("ok: account selection, unavailable providers, steady capsule, and typography scaling in bar\n")
+
 

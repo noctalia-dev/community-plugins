@@ -177,7 +177,7 @@ local function renderStats()
 		ramSub = string.format("%.0f/%.0fM", ram.usedMb, ram.totalMb)
 	end
 
-	return ui.column({ gap = 4, fill = "surface_variant/0.35", radius = 10, paddingV = 8, paddingH = 10 }, {
+	return ui.column({ gap = 4, fill = "surface_container/0.35", radius = 10, paddingV = 8, paddingH = 10 }, {
 		statBar("CPU", "cpu", cpu and cpu.usagePercent, cpuSub),
 		statBar("RAM", "memory", ram and ram.usagePercent, ramSub),
 		ui.row({ gap = 12, align = "center" }, {

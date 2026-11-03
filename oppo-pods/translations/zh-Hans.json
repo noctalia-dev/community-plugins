@@ -1,0 +1,47 @@
+{
+  "notify": {
+    "mode_changed": "模式：%s"
+  },
+  "panel": {
+    "battery": "电量",
+    "case": "充电仓",
+    "case_offline": "已合盖",
+    "charging": "充电中",
+    "guidance": "通过蓝牙连接耳机后，即可查看电量与调节降噪模式。",
+    "left": "左耳",
+    "mode": {
+      "anc": "降噪",
+      "off": "关闭",
+      "transparency": "通透"
+    },
+    "noise_control": "降噪控制",
+    "right": "右耳",
+    "status": {
+      "connected": "已连接",
+      "disconnected": "未连接"
+    },
+    "title": "OPPO 耳机"
+  },
+  "plugin": {
+    "description": "OPPO、OnePlus 与 realme 蓝牙耳机的电量监控与主动降噪（ANC）控制",
+    "name": "OPPO 耳机"
+  },
+  "settings": {
+    "device_mac": {
+      "description": "耳机的蓝牙 MAC 地址。留空则自动识别当前连接的设备。",
+      "label": "耳机 MAC 地址"
+    },
+    "hide_when_disconnected": {
+      "description": "耳机未连接时隐藏状态栏图标。",
+      "label": "未连接时隐藏"
+    }
+  },
+  "widget": {
+    "action": {
+      "left_click": "打开控制面板",
+      "right_click": "切换降噪模式"
+    },
+    "mode": "模式",
+    "not_connected": "耳机未连接"
+  }
+}

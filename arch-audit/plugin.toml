@@ -1,0 +1,100 @@
+# Arch Audit — ambient audit of installed packages against the Arch Security
+# Team advisories. A headless service runs `arch-audit --json`, enriches each
+# advisory with the installed version from pacman, caches the last good result,
+# and publishes it. The bar widget shows the count coloured by the worst
+# severity; the panel groups, filters and explains the findings.
+#
+# Read-only: no root, no package operations, no writes outside the plugin data
+# directory. Network access is whatever `arch-audit` performs against
+# https://security.archlinux.org/all.json.
+
+id = "cero800/arch-audit"
+name = "Arch Audit"
+version = "0.1.0"
+plugin_api = 43
+author = "cero800"
+license = "MIT"
+icon = "shield-exclamation"
+description = "Audit installed Arch packages against the Arch Security Team advisories, with severity triage and new-CVE alerts."
+dependencies = ["arch-audit", "pacman", "xdg-open"]
+tags = ["arch", "bar", "panel", "service", "indicator", "system", "utility"]
+
+# ── Checks ───────────────────────────────────────────────────────────────────
+
+[[setting]]
+key = "check_hours"
+type = "int"
+label_key = "settings.check_hours.label"
+description_key = "settings.check_hours.description"
+default = 6
+min = 1
+max = 168
+
+# ── Notifications ────────────────────────────────────────────────────────────
+
+[[setting]]
+key = "notify_new"
+type = "bool"
+label_key = "settings.notify_new.label"
+description_key = "settings.notify_new.description"
+default = true
+
+[[setting]]
+key = "notify_min_severity"
+type = "select"
+label_key = "settings.notify_min_severity.label"
+description_key = "settings.notify_min_severity.description"
+default = "high"
+options = [
+  { value = "critical", label_key = "settings.notify_min_severity.options.critical" },
+  { value = "high", label_key = "settings.notify_min_severity.options.high" },
+  { value = "medium", label_key = "settings.notify_min_severity.options.medium" },
+  { value = "low", label_key = "settings.notify_min_severity.options.low" },
+]
+
+# ── Filtering ────────────────────────────────────────────────────────────────
+
+[[setting]]
+key = "ignore_packages"
+type = "string_list"
+label_key = "settings.ignore_packages.label"
+description_key = "settings.ignore_packages.description"
+default = []
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 460
+height = 580
+placement = "attached"
+position = "auto"
+open_near_click = true
+
+[[widget]]
+id = "widget"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  label_key = "settings.glyph.label"
+  description_key = "settings.glyph.description"
+  default = "shield-exclamation"
+
+  [[widget.setting]]
+  key = "show_count"
+  type = "bool"
+  label_key = "settings.show_count.label"
+  description_key = "settings.show_count.description"
+  default = true
+
+  [[widget.setting]]
+  key = "hide_on_clean"
+  type = "bool"
+  label_key = "settings.hide_on_clean.label"
+  description_key = "settings.hide_on_clean.description"
+  default = false

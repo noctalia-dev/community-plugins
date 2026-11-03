@@ -12,8 +12,8 @@ local TRAY_REL = "/config/hyprland/hyprwhspr-tray.sh"
 local STATES = {
   recording = { glyph = "player-record-filled", color = "error" },
   ready     = { glyph = "microphone",           color = "primary" },
-  unloaded  = { glyph = "zzz",                  color = "outline" },
-  stopped   = { glyph = "microphone-off",       color = "outline" },
+  unloaded  = { glyph = "zzz",                  color = "outline_variant" },
+  stopped   = { glyph = "microphone-off",       color = "outline_variant" },
   error     = { glyph = "alert-triangle",       color = "error" },
 }
 
@@ -121,5 +121,5 @@ end
 
 -- Honest placeholder until the first poll lands.
 barWidget.setGlyph("microphone")
-barWidget.setGlyphColor("outline")
+barWidget.setGlyphColor("outline_variant")
 barWidget.setTooltip("hyprwhspr: waiting for status…")

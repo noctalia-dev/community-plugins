@@ -1,8 +1,9 @@
 # Keybind Cheatsheet
 
 Keybind Cheatsheet opens a searchable Noctalia panel containing the active
-Mango, Hyprland, or Niri shortcuts. It follows split configuration files,
-formats common hardware keys, and keeps custom descriptions and hidden rows.
+Mango, Hyprland, or Niri shortcuts, plus Fcitx5 input-method hotkeys. It follows
+split configuration files, formats common hardware keys, and keeps custom
+descriptions and hidden rows.
 
 ![Keybind Cheatsheet panel](thumbnail.webp)
 
@@ -31,6 +32,9 @@ configuration paths use the portable `~/.config/...` form.
 
 Install `hyprctl` on `PATH` when using a Hyprland Lua configuration. Mango,
 Niri, and classic Hyprland configurations do not spawn external commands.
+
+Fcitx5 is optional. When it is installed, its input-method hotkeys are read
+from `~/.config/fcitx5` on each refresh and shown under **System**.
 
 Parsing a mid-size Niri config plus rendering its full keymap exceeds one
 Luau CPU-budget window, so the refresh and the panel spread the work across
@@ -87,6 +91,7 @@ native color picking, clipboard paste, and reset actions.
 | Hyprland classic | `~/.config/hypr/hyprland.conf` | `bind*` directives, variables, and recursive `source` paths |
 | Hyprland Lua | `~/.config/hypr/hyprland.lua` | Live `hyprctl binds -j` data plus category and description scanning through `require()` files |
 | Niri | `~/.config/niri/config.kdl` | KDL `binds` blocks, action categorization, and recursive `include` paths |
+| Fcitx5 | `~/.config/fcitx5` (or `$XDG_CONFIG_HOME/fcitx5`) | Input-method trigger, alternate trigger, enumeration, group, and Simplified/Traditional Chinese hotkeys |
 
 Includes support `*`, `?`, and bracket glob components. Traversal is limited to
 32 levels and 256 files, and repeated paths are visited once to stop cycles.
@@ -121,6 +126,11 @@ or all F-keys — renders as one row (`Focus workspace N` on `1-0`,
 always lists every bind. Pointer buttons show by name (`LMB`, `RMB`, `MMB`,
 side and back/forward) rather than by evdev code.
 
+Fcitx5 hotkeys are virtual bindings: they are not in the compositor config and
+cannot be changed through the cheatsheet. The trigger description names the
+first two input methods from the default Fcitx group, for example
+`Switch input method (Norwegian ↔ Pinyin)`.
+
 ## Settings
 
 | Setting | Type | Default | Description |
@@ -144,7 +154,7 @@ the requested column count.
 
 ## IPC
 
-Refresh the snapshot after editing compositor configuration:
+Refresh the snapshot after editing compositor or Fcitx configuration:
 
 ```sh
 noctalia msg plugin kenn/keybind-cheatsheet:data all refresh
@@ -176,6 +186,9 @@ remains idle until settings change or a refresh is explicitly requested. It
 uses no update interval, filesystem watcher, polling loop, network request, or
 persistent subprocess. Hyprland Lua mode runs the fixed command
 `hyprctl binds -j` asynchronously.
+
+Fcitx5 files are read only during a refresh. Changing an input-method hotkey in
+Fcitx does not update the cheatsheet until the next refresh.
 
 The last successful parsed snapshot is stored as `bindings-cache.json`. The
 panel reads the shared in-memory snapshot and performs no configuration I/O in

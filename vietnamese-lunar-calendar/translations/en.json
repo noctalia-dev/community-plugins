@@ -1,6 +1,30 @@
 {
+  "agenda": {
+    "add_btn": "Add",
+    "add_category_btn": "Add category",
+    "agenda_tab": "Agenda",
+    "all_day": "All day",
+    "categories_tab": "Categories",
+    "delete": "Delete",
+    "delete_cat_tooltip": "Delete category (events move to the first one)",
+    "errors": {
+      "create_cat_first": "Create a category first",
+      "duration_range": "Duration must be 1-1440 minutes",
+      "enter_name": "Enter an event name",
+      "time_format": "Start time must look like 09:30"
+    },
+    "event_name_placeholder": "Event name",
+    "manage_tooltip": "Add events & manage categories",
+    "new_cat_placeholder": "New category",
+    "new_event": "New event",
+    "no_events": "No events on this day",
+    "save_name": "Save name"
+  },
   "months": {
     "m1": "January",
+    "m10": "October",
+    "m11": "November",
+    "m12": "December",
     "m2": "February",
     "m3": "March",
     "m4": "April",
@@ -8,31 +32,20 @@
     "m6": "June",
     "m7": "July",
     "m8": "August",
-    "m9": "September",
-    "m10": "October",
-    "m11": "November",
-    "m12": "December"
-  },
-  "weekdays": {
-    "mon": "Mon",
-    "tue": "Tue",
-    "wed": "Wed",
-    "thu": "Thu",
-    "fri": "Fri",
-    "sat": "Sat",
-    "sun": "Sun",
-    "t2": "Mon",
-    "t3": "Tue",
-    "t4": "Wed",
-    "t5": "Thu",
-    "t6": "Fri",
-    "t7": "Sat",
-    "cn": "Sun"
+    "m9": "September"
   },
   "settings": {
     "accent_weekends": {
       "description": "Use the accent color for Saturday and Sunday.",
       "label": "Accent Weekends"
+    },
+    "font_scale": {
+      "description": "Scale all calendar text (1.0 = original size, 1.2 = 20% larger).",
+      "label": "Text Size"
+    },
+    "max_events": {
+      "description": "How many upcoming events the desktop widget lists.",
+      "label": "Desktop Widget Events"
     },
     "show_can_chi": {
       "description": "Show the traditional Can Chi year in the calendar footer.",
@@ -45,52 +58,39 @@
     "show_timezone": {
       "description": "Show the UTC+7 calculation time zone below the month title.",
       "label": "Show Time Zone"
-    },
-    "font_scale": {
-      "label": "Text Size",
-      "description": "Scale all calendar text (1.0 = original size, 1.2 = 20% larger)."
-    },
-    "max_events": {
-      "label": "Desktop Widget Events",
-      "description": "How many upcoming events the desktop widget lists."
     }
   },
   "ui": {
-    "prev_month": "Previous month",
+    "leap": "leap",
+    "lunar_date_suffix": "lunar",
     "next_month": "Next month",
+    "prev_month": "Previous month",
+    "shortcut_label": "Lunar",
     "timezone_label": "Vietnamese Lunar Calendar · UTC+7",
     "timezone_label_short": "Vietnamese Lunar Calendar",
-    "leap": "leap",
-    "year": "Year",
     "today": "Today",
-    "shortcut_label": "Lunar",
-    "lunar_date_suffix": "lunar"
-  },
-  "agenda": {
-    "categories_tab": "Categories",
-    "agenda_tab": "Agenda",
-    "no_events": "No events on this day",
-    "all_day": "All day",
-    "event_name_placeholder": "Event name",
-    "new_cat_placeholder": "New category",
-    "add_btn": "Add",
-    "add_category_btn": "Add category",
-    "delete": "Delete",
-    "save_name": "Save name",
-    "delete_cat_tooltip": "Delete category (events move to the first one)",
-    "errors": {
-      "create_cat_first": "Create a category first",
-      "enter_name": "Enter an event name",
-      "time_format": "Start time must look like 09:30",
-      "duration_range": "Duration must be 1-1440 minutes"
-    },
-    "manage_tooltip": "Add events & manage categories",
-    "new_event": "New event"
+    "year": "Year"
   },
   "upcoming": {
     "all_day": "All day",
-    "tomorrow": "Tomorrow ",
     "calendar": "Calendar",
-    "no_events": "No upcoming events"
+    "no_events": "No upcoming events",
+    "tomorrow": "Tomorrow "
+  },
+  "weekdays": {
+    "cn": "Sun",
+    "fri": "Fri",
+    "mon": "Mon",
+    "sat": "Sat",
+    "sun": "Sun",
+    "t2": "Mon",
+    "t3": "Tue",
+    "t4": "Wed",
+    "t5": "Thu",
+    "t6": "Fri",
+    "t7": "Sat",
+    "thu": "Thu",
+    "tue": "Tue",
+    "wed": "Wed"
   }
 }

@@ -6,9 +6,12 @@ Network access (all over HTTPS to wfmu.org and its stream hosts):
   * https://wfmu.org/archivefeed/mp3/*.xml - one RSS feed per show
   * each show's latest episode link       - resolved to a direct audio URL
 
-The output is a tab-separated file of "<label>\\t<url>" lines: the WFMU live
-streams first, then the most recent archive of every show, sorted by name.
-Nothing is executed from the network; the fetched bytes are only parsed.
+The output is a tab-separated file of "<label>\t<url>" lines, plus a third
+column holding an ordering stamp ("2026-10-16 2026-10-17T04:14:53Z") for
+archives: the WFMU live streams first, then the most recent archive of every
+show, sorted by name. The panel sorts same-day archives on that stamp; it is not
+shown to the user. Nothing is executed from the network; the fetched bytes are
+only parsed.
 """
 
 from __future__ import annotations
@@ -177,8 +180,43 @@ def episode_date(episode: dict[str, str]) -> datetime.datetime | None:
     return parsed.replace(tzinfo=None)
 
 
-def collect(fetcher: Fetcher, max_age_days: int) -> list[tuple[str, str, str]]:
-    """Return (name, date, url) for the latest fresh archive of every show."""
+def episode_published(episode: dict[str, str]) -> datetime.datetime | None:
+    """When the feed says the archive went up, in WFMU's local time, or None.
+
+    This is not the air time: WFMU never publishes one, and some archives appear
+    a day or two after the show. It is the closest thing to an air order the
+    feeds carry, because most archives go up right after the show ends.
+    """
+    try:
+        return email.utils.parsedate_to_datetime(episode["pubdate"])
+    except (TypeError, ValueError):
+        return None
+
+
+def aired_stamp(
+    aired: datetime.datetime | None, published: datetime.datetime | None
+) -> str:
+    """Ordering key for the TSV's third column ("2026-10-16 2026-10-17T04:14:53Z").
+
+    Two ISO halves separated by a space: the day the feed says the show aired,
+    then the instant its archive was published. The panel sorts on the whole
+    string, so a show stays inside the day it aired - a late-published archive
+    never jumps above a newer day - while same-day shows follow the order their
+    archives appeared, which is the closest thing to an air order the feeds
+    carry. Keeping the full publish instant (not just its clock time) matters:
+    a late-night show goes up just after midnight, and must sort last of its
+    day, not first. The panel never shows this.
+    """
+    if published is None:
+        return ""
+    if published.tzinfo is None:
+        published = published.replace(tzinfo=datetime.timezone.utc)
+    day = aired if aired is not None else published.astimezone(datetime.timezone.utc)
+    return f"{day:%Y-%m-%d} {published.astimezone(datetime.timezone.utc):%Y-%m-%dT%H:%M:%SZ}"
+
+
+def collect(fetcher: Fetcher, max_age_days: int) -> list[tuple[str, str, str, str]]:
+    """Return (name, date, url, order key) for the latest fresh archive of every show."""
     page = fetcher.get(PLAYLISTS_URL)
     if page is None:
         raise SystemExit("failed to fetch the WFMU playlists page")
@@ -186,9 +224,9 @@ def collect(fetcher: Fetcher, max_age_days: int) -> list[tuple[str, str, str]]:
     print(f"shows with an mp3 archive feed: {len(shows)}", file=sys.stderr, flush=True)
 
     cutoff = datetime.datetime.now() - datetime.timedelta(days=max_age_days)
-    results: list[tuple[str, str, str]] = []
+    results: list[tuple[str, str, str, str]] = []
 
-    def one(code: str, info: dict[str, str]) -> tuple[str, str, str] | None:
+    def one(code: str, info: dict[str, str]) -> tuple[str, str, str, str] | None:
         feed = fetcher.get(FEED_URL.format(code=info["feed"]))
         if feed is None:
             return None
@@ -204,8 +242,8 @@ def collect(fetcher: Fetcher, max_age_days: int) -> list[tuple[str, str, str]]:
         stream = resolve_stream(fetcher, episode["link"])
         if not stream:
             return None
-        date = aired.strftime("%b %-d, %Y") if aired is not None else ""
-        return (info["name"], date, stream)
+        date = aired.strftime("%b %-d") if aired is not None else ""
+        return (info["name"], date, stream, aired_stamp(aired, episode_published(episode)))
 
     with cf.ThreadPoolExecutor(max_workers=WORKERS) as pool:
         futures = [pool.submit(one, code, info) for code, info in shows.items()]
@@ -222,13 +260,15 @@ def collect(fetcher: Fetcher, max_age_days: int) -> list[tuple[str, str, str]]:
     return results
 
 
-def build_tsv(archives: list[tuple[str, str, str]]) -> str:
+def build_tsv(archives: list[tuple[str, str, str, str]]) -> str:
     lines: list[str] = []
     for name, url in LIVE_STREAMS:
         lines.append(f"{name}\t{url}")
-    for name, date, url in archives:
+    for name, date, url, order in archives:
         label = f"{name} ({date})" if date else name
-        lines.append(f"{label}\t{url}")
+        # Third column: the ordering key described above, used only for sorting,
+        # and left off entirely when the feed gave us no publish time.
+        lines.append(f"{label}\t{url}\t{order}" if order else f"{label}\t{url}")
     return "\n".join(lines) + "\n"
 
 
@@ -254,7 +294,18 @@ def main(argv: list[str]) -> int:
     args = parser.parse_args(argv)
 
     fetcher = Fetcher(None if args.no_cache else args.cache, args.cache_ttl)
-    output = build_tsv(collect(fetcher, args.max_age_days))
+    archives = collect(fetcher, args.max_age_days)
+
+    # A run that resolved no archives is almost always a transient WFMU outage or
+    # a markup change, not a real "there are no archives" state. Do not overwrite
+    # a good list with live streams only: leave the previous file in place so the
+    # panel keeps its archives, and exit non-zero so the run is not treated as a
+    # fresh success. (With no file yet, the live-only list is still written.)
+    if args.out and not archives and os.path.exists(args.out):
+        print("no archives resolved; keeping the existing list", file=sys.stderr, flush=True)
+        return 1
+
+    output = build_tsv(archives)
 
     if args.out:
         directory = os.path.dirname(os.path.abspath(args.out))

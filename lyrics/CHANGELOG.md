@@ -1,5 +1,42 @@
 # Changelog
 
+## 1.5.8
+
+- Declare the widget's left-click, right-click, and scroll bindings as editable
+  Actions defaults instead of hiding them in Luau callbacks. The commands keep
+  using the service's selected MPRIS player, and only the hovered lyrics widget
+  changes view on left click when several instances are active.
+- Raise `plugin_api` to 14, required for widget gesture defaults.
+- Turn double-line lyrics off by default. Existing widgets with an explicit
+  `double_line = true` setting keep the second line.
+- Use the QQ Music desktop catalogue and lyric endpoints, with the legacy
+  endpoints as fallback, and prefer NetEase cloud search plus the newer lyric
+  endpoint. This restores lyrics when the old endpoints fail or return empty
+  results.
+- Match catalogue entries by artist, version, and duration, and try additional
+  matched entries when the first one has no lyrics.
+- Retry the same track with exponential backoff after every source fails, and
+  log per-source diagnostics instead of silently showing no lyrics.
+- Normalize control characters in MPRIS metadata from Electron/Chromium-based
+  players such as the QQ Music Flatpak.
+- Report a clear diagnostic when `python3` lacks the `_ssl` module, and check
+  HTTPS support in `setup-deps.sh`, instead of treating every source as a
+  generic network failure.
+
+## 1.5.7
+
+- Keep the lyrics capsule visible while lyrics are loading and retry transient
+  empty player polls instead of clearing the current track immediately.
+- Open the selector only from its shortcut or IPC; hovering no longer opens the
+  panel and can no longer interfere with the widget's left-click action.
+- Add a per-widget intro/interlude cue toggle, cue text and font controls, and
+  adjustable timing thresholds.
+
+## 1.5.6
+
+- Keep runtime cache in Noctalia's plugin data directory so plugin source
+  updates do not break lyric requests or artwork downloads.
+
 ## 1.5.5
 
 - Retry MPRIS discovery after a short startup failure instead of leaving the

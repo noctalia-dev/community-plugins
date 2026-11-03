@@ -183,10 +183,10 @@ DEFAULT_COLORS = {
     "primary": "#c2c1ff",
     "on_primary": "#2a2a60",
     "surface": "#131317",
-    "surface_variant": "#1f1f25",
+    "surface_container": "#1f1f25",
     "on_surface": "#e5e1e7",
     "on_surface_variant": "#c7c5d0",
-    "outline": "#47464f",
+    "outline_variant": "#47464f",
     "error": "#ffb4ab",
 }
 
@@ -194,7 +194,7 @@ GTK_CSS_KEYS = {
     "accent_color": "primary",
     "accent_fg_color": "on_primary",
     "window_bg_color": "surface",
-    "card_bg_color": "surface_variant",
+    "card_bg_color": "surface_container",
     "window_fg_color": "on_surface",
     "destructive_bg_color": "error",
 }
@@ -237,7 +237,7 @@ window.shelf-window *:drop(active) {{ box-shadow: none; outline: none; border-co
 .shelf-card {{
   background: {c['surface']};
   color: {c['on_surface']};
-  border: 1px solid {rgba(c['outline'], 0.8)};
+  border: 1px solid {rgba(c['outline_variant'], 0.8)};
   border-radius: 22px;
   padding: 2px 14px 14px 14px;
 }}
@@ -281,7 +281,7 @@ button.shelf-icon.danger:hover {{ color: {c['error']}; background: {rgba(c['erro
   border: 2px dashed {rgba(c['on_surface_variant'], 0.35)};
   border-radius: 18px;
   padding: 26px 16px;
-  background: {rgba(c['surface_variant'], 0.5)};
+  background: {rgba(c['surface_container'], 0.5)};
 }}
 .drop-hover .shelf-dropzone {{
   border-color: {c['primary']};
@@ -301,7 +301,7 @@ list.shelf-list > row:hover .row-remove, list.shelf-list > row:focus-within .row
 .row-name {{ font-weight: 600; }}
 .row-meta {{ color: {c['on_surface_variant']}; font-size: 0.82em; }}
 .row-missing .row-name {{ color: {c['error']}; }}
-.row-thumb {{ border-radius: 10px; background: {rgba(c['surface_variant'], 0.9)}; }}
+.row-thumb {{ border-radius: 10px; background: {rgba(c['surface_container'], 0.9)}; }}
 .row-thumb-icon {{ color: {c['primary']}; }}
 .row-missing .row-thumb-icon {{ color: {c['error']}; }}
 .drop-banner {{

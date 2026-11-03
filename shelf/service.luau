@@ -16,8 +16,8 @@ local HELPER = "helper/shelf-window.py"
 local APP_ID = "dev.noctalia.Shelf"
 local APP_PATH = "/dev/noctalia/Shelf"
 local PALETTE_ROLES = {
-  "primary", "on_primary", "surface", "surface_variant",
-  "on_surface", "on_surface_variant", "outline", "error",
+  "primary", "on_primary", "surface", "surface_container",
+  "on_surface", "on_surface_variant", "outline_variant", "error",
 }
 local IDLE_POLL_MS = 60000
 local LIVENESS_POLL_MS = 10000

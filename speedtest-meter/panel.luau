@@ -161,7 +161,7 @@ metricRow = function(labelKey: string, value: string, glyphName: string?)
 	return ui.row({
 		gap = 10,
 		align = "center",
-		fill = "surface_variant",
+		fill = "surface_container",
 		radius = 10,
 		paddingH = 10,
 		paddingV = 8,
@@ -237,11 +237,11 @@ local function smallStat(labelKey: string, valueText: string, glyphName: string,
 		gap = 4,
 		align = "center",
 		justify = "center",
-		fill = "surface_variant",
+		fill = "surface_container",
 		radius = 12,
 		paddingH = 4,
 		paddingV = 5,
-		border = "outline",
+		border = "outline_variant",
 		borderWidth = 1,
 	}, {
 		ui.glyph({ name = glyphName, size = 18, color = accent }),
@@ -340,9 +340,9 @@ renderLiveLog = function()
 		gap = 2,
 		paddingH = 10,
 		paddingV = 8,
-		fill = "surface_variant",
+		fill = "surface_container",
 		radius = 12,
-		border = "outline",
+		border = "outline_variant",
 		borderWidth = 1,
 		align = "start",
 	}, logChildren)
@@ -353,8 +353,8 @@ liveMetricCircle = function(labelKey: string, value: number, accent: string, sof
 		width = 154,
 		height = 154,
 		radius = 77,
-		fill = active and soft or "surface_variant",
-		border = active and accent or "outline",
+		fill = active and soft or "surface_container",
+		border = active and accent or "outline_variant",
 		borderWidth = active and 3 or 1,
 		align = "center",
 		justify = "center",
@@ -1412,9 +1412,9 @@ renderHistoryCard = function(item: any)
 	return ui.row({
 		gap = 5,
 		align = "center",
-		fill = "surface_variant",
+		fill = "surface_container",
 		radius = 12,
-		border = "outline",
+		border = "outline_variant",
 		borderWidth = 1,
 		paddingH = 9,
 		paddingV = 5,
@@ -1458,7 +1458,7 @@ renderHistory = function()
 			}),
 			ui.label({ text = noctalia.tr("history_limit"), fontSize = 10, color = "on_surface_variant" }),
 		}),
-		ui.separator({ thickness = 1, color = "outline", spacing = 1 }),
+		ui.separator({ thickness = 1, color = "outline_variant", spacing = 1 }),
 	}
 
 	for i = 1, math.min(#history, 5) do
@@ -1470,7 +1470,7 @@ renderHistory = function()
 		padding = 10,
 		fill = "surface/0.96",
 		radius = 18,
-		border = "outline",
+		border = "outline_variant",
 		borderWidth = 1,
 	}, children)
 end
@@ -1493,7 +1493,7 @@ renderIdle = function()
 
 	table.insert(children, ui.button({ text = noctalia.tr("start_test"), glyph = "brand-speedtest", glyphSize = 16, variant = "primary", controlSize = "lg", onClick = startTest }))
 
-	return ui.column({ gap = 6, padding = 14, fill = "surface/0.96", radius = 18, border = "outline", borderWidth = 1, align = "center", minHeight = 670 }, children)
+	return ui.column({ gap = 6, padding = 14, fill = "surface/0.96", radius = 18, border = "outline_variant", borderWidth = 1, align = "center", minHeight = 670 }, children)
 end
 
 renderRunning = function()
@@ -1540,7 +1540,7 @@ renderRunning = function()
 				width = barWidth,
 				height = 14,
 				radius = 7,
-				fill = "surface_variant",
+				fill = "surface_container",
 			}, {
 				ui.column({
 					width = math.max(1, filledWidth),
@@ -1562,7 +1562,7 @@ renderRunning = function()
 		padding = 14,
 		fill = "surface/0.96",
 		radius = 18,
-		border = "outline",
+		border = "outline_variant",
 		borderWidth = 1,
 		align = "center",
 		minHeight = 670,
@@ -1573,7 +1573,7 @@ renderDone = function()
 	local r = result or {}
 	local children = {
 		titleBlock(),
-		ui.separator({ thickness = 1, color = "outline", spacing = 4 }),
+		ui.separator({ thickness = 1, color = "outline_variant", spacing = 4 }),
 		ui.row({ gap = 10, align = "center", justify = "center" }, {
 			renderGauge("metric_download", r.downloadMbps or 0, "primary", "primary/0.12", "arrow-down", "download", true),
 			renderGauge("metric_upload", r.uploadMbps or 0, "secondary", "secondary/0.12", "arrow-up", "upload", true),
@@ -1627,7 +1627,7 @@ renderDone = function()
 		padding = 14,
 		fill = "surface",
 		radius = 18,
-		border = "outline",
+		border = "outline_variant",
 		borderWidth = 1,
 		flexGrow = 1,
 	}, children)
@@ -1641,7 +1641,7 @@ renderError = function()
 		ui.glyph({ name = "circle-x", size = 30, color = "error" }),
 		ui.label({ text = noctalia.tr("error_title"), fontSize = 18, fontWeight = "heavy", color = "on_surface", textAlign = "center" }),
 		ui.label({ text = errorMessage or noctalia.tr("error_unknown"), fontSize = 12, color = "on_surface_variant", textAlign = "center" }),
-		ui.separator({ thickness = 1, color = "outline", spacing = 3 }),
+		ui.separator({ thickness = 1, color = "outline_variant", spacing = 3 }),
 		ui.label({ text = noctalia.tr("error_missing_cli"), fontSize = 11, color = "on_surface_variant", textAlign = "center" }),
 		ui.label({ text = installCmd, fontSize = 11, fontWeight = "bold", color = "on_surface", textAlign = "center" }),
 		ui.button({ text = noctalia.tr("copy_install_command"), glyph = "copy", glyphSize = 14, variant = "outline", controlSize = "md", onClick = function()

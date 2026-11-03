@@ -17,6 +17,7 @@ Both tools must be available on `PATH`:
 - `mpv` plays the streams. The plugin starts it with `--no-video` and an IPC
   socket in the plugin data directory.
 - `python3` runs the bundled stream-list fetcher at `scripts/wfmu_archives.py`.
+- `xdg-open` opens `https://wfmu.org/` when clicking the panel logo.
 
 The fetcher makes network requests to `wfmu.org`, `mp3archives.wfmu.org`, and
 `podcast.wfmu.org`. No account or API key is needed.
@@ -31,7 +32,7 @@ The panel can also be toggled directly:
 noctalia msg panel-toggle quaversa/wfmu:browse
 ```
 
-The panel has three sections: **Live** (the WFMU live streams), **Favourites**,
+The panel has three sections: **Live** (the WFMU live streams), **Favorites**,
 and **Archives** (each show's most recent episode). Click a stream or archive to play it in
 mpv, and favorite a playing archived show from the panel header to pin it.
 

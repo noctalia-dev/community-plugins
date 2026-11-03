@@ -1,0 +1,4 @@
+controller/target/
+
+# Editor type definitions for luau-lsp, from noctalia-dev/official-plugins.
+noctalia.d.luau

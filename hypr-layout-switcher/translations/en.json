@@ -1,3 +1,8 @@
 {
-  
+  "settings": {
+    "show_label": {
+      "description": "Show the current layout's name next to the icon. Turn off for an icon-only widget.",
+      "label": "Show layout name"
+    }
+  }
 }

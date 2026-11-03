@@ -213,6 +213,24 @@ onToggleCollectorSettingsClicked()
 state.snapshot.system_collector.status = "healthy"
 state.snapshot.system_collector.version = "1.0.0"
 watchers.snapshot(state.snapshot)
+state.snapshot.system_collector.is_nixos = true
+state.snapshot.system_collector.nixos_hint = "collector.nixos_hint"
+watchers.snapshot(state.snapshot)
+onToggleCollectorSettingsClicked()
+assert(containsText(rendered, "collector.nixos_hint"), "NixOS collector settings omitted the declarative hint")
+assert(not containsText(rendered, "collector.install") and not containsText(rendered, "collector.upgrade")
+  and not containsText(rendered, "collector.remove"),
+  "NixOS collector settings offered imperative lifecycle buttons")
+onToggleCollectorSettingsClicked()
+state.snapshot.system_collector.status = "upgrade-required"
+watchers.snapshot(state.snapshot)
+assert(containsText(rendered, "collector.nixos_hint") and not containsText(rendered, "collector.upgrade")
+  and not containsText(rendered, "collector.copy_install"),
+  "NixOS collector card offered the imperative upgrade path")
+state.snapshot.system_collector.status = "healthy"
+state.snapshot.system_collector.is_nixos = nil
+state.snapshot.system_collector.nixos_hint = nil
+watchers.snapshot(state.snapshot)
 configValues.system_collector_enabled = false
 state.snapshot.system_collector.enabled = false
 state.snapshot.system_collector.status = "disabled"

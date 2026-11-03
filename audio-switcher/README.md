@@ -70,6 +70,8 @@ Use the settings button in the panel header to open Noctalia's plugin settings.
 | Plugin | `show_percentage` | `bool` | `true` | Show the output volume beside the bar icon; disable it for an icon-only widget. |
 | Plugin | `show_notification_on_switch` | `bool` | `true` | Show a notification when switching device. |
 | Plugin | `show_actions_in_tooltip` | `bool` | `true` | Show actions in tooltip. |
+| Plugin | `refresh_interval_seconds` | `int` | `60` | Seconds between full device rescans while the panel is closed (10–600). |
+| Plugin | `panel_refresh_interval_seconds` | `int` | `5` | Seconds between full device rescans while the panel is open (1–60). |
 
 ## IPC and keybinds
 
@@ -106,6 +108,12 @@ bind = SUPER, 1, exec, noctalia msg plugin blackbartblues/audio-switcher:service
 ```
 
 ## Notes
+
+Device, default, volume, mute, card and port changes arrive through a
+`pactl subscribe` event stream, so they show up immediately. The periodic full
+rescan only catches state without audio server events, such as Bluetooth
+battery levels and pairing changes, which is why it runs more often while the
+panel is open.
 
 Preferences are written to `preferences.json` in Noctalia's data directory for
 this plugin. They contain only aliases, hidden flags, remembered Bluetooth input

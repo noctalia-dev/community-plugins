@@ -141,6 +141,90 @@ plugin and use **Remove collector** to retry. If the plugin was disabled first,
 its service is no longer running and cannot receive the uninstall event; use
 the collector control before disabling in that sequence.
 
+## NixOS
+
+`/etc/systemd/system` is generated from system config on NixOS, so the installer
+exits instead of writing to it. The plugin detects NixOS from `/etc/os-release`
+(`ID=nixos`) or `/etc/NIXOS`, hides the `pkexec` install buttons, and shows a
+hint instead. A collector writing `/run/noctalia-drive-health/raw.json` is
+recognised as installed.
+
+Add the equivalent declaratively: a unit and timer that run the plugin's
+`scripts/collect_raw.sh`. Point `pluginDir` at the plugin checkout so the
+collector version stays in sync with the plugin, and set `user` to the desktop
+user that reads the cache:
+
+```nix
+{ config, pkgs, ... }:
+let
+  user = "<you>";
+  pluginDir = "/path/to/drive-health"; # absolute path of the plugin directory
+in
+{
+  environment.systemPackages = [ pkgs.smartmontools ];
+
+  systemd.services.noctalia-drive-health = {
+    description = "Collect read-only SMART data for Noctalia Drive Health";
+    after = [ "local-fs.target" ];
+    path = with pkgs; [ bash coreutils util-linux smartmontools ];
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStart = "${pkgs.bash}/bin/sh ${pluginDir}/scripts/collect_raw.sh --output /run/noctalia-drive-health/raw.json";
+      Group = config.users.users.${user}.group;
+      RuntimeDirectory = "noctalia-drive-health";
+      RuntimeDirectoryMode = "0750";
+      RuntimeDirectoryPreserve = "yes";
+      UMask = "0027";
+      StandardOutput = "null";
+      TimeoutStartSec = "60s";
+      NoNewPrivileges = true;
+      PrivateTmp = true;
+      PrivateNetwork = true;
+      ProtectSystem = "strict";
+      ProtectHome = "read-only";
+      ProtectHostname = true;
+      ProtectKernelLogs = true;
+      ProtectKernelTunables = true;
+      ProtectKernelModules = true;
+      ProtectControlGroups = true;
+      ProtectClock = true;
+      RestrictAddressFamilies = "AF_UNIX";
+      RestrictNamespaces = true;
+      RestrictRealtime = true;
+      RestrictSUIDSGID = true;
+      SystemCallArchitectures = "native";
+      LockPersonality = true;
+      MemoryDenyWriteExecute = true;
+      CapabilityBoundingSet = [ "CAP_DAC_OVERRIDE" "CAP_SYS_ADMIN" "CAP_SYS_RAWIO" ];
+      ReadWritePaths = [ "/run/noctalia-drive-health" ];
+      ReadOnlyPaths = [ pluginDir ];
+    };
+  };
+
+  systemd.timers.noctalia-drive-health = {
+    description = "Refresh SMART data for Noctalia";
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      OnBootSec = "20s";
+      OnUnitActiveSec = "15min";
+      AccuracySec = "5s";
+      Unit = "noctalia-drive-health.service";
+    };
+  };
+}
+```
+
+The unit mirrors `packaging/noctalia-drive-health.service.in`. Rebuild with
+`sudo nixos-rebuild switch`, then enable Full SMART in the plugin settings
+(`system_collector_enabled = true`).
+
+If an imperative collector is already installed, remove it first to avoid a
+conflicting `noctalia-drive-health.service` unit:
+
+```sh
+sudo /usr/local/libexec/noctalia-drive-health/uninstall-collector.sh
+```
+
 ## Development
 
 Run the unit, shell, translation, lint, privacy, and packaging checks from this

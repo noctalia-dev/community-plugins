@@ -1,7 +1,7 @@
 id          = "conqazht/share-wifi"
 name        = "Share WiFi"
-version     = "1.1.0"
-plugin_api  = 3
+version     = "1.1.1"
+plugin_api  = 43
 author      = "conqazht"
 license     = "MIT"
 icon        = "access-point"

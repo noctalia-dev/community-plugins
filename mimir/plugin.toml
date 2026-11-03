@@ -1,7 +1,7 @@
 id = "alexander/mimir"
 name = "Mimir"
-version = "0.6.0"
-plugin_api = 21
+version = "0.6.1"
+plugin_api = 43
 author = "Alexander"
 license = "MIT"
 icon = "brain"

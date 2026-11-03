@@ -75,7 +75,7 @@ local function sidebarItem(id, label, subtitle, value, module)
   -- Sparkline preview from the module's sample history; empty box until data exists.
   local graphElement = nil
   if preview and #preview.values > 0 then
-    graphElement = ui.column({ height = 50, border = "outline/0.3", radius = 4 }, {
+    graphElement = ui.column({ height = 50, border = "outline_variant/0.3", radius = 4 }, {
       ui.graph({
         values = preview.values,
         color = color,
@@ -85,16 +85,16 @@ local function sidebarItem(id, label, subtitle, value, module)
       }),
     })
   else
-    graphElement = ui.column({ height = 50, border = "outline/0.3", radius = 4 })
+    graphElement = ui.column({ height = 50, border = "outline_variant/0.3", radius = 4 })
   end
 
   return ui.column({
     key = id,
     -- Highlight the selected tab; dim the rest.
     opacity = isSelected and 1.0 or 0.65,
-    fill = isSelected and "primary/0.25" or "surface_variant/0.4",
+    fill = isSelected and "primary/0.25" or "surface_container/0.4",
     radius = 10,
-    border = "outline/0.25",
+    border = "outline_variant/0.25",
     borderWidth = 1,
     padding = { left = 8, right = 2, top = 6, bottom = 6 },
     gap = 0,
@@ -180,7 +180,7 @@ local function buildSidebar()
   table.insert(items, ui.column({ gap = 4 }, appItems))
 
   -- Fixed-width column: device cards first, then the app list underneath.
-  return ui.column({ width = 180, gap = 6, fill = "surface_variant/0.4", radius = 10, padding = 5 }, items)
+  return ui.column({ width = 180, gap = 6, fill = "surface_container/0.4", radius = 10, padding = 5 }, items)
 end
 
 -- Main content area: sidebar on the left, the active device's detail view

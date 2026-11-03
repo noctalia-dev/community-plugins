@@ -61,20 +61,13 @@ local SCORE_POOL = 64
 -- Decrypted entries stay cached a while so re-rendering the same detail view
 -- (e.g. a debounce re-fire) doesn't trigger a second `pass show` / pinentry.
 local DETAIL_TTL_MS = 60000
--- `pass show` pauses on pinentry for as long as the user takes to enter a
--- passphrase or touch a hardware key — that can legitimately be a while, and
--- cutting it short would kill pinentry mid-entry. This is a safety net, not a
--- UX timer: it only exists so a truly wedged gpg-agent can't pin the async
--- callback open forever. On expiry the decrypt counts as failed, so the panel
--- stays closed (see fetchDetail) — the same graceful exit as a cancelled
--- pinentry, not a reopen.
-local DECRYPT_TIMEOUT_MS = 300000
--- `pass edit` opens $EDITOR in a terminal and blocks until the user is done —
--- which can be minutes when they're filling in fields on a freshly created
--- entry. `noctalia.runAsync` applies a short default timeout when the 3rd arg
--- is omitted (it kills the terminal after a few seconds), so interactive edits
--- pass an effectively-unlimited bound instead of leaving it off.
-local EDIT_TIMEOUT_MS = 24 * 60 * 60 * 1000
+-- `noctalia.runAsync` clamps its timeout to [50 ms, 60 s] (5 s when omitted)
+-- and on expiry SIGTERMs, then SIGKILLs, the child's whole process group. That
+-- is far too short for runs that wait on the user — a pinentry passphrase /
+-- hardware-key touch, or an editor in a terminal — so those go through
+-- runUnbounded (noctalia.runStream, no timeout) instead. This is the bound
+-- runUnbounded falls back to when no stream slot is free: the host maximum.
+local RUNASYNC_MAX_TIMEOUT_MS = 60000
 
 -- ── module state — caches only, no navigation state ────────────────────────
 local lastQuery = nil     -- most recent onQuery text, for dropping stale async
@@ -155,7 +148,7 @@ end
 
 -- Non-negative integer setting (0 is a valid value here, unlike positiveInt),
 -- with a fallback for a missing / non-numeric stored value. Used for the
--- typeDelay / wtypeDelay millisecond settings.
+-- typeDelay / keyDelay millisecond settings.
 local function intSetting(key, default)
   local n = tonumber(noctalia.getConfig(key))
   if n == nil or n < 0 then
@@ -164,16 +157,149 @@ local function intSetting(key, default)
   return math.floor(n)
 end
 
--- Type actions shell out to `wtype`; probe for it once (the answer can't
--- change over a session) and drop the Type rows entirely when it's missing,
--- rather than letting every Type action fail.
-local wtypeChecked, wtypeOk = false, false
-local function wtypeAvailable()
-  if not wtypeChecked then
-    wtypeChecked = true
-    wtypeOk = noctalia.commandExists("wtype") and true or false
+-- Typing backends. The `typeBackend` setting names the *preferred* one; the
+-- other is an automatic fallback (typeBackends / runTypeSteps). Both take the
+-- value as one positional arg after `--`, so a value starting with "-" is
+-- still literal text and no shell / quote-escaping is needed.
+--
+-- ydotool (default, issue #995): injects through /dev/uinput via its
+--   `ydotoold` daemon, but maps every character onto a US-layout keycode —
+--   symbols can come out wrong on another active layout, non-ASCII can't be
+--   typed.
+--   text: `ydotool type -e 0 -d <keyDelay> -- <value>`. `-e 0` turns off
+--     ydotool's backslash-escape interpretation (on by default for argv
+--     strings — a `\n` / `\t` in a password would otherwise become Enter / Tab).
+--   keys: `ydotool key <code>:1 <code>:0` — raw Linux input-event keycodes
+--     (linux/input-event-codes.h: Tab 15, Enter 28), not keysyms.
+--   unavailable: ydotool exits 2 with "failed to connect socket …
+--     Please check if ydotoold is running." on *stdout* (not stderr) when the
+--     daemon is down.
+-- wtype: uploads a keymap holding the exact keysyms it types, so it is
+--   keyboard-layout agnostic, but is unmaintained (mistypes some punctuation
+--   sequences, atx/wtype#71). Needs no daemon, so it has no "unavailable"
+--   state of its own.
+--   text: `wtype -d <keyDelay> -- <value>`; keys: `wtype -k <keysym>`.
+--
+-- `unavailableHints`: stdout/stderr substrings meaning "this backend can't type here
+-- at all" — reported while connecting, before a single key is sent, which is
+-- what makes retrying the same steps on the fallback safe.
+-- `unavailableKey`: the notification body for that case.
+local TYPE_BACKENDS = {
+  ydotool = {
+    bin = "ydotool",
+    textArgv = function(value, delay)
+      return { "ydotool", "type", "-e", "0", "-d", delay, "--", value }
+    end,
+    keyArgv = {
+      tab = { "ydotool", "key", "15:1", "15:0" },
+      enter = { "ydotool", "key", "28:1", "28:0" },
+    },
+    unavailableHints = { "ydotoold" },
+    unavailableKey = "notification.ydotoold-not-running",
+  },
+  wtype = {
+    bin = "wtype",
+    textArgv = function(value, delay)
+      return { "wtype", "-d", delay, "--", value }
+    end,
+    keyArgv = {
+      tab = { "wtype", "-k", "Tab" },
+      enter = { "wtype", "-k", "Return" },
+    },
+    unavailableHints = {},
+  },
+}
+local TYPE_BACKEND_ORDER = { "ydotool", "wtype" } -- fallback order after the preferred one
+
+-- PATH probes (typing backends, terminal) are cached for PROBE_TTL_MS only:
+-- a tool installed / removed while the plugin runs shows up (or drops out) on
+-- the next view, while the many calls made while rendering one view share a
+-- single scan. commandExists is a handful of access() calls — cheap.
+local PROBE_TTL_MS = 2000
+
+-- Only the binary is probed: whether `ydotoold` is running is discovered per
+-- action (runTypeSteps).
+local typerProbe = {} -- name → { ok = bool, at = nowMs }
+local function backendInstalled(name)
+  local p = typerProbe[name]
+  local now = noctalia.nowMs()
+  if p == nil or now - p.at > PROBE_TTL_MS then
+    p = { ok = noctalia.commandExists(TYPE_BACKENDS[name].bin) and true or false, at = now }
+    typerProbe[name] = p
   end
-  return wtypeOk
+  return p.ok
+end
+
+-- Installed backends in try order: the preferred one (`typeBackend` setting,
+-- read per call so a change applies at once; unknown value → ydotool, the
+-- manifest default) first, then the rest of TYPE_BACKEND_ORDER.
+local function typeBackends()
+  local preferred = noctalia.getConfig("typeBackend")
+  if TYPE_BACKENDS[preferred] == nil then
+    preferred = "ydotool"
+  end
+  local list = {}
+  if backendInstalled(preferred) then
+    list[1] = preferred
+  end
+  for _, name in ipairs(TYPE_BACKEND_ORDER) do
+    if name ~= preferred and backendInstalled(name) then
+      list[#list + 1] = name
+    end
+  end
+  return list
+end
+
+-- The Type rows (and Autotype) are dropped entirely when *no* backend is
+-- installed, rather than letting every Type action fail.
+local function typerAvailable()
+  return #typeBackends() > 0
+end
+
+-- ydotoold liveness, for display only. `ydotool debug` connects to the daemon
+-- socket before doing anything else and sends no input events: exit 0 when
+-- ydotoold answers, exit 2 + "Please check if ydotoold is running." (stdout)
+-- when it doesn't. The socket file's existence is not enough — a stopped
+-- daemon can leave it behind ("Connection refused"). The probe is async, so a
+-- render uses the last known state and the result re-renders the open detail
+-- view when it changes (onYdotooldChange, set next to renderDetailRows).
+-- Actions don't rely on it: runTypeSteps still tries the preferred backend
+-- and falls back on its real connect error.
+local ydotooldUp = nil -- nil = unknown, else bool
+local ydotooldAt = 0
+local ydotooldProbing = false
+local onYdotooldChange = nil -- function(), assigned once renderDetailRows exists
+
+local function probeYdotoold()
+  if ydotooldProbing or not backendInstalled("ydotool") then
+    return
+  end
+  if ydotooldUp ~= nil and noctalia.nowMs() - ydotooldAt <= PROBE_TTL_MS then
+    return
+  end
+  ydotooldProbing = true
+  noctalia.runAsync({ "ydotool", "debug" }, function(result)
+    ydotooldProbing = false
+    ydotooldAt = noctalia.nowMs()
+    local up = not (result.exitCode ~= 0
+      and string.find((result.stdout or "") .. (result.stderr or ""), "ydotoold", 1, true))
+    local wasDown = ydotooldUp == false
+    ydotooldUp = up
+    if wasDown == up and onYdotooldChange then -- shown backend may differ now
+      onYdotooldChange()
+    end
+  end, 1000)
+end
+
+-- The backend a Type action will actually end up on, for row subtitles:
+-- typeBackends()[1], skipping ydotool when ydotoold is known to be down and
+-- another backend is installed (runTypeSteps would fall back to it).
+local function shownBackend()
+  local list = typeBackends()
+  if list[1] == "ydotool" and ydotooldUp == false and list[2] ~= nil then
+    return list[2]
+  end
+  return list[1]
 end
 
 -- The "Edit" action runs `pass edit` in a terminal (see editEntry). Noctalia's
@@ -182,13 +308,16 @@ end
 -- prefix that takes a command, incl. the exec flag — "foot -e", "kitty -e",
 -- "gnome-terminal --"); then $TERMINAL + "-e"; then the first of a common list
 -- that exists on PATH + "-e". nil when nothing resolves — the Edit row is
--- dropped then, the same way the Type rows drop without `wtype`.
+-- dropped then, the same way the Type rows drop without a typing backend.
 local TERMINAL_CANDIDATES = { "ghostty", "kitty", "alacritty", "wezterm", "foot", "konsole", "xterm" }
-local termProbe -- memoised PATH scan: nil = not scanned, false = none found, string = the winner
+local termProbe -- cached PATH scan: nil = not scanned, false = none found, string = the winner
+local termProbeAt = 0
 
 local function detectedTerminal()
-  if termProbe == nil then
+  local now = noctalia.nowMs()
+  if termProbe == nil or now - termProbeAt > PROBE_TTL_MS then
     termProbe = false
+    termProbeAt = now
     for _, t in ipairs(TERMINAL_CANDIDATES) do
       if noctalia.commandExists(t) then
         termProbe = t
@@ -269,6 +398,19 @@ local function goBackRow(parent, subtitle)
   }
 end
 
+-- Path-scoped id: Noctalia restores the previous selection by id, so a stable
+-- "back:<parent>" would steal the first keystroke. The query still navigates.
+local function createBackRow(path)
+  local parent = parentOf(path)
+  return {
+    id = "createback:" .. path,
+    query = parent ~= "" and (parent .. "/") or " ",
+    title = tr("result.go-back"),
+    subtitle = path ~= "" and path or tr("action.new"),
+    glyph = "arrow-left",
+  }
+end
+
 local function fragments(search)
   local frags = {}
   for f in search:lower():gmatch("%S+") do
@@ -299,6 +441,67 @@ end
 -- the capped grep hit set.
 local function shq(s)
   return "'" .. s:gsub("'", "'\\''") .. "'"
+end
+
+-- ── unbounded runs (runStream + exit marker) ─────────────────────────────
+-- runAsync can't run longer than RUNASYNC_MAX_TIMEOUT_MS; runStream has no
+-- timeout but only delivers stdout, line by line, and no exit status. So
+-- runUnbounded(argv, cb) wraps the argv in a `sh -c` string that, after the
+-- command exits, prints a per-call marker line carrying `$?`:
+--
+--   'arg1' 'arg2' … </dev/null 2>'<errFile>'; printf '\n%s %d\n' '<marker>' "$?"
+--
+-- and calls `cb` with a runAsync-shaped result ({exitCode, stdout, stderr,
+-- timedOut = false}) when that line arrives. The extra "\n" before the marker
+-- terminates a final unterminated stdout line, so joining the lines received
+-- before the marker with "\n" reproduces stdout exactly (a trailing newline
+-- comes back as a trailing "" element). runStream drops stderr, so it goes to
+-- a per-call file under pluginDataDir() that is read back and removed. The
+-- marker is unique per call and per VM (both VMs share pluginDataDir), so an
+-- output line can't fake it in practice.
+--
+-- The run ends when the command exits, not on EOF: a background child holding
+-- stdout open just keeps the stream slot until it exits. The host allows 4
+-- streams per VM; when runStream refuses (slots full, or a host without it) the run falls back to
+-- runAsync with the host-maximum bound rather than failing outright. A plugin
+-- reload stops all streams — the callback then never fires, which is fine for
+-- every caller (the VM it would report to is gone).
+-- VM_TAG: a fresh table's heap address — distinct between the launcher and
+-- service VMs (they share pluginDataDir), where an unseeded math.random isn't.
+local VM_TAG = (tostring({}):match("0x(%x+)") or tostring({}):gsub("%W", ""))
+local unboundedSeq = 0
+local function runUnbounded(argv, cb)
+  unboundedSeq = unboundedSeq + 1
+  local marker = "__launcher_pass_exit_" .. VM_TAG .. "_" .. tostring(math.floor(noctalia.nowMs()))
+      .. "_" .. tostring(unboundedSeq) .. "__"
+  local errFile = noctalia.pluginDataDir() .. "/" .. marker .. ".err"
+  local parts = {}
+  for i, a in ipairs(argv) do
+    parts[i] = shq(a)
+  end
+  local cmd = table.concat(parts, " ") .. " </dev/null 2>" .. shq(errFile)
+      .. "; printf '\\n%s %d\\n' " .. shq(marker) .. ' "$?"'
+
+  local lines, done = {}, false
+  local started = noctalia.runStream ~= nil and noctalia.runStream(cmd, function(line)
+    if done then
+      return
+    end
+    local code = string.match(line, "^" .. marker .. " (%-?%d+)$")
+    if code == nil then
+      lines[#lines + 1] = line
+      return
+    end
+    done = true
+    local err = noctalia.readFile(errFile) or ""
+    noctalia.removeFile(errFile)
+    cb({ exitCode = tonumber(code), stdout = table.concat(lines, "\n"), stderr = err, timedOut = false })
+  end)
+  if not started then
+    noctalia.log("launcher-pass: runStream unavailable, falling back to a "
+      .. tostring(RUNASYNC_MAX_TIMEOUT_MS) .. " ms runAsync for `" .. tostring(argv[#argv]) .. "`")
+    noctalia.runAsync(argv, cb, RUNASYNC_MAX_TIMEOUT_MS)
+  end
 end
 
 -- Escape ERE metacharacters so a folder name (which can hold ".", "+", …, e.g.
@@ -612,6 +815,9 @@ end
 -- Build one action row for `spec` + `verb` ("copy" | "type"), record its
 -- dispatch context in `detailActions` under an "act:<n>" id, and return the
 -- row. `onActivate` reads the context back and hands it to `runAction`.
+-- Type rows get the backend that will actually type (shownBackend: after
+-- preference resolution and the ydotoold probe) appended to their subtitle,
+-- like the Autotype row.
 local function actionRow(entryPath, spec, verb, n)
   local id = "act:" .. n
   local isCopy = verb == "copy"
@@ -623,18 +829,20 @@ local function actionRow(entryPath, spec, verb, n)
   return {
     id = id,
     title = title,
-    subtitle = isCopy and spec.copySubtitle or spec.typeSubtitle,
+    subtitle = isCopy and spec.copySubtitle
+        or tr("action.type-subtitle", { subtitle = spec.typeSubtitle or "", backend = shownBackend() or "" }),
     glyph = isCopy and "copy" or "typography",
   }
 end
 
 -- The Autotype row (CLAUDE.md "Autotype action"): one row that types the whole
 -- login in sequence (see autotypeEntry). Present only when the autotypeEnabled
--- setting is on *and* `wtype` is installed — it is a Type-family action, so it
+-- setting is on *and* the typing backend is installed — it is a Type-family action, so it
 -- follows the same availability rule as the Type rows. Not an "act:" row:
--- onActivate dispatches "autotype:<path>" straight to autotypeEntry.
+-- onActivate dispatches "autotype:<path>" straight to autotypeEntry. The
+-- subtitle names the backend that will actually type (shownBackend).
 local function autotypeRowFor(entryPath)
-  if not wtypeAvailable() then
+  if not typerAvailable() then
     return nil
   end
   if noctalia.getConfig("autotypeEnabled") ~= true then
@@ -643,7 +851,7 @@ local function autotypeRowFor(entryPath)
   return {
     id = "autotype:" .. entryPath,
     title = tr("action.autotype"),
-    subtitle = tr("action.autotype-desc"),
+    subtitle = tr("action.autotype-desc", { backend = shownBackend() }),
     glyph = "keyboard",
   }
 end
@@ -659,7 +867,10 @@ end
 -- same rule as browse (matchesFragments) — so ":<path> otp" narrows to just
 -- the Copy/Type OTP rows. `detailActions` is still populated for every row
 -- (filtered-out ids simply never reach onActivate).
+local lastDetailRender = nil -- { text, entryPath, filter } of the shown detail view
+
 local function renderDetailRows(entryPath, data, filter)
+  probeYdotoold()
   detailActions = {}
   local rows = { goBackRow(parentOf(entryPath), entryPath) }
 
@@ -693,13 +904,13 @@ local function renderDetailRows(entryPath, data, filter)
     }
   end
 
-  -- verbs to emit, in the configured order; "type" drops out when wtype is
+  -- verbs to emit, in the configured order; "type" drops out when the typing backend is
   -- missing (leaving a single verb, so the order setting stops mattering).
   local ordered = noctalia.getConfig("detailActionOrder") == "type"
       and { "type", "copy" } or { "copy", "type" }
   local verbs = {}
   for _, v in ipairs(ordered) do
-    if v == "copy" or wtypeAvailable() then
+    if v == "copy" or typerAvailable() then
       verbs[#verbs + 1] = v
     end
   end
@@ -826,7 +1037,7 @@ end
 -- can't be created. Stale callbacks are dropped on `lastQuery`.
 local function showCreateMenu(text, rest)
   local path = trim(rest)
-  local backRow = goBackRow(parentOf(path), path ~= "" and path or tr("action.new"))
+  local backRow = createBackRow(path)
 
   if path == "" or path:sub(-1) == "/" then
     launcher.setResults(text, {
@@ -837,7 +1048,6 @@ local function showCreateMenu(text, rest)
   end
 
   launcher.setResults(text, {
-    backRow,
     {
       id = "create-go",
       query = "+!" .. path .. " ",
@@ -845,6 +1055,7 @@ local function showCreateMenu(text, rest)
       subtitle = path,
       glyph = "plus",
     },
+    backRow,
   })
 
   noctalia.runAsync({ "test", "-e", storeDir() .. "/" .. path .. ".gpg" }, function(res)
@@ -859,14 +1070,16 @@ local function showCreateMenu(text, rest)
       noctalia.log("launcher-pass: existence check for '" .. path .. "' failed (exit "
         .. tostring(res.exitCode) .. (res.timedOut and ", timed out" or "") .. ")")
     end
+    -- Keep the status row first too: the user is still editing this path, and
+    -- Enter on the inert row re-asserts the query instead of backing out.
     launcher.setResults(text, {
-      backRow,
       {
         id = taken and "create-exists" or "create-error",
         title = tr(taken and "action.create-exists" or "action.create-error"),
         subtitle = path,
         glyph = "alert-triangle",
       },
+      backRow,
     })
   end)
 end
@@ -875,19 +1088,21 @@ end
 -- editable menu; "Create entry now" is a newrun:<path> row onActivate hands to
 -- newEntry. Static rows, no subprocess here.
 local function renderCreateConfirmRows(path)
+  -- Create first for the same preselection reason: the user reached this view
+  -- through the "Create entry" row, so Enter should confirm rather than cancel.
   return {
+    {
+      id = "newrun:" .. path,
+      title = tr("action.create-confirm"),
+      subtitle = path,
+      glyph = "alert-triangle",
+    },
     {
       id = "create-cancel",
       query = "+" .. path .. " ",
       title = tr("action.create-cancel"),
       subtitle = tr("action.create-cancel-desc"),
       glyph = "arrow-left",
-    },
-    {
-      id = "newrun:" .. path,
-      title = tr("action.create-confirm"),
-      subtitle = path,
-      glyph = "alert-triangle",
     },
   }
 end
@@ -1013,7 +1228,7 @@ local function withEntryData(entryPath, cb)
     cb(hit)
     return
   end
-  noctalia.runAsync(passArgv({ "pass", "show", entryPath }), function(result)
+  runUnbounded(passArgv({ "pass", "show", entryPath }), function(result)
     if result.exitCode ~= 0 or result.timedOut then
       cb(nil)
       return
@@ -1021,7 +1236,22 @@ local function withEntryData(entryPath, cb)
     local data = buildEntryData(entryPath, result.stdout)
     detailCache[entryPath] = data
     cb(data)
-  end, DECRYPT_TIMEOUT_MS)
+  end)
+end
+
+-- ydotoold came up / went down since the open detail view was rendered:
+-- re-render it from the (warm) cache so the Type subtitles name the backend
+-- that will really type. Nothing to do if the view moved on or the cache
+-- went cold — the next render picks the new state up anyway.
+onYdotooldChange = function()
+  local r = lastDetailRender
+  if r == nil or lastQuery ~= r.text then
+    return
+  end
+  local hit = detailCache[r.entryPath]
+  if hit and (noctalia.nowMs() - hit.at) < hit.ttl then
+    launcher.setResults(r.text, renderDetailRows(r.entryPath, hit, r.filter))
+  end
 end
 
 -- Decrypts `entryPath` (cached — see DETAIL_TTL_MS) and publishes its detail
@@ -1035,6 +1265,7 @@ local function fetchDetail(entryPath, text, filter)
 
   local hit = detailCache[entryPath]
   if hit and (noctalia.nowMs() - hit.at) < hit.ttl then
+    lastDetailRender = { text = text, entryPath = entryPath, filter = filter }
     launcher.setResults(text, renderDetailRows(entryPath, hit, filter))
     return
   end
@@ -1069,6 +1300,7 @@ local function fetchDetail(entryPath, text, filter)
 
     local data = buildEntryData(entryPath, result.stdout)
     detailCache[entryPath] = data
+    lastDetailRender = { text = text, entryPath = entryPath, filter = filter }
     launcher.setResults(text, renderDetailRows(entryPath, data, filter))
   end
 
@@ -1081,7 +1313,7 @@ local function fetchDetail(entryPath, text, filter)
   local resolved = false   -- true once the `pass show` callback has fired
   local panelClosed = false -- true once the panel was actually closed
 
-  noctalia.runAsync(
+  runUnbounded(
     passArgv({ "pass", "show", entryPath }),
     function(result)
       resolved = true
@@ -1096,8 +1328,7 @@ local function fetchDetail(entryPath, text, filter)
       if panelClosed and ok then
         reopenLauncherPanel(text)
       end
-    end,
-    DECRYPT_TIMEOUT_MS
+    end
   )
 
   noctalia.runAsync({ "sleep", tostring(pinentryGraceMs() / 1000) }, function()
@@ -1118,13 +1349,13 @@ end
 -- clipboard itself after PASSWORD_STORE_CLIP_TIME (see passArgv / clipTimeout).
 local function copyViaPass(cmd, subject)
   closeLauncherPanel(function()
-    noctalia.runAsync(passArgv(cmd, true), function(result)
+    runUnbounded(passArgv(cmd, true), function(result)
       if result.exitCode == 0 and not result.timedOut then
         noctalia.notify(tr("notification.copied"), subject)
       else
         noctalia.notifyError(tr("notification.copy-failed"), subject)
       end
-    end, DECRYPT_TIMEOUT_MS)
+    end)
   end)
 end
 
@@ -1145,34 +1376,93 @@ local function copyPlain(value, subject)
   closeLauncherPanel(function() end)
 end
 
--- ── type actions (wtype) ─────────────────────────────────────────────────
+-- ── type actions (ydotool / wtype) ───────────────────────────────────────
 -- Noctalia has no plugin-facing keystroke/paste API — a launcher provider
 -- can't opt into the host's native auto-paste (PluginLauncherProvider never
--- reports supportsAutoPaste()), so typing is done here with `wtype`.
+-- reports supportsAutoPaste()), so typing is done here with an external
+-- backend (TYPE_BACKENDS, near the top of the file).
 --
--- `wtype` types into whatever window currently holds focus, so every Type
--- action closes the launcher panel first (as QML did with launcher.close()),
--- then waits `typeDelay` ms for the compositor to hand focus back to the
--- window the user was on before feeding the value to `wtype -d <wtypeDelay>`.
--- The value goes after `--` as a single positional arg, so a value starting
--- with "-" is still treated as text and no shell / quote-escaping is needed
--- (unlike QML's `printf … | wtype -` pipe).
+-- The injected keys land in whatever window currently holds focus, so every
+-- Type action closes the launcher panel first (as QML did with
+-- launcher.close()), then waits `typeDelay` ms for the compositor to hand
+-- focus back to the window the user was on before typing the value.
+--
+-- Steps are backend-neutral — `{ text = value }` or `{ key = "tab" | "enter" }`
+-- — and become argv only once a backend is picked, so the same list can be
+-- replayed on the fallback.
+local function stepArgv(backend, step)
+  if step.text ~= nil then
+    return backend.textArgv(step.text, tostring(intSetting("keyDelay", 12)))
+  end
+  return backend.keyArgv[step.key]
+end
+
+-- Hints are matched against stdout *and* stderr: ydotool 1.0.4 prints its
+-- "failed to connect socket … Please check if ydotoold is running." to stdout.
+local function backendUnavailable(backend, result)
+  local output = (result.stdout or "") .. "\n" .. (result.stderr or "")
+  for _, hint in ipairs(backend.unavailableHints) do
+    if string.find(output, hint, 1, true) then
+      return true
+    end
+  end
+  return false
+end
+
+-- Runs `steps` in order, one backend process each, on the first backend of
+-- typeBackends(). If that backend's *first* step fails as "unavailable"
+-- (backendUnavailable — ydotoold down), nothing has been typed yet, so the
+-- whole list is replayed on the next installed backend (logged, no
+-- notification). Any other failure, or one past step 1, aborts the rest with
+-- one notification.type-failed — its body the backend's unavailableKey when it
+-- was unavailable with nothing to fall back to, else the entry name.
+local function runTypeSteps(steps, subject)
+  local backends = typeBackends()
+  if #backends == 0 then
+    noctalia.notifyError(tr("notification.type-failed"), subject)
+    return
+  end
+
+  local function attempt(bi)
+    local name = backends[bi]
+    local backend = TYPE_BACKENDS[name]
+    local function step(i)
+      if steps[i] == nil then
+        return
+      end
+      noctalia.runAsync(stepArgv(backend, steps[i]), function(result)
+        if result.exitCode == 0 and not result.timedOut then
+          step(i + 1)
+          return
+        end
+        local unavailable = backendUnavailable(backend, result)
+        if unavailable and i == 1 and backends[bi + 1] ~= nil then
+          noctalia.log("launcher-pass: " .. name .. " unavailable ("
+            .. trim(((result.stdout or "") .. " " .. (result.stderr or "")):gsub("%s+", " ")) .. "), falling back to " .. backends[bi + 1])
+          attempt(bi + 1)
+          return
+        end
+        local body = subject
+        if unavailable and i == 1 then
+          body = tr(backend.unavailableKey)
+        end
+        noctalia.notifyError(tr("notification.type-failed"), body)
+      end)
+    end
+    step(1)
+  end
+  attempt(1)
+end
+
 local function typeValue(value, subject)
   noctalia.runAsync({ "sleep", tostring(intSetting("typeDelay", 500) / 1000) }, function()
-    noctalia.runAsync(
-      { "wtype", "-d", tostring(intSetting("wtypeDelay", 12)), "--", value or "" },
-      function(result)
-        if result.exitCode ~= 0 or result.timedOut then
-          noctalia.notifyError(tr("notification.type-failed"), subject)
-        end
-      end
-    )
+    runTypeSteps({ { text = value or "" } }, subject)
   end)
 end
 
 -- Plain value already in memory (password / username / field): close the
 -- launcher, then type it.
-local function typeViaWtype(value, subject)
+local function typeViaBackend(value, subject)
   closeLauncherPanel(function()
     typeValue(value, subject)
   end)
@@ -1182,47 +1472,35 @@ end
 -- can hit pinentry, which gets focus fine since the panel is already closed.
 local function typeOtp(entryPath, subject)
   closeLauncherPanel(function()
-    noctalia.runAsync(passArgv({ "pass", "otp", entryPath }), function(result)
+    runUnbounded(passArgv({ "pass", "otp", entryPath }), function(result)
       if result.exitCode == 0 and not result.timedOut then
         typeValue(trim(result.stdout or ""), subject)
       else
         noctalia.notifyError(tr("notification.type-failed"), subject)
       end
-    end, DECRYPT_TIMEOUT_MS)
+    end)
   end)
 end
 
 -- ── autotype action ──────────────────────────────────────────────────────
--- The Autotype row types a whole login in sequence via `wtype` (CLAUDE.md
+-- The Autotype row types a whole login in sequence via the typing backend (CLAUDE.md
 -- "Autotype action"):
 --   1. username
---   2. the separator key — autotypeSeparator: Tab (default) or Return
+--   2. the separator key — autotypeSeparator: Tab (default) or Enter
 --   3. password
---   4. Return (only when an OTP follows in step 5, or when autotypeSubmit is on)
+--   4. Enter (only when an OTP follows in step 5, or when autotypeSubmit is on)
 --   5. when the entry has an `otpauth://` line: the current OTP, then
---   5.2. Return (only when autotypeSubmit is on)
--- i.e. autotypeSubmit toggles the *final* Return — after the OTP when present,
+--   5.2. Enter (only when autotypeSubmit is on)
+-- i.e. autotypeSubmit toggles the *final* Enter — after the OTP when present,
 -- otherwise after the password.
 --
--- Each step is its own `wtype` process: a text step is `wtype -d <delay> --
--- <value>` (the `-- <value>` form keeps a value with a leading "-" literal,
--- like typeValue), a key step is `wtype -k <keysym>`. `wtype` allows only one
--- terminal `--` (everything after it is text), so literal text and `-k` keys
--- can't be mixed safely in one invocation for arbitrary values — hence the
--- chain. A failed step aborts the rest with one notification.type-failed.
-local function runWtypeSteps(steps, i, subject)
-  local argv = steps[i]
-  if argv == nil then
-    return
-  end
-  noctalia.runAsync(argv, function(result)
-    if result.exitCode ~= 0 or result.timedOut then
-      noctalia.notifyError(tr("notification.type-failed"), subject)
-      return
-    end
-    runWtypeSteps(steps, i + 1, subject)
-  end)
-end
+-- Each step is its own backend process (runTypeSteps, which also handles the
+-- backend fallback): a `{ text = … }` step uses the same literal-text
+-- `-- <value>` form as typeValue, a `{ key = … }` step one key press. Neither
+-- backend can mix arbitrary text and keys in one invocation — ydotool splits
+-- them into `type` / `key` subcommands (and with escapes off has no in-band
+-- Tab / Enter), wtype allows a single terminal `--` after which everything is
+-- text, so a `-k` can't follow the value — hence the chain.
 
 -- Runs the autotype sequence for `entryPath`. Called two ways: from the
 -- Autotype detail row (launcher open, `detailCache` warm) and from the
@@ -1232,15 +1510,13 @@ end
 -- warm cache. A cold-decrypt failure → notification.type-failed, no typing.
 local function autotypeEntry(entryPath)
   local subject = entryPath:match("[^/]+$") or entryPath
-  local sepKey = noctalia.getConfig("autotypeSeparator") == "enter" and "Return" or "Tab"
+  local sepKey = noctalia.getConfig("autotypeSeparator") == "enter" and "enter" or "tab"
   local submit = noctalia.getConfig("autotypeSubmit") ~= false
-  local delay = tostring(intSetting("wtypeDelay", 12))
-
   local function typeStep(value)
-    return { "wtype", "-d", delay, "--", value or "" }
+    return { text = value or "" }
   end
-  local function keyStep(keysym)
-    return { "wtype", "-k", keysym }
+  local function keyStep(key)
+    return { key = key }
   end
 
   local function runSequence(data, otpCode)
@@ -1250,16 +1526,16 @@ local function autotypeEntry(entryPath)
       typeStep(data.password),
     }
     if otpCode and otpCode ~= "" then
-      steps[#steps + 1] = keyStep("Return") -- step 4: submit the username/password form
+      steps[#steps + 1] = keyStep("enter") -- step 4: submit the username/password form
       steps[#steps + 1] = typeStep(otpCode)
     end
     if submit then
-      steps[#steps + 1] = keyStep("Return") -- step 4 (no OTP) or step 5.2 (with OTP)
+      steps[#steps + 1] = keyStep("enter") -- step 4 (no OTP) or step 5.2 (with OTP)
     end
     -- One focus-restore delay after the launcher closes (as typeValue does),
     -- then walk the chain.
     noctalia.runAsync({ "sleep", tostring(intSetting("typeDelay", 500) / 1000) }, function()
-      runWtypeSteps(steps, 1, subject)
+      runTypeSteps(steps, subject)
     end)
   end
 
@@ -1270,13 +1546,13 @@ local function autotypeEntry(entryPath)
         return
       end
       if data.hasOtp then
-        noctalia.runAsync(passArgv({ "pass", "otp", entryPath }), function(result)
+        runUnbounded(passArgv({ "pass", "otp", entryPath }), function(result)
           if result.exitCode == 0 and not result.timedOut then
             runSequence(data, trim(result.stdout or ""))
           else
             noctalia.notifyError(tr("notification.type-failed"), subject)
           end
-        end, DECRYPT_TIMEOUT_MS)
+        end)
       else
         runSequence(data, nil)
       end
@@ -1289,9 +1565,9 @@ end
 -- save, so it needs a real terminal — spawned via terminalArgv(). It can also
 -- pop a pinentry dialog, so the launcher is closed first (and not reopened,
 -- like the Copy/Type paths). The decrypted detail cache for this entry is
--- dropped afterwards so the next detail view reflects the edit. The runAsync
--- call passes EDIT_TIMEOUT_MS — omitting the bound lets a short default kill
--- the terminal mid-edit.
+-- dropped afterwards so the next detail view reflects the edit. It runs through
+-- runUnbounded: runAsync's 60 s ceiling would SIGTERM the terminal (and the
+-- editor in it) mid-edit.
 --
 -- The `editorCommand` setting, when non-empty, is exported as EDITOR for the
 -- run; blank leaves EDITOR unset so `pass` falls back to its own default.
@@ -1312,12 +1588,12 @@ local function editEntry(entryPath)
     for _, a in ipairs(passArgv({ "pass", "edit", entryPath }, false, extraEnv)) do
       argv[#argv + 1] = a
     end
-    noctalia.runAsync(argv, function(result)
+    runUnbounded(argv, function(result)
       detailCache[entryPath] = nil
       if result.exitCode ~= 0 or result.timedOut then
         noctalia.notifyError(tr("notification.edit-failed"), subject)
       end
-    end, EDIT_TIMEOUT_MS)
+    end)
   end)
 end
 
@@ -1332,7 +1608,7 @@ end
 local function generateEntry(entryPath)
   local subject = entryPath:match("[^/]+$") or entryPath
   closeLauncherPanel(function()
-    noctalia.runAsync(passArgv({ "pass", "generate", "-i", entryPath }), function(result)
+    runUnbounded(passArgv({ "pass", "generate", "-i", entryPath }), function(result)
       if result.exitCode == 0 and not result.timedOut then
         detailCache[entryPath] = nil
         noctalia.notify(tr("notification.generated"), subject)
@@ -1343,7 +1619,7 @@ local function generateEntry(entryPath)
           .. "): " .. trim(result.stderr or ""))
         noctalia.notifyError(tr("notification.generate-failed"), subject)
       end
-    end, DECRYPT_TIMEOUT_MS)
+    end)
   end)
 end
 
@@ -1360,8 +1636,8 @@ end
 -- Then `pass generate <path>` creates the entry with a random password (no
 -- decrypt / pinentry — encrypt only; `pass` still rejects ".."). When a
 -- terminal resolves, `pass edit <path>` opens $EDITOR so the user can add a
--- username and other fields — with EDIT_TIMEOUT_MS, since omitting the bound
--- lets a short runAsync default kill the terminal after a few seconds. The
+-- username and other fields — through runUnbounded, since runAsync's 60 s
+-- ceiling would SIGTERM the terminal mid-edit. The
 -- launcher is closed up front and **stays closed** (no reopen — that flickered
 -- when the editor exited); the only completion signal is notification.created,
 -- and buildIndex pulls the new entry into the store index for next time.
@@ -1378,7 +1654,7 @@ local function newEntry(path)
 
   local function generate()
     closeLauncherPanel(function()
-      noctalia.runAsync(passArgv({ "pass", "generate", path }), function(gen)
+      runUnbounded(passArgv({ "pass", "generate", path }), function(gen)
         if gen.exitCode ~= 0 or gen.timedOut then
           noctalia.log("launcher-pass: `pass generate " .. path .. "` failed (exit "
             .. tostring(gen.exitCode) .. (gen.timedOut and ", timed out" or "")
@@ -1398,10 +1674,10 @@ local function newEntry(path)
         for _, a in ipairs(passArgv({ "pass", "edit", path }, false, extraEnv)) do
           argv[#argv + 1] = a
         end
-        noctalia.runAsync(argv, function()
+        runUnbounded(argv, function()
           noctalia.notify(tr("notification.created"), subject)
-        end, EDIT_TIMEOUT_MS)
-      end, DECRYPT_TIMEOUT_MS)
+        end)
+      end)
     end)
   end
 
@@ -1424,8 +1700,10 @@ end
 --   copy: password / OTP go through `pass -c` / `pass otp -c` (copyViaPass:
 --     clip-timeout env + close-launcher-first pinentry handling); username and
 --     fields are copied verbatim from memory via copyPlain.
---   type: `wtype`, after a launcher close + typeDelay; OTP is fetched with
---     `pass otp` first. (Type rows only exist when `wtype` is installed.)
+--   type: the preferred typing backend (ydotool / wtype, with automatic
+--     fallback to the other), after a launcher close + typeDelay; OTP is
+--     fetched with `pass otp` first. (Type rows only exist when at least one
+--     backend is installed.)
 local function runAction(ctx)
   local subject = ctx.entryPath:match("[^/]+$") or ctx.entryPath
   local fieldSubject = ctx.kind == "field" and (ctx.key or subject) or subject
@@ -1435,7 +1713,7 @@ local function runAction(ctx)
     if ctx.kind == "otp" then
       typeOtp(ctx.entryPath, subject)
     else
-      typeViaWtype(ctx.value, fieldSubject)
+      typeViaBackend(ctx.value, fieldSubject)
     end
     return
   end
@@ -1576,6 +1854,9 @@ function onActivate(id)
     launcher.setQuery(rest .. "/")
   elseif kind == "back" then
     launcher.setQuery(rest ~= "" and (rest .. "/") or " ")
+  elseif kind == "createback" then
+    local parent = parentOf(rest)
+    launcher.setQuery(parent ~= "" and (parent .. "/") or " ")
   elseif kind == "entry" then
     -- Trailing space: detail mode is ":<path> <filter>", so the just-opened
     -- state is ":<path> " with an empty filter, ready for the user to type a

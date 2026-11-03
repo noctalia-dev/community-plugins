@@ -29,6 +29,7 @@
     "type-otp": "Digita OTP",
     "type-password": "Digita password",
     "type-password-desc": "Digita password con wtype",
+    "type-subtitle": "{subtitle} · {backend}",
     "type-username": "Digita nome utente"
   },
   "command": {
@@ -50,7 +51,8 @@
     "no-current-entry": "Apri prima una voce",
     "quick-action-failed": "Azione rapida non riuscita",
     "quick-action-unknown": "Azione rapida sconosciuta",
-    "type-failed": "Digitazione non riuscita"
+    "type-failed": "Digitazione non riuscita",
+    "ydotoold-not-running": "ydotoold non è in esecuzione — avvia il demone di ydotool"
   },
   "result": {
     "folder": "Cartella",
@@ -99,6 +101,10 @@
       "desc": "Editor per l'azione Modifica, esportato come EDITOR verso pass edit (es. nvim, code --wait). Vuoto lascia EDITOR non impostato e pass usa il proprio predefinito",
       "label": "Comando editor"
     },
+    "key-delay": {
+      "desc": "Ritardo tra le battiture in millisecondi per lo strumento di digitazione (predefinito: 12)",
+      "label": "Ritardo battitura"
+    },
     "pinentry-grace-ms": {
       "desc": "Millisecondi di attesa per la decifratura di una password prima di presumere che una richiesta pinentry di GPG necessiti del focus e nascondere il launcher (predefinito: 200)",
       "label": "Periodo di tolleranza pinentry"
@@ -110,6 +116,14 @@
     "terminal-command": {
       "desc": "Terminale usato per eseguire pass edit, con il suo flag di esecuzione (es. foot -e, kitty -e, gnome-terminal --). Vuoto = rilevamento automatico da $TERMINAL o da un terminale comune nel PATH",
       "label": "Comando terminale"
+    },
+    "type-backend": {
+      "desc": "Strumento provato per primo dalle azioni Digita e Digitazione automatica; se non è installato (o ydotoold non è in esecuzione) viene usato automaticamente l'altro. ydotool richiede il demone ydotoold e presuppone un layout di tastiera US; wtype rispetta il layout della tastiera",
+      "label": "Strumento di digitazione preferito",
+      "options": {
+        "wtype": "wtype (qualsiasi layout)",
+        "ydotool": "ydotool (layout US)"
+      }
     },
     "type-delay": {
       "desc": "Ritardo in millisecondi prima dell'inizio della digitazione (predefinito: 500)",

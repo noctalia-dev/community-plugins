@@ -45,7 +45,7 @@ straight in your browser.
 - **Separated by source.** Every runtime gets its own band — a filled, outlined
   header with its glyph, name and count — and a rule sits between two of them,
   so Docker, Podman and Host never read as one list. Running rows are solid
-  `surface_variant`, stopped ones are outlined, so the state stays visible
+  `surface_container`, stopped ones are outlined, so the state stays visible
   without a translucent fill.
 - **Scrolls.** The declared height is a viewport, not a cap: the list takes the
   free space between the header and the footer (`flexGrow`) and scrolls inside

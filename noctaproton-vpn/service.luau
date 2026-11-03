@@ -280,9 +280,11 @@ local function checkNmcliLink()
           table.insert(parts, p)
         end
         local name = parts[1] or ""
-        local connType = parts[2] or ""
         local device = parts[3] or ""
-        if name:find("^ProtonVPN") or device == "proton0" or connType == "wireguard" then
+        -- Only real Proton connections count. Matching every WireGuard
+        -- connection made unrelated tunnels (e.g. a corporate or site-to-site
+        -- wg interface) look like an active Proton VPN.
+        if name:find("^ProtonVPN") or device:find("^proton") then
           found = true
           dev = device
           local s = name:match("^ProtonVPN%s+(.+)")

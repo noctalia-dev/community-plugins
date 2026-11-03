@@ -1,7 +1,7 @@
 id = "vavadik/headsetcontrol"                       # "<author>/<plugin>" - globally unique
 name = "Headset Control"
-version = "0.1.0"
-plugin_api = 32                                     # mandatory: oldest plugin API level required
+version = "0.1.1"
+plugin_api = 43                                     # mandatory: oldest plugin API level required
 author = "vavadik"
 license = "MIT"                                     # optional; defaults to MIT
 deprecated = false                                  # optional; defaults to false

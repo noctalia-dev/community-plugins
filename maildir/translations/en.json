@@ -1,24 +1,24 @@
 {
-    "settings": {
-        "maildir": {
-            "label": "Path to Maildir"
-        },
-        "inboxes": {
-            "label": "Inboxes to montior",
-            "description": "List of <inbox-path>:<label> pairs"
-        },
-        "nomail": {
-            "label": "No mail text",
-            "description": "Text to show then this is no new mail"
-        },
-        "update_interval": {
-            "label": "Update interval",
-            "description": "New mail poll period in seconds"
-        },
-        "click_command": {
-            "label": "Click command",
-            "description": "Command to run when clicked"
-        }
+  "settings": {
+    "click_command": {
+      "description": "Command to run when clicked",
+      "label": "Click command"
     },
-    "title": "Maildir"
+    "inboxes": {
+      "description": "List of <inbox-path>:<label> pairs",
+      "label": "Inboxes to montior"
+    },
+    "maildir": {
+      "label": "Path to Maildir"
+    },
+    "nomail": {
+      "description": "Text to show then this is no new mail",
+      "label": "No mail text"
+    },
+    "update_interval": {
+      "description": "New mail poll period in seconds",
+      "label": "Update interval"
+    }
+  },
+  "title": "Maildir"
 }

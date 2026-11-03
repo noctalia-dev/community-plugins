@@ -42,18 +42,32 @@ need_command() {
   command -v "$1" >/dev/null 2>&1 || MISSING_COMMANDS="$MISSING_COMMANDS $1"
 }
 
+check_python_ssl() {
+  PYTHON_SSL=1
+  if command -v python3 >/dev/null 2>&1 && ! python3 -c 'import ssl' >/dev/null 2>&1; then
+    PYTHON_SSL=0
+  fi
+}
+
 MISSING_COMMANDS=""
 need_command playerctl
 need_command python3
 need_command cp
 need_command chmod
+need_command timeout
+check_python_ssl
 
-if [ -z "$MISSING_COMMANDS" ]; then
-  echo "All runtime commands are installed: playerctl python3 cp chmod"
+if [ -z "$MISSING_COMMANDS" ] && [ "$PYTHON_SSL" -eq 1 ]; then
+  echo "All runtime commands are installed: playerctl python3 cp chmod timeout"
   exit 0
 fi
 
-echo "Missing runtime command(s):$MISSING_COMMANDS"
+if [ -n "$MISSING_COMMANDS" ]; then
+  echo "Missing runtime command(s):$MISSING_COMMANDS"
+fi
+if [ "$PYTHON_SSL" -eq 0 ]; then
+  echo "python3 is missing the ssl module. Install a full Python build; on NixOS use pkgs.python3 instead of pkgs.python3Minimal." >&2
+fi
 
 if [ "$CHECK_ONLY" -eq 1 ]; then
   exit 1
@@ -140,9 +154,15 @@ need_command playerctl
 need_command python3
 need_command cp
 need_command chmod
+need_command timeout
+check_python_ssl
 
 if [ -n "$MISSING_COMMANDS" ]; then
   echo "Still missing after installation:$MISSING_COMMANDS" >&2
+  exit 1
+fi
+if [ "$PYTHON_SSL" -eq 0 ]; then
+  echo "python3 still lacks the ssl module after installation." >&2
   exit 1
 fi
 

@@ -38,11 +38,12 @@ local state = {
   },
   last_check = nil,
   last_check_timestamp = 0,
+  last_update_timestamp = 0,
+  reboot_required = false,
   error_message = nil,
 }
 
 local previousCount = 0
-local elapsedMinutes = 0
 local isChecking = false
 local isUpdating = false
 
@@ -98,6 +99,42 @@ local function parseSizeToBytes(sizeStr)
     return math.floor(num * 1000 * 1000 * 1000 * 1000)
   end
   return math.floor(num)
+end
+
+-- Persisted so a shell restart shows the last result instead of re-checking: with a
+-- daily/weekly interval, checking on every login defeated the point.
+local function stateFile()
+  local dir = noctalia.pluginDataDir()
+  return dir and (dir .. "/state.json") or nil
+end
+
+local function saveState()
+  local path = stateFile()
+  local encoded = path and noctalia.json.encode(state)
+  if encoded then
+    noctalia.writeFile(path, encoded)
+  end
+end
+
+local function loadState()
+  local path = stateFile()
+  if not path or not noctalia.fileExists(path) then
+    return false
+  end
+  local contents = noctalia.readFile(path)
+  local saved = contents and noctalia.json.decode(contents)
+  if type(saved) ~= "table" or type(saved.last_check_timestamp) ~= "number" then
+    return false
+  end
+  state = saved
+  state.status = state.error_message and "ERROR" or (state.total_count == 0 and "SUCCESS" or "IDLE")
+  state.reboot_required = saved.reboot_required == true
+  previousCount = state.total_count or 0
+  return true
+end
+
+local function checkDue()
+  return checkInterval > 0 and os.time() - (state.last_check_timestamp or 0) >= checkInterval * 60
 end
 
 local function publishState()
@@ -402,6 +439,79 @@ local function checkFlatpak(onFinished, isRetry)
   end, 30000)
 end
 
+-- Read from dnf history rather than recorded on our own runs: terminal updates are
+-- fire-and-forget, and a manual `dnf upgrade` counts too. Only an upgrade with no
+-- package args is a full update; Flatpak keeps no history, so it is not tracked.
+local function isFullUpgrade(commandLine)
+  local verbSeen = false
+  for word in (commandLine or ""):gmatch("%S+") do
+    if verbSeen then
+      if word:sub(1, 1) ~= "-" then
+        return false
+      end
+    elseif word == "upgrade" or word == "update" or word == "distro-sync" then
+      verbSeen = true
+    end
+  end
+  return verbSeen
+end
+
+local function refreshLastUpdate()
+  local dnfBin = getDnfBinary()
+  if not dnfBin then
+    return
+  end
+  noctalia.runAsync({ dnfBin, "history", "list", "--json" }, function(result)
+    local transactions = result and result.exitCode == 0 and noctalia.json.decode(result.stdout or "")
+    if type(transactions) ~= "table" then
+      return
+    end
+    local latest = 0
+    for _, t in ipairs(transactions) do
+      if t.status == "Ok" and (t.end_time or 0) > latest and isFullUpgrade(t.command_line) then
+        latest = t.end_time
+      end
+    end
+    if latest > 0 and latest ~= state.last_update_timestamp then
+      state.last_update_timestamp = latest
+      publishState()
+    end
+  end)
+end
+
+local function checkReboot()
+  if noctalia.fileExists("/run/reboot-required") or noctalia.fileExists("/var/run/reboot-required") then
+    if not state.reboot_required then
+      state.reboot_required = true
+      publishState()
+    end
+    return
+  end
+
+  local dnfBin = getDnfBinary()
+  if not dnfBin then
+    return
+  end
+
+  noctalia.runAsync({ dnfBin, "--disablerepo=*", "needs-restarting", "-r", "--json" }, function(result)
+    local isReboot = false
+    if result then
+      if result.exitCode == 1 then
+        isReboot = true
+      elseif result.exitCode == 0 and result.stdout and result.stdout ~= "" then
+        local data = noctalia.json.decode(result.stdout)
+        if type(data) == "table" and data[1] and data[1].reboot_required == true then
+          isReboot = true
+        end
+      end
+    end
+    if isReboot ~= state.reboot_required then
+      state.reboot_required = isReboot
+      publishState()
+    end
+  end, 10000)
+end
+
 local function checkAll(force)
   if isChecking or isUpdating then
     return
@@ -410,6 +520,8 @@ local function checkAll(force)
   isChecking = true
   state.status = "CHECKING"
   publishState()
+  refreshLastUpdate()
+  checkReboot()
 
   local dnfDone = false
   local flatpakDone = false
@@ -427,7 +539,7 @@ local function checkAll(force)
     state.total_install_bytes = (state.dnf.total_install_bytes or 0) + (state.flatpak.total_install_bytes or 0)
     state.total_download_formatted = formatBytes(state.total_download_bytes)
     state.total_install_formatted = formatBytes(state.total_install_bytes)
-    state.last_check = noctalia.formatTime("%H:%M")
+    state.last_check = noctalia.formatTime("%d/%m %H:%M")
     state.last_check_timestamp = os.time()
 
     if state.dnf.error and state.flatpak.error then
@@ -454,6 +566,7 @@ local function checkAll(force)
     previousCount = state.total_count
 
     publishState()
+    saveState()
   end
 
   checkDnf(function(ok)
@@ -467,6 +580,12 @@ local function checkAll(force)
     flatpakSuccess = ok
     finalize()
   end)
+end
+
+-- runInTerminal is fire-and-forget, so the terminal itself pings us back when done
+-- (`;`, not `&&`: a failed or partial run still changes what is pending).
+local function runInTerminalThenRecheck(cmd)
+  noctalia.runInTerminal(cmd .. "; noctalia msg plugin strob3/dnf-updater:service all check")
 end
 
 local function updateDnf(excludedList, onFinished)
@@ -504,11 +623,11 @@ local function updateDnf(excludedList, onFinished)
 
   if updateInTerminal then
     local sudoCmd = noctalia.commandExists("sudo") and "sudo" or "pkexec"
-    local cmd = sudoCmd .. " " .. dnfBin .. " upgrade"
+    local cmd = sudoCmd .. " " .. dnfBin .. " upgrade -y"
     if excludeArg then
       cmd = cmd .. " " .. shellQuote(excludeArg)
     end
-    noctalia.runInTerminal(cmd)
+    runInTerminalThenRecheck(cmd)
     state.dnf.status = "done"
     publishState()
     if onFinished then onFinished(true) end
@@ -593,13 +712,13 @@ local function updateFlatpak(selectedList, onFinished)
   local hasSubset = validSelected and #validSelected > 0 and #validSelected < flatpakCount
 
   if updateInTerminal then
-    local cmd = "flatpak update"
+    local cmd = "flatpak update -y"
     if hasSubset then
       for _, ref in ipairs(validSelected) do
         cmd = cmd .. " " .. shellQuote(ref)
       end
     end
-    noctalia.runInTerminal(cmd)
+    runInTerminalThenRecheck(cmd)
     state.flatpak.status = "done"
     publishState()
     if onFinished then onFinished(true) end
@@ -688,7 +807,7 @@ local function updateAll(excludedDnf, selectedFlatpaks)
 
     if dnfNeedsUpdate and dnfBin then
       local sudoCmd = noctalia.commandExists("sudo") and "sudo" or "pkexec"
-      local dnfCmd = sudoCmd .. " " .. dnfBin .. " upgrade"
+      local dnfCmd = sudoCmd .. " " .. dnfBin .. " upgrade -y"
       if #validExcluded > 0 then
         dnfCmd = dnfCmd .. " " .. shellQuote("--exclude=" .. table.concat(validExcluded, ","))
       end
@@ -696,7 +815,7 @@ local function updateAll(excludedDnf, selectedFlatpaks)
     end
 
     if flatpakNeedsUpdate then
-      local fpCmd = "flatpak update"
+      local fpCmd = "flatpak update -y"
       if validSelected and #validSelected > 0 and #validSelected < flatpakCount then
         for _, ref in ipairs(validSelected) do
           fpCmd = fpCmd .. " " .. shellQuote(ref)
@@ -707,7 +826,7 @@ local function updateAll(excludedDnf, selectedFlatpaks)
 
     if #cmds > 0 then
       local fullCmd = table.concat(cmds, " && ")
-      noctalia.runInTerminal(fullCmd)
+      runInTerminalThenRecheck(fullCmd)
       if dnfNeedsUpdate then state.dnf.status = "done" end
       if flatpakNeedsUpdate then state.flatpak.status = "done" end
       state.status = "SUCCESS"
@@ -818,8 +937,9 @@ function onConfigChanged()
   includeFlatpakRuntimes = noctalia.getConfig("include_flatpak_runtimes") == true
   notifyOnUpdates = noctalia.getConfig("notify_on_updates") ~= false
   updateInTerminal = noctalia.getConfig("update_in_terminal") ~= false
-  elapsedMinutes = 0
-  checkAll(true)
+  if checkDue() then
+    checkAll(true)
+  end
 end
 
 function onIpc(event, payload)
@@ -851,13 +971,13 @@ end
 noctalia.setUpdateInterval(60000)
 
 function update()
-  elapsedMinutes += 1
-  if checkInterval > 0 and elapsedMinutes >= checkInterval then
-    elapsedMinutes = 0
+  if checkDue() then
     checkAll(false)
   end
 end
 
--- Initial state publish and immediate check on startup
+local restored = loadState()
 publishState()
-checkAll(true)
+if not restored or checkDue() then
+  checkAll(true)
+end

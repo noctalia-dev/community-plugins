@@ -88,19 +88,22 @@ written and applied immediately.
 
 **`advanced`** holds the rest of what an `[output.*]` section accepts: rotation,
 adaptive sync, HDR and its SDR reference white, tearing, direct scanout, the
-workspace inventory and axis, and the initial scrolling column width. Escape
-returns to the main panel, as it does from the arrangement.
+workspace inventory and axis, and the initial scrolling column width. The
+header back button or Escape returns to the main panel, as it does from the
+arrangement. Changing rotation repacks adjacent displays using their new
+logical width and height, so they remain edge to edge.
 
-**`arrange`** draws each enabled display to scale. Drag one onto:
+**`arrange`** draws each enabled display to scale and in its current orientation
+(e.g., a display rotated 90° appears portrait). Drag one onto:
 
 - **another display** to trade their places;
 - a **slot between or beside** displays to insert it there;
 - the **full-width slots** above and below a row to put it on a new row;
 - the **tray** at the bottom to turn it off, and drag it back out to restore it.
 
-Displays always land edge to edge, so an arrangement cannot leave an overlap or
-a gap. The canvas is a fixed frame: displays shrink to fit however many there
-are, rather than the window growing.
+Displays always land edge to edge within a row, and shorter rows are centered
+under the widest row. The canvas is a fixed frame: displays shrink to fit
+however many there are, rather than the window growing.
 
 ## Settings
 
@@ -137,10 +140,11 @@ are, rather than the window growing.
   the returning display would otherwise reclaim a position the others have since
   been packed into and the two would overlap. Both surfaces refuse to turn off
   the last enabled display.
-- **Limitations.** No mirroring: Umbriel cannot clone an output. The arrangement
-  is edge to edge only, so a deliberate pixel offset between two displays has to
-  be written by hand. Positions are normalised so the top-left of the
-  arrangement sits at `0, 0`; Umbriel accepts negative coordinates, but the
-  origin carries no meaning, so a hand-written negative layout is rewritten to
-  the equivalent one. Disabling an output is a config decision by design, since
+- **Limitations.** No mirroring: Umbriel cannot clone an output. Displays are
+  edge to edge within each row, and rows are centered, so a deliberate custom
+  pixel offset has to be written by hand. Positions are normalised so the
+  top-left of the arrangement sits at `0, 0`; Umbriel accepts negative
+  coordinates, but the origin carries no meaning, so a hand-written negative
+  layout is rewritten to the equivalent one. Disabling an output is a config
+  decision by design, since
   Umbriel rejects protocol requests that disable one.

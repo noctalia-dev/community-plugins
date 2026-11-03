@@ -14,9 +14,6 @@ Plugins maintained by the core team live in
 [official-plugins](https://github.com/noctalia-dev/official-plugins), which does not accept third-party plugins.
 This one does. **PRs are welcome.**
 
-> The plugin system is in **beta**. The manifest format and the plugin API may still change before v5 is stable.
-> Expect to bump your plugin when they do.
-
 ## Layout
 
 Each plugin is **one top-level directory**, named after the part of its id that follows the `/`, so `me/hello` lives
@@ -40,6 +37,10 @@ id distinct from everyone else's, but the **directory name is first-come within 
 taken, pick another name; the official repo is a separate source, so a name used there is not taken here. Both id
 segments must be lowercase and match `[a-z0-9][a-z0-9._-]*`.
 
+Choose a name that describes what your plugin does. Avoid adding `noct`, `nocta`, or `noctalia` just to associate it
+with Noctalia. Plugins are already listed in the Noctalia plugin store, so these prefixes add little information and
+make plugins harder to distinguish.
+
 ## What a plugin is allowed to be
 
 Noctalia plugins are **trusted, unsandboxed Luau**. There is no permission broker and no capability sandbox:
@@ -53,6 +54,12 @@ That is a deliberate design choice, and it puts the burden on review. So:
 - **Declare what you shell out to.** External commands go in `dependencies` in `plugin.toml` and get a mention in your
   README.
 - **Account for every network call, filesystem write, and spawned process** in your PR description.
+- **No QML or Quickshell plugins.** Plugins are written in Luau against the Noctalia plugin API, and all UI is drawn
+  through that API. A plugin that ships QML, or launches Quickshell (`qs`) or any other UI runtime to draw what the API
+  does not offer, will be rejected. Non-UI helpers are fine: a Python or shell script that fetches data, talks to a
+  device, or does work Luau can't, with its output rendered by your Luau entries, is welcome, as long as it is declared
+  in `dependencies` like any other external command. If the API is missing something you need, open a feature request
+  on [noctalia](https://github.com/noctalia-dev/noctalia/issues) instead.
 
 Anything that looks like it is hiding what it does will be rejected, regardless of intent.
 

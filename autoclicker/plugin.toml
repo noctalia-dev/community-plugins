@@ -1,0 +1,18 @@
+id = "amirfarzamnia/autoclicker"
+name = "Auto Clicker"
+version = "1.0.0"
+plugin_api = 24
+author = "amirfarzamnia"
+license = "MIT"
+icon = "click"
+description = "Repeats any ydotool command on an interval, driven entirely over IPC. Bar indicator while running."
+tags = ["utility"]
+dependencies = ["ydotool"]
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[widget]]
+id = "widget"
+entry = "widget.luau"

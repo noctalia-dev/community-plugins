@@ -1,0 +1,847 @@
+{
+ "v": 1,
+ "at": 1792411200000,
+ "currency": "USD",
+ "privacy": false,
+ "barMode": "full",
+ "mode": "connected",
+ "status": {
+  "busy": false,
+  "lastRefreshAt": 1792411180000,
+  "stale": false,
+  "sources": {
+   "prices": {
+    "okAt": 1792411180000,
+    "stale": false
+   },
+   "balances": {
+    "okAt": 1792411110000,
+    "stale": false
+   },
+   "stocks": {
+    "okAt": 1792411080000,
+    "stale": false
+   },
+   "quotes": {
+    "okAt": 1792411170000,
+    "stale": false
+   }
+  }
+ },
+ "account": {
+  "stage": "active",
+  "rotating": false,
+  "verifiedAt": 1792393200000
+ },
+ "totals": {
+  "value": 8316.0,
+  "crypto": 6720.0,
+  "stocks": 1596.0,
+  "today": {
+   "pnl": 37.0,
+   "pct": 0.0045
+  },
+  "todayPartial": false,
+  "netDeposit": {
+   "pnl": 1016.0,
+   "pct": 0.1392,
+   "since": "2024-03-11",
+   "uncovered": [
+    "p2p_older_than_6_months",
+    "gifts_and_rewards"
+   ]
+  }
+ },
+ "holdings": [
+  {
+   "kind": "crypto",
+   "asset": "BTC",
+   "name": "Bitcoin",
+   "qty": 0.05,
+   "price": 68000.0,
+   "value": 3400.0,
+   "today": {
+    "pnl": 40.0,
+    "pct": 0.0119
+   },
+   "spark": [
+    63920.0,
+    66912.0,
+    65416.0,
+    68408.0,
+    66912.0,
+    65416.0,
+    68408.0,
+    66912.0,
+    65416.0,
+    68408.0,
+    66912.0,
+    65416.0,
+    68408.0,
+    66912.0,
+    69904.0,
+    68408.0,
+    66912.0,
+    69904.0,
+    68408.0,
+    66912.0,
+    69904.0,
+    68408.0,
+    66912.0,
+    69904.0,
+    68408.0,
+    71400.0,
+    69904.0,
+    68408.0,
+    71400.0,
+    69904.0
+   ],
+   "allocation": 0.4089
+  },
+  {
+   "kind": "crypto",
+   "asset": "ETH",
+   "name": "Ethereum",
+   "qty": 0.8,
+   "price": 2500.0,
+   "value": 2000.0,
+   "today": {
+    "pnl": -40.0,
+    "pct": -0.0196
+   },
+   "spark": [
+    2350.0,
+    2460.0,
+    2405.0,
+    2515.0,
+    2460.0,
+    2405.0,
+    2515.0,
+    2460.0,
+    2405.0,
+    2515.0,
+    2460.0,
+    2405.0,
+    2515.0,
+    2460.0,
+    2570.0,
+    2515.0,
+    2460.0,
+    2570.0,
+    2515.0,
+    2460.0,
+    2570.0,
+    2515.0,
+    2460.0,
+    2570.0,
+    2515.0,
+    2625.0,
+    2570.0,
+    2515.0,
+    2625.0,
+    2570.0
+   ],
+   "allocation": 0.2405
+  },
+  {
+   "kind": "crypto",
+   "asset": "SOL",
+   "name": "Solana",
+   "qty": 6.0,
+   "price": 150.0,
+   "value": 900.0,
+   "today": {
+    "pnl": 24.0,
+    "pct": 0.0274
+   },
+   "spark": [
+    141.0,
+    147.6,
+    144.3,
+    150.9,
+    147.6,
+    144.3,
+    150.9,
+    147.6,
+    144.3,
+    150.9,
+    147.6,
+    144.3,
+    150.9,
+    147.6,
+    154.2,
+    150.9,
+    147.6,
+    154.2,
+    150.9,
+    147.6,
+    154.2,
+    150.9,
+    147.6,
+    154.2,
+    150.9,
+    157.5,
+    154.2,
+    150.9,
+    157.5,
+    154.2
+   ],
+   "allocation": 0.1082
+  },
+  {
+   "kind": "stock",
+   "asset": "TSLA",
+   "name": "Tesla",
+   "qty": 3.0,
+   "price": 240.0,
+   "value": 720.0,
+   "avgCost": 220.0,
+   "cost": 660.0,
+   "floating": {
+    "pnl": 60.0,
+    "pct": 0.0909
+   },
+   "realized": -8.1,
+   "quoteAt": 1792400400000,
+   "quoteStale": true,
+   "today": {
+    "pnl": 12.0,
+    "pct": 0.0169
+   },
+   "tokenizedQty": 1.0,
+   "allocation": 0.0866,
+   "costApprox": true,
+   "session": "closed"
+  },
+  {
+   "kind": "stock",
+   "asset": "MSFT",
+   "name": "Microsoft",
+   "qty": 1.25,
+   "price": 388.0,
+   "value": 485.0,
+   "avgCost": 400.0,
+   "cost": 500.0,
+   "floating": {
+    "pnl": -15.0,
+    "pct": -0.03
+   },
+   "realized": 15.4,
+   "quoteAt": 1792411180000,
+   "quoteStale": false,
+   "today": {
+    "pnl": -4.0,
+    "pct": -0.0082
+   },
+   "allocation": 0.0583,
+   "session": "post"
+  },
+  {
+   "kind": "crypto",
+   "asset": "USDC",
+   "name": "USD Coin",
+   "qty": 420.0,
+   "price": 1.0,
+   "value": 420.0,
+   "today": {
+    "pnl": 0.0,
+    "pct": 0.0
+   },
+   "allocation": 0.0505
+  },
+  {
+   "kind": "stock",
+   "asset": "AAPL",
+   "name": "Apple",
+   "qty": 2.0,
+   "price": 195.5,
+   "value": 391.0,
+   "avgCost": 180.0,
+   "cost": 360.0,
+   "floating": {
+    "pnl": 31.0,
+    "pct": 0.0861
+   },
+   "realized": 0.0,
+   "quoteAt": 1792411180000,
+   "quoteStale": false,
+   "today": {
+    "pnl": 5.0,
+    "pct": 0.013
+   },
+   "allocation": 0.047,
+   "session": "open"
+  }
+ ],
+ "wallets": [
+  {
+   "name": "Spot",
+   "value": 4160.0,
+   "assets": 3,
+   "holdings": [
+    {
+     "asset": "BTC",
+     "qty": 0.03,
+     "value": 2040.0
+    },
+    {
+     "asset": "ETH",
+     "qty": 0.8,
+     "value": 2000.0
+    },
+    {
+     "asset": "USDC",
+     "qty": 120.0,
+     "value": 120.0
+    }
+   ]
+  },
+  {
+   "name": "Funding",
+   "value": 1660.0,
+   "assets": 2,
+   "holdings": [
+    {
+     "asset": "USDC",
+     "qty": 300.0,
+     "value": 300.0
+    },
+    {
+     "asset": "BTC",
+     "qty": 0.02,
+     "value": 1360.0
+    }
+   ]
+  },
+  {
+   "name": "Earn",
+   "value": 900.0,
+   "assets": 1,
+   "holdings": [
+    {
+     "asset": "SOL",
+     "qty": 6.0,
+     "value": 900.0
+    }
+   ]
+  },
+  {
+   "name": "Cross Margin",
+   "value": 0,
+   "assets": 0,
+   "holdings": []
+  },
+  {
+   "name": "USDⓈ-M Futures",
+   "value": 0,
+   "assets": 0,
+   "holdings": []
+  },
+  {
+   "name": "Stocks",
+   "value": 1596.0,
+   "assets": 3,
+   "holdings": [
+    {
+     "asset": "AAPL",
+     "qty": 2.0,
+     "value": 391.0
+    },
+    {
+     "asset": "MSFT",
+     "qty": 1.25,
+     "value": 485.0
+    },
+    {
+     "asset": "TSLA",
+     "qty": 3.0,
+     "value": 720.0
+    }
+   ]
+  }
+ ],
+ "watchlist": [
+  {
+   "symbol": "BTCUSDT",
+   "base": "BTC",
+   "quote": "USDT",
+   "price": 68000.0,
+   "change24h": 0.0182,
+   "high24h": 68650.0,
+   "low24h": 66400.0,
+   "spark": [
+    66640.0,
+    67648.67,
+    67161.33,
+    68170.0,
+    67682.67,
+    67195.33,
+    68204.0,
+    67716.67,
+    67229.33,
+    68238.0,
+    67750.67,
+    67263.33,
+    68272.0,
+    67784.67,
+    68793.33,
+    68306.0,
+    67818.67,
+    68827.33,
+    68340.0,
+    67852.67,
+    68861.33,
+    68374.0,
+    67886.67,
+    68895.33
+   ],
+   "alerts": 1
+  },
+  {
+   "symbol": "ETHUSDT",
+   "base": "ETH",
+   "quote": "USDT",
+   "price": 2500.0,
+   "change24h": -0.0231,
+   "high24h": 2580.0,
+   "low24h": 2480.0,
+   "spark": [
+    2425.0,
+    2480.62,
+    2453.75,
+    2509.38,
+    2482.5,
+    2455.62,
+    2511.25,
+    2484.38,
+    2457.5,
+    2513.12,
+    2486.25,
+    2459.38,
+    2515.0,
+    2488.12,
+    2543.75,
+    2516.88,
+    2490.0,
+    2545.63,
+    2518.75,
+    2491.88,
+    2547.5,
+    2520.62,
+    2493.75,
+    2549.38
+   ],
+   "alerts": 1
+  },
+  {
+   "symbol": "SOLUSDT",
+   "base": "SOL",
+   "quote": "USDT",
+   "price": 150.0,
+   "change24h": 0.0274,
+   "high24h": 152.1,
+   "low24h": 144.9,
+   "spark": [
+    144.0,
+    148.45,
+    146.3,
+    150.75,
+    148.6,
+    146.45,
+    150.9,
+    148.75,
+    146.6,
+    151.05,
+    148.9,
+    146.75,
+    151.2,
+    149.05,
+    153.5,
+    151.35,
+    149.2,
+    153.65,
+    151.5,
+    149.35,
+    153.8,
+    151.65,
+    149.5,
+    153.95
+   ],
+   "alerts": 0
+  },
+  {
+   "symbol": "DOGEUSDT",
+   "base": "DOGE",
+   "quote": "USDT",
+   "alerts": 0
+  },
+  {
+   "symbol": "EQ_AAPL",
+   "base": "AAPL",
+   "quote": "USD",
+   "kind": "stock",
+   "price": 232.4,
+   "change24h": 0.0121,
+   "quoteAt": 1792411170000,
+   "alerts": 1,
+   "session": "pre"
+  },
+  {
+   "symbol": "EQ_TSLA",
+   "base": "TSLA",
+   "quote": "USD",
+   "kind": "stock",
+   "price": 251.1,
+   "quoteAt": 1792390000000,
+   "quoteStale": true,
+   "alerts": 0,
+   "session": "closed"
+  }
+ ],
+ "alerts": [
+  {
+   "id": "a1",
+   "symbol": "BTCUSDT",
+   "kind": "above",
+   "value": 70000,
+   "cooldownMin": 60,
+   "enabled": true
+  },
+  {
+   "id": "a2",
+   "symbol": "ETHUSDT",
+   "kind": "move_pct",
+   "value": 0.05,
+   "cooldownMin": 240,
+   "enabled": true,
+   "lastFiredAt": 1792238400000
+  },
+  {
+   "id": "a3",
+   "symbol": "SOLUSDT",
+   "kind": "below",
+   "value": 120,
+   "cooldownMin": 60,
+   "enabled": false
+  },
+  {
+   "id": "a9",
+   "symbol": "EQ_AAPL",
+   "kind": "move_pct",
+   "value": 0.03,
+   "cooldownMin": 60,
+   "enabled": true
+  }
+ ],
+ "history": {
+  "from": "2026-09-05",
+  "to": "2026-10-19",
+  "days": [
+   {
+    "day": "2026-09-05",
+    "value": 7359.66,
+    "stocksAtCost": true,
+    "netDeposit": 7000.0
+   },
+   {
+    "day": "2026-09-06",
+    "value": 7586.46,
+    "stocksAtCost": true,
+    "netDeposit": 7000.0
+   },
+   {
+    "day": "2026-09-07",
+    "value": 7522.2,
+    "stocksAtCost": true,
+    "netDeposit": 7000.0
+   },
+   {
+    "day": "2026-09-08",
+    "value": 7457.94,
+    "stocksAtCost": true,
+    "netDeposit": 7000.0
+   },
+   {
+    "day": "2026-09-09",
+    "value": 7684.74,
+    "stocksAtCost": true,
+    "netDeposit": 7000.0
+   },
+   {
+    "day": "2026-09-10",
+    "value": 7620.48,
+    "stocksAtCost": true,
+    "netDeposit": 7000.0
+   },
+   {
+    "day": "2026-09-11",
+    "value": 7556.22,
+    "stocksAtCost": true,
+    "netDeposit": 7000.0
+   },
+   {
+    "day": "2026-09-12",
+    "value": 7491.96,
+    "stocksAtCost": true,
+    "netDeposit": 7000.0
+   },
+   {
+    "day": "2026-09-13",
+    "value": 7718.76,
+    "stocksAtCost": true,
+    "netDeposit": 7000.0
+   },
+   {
+    "day": "2026-09-14",
+    "value": 7654.5,
+    "stocksAtCost": true,
+    "netDeposit": 7000.0
+   },
+   {
+    "day": "2026-09-15",
+    "value": 7590.24,
+    "netDeposit": 7000.0
+   },
+   {
+    "day": "2026-09-16",
+    "value": 7817.04,
+    "netDeposit": 7000.0
+   },
+   {
+    "day": "2026-09-17",
+    "value": 7752.78,
+    "netDeposit": 7000.0
+   },
+   {
+    "day": "2026-09-18",
+    "value": 7688.52,
+    "netDeposit": 7000.0
+   },
+   {
+    "day": "2026-09-19",
+    "value": 7624.26,
+    "netDeposit": 7000.0
+   },
+   {
+    "day": "2026-09-20",
+    "value": 7851.06,
+    "netDeposit": 7000.0
+   },
+   {
+    "day": "2026-09-21",
+    "value": 7786.8,
+    "netDeposit": 7000.0
+   },
+   {
+    "day": "2026-09-22",
+    "value": 7722.54,
+    "netDeposit": 7000.0
+   },
+   {
+    "day": "2026-09-23",
+    "value": 7949.34,
+    "netDeposit": 7000.0
+   },
+   {
+    "day": "2026-09-24",
+    "value": 7885.08,
+    "netDeposit": 7000.0
+   },
+   {
+    "day": "2026-09-25",
+    "value": 7820.82,
+    "netDeposit": 7000.0
+   },
+   {
+    "day": "2026-09-26",
+    "value": 7756.56,
+    "netDeposit": 7000.0
+   },
+   {
+    "day": "2026-09-27",
+    "value": 7983.36,
+    "netDeposit": 7000.0
+   },
+   {
+    "day": "2026-09-28",
+    "value": 7919.1,
+    "netDeposit": 7000.0
+   },
+   {
+    "day": "2026-09-29",
+    "value": 7854.84,
+    "netDeposit": 7000.0
+   },
+   {
+    "day": "2026-09-30",
+    "value": 8081.64,
+    "netDeposit": 7000.0
+   },
+   {
+    "day": "2026-10-01",
+    "value": 8017.38,
+    "netDeposit": 7300.0
+   },
+   {
+    "day": "2026-10-02",
+    "value": 7953.12,
+    "netDeposit": 7300.0
+   },
+   {
+    "day": "2026-10-03",
+    "value": 7888.86,
+    "netDeposit": 7300.0
+   },
+   {
+    "day": "2026-10-04",
+    "value": 8115.66,
+    "netDeposit": 7300.0
+   },
+   {
+    "day": "2026-10-05",
+    "value": 8051.4,
+    "netDeposit": 7300.0
+   },
+   {
+    "day": "2026-10-06",
+    "value": 7987.14,
+    "netDeposit": 7300.0
+   },
+   {
+    "day": "2026-10-07",
+    "value": 8213.94,
+    "netDeposit": 7300.0
+   },
+   {
+    "day": "2026-10-08",
+    "value": 8149.68,
+    "netDeposit": 7300.0
+   },
+   {
+    "day": "2026-10-09",
+    "value": 8085.42,
+    "netDeposit": 7300.0
+   },
+   {
+    "day": "2026-10-10",
+    "value": 8021.16,
+    "netDeposit": 7300.0
+   },
+   {
+    "day": "2026-10-11",
+    "value": 8247.96,
+    "netDeposit": 7300.0
+   },
+   {
+    "day": "2026-10-12",
+    "value": 8183.7,
+    "netDeposit": 7300.0
+   },
+   {
+    "day": "2026-10-13",
+    "value": 8119.44,
+    "netDeposit": 7300.0
+   },
+   {
+    "day": "2026-10-14",
+    "value": 8346.24,
+    "netDeposit": 7300.0
+   },
+   {
+    "day": "2026-10-15",
+    "value": 8281.98,
+    "netDeposit": 7300.0
+   },
+   {
+    "day": "2026-10-16",
+    "value": 8217.72,
+    "netDeposit": 7300.0
+   },
+   {
+    "day": "2026-10-17",
+    "value": 8153.46,
+    "netDeposit": 7300.0
+   },
+   {
+    "day": "2026-10-18",
+    "value": 8380.26,
+    "netDeposit": 7300.0
+   },
+   {
+    "day": "2026-10-19",
+    "value": 8316.0,
+    "netDeposit": 7300.0
+   }
+  ],
+  "presets": [
+   "7d",
+   "30d",
+   "all"
+  ]
+ },
+ "range": {
+  "preset": "7d",
+  "from": "2026-10-12",
+  "to": "2026-10-19",
+  "kind": "market",
+  "startValue": 8183.7,
+  "endValue": 8316.0,
+  "pnl": 132.3,
+  "pct": 0.0162
+ },
+ "drift": {
+  "rows": [
+   {
+    "id": "crypto",
+    "value": 7800,
+    "share": 0.78,
+    "target": 0.6,
+    "diff": 0.18
+   },
+   {
+    "id": "stocks",
+    "value": 1700,
+    "share": 0.17,
+    "target": 0.3,
+    "diff": -0.13
+   },
+   {
+    "id": "stable",
+    "value": 500,
+    "share": 0.05,
+    "target": 0.1,
+    "diff": -0.05
+   }
+  ],
+  "band": 0.05,
+  "off": [
+   "crypto",
+   "stocks",
+   "EQ_NVDA"
+  ],
+  "total": 10000,
+  "assets": [
+   {
+    "id": "EQ_NVDA",
+    "asset": "NVDA",
+    "class": "stocks",
+    "value": 1200,
+    "share": 0.12,
+    "target": 0.2,
+    "diff": -0.08
+   }
+  ],
+  "crowded": [
+   "stocks"
+  ]
+ },
+ "gaps": [
+  "dividends",
+  "splits"
+ ],
+ "export": {
+  "at": 1792411195000,
+  "path": "/home/user/Downloads/binance-portfolio-2026-10-19.csv",
+  "name": "binance-portfolio-2026-10-19.csv"
+ }
+}

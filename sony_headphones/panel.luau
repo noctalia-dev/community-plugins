@@ -236,48 +236,59 @@ render = function()
 
 		table.insert(body, ui.separator({ thickness = 1, color = "on_surface/0.12" }))
 
-		-- Noise control: 3 small circular buttons in one row.
-		-- (ui.box takes no children, so circles are rows with fill+radius.)
-		-- Active button is solid accent with a gentle pulse.
-		local activeMode = currentMode()
-		local pulse = 0.5 + 0.5 * math.sin(pulseT / PULSE_MS * 2 * math.pi)
-		local function modeButton(key, mode, glyph)
-			local active = mode == activeMode
-			local fill = active
-				and string.format("primary/%.2f", 0.72 + 0.28 * pulse)
-				or "primary/0.07"
-			return ui.row({
-				key = key,
-				width = 35,
-				height = 35,
-				fill = fill,
-				radius = 17,
-				align = "center",
-				justify = "center",
-				onClick = function()
-					onModeClicked(mode)
-				end,
-			}, {
-				ui.glyph({
-					name = glyph,
-					size = 15,
-					color = active and "on_primary" or "on_surface_variant",
+		if snapshot.noise_control ~= false then
+			-- Noise control: 3 small circular buttons in one row.
+			-- (ui.box takes no children, so circles are rows with fill+radius.)
+			-- Active button is solid accent with a gentle pulse.
+			local activeMode = currentMode()
+			local pulse = 0.5 + 0.5 * math.sin(pulseT / PULSE_MS * 2 * math.pi)
+			local function modeButton(key, mode, glyph)
+				local active = mode == activeMode
+				local fill = active
+					and string.format("primary/%.2f", 0.72 + 0.28 * pulse)
+					or "primary/0.07"
+				return ui.row({
+					key = key,
+					width = 35,
+					height = 35,
+					fill = fill,
+					radius = 17,
+					align = "center",
+					justify = "center",
+					onClick = function()
+						onModeClicked(mode)
+					end,
+				}, {
+					ui.glyph({
+						name = glyph,
+						size = 15,
+						color = active and "on_primary" or "on_surface_variant",
+					}),
+				})
+			end
+			table.insert(body, ui.column({ gap = 8, align = "center" }, {
+				ui.label({
+					text = noctalia.tr("panel.noise_control"),
+					fontSize = 11,
+					fontWeight = "bold",
+					color = "on_surface_variant",
 				}),
-			})
-		end
-		table.insert(body, ui.column({ gap = 8, align = "center" }, {
-			ui.label({
-				text = noctalia.tr("panel.noise_control"),
+				ui.row({ gap = 16, align = "center", justify = "center" }, {
+					modeButton("mode-anc", "anc", "shield-check"),
+					modeButton("mode-transparency", "transparency", "ear"),
+					modeButton("mode-off", "off", "volume-off"),
+				}),
+			}))
+		else
+			-- MDR V1 models (e.g. WH-1000XM4/XM3) only expose battery; sending
+			-- a V2 noise-control frame can make them power off.
+			table.insert(body, ui.label({
+				text = noctalia.tr("panel.noise_control_unavailable"),
 				fontSize = 11,
-				fontWeight = "bold",
 				color = "on_surface_variant",
-			}),
-			ui.row({ gap = 16, align = "center", justify = "center" }, {
-				modeButton("mode-anc", "anc", "shield-check"),
-				modeButton("mode-transparency", "transparency", "ear"),
-				modeButton("mode-off", "off", "volume-off"),
-			}),
-		}))
+				textAlign = "center",
+			}))
+		end
 
 		-- NOTE: no ambient-level control here by design: the XM5 does not
 		-- report the level back, so a slider would display a fake value.

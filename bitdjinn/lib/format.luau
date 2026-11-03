@@ -82,13 +82,13 @@ end
 
 function M.changeBgColor(change: number?): string
   if change == nil then
-    return "surface_variant/0.2"
+    return "surface_container/0.2"
   elseif change > 0 then
     return "#10b98124" -- 14% alpha emerald green
   elseif change < 0 then
     return "#ef444424" -- 14% alpha red
   else
-    return "surface_variant/0.2"
+    return "surface_container/0.2"
   end
 end
 

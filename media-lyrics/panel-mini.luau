@@ -72,7 +72,7 @@ local function buildCover(s)
       fit = "cover", radius = T.coverRadius })
   end
   return ui.box({ key = "coverbox", width = T.cover, height = T.cover,
-    fill = "surface_variant/0.6", radius = T.coverRadius }, {
+    fill = "surface_container/0.6", radius = T.coverRadius }, {
       ui.glyph({ name = "disc", size = 40, color = "on_surface_variant" }),
     })
 end

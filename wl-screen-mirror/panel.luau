@@ -228,7 +228,7 @@ render = function()
 		ui.row({
 			align = "center",
 			gap = 9,
-			fill = "surface_variant/0.45",
+			fill = "surface_container/0.45",
 			radius = 9,
 			padding = 10,
 		}, {

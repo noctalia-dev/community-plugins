@@ -130,7 +130,6 @@ local function render()
       thickness = cfg.thickness,
       fillColor = cfg.fillColor,
       trackColor = cfg.trackColor,
-      connector = barWidget.outputName(),
     })
   end
 
@@ -195,9 +194,6 @@ noctalia.state.watch("status", function(value)
   status = value
   render()
 end)
-
--- A wallpaper-derived palette resolves asynchronously; redraw once it lands.
-ring.setOnPaletteChanged(render)
 
 function update()
   noctalia.setUpdateInterval(5000)

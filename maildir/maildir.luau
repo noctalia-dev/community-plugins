@@ -44,17 +44,31 @@ function checkMail()
    return {text = s:sub(1,-2), tooltip = t:sub(1,-2)}
 end
 
+function onClickCallback(result)
+   if result.exitCode == 0 then
+      return
+   end
+   local cmd = noctalia.getConfig("click_command")
+   local msg = "click_command \"" .. cmd .. "\" failed\nexitCode = " .. result.exitCode
+   if result.stdout ~= "" then
+      msg = msg .. "\nStdout: " .. result.stdout
+   end
+   if result.stderr ~= "" then
+      msg = msg .. "\nStderr: " .. result.stderr
+   end
+   noctalia.notifyError("Maildir", msg)
+end
+
 function onClick()
    local cmd = noctalia.getConfig("click_command")
    if #cmd < 1 then
-      noctalia.log("Maildir: Click command not set")
+      noctalia.notify("Maildir", "click_command option not set")
       return
    end
-   local base_cmd, _ = cmd:match("^(.-)%s+(.+)$")
-   local available = noctalia.commandExists(base_cmd)
-   if not available then
-      noctalia.notifyError("Maildir", "command not found: " .. cmd)
+   local base_cmd = cmd:match("%S+")
+   if not noctalia.commandExists(base_cmd) then
+      noctalia.notifyError("Maildir", "command not found: " .. base_cmd)
       return
    end
-   noctalia.runAsync(cmd)
+   noctalia.runAsync(cmd, onClickCallback)
 end

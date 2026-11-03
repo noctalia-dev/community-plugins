@@ -20,11 +20,11 @@ local THEME_ROLES = {
   "on_tertiary",
   "surface",
   "on_surface",
-  "surface_variant",
+  "surface_container",
   "on_surface_variant",
   "hover",
   "on_hover",
-  "outline",
+  "outline_variant",
   "shadow",
   "error",
   "on_error",
@@ -413,9 +413,9 @@ function update()
           gap = 8,
           paddingH = 10,
           paddingV = 5,
-          fill = "surface_variant/0.5",
+          fill = "surface_container/0.5",
           radius = 6,
-          border = isMenuOpen and "primary" or "outline",
+          border = isMenuOpen and "primary" or "outline_variant",
           borderWidth = 1,
           onClick = function()
             dev.roleMenuOpen = not isMenuOpen
@@ -430,7 +430,7 @@ function update()
               height = 14,
               radius = 7,
               fill = currentHex,
-              border = "outline",
+              border = "outline_variant",
               borderWidth = 1,
             }),
             ui.label({ text = currentRole, fontSize = 12, fontWeight = "bold" }),
@@ -484,7 +484,7 @@ function update()
                 height = 14,
                 radius = 7,
                 fill = rHex,
-                border = isSelected and "primary" or "outline",
+                border = isSelected and "primary" or "outline_variant",
                 borderWidth = 1,
               }),
               ui.label({
@@ -506,9 +506,9 @@ function update()
         end
 
         table.insert(devChildren, ui.column({
-          fill = "surface_variant/0.4",
+          fill = "surface_container/0.4",
           radius = 8,
-          border = "outline",
+          border = "outline_variant",
           borderWidth = 1,
           padding = 4,
         }, {
@@ -562,7 +562,7 @@ function update()
     }))
 
     table.insert(deviceCards, ui.column({
-      gap = 8, padding = 12, fill = "surface_variant/0.4", radius = 10
+      gap = 8, padding = 12, fill = "surface_container/0.4", radius = 10
     }, devChildren))
   end
 

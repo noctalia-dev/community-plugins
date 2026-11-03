@@ -1,7 +1,7 @@
 id = "tmelik/system-monitor"
 name = "System Monitor"
-version = "1.5.2"
-plugin_api = 26
+version = "1.5.3"
+plugin_api = 43
 author = "TMelik"
 license = "GPL-3.0-only"
 dependencies = ["ps", "cat"]

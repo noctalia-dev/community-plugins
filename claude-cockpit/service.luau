@@ -24,6 +24,7 @@
 local live = require("./live.luau")
 
 local scriptPath = `{noctalia.pluginDir()}/get-claude-usage`
+local USAGE_TIMEOUT = 60000
 local LIVE_TICK_MS = 2000
 local LIVE_WANTED_SECS = 5
 local livePolling = false
@@ -81,7 +82,7 @@ local function fetch()
 
         noctalia.state.set("usage", data)
         publishStatus("ready")
-    end)
+    end, USAGE_TIMEOUT)
 
     if not launched then
         fetching = false

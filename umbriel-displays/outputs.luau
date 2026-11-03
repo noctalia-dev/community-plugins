@@ -395,12 +395,23 @@ function M.rows(outputs)
   return rows
 end
 
--- Every arrangement this window can express is edge to edge, so positions are a
--- running sum: no overlap to resolve and no gap to close.
+-- Displays stay edge to edge within each row. Shorter rows are centred under
+-- the widest one, matching how the arrange canvas presents them.
 function M.positions(rows)
+  local widths, widest = {}, 0
+  for r, row in ipairs(rows) do
+    local width = 0
+    for _, output in ipairs(row) do
+      local w = M.logicalSize(output)
+      width = width + w
+    end
+    widths[r] = width
+    widest = math.max(widest, width)
+  end
+
   local placements, y = {}, 0
-  for _, row in ipairs(rows) do
-    local x, tallest = 0, 0
+  for r, row in ipairs(rows) do
+    local x, tallest = (widest - widths[r]) / 2, 0
     for _, output in ipairs(row) do
       local w, h = M.logicalSize(output)
       placements[output.name] = { x = math.floor(x + 0.5), y = math.floor(y + 0.5) }

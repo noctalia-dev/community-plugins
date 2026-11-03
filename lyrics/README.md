@@ -1,4 +1,4 @@
-# Noctalia Lyrics 1.5.5
+# Noctalia Lyrics 1.5.8
 
 Synchronized lyrics for the Noctalia bar, with multiple MPRIS players,
 translation and romanization layers, configurable sources, karaoke highlighting,
@@ -22,15 +22,28 @@ Install these commands on `PATH`:
   written.
 - `timeout`: bounds each `playerctl` metadata poll during startup and runtime.
 
+For a dependency table and package-manager install commands, see
+[DEPENDENCIES.md](DEPENDENCIES.md).
+
 ## Usage
 
 Enable `h465855hgg/lyrics`, start its `service` entry, and add the `lyrics` bar
-widget. Left-click switches between lyrics and track information when
-`display_mode` is `toggle`; right-click pauses or resumes the selected player.
-When LRCLIB returns multiple matches, hover over the lyrics widget briefly to
-open the `selector` panel and apply another result.
-Bind the `open_selector` shortcut to a key combination in Noctalia's shortcuts
-settings, or open the selector directly through IPC:
+widget. The widget declares default pointer bindings that appear under Actions
+in its bar settings:
+
+| Gesture | Default command | Behavior |
+| --- | --- | --- |
+| Left click | `plugin h465855hgg/lyrics:lyrics all toggle-view` | Switch between lyrics and track information when `display_mode` is `toggle` |
+| Right click | `plugin h465855hgg/lyrics:service all toggle-playback` | Pause or resume the selected player |
+| Scroll up | `plugin h465855hgg/lyrics:service all next` | Next track on the selected player |
+| Scroll down | `plugin h465855hgg/lyrics:service all previous` | Previous track on the selected player |
+
+Override or clear any binding per widget in the bar widget's Actions section.
+The left-click command is broadcast to every lyrics widget, and only the
+instance under the pointer changes its view. When LRCLIB returns multiple
+matches, open the `selector` panel from the
+`open_selector` control-center shortcut and apply another result. The widget no
+longer opens the selector on hover; it can also be opened directly through IPC:
 
 ```sh
 noctalia msg panel-toggle h465855hgg/lyrics:selector
@@ -67,8 +80,8 @@ python3 .github/workflows/scripts/validate-plugins.py
 noctalia plugins lint lyrics
 sh lyrics/scripts/setup-deps.sh --check
 cd lyrics
-python3 -m py_compile lyric_sources.py krc_decode.py lrclib_lyric.py
-python3 -m unittest test_lyric_sources.py
+python3 -m py_compile lyric_sources.py music_sources.py krc_decode.py lrclib_lyric.py
+python3 -m unittest discover -v
 ```
 
 ## Lyrics model
@@ -94,13 +107,14 @@ IDs are:
 
 - `lrclib`: public LRCLIB search with automatic synchronized-result ranking and
   manual result selection.
-- `netease`: public NetEase search, synchronized lyrics, translations, and
-  romanization when returned.
+- `netease`: public NetEase cloud search and lyric endpoint with legacy
+  fallback, synchronized lyrics, translations, and romanization when returned.
 - `splayer`: SPlayer's complete current lyric data, including line and word
   timing, translations, romanization, background lines, and duet markers.
   SPlayer must be running; the default API URL is `http://127.0.0.1:25884`.
   Changing this URL sends current track metadata to the configured service.
-- `qqmusic`: public QQ Music search and lyric endpoint.
+- `qqmusic`: QQ Music desktop catalogue search and lyric endpoint with legacy
+  endpoint fallback.
 - `kugou`: public Kugou search and lyric download endpoint.
 - `qishui`: user-configured HTTP endpoint supporting `{title}`, `{artist}`, and
   `{album}` placeholders.
@@ -119,6 +133,10 @@ Album artwork uses MPRIS first, then the matched lyric source when available.
 LRCLIB, Qishui, and Musixmatch matches use the public iTunes Search API as an
 artwork fallback. Cached covers retain their detected image format and the
 oldest files are removed after the cache reaches 80 covers.
+
+Runtime cache files are stored in `noctalia.pluginDataDir() .. "/cache"`, which
+honors `NOCTALIA_STATE_HOME` and survives plugin source updates. Existing
+source-local caches are not migrated; artwork is fetched again as needed.
 
 ## Credential warning
 
@@ -139,10 +157,12 @@ Per-widget settings control the fallback glyph, artist visibility, paused-state
 visibility, visibility when no lyrics are available, album-cover shape and size,
 primary, inactive, and secondary lyric colors, display mode, lyric layers,
 karaoke behavior, scrolling, fixed lyric width, transitions, typography, spacing,
-padding, cue text, and text alignment. Credential and source-specific fields are
-shown only when their matching source is selected; source order, credentials,
-polling, marquee metrics, player filters, and fine layout controls are under
-Advanced settings.
+padding, intro/interlude cue visibility and text, and text alignment. The Actions
+section lists the default left-click, right-click, and scroll bindings described
+above. Credential and source-specific fields are shown only when their matching
+source is selected; source order, credentials, polling, marquee metrics, player
+filters, cue timing thresholds, and fine layout controls are under Advanced
+settings.
 
 ### 1.5 configuration change
 
@@ -188,8 +208,14 @@ polling, marquee metrics, player filters, and fine padding.
 14. Layout: test `max_chars` and `text_alignment` with short and long lyrics,
     plus `padding_left`, `padding_right`, and `line_gap` on horizontal and vertical
     bars.
-15. LRCLIB selection: play a track with multiple results, briefly hover over the widget,
-    and switch between synchronized and plain entries without changing tracks.
+15. LRCLIB selection: play a track with multiple results, open the selector from
+    its shortcut or IPC, and switch between synchronized and plain entries without
+    changing tracks.
+16. Cues: toggle `show_cues` and verify the widget hides cue text but keeps lyrics
+    visible; adjust the cue thresholds under Advanced.
+17. Actions: open the widget's Actions section and confirm the left, right,
+    scroll-up, and scroll-down rows show the defaults above; rebind one, then
+    clear it to restore the default.
 
 ## External protocol
 

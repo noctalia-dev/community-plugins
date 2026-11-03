@@ -62,6 +62,22 @@ local PACKAGE_MANAGERS = {
   { command = "emerge", id = "emerge", label = "Portage", prefix = "pkexec emerge --ask=n " },
 }
 
+local function isNixos()
+  local osRelease = noctalia.readFile("/etc/os-release")
+  if type(osRelease) == "string" and osRelease:find("ID=nixos", 1, true) ~= nil then
+    return true
+  end
+  return noctalia.fileExists("/etc/NIXOS")
+end
+
+local function cacheFilePresent()
+  local info = noctalia.fileInfo(RAW_CACHE)
+  if type(info) == "table" and not info.isDir then
+    return true
+  end
+  return noctalia.fileExists(RAW_CACHE)
+end
+
 local function shellQuote(value)
   return "'" .. tostring(value):gsub("'", "'\\''") .. "'"
 end
@@ -720,7 +736,9 @@ end
 local function systemCollectorState(raw, source)
   local pluginDirectory = noctalia.pluginDir()
   local enabled = systemCollectorEnabled()
+  local isNixosSystem = isNixos()
   local installed = noctalia.fileExists(SYSTEM_LIBEXEC .. "/collect_raw.sh")
+    or (isNixosSystem and cacheFilePresent())
   local pkexecAvailable = noctalia.commandExists("pkexec")
   local reportedVersion = type(raw) == "table" and tostring(raw.collector_version or "") or ""
   local version = source == "system-cache" and reportedVersion or ""
@@ -735,8 +753,9 @@ local function systemCollectorState(raw, source)
   local status
   if not enabled then
     status = "disabled"
-  elseif installed and not noctalia.fileExists(manageScript) then
-    -- Older collectors did not include the fixed, root-owned lifecycle helper.
+  elseif installed and not isNixosSystem and not noctalia.fileExists(manageScript) then
+    -- Older collectors did not include the fixed, root-owned lifecycle helper;
+    -- a declarative NixOS collector never installs it.
     -- Ask for an upgrade rather than falling back to a shell or terminal.
     status = "upgrade-required"
   elseif source == "system-cache" and version == EXPECTED_COLLECTOR_VERSION then
@@ -748,6 +767,8 @@ local function systemCollectorState(raw, source)
   else
     status = "not-installed"
   end
+  local installCommand = not isNixosSystem and installScript ~= nil and pkexecAvailable
+      and "pkexec bash " .. shellQuote(installScript) .. " --interval-minutes " .. tostring(refreshMinutes) or nil
   return {
     enabled = enabled,
     installed = installed,
@@ -759,9 +780,9 @@ local function systemCollectorState(raw, source)
     helper_available = enabled
       and noctalia.fileExists(SYSTEM_LIBEXEC .. "/smart-action.sh"),
     authorization_available = pkexecAvailable,
-    install_command = installScript ~= nil and pkexecAvailable and "pkexec bash "
-      .. shellQuote(installScript)
-      .. " --interval-minutes " .. tostring(refreshMinutes) or nil,
+    is_nixos = isNixosSystem,
+    nixos_hint = isNixosSystem and noctalia.tr("collector.nixos_hint") or nil,
+    install_command = installCommand,
     uninstall_command = pkexecAvailable and ((noctalia.fileExists(uninstallScript)
       and "pkexec " .. shellQuote(uninstallScript))
       or (sourceUninstallScript ~= nil and "pkexec " .. shellQuote(sourceUninstallScript))) or nil,
@@ -993,8 +1014,9 @@ local function checkDependencies()
     end
   end
   table.sort(signatureParts)
+  local nixos = isNixos()
   local installCommand = nil
-  if manager ~= nil and #packages > 0 and noctalia.commandExists("pkexec") then
+  if not nixos and manager ~= nil and #packages > 0 and noctalia.commandExists("pkexec") then
     installCommand = manager.prefix .. table.concat(packages, " ")
   end
   local signature = table.concat(signatureParts, ",")
@@ -1014,6 +1036,8 @@ local function checkDependencies()
     install_command = installCommand,
     can_install = installCommand ~= nil,
     checking = dependencyProbe.running,
+    is_nixos = nixos,
+    nixos_hint = nixos and #missing > 0 and noctalia.tr("dependencies.nixos_hint") or nil,
   }
 end
 
