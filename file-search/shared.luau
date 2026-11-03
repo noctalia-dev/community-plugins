@@ -111,6 +111,15 @@ shared.LOCAL_FS = {
     ntfs3 = true, fuseblk = true, hfs = true, hfsplus = true, tmpfs = true,
 }
 
+-- Remote filesystems: pruned from the Search tab's whole-system walk, and from
+-- the Space scan while space_skip_network is on. Any FUSE type ("fuse",
+-- "fuse.<name>": rclone, sshfs, onedriver, gvfsd-fuse) counts too (see
+-- isRemote); fuseblk is a local block device (LOCAL_FS).
+shared.REMOTE_FS = {
+    nfs = true, nfs4 = true, cifs = true, smb3 = true, smbfs = true, davfs = true,
+    ceph = true, glusterfs = true, afs = true, ["9p"] = true, lustre = true,
+}
+
 -- Always pruned from a whole-system walk, whatever /proc/mounts says: kernel
 -- views and runtime state, never user files (and /proc alone is endless).
 shared.WHOLE_SKIP = { "/proc", "/sys", "/dev", "/run" }
@@ -181,6 +190,58 @@ end
 -- points a detached child's stdio at /dev/null itself.
 function shared.openPath(path)
     noctalia.runAsync({ "xdg-open", path })
+end
+
+-- file:// URI for a local path. Every byte outside the unreserved set is
+-- percent-encoded one byte at a time, which is also the correct encoding for
+-- the UTF-8 sequences of a non-ASCII name — and it leaves the result free of
+-- quotes and spaces, so it can be dropped into a GVariant literal as-is.
+local function fileUri(path)
+    return "file://" .. (path:gsub("[^%w%-%._~/]", function(byte)
+        return string.format("%%%02X", string.byte(byte))
+    end))
+end
+
+-- Show the entry in the system file manager: its containing folder opens with
+-- the entry itself selected, for a directory too (its parent opens, with the
+-- directory highlighted) — left click is what enters a directory.
+--
+-- ShowItems on the org.freedesktop.FileManager1 interface is the portable way
+-- to say "reveal this": Thunar, Nautilus, Dolphin, Nemo, Caja and PCManFM-Qt
+-- all implement it, and the session bus activates the handler on demand, so
+-- the file manager does not need to be running. When there is no such handler,
+-- or no gdbus at all (execvp failing is a 127 exit like any other), the
+-- fallback opens the containing folder through the MIME association, which is
+-- the same window minus the selection.
+--
+-- An argv (plugin_api >= 24) rather than a shell line: the GVariant literal
+-- carries a file name straight from the index and nothing parses it. That moves
+-- the `||` fallback out of the shell and into the callback.
+function shared.revealPath(path)
+    local parent = path:match("^(.*)/[^/]+$")
+    if parent == nil or parent == "" then
+        parent = "/"
+    end
+    local ok = noctalia.runAsync({
+        "gdbus",
+        "call",
+        "--session",
+        "--dest",
+        "org.freedesktop.FileManager1",
+        "--object-path",
+        "/org/freedesktop/FileManager1",
+        "--method",
+        "org.freedesktop.FileManager1.ShowItems",
+        '["' .. fileUri(path) .. '"]',
+        "",
+    }, function(result)
+        if result.exitCode ~= 0 or result.timedOut then
+            shared.openPath(parent)
+        end
+    end, 5000)
+    if not ok then
+        shared.openPath(parent)
+    end
 end
 
 -- ── fzf capability + scoring ─────────────────────────────────────────────────
@@ -468,11 +529,15 @@ end
 -- current now" and the later one knows more. In practice neither entry gets
 -- there — the panel serialises through requestReload and the launcher parks the
 -- query itself (probeBusy above).
-function shared.probeMounts(force, done)
+--
+-- `any` (the Space tab) probes whatever the scope: its scan of "/" needs the
+-- removable disks to exclude them.
+function shared.probeMounts(force, done, any)
     -- A whole-system walk needs the list too, to prune removable disks it would
     -- otherwise reach under /mnt or /media.
-    if shared.scope == "folder" and not shared.whole then
+    if shared.scope == "folder" and not shared.whole and not any then
         shared.mounts = {}
+        shared.mountsAt = 0 -- the list just emptied is not a fresh probe
         done()
         return
     end
@@ -555,13 +620,19 @@ function shared.computeRoots()
     return kept
 end
 
--- Paths a walk of "/" must not enter: the fixed kernel/runtime trees, every
--- mount whose filesystem is not in LOCAL_FS (network, FUSE, pseudo), and the
--- removable disks, which are either their own root or out of scope. Read from
--- /proc/mounts at build time only — not part of the fingerprint, so a mount
--- coming and going does not trigger a rebuild. A path nested in one already
--- pruned is dropped; find never gets there anyway.
-function shared.wholePrunePaths()
+local function isRemote(fstype)
+    return shared.REMOTE_FS[fstype] or fstype == "fuse" or fstype:sub(1, 5) == "fuse."
+end
+
+-- Paths a walk of "/" must not enter. Always: the fixed kernel/runtime trees
+-- and every pseudo mount (a filesystem neither in LOCAL_FS nor remote: proc,
+-- cgroup, overlay, squashfs…). opts.network adds the remote mounts (see
+-- isRemote), opts.external the removable disks (shared.mounts), which are
+-- either their own root or out of scope. Read from /proc/mounts at build time
+-- only — not part of the fingerprint, so a mount coming and going does not
+-- trigger a rebuild. A path nested in one already pruned is dropped; the walk
+-- never gets there anyway.
+function shared.prunePaths(opts)
     local list = {}
     for _, path in ipairs(shared.WHOLE_SKIP) do
         table.insert(list, path)
@@ -570,7 +641,7 @@ function shared.wholePrunePaths()
     if type(text) == "string" then
         for line in text:gmatch("[^\n]+") do
             local raw, fstype = line:match("^%S+%s+(%S+)%s+(%S+)")
-            if raw ~= nil and not shared.LOCAL_FS[fstype] then
+            if raw ~= nil and not shared.LOCAL_FS[fstype] and (opts.network or not isRemote(fstype)) then
                 local rejected = false
                 local path = raw:gsub("\\(%d%d%d)", function(octal)
                     local code = tonumber(octal, 8)
@@ -586,8 +657,10 @@ function shared.wholePrunePaths()
             end
         end
     end
-    for _, mount in ipairs(shared.mounts) do
-        table.insert(list, (mount:gsub("/+$", "")))
+    if opts.external then
+        for _, mount in ipairs(shared.mounts) do
+            table.insert(list, (mount:gsub("/+$", "")))
+        end
     end
     table.sort(list)
     local kept = {}
@@ -598,6 +671,11 @@ function shared.wholePrunePaths()
         end
     end
     return kept
+end
+
+-- The Search tab's whole-system walk: remote mounts and removable disks too.
+function shared.wholePrunePaths()
+    return shared.prunePaths({ network = true, external = true })
 end
 
 -- Everything that decides how the cache was built. Its two lists are joined
