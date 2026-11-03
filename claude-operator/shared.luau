@@ -318,8 +318,9 @@ local function inTerminal(cmd)
   return noctalia.runAsync(term .. " " .. sep .. " sh -lc " .. M.quote(cmd))
 end
 
--- Runs argv (or a shell when empty) in dir: a new tab in the most recently focused kitty
--- when no terminal is configured and kitty remote control is on, else in a terminal.
+-- Runs argv (or a shell when empty) in dir: a new tab (or, with open_in = "window", a new
+-- OS window) in the most recently focused kitty when no terminal is configured and kitty
+-- remote control is on, else in a terminal.
 function M.launch(dir, argv)
   argv = argv or {}
   local function fallback()
@@ -329,7 +330,9 @@ function M.launch(dir, argv)
     inTerminal(`cd {M.quote(dir)} && {run}`)
   end
   if trim(noctalia.getConfig("terminal")) ~= "" then return fallback() end
-  local cmd = { "bash", SCRIPTS .. "/launch.sh", dir }
+  local cmd = { "bash", SCRIPTS .. "/launch.sh" }
+  if noctalia.getConfig("open_in") == "window" then cmd[#cmd + 1] = "--window" end
+  cmd[#cmd + 1] = dir
   for _, a in ipairs(argv) do cmd[#cmd + 1] = a end
   if not noctalia.runAsync(cmd, function(r) if r.exitCode ~= 0 then fallback() end end, 15000) then fallback() end
 end

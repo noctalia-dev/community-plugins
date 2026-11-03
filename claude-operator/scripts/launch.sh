@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
-# launch.sh DIR [CMD...]: open a new tab in the most recently focused kitty, in DIR, running CMD
-# (followed by a shell so the tab survives CMD exiting) or just a shell.
+# launch.sh [--window] DIR [CMD...]: open a new tab in the most recently focused kitty, in DIR,
+# running CMD (followed by a shell so the tab survives CMD exiting) or just a shell. With
+# --window, a new kitty OS window instead of a tab.
 # Exits 10 when no kitty with remote control is available; the plugin then falls back to
 # Noctalia's configured terminal.
 . "$(dirname "$0")/wm.sh"
+type=tab
+[ "${1:-}" = --window ] && { type=os-window; shift; }
 dir=$1; shift
 command -v kitty >/dev/null || exit 10
 # Resolve a bare "claude" (possibly after `env CLAUDE_CONFIG_DIR=...`) to its full path: tabs and
@@ -17,8 +20,9 @@ wm_load
 kpids=$(wm_recent_pids kitty)
 [ -n "$kpids" ] || kpids=$(pgrep -n -x kitty; pgrep -x kitty)
 for kpid in $kpids; do
-  if kitty @ --to "unix:@kitty-$kpid" launch --type=tab --cwd="$dir" "$@" >/dev/null 2>&1; then
-    wm_focus_pid "$kpid"
+  if kitty @ --to "unix:@kitty-$kpid" launch --type="$type" --cwd="$dir" "$@" >/dev/null 2>&1; then
+    # A new OS window takes focus on its own; focusing by pid could pick an older window.
+    [ "$type" = tab ] && wm_focus_pid "$kpid"
     exit 0
   fi
 done
