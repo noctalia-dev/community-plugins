@@ -130,6 +130,7 @@ body:
         - imagemagick-clock
         - inhibit-idle-while-watching
         - input-echo-bar
+        - internal-keyboard
         - inventory-manager
         - ip-monitor
         - jalali_calendar
@@ -163,6 +164,7 @@ body:
         - media-island
         - media-lyrics
         - media-player-icon
+        - mic-denoise
         - mihomo-control
         - mimir
         - mini-docker
@@ -252,6 +254,7 @@ body:
         - run-path
         - saved-desktop-widgets
         - screen-capture
+        - screen-mirror
         - screen-toolkit
         - settings-to-nix
         - share-wifi
