@@ -7,6 +7,7 @@ Run from the repository root:
 ```sh
 python3 -m unittest discover -s phone-connect/tests -p 'test_*.py'
 lua phone-connect/tests/messaging.lua phone-connect
+lua phone-connect/tests/connection.lua phone-connect
 lua phone-connect/tests/panel.lua phone-connect
 lua phone-connect/tests/regressions.lua phone-connect service
 lua phone-connect/tests/regressions.lua phone-connect panel
@@ -24,6 +25,7 @@ send SMS messages, dismiss notifications, or change phone settings.
 | `test_bridge.py` contacts | Folded vCards, quoted-printable soft lines, base64 names, legacy charsets, multiple numbers and device-scoped caches. Embedded photos cover raster validation, size limits, remote URI rejection, private runtime files, replacement/removal and fallback. |
 | `test_bridge.py` transport | Large Unicode watch events reconstruct from bounded stream frames. Large one-shot request replies remain a single JSON object. |
 | `messaging.lua` | Duplicate/out-of-order messages, loaded-message search, failed-send draft retention, duplicate sends, device changes, reconnection, subscription ordering and late notification snapshots. A 700-message signal burst publishes once per tick; pending sends publish immediately; incomplete frames are discarded. |
+| `connection.lua` | Responsive idle phones, two missed replies, automatic discovery, global coalescing, retry backoff, expired callbacks, unsupported checks, opt-out, unpaired devices and missing helpers. Recovery never submits a message. |
 | `panel.lua` | Default-page options and fallback, collapsed/expanded contacts, number selection, inline device address, compact navigation and bounded history rendering. Large fixtures cover 1,000 contacts and 2,000 conversations, full-cache search, watched snapshot reuse and frame-coalesced updates. |
 | `regressions.lua` | Existing device controls, media interactions, persistence and panel behavior. |
 
@@ -32,9 +34,18 @@ guidance. Lua tests cover missing Python, a failed dependency probe, prompt
 command failure with draft retention, successful recovery, the notice on all
 three enhanced tabs, and Device actions while the helper is unavailable.
 
-All 19 Python tests and the Lua suites pass. Repository validation passes for
+All 23 Python tests and the Lua suites pass. Repository validation passes for
 299 manifests. Plugin lint reports no errors and one existing unused-setting
 warning for `migrated_notice`.
+
+Stalled-send regressions cover backend acceptance without phone confirmation,
+sent/failed/outbox records, wrong threads/recipients, cached records, late phone
+records, events arriving before method completion, edited drafts, disconnects,
+missing subprocess callbacks and ignoring expired callbacks. Watcher tests cover
+a silent but running helper and recovery after heartbeats resume. Device tests
+check that explicit Refresh reconnects before reading caches and that discovery
+failures remove stale reachable flags. Panel tests cover the waiting, unconfirmed
+and phone-sent labels. These checks use synthetic data, not real SMS sends.
 
 ## Completed native checks
 
@@ -64,6 +75,10 @@ Environment: Noctalia 5.4.0, KDE Connect 26.08.2, Hyprland and 1.333 display sca
 - Starting the isolated shell with `python3 -S` reproduced a missing PyGObject
   import without uninstalling packages. The panel displayed the dependency
   notice and package names, with an Open Device controls action.
+- A live media-status probe received a response from the currently paired phone.
+  This verifies the silent check without sending SMS or changing playback.
+  Automatic recovery through a real network outage remains to be verified;
+  disconnects, missing replies and retry scheduling are covered by synthetic tests.
 
 ## Live verification checklist
 

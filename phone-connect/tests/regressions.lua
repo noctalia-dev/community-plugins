@@ -52,6 +52,7 @@ local api = {
 		if callback then
 			table.insert(queue, { command = command, callback = callback })
 		end
+		return true
 	end,
 }
 local env = setmetatable({ noctalia = api }, { __index = _G })
@@ -98,6 +99,27 @@ if mode == "service" then
 		end
 	end
 	assert(refreshed, "Missing cellular report must use the defined CLI helper")
+	local nextCallback = #queue + 1
+	env.onIpc("refresh")
+	assert(
+		queue[nextCallback].command[1] == "kdeconnect-cli"
+			and queue[nextCallback].command[2] == "--refresh",
+		"Explicit Refresh must reconnect, not just reread cached properties"
+	)
+	assert(#queue == nextCallback, "Device reads must wait until the reconnect request completes")
+	queue[nextCallback].callback({ stdout = "()" })
+	local deviceList
+	for i = nextCallback + 1, #queue do
+		if queue[i].command:find(".devices false false", 1, true) then
+			deviceList = queue[i]
+		end
+	end
+	assert(deviceList, "Reconnect completion must refresh device properties")
+	deviceList.callback({ error = "unavailable" })
+	assert(
+		not values["pc.devices"].test_phone.isReachable,
+		"A failed discovery must not leave stale connected flags"
+	)
 elseif mode == "panel" then
 	local device = {
 		id = "test_phone",

@@ -10,7 +10,8 @@ local function t(key)
 	return table[key] or key
 end
 
-local messaging = require("./messaging-service.luau").start(noctalia)
+local messaging
+local connectionMonitor
 
 -- ── State contract (read by UI entries) ──────────────────────────────────────
 --   noctalia.state "pc.backend"   : { available=bool, name="KDE Connect"|"None",
@@ -221,6 +222,19 @@ local function publishDevices()
 	noctalia.state.set("pc.order", deviceOrder)
 end
 
+-- The watcher updates all surfaces immediately; polling also feeds connection
+-- loss back to messaging when a D-Bus signal was missed.
+messaging = require("./messaging-service.luau").start(noctalia, function(id, connected)
+	if devices[id] then
+		devices[id].isReachable = connected
+		publishDevices()
+	end
+end, function(id)
+	if connectionMonitor then
+		connectionMonitor.suspect(id)
+	end
+end)
+
 -- ── Persistent state (selected device) ──────────────────────────────────────
 -- noctalia.state is in-memory only and cleared when the plugin stops, so the
 -- last selected device, image paths and aliases are persisted to
@@ -423,6 +437,7 @@ local function fetchDeviceProps(id, cb)
 			d.isReachable = false
 		end
 		devices[id] = d
+		messaging.connection(id, d.isPaired == true and d.isReachable == true)
 		publishDevices()
 		if cb then
 			cb()
@@ -562,6 +577,11 @@ local function refreshDevices()
 			refreshing = false
 			if not res or res.error then
 				noctalia.log("[phone-connect] devices() failed: " .. (res and res.error or "nil"))
+				for id, device in pairs(devices) do
+					device.isReachable = false
+					messaging.connection(id, false)
+				end
+				publishDevices()
 				return
 			end
 			local ids = parseGdbusStringArray(res.stdout or "")
@@ -605,6 +625,23 @@ local function refreshDevices()
 		end
 	)
 end
+
+connectionMonitor = require("./connection-service.luau").start(noctalia, {
+	devices = function()
+		return devices
+	end,
+	publish = publishDevices,
+	refresh = function()
+		detectBackend()
+		refreshDevices()
+	end,
+	sync = function(id)
+		messaging.command({ op = "sync", device = id })
+	end,
+	bridgeReady = function()
+		return messaging.ready()
+	end,
+})
 
 -- ── Real-time media sync via gdbus monitor ──────────────────────────────────
 -- Polling (update()) covers state at a 1-30s cadence, but media title/position/
@@ -830,7 +867,7 @@ local function handleCommand(cmd)
 		end)
 	end
 	if op == "refresh" then
-		refreshDevices()
+		connectionMonitor.refresh(dev ~= "" and dev or nil)
 	elseif op == "select" then
 		noctalia.state.set("pc.selected", dev)
 		persistSelected(dev)
@@ -1032,6 +1069,7 @@ function update()
 	noctalia.setUpdateInterval(intervalMs())
 	pollPendingPick()
 	messaging.tick()
+	connectionMonitor.tick()
 	if secs <= 0 then
 		return
 	end -- disabled: skip auto-refresh
@@ -1063,7 +1101,7 @@ end
 --   event "cmd"  payload=json  -> execute a command table ({"op":"ring","device":"id"})
 function onIpc(event, payload)
 	if event == "refresh" then
-		refreshDevices()
+		handleCommand({ op = "refresh", device = noctalia.state.get("pc.selected") })
 	elseif event == "cmd" and payload then
 		local ok, cmd = pcall(noctalia.json.decode, payload)
 		if ok and type(cmd) == "table" then

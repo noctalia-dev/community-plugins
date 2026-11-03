@@ -52,9 +52,29 @@ list → conversation navigation. The panel uses the shell palette and an 800×6
 logical-pixel surface; Noctalia clamps it to the available output. Drafts survive
 tab/device changes and closing the panel, but not a plugin restart.
 
-Sending reports **accepted by KDE Connect**, not delivery. A failed/uncertain
-request retains the draft; check the phone before retrying an uncertain send.
-Existing thread replies preserve KDE Connect's recipient/SIM selection.
+SMS sending waits up to 30 seconds after KDE Connect accepts the request for a
+new matching sent record from the phone. Only that record clears the submitted
+draft; a failed or unconfirmed send keeps it. This is not a recipient delivery
+receipt. Notification replies still report **accepted by KDE Connect** because
+their sent history is not exposed. Check the phone before retrying an uncertain
+send to avoid duplicates. No messages are retried automatically. Existing thread
+replies preserve KDE Connect's recipient/SIM selection; a conversation missing
+from KDE Connect's cache must be refreshed and reopened before replying.
+
+Automatic reconnection is enabled by default. A quiet media-status request checks
+phone responsiveness about every 30 seconds without changing playback. Two
+consecutive failed checks trigger KDE Connect rediscovery; offline paired phones
+are retried too. Retries back off from 30 seconds to five minutes, with only one
+discovery request at a time. Recovery refreshes data but never resends messages,
+removes pairings, or restarts the daemon.
+
+The header shows **Connected** after a successful responsiveness check,
+**Checking connection…** after a missed reply, and **Reconnecting…** during
+recovery. **Link reported** means only KDE Connect's local connection flag is
+available, for example when the phone's media-control plugin is disabled. That
+flag can remain true when the phone stops responding. A connected phone can
+still have an unconfirmed SMS; check it on the phone before retrying. The header's
+Refresh action remains available for an immediate reconnect.
 
 ### Limits
 
@@ -107,6 +127,7 @@ for every compatible shell version; tested versions are listed in TESTING.md.
 | Setting | Default | Description |
 |---------|---------|-------------|
 | State Update Interval | 30 | Seconds between device refreshes; 0 disables polling. Messaging signals remain active. |
+| Automatically Reconnect | true | Check responsiveness and recover lost links with increasing delays. Independent of the device-property polling interval. |
 | Show Charging Fill | true | Highlight the bar widget when charging. |
 | Show Device Name | false | Show the selected device's name or alias in the bar. |
 | Battery Display | icon_and_percent | Icon, percentage, both, or neither. |
@@ -136,7 +157,7 @@ All commands require `device` where applicable.
 
 The service owns `pc.messaging`: device-keyed capabilities, contacts, threads,
 loaded messages, notifications, call events, pending operations, and results.
-Results are request-scoped; a successful request does not mean delivery.
+Results are request-scoped; a sent record does not mean recipient delivery.
 
 ## Notes
 
@@ -155,8 +176,9 @@ embedded supported photo, the row shows initials. Remote photo URLs are never fe
 
 Noctalia runs one helper stream plus short-lived helper requests. The host stops
 the stream on reload/disable. Device controls retain their `gdbus`,
-`kdeconnect-cli`, picker, `sleep`, and file-opener processes. Phone actions are
-only invoked from explicit UI/IPC commands. Message text is passed as an argument
+`kdeconnect-cli`, picker, `sleep`, and file-opener processes. Automatic recovery
+uses media-status reads and KDE Connect rediscovery. SMS, notification replies,
+and other phone actions require explicit UI/IPC commands. Message text is passed as an argument
 array, never interpreted by a shell. Do not log helper JSON: it contains personal data.
 **Process-argument trade-off:** API 24's `runAsync` has no stdin payload option.
 The request JSON therefore contains SMS/reply text in argv for the duration of
@@ -174,6 +196,7 @@ notification content, drafts, and search preferences live only in memory.
 ```sh
 python3 -m unittest discover -s phone-connect/tests -p 'test_*.py'
 lua phone-connect/tests/messaging.lua phone-connect
+lua phone-connect/tests/connection.lua phone-connect
 lua phone-connect/tests/panel.lua phone-connect
 lua phone-connect/tests/regressions.lua phone-connect service
 lua phone-connect/tests/regressions.lua phone-connect panel

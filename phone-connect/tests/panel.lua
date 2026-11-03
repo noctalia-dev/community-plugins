@@ -123,6 +123,25 @@ local function key(s)
 end
 env.onOpen()
 assert(#commands == 0, "Opening populated conversations must not trigger another full sync")
+text("status.link_reported")
+values["pc.devices"].a.connectionStatus = "connected"
+env.render()
+text("status.connected")
+values["pc.devices"].a.connectionStatus = "reconnecting"
+env.render()
+text("status.reconnecting")
+values["pc.devices"].a.connectionStatus = nil
+env.render()
+local beforeRefresh = #commands
+assert(find(function(n)
+	return n.props.tooltip == "chat.reconnect"
+end)).props.onClick()
+assert(
+	#commands == beforeRefresh + 1
+		and commands[#commands].op == "refresh"
+		and commands[#commands].device == "a",
+	"Reconnect must be a single ordered service command"
+)
 local deviceSelector = find(function(node)
 	return node.kind == "select"
 end)
@@ -144,7 +163,18 @@ assert(
 values["pc.messaging"].pending["a:sms:42"] = {}
 env.render()
 assert(not text("panel.sms_send").props.enabled)
+values["pc.messaging"].pending["a:sms:42"].confirming = true
+env.render()
+text("chat.confirming")
 values["pc.messaging"].pending = {}
+values["pc.messaging"].results["a:sms:42"] = { ok = false, message = "unconfirmed" }
+env.render()
+text("chat.unconfirmed")
+assert(text("panel.sms_send").props.enabled, "An uncertain send must unlock the retained draft")
+values["pc.messaging"].results["a:sms:42"] = { ok = true, message = "sent" }
+env.render()
+text("chat.phone_sent")
+values["pc.messaging"].results = {}
 text("chat.tab_contacts").props.onClick()
 assert(not find(function(n)
 	return n.props.text == "456"

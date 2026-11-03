@@ -34,6 +34,10 @@ class DependencyError(RuntimeError):
     """Actionable local setup guidance that is safe to show in the panel."""
 
 
+class PhoneUnavailable(ValueError):
+    """A fresh device property read established that phone actions are offline."""
+
+
 def unpack(value):
     """Recursively unwrap variants, including variants inside message structs."""
     if hasattr(value, "unpack"):
@@ -399,6 +403,51 @@ class Bridge:
             "icon": properties.get("iconPath", ""),
         }
 
+    def check_connection(self, device):
+        """Ask for media status and wait for a signal, never changing playback.
+
+        The method return only acknowledges a local D-Bus call. The subsequent
+        propertiesChanged signal normally follows the phone's reply, including
+        an empty/unchanged player list. KDE Connect has no nonce-based probe;
+        concurrent local media selection/art updates can also emit this signal.
+        """
+        loaded = unpack(self.call(self.path(device), DEVICE, "loadedPlugins"))[0]
+        if "kdeconnect_mprisremote" not in loaded:
+            return {"type": "health", "device": device, "supported": False}
+        responding = False
+        expired = False
+
+        def response(*_args):
+            nonlocal responding
+            responding = True
+            self.loop.quit()
+
+        def timeout():
+            nonlocal expired
+            expired = True
+            self.loop.quit()
+            return False
+
+        path, interface = self.path(device) + "/mprisremote", DEVICE + ".mprisremote"
+        subscription = self.bus.signal_subscribe(
+            SERVICE,
+            interface,
+            "propertiesChanged",
+            path,
+            None,
+            self.Gio.DBusSignalFlags.NONE,
+            response,
+        )
+        timer = self.GLib.timeout_add_seconds(8, timeout)
+        try:
+            self.call(path, interface, "requestPlayerList")
+            self.loop.run()
+        finally:
+            self.bus.signal_unsubscribe(subscription)
+            if not expired:
+                self.GLib.source_remove(timer)
+        return {"type": "health", "device": device, "supported": True, "responding": responding}
+
     def snapshot(self, device):
         """Read capabilities and current caches without fetching full SMS histories."""
         path = self.path(device)
@@ -436,7 +485,9 @@ class Bridge:
                 try:
                     items.append(self.notification(device, public_id))
                 except self.GLib.Error as exc:
-                    if not exc.matches(self.Gio.dbus_error_quark(), self.Gio.DBusError.UNKNOWN_OBJECT):
+                    if not exc.matches(
+                        self.Gio.dbus_error_quark(), self.Gio.DBusError.UNKNOWN_OBJECT
+                    ):
                         raise
                     # Dismissed between listing and reading.
             events.append({"type": "notifications", "device": device, "items": items})
@@ -451,8 +502,10 @@ class Bridge:
         device, operation = command.get("device", ""), command.get("op")
         path = self.path(device)
         if not self.available(device):
-            raise ValueError("Phone is disconnected or unpaired")
+            raise PhoneUnavailable("Phone is disconnected or unpaired")
         conversation_interface = DEVICE + ".conversations"
+        if operation == "connection_check":
+            return [self.check_connection(device)]
         if operation == "sync":
             events = self.snapshot(device)
             capabilities = events[0].get("capabilities", {})
@@ -492,6 +545,18 @@ class Bridge:
                     else []
                 )
                 if command.get("thread"):
+                    # KDE Connect versions can silently ignore a reply when the
+                    # thread vanished from its cache after a reconnect. Do not
+                    # fall back to a number: that would lose group/SIM context.
+                    records = unpack(
+                        self.call(path, conversation_interface, "activeConversations")
+                    )[0]
+                    if not any(
+                        decode_message(m)["thread"] == str(command["thread"]) for m in records
+                    ):
+                        raise ValueError(
+                            "Conversation is no longer synced. Refresh and reopen it before sending."
+                        )
                     self.call(
                         path,
                         conversation_interface,
@@ -679,17 +744,23 @@ def main():
     parser.add_argument("mode", choices=("watch", "request", "check"))
     parser.add_argument("command", nargs="?")
     args = parser.parse_args()
+    command = {}
     try:
         bridge = Bridge()
         if args.mode == "watch":
             bridge.watch()
         elif args.mode == "request":
-            write_response({"ok": True, "events": bridge.request(json.loads(args.command or "{}"))})
+            command = json.loads(args.command or "{}")
+            write_response({"ok": True, "events": bridge.request(command)})
         else:
             write_response({"ok": True})
         return 0
     except Exception as exc:
         response = {"type": "error", "ok": False, "message": safe_error(exc)}
+        if isinstance(exc, PhoneUnavailable) and args.mode == "request":
+            response["events"] = [
+                {"type": "connection", "device": command["device"], "connected": False}
+            ]
         if args.mode == "watch":
             emit(response)
         else:

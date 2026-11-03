@@ -30,6 +30,13 @@ min = 0
 max = 300
 
 [[setting]]
+key = "auto_reconnect"
+type = "bool"
+label_key = "settings.auto_reconnect.label"
+description_key = "settings.auto_reconnect.description"
+default = true
+
+[[setting]]
 key = "enable_charging_animation"
 type = "bool"
 label_key = "settings.enable_charging_animation.label"

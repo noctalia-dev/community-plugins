@@ -50,7 +50,7 @@ local function viewFor(id)
 end
 
 -- Targets include device and conversation/notification identity. rev changes
--- after an accepted send so the native input is recreated with cleared text.
+-- after a corroborated SMS (or accepted notification reply) to clear the input.
 local function draftFor(target)
 	local drafts = noctalia.state.get("pc.drafts") or {}
 	if not drafts[target] then
@@ -230,8 +230,7 @@ local function header(devices, order, device)
 		)
 	end
 	if device then
-		local status = device.isPaired and device.isReachable and "status.connected"
-			or "status.offline"
+		local status = Model.connectionLabel(device)
 		local info = t(status)
 		if type(device.batteryCharge) == "number" and device.batteryCharge >= 0 then
 			info = info .. " · " .. device.batteryCharge .. "%"
@@ -258,11 +257,8 @@ local function header(devices, order, device)
 	)
 	table.insert(
 		children,
-		icon("refresh", "action.refresh", function()
-			send({ op = "refresh" })
-			if device then
-				sync(device.id)
-			end
+		icon("refresh", "chat.reconnect", function()
+			send({ op = "refresh", device = device and device.id })
 		end)
 	)
 	table.insert(
@@ -274,7 +270,7 @@ local function header(devices, order, device)
 	return ui.row({ gap = 10, align = "center" }, children)
 end
 
--- Draft edits stay local. Only the service clears accepted text; pending
+-- Draft edits stay local. Only the service clears corroborated SMS text; pending
 -- requests disable the input and Send to prevent duplicate submissions.
 local function composer(id, target, state, command, allowed)
 	local draft = draftFor(target)
@@ -321,11 +317,23 @@ local function composer(id, target, state, command, allowed)
 	)
 	local children = { ui.row({ gap = 8, align = "end" }, controls) }
 	if pending then
-		table.insert(children, note(t("chat.sending")))
-	elseif result then
 		table.insert(
 			children,
-			note(result.ok and t("chat.accepted") or result.message, not result.ok)
+			note(t(state.pending[target].confirming and "chat.confirming" or "chat.sending"))
+		)
+	elseif result then
+		local messages = {
+			sent = "chat.phone_sent",
+			failed = "chat.phone_failed",
+			unconfirmed = "chat.unconfirmed",
+		}
+		table.insert(
+			children,
+			note(
+				messages[result.message] and t(messages[result.message])
+					or (result.ok and t("chat.accepted") or result.message),
+				not result.ok
+			)
 		)
 	end
 	return ui.column({

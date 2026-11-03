@@ -43,11 +43,26 @@ Model.reduce(d, { type = "connection", connected = false })
 assert(not d.connected and d.messages["42"], "Offline retains session history")
 Model.reduce(d, { type = "thread_removed", thread = "42" })
 assert(d.messages["42"] == nil and d.threads["42"] == nil)
+local candidate = message("new", 100000, "hello")
+candidate.type = 2
+assert(Model.matchesSend({ destination = "+1 (555) 0100", text = "hello" }, candidate, 100, {}))
+assert(not Model.matchesSend({ destination = "5550100", text = "hello" }, candidate, 100, {}))
+assert(
+	not Model.matchesSend({ thread = "42", text = "hello" }, candidate, 100, { ["42:new"] = true }),
+	"Cached records are not confirmations"
+)
+candidate.addresses = { "+15550100", "456" }
+assert(
+	not Model.matchesSend({ destination = "+15550100", text = "hello" }, candidate, 100, {}),
+	"A group record cannot confirm a single-recipient send"
+)
 
 -- Exercise the service with queued callbacks, including a switch/reconnect while a send is pending.
 local state, callbacks, streams, tokens = {}, {}, {}, {}
 local publications = 0
 local clock = 100
+local connections = {}
+local suspects = {}
 local api = {
 	state = {
 		get = function(k)
@@ -98,7 +113,15 @@ local env = setmetatable({
 		return Model
 	end,
 }, { __index = _G })
-local service = assert(loadfile(directory .. "/messaging-service.luau", "t", env))().start(api)
+local service = assert(loadfile(directory .. "/messaging-service.luau", "t", env))().start(
+	api,
+	function(id, connected)
+		connections[id] = connected
+	end,
+	function(id)
+		table.insert(suspects, id)
+	end
+)
 local function complete(ok, events)
 	local item = table.remove(callbacks, 1)
 	item.cb({
@@ -173,19 +196,150 @@ assert(
 service.command(command)
 emit({ type = "capabilities", device = "b", connected = true, capabilities = { messages = true } })
 complete(true)
+assert(
+	state["pc.drafts"]["a:sms:42"].text == "Keep this",
+	"Backend acceptance must retain SMS text"
+)
+assert(state["pc.messaging"].pending["a:sms:42"].confirming, "Wait for the phone after acceptance")
+local function sent(id, kind, thread, text, date)
+	local m = message(id, date or clock * 1000, text or "Keep this")
+	m.type = kind or 2
+	m.thread = thread or "42"
+	m.outgoing = true
+	return { type = "message", device = "a", message = m }
+end
+emit(sent("wrong-thread", 2, "99"))
+emit(sent("old", 2, "42", nil, 1))
+emit(sent("outbox", 4))
+assert(
+	state["pc.messaging"].pending["a:sms:42"],
+	"Wrong thread, old and outbox records cannot corroborate sent SMS"
+)
+emit(sent("confirmed"))
 assert(state["pc.drafts"]["a:sms:42"].text == "", "Result belongs to original device")
 assert(state["pc.drafts"]["a:sms:42"].rev == 1, "Success must re-key the uncontrolled input")
+assert(state["pc.messaging"].results["a:sms:42"].message == "sent")
+
+-- A vanished process callback must not leave the composer locked forever, and
+-- cannot complete a newer request after its own deadline has expired.
+state["pc.drafts"]["a:sms:42"].text = "Keep this"
+service.command(command)
+clock = clock + 16
+emit({ type = "heartbeat" })
+assert(not state["pc.messaging"].pending["a:sms:42"])
+assert(state["pc.drafts"]["a:sms:42"].text == "Keep this")
+service.command(command)
+complete(true) -- Late callback from the expired request.
+assert(
+	state["pc.messaging"].pending["a:sms:42"]
+		and not state["pc.messaging"].pending["a:sms:42"].confirming
+)
+emit(sent("before-return"))
+complete(true)
+assert(
+	state["pc.messaging"].results["a:sms:42"].message == "sent",
+	"Handle phone events before the process returns"
+)
+
+state["pc.drafts"]["a:sms:42"].text = "Keep this"
+service.command(command)
+complete(true)
+clock = clock + 31
+emit({ type = "heartbeat" })
+assert(state["pc.messaging"].results["a:sms:42"].message == "unconfirmed")
+assert(#suspects == 1 and suspects[1] == "a", "An unconfirmed SMS must schedule a health check")
+assert(
+	not state["pc.messaging"].pending["a:sms:42"] and #callbacks == 0,
+	"No automatic resend on confirmation timeout"
+)
+assert(state["pc.drafts"]["a:sms:42"].text == "Keep this")
+emit(sent("late-phone-record"))
+assert(state["pc.drafts"]["a:sms:42"].text == "", "A late phone record still corroborates the send")
+
+state["pc.drafts"]["a:sms:42"].text = "Keep this"
+service.command(command)
+complete(true)
+emit(sent("failed", 5))
+assert(not state["pc.messaging"].results["a:sms:42"].ok)
+assert(state["pc.drafts"]["a:sms:42"].text == "Keep this")
+
+service.command(command)
+complete(true)
+state["pc.drafts"]["a:sms:42"].text = "An edited draft"
+emit(sent("sent-after-edit"))
+assert(
+	state["pc.drafts"]["a:sms:42"].text == "An edited draft",
+	"Confirmation cannot clear edited text"
+)
+
+-- A thread composer and a new-message composer can address the same person.
+-- Repeated signals for one phone row must not confirm both submissions.
+service.command({ op = "sms_send", device = "a", thread = "42", text = "same", target = "a:one" })
+service.command({
+	op = "sms_send",
+	device = "a",
+	destination = "+15550100",
+	text = "same",
+	target = "a:two",
+})
+complete(true)
+complete(true)
+emit(sent("one-record", 2, "42", "same"))
+emit(sent("one-record", 2, "42", "same"))
+local remaining = state["pc.messaging"].pending
+assert(
+	(remaining["a:one"] ~= nil) ~= (remaining["a:two"] ~= nil),
+	"One record can corroborate only one send, even when repeated"
+)
+emit(sent("second-record", 2, "42", "same"))
+assert(not remaining["a:one"] and not remaining["a:two"])
+
 state["pc.drafts"]["a:sms:42"].text = "Keep this"
 service.command(command)
 emit({ type = "connection", device = "a", connected = false })
 complete(true)
 assert(state["pc.drafts"]["a:sms:42"].text == "Keep this", "Stale result must not clear draft")
 assert(not state["pc.messaging"].results["a:sms:42"].ok)
+emit(sent("after-disconnect"))
+assert(
+	state["pc.drafts"]["a:sms:42"].text == "Keep this",
+	"Old-connection signals cannot clear a draft"
+)
+service.connection("b", false)
+service.tick()
+assert(
+	not state["pc.messaging"].devices.b.connected,
+	"Device polling must update messaging connection state"
+)
+assert(connections.b == false, "Connection updates must reach device surfaces")
 emit({ type = "reset" })
 assert(not state["pc.messaging"].devices.b.connected)
 clock = clock + 40
 service.tick()
 assert(#callbacks == 1, "Dead stream should be restarted")
+
+-- A process that is still running can have a stalled event stream. Stop sends,
+-- retain drafts and recover reads when stream heartbeats resume.
+complete(true)
+emit({ type = "ready" })
+emit({ type = "capabilities", device = "a", connected = true, capabilities = { messages = true } })
+api.processMatches = function(cb)
+	cb(true)
+end
+clock = clock + 40
+service.tick()
+assert(not state["pc.messaging"].devices.a.connected)
+assert(state["pc.messaging"].bridgeStatus == "starting")
+service.command(command)
+assert(#callbacks == 0, "A stalled stream must defer SMS until subscriptions resume")
+-- The replacement watch is streams[2].
+streams[2](api.json.encode({ type = "heartbeat" }))
+service.tick()
+assert(state["pc.messaging"].bridgeStatus == "ready")
+assert(#callbacks > 0, "A resumed stream must release deferred requests and resync")
+api.processMatches = function(cb)
+	cb(false)
+end
 
 -- Dependency failures are published separately from phone connection state.
 state, callbacks, streams = {}, {}, {}

@@ -6,6 +6,7 @@
 |------|----------------|
 | `service.luau` | Service entry: device discovery, device/media controls, translations, saved aliases/images and command dispatch. Starts the messaging service and ticks it once per second. |
 | `messaging-service.luau` | Messaging lifecycle: Python helper startup, subscriptions, request deadlines, stale-result rejection, pending operations and published state. |
+| `connection-service.luau` | Silent phone checks, shared reconnect scheduling, retry backoff and connection-status labels. Never handles message sends. |
 | `messaging-model.luau` | Pure state reduction, message ordering, number normalization, contact-name lookup and search. No process or filesystem access. |
 | `bridge.py` | Typed session D-Bus calls/signals, vCard decoding and temporary contact-photo files. Supports `check`, `request` and `watch` modes. |
 | `panel.luau` | Panel lifecycle, shared snapshots, view preferences and tab builders. All three panel placements use this entry. |
@@ -15,9 +16,8 @@
 
 All files remain inside the single `phone-connect/` plugin directory, following
 the repository's layout. `tests/`, `screenshots/` and the development documents
-are supporting material, not runtime entries. The 28 tracked files total about
-850 KiB, including about 580 KiB of synthetic screenshots. They are included in
-the plugin checkout; only manifest entries and their required modules execute.
+are supporting material, not runtime entries. They are included in the plugin
+checkout; only manifest entries and their required modules execute.
 
 The backend owns phone data. Views issue commands and render shared snapshots;
 they do not call D-Bus or parse contact files directly.
@@ -34,7 +34,7 @@ Noctalia shared state is session memory, cleared when the plugin stops.
 | `pc.trTable` | Device service: flattened translation keys with English fallback. |
 | `pc.cmd` | UI/IPC command channel consumed by the service. Each command has an operation, optional device/arguments and a sequence number. |
 | `pc.messaging` | Messaging service: `{devices, pending, results, error, bridgeStatus}`. Device entries contain contacts, threads, fetched messages, notifications, calls, capabilities and loading state. |
-| `pc.drafts` | Panel edits; the messaging service clears accepted text. Maps a target to `{text, rev}`. |
+| `pc.drafts` | Panel edits; the service clears corroborated SMS text or accepted notification replies. Maps a target to `{text, rev}`. |
 | `pc.view` | Panel: active tab, compact mode and per-device selection/search/page preferences. |
 
 `messaging-model.luau` defines the device record. Its principal collections are:
@@ -106,8 +106,23 @@ device and thread or recipient; notification replies also include notification
 and reply-action identity. This isolates drafts and prevents duplicate sends.
 
 A successful helper request means backend acceptance. It does not establish
-delivery. Only an accepted SMS/reply clears its matching draft, and only if the
-text still equals the submitted text. Failed or uncertain requests retain text.
+delivery. SMS remains pending for up to 30 seconds after acceptance, waiting for
+an unseen sent (Android type 2) or failed (type 5) record with the submitted text
+and thread, or the exact single recipient for a new conversation. Its timestamp
+must be at least the submission time minus five seconds, allowing small clock
+differences. Records cached before submission, incoming messages, drafts,
+outbox/queued records, other threads and other devices cannot corroborate a send.
+This is best-effort correlation: KDE Connect exposes no per-request receipt ID,
+and a matching phone record still does not prove delivery to the recipient.
+
+Only a matching sent SMS, or an accepted notification reply, clears its draft,
+and only if the text still equals the submitted text. Failed or uncertain
+requests retain text. An unconfirmed SMS unlocks the composer with a warning;
+late matching records can still resolve it until another submission or a
+connection change. There are no automatic retries. Phone signals can arrive
+before the helper returns, so observation and method acceptance are tracked
+separately. A 15-second service deadline also unlocks a request whose subprocess
+callback never arrives; its eventual callback cannot complete a newer request.
 The draft revision changes on clearing so the native input is recreated with
 the new value; the host treats an input's `value` as its initial value.
 
@@ -116,7 +131,7 @@ device disconnect invalidates responses from the previous connection. A
 notification revision prevents a late snapshot from restoring a notification
 removed while that request was in flight.
 
-History requests wait until the watch subscription is ready. A request fetches
+History and SMS requests wait until the watch subscription is ready. A request fetches
 50 messages, with contents arriving through signals. The helper emits a
 heartbeat every 10 seconds. The service uses a 15-second subprocess timeout,
 12-second loading window, 15-second deferred-read deadline and 35-second watcher
@@ -126,6 +141,37 @@ an empty response does not establish that phone permissions are missing.
 Daemon owner changes rebuild the watch snapshot. If the helper exits, the
 service checks for a matching process before starting a replacement. Noctalia
 terminates owned streams when the service reloads or stops.
+
+Only watch output refreshes the subscription watchdog; request snapshots cannot
+mask a dead stream. A silent but running watcher invalidates sends and defers
+new SMS until stream events resume, then resynchronizes reads. Watch connection
+events update `pc.devices`; device polling feeds disconnects back to messaging
+and triggers a snapshot on reconnection. Discovery failures mark devices offline.
+The user-triggered Refresh runs `kdeconnect-cli --refresh` (global rediscovery)
+before local reads and the selected phone's sync. Neither daemon reachability
+nor a helper heartbeat verifies phone liveness, hence the **Link reported** label.
+
+`connection-service.luau` independently checks paired/reachable phones while the
+messaging watcher is ready. `bridge.py`'s internal `connection_check` request
+subscribes to the device's MPRIS `propertiesChanged` signal before invoking
+`requestPlayerList`, then waits up to eight seconds. A local method return alone
+is not success. [KDE Connect's implementation](https://github.com/KDE/kdeconnect-kde/blob/master/plugins/mprisremote/mprisremoteplugin.cpp)
+emits this signal for incoming player lists even when empty or unchanged. This
+does not change phone playback. It is a best-effort responsiveness check, not a
+nonce-based protocol: concurrent local player selection or album-art completion
+can also emit that signal. A missing media plugin is unsupported, not offline.
+
+Successful checks run about every 30 seconds. Two failed probes trigger global
+rediscovery. Offline paired devices also trigger it. A global 30-second cooldown
+and one in-flight reconnect prevent per-phone storms; each phone backs off from
+30 seconds to five minutes, resetting only after a successful check. CLI success
+does not establish recovery. `connectionStatus` on `pc.devices` drives Connected,
+Checking, Reconnecting or Link reported, independently of SMS outcomes. Pending
+requests have 15-second host deadlines and identity guards for late callbacks.
+An unconfirmed SMS schedules a new health check and read sync, not a resend or a
+forced reconnect of a responsive phone. `auto_reconnect=false` stops this
+automatic work; explicit Refresh still works. This setting is independent of
+`state_update_interval`, which controls local property polling.
 
 ## Rendering budget
 

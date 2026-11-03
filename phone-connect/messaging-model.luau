@@ -3,6 +3,19 @@
 -- This module performs no I/O. reduce mutates one device's session state.
 local MessageModel = {}
 
+function MessageModel.connectionLabel(device)
+	if device.isPaired and device.connectionStatus == "reconnecting" then
+		return "status.reconnecting"
+	elseif not (device.isPaired and device.isReachable) then
+		return "status.offline"
+	elseif device.connectionStatus == "connected" then
+		return "status.connected"
+	elseif device.connectionStatus == "checking" then
+		return "status.checking"
+	end
+	return "status.link_reported"
+end
+
 -- Maps use string IDs from bridge.py. Threads contain the latest message;
 -- messages[threadId][messageId] contains only history fetched in this session.
 function MessageModel.device()
@@ -82,6 +95,25 @@ function MessageModel.sorted(map, ascending)
 		return (a.date or 0) > (b.date or 0)
 	end)
 	return items
+end
+
+-- KDE Connect has no request receipt ID. A newly observed sent/failed SMS can
+-- corroborate a send, but neither the method return nor an outbox row can.
+function MessageModel.matchesSend(command, message, since, known)
+	if
+		(message.type ~= 2 and message.type ~= 5)
+		or message.body ~= command.text
+		or (message.date or 0) < since * 1000 - 5000
+		or known[message.thread .. ":" .. message.id]
+	then
+		return false
+	end
+	if command.thread then
+		return message.thread == command.thread
+	end
+	local addresses = message.addresses or {}
+	return #addresses == 1
+		and MessageModel.number(addresses[1]) == MessageModel.number(command.destination)
 end
 
 -- Merge snapshots and signals by identity. Older history must not replace a

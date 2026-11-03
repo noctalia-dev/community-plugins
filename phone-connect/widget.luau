@@ -25,7 +25,7 @@ end
 
 local function glyphFor(d)
 	-- connected = paired AND reachable; reachable alone is mere visibility
-	if not d or not (d.isPaired and d.isReachable) then
+	if not d or not (d.isPaired and d.isReachable) or d.connectionStatus == "reconnecting" then
 		return "phone-off"
 	end
 	local t = d.type
@@ -101,7 +101,8 @@ local function render()
 		}
 	else
 		-- connected = paired AND reachable; reachable alone is mere visibility
-		local reachable = d.isPaired == true and d.isReachable == true
+		local recovering = d.connectionStatus == "reconnecting"
+		local reachable = d.isPaired == true and d.isReachable == true and not recovering
 		local charge = d.batteryCharge
 		local charging = d.batteryCharging == true
 		local hasCharge = type(charge) == "number" and charge >= 0
@@ -150,7 +151,11 @@ local function render()
 			-- Offline status remains visible even when other elements are hidden.
 			table.insert(
 				kids,
-				ui.label({ text = t("status.offline"), fontSize = 10, color = "on_surface/0.5" })
+				ui.label({
+					text = t(recovering and "status.reconnecting" or "status.offline"),
+					fontSize = 10,
+					color = "on_surface/0.5",
+				})
 			)
 		end
 		children = kids

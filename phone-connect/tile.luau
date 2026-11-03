@@ -66,7 +66,11 @@ local function render()
 	shortcut.setEnabled(true)
 
 	-- connected = paired AND reachable; reachable alone is mere visibility
-	if
+	if d and d.isPaired and d.connectionStatus == "reconnecting" then
+		shortcut.setIcon("phone-off")
+		shortcut.setLabel(t("status.reconnecting"))
+		shortcut.setActive(false)
+	elseif
 		d
 		and d.isPaired
 		and d.isReachable
@@ -80,7 +84,7 @@ local function render()
 	else
 		shortcut.setIcon("device-mobile")
 		shortcut.setLabel(
-			n > 0 and (tostring(n) .. " " .. t("status.connected")) or t("status.no_devices")
+			n > 0 and (tostring(n) .. " · " .. t("status.link_reported")) or t("status.no_devices")
 		)
 		shortcut.setActive(n > 0)
 	end

@@ -224,7 +224,13 @@ class BridgeTests(unittest.TestCase):
         )
         obj.available = lambda device: True
         obj.calls = []
-        obj.call = lambda *args: obj.calls.append(args)
+
+        def call(*args):
+            obj.calls.append(args)
+            if args[2] == "activeConversations":
+                return Variant(([(1, "old", [("123",)], 1, 1, 1, 42, 3)],))
+
+        obj.call = call
         return obj
 
     def test_pagination_and_existing_thread_reply(self):
@@ -234,6 +240,84 @@ class BridgeTests(unittest.TestCase):
         obj.request({"op": "sms_send", "device": "phone", "thread": "42", "text": "hello"})
         self.assertEqual(obj.calls[-1][2], "replyToConversation")
         self.assertEqual(obj.calls[-1][-1], (42, "hello", []))
+
+    def test_connection_check_waits_for_signal_not_local_method_return(self):
+        for responds in (True, False):
+            with self.subTest(responds=responds):
+                obj = self.fake_bridge()
+                callbacks, order, cleanup = {}, [], []
+
+                def subscribe(*args):
+                    order.append("subscribe")
+                    self.assertEqual(args[2], "propertiesChanged")
+                    self.assertEqual(args[3], obj.path("phone") + "/mprisremote")
+                    callbacks["signal"] = args[-1]
+                    return 7
+
+                def timer(seconds, callback):
+                    self.assertEqual(seconds, 8)
+                    callbacks["timeout"] = callback
+                    return 8
+
+                def call(path, interface, method):
+                    order.append(method)
+                    if method == "loadedPlugins":
+                        return Variant((["kdeconnect_mprisremote"],))
+
+                obj.call = call
+                obj.bus = SimpleNamespace(
+                    signal_subscribe=subscribe, signal_unsubscribe=cleanup.append
+                )
+                obj.Gio.DBusSignalFlags = SimpleNamespace(NONE=0)
+                obj.GLib.timeout_add_seconds = timer
+                obj.GLib.source_remove = cleanup.append
+                obj.loop = SimpleNamespace(
+                    run=lambda: callbacks["signal" if responds else "timeout"](), quit=lambda: None
+                )
+                self.assertEqual(
+                    obj.request({"op": "connection_check", "device": "phone"}),
+                    [
+                        {
+                            "type": "health",
+                            "device": "phone",
+                            "supported": True,
+                            "responding": responds,
+                        }
+                    ],
+                )
+                self.assertEqual(order, ["loadedPlugins", "subscribe", "requestPlayerList"])
+                self.assertEqual(cleanup, [7, 8] if responds else [7])
+
+    def test_connection_check_skips_disabled_media_plugin(self):
+        obj = self.fake_bridge()
+        obj.call = lambda *_: Variant(([],))
+        self.assertEqual(
+            obj.request({"op": "connection_check", "device": "phone"}),
+            [{"type": "health", "device": "phone", "supported": False}],
+        )
+
+    def test_missing_conversation_cannot_silently_accept_reply(self):
+        obj = self.fake_bridge()
+        with self.assertRaisesRegex(ValueError, "no longer synced"):
+            obj.request({"op": "sms_send", "device": "phone", "thread": "99", "text": "hi"})
+        self.assertEqual([call[2] for call in obj.calls], ["activeConversations"])
+
+    def test_offline_request_reports_connection_loss(self):
+        output = io.StringIO()
+        with (
+            patch.object(bridge, "Bridge") as backend,
+            patch("sys.argv", ["bridge.py", "request", '{"op":"sms_send","device":"phone"}']),
+            patch("sys.stdout", output),
+        ):
+            backend.return_value.request.side_effect = bridge.PhoneUnavailable(
+                "Phone is disconnected"
+            )
+            self.assertEqual(bridge.main(), 1)
+        response = json.loads(output.getvalue())
+        self.assertFalse(response["ok"])
+        self.assertEqual(
+            response["events"], [{"type": "connection", "device": "phone", "connected": False}]
+        )
 
     def test_expired_notification_and_offline_actions(self):
         obj = self.fake_bridge()

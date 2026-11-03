@@ -140,6 +140,10 @@
     "state_update_interval": {
       "description": "Seconds between automatic device state refreshes. 0 disables auto-refresh.",
       "label": "State Update Interval"
+    },
+    "auto_reconnect": {
+      "label": "Automatically Reconnect",
+      "description": "Check phone responsiveness and retry lost connections with increasing delays. Messages are never resent automatically."
     }
   },
   "status": {
@@ -148,7 +152,10 @@
     "no_devices": "No devices",
     "not_paired": "Not paired",
     "offline": "Offline",
-    "unavailable": "Unavailable"
+    "unavailable": "Unavailable",
+    "link_reported": "Link reported",
+    "reconnecting": "Reconnecting…",
+    "checking": "Checking connection…"
   },
   "chat": {
     "tab_messages": "Messages",
@@ -208,6 +215,11 @@
     "newer_messages": "Newer messages",
     "expand_contact": "Show phone numbers",
     "collapse_contact": "Hide phone numbers",
-    "numbers_count": "{count} numbers"
+    "numbers_count": "{count} numbers",
+    "reconnect": "Reconnect and refresh",
+    "confirming": "Waiting for a sent message from the phone…",
+    "phone_sent": "Phone reports this message as sent. Recipient delivery is not confirmed.",
+    "phone_failed": "Phone reports this message failed. Draft kept; check the phone before retrying.",
+    "unconfirmed": "SMS not confirmed. The phone may still be connected. Draft kept; check it on the phone before retrying."
   }
 }
