@@ -5408,3 +5408,16 @@ icon = "usb"
 description = "USB drives, SD cards and optical media: mount, unlock, open, and remove them safely with one click."
 plugin_api = 43
 tags = ["bar", "panel", "service", "hardware", "system", "utility"]
+
+[[plugin]]
+id = "0b10headedcalf/obsidian-vault-switcher"
+name = "Obsidian Vault Switcher"
+version = "1.0.0"
+updated_at = 1793735057
+added_at = 1793735057
+author = "0b10headedcalf"
+license = "MIT"
+icon = "book"
+description = "Find and open Obsidian vaults from the launcher."
+plugin_api = 43
+tags = ["launcher", "productivity", "utility"]
