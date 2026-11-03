@@ -302,6 +302,7 @@ body:
         - todoist-manager
         - token-monitor
         - topgrade-wrapper
+        - typing-stats
         - udiskie
         - um5606_fan_state
         - umami
