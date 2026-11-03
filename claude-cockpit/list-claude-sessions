@@ -80,10 +80,12 @@ write_meta_json() {
     ' > "$out"
 }
 
-# One session file -> "$WORKDIR/<id>.json". It runs in parallel (see below),
-# so it only writes files named after its own session id.
+# One session file -> "$WORKDIR/<projectDir>__<id>.json". It runs in parallel
+# (see below), so it only writes files named after its own project folder AND
+# session id: the same id can exist in two project folders (a session resumed
+# from another directory), and two jobs must never share a work folder.
 process_file() {
-    local file="$1" id stat_out mtime size project_dir sess_dir empty
+    local file="$1" id stat_out mtime size project_dir key sess_dir empty
     id=$(basename "$file" .jsonl)
     # A session id is always a UUID; anything else is not a file this
     # script understands (and never one worth building a path out of).
@@ -93,8 +95,9 @@ process_file() {
     mtime="${stat_out%% *}"
     size="${stat_out##* }"
     project_dir=$(basename "$(dirname "$file")")
+    key="${project_dir}__${id}"
 
-    sess_dir="$WORKDIR/work-$id"
+    sess_dir="$WORKDIR/work-$key"
     mkdir -p "$sess_dir"
 
     # A session nobody wrote to (opened and closed at once) holds only
@@ -113,7 +116,7 @@ process_file() {
     write_meta_json "$file" "$sess_dir/meta.json"
 
     jq -s 'add' "$sess_dir/base.json" "$sess_dir/head.json" "$sess_dir/meta.json" \
-        > "$WORKDIR/$id.json" 2>/dev/null || true
+        > "$WORKDIR/$key.json" 2>/dev/null || true
     rm -rf "$sess_dir"
 }
 
@@ -134,5 +137,8 @@ SESSION_FILES=("$WORKDIR"/*.json)
 if [ ${#SESSION_FILES[@]} -eq 0 ]; then
     jq -n '{ generatedAt: (now | floor), sessions: [] }'
 else
-    jq -s '{ generatedAt: (now | floor), sessions: . }' "${SESSION_FILES[@]}"
+    # One entry per session id: when the same id sits in two project folders
+    # the panel (keys, running marker) cannot tell them apart, so keep the
+    # copy that was written last.
+    jq -s '{ generatedAt: (now | floor), sessions: (group_by(.id) | map(max_by(.mtime))) }' "${SESSION_FILES[@]}"
 fi

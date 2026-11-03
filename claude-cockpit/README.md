@@ -90,7 +90,11 @@ project directory. The search box filters by title, prompt or path.
 | Key      | Action                                                      |
 | ---      | ---                                                         |
 | ↑ / ↓    | Move the selection through projects and sessions. Hold to repeat. |
-| `Return` or keypad `Enter` | Resume the selected session, or open or close the selected project. |
+| `Return` or keypad `Enter` | Resume the selected session, open or close the selected project, or draw more sessions when **Show N more** is selected. |
+
+A project draws its first 20 sessions. When it has more, a **Show N more**
+row ends the list: ↑ / ↓ reach it like any other row, and `Return` (or a click)
+draws the next 20.
 
 The list scrolls to keep the selection in view. The keys work on this tab
 only.

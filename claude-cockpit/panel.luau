@@ -994,7 +994,9 @@ local function renderSessionsTab()
         -- Clamp after the filter shrank the list, then draw with the final sel.
         local total = 0
         for _, entry in ipairs(shown) do
-            total += 1 + (expandedGroups[entry.cwd] == true and math.min(#entry.matches, groupLimit(entry.cwd)) or 0)
+            local drawn = expandedGroups[entry.cwd] == true and math.min(#entry.matches, groupLimit(entry.cwd)) or 0
+            -- +1 for the project row, +1 for its "Show N more" row when it has one.
+            total += 1 + drawn + ((drawn > 0 and drawn < #entry.matches) and 1 or 0)
         end
         sel = math.max(1, math.min(sel, total))
         local revealKey = nil
@@ -1025,14 +1027,19 @@ local function renderSessionsTab()
                 end
                 if drawn < #entry.matches then
                     local remaining = #entry.matches - drawn
+                    local function showMore()
+                        groupShown[group.cwd] = limit + GROUP_PAGE
+                        render()
+                    end
+                    -- A navigation row like the others, so ↑ / ↓ reach it and
+                    -- Return draws the next page; the selection then lands on
+                    -- the first new session.
                     table.insert(rows, ui.button({
                         key = "more-" .. group.cwd,
                         text = tr("show_more", { n = math.min(remaining, GROUP_PAGE), total = remaining }),
                         variant = "ghost", controlSize = "sm",
-                        onClick = function()
-                            groupShown[group.cwd] = limit + GROUP_PAGE
-                            render()
-                        end,
+                        selected = track("more-" .. group.cwd, showMore),
+                        onClick = showMore,
                     }))
                 end
             end
