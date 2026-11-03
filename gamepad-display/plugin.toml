@@ -1,0 +1,131 @@
+# Live controller display for Noctalia Shell.
+#
+# Two headless services run in the background: an evdev input reader (which
+# publishes button / stick / trigger state for the desktop card) and the battery
+# reader. The desktop widget shows the active pad, its artwork, and live input.
+
+id           = "tylorismusic/gamepad-display"
+name         = "Gamepad Display"
+version      = "1.3.0"
+plugin_api   = 17
+author       = "tylorismusic"
+license      = "MIT"
+icon         = "device-gamepad-2"
+description  = "Live controller button, stick, trigger and D-pad display with battery level and artwork."
+tags         = ["gaming", "hardware", "desktop", "indicator"]
+dependencies = ["python3"]
+
+# Shared by the service (notifications) and the desktop widget (low state).
+[[setting]]
+key             = "low_threshold"
+type            = "int"
+label_key       = "settings.low_threshold.label"
+description_key = "settings.low_threshold.description"
+default         = 20
+min             = 0
+max             = 100
+step            = 1
+
+[[setting]]
+key             = "notify_low"
+type            = "bool"
+label_key       = "settings.notify_low.label"
+description_key = "settings.notify_low.description"
+default         = true
+
+# Headless HID / ds4u IPC reader. One instance per plugin, started by Noctalia.
+[[service]]
+id    = "battery"
+entry = "battery.luau"
+
+# Live input reader (kernel evdev node, no hidraw). Runs next to the battery
+# service; it never opens hidraw, so ds4u and the battery daemon are unaffected.
+[[service]]
+id    = "listener"
+entry = "inputs.luau"
+
+# The live button / stick / trigger card.
+[[desktop_widget]]
+id    = "inputs"
+entry = "inputs_card.luau"
+
+  [[desktop_widget.setting]]
+  key             = "accent_color"
+  type            = "color"
+  label_key       = "settings.accent_color.label"
+  description_key = "settings.accent_color.description"
+  default         = "primary"
+
+  [[desktop_widget.setting]]
+  key             = "text_color"
+  type            = "color"
+  label_key       = "settings.inputs_text_color.label"
+  description_key = "settings.inputs_text_color.description"
+  default         = "on_surface"
+
+  [[desktop_widget.setting]]
+  key             = "muted_text_color"
+  type            = "color"
+  label_key       = "settings.inputs_muted_text_color.label"
+  description_key = "settings.inputs_muted_text_color.description"
+  default         = "on_surface_variant"
+
+  [[desktop_widget.setting]]
+  key             = "show_battery"
+  type            = "bool"
+  label_key       = "settings.show_battery.label"
+  description_key = "settings.show_battery.description"
+  default         = true
+
+  [[desktop_widget.setting]]
+  key             = "illustration_color"
+  type            = "color"
+  label_key       = "settings.illustration_color.label"
+  description_key = "settings.illustration_color.description"
+  default         = "#e8ebef"
+
+  [[desktop_widget.setting]]
+  key             = "controller_body_color"
+  type            = "color"
+  label_key       = "settings.controller_body_color.label"
+  description_key = "settings.controller_body_color.description"
+  default         = "#2c3035"
+
+  [[desktop_widget.setting]]
+  key             = "controller_body_opacity"
+  type            = "double"
+  label_key       = "settings.controller_body_opacity.label"
+  description_key = "settings.controller_body_opacity.description"
+  default         = 1.0
+  min             = 0.0
+  max             = 1.0
+  step            = 0.05
+
+  [[desktop_widget.setting]]
+  key             = "controller_stroke_width"
+  type            = "double"
+  label_key       = "settings.controller_stroke_width.label"
+  description_key = "settings.controller_stroke_width.description"
+  default         = 2.8
+  min             = 0.5
+  max             = 8.0
+  step            = 0.1
+
+  [[desktop_widget.setting]]
+  key             = "vertical_layout"
+  type            = "bool"
+  label_key       = "settings.vertical_layout.label"
+  description_key = "settings.vertical_layout.description"
+  default         = false
+
+  [[desktop_widget.setting]]
+  key             = "display_mode"
+  type            = "select"
+  label_key       = "settings.display_mode.label"
+  description_key = "settings.display_mode.description"
+  default         = "full"
+  options         = [
+    { value = "battery", label_key = "settings.display_mode.option.battery" },
+    { value = "compact", label_key = "settings.display_mode.option.compact" },
+    { value = "full",    label_key = "settings.display_mode.option.full" },
+  ]
