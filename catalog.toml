@@ -3060,8 +3060,8 @@ rev = "7b1754a22ce76a92edb98fd498ad40aa4a0a3371"
 [[plugin]]
 id = "nightwatch75/claude-cockpit"
 name = "Claude Cockpit"
-version = "1.1.4"
-updated_at = 1792983494
+version = "1.1.5"
+updated_at = 1793734766
 added_at = 1789089483
 author = "nightwatch75"
 license = "MIT"
@@ -4514,15 +4514,21 @@ tags = ["bar", "panel", "indicator", "countdown"]
 [[plugin]]
 id = "tordex/xwayland"
 name = "XWayland Indicator"
-version = "1.0.0"
-updated_at = 1791761127
+version = "1.1.0"
+updated_at = 1793734787
 added_at = 1791761127
 author = "tordex"
 license = "MIT"
 icon = "circle-letter-x"
 description = "Indicator showing whether the active window is using XWayland in Umbriel"
-plugin_api = 28
+plugin_api = 45
 tags = ["umbriel", "bar", "utility"]
+
+[[plugin.release]]
+plugin_api = 28
+version = "1.0.0"
+updated_at = 1791761127
+rev = "6cb9117288c06ba950e9e34935059e2c0291f88b"
 
 [[plugin]]
 id = "omertahaoztop/neuralwatt"
