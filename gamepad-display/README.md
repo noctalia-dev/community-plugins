@@ -120,6 +120,8 @@ from the input service so it also works for 8BitDo and XInput pads.
 - Read access to the kernel evdev nodes (`/dev/input/event*`)
 - Optional: [`ds4u`](https://git.yokai.digital/deadYokai/ds4u) for Sony battery
   IPC and profile/rumble features
+- Optional: `busctl` (systemd) for reading the battery level from BlueZ when a
+  pad exposes no battery node of its own
 - Optional: the udev rule below if you want the battery service to read
   DualSense hidraw nodes directly
 
