@@ -1,0 +1,73 @@
+id = "fr4j4/hyprland-minimize"
+name = "Minimize Windows"
+version = "0.1.0"
+plugin_api = 32
+author = "fr4j4"
+license = "MIT"
+icon = "arrows-diagonal-minimize-2"
+description = "Minimize windows to a Hyprland special workspace and restore them from a bar widget, a panel or keybinds."
+tags = ["bar", "panel", "service", "hyprland", "utility"]
+dependencies = ["hyprctl", "socat"]
+
+# Where a restored window goes: the current workspace or the one it was minimized from.
+[[setting]]
+key             = "restore_to"
+type            = "select"
+label_key       = "settings.restore_to.label"
+description_key = "settings.restore_to.description"
+default         = "current"
+options         = [
+  { value = "current", label_key = "settings.restore_to.current" },
+  { value = "origin", label_key = "settings.restore_to.origin" },
+]
+
+[[service]]
+id    = "service"
+entry = "service.luau"
+
+[[widget]]
+id    = "bar"
+entry = "bar.luau"
+
+  [[widget.setting]]
+  key             = "mode"
+  type            = "select"
+  label_key       = "settings.mode.label"
+  description_key = "settings.mode.description"
+  default         = "auto"
+  options         = [
+    { value = "auto", label_key = "settings.mode.auto" },
+    { value = "list", label_key = "settings.mode.list" },
+    { value = "button", label_key = "settings.mode.button" },
+  ]
+
+  [[widget.setting]]
+  key             = "max_items"
+  type            = "int"
+  label_key       = "settings.max_items.label"
+  description_key = "settings.max_items.description"
+  default         = 5
+  min             = 1
+  max             = 12
+
+  [[widget.setting]]
+  key             = "show_titles"
+  type            = "bool"
+  label_key       = "settings.show_titles.label"
+  description_key = "settings.show_titles.description"
+  default         = true
+
+  [[widget.setting]]
+  key             = "hide_when_empty"
+  type            = "bool"
+  label_key       = "settings.hide_when_empty.label"
+  description_key = "settings.hide_when_empty.description"
+  default         = true
+
+[[panel]]
+id        = "list"
+entry     = "list.luau"
+width     = 420
+height    = 380
+placement = "attached"
+position  = "auto"
