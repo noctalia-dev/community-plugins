@@ -128,7 +128,7 @@ from the input service so it also works for 8BitDo and XInput pads.
 ### Input permissions
 
 Most desktops grant the active seat access to input devices automatically via
-`uaccess` ACLs. If the widget stays on “Waiting for controller”, check the
+`uaccess` ACLs. If the widget only shows the dim gamepad icon and never a controller, check the
 nodes and test one:
 
 ```bash
@@ -269,7 +269,7 @@ journalctl --user -f | grep -i dualsense
 
 | Symptom | Fix |
 | --- | --- |
-| “Waiting for controller” | Check `/dev/input/event*` permissions with `evtest`; the daemon rescans every 2 seconds |
+| Only the dim gamepad icon is shown | No pad is being detected: check `/dev/input/event*` permissions with `evtest`; the daemon rescans every 2 seconds |
 | Wrong controller shown | Touch or press the pad you want; the last active pad wins |
 | No battery on an 8BitDo USB receiver | The xpad receiver exposes no battery node; Bluetooth mode reports battery through BlueZ |
 | DualShock 4 over Bluetooth not detected | Use USB; the DS4 does not answer BlueZ's generic SDP browse reliably |

@@ -92,6 +92,19 @@ local function resolve_color(value, fallback)
   return fallback
 end
 
+-- Resolve the colour roles once per load. Theme-derived colours can drift
+-- while the session runs (the scheme follows the wallpaper), and re-resolving
+-- them on every state update would key the art cache on a new colour each time
+-- and force a full SVG rebuild inside the callback budget.
+local PALETTE = {
+  line = resolve_color(settings.illustration_color, "#e8ebef"),
+  body = resolve_color(settings.controller_body_color, "#2c3035"),
+  lightbar = resolve_color(settings.accent_color, "#4a90e2"),
+}
+if not valid_hex(PALETTE.line) then PALETTE.line = "#e8ebef" end
+if not valid_hex(PALETTE.body) then PALETTE.body = "#2c3035" end
+if not valid_hex(PALETTE.lightbar) then PALETTE.lightbar = "#4a90e2" end
+
 -- Palette role tokens take "/alpha", hex colours need an #RRGGBBAA suffix.
 local function with_alpha(color, alpha)
   if type(color) ~= "string" then
@@ -125,21 +138,31 @@ local ART = {
 
 local art_cache = {}
 
+-- Families that share a template also share the static art file: edge and ds4
+-- are drawn with the DualSense artwork (as live mode already does), and 8bitdo
+-- with the Xbox artwork.
+local function static_key(key)
+  if key == "edge" or key == "ds4" then
+    return "dualsense"
+  elseif key == "8bitdo" then
+    return "xinput"
+  end
+  return key
+end
+
 local function controller_art(model)
   local key = type(model) == "string" and model or "dualsense"
   local entry = ART[key] or ART.dualsense
-  local line = resolve_color(settings.illustration_color, "#e8ebef")
-  local body = resolve_color(settings.controller_body_color, "#2c3035")
-  local lightbar = resolve_color(settings.accent_color, "#4a90e2")
-  if not valid_hex(line) then
-    line = "#e8ebef"
+  key = static_key(ART[key] and key or "dualsense")
+  -- Once warmed at load, the art path is stable for the session. Returning it
+  -- from memory keeps every render and state callback off the file system.
+  local cached = art_cache[key]
+  if cached then
+    return cached
   end
-  if not valid_hex(body) then
-    body = "#2c3035"
-  end
-  if not valid_hex(lightbar) then
-    lightbar = "#4a90e2"
-  end
+  local line = PALETTE.line
+  local body = PALETTE.body
+  local lightbar = PALETTE.lightbar
   local stroke = settings.controller_stroke_width
   if type(stroke) ~= "number" or stroke <= 0 then
     stroke = 2.8
@@ -229,12 +252,13 @@ local function controller_art(model)
   return path
 end
 
--- Generate the active family's static art while the load budget is available,
--- so the first state callback only has to pick a cached path. The other
--- families are generated on demand if a different pad is connected.
-local function warm_static(model)
-  local key = type(model) == "string" and model or "dualsense"
-  controller_art(ART[key] and key or "dualsense")
+-- Generate the static art for every template family while the load budget is
+-- available, so a state callback never has to build a new SVG. The files are
+-- reused on later loads, and the palette is fixed for the session.
+local function warm_static()
+  for _, key in ipairs({ "dualsense", "xinput" }) do
+    controller_art(key)
+  end
 end
 
 local function fresh()
@@ -340,12 +364,9 @@ local function live_base(model, line, body, lightbar, stroke_text, grip_text, op
 end
 
 local function live_colors(model)
-  local line = resolve_color(settings.illustration_color, "#e8ebef")
-  local body = resolve_color(settings.controller_body_color, "#2c3035")
-  local lightbar = resolve_color(settings.accent_color, "#4a90e2")
-  if not valid_hex(line) then line = "#e8ebef" end
-  if not valid_hex(body) then body = "#2c3035" end
-  if not valid_hex(lightbar) then lightbar = "#4a90e2" end
+  local line = PALETTE.line
+  local body = PALETTE.body
+  local lightbar = PALETTE.lightbar
   local stroke = settings.controller_stroke_width
   if type(stroke) ~= "number" or stroke <= 0 then stroke = 2.8 end
   local opacity = settings.controller_body_opacity
@@ -990,26 +1011,27 @@ end
 
 local function placeholder()
   local s = type(current_state) == "table" and current_state or {}
-  local text = noctalia.tr("inputs.waiting")
+  local children = {
+    ui.glyph({
+      key = "placeholder-glyph",
+      name = "device-gamepad-2",
+      size = 22,
+      color = settings.muted_text_color,
+      opacity = 0.5,
+    }),
+  }
+  -- No controller is a quiet idle state: show only the dim glyph. Keep the
+  -- message for a genuinely broken install so the missing dependency is
+  -- still discoverable.
   if s.error == "python3" then
-    text = noctalia.tr("status.no_python")
-  end
-  return ui.column({ key = "placeholder", width = CARD_W, gap = 4, align = "center", paddingV = 10 }, {
-    ui.glyph({ key = "placeholder-glyph", name = "device-gamepad-2", size = 22, color = settings.muted_text_color, opacity = 0.7 }),
-    ui.label({
+    table.insert(children, ui.label({
       key = "placeholder-text",
-      text = text,
+      text = noctalia.tr("status.no_python"),
       fontSize = 10,
       color = settings.muted_text_color,
-    }),
-    ui.label({
-      key = "placeholder-hint",
-      text = noctalia.tr("inputs.hint"),
-      fontSize = 9,
-      color = settings.muted_text_color,
-      opacity = 0.7,
-    }),
-  })
+    }))
+  end
+  return ui.column({ key = "placeholder", gap = 4, align = "center", padding = 10 }, children)
 end
 
 render = function()
@@ -1044,7 +1066,7 @@ local t0 = os.clock()
 if settings.icon_buttons then
   warm_live()
 else
-  warm_static(type(current_state) == "table" and current_state.model or nil)
+  warm_static()
 end
 noctalia.log(string.format("[gamepad] warmed %s art in %.1f ms",
   settings.icon_buttons and "icon" or "static", (os.clock() - t0) * 1000))
