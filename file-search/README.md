@@ -293,7 +293,6 @@ folders are skipped.
   can differ from the `ncdu` screen. The root total stays exact.
 - A folder that `ncdu` cannot read (permission denied) counts as 0 bytes. The
   Space tab shows how many such folders the current folder contains.
-- `ncdu` 2.0 or newer and `jq` are required.
 - The index lives in the plugin's private data directory
   (`noctalia.pluginDataDir()`, by default
   `~/.local/state/noctalia/plugins/data/nightwatch75/file-search/`):
@@ -301,8 +300,8 @@ folders are skipped.
   it was built with, `count-<scope>` its entry count and build time, and
   `scope`/`ranking`/`usage-chart` the one-word header choices. The disk usage
   measurement is cached in `usage.json`, rendered as one of two alternating
-  SVG files. The Space tab keeps its index in `space-root.json` and
-  `space-home.json`, and its chart in `space-a.svg` / `space-b.svg`. A fingerprint mismatch (a settings change, a scope change, a
+  SVG files. The Space tab keeps one index per folder and settings
+  tag, `space-<root>-<tag>.json`, and its chart in `space-a.svg` / `space-b.svg`. A fingerprint mismatch (a settings change, a scope change, a
   disk plugged in or removed) rebuilds the search-folder index automatically
   and marks a disk index out of date.
 - Several disks share one index, not one each: a rebuild walks every mounted
