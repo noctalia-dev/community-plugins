@@ -5460,3 +5460,16 @@ icon = "screen-share"
 description = "Mirror the main niri output onto every other display, toggled from the control center or the bar."
 plugin_api = 24
 tags = ["niri", "system", "utility", "shortcut"]
+
+[[plugin]]
+id = "goldesquemoon/typing-stats"
+name = "Typing Stats"
+version = "1.2.0"
+updated_at = 1793746464
+added_at = 1793746464
+author = "goldesquemoon"
+license = "MIT"
+icon = "chart-bar"
+description = "A bar capsule that counts typed characters, with an interactive calendar heatmap and an optional window filter."
+plugin_api = 43
+tags = ["utility", "bar", "indicator"]
