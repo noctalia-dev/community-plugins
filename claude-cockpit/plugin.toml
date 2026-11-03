@@ -18,7 +18,7 @@
 
 id = "nightwatch75/claude-cockpit"
 name = "Claude Cockpit"
-version = "1.1.4"
+version = "1.1.5"
 # 33 for `revealKey` on ui.scroll: the Sessions tab follows the keyboard
 # selection. 31 for noctalia.getColor: the bar widget's activity-mode rings
 # are SVGs that need the theme's real hex colors.
@@ -39,7 +39,7 @@ license = "MIT"
 # live-claude-sessions' transcript-stats cache. niri/hyprctl/umbriel (focusing a
 # session's terminal) are optional and checked at run time, so they are not
 # listed here.
-dependencies = ["bash", "jq", "curl", "find", "stat", "tail", "head", "grep", "tac", "awk", "rm", "mkdir", "mv", "claude", "xdg-open"]
+dependencies = ["bash", "jq", "curl", "find", "xargs", "stat", "tail", "head", "grep", "tac", "awk", "rm", "mkdir", "mv", "claude", "xdg-open"]
 tags = ["ai", "development", "bar", "panel", "service", "productivity"]
 icon = "robot"
 description = "Live Claude Code sessions and usage on the bar; manage sessions, skills and mods, edit CLAUDE.md files."

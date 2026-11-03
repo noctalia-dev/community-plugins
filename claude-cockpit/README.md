@@ -24,8 +24,10 @@ widget and the Live and Usage tabs only show what it publishes.
   `revealKey` on `ui.scroll`, which keeps the keyboard selection in view. An
   older noctalia keeps getting the last version it can load.
 - `bash`, `jq` and `curl`.
-- The base tools the scripts call: `find`, `stat`, `grep`, `tac`, `awk`,
-  `head`, `tail`, `rm`, `mkdir`, `mv`. Every distribution ships them.
+- The base tools the scripts call: `find`, `xargs`, `stat`, `grep`, `tac`,
+  `awk`, `head`, `tail`, `rm`, `mkdir`, `mv`. Every distribution ships them.
+  The Sessions scan runs on up to 8 CPUs through `xargs -P` (`nproc` picks the
+  count, 4 without it).
 - `claude` on `PATH` for the Skills/Mods tab, and a logged-in Claude Code
   (`~/.claude/.credentials.json`) for the Usage tab.
 - `xdg-open` to open a project page.
@@ -88,7 +90,11 @@ project directory. The search box filters by title, prompt or path.
 | Key      | Action                                                      |
 | ---      | ---                                                         |
 | ↑ / ↓    | Move the selection through projects and sessions. Hold to repeat. |
-| `Return` or keypad `Enter` | Resume the selected session, or open or close the selected project. |
+| `Return` or keypad `Enter` | Resume the selected session, open or close the selected project, or draw more sessions when **Show N more** is selected. |
+
+A project draws its first 20 sessions. When it has more, a **Show N more**
+row ends the list: ↑ / ↓ reach it like any other row, and `Return` (or a click)
+draws the next 20.
 
 The list scrolls to keep the selection in view. The keys work on this tab
 only.

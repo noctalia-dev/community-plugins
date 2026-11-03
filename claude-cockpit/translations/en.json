@@ -123,6 +123,7 @@
   "since": "Since",
   "skill_action_done": "{name}: done.",
   "skill_action_failed": "{name}: failed",
+  "show_more": "Show {n} more ({total} left)",
   "sort_date": "Date",
   "sort_name": "Name",
   "tab_claudemd": "CLAUDE.md",

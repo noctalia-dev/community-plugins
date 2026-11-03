@@ -100,6 +100,12 @@ end
 
 -- Runs list-claude-sessions and hands the grouped project list to
 -- done(projects, err) — err is nil on success.
+-- The scan reads every transcript under ~/.claude/projects (about 30 s for
+-- ~300 sessions, 400 MB), so it needs a longer timeout than runAsync's
+-- default of a few seconds, which kills it (exit 143) and leaves the tab empty.
+-- 60 s is the most runAsync accepts (it clamps timeoutMs to [50, 60000]).
+local SCAN_TIMEOUT_MS = 60000
+
 function M.refresh(done)
     local ok = noctalia.runAsync(`bash '{scriptPath}'`, function(result)
         if type(result) ~= "table" or result.success == false or result.exitCode ~= 0 then
@@ -112,7 +118,7 @@ function M.refresh(done)
             return
         end
         done(M.groupByProject(data.sessions), nil)
-    end)
+    end, SCAN_TIMEOUT_MS)
     if not ok then
         done(nil, noctalia.tr("err_sessions_launch"))
     end
@@ -122,12 +128,47 @@ end
 -- a direct argv exec — no shell in the way, so no shellQuote is needed and
 -- `rm` needs no commandExists guard (it ships on every Linux install).
 function M.deleteSession(session, done)
-    local ok = noctalia.runAsync({ "rm", "-rf", "--", session.jsonlPath, session.sidecarDir }, function(result)
-        done(type(result) == "table" and result.exitCode == 0)
+    M.deleteSessions({ session }, function(failed)
+        done(failed == 0)
     end)
-    if not ok then
-        done(false)
+end
+
+-- Deletes several sessions with as few runAsync calls as possible, one at a
+-- time. The host runs at most 8 commands per plugin at once and a refused
+-- runAsync returns false without calling back, so one command per session
+-- made a bulk delete report failures for every session past the limit.
+-- done(failed) gets the number of sessions that were not deleted.
+local DELETE_CHUNK = 40
+local DELETE_TIMEOUT_MS = 30000
+
+function M.deleteSessions(list, done)
+    local failed = 0
+    local index = 1
+    local function nextChunk()
+        if index > #list then
+            done(failed)
+            return
+        end
+        local last = math.min(index + DELETE_CHUNK - 1, #list)
+        local count = last - index + 1
+        local argv = { "rm", "-rf", "--" }
+        for i = index, last do
+            table.insert(argv, list[i].jsonlPath)
+            table.insert(argv, list[i].sidecarDir)
+        end
+        index = last + 1
+        local ok = noctalia.runAsync(argv, function(result)
+            if type(result) ~= "table" or result.exitCode ~= 0 then
+                failed += count
+            end
+            nextChunk()
+        end, DELETE_TIMEOUT_MS)
+        if not ok then
+            failed += count
+            nextChunk()
+        end
     end
+    nextChunk()
 end
 
 -- ── CLAUDE.md discovery ──────────────────────────────────────────────────
