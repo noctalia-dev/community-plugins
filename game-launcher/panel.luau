@@ -8,8 +8,6 @@ local building = false
 local initOk = true
 local selectedIndex = 0
 
-local PAGE_SIZE = 8
-local curPage = 1
 local COVER_W = 56
 local COVER_H = 80
 
@@ -122,22 +120,10 @@ local function clampNum(v, lo, hi)
   return v
 end
 
-local function totalPages()
-  return math.max(1, math.ceil(#filtered / PAGE_SIZE))
-end
-
-local function clampPage()
-  curPage = clampNum(curPage, 1, totalPages())
-end
-
-local function ensureSelVisible()
-  if #filtered == 0 then
-    curPage = 1
-    return
-  end
-  if selectedIndex < 0 then selectedIndex = 0 end
-  if selectedIndex >= #filtered then selectedIndex = #filtered - 1 end
-  curPage = math.floor(selectedIndex / PAGE_SIZE) + 1
+-- Key of the selected row; the scroll container reveals it on keyboard moves.
+local function selRowKey()
+  if #filtered == 0 or selectedIndex < 0 or selectedIndex >= #filtered then return nil end
+  return filtered[selectedIndex + 1].id .. "_" .. (selectedIndex + 1)
 end
 
 local function launchSelected()
@@ -269,19 +255,12 @@ local runnerMeta = {
   heroic = { glyph = "app-window", color = "#a78bfa" },
 }
 
-local function renderHeader()
-  return ui.row({ align = "center", gap = 8 }, {
-    ui.label({ text = "Games", fontSize = 18, fontWeight = "bold", flexGrow = 1 }),
-    ui.label({ text = "(" .. #games .. ")", color = "on_surface_variant", fontSize = 12 }),
-    ui.button({ glyph = "reload", variant = "ghost", onClick = "onRescan", tooltip = "Rescan" }),
-    ui.button({ glyph = "close", variant = "ghost", onClick = "onClose" }),
-  })
-end
+local CONTROL_H = 32
 
 local function renderSearchBar()
   return ui.row({ align = "center", gap = 8 }, {
-    ui.input({ key = "search_" .. scanCounter, placeholder = "Search games…", onChange = "onSearch", onSubmit = "onSubmitSearch", value = searchText, flexGrow = 1, focus = true }),
-    ui.button({ glyph = "filter", variant = "ghost", visible = false }),
+    ui.input({ key = "search_" .. scanCounter, placeholder = "Search games…", onChange = "onSearch", onSubmit = "onSubmitSearch", value = searchText, flexGrow = 1, height = CONTROL_H, focus = true }),
+    ui.button({ glyph = "reload", variant = "ghost", onClick = "onRescan", tooltip = "Rescan", width = CONTROL_H, height = CONTROL_H }),
   })
 end
 
@@ -322,9 +301,9 @@ local function renderGameRow(g, index)
   end
   local coverWidget
   if cp and noctalia.fileExists(cp) then
-    coverWidget = ui.image({ path = cp, width = COVER_W, height = COVER_H, radius = 6, fit = "cover" })
+    coverWidget = ui.image({ path = cp, width = COVER_W, height = COVER_H, radius = 8, fit = "cover" })
   else
-    coverWidget = ui.box({ width = COVER_W, height = COVER_H, radius = 6, fill = "surface_container" })
+    coverWidget = ui.box({ width = COVER_W, height = COVER_H, radius = 8, fill = "surface_container" })
   end
   local children = {
     coverWidget,
@@ -357,11 +336,8 @@ local function renderGameRow(g, index)
 end
 
 local function renderGameList()
-  clampPage()
   local rows = {}
-  local startIdx = (curPage - 1) * PAGE_SIZE + 1
-  local endIdx = math.min(startIdx + PAGE_SIZE - 1, #filtered)
-  for i = startIdx, endIdx do
+  for i = 1, #filtered do
     table.insert(rows, renderGameRow(filtered[i], i))
   end
   return rows
@@ -404,11 +380,10 @@ local function render()
     if loading or errorMsg ~= "" or #filtered == 0 then
       bodyWidget = ui.column({ flexGrow = 1, gap = 6, padding = 8 }, body)
     else
-      bodyWidget = ui.column({ flexGrow = 1, gap = 8, paddingH = 4, paddingV = 2 }, body)
+      bodyWidget = ui.scroll({ flexGrow = 1, gap = 8, paddingH = 4, paddingV = 2, revealKey = selRowKey() }, body)
     end
     panel.render(ui.column({ flexGrow = 1, gap = 0, align = "stretch" }, {
       ui.column({ gap = 8, paddingH = 8, paddingV = 8 }, {
-        renderHeader(),
         renderSearchBar(),
       }),
       ui.separator({ thickness = 1, color = "surface_container" }),
@@ -487,7 +462,6 @@ function scanGames()
         games = {}
       end
       selectedIndex = 0
-      curPage = 1
       filterGames(searchText)
     end)
     if not ok3 then
@@ -496,7 +470,6 @@ function scanGames()
       games = {}
       filtered = games
       selectedIndex = 0
-      curPage = 1
       noctalia.log("scan callback error: " .. tostring(err3))
     end
     render()
@@ -528,11 +501,10 @@ local function outputLogicalHeight()
 end
 
 function computeLayout()
-  PAGE_SIZE = 8
   COVER_W, COVER_H = 56, 80
   local h = outputLogicalHeight()
   if h then
-    local covH = clampNum(math.floor((h - 190) / 8 - 14), 48, 160)
+    local covH = clampNum(math.floor((h - 190) / 8 - 14), 48, 160) + 4.5
     COVER_H = covH
     COVER_W = math.floor(covH * 0.7)
   end
@@ -557,7 +529,6 @@ function onOpen(context)
   noctalia.state.set("o_open", false)
   computeLayout()
   selectedIndex = 0
-  curPage = 1
   filterGames(searchText)
   render()
   scanGames()
@@ -574,7 +545,6 @@ end
 function onSearch(value)
   searchText = value or ""
   selectedIndex = 0
-  curPage = 1
   filterGames(searchText)
   render()
 end
@@ -585,14 +555,12 @@ function onKey(chord, pressed)
     if #filtered > 0 then
       selectedIndex = selectedIndex - 1
       if selectedIndex < 0 then selectedIndex = #filtered - 1 end
-      ensureSelVisible()
       render()
     end
   elseif chord == "Down" then
     if #filtered > 0 then
       selectedIndex = selectedIndex + 1
       if selectedIndex >= #filtered then selectedIndex = 0 end
-      ensureSelVisible()
       render()
     end
   elseif chord == "Return" then
