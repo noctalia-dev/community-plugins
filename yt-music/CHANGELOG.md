@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.4.2] - 2026-11-03
+## [0.4.3] - 2026-11-03
 
 ### Fixed
 - **Browser detection**: browsers packaged under their own binary name (Brave Origin's `brave-origin`, Zen's `zen-browser`) and Flatpak installs that only expose an app id on `PATH` are now listed on the sign-in page instead of showing up greyed out.
