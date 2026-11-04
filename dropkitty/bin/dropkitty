@@ -1,0 +1,276 @@
+#!/usr/bin/env bash
+# dropkitty — drop-down terminal on kitty's quick-access-terminal kitten.
+#
+# Compositor keybinds call this directly; noctalia is told after the fact and is never
+# in the toggle path. All window work is kitty over wlr-layer-shell + remote control;
+# the compositor is only asked for the focused output's size.
+#
+# Settings: $XDG_RUNTIME_DIR/dropkitty/settings, written by the plugin via `_settings`
+# (built-in defaults apply without it). Runtime geometry lives in .../state.
+set -euo pipefail
+shopt -s inherit_errexit
+
+PLUGIN_TARGET="lowcache/dropkitty:service"
+HERE=$(cd "$(dirname "$(readlink -f "$0")")" && pwd)
+RUN="${XDG_RUNTIME_DIR:?XDG_RUNTIME_DIR is not set}/dropkitty"
+SETTINGS="$RUN/settings"
+STATE="$RUN/state"
+SOCK_BASE="$RUN/kitty" # kitty appends -<pid>
+
+SETTING_KEYS="orientation edge_h edge_v size normal_height normal_width opacity focus_policy hide_on_focus_loss kitty_conf reserve_top reserve_bottom reserve_left reserve_right"
+GEOMETRY_KEYS="orientation edge_h edge_v size"
+
+die() { echo "dropkitty: $*" >&2; exit 2; }
+
+[ -d "$RUN" ] || mkdir -m 700 "$RUN"
+
+# --- settings ------------------------------------------------------------------
+raw_cfg() { [ -f "$SETTINGS" ] || return 0; sed -n "s/^$1=//p" "$SETTINGS" | head -n1; }
+
+# cfg KEY: validated value, or the default when missing/invalid.
+cfg() {
+    local v; v=$(raw_cfg "$1")
+    case "$1" in
+        orientation)  [[ $v =~ ^(landscape|portrait)$ ]] || v=landscape ;;
+        edge_h)       [[ $v =~ ^(top|bottom)$ ]] || v=top ;;
+        edge_v)       [[ $v =~ ^(left|right)$ ]] || v=right ;;
+        size)         [[ $v =~ ^(normal|full)$ ]] || v=normal ;;
+        normal_height) [[ $v =~ ^[0-9]+$ ]] && (( v >= 10 && v <= 100 )) || v=40 ;;
+        normal_width)  [[ $v =~ ^[0-9]+$ ]] && (( v >= 10 && v <= 100 )) || v=50 ;;
+        opacity)      [[ $v =~ ^(0(\.[0-9]+)?|1(\.0+)?)$ ]] || v=0.9 ;;
+        focus_policy) [[ $v =~ ^(on-demand|exclusive)$ ]] || v=on-demand ;;
+        hide_on_focus_loss) [[ $v =~ ^(yes|no)$ ]] || v=no ;;
+        kitty_conf)   ;;
+        reserve_*)    [[ $v =~ ^[0-9]+$ ]] || v=0 ;;
+        *) die "unknown setting $1" ;;
+    esac
+    printf '%s' "$v"
+}
+
+# --- runtime state ---------------------------------------------------------------
+# hofl: hide_on_focus_loss the running kitty was launched with (settings may have moved since).
+state_reset() {
+    printf 'orient=%s\npos_h=%s\npos_v=%s\nsize=%s\nvisible=%s\nhofl=%s\n' \
+        "$(cfg orientation)" "$(cfg edge_h)" "$(cfg edge_v)" "$(cfg size)" "$(state_peek visible 0)" \
+        "$(state_peek hofl no)" >"$STATE.tmp"
+    mv "$STATE.tmp" "$STATE"
+}
+state_peek() {
+    local v=""
+    [ -f "$STATE" ] && v=$(sed -n "s/^$1=//p" "$STATE" | head -n1)
+    printf '%s' "${v:-$2}"
+}
+state_get() { [ -f "$STATE" ] || state_reset; state_peek "$1" ""; }
+state_set() {
+    [ -f "$STATE" ] || state_reset
+    if grep -q "^$1=" "$STATE"; then sed -i "s/^$1=.*/$1=$2/" "$STATE"
+    else printf '%s=%s\n' "$1" "$2" >>"$STATE"; fi
+}
+flip() { [ "$1" = "$2" ] && printf '%s' "$3" || printf '%s' "$2"; } # flip CUR A B
+
+# --- kitty ---------------------------------------------------------------------
+# ours PID: alive and started with our socket, so a pid reused after a crash is not ours.
+ours() {
+    kill -0 "$1" 2>/dev/null || return 1
+    [ -d /proc/self ] || return 0 # no procfs: liveness is all we can check
+    tr '\0' ' ' <"/proc/$1/cmdline" 2>/dev/null | grep -qF "listen_on=unix:$SOCK_BASE"
+}
+
+# Newest socket whose kitty is still alive; stale ones (crash, kill -9) are removed.
+sock() {
+    local s
+    for s in $(ls -t "$SOCK_BASE"-* 2>/dev/null || true); do
+        if ours "${s##*-}"; then printf '%s' "$s"; return 0; fi
+        rm -f "$s"
+    done
+}
+rc() { local s=$1; shift; kitten @ --to "unix:$s" "$@"; }
+
+# WIDTH HEIGHT of the focused output in logical pixels.
+out_dim() {
+    if [ -n "${NIRI_SOCKET:-}" ]; then
+        niri msg --json focused-output | jq -r '.logical | "\(.width) \(.height)"'
+    elif [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then
+        hyprctl -j monitors | jq -r '.[] | select(.focused) | (.transform // 0) as $t
+            | [(.width / .scale | floor), (.height / .scale | floor)]
+            | if $t % 2 == 1 then reverse else . end | "\(.[0]) \(.[1])"'
+    elif [ -n "${SWAYSOCK:-}" ]; then
+        swaymsg -t get_outputs -r | jq -r '.[] | select(.focused) | .rect | "\(.width) \(.height)"'
+    else
+        return 1
+    fi
+}
+
+# Kitten geometry options for the current state, one per line. Bars that reserve
+# space on the size axis are subtracted (the compositor already offsets the panel).
+geometry() {
+    local w h dims
+    dims=$(out_dim) || die "unsupported compositor (need niri, Hyprland or sway)"
+    read -r w h <<<"$dims"
+    [[ $w =~ ^[0-9]+$ && $h =~ ^[0-9]+$ ]] || die "could not read the focused output size"
+    local usable pct dim edge
+    if [ "$(state_get orient)" = portrait ]; then
+        edge=$(state_get pos_v); dim=columns; pct=$(cfg normal_width)
+        usable=$(( w - $(cfg reserve_left) - $(cfg reserve_right) ))
+    else
+        edge=$(state_get pos_h); dim=lines; pct=$(cfg normal_height)
+        usable=$(( h - $(cfg reserve_top) - $(cfg reserve_bottom) ))
+    fi
+    if (( usable <= 0 )); then if [ "$dim" = columns ]; then usable=$w; else usable=$h; fi; fi
+    [ "$(state_get size)" = full ] || usable=$(( usable * pct / 100 ))
+    printf '%s\n' "edge=$edge" "$dim=${usable}px"
+}
+
+apply() {
+    local s=$1 geo args=()
+    geo=$(geometry)
+    mapfile -t args <<<"$geo"
+    rc "$s" resize-os-window --action=os-panel --incremental "${args[@]}" >/dev/null
+}
+
+# Tell the plugin; never blocks or fails the caller (noctalia may not be running).
+notify() {
+    command -v noctalia >/dev/null 2>&1 || return 0
+    ( timeout 1 noctalia msg plugin "$PLUGIN_TARGET" all "$@" >/dev/null 2>&1 9>&- & ) || true
+}
+
+set_visible() {
+    [ "$(state_peek visible 0)" = "$1" ] && return 0
+    state_set visible "$1"
+    if [ "$1" = 1 ]; then notify shown; else notify hidden; fi
+}
+
+launch() { # start the singleton (visible), echo its socket once it answers
+    command -v kitten >/dev/null 2>&1 || die "kitten not found (install kitty >= 0.42)"
+    state_reset
+    state_set hofl "$(cfg hide_on_focus_loss)"
+    local geo g args=(quick-access-terminal --instance-group dropkitty) conf
+    geo=$(geometry)
+    conf=$(cfg kitty_conf); [ -n "$conf" ] && args+=(-c "$conf")
+    args+=(-o "background_opacity=$(cfg opacity)"
+           -o "focus_policy=$(cfg focus_policy)"
+           -o "hide_on_focus_loss=$(state_get hofl)"
+           -o "kitty_override=allow_remote_control=socket-only"
+           -o "kitty_override=listen_on=unix:$SOCK_BASE"
+           -o "kitty_override=watcher=$HERE/dropkitty-watcher.py")
+    while IFS= read -r g; do args+=(-o "$g"); done <<<"$geo"
+    # setsid -f: the panel must outlive this script; --detach is unreliable without a tty.
+    # 9>&-: kitty must not inherit the lock fd, or it holds the lock for its lifetime.
+    setsid -f kitten "${args[@]}" >/dev/null 2>&1 9>&-
+    local s
+    for _ in $(seq 1 30); do
+        s=$(sock)
+        if [ -n "$s" ]; then set_visible 1; printf '%s' "$s"; return 0; fi
+        sleep 0.1
+    done
+    die "kitty did not start (see: kitten quick-access-terminal --help)"
+}
+
+ensure() { # running + visible; echo socket
+    local s; s=$(sock)
+    if [ -z "$s" ]; then s=$(launch)
+    else rc "$s" resize-os-window --action=show >/dev/null 2>&1 || true; set_visible 1; fi
+    printf '%s' "$s"
+}
+
+# --- plugin-facing commands ----------------------------------------------------
+# _settings KEY=VALUE...: replace the settings file; re-seed geometry if its defaults moved.
+cmd_settings() {
+    local kv k new old_geo new_geo
+    new=$(for kv in "$@"; do
+        k=${kv%%=*}
+        if [[ " $SETTING_KEYS " == *" $k "* && $kv == *=* && $kv != *$'\n'* ]]; then printf '%s\n' "$kv"; fi
+    done | sort)
+    if [ -f "$SETTINGS" ] && [ "$new" = "$(sort "$SETTINGS")" ]; then return 0; fi
+    old_geo=$(for k in $GEOMETRY_KEYS; do cfg "$k"; echo; done)
+    printf '%s\n' "$new" >"$SETTINGS.tmp" && mv "$SETTINGS.tmp" "$SETTINGS"
+    new_geo=$(for k in $GEOMETRY_KEYS; do cfg "$k"; echo; done)
+    [ "$old_geo" = "$new_geo" ] || state_reset
+    local s; s=$(sock)
+    if [ -n "$s" ]; then apply "$s"; fi
+}
+
+# _event KIND [ARG]: reports from the kitty watcher, which sets DROPKITTY_PID to its kitty's pid.
+cmd_event() {
+    local s; s=$(sock)
+    if [ -n "${DROPKITTY_PID:-}" ] && [ -n "$s" ] && [ "${s##*-}" != "$DROPKITTY_PID" ]; then
+        return 0 # from a kitty that has since been replaced
+    fi
+    case "${1:-}" in
+        focus)
+            if [ "${2:-}" = 1 ]; then set_visible 1
+            elif [ "$(state_peek hofl no)" = yes ]; then set_visible 0; fi ;;
+        cmd)
+            [ "$(state_peek visible 0)" = 1 ] || notify cmd-finished "${2:-0}" ;;
+        exit)
+            state_set visible 0; notify exited ;;
+        *) die "unknown event ${1:-}" ;;
+    esac
+}
+
+cmd_status() {
+    local alive=0; [ -n "$(sock)" ] && alive=1
+    local visible=0; [ "$alive" = 1 ] && visible=$(state_peek visible 0)
+    printf 'alive=%s visible=%s\n' "$alive" "$visible"
+}
+
+usage() {
+    cat >&2 <<'EOF'
+usage: dropkitty COMMAND
+  toggle | show | hide | restart | status
+  position     landscape: top <-> bottom, portrait: left <-> right
+  size         normal <-> full
+  orientation  landscape <-> portrait
+  top | bottom | left | right | landscape | portrait | normal | full
+EOF
+    exit 2
+}
+
+# One mutator at a time: keybind repeat, bar clicks and watcher events all land here.
+exec 9>"$RUN/lock"
+flock -w 5 9 || die "another dropkitty command is stuck (lock: $RUN/lock)"
+
+cmd=${1:-toggle}
+shift || true
+case "$cmd" in
+    toggle)
+        s=$(sock)
+        if [ -z "$s" ]; then launch >/dev/null
+        else
+            rc "$s" resize-os-window --action=toggle-visibility >/dev/null
+            set_visible "$(flip "$(state_peek visible 0)" 1 0)"
+        fi ;;
+    show) ensure >/dev/null ;;
+    hide)
+        s=$(sock)
+        if [ -n "$s" ]; then rc "$s" resize-os-window --action=hide >/dev/null || true; set_visible 0; fi ;;
+    restart)
+        s=$(sock)
+        if [ -n "$s" ]; then
+            # A dying instance still owns the --single-instance group and would swallow the launch.
+            pid=${s##*-}; kill "$pid" 2>/dev/null || true
+            for _ in $(seq 1 50); do kill -0 "$pid" 2>/dev/null || break; sleep 0.1; done
+            kill -0 "$pid" 2>/dev/null && die "old terminal (pid $pid) did not exit"
+            rm -f "$s"
+        fi
+        launch >/dev/null ;;
+    status) cmd_status ;;
+
+    position)
+        s=$(ensure)
+        if [ "$(state_get orient)" = portrait ]; then state_set pos_v "$(flip "$(state_get pos_v)" left right)"
+        else state_set pos_h "$(flip "$(state_get pos_h)" top bottom)"; fi
+        apply "$s" ;;
+    size)        s=$(ensure); state_set size "$(flip "$(state_get size)" normal full)"; apply "$s" ;;
+    orientation) s=$(ensure); state_set orient "$(flip "$(state_get orient)" landscape portrait)"; apply "$s" ;;
+
+    top|bottom)       s=$(ensure); state_set orient landscape; state_set pos_h "$cmd"; apply "$s" ;;
+    left|right)       s=$(ensure); state_set orient portrait;  state_set pos_v "$cmd"; apply "$s" ;;
+    landscape|portrait) s=$(ensure); state_set orient "$cmd"; apply "$s" ;;
+    normal|full)      s=$(ensure); state_set size "$cmd"; apply "$s" ;;
+
+    _settings) cmd_settings "$@" ;;
+    _event)    cmd_event "$@" ;;
+    -h|--help|help) usage ;;
+    *) usage ;;
+esac
