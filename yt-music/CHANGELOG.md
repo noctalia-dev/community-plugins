@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.4.4] - 2026-11-04
+
+### Added
+- **Helium sign-in**: Helium Browser (`helium`) is listed on the sign-in page and authenticated through the same DevTools route as the other Chromium browsers. AppImage installs need `helium` on `PATH`. When the debug window is closed before extraction, the fallback reads Helium's own profile from `~/.config/net.imput.helium` (or the `.dev` variant).
+
 ## [0.4.3] - 2026-11-03
 
 ### Fixed
