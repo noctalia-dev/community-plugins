@@ -32,7 +32,9 @@ For a keyboard toggle, bind a key to the helper. The catalog installs it at:
 $XDG_STATE_HOME/noctalia/plugins/materialized/community/dropkitty/bin/dropkitty
 ```
 
-`$XDG_STATE_HOME` defaults to `~/.local/state` (if you set `NOCTALIA_STATE_HOME`, use that instead). The bindings below use the default location; adjust the path if yours differs.
+`$XDG_STATE_HOME` defaults to `~/.local/state` (if you set `NOCTALIA_STATE_HOME`, use that instead). A plugin installed by hand lives at `~/.local/share/noctalia/plugins/dropkitty/bin/dropkitty` instead. The bindings below use the catalog location; adjust the path if yours differs.
+
+Keybinds go in your compositor config, not in Noctalia. The widget and your keys control the same terminal only when both go through this helper. Replace any existing drop-down binding (one that runs `kitten quick-access-terminal` or a script of your own); otherwise you get a second, separate terminal.
 
 **niri** (`config.kdl`):
 ```kdl
