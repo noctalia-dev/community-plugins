@@ -5473,3 +5473,16 @@ icon = "chart-bar"
 description = "A bar capsule that counts typed characters, with an interactive calendar heatmap and an optional window filter."
 plugin_api = 43
 tags = ["utility", "bar", "indicator"]
+
+[[plugin]]
+id = "83raiders/scroll-indicator"
+name = "Scroll Indicator"
+version = "1.1.0"
+updated_at = 1793799290
+added_at = 1793799290
+author = "83raiders"
+license = "MIT"
+icon = "dots"
+description = "Shows your column position in Hyprland's scrolling layout as dots on the bar."
+plugin_api = 49
+tags = ["hyprland", "indicator", "bar"]
