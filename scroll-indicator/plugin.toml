@@ -1,0 +1,14 @@
+id           = "83raiders/scroll-indicator"
+name         = "Scroll Indicator"
+version      = "1.1.0"
+plugin_api   = 49
+author       = "83raiders"
+license      = "MIT"
+icon         = "dots"
+description  = "Shows your column position in Hyprland's scrolling layout as dots on the bar."
+tags         = ["hyprland", "indicator", "bar"]
+dependencies = ["hyprctl", "socat"]
+
+[[widget]]
+id    = "dots"
+entry = "widget.luau"
