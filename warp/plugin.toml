@@ -1,6 +1,6 @@
 id = "levi/warp"
 name = "Cloudflare WARP"
-version = "1.2.1"
+version = "1.3.0"
 plugin_api = 43
 author = "Levi"
 license = "MIT"
@@ -8,6 +8,13 @@ dependencies = ["warp-cli"]
 tags = ["bar", "indicator", "network", "privacy", "shortcut"]
 icon = "cloud-lock"
 description = "Toggle Cloudflare WARP from the bar or Control Center."
+
+[[setting]]
+key = "manage_daemon"
+type = "bool"
+label_key = "settings.manage_daemon.label"
+description_key = "settings.manage_daemon.description"
+default = false
 
 [[service]]
 id = "service"
