@@ -256,6 +256,7 @@ body:
         - screen-capture
         - screen-mirror
         - screen-toolkit
+        - scroll-indicator
         - settings-to-nix
         - share-wifi
         - sharednd
