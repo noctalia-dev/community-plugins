@@ -1,6 +1,7 @@
 local BROWSERS = {
 	{ id = "chrome", label = "Chrome", icon = "brand-chrome" },
 	{ id = "chromium", label = "Chromium", icon = "device-desktop" },
+	{ id = "helium", label = "Helium", icon = "atom" },
 	{ id = "firefox", label = "Firefox", icon = "flame" },
 	{ id = "edge", label = "Edge", icon = "wind" },
 	{ id = "brave", label = "Brave", icon = "shield" },
