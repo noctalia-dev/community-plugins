@@ -3,6 +3,12 @@
     "refresh": "Refresh",
     "settings": "Settings"
   },
+  "firewall": {
+    "exposed": "UFW allows connections from anywhere",
+    "firewalled": "UFW blocks incoming connections",
+    "limited": "Reachable only from some peers or an interface",
+    "tailnet": "Reachable only from your tailnet"
+  },
   "panel": {
     "close": "Close",
     "exposed": "exposed",
@@ -20,6 +26,10 @@
     "unknown_process": "Unknown process"
   },
   "settings": {
+    "check_firewall": {
+      "description": "Show a lock when UFW blocks a port bound to all interfaces",
+      "label": "Check firewall"
+    },
     "hide_system_ports": {
       "description": "Skip well-known service ports like DNS and CUPS",
       "label": "Hide system ports (below 1024)"

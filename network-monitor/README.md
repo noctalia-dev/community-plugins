@@ -59,6 +59,7 @@ Settings in the header or menu opens this plugin's settings. The scanner starts 
 | `hide_system_ports` | `bool` | `true` | Hide ports below 1024. |
 | `only_own_processes` | `bool` | `false` | Only show listeners with a visible PID. Visibility depends on `ss` permissions. |
 | `include_udp` | `bool` | `false` | Include UDP sockets. |
+| `check_firewall` | `bool` | `true` | Read UFW rules to show whether a firewall lock covers each exposed port. |
 
 ## IPC
 
@@ -78,7 +79,18 @@ noctalia msg plugin mahmoudomiesh/network-monitor:scanner all selftest
 
 Traffic comes from Noctalia's system monitor (`[system.monitor]`), so it uses the same interface aggregation as the built-in `sysmon` widget. If that monitor or its network polling is disabled, the rates stop updating. The graph keeps up to 60 samples while the service runs.
 
-IPv4 and IPv6 binds with the same protocol, port and PID merge into one row. A socket that several processes share, such as a server's forked workers, shows one row per process, so Stop ends only the process its row names. Known PIDs sort before unknown ones, then by port. The local chip means every bind address is loopback. An exposed bind can still be protected by a firewall.
+IPv4 and IPv6 binds with the same protocol, port and PID merge into one row. A socket that several processes share, such as a server's forked workers, shows one row per process, so Stop ends only the process its row names. Known PIDs sort before unknown ones, then by port. The local chip means every bind address is loopback; any other bind shows exposed. When UFW is active, a lock beside the exposed chip tells whether it lets anyone in:
+
+| Icon | Meaning |
+| --- | --- |
+| `lock` | UFW drops or rejects all incoming traffic to the port. |
+| `lock-share` | Only some peers get in: a source address, an interface, or a stock multicast/DHCP rule. |
+| Tailscale dots | The port is bound to a Tailscale address, so only tailnet peers reach it. |
+| `lock-open` | UFW allows the port from anywhere. |
+
+No lock shows when UFW is off, missing or unreadable, so the chip means what it did before. Hover the lock for a description.
+
+The firewall check reads `/etc/ufw/ufw.conf`, `/etc/default/ufw`, `/etc/ufw/user.rules` and `/etc/ufw/user6.rules` on every scan, so it needs no root. It reflects UFW's saved rules, not the live kernel ruleset. Rules added outside UFW are not seen. Docker's published ports bypass UFW and may show a closed lock while open. Tailscale accepts tailnet traffic before UFW, so ports bound to a Tailscale address (`100.64.0.0/10`, `fd7a:115c:a1e0::/48`) show the Tailscale dots; a port bound to all interfaces is also reachable from the tailnet even under a closed lock.
 
 The plugin sends no network requests itself. Open in browser launches your browser, which can make requests to the selected local service. It writes no files.
 
