@@ -15,7 +15,7 @@ local probeCalls = 0
 local probeAction = nil
 local failNextLaunch = false
 local nextAsyncResult = nil
-local collectorEnabled = mode == "raw-cache" or mode == "outdated-raw-cache" or mode == "nixos"
+local collectorEnabled = mode == "raw-cache" or mode == "outdated-raw-cache" or mode == "nixos" or mode == "scaled-cache-interval"
 
 local available = {
   lsblk = mode ~= "missing-lsblk",
@@ -35,7 +35,7 @@ local rawFixture = {
   smart = {},
 }
 
-if mode == "raw-cache" or mode == "outdated-raw-cache" then
+if mode == "raw-cache" or mode == "outdated-raw-cache" or mode == "scaled-cache-interval" then
   files["/usr/local/libexec/noctalia-drive-health/manage-collector.sh"] = "installed"
 end
 
@@ -57,7 +57,9 @@ noctalia = {
     if key == "system_collector_enabled" then
       return collectorEnabled
     end
-    if key == "full_smart_refresh_minutes" then return 15 end
+    if key == "full_smart_refresh_minutes" then
+      return mode == "scaled-cache-interval" and 1440 or 15
+    end
     return nil
   end,
   pluginDir = function() return "/mock/plugin" end,
@@ -67,12 +69,15 @@ noctalia = {
         and path:match("raw%.json$") then
       return { isDir = false, mtime = os.time() }
     end
+    if mode == "scaled-cache-interval" and path:match("raw%.json$") then
+      return { isDir = false, mtime = os.time() - 3600 }
+    end
     return nil
   end,
   fileExists = function(path) return files[path] ~= nil end,
   listDir = function(path) return directories[path] or {} end,
   readFile = function(path)
-    if (mode == "raw-cache" or mode == "outdated-raw-cache" or mode == "collector-disabled" or mode == "nixos")
+    if (mode == "raw-cache" or mode == "outdated-raw-cache" or mode == "collector-disabled" or mode == "nixos" or mode == "scaled-cache-interval")
         and path:match("raw%.json$") then
       return "raw-cache"
     end
@@ -262,6 +267,13 @@ elseif mode == "raw-cache" then
   assert(snapshot.system_collector.is_nixos == false and snapshot.system_collector.install_command ~= nil,
     "non-NixOS system lost its install command")
   assert(not (launchedCommand or ""):match("collect_raw%.sh"), "collector launched despite a fresh raw cache")
+  print("collector initialization test passed: " .. mode)
+  return
+elseif mode == "scaled-cache-interval" then
+  assert(snapshot.source == "system-cache", "scaled cache was not accepted")
+  assert(snapshot.system_collector.status == "healthy", "scaled cache was not reported healthy")
+  assert(snapshot.system_collector.smart_refresh_minutes == 1440, "wrong refresh minutes reported")
+  assert(not (launchedCommand or ""):match("collect_raw%.sh"), "collector launched despite a valid scaled cache")
   print("collector initialization test passed: " .. mode)
   return
 elseif mode == "nixos" then
