@@ -14,6 +14,23 @@ function update()
    }))
 end
 
+-- Number of entries in a directory (0 when the directory is missing or unlistable).
+function countDir(dir)
+   local entries = noctalia.listDir(dir)
+   if type(entries) ~= "table" then
+      return 0
+   end
+   return #entries
+end
+
+-- A maildir filename ends with a flags section such as ":2,S" or ":2,RS"
+-- (legacy writers use ",2,S"). S in the flags means Seen; no flags section
+-- means the message was never touched by a mail client.
+function isSeen(name)
+   local flags = name:match("[:,]2,([%a]*)$")
+   return flags ~= nil and flags:find("S") ~= nil
+end
+
 function checkMail()
    local maildir = noctalia.getConfig("maildir")
    local inboxes = noctalia.getConfig("inboxes")
@@ -27,16 +44,21 @@ function checkMail()
       local parts = string.split(inbox_label, ":")
       local inbox = parts[1]
       local label = parts[2]
-      local dir = maildir .. "/" .. inbox .. "/new"
-      local entries = noctalia.listDir(dir)
-      if type(entries) ~= "table" then
+      local root = maildir .. "/" .. inbox
+      local count = countDir(root .. "/new")
+      local cur = noctalia.listDir(root .. "/cur")
+      if type(cur) == "table" then
+         for _, name in cur do
+            if not isSeen(name) then
+               count += 1
+            end
+         end
+      end
+      if count < 1 then
          continue
       end
-      if #entries < 1 then
-         continue
-      end
-      s = s .. label .. string.format("=%d,", #entries)
-      t = t .. inbox .. string.format("=%d\n", #entries)
+      s = s .. label .. string.format("=%d,", count)
+      t = t .. inbox .. string.format("=%d\n", count)
    end
    if #s < 1 then
       return nil
