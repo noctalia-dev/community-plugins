@@ -5486,3 +5486,16 @@ icon = "dots"
 description = "Shows your column position in Hyprland's scrolling layout as dots on the bar."
 plugin_api = 49
 tags = ["hyprland", "indicator", "bar"]
+
+[[plugin]]
+id = "lowcache/dropkitty"
+name = "dropkitty"
+version = "0.1.0"
+updated_at = 1793800113
+added_at = 1793800113
+author = "lowcache"
+license = "MIT"
+icon = "terminal-2"
+description = "Quake-style drop-down terminal on kitty, with a bar toggle and a finished-command badge."
+plugin_api = 26
+tags = ["bar", "service", "productivity", "utility", "niri", "hyprland", "sway"]
