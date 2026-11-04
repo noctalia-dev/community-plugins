@@ -18,13 +18,13 @@
 
 id = "nightwatch75/claude-cockpit"
 name = "Claude Cockpit"
-version = "1.1.5"
+version = "1.2.4"
 # 33 for `revealKey` on ui.scroll: the Sessions tab follows the keyboard
 # selection. 31 for noctalia.getColor: the bar widget's activity-mode rings
 # are SVGs that need the theme's real hex colors.
-# 24 for direct argv process execution: session delete (rm -rf on two fixed
-# paths) and opening a CLAUDE.md in an editor both exec directly, with no
-# shell parsing the path. 22 for the relative luau imports (shared.luau,
+# 24 for direct argv process execution: session delete/rename/repair, orphan
+# cleanup and opening a CLAUDE.md in an editor all exec directly, with no
+# shell parsing the path. 43 for the container color roles (surface_container). 22 for the relative luau imports (shared.luau,
 # sessions.luau).
 plugin_api = 43
 author = "nightwatch75"
@@ -39,7 +39,7 @@ license = "MIT"
 # live-claude-sessions' transcript-stats cache. niri/hyprctl/umbriel (focusing a
 # session's terminal) are optional and checked at run time, so they are not
 # listed here.
-dependencies = ["bash", "jq", "curl", "find", "xargs", "stat", "tail", "head", "grep", "tac", "awk", "rm", "mkdir", "mv", "claude", "xdg-open"]
+dependencies = ["bash", "jq", "curl", "sh", "find", "xargs", "stat", "du", "tail", "head", "grep", "tac", "awk", "rm", "rmdir", "mkdir", "mv", "cut", "claude", "xdg-open"]
 tags = ["ai", "development", "bar", "panel", "service", "productivity"]
 icon = "robot"
 description = "Live Claude Code sessions and usage on the bar; manage sessions, skills and mods, edit CLAUDE.md files."
