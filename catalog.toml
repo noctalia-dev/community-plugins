@@ -1437,15 +1437,21 @@ rev = "f222cdee2be8a0c9ecfc3890b9f90d377429f534"
 [[plugin]]
 id = "gabedunn/voxtype"
 name = "Voxtype"
-version = "1.0.0"
-updated_at = 1786201675
+version = "1.1.0"
+updated_at = 1793800241
 added_at = 1786201675
 author = "Gabe Dunn"
 license = "MIT"
 icon = "microphone-2"
-description = "Shows and controls Voxtype's live dictation status from the bar."
+description = "Shows Voxtype status in the bar and an optional live audio overlay."
+plugin_api = 30
+tags = ["audio", "bar", "indicator", "recording", "utility", "panel", "service"]
+
+[[plugin.release]]
 plugin_api = 14
-tags = ["audio", "bar", "indicator", "recording", "utility"]
+version = "1.0.0"
+updated_at = 1786201675
+rev = "fe464e7301b2c14bba98b7460ae1710106985a07"
 
 [[plugin]]
 id = "weinguyen/shell-command"
