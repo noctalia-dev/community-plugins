@@ -56,6 +56,7 @@ open_browser() {   # $1=browser id
   case "$b" in
     chrome)   B="$(first_cmd google-chrome-stable google-chrome)" ;;
     chromium) B="$(first_cmd chromium)" ;;
+    helium)   B="$(first_cmd helium helium-browser)" ;;
     firefox)  B="$(first_cmd firefox org.mozilla.firefox)" ;;
     edge)     B="$(first_cmd microsoft-edge)" ;;
     brave)    B="$(first_cmd brave-browser brave brave-origin)" ;;
@@ -221,6 +222,7 @@ detect_browsers() {
   }
   check chrome google-chrome-stable google-chrome
   check chromium chromium
+  check helium helium helium-browser
   check firefox firefox org.mozilla.firefox
   check edge microsoft-edge
   check brave brave-browser brave brave-origin
