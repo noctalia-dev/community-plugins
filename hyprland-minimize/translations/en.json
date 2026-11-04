@@ -21,6 +21,10 @@
       "current": "Current workspace",
       "origin": "Workspace it came from"
     },
+    "restore_on_focus": {
+      "label": "Restore when focused",
+      "description": "Restore a minimized window when it is focused from outside, for example from the window switcher, instead of showing the special workspace"
+    },
     "mode": {
       "label": "Display",
       "description": "Row of windows or a single button with a menu",

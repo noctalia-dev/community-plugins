@@ -21,6 +21,15 @@ options         = [
   { value = "origin", label_key = "settings.restore_to.origin" },
 ]
 
+# When a minimized window is focused from outside (window switcher, launcher), restore it instead of
+# leaving Hyprland's special-workspace overlay open.
+[[setting]]
+key             = "restore_on_focus"
+type            = "bool"
+label_key       = "settings.restore_on_focus.label"
+description_key = "settings.restore_on_focus.description"
+default         = true
+
 [[service]]
 id    = "service"
 entry = "service.luau"

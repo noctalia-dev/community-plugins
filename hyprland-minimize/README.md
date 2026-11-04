@@ -49,12 +49,13 @@ hl.bind("SUPER + ALT + M", hl.dsp.exec_cmd(ipc .. "panel"))
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
 | `restore_to` | `select` | `current` | Where a restored window goes: `current` (the focused workspace) or `origin` (the workspace it was minimized from). |
+| `restore_on_focus` | `bool` | `true` | Restore a minimized window when something else focuses it (the window switcher, a launcher). Without this, Hyprland would show the `special:minimized` workspace as an overlay. |
 | `mode` | `select` | `auto` | Widget layout: `auto` (a row when the monitor is at least 1500 px wide, otherwise a button), `list` or `button`. |
 | `max_items` | `int` | `5` | Windows shown in the row before a `+N` button appears (1 to 12). |
 | `show_titles` | `bool` | `true` | Show each window's title next to its icon in the row. |
 | `hide_when_empty` | `bool` | `true` | Hide the widget when there are no minimized windows. |
 
-`restore_to` applies to the whole plugin; the other settings belong to each widget instance. The width check of `auto`
+`restore_to` and `restore_on_focus` apply to the whole plugin; the other settings belong to each widget instance. The width check of `auto`
 uses the monitor's logical width, so a monitor rotated 90° counts as narrow.
 
 ## IPC
@@ -79,6 +80,10 @@ noctalia msg plugin fr4j4/hyprland-minimize:service all <event> [payload]
 - **Files.** The plugin writes one file, `origins.json`, to its own data directory
   (`noctalia.pluginDataDir()`), to remember which workspace each window came from. Entries for windows that no longer
   exist are removed.
+- **Input validation.** Window addresses received over IPC must match `0x` plus hex digits and belong to a window
+  that is currently minimized; anything else is ignored. Workspace ids are checked to be plain integers, and titles
+  and classes coming from apps are stripped of control characters and path separators before they are shown or used to
+  look up an icon.
 - **Network.** None.
 - **Hyprland only.** Other compositors are not supported. Minimized windows live in the `special:minimized`
   workspace, so they stay visible to Hyprland itself, for example with

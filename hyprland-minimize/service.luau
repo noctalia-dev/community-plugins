@@ -36,6 +36,29 @@ local function dispatch(lua, cb)
   return hypr({ "dispatch", lua }, cb)
 end
 
+-- Everything that ends up inside a Hyprland Lua expression or a shell command is validated first: window
+-- addresses arrive from IPC (any local process can send them) and titles/classes are chosen by the apps.
+local function validAddr(a)
+  return type(a) == "string" and #a <= 20 and string.match(a, "^0x%x+$") ~= nil
+end
+
+-- Workspace id as a plain decimal integer, or nil.
+local function wsId(n)
+  if type(n) ~= "number" or n ~= n or n < 1 or n > 2147483647 or n ~= math.floor(n) then return nil end
+  return string.format("%d", n)
+end
+
+-- Text from an app (title, class): no control characters, bounded length.
+local function clean(text, max)
+  if type(text) ~= "string" then return "" end
+  text = string.gsub(text, "%c", " ")
+  if #text > max then
+    local cut = utf8.offset(text, max + 1) or (max + 1)
+    text = string.sub(text, 1, cut - 1)
+  end
+  return text
+end
+
 local function decode(text)
   if type(text) ~= "string" or text == "" then return nil end
   local value = noctalia.json.decode(text)
@@ -54,7 +77,13 @@ local function loadOrigins()
   if not originsFile or not noctalia.fileExists(originsFile) then return end
   local text = noctalia.readFile(originsFile)
   local value = decode(text)
-  if type(value) == "table" then origins = value end
+  if type(value) ~= "table" then return end
+  -- the file is only trusted for well-formed entries
+  for addr, o in pairs(value) do
+    if validAddr(addr) and type(o) == "table" then
+      origins[addr] = { id = wsId(o.id) and o.id or nil, name = type(o.name) == "string" and clean(o.name, 100) or nil }
+    end
+  end
 end
 
 local function saveOrigins()
@@ -79,7 +108,9 @@ end
 local function entryOf(c)
   local cls = c["class"]
   if cls == nil or cls == "" then cls = c.initialClass or "" end
-  return { address = c.address, class = cls, title = c.title or "" }
+  -- the class is used to look up an icon: keep it from being a path
+  cls = string.gsub(clean(cls, 100), "[/\\]", "")
+  return { address = c.address, class = cls, title = clean(c.title, 200) }
 end
 
 local function refresh()
@@ -96,7 +127,7 @@ local function refresh()
         local present = {}
         for _, c in ipairs(data) do
           local ws = c.workspace
-          if ws and ws.name == MIN_WS and c.mapped ~= false and c.address then
+          if ws and ws.name == MIN_WS and c.mapped ~= false and validAddr(c.address) then
             present[c.address] = c
           end
         end
@@ -146,7 +177,7 @@ end
 
 local function minimizeWindow(win)
   local addr = win and win.address
-  if type(addr) ~= "string" or addr == "" then return end
+  if not validAddr(addr) then return end
   local ws = win.workspace
   if ws and type(ws.name) == "string" and string.sub(ws.name, 1, 8) == "special:" then return end
   origins[addr] = { id = ws and ws.id or nil, name = ws and ws.name or nil }
@@ -166,6 +197,7 @@ local function minimize()
 end
 
 local function moveAndFocus(addr, wsExpr)
+  if not validAddr(addr) or not wsId(tonumber(wsExpr)) then return end
   dispatch(
     'hl.dsp.window.move({ workspace = ' .. wsExpr .. ', follow = false, window = "address:' .. addr .. '" })',
     function()
@@ -174,25 +206,69 @@ local function moveAndFocus(addr, wsExpr)
   )
 end
 
+local closeOverlayAt = nil
+
+local function isMinimized(addr)
+  for _, w in ipairs(windows) do
+    if w.address == addr then return true end
+  end
+  return false
+end
+
 local function restore(addr)
-  if type(addr) ~= "string" or addr == "" then return end
+  -- only well-formed addresses of windows that are really minimized (not any window of the session)
+  if not validAddr(addr) or not isMinimized(addr) then return end
   local mode = noctalia.getConfig("restore_to") or "current"
   local o = origins[addr]
-  if mode == "origin" and o and type(o.id) == "number" and o.id > 0 then
+  if mode == "origin" and o and wsId(o.id) then
     origins[addr] = nil
     saveOrigins()
-    moveAndFocus(addr, tostring(o.id))
+    moveAndFocus(addr, wsId(o.id))
     return
   end
   hypr({ "activeworkspace", "-j" }, function(res)
     if res.exitCode ~= 0 then return end
     local ws = decode(res.stdout)
-    if type(ws) == "table" and ws.id then
+    if type(ws) == "table" and wsId(ws.id) then
       origins[addr] = nil
       saveOrigins()
-      moveAndFocus(addr, tostring(ws.id))
+      moveAndFocus(addr, wsId(ws.id))
     end
   end)
+end
+
+-- Hyprland shows the special workspace as an overlay whenever one of its windows is focused. After the
+-- window has been moved out, close the overlay if it is still open (other windows may remain in it).
+local function closeOverlay()
+  hypr({ "monitors", "-j" }, function(res)
+    if res.exitCode ~= 0 then return end
+    local list = decode(res.stdout)
+    if type(list) ~= "table" then return end
+    for _, m in ipairs(list) do
+      local sp = m.specialWorkspace
+      if type(sp) == "table" and sp.name == MIN_WS then
+        dispatch('hl.dsp.workspace.toggle_special("minimized")')
+        return
+      end
+    end
+  end)
+end
+
+-- A minimized window got focus from outside (window switcher, launcher, a click on a notification...):
+-- treat it as a restore, so the user does not end up looking at the special workspace.
+local lastFocusRestore = nil
+
+local function onFocused(addr)
+  if noctalia.getConfig("restore_on_focus") == false then return end
+  if not validAddr(addr) or not isMinimized(addr) then return end
+  local now = noctalia.nowMs()
+  -- once the focused window has left the overlay, Hyprland focuses the next one inside it: that is not a
+  -- request from the user, so a burst of focus events restores only the first window
+  if lastFocusRestore and now - lastFocusRestore < 1200 then return end
+  lastFocusRestore = now
+  restore(addr)
+  -- give restore() time to move the window before checking the overlay
+  closeOverlayAt = now + 400
 end
 
 local function restoreLast()
@@ -239,8 +315,13 @@ local function startStream()
   local sig = noctalia.getenv("HYPRLAND_INSTANCE_SIGNATURE")
   if not runtime or not sig then return false end
   local sock = runtime .. "/hypr/" .. sig .. "/.socket2.sock"
+  -- the path goes into a shell command and into a socat address (where "," and ":" are separators):
+  -- anything unusual is refused and the service falls back to polling
+  if not string.match(sock, "^[%w%._/%-]+$") then return false end
   return noctalia.runStream("socat -u UNIX-CONNECT:" .. sock .. " - 2>/dev/null", function(line)
     -- only window changes matter
+    local focused = string.match(line, "^activewindowv2>>(%x+)$")
+    if focused then onFocused("0x" .. focused) end
     if string.find(line, "^movewindowv2>>", 1) or string.find(line, "^openwindow>>", 1) or string.find(line, "^closewindow>>", 1) then
       requestRefresh(80)
     end
@@ -256,6 +337,10 @@ refresh()
 noctalia.setUpdateInterval(150)
 function update()
   local now = noctalia.nowMs()
+  if closeOverlayAt and now >= closeOverlayAt then
+    closeOverlayAt = nil
+    closeOverlay()
+  end
   if pendingAt and now >= pendingAt then
     pendingAt = nil
     lastPoll = now
