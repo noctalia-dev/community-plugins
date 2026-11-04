@@ -95,6 +95,7 @@ body:
         - dnf-updater
         - dns-switcher
         - drive-health
+        - dropkitty
         - dropwall
         - ds4-color
         - emoji-picker
