@@ -1,0 +1,2 @@
+The current device has been revoked
+Mullvad account: 0000000000000000
