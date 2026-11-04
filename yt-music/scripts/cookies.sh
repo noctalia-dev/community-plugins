@@ -51,6 +51,18 @@ zen_profile_dir() {
   return 1
 }
 
+# Locates Helium's user data directory. The Linux build uses
+# $HELIUM_CONFIG_HOME or $XDG_CONFIG_HOME/net.imput.helium, with a `.dev`
+# suffix on non-official builds. yt-dlp has no `helium` reader, but accepts a
+# path to any Chromium profile.
+helium_profile_dir() {
+  local cfg="${XDG_CONFIG_HOME:-$HOME/.config}" root
+  for root in "${HELIUM_CONFIG_HOME:-$cfg/net.imput.helium}" "$cfg/net.imput.helium.dev"; do
+    [ -d "$root" ] && { printf '%s\n' "$root"; return 0; }
+  done
+  return 1
+}
+
 open_browser() {   # $1=browser id
   local b="$1"
   case "$b" in
@@ -172,11 +184,24 @@ extract_cookies() {   # $1=browser id
         no_profile=1
         logger -t "ytm/cookies" "[ytm/cookies] no Zen profile with cookies.sqlite found"
       fi
+    elif [ "$browser" = "helium" ]; then
+      HELIUM_P=$(helium_profile_dir)
+      if [ -n "$HELIUM_P" ]; then
+        CFB="chromium:$HELIUM_P"
+      else
+        CFB=""
+        no_profile=1
+        logger -t "ytm/cookies" "[ytm/cookies] no Helium profile found"
+      fi
     else
       CFB="$browser"
     fi
     if [ -z "$CFB" ]; then
-      LOG="No Zen profile found. Looked in ~/.config/zen, ~/.zen and the Flatpak profile directory"
+      if [ "$browser" = "helium" ]; then
+        LOG="No Helium profile found. Looked in ${XDG_CONFIG_HOME:-$HOME/.config}/net.imput.helium"
+      else
+        LOG="No Zen profile found. Looked in ~/.config/zen, ~/.zen and the Flatpak profile directory"
+      fi
     else
       LOG=$(timeout 45 yt-dlp --cookies-from-browser "$CFB" --cookies "$RAW" --skip-download --no-warnings --no-playlist "https://music.youtube.com" 2>&1 | tr '\n' ' ')
       grep -iE '^#|(youtube\.com|youtu\.be|youtube-nocookie\.com|ytimg\.com|googlevideo\.com|yt\.be|youtubeeducation\.com)' "$RAW" > "$OUT" 2>/dev/null
