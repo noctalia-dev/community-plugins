@@ -57,18 +57,33 @@ local function fetchMonitors()
   end, 3000)
 end
 
+-- barWidget.outputName() returns nil inside state-watch callbacks, so the output is remembered from
+-- the calls where it is available (update). The last decision is kept whenever the output is unknown,
+-- otherwise the widget would flip between modes every time the service republishes the list.
+local myOutput = nil
+local lastCompact = false
+
+local function currentOutput()
+  local name = barWidget.outputName()
+  if name then myOutput = name end
+  return myOutput
+end
+
 local function isCompact()
   local mode = noctalia.getConfig("mode") or "auto"
   if mode == "button" then return true end
   if mode == "list" then return false end
-  if barWidget.isVertical() then return true end
-  local name = barWidget.outputName()
-  local w = name and monitorWidth[name]
-  if w then return w < 1500 end
-  for _, o in ipairs(noctalia.outputs()) do
-    if o.name == name then return o.width < 1500 end
+  if barWidget.isVertical() then
+    lastCompact = true
+    return true
   end
-  return false
+  local name = currentOutput()
+  local w = name and monitorWidth[name]
+  if w then
+    lastCompact = w < 1500
+    return lastCompact
+  end
+  return lastCompact
 end
 
 local function iconFor(cls)
@@ -154,6 +169,7 @@ end)
 
 function update()
   noctalia.setUpdateInterval(5000)
+  currentOutput()
   windows = decode(noctalia.state.get("windows"))
   fetchMonitors()
   render()

@@ -65,9 +65,15 @@ end
 
 -- ───────── minimized list ─────────
 
+local lastPublished = nil
+
 local function publish()
   local text = noctalia.json.encode(windows) or "[]"
-  noctalia.state.set("windows", text)
+  -- only when the list actually changed: every state change makes the widgets redraw
+  if text ~= lastPublished then
+    lastPublished = text
+    noctalia.state.set("windows", text)
+  end
 end
 
 local function entryOf(c)
