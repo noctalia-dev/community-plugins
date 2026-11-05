@@ -1,156 +1,182 @@
-function update()
-   noctalia.setUpdateInterval(noctalia.getConfig("update_interval") * 1000)
-   local container = barWidget.isVertical() and ui.column or ui.row
+-- Noctalia interrupts any callback that exceeds its per-call CPU budget
+-- (25 ms of worker-thread CPU time) and disables the widget after repeated
+-- overruns. A single noctalia.listDir() on a large cur/ already spends that
+-- budget, because it materialises every filename into a Lua table inside
+-- the callback, so no amount of chunking the later matching can help. This
+-- widget therefore never walks directories in Lua: an external find/grep
+-- pipeline counts new/ and unread cur/ entries in a separate process, and
+-- the callback only parses two integers per inbox. Every callback costs
+-- microseconds regardless of mailbox size.
 
-   local ms = checkMail()
-   local weight = "bold"
-   if ms == nil then
-      ms = {text = noctalia.getConfig("nomail"), tooltip = noctalia.tr("title")}
-      weight = "normal"
-   end
-   barWidget.setTooltip(ms.tooltip)
-   barWidget.render(container({ gap = 6, align = "center" }, {
-                          ui.label({ text = ms.text, fontWeight = weight }),
-   }))
-end
+-- Cached per-inbox counts, written by the counter callback and read by
+-- every render. Keyed by inbox path segment, so changed settings simply
+-- use new keys and stale ones are ignored.
+local counts = {}
 
--- Number of entries in a directory (0 when the directory is missing or unlistable).
-function countDir(dir)
-   local entries = noctalia.listDir(dir)
-   if type(entries) ~= "table" then
-      return 0
-   end
-   return #entries
-end
+-- True while the external counter is running, so a slow counter never
+-- makes an update tick pile a second copy onto it.
+local counting = false
 
--- Directory mtime (nil when the directory is missing). Used as a change
--- detector: unread counts are only recomputed when a directory changed.
-function dirMtime(dir)
-   local info = noctalia.fileInfo(dir)
-   if type(info) ~= "table" then
-      return nil
-   end
-   return info.mtime
-end
+-- Notify at most once per failure streak; reset on the first success.
+local failureNotified = false
+
+-- A cold or network-mounted mailbox can take a while to walk; without an
+-- explicit timeout runAsync would kill the counter after its 5 s default.
+local COUNT_TIMEOUT_MS = 30000
 
 -- A maildir filename ends with a flags section such as ":2,S" or ":2,RS"
--- (legacy writers use ",2,S"). S in the flags means Seen; no flags section
--- means the message was never touched by a mail client.
-function isSeen(name)
-   local flags = name:match("[:,]2,([%a]*)$")
-   return flags ~= nil and flags:find("S") ~= nil
+-- (legacy writers use ",2,S"). A name is seen when its trailing
+-- letters-only flags section contains S; a name with no flags section was
+-- never touched by a mail client and counts as unread. The ERE below is
+-- the shell twin of that rule and must stay equivalent to it.
+local SEEN_ERE = "[:,]2,[A-Za-z]*S[A-Za-z]*$"
+
+function shellQuote(s)
+   return "'" .. s:gsub("'", "'\\''") .. "'"
 end
 
--- Noctalia interrupts any callback that exceeds its per-call CPU budget,
--- and disables a widget after repeated overruns. Scanning a whole cur/
--- directory in one update overruns that budget on large maildirs, so each
--- update inspects at most CHUNK names and the rest waits for the next one.
--- A name check costs on the order of a microsecond; 1024 keeps an update
--- around a millisecond even on slow hardware.
-local CHUNK = 1024
-
--- Cached per-inbox unread counts, reused while the directory mtimes hold.
--- An idle maildir therefore costs two stat calls per update instead of a
--- full rescan. root is rechecked so a changed setting drops stale caches.
-local cached = {}
-
--- One in-flight cur/ scan at a time: names is the listDir snapshot the
--- scan started from, cursor is the next name to inspect, and mtime is the
--- directory mtime at snapshot time. When the scan reaches the end it only
--- commits its count if the mtime still matches, so a directory modified
--- mid-scan is scanned again rather than reporting stale counts.
-local scan = nil
-
--- Advance the in-flight scan by one chunk. Returns nothing; the committed
--- count is visible to checkMail through the cache.
-function advanceScan()
-   if scan == nil then
-      return
+-- Mirrors the host's path resolution for filesystem calls: "~" expands to
+-- $HOME, absolute paths are used as-is, anything else is plugin-relative.
+function resolveMaildir(path)
+   path = tostring(path)
+   if path:sub(1, 1) == "~" then
+      return noctalia.expandPath(path)
    end
-   local last = math.min(scan.cursor + CHUNK, #scan.names)
-   local unread = scan.unread
-   for i = scan.cursor + 1, last do
-      if not isSeen(scan.names[i]) then
-         unread += 1
-      end
+   if path:sub(1, 1) == "/" then
+      return path
    end
-   scan.cursor = last
-   scan.unread = unread
-   if last < #scan.names then
-      return
-   end
-   local entry = cached[scan.inbox]
-   if entry ~= nil and entry.root == scan.root and dirMtime(scan.root .. "/cur") == scan.mtime then
-      entry.curUnread = unread
-      entry.curMtime = scan.mtime
-   end
-   scan = nil
+   return noctalia.pluginDir() .. "/" .. path
 end
 
-function checkMail()
+function countCurEnabled()
+   local v = noctalia.getConfig("count_cur")
+   if v == nil then
+      return true
+   end
+   return v == true or v == "true"
+end
+
+-- Reads and validates the settings; nil when inboxes is not a list.
+function readConfig()
    local maildir = noctalia.getConfig("maildir")
    local inboxes = noctalia.getConfig("inboxes")
    if type(inboxes) ~= "table" then
-      noctalia.notifyError("Maildir", "Invalid inboxes (expected a list of <inbox>:<label>)")
       return nil
    end
-   advanceScan()
+   local list = {}
+   for _, inbox_label in inboxes do
+      local parts = string.split(tostring(inbox_label), ":")
+      local inbox = parts[1]
+      local label = parts[2] or parts[1]
+      if inbox ~= nil and inbox ~= "" then
+         table.insert(list, { inbox = inbox, label = label })
+      end
+   end
+   return {
+      maildir = resolveMaildir(maildir),
+      inboxes = list,
+      countCur = countCurEnabled(),
+   }
+end
+
+-- Builds one shell command printing a "<new> <unread-cur>" line per inbox,
+-- in order. Paths from settings are single-quoted; find and grep do the
+-- walking out of process, and a missing directory simply yields 0. find -L
+-- follows symlinks, so a symlinked maildir counts the same as a real one.
+function buildCommand(cfg)
+   local lines = {}
+   for _, e in cfg.inboxes do
+      local root = shellQuote(cfg.maildir .. "/" .. e.inbox)
+      local newExpr = "$(find -L " .. root .. "/new -maxdepth 1 -type f 2>/dev/null | wc -l)"
+      local curExpr = "0"
+      if cfg.countCur then
+         curExpr = "$(find -L " .. root .. "/cur -maxdepth 1 -type f 2>/dev/null | grep -cvE " .. shellQuote(SEEN_ERE) .. ")"
+      end
+      table.insert(lines, "echo " .. newExpr .. " " .. curExpr)
+   end
+   return table.concat(lines, "; ")
+end
+
+function render()
+   local container = barWidget.isVertical() and ui.column or ui.row
+   local countCur = countCurEnabled()
+   local cfg = readConfig()
+   local inboxes = cfg ~= nil and cfg.inboxes or {}
    local s = ""
    local t = ""
-   local pending = nil
-   for _, inbox_label in inboxes do
-      local parts = string.split(inbox_label, ":")
-      local inbox = parts[1]
-      local label = parts[2]
-      local root = maildir .. "/" .. inbox
-      local entry = cached[inbox]
-      if entry == nil or entry.root ~= root then
-         entry = { root = root, newCount = 0, newMtime = nil, curUnread = 0, curMtime = nil }
-         cached[inbox] = entry
+   for _, e in inboxes do
+      local c = counts[e.inbox]
+      local count = 0
+      if c ~= nil then
+         count = c.newCount + (countCur and c.curUnread or 0)
       end
-      local newMtime = dirMtime(root .. "/new")
-      if newMtime ~= entry.newMtime then
-         entry.newCount = countDir(root .. "/new")
-         entry.newMtime = newMtime
-      end
-      local curMtime = dirMtime(root .. "/cur")
-      if curMtime ~= entry.curMtime and pending == nil then
-         -- cur/ changed and needs a rescan. Only one scan runs at a time,
-         -- so the per-update cost stays bounded no matter how many
-         -- inboxes went stale at once.
-         pending = { inbox = inbox, root = root, mtime = curMtime }
-      end
-      local count = entry.newCount + entry.curUnread
       if count < 1 then
          continue
       end
-      s = s .. label .. string.format("=%d,", count)
-      t = t .. inbox .. string.format("=%d\n", count)
-   end
-   if scan == nil and pending ~= nil then
-      -- Start the next scan. Taking the listDir snapshot is itself costly
-      -- on huge directories, so the update that starts a scan does no
-      -- name matching.
-      local cur = noctalia.listDir(pending.root .. "/cur")
-      if type(cur) == "table" then
-         scan = {
-            inbox = pending.inbox,
-            root = pending.root,
-            names = cur,
-            cursor = 0,
-            unread = 0,
-            mtime = pending.mtime,
-         }
-      else
-         local entry = cached[pending.inbox]
-         entry.curUnread = 0
-         entry.curMtime = pending.mtime
-      end
+      s = s .. e.label .. string.format("=%d,", count)
+      t = t .. e.inbox .. string.format("=%d\n", count)
    end
    if #s < 1 then
-      return nil
+      barWidget.setTooltip(noctalia.tr("title"))
+      barWidget.render(container({ gap = 6, align = "center" }, {
+                             ui.label({ text = tostring(noctalia.getConfig("nomail")), fontWeight = "normal" }),
+      }))
+      return
    end
-   return {text = s:sub(1,-2), tooltip = t:sub(1,-2)}
+   barWidget.setTooltip(t:sub(1, -2))
+   barWidget.render(container({ gap = 6, align = "center" }, {
+                         ui.label({ text = s:sub(1, -2), fontWeight = "bold" }),
+   }))
+end
+
+-- Parses the counter output ("<new> <unread>" per line, same order as the
+-- inboxes baked into the command) into the cache, then re-renders so fresh
+-- counts appear without waiting for the next tick.
+function onCountDone(inboxes, result)
+   counting = false
+   if type(result) ~= "table" or result.exitCode ~= 0 then
+      if not failureNotified then
+         failureNotified = true
+         local detail = "exitCode = " .. tostring(type(result) == "table" and result.exitCode or "?")
+         if type(result) == "table" and result.stderr ~= nil and result.stderr ~= "" then
+            detail = detail .. "\nStderr: " .. result.stderr
+         end
+         noctalia.notifyError("Maildir", "unread counter failed\n" .. detail)
+      end
+      return
+   end
+   failureNotified = false
+   local lines = string.split(result.stdout or "", "\n")
+   for i, e in inboxes do
+      local newCount, curUnread = string.match(tostring(lines[i]), "^(%d+)%s+(%d+)")
+      if newCount ~= nil then
+         counts[e.inbox] = { newCount = tonumber(newCount), curUnread = tonumber(curUnread) }
+      end
+   end
+   render()
+end
+
+function update()
+   noctalia.setUpdateInterval(noctalia.getConfig("update_interval") * 1000)
+   if not counting then
+      local cfg = readConfig()
+      if cfg == nil then
+         noctalia.notifyError("Maildir", "Invalid inboxes (expected a list of <inbox>:<label>)")
+      elseif #cfg.inboxes > 0 then
+         counting = true
+         local ok = noctalia.runAsync(buildCommand(cfg), function(result)
+            onCountDone(cfg.inboxes, result)
+         end, COUNT_TIMEOUT_MS)
+         if not ok then
+            counting = false
+            if not failureNotified then
+               failureNotified = true
+               noctalia.notifyError("Maildir", "could not start the unread counter")
+            end
+         end
+      end
+   end
+   render()
 end
 
 function onClickCallback(result)

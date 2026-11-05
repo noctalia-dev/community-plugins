@@ -1,13 +1,13 @@
 id = "nickh/maildir"
 name = "Maildir"
-version = "0.0.6"
+version = "0.0.7"
 plugin_api = 3
 author = "Nick Hastings"
 license = "MIT"
 icon = "mail"
 tags = ["bar"]
 description = "New mail widget"
-dependencies = []
+dependencies = ["find", "grep"]
 
 [[widget]]
 id = "maildir"
@@ -25,8 +25,15 @@ entry = "maildir.luau"
    description_key = "settings.inboxes.description"
    default = ["INBOX:in"]
 
-   [[widget.setting]]
-   key = "nomail"
+    [[widget.setting]]
+    key = "count_cur"
+    type = "bool"
+    label_key = "settings.count_cur.label"
+    description_key = "settings.count_cur.description"
+    default = true
+
+    [[widget.setting]]
+    key = "nomail"
    type = "string"
    label_key = "settings.nomail.label"
    description_key = "settings.nomail.description"
