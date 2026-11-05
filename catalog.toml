@@ -5483,8 +5483,8 @@ tags = ["utility", "bar", "indicator"]
 [[plugin]]
 id = "83raiders/scroll-indicator"
 name = "Scroll Indicator"
-version = "1.1.0"
-updated_at = 1793799290
+version = "1.1.1"
+updated_at = 1793883103
 added_at = 1793799290
 author = "83raiders"
 license = "MIT"
