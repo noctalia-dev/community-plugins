@@ -2,7 +2,7 @@
 
 Quick Alarm allows you to quickly set multiple alarms, timers, and reminders using flexible natural language input, matching the behavior and syntax of the popular Cinnamon Quick Alarm applet.
 
-![Quick Alarm](thumbnail.webp)
+![Quick Alarm](screenshot.png)
 
 ## Plugin
 
