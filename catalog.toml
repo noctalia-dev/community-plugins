@@ -3028,8 +3028,8 @@ rev = "3130f18d60995fc03da094e88bc35174a7cf987f"
 [[plugin]]
 id = "mirei124/bangumi-progress"
 name = "Bangumi Progress"
-version = "1.2.1"
-updated_at = 1792983494
+version = "1.2.2"
+updated_at = 1793888035
 added_at = 1789085966
 author = "Mirei124"
 license = "MIT"
