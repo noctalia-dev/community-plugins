@@ -7,7 +7,7 @@ license    = "MIT"
 icon       = "layout-filled"
 description = "Layout switcher for MangoWC"
 tags       = ["bar", "panel", "mangowc", "utility"]
-dependencies = ["jq", "mmsg"]
+dependencies = ["mmsg"]
 
 [[widget]]
 id    = "btn"
