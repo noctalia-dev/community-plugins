@@ -5518,3 +5518,29 @@ icon = "arrows-diagonal-minimize-2"
 description = "Minimize windows to a Hyprland special workspace and restore them from a bar widget, a panel or keybinds."
 plugin_api = 32
 tags = ["bar", "panel", "service", "hyprland", "utility"]
+
+[[plugin]]
+id = "manishmodak/aocctl"
+name = "AOC monitor"
+version = "1.0.0"
+updated_at = 1793882852
+added_at = 1793882852
+author = "manishmodak"
+license = "MIT"
+icon = "device-desktop-cog"
+description = "AOC monitor brightness on the bar; a panel for its settings (overdrive, Low Blue, ...) and presets, via aocctl."
+plugin_api = 43
+tags = ["bar", "panel", "hardware", "gaming"]
+
+[[plugin]]
+id = "nullflake/youtube-explorer"
+name = "YouTube Explorer"
+version = "1.0.0"
+updated_at = 1793882824
+added_at = 1793882824
+author = "nullflake"
+license = "GPL-3.0-only"
+icon = "brand-youtube"
+description = "Browse videos and channels, save videos and favorite channels, and view local playback history."
+plugin_api = 43
+tags = ["launcher", "service", "media", "video"]
