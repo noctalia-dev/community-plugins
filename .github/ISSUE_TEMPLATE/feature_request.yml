@@ -173,6 +173,7 @@ body:
         - mini-docker
         - misr-quran-radio
         - modernclock
+        - mullvad
         - murattal
         - mx-control
         - mxmouse
