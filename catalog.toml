@@ -4084,8 +4084,8 @@ rev = "3f019fa7ee8e618d8949f397e7e17bc0888db96b"
 [[plugin]]
 id = "lfdominguez/claude-sessions"
 name = "Claude Sessions"
-version = "1.6.5"
-updated_at = 1793319535
+version = "1.7.0"
+updated_at = 1793887975
 added_at = 1790894453
 author = "lfdominguez"
 license = "MIT"
