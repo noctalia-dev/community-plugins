@@ -2397,8 +2397,8 @@ tags = ["panel", "utility"]
 [[plugin]]
 id = "linux-fertxo/hyprland-visual-editor"
 name = "Hyprland Visual Editor"
-version = "2.0.2"
-updated_at = 1792417341
+version = "2.0.4"
+updated_at = 1793842599
 added_at = 1788117624
 author = "XimoCP (v4 original) + Hermy & linux-fertxo (v5 Luau port)"
 license = "MIT"
@@ -3116,8 +3116,8 @@ rev = "1892e642e0570cc8f94ead2937cb5f57d3f87d60"
 [[plugin]]
 id = "grassyloki/kwallet-secrets"
 name = "KWallet Secrets"
-version = "1.1.3"
-updated_at = 1790467616
+version = "1.1.4"
+updated_at = 1793842636
 added_at = 1789149522
 author = "grassyloki"
 license = "MIT"
