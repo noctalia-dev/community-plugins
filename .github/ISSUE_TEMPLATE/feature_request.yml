@@ -37,6 +37,7 @@ body:
         - als-brightness
         - ambient-sounds
         - anilist
+        - aocctl
         - arch-audit
         - arch-updater
         - ask-claude
@@ -340,6 +341,7 @@ body:
         - workspace-restore
         - world-radio
         - xwayland
+        - youtube-explorer
         - youtube-search
         - yt-music
         - zakker
