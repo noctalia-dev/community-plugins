@@ -5444,8 +5444,8 @@ tags = ["hardware", "system", "utility", "shortcut"]
 [[plugin]]
 id = "goldesquemoon/mic-denoise"
 name = "Mic Denoise"
-version = "1.3.1"
-updated_at = 1793736720
+version = "1.4.0"
+updated_at = 1793883489
 added_at = 1793736720
 author = "goldesquemoon"
 license = "MIT"
@@ -5470,8 +5470,8 @@ tags = ["niri", "system", "utility", "shortcut"]
 [[plugin]]
 id = "goldesquemoon/typing-stats"
 name = "Typing Stats"
-version = "1.2.0"
-updated_at = 1793746464
+version = "1.3.0"
+updated_at = 1793883461
 added_at = 1793746464
 author = "goldesquemoon"
 license = "MIT"
