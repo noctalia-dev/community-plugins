@@ -5544,3 +5544,16 @@ icon = "brand-youtube"
 description = "Browse videos and channels, save videos and favorite channels, and view local playback history."
 plugin_api = 43
 tags = ["launcher", "service", "media", "video"]
+
+[[plugin]]
+id = "3dprogramin/mullvad"
+name = "Mullvad VPN"
+version = "0.1.0"
+updated_at = 1793883043
+added_at = 1793883043
+author = "3dprogramin"
+license = "MIT"
+icon = "shield-lock"
+description = "Connect to Mullvad VPN from the bar: country, my country or random, plus lockdown, multihop and auto-connect."
+plugin_api = 43
+tags = ["bar", "panel", "service", "network", "privacy"]
