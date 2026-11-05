@@ -1,12 +1,12 @@
 id = "styrish/modernclock"
 name = "Modern Clock"
-version = "1.0.0"
+version = "1.0.1"
 plugin_api = 43
 author = "styrish"
 license = "GPL-3.0"
 dependencies = []
 icon = "clock"
-description = "A port of KDE Modern Clock to Noctalia on Wayland/Niri."
+description = "A sleek, customizable desktop clock widget for Noctalia."
 tags = ["desktop", "clock", "time"]
 
 [[setting]]
