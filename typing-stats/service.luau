@@ -215,6 +215,18 @@ local lastLine = 0
 local dirty = false
 local warnedNoAccess = false
 
+-- Driven by the listener's READY/ERR lines and rendered by the setup tile:
+-- false means /dev/input is not readable yet, so the udev rule is missing.
+local accessOk = nil
+
+local function setAccess(ok)
+  if accessOk == ok then
+    return
+  end
+  accessOk = ok
+  noctalia.state.set("access", { ok = ok })
+end
+
 local dataDir = noctalia.pluginDataDir()
 local savePath = nil
 if dataDir ~= nil and dataDir ~= "" then
@@ -368,11 +380,20 @@ local function handleLine(line)
     return
   end
 
+  if string.sub(line, 1, 5) == "READY" then
+    setAccess(true)
+    warnedNoAccess = false
+    return
+  end
+
   if string.sub(line, 1, 4) == "ERR " then
     noctalia.log("typing-stats: " .. string.sub(line, 5))
+    setAccess(false)
     if not warnedNoAccess then
       warnedNoAccess = true
-      noctalia.notifyError(noctalia.tr("notify.no_access.title"), noctalia.tr("notify.no_access.body"))
+      noctalia.notifyError(noctalia.tr("notify.no_access.title"), noctalia.tr("notify.no_access.body", {
+        path = (noctalia.pluginDir() or ".") .. "/setup.sh",
+      }))
     end
   end
 end
@@ -391,6 +412,44 @@ local function startListener()
   running = noctalia.runStream("python3 -u " .. shellQuote(listenerPath), handleLine)
   if not running then
     noctalia.log("typing-stats: could not start the key listener")
+  end
+end
+
+-- One-click udev setup: pkexec raises the desktop's polkit dialog, so a fresh
+-- install does not need a terminal. setup.sh is idempotent (it repairs a lost
+-- rule too), and the listener rescans every 2 s, so it heals without a restart.
+local function runSetup()
+  local dir = noctalia.pluginDir() or "."
+  local script = dir .. "/setup.sh"
+  if not noctalia.fileExists(script) or not noctalia.commandExists("pkexec") then
+    noctalia.notifyError(noctalia.tr("notify.no_access.title"), noctalia.tr("notify.no_access.body", { path = script }))
+    return
+  end
+  local argv = { "pkexec", "/bin/sh", script }
+  local user = noctalia.getenv("USER")
+  if user ~= nil and user ~= "" and user ~= "root" then
+    -- pkexec clears SUDO_USER; setup.sh checks the rule as that user.
+    argv[#argv + 1] = "--user"
+    argv[#argv + 1] = user
+  end
+  local started = noctalia.runAsync(argv, function(result)
+    if result.timedOut then
+      noctalia.notifyError(noctalia.tr("notify.setup.failed.title"), noctalia.tr("notify.setup.timeout.body"))
+    elseif result.exitCode == 0 then
+      warnedNoAccess = false
+      noctalia.notify(noctalia.tr("notify.setup.done.title"), noctalia.tr("notify.setup.done.body"))
+    elseif result.exitCode == 126 or result.exitCode == 127 then
+      noctalia.notifyError(noctalia.tr("notify.setup.cancelled.title"), noctalia.tr("notify.no_access.body", { path = script }))
+    else
+      local detail = (tostring(result.stderr or ""):gsub("%s+$", ""))
+      noctalia.notifyError(
+        noctalia.tr("notify.setup.failed.title"),
+        detail ~= "" and detail or noctalia.tr("notify.no_access.body", { path = script })
+      )
+    end
+  end, 60000)
+  if not started then
+    noctalia.notifyError(noctalia.tr("notify.setup.failed.title"), noctalia.tr("notify.no_access.body", { path = script }))
   end
 end
 
@@ -417,6 +476,8 @@ noctalia.state.watch("command", function(command)
   end
   if command.action == "reset" then
     reset()
+  elseif command.action == "setup" then
+    runSetup()
   end
 end)
 
