@@ -20,8 +20,8 @@ target outputs.
 | --- | --- |
 | `niri` | The compositor this plugin targets; mirroring uses its output and output events. |
 | `wl-mirror` | Renders the source output into a window that gets fullscreened on the target display. |
-| `python3` | Runs the companion daemon that follows niri's event stream. |
-| `niri-mirror CLI (~/.local/bin/niri-mirror, installed by this repo's install.sh)` | The daemon and its CLI ship in the companion repository and do the actual mirroring. |
+| `python3` | Runs the bundled mirroring engine (`engine/niri_mirror.py`). |
+| `wl-mirror` package | The only package to install by hand: `sudo pacman -S wl-mirror`. |
 
 ## Usage
 
@@ -58,48 +58,46 @@ connected:
 HDMI-X 不匹配任何已连接的显示器；可用: eDP-2, HDMI-A-1
 ```
 
-To see the names up front: `niri-mirror --list-outputs`.
+To see the names up front: `python3 engine/niri_mirror.py --list-outputs`.
 
-niri has no output mirroring of its own (`Mirroring is not yet supported`), so the
-companion **`niri-mirror` daemon** renders the source output with
+niri has no output mirroring of its own (`Mirroring is not yet supported`), so the bundled
+**`niri-mirror` engine** renders the source output with
 [wl-mirror](https://github.com/Ferdi265/wl-mirror) and fullscreens that window on the
 target display. The daemon follows niri's event stream, so hotplug works with no
 polling; this plugin is the UI and the settings bridge.
 
 ## Install
 
+**From the plugin store (recommended)**
+
+1. Install the one package it needs: `sudo pacman -S wl-mirror`.
+2. Settings -> Plugins -> Store, search **Screen Mirror**, install and enable it.
+3. Add the tile: Settings -> Control center -> Shortcuts -> *Screen Mirror*.
+
+The mirroring engine is **bundled** (`engine/niri_mirror.py`, MIT, from the
+[niri-mirror](https://github.com/Goldppx/niri-mirror) project), so there is no second
+repository to clone and no CLI to place in `~/.local/bin`. If a `niri-mirror` CLI of your own
+exists, it is used instead - handy for a hand-installed engine.
+
+**From a checkout**
+
 ```sh
 git clone https://github.com/Goldppx/noctalia-screen-mirror.git
 cd noctalia-screen-mirror
-./install.sh          # installs/checks the engine, registers the source, enables the plugin
+./install.sh          # registers the source + enables the plugin (no root)
 ```
-
-`install.sh` first looks for the mirroring engine and installs it when it is missing: a
-`niri-mirror` CLI on `PATH` or in `~/.local/bin` is used as is, otherwise the
-[niri-mirror](https://github.com/Goldppx/niri-mirror) repository is cloned to a temporary
-directory and its `install.sh` is run, which puts `niri-mirror` into `~/.local/bin` and adds the
-daemon's autostart entry to your niri config. Only `wl-mirror` stays a manual package:
-
-```sh
-sudo pacman -S wl-mirror
-```
-
-Flags: `--no-daemon` only checks the engine and never fetches it;
-`NIRI_MIRROR_DIR=~/dev/niri-mirror ./install.sh` uses an existing checkout instead of cloning.
 
 ## Dependencies
 
-Declared in `plugin.toml` so the browser shows them:
-
 | Need | Why | Install |
 |---|---|---|
-| `niri` | compositor; the daemon reads `niri msg` | your session |
+| `niri` | compositor; the engine reads `niri msg` | your session |
 | `wl-mirror` | does the actual output capture/mirroring | `sudo pacman -S wl-mirror` |
-| `python3` | runs the daemon | `sudo pacman -S python` |
-| `niri-mirror` CLI | the daemon itself (`~/.local/bin/niri-mirror`) | this repo's `install.sh` installs it automatically, or run `install.sh` in the [niri-mirror repo](https://github.com/Goldppx/niri-mirror) |
+| `python3` | runs the bundled engine | `sudo pacman -S python` |
 
-If the CLI is missing, the tile stays disabled and the service reports it instead of
-failing silently — running `install.sh` is the fix.
+`niri-mirror` is not a separate install any more: `engine/niri_mirror.py` is part of the plugin
+and the service calls it with `python3`. The tile is disabled only if that file is missing,
+which means the plugin install is broken - reinstall it.
 
 ## How it works
 
@@ -110,8 +108,8 @@ tile / widget ◀──state── $XDG_RUNTIME_DIR/niri-mirror/state ◀──w
 ```
 
 * `service.luau` writes the settings as JSON (the daemon's config file), then runs
-  `niri-mirror ensure; niri-mirror reload` so a running daemon picks the changes up
-  (`ensure` also starts it when it is not running yet).
+  `python3 engine/niri_mirror.py ensure` followed by `... reload` so a running daemon picks
+  the changes up (`ensure` also starts it when it is not running yet).
 * The daemon writes a `key=value` state file on every change; the service mirrors it
   into `noctalia.state "status"` and the tile/widget render from there.
 * Toggles go back as `noctalia.state "command"` → `niri-mirror toggle`, so keybind

@@ -2,8 +2,8 @@
 #
 # niri itself has no output mirroring: wl-mirror renders the source output into
 # a window and we fullscreen that window on the target output. The engine is the
-# companion `niri-mirror` daemon (Python, ships in this plugin's repo), which
-# follows niri's event stream for hotplug. The UI lives here:
+# `niri-mirror` daemon (Python, MIT, bundled under engine/), which follows niri's
+# event stream for hotplug. The UI lives here:
 #
 #   [[service]]  owns the settings -> config.json bridge and polls the daemon's
 #                state file, so the tile and widget stay thin clients
@@ -16,7 +16,7 @@
 
 id          = "goldesquemoon/screen-mirror"
 name        = "Screen Mirror"
-version     = "1.0.1"
+version     = "1.1.0"
 plugin_api  = 24
 author      = "goldesquemoon"
 license     = "MIT"
@@ -25,12 +25,7 @@ description = "Mirror the main niri output onto every other display, toggled fro
 tags        = ["niri", "system", "utility", "shortcut"]
 
 # Shown in the plugin browser so users know what to install before enabling.
-dependencies = [
-  "niri",
-  "wl-mirror",
-  "python3",
-  "niri-mirror CLI (~/.local/bin/niri-mirror, installed by this repo's install.sh)",
-]
+dependencies = ["niri", "wl-mirror", "python3"]
 
 [[setting]]
 key             = "enabled_on_start"
