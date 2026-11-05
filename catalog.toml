@@ -5340,13 +5340,13 @@ tags = ["utility", "system", "hyprland", "music", "launcher"]
 [[plugin]]
 id = "styrish/modernclock"
 name = "Modern Clock"
-version = "1.0.0"
-updated_at = 1793549106
+version = "1.0.1"
+updated_at = 1793842555
 added_at = 1793549106
 author = "styrish"
 license = "GPL-3.0"
 icon = "clock"
-description = "A port of KDE Modern Clock to Noctalia on Wayland/Niri."
+description = "A sleek, customizable desktop clock widget for Noctalia."
 plugin_api = 43
 tags = ["desktop", "clock", "time"]
 
