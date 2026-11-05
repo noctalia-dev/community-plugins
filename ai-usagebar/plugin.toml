@@ -1,6 +1,6 @@
 id = "felipeartur/ai-usagebar"
 name = "AI Usage"
-version = "2.11.2"
+version = "2.13.1"
 plugin_api = 43
 author = "felipeartur"
 license = "MIT"
@@ -34,6 +34,13 @@ options = [
   { value = "used", label_key = "settings.usage_display.option.used" },
   { value = "remaining", label_key = "settings.usage_display.option.remaining" },
 ]
+
+[[setting]]
+key = "show_priorities"
+type = "bool"
+label_key = "settings.show_priorities.label"
+description_key = "settings.show_priorities.description"
+default = false
 
 # ── Entries ───────────────────────────────────────────────────────────────────
 
@@ -96,6 +103,8 @@ options = [
   { value = "cline", label_key = "settings.vendor.option.cline" },
   { value = "muse-code", label_key = "settings.vendor.option.muse_code" },
   { value = "synthetic", label_key = "settings.vendor.option.synthetic" },
+  { value = "droid", label_key = "settings.vendor.option.droid" },
+  { value = "deeprelay", label_key = "settings.vendor.option.deeprelay" },
 ]
 
 # Named CLI accounts use stable `<provider>@<label>` entry ids. Keeping the
