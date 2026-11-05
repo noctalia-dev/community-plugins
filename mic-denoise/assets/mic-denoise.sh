@@ -123,6 +123,22 @@ ladspa_missing() {
     return 0
 }
 
+# The package command for this distro, so the notification and the tile's right
+# click can hand over something the user can paste.
+ladspa_install_cmd() {
+    if command -v pacman >/dev/null 2>&1; then
+        echo "sudo pacman -S noise-suppression-for-voice"
+    elif command -v dnf >/dev/null 2>&1; then
+        echo "sudo dnf install noise-suppression-for-voice"
+    elif command -v apt-get >/dev/null 2>&1; then
+        echo "sudo apt install noise-suppression-for-voice"
+    elif command -v zypper >/dev/null 2>&1; then
+        echo "sudo zypper install noise-suppression-for-voice"
+    else
+        echo "install the noise-suppression-for-voice package"
+    fi
+}
+
 remember_raw() {
     [ -n "$state_file" ] && [ -n "$1" ] || return 0
     mkdir -p "$data_dir" 2>/dev/null || true
@@ -175,6 +191,7 @@ status)
         echo "available=0"
         if ladspa_missing; then
             echo "hint=ladspa-missing"
+            echo "install=$(ladspa_install_cmd)"
         else
             echo "hint=source-missing"
         fi
