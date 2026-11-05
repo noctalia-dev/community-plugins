@@ -1,0 +1,122 @@
+{
+  "header": {
+    "last_year": "{count} contributions in the last year",
+    "month_count": "{count} contributions",
+    "last_weeks": "{count} contributions in the last {weeks} weeks"
+  },
+  "status": {
+    "loading": "Loading contribution data…",
+    "missing_gh": "GitHub CLI (gh) is not installed.",
+    "auth_error": "GitHub CLI is not signed in. Run: gh auth login",
+    "offline": "Offline — could not reach GitHub.",
+    "offline_mode": "Offline mode is enabled.",
+    "request_error": "Could not fetch contribution data.",
+    "decode_error": "GitHub returned an unexpected response.",
+    "stale": "Showing cached data · updated {time}"
+  },
+  "stats": {
+    "today": "Today",
+    "streak": "Streak",
+    "longest": "Longest",
+    "best": "Best",
+    "best_value": "{month} {day} · {count}",
+    "day_total": "{date} · {count} contributions",
+    "month": "Month"
+  },
+  "legend": {
+    "less": "Less",
+    "more": "More"
+  },
+  "weekday": {
+    "sun": "Sun",
+    "mon": "Mon",
+    "tue": "Tue",
+    "wed": "Wed",
+    "thu": "Thu",
+    "fri": "Fri",
+    "sat": "Sat"
+  },
+  "month": {
+    "jan": "Jan",
+    "feb": "Feb",
+    "mar": "Mar",
+    "apr": "Apr",
+    "may": "May",
+    "jun": "Jun",
+    "jul": "Jul",
+    "aug": "Aug",
+    "sep": "Sep",
+    "oct": "Oct",
+    "nov": "Nov",
+    "dec": "Dec"
+  },
+  "settings": {
+    "refresh_interval": {
+      "label": "Refresh interval",
+      "description": "How often GitHub contribution data refreshes automatically.",
+      "options": {
+        "fifteen": "Every 15 minutes",
+        "thirty": "Every 30 minutes",
+        "sixty": "Every 60 minutes"
+      }
+    },
+    "weeks": {
+      "label": "Weeks to show",
+      "description": "How many weeks of the contribution calendar to display.",
+      "options": {
+        "one_month": "5 weeks (about 1 month)",
+        "two_months": "9 weeks (about 2 months)",
+        "three_months": "13 weeks (about 3 months)",
+        "half_year": "26 weeks (half year)",
+        "nine_months": "39 weeks (9 months)",
+        "full_year": "53 weeks (full year)"
+      }
+    },
+    "cell_size": {
+      "label": "Cell size",
+      "description": "Size of each contribution cell in pixels."
+    },
+    "show_weekday_labels": {
+      "label": "Show weekday labels",
+      "description": "Show Mon/Wed/Fri labels next to the calendar."
+    },
+    "show_stats_footer": {
+      "label": "Show stats footer",
+      "description": "Show today, streak, longest streak and best day below the calendar."
+    },
+    "show_legend": {
+      "label": "Show legend",
+      "description": "Show the Less/More color legend."
+    },
+    "view": {
+      "label": "View",
+      "description": "Month calendar or the full-year heatmap.",
+      "options": {
+        "heatmap": "GitHub-style heatmap",
+        "calendar": "Month calendar"
+      }
+    },
+    "month_cell_size": {
+      "label": "Month cell size",
+      "description": "Size of each day cell in the month calendar, in pixels."
+    }
+  },
+  "plugin": {
+    "name": "GitHub Heatmap",
+    "description": "Your GitHub contribution calendar as a smooth, theme-aware desktop widget."
+  },
+  "month_full": {
+    "jan": "January",
+    "feb": "February",
+    "mar": "March",
+    "apr": "April",
+    "may": "May",
+    "jun": "June",
+    "jul": "July",
+    "aug": "August",
+    "sep": "September",
+    "oct": "October",
+    "nov": "November",
+    "dec": "December"
+  }
+}
