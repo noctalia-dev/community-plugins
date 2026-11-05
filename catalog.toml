@@ -338,8 +338,8 @@ rev = "203aaef232cb47ba37c9b32af82f27225ea1916e"
 [[plugin]]
 id = "h465855hgg/lyrics"
 name = "Lyrics"
-version = "1.5.8"
-updated_at = 1792587743
+version = "1.6.0"
+updated_at = 1793842492
 added_at = 1784238037
 author = "h465855hgg"
 license = "MIT"
@@ -5505,3 +5505,16 @@ icon = "terminal-2"
 description = "Quake-style drop-down terminal on kitty, with a bar toggle and a finished-command badge."
 plugin_api = 26
 tags = ["bar", "service", "productivity", "utility", "niri", "hyprland", "sway"]
+
+[[plugin]]
+id = "fr4j4/hyprland-minimize"
+name = "Minimize Windows"
+version = "0.1.0"
+updated_at = 1793842444
+added_at = 1793842444
+author = "fr4j4"
+license = "MIT"
+icon = "arrows-diagonal-minimize-2"
+description = "Minimize windows to a Hyprland special workspace and restore them from a bar widget, a panel or keybinds."
+plugin_api = 32
+tags = ["bar", "panel", "service", "hyprland", "utility"]
