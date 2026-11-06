@@ -73,7 +73,7 @@ local function item(kind, value, fraction, text, vertical)
     end
     table.insert(children, ui.label({ key = "v", text = text, color = color }))
     local container = vertical and ui.column or ui.row
-    return container({ key = "item-" .. kind, gap = S.XS, align = "center" }, children)
+    return container({ key = "item-" .. kind .. (color and "-tint" or ""), gap = S.XS, align = "center" }, children)
 end
 
 local function gib(bytes)

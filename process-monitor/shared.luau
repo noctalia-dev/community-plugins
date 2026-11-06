@@ -13,6 +13,10 @@ M.DESKTOP_ID = M.PLUGIN .. ":desktop"
 
 M.tr = noctalia.tr
 
+-- The host keeps a prop's old value when a re-render leaves it out, so a
+-- background that comes and goes must be switched off explicitly.
+M.NO_FILL = "#00000000"
+
 -- Row layout coming from sampler.py
 M.PID, M.NAME, M.CPU, M.MEM, M.GPU, M.VRAM, M.COUNT, M.PIDS, M.PAUSED = 1, 2, 3, 4, 5, 6, 7, 8, 9
 

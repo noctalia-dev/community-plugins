@@ -126,7 +126,7 @@ local function row(r)
     if showIcons then table.insert(lead, S.avatar(r[S.NAME], 18)) end
     table.insert(lead, ui.label({
         text = name, fontSize = S.F_CAPTION, maxLines = 1, flexGrow = 1,
-        color = paused and "on_surface_variant" or nil,
+        color = paused and "on_surface_variant" or "on_surface",
     }))
 
     -- Buttons stay in the layout and only fade, so rows never shift sideways.
@@ -135,7 +135,7 @@ local function row(r)
 
     return ui.row({
         key = key, gap = S.SM, align = "center", minHeight = ROW_H, paddingH = S.XS,
-        radius = S.radius(6), fill = isHover and "on_surface/0.06" or nil,
+        radius = S.radius(6), fill = isHover and "on_surface/0.06" or S.NO_FILL,
         onClick = function() S.openPanel(r[S.NAME]) end,
         onHover = function(state)
             if state == "true" then hovered = key elseif hovered == key then hovered = nil end
@@ -280,7 +280,7 @@ function render()
         return ui.row({ width = width, justify = "end" }, {
             ui.label({
                 text = active and (text .. " ↓") or text, fontSize = S.F_MINI,
-                color = active and "primary" or "on_surface_variant", fontWeight = active and "bold" or nil,
+                color = active and "primary" or "on_surface_variant", fontWeight = active and "bold" or "normal",
             }),
         })
     end
