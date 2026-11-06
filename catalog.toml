@@ -5570,3 +5570,16 @@ icon = "bell"
 description = "Quick alarms and reminders with natural language input, matching the Cinnamon Quick Alarm applet."
 plugin_api = 43
 tags = ["bar", "panel", "service", "time", "clock", "countdown", "utility", "productivity"]
+
+[[plugin]]
+id = "yahya637/process-monitor"
+name = "Process Monitor"
+version = "1.0.0"
+updated_at = 1793926212
+added_at = 1793926212
+author = "yahya637"
+license = "MIT"
+icon = "device-desktop-analytics"
+description = "Which apps use your CPU, RAM, GPU and VRAM: a bar readout, a sortable panel with kill actions, and a desktop widget."
+plugin_api = 43
+tags = ["bar", "panel", "desktop", "service", "system"]
