@@ -5583,3 +5583,16 @@ icon = "device-desktop-analytics"
 description = "Which apps use your CPU, RAM, GPU and VRAM: a bar readout, a sortable panel with kill actions, and a desktop widget."
 plugin_api = 43
 tags = ["bar", "panel", "desktop", "service", "system"]
+
+[[plugin]]
+id = "3dprogramin/ufw"
+name = "UFW Firewall"
+version = "0.1.0"
+updated_at = 1793976159
+added_at = 1793976159
+author = "3dprogramin"
+license = "MIT"
+icon = "shield"
+description = "Show UFW firewall status in the bar; turn it on or off and manage allowed ports from a panel."
+plugin_api = 43
+tags = ["bar", "panel", "service", "network", "system"]
