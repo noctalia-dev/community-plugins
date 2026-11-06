@@ -1,6 +1,6 @@
 id          = "yahya637/process-monitor"
-name        = "Process Monitor"
-version     = "1.0.2"
+name        = "System Monitor Expanded"
+version     = "1.0.3"
 plugin_api  = 43
 author      = "yahya637"
 license     = "MIT"
