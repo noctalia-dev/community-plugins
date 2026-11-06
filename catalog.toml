@@ -5557,3 +5557,16 @@ icon = "shield-lock"
 description = "Connect to Mullvad VPN from the bar: country, my country or random, plus lockdown, multihop and auto-connect."
 plugin_api = 43
 tags = ["bar", "panel", "service", "network", "privacy"]
+
+[[plugin]]
+id = "rsmendes/quick-alarm"
+name = "Quick Alarm"
+version = "1.2.0"
+updated_at = 1793925926
+added_at = 1793925926
+author = "rsmendes"
+license = "MIT"
+icon = "bell"
+description = "Quick alarms and reminders with natural language input, matching the Cinnamon Quick Alarm applet."
+plugin_api = 43
+tags = ["bar", "panel", "service", "time", "clock", "countdown", "utility", "productivity"]
