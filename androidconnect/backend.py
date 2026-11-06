@@ -26,7 +26,7 @@ import tempfile
 import threading
 import time
 
-from video import Child, FrameServer, phone_filter, phone_geometry, preview_size
+from video import Child, FrameServer, artwork_paths, phone_filter, phone_geometry, preview_size
 
 
 class OperationError(Exception):
@@ -315,6 +315,7 @@ class Bridge:
         self.reconnect = None
         self.reconnect_attempts = set()
         self.config = {"video_device": "/dev/video10", "preview_height": 720, "fps": 60, "auto_mirror": True}
+        self.artwork = artwork_paths()
         try:
             self.preferences = json.loads((data / "devices.json").read_text(encoding="utf-8"))
             if not isinstance(self.preferences, dict):
@@ -350,7 +351,7 @@ class Bridge:
             "phoneSize": size,
             "phoneSizeDirection": direction if type(direction) is int and direction in (-1, 1) else (-1 if size == 3 else 1),
             "names": self.preferences["names"],
-            "qrPath": "", "qrActive": False, "configured": False,
+            "qrPath": "", "qrActive": False, "configured": False, "idleArtwork": self.artwork["idle"],
             "wirelessHost": "", "wirelessPort": "", "wirelessState": "idle", "wirelessError": "",
             "tools": {name: bool(shutil.which(name)) for name in ("adb", "scrcpy", "ffmpeg", "fuser", "busctl", "qrencode")},
         }
@@ -546,7 +547,7 @@ class Bridge:
             raise OperationError("The loopback device is in use or its ownership could not be checked; reserve a free device for AndroidConnect")
         self.model.update(phase="starting", error="", sourceWidth=width, sourceHeight=height,
                           keepAwake=awake, dim=dim)
-        # Keep the overall phone height unchanged, including v4's bezel.
+        # Keep the overall phone height unchanged, including the fitted bezel.
         preview_width, preview_height = preview_size(width, height, self.config["preview_height"] * 1190 / 1241)
         phone = phone_geometry(preview_width, preview_height)
         self.model.update(phone)
@@ -566,7 +567,7 @@ class Bridge:
             # readiness from actual pixels, not scrcpy's buffered stdout logs.
             video = ["ffmpeg", "-nostdin", "-loglevel", "error", "-threads", "1", "-filter_complex_threads", "1",
                      "-f", "v4l2", "-framerate", str(self.config["fps"]), "-i", str(device),
-                     "-threads", "1", "-i", str(Path(__file__).resolve().parent / "Assets" / "phone.png"),
+                     "-threads", "1", "-i", self.artwork["frame"],
                      "-filter_complex", phone_filter(preview_width, preview_height), "-map", "[phone]", "-an",
                      "-threads", "1", "-fps_mode", "passthrough", "-f", "rawvideo", "pipe:1"]
             self.frames = FrameServer(self.runtime / "frames.sock", video, phone["width"], phone["height"], self.events)
@@ -754,13 +755,19 @@ class Bridge:
             self.refresh_requested = True
         if action == "configure":
             options = request.get("options", {})
+            artwork = artwork_paths(options.get("artwork_directory", ""))
             device = str(options.get("video_device", "/dev/video10"))
             if not re.fullmatch(r"/dev/video[0-9]+", device):
                 raise OperationError("Configure an absolute /dev/videoN loopback device")
             self.config = {"video_device": device, "auto_mirror": options.get("auto_mirror", True) is True,
                            "preview_height": max(240, min(720, int(options.get("preview_height", 720)))),
                            "fps": max(1, min(60, int(options.get("fps", 60))))}
+            restart = artwork != self.artwork and self.scrcpy is not None
+            self.artwork = artwork
+            self.model["idleArtwork"] = artwork["idle"]
             self.model["configured"] = True
+            if restart:
+                self.start_mirror()
         elif action == "size":
             size, direction = request.get("preset"), request.get("direction")
             if type(size) is not int or not 1 <= size <= 3 or type(direction) is not int or direction not in (-1, 1):

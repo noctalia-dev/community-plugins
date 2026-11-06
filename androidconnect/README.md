@@ -91,6 +91,7 @@ Open **Settings → Plugins → AndroidConnect** for these options:
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
+| `artwork_directory` | string | empty | Optional local directory containing `phone.png` and `phone-idle.svg`; empty selects the generic bundled frame. |
 | `video_device` | string | `/dev/video10` | Dedicated, accessible V4L2 loopback device for the embedded preview. |
 | `auto_mirror` | bool | `true` | Start the preview when the panel opens with an authorized ADB target. |
 | `preview_height` | int | `720` | Preview-height setting in pixels, from 240 to 720. The panel size control also remembers its selected preset. |
@@ -112,12 +113,33 @@ noctalia msg plugin demencia89/androidconnect:devices all refresh
 
 `toggle` opens/closes the panel; `refresh` requests device discovery.
 
+## Custom phone artwork
+
+Open Settings → Plugins → AndroidConnect and set **Custom phone artwork directory**
+to an absolute local path (or `~/...`). The folder must contain:
+
+- `phone.png`: a 597×1241 PNG for the live preview frame.
+- `phone-idle.svg`: an SVG with `viewBox="0 0 597 1241"` for the idle preview.
+
+Both use a screen opening at x=25, y=26, width=538, height=1190, corner radius=52.
+This keeps touch mapping and preview sizes consistent. The same artwork applies
+to the currently selected phone. Use a different folder to switch artwork.
+Leave the setting empty to restore the original generic frame.
+
+The files stay outside the plugin and are only read locally. They are not uploaded,
+copied into the plugin source, or included in updates. Invalid files report a
+configuration error and preserve the previously selected artwork. Changing valid
+artwork restarts an active embedded preview; device selection stays unchanged.
+The bundled frame and badge are original vector illustrations; source, license,
+and PNG reproduction instructions are in [Assets/README.md](Assets/README.md).
+
 ## Screenshots
 
 ![AndroidConnect panel with phone content hidden](screenshots/panel.png)
 
-The running-panel screenshot is cropped to the plugin. An opaque cover hides the
-phone screen for privacy; no desktop or phone messages are included.
+The panel illustration uses a cropped running-panel screenshot with the current
+generic frame and badge overlaid. An opaque cover hides the phone screen for
+privacy; no desktop or phone messages are included.
 
 ## Notes
 
@@ -150,8 +172,9 @@ phone screen for privacy; no desktop or phone messages are included.
   audio/QR pairing combinations have not been comprehensively tested.
 
 Source and regression tests: [AndroidConnect v5](https://github.com/demencia89/noctalia-androidconnect-v5).
-This submission packages the v2.4.0 runtime with current palette-role names, community-store metadata, and
-artwork as v2.4.1. The v4 QML plugin remains a separate project.
+Version 2.5.0 replaces the unverified manufacturer artwork and vendor badges with
+original generic SVG artwork and supports local user-supplied phone artwork.
+The v4 QML plugin remains a separate project.
 
 Licensed under GPL-2.0-only; see [LICENSE](LICENSE). Based on WerWolv's original
 [Noctalia KDE Connect plugin](https://github.com/WerWolv/noctalia-kde-connect),

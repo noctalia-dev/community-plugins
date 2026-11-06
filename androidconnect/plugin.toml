@@ -1,6 +1,6 @@
 id = "demencia89/androidconnect"
 name = "AndroidConnect"
-version = "2.4.1"
+version = "2.5.0"
 plugin_api = 43
 author = "demencia89"
 license = "GPL-2.0-only"
@@ -37,6 +37,13 @@ type = "string"
 label_key = "settings.video_device"
 description_key = "settings.video_device_description"
 default = "/dev/video10"
+
+[[setting]]
+key = "artwork_directory"
+type = "string"
+label_key = "settings.artwork_directory"
+description_key = "settings.artwork_directory_description"
+default = ""
 
 [[setting]]
 key = "auto_mirror"

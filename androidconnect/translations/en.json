@@ -1,6 +1,8 @@
 {
   "title": "AndroidConnect",
   "settings": {
+    "artwork_directory": "Custom phone artwork directory",
+    "artwork_directory_description": "Optional local directory containing phone.png (597×1241) and phone-idle.svg with matching screen geometry. Leave empty for the original generic artwork. Files remain local and are not uploaded.",
     "video_device": "V4L2 loopback device",
     "video_device_description": "An existing, readable/writable loopback device reserved for scrcpy. The plugin never loads kernel modules or kills other sessions.",
     "auto_mirror": "Start the preview when the panel opens",

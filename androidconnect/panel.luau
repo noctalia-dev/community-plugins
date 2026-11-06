@@ -154,15 +154,6 @@ local function deviceName(key, original)
   return (status.names and status.names[key]) or original
 end
 
-local function brand(name)
-  local lower = string.lower(name)
-  local family = "android"
-  if string.find(lower, "pixel") or string.find(lower, "google") then family = "google"
-  elseif string.find(lower, "xiaomi") or string.find(lower, "redmi") or string.find(lower, "poco") then family = "xiaomi"
-  elseif string.find(lower, "moto") then family = "motorola" end
-  return "Assets/brand-badges/" .. family .. ".svg"
-end
-
 local function sectionTitle(key)
   return label({ text = tr(key), fontSize = if sizeIndex == 1 then 11 else 12,
     fontWeight = "bold", color = "on_surface_variant", maxLines = 1 })
@@ -404,7 +395,7 @@ render = function()
     onPointerMove = "onPixelMove", onPointerCancel = "onPixelCancel",
     onRightClick = "onPixelBack", onMiddleClick = "onPixelHome", onScroll = "onPixelScroll",
     onTextInput = "onPixelText", onKeyEvent = "onPixelKey",
-  }) else ui.image({ key = "phone-placeholder", path = "Assets/phone-idle.svg",
+  }) else ui.image({ key = "phone-placeholder", path = status.idleArtwork or "Assets/phone-idle.svg",
     width = phoneWidth, height = phoneHeight, fit = "stretch",
   })
 
@@ -499,7 +490,7 @@ render = function()
           .. " (" .. tostring(SIZE_FACTORS[sizeIndex] * 100) .. "%)",
       }, {
         if sizeHovered then ui.glyph({ name = "resize", size = 21, color = "on_surface" })
-          else ui.image({ path = brand(originalName), width = 34, height = 34 }),
+          else ui.image({ key = "device-badge", path = "Assets/device.svg", width = 34, height = 34 }),
       }),
       ui.column({ key = "device-name", flexGrow = 1, minWidth = 0, gap = 4, justify = "center",
         tooltip = tr("actions.rename_device"), onClick = if identity ~= "" then function()

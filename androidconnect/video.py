@@ -13,6 +13,37 @@ import subprocess
 import tempfile
 import threading
 import time
+import xml.etree.ElementTree as ET
+
+
+def artwork_paths(directory=""):
+    """Resolve optional user-owned artwork without copying it into the plugin."""
+    assets = Path(__file__).resolve().parent / "Assets"
+    if directory in (None, ""):
+        return {"frame": str(assets / "phone.png"), "idle": "Assets/phone-idle.svg"}
+    if not isinstance(directory, str) or "\0" in directory:
+        raise ValueError("Custom phone artwork must be a local directory path")
+    folder = Path(directory).expanduser()
+    if not folder.is_absolute():
+        raise ValueError("Custom phone artwork must use an absolute path or ~/ path")
+    folder = folder.resolve()
+    frame, idle = folder / "phone.png", folder / "phone-idle.svg"
+    if not frame.is_file() or not idle.is_file():
+        raise ValueError("Custom artwork needs phone.png and phone-idle.svg in the selected directory")
+    if frame.stat().st_size > 16 * 1024 * 1024 or idle.stat().st_size > 8 * 1024 * 1024:
+        raise ValueError("Custom phone artwork files are too large")
+    with frame.open("rb") as source:
+        header = source.read(24)
+    if (len(header) != 24 or header[:8] != b"\x89PNG\r\n\x1a\n"
+            or header[12:16] != b"IHDR" or struct.unpack("!II", header[16:24]) != (597, 1241)):
+        raise ValueError("Custom phone.png must be a 597 by 1241 PNG")
+    try:
+        root = ET.parse(idle).getroot()
+    except ET.ParseError as error:
+        raise ValueError("Custom phone-idle.svg must be valid SVG") from error
+    if root.tag != "{http://www.w3.org/2000/svg}svg" or root.get("viewBox") != "0 0 597 1241":
+        raise ValueError("Custom phone-idle.svg must have viewBox='0 0 597 1241'")
+    return {"frame": str(frame), "idle": str(idle)}
 
 
 class Child:
@@ -225,7 +256,7 @@ def preview_size(width, height, maximum_height):
 
 
 def phone_geometry(width, height):
-    """Fit v4's cropped artwork (597x1241) around its 538x1190 screen."""
+    """Fit the documented 597x1241 artwork around its 538x1190 screen."""
     left, right = round(width * 25 / 538), round(width * 34 / 538)
     top, bottom = round(height * 26 / 1190), round(height * 25 / 1190)
     return {"width": left + width + right, "height": top + height + bottom,

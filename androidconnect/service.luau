@@ -36,6 +36,7 @@ local function configure()
     auto_mirror = noctalia.getConfig("auto_mirror"),
     preview_height = noctalia.getConfig("preview_height"),
     fps = noctalia.getConfig("fps"),
+    artwork_directory = noctalia.getConfig("artwork_directory"),
   } })
 end
 
