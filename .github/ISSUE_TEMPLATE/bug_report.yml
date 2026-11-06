@@ -310,6 +310,7 @@ body:
         - todoist-manager
         - token-monitor
         - topgrade-wrapper
+        - typer
         - typing-stats
         - udiskie
         - ufw
