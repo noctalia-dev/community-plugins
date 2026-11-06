@@ -11,7 +11,7 @@
 
 id = "3dprogramin/mullvad"
 name = "Mullvad VPN"
-version = "0.1.0"
+version = "0.1.1"
 plugin_api = 43
 author = "3dprogramin"
 license = "MIT"
