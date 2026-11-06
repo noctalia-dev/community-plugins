@@ -7,8 +7,16 @@
     "case": "Case",
     "case_offline": "Closed",
     "charging": "Charging",
+    "game_mode": "Game mode",
+    "game_mode_caption": "Lower audio latency",
     "guidance": "Connect your earbuds via Bluetooth to view battery status and control noise cancellation modes.",
     "left": "Left",
+    "level": {
+      "max": "Max",
+      "mild": "Mild",
+      "moderate": "Moderate",
+      "smart": "Smart"
+    },
     "mode": {
       "anc": "Noise Cancellation",
       "off": "Off",
@@ -41,6 +49,11 @@
       "left_click": "Open Controls",
       "right_click": "Cycle Noise Mode"
     },
+    "click": {
+      "left": "Left click",
+      "right": "Right click"
+    },
+    "device": "Device",
     "mode": "Mode",
     "not_connected": "Earbuds not connected"
   }
