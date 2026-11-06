@@ -5574,8 +5574,8 @@ tags = ["bar", "panel", "service", "time", "clock", "countdown", "utility", "pro
 [[plugin]]
 id = "yahya637/process-monitor"
 name = "Process Monitor"
-version = "1.0.0"
-updated_at = 1793926212
+version = "1.0.1"
+updated_at = 1793930487
 added_at = 1793926212
 author = "yahya637"
 license = "MIT"
