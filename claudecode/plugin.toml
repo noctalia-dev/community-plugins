@@ -13,11 +13,11 @@
 
 id = "jrohland/claudecode"
 name = "Claude Code Usage"
-version = "1.1.1"
-# Oldest API level this plugin actually needs. The gate is noctalia.getSetting (API 26),
-# which ring.luau reads theme.pure_black_dark through; below that the ring picks the wrong
-# palette. The rest of the surface sits lower: runAsync with an argv table (24),
-# wallpaperPath (25), require of a relative module (22), [widget.actions] defaults (14).
+version = "1.1.2"
+# Oldest API level this plugin actually needs. The gate is the surface_container and
+# outline_variant role names (API 43) that ring.luau resolves through noctalia.getColor (31).
+# The rest of the surface sits lower: runAsync, require of a relative module (22),
+# [widget.actions] defaults (14).
 plugin_api = 43
 author = "Nicolas Bellamy (Noctalia port by jrohland)"
 license = "MIT"
@@ -28,8 +28,6 @@ tags = ["ai", "development", "indicator", "system", "bar", "desktop", "panel", "
 # Every external command the plugin shells out to. jq and curl are the two the service
 # gates on (commandExists) and the only ones a user is likely to be missing; the rest are
 # invoked by get-claude-usage and ship with coreutils / findutils / gawk on every distro.
-# `noctalia` itself is not listed: ring.luau runs `noctalia theme` to re-derive a wallpaper
-# palette, and the shell running this plugin is inherently that command.
 dependencies = [
   "bash",
   "jq",
@@ -157,9 +155,8 @@ entry = "widget.luau"
   min = 1
   max = 6
 
-  # An SVG needs literal hex and the plugin API has no role resolver, so ring.luau
-  # reads the palette files itself. Built-in palettes live inside the shell binary
-  # and cannot be read — these two are the fallback for that case.
+  # Ring colors follow the active palette through noctalia.getColor; these two only
+  # apply when a role does not resolve.
   [[widget.setting]]
   key = "ring_color"
   type = "color"

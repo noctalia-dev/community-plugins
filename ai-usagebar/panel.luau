@@ -16,7 +16,7 @@ local catalogError = false
 
 local shared = require("./shared.luau")
 local providerGlyph, parseIso = shared.providerGlyph, shared.parseIso
-local countdown, resetClock = shared.countdown, shared.resetClock
+local resetClock = shared.resetClock
 local ratio, headline, severityRole = shared.ratio, shared.headline, shared.severityRole
 local modelHeadlines, isCritical, dualMetrics = shared.modelHeadlines, shared.isCritical, shared.dualMetrics
 local modelGlyph = shared.modelGlyph
@@ -36,8 +36,8 @@ end
 local function percentText(metric)
     local percent = shared.displayPercent(metric, displayMode())
     if percent == nil then return "—" end
-    local text = string.format("%d%%", percent)
-    if displayMode() == "remaining" then text = text .. " " .. noctalia.tr("ui.remaining") end
+    local text = shared.percentText(metric, displayMode())
+    if shared.isRemaining(metric, displayMode()) then text = text .. " " .. noctalia.tr("ui.remaining") end
     return text
 end
 
@@ -63,6 +63,7 @@ local function plainDetail(detail)
     local head = tostring(detail or ""):match("^[^·]*") or ""
     head = noctalia.string.trim(head)
     if head:lower():find("^resets?%s+in") then return "" end
+    if head:lower():find("^regenerates?%s+") then return "" end
     return head
 end
 
@@ -102,24 +103,25 @@ end
 -- label, or the window's name inside a card that stacks a model's readings.
 local function metricRows(section, title)
     local percent = shared.displayPercent(section, displayMode())
-    local usedPercent = tonumber(section.percent) or 0
     local tint = severityRole(section, "on_surface")
     local fill = severityRole(section, "primary")
     local value = tostring(section.value or ""):gsub(" of ", " / ")
-    local showValue = value ~= "" and value ~= string.format("%d%%", usedPercent)
-    if showValue and displayMode() == "remaining" then value = value .. " " .. noctalia.tr("ui.used") end
+    local showValue = value ~= "" and not value:match("^%d+%.?%d*%%$")
+    if showValue and shared.isRemaining(section, displayMode()) then value = value .. " " .. noctalia.tr("ui.used") end
 
-    local left = countdown(section)
     local clock = resetClock(section)
+    if clock ~= "" and type(section.regen) == "string" and noctalia.string.trim(section.regen) ~= "" then
+        clock = noctalia.tr("ui.regenerates_at", { amount = section.regen, time = clock })
+    end
     local paceText, _, paceWord = pace(section.detail)
 
     local elapsed = shared.elapsedPercent(section.detail)
-    local remaining = displayMode() == "remaining"
+    local remaining = shared.isRemaining(section, displayMode())
     local timePercent = elapsed ~= nil and elapsed >= 0 and elapsed <= 100
         and (remaining and (100 - elapsed) or elapsed) or nil
     local timeTooltip = timePercent ~= nil and noctalia.tr(
         remaining and "ui.time_remaining" or "ui.elapsed", { percent = timePercent }) or nil
-    local resetStr = left
+    local resetStr = shared.resetDescription(section)
 
     local displayTitle = tostring(title or "")
 
@@ -216,7 +218,59 @@ local function cardStyle(gap, fill, border)
              borderWidth = CARD.borderWidth }
 end
 
-local function stackCard(name, readings, glyph)
+local function priorityDetails(entry, scoped)
+    if noctalia.getConfig("show_priorities") ~= true or entry == nil then return nil end
+    local rows = shared.priorities(report)
+    local row = nil
+    for _, candidate in ipairs(rows or {}) do
+        if candidate.entry.id == entry.id then row = candidate; break end
+    end
+    local body = {
+        ui.separator({ orientation = "horizontal", color = "outline_variant", opacity = 0.15 }),
+        ui.label({ text = noctalia.tr(scoped and "ui.priority_scope_account" or "ui.priorities"),
+            fontSize = 11, fontWeight = "semibold", color = "on_surface", maxLines = 2 }),
+    }
+    if row == nil then
+        body[#body + 1] = ui.label({ text = noctalia.tr(rows == nil and "ui.priorities_unavailable"
+            or "ui.priority_not_reported"), fontSize = 11, color = "on_surface/0.8", maxLines = 3 })
+        return ui.column({ key = "inline-priority", gap = 4 }, body)
+    end
+    local old = failure.code ~= "" or row.stale
+    local role = row.urgent and "secondary" or "on_surface"
+    body[#body + 1] = ui.label({ text = noctalia.tr(row.recommended and not old
+        and "ui.priority_recommended" or "ui.priority_status." .. row.status),
+        fontSize = 11, color = row.recommended and not old and "primary" or role, maxLines = 2 })
+    if row.unused_percent ~= nil then
+        body[#body + 1] = ui.label({ text = noctalia.tr("ui.priority_unused", { percent = row.unused_percent }),
+            fontSize = 12, color = role, maxLines = 2 })
+    end
+    if row.remaining_percent ~= nil then
+        body[#body + 1] = ui.label({ text = noctalia.tr("ui.priority_remaining", { percent = row.remaining_percent }),
+            fontSize = 11, color = "on_surface/0.8", maxLines = 2 })
+    end
+    local reset = shared.countdown(row)
+    if reset ~= "" then
+        body[#body + 1] = ui.row({ tooltip = resetClock(row) }, {
+            ui.label({ text = noctalia.tr("ui.quota_reset", { time = reset }), fontSize = 11,
+                color = "on_surface/0.8", maxLines = 2 }),
+        })
+    end
+    if row.session_exhausted then
+        body[#body + 1] = ui.label({ text = noctalia.tr("ui.priority_session_blocked"),
+            fontSize = 11, color = "on_surface/0.8", maxLines = 2 })
+    end
+    if old then
+        body[#body + 1] = ui.label({ text = noctalia.tr(row.expired and "ui.priority_expired" or "ui.stale_hint"),
+            fontSize = 11, color = "on_surface/0.8", maxLines = 2 })
+    end
+    if report.priority_history_available == false then
+        body[#body + 1] = ui.label({ text = noctalia.tr("ui.priorities_no_history"),
+            fontSize = 11, color = "on_surface/0.8", maxLines = 2 })
+    end
+    return ui.column({ key = "inline-priority", gap = 4 }, body)
+end
+
+local function stackCard(name, readings, glyph, priority)
     local titled = name ~= ""
     local body = {}
     if titled then
@@ -234,6 +288,7 @@ local function stackCard(name, readings, glyph)
             body[#body + 1] = node
         end
     end
+    if priority ~= nil then body[#body + 1] = priority end
     return ui.column(CARD, body)
 end
 
@@ -291,7 +346,7 @@ local function noteCard(text, failureLabel)
     local clean = noctalia.string.trim(tostring(text or ""))
     clean = clean:gsub("^[Cc]redentials error:%s*", "")
     local content = {
-        ui.label({ text = clean, fontSize = 11, color = "on_surface_variant",
+        ui.label({ text = clean, fontSize = 11, color = "on_surface/0.8",
                    flexGrow = 1, maxLines = 3 }),
     }
     if failureLabel ~= nil and failureLabel ~= "" then
@@ -373,9 +428,9 @@ local function recordCard(entry, items, windowed)
         local parts = {}
         for _, reading in ipairs(byName[name]) do
             local value = tostring(reading.section.value or "")
-            if value == "" or value == string.format("%d%%", tonumber(reading.section.percent) or 0) then
+            if value == "" or value:match("^%d+%.?%d*%%$") then
                 value = percentText(reading.section)
-            elseif displayMode() == "remaining" then
+            elseif shared.isRemaining(reading.section, displayMode()) then
                 value = value .. " " .. noctalia.tr("ui.used")
             end
             parts[#parts + 1] = noctalia.string.trim(reading.title .. " " .. value)
@@ -392,6 +447,8 @@ local function recordCard(entry, items, windowed)
                                         maxLines = 1 })
         end
     end
+    local priority = priorityDetails(entry, windowed)
+    if priority ~= nil then body[#body + 1] = priority end
     return ui.column(CARD, body)
 end
 
@@ -791,7 +848,7 @@ local function detailPane(entry)
                     end
                 end
             end
-            cards[#cards + 1] = stackCard(cardName, readings, glyph)
+            cards[#cards + 1] = stackCard(cardName, readings, glyph, priorityDetails(entry, windowed))
         end
     end
 
@@ -819,6 +876,7 @@ local function detailPane(entry)
     return ui.column({ gap = 6, paddingH = 0, paddingV = 0, flexGrow = 1,
                        align = "stretch" }, children)
 end
+
 
 local function requestCatalog()
     noctalia.state.set("command", { action = "catalog", at = noctalia.nowMs() })
@@ -1245,7 +1303,7 @@ function onOpen(context)
     catalog = noctalia.state.get("catalog")
     catalogLoading = noctalia.state.get("catalog_loading") == true
     catalogError = noctalia.state.get("catalog_error") == true
-    if not showSetup and type(context) == "string" and context ~= "" then
+    if not showSetup and context ~= "priorities" and type(context) == "string" and context ~= "" then
         noctalia.state.set("selected", context)
     end
     -- Every open asks for fresh numbers. The CLI answers from its cache when it
@@ -1263,6 +1321,10 @@ end
 
 -- Panel second tick, for the countdowns.
 function update()
+    render()
+end
+
+function onConfigChanged()
     render()
 end
 

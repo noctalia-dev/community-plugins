@@ -664,6 +664,20 @@ def parse_args(argv):
     return parser.parse_args(argv)
 
 
+def stderr_is_journal():
+    """True when stderr is connected to the systemd journal.
+
+    systemd (and systemd-cat) export JOURNAL_STREAM as "<dev>:<inode>" of the
+    stream they hand over; it only counts if stderr is still that same stream.
+    """
+    expected = os.environ.get("JOURNAL_STREAM", "")
+    try:
+        st = os.fstat(sys.stderr.fileno())
+    except (OSError, ValueError):
+        return False
+    return expected == f"{st.st_dev}:{st.st_ino}"
+
+
 def main(argv):
     # Launched from Noctalia, the helper inherits the shell's open files, its log
     # file and pipes among them. A process that holds secrets has no business
@@ -671,9 +685,14 @@ def main(argv):
     # everything past stdio before anything here opens a descriptor of its own.
     os.closerange(3, os.sysconf("SC_OPEN_MAX"))
     args = parse_args(argv)
+    # The journal stamps every line itself; a plain log file (systems without
+    # systemd) or a terminal does not, so add the time there.
+    fmt = "%(levelname)s %(message)s"
+    if not stderr_is_journal():
+        fmt = "%(asctime)s " + fmt
     logging.basicConfig(
         level=logging.DEBUG if args.debug else logging.INFO,
-        format="%(levelname)s %(message)s",
+        format=fmt,
         stream=sys.stderr,
     )
 

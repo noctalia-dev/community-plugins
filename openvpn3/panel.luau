@@ -110,13 +110,22 @@ local function sessionFor(profile)
   return nil
 end
 
-local TEXT_KEYS = { "server-override", "port-override", "proxy-host", "proxy-port", "proxy-username", "proxy-password" }
+local TEXT_KEYS = { "server-override", "port-override", "proxy-host", "proxy-port", "proxy-username", "proxy-password", "dns-routes" }
+
+-- Stored value of a text option: an override, except the DNS routing domains
+-- which live in profile tags.
+local function textOriginal(profile, key)
+  if key == "dns-routes" then
+    return profile.dnsRoutes or ""
+  end
+  local value = if profile.overrides ~= nil then profile.overrides[key] else nil
+  return if value == nil then "" else tostring(value)
+end
 
 function resetDrafts(profile)
   drafts = {}
   for _, key in ipairs(TEXT_KEYS) do
-    local value = if profile.overrides ~= nil then profile.overrides[key] else nil
-    drafts[key] = if key == "proxy-password" or value == nil then "" else tostring(value)
+    drafts[key] = if key == "proxy-password" then "" else textOriginal(profile, key)
   end
   draftName = profile.name
   edits = {}
@@ -230,7 +239,7 @@ local function renderAuth()
         end,
       }))
     end
-    table.insert(rows, ui.label({ text = noctalia.tr("panel.auth-hint"), color = "on_surface_variant", fontSize = 11, maxLines = 2 }))
+    table.insert(rows, ui.label({ text = noctalia.tr(if pending.remember then "panel.auth-hint-saved" else "panel.auth-hint"), color = "on_surface_variant", fontSize = 11, maxLines = 2 }))
     table.insert(rows, ui.row({ gap = 8, justify = "end" }, {
       ui.button({ text = noctalia.tr("panel.cancel"), variant = "ghost", onClick = function() send("cancel-auth") end }),
       ui.button({
@@ -614,8 +623,17 @@ local function collectChanges(profile)
     options[key] = value
   end
   for _, key in ipairs(TEXT_KEYS) do
-    local original = if profile.overrides ~= nil and profile.overrides[key] ~= nil then tostring(profile.overrides[key]) else ""
+    local original = textOriginal(profile, key)
     local draft = drafts[key] or ""
+    if key == "dns-routes" then
+      -- Normalise spacing and order so only real changes count.
+      local parts = {}
+      for domain in string.gmatch(draft, "%S+") do
+        table.insert(parts, domain)
+      end
+      table.sort(parts)
+      draft = table.concat(parts, " ")
+    end
     if key == "proxy-password" then
       if draft ~= "" then
         options[key] = draft
@@ -682,6 +700,7 @@ local function renderDetail()
       toggleRow(profile, "dns-fallback-google", noctalia.tr("panel.opt.dns-google"), noctalia.tr("panel.opt.dns-google-hint")),
       toggleRow(profile, "dns-setup-disabled", noctalia.tr("panel.opt.dns-disabled"), noctalia.tr("panel.opt.dns-disabled-hint")),
       toggleRow(profile, "dns-sync-lookup", noctalia.tr("panel.opt.dns-sync"), nil),
+      textRow("dns-routes", noctalia.tr("panel.opt.dns-routes"), noctalia.tr("panel.opt.dns-routes-hint"), false),
     }),
     section(noctalia.tr("panel.sec.proxy"), {
       textRow("proxy-host", noctalia.tr("panel.opt.proxy-host"), "proxy.example.com", false),
@@ -767,7 +786,11 @@ local function applyStatus(value)
     status.pending = value.pending
     status.notice = value.notice
     if status.pending ~= nil and not hadPending then
+      -- Start from what the keyring remembers for this profile (username / password).
       authValues = {}
+      for index, value in ipairs(status.pending.saved or {}) do
+        authValues[index] = value
+      end
       authKey += 1
     end
     -- Drop pending edits the profile now reflects (they were just saved).
@@ -828,6 +851,10 @@ function onOpen(_context)
     noctalia.state.set("openvpn3.resume", { view = "" })
   end
   removeArmed = ""
+  -- The host keeps a keyed input's own text across a close, and that text can
+  -- lag behind authValues (typing does not re-render). Fresh keys rebuild the
+  -- inputs from authValues, so what was typed is back on the first reopen.
+  authKey += 1
   applyStatus(noctalia.state.get("openvpn3.status"))
   send("refresh")
 end

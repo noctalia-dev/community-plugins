@@ -31,45 +31,52 @@
 -- per-role opacity slider; it's gone because Noctalia silently drops any
 -- 8-digit value and falls back to something else, so it could never
 -- actually apply.
+--
+-- Palette files are written in palette format 2 ("version": 2): every key is
+-- the color role it sets (`on_primary`, `surface_container`, terminal
+-- `selection_fg`). Format 1 files (no "version", `mOnPrimary`-style keys) are
+-- still read, so older palettes and drafts load fine.
 
 local WIP_FILE = "wip.json"
 local PREVIEW_NAME = "_live_preview"
+local PALETTE_FORMAT_VERSION = 2
 
 -- ── Color roles (same 16 MD3 roles v4 used, same order) ───────────────────
+-- `key` is the format 2 palette key and color role; `legacy` the format 1 key.
 local ROLES = {
-  { key = "mPrimary", label = "Primary" },
-  { key = "mOnPrimary", label = "On Primary" },
-  { key = "mSecondary", label = "Secondary" },
-  { key = "mOnSecondary", label = "On Secondary" },
-  { key = "mTertiary", label = "Tertiary" },
-  { key = "mOnTertiary", label = "On Tertiary" },
-  { key = "mError", label = "Error" },
-  { key = "mOnError", label = "On Error" },
-  { key = "mSurface", label = "Surface" },
-  { key = "mOnSurface", label = "On Surface" },
-  { key = "mSurfaceVariant", label = "Surface Variant" },
-  { key = "mOnSurfaceVariant", label = "On Surface Variant" },
-  { key = "mOutline", label = "Outline" },
-  { key = "mShadow", label = "Shadow" },
-  { key = "mHover", label = "Hover" },
-  { key = "mOnHover", label = "On Hover" },
+  { key = "primary", legacy = "mPrimary" },
+  { key = "on_primary", legacy = "mOnPrimary" },
+  { key = "secondary", legacy = "mSecondary" },
+  { key = "on_secondary", legacy = "mOnSecondary" },
+  { key = "tertiary", legacy = "mTertiary" },
+  { key = "on_tertiary", legacy = "mOnTertiary" },
+  { key = "error", legacy = "mError" },
+  { key = "on_error", legacy = "mOnError" },
+  { key = "surface", legacy = "mSurface" },
+  { key = "on_surface", legacy = "mOnSurface" },
+  { key = "surface_container", legacy = "mSurfaceVariant" },
+  { key = "on_surface_variant", legacy = "mOnSurfaceVariant" },
+  { key = "outline_variant", legacy = "mOutline" },
+  { key = "shadow", legacy = "mShadow" },
+  { key = "hover", legacy = "mHover" },
+  { key = "on_hover", legacy = "mOnHover" },
 }
 
 -- Neutral fallback seed, used only when we can't read your actual active
 -- custom palette from disk (builtin / wallpaper / community sources).
 local FALLBACK_SEED = {
-  mPrimary = "#a6e22e", mOnPrimary = "#272822",
-  mSecondary = "#66d9ef", mOnSecondary = "#272822",
-  mTertiary = "#f92672", mOnTertiary = "#272822",
-  mError = "#f92672", mOnError = "#272822",
-  mSurface = "#272822", mOnSurface = "#f8f8f2",
-  mSurfaceVariant = "#3e3d32", mOnSurfaceVariant = "#a6e22e",
-  mOutline = "#75715e", mShadow = "#272822",
-  mHover = "#3a3a32", mOnHover = "#f8f8f2",
+  primary = "#a6e22e", on_primary = "#272822",
+  secondary = "#66d9ef", on_secondary = "#272822",
+  tertiary = "#f92672", on_tertiary = "#272822",
+  error = "#f92672", on_error = "#272822",
+  surface = "#272822", on_surface = "#f8f8f2",
+  surface_container = "#3e3d32", on_surface_variant = "#a6e22e",
+  outline_variant = "#75715e", shadow = "#272822",
+  hover = "#3a3a32", on_hover = "#f8f8f2",
 }
 
 -- ── State ──────────────────────────────────────────────────────────────────
-local scheme = nil -- flat { mPrimary = "#RRGGBB", ... } — always clean 6-digit
+local scheme = nil -- flat { primary = "#RRGGBB", ... } — always clean 6-digit
 local baseline = nil -- { colors = {...} } snapshot to revert to
 local schemeName = ""
 local previewActive = false
@@ -180,7 +187,7 @@ end
 -- v4 plugin used: green/yellow have no MD3 equivalent so they're synthesized
 -- from the primary's saturation/value at standard ANSI hues (135°, 55°).
 local function generateTerminalColors(s)
-  local pr, pg, pb = hexToRgb(s.mPrimary)
+  local pr, pg, pb = hexToRgb(s.primary)
   local _, ps, _ = rgbToHsv(pr, pg, pb)
   local sat = (ps > 0.3) and ps or 0.70
   local val = 0.80
@@ -194,31 +201,31 @@ local function generateTerminalColors(s)
 
   return {
     normal = {
-      black = s.mSurface:lower(),
-      red = s.mError:lower(),
+      black = s.surface:lower(),
+      red = s.error:lower(),
       green = normGreen,
       yellow = normYellow,
-      blue = s.mPrimary:lower(),
-      magenta = s.mSecondary:lower(),
-      cyan = s.mTertiary:lower(),
-      white = s.mOnSurface:lower(),
+      blue = s.primary:lower(),
+      magenta = s.secondary:lower(),
+      cyan = s.tertiary:lower(),
+      white = s.on_surface:lower(),
     },
     bright = {
-      black = s.mSurfaceVariant:lower(),
-      red = brighten(s.mError),
+      black = s.surface_container:lower(),
+      red = brighten(s.error),
       green = brighten(normGreen),
       yellow = brighten(normYellow),
-      blue = brighten(s.mPrimary),
-      magenta = brighten(s.mSecondary),
-      cyan = brighten(s.mTertiary),
+      blue = brighten(s.primary),
+      magenta = brighten(s.secondary),
+      cyan = brighten(s.tertiary),
       white = "#FFFFFF",
     },
-    background = s.mSurface:lower(),
-    foreground = s.mOnSurface:lower(),
-    cursor = s.mPrimary:lower(),
-    cursorText = s.mOnPrimary:lower(),
-    selectionBg = s.mPrimary:lower(),
-    selectionFg = s.mOnPrimary:lower(),
+    background = s.surface:lower(),
+    foreground = s.on_surface:lower(),
+    cursor = s.primary:lower(),
+    cursor_text = s.on_primary:lower(),
+    selection_bg = s.primary:lower(),
+    selection_fg = s.on_primary:lower(),
   }
 end
 
@@ -451,11 +458,12 @@ local function seedFromActivePalette(onDone)
 end
 
 -- Sanitize every role in a raw dark/light variant table down to clean
--- 6-digit hex (see sanitizeHex).
+-- 6-digit hex (see sanitizeHex). Reads format 2 role keys, falling back to the
+-- format 1 `m` keys of older palette files and drafts.
 local function sanitizeScheme(raw)
   local out = {}
   for _, role in ipairs(ROLES) do
-    local v = raw[role.key]
+    local v = raw[role.key] or raw[role.legacy]
     if v then
       out[role.key] = sanitizeHex(v)
     end
@@ -546,10 +554,10 @@ applyPreview = function()
   local payload = composePayload(scheme)
   -- Same colors for dark and light so the palette looks the same regardless
   -- of which mode Noctalia resolves it in.
-  local encoded = noctalia.json.encode({ dark = payload, light = payload })
+  local encoded = noctalia.json.encode({ version = PALETTE_FORMAT_VERSION, dark = payload, light = payload })
   if encoded then
     noctalia.writeFile(palettesDir() .. "/" .. PREVIEW_NAME .. ".json", encoded)
-    noctalia.runAsync(("noctalia msg color-scheme-set custom %s"):format(PREVIEW_NAME))
+    noctalia.runAsync({ "noctalia", "msg", "color-scheme-set", "custom", PREVIEW_NAME })
   end
 end
 
@@ -596,10 +604,6 @@ local function runHyprpicker()
   if not role then
     return
   end
-  local roleLabel = role
-  for _, r in ipairs(ROLES) do
-    if r.key == role then roleLabel = r.label end
-  end
   if not noctalia.commandExists("hyprpicker") then
     noctalia.notifyError("Palette Creator", "hyprpicker isn't installed — can't pick from screen.")
     setResumePending()
@@ -622,7 +626,7 @@ local function runHyprpicker()
         if previewActive then
           applyPreview()
         end
-        noctalia.notify("Palette Creator", "Picked #" .. hex .. " → " .. roleLabel .. " (also copied to clipboard)")
+        noctalia.notify("Palette Creator", "Picked #" .. hex .. " → " .. role .. " (also copied to clipboard)")
       else
         statusText = "Couldn't read a color from hyprpicker's output."
         noctalia.notifyError("Palette Creator", "Pick didn't return a readable color — check the clipboard, hyprpicker's -a should have copied it anyway.")
@@ -648,7 +652,7 @@ local function saveScheme()
 
   local payload = composePayload(scheme)
 
-  local encoded, err = noctalia.json.encode({ dark = payload, light = payload }, true)
+  local encoded, err = noctalia.json.encode({ version = PALETTE_FORMAT_VERSION, dark = payload, light = payload }, true)
   if not encoded then
     noctalia.notifyError("Palette Creator", err or "Failed to encode palette JSON")
     return
@@ -689,7 +693,7 @@ local function roleRow(role)
   local displayColor = scheme and scheme[role.key] or "#000000"
   return ui.row({ gap = 12, align = "center" }, {
     ui.box({ width = 26, height = 26, radius = 6, fill = displayColor, border = "outline_variant", borderWidth = 1 }),
-    ui.label({ text = role.label, color = "on_surface", flexGrow = 1 }),
+    ui.label({ text = role.key, color = "on_surface", flexGrow = 1 }),
     ui.label({ text = displayColor, color = "on_surface_variant", fontSize = 12 }),
     ui.button({
       key = "edit-" .. role.key,
@@ -698,7 +702,7 @@ local function roleRow(role)
         local initial = scheme[role.key]
         local accepted = noctalia.openColorPicker(initial, function(newColor)
           if newColor ~= nil then
-            scheme[role.key] = newColor:lower()
+            scheme[role.key] = sanitizeHex(newColor)
             saveWip()
             if previewActive then
               applyPreview()
@@ -848,8 +852,8 @@ function onOpen(_context)
   if consumeResumePending() then
     local wip = loadWip()
     if wip then
-      scheme = wip.colors
-      baseline = { colors = deepCopy(wip.colors) }
+      scheme = sanitizeScheme(wip.colors)
+      baseline = { colors = deepCopy(scheme) }
       schemeName = wip.name or ""
     end
     render()

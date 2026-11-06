@@ -439,6 +439,17 @@ class SettingTypeTests(unittest.TestCase):
         errors = self.validate_setting({"type": "string_map", "default": {}}, plugin_api=5)
         self.assertTrue(any("string_map requires plugin_api >= 6" in error for error in errors))
 
+    def test_accepts_secret_string(self) -> None:
+        self.assertEqual(self.validate_setting({"type": "string", "default": "", "secret": True}, plugin_api=47), [])
+
+    def test_secret_requires_plugin_api_47(self) -> None:
+        errors = self.validate_setting({"type": "string", "secret": True}, plugin_api=46)
+        self.assertTrue(any("secret requires plugin_api >= 47" in error for error in errors))
+
+    def test_rejects_secret_on_non_string_type(self) -> None:
+        errors = self.validate_setting({"type": "int", "default": 1, "secret": True}, plugin_api=47)
+        self.assertTrue(any("secret is only valid for" in error for error in errors))
+
 
 class WidgetActionsTests(unittest.TestCase):
     def validate_actions(self, entry: dict, plugin_api: object = 14) -> list[str]:
@@ -516,6 +527,15 @@ class PanelLayerTests(unittest.TestCase):
             with self.subTest(api=api):
                 errors = self.validate_layer({"layer": "overlay"}, api)
                 self.assertTrue(any("requires plugin_api >= 30" in error for error in errors))
+
+    def test_accepts_follow_from_api_49(self) -> None:
+        self.assertEqual(self.validate_layer({"layer": "follow"}, 49), [])
+
+    def test_rejects_follow_below_api_49(self) -> None:
+        self.assertEqual(
+            self.validate_layer({"layer": "follow"}, 48),
+            ['example/plugin.toml: panel[0]: layer "follow" requires plugin_api >= 49'],
+        )
 
     def test_rejects_invalid_layers_and_types(self) -> None:
         for layer in ("background", "bottom", "Overlay", "", 1, True, [], {}):

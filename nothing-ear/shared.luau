@@ -20,6 +20,7 @@ M.ANC_MODES = {
 
 -- Wire index -> preset, mapped against the Nothing X app on a Nothing Ear (2)
 -- (see PROTOCOL.md). Index 4 is unused; 5 is the user's custom EQ curve.
+-- Only a fallback for a status without the model's own list (models.py).
 M.EQ_PRESETS = {
 	{ index = 0, name = "balanced" },
 	{ index = 3, name = "more_bass" },
@@ -28,8 +29,24 @@ M.EQ_PRESETS = {
 	{ index = 5, name = "custom" },
 }
 
-function M.isEqPreset(index)
-	for _, preset in ipairs(M.EQ_PRESETS) do
+-- Error codes from nothing_ear_ctl.py that have their own hint under
+-- panel.error.* in the translations; any other code shows panel.error.unknown.
+M.ERROR_HINTS = {
+	not_connected = true,
+	bt_off = true,
+	refused = true,
+	unreachable = true,
+	timeout = true,
+	permission = true,
+	no_bt_support = true,
+	no_service = true,
+	sdp_failed = true,
+	no_response = true,
+	helper_failed = true,
+}
+
+function M.isEqPreset(index, presets)
+	for _, preset in ipairs(presets or M.EQ_PRESETS) do
 		if preset.index == index then
 			return true
 		end

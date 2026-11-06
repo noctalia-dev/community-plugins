@@ -27,17 +27,25 @@ in the settings.
 
 ### Building the controller
 
-You need Rust 1.97 or newer with `cargo` and a C compiler (`gcc`). The panel shows the exact command for your
-install, with a button to copy it. It looks like this:
+You need Rust 1.97 or newer with `cargo` and a C compiler (`gcc` or `clang`). When the controller is missing, or
+older than the sources that came with the plugin, the panel says so and offers two buttons: one runs the update
+script in a terminal, the other copies the command. The command is the same in every shell:
 
 ```sh
-cargo install --locked --path ~/.local/state/noctalia/plugins/materialized/<source>/localsend-plus/controller \
-  --target-dir ~/.cache/localsend-plus/target
+sh ~/.local/state/noctalia/plugins/materialized/<source>/localsend-plus/controller/update.sh
 ```
 
-That puts `localsend-controller` in `~/.cargo/bin`. The plugin looks there even when the session's `PATH` does not
-include that folder. Press Retry in the panel afterwards. When a plugin update brings newer controller sources, the
-panel asks you to run the same command again.
+The script checks for `cargo`, the Rust version and a C compiler first. If something is missing it prints the
+commands for your distribution (dnf, apt, pacman, zypper, xbps, apk, rpm-ostree on Fedora Atomic and its
+derivatives, nix-shell on NixOS) and stops; it never installs anything besides the controller. Otherwise it runs
+`cargo install --locked` on the bundled sources, which puts `localsend-controller` in `~/.cargo/bin` (or
+`$CARGO_INSTALL_ROOT/bin`, `$CARGO_HOME/bin`), and tells the plugin to restart with it. If it cannot reach Noctalia,
+press Retry in the panel.
+
+The plugin looks for the controller in `PATH`, `~/.cargo/bin` and `~/.local/bin`, and in the place the script last
+installed it, even when the session's `PATH` does not include those folders. It takes the first one that is new
+enough, so an old copy earlier in `PATH` does not hide a fresh build. When a plugin update brings newer controller
+sources, the panel asks you to run the script again.
 
 The build downloads the Rust crates and the LocalSend core library. The plugin itself never downloads or runs remote
 code.

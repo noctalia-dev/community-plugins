@@ -110,4 +110,57 @@ test("freshness reports source collection times and stale observations without d
   assert(not Analytics.normalize({periods = {today = period()}}).freshness.available)
 end)
 
+test("duplicate history dates keep the last source row before retention and cache restores", function()
+  local raw = {daily = {}, monthly = {}, summary = {totalTokens = 99}}
+  local Heatmap = require("../lib/heatmap.luau")
+  local first = Heatmap.parseDate("2025-01-01").ordinal
+  for i = 0, 370 do
+    raw.daily[#raw.daily + 1] = {date = Heatmap.dateFromOrdinal(first + i), tokens = i}
+  end
+  for i = 1, 500 do raw.daily[#raw.daily + 1] = {date = "2026-01-06", tokens = i} end
+  raw.monthly = {{month = "2026-01", tokens = 1}, {month = "2026-01", tokens = 2}}
+  local value = assert(Analytics.history(raw))
+  assert(value.dailyCount == 371 and #value.daily == 370 and value.dailyTruncated)
+  assert(value.daily[1].date == "2025-01-02" and value.daily[370].date == "2026-01-06")
+  assert(value.daily[370].tokens == 500 and value.monthlyCount == 1 and #value.monthly == 1)
+  assert(value.monthly[1].tokens == 2 and not value.monthlyTruncated)
+  for _ = 1, 2 do
+    value = assert(Analytics.restoreHistory(Analytics.cacheHistory(value)))
+    assert(value.dailyCount == 371 and #value.daily == 370 and value.daily[370].tokens == 500)
+    assert(value.monthlyCount == 1 and #value.monthly == 1 and value.monthly[1].tokens == 2)
+    local heatmap = Heatmap.build(value.daily, {today = "2026-01-06"})
+    assert(heatmap.columns[26].cells[2].value == 500)
+  end
+end)
+
+test("session models share a fair global budget without changing totals or source counts", function()
+  local raw = {totalTokens = 999999, costUsd = 12, models = {}, sessions = {}}
+  for i = 1, 130 do raw.models["model-" .. i] = i end
+  for i = 1, 205 do
+    raw.sessions["codex:" .. i] = {sessionId = tostring(i), totalTokens = 1000, costUsd = 1,
+      lastUsedAt = "2026-10-28T00:" .. string.format("%02d", math.floor((i-1)/60)) .. ":" .. string.format("%02d", (i-1)%60) .. "Z",
+      models = raw.models}
+  end
+  local value = Analytics.normalize({periods = {today = raw, month = raw, allTime = raw}})
+  for round = 1, 3 do
+    local totalModels = 0
+    for _, name in ipairs({"today", "month"}) do
+      local p = value.periods[name]
+      assert(#p.sessions == 200 and p.sessionCount == 205 and p.sessionTruncated)
+      assert(p.totals.tokens == 999999 and p.totals.cost == 12)
+      assert(#p.models == 128 and p.modelCount == 130 and p.modelsTruncated)
+      for _, session in ipairs(p.sessions) do
+        assert(#session.models >= 1 and #session.models <= 2)
+        assert(session.modelCount == 130 and session.modelsTruncated)
+        assert(session.totalTokens == 1000 and session.costUsd == 1)
+        assert(session.models[1].key == "model-130")
+        totalModels += #session.models
+      end
+    end
+    assert(totalModels == 512)
+    assert(#value.periods.allTime.sessions == 0 and #value.periods.allTime.models == 128)
+    value = Analytics.restoreUsage(Analytics.cacheUsage(value))
+  end
+end)
+
 print(tostring(total) .. " analytics cases passed")

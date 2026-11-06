@@ -105,6 +105,14 @@
     "visible_count": "Visible {count}"
   },
   "settings": {
+    "panel_refresh_interval_seconds": {
+      "description": "Seconds between full device rescans while the panel is open, keeping Bluetooth state and battery levels current.",
+      "label": "Panel refresh interval"
+    },
+    "refresh_interval_seconds": {
+      "description": "Seconds between full device rescans while the panel is closed. Audio device changes are picked up immediately from PipeWire events.",
+      "label": "Background refresh interval"
+    },
     "scroll_step": {
       "description": "How many percentage points each mouse-wheel step changes volume on the bar widget.",
       "label": "Scroll step"

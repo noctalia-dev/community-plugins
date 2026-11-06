@@ -151,7 +151,10 @@ local function sessionDetails(rows, item, showNames)
         rows[#rows + 1] = pair(model.name, number(model.tokens))
         rows[#rows + 1] = pair(tr("cost"), money(model.cost))
     end
-    if #distribution > 8 then rows[#rows + 1] = note(tr("more_models", { count = #distribution - 8 })) end
+    local shown = math.min(8, #distribution)
+    local total = math.max(#distribution, item.modelCount or 0)
+    if total > shown then rows[#rows + 1] = note(tr("more_models", { count = total - shown })) end
+    if item.modelsTruncated then rows[#rows + 1] = note(tr("local_truncated"), "secondary") end
 end
 local function sessions(dashboard, ctx)
     if ctx.period == "allTime" then return unavailable(ctx, "all_time_sessions") end

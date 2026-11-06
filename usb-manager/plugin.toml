@@ -1,0 +1,93 @@
+# USB Manager — USB drives, SD cards and optical media for Noctalia v5.
+# The service reads disks, partitions, mounts, labels and USB link speed from
+# sysfs, procfs and the udev database (no helper process for the state), and
+# runs mount, unmount, unlock and safe removal through udisks2. The widget
+# counts the drives; left click opens the panel, right click safely removes
+# every drive at once.
+
+id = "rylos/usb-manager"
+name = "USB Manager"
+version = "1.0.0"
+plugin_api = 43
+author = "Marco Ziliani"
+license = "MIT"
+dependencies = ["udisks2", "gdbus", "xdg-open"]
+tags = ["bar", "panel", "service", "hardware", "system", "utility"]
+icon = "usb"
+description = "USB drives, SD cards and optical media: mount, unlock, open, and remove them safely with one click."
+
+# ── Plugin-level settings ────────────────────────────────────────────────────
+
+[[setting]]
+key = "notifications"
+type = "bool"
+label_key = "settings.notifications.label"
+description_key = "settings.notifications.description"
+default = true
+
+[[setting]]
+key = "auto_mount"
+type = "bool"
+label_key = "settings.auto_mount.label"
+description_key = "settings.auto_mount.description"
+default = false
+
+[[setting]]
+key = "open_after_mount"
+type = "bool"
+label_key = "settings.open_after_mount.label"
+description_key = "settings.open_after_mount.description"
+default = false
+
+[[setting]]
+key = "file_manager"
+type = "string"
+label_key = "settings.file_manager.label"
+description_key = "settings.file_manager.description"
+default = ""
+advanced = true
+
+[[setting]]
+key = "scan_interval"
+type = "int"
+label_key = "settings.scan_interval.label"
+description_key = "settings.scan_interval.description"
+default = 2
+min = 1
+max = 30
+advanced = true
+
+# ── Entries ──────────────────────────────────────────────────────────────────
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+  [[widget.setting]]
+  key = "hide_when_empty"
+  type = "bool"
+  label_key = "settings.hide_when_empty.label"
+  description_key = "settings.hide_when_empty.description"
+  default = true
+
+  [[widget.setting]]
+  key = "show_count"
+  type = "bool"
+  label_key = "settings.show_count.label"
+  description_key = "settings.show_count.description"
+  default = true
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 440
+height = "content"
+max_height = 640
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true

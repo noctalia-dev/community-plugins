@@ -12,7 +12,8 @@
     "copy": "Copy response",
     "close": "Close (Escape)",
     "timeout": "The operation timed out. Check the keyring and connection, then retry.",
-    "settings": "Settings"
+    "settings": "Settings",
+    "followup-placeholder": "Ask a follow-up…"
   },
   "credentials": {
     "missing-command": "secret-tool was not found. Install libsecret and retry.",
@@ -56,6 +57,10 @@
     "model": {
       "label": "Model ID",
       "description": "Exact text model ID supported by your endpoint. It must accept system/user messages and streaming Chat Completions. No model is selected automatically."
+    },
+    "follow_up": {
+      "label": "Follow-up questions",
+      "description": "Show a follow-up box after each completed answer so you can continue the conversation without reopening the panel."
     }
   }
 }

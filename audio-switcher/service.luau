@@ -6,8 +6,11 @@
 local SNAPSHOT_KEY = "audio_switcher_snapshot"
 local COMMAND_KEY = "audio_switcher_command"
 local RESULT_KEY = "audio_switcher_result"
+local PANEL_OPEN_KEY = "audio_switcher_panel_open"
 local PREFERENCES_VERSION = 1
-local REFRESH_INTERVAL_MS = 3000
+local DEFAULT_REFRESH_SECONDS = 60
+local DEFAULT_PANEL_REFRESH_SECONDS = 5
+local STREAM_END_MARKER = "audio-switcher: pactl subscribe ended"
 local BLUETOOTH_CONNECT_RETRIES = 16
 local BLUETOOTH_CONNECT_RETRY_SECONDS = 0.25
 local GROUP_SINK_PREFIX = "noctalia_group_"
@@ -60,6 +63,9 @@ local volumeRefreshes = {
   input = { running = false, again = false },
 }
 local audioEventRevisions = { output = 0, input = 0 }
+local panelOpen = noctalia.state.get(PANEL_OPEN_KEY) == true
+local currentInterval = nil
+local streamRunning = false
 local combineSinkOption = "slaves"
 local groupNameCounter = 0
 
@@ -1448,31 +1454,73 @@ function onIpc(event, payload)
   end
 end
 
+local function configSeconds(key, fallback)
+  local seconds = tonumber(noctalia.getConfig(key)) or fallback
+  if seconds < 1 then seconds = 1 end
+  return seconds
+end
+
+-- pactl events drive refreshes; the timer only catches state without events,
+-- such as Bluetooth battery levels, so it runs faster while the panel is open.
+local function updateInterval()
+  local seconds
+  if panelOpen then
+    seconds = configSeconds("panel_refresh_interval_seconds", DEFAULT_PANEL_REFRESH_SECONDS)
+  else
+    seconds = configSeconds("refresh_interval_seconds", DEFAULT_REFRESH_SECONDS)
+  end
+  local wanted = math.floor(seconds * 1000)
+  if wanted ~= currentInterval then
+    currentInterval = wanted
+    noctalia.setUpdateInterval(wanted)
+  end
+end
+
+-- pactl subscribe exits when the audio server restarts. The trailing marker
+-- line reports that, and update() subscribes again on its next run.
+local function startEventStream()
+  if streamRunning or not noctalia.commandExists("pactl") then return end
+  streamRunning = noctalia.runStream("LC_ALL=C pactl subscribe; echo '" .. STREAM_END_MARKER .. "'", function(line)
+    local text = tostring(line)
+    if trim(text) == STREAM_END_MARKER then
+      streamRunning = false
+      refreshAll()
+      return
+    end
+    local isChange = text:find("Event 'change'", 1, true) ~= nil
+    if text:find(" on sink #", 1, true) ~= nil then
+      audioEventRevisions.output += 1
+      if isChange then refreshCurrentVolume("output") else refreshAll() end
+    elseif text:find(" on source #", 1, true) ~= nil then
+      audioEventRevisions.input += 1
+      if isChange then refreshCurrentVolume("input") else refreshAll() end
+    elseif text:find(" on card #", 1, true) ~= nil or text:find(" on server", 1, true) ~= nil then
+      -- Card events cover Bluetooth profile switches and port availability.
+      refreshAll()
+    end
+  end)
+  if not streamRunning then noctalia.log("audio-switcher: could not subscribe to pactl events") end
+end
+
 loadPreferences()
 noctalia.state.watch(COMMAND_KEY, function(command)
   executeCommand(command)
 end)
+noctalia.state.watch(PANEL_OPEN_KEY, function(value)
+  panelOpen = value == true
+  updateInterval()
+end)
 
-if noctalia.commandExists("pactl") then
-  local streamStarted = noctalia.runStream("LC_ALL=C pactl subscribe", function(line)
-    local isChange = tostring(line):find("Event 'change'", 1, true) ~= nil
-    if tostring(line):find(" on sink #", 1, true) ~= nil then
-      audioEventRevisions.output += 1
-      if isChange then refreshCurrentVolume("output") else refreshAll() end
-    elseif tostring(line):find(" on source #", 1, true) ~= nil then
-      audioEventRevisions.input += 1
-      if isChange then refreshCurrentVolume("input") else refreshAll() end
-    elseif tostring(line):find(" on server", 1, true) ~= nil then
-      refreshAll()
-    end
-  end)
-  if not streamStarted then noctalia.log("audio-switcher: could not subscribe to pactl events") end
-end
-
-noctalia.setUpdateInterval(REFRESH_INTERVAL_MS)
+startEventStream()
+updateInterval()
 
 function update()
+  startEventStream()
   refreshAll()
+end
+
+function onConfigChanged()
+  updateInterval()
 end
 
 refreshAll()

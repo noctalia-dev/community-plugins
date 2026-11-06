@@ -9,7 +9,7 @@ local function showMessage(glyph, message)
 end
 
 local function showOnline(online)
-  barWidget.setGlyph("chart-bar")
+  barWidget.setGlyph("chart-line")
   barWidget.setText(tostring(online))
   barWidget.setTooltip(noctalia.tr("tooltip.online", { count = online }))
 end

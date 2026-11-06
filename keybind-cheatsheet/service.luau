@@ -345,12 +345,28 @@ local function bindingIdentity(binding)
   }, "|")
 end
 
+-- XKB keycodes (evdev + 8) that position-bound keys (`code:N`) most often
+-- use: the number row and the keypad. Any other code stays `code:N`.
+local KEYCODE_NAMES = {
+  [10] = "1", [11] = "2", [12] = "3", [13] = "4", [14] = "5",
+  [15] = "6", [16] = "7", [17] = "8", [18] = "9", [19] = "0",
+  [63] = "KP_Multiply", [79] = "KP_7", [80] = "KP_8", [81] = "KP_9",
+  [82] = "KP_Subtract", [83] = "KP_4", [84] = "KP_5", [85] = "KP_6",
+  [86] = "KP_Add", [87] = "KP_1", [88] = "KP_2", [89] = "KP_3",
+  [90] = "KP_0", [91] = "KP_Decimal", [104] = "KP_Enter", [106] = "KP_Divide",
+}
+
+local function keyName(key)
+  local code = tonumber(key:match("^code:(%d+)$"))
+  return code ~= nil and KEYCODE_NAMES[code] or key
+end
+
 local function addBinding(target, binding)
   binding.description = trim(binding.description)
   binding.category = trim(binding.category)
   binding.baseCategory = binding.category
   binding.action = trim(binding.action)
-  binding.key = trim(binding.key)
+  binding.key = keyName(trim(binding.key))
   binding.modifiers = binding.modifiers or {}
   binding.id = bindingIdentity(binding)
   table.insert(target, binding)
@@ -2034,8 +2050,10 @@ local function selfTestStep()
   local expectedCase = job.expected[name]
   local descriptions = {}
   local categories = {}
+  local keys = {}
   for _, binding in ipairs(parsed) do
     table.insert(descriptions, binding.description)
+    table.insert(keys, binding.key)
     table.insert(
       categories,
       binding.description == "" and tr("without_description")
@@ -2044,13 +2062,15 @@ local function selfTestStep()
   end
   local descriptionsOk, missingDescription = containsAll(descriptions, expectedCase.descriptions)
   local categoriesOk, missingCategory = containsAll(categories, expectedCase.categories)
-  local passed = #parsed == expectedCase.count and descriptionsOk and categoriesOk
+  local keysOk, missingKey = containsAll(keys, expectedCase.keys)
+  local passed = #parsed == expectedCase.count and descriptionsOk and categoriesOk and keysOk
   report.cases[name] = {
     passed = passed,
     expectedCount = expectedCase.count,
     actualCount = #parsed,
     missingDescription = missingDescription,
     missingCategory = missingCategory,
+    missingKey = missingKey,
   }
   if not passed then report.passed = false end
   scheduleSelfTestStep()

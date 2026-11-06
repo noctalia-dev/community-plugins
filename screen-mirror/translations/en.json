@@ -1,0 +1,54 @@
+{
+  "settings": {
+    "enabled_on_start": {
+      "label": "Enabled on start",
+      "description": "Start the daemon with mirroring on. Turn off if you only want to mirror after pressing the toggle. The off state does not survive a logout: mirroring always starts from this value."
+    },
+    "show_osd": {
+      "label": "Show OSD feedback",
+      "description": "Show the shell OSD (or a notification) whenever mirroring is switched on or off, including toggles done with a keybind."
+    },
+    "excluded_outputs": {
+      "label": "Excluded displays",
+      "description": "Connector names that never get a mirror window, not even when plugged in, one per entry (e.g. HDMI-A-1). Run `niri-mirror --list-outputs` to see the names; partial names like `hdmi` are accepted."
+    },
+    "source_output": {
+      "label": "Source display",
+      "description": "Connector to mirror from. Leave empty to use the focused display at startup (and re-elect when it disappears). Run `niri-mirror --list-outputs` to see the names; partial names like `hdmi` are accepted."
+    },
+    "scaling": {
+      "label": "Scaling",
+      "description": "How wl-mirror fits the source onto the mirrored display.",
+      "fit": "Fit (keep aspect ratio, letterbox)",
+      "cover": "Cover (fill, crop the edges)",
+      "exact": "Exact (integer multiples only)"
+    },
+    "poll_interval": {
+      "label": "Refresh interval (ms)",
+      "description": "How often the tile and widget re-read the daemon state file. The daemon itself follows niri's event stream, so this only affects the UI."
+    }
+  },
+  "shortcut": {
+    "label-on": "Mirror On",
+    "label-off": "Mirror Off"
+  },
+  "widget": {
+    "tooltip": {
+      "state": "Mirroring",
+      "source": "From",
+      "targets": "To",
+      "daemon": "Daemon",
+      "stopped": "not running"
+    }
+  },
+  "notify": {
+    "failed": {
+      "title": "Screen Mirror failed",
+      "body": "The niri-mirror daemon reported no details."
+    },
+    "missing": {
+      "title": "Screen Mirror is not installed",
+      "body": "Install the niri-mirror CLI first (run install.sh from its repo), then re-enable this plugin."
+    }
+  }
+}

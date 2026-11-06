@@ -1,0 +1,5 @@
+Devices on the account:
+Test Device
+Other Device 1
+Other Device 2
+Other Device 3

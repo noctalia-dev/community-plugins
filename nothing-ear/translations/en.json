@@ -58,7 +58,13 @@
       "more_bass": "More Bass",
       "more_treble": "More Treble",
       "voice": "Voice",
-      "custom": "Custom"
+      "custom": "Custom",
+      "dirac": "Dirac",
+      "pop": "Pop",
+      "rock": "Rock",
+      "electronic": "Electronic",
+      "enhance_vocals": "Vocals",
+      "classical": "Classical"
     },
     "latency": {
       "title": "Low Latency Mode",
@@ -89,6 +95,24 @@
     },
     "audio": {
       "title": "Audio"
+    },
+    "copy_details": "Copy details",
+    "error": {
+      "not_connected": "The earbuds aren't connected to this computer. Take them out of the case or connect them in your Bluetooth settings.",
+      "bt_off": "Bluetooth is turned off on this computer.",
+      "refused": "The earbuds turned the connection down. If the Nothing X app is open on your phone, close it and try again.",
+      "unreachable": "Can't reach the earbuds. Make sure they're out of the case and close by.",
+      "timeout": "The earbuds took too long to answer. Move them closer and try again.",
+      "permission": "This user isn't allowed to use Bluetooth.",
+      "no_bt_support": "Your Python can't talk to Bluetooth. Install python3 from your distro's packages.",
+      "no_service": "These earbuds don't offer the controls this plugin uses, so they may not be supported yet.",
+      "sdp_failed": "The earbuds gave an unexpected answer when asked for their controls.",
+      "no_response": "Connected, but the earbuds didn't answer. This model may not be supported yet.",
+      "helper_failed": "The plugin's helper script didn't finish. If this keeps happening, copy the details below and report it.",
+      "unknown": "Something unexpected went wrong."
+    },
+    "bass": {
+      "title": "Bass Boost"
     }
   },
   "shortcut": {
@@ -98,6 +122,9 @@
     "mono_on_title": "Mono audio on",
     "mono_on_body": "Only one earbud is out, so both channels play in it.",
     "mono_off_title": "Stereo audio back",
-    "mono_off_body": "Both earbuds are out or back in the case."
+    "mono_off_body": "Both earbuds are out or back in the case.",
+    "details_collecting": "Collecting details. This can take up to 30 seconds.",
+    "details_copied_title": "Details copied",
+    "details_copied_body": "Paste them into a GitHub issue so the problem can be tracked down."
   }
 }

@@ -13,6 +13,13 @@ local function quote(s)
 end
 M.quote = quote
 
+-- A workspace as people read it: 3, or Web for a named workspace
+-- ("name:Web", as wsr.py knows it).
+function M.wsLabel(id)
+  local s = tostring(id)
+  return if s:sub(1, 5) == "name:" then s:sub(6) else s
+end
+
 -- Runs `wsr.py <args>` and hands the decoded JSON output (or nil) to cb.
 function M.run(args, cb)
   noctalia.runAsync(script() .. " " .. args, function(result)
@@ -32,6 +39,12 @@ end
 -- the panel reads its report from the status afterwards.
 function M.restore(args)
   noctalia.runAsync("setsid -f " .. script() .. " restore " .. args .. " >/dev/null 2>&1", function() end)
+end
+
+-- The watcher follows Hyprland's events for the session. Starting it when
+-- one already runs is a no-op; it quits by itself when the bar stops calling.
+function M.watch()
+  noctalia.runAsync("setsid -f " .. script() .. " watch >/dev/null 2>&1", function() end)
 end
 
 function M.status(cb)

@@ -36,7 +36,10 @@ body:
         - airpods
         - als-brightness
         - ambient-sounds
+        - androidconnect
         - anilist
+        - aocctl
+        - arch-audit
         - arch-updater
         - ask-claude
         - asus-fan
@@ -44,6 +47,7 @@ body:
         - asus-gpu-mode
         - audio-sticker
         - audio-switcher
+        - autoclicker
         - awwwall
         - ayet-kosesi
         - bangumi-progress
@@ -64,9 +68,12 @@ body:
         - calibre
         - case-convert
         - cat
+        - cc-usage
+        - charge-mode
         - cider
         - claude-cockpit
         - claude-companion
+        - claude-operator
         - claude-sessions
         - claudecode
         - cmd-runner
@@ -90,6 +97,7 @@ body:
         - dnf-updater
         - dns-switcher
         - drive-health
+        - dropkitty
         - dropwall
         - ds4-color
         - emoji-picker
@@ -111,18 +119,22 @@ body:
         - headroom
         - headsetcontrol
         - herdr
+        - honor-earbuds
         - hotspot
         - hover-widgets
         - hypr-layout-switcher
         - hypr-screen-mirror
         - hypr-submap
+        - hyprland-minimize
         - hyprland-settings
         - hyprland-visual-editor
+        - icons
         - ideapad-conservation-mode
         - iio_lock
         - imagemagick-clock
         - inhibit-idle-while-watching
         - input-echo-bar
+        - internal-keyboard
         - inventory-manager
         - ip-monitor
         - jalali_calendar
@@ -156,12 +168,16 @@ body:
         - media-island
         - media-lyrics
         - media-player-icon
+        - mic-denoise
         - mihomo-control
         - mimir
         - mini-docker
         - misr-quran-radio
+        - modernclock
+        - mullvad
         - murattal
         - mx-control
+        - mxmouse
         - nan-usage
         - ncs-visualizer
         - network-control
@@ -181,6 +197,7 @@ body:
         - nix-monitor
         - nix-search
         - nix-status
+        - nixos-updates
         - noctaproton-vpn
         - noctes
         - noctwhspr
@@ -191,6 +208,7 @@ body:
         - obs-control
         - obs-integration
         - obsidian
+        - obsidian-vault-switcher
         - ocr
         - omniroute-quota
         - omp-launcher
@@ -200,6 +218,7 @@ body:
         - opencodex-bar
         - openvpn3
         - opnsense
+        - opnsense-traffic
         - oppo-pods
         - owntone-control
         - paged-todo
@@ -217,6 +236,7 @@ body:
         - portforward
         - printers
         - prismlauncher-instances
+        - process-monitor
         - processes
         - procmon
         - profile-switcher
@@ -224,6 +244,7 @@ body:
         - pulsar-mouse
         - qr-share
         - qrcode
+        - quick-alarm
         - quickask
         - quill
         - quranwidget
@@ -240,7 +261,10 @@ body:
         - run-path
         - saved-desktop-widgets
         - screen-capture
+        - screen-mirror
         - screen-toolkit
+        - scroll-indicator
+        - settings-to-nix
         - share-wifi
         - sharednd
         - shelf
@@ -249,6 +273,7 @@ body:
         - shift
         - shloka
         - sing-box-status
+        - sonolith
         - sony_headphones
         - soundcore-buds
         - special-workspaces
@@ -273,6 +298,7 @@ body:
         - tailnet
         - tailscale
         - task-warrior
+        - terminal-widgets
         - theme-switcher
         - thinkpad-fan
         - thinkpad-led
@@ -284,13 +310,17 @@ body:
         - todoist-manager
         - token-monitor
         - topgrade-wrapper
+        - typing-stats
         - udiskie
+        - ufw
         - um5606_fan_state
         - umami
         - umbriel-displays
         - umbriel-monitor-control
+        - umbriel-submap
         - undershell
         - upbeat
+        - usb-manager
         - usbeehive
         - vial_keymap
         - vidi
@@ -301,10 +331,13 @@ body:
         - voxtype
         - vpn-manager
         - vrchat-status
+        - vscode
         - w-engine
+        - wallpaper-deck
         - wallpaper-switcher
         - wallpaper-widget
         - warp
+        - wayvibes
         - web-launcher
         - web-search
         - webapp-maker
@@ -314,6 +347,7 @@ body:
         - workspace-restore
         - world-radio
         - xwayland
+        - youtube-explorer
         - youtube-search
         - yt-music
         - zakker

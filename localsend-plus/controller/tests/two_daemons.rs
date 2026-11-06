@@ -503,6 +503,20 @@ fn auto_accept_off_keeps_asking() {
 }
 
 #[test]
+fn a_new_request_is_announced_on_stdout() {
+    let (a, b) = pair(&[], &["--auto-accept", "off"]);
+    let file = write_file(&a.dir.path().join("out/ping.txt"), "ping");
+    let changes = |daemon: &Daemon| daemon.output().matches(r#""event":"changed""#).count();
+    let before = changes(&b);
+
+    send(&a, &b, &["send-files", "--path", &file]);
+    wait_until("the receiver to announce the request", || {
+        changes(&b) > before
+    });
+    assert!(b.incoming()["files"].is_array());
+}
+
+#[test]
 fn auto_accept_everyone_needs_a_long_pin() {
     let b = Daemon::start("test-b", &["--auto-accept", "everyone"]);
     assert_eq!(b.snapshot()["daemon"]["autoAccept"], "favorites");

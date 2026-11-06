@@ -1,0 +1,45 @@
+{
+  "settings": {
+    "backend": {
+      "label": "后端命令",
+      "description": "setup.sh 安装的 internal-keyboard 命令路径。只有把后端装到别处时才需要修改。"
+    },
+    "show_osd": {
+      "label": "显示 OSD 提示",
+      "description": "切换键盘时弹出 Noctalia 的 OSD 提示，显示切换后的状态。"
+    },
+    "poll_interval": {
+      "label": "刷新间隔（毫秒）",
+      "description": "磁贴与挂件重新读取键盘状态的频率。"
+    },
+    "device": {
+      "label": "键盘",
+      "description": "要切换的设备全名；留空则沿用 setup.sh 选中的键盘。在终端执行 `internal-keyboard devices` 可列出所有可选名字。"
+    }
+  },
+  "shortcut": {
+    "state": {
+      "on": "内置键盘 开",
+      "off": "内置键盘 关"
+    }
+  },
+  "widget": {
+    "tooltip": {
+      "state": "内置键盘",
+      "device": "设备"
+    }
+  },
+  "notify": {
+    "failed": {
+      "title": "内置键盘切换失败",
+      "hint": "检查 /etc/sudoers.d/internal-keyboard 与 /etc/udev/rules.d/90-internal-keyboard.rules。"
+    },
+    "select": {
+      "title": "无法切换到该键盘"
+    },
+    "setup": {
+      "title": "内置键盘插件需要初始化",
+      "hint": "在终端执行一次下面的命令，然后重新加载插件：sudo %s/setup.sh"
+    }
+  }
+}

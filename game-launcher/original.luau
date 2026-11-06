@@ -7,23 +7,12 @@ local scanCounter = 0
 local building = false
 local initOk = true
 local selectedIndex = 0
-local PAGE_SIZE = 4
-local curPage = 1
-
-local function clampPage()
-  local total = math.max(1, math.ceil(#filtered / PAGE_SIZE))
-  if curPage < 1 then curPage = 1 end
-  if curPage > total then curPage = total end
-end
-
-local function ensureSelVisible()
-  if #filtered == 0 then
-    curPage = 1
-    return
-  end
-  if selectedIndex < 0 then selectedIndex = 0 end
-  if selectedIndex >= #filtered then selectedIndex = #filtered - 1 end
-  curPage = math.floor(selectedIndex / PAGE_SIZE) + 1
+local COVER_W = 56
+local COVER_H = 80
+-- Key of the selected row; the scroll container reveals it on keyboard moves.
+local function selRowKey()
+  if #filtered == 0 or selectedIndex < 0 or selectedIndex >= #filtered then return nil end
+  return filtered[selectedIndex + 1].id .. "_" .. (selectedIndex + 1)
 end
 
 local steamCoverDir = ""
@@ -252,21 +241,11 @@ local runnerMeta = {
   heroic = { glyph = "app-window", color = "#a78bfa" },
 }
 
-local function renderHeader()
-  return ui.row({ align = "center", gap = 8 }, {
-    ui.glyph({ name = "device-gamepad-2", size = 20, color = "primary" }),
-    ui.label({ text = "Game Launcher", fontSize = 18, fontWeight = "bold", color = "primary", flexGrow = 1 }),
-    ui.label({ text = "(" .. #games .. " games)", color = "on_surface_variant", fontSize = 12 }),
-    ui.button({ glyph = "reload", variant = "ghost", onClick = "onRescan" }),
-    ui.button({ glyph = "close", variant = "ghost", onClick = "onClose" }),
-  })
-end
-
 local function renderSearchBar()
   return ui.row({ align = "center", gap = 8 }, {
     ui.glyph({ name = "search", size = 14, color = "on_surface_variant" }),
     ui.input({ key = "search_" .. scanCounter, placeholder = "Search games…", onChange = "onSearch", onSubmit = "onSubmitSearch", value = searchText, flexGrow = 1, focus = true }),
-    ui.button({ glyph = "filter", variant = "ghost", visible = false }),
+    ui.button({ glyph = "reload", variant = "ghost", onClick = "onRescan" }),
   })
 end
 
@@ -307,9 +286,9 @@ local function renderGameRow(g, index)
   end
   local coverWidget
   if cp and noctalia.fileExists(cp) then
-    coverWidget = ui.image({ path = cp, width = 56, height = 80, radius = 6, fit = "cover" })
+    coverWidget = ui.image({ path = cp, width = COVER_W, height = COVER_H, radius = 6, fit = "cover" })
   else
-    coverWidget = ui.box({ width = 56, height = 80, radius = 6, fill = "surface_container" })
+    coverWidget = ui.box({ width = COVER_W, height = COVER_H, radius = 6, fill = "surface_container" })
   end
   local children = {
     coverWidget,
@@ -328,9 +307,9 @@ local function renderGameRow(g, index)
     }),
   }
   if isSelected then
-    table.insert(children, 1, ui.box({ width = 2, height = 60, radius = 1, fill = "primary" }))
+    table.insert(children, 1, ui.box({ width = 2, height = COVER_H - 8, radius = 1, fill = "primary" }))
     return ui.row({
-      key = g.id .. "_sel_" .. index,
+      key = g.id .. "_" .. index,
       align = "center",
       gap = 14,
       paddingH = 12,
@@ -342,18 +321,15 @@ local function renderGameRow(g, index)
     key = g.id .. "_" .. index,
     align = "center",
     gap = 14,
-    paddingH = 12,
-    paddingV = 8,
+    paddingH = 8,
+    paddingV = 4,
     radius = 8,
   }, children)
 end
 
 local function renderGameList()
-  clampPage()
   local rows = {}
-  local startIdx = (curPage - 1) * PAGE_SIZE + 1
-  local endIdx = math.min(startIdx + PAGE_SIZE - 1, #filtered)
-  for i = startIdx, endIdx do
+  for i = 1, #filtered do
     table.insert(rows, renderGameRow(filtered[i], i))
   end
   return rows
@@ -386,11 +362,10 @@ local function render()
     if loading or errorMsg ~= "" or #filtered == 0 then
       bodyWidget = ui.column({ flexGrow = 1, gap = 6 }, body)
     else
-      bodyWidget = ui.scroll({ flexGrow = 1, gap = 6 }, body)
+      bodyWidget = ui.scroll({ flexGrow = 1, gap = 6, revealKey = selRowKey() }, body)
     end
-    panel.render(ui.column({ flexGrow = 1, gap = 8, padding = 12 }, {
+    panel.render(ui.column({ flexGrow = 1, gap = 8, padding = 6 }, {
       ui.column({ gap = 8 }, {
-        renderHeader(),
         renderSearchBar(),
       }),
       bodyWidget,
@@ -468,7 +443,6 @@ function scanGames()
         games = {}
       end
       selectedIndex = 0
-      curPage = 1
       filterGames(searchText)
     end)
     if not ok3 then
@@ -477,7 +451,6 @@ function scanGames()
       games = {}
       filtered = games
       selectedIndex = 0
-      curPage = 1
       noctalia.log("scan callback error: " .. tostring(err3))
     end
     render()
@@ -490,10 +463,43 @@ function scanGames()
 end
 
 
+local function clampNum(v, lo, hi)
+  if v < lo then return lo end
+  if v > hi then return hi end
+  return v
+end
+
+local function outputLogicalHeight()
+  local ok, outs = pcall(noctalia.outputs)
+  if not (ok and type(outs) == "table" and #outs > 0) then return nil end
+  local target = outs[1]
+  local okf, focused = pcall(noctalia.focusedOutputName)
+  if okf and focused then
+    for _, o in ipairs(outs) do
+      if type(o) == "table" and o.name == focused then
+        target = o
+        break
+      end
+    end
+  end
+  if type(target) ~= "table" or type(target.height) ~= "number" then return nil end
+  local scale = (type(target.scale) == "number" and target.scale > 0) and target.scale or 1
+  return target.height / scale
+end
+
+-- Panel height from plugin.toml. Fixed chrome: outer padding 12+12, search row 32, gap 8 between
+-- search and list. Body = 560 - 24 - 32 - 8 = 496. Four rows, each COVER_H + 16 (row padV 8+8),
+-- with three 6 px gaps: 4*(COVER_H+16) + 18 = 496, so COVER_H = 103. No partial row at rest.
+local PANEL_H = 560
+function computeLayout()
+  COVER_H = 100
+  COVER_W = math.floor(COVER_H * 0.7)
+end
+
 function onOpen(context)
   noctalia.state.set("o_open", true)
+  computeLayout()
   selectedIndex = 0
-  curPage = 1
   filterGames(searchText)
   render()
   scanGames()
@@ -510,7 +516,6 @@ end
 function onSearch(value)
   searchText = value or ""
   selectedIndex = 0
-  curPage = 1
   filterGames(searchText)
   render()
 end
@@ -527,14 +532,12 @@ function onKey(chord, pressed)
     if #filtered > 0 then
       selectedIndex = selectedIndex - 1
       if selectedIndex < 0 then selectedIndex = #filtered - 1 end
-      ensureSelVisible()
       render()
     end
   elseif chord == "Down" then
     if #filtered > 0 then
       selectedIndex = selectedIndex + 1
       if selectedIndex >= #filtered then selectedIndex = 0 end
-      ensureSelVisible()
       render()
     end
   elseif chord == "Return" then

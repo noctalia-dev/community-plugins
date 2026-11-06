@@ -11,7 +11,9 @@ math.randomseed(noctalia.nowMs())
 local STOP_GRACE_TICKS = 3 -- a daemon acknowledged the shutdown
 local STOP_TIMEOUT_TICKS = 6 -- nothing answered the shutdown
 local START_TIMEOUT_TICKS = 15
-local IDLE_POLL_TICKS = 3 -- panel closed and nothing in progress
+-- Panel closed and nothing in progress. The daemon reports new requests and
+-- transfers with a "changed" line, so this poll is only a safety net.
+local IDLE_POLL_TICKS = 30
 local MAX_POLL_FAILURES = 3
 -- Seconds before retrying a failed start, doubled after every failure.
 local FIRST_BACKOFF = 5
@@ -25,6 +27,7 @@ local ticks = 0
 local gen = 0 -- generation of the daemon stream we own
 local stopAcked = false -- a daemon answered our shutdown request
 local polling = false
+local pollAgain = false -- a change arrived while a poll was running
 local failures = 0
 local backoff = FIRST_BACKOFF
 local lastBusy = false
@@ -173,41 +176,47 @@ end
 -- ~/.cargo/bin, where `cargo install` puts it, so that is tried too.
 local CONTROLLER_SOURCES = lib.PLUGIN_DIR .. "/controller"
 
-local function versionParts(text)
-  local major, minor, patch = tostring(text or ""):match("(%d+)%.(%d+)%.(%d+)")
-  if major == nil then return nil end
-  return { tonumber(major), tonumber(minor), tonumber(patch) }
-end
-
-local function olderThan(a, b)
-  for i = 1, 3 do
-    if a[i] ~= b[i] then return a[i] < b[i] end
-  end
-  return false
-end
-
 -- The version of the bundled sources: an installed controller must be at
 -- least that new, so a plugin update that changes it asks for a rebuild.
 local function requiredVersion()
   local raw = noctalia.readFile(CONTROLLER_SOURCES .. "/Cargo.toml") or ""
-  return versionParts(raw:match('\nversion%s*=%s*"([%d%.]+)"'))
+  return lib.versionParts(raw:match('\nversion%s*=%s*"([%d%.]+)"'))
 end
 
+-- The controller controller/update.sh last built, for a CARGO_HOME or
+-- CARGO_INSTALL_ROOT that only the user's shell knows about.
+local BUILT_FILE = lib.dataFile("controller-built")
+
+-- Existing controllers to try, in order of preference. The setting, when
+-- given, is the only one.
 local function candidates(onPath)
+  local list, seen = {}, {}
+  local function add(path)
+    path = lib.trim(path or "")
+    if path:sub(1, 1) == "/" and not seen[path] and noctalia.fileExists(path) then
+      seen[path] = true
+      table.insert(list, path)
+    end
+  end
   local configured = lib.trim(noctalia.getConfig("controller_path") or "")
-  if configured ~= "" then return { noctalia.expandPath(configured) } end
-  return {
-    onPath,
-    noctalia.expandPath("~/.cargo/bin/localsend-controller"),
-    noctalia.expandPath("~/.local/bin/localsend-controller"),
-  }
+  if configured ~= "" then
+    add(noctalia.expandPath(configured))
+    return list
+  end
+  add(BUILT_FILE and noctalia.readFile(BUILT_FILE))
+  add(onPath)
+  for _, name in ipairs({ "CARGO_INSTALL_ROOT", "CARGO_HOME" }) do
+    local root = noctalia.getenv(name)
+    if root ~= nil and root ~= "" then add(root .. "/bin/localsend-controller") end
+  end
+  add(noctalia.expandPath("~/.cargo/bin/localsend-controller"))
+  add(noctalia.expandPath("~/.local/bin/localsend-controller"))
+  return list
 end
 
 local function controllerMissing(message)
   noctalia.state.set("controller", nil)
-  installCommand = "cargo install --locked --path "
-    .. lib.shq(CONTROLLER_SOURCES)
-    .. " --target-dir ~/.cache/localsend-plus/target"
+  installCommand = lib.updateCommand(false)
   failAndNotify(message)
 end
 
@@ -215,39 +224,44 @@ end
 local function checkVersion(path, onChecked)
   noctalia.runAsync({ path, "--version" }, function(res)
     local data = noctalia.json.decode(lib.trim(res.stdout or ""))
-    onChecked(versionParts(type(data) == "table" and data.result and data.result.help))
+    onChecked(lib.versionParts(type(data) == "table" and data.result and data.result.help))
   end)
 end
 
 -- Finds a usable controller, publishes it as state "controller" and calls
--- onFound; otherwise fails with the install command.
+-- onFound; otherwise fails with the update command.
 local function locateController(onFound)
   noctalia.runAsync("command -v localsend-controller", function(res)
-    local path = nil
-    for _, candidate in ipairs(candidates(lib.trim(res.stdout or ""))) do
-      if candidate ~= "" and candidate:sub(1, 1) == "/" and noctalia.fileExists(candidate) then
-        path = candidate
-        break
-      end
-    end
-    if path == nil then
+    local paths = candidates(res.stdout)
+    if #paths == 0 then
       controllerMissing(tr("error.no_controller"))
       return
     end
-    checkVersion(path, function(found)
-      local needed = requiredVersion()
-      if found == nil then
-        controllerMissing(tr("error.bad_controller", { path = path }))
-      elseif needed ~= nil and olderThan(found, needed) then
-        controllerMissing(
-          tr("error.old_controller", { found = table.concat(found, "."), needed = table.concat(needed, ".") })
-        )
-      else
-        installCommand = nil
-        noctalia.state.set("controller", { path = path, version = table.concat(found, ".") })
-        onFound()
+    local found = {}
+    local function checkNext(i)
+      if i <= #paths then
+        checkVersion(paths[i], function(version)
+          table.insert(found, { path = paths[i], version = version })
+          checkNext(i + 1)
+        end)
+        return
       end
-    end)
+      local needed = requiredVersion()
+      local usable, newest = lib.pickController(found, needed)
+      if usable ~= nil then
+        installCommand = nil
+        noctalia.state.set("controller", { path = usable.path, version = table.concat(usable.version, ".") })
+        onFound()
+      elseif newest ~= nil then
+        controllerMissing(tr("error.old_controller", {
+          found = table.concat(newest.version, "."),
+          needed = table.concat(needed, "."),
+        }))
+      else
+        controllerMissing(tr("error.bad_controller", { path = paths[1] }))
+      end
+    end
+    checkNext(1)
   end)
 end
 
@@ -408,11 +422,18 @@ local function busy(snap)
 end
 
 local function poll()
-  if polling or phase ~= "running" then return end
+  if phase ~= "running" then return end
+  if polling then
+    pollAgain = true
+    return
+  end
   polling = true
+  pollAgain = false
   lib.rpc({ "snapshot" }, function(ok, snap)
     polling = false
     if phase ~= "running" then return end
+    -- The snapshot in flight may predate the change, so fetch a fresh one.
+    if pollAgain then poll() end
     if not ok or type(snap) ~= "table" then
       failures = failures + 1
       if failures >= MAX_POLL_FAILURES then
@@ -465,6 +486,8 @@ local function onDaemonLine(g, line)
     -- The mode or favorites may have changed while it was starting; one
     -- set-visibility syncs both.
     applyVisibility()
+  elseif data.event == "changed" then
+    poll()
   elseif data.event == "stopped" then
     if phase == "stopping" then
       spawn()
@@ -799,6 +822,13 @@ function onIpc(event, payload)
   if event == "refresh" then
     lib.rpc({ "refresh" }, poll)
   elseif event == "restart" then
+    restartNow()
+  elseif event == "updated" then
+    -- From controller/update.sh, with the path of the controller it built.
+    local path = lib.trim(payload or "")
+    if BUILT_FILE ~= nil and path:sub(1, 1) == "/" and lib.basename(path) == "localsend-controller" then
+      noctalia.writeFile(BUILT_FILE, path)
+    end
     restartNow()
   elseif event == "send" then
     askWhereToSend(payload)

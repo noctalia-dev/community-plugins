@@ -979,7 +979,7 @@ function render()
     if ls.install ~= nil then
       table.insert(
         children,
-        ui.label({ text = tr("panel.install_hint"), fontSize = 12, maxWidth = TEXT_WIDTH, maxLines = 3 })
+        ui.label({ text = tr("panel.install_hint"), fontSize = 12, maxWidth = TEXT_WIDTH, maxLines = 6 })
       )
       table.insert(
         children,
@@ -998,6 +998,18 @@ function render()
         }),
       }
       if ls.install ~= nil then
+        table.insert(
+          children,
+          ui.button({
+            glyph = "terminal",
+            text = tr("panel.update_in_terminal"),
+            onClick = function()
+              if not noctalia.runInTerminal(lib.updateCommand(true)) then
+                noctalia.notifyError(tr("notify.title"), tr("error.no_terminal"))
+              end
+            end,
+          })
+        )
         table.insert(
           buttons,
           ui.button({

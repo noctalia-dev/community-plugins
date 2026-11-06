@@ -6,6 +6,8 @@
     "focusing": "Focusing agent…",
     "opened": "Opened session",
     "opening": "Opening session…",
+    "pick_window": "Click the existing HerdR terminal window for session \"{session}\". Press Esc to cancel.",
+    "selection_cancelled": "Window selection cancelled.",
     "stopped": "Session stopped",
     "stopping": "Stopping session…"
   },
@@ -21,6 +23,7 @@
     "stop": "Stop"
   },
   "error": {
+    "ambiguous_niri_window": "That window does not belong to this HerdR session. Click the agent again and select its existing terminal window.",
     "bad_session_list": "HerdR returned an invalid session list.",
     "bad_snapshot": "HerdR returned an invalid session snapshot.",
     "command_failed": "HerdR command failed.",
@@ -31,13 +34,16 @@
     "invalid_target": "Invalid HerdR pane target.",
     "machine_failed": "This machine could not be reached.",
     "machine_list": "HerdR returned an invalid machine list.",
+    "niri_focus_failed": "Could not focus the existing Niri window. Refresh and retry; no new terminal was opened.",
+    "niri_picker_failed": "Could not complete Niri window selection. Retry; details were written to the Noctalia log.",
     "no_terminal": "No terminal is available to open HerdR.",
     "session_disappeared": "That HerdR session no longer exists.",
     "session_list_too_large": "The HerdR session list is too large to read safely.",
     "snapshot_too_large": "This HerdR session snapshot is too large to read safely."
   },
   "notify": {
-    "action_failed": "HerdR action failed"
+    "action_failed": "HerdR action failed",
+    "pick_window": "Select a HerdR window"
   },
   "panel": {
     "empty": "No HerdR sessions were found.",

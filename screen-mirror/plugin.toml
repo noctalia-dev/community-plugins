@@ -1,0 +1,94 @@
+# Screen Mirror - mirror the main niri output onto every other display.
+#
+# niri itself has no output mirroring: wl-mirror renders the source output into
+# a window and we fullscreen that window on the target output. The engine is the
+# companion `niri-mirror` daemon (Python, ships in this plugin's repo), which
+# follows niri's event stream for hotplug. The UI lives here:
+#
+#   [[service]]  owns the settings -> config.json bridge and polls the daemon's
+#                state file, so the tile and widget stay thin clients
+#   [[shortcut]] control-center quick toggle
+#   [[widget]]   optional bar widget
+#
+# This manifest follows the official Noctalia plugin layout: one headless
+# [[service]] owns the logic and publishes status through noctalia.state; the
+# [[shortcut]] tile and the optional [[widget]] are thin clients.
+
+id          = "goldesquemoon/screen-mirror"
+name        = "Screen Mirror"
+version     = "1.0.1"
+plugin_api  = 24
+author      = "goldesquemoon"
+license     = "MIT"
+icon        = "screen-share"
+description = "Mirror the main niri output onto every other display, toggled from the control center or the bar."
+tags        = ["niri", "system", "utility", "shortcut"]
+
+# Shown in the plugin browser so users know what to install before enabling.
+dependencies = [
+  "niri",
+  "wl-mirror",
+  "python3",
+  "niri-mirror CLI (~/.local/bin/niri-mirror, installed by this repo's install.sh)",
+]
+
+[[setting]]
+key             = "enabled_on_start"
+type            = "bool"
+label_key       = "settings.enabled_on_start.label"
+description_key = "settings.enabled_on_start.description"
+default         = true
+
+[[setting]]
+key             = "show_osd"
+type            = "bool"
+label_key       = "settings.show_osd.label"
+description_key = "settings.show_osd.description"
+default         = true
+
+[[setting]]
+key             = "excluded_outputs"
+type            = "string_list"
+label_key       = "settings.excluded_outputs.label"
+description_key = "settings.excluded_outputs.description"
+default         = []
+
+[[setting]]
+key             = "source_output"
+type            = "string"
+label_key       = "settings.source_output.label"
+description_key = "settings.source_output.description"
+default         = ""
+
+[[setting]]
+key             = "scaling"
+type            = "select"
+label_key       = "settings.scaling.label"
+description_key = "settings.scaling.description"
+default         = "fit"
+options         = [
+  { value = "fit", label_key = "settings.scaling.fit" },
+  { value = "cover", label_key = "settings.scaling.cover" },
+  { value = "exact", label_key = "settings.scaling.exact" },
+]
+
+[[setting]]
+key             = "poll_interval"
+type            = "int"
+label_key       = "settings.poll_interval.label"
+description_key = "settings.poll_interval.description"
+default         = 2000
+min             = 500
+max             = 20000
+
+[[service]]
+id    = "state"
+entry = "service.luau"
+
+[[shortcut]]
+id    = "mirror"
+entry = "shortcut.luau"
+
+[[widget]]
+id    = "screen-mirror"
+entry = "widget.luau"

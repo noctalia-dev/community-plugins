@@ -72,6 +72,7 @@ class DiscoveryTests(unittest.TestCase):
             failed, sock = Mock(), Mock()
             failed.connect.side_effect = ConnectionRefusedError()
             with patch.object(ctl, "CHANNEL_FILE", str(cache)), \
+                 patch.object(ctl, "require_link"), \
                  patch.object(ctl.socket, "socket", side_effect=[failed, sock]), \
                  patch.object(ctl, "resolve_rfcomm_channel", return_value=16) as resolve:
                 self.assertIs(ctl.connect(address), sock)
@@ -87,10 +88,14 @@ class DiscoveryTests(unittest.TestCase):
         for sock in (first, second):
             sock.connect.side_effect = ConnectionRefusedError()
         with patch.object(ctl, "get_channel", return_value=16), \
+             patch.object(ctl, "require_link"), \
              patch.object(ctl.os.path, "exists", return_value=False), \
              patch.object(ctl.socket, "socket", side_effect=[first, second]):
-            with self.assertRaises(ConnectionRefusedError):
+            with self.assertRaises(ctl.CtlError) as raised:
                 ctl.connect("AA:BB:CC:DD:EE:FF")
+        self.assertEqual(raised.exception.code, "refused")
+        self.assertEqual(raised.exception.stage, "connect")
+        self.assertIsInstance(raised.exception.__cause__, ConnectionRefusedError)
         first.close.assert_called_once()
         second.close.assert_called_once()
 

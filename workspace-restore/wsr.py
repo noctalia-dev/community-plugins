@@ -13,6 +13,24 @@ add-window WS (--address ADDR | --desktop ID)
 add-open WS          add every window open on WS that its list doesn't have yet
 remove-window WS N CLASS
                      drop the Nth (from 1) saved window of WS; CLASS must match
+set-monitor WS       save the monitor open workspace WS is on now as its monitor
+move-window WS FROM N CLASS
+                     move the Nth (from 1) saved window of workspace FROM to WS
+move-workspace WS DESC
+                     move workspace WS to the monitor with this description now
+                     (if it is open) and save that monitor as its monitor
+renumber [OLD:NEW ...] [--name OLD=NAME ...]
+                     give workspaces new numbers and names; their windows,
+                     lists and settings keep their monitor. Refuses duplicate
+                     numbers and numbers pinned to another monitor.
+rename WS [NAME]     name workspace WS (no NAME: back to its default name)
+set-identity WS real|borrowed
+                     say whether open workspace WS is saved workspace WS
+renumber-saved WS [NEW]
+                     give saved workspace WS a free number (NEW or the lowest),
+                     leaving the open workspace with that number alone
+watch                follow Hyprland's events and note which saved numbers are
+                     in use by another workspace (the bar widget starts it)
 set-auto-add 0|1 WS [WS ...]
                      turn auto-add on or off for workspaces
 auto-add             add apps that aren't saved anywhere yet and are open on an
@@ -26,6 +44,15 @@ restore [--all] [--ticked] [--ws N ...] [--monitor DESC] [--wait-monitors] [--on
 The snapshot (layout.json) and the user's choices (config.json) are separate
 files so saving again never loses ticks or keywords. Both live in
 $XDG_STATE_HOME/workspace-restore unless --state-dir is given.
+
+WS is a workspace number or name:<name> for a named workspace. Named
+workspaces are kept by name: Hyprland gives them a new negative id each
+session. Their name is their identity, so rename, renumber, renumber-saved
+and set-identity refuse them.
+
+Workspace rules in the Hyprland config count: a workspace pinned to a
+monitor uses that monitor and can't be moved, and a rule's default name is
+its name unless it was given another.
 """
 
 import argparse
@@ -35,6 +62,8 @@ import json
 import os
 import re
 import shlex
+import shutil
+import socket
 import subprocess
 import sys
 import time
@@ -46,6 +75,9 @@ TERMINALS = {"kitty", "alacritty", "foot", "org.wezfurlong.wezterm", "com.mitche
 LAUNCH_TIMEOUT = 45
 POLL_INTERVAL = 0.5
 SETTLE = 15  # seconds to keep watching after the last window was placed
+IDENTITY_STATES = ("closed", "pending", "borrowed", "ask")
+HEARTBEAT_MAX = 300  # the watcher quits when the bar hasn't checked in for this long
+ACTING_S = 3  # workspaces created this soon after the plugin acted are its own
 
 
 def state_dir(args):
@@ -55,13 +87,30 @@ def state_dir(args):
     return os.path.join(base, "workspace-restore")
 
 
+BROKEN = set()  # copies made this run of files that couldn't be read
+
+
 def read_json(path, default):
+    """The file's data, or default when it's missing. A file that can't be
+    read is copied aside first, so the next write doesn't lose it."""
     try:
         with open(path) as f:
             data = json.load(f)
-        return data if isinstance(data, type(default)) else default
-    except (OSError, ValueError):
+        if isinstance(data, type(default)):
+            return data
+    except FileNotFoundError:
         return default
+    except (OSError, ValueError):
+        pass
+    try:
+        # Named after the file's mtime: one copy per broken version.
+        copy = f"{path}.broken-{int(os.path.getmtime(path))}"
+        if not os.path.exists(copy):
+            shutil.copy2(path, copy)
+        BROKEN.add(copy)
+    except OSError:
+        pass
+    return default
 
 
 def write_json(path, data):
@@ -72,13 +121,62 @@ def write_json(path, data):
     os.replace(tmp, path)
 
 
+def ws_key(ws_id, name):
+    """How a workspace is known everywhere here: its number, or "name:<name>"
+    for a named workspace. Hyprland gives those negative ids in the order
+    they're created, so the same name can get another id next session.
+    None for special workspaces."""
+    if ws_id > 0:
+        return ws_id
+    if not name or name.startswith("special:"):
+        return None
+    return "name:" + name
+
+
+def parse_key(text):
+    """A workspace key from a command line or config.json key."""
+    if text.startswith("name:") and len(text) > len("name:"):
+        return text
+    return int(text)
+
+
+def sort_key(key):
+    """Numbered workspaces first, by number, then named ones by name."""
+    if isinstance(key, int):
+        return (0, key, "")
+    return (1, 0, (key or "").lower())
+
+
+def ws_label(key):
+    """A workspace key as people read it: 3, or Web for name:Web."""
+    return key[len("name:"):] if isinstance(key, str) else str(key)
+
+
 def hypr(what):
+    """hyprctl's JSON, with every workspace id replaced by its key (ws_key).
+    Special workspaces are left out of the workspace list."""
     out = subprocess.run(["hyprctl", what, "-j"], capture_output=True, text=True, check=True)
-    return json.loads(out.stdout)
+    data = json.loads(out.stdout)
+    if what == "workspaces":
+        for w in data:
+            w["id"] = ws_key(w["id"], w["name"])
+        data = [w for w in data if w["id"] is not None]
+    elif what == "clients":
+        for c in data:
+            c["workspace"]["id"] = ws_key(c["workspace"]["id"], c["workspace"]["name"])
+    elif what == "monitors":
+        for m in data:
+            m["activeWorkspace"]["id"] = ws_key(m["activeWorkspace"]["id"], m["activeWorkspace"]["name"])
+    return data
 
 
 def lua_str(s):
     return '"' + s.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n") + '"'
+
+
+def selector(ws):
+    """A workspace key as a Lua workspace selector: 3 or "name:Web"."""
+    return lua_str(ws) if isinstance(ws, str) else str(int(ws))
 
 
 class Dispatcher:
@@ -90,21 +188,25 @@ class Dispatcher:
         if self.dry_run:
             print("dispatch:", expr)
             return
-        subprocess.run(["hyprctl", "dispatch", expr], capture_output=True)
+        subprocess.run(["hyprctl", "dispatch", expr], capture_output=True, check=False)
 
     # Only these call shapes are verified on Hyprland 0.56. Unknown keys are
     # ignored and the action falls back to the focused workspace, so every
     # target here is named explicitly.
     def move_window(self, address, ws):
         self.changes += 1
-        self(f"hl.dsp.window.move({{ workspace = {int(ws)}, follow = false, window = {lua_str('address:' + address)} }})")
+        self(f"hl.dsp.window.move({{ workspace = {selector(ws)}, follow = false, window = {lua_str('address:' + address)} }})")
 
     def move_workspace(self, ws, monitor):
         self.changes += 1
-        self(f"hl.dsp.workspace.move({{ workspace = {int(ws)}, monitor = {lua_str(monitor)} }})")
+        self(f"hl.dsp.workspace.move({{ workspace = {selector(ws)}, monitor = {lua_str(monitor)} }})")
+
+    def rename_workspace(self, ws, name):
+        # An unknown workspace is an error here, not the focused one.
+        self(f"hl.dsp.workspace.rename({{ workspace = {selector(ws)}, name = {lua_str(name)} }})")
 
     def focus_workspace(self, ws):
-        self(f"hl.dsp.focus({{ workspace = {int(ws)} }})")
+        self(f"hl.dsp.focus({{ workspace = {selector(ws)} }})")
 
     def exec(self, cmd, ws=None):
         # Launched by Hyprland, not by us, so apps get the session's own
@@ -112,7 +214,7 @@ class Dispatcher:
         # goes in as an exec rule: it beats window rules that send the app to
         # another monitor, and a window that opens late lands right without a move.
         self.changes += 1
-        rules = "no_initial_focus = true" + (f", workspace = \"{int(ws)} silent\"" if ws is not None else "")
+        rules = "no_initial_focus = true" + (f", workspace = {lua_str(f'{ws} silent')}" if ws is not None else "")
         self(f"hl.dsp.exec_cmd({lua_str(cmd)}, {{ {rules} }})")
 
 
@@ -301,6 +403,65 @@ def workspace_entry(ws, monitors, clients):
     }
 
 
+def workspace_rules(monitors):
+    """{ws key: {"name": default name, "pin": monitor fields}} from the
+    Hyprland config's workspace rules for plain workspace numbers and
+    name:<name> workspaces. A desc: rule matches monitors whose description
+    starts with it."""
+    try:
+        rules = hypr("workspacerules")
+    except (OSError, subprocess.CalledProcessError, ValueError):
+        return {}
+    out = {}
+    for r in rules if isinstance(rules, list) else []:
+        ws = str(r.get("workspaceString", ""))
+        if not (ws.isdigit() or ws.startswith("name:")) or not r.get("enabled", True):
+            continue
+        info = out.setdefault(parse_key(ws), {})
+        if r.get("defaultName"):
+            info["name"] = r["defaultName"]
+        mon = r.get("monitor")
+        if mon:
+            want = mon[5:] if mon.startswith("desc:") else None
+            m = next((m for m in monitors if (m["description"].startswith(want) if want else m["name"] == mon)), None)
+            info["pin"] = {"monitor": m["name"] if m else mon, "monitor_desc": m["description"] if m else (want or mon),
+                           "monitor_x": m["x"] if m else 0}
+    return out
+
+
+def apply_pins(workspaces, rules):
+    """A pinned workspace's saved monitor is the rule's."""
+    for ws in workspaces:
+        pin = rules.get(ws["id"], {}).get("pin")
+        if pin:
+            ws.update(pin)
+            ws["pinned"] = True
+
+
+def custom_name(ws):
+    """The name the user gave a saved workspace, or None. A named
+    workspace's name is how it's found, so it never has another."""
+    name = ws.get("name", "")
+    if isinstance(ws["id"], str):
+        return None
+    return name if name and name != str(ws["id"]) else None
+
+
+def default_name(ws_id, rules):
+    if isinstance(ws_id, str):
+        return ws_label(ws_id)
+    return rules.get(ws_id, {}).get("name") or str(ws_id)
+
+
+def refuse_named(ws_id):
+    """Numbers and names of named workspaces come from the Hyprland config."""
+    if isinstance(ws_id, str):
+        print(json.dumps({"ok": False, "error": f"{ws_label(ws_id)} is a named workspace; "
+                                                 "rename it in your Hyprland config"}))
+        return True
+    return False
+
+
 def layout_path(args):
     return os.path.join(state_dir(args), "layout.json")
 
@@ -308,9 +469,9 @@ def layout_path(args):
 def cmd_save(args):
     monitors = {m["name"]: m for m in hypr("monitors")}
     clients = hypr("clients")
-    live = {ws["id"]: ws for ws in hypr("workspaces") if ws["id"] > 0}  # skip special workspaces
+    live = {ws["id"]: ws for ws in hypr("workspaces")}
     if args.ws is None:
-        workspaces = [workspace_entry(live[i], monitors, clients) for i in sorted(live)]
+        workspaces = [workspace_entry(live[i], monitors, clients) for i in sorted(live, key=sort_key)]
     else:
         workspaces = read_json(layout_path(args), {}).get("workspaces", [])
         if args.ws in live:
@@ -322,7 +483,7 @@ def cmd_save(args):
             if entry is None:
                 print(json.dumps({"ok": False, "error": f"workspace {args.ws} is not open"}))
                 return 1
-        workspaces = sorted([w for w in workspaces if w["id"] != args.ws] + [entry], key=lambda w: w["id"])
+        workspaces = sorted([w for w in workspaces if w["id"] != args.ws] + [entry], key=lambda w: sort_key(w["id"]))
     write_json(layout_path(args), {"saved": int(time.time()), "workspaces": workspaces})
     print(json.dumps({"ok": True, "workspaces": len(workspaces)}))
 
@@ -358,10 +519,18 @@ def cmd_status(args):
     saved = {ws["id"] for ws in workspaces}
     try:
         monitors = hypr("monitors")
-        live = [ws for ws in hypr("workspaces") if ws["id"] > 0]
+        live = hypr("workspaces")
         clients = hypr("clients")
     except (OSError, subprocess.CalledProcessError, ValueError):
         monitors, live, clients = [], [], []
+    # A saved number another workspace is using: that workspace and its
+    # windows are kept apart, so the saved one shows as not open.
+    ids = read_ids(args)
+    busy = (ids["borrowed"] | ids["ask"]) & {w["id"] for w in workspaces if w["windows"]}
+    other_live = [ws for ws in live if ws["id"] in busy]
+    other_clients = [c for c in clients if c["workspace"]["id"] in busy]
+    live = [ws for ws in live if ws["id"] not in busy]
+    clients = [c for c in clients if c["workspace"]["id"] not in busy]
     by_name = {m["name"]: m for m in monitors}
     for ws in live:
         if ws["id"] not in saved:
@@ -369,7 +538,16 @@ def cmd_status(args):
     # A saved workspace whose apps were all removed only shows while it is
     # open, like any other open workspace.
     live_ids = {ws["id"] for ws in live}
-    workspaces[:] = sorted((w for w in workspaces if w["windows"] or w["id"] in live_ids), key=lambda w: w["id"])
+    workspaces[:] = sorted((w for w in workspaces if w["windows"] or w["id"] in live_ids), key=lambda w: sort_key(w["id"]))
+
+    rules = workspace_rules(monitors)
+    apply_pins(workspaces, rules)
+    live_names = {ws["id"]: ws["name"] for ws in live}
+    for ws in workspaces:
+        live_name = live_names.get(ws["id"], "")
+        ws["name"] = (live_name if live_name and live_name != str(ws["id"]) else None) \
+            or custom_name(ws) or default_name(ws["id"], rules)
+    layout["pins"] = {str(i): r["pin"]["monitor_desc"] for i, r in rules.items() if "pin" in r}
 
     # Screens left to right: every connected one, plus saved ones that aren't.
     screens = {}
@@ -397,6 +575,8 @@ def cmd_status(args):
                 where.setdefault(w["class"].lower(), []).append(ws["id"])
     live_monitor = {ws["id"]: by_name.get(ws["monitor"], {}).get("description") for ws in live}
     auto = auto_add_ids(config)
+    empty = empty_slots(layout, clients, keywords, keys)
+    empty_at = {(e[0], e[1]): e[3] for e in empty}
     for ws in workspaces:
         ws["ticked"] = bool(ticked.get(str(ws["id"])))
         ws["auto_add"] = ws["id"] in auto
@@ -405,23 +585,102 @@ def cmd_status(args):
             entry = window_entry(c)
             if entry:
                 label, icon = display(entry)
-                ws["unsaved_open"].append({"address": c["address"], "label": label, "icon": icon,
-                                           "title": c["title"]})
+                item = {"address": c["address"], "label": label, "icon": icon, "title": c["title"]}
+                src = moved_from(entry, c, ws["id"], empty)
+                if src:
+                    item["from"] = src
+                ws["unsaved_open"].append(item)
         for i, w in enumerate(ws["windows"]):
             w["label"], w["icon"] = display(w)
+            # here: a matching window is on this workspace; elsewhere: one is
+            # open on another workspace (open_on); closed: none is open.
+            if (ws["id"], i) not in empty_at:
+                w["state"] = "here"
+            else:
+                entry = dict(w, keyword=empty_at[(ws["id"], i)] or None)
+                hit = next((c for c in clients if c["workspace"]["id"] != ws["id"] and matches(c, entry)), None)
+                w["state"] = "elsewhere" if hit else "closed"
+                if hit:
+                    w["open_on"] = hit["workspace"]["id"]
             w["open"] = w["command"] in open_commands if w.get("match_command") \
                 else w["class"].lower() in open_classes
             key = keys.get((ws["id"], i))
             if key:
                 w["keyword_key"] = key
                 w["keyword"] = keywords.get(key, "")
-                ids = where.get(w["class"].lower(), [])
-                w["twice_here"] = ids.count(ws["id"]) > 1
-                w["also_on"] = sorted({i for i in ids if i != ws["id"]})
+                saved_on = where.get(w["class"].lower(), [])
+                w["twice_here"] = saved_on.count(ws["id"]) > 1
+                w["also_on"] = sorted({i for i in saved_on if i != ws["id"]}, key=sort_key)
         ws["in_place"] = in_place(ws, keys, keywords, clients, live_monitor)
+        # Open on another monitor than the saved one: restoring moves it back
+        # until set-monitor saves the new one.
+        # The panel shows each workspace on the screen it is on now.
+        now = live_monitor.get(ws["id"])
+        ws["screen"] = now or ws["monitor_desc"]
+        if not ws.get("unsaved") and now and now != ws["monitor_desc"]:
+            ws["now_on"] = now
+    for ws in workspaces:
+        if ws["id"] in busy:
+            ws["in_use"] = identity(ids, ws["id"])
+    for lw in other_live:
+        desc = by_name.get(lw["monitor"], {}).get("description", "")
+        items = []
+        for c in other_clients:
+            entry = window_entry(c) if c["workspace"]["id"] == lw["id"] else None
+            if entry:
+                label, icon = display(entry)
+                items.append({"address": c["address"], "label": label, "icon": icon, "title": c["title"]})
+        # borrowed: "borrowed" or "ask", the open workspace using the number.
+        workspaces.append({"id": lw["id"], "name": lw["name"], "monitor": lw["monitor"], "monitor_desc": desc,
+                           "screen": desc, "windows": [], "unsaved_open": items, "unsaved": True,
+                           "borrowed": identity(ids, lw["id"]), "in_place": True, "ticked": False,
+                           "auto_add": False})
+    workspaces.sort(key=lambda w: (sort_key(w["id"]), "borrowed" in w))
+    for ws in workspaces:
+        ws["named"] = isinstance(ws["id"], str)
     layout["restoring"] = restore_running(d)
+    # Copies of unreadable files, shown until the user deletes them.
+    layout["broken"] = sorted({os.path.basename(p) for p in BROKEN}
+                              | {f for f in os.listdir(d) if ".broken-" in f} if os.path.isdir(d) else ())
     layout["last_restore"] = read_json(os.path.join(d, "last-restore.json"), {})
     print(json.dumps(layout))
+
+
+def empty_slots(layout, clients, keywords, keys):
+    """Saved windows with no matching window open on their workspace, as
+    [ws id, index, entry, keyword]. Slots with a title keyword are matched
+    first, so a plain slot doesn't take their window."""
+    out = []
+    for ws in layout.get("workspaces", []):
+        if ws.get("unsaved"):
+            continue
+        here = [c for c in clients if c["workspace"]["id"] == ws["id"]]
+        kws = {i: keywords.get(keys.get((ws["id"], i)), "") for i in range(len(ws["windows"]))}
+        taken = set()
+        for i in sorted(kws, key=lambda i: not kws[i]):
+            entry = dict(ws["windows"][i], keyword=kws[i] or None)
+            hit = next((c for c in here if c["address"] not in taken and matches(c, entry)), None)
+            if hit:
+                taken.add(hit["address"])
+            else:
+                out.append([ws["id"], i, ws["windows"][i], kws[i]])
+    return out
+
+
+def moved_from(entry, client, ws_id, empty):
+    """The saved slot an open window seems to have left: same app, saved on
+    another workspace, nothing open there for it. A title keyword picks among
+    several; with no keyword match and more than one plain slot, None. A slot
+    is offered to one window only, so it's removed from empty."""
+    cands = [s for s in empty if s[0] != ws_id and app_key(s[2]) == app_key(entry)]
+    title = client["title"].lower()
+    by_kw = [s for s in cands if s[3] and s[3].lower() in title]
+    plain = [s for s in cands if not s[3]]
+    pick = by_kw[0] if len(by_kw) == 1 else plain[0] if not by_kw and len(plain) == 1 else None
+    if pick is None:
+        return None
+    empty.remove(pick)
+    return {"ws": pick[0], "index": pick[1] + 1, "class": pick[2]["class"]}
 
 
 def in_place(ws, keys, keywords, clients, live_monitor):
@@ -523,8 +782,8 @@ def cmd_candidates(args):
     new_here = {c["address"] for c in unsaved_open(here, clients, args.ws)}
     wins = []
     # Windows on this workspace first, then the others by workspace.
-    for c in sorted(clients, key=lambda c: (c["workspace"]["id"] != args.ws, c["workspace"]["id"], c["at"][0])):
-        if not c["class"] or c["workspace"]["id"] <= 0:
+    for c in sorted(clients, key=lambda c: (c["workspace"]["id"] != args.ws, sort_key(c["workspace"]["id"]), c["at"][0])):
+        if not c["class"] or c["workspace"]["id"] is None:
             continue
         entry = window_entry(c)
         if entry is None:  # plain shells can't be restored
@@ -558,7 +817,7 @@ def get_workspace(layout, ws_id):
         ws = live_workspace(ws_id)
         if ws is not None:
             workspaces.append(ws)
-            workspaces.sort(key=lambda w: w["id"])
+            workspaces.sort(key=lambda w: sort_key(w["id"]))
     return ws
 
 
@@ -598,6 +857,8 @@ def set_skipped(args, ws_id, keys, skip):
 
 
 def cmd_add_window(args):
+    if refuse_in_use(args, args.ws):
+        return 1
     if args.address:
         clients = hypr("clients")
         client = next((c for c in clients if c["address"] == args.address), None)
@@ -627,6 +888,8 @@ def cmd_add_window(args):
 
 
 def cmd_add_open(args):
+    if refuse_in_use(args, args.ws):
+        return 1
     clients = hypr("clients")
 
     def fn(layout, ws):
@@ -664,9 +927,75 @@ def cmd_remove_window(args):
     return edit_layout(args, fn)
 
 
+def cmd_set_monitor(args):
+    def fn(layout, ws):
+        live = live_workspace(ws["id"])
+        if live is None:
+            return f"workspace {ws['id']} is not open"
+        if pinned_elsewhere(ws["id"], live["monitor_desc"]):
+            return f"workspace {ws['id']} is pinned to another monitor"
+        ws.update({k: live[k] for k in ("monitor", "monitor_desc", "monitor_x")})
+    return edit_layout(args, fn)
+
+
+def pinned_elsewhere(ws_id, desc, rules=None):
+    """The monitor a rule pins ws_id to, if that isn't desc."""
+    if rules is None:
+        rules = workspace_rules(hypr("monitors"))
+    pin = rules.get(ws_id, {}).get("pin")
+    return pin["monitor_desc"] if pin and pin["monitor_desc"] != desc else None
+
+
+def cmd_rename(args):
+    if refuse_named(args.ws):
+        return 1
+    rules = workspace_rules(hypr("monitors"))
+    name = (args.name or "").strip()[:40]
+
+    def fn(layout, ws):
+        ws["name"] = name or str(ws["id"])
+    if edit_layout(args, fn):
+        return 1
+    if any(w["id"] == args.ws for w in hypr("workspaces")):
+        Dispatcher(False).rename_workspace(args.ws, name or default_name(args.ws, rules))
+    return 0
+
+
+def slot_windows(layout):
+    return {(ws["id"], j): w for ws in layout.get("workspaces", []) for j, w in enumerate(ws["windows"])}
+
+
+def cmd_move_window(args):
+    if refuse_in_use(args, args.ws):
+        return 1
+
+    def fn(layout, ws):
+        src = next((w for w in layout["workspaces"] if w["id"] == args.from_ws), None)
+        i = args.index - 1
+        if src is None or src is ws or not 0 <= i < len(src["windows"]) \
+                or src["windows"][i]["class"] != args.cls:
+            return "the layout changed, reopen the panel"
+        # Keyword keys are positions, so carry each keyword by its window.
+        path = os.path.join(state_dir(args), "config.json")
+        config = read_json(path, {})
+        keywords = config.get("keywords", {})
+        wins = slot_windows(layout)
+        by_window = {id(wins[pos]): keywords[key] for pos, key in slot_keys(layout).items() if key in keywords}
+        entry = src["windows"].pop(i)
+        ws["windows"].append(entry)
+        set_skipped(args, ws["id"], [app_key(entry)], False)
+        if keywords:
+            config = read_json(path, {})  # set_skipped may have written it
+            wins = slot_windows(layout)
+            config["keywords"] = {key: by_window[id(wins[pos])] for pos, key in slot_keys(layout).items()
+                                  if id(wins[pos]) in by_window}
+            write_json(path, config)
+    return edit_layout(args, fn)
+
+
 def auto_add_ids(config):
     auto = config.get("auto_add")
-    return {int(k) for k, v in auto.items() if v} if isinstance(auto, dict) else set()
+    return {parse_key(k) for k, v in auto.items() if v} if isinstance(auto, dict) else set()
 
 
 def cmd_set_auto_add(args):
@@ -694,6 +1023,7 @@ def restore_running(d):
 
 def cmd_auto_add(args):
     d = state_dir(args)
+    touch(session_path(args, "heartbeat"))  # the bar is alive: the watcher keeps going
     config = read_json(os.path.join(d, "config.json"), {})
     # During a restore windows sit on the wrong workspace for a moment.
     auto = auto_add_ids(config)
@@ -708,9 +1038,11 @@ def cmd_auto_add(args):
     commands = {w["command"] for ws in layout.get("workspaces", []) for w in ws["windows"]
                 if w.get("match_command")}
     skipped = config.get("auto_add_skip", {})
+    busy = in_use(args)  # another workspace has that number
     added = []
     for c in sorted(hypr("clients"), key=lambda c: (c["at"][0], c["at"][1])):
-        if c["workspace"]["id"] not in auto or not c["class"] or c.get("floating"):
+        if c["workspace"]["id"] not in auto or c["workspace"]["id"] in busy or not c["class"] \
+                or c.get("floating"):
             continue
         entry = window_entry(c)
         if entry is None or app_key(entry) in skipped.get(str(c["workspace"]["id"]), []):
@@ -764,27 +1096,442 @@ def first_in_session():
     return True
 
 
+# --- workspace identity --------------------------------------------------------
+# A saved number that closed can come back as a different workspace, such as
+# a new one taking the lowest free number. The watcher follows Hyprland's
+# events and notes per saved number: closed (not open), pending (open again,
+# no window yet), borrowed (another workspace uses the number) or ask (the
+# signs are mixed, the panel asks). A saved number in none of these is the
+# saved workspace.
+
+def session_path(args, name):
+    """A file for this Hyprland session: in $XDG_RUNTIME_DIR, or in
+    --state-dir when testing."""
+    if args.state_dir:
+        return os.path.join(state_dir(args), name)
+    run_dir = os.environ.get("XDG_RUNTIME_DIR") or "/tmp"
+    instance = os.environ.get("HYPRLAND_INSTANCE_SIGNATURE", "default")
+    return os.path.join(run_dir, f"workspace-restore-{name}-{os.getuid()}-{instance}")
+
+
+def read_ids(args):
+    data = read_json(session_path(args, "ids.json"), {})
+    return {state: set(data.get(state, [])) for state in IDENTITY_STATES}
+
+
+def identity(ids, ws_id):
+    return next((s for s in IDENTITY_STATES if ws_id in ids[s]), "real")
+
+
+def set_identity(ids, ws_id, state):
+    for s in IDENTITY_STATES:
+        ids[s].discard(ws_id)
+    if state != "real":
+        ids[state].add(ws_id)
+
+
+def edit_ids(args, fn):
+    path = session_path(args, "ids.json")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path + ".lock", "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        ids = read_ids(args)
+        fn(ids)
+        write_json(path, {s: sorted(v) for s, v in ids.items()})
+
+
+def in_use(args):
+    """Saved numbers another workspace is using, or that the panel asks about.
+    A saved workspace with no apps left isn't kept apart any more."""
+    ids = read_ids(args)
+    return (ids["borrowed"] | ids["ask"]) & saved_ids(args)
+
+
+def refuse_in_use(args, ws_id):
+    if ws_id in in_use(args):
+        print(json.dumps({"ok": False, "error": f"workspace {ws_id} is in use by another workspace"}))
+        return True
+    return False
+
+
+def touch(path):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "a"):
+        pass
+    os.utime(path)
+
+
+def mark_acting(args):
+    """Workspaces created in the next few seconds are the plugin's own."""
+    touch(session_path(args, "acting"))
+
+
+def acting(args):
+    d = state_dir(args)
+    try:
+        recent = time.time() - os.path.getmtime(session_path(args, "acting")) < ACTING_S
+    except OSError:
+        recent = False
+    return recent or restore_running(d)
+
+
+def saved_ids(args):
+    """Saved numbers with apps. Named workspaces aren't tracked: no other
+    workspace can come back under their name."""
+    return {w["id"] for w in read_json(layout_path(args), {}).get("workspaces", [])
+            if w["windows"] and isinstance(w["id"], int)}
+
+
+def first_window_identity(args, ws_id, client):
+    """Whose is a saved number that came back, judged by its first window:
+    one of its saved apps on its saved monitor is the saved workspace, an app
+    it doesn't have is another workspace, a saved app elsewhere is unclear."""
+    ws = next((w for w in read_json(layout_path(args), {}).get("workspaces", []) if w["id"] == ws_id), None)
+    if ws is None:
+        return "real"
+    if not any(matches(client, dict(w, keyword=None)) for w in ws["windows"]):
+        return "borrowed"
+    monitors = hypr("monitors")
+    apply_pins([ws], workspace_rules(monitors))
+    on = next((w["monitor"] for w in hypr("workspaces") if w["id"] == ws_id), None)
+    here = next((m["description"] for m in monitors if m["name"] == on), None)
+    return "real" if here == ws["monitor_desc"] else "ask"
+
+
+def watch_event(args, event, data):
+    if event in ("createworkspacev2", "destroyworkspacev2"):
+        ws_id, _, name = data.partition(",")
+        ws_id = ws_key(int(ws_id), name)
+        if ws_id not in saved_ids(args):
+            return
+        if event == "destroyworkspacev2":
+            state = "closed"
+        else:
+            state = "real" if acting(args) else "pending"
+        edit_ids(args, lambda ids: set_identity(ids, ws_id, state))
+    elif event in ("openwindow", "movewindowv2"):
+        pending = read_ids(args)["pending"]
+        if not pending:
+            return
+        # openwindow names the workspace, which may be a custom name, so look
+        # the window up by its address.
+        address = "0x" + data.split(",")[0]
+        client = next((c for c in hypr("clients") if c["address"] == address), None)
+        if client is None or client["workspace"]["id"] not in pending:
+            return
+        ws_id = client["workspace"]["id"]
+        state = "real" if acting(args) else first_window_identity(args, ws_id, client)
+        edit_ids(args, lambda ids: set_identity(ids, ws_id, state))
+
+
+def cmd_watch(args):
+    os.makedirs(state_dir(args), exist_ok=True)
+    with open(session_path(args, "watch.lock"), "w") as lock:  # one watcher per session
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            print(json.dumps({"ok": True, "note": "already watching"}))
+            return 0
+        return watch(args)
+
+
+def watch(args):
+    me = os.path.abspath(__file__)
+    version = os.path.getmtime(me)
+    heartbeat = session_path(args, "heartbeat")
+    touch(heartbeat)
+    run_dir = os.environ.get("XDG_RUNTIME_DIR") or "/tmp"
+    sock = socket.socket(socket.AF_UNIX)
+    sock.connect(os.path.join(run_dir, "hypr", os.environ["HYPRLAND_INSTANCE_SIGNATURE"], ".socket2.sock"))
+    sock.settimeout(10)
+    # First start this session: saved numbers that are open now are the
+    # saved workspaces. A restarted watcher keeps what it had noted.
+    if not os.path.exists(session_path(args, "ids.json")):
+        closed = saved_ids(args) - {w["id"] for w in hypr("workspaces")}
+        edit_ids(args, lambda ids: ids["closed"].update(closed))
+    buf = b""
+    while True:
+        try:
+            chunk = sock.recv(65536)
+            if not chunk:
+                return 0  # Hyprland quit
+            buf += chunk
+        except TimeoutError:
+            pass
+        # A changed wsr.py means an update: quit so the bar starts the new
+        # one. No check-in from the bar for a while means it's gone or the
+        # plugin is off.
+        try:
+            stale = time.time() - os.path.getmtime(heartbeat) > HEARTBEAT_MAX
+        except OSError:
+            stale = True
+        if os.path.getmtime(me) != version or stale:
+            return 0
+        *lines, buf = buf.split(b"\n")
+        for line in lines:
+            event, _, data = line.decode(errors="replace").partition(">>")
+            try:
+                watch_event(args, event, data)
+            except (OSError, ValueError, subprocess.CalledProcessError):
+                pass
+
+
+def cmd_set_identity(args):
+    if refuse_named(args.ws):
+        return 1
+    edit_ids(args, lambda ids: set_identity(ids, args.ws, args.state))
+    print(json.dumps({"ok": True}))
+    return 0
+
+
+def cmd_renumber_saved(args):
+    """Only the saved files change; Hyprland's workspace with that number
+    stays as it is and is no longer the saved one."""
+    layout = read_json(layout_path(args), {})
+    workspaces = layout.get("workspaces", [])
+    if refuse_named(args.ws):
+        return 1
+    ws = next((w for w in workspaces if w["id"] == args.ws), None)
+    if ws is None:
+        print(json.dumps({"ok": False, "error": f"workspace {args.ws} is not saved"}))
+        return 1
+    ruled = {i for i in workspace_rules(hypr("monitors")) if isinstance(i, int)}
+    taken = {w["id"] for w in workspaces + hypr("workspaces") if isinstance(w["id"], int)}
+    used = taken | ruled
+    new = args.new
+    if new is None:
+        # Above every saved and open number: the low free ones are what new
+        # workspaces take next, which would take this one's number again.
+        new = max(taken - ruled, default=0) + 1
+        while new in used:
+            new += 1
+    elif new in used or new < 1:
+        print(json.dumps({"ok": False, "error": f"{new} is open, saved or has a workspace rule"}))
+        return 1
+    if ws["name"] == str(ws["id"]):
+        ws["name"] = str(new)
+    ws["id"] = new
+    workspaces.sort(key=lambda w: sort_key(w["id"]))
+    layout["saved"] = int(time.time())
+    write_json(layout_path(args), layout)
+    path = os.path.join(state_dir(args), "config.json")
+    config = read_json(path, {})
+    renumber_config(config, {args.ws: new})
+    write_json(path, config)
+    def fn(ids):
+        set_identity(ids, args.ws, "real")  # the open one is just a workspace now
+        set_identity(ids, new, "closed")
+    edit_ids(args, fn)
+    print(json.dumps({"ok": True, "ws": new}))
+    return 0
+
+
+def show_again(dsp, visible, focused):
+    """Show each monitor's workspace from visible again, focused monitor last."""
+    for name, ws_id in visible.items():
+        if name != focused:
+            dsp.focus_workspace(ws_id)
+    if focused in visible:
+        dsp.focus_workspace(visible[focused])
+
+
+def cmd_move_workspace(args):
+    d = state_dir(args)
+    if restore_running(d):
+        print(json.dumps({"ok": False, "error": "a restore is running"}))
+        return 1
+    mon = next((m for m in hypr("monitors") if m["description"] == args.desc), None)
+    if mon is None:
+        print(json.dumps({"ok": False, "error": "that screen isn't connected"}))
+        return 1
+    if pinned_elsewhere(args.ws, mon["description"]):
+        print(json.dumps({"ok": False, "error": f"workspace {args.ws} is pinned to another monitor"}))
+        return 1
+    if any(w["id"] == args.ws for w in hypr("workspaces")):
+        Dispatcher(False).move_workspace(args.ws, mon["name"])
+    layout = read_json(layout_path(args), {})
+    ws = next((w for w in layout.get("workspaces", []) if w["id"] == args.ws), None)
+    if ws is not None:
+        ws.update({"monitor": mon["name"], "monitor_desc": mon["description"], "monitor_x": mon["x"]})
+        layout["saved"] = int(time.time())
+        write_json(layout_path(args), layout)
+    print(json.dumps({"ok": True}))
+    return 0
+
+
+def drop_config(config, ids):
+    """Forget everything config.json keeps for these workspaces."""
+    keys = {str(i) for i in ids}
+    for name in ("ticked", "auto_add", "auto_add_skip"):
+        if isinstance(config.get(name), dict):
+            config[name] = {k: v for k, v in config[name].items() if k not in keys}
+    if isinstance(config.get("keywords"), dict):
+        config["keywords"] = {k: v for k, v in config["keywords"].items() if k.partition("|")[0] not in keys}
+
+
+def renumber_config(config, mapping):
+    """Re-key everything config.json keeps per workspace."""
+    for name in ("ticked", "auto_add", "auto_add_skip"):
+        table = config.get(name)
+        if isinstance(table, dict):
+            config[name] = {str(mapping.get(int(k), int(k))) if k.lstrip("-").isdigit() else k: v
+                            for k, v in table.items()}
+    keywords = config.get("keywords")
+    if isinstance(keywords, dict):
+        out = {}
+        for key, v in keywords.items():
+            ws_id, _, rest = key.partition("|")
+            if ws_id.lstrip("-").isdigit():
+                key = f"{mapping.get(int(ws_id), int(ws_id))}|{rest}"
+            out[key] = v
+        config["keywords"] = out
+
+
+def cmd_renumber(args):
+    d = state_dir(args)
+    try:
+        mapping = {int(a): int(b) for a, b in (pair.split(":") for pair in args.pairs)}
+    except ValueError:
+        print(json.dumps({"ok": False, "error": "use OLD:NEW pairs of numbers"}))
+        return 1
+    mapping = {a: b for a, b in mapping.items() if a != b}
+    names = {}
+    for item in args.name or []:
+        old, sep, name = item.partition("=")
+        if not sep or not old.isdigit():
+            print(json.dumps({"ok": False, "error": "use --name OLD=NAME"}))
+            return 1
+        names[int(old)] = name.strip()[:40]
+    if restore_running(d):
+        print(json.dumps({"ok": False, "error": "a restore is running"}))
+        return 1
+    layout = read_json(layout_path(args), {})
+    workspaces = layout.get("workspaces", [])
+    # Named workspaces keep their names: they aren't renumbered.
+    live = {w["id"]: w for w in hypr("workspaces") if isinstance(w["id"], int)}
+    clients = hypr("clients")
+    # Workspaces that count: saved ones with apps, and open ones with windows
+    # (an empty open workspace is dropped by Hyprland once it isn't shown).
+    shown = {w["id"] for w in workspaces if w["windows"] and isinstance(w["id"], int)} | set(live)
+    if any(b <= 0 for b in mapping.values()):
+        print(json.dumps({"ok": False, "error": "numbers start at 1"}))
+        return 1
+    final = [mapping.get(i, i) for i in shown | set(mapping)]
+    dupes = sorted({n for n in final if final.count(n) > 1})
+    if dupes:
+        print(json.dumps({"ok": False, "error": "duplicate numbers", "duplicates": dupes}))
+        return 1
+    # A number pinned to a monitor only goes to a workspace on that monitor.
+    monitors = hypr("monitors")
+    rules = workspace_rules(monitors)
+    by_name = {m["name"]: m["description"] for m in monitors}
+    saved_desc = {w["id"]: w["monitor_desc"] for w in workspaces}
+    for old, new in mapping.items():
+        desc = by_name.get(live[old]["monitor"]) if old in live else saved_desc.get(old)
+        pin = pinned_elsewhere(new, desc, rules)
+        if pin:
+            print(json.dumps({"ok": False, "error": f"{new} is pinned to {pin}", "pinned": new}))
+            return 1
+    busy = in_use(args) & (set(mapping) | set(mapping.values()))
+    if busy:
+        print(json.dumps({"ok": False, "error": f"workspace {min(busy)} is in use by another workspace"}))
+        return 1
+    if not mapping and not names:
+        print(json.dumps({"ok": True}))
+        return 0
+    if not args.dry_run:
+        mark_acting(args)
+
+    # Hyprland: every window of a renumbered workspace goes to its new
+    # number, through a spare number first so swaps don't mix them up. Each
+    # new workspace then goes to the old one's monitor.
+    focused = next((m["name"] for m in monitors if m.get("focused")), None)
+    visible = {m["name"]: m["activeWorkspace"]["id"] for m in monitors}
+    dsp = Dispatcher(args.dry_run)
+    spare = max(final + list(live) + [1000]) + 1
+    moving = [c for c in clients if c["workspace"]["id"] in mapping]
+    for c in moving:
+        dsp.move_window(c["address"], spare + c["workspace"]["id"])
+    for c in moving:
+        dsp.move_window(c["address"], mapping[c["workspace"]["id"]])
+    # Only numbers that got windows exist now. Moving or focusing one that
+    # doesn't would hit the focused workspace instead, so an empty open
+    # workspace keeps its old number in Hyprland; its saved list still moves.
+    filled = {c["workspace"]["id"] for c in moving}
+    for old in filled:
+        dsp.move_workspace(mapping[old], live[old]["monitor"])
+    # Screens that showed a renumbered workspace show it under its new number.
+    if any(i in filled for i in visible.values()):
+        show_again(dsp, {n: mapping.get(i, i) for n, i in visible.items() if i in filled or n == focused}, focused)
+
+    # A saved workspace with no apps that isn't open doesn't show in the
+    # panel. If its number is taken, drop it and its settings, so the
+    # workspace getting the number keeps its own.
+    stale = {w["id"] for w in workspaces if not w["windows"] and w["id"] not in live
+             and w["id"] not in mapping and w["id"] in mapping.values()}
+    workspaces[:] = [w for w in workspaces if w["id"] not in stale]
+    by_old = {}
+    for ws in workspaces:
+        by_old[ws["id"]] = ws
+        if ws["id"] in mapping:
+            if ws["name"] == str(ws["id"]):
+                ws["name"] = str(mapping[ws["id"]])
+            ws["id"] = mapping[ws["id"]]
+    for old, name in names.items():
+        new = mapping.get(old, old)
+        if old not in by_old and old in live:  # open but not saved yet
+            by_old[old] = dict(workspace_entry(live[old], {m["name"]: m for m in monitors}, []), id=new)
+            workspaces.append(by_old[old])
+        if old in by_old:
+            by_old[old]["name"] = name or str(new)
+    workspaces.sort(key=lambda w: sort_key(w["id"]))
+    # Names in Hyprland: given ones, and the ones renumbered workspaces carry.
+    exists = {mapping.get(i, i) for i in live if i not in mapping or i in filled}
+    for old, ws in by_old.items():
+        if ws["id"] in exists and (old in names or (old in filled and custom_name(ws))):
+            dsp.rename_workspace(ws["id"], custom_name(ws) or default_name(ws["id"], rules))
+    if not args.dry_run:
+        layout["saved"] = int(time.time())
+        write_json(layout_path(args), layout)
+        path = os.path.join(d, "config.json")
+        config = read_json(path, {})
+        drop_config(config, stale)
+        renumber_config(config, mapping)
+        write_json(path, config)
+
+        def remap(ids):
+            for state in IDENTITY_STATES:
+                ids[state] = {mapping.get(i, i) for i in ids[state] if i not in stale}
+        edit_ids(args, remap)
+        mark_acting(args)
+    print(json.dumps({"ok": True, "kept_open": sorted(i for i in mapping if i in live and i not in filled)}))
+    return 0
+
+
 def cmd_restore(args):
     if args.once and not args.dry_run and not first_in_session():
         print(json.dumps({"ok": True, "note": "already ran this session"}))
         return 0
     d = state_dir(args)
     os.makedirs(d, exist_ok=True)
-    lock = open(os.path.join(d, "restore.lock"), "w")
-    # status probes this lock for a moment on every bar poll, and at login
-    # that poll can land right as this starts, so retry briefly. A real
-    # restore holds it far longer.
-    deadline = time.time() + 2
-    while True:
-        try:
-            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            break
-        except OSError:
-            if time.time() >= deadline:
-                print(json.dumps({"ok": False, "error": "a restore is already running"}))
-                return 1
-            time.sleep(0.1)
+    with open(os.path.join(d, "restore.lock"), "w") as lock:
+        # status probes this lock for a moment on every bar poll, and at
+        # login that poll can land right as this starts, so retry briefly. A
+        # real restore holds it far longer.
+        deadline = time.time() + 2
+        while True:
+            try:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except OSError:
+                if time.time() >= deadline:
+                    print(json.dumps({"ok": False, "error": "a restore is already running"}))
+                    return 1
+                time.sleep(0.1)
+        return restore(args, d)
 
+
+def restore(args, d):
     layout = read_json(os.path.join(d, "layout.json"), {})
     config = read_json(os.path.join(d, "config.json"), {})
     ticked = config.get("ticked", {})
@@ -796,25 +1543,39 @@ def cmd_restore(args):
         if args.all or (args.ticked and ticked.get(str(ws["id"]))) or ws["id"] in (args.ws or []) \
                 or (args.monitor and ws["monitor_desc"] == args.monitor):
             selected.append(ws)
+    # A number another workspace is using: don't move that one, launch apps
+    # into it or pull windows to it.
+    busy = in_use(args)
+    in_use_skipped = sorted(ws["id"] for ws in selected if ws["id"] in busy)
+    selected = [ws for ws in selected if ws["id"] not in busy]
     if not selected:
-        print(json.dumps({"ok": True, "note": "nothing selected"}))
+        if in_use_skipped and not args.dry_run:
+            write_json(os.path.join(d, "last-restore.json"),
+                       {"time": int(time.time()), "workspaces": [], "skipped": [], "launched": [], "moved": 0,
+                        "unmatched": [], "set_aside": [], "in_use": in_use_skipped})
+        print(json.dumps({"ok": True, "note": "nothing selected", "in_use": in_use_skipped}))
         return 0
-
-    # At login monitors can show up a moment after Hyprland starts.
-    wanted = {ws["monitor_desc"] for ws in selected}
+    # At login monitors can show up a moment after Hyprland starts. Until
+    # then a pin is only its rule's text: a description prefix or a name.
+    pins = {i: r["pin"]["monitor_desc"] for i, r in workspace_rules([]).items() if "pin" in r}
+    wanted = {pins.get(ws["id"], ws["monitor_desc"]) for ws in selected}
     deadline = time.time() + (20 if args.wait_monitors else 0)
     while True:
         monitors = hypr("monitors")
-        desc_to_name = {m["description"]: m["name"] for m in monitors}
-        if wanted <= desc_to_name.keys() or time.time() >= deadline:
+        if all(any(m["description"].startswith(w) or m["name"] == w for m in monitors) for w in wanted) \
+                or time.time() >= deadline:
             break
         time.sleep(POLL_INTERVAL)
+    desc_to_name = {m["description"]: m["name"] for m in monitors}
+    rules = workspace_rules(monitors)
+    apply_pins(selected, rules)
 
     dsp = Dispatcher(args.dry_run)
     focused = next((m["name"] for m in monitors if m.get("focused")), None)
     visible = {m["name"]: m["activeWorkspace"]["id"] for m in monitors}
 
-    report = {"time": int(time.time()), "workspaces": [], "skipped": [], "launched": [], "moved": 0, "unmatched": []}
+    report = {"time": int(time.time()), "workspaces": [], "skipped": [], "launched": [], "moved": 0, "unmatched": [],
+              "set_aside": [], "in_use": in_use_skipped}
     entries = []
     ws_monitor = {}
     for ws in selected:
@@ -833,12 +1594,44 @@ def cmd_restore(args):
                             "keyword": keyword or None, "place": not (key and not keyword),
                             "match_command": bool(w.get("match_command")), "label": display(w)[0]})
 
+    taken_numbers, aside_done = set(), set()
+
+    def free_number(existing):
+        """Lowest number that isn't open, saved, pinned or already used here."""
+        used = existing | {w["id"] for w in layout.get("workspaces", [])} | set(rules) | taken_numbers
+        n = 1
+        while n in used:
+            n += 1
+        taken_numbers.add(n)
+        return n
+
+    def set_aside(ws_id, here, current):
+        """Windows on ws_id that aren't on its list go to a new workspace on
+        the monitor they're on, so moving ws_id doesn't drag them along."""
+        mine = [e for e in entries if e["ws"] == ws_id]
+        others = [c for c in hypr("clients") if c["workspace"]["id"] == ws_id
+                  and not any(matches(c, e) for e in mine)]
+        if not others or ws_id in aside_done:
+            return
+        aside_done.add(ws_id)
+        free = free_number(set(current))
+        for c in others:
+            dsp.move_window(c["address"], free)
+        # Move the new workspace only once it exists: a missing one would
+        # hit the focused workspace instead.
+        if args.dry_run or any(w["id"] == free for w in hypr("workspaces")):
+            dsp.move_workspace(free, here)
+            if visible.get(here) == ws_id:
+                visible[here] = free  # that screen keeps showing those windows
+        report["set_aside"].append({"from": ws_id, "ws": free, "count": len(others)})
+
     def place_workspaces():
         current = {w["id"]: w["monitor"] for w in hypr("workspaces")}
         for ws_id, mon in ws_monitor.items():
             # Only existing workspaces are moved; a missing one is created on
             # its monitor once a window lands in it and placed next round.
             if ws_id in current and current[ws_id] != mon:
+                set_aside(ws_id, current[ws_id], current)
                 dsp.move_workspace(ws_id, mon)
                 current[ws_id] = mon
 
@@ -906,16 +1699,22 @@ def cmd_restore(args):
     report["unmatched"] = [f"{e['label']} ({e['keyword']})" if e["keyword"] else e["label"]
                            for e in pending if not e.get("address")]
 
+    # Names the user gave, and rule names Hyprland didn't apply.
+    live_names = {w["id"]: w["name"] for w in hypr("workspaces")}
+    for ws in selected:
+        if isinstance(ws["id"], str):
+            continue  # its name is how it's found
+        want = custom_name(ws) or rules.get(ws["id"], {}).get("name")
+        if want and ws["id"] in live_names and live_names[ws["id"]] != want:
+            dsp.rename_workspace(ws["id"], want)
+
     # Put back what each monitor was showing, focused monitor last, so a
     # restore in the middle of a session does not swap the visible workspaces.
     if dsp.changes and not args.wait_monitors:
-        for name, ws_id in visible.items():
-            if name != focused:
-                dsp.focus_workspace(ws_id)
-        if focused in visible:
-            dsp.focus_workspace(visible[focused])
+        show_again(dsp, visible, focused)
 
     if not args.dry_run:
+        mark_acting(args)  # its last windows' events may arrive after the lock is gone
         write_json(os.path.join(d, "last-restore.json"), report)
     print(json.dumps(report))
     return 0
@@ -926,43 +1725,74 @@ def main():
     p.add_argument("--state-dir")
     sub = p.add_subparsers(dest="cmd", required=True)
     sv = sub.add_parser("save")
-    sv.add_argument("--ws", type=int, help="re-record only this workspace")
+    sv.add_argument("--ws", type=parse_key, help="re-record only this workspace")
     sv.set_defaults(fn=cmd_save)
     sub.add_parser("status").set_defaults(fn=cmd_status)
     t = sub.add_parser("set-tick")
     t.add_argument("value", choices=["0", "1"])
-    t.add_argument("ws", type=int, nargs="+")
+    t.add_argument("ws", type=parse_key, nargs="+")
     t.set_defaults(fn=cmd_set_tick)
     k = sub.add_parser("set-keyword")
     k.add_argument("key")
     k.add_argument("text")
     k.set_defaults(fn=cmd_set_keyword)
     cd = sub.add_parser("candidates")
-    cd.add_argument("--ws", type=int, help="mark what this workspace already has")
+    cd.add_argument("--ws", type=parse_key, help="mark what this workspace already has")
     cd.set_defaults(fn=cmd_candidates)
     a = sub.add_parser("add-window")
-    a.add_argument("ws", type=int)
+    a.add_argument("ws", type=parse_key)
     src = a.add_mutually_exclusive_group(required=True)
     src.add_argument("--address")
     src.add_argument("--desktop")
     a.set_defaults(fn=cmd_add_window)
     ao = sub.add_parser("add-open")
-    ao.add_argument("ws", type=int)
+    ao.add_argument("ws", type=parse_key)
     ao.set_defaults(fn=cmd_add_open)
     rm = sub.add_parser("remove-window")
-    rm.add_argument("ws", type=int)
+    rm.add_argument("ws", type=parse_key)
     rm.add_argument("index", type=int)
     rm.add_argument("cls")
     rm.set_defaults(fn=cmd_remove_window)
+    sm = sub.add_parser("set-monitor")
+    sm.add_argument("ws", type=parse_key)
+    sm.set_defaults(fn=cmd_set_monitor)
+    mv = sub.add_parser("move-window")
+    mv.add_argument("ws", type=parse_key)
+    mv.add_argument("from_ws", type=parse_key)
+    mv.add_argument("index", type=int)
+    mv.add_argument("cls")
+    mv.set_defaults(fn=cmd_move_window)
+    mw = sub.add_parser("move-workspace")
+    mw.add_argument("ws", type=parse_key)
+    mw.add_argument("desc")
+    mw.set_defaults(fn=cmd_move_workspace)
+    rn = sub.add_parser("renumber")
+    rn.add_argument("pairs", nargs="*", metavar="OLD:NEW")
+    rn.add_argument("--name", action="append", metavar="OLD=NAME", help="new name for workspace OLD")
+    rn.add_argument("--dry-run", action="store_true", help="print dispatches, change nothing")
+    rn.set_defaults(fn=cmd_renumber)
+    si = sub.add_parser("set-identity")
+    si.add_argument("ws", type=parse_key)
+    si.add_argument("state", choices=["real", "borrowed"])
+    si.set_defaults(fn=cmd_set_identity)
+    rs = sub.add_parser("renumber-saved")
+    rs.add_argument("ws", type=parse_key)
+    rs.add_argument("new", type=int, nargs="?")
+    rs.set_defaults(fn=cmd_renumber_saved)
+    sub.add_parser("watch").set_defaults(fn=cmd_watch)
+    rw = sub.add_parser("rename")
+    rw.add_argument("ws", type=parse_key)
+    rw.add_argument("name", nargs="?")
+    rw.set_defaults(fn=cmd_rename)
     aa = sub.add_parser("set-auto-add")
     aa.add_argument("value", choices=["0", "1"])
-    aa.add_argument("ws", type=int, nargs="+")
+    aa.add_argument("ws", type=parse_key, nargs="+")
     aa.set_defaults(fn=cmd_set_auto_add)
     sub.add_parser("auto-add").set_defaults(fn=cmd_auto_add)
     r = sub.add_parser("restore")
     r.add_argument("--all", action="store_true", help="every saved workspace")
     r.add_argument("--ticked", action="store_true", help="every ticked workspace")
-    r.add_argument("--ws", type=int, nargs="*", help="these workspaces")
+    r.add_argument("--ws", type=parse_key, nargs="*", help="these workspaces")
     r.add_argument("--monitor", help="every workspace saved on this monitor description")
     r.add_argument("--wait-monitors", action="store_true", help="login mode: wait for monitors, keep focus as is")
     r.add_argument("--once", action="store_true", help="only the first call per Hyprland session runs")
@@ -970,16 +1800,24 @@ def main():
     r.set_defaults(fn=cmd_restore)
     args = p.parse_args()
     writers = {cmd_save, cmd_set_tick, cmd_set_keyword, cmd_add_window, cmd_add_open, cmd_remove_window,
+               cmd_set_monitor, cmd_move_window, cmd_move_workspace, cmd_renumber, cmd_rename,
+               cmd_renumber_saved,
                cmd_set_auto_add, cmd_auto_add}
-    if args.fn in writers:
-        # The bar's auto-add and the panel's edits read, change and write the
-        # same files; one at a time so neither loses the other's change.
-        d = state_dir(args)
-        os.makedirs(d, exist_ok=True)
-        with open(os.path.join(d, "state.lock"), "w") as lock:
-            fcntl.flock(lock, fcntl.LOCK_EX)
-            return args.fn(args) or 0
-    return args.fn(args) or 0
+    try:
+        if args.fn in writers:
+            # The bar's auto-add and the panel's edits read, change and write
+            # the same files; one at a time so neither loses the other's change.
+            d = state_dir(args)
+            os.makedirs(d, exist_ok=True)
+            with open(os.path.join(d, "state.lock"), "w") as lock:
+                fcntl.flock(lock, fcntl.LOCK_EX)
+                return args.fn(args) or 0
+        return args.fn(args) or 0
+    except (subprocess.CalledProcessError, ConnectionError, FileNotFoundError, KeyError) as e:
+        # hyprctl or Hyprland's socket isn't there (Hyprland quit, or this
+        # runs outside a Hyprland session).
+        print(json.dumps({"ok": False, "error": f"Hyprland isn't reachable: {e}"}))
+        return 1
 
 
 if __name__ == "__main__":

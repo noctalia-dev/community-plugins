@@ -1,0 +1,3 @@
+Mullvad account:    0000000000000000
+Expires at:         2030-01-01 00:00:00 +00:00
+Device name:        Test Device

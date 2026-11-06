@@ -8,8 +8,9 @@
 
 id = "decksters-lab/palette-creator"
 name = "Palette Creator"
-version = "1.0.1"
-plugin_api = 43
+version = "1.1.0"
+# 44: saves palettes in palette format 2, which older shells cannot read.
+plugin_api = 44
 author = "decksters-lab"
 license = "MIT"
 dependencies = ["hyprpicker"]

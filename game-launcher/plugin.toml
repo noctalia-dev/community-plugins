@@ -1,6 +1,6 @@
 id = "alexander/game-launcher"
 name = "Game Launcher"
-version = "1.5.2"
+version = "1.6.0"
 plugin_api = 43
 author = "Alexander"
 license = "MIT"
@@ -58,21 +58,23 @@ default = "device-gamepad-2"
 [[panel]]
 id = "browser"
 entry = "panel.luau"
-width = 380
+width = 400
 height = "fill"
 placement = "floating"
 position = "center_right"
 open_near_click = false
+keyboard_focus = "exclusive"
 capture_keys = ["Up", "Down", "Return"]
 
 [[panel]]
 id = "original"
 entry = "original.luau"
-width = 720
+width = 680
 height = 560
 placement = "floating"
 position = "center"
 open_near_click = false
+keyboard_focus = "exclusive"
 capture_keys = ["Up", "Down", "Return"]
 
 [[launcher_provider]]

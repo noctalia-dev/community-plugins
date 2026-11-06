@@ -2,6 +2,8 @@
 -- Workspace Restore bar widget: a layout glyph that opens the panel. The
 -- tooltip says how many workspaces are ticked. Each poll also runs auto-add,
 -- which does nothing unless a workspace has it switched on in the panel.
+-- Every update also makes sure the watcher runs (wsr.py watch), which notes
+-- saved workspace numbers that another workspace has taken.
 -- Its first update starts the login restore of the ticked workspaces; wsr.py
 -- --once makes sure that runs once per Hyprland session, not on every bar
 -- start or on every monitor's bar.
@@ -42,12 +44,13 @@ function update()
     loginRestoreStarted = true
     shared.restore("--ticked --wait-monitors --once")
   end
+  shared.watch()
   shared.run("auto-add", function(r)
     local added = r and r.added or {}
     if #added > 0 then
       local names = {}
       for _, a in ipairs(added) do
-        names[#names + 1] = noctalia.tr("ui.added-one", { app = tostring(a.label or a.class), ws = tostring(a.ws) })
+        names[#names + 1] = noctalia.tr("ui.added-one", { app = tostring(a.label or a.class), ws = shared.wsLabel(a.ws) })
       end
       noctalia.notify(noctalia.tr("ui.title"), table.concat(names, "\n"))
     end

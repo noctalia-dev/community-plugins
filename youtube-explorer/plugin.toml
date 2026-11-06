@@ -1,0 +1,83 @@
+# Noctalia keys saved GUI selections and the thumbnail cache by this ID.
+id = "nullflake/youtube-explorer"
+name = "YouTube Explorer"
+version = "1.0.0"
+plugin_api = 43
+author = "nullflake"
+license = "GPL-3.0-only"
+icon = "brand-youtube"
+description = "Browse videos and channels, save videos and favorite channels, and view local playback history."
+# The host supplies noctalia; external helpers call its CLI for queue/error events.
+dependencies = ["yt-dlp", "mpv", "python3", "mkdir", "noctalia"]
+tags = ["launcher", "service", "media", "video"]
+
+[[setting]]
+key = "search_language"
+type = "select"
+label_key = "settings.search_language.label"
+description_key = "settings.search_language.description"
+default = "en"
+options = [
+  { value = "en", label_key = "settings.search_language.en" },
+  { value = "tr", label_key = "settings.search_language.tr" },
+  { value = "de", label_key = "settings.search_language.de" },
+  { value = "fr", label_key = "settings.search_language.fr" },
+  { value = "es", label_key = "settings.search_language.es" },
+  { value = "ru", label_key = "settings.search_language.ru" },
+  { value = "ar", label_key = "settings.search_language.ar" },
+  { value = "ja", label_key = "settings.search_language.ja" },
+]
+
+[[setting]]
+key = "playback_quality"
+type = "select"
+label_key = "settings.playback_quality.label"
+description_key = "settings.playback_quality.description"
+default = "auto"
+options = [
+  { value = "auto", label_key = "settings.playback_quality.auto" },
+  { value = "2160", label_key = "settings.playback_quality.2160" },
+  { value = "1440", label_key = "settings.playback_quality.1440" },
+  { value = "1080", label_key = "settings.playback_quality.1080" },
+  { value = "720", label_key = "settings.playback_quality.720" },
+  { value = "480", label_key = "settings.playback_quality.480" },
+  { value = "audio", label_key = "settings.playback_quality.audio" },
+]
+
+[[setting]]
+key = "autoplay_recommendations"
+type = "bool"
+label_key = "settings.autoplay_recommendations.label"
+description_key = "settings.autoplay_recommendations.description"
+default = false
+
+[[setting]]
+key = "autoplay_count"
+type = "int"
+label_key = "settings.autoplay_count.label"
+description_key = "settings.autoplay_count.description"
+default = 5
+min = 1
+max = 10
+visible_when = { key = "autoplay_recommendations", values = ["true"] }
+
+[[setting]]
+key = "favorite_video_count"
+type = "int"
+label_key = "settings.favorite_video_count.label"
+description_key = "settings.favorite_video_count.description"
+default = 3
+min = 1
+max = 20
+
+[[service]]
+id = "queue-events"
+entry = "queue-events.luau"
+
+[[launcher_provider]]
+id = "youtube"
+entry = "launcher.luau"
+prefix = "yt"
+glyph = "brand-youtube"
+include_in_global_search = false
+debounce_ms = 300

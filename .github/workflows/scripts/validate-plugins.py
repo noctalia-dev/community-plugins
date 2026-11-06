@@ -132,7 +132,7 @@ SETTING_TYPES = {
 }
 PANEL_PLACEMENTS = {"attached", "floating"}
 PANEL_KEYBOARD_FOCUS = {"on_demand", "exclusive", "none"}
-PANEL_LAYERS = {"top", "overlay"}
+PANEL_LAYERS = {"follow", "top", "overlay"}
 WIDGET_GESTURES = {
     "left",
     "right",
@@ -200,9 +200,11 @@ SETTING_FIELDS = {
     "step",
     "visible_when",
     "advanced",
+    "secret",
 }
 OPTION_FIELDS = {"value", "label_key"}
 VISIBLE_WHEN_FIELDS = {"key", "values"}
+SECRET_SETTING_TYPES = {"string", "string_list", "string_map"}
 
 # Raw HTML is not supported on plugin pages. Markdown autolinks such as
 # <https://example.com> do not match this expression.
@@ -856,6 +858,8 @@ class Validator:
             elif not isinstance(entry["layer"], str) or entry["layer"] not in PANEL_LAYERS:
                 valid = ", ".join(sorted(PANEL_LAYERS))
                 self.add_context_error(manifest_path, context, f"layer must be one of: {valid}")
+            elif entry["layer"] == "follow" and plugin_api < 49:
+                self.add_context_error(manifest_path, context, 'layer "follow" requires plugin_api >= 49')
 
         if "dismiss_on_outside_click" in entry:
             if not is_int(plugin_api) or plugin_api < 8:
@@ -1251,6 +1255,17 @@ class Validator:
 
             if "advanced" in setting and not isinstance(setting["advanced"], bool):
                 self.add_context_error(manifest_path, context, "advanced must be a bool")
+
+            # Mirrors the shell parser: API 47, string-valued types only.
+            if "secret" in setting:
+                if not is_int(plugin_api) or plugin_api < 47:
+                    self.add_context_error(manifest_path, context, "secret requires plugin_api >= 47")
+                elif not isinstance(setting["secret"], bool):
+                    self.add_context_error(manifest_path, context, "secret must be a bool")
+                elif setting["secret"] and setting_type not in SECRET_SETTING_TYPES:
+                    self.add_context_error(
+                        manifest_path, context, "secret is only valid for string, string_list, and string_map settings"
+                    )
 
     def validate_translation_keys(self, plugin_dir: Path, translations: Any | None) -> None:
         # The store rejects the whole plugin if any translation key is not lowercase, so catch

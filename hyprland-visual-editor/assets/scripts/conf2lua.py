@@ -25,14 +25,22 @@ def gradient_to_lua(value, colors):
     if not color_tokens:
         return '""'
     
-    # Expandir $var → valor real
+    # Expandir $var → valor real. Una variable que la paleta no define se
+    # descarta: emitirla en crudo deja un "rgb($foo)" y Hyprland rechaza el
+    # fichero entero con "invalid color".
     resolved = []
     for t in color_tokens:
         if t.startswith('$'):
-            varname = t[1:]
-            resolved.append('"' + colors.get(varname, t) + '"')
+            value = colors.get(t[1:])
+            if not value:
+                print(f"conf2lua: la paleta no define {t}; color omitido", file=sys.stderr)
+                continue
+            resolved.append('"' + value + '"')
         else:
             resolved.append('"' + t + '"')
+
+    if not resolved:
+        return None
     
     if len(resolved) == 1 and not angle:
         # Color sólido → string simple
@@ -106,14 +114,18 @@ def parse_border(text, lines, colors):
         m = re.match(r'col\.active_border\s*=\s*(.+)', stripped)
         if m:
             val = m.group(1).strip()
-            lines.append(f'hl.config({{ general = {{ col = {{ active_border = {gradient_to_lua(val, colors)} }} }} }})')
+            lua = gradient_to_lua(val, colors)
+            if lua is not None:
+                lines.append(f'hl.config({{ general = {{ col = {{ active_border = {lua} }} }} }})')
             continue
         
         # col.inactive_border = VALUE
         m = re.match(r'col\.inactive_border\s*=\s*(.+)', stripped)
         if m:
             val = m.group(1).strip()
-            lines.append(f'hl.config({{ general = {{ col = {{ inactive_border = {gradient_to_lua(val, colors)} }} }} }})')
+            lua = gradient_to_lua(val, colors)
+            if lua is not None:
+                lines.append(f'hl.config({{ general = {{ col = {{ inactive_border = {lua} }} }} }})')
             continue
         
         # bezier = name, x1, y1, x2, y2 (BORDER)

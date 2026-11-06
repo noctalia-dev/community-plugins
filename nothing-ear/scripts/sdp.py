@@ -14,6 +14,19 @@ SERVICE_SEARCH_ATTRIBUTE_REQUEST = 0x06
 SERVICE_SEARCH_ATTRIBUTE_RESPONSE = 0x07
 
 
+class SdpError(RuntimeError):
+    """The SDP server answered, but not with something usable. Carries the
+    raw reply so a bug report shows what the device actually sent."""
+
+    def __init__(self, message: str, response: bytes = b""):
+        super().__init__(message)
+        self.response = response
+
+
+class ServiceNotFound(SdpError):
+    """The device doesn't advertise the service, or no RFCOMM channel for it."""
+
+
 def _build_request(service_uuid: uuid.UUID) -> bytes:
     uuid_elem = bytes([0x1C]) + service_uuid.bytes  # UUID128 data element
     search_pattern = bytes([0x35, len(uuid_elem)]) + uuid_elem
@@ -46,7 +59,8 @@ def _find_rfcomm_channel(attr_bytes: bytes) -> int | None:
 
 def resolve_rfcomm_channel(address: str, service_uuid: str) -> int:
     """Query the device's SDP server for the RFCOMM channel serving
-    `service_uuid`. Raises RuntimeError if not found.
+    `service_uuid`. Raises SdpError (ServiceNotFound if the device doesn't
+    advertise it), or OSError if the SDP connection itself fails.
     """
     target = uuid.UUID(service_uuid)
     sock = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_SEQPACKET, socket.BTPROTO_L2CAP)
@@ -59,9 +73,9 @@ def resolve_rfcomm_channel(address: str, service_uuid: str) -> int:
         sock.close()
 
     if not resp or resp[0] != SERVICE_SEARCH_ATTRIBUTE_RESPONSE:
-        raise RuntimeError(f"unexpected SDP response for {service_uuid} on {address}")
+        raise SdpError(f"unexpected SDP response for {service_uuid} on {address}", resp or b"")
 
     channel = _find_rfcomm_channel(resp)
     if channel is None:
-        raise RuntimeError(f"no RFCOMM channel found for {service_uuid} on {address}")
+        raise ServiceNotFound(f"no RFCOMM channel found for {service_uuid} on {address}", resp)
     return channel

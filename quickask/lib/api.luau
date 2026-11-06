@@ -23,7 +23,7 @@ local function statusError(status)
   return noctalia.tr("api.http-error", { status = tostring(status) })
 end
 
-function M.start(question, key, session, connection, callbacks)
+function M.start(question, key, session, connection, callbacks, history)
   local active = true
   local native = nil
   local done = false
@@ -44,19 +44,29 @@ function M.start(question, key, session, connection, callbacks)
     if native then native.stop(); native = nil end
   end
 
+  local messages = {
+    { role = "system", content = "Give clear, concise and accurate answers, preferably in the user's language. Use Markdown when useful." },
+  }
+  if type(history) == "table" then
+    for _, message in ipairs(history) do
+      if type(message) == "table"
+        and (message.role == "user" or message.role == "assistant")
+        and type(message.content) == "string" and message.content ~= "" then
+        table.insert(messages, { role = message.role, content = message.content })
+      end
+    end
+  end
+  table.insert(messages, { role = "user", content = question })
   local payload = {
     model = connection.model,
-    messages = {
-      { role = "system", content = "Give clear, concise and accurate answers, preferably in the user's language. Use Markdown when useful." },
-      { role = "user", content = question },
-    },
+    messages = messages,
     stream = true,
   }
   local headers = {
     "Authorization: Bearer " .. key,
     "Content-Type: application/json",
     "Accept: text/event-stream",
-    "User-Agent: quickask/0.2.0",
+    "User-Agent: quickask/0.3.0",
   }
   if connection.provider == "opencode-go" then
     payload.thinking = { type = "disabled" }

@@ -33,7 +33,7 @@ def main():
     assert panel["keyboard_focus"] == "exclusive"
     assert panel["dismiss_on_outside_click"] is True
     settings = {item["key"]: item["default"] for item in manifest["setting"]}
-    assert settings == {"provider": "opencode-go", "endpoint": "https://api.openai.com/v1/chat/completions", "model": ""}
+    assert settings == {"provider": "opencode-go", "endpoint": "https://api.openai.com/v1/chat/completions", "model": "", "follow_up": True}
     assert set(manifest["dependencies"]) == {"secret-tool"}
 
     def catalog_leaves(value, prefix=""):
@@ -44,7 +44,12 @@ def main():
         return {prefix: set(re.findall(r"\{([\w-]+)\}", value))}
 
     english = catalog_leaves(json.loads((ROOT / "translations/en.json").read_text()))
-    assert catalog_leaves(json.loads((ROOT / "translations/tr.json").read_text())) == english
+    # Locale files are synced from Noctalia Translate; non-English locales may lag until new
+    # English keys are translated. Validate every translated key and reject unknown ones.
+    turkish = catalog_leaves(json.loads((ROOT / "translations/tr.json").read_text()))
+    assert set(turkish) <= set(english), "Turkish has keys that are absent from English"
+    for key, placeholders in turkish.items():
+        assert placeholders == english[key], "Placeholder mismatch for " + key
 
     parts = ["local json = (function()\n", (ROOT / "tests/vendor/json.lua").read_text(), "\nend)()\n"]
     parts.append("local translations = json.decode([==[" + (ROOT / "translations/en.json").read_text() + "]==])\n")

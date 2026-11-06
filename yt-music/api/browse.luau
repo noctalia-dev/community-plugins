@@ -32,6 +32,13 @@ local EXPO = {}
 
 local pending_library: any? = nil
 
+-- The library landing page is a single gridRenderer page of ~25 entries; the
+-- rest of the library (older playlists — e.g. a user's per-year playlists) is
+-- only reachable through that grid's continuation token. Fetching just the
+-- first page is why the Library page listed fewer playlists than
+-- music.youtube.com does.
+local LIBRARY_MAX_PAGES = 20
+
 function EXPO.library()
 	if not network.isOnline() then
 		log("library: skipped network call because offline")
@@ -39,48 +46,85 @@ function EXPO.library()
 	end
 	log("library called")
 	local tmp_raw = scratch.path("lib-raw")
-	it.innerTube("browse", { context = CONTEXT.context, browseId = "FEmusic_library_landing" }, function(raw_body, _err)
-		if not raw_body or raw_body == "" then
-			pending_library = false
-			return
+	local raw_pls = {}
+	local seen = {}
+	local pages = 0
+
+	local function build()
+		local playlists = {}
+		local liked_item = nil
+		for _, item in ipairs(raw_pls) do
+			local cnt = tonumber(tostring(item.subtitle or ""):match("(%d+)%s+tracks")) or 0
+			local pl_obj = {
+				id = item.id,
+				title = item.title,
+				subtitle = item.subtitle,
+				count = cnt,
+				thumbnail_url = item.thumbnail_url,
+			}
+			if item.id == "VLLM" or tostring(item.title or ""):lower():find("liked", 1, true) then
+				liked_item = pl_obj
+			else
+				table.insert(playlists, pl_obj)
+			end
 		end
-		noctalia.writeFile(tmp_raw, raw_body)
-		local filter = filters.LIBRARY
-		network.runAsync({ "jq", filter, tmp_raw }, function(res)
-			local out = (type(res) == "table" and res.stdout) or ""
-			if out == "" then
-				pending_library = false
+		if liked_item then
+			table.insert(playlists, 1, liked_item)
+		end
+		if #playlists > 0 then
+			attach_cached_thumbs(playlists)
+			save_library_cache(playlists)
+		end
+		pending_library = playlists
+	end
+
+	local function fetch_page(request)
+		pages = pages + 1
+		it.innerTube("browse", request, function(raw_body, _err)
+			if not raw_body or raw_body == "" then
+				-- A later page failing must not throw away the pages that did
+				-- arrive; only a dead first page is a failed fetch.
+				if #raw_pls > 0 then
+					build()
+				else
+					pending_library = false
+				end
 				return
 			end
-			local data = noctalia.json.decode(out)
-			local raw_pls = (type(data) == "table" and type(data.playlists) == "table") and data.playlists or {}
-			local playlists = {}
-			local liked_item = nil
-			for _, item in ipairs(raw_pls) do
-				local cnt = tonumber(tostring(item.subtitle or ""):match("(%d+)%s+tracks")) or 0
-				local pl_obj = {
-					id = item.id,
-					title = item.title,
-					subtitle = item.subtitle,
-					count = cnt,
-					thumbnail_url = item.thumbnail_url,
-				}
-				if item.id == "VLLM" or tostring(item.title or ""):lower():find("liked", 1, true) then
-					liked_item = pl_obj
-				else
-					table.insert(playlists, pl_obj)
+			noctalia.writeFile(tmp_raw, raw_body)
+			local filter = filters.LIBRARY
+			network.runAsync({ "jq", filter, tmp_raw }, function(res)
+				local out = (type(res) == "table" and res.stdout) or ""
+				if out == "" then
+					if #raw_pls > 0 then
+						build()
+					else
+						pending_library = false
+					end
+					return
 				end
-			end
-			if liked_item then
-				table.insert(playlists, 1, liked_item)
-			end
-			if #playlists > 0 then
-				attach_cached_thumbs(playlists)
-				save_library_cache(playlists)
-			end
-			pending_library = playlists
-		end, 15000)
-	end, true)
+				local data = noctalia.json.decode(out)
+				local page = (type(data) == "table" and type(data.playlists) == "table") and data.playlists or {}
+				for _, item in ipairs(page) do
+					local id = tostring(item.id or "")
+					if id ~= "" and not seen[id] then
+						seen[id] = true
+						table.insert(raw_pls, item)
+					end
+				end
+				local token = (type(data) == "table" and type(data.next_token) == "string") and data.next_token or ""
+				if token ~= "" and pages < LIBRARY_MAX_PAGES then
+					log("library: page " .. pages .. " done (" .. #raw_pls .. " items), fetching next")
+					fetch_page({ context = CONTEXT.context, continuation = token })
+				else
+					log("library: " .. #raw_pls .. " items over " .. pages .. " page(s)")
+					build()
+				end
+			end, 15000)
+		end, true)
+	end
+
+	fetch_page({ context = CONTEXT.context, browseId = "FEmusic_library_landing" })
 end
 
 function EXPO.library_pending()

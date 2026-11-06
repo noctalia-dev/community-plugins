@@ -28,9 +28,13 @@ plugin for Noctalia v5.
 2. Click the bar widget to open the panel. Pick a preset (Animations, Borders or
    Effects) and press **Apply** — HVE applies it and reloads Hyprland instantly.
 
-On first enable, HVE appends the overlay loader to the end of your
+HVE keeps the overlay loader as the **last** lines of your
 `~/.config/hypr/hyprland.lua` (idempotent, marked with a
-`HYPRLAND VISUAL EDITOR` comment). If you prefer to do it manually, the line is:
+`HYPRLAND VISUAL EDITOR` comment). It must come after
+`require("noctalia").apply_theme()`, which writes `general:col.active_border`
+and would otherwise override the border presets. The service re-appends the
+block at the end if it finds it anywhere else. If you prefer to do it manually,
+the line is:
 
 ```lua
 pcall(function() dofile(os.getenv("HOME") .. "/.cache/noctalia/HVE/overlay.lua") end)

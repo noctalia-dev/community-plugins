@@ -8,6 +8,15 @@ local showGpu = noctalia.getConfig("show_gpu")
 local showDisk = noctalia.getConfig("show_disk")
 local showNetwork = noctalia.getConfig("show_network")
 
+-- GPU usage comes from the panel's GPU monitor (nvtop, falling back to
+-- systemStats) so the bar matches the panel. Only loaded when shown, so
+-- nvtop never runs with show_gpu off.
+local gpu = nil
+if showGpu then
+  gpu = require("./monitors/gpu.luau")
+  gpu.attach()
+end
+
 -- Latest sampled stats shown on the bar.
 local cpuUsage = 0
 local ramUsage = 0
@@ -71,8 +80,9 @@ function update()
     cpuUsage = math.floor(s.cpu.usagePercent or 0)
     ramUsage = math.floor(s.ram.usagePercent or 0)
 
-    if showGpu and s.gpu then
-      gpuUsage = math.floor(s.gpu.usagePercent or 0)
+    if gpu then
+      gpu.tick()
+      gpuUsage = math.floor(gpu.getUsagePercent())
     end
 
     if showDisk then

@@ -1,10 +1,87 @@
 # Validation and development
 
-Validated on 2026-10-25 with Noctalia 5.3.0 (`0c192f8`).
-The plugin requires API 32; the tested host supports APIs 3–39.
+Current source as of 2026-10-28 is 0.1.2 and requires API 43, retaining
+the upstream API 43 theme-role migration. The standalone Luau suites pass
+with the duplicate-history and shared session-model budget regressions below.
+Native publication stress and focused session-detail UI acceptance also pass
+on Noctalia 5.4.0 (`d8d6616`) with private headless Sway 1.12.
+
+The historical acceptance described below ran on 2026-10-25 with
+Noctalia 5.3.0 (`0c192f8`), API 32 and a host supporting APIs 3–39; it does
+not establish native acceptance of the current API 43 revision.
 Token Monitor 0.68.0 supplies the read-only Hub contract.
 
+## 2026-10-28 review fixes
+
+History normalization resolves duplicate daily/monthly dates in source order
+before applying retention, keeping the last source row. Counts refer to distinct
+dates, so repeated dates cannot consume retention slots or inflate list counts.
+Repeated cache restores preserve both selected values and truncation metadata.
+
+Session model detail shares 512 rows across today's and this month's retained
+sessions. Each period still retains up to 200 sessions, and each period's model
+aggregate retains up to 128 models. The detail allowance is distributed over
+remaining sessions, so a full today list cannot consume all of month's detail.
+Session and period totals are preserved. Each session keeps its source model
+count, and expanded detail reports omitted models and local truncation. Cache
+restoration reapplies the same bound and preserves source counts.
+
+The combined native test observed the actual published state: 512 quota windows,
+384 period-model rows, 400 sessions, 512 session-model rows, 370 daily and 1200
+monthly history buckets, and 4096 history-attribution rows. Initial processing
+and cache work drained in 46.759 seconds; a subsequent small stats refresh with
+the same full history drained in 12.245 seconds. There were no plugin processing
+or CPU-budget errors. An analytics-only maximum case also passed and accepted
+the subsequent small refresh. These are synthetic Hub inputs, not live account
+or network performance measurements.
+
+All 9 standalone Luau suites passed, including last-row duplicate resolution,
+retention of distinct dates, shared detail allocation, unchanged totals and
+three repeated cache restores. Lint reports 0 errors / 0 warnings, and the
+current upstream manifest validator accepts the plugin.
+
+The focused native UI test expands a session whose source has 130 models and
+confirms both "122 additional models are not shown" and the local truncation
+notice. It checks the real rendered tree and native child limits; it does not
+claim a complete new visual acceptance of every view. An earlier broad UI run
+was interrupted without a final evidence file and is not counted as passed.
+
+Evidence (local, synthetic data only):
+
+- `/tmp/noctalia-fixes-20261028/token-analytics/evidence.json`
+- `/tmp/noctalia-fixes-20261028/token-combined-final/evidence.json`
+- `/tmp/noctalia-fixes-20261028/token-ui-focused/evidence.json`
+
+The native budget harness is in the outer maintenance workspace at
+`tests/token-monitor/runtime_analytics_budget.py`. The focused UI command uses
+this plugin's `tests/runtime_probe.py --exercise-ui --session-model-overflow
+--no-screenshot`. Private Sway/Noctalia process groups, configuration, fixture
+credentials and loopback HTTP servers are cleaned up. The plugin only reads
+the loopback fixture in these tests; Noctalia's unrelated currency component
+may independently attempt its public CDN. No desktop source, real Hub account,
+GitHub data or installed plugin was modified.
+
+Accepted core SHA-256:
+
+```text
+lib/analytics.luau      f89126770747efb1905b15f6c92d504b74c41cc93e15c67374ec554c48b608aa
+lib/analytics_view.luau 9de71f4754121b75f8cb32cf8d832d1039125ef8eb100394114e700fa83065bd
+```
+
 ## Checks
+
+The PR preparation run also captured the [native session-detail notice](docs/screenshots/synthetic-session-model-truncation.png)
+with synthetic data on Noctalia 5.4.0 / Sway 1.12. The copied test panel uses the
+native `revealKey` scrolling property to bring the existing notice into view;
+production text, layout, data and source files are unchanged. The focused
+acceptance passes with capture enabled as well as with `--no-screenshot`.
+
+The two target plugin manifests pass the current upstream validator. Full-tree
+validation at upstream `0b8e15a23954c77c3539b84a4ad5ba93e5320206` fails in the
+unmodified `honor-earbuds/panel.luau` at lines 51, 157 and 188 because it still
+uses the retired `outline` role; this is also reproduced on the clean base.
+
+## Historical checks (2026-10-25)
 
 - Standalone Luau suites cover quota semantics, credential discovery, bounded
   JSON decoding, source changes, stale callbacks, caching, stable account pins,

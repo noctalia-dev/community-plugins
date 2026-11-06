@@ -1,20 +1,25 @@
 # Nothing Ear
 
-Battery, noise control, EQ presets, Personalised ANC, Personal Sound Profile, low-latency mode and
-auto mono audio for Nothing and CMF earbuds, controlled directly over Bluetooth. No Nothing X app
+Battery, noise control, EQ presets, bass boost, Personalised ANC, Personal Sound Profile,
+low-latency mode and auto mono audio for Nothing and CMF earbuds, controlled directly over Bluetooth. No Nothing X app
 and no background daemon.
 
 Tested on a **Nothing Ear (2)** only. The other models below use the same protocol according to
-two community reverse-engineering projects
+community reverse-engineering projects
 ([protocol notes](https://github.com/Zyrecx/noctalia-plugins/blob/main/nothing-ear/PROTOCOL.md)).
 The plugin detects your model and hides controls it lacks. If something is off on your device,
 please open an issue.
 
-| Model | ANC |
-| --- | --- |
-| Nothing Ear (1), Ear (2), Ear (a), Ear (2024) | yes |
-| Nothing Ear (stick), Ear (open) | no |
-| CMF Buds, Buds Pro, Buds Pro 2 | yes |
+| Model | ANC | Bass boost |
+| --- | --- | --- |
+| Nothing Ear (1), Ear (2), Ear (3), Ear (3a) | yes | no |
+| Nothing Ear (2024), Ear (a) | yes | yes |
+| Nothing Ear (stick), Ear (open) | no | no |
+| CMF Buds Pro, Buds 2a | yes | no |
+| CMF Buds, Buds Pro 2, Buds 2, Buds 2 Plus | yes | yes |
+
+CMF Buds 2, 2 Plus and 2a get their own EQ presets. CMF Buds and Buds Pro 2 use presets this
+plugin can't map reliably yet, so EQ is hidden there; every other model gets the Ear (2) presets.
 
 ## Plugin
 
@@ -79,7 +84,12 @@ noctalia msg plugin zyrex/nothing-ear:service all set-anc anc:high
 noctalia msg plugin zyrex/nothing-ear:service all cycle-anc
 
 # EQ preset: 0 Balanced, 1 Voice, 2 More Treble, 3 More Bass, 5 Custom.
+# CMF Buds 2 / 2 Plus / 2a: 0 Dirac (2a: 7, 2 Plus: none), 1 Rock, 2 Electronic, 3 Pop, 4 Vocals,
+# 5 Classical, 6 Custom.
 noctalia msg plugin zyrex/nothing-ear:service all set-eq 0
+
+# Bass boost level 1-5, or 0 for off.
+noctalia msg plugin zyrex/nothing-ear:service all set-bass 3
 
 # On/off toggles: 1/true/on or 0/false/off.
 noctalia msg plugin zyrex/nothing-ear:service all set-latency 1
@@ -92,15 +102,30 @@ noctalia msg plugin zyrex/nothing-ear:service all refresh
 noctalia msg plugin zyrex/nothing-ear:service all scan-devices
 noctalia msg plugin zyrex/nothing-ear:service all select-device AA:BB:CC:DD:EE:FF
 noctalia msg plugin zyrex/nothing-ear:service all forget-device
+
+# Copy a diagnostics report to the clipboard (same as Copy details in the panel).
+noctalia msg plugin zyrex/nothing-ear:service all copy-details
 ```
 
 Current state is published as `nothing_ear_status` in shared plugin state
 (`noctalia.state.get` / `noctalia.state.watch`).
 
+## Troubleshooting
+
+When the earbuds can't be reached, the panel says why and what to try. **Copy details** puts a
+report on the clipboard for a bug report: plugin and Python versions, what BlueZ knows about the
+earbuds, the last error and a fresh connection attempt, step by step. The second half of the MAC
+address is masked. The same report from a terminal:
+
+```sh
+python3 ~/.local/state/noctalia/plugins/materialized/community/nothing-ear/scripts/nothing_ear_ctl.py diag
+```
+
 ## Notes
 
 - Processes: the service runs `scripts/nothing_ear_ctl.py` once per poll or command over a raw
-  RFCOMM socket, `bluetoothctl devices Paired` to list devices (read-only), and
+  RFCOMM socket, `bluetoothctl devices Paired` to list devices, `bluetoothctl info`/`show` to
+  check the earbuds are connected and explain failures (all read-only), and
   `scripts/mono_switch.py`, which calls `pactl` to load or unload a `module-remap-sink` named
   `nothing_ear_mono` and move streams onto it.
 - Files: the RFCOMM channel, last-known state, a lock file and the mono state
@@ -108,8 +133,9 @@ Current state is published as `nothing_ear_status` in shared plugin state
   `pluginDataDir()/device.json`. No network access.
 - Polling only runs while the bar number, panel or desktop widget is showing, or auto mono is on
   (slower). Mono is always turned off when the plugin loads.
-- EQ preset indexes were mapped on an Ear (2); other models may differ.
+- EQ preset indexes were mapped on an Ear (2); the CMF tables come from the projects below.
 - One device at a time.
 - Protocol facts were cross-checked against [ear-web](https://github.com/radiance-project/ear-web)
-  and [earctl](https://github.com/DaanHessen/earctl) (both AGPL-3.0). No code from either is
+  and [earctl](https://github.com/DaanHessen/earctl) (both AGPL-3.0) and
+  [BudsLink](https://github.com/maniacx/BudsLink) (GPL-3.0). No code from any of them is
   included; this plugin is MIT-licensed.

@@ -7,7 +7,12 @@ local state = "idle"
 local opened = false
 local generation = 0
 local sessionNumber = 0
+local MAX_HISTORY_MESSAGES = 20
 local draft, question, answer, errorText = "", "", "", ""
+local followUpDraft = ""
+local history = {}
+local turn = 0
+local followUp = true
 local sessionId = nil
 local connection, configError = nil, nil
 local stream = nil
@@ -83,6 +88,15 @@ render = function()
     if copyError then
       table.insert(body, ui.label({ text = noctalia.tr("panel.copy-error"), color = "error" }))
     end
+    if state == "complete" and followUp then
+      table.insert(body, ui.input({
+        key = "followup-" .. tostring(sessionNumber) .. "-" .. tostring(turn),
+        value = "", placeholder = noctalia.tr("panel.followup-placeholder"), multiline = true,
+        submitOnEnter = true, focus = true, height = 56,
+        onChange = function(value) followUpDraft = value; render() end,
+        onSubmit = "onFollowUp",
+      }))
+    end
   end
 
   local actions = {}
@@ -95,6 +109,11 @@ render = function()
     table.insert(actions, ui.button({ text = noctalia.tr("panel.stop"), glyph = "player-stop", onClick = "onStop" }))
   elseif state == "error" then
     table.insert(actions, ui.button({ text = noctalia.tr("panel.retry"), glyph = "refresh", variant = "primary", onClick = "onRetry" }))
+  elseif state == "complete" and followUp then
+    table.insert(actions, ui.button({
+      text = noctalia.tr("panel.send"), glyph = "arrow-up", variant = "primary",
+      enabled = connection ~= nil and hasContent(followUpDraft), onClick = function() onFollowUp(followUpDraft) end,
+    }))
   end
   table.insert(actions, ui.spacer({ flexGrow = 1 }))
   table.insert(actions, ui.button({
@@ -145,13 +164,20 @@ local function send()
         if not opened or generation ~= current then return end
         stream = nil
         state = "complete"
+        table.insert(history, { role = "user", content = question })
+        table.insert(history, { role = "assistant", content = answer })
+        while #history > MAX_HISTORY_MESSAGES do
+          table.remove(history, 1)
+          table.remove(history, 1)
+        end
+        followUpDraft = ""
         panel.setNeedsFrameTick(false)
         render()
       end,
       onError = function(messageText, discard)
         if opened and generation == current then fail(messageText, discard) end
       end,
-    })
+    }, history)
     key = nil
     if opened and generation == current and busy() then stream = handle else handle.stop() end
   end)
@@ -163,6 +189,8 @@ function onOpen(_context)
   sessionNumber = sessionNumber + 1
   state, draft, question, answer, errorText = "idle", "", "", "", ""
   sessionId, copied, copyError = nil, false, false
+  history, followUpDraft, turn = {}, "", 0
+  followUp = noctalia.getConfig("follow_up") ~= false
   connection, configError = config.read()
   render()
 end
@@ -175,6 +203,18 @@ function onSubmit(value)
   if not connection then render(); return end
   question = trimmed
   sessionId = api.newSession()
+  send()
+end
+
+function onFollowUp(value)
+  if not opened or state ~= "complete" or not followUp then return end
+  if type(value) ~= "string" or not hasContent(value) then return end
+  local trimmed = value:match("^%s*(.-)%s*$")
+  if trimmed == "" then return end
+  if not connection then render(); return end
+  question = trimmed
+  followUpDraft = ""
+  turn = turn + 1
   send()
 end
 
@@ -216,6 +256,7 @@ function onClose()
   stopStream()
   state, draft, question, answer, errorText = "idle", "", "", "", ""
   sessionId, copied, copyError = nil, false, false
+  history, followUpDraft, turn = {}, "", 0
   connection, configError = nil, nil
 end
 

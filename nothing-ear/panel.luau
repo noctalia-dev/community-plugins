@@ -163,24 +163,61 @@ local function eqButton(preset, currentPreset)
 	})
 end
 
-local function eqControls(currentPreset, soundProfile)
-	local topRow = {}
-	local bottomRow = {}
-	for n, preset in ipairs(shared.EQ_PRESETS) do
-		table.insert(n <= 3 and topRow or bottomRow, eqButton(preset, currentPreset))
+local BASS_LEVELS = { 1, 2, 3, 4, 5 }
+
+local function bassControls(bass)
+	local rows = { toggleRow("panel.bass.title", bass.enabled, "set-bass-enabled") }
+	if bass.enabled then
+		local buttons = {}
+		for _, level in ipairs(BASS_LEVELS) do
+			local selected = bass.level == level
+			table.insert(buttons, ui.button({
+				key = "bass-" .. tostring(level),
+				text = tostring(level),
+				variant = selected and "secondary" or "ghost",
+				selected = selected,
+				flexGrow = 1,
+				onClick = function()
+					sendCommand("set-bass", level)
+				end,
+			}))
+		end
+		table.insert(rows, ui.row({ gap = 4 }, buttons))
 	end
-	-- pad the short row so its buttons line up under the three above
-	while #bottomRow < #topRow do
-		table.insert(bottomRow, ui.column({ flexGrow = 1 }, {}))
+	return rows
+end
+
+-- The preset list comes from the model (CMF models have their own); a
+-- model with none we can trust gets no preset buttons.
+local function eqControls(presets, currentPreset, soundProfile, bass)
+	local rows = {}
+	if #presets > 0 then
+		table.insert(rows, sectionHeader("panel.eq.title"))
 	end
-	local rows = {
-		sectionHeader("panel.eq.title"),
-		ui.row({ gap = 4 }, topRow),
-		ui.row({ gap = 4 }, bottomRow),
-	}
+	local row = {}
+	for _, preset in ipairs(presets) do
+		table.insert(row, eqButton(preset, currentPreset))
+		if #row == 3 then
+			table.insert(rows, ui.row({ gap = 4 }, row))
+			row = {}
+		end
+	end
+	if #row > 0 then
+		-- pad the short row so its buttons line up under the three above
+		while #row < 3 do
+			table.insert(row, ui.column({ flexGrow = 1 }, {}))
+		end
+		table.insert(rows, ui.row({ gap = 4 }, row))
+	end
 	-- Only present when a hearing test has been saved from the Nothing X app.
 	if soundProfile ~= nil then
 		table.insert(rows, toggleRow("panel.sound_profile.title", soundProfile, "set-sound-profile"))
+	end
+	-- Only present on models with bass boost that answered the read.
+	if bass ~= nil then
+		for _, r in ipairs(bassControls(bass)) do
+			table.insert(rows, r)
+		end
 	end
 	return ui.column({ gap = 6 }, rows)
 end
@@ -247,6 +284,33 @@ local function audioControls(s)
 	})
 end
 
+-- A short hint of what to try; the specifics (errno, step, raw replies) go
+-- into Copy details instead, for a bug report. Both only once a poll has
+-- actually failed, not while the first one is still running.
+local function notConnected(code)
+	local rows = {
+		ui.label({ text = noctalia.tr("widget.not_connected"), fontSize = 14, textAlign = "center", color = "on_surface" }),
+	}
+	if code ~= nil then
+		local key = shared.ERROR_HINTS[code] and code or "unknown"
+		table.insert(rows, ui.label({
+			text = noctalia.tr("panel.error." .. key),
+			fontSize = 12,
+			color = "on_surface_variant",
+			textAlign = "center",
+		}))
+		table.insert(rows, ui.button({
+			text = noctalia.tr("panel.copy_details"),
+			glyph = "copy",
+			variant = "ghost",
+			onClick = function()
+				sendCommand("copy-details", nil)
+			end,
+		}))
+	end
+	return ui.column({ align = "center", gap = 8, padding = 24 }, rows)
+end
+
 local function render()
 	local body = {}
 
@@ -254,9 +318,7 @@ local function render()
 		table.insert(body, devicePicker(devicesState))
 	else
 		if status.connected ~= true then
-			table.insert(body, ui.column({ align = "center", gap = 8, padding = 24 }, {
-				ui.label({ text = noctalia.tr("widget.not_connected"), fontSize = 14, textAlign = "center", color = "on_surface" }),
-			}))
+			table.insert(body, notConnected(status.error))
 		else
 			local battery = status.battery or {}
 			table.insert(body, ui.row({ align = "center", justify = "space_between", gap = 12, padding = 4 }, {
@@ -269,8 +331,11 @@ local function render()
 				table.insert(body, sectionSeparator())
 				table.insert(body, ancControls(status.anc or {}, status.personal_anc))
 			end
-			table.insert(body, sectionSeparator())
-			table.insert(body, eqControls(status.eq_preset, status.sound_profile))
+			local presets = model.eq_presets or shared.EQ_PRESETS
+			if #presets > 0 or status.bass ~= nil then
+				table.insert(body, sectionSeparator())
+				table.insert(body, eqControls(presets, status.eq_preset, status.sound_profile, status.bass))
+			end
 			table.insert(body, sectionSeparator())
 			table.insert(body, audioControls(status))
 		end

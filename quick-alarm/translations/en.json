@@ -1,0 +1,24 @@
+{
+  "title": "Quick Alarm",
+  "widget": {
+    "idle": "Quick Alarm",
+    "ringing": "Alarm ringing!"
+  },
+  "panel": {
+    "title": "Quick Alarm",
+    "placeholder": "e.g. 11:45 lunch, in 10m tea, 5s...",
+    "add": "Add",
+    "clear_all": "Clear all",
+    "empty_title": "No alarms queued",
+    "empty_hint": "Formats: 11:45, 14:30 meeting, in 10m tea, 30s",
+    "queue_header": "Queued alarms ({count})"
+  },
+  "alert": {
+    "ringing_now": "ALARM RINGING",
+    "ringing_time": "ALARM ({time})",
+    "default_label": "Alarm finished!",
+    "dismiss": "Close",
+    "snooze_5m": "+5 min",
+    "snooze_10m": "+10 min"
+  }
+}

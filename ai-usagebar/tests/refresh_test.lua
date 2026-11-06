@@ -153,3 +153,43 @@ assert(shared.providerGlyph("anthropic@gmail") == shared.providerGlyph("anthropi
 assert(shared.providerGlyph("unknown") == "brain", "an unknown provider falls back")
 
 io.write("ok: refresh queue coalesced, timeouts rejected, provider visuals complete\n")
+
+local intervalBody = assert(read("service.luau"):match("local function intervalMs%(%)\n(.-)\nend"))
+for _, case in ipairs({
+    { 0, 60000 }, { 121, 7200000 }, { 1.5, 90000 },
+    { 0/0, 300000 }, { math.huge, 300000 }, { -math.huge, 300000 },
+}) do
+    local host = { getConfig = function() return case[1] end }
+    local interval = assert(load("return function()\n" .. intervalBody .. "\nend", "interval", "t",
+        setmetatable({ noctalia = host }, { __index = _G })))()
+    assert(interval() == case[2], "manual refresh settings must respect declared finite bounds")
+end
+
+-- Optional priorities use a fixed flag, never a command from report text.
+do
+    local clock, configured, decoded = 5000, true, nil
+    local state, reads = {}, {}
+    local host = {
+        nowMs = function() return clock end,
+        getConfig = function(key) if key == "show_priorities" then return configured end; return 5 end,
+        setUpdateInterval = function() end,
+        state = { get = function(k) return state[k] end, set = function(k,v) state[k]=v end, watch = function() end },
+        string = { trim = function(v) return tostring(v):match("^%s*(.-)%s*$") end },
+        json = { decode = function() return decoded end },
+        runAsync = function(command, callback) reads[#reads+1]={command=command, callback=callback}; return true end,
+    }
+    local runtime = setmetatable({ noctalia=host }, { __index=_G })
+    runtime.require = function() return assert(load(read("shared.luau"),"shared","t",runtime))() end
+    assert(load(read("service.luau"),"service","t",runtime))()
+    assert(reads[1].command == "ai-usagebar usage --json --priorities", "enabled priorities extend the single poll")
+    reads[1].callback({exitCode=2, stderr="error: unexpected argument '--priorities' found", stdout=""})
+    clock=7000; runtime.update()
+    assert(#reads==2 and reads[2].command=="ai-usagebar usage --json", "an older CLI retries plain usage once")
+    assert(state.priorities_supported==false, "unsupported priorities are explicit")
+    decoded={entries={}}; reads[2].callback({exitCode=0,stdout="{}"})
+    configured=false; clock=9000; runtime.onConfigChanged()
+    assert(reads[3].command=="ai-usagebar usage --json", "disabling removes the flag")
+    reads[3].callback({exitCode=0,stdout="{}"})
+    configured=true; clock=11000; runtime.onConfigChanged()
+    assert(reads[4].command=="ai-usagebar usage --json --priorities", "config changes allow a CLI upgrade to be retried")
+end

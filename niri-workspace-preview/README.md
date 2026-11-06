@@ -109,7 +109,7 @@ Noctalia's standard **Enable Scroll** setting can disable it entirely.
 | `viewport_color` | `color` | `tertiary` | Border color for visible windows; window-state and hover colors take priority. |
 | `viewport_border_width` | `int` | `2` | Thickness of the viewport border in logical pixels. |
 | `show_icons` | `bool` | `true` | Resolve and show local application icons when a miniature is large enough. |
-| `normal_color` | `color` | `outline` | Fallback color for inactive tiled windows. |
+| `normal_color` | `color` | `outline_variant` | Fallback color for inactive tiled windows. |
 | `active_color` | `color` | `secondary` | Color for each workspace's active window (`is-active=true`). |
 | `urgent_color` | `color` | `error` | Color for windows requesting attention (`is-urgent=true`). |
 | `show_floating` | `bool` | `true` | Show floating windows using the selected floating mode. |
@@ -165,13 +165,9 @@ matches or the miniature is too small.
 
 **No network or persistent data.** The plugin makes no network requests. Exact
 floating mode writes tiny generated SVGs under `XDG_RUNTIME_DIR` so the bar can
-render overlapping coordinates; they are removed when the widget exits. To
-resolve Noctalia theme-role names such as `primary` and `outline` into the hex
-colors required by those SVGs, the widget reads
-`$XDG_CONFIG_HOME/noctalia/config.toml` (or
-`~/.config/noctalia/config.toml`). It uses only matching theme-color
-assignments and ignores all other settings; this preserves compatibility with
-plugin API 17, before `noctalia.getColor()` became available.
+render overlapping coordinates; they are removed when the widget exits. Theme
+role names such as `primary` and `outline_variant` are resolved into the hex
+colors those SVGs need with `noctalia.getColor()`.
 
 **Scrolling and floating layouts.** Niri exposes every tiled window's column,
 row and tile size, but optional viewport coordinates are not guaranteed. The

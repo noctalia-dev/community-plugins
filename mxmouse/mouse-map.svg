@@ -1,0 +1,121 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 900" width="100%" height="100%">
+  <defs>
+    <style>
+      .body-fill {
+        fill: #22272e;
+        stroke: #333d48;
+        stroke-width: 3;
+        stroke-linejoin: round;
+      }
+      .button-fill {
+        fill: #2c333d;
+        stroke: #3d4956;
+        stroke-width: 2.5;
+        stroke-linejoin: round;
+      }
+      .accent-green {
+        fill: #00e676;
+        stroke: none;
+      }
+      .wheel-metal {
+        fill: url(#metalGrad);
+        stroke: #7c8b9a;
+        stroke-width: 1.5;
+      }
+      .inner-line {
+        fill: none;
+        stroke: #181c22;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+    </style>
+    <linearGradient id="metalGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#5a6875" />
+      <stop offset="50%" stop-color="#d4e0eb" />
+      <stop offset="100%" stop-color="#5a6875" />
+    </linearGradient>
+  </defs>
+
+  <g transform="translate(0, 0)">
+    <!-- Main Outer Silhouette Base -->
+    <path class="body-fill" d="
+      M 498, 97
+      C 425, 80  358, 100  342, 175
+      C 328, 240  337, 330  334, 408
+      C 310, 420  268, 440  225, 485
+      C 180, 532  185, 625  212, 680
+      C 240, 735  298, 805  380, 840
+      C 460, 875  565, 860  625, 785
+      C 675, 725  698, 620  693, 500
+      C 688, 400  678, 230  675, 185
+      C 670, 140  610, 115  498, 97
+      Z
+    " />
+
+    <!-- Clip container to ensure clean edges -->
+    <clipPath id="mouseClip">
+      <path d="
+        M 498, 97
+        C 425, 80  358, 100  342, 175
+        C 328, 240  337, 330  334, 408
+        C 310, 420  268, 440  225, 485
+        C 180, 532  185, 625  212, 680
+        C 240, 735  298, 805  380, 840
+        C 460, 875  565, 860  625, 785
+        C 675, 725  698, 620  693, 500
+        C 688, 400  678, 230  675, 185
+        C 670, 140  610, 115  498, 97
+        Z
+      " />
+    </clipPath>
+
+    <g clip-path="url(#mouseClip)">
+      <!-- Left Click Button Area -->
+      <path class="button-fill" d="
+        M 498, 97
+        C 425, 80  358, 100  342, 175
+        C 328, 240  337, 330  334, 408
+        C 400, 420  460, 415  498, 408
+        L 498, 97
+        Z
+      " />
+
+      <!-- Right Click Button Area -->
+      <path class="button-fill" d="
+        M 498, 97
+        C 570, 115  610, 140  675, 185
+        C 678, 230  688, 400  693, 500
+        C 680, 460  580, 420  498, 408
+        L 498, 97
+        Z
+      " />
+
+      <!-- Center Split Line -->
+      <path class="inner-line" d="M 498, 97 L 498, 408" />
+
+      <!-- Thumb Rest Wing Area Fill -->
+      <path class="button-fill" d="
+        M 225, 485
+        C 180, 532  185, 625  212, 680
+        C 240, 735  298, 805  380, 840
+        C 350, 800  315, 710  335, 600
+        C 345, 535  360, 465  365, 435
+        C 310, 420  268, 440  225, 485
+        Z
+      " />
+
+      <!-- Primary Scroll Wheel -->
+      <rect class="wheel-metal" x="477" y="220" width="42" height="92" rx="6" />
+
+      <!-- Mode Shift Button -->
+      <rect class="button-fill" x="480" y="425" width="36" height="60" rx="8" />
+
+      <!-- LED Indicator Light Dot (Green) -->
+      <circle class="accent-green" cx="498" cy="510" r="6" />
+
+      <!-- Side Thumb Wheel -->
+      <rect class="wheel-metal" x="327" y="465" width="32" height="120" rx="5" />
+    </g>
+  </g>
+</svg>

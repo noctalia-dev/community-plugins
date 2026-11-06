@@ -81,6 +81,43 @@ function M.trim(s)
   return (tostring(s):match("^%s*(.-)%s*$"))
 end
 
+-- A version as { major, minor, patch }, or nil when `text` holds none.
+function M.versionParts(text)
+  local major, minor, patch = tostring(text or ""):match("(%d+)%.(%d+)%.(%d+)")
+  if major == nil then return nil end
+  return { tonumber(major), tonumber(minor), tonumber(patch) }
+end
+
+function M.olderThan(a, b)
+  for i = 1, 3 do
+    if a[i] ~= b[i] then return a[i] < b[i] end
+  end
+  return false
+end
+
+-- From the controllers found ({ path, version }, version nil when one gave
+-- none), in order of preference: the first at least `needed`. Otherwise nil
+-- and the newest one, for the error. Checking them all keeps an old copy
+-- early in PATH from hiding a rebuilt one in ~/.cargo/bin.
+function M.pickController(found, needed)
+  local newest = nil
+  for _, candidate in ipairs(found) do
+    if candidate.version ~= nil then
+      if needed == nil or not M.olderThan(candidate.version, needed) then return candidate, nil end
+      if newest == nil or M.olderThan(newest.version, candidate.version) then newest = candidate end
+    end
+  end
+  return nil, newest
+end
+
+-- The command that installs or updates the controller. The script beside
+-- its sources checks for Rust and a C compiler, builds it and restarts the
+-- service; it is plain sh, so the line works from fish, bash, zsh or nu.
+-- `pause` keeps a terminal opened for it until Enter.
+function M.updateCommand(pause)
+  return "sh " .. M.shq(M.PLUGIN_DIR .. "/controller/update.sh") .. (pause and " --pause" or "")
+end
+
 -- Saves `value` as JSON; false and the reason when that fails.
 function M.writeJson(path, value)
   local text, err = noctalia.json.encode(value)

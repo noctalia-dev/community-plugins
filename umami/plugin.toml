@@ -1,6 +1,6 @@
 id = "ak4duy/umami"
 name = "Umami"
-version = "1.0.1"
+version = "1.0.2"
 plugin_api = 43
 author = "ak4duy"
 license = "MIT"
@@ -35,6 +35,20 @@ key = "password"
 type = "string"
 label_key = "settings.password.label"
 description_key = "settings.password.description"
+default = ""
+
+[[setting]]
+key = "cf_access_client_id"
+type = "string"
+label_key = "settings.cf_access_client_id.label"
+description_key = "settings.cf_access_client_id.description"
+default = ""
+
+[[setting]]
+key = "cf_access_client_secret"
+type = "string"
+label_key = "settings.cf_access_client_secret.label"
+description_key = "settings.cf_access_client_secret.description"
 default = ""
 
 [[setting]]

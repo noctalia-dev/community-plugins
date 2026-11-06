@@ -1,6 +1,6 @@
 id = "yusuferdemyamali/quickask"
 name = "QuickAsk"
-version = "0.2.0"
+version = "0.3.0"
 plugin_api = 24
 author = "yusuferdemyamali"
 license = "MIT"
@@ -45,3 +45,10 @@ label_key = "settings.model.label"
 description_key = "settings.model.description"
 default = ""
 visible_when = { key = "provider", values = ["openai-compatible"] }
+
+[[setting]]
+key = "follow_up"
+type = "bool"
+label_key = "settings.follow_up.label"
+description_key = "settings.follow_up.description"
+default = true
