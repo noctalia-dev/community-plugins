@@ -18,12 +18,30 @@ local vramTotalBytes = nil
 local encodePercent = nil
 local decodePercent = nil
 local hasNvtop = false
+local wantsGpuStats = false
 local refresh = nil
 local M = {}
+
+-- Since plugin API 46 the host samples the GPU for systemStats() only while
+-- a plugin requests it. Older hosts have no setGpuMonitoring and sample on
+-- every systemStats() read, so the call is skipped there.
+local function setGpuMonitoring(enabled)
+  if noctalia.setGpuMonitoring ~= nil then
+    noctalia.setGpuMonitoring(enabled)
+  end
+end
 
 function M.attach(fn)
   refresh = fn
   hasNvtop = noctalia.commandExists("nvtop")
+  wantsGpuStats = true
+  setGpuMonitoring(true)
+end
+
+-- Releases the GPU sampling request; the panel calls this when it closes.
+function M.detach()
+  wantsGpuStats = false
+  setGpuMonitoring(false)
 end
 
 function M.getPreview()
@@ -106,6 +124,12 @@ local function onNvtopResult(result)
 end
 
 function M.tick()
+  -- Repeated requests do not accumulate; this retries one the host refused
+  -- because its monitor service was not yet available.
+  if wantsGpuStats then
+    setGpuMonitoring(true)
+  end
+
   local now = noctalia.nowMs()
   if hasNvtop and now - (noctalia.state.get("gpu_nvtop_started_ms") or 0) >= NVTOP_INTERVAL_MS then
     noctalia.state.set("gpu_nvtop_started_ms", now)
