@@ -2723,15 +2723,21 @@ rev = "ccf105664ca887d51252abf17d7fe031867f13fe"
 [[plugin]]
 id = "osp54/oppo-pods"
 name = "OPPO Pods"
-version = "1.0.0"
-updated_at = 1788624565
+version = "1.1.0"
+updated_at = 1794005513
 added_at = 1788624565
 author = "osp54"
 license = "MIT"
 icon = "headphones"
 description = "OPPO, OnePlus and realme earbuds battery and noise cancellation control in the bar."
-plugin_api = 24
+plugin_api = 43
 tags = ["audio", "bar", "panel", "service", "hardware", "indicator"]
+
+[[plugin.release]]
+plugin_api = 24
+version = "1.0.0"
+updated_at = 1788624565
+rev = "60e069cef3054b20633ff03b43ca4b98d65e0fbb"
 
 [[plugin]]
 id = "nilsonlinux/inventory-manager"
