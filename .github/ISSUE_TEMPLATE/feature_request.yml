@@ -311,6 +311,7 @@ body:
         - topgrade-wrapper
         - typing-stats
         - udiskie
+        - ufw
         - um5606_fan_state
         - umami
         - umbriel-displays
