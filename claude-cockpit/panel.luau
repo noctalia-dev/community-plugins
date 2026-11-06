@@ -79,6 +79,18 @@ local function groupLimit(cwd)
 end
 local expandedSessionId = nil -- one preview open at a time
 local confirmingDeleteId = nil
+-- Locked sessions cannot be deleted (trash is greyed out, "delete all empty"
+-- skips them). Persisted as one id per line in the plugin data dir.
+local lockedIds = {}
+local lockFile = (function()
+    local dir = noctalia.pluginDataDir()
+    return dir and (dir .. "/locked-sessions.txt") or nil
+end)()
+if lockFile then
+    for line in (noctalia.readFile(lockFile) or ""):gmatch("[^\n]+") do
+        lockedIds[line] = true
+    end
+end
 local confirmingClean = false -- inline confirm strip for "delete all empty sessions"
 -- Sessions tab ordering/filter. Date sorts newest first, name A-Z, count
 -- (sessions per folder, folders only) most first, until the active button is
@@ -684,6 +696,21 @@ local function togglePreview(id)
     render()
 end
 
+local function toggleLock(id)
+    lockedIds[id] = (not lockedIds[id]) or nil
+    if lockedIds[id] and confirmingDeleteId == id then
+        confirmingDeleteId = nil
+    end
+    if lockFile then
+        local ids = {}
+        for k in pairs(lockedIds) do
+            table.insert(ids, k)
+        end
+        noctalia.writeFile(lockFile, table.concat(ids, "\n"))
+    end
+    render()
+end
+
 local function requestDelete(id)
     confirmingDeleteId = id
     render()
@@ -954,10 +981,26 @@ local function sessionRow(session, selected, isLive)
             function() openRepair(session) end
         ))
     end
+    local locked = lockedIds[id]
     table.insert(rowButtons, iconButton(
-        "del-" .. id, "trash", "error", tr("tip_delete_session"),
-        function() requestDelete(id) end
+        "lock-" .. id, locked and "lock" or "lock-open", locked and "primary" or "on_surface_variant",
+        tr(locked and "tip_unlock_session" or "tip_lock_session"),
+        function() toggleLock(id) end
     ))
+    if locked then
+        -- Not an iconButton: no onClick and no hover fill, so it reads as disabled.
+        table.insert(rowButtons, ui.row({
+            key = "del-" .. id, tooltip = tr("tip_delete_locked"),
+            align = "center", justify = "center", padding = 8, radius = 6,
+        }, {
+            ui.glyph({ name = "trash", size = 16, color = "outline_variant" }),
+        }))
+    else
+        table.insert(rowButtons, iconButton(
+            "del-" .. id, "trash", "error", tr("tip_delete_session"),
+            function() requestDelete(id) end
+        ))
+    end
 
     local blocks = {
         ui.column({ key = "sess-" .. id, gap = 2, align = "stretch" }, {
@@ -1237,7 +1280,7 @@ local function deletableEmpty()
     local list = {}
     for _, group in ipairs(sessionsState.projects or {}) do
         for _, session in ipairs(group.sessions) do
-            if session.empty and not running[session.id] then
+            if session.empty and not running[session.id] and not lockedIds[session.id] then
                 table.insert(list, session)
             end
         end

@@ -102,6 +102,10 @@ draws the next 20.
 The list scrolls to keep the selection in view. The keys work on this tab
 only.
 
+The lock glyph protects a session from deletion: its trash glyph turns grey
+and **Delete all empty** skips it. Click the lock again to unlock. Locks are
+kept in the plugin data directory.
+
 Each row shows the date and time of the last update, then the time since.
 A glyph marks a running session, and the project that holds one, even when
 the project is closed.
