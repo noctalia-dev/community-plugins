@@ -1,7 +1,7 @@
 id = "notoxus/media-island"
 name = "Media Island"
 version = "1.0.2"
-plugin_api = 36
+plugin_api = 43
 author = "notoxus"
 license = "MIT"
 dependencies = ["busctl"]
@@ -65,18 +65,6 @@ entry = "service.luau"
 id = "now-playing"
 entry = "bar.luau"
 
-[[widget]]
-id = "playback-toggle"
-entry = "playback-toggle.luau"
-
-[widget.actions]
-left = "none"
-right = "media toggle"
-back = "media previous"
-forward = "media next"
-scroll_up = "media next"
-scroll_down = "media previous"
-
 [[panel]]
 id = "island"
 entry = "panel.luau"
@@ -84,15 +72,3 @@ width = 290
 height = 76
 placement = "attached"
 dismiss_on_outside_click = false
-
-[[layer]]
-id = "visualizer"
-entry = "visualizer.luau"
-layer = "top"
-anchors = ["top", "left", "right"]
-height = 7
-margins = { top = 44 }
-exclusive_zone = 0
-keyboard = "none"
-click_through = true
-visible = true

@@ -16,9 +16,6 @@ local function request(action)
 end
 
 local function readConfig(key)
-  if panel and panel.getConfig then
-    return panel.getConfig(key)
-  end
   return noctalia.getConfig(key)
 end
 
@@ -47,7 +44,7 @@ local function artworkNode(media)
     width = ART,
     height = ART,
     radius = 10,
-    fill = "surface_variant",
+    fill = "surface_container",
     align = "center",
     justify = "center",
   }, {
@@ -65,7 +62,7 @@ local function renderEmpty()
       width = ART,
       height = ART,
       radius = 10,
-      fill = "surface_variant",
+      fill = "surface_container", -- Đã đổi từ surface_variant
       align = "center",
       justify = "center",
     }, {
@@ -177,7 +174,7 @@ local function render()
         height = 3,
         radius = 2,
         fill = "primary",
-        track = "surface_variant",
+        track = "surface_container",
       }),
       ui.label({
         text = formatTime(lengthUs),
