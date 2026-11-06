@@ -19,7 +19,8 @@ shopt -s nullglob
 # Output:
 #   { "generatedAt": <epoch>, "sessions": [
 #       { "id", "cwd", "projectDir", "gitBranch", "version",
-#         "mtime", "size", "title", "firstPrompt", "model", "contextTokens" }, ... ] }
+#         "mtime", "size", "title", "customTitle", "firstPrompt", "model",
+#         "contextTokens", "status", "resolvedCwd", "hasMemory" }, ... ] }
 # "cwd" is the real path Claude Code recorded for the session; "projectDir"
 # is the basename of the project dir the file was found in (the encoded
 # path), used as a fallback when a session states no cwd at all. "firstPrompt"
@@ -27,6 +28,19 @@ shopt -s nullglob
 # "title" yet. "model"/"contextTokens" come from the session's last
 # "assistant" turn: message.model, and input_tokens + cache_read_input_tokens
 # + cache_creation_input_tokens (how full the context window was at that turn).
+# "customTitle" is the last /rename title ("" when none). "status" audits the
+# session, in this order:
+#   "ok"        no cwd, an encoded cwd over 200 characters, or the cwd is a
+#               folder that encodes to the project dir;
+#   "relocated" a folder on disk encodes to the project dir ("resolvedCwd"):
+#               the project was renamed or moved, resume works from there;
+#   "unknown"   the search for that folder was incomplete (walk budget,
+#               deadline, an unreadable directory, project dir "-" or over
+#               200 characters): we cannot tell;
+#   "misplaced" no folder encodes to the project dir, but the cwd exists;
+#   "orphan"    neither exists.
+# "resolvedCwd" is "" unless the status is "relocated". "hasMemory" is true
+# when <projectDir>/memory holds at least one entry.
 # "empty" is true when the file holds no "user" turn.
 
 CLAUDE_DIR="${HOME}/.claude"
@@ -47,12 +61,111 @@ write_head_json() {
     ' > "$out"
 }
 
+# Claude Code names a project dir after the cwd with every character that is
+# not an ASCII letter or digit replaced by one "-" (one per character, hence
+# the UTF-8 locale). The list is spelled out: a range like A-Z can follow the
+# locale's collation.
+export LC_ALL=C.UTF-8
+encode_name() {
+    ENCODED="${1//[^ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789]/-}"
+}
+
+# The per-file part of the audit: "ok", or "pending_dir"/"pending_gone"
+# (recorded cwd exists or not) for the final pass to resolve. Over 200
+# characters Claude shortens the name with a hash we cannot reproduce, so
+# such a name is never questioned.
+session_status() {
+    local cwd="$1" project_dir="$2" ENCODED
+    [ -z "$cwd" ] && { echo ok; return; }
+    encode_name "$cwd"
+    if [ "${#ENCODED}" -gt 200 ]; then
+        echo ok
+    elif [ -d "$cwd" ] && [ "$ENCODED" = "$project_dir" ]; then
+        echo ok
+    elif [ -d "$cwd" ]; then
+        echo pending_dir
+    else
+        echo pending_gone
+    fi
+}
+
+# The folder whose encoded path is the project dir, found by walking down
+# from /: only directories whose encoded name, followed by "-", starts the
+# rest of the name are entered, so the walk stays small. First match wins.
+# The remainder shrinks at every level, so a symlink loop cannot recur
+# forever. Each walk may list WALK_MAX entries; directory listings are
+# cached for the whole scan, so a shared parent is listed once. A walk that
+# hits its budget or an unreadable directory is incomplete: "not found"
+# would be a guess.
+WALK_MAX=20000
+WALK_LEFT=0
+WALK_DEADLINE=""
+declare -A LIST_CACHE
+
+# list_dir <dir> -> LISTING: its subdirectory names, each followed by "/"
+# (a name cannot hold "/"). Fails when the dir cannot be read or the budget
+# runs out; only a full listing is cached.
+list_dir() {
+    local dir="$1" entry
+    if [ -n "${LIST_CACHE["$dir/"]+x}" ]; then
+        LISTING="${LIST_CACHE["$dir/"]}"
+        return 0
+    fi
+    [ -r "$dir/" ] && [ -x "$dir/" ] || return 1
+    LISTING=""
+    for entry in "$dir"/*; do
+        WALK_LEFT=$((WALK_LEFT - 1))
+        [ "$WALK_LEFT" -le 0 ] && return 1
+        [ -d "$entry" ] && LISTING+="${entry##*/}/"
+    done
+    LIST_CACHE["$dir/"]="$LISTING"
+}
+
+walk_dir() { # <dir> <rest> -> 0 found (RESOLVED), 1 not found, 2 incomplete
+    local dir="$1" rest="$2" names name ENCODED result=1 rc
+    list_dir "$dir" || return 2
+    names="$LISTING"
+    while [ -n "$names" ]; do
+        name="${names%%/*}"
+        names="${names#*/}"
+        encode_name "$name"
+        if [ "$ENCODED" = "$rest" ]; then
+            RESOLVED="$dir/$name"
+            return 0
+        fi
+        if [ "${rest#"$ENCODED"-}" != "$rest" ]; then
+            rc=0
+            walk_dir "$dir/$name" "${rest#"$ENCODED"-}" || rc=$?
+            [ "$rc" = 0 ] && return 0
+            [ "$rc" = 2 ] && result=2
+        fi
+    done
+    return "$result"
+}
+
+# <project dir> -> sets RESOLVED; returns as walk_dir. "-" is / itself and
+# over 200 characters Claude shortens the name with a hash: both unknown, as
+# is a walk the deadline stops before it starts.
+resolve_project_dir() {
+    RESOLVED=""
+    local name="$1" rc=0
+    [ "${#name}" -gt 1 ] && [ "${#name}" -le 200 ] || return 2
+    [ "${name:0:1}" = "-" ] || return 1
+    (( ${EPOCHREALTIME/[.,]/} > WALK_DEADLINE )) && return 2
+    WALK_LEFT=$WALK_MAX
+    shopt -s dotglob
+    walk_dir "" "${name:1}" || rc=$?
+    shopt -u dotglob
+    [ "$rc" = 0 ] || RESOLVED=""
+    return "$rc"
+}
+
 # ai-title (last occurrence) and the last assistant turn are found in one
 # backward scan; last-prompt uses its first occurrence (the opening
 # message) via a forward scan. All three go to jq over stdin, not as args.
 write_meta_json() {
     local file="$1" out="$2"
-    local title_line="" assistant_line="" prompt_line=""
+    local title_line="" assistant_line="" prompt_line="" custom_line=""
     while IFS= read -r line; do
         case "$line" in
             *'"type":"ai-title"'*) [ -z "$title_line" ] && title_line="$line" ;;
@@ -62,15 +175,19 @@ write_meta_json() {
     done < <(tac -- "$file" 2>/dev/null || true)
     prompt_line=$(grep -m1 -F '"type":"last-prompt"' -- "$file" 2>/dev/null || true)
 
-    printf '%s\n%s\n%s\n' "$title_line" "$prompt_line" "$assistant_line" | jq -R -s -c '
+    custom_line=$(grep -F '"type":"custom-title"' -- "$file" 2>/dev/null | tail -n 1 || true)
+
+    printf '%s\n%s\n%s\n%s\n' "$title_line" "$prompt_line" "$assistant_line" "$custom_line" | jq -R -s -c '
         (split("\n")) as $l
         | ($l[0] // "") as $t
         | ($l[1] // "") as $p
         | ($l[2] // "") as $a
+        | ($l[3] // "") as $c
         | ($a | if . == "" then {} else (try fromjson catch {}) end) as $aObj
         | ($aObj.message.usage // {}) as $u
         | {
             title: ($t | if . == "" then "" else ((try fromjson catch {}).aiTitle // "") end),
+            customTitle: ($c | if . == "" then "" else ((try fromjson catch {}).customTitle // "") end),
             firstPrompt: ($p | if . == "" then "" else ((try fromjson catch {}).lastPrompt // "") end),
             model: ($aObj.message.model // ""),
             contextTokens: (
@@ -85,7 +202,7 @@ write_meta_json() {
 # session id: the same id can exist in two project folders (a session resumed
 # from another directory), and two jobs must never share a work folder.
 process_file() {
-    local file="$1" id stat_out mtime size project_dir key sess_dir empty
+    local file="$1" id stat_out mtime size project_dir key sess_dir empty status
     id=$(basename "$file" .jsonl)
     # A session id is always a UUID; anything else is not a file this
     # script understands (and never one worth building a path out of).
@@ -105,14 +222,16 @@ process_file() {
     empty=true
     grep -q -F '"type":"user"' -- "$file" 2>/dev/null && empty=false
 
+    write_head_json "$file" "$sess_dir/head.json"
+    status=$(session_status "$(jq -r '.cwd' "$sess_dir/head.json")" "$project_dir")
+
     # Base fields are always short: safe as --arg regardless of file size.
-    jq -n \
+    jq -n --arg status "$status" \
         --arg id "$id" --arg projectDir "$project_dir" \
         --arg mtime "$mtime" --arg size "$size" --argjson empty "$empty" \
-        '{ id: $id, projectDir: $projectDir, empty: $empty,
+        '{ id: $id, projectDir: $projectDir, empty: $empty, status: $status,
            mtime: ($mtime | tonumber? // 0), size: ($size | tonumber? // 0) }' \
         > "$sess_dir/base.json"
-    write_head_json "$file" "$sess_dir/head.json"
     write_meta_json "$file" "$sess_dir/meta.json"
 
     jq -s 'add' "$sess_dir/base.json" "$sess_dir/head.json" "$sess_dir/meta.json" \
@@ -128,7 +247,9 @@ if [ -d "$PROJECTS_DIR" ]; then
     JOBS=$(nproc 2>/dev/null || echo 4)
     [ "$JOBS" -gt 8 ] && JOBS=8
     export WORKDIR
-    export -f write_head_json write_meta_json process_file
+    # Every function process_file calls must be listed, or the children
+    # run without it (an unexported session_status gives an empty status).
+    export -f encode_name write_head_json session_status write_meta_json process_file
     find "$PROJECTS_DIR" -mindepth 2 -maxdepth 2 -name '*.jsonl' -print0 2>/dev/null \
         | xargs -0 -r -n 1 -P "$JOBS" bash -c 'process_file "$1"' _ || true
 fi
@@ -136,9 +257,43 @@ fi
 SESSION_FILES=("$WORKDIR"/*.json)
 if [ ${#SESSION_FILES[@]} -eq 0 ]; then
     jq -n '{ generatedAt: (now | floor), sessions: [] }'
-else
-    # One entry per session id: when the same id sits in two project folders
-    # the panel (keys, running marker) cannot tell them apart, so keep the
-    # copy that was written last.
-    jq -s '{ generatedAt: (now | floor), sessions: (group_by(.id) | map(max_by(.mtime))) }' "${SESSION_FILES[@]}"
+    exit 0
 fi
+# One entry per session id: when the same id sits in two project folders
+# the panel (keys, running marker) cannot tell them apart, so keep the
+# copy that was written last.
+jq -s '{ generatedAt: (now | floor), sessions: (group_by(.id) | map(max_by(.mtime))) }' \
+    "${SESSION_FILES[@]}" > "$WORKDIR/merged"
+
+# Final pass, here in the parent after the children are done: the disk walk
+# and the memory check run once per distinct project dir, then jq settles
+# each pending status. NUL-separated: a dir name is not trusted to be clean.
+WALK_DEADLINE=$(( ${EPOCHREALTIME/[.,]/} + 3000000 ))
+while IFS= read -r -d '' dir; do
+    RESOLVED=""
+    rc=1
+    if [ "${dir:0:1}" = "+" ]; then
+        rc=0
+        resolve_project_dir "${dir:1}" || rc=$?
+    fi
+    dir="${dir:1}"
+    memory=("$PROJECTS_DIR/$dir/memory"/* "$PROJECTS_DIR/$dir/memory"/.[!.]* "$PROJECTS_DIR/$dir/memory"/..?*)
+    printf '%s\0%s\0%s\0%s\0' "$dir" "$RESOLVED" "$([ ${#memory[@]} -gt 0 ] && echo true || echo false)" \
+        "$([ "$rc" = 2 ] && echo true || echo false)"
+done < <(jq -j '.sessions | group_by(.projectDir)[]
+    | (if any(.status | startswith("pending")) then "+" else "-" end) + .[0].projectDir + "\u0000"' "$WORKDIR/merged") \
+    > "$WORKDIR/dirs"
+
+jq --rawfile dirs "$WORKDIR/dirs" '
+    ($dirs | split("\u0000") | [range(0; length - 3; 4) as $i | .[$i:$i + 4]]
+        | map({ key: .[0], value: { resolvedCwd: .[1], hasMemory: (.[2] == "true"), incomplete: (.[3] == "true") } })
+        | from_entries) as $d
+    | .sessions |= map(
+        ($d[.projectDir] // { resolvedCwd: "", hasMemory: false, incomplete: false }) as $p
+        | . + { hasMemory: $p.hasMemory, resolvedCwd: "" }
+        | if (.status | startswith("pending")) | not then .
+          elif $p.resolvedCwd != "" then .status = "relocated" | .resolvedCwd = $p.resolvedCwd
+          elif $p.incomplete then .status = "unknown"
+          elif .status == "pending_dir" then .status = "misplaced"
+          else .status = "orphan" end)
+' "$WORKDIR/merged"

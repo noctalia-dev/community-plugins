@@ -295,8 +295,10 @@ fetch_profile_usage() {
         local token
         token=$(jq -r '.claudeAiOauth.accessToken // ""' "$creds_file" 2>/dev/null || echo "")
         if [ -n "$token" ]; then
-            api_resp=$(curl -s --max-time 5 \
-                -H "Authorization: Bearer $token" \
+            # The header goes in on stdin (curl -K -): a -H argument would show
+            # the token in /proc/<pid>/cmdline to other local users.
+            api_resp=$(jq -r '"header = " + ("Authorization: Bearer " + .claudeAiOauth.accessToken | @json)' "$creds_file" \
+                | curl -s --max-time 5 -K - \
                 -H "Accept: application/json" \
                 -H "Content-Type: application/json" \
                 -H "User-Agent: claude-code/${CLAUDE_VERSION}" \
