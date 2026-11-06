@@ -1,9 +1,10 @@
-# Niri Workspace Stack - a compact view of the bar's own niri workspaces with the active
+# Niri Workspace Stack - a compact view of the bar's own niri or Umbriel workspaces with the active
 # workspace's windows as clickable app icons. Three switchable display modes (experimental):
 # navigator (default: badge + workspace list panel), numbered rail, mini map.
 #
-# Event-driven over `niri msg --json event-stream` (no polling). Clicks resolve niri's stable
-# workspace / window ids against the latest state at click time.
+# Event-driven over `niri msg --json event-stream` or `umbriel subscribe` (no polling), picked by
+# NIRI_SOCKET / UMBRIEL_SOCKET. Clicks resolve the compositor's stable workspace / window ids
+# against the latest state at click time.
 #
 # plugin_api 32: container tooltips (32), argv runAsync (24), require (22), widget gesture
 # defaults (14), UI closures (9). Works on Noctalia v5.2.0 and newer.
@@ -14,10 +15,10 @@ version      = "0.3.1"
 plugin_api   = 32
 author       = "johnnyp0t"
 license      = "MIT"
-dependencies = ["niri"]
+dependencies = ["niri", "umbriel"]
 icon         = "stack-2"
-description  = "Compact niri workspace stack with the active workspace's windows as app icons; three display modes."
-tags         = ["bar", "indicator", "niri", "productivity"]
+description  = "Compact niri / Umbriel workspace stack with the active workspace's windows as app icons; three display modes."
+tags         = ["bar", "indicator", "niri", "umbriel", "productivity"]
 
 [[widget]]
 id    = "stack"
@@ -105,7 +106,7 @@ entry = "widget.luau"
   # has no click handler of its own, so clicking it opens the list.
   #
   # The wheel is deliberately left unbound: widget.luau's onScroll steps this bar's monitor
-  # through `niri msg` (a bound scroll gesture would take the wheel away from the script).
+  # through the compositor's CLI (a bound scroll gesture would take the wheel away from the script).
   [widget.actions]
   left = "panel-toggle johnnyp0t/niri-workspace-stack:navigator"
 

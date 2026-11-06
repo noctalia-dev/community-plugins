@@ -1,5 +1,5 @@
--- Unit + property tests for lib/model.luau, lib/view.luau and lib/niri.luau's resync,
--- under plain Lua 5.4 (the plugin sources stay in the common Lua/Luau subset).
+-- Unit + property tests for lib/model.luau, lib/view.luau, the niri / Umbriel adapters and the
+-- stream's resync, under plain Lua 5.4 (the plugin sources stay in the common Lua/Luau subset).
 -- Run from anywhere:  lua5.4 tests/model_test.lua
 
 local root = (arg and arg[0] and arg[0]:match("^(.*)/tests/[^/]*$")) or "."
@@ -502,16 +502,25 @@ end)
 
 -- ── resync: snapshot applied only if the stream stayed quiet ────────────────
 
+-- The IPC modules read noctalia.getenv / noctalia.* when loaded, so each test loads them fresh.
+local function resetIpcModules()
+  for _, name in ipairs({ "backend", "niri", "umbriel", "stream", "actions" }) do
+    cache[root .. "/lib/" .. name .. ".luau"] = nil
+  end
+end
+
 test("resync retries when events arrive during the snapshot, applies when quiet", function()
   local pending = {}
   _G.noctalia = {
     log = function() end,
+    getenv = function(name) return name == "NIRI_SOCKET" and "/run/niri.sock" or nil end,
     runAsync = function(argv, cb) pending[#pending + 1] = { kind = argv[4], cb = cb }; return true end,
     json = { decode = function(s) return s end }, -- tests pass tables through
     string = { trim = function(s) return s end },
   }
-  cache[root .. "/lib/niri.luau"] = nil
+  resetIpcModules()
   local niri = load(root .. "/lib/niri.luau")
+  local Stream = load(root .. "/lib/stream.luau")
   local m = fixture()
   local applied = {}
   local function apply(e) applied[#applied + 1] = e; m:apply(e) end
@@ -521,7 +530,7 @@ test("resync retries when events arrive during the snapshot, applies when quiet"
     end
     error("no pending " .. kind)
   end
-  niri.resync(m, apply)
+  Stream.resync(m, niri, apply)
   eq(#pending, 2, "two commands")
   m:apply({ WindowFocusChanged = { id = 10 } }) -- event lands mid-snapshot
   reply("workspaces", { ws(1, 1, "DP-3", true, true) })
@@ -646,16 +655,17 @@ end)
 
 -- ── Actions: commands for an unfocused output go through focus-monitor ───────
 
-local function withNoctalia(fn)
+local function withNoctalia(fn, env)
   local calls = {}
+  env = env or { NIRI_SOCKET = "/run/niri.sock" }
   _G.noctalia = {
     log = function() end,
+    getenv = function(name) return env[name] end,
     runAsync = function(argv, cb) calls[#calls + 1] = table.concat(argv, " "); return true end,
     json = { decode = function(x) return x end },
     string = { trim = function(x) return x end },
   }
-  cache[root .. "/lib/niri.luau"] = nil
-  cache[root .. "/lib/actions.luau"] = nil
+  resetIpcModules()
   local ok, err = pcall(fn, calls)
   _G.noctalia = nil
   if not ok then error(err, 0) end
@@ -936,6 +946,185 @@ test("wheel is left to onScroll; only the left click is bound in the manifest", 
   eq(actions:match('left%s*=%s*"([^"]+)"'), "panel-toggle johnnyp0t/niri-workspace-stack:navigator", "left")
   local widget = assert(io.open(root .. "/widget.luau")):read("a")
   eq(widget:find("function onScroll", 1, true) ~= nil, true, "widget handles the wheel")
+end)
+
+-- ── Umbriel ─────────────────────────────────────────────────────────────────
+
+local UMBRIEL_WORKSPACES = {
+  { id = "DP-1:1", index = 1, name = "1", named = false, output = "DP-1", active = true, focused = false, occupied = true, window_count = 2, focused_window = "9aad5ea0ad84c092f1bda1533d737ed0", urgent = false, layout = "scrolling" },
+  { id = "DP-1:3", index = 2, name = "2", named = false, output = "DP-1", active = false, focused = false, occupied = false, window_count = 0, focused_window = "", urgent = false, layout = "scrolling" },
+  { id = "DP-3:1", index = 1, name = "1", named = false, output = "DP-3", active = true, focused = true, occupied = true, window_count = 5, focused_window = "868306a6dba7773d07efbe944044833d", urgent = false, layout = "scrolling" },
+  { id = "DP-3:2", index = 2, name = "2", named = false, output = "DP-3", active = false, focused = false, occupied = true, window_count = 1, focused_window = "0a011ce21426159297db447481590cd8", urgent = false, layout = "scrolling" },
+  { id = "DP-3:3", index = 3, name = "3", named = false, output = "DP-3", active = false, focused = false, occupied = false, window_count = 0, focused_window = "", urgent = false, layout = "scrolling" },
+}
+local UMBRIEL_WINDOWS = {
+  { id = "868306a6dba7773d07efbe944044833d", app_id = "kitty", title = "kitty window 1", workspace = "DP-3:1", output = "DP-3", active = true, focused = true, floating = false, urgent = false, column = 1, row = 0, x = 1287, y = 46, w = 1261, h = 1382, pinned = false, minimized = false, scratchpad = "", visible = true },
+  { id = "c890dd590def7db9b32d08bfae767283", app_id = "zen", title = "zen window 2", workspace = "DP-3:1", output = "DP-3", active = false, focused = false, floating = false, urgent = false, column = 0, row = 0, x = -1263, y = 46, w = 2536, h = 1382, pinned = false, minimized = false, scratchpad = "", visible = true },
+  { id = "c35db67f0dd6467d29481118baa5cb21", app_id = "zen", title = "zen window 3", workspace = "DP-3:1", output = "DP-3", active = false, focused = false, floating = false, urgent = false, column = 2, row = 0, x = 2562, y = 46, w = 1261, h = 1382, pinned = false, minimized = false, scratchpad = "", visible = true },
+  { id = "51bfb84230c660e5de4c512260ccc498", app_id = "zen", title = "zen window 4", workspace = "DP-3:1", output = "DP-3", active = false, focused = false, floating = false, urgent = false, column = 3, row = 0, x = 3837, y = 46, w = 1261, h = 1382, pinned = false, minimized = false, scratchpad = "", visible = true },
+  { id = "bdaafcb8871c9fcc8e26fb9188ac2d3c", app_id = "zen", title = "zen window 5", workspace = "DP-3:1", output = "DP-3", active = false, focused = false, floating = false, urgent = false, column = 4, row = 0, x = 5112, y = 46, w = 1261, h = 1382, pinned = false, minimized = false, scratchpad = "", visible = true },
+  { id = "0a011ce21426159297db447481590cd8", app_id = "zen", title = "zen window 6", workspace = "DP-3:2", output = "DP-3", active = false, focused = true, floating = false, urgent = false, column = 0, row = 0, x = 12, y = 46, w = 1261, h = 1382, pinned = false, minimized = false, scratchpad = "", visible = false },
+  { id = "9aad5ea0ad84c092f1bda1533d737ed0", app_id = "zen", title = "zen window 7", workspace = "DP-1:1", output = "DP-1", active = false, focused = true, floating = false, urgent = false, column = 0, row = 0, x = 2572, y = 46, w = 1261, h = 1382, pinned = false, minimized = false, scratchpad = "", visible = true },
+  { id = "39df1248839c81dac2ee012438b002fa", app_id = "org.telegram.desktop", title = "org.telegram.desktop window 8", workspace = "DP-1:1", output = "DP-1", active = false, focused = false, floating = false, urgent = false, column = 1, row = 0, x = 3847, y = 46, w = 1261, h = 1382, pinned = false, minimized = false, scratchpad = "", visible = true },
+}
+-- Real `umbriel subscribe workspaces,windows` snapshot (DP-3 left, DP-1 right), titles
+-- anonymized, effect fields dropped. Workspace ids are not positions: DP-1:3 is index 2.
+local KITTY = "868306a6dba7773d07efbe944044833d" -- the seat's focused window (active)
+local DP1_CURRENT = "9aad5ea0ad84c092f1bda1533d737ed0" -- DP-1:1's remembered focus
+
+local function copyList(list, patch)
+  local out = {}
+  for i, raw in ipairs(list) do
+    local entry = {}
+    for k, v in pairs(raw) do entry[k] = v end
+    if patch then patch(entry, i) end
+    out[i] = entry
+  end
+  return out
+end
+
+local function umbrielModel(workspaces, windows)
+  local Umbriel = load(root .. "/lib/umbriel.luau")
+  local decode = Umbriel.decoder()
+  local m = Model.new()
+  for _, event in ipairs({ { event = "workspaces", data = workspaces or UMBRIEL_WORKSPACES },
+    { event = "windows", data = windows or UMBRIEL_WINDOWS } }) do
+    for _, e in ipairs(decode(event)) do m:apply(e) end
+  end
+  return m, decode
+end
+
+test("umbriel: a real snapshot gives per-output views with one focused window", function()
+  local m = umbrielModel()
+  eq(m:ready(), true, "ready")
+  noViolations(m)
+  eq(m:focusedOutput(), "DP-3", "focused output (under the pointer)")
+  eq(m.focusedWindowId, KITTY, "seat focus from `active`, not the per-workspace `focused`")
+  local left, right = View.build(m, "DP-3", OPTS), View.build(m, "DP-1", OPTS)
+  eq(ids(left.all), "DP-3:1,DP-3:2,DP-3:3", "DP-3 order")
+  eq(ids(right.all), "DP-1:1,DP-1:3", "DP-1 order by index, not id")
+  eq(right.all[2].label, "2", "unnamed workspace labelled by index")
+  eq(right.all[2].name, nil, "display name of an unnamed workspace is not a name")
+  eq(left.all[1].state, "active_focused", "DP-3 active")
+  eq(right.all[1].state, "active", "DP-1 active, muted")
+  eq(right.all[2].state, "empty", "DP-1 empty")
+  eq(left.all[2].state, "occupied", "DP-3:2 occupied")
+  eq(ids(left.windows), "c890dd590def7db9b32d08bfae767283," .. KITTY
+    .. ",c35db67f0dd6467d29481118baa5cb21,51bfb84230c660e5de4c512260ccc498,bdaafcb8871c9fcc8e26fb9188ac2d3c", "column order")
+  eq(countStates(left.windows, "state", "focused") + countStates(right.windows, "state", "focused"), 1, "one focused")
+  eq(right.windows[1].id, DP1_CURRENT, "DP-1 current window first")
+  eq(right.windows[1].state, "current", "DP-1 marks its remembered focus")
+end)
+
+test("umbriel: named flag, floating and urgent windows", function()
+  local workspaces = copyList(UMBRIEL_WORKSPACES, function(w)
+    if w.id == "DP-1:3" then w.name, w.named = "WEB", true end
+    if w.id == "DP-3:2" then w.urgent = true end
+  end)
+  local windows = copyList(UMBRIEL_WINDOWS, function(w, i)
+    if i == 2 then w.floating, w.column, w.row = true, -1, -1 end
+    if i == 6 then w.urgent = true end
+  end)
+  local m = umbrielModel(workspaces, windows)
+  noViolations(m)
+  local left, right = View.build(m, "DP-3", OPTS), View.build(m, "DP-1", OPTS)
+  eq(right.all[2].label, "WEB", "named workspace")
+  eq(left.windows[#left.windows].id, "c890dd590def7db9b32d08bfae767283", "floating after tiled")
+  eq(left.windows[#left.windows].floating, true, "floating flag")
+  eq(left.all[2].urgent, true, "workspace urgent")
+  eq(left.all[2].windows[1].urgent, true, "window urgent")
+end)
+
+test("umbriel: geometry-only snapshots are dropped; title, focus and workspace changes pass", function()
+  local _, decode = umbrielModel()
+  local moved = copyList(UMBRIEL_WINDOWS, function(w) w.x, w.w = w.x + 40, w.w - 40 end)
+  eq(#decode({ event = "windows", data = moved }), 0, "scroll / resize")
+  local counts = copyList(UMBRIEL_WORKSPACES, function(w) w.window_count = w.window_count + 1 end)
+  eq(#decode({ event = "workspaces", data = counts }), 0, "unrendered workspace fields")
+  local retitled = copyList(moved, function(w, i) if i == 1 then w.title = "renamed" end end)
+  eq(#decode({ event = "windows", data = retitled }), 1, "title change")
+  local refocused = copyList(retitled, function(w, i) w.active = i == 2 end)
+  eq(#decode({ event = "windows", data = refocused }), 1, "focus change")
+  local switched = copyList(UMBRIEL_WORKSPACES, function(w)
+    if w.output == "DP-1" then w.active = w.id == "DP-1:3" end
+  end)
+  eq(#decode({ event = "workspaces", data = switched }), 1, "activation change")
+  eq(#decode({ event = "outputs", data = {} }), 0, "other families ignored")
+end)
+
+test("backend: UMBRIEL_SOCKET wins over NIRI_SOCKET; unset or empty selects nothing", function()
+  local function backendFor(env)
+    local chosen
+    withNoctalia(function()
+      chosen = load(root .. "/lib/backend.luau")
+    end, env)
+    return chosen and chosen.COMMAND or chosen
+  end
+  eq(backendFor({ UMBRIEL_SOCKET = "/run/u.sock", NIRI_SOCKET = "/run/n.sock" }), "umbriel", "both set")
+  eq(backendFor({ NIRI_SOCKET = "/run/n.sock" }), "niri", "niri only")
+  eq(backendFor({ UMBRIEL_SOCKET = "", NIRI_SOCKET = "/run/n.sock" }), "niri", "empty umbriel socket")
+  eq(backendFor({}), false, "neither")
+end)
+
+test("umbriel actions: switch by position on the target output, focus window by id", function()
+  withNoctalia(function(calls)
+    local Actions = load(root .. "/lib/actions.luau")
+    local m = umbrielModel()
+    Actions.focusWorkspace(m, "DP-1:3") -- unfocused output; id differs from the position
+    eq(calls[1], "umbriel msg workspace-switch 2 --output DP-1", "other output")
+    Actions.focusWorkspace(m, "DP-3:3")
+    eq(calls[2], "umbriel msg workspace-switch 3 --output DP-3", "same output")
+    eq(Actions.focusWorkspace(m, "DP-3:1"), false, "already focused: no command")
+    Actions.step(m, View.build(m, "DP-1", OPTS), 1) -- wheel on DP-1's bar
+    eq(calls[3], "umbriel msg workspace-switch 2 --output DP-1", "wheel stays on DP-1")
+    Actions.focusWindow(m, DP1_CURRENT)
+    eq(calls[4], "umbriel msg window-focus " .. DP1_CURRENT, "window by id")
+    eq(Actions.focusWindow(m, KITTY), false, "already focused window: no command")
+  end, { UMBRIEL_SOCKET = "/run/u.sock", NIRI_SOCKET = "/run/n.sock" })
+end)
+
+test("stream without a compositor: hidden, and the resync IPC event is harmless", function()
+  _G.noctalia = { log = function() end, getenv = function() return nil end }
+  resetIpcModules()
+  local sub = load(root .. "/lib/stream.luau").start(Model.new(), function() end)
+  _G.noctalia = nil
+  eq(sub.available, false, "unavailable")
+  sub.resync()
+end)
+
+test("umbriel stream: subscribe loop, sentinels, oversized line resyncs through the decoder", function()
+  local script, onLine, pending, changes = nil, nil, {}, 0
+  _G.noctalia = {
+    log = function() end,
+    getenv = function(name) return name == "UMBRIEL_SOCKET" and "/run/u.sock" or nil end,
+    commandExists = function(cmd) return cmd == "umbriel" end,
+    runStream = function(s, cb) script, onLine = s, cb; return true end,
+    runAsync = function(argv, cb) pending[#pending + 1] = { argv = table.concat(argv, " "), cb = cb }; return true end,
+    json = { decode = function(x) return type(x) == "table" and x or nil end },
+    string = { trim = function(x) return x end },
+  }
+  resetIpcModules()
+  local Stream = load(root .. "/lib/stream.luau")
+  local m = Model.new()
+  local sub = Stream.start(m, function() changes = changes + 1 end)
+  eq(sub.available and sub.started, true, "started")
+  eq(script:find("if umbriel subscribe workspaces,windows; then", 1, true) ~= nil, true, "loop runs subscribe")
+  onLine({ NwsStreamStart = {} })
+  eq(sub.connected, true, "connected")
+  onLine({ event = "workspaces", data = UMBRIEL_WORKSPACES })
+  onLine("…truncated tail of a windows line")
+  eq(#pending, 2, "two snapshot commands")
+  eq(pending[1].argv .. " | " .. pending[2].argv, "umbriel workspaces --json | umbriel windows --json", "snapshot argv")
+  pending[1].cb({ exitCode = 0, stdout = UMBRIEL_WORKSPACES })
+  pending[2].cb({ exitCode = 0, stdout = UMBRIEL_WINDOWS })
+  eq(m:ready(), true, "windows recovered by resync")
+  eq(m.focusedWindowId, KITTY, "focus from snapshot")
+  local before = changes
+  onLine({ event = "windows", data = UMBRIEL_WINDOWS })
+  eq(changes, before, "identical snapshot after resync: no re-render")
+  onLine({ NwsStreamEnd = {} })
+  eq(sub.connected, false, "disconnected")
+  _G.noctalia = nil
 end)
 
 print(string.format("\n%d/%d passed", total - failures, total))

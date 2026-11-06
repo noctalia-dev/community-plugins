@@ -1,7 +1,7 @@
 # Niri Workspace Stack
 
-A compact view of your niri workspaces for a horizontal Noctalia bar: the workspaces of the bar's own monitor in
-niri's vertical order, with the windows of the active workspace as clickable app icons next to it. The default
+A compact view of your niri or Umbriel workspaces for a horizontal Noctalia bar: the workspaces of the bar's own
+monitor in the compositor's order, with the windows of the active workspace as clickable app icons next to it. The default
 **Navigator** mode is a small badge that opens a list of the monitor's workspaces and windows; two alternative modes
 (Numbered rail, Mini map) draw the stack directly in the bar. Each bar can use a different mode.
 
@@ -14,9 +14,17 @@ niri's vertical order, with the windows of the active workspace as clickable app
 
 ## Requirements
 
-- [niri](https://github.com/YaLTeR/niri) 25.08 or newer (window positions in the scrolling layout), with `niri` on
-  `PATH` and `NIRI_SOCKET` set (both are standard in a niri session). Outside niri the widget hides itself.
-- Noctalia with plugin API 32 (v5.2.0+).
+One of these compositors:
+
+- [niri](https://github.com/YaLTeR/niri) 25.08 or newer (window positions in the scrolling layout; tested with
+  26.04), with `niri` on `PATH` and `NIRI_SOCKET` set (both are standard in a niri session).
+- [Umbriel](https://github.com/noctalia-dev/umbriel) with `umbriel subscribe` and `--json` queries (tested with
+  0.1.0 r1518 / `aa3b6b3`), with `umbriel` on `PATH` and `UMBRIEL_SOCKET` set (standard in an Umbriel session).
+
+The compositor is picked by its socket variable, `UMBRIEL_SOCKET` first, like Noctalia itself does; having both
+binaries installed does not matter. With neither variable set the widget hides itself.
+
+Noctalia with plugin API 32 (v5.2.0+); tested with 5.3.0 (plugin API 39).
 
 ## Usage
 
@@ -52,11 +60,12 @@ In every mode:
 
 ### Named workspaces
 
-Workspaces named in the niri config (`workspace "web" { … }`) or at runtime (`niri msg action set-workspace-name`)
-show their name instead of the number in the badge and next to the rail / mini map; unnamed ones show the number.
+Workspaces named in the niri config (`workspace "web" { … }`), at runtime (`niri msg action set-workspace-name`) or
+in Umbriel (`[[workspace]] name = …`, a static `workspaces = [...]` list) show their name instead of the number in the badge and next to the rail / mini map; unnamed ones show the number.
 Names longer than 10 characters are shortened with `…` in the bar (the width is capped as well), the panel shows the
-number and up to 16 characters of the name, and tooltips always show the full name. Renames arrive through niri's
-event stream like any other change.
+number and up to 16 characters of the name, and tooltips always show the full name. Renames arrive through the
+event stream like any other change. In Umbriel only workspaces reported with `named = true` count as named; an
+anonymous workspace's display name is its position.
 
 ## Settings
 
@@ -66,7 +75,7 @@ event stream like any other change.
 | Visible workspaces | `visible_workspaces` | int, 1–4 | `3` | Rail and mini map; centered on the active workspace, limited to what fits the bar height |
 | Show numbers | `show_numbers` | bool | `true` | Active workspace number (or name) next to the rail / mini map |
 | Show windows | `show_windows` | bool | `true` | Window icons of the active workspace |
-| Show empty workspaces | `show_empty` | bool | `true` | `false` hides empty, inactive workspaces (including niri's trailing one) |
+| Show empty workspaces | `show_empty` | bool | `true` | `false` hides empty, inactive workspaces (including the trailing one of a dynamic list) |
 | Maximum window icons | `max_windows` | int, 0–32 | `8` | The rest collapse into `+N`; `0` shows all |
 | Window icon size | `icon_size` | double, 12–28 px | `18` | |
 | Indicator size | `indicator_size` | double, 0.75–1.5 | `1.0` | Scales indicators, numbers and spacing |
@@ -80,7 +89,7 @@ Near Click); the defaults are attached and opened near the clicked widget.
 ## IPC
 
 ```sh
-noctalia msg plugin johnnyp0t/niri-workspace-stack:stack all resync          # re-read the full state from niri
+noctalia msg plugin johnnyp0t/niri-workspace-stack:stack all resync          # re-read the full state from the compositor
 noctalia msg plugin johnnyp0t/niri-workspace-stack:stack all diag            # log one state dump per instance
 noctalia msg plugin johnnyp0t/niri-workspace-stack:stack all debug on        # in-bar debug label + tooltip (off to hide)
 noctalia msg plugin johnnyp0t/niri-workspace-stack:stack DP-1 mode mini_map  # try a mode without saving it
@@ -91,40 +100,68 @@ noctalia msg plugin johnnyp0t/niri-workspace-stack:stack DP-1 mode           # b
 mode, the focused output and window, every workspace as `idx=id(window count)` per output, the last processed event
 and an invariant check. Nothing is logged continuously.
 
+Which compositor was picked, and why a widget stays hidden, is in the same log: `no supported compositor` means
+neither `UMBRIEL_SOCKET` nor `NIRI_SOCKET` is set in Noctalia's environment, or the matching CLI is not on `PATH`.
+To compare with what the plugin sees, run the stream it runs:
+
+```sh
+umbriel subscribe workspaces,windows      # Umbriel: one full snapshot per line
+niri msg --json event-stream              # niri
+```
+
 ## Notes
 
 ### How it works
 
-Every widget instance runs one long-lived `niri msg --json event-stream` and keeps a model of niri's workspaces and
-windows that mirrors niri's own reducer (`niri-ipc/src/state.rs`). There is no polling: niri sends the full state on
-connect, then incremental events; the stream reconnects with backoff if niri restarts.
+Every widget instance runs one long-lived event stream and keeps a model of the compositor's workspaces and windows
+that mirrors niri's own reducer (`niri-ipc/src/state.rs`). There is no polling: both compositors send the full state
+on connect, then changes; the stream reconnects with backoff if the compositor restarts.
 
-Workspaces and windows are tracked by niri's stable ids. An action looks the target up by id in the **current**
-state and only then turns it into a niri command:
+- **niri**: `niri msg --json event-stream`, incremental events applied as they are.
+- **Umbriel**: `umbriel subscribe workspaces,windows`, a full snapshot of a family on every change. Each snapshot is
+  translated into niri's `WorkspacesChanged` / `WindowsChanged`, so all display modes share one model. A snapshot
+  whose shown fields (ids, positions, names, activity, focus, urgency, titles, app ids, columns) did not change, for
+  example after a resize or a scroll of the strip, is dropped without a re-render.
 
-| Target | Command |
-|--------|---------|
-| Named workspace | `niri msg action focus-workspace <name>` (niri resolves the output) |
-| Workspace on the focused output | `niri msg action focus-workspace <idx>` |
-| Workspace on another output | `niri msg action focus-monitor <output>`, then `focus-workspace <idx>` |
-| Window | `niri msg action focus-window --id <id>` |
+Workspaces and windows are tracked by the compositor's stable ids. An action looks the target up by id in the
+**current** state and only then turns it into a command:
+
+| Target | niri | Umbriel |
+|--------|------|---------|
+| Named workspace | `niri msg action focus-workspace <name>` (niri resolves the output) | as below |
+| Workspace on the focused output | `niri msg action focus-workspace <idx>` | `umbriel msg workspace-switch <index> --output <output>` |
+| Workspace on another output | `niri msg action focus-monitor <output>`, then `focus-workspace <idx>` | `umbriel msg workspace-switch <index> --output <output>` |
+| Window | `niri msg action focus-window --id <id>` | `umbriel msg window-focus <id>` |
 
 (`niri msg` cannot address a workspace by id, and an index always refers to the focused output, hence the
-`focus-monitor` step.)
+`focus-monitor` step. Umbriel cannot address a workspace by id either, but `--output` restricts the position to the
+bar's own monitor.)
+
+### niri and Umbriel differences
+
+| | niri | Umbriel |
+|---|---|---|
+| Workspace id | number | string such as `DP-1:3`; kept when the workspace moves, so it is not its position |
+| Focused output (accent highlight) | keyboard focus | the output under the pointer: moving the mouse to another monitor moves the highlight |
+| Focused window | `is_focused` | the window with `active`; Umbriel's per-window `focused` is the workspace's remembered focus, shown as the muted "current" outline |
+| Window order | column / tile in the scrolling layout | `column` / `row` in the scrolling layout; floating windows and windows of dwindle, master and stacking workspaces have no position and are listed by id, which in Umbriel is random, so their order is arbitrary |
 
 ### Processes started
 
-- One `/bin/sh -c` reconnect loop around `niri msg --json event-stream` per widget instance, ended when the widget
+- One `/bin/sh -c` reconnect loop around `niri msg --json event-stream` or `umbriel subscribe workspaces,windows`
+  per widget instance, ended when the widget
   is removed, reloaded or its settings change (Noctalia kills the whole process group).
 - One more for the navigator panel, from its first opening until the plugin is reloaded or disabled.
-- `niri msg action …` once per click or wheel step.
-- `niri msg --json workspaces` / `windows` only if a stream line could not be decoded (Noctalia drops lines over
-  64 KiB), or on the `resync` IPC event.
+- `niri msg action …` / `umbriel msg …` once per click or wheel step.
+- `niri msg --json workspaces` / `windows` (`umbriel workspaces --json` / `windows --json`) only if a stream line
+  could not be decoded (Noctalia drops lines over 64 KiB), or on the `resync` IPC event.
 
 No network access, no file writes. The widget stores its output name in the plugin's in-memory shared state so the
 navigator panel knows which monitor's list to show.
 
 ## Known limitations — Mouse cursor warping
+
+### niri
 
 Switching a workspace or a window through the plugin (wheel, workspace click, Navigator list, window icon) can move
 the mouse cursor to the center of the newly focused window.
@@ -141,6 +178,22 @@ the mouse cursor to the center of the newly focused window.
 
 The plugin does not change your niri config and does not move the pointer back. If this matters more than warping,
 `warp-mouse-to-focus` can be turned off in niri.
+
+### Umbriel
+
+- `umbriel msg window-focus <id>` moves the pointer only with `input.cursor.follows_focus = true`.
+- `umbriel msg workspace-switch … --output <output>` warps the pointer to the center of that output when the pointer
+  is on another one, whatever `follows_focus` says. The plugin always switches the monitor of the bar or panel that
+  was clicked or scrolled, which is the one under the pointer, so this does not happen from the widget.
+
+## Other known limitations
+
+- **Large window lists on Umbriel.** Each `windows` snapshot carries every window (about 0.7 KiB each). Beyond roughly
+  90 windows a line exceeds Noctalia's 64 KiB stream limit, and every window change then costs one
+  `umbriel windows --json` resync instead of an in-stream update.
+- **Pinned windows on Umbriel** are reported on their output's active workspace, so their icons appear with it.
+- **Switching by position.** Neither CLI switches a workspace by id; if the workspace list changes between the last
+  event and a click, the click targets the workspace now at that position.
 
 ## Future improvements
 

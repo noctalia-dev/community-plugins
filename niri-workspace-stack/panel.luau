@@ -3,13 +3,13 @@
 -- widget (stream / model / view / render / actions).
 --
 -- Which output: a panel's snapshot carries no output, and noctalia.focusedOutputName()
--- reports niri's focused monitor rather than the clicked bar. So, in order:
+-- reports the compositor's focused monitor rather than the clicked bar. So, in order:
 --   1. an explicit context ("panel-toggle johnnyp0t/niri-workspace-stack:navigator DP-3"),
 --   2. the output published by the hovered bar widget (onHover in widget.luau),
---   3. niri's focused output.
+--   3. the compositor's focused output.
 --
 -- The runtime lives from the first open until reload/disable, so its stream does too:
--- one extra `niri msg --json event-stream`, independent of display mode and bar count.
+-- one extra event stream, independent of display mode and bar count.
 
 local Model = require("./lib/model.luau")
 local View = require("./lib/view.luau")
