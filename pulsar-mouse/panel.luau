@@ -209,7 +209,7 @@ function render()
   local loaded = #dpiStages > 0 or #pollingRates > 0 or #ledEffects > 0
 
   if not loaded and errorText == nil then
-    table.insert(rows, ui.label({ key = "loading", text = noctalia.tr("ui.loading"), color = "outline" }))
+    table.insert(rows, ui.label({ key = "loading", text = noctalia.tr("ui.loading"), color = "outline_variant" }))
     panel.render(ui.scroll({ flexGrow = 1, gap = 10 }, rows))
     return
   end

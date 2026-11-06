@@ -75,6 +75,10 @@ end
 -- Writing one key still lays the arrangement out again, since a rotation
 -- changes the logical box every display to the right of it sits against.
 local function commit(output, changes)
+  local previousTransform = output.transform
+  if changes.transform ~= nil then
+    output.transform = displays.text(changes.transform)
+  end
   local sections = displays.apply(outputs, displays.rows(outputs))
   local section = displays.sectionFor(sections, output)
   for key, raw in pairs(changes) do
@@ -86,6 +90,7 @@ local function commit(output, changes)
     if ok then
       status, statusIsError = tr("status.applied"), false
     else
+      output.transform = previousTransform
       status, statusIsError = unsupported ~= nil and tr("status.unsupported", { key = unsupported })
         or tr("status.write_failed", { error = tostring(err) }), true
       toggleKey = toggleKey + 1
@@ -162,6 +167,7 @@ render = function()
   local output = selected()
   local nodes = {
     controls.header(tr("advanced.title"), {
+      ui.button({ glyph = "arrow-left", variant = "ghost", controlSize = "sm", tooltip = tr("action.back"), onClick = "onBack" }),
       ui.button({ glyph = "refresh", variant = "ghost", controlSize = "sm", tooltip = tr("action.refresh"), onClick = "onRefresh" }),
       ui.button({ glyph = "x", variant = "ghost", controlSize = "sm", onClick = "onCloseClick" }),
     }),
@@ -237,11 +243,15 @@ function onCloseClick()
   panel.close()
 end
 
+function onBack()
+  panel.close()
+  noctalia.togglePanel("prponkshe/umbriel-displays:panel")
+end
+
 -- Escape walks back to the panel this window was opened from, rather than
 -- leaving the user on the desktop.
 function onKey(chord, pressed)
   if pressed and chord == "escape" then
-    panel.close()
-    noctalia.togglePanel("prponkshe/umbriel-displays:panel")
+    onBack()
   end
 end

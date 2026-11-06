@@ -177,7 +177,7 @@ local function render()
                 table.insert(children, ui.column({
                     gap = 2,
                     padding = 8,
-                    fill = "surface_variant",
+                    fill = "surface_container",
                     radius = 8,
                 }, outputChildren))
             end

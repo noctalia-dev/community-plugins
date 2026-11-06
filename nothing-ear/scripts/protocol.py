@@ -13,7 +13,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 MAGIC = bytes([0x55, 0x60])
+# Replies start 55 60 and pushes the buds send unprompted 55 20; both carry a
+# CRC, which the second byte's 0x20 bit flags.
+SOF = 0x55
+CRC_FLAG = 0x20
 HEADER_LEN = 8
+# Far above any real frame; a longer length means a false start byte.
+MAX_PAYLOAD = 1024
 CRC_LEN = 2
 
 # command IDs, hex form of the device's numeric command values
@@ -51,6 +57,26 @@ SOUND_PROFILE_WRITE = 0xF015
 # ID of the hearing-test profile saved by the app; all zeros when none.
 SOUND_PROFILE_ID_READ = 0xC024
 SOUND_PROFILE_ID_RESP = 0x4024
+
+# Not verified on hardware by this plugin: MODEL_*, LISTENING_MODE_* and
+# BASS_*, and the 55 20 push framing. All come from captures and code in
+# community projects (see PROTOCOL.md) where ear-web and BudsLink agree.
+
+# Model ID as two little-endian bytes ("B179" arrives as 79 b1). Newer than
+# the serial-number lookup and what both community projects now rely on.
+MODEL_READ = 0xC01C
+MODEL_RESP = 0x401C
+
+# CMF models select their EQ preset through these instead of the EQ_PRESET
+# commands, with a different preset table (see models.py).
+LISTENING_MODE_READ = 0xC050
+LISTENING_MODE_RESP = 0x4050
+LISTENING_MODE_WRITE = 0xF01D
+
+# Payload [enabled, level * 2], level 1-5.
+BASS_READ = 0xC04E
+BASS_RESP = 0x404E
+BASS_WRITE = 0xF051
 
 SERIAL_READ = 0xC006
 SERIAL_RESP = 0x4006
@@ -128,19 +154,27 @@ class FrameParser:
 
     def _try_extract_one(self) -> Frame | None:
         buf = self._buf
-        start = buf.find(MAGIC)
-        if start == -1:
-            # keep last byte in case it's a split magic-byte-0
-            if buf:
-                del buf[:-1]
-            return None
-        if start > 0:
-            del buf[:start]
+        while True:
+            start = buf.find(SOF)
+            if start == -1:
+                buf.clear()
+                return None
+            if start > 0:
+                del buf[:start]
+            if len(buf) < 2:
+                return None
+            if buf[1] & CRC_FLAG:
+                break
+            # never seen without a CRC, so treat it as noise and resync
+            del buf[:1]
 
         if len(buf) < HEADER_LEN:
             return None
 
-        payload_len = buf[5]
+        payload_len = buf[5] | (buf[6] << 8)
+        if payload_len > MAX_PAYLOAD:
+            del buf[:1]
+            return self._try_extract_one()
         total_len = HEADER_LEN + payload_len + CRC_LEN
         if len(buf) < total_len:
             return None
@@ -152,8 +186,8 @@ class FrameParser:
         actual_crc = crc_bytes[0] | (crc_bytes[1] << 8)
 
         if actual_crc != expected_crc:
-            # desync: drop the magic bytes we matched on and resync forward
-            del buf[:2]
+            # desync: drop the start byte we matched on and resync forward
+            del buf[:1]
             return self._try_extract_one()
 
         cmd = header_and_payload[3] | (header_and_payload[4] << 8)
@@ -163,10 +197,17 @@ class FrameParser:
         return Frame(cmd=cmd, seq=seq, payload=payload)
 
 
-def parse_battery(payload: bytes) -> dict:
+# Parsers return None for a payload too short to hold the value: models
+# answer reads they don't support with an empty payload, and the caller then
+# leaves the setting out so the panel hides it.
+
+
+def parse_battery(payload: bytes) -> dict | None:
+    if not payload:
+        return None
     device_names = {0x02: "left", 0x03: "right", 0x04: "case"}
     status: dict[str, dict | None] = {"left": None, "right": None, "case": None}
-    count = payload[0]
+    count = min(payload[0], (len(payload) - 1) // 2)
     for i in range(count):
         device_id = payload[1 + i * 2]
         raw = payload[2 + i * 2]
@@ -180,7 +221,9 @@ def parse_battery(payload: bytes) -> dict:
     return status
 
 
-def parse_anc(payload: bytes) -> dict:
+def parse_anc(payload: bytes) -> dict | None:
+    if len(payload) < 2:
+        return None
     mode_byte = payload[1]
     mode_map = {
         ANC_MODE_HIGH: {"mode": "anc", "strength": "high"},
@@ -214,38 +257,38 @@ def anc_mode_to_byte(mode: str, strength: str | None) -> int:
     return _ANC_NAME_TO_BYTE[key]
 
 
-def parse_eq_preset(payload: bytes) -> int:
-    return payload[0]
+def parse_eq_preset(payload: bytes) -> int | None:
+    return payload[0] if payload else None
 
 
 def eq_preset_write_payload(preset_index: int) -> bytes:
     return bytes([preset_index, 0x00])
 
 
-def parse_firmware(payload: bytes) -> str:
+def parse_firmware(payload: bytes) -> str | None:
     # payload length (from the frame header) IS the string length already;
     # no separate size byte inside the payload.
-    return payload.decode("ascii", errors="replace")
+    return payload.decode("ascii", errors="replace") if payload else None
 
 
-def parse_latency(payload: bytes) -> bool:
-    return payload[0] == 0x01
+def parse_latency(payload: bytes) -> bool | None:
+    return payload[0] == 0x01 if payload else None
 
 
 def latency_write_payload(enabled: bool) -> bytes:
     return bytes([0x01 if enabled else 0x02, 0x00])
 
 
-def parse_personal_anc(payload: bytes) -> bool:
-    return payload[0] == 0x01
+def parse_personal_anc(payload: bytes) -> bool | None:
+    return payload[0] == 0x01 if payload else None
 
 
 def personal_anc_write_payload(enabled: bool) -> bytes:
     return bytes([0x01 if enabled else 0x00])
 
 
-def parse_sound_profile(payload: bytes) -> bool:
-    return payload[0] == 0x01
+def parse_sound_profile(payload: bytes) -> bool | None:
+    return payload[0] == 0x01 if payload else None
 
 
 def sound_profile_write_payload(enabled: bool) -> bytes:
@@ -278,8 +321,24 @@ def parse_serial(payload: bytes) -> str | None:
     return None
 
 
+def parse_model(payload: bytes) -> str | None:
+    if len(payload) < 2:
+        return None
+    return f"{payload[1]:02X}{payload[0]:02X}"
+
+
+def parse_bass(payload: bytes) -> dict | None:
+    if len(payload) < 2:
+        return None
+    return {"enabled": payload[0] == 0x01, "level": payload[1] // 2}
+
+
+def bass_write_payload(enabled: bool, level: int) -> bytes:
+    return bytes([0x01 if enabled else 0x00, level * 2])
+
+
 def parse_gestures(payload: bytes) -> list[dict]:
-    count = payload[0]
+    count = min(payload[0], (len(payload) - 1) // 4) if payload else 0
     gestures = []
     for i in range(count):
         offset = 1 + i * 4

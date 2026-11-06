@@ -156,7 +156,7 @@ local function render()
     padding = 14,
     fill = "surface",
     radius = 16,
-    border = "outline",
+    border = "outline_variant",
     borderWidth = 1,
   }, children))
 end

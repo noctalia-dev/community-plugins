@@ -11,11 +11,18 @@
 -- Process bookkeeping is PID-based only. Never pattern-match our own socket
 -- path with pkill/pgrep: the matcher's own command line contains that string
 -- (suicide for pkill, always-true for pgrep).
+--
+-- Every mpv transition runs through one ordered queue (enqueue below): a new
+-- episode starts only after the previous mpv has really exited. Two live
+-- instances share a single socket path and a single pidfile, so the loser
+-- becomes unreachable and can only be killed from a terminal (same bug as
+-- fel/radio #1094).
 
 local dataDir = noctalia.pluginDataDir()
 local SOCK = dataDir .. "/mpv.sock"
 local PIDFILE = dataDir .. "/mpv.pid"
 local POSFILE = dataDir .. "/positions.json"
+local QUEUE_STUCK_SECS = 15
 
 local rss = require("./lib/rss.luau")
 
@@ -54,6 +61,10 @@ local launchedAt = 0
 local deadStreak = 0
 local pollCount = 0
 local pendingSeek = nil
+-- Bumped by every play and stop: queued transitions compare it and drop
+-- themselves when a newer request has taken over the player.
+local playGen = 0
+local queue, queueBusy, queueSince = {}, false, 0
 
 local positions = {}
 do
@@ -91,7 +102,7 @@ end
 
 local function aliveCheck(onResult)
   local cmd = "test -S " .. sq(SOCK) .. " && test -f " .. sq(PIDFILE)
-    .. " && p=$(cat " .. sq(PIDFILE) .. ") && case \"$p\" in *[!0-9]*) exit 1 ;; esac && kill -0 \"$p\" 2>/dev/null"
+    .. " && p=$(tail -n 1 " .. sq(PIDFILE) .. ") && case \"$p\" in *[!0-9]*) exit 1 ;; esac && kill -0 \"$p\" 2>/dev/null"
     .. " && grep -qa mpv /proc/\"$p\"/cmdline 2>/dev/null"
   noctalia.runAsync(cmd, function(res)
     onResult(res.exitCode == 0)
@@ -106,18 +117,60 @@ local function mpvCmd(payload)
   return "(socat - " .. sq(SOCK) .. " < " .. sq(dataDir .. "/mpvcmd.json") .. " >/dev/null 2>&1 || true)"
 end
 
-local function stopMpv()
+-- Kill loop over every PID recorded in PIDFILE that is still an mpv we started.
+-- The evidence is read-only: /proc/<pid>/cmdline must mention mpv *and* the
+-- plugin data dir (seen in our own --input-ipc-server argument), so a stale or
+-- recycled PID can never take out an unrelated process.
+local function killRecorded(signal)
+  local guard = "grep -qa mpv /proc/\"$p\"/cmdline 2>/dev/null && grep -qaF -- "
+    .. sq(dataDir) .. " /proc/\"$p\"/cmdline 2>/dev/null"
+  return "while read -r p; do case \"$p\" in ''|*[!0-9]*) continue ;; esac; "
+    .. "if " .. guard .. "; then kill " .. signal .. " \"$p\" >/dev/null 2>&1 || true; fi; done < "
+    .. sq(PIDFILE)
+end
+
+-- Sweep for instances the pidfile does not know about: one pass over
+-- /proc/*/cmdline for our unique socket path, which only this plugin's mpv
+-- carries. Two guards keep it surgical - the process must be running the mpv
+-- binary (so the shell running this sweep, whose own cmdline contains the same
+-- text, can never match itself) and must have our socket on its command line.
+local function sweepStray(signal)
+  local comm = string.match(mpvBin, "([^/]+)$") or "mpv"
+  return "for f in $(grep -laF -- " .. sq(SOCK) .. " /proc/[0-9]*/cmdline 2>/dev/null); do "
+    .. "p=${f#/proc/}; p=${p%/cmdline}; "
+    .. "[ \"$(cat /proc/$p/comm 2>/dev/null)\" = " .. sq(comm) .. " ] || continue; "
+    .. "kill " .. signal .. " \"$p\" >/dev/null 2>&1 || true; done"
+end
+
+local function killStrays(signal)
+  return "if [ -f " .. sq(PIDFILE) .. " ]; then " .. killRecorded(signal) .. "; fi; "
+    .. sweepStray(signal)
+end
+
+local function stopMpv(onDone)
+  -- Quit over IPC first (clean mpv shutdown), then make sure nothing survived:
+  -- recorded PIDs plus a sweep for strays the pidfile lost track of. onDone only
+  -- fires once every process is gone, so the next stream may reuse the socket.
   local parts = {}
   if hasSocat then
     table.insert(parts, mpvCmd('{"command":["quit"]}'))
   end
-  table.insert(parts, "if [ -f " .. sq(PIDFILE) .. " ]; then p=$(cat " .. sq(PIDFILE)
-    .. "); case \"$p\" in ''|*[!0-9]*) p='' ;; esac; if [ -n \"$p\" ] && grep -qa mpv /proc/\"$p\"/cmdline 2>/dev/null; then kill \"$p\" >/dev/null 2>&1 || true; sleep 0.5; kill -9 \"$p\" >/dev/null 2>&1 || true; fi; fi")
+  table.insert(parts, "sleep 0.3")
+  table.insert(parts, killStrays(""))
+  table.insert(parts, "sleep 0.4")
+  table.insert(parts, killStrays("-9"))
   table.insert(parts, "rm -f " .. sq(SOCK) .. " " .. sq(PIDFILE))
-  noctalia.runAsync(table.concat(parts, "; "))
+  noctalia.runAsync(table.concat(parts, "; "), function()
+    if onDone then
+      onDone()
+    end
+  end)
 end
 
-local function launchMpv(url, name, startSecs)
+local function launchMpv(url, name, startSecs, onDone)
+  -- Only reached with no live instance (enqueue -> stopMpv guarantees it). The
+  -- PID is appended, never truncated: a launch that outlived its stop stays
+  -- known to the next stop.
   local startArg = ""
   if startSecs and startSecs > 10 then
     startArg = " --start=" .. tostring(math.floor(startSecs))
@@ -129,16 +182,47 @@ local function launchMpv(url, name, startSecs)
   end
   -- force-media-title feeds MPRIS (Noctalia media widget) and audio metadata.
   local mediaTitle = string.gsub(name or "podcast", "\n", " ")
-  local cmd = "sleep 0.3; rm -f " .. sq(SOCK) .. " " .. sq(PIDFILE) .. "; "
+  local cmd = "rm -f " .. sq(SOCK) .. "; "
     .. "nohup " .. sq(mpvBin) .. " --no-video --input-ipc-server=" .. sq(SOCK)
     .. " --volume=" .. tostring(status.volume) .. startArg .. scriptArg
     .. " --force-media-title=" .. sq(mediaTitle)
     .. " --title=" .. sq("podcast: " .. name)
     -- "--" ends option parsing: a hostile episode URL cannot be read as mpv flags.
     .. " -- " .. sq(url) .. " >" .. sq(dataDir .. "/mpv.log") .. " 2>&1 & "
-    .. "echo $! > " .. sq(PIDFILE)
+    .. "echo $! >> " .. sq(PIDFILE)
   noctalia.writeFile(dataDir .. "/lastcmd.txt", cmd)
-  return noctalia.runAsync(cmd)
+  return noctalia.runAsync(cmd, function(res)
+    if onDone then
+      onDone(res)
+    end
+  end)
+end
+
+-- One mpv transition at a time, in request order.
+local function runNext()
+  if queueBusy then
+    return
+  end
+  local job = table.remove(queue, 1)
+  if not job then
+    return
+  end
+  queueBusy = true
+  queueSince = os.time()
+  local finished = false
+  job(function()
+    if finished then
+      return
+    end
+    finished = true
+    queueBusy = false
+    runNext()
+  end)
+end
+
+local function enqueue(job)
+  table.insert(queue, job)
+  runNext()
 end
 
 local function doPlay(podcast, episode, url)
@@ -146,8 +230,12 @@ local function doPlay(podcast, episode, url)
     noctalia.notifyError("Podcasts", "Episode has no audio URL")
     return
   end
+  playGen = playGen + 1
+  local gen = playGen
+  local episodeName = episode or url
+
   status.podcast = podcast or ""
-  status.episode = episode or url
+  status.episode = episodeName
   status.url = url
   status.pos = 0
   status.dur = 0
@@ -155,29 +243,53 @@ local function doPlay(podcast, episode, url)
   status.playing = true
   pendingSeek = nil
   publish()
+
   local resumeAt = tonumber(positions[url]) or 0
-  local launched = launchMpv(url, status.episode, resumeAt)
-  noctalia.log("[podcast] play: launched=" .. tostring(launched) .. " episode=" .. tostring(status.episode))
-  if launched then
-    launchedAt = os.time()
-    deadStreak = 0
-    if resumeAt > 10 then
-      status.pos = resumeAt
-      noctalia.notify("Podcasts", "Resumed from " .. rss.clock(resumeAt))
+  enqueue(function(done)
+    -- A newer play/stop owns the player now: never launch over it.
+    if gen ~= playGen then
+      noctalia.log("[podcast] play superseded, dropping " .. episodeName)
+      done()
+      return
     end
-    publish()
-  else
-    noctalia.notifyError("Podcasts", "Could not launch mpv")
-    status.playing = false
-    publish()
-  end
+    -- Stop the running episode first: two live instances lose the socket and
+    -- the pidfile to each other and neither can be stopped afterwards (#1094).
+    stopMpv(function()
+      if gen ~= playGen then
+        noctalia.log("[podcast] play superseded, dropping " .. episodeName)
+        done()
+        return
+      end
+      launchMpv(url, episodeName, resumeAt, function(res)
+        local launched = res == nil or res.exitCode == 0
+        noctalia.log("[podcast] play: launched=" .. tostring(launched) .. " episode=" .. tostring(episodeName))
+        if launched then
+          launchedAt = os.time()
+          deadStreak = 0
+          if resumeAt > 10 then
+            status.pos = resumeAt
+            noctalia.notify("Podcasts", "Resumed from " .. rss.clock(resumeAt))
+          end
+          publish()
+        else
+          noctalia.notifyError("Podcasts", "Could not launch mpv")
+          status.playing = false
+          publish()
+        end
+        done()
+      end)
+    end)
+  end)
 end
 
 local function doStop()
+  playGen = playGen + 1
   status.playing = false
   status.paused = false
   publish()
-  stopMpv()
+  enqueue(function(done)
+    stopMpv(done)
+  end)
 end
 
 local function doPause()
@@ -187,7 +299,11 @@ local function doPause()
   status.paused = true
   publish()
   if hasSocat then
-    noctalia.runAsync(mpvCmd('{"command":["set_property","pause",true]}'))
+    enqueue(function(done)
+      noctalia.runAsync(mpvCmd('{"command":["set_property","pause",true]}'), function()
+        done()
+      end)
+    end)
   end
 end
 
@@ -198,7 +314,11 @@ local function doUnpause()
   status.paused = false
   publish()
   if hasSocat then
-    noctalia.runAsync(mpvCmd('{"command":["set_property","pause",false]}'))
+    enqueue(function(done)
+      noctalia.runAsync(mpvCmd('{"command":["set_property","pause",false]}'), function()
+        done()
+      end)
+    end)
   end
 end
 
@@ -220,29 +340,33 @@ local function doVolume(v)
     return
   end
   if hasSocat then
-    noctalia.runAsync(mpvCmd('{"command":["set_property","volume",' .. tostring(v) .. "]}"))
+    enqueue(function(done)
+      noctalia.runAsync(mpvCmd('{"command":["set_property","volume",' .. tostring(v) .. "]}"), function()
+        done()
+      end)
+    end)
   else
+    -- No socat: relaunch once at the new volume, resuming where it was.
+    -- Routed through the queue like any other restart.
     local url = status.url
-    local name = status.episode
-    if url ~= "" then
-      stopMpv()
-      local startArg = ""
-      if tonumber(status.pos) and tonumber(status.pos) > 10 then
-        startArg = " --start=" .. tostring(math.floor(tonumber(status.pos)))
-      end
-      local scriptArg = ""
-      local mpris = mprisScript()
-      if mpris then
-        scriptArg = " --script=" .. sq(mpris)
-      end
-      local cmd = "sleep 0.3; rm -f " .. sq(SOCK) .. " " .. sq(PIDFILE) .. "; "
-        .. "nohup " .. sq(mpvBin) .. " --no-video --input-ipc-server=" .. sq(SOCK)
-        .. " --volume=" .. tostring(v) .. startArg .. scriptArg
-        .. " --title=" .. sq("podcast: " .. name)
-        .. " -- " .. sq(url) .. " >" .. sq(dataDir .. "/mpv.log") .. " 2>&1 & "
-        .. "echo $! > " .. sq(PIDFILE)
-      noctalia.runAsync(cmd)
+    if url == "" then
+      return
     end
+    enqueue(function(done)
+      if not status.playing or url ~= status.url then
+        done()
+        return
+      end
+      stopMpv(function()
+        if not status.playing or url ~= status.url then
+          done()
+          return
+        end
+        launchMpv(url, status.episode, tonumber(status.pos) or 0, function()
+          done()
+        end)
+      end)
+    end)
   end
 end
 
@@ -315,7 +439,12 @@ local function doSeek(secs)
   if (tonumber(status.dur) or 0) > 0 then
     -- Loaded: seek now.
     pendingSeek = nil
-    noctalia.runAsync(mpvCmd('{"command":["set_property","time-pos",' .. tostring(math.floor(v)) .. "]}"))
+    local target = math.floor(v)
+    enqueue(function(done)
+      noctalia.runAsync(mpvCmd('{"command":["set_property","time-pos",' .. tostring(target) .. "]}"), function()
+        done()
+      end)
+    end)
   else
     -- Still starting: park it, the poll sends it once duration is known.
     pendingSeek = v
@@ -359,6 +488,12 @@ publish()
 noctalia.setUpdateInterval(2000)
 
 function update()
+  -- Watchdog: a queued mpv transition must never wedge playback. If a shell
+  -- callback is lost, drop the queue and let the next request through.
+  if queueBusy and os.time() - queueSince > QUEUE_STUCK_SECS then
+    noctalia.log("[podcast] queue stuck for " .. tostring(os.time() - queueSince) .. "s, resetting")
+    queue, queueBusy = {}, false
+  end
   -- Grace period for mpv startup, then two consecutive misses to confirm.
   if status.playing then
     if os.time() - launchedAt < 8 then

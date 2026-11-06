@@ -1,0 +1,63 @@
+# keysmith — secret generators on the bar. Click the glyph to open a panel
+# with four tabs: Passgen (random or memorable passphrase), Keygen
+# (`openssl rand` keys in the common formats), JWT (decode only) and htpasswd
+# (`htpasswd` lines, optionally with every `$` doubled for YAML/compose
+# files).
+# Secrets are never written to disk; results live in memory until the panel
+# closes. Only the special-characters list and the last tab are saved (plugin
+# data dir). The htpasswd password goes to htpasswd on stdin through a named
+# pipe in that dir, so it never shows up in the process arguments.
+
+id = "nightwatch75/keysmith"
+name = "keysmith"
+version = "0.1.1"
+# 24 for argv runAsync: user names and passwords reach htpasswd as plain
+# arguments, with no shell to break out of.
+plugin_api = 43
+author = "nightwatch75"
+license = "MIT"
+dependencies = ["openssl", "htpasswd", "od", "mkfifo"]
+tags = ["bar", "panel", "utility"]
+icon = "key"
+description = "Password, key, htpasswd and JWT tools: a bar glyph opens a tabbed generator and decoder panel."
+
+[[setting]]
+key = "copy_on_generate"
+type = "bool"
+label_key = "settings.copy_on_generate.label"
+description_key = "settings.copy_on_generate.description"
+default = false
+
+[[setting]]
+key = "start_tab"
+type = "select"
+label_key = "settings.start_tab.label"
+description_key = "settings.start_tab.description"
+default = "last"
+options = [
+  { value = "last", label_key = "settings.start_tab.options.last" },
+  { value = "passgen", label_key = "settings.start_tab.options.passgen" },
+  { value = "keygen", label_key = "settings.start_tab.options.keygen" },
+  { value = "jwt", label_key = "settings.start_tab.options.jwt" },
+  { value = "htpasswd", label_key = "settings.start_tab.options.htpasswd" },
+]
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 560
+height = 700
+placement = "floating"
+position = "auto"
+open_near_click = true
+
+[[widget]]
+id = "keysmith"
+entry = "keysmith.luau"
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  label_key = "settings.glyph.label"
+  description_key = "settings.glyph.description"
+  default = "key"

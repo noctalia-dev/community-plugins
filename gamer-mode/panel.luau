@@ -352,7 +352,7 @@ local function readingRow(entry, withBar)
             height = 4,
             progress = entry.progress,
             fill = M.barFill(entry),
-            track = "surface_variant",
+            track = "surface_container",
             radius = 2,
         }),
     })

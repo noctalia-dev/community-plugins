@@ -18,7 +18,7 @@
 -- attaching mid-session, scrolling without changing focus, or using struts.
 
 -- ── Configuration ─────────────────────────────────────────────────────────
-local BAR_COLOR = noctalia.getConfig("bar_color") or "outline"
+local BAR_COLOR = noctalia.getConfig("bar_color") or "outline_variant"
 local VIEWPORT_COLOR = noctalia.getConfig("viewport_color") or "primary"
 local SHOW_ACTIVE_WINDOW = noctalia.getConfig("show_active_window") == true
 local ACTIVE_WINDOW_COLOR = noctalia.getConfig("active_window_color") or "secondary"

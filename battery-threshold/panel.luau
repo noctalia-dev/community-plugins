@@ -54,7 +54,7 @@ local function render_panel()
     }
 
     if is_available then
-        table.insert(children, ui.separator({ thickness = 1, color = "outline/0.3", spacing = 8 }))
+        table.insert(children, ui.separator({ thickness = 1, color = "outline_variant/0.3", spacing = 8 }))
 
         if is_writable then
             table.insert(

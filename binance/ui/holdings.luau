@@ -18,7 +18,7 @@ local DUST = 1
 
 -- Allocation segments: the largest holdings get their own color, the rest
 -- share the last one.
-local SEGMENT_COLORS = { "primary", "secondary", "tertiary", "on_surface_variant/0.8", "outline" }
+local SEGMENT_COLORS = { "primary", "secondary", "tertiary", "on_surface_variant/0.8", "outline_variant" }
 
 local function tr(key: string, subst)
   return noctalia.tr(key, subst)
@@ -277,7 +277,7 @@ function M.render(report, ctx): { any }
   local rows = {}
   for i, h in list do
     if i > 1 then
-      table.insert(rows, ui.separator({ color = "outline/0.15", key = `sep-{h.kind}:{h.asset}` }))
+      table.insert(rows, ui.separator({ color = "outline_variant/0.15", key = `sep-{h.kind}:{h.asset}` }))
     end
     table.insert(rows, holdingRow(h, report, ctx))
   end

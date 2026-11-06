@@ -443,7 +443,7 @@ local function cityRow(row, isDeviceRow, hoursBefore, hoursAfter, use24h, highli
     justify = "start",
     paddingV = 4,
     paddingH = 6,
-    fill = "surface_variant/0.25",
+    fill = "surface_container/0.25",
     radius = 6,
   }, { gripSlot, info, strip, actionsSlot })
 end

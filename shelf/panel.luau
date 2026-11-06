@@ -227,7 +227,7 @@ end
 
 local function codeBlock(text)
   return ui.column({
-    key = "shortcut-code", fill = "surface_variant", radius = 8, paddingH = 10, paddingV = 8, align = "stretch",
+    key = "shortcut-code", fill = "surface_container", radius = 8, paddingH = 10, paddingV = 8, align = "stretch",
   }, {
     ui.label({ text = text, fontSize = 11, fontFamily = "monospace", color = "on_surface" }),
   })
@@ -342,7 +342,7 @@ local function shortcutSection()
   -- state's centred column for it.
   return ui.column({
     key = "shortcut-section", gap = 8, padding = 12, radius = 14, align = "stretch", justify = "start",
-    fill = "surface_variant/0.45", border = "outline/0.5", borderWidth = 1,
+    fill = "surface_container/0.45", border = "outline_variant/0.5", borderWidth = 1,
   }, children)
 end
 
@@ -391,8 +391,8 @@ local function emptyState()
   return ui.column({
     key = "empty-state",
     flexGrow = 1, gap = 10, align = "center", justify = "center",
-    fill = "surface_variant/0.45", radius = 18, padding = 24,
-    border = "outline/0.5", borderWidth = 1,
+    fill = "surface_container/0.45", radius = 18, padding = 24,
+    border = "outline_variant/0.5", borderWidth = 1,
   }, {
     ui.column({
       width = 64, height = 64, radius = 32, fill = "primary/0.14", align = "center", justify = "center",
@@ -426,7 +426,7 @@ local function thumbnail(path, info)
   local missing = info == nil
   return ui.column({
     width = 40, height = 40, radius = 10, align = "center", justify = "center",
-    fill = missing and "error/0.14" or "surface_variant",
+    fill = missing and "error/0.14" or "surface_container",
   }, {
     ui.glyph({
       name = missing and "file-off" or store.glyphFor(path, info.isDir),
@@ -503,7 +503,7 @@ local function row(item, info)
       height = 40,
       tooltip = noctalia.tr("panel.row.reorder"),
     }, {
-      ui.glyph({ name = "grip-vertical", size = 14, color = isHovered and "on_surface_variant" or "outline" }),
+      ui.glyph({ name = "grip-vertical", size = 14, color = isHovered and "on_surface_variant" or "outline_variant" }),
     }),
     thumbnail(path, info),
     ui.column({ gap = 2, flexGrow = 1 }, {
@@ -576,7 +576,7 @@ render = function()
     end
     table.insert(rows, insertionZone("end"))
     table.insert(children, ui.scroll({ key = "list", flexGrow = 1, gap = 0 }, rows))
-    table.insert(children, ui.separator({ key = "footer-line", color = "outline/0.4" }))
+    table.insert(children, ui.separator({ key = "footer-line", color = "outline_variant/0.4" }))
     table.insert(children, footer(missingCount))
   end
 

@@ -31,6 +31,12 @@ The `poller` service runs `hyprctl activeworkspace -j` once per second and publi
 
 Clicking the widget cycles to the next layout in `dwindle → master → monocle → scrolling → dwindle`. Special workspaces (scratchpads) are handled too, matched by name instead of id.
 
+## Settings
+
+| Setting | Type | Default | Description |
+| --- | --- | --- | --- |
+| `show_label` | `bool` | `true` | Show the layout name next to the icon. Turn off for an icon-only widget. |
+
 ## IPC
 
 The `poller` service accepts a `cycle` event, which does the same thing as clicking the widget:
@@ -63,7 +69,7 @@ Note that `general:layout` changes the global default, whereas the plugin's `cyc
 ## Notes
 
 - **Commands spawned:** `hyprctl activeworkspace -j` every second while the plugin is enabled, and `hyprctl eval '…'` on each cycle. No network access, no files written.
-- **No settings.** To change behaviour, fork the repo and add your fork as the plugin source. The layout list lives at the top of `service.luau`:
+- **Layout list is fixed.** To change the list or its glyphs, use a local clone or fork. The layout list lives at the top of `service.luau`:
 
   ```lua
   local layouts = { "dwindle", "master", "monocle", "scrolling" }

@@ -552,8 +552,8 @@ local function layoutSection(displays)
   end
 
   local header = ui.column({
-    fill = "surface_variant/0.18",
-    border = "outline/0.42",
+    fill = "surface_container/0.18",
+    border = "outline_variant/0.42",
     borderWidth = 1,
     radius = 12,
     align = "stretch",
@@ -580,8 +580,8 @@ local function layoutSection(displays)
 
   if map ~= nil then
     table.insert(children, ui.column({
-      fill = "surface_variant/0.18",
-      border = "outline/0.34",
+      fill = "surface_container/0.18",
+      border = "outline_variant/0.34",
       borderWidth = 1,
       radius = 10,
       padding = 10,
@@ -700,8 +700,8 @@ local function layoutSection(displays)
     ui.column({
       gap = 10,
       align = "stretch",
-      fill = "surface_variant/0.18",
-      border = "outline/0.34",
+      fill = "surface_container/0.18",
+      border = "outline_variant/0.34",
       borderWidth = 1,
       radius = 10,
       padding = 10,
@@ -730,7 +730,7 @@ local function scaleMarkers(scale)
       ui.label({
         text = "┆",
         fontSize = 12,
-        color = active and "primary" or "outline",
+        color = active and "primary" or "outline_variant",
       }),
       ui.label({
         text = formatScale(value) .. "×",
@@ -856,8 +856,8 @@ local function displayCard(display, position)
 
   return ui.column({
     key = "display:" .. display.port,
-    fill = display.focused and "primary/0.055" or "surface_variant/0.18",
-    border = display.focused and "primary/0.75" or "outline/0.42",
+    fill = display.focused and "primary/0.055" or "surface_container/0.18",
+    border = display.focused and "primary/0.75" or "outline_variant/0.42",
     borderWidth = display.focused and 2 or 1,
     radius = 12,
     padding = 10,
@@ -968,8 +968,8 @@ render = function()
     align = "center",
     paddingH = 10,
     paddingV = 4,
-    fill = "surface_variant/0.18",
-    border = "outline/0.34",
+    fill = "surface_container/0.18",
+    border = "outline_variant/0.34",
     borderWidth = 1,
     radius = 10,
   }, {

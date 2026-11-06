@@ -134,7 +134,7 @@ local function messageTile(icon: string, title: string, reason: string?)
     table.insert(lines, label(reason, CAPTION, "on_surface_variant", { width = textWidth, maxLines = 4 }))
   end
   return ui.row({ width = W, gap = 12, align = "center" }, {
-    glyph(icon, 34, "outline"),
+    glyph(icon, 34, "outline_variant"),
     ui.column({ width = textWidth, gap = 2 }, lines),
   })
 end

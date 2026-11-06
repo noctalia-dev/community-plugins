@@ -1,8 +1,15 @@
 {
   "build_time": "indexed in {duration}",
+  "cat_archives": "Archives",
+  "cat_audio": "Audio",
+  "cat_code": "Code",
+  "cat_documents": "Documents",
+  "cat_images": "Images",
+  "cat_other": "Other",
+  "cat_packages": "Packages",
+  "cat_video": "Video",
   "copied_entry": "Path copied to clipboard",
   "copied_name": "Name copied to clipboard",
-  "copied_path": "Search folder path copied to clipboard",
   "counts": "{shown} shown · {total} indexed",
   "counts_disks": " · {disks} external",
   "counts_stale": " · out of date",
@@ -15,7 +22,6 @@
     "index_missing": "No index for this scope yet",
     "indexing": "Indexing files…",
     "no_results": "No matches",
-    "reindex_done": "Search index dropped — it rebuilds on the next search",
     "reindex_title": "Rebuild search index",
     "scope_next": "Switch to: {next}",
     "scope_title": "Searching: {current}"
@@ -31,10 +37,6 @@
   "ranking": {
     "default": "generic — the shortest path wins",
     "path": "path-aware — a match starting a name wins"
-  },
-  "row_action": {
-    "copy": "copies its path",
-    "reveal": "shows it in the file manager"
   },
   "scope": {
     "all": "search folder + external disks",
@@ -63,20 +65,75 @@
       "description": "Index files and folders whose name starts with a dot.",
       "label": "Include hidden entries"
     },
+    "space_enabled": {
+      "description": "Show the Space tab (disk usage, needs ncdu and jq). Off: search only, nothing is scanned.",
+      "label": "Space tab"
+    },
+    "space_skip_external": {
+      "description": "Skip USB and other removable disks in the Space scan. A change starts a new scan.",
+      "label": "Space tab: skip external disks"
+    },
+    "space_skip_network": {
+      "description": "Skip network (NFS, SMB) and FUSE (rclone, sshfs, OneDrive) mounts in the Space scan. A change starts a new scan.",
+      "label": "Space tab: skip network and FUSE mounts"
+    },
     "usage_exclude_dirs": {
-      "description": "Folders left out of the disk usage chart, separated by ',' or ';'. A bare name matches anywhere below the search folder; a path (absolute, or starting with ~) matches that one folder. Folders on another filesystem are already skipped.",
-      "label": "Usage chart: excluded folders"
+      "description": "Folders left out of the usage chart and the Space scan, separated by ',' or ';'. A name matches anywhere below the search folder. An absolute or ~ path skips that one folder, e.g. a disk under /mnt.",
+      "label": "Disk usage: excluded folders"
     }
   },
+  "space_capped": "Showing the {count} biggest files of this type",
+  "space_common_path": "In {path}",
+  "space_elapsed_reduce": "Building the index… {time}",
+  "space_elapsed_scan": "Scanning… {time}",
+  "space_err": {
+    "datadir": "No plugin data folder — cannot store the scan",
+    "empty": "ncdu wrote no scan — the folder may be unreadable",
+    "index": "The new disk usage index is damaged — press ↻ to scan again",
+    "index_big": "The disk index is too big for this plugin — skip more folders in the settings, then scan again",
+    "jq": "jq not found — install jq to use this tab",
+    "ncdu": "ncdu not found — install ncdu 2.0 or newer to use this tab",
+    "ncdu_old": "ncdu is too old — this tab needs ncdu 2.0 or newer",
+    "reduce": "jq could not read the ncdu scan",
+    "spawn": "Could not start the disk scan",
+    "timeout": "The disk scan took too long and was stopped"
+  },
+  "space_file_one": "1 file",
+  "space_files": "{count} files",
+  "space_gone": "{path} is no longer on disk — press ↻ to scan again",
+  "space_legend_folders_all": "Folders",
+  "space_legend_folders_top": "{count} biggest folders",
+  "space_legend_types": "File types",
+  "space_loading": "Loading the last scan…",
+  "space_loose": "(files and small folders)",
+  "space_mode_folders": "Folders",
+  "space_mode_types": "Types",
+  "space_more_rows": "{count} more not shown",
+  "space_progress_reduce": "Building the index… {percent}% (estimate)",
+  "space_progress_scan": "Scanning… {percent}% (estimate)",
+  "space_rescanning": "Scanning again — the numbers below are from the last scan",
+  "space_search_outside": "That folder is outside the search folder",
+  "space_search_unavailable": "Search here works only with the search folder scope.",
+  "space_sort_name": "Name",
+  "space_sort_path": "Path",
+  "space_sort_size": "Size",
+  "space_tip_home": "Show your home folder",
+  "space_tip_refresh": "Scan again now",
+  "space_tip_root": "Show the whole system (/)",
+  "space_tip_search_here": "Search inside this folder",
+  "space_tip_top": "Back to the top of the home folder",
+  "space_tip_up": "Up one folder",
+  "space_unreadable": "{count} folders could not be read — the sizes may be too low",
   "status_indexing": "Indexing {path}…",
   "status_indexing_multi": "Indexing {count} locations…",
   "syntax_hint": "'exact · ^starts · ends$ · !exclude · a | b",
   "syntax_hint_label": "fzf syntax:",
+  "tab_search": "Search",
+  "tab_space": "Space",
   "tip_close": "Close",
   "tip_ranking": "Ranking: {current}\ne.g. \"config\" → .ssh/config, not …/Steam Controller Configs/\nClick to switch to: {next}",
   "tip_ranking_unsupported": "Path-aware ranking needs fzf 0.36 or newer",
   "tip_refresh": "Rebuild the file index",
-  "tip_row_action": "Right click on a result {current}\nClick to switch to: {next}",
   "tip_scope": "Searching: {current}\nClick to search {next}",
   "tip_scope_free": "{free} free across {count} disk(s)",
   "tip_settings": "Plugin settings",

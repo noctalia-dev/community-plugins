@@ -15,8 +15,8 @@
 
 id = "kjvdven/basecamp"
 name = "Basecamp"
-version = "0.1.1"
-plugin_api = 24
+version = "0.1.2"
+plugin_api = 43
 author = "kjvdven"
 license = "MIT"
 dependencies = ["basecamp", "jq", "xdg-open"]

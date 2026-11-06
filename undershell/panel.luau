@@ -89,7 +89,7 @@ local function header()
 end
 
 local function notRunning()
-  return ui.column({ gap = 10, padding = 12, radius = 8, fill = "surface_variant/0.35" }, {
+  return ui.column({ gap = 10, padding = 12, radius = 8, fill = "surface_container/0.35" }, {
     ui.row({ gap = 10, align = "center" }, {
       ui.glyph({ name = "alert-triangle", size = 20, color = "error" }),
       ui.label({ text = tr("panel.not_running"), fontWeight = "bold", fontSize = 13, flexGrow = 1 }),
@@ -124,7 +124,7 @@ local function profileCard()
   else
     depthLine = tr("panel.depth_none")
   end
-  return ui.column({ gap = 6, padding = 10, radius = 8, fill = "surface_variant/0.35" }, {
+  return ui.column({ gap = 6, padding = 10, radius = 8, fill = "surface_container/0.35" }, {
     ui.row({ gap = 8, align = "center" }, {
       ui.glyph({ name = "photo", size = 16, color = "primary" }),
       ui.label({ text = line, fontSize = 12, flexGrow = 1 }),
@@ -198,7 +198,7 @@ end
 local function widgetCard(w)
   local level = w.depth_level or 0
   local locked = state.motion == true  -- a video or scene: no depth to pass behind
-  return ui.column({ key = w.id, gap = 8, padding = 10, radius = 8, fill = "surface_variant/0.35" }, {
+  return ui.column({ key = w.id, gap = 8, padding = 10, radius = 8, fill = "surface_container/0.35" }, {
     ui.row({ gap = 8, align = "center" }, {
       ui.glyph({ name = typeGlyph(w.type), size = 18, color = "primary" }),
       ui.column({ gap = 0, flexGrow = 1 }, {
@@ -310,7 +310,7 @@ local function savesSection()
     end
     local armed = armedDelete == sv.id
     table.insert(rows, ui.row({ key = "save:" .. sv.id, gap = 8, align = "center", padding = 8, radius = 8,
-      fill = sv.current == true and "primary/0.12" or "surface_variant/0.35" }, {
+      fill = sv.current == true and "primary/0.12" or "surface_container/0.35" }, {
       ui.column({ gap = 1, flexGrow = 1 }, {
         ui.label({ text = sv.name or sv.id, fontWeight = "bold", fontSize = 12 }),
         ui.label({ text = meta, fontSize = 10, color = sv.current == true and "primary" or "on_surface_variant" }),

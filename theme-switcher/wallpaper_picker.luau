@@ -338,7 +338,7 @@ local function listRow(item)
 		align = "center",
 		padding = 8,
 		radius = 8,
-		fill = isSelected and "surface_variant" or "#00000000",
+		fill = isSelected and "surface_container" or "#00000000",
 		onClick = function()
 			toggle(item.path)
 		end,
@@ -361,7 +361,7 @@ end
 local function tile(item)
 	local isSelected = selectedSet[item.path] == true
 	local thumb = thumbs[item.path]
-	local border = isSelected and "primary" or "outline"
+	local border = isSelected and "primary" or "outline_variant"
 	local borderWidth = isSelected and 3 or 1
 
 	local preview
@@ -380,7 +380,7 @@ local function tile(item)
 			width = CARD_W,
 			height = CARD_H,
 			radius = 8,
-			fill = "surface_variant",
+			fill = "surface_container",
 			border = border,
 			borderWidth = borderWidth,
 			align = "center",

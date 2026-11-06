@@ -11,8 +11,8 @@
 
 id = "ayagmar/headroom"
 name = "Headroom"
-version = "0.2.1"
-plugin_api = 32
+version = "0.2.2"
+plugin_api = 43
 author = "ayagmar"
 license = "MIT"
 icon = "gauge"

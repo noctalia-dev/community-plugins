@@ -216,7 +216,7 @@ local function build_offline()
 						"playlist",
 						38,
 						"primary",
-						card_hovered and "primary/0.2" or "surface_variant/0.6"
+						card_hovered and "primary/0.2" or "surface_container/0.6"
 					),
 					ui.column({ gap = 2, flexGrow = 1, radius = theme.radius }, {
 						ui.label({
@@ -240,7 +240,7 @@ local function build_offline()
 		end
 
 		if show_track_section then
-			table.insert(child, ui.separator({ key = "sep-off-tracks", color = "outline/0.3" }))
+			table.insert(child, ui.separator({ key = "sep-off-tracks", color = "outline_variant/0.3" }))
 		end
 	end
 

@@ -2,8 +2,8 @@
 
 id = "davemhammer/k8s-status"
 name = "K8s Status"
-version = "1.2.0"
-plugin_api = 10
+version = "1.2.1"
+plugin_api = 43
 author = "davemhammer"
 license = "MIT"
 dependencies = ["kubectl", "less"]

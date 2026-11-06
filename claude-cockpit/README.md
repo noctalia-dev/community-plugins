@@ -24,13 +24,15 @@ widget and the Live and Usage tabs only show what it publishes.
   `revealKey` on `ui.scroll`, which keeps the keyboard selection in view. An
   older noctalia keeps getting the last version it can load.
 - `bash`, `jq` and `curl`.
-- The base tools the scripts call: `find`, `stat`, `grep`, `tac`, `awk`,
-  `head`, `tail`, `rm`, `mkdir`, `mv`. Every distribution ships them.
+- The base tools the scripts call: `find`, `xargs`, `stat`, `grep`, `tac`,
+  `awk`, `head`, `tail`, `rm`, `mkdir`, `mv`. Every distribution ships them.
+  The Sessions scan runs on up to 8 CPUs through `xargs -P` (`nproc` picks the
+  count, 4 without it).
 - `claude` on `PATH` for the Skills/Mods tab, and a logged-in Claude Code
   (`~/.claude/.credentials.json`) for the Usage tab.
 - `xdg-open` to open a project page.
-- Optional: `niri` or `umbriel` to focus a session's terminal from the
-  Live tab.
+- Optional: `niri`, `hyprctl` (Hyprland) or `umbriel` to focus a session's
+  terminal from the Live tab.
 - Optional: `code` or `zed` to open a CLAUDE.md, or set `editor_command`.
 
 ## Usage
@@ -62,8 +64,8 @@ Set `display_mode` to `classic` for the glyph and percentages only.
 See the screenshot at the top. Sessions are grouped into *Needs you*,
 *Working* and *Idle*. Each card shows the title, the time in its state, the
 path and git branch, what it waits for, the last prompt, the model, the
-context size and the cost. Click a card to focus its terminal (niri and
-Umbriel). The globe opens the session on claude.ai while Remote Control is
+context size and the cost. Click a card to focus its terminal (niri, Hyprland
+and Umbriel). The globe opens the session on claude.ai while Remote Control is
 on.
 
 ### Usage
@@ -88,7 +90,11 @@ project directory. The search box filters by title, prompt or path.
 | Key      | Action                                                      |
 | ---      | ---                                                         |
 | ↑ / ↓    | Move the selection through projects and sessions. Hold to repeat. |
-| `Return` or keypad `Enter` | Resume the selected session, or open or close the selected project. |
+| `Return` or keypad `Enter` | Resume the selected session, open or close the selected project, or draw more sessions when **Show N more** is selected. |
+
+A project draws its first 20 sessions. When it has more, a **Show N more**
+row ends the list: ↑ / ↓ reach it like any other row, and `Return` (or a click)
+draws the next 20.
 
 The list scrolls to keep the selection in view. The keys work on this tab
 only.
@@ -172,7 +178,7 @@ What the plugin touches:
   no network calls.
 - **Spawns** the plugin's own scripts through `bash`, `claude plugin` on a
   click in the Skills/Mods tab, your terminal, your editor, `xdg-open`, and
-  `niri msg` or `umbriel msg` to focus a window (window ids and pids only,
+  `niri msg`, `hyprctl` or `umbriel msg` to focus a window (window ids and pids only,
   never titles).
 - **Deletes**, always after an inline confirm: a session transcript (trash
   glyph on its row), all empty sessions at once (bin button on the filter

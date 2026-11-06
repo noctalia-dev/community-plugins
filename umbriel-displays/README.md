@@ -88,10 +88,13 @@ written and applied immediately.
 
 **`advanced`** holds the rest of what an `[output.*]` section accepts: rotation,
 adaptive sync, HDR and its SDR reference white, tearing, direct scanout, the
-workspace inventory and axis, and the initial scrolling column width. Escape
-returns to the main panel, as it does from the arrangement.
+workspace inventory and axis, and the initial scrolling column width. The
+header back button or Escape returns to the main panel, as it does from the
+arrangement. Changing rotation repacks adjacent displays using their new
+logical width and height, so they remain edge to edge.
 
-**`arrange`** draws each enabled display to scale. Drag one onto:
+**`arrange`** draws each enabled display to scale and in its current orientation
+(e.g., a display rotated 90° appears portrait). Drag one onto:
 
 - **another display** to trade their places;
 - a **slot between or beside** displays to insert it there;

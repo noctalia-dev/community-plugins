@@ -5,13 +5,13 @@ noctalia.setUpdateInterval(33)
 
 local glyph = noctalia.getConfig("glyph")
 local showGlyph = noctalia.getConfig("show_glyph")
-if showGlyph == nil then showGlyph = true end
+if showGlyph == nil then showGlyph = false end
 local showArtist = noctalia.getConfig("show_artist")
 local hideWhenPaused = noctalia.getConfig("hide_when_paused")
 local hideWhenNoLyrics = noctalia.getConfig("hide_when_no_lyrics")
 local showCover = noctalia.getConfig("show_cover")
 if showCover == nil then showCover = true end
-local coverShape = noctalia.getConfig("cover_shape") or "circle"
+local coverShape = noctalia.getConfig("cover_shape") or "custom"
 local coverRadius = tonumber(noctalia.getConfig("cover_radius")) or 5
 local coverSize = tonumber(noctalia.getConfig("cover_size")) or 18
 local activeColor = noctalia.getConfig("active_color") or "on_surface"
@@ -22,11 +22,11 @@ local secondaryColor = noctalia.getConfig("secondary_color") or "on_surface_vari
 local scrollMode = noctalia.getConfig("scroll_mode") or "auto"
 local marqueeSpeed = tonumber(noctalia.getConfig("marquee_speed")) or 30
 local maxLines = tonumber(noctalia.getConfig("max_lines")) or 1
-local maxChars = tonumber(noctalia.getConfig("max_chars")) or 15
+local maxChars = tonumber(noctalia.getConfig("max_chars")) or 35
 local charWidth = tonumber(noctalia.getConfig("char_width")) or 9
 local textAlignment = noctalia.getConfig("text_alignment") or "left"
 local gradientOn = noctalia.getConfig("gradient")
-if gradientOn == nil then gradientOn = true end
+if gradientOn == nil then gradientOn = false end
 local animation = noctalia.getConfig("animation") or "karaoke"
 local showCues = noctalia.getConfig("show_cues")
 if showCues == nil then showCues = true end
@@ -36,26 +36,36 @@ local introMinMs = tonumber(noctalia.getConfig("intro_min_ms")) or 6000
 local interludeMinMs = tonumber(noctalia.getConfig("interlude_min_ms")) or 5000
 local interludeLeadMs = tonumber(noctalia.getConfig("interlude_lead_ms")) or 1000
 local interludeGapMs = tonumber(noctalia.getConfig("interlude_gap_ms")) or 7000
-local cueFontMode = noctalia.getConfig("cue_font_mode") or "follow"
+local cueFontMode = noctalia.getConfig("cue_font_mode") or "custom"
 local cueFontFamily = noctalia.getConfig("cue_font_family") or "sans-serif"
 if cueFontFamily == "" then cueFontFamily = "sans-serif" end
 local displayMode = noctalia.getConfig("display_mode") or "toggle"
 local doubleLine = noctalia.getConfig("double_line")
-if doubleLine == nil then doubleLine = true end
+if doubleLine == nil then doubleLine = false end
 local doubleLineAutoFit = noctalia.getConfig("double_line_auto_fit")
-if doubleLineAutoFit == nil then doubleLineAutoFit = true end
+if doubleLineAutoFit == nil then doubleLineAutoFit = false end
 local doubleLineHeightBudget = tonumber(noctalia.getConfig("double_line_height_budget")) or 26
 local showTranslation = noctalia.getConfig("show_translation")
-if showTranslation == nil then showTranslation = true end
+if showTranslation == nil then showTranslation = false end
 local showRomanization = noctalia.getConfig("show_romanization") == true
 local secondaryLineMode = noctalia.getConfig("secondary_line_mode") or "translation_first"
 local karaokeEnabled = noctalia.getConfig("karaoke_enabled")
 if karaokeEnabled == nil then karaokeEnabled = true end
+local forceKaraoke = noctalia.getConfig("force_karaoke") == true
+local karaokeActiveColor = noctalia.getConfig("karaoke_active_color")
+if karaokeActiveColor == nil or karaokeActiveColor == "" then karaokeActiveColor = activeColor end
+local karaokeInactiveColor = noctalia.getConfig("karaoke_inactive_color")
+if karaokeInactiveColor == nil or karaokeInactiveColor == "" then karaokeInactiveColor = inactiveColor end
+-- Host-managed category selector: visibility only, read so the manifest lint stays clean.
+local settingsPage = noctalia.getConfig("settings_page")
+if settingsPage ~= nil then settingsPage = tostring(settingsPage) end
 local fontFamily = noctalia.getConfig("font_family") or ""
 local primaryFontSize = tonumber(noctalia.getConfig("primary_font_size")) or 0
 local secondaryFontSize = tonumber(noctalia.getConfig("secondary_font_size")) or 10
 local fontWeight = noctalia.getConfig("font_weight") or "normal"
-local fontStyle = noctalia.getConfig("font_style") or "normal"
+local FONT_WEIGHTS = { thin = true, light = true, normal = true, medium = true, semibold = true, bold = true, heavy = true }
+if not FONT_WEIGHTS[fontWeight] then fontWeight = "normal" end
+local fontStyle = noctalia.getConfig("font_style") or "fixed"
 local lineGap = tonumber(noctalia.getConfig("line_gap")) or 2
 local paddingLeft = tonumber(noctalia.getConfig("padding_left")) or 0
 local paddingRight = tonumber(noctalia.getConfig("padding_right")) or 0
@@ -66,7 +76,7 @@ local cover = nil
 local playing = false
 local showMode = displayMode == "track" and "track" or "auto"
 local rendered = false
-local playerInstance = ""
+local hovered = false
 local sourceUsed = ""
 local lyricsLoading = false
 
@@ -84,10 +94,6 @@ local FADE_OUT_MS = 130
 local FADE_IN_MS = 260
 local MARQUEE_HOLD = 1.1
 local BLEND_MS = 350
-
-local function shellQuote(value)
-  return "'" .. tostring(value):gsub("'", "'\\''") .. "'"
-end
 
 local function clamp(value, low, high)
   return math.min(high, math.max(low, value))
@@ -128,6 +134,23 @@ local function textUnits(text)
   local units = 0
   for _, char in ipairs(toChars(text or "")) do units = units + charUnits(char) end
   return units
+end
+
+-- A line may only drive karaoke highlighting when its word timings are complete
+-- and aligned with the displayed characters. Everything else uses line mode.
+local function lineHasWordTiming(line)
+  if type(line) ~= "table" then return false end
+  local times = line.chars
+  if type(times) ~= "table" or #times < 2 then return false end
+  local chars = toChars(line.text or "")
+  if #chars ~= #times then return false end
+  local previous = -1
+  for _, value in ipairs(times) do
+    local timestamp = tonumber(value)
+    if not timestamp or timestamp < 0 or timestamp < previous then return false end
+    previous = timestamp
+  end
+  return times[#times] > times[1]
 end
 
 local function getProgressMs()
@@ -184,8 +207,7 @@ local function getLineInfo()
     -- LRC only marks line starts. Do not stretch a lyric across a long instrumental gap.
     local firstCharTime = line.chars and tonumber(line.chars[1]) or nil
     local lastCharTime = line.chars and tonumber(line.chars[#line.chars]) or nil
-    local hasWordTiming = line.chars and #line.chars >= 2 and firstCharTime and lastCharTime
-      and lastCharTime > firstCharTime
+    local hasWordTiming = lineHasWordTiming(line) and lastCharTime and lastCharTime > firstCharTime
     if hasWordTiming and lastCharTime >= startTime and lastCharTime < nextTime then
       lineEnd = math.min(nextTime, lastCharTime + 600)
     else
@@ -273,10 +295,10 @@ local function getMarqueeOffset(chars)
   return distance * (1 - phase / travelTime)
 end
 
-local function karaokeColor(charTime, charProgress, position, useGradient)
-  if not playing then return inactiveColor end
-  local active = activeColor
-  local inactive = inactiveColor
+local function karaokeColor(charTime, charProgress, position, useGradient, sungColor, unsungColor)
+  local active = sungColor or activeColor
+  local inactive = unsungColor or inactiveColor
+  if not playing then return inactive end
   if charTime and position then
     if not useGradient then
       return position >= charTime and active or inactive
@@ -337,6 +359,9 @@ local function buildLineRow(line, opts)
   local text = type(line) == "table" and line.text or line
   local times = type(line) == "table" and line.chars or nil
   local isCue = opts.cue or (type(line) == "table" and line.cue == true)
+  local wordSync = lineHasWordTiming(line)
+  local perCharFill = wordSync or isCue or forceKaraoke
+  local useKaraokeColors = wordSync and not isCue and not opts.solid and not opts.dim
   local chars = toChars(text or "")
   if #chars == 0 then chars = { " " } end
 
@@ -360,8 +385,18 @@ local function buildLineRow(line, opts)
     local active = playing and activeColor or inactiveColor
     local color = opts.secondary and secondaryColor or (opts.dim and inactiveColor or active)
     if not opts.solid and not opts.dim then
-      local progress = #chars > 1 and (sourceIndex - 1) / (#chars - 1) or 0
-      color = karaokeColor(times and times[sourceIndex], progress, opts.position, opts.useGradient)
+      if perCharFill then
+        local progress = #chars > 1 and (sourceIndex - 1) / (#chars - 1) or 0
+        color = karaokeColor(
+          times and times[sourceIndex], progress, opts.position, opts.useGradient,
+          useKaraokeColors and karaokeActiveColor or nil,
+          useKaraokeColors and karaokeInactiveColor or nil
+        )
+      else
+        -- Line mode: with no usable word timings the whole line is highlighted
+        -- at once and only advances when the next line starts.
+        color = active
+      end
     end
 
     -- Soft viewport edges make cell-by-cell marquee movement less abrupt.
@@ -484,21 +519,27 @@ local function render()
     if info then
       local shownLine, opacity = currentTransitionLine(info)
       if shownLine then
+        local shownActive = shownLine == info.line
+        local renderedWordSync = shownActive and lineHasWordTiming(shownLine)
+        local cueLine = shownActive and info.cue == true
+        local perCharFill = renderedWordSync or cueLine or (forceKaraoke and shownActive)
         local secondary = secondaryText(shownLine)
         local showSecondaryRow = secondaryRowEnabled(secondary) and not shownLine.cue and not info.cue
         local fontScale, effectiveLineGap = compactMetrics(showSecondaryRow, vertical)
         lineNodes[#lineNodes + 1] = buildLineRow(shownLine, {
           key = "current-" .. tostring(info.index),
-          marquee = shownLine == info.line and shouldMarquee(shownLine.text),
+          marquee = shownActive and shouldMarquee(shownLine.text),
           position = position,
-          useGradient = karaokeEnabled and shownLine == info.line and info.synced and useGradient,
-          solid = not karaokeEnabled or not info.synced or (animation ~= "karaoke" and animation ~= "cascade" and animation ~= "wave"),
-          cascade = shownLine == info.line and animation == "cascade",
-          wave = shownLine == info.line and animation == "wave",
-          typewriter = shownLine == info.line and animation == "typewriter",
-          blink = shownLine == info.line and animation == "blink",
+          useGradient = karaokeEnabled and shownActive and info.synced and useGradient and perCharFill,
+          solid = not karaokeEnabled or not info.synced
+            or (animation ~= "karaoke" and animation ~= "cascade" and animation ~= "wave")
+            or not perCharFill,
+          cascade = shownActive and animation == "cascade",
+          wave = shownActive and animation == "wave",
+          typewriter = shownActive and animation == "typewriter",
+          blink = shownActive and animation == "blink",
           opacity = opacity,
-          cue = shownLine == info.line and info.cue == true,
+          cue = cueLine,
           fontScale = fontScale,
           compact = showSecondaryRow and not vertical and doubleLineAutoFit,
         })
@@ -564,7 +605,8 @@ local function render()
   end
 
   local sourceNames = {
-    lrclib = "LRCLIB", netease = "NetEase", splayer = "SPlayer", qqmusic = "QQ Music", kugou = "Kugou",
+    lrclib = "LRCLIB", netease = "NetEase", splayer = "SPlayer", splayer_next = "SPlayer Next",
+    qqmusic = "QQ Music", kugou = "Kugou",
     qishui = "Qishui", apple_music = "Apple Music", spotify = "Spotify",
     musixmatch = "Musixmatch", mpris = "MPRIS", custom = "Custom", cache = "Cache",
   }
@@ -575,33 +617,23 @@ local function render()
   rendered = true
 end
 
-function onClick()
+local function toggleView()
   if displayMode ~= "toggle" then return end
   showMode = showMode == "auto" and "track" or "auto"
   marqueeElapsed = 0
   if rendered then render() end
 end
 
-function onRightClick()
-  if playerInstance == "" then return end
-  noctalia.runAsync("playerctl --player " .. shellQuote(playerInstance) .. " play-pause", function(result)
-    if result.exitCode == 0 then
-      local wasPlaying = playing
-      if wasPlaying then baselinePosition = getProgressMs() * 1000 end
-      playing = not wasPlaying
-      noctalia.state.set("playing", playing)
-      baselineClock = os.clock()
-      render()
-    end
-  end)
+function onClick()
+  toggleView()
 end
 
-function onScroll(axis, steps)
-  if axis ~= "vertical" or playerInstance == "" then return end
-  local direction = tonumber(steps) or 0
-  if direction == 0 then return end
-  local action = direction < 0 and "next" or "previous"
-  noctalia.runAsync("playerctl --player " .. shellQuote(playerInstance) .. " " .. action, function() end)
+function onHover(entered)
+  hovered = entered == true
+end
+
+function onIpc(event, _payload)
+  if event == "toggle-view" and hovered then toggleView() end
 end
 
 function update()
@@ -613,7 +645,6 @@ function update()
   lyrics = noctalia.state.get("lyrics")
   cover = noctalia.state.get("cover")
   playing = noctalia.state.get("playing") == true
-  playerInstance = noctalia.state.get("player_instance") or ""
   sourceUsed = noctalia.state.get("lyrics_source_used") or ""
   lyricsLoading = noctalia.state.get("lyrics_loading") == true
 

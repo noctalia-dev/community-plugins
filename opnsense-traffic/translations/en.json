@@ -1,0 +1,145 @@
+{
+  "errors": {
+    "bad_credentials": "{path} has no key=/secret= lines",
+    "bad_response": "Unexpected answer from the OPNsense API",
+    "detecting": "Detecting the WAN interface…",
+    "forbidden": "API user lacks the privilege \"{privilege}\"",
+    "http": "OPNsense API answered HTTP {status}",
+    "no_credentials": "API key file not found: {path}",
+    "no_default_route": "No interface with a default route found",
+    "no_interface": "No interface set (enter one or turn on auto-detect)",
+    "no_url": "No OPNsense URL set",
+    "unauthorized": "API key rejected (HTTP 401)",
+    "unknown_interface": "Interface \"{name}\" not found on OPNsense",
+    "unreachable": "OPNsense not reachable at {url}"
+  },
+  "panel": {
+    "copy_hint": "Click to copy \"{id}\" for the interface setting",
+    "download": "Download",
+    "hidden_count": {
+      "one": "{count} hidden interface",
+      "other": "{count} hidden interfaces"
+    },
+    "hidden_in_settings": "hidden in settings",
+    "hide": "Hide this interface",
+    "hold_hours": {
+      "one": "Peaks are kept for {count} hour",
+      "other": "Peaks are kept for {count} hours"
+    },
+    "hold_unlimited": "Peaks are kept until reset",
+    "interfaces": "Interfaces",
+    "of_line": "line {line}",
+    "peak": "Peak {peak} at {at} · measured since {since}",
+    "reset_peaks": "Reset peaks",
+    "show": "Show this interface again",
+    "title": "OPNsense Traffic",
+    "upload": "Upload"
+  },
+  "settings": {
+    "allow_insecure_tls": {
+      "description": "Skip certificate checks. Only for a self-signed certificate you cannot replace.",
+      "label": "Allow untrusted certificate"
+    },
+    "auto_detect": {
+      "description": "With no interface set, use the one carrying the default route. Needs the privilege \"Status: Interfaces\".",
+      "label": "Detect WAN automatically"
+    },
+    "credentials_file": {
+      "description": "File with key=… and secret=… lines, as OPNsense downloads it. Keep it chmod 600.",
+      "label": "API key file"
+    },
+    "direction": {
+      "download": "Download",
+      "label": "Direction",
+      "upload": "Upload"
+    },
+    "download_glyph": {
+      "label": "Download glyph"
+    },
+    "glyph_position": {
+      "after": "After",
+      "before": "Before",
+      "label": "Glyph position"
+    },
+    "hidden_interfaces": {
+      "label": "Hidden interfaces",
+      "description": "Identifiers, names or devices to leave out of the panel; their counters are not evaluated. The eye button in the panel hides more on top of this list."
+    },
+    "highlight_color": {
+      "description": "The value fades to this color between the two highlight thresholds (needs a line speed).",
+      "label": "Highlight color"
+    },
+    "highlight_from": {
+      "label": "Highlight from (% of line)",
+      "description": "Below this share of the line speed the value keeps the bar color."
+    },
+    "highlight_full": {
+      "label": "Full highlight at (% of line)",
+      "description": "From this share of the line speed the value has the full highlight color."
+    },
+    "interface": {
+      "description": "Identifier (opt1), name (WAN) or device (pppoe0). The panel lists all of them.",
+      "label": "Interface"
+    },
+    "label_min_width": {
+      "label": "Minimum value width"
+    },
+    "line_down_mbit": {
+      "description": "Your line's bandwidth in Mbit/s, for example from your provider contract. Scales gauge and graph and turns on the highlight. 0 scales to the highest rate seen and never highlights.",
+      "label": "Line speed down (Mbit/s)"
+    },
+    "line_up_mbit": {
+      "description": "Your line's bandwidth in Mbit/s, for example from your provider contract. Scales gauge and graph and turns on the highlight. 0 scales to the highest rate seen and never highlights.",
+      "label": "Line speed up (Mbit/s)"
+    },
+    "peak_hold_hours": {
+      "label": "Keep peaks (hours)",
+      "description": "How long a measured peak counts for the adaptive scale (no line speed set). 0 keeps it until you reset it in the panel. Stored on disk, survives restarts. Does not add API requests."
+    },
+    "poll_interval": {
+      "description": "Seconds between two API requests.",
+      "label": "Refresh interval (s)"
+    },
+    "show_glyph": {
+      "label": "Show glyph"
+    },
+    "show_units": {
+      "label": "Show units"
+    },
+    "show_value": {
+      "label": "Show value"
+    },
+    "speed_compact": {
+      "description": "1.2M instead of 1.2 MB/s",
+      "label": "Compact"
+    },
+    "speed_unit": {
+      "auto": "Auto",
+      "kb": "Kilobytes",
+      "label": "Unit",
+      "mb": "Megabytes"
+    },
+    "upload_glyph": {
+      "label": "Upload glyph"
+    },
+    "url": {
+      "description": "Base URL of the web GUI, e.g. https://opnsense.lan:443",
+      "label": "OPNsense URL"
+    },
+    "visualization": {
+      "gauge": "Gauge",
+      "graph": "Graph",
+      "label": "Visualization",
+      "none": "None"
+    },
+    "wan_interfaces": {
+      "label": "WAN-side interfaces",
+      "description": "Interfaces counted from the firewall side (received = download). All others are counted from the network behind them, so download is what their clients download. Empty: interfaces with a default route plus any with \"wan\" in identifier or name."
+    }
+  },
+  "tooltip": {
+    "download": "Download",
+    "interface": "Interface",
+    "upload": "Upload"
+  }
+}

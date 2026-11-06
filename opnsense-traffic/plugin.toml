@@ -1,0 +1,240 @@
+# OPNsense traffic for Noctalia. The service polls the OPNsense API for the
+# interface byte counters and turns them into rates; the bar widget draws one
+# direction like the built-in network_rx/network_tx widgets, the panel lists
+# every interface.
+
+id = "dmopp/opnsense-traffic"
+name = "OPNsense Traffic"
+version = "1.0.0"
+plugin_api = 42
+author = "dMopp"
+license = "MIT"
+icon = "router"
+description = "Download and upload rate of an OPNsense interface in the bar, styled like the built-in network widgets."
+tags = ["bar", "panel", "service", "network", "indicator"]
+dependencies = ["curl"]
+
+[[setting]]
+key = "url"
+type = "string"
+label_key = "settings.url.label"
+description_key = "settings.url.description"
+default = ""
+
+[[setting]]
+key = "credentials_file"
+type = "file"
+label_key = "settings.credentials_file.label"
+description_key = "settings.credentials_file.description"
+default = "~/.config/noctalia-opnsense/apikey.txt"
+
+[[setting]]
+key = "interface"
+type = "string"
+label_key = "settings.interface.label"
+description_key = "settings.interface.description"
+default = ""
+
+[[setting]]
+key = "wan_interfaces"
+type = "string_list"
+label_key = "settings.wan_interfaces.label"
+description_key = "settings.wan_interfaces.description"
+default = []
+advanced = true
+
+[[setting]]
+key = "hidden_interfaces"
+type = "string_list"
+label_key = "settings.hidden_interfaces.label"
+description_key = "settings.hidden_interfaces.description"
+default = []
+
+[[setting]]
+key = "auto_detect"
+type = "bool"
+label_key = "settings.auto_detect.label"
+description_key = "settings.auto_detect.description"
+default = false
+
+[[setting]]
+key = "poll_interval"
+type = "int"
+label_key = "settings.poll_interval.label"
+description_key = "settings.poll_interval.description"
+default = 2
+min = 1
+max = 60
+
+[[setting]]
+key = "line_down_mbit"
+type = "int"
+label_key = "settings.line_down_mbit.label"
+description_key = "settings.line_down_mbit.description"
+default = 0
+min = 0
+max = 100000
+
+[[setting]]
+key = "line_up_mbit"
+type = "int"
+label_key = "settings.line_up_mbit.label"
+description_key = "settings.line_up_mbit.description"
+default = 0
+min = 0
+max = 100000
+
+[[setting]]
+key = "peak_hold_hours"
+type = "int"
+label_key = "settings.peak_hold_hours.label"
+description_key = "settings.peak_hold_hours.description"
+default = 0
+min = 0
+max = 720
+
+[[setting]]
+key = "highlight_from"
+type = "int"
+label_key = "settings.highlight_from.label"
+description_key = "settings.highlight_from.description"
+default = 50
+min = 0
+max = 100
+
+[[setting]]
+key = "highlight_full"
+type = "int"
+label_key = "settings.highlight_full.label"
+description_key = "settings.highlight_full.description"
+default = 90
+min = 1
+max = 100
+
+[[setting]]
+key = "allow_insecure_tls"
+type = "bool"
+label_key = "settings.allow_insecure_tls.label"
+description_key = "settings.allow_insecure_tls.description"
+default = false
+advanced = true
+
+[[widget]]
+id = "traffic"
+entry = "widget.luau"
+
+  [widget.actions]
+  left = "panel-toggle dmopp/opnsense-traffic:panel"
+
+  [[widget.setting]]
+  key = "direction"
+  type = "select"
+  label_key = "settings.direction.label"
+  default = "download"
+  options = [
+    { value = "download", label_key = "settings.direction.download" },
+    { value = "upload", label_key = "settings.direction.upload" },
+  ]
+
+  [[widget.setting]]
+  key = "speed_unit"
+  type = "select"
+  label_key = "settings.speed_unit.label"
+  default = "auto"
+  options = [
+    { value = "auto", label_key = "settings.speed_unit.auto" },
+    { value = "kb", label_key = "settings.speed_unit.kb" },
+    { value = "mb", label_key = "settings.speed_unit.mb" },
+  ]
+
+  [[widget.setting]]
+  key = "speed_compact"
+  type = "bool"
+  label_key = "settings.speed_compact.label"
+  description_key = "settings.speed_compact.description"
+  default = false
+
+  [[widget.setting]]
+  key = "visualization"
+  type = "select"
+  label_key = "settings.visualization.label"
+  default = "gauge"
+  options = [
+    { value = "gauge", label_key = "settings.visualization.gauge" },
+    { value = "graph", label_key = "settings.visualization.graph" },
+    { value = "none", label_key = "settings.visualization.none" },
+  ]
+
+  [[widget.setting]]
+  key = "show_value"
+  type = "bool"
+  label_key = "settings.show_value.label"
+  default = true
+
+  [[widget.setting]]
+  key = "show_units"
+  type = "bool"
+  label_key = "settings.show_units.label"
+  default = true
+  visible_when = { key = "show_value", values = ["true"] }
+
+  [[widget.setting]]
+  key = "label_min_width"
+  type = "int"
+  label_key = "settings.label_min_width.label"
+  default = 0
+  min = 0
+  max = 200
+  visible_when = { key = "show_value", values = ["true"] }
+
+  [[widget.setting]]
+  key = "show_glyph"
+  type = "bool"
+  label_key = "settings.show_glyph.label"
+  default = true
+
+  [[widget.setting]]
+  key = "download_glyph"
+  type = "glyph"
+  label_key = "settings.download_glyph.label"
+  default = "download"
+  visible_when = { key = "direction", values = ["download"] }
+
+  [[widget.setting]]
+  key = "upload_glyph"
+  type = "glyph"
+  label_key = "settings.upload_glyph.label"
+  default = "upload"
+  visible_when = { key = "direction", values = ["upload"] }
+
+  [[widget.setting]]
+  key = "glyph_position"
+  type = "select"
+  label_key = "settings.glyph_position.label"
+  default = "before"
+  options = [
+    { value = "before", label_key = "settings.glyph_position.before" },
+    { value = "after", label_key = "settings.glyph_position.after" },
+  ]
+  visible_when = { key = "show_glyph", values = ["true"] }
+
+  [[widget.setting]]
+  key = "highlight_color"
+  type = "color"
+  label_key = "settings.highlight_color.label"
+  description_key = "settings.highlight_color.description"
+  default = "error"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 420
+height = "content"
+max_height = 760
+placement = "attached"
+position = "top_left"
+open_near_click = true
+
+[[service]]
+id = "service"
+entry = "service.luau"

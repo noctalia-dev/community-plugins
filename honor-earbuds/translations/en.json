@@ -1,0 +1,52 @@
+{
+  "panel": {
+    "title": "Honor Earbuds",
+    "status": {
+      "connected": "Connected",
+      "disconnected": "Disconnected"
+    },
+    "left": "Left",
+    "right": "Right",
+    "case": "Case",
+    "charging": "Charging",
+    "refresh": "Refresh",
+    "noise_control": "NOISE CONTROL",
+    "noise_requires_both": "Both earbuds are required to change noise control",
+    "mode": {
+      "anc": "Noise Cancellation",
+      "transparency": "Awareness",
+      "off": "Off (Normal)"
+    }
+  },
+  "widget": {
+    "mode": "Mode",
+    "not_connected": "Earbuds not connected",
+    "action": {
+      "left_click": "Open panel",
+      "right_click": "Cycle ANC",
+      "left_click_label": "LMB",
+      "right_click_label": "RMB"
+    }
+  },
+  "notify": {
+    "mode_changed": "ANC mode: %s"
+  },
+  "settings": {
+    "device_mac": {
+      "label": "Device MAC address",
+      "description": "Override Bluetooth MAC address (optional, automatically detected by default)"
+    },
+    "hide_when_disconnected": {
+      "label": "Hide when disconnected",
+      "description": "Hide the widget from the bar when the earbuds are not connected"
+    },
+    "notify_on_connect": {
+      "label": "Notify on connect",
+      "description": "Show a popup notification with battery status upon connection"
+    },
+    "poll_interval": {
+      "label": "Poll interval (ms)",
+      "description": "How often to query earbuds status in milliseconds (default: 2500)"
+    }
+  }
+}

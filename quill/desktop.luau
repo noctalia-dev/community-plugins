@@ -78,7 +78,7 @@ local function render()
     padding = 12,
     fill = "surface",
     radius = 14,
-    border = "outline",
+    border = "outline_variant",
     borderWidth = 1,
   }, children))
 end

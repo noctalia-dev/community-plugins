@@ -3,8 +3,8 @@
 
 id = "nirvam/bitdjinn"
 name = "BitDjinn"
-version = "1.0.0"
-plugin_api = 19
+version = "1.0.1"
+plugin_api = 43
 author = "nirvam"
 license = "MIT"
 dependencies = []

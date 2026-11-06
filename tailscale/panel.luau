@@ -358,7 +358,7 @@ local function toolbar()
 
   if tab == "status" then
     local up = snapshot.running == true
-    return ui.column({ gap = 6, padding = 10, fill = "surface_variant/0.45", radius = 10, align = "stretch" }, {
+    return ui.column({ gap = 6, padding = 10, fill = "surface_container/0.45", radius = 10, align = "stretch" }, {
       ui.row({ gap = 8, align = "center" }, {
         statusIcon(up, 18),
         ui.label({
@@ -441,7 +441,7 @@ local function toolbar()
     if not p then
       return ui.label({ text = tr("panel.select_hint"), color = "on_surface_variant" })
     end
-    return ui.column({ gap = 4, padding = 10, fill = "surface_variant/0.45", radius = 10, align = "stretch" }, {
+    return ui.column({ gap = 4, padding = 10, fill = "surface_container/0.45", radius = 10, align = "stretch" }, {
       ui.row({ gap = 8, align = "center" }, {
         ui.glyph({
           name = p.online and "device-desktop" or "device-desktop-off",
@@ -492,7 +492,7 @@ local function toolbar()
   -- exit nodes tab
   local e = selectedExit()
   if not e then
-    return ui.column({ gap = 6, padding = 10, fill = "surface_variant/0.45", radius = 10, align = "stretch" }, {
+    return ui.column({ gap = 6, padding = 10, fill = "surface_container/0.45", radius = 10, align = "stretch" }, {
       ui.label({ text = tr("panel.select_hint"), color = "on_surface_variant" }),
       ui.row({ gap = 6 }, {
         ui.button({
@@ -505,7 +505,7 @@ local function toolbar()
       }),
     })
   end
-  return ui.column({ gap = 4, padding = 10, fill = "surface_variant/0.45", radius = 10, align = "stretch" }, {
+  return ui.column({ gap = 4, padding = 10, fill = "surface_container/0.45", radius = 10, align = "stretch" }, {
     ui.row({ gap = 8, align = "center" }, {
       ui.glyph({ name = "world", size = 18, color = statusColor(e.online) }),
       ui.label({ text = e.name, fontWeight = "bold", flexGrow = 1, maxLines = 1 }),

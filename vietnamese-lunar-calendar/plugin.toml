@@ -1,7 +1,7 @@
 id = "notoxus/vietnamese-lunar-calendar"
 name = "Vietnamese Lunar Calendar"
-version = "1.1.1"
-plugin_api = 22
+version = "1.1.2"
+plugin_api = 43
 author = "notoxus"
 license = "MIT"
 dependencies = []

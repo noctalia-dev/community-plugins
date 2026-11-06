@@ -220,7 +220,7 @@ local function toolbar()
   local busy = snapshot.busy == true
 
   if tab == "daily" then
-    return ui.column({ gap = 8, padding = 10, fill = "surface_variant/0.45", radius = 10, align = "stretch" }, {
+    return ui.column({ gap = 8, padding = 10, fill = "surface_container/0.45", radius = 10, align = "stretch" }, {
       ui.label({
         text = tr("panel.daily_path", {
           path = snapshot.dailyRel ~= "" and snapshot.dailyRel or "—",
@@ -263,7 +263,7 @@ local function toolbar()
     if not n then
       return ui.label({ text = tr("panel.select_hint"), color = "on_surface_variant" })
     end
-    return ui.column({ gap = 6, padding = 10, fill = "surface_variant/0.45", radius = 10, align = "stretch" }, {
+    return ui.column({ gap = 6, padding = 10, fill = "surface_container/0.45", radius = 10, align = "stretch" }, {
       ui.label({ text = n.rel, fontWeight = "bold", maxLines = 2 }),
       ui.row({ gap = 6 }, {
         ui.button({ text = tr("actions.open_note"), glyph = "external-link", variant = "primary", onClick = "onOpenNote" }),
@@ -343,7 +343,7 @@ local function toolbar()
   return ui.column({
     gap = 8,
     padding = 10,
-    fill = "surface_variant/0.45",
+    fill = "surface_container/0.45",
     radius = 10,
     align = "stretch",
   }, rows)

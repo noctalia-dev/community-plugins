@@ -1,0 +1,71 @@
+{
+  "settings": {
+    "alias": {
+      "label": "Device name",
+      "description": "Name other devices see. Empty uses the hostname."
+    },
+    "save_dir": {
+      "label": "Save folder"
+    },
+    "auto_accept": {
+      "label": "Auto-accept incoming files",
+      "description": "Skip the confirmation prompt. Anyone on your network can then send you files."
+    },
+    "pin": {
+      "label": "PIN",
+      "description": "Senders must enter this PIN before they can send you files. Empty disables it."
+    },
+    "port": {
+      "label": "LocalSend port",
+      "description": "Close the LocalSend app first if it uses the same port."
+    },
+    "control_port": {
+      "label": "Control port",
+      "description": "Loopback port used between the plugin and its background daemon."
+    }
+  },
+  "panel": {
+    "title": "LocalSend",
+    "nearby": "Nearby devices",
+    "no_devices": "No devices found. Open LocalSend on another device.",
+    "transfers": "Transfers",
+    "no_transfers": "No transfers yet.",
+    "rescan": "Rescan",
+    "accept": "Accept",
+    "reject": "Reject",
+    "cancel": "Cancel",
+    "daemon_down": "Daemon not running. Check python3 and openssl are installed.",
+    "saving_to": "Saving to {dir}",
+    "send_tooltip": "Send files to {name}",
+    "send_folder": "Send a folder to {name}",
+    "send_clipboard": "Send clipboard text to {name}",
+    "clipboard_empty": "The clipboard has no text.",
+    "copy": "Copy text",
+    "incoming": "{name} wants to send {count} file(s)",
+    "to": "To {name}",
+    "from": "From {name}",
+    "status": {
+      "pending": "Waiting for you",
+      "waiting": "Waiting for {name}",
+      "receiving": "Receiving",
+      "sending": "Sending",
+      "done": "Done",
+      "rejected": "Rejected",
+      "failed": "Failed",
+      "cancelled": "Cancelled"
+    }
+  },
+  "widget": {
+    "tooltip": "LocalSend",
+    "requests": "{count} incoming request(s)",
+    "active": "{count} transfer(s) in progress"
+  },
+  "notify": {
+    "incoming_title": "LocalSend",
+    "received": "Received {count} file(s) from {name}",
+    "sent": "Sent {count} file(s) to {name}",
+    "failed": "Transfer with {name} failed",
+    "pin_required": "{name} requires a PIN, which sending does not support yet.",
+    "daemon_failed": "LocalSend daemon failed to start"
+  }
+}

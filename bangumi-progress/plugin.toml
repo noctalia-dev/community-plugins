@@ -1,13 +1,20 @@
 id = "mirei124/bangumi-progress"
 name = "Bangumi Progress"
-version = "1.2.0"
-plugin_api = 15
+version = "1.2.2"
+plugin_api = 43
 author = "Mirei124"
 license = "MIT"
 icon = "device-tv"
 description = "Track Bangumi anime and episode progress, browse the airing calendar, and update watched episodes from the panel."
 tags = ["bar", "desktop", "panel", "service", "animation", "media", "network", "productivity"]
 dependencies = ["xdg-open", "python3"]
+
+[[setting]]
+key = "api_base_url"
+type = "string"
+label_key = "settings.api_base_url.label"
+description_key = "settings.api_base_url.description"
+default = "https://api.bgm.tv"
 
 [[setting]]
 key = "access_token"

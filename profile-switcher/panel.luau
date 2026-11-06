@@ -75,11 +75,11 @@ local function profileCard(profile)
 
 		align = "center",
 
-		fill = selected and "primary/0.14" or "surface_variant/0.40",
+		fill = selected and "primary/0.14" or "surface_container/0.40",
 
 		radius = 12,
 
-		border = selected and "primary/0.75" or "outline/0.20",
+		border = selected and "primary/0.75" or "outline_variant/0.20",
 
 		borderWidth = selected and 1.5 or 1,
 
@@ -189,7 +189,7 @@ local function render()
 
 				align = "center",
 
-				fill = "surface_variant/0.25",
+				fill = "surface_container/0.25",
 
 				radius = 12,
 			}, {
@@ -346,7 +346,7 @@ local function render()
 		ui.separator({
 			spacing = 3,
 
-			color = "outline/0.22",
+			color = "outline_variant/0.22",
 		}),
 
 		------------------------------------------------

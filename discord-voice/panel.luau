@@ -191,7 +191,7 @@ local function participantVisual(participant)
       height = 36,
       radius = 18,
       fit = "cover",
-      border = speaking and "primary" or "outline",
+      border = speaking and "primary" or "outline_variant",
       borderWidth = speaking and 2 or 1,
     })
   end
@@ -284,8 +284,8 @@ local function participantRow(participant)
     align = "center",
     paddingH = 10,
     paddingV = 6,
-    fill = speaking and "primary/0.10" or "surface_variant/0.24",
-    border = speaking and "primary/0.55" or "outline/0.32",
+    fill = speaking and "primary/0.10" or "surface_container/0.24",
+    border = speaking and "primary/0.55" or "outline_variant/0.32",
     borderWidth = 1,
     radius = 11,
   }, {
@@ -346,8 +346,8 @@ local function recentChannelRow(channel, favorite)
   }))
   return ui.row({
     key = "recent:" .. channel.id,
-    fill = "surface_variant/0.26",
-    border = "outline/0.34",
+    fill = "surface_container/0.26",
+    border = "outline_variant/0.34",
     borderWidth = 1,
     radius = 10,
     paddingH = 10,
@@ -434,8 +434,8 @@ local function voiceBody()
         gap = 8,
         paddingH = 12,
         paddingV = 12,
-        fill = "surface_variant/0.24",
-        border = "outline/0.34",
+        fill = "surface_container/0.24",
+        border = "outline_variant/0.34",
         borderWidth = 1,
         radius = 11,
       }, {
@@ -466,8 +466,8 @@ local function voiceBody()
 
   return ui.column({ flexGrow = 1, gap = 12, align = "stretch" }, {
     ui.column({
-      fill = "surface_variant/0.24",
-      border = "outline/0.38",
+      fill = "surface_container/0.24",
+      border = "outline_variant/0.38",
       borderWidth = 1,
       radius = 13,
       padding = 13,
@@ -518,8 +518,8 @@ local function voiceBody()
       gap = 9,
       align = "center",
       padding = 8,
-      fill = "surface_variant/0.18",
-      border = "outline/0.30",
+      fill = "surface_container/0.18",
+      border = "outline_variant/0.30",
       borderWidth = 1,
       radius = 12,
     }, {

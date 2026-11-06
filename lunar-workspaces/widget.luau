@@ -45,7 +45,7 @@ local urgentColor = noctalia.getConfig("urgent_color") or "error"
 local occupiedPillStyle = noctalia.getConfig("occupied_pill_style") or "ghost"
 local occupiedColor = noctalia.getConfig("occupied_color") or "secondary"
 local emptyPillStyle = noctalia.getConfig("empty_pill_style") or "ghost"
-local emptyColor = noctalia.getConfig("empty_color") or "surface_variant"
+local emptyColor = noctalia.getConfig("empty_color") or "surface_container"
 
 -- True if an icon setting value looks like an image path rather than an
 -- emoji or plain glyph. Strips a "file://" prefix (added by the native file
@@ -466,7 +466,7 @@ function onConfigChanged()
 	occupiedPillStyle = noctalia.getConfig("occupied_pill_style") or "ghost"
 	occupiedColor = noctalia.getConfig("occupied_color") or "secondary"
 	emptyPillStyle = noctalia.getConfig("empty_pill_style") or "ghost"
-	emptyColor = noctalia.getConfig("empty_color") or "surface_variant"
+	emptyColor = noctalia.getConfig("empty_color") or "surface_container"
 	render(renderedVertical)
 end
 

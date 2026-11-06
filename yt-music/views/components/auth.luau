@@ -48,7 +48,7 @@ end
 
 local function build_status_card()
 	local glyph, color, title = "login", "on_surface_variant", "Not connected"
-	local fill, border = "surface_variant/0.35", nil
+	local fill, border = "surface_container/0.35", nil
 
 	if state.data.status == "ready" then
 		glyph, color, title = "check", "primary", "Connected"
@@ -162,7 +162,7 @@ local function build_browser_cells()
 		local is_hovered = (state.view.hover_key.card == key)
 
 		local glyph, label_color = b.icon, "on_surface"
-		local fill, border = "surface_variant/0.3", "outline"
+		local fill, border = "surface_container/0.3", "outline_variant"
 		local click = function()
 			if state.data.browser == b.id and state.data.status_text:find("Opened") then
 				request("extract", { browser = b.id })
@@ -179,7 +179,7 @@ local function build_browser_cells()
 			end
 		elseif not is_avail then
 			label_color = "on_surface_variant/0.45"
-			fill, border = "surface_variant/0.12", "outline/0.3"
+			fill, border = "surface_container/0.12", "outline_variant/0.3"
 			click = nil
 		elseif is_hovered then
 			label_color, fill, border = "primary", "primary/0.1", "primary/0.5"
@@ -290,8 +290,8 @@ local function health_card(rows)
 		gap = 2,
 		padding = 10,
 		borderWidth = 1,
-		border = "outline/0.3",
-		fill = "surface_variant/0.2",
+		border = "outline_variant/0.3",
+		fill = "surface_container/0.2",
 		radius = theme.radius,
 	}, rows)
 end

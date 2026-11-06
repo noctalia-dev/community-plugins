@@ -111,8 +111,8 @@ local function packageRow(item, adapter_name)
         paddingH = 8,
         paddingV = 8,
         borderWidth = 1,
-        fill = "surface_variant",
-        border = "outline",
+        fill = "surface_container",
+        border = "outline_variant",
         radius = 12,
         align = "start",
         gap = 8
@@ -217,8 +217,8 @@ local function adapterRow(adapter)
             paddingH = 8,
             paddingV = 8,
             borderWidth = 1,
-            fill = "surface_variant",
-            border = "outline",
+            fill = "surface_container",
+            border = "outline_variant",
             radius = 10,
             align = "start",
             gap = 8
@@ -242,17 +242,17 @@ local function checkTaskRow(task)
     local state_options = {
         waiting = {
             glyph = "hourglass",
-            bk_color = "surface_variant",
+            bk_color = "surface_container",
             text_color = "on_surface_variant"
         },
         running = {
             glyph = "refresh",
-            bk_color = "surface_variant",
+            bk_color = "surface_container",
             text_color = "primary"
         },
         done = {
             glyph = "check",
-            bk_color = "surface_variant",
+            bk_color = "surface_container",
             text_color = "on_surface_variant"
         },
         error = {
@@ -275,7 +275,7 @@ local function checkTaskRow(task)
         paddingV = 8,
         borderWidth = 1,
         fill = state_options[task.state].bk_color,
-        border = "outline",
+        border = "outline_variant",
         radius = 4,
         align = "start",
         gap = 4
@@ -289,17 +289,17 @@ local function updateTaskRow(task)
     local state_options = {
         waiting = {
             glyph = "hourglass",
-            bk_color = "surface_variant",
+            bk_color = "surface_container",
             text_color = "on_surface_variant"
         },
         running = {
             glyph = "download",
-            bk_color = "surface_variant",
+            bk_color = "surface_container",
             text_color = "on_surface"
         },
         done = {
             glyph = "check",
-            bk_color = "surface_variant",
+            bk_color = "surface_container",
             text_color = "on_surface_variant"
         },
         error = {
@@ -324,7 +324,7 @@ local function updateTaskRow(task)
         paddingV = 8,
         borderWidth = 1,
         fill = state_options[task.state].bk_color,
-        border = "outline",
+        border = "outline_variant",
         radius = 12,
         gap = 4
     }, {

@@ -108,7 +108,7 @@ local function connectionCard(report, ctx)
   )))
 
   local confirming = ctx.confirmDisconnect ~= nil and fmt.now() < ctx.confirmDisconnect
-  table.insert(children, ui.separator({ color = "outline/0.2" }))
+  table.insert(children, ui.separator({ color = "outline_variant/0.2" }))
   table.insert(children, ui.row({ gap = 10, align = "center" }, {
     parts.caption(tr("panel.account.disconnect_note"), nil, { flexGrow = 1, maxLines = 3 }),
     ui.button({

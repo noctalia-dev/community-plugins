@@ -50,6 +50,7 @@ Widget Specific Settings:
 | `show_glyph` | `bool` | `true` | Show the widget icon. |
 | `show_text` | `bool` | `false` | Show the active layout name as text. |
 | `custom_color` | `string` | `""` | Custom icon/text color (e.g. primary, on_surface). |
+| `update_interval` | `int` | `1000` | Time it takes to update the icon/label (ms) |
 
 ## Notes
 

@@ -22,6 +22,11 @@ local desktopActive = noctalia.state.get(DESKTOP_ACTIVE_KEY) == true
 local handledNonce = nil
 local pollFailures = 0
 local POLL_FAILURE_THRESHOLD = 2
+-- The helper's full error from the last failed poll ({error, stage, message,
+-- errno, ...}). Only its code goes into the published status for the panel's
+-- hint; the rest goes into Copy details.
+local lastError = nil
+local DIAG_TIMEOUT_MS = 30000
 
 -- When nothing else needs live status (no panel/bar/widget) but the mono
 -- setting is on, poll anyway so single-bud detection keeps working — just
@@ -129,6 +134,22 @@ local function republishMono()
 	end
 end
 
+-- The helper always prints JSON, even for errors; no JSON means it didn't
+-- run at all (python3 missing, an import error, killed by the timeout).
+-- Keep the last stderr line so Copy details still has something to show.
+local function helperFailure(result)
+	local stderr = (result and result.stderr) or ""
+	local tail = stderr:match("([^\n]+)\n*$") or ""
+	return {
+		ok = false,
+		connected = false,
+		error = "helper_failed",
+		stage = "launch",
+		message = tail ~= "" and tail or "no output from the helper (timed out or failed to start)",
+		exit_code = result and result.exitCode or nil,
+	}
+end
+
 local function runCtl(args, callback)
 	local mac = deviceMac()
 	if mac == "" then
@@ -143,17 +164,16 @@ local function runCtl(args, callback)
 	table.insert(argv, mac)
 
 	noctalia.runAsync(argv, function(result)
-		if result == nil or result.exitCode ~= 0 or result.stdout == nil or result.stdout == "" then
-			callback(nil)
-			return
+		local ok, parsed = false, nil
+		if result ~= nil and result.stdout ~= nil and result.stdout ~= "" then
+			ok, parsed = pcall(function()
+				return noctalia.json.decode(result.stdout)
+			end)
 		end
-		local ok, parsed = pcall(function()
-			return noctalia.json.decode(result.stdout)
-		end)
 		if ok and type(parsed) == "table" then
 			callback(parsed)
 		else
-			callback(nil)
+			callback(helperFailure(result))
 		end
 	end, CLI_TIMEOUT_MS)
 end
@@ -244,6 +264,7 @@ local function pollStatus()
 	runCtl({ "status" }, function(parsed)
 		if parsed ~= nil and parsed.connected == true then
 			pollFailures = 0
+			lastError = nil
 			if not monoActive then
 				evaluateMonoAuto(parsed.battery)
 				publish(parsed)
@@ -265,16 +286,23 @@ local function pollStatus()
 		end
 		if deviceMac() == "" then
 			pollFailures = 0
+			lastError = nil
 			if monoActive and monoActivatedByAuto then
 				setMono(false, true)
 			end
 			publish({ connected = false, unconfigured = true })
 			return
 		end
-		-- A single failed poll is usually just the advisory BT lock being held by
-		-- a command that's still in flight (e.g. right after set-anc), not a real
-		-- disconnect. Only report "not connected" after it happens twice in a row,
-		-- so a toggle in the panel doesn't flash to "no devices connected".
+		-- The advisory BT lock held by a command still in flight (e.g. right
+		-- after set-anc) isn't a disconnect, and mustn't replace a real error.
+		if parsed ~= nil and parsed.error == "busy" then
+			return
+		end
+		if parsed ~= nil then
+			lastError = parsed
+		end
+		-- Only report "not connected" after two failures in a row, so one
+		-- dropped poll doesn't flash the panel to "not connected".
 		pollFailures += 1
 		if pollFailures >= POLL_FAILURE_THRESHOLD then
 			monoTriggerPolls = 0
@@ -282,14 +310,14 @@ local function pollStatus()
 			if monoActive and monoActivatedByAuto then
 				setMono(false, true)
 			end
-			publish({ connected = false })
+			publish({ connected = false, error = lastError and lastError.error or nil })
 		end
 	end)
 end
 
 local function refreshFromCache()
 	runCtl({ "cached" }, function(parsed)
-		if parsed ~= nil then
+		if parsed ~= nil and parsed.ok ~= false then
 			publish(parsed)
 		end
 	end)
@@ -320,6 +348,21 @@ end
 
 local function setEq(preset)
 	runCtl({ "set-eq", tostring(preset) }, applyResultThenRefresh)
+end
+
+-- level 0 is off; the buds keep the last level for when it's turned back on.
+local function setBass(level)
+	runCtl({ "set-bass", tostring(level) }, applyResultThenRefresh)
+end
+
+local function setBassEnabled(enabled)
+	local bass = (noctalia.state.get(STATUS_KEY) or {}).bass or {}
+	setBass(enabled and math.max(1, bass.level or 1) or 0)
+end
+
+local function modelPresets()
+	local model = (noctalia.state.get(STATUS_KEY) or {}).model or {}
+	return model.eq_presets
 end
 
 local function setLatency(enabled)
@@ -389,6 +432,45 @@ local function forgetDevice()
 	scanDevices(false)
 end
 
+-- Builds a bug-report-ready text (environment, what BlueZ knows, the last
+-- poll's error and a fresh step-by-step attempt) and puts it on the
+-- clipboard. Works without a configured device: the helper guesses one.
+local function copyDetails()
+	local argv = { "python3", ctlPath(), "diag" }
+	local mac = deviceMac()
+	if mac ~= "" then
+		table.insert(argv, "--mac")
+		table.insert(argv, mac)
+	end
+	if lastError ~= nil then
+		table.insert(argv, "--last-error")
+		table.insert(argv, noctalia.json.encode(lastError))
+	end
+	noctalia.notify(noctalia.tr("panel.title"), noctalia.tr("notify.details_collecting"))
+	noctalia.runAsync(argv, function(result)
+		local ok, parsed = false, nil
+		if result ~= nil and result.stdout ~= nil and result.stdout ~= "" then
+			ok, parsed = pcall(function()
+				return noctalia.json.decode(result.stdout)
+			end)
+		end
+		local text
+		if ok and type(parsed) == "table" and type(parsed.text) == "string" then
+			text = parsed.text
+		else
+			-- The helper itself couldn't run; report that much.
+			local failure = helperFailure(result)
+			text = "Nothing Ear diagnostics\n```text\nhelper failed: "
+				.. tostring(failure.message)
+				.. " (exit "
+				.. tostring(failure.exit_code)
+				.. ")\n```\n"
+		end
+		noctalia.copyToClipboard(text, "text/plain")
+		noctalia.notify(noctalia.tr("notify.details_copied_title"), noctalia.tr("notify.details_copied_body"))
+	end, DIAG_TIMEOUT_MS)
+end
+
 local function executeCommand(cmdObj)
 	if type(cmdObj) ~= "table" or not cmdObj.action then
 		return
@@ -404,6 +486,13 @@ local function executeCommand(cmdObj)
 		setAnc(cmdObj.value, cmdObj.strength)
 	elseif cmdObj.action == "set-eq" then
 		setEq(cmdObj.value)
+	elseif cmdObj.action == "set-bass" then
+		local n = tonumber(cmdObj.value)
+		if n ~= nil and n >= 0 and n <= 5 then
+			setBass(n)
+		end
+	elseif cmdObj.action == "set-bass-enabled" then
+		setBassEnabled(shared.toBool(cmdObj.value))
 	elseif cmdObj.action == "set-latency" then
 		setLatency(shared.toBool(cmdObj.value))
 	elseif cmdObj.action == "set-mono" then
@@ -423,6 +512,8 @@ local function executeCommand(cmdObj)
 		selectDevice(cmdObj.value)
 	elseif cmdObj.action == "forget-device" then
 		forgetDevice()
+	elseif cmdObj.action == "copy-details" then
+		copyDetails()
 	elseif cmdObj.action == "panel_open" then
 		panelOpen = true
 		if deviceMac() == "" then
@@ -441,7 +532,9 @@ end
 -- through the panel — e.g. "Discord opens -> set ANC to noise cancellation".
 -- `set-anc` payload is `<mode>` or `<mode>:<strength>` (mode one of
 -- anc/transparency/off, strength one of high/mid/low/adaptive, only
--- meaningful for anc). `set-eq` payload is a preset index from shared.EQ_PRESETS. `set-latency`,
+-- meaningful for anc). `set-eq` payload is a preset index from the model's
+-- preset list (shared.EQ_PRESETS on an Ear (2)). `set-bass` payload is a
+-- bass boost level 1-5, or 0 for off. `set-latency`,
 -- `set-mono`, `set-personal-anc` and `set-sound-profile` payloads are
 -- "0"/"1"/"true"/"false".
 function onIpc(event, payload)
@@ -457,8 +550,13 @@ function onIpc(event, payload)
 		end
 	elseif event == "set-eq" then
 		local n = tonumber(payload)
-		if n ~= nil and shared.isEqPreset(n) then
+		if n ~= nil and shared.isEqPreset(n, modelPresets()) then
 			setEq(n)
+		end
+	elseif event == "set-bass" then
+		local n = tonumber(payload)
+		if n ~= nil and n >= 0 and n <= 5 then
+			setBass(n)
 		end
 	elseif event == "set-latency" then
 		local text = type(payload) == "string" and payload:lower() or ""
@@ -479,6 +577,8 @@ function onIpc(event, payload)
 		selectDevice(payload)
 	elseif event == "forget-device" then
 		forgetDevice()
+	elseif event == "copy-details" then
+		copyDetails()
 	end
 end
 

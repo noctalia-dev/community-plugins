@@ -5,9 +5,9 @@ set -eu
 #
 # Focuses the terminal window a live Claude Code session runs in: walks the
 # session's process ancestors (claude -> shell -> terminal) and focuses the
-# first one that owns a compositor window. Supports niri and Umbriel, the
-# two compositors whose window list carries a pid. Exits 1 when no window
-# was found or the compositor is not supported. Only window ids and pids
+# first one that owns a compositor window. Supports niri, Hyprland and
+# Umbriel, the compositors whose window list carries a pid. Exits 1 when no
+# window was found or the compositor is not supported. Only window ids and pids
 # are read, never window titles.
 
 pid="${1:?usage: focus-claude-session <pid>}"
@@ -32,6 +32,17 @@ if [ -n "${NIRI_SOCKET:-}" ] && command -v niri >/dev/null 2>&1; then
     id=$(niri msg --json windows 2>/dev/null | jq -r --argjson pids "$pids" "$pick")
     [ -n "$id" ] || exit 1
     exec niri msg action focus-window --id "$id"
+fi
+
+# Hyprland: clients carry a pid and a hex address. hyprctl exits 0 even when
+# the dispatch fails, so success is its "ok" reply. Lua-config Hyprland
+# (0.55+) takes hl.dsp.focus; older releases only know focuswindow.
+if [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && command -v hyprctl >/dev/null 2>&1; then
+    id=$(hyprctl clients -j 2>/dev/null | jq -r --argjson pids "$pids" "[ .[] | {id: .address, pid} ] | $pick")
+    [[ "$id" =~ ^0x[0-9a-fA-F]+$ ]] || exit 1
+    [ "$(hyprctl dispatch "hl.dsp.focus({ window = \"address:$id\" })" 2>/dev/null)" = "ok" ] && exit 0
+    [ "$(hyprctl dispatch focuswindow "address:$id" 2>/dev/null)" = "ok" ] && exit 0
+    exit 1
 fi
 
 if command -v umbriel >/dev/null 2>&1 && umbriel windows --json >/dev/null 2>&1; then

@@ -656,8 +656,8 @@ local function cycleBar()
 		gap = 8,
 		padding = 8,
 		radius = 9,
-		fill = "surface_variant/0.45",
-		border = running and "primary/0.55" or "outline/0.35",
+		fill = "surface_container/0.45",
+		border = running and "primary/0.55" or "outline_variant/0.35",
 		borderWidth = 1,
 	}, {
 		ui.label({ text = summary, fontSize = 12, color = "on_surface", flexGrow = 1 }),
@@ -796,7 +796,7 @@ PROPERTY_CONTROLS.color = function(prop, label, value)
 				height = 20,
 				radius = 6,
 				fill = hex,
-				border = "outline",
+				border = "outline_variant",
 				borderWidth = 1,
 				onClick = function()
 					noctalia.openColorPicker(hex, function(picked)
@@ -1154,7 +1154,7 @@ local function openConfig(id, name)
 end
 
 local function tilePreview(item, isSelected, isCurrent)
-	local frame = "outline/0"
+	local frame = "outline_variant/0"
 	if isSelected then
 		frame = "primary"
 	elseif isCurrent then

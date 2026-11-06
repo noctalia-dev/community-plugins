@@ -113,7 +113,7 @@ end
 local function header()
   local state = stateOf()
   local running = state == "running"
-  local stateColor = running and "primary" or (state == "stopped" and "outline" or "error")
+  local stateColor = running and "primary" or (state == "stopped" and "outline_variant" or "error")
   return ui.row({ gap = 8, align = "center" }, {
     ui.image({
       path = noctalia.isDarkMode() and "icon.svg" or "icon-light.svg",
@@ -263,7 +263,7 @@ local function matchesFilter(peer)
 end
 
 local function peerRow(peer)
-  local dotColor = peer.online and "primary" or "outline"
+  local dotColor = peer.online and "primary" or "outline_variant"
   local buttons = {
     ui.button({
       glyph = "copy",
@@ -348,7 +348,7 @@ local function peerRow(peer)
     gap = 8,
     padding = 8,
     align = "center",
-    fill = "surface_variant/0.5",
+    fill = "surface_container/0.5",
     radius = 8,
     opacity = peer.online and 1 or 0.6,
   }, children)

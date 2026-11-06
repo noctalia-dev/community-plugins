@@ -208,7 +208,7 @@ local function selectionToolbar()
     }),
   }
 
-  return ui.column({ gap = 4, padding = 10, fill = "surface_variant/0.45", radius = 10 }, {
+  return ui.column({ gap = 4, padding = 10, fill = "surface_container/0.45", radius = 10 }, {
     ui.row({ gap = 8, align = "center" }, {
       ui.glyph({ name = mounted and "lock-open" or "lock", size = 18, color = statusColor(vol) }),
       ui.label({ text = tostring(vol.name), fontWeight = "bold", flexGrow = 1, maxLines = 1 }),

@@ -1,7 +1,7 @@
 id          = "nilsonlinux/contact-sounds"
 name        = "Contact Notification Sounds"
-version     = "1.5.2"
-plugin_api  = 20
+version     = "1.5.3"
+plugin_api  = 43
 author      = "Nilsonlinux"
 license     = "MIT"
 icon        = "bell-ringing"

@@ -483,7 +483,7 @@ local function toolbar()
     if not s then
       return ui.label({ text = tr("panel.select_hint"), color = "on_surface_variant" })
     end
-    return ui.column({ gap = 4, padding = 10, fill = "surface_variant/0.45", radius = 10, align = "stretch" }, {
+    return ui.column({ gap = 4, padding = 10, fill = "surface_container/0.45", radius = 10, align = "stretch" }, {
       ui.row({ gap = 8, align = "center" }, {
         ui.glyph({ name = "settings", size = 18, color = s.running and "tertiary" or "on_surface_variant" }),
         ui.label({ text = s.name, fontWeight = "bold", flexGrow = 1, maxLines = 1 }),
@@ -510,7 +510,7 @@ local function toolbar()
     if not r then
       return ui.label({ text = tr("panel.select_hint"), color = "on_surface_variant" })
     end
-    return ui.column({ gap = 4, padding = 10, fill = "surface_variant/0.45", radius = 10, align = "stretch" }, {
+    return ui.column({ gap = 4, padding = 10, fill = "surface_container/0.45", radius = 10, align = "stretch" }, {
       ui.row({ gap = 8, align = "center" }, {
         ui.glyph({
           name = lower(r.action) == "block" and "ban" or "shield-check",
@@ -558,7 +558,7 @@ local function toolbar()
         color = "on_surface_variant",
       })
     end
-    return ui.column({ gap = 4, padding = 10, fill = "surface_variant/0.45", radius = 10, align = "stretch" }, {
+    return ui.column({ gap = 4, padding = 10, fill = "surface_container/0.45", radius = 10, align = "stretch" }, {
       ui.row({ gap = 8, align = "center" }, {
         ui.glyph({
           name = l.blocked and "ban" or "arrow-right",
@@ -598,7 +598,7 @@ local function toolbar()
   end
   local title = item.name or item.id
   local detail = item.message or item.description or item.address or ""
-  return ui.column({ gap = 4, padding = 10, fill = "surface_variant/0.45", radius = 10, align = "stretch" }, {
+  return ui.column({ gap = 4, padding = 10, fill = "surface_container/0.45", radius = 10, align = "stretch" }, {
     ui.row({ gap = 8, align = "center" }, {
       ui.glyph({ name = "info-circle", size = 18, color = statusColor(item.ok ~= false) }),
       ui.label({ text = tostring(title), fontWeight = "bold", flexGrow = 1, maxLines = 1 }),

@@ -11,7 +11,7 @@ local time = require("../lib/time.luau")
 
 local M = {}
 
-local CARD_FILL = "surface_variant/0.45"
+local CARD_FILL = "surface_container/0.45"
 local TRACK = "on_surface/0.10"
 
 -- Errors the vendor's login fixes.
@@ -189,7 +189,7 @@ local function accountBody(account, now: number, options): { any }
       table.insert(body, windowRow(window, now, dimmed))
     end
     if snapshot.notes and #snapshot.notes > 0 then
-      table.insert(body, ui.separator({ color = "outline/0.25" }))
+      table.insert(body, ui.separator({ color = "outline_variant/0.25" }))
       table.insert(body, notesBlock(snapshot.notes))
     end
   elseif account.status == "loading" then
@@ -400,7 +400,7 @@ function M.providerCard(provider, now: number, options: Options)
   else
     for i, account in accounts do
       if i > 1 then
-        table.insert(body, ui.separator({ color = "outline/0.25" }))
+        table.insert(body, ui.separator({ color = "outline_variant/0.25" }))
       end
       if account.duplicateOf then
         table.insert(body, duplicateRow(account, options))
@@ -430,7 +430,7 @@ function M.disconnectedRow(provider, options: Options)
   if account.canSignIn then
     table.insert(children, signInButton(account, options))
   end
-  return ui.row({ key = `off-{provider.id}`, align = "center", gap = 10, padding = 10, radius = 12, border = "outline/0.25", borderWidth = 1 }, children)
+  return ui.row({ key = `off-{provider.id}`, align = "center", gap = 10, padding = 10, radius = 12, border = "outline_variant/0.25", borderWidth = 1 }, children)
 end
 
 function M.emptyState()

@@ -115,7 +115,7 @@ local function renderPartitionRow(part)
     return ui.row({
         align = "center",
         justify = "space_between",
-        fill = "surface_variant/0.2",
+        fill = "surface_container/0.2",
         radius = 6,
         paddingV = 6,
         paddingH = 8,
@@ -179,7 +179,7 @@ local function renderDriveCard(drvItem)
     end
 
     return ui.column({
-        fill = "surface_variant/0.3",
+        fill = "surface_container/0.3",
         radius = 8,
         padding = 12,
         gap = 10,
@@ -199,7 +199,7 @@ local function renderDriveCard(drvItem)
             }),
             ui.row({ gap = 4, align = "center" }, driveHeaderActions),
         }),
-        ui.separator({ thickness = 1, color = "surface_variant/0.4" }),
+        ui.separator({ thickness = 1, color = "surface_container/0.4" }),
         -- Partition List
         ui.column({ gap = 6 }, partRows),
     })
@@ -244,7 +244,7 @@ local function render()
     local children = {}
 
     table.insert(children, renderHeaderRow())
-    table.insert(children, ui.separator({ thickness = 1, color = "surface_variant" }))
+    table.insert(children, ui.separator({ thickness = 1, color = "surface_container" }))
 
     local drives = data.drives or {}
     local standalone = data.standalone or {}

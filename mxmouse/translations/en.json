@@ -1,0 +1,8 @@
+{
+  "settings": {
+    "hide_when_off": {
+      "label": "Hide when inactive",
+      "description": "Hide the modifier bar widget when no modifier key is latched."
+    }
+  }
+}

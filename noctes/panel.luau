@@ -194,7 +194,7 @@ local function colorPicker(note)
       align = "center",
       justify = "center",
       fill = fill,
-      border = selected and "on_surface" or "outline/0.4",
+      border = selected and "on_surface" or "outline_variant/0.4",
       borderWidth = selected and 2 or 1,
       onClick = function()
         setColor(note.id, name)

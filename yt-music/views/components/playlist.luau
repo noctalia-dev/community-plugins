@@ -22,7 +22,7 @@ local function playlist_row(item, idx)
 		align = "center",
 		padding = 8,
 		borderWidth = 0,
-		fill = is_hovered and "primary/0.25" or "surface_variant/0.15",
+		fill = is_hovered and "primary/0.25" or "surface_container/0.15",
 		onClick = function()
 			state.view.hover_key.track = nil
 			state.open_playlist(item)
@@ -363,7 +363,7 @@ local function build_playlist_view()
 	end
 	if #shown_sugg > 0 then
 		table.insert(tracks, ui.row({ key = "spacer-suggestions", height = 6, borderWidth = 0, radius = theme.radius }))
-		table.insert(tracks, ui.separator({ key = "sep-suggestions", color = "outline/0.3" }))
+		table.insert(tracks, ui.separator({ key = "sep-suggestions", color = "outline_variant/0.3" }))
 		table.insert(
 			tracks,
 			ui.label({

@@ -20,7 +20,7 @@ local function render()
     local fileName = wallpaper:match("([^/]+)%.%w+$") or wallpaper
 
     table.insert(widgetRows, ui.row({
-      align = "center", justify = "space_between", padding = 8, fill = "surface_variant/0.2", radius = 8
+      align = "center", justify = "space_between", padding = 8, fill = "surface_container/0.2", radius = 8
     }, {
       ui.label({ text = fileName, flexGrow = 1 }),
       ui.button({

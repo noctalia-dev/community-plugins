@@ -1,0 +1,186 @@
+id          = "yahya637/process-monitor"
+name        = "Process Monitor"
+version     = "1.0.1"
+plugin_api  = 43
+author      = "yahya637"
+license     = "MIT"
+icon        = "device-desktop-analytics"
+description = "Which apps use your CPU, RAM, GPU and VRAM: a bar readout, a sortable panel with kill actions, and a desktop widget."
+tags        = ["bar", "panel", "desktop", "service", "system"]
+dependencies = ["python3", "kill"]
+
+# ── Plugin-level settings (shared by every entry) ────────────────────────────
+
+[[setting]]
+key       = "interval_ms"
+type      = "int"
+label_key = "settings.interval_ms.label"
+description_key = "settings.interval_ms.description"
+default   = 2000
+min       = 500
+max       = 10000
+
+[[setting]]
+key       = "cpu_scale"
+type      = "select"
+label_key = "settings.cpu_scale.label"
+description_key = "settings.cpu_scale.description"
+default   = "machine"
+options = [
+  { value = "machine", label_key = "settings.cpu_scale.machine" },
+  { value = "core",    label_key = "settings.cpu_scale.core" },
+]
+
+[[setting]]
+key       = "group_by_app"
+type      = "bool"
+label_key = "settings.group_by_app.label"
+description_key = "settings.group_by_app.description"
+default   = false
+
+[[setting]]
+key       = "rows_per_metric"
+type      = "int"
+label_key = "settings.rows_per_metric.label"
+description_key = "settings.rows_per_metric.description"
+default   = 40
+min       = 5
+max       = 500
+advanced  = true
+
+# ── Entries ──────────────────────────────────────────────────────────────────
+
+[[service]]
+id    = "sampler"
+entry = "service.luau"
+
+[[widget]]
+id    = "bar"
+entry = "bar_widget.luau"
+
+  [[widget.setting]]
+  key       = "display"
+  type      = "select"
+  label_key = "settings.display.label"
+  description_key = "settings.display.description"
+  default   = "both"
+  options = [
+    { value = "top",    label_key = "settings.display.top" },
+    { value = "totals", label_key = "settings.display.totals" },
+    { value = "both",   label_key = "settings.display.both" },
+  ]
+
+  [[widget.setting]]
+  key       = "metric"
+  type      = "select"
+  label_key = "settings.metric.label"
+  description_key = "settings.metric.description"
+  default   = "overall"
+  options = [
+    { value = "overall", label_key = "settings.metric.overall" },
+    { value = "cpu",     label_key = "settings.metric.cpu" },
+    { value = "ram",     label_key = "settings.metric.ram" },
+    { value = "gpu",     label_key = "settings.metric.gpu" },
+    { value = "vram",    label_key = "settings.metric.vram" },
+  ]
+
+  [[widget.setting]]
+  key       = "max_name_length"
+  type      = "int"
+  label_key = "settings.max_name_length.label"
+  default   = 16
+  min       = 0
+  max       = 60
+
+  [[widget.setting]]
+  key       = "show_app_icon"
+  type      = "bool"
+  label_key = "settings.show_app_icon.label"
+  description_key = "settings.show_app_icon.description"
+  default   = false
+
+  [[widget.setting]]
+  key       = "show_gauges"
+  type      = "bool"
+  label_key = "settings.show_gauges.label"
+  default   = true
+
+  [[widget.setting]]
+  key       = "show_temps"
+  type      = "bool"
+  label_key = "settings.show_temps.label"
+  description_key = "settings.show_temps.description"
+  default   = true
+
+  [[widget.setting]]
+  key       = "show_vram"
+  type      = "bool"
+  label_key = "settings.show_vram.label"
+  default   = true
+
+[[panel]]
+id              = "panel"
+entry           = "panel.luau"
+width           = 880
+height          = 760
+placement       = "attached"
+position        = "auto"
+open_near_click = true
+
+[[desktop_widget]]
+id    = "desktop"
+entry = "desktop.luau"
+
+  [[desktop_widget.setting]]
+  key       = "desktop_title"
+  type      = "string"
+  label_key = "settings.desktop_title.label"
+  description_key = "settings.desktop_title.description"
+  default   = "Processes"
+
+  [[desktop_widget.setting]]
+  key       = "desktop_rows"
+  type      = "int"
+  label_key = "settings.desktop_rows.label"
+  default   = 10
+  min       = 1
+  max       = 20
+
+  [[desktop_widget.setting]]
+  key       = "desktop_sort"
+  type      = "select"
+  label_key = "settings.desktop_sort.label"
+  default   = "overall"
+  options = [
+    { value = "overall", label_key = "settings.metric.overall" },
+    { value = "cpu",     label_key = "settings.metric.cpu" },
+    { value = "ram",     label_key = "settings.metric.ram" },
+    { value = "gpu",     label_key = "settings.metric.gpu" },
+    { value = "vram",    label_key = "settings.metric.vram" },
+  ]
+
+  [[desktop_widget.setting]]
+  key       = "desktop_group_by_app"
+  type      = "bool"
+  label_key = "settings.group_by_app.label"
+  description_key = "settings.group_by_app.description"
+  default   = false
+
+  [[desktop_widget.setting]]
+  key       = "desktop_show_totals"
+  type      = "bool"
+  label_key = "settings.desktop_show_totals.label"
+  default   = true
+
+  [[desktop_widget.setting]]
+  key       = "desktop_show_graph"
+  type      = "bool"
+  label_key = "settings.desktop_show_graph.label"
+  description_key = "settings.desktop_show_graph.description"
+  default   = true
+
+  [[desktop_widget.setting]]
+  key       = "desktop_show_icons"
+  type      = "bool"
+  label_key = "settings.desktop_show_icons.label"
+  default   = true

@@ -1,10 +1,10 @@
 {
   "panel": {
     "add_custom_cancel": "Cancel",
-    "add_custom_cover_placeholder": "Cover image URL (optional)",
+    "add_custom_cover_placeholder": "Cover image URL (optional override)",
     "add_custom_name_placeholder": "Station name (optional)",
     "add_custom_save": "Save",
-    "add_custom_subtitle": "Play any stream from a URL",
+    "add_custom_subtitle": "Play any stream from a URL. Artwork is looked up automatically when possible.",
     "add_custom_title": "Add local radio",
     "add_custom_tooltip": "Add local radio",
     "add_custom_url_placeholder": "https://example.com/stream.mp3",
@@ -31,6 +31,8 @@
     "goto_list_tooltip": "Show in list",
     "load_more": "Load more",
     "loading": "Loading...",
+    "mpris_missing_body": "Install the mpv-mpris package so the station name and logo appear in Noctalia's media panel.",
+    "mpris_missing_title": "Media panel integration needs mpv-mpris",
     "next_tooltip": "Next station",
     "play_tooltip": "Play",
     "prev_tooltip": "Previous station",

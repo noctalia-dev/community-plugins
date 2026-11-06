@@ -1,0 +1,30 @@
+{
+  "settings": {
+    "image_path": {
+      "label": "Image",
+      "description": "PNG, JPEG, WebP, SVG, or animated GIF sticker. Animated GIFs need ffmpeg."
+    },
+    "active_opacity": {
+      "label": "Active opacity",
+      "description": "Opacity while audio is playing, from 0 to 1."
+    },
+    "idle_opacity": {
+      "label": "Idle opacity",
+      "description": "Opacity when nothing is playing. 0 hides the sticker completely."
+    },
+    "fade_ms": {
+      "label": "Fade duration (ms)",
+      "description": "How long the fade in and out lasts. 0 switches instantly."
+    },
+    "hysteresis_ms": {
+      "label": "Idle hysteresis (ms)",
+      "description": "How long the sticker waits before fading out after audio stops."
+    }
+  },
+  "widget": {
+    "build_failed": "Could not build the audio helper. Install cc, make, pkg-config and the libpipewire-0.3 headers, then reload the plugin.",
+    "loading_gif": "Loading GIF...",
+    "no_image": "Select an image",
+    "start_failed": "Could not start the audio helper. Check the Noctalia log for details."
+  }
+}

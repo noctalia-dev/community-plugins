@@ -1,10 +1,10 @@
 id = "baizhu/paged-todo"
 name = "Paged Todo List"
-version = "1.0.0"
+version = "1.0.1"
 # API 22 is required for relative Luau modules (require("./data.luau")).
 # Other used capabilities are older: submitOnEnter/multiline input (21),
 # widget gesture actions (14), nowMs (12), and panel drag-and-drop (5).
-plugin_api = 22
+plugin_api = 43
 author = "lonerOrz (v4 original; v5 port by baizhu945)"
 license = "MIT"
 dependencies = []

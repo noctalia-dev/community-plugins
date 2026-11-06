@@ -1,0 +1,745 @@
+#!/usr/bin/env python3
+"""face-watch - presence gate for inhibit-idle-while-watching.
+
+One stateless gate run, driven by the Noctalia plugin service:
+
+  face-watch gate       --camera-path ...   # the gate: check + reset on face
+  face-watch check      --camera-path ...   # one capture+detect, no side effects
+  face-watch autodetect                     # print the camera device
+
+Contract (why this exists): Noctalia's idle chain is about to act (its idle
+behaviour fired `idle-begin` at the plugin). By camera mode we capture ONE
+frame per selected sensor (rgb / ir / smart / robust) and detect a face;
+presence = a face on any selected camera.
+On a face we RESTART the idle countdown and hand the chain back to
+Noctalia: one synthetic Shift tap (`wtype`) reads as user activity, so the
+shell re-arms every idle behaviour and starts counting again (measured
+2026-10-22). No face, any check error, or a locked session: we exit and the
+configured dim/screen-off/lock chain proceeds untouched.
+
+Nothing is held and nothing keeps running: the gate is stateless by design
+(no inhibitors, no timers, no stop file). Failure postures are deliberately
+different: the chain fails OPEN (a broken camera must never keep the session
+awake), the privacy gate fails CLOSED (an unknown lock state never touches the
+camera).
+
+Privacy: frames are decoded in RAM and dropped; nothing is written unless
+--log-file (then only a one-line verdict) or --status-file (verdict metadata).
+The camera's own activity LED is the user-visible signal and cannot be
+suppressed here.
+
+Power: one capture+detect per idle trigger (~0.5 s of camera), never a
+continuous stream.
+
+cv2 is imported lazily so every pure function above the IO layer is testable
+without it (tests/test_face_watch.py).
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import math
+import os
+import re
+import subprocess
+import sys
+import time
+from collections import namedtuple
+
+SCREENSAVER_NAME = "org.freedesktop.ScreenSaver"
+SCREENSAVER_PATHS = ("/ScreenSaver", "/org/freedesktop/ScreenSaver")
+WHO = "inhibit-idle-while-watching"
+
+EXIT_FACE = 0
+EXIT_NO_FACE = 1
+EXIT_ERROR = 2
+EXIT_SKIPPED = 3  # locked / disabled: not an error, not a verdict
+
+# Per-camera result: kind label, device path, outcome code, verdict, faces.
+CheckRow = namedtuple("CheckRow", "kind path code verdict faces")
+
+# Skip reasons are state, not display text: the row carries one of these for
+# EXIT_SKIPPED and the fusion maps it back to the verdict.
+SKIP_LOCKED = "locked"
+SKIP_UNKNOWN = "skipped"
+
+# Camera modes: which sensor(s) one gate run checks.
+#   rgb    the visible-light sensor only (classic behaviour)
+#   ir     the infrared sensor only (dark-room watching)
+#   smart  read the ambient light sensor first: dark -> ir, bright -> rgb
+#   robust check both sensors; presence = face in either (OR fusion)
+CAMERA_MODES = ("rgb", "ir", "smart", "robust")
+DEFAULT_CAMERA_MODE = "robust"
+DEFAULT_IR_THRESHOLD_LUX = 10.0
+DETECTORS = ("haar", "dnn")
+
+# ALS discovery mirrors als-brightness hardware.luau find_illuminance.
+IIO_DIR = "/sys/bus/iio/devices/"
+ILLUMINANCE_ATTRS = ("in_illuminance_raw", "in_illuminance_input")
+IR_NAME = re.compile(r"\bIR\b|infrared", re.I)
+
+
+# ── pure helpers (no IO) ─────────────────────────────────────────────────────
+
+def parse_v4l2_devices(text: str) -> list[tuple[str, list[str]]]:
+    """`v4l2-ctl --list-devices` output -> [(device_path, [all_paths])], in order.
+
+    ASUS FHD webcam: ASUS FHD webca (usb-0000:c4:00.4-1):
+            /dev/video0
+            /dev/video1
+    A blank line separates devices; continuation lines are the device nodes.
+    """
+    devices: list[tuple[str, list[str]]] = []
+    name = None
+    paths: list[str] = []
+    for line in text.splitlines() + [""]:
+        stripped = line.strip()
+        if not stripped:
+            if paths:
+                devices.append((paths[0], list(paths)))
+            name, paths = None, []
+            continue
+        if line.startswith("\t") or line.startswith(" "):
+            if stripped.startswith("/dev/video"):
+                paths.append(stripped)
+        else:
+            name = stripped.rstrip(":")
+    return devices
+
+
+def pick_camera(devices: list[tuple[str, list[str]]], capture_capable: dict[str, bool]) -> str | None:
+    """Best capture node: webcam-named device first, then any capture-capable
+    node, lowest /dev/videoN. capture_capable maps path -> supports video capture
+    (from `v4l2-ctl --list-formats`; metadata nodes say otherwise)."""
+    capable = [p for p, ok in capture_capable.items() if ok]
+    if not capable:
+        return None
+    named = [(primary, paths) for primary, paths in devices
+             if re.search(r"webcam|camera", primary + " " + " ".join(paths), re.I)]
+    ordered: list[str] = []
+    for primary, paths in (named or devices):
+        ordered.extend(paths)
+    for path in ordered:
+        if path in capable:
+            return path
+    return sorted(capable)[0]
+
+
+def parse_card_type(info_text: str) -> str:
+    """`v4l2-ctl -d <node> --info` output -> Card type value ('' when absent)."""
+    for line in info_text.splitlines():
+        m = re.match(r"\s*Card type\s*:\s*(.+?)\s*$", line)
+        if m:
+            return m.group(1)
+    return ""
+
+
+def classify_camera(card_type: str) -> str:
+    """Card type -> 'ir' | 'rgb' | 'unknown'.
+
+    `v4l2-ctl --list-devices` hides the split on a combo webcam (all nodes
+    under one header); only the per-node Card type names the sensor. IR wins
+    when a name mentions both, e.g. "ASUS FHD webcam: ASUS IR camera"."""
+    text = card_type or ""
+    if IR_NAME.search(text):
+        return "ir"
+    if re.search(r"webcam|camera", text, re.I):
+        return "rgb"
+    return "unknown"
+
+
+def pick_by_kind(nodes: list[tuple[str, str]], kind: str) -> str | None:
+    """Best node for 'ir' or 'rgb' from [(path, kind)] (listing order).
+
+    'ir' matches only ir-kind nodes. 'rgb' prefers rgb-kind nodes and falls
+    back to unknown-kind ones (an unnamed capture node is presumed
+    visible-light), so rgb mode keeps working on machines with odd names."""
+    if kind == "ir":
+        for path, k in nodes:
+            if k == "ir":
+                return path
+        return None
+    for path, k in nodes:
+        if k == "rgb":
+            return path
+    for path, k in nodes:
+        if k == "unknown":
+            return path
+    return None
+
+
+def score_threshold(sensitivity: int) -> float:
+    """Sensitivity knob (1..10, 5 default) -> DNN score threshold.
+    Stricter at higher sensitivity: 1 -> 0.35 ... 10 -> 0.90."""
+    s = max(1, min(10, int(sensitivity)))
+    return 0.30 + (s - 1) * 0.06
+
+
+def haar_neighbors(sensitivity: int) -> int:
+    """Sensitivity knob -> Haar minNeighbors (higher = stricter)."""
+    return max(2, min(12, int(sensitivity)))
+
+
+HAAR_CASCADE_FILE = "haarcascade_frontalface_default.xml"
+
+# sha256 of the ONE reviewed model artifact (version-RFB-320.onnx from
+# Linzaer/Ultra-Light-Fast-Generic-Face-Detector-1MB, MIT), pinned 2026-10-22.
+# The file is parsed by OpenCV's C++ ONNX importer, so a planted model is a
+# code-execution vector: refuse anything that is not the reviewed bytes.
+DNN_MODEL_SHA256 = "34cd7e60aeff28744c657de7a3dc64e872d506741de66987f3426f2b79f88017"
+
+# Distro OpenCV builds (Arch python-opencv) ship NO cv2.data — that attribute
+# exists only in the pip wheels. Their Haar XMLs live under
+# /usr/share/opencv*/haarcascades instead (measured 2026-10-22).
+HAAR_CASCADE_DIRS = (
+    "/usr/share/opencv5/haarcascades",
+    "/usr/share/opencv4/haarcascades",
+    "/usr/share/opencv/haarcascades",
+)
+
+
+def resolve_haar_cascade(dirs, exists=os.path.exists) -> str | None:
+    """First existing <dir>/HAAR_CASCADE_FILE in candidate order, else None."""
+    for d in dirs:
+        candidate = os.path.join(d, HAAR_CASCADE_FILE)
+        if exists(candidate):
+            return candidate
+    return None
+
+
+def should_poke(exit_code: int) -> bool:
+    """Reset the idle countdown only on a confirmed face (EXIT_FACE)."""
+    return exit_code == EXIT_FACE
+
+
+def may_capture(locked_state: bool | None) -> bool:
+    """Privacy gate: capture/hold only when the session is KNOWN unlocked.
+
+    Unknown (None) counts as locked — the gate fails closed, unlike the
+    inhibitor policy which fails open (security review 2026-10-22)."""
+    return locked_state is False
+
+
+def parse_locked(payload: str) -> bool | None:
+    """`noctalia msg status` payload -> locked state, or None when unknown.
+
+    Unknown for: empty/malformed JSON, non-object JSON, a missing `locked`
+    key, or a non-boolean value. Anything else is guesswork and would turn a
+    schema drift into capture-on-lockscreen."""
+    try:
+        data = json.loads(payload or "{}")
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(data, dict):
+        return None
+    value = data.get("locked")
+    return value if isinstance(value, bool) else None
+
+
+def select_cameras(mode: str, nodes: list[tuple[str, str]], als_lux: float | None,
+                   threshold_lux: float, camera_path: str = "",
+                   ) -> tuple[list[tuple[str, str]], str | None]:
+    """Resolve a camera mode to concrete nodes. Returns (picks, note); empty
+    picks means no usable camera (the gate reports error, no tap).
+
+    - camera_path overrides every mode: one explicit camera.
+    - rgb/ir are strict: the named kind must exist.
+    - smart decides before the check: below threshold_lux -> ir, at/above ->
+      rgb; an unreadable ALS degrades to robust.
+    - robust checks every available kind (OR fusion) and degrades to whatever
+      single sensor a machine has; smart likewise degrades to the other kind
+      when its preferred sensor is missing — refusing to check would lose the
+      plugin's whole purpose (the idle chain would just act)."""
+    if camera_path:
+        return [(camera_path, "explicit")], f"camera_path override (mode {mode} ignored)"
+    if mode not in CAMERA_MODES:
+        raise ValueError(f"invalid camera_mode {mode!r} "
+                         f"(one of {', '.join(CAMERA_MODES)})")
+    if mode in ("rgb", "ir"):
+        path = pick_by_kind(nodes, mode)
+        return ([(path, mode)], None) if path else ([], None)
+    if mode == "smart":
+        if als_lux is None:
+            picks, _ = select_cameras("robust", nodes, als_lux, threshold_lux)
+            return picks, "smart: ALS unreadable -> robust"
+        want = "ir" if als_lux < threshold_lux else "rgb"
+        path = pick_by_kind(nodes, want)
+        if path:
+            return [(path, want)], None
+        other = "rgb" if want == "ir" else "ir"
+        path = pick_by_kind(nodes, other)
+        if path:
+            return [(path, other)], f"smart: no {want} node -> {other}"
+        return [], None
+    # robust
+    picks = [(path, kind) for kind in ("rgb", "ir")
+             for path in [pick_by_kind(nodes, kind)] if path]
+    note = None
+    if picks and len(picks) < 2:
+        note = f"robust degraded: only [{picks[0][1]}] present"
+    return picks, note
+
+
+def face_kinds(rows: list["CheckRow"]) -> str:
+    """Comma-joined kind labels of the rows that saw a face (verdict bracket)."""
+    return ",".join(r.kind for r in rows if r.code == EXIT_FACE and r.kind)
+
+
+def aggregate_results(rows: list["CheckRow"]) -> tuple[int, str]:
+    """OR fusion over per-camera CheckRows. Precedence face > skipped
+    (locked/unknown) > error > no_face: a face from either sensor is presence;
+    a lock skip reflects session truth; an error outranks a healthy no_face so
+    a broken camera never lets one sensor claim a verdict (robust error
+    semantics: report error, no tap)."""
+    def kinds(code: int) -> str:
+        return ",".join(r.kind for r in rows if r.code == code and r.kind)
+
+    def bracket(code: int) -> str:
+        k = kinds(code)
+        return f" [{k}]" if k else ""
+
+    if any(r.code == EXIT_FACE for r in rows):
+        n = max(r.faces for r in rows if r.code == EXIT_FACE)
+        return EXIT_FACE, f"face ({n})" + bracket(EXIT_FACE)
+    if any(r.code == EXIT_SKIPPED for r in rows):
+        base = (SKIP_LOCKED if any(r.verdict == SKIP_LOCKED for r in rows
+                                   if r.code == EXIT_SKIPPED) else SKIP_UNKNOWN)
+        return EXIT_SKIPPED, base + bracket(EXIT_SKIPPED)
+    if any(r.code == EXIT_ERROR for r in rows):
+        return EXIT_ERROR, "error" + bracket(EXIT_ERROR)
+    return EXIT_NO_FACE, "no_face" + bracket(EXIT_NO_FACE)
+
+
+def box_iou(a, b) -> float:
+    """Intersection-over-union of two [x1, y1, x2, y2] boxes."""
+    ix1, iy1 = max(a[0], b[0]), max(a[1], b[1])
+    ix2, iy2 = min(a[2], b[2]), min(a[3], b[3])
+    iw, ih = max(0.0, ix2 - ix1), max(0.0, iy2 - iy1)
+    inter = iw * ih
+    if inter <= 0:
+        return 0.0
+    area_a = max(0.0, a[2] - a[0]) * max(0.0, a[3] - a[1])
+    area_b = max(0.0, b[2] - b[0]) * max(0.0, b[3] - b[1])
+    union = area_a + area_b - inter
+    return inter / union if union > 0 else 0.0
+
+
+def decode_dnn_faces(score_rows, box_rows, threshold: float, iou_limit: float = 0.4) -> int:
+    """Distinct face count from ULFG-style output rows.
+
+    score_rows: per-anchor [background, face] scores; box_rows: [x1, y1, x2, y2].
+    The raw net fires one box per anchor (~10 per real face, measured 2026-10-22),
+    so faces are counted after greedy NMS on the face score."""
+    candidates = [(float(row[1]), [float(v) for v in box])
+                  for row, box in zip(score_rows, box_rows) if float(row[1]) >= threshold]
+    candidates.sort(key=lambda c: c[0], reverse=True)
+    kept = []
+    for _score, box in candidates:
+        if all(box_iou(box, k) <= iou_limit for k in kept):
+            kept.append(box)
+    return len(kept)
+
+
+# ── camera / detect IO ───────────────────────────────────────────────────────
+
+def read_text(path: str) -> str | None:
+    """Whole file, None when unreadable (default injected reader for ALS)."""
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            return fh.read()
+    except OSError:
+        return None
+
+
+def find_illuminance(list_dir=os.listdir, read=read_text) -> str | None:
+    """Path of the ambient-light attr, mirroring als-brightness
+    hardware.luau find_illuminance: attrs outermost (in_illuminance_raw
+    preferred on ANY device), devices in lexicographic order — the exact
+    choices the ALS plugin made, so both plugins read the same sensor."""
+    try:
+        names = sorted(str(n) for n in (list_dir(IIO_DIR) or [])
+                       if re.fullmatch(r"iio:device\d+", str(n)))
+    except OSError:
+        return None
+    for attr in ILLUMINANCE_ATTRS:
+        for name in names:
+            path = IIO_DIR + name + "/" + attr
+            if read(path) is not None:
+                return path
+    return None
+
+
+def read_illuminance_lux(list_dir=os.listdir, read=read_text) -> float | None:
+    """Ambient lux = raw x in_illuminance_scale (missing scale file = 1.0;
+    the IIO convention applies the scale to input attrs too). None on anything
+    missing, malformed or non-finite (nan/inf float-parse fine but make the
+    comparison meaningless) — smart mode then degrades to robust."""
+    path = find_illuminance(list_dir, read)
+    if path is None:
+        return None
+    try:
+        raw = float((read(path) or "").strip())
+    except ValueError:
+        return None
+    scale_text = read(os.path.dirname(path) + "/in_illuminance_scale")
+    try:
+        scale = 1.0 if scale_text is None else float(scale_text.strip())
+    except ValueError:
+        return None
+    lux = raw * scale
+    return lux if math.isfinite(lux) else None
+
+
+def list_video_nodes() -> list[tuple[str, list[str]]]:
+    """`v4l2-ctl --list-devices` parsed to [(primary_path, all_paths)]."""
+    try:
+        listed = subprocess.run(["v4l2-ctl", "--list-devices"], capture_output=True,
+                                text=True, timeout=5)
+    except (OSError, subprocess.TimeoutExpired):
+        return []
+    return parse_v4l2_devices(listed.stdout or "")
+
+
+def probe_node(path: str) -> tuple[bool, str]:
+    """(capture_capable, card_type) for one v4l2 node."""
+    capable, card = False, ""
+    try:
+        probe = subprocess.run(["v4l2-ctl", "-d", path, "--list-formats"],
+                               capture_output=True, text=True, timeout=5)
+        capable = "Capture" in (probe.stdout or "")
+    except (OSError, subprocess.TimeoutExpired):
+        capable = False
+    try:
+        info = subprocess.run(["v4l2-ctl", "-d", path, "--info"],
+                              capture_output=True, text=True, timeout=5)
+        card = parse_card_type(info.stdout or "")
+    except (OSError, subprocess.TimeoutExpired):
+        card = ""
+    return capable, card
+
+
+def probe_capture_nodes() -> list[tuple[str, str]]:
+    """[(path, kind)] for every capture-capable node, in listing order.
+    The rgb/ir split is only visible per node (Card type): --list-devices
+    groups a combo webcam's sensors under one header."""
+    nodes: list[tuple[str, str]] = []
+    for _primary, paths in list_video_nodes():
+        for path in paths:
+            capable, card = probe_node(path)
+            if capable:
+                nodes.append((path, classify_camera(card)))
+    return nodes
+
+
+def autodetect_camera() -> str | None:
+    devices = list_video_nodes()
+    if not devices:
+        return None
+    capable: dict[str, bool] = {}
+    for _primary, paths in devices:
+        for path in paths:
+            capable[path] = probe_node(path)[0]
+    return pick_camera(devices, capable)
+
+
+def capture_frame(camera: str, width: int) -> "object":
+    """One frame from the camera as a cv2 BGR image, via ffmpeg -> stdout pipe.
+
+    The frame never touches disk. MJPEG on the pipe keeps the transfer small;
+    `height` follows a 4:3 sensor (this host's UVC camera)."""
+    import cv2  # lazy: tests never import it
+
+    height = max(1, width * 3 // 4)
+    cmd = ["ffmpeg", "-hide_banner", "-loglevel", "error",
+           "-f", "v4l2", "-video_size", f"{width}x{height}",
+           "-i", camera, "-frames:v", "1",
+           "-f", "image2pipe", "-vcodec", "mjpeg", "-"]
+    try:
+        proc = subprocess.run(cmd, capture_output=True, timeout=15)
+    except subprocess.TimeoutExpired as err:
+        raise RuntimeError(f"camera capture timed out on {camera}") from err
+    if proc.returncode != 0 or not proc.stdout:
+        tail = (proc.stderr or b"").decode("utf-8", "replace").strip()[-200:]
+        raise RuntimeError(f"camera capture failed on {camera}: {tail}")
+    img = cv2.imdecode(_buffer(proc.stdout), cv2.IMREAD_COLOR)
+    if img is None:
+        raise RuntimeError(f"captured frame from {camera} did not decode")
+    return img
+
+
+def _buffer(raw: bytes) -> "object":
+    import numpy as np  # lazy
+
+    return np.frombuffer(raw, dtype=np.uint8)
+
+
+def detect_faces(img, detector: str, sensitivity: int) -> int:
+    """Face count in a BGR frame under the chosen detector. Raises on bad config."""
+    import cv2  # lazy
+
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    # Detect on a small frame: Haar cost is superlinear and faces near the
+    # camera dominate a 320px-wide image easily.
+    small = cv2.resize(gray, (320, max(1, 320 * gray.shape[0] // gray.shape[1])))
+    if detector == "haar":
+        wheel_dir = getattr(getattr(cv2, "data", None), "haarcascades", None)
+        dirs = ([wheel_dir] if wheel_dir else []) + list(HAAR_CASCADE_DIRS)
+        path = resolve_haar_cascade(dirs)
+        if path is None:
+            raise RuntimeError("haar cascade data not found; tried: " + ", ".join(dirs))
+        cascade = cv2.CascadeClassifier(path)
+        if cascade.empty():
+            raise RuntimeError("haar cascade failed to load")
+        found = cascade.detectMultiScale(
+            small, scaleFactor=1.1, minNeighbors=haar_neighbors(sensitivity),
+            minSize=(24, 24))
+        return len(found)
+    if detector == "dnn":
+        model = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "face-dnn.onnx")
+        if not os.path.exists(model):
+            raise RuntimeError("dnn detector selected but assets/face-dnn.onnx is missing")
+        if not model_digest_ok(model):
+            raise RuntimeError("face-dnn.onnx does not match the pinned sha256 "
+                               f"{DNN_MODEL_SHA256} (refusing to load it; see README Security)")
+        net = cv2.dnn.readNetFromONNX(model)
+        blob = cv2.dnn.blobFromImage(cv2.resize(img, (320, 240)), 1.0 / 127.5,
+                                     (320, 240), (127.5, 127.5, 127.5), swapRB=True)
+        net.setInput(blob)
+        scores, boxes = net.forward(["scores", "boxes"])
+        score_rows = scores[0] if getattr(scores, "ndim", 0) > 2 else scores
+        box_rows = boxes[0] if getattr(boxes, "ndim", 0) > 2 else boxes
+        return decode_dnn_faces(score_rows, box_rows, score_threshold(sensitivity))
+    raise RuntimeError(f"unknown detector: {detector}")
+
+
+# ── lock guard ───────────────────────────────────────────────────────────────
+
+def session_locked() -> bool | None:
+    """Locked state via `noctalia msg status`; None when unknown (treat as locked)."""
+    try:
+        proc = subprocess.run(["noctalia", "msg", "status"], capture_output=True,
+                              text=True, timeout=5)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if proc.returncode != 0:
+        return None
+    return parse_locked(proc.stdout or "")
+
+
+# ── status / log files ───────────────────────────────────────────────────────
+
+def _open_private(path: str, flags: int):
+    """0600 + O_NOFOLLOW: status/log files carry occupancy patterns, and the
+    plugin data dir is not a trust boundary against the same UID (2026-10-22)."""
+    return os.fdopen(os.open(path, flags | os.O_NOFOLLOW, 0o600), "w", encoding="utf-8")
+
+
+def write_status(path: str | None, **fields) -> None:
+    if not path:
+        return
+    fields.setdefault("updated_at", time.time())
+    tmp = path + ".tmp"
+    with _open_private(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC) as fh:
+        json.dump(fields, fh)
+    os.replace(tmp, path)
+
+
+def log_line(log_path: str | None, text: str) -> None:
+    if not log_path:
+        return
+    fd = os.open(log_path, os.O_WRONLY | os.O_CREAT | os.O_APPEND | os.O_NOFOLLOW, 0o600)
+    os.fchmod(fd, 0o600)  # pre-existing file may have looser modes
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        fh.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} {text}\n")
+
+
+# ── commands ─────────────────────────────────────────────────────────────────
+
+def model_digest_ok(path: str, expected: str = DNN_MODEL_SHA256) -> bool:
+    """sha256 of `path` equals the pinned digest of the reviewed model."""
+    import hashlib
+
+    digest = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest() == expected
+
+
+def check_camera(camera: str, kind: str, args) -> tuple[int, str, int]:
+    """One check on one camera -> (exit_code, verdict, faces). Never raises:
+    a failing camera becomes an EXIT_ERROR row for the fusion. Capture only on
+    KNOWN unlocked (privacy gate), checked at check start and again
+    immediately before the frame."""
+    try:
+        locked = session_locked()
+        if not may_capture(locked):
+            return EXIT_SKIPPED, (SKIP_LOCKED if locked else SKIP_UNKNOWN), 0
+        # Re-check as late as possible so the privacy gate covers the widest
+        # possible window before capture.
+        locked = session_locked()
+        if not may_capture(locked):
+            return EXIT_SKIPPED, (SKIP_LOCKED if locked else SKIP_UNKNOWN), 0
+        img = capture_frame(camera, args.capture_width)
+        faces = detect_faces(img, args.detector, args.sensitivity)
+    except Exception as err:  # noqa: BLE001 - one camera must not kill the fusion
+        log_line(args.log_file, f"check {camera} ({kind}) failed: {err}")
+        return EXIT_ERROR, "error", 0
+    return ((EXIT_FACE, f"face ({faces})", faces) if faces > 0
+            else (EXIT_NO_FACE, "no_face", 0))
+
+
+def run_gate_checks(args) -> tuple[list["CheckRow"], float | None]:
+    """Shared pipeline for check/gate: lock-gate first (before any device
+    probe — a locked session sees no v4l2 traffic at all), resolve the mode,
+    then one lock-gated check per camera."""
+    override = bool(args.camera_path)
+    locked = session_locked()
+    if not may_capture(locked):
+        return [CheckRow("", "", EXIT_SKIPPED,
+                         SKIP_LOCKED if locked else SKIP_UNKNOWN, 0)], None
+    als_lux = None
+    if args.camera_mode == "smart" and not override:
+        als_lux = read_illuminance_lux()
+    nodes = [] if override else probe_capture_nodes()
+    picks, note = select_cameras(args.camera_mode, nodes, als_lux,
+                                 args.ir_threshold_lux, args.camera_path or "")
+    if note:
+        log_line(args.log_file, note)
+    if not picks:
+        raise RuntimeError(
+            f"no camera usable for mode {args.camera_mode!r} (set camera_path)")
+    rows = [CheckRow(kind, path, *check_camera(path, kind, args))
+            for path, kind in picks]
+    return rows, als_lux
+
+
+def cmd_check(args) -> int:
+    rows, _als = run_gate_checks(args)
+    code, verdict = aggregate_results(rows)
+    log_line(args.log_file,
+             f"check mode={args.camera_mode} detector={args.detector} -> {verdict}")
+    print(verdict)
+    return code
+
+
+def cmd_autodetect(args) -> int:
+    camera = autodetect_camera()
+    if not camera:
+        print("none", file=sys.stderr)
+        return EXIT_ERROR
+    print(camera)
+    return 0
+
+
+def poke_idle(log_path: str | None) -> bool:
+    """Reset AND re-arm the idle chain with one synthetic Shift tap.
+
+    Real input is the only poke that takes the shell's `resumed` path: a
+    caffeine inhibit/release pair restarts the timers but leaves a fired
+    behaviour spent (measured 2026-10-22 on umbriel: no re-fire within 90 s),
+    while an input tap re-arms every behaviour (re-fire at tap + timeout).
+    A bare modifier tap types nothing into applications; wtype injects it
+    through the virtual-keyboard protocol.
+
+    Sends the tap unconditionally: callers must re-check the lock state
+    immediately before calling (see cmd_gate) so input never lands on a
+    lockscreen."""
+    try:
+        subprocess.run(["wtype", "-M", "shift", "-m", "shift"],
+                       capture_output=True, text=True, timeout=5)
+    except (OSError, subprocess.TimeoutExpired) as err:
+        log_line(log_path, f"wtype shift tap failed: {err}")
+        return False
+    log_line(log_path, "reset idle countdown (wtype shift tap)")
+    return True
+
+
+def cmd_gate(args) -> int:
+    """The production path: mode-resolved checks, then reset the idle
+    countdown when either sensor saw a face (OR fusion).
+
+    Stateless on purpose -- nothing is held, nothing keeps running. On any
+    non-face outcome (no face, error, locked) we exit and the configured idle
+    chain proceeds untouched."""
+    started = time.time()
+    if args.status_file:
+        write_status(args.status_file, state="checking", since=started)
+    try:
+        rows, als_lux = run_gate_checks(args)
+        code, verdict = aggregate_results(rows)
+    except Exception as err:  # noqa: BLE001 - fail open: no poke, chain proceeds
+        log_line(args.log_file, f"gate error: {err}")
+        if args.status_file:
+            write_status(args.status_file, state="idle", last_result="error",
+                         checks=1, since=started, ended_at=time.time())
+        print("error")
+        return EXIT_ERROR
+    if should_poke(code):
+        # Lock re-check immediately before the tap (review 2026-10-22): capture
+        # and detection can span up to ~15 s and the session can lock mid-check;
+        # synthetic input on a lockscreen would wake it. Same fail-closed
+        # predicate as the capture gate: unknown lock state refuses the tap.
+        locked = session_locked()
+        if may_capture(locked):
+            poke_idle(args.log_file)
+        else:
+            reason = "locked" if locked else "lock state unknown"
+            log_line(args.log_file,
+                     f"tap refused ({reason} after check; seen: {verdict})")
+            code = EXIT_SKIPPED
+            verdict = f"{SKIP_LOCKED if locked else SKIP_UNKNOWN} [{face_kinds(rows)}]"
+    if args.status_file:
+        status = dict(state="idle", last_result=verdict, checks=len(rows),
+                      camera=",".join(r.path for r in rows if r.path),
+                      detector=args.detector, mode=args.camera_mode,
+                      cameras={r.kind: r.verdict for r in rows if r.kind},
+                      since=started, ended_at=time.time())
+        if als_lux is not None:
+            status["als_lux"] = als_lux
+        write_status(args.status_file, **status)
+    log_line(args.log_file,
+             f"gate mode={args.camera_mode} detector={args.detector} -> {verdict}")
+    print(verdict)
+    return code
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(prog="face-watch")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    def common(p: argparse.ArgumentParser) -> None:
+        p.add_argument("--camera-path", default="", help="v4l2 device; empty = autodetect")
+        p.add_argument("--detector", choices=DETECTORS, default="haar")
+        p.add_argument("--sensitivity", type=int, default=5, help="1 loose .. 10 strict")
+        p.add_argument("--capture-width", type=int, default=640)
+        p.add_argument("--camera-mode", default=DEFAULT_CAMERA_MODE,
+                       help="rgb | ir | smart | robust")
+        p.add_argument("--ir-threshold-lux", type=float,
+                       default=DEFAULT_IR_THRESHOLD_LUX,
+                       help="smart mode: below this ambient lux use the IR camera")
+        p.add_argument("--log-file", default=None)
+
+    p_check = sub.add_parser("check")
+    common(p_check)
+    p_check.set_defaults(func=cmd_check)
+
+    p_auto = sub.add_parser("autodetect")
+    p_auto.set_defaults(func=cmd_autodetect)
+
+    p_gate = sub.add_parser("gate")
+    common(p_gate)
+    p_gate.add_argument("--status-file", default=None)
+    p_gate.set_defaults(func=cmd_gate)
+
+    args = parser.parse_args(argv)
+    try:
+        return args.func(args)
+    except Exception as err:  # noqa: BLE001 - CLI boundary
+        print(f"face-watch: {err}", file=sys.stderr)
+        return EXIT_ERROR
+
+
+if __name__ == "__main__":
+    sys.exit(main())

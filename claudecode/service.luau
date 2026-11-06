@@ -13,6 +13,9 @@
 
 local scriptPath = `{noctalia.pluginDir()}/get-claude-usage`
 local depsOk = noctalia.commandExists("jq") and noctalia.commandExists("curl")
+-- runAsync kills the process after 5 s unless told otherwise; a large Claude Code
+-- history takes longer than that to scan. 60 s is the host's maximum.
+local FETCH_TIMEOUT_MS = 60000
 local fetching = false
 local started = false
 
@@ -59,7 +62,7 @@ local function fetch()
 
     noctalia.state.set("usage", data)
     publishStatus("ready")
-  end)
+  end, FETCH_TIMEOUT_MS)
 
   if not launched then
     fetching = false

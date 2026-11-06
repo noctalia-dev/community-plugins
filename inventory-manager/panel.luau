@@ -139,7 +139,7 @@ local function createColorDot(colorName)
         height = 12,
         align = "center",
         justify = "center",
-        border = "outline",
+        border = "outline_variant",
         borderWidth = 1
     })
 end
@@ -165,7 +165,7 @@ end
 
 local function createTotalCapsule(total)
     return ui.row({
-        fill = "surface_variant/0.5",
+        fill = "surface_container/0.5",
         radius = 12,
         paddingH = 10,
         paddingV = 4,
@@ -470,7 +470,7 @@ render = function()
     local headerButtons = {}
     table.insert(headerButtons, ui.button({
         glyph = "plus", variant = "outline", controlSize = "sm",
-        tooltip = noctalia.tr("panel.add_product"), border = "outline", borderWidth = 1,
+        tooltip = noctalia.tr("panel.add_product"), border = "outline_variant", borderWidth = 1,
         onClick = function()
             if showAddForm then 
                 cancelEdit()
@@ -482,27 +482,27 @@ render = function()
     }))
     table.insert(headerButtons, ui.button({
         glyph = "download", variant = "outline", controlSize = "sm",
-        tooltip = noctalia.tr("panel.export"), border = "outline", borderWidth = 1,
+        tooltip = noctalia.tr("panel.export"), border = "outline_variant", borderWidth = 1,
         onClick = function() exportStock() end
     }))
     table.insert(headerButtons, ui.button({
         glyph = "upload", variant = "outline", controlSize = "sm",
-        tooltip = noctalia.tr("panel.import"), border = "outline", borderWidth = 1,
+        tooltip = noctalia.tr("panel.import"), border = "outline_variant", borderWidth = 1,
         onClick = function() pendingImport = true render() end
     }))
     table.insert(headerButtons, ui.button({
         glyph = "refresh", variant = "outline", controlSize = "sm",
-        tooltip = noctalia.tr("panel.refresh"), border = "outline", borderWidth = 1,
+        tooltip = noctalia.tr("panel.refresh"), border = "outline_variant", borderWidth = 1,
         onClick = function() noctalia.state.set("inventory.cmd", { op = "refresh" }) render() end
     }))
     table.insert(headerButtons, ui.button({
         glyph = "settings", variant = "outline", controlSize = "sm",
-        tooltip = noctalia.tr("panel.settings"), border = "outline", borderWidth = 1,
+        tooltip = noctalia.tr("panel.settings"), border = "outline_variant", borderWidth = 1,
         onClick = function() noctalia.openSettings() end
     }))
     table.insert(headerButtons, ui.button({
         glyph = "close", variant = "outline", controlSize = "sm",
-        tooltip = noctalia.tr("panel.close"), border = "outline", borderWidth = 1,
+        tooltip = noctalia.tr("panel.close"), border = "outline_variant", borderWidth = 1,
         onClick = function() panel.close() end
     }))
     
@@ -528,7 +528,7 @@ render = function()
     if #displayCategories > 0 then
         local allCatChildren = {}
         table.insert(allCatChildren, ui.row({
-            fill = selectedCategory == "all" and "primary" or "surface_variant/0.5",
+            fill = selectedCategory == "all" and "primary" or "surface_container/0.5",
             radius = 12, paddingH = 10, paddingV = 4, align = "center", justify = "center",
             onClick = function() selectedCategory = "all" render() end
         }, {
@@ -543,7 +543,7 @@ render = function()
             local total = getCategoryTotal(cat)
             local isSelected = selectedCategory == cat
             table.insert(allCatChildren, ui.row({
-                fill = isSelected and "primary" or "surface_variant/0.5",
+                fill = isSelected and "primary" or "surface_container/0.5",
                 radius = 12, paddingH = 10, paddingV = 4, align = "center", justify = "center",
                 onClick = function() selectedCategory = cat render() end
             }, {
@@ -567,7 +567,7 @@ render = function()
         end
         
         table.insert(headerChildren, ui.column({
-            gap = 4, padding = { 4, 6 }, radius = 6, fill = "surface_variant/0.08", align = "stretch"
+            gap = 4, padding = { 4, 6 }, radius = 6, fill = "surface_container/0.08", align = "stretch"
         }, catRows))
     end
     
@@ -734,7 +734,7 @@ render = function()
         end
         
         table.insert(column, ui.column({
-            gap = 6, padding = 8, radius = 8, fill = "surface_variant/0.35", align = "stretch"
+            gap = 6, padding = 8, radius = 8, fill = "surface_container/0.35", align = "stretch"
         }, formContainer))
     end
     
@@ -744,10 +744,10 @@ render = function()
         table.insert(column, ui.column({
             gap = 12, align = "center", padding = 32, flexGrow = 1, justify = "center"
         }, {
-            ui.glyph({ name = "package", size = 48, color = "outline" }),
+            ui.glyph({ name = "package", size = 48, color = "outline_variant" }),
             ui.label({ 
                 text = (selectedCategory ~= "all") and noctalia.tr("panel.no_category") or noctalia.tr("panel.no_products"),
-                color = "outline", fontSize = 14 
+                color = "outline_variant", fontSize = 14 
             }),
             ui.button({
                 text = noctalia.tr("panel.add_first"), variant = "primary",
@@ -834,7 +834,7 @@ render = function()
             
             local row2Elements = {}
             table.insert(row2Elements, ui.row({
-                border = "outline", borderWidth = 1, radius = 10, paddingH = 8, paddingV = 2, align = "center", justify = "center"
+                border = "outline_variant", borderWidth = 1, radius = 10, paddingH = 8, paddingV = 2, align = "center", justify = "center"
             }, {
                 ui.label({ text = product.category or "Geral", fontSize = 10, color = "on_surface_variant", fontWeight = "medium" })
             }))
@@ -865,11 +865,11 @@ render = function()
             table.insert(mainColumnChildren, ui.row({ gap = 8, align = "center" }, row2Elements))
             table.insert(productRowChildren, ui.column({ flexGrow = 1, gap = 2 }, mainColumnChildren))
             
-            -- Card background uses "surface_variant/0.35" for better visibility
+            -- Card background uses "surface_container/0.35" for better visibility
             table.insert(rows, ui.row({
                 key = "product-" .. product.id, gap = 8, padding = 8, radius = 6,
-                fill = isHovered and "surface_variant/0.5" or "surface_variant/0.35",
-                border = isHovered and "outline" or "surface_variant/0.5", borderWidth = 1,
+                fill = isHovered and "surface_container/0.5" or "surface_container/0.35",
+                border = isHovered and "outline_variant" or "surface_container/0.5", borderWidth = 1,
                 align = "center", justify = "space_between", onHover = onCardHover
             }, productRowChildren))
         end

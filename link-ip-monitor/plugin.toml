@@ -1,7 +1,7 @@
 id           = "nilsonlinux/link-ip-monitor"
 name         = "Link/IP Monitor"
-version      = "1.0.2"
-plugin_api   = 14
+version      = "1.0.3"
+plugin_api   = 43
 author       = "Nilsonlinux"
 license      = "MIT"
 icon         = "activity"

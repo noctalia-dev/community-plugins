@@ -1,4 +1,4 @@
-local PANEL_ID = "dunarand/bookmarks:panel"
+local shared = require("./shared.luau")
 
 local open = false
 
@@ -16,7 +16,7 @@ local function render()
 	barWidget.setText(noctalia.getConfig("text"))
 end
 
-noctalia.state.watch("bookmarks_open", function(value)
+noctalia.state.watch(shared.STATE_OPEN, function(value)
 	open = value == true
 	render()
 end)
@@ -26,5 +26,5 @@ function update()
 end
 
 function onClick()
-	noctalia.togglePanel(PANEL_ID)
+	noctalia.togglePanel(shared.PANEL_ID)
 end

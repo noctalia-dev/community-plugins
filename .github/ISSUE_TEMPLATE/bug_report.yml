@@ -37,11 +37,16 @@ body:
         - als-brightness
         - ambient-sounds
         - anilist
+        - aocctl
+        - arch-audit
         - arch-updater
+        - ask-claude
         - asus-fan
         - asus-fans-controller-ec
         - asus-gpu-mode
+        - audio-sticker
         - audio-switcher
+        - autoclicker
         - awwwall
         - ayet-kosesi
         - bangumi-progress
@@ -62,14 +67,18 @@ body:
         - calibre
         - case-convert
         - cat
+        - cc-usage
+        - charge-mode
         - cider
         - claude-cockpit
         - claude-companion
+        - claude-operator
         - claude-sessions
         - claudecode
         - cmd-runner
         - codexbar-meter
         - color_picker
+        - competitive-programming-contest-tracker
         - config-swap
         - contact-sounds
         - containers
@@ -87,6 +96,7 @@ body:
         - dnf-updater
         - dns-switcher
         - drive-health
+        - dropkitty
         - dropwall
         - ds4-color
         - emoji-picker
@@ -108,17 +118,22 @@ body:
         - headroom
         - headsetcontrol
         - herdr
+        - honor-earbuds
         - hotspot
         - hover-widgets
         - hypr-layout-switcher
         - hypr-screen-mirror
         - hypr-submap
+        - hyprland-minimize
         - hyprland-settings
         - hyprland-visual-editor
+        - icons
         - ideapad-conservation-mode
         - iio_lock
         - imagemagick-clock
+        - inhibit-idle-while-watching
         - input-echo-bar
+        - internal-keyboard
         - inventory-manager
         - ip-monitor
         - jalali_calendar
@@ -128,6 +143,7 @@ body:
         - keyboard-state
         - keychron-battery
         - keymap
+        - keysmith
         - keyviz
         - kineticwe-layouts
         - kwallet-secrets
@@ -137,6 +153,8 @@ body:
         - lid-guard
         - link-ip-monitor
         - llamanager
+        - localsend
+        - localsend-plus
         - lrc
         - lunar-calendar
         - lunar-workspaces
@@ -149,11 +167,16 @@ body:
         - media-island
         - media-lyrics
         - media-player-icon
+        - mic-denoise
         - mihomo-control
         - mimir
         - mini-docker
         - misr-quran-radio
+        - modernclock
+        - mullvad
+        - murattal
         - mx-control
+        - mxmouse
         - nan-usage
         - ncs-visualizer
         - network-control
@@ -169,9 +192,11 @@ body:
         - niri-ribbon
         - niri-rules-studio
         - niri-workspace-preview
+        - niri-workspace-stack
         - nix-monitor
         - nix-search
         - nix-status
+        - nixos-updates
         - noctaproton-vpn
         - noctes
         - noctwhspr
@@ -182,14 +207,17 @@ body:
         - obs-control
         - obs-integration
         - obsidian
+        - obsidian-vault-switcher
         - ocr
         - omniroute-quota
         - omp-launcher
         - opencode-companion
         - opencode-go-usage
+        - opencode-monitor
         - opencodex-bar
         - openvpn3
         - opnsense
+        - opnsense-traffic
         - oppo-pods
         - owntone-control
         - paged-todo
@@ -207,6 +235,7 @@ body:
         - portforward
         - printers
         - prismlauncher-instances
+        - process-monitor
         - processes
         - procmon
         - profile-switcher
@@ -214,10 +243,13 @@ body:
         - pulsar-mouse
         - qr-share
         - qrcode
+        - quick-alarm
+        - quickask
         - quill
         - quranwidget
         - radio
         - razer
+        - rbw-enhanced
         - reading-list
         - region-recorder
         - remmina
@@ -227,23 +259,32 @@ body:
         - rum-updates
         - run-path
         - saved-desktop-widgets
+        - screen-capture
+        - screen-mirror
         - screen-toolkit
+        - scroll-indicator
+        - settings-to-nix
         - share-wifi
         - sharednd
         - shelf
         - shell-command
         - shelly
+        - shift
+        - shloka
         - sing-box-status
+        - sonolith
         - sony_headphones
         - soundcore-buds
         - special-workspaces
         - speedtest-meter
+        - split-reset
         - spotify
         - spotify-lyrics
         - spotify-media
         - ssh-launcher
         - stdout
         - sticky-notes
+        - super-caffeine
         - super-productivity
         - sway-mode
         - sway-scratchpad
@@ -255,6 +296,8 @@ body:
         - taildrop
         - tailnet
         - tailscale
+        - task-warrior
+        - terminal-widgets
         - theme-switcher
         - thinkpad-fan
         - thinkpad-led
@@ -263,13 +306,19 @@ body:
         - tmux-provider
         - todo
         - todoist
+        - todoist-manager
+        - token-monitor
         - topgrade-wrapper
+        - typing-stats
         - udiskie
         - um5606_fan_state
+        - umami
         - umbriel-displays
         - umbriel-monitor-control
+        - umbriel-submap
         - undershell
         - upbeat
+        - usb-manager
         - usbeehive
         - vial_keymap
         - vidi
@@ -281,17 +330,21 @@ body:
         - vpn-manager
         - vrchat-status
         - w-engine
+        - wallpaper-deck
         - wallpaper-switcher
         - wallpaper-widget
         - warp
+        - wayvibes
         - web-launcher
         - web-search
         - webapp-maker
         - wfmu
         - wireview-pro-ii
         - wl-screen-mirror
+        - workspace-restore
         - world-radio
         - xwayland
+        - youtube-explorer
         - youtube-search
         - yt-music
         - zakker

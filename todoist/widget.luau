@@ -149,8 +149,8 @@ local function render()
     barWidget.setGlyph(noctalia.getConfig("glyph") or "checkbox")
     if tasks == nil then
         barWidget.setText("?")
-        barWidget.setColor("outline")
-        barWidget.setGlyphColor("outline")
+        barWidget.setColor("outline_variant")
+        barWidget.setGlyphColor("outline_variant")
         barWidget.setTooltip(err or "")
         return
     end

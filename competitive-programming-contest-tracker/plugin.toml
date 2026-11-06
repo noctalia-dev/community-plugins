@@ -1,0 +1,100 @@
+id          = "quantinium/competitive-programming-contest-tracker"
+name        = "Competitive Programming Contest Tracker"
+version     = "0.1.1"
+plugin_api  = 43
+author      = "quantinium"
+license     = "MIT"
+icon        = "trophy"
+description = "Codeforces, LeetCode, CodeChef and AtCoder contest tracker with reminders and an upsolving list."
+tags        = ["productivity"]
+dependencies = ["xdg-open", "notify-send"]
+
+[[setting]]
+key             = "refresh_minutes"
+type            = "int"
+label_key       = "settings.refresh_minutes.label"
+description_key = "settings.refresh_minutes.description"
+default         = 30
+min             = 5
+max             = 240
+
+[[setting]]
+key             = "hide_longer_than_days"
+type            = "int"
+label_key       = "settings.hide_longer_than_days.label"
+description_key = "settings.hide_longer_than_days.description"
+default         = 3
+min             = 0
+max             = 60
+
+[[setting]]
+key             = "past_days"
+type            = "int"
+label_key       = "settings.past_days.label"
+description_key = "settings.past_days.description"
+default         = 7
+min             = 1
+max             = 30
+
+[[setting]]
+key             = "reminders_enabled"
+type            = "bool"
+label_key       = "settings.reminders_enabled.label"
+description_key = "settings.reminders_enabled.description"
+default         = true
+
+[[setting]]
+key             = "remind_minutes"
+type            = "int"
+label_key       = "settings.remind_minutes.label"
+description_key = "settings.remind_minutes.description"
+default         = 30
+min             = 0
+max             = 1440
+visible_when    = { key = "reminders_enabled", values = ["true"] }
+
+[[setting]]
+key             = "remind_at_start"
+type            = "bool"
+label_key       = "settings.remind_at_start.label"
+description_key = "settings.remind_at_start.description"
+default         = true
+visible_when    = { key = "reminders_enabled", values = ["true"] }
+
+[[service]]
+id    = "fetcher"
+entry = "service.luau"
+
+[[widget]]
+id    = "next"
+entry = "widget.luau"
+
+[[panel]]
+id        = "panel"
+entry     = "panel.luau"
+width     = 420
+height    = "fill"
+placement = "floating"
+position  = "center_right"
+
+[[desktop_widget]]
+id    = "upcoming"
+entry = "desktop.luau"
+
+  [[desktop_widget.setting]]
+  key             = "widget_width"
+  type            = "int"
+  label_key       = "settings.widget_width.label"
+  description_key = "settings.widget_width.description"
+  default         = 340
+  min             = 240
+  max             = 640
+
+  [[desktop_widget.setting]]
+  key             = "visible_items"
+  type            = "int"
+  label_key       = "settings.visible_items.label"
+  description_key = "settings.visible_items.description"
+  default         = 5
+  min             = 1
+  max             = 12

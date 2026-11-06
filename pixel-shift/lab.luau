@@ -70,7 +70,7 @@ end
 
 local function card(children, props)
 	props = props or {}
-	props.fill = props.fill or "surface_variant"
+	props.fill = props.fill or "surface_container"
 	props.radius = props.radius or 14
 	props.padding = props.padding or NEAR
 	props.gap = props.gap or 10
@@ -105,7 +105,7 @@ local function segmented(options, value, field: string, onCard: boolean?)
 			}),
 		}))
 	end
-	return ui.row({ fill = if onCard then "surface" else "surface_variant", radius = 999, padding = 3, gap = 2, align = "center" }, items)
+	return ui.row({ fill = if onCard then "surface" else "surface_container", radius = 999, padding = 3, gap = 2, align = "center" }, items)
 end
 
 -- Hotspot pins: the glow's strength follows the spot's level; spots

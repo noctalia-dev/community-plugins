@@ -37,6 +37,9 @@ local function loadPanel(entry, failure, config)
         nowMs = function() return 1000 end,
             -- The host substitutes; the harness only needs the key back to assert on.
         tr = function(key, args)
+            if key == "ui.regenerates_in" and args then return "Regenerates " .. args.amount .. " in " .. args.time end
+            if key == "ui.regenerates_at" and args then return "Regenerates " .. args.amount .. " at " .. args.time end
+            if (key == "ui.priority_unused" or key == "ui.priority_remaining") and args then return key .. ": " .. args.percent end
             if key == "ui.session" then return "Session" end
             if key == "ui.weekly" then return "Weekly" end
             if key == "ui.quota_reset" and args then return key .. ": " .. args.time end
@@ -295,7 +298,7 @@ end
 local function cards(node)
     local out = {}
     for _, column in ipairs(collect(node, "column")) do
-        if column.props.fill == "surface_variant/0.34" and #collect(column, "progress") > 0 then
+        if column.props.fill == "surface_container/0.34" and #collect(column, "progress") > 0 then
             out[#out + 1] = column
         end
     end
@@ -766,7 +769,7 @@ assert(codexLayout.props.paddingRight == agyViewport.props.paddingRight,
 local providerCards = cards(codexWithResetTree)
 local auxiliaryCard = nil
 for _, column in ipairs(collect(codexWithResetTree, "column")) do
-    if has(labels(column), "Reset credits") and column.props.fill == "surface_variant/0.34" then
+    if has(labels(column), "Reset credits") and column.props.fill == "surface_container/0.34" then
         auxiliaryCard = column
     end
 end
@@ -1424,4 +1427,71 @@ end
 local stale = spendTree(500, 25, "used", true)
 assert(#collect(stale, "progress") == 0 and has(labels(stale), "$1.25 / $5.00"),
     "failed providers must preserve old spend text without a live meter")
+end
+
+local refillMetric = { type = "metric", label = "Weekly", percent = 30, percent_precise = 30.6,
+    reading = "left", regen = "2%", detail = "Regenerates 2% in 9h 20m",
+    reset_at = "2026-10-16T18:00:00Z", severity = "low" }
+for _, mode in ipairs({ "used", "remaining" }) do
+    local fixture = loadPanel({ id = "synthetic", display_name = "Synthetic", status = "ready",
+        metrics = { refillMetric }, sections = { refillMetric } }, nil, { usage_display = mode })
+    assert(has(labels(fixture), "69.4% ui.remaining"), "Synthetic keeps the same remaining precision in either mode")
+    assert(has(labels(fixture), "Regenerates 2% in 2h 0m"), "the refill countdown uses the live fixed clock")
+    assert(not has(labels(fixture), "Regenerates 2% in 9h 20m"), "static refill text must not duplicate the live countdown")
+    assert(math.abs(collect(fixture, "progress")[1].props.progress - 0.7) < 0.0001,
+        "refill meters use remaining quota even with global used mode")
+end
+
+-- Optional priorities belong to the selected account's existing model cards.
+do
+local function account(id, name)
+    local metric={type="metric",label="Weekly",percent=20,window_secs=604800}
+    return {id=id,display_name=name,status="ready",metrics={metric},sections={metric}}
+end
+local p={config={show_priorities=true}}
+p.report={entries={account("openai@work","Codex work"),account("anthropic","Claude")},
+ ranking={{entry_id="anthropic",status="on_track",unused_percent=0},
+          {entry_id="openai@work",status="priority",unused_percent=61,remaining_percent=80,
+           reset_at="2026-10-17T16:00:00Z",urgent=true}},
+ recommendation={entry_id="openai@work"}}
+p.tree,p.publish,p.env,p.opened,p.copied,p.notifications,p.host=loadPanel(p.report,nil,p.config)
+assert(has(labels(p.tree),"ui.priority_recommended"),"the selected account's card includes its suggestion immediately")
+assert(has(labels(cards(p.tree)[1]),"ui.priority_unused: 61"),"priority information is inside the existing quota card")
+assert(not has(labels(p.tree),"ui.priority_unused: 0"),"another account's projection must not leak into the selected card")
+for _,button in ipairs(collect(p.tree,"button")) do
+    assert(button.props.text~="ui.priorities" and button.props.text~="ui.usage","there is no separate priorities view")
+end
+p.host.values.selected="anthropic"; p.env.update()
+assert(has(labels(cards(p.host.tree())[1]),"ui.priority_unused: 0")
+    and not has(labels(p.host.tree()),"ui.priority_recommended"),"provider tabs update the embedded information")
+p.config.show_priorities=false; p.env.onConfigChanged()
+assert(not has(labels(p.host.tree()),"ui.priority_unused: 0"),"turning the option off removes the embedded section")
+assert(#p.opened==0,"embedded priorities never launch commands")
+p.config.show_priorities=true; p.env.onConfigChanged()
+p.report.entries[1]=withSections(WINDOWS)
+p.report.entries[1].id="antigravity"
+p.report.ranking={{entry_id="antigravity",status="priority",unused_percent=44}}
+p.report.recommendation={entry_id="antigravity"}
+p.report.entries={p.report.entries[1]}
+p.host.publishState("report",p.report);p.host.values.selected="antigravity";p.env.update()
+assert(#cards(p.host.tree())==2,"Antigravity keeps its two existing model cards")
+for _,card in ipairs(cards(p.host.tree())) do
+    assert(has(labels(card),"ui.priority_unused: 44") and has(labels(card),"ui.priority_scope_account"),
+        "each model card includes the reported account estimate with its scope stated")
+end
+p.report.entries[1].stale=true
+p.report.ranking[1].session_exhausted=true
+p.host.publishState("report",p.report)
+assert(not has(labels(p.host.tree()),"ui.priority_recommended"),"cached information cannot read as a fresh suggestion")
+assert(has(labels(p.host.tree()),"ui.stale_hint") and has(labels(p.host.tree()),"ui.priority_session_blocked"),
+    "embedded details retain both cache and exhausted-session notices")
+end
+
+do
+local oldMetric={type="metric",label="Weekly",percent=30,percent_precise=30.6,reading="left",value="30.6%"}
+local oldEntry={id="synthetic",display_name="Synthetic",status="error",stale=true,
+ error="schema mismatch: quota response changed",metrics={oldMetric},sections={oldMetric}}
+local recordTree=loadPanel(oldEntry,nil,{usage_display="used"})
+assert(has(labels(recordTree),"Weekly 69.4% ui.remaining"),
+ "cached percentages preserve the same precision and reading direction as live values")
 end

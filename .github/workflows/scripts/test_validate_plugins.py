@@ -129,6 +129,68 @@ class PluginConfigAccessorTests(unittest.TestCase):
         self.assertEqual(validate_plugins.obsolete_config_accessors(source), [])
 
 
+class ColorRoleTests(unittest.TestCase):
+    def problems(self, source: str, plugin_api: object = 43) -> list[str]:
+        return validate_plugins.color_role_problems(source, plugin_api)
+
+    def test_rejects_retired_roles_in_color_props(self) -> None:
+        source = "\n".join(
+            [
+                'ui.row({ fill = "surface_variant" })',
+                'ui.row({ fill = excluded and "surface_variant/0.5" or "surface" })',
+                'ui.row({ border = "outline", borderWidth = 1 })',
+                "ui.label({ color = if dim then 'outline' else 'on_surface' })",
+            ]
+        )
+        self.assertEqual(
+            self.problems(source),
+            [
+                "color role 'surface_variant' on line 1 was retired; use 'surface_container'",
+                "color role 'surface_variant' on line 2 was retired; use 'surface_container'",
+                "color role 'outline' on line 3 was retired; use 'outline_variant'",
+                "color role 'outline' on line 4 was retired; use 'outline_variant'",
+            ],
+        )
+
+    def test_rejects_surface_variant_outside_color_props(self) -> None:
+        self.assertEqual(
+            self.problems('local bg = "surface_variant"'),
+            ["color role 'surface_variant' on line 1 was retired; use 'surface_container'"],
+        )
+
+    def test_accepts_outline_button_variant(self) -> None:
+        source = "\n".join(
+            [
+                'ui.button({ variant = "outline", fill = "primary" })',
+                'ui.button({ fill = "primary", variant = active and "primary" or "outline" })',
+                'ui.button({ variant = pick(fill == x, "outline") })',
+            ]
+        )
+        self.assertEqual(self.problems(source), [])
+
+    def test_accepts_current_roles_and_ignores_comments(self) -> None:
+        source = "\n".join(
+            [
+                'ui.label({ color = "on_surface_variant" })',
+                '-- fill = "surface_variant"',
+                '--[[ border = "outline" ]]',
+                'local doc = [[fill = "surface_variant"]]',
+            ]
+        )
+        self.assertEqual(self.problems(source), [])
+
+    def test_container_roles_require_api_43(self) -> None:
+        source = 'ui.row({ fill = "surface_container", border = "outline_variant/0.4" })'
+        self.assertEqual(self.problems(source, 43), [])
+        self.assertEqual(
+            self.problems(source, 42),
+            [
+                "color role 'surface_container' on line 1 requires plugin_api >= 43",
+                "color role 'outline_variant' on line 1 requires plugin_api >= 43",
+            ],
+        )
+
+
 class TranslationKeyTests(unittest.TestCase):
     def test_accepts_valid_keys(self) -> None:
         for key in (
@@ -377,6 +439,17 @@ class SettingTypeTests(unittest.TestCase):
         errors = self.validate_setting({"type": "string_map", "default": {}}, plugin_api=5)
         self.assertTrue(any("string_map requires plugin_api >= 6" in error for error in errors))
 
+    def test_accepts_secret_string(self) -> None:
+        self.assertEqual(self.validate_setting({"type": "string", "default": "", "secret": True}, plugin_api=47), [])
+
+    def test_secret_requires_plugin_api_47(self) -> None:
+        errors = self.validate_setting({"type": "string", "secret": True}, plugin_api=46)
+        self.assertTrue(any("secret requires plugin_api >= 47" in error for error in errors))
+
+    def test_rejects_secret_on_non_string_type(self) -> None:
+        errors = self.validate_setting({"type": "int", "default": 1, "secret": True}, plugin_api=47)
+        self.assertTrue(any("secret is only valid for" in error for error in errors))
+
 
 class WidgetActionsTests(unittest.TestCase):
     def validate_actions(self, entry: dict, plugin_api: object = 14) -> list[str]:
@@ -455,6 +528,15 @@ class PanelLayerTests(unittest.TestCase):
                 errors = self.validate_layer({"layer": "overlay"}, api)
                 self.assertTrue(any("requires plugin_api >= 30" in error for error in errors))
 
+    def test_accepts_follow_from_api_49(self) -> None:
+        self.assertEqual(self.validate_layer({"layer": "follow"}, 49), [])
+
+    def test_rejects_follow_below_api_49(self) -> None:
+        self.assertEqual(
+            self.validate_layer({"layer": "follow"}, 48),
+            ['example/plugin.toml: panel[0]: layer "follow" requires plugin_api >= 49'],
+        )
+
     def test_rejects_invalid_layers_and_types(self) -> None:
         for layer in ("background", "bottom", "Overlay", "", 1, True, [], {}):
             with self.subTest(layer=layer):
@@ -463,6 +545,70 @@ class PanelLayerTests(unittest.TestCase):
 
     def test_layer_remains_optional_on_older_api(self) -> None:
         self.assertEqual(self.validate_layer({}, 29), [])
+
+
+class PanelContentHeightTests(unittest.TestCase):
+    def validate_panel(self, entry: dict, plugin_api: object = 42) -> list[str]:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plugin_dir = root / "example"
+            plugin_dir.mkdir()
+            (plugin_dir / "panel.luau").write_text("", encoding="utf-8")
+            validator = validate_plugins.Validator(root)
+            validator.validate_entries(
+                plugin_dir / "plugin.toml",
+                {"plugin_api": plugin_api, "panel": [{"id": "panel", "entry": "panel.luau", **entry}]},
+                {},
+            )
+            return validator.errors
+
+    def test_accepts_content_height_from_api_42(self) -> None:
+        for api in (42, 43):
+            for placement in ("floating", "attached"):
+                with self.subTest(api=api, placement=placement):
+                    self.assertEqual(self.validate_panel(
+                        {"height": "content", "max_height": 560, "placement": placement}, api), [])
+
+    def test_rejects_content_height_below_api_42(self) -> None:
+        for api in (41, None, "42", True):
+            with self.subTest(api=api):
+                errors = self.validate_panel({"height": "content", "max_height": 560}, api)
+                self.assertTrue(any("requires plugin_api >= 42" in error for error in errors))
+
+    def test_requires_max_height_for_content(self) -> None:
+        errors = self.validate_panel({"height": "content"})
+        self.assertTrue(any("requires max_height" in error for error in errors))
+
+    def test_rejects_invalid_max_height(self) -> None:
+        for value in (0, -1, True, "560", [], {}, float("inf"), float("nan")):
+            with self.subTest(value=value):
+                errors = self.validate_panel({"height": "content", "max_height": value})
+                self.assertTrue(any("max_height must be a positive number" in error for error in errors))
+
+    def test_rejects_max_height_without_content_height(self) -> None:
+        for height in (None, 300, "fill"):
+            with self.subTest(height=height):
+                entry = {"max_height": 560}
+                if height is not None:
+                    entry["height"] = height
+                errors = self.validate_panel(entry)
+                self.assertTrue(any('max_height requires height = "content"' in error for error in errors))
+
+    def test_rejects_content_width(self) -> None:
+        errors = self.validate_panel({"width": "content"})
+        self.assertTrue(any('width must be a positive number or "fill"' in error for error in errors))
+
+    def test_rejects_persistent_content_height(self) -> None:
+        errors = self.validate_panel({"height": "content", "max_height": 560, "persistent": True})
+        self.assertTrue(any('not supported with persistent = true' in error for error in errors))
+
+    def test_preserves_numeric_and_fill_extents(self) -> None:
+        for extent in (300, 300.5, "fill"):
+            with self.subTest(extent=extent):
+                self.assertEqual(self.validate_panel({"width": extent, "height": extent}, 13), [])
+        errors = self.validate_panel({"width": "fill", "height": "content", "max_height": 560,
+                                      "placement": "attached"})
+        self.assertTrue(any('"fill" requires placement = "floating"' in error for error in errors))
 
 
 class PluginFileCountTests(unittest.TestCase):

@@ -479,7 +479,7 @@ local function wallpaperPreview(path)
 			align = "center",
 			justify = "center",
 
-			fill = "surface_variant/0.25",
+			fill = "surface_container/0.25",
 
 			radius = 10,
 
@@ -512,7 +512,7 @@ local function wallpaperPreview(path)
 			align = "center",
 			justify = "center",
 
-			fill = "surface_variant/0.25",
+			fill = "surface_container/0.25",
 
 			radius = 10,
 
@@ -555,7 +555,7 @@ local function wallpaperPreview(path)
 
 		fit = "cover",
 
-		border = "outline/0.25",
+		border = "outline_variant/0.25",
 
 		borderWidth = 1,
 	})
@@ -607,7 +607,7 @@ local function wallpaperThumbnail(filename, width)
 
 			fit = "cover",
 
-			border = selected and "primary" or "outline/0.20",
+			border = selected and "primary" or "outline_variant/0.20",
 
 			borderWidth = selected and 2 or 1,
 
@@ -1706,7 +1706,7 @@ function render()
 
 			padding = 10,
 
-			fill = "surface_variant/0.20",
+			fill = "surface_container/0.20",
 
 			radius = 10,
 		}, {
@@ -1849,7 +1849,7 @@ function render()
 
 				padding = 12,
 
-				fill = "surface_variant/0.20",
+				fill = "surface_container/0.20",
 
 				radius = 10,
 			}, {
@@ -2053,7 +2053,7 @@ function render()
 		ui.separator({
 			spacing = 2,
 
-			color = "outline/0.22",
+			color = "outline_variant/0.22",
 		}),
 
 		ui.scroll({
@@ -2067,7 +2067,7 @@ function render()
 		ui.separator({
 			spacing = 0,
 
-			color = "outline/0.22",
+			color = "outline_variant/0.22",
 		}),
 
 		ui.row({

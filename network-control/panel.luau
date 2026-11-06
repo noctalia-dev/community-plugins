@@ -256,7 +256,7 @@ local function liveBlock(live)
     table.insert(children, keyValueRow("panel.live_ipv6", table.concat(live.ipv6_addresses, ", "), "world"))
   end
   table.insert(children, keyValueRow("panel.live_device", live.device .. " — " .. live.state, "device-desktop"))
-  return ui.column({ gap = 4, padding = 8, radius = 8, fill = "surface_variant/0.3" }, children)
+  return ui.column({ gap = 4, padding = 8, radius = 8, fill = "surface_container/0.3" }, children)
 end
 
 local function connectionRow(connection)
@@ -484,7 +484,7 @@ local function editorCard(connection)
     }))
   end
 
-  return ui.column({ gap = 10, padding = 10, radius = 8, border = "outline/0.4", borderWidth = 1 }, children)
+  return ui.column({ gap = 10, padding = 10, radius = 8, border = "outline_variant/0.4", borderWidth = 1 }, children)
 end
 
 local function radioRow()
@@ -541,7 +541,7 @@ local function passwordRow(network)
     wifiGen = wifiGen + 1
     render()
   end
-  return ui.row({ gap = 6, align = "center", padding = 6, radius = 6, fill = "surface_variant/0.35" }, {
+  return ui.row({ gap = 6, align = "center", padding = 6, radius = 6, fill = "surface_container/0.35" }, {
     ui.input({
       key = "wifi-pw:" .. network.ssid .. ":" .. tostring(wifiGen),
       value = "",
@@ -644,7 +644,7 @@ local function manualRow()
     render()
   end
   local locked = snapshot.busy == true or snapshot.scanning == true or snapshot.pending ~= nil
-  return ui.column({ gap = 4, padding = 6, radius = 6, fill = "surface_variant/0.2" }, {
+  return ui.column({ gap = 4, padding = 6, radius = 6, fill = "surface_container/0.2" }, {
     ui.label({ text = tr("wifi.manual"), fontSize = 10, color = "on_surface_variant" }),
     ui.row({ gap = 6, align = "center" }, {
       ui.input({
@@ -752,20 +752,20 @@ local function wifiSection()
     end
   end
   table.insert(children, manualRow())
-  return ui.column({ gap = 6, padding = 8, radius = 8, border = "outline/0.4", borderWidth = 1 }, children)
+  return ui.column({ gap = 6, padding = 8, radius = 8, border = "outline_variant/0.4", borderWidth = 1 }, children)
 end
 
 local function primarySummary()
   local primary = snapshot.primary
   if primary == nil then
-    return ui.row({ gap = 8, align = "center", padding = 8, radius = 8, fill = "surface_variant/0.3" }, {
+    return ui.row({ gap = 8, align = "center", padding = 8, radius = 8, fill = "surface_container/0.3" }, {
       ui.glyph({ name = "network-off", size = 16, color = "error" }),
       ui.label({ text = tr("panel.offline"), fontSize = 12, color = "error", flexGrow = 1 }),
     })
   end
   local address = orEmpty(primary.address)
   local connection = primary.live ~= nil and primary.live.connection or ""
-  return ui.row({ gap = 8, align = "center", padding = 8, radius = 8, fill = "surface_variant/0.3" }, {
+  return ui.row({ gap = 8, align = "center", padding = 8, radius = 8, fill = "surface_container/0.3" }, {
     ui.glyph({ name = "world", size = 16, color = "primary" }),
     ui.label({
       text = tr("panel.primary", { device = primary.device, address = address, name = connection }),

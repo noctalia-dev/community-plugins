@@ -236,7 +236,7 @@ local function dayCell(key, day, gregorianDay, isToday, event)
         gap      = 1,
         flexGrow = 1,
         height   = 48,
-        fill     = isToday and "primary" or "surface_variant/0.35",
+        fill     = isToday and "primary" or "surface_container/0.35",
         radius   = 12,
         tooltip  = event and event.ar or nil,
     }, children)
@@ -330,7 +330,7 @@ local function calendarView()
                     fontSize = 15, color = "tertiary", align = "center" })
             end
             local hadith = dailyHadith()
-            content[#content + 1] = ui.separator({ spacing = 2, color = "outline", opacity = 0.2 })
+            content[#content + 1] = ui.separator({ spacing = 2, color = "outline_variant", opacity = 0.2 })
             content[#content + 1] = ui.label({ text = hadith.text, fontFamily = decoFont,
                 fontSize = 13, color = "on_surface", align = "center" })
             content[#content + 1] = ui.label({ text = "- " .. hadith.source, fontSize = 11,
@@ -467,7 +467,7 @@ local function render()
             align    = "center", justify = "space_between",
             paddingH = 12,
             paddingV = isNext and 10 or 8,
-            fill     = isNext and "surface_variant" or nil,
+            fill     = isNext and "surface_container" or nil,
             radius   = isNext and 10 or nil,
         }, {
             ui.row({ align = "center", gap = 10 }, {
@@ -495,14 +495,14 @@ local function render()
     -- ── Assemble ──────────────────────────────────────────────────────────────
     local children = { header }
     if dateRow then children[#children+1] = dateRow end
-    children[#children+1] = ui.separator({ spacing = 2, color = "outline", opacity = 0.2 })
+    children[#children+1] = ui.separator({ spacing = 2, color = "outline_variant", opacity = 0.2 })
     children[#children+1] = ui.row({ gap = 4, align = "center" }, {
         ui.button({ text = noctalia.tr("panel.tabs.prayers"), variant = activeTab == "prayers" and "primary" or "ghost",
             flexGrow = 1, height = 30, fontSize = 12, onClick = "onTabPrayers" }),
         ui.button({ text = noctalia.tr("panel.tabs.calendar"), variant = activeTab == "calendar" and "primary" or "ghost",
             flexGrow = 1, height = 30, fontSize = 12, onClick = "onTabCalendar" }),
     })
-    children[#children+1] = ui.separator({ spacing = 2, color = "outline", opacity = 0.15 })
+    children[#children+1] = ui.separator({ spacing = 2, color = "outline_variant", opacity = 0.15 })
 
     if activeTab == "prayers" then
         local prayerContent = {}

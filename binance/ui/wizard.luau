@@ -144,7 +144,7 @@ local function stepMarker(n: number, phase: string)
     align = "center",
     justify = "center",
     fill = if current then "primary" elseif done then "primary/0.15" else nil,
-    border = if current or done then nil else "outline/0.6",
+    border = if current or done then nil else "outline_variant/0.6",
     borderWidth = if current or done then nil else 1,
   }, {
     if done

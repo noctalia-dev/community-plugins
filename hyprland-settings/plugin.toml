@@ -1,7 +1,7 @@
 id           = "michael-retunzew/hyprland-settings"
 name         = "Hyprland Settings"
-version      = "1.0.0"
-plugin_api   = 32
+version      = "1.0.1"
+plugin_api   = 43
 author       = "michael-retunzew"
 license      = "MIT"
 icon         = "adjustments"

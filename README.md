@@ -37,6 +37,10 @@ id distinct from everyone else's, but the **directory name is first-come within 
 taken, pick another name; the official repo is a separate source, so a name used there is not taken here. Both id
 segments must be lowercase and match `[a-z0-9][a-z0-9._-]*`.
 
+Choose a name that describes what your plugin does. Avoid adding `noct`, `nocta`, or `noctalia` just to associate it
+with Noctalia. Plugins are already listed in the Noctalia plugin store, so these prefixes add little information and
+make plugins harder to distinguish.
+
 ## What a plugin is allowed to be
 
 Noctalia plugins are **trusted, unsandboxed Luau**. There is no permission broker and no capability sandbox:
@@ -46,6 +50,8 @@ talk to the network as the user.
 That is a deliberate design choice, and it puts the burden on review. So:
 
 - **No obfuscated, minified, or generated code.** A reviewer must be able to read every line you ship.
+- **Write code identifiers and code comments in English.** This keeps contributed code accessible to reviewers and
+  maintainers. User-facing text can be localized through translation files.
 - **No downloading and executing remote code.** Ship your logic in the repo, at a version people reviewed.
 - **Declare what you shell out to.** External commands go in `dependencies` in `plugin.toml` and get a mention in your
   README.

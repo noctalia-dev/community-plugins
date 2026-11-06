@@ -66,14 +66,14 @@ local ICON_GHOST_ON_LIGHT = "nan-ghost-black.png"
 -- host updates the props it is given and leaves the rest as they were, so a prop
 -- that is only set sometimes stays behind when the condition stops holding.
 local CARD = {
-  fill = "surface_variant/0.30", radius = 12, padding = 12, gap = 8,
-  border = "outline/0.08", borderWidth = 1,
+  fill = "surface_container/0.30", radius = 12, padding = 12, gap = 8,
+  border = "outline_variant/0.08", borderWidth = 1,
 }
 -- The selected row of the list, in the same shape as the reference plugin's.
 local CARD_SELECTED_FILL = "primary/0.10"
 local CARD_SELECTED_BORDER = "primary/0.55"
-local CARD_PLAIN_FILL = "surface_variant/0.30"
-local CARD_PLAIN_BORDER = "outline/0.12"
+local CARD_PLAIN_FILL = "surface_container/0.30"
+local CARD_PLAIN_BORDER = "outline_variant/0.12"
 local MUTED = "on_surface/0.6"
 local TRACK = "on_surface/0.10"
 local ACCENT = "primary"
@@ -170,7 +170,7 @@ end
 -- A pill, for the tier and the cached marker: a rounded row with a translucent
 -- fill around a label.
 local function pill(text, color)
-  return ui.row({ fill = "surface_variant/0.6", radius = 10, paddingH = 8, paddingV = 2, align = "center" }, {
+  return ui.row({ fill = "surface_container/0.6", radius = 10, paddingH = 8, paddingV = 2, align = "center" }, {
     ui.label({ text = text, color = color or "on_surface", fontSize = 12, fontWeight = "medium" }),
   })
 end

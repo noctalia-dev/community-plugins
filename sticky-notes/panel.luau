@@ -28,7 +28,7 @@ local panelOpen = false
 -- -------------------------------------------------------------------------
 local function noteStyle(id)
   if noctalia.getConfig("no_colors") == true then
-    return "surface_variant", "on_surface"
+    return "surface_container", "on_surface"
   end
   if noctalia.getConfig("use_wallpaper_colors") == true then
     local generatedStyle = wallpaperPalette.style(id)
@@ -189,7 +189,7 @@ local function colorPicker(note)
     local isSelected = note.color == c.id
     local fill = c.fill
     if noctalia.getConfig("no_colors") == true then
-      fill = "surface_variant"
+      fill = "surface_container"
     elseif noctalia.getConfig("use_wallpaper_colors") == true then
       local generatedStyle = wallpaperPalette.style(c.id)
       if generatedStyle ~= nil then fill = generatedStyle.fill end
@@ -212,7 +212,7 @@ local function colorPicker(note)
         height      = 26,
         radius      = 7,
         borderWidth = 1,
-        border      = "outline",
+        border      = "outline_variant",
       }),
     }))
   end

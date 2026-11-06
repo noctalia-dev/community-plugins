@@ -225,7 +225,7 @@ local function activityBlocks(filled, total)
       width = 9,
       height = 9,
       radius = 2,
-      fill = index <= filled and "primary" or "surface_variant",
+      fill = index <= filled and "primary" or "surface_container",
     }))
   end
   return ui.row({ gap = 3, align = "center", justify = "center" }, blocks)
@@ -271,7 +271,7 @@ function render()
       ui.label({ text = tr("panel.title"), fontSize = 19, fontWeight = "bold", flexGrow = 1 }),
       ui.button({ glyph = "refresh", variant = "ghost", tooltip = tr("action.refresh"), onClick = "onRefreshClicked" }),
     }),
-    ui.separator({ thickness = 1, color = "outline/0.35" }),
+    ui.separator({ thickness = 1, color = "outline_variant/0.35" }),
   }
   local body = {}
 
@@ -318,11 +318,11 @@ function render()
       local metricChildren = {}
       for index, item in ipairs(metrics) do
         if index > 1 then
-          table.insert(metricChildren, ui.separator({ orientation = "vertical", thickness = 1, color = "outline/0.35" }))
+          table.insert(metricChildren, ui.separator({ orientation = "vertical", thickness = 1, color = "outline_variant/0.35" }))
         end
         table.insert(metricChildren, item)
       end
-      table.insert(body, ui.separator({ thickness = 1, color = "outline/0.35" }))
+      table.insert(body, ui.separator({ thickness = 1, color = "outline_variant/0.35" }))
       table.insert(body, ui.row({ gap = 14, align = "stretch" }, metricChildren))
     end
   end
@@ -337,7 +337,7 @@ function render()
     justify = centerReadyContent and "center" or "start",
   }, body))
   if data ~= nil and cachedCalendar ~= nil and showProfileButton then
-    table.insert(root, ui.separator({ thickness = 1, color = "outline/0.35" }))
+    table.insert(root, ui.separator({ thickness = 1, color = "outline_variant/0.35" }))
     table.insert(root, ui.row({ justify = "end", paddingH = 14, paddingV = 10 }, {
       ui.button({ text = tr("action.open_profile"), glyph = "external-link", variant = "outline", onClick = "onOpenProfile" }),
     }))

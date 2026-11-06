@@ -490,8 +490,8 @@ local function collectorSettingsCard(collector)
       onClick = "onUninstallCollectorClicked" }))
   end
   return ui.column({
-    gap = 8, padding = 10, radius = 10, fill = "surface_variant/0.24",
-    border = "outline/0.38", borderWidth = 1,
+    gap = 8, padding = 10, radius = 10, fill = "surface_container/0.24",
+    border = "outline_variant/0.38", borderWidth = 1,
   }, children)
 end
 
@@ -966,8 +966,8 @@ local function driveCard(drive, index)
     gap = 12,
     padding = 14,
     radius = 14,
-    fill = "surface_variant/0.34",
-    border = "outline/0.38",
+    fill = "surface_container/0.34",
+    border = "outline_variant/0.38",
     borderWidth = 1,
     align = "stretch",
   }, children)
@@ -1003,7 +1003,7 @@ local function hiddenDrivesCard()
   for _, drive in ipairs(hidden) do
     table.insert(options, driveName(drive))
   end
-  return ui.column({ gap = 7, padding = 10, radius = 9, fill = "surface_variant/0.22" }, {
+  return ui.column({ gap = 7, padding = 10, radius = 9, fill = "surface_container/0.22" }, {
     ui.label({ text = noctalia.tr("preferences.hidden_drives"), fontWeight = "bold", fontSize = 11 }),
     ui.row({ gap = 7, align = "center" }, {
       ui.select({ options = options, selectedIndex = hiddenSelection - 1, controlSize = "sm",

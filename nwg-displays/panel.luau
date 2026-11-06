@@ -46,7 +46,7 @@ local function profileRow(name)
     paddingH = 10,
     paddingV = 8,
     radius = 8,
-    fill = isActive and "primary/0.15" or (hovered == name and "surface_variant/0.5" or nil),
+    fill = isActive and "primary/0.15" or (hovered == name and "surface_container/0.5" or nil),
     onClick = function()
       applyProfile(name)
     end,

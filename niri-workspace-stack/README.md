@@ -24,7 +24,8 @@ One of these compositors:
 The compositor is picked by its socket variable, `UMBRIEL_SOCKET` first, like Noctalia itself does; having both
 binaries installed does not matter. With neither variable set the widget hides itself.
 
-Noctalia with plugin API 32 (v5.2.0+); tested with 5.3.0 (plugin API 39).
+Noctalia with plugin API 43. Umbriel support was tested on Noctalia 5.3.0 (plugin API 39) with the 0.3.1
+manifest (plugin API 32), before the palette role rename that needs API 43.
 
 ## Usage
 
@@ -81,7 +82,7 @@ anonymous workspace's display name is its position.
 | Indicator size | `indicator_size` | double, 0.75–1.5 | `1.0` | Scales indicators, numbers and spacing |
 | Compact spacing | `compact` | bool | `false` | Tighter gaps |
 
-Colors come from the active Noctalia theme (primary, on_surface, surface_variant, error).
+Colors come from the active Noctalia theme (primary, on_surface, surface_container, error).
 
 The navigator panel uses the standard panel settings in Settings → Plugins (Attached / Floating, position, Open
 Near Click); the defaults are attached and opened near the clicked widget.

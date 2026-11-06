@@ -1,6 +1,7 @@
 {
   "action_back": "Back",
   "action_check": "Check Updates",
+  "action_config_review": "Review",
   "action_dismiss": "Dismiss",
   "action_open_log": "Open full log",
   "action_open_news": "Open news",
@@ -41,11 +42,60 @@
   },
   "changelog_empty": "No changelog available",
   "changelog_title": "What's new",
+  "config_apply": "Apply merge",
+  "config_apply_external": "Apply tool result",
+  "config_apply_external_tip": "Install what the external tool wrote to %merged",
+  "config_base": "Previous default",
+  "config_conflict": "Conflict",
+  "config_discard_new": "Discard new",
+  "config_discard_new_tip": "Delete the .pacnew and keep your current file unchanged",
+  "config_empty": "No .pacnew or .pacsave files found",
+  "config_external_tip": "Open in the external merge tool",
+  "config_hide_base": "Hide previous default",
+  "config_hide_preview": "Hide preview",
+  "config_identical": "identical",
+  "config_identical_explain": "The .pacnew is byte-for-byte identical to your current file. It's safe to remove.",
+  "config_keep_both": "Keep both",
+  "config_keep_mine": "Keep mine",
+  "config_loading": "Preparing the merge…",
+  "config_mine": "Your version",
+  "config_none_here": "(nothing on this side)",
+  "config_open_tip": "Open the merge view",
+  "config_oversize": "This file is too large for the in-panel merge. Use the external merge tool, take the new version as-is, or discard it.",
+  "config_pacsave_explain": "This file's package was removed. pacman kept your edited config as a .pacsave. Restore it to put it back in place, or remove it.",
+  "config_pending": {
+    "one": "1 config file to review",
+    "other": "{count} config files to review"
+  },
+  "config_preview": "Preview result",
+  "config_remove": "Remove",
+  "config_rescan_tip": "Rescan for config files",
+  "config_restore": "Restore",
+  "config_show_base": "Show previous default",
+  "config_summary": {
+    "one": "1 conflict to resolve — everything else is merged automatically",
+    "other": "{count} conflicts to resolve — everything else is merged automatically"
+  },
+  "config_summary_clean": "No conflicts — the new default's changes merge in cleanly. Preview, then apply.",
+  "config_summary_nobase": "No common ancestor found — every difference is shown as a choice.",
+  "config_take_new": "Take new",
+  "config_take_new_full": "Take new as-is",
+  "config_take_new_full_tip": "Replace your file with the package's new default",
+  "config_theirs": "New default",
+  "config_title": "Config file review",
+  "config_unchanged_lines": {
+    "one": "1 unchanged line",
+    "other": "{count} unchanged lines"
+  },
+  "config_unreadable_explain": "This file isn't readable without root, so the in-panel merge can't open it. Use the external tool (it escalates via sudo) or remove the .pacnew.",
+  "config_view": "View diff",
   "err_aur_failed": "AUR check failed, see the system log for details",
   "err_check_failed": "checkupdates failed, see the system log for details",
   "err_check_timeout": "Timed out while checking for updates",
+  "err_config_apply": "Could not apply the config change, see the system log for details",
   "err_flatpak_failed": "Flatpak check failed, see the system log for details",
   "err_no_checkupdates": "checkupdates not found, install pacman-contrib and check your PATH",
+  "err_no_merge_tool": "No merge tool available, set one in the plugin settings or install pacdiff",
   "err_no_pkexec": "pkexec not found, install polkit to update in the background",
   "err_no_terminal": "No terminal emulator found, set one in the plugin settings",
   "err_no_xdg_open": "xdg-open not found, cannot open the package page",
@@ -72,6 +122,11 @@
   "news_unread": {
     "one": "1 unread Arch news post: \"{title}\"",
     "other": "{count} unread Arch news posts, latest: \"{title}\""
+  },
+  "notify_config_applied": "Config file updated",
+  "notify_config_new": {
+    "one": "An update left 1 new .pacnew file to review",
+    "other": "An update left {count} new .pacnew files to review"
   },
   "notify_polkit_ok": "Polkit rule installed: one password per update run from now on",
   "notify_rollback_ok": "Rollback finished successfully",
@@ -131,6 +186,58 @@
       "description": "Detect whether the currently running kernel's files are still on disk. When they are gone, a newer kernel was installed and a reboot is what switches you to it.",
       "label": "Check if a reboot is needed"
     },
+    "config_auto_remove_identical": {
+      "description": "After an update run, delete .pacnew files that are byte-for-byte identical to the live file, in a single polkit prompt. Off keeps them in the list with a one-click Remove.",
+      "label": "Auto-remove identical .pacnew"
+    },
+    "config_backup": {
+      "description": "Save a copy of the current config before writing the merged result.",
+      "label": "Back up the file before applying"
+    },
+    "config_backup_dir": {
+      "description": "Empty: a 'config-backups' folder in the plugin's data directory. An absolute path: back up there. 'alongside': keep a <file>.arch-updater.bak next to each file (owned by root).",
+      "label": "Backup location"
+    },
+    "config_backup_keep": {
+      "description": "Prune older backups beyond this many per file. 0 keeps all. Ignored for the 'alongside' location.",
+      "label": "Backups to keep per file"
+    },
+    "config_badge": {
+      "description": "Show the count of pending .pacnew/.pacsave files on the bar widget when no updates are pending.",
+      "label": "Config-review badge"
+    },
+    "config_default_resolution": {
+      "description": "Which side each conflicting hunk starts on in the merge view. 'Keep my version' never changes a line you edited; 'Take the new version' prefers the package's new default.",
+      "label": "Default choice for conflicts",
+      "options": {
+        "mine": "Keep my version",
+        "theirs": "Take the new version"
+      }
+    },
+    "config_diff_tool": {
+      "description": "Command for 'View diff', with tokens %a (current file) and %b (.pacnew). Empty uses 'diff' in the terminal pager.",
+      "label": "External diff viewer"
+    },
+    "config_include_pacsave": {
+      "description": "Include .pacsave files (a removed package's kept config) in the review list, with restore and remove actions.",
+      "label": "Also list .pacsave files"
+    },
+    "config_merge_tool": {
+      "description": "Command to open instead of the built-in merge. Tokens: %mine %base %theirs %merged. Example: meld %mine %merged %theirs. Empty uses the in-panel merge.",
+      "label": "External merge tool"
+    },
+    "config_notify": {
+      "description": "Send a notification when an update run leaves new .pacnew files behind.",
+      "label": "Notify about new .pacnew files"
+    },
+    "config_review": {
+      "description": "After each check and each update, scan for pacman's .pacnew/.pacsave files and offer an in-panel 3-way merge. Off also stops the scan and hides the bar badge.",
+      "label": "Review .pacnew config files"
+    },
+    "config_search_paths": {
+      "description": "Absolute directories to scan for .pacnew/.pacsave/.pacorig files. Default: /etc.",
+      "label": "Config search paths"
+    },
     "flatpak_enabled": {
       "description": "Also check (and, on Update, run) 'flatpak update'. Ignored automatically when flatpak is not installed.",
       "label": "Include Flatpak"
@@ -184,7 +291,7 @@
       "label": "Terminal"
     },
     "update_cmd": {
-      "description": "Full override for the background update command. Empty (default) builds it from the AUR helper, ignore list and Flatpak settings above, running pacman through pkexec.",
+      "description": "Full override for the update command, in both terminal and background mode. Empty (default) builds it from the AUR helper, ignore list and Flatpak settings above.",
       "label": "Custom update command"
     },
     "update_mode": {
@@ -233,6 +340,11 @@
   "tip_update_terminal": "Update in a terminal window: prompts and the PKGBUILD review work as usual",
   "title": "Arch Updater",
   "tooltip_checked": "Checked",
+  "tooltip_config_key": "Config files",
+  "tooltip_config_value": {
+    "one": "1 to review",
+    "other": "{count} to review"
+  },
   "tooltip_hints": "click: panel · right: check now",
   "tooltip_news": "Arch news",
   "tooltip_news_value": {

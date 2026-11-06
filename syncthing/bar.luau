@@ -20,23 +20,23 @@ end
 
 local BADGES = {
   syncing = { glyph = "refresh", color = "secondary" },
-  paused = { glyph = "player-pause", color = "outline" },
+  paused = { glyph = "player-pause", color = "outline_variant" },
   disconnected = { glyph = "plug-connected-x", color = "secondary" },
   offline = { glyph = "x", color = "error" },
   unauthorized = { glyph = "lock-exclamation", color = "error" },
   error = { glyph = "alert-triangle", color = "error" },
-  unconfigured = { glyph = "question-mark", color = "outline" },
+  unconfigured = { glyph = "question-mark", color = "outline_variant" },
 }
 
 local COLORS = {
   idle = "on_surface",
   syncing = "secondary",
-  paused = "outline",
+  paused = "outline_variant",
   disconnected = "secondary",
   offline = "error",
   unauthorized = "error",
   error = "error",
-  unconfigured = "outline",
+  unconfigured = "outline_variant",
 }
 
 local snapshot = nil
@@ -118,7 +118,7 @@ end
 
 local function render()
   local state = stateOf()
-  local color = COLORS[state] or "outline"
+  local color = COLORS[state] or "outline_variant"
   local showPending = noctalia.getConfig("show_pending") ~= false
   local pending = state == "syncing" and showPending and pendingText() or ""
   local container = barWidget.isVertical() and ui.column or ui.row

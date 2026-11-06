@@ -1,7 +1,7 @@
 id = "maddingo/hypr-layout-switcher"
 name = "Hyprland Layout Switcher"
 description = "Shows and cycles the active workspace's layout"
-version = "0.1.1"
+version = "0.2.0"
 plugin_api = 3
 author = "maddingo"
 license = "MIT"
@@ -16,3 +16,10 @@ entry = "service.luau"
 [[widget]]
 id = "toggle"
 entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "show_label"
+  type = "bool"
+  label_key = "settings.show_label.label"
+  description_key = "settings.show_label.description"
+  default = true

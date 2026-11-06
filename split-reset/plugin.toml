@@ -1,0 +1,14 @@
+id = "soulmanyes/split-reset"
+name = "Split Reset"
+version = "1.0.0"
+plugin_api = 34
+author = "Soulmanyes"
+license = "CC0-1.0"
+icon = "layout-columns"
+description = "One click sets every Hyprland dwindle split on the bar's monitor back to 50/50."
+tags = ["hyprland", "bar"]
+dependencies = ["hyprctl"]
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"

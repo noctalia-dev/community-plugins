@@ -268,7 +268,7 @@ local function render()
         width = 56, height = 56, radius = 14, fit = "cover" })
     else
       headKids[#headKids + 1] = ui.box({ key = "coverph", width = 56, height = 56,
-        radius = 14, fill = "surface_variant/0.6", border = "outline/0.5", borderWidth = 1,
+        radius = 14, fill = "surface_container/0.6", border = "outline_variant/0.5", borderWidth = 1,
         align = "center" }, {
         ui.glyph({ name = live and "disc" or "music-off", size = 30, color = "on_surface_variant" }),
       })
@@ -385,10 +385,10 @@ local function render()
   -- built-in clock and weather widgets expose.
   local rootProps = { key = "root", gap = 8, align = "start", minWidth = width }
   if useBg then
-    rootProps.fill = "surface_variant/0.85"
+    rootProps.fill = "surface_container/0.85"
     rootProps.radius = 14
     rootProps.padding = 14
-    rootProps.border = "outline/0.35"
+    rootProps.border = "outline_variant/0.35"
     rootProps.borderWidth = 1
   end
 

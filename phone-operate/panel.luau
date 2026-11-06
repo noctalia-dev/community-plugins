@@ -83,7 +83,7 @@ end
 -- Themed input — avoids repeating 5 style props on every ui.input call
 local function mkInput(p)
 	p.controlSize = "sm"; p.paddingH = 4; p.fill = "surface/0.8"
-	p.border = "outline/0.3"; p.borderWidth = 1; p.radius = 8
+	p.border = "outline_variant/0.3"; p.borderWidth = 1; p.radius = 8
 	return ui.input(p)
 end
 
@@ -172,7 +172,7 @@ local function deviceSidebar(visibleOrder, devices, sel)
 		}))
 	end
 	return ui.column({ key = "sidebar", gap = 6, flexGrow = 1,
-		fill = "surface_variant/0.8", radius = 12, padding = 6 }, kids)
+		fill = "surface_container/0.8", radius = 12, padding = 6 }, kids)
 end
 
 -- ── Tools card ──────────────────────────────────────────────────────────────
@@ -192,7 +192,7 @@ local function toolsCard(d)
 			onClick = function() if not notifyIfDisconnected(d) then sendCmd({ op = def[5], device = d.id }) end end,
 		}))
 	end
-	return ui.row({ key = "tools-card", gap = 2, paddingH = 5, paddingV = 5, radius = 12, fill = "surface_variant/0.8", align = "center", justify = "space_between" }, btns)
+	return ui.row({ key = "tools-card", gap = 2, paddingH = 5, paddingV = 5, radius = 12, fill = "surface_container/0.8", align = "center", justify = "space_between" }, btns)
 end
 
 -- ── Dashboard card ──────────────────────────────────────────────────────────
@@ -229,7 +229,7 @@ local function dashboardCard(d)
 		pfp = ui.image({ path = imgPath, width = 54, height = 54, radius = 10, fit = "cover", opacity = 0.45 })
 	else -- offline without image, or fully disconnected
 		pfp = ui.column({ width = 54, height = 54, radius = 10, fill = "surface/0.8",
-			border = "outline/0.2", borderWidth = 1, align = "center", justify = "center" },
+			border = "outline_variant/0.2", borderWidth = 1, align = "center", justify = "center" },
 			{ ui.glyph({ name = offline and glyph or "device-mobile-off",
 				size = offline and 30 or 26, color = "on_surface_variant" }) })
 	end
@@ -290,7 +290,7 @@ local function dashboardCard(d)
 	if statusRow then table.insert(infoKids, statusRow) end
 
 	return ui.column({ key = "dashboard", gap = 4, paddingV = 6, paddingH = 10, radius = 12,
-		fill = "surface_variant/0.8" }, {
+		fill = "surface_container/0.8" }, {
 		ui.row({ gap = 6, align = "center" }, {
 			pfp, ui.column({ gap = 2, flexGrow = 1, minWidth = 0, justify = "center" }, infoKids),
 		}),
@@ -466,7 +466,7 @@ local function castCard(d)
 	}))
 
 	return ui.column({ key = "cast-card", gap = 6, padding = 8, radius = 12,
-		fill = "surface_variant/0.8" }, children)
+		fill = "surface_container/0.8" }, children)
 end
 
 -- ── Messages card ───────────────────────────────────────────────────────────
@@ -560,7 +560,7 @@ local function messagesCard(d)
 			favNameEdits[dest] = true; persistence.saveFavorites(smsFavorites); render()
 		end }))
 
-	return ui.column({ key = "msgs", gap = 4, padding = 8, radius = 12, fill = "surface_variant/0.8", flexGrow = 1 }, {
+	return ui.column({ key = "msgs", gap = 4, padding = 8, radius = 12, fill = "surface_container/0.8", flexGrow = 1 }, {
 		ui.row({ gap = 4, align = "center" }, destKids),
 		ui.scroll({ key = "fav-scroll", flexGrow = 1, gap = 2 }, #favItems > 0 and favItems or {
 			ui.row({ align = "center", justify = "center", paddingV = 16, flexGrow = 1 }, {
@@ -590,7 +590,7 @@ local function mediaBar(d)
 
 	if not connected or not title or title == "" then
 		return ui.row({ key = "media-bar", gap = 6, paddingV = 6, paddingH = 6, radius = 12,
-			fill = "surface_variant/0.8", align = "center" }, {
+			fill = "surface_container/0.8", align = "center" }, {
 			ui.glyph({ name = "music-off", size = 18, color = "on_surface_variant" }),
 			ui.label({ text = tr("panel.no_media", "No media playing"), fontSize = 12,
 				color = "on_surface_variant", flexGrow = 1 }),
@@ -640,7 +640,7 @@ local function mediaBar(d)
 		ui.row({ gap = 8, align = "center" }, { transport, seekEl }),
 	}))
 	return ui.row({ key = "media-bar", gap = 15, paddingV = 8, paddingH = 8, radius = 12,
-		fill = "surface_variant/0.8", align = "center" }, kids)
+		fill = "surface_container/0.8", align = "center" }, kids)
 end
 
 -- ── Main render ─────────────────────────────────────────────────────────────

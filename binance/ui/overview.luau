@@ -22,7 +22,7 @@ end
 
 -- One color per asset class, in allocation.ORDER. Theme roles only; none
 -- of them is the gain or loss color.
-local CLASS_COLORS = { crypto = "primary", stocks = "tertiary", stable = "secondary", other = "outline" }
+local CLASS_COLORS = { crypto = "primary", stocks = "tertiary", stable = "secondary", other = "outline_variant" }
 
 -- The split by asset class: a segmented bar (Noctalia's UI has no arcs, so
 -- no donut), then one column per class with its share always shown and its
@@ -347,7 +347,7 @@ local function driftCard(report, ctx)
       end,
     })),
     ui.column({ gap = 6, tooltip = tr("panel.overview.drift.band_tooltip", { band = string.format("%g", d.band * 100) }) }, rows),
-    ui.separator({ color = "outline/0.2" }),
+    ui.separator({ color = "outline_variant/0.2" }),
     ui.row({ gap = 8, align = "center" }, {
       parts.title(tr("panel.overview.drift.next_deposit"), { flexGrow = 1 }),
       ui.input({
@@ -405,7 +405,7 @@ local function hero(report, ctx)
       then parts.caption(tr("panel.overview.approx_usd", { value = fmt.money(totals.value, "USD") }))
       else nil,
     todayRow,
-    if split then ui.separator({ color = "outline/0.2" }) else nil,
+    if split then ui.separator({ color = "outline_variant/0.2" }) else nil,
     split
   )
 
@@ -443,7 +443,7 @@ local function hero(report, ctx)
       table.insert(rows, parts.caption(tr("panel.overview.net_uncovered", { list = table.concat(names, ", ") }), nil, { maxLines = 3 }))
     end
     table.insert(rows, ui.row({ justify = "end" }, { syncButton }))
-    table.insert(children, ui.separator({ color = "outline/0.2" }))
+    table.insert(children, ui.separator({ color = "outline_variant/0.2" }))
     table.insert(children, ui.column({ gap = 4 }, rows))
   elseif table.find(report.gaps or {}, "flows_pending") or table.find(report.gaps or {}, "no_flows") then
     local text = if table.find(report.gaps or {}, "no_flows") then "panel.overview.net_none" else "panel.overview.net_pending"

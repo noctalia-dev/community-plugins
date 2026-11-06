@@ -1,7 +1,7 @@
 id          = "nilsonlinux/inventory-manager"
 name        = "Inventory Manager"
-version     = "1.0.1"
-plugin_api  = 15
+version     = "1.0.2"
+plugin_api  = 43
 author      = "Nilsonlinux"
 license     = "MIT"
 icon        = "package"

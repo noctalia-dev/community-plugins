@@ -8,6 +8,9 @@
 local SCRIPT = "/scripts/kwallet-nm-agent.py" -- resolved against the plugin dir
 local STATE_KEY = "kwallet_secrets.status"    -- published status channel
 local JOURNAL_TAG = "noctalia-kwallet-secrets" -- systemd-cat tag for helper logs
+-- Without systemd (dinit, OpenRC, runit...) the helper logs to a private file here
+-- instead; the previous run's log is kept alongside as agent.log.1.
+local LOG_DIR = "${XDG_STATE_HOME:-$HOME/.local/state}/noctalia-kwallet-secrets"
 local CHECK_MS = 30000                        -- supervision interval
 local RUN_TIMEOUT_MS = 5000                   -- timeout for the supervision shell
 
@@ -114,21 +117,31 @@ local function stopAgent(callback)
   )
 end
 
--- setsid detaches the helper from the shell noctalia spawns, so it outlives it;
--- systemd-cat routes its stdout/stderr into the journal under JOURNAL_TAG.
+-- setsid detaches the helper from the shell noctalia spawns, so it outlives it.
+-- Where the journal is running, systemd-cat routes its stdout/stderr there under
+-- JOURNAL_TAG. Elsewhere -- no systemd-cat, or no journald socket to talk to --
+-- it writes to LOG_DIR/agent.log, created private (umask 077).
 local function startAgent()
   if starting then return end
   starting = true
   -- Backgrounding makes the launch shell exit 0 whatever happens, so its status
-  -- cannot tell us anything: a missing systemd-cat would still look like success.
-  -- Wait for the helper's own lock to appear instead, the same signal isRunning
-  -- uses, and report what we actually observed. Up to 2s, inside RUN_TIMEOUT_MS.
+  -- cannot tell us anything: a helper that dies at once would still look like
+  -- success. Wait for the helper's own lock to appear instead, the same signal
+  -- isRunning uses, and report what we actually observed. Up to 2s, inside
+  -- RUN_TIMEOUT_MS.
+  local agent = agentCommand()
   local cmd = string.format(
+    "if command -v systemd-cat >/dev/null 2>&1 && [ -S /run/systemd/journal/stdout ]; then " ..
     "(setsid systemd-cat -t %s %s </dev/null >/dev/null 2>&1 &) ; " ..
+    "else " ..
+    "umask 077; d=\"%s\"; mkdir -p \"$d\" && " ..
+    "{ [ ! -f \"$d/agent.log\" ] || mv -f \"$d/agent.log\" \"$d/agent.log.1\"; } && " ..
+    "(setsid %s </dev/null >>\"$d/agent.log\" 2>&1 &) ; " ..
+    "fi; " ..
     "for _ in 1 2 3 4 5 6 7 8 9 10; do " ..
     "grep -q '%s'\"$(id -u)\"'$' /proc/net/unix && { echo yes; exit 0; }; " ..
     "sleep 0.2; done; echo no",
-    JOURNAL_TAG, agentCommand(), LOCK
+    JOURNAL_TAG, agent, LOG_DIR, agent, LOCK
   )
   noctalia.runAsync(cmd, function(res)
     starting = false
@@ -145,8 +158,8 @@ local function preflight()
     status.error = noctalia.tr("errors.python_missing")
   elseif not noctalia.commandExists("pkill") then
     status.error = noctalia.tr("errors.procps_missing")
-  elseif not noctalia.commandExists("systemd-cat") then
-    status.error = noctalia.tr("errors.systemd_cat_missing")
+  elseif not noctalia.commandExists("setsid") then
+    status.error = noctalia.tr("errors.setsid_missing")
   elseif not noctalia.fileExists(pluginDir() .. SCRIPT) then
     status.error = noctalia.tr("errors.helper_missing")
   else

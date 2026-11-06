@@ -13,6 +13,17 @@ local notifications = {}
 local decodedReport = { entries = {} }
 local now = 5000
 local intervals = {}
+local savedHistory, corruptHistory = nil, false
+local encodedValues, files, logs = {}, {}, {}
+local archiveWrites = 0
+local failArchive, failRename = false, false
+local wallTime = os.time()
+local function clone(value)
+    if type(value) ~= "table" then return value end
+    local copy = {}
+    for k, v in pairs(value) do copy[k] = clone(v) end
+    return copy
+end
 
 local state = {
     get = function(key) return values[key] end,
@@ -33,7 +44,38 @@ local noctalia = {
         callbacks[#callbacks + 1] = callback
         return true
     end,
-    json = { decode = function() return decodedReport end },
+    pluginDataDir = function() return "/test" end,
+    readFile = function() return savedHistory and "history" or "" end,
+    writeFile = function(path, value)
+        if path:find("weekly-reset-event-", 1, true) then
+            if failArchive then return nil, "disk full" end
+            archiveWrites = archiveWrites + 1
+        end
+        files[path] = value
+        return true
+    end,
+    renameFile = function(from, to)
+        if failRename and to:find("weekly-reset-event-", 1, true) then return false, "rename failed" end
+        files[to], files[from] = files[from], nil
+        if to == "/test/weekly-resets.json" then savedHistory = clone(encodedValues[files[to]]) end
+        return true
+    end,
+    log = function(message) logs[#logs + 1] = message end,
+    json = {
+        decode = function(raw)
+            if raw == "history" then
+                if corruptHistory then error("invalid JSON") end
+                return clone(savedHistory)
+            end
+            return decodedReport
+        end,
+        encode = function(value)
+            local key = "encoded-" .. tostring(#encodedValues + 1)
+            encodedValues[#encodedValues + 1] = key
+            encodedValues[key] = clone(value)
+            return key
+        end,
+    },
     notify = function(title, message)
         notifications[#notifications + 1] = { title = title, message = message }
     end,
@@ -42,6 +84,7 @@ local noctalia = {
 }
 
 local env = setmetatable({ noctalia = noctalia }, { __index = _G })
+env.os = setmetatable({ time = function(t) return t and os.time(t) or wallTime end }, { __index = os })
 env.require = function(path)
     assert(path == "./shared.luau")
     return assert(load(read("shared.luau"), "shared", "t", env))()
@@ -123,6 +166,105 @@ callbacks[8]({ exitCode = 0, stdout = "{}", stderr = "" })
 assert(values.report.entries[1].metrics[1].percent == 35
     and values.report.entries[1].stale ~= true,
     "the next healthy Antigravity reading should replace the cached one")
+
+local function quota(reset, percent)
+    return { entries = { { id = "openai", status = "ready", metrics = {
+        { label = "Weekly", percent = percent, window_secs = 604800,
+            reset_at = os.date("!%Y-%m-%dT%H:%M:%SZ", reset) },
+    } } } }
+end
+local function complete(report, result)
+    now = now + 2000
+    decodedReport = report
+    env.onIpc("refresh")
+    callbacks[#callbacks](result or { exitCode = 0, stdout = "{}" })
+end
+local deadline = wallTime + 120
+complete(quota(deadline, 50))
+assert(intervals[#intervals] == 120000, "check at the weekly deadline rather than waiting five minutes")
+assert(savedHistory.samples.openai["Weekly/604800"].percent == 50, "persist the weekly baseline")
+wallTime = deadline
+complete(nil, { timedOut = true })
+assert(intervals[#intervals] == 60000, "failed deadline reads retry without a tight loop")
+complete(quota(deadline, 50))
+assert(intervals[#intervals] == 60000, "an unconfirmed expired date retries once a minute")
+wallTime = wallTime + 1
+complete(quota(wallTime + 604800, 0))
+assert(savedHistory.events[#savedHistory.events].change.kind == "renewal")
+assert(archiveWrites == 1 and #savedHistory.pending_events == 0, "archive the renewal once and clear the outbox")
+local archivedRecord
+for path, encoded in pairs(files) do
+    if path:match("weekly%-reset%-event%-.+%.json$") then archivedRecord = encodedValues[encoded] end
+end
+assert(archivedRecord.change.previous_percent == 50 and archivedRecord.change.percent == 0
+    and archivedRecord.change.previous_at and archivedRecord.change.detected_at == wallTime
+    and archivedRecord.change.previous_source == "ai-usagebar"
+    and archivedRecord.change.previous_reset_at == deadline,
+    "the archive must preserve both observations and detection time")
+assert(intervals[#intervals] == 300000, "confirmed new cycles restore normal polling")
+
+-- Reload the service with only its disk history; subscribers need no old state.
+values.report = nil
+now = now + 2000
+assert(load(read("service.luau"), "service", "t", env))()
+callbacks[#callbacks]({ exitCode = 0, stdout = "{}" })
+assert(values.report.entries[1].metrics[1].reset_observation.event.kind == "renewal",
+    "a service restart must recover its last renewal explanation")
+assert(archiveWrites == 1, "restarts and cached reads must not archive the same event again")
+
+-- Failed writes stay in a durable outbox, including across service restarts.
+failArchive = true
+wallTime = wallTime + 300
+complete(quota(wallTime + 604800 + 7200, 0))
+assert(values.error.code == "" and #savedHistory.pending_events == 1,
+    "archive failure must preserve the event for retry without blocking quota refresh")
+assert(logs[#logs]:find("will retry", 1, true), "archive failure must be visible in host logs")
+local pendingId = savedHistory.pending_events[1].archive_id
+now = now + 2000
+assert(load(read("service.luau"), "service", "t", env))()
+failArchive, failRename = false, true
+callbacks[#callbacks]({ exitCode = 0, stdout = "{}" })
+assert(#savedHistory.pending_events == 1 and savedHistory.pending_events[1].archive_id == pendingId,
+    "failed finalization must retain the same archive identity")
+failRename = false
+complete(decodedReport)
+assert(#savedHistory.pending_events == 0, "a successful retry must empty the outbox")
+local archivedCount = archiveWrites
+complete(decodedReport)
+assert(archiveWrites == archivedCount, "repeated polling must not duplicate archived events")
+
+-- Existing v1 history is archived once on upgrade, with no invented old fields.
+savedHistory.archive_initialized = nil
+savedHistory.pending_events = nil
+now = now + 2000
+assert(load(read("service.luau"), "service", "t", env))()
+callbacks[#callbacks]({ exitCode = 0, stdout = "{}" })
+assert(savedHistory.archive_initialized and #savedHistory.pending_events == 0
+    and archiveWrites == archivedCount + #savedHistory.events, "backfill the saved v1 events once")
+
+-- Trimming the working history must never delete the permanent event archive.
+local function archiveFileCount()
+    local count = 0
+    for path in pairs(files) do
+        if path:match("weekly%-reset%-event%-.+%.json$") then count = count + 1 end
+    end
+    return count
+end
+local fileCount = archiveFileCount()
+local movingReset = wallTime + 604800 + 7200
+for i = 1, 35 do
+    wallTime = wallTime + 300
+    movingReset = movingReset + 7200
+    complete(quota(movingReset, 0))
+end
+assert(#savedHistory.events == 32 and archiveFileCount() == fileCount + 35,
+    "all events must survive even after the 32-entry working history is trimmed")
+corruptHistory = true
+now = now + 2000
+assert(load(read("service.luau"), "service", "t", env))()
+callbacks[#callbacks]({ exitCode = 0, stdout = "{}" })
+assert(values.error.code == "" and values.report ~= nil, "corrupt history must not break polling")
+corruptHistory = false
 
 local sharedEnv = setmetatable({ noctalia = noctalia }, { __index = _G })
 local shared = assert(load(read("shared.luau"), "shared", "t", sharedEnv))()

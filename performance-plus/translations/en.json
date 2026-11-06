@@ -5,7 +5,7 @@
       "label": "Dismiss Active Notifications"
     },
     "disable_animations": {
-      "description": "Turn off window and shell transition animations",
+      "description": "Turn off compositor window transition animations",
       "label": "Disable Animations"
     },
     "disable_blur": {

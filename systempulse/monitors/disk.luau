@@ -297,14 +297,14 @@ local function buildStatsPanel()
         ui.label({ text = formatBytes(total), fontSize = 10 }),
       }))
       -- small storage-used progress bar — width clamped to pct, so 500GB total never shows 100% unless truly full
-      table.insert(rows, ui.column({ width = "100%", height = 4, radius = 2, fill = "outline/0.2" }, {
+      table.insert(rows, ui.column({ width = "100%", height = 4, radius = 2, fill = "outline_variant/0.2" }, {
         ui.column({ width = widthPct, height = 4, radius = 2, fill = "secondary" }),
       }))
     end
   end
 
   return ui.column({
-    fill = "surface_variant/0.4",
+    fill = "surface_container/0.4",
     radius = 8,
     padding = 12,
     gap = 6,
@@ -325,7 +325,7 @@ function M.build()
     }),
     ui.row({ flexGrow = 1, gap = 12, padding = { left = 12, right = 12, bottom = 12 }, align = "stretch" }, {
       ui.column({ flexGrow = 1, gap = 0 }, {
-        ui.column({ fill = "surface_variant/0.4", radius = 10, border = "outline/0.2", borderWidth = 1, padding = 12, flexGrow = 1 }, {
+        ui.column({ fill = "surface_container/0.4", radius = 10, border = "outline_variant/0.2", borderWidth = 1, padding = 12, flexGrow = 1 }, {
           buildThroughputGraph(),
         }),
       }),

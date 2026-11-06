@@ -39,11 +39,13 @@ local function render()
   elseif total > 0 then
     barWidget.setGlyph(glyph)
     barWidget.setText(tostring(total))
-    local tooltipEntries = {
-      { key = noctalia.tr("summary.dnf"), value = tostring(updateState.dnf and updateState.dnf.count or 0) },
-      { key = noctalia.tr("summary.flatpak"), value = tostring(updateState.flatpak and updateState.flatpak.count or 0) },
-      { key = noctalia.tr("summary.total"), value = tostring(total) },
-    }
+    local tooltipEntries = {}
+    if updateState.reboot_required then
+      table.insert(tooltipEntries, { key = noctalia.tr("summary.system"), value = noctalia.tr("status.reboot_required") })
+    end
+    table.insert(tooltipEntries, { key = noctalia.tr("summary.dnf"), value = tostring(updateState.dnf and updateState.dnf.count or 0) })
+    table.insert(tooltipEntries, { key = noctalia.tr("summary.flatpak"), value = tostring(updateState.flatpak and updateState.flatpak.count or 0) })
+    table.insert(tooltipEntries, { key = noctalia.tr("summary.total"), value = tostring(total) })
     if updateState.total_download_formatted and updateState.total_download_formatted ~= "0 B" then
       table.insert(tooltipEntries, { key = noctalia.tr("tooltip.download_size"), value = updateState.total_download_formatted })
     end
@@ -52,7 +54,12 @@ local function render()
     barWidget.setVisible(true)
   else
     -- Total == 0 (all up to date)
-    if showWhenClean then
+    if updateState.reboot_required then
+      barWidget.setVisible(true)
+      barWidget.setGlyph("rotate-cw")
+      barWidget.setText("")
+      barWidget.setTooltip(noctalia.tr("status.reboot_required"))
+    elseif showWhenClean then
       barWidget.setVisible(true)
       barWidget.setGlyph(glyph)
       barWidget.setText("")

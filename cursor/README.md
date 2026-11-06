@@ -9,7 +9,7 @@ drift apart. It also turns Windows cursor packs or your own PNGs into Xcursor th
 | Field | Value |
 | --- | --- |
 | ID | `vn1k/cursor` |
-| Entries | Panel: `manager`; shortcut: `shortcut` |
+| Entries | Panel: `manager`; shortcut: `shortcut`; bar widget: `widget`; service: `lifecycle` |
 
 ## Requirements
 
@@ -63,8 +63,8 @@ python3 -c "import win2xcur, wand; print('ok')"
 Reopen the panel afterwards.
 
 When they are present, the plugin also calls a few tools you already have: `gsettings` for the
-GNOME layer, plus the running compositor's own tools (`niri validate`, `sway -C` / `swaymsg`,
-`hyprctl`, `mmsg`) to check and reload a config change. A missing one is skipped and the
+GNOME layer, `flatpak` for the Flatpak layer, plus the running compositor's own tools (`niri validate`, `sway -C` / `swaymsg`,
+`hyprctl`, `mmsg`, `umbriel config validate`) to check and reload a config change. A missing one is skipped and the
 panel says why. You do not install any of them for this plugin.
 
 Listing and applying themes works without the optional packages. Importing and building
@@ -74,13 +74,16 @@ you to type the path instead.
 ## Usage
 
 Open the panel from the control centre tile (the `shortcut` entry, added under the control
-centre in Settings), or with:
+centre in Settings), from the optional bar button (add the **Cursor** widget from the bar's
+widget picker; the panel opens right under it), or with:
 
 ```sh
 noctalia msg panel-toggle vn1k/cursor:manager
 ```
 
-**Themes** lists every theme in `~/.local/share/icons`, `~/.icons` and `/usr/share/icons`,
+**Themes** lists every theme in `~/.local/share/icons`, `~/.icons`, `$XCURSOR_PATH` and
+`$XDG_DATA_DIRS/icons` (so NixOS and Guix profile themes show up), plus any extra folders
+you set,
 each with a rendered preview strip. Pick one, pick a size and press **Apply**. **Hide when
 typing** and **Hide after ms** set the compositor's cursor hiding. The bar at the top shows
 what each layer currently reports. When they disagree it says so, and applying again brings
@@ -117,6 +120,21 @@ into `~/.local/share/icons` byte for byte, with its alias symlinks intact.
 Themes you installed, imported or built can be removed from the panel. The first click on
 **Remove this theme** arms it and the second one removes it.
 
+**Reset to system cursor**, a small button at the bottom of the Themes tab, takes back
+everything the plugin changed. The include comes out of every compositor config, and the lines
+it had commented out are restored, so each config is back byte for byte. Its own files (the
+include files, `90-xcursor.conf`, `~/.icons/default/index.theme`) are deleted. GTK loses only
+its two cursor keys, gsettings is reset, and only the plugin's `XCURSOR_*` leave the Flatpak
+overrides. The cursor goes back to the system default; themes and config backups stay. The
+first click explains what will happen and offers Cancel; the second resets.
+
+**Removing the plugin** in Noctalia's settings does the same reset on its own. The `lifecycle`
+service keeps a copy of the engine in the plugin's data directory, because Noctalia deletes the
+plugin directory before `onExit("uninstall")` runs, and the hook runs that copy. A plugin that
+is removed while already disabled gets no hook, so press Reset first in that case. Apps started
+before a reset keep their cursor size until they restart, and anything started through the
+systemd user session keeps it until that session ends.
+
 ## Settings
 
 | Setting | Type | Default | Description |
@@ -124,10 +142,17 @@ Themes you installed, imported or built can be removed from the panel. The first
 | `engine_path` | `string` | empty | Leave empty. Points at a different `curmgr.py` than the bundled `bin/curmgr.py`, for a checkout that keeps the engine elsewhere. |
 | `build_sizes` | `select` | `24,32,48,64,96` | Nominal sizes baked into every theme the plugin imports or builds. Larger sets cost build time and disk; HiDPI screens want the bigger entries. |
 | `scale_filter` | `select` | `lanczos` | Resampling filter used when cursor art is scaled to those sizes. `point` keeps hard pixel edges crisp on 32×32 Windows art; `lanczos` suits anti-aliased modern packs; `mitchell` sits between them. |
+| `icon_dirs` | `string_list` | empty | Extra folders to search for cursor themes, on top of the ones above. |
+| `install_dir` | `folder` | `~/.local/share/icons` | Where imported, built and installed themes go, and the only folder **Remove** deletes from. Refused unless it is inside `$HOME`. Anywhere but the default it is put on `XCURSOR_PATH` (via `environment.d`, so after the next login) and mounted read-only for Flatpak. |
+| `niri_config`, `hyprland_config`, `sway_config`, `mango_config`, `umbriel_config` | `file` | `~/.config/…` | The compositor's main config, if yours lives elsewhere. The managed `cursor.kdl` / `cursor.conf` / `cursor.toml` is written next to it. |
+
+The path settings reach the engine as the env vars `CURMGR_ICON_DIRS` (`:`-joined),
+`CURMGR_INSTALL_DIR` and `CURMGR_{NIRI,HYPRLAND,SWAY,MANGO,UMBRIEL}_CONFIG`, so a keybind or script
+can set the same paths with the shell stopped.
 
 ## Notes
 
-**Files written.** Applying a theme writes the four portable layers below, plus one layer for
+**Files written.** Applying a theme writes the five portable layers below, plus one layer for
 each compositor whose config file exists:
 
 | Layer | File or command | Reaches |
@@ -136,36 +161,47 @@ each compositor whose config file exists:
 | GTK | `~/.config/gtk-3.0/settings.ini`, `~/.config/gtk-4.0/settings.ini` | GTK apps, on restart |
 | Legacy | `~/.icons/default/index.theme` (`Inherits=`) | Qt, SDL, Electron, XWayland, on restart |
 | Env | `~/.config/environment.d/90-xcursor.conf` | new processes, next login |
+| Flatpak | `flatpak override --user` (`XCURSOR_PATH`/`THEME`/`SIZE`, `~/.icons:ro`) | Flatpak apps, on restart |
 | niri | `~/.config/niri/cursor.kdl` | niri, instantly |
 | Hyprland | `~/.config/hypr/cursor.conf` | Hyprland, via `hyprctl reload` + `hyprctl setcursor` |
 | Sway | `~/.config/sway/cursor.conf` | Sway, via `swaymsg reload` |
 | MangoWC | `~/.config/mango/cursor.conf` | MangoWC, via `mmsg dispatch reload_config` |
+| Umbriel | `~/.config/umbriel/cursor.toml` | Umbriel, instantly (it watches its config) |
 
 The compositor's main config (`config.kdl`, `hyprland.conf`, sway's `config`, mango's
-`config.conf`) is the only file the plugin edits that it does not own. It is edited **once**:
+`config.conf`, umbriel's `config.toml`) is the only file the plugin edits that it does not own. It is edited **once**:
 
 - It is backed up to `<config>.bak-cursor-<timestamp>`.
 - One include line for the file above is appended.
-- niri only: a conflicting top-level `cursor` block is commented out. A second one would
-  collide in KDL, while the other three are last-wins parsers.
-- niri and Sway then validate the result (`niri validate`, `sway -C`), and a rejected config is
-  restored from the backup.
+- niri: a conflicting top-level `cursor` block is commented out. A second one would
+  collide in KDL, while Hyprland, Sway and MangoWC are last-wins parsers.
+- Umbriel applies its includes before `config.toml`, so its own `theme`, `size`,
+  `hide_when_typing` and `hide_timeout_ms` (and `XCURSOR_*` in `[environment]`) are commented
+  out; `hardware_cursor` and the rest stay. `cursor.toml` goes last in
+  `[include.optional] files`, next to Noctalia's own include, rather than in a second table.
+- niri, Sway and Umbriel then validate the result (`niri validate`, `sway -C`,
+  `umbriel config validate`), and a rejected config is restored from the backup.
 
 Every later apply rewrites only the managed include file. Every compositor that has a config
 gets its file, not just the one running, so the theme stays right if you switch compositors.
 
-Imported and built themes go to `~/.local/share/icons/<name>`. Preview images are cached under
+Imported and built themes go to the install folder (`~/.local/share/icons/<name>` by default). Preview images are cached under
 `~/.cache/curmgr`. The browse buttons hand the chosen path back through the plugin's data
-directory. **Remove** only ever deletes under `~/.local/share/icons`, and refuses any path
+directory. **Remove** only ever deletes inside the install folder, and refuses any path
 outside it, so a theme in `/usr/share/icons` is never touched.
 
 **Processes.** The panel runs `python3 bin/curmgr.py`, `zenity` for the browse buttons, and
-`noctalia msg panel-open` to reopen itself after a browse. The engine runs `gsettings` and the
+`noctalia msg panel-open` to reopen itself after a browse. The engine runs `gsettings`, `flatpak` and the
 compositor tools named above.
 
 **Network.** None. Nothing is downloaded. Binary cursor formats are handled by
 [`win2xcur`](https://github.com/quantum5/win2xcur), and nothing here parses `.cur`, `.ani` or
 Xcursor by hand.
+
+A layer whose file is read-only (Home Manager's `gtk-3.0/settings.ini` on NixOS) fails on its
+own and the other layers are still applied. The panel then says "Applied, but not to: GTK apps" and
+lists each failed layer with its reason. A layer the system simply lacks (no `flatpak`, no
+`gsettings`) is skipped, not reported.
 
 Already-running apps keep the cursor they read at startup. That is how Wayland works, not a
 bug. The `environment.d` and `~/.icons/default` layers exist so the next start picks up the

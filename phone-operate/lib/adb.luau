@@ -4,11 +4,41 @@
 local M = {}
 local shell = require("./shell.luau")
 
+local cmdQueue = {}
+
+local function runNext()
+	if #cmdQueue == 0 then
+		return
+	end
+	local cmd = cmdQueue[1]
+	if not noctalia.runAsync(cmd.cmdline, function(res)
+		if cmd.callback ~= nil then
+			local ok, err = pcall(cmd.callback, res)
+			if not ok then
+				noctalia.log("[phone-operate] adb callback error: " .. tostring(err))
+			end
+		end
+		table.remove(cmdQueue, 1)
+		runNext()
+	end) then
+		noctalia.log("[phone-operate] adb launch failed: " .. cmd.cmdline)
+		table.remove(cmdQueue, 1)
+		runNext()
+	end
+end
+
+local function runAdb(cmdline, callback)
+	table.insert(cmdQueue, {cmdline = cmdline, callback = callback})
+	if #cmdQueue == 1 then
+		runNext()
+	end
+end
+
 -- adb devices -l 输出示例（注意是小写 -l；大写 -L 旧版 adb 不支持会报错）：
 --   cf56f01f               device usb:5-1 product:piano model:25091RP04C transport_id:1
 --   192.168.1.3:5555       device product:piano
 function M.listDevicesAsync(cb)
-	noctalia.runAsync("adb devices -l", function(result)
+	runAdb("adb devices -l", function(result)
 		if result.exitCode ~= 0 then
 			-- 命令失败（adb server 异常等）：返回 nil，调用方保留上次设备列表
 			cb(nil)
@@ -39,7 +69,7 @@ end
 
 -- adb connect IP:PORT
 function M.connectAsync(address, cb)
-	noctalia.runAsync("adb connect " .. shell.quote(address), function(result)
+	runAdb("adb connect " .. shell.quote(address), function(result)
 		-- "connected to ..." 或 "already connected" 算成功
 		local ok = result.exitCode == 0 and result.stdout:match("connected") ~= nil
 		cb(ok, result.stdout)
@@ -48,7 +78,7 @@ end
 
 -- 查设备状态（"device"=就绪、"offline"=离线、"unauthorized"=未授权、nil=不存在）
 function M.deviceStateAsync(device_id, cb)
-	noctalia.runAsync("adb devices", function(result)
+	runAdb("adb devices", function(result)
 		if result.exitCode ~= 0 then
 			cb(nil)
 			return
@@ -68,7 +98,7 @@ end
 -- 配对码限定 6 位纯数字，避免注入；address 经 shell.quote 转义
 function M.pairAsync(address, code, cb)
 	local cmd = "adb pair " .. shell.quote(address) .. " " .. shell.quote(code)
-	noctalia.runAsync(cmd, function(result)
+	runAdb(cmd, function(result)
 		-- 成功输出 "Successfully paired to ..."（部分版本 "already paired"）。
 		-- 大小写不敏感匹配（Successfully 首字母大写）。
 		local out = (result.stdout or ""):lower()
@@ -80,18 +110,18 @@ end
 
 -- adb disconnect <device_id>
 function M.disconnect(device_id)
-	noctalia.runAsync("adb disconnect " .. shell.quote(device_id))
+	runAdb("adb disconnect " .. shell.quote(device_id))
 end
 
 -- adb -s <id> usb（切回 USB 模式）
 function M.usbMode(device_id)
-	noctalia.runAsync("adb -s " .. shell.quote(device_id) .. " usb")
+	runAdb("adb -s " .. shell.quote(device_id) .. " usb")
 end
 
 -- 取设备 WiFi IP（USB 连接也能拿到，用于与 KDE Connect 的 ipv4 匹配）。
 -- 命令失败或无线未连接时回调 nil。
 function M.deviceIpAsync(device_id, cb)
-	noctalia.runAsync(
+	runAdb(
 		"adb -s " .. shell.quote(device_id) .. " shell ip -4 addr show wlan0 2>/dev/null",
 		function(result)
 			if result.exitCode ~= 0 then

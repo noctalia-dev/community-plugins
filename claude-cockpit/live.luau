@@ -85,7 +85,7 @@ function M.refresh(done)
     end
 end
 
--- Focuses the session's terminal window (niri/Umbriel); false when not found.
+-- Focuses the session's terminal window (niri/Hyprland/Umbriel); false when not found.
 function M.focus(session, done)
     local ok = noctalia.runAsync({ "bash", focusPath, tostring(session.pid) }, function(result)
         done(type(result) == "table" and result.exitCode == 0)

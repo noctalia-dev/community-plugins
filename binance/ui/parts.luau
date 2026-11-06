@@ -7,7 +7,7 @@ local fmt = require("./fmt.luau")
 
 local M = {}
 
-M.CARD_FILL = "surface_variant/0.45"
+M.CARD_FILL = "surface_container/0.45"
 M.TRACK = "on_surface/0.08"
 
 function M.merge(props, extra)
@@ -63,7 +63,7 @@ function M.banner(tone: string, glyph: string, title: string, body: string?, act
     paddingH = 12,
     paddingV = 8,
     radius = 10,
-    fill = if isError then "error/0.12" else "surface_variant/0.6",
+    fill = if isError then "error/0.12" else "surface_container/0.6",
   }, M.nodes(
     ui.glyph({ name = glyph, size = 16, color = if isError then "error" else "on_surface_variant" }),
     ui.column({ gap = 1, flexGrow = 1 }, M.nodes(

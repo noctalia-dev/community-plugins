@@ -1,0 +1,122 @@
+id          = "0rgl/localsend-plus"
+name        = "LocalSend Plus"
+version     = "1.3.0"
+plugin_api  = 43
+author      = "0rgl"
+license     = "MIT"
+icon        = "lock-share"
+description = "Securely send and receive files, folders and clipboard with any LocalSend devices."
+tags        = ["network", "utility", "bar", "panel", "launcher", "service"]
+dependencies = ["localsend-controller", "zenity", "wl-paste", "wl-copy", "xdg-open", "xdg-mime"]
+
+[[setting]]
+key             = "alias"
+type            = "string"
+label_key       = "settings.alias.label"
+description_key = "settings.alias.description"
+default         = ""
+
+[[setting]]
+key             = "visibility"
+type            = "select"
+label_key       = "settings.visibility.label"
+description_key = "settings.visibility.description"
+default         = "everyone"
+options         = [
+  { value = "everyone", label_key = "visibility.everyone" },
+  { value = "favorites", label_key = "visibility.favorites" },
+  { value = "hidden", label_key = "visibility.hidden" },
+]
+
+[[setting]]
+key             = "auto_accept"
+type            = "select"
+label_key       = "settings.auto_accept.label"
+description_key = "settings.auto_accept.description"
+default         = "favorites"
+options         = [
+  { value = "off", label_key = "auto_accept.off" },
+  { value = "favorites", label_key = "auto_accept.favorites" },
+  { value = "everyone", label_key = "auto_accept.everyone" },
+]
+
+[[setting]]
+key             = "save_dir"
+type            = "folder"
+label_key       = "settings.save_dir.label"
+description_key = "settings.save_dir.description"
+default         = "~/Downloads/LocalSend"
+
+[[setting]]
+key             = "dolphin_menu"
+type            = "bool"
+label_key       = "settings.dolphin_menu.label"
+description_key = "settings.dolphin_menu.description"
+default         = false
+
+[[setting]]
+key             = "nautilus_menu"
+type            = "bool"
+label_key       = "settings.nautilus_menu.label"
+description_key = "settings.nautilus_menu.description"
+default         = false
+
+[[setting]]
+key             = "nemo_menu"
+type            = "bool"
+label_key       = "settings.nemo_menu.label"
+description_key = "settings.nemo_menu.description"
+default         = false
+
+[[setting]]
+key             = "terminal_command"
+type            = "bool"
+label_key       = "settings.terminal_command.label"
+description_key = "settings.terminal_command.description"
+default         = false
+
+[[setting]]
+key             = "port"
+type            = "int"
+label_key       = "settings.port.label"
+description_key = "settings.port.description"
+default         = 53317
+min             = 1024
+max             = 65535
+advanced        = true
+
+[[setting]]
+key             = "device_model"
+type            = "string"
+label_key       = "settings.device_model.label"
+description_key = "settings.device_model.description"
+default         = ""
+advanced        = true
+
+[[setting]]
+key             = "controller_path"
+type            = "file"
+label_key       = "settings.controller_path.label"
+description_key = "settings.controller_path.description"
+advanced        = true
+
+[[widget]]
+id    = "widget"
+entry = "widget.luau"
+
+[[panel]]
+id     = "panel"
+entry  = "panel.luau"
+width  = 400
+height = 560
+
+[[service]]
+id    = "service"
+entry = "service.luau"
+
+[[launcher_provider]]
+id                       = "launcher"
+entry                    = "launcher.luau"
+prefix                   = "ls"
+glyph                    = "send"
+include_in_global_search = true

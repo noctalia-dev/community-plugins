@@ -1,0 +1,28 @@
+id = "soulmanyes/workspace-restore"
+name = "Workspace Restore"
+version = "1.3.0"
+# 43: surface_container/outline_variant color roles; 42: content-height panel;
+# 32: container tooltips.
+plugin_api = 43
+author = "Soulmanyes"
+license = "CC0-1.0"
+icon = "layout-grid"
+description = "Give each Hyprland workspace a list of apps; reopen and move them back at login or with one click."
+tags = ["hyprland", "bar", "panel", "productivity"]
+dependencies = ["python3", "hyprctl", "setsid"]
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 1200
+height = "content"
+max_height = 1100
+placement = "floating"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+capture_keys = ["escape"]

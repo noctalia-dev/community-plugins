@@ -70,6 +70,12 @@ assert(shared.isSessionStarted({ percent = 0, reset_at = claudeSlotIso, detail =
 assert(shared.isSessionStarted({ percent = 0, reset_at = fullWindowIso, detail = "Resets in 4h 59m" }) == false,
     "Antigravity Claude & GPT OSS fresh session (4h 59m left) must mean session is not started")
 
+assert(shared.isSessionStarted({ percent = 0, started = true, reset_at = fullWindowIso }) == true,
+    "metric with started == true must mean session is started even at 0% and full window")
+
+assert(shared.isSessionStarted({ percent = 1, reset_at = fullWindowIso }) == true,
+    "metric with percent = 1 must mean session is started even with full window")
+
 assert(shared.isSessionStarted(nil) == false,
     "nil metric must return false")
 
@@ -349,5 +355,17 @@ local agyPanelTreeExhausted = loadPanelWithReport(antigravityReport)
 local agyStartBtnsExhausted = buttonsWithText(agyPanelTreeExhausted, "Start 5h")
 assert(#agyStartBtnsExhausted == 1,
     "When Claude & GPT OSS weekly is 100% exhausted, only Gemini (10% weekly) should show Start 5h. Got: " .. #agyStartBtnsExhausted)
+
+-- Test scenario 9: Bundled helper discovery via noctalia.pluginDir()
+mockNoctalia.pluginDir = function()
+    return "/test/plugins/ai-triage"
+end
+local pluginDirPanelTree = loadPanelWithReport(testReport)
+local pluginDirBtns = buttonsWithText(pluginDirPanelTree, "Start 5h")
+assert(#pluginDirBtns == 1, "Expected 1 'Start 5h' button for bundled script test")
+pluginDirBtns[1].props.onClick()
+assert(lastCmdRun:find("/test/plugins/ai%-triage/bin/ai%-kickstart"),
+    "When noctalia.pluginDir() is provided, bundled path must be prioritized in command. Got: " .. tostring(lastCmdRun))
+mockNoctalia.pluginDir = nil
 
 io.write("ok: all 5h session initiation scenarios and kickstart button tests passed!\n")

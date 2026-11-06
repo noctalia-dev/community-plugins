@@ -80,45 +80,65 @@ write_meta_json() {
     ' > "$out"
 }
 
+# One session file -> "$WORKDIR/<projectDir>__<id>.json". It runs in parallel
+# (see below), so it only writes files named after its own project folder AND
+# session id: the same id can exist in two project folders (a session resumed
+# from another directory), and two jobs must never share a work folder.
+process_file() {
+    local file="$1" id stat_out mtime size project_dir key sess_dir empty
+    id=$(basename "$file" .jsonl)
+    # A session id is always a UUID; anything else is not a file this
+    # script understands (and never one worth building a path out of).
+    [[ "$id" =~ ^[0-9a-fA-F-]+$ ]] || return 0
+
+    stat_out=$(stat -c '%Y %s' -- "$file" 2>/dev/null) || return 0
+    mtime="${stat_out%% *}"
+    size="${stat_out##* }"
+    project_dir=$(basename "$(dirname "$file")")
+    key="${project_dir}__${id}"
+
+    sess_dir="$WORKDIR/work-$key"
+    mkdir -p "$sess_dir"
+
+    # A session nobody wrote to (opened and closed at once) holds only
+    # bookkeeping lines — no "user" turn at all.
+    empty=true
+    grep -q -F '"type":"user"' -- "$file" 2>/dev/null && empty=false
+
+    # Base fields are always short: safe as --arg regardless of file size.
+    jq -n \
+        --arg id "$id" --arg projectDir "$project_dir" \
+        --arg mtime "$mtime" --arg size "$size" --argjson empty "$empty" \
+        '{ id: $id, projectDir: $projectDir, empty: $empty,
+           mtime: ($mtime | tonumber? // 0), size: ($size | tonumber? // 0) }' \
+        > "$sess_dir/base.json"
+    write_head_json "$file" "$sess_dir/head.json"
+    write_meta_json "$file" "$sess_dir/meta.json"
+
+    jq -s 'add' "$sess_dir/base.json" "$sess_dir/head.json" "$sess_dir/meta.json" \
+        > "$WORKDIR/$key.json" 2>/dev/null || true
+    rm -rf "$sess_dir"
+}
+
+# Each file costs about half a dozen short processes (grep, tac, four jq), so
+# a few hundred sessions took ~30 s one after the other. Spread them over the
+# CPUs instead; the result does not depend on the order they finish in
+# because the files are merged below in name order.
 if [ -d "$PROJECTS_DIR" ]; then
-    while IFS= read -r -d '' file; do
-        id=$(basename "$file" .jsonl)
-        # A session id is always a UUID; anything else is not a file this
-        # script understands (and never one worth building a path out of).
-        [[ "$id" =~ ^[0-9a-fA-F-]+$ ]] || continue
-
-        stat_out=$(stat -c '%Y %s' -- "$file" 2>/dev/null) || continue
-        mtime="${stat_out%% *}"
-        size="${stat_out##* }"
-        project_dir=$(basename "$(dirname "$file")")
-
-        sess_dir="$WORKDIR/work-$id"
-        mkdir -p "$sess_dir"
-
-        # A session nobody wrote to (opened and closed at once) holds only
-        # bookkeeping lines — no "user" turn at all.
-        empty=true
-        grep -q -F '"type":"user"' -- "$file" 2>/dev/null && empty=false
-
-        # Base fields are always short: safe as --arg regardless of file size.
-        jq -n \
-            --arg id "$id" --arg projectDir "$project_dir" \
-            --arg mtime "$mtime" --arg size "$size" --argjson empty "$empty" \
-            '{ id: $id, projectDir: $projectDir, empty: $empty,
-               mtime: ($mtime | tonumber? // 0), size: ($size | tonumber? // 0) }' \
-            > "$sess_dir/base.json"
-        write_head_json "$file" "$sess_dir/head.json"
-        write_meta_json "$file" "$sess_dir/meta.json"
-
-        jq -s 'add' "$sess_dir/base.json" "$sess_dir/head.json" "$sess_dir/meta.json" \
-            > "$WORKDIR/$id.json" 2>/dev/null || true
-        rm -rf "$sess_dir"
-    done < <(find "$PROJECTS_DIR" -mindepth 2 -maxdepth 2 -name '*.jsonl' -print0 2>/dev/null)
+    JOBS=$(nproc 2>/dev/null || echo 4)
+    [ "$JOBS" -gt 8 ] && JOBS=8
+    export WORKDIR
+    export -f write_head_json write_meta_json process_file
+    find "$PROJECTS_DIR" -mindepth 2 -maxdepth 2 -name '*.jsonl' -print0 2>/dev/null \
+        | xargs -0 -r -n 1 -P "$JOBS" bash -c 'process_file "$1"' _ || true
 fi
 
 SESSION_FILES=("$WORKDIR"/*.json)
 if [ ${#SESSION_FILES[@]} -eq 0 ]; then
     jq -n '{ generatedAt: (now | floor), sessions: [] }'
 else
-    jq -s '{ generatedAt: (now | floor), sessions: . }' "${SESSION_FILES[@]}"
+    # One entry per session id: when the same id sits in two project folders
+    # the panel (keys, running marker) cannot tell them apart, so keep the
+    # copy that was written last.
+    jq -s '{ generatedAt: (now | floor), sessions: (group_by(.id) | map(max_by(.mtime))) }' "${SESSION_FILES[@]}"
 fi

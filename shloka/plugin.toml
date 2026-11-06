@@ -1,0 +1,99 @@
+id = "ankitkumar/shloka"
+name = "Shloka"
+version = "0.1.0"
+plugin_api = 12
+author = "AnkitKumar"
+license = "GPL-3.0-or-later"
+icon = "book"
+tags = ["desktop", "utility"]
+dependencies = []
+description = "A customizable Bhagavad Gita verse desktop widget."
+
+[[desktop_widget]]
+id = "verse"
+entry = "widget.luau"
+
+[[desktop_widget.setting]]
+key = "mode"
+type = "select"
+label_key = "settings.mode.label"
+description_key = "settings.mode.description"
+default = "random"
+options = [
+    { value = "random", label_key = "settings.mode.random" },
+    { value = "daily", label_key = "settings.mode.daily" },
+]
+
+[[desktop_widget.setting]]
+key = "refresh_minutes"
+type = "int"
+label_key = "settings.refresh_minutes.label"
+description_key = "settings.refresh_minutes.description"
+default = 30
+min = 0
+max = 1440
+visible_when = { key = "mode", values = ["random"] }
+
+[[desktop_widget.setting]]
+key = "language"
+type = "select"
+label_key = "settings.language.label"
+description_key = "settings.language.description"
+default = "en"
+options = [
+    { value = "en", label_key = "settings.language.en" },
+    { value = "hi", label_key = "settings.language.hi" },
+    { value = "both", label_key = "settings.language.both" },
+    { value = "none", label_key = "settings.language.none" },
+]
+
+[[desktop_widget.setting]]
+key = "show_sanskrit"
+type = "bool"
+label_key = "settings.show_sanskrit.label"
+description_key = "settings.show_sanskrit.description"
+default = true
+
+[[desktop_widget.setting]]
+key = "show_transliteration"
+type = "bool"
+label_key = "settings.show_transliteration.label"
+description_key = "settings.show_transliteration.description"
+default = true
+
+[[desktop_widget.setting]]
+key = "show_reference"
+type = "bool"
+label_key = "settings.show_reference.label"
+description_key = "settings.show_reference.description"
+default = true
+
+[[desktop_widget.setting]]
+key = "show_credit"
+type = "bool"
+label_key = "settings.show_credit.label"
+description_key = "settings.show_credit.description"
+default = true
+
+[[desktop_widget.setting]]
+key = "show_controls"
+type = "bool"
+label_key = "settings.show_controls.label"
+description_key = "settings.show_controls.description"
+default = true
+
+[[desktop_widget.setting]]
+key = "teachings_only"
+type = "bool"
+label_key = "settings.teachings_only.label"
+description_key = "settings.teachings_only.description"
+default = true
+
+[[desktop_widget.setting]]
+key = "font_size"
+type = "int"
+label_key = "settings.font_size.label"
+description_key = "settings.font_size.description"
+default = 22
+min = 12
+max = 48
