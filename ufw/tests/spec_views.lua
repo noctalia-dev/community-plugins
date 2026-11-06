@@ -178,15 +178,22 @@ do
       local box = findKey(tree, "form.box." .. id)
       local btn = findKey(tree, "form.proto." .. id)
       local tag = "views: " .. want .. " selected, " .. id
+      -- active and inactive look the same except the outline: full opacity on every
+      -- box, and the 32px height of a "sm" control (the port input beside it)
+      eq(tag .. " is full opacity", box.props.opacity, 1)
+      eq(tag .. " is the small control height", box.props.minHeight, 32)
       if id == want then
         eq(tag .. " has the primary border", box.props.border, "primary")
-        eq(tag .. " is full opacity", box.props.opacity, 1)
         eq(tag .. " has no button", btn, nil)
         local on = findKey(tree, "form.proto." .. id .. ".on")
         check(tag .. " is a label without onClick", on ~= nil and on.props.onClick == nil)
+        -- a ghost button's text is on_surface at the host's default size and weight
+        eq(tag .. " label has the ghost button's text colour", on and on.props.color, "on_surface")
+        eq(tag .. " label keeps the default text size", on and on.props.fontSize, nil)
+        eq(tag .. " label keeps the default weight", on and on.props.fontWeight, nil)
       else
         eq(tag .. " has the explicit transparent border", box.props.border, "#00000000")
-        eq(tag .. " is dimmed", box.props.opacity, 0.5)
+        eq(tag .. " button keeps the default text size", btn and btn.props.fontSize, nil)
         eq(tag .. " keeps the border width", box.props.borderWidth, 1)
         check(tag .. " is clickable ghost", btn ~= nil and btn.props.variant == "ghost" and type(btn.props.onClick) == "function")
         eq(tag .. " not host-selected", btn.props.selected, nil)
@@ -340,7 +347,11 @@ do
   undo.props.onClick()
   eq("views: undo unstages the remove op", calls[2] and calls[2][2], "4")
   local other = findKey(t, rowId(BASE_RULES[2]))
-  eq("views: other rows not faded", other.props.opacity, nil)
+  -- set explicitly, never left out: the host keeps a row's opacity when the prop
+  -- disappears, so an undone remove would otherwise stay faded
+  eq("views: other rows not faded", other.props.opacity, 1)
+  local undone = findKey(build(snap({ pending = {} })), rowId(target))
+  eq("views: an undone remove is full opacity again", undone and undone.props.opacity, 1)
   findKey(other, rowId(BASE_RULES[2]) .. ".remove").props.onClick()
   eq("views: ✕ stages a remove", calls[3] and calls[3][1], "stageRemove")
   eq("views: ✕ passes the rule id", calls[3] and calls[3][2], BASE_RULES[2].id)
@@ -658,7 +669,7 @@ local function panelChoice(want)
     local box = findKey(rendered, "form.box." .. id)
     local tag = "panel: " .. want .. " selected, " .. id
     eq(tag .. " border", box.props.border, id == want and "primary" or "#00000000")
-    eq(tag .. " opacity", box.props.opacity, id == want and 1 or 0.5)
+    eq(tag .. " opacity", box.props.opacity, 1)
     eq(tag .. " clickable", findKey(rendered, "form.proto." .. id) ~= nil, id ~= want)
   end
 end

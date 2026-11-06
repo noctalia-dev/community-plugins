@@ -216,11 +216,13 @@ local function ruleRow(ui, tr, h, rule, removeOp, canStage)
   else
     trailing = ui.label({ key = key .. ".terminal", text = tr("rules.remove_in_terminal"), fontSize = 10, color = MUTED, maxWidth = 80, maxLines = 2 })
   end
-  local props = { key = key, gap = 8, align = "center", paddingH = 10, paddingV = 6, radius = 8, fill = ROW_FILL }
-  if removeOp ~= nil then
-    props.opacity = 0.5
-  end
-  local rowNode = ui.row(props, rowBody(ui, tr, key, portText(tr, rule), rule.proto, meta, trailing))
+  -- opacity is set in both states: the host keeps a row's opacity when the prop
+  -- disappears, so an undone remove would otherwise stay faded
+  local props = {
+    key = key, gap = 8, align = "center", paddingH = 10, paddingV = 6, radius = 8, fill = ROW_FILL,
+    opacity = removeOp ~= nil and 0.5 or 1,
+  }
+  local rowNode = ui.row(props,rowBody(ui, tr, key, portText(tr, rule), rule.proto, meta, trailing))
   return wrapWithError(ui, rowNode, opErrorLabel(ui, tr, key .. ".error", removeOp))
 end
 
@@ -438,17 +440,19 @@ local function addForm(ui, tr, h, snap, canStage)
   for _, choice in ipairs(CHOICES) do
     local id = choice.id
     local active = id == proto
-    -- The host keeps a prop that disappears between renders, so every visual prop is
-    -- set explicitly each time: active = primary border at full opacity, inactive =
-    -- a transparent border at half opacity (never border = nil).
+    -- The host keeps a row's border/opacity when the prop disappears between renders,
+    -- so both are set every time: active = primary border, inactive = a transparent
+    -- border (never border = nil). Active and inactive look the same apart from the
+    -- outline: full opacity, 32px (a "sm" control, like the port input), and the
+    -- label takes a ghost button's text colour (on_surface) and, like the button,
+    -- the host's default text size and weight.
     local inner
     if active then
       -- the selected option is a plain label: nothing to click, no hover look
       inner = ui.label({
         key = "form.proto." .. id .. ".on",
         text = tr(choice.text),
-        fontSize = 12,
-        fontWeight = "medium",
+        color = "on_surface",
         textAlign = "center",
         flexGrow = 1,
       })
@@ -470,10 +474,10 @@ local function addForm(ui, tr, h, snap, canStage)
       flexGrow = 1,
       radius = 8,
       align = "center",
-      minHeight = 28,
+      minHeight = 32,
       border = active and "primary" or "#00000000",
       borderWidth = 1,
-      opacity = active and 1 or 0.5,
+      opacity = 1,
     }, { inner })
   end
   local function submit()
