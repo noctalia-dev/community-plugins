@@ -2250,8 +2250,8 @@ tags = ["audio", "bar", "panel", "service", "hardware", "indicator"]
 [[plugin]]
 id = "arrifat346afs/systempulse"
 name = "SystemPulse"
-version = "1.1.3"
-updated_at = 1792983494
+version = "1.1.4"
+updated_at = 1793998406
 added_at = 1787832988
 author = "arrifat346afs "
 license = "MIT"
@@ -3860,8 +3860,8 @@ rev = "66f12b08afe79f55b7fb104294fc491f219c2261"
 [[plugin]]
 id = "notoxus/media-island"
 name = "Media Island"
-version = "1.0.1"
-updated_at = 1792983494
+version = "1.0.2"
+updated_at = 1793977252
 added_at = 1790341770
 author = "notoxus"
 license = "MIT"
