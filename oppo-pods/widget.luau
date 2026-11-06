@@ -8,6 +8,9 @@ local hideWhenDisconnected = noctalia.getConfig("hide_when_disconnected") ~= fal
 
 local function getModeName(mode)
 	if mode == "anc" then
+		if snapshot.noise_level then
+			return noctalia.tr("panel.mode.anc") .. " · " .. noctalia.tr("panel.level." .. snapshot.noise_level)
+		end
 		return noctalia.tr("panel.mode.anc")
 	elseif mode == "transparency" then
 		return noctalia.tr("panel.mode.transparency")
@@ -32,7 +35,7 @@ local function render()
 		barWidget.setText("")
 		barWidget.setTooltip({
 			{ key = noctalia.tr("panel.title"), value = noctalia.tr("widget.not_connected") },
-			{ key = noctalia.tr("widget.action.left_click"), value = noctalia.tr("panel.title") }
+			{ key = noctalia.tr("widget.click.left"), value = noctalia.tr("widget.action.left_click") }
 		})
 		return
 	end
@@ -70,7 +73,7 @@ local function render()
 
 	-- Build detailed tooltip rows
 	local tooltipRows = {
-		{ key = "Device", value = snapshot.model_name or snapshot.device_name or noctalia.tr("panel.title") },
+		{ key = noctalia.tr("widget.device"), value = snapshot.model_name or snapshot.device_name or noctalia.tr("panel.title") },
 		{ key = noctalia.tr("widget.mode"), value = getModeName(mode) },
 	}
 
@@ -94,8 +97,8 @@ local function render()
 		table.insert(tooltipRows, { key = noctalia.tr("panel.case"), value = tostring(snapshot.battery_case) .. "%" .. metaStr })
 	end
 
-	table.insert(tooltipRows, { key = "Left Click", value = noctalia.tr("widget.action.left_click") })
-	table.insert(tooltipRows, { key = "Right Click", value = noctalia.tr("widget.action.right_click") })
+	table.insert(tooltipRows, { key = noctalia.tr("widget.click.left"), value = noctalia.tr("widget.action.left_click") })
+	table.insert(tooltipRows, { key = noctalia.tr("widget.click.right"), value = noctalia.tr("widget.action.right_click") })
 
 	barWidget.setTooltip(tooltipRows)
 end
