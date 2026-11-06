@@ -5548,8 +5548,8 @@ tags = ["launcher", "service", "media", "video"]
 [[plugin]]
 id = "3dprogramin/mullvad"
 name = "Mullvad VPN"
-version = "0.1.0"
-updated_at = 1793883043
+version = "0.1.1"
+updated_at = 1793976832
 added_at = 1793883043
 author = "3dprogramin"
 license = "MIT"
