@@ -254,8 +254,14 @@ local function fieldLabel(key)
   return ui.label({ text = tr(key), fontSize = 10, color = "on_surface_variant" })
 end
 
--- Segmented choice without fill: every option is a ghost button; the active one
--- sits in a primary-bordered box (buttons have no border prop of their own).
+-- Segmented choice without fill. The active option is a plain label in a
+-- primary-bordered box (nothing to click, no hover look); the others are ghost
+-- buttons. Both look the same apart from the outline: the label takes a ghost
+-- button's text colour (on_surface) and, like the button, the host's default text
+-- size and weight; every box is 32px (a "sm" button) at full opacity. The host
+-- keeps a row's border/opacity when the prop disappears between renders, so both
+-- are set on every render: an inactive border is transparent, never nil, or the
+-- old outline would stay.
 local function modeRow(snapshot, mode, patch)
   local boxes = {}
   for _, id in ipairs(MODES) do
@@ -264,14 +270,17 @@ local function modeRow(snapshot, mode, patch)
       enabled = false
     end
     local active = id == mode
-    boxes[#boxes + 1] = ui.row({
-      key = "mode.box." .. id,
-      flexGrow = 1,
-      radius = 8,
-      border = active and "primary" or nil,
-      borderWidth = 1,
-    }, {
-      ui.button({
+    local inner
+    if active then
+      inner = ui.label({
+        key = "mode." .. id .. ".on",
+        text = tr("connect.mode." .. id),
+        color = "on_surface",
+        textAlign = "center",
+        flexGrow = 1,
+      })
+    else
+      inner = ui.button({
         key = "mode." .. id,
         text = tr("connect.mode." .. id),
         variant = "ghost",
@@ -281,8 +290,18 @@ local function modeRow(snapshot, mode, patch)
         onClick = function()
           patch({ mode = id })
         end,
-      }),
-    })
+      })
+    end
+    boxes[#boxes + 1] = ui.row({
+      key = "mode.box." .. id,
+      flexGrow = 1,
+      radius = 8,
+      align = "center",
+      minHeight = 32,
+      border = active and "primary" or "#00000000",
+      borderWidth = 1,
+      opacity = 1,
+    }, { inner })
   end
   return ui.column({ gap = 4 }, {
     ui.label({ key = "mode.label", text = tr("connect.mode_label"), fontSize = 10, color = "on_surface_variant" }),
