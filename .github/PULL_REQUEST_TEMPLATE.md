@@ -71,6 +71,7 @@ Plugins run as trusted, unsandboxed Luau in the user's session. Confirm:
 **Ready-for-review requirement:** Every attestation below must be checked.
 
 - [ ] The code is readable and not obfuscated, minified, or generated.
+- [ ] Code identifiers and code comments are in English.
 - [ ] It does not download and execute remote code.
 - [ ] Every network call, filesystem write, and spawned process is something the description above accounts for.
 - [ ] I have the right to publish this code under the `license` declared in `plugin.toml`.
