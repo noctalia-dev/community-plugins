@@ -5596,3 +5596,16 @@ icon = "shield"
 description = "Show UFW firewall status in the bar; turn it on or off and manage allowed ports from a panel."
 plugin_api = 43
 tags = ["bar", "panel", "service", "network", "system"]
+
+[[plugin]]
+id = "demencia89/androidconnect"
+name = "AndroidConnect"
+version = "2.4.1"
+updated_at = 1793976618
+added_at = 1793976618
+author = "demencia89"
+license = "GPL-2.0-only"
+icon = "device-mobile"
+description = "Android status, KDE Connect actions, and an interactive scrcpy preview using upstream pixel streams."
+plugin_api = 43
+tags = ["hardware", "media", "network", "panel", "utility", "video"]
