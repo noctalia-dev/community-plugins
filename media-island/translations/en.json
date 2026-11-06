@@ -10,12 +10,28 @@
   },
   "settings": {
     "auto-show": {
-      "description": "Briefly show the island when playback starts or the current track changes.",
+      "description": "Briefly show the island when playback starts or the current track changes. Off by default so it opens only when clicked.",
       "label": "Show on playback changes"
     },
     "preview-seconds": {
-      "description": "How many seconds an automatic island preview remains visible.",
+      "description": "How many seconds automatic and title-click island previews remain visible.",
       "label": "Preview duration"
+    },
+    "title-limit": {
+      "label": "Title length",
+      "description": "Maximum number of characters of the track title shown in the bar."
+    },
+    "click-action": {
+      "label": "Click action",
+      "description": "What clicking the track title does: \"island\" opens a brief island preview, \"panel\" opens the control center media tab."
+    },
+    "show-hours": {
+      "label": "Show hours",
+      "description": "Show times of one hour or longer as h:mm:ss (for example 4:48:55) instead of total minutes (288:55)."
+    },
+    "audio-visualizer": {
+      "label": "Audio visualizer",
+      "description": "Show a full-width audio-reactive wave along the bar."
     }
   },
   "tooltip": {
