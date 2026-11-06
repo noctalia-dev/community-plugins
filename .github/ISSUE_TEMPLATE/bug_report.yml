@@ -36,6 +36,7 @@ body:
         - airpods
         - als-brightness
         - ambient-sounds
+        - androidconnect
         - anilist
         - aocctl
         - arch-audit
