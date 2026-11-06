@@ -1,0 +1,52 @@
+# Typer - a monkeytype-style typing practice plugin for Noctalia Shell.
+# Floating panel with an exclusive-focus typing test, launcher provider (/type),
+# and a bar widget showing today's best WPM.
+
+id = "lepinx/typer"
+name = "Typer"
+version = "0.3.8"
+plugin_api = 28
+author = "lepinx"
+license = "MIT"
+dependencies = []
+tags = ["panel", "launcher", "bar", "productivity", "fun"]
+icon = "keyboard"
+description = "Floating typing test with random words (English/Spanish), time and words modes, live WPM and accuracy."
+
+[[setting]]
+key = "language"
+type = "string"
+label_key = "settings.language.label"
+description_key = "settings.language.description"
+default = "en"
+
+[[setting]]
+key = "mode"
+type = "string"
+label_key = "settings.mode.label"
+description_key = "settings.mode.description"
+default = "time"
+
+# Typing test surface. Exclusive keyboard focus so every keystroke lands in the
+# panel while it is open; Escape still dismisses it (host-owned).
+[[panel]]
+id = "test"
+entry = "panel.luau"
+width = 540
+height = 310
+placement = "floating"
+position = "center"
+keyboard_focus = "exclusive"
+
+# Launcher provider: type /type and select the result to open the panel.
+[[launcher_provider]]
+id = "open"
+entry = "launcher.luau"
+prefix = "type"
+glyph = "keyboard"
+include_in_global_search = false
+
+# Bar widget: today's best WPM (reads persisted stats + shared plugin state).
+[[widget]]
+id = "wpm"
+entry = "bar.luau"
