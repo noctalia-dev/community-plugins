@@ -488,21 +488,22 @@ end
 -- UI callbacks
 -- ---------------------------------------------------------------------------
 
+-- ui.select provides its callback index zero-based; internal state is one-based.
 function onLangChanged(index, _text)
-  langIndex = tonumber(index) or 1
+  langIndex = (tonumber(index) or 0) + 1
   resetSession()
   render()
 end
 
 function onModeChanged(index, _text)
-  modeIndex = tonumber(index) or 1
+  modeIndex = (tonumber(index) or 0) + 1
   lengthIndex = 2
   resetSession()
   render()
 end
 
 function onLengthChanged(index, _text)
-  lengthIndex = tonumber(index) or 1
+  lengthIndex = (tonumber(index) or 0) + 1
   resetSession()
   render()
 end

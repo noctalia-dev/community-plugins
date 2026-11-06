@@ -123,9 +123,9 @@ check("no second ticks while ready", secondTicks == false)
 -- Words mode: 25 words, all "the" (deterministic RNG)
 -- ---------------------------------------------------------------------------
 
-onLangChanged("1") -- English
-onModeChanged("2") -- Words
-onLengthChanged("2") -- 25 words
+onLangChanged("0") -- English
+onModeChanged("1") -- Words (host index is zero-based)
+onLengthChanged("1") -- 25 words
 trees = {}
 
 local function inputKeys(tree)
@@ -172,8 +172,8 @@ check("results show a 60s duration", hasLabel(lastTree(), "60s"))
 onRestart()
 check("restart returns to settings view", countKind(lastTree(), "select") == 3)
 
-onModeChanged("1") -- Time
-onLengthChanged("1") -- 15s
+onModeChanged("0") -- Time
+onLengthChanged("0") -- 15s
 trees = {}
 
 fakeNow = 62000
@@ -190,8 +190,8 @@ check("second ticks off after time finish", secondTicks == false)
 -- Rules: double space, backspace, language switch
 -- ---------------------------------------------------------------------------
 
-onModeChanged("2")
-onLengthChanged("2")
+onModeChanged("1")
+onLengthChanged("1")
 trees = {}
 
 fakeNow = 1000
@@ -206,7 +206,7 @@ check("backspace to empty does not advance", hasLabel(lastTree(), "0/25"))
 onInputChange("the ")
 check("space advances in es", hasLabel(lastTree(), "1/25"))
 
-onLangChanged("2") -- Español: first word is now "de"
+onLangChanged("1") -- Español (host index 1): first word is now "de"
 trees = {}
 onRestart()
 onInputChange("de ")
