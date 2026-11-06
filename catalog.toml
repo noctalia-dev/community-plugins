@@ -4827,15 +4827,15 @@ tags = ["recording", "video", "utility"]
 [[plugin]]
 id = "johnnyp0t/niri-workspace-stack"
 name = "Niri Workspace Stack"
-version = "0.3.2"
-updated_at = 1792983494
+version = "0.4.0"
+updated_at = 1793976790
 added_at = 1792589522
 author = "johnnyp0t"
 license = "MIT"
 icon = "stack-2"
-description = "Compact niri workspace stack with the active workspace's windows as app icons; three display modes."
+description = "Compact niri / Umbriel workspace stack with the active workspace's windows as app icons; three display modes."
 plugin_api = 43
-tags = ["bar", "indicator", "niri", "productivity"]
+tags = ["bar", "indicator", "niri", "umbriel", "productivity"]
 
 [[plugin.release]]
 plugin_api = 32
