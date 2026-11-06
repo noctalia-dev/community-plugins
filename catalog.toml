@@ -5609,3 +5609,16 @@ icon = "device-mobile"
 description = "Android status, KDE Connect actions, and an interactive scrcpy preview using upstream pixel streams."
 plugin_api = 43
 tags = ["hardware", "media", "network", "panel", "utility", "video"]
+
+[[plugin]]
+id = "3dprogramin/vscode"
+name = "VS Code"
+version = "0.1.0"
+updated_at = 1793977201
+added_at = 1793977201
+author = "3dprogramin"
+license = "MIT"
+icon = "brand-vscode"
+description = "Open recent VS Code projects from the bar, a panel or the launcher; clone a repo and see git status."
+plugin_api = 43
+tags = ["bar", "panel", "launcher", "service", "development", "productivity"]
