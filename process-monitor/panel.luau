@@ -137,7 +137,8 @@ local function header()
     local function h(id, text, width, justify)
         local active = sortBy == id
         return ui.button({
-            key = "h-" .. id, text = text, fontSize = S.F_MINI, height = 22, width = width,
+            -- glyph can't be unset on a retained button, so the key follows the state
+            key = "h-" .. id .. (active and "-on" or ""), text = text, fontSize = S.F_MINI, height = 22, width = width,
             glyph = active and (ascending and "sort-ascending" or "sort-descending") or nil, glyphSize = 12,
             variant = "ghost", selected = active, contentAlign = justify or "end",
             flexGrow = width == nil and 1 or nil,
@@ -236,7 +237,8 @@ local function processRow(snap, row, index)
     if paused then name = name .. "  ·  " .. tr("ui.paused") end
 
     local toggle = function()
-        expanded = isExpanded and nil or key
+        -- not `isExpanded and nil or key`: that always yields key
+        if isExpanded then expanded = nil else expanded = key end
         render()
     end
     local endKey = key .. "|TERM"
@@ -252,7 +254,7 @@ local function processRow(snap, row, index)
         ui.row({ width = VRAM_W, justify = "end" }, {
             ui.label({
                 text = row[S.VRAM] > 0 and S.bytes(row[S.VRAM]) or "–", fontSize = S.F_CAPTION - 1,
-                color = (gpuTotalVram > 0 and row[S.VRAM] / gpuTotalVram > 0.25) and S.COLOR.vram or nil,
+                color = (gpuTotalVram > 0 and row[S.VRAM] / gpuTotalVram > 0.25) and S.COLOR.vram or "on_surface",
             }),
         }),
         ui.button({
@@ -267,7 +269,7 @@ local function processRow(snap, row, index)
     local children = { main }
     if isExpanded then table.insert(children, actionStrip(row, key)) end
 
-    local fill = nil
+    local fill = S.NO_FILL
     if isExpanded then
         fill = "surface_container_high"
     elseif index % 2 == 0 then

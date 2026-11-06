@@ -202,6 +202,10 @@ def pretty_name(pid, comm):
     raw = read(f"/proc/{pid}/cmdline")
     if raw:
         argv0 = raw.split("\0", 1)[0]
+        if raw.count("\0") <= 1 and " -" in argv0:
+            # Electron/Chromium children rewrite their argv into one string
+            # ("/usr/lib/vesktop/vesktop --type=renderer ..."): drop the flags.
+            argv0 = argv0.split(" -", 1)[0]
         # Wine/Proton: argv[0] may be a Windows path like Z:\...\Game.exe
         base = argv0.replace("\\", "/").rsplit("/", 1)[-1]
         if base and (base.startswith(comm[:15]) or len(comm) >= 15):
