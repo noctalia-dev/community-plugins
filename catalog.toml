@@ -1805,8 +1805,8 @@ rev = "8bf825d5dce2ba8548b36e597f5b450984c95452"
 [[plugin]]
 id = "felipeartur/ai-usagebar"
 name = "AI Usage"
-version = "2.11.2"
-updated_at = 1792983494
+version = "2.13.1"
+updated_at = 1793926399
 added_at = 1786903781
 author = "felipeartur"
 license = "MIT"
