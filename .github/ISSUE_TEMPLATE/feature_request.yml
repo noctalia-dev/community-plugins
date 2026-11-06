@@ -242,6 +242,7 @@ body:
         - pulsar-mouse
         - qr-share
         - qrcode
+        - quick-alarm
         - quickask
         - quill
         - quranwidget
