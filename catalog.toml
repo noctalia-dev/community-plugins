@@ -5622,3 +5622,16 @@ icon = "brand-vscode"
 description = "Open recent VS Code projects from the bar, a panel or the launcher; clone a repo and see git status."
 plugin_api = 43
 tags = ["bar", "panel", "launcher", "service", "development", "productivity"]
+
+[[plugin]]
+id = "lepinx/typer"
+name = "Typer"
+version = "0.3.8"
+updated_at = 1794005456
+added_at = 1794005456
+author = "lepinx"
+license = "MIT"
+icon = "keyboard"
+description = "Floating typing test with random words (English/Spanish), time and words modes, live WPM and accuracy."
+plugin_api = 28
+tags = ["panel", "launcher", "bar", "productivity", "fun"]
