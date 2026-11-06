@@ -3066,8 +3066,8 @@ rev = "7b1754a22ce76a92edb98fd498ad40aa4a0a3371"
 [[plugin]]
 id = "nightwatch75/claude-cockpit"
 name = "Claude Cockpit"
-version = "1.1.5"
-updated_at = 1793734766
+version = "1.3.0"
+updated_at = 1793975929
 added_at = 1789089483
 author = "nightwatch75"
 license = "MIT"
