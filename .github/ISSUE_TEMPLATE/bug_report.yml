@@ -331,6 +331,7 @@ body:
         - voxtype
         - vpn-manager
         - vrchat-status
+        - vscode
         - w-engine
         - wallpaper-deck
         - wallpaper-switcher
