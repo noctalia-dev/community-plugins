@@ -1,5 +1,5 @@
 {
-  "plugin_name": "Process Monitor",
+  "plugin_name": "System Monitor Expanded",
   "plugin_description": "Which apps use your CPU, RAM, GPU and VRAM: a bar readout, a sortable panel with kill actions, and a desktop widget.",
   "settings": {
     "interval_ms": {
@@ -108,7 +108,7 @@
     "click_again_terminate": "Click again to terminate",
     "paused": "paused",
     "waiting_panel": "Waiting for the first sample… ({status})",
-    "waiting_desktop": "Waiting for data… Is the Process Monitor plugin enabled?",
+    "waiting_desktop": "Waiting for data… Is the System Monitor Expanded plugin enabled?",
     "no_matches": "No matches",
     "updated": "updated {time}",
     "top_apps": "Top apps",
