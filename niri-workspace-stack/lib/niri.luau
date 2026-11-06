@@ -4,21 +4,12 @@
 
 local M = {}
 
--- Long-lived event stream with reconnect + backoff. The sentinel lines let the widget
--- show a disconnected state; niri re-sends full WorkspacesChanged/WindowsChanged on
--- every new connection, so no explicit resync is needed after a reconnect.
-M.STREAM_START = "NwsStreamStart"
-M.STREAM_END = "NwsStreamEnd"
-M.EVENT_STREAM = [[
-delay=1
-while :; do
-  printf '{"NwsStreamStart":{}}\n'
-  if niri msg --json event-stream; then delay=1; fi
-  printf '{"NwsStreamEnd":{}}\n'
-  sleep "$delay"
-  if [ "$delay" -lt 16 ]; then delay=$((delay * 2)); fi
-done
-]]
+M.COMMAND = "niri"
+M.SUBSCRIBE = "niri msg --json event-stream"
+M.SNAPSHOT = {
+  workspaces = { "niri", "msg", "--json", "workspaces" },
+  windows = { "niri", "msg", "--json", "windows" },
+}
 
 local function run(argv, what)
   local ok = noctalia.runAsync(argv, function(result)
@@ -73,58 +64,19 @@ function M.focusWindow(id)
   run({ "niri", "msg", "action", "focus-window", "--id", string.format("%d", id) }, "focus-window")
 end
 
--- Resync after a lost stream line (lines over 64 KiB are dropped by the host).
---
--- niri's events carry absolute values (ids, full window records), so re-applying an event
--- that a snapshot already reflects is harmless. The only hazard is the reverse: events
--- applied while the two snapshot commands run would be overwritten by the older snapshot.
--- So both replies are collected and applied together only if the model saw no event in the
--- meantime; otherwise the snapshot is retaken (at most 3 attempts).
-local resyncActive = false
+-- niri's events are already what lib/model.luau applies; niri re-sends full
+-- WorkspacesChanged/WindowsChanged on every new connection.
+function M.decoder()
+  return function(event)
+    return { event }
+  end
+end
 
-function M.resync(model, applyEvent, attempt)
-  attempt = attempt or 1
-  if resyncActive and attempt == 1 then
-    return
+function M.snapshotEvent(kind, list)
+  if kind == "workspaces" then
+    return { WorkspacesChanged = { workspaces = list } }
   end
-  resyncActive = true
-  local startCount = model.eventCount
-  local replies, pending = {}, 2
-  local function finish()
-    pending = pending - 1
-    if pending > 0 then
-      return
-    end
-    if replies.workspaces == nil or replies.windows == nil then
-      resyncActive = false
-      noctalia.log("niri-workspace-stack: resync failed (niri msg error)")
-      return
-    end
-    if model.eventCount ~= startCount then
-      if attempt < 3 then
-        M.resync(model, applyEvent, attempt + 1)
-      else
-        resyncActive = false
-        noctalia.log("niri-workspace-stack: resync skipped; event stream too busy, stream state kept")
-      end
-      return
-    end
-    resyncActive = false
-    applyEvent({ WorkspacesChanged = { workspaces = replies.workspaces } })
-    applyEvent({ WindowsChanged = { windows = replies.windows } })
-  end
-  local function fetch(kind)
-    local ok = noctalia.runAsync({ "niri", "msg", "--json", kind }, function(result)
-      local list = result.exitCode == 0 and noctalia.json.decode(result.stdout) or nil
-      replies[kind] = type(list) == "table" and list or nil
-      finish()
-    end, 3000)
-    if not ok then
-      finish()
-    end
-  end
-  fetch("workspaces")
-  fetch("windows")
+  return { WindowsChanged = { windows = list } }
 end
 
 return M
