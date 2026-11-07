@@ -1,13 +1,13 @@
 id         = "ezequiel/mango_layouts"
 name       = "Mango Layouts"
-version    = "1.0.1"
+version    = "2.0.0"
 plugin_api = 14
 author     = "ezequiel"
 license    = "MIT"
 icon       = "layout-filled"
 description = "Layout switcher for MangoWC"
 tags       = ["bar", "panel", "mangowc", "utility"]
-dependencies = ["jq", "mmsg"]
+dependencies = ["mmsg"]
 
 [[widget]]
 id    = "btn"

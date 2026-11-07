@@ -1,67 +1,60 @@
-local layouts = {
-	T  = { name = "tile",             glyph = "layout-sidebar" },
-	S  = { name = "scroller",         glyph = "carousel-horizontal" },
-	M  = { name = "monocle",          glyph = "square" },
-	G  = { name = "grid",             glyph = "layout-grid" },
-	F  = { name = "fair",             glyph = "layout-board-split" },
-	D  = { name = "deck",             glyph = "layers-difference" },
-	DW = { name = "dwindle",          glyph = "layout-2" },
-	CT = { name = "center_tile",      glyph = "layout-distribute-vertical" },
-	VT = { name = "vertical_tile",    glyph = "layout-rows" },
-	RT = { name = "right_tile",       glyph = "layout-sidebar-right" },
-	VS = { name = "vertical_scroller",glyph = "carousel-vertical" },
-	VG = { name = "vertical_grid",    glyph = "grid-dots" },
-	VD = { name = "vertical_deck",    glyph = "chart-funnel" },
-	VF = { name = "vertical_fair",    glyph = "layout-board" },
-}
+local Layouts = require("./layouts.luau")
 
-local show_glyph_raw = noctalia.getConfig("show_glyph")
-local show_glyph = (show_glyph_raw == true) or (show_glyph_raw == "true") or (show_glyph_raw == nil)
+local layouts = {}
+local activeSymbol = ""
+local discovering = false
+local polling = false
+local lastAttempt = -math.huge
+local nextRefresh = 0
 
-local show_text_raw = noctalia.getConfig("show_text")
-local show_text = (show_text_raw == true) or (show_text_raw == "true")
+local function render()
+  local current = Layouts.find(layouts, activeSymbol)
+  local showGlyph = noctalia.getConfig("show_glyph")
+  local showText = noctalia.getConfig("show_text")
+  local customColor = noctalia.getConfig("custom_color")
+  if showGlyph == nil or showGlyph == true or showGlyph == "true" then
+    barWidget.setGlyph(if current then Layouts.glyph(current) else "layout")
+  else
+    barWidget.setGlyph("")
+  end
+  if showText == true or showText == "true" then
+    barWidget.setText(if current then Layouts.label(current) else
+      if activeSymbol ~= "" then activeSymbol else noctalia.tr("layout_unavailable"))
+  else
+    barWidget.setText("")
+  end
+  if customColor and customColor ~= "" then
+    barWidget.setColor(customColor)
+    barWidget.setGlyphColor(customColor)
+  end
+end
 
-local custom_color = noctalia.getConfig("custom_color")
+local function refreshLayouts(force)
+  local now = os.time()
+  if discovering or now - lastAttempt < 5 or (not force and now < nextRefresh) then return end
+  discovering = true
+  lastAttempt = now
+  Layouts.discover(function(result)
+    discovering = false
+    nextRefresh = os.time() + (if result then 30 else 5)
+    if result then layouts = result end
+    render()
+  end)
+end
 
 function update()
-  local updateInterval = noctalia.getConfig("update_interval")
-  noctalia.setUpdateInterval(updateInterval)
-  noctalia.runAsync(
-    "mmsg get all-monitors | jq -r '.monitors[] | select(.active == true) | .layout_symbol'",
-    function(result)
-      if result and result.exitCode == 0 then
-        local sym = result.stdout:gsub("%s+", "")
-        local current = layouts[sym]
-        
-        if current then
-            if show_glyph then 
-                barWidget.setGlyph(current.glyph)
-            end
-            
-            if show_text then 
-                barWidget.setText(noctalia.tr("name_" .. current.name)) 
-            else 
-                barWidget.setText("") 
-            end
-            
-            if custom_color and custom_color ~= "" then 
-                barWidget.setColor(custom_color)
-                barWidget.setGlyphColor(custom_color)
-            end
-        else
-            if show_glyph then 
-                barWidget.setGlyph("layout") 
-            end
-            
-            if show_text then 
-                barWidget.setText("Layout") 
-            else 
-                barWidget.setText("") 
-            end
-        end
-      end
+  noctalia.setUpdateInterval(noctalia.getConfig("update_interval") or 1000)
+  refreshLayouts(false)
+  if polling then return end
+  polling = true
+  Layouts.query("all-monitors", function(data)
+    polling = false
+    activeSymbol = Layouts.active(data)
+    render()
+    if activeSymbol ~= "" and not Layouts.find(layouts, activeSymbol) then
+      refreshLayouts(true)
     end
-  )
+  end)
 end
 
 function onClick()

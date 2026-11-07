@@ -1,32 +1,23 @@
-local layouts = {
-	{ sym = "T",  name = "tile",             glyph = "layout-sidebar" },
-	{ sym = "S",  name = "scroller",         glyph = "carousel-horizontal" },
-	{ sym = "M",  name = "monocle",          glyph = "square" },
-	{ sym = "G",  name = "grid",             glyph = "layout-grid" },
-	{ sym = "F",  name = "fair",             glyph = "layout-board-split" },
-	{ sym = "D",  name = "deck",             glyph = "layers-difference" },
-	{ sym = "DW", name = "dwindle",          glyph = "layout-2" },
-	{ sym = "CT", name = "center_tile",      glyph = "layout-distribute-vertical" },
-	{ sym = "VT", name = "vertical_tile",    glyph = "layout-rows" },
-	{ sym = "RT", name = "right_tile",       glyph = "layout-sidebar-right" },
-	{ sym = "VS", name = "vertical_scroller",glyph = "carousel-vertical" },
-	{ sym = "VG", name = "vertical_grid",    glyph = "grid-dots" },
-	{ sym = "VD", name = "vertical_deck",    glyph = "chart-funnel" },
-	{ sym = "VF", name = "vertical_fair",    glyph = "layout-board" },
-}
+local Layouts = require("./layouts.luau")
+
+local layouts = {}
 
 local COLUMNS = 4
 local COLUMN_GAP = 2
 local selectedLayout = ""
-local pickSlots = {}
+local generation = 0
+local isOpen = false
+local loading = false
+local failed = false
 
 local render
 
-local function onPickAt(index)
-	local slot = pickSlots[index]
-	if slot == nil then return end
-	selectedLayout = slot.sym
-	noctalia.runAsync("mmsg dispatch setlayout," .. slot.entry.name)
+local function onPick(entry, renderedGeneration)
+	if not isOpen or generation ~= renderedGeneration then return end
+	selectedLayout = entry.symbol
+	noctalia.runAsync({ "mmsg", "dispatch", "setlayout," .. entry.name }, function() end, 3000)
+	isOpen = false
+	generation = generation + 1
 	panel.close()
 end
 
@@ -46,62 +37,38 @@ local function makeGrid(children)
 	return ui.column({ gap = COLUMN_GAP }, rows)
 end
 
-local function getShowConfig(name)
-	if name == "tile" then return noctalia.getConfig("show_tile") end
-	if name == "scroller" then return noctalia.getConfig("show_scroller") end
-	if name == "monocle" then return noctalia.getConfig("show_monocle") end
-	if name == "grid" then return noctalia.getConfig("show_grid") end
-	if name == "fair" then return noctalia.getConfig("show_fair") end
-	if name == "deck" then return noctalia.getConfig("show_deck") end
-	if name == "dwindle" then return noctalia.getConfig("show_dwindle") end
-	if name == "center_tile" then return noctalia.getConfig("show_center_tile") end
-	if name == "vertical_tile" then return noctalia.getConfig("show_vertical_tile") end
-	if name == "right_tile" then return noctalia.getConfig("show_right_tile") end
-	if name == "vertical_scroller" then return noctalia.getConfig("show_vertical_scroller") end
-	if name == "vertical_grid" then return noctalia.getConfig("show_vertical_grid") end
-	if name == "vertical_deck" then return noctalia.getConfig("show_vertical_deck") end
-	if name == "vertical_fair" then return noctalia.getConfig("show_vertical_fair") end
-	return true
-end
-
 local function renderButtons(is_list_mode)
 	local buttons = {}
-	local i = 0
+	local renderedGeneration = generation
 	for _, entry in ipairs(layouts) do
-		local raw_val = getShowConfig(entry.name)
-		local enabled = (raw_val == true) or (raw_val == "true") or (raw_val == nil)
-		
-		if enabled then
-			local slotIndex  = i
-			local isSelected = selectedLayout == entry.sym
-			pickSlots[slotIndex] = { sym = entry.sym, entry = entry }
+		if Layouts.visible(entry) then
+			local isSelected = selectedLayout == entry.symbol
+			local function pick() onPick(entry, renderedGeneration) end
 			
 			if is_list_mode then
 				table.insert(buttons, ui.button({
-					key       = entry.sym,
-					glyph     = entry.glyph,
-					text      = noctalia.tr("name_" .. entry.name),
+					key       = entry.name,
+					glyph     = Layouts.glyph(entry),
+					text      = Layouts.label(entry),
 					variant   = if isSelected then "primary" else "ghost",
-					onClick   = `onPick{slotIndex}`,
-					-- If noctalia supports button alignment, this will align it to the left:
-					-- (If not, it will just remain centered like an elegant menu)
+					onClick   = pick,
 				}))
 			else
-				-- Grid Mode
 				table.insert(buttons, ui.column({
-					key      = entry.sym,
+					key      = entry.name,
 					gap      = 2,
 					align    = "center",
 					flexGrow = 1,
 				}, {
 					ui.button({
-						glyph   = entry.glyph,
+						key     = entry.name,
+						glyph   = Layouts.glyph(entry),
 						glyphSize = 18,
 						variant = if isSelected then "primary" else "ghost",
-						onClick = `onPick{slotIndex}`,
+						onClick = pick,
 					}),
 					ui.label({
-						text      = noctalia.tr("name_" .. entry.name),
+						text      = Layouts.label(entry),
 						fontSize  = 9,
 						fontWeight = "bold",
 						color     = if isSelected then "primary" else "on_surface_variant",
@@ -110,24 +77,30 @@ local function renderButtons(is_list_mode)
 					}),
 				}))
 			end
-			i += 1
 		end
 	end
 	return buttons
 end
 
 render = function()
-	pickSlots = {}
+	if not isOpen then return end
 	
 	local list_mode_raw = noctalia.getConfig("list_mode")
 	local is_list_mode = (list_mode_raw == true) or (list_mode_raw == "true")
+	local buttons = renderButtons(is_list_mode)
 	
 	local content
-	if is_list_mode then
-		content = ui.column({ padding = 8, gap = 4 }, renderButtons(true))
+	if #buttons == 0 then
+		local status = if loading then "layouts_loading" else
+			if failed then "layouts_unavailable" else "layouts_empty"
+		content = ui.column({ padding = 12 }, {
+			ui.label({ text = noctalia.tr(status), maxLines = 3 }),
+		})
+	elseif is_list_mode then
+		content = ui.column({ padding = 8, gap = 4 }, buttons)
 	else
 		content = ui.column({ padding = 12, gap = COLUMN_GAP }, {
-			makeGrid(renderButtons(false))
+			makeGrid(buttons)
 		})
 	end
 
@@ -139,36 +112,28 @@ render = function()
 end
 
 function onOpen(context)
+	generation = generation + 1
+	local openedGeneration = generation
+	isOpen = true
+	loading = true
+	failed = false
 	selectedLayout = ""
 	render()
-	noctalia.runAsync(
-		"mmsg get all-monitors | jq -r '.monitors[] | select(.active == true and .last_open_surface != null) | .layout_symbol'",
-		function(result)
-			if result == nil or result.exitCode ~= 0 then return end
-			local sym = result.stdout:gsub("%s+", "")
-			
-			-- Check if sym exists in our ordered list
-			local exists = false
-			for _, l in ipairs(layouts) do
-				if l.sym == sym then exists = true end
-			end
-			selectedLayout = if exists then sym else ""
-			render()
-		end
-	)
+	Layouts.discover(function(result)
+		if not isOpen or generation ~= openedGeneration then return end
+		loading = false
+		failed = result == nil
+		if result then layouts = result end
+		render()
+	end)
+	Layouts.query("all-monitors", function(data)
+		if not isOpen or generation ~= openedGeneration then return end
+		selectedLayout = Layouts.active(data)
+		render()
+	end)
 end
 
-function onPick0()  onPickAt(0)  end
-function onPick1()  onPickAt(1)  end
-function onPick2()  onPickAt(2)  end
-function onPick3()  onPickAt(3)  end
-function onPick4()  onPickAt(4)  end
-function onPick5()  onPickAt(5)  end
-function onPick6()  onPickAt(6)  end
-function onPick7()  onPickAt(7)  end
-function onPick8()  onPickAt(8)  end
-function onPick9()  onPickAt(9)  end
-function onPick10() onPickAt(10) end
-function onPick11() onPickAt(11) end
-function onPick12() onPickAt(12) end
-function onPick13() onPickAt(13) end
+function onClose()
+	isOpen = false
+	generation = generation + 1
+end
