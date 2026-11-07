@@ -21,12 +21,14 @@
     "state": {
       "on": "内置键盘 开",
       "off": "内置键盘 关"
-    }
+    },
+    "setup": "去初始化"
   },
   "widget": {
     "tooltip": {
       "state": "内置键盘",
-      "device": "设备"
+      "device": "设备",
+      "setup": "尚未初始化，点击安装"
     }
   },
   "notify": {
@@ -39,7 +41,20 @@
     },
     "setup": {
       "title": "内置键盘插件需要初始化",
-      "hint": "在终端执行一次下面的命令，然后重新加载插件：sudo %s/setup.sh"
+      "hint": "点磁贴即可安装；或者在终端执行一次：sudo %s",
+      "ok": {
+        "title": "内置键盘已就绪",
+        "body": "后端命令、sudoers 条目与 udev 规则已安装，用磁贴切换键盘即可。"
+      },
+      "cancelled": {
+        "title": "已取消初始化"
+      },
+      "failed": {
+        "title": "初始化失败"
+      },
+      "timeout": {
+        "body": "setup.sh 超时未结束，请在终端手动执行以查看错误。"
+      }
     }
   }
 }

@@ -131,9 +131,60 @@ local function refresh()
     end)
 end
 
+local function setupScript()
+    return (noctalia.pluginDir() or ".") .. "/setup.sh"
+end
+
 local function warn_missing_backend()
-    local hint = string.format(noctalia.tr("notify.setup.hint"), noctalia.pluginDir() or ".")
-    noctalia.notifyError(noctalia.tr("notify.setup.title"), hint)
+    noctalia.notifyError(noctalia.tr("notify.setup.title"), string.format(noctalia.tr("notify.setup.hint"), setupScript()))
+end
+
+-- One-click setup: pkexec raises the desktop's polkit dialog, so the tile works
+-- on a fresh install without the user hunting for a terminal. setup.sh is
+-- idempotent, which makes this the repair path too (lost rule, new keyboard).
+local function runSetup()
+    if busy then
+        return
+    end
+    local script = setupScript()
+    if not noctalia.fileExists(script) then
+        warn_missing_backend()
+        return
+    end
+    if not noctalia.commandExists("pkexec") then
+        warn_missing_backend()
+        return
+    end
+    local argv = { "pkexec", "/bin/sh", script }
+    local user = noctalia.getenv("USER")
+    if user ~= nil and user ~= "" and user ~= "root" then
+        -- pkexec clears SUDO_USER, so name the user whose sudoers entry to write.
+        argv[#argv + 1] = "--user"
+        argv[#argv + 1] = user
+    end
+    busy = true
+    local started = noctalia.runAsync(argv, function(result)
+        busy = false
+        if result.timedOut then
+            noctalia.notifyError(noctalia.tr("notify.setup.failed.title"), noctalia.tr("notify.setup.timeout.body"))
+        elseif result.exitCode == 0 then
+            noctalia.notify(noctalia.tr("notify.setup.ok.title"), noctalia.tr("notify.setup.ok.body"))
+        elseif result.exitCode == 126 or result.exitCode == 127 then
+            -- Dismissed / not authorized: keep the manual command as the hint.
+            noctalia.notifyError(noctalia.tr("notify.setup.cancelled.title"), string.format(noctalia.tr("notify.setup.hint"), script))
+        else
+            local detail = trim(result.stderr)
+            noctalia.notifyError(
+                noctalia.tr("notify.setup.failed.title"),
+                detail ~= "" and detail or string.format(noctalia.tr("notify.setup.hint"), script)
+            )
+        end
+        refresh()
+    end, 60000)
+    if not started then
+        busy = false
+        noctalia.notifyError(noctalia.tr("notify.setup.failed.title"), string.format(noctalia.tr("notify.setup.hint"), script))
+    end
 end
 
 -- $1 = action, rest = extra arguments for the backend.
@@ -198,6 +249,8 @@ noctalia.state.watch("command", function(command)
     local action = command.action
     if action == "on" or action == "off" or action == "toggle" then
         call(action)
+    elseif action == "setup" then
+        runSetup()
     elseif action == "refresh" then
         refresh()
     end
@@ -211,6 +264,8 @@ refresh()
 function onIpc(event)
     if event == "toggle" or event == "on" or event == "off" then
         call(event)
+    elseif event == "setup" then
+        runSetup()
     elseif event == "refresh" then
         refresh()
     end
