@@ -147,6 +147,7 @@ body:
         - keysmith
         - keyviz
         - kineticwe-layouts
+        - kumacat
         - kwallet-secrets
         - launcher-pass
         - layout-fix
