@@ -152,22 +152,26 @@ local function renderDriveCard(drvItem)
     local parts = drvItem.partitions or {}
     local sizeStr = formatSize(drv.size)
 
-    local driveHeaderActions = {
-        ui.button({
+    -- Only offer actions supported by the capabilities already provided by the service.
+    local driveHeaderActions = {}
+    if drv.isEjectable then
+        table.insert(driveHeaderActions, ui.button({
             text = noctalia.tr("btn_eject"),
             glyph = "player-eject",
             variant = "outline",
             controlSize = "sm",
             onClick = function() ejectDevice(drv.device) end,
-        }),
-        ui.button({
+        }))
+    end
+    if drv.isDetachable then
+        table.insert(driveHeaderActions, ui.button({
             glyph = "plug-off",
             tooltip = noctalia.tr("btn_poweroff"),
             variant = "destructive",
             controlSize = "sm",
             onClick = function() detachDevice(drv.device) end,
-        }),
-    }
+        }))
+    end
 
     local partRows = {}
     if #parts == 0 then
