@@ -1,0 +1,50 @@
+id = "omerfuyar/process-manager"
+name = "Process Manager"
+version = "1.1.4"
+plugin_api = 43
+author = "omerfuyar"
+license = "MIT"
+icon = "list-details"
+description = "Find a running app and end it, or force it to end when it does not stop. Grouped by app, with CPU and memory."
+dependencies = ["sh", "ps", "kill", "getconf", "pkexec", "sudo"]
+tags = ["bar", "system", "utility"]
+
+[[setting]]
+key = "interval"
+type = "int"
+label_key = "settings.interval.label"
+description_key = "settings.interval.description"
+default = 2000
+min = 250
+max = 10000
+step = 250
+
+[[setting]]
+key = "admin"
+type = "select"
+label_key = "settings.admin.label"
+description_key = "settings.admin.description"
+default = "pkexec"
+options = [
+  { value = "pkexec", label_key = "settings.admin.options.pkexec" },
+  { value = "terminal", label_key = "settings.admin.options.terminal" },
+]
+advanced = true
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[widget]]
+id = "widget"
+entry = "widget.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 520
+height = "content"
+max_height = 540
+placement = "attached"
+position = "auto"
+open_near_click = true
