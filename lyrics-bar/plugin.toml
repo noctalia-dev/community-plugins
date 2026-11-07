@@ -1,0 +1,26 @@
+id = "vitalikr2x3/lyrics-bar"
+name = "Lyrics Bar"
+version = "0.1.0"
+plugin_api = 3
+min_noctalia = "5.0.0"
+author = "vitalikr2x3"
+license = "MIT"
+description = "Shows the current synced lyric line from lyrics-term in the bar."
+icon = "music"
+tags = ["lyrics", "music"]
+
+[[setting]]
+key = "lyricsFile"
+type = "string"
+label_key = "lyrics-bar.setting.lyrics-file"
+default = "~/.cache/lyrics-term/current.txt"
+
+[[setting]]
+key = "pollMs"
+type = "int"
+label_key = "lyrics-bar.setting.refresh"
+default = 300
+
+[[widget]]
+id = "lyrics"
+entry = "widget.luau"
