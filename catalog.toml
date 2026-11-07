@@ -4634,8 +4634,8 @@ rev = "cf558e6274ff59fb180195d0c3b425feb2474013"
 [[plugin]]
 id = "nickh/maildir"
 name = "Maildir"
-version = "0.0.5"
-updated_at = 1792417404
+version = "0.0.7"
+updated_at = 1794058634
 added_at = 1792012082
 author = "Nick Hastings"
 license = "MIT"
