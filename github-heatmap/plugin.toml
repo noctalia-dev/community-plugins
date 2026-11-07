@@ -1,0 +1,91 @@
+id = "se7enbyte/github-heatmap"
+name = "GitHub Heatmap"
+version = "1.0.0"
+plugin_api = 26
+author = "se7enbyte"
+license = "MIT"
+dependencies = ["gh"]
+tags = ["desktop", "development", "productivity"]
+icon = "brand-github"
+description = "Your GitHub contribution graph as a smooth, theme-aware desktop widget."
+
+[[desktop_widget]]
+id = "heatmap"
+entry = "widget.luau"
+
+  [[desktop_widget.setting]]
+  key = "view"
+  type = "select"
+  label_key = "settings.view.label"
+  description_key = "settings.view.description"
+  default = "heatmap"
+  options = [
+    { value = "heatmap", label_key = "settings.view.options.heatmap" },
+    { value = "calendar", label_key = "settings.view.options.calendar" },
+  ]
+
+  [[desktop_widget.setting]]
+  key = "month_cell_size"
+  type = "int"
+  label_key = "settings.month_cell_size.label"
+  description_key = "settings.month_cell_size.description"
+  default = 40
+  min = 28
+  max = 52
+
+  [[desktop_widget.setting]]
+  key = "refresh_interval_minutes"
+  type = "select"
+  label_key = "settings.refresh_interval.label"
+  description_key = "settings.refresh_interval.description"
+  default = "30"
+  options = [
+    { value = "15", label_key = "settings.refresh_interval.options.fifteen" },
+    { value = "30", label_key = "settings.refresh_interval.options.thirty" },
+    { value = "60", label_key = "settings.refresh_interval.options.sixty" },
+  ]
+
+  [[desktop_widget.setting]]
+  key = "weeks"
+  type = "select"
+  label_key = "settings.weeks.label"
+  description_key = "settings.weeks.description"
+  default = "53"
+  options = [
+    { value = "5", label_key = "settings.weeks.options.one_month" },
+    { value = "9", label_key = "settings.weeks.options.two_months" },
+    { value = "13", label_key = "settings.weeks.options.three_months" },
+    { value = "26", label_key = "settings.weeks.options.half_year" },
+    { value = "39", label_key = "settings.weeks.options.nine_months" },
+    { value = "53", label_key = "settings.weeks.options.full_year" },
+  ]
+
+  [[desktop_widget.setting]]
+  key = "cell_size"
+  type = "int"
+  label_key = "settings.cell_size.label"
+  description_key = "settings.cell_size.description"
+  default = 11
+  min = 8
+  max = 36
+
+  [[desktop_widget.setting]]
+  key = "show_weekday_labels"
+  type = "bool"
+  label_key = "settings.show_weekday_labels.label"
+  description_key = "settings.show_weekday_labels.description"
+  default = true
+
+  [[desktop_widget.setting]]
+  key = "show_stats_footer"
+  type = "bool"
+  label_key = "settings.show_stats_footer.label"
+  description_key = "settings.show_stats_footer.description"
+  default = true
+
+  [[desktop_widget.setting]]
+  key = "show_legend"
+  type = "bool"
+  label_key = "settings.show_legend.label"
+  description_key = "settings.show_legend.description"
+  default = true
