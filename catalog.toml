@@ -5641,3 +5641,16 @@ icon = "keyboard"
 description = "Floating typing test with random words (English/Spanish), time and words modes, live WPM and accuracy."
 plugin_api = 28
 tags = ["panel", "launcher", "bar", "productivity", "fun"]
+
+[[plugin]]
+id = "mhdomer/kumacat"
+name = "KumaCat"
+version = "1.0.0"
+updated_at = 1794060082
+added_at = 1794060082
+author = "Mhdomer"
+license = "MIT AND Apache-2.0"
+icon = "paw"
+description = "Animated runner bar widget and telemetry HUD whose pace tracks system load with zero-FPS idle sleep."
+plugin_api = 43
+tags = ["bar", "animation", "system", "hardware", "fun"]
