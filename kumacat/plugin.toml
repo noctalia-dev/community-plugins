@@ -3,23 +3,36 @@ name         = "KumaCat"
 version      = "1.0.0"
 plugin_api   = 43
 author       = "Mhdomer"
-license      = "MIT"
+license      = "MIT AND Apache-2.0"
 dependencies = []
 icon         = "paw"
-description  = "Animated runner bar widget and telemetry HUD whose pace tracks system load with zero-overhead idle sleep."
+description  = "Animated runner bar widget and telemetry HUD whose pace tracks system load with zero-FPS idle sleep."
 tags         = ["bar", "animation", "system", "hardware", "fun"]
 
 [[panel]]
 id              = "panel"
 entry           = "kumacat_panel.luau"
 width           = 320
-height          = 290
+height          = "content"
+max_height      = 420
 placement       = "attached"
 open_near_click = true
 
 [[widget]]
 id    = "kumacat"
 entry = "kumacat.luau"
+
+  [[widget.setting]]
+  key              = "runner_style"
+  type             = "select"
+  label_key        = "settings.runner_style.label"
+  description_key  = "settings.runner_style.description"
+  default          = "flash-cat"
+  options          = [
+    { value = "flash-cat", label_key = "settings.runner_style.option_flash_cat" },
+    { value = "cat-tail", label_key = "settings.runner_style.option_cat_tail" },
+    { value = "classic-cat", label_key = "settings.runner_style.option_classic_cat" },
+  ]
 
   [[widget.setting]]
   key              = "cat_size"

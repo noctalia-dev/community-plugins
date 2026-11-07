@@ -1,8 +1,14 @@
 --!nonstrict
--- KumaCat Telemetry HUD Panel: interactive popout showing hardware telemetry,
--- runner status, and live gauges synced with the bar widget.
+-- KumaCat HUD panel: mirrors the bar runner from shared state so both surfaces
+-- stay frame-synchronized without running a second timer in the panel runtime.
 
 local catFont = noctalia.loadFont("fonts/kumacat.otf")
+
+local STYLE_NAMES = {
+  ["flash-cat"] = "Flash Cat",
+  ["cat-tail"] = "Cat's Tail",
+  ["classic-cat"] = "Classic Cat",
+}
 
 local snapshot = nil
 local petCount = 0
@@ -26,22 +32,25 @@ local function gaugeBar(label, pct, detail, color)
 end
 
 local function render()
+  local runnerStyle = snapshot and snapshot.runnerStyle or "flash-cat"
   local glyph = snapshot and snapshot.glyph or "a"
+  local imagePath = snapshot and snapshot.imagePath or (snapshot == nil and "runners/sleep.png" or nil)
+  local imageAspect = snapshot and snapshot.imageAspect or 1
   local color = snapshot and snapshot.color or "secondary"
   local pace = snapshot and snapshot.pace or "sleep"
   local cpu = snapshot and snapshot.cpuPercent or 0
   local cpuTemp = snapshot and snapshot.cpuTemp
-  local memPct = snapshot and snapshot.memPercent or 0
-  local memUsed = snapshot and snapshot.memUsedGiB or 0
-  local memTotal = snapshot and snapshot.memTotalGiB or 0
+  local ramPct = snapshot and snapshot.ramPercent or 0
+  local ramUsed = snapshot and snapshot.ramUsedGiB or 0
+  local ramTotal = snapshot and snapshot.ramTotalGiB or 0
   local gpu = snapshot and snapshot.gpuPercent or 0
   local gpuTemp = snapshot and snapshot.gpuTemp
 
-  local paceBadge = "Idle Sleep"
+  local paceBadge = "Idle Sleep (0 FPS)"
   if pace == "walk" then
-    paceBadge = "Walking"
+    paceBadge = "Active Pace"
   elseif pace == "sprint" then
-    paceBadge = "Sprinting"
+    paceBadge = "Turbo Sprint"
   end
 
   local cpuDetail = `{cpu}%`
@@ -49,24 +58,37 @@ local function render()
     cpuDetail ..= ` ({math.floor(cpuTemp)}°C)`
   end
 
-  local memDetail = string.format("%.1f/%.1f GiB", memUsed, memTotal)
+  local ramDetail = ramTotal > 0 and string.format("%.1f / %.1f GiB", ramUsed, ramTotal) or `{ramPct}%`
   local gpuDetail = `{gpu}%`
   if gpuTemp then
     gpuDetail ..= ` ({math.floor(gpuTemp)}°C)`
   end
 
+  local previewNode
+  if imagePath then
+    local h = 42
+    previewNode = ui.image({
+      path = imagePath,
+      width = math.max(42, math.floor(h * imageAspect + 0.5)),
+      height = h,
+      fit = "contain",
+    })
+  else
+    previewNode = ui.label({
+      text = glyph,
+      fontFamily = catFont,
+      baseline = "inkCentered",
+      fontSize = 52,
+      color = color,
+    })
+  end
+
+  local titleText = STYLE_NAMES[runnerStyle] or "KumaCat"
   local children = {
-    -- Header Row: Runner glyph + Pace status
     ui.row({ align = "center", gap = 12 }, {
-      ui.label({
-        text = glyph,
-        fontFamily = catFont,
-        baseline = "inkCentered",
-        fontSize = 56,
-        color = color,
-      }),
+      previewNode,
       ui.column({ gap = 2, flexGrow = 1 }, {
-        ui.label({ text = "KumaCat", fontSize = 16, fontWeight = "bold" }),
+        ui.label({ text = titleText, fontSize = 15, fontWeight = "bold" }),
         ui.row({ gap = 6, align = "center" }, {
           ui.box({
             width = 8,
@@ -88,15 +110,13 @@ local function render()
       }),
     }),
 
-    -- Hardware Telemetry Cards
-    ui.column({ gap = 8, align = "stretch", padding = 8, radius = 8, fill = "surface_container_low" }, {
+    ui.column({ gap = 8, align = "stretch", padding = 10, radius = 8, fill = "surface_container_low" }, {
       gaugeBar("CPU", cpu, cpuDetail, color),
-      gaugeBar("Memory", memPct, memDetail, "primary"),
+      gaugeBar("Memory", ramPct, ramDetail, "primary"),
       (gpu > 0 or gpuTemp ~= nil) and gaugeBar("GPU", gpu, gpuDetail, "tertiary") or nil,
     }),
 
-    -- Quick Action: Pet button
-    ui.row({ align = "center", justify = "center" }, {
+    ui.row({ align = "center", justify = "space_between", gap = 8 }, {
       ui.button({
         text = "Pet Kuma",
         glyph = "heart",
@@ -105,6 +125,15 @@ local function render()
         onClick = function()
           petCount += 1
           render()
+        end,
+      }),
+      ui.button({
+        glyph = "settings",
+        variant = "ghost",
+        controlSize = "sm",
+        tooltip = "Plugin Settings",
+        onClick = function()
+          noctalia.openSettings()
         end,
       }),
     }),
@@ -118,7 +147,17 @@ noctalia.state.watch("kumacat", function(value)
   render()
 end)
 
+-- Request GPU sampling only while the HUD is open, and release on close (API 46).
 function onOpen()
+  if noctalia.setGpuMonitoring ~= nil then
+    noctalia.setGpuMonitoring(true)
+  end
   snapshot = noctalia.state.get("kumacat")
   render()
+end
+
+function onClose()
+  if noctalia.setGpuMonitoring ~= nil then
+    noctalia.setGpuMonitoring(false)
+  end
 end
