@@ -1,0 +1,96 @@
+id           = "mhdomer/kumacat"
+name         = "KumaCat"
+version      = "1.0.0"
+plugin_api   = 43
+author       = "Mhdomer"
+license      = "MIT"
+dependencies = []
+icon         = "paw"
+description  = "Animated runner bar widget and telemetry HUD whose pace tracks system load with zero-overhead idle sleep."
+tags         = ["bar", "animation", "system", "hardware", "fun"]
+
+[[panel]]
+id              = "panel"
+entry           = "kumacat_panel.luau"
+width           = 320
+height          = 290
+placement       = "attached"
+open_near_click = true
+
+[[widget]]
+id    = "kumacat"
+entry = "kumacat.luau"
+
+  [[widget.setting]]
+  key              = "cat_size"
+  type             = "int"
+  label_key        = "settings.cat_size.label"
+  description_key  = "settings.cat_size.description"
+  default          = 24
+  min              = 12
+  max              = 48
+
+  [[widget.setting]]
+  key              = "drive_metric"
+  type             = "select"
+  label_key        = "settings.drive_metric.label"
+  description_key  = "settings.drive_metric.description"
+  default          = "cpu"
+  options          = [
+    { value = "cpu", label_key = "settings.drive_metric.option_cpu" },
+    { value = "memory", label_key = "settings.drive_metric.option_memory" },
+    { value = "gpu", label_key = "settings.drive_metric.option_gpu" },
+  ]
+
+  [[widget.setting]]
+  key              = "show_metric_percent"
+  type             = "bool"
+  label_key        = "settings.show_metric_percent.label"
+  description_key  = "settings.show_metric_percent.description"
+  default          = false
+
+  [[widget.setting]]
+  key              = "sleep_threshold"
+  type             = "int"
+  label_key        = "settings.sleep_threshold.label"
+  description_key  = "settings.sleep_threshold.description"
+  default          = 5
+  min              = 0
+  max              = 25
+
+  [[widget.setting]]
+  key              = "turbo_threshold"
+  type             = "int"
+  label_key        = "settings.turbo_threshold.label"
+  description_key  = "settings.turbo_threshold.description"
+  default          = 75
+  min              = 50
+  max              = 100
+
+  [[widget.setting]]
+  key              = "poll_interval"
+  type             = "int"
+  label_key        = "settings.poll_interval.label"
+  description_key  = "settings.poll_interval.description"
+  default          = 2
+  min              = 1
+  max              = 10
+
+  [[widget.setting]]
+  key              = "cat_color_mode"
+  type             = "select"
+  label_key        = "settings.cat_color_mode.label"
+  description_key  = "settings.cat_color_mode.description"
+  default          = "theme"
+  options          = [
+    { value = "theme", label_key = "settings.cat_color_mode.option_theme" },
+    { value = "custom", label_key = "settings.cat_color_mode.option_custom" },
+  ]
+
+  [[widget.setting]]
+  key              = "cat_color"
+  type             = "color"
+  label_key        = "settings.cat_color.label"
+  description_key  = "settings.cat_color.description"
+  default          = "#E8A24C"
+  visible_when     = { key = "cat_color_mode", values = ["custom"] }

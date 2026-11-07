@@ -1,0 +1,42 @@
+{
+  "settings": {
+    "cat_color": {
+      "description": "Used when cat color is set to custom.",
+      "label": "Custom Color"
+    },
+    "cat_color_mode": {
+      "description": "Use the active theme palette role or a custom color.",
+      "label": "Cat Color",
+      "option_custom": "Custom",
+      "option_theme": "Match Theme"
+    },
+    "cat_size": {
+      "description": "Sprite size in the bar, in pixels.",
+      "label": "Cat Size"
+    },
+    "drive_metric": {
+      "description": "Which hardware telemetry stream drives the runner speed.",
+      "label": "Drive Metric",
+      "option_cpu": "CPU Usage",
+      "option_gpu": "GPU Usage",
+      "option_memory": "Memory Usage"
+    },
+    "poll_interval": {
+      "description": "How often to poll hardware telemetry, in seconds.",
+      "label": "Poll Interval"
+    },
+    "show_metric_percent": {
+      "description": "Display the metric percentage text next to the runner.",
+      "label": "Show Percentage"
+    },
+    "sleep_threshold": {
+      "description": "Load threshold percentage below which the runner sleeps at zero FPS.",
+      "label": "Sleep Threshold"
+    },
+    "turbo_threshold": {
+      "description": "Load threshold percentage at which the runner breaks into a sprint.",
+      "label": "Sprint Threshold"
+    }
+  },
+  "title": "KumaCat"
+}
