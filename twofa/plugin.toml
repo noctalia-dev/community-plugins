@@ -1,0 +1,46 @@
+# Two-factor codes (TOTP) in the bar, a panel and the launcher. Secrets are kept in the
+# Secret Service keyring (gnome-keyring) via secret-tool; codes are computed in Luau.
+# Accounts are added from a QR code on screen, an otpauth:// link or a Google
+# Authenticator export in the clipboard, or by typing the secret key.
+
+id = "lycorisnd/twofa"
+name = "2FA"
+version = "1.0.0"
+plugin_api = 43
+author = "lycorisnd"
+license = "MIT"
+dependencies = ["secret-tool", "grim", "slurp", "zbarimg"]
+tags = ["privacy", "utility", "bar", "panel", "launcher", "service"]
+icon = "shield-lock"
+description = "Two-factor (TOTP) codes from the bar, a panel and the launcher; secrets live in the system keyring."
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[widget]]
+id = "bar"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  label_key = "settings.glyph.label"
+  description_key = "settings.glyph.description"
+  default = "shield-lock"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 400
+height = 600
+placement = "attached"
+position = "auto"
+open_near_click = true
+
+[[launcher_provider]]
+id = "codes"
+entry = "launcher.luau"
+prefix = "totp"
+glyph = "shield-lock"
+include_in_global_search = false
