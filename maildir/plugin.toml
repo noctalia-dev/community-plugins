@@ -7,7 +7,7 @@ license = "MIT"
 icon = "mail"
 tags = ["bar"]
 description = "New mail widget"
-dependencies = ["find", "grep"]
+dependencies = ["find", "grep", "wc"]
 
 [[widget]]
 id = "maildir"

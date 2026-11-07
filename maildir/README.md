@@ -11,8 +11,8 @@ Show unread mail count in specified Maildir paths.
 
 ## Requirements
 
-The unread counter runs `find` and `grep` (declared in `dependencies`).
-Both ship with every standard Linux base system, so no extra installation
+The unread counter runs `find`, `grep`, and `wc` (declared in `dependencies`).
+All three ship with every standard Linux base system, so no extra installation
 is normally needed.
 
 ## Usage
