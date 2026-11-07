@@ -1,6 +1,6 @@
 id = "omerfuyar/resurrect"
 name = "Resurrect"
-version = "2.4.1"
+version = "2.4.2"
 plugin_api = 43
 author = "omerfuyar"
 license = "MIT"
