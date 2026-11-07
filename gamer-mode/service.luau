@@ -1081,6 +1081,14 @@ end
 -- ── published state ──
 
 function M.publishMetrics()
+    -- Since plugin API 46 the host refreshes systemStats().gpu only while some entry asks
+    -- for it, and the request is per entry, so it has to come from this service, the one
+    -- that reads the stats. Older hosts have no setGpuMonitoring and sample on every read.
+    -- Repeated requests do not stack, so asking on every poll also retries one the host
+    -- refused because its monitor service was not up yet. Unloading releases it.
+    if noctalia.setGpuMonitoring ~= nil then
+        noctalia.setGpuMonitoring(true)
+    end
     local metrics = M.normalize(noctalia.systemStats())
     if metrics then
         metrics.available = true
