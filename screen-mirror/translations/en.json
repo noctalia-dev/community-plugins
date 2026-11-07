@@ -48,7 +48,7 @@
     },
     "missing": {
       "title": "Screen Mirror is not installed",
-      "body": "Install the niri-mirror CLI first (run install.sh from its repo), then re-enable this plugin."
+      "body": "The bundled mirroring engine (engine/niri_mirror.py) is missing; reinstall the plugin, or install niri-mirror (https://github.com/Goldppx/niri-mirror) and re-enable it."
     }
   }
 }
