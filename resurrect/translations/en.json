@@ -1,0 +1,151 @@
+{
+  "actions": {
+    "open": "Open the folder",
+    "restore": "Restore…",
+    "save": "Save now"
+  },
+  "error": {
+    "unknown": "Saving stopped with an error."
+  },
+  "left": {
+    "again": "Share again",
+    "again_all": "Share all again",
+    "again_tooltip": "Put it back in the list your devices share",
+    "only": "Only here",
+    "only_all": "All only here",
+    "only_tooltip": "Keep it on this device without sharing it",
+    "title": {
+      "one": "1 package or service your other devices removed is still here",
+      "other": "{count} packages or services your other devices removed are still here"
+    }
+  },
+  "lists": {
+    "system": "system service",
+    "user": "user service"
+  },
+  "missing": {
+    "install": "Install…",
+    "install_tooltip": "Installs the packages and turns on the services, in a terminal",
+    "skip": "Not here",
+    "skip_all": "Leave all out",
+    "skip_tooltip": "Leave it off this device",
+    "title": {
+      "one": "1 package or service from your other devices is not here",
+      "other": "{count} packages or services from your other devices are not here"
+    }
+  },
+  "notify": {
+    "applied": {
+      "one": "1 file came from your other devices",
+      "other": "{count} files came from your other devices"
+    },
+    "failed": "Resurrect could not save your setup",
+    "held": "Resurrect held back files that gave Hyprland config errors",
+    "settings": {
+      "one": "1 Noctalia setting came from your other devices",
+      "other": "{count} Noctalia settings came from your other devices"
+    }
+  },
+  "panel": {
+    "loading": "Loading…",
+    "title": "Resurrect"
+  },
+  "restore": {
+    "cancel": "Cancel",
+    "confirm": "A terminal opens and asks before each step: packages, dotfiles, Noctalia's settings and plugins, services, and your own steps. With sharing on, it brings back what your devices share and what this device keeps for itself. Files it replaces are backed up first.",
+    "start": "Open terminal"
+  },
+  "saved": {
+    "files": "Dotfiles: {files}",
+    "files_shared": "Dotfiles, shared: {files}",
+    "hooks": {
+      "one": "1 step of your own",
+      "other": "{count} steps of your own"
+    },
+    "hooks_any": "Steps of your own",
+    "no_files": "none chosen",
+    "noctalia": "Noctalia's settings and plugins",
+    "open_hooks": "Open the hooks folder",
+    "packages": "Installed packages",
+    "services": "Services that start by themselves",
+    "title": "Saved each time"
+  },
+  "settings": {
+    "daily": {
+      "description": "Save the setup once a day, as long as Noctalia runs.",
+      "label": "Save every day"
+    },
+    "device_files": {
+      "description": "Files and folders that stay on this device, such as ~/.config/hypr/monitors.lua. They are saved, but not shared.",
+      "label": "Only this device"
+    },
+    "files": {
+      "description": "Files and folders in your home folder to save, such as ~/.config. Inside a folder, caches, logs, browser and app data, binary files and files over 1 MB are left out.",
+      "label": "Dotfiles"
+    },
+    "folder": {
+      "description": "The git repository the setup is saved in. It is created when missing.",
+      "label": "Repository folder"
+    },
+    "leave_out": {
+      "label": "Leave out",
+      "description": "Files and folders inside the dotfiles not to save, such as ~/.config/gh/hosts.yml or ~/.config/kdeconnect. Use it for passwords, keys and anything big."
+    },
+    "noctalia": {
+      "description": "Save Noctalia's config and the settings changed in its settings window.",
+      "label": "Save Noctalia's settings"
+    },
+    "secret_check": {
+      "description": "Check each save with gitleaks for passwords, tokens and keys before it is committed. Noctalia's own config and settings are saved whole.",
+      "label": "Check saves for secrets"
+    },
+    "packages": {
+      "description": "Save the list of packages you installed, from pacman, the AUR, apt, dnf and Flatpak.",
+      "label": "Save packages"
+    },
+    "remote": {
+      "description": "A git remote to push each save to, such as a private repository on GitHub. Leave empty to keep the saves on this device.",
+      "label": "Push to"
+    },
+    "services": {
+      "description": "Save which system and user services start by themselves.",
+      "label": "Save services"
+    },
+    "share": {
+      "description": "Share the dotfiles with your other devices that push to the same repository. What one device changes reaches the others on their next save. Needs Push to.",
+      "label": "Share between devices"
+    }
+  },
+  "setup": {
+    "body": "Resurrect needs git. Install it with your package manager, then open this panel again."
+  },
+  "status": {
+    "failed": "The last save failed",
+    "folder": "In {folder}",
+    "local": "Only on this device. Set Push to in the settings to keep a copy elsewhere.",
+    "never": "Not saved yet",
+    "remote": "Pushed to {remote}",
+    "saved": "Saved {time}",
+    "saving": "Saving…",
+    "shared": "Shared with your other devices that push here."
+  },
+  "waiting": {
+    "chosen": "On the next save",
+    "held": "Held back: these gave Hyprland config errors here.",
+    "mine": "Keep mine",
+    "more": "and {count} more",
+    "theirs": "Take theirs",
+    "theirs_held": "Takes it even though it gave config errors",
+    "title": {
+      "one": "1 file waits for you",
+      "other": "{count} files wait for you"
+    }
+  },
+  "widget": {
+    "failed": "Resurrect: the last save failed. {error}",
+    "never": "Resurrect: not saved yet",
+    "no_git": "Resurrect needs git",
+    "saved": "Resurrect: saved {time}",
+    "saving": "Resurrect: saving…"
+  }
+}
