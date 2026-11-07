@@ -1,6 +1,6 @@
 id = "omerfuyar/process-manager"
 name = "Process Manager"
-version = "1.1.4"
+version = "1.1.5"
 plugin_api = 43
 author = "omerfuyar"
 license = "MIT"
