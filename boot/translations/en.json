@@ -1,0 +1,9 @@
+{
+  "settings": {
+    "enabled": "Enable operating-system switching",
+    "show_all_generations": {
+      "label": "Show every NixOS generation",
+      "description": "Older generations are hidden by default; the default, current and next entries are always shown."
+    }
+  }
+}
