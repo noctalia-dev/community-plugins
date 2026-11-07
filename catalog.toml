@@ -4801,13 +4801,13 @@ rev = "1abd4500577ac9f20d888456d6b4139fb1d6d802"
 [[plugin]]
 id = "zyrex/nothing-ear"
 name = "Nothing Ear"
-version = "0.2.0"
-updated_at = 1793226870
+version = "0.3.0"
+updated_at = 1794060152
 added_at = 1792534252
 author = "zyrex"
 license = "MIT"
 icon = "headphones"
-description = "Battery, noise control, EQ and auto mono audio for Nothing and CMF earbuds, controlled directly over Bluetooth."
+description = "Battery, ANC, EQ and mono audio for Nothing/CMF earbuds and CMF Headphone Pro, controlled over Bluetooth."
 plugin_api = 43
 tags = ["audio", "bar", "panel", "desktop", "service", "hardware", "indicator"]
 
