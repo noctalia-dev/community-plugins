@@ -1,0 +1,87 @@
+id = "omerfuyar/downloader"
+name = "Downloader"
+version = "1.3.2"
+plugin_api = 43
+author = "omerfuyar"
+license = "MIT"
+icon = "download"
+description = "Download video or audio from a link with yt-dlp, and follow the queue and progress from the bar."
+dependencies = ["yt-dlp", "ffmpeg", "sh", "kill", "xdg-open"]
+tags = ["bar", "media", "video", "utility"]
+
+[[setting]]
+key = "folder"
+type = "folder"
+label_key = "settings.folder.label"
+description_key = "settings.folder.description"
+default = "~/Downloads"
+
+[[setting]]
+key = "video_quality"
+type = "select"
+label_key = "settings.video_quality.label"
+description_key = "settings.video_quality.description"
+default = "1080"
+options = [
+  { value = "best", label_key = "settings.video_quality.options.best" },
+  { value = "2160", label_key = "settings.video_quality.options.2160" },
+  { value = "1440", label_key = "settings.video_quality.options.1440" },
+  { value = "1080", label_key = "settings.video_quality.options.1080" },
+  { value = "720", label_key = "settings.video_quality.options.720" },
+  { value = "480", label_key = "settings.video_quality.options.480" },
+]
+
+[[setting]]
+key = "audio_format"
+type = "select"
+label_key = "settings.audio_format.label"
+description_key = "settings.audio_format.description"
+default = "mp3"
+options = [
+  { value = "mp3", label_key = "settings.audio_format.options.mp3" },
+  { value = "m4a", label_key = "settings.audio_format.options.m4a" },
+  { value = "opus", label_key = "settings.audio_format.options.opus" },
+  { value = "best", label_key = "settings.audio_format.options.best" },
+]
+
+[[setting]]
+key = "notify"
+type = "bool"
+label_key = "settings.notify.label"
+description_key = "settings.notify.description"
+default = true
+
+[[setting]]
+key = "whole_playlist"
+type = "bool"
+label_key = "settings.whole_playlist.label"
+description_key = "settings.whole_playlist.description"
+default = false
+advanced = true
+
+[[setting]]
+key = "extra_args"
+type = "string"
+label_key = "settings.extra_args.label"
+description_key = "settings.extra_args.description"
+default = ""
+advanced = true
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[widget]]
+id = "widget"
+entry = "widget.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 420
+height = "content"
+max_height = 560
+placement = "attached"
+position = "auto"
+open_near_click = true
+keyboard_focus = "on_demand"
