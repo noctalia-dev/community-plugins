@@ -1,0 +1,36 @@
+id = "omerfuyar/screen-time"
+name = "Screen Time"
+version = "1.0.0"
+plugin_api = 43
+author = "omerfuyar"
+license = "MIT"
+icon = "hourglass"
+description = "Today's screen time in the bar, from Noctalia's own record, with your most used apps."
+dependencies = []
+tags = ["bar", "productivity", "time"]
+
+[[setting]]
+key = "data_file"
+type = "file"
+label_key = "settings.data_file.label"
+description_key = "settings.data_file.description"
+default = ""
+advanced = true
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[widget]]
+id = "widget"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "show_text"
+  type = "bool"
+  label_key = "settings.show_text.label"
+  description_key = "settings.show_text.description"
+  default = true
+
+  [widget.actions]
+  left = "panel-toggle control-center screen-time"

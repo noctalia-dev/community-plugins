@@ -1,0 +1,19 @@
+{
+  "settings": {
+    "data_file": {
+      "description": "The screen time file to read. Empty reads Noctalia's own, in its state folder.",
+      "label": "Screen time file"
+    },
+    "show_text": {
+      "description": "Show today's screen time next to the hourglass.",
+      "label": "Show the time"
+    }
+  },
+  "time": {
+    "hours": "{hours}h {minutes}m",
+    "minutes": "{minutes}m"
+  },
+  "widget": {
+    "today": "Today"
+  }
+}
