@@ -1,0 +1,28 @@
+id = "swashx-dev/store"
+name = "Noctalia Store"
+version = "1.0.1"
+plugin_api = 45
+author = "SwashX-dev"
+license = "MIT"
+icon = "packages"
+description = "Find, install, update and remove applications from Nix, Flatpak and Pacman."
+dependencies = ["noctalia-software"]
+tags = ["panel", "bar", "shortcut", "nixos", "utility"]
+
+[[widget]]
+id = "software-button"
+entry = "widget.luau"
+
+[[panel]]
+id = "browser"
+entry = "panel.luau"
+width = 980
+height = 760
+placement = "floating"
+position = "center"
+keyboard_focus = "exclusive"
+capture_keys = ["ctrl+f", "up", "down", "ctrl+Return", "ctrl+r", "ctrl+l", "ctrl+1", "ctrl+2", "ctrl+3", "ctrl+4"]
+
+[[shortcut]]
+id = "software"
+entry = "shortcut.luau"
