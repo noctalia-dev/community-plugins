@@ -51,8 +51,9 @@
   },
   "saved": {
     "channels": "Recent channels",
-    "empty": "Your five most recently joined channels will appear here.",
-    "join": "Join"
+    "empty": "Your ten most recently joined channels will appear here.",
+    "join": "Join",
+    "drag_tooltip": "Drag to change hotkey slot"
   },
   "settings": {
     "discord_binary": {

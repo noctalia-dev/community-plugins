@@ -41,9 +41,19 @@ OP_PONG = 4
 
 RECONNECT_SECONDS = 3
 HEARTBEAT_SECONDS = 5
+# Rapid join presses are coalesced: only the last target within this quiet
+# period is sent, since Discord rate-limits voice channel changes.
+JOIN_DEBOUNCE_SECONDS = 0.3
+# Discord accepts a rate-limited join over RPC but never connects the voice
+# session, so a join that is not voice-connected by then is reported.
+JOIN_CONFIRM_SECONDS = 5
+RATE_LIMIT_MESSAGE = (
+    "Discord is rate limiting voice channel changes. "
+    "Wait a few seconds and try again."
+)
 MAX_AVATAR_BYTES = 2 * 1024 * 1024
 MAX_RPC_PAYLOAD_BYTES = 8 * 1024 * 1024
-MAX_RECENT_CHANNELS = 5
+MAX_RECENT_CHANNELS = 10
 MAX_FAVORITE_CHANNELS = 5
 VOICE_STATE_EVENTS = (
     "VOICE_STATE_CREATE",
@@ -183,7 +193,7 @@ class ChannelStore:
     @classmethod
     def _channels(cls, value: Any, limit: int) -> list[dict[str, Any]]:
         # Version 0.1 stored a single object at ``recent``. Accept it so users
-        # keep their saved channel when upgrading to the five-item history.
+        # keep their saved channel when upgrading to the multi-item history.
         values = value if isinstance(value, list) else [value]
         channels: list[dict[str, Any]] = []
         seen: set[str] = set()
@@ -463,6 +473,8 @@ class DiscordVoiceBridge:
         self.revision = 0
         self.pending: dict[str, dict[str, Any]] = {}
         self.next_nonce = 0
+        self.pending_join: asyncio.Task[None] | None = None
+        self.join_watch: asyncio.Task[None] | None = None
         self.active_token: str | None = None
         self.avatar_tasks: dict[str, asyncio.Task[None]] = {}
         self.saved_channel_counts: dict[str, int] = {}
@@ -532,9 +544,13 @@ class DiscordVoiceBridge:
                 "user": self.current_user,
                 "channel": self.channel,
                 "recent_channels": self._sorted_saved_channels(self.recent_channels),
-                "favorite_channels": self._sorted_saved_channels(
-                    self.favorite_channels
-                ),
+                "favorite_channels": [
+                    {**channel, "slot": index}
+                    for index, channel in enumerate(
+                        self._decorated_saved_channels(self._favorite_slots()),
+                        start=1,
+                    )
+                ],
                 "participants": participants,
                 "voice": self.voice_settings,
                 "connection": self.connection,
@@ -542,7 +558,7 @@ class DiscordVoiceBridge:
             }
         )
 
-    def _sorted_saved_channels(
+    def _decorated_saved_channels(
         self, channels: list[dict[str, Any]]
     ) -> list[dict[str, Any]]:
         decorated: list[dict[str, Any]] = []
@@ -552,8 +568,13 @@ class DiscordVoiceBridge:
                 0, self.saved_channel_counts.get(channel["id"], 0)
             )
             decorated.append(entry)
+        return decorated
+
+    def _sorted_saved_channels(
+        self, channels: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
         return sorted(
-            decorated,
+            self._decorated_saved_channels(channels),
             key=lambda entry: (
                 entry["participant_count"] > 0,
                 entry["last_joined_time"],
@@ -670,15 +691,108 @@ class DiscordVoiceBridge:
         await self._save_channel_lists()
         return {"ok": True}
 
+    def _cancel_pending_join(self) -> None:
+        for task in (self.pending_join, self.join_watch):
+            if task is not None:
+                task.cancel()
+        self.pending_join = None
+        self.join_watch = None
+
+    def _clear_rate_limit_warning(self) -> None:
+        if self.status_message == RATE_LIMIT_MESSAGE:
+            self.status_message = ""
+            self._emit_snapshot()
+
+    async def _confirm_join(self, channel_id: str) -> None:
+        try:
+            await asyncio.sleep(JOIN_CONFIRM_SECONDS)
+        except asyncio.CancelledError:
+            return
+        self.join_watch = None
+        if (
+            self.channel
+            and self.channel["id"] == channel_id
+            and self.connection["state"] == "VOICE_CONNECTED"
+        ):
+            return
+        log.warning("Voice join to %s did not connect; likely rate limited", channel_id)
+        self.status_message = RATE_LIMIT_MESSAGE
+        self._emit_snapshot()
+        self._write_event(
+            {"type": "warning", "title": "Discord Voice", "message": RATE_LIMIT_MESSAGE}
+        )
+
     async def _join_channel(self, channel_id: str) -> dict[str, Any]:
         if self._saved_channel(channel_id) is None:
             return {"ok": False, "error": "Saved channel is no longer available"}
-        await self._request(
-            "SELECT_VOICE_CHANNEL",
-            {"channel_id": channel_id},
-            kind="join_channel",
-        )
+        # A newer press always replaces a join that has not been sent yet.
+        self._cancel_pending_join()
+        self._clear_rate_limit_warning()
+        if self.channel and self.channel["id"] == channel_id:
+            return {"ok": True, "already_connected": True}
+        self.pending_join = asyncio.create_task(self._send_join(channel_id))
         return {"ok": True}
+
+    async def _send_join(self, channel_id: str) -> None:
+        try:
+            await asyncio.sleep(JOIN_DEBOUNCE_SECONDS)
+        except asyncio.CancelledError:
+            return
+        self.pending_join = None
+        if self.channel and self.channel["id"] == channel_id:
+            return
+        try:
+            # force moves us directly when already in another voice channel,
+            # costing one voice state change instead of a leave plus a join.
+            await self._request(
+                "SELECT_VOICE_CHANNEL",
+                {"channel_id": channel_id, "force": True},
+                kind="join_channel",
+            )
+            self.join_watch = asyncio.create_task(self._confirm_join(channel_id))
+        except Exception as error:
+            log.warning("Joining voice channel failed: %s", error)
+            self.status_message = str(error)
+            self._emit_snapshot()
+
+    def _favorite_slots(self) -> list[dict[str, Any]]:
+        # Favorites are stored newest-first; slots are numbered oldest-first so
+        # starring another channel appends a slot instead of renumbering the
+        # existing ones. move_favorite reorders slots explicitly.
+        return list(reversed(self.favorite_channels))
+
+    async def _move_favorite(self, channel_id: str, insert_at: int) -> dict[str, Any]:
+        # insert_at is a 1-based gap index in slot order: N means "before the
+        # current slot N", len + 1 means "after the last slot".
+        slots = self._favorite_slots()
+        from_index = next(
+            (i for i, channel in enumerate(slots) if channel["id"] == channel_id),
+            None,
+        )
+        if from_index is None:
+            return {"ok": False, "error": "Favorite channel is no longer available"}
+        channel = slots.pop(from_index)
+        target = insert_at - 1
+        if from_index < target:
+            target -= 1
+        target = max(0, min(target, len(slots)))
+        slots.insert(target, channel)
+        self.favorite_channels = list(reversed(slots))
+        await self._save_channel_lists()
+        return {"ok": True, "slot": target + 1}
+
+    async def _join_favorite(self, slot: int) -> dict[str, Any]:
+        slots = self._favorite_slots()
+        if not 1 <= slot <= len(slots):
+            return {
+                "ok": False,
+                "error": f"No favorite in slot {slot} ({len(slots)} saved)",
+            }
+        channel = slots[slot - 1]
+        result = await self._join_channel(channel["id"])
+        if result.get("ok"):
+            result.update(slot=slot, channel=channel["name"])
+        return result
 
     async def _handle_control_command(self, request: dict[str, Any]) -> dict[str, Any]:
         command = request["command"]
@@ -697,6 +811,9 @@ class DiscordVoiceBridge:
                     for participant in self.participants.values()
                     if participant["speaking"]
                 ),
+                "mute": self.voice_settings["mute"],
+                "deaf": self.voice_settings["deaf"],
+                "input_volume": self.voice_settings["input_volume"],
                 "connection_state": self.connection["state"],
                 "average_ping": self.connection["average_ping"],
                 "saved_channel": (sorted_favorites[0] if sorted_favorites else None)
@@ -726,6 +843,12 @@ class DiscordVoiceBridge:
             if command == "unfavorite_channel":
                 return await self._unfavorite_channel(channel_id)
             return await self._join_channel(channel_id)
+        if command == "join_favorite":
+            return await self._join_favorite(request["value"])
+        if command == "move_favorite":
+            return await self._move_favorite(
+                request["value"]["channel_id"], int(request["value"]["index"])
+            )
         if command == "set_mute":
             await self._request(
                 "SET_VOICE_SETTINGS",
@@ -740,6 +863,15 @@ class DiscordVoiceBridge:
                 kind="voice_settings",
             )
             return {"ok": True}
+        if command in ("toggle_mute", "toggle_deaf"):
+            key = "mute" if command == "toggle_mute" else "deaf"
+            target = not self.voice_settings[key]
+            await self._request(
+                "SET_VOICE_SETTINGS",
+                {key: target},
+                kind="voice_settings",
+            )
+            return {"ok": True, key: target}
         if command == "set_mic_volume":
             volume = request["value"]
             previous_volume = self.voice_settings["input_volume"]
@@ -786,6 +918,7 @@ class DiscordVoiceBridge:
             )
             return {"ok": True}
         if command == "hang_up":
+            self._cancel_pending_join()
             await self._request(
                 "SELECT_VOICE_CHANNEL",
                 {"channel_id": None},
@@ -840,6 +973,7 @@ class DiscordVoiceBridge:
             await self._handle_discord_payload(payload)
 
     def _reset_session_state(self) -> None:
+        self._cancel_pending_join()
         self.pending.clear()
         self.channel_event_subscriptions.clear()
         self.saved_channel_counts.clear()
@@ -1385,6 +1519,8 @@ class DiscordVoiceBridge:
                 "average_ping": int(float(data.get("average_ping") or 0)),
                 "last_ping": int(float(data.get("last_ping") or 0)),
             }
+            if self.connection["state"] == "VOICE_CONNECTED":
+                self._clear_rate_limit_warning()
             self._emit_snapshot()
             return
 
@@ -1487,6 +1623,10 @@ def main() -> int:
             value = int(sys.argv[4])
         elif command in ("favorite_channel", "unfavorite_channel", "join_channel"):
             value = sys.argv[3]
+        elif command == "join_favorite":
+            value = int(sys.argv[3])
+        elif command == "move_favorite":
+            value = {"channel_id": sys.argv[3], "index": int(sys.argv[4])}
         else:
             value = None
     except (IndexError, ValueError) as error:

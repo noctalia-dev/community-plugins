@@ -57,6 +57,10 @@ local function onBridgeLine(line)
   if event.type == "heartbeat" then
     return
   end
+  if event.type == "warning" then
+    noctalia.notify(event.title or "Discord Voice", event.message or "")
+    return
+  end
   if event.type ~= "snapshot" then
     return
   end
@@ -147,6 +151,14 @@ function onIpc(event, _payload)
     noctalia.runAsync("python3 " .. bridgeScript .. " command refresh")
   elseif event == "hangup" then
     noctalia.runAsync("python3 " .. bridgeScript .. " command hang-up")
+  elseif event == "toggle-mute" then
+    noctalia.runAsync("python3 " .. bridgeScript .. " command toggle-mute")
+  elseif event == "toggle-deaf" then
+    noctalia.runAsync("python3 " .. bridgeScript .. " command toggle-deaf")
+  elseif event:match("^join%-favorite%-%d+$") then
+    -- join-favorite-N joins favorite slot N (slot numbers are shown in the panel).
+    local slot = event:match("(%d+)$")
+    noctalia.runAsync("python3 " .. bridgeScript .. " command join-favorite " .. slot)
   elseif event == "dump" then
     local snapshot = noctalia.state.get(BRIDGE_STATE_KEY)
     local safe = {

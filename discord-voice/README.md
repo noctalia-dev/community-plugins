@@ -55,8 +55,36 @@ noctalia msg plugin raycursive/discord-voice:bridge all refresh
 # Leave the current voice channel.
 noctalia msg plugin raycursive/discord-voice:bridge all hangup
 
+# Toggle self-mute or self-deafen.
+noctalia msg plugin raycursive/discord-voice:bridge all toggle-mute
+noctalia msg plugin raycursive/discord-voice:bridge all toggle-deaf
+
+# Join favorite voice channel N (1-5). Slot numbers are shown next to each
+# favorite in the panel; drag a favorite's grip to move it to another slot.
+# Joining while in another voice channel moves you directly; rapid presses are
+# coalesced (only the last one within 300 ms is sent) to stay under Discord's
+# voice rate limit. If a join is not voice-connected within 5 s (Discord is rate
+# limiting), a notification and a panel warning tell you to wait and retry.
+noctalia msg plugin raycursive/discord-voice:bridge all join-favorite-1
+
 # Write a token-free state summary to the Noctalia log.
 noctalia msg plugin raycursive/discord-voice:bridge all dump
+```
+
+The bridge script can also be called directly; it prints a JSON response:
+
+```sh
+bridge=~/.local/state/noctalia/plugins/materialized/community/discord-voice/discord_bridge.py
+
+# Includes "mute", "deaf", and "input_volume" alongside connection state.
+python3 $bridge command status
+
+# Flip the current state; the response reports the new value, e.g. {"ok":true,"mute":true}.
+python3 $bridge command toggle-mute
+python3 $bridge command toggle-deaf
+
+# Join favorite slot 3.
+python3 $bridge command join-favorite 3
 ```
 
 ## Notes

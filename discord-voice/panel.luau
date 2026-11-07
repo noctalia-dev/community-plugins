@@ -311,10 +311,84 @@ local function participantList()
   return rows
 end
 
+local FAVORITE_DRAG_TYPE = "discord-voice-favorite"
+
+local function favoriteInsertionZone(index)
+  return ui.dropZone({
+    key = "favorite-gap-" .. index,
+    accepts = { FAVORITE_DRAG_TYPE },
+    value = tostring(index),
+    onDrop = "onFavoriteDropped",
+    height = 4,
+    radius = 4,
+    expandOnDrag = true,
+    hitSlop = 20,
+  })
+end
+
+function onFavoriteDropped(payload, value)
+  local insertAt = tonumber(value)
+  if type(payload) ~= "string" or payload == "" or insertAt == nil or actionPending then
+    return
+  end
+  -- Reorder locally so the drop lands immediately; the bridge's snapshot
+  -- (with renumbered slots) replaces this once it has saved the new order.
+  local favorites = snapshot.favorite_channels
+  local fromIndex = nil
+  for index, channel in ipairs(favorites) do
+    if channel.id == payload then
+      fromIndex = index
+      break
+    end
+  end
+  if fromIndex == nil then
+    return
+  end
+  local target = insertAt
+  if fromIndex < target then
+    target -= 1
+  end
+  target = math.max(1, math.min(target, #favorites))
+  if target == fromIndex then
+    return
+  end
+  local moved = table.remove(favorites, fromIndex)
+  table.insert(favorites, target, moved)
+  for index, channel in ipairs(favorites) do
+    channel.slot = index
+  end
+  runBridgeCommand("move-favorite", payload, tostring(insertAt))
+end
+
 local function recentChannelRow(channel, favorite)
   local serverName = channel.guild_name ~= "" and channel.guild_name or tr("unknown_server")
   local participantCount = channel.participant_count
-  local children = {
+  local children = {}
+  if favorite then
+    table.insert(children, ui.dragSource({
+      key = "favorite-grip-" .. channel.id,
+      dragType = FAVORITE_DRAG_TYPE,
+      payload = channel.id,
+      previewAncestor = 1,
+      liftFromLayout = true,
+      width = 20,
+      height = 20,
+      align = "center",
+      justify = "center",
+      tooltip = tr("saved.drag_tooltip"),
+    }, {
+      ui.glyph({ name = "menu-2", size = 14, color = "on_surface_variant" }),
+    }))
+    table.insert(children, ui.label({
+      text = tostring(channel.slot or ""),
+      width = 14,
+      fontSize = 11,
+      fontWeight = "bold",
+      color = "on_surface_variant",
+      textAlign = "center",
+    }))
+  end
+  table.insert(children,
     ui.button({
       glyph = favorite and "star-filled" or "star",
       variant = "ghost",
@@ -323,11 +397,10 @@ local function recentChannelRow(channel, favorite)
       onClick = function()
         runBridgeCommand(favorite and "unfavorite-channel" or "favorite-channel", channel.id)
       end,
-    }),
-    ui.label({ text = serverName, width = 120, fontWeight = "bold", color = "primary", maxLines = 1 }),
-    ui.label({ text = "/", color = "on_surface_variant" }),
-    ui.label({ text = channel.name, color = "on_surface_variant", flexGrow = 1, maxLines = 1 }),
-  }
+    }))
+  table.insert(children, ui.label({ text = serverName, width = 120, fontWeight = "bold", color = "primary", maxLines = 1 }))
+  table.insert(children, ui.label({ text = "/", color = "on_surface_variant" }))
+  table.insert(children, ui.label({ text = channel.name, color = "on_surface_variant", flexGrow = 1, maxLines = 1 }))
   if participantCount > 0 then
     table.insert(children, ui.row({ gap = 4, align = "center" }, {
       ui.glyph({ name = "users", size = 14, color = "primary" }),
@@ -361,9 +434,18 @@ local function recentChannelRows()
   local rows = {}
   local favoriteIds = {}
 
-  for _, channel in ipairs(snapshot.favorite_channels) do
+  -- Favorites render in hotkey slot order, separated by drop zones so the
+  -- grip can drag them into a new slot. Grouped in a tight column so the
+  -- drop zones don't add the scroll's full gap between favorite rows.
+  local favoriteRows = {}
+  for index, channel in ipairs(snapshot.favorite_channels) do
     favoriteIds[channel.id] = true
-    table.insert(rows, recentChannelRow(channel, true))
+    table.insert(favoriteRows, favoriteInsertionZone(index))
+    table.insert(favoriteRows, recentChannelRow(channel, true))
+  end
+  if #favoriteRows > 0 then
+    table.insert(favoriteRows, favoriteInsertionZone(#snapshot.favorite_channels + 1))
+    table.insert(rows, ui.column({ key = "favorites", gap = 2, align = "stretch" }, favoriteRows))
   end
 
   for _, channel in ipairs(snapshot.recent_channels) do
