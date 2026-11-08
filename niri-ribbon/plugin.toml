@@ -10,10 +10,8 @@
 # legacy quickshell-era QML plugin API; this plugin is a ground-up rewrite for
 # the Noctalia v5 spec (plugin.toml + Luau) that keeps the algorithm idea.
 #
-# Standard niri IPC does not expose the live viewport offset. This plugin
-# estimates the resting position geometrically and remembers it per workspace;
-# see the
-# viewport estimation notes at the top of ribbon.luau.
+# Prefer viewport-relative tile positions when niri provides them; otherwise
+# estimate the resting position and remember it per workspace. See ribbon.luau.
 
 id = "luochen1990/niri-ribbon"
 name = "Niri Ribbon"
@@ -96,7 +94,7 @@ entry = "ribbon.luau"
   max = 6.0
   step = 0.5
 
-  # Viewport estimation model; should match niri `center-focused-column`:
+  # Fallback estimation model when tile positions are unavailable; matches niri:
   #   fit    — niri `never` (default): focused column snapped near the edge
   #   center — niri `always`: focused column always centered
   # See the viewport estimation notes at the top of ribbon.luau.

@@ -9,10 +9,10 @@
 -- (plugin.toml + Luau).
 --
 -- The shared service publishes compact per-output snapshots. This widget only
--- estimates viewport geometry and renders; it never polls the compositor.
+-- computes viewport geometry and renders; it never polls the compositor.
 --
--- Viewport estimation: niri does not expose the live scrolling offset on
--- standard releases. The "fit" model remembers an offset per workspace and
+-- Prefer tile_pos_in_workspace_view when niri reports a visible tile position.
+-- Otherwise the "fit" model remembers an offset per workspace and
 -- moves it only enough to reveal the focused column, in either direction.
 -- "center" always centers the focused column. These remain estimates when
 -- attaching mid-session, scrolling without changing focus, or using struts.
@@ -252,6 +252,28 @@ local function computeRatios(windows, workspaces, outputs)
   local gapsTotal = (#colIndices - 1) * GAPS
   local canvasWidth = math.max(sumWidths + gapsTotal, viewWidth)
 
+  -- A tile's canvas x minus its viewport-relative x gives the viewport offset.
+  -- Off-screen tiles have no reported position, so any visible tiled window
+  -- can anchor the calculation, even while a floating window has focus.
+  local columnX = {}
+  local nextX = 0
+  for _, idx in ipairs(colIndices) do
+    columnX[idx] = nextX
+    nextX = nextX + columns[idx] + GAPS
+  end
+  local reportedViewPos = nil
+  for _, w in ipairs(wsWindows) do
+    local layout = w.layout or {}
+    local pos = layout.pos_in_scrolling_layout
+    local viewPos = layout.tile_pos_in_workspace_view
+    local x = type(viewPos) == "table" and viewPos[1] or nil
+    local canvasX = type(pos) == "table" and columnX[pos[1]] or nil
+    if canvasX ~= nil and type(x) == "number" and x == x and math.abs(x) < math.huge then
+      reportedViewPos = canvasX - x
+      break
+    end
+  end
+
   -- The service supplies the workspace's active window ID; published windows
   -- contain geometry only, with no global focus flag.
   local targetWinId = activeWinId
@@ -270,13 +292,7 @@ local function computeRatios(windows, workspaces, outputs)
   local fPos = fLayout.pos_in_scrolling_layout or {1}
   local fIdx = fPos[1] or 1
   local fWidth = columns[fIdx] or 0
-  local colX = 0
-  for _, idx in ipairs(colIndices) do
-    if idx == fIdx then
-      break
-    end
-    colX = colX + (columns[idx] or 0) + GAPS
-  end
+  local colX = columnX[fIdx] or 0
 
   -- Keep each workspace's resting estimate independent of the animation.
   local previous = workspaceViews[wsId]
@@ -284,7 +300,9 @@ local function computeRatios(windows, workspaces, outputs)
     previous = nil
   end
   local viewPos
-  if targetWinId == nil or targetWin.id ~= targetWinId then
+  if reportedViewPos ~= nil then
+    viewPos = reportedViewPos
+  elseif targetWinId == nil or targetWin.id ~= targetWinId then
     -- Floating focus should not move the scrolling ribbon to an arbitrary tile.
     viewPos = previous and previous.position or 0
   elseif VIEWPORT_MODEL == "center" then

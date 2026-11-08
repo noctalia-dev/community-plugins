@@ -21,7 +21,7 @@
       "label": "视口色"
     },
     "viewport_model": {
-      "description": "视口位置的推算方式, 应与 niri 的 center-focused-column 设置一致。Fit (默认) 对应 niri 默认的 never; Center 对应 always。",
+      "description": "当 niri 未提供平铺窗口位置时使用的推算方式。应与 center-focused-column 设置一致：Fit 对应 never，Center 对应 always。",
       "label": "视口推算模型",
       "option": {
         "center": "Center (niri: always)",
