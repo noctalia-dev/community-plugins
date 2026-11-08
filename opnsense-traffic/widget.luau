@@ -4,6 +4,7 @@
 -- widgets - glyph, gauge or graph, value - with the same sizes, units and
 -- highlight gradient. Left-click opens the panel through the manifest action.
 
+local checks = require("./lib/checks.luau")
 local format = require("./lib/format.luau")
 
 local SNAPSHOT_KEY = "opnsense_snapshot"
@@ -27,6 +28,19 @@ local function config(key, fallback)
 		return fallback
 	end
 	return value
+end
+
+local function isStale()
+	return checks.isStale(snapshot.updatedAt, noctalia.nowMs(), config("poll_interval", 2))
+end
+
+-- The error to show, "" when the snapshot is current and fine.
+local function currentError()
+	local err = tostring(snapshot.error or "")
+	if err == "" and isStale() then
+		return noctalia.tr("errors.stale")
+	end
+	return err
 end
 
 local function isUpload()
@@ -176,7 +190,7 @@ local function graph(color, vertical)
 end
 
 local function valueText(value)
-	if snapshot.error ~= nil and snapshot.error ~= "" then
+	if currentError() ~= "" then
 		return "--"
 	end
 	local text = format.rate(value, config("speed_unit", "auto"), config("speed_compact", false) == true)
@@ -187,7 +201,7 @@ local function valueText(value)
 end
 
 local function tooltip()
-	local err = tostring(snapshot.error or "")
+	local err = currentError()
 	if err ~= "" then
 		return { { key = "OPNsense", value = err } }
 	end
@@ -203,9 +217,12 @@ local function tooltip()
 	}
 end
 
+local shownStale = false
+
 local function render()
 	local vertical = barWidget.isVertical()
-	local value = tonumber(isUpload() and snapshot.tx or snapshot.rx) or 0
+	shownStale = isStale()
+	local value = shownStale and 0 or tonumber(isUpload() and snapshot.tx or snapshot.rx) or 0
 	local color = valueColor(value)
 
 	local identity = nil
@@ -268,5 +285,14 @@ noctalia.state.watch(SNAPSHOT_KEY, function(value)
 		render()
 	end
 end)
+
+-- A dead service publishes nothing, so the age has to be checked from here.
+noctalia.setUpdateInterval(5000)
+
+function update()
+	if isStale() ~= shownStale then
+		render()
+	end
+end
 
 render()

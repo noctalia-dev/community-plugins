@@ -14,7 +14,8 @@ network pulls through the firewall, not just the local machine.
 
 ## Requirements
 
-- An OPNsense firewall reachable over HTTPS from this machine.
+- An OPNsense firewall reachable over HTTPS from this machine. Plain `http://`
+  URLs are refused, as the API key would travel in clear text on every poll.
 - `curl`, `sh` and `sed` on `PATH` for the reconnect fallback after a suspend
   (see Notes). Without `curl` the widget still works, it just shows `--` for up
   to ~15 minutes after waking up.
@@ -96,8 +97,10 @@ as JSON.
 noctalia msg panel-toggle dmopp/opnsense-traffic:panel
 ```
 
-Errors (no URL, key file missing, HTTP 401/403, unknown interface) show `--` in
-the bar and the reason in the tooltip and the panel.
+Errors (no URL, `http://` URL, key file missing, HTTP 401/403, unknown interface)
+show `--` in the bar and the reason in the tooltip and the panel. The same goes
+when the service has published nothing for a minute (or three poll intervals,
+if longer), so the bar never keeps showing an old rate.
 
 Download and upload are always seen from the network behind an interface: on
 WAN they are your internet download and upload, on a LAN or VLAN interface
@@ -111,7 +114,7 @@ Plugin settings (shared by all widgets):
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
-| `url` | `string` | `""` | Base URL of the OPNsense web GUI including the port, e.g. `https://opnsense.lan:4443`. A trailing `/api` is ignored. |
+| `url` | `string` | `""` | Base URL of the OPNsense web GUI including the port, e.g. `https://opnsense.lan:4443`. Must start with `https://`. A trailing `/api` is ignored. |
 | `credentials_file` | `file` | `~/.config/noctalia-opnsense/apikey.txt` | File with `key=` and `secret=` lines, as OPNsense downloads it. |
 | `interface` | `string` | `""` | Identifier (`opt1`), description (`WAN`) or device (`pppoe0`), case-insensitive. |
 | `wan_interfaces` | `string_list` | `[]` | Advanced. Interfaces whose counters are taken as they are (received = download). All others are flipped. Empty: interfaces with a default route plus any with `wan` in identifier or name, which covers OPNsense's default WAN and a PPPoE parent port named like it. Set it for other multi-WAN or transport interfaces. |
@@ -121,7 +124,7 @@ Plugin settings (shared by all widgets):
 | `line_down_mbit` / `line_up_mbit` | `int` | `0` | Bandwidth of your line in Mbit/s. Scales gauge and graph and enables the highlight. `0` = adaptive: scale to the measured peak. |
 | `peak_hold_hours` | `int` | `0` | Adaptive scale only: how long a peak counts, in hours (up to 720). `0` keeps it until **Reset peaks**. |
 | `highlight_from` / `highlight_full` | `int` | `50` / `90` | Percent of the line speed where the value starts fading to the highlight color and where it reaches it. Needs a line speed. |
-| `allow_insecure_tls` | `bool` | `false` | Advanced. Skip certificate checks, only for a self-signed GUI certificate. |
+| `allow_insecure_tls` | `bool` | `false` | Advanced. Skip certificate checks. Anyone who can intercept the traffic then gets the API key, so prefer adding the firewall's CA to the system trust store (see Notes). |
 
 Widget settings (per bar widget, matching the built-in network widgets):
 
@@ -149,6 +152,10 @@ noctalia msg plugin dmopp/opnsense-traffic:service all unhide opt5    # show it 
 
 ## Notes
 
+- **Certificates:** OPNsense's default GUI certificate is self-signed. Export
+  its CA (**System → Trust → Authorities**) and add it to the system trust store
+  instead of turning on `allow_insecure_tls`; on NixOS that is
+  `security.pki.certificateFiles`. Plugins cannot pin a certificate themselves.
 - **Network:** `GET <url>/api/diagnostics/traffic/interface` every
   `poll_interval` seconds, and
   `GET <url>/api/interfaces/overview/interfaces_info` every 10 minutes to find
@@ -165,10 +172,12 @@ noctalia msg plugin dmopp/opnsense-traffic:service all unhide opt5    # show it 
   at most once a minute and on **Reset peaks**.
 - **Files written:** `hidden.json` in the plugin data directory: the
   interface ids hidden with the eye button. Plugins cannot change their own
-  settings, so the panel keeps its own list next to `hidden_interfaces`.
+  settings, so the panel keeps its own list next to `hidden_interfaces`. Both
+  files are written to `<name>.tmp` first and then renamed over the old one.
 - **Rates** are the difference of the interface byte counters between two
   polls, so they are averages over `poll_interval`. A counter that goes
-  backwards (firewall reboot) is skipped for one sample.
+  backwards (firewall reboot) is skipped for one sample. A manual refresh less
+  than half a second after a poll updates the panel but measures nothing.
 - **Processes / reconnect fallback:** Noctalia's HTTP client reuses one
   HTTP/2 connection per host. After a suspend that connection is dead, and the
   client keeps sending requests over it until the kernel drops the socket

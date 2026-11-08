@@ -5,10 +5,12 @@
     "detecting": "Detecting the WAN interface…",
     "forbidden": "API user lacks the privilege \"{privilege}\"",
     "http": "OPNsense API answered HTTP {status}",
+    "insecure_url": "The OPNsense URL must start with https://: the API key would otherwise travel in clear text",
     "no_credentials": "API key file not found: {path}",
     "no_default_route": "No interface with a default route found",
     "no_interface": "No interface set (enter one or turn on auto-detect)",
     "no_url": "No OPNsense URL set",
+    "stale": "No fresh data from the service, restart or reload the plugin if this stays",
     "unauthorized": "API key rejected (HTTP 401)",
     "unknown_interface": "Interface \"{name}\" not found on OPNsense",
     "unreachable": "OPNsense not reachable at {url}"
@@ -123,7 +125,7 @@
       "label": "Upload glyph"
     },
     "url": {
-      "description": "Base URL of the web GUI, e.g. https://opnsense.lan:443",
+      "description": "Base URL of the web GUI (HTTPS only), e.g. https://opnsense.lan:443",
       "label": "OPNsense URL"
     },
     "visualization": {

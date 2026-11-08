@@ -3,6 +3,7 @@
 -- then every OPNsense interface with its live rates so the right name for the
 -- "interface" setting is easy to find (click a row to copy its identifier).
 
+local checks = require("./lib/checks.luau")
 local format = require("./lib/format.luau")
 
 local SNAPSHOT_KEY = "opnsense_snapshot"
@@ -10,6 +11,11 @@ local COMMAND_KEY = "opnsense_command"
 
 local snapshot = noctalia.state.get(SNAPSHOT_KEY) or {}
 local showHidden = false
+local shownStale = false
+
+local function isStale()
+	return checks.isStale(snapshot.updatedAt, noctalia.nowMs(), noctalia.getConfig("poll_interval"))
+end
 
 local function sendRefresh()
 	noctalia.state.set(COMMAND_KEY, { action = "refresh", nonce = tostring(noctalia.nowMs()) })
@@ -138,6 +144,10 @@ end
 local function render()
 	local body = {}
 	local err = tostring(snapshot.error or "")
+	shownStale = isStale()
+	if err == "" and shownStale then
+		err = noctalia.tr("errors.stale")
+	end
 	if err ~= "" then
 		table.insert(body, ui.label({ text = err, fontSize = 12, color = "error" }))
 	end
@@ -218,6 +228,15 @@ noctalia.state.watch(SNAPSHOT_KEY, function(value)
 		render()
 	end
 end)
+
+-- A dead service publishes nothing, so the age has to be checked from here.
+noctalia.setUpdateInterval(5000)
+
+function update()
+	if isStale() ~= shownStale then
+		render()
+	end
+end
 
 function onOpen(_context)
 	render()
