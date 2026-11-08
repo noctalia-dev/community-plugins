@@ -1,4 +1,13 @@
 {
+  "title": "Dock Pin",
+  "tooltip": {
+    "pinned": "Pinned — bar always visible (click to smart-hide)",
+    "smart": "Smart auto-hide (click to pin)"
+  },
+  "notify": {
+    "pinned": "Pinned — always visible",
+    "unpinned": "Unpinned — smart auto-hide"
+  },
   "settings": {
     "config_path": {
       "label": "Config path",
@@ -12,10 +21,5 @@
       "label": "Pinned color",
       "description": "Color of the pin while pinned"
     }
-  },
-  "title": "Dock Pin",
-  "tooltip.pinned": "Pinned — bar always visible (click to smart-hide)",
-  "tooltip.smart": "Smart auto-hide (click to pin)",
-  "notify.pinned": "Pinned — always visible",
-  "notify.unpinned": "Unpinned — smart auto-hide"
+  }
 }

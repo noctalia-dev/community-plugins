@@ -1,4 +1,13 @@
 {
+  "title": "Dock 图钉",
+  "tooltip": {
+    "pinned": "已钉住 · 常驻显示（点击回到智能隐藏）",
+    "smart": "智能隐藏（点击钉住）"
+  },
+  "notify": {
+    "pinned": "已钉住 · 常驻显示",
+    "unpinned": "已解锁 · 智能隐藏"
+  },
   "settings": {
     "config_path": {
       "label": "配置路径",
@@ -12,10 +21,5 @@
       "label": "钉住颜色",
       "description": "钉住状态时图标的颜色"
     }
-  },
-  "title": "Dock 图钉",
-  "tooltip.pinned": "已钉住 · 常驻显示（点击回到智能隐藏）",
-  "tooltip.smart": "智能隐藏（点击钉住）",
-  "notify.pinned": "已钉住 · 常驻显示",
-  "notify.unpinned": "已解锁 · 智能隐藏"
+  }
 }

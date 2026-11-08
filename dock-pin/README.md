@@ -12,7 +12,7 @@ sometimes needs to stay put while you arrange windows.
 
 | Field | Value |
 | --- | --- |
-| ID | `tomasWade/dock-pin` |
+| ID | `tomaswade/dock-pin` |
 | Entries | Bar widget: `pin`; service: `watcher` |
 
 ## Requirements
@@ -22,12 +22,12 @@ calls `noctalia msg config-get` / `config-set` to read and flip the setting).
 
 ## Usage
 
-Add the `tomasWade/dock-pin:pin` widget to the bar you want to pin — usually
+Add the `tomaswade/dock-pin:pin` widget to the bar you want to pin — usually
 the target bar itself, so the pin lives on the bar it controls:
 
 ```toml
 [widget.dockpin]
-type = "tomasWade/dock-pin:pin"
+type = "tomaswade/dock-pin:pin"
 
 [bar.dock]
 end = [ "dockpin" ]

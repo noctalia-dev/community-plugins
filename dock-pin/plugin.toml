@@ -1,11 +1,11 @@
-id = "tomasWade/dock-pin"
+id = "tomaswade/dock-pin"
 name = "Dock Pin"
 version = "1.0.0"
 plugin_api = 43
-author = "tomasWade"
+author = "tomaswade"
 license = "MIT"
 dependencies = ["noctalia"]
-tags = ["bar", "utility", "dock"]
+tags = ["bar", "utility", "indicator"]
 icon = "pin"
 description = "Bar widget that pins a bar in place: lit pin = always visible, dim pin = smart auto-hide."
 
