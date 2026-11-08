@@ -5463,8 +5463,8 @@ tags = ["audio", "utility"]
 [[plugin]]
 id = "goldesquemoon/screen-mirror"
 name = "Screen Mirror"
-version = "1.0.1"
-updated_at = 1793736701
+version = "1.1.1"
+updated_at = 1794145015
 added_at = 1793736701
 author = "goldesquemoon"
 license = "MIT"
