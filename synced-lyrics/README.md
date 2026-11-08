@@ -40,7 +40,130 @@ Features **syllable-level synchronization** (word-by-word / syllable-by-syllable
   - Runs a 30ms (~33fps) fluid animation tick rate during playback.
   - Automatically throttles to 1000ms idle interval when paused or stopped.
   - Interpolates playback position locally to eliminate process spam.
-- 🎨 **Adaptive Noctalia Theming**: Seamlessly uses Noctalia theme tokens (`primary`, `on_surface`, `on_surface_variant`, `outline`, etc.).
+- 🎨 **Adaptive Noctalia Theming**: Seamlessly uses Noctalia theme tokens (`primary`, `on_surface`, `on_surface_variant`, `outline_variant`, etc.).
+
+---
+
+## ## Plugin
+
+This plugin provides the following components for Noctalia:
+
+| Component | ID | Description |
+|-----------|-----|-------------|
+| Bar Widget | `lyrics` | Displays synchronized karaoke lyrics on the bar with syllable-level highlighting |
+| Panel | `lyrics-panel` | Interactive popup panel for selecting lyric providers with preview lines |
+
+**Plugin ID**: `kaler/synced-lyrics`
+
+**Widgets**:
+- `kaler/synced-lyrics:lyrics` — The main bar widget showing synced lyrics
+
+**Panels**:
+- `kaler/synced-lyrics:lyrics-panel` — Source selection panel (opens on left-click of the widget)
+
+**Command to toggle the panel**:
+```bash
+noctalia msg panel-toggle kaler/synced-lyrics:lyrics-panel
+```
+
+---
+
+## ## Usage
+
+### 1. Enable the Plugin in Noctalia
+
+The plugin is deployed to:
+`~/.local/state/noctalia/plugins/materialized/community/synced-lyrics/`
+
+Ensure `"kaler/synced-lyrics"` is present in your `[plugins].enabled` array in `~/.local/state/noctalia/settings.toml`:
+
+```toml
+[plugins]
+enabled = [
+  "kaler/synced-lyrics",
+  # ... other plugins
+]
+```
+
+### 2. Add the Widget to Your Bar
+
+In `~/.local/state/noctalia/settings.toml`:
+
+1. Define the widget:
+```toml
+[widget.lyrics]
+type = "kaler/synced-lyrics:lyrics"
+```
+
+2. Add `"lyrics"` to your bar's `start`, `center`, or `end` lane:
+```toml
+[bar.top-bar]
+center = [ "clock", "lyrics" ]
+```
+
+When Noctalia starts or reloads, the widget will automatically appear whenever a song plays!
+
+### 3. Using the Plugin
+
+- **Left-click** the widget to open the lyrics source selection panel
+- **Right-click** to play/pause the current track
+- **Middle-click** to skip to the next track
+- **Scroll** on the widget to adjust timing offset (shift lyrics earlier/later)
+- Open the panel via command: `noctalia msg panel-toggle kaler/synced-lyrics:lyrics-panel`
+
+### 4. Configure Settings
+
+Open Noctalia Settings GUI or edit `settings.toml` directly. See [## Settings](#-settings-reference) for all available options.
+
+---
+
+## ## Requirements
+
+- **python3** — Required for the lyric fetching scripts
+- **playerctl** — Required for media player control (play/pause, next, metadata)
+
+Ensure both are installed and available in your PATH:
+
+```bash
+# On Arch-based systems (including Nyarch)
+sudo pacman -S python playerctl
+
+# On Debian/Ubuntu
+sudo apt install python3 playerctl
+
+# On Fedora
+sudo dnf install python3 playerctl
+```
+
+---
+
+## ## Settings
+
+Configurable via Noctalia Settings GUI or in your `settings.toml`:
+
+| Setting | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `auto_hide` | `bool` | `true` | Hide the bar widget when media is stopped or no player is open. |
+| `hide_when_paused` | `bool` | `true` | Also hide the bar widget when media is paused. |
+| `max_words` | `int` | `6` | Maximum number of words displayed before shifting onto the next line chunk/page. |
+| `word_wrapping_mode` | `select` | `"words"` | Strategy for splitting long lyric lines across the bar: `"words"` (shift after max words), `"chars"` (sliding window), or `"full"` (no wrapping). |
+| `font_size` | `int` | `12` | Text size of lyrics displayed on the bar. |
+| `smooth_sweep` | `bool` | `true` | Progressive character-by-character color sweep across syllables in real time. |
+| `show_countdown` | `bool` | `true` | Display seconds remaining until the first vocal line starts. |
+| `timing_offset_ms` | `int` | `0` | Manual timing offset in milliseconds (range: `-10000` to `+10000` ms). Also dynamically adjusted via mouse wheel scroll on the bar widget. |
+| `scroll_offset_step_ms` | `int` | `50` | Milliseconds added or subtracted per mouse wheel scroll notch (default: `50ms`). |
+| `invert_scroll` | `bool` | `false` | Invert mouse wheel scroll direction for timing offset adjustment. |
+| `preferred_source` | `select` | `"auto"` | Preferred lyric provider: `"auto"`, `"spicylyrics"`, `"binimum"`, `"lyricsplus"`, `"betterlyrics"`, `"unison"`, `"lrclib"`, or `"genius"`. |
+| `spicy_lyrics_api_key` | `string` | *(user key configured)* | API key for querying syllable-level lyrics on api.spicylyrics.org. |
+| `spotify_client_id` | `string` | `""` | Optional Spotify app Client ID for track ID resolution. |
+| `spotify_client_secret` | `string` | `""` | Optional Spotify app Client Secret for track ID resolution. |
+| `betterlyrics_api_key` | `string` | `""` | Optional API key for uncached BetterLyrics requests. |
+| `active_color` | `string` | `"primary"` | Theme color token for the currently sung syllable/word. |
+| `sung_color` | `string` | `"on_surface"` | Theme color token for already completed syllables. |
+| `upcoming_color` | `string` | `"on_surface_variant"` | Theme color token for upcoming syllables in the line. |
+| `max_chars` | `int` | `34` | Maximum characters visible on the bar before sliding windowing (when using character limit mode). |
+| `show_glyph` | `bool` | `true` | Show music glyph next to active lyrics. |
+| `parsenix_base_url` | `string` | `"https://noctalialyrics.vercel.app"` | Base URL of your deployed Parsenix Spotify Lyrics API instance. |
 
 ---
 
@@ -107,3 +230,4 @@ Configurable via Noctalia Settings GUI or in your `settings.toml`:
 | `upcoming_color` | `string` | `"on_surface_variant"` | Theme color token for upcoming syllables in the line. |
 | `max_chars` | `int` | `34` | Maximum characters visible on the bar before sliding windowing (when using character limit mode). |
 | `show_glyph` | `bool` | `true` | Show music glyph next to active lyrics. |
+| `parsenix_base_url` | `string` | `"https://noctalialyrics.vercel.app"` | Base URL of your deployed Parsenix Spotify Lyrics API instance. Requires SP_DC cookie configured server-side. |
