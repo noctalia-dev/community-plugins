@@ -7,7 +7,7 @@
 local function render(status)
     local known = type(status) == "table"
     local off = known and status.state == "off"
-    local ready = known and status.available == true
+    local ready = known and status.installed == true
 
     barWidget.setGlyph(off and "keyboard-off" or "keyboard")
     barWidget.setTooltip({
@@ -28,7 +28,7 @@ noctalia.state.watch("status", render)
 
 function onClick()
     local status = noctalia.state.get("status")
-    if type(status) ~= "table" or status.available ~= true then
+    if type(status) ~= "table" or status.installed ~= true then
         noctalia.state.set("command", { action = "setup", seq = noctalia.nowMs() })
         return
     end

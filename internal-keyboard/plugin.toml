@@ -1,13 +1,13 @@
 id          = "goldesquemoon/internal-keyboard"
 name        = "Internal Keyboard"
-version     = "1.3.0"
+version     = "1.3.1"
 plugin_api  = 39
 author      = "goldesquemoon"
 license     = "MIT"
 icon        = "keyboard"
 description = "Turn the built-in laptop keyboard on or off from the control center, a bar widget, or a TTY."
 tags        = ["hardware", "system", "utility", "shortcut"]
-dependencies = ["sudo", "udevadm", "sh"]
+dependencies = ["sudo", "pkexec", "udevadm", "sh"]
 
 [[setting]]
 key             = "backend"

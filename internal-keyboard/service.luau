@@ -6,7 +6,7 @@
 -- keyboard to udev, so libinput stops or resumes delivering its events.
 --
 -- The UI only talks to this service through the plugin state:
---   "status"  <- { state, device, nodes, available }
+--   "status"  <- { state, device, nodes, installed, available }
 --   "command" <- { action = "toggle" | "on" | "off" | "refresh" }
 --
 -- sudo -n never prompts: setup.sh grants NOPASSWD for the subcommands of that
@@ -47,11 +47,12 @@ local function report_failure(message)
 end
 
 local function empty_status()
-    return { state = "unknown", device = "", nodes = "", available = false }
+    return { state = "unknown", device = "", nodes = "", installed = false, available = false }
 end
 
 local function parse(output)
     local status = empty_status()
+    local saw_installed = false
     for line in (output or ""):gmatch("[^\r\n]+") do
         local key, value = line:match("^(%w+)=(.*)$")
         if key == "state" then
@@ -60,9 +61,18 @@ local function parse(output)
             status.device = value
         elseif key == "nodes" then
             status.nodes = value
+        elseif key == "installed" then
+            status.installed = value == "1"
+            saw_installed = true
         elseif key == "available" then
             status.available = value == "1"
         end
+    end
+    -- A backend older than this version does not report "installed": keep the
+    -- previous behaviour (device present means ready) instead of nagging with the
+    -- setup tile until the backend is updated.
+    if not saw_installed then
+        status.installed = status.available
     end
     return status
 end
@@ -71,6 +81,7 @@ local function unchanged(a, b)
     return a.state == b.state
         and a.device == b.device
         and a.nodes == b.nodes
+        and a.installed == b.installed
         and a.available == b.available
 end
 
@@ -101,7 +112,7 @@ local function publish(next)
         return
     end
     status = next
-    log(`state {next.state} (device="{next.device}", available={tostring(next.available)})`)
+    log(`state {next.state} (device="{next.device}", installed={tostring(next.installed)}, available={tostring(next.available)})`)
     noctalia.state.set("status", next)
 
     -- Skip the first publish so loading the plugin does not raise a popup; after

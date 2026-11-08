@@ -44,11 +44,17 @@ noctalia msg plugins enable goldesquemoon/internal-keyboard   # when copying by 
 | Requirement | Why |
 | --- | --- |
 | `sudo` | The service calls the backend without a password prompt. |
+| `pkexec` | Raises the polkit dialog for the one-time setup/repair from the tile, so the install does not need a terminal. |
 | `udevadm` | Re-announces the keyboard so libinput re-reads the ignore property. |
 | `sh` | The backend and the setup script are POSIX shell. |
 | A libinput-based compositor | Niri, Hyprland, Sway and friends. The switch happens on the libinput layer, so Xorg sessions are not supported. |
-| One-time root setup | Click the tile once (polkit), or `sudo ./setup.sh` in the plugin directory. |
-| A polkit agent (optional) | Makes that first click open the authentication dialog; without one, run `setup.sh` in a terminal. |
+| One-time root setup | Click the tile once (it runs `pkexec sh setup.sh`), or run `sudo ./setup.sh` in the plugin directory. |
+| A polkit agent | `pkexec` hands the request to it; without a running agent, run `setup.sh` in a terminal instead. |
+
+The tile and the bar widget read `installed` from the backend: when the system side is missing
+(first install, or a udev rule that went away) they show a setup state and the click runs the same
+`setup.sh` through `pkexec`, instead of pretending the keyboard switch is ready. `setup.sh` is
+idempotent, so it doubles as the repair action.
 
 `setup.sh` installs two files and can be re-run at any time:
 
