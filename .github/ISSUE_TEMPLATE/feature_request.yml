@@ -242,6 +242,7 @@ body:
         - procmon
         - profile-switcher
         - proton-pass
+        - proton-wireguard
         - pulsar-mouse
         - qr-share
         - qrcode
