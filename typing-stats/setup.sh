@@ -46,8 +46,7 @@ echo "==> keyboard event nodes:"
 if [ -n "$target_user" ] && [ "$target_user" != root ] && command -v runuser >/dev/null 2>&1; then
     if runuser -u "$target_user" -- python3 "$PLUGIN_DIR/scripts/typelisten.py" --test-devices; then
         echo
-        echo "done. reload the plugin (or Noctalia) if it was already running:"
-        echo "  noctalia msg plugin goldesquemoon/typing-stats:counter all reload"
+        echo "done. the plugin starts counting within a few seconds (no reload needed)."
         exit 0
     fi
 else

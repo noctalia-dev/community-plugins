@@ -1,6 +1,6 @@
 # OPPO Pods
 
-Battery monitor and active noise cancellation (ANC) control for OPPO, OnePlus, and realme Bluetooth earbuds in Noctalia.
+Battery monitor, noise cancellation (ANC) and game mode control for OPPO, OnePlus, and realme Bluetooth earbuds in Noctalia.
 
 ## Plugin
 
@@ -50,6 +50,17 @@ noctalia msg plugin osp54/oppo-pods:service all set-noise anc
 noctalia msg plugin osp54/oppo-pods:service all set-noise transparency
 noctalia msg plugin osp54/oppo-pods:service all set-noise off
 ```
+
+ANC levels (`mild`, `moderate`, `max`, `smart`) can be passed to `set-noise` on models that have them.
+
+Game mode (lower latency, on models whose HeyMelody page has it):
+
+```sh
+noctalia msg plugin osp54/oppo-pods:service all toggle-game
+noctalia msg plugin osp54/oppo-pods:service all set-game on
+```
+
+The earbuds cannot report game mode on request, so the switch shows the last state set from the plugin or announced by the earbuds.
 
 ## Notes
 

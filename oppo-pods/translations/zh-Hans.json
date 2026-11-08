@@ -7,8 +7,16 @@
     "case": "充电仓",
     "case_offline": "已合盖",
     "charging": "充电中",
+    "game_mode": "游戏模式",
+    "game_mode_caption": "降低音频延迟",
     "guidance": "通过蓝牙连接耳机后，即可查看电量与调节降噪模式。",
     "left": "左耳",
+    "level": {
+      "max": "深度",
+      "mild": "轻度",
+      "moderate": "中度",
+      "smart": "智能"
+    },
     "mode": {
       "anc": "降噪",
       "off": "关闭",
@@ -41,6 +49,11 @@
       "left_click": "打开控制面板",
       "right_click": "切换降噪模式"
     },
+    "click": {
+      "left": "左键",
+      "right": "右键"
+    },
+    "device": "设备",
     "mode": "模式",
     "not_connected": "耳机未连接"
   }

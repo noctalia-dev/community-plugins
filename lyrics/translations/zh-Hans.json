@@ -176,8 +176,12 @@
       "label": "未唱歌词颜色"
     },
     "karaoke_enabled": {
-      "description": "使用词源逐字时间或模拟行进度进行逐字高亮。",
+      "description": "有逐字时间时启用逐字卡拉 OK；没有逐字时间的行默认整行高亮，除非开启“无逐字时强制逐字”。",
       "label": "卡拉 OK 逐字高亮"
+    },
+    "force_karaoke": {
+      "description": "当某行没有逐字时间时，恢复旧行为：按行时长把高亮均匀分配到每个字，而不是整行同时高亮。",
+      "label": "无逐字时强制逐字"
     },
     "line_gap": {
       "description": "原文、翻译、罗马音和上下文歌词之间的间距。",
@@ -203,12 +207,25 @@
         "qishui": "汽水音乐",
         "qqmusic": "QQ 音乐",
         "splayer": "SPlayer",
+        "splayer_next": "SPlayer Next（本地 API）",
         "spotify": "Spotify"
       }
     },
     "lyrics_sources": {
-      "description": "按从上到下的顺序尝试词源，可填写 lrclib、netease、splayer、qqmusic、kugou、qishui、apple_music、spotify、musixmatch、mpris 或 custom。",
+      "description": "按从上到下的顺序尝试词源，可填写 lrclib、netease、splayer、splayer_next、qqmusic、kugou、qishui、apple_music、spotify、musixmatch、mpris 或 custom。",
       "label": "自动词源顺序"
+    },
+    "format_priority": {
+      "description": "同一词源内按从高到低尝试的格式：yrc、qrc、krc、ttml、richsync、syllables、enhanced_lrc、lrc、plain；词源只会尝试它能解析的格式。",
+      "label": "歌词格式优先级"
+    },
+    "source_format_priority": {
+      "description": "可选的按词源覆盖格式顺序，例如 netease=yrc,krc,lrc 或 qqmusic=qrc,lrc；留空则使用全局格式优先级。",
+      "label": "按词源覆盖格式"
+    },
+    "auto_source_routing": {
+      "description": "当播放器或媒体 URL 匹配已知服务（网易云、QQ 音乐、酷狗/MoeKoe、SPlayer、Spotify）时，优先按顺序尝试该词源；只调整顺序，不会增加请求。",
+      "label": "优先匹配对应词源"
     },
     "marquee_speed": {
       "description": "长歌词每秒滚动的像素数。",
@@ -308,6 +325,10 @@
       "description": "SPlayer 本地服务地址，默认 http://127.0.0.1:25884。直接读取 SPlayer 当前加载的完整歌词数据。",
       "label": "SPlayer 接口地址"
     },
+    "splayer_next_api_url": {
+      "description": "SPlayer Next 外部 API 地址，默认 http://127.0.0.1:14558；需先在 SPlayer Next 设置中开启“外部 API”。",
+      "label": "SPlayer Next 接口地址"
+    },
     "spotify_access_token": {
       "description": "可选的 Spotify access token，优先于 sp_dc。",
       "label": "Spotify 访问令牌"
@@ -335,6 +356,27 @@
         "zh-hans": "简体中文",
         "zh-hant": "繁体中文"
       }
+    },
+    "settings_page": {
+      "label": "设置分类",
+      "description": "一次只显示一个功能分组；其他分类的设置值会保留。",
+      "options": {
+        "basic": "基础显示",
+        "lyrics": "歌词与翻译",
+        "karaoke": "卡拉OK与动画",
+        "appearance": "封面与颜色",
+        "typography": "字体与排版",
+        "scroll": "滚动与宽度",
+        "cues": "起始/间奏提示"
+      }
+    },
+    "karaoke_active_color": {
+      "label": "逐字已唱颜色",
+      "description": "有逐字时间的行中，已唱字符的颜色；行级歌词仍使用普通已唱颜色。"
+    },
+    "karaoke_inactive_color": {
+      "label": "逐字未唱颜色",
+      "description": "有逐字时间的行中，未唱字符的颜色；行级歌词仍使用普通未唱颜色。"
     }
   },
   "shortcut": {

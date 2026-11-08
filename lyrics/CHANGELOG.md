@@ -1,5 +1,59 @@
 # Changelog
 
+## 1.6.0
+
+- Word-level lyric sources now drive per-character karaoke highlighting, while
+  lines without complete word timings fall back to line mode: the whole line is
+  highlighted at once and advances when the next line starts. No synthetic
+  per-character fill is used for unsynchronized lines.
+- Add a per-widget `force_karaoke` option that restores the previous behavior
+  for lines without word timings: the line is filled character by character
+  over its duration instead of being highlighted as a whole.
+- Add dedicated `karaoke_active_color` and `karaoke_inactive_color` settings
+  for word-synced lines. Line-mode lyrics continue to use `active_color` and
+  `inactive_color`.
+- Turn the compact double-line mode (`double_line_auto_fit`) off by default.
+- Group per-widget settings into functional categories with a **Settings
+  category** selector: Basic display, Lyrics and translation, Karaoke and
+  animation, Cover and colors, Font and layout, Scrolling and width, and
+  Intro/interlude cues. Only the selected category's controls are shown; other
+  values are preserved. Noctalia's plugin manifest has no section-header field
+  for widget settings and each setting supports only one `visible_when`
+  condition, so categories are implemented as pages instead of headers.
+- Update the shipped defaults to the current configuration: glyph off, custom
+  cover shape, hide when no lyrics, gradient and translation off, fixed font
+  style, custom cue font, 35 max characters, and an
+  automatic source order that starts with `splayer_next`.
+- Fix missing translation/romanization on word-synced results: pair layers
+  with the same line count by order when their timestamps drift, merge every
+  available translation/romanization field instead of stopping at the first
+  non-empty one, and fill missing SPlayer Next layers from NetEase for
+  NetEase-sourced tracks (looked up by track id).
+- Filter credit and production metadata lines in every format and language.
+  NetEase YRC/KRC credit lines such as "词版权管理方：..." and "录音作品及MV版权：..."
+  are removed, as are English, Japanese, Korean, and other localized
+  "Lyrics by"/"作詞"/"작사" style headers, plus instrumental markers.
+- Report lyric quality metadata from every adapter: `format`, `sync`
+  (`word`/`line`/`plain`), `word_lines`, `timed_lines`, `coverage`,
+  `has_translation`, and `has_romanization`. The service logs the chosen
+  format and sync level for each source.
+- Add a configurable format priority chain (`yrc > qrc > krc > ttml >
+  richsync > syllables > enhanced_lrc > lrc > plain`) with optional per-source
+  overrides. Each source tries its supported formats in that order and falls
+  back to the next format when a higher-priority format is unavailable or
+  invalid.
+- Prefer the source that matches the active player or media URL (NetEase, QQ
+  Music, Kugou/MoeKoe, SPlayer, Spotify). This only reorders the existing
+  source list; it never adds requests or delays word-level lyrics.
+- Add an `splayer_next` lyric source for SPlayer Next's external API
+  (`/api/now-playing` and `/api/lyrics`). It reads the app's parsed AMLL lines,
+  including word timings, translations, romanization, background lines, and
+  duet markers. Enable External API in SPlayer Next settings first; the default
+  URL is `http://127.0.0.1:14558`. SPlayer Next players are routed to this
+  source automatically, and older saved source orders keep it in the automatic
+  fallback chain (right after `splayer`).
+- Bump the plugin version to 1.6.0.
+
 ## 1.5.8
 
 - Declare the widget's left-click, right-click, and scroll bindings as editable

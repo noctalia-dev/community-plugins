@@ -40,7 +40,11 @@
   },
   "shortcut": {
     "reset": "重置输入统计",
-    "heatmap": "输入热力图"
+    "heatmap": "输入热力图",
+    "setup": {
+      "needed": "授权读取键盘",
+      "ok": "已获得键盘权限"
+    }
   },
   "notify": {
     "reset": {
@@ -48,12 +52,27 @@
       "body": "字符计数已归零。"
     },
     "no_access": {
-      "title": "输入统计需要键盘权限",
-      "body": "请在插件目录运行一次 setup.sh 安装 udev 规则，然后重新加载插件。"
+      "title": "输入统计需要键盘读取权限",
+      "body": "在控制中心点一下「授权读取键盘」磁贴即可（或执行：sudo {path}），几秒后自动开始计数。"
     },
     "level": {
       "title": "输入等级提升",
-      "body": "今天：{count} 字符 · {level} 级"
+      "body": "今天：{count} 字符 · 等级 {level}"
+    },
+    "setup": {
+      "done": {
+        "title": "键盘权限已授予",
+        "body": "udev 规则已安装，几秒后自动恢复计数。"
+      },
+      "cancelled": {
+        "title": "已取消授权"
+      },
+      "failed": {
+        "title": "授权失败"
+      },
+      "timeout": {
+        "body": "setup.sh 超时未结束，请在终端手动执行以查看错误。"
+      }
     }
   },
   "panel": {

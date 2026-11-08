@@ -1,0 +1,77 @@
+{
+  "settings": {
+    "bar_aware": {
+      "description": "Subtract space reserved by Noctalia bars when sizing the terminal, so it never runs under a bar.",
+      "label": "Fit around bars"
+    },
+    "edge": {
+      "option": {
+        "bottom": "Bottom",
+        "left": "Left",
+        "right": "Right",
+        "top": "Top"
+      }
+    },
+    "edge_h": {
+      "description": "Screen edge the terminal drops from in landscape.",
+      "label": "Landscape edge"
+    },
+    "edge_v": {
+      "description": "Screen edge the terminal slides from in portrait.",
+      "label": "Portrait edge"
+    },
+    "focus_policy": {
+      "description": "On demand keeps compositor keybinds working while the terminal is open. Exclusive grabs the keyboard. Applies on next launch.",
+      "label": "Keyboard focus",
+      "option": {
+        "exclusive": "Exclusive",
+        "on_demand": "On demand"
+      }
+    },
+    "hide_on_focus_loss": {
+      "description": "Hide the terminal when you click elsewhere. Applies on next launch.",
+      "label": "Hide on focus loss"
+    },
+    "kitty_conf": {
+      "description": "Kitten config file to use instead of ~/.config/kitty/quick-access-terminal.conf. Applies on next launch.",
+      "label": "Kitten config file"
+    },
+    "normal_height": {
+      "description": "Height of the normal-size landscape terminal, as a percent of the usable screen height.",
+      "label": "Normal height (%)"
+    },
+    "normal_width": {
+      "description": "Width of the normal-size portrait terminal, as a percent of the usable screen width.",
+      "label": "Normal width (%)"
+    },
+    "opacity": {
+      "description": "Background opacity. Applies on next launch.",
+      "label": "Opacity"
+    },
+    "orientation": {
+      "description": "Landscape drops a full-width terminal from the top or bottom. Portrait slides a full-height one from the side.",
+      "label": "Orientation",
+      "option": {
+        "landscape": "Landscape",
+        "portrait": "Portrait"
+      }
+    },
+    "size": {
+      "description": "Full fills the usable screen along the drop direction.",
+      "label": "Size",
+      "option": {
+        "full": "Full",
+        "normal": "Normal"
+      }
+    }
+  },
+  "widget": {
+    "error": "dropkitty: {message}",
+    "finished": "A command finished while hidden (exit {code}). Click to show.",
+    "hidden": "Drop-down terminal (hidden). Click to show.",
+    "launch_failed": "Could not run the dropkitty helper.",
+    "open": "Drop-down terminal (open). Click to hide.",
+    "stopped": "Drop-down terminal. Click to start.",
+    "title": "dropkitty"
+  }
+}

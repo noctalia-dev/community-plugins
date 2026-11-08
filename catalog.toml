@@ -338,8 +338,8 @@ rev = "203aaef232cb47ba37c9b32af82f27225ea1916e"
 [[plugin]]
 id = "h465855hgg/lyrics"
 name = "Lyrics"
-version = "1.5.8"
-updated_at = 1792587743
+version = "1.6.0"
+updated_at = 1793842492
 added_at = 1784238037
 author = "h465855hgg"
 license = "MIT"
@@ -543,8 +543,8 @@ rev = "00da2cd2910b2c562ceebd9b3f72829884b16946"
 [[plugin]]
 id = "alexander/game-launcher"
 name = "Game Launcher"
-version = "1.6.0"
-updated_at = 1793736746
+version = "1.7.0"
+updated_at = 1794098135
 added_at = 1784595753
 author = "Alexander"
 license = "MIT"
@@ -1437,15 +1437,21 @@ rev = "f222cdee2be8a0c9ecfc3890b9f90d377429f534"
 [[plugin]]
 id = "gabedunn/voxtype"
 name = "Voxtype"
-version = "1.0.0"
-updated_at = 1786201675
+version = "1.1.0"
+updated_at = 1793800241
 added_at = 1786201675
 author = "Gabe Dunn"
 license = "MIT"
 icon = "microphone-2"
-description = "Shows and controls Voxtype's live dictation status from the bar."
+description = "Shows Voxtype status in the bar and an optional live audio overlay."
+plugin_api = 30
+tags = ["audio", "bar", "indicator", "recording", "utility", "panel", "service"]
+
+[[plugin.release]]
 plugin_api = 14
-tags = ["audio", "bar", "indicator", "recording", "utility"]
+version = "1.0.0"
+updated_at = 1786201675
+rev = "fe464e7301b2c14bba98b7460ae1710106985a07"
 
 [[plugin]]
 id = "weinguyen/shell-command"
@@ -1799,8 +1805,8 @@ rev = "8bf825d5dce2ba8548b36e597f5b450984c95452"
 [[plugin]]
 id = "felipeartur/ai-usagebar"
 name = "AI Usage"
-version = "2.11.2"
-updated_at = 1792983494
+version = "2.13.1"
+updated_at = 1793926399
 added_at = 1786903781
 author = "felipeartur"
 license = "MIT"
@@ -2244,8 +2250,8 @@ tags = ["audio", "bar", "panel", "service", "hardware", "indicator"]
 [[plugin]]
 id = "arrifat346afs/systempulse"
 name = "SystemPulse"
-version = "1.1.3"
-updated_at = 1792983494
+version = "1.1.4"
+updated_at = 1793998406
 added_at = 1787832988
 author = "arrifat346afs "
 license = "MIT"
@@ -2391,8 +2397,8 @@ tags = ["panel", "utility"]
 [[plugin]]
 id = "linux-fertxo/hyprland-visual-editor"
 name = "Hyprland Visual Editor"
-version = "2.0.2"
-updated_at = 1792417341
+version = "2.0.4"
+updated_at = 1793842599
 added_at = 1788117624
 author = "XimoCP (v4 original) + Hermy & linux-fertxo (v5 Luau port)"
 license = "MIT"
@@ -2521,8 +2527,8 @@ tags = ["desktop", "utility"]
 [[plugin]]
 id = "aabidk20/yt-music"
 name = "YouTube Music"
-version = "0.4.3"
-updated_at = 1793746103
+version = "0.4.4"
+updated_at = 1793800177
 added_at = 1788315521
 author = "Aabid"
 license = "MIT"
@@ -2717,15 +2723,21 @@ rev = "ccf105664ca887d51252abf17d7fe031867f13fe"
 [[plugin]]
 id = "osp54/oppo-pods"
 name = "OPPO Pods"
-version = "1.0.0"
-updated_at = 1788624565
+version = "1.1.0"
+updated_at = 1794005513
 added_at = 1788624565
 author = "osp54"
 license = "MIT"
 icon = "headphones"
 description = "OPPO, OnePlus and realme earbuds battery and noise cancellation control in the bar."
-plugin_api = 24
+plugin_api = 43
 tags = ["audio", "bar", "panel", "service", "hardware", "indicator"]
+
+[[plugin.release]]
+plugin_api = 24
+version = "1.0.0"
+updated_at = 1788624565
+rev = "60e069cef3054b20633ff03b43ca4b98d65e0fbb"
 
 [[plugin]]
 id = "nilsonlinux/inventory-manager"
@@ -2826,8 +2838,8 @@ rev = "9c01bfa388e0e0ff6506df87f5b5b117ca4b0852"
 [[plugin]]
 id = "jrohland/claudecode"
 name = "Claude Code Usage"
-version = "1.1.2"
-updated_at = 1793318935
+version = "1.1.3"
+updated_at = 1794098187
 added_at = 1788734110
 author = "Nicolas Bellamy (Noctalia port by jrohland)"
 license = "MIT"
@@ -3022,8 +3034,8 @@ rev = "3130f18d60995fc03da094e88bc35174a7cf987f"
 [[plugin]]
 id = "mirei124/bangumi-progress"
 name = "Bangumi Progress"
-version = "1.2.1"
-updated_at = 1792983494
+version = "1.2.2"
+updated_at = 1793888035
 added_at = 1789085966
 author = "Mirei124"
 license = "MIT"
@@ -3060,8 +3072,8 @@ rev = "7b1754a22ce76a92edb98fd498ad40aa4a0a3371"
 [[plugin]]
 id = "nightwatch75/claude-cockpit"
 name = "Claude Cockpit"
-version = "1.1.5"
-updated_at = 1793734766
+version = "1.3.0"
+updated_at = 1793975929
 added_at = 1789089483
 author = "nightwatch75"
 license = "MIT"
@@ -3110,8 +3122,8 @@ rev = "1892e642e0570cc8f94ead2937cb5f57d3f87d60"
 [[plugin]]
 id = "grassyloki/kwallet-secrets"
 name = "KWallet Secrets"
-version = "1.1.3"
-updated_at = 1790467616
+version = "1.1.4"
+updated_at = 1793842636
 added_at = 1789149522
 author = "grassyloki"
 license = "MIT"
@@ -3854,8 +3866,8 @@ rev = "66f12b08afe79f55b7fb104294fc491f219c2261"
 [[plugin]]
 id = "notoxus/media-island"
 name = "Media Island"
-version = "1.0.1"
-updated_at = 1792983494
+version = "1.0.2"
+updated_at = 1793977252
 added_at = 1790341770
 author = "notoxus"
 license = "MIT"
@@ -4078,8 +4090,8 @@ rev = "3f019fa7ee8e618d8949f397e7e17bc0888db96b"
 [[plugin]]
 id = "lfdominguez/claude-sessions"
 name = "Claude Sessions"
-version = "1.6.5"
-updated_at = 1793319535
+version = "1.7.0"
+updated_at = 1793887975
 added_at = 1790894453
 author = "lfdominguez"
 license = "MIT"
@@ -4622,8 +4634,8 @@ rev = "cf558e6274ff59fb180195d0c3b425feb2474013"
 [[plugin]]
 id = "nickh/maildir"
 name = "Maildir"
-version = "0.0.5"
-updated_at = 1792417404
+version = "0.0.7"
+updated_at = 1794058634
 added_at = 1792012082
 author = "Nick Hastings"
 license = "MIT"
@@ -4789,13 +4801,13 @@ rev = "1abd4500577ac9f20d888456d6b4139fb1d6d802"
 [[plugin]]
 id = "zyrex/nothing-ear"
 name = "Nothing Ear"
-version = "0.2.0"
-updated_at = 1793226870
+version = "0.3.0"
+updated_at = 1794060152
 added_at = 1792534252
 author = "zyrex"
 license = "MIT"
 icon = "headphones"
-description = "Battery, noise control, EQ and auto mono audio for Nothing and CMF earbuds, controlled directly over Bluetooth."
+description = "Battery, ANC, EQ and mono audio for Nothing/CMF earbuds and CMF Headphone Pro, controlled over Bluetooth."
 plugin_api = 43
 tags = ["audio", "bar", "panel", "desktop", "service", "hardware", "indicator"]
 
@@ -4821,15 +4833,15 @@ tags = ["recording", "video", "utility"]
 [[plugin]]
 id = "johnnyp0t/niri-workspace-stack"
 name = "Niri Workspace Stack"
-version = "0.3.2"
-updated_at = 1792983494
+version = "0.4.0"
+updated_at = 1793976790
 added_at = 1792589522
 author = "johnnyp0t"
 license = "MIT"
 icon = "stack-2"
-description = "Compact niri workspace stack with the active workspace's windows as app icons; three display modes."
+description = "Compact niri / Umbriel workspace stack with the active workspace's windows as app icons; three display modes."
 plugin_api = 43
-tags = ["bar", "indicator", "niri", "productivity"]
+tags = ["bar", "indicator", "niri", "umbriel", "productivity"]
 
 [[plugin.release]]
 plugin_api = 32
@@ -5334,13 +5346,13 @@ tags = ["utility", "system", "hyprland", "music", "launcher"]
 [[plugin]]
 id = "styrish/modernclock"
 name = "Modern Clock"
-version = "1.0.0"
-updated_at = 1793549106
+version = "1.0.1"
+updated_at = 1793842555
 added_at = 1793549106
 author = "styrish"
 license = "GPL-3.0"
 icon = "clock"
-description = "A port of KDE Modern Clock to Noctalia on Wayland/Niri."
+description = "A sleek, customizable desktop clock widget for Noctalia."
 plugin_api = 43
 tags = ["desktop", "clock", "time"]
 
@@ -5438,8 +5450,8 @@ tags = ["hardware", "system", "utility", "shortcut"]
 [[plugin]]
 id = "goldesquemoon/mic-denoise"
 name = "Mic Denoise"
-version = "1.3.1"
-updated_at = 1793736720
+version = "1.4.0"
+updated_at = 1793883489
 added_at = 1793736720
 author = "goldesquemoon"
 license = "MIT"
@@ -5464,8 +5476,8 @@ tags = ["niri", "system", "utility", "shortcut"]
 [[plugin]]
 id = "goldesquemoon/typing-stats"
 name = "Typing Stats"
-version = "1.2.0"
-updated_at = 1793746464
+version = "1.3.0"
+updated_at = 1793883461
 added_at = 1793746464
 author = "goldesquemoon"
 license = "MIT"
@@ -5473,3 +5485,172 @@ icon = "chart-bar"
 description = "A bar capsule that counts typed characters, with an interactive calendar heatmap and an optional window filter."
 plugin_api = 43
 tags = ["utility", "bar", "indicator"]
+
+[[plugin]]
+id = "83raiders/scroll-indicator"
+name = "Scroll Indicator"
+version = "1.1.1"
+updated_at = 1793883103
+added_at = 1793799290
+author = "83raiders"
+license = "MIT"
+icon = "dots"
+description = "Shows your column position in Hyprland's scrolling layout as dots on the bar."
+plugin_api = 49
+tags = ["hyprland", "indicator", "bar"]
+
+[[plugin]]
+id = "lowcache/dropkitty"
+name = "dropkitty"
+version = "0.1.0"
+updated_at = 1793800113
+added_at = 1793800113
+author = "lowcache"
+license = "MIT"
+icon = "terminal-2"
+description = "Quake-style drop-down terminal on kitty, with a bar toggle and a finished-command badge."
+plugin_api = 26
+tags = ["bar", "service", "productivity", "utility", "niri", "hyprland", "sway"]
+
+[[plugin]]
+id = "fr4j4/hyprland-minimize"
+name = "Minimize Windows"
+version = "0.1.0"
+updated_at = 1793842444
+added_at = 1793842444
+author = "fr4j4"
+license = "MIT"
+icon = "arrows-diagonal-minimize-2"
+description = "Minimize windows to a Hyprland special workspace and restore them from a bar widget, a panel or keybinds."
+plugin_api = 32
+tags = ["bar", "panel", "service", "hyprland", "utility"]
+
+[[plugin]]
+id = "manishmodak/aocctl"
+name = "AOC monitor"
+version = "1.0.0"
+updated_at = 1793882852
+added_at = 1793882852
+author = "manishmodak"
+license = "MIT"
+icon = "device-desktop-cog"
+description = "AOC monitor brightness on the bar; a panel for its settings (overdrive, Low Blue, ...) and presets, via aocctl."
+plugin_api = 43
+tags = ["bar", "panel", "hardware", "gaming"]
+
+[[plugin]]
+id = "nullflake/youtube-explorer"
+name = "YouTube Explorer"
+version = "1.0.0"
+updated_at = 1793882824
+added_at = 1793882824
+author = "nullflake"
+license = "GPL-3.0-only"
+icon = "brand-youtube"
+description = "Browse videos and channels, save videos and favorite channels, and view local playback history."
+plugin_api = 43
+tags = ["launcher", "service", "media", "video"]
+
+[[plugin]]
+id = "3dprogramin/mullvad"
+name = "Mullvad VPN"
+version = "0.1.1"
+updated_at = 1793976832
+added_at = 1793883043
+author = "3dprogramin"
+license = "MIT"
+icon = "shield-lock"
+description = "Connect to Mullvad VPN from the bar: country, my country or random, plus lockdown, multihop and auto-connect."
+plugin_api = 43
+tags = ["bar", "panel", "service", "network", "privacy"]
+
+[[plugin]]
+id = "rsmendes/quick-alarm"
+name = "Quick Alarm"
+version = "1.2.0"
+updated_at = 1793925926
+added_at = 1793925926
+author = "rsmendes"
+license = "MIT"
+icon = "bell"
+description = "Quick alarms and reminders with natural language input, matching the Cinnamon Quick Alarm applet."
+plugin_api = 43
+tags = ["bar", "panel", "service", "time", "clock", "countdown", "utility", "productivity"]
+
+[[plugin]]
+id = "yahya637/process-monitor"
+name = "System Monitor Expanded"
+version = "1.0.3"
+updated_at = 1794003606
+added_at = 1793926212
+author = "yahya637"
+license = "MIT"
+icon = "device-desktop-analytics"
+description = "Which apps use your CPU, RAM, GPU and VRAM: a bar readout, a sortable panel with kill actions, and a desktop widget."
+plugin_api = 43
+tags = ["bar", "panel", "desktop", "service", "system"]
+
+[[plugin]]
+id = "3dprogramin/ufw"
+name = "UFW Firewall"
+version = "0.1.0"
+updated_at = 1793976159
+added_at = 1793976159
+author = "3dprogramin"
+license = "MIT"
+icon = "shield"
+description = "Show UFW firewall status in the bar; turn it on or off and manage allowed ports from a panel."
+plugin_api = 43
+tags = ["bar", "panel", "service", "network", "system"]
+
+[[plugin]]
+id = "demencia89/androidconnect"
+name = "AndroidConnect"
+version = "2.4.1"
+updated_at = 1793976618
+added_at = 1793976618
+author = "demencia89"
+license = "GPL-2.0-only"
+icon = "device-mobile"
+description = "Android status, KDE Connect actions, and an interactive scrcpy preview using upstream pixel streams."
+plugin_api = 43
+tags = ["hardware", "media", "network", "panel", "utility", "video"]
+
+[[plugin]]
+id = "3dprogramin/vscode"
+name = "VS Code"
+version = "0.1.0"
+updated_at = 1793977201
+added_at = 1793977201
+author = "3dprogramin"
+license = "MIT"
+icon = "brand-vscode"
+description = "Open recent VS Code projects from the bar, a panel or the launcher; clone a repo and see git status."
+plugin_api = 43
+tags = ["bar", "panel", "launcher", "service", "development", "productivity"]
+
+[[plugin]]
+id = "lepinx/typer"
+name = "Typer"
+version = "0.3.8"
+updated_at = 1794005456
+added_at = 1794005456
+author = "lepinx"
+license = "MIT"
+icon = "keyboard"
+description = "Floating typing test with random words (English/Spanish), time and words modes, live WPM and accuracy."
+plugin_api = 28
+tags = ["panel", "launcher", "bar", "productivity", "fun"]
+
+[[plugin]]
+id = "mhdomer/kumacat"
+name = "KumaCat"
+version = "1.0.0"
+updated_at = 1794060082
+added_at = 1794060082
+author = "Mhdomer"
+license = "MIT AND Apache-2.0"
+icon = "paw"
+description = "Animated runner bar widget and telemetry HUD whose pace tracks system load with zero-FPS idle sleep."
+plugin_api = 43
+tags = ["bar", "animation", "system", "hardware", "fun"]

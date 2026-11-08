@@ -16,7 +16,11 @@ local noctalia = {
         trim = function(value) return tostring(value):match("^%s*(.-)%s*$") end,
     },
 }
-local env = setmetatable({ noctalia = noctalia }, { __index = _G })
+local clock = setmetatable({ time = function(date)
+    if date ~= nil then return os.time(date) end
+    return 1792166400
+end }, { __index = os })
+local env = setmetatable({ noctalia = noctalia, os = clock }, { __index = _G })
 local shared = assert(load(read("shared.luau"), "shared", "t", env))()
 
 local cases = {
@@ -318,3 +322,70 @@ assert(shared.providerGlyph("unknown", "evil") == "brain",
     "unknown custom brands keep the generic mark")
 assert(shared.providerDashboard("custom", "openai") == nil,
     "borrowing an icon must never borrow an unrelated account dashboard")
+
+-- CLI 1.45+ keeps Synthetic's printed precision and declares its own reading.
+local regenerating = { percent = 30, percent_precise = 30.6, reading = "left", regen = "2%" }
+for _, display in ipairs({ "used", "remaining" }) do
+    assert(shared.metricText(regenerating, display) == "69.4%", "refilling budgets always print what remains")
+    assert(shared.displayPercent(regenerating, display) == 70, "meters use the CLI's integer reading")
+end
+assert(shared.metricText({ percent = 30, percent_precise = 30.625 }, "remaining") == "69.38%",
+    "printed precision is rounded without floating point tails")
+for _, invalid in ipairs({ 0/0, math.huge, -math.huge, "invalid" }) do
+    assert(shared.metricText({ percent = 30, percent_precise = invalid }, "used") == "30%",
+        "malformed optional precision falls back to the legacy percent")
+end
+assert(shared.metricText({ percent = 30, reading = "unknown" }, "used") == "30%",
+    "unknown future reading modes retain the user's setting")
+assert(shared.metricText({ headline = "value", value = "$3.00", percent = 30,
+    percent_precise = 30.6, reading = "left" }, "remaining") == "$3.00",
+    "provider reading overrides never invert money")
+assert(shared.providerGlyph("droid@work") == "robot", "Droid uses its own provider metadata")
+assert(shared.providerGlyph("deeprelay") == "route", "DeepRelay uses its own provider metadata")
+
+-- Priorities preserve CLI order and resolve named accounts against real entries.
+local priorityReport = { entries = {
+    { id = "openai@work", display_name = "Codex work", status = "ready" },
+    { id = "anthropic", display_name = "Claude", status = "ready" },
+}, ranking = {
+    { entry_id = "anthropic", status = "on_track", unused_percent = 0 },
+    { entry_id = "openai@work", status = "priority", unused_percent = 61,
+      remaining_percent = 80, reset_at = "2026-10-17T16:00:00Z", urgent = true },
+    { entry_id = "missing", status = "priority", name = "Injected account" },
+    { entry_id = "openai@work", status = "priority", unused_percent = 99 },
+}, recommendation = { entry_id = "openai@work" } }
+assert(type(shared.priorities) == "function", "shared priorities model should exist")
+local priorityRows = shared.priorities(priorityReport)
+assert(#priorityRows == 2 and priorityRows[1].entry.id == "anthropic"
+    and priorityRows[2].entry.id == "openai@work", "keep CLI order, ignore unknown and duplicate accounts")
+assert(priorityRows[2].recommended and priorityRows[2].unused_percent == 61,
+    "only the CLI recommendation names the suggested account")
+assert(shared.priorities({ entries = {}, ranking = "broken" }) == nil,
+    "unsupported or malformed priorities remain distinguishable from an empty list")
+priorityReport.ranking[2].unused_percent = 0/0
+priorityReport.ranking[2].remaining_percent = math.huge
+priorityRows = shared.priorities(priorityReport)
+assert(priorityRows[2].unused_percent == nil and priorityRows[2].remaining_percent == nil,
+    "non-finite quota values must not reach the UI")
+priorityReport.entries[1].stale = true
+assert(not shared.priorities(priorityReport)[2].recommended, "old account readings cannot be suggested as fresh")
+
+-- Malformed reset timestamps never crash a surface or normalize into another date.
+for _,stamp in ipairs({
+    '99999999999999999999-01-01T00:00:00Z', '2026-99-99T99:99:99Z',
+    '2026-02-30T00:00:00Z', '2026-01-01T24:00:00Z',
+    '2026-01-01T00:00:00+25:00', '2026-01-01T00:00:00junk',
+}) do
+    local ok,value=pcall(shared.parseIso,stamp)
+    assert(ok and value==nil, 'malformed timestamp must be missing data: '..stamp)
+end
+assert(shared.parseIso('2026-01-01T03:00:00+03:00')==1767225600,
+    'RFC3339 offsets must not move the announced reset by hours')
+assert(shared.parseIso('2025-12-31T21:00:00-03:00')==1767225600,
+    'negative offsets and date rollover represent the same instant')
+
+priorityReport.entries[1].stale=false
+priorityReport.ranking[2].reset_at="2026-10-16T15:59:00Z"
+assert(not shared.priorities(priorityReport)[2].recommended
+    and shared.priorities(priorityReport)[2].expired,
+    "a passed reset must be confirmed before the account is suggested again")

@@ -49,6 +49,13 @@ end
 -- The credentials file reports the plan as machine tokens: subscriptionType is
 -- "team", rateLimitTier is "default_claude_max_5x". Neither is meant to be read
 -- by a person, so they are rebuilt into "Claude Team 5x".
+--
+-- The consumer Max plans were renamed on 2026-10-30: Max 5x is now "Max" and
+-- Max 20x is now "Ultra". The tokens did not change (subscriptionType is still
+-- "max" for both, the tier still ends in _5x / _20x), so the rename is applied
+-- here, only for a "max" subscription. Team and Enterprise seats keep their
+-- multiplier.
+local MAX_RENAMES = { ["5x"] = "Max", ["20x"] = "Ultra" }
 
 -- Words that name a plan, in the form they should be shown.
 local PLAN_WORDS = {
@@ -102,6 +109,10 @@ function M.planName(subscription, tier)
     elseif subscription then
       plan = titleCase(subscription)
     end
+  end
+
+  if subscription == "max" and multiplier and MAX_RENAMES[multiplier] then
+    plan, multiplier = MAX_RENAMES[multiplier], nil
   end
 
   local parts = { "Claude" }
@@ -241,6 +252,14 @@ local function windowLabel(row)
   return noctalia.tr("window.other")
 end
 
+-- Whether the account has a 5-hour window at all. Verified Ultra accounts do
+-- not: the API sends "five_hour": null, which the script reports as
+-- five_hour_window = false. Anything else, including a payload from before the
+-- flag existed, means the window is there.
+function M.hasFiveHourWindow(proj)
+  return type(proj) ~= "table" or proj.five_hour_window ~= false
+end
+
 -- → { { id, label, percent, resetIso, durationSecs, isActive, pace, status }, … }
 -- `status` is the worse of the pace reading and the vendor's severity, so it
 -- feeds M.paceColor and M.SEVERITY exactly like a plain pace status does.
@@ -323,7 +342,7 @@ function M.projection(usage, selected)
       subscription = usage.subscription_type, tier = usage.rate_limit_tier,
       five_hour_util = usage.five_hour_util, seven_day_util = usage.seven_day_util,
       five_hour_reset = usage.five_hour_reset, seven_day_reset = usage.seven_day_reset,
-      limits = usage.limits,
+      limits = usage.limits, five_hour_window = usage.five_hour_window,
       week_tokens = usage.week_tokens, month_tokens = usage.month_tokens,
       week_messages = usage.week_messages, week_sessions = usage.week_sessions,
       today_cost = usage.today_cost, week_cost = usage.week_cost, month_cost = usage.month_cost,
@@ -337,7 +356,7 @@ function M.projection(usage, selected)
     subscription = p.subscription, tier = p.tier,
     five_hour_util = p.five_hour_util, seven_day_util = p.seven_day_util,
     five_hour_reset = p.five_hour_reset, seven_day_reset = p.seven_day_reset,
-    limits = p.limits,
+    limits = p.limits, five_hour_window = p.five_hour_window,
     week_tokens = p.week_tokens, month_tokens = p.month_tokens,
     week_messages = p.week_messages, week_sessions = p.week_sessions,
     today_cost = p.today_cost, week_cost = p.week_cost, month_cost = p.month_cost,

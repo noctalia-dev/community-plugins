@@ -176,8 +176,12 @@
       "label": "Inactive lyric color"
     },
     "karaoke_enabled": {
-      "description": "Use source character timings or simulated line progress for per-character highlighting.",
-      "label": "Per-character karaoke"
+      "description": "Use source word timings for per-character karaoke. Lines without word timings stay in line mode unless Force karaoke is enabled.",
+      "label": "Karaoke highlighting"
+    },
+    "force_karaoke": {
+      "description": "When a line has no word timings, use the previous behavior: fill it character by character over the line duration instead of highlighting the whole line at once.",
+      "label": "Force karaoke without word timing"
     },
     "line_gap": {
       "description": "Spacing between original, translation, romanization, and context lines.",
@@ -203,12 +207,25 @@
         "qishui": "Qishui Music",
         "qqmusic": "QQ Music",
         "splayer": "SPlayer",
+        "splayer_next": "SPlayer Next (local API)",
         "spotify": "Spotify"
       }
     },
     "lyrics_sources": {
-      "description": "Source IDs tried from top to bottom: lrclib, netease, splayer, qqmusic, kugou, qishui, apple_music, spotify, musixmatch, mpris, or custom.",
+      "description": "Source IDs tried from top to bottom: lrclib, netease, splayer, splayer_next, qqmusic, kugou, qishui, apple_music, spotify, musixmatch, mpris, or custom.",
       "label": "Automatic source order"
+    },
+    "format_priority": {
+      "description": "Format IDs tried from highest to lowest within one source: yrc, qrc, krc, ttml, richsync, syllables, enhanced_lrc, lrc, plain. A source only tries formats it can decode.",
+      "label": "Lyric format priority"
+    },
+    "source_format_priority": {
+      "description": "Optional per-source overrides such as netease=yrc,krc,lrc or qqmusic=qrc,lrc. Leave empty to use the global format priority.",
+      "label": "Per-source format overrides"
+    },
+    "auto_source_routing": {
+      "description": "When the player or media URL matches a known service (NetEase, QQ Music, Kugou/MoeKoe, SPlayer, Spotify), try that source first. This only reorders requests and never adds any.",
+      "label": "Prefer the matching source"
     },
     "marquee_speed": {
       "description": "Pixels per second for long-line scrolling.",
@@ -308,6 +325,10 @@
       "description": "SPlayer local service URL. Defaults to http://127.0.0.1:25884 and reads the complete lyrics currently loaded by SPlayer.",
       "label": "SPlayer API URL"
     },
+    "splayer_next_api_url": {
+      "description": "SPlayer Next external API URL. Defaults to http://127.0.0.1:14558; enable External API in SPlayer Next settings first.",
+      "label": "SPlayer Next API URL"
+    },
     "spotify_access_token": {
       "description": "Optional manually supplied Spotify access token. Takes priority over sp_dc.",
       "label": "Spotify access token"
@@ -335,6 +356,27 @@
         "zh-hans": "Simplified Chinese",
         "zh-hant": "Traditional Chinese"
       }
+    },
+    "settings_page": {
+      "label": "Settings category",
+      "description": "Show one functional group at a time. Values of hidden categories are kept.",
+      "options": {
+        "basic": "Basic display",
+        "lyrics": "Lyrics and translation",
+        "karaoke": "Karaoke and animation",
+        "appearance": "Cover and colors",
+        "typography": "Font and layout",
+        "scroll": "Scrolling and width",
+        "cues": "Intro/interlude cues"
+      }
+    },
+    "karaoke_active_color": {
+      "label": "Sung word color",
+      "description": "Color of characters already sung on lines that have word timings. Line-mode lyrics use the regular active color."
+    },
+    "karaoke_inactive_color": {
+      "label": "Unsung word color",
+      "description": "Color of characters not yet sung on lines that have word timings. Line-mode lyrics use the regular inactive color."
     }
   },
   "shortcut": {

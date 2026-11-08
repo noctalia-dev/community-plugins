@@ -108,6 +108,16 @@ local function render()
 
 	local battery = status.battery or {}
 	local anc = status.anc or {}
+	local batteries
+	if (status.model or {}).battery_single or type(battery.single) == "table" then
+		batteries = { budBattery(battery.single, "headphones") }
+	else
+		batteries = {
+			budBattery(battery.left, "bud-left"),
+			budBattery(battery.case, "case"),
+			budBattery(battery.right, "bud-right"),
+		}
+	end
 
 	desktopWidget.render(ui.column({
 		gap = 10,
@@ -116,11 +126,7 @@ local function render()
 		fill = "surface_container",
 		width = CARD_WIDTH,
 	}, {
-		ui.row({ justify = "space_between", gap = 6 }, {
-			budBattery(battery.left, "bud-left"),
-			budBattery(battery.case, "case"),
-			budBattery(battery.right, "bud-right"),
-		}),
+		ui.row({ justify = "space_between", gap = 6 }, batteries),
 		ui.separator({ thickness = 1, color = "on_surface/0.1" }),
 		ancRow(anc),
 	}))

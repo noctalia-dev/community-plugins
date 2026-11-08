@@ -6,9 +6,9 @@ The numbers come from [ai-usagebar](https://github.com/akitaonrails/ai-usagebar)
 a Rust CLI that reads Claude, Codex, GitHub Copilot, Cursor, Antigravity, Kiro,
 Z.AI, Nous Research, OpenCode Go, Command Code, OpenRouter, DeepSeek, Kimi and Grok, among
 others. The selector also includes DeepInfra, Grok Bot, Ollama Cloud, OrcaRouter,
-Model Studio, Lyceum, Devin, Cline, Muse Code and Synthetic. The plugin runs
+Model Studio, Lyceum, Devin, Cline, Muse Code, Synthetic, Droid and DeepRelay. The plugin runs
 `ai-usagebar usage --json` and displays the report.
-The provider catalog is read separately with `ai-usagebar vendors --json` when requested.
+Diagnostics reads the provider catalog with `ai-usagebar vendors --json` on demand.
 It does not call provider APIs or read credential files.
 
 ## Plugin
@@ -26,13 +26,14 @@ tarballs on the project's GitHub Releases page. Configure your providers once in
 `~/.config/ai-usagebar/config.toml`; the CLI manages credentials and provider
 connections.
 
-The plugin accepts the optional fields in ai-usagebar 1.40.1, including
-Antigravity model pools and Synthetic. Older CLI reports remain supported; a
+The plugin accepts the optional fields in ai-usagebar 1.48.1, including
+Antigravity model pools and Synthetic refill metadata. Older CLI reports remain supported; a
 provider appears only when the installed CLI can report it. Since 1.40.1, the CLI
 may run `agy -p "/quota" --output-format json` when `agy` is installed to read
 Antigravity quotas. The plugin does not start or configure `agy` itself.
 
-The CLI can send its own quota notifications when this plugin polls it. To
+The CLI sends quota notifications according to its own settings. The plugin
+adds no alerts or extra thresholds. To
 disable them, add this to `~/.config/ai-usagebar/config.toml`:
 
 ```toml
@@ -44,7 +45,8 @@ When the CLI is missing, the panel displays its project address and can open it
 with `xdg-open`. The same command opens provider dashboards from the panel.
 Install `xdg-open` alongside `ai-usagebar`.
 
-The plugin requires plugin API 32 for container tooltips and shared modules.
+The plugin requires plugin API 43 for the current Noctalia palette roles,
+container tooltips and shared modules.
 It will not install on an older shell. Plugin version 1.1.0 remains available for API 9.
 
 The main readings and provider icons follow the shell's typography and bar scale.
@@ -132,12 +134,12 @@ its full status. Exhausted quotas also show their reset countdown.
 Read failures show the last known state. The panel displays quota readings,
 not agent process health.
 
-The header stays fixed while longer reports scroll. Every provider reserves the
-same space beside its cards, so the scrollbar does not change their width.
+The header stays fixed while reports scroll. Cards reserve space for the
+scrollbar so their width stays the same between providers.
 
 Opening the panel requests fresh data. The header keeps refresh and close within
-reach. Open the **⋯** actions for diagnostics, copying a summary, the selected
-quota service and plugin settings. Both Antigravity model groups share the same
+reach. The **⋯** menu has diagnostics, Copy summary, the provider dashboard and
+plugin settings. Both Antigravity model groups share the same
 service link. Click outside or click the widget again to close the panel.
 
 The list contains only providers with a usable reading. A provider the CLI
@@ -168,7 +170,14 @@ separate lines, with wrapping for longer descriptions.
 Cursor On-Demand spending has its own meter when the CLI reports a positive cap
 and percentage. Its currency amount stays visible; used/remaining does not invert
 spending. An uncapped amount stays text. Synthetic shows the subscription quota
-and request count supplied by the CLI, without assuming a reset window.
+and request count supplied by the CLI, without assuming a reset window. A metric
+with `reading = "left"` always shows its remaining quota, even in used mode.
+Printed figures honor `percent_precise` (up to two decimal places); meters and
+severity retain the integer `percent`. When `regen` is present, the panel and
+bar tooltip describe the next partial refill, such as "Regenerates 2% in 2h",
+instead of a full reset. Countdown values tick locally from `reset_at`.
+Droid and DeepRelay use the same report contract; selecting them does not enable
+or authenticate them in the CLI.
 
 A whole-report failure is different: it cannot identify one broken provider,
 so it keeps the last list and marks those readings as old instead of blanking
@@ -180,12 +189,39 @@ To open the panel from a terminal:
 noctalia msg panel-toggle felipeartur/ai-usagebar:panel
 ```
 
+## Priorities
+
+![Model quota card with account priorities, using example data](images/priorities.png)
+
+Turn on **Show priorities** in the plugin settings to show the estimates inside
+each existing model card, alongside its quota windows. The service then runs
+`ai-usagebar usage --json --priorities`. This requires ai-usagebar 1.46 or newer
+and is off by default.
+
+The details follow the selected account: reported status, projected unused
+quota, remaining quota and reset countdown when available. The CLI's suggestion
+is marked separately. For providers that group several models in one account,
+the section is labelled **Account priorities** because the CLI supplies an
+account estimate. It does not calculate a separate projection for each model.
+
+The ordinary provider tabs, refresh action and keyboard navigation remain in
+place. Old or expired suggestions are labelled and need a fresh report before
+an account can be suggested again. The bar keeps its selection by severity and
+usage.
+
+While enabled, the CLI records a small local history of quota percentages and
+timestamps. Turning the option off hides the embedded details and stops
+requesting this mode. Existing CLI history stays in place. The plugin keeps no
+separate history. If the CLI rejects the flag, polling falls back to the ordinary
+command and the embedded section explains the missing support.
+
 ## Settings
 
 Plugin-level, shared by the poller, every capsule and the panel:
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
+| `show_priorities` | `bool` | `false` | Show priority estimates inside the model cards. Records quota history locally while enabled. |
 | `refresh_minutes` | `int` | `5` | Minutes between quota calls, from 1 to 120. Countdowns tick locally in between. |
 | `usage_display` | `select` | `used` | Show `used` or `remaining` quota in every capsule and the panel. Numbers and gauges change together; colors and priority still follow consumption. Balances are unchanged. |
 
@@ -208,9 +244,9 @@ Per widget instance, so two capsules can follow two providers:
 
 ## Diagnostics
 
-Open **⋯ → Diagnostics** to find out why a configured provider is missing or
-showing an old reading. Problems appear first, with the reported problem, its
-impact on the widget and a suggested next step. Named account failures retain
+Open **⋯ → Diagnostics** when a configured provider is missing or shows an old
+reading. Problems appear first, with their effect on the widget and a suggested
+next step. Named account failures retain
 the account label. Technical causes expand with **Details** inside the scrolling
 view, one problem at a time. They do not open a popup over the card. Other enabled
 providers and disabled providers stay collapsed
@@ -229,10 +265,6 @@ The existing IPC context opens Diagnostics directly:
 ```sh
 noctalia msg panel-open felipeartur/ai-usagebar:panel setup
 ```
-
-The CLI also owns quota alerts. Configure them in its `config.toml`; setting
-`[notifications] enabled = false` disables them. The plugin adds no notification
-system or second set of alert thresholds.
 
 ## IPC
 
@@ -264,7 +296,7 @@ labels; long technical details require an explicit click inside Diagnostics.
   on the configured interval, plus on demand from a right click, from opening
   the panel, or from the IPC event above. Capsules and the panel are subscribers
   of plugin state, so a second monitor or a second capsule costs no extra
-  process.
+  process. Enabling priorities adds `--priorities` to that same process.
 - Diagnostics adds a separate `ai-usagebar vendors --json` process on demand,
   with a five-second timeout and one query in flight. It contacts no provider
   endpoint. The CLI may enforce restrictive permissions on its own configuration
@@ -304,11 +336,14 @@ copying them, then checks that real credential shapes never survive, that ordina
 readings pass through unchanged, and that scrubbing a four-vendor report stays
 inside the CPU budget the poller's async callback is given. The second exercises
 the coalesced refresh state, rejects output from a timed-out process, checks
-quiet quota changes, and checks that every provider has a glyph of its own.
+quiet quota changes, optional priorities, the fallback for an older CLI, and
+provider glyphs.
 The third drives the real bar script through default, named, missing and automatic
 account selection, plus malformed metrics. The fourth checks that malformed panel
 sections degrade safely, temporal bars follow used/remaining mode, and secondary
-actions stay collapsed until requested. The fifth verifies UTC parsing through a daylight-saving
+actions stay collapsed until requested. Priority cases cover embedded model details, provider selection,
+stale or expired suggestions and the opt-in default. The fifth verifies
+RFC3339 offsets, invalid dates and UTC parsing through a daylight-saving
 transition. An overrun in the first test loses the whole reading, not just time.
 
 The catalog test checks on-demand collection, a whitelist of public fields,
