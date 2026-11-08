@@ -2,16 +2,16 @@
 # SPDX-License-Identifier: MIT
 """niri-mirror - mirror the main output onto displays that are plugged in later.
 
+How it works
 ------------
-----
 niri cannot mirror outputs itself (the 26.04 output config has no mirror node,
 and mutter's DisplayConfig still says "Mirroring is not yet supported").
 So wl-mirror (a wlr-screencopy / ext-image-copy-capture client) renders the source
 output into a window, and --fullscreen-output makes that window fullscreen on the
 target output: visually a mirror, covering the other windows on that display.
 
+What the daemon does
 --------------------
---------------
 1. pick a source output from `niri msg --json outputs` / `focused-output`;
 2. run one fullscreen wl-mirror instance per remaining active output;
 3. watch `niri msg event-stream` (niri 26.04 has no OutputsChanged event, a hotplug
@@ -19,8 +19,8 @@ target output: visually a mirror, covering the other windows on that display.
 4. new display -> start a mirror; unplug -> stop it; source gone -> elect another;
 5. on exit stop every child process and reap mirrors left by a previous crash.
 
+Switching / control
 -------------------
------------
 The daemon listens on $XDG_RUNTIME_DIR/niri-mirror.sock:
 
     niri-mirror toggle     # bind this to Win+U: on <-> off, with a toast
