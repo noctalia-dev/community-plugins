@@ -11,7 +11,7 @@ local function configPath()
 end
 
 local function poll()
-    noctalia.runAsync("noctalia msg config-get " .. configPath(), function(result)
+    noctalia.runAsync({ "noctalia", "msg", "config-get", configPath() }, function(result)
         if result.exitCode ~= 0 then
             noctalia.state.set("pinned", nil)
             noctalia.state.set("error", (result.stderr or result.stdout or "config-get failed"):sub(1, 120))

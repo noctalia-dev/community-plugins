@@ -22,16 +22,17 @@ calls `noctalia msg config-get` / `config-set` to read and flip the setting).
 
 ## Usage
 
-Add the `tomaswade/dock-pin:pin` widget to the bar you want to pin — usually
-the target bar itself, so the pin lives on the bar it controls:
+Reference the widget by its full name in any regular bar's widget list:
 
 ```toml
-[widget.dockpin]
-type = "tomaswade/dock-pin:pin"
-
-[bar.dock]
-end = [ "dockpin" ]
+[bar.default]
+start = [ "launcher", "workspaces", "tomaswade/dock-pin:pin" ]
 ```
+
+The pin usually lives on a regular bar (for example the top bar) and controls
+another bar — by default `bar.dock.smart_auto_hide` — so you can pin your
+bottom dock from wherever the pin sits. See Settings to point it at a
+different bar or key.
 
 - Dim pin: the target bar is in smart auto-hide mode.
 - Lit pin (accent color): the bar is pinned and always visible.
@@ -44,7 +45,7 @@ end = [ "dockpin" ]
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
 | `config_path` | `string` | `bar.dock.smart_auto_hide` | Config path of the boolean to toggle. Point it at any bar's `smart_auto_hide` or `auto_hide` key. |
-| `glyph` | `glyph` | `pin` | Glyph shown on the bar |
+| `glyph` | `glyph` | `pin-filled` | Glyph shown on the bar |
 | `pin_color` | `color` | `primary` | Color of the pin while pinned |
 
 ## Notes

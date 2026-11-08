@@ -6,7 +6,7 @@ author = "tomaswade"
 license = "MIT"
 dependencies = ["noctalia"]
 tags = ["bar", "utility", "indicator"]
-icon = "pin"
+icon = "pin-filled"
 description = "Bar widget that pins a bar in place: lit pin = always visible, dim pin = smart auto-hide."
 
 [[setting]]
@@ -21,7 +21,7 @@ key = "glyph"
 type = "glyph"
 label_key = "settings.glyph.label"
 description_key = "settings.glyph.description"
-default = "pin"
+default = "pin-filled"
 
 [[setting]]
 key = "pin_color"

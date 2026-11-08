@@ -16,7 +16,7 @@ local function render(pinned)
         color = setting("pin_color", "primary")
     end
     barWidget.render(ui.row({ gap = 4, align = "center" }, {
-        ui.glyph({ name = setting("glyph", "pin"), color = color }),
+        ui.glyph({ name = setting("glyph", "pin-filled"), color = color }),
     }))
     if noctalia.state.get("error") then
         barWidget.setTooltip(noctalia.state.get("error"))
@@ -36,7 +36,7 @@ function onClick()
     local path = setting("config_path", "bar.dock.smart_auto_hide")
     -- Pin = smart_auto_hide off; unpin = on.
     local value = pinned and "true" or "false"
-    noctalia.runAsync("noctalia msg config-set " .. path .. " " .. value, function(result)
+    noctalia.runAsync({ "noctalia", "msg", "config-set", path, value }, function(result)
         if result.exitCode == 0 then
             noctalia.state.set("pinned", not pinned)
             noctalia.notify(
