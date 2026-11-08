@@ -11,11 +11,13 @@
 --       - Model usage breakdown across periods (Today, 24h, 7d, 30d, 60d)
 --       - Total summary bar & individual model tokens (prompt, completion, cached, cost)
 --   • Quota Tracker Tab:
---       - Summarized quotas (6 standard quotas for Antigravity: Gemini Flash/Pro, Claude Sonnet/Opus,
---         GPT-OSS 120B, Gemini 3.1 Flash Image, Gemini Weekly, Claude & GPT Weekly)
+--       - Aggregated quotas matching the 9Router dashboard (Antigravity shows Gemini (5h),
+--         Claude & GPT (5h), image models, Gemini (Weekly), Claude & GPT (Weekly))
 --       - Other providers quota pools
+--       - Active accounts only, ordered like the dashboard (grouped by provider, stable)
+--       - Provider filter dropdown (All providers / per-provider), shown when >1 provider
 --       - Colored dot indicators (green >= 50%, yellow 20-49%, red < 20%) and matching progress bars
---       - Human-readable reset countdown (e.g. "in 3h 14m")
+--       - Compact used/total detail (e.g. "60 / 100 used") and human-readable reset countdown (e.g. "in 3h 14m")
 
 local status = {
     auth = "unknown",
@@ -39,6 +41,7 @@ local status = {
 local selected_tab = "activity"             -- "activity" | "models" | "quotas"
 local selected_overview_period = "today"    -- "today" | "24h" | "7d" | "30d" | "60d"
 local selected_models_period = "today"      -- "today" | "24h" | "7d" | "30d" | "60d"
+local selected_provider_filter = "all"      -- "all" | <provider id>
 
 -- ── Formatting helpers ──────────────────────────────────────────────────────
 
@@ -143,6 +146,21 @@ local function format_countdown(iso_str)
     else
         return string.format("in %dm", math.max(1, mins))
     end
+end
+
+local function format_quota_num(n)
+    local num = tonumber(n) or 0
+    if num == math.floor(num) then
+        return format_commas(num)
+    end
+    return (string.format("%.2f", num):gsub("0+$", ""):gsub("%.$", ""))
+end
+
+local function provider_label(id)
+    local s = tostring(id or "")
+    s = s:gsub("[%-_]", " ")
+    s = s:gsub("(%a)([%w']*)", function(a, b) return a:upper() .. b end)
+    return s
 end
 
 -- ── Action dispatchers ──────────────────────────────────────────────────────
@@ -693,6 +711,48 @@ local function render_quotas_view()
         }),
     }))
 
+    -- Unique providers (in data order) for the filter dropdown.
+    local providers = {}
+    local seen_prov = {}
+    for _, prov in ipairs(qlist) do
+        local p = tostring(prov.provider or "")
+        if p ~= "" and not seen_prov[p] then
+            seen_prov[p] = true
+            table.insert(providers, p)
+        end
+    end
+
+    local eff_filter = selected_provider_filter
+    if eff_filter ~= "all" then
+        local found = false
+        for _, p in ipairs(providers) do
+            if p == eff_filter then found = true end
+        end
+        if not found then eff_filter = "all" end
+    end
+
+    if #providers > 1 then
+        local options = { noctalia.tr("panel.all_providers") }
+        local sel_index = 0
+        for i, p in ipairs(providers) do
+            table.insert(options, provider_label(p))
+            if p == eff_filter then sel_index = i end
+        end
+        table.insert(items, ui.row({ key = "quotas-filter", align = "center", gap = 8 }, {
+            ui.label({ text = noctalia.tr("panel.filter_provider"), fontSize = 10, color = "on_surface_variant" }),
+            ui.select({
+                key = "quota-provider-filter",
+                options = options,
+                selectedIndex = sel_index,
+                onChange = function(index)
+                    local pick = tonumber(index) or 0
+                    selected_provider_filter = (pick <= 0) and "all" or (providers[pick] or "all")
+                    render()
+                end,
+            }),
+        }))
+    end
+
     if #qlist == 0 then
         table.insert(items, ui.column({
             key = "quotas-empty",
@@ -706,7 +766,14 @@ local function render_quotas_view()
             ui.label({ text = noctalia.tr("panel.no_quotas"), fontSize = 12, color = "on_surface_variant" }),
         }))
     else
-        for idx, prov in ipairs(qlist) do
+        local visible = {}
+        for _, prov in ipairs(qlist) do
+            if eff_filter == "all" or (prov.provider or "") == eff_filter then
+                table.insert(visible, prov)
+            end
+        end
+
+        for idx, prov in ipairs(visible) do
             local card_children = {}
 
             -- Provider Header
@@ -762,20 +829,19 @@ local function render_quotas_view()
                             fontSize = 10,
                             color = "primary",
                         }))
+                        if reset_label ~= "" then
+                            table.insert(right_meta, ui.label({
+                                text = "· " .. reset_label,
+                                fontSize = 10,
+                                color = "on_surface_variant",
+                            }))
+                        end
                     else
                         table.insert(right_meta, ui.label({
                             text = string.format("%.0f%%", rem_pct),
                             fontSize = 11,
                             fontWeight = "bold",
                             color = dot_color,
-                        }))
-                    end
-
-                    if reset_label ~= "" then
-                        table.insert(right_meta, ui.label({
-                            text = "· " .. reset_label,
-                            fontSize = 10,
-                            color = "on_surface_variant",
                         }))
                     end
 
@@ -802,6 +868,26 @@ local function render_quotas_view()
                                 flexGrow = math.max(0, 100 - math.floor(rem_pct)),
                             }),
                         }))
+
+                        -- Compact used/total detail (e.g. "60 / 100 used") + reset countdown
+                        local detail_parts = {
+                            ui.label({
+                                text = noctalia.tr("panel.quota_used", {
+                                    used = format_quota_num(q.used),
+                                    total = format_quota_num(q.total),
+                                }),
+                                fontSize = 10,
+                                color = "on_surface_variant",
+                            }),
+                        }
+                        if reset_label ~= "" then
+                            table.insert(detail_parts, ui.label({
+                                text = reset_label,
+                                fontSize = 10,
+                                color = "on_surface_variant",
+                            }))
+                        end
+                        table.insert(quota_item_col, ui.row({ align = "center", justify = "space_between", gap = 6 }, detail_parts))
                     end
 
                     table.insert(card_children, ui.column({ gap = 4 }, quota_item_col))
@@ -809,7 +895,7 @@ local function render_quotas_view()
             end
 
             table.insert(items, ui.column({
-                key = "quotas-prov-" .. (prov.provider or tostring(idx)),
+                key = "quotas-prov-" .. tostring(prov.id or prov.provider or idx),
                 fill = "surface_container/0.25",
                 radius = 8,
                 padding = 10,
