@@ -4180,8 +4180,8 @@ tags = ["desktop", "utility"]
 [[plugin]]
 id = "bardiz12/9router-monitor"
 name = "9Router Monitor"
-version = "0.1.1"
-updated_at = 1792983494
+version = "0.2.0"
+updated_at = 1794145074
 added_at = 1791149673
 author = "bardiz12"
 license = "MIT"
