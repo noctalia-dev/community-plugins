@@ -2838,8 +2838,8 @@ rev = "9c01bfa388e0e0ff6506df87f5b5b117ca4b0852"
 [[plugin]]
 id = "jrohland/claudecode"
 name = "Claude Code Usage"
-version = "1.1.2"
-updated_at = 1793318935
+version = "1.1.3"
+updated_at = 1794098187
 added_at = 1788734110
 author = "Nicolas Bellamy (Noctalia port by jrohland)"
 license = "MIT"
