@@ -1,0 +1,77 @@
+{
+  "title": "Proton VPN + WireGuard",
+  "settings": {
+    "favorite_countries": {
+      "label": "Favourite countries",
+      "description": "Two-letter country codes (CH, NL…) shown as quick-connect buttons."
+    },
+    "hidden_connections": {
+      "label": "Hidden WireGuard connections",
+      "description": "NetworkManager connection names to leave out of the panel."
+    },
+    "dns_check_host": {
+      "label": "DNS test host",
+      "description": "A name only your WireGuard DNS resolves (e.g. nas.lan). When Proton and a WireGuard tunnel are both up, the panel warns if it stops resolving. Leave empty to skip."
+    },
+    "show_server": {
+      "label": "Show server in the bar",
+      "description": "Shows the Proton server (e.g. CH#120) next to the icon."
+    },
+    "notify": {
+      "label": "Notifications",
+      "description": "Notify on connect and when Proton drops."
+    }
+  },
+  "status": {
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "connecting": "Connecting…",
+    "disconnecting": "Disconnecting…",
+    "working": "Switching…",
+    "none_active": "None active"
+  },
+  "proton": {
+    "title": "Proton VPN",
+    "connect": "Connect",
+    "disconnect": "Disconnect",
+    "signin": "Sign in",
+    "quick": "QUICK CONNECT",
+    "other_country": "Other country…",
+    "load": "load {load}"
+  },
+  "protection": {
+    "title": "PROTECTION",
+    "killswitch": "Kill switch",
+    "killswitch_desc": "Blocks Internet if Proton drops while connected.",
+    "netshield": "NetShield",
+    "netshield_desc": "DNS blocking while Proton is active.",
+    "netshield_off": "Off",
+    "netshield_malware": "Malware",
+    "netshield_all": "+ Ads"
+  },
+  "wg": {
+    "dns_hint": "With Proton up, its DNS takes priority and names served by your WireGuard DNS may not resolve. Set a DNS test host in the settings to check.",
+    "dns_fail": "{host} does not resolve: Proton's DNS is shadowing your WireGuard DNS. Use the IP or disconnect Proton.",
+    "dns_ok": "WireGuard DNS OK ({host})"
+  },
+  "missing": {
+    "proton": "Proton VPN is not set up yet",
+    "proton_install": "Install proton-vpn-cli and sign in with: protonvpn signin <user>",
+    "proton_signin": "The Proton VPN CLI is installed but not signed in.",
+    "wireguard": "WireGuard is not set up yet",
+    "wireguard_hint": "Import a tunnel into NetworkManager: nmcli connection import type wireguard file <name>.conf",
+    "nmcli": "NetworkManager (nmcli) was not found. WireGuard tunnels are managed through it."
+  },
+  "panel": {
+    "refresh": "Refresh",
+    "loading": "Checking Proton VPN and WireGuard…",
+    "control_only": "Control only. WireGuard tunnels and peers are configured with nmcli, and Proton VPN with the protonvpn CLI.",
+    "nothing_configured": "No Proton VPN or WireGuard configured"
+  },
+  "notify": {
+    "connected": "Connected to {server}",
+    "dropped": "Proton VPN disconnected",
+    "connect_failed": "Could not connect to Proton VPN",
+    "wg_failed": "Could not switch {name}"
+  }
+}

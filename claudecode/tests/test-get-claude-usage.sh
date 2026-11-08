@@ -1160,6 +1160,112 @@ DAILY39B=$(run_script "$ENV39" | grep "^DAILY=")
 assert_eq "$DAILY39B" "$DAILY39A" "renaming files does not move the message to another day"
 
 # ============================================================
+echo "=== Test 40: an account without a 5-hour window (five_hour: null) is cached, not refreshed ==="
+# ============================================================
+ENV40=$(setup_env "test40")
+
+MOCK40="$TMPDIR_ROOT/mock40"
+mkdir -p "$MOCK40"
+cat > "$MOCK40/curl" << 'CURLEOF'
+#!/usr/bin/env bash
+for arg in "$@"; do
+    case "$arg" in
+        *v1/oauth/token)
+            echo "hit" >> "$TOKEN_HITS"
+            echo '{"access_token":"must-not-be-used","refresh_token":"must-not-be-used","expires_in":28800}'
+            exit 0
+            ;;
+        *api/oauth/usage)
+            echo '{"five_hour":null,"seven_day":{"utilization":6,"resets_at":"2030-01-01T00:00:00Z"},"limits":[{"kind":"weekly_all","group":"weekly","percent":6,"resets_at":"2030-01-01T00:00:00Z","is_active":true}]}'
+            exit 0
+            ;;
+    esac
+done
+echo '{}'
+CURLEOF
+chmod +x "$MOCK40/curl"
+
+FUTURE40_MS=$(( ($(date +%s) + 7200) * 1000 ))
+cat > "$ENV40/.claude/.credentials.json" << CREDEOF
+{
+    "claudeAiOauth": {
+        "subscriptionType": "max",
+        "rateLimitTier": "default_claude_max_20x",
+        "accessToken": "ultra-token",
+        "refreshToken": "ultra-refresh",
+        "expiresAt": $FUTURE40_MS
+    }
+}
+CREDEOF
+
+TOKEN_HITS40="$TMPDIR_ROOT/token-hits-40"
+: > "$TOKEN_HITS40"
+
+OUTPUT40=$(TOKEN_HITS="$TOKEN_HITS40" HOME="$ENV40" PATH="$MOCK40:$PATH" bash "$SCRIPT" 2>/dev/null)
+
+assert_eq "$(echo "$OUTPUT40" | grep "^SEVEN_DAY_UTIL=" | cut -d= -f2)" "6" "live weekly utilisation is used when five_hour is null"
+assert_eq "$(echo "$OUTPUT40" | grep "^FIVE_HOUR_UTIL=" | cut -d= -f2)" "0" "a null five_hour reads as 0"
+assert_eq "$(wc -l < "$TOKEN_HITS40")" "0" "a null five_hour does not force a token refresh"
+assert_eq "$(jq -r '.claudeAiOauth.refreshToken' "$ENV40/.claude/.credentials.json")" "ultra-refresh" "refresh token is not rotated"
+assert_eq "$(jq -r '.data.seven_day.utilization' "$ENV40/.claude/usage-cache.json" 2>/dev/null)" "6" "the response is written to the usage cache"
+assert_eq "$(echo "$OUTPUT40" | grep "^FIVE_HOUR_WINDOW=" | cut -d= -f2)" "false" "a null five_hour reports no 5-hour window"
+JSON40=$(TOKEN_HITS="$TOKEN_HITS40" HOME="$ENV40" PATH="$MOCK40:$PATH" bash "$SCRIPT" --json 2>/dev/null)
+assert_eq "$(echo "$JSON40" | jq -r '.five_hour_window')" "false" "--json carries five_hour_window = false"
+assert_eq "$(echo "$JSON40" | jq -r '.profile_data[0].five_hour_window')" "false" "the profile object carries five_hour_window = false"
+
+OUTPUT40B=$(HOME="$ENV23" PATH="$MOCK23:$PATH" bash "$SCRIPT" 2>/dev/null)
+assert_eq "$(echo "$OUTPUT40B" | grep "^FIVE_HOUR_WINDOW=" | cut -d= -f2)" "true" "an account with a five_hour object keeps its 5-hour window"
+
+# ============================================================
+echo "=== Test 41: a payload with every window null is not cached ==="
+# ============================================================
+ENV41=$(setup_env "test41")
+
+MOCK41="$TMPDIR_ROOT/mock41"
+mkdir -p "$MOCK41"
+cat > "$MOCK41/curl" << 'CURLEOF'
+#!/usr/bin/env bash
+for arg in "$@"; do
+    case "$arg" in
+        *v1/oauth/token)
+            echo '{"error":"invalid_grant"}'
+            exit 0
+            ;;
+        *api/oauth/usage)
+            echo '{"five_hour":null,"seven_day":null,"limits":null}'
+            exit 0
+            ;;
+    esac
+done
+echo '{}'
+CURLEOF
+chmod +x "$MOCK41/curl"
+
+FUTURE41_MS=$(( ($(date +%s) + 7200) * 1000 ))
+cat > "$ENV41/.claude/.credentials.json" << CREDEOF
+{
+    "claudeAiOauth": {
+        "subscriptionType": "pro",
+        "rateLimitTier": "t1_pro",
+        "accessToken": "valid-token",
+        "refreshToken": "valid-refresh",
+        "expiresAt": $FUTURE41_MS
+    }
+}
+CREDEOF
+
+STALE41=$(( $(date +%s) - 3600 ))
+cat > "$ENV41/.claude/usage-cache.json" << CACHEEOF
+{"cached_at": $STALE41, "data": {"five_hour": {"utilization": 12, "resets_at": "2030-01-01T00:00:00Z"}, "seven_day": {"utilization": 34, "resets_at": "2030-01-01T00:00:00Z"}}}
+CACHEEOF
+
+OUTPUT41=$(HOME="$ENV41" PATH="$MOCK41:$PATH" bash "$SCRIPT" 2>/dev/null)
+
+assert_eq "$(jq -r '.cached_at' "$ENV41/.claude/usage-cache.json")" "$STALE41" "an all-null payload does not overwrite the cache"
+assert_eq "$(echo "$OUTPUT41" | grep "^SEVEN_DAY_UTIL=" | cut -d= -f2)" "34" "the previous cached data is served instead"
+assert_eq "$(echo "$OUTPUT41" | grep "^FIVE_HOUR_WINDOW=" | cut -d= -f2)" "true" "an all-null payload does not report the 5-hour window as gone"
+
+# ============================================================
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ] || exit 1

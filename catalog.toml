@@ -543,8 +543,8 @@ rev = "00da2cd2910b2c562ceebd9b3f72829884b16946"
 [[plugin]]
 id = "alexander/game-launcher"
 name = "Game Launcher"
-version = "1.6.0"
-updated_at = 1793736746
+version = "1.7.0"
+updated_at = 1794098135
 added_at = 1784595753
 author = "Alexander"
 license = "MIT"
@@ -2838,8 +2838,8 @@ rev = "9c01bfa388e0e0ff6506df87f5b5b117ca4b0852"
 [[plugin]]
 id = "jrohland/claudecode"
 name = "Claude Code Usage"
-version = "1.1.2"
-updated_at = 1793318935
+version = "1.1.3"
+updated_at = 1794098187
 added_at = 1788734110
 author = "Nicolas Bellamy (Noctalia port by jrohland)"
 license = "MIT"
@@ -4180,8 +4180,8 @@ tags = ["desktop", "utility"]
 [[plugin]]
 id = "bardiz12/9router-monitor"
 name = "9Router Monitor"
-version = "0.1.1"
-updated_at = 1792983494
+version = "0.2.0"
+updated_at = 1794145074
 added_at = 1791149673
 author = "bardiz12"
 license = "MIT"
@@ -4634,8 +4634,8 @@ rev = "cf558e6274ff59fb180195d0c3b425feb2474013"
 [[plugin]]
 id = "nickh/maildir"
 name = "Maildir"
-version = "0.0.5"
-updated_at = 1792417404
+version = "0.0.7"
+updated_at = 1794058634
 added_at = 1792012082
 author = "Nick Hastings"
 license = "MIT"
@@ -4801,13 +4801,13 @@ rev = "1abd4500577ac9f20d888456d6b4139fb1d6d802"
 [[plugin]]
 id = "zyrex/nothing-ear"
 name = "Nothing Ear"
-version = "0.2.0"
-updated_at = 1793226870
+version = "0.3.0"
+updated_at = 1794060152
 added_at = 1792534252
 author = "zyrex"
 license = "MIT"
 icon = "headphones"
-description = "Battery, noise control, EQ and auto mono audio for Nothing and CMF earbuds, controlled directly over Bluetooth."
+description = "Battery, ANC, EQ and mono audio for Nothing/CMF earbuds and CMF Headphone Pro, controlled over Bluetooth."
 plugin_api = 43
 tags = ["audio", "bar", "panel", "desktop", "service", "hardware", "indicator"]
 
@@ -5437,8 +5437,8 @@ tags = ["launcher", "productivity", "utility"]
 [[plugin]]
 id = "goldesquemoon/internal-keyboard"
 name = "Internal Keyboard"
-version = "1.2.1"
-updated_at = 1793736684
+version = "1.3.1"
+updated_at = 1794144976
 added_at = 1793736684
 author = "goldesquemoon"
 license = "MIT"
@@ -5463,8 +5463,8 @@ tags = ["audio", "utility"]
 [[plugin]]
 id = "goldesquemoon/screen-mirror"
 name = "Screen Mirror"
-version = "1.0.1"
-updated_at = 1793736701
+version = "1.1.1"
+updated_at = 1794145015
 added_at = 1793736701
 author = "goldesquemoon"
 license = "MIT"
@@ -5641,3 +5641,29 @@ icon = "keyboard"
 description = "Floating typing test with random words (English/Spanish), time and words modes, live WPM and accuracy."
 plugin_api = 28
 tags = ["panel", "launcher", "bar", "productivity", "fun"]
+
+[[plugin]]
+id = "mhdomer/kumacat"
+name = "KumaCat"
+version = "1.0.0"
+updated_at = 1794060082
+added_at = 1794060082
+author = "Mhdomer"
+license = "MIT AND Apache-2.0"
+icon = "paw"
+description = "Animated runner bar widget and telemetry HUD whose pace tracks system load with zero-FPS idle sleep."
+plugin_api = 43
+tags = ["bar", "animation", "system", "hardware", "fun"]
+
+[[plugin]]
+id = "gitgxldf1sh/proton-wireguard"
+name = "Proton VPN + WireGuard"
+version = "0.1.0"
+updated_at = 1794146174
+added_at = 1794146174
+author = "gitgxldf1sh"
+license = "MIT"
+icon = "shield-lock"
+description = "Toggle Proton VPN and NetworkManager WireGuard tunnels from the bar. Control only: setup stays in the CLI."
+plugin_api = 43
+tags = ["bar", "panel", "service", "shortcut", "network", "privacy"]
