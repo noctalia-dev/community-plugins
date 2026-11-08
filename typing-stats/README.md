@@ -22,7 +22,7 @@ input, and hovering a day shows its count.
 | Field | Value |
 | --- | --- |
 | ID | `goldesquemoon/typing-stats` |
-| Entries | Service: `counter`; bar widget: `capsule`; panel: `calendar`; shortcuts: `reset`, `heatmap` |
+| Entries | Service: `counter`; bar widget: `capsule`; panel: `calendar`; shortcuts: `reset`, `heatmap`, `setup` |
 
 The bar widget lives in the bar's normal widget capsule. It stores a total and a per-day history
 in the plugin data dir, so both survive restarts and updates. The heatmap panel is a month
@@ -40,7 +40,8 @@ calendar in the style of the control-center calendar.
 | --- | --- |
 | `python3` | Runs the small evdev reader that counts printable keys. |
 | `udevadm` | Applies the one udev rule that grants read access to keyboard event nodes. |
-| One-time root setup | `sudo ./setup.sh` inside this plugin's directory. |
+| One-time root setup | Click the **Grant input access** tile once (polkit), or `sudo ./setup.sh`. |
+| A polkit agent (optional) | Makes that click open the authentication dialog; without one, run `setup.sh` in a terminal. |
 | `niri (focused-window filter)` | Tracks the focused window for the optional whitelist/blacklist filter. |
 
 Wayland has no protocol for observing global key presses, so the plugin reads the kernel input
@@ -50,11 +51,24 @@ an ACL (no group membership, no re-login).
 
 ## Install
 
-From a checkout of the plugin source:
+**From the plugin store (recommended)**
+
+1. Settings -> Plugins -> Store, search **Typing Stats**, install and enable it.
+2. Add the capsule: Settings -> Bar -> Add widget -> *Typing Stats*.
+3. Grant input access once: Settings -> Control center -> Shortcuts -> *Grant input access*,
+   then click that tile. Your desktop's authentication dialog (polkit) opens and `setup.sh`
+   installs the udev rule. The capsule starts counting within a few seconds - no reload, no
+   re-login. The tile then reads **Input access granted** and greys out.
+
+If no polkit agent is running, the notification that follows prints the exact
+`sudo <path>/setup.sh` command, and `python3 scripts/typelisten.py --test-devices` tells you
+whether the rule works.
+
+**From a checkout**
 
 ```sh
-sudo ./typing-stats/setup.sh    # udev rule (once)
-./typing-stats/install.sh       # register source + enable plugin (no root)
+sudo ./setup.sh        # udev rule (once; or click the tile)
+./install.sh           # register the source (only in a source root) + enable the plugin
 ```
 
 Then add the capsule once:
@@ -71,8 +85,10 @@ Then add the capsule once:
   capsule = true
   ```
 
-Add the two optional control-center tiles under Settings → Control Center → Shortcuts:
+Add the optional control-center tiles under Settings → Control Center → Shortcuts:
 
+- **Grant input access** (`setup`) - installs the udev rule without a terminal; greys out once
+  the listener reports `READY`
 - **Reset typing stats** (`reset`)
 - **Typing heatmap** (`heatmap`, opens the calendar panel)
 

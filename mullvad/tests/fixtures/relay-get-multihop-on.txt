@@ -1,0 +1,8 @@
+Generic constraints
+    Location:               country ro
+    Provider(s):            any
+    Ownership:              any
+WireGuard constraints
+    IP protocol:            any
+    Multihop state:         enabled
+    Multihop entry:         country se

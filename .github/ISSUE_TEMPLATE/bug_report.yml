@@ -36,7 +36,9 @@ body:
         - airpods
         - als-brightness
         - ambient-sounds
+        - androidconnect
         - anilist
+        - aocctl
         - arch-audit
         - arch-updater
         - ask-claude
@@ -123,6 +125,7 @@ body:
         - hypr-layout-switcher
         - hypr-screen-mirror
         - hypr-submap
+        - hyprland-minimize
         - hyprland-settings
         - hyprland-visual-editor
         - icons
@@ -144,6 +147,7 @@ body:
         - keysmith
         - keyviz
         - kineticwe-layouts
+        - kumacat
         - kwallet-secrets
         - launcher-pass
         - layout-fix
@@ -171,6 +175,7 @@ body:
         - mini-docker
         - misr-quran-radio
         - modernclock
+        - mullvad
         - murattal
         - mx-control
         - mxmouse
@@ -232,6 +237,7 @@ body:
         - portforward
         - printers
         - prismlauncher-instances
+        - process-monitor
         - processes
         - procmon
         - profile-switcher
@@ -239,6 +245,7 @@ body:
         - pulsar-mouse
         - qr-share
         - qrcode
+        - quick-alarm
         - quickask
         - quill
         - quranwidget
@@ -304,8 +311,10 @@ body:
         - todoist-manager
         - token-monitor
         - topgrade-wrapper
+        - typer
         - typing-stats
         - udiskie
+        - ufw
         - um5606_fan_state
         - umami
         - umbriel-displays
@@ -324,6 +333,7 @@ body:
         - voxtype
         - vpn-manager
         - vrchat-status
+        - vscode
         - w-engine
         - wallpaper-deck
         - wallpaper-switcher
@@ -339,6 +349,7 @@ body:
         - workspace-restore
         - world-radio
         - xwayland
+        - youtube-explorer
         - youtube-search
         - yt-music
         - zakker

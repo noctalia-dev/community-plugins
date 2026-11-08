@@ -34,6 +34,7 @@ automatic detection.
 | --- | --- | --- | --- |
 | `hardware_source` | `string` | empty | Microphone to fall back to when denoising is off. Empty reuses the last one or picks the first input. |
 | `source` | `string` | `rnnoise_source` | Virtual source created by the bundled filter-chain config. |
+| `auto_reload` | `bool` | `true` | Restart PipeWire once after the filter-chain config is written, so denoising works without a manual restart. |
 | `poll_interval` | `int` | `5000` | State refresh interval in milliseconds (minimum 500). Toggles refresh immediately; the tick only catches changes made elsewhere. |
 
 ## 中文说明
@@ -76,41 +77,53 @@ mic-denoise (Noctalia 插件, 纯 Luau + 20 行 POSIX sh)
 | Fedora | `sudo dnf install pipewire noise-suppression-for-voice pulseaudio-libs` |
 | Debian / Ubuntu | `sudo apt install pipewire noise-suppression-for-voice libpulse0` （`noise-suppression-for-voice` 需第三方源或自编） |
 
-Noctalia 侧：`noctalia >= 5`，`plugin_api = 17`。
+Noctalia 侧：`noctalia >= 5`，`plugin_api = 24`。
 
-## 安装
+## Install
 
-```sh
-git clone https://github.com/Goldppx/noctalia-mic-denoise.git
-cd noctalia-mic-denoise
-./install.sh            # 注册 path 源 + 启用插件，不需要 root
-./install.sh --restart  # 顺便重启一次 PipeWire（若虚拟源还没加载）
-```
+**From the plugin store (recommended)**
 
-`install.sh` 做的事（全部幂等）：
+1. Install `noise-suppression-for-voice` for your distro (see the table above).
+2. Settings -> Plugins -> Store, search **Mic Denoise**, install and enable it.
+3. Add the tile: Settings -> Control center -> Shortcuts -> *Mic Denoise*.
 
-1. 校验 `noctalia` / `pactl` / `pw-cli`，缺 `librnnoise_ladspa.so` 时给出警告
-2. `noctalia msg plugins source add <name> path <repo>`
-3. `noctalia msg plugins enable goldesquemoon/mic-denoise`
-4. 等插件写出 `~/.config/pipewire/pipewire.conf.d/50-mic-denoise.conf`
-5. 检查虚拟源是否已加载，未加载时提示（或 `--restart` 代跑）重启命令
-
-手动安装：
-
-```sh
-noctalia msg plugins source add my-plugins path /path/to/repo
-noctalia msg plugins enable goldesquemoon/mic-denoise
-
-# 控制中心磁贴（或走 设置 → 控制中心 → 快捷方式）
-[[control_center.shortcuts]]
-type = "goldesquemoon/mic-denoise:denoise"
-```
-
-生成配置后需重启一次 PipeWire：
+Nothing else is needed: the plugin generates
+`~/.config/pipewire/pipewire.conf.d/50-mic-denoise.conf` on first run and, with
+**Reload PipeWire automatically** on (the default), restarts PipeWire once so the virtual
+source exists immediately. Turn that setting off if you would rather pick the moment
+(e.g. during a call) - then run:
 
 ```sh
 systemctl --user restart pipewire.service pipewire-pulse.service wireplumber.service
 ```
+
+If `librnnoise_ladspa.so` is missing, the notification names the exact package command for
+your distro and a right click on the tile copies it to the clipboard.
+
+**From a checkout**
+
+```sh
+git clone https://github.com/Goldppx/noctalia-mic-denoise.git
+cd noctalia-mic-denoise
+./install.sh            # register the source + enable the plugin (no root)
+./install.sh --restart  # also restart PipeWire once
+```
+
+## 安装（中文）
+
+1. 先装 `noise-suppression-for-voice`（命令见上面的表格）。
+2. 设置 → 插件 → 商店，搜索 **Mic Denoise**，安装并启用。
+3. 设置 → 控制中心 → 快捷方式，添加 *Mic Denoise* 磁贴。
+
+其余全自动：首次运行会生成 `~/.config/pipewire/pipewire.conf.d/50-mic-denoise.conf`，
+并在 **自动重载 PipeWire**（默认开）打开时重启一次 PipeWire，虚拟源立刻可用。想在合适时机
+自己重启就关掉它，然后执行：
+
+```sh
+systemctl --user restart pipewire.service pipewire-pulse.service wireplumber.service
+```
+
+缺 `librnnoise_ladspa.so` 时，通知会给出你发行版的安装命令，右键磁贴可直接复制该命令。
 
 ## 键位
 
@@ -142,10 +155,11 @@ pactl list short sources      # 麦克风就是 alsa_input.* 那一行
 pactl list short sources | awk '$2 !~ /[.]monitor$/ {print $2}'
 ```
 
-如果插件装在这台机器的 `~/dev/noctalia-plugins`，也可以直接用自带脚本列出：
+如果是从本地 checkout 的插件源安装的，也可以直接用自带脚本列出（在源目录
+`noctalia-plugins/` 下执行）：
 
 ```sh
-sh ~/dev/noctalia-plugins/mic-denoise/assets/mic-denoise.sh list
+sh mic-denoise/assets/mic-denoise.sh list
 ```
 
 ```
@@ -169,6 +183,7 @@ The denoised source "rnnoise_source" is not listed: it is the output, not a micr
 |---|---|---|---|
 | `hardware_source` | string | 空 | 物理麦克风的源名称；留空自动（上次使用输入）。`pactl list short sources` 可列出候选 |
 | `source` | string | `rnnoise_source` | 虚拟降噪源名称，须与配置里的 `node.name` 一致 |
+| `auto_reload` | bool | `true` | 首次写入配置后自动重启一次 PipeWire，装好即可用；想自己挑时机就关掉 |
 | `poll_interval` | int | `5000` | 状态刷新间隔（毫秒，下限 500）。点击/键位会立即刷新，轮询只用来发现别处做的改动 |
 
 调降噪力度：改 `~/.config/pipewire/pipewire.conf.d/50-mic-denoise.conf` 里的
@@ -207,16 +222,18 @@ The denoised source "rnnoise_source" is not listed: it is the output, not a micr
 | 现象 | 处理 |
 |---|---|
 | 有个「操作失败」通知 | 通知正文即原因；常见是 `/usr/lib/ladspa/librnnoise_ladspa.so` 缺失（装 `noise-suppression-for-voice`） |
-| 虚拟源不存在 | 配置写了但没重启 PipeWire：`systemctl --user restart pipewire`；仍不行看 `journalctl --user -u pipewire -b` |
+| 虚拟源不存在 | 关掉了 `auto_reload` 就得自己重启 PipeWire：`systemctl --user restart pipewire`；仍不行看 `journalctl --user -u pipewire -b` |
 | 关闭后 CPU 仍在跑 | 有程序仍钉在虚拟源上：`pactl list short source-outputs`；脚本会自动搬移，但程序可能自己切回去 |
 | 换了麦克风后降噪无声 | 在设置里填新的麦克风名并保存（自动重写 `node.target` 并重载一次 PipeWire） |
 | 磁贴显示英文 | 当前 locale 无对应翻译文件；`zh-Hans.json` 覆盖简体中文 |
 
 ## 卸载
 
+禁用插件时（`noctalia msg plugins disable goldesquemoon/mic-denoise`）会自动把默认源交还物理
+麦克风。要从商店卸载并清掉生成的配置：
+
 ```sh
-./uninstall.sh           # 禁用插件并把麦克风交还
-./uninstall.sh --purge   # 同时删除生成的 PipeWire 配置
+rm -f ~/.config/pipewire/pipewire.conf.d/50-mic-denoise.conf
 systemctl --user restart pipewire.service pipewire-pulse.service wireplumber.service
 ```
 

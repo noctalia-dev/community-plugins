@@ -1,5 +1,8 @@
 {
   "client_id": "",
   "client_secret": "",
-  "redirect_uri": "http://127.0.0.1:47871/callback"
+  "redirect_uri": "http://127.0.0.1:47871/callback",
+  "api_base_url": "https://api.bgm.tv",
+  "authorize_url": "https://bgm.tv/oauth/authorize",
+  "token_url": "https://bgm.tv/oauth/access_token"
 }

@@ -369,8 +369,6 @@ function M.paceColor(status, calm)
     return calm
 end
 
-M.SEVERITY_RANK = { normal = 0, high = 1, critical = 2 }
-
 local function severityStatus(severity)
     if severity == "critical" then
         return "over_quota"

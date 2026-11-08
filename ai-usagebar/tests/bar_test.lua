@@ -51,6 +51,8 @@ local function loadBar(config, report, err)
         setUpdateInterval = function() end,
         togglePanel = function() end,
         tr = function(key, args)
+            if key == "ui.regenerates_in" and args then return "Regenerates " .. args.amount .. " in " .. args.time end
+            if key == "ui.regenerates_at" and args then return "Regenerates " .. args.amount .. " at " .. args.time end
             if key == "ui.reset" then return "Reset" end
             if key == "ui.hidden_value" then return tostring(args.count) .. " provider(s)" end
             if key == "ui.not_configured" then
@@ -883,4 +885,18 @@ amountEntry.metrics[1].value = "€12.50"
 for _, mode in ipairs({ "used", "remaining" }) do
     local amountHover = loadBar({ vendor = "custom", usage_display = mode }, { entries = { amountEntry } })
     assert(amountHover.tooltip()[1].value == "€12.50", "tooltip honors monetary headlines in either display mode")
+end
+
+local refill = { id = "synthetic", display_name = "Synthetic", status = "ready", metrics = {
+    { label = "Weekly", percent = 30, percent_precise = 30.6, reading = "left", regen = "2%",
+      reset_at = "2026-10-16T18:00:00Z", window_secs = 604800, severity = "low" },
+} }
+for _, mode in ipairs({ "used", "remaining" }) do
+    local fixture = loadBar({ usage_display = mode, extras = "none" }, { entries = { refill } })
+    assert(containsText(fixture.rendered(), "69.4%"), "Synthetic preserves its remaining decimal reading in the bar")
+    local described = false
+    for _, row in ipairs(fixture.tooltip()) do
+        if row.value:find("Regenerates 2% in 2h 00m", 1, true) then described = true end
+    end
+    assert(described, "the tooltip names the partial refill instead of a full reset")
 end

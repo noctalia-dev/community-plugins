@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+set -eu
+
+# claude-cockpit: list-claude-orphans
+#
+# READ-ONLY scan for leftovers Claude Code keeps after its transcripts are
+# gone. Prints one JSON object; nothing is ever deleted here (sessions.luau
+# removes what the person confirms). Honors $HOME.
+#
+# Output:
+#   { "orphans": [ { "kind": "session-env" | "file-history" | "project",
+#                    "path": <absolute>, "bytes": <number>,
+#                    "mtime": <folder epoch seconds>,
+#                    "reason": "no_transcript" | "project_empty" }, ... ] }
+#   reason: no_transcript for session-env / file-history, project_empty for
+#   project.
+#
+# Usage: list-claude-orphans [--exclude <session-id>]...   (live ids to keep)
+#
+# Listed:
+#   - ~/.claude/session-env/<uuid> and ~/.claude/file-history/<uuid> folders
+#     whose uuid has no "<uuid>.jsonl" in any ~/.claude/projects/*/ dir.
+#   - ~/.claude/projects/<dir> holding nothing, or only an empty memory/ dir.
+# Never listed: an entry younger than one day (a session may be starting), an
+# excluded id, a folder whose name is not a UUID, a project dir with any file,
+# any other entry, or a non-empty memory/.
+
+CLAUDE_DIR="${HOME}/.claude"
+PROJECTS_DIR="${CLAUDE_DIR}/projects"
+UUID_RE='^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+
+declare -A KEEP=()
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --exclude) [ $# -ge 2 ] || exit 2; [ -z "$2" ] || KEEP["$2"]=1; shift 2 ;;
+        *) exit 2 ;;
+    esac
+done
+
+# Ids that still have a transcript, built once.
+if [ -d "$PROJECTS_DIR" ]; then
+    while IFS= read -r -d '' file; do
+        f="${file##*/}"
+        [ "$f" = ".jsonl" ] || KEEP["${f%.jsonl}"]=1
+    done < <(find "$PROJECTS_DIR" -mindepth 2 -maxdepth 2 -name '*.jsonl' -print0 2>/dev/null)
+fi
+
+ROWS=$(mktemp)
+trap 'rm -f "$ROWS"' EXIT
+
+emit() { # <kind> <path> <reason>
+    local bytes mtime
+    mtime=$(stat -c %Y -- "$2" 2>/dev/null) || mtime=0
+    bytes=$(du -sb -- "$2" 2>/dev/null | cut -f1) || bytes=0
+    jq -n -c --arg kind "$1" --arg path "$2" --arg bytes "${bytes:-0}" \
+        --arg mtime "$mtime" --arg reason "$3" \
+        '{ kind: $kind, path: $path, bytes: ($bytes | tonumber? // 0),
+           mtime: ($mtime | tonumber? // 0), reason: $reason }' >> "$ROWS"
+}
+
+for kind in session-env file-history; do
+    dir="${CLAUDE_DIR}/${kind}"
+    [ -d "$dir" ] || continue
+    # -mmin +1440: last modified more than one day ago.
+    while IFS= read -r -d '' path; do
+        id="${path##*/}"
+        [[ "$id" =~ $UUID_RE ]] || continue
+        [ -z "${KEEP[$id]:-}" ] || continue
+        emit "$kind" "$path" no_transcript
+    done < <(find "$dir" -mindepth 1 -maxdepth 1 -type d -mmin +1440 -print0 2>/dev/null)
+done
+
+if [ -d "$PROJECTS_DIR" ]; then
+    while IFS= read -r -d '' path; do
+        # Entries other than a memory/ dir make it a live project.
+        [ -z "$(find "$path" -mindepth 1 -maxdepth 1 ! -name memory -print -quit 2>/dev/null)" ] || continue
+        if [ -e "$path/memory" ]; then
+            [ -d "$path/memory" ] && [ ! -L "$path/memory" ] || continue
+            [ -z "$(find "$path/memory" -mindepth 1 -print -quit 2>/dev/null)" ] || continue
+        fi
+        emit project "$path" project_empty
+    done < <(find "$PROJECTS_DIR" -mindepth 1 -maxdepth 1 -type d -mmin +1440 -print0 2>/dev/null)
+fi
+
+jq -s '{ orphans: . }' "$ROWS"

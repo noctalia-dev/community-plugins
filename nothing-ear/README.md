@@ -1,7 +1,7 @@
 # Nothing Ear
 
 Battery, noise control, EQ presets, bass boost, Personalised ANC, Personal Sound Profile,
-low-latency mode and auto mono audio for Nothing and CMF earbuds, controlled directly over Bluetooth. No Nothing X app
+low-latency mode and auto mono audio for Nothing and CMF earbuds and CMF Headphone Pro, controlled directly over Bluetooth. No Nothing X app
 and no background daemon.
 
 Tested on a **Nothing Ear (2)** only. The other models below use the same protocol according to
@@ -15,11 +15,19 @@ please open an issue.
 | Nothing Ear (1), Ear (2), Ear (3), Ear (3a) | yes | no |
 | Nothing Ear (2024), Ear (a) | yes | yes |
 | Nothing Ear (stick), Ear (open) | no | no |
+| CMF Headphone Pro | yes | reply-dependent |
 | CMF Buds Pro, Buds 2a | yes | no |
 | CMF Buds, Buds Pro 2, Buds 2, Buds 2 Plus | yes | yes |
 
 CMF Buds 2, 2 Plus and 2a get their own EQ presets. CMF Buds and Buds Pro 2 use presets this
 plugin can't map reliably yet, so EQ is hidden there; every other model gets the Ear (2) presets.
+
+CMF Headphone Pro (B175) uses a single headphone battery display. Its EQ command family is
+selected from read-only replies because the reference projects disagree: presets appear only
+when exactly one family returns a recognized preset, using that family’s preset names. Bass boost appears only if the headphones
+return a readable status. Automatic mono does not apply to headphones; manual mono remains
+available. This support is tested with simulated protocol replies, not CMF headphone hardware.
+See [the B175 research notes](PROTOCOL.md#cmf-headphone-pro-b175) for sources and limitations.
 
 ## Plugin
 

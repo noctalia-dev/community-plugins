@@ -1,6 +1,6 @@
 id           = "83raiders/scroll-indicator"
 name         = "Scroll Indicator"
-version      = "1.1.0"
+version      = "1.1.1"
 plugin_api   = 49
 author       = "83raiders"
 license      = "MIT"

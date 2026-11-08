@@ -9,11 +9,11 @@
       "label": "Automatic filter"
     },
     "color_by_usage": {
-      "description": "Tints the reading as the quota gets tight. Off keeps the capsule in the bar's own colour.",
+      "description": "Color the reading by quota severity. Turn off to use the bar text color.",
       "label": "Color by usage"
     },
     "extras": {
-      "description": "The time left in the window, how far the spend is from the clock, both, or neither.",
+      "description": "Show the reset countdown, pace against elapsed time, both, or neither.",
       "label": "Extra reading",
       "option": {
         "both": "Both",
@@ -23,7 +23,7 @@
       }
     },
     "glyph_position": {
-      "description": "Which side of the reading the icon sits on.",
+      "description": "Place the icon before or after the reading.",
       "label": "Icon position",
       "option": {
         "after": "After",
@@ -49,15 +49,15 @@
       "label": "Refresh interval (minutes)"
     },
     "show_glyph": {
-      "description": "The provider's icon. Off leaves the reading on its own.",
+      "description": "Show the provider icon beside the reading.",
       "label": "Show icon"
     },
     "show_name": {
-      "description": "Adds the product name next to the percentage, so two capsules do not look alike.",
+      "description": "Show the provider or model name beside its reading.",
       "label": "Show provider name"
     },
     "show_value": {
-      "description": "The percentage as text. Off leaves the gauge to say it.",
+      "description": "Show the percentage or balance as text.",
       "label": "Show value"
     },
     "style": {
@@ -112,16 +112,22 @@
         "orcarouter": "OrcaRouter",
         "supergrok": "SuperGrok",
         "synthetic": "Synthetic",
-        "zai": "Z.AI"
+        "zai": "Z.AI",
+        "droid": "Droid",
+        "deeprelay": "DeepRelay"
       }
     },
     "visualization": {
-      "description": "A gauge beside the reading, or nothing.",
+      "description": "Show quota bars beside the reading, or hide them.",
       "label": "Visualization",
       "option": {
         "gauge": "Quota bar",
-        "none": "Nothing"
+        "none": "No bars"
       }
+    },
+    "show_priorities": {
+      "label": "Show priorities",
+      "description": "Show priority estimates inside each model card. Records quota history locally while enabled."
     }
   },
   "ui": {
@@ -206,6 +212,25 @@
     "used": "Used",
     "waiting": "Waiting for usage data",
     "weekly": "Weekly",
-    "window_unavailable": "This window is not reported"
+    "window_unavailable": "This window is not reported",
+    "regenerates_in": "Regenerates {amount} in {time}",
+    "regenerates_at": "Regenerates {amount} at {time}",
+    "priorities": "Priorities",
+    "priorities_unavailable": "This report has no priorities. Refresh, or use ai-usagebar 1.46 or newer.",
+    "priorities_no_history": "Recent history is unavailable. Estimates use the window average.",
+    "priority_recommended": "Suggested",
+    "priority_unused": "{percent}% projected unused at reset",
+    "priority_remaining": "{percent}% remaining",
+    "priority_session_blocked": "Session quota exhausted. Check its reset in Usage.",
+    "priority_status": {
+      "priority": "Priority",
+      "on_track": "On track",
+      "blocked": "Weekly quota exhausted",
+      "unavailable": "Usage unavailable",
+      "unknown": "Not enough data to estimate"
+    },
+    "priority_expired": "Reset time passed. Refresh to confirm the next window.",
+    "priority_scope_account": "Account priorities",
+    "priority_not_reported": "No priority estimate for this account."
   }
 }

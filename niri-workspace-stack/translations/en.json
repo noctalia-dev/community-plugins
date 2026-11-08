@@ -28,7 +28,7 @@
       "label": "Maximum window icons"
     },
     "show_empty": {
-      "description": "Show empty workspaces, including the one niri keeps at the bottom of each monitor.",
+      "description": "Show empty workspaces, including the empty one niri and Umbriel keep at the end of each monitor's list.",
       "label": "Show empty workspaces"
     },
     "show_numbers": {

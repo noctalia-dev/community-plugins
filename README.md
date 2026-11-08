@@ -50,6 +50,8 @@ talk to the network as the user.
 That is a deliberate design choice, and it puts the burden on review. So:
 
 - **No obfuscated, minified, or generated code.** A reviewer must be able to read every line you ship.
+- **Write code identifiers and code comments in English.** This keeps contributed code accessible to reviewers and
+  maintainers. User-facing text can be localized through translation files.
 - **No downloading and executing remote code.** Ship your logic in the repo, at a version people reviewed.
 - **Declare what you shell out to.** External commands go in `dependencies` in `plugin.toml` and get a mention in your
   README.

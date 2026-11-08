@@ -1,0 +1,60 @@
+{
+  "notify": {
+    "mode_changed": "Режим: %s"
+  },
+  "panel": {
+    "battery": "Заряд аккумулятора",
+    "case": "Футляр",
+    "case_offline": "Закрыт",
+    "charging": "Заряжается",
+    "game_mode": "Игровой режим",
+    "game_mode_caption": "Меньше задержка звука",
+    "guidance": "Подключите ваши наушники по Bluetooth для просмотра заряда и переключения режимов шумоподавления.",
+    "left": "Левый",
+    "level": {
+      "max": "Сильное",
+      "mild": "Слабое",
+      "moderate": "Среднее",
+      "smart": "Умное"
+    },
+    "mode": {
+      "anc": "Шумоподавление",
+      "off": "Выключено",
+      "transparency": "Прозрачность"
+    },
+    "noise_control": "Управление шумом",
+    "right": "Правый",
+    "status": {
+      "connected": "Подключено",
+      "disconnected": "Не подключено"
+    },
+    "title": "OPPO Pods"
+  },
+  "plugin": {
+    "description": "Мониторинг батареи и управление шумоподавлением (ANC) для наушников OPPO, OnePlus и realme",
+    "name": "OPPO Pods"
+  },
+  "settings": {
+    "device_mac": {
+      "description": "Bluetooth MAC-адрес ваших наушников. Оставьте пустым для автоопределения подключенного устройства.",
+      "label": "MAC-адрес наушников"
+    },
+    "hide_when_disconnected": {
+      "description": "Скрывать виджет на панели, если наушники не подключены.",
+      "label": "Скрывать при отключении"
+    }
+  },
+  "widget": {
+    "action": {
+      "left_click": "Открыть управление",
+      "right_click": "Сменить режим шума"
+    },
+    "click": {
+      "left": "Левый клик",
+      "right": "Правый клик"
+    },
+    "device": "Устройство",
+    "mode": "Режим",
+    "not_connected": "Наушники не подключены"
+  }
+}

@@ -6,8 +6,11 @@ PRESETS_DIR="$PLUGIN_DIR/assets/borders"
 FRAGMENTS_DIR="$PLUGIN_DIR/assets/fragments"
 SCRIPTS_DIR="$PLUGIN_DIR/assets/scripts"
 CONVERTER="$SCRIPTS_DIR/conf2lua.py"
+# Orden = de la fuente más viva a la más vieja: con config Lua, noctalia.lua es
+# lo que apply_theme() aplica de verdad; noctalia-colors.conf solo lo refresca
+# la plantilla hyprlang y puede quedarse con una paleta de hace semanas.
 COLORS_FILE=""
-for f in "$HOME/.config/hypr/noctalia/noctalia-colors.lua" "$HOME/.config/hypr/noctalia/noctalia-colors.conf"; do [ -f "$f" ] && { COLORS_FILE="$f"; break; }; done
+for f in "$HOME/.config/hypr/noctalia.lua" "$HOME/.config/hypr/noctalia/noctalia-colors.lua" "$HOME/.config/hypr/noctalia/noctalia-colors.conf"; do [ -f "$f" ] && { COLORS_FILE="$f"; break; }; done
 
 mkdir -p "$FRAGMENTS_DIR"
 PRESET_NAME=$1

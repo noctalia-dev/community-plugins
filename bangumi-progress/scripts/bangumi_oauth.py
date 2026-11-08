@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Bangumi OAuth companion. Stdout contains metadata only, never credentials.
 
-Client configuration is supplied by the plugin maintainer. No configurable
-network endpoints or executable commands are accepted by the production CLI.
+Client configuration is supplied by the plugin maintainer. The API base URL is
+supplied by plugin settings or the application profile. OAuth endpoints can be
+overridden explicitly in the application profile.
 Credentials live in oauth-session.json, protected by a private directory and
 0600 atomic writes. This is local protection, not protection from the same user.
 """
@@ -198,17 +199,41 @@ def read_client(filename):
             or uri.username or uri.password or uri.path != "/callback"
             or uri.query or uri.fragment or uri.netloc != "127.0.0.1:" + str(port)):
         raise OAuthError("oauth_not_configured")
+    endpoints = {}
+    for key in ("api_base_url", "authorize_url", "token_url"):
+        value = config.get(key, "")
+        if not isinstance(value, str):
+            raise OAuthError("oauth_not_configured")
+        value = value.strip()
+        if key == "api_base_url":
+            value = value.rstrip("/")
+        if value:
+            try:
+                endpoint = urllib.parse.urlsplit(value)
+                _ = endpoint.port  # Validate an explicitly supplied port.
+            except ValueError:
+                raise OAuthError("oauth_not_configured") from None
+            if (endpoint.scheme not in ("https", "http") or not endpoint.hostname
+                    or endpoint.username or endpoint.password or endpoint.query
+                    or endpoint.fragment or any(c.isspace() for c in value)):
+                raise OAuthError("oauth_not_configured")
+            endpoints[key] = value
     config = {k: config[k] for k in fields}
     config["port"] = port
     config["fingerprint"] = hashlib.sha256(json.dumps(
         [config[k] for k in fields], separators=(",", ":")).encode()).hexdigest()
+    if endpoints:
+        config["fingerprint"] = hashlib.sha256(json.dumps(
+            [config["fingerprint"], endpoints], sort_keys=True).encode()).hexdigest()
+    config.update(endpoints)
     return config
 
 
 class Helper:
     def __init__(self, directory, client_file, *, transport=request_json,
                  browser=open_browser, clock=time.time, monotonic=time.monotonic,
-                 login_timeout=180):
+                 login_timeout=180, api_base_url="https://api.bgm.tv"):
+        self.me_url = (api_base_url.strip().rstrip("/") or "https://api.bgm.tv") + "/v0/me"
         self.store = Store(directory)
         self.client_file = client_file
         self.transport = transport
@@ -316,7 +341,8 @@ class Helper:
                     raise OAuthError("oauth_profile_failed")
         else:
             try:
-                me = self.transport("GET", ME_URL, token=token)
+                me = self.transport("GET", config["api_base_url"] + "/v0/me"
+                                    if config.get("api_base_url") else self.me_url, token=token)
             except OAuthError:
                 raise OAuthError("oauth_profile_failed") from None
             identity = self.identity(me.get("id"), me.get("username"), me.get("nickname"))
@@ -443,7 +469,7 @@ class Helper:
         server.timeout = CALLBACK_POLL_INTERVAL
         deadline = monotonic() + self.login_timeout
         try:
-            url = AUTHORIZE_URL + "?" + urllib.parse.urlencode({
+            url = config.get("authorize_url", AUTHORIZE_URL) + "?" + urllib.parse.urlencode({
                 "client_id": config["client_id"], "response_type": "code",
                 "redirect_uri": config["redirect_uri"], "state": state})
             launcher = self.browser(url)
@@ -455,7 +481,7 @@ class Helper:
             check_login()
             if "error" in received:
                 raise OAuthError(received["error"])
-            response = self.transport("POST", TOKEN_URL, data={
+            response = self.transport("POST", config.get("token_url", TOKEN_URL), data={
                 "grant_type": "authorization_code", "client_id": config["client_id"],
                 "client_secret": config["client_secret"], "redirect_uri": config["redirect_uri"],
                 "code": received["code"], "state": state})
@@ -487,7 +513,7 @@ class Helper:
             # Reject damaged local identity before consuming its refresh token.
             self.identity(session.get("user_id"), session.get("username"), session.get("nickname"))
             try:
-                response = self.transport("POST", TOKEN_URL, data={
+                response = self.transport("POST", config.get("token_url", TOKEN_URL), data={
                     "grant_type": "refresh_token", "client_id": config["client_id"],
                     "client_secret": config["client_secret"], "redirect_uri": config["redirect_uri"],
                     "refresh_token": session["refresh_token"]})
@@ -523,11 +549,13 @@ def main(argv=None):
     parser.add_argument("--data-dir", required=True)
     parser.add_argument("--client-file", required=True)
     parser.add_argument("--attempt-id")
+    parser.add_argument("--api-base-url", default="https://api.bgm.tv")
     args = parser.parse_args(argv)
     try:
         if args.attempt_id and not ATTEMPT_PATTERN.fullmatch(args.attempt_id):
             raise OAuthError("oauth_invalid_attempt")
-        result = Helper(args.data_dir, args.client_file).run(args.command, args.attempt_id)
+        result = Helper(args.data_dir, args.client_file, api_base_url=args.api_base_url).run(
+            args.command, args.attempt_id)
     except (OSError, OAuthError) as exc:
         result = error(exc.code if isinstance(exc, OAuthError) else "oauth_storage_error")
     except Exception:

@@ -40,7 +40,11 @@
   },
   "shortcut": {
     "reset": "Reset typing stats",
-    "heatmap": "Typing heatmap"
+    "heatmap": "Typing heatmap",
+    "setup": {
+      "needed": "Grant input access",
+      "ok": "Input access granted"
+    }
   },
   "notify": {
     "reset": {
@@ -49,11 +53,26 @@
     },
     "no_access": {
       "title": "Typing Stats needs input access",
-      "body": "Run setup.sh in the plugin directory once to install the udev rule, then reload the plugin."
+      "body": "Click the \"Grant input access\" tile in the control center (or run: sudo {path}), then the counter starts by itself."
     },
     "level": {
       "title": "Typing level up",
       "body": "Today: {count} characters · level {level}"
+    },
+    "setup": {
+      "done": {
+        "title": "Input access granted",
+        "body": "The udev rule is installed; counting resumes within a few seconds."
+      },
+      "cancelled": {
+        "title": "Setup cancelled"
+      },
+      "failed": {
+        "title": "Setup failed"
+      },
+      "timeout": {
+        "body": "setup.sh did not finish in time; run it in a terminal to see the error."
+      }
     }
   },
   "panel": {

@@ -14,8 +14,10 @@ independently derived from the same public device line.
 Newer models are identified by the model ID the buds report (protocol
 MODEL_READ), falling back to the serial number and then the Bluetooth name.
 Model IDs, names, EQ preset tables and which models have bass boost are
-only included where ear-web and BudsLink (GPL-3.0,
+normally included where ear-web and BudsLink (GPL-3.0,
 https://github.com/maniacx/BudsLink, not vendored) agree.
+B175 is an exception: EQ is probed read-only because they disagree on its
+command family; bass is based on BudsLink and shown only after a reply.
 
 Hardware-verified by this plugin only for the Nothing Ear (2) (base B155,
 SKUs 17/18/19/27/28/29). Every other entry is best-effort: untested by this
@@ -31,6 +33,7 @@ from __future__ import annotations
 
 # base -> (display name, has ANC)
 BASES: dict[str, tuple[str, bool]] = {
+    "B175": ("CMF Headphone Pro", True),
     "B181": ("Nothing Ear (1)", True),
     "B157": ("Nothing Ear (stick)", False),
     "B155": ("Nothing Ear (2)", True),
@@ -55,6 +58,11 @@ BASES: dict[str, tuple[str, bool]] = {
 CLASSIC_EQ = [(0, "balanced"), (3, "more_bass"), (2, "more_treble"), (1, "voice"), (5, "custom")]
 _CMF_EQ = [(3, "pop"), (1, "rock"), (2, "electronic"), (4, "enhance_vocals"), (5, "classical"), (6, "custom")]
 
+# B175 references disagree on both the command family and preset labels.
+# The listening family uses the six presets on ear-web's Forretress page;
+# the classic family uses BudsLink's five presets. Selected by read replies.
+HEADPHONE_EQ = {"classic": CLASSIC_EQ, "listening": _CMF_EQ}
+
 # Models that pick their preset with the LISTENING_MODE commands. The CMF
 # Buds 2 Plus has no Dirac preset, and the 2a puts it at index 7.
 LISTENING_EQ: dict[str, list[tuple[int, str]]] = {
@@ -68,7 +76,7 @@ LISTENING_EQ: dict[str, list[tuple[int, str]]] = {
 LISTENING_EQ_UNKNOWN = {"B168", "B172", "B187"}
 
 # Bass boost with five levels.
-BASS_BOOST = {"B168", "B171", "B162", "B172", "B179", "B184"}
+BASS_BOOST = {"B175", "B168", "B171", "B162", "B172", "B179", "B184"}
 
 # SKU (as embedded in the device's serial number) -> base
 SKU_TO_BASE: dict[str, str] = {
@@ -131,7 +139,9 @@ def describe(base: str | None) -> dict:
     if base not in BASES:
         return {"name": None, "base": None, "anc": True, "eq": "classic", "eq_presets": _presets(CLASSIC_EQ), "bass": False}
     name, anc = BASES[base]
-    if base in LISTENING_EQ:
+    if base == "B175":
+        eq, presets = "probe", []
+    elif base in LISTENING_EQ:
         eq, presets = "listening", LISTENING_EQ[base]
     elif base in LISTENING_EQ_UNKNOWN:
         eq, presets = None, []
@@ -144,6 +154,7 @@ def describe(base: str | None) -> dict:
         "eq": eq,
         "eq_presets": _presets(presets),
         "bass": base in BASS_BOOST,
+        "battery_single": base == "B175",
     }
 
 
@@ -153,6 +164,9 @@ def identify(model_id: str | None = None, serial: str | None = None, bt_name: st
     model exactly."""
     if model_id in BASES:
         return describe(model_id)
+    # Newer serial schemes can collide with older SKU prefixes.
+    if bt_name and bt_name.strip().lower() in ("cmf headphone pro", "cmf headphones pro"):
+        return describe("B175")
     if serial:
         sku = _derive_sku_from_serial(serial)
         base = SKU_TO_BASE.get(sku) if sku else None

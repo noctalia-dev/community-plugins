@@ -1,0 +1,198 @@
+{
+  "settings": {
+    "search_language": {
+      "tr": "Türkçe",
+      "en": "English",
+      "de": "Deutsch",
+      "fr": "Français",
+      "es": "Español",
+      "ru": "Русский",
+      "ar": "العربية",
+      "ja": "日本語",
+      "label": "Search language",
+      "description": "Preferred language for search results and channel pages. May affect video titles, descriptions and result order."
+    },
+    "playback_quality": {
+      "label": "Max quality",
+      "description": "Maximum video resolution. Auto lets mpv choose; Audio only turns off video. Applies when you start playback.",
+      "auto": "Auto",
+      "2160": "2160p",
+      "1440": "1440p",
+      "1080": "1080p",
+      "720": "720p",
+      "480": "480p",
+      "audio": "Audio only"
+    },
+    "autoplay_recommendations": {
+      "label": "Continue with YouTube Mix",
+      "description": "Prepare more videos while the last queued video plays. Use YouTube Mix when available, otherwise related videos. Manually queued videos keep the current suggestion source. Applies when starting playback or refreshing suggestions."
+    },
+    "autoplay_count": {
+      "label": "Number of suggestions to queue",
+      "description": "How many suggestions to add at once (1–10). With 1, each suggested video generates the next. Higher values add a batch. Applies when starting playback or refreshing suggestions."
+    },
+    "favorite_video_count": {
+      "label": "Videos per favorite channel",
+      "description": "Latest videos to show per channel in Latest videos from favorites (1–20)."
+    }
+  },
+  "queue": {
+    "title": "Playback queue",
+    "add": "Add to queue",
+    "remove": "Remove from queue",
+    "play": "Play queue",
+    "play_from_here": "Play queue from here",
+    "play_description": "Play the queue in one mpv window. Played and skipped videos leave the queue; Previous returns to videos played in this session. Closing the player clears the queue and session history, keeping saved watch history.",
+    "clear": "Clear queue",
+    "clear_confirm": "Clear the queue and keep the current video?",
+    "clear_description": "Remove waiting videos and keep any current video playing. Automatic suggestions stop until you start playback or choose Refresh suggestions.",
+    "empty": "Playback queue is empty",
+    "read_error": "Could not read the playback queue; existing data was preserved",
+    "storage_error": "Playback queue storage is unavailable",
+    "save_error": "Could not save the playback queue",
+    "helper_unavailable": "Queue playback requires python3 and the queue helper",
+    "play_error": "Could not play the queue",
+    "sync_error": "Queue saved, but the active player could not be updated",
+    "reset": "Back up and reset queue",
+    "reset_confirm": "Back up and reset the unreadable queue?",
+    "reset_description": "Back up the queue file and create an empty queue. Watch later, watch history and favorite channels are kept.",
+    "reset_done": "Queue reset; original file backed up",
+    "backup_error": "Could not back up the queue; original file was preserved",
+    "refresh": "Refresh suggestions",
+    "refresh_description": "Replace waiting suggestions using the current source video. Keep manually queued videos and resume automatic suggestions.",
+    "refresh_error": "Could not refresh suggestions; open a video and try again",
+    "video_failed": "Could not play a queued video; it was skipped. If the queue is empty, open a video to continue."
+  },
+  "menu": {
+    "search": "Search",
+    "search_hint": "Find videos and channels",
+    "url": "Play from URL",
+    "url_hint": "Paste a YouTube link",
+    "later": "Watch later",
+    "later_hint": "Saved videos",
+    "history": "Watch history",
+    "history_hint": "Recently opened videos · Latest 500",
+    "favorites": "Favorite channels",
+    "favorites_hint": "Saved channels"
+  },
+  "cache": {
+    "clear": "Clear thumbnail cache",
+    "confirm": "Clear thumbnail cache?",
+    "confirm_hint": "Images will download again as needed. Saved videos, watch history and favorite channels are kept."
+  },
+  "url": {
+    "paste": "Paste a YouTube URL",
+    "invalid": "Enter a supported YouTube video link"
+  },
+  "action": {
+    "remove_later": "Remove from Watch later",
+    "add_later": "Add to Watch later",
+    "copy_url": "Copy URL",
+    "play": "Play in mpv",
+    "remove_favorite": "Remove from favorite channels",
+    "add_favorite": "Add to favorite channels",
+    "search_channel": "Search in channel",
+    "remove_history": "Remove from watch history",
+    "feed": "Latest videos from favorites",
+    "clear_history": "Clear watch history",
+    "clear_later": "Clear Watch later",
+    "clear_favorites": "Clear favorite channels"
+  },
+  "notice": {
+    "url_copied": "URL copied",
+    "cache_cleared": "Thumbnail cache cleared"
+  },
+  "error": {
+    "copy_url": "Could not copy URL",
+    "quality": "Invalid playback quality; using Auto",
+    "mpv_missing": "mpv is not installed",
+    "mpv_start": "Could not start mpv",
+    "ytdlp_missing": "Search requires yt-dlp on PATH",
+    "search_timeout": "YouTube search timed out · Retry",
+    "search_limit": "yt-dlp response exceeded the output limit",
+    "search_response": "Invalid yt-dlp response",
+    "search_start": "Could not start yt-dlp · Retry",
+    "library_read": "Could not read the YouTube library; existing data was preserved",
+    "library_storage": "YouTube library storage is unavailable",
+    "library_save": "Could not save the YouTube library",
+    "cache_unavailable": "Thumbnail cache is unavailable",
+    "cache_read": "Could not read thumbnail cache",
+    "cache_remove": "Could not remove some cached thumbnails",
+    "search_failed": "YouTube search failed · {detail}",
+    "progress_clear": "Could not clear saved playback positions. Watch history was kept.",
+    "history_clear": "Could not clear watch history data. Watch history was kept.",
+    "search_helper": "Search requires python3 and the bundled search helper"
+  },
+  "status": {
+    "no_videos": "No videos",
+    "loading": "Loading…",
+    "no_favorites": "No favorite channels",
+    "no_results": "No results found",
+    "later_empty": "Watch later is empty",
+    "history_empty": "Watch history is empty",
+    "search_hint": "Search videos and channels",
+    "channel_search_hint": "Type to search in this channel"
+  },
+  "nav": {
+    "next": "Next page",
+    "previous": "Previous page",
+    "back_favorites": "Back to favorite channels",
+    "back_feed": "Back to latest videos",
+    "back_channel": "Back to channel",
+    "back_search": "Back to search",
+    "back": "Back",
+    "retry": "Retry",
+    "refresh": "Refresh"
+  },
+  "history": {
+    "confirm": "Clear all watch history?",
+    "confirm_hint": "Delete watch history, saved playback positions and channel play counts. Watch later, favorite channels and the queue are kept."
+  },
+  "route": {
+    "later": "Watch later · Page {page}",
+    "history": "Watch history · Page {page}",
+    "favorites": "Favorite channels · Page {page}",
+    "feed": "Latest from favorites · Page {page}",
+    "clear_history": "Confirm clear history",
+    "clear_cache": "Confirm clear thumbnail cache",
+    "queue": "Playback queue · Page {page}",
+    "clear_queue": "Confirm clear playback queue",
+    "reset_queue": "Confirm reset playback queue",
+    "channel_input": "{name} · Search in channel:",
+    "channel_search": "{name} · Search · {term} · Page {page}",
+    "channel": "{name} · Videos · Page {page}",
+    "search": "{term} · Search page {page}",
+    "clear_later": "Confirm clear Watch later",
+    "clear_favorites": "Confirm clear favorite channels",
+    "video": "Video · {title} · {id}",
+    "reset_library": "Confirm reset library"
+  },
+  "autoplay": {
+    "failed": "Could not load YouTube suggestions. Use Refresh suggestions to try again.",
+    "network_failed": "Could not connect to YouTube for suggestions after retrying. Use Refresh suggestions to try again.",
+    "empty": "No new suggestions are available for this video. Open another video or add videos manually."
+  },
+  "later": {
+    "confirm": "Clear all Watch later videos?",
+    "confirm_hint": "Watch history, favorite channels and the queue are kept."
+  },
+  "favorites": {
+    "confirm": "Remove all favorite channels?",
+    "confirm_hint": "Watch later, watch history and the queue are kept."
+  },
+  "metadata": {
+    "video": "Video",
+    "channel": "Channel",
+    "channel_browse": "Channel · Browse videos",
+    "added_from_url": "Added from URL",
+    "untitled_video": "Untitled video",
+    "live": "LIVE"
+  },
+  "library": {
+    "reset": "Back up and reset library",
+    "reset_confirm": "Back up and reset the unreadable library?",
+    "reset_description": "Back up the original file, then clear Watch later, watch history and favorite channels. Playback positions and the queue are kept.",
+    "backup_error": "Could not back up the library; original file was preserved",
+    "reset_done": "Library reset; original file backed up"
+  }
+}

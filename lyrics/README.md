@@ -1,4 +1,4 @@
-# Noctalia Lyrics 1.5.8
+# Noctalia Lyrics 1.6.0
 
 Synchronized lyrics for the Noctalia bar, with multiple MPRIS players,
 translation and romanization layers, configurable sources, karaoke highlighting,
@@ -63,6 +63,10 @@ Per-widget bar settings:
 
 ![Lyrics 1.4 bar widget settings](<screenshots/bar widget settings - 1.4.0.png>)
 
+Per-widget settings categories and word-level colors (1.6):
+
+![Lyrics 1.6 settings categories](<screenshots/settings - 1.6.0.png>)
+
 ## Local development
 
 Add the parent directory of this checkout as a local Noctalia source:
@@ -100,6 +104,23 @@ romanization, and character-timing fields:
 }
 ```
 
+`chars` is only kept when it aligns one-to-one with the visible characters and
+increases monotonically. A line with complete word timings uses per-character
+karaoke highlighting; a line without them uses line mode instead: the whole
+line is highlighted and simply advances when the next line starts. Word-synced
+lines use the dedicated `karaoke_active_color` and `karaoke_inactive_color`
+settings, while line-mode lyrics keep using `active_color` and
+`inactive_color`. Enable the per-widget `force_karaoke` option to restore the
+old behavior for unsynchronized lines (evenly filling the line character by
+character). Credit and production lines (for example `作词：...`,
+`Lyrics by ...`, `작사: ...`, or `词版权管理方：...`) are filtered out before
+display.
+
+Each adapter also reports quality metadata: `format`, `sync`
+(`word`/`line`/`plain`), `word_lines`, `timed_lines`, `coverage`,
+`has_translation`, and `has_romanization`. The service logs the chosen format
+and sync level for every source.
+
 ## Sources
 
 `auto` tries the IDs listed in `lyrics_sources` from top to bottom. Supported
@@ -113,6 +134,15 @@ IDs are:
   timing, translations, romanization, background lines, and duet markers.
   SPlayer must be running; the default API URL is `http://127.0.0.1:25884`.
   Changing this URL sends current track metadata to the configured service.
+- `splayer_next`: SPlayer Next's external HTTP API (`/api/now-playing` and
+  `/api/lyrics`). Requires **External API** to be enabled in SPlayer Next
+  settings; the default URL is `http://127.0.0.1:14558`. It returns the app's
+  parsed lyric lines with word timings, translations, romanization, background
+  lines, and duet markers, so it can drive per-character karaoke. When its
+  translation or romanization layers are incomplete and the track comes from
+  NetEase, the adapter fills the missing fields from NetEase's `tlyric` /
+  `romalrc` by track id. It is kept in the automatic fallback chain even when an
+  older saved `lyrics_sources` list predates it.
 - `qqmusic`: QQ Music desktop catalogue search and lyric endpoint with legacy
   endpoint fallback.
 - `kugou`: public Kugou search and lyric download endpoint.
@@ -134,6 +164,16 @@ LRCLIB, Qishui, and Musixmatch matches use the public iTunes Search API as an
 artwork fallback. Cached covers retain their detected image format and the
 oldest files are removed after the cache reaches 80 covers.
 
+Within a source, lyric formats are tried in the configurable `format_priority`
+chain (default `yrc > qrc > krc > ttml > richsync > syllables >
+enhanced_lrc > lrc > plain`). A source only tries formats it can decode, and
+falls back to the next format when the higher-priority one is missing or
+invalid. Word timings therefore become karaoke highlighting when available;
+sources without word timings use line mode. When `auto_source_routing` is
+enabled, a player or media URL matching NetEase, QQ Music, Kugou/MoeKoe,
+SPlayer, SPlayer Next, or Spotify puts that source first; this only reorders
+the existing source list and never adds a request.
+
 Runtime cache files are stored in `noctalia.pluginDataDir() .. "/cache"`, which
 honors `NOCTALIA_STATE_HOME` and survives plugin source updates. Existing
 source-local caches are not migrated; artwork is fetched again as needed.
@@ -151,18 +191,28 @@ request directory before writing any credential-bearing file.
 
 The plugin settings control source selection and fallback order, translation
 language, lyric timing offset in milliseconds, MPRIS polling interval in
-milliseconds, player filters, and source credentials.
+milliseconds, player filters, and source credentials. Advanced settings also
+expose `format_priority` (lyric format order), `source_format_priority`
+(optional per-source overrides such as `netease=yrc,krc,lrc`), and
+`auto_source_routing` (prefer the source matching the active player/URL).
 
-Per-widget settings control the fallback glyph, artist visibility, paused-state
-visibility, visibility when no lyrics are available, album-cover shape and size,
-primary, inactive, and secondary lyric colors, display mode, lyric layers,
-karaoke behavior, scrolling, fixed lyric width, transitions, typography, spacing,
-padding, intro/interlude cue visibility and text, and text alignment. The Actions
-section lists the default left-click, right-click, and scroll bindings described
-above. Credential and source-specific fields are shown only when their matching
-source is selected; source order, credentials, polling, marquee metrics, player
-filters, cue timing thresholds, and fine layout controls are under Advanced
-settings.
+Per-widget settings are grouped by a **Settings category** selector at the top of
+the widget settings panel: Basic display, Lyrics and translation, Karaoke and
+animation, Cover and colors, Font and layout, Scrolling and width, and
+Intro/interlude cues. Only the selected category's controls are shown; the
+other categories keep their saved values. Noctalia's plugin manifest has no
+section-header support for widget settings, so the categories are implemented
+with `visible_when` instead of headers. The controls cover the fallback glyph,
+artist visibility, paused-state visibility, visibility when no lyrics are
+available, album-cover shape and size, primary, inactive, and secondary lyric
+colors, display mode, lyric layers, karaoke behavior (including forced karaoke
+for lines without word timings), scrolling, fixed lyric width, transitions,
+typography, spacing, padding, intro/interlude cue visibility and text, and text
+alignment. The Actions section lists the default left-click, right-click, and
+scroll bindings described above. Credential and source-specific fields are
+shown only when their matching source is selected; source order, credentials,
+polling, player filters, and other plugin-wide controls remain on the plugin
+page.
 
 ### 1.5 configuration change
 
@@ -173,15 +223,16 @@ settings remain plugin-wide.
 
 ## Feature test checklist
 
-The normal settings view contains everyday source, lyric-layer, display, font,
-and animation controls. Open Advanced settings for credentials, source order,
-polling, marquee metrics, player filters, and fine padding.
+The plugin settings page contains source selection, translation language,
+timing, polling, player filters, and credentials under Advanced. Each widget has
+a Settings category selector that shows one functional group at a time
+(display, lyrics, karaoke, cover/colors, font/layout, scrolling, cues).
 
 1. Language: change Noctalia's global language and reload the config. Plugin
-   settings and runtime text follow the host language. Noctalia currently
-   supports English and Simplified Chinese from the originally requested locale
-   set; Japanese, Korean, and Traditional Chinese are not host language options.
-   Close and reopen Settings, then disable and enable the plugin if the runtime
+   settings and runtime text follow the host language. This plugin ships English,
+   Simplified Chinese, Brazilian Portuguese, and Turkish catalogs; other locales
+   fall back to English until the community i18n service fills them in. Close
+   and reopen Settings, then disable and enable the plugin if the runtime
    tooltip still uses the previous language.
 2. Chinese translation: use NetEase/QQ/Musixmatch with `show_translation=true`
    and `translation_language=zh-Hans`.
@@ -212,10 +263,33 @@ polling, marquee metrics, player filters, and fine padding.
     its shortcut or IPC, and switch between synchronized and plain entries without
     changing tracks.
 16. Cues: toggle `show_cues` and verify the widget hides cue text but keeps lyrics
-    visible; adjust the cue thresholds under Advanced.
+    visible; adjust the cue thresholds under the widget's Intro/interlude cues category.
 17. Actions: open the widget's Actions section and confirm the left, right,
     scroll-up, and scroll-down rows show the defaults above; rebind one, then
     clear it to restore the default.
+18. Word/line mode: play a word-synced NetEase/SPlayer track and confirm the
+    per-character fill; then play an LRC-only track and confirm the whole line
+    is highlighted at once and switches at the next line. Lines with incomplete
+    word timings must not use synthetic per-character fill.
+19. Credit filtering: play a NetEase YRC/KRC track whose payload starts with
+    credits and confirm lines such as `作词：...`, `词版权管理方：...`,
+    `录音作品及MV版权：...`, or `Lyrics by ...` are not displayed.
+20. Format priority: move `lrc` before `yrc` in `format_priority` and confirm
+    the same source switches to line mode; test a `source_format_priority`
+    override; toggle `auto_source_routing` and confirm the matching source is
+    tried first without any additional request.
+21. SPlayer Next: enable **External API** in SPlayer Next settings, play a
+    track, and select `splayer_next` (SPlayer Next players are routed there
+    automatically). Verify per-character lyrics, translation/romanization, and
+    that disabling External API falls through to the next source.
+22. Forced karaoke: play an LRC-only track and toggle `force_karaoke` under the
+    widget's karaoke settings. Off: the whole line highlights at once. On: the
+    old character-by-character fill returns for lines without word timings.
+23. Settings categories: switch the widget's Settings category selector between
+    Basic display, Lyrics and translation, Karaoke and animation, Cover and
+    colors, Font and layout, Scrolling and width, and Intro/interlude cues.
+    Only the selected category's controls appear; values are kept when switching
+    back.
 
 ## External protocol
 

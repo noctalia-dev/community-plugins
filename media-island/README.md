@@ -1,11 +1,13 @@
 # Media Island
 
-A self-contained, top-center now-playing island for Noctalia. It shows album
-art, track metadata, playback progress, and transport controls without editing
+A self-contained, top-center now-playing island for Noctalia. You can also change its position to suit yourself. It shows album art, track metadata, playback progress, and transport controls without editing
 the user's Noctalia or compositor configuration.
 
 The island briefly appears when playback starts or the current track changes.
-Open it manually from the bar widget to keep it visible until closed.
+The bar gets a thin, full-width audio wave along its lower edge; click the
+track title pill to show the island for the configured preview duration. The
+pill is hidden when playback has no artwork or title; the visualizer can still
+run on its own.
 
 ## Plugin
 
@@ -24,11 +26,10 @@ distributions. A media application exposing an MPRIS player is also required.
 Enable **Media Island** in `Settings → Plugins`, then add the
 `notoxus/media-island:now-playing` widget to a bar.
 
-- Left click opens or closes the island.
+- Click the track title to show the island briefly.
 - Right click toggles Play/Pause.
 - Scroll, Back, and Forward gestures change tracks.
 - The panel's transport buttons provide Previous, Play/Pause, and Next.
-- The close button dismisses a manually opened island.
 
 The panel can also be toggled from a terminal:
 
@@ -36,16 +37,18 @@ The panel can also be toggled from a terminal:
 noctalia msg panel-toggle notoxus/media-island:island
 ```
 
-The panel defaults to a persistent floating surface at the top center. Its
-position and layer can be changed from the plugin's settings; choose the
-`overlay` layer if the island should appear above fullscreen windows.
+The panel attaches below the bar widget. Automatic previews and title-click
+previews close after the configured duration; opening the panel directly from
+the command line leaves it open until toggled closed.
 
 ## Settings
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
-| `auto_show` | `bool` | `true` | Briefly show the island when playback starts or the track changes. |
-| `preview_seconds` | `int` | `2` | Automatic preview duration, from 1 to 10 seconds. |
+| `auto_show` | `bool` | `false` | Briefly show the island when playback starts or the track changes. Off by default, so it appears on click. |
+| `preview_seconds` | `int` | `2` | Preview duration for automatic and title-click previews, from 1 to 10 seconds. |
+| `click_action` | `string` | `island` | Clicking the track title opens the island preview (2 seconds by default). |
+| `audio_visualizer` | `bool` | `true` | Show the full-width audio-reactive wave along the bar (requires Noctalia 5.4 / plugin API 36). |
 
 ## IPC
 

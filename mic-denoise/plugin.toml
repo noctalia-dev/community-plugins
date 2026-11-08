@@ -10,7 +10,7 @@
 
 id          = "goldesquemoon/mic-denoise"
 name        = "Mic Denoise"
-version     = "1.3.1"
+version     = "1.4.0"
 plugin_api  = 24
 author      = "goldesquemoon"
 license     = "MIT"
@@ -33,6 +33,13 @@ type        = "string"
 label_key   = "settings.source.label"
 description_key = "settings.source.description"
 default     = "rnnoise_source"
+
+[[setting]]
+key         = "auto_reload"
+type        = "bool"
+label_key   = "settings.auto_reload.label"
+description_key = "settings.auto_reload.description"
+default     = true
 
 [[setting]]
 key         = "poll_interval"

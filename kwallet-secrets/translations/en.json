@@ -3,7 +3,7 @@
     "helper_missing": "scripts/kwallet-nm-agent.py is missing from the plugin directory.",
     "procps_missing": "pkill was not found on PATH (install procps-ng).",
     "python_missing": "python3 was not found on PATH.",
-    "systemd_cat_missing": "systemd-cat was not found on PATH (install systemd)."
+    "setsid_missing": "setsid was not found on PATH (install util-linux)."
   },
   "settings": {
     "app_id": {
@@ -11,7 +11,7 @@
       "label": "Application id"
     },
     "debug_logging": {
-      "description": "Log every lookup to the journal (tag noctalia-kwallet-secrets). Secret values are never logged.",
+      "description": "Log every lookup (to the journal under the tag noctalia-kwallet-secrets, or ~/.local/state/noctalia-kwallet-secrets/agent.log without systemd). Secret values are never logged.",
       "label": "Verbose logging"
     },
     "folder_name": {

@@ -1,0 +1,76 @@
+{
+  "title": "AndroidConnect",
+  "settings": {
+    "video_device": "V4L2 loopback device",
+    "video_device_description": "An existing, readable/writable loopback device reserved for scrcpy. The plugin never loads kernel modules or kills other sessions.",
+    "auto_mirror": "Start the preview when the panel opens",
+    "preview_height": "Large phone preview height (logical pixels)",
+    "fps": "Maximum video frame rate",
+    "hide_when_disconnected": "Hide the bar widget when disconnected",
+    "icon_color": "Bar icon color"
+  },
+  "devices": {
+    "kde": "KDE Connect device (optional)",
+    "adb": "ADB control target",
+    "adb_only": "ADB only — no KDE Connect",
+    "choose_adb": "Automatic / choose an authorized target",
+    "automatic": "ADB target — matched automatically to this phone",
+    "waiting_adb": "Waiting for this phone’s ADB connection. Wireless discovery will retry automatically."
+  },
+  "device": { "battery": "Battery", "notifications": "Notifications", "network": "Network", "signal": "Signal", "unknown": "Unknown", "charging": "Charging" },
+  "sections": { "device_status": "DEVICE STATUS", "quick_actions": "QUICK ACTIONS" },
+  "signal": { "unknown": "Unknown", "none": "No signal", "weak": "Weak", "fair": "Fair", "good": "Good", "excellent": "Excellent" },
+  "status": {
+    "loading": "Starting the companion…",
+    "idle": "Preview stopped. Select an ADB target and start the mirror.",
+    "starting": "Starting scrcpy and the live feed…",
+    "streaming": "Live preview — tap or drag to control the selected phone.",
+    "error": "The preview could not start. Check the device and dependencies.",
+    "connected": "Connected", "disconnected": "Disconnected",
+    "adb_connected": "ADB connected", "kde_connected": "KDE Connect connected",
+    "live_preview": "Live preview", "audio_on": "Audio on", "audio_off": "Audio off"
+  },
+  "setup": {
+    "adb": "Enable USB or Wireless debugging, accept this computer on Android, then select an authorized ADB target. KDE Connect is not required.",
+    "missing": "Optional feature unavailable; missing:"
+  },
+  "navigation": { "back": "Back", "home": "Home", "recents": "Recents" },
+  "size": { "tooltip": "Phone size:", "small": "Small", "medium": "Medium", "large": "Large" },
+  "actions": {
+    "devices": "Choose device", "diagnostics": "Diagnostics", "back_to_status": "Back to status", "open_window": "Open in window",
+    "rename_device": "Rename device", "more": "More",
+    "pair": "Pair", "unpair": "Unpair", "confirm_unpair": "Confirm unpair",
+    "ring": "Find phone", "browse": "Browse files", "send_file": "Send file",
+    "file_path": "Local file path to send", "screenshot": "Screenshot", "record": "Record",
+    "stop_recording": "Stop recording", "keep_awake": "Keep awake", "dim": "Screen off",
+    "audio": "Audio", "wake": "Wake", "unlock": "Wake and unlock", "stop_mirror": "Stop preview", "start_mirror": "Start preview",
+    "type_text": "Text to type on Android", "send_text": "Send text", "wireless": "Wireless",
+    "refresh": "Refresh devices", "settings": "Settings", "close": "Close"
+  },
+  "rename": {
+    "name": "Device nickname", "save": "Save name", "reset": "Reset name",
+    "local_only": "Saved only in AndroidConnect. Leave blank to restore the original name."
+  },
+  "wireless": {
+    "idle": "Select a phone or enter its host to discover Wireless ADB.",
+    "scanning": "Finding this phone’s current Wireless ADB port and reconnecting…",
+    "connected": "Wireless ADB connected. The control target is selected automatically.",
+    "timeout": "No connection yet. Enable Wireless debugging and pair if needed, then use Find port to retry.",
+    "scan_qr": "On Android, choose Pair device with QR code and scan this code.",
+    "instructions": "Android → Developer options → Wireless debugging. Pairing and connect ports are different. KDE Connect cannot enable Android debugging for you.",
+    "host": "Phone IP address / hostname", "pair_port": "Pairing port", "code": "Six-digit pairing code",
+    "pair": "Pair ADB", "connect_port": "Connect port", "connect": "Connect", "discover": "Find port",
+    "qr": "Pair by QR code", "cancel_qr": "Cancel QR pairing"
+  },
+  "notice": {
+    "screenshot": "Screenshot saved", "recording": "Recording saved", "paired": "ADB paired. Finding the phone’s current connect port automatically.",
+    "connected": "ADB connected. AndroidConnect will match it to the selected phone.", "qr_expired": "QR pairing timed out. Generate a new code to retry."
+  },
+  "errors": {
+    "action": "AndroidConnect could not complete the action.", "video": "The live feed stopped.",
+    "busy": "Too many pending actions. Wait for the current action to finish and retry.",
+    "recording": "Recording could not be downloaded. The remote file has been kept for recovery.",
+    "probe": "Device discovery failed.", "python": "Install python3 to run AndroidConnect.",
+    "companion": "The AndroidConnect companion is not responding. Reload the plugin and check its logs."
+  }
+}

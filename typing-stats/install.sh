@@ -1,19 +1,24 @@
 #!/bin/sh
-# install.sh - register, enable and set up the Typing Stats plugin.
+# install.sh - set up the Typing Stats plugin from a checkout.
 #
-#   ./install.sh              # user side + one sudo prompt for the udev rule
-#   ./install.sh --no-setup   # only register/enable; run setup.sh later
+#   sudo ./setup.sh           # udev rule, once (or use the "Grant input access" tile)
+#   ./install.sh              # register the source (when this is a plugin source) + enable
+#   ./install.sh --no-setup   # only register/enable; install the rule later
+#
+# Works both inside a plugin source root (parent dir has a catalog.toml, e.g.
+# this repository) and standalone in the plugin directory of a source such as
+# noctalia-dev/community-plugins, where there is nothing to register.
 set -eu
 
 PLUGIN_ID="goldesquemoon/typing-stats"
-REPO_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-PLUGIN_DIR="$REPO_DIR/typing-stats"
+PLUGIN_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+REPO_DIR=$(CDPATH= cd -- "$PLUGIN_DIR/.." && pwd)
 SETUP=1
 
 for arg in "$@"; do
     case "$arg" in
         --no-setup) SETUP=0 ;;
-        -h | --help) sed -n '2,5p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -h | --help) sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) printf 'install: unknown option %s\n' "$arg" >&2; exit 2 ;;
     esac
 done
@@ -41,16 +46,19 @@ if [ "$needs_setup" -eq 1 ] && [ "$SETUP" -eq 1 ]; then
     fi
 fi
 
-source_name=$(
-    noctalia msg plugins source list 2>/dev/null |
-        awk -v path="$REPO_DIR" '$2 == "path" && $3 == path { print $1; exit }'
-)
-if [ -n "$source_name" ]; then
-    printf 'source "%s" already registered -> %s\n' "$source_name" "$REPO_DIR"
-else
-    source_name="${SOURCE_NAME:-typing-stats}"
-    noctalia msg plugins source add "$source_name" path "$REPO_DIR" >/dev/null
-    printf 'registered source "%s" -> %s\n' "$source_name" "$REPO_DIR"
+# Only a directory that is itself a plugin source has something to register.
+if [ -f "$REPO_DIR/catalog.toml" ]; then
+    source_name=$(
+        noctalia msg plugins source list 2>/dev/null |
+            awk -v path="$REPO_DIR" '$2 == "path" && $3 == path { print $1; exit }'
+    )
+    if [ -n "$source_name" ]; then
+        printf 'source "%s" already registered -> %s\n' "$source_name" "$REPO_DIR"
+    else
+        source_name="${SOURCE_NAME:-typing-stats}"
+        noctalia msg plugins source add "$source_name" path "$REPO_DIR" >/dev/null
+        printf 'registered source "%s" -> %s\n' "$source_name" "$REPO_DIR"
+    fi
 fi
 
 noctalia msg plugins enable "$PLUGIN_ID" >/dev/null
@@ -63,7 +71,8 @@ Next steps
   1. Add the capsule to the bar: Settings -> Bar -> add widget "Typing Stats".
      It will appear as a capsule with a progress bar and the block count.
 
-  2. Optional tiles: Settings -> Control Center -> Shortcuts ->
+  2. Optional tiles: Settings -> Control center -> Shortcuts ->
+     "Grant input access" (installs the udev rule without a terminal),
      "Reset typing stats" (clears the counts) and "Typing heatmap" (opens the panel).
 
   3. Test without typing:

@@ -10,29 +10,14 @@ FINAL_FILE="$HVE_SAFE_DIR/overlay.lua"
 
 mkdir -p "$HVE_SAFE_DIR"
 
-# 1. Header + reset
+# 1. Header
+# Sin reset de animaciones: el overlay se carga tras lua/visual.lua al hacer
+# reload, así que los fragments ya pisan la base. Resetear apagaba las 16
+# animaciones cuando no había fragment de animación activo.
 cat > "$FINAL_FILE" << 'HEADER'
 -- HVE Overlay — generado automáticamente
 -- Cargar desde hyprland.lua:
 --   pcall(function() dofile(os.getenv("HOME") .. "/.cache/noctalia/HVE/overlay.lua") end)
-
--- Reset: desactivar todas las animaciones para evitar conflictos entre presets
-hl.animation({ leaf = "windowsIn", enabled = false })
-hl.animation({ leaf = "windowsOut", enabled = false })
-hl.animation({ leaf = "windowsMove", enabled = false })
-hl.animation({ leaf = "fade", enabled = false })
-hl.animation({ leaf = "fadeIn", enabled = false })
-hl.animation({ leaf = "fadeOut", enabled = false })
-hl.animation({ leaf = "fadeLayersIn", enabled = false })
-hl.animation({ leaf = "fadeLayersOut", enabled = false })
-hl.animation({ leaf = "layers", enabled = false })
-hl.animation({ leaf = "layersIn", enabled = false })
-hl.animation({ leaf = "layersOut", enabled = false })
-hl.animation({ leaf = "workspaces", enabled = false })
-hl.animation({ leaf = "specialWorkspace", enabled = false })
-hl.animation({ leaf = "borderangle", enabled = false })
-hl.animation({ leaf = "border", enabled = false })
-hl.animation({ leaf = "global", enabled = false })
 
 HEADER
 

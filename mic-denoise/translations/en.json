@@ -11,6 +11,10 @@
     "hardware_source": {
       "label": "Microphone",
       "description": "Source name of the physical microphone; leave empty for automatic (last used input, then the first available one). To see the names, run \"pactl list short sources\" in a terminal - the microphone is an alsa_input.* entry."
+    },
+    "auto_reload": {
+      "label": "Reload PipeWire automatically",
+      "description": "Restart PipeWire once after the filter-chain config is written, so denoising works without a manual restart. Turn off if you would rather pick the moment (e.g. during a call)."
     }
   },
   "shortcut": {
@@ -26,7 +30,8 @@
   "notify": {
     "config-installed": {
       "title": "Mic Denoise ready",
-      "body": "PipeWire filter-chain config installed. Restart PipeWire once, then toggle denoising on."
+      "body": "PipeWire filter-chain config installed. Restart PipeWire once, then toggle denoising on.",
+      "reloaded": "PipeWire was restarted to load it - switching denoising on works now."
     },
     "failed": {
       "title": "Mic Denoise failed",
@@ -45,11 +50,15 @@
     },
     "ladspa": {
       "title": "Mic Denoise needs noise-suppression-for-voice",
-      "body": "The RNNoise LADSPA plugin is missing, so the denoised source cannot exist. Install noise-suppression-for-voice, restart PipeWire, then enable denoising again."
+      "body": "The RNNoise LADSPA plugin is missing, so the denoised source cannot exist. Install it - typical command: {cmd} - then restart PipeWire and enable denoising again."
     },
     "not-ready": {
       "title": "Mic Denoise is not ready",
       "body": "The denoised source is missing. Restart PipeWire to load the filter-chain: systemctl --user restart pipewire pipewire-pulse wireplumber"
+    },
+    "copied": {
+      "title": "Command copied",
+      "body": "{cmd}"
     }
   }
 }

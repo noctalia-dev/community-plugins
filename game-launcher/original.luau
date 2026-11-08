@@ -9,6 +9,8 @@ local initOk = true
 local selectedIndex = 0
 local COVER_W = 56
 local COVER_H = 80
+
+local recent = require("./recent.luau")
 -- Key of the selected row; the scroll container reveals it on keyboard moves.
 local function selRowKey()
   if #filtered == 0 or selectedIndex < 0 or selectedIndex >= #filtered then return nil end
@@ -92,6 +94,7 @@ end
 local function launchGame(id)
   for _, g in ipairs(filtered) do
     if g.id == id and g.run_command and #g.run_command > 0 and isValidProtocol(g.run_command) then
+      recent.record(id)
       noctalia.runAsync('xdg-open "' .. g.run_command .. '"')
       onClose()
       return
@@ -105,6 +108,7 @@ local function filterGames(text)
     if filterByRunner(g) then table.insert(pool, g) end
   end
   if text == "" then
+    recent.sortByRecent(pool)
     filtered = pool
     return
   end
@@ -273,7 +277,7 @@ local function renderStatus()
   return nil
 end
 
-local function renderGameRow(g, index)
+local function renderGameRow(g, index, isLastPlayed)
   local meta = runnerMeta[g.runner] or { glyph = "app-window", color = "on_surface_variant" }
   local isSelected = (index - 1) == selectedIndex
   local cp = (g.cover and #g.cover > 0) and g.cover or nil
@@ -290,15 +294,22 @@ local function renderGameRow(g, index)
   else
     coverWidget = ui.box({ width = COVER_W, height = COVER_H, radius = 6, fill = "surface_container" })
   end
+  local infoColumn = {
+    ui.label({ text = g.name, fontWeight = "bold", fontSize = 14, maxLines = 1 }),
+    ui.row({ align = "center", gap = 6 }, {
+      ui.glyph({ name = meta.glyph, size = 12, color = meta.color }),
+      ui.label({ text = g.runner, fontSize = 11, color = "on_surface_variant" }),
+    }),
+  }
+  if isLastPlayed then
+    table.insert(infoColumn, ui.row({ align = "center", gap = 4 }, {
+      ui.glyph({ name = "clock", size = 11, color = "primary" }),
+      ui.label({ text = "Last played", fontSize = 11, color = "primary" }),
+    }))
+  end
   local children = {
     coverWidget,
-    ui.column({ flexGrow = 1, gap = 4 }, {
-      ui.label({ text = g.name, fontWeight = "bold", fontSize = 14, maxLines = 1 }),
-      ui.row({ align = "center", gap = 6 }, {
-        ui.glyph({ name = meta.glyph, size = 12, color = meta.color }),
-        ui.label({ text = g.runner, fontSize = 11, color = "on_surface_variant" }),
-      }),
-    }),
+    ui.column({ flexGrow = 1, gap = 4 }, infoColumn),
     ui.button({
       text = "Launch",
       glyph = "player-play",
@@ -329,8 +340,9 @@ end
 
 local function renderGameList()
   local rows = {}
+  local lastId = searchText == "" and recent.lastId() or nil
   for i = 1, #filtered do
-    table.insert(rows, renderGameRow(filtered[i], i))
+    table.insert(rows, renderGameRow(filtered[i], i, lastId ~= nil and filtered[i].id == lastId))
   end
   return rows
 end

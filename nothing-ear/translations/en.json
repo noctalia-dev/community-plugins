@@ -74,7 +74,8 @@
       "title": "Mono Audio",
       "caption": "Same sound in both buds. Auto mode is in settings",
       "caption_auto": "Turns on by itself when one bud is out",
-      "caption_auto_active": "On because only one bud is out"
+      "caption_auto_active": "On because only one bud is out",
+      "caption_headphones": "Same sound in both channels"
     },
     "personal_anc": {
       "title": "Personalised ANC"
@@ -113,7 +114,8 @@
     },
     "bass": {
       "title": "Bass Boost"
-    }
+    },
+    "headphones": "Headphones"
   },
   "shortcut": {
     "refresh": "Refresh Nothing Ear"

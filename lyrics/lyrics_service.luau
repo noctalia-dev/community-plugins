@@ -33,8 +33,11 @@ noctalia.mkdirAll(requestDir)
 local krcTmp = cacheDir .. "/krc.tmp"
 local lyricsSource = noctalia.getConfig("lyrics_source") or "auto"
 local lyricsSources = noctalia.getConfig("lyrics_sources") or {
-  "lrclib", "netease", "splayer", "qqmusic", "kugou", "qishui", "apple_music", "spotify", "musixmatch"
+  "splayer_next", "netease", "lrclib", "splayer", "qqmusic", "kugou", "qishui", "apple_music", "spotify"
 }
+local formatPriority = {}
+local sourceFormatPriority = {}
+local autoSourceRouting = true
 local customUrl = noctalia.getConfig("custom_url") or ""
 local customJsonField = noctalia.getConfig("custom_json_field") or "syncedLyrics"
 local pollIntervalMs = tonumber(noctalia.getConfig("poll_interval_ms")) or 500
@@ -311,17 +314,41 @@ local function credentialsFor(source)
     }
   elseif source == "splayer" then
     return { splayer_api_url = noctalia.getConfig("splayer_api_url") or "http://127.0.0.1:25884" }
+  elseif source == "splayer_next" then
+    return { splayer_next_api_url = noctalia.getConfig("splayer_next_api_url") or "http://127.0.0.1:14558" }
   end
   return {}
 end
 
+local function canonicalSource(source)
+  if source == "splayer-next" or source == "splayer next" then return "splayer_next" end
+  return source
+end
+
+-- Existing installations keep their saved `lyrics_sources` order, which may
+-- predate SPlayer Next. Keep it in the automatic fallback chain anyway.
+local function ensureFallbackSources(sources)
+  for _, source in ipairs(sources) do
+    if source == "splayer_next" then return sources end
+  end
+  local insertAt = #sources + 1
+  for index, source in ipairs(sources) do
+    if source == "splayer" then
+      insertAt = index + 1
+      break
+    end
+  end
+  table.insert(sources, insertAt, "splayer_next")
+  return sources
+end
+
 local function normalizedSources()
-  if lyricsSource ~= "auto" then return { lyricsSource } end
+  if lyricsSource ~= "auto" then return { canonicalSource(lyricsSource) } end
   local result = {}
   local seen = {}
   if type(lyricsSources) == "table" then
     for _, source in ipairs(lyricsSources) do
-      source = tostring(source):lower():gsub("^%s+", ""):gsub("%s+$", "")
+      source = canonicalSource(tostring(source):lower():gsub("^%s+", ""):gsub("%s+$", ""))
       if source ~= "" and not seen[source] then
         result[#result + 1] = source
         seen[source] = true
@@ -329,7 +356,7 @@ local function normalizedSources()
     end
   end
   if #result == 0 then result = { "lrclib", "netease" } end
-  return result
+  return ensureFallbackSources(result)
 end
 
 local function needsEmbeddedLyrics()
@@ -340,6 +367,96 @@ local function needsEmbeddedLyrics()
   end
   return false
 end
+
+local function normalizeFormatPriority(value)
+  local result = {}
+  if type(value) ~= "table" then return result end
+  local seen = {}
+  for _, raw in ipairs(value) do
+    local name = tostring(raw):lower():gsub("^%s+", ""):gsub("%s+$", "")
+    if name ~= "" and not seen[name] then
+      seen[name] = true
+      result[#result + 1] = name
+    end
+  end
+  return result
+end
+
+local function normalizeSourceFormatPriority(value)
+  local result = {}
+  if type(value) ~= "table" then return result end
+  for _, raw in ipairs(value) do
+    local source, formats = tostring(raw):match("^%s*([%w_%-]+)%s*=%s*(.+)$")
+    if source and formats then
+      local list = {}
+      for name in formats:gmatch("[^,%s]+") do
+        name = name:lower()
+        if name ~= "" then list[#list + 1] = name end
+      end
+      if #list > 0 then result[source:lower()] = list end
+    end
+  end
+  return result
+end
+
+local function listSignature(value)
+  return type(value) == "table" and table.concat(value, ",") or ""
+end
+
+local function mapSignature(value)
+  if type(value) ~= "table" then return "" end
+  local keys = {}
+  for key in pairs(value) do keys[#keys + 1] = tostring(key) end
+  table.sort(keys)
+  local parts = {}
+  for _, key in ipairs(keys) do
+    parts[#parts + 1] = key .. "=" .. listSignature(value[key])
+  end
+  return table.concat(parts, ";")
+end
+
+-- Map the player or media URL to the source that can actually provide
+-- word-level lyrics for it. This only reorders requests; it never adds one.
+local function preferredSource(track)
+  if not autoSourceRouting or lyricsSource ~= "auto" or type(track) ~= "table" then return nil end
+  local url = tostring(track.mediaUrl or ""):lower()
+  local player = (tostring(track.playerName or "") .. " " .. tostring(track.playerInstance or "")):lower()
+  if url:find("music.163.com", 1, true) or url:find("orpheus://", 1, true)
+    or player:find("netease", 1, true) or player:find("网易云", 1, true) then
+    return "netease"
+  end
+  if url:find("y.qq.com", 1, true) or url:find("qqmusic", 1, true)
+    or player:find("qqmusic", 1, true) or player:find("qq音乐", 1, true) then
+    return "qqmusic"
+  end
+  if url:find("kugou", 1, true) or player:find("kugou", 1, true)
+    or player:find("酷狗", 1, true) or player:find("moekoe", 1, true) then
+    return "kugou"
+  end
+  if player:find("splayer-next", 1, true) or player:find("splayer next", 1, true)
+    or player:find("splayer_next", 1, true) then
+    return "splayer_next"
+  end
+  if player:find("splayer", 1, true) then return "splayer" end
+  if player:find("spotify", 1, true) then return "spotify" end
+  return nil
+end
+
+local function routedSources(track)
+  local sources = normalizedSources()
+  local preferred = preferredSource(track)
+  if not preferred or #sources == 0 then return sources end
+  local result = { preferred }
+  for _, source in ipairs(sources) do
+    if source ~= preferred then result[#result + 1] = source end
+  end
+  return result
+end
+
+formatPriority = normalizeFormatPriority(noctalia.getConfig("format_priority"))
+sourceFormatPriority = normalizeSourceFormatPriority(noctalia.getConfig("source_format_priority"))
+autoSourceRouting = noctalia.getConfig("auto_source_routing")
+if autoSourceRouting == nil then autoSourceRouting = true end
 
 local function splitMetadata(value, separator)
   local fields = {}
@@ -630,14 +747,46 @@ local function fetchLyricsNetEase(track, embeddedLyrics, requestedCandidateId)
   end
 
   local requestPath = requestDir .. "/source_request_" .. tostring(fetchGeneration) .. ".json"
-  local sources = manualSelection and { "lrclib" } or normalizedSources()
+  local sources = manualSelection and { "lrclib" } or routedSources(track)
   local request = {
     track = track,
     options = {
       translation_language = noctalia.getConfig("translation_language") or "zh-Hans",
       lyrics_candidate_id = manualSelection and requestedCandidateId or nil,
+      format_priority = formatPriority,
+      source_format_priority = sourceFormatPriority,
     },
   }
+
+  local plainFallback = nil
+
+  local function applyResult(parsed, sourceName)
+    cache[tk] = parsed.lines
+    if (parsed.source or sourceName) == "lrclib" then
+      candidateCache[tk] = type(parsed.candidates) == "table" and parsed.candidates or {}
+      selectedCandidateCache[tk] = tostring(parsed.selected_candidate_id or "")
+    else
+      candidateCache[tk] = nil
+      selectedCandidateCache[tk] = nil
+    end
+    evictCache()
+    inFlight = nil
+    retryFailures = 0
+    retryRemainingMs = 0
+    noctalia.state.set("lyrics", parsed.lines)
+    noctalia.state.set("lyrics_source_used", parsed.source or sourceName)
+    publishCandidates(tk)
+    local sync = type(parsed.sync) == "string" and parsed.sync or "plain"
+    local formatName = type(parsed.format) == "string" and parsed.format or "lrc"
+    local coverage = tonumber(parsed.coverage) or 0
+    noctalia.log("lyrics source " .. tostring(parsed.source or sourceName) .. ": "
+      .. formatName .. " " .. sync .. " " .. tostring(#parsed.lines) .. " lines ("
+      .. tostring(math.floor(coverage * 100 + 0.5)) .. "%)")
+    if type(parsed.cover) == "string" and parsed.cover ~= "" then
+      sourceCoverCache[tk] = parsed.cover
+      maybeApplyCover(track, parsed.cover)
+    end
+  end
 
   local function trySource(index)
     if inFlight ~= flight then return end
@@ -646,6 +795,8 @@ local function fetchLyricsNetEase(track, embeddedLyrics, requestedCandidateId)
       inFlight = nil
       if manualSelection then
         publishCandidates(tk, false, "selection_failed")
+      elseif plainFallback then
+        applyResult(plainFallback, plainFallback.source or "")
       else
         noctalia.state.set("lyrics", nil)
         noctalia.state.set("lyrics_source_used", nil)
@@ -699,25 +850,15 @@ local function fetchLyricsNetEase(track, embeddedLyrics, requestedCandidateId)
         end
         local parsed = noctalia.json.decode(result.stdout or "")
         if type(parsed) == "table" and parsed.type == "lyrics" and type(parsed.lines) == "table" and #parsed.lines > 0 then
-          cache[tk] = parsed.lines
-          if (parsed.source or source) == "lrclib" then
-            candidateCache[tk] = type(parsed.candidates) == "table" and parsed.candidates or {}
-            selectedCandidateCache[tk] = tostring(parsed.selected_candidate_id or "")
-          else
-            candidateCache[tk] = nil
-            selectedCandidateCache[tk] = nil
+          -- Plain (untimed) lyrics are kept only as a last resort: continue to
+          -- the next source so a timed result is preferred. Word/line results
+          -- are accepted immediately, so no timing latency is added.
+          if parsed.sync == "plain" and sources[index + 1] and not manualSelection then
+            plainFallback = parsed
+            trySource(index + 1)
+            return
           end
-          evictCache()
-          inFlight = nil
-          retryFailures = 0
-          retryRemainingMs = 0
-          noctalia.state.set("lyrics", parsed.lines)
-          noctalia.state.set("lyrics_source_used", parsed.source or source)
-          publishCandidates(tk)
-          if type(parsed.cover) == "string" and parsed.cover ~= "" then
-            sourceCoverCache[tk] = parsed.cover
-            maybeApplyCover(track, parsed.cover)
-          end
+          applyResult(parsed, source)
         else
           local diag = type(parsed) == "table" and type(parsed.diag) == "table"
             and table.concat(parsed.diag, "; ") or ""
@@ -956,6 +1097,7 @@ local function poll()
       position = selected.position,
       duration = selected.duration,
       playerInstance = selected.instance,
+      playerName = selected.name,
       trackId = selected.trackId,
       mediaUrl = selected.mediaUrl,
     }
@@ -1038,6 +1180,10 @@ function onConfigChanged()
   local nextSources = noctalia.getConfig("lyrics_sources") or lyricsSources
   local nextPollInterval = tonumber(noctalia.getConfig("poll_interval_ms")) or 500
   local nextOffset = tonumber(noctalia.getConfig("lyrics_offset_ms")) or 0
+  local nextFormatPriority = normalizeFormatPriority(noctalia.getConfig("format_priority"))
+  local nextSourceFormatPriority = normalizeSourceFormatPriority(noctalia.getConfig("source_format_priority"))
+  local nextAutoSourceRouting = noctalia.getConfig("auto_source_routing")
+  if nextAutoSourceRouting == nil then nextAutoSourceRouting = true end
   local nextCredentialSignature = table.concat({
     noctalia.getConfig("spotify_sp_dc") or "",
     noctalia.getConfig("spotify_access_token") or "",
@@ -1048,13 +1194,18 @@ function onConfigChanged()
     noctalia.getConfig("qishui_token") or "",
     noctalia.getConfig("qishui_api_url") or "",
     noctalia.getConfig("splayer_api_url") or "http://127.0.0.1:25884",
+    noctalia.getConfig("splayer_next_api_url") or "http://127.0.0.1:14558",
     noctalia.getConfig("translation_language") or "zh-Hans",
   }, "\0")
   local nextAllowlist = normalizePatterns(noctalia.getConfig("player_allowlist"))
   local nextBlocklist = normalizePatterns(noctalia.getConfig("player_blocklist"))
+  local priorityChanged = listSignature(nextFormatPriority) ~= listSignature(formatPriority)
+    or mapSignature(nextSourceFormatPriority) ~= mapSignature(sourceFormatPriority)
+    or nextAutoSourceRouting ~= autoSourceRouting
   local sourceChanged = nextSource ~= lyricsSource or nextUrl ~= customUrl or nextField ~= customJsonField
     or table.concat(nextSources, "\n") ~= table.concat(lyricsSources, "\n")
     or nextCredentialSignature ~= credentialSignature
+    or priorityChanged
   local playersChanged = table.concat(nextAllowlist, "\n") ~= table.concat(playerAllowlist, "\n")
     or table.concat(nextBlocklist, "\n") ~= table.concat(playerBlocklist, "\n")
   lyricsSource = nextSource
@@ -1063,6 +1214,9 @@ function onConfigChanged()
   lyricsSources = nextSources
   pollIntervalMs = math.max(100, nextPollInterval)
   lyricsOffsetMs = nextOffset
+  formatPriority = nextFormatPriority
+  sourceFormatPriority = nextSourceFormatPriority
+  autoSourceRouting = nextAutoSourceRouting
   credentialSignature = nextCredentialSignature
   playerAllowlist = nextAllowlist
   playerBlocklist = nextBlocklist
