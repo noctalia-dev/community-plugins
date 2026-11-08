@@ -6,7 +6,7 @@
 -- keyboard to udev, so libinput stops or resumes delivering its events.
 --
 -- The UI only talks to this service through the plugin state:
---   "status"  <- { state, device, nodes, available }
+--   "status"  <- { state, device, nodes, installed, available }
 --   "command" <- { action = "toggle" | "on" | "off" | "refresh" }
 --
 -- sudo -n never prompts: setup.sh grants NOPASSWD for the subcommands of that
@@ -47,11 +47,12 @@ local function report_failure(message)
 end
 
 local function empty_status()
-    return { state = "unknown", device = "", nodes = "", available = false }
+    return { state = "unknown", device = "", nodes = "", installed = false, available = false }
 end
 
 local function parse(output)
     local status = empty_status()
+    local saw_installed = false
     for line in (output or ""):gmatch("[^\r\n]+") do
         local key, value = line:match("^(%w+)=(.*)$")
         if key == "state" then
@@ -60,9 +61,18 @@ local function parse(output)
             status.device = value
         elseif key == "nodes" then
             status.nodes = value
+        elseif key == "installed" then
+            status.installed = value == "1"
+            saw_installed = true
         elseif key == "available" then
             status.available = value == "1"
         end
+    end
+    -- A backend older than this version does not report "installed": keep the
+    -- previous behaviour (device present means ready) instead of nagging with the
+    -- setup tile until the backend is updated.
+    if not saw_installed then
+        status.installed = status.available
     end
     return status
 end
@@ -71,6 +81,7 @@ local function unchanged(a, b)
     return a.state == b.state
         and a.device == b.device
         and a.nodes == b.nodes
+        and a.installed == b.installed
         and a.available == b.available
 end
 
@@ -101,7 +112,7 @@ local function publish(next)
         return
     end
     status = next
-    log(`state {next.state} (device="{next.device}", available={tostring(next.available)})`)
+    log(`state {next.state} (device="{next.device}", installed={tostring(next.installed)}, available={tostring(next.available)})`)
     noctalia.state.set("status", next)
 
     -- Skip the first publish so loading the plugin does not raise a popup; after
@@ -131,9 +142,60 @@ local function refresh()
     end)
 end
 
+local function setupScript()
+    return (noctalia.pluginDir() or ".") .. "/setup.sh"
+end
+
 local function warn_missing_backend()
-    local hint = string.format(noctalia.tr("notify.setup.hint"), noctalia.pluginDir() or ".")
-    noctalia.notifyError(noctalia.tr("notify.setup.title"), hint)
+    noctalia.notifyError(noctalia.tr("notify.setup.title"), string.format(noctalia.tr("notify.setup.hint"), setupScript()))
+end
+
+-- One-click setup: pkexec raises the desktop's polkit dialog, so the tile works
+-- on a fresh install without the user hunting for a terminal. setup.sh is
+-- idempotent, which makes this the repair path too (lost rule, new keyboard).
+local function runSetup()
+    if busy then
+        return
+    end
+    local script = setupScript()
+    if not noctalia.fileExists(script) then
+        warn_missing_backend()
+        return
+    end
+    if not noctalia.commandExists("pkexec") then
+        warn_missing_backend()
+        return
+    end
+    local argv = { "pkexec", "/bin/sh", script }
+    local user = noctalia.getenv("USER")
+    if user ~= nil and user ~= "" and user ~= "root" then
+        -- pkexec clears SUDO_USER, so name the user whose sudoers entry to write.
+        argv[#argv + 1] = "--user"
+        argv[#argv + 1] = user
+    end
+    busy = true
+    local started = noctalia.runAsync(argv, function(result)
+        busy = false
+        if result.timedOut then
+            noctalia.notifyError(noctalia.tr("notify.setup.failed.title"), noctalia.tr("notify.setup.timeout.body"))
+        elseif result.exitCode == 0 then
+            noctalia.notify(noctalia.tr("notify.setup.ok.title"), noctalia.tr("notify.setup.ok.body"))
+        elseif result.exitCode == 126 or result.exitCode == 127 then
+            -- Dismissed / not authorized: keep the manual command as the hint.
+            noctalia.notifyError(noctalia.tr("notify.setup.cancelled.title"), string.format(noctalia.tr("notify.setup.hint"), script))
+        else
+            local detail = trim(result.stderr)
+            noctalia.notifyError(
+                noctalia.tr("notify.setup.failed.title"),
+                detail ~= "" and detail or string.format(noctalia.tr("notify.setup.hint"), script)
+            )
+        end
+        refresh()
+    end, 60000)
+    if not started then
+        busy = false
+        noctalia.notifyError(noctalia.tr("notify.setup.failed.title"), string.format(noctalia.tr("notify.setup.hint"), script))
+    end
 end
 
 -- $1 = action, rest = extra arguments for the backend.
@@ -198,6 +260,8 @@ noctalia.state.watch("command", function(command)
     local action = command.action
     if action == "on" or action == "off" or action == "toggle" then
         call(action)
+    elseif action == "setup" then
+        runSetup()
     elseif action == "refresh" then
         refresh()
     end
@@ -211,6 +275,8 @@ refresh()
 function onIpc(event)
     if event == "toggle" or event == "on" or event == "off" then
         call(event)
+    elseif event == "setup" then
+        runSetup()
     elseif event == "refresh" then
         refresh()
     end

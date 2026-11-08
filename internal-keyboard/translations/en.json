@@ -21,12 +21,14 @@
     "state": {
       "on": "Keyboard On",
       "off": "Keyboard Off"
-    }
+    },
+    "setup": "Set up"
   },
   "widget": {
     "tooltip": {
       "state": "Built-in keyboard",
-      "device": "Device"
+      "device": "Device",
+      "setup": "Not set up yet - click to install"
     }
   },
   "notify": {
@@ -39,7 +41,20 @@
     },
     "setup": {
       "title": "Internal Keyboard needs setup",
-      "hint": "Run this once in a terminal, then reload the plugin: sudo %s/setup.sh"
+      "hint": "Click the tile to install it, or run this once in a terminal: sudo %s",
+      "ok": {
+        "title": "Internal Keyboard is ready",
+        "body": "The backend, the sudoers entry and the udev rule are installed. Toggle the keyboard with the tile."
+      },
+      "cancelled": {
+        "title": "Setup cancelled"
+      },
+      "failed": {
+        "title": "Setup failed"
+      },
+      "timeout": {
+        "body": "setup.sh did not finish in time; run it in a terminal to see the error."
+      }
     }
   }
 }

@@ -36,7 +36,7 @@ usage() {
     cat <<'EOF'
 usage: internal-keyboard [status|devices|on|off|toggle|select NAME]
 
-  status         state=on|off, device=<name>, available=0|1, nodes=<event nodes>
+  status         state=on|off, device=<name>, installed=0|1, available=0|1, nodes=...
   devices        keyboards that can be switched, * marks the current one
   on             enable the selected keyboard in the graphical session
   off            disable it there (TTY consoles keep working)
@@ -160,8 +160,16 @@ status() {
         list="${list:+$list }$node"
         available=1
     done
+    # `installed` is about the system side (rule + selected device), not about the
+    # keyboard being plugged in: the tile uses it to offer the setup step instead of
+    # pretending the backend is ready when the udev rule went missing.
+    installed=0
+    if [ -r "$RULE" ] && [ -r "$CONFIG" ]; then
+        installed=1
+    fi
     printf 'state=%s\n' "$(state_of "$name")"
     printf 'device=%s\n' "$name"
+    printf 'installed=%s\n' "$installed"
     printf 'available=%s\n' "$available"
     printf 'nodes=%s\n' "$list"
 }
