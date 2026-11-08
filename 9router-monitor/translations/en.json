@@ -1,6 +1,7 @@
 {
   "panel": {
     "active_now": "ACTIVE NOW",
+    "all_providers": "All providers",
     "apply_reconnect": "Apply & reconnect",
     "cached_tokens": "Cached",
     "cached_tokens_label": "Cached Tokens",
@@ -11,6 +12,7 @@
     "dashboard_login": "DASHBOARD LOGIN",
     "est_cost": "Est. Cost",
     "est_cost_sub": "Estimated, not actual billing",
+    "filter_provider": "Filter",
     "hide_password": "Hide",
     "host": "Host",
     "invalid_host": "Please enter a valid hostname or IP (no http:// or path).",
