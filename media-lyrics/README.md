@@ -151,6 +151,7 @@ The panel shows the active MPRIS player automatically; when nothing is playing i
 | `offset_ms` | `int` | `0` | Shift lyric timing in milliseconds, range **−2000…2000**: positive shows lines earlier, negative later. |
 | `use_cache` | `bool` | `true` | Cache fetched lyrics in the plugin data directory for offline reuse. |
 | `local_lyrics_dir` | `folder` | `~/.local/share/media-lyrics` | Folder with local `.lrc` files named `Artist - Title.lrc`; searched before LRCLIB. |
+| `source_order` | `string` | `lrclib, netease` | Which online provider is asked first — write `netease, lrclib` to prefer NetEase. An id left out keeps its default place at the end, so a partial list never drops a provider. |
 | `player_allowlist` | `string` | *(empty)* | Comma-separated identity/bus-name substrings; when set, only matching players are shown (e.g. `spotify, mpd`). |
 | `player_blocklist` | `string` | *(empty)* | Comma-separated substrings of players to exclude (e.g. `firefox` to ignore a browser's MPRIS). |
 

@@ -11,7 +11,7 @@
 id = "tranzem/media-lyrics"
 name = "Media Lyrics"
 version = "0.9.9"
-plugin_api = 43
+plugin_api = 32
 author = "tranzem"
 license = "MIT"
 tags = ["media", "music", "panel", "service", "desktop"]
@@ -57,6 +57,18 @@ type = "folder"
 label_key = "settings.local_lyrics_dir.label"
 description_key = "settings.local_lyrics_dir.description"
 default = "~/.local/share/media-lyrics"
+
+# Order of the online lyric providers, comma separated: the first one is asked
+# first. A plain (untimed) hit is kept as a fallback and used only when nothing
+# synced turns up anywhere. Ids: lrclib, netease. Unknown ids are ignored and
+# omitted ones keep their default place at the end, so a partial list never
+# drops a provider.
+[[setting]]
+key = "source_order"
+type = "string"
+label_key = "settings.source_order.label"
+description_key = "settings.source_order.description"
+default = "lrclib, netease"
 
 # Player filtering: comma-separated identity or bus-name substrings. When
 # allowlist is non-empty, only matching players are shown; blocklist excludes

@@ -235,4 +235,40 @@ function lib.charCount(s)
   return n
 end
 
+-- ── cache locations ───────────────────────────────────────────────────────
+-- The cache lives in a `lyrics/` subfolder of the plugin data dir. The host
+-- does not create parent folders on write, so every writer must ask for the
+-- directory explicitly before writing a file into it.
+function lib.cachePaths(dataDir, artist, title)
+  if not dataDir or dataDir == "" then return nil end
+  local dir = dataDir .. "/lyrics"
+  return {
+    dir = dir,
+    file = dir .. "/" .. lib.sanitizePart(artist) .. "__" .. lib.sanitizePart(title) .. ".lrc",
+  }
+end
+
+-- ── source order ──────────────────────────────────────────────────────────
+-- Online providers in the order the user wants them tried. Unknown or repeated
+-- ids are dropped; ids the user left out keep their default place at the end,
+-- so a partial list never loses a provider.
+lib.SOURCE_ORDER_DEFAULT = { "lrclib", "netease" }
+
+function lib.sourceOrder(cfg)
+  local known = {}
+  for _, id in ipairs(lib.SOURCE_ORDER_DEFAULT) do known[id] = true end
+  local out, seen = {}, {}
+  for id in tostring(cfg or ""):gmatch("[^,%s]+") do
+    id = id:lower()
+    if known[id] and not seen[id] then
+      out[#out + 1] = id
+      seen[id] = true
+    end
+  end
+  for _, id in ipairs(lib.SOURCE_ORDER_DEFAULT) do
+    if not seen[id] then out[#out + 1] = id end
+  end
+  return out
+end
+
 return lib

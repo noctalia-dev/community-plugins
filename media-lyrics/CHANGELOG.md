@@ -4,6 +4,34 @@ All notable changes to **Media Lyrics** are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.9] — 2026-11-09
+
+Two reports from the field, both acted on. (Thank you, @junevin1-png.)
+
+### Fixed
+
+- **The lyrics cache never wrote anything.** Cached lyrics live in a `lyrics/`
+  subfolder of the plugin data dir, and that folder was never created. The host
+  does not create parent folders on write, so every save failed silently: the
+  folder never appeared, and creating it by hand did not help, because the real
+  location sits inside `pluginDataDir()` where nobody would think to look. The
+  folder is now created on the first successful save.
+
+### Changed
+
+- **`plugin_api` is declared as 32, not 30.** The plugin has used tooltips (API
+  level 32) since 0.9.8 while claiming 30, so on an older shell the tooltips
+  simply vanished with no clue why. The declared level is now the level the
+  plugin really needs.
+
+### Added
+
+- **`source_order`** — which online provider is asked first. Default
+  `lrclib, netease`; write `netease, lrclib` to prefer NetEase. An id left out
+  of the list keeps its default place at the end, so a partial list never drops
+  a provider. A plain (untimed) hit is still kept as a fallback and is used only
+  when nothing synced turns up anywhere.
+
 ## [0.9.8] — 2026-10-13
 
 A **desktop widget** — the now-playing view as a tile pinned to the desktop and shown on

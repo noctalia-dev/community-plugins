@@ -125,28 +125,29 @@ local function sanitizePart(s)
   return lyrics_lib.sanitizePart(s)
 end
 
-local function cachePath(artist, title)
-  local dir = noctalia.pluginDataDir()
-  if not dir then return nil end
-  return dir .. "/lyrics/" .. sanitizePart(artist) .. "__" .. sanitizePart(title) .. ".lrc"
+local function cachePlan(artist, title)
+  return lyrics_lib.cachePaths(noctalia.pluginDataDir(), artist, title)
 end
 
 local function loadCachedLyrics(artist, title)
   if noctalia.getConfig("use_cache") ~= true then return nil end
-  local path = cachePath(artist, title)
-  if not path then return nil end
-  local raw = noctalia.readFile(path)
+  local plan = cachePlan(artist, title)
+  if not plan then return nil end
+  local raw = noctalia.readFile(plan.file)
   if raw and trim(raw) ~= "" then return raw end
   return nil
 end
 
 local function cacheLyrics(artist, title, synced, plain)
   if noctalia.getConfig("use_cache") ~= true then return end
-  local path = cachePath(artist, title)
-  if not path then return end
+  local plan = cachePlan(artist, title)
+  if not plan then return end
   local body = synced ~= "" and synced or plain
   if trim(body) == "" then return end
-  noctalia.writeFile(path, body)
+  -- the folder is created here, not at startup: only a successful lookup
+  -- writes anything, and an empty cache directory would just be litter.
+  noctalia.mkdirAll(plan.dir)
+  noctalia.writeFile(plan.file, body)
 end
 
 local function tryLocalLyrics(artist, title)
@@ -335,18 +336,15 @@ local function loadLyricsForTrack(artist, title, album, durationSec, key, embedd
   -- kept as a fallback while better candidates are still hunted, and an
   -- LRCLIB plain-only hit stashed by the caller is used only when NetEase
   -- produced nothing at all.
-  local function fetchNetEaseFallback(artist, title, key, stash)
+  -- Online provider. A miss hands the accumulated plain-text stash to
+  -- `nextFn`, so the LAST provider in the configured order is the one that
+  -- settles the track (accepting a stash, or reporting empty / unreachable).
+  local function fetchNetEase(nextFn, stash)
     if gen ~= fetchGeneration then return end
-    -- stash = { provider, synced, plain } (e.g. an LRCLIB plain-only hit).
+    -- stash = { provider, synced, plain } (a plain-only hit from the other source).
     local function settle(isError)
       if gen ~= fetchGeneration then return end
-      if stash then
-        acceptAndCache(stash.provider, stash.synced, stash.plain)
-      elseif isError then
-        finishError(noctalia.tr("service.lyrics-unreachable"))
-      else
-        finishEmpty()
-      end
+      nextFn(stash, isError)
     end
     local searchAttempt = 0
     local function trySearch(query)
@@ -380,7 +378,7 @@ local function loadLyricsForTrack(artist, title, album, durationSec, key, embedd
           if gen ~= fetchGeneration then return end
           if i > #ranked or tried >= 3 then
             if firstPlain then
-              acceptAndCache("NetEase", firstPlain, "")
+              nextFn(stash or { provider = "NetEase", synced = "", plain = firstPlain })
             else
               settle(anyNetworkError)
             end
@@ -430,6 +428,9 @@ local function loadLyricsForTrack(artist, title, album, durationSec, key, embedd
     end
   end
 
+  -- Online provider. Same contract as fetchNetEase: a miss calls nextFn with
+  -- the best plain text seen so far (its own, or the one it was handed).
+  local function fetchLrclib(nextFn, stash)
   httpGet(getUrl, function(resp)
     if gen ~= fetchGeneration then return end
     local okData = nil
@@ -449,10 +450,9 @@ local function loadLyricsForTrack(artist, title, album, durationSec, key, embedd
       elseif plain ~= "" then
         -- LRCLIB has only untimed text: hunt for a synced copy on NetEase
         -- first; the plain text is the fallback if NetEase has nothing.
-        fetchNetEaseFallback(artist, title, key,
-          { provider = "LRCLIB", synced = "", plain = plain })
+        nextFn(stash or { provider = "LRCLIB", synced = "", plain = plain })
       else
-        fetchNetEaseFallback(artist, title, key)
+        nextFn(stash)
       end
       return
     end
@@ -462,7 +462,7 @@ local function loadLyricsForTrack(artist, title, album, durationSec, key, embedd
     -- completed. music.163.com is a different host, so try the NetEase
     -- fallback before giving up.
     if not resp.ok and resp.exit ~= 22 then
-      fetchNetEaseFallback(artist, title, key)
+      nextFn(stash)
       return
     end
 
@@ -497,14 +497,13 @@ local function loadLyricsForTrack(artist, title, album, durationSec, key, embedd
               local plain = trim(best.plainLyrics or "")
               if synced ~= "" then
                 if not acceptAndCache("LRCLIB", synced, plain) then
-                  fetchNetEaseFallback(artist, title, key, plain ~= "" and
-                    { provider = "LRCLIB", synced = "", plain = plain } or nil)
+                  nextFn(stash or (plain ~= "" and
+                    { provider = "LRCLIB", synced = "", plain = plain } or nil))
                 end
               elseif plain ~= "" then
-                fetchNetEaseFallback(artist, title, key,
-                  { provider = "LRCLIB", synced = "", plain = plain })
+                nextFn(stash or { provider = "LRCLIB", synced = "", plain = plain })
               else
-                fetchNetEaseFallback(artist, title, key)
+                nextFn(stash)
               end
             else
               -- Multiple top candidates: offer a manual choice. Cap the list
@@ -531,11 +530,29 @@ local function loadLyricsForTrack(artist, title, album, durationSec, key, embedd
           end
         end
       end
-      -- LRCLIB had no usable hit (or its own transport failed): NetEase is
-      -- the last resort.
-      fetchNetEaseFallback(artist, title, key)
+      -- this source had no usable hit (or its own transport failed)
+      nextFn(stash)
     end)
-  end)
+  end
+  end -- fetchLrclib
+
+  -- Remote stage: the two online providers, in the configured order. The
+  -- first one's miss hands its plain-text stash to the second, which settles
+  -- the track: a stash wins, otherwise empty or unreachable.
+  local function finalSettle(stash, isError)
+    if stash then
+      acceptAndCache(stash.provider, stash.synced, stash.plain)
+    elseif isError then
+      finishError(noctalia.tr("service.lyrics-unreachable"))
+    else
+      finishEmpty()
+    end
+  end
+  local stages = { lrclib = fetchLrclib, netease = fetchNetEase }
+  local order = lyrics_lib.sourceOrder(noctalia.getConfig("source_order"))
+  local first = stages[order[1]] or fetchLrclib
+  local second = stages[order[2]] or fetchNetEase
+  first(function(stash, isError) second(finalSettle, stash) end)
 end
 
 local function invalidateLyrics()
