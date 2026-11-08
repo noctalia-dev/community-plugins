@@ -32,7 +32,7 @@ The scanner binary (`gamelauncher`) is compiled automatically on first use — t
 
 Add the bar widget `alexander/game-launcher:launcher` to your bar. The widget shows a gamepad icon — click it to open it (look follows Panel style).
 
-In the panel, use the search bar to filter by name or runner. Click **Launch** on any game to start it.
+In the panel, use the search bar to filter by name or runner. Click **Launch** on any game to start it. The last game you launched always moves to the top of the list with a Last played badge, and stays there across restarts.
 
 To open the panel via IPC:
 
@@ -74,4 +74,5 @@ The plugin addresses all findings from Noctalia's security audit:
 
 - Scans all detected Steam library folders, Lutris SQLite databases, and Heroic store caches (Legendary, GOG, Nile).
 - Results are cached in `~/.cache/gamelauncher/games.json` and rescanned on click if sources changed.
+- Last-played launches are stored in the plugin data dir (`recent.json`, newest 30) and shared live between the panels and the `/g` provider, so the last game stays on top everywhere.
 - No external CLI tools (curl, wget, python3, grep) are invoked anywhere in the plugin.
