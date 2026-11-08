@@ -1,0 +1,39 @@
+id = "tomasWade/dock-pin"
+name = "Dock Pin"
+version = "1.0.0"
+plugin_api = 43
+author = "tomasWade"
+license = "MIT"
+dependencies = ["noctalia"]
+tags = ["bar", "utility", "dock"]
+icon = "pin"
+description = "Bar widget that pins a bar in place: lit pin = always visible, dim pin = smart auto-hide."
+
+[[setting]]
+key = "config_path"
+type = "string"
+label_key = "settings.config_path.label"
+description_key = "settings.config_path.description"
+default = "bar.dock.smart_auto_hide"
+
+[[setting]]
+key = "glyph"
+type = "glyph"
+label_key = "settings.glyph.label"
+description_key = "settings.glyph.description"
+default = "pin"
+
+[[setting]]
+key = "pin_color"
+type = "color"
+label_key = "settings.pin_color.label"
+description_key = "settings.pin_color.description"
+default = "primary"
+
+[[service]]
+id = "watcher"
+entry = "service.luau"
+
+[[widget]]
+id = "pin"
+entry = "widget.luau"

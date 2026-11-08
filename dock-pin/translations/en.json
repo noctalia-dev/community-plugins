@@ -1,0 +1,21 @@
+{
+  "settings": {
+    "config_path": {
+      "label": "Config path",
+      "description": "Config path of the bar's smart_auto_hide to toggle"
+    },
+    "glyph": {
+      "label": "Pin glyph",
+      "description": "Glyph shown on the bar"
+    },
+    "pin_color": {
+      "label": "Pinned color",
+      "description": "Color of the pin while pinned"
+    }
+  },
+  "title": "Dock Pin",
+  "tooltip.pinned": "Pinned — bar always visible (click to smart-hide)",
+  "tooltip.smart": "Smart auto-hide (click to pin)",
+  "notify.pinned": "Pinned — always visible",
+  "notify.unpinned": "Unpinned — smart auto-hide"
+}
