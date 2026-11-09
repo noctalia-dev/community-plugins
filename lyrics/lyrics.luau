@@ -28,6 +28,13 @@ local textAlignment = noctalia.getConfig("text_alignment") or "left"
 local gradientOn = noctalia.getConfig("gradient")
 if gradientOn == nil then gradientOn = false end
 local animation = noctalia.getConfig("animation") or "karaoke"
+-- One animation setting covers both the per-character fill and the line change:
+-- cascade/wave/typewriter are character fills, everything else is a line motion.
+local CHARACTER_FILL_ANIMATIONS = { cascade = true, wave = true, typewriter = true }
+local fillEffect = CHARACTER_FILL_ANIMATIONS[animation] and animation or (animation == "none" and "none" or "karaoke")
+-- Old values kept for widgets saved by 1.6.x.
+if animation == "slide" then animation = "slide_up" end
+if animation == "fade" or animation == "pulse" or animation == "blink" then animation = "karaoke" end
 local showCues = noctalia.getConfig("show_cues")
 if showCues == nil then showCues = true end
 local cueText = noctalia.getConfig("cue_text") or "•••••"
@@ -88,6 +95,7 @@ local displayedLine = nil
 local outgoingLine = nil
 local transitionElapsed = 0
 local marqueeElapsed = 0
+local lastMarqueeText = ""
 local smoothProgress = 0
 
 local FADE_OUT_MS = 130
@@ -102,6 +110,102 @@ end
 local function easeOutCubic(t)
   local u = 1 - clamp(t, 0, 1)
   return 1 - u * u * u
+end
+
+local function easeInOutCubic(t)
+  t = clamp(t, 0, 1)
+  if t < 0.5 then
+    return 4 * t * t * t
+  end
+  local u = -2 * t + 2
+  return 1 - u * u * u / 2
+end
+
+-- A short overshoot that settles back to 1, used by the spring transition.
+local function springEase(t)
+  t = clamp(t, 0, 1)
+  return 1 + 0.22 * math.sin(math.pi * t) * (1 - t)
+end
+
+-- Extra bounce for the drop transition: the line overshoots its resting row
+-- once and settles.
+local function bounceEase(t)
+  t = clamp(t, 0, 1)
+  local u = 1 - t
+  return 1 - u * u * math.cos(t * math.pi * 2.2) * 0.55
+end
+
+local REST_STATE = { x = 0, y = 0, scale = 1, scaleX = 1, scaleY = 1, rotation = 0, opacity = 1 }
+
+local function mixState(from, to, t)
+  local function full(state)
+    local out = { x = 0, y = 0, scale = 1, scaleX = 1, scaleY = 1, rotation = 0, opacity = 1 }
+    for key, value in pairs(state or {}) do out[key] = value end
+    return out
+  end
+  local f = full(from)
+  local g = full(to)
+  return {
+    x = f.x + (g.x - f.x) * t,
+    y = f.y + (g.y - f.y) * t,
+    scale = f.scale + (g.scale - f.scale) * t,
+    scaleX = f.scaleX + (g.scaleX - f.scaleX) * t,
+    scaleY = f.scaleY + (g.scaleY - f.scaleY) * t,
+    rotation = f.rotation + (g.rotation - f.rotation) * t,
+    opacity = f.opacity + (g.opacity - f.opacity) * t,
+  }
+end
+
+-- One setting, one list. Entries are deliberately distinct at bar scale:
+-- directional pushes that retract the old row, a bouncy push, a drop, a zoom,
+-- and horizontal swooshes. The slight-offset presets flutter_lyric ships
+-- (scale/zoom variants, focus, cinematic, appleMusic) all looked like the same
+-- short fade in a one-line bar, so they were merged away instead of being kept
+-- as near-duplicate names.
+local ANIMATION_PRESETS = {
+  karaoke = { duration = 320, kind = "cross", out = { opacity = 0 }, into = { opacity = 0 } },
+  slide_up = { duration = 460, kind = "push", dir = -1, ease = easeOutCubic },
+  slide_down = { duration = 460, kind = "push", dir = 1, ease = easeOutCubic },
+  spring = { duration = 680, kind = "push", dir = -1, ease = springEase, out = { scale = 0.94 }, into = { scale = 0.94 } },
+  drop = { duration = 680, kind = "push", dir = 1, ease = bounceEase },
+  slide_left = { duration = 440, kind = "cross", out = { x = -170, opacity = 0 }, into = { x = 170, opacity = 0 } },
+  slide_right = { duration = 440, kind = "cross", out = { x = 170, opacity = 0 }, into = { x = -170, opacity = 0 } },
+  zoom = { duration = 520, kind = "cross", out = { scale = 0.82, opacity = 0 }, into = { scale = 1.7, opacity = 0 } },
+  flip = { duration = 480, kind = "cross", ease = easeInOutCubic, out = { scaleY = 0.02, opacity = 0.35 }, into = { scaleY = 0.02, opacity = 0.35 } },
+  spin = { duration = 640, kind = "cross", out = { rotation = 120, scale = 0.72, opacity = 0 }, into = { rotation = -120, scale = 0.72, opacity = 0 } },
+  squash = { duration = 560, kind = "cross", ease = bounceEase, out = { scaleX = 1.3, scaleY = 0.62, opacity = 0 }, into = { scaleX = 1.3, scaleY = 0.62, opacity = 0 } },
+  none = { duration = 0 },
+}
+
+-- Pool for the `random` setting: only line motions, so a line change is always
+-- visible and never silently picks a character fill instead.
+local RANDOM_ANIMATION_POOL = {
+  "karaoke", "slide_up", "slide_down", "slide_left", "slide_right",
+  "spring", "drop", "zoom", "flip", "spin", "squash",
+}
+
+local function pickRandomAnimation(previous)
+  if #RANDOM_ANIMATION_POOL == 1 then
+    return RANDOM_ANIMATION_POOL[1]
+  end
+  local pick
+  repeat
+    pick = RANDOM_ANIMATION_POOL[math.random(1, #RANDOM_ANIMATION_POOL)]
+  until pick ~= previous
+  return pick
+end
+
+if noctalia.nowMs ~= nil then
+  math.randomseed(noctalia.nowMs())
+end
+
+local animationPreset = ANIMATION_PRESETS[animation] or ANIMATION_PRESETS.karaoke
+-- The preset may change for every line while `animation = "random"`.
+local currentAnimationName = animation
+local currentAnimationPreset = animationPreset
+if animation == "random" then
+  currentAnimationName = pickRandomAnimation("")
+  currentAnimationPreset = ANIMATION_PRESETS[currentAnimationName] or ANIMATION_PRESETS.karaoke
 end
 
 local function toChars(text)
@@ -263,36 +367,78 @@ local function getFallbackLabel()
   return track.title
 end
 
-local function shouldMarquee(text)
-  return scrollMode ~= "static" and textUnits(text) > maxChars
+-- The declarative label inherits the host body font size when the plugin does
+-- not set one; Noctalia's body size is 14 logical px. Marquee math uses real
+-- font metrics (CJK advance is one full font size) instead of the old fixed
+-- char-width guess so a line scrolls exactly to its last character.
+local INHERITED_FONT_SIZE = 14
+
+local function resolveFontSize(secondary, fontScale)
+  local base
+  if secondary then
+    base = secondaryFontSize
+  else
+    base = primaryFontSize > 0 and primaryFontSize or INHERITED_FONT_SIZE
+  end
+  return base * (fontScale or 1)
 end
 
-local function getMarqueeOffset(chars)
-  local trailingChars = 0
-  local units = 0
-  for index = #chars, 1, -1 do
-    local char = chars[index]
-    local nextUnits = units + charUnits(char)
-    if nextUnits > maxChars then break end
-    units = nextUnits
-    trailingChars = trailingChars + 1
-  end
-  local distance = math.max(0, #chars - math.max(1, trailingChars))
-  if distance == 0 then return 0 end
+-- Latin advances in the tuned serif face run slightly wider than the coarse
+-- per-class table; calibrate against a rendered line so marquee end-stops land
+-- on the last glyph instead of a few pixels short.
+local ASCII_WIDTH_SCALE = 1.06
 
-  -- The setting is pixels per second; convert it to character cells per second.
-  local charsPerSecond = math.max(0.5, marqueeSpeed / math.max(1, charWidth))
-  local travelTime = distance / charsPerSecond
-  local cycle = MARQUEE_HOLD * 2 + travelTime * 2
+local function charPixelWidth(char, fontSize)
+  local units = charUnits(char)
+  local byte = char:byte(1) or 0
+  if byte < 0x80 then
+    units = units * ASCII_WIDTH_SCALE
+  end
+  return units * fontSize
+end
+
+local function textPixelWidth(text, fontSize)
+  local width = 0
+  for _, char in ipairs(toChars(text or "")) do
+    width = width + charPixelWidth(char, fontSize)
+  end
+  return width
+end
+
+local function marqueeViewportWidth()
+  return maxChars * charWidth
+end
+
+local function shouldMarquee(text, fontSize)
+  return scrollMode ~= "static" and textPixelWidth(text, fontSize) > marqueeViewportWidth()
+end
+
+local function getMarqueeOffset(chars, fontSize)
+  local totalWidth = 0
+  for _, char in ipairs(chars) do
+    totalWidth = totalWidth + charPixelWidth(char, fontSize)
+  end
+  local maxOffset = math.max(0, totalWidth - marqueeViewportWidth())
+  if maxOffset <= 0 then
+    return 0
+  end
+  -- A small safety margin makes the final glyph land inside the viewport even
+  -- when the font advances differ a little from the width model.
+  maxOffset = maxOffset + fontSize * 0.55
+
+  local pixelsPerSecond = math.max(1, marqueeSpeed)
+  local travelTime = maxOffset / pixelsPerSecond
+  local cycle = MARQUEE_HOLD + travelTime + MARQUEE_HOLD
   local phase = marqueeElapsed % cycle
 
-  if phase < MARQUEE_HOLD then return 0 end
+  if phase < MARQUEE_HOLD then
+    return 0
+  end
   phase = phase - MARQUEE_HOLD
-  if phase < travelTime then return distance * (phase / travelTime) end
-  phase = phase - travelTime
-  if phase < MARQUEE_HOLD then return distance end
-  phase = phase - MARQUEE_HOLD
-  return distance * (1 - phase / travelTime)
+  if phase < travelTime then
+    return maxOffset * (phase / travelTime)
+  end
+  return maxOffset
 end
 
 local function karaokeColor(charTime, charProgress, position, useGradient, sungColor, unsungColor)
@@ -365,23 +511,18 @@ local function buildLineRow(line, opts)
   local chars = toChars(text or "")
   if #chars == 0 then chars = { " " } end
 
-  local exactOffset = opts.marquee and getMarqueeOffset(chars) or 0
-  local offset = math.floor(exactOffset)
-  local fraction = exactOffset - offset
-  local first = offset + 1
-  local last = #chars
+  local rowFontSize = resolveFontSize(opts.secondary, opts.fontScale)
+  local fullLineWidth = 0
+  for _, char in ipairs(chars) do
+    fullLineWidth = fullLineWidth + charPixelWidth(char, rowFontSize)
+  end
+  local marqueeOffset = 0
   if opts.marquee then
-    local units = 0
-    last = first - 1
-    for sourceIndex = first, #chars do
-      units = units + charUnits(chars[sourceIndex])
-      last = sourceIndex
-      if units > maxChars then break end
-    end
+    marqueeOffset = getMarqueeOffset(chars, rowFontSize)
   end
   local labels = {}
 
-  for sourceIndex = first, last do
+  for sourceIndex = 1, #chars do
     local active = playing and activeColor or inactiveColor
     local color = opts.secondary and secondaryColor or (opts.dim and inactiveColor or active)
     if not opts.solid and not opts.dim then
@@ -399,13 +540,9 @@ local function buildLineRow(line, opts)
       end
     end
 
-    -- Soft viewport edges make cell-by-cell marquee movement less abrupt.
     local alpha = 1
-    local edgeAlpha = noctalia.isDarkMode() and 0.5 or 0.72
-    if opts.marquee and offset > 0 and sourceIndex == first then alpha = edgeAlpha end
-    if opts.marquee and last < #chars and sourceIndex == last then alpha = edgeAlpha end
     if opts.cascade then
-      local charProgress = (sourceIndex - first) / math.max(1, last - first)
+      local charProgress = (sourceIndex - 1) / math.max(1, #chars - 1)
       local cascadeProgress = clamp((transitionElapsed - FADE_OUT_MS) / 420, 0, 1)
       alpha = alpha * clamp((cascadeProgress - charProgress * 0.45) * 2.4, 0.08, 1)
     end
@@ -416,22 +553,12 @@ local function buildLineRow(line, opts)
     end
     if opts.typewriter then
       local reveal = clamp((transitionElapsed - FADE_OUT_MS) / 520, 0, 1)
-      local threshold = (sourceIndex - first) / math.max(1, last - first + 1)
+      local threshold = (sourceIndex - 1) / math.max(1, #chars)
       alpha = alpha * (reveal >= threshold and 1 or 0.08)
     end
     if opts.blink and transitionElapsed < FADE_OUT_MS + 540 then
       local blink = math.floor(math.max(0, transitionElapsed - FADE_OUT_MS) / 90) % 2
       alpha = alpha * (blink == 0 and 0.35 or 1)
-    end
-
-    -- Bar labels elide glyphs when constrained below their natural width, so
-    -- animate the viewport edges with opacity without clipping CJK characters.
-    if opts.marquee and fraction > 0 then
-      if sourceIndex == first then
-        alpha = alpha * (1 - fraction)
-      elseif sourceIndex == last and sourceIndex > first then
-        alpha = alpha * fraction
-      end
     end
 
     labels[#labels + 1] = ui.label({
@@ -441,40 +568,121 @@ local function buildLineRow(line, opts)
       opacity = alpha,
       maxLines = 1,
       fontFamily = isCue and cueFontMode == "custom" and cueFontFamily or (fontFamily ~= "" and fontFamily or nil),
-      fontSize = opts.secondary and math.max(6, secondaryFontSize * (opts.fontScale or 1))
-        or ((primaryFontSize > 0 or (opts.fontScale or 1) < 1)
-          and math.max(6, (primaryFontSize > 0 and primaryFontSize or 13) * (opts.fontScale or 1)) or nil),
+      fontSize = math.max(6, rowFontSize),
       fontWeight = opts.secondary and "normal" or fontWeight,
       baseline = labelBaseline(),
     })
   end
 
-  if opts.marquee then
-    while #labels < math.ceil(maxChars) + 1 do
-      labels[#labels + 1] = ui.label({ text = " ", opacity = 0, maxLines = 1 })
-    end
+  local rowHeight = opts.height
+  if rowHeight == nil then
+    rowHeight = math.max(14, math.floor(rowFontSize * 1.25 + 0.5))
   end
 
-  return ui.row({
-    key = opts.key or "line",
+  local lineRow = ui.row({
+    key = opts.marquee and ((opts.key or "line") .. "-text") or (opts.key or "line"),
     gap = 0,
     align = "center",
-    justify = textAlignment == "right" and "end" or textAlignment == "center" and "center" or "start",
-    minWidth = maxChars * charWidth,
-    opacity = opts.opacity or 1,
+    justify = opts.marquee and "start"
+      or (textAlignment == "right" and "end" or textAlignment == "center" and "center" or "start"),
+    minWidth = opts.marquee and math.ceil(fullLineWidth) or marqueeViewportWidth(),
+    opacity = opts.marquee and 1 or (opts.opacity or 1),
+    height = rowHeight,
+    width = opts.width,
+    translateX = opts.marquee and (-marqueeOffset) or opts.tx,
+    translateY = opts.ty,
+    scale = opts.scale,
+    scaleX = opts.scaleX,
+    scaleY = opts.scaleY,
+    rotation = opts.rotation,
   }, labels)
+
+  if not opts.marquee then
+    return lineRow
+  end
+
+  -- Smooth pixel-level marquee: a fixed-width clipped viewport scrolls the
+  -- whole row with a paint-only translateX instead of rebuilding a window of
+  -- whole characters. max_chars sets the viewport width, char_width converts
+  -- the unit offset into pixels, and marquee_speed stays in pixels/second.
+  return ui.row({
+    key = ((opts.key or "line") .. "-viewport"),
+    width = math.ceil(marqueeViewportWidth()),
+    height = rowHeight,
+    clip = true,
+    justify = "start",
+    align = "center",
+    opacity = opts.opacity or 1,
+  }, { lineRow })
 end
 
-local function currentTransitionLine(info)
-  if animation == "none" or transitionElapsed >= FADE_OUT_MS then
-    local opacity = animation == "none" and 1
-      or easeOutCubic((transitionElapsed - FADE_OUT_MS) / FADE_IN_MS)
-    if animation == "pulse" and transitionElapsed < FADE_OUT_MS + 600 then
-      opacity = opacity * (0.76 + 0.24 * math.sin(math.max(0, transitionElapsed - FADE_OUT_MS) / 75))
-    end
-    return info and info.line or nil, opacity
+
+-- A lyric "line" is one primary row plus the optional translation/romanization
+-- row. Animating them as a single block keeps the two rows together and gives
+-- every row an explicit height, so a transition starts and ends on the same
+-- baseline instead of nudging the line up and back down.
+local function lineBlockHeights(fontScale, hasSecondary)
+  local primaryBase = primaryFontSize > 0 and primaryFontSize or INHERITED_FONT_SIZE
+  local primaryH = math.max(15, math.floor(primaryBase * (fontScale or 1) * 1.25 + 0.5))
+  local secondaryH = 0
+  if hasSecondary then
+    secondaryH = math.max(10, math.floor(secondaryFontSize * (fontScale or 1) * 1.25 + 0.5))
   end
-  return outgoingLine, 1 - easeOutCubic(transitionElapsed / FADE_OUT_MS)
+  return primaryH, secondaryH
+end
+
+local function buildLineBlock(line, spec, opts)
+  opts = opts or {}
+  local blockKey = opts.key or "line"
+  local secondary = opts.secondaryText or ""
+  local showSecondary = spec.showSecondary and not (type(line) == "table" and line.cue == true)
+  local secondaryVisible = showSecondary and secondary:match("%S") ~= nil
+  local rows = {
+    buildLineRow(line, {
+      key = blockKey,
+      height = spec.primaryH,
+      marquee = opts.marquee,
+      position = opts.position,
+      useGradient = opts.useGradient,
+      solid = opts.solid,
+      cascade = opts.cascade,
+      wave = opts.wave,
+      typewriter = opts.typewriter,
+      blink = opts.blink,
+      opacity = opts.rowOpacity or 1,
+      cue = opts.cue,
+      fontScale = spec.fontScale,
+      compact = spec.compact,
+    }),
+  }
+  if showSecondary then
+    rows[#rows + 1] = buildLineRow({ text = secondaryVisible and secondary or " " }, {
+      key = blockKey .. "-secondary",
+      height = spec.secondaryH,
+      marquee = secondaryVisible and opts.secondaryMarquee == true,
+      solid = true,
+      dim = true,
+      secondary = true,
+      opacity = secondaryVisible and opts.secondaryOpacity or (secondaryVisible and 0.82 or 0),
+      fontScale = spec.fontScale,
+      compact = spec.compact,
+    })
+  end
+  local state = opts.state or REST_STATE
+  return ui.column({
+    key = blockKey .. "-block",
+    height = spec.blockH,
+    gap = showSecondary and spec.gap or 0,
+    align = "start",
+    justify = "center",
+    opacity = state.opacity,
+    translateX = state.x,
+    translateY = state.y,
+    scale = state.scale,
+    scaleX = state.scaleX,
+    scaleY = state.scaleY,
+    rotation = state.rotation,
+  }, rows)
 end
 
 local function render()
@@ -487,7 +695,7 @@ local function render()
   barWidget.setVisible(true)
 
   local vertical = barWidget.isVertical()
-  local useGradient = (animation == "karaoke" or animation == "cascade" or animation == "wave") and gradientOn
+  local useGradient = (fillEffect == "karaoke" or fillEffect == "cascade" or fillEffect == "wave") and gradientOn
   local position = getProgressMs()
   local prefix = {}
   local coverPath = showCover and cover and cover ~= "" and noctalia.fileExists(cover) and cover or nil
@@ -511,49 +719,122 @@ local function render()
     local label = getTrackLabel()
     lineNodes[1] = buildLineRow(label, {
       key = "track",
-      marquee = shouldMarquee(label),
+      marquee = shouldMarquee(label, resolveFontSize(false, 1)),
       solid = true,
     })
   else
     local info = getLineInfo()
     if info then
-      local shownLine, opacity = currentTransitionLine(info)
-      if shownLine then
-        local shownActive = shownLine == info.line
-        local renderedWordSync = shownActive and lineHasWordTiming(shownLine)
-        local cueLine = shownActive and info.cue == true
-        local perCharFill = renderedWordSync or cueLine or (forceKaraoke and shownActive)
-        local secondary = secondaryText(shownLine)
-        local showSecondaryRow = secondaryRowEnabled(secondary) and not shownLine.cue and not info.cue
-        local fontScale, effectiveLineGap = compactMetrics(showSecondaryRow, vertical)
-        lineNodes[#lineNodes + 1] = buildLineRow(shownLine, {
-          key = "current-" .. tostring(info.index),
-          marquee = shownActive and shouldMarquee(shownLine.text),
+      local transition = animation == "random" and currentAnimationPreset or animationPreset
+      local outgoingValid = type(outgoingLine) == "table" and outgoingLine ~= info.line
+      local transitionActive = transition ~= nil and transition.kind ~= nil and transition.duration > 0
+        and outgoingValid and transitionElapsed < transition.duration
+      local shownLine = info.line
+
+      local secondary = secondaryText(info.line)
+      local showSecondaryRow = secondaryRowEnabled(secondary) and not info.line.cue and not info.cue
+      local fontScale, effectiveLineGap = compactMetrics(showSecondaryRow, vertical)
+      local primaryH, secondaryH = lineBlockHeights(fontScale, showSecondaryRow)
+      local blockH = primaryH + (showSecondaryRow and (secondaryH + effectiveLineGap) or 0)
+      local blockSpec = {
+        primaryH = primaryH,
+        secondaryH = secondaryH,
+        blockH = blockH,
+        showSecondary = showSecondaryRow,
+        gap = effectiveLineGap,
+        fontScale = fontScale,
+        compact = showSecondaryRow and not vertical and doubleLineAutoFit,
+      }
+
+      local function blockOptions(line, state, key)
+        local wordSync = lineHasWordTiming(line)
+        local cueLine = type(line) == "table" and line.cue == true
+        local perChar = wordSync or cueLine or forceKaraoke
+        local lineText = type(line) == "table" and line.text or line
+        local secondary = secondaryText(line)
+        -- Keep the marquee viewport during transitions too: rendering the raw
+        -- row would flash the full line at full width for the transition length
+        -- before it snaps back into the clipped, scrolling viewport.
+        return {
+          key = key,
+          secondaryText = secondary,
+          state = state or REST_STATE,
+          marquee = shouldMarquee(lineText or "", resolveFontSize(false, blockSpec.fontScale)),
+          secondaryMarquee = secondary ~= "" and shouldMarquee(secondary, resolveFontSize(true, blockSpec.fontScale))
+            and not vertical,
           position = position,
-          useGradient = karaokeEnabled and shownActive and info.synced and useGradient and perCharFill,
-          solid = not karaokeEnabled or not info.synced
-            or (animation ~= "karaoke" and animation ~= "cascade" and animation ~= "wave")
-            or not perCharFill,
-          cascade = shownActive and animation == "cascade",
-          wave = shownActive and animation == "wave",
-          typewriter = shownActive and animation == "typewriter",
-          blink = shownActive and animation == "blink",
-          opacity = opacity,
+          useGradient = karaokeEnabled and useGradient and perChar,
+          solid = not karaokeEnabled or not perChar,
           cue = cueLine,
-          fontScale = fontScale,
-          compact = showSecondaryRow and not vertical and doubleLineAutoFit,
+        }
+      end
+
+      if transitionActive and transition.kind == "push" and not vertical then
+        -- Push transitions move the whole line block, so a translation row
+        -- travels with its primary row instead of being left behind.
+        local p = clamp(transitionElapsed / transition.duration, 0, 1)
+        local eased = (transition.ease or easeOutCubic)(p)
+        local outState = transition.outFn and transition.outFn(p) or mixState(REST_STATE, transition.out, eased)
+        local inState = transition.inFn and transition.inFn(p) or mixState(transition.into, REST_STATE, eased)
+        local outBlock = buildLineBlock(outgoingLine, blockSpec, blockOptions(outgoingLine, outState, "tr-out"))
+        local inBlock = buildLineBlock(info.line, blockSpec, blockOptions(info.line, inState, "tr-in-" .. tostring(info.index)))
+        local dir = transition.dir or -1
+        local offset = dir < 0 and -eased * blockH or -(1 - eased) * blockH
+        local blocks = dir < 0 and { outBlock, inBlock } or { inBlock, outBlock }
+        lineNodes[#lineNodes + 1] = ui.column({
+          key = "tr-viewport",
+          width = math.ceil(marqueeViewportWidth()),
+          height = blockH,
+          clip = true,
+          justify = "start",
+          align = "start",
+        }, {
+          ui.column({
+            key = "tr-track",
+            width = math.ceil(marqueeViewportWidth()),
+            height = blockH * 2,
+            justify = "start",
+            align = "start",
+            translateY = offset,
+          }, blocks),
+        })
+      elseif transitionActive then
+        -- Cross transitions swap the single block at the halfway point, so both
+        -- the primary and the secondary row animate together.
+        local p = clamp(transitionElapsed / transition.duration, 0, 1)
+        local ease = transition.ease or easeOutCubic
+        local outgoingPhase = p < 0.5
+        local q = outgoingPhase and p * 2 or (p - 0.5) * 2
+        local line = outgoingPhase and outgoingLine or info.line
+        local state
+        if outgoingPhase then
+          state = transition.outFn and transition.outFn(p) or mixState(REST_STATE, transition.out, ease(q))
+        else
+          state = transition.inFn and transition.inFn(p) or mixState(transition.into, REST_STATE, ease(q))
+        end
+        lineNodes[#lineNodes + 1] = buildLineBlock(line, blockSpec, blockOptions(
+          line, state, outgoingPhase and "tr-out" or "tr-in-" .. tostring(info.index)
+        ))
+        shownLine = line
+      else
+        local perCharFill = lineHasWordTiming(info.line) or info.cue == true or forceKaraoke
+        lineNodes[#lineNodes + 1] = buildLineBlock(info.line, blockSpec, {
+          key = "current-" .. tostring(info.index),
+          secondaryText = secondary,
+          secondaryMarquee = secondary ~= "" and shouldMarquee(secondary, resolveFontSize(true, fontScale)) and not vertical,
+          marquee = shouldMarquee(info.line.text, resolveFontSize(false, fontScale)),
+          position = position,
+          useGradient = karaokeEnabled and info.synced and useGradient and perCharFill,
+          solid = not karaokeEnabled or not info.synced
+            or (fillEffect ~= "karaoke" and fillEffect ~= "cascade" and fillEffect ~= "wave")
+            or not perCharFill,
+          cascade = animation == "cascade",
+          wave = animation == "wave",
+          typewriter = animation == "typewriter",
+          blink = animation == "blink",
+          cue = info.cue == true,
         })
         if showSecondaryRow then
-          lineNodes[#lineNodes + 1] = buildLineRow({ text = secondary }, {
-            key = "secondary-" .. tostring(info.index),
-            marquee = secondary ~= "" and shouldMarquee(secondary),
-            solid = true,
-            dim = true,
-            secondary = true,
-            opacity = secondary ~= "" and math.min(0.82, opacity) or 0,
-            fontScale = fontScale,
-            compact = not vertical and doubleLineAutoFit,
-          })
           renderLineGap = effectiveLineGap
           if not vertical and doubleLineAutoFit then renderTextHeight = doubleLineHeightBudget end
         end
@@ -574,7 +855,7 @@ local function render()
       local label = getFallbackLabel()
       lineNodes[1] = buildLineRow(label, {
         key = "fallback",
-        marquee = shouldMarquee(label),
+        marquee = shouldMarquee(label, resolveFontSize(false, 1)),
         solid = true,
       })
     end
@@ -654,8 +935,11 @@ function update()
     outgoingLine = displayedLine
     displayKey = nextKey
     transitionElapsed = animation == "none" and FADE_OUT_MS + FADE_IN_MS or 0
-    marqueeElapsed = 0
     smoothProgress = info and info.progress or 0
+    if animation == "random" then
+      currentAnimationName = pickRandomAnimation(currentAnimationName)
+      currentAnimationPreset = ANIMATION_PRESETS[currentAnimationName] or ANIMATION_PRESETS.karaoke
+    end
   else
     local target = info and info.progress or 0
     smoothProgress = smoothProgress + (target - smoothProgress) * math.min(1, delta * 8)
@@ -664,9 +948,25 @@ function update()
 
   if playing then
     transitionElapsed = transitionElapsed + delta * 1000
-    local text = showMode == "track" and getTrackLabel() or (info and info.line.text or "")
-    local secondary = showMode ~= "track" and info and secondaryText(info.line) or ""
-    if shouldMarquee(text) or (secondary ~= "" and shouldMarquee(secondary)) then
+    local text, secondary, marqueeFontScale
+    if showMode == "track" then
+      text = getTrackLabel()
+      secondary = ""
+      marqueeFontScale = 1
+    else
+      text = info and info.line.text or ""
+      secondary = info and secondaryText(info.line) or ""
+      local showSecondary = info ~= nil and secondaryRowEnabled(secondary)
+        and not info.line.cue and not info.cue
+      marqueeFontScale = compactMetrics(showSecondary, vertical)
+    end
+    local marqueeText = text .. "\u{1}" .. secondary .. "\u{1}" .. tostring(showMode)
+    if marqueeText ~= lastMarqueeText then
+      lastMarqueeText = marqueeText
+      marqueeElapsed = 0
+    end
+    if shouldMarquee(text, resolveFontSize(false, marqueeFontScale))
+      or (secondary ~= "" and shouldMarquee(secondary, resolveFontSize(true, marqueeFontScale))) then
       marqueeElapsed = marqueeElapsed + delta
     end
   end

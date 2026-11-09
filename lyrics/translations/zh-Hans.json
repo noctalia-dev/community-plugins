@@ -20,17 +20,25 @@
       "label": "当前歌词颜色"
     },
     "animation": {
-      "description": "歌词换行时使用的动画。",
+      "description": "歌词逐字填充和换行时的动画。",
       "label": "歌词动画",
       "options": {
-        "blink": "闪烁显现",
-        "cascade": "字符级联淡入",
-        "fade": "仅淡入淡出",
-        "karaoke": "逐字渐变和淡入淡出",
-        "none": "无动画",
-        "pulse": "脉冲淡入",
-        "typewriter": "打字机显现",
-        "wave": "字符波浪显现"
+        "karaoke": "逐字填充 + 淡入",
+        "slide_up": "上滑推入",
+        "slide_down": "下滑推入",
+        "slide_left": "左向掠入",
+        "slide_right": "右向掠入",
+        "spring": "弹性推入",
+        "drop": "掉落弹跳",
+        "zoom": "拉近聚焦",
+        "flip": "翻转（Y 轴）",
+        "spin": "旋转进入",
+        "squash": "压扁回弹",
+        "cascade": "字符级联",
+        "wave": "字符波浪",
+        "typewriter": "打字机",
+        "random": "每行随机",
+        "none": "无动画"
       }
     },
     "apple_developer_token": {
@@ -45,12 +53,8 @@
       "description": "需要订阅授权的歌词可填写 Music-User-Token。",
       "label": "Apple Music 用户令牌"
     },
-    "auto_source_routing": {
-      "description": "当播放器或媒体 URL 匹配已知服务（网易云、QQ 音乐、酷狗/MoeKoe、SPlayer、Spotify）时，优先按顺序尝试该词源；只调整顺序，不会增加请求。",
-      "label": "优先匹配对应词源"
-    },
     "char_width": {
-      "description": "用于计算歌词显示窗口和滚动速度的近似字符宽度。",
+      "description": "单个字符的近似像素宽度；设为歌词字号（默认 14）可让\"最大字符数\"按全角字符计算。",
       "label": "字符宽度（像素）"
     },
     "cover_radius": {
@@ -83,9 +87,29 @@
         "follow": "跟随界面字体"
       }
     },
+    "show_cues": {
+      "description": "在前奏和间奏期间显示逐字点亮的提示字符。",
+      "label": "显示前奏/间奏提示"
+    },
     "cue_text": {
       "description": "前奏和间奏期间逐字点亮的文字或字符。",
       "label": "前奏/间奏字符"
+    },
+    "intro_min_ms": {
+      "description": "仅当第一句歌词在此毫秒数之后开始时，才显示前奏提示。",
+      "label": "前奏提示阈值"
+    },
+    "interlude_gap_ms": {
+      "description": "相邻歌词起始时间超过此毫秒数时，按长间奏估算上一句歌词的结束时间。",
+      "label": "长间奏判定间隔"
+    },
+    "interlude_min_ms": {
+      "description": "歌词结束后静默超过此毫秒数时，才显示间奏提示。",
+      "label": "间奏提示阈值"
+    },
+    "interlude_lead_ms": {
+      "description": "提前多少毫秒显示间奏提示。",
+      "label": "间奏提示提前量"
     },
     "custom_json_field": {
       "description": "JSON 响应中的歌词字段，支持点号路径，例如 data.lyric；留空则按纯 LRC 解析。",
@@ -142,14 +166,6 @@
         "thin": "极细"
       }
     },
-    "force_karaoke": {
-      "description": "当某行没有逐字时间时，恢复旧行为：按行时长把高亮均匀分配到每个字，而不是整行同时高亮。",
-      "label": "无逐字时强制逐字"
-    },
-    "format_priority": {
-      "description": "同一词源内按从高到低尝试的格式：yrc、qrc、krc、ttml、richsync、syllables、enhanced_lrc、lrc、plain；词源只会尝试它能解析的格式。",
-      "label": "歌词格式优先级"
-    },
     "glyph": {
       "label": "图标"
     },
@@ -167,33 +183,13 @@
       "description": "设置未唱歌词、暂停状态和次要歌词行的颜色。",
       "label": "未唱歌词颜色"
     },
-    "interlude_gap_ms": {
-      "description": "相邻歌词起始时间超过此毫秒数时，按长间奏估算上一句歌词的结束时间。",
-      "label": "长间奏判定间隔"
-    },
-    "interlude_lead_ms": {
-      "description": "提前多少毫秒显示间奏提示。",
-      "label": "间奏提示提前量"
-    },
-    "interlude_min_ms": {
-      "description": "歌词结束后静默超过此毫秒数时，才显示间奏提示。",
-      "label": "间奏提示阈值"
-    },
-    "intro_min_ms": {
-      "description": "仅当第一句歌词在此毫秒数之后开始时，才显示前奏提示。",
-      "label": "前奏提示阈值"
-    },
-    "karaoke_active_color": {
-      "description": "有逐字时间的行中，已唱字符的颜色；行级歌词仍使用普通已唱颜色。",
-      "label": "逐字已唱颜色"
-    },
     "karaoke_enabled": {
-      "description": "使用词源逐字时间或模拟行进度进行逐字高亮。",
+      "description": "有逐字时间时启用逐字卡拉 OK；没有逐字时间的行默认整行高亮，除非开启“无逐字时强制逐字”。",
       "label": "卡拉 OK 逐字高亮"
     },
-    "karaoke_inactive_color": {
-      "description": "有逐字时间的行中，未唱字符的颜色；行级歌词仍使用普通未唱颜色。",
-      "label": "逐字未唱颜色"
+    "force_karaoke": {
+      "description": "当某行没有逐字时间时，恢复旧行为：按行时长把高亮均匀分配到每个字，而不是整行同时高亮。",
+      "label": "无逐字时强制逐字"
     },
     "line_gap": {
       "description": "原文、翻译、罗马音和上下文歌词之间的间距。",
@@ -224,8 +220,20 @@
       }
     },
     "lyrics_sources": {
-      "description": "按从上到下的顺序尝试词源，可填写 lrclib、netease、splayer、qqmusic、kugou、qishui、apple_music、spotify、musixmatch、mpris 或 custom。",
+      "description": "按从上到下的顺序尝试词源，可填写 lrclib、netease、splayer、splayer_next、qqmusic、kugou、qishui、apple_music、spotify、musixmatch、mpris 或 custom。",
       "label": "自动词源顺序"
+    },
+    "format_priority": {
+      "description": "同一词源内按从高到低尝试的格式：yrc、qrc、krc、ttml、richsync、syllables、enhanced_lrc、lrc、plain；词源只会尝试它能解析的格式。",
+      "label": "歌词格式优先级"
+    },
+    "source_format_priority": {
+      "description": "可选的按词源覆盖格式顺序，例如 netease=yrc,krc,lrc 或 qqmusic=qrc,lrc；留空则使用全局格式优先级。",
+      "label": "按词源覆盖格式"
+    },
+    "auto_source_routing": {
+      "description": "当播放器或媒体 URL 匹配已知服务（网易云、QQ 音乐、酷狗/MoeKoe、SPlayer、Spotify）时，优先按顺序尝试该词源；只调整顺序，不会增加请求。",
+      "label": "优先匹配对应词源"
     },
     "marquee_speed": {
       "description": "长歌词每秒滚动的像素数。",
@@ -302,29 +310,12 @@
         "translation_first": "翻译优先，其次罗马音"
       }
     },
-    "settings_page": {
-      "description": "一次只显示一个功能分组；其他分类的设置值会保留。",
-      "label": "设置分类",
-      "options": {
-        "appearance": "封面与颜色",
-        "basic": "基础显示",
-        "cues": "起始/间奏提示",
-        "karaoke": "卡拉OK与动画",
-        "lyrics": "歌词与翻译",
-        "scroll": "滚动与宽度",
-        "typography": "字体与排版"
-      }
-    },
     "show_artist": {
       "label": "显示歌手"
     },
     "show_cover": {
       "description": "在歌词旁显示当前歌曲的专辑封面。",
       "label": "显示专辑封面"
-    },
-    "show_cues": {
-      "description": "在前奏和间奏期间显示逐字点亮的提示字符。",
-      "label": "显示前奏/间奏提示"
     },
     "show_glyph": {
       "description": "没有专辑封面时显示设置的图标。",
@@ -337,10 +328,6 @@
     "show_translation": {
       "description": "允许翻译歌词出现在第二行。",
       "label": "显示翻译"
-    },
-    "source_format_priority": {
-      "description": "可选的按词源覆盖格式顺序，例如 netease=yrc,krc,lrc 或 qqmusic=qrc,lrc；留空则使用全局格式优先级。",
-      "label": "按词源覆盖格式"
     },
     "splayer_api_url": {
       "description": "SPlayer 本地服务地址，默认 http://127.0.0.1:25884。直接读取 SPlayer 当前加载的完整歌词数据。",
@@ -377,6 +364,27 @@
         "zh-hans": "简体中文",
         "zh-hant": "繁体中文"
       }
+    },
+    "settings_page": {
+      "label": "设置分类",
+      "description": "一次只显示一个功能分组；其他分类的设置值会保留。",
+      "options": {
+        "basic": "基础显示",
+        "lyrics": "歌词与翻译",
+        "karaoke": "卡拉OK与动画",
+        "appearance": "封面与颜色",
+        "typography": "字体与排版",
+        "scroll": "滚动与宽度",
+        "cues": "起始/间奏提示"
+      }
+    },
+    "karaoke_active_color": {
+      "label": "逐字已唱颜色",
+      "description": "有逐字时间的行中，已唱字符的颜色；行级歌词仍使用普通已唱颜色。"
+    },
+    "karaoke_inactive_color": {
+      "label": "逐字未唱颜色",
+      "description": "有逐字时间的行中，未唱字符的颜色；行级歌词仍使用普通未唱颜色。"
     }
   },
   "shortcut": {
