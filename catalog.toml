@@ -1092,8 +1092,8 @@ rev = "12e0501c445c2bd44033e31b7e4b5feeec76ba55"
 [[plugin]]
 id = "icefish/phone-connect"
 name = "Phone Connect"
-version = "0.2.1"
-updated_at = 1792070338
+version = "0.2.2"
+updated_at = 1794264677
 added_at = 1785500232
 author = "icefish"
 license = "MIT"
@@ -1475,8 +1475,8 @@ tags = ["launcher", "productivity", "development"]
 [[plugin]]
 id = "weinguyen/9router-control"
 name = "9Router Control"
-version = "0.1.0"
-updated_at = 1786216383
+version = "0.1.1"
+updated_at = 1794264677
 added_at = 1786216383
 author = "weinguyen"
 license = "MIT"
@@ -2825,13 +2825,13 @@ rev = "b0a3f2d23021c71304b06e26a41df68287c4c69b"
 [[plugin]]
 id = "alitura1/ayet-kosesi"
 name = "Ayet Köşesi"
-version = "1.5.1"
-updated_at = 1792983494
+version = "1.5.2"
+updated_at = 1794264677
 added_at = 1788733836
 author = "alitura1"
 license = "MIT"
 icon = "book"
-description = "Akıl Kuran'ın public Günün Ayeti API'sinden günlük ayeti ve seçili meali masaüstünde gösteren Noctalia eklentisi."
+description = "Display the daily Quran verse and selected translation from Akıl Kuran's public API on the desktop."
 plugin_api = 43
 tags = ["desktop", "time", "utility"]
 
@@ -3408,8 +3408,8 @@ tags = ["ai", "wallpaper", "desktop"]
 [[plugin]]
 id = "nilsonlinux/world-radio"
 name = "World Radio"
-version = "1.2.2"
-updated_at = 1793061396
+version = "1.2.3"
+updated_at = 1794264677
 added_at = 1789561212
 author = "Nilsonlinux"
 license = "MIT"
@@ -3478,8 +3478,8 @@ tags = ["launcher", "utility"]
 [[plugin]]
 id = "cwhirly/lunar-calendar"
 name = "Lunar Calendar"
-version = "1.0.0"
-updated_at = 1789562527
+version = "1.0.1"
+updated_at = 1794264677
 added_at = 1789562527
 author = "cwhirly"
 license = "MIT"
@@ -3891,8 +3891,8 @@ rev = "e6c0ef7dda45020c8b470f87f798374900bb7c82"
 [[plugin]]
 id = "notoxus/vietnamese-lunar-calendar"
 name = "Vietnamese Lunar Calendar"
-version = "1.1.2"
-updated_at = 1792983494
+version = "1.1.3"
+updated_at = 1794264677
 added_at = 1790341835
 author = "notoxus"
 license = "MIT"
@@ -4141,8 +4141,8 @@ tags = ["bar", "panel", "service", "shortcut", "recording", "video"]
 [[plugin]]
 id = "surumeika1987/vrchat-status"
 name = "VRChat Status"
-version = "0.1.0"
-updated_at = 1791074889
+version = "0.1.1"
+updated_at = 1794264677
 added_at = 1791074889
 author = "surumeika1987"
 license = "MIT"
@@ -5242,13 +5242,13 @@ tags = ["bar", "panel", "service", "network", "indicator"]
 [[plugin]]
 id = "nezerkill/honor-earbuds"
 name = "Honor Earbuds"
-version = "1.1.0"
-updated_at = 1793319576
+version = "1.1.1"
+updated_at = 1794264677
 added_at = 1793133516
 author = "nezerkill"
 license = "MIT"
 icon = "headphones"
-description = "Управление шумоподавлением и батареей для наушников серии HONOR CHOICE (X5, X5 Pro, X3, X3 Lite, X2, Moecen)"
+description = "Noise cancellation and battery monitoring for HONOR CHOICE earbuds (X5, X5 Pro, X3, X3 Lite, X2, Moecen)."
 plugin_api = 43
 tags = ["audio", "bar", "panel", "service", "hardware", "indicator"]
 
@@ -5313,8 +5313,8 @@ tags = ["bar", "panel", "service", "system", "nixos", "indicator"]
 [[plugin]]
 id = "wennington/cc-usage"
 name = "Command Code Usage"
-version = "1.0.1"
-updated_at = 1793549775
+version = "1.0.2"
+updated_at = 1794264677
 added_at = 1793478920
 author = "wennington"
 license = "MIT"
@@ -5456,8 +5456,8 @@ tags = ["hardware", "system", "utility", "shortcut"]
 [[plugin]]
 id = "goldesquemoon/mic-denoise"
 name = "Mic Denoise"
-version = "1.4.0"
-updated_at = 1793883489
+version = "1.4.1"
+updated_at = 1794264677
 added_at = 1793736720
 author = "goldesquemoon"
 license = "MIT"
@@ -5469,8 +5469,8 @@ tags = ["audio", "utility"]
 [[plugin]]
 id = "goldesquemoon/screen-mirror"
 name = "Screen Mirror"
-version = "1.1.1"
-updated_at = 1794145015
+version = "1.1.2"
+updated_at = 1794264677
 added_at = 1793736701
 author = "goldesquemoon"
 license = "MIT"
@@ -5482,8 +5482,8 @@ tags = ["niri", "system", "utility", "shortcut"]
 [[plugin]]
 id = "goldesquemoon/typing-stats"
 name = "Typing Stats"
-version = "1.3.0"
-updated_at = 1793883461
+version = "1.3.1"
+updated_at = 1794264677
 added_at = 1793746464
 author = "goldesquemoon"
 license = "MIT"
