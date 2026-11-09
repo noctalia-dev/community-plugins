@@ -514,8 +514,8 @@ local function scan(force)
   local mountinfo = noctalia.readFile("/proc/self/mountinfo") or ""
   local sig = signature(names, mountinfo)
   if force or sig ~= lastSignature then
-    lastSignature = sig
     fullScan(candidates, mountinfo)
+    lastSignature = sig -- only now: a scan cut short is retried on the next tick
   end
   refreshLive()
   publish()
@@ -576,6 +576,7 @@ end
 
 local function clearPending(dev)
   pending[dev] = nil
+  publish() -- before the scan: if it overruns the CPU budget, the action must not look stuck
   scan(true)
 end
 
@@ -848,6 +849,9 @@ end)
 function update()
   local seconds = math.clamp(tonumber(noctalia.getConfig("scan_interval")) or 2, 1, 30)
   noctalia.setUpdateInterval(seconds * 1000)
+  -- A scan aborted by the host's CPU budget never reaches its own reset, and
+  -- no scan can be running at the start of a tick.
+  scanning = false
   scan()
 end
 
