@@ -247,14 +247,27 @@ local function emptySnapshot(state, detail)
   }
 end
 
+-- A per-event notification toggle. Defaults to on, so an unset value (plugin
+-- upgraded from before the toggles existed) keeps the previous behaviour.
+local function notifyEnabled(key)
+  return noctalia.getConfig(key) ~= false
+end
+
 -- Desktop notifications on meaningful transitions (folder done/error, device
 -- connect/disconnect). Only between two healthy snapshots, so a Syncthing
--- restart or plugin reload doesn't spray stale events.
+-- restart or plugin reload doesn't spray stale events. `notify_events` is the
+-- master switch; each event kind has its own toggle below it.
 local function notifyTransitions(old, new)
-  if noctalia.getConfig("notify_events") == false then
+  if not notifyEnabled("notify_events") then
     return
   end
   if not old then
+    return
+  end
+  local wantFolderSynced = notifyEnabled("notify_folder_synced")
+  local wantFolderError = notifyEnabled("notify_folder_error")
+  local wantDeviceConnection = notifyEnabled("notify_device_connection")
+  if not wantFolderSynced and not wantFolderError and not wantDeviceConnection then
     return
   end
   local healthy = { idle = true, syncing = true, paused = true, disconnected = true, error = true }
@@ -269,12 +282,16 @@ local function notifyTransitions(old, new)
   for _, f in new.folders do
     local prev = oldFolders[f.id]
     if prev then
-      if prev.state == "syncing" and f.state == "idle" then
+      if wantFolderSynced and prev.state == "syncing" and f.state == "idle" then
         noctalia.notify(noctalia.tr("toast.title"), noctalia.tr("notify.folder-done", { label = f.label }))
-      elseif f.state == "error" and prev.state ~= "error" then
+      elseif wantFolderError and f.state == "error" and prev.state ~= "error" then
         noctalia.notifyError(noctalia.tr("toast.title"), noctalia.tr("notify.folder-error", { label = f.label }))
       end
     end
+  end
+
+  if not wantDeviceConnection then
+    return
   end
 
   local oldDevices = {}

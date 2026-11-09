@@ -53,8 +53,8 @@ goes through `noctalia.http`.
 - **Desktop widget** (`desktop`): add it from the desktop-widgets editor. A
   compact card with state, counters, sync progress, and transfer rates.
 - **Notifications**: by default the service notifies when a folder finishes
-  syncing, reports an error, or a device connects/disconnects. Disable with
-  the **Event notifications** setting.
+  syncing, reports an error, or a device connects/disconnects. Each has its own
+  toggle, and **Event notifications** is the master switch.
 
 ## Settings
 
@@ -64,7 +64,10 @@ goes through `noctalia.http`.
 | `api_key` | `string` | `""` | REST API key. Empty = autodetect from config.xml. |
 | `config_path` | `file` | `""` | Explicit config.xml path for autodetection (advanced). |
 | `poll_interval` | `int` | `10` | Status refresh interval in seconds (2–300). |
-| `notify_events` | `bool` | `true` | Desktop notifications for folder done/error and device connect/disconnect. |
+| `notify_events` | `bool` | `true` | Master switch for desktop notifications. Off silences every event. |
+| `notify_folder_synced` | `bool` | `true` | Notify when a monitored folder finishes syncing. |
+| `notify_folder_error` | `bool` | `true` | Notify when a monitored folder reports an error. |
+| `notify_device_connection` | `bool` | `true` | Notify when a device connects or disconnects. |
 | `folders` | `string_list` | `[]` | Folder IDs to monitor. Empty = all folders (advanced). |
 | `insecure_tls` | `bool` | `false` | Accept self-signed certificates on HTTPS GUI URLs (advanced). |
 | `show_pending` | `bool` | `true` | Bar widget: show completion %/pending count while syncing. |
