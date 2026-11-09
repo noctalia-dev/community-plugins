@@ -1,6 +1,6 @@
 id = "h465855hgg/lyrics"
 name = "Lyrics"
-version = "1.7.0"
+version = "1.7.1"
 plugin_api = 52
 author = "h465855hgg"
 license = "MIT"
@@ -80,6 +80,18 @@ label_key = "settings.auto_source_routing.label"
 description_key = "settings.auto_source_routing.description"
 default = true
 advanced = true
+
+# How to treat multiple lyric matches from one source.
+[[setting]]
+key = "candidate_mode"
+type = "select"
+label_key = "settings.candidate_mode.label"
+description_key = "settings.candidate_mode.description"
+default = "choose"
+options = [
+  { value = "choose", label_key = "settings.candidate_mode.options.choose" },
+  { value = "best", label_key = "settings.candidate_mode.options.best" },
+]
 
 [[setting]]
 key = "translation_language"
@@ -236,7 +248,7 @@ entry = "lyrics_service.luau"
 id = "selector"
 entry = "lyrics_selector.luau"
 width = 520
-height = 210
+height = 380
 placement = "attached"
 open_near_click = true
 
@@ -262,8 +274,8 @@ scroll_down = "plugin h465855hgg/lyrics:service all previous"
   options = [
     { value = "basic", label_key = "settings.settings_page.options.basic" },
     { value = "lyrics", label_key = "settings.settings_page.options.lyrics" },
-    { value = "karaoke", label_key = "settings.settings_page.options.karaoke" },
     { value = "appearance", label_key = "settings.settings_page.options.appearance" },
+    { value = "karaoke", label_key = "settings.settings_page.options.karaoke" },
     { value = "typography", label_key = "settings.settings_page.options.typography" },
     { value = "scroll", label_key = "settings.settings_page.options.scroll" },
     { value = "cues", label_key = "settings.settings_page.options.cues" },
@@ -283,6 +295,14 @@ scroll_down = "plugin h465855hgg/lyrics:service all previous"
   visible_when = { key = "settings_page", values = ["basic"] }
 
   [[widget.setting]]
+  key = "selector_enabled"
+  type = "bool"
+  label_key = "settings.selector_enabled.label"
+  description_key = "settings.selector_enabled.description"
+  default = true
+  visible_when = { key = "settings_page", values = ["basic"] }
+
+  [[widget.setting]]
   key = "text_alignment"
   type = "select"
   label_key = "settings.text_alignment.label"
@@ -293,7 +313,7 @@ scroll_down = "plugin h465855hgg/lyrics:service all previous"
     { value = "center", label_key = "settings.text_alignment.options.center" },
     { value = "right", label_key = "settings.text_alignment.options.right" },
   ]
-  visible_when = { key = "settings_page", values = ["basic"] }
+  visible_when = { key = "settings_page", values = ["typography"] }
 
   [[widget.setting]]
   key = "show_artist"
@@ -323,7 +343,7 @@ scroll_down = "plugin h465855hgg/lyrics:service all previous"
   label_key = "settings.show_cover.label"
   description_key = "settings.show_cover.description"
   default = true
-  visible_when = { key = "settings_page", values = ["basic"] }
+  visible_when = { key = "settings_page", values = ["appearance"] }
 
   [[widget.setting]]
   key = "hide_when_paused"

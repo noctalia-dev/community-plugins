@@ -1,4 +1,4 @@
-# Noctalia Lyrics 1.7.0
+# Noctalia Lyrics 1.7.1
 
 Synchronized lyrics for the Noctalia bar, with multiple MPRIS players,
 translation and romanization layers, configurable sources, karaoke highlighting,
@@ -46,9 +46,23 @@ in its bar settings:
 Override or clear any binding per widget in the bar widget's Actions section.
 The left-click command is broadcast to every lyrics widget, and only the
 instance under the pointer changes its view. When LRCLIB returns multiple
-matches, open the `selector` panel from the
-`open_selector` control-center shortcut and apply another result. The widget no
-longer opens the selector on hover; it can also be opened directly through IPC:
+matches, the `selector` panel lists every result as a clickable row with the
+current one highlighted, its source label, and a `Δ` offset when the candidate's
+duration differs from the playing track. The automatically chosen result
+prefers the closest duration before album identity, so a longer album version
+does not win over the version whose length matches the track. Alternates are collected from any
+source that returns more than one match: LRCLIB multiple results, the ranked
+NetEase and QQ Music search hits, and Kugou lyric versions. Rows also show the
+known format label (`LRC` / `PLAIN`), and the picker footer reports the format
+actually applied, such as `Applied: YRC · word`. There are three ways to open
+it:
+
+- hover the widget for about half a second (the `selector_enabled` widget
+  setting, on by default, only opens it when more than one result exists and
+  only once per hover; a hover-opened picker closes itself after a few seconds
+  of no interaction and applies nothing unless a row is clicked),
+- use the `open_selector` control-center shortcut,
+- or open it directly through IPC:
 
 ```sh
 noctalia msg panel-toggle h465855hgg/lyrics:selector
@@ -196,32 +210,43 @@ request directory before writing any credential-bearing file.
 
 The plugin settings control source selection and fallback order, translation
 language, lyric timing offset in milliseconds, MPRIS polling interval in
-milliseconds, player filters, and source credentials. Advanced settings also
-expose `format_priority` (lyric format order), `source_format_priority`
-(optional per-source overrides such as `netease=yrc,krc,lrc`), and
-`auto_source_routing` (prefer the source matching the active player/URL).
+milliseconds, player filters, and source credentials. Credential and
+source-specific fields are shown only when their matching source is selected;
+advanced fields such as `format_priority`, `source_format_priority`, and
+`auto_source_routing` follow Noctalia's show-advanced toggle.
+
+`candidate_mode` controls multiple matches: **Choose** shows the picker when a
+source returns several candidates, while **Best match** always uses the
+best-ranked result and disables the picker (the `open_selector` shortcut then
+only explains that the picker is disabled). If applying a candidate fails, the
+service automatically falls back to the best match; the picker's **Best match**
+button does the same manually.
 
 Per-widget settings are grouped by a **Settings category** selector at the top of
-the widget settings panel: Basic display, Lyrics and translation, Karaoke and
-animation, Cover and colors, Font and layout, Scrolling and width, and
-Intro/interlude cues. Only the selected category's controls are shown; the
-other categories keep their saved values. Noctalia's plugin manifest has no
-section-header support for widget settings, so the categories are implemented
-with `visible_when` instead of headers. The controls cover the fallback glyph,
-artist visibility, paused-state visibility, visibility when no lyrics are
-available, album-cover shape and size, primary, inactive, and secondary lyric
-colors, display mode, lyric layers, karaoke behavior (including forced karaoke
-for lines without word timings), scrolling, fixed lyric width, and the lyric
-animation (karaoke fill + fade, slide up/down, swoosh left/right, spring push,
-drop + bounce, zoom, flip, spin, squash, character cascade, character wave,
-typewriter, flip, spin, squash, random, or none),
-plus typography, spacing, padding, intro/interlude cue visibility and text, and
-text alignment. The Actions section lists the default left-click, right-click,
-and
-scroll bindings described above. Credential and source-specific fields are
-shown only when their matching source is selected; source order, credentials,
-polling, player filters, and other plugin-wide controls remain on the plugin
-page.
+the widget settings panel: Display & behavior, Lyrics, Cover & colors, Karaoke &
+animation, Font & layout, Scrolling & width, and Intro/interlude cues. Only the
+selected category's controls are shown; the other categories keep their saved
+values. Noctalia's plugin manifest has no section-header support for widget
+settings, so the categories are implemented with `visible_when` instead of
+headers.
+
+- **Display & behavior**: display mode, the hover-picker toggle, artist and
+  glyph visibility, and hiding while paused or when no lyrics are available.
+- **Lyrics**: translation/romanization layers, double line, secondary line
+  mode, and double-line fit/budget.
+- **Cover & colors**: album-cover visibility, shape, size, radius, and the
+  active, inactive, and secondary lyric colors.
+- **Karaoke & animation**: karaoke behavior, forced karaoke, the lyric
+  animation, per-character gradient, and the sung/unsung word colors.
+- **Font & layout**: font family and weight, primary/secondary sizes, style,
+  text alignment, line gap, and left/right padding.
+- **Scrolling & width**: scroll mode, marquee speed, max characters, max lines,
+  and character width.
+- **Intro/interlude cues**: cue visibility, cue text/font, and the intro/interlude
+  timing thresholds.
+
+The Actions section lists the default left-click, right-click, and scroll
+bindings described above.
 
 ### 1.5 configuration change
 
@@ -233,9 +258,10 @@ settings remain plugin-wide.
 ## Feature test checklist
 
 The plugin settings page contains source selection, translation language,
-timing, polling, player filters, and credentials under Advanced. Each widget has
-a Settings category selector that shows one functional group at a time
-(display, lyrics, karaoke, cover/colors, font/layout, scrolling, cues).
+timing, polling, player filters, credentials, and `candidate_mode`. Each widget
+has a Settings category selector that shows one functional group at a time
+(display/behavior, lyrics, cover/colors, karaoke/animation, font/layout,
+scrolling, cues).
 
 1. Language: change Noctalia's global language and reload the config. Plugin
    settings and runtime text follow the host language. This plugin ships English,
@@ -269,9 +295,15 @@ a Settings category selector that shows one functional group at a time
 14. Layout: test `max_chars` and `text_alignment` with short and long lyrics,
     plus `padding_left`, `padding_right`, and `line_gap` on horizontal and vertical
     bars.
-15. LRCLIB selection: play a track with multiple results, open the selector from
-    its shortcut or IPC, and switch between synchronized and plain entries without
-    changing tracks.
+15. Multi-source selection: play a track with multiple LRCLIB results (and
+    another with multiple NetEase/QQ Music search hits) and hover the widget
+    (`selector_enabled` on): the picker opens once, lists every result with its
+    source, duration, sync state, and `Δ` offsets for duration mismatches,
+    highlights the current one, and auto-closes after a few seconds of
+    inactivity. The automatically chosen result prefers the closest duration.
+    Also open it from the shortcut or IPC, switch between synchronized and plain
+    entries without changing tracks, and turn `selector_enabled` off to confirm
+    hovering no longer opens it.
 16. Cues: toggle `show_cues` and verify the widget hides cue text but keeps lyrics
     visible; adjust the cue thresholds under the widget's Intro/interlude cues category.
 17. Actions: open the widget's Actions section and confirm the left, right,
@@ -296,10 +328,9 @@ a Settings category selector that shows one functional group at a time
     widget's karaoke settings. Off: the whole line highlights at once. On: the
     old character-by-character fill returns for lines without word timings.
 23. Settings categories: switch the widget's Settings category selector between
-    Basic display, Lyrics and translation, Karaoke and animation, Cover and
-    colors, Font and layout, Scrolling and width, and Intro/interlude cues.
-    Only the selected category's controls appear; values are kept when switching
-    back.
+    Display & behavior, Lyrics, Cover & colors, Karaoke & animation, Font &
+    layout, Scrolling & width, and Intro/interlude cues. Only the selected
+    category's controls appear; values are kept when switching back.
 
 ## External protocol
 

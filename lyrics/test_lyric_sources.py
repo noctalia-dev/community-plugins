@@ -48,6 +48,8 @@ class LrclibAdapterTest(unittest.TestCase):
         self.assertEqual([item["id"] for item in result["candidates"]], ["20", "10"])
         self.assertNotIn("plainLyrics", result["candidates"][0])
         self.assertTrue(result["candidates"][0]["synced"])
+        self.assertEqual(result["candidates"][0]["format"], "lrc")
+        self.assertEqual(result["candidates"][1]["format"], "plain")
 
     @mock.patch("lyric_sources.itunes_cover", return_value="")
     @mock.patch("lyric_sources.request_json")
@@ -105,6 +107,30 @@ class LrclibAdapterTest(unittest.TestCase):
         ranked = lyric_sources.lrclib_candidates(results, self.track)
 
         self.assertEqual([item["id"] for item in ranked], [10, 30])
+
+    def test_prefers_duration_match_over_album_identity(self):
+        results = [
+            {
+                "id": 30,
+                "trackName": "Can't Stop",
+                "artistName": "Red Hot Chili Peppers",
+                "albumName": "By the Way",
+                "duration": 300,
+                "syncedLyrics": "[00:01.00]Long album version",
+            },
+            {
+                "id": 40,
+                "trackName": "Can't Stop",
+                "artistName": "Red Hot Chili Peppers",
+                "albumName": "Other release",
+                "duration": 269,
+                "syncedLyrics": "[00:01.00]Matching length",
+            },
+        ]
+
+        ranked = lyric_sources.lrclib_candidates(results, self.track)
+
+        self.assertEqual([item["id"] for item in ranked], [40, 30])
 
     def test_filters_missing_and_duplicate_candidate_ids(self):
         duplicate = dict(self.results[1])
