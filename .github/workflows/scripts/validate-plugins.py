@@ -12,6 +12,12 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
+from langdetect import DetectorFactory, detect_langs
+from langdetect.lang_detect_exception import LangDetectException
+
+
+# Make probabilistic language detection reproducible in CI and local runs.
+DetectorFactory.seed = 0
 
 DEFAULT_ROOT = Path(__file__).resolve().parents[3]
 SEMVER_RE = re.compile(r"^\d+\.\d+\.\d+$")
@@ -264,6 +270,64 @@ def rel(root: Path, path: Path) -> str:
         return path.relative_to(root).as_posix()
     except ValueError:
         return path.as_posix()
+
+
+def non_english_language(text: str, *, description: bool = False) -> str | None:
+    """Flag clear foreign prose, not short technical labels or Unicode alone."""
+    letters = sum(char.isalpha() for char in text)
+    non_ascii_letters = sum(char.isalpha() and not char.isascii() for char in text)
+    if letters < (40 if description else 100) and non_ascii_letters < 12:
+        return None
+    try:
+        languages = detect_langs(text)
+    except LangDetectException:
+        return None  # No language features (for example, an identifier or number).
+    best = languages[0]
+    # Uncertainty between two foreign languages is not uncertainty about English.
+    foreign_confidence = sum(language.prob for language in languages if language.lang != "en")
+    return best.lang if best.lang != "en" and foreign_confidence >= 0.99 else None
+
+
+def readme_prose(markdown: str) -> list[tuple[int, str]]:
+    """Extract prose blocks with original line numbers, excluding code and URLs."""
+    blocks: list[tuple[int, str]] = []
+    paragraph: list[str] = []
+    start = 0
+    fence_char = ""
+    fence_length = 0
+    for number, line in enumerate(markdown.splitlines(), 1):
+        if fence_char:
+            if re.fullmatch(rf" {{0,3}}{re.escape(fence_char)}{{{fence_length},}}\s*", line):
+                fence_char = ""
+            continue
+        opening = FENCE_OPEN_RE.match(line)
+        if opening:
+            if paragraph:
+                blocks.append((start, " ".join(paragraph)))
+                paragraph = []
+            fence = opening.group(1)
+            fence_char, fence_length = fence[0], len(fence)
+            continue
+        # Four-space/tab-indented Markdown is code, not authored prose.
+        if line.startswith(("    ", "\t")):
+            continue
+        line = INLINE_CODE_RE.sub(" ", line)
+        line = re.sub(r"!?\[([^\]]*)\]\([^)]*\)", r"\1", line)
+        line = re.sub(r"https?://\S+", " ", line)
+        separate = re.match(r"^\s*(?:#{1,6}\s|[-*+]\s|\d+\.\s|\|)", line)
+        if not line.strip() or separate:
+            if paragraph:
+                blocks.append((start, " ".join(paragraph)))
+                paragraph = []
+            if line.strip():
+                blocks.append((number, line))
+        else:
+            if not paragraph:
+                start = number
+            paragraph.append(line)
+    if paragraph:
+        blocks.append((start, " ".join(paragraph)))
+    return blocks
 
 
 def raw_html_line(markdown: str) -> int | None:
@@ -641,6 +705,13 @@ class Validator:
                 manifest_path,
                 f"root field 'description' is {length} characters; "
                 f"keep catalog descriptions at or below {DESCRIPTION_MAX_CHARS}",
+            )
+        language = non_english_language(value, description=True)
+        if language:
+            self.add_error(
+                manifest_path,
+                f"root field 'description' must be English (detected {language}); "
+                "keep localized text in translations/",
             )
 
     def validate_root_fields(self, manifest_path: Path, manifest: dict[str, Any]) -> None:
@@ -1321,6 +1392,32 @@ class Validator:
                 f"Export one with {THUMBNAIL_GENERATOR_URL}",
             )
 
+    def validate_readme_language(self, plugin_dir: Path) -> None:
+        for readme in sorted(plugin_dir.rglob("*")):
+            if not readme.is_file() or not readme.name.casefold().startswith("readme"):
+                continue
+            if re.fullmatch(
+                r"readme[._-][a-z]{2}(?:[-_][a-z]{2,4})?\.(?:md|rst|txt)",
+                readme.name.casefold(),
+            ):
+                self.add_error(readme, "localized README copies are not allowed; keep README prose in English")
+                continue
+            if readme.suffix.casefold() not in {"", ".md", ".rst", ".txt"}:
+                continue
+            try:
+                contents = readme.read_text(encoding="utf-8")
+            except UnicodeDecodeError:
+                self.add_error(readme, "must be UTF-8 text")
+                continue
+            for line, prose in readme_prose(contents):
+                language = non_english_language(prose)
+                if language:
+                    self.add_error(
+                        readme,
+                        f"line {line}: README prose must be English (detected {language}); "
+                        "remove translated sections and keep localized UI text in translations/",
+                    )
+
     def validate_readme(self, plugin_dir: Path, manifest: dict[str, Any]) -> None:
         readme = plugin_dir / "README.md"
         if not readme.is_file():
@@ -1544,6 +1641,7 @@ class Validator:
         self.validate_translation_keys(plugin_dir, translations)
         self.validate_required_files(manifest_path, plugin_dir)
         self.validate_thumbnail(manifest_path, plugin_dir)
+        self.validate_readme_language(plugin_dir)
         self.validate_readme(plugin_dir, manifest)
         self.validate_luau_api(plugin_dir, manifest.get("plugin_api"))
         self.validate_no_symlinks(manifest_path, plugin_dir)

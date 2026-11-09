@@ -78,17 +78,85 @@ class DescriptionTests(unittest.TestCase):
 
     def test_accepts_description_at_limit(self) -> None:
         self.assertEqual(
-            self.validate_description("x" * validate_plugins.DESCRIPTION_MAX_CHARS),
+            self.validate_description("Monitor battery status from the desktop.".ljust(validate_plugins.DESCRIPTION_MAX_CHARS)),
             [],
         )
 
     def test_rejects_description_over_limit(self) -> None:
         errors = self.validate_description(
-            "x" * (validate_plugins.DESCRIPTION_MAX_CHARS + 1)
+            "Monitor battery status from the desktop.".ljust(validate_plugins.DESCRIPTION_MAX_CHARS + 1)
         )
         self.assertEqual(len(errors), 1)
         self.assertIn("is 121 characters", errors[0])
         self.assertIn("at or below 120", errors[0])
+
+
+class EnglishProseTests(unittest.TestCase):
+    def test_rejects_non_english_descriptions_including_ascii(self) -> None:
+        for description in (
+            "Управление шумоподавлением и батареей для наушников серии HONOR CHOICE",
+            "Akıl Kuran'ın public Günün Ayeti API'sinden günlük ayeti masaüstünde gösteren eklenti.",
+            "Ce plugin permet de surveiller les mises a jour et de configurer les notifications.",
+            "Este plugin permite controlar los auriculares y consultar el nivel de bateria.",
+        ):
+            with self.subTest(description=description):
+                validator = validate_plugins.Validator(Path("/repo"))
+                validator.validate_description(Path("/repo/example/plugin.toml"), description)
+                self.assertTrue(any("must be English" in error for error in validator.errors))
+
+    def validate_language(self, files: dict[str, str]) -> list[str]:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plugin_dir = root / "example"
+            plugin_dir.mkdir()
+            for name, contents in files.items():
+                path = plugin_dir / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(contents, encoding="utf-8")
+            validator = validate_plugins.Validator(root)
+            validator.validate_readme_language(plugin_dir)
+            return validator.errors
+
+    def test_rejects_translated_section_with_original_line_number(self) -> None:
+        errors = self.validate_language({
+            "README.md": "# Example\n\nEnglish documentation.\n\n## Notes\n\n"
+            "状态栏胶囊里是进度条和数字：每输入一百个字符数字加一，进度条显示距离下一格还有多远。\n"
+        })
+        self.assertTrue(any("README.md: line 7:" in error and "must be English" in error for error in errors))
+
+    def test_rejects_ascii_foreign_paragraph_across_wrapped_lines(self) -> None:
+        errors = self.validate_language({
+            "tools/README.md": "# Tools\n\nCe plugin permet de surveiller les mises a jour\n"
+            "et de configurer les notifications pour tous les utilisateurs.\n"
+            "Vous pouvez choisir les options dans le panneau de configuration.\n"
+        })
+        self.assertTrue(any("tools/README.md: line 3:" in error and "must be English" in error for error in errors))
+
+    def test_rejects_foreign_prose_when_portuguese_and_spanish_are_ambiguous(self) -> None:
+        errors = self.validate_language({
+            "README.md": "Este plugin permite controlar os dispositivos e consultar o estado da bateria. "
+            "Pode configurar todas as notificacoes no painel de configuracao do sistema."
+        })
+        self.assertTrue(any("README prose must be English" in error for error in errors))
+
+    def test_rejects_localized_readme_copies(self) -> None:
+        for name in ("README.ru.md", "README-ja.md", "docs/readme.zh-Hans.md", "README_pt-BR.txt"):
+            with self.subTest(name=name):
+                errors = self.validate_language({name: "# Example\n"})
+                self.assertTrue(any("localized README copies" in error for error in errors))
+
+    def test_preserves_names_code_examples_urls_and_translations(self) -> None:
+        errors = self.validate_language({
+            "README.md": "# Rosé Pine\n\n"
+            "Ayet Köşesi displays the daily verse from Akıl Kuran's public API on the desktop.\n\n"
+            "This keyboard example converts `привет` without changing the surrounding documentation.\n\n"
+            "https://example.com/这是一个用于说明网址路径的中文字符串\n\n"
+            "```text\n这是示例数据，不是插件文档。这些内容应该保持不变，并且不能作为非英语说明文字拒绝。\n```\n\n"
+            "~~~text\nЭто пример данных, который не является документацией плагина и не должен проверяться.\n~~~\n\n"
+            "    Это пример данных, который не является документацией плагина и не должен проверяться.\n",
+            "translations/zh-Hans.json": '{"description": "这是中文翻译"}',
+        })
+        self.assertEqual(errors, [])
 
 
 class PluginConfigAccessorTests(unittest.TestCase):

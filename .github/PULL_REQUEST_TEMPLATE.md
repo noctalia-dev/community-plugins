@@ -53,6 +53,8 @@
 **Ready-for-review requirement:** Every box in this section must be checked. If any statement is not true, keep the
 pull request as Draft. An explanation does not replace a required check.
 
+Manifest descriptions and all README prose must be English; no translated sections or localized README copies.
+
 - [ ] The directory name matches the part of `id` after the `/` in `plugin.toml` exactly.
 - [ ] It ships `plugin.toml`, `README.md`, `thumbnail.webp`, and `translations/en.json`.
 - [ ] `README.md` follows the

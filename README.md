@@ -50,8 +50,8 @@ talk to the network as the user.
 That is a deliberate design choice, and it puts the burden on review. So:
 
 - **No obfuscated, minified, or generated code.** A reviewer must be able to read every line you ship.
-- **Write code identifiers and code comments in English.** This keeps contributed code accessible to reviewers and
-  maintainers. User-facing text can be localized through translation files.
+- **Write code identifiers, code comments, manifest descriptions, and README prose in English.** Do not ship
+  translated README sections or localized README copies. Localize user-facing text through translation files.
 - **No downloading and executing remote code.** Ship your logic in the repo, at a version people reviewed.
 - **Declare what you shell out to.** External commands go in `dependencies` in `plugin.toml` and get a mention in your
   README.
@@ -132,6 +132,19 @@ official plugins:
 
 CI derives ids, panel commands, launcher prefixes, dependencies, and whether settings exist from `plugin.toml`. Its
 error messages show the exact missing value, while maintainers review the usefulness and accuracy of the prose.
+
+CI also rejects confidently detected non-English manifest descriptions and README prose, including nested READMEs,
+and localized README filenames such as `README.ru.md` and `README-ja.md`. Proper names, quoted third-party output,
+and intentional language-specific examples/data are allowed; translation files are unaffected.
+The language screen skips code and URLs and uses conservative length/confidence thresholds, so a passing check is
+not proof of English. Reviewers also check short labels, ASCII-only foreign prose, and text embedded in examples.
+
+Run the same validator locally with its CI dependencies:
+
+```sh
+python3 -m pip install -r .github/workflows/scripts/PyGithub-requirement.txt
+python3 .github/workflows/scripts/validate-plugins.py
+```
 
 > [!WARNING]
 > **Editing existing translations must be done on [Noctalia Translate](https://i18n.noctalia.dev)**, the single
