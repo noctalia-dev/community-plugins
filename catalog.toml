@@ -301,8 +301,8 @@ rev = "681e8ee0576211ce3d1f6bb1de8cb2244bfc20bd"
 [[plugin]]
 id = "nightwatch75/file-search"
 name = "File Search"
-version = "0.5.0"
-updated_at = 1793736649
+version = "0.6.0"
+updated_at = 1794238246
 added_at = 1784296152
 author = "nightwatch75"
 license = "MIT"
@@ -5411,8 +5411,8 @@ tags = ["audio", "bar", "panel", "utility"]
 [[plugin]]
 id = "rylos/usb-manager"
 name = "USB Manager"
-version = "1.0.0"
-updated_at = 1793635887
+version = "1.0.1"
+updated_at = 1794238228
 added_at = 1793635887
 author = "Marco Ziliani"
 license = "MIT"
