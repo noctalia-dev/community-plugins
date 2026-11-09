@@ -1,0 +1,54 @@
+# Synced lyrics in the terminal, in the spirit of cava/unimatrix.
+#
+# Reads the active MPRIS player with playerctl, looks the lyrics up (LRCLIB,
+# NetEase and the source adapter of Noctalia's Lyrics plugin) and draws them in
+# a floating kitty window with a vertical scroll.
+#
+# Settings: only the bar glyph is left here. Everything else is changed in the
+# plugin panel (the one opened from the widget), which is where the user has it
+# at hand. Declaring them here duplicated them: Noctalia's settings page and
+# the panel offered the same thing with two different ranges, and the values
+# were read through two different paths. Noctalia keeps the saved keys in the
+# settings.toml even when the manifest does not declare them, and the panel
+# reads them back from there (see lib/settings.luau and `set-setting.py read`),
+# so nothing is lost.
+#
+# The Python script reads those same settings from the settings.toml, plus an
+# overrides file the panel writes for the quick switches.
+
+id = "faminec/lyrics-carousel"
+name = "Lyrics Carousel"
+version = "2.7.1"
+plugin_api = 34
+author = "faminec"
+license = "MIT"
+dependencies = ["kitty", "hyprland", "hyprctl", "playerctl", "python3", "python-pillow", "fc-match"]
+tags = ["music", "system", "utility", "media"]
+icon = "music"
+description = "Synced lyrics in a floating terminal window with karaoke and a large active line."
+
+# The only thing that is not in the panel: the icon belongs to the bar widget,
+# configured on this page and not in the lyrics window.
+[[setting]]
+key = "glyph"
+type = "glyph"
+label_key = "settings.glyph.label"
+description_key = "settings.glyph.description"
+default = "music"
+
+[[widget]]
+id = "widget"
+entry = "widget.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 470
+height = 760
+placement = "attached"
+open_near_click = true
+# The panel has text fields (X and Y): if it closed on an outside click, the
+# user would lose what they were typing. With exclusive focus the keys
+# (including the ones of the lyrics window) do not leak to the desktop.
+dismiss_on_outside_click = false
+keyboard_focus = "exclusive"

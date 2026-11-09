@@ -1,0 +1,163 @@
+{
+  "accent": "Active line colour",
+  "accent_blue": "blue",
+  "accent_custom": "custom",
+  "accent_cyan": "cyan",
+  "accent_green": "green",
+  "accent_magenta": "magenta",
+  "accent_primary": "primary",
+  "accent_red": "red",
+  "accent_yellow": "yellow",
+  "active_scale": "Active line size",
+  "anchor": "Window position",
+  "anchor_bottom_center": "bot mid",
+  "anchor_bottom_left": "bot left",
+  "anchor_bottom_right": "bot right",
+  "anchor_center": "center",
+  "anchor_left_center": "left mid",
+  "anchor_right_center": "right mid",
+  "anchor_top_center": "top mid",
+  "anchor_top_left": "top left",
+  "anchor_top_right": "top right",
+  "anchor_custom": "Custom…",
+  "close": "Close",
+  "direction": "Direction",
+  "down": "down",
+  "font_family": "Font",
+  "font_custom": "Other font…",
+  "font_custom_name": "Font name",
+  "font_hint": "Any installed font works: it is applied on the fly.",
+  "font_placeholder": "Departure Mono",
+  "font_size": "Size",
+  "footer": "Time bar",
+  "ghost": "Soft transition between lines",
+  "glyph": "Bar icon",
+  "header": "Header (title / artist)",
+  "height": "Height",
+  "hints": "Keyboard hints",
+  "karaoke": "Karaoke glow",
+  "launch": "Open the carousel",
+  "launch_failed": "Could not open the terminal.",
+  "marker": "Active line marker",
+  "offset_ms": "Lyrics offset (ms)",
+  "open_settings": "Open settings",
+  "section_color": "Colour",
+  "section_display": "Display",
+  "section_font": "Font",
+  "section_lyrics": "Lyrics",
+  "section_window": "Window",
+  "spacing": "Line spacing",
+  "settings": {
+    "accent": {
+      "description": "The primary colour follows the wallpaper; the rest are ANSI colours from the theme.",
+      "label": "Active line colour",
+      "primary": "Primary",
+      "green": "Green",
+      "yellow": "Yellow",
+      "blue": "Blue",
+      "magenta": "Magenta",
+      "cyan": "Cyan",
+      "red": "Red",
+      "custom": "Custom"
+    },
+    "active_scale": {
+      "description": "Size multiplier of the line being sung.",
+      "label": "Active line size"
+    },
+    "anchor": {
+      "description": "Where the window opens: center, top-left, bottom-right...",
+      "label": "Window position"
+    },
+    "custom_x": {
+      "description": "Custom horizontal position (only with custom position)",
+      "label": "X"
+    },
+    "custom_y": {
+      "description": "Custom vertical position (only with custom position)",
+      "label": "Y"
+    },
+    "custom_color": {
+      "description": "Hex colour (#rrggbb) used when the accent is \"custom\".",
+      "label": "Custom colour"
+    },
+    "direction": {
+      "description": "Down: the lyrics come from the top. Up: the lyrics come from the bottom.",
+      "down": "Down",
+      "label": "Scroll direction",
+      "up": "Up"
+    },
+    "font_family": {
+      "description": "Lyrics font. Any installed font is accepted.",
+      "label": "Font family"
+    },
+    "font_size": {
+      "description": "Size of the lyrics in pixels.",
+      "label": "Font size"
+    },
+    "footer": {
+      "description": "Show the elapsed time and the progress bar.",
+      "label": "Time bar"
+    },
+    "ghost": {
+      "description": "Smooth slide (~0.9 s) when the line changes. Off, the change is instant.",
+      "label": "Soft transition between lines"
+    },
+    "glyph": {
+      "description": "Icon shown in the bar.",
+      "label": "Bar glyph"
+    },
+    "header": {
+      "description": "Show the title, the artist and the status tags.",
+      "label": "Header"
+    },
+    "height": {
+      "description": "Height of the terminal window in pixels.",
+      "label": "Window height"
+    },
+    "hints": {
+      "description": "Show the keyboard shortcuts at the bottom.",
+      "label": "Keyboard hints"
+    },
+    "karaoke": {
+      "description": "Light up the active line character by character as the song plays.",
+      "label": "Karaoke glow"
+    },
+    "marker": {
+      "description": "Show a marker next to the line being sung.",
+      "label": "Active line marker"
+    },
+    "offset_ms": {
+      "description": "Shift the lyrics in milliseconds to fine tune the sync.",
+      "label": "Lyrics offset"
+    },
+    "spacing": {
+      "description": "Line spacing in the carousel.",
+      "label": "Line spacing"
+    },
+    "visible_above": {
+      "description": "How many lines are drawn above the active line.",
+      "label": "Visible lines above"
+    },
+    "visible_below": {
+      "description": "How many lines are drawn below the active line.",
+      "label": "Visible lines below"
+    },
+    "width": {
+      "description": "Width of the terminal window in pixels.",
+      "label": "Window width"
+    }
+  },
+  "subtitle": "Nothing is playing",
+  "title": "Lyrics Carousel",
+  "tooltip": "Lyrics carousel",
+  "up": "up",
+  "visible_above": "Lines above",
+  "visible_below": "Lines below",
+  "width": "Width",
+  "custom_x": "X",
+  "custom_y": "Y",
+  "custom_color": "Custom colour",
+  "color_placeholder": "#rrggbb",
+  "glyph_placeholder": "music",
+  "write_failed": "Could not save the setting."
+}
