@@ -38,17 +38,17 @@ local function renderEmpty()
       gap = 8,
       padding = 24,
     }, {
-      ui.glyph({ name = "music-off", size = 36, color = "on_surface_variant" }),
+      ui.glyph({ name = "music-off", size = 36, color = "on_surface_container" }),
       ui.label({
         text = noctalia.tr("panel.no-sources") or "No lyrics available for this track",
         fontSize = 13,
         fontWeight = "bold",
-        color = "on_surface_variant",
+        color = "on_surface_container",
       }),
       ui.label({
         text = "Start playing music with a supported player to see available lyrics",
         fontSize = 11,
-        color = "outline",
+        color = "outline_variant",
       }),
     }),
   }))
@@ -117,7 +117,7 @@ local function render()
           table.insert(previewRows, ui.label({
             text = "♪ " .. previewText,
             fontSize = 11,
-            color = isSelected and "on_surface" or "on_surface_variant",
+            color = isSelected and "on_surface" or "on_surface_container",
             maxLines = 1,
           }))
         end
@@ -126,7 +126,7 @@ local function render()
       table.insert(previewRows, ui.label({
         text = "(" .. tostring(item.linesCount) .. " synced lines)",
         fontSize = 11,
-        color = "outline",
+        color = "outline_variant",
       }))
     end
 
@@ -154,8 +154,8 @@ local function render()
       padding = 10,
       radius = 8,
       gap = 6,
-      fill = isSelected and "primary/0.12" or "surface_variant/0.38",
-      border = isSelected and "primary" or "outline/0.2",
+      fill = isSelected and "primary/0.12" or "surface_container/0.38",
+      border = isSelected and "primary" or "outline_variant/0.2",
       borderWidth = isSelected and 2 or 1,
       align = "stretch",
       onClick = function()
@@ -168,7 +168,7 @@ local function render()
         ui.glyph({
           name = isKaraoke and "microphone" or "music",
           size = 16,
-          color = isSelected and "primary" or "on_surface_variant",
+          color = isSelected and "primary" or "on_surface_container",
         }),
         ui.label({
           text = item.name,
@@ -190,7 +190,7 @@ local function render()
         padding = 6,
         radius = 6,
         gap = 2,
-        fill = isSelected and "primary/0.08" or "surface_variant/0.2",
+        fill = isSelected and "primary/0.08" or "surface_container/0.2",
         align = "stretch",
       }, previewRows),
     })
@@ -218,7 +218,7 @@ local function render()
         ui.label({
           text = subtitle,
           fontSize = 11,
-          color = "on_surface_variant",
+          color = "on_surface_container",
           maxLines = 1,
         }),
       }),
@@ -253,7 +253,7 @@ local function render()
       ui.label({
         text = tostring(#sourceList) .. " available",
         fontSize = 10,
-        color = "on_surface_variant",
+        color = "on_surface_container",
       }),
     }),
 
@@ -268,7 +268,7 @@ local function render()
     ui.label({
       text = noctalia.tr("panel.available-sources") or "Click any provider above to switch lyrics instantly",
       fontSize = 10,
-      color = "on_surface_variant",
+      color = "on_surface_container",
       align = "center",
     }),
   }))
