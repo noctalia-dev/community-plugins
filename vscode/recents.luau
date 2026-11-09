@@ -65,43 +65,109 @@ end
 
 local MENU_KIND = { openRecentFolder = "folder", openRecentWorkspace = "workspace" }
 
-local function walk(node, out)
-  if type(node) ~= "table" then
-    return
-  end
-  local kind = type(node.id) == "string" and MENU_KIND[node.id] or nil
-  if kind then
-    local raw = rawFromMenuUri(node.uri)
-    local found = raw and item(raw, kind)
-    if found then
-      out[#out + 1] = found
+-- storage.json can be large (118 KB on a real profile, ~1400 nodes of menu cache), and
+-- the host gives a callback ~25 ms of Luau that runs ~40x slower than plain Lua. So the
+-- Open Recent entries are found with a pattern scan (native string matching) and only
+-- each entry's small "uri" object is decoded. Anything the scan cannot vouch for falls
+-- back to decoding the file and walking only the menus' items/submenu lists.
+
+local ENTRY = '^"(openRecent%a+)"%s*,%s*"uri"%s*:%s*()'
+
+-- nil when the scan cannot be trusted (the caller then uses the full parse).
+local function scanMenu(text, decode)
+  local out = {}
+  local pos = 1
+  while true do
+    -- Jump to each candidate with a plain find; pattern-match only there.
+    local s = text:find('"openRecent', pos, true)
+    if s == nil then
+      break
     end
-    return
-  end
-  if node[1] ~= nil then
-    for _, child in ipairs(node) do
-      walk(child, out)
+    local id, uriAt = text:match(ENTRY, s)
+    if id == nil or not text:sub(math.max(1, s - 32), s - 1):find('"id"%s*:%s*$') then
+      return nil -- not the id-then-uri layout this scan expects
     end
+    local obj = text:match("^%b{}", uriAt)
+    if obj == nil then
+      return nil
+    end
+    pos = uriAt + #obj
+    local kind = MENU_KIND[id]
+    if kind then
+      local u = decodeText(obj, decode)
+      if u == nil then
+        return nil -- e.g. a brace inside a path unbalanced the match
+      end
+      local raw = rawFromMenuUri(u)
+      local found = raw and item(raw, kind)
+      if found then
+        out[#out + 1] = found
+      end
+    end
+  end
+  return out
+end
+
+local function walkItems(list, out)
+  if type(list) ~= "table" then
     return
   end
-  local names = {}
-  for name in pairs(node) do
-    names[#names + 1] = tostring(name)
-  end
-  table.sort(names)
-  for _, name in ipairs(names) do
-    walk(node[name], out)
+  for _, node in ipairs(list) do
+    if type(node) == "table" then
+      local kind = type(node.id) == "string" and MENU_KIND[node.id] or nil
+      if kind then
+        local raw = rawFromMenuUri(node.uri)
+        local found = raw and item(raw, kind)
+        if found then
+          out[#out + 1] = found
+        end
+      elseif type(node.submenu) == "table" then
+        walkItems(node.submenu.items, out)
+      end
+    end
   end
 end
 
-function recents.parseMenu(storageJsonText, decode)
-  local root = decodeText(storageJsonText, decode)
+local function fullParseMenu(text, decode)
+  local root = decodeText(text, decode)
   if not root then
     return nil
   end
   local out = {}
-  walk(root.lastKnownMenubarData, out)
+  local data = root.lastKnownMenubarData
+  if type(data) == "table" and type(data.menus) == "table" then
+    local names = {}
+    for name in pairs(data.menus) do
+      names[#names + 1] = tostring(name)
+    end
+    table.sort(names) -- a handful of top-level menus; keeps the order stable
+    for _, name in ipairs(names) do
+      local menu = data.menus[name]
+      if type(menu) == "table" then
+        walkItems(menu.items, out)
+      end
+    end
+  end
   return out
+end
+
+function recents.parseMenu(storageJsonText, decode)
+  if type(storageJsonText) ~= "string" or type(decode) ~= "function" then
+    return nil
+  end
+  -- A file caught mid-write is not a complete object: report it unreadable so the
+  -- caller keeps the previous list.
+  if not storageJsonText:sub(-64):find("}%s*$") then
+    return nil
+  end
+  if not storageJsonText:find('"openRecent', 1, true) then
+    return decodeText(storageJsonText, decode) and {} or nil
+  end
+  local fast = scanMenu(storageJsonText, decode)
+  if fast ~= nil and #fast > 0 then
+    return fast
+  end
+  return fullParseMenu(storageJsonText, decode)
 end
 
 function recents.parseWorkspaceJson(text, decode)
