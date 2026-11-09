@@ -6,8 +6,8 @@ search files and folders as you type, matched with
 panel; picking a result opens it with the system MIME association
 (`xdg-open`) — directories open in the file manager. A `/fs` launcher entry
 gives the same search with native keyboard navigation. The panel can widen
-the search to mounted USB/removable disks, and show a disk-usage donut for
-the search folder. A second panel tab, **Space**, browses disk usage with
+the search to folders you add and to mounted USB/removable disks, and show a
+disk-usage donut for the search folder. A second panel tab, **Space**, browses disk usage with
 `ncdu`: a donut, a sortable folder list and a file-type view.
 
 ## Plugin
@@ -48,19 +48,24 @@ plugin. Use the panel's settings button, or the command below.
 The list scrolls to keep the selection in view. The mouse wheel still scrolls
 freely; the next ↑ or ↓ brings the selection back.
 
+Under the search box, three exclusive buttons choose where to search (see
+*Where to search*), followed by **Re-index**, which rebuilds the index (and
+re-measures disk usage). A row of toggles comes next:
+
+| Button | Effect |
+|---|---|
+| Chart | Shows/hides the disk-usage donut |
+| Ranking | Switches how matches are scored (see *Search syntax*) |
+| USB disks | Adds the mounted removable disks to the search (see *Searching external disks*) |
+
 Header buttons, left to right:
 
 | Glyph | Button | Effect |
 |---|---|---|
-| 🗠/🗺 | Ranking | Switches how matches are scored (see *Search syntax*) |
-| ◕ | Usage chart | Shows/hides the disk-usage donut |
-| 🌐 | Whole system | Searches all of `/` instead of the search folder (see *Whole-system search*) |
-| 🗀 | Scope | Cycles what the search covers (see *Searching external disks*) |
-| ↻ | Refresh | Rebuilds the index (and, on the folder scope, re-measures disk usage) |
 | ⚙ | Settings | Opens this plugin's page in *Settings → Plugins* (same as `noctalia msg settings-open-plugin nightwatch75/file-search`) |
 | ✕ | Close | Closes the panel |
 
-Every choice made from these buttons (ranking, whole system, scope, usage
+Every choice made from these buttons (ranking, mode, USB disks, usage
 chart shown or not) survives a restart. The plugin version sits next to the panel title; the
 footer shows how many results are listed, how many entries are indexed, and
 how long the last index build took.
@@ -111,39 +116,51 @@ The ranking button switches how matches are scored:
 Path-aware needs fzf 0.36 or newer; on an older build the button stays on
 generic and its tooltip says why.
 
+### Where to search
+
+| Mode | Covers |
+|---|---|
+| Home only *(default)* | The `search_folder` setting |
+| Home + folders | The search folder and the folders you add |
+| Whole system | All of `/` (see *Whole-system search*) |
+
+The *Add search path* button next to the search box works in *Home + folders*
+only (it is greyed out otherwise). It opens a path field under the box: type an
+absolute path (or `~/…`) and press Enter. The added folders are listed there,
+each with a ✕. The folder must exist. Use it for a second partition, for example `/media/data`.
+The list is kept in the plugin data directory (`extra_roots`, one path per
+line) because a plugin cannot write its own settings. Adding or removing a
+folder rebuilds the index. It stays saved when you switch to another mode.
+
 ### Searching external disks
 
-| Scope | Covers |
-|---|---|
-| Search folder only *(default)* | The `search_folder` setting |
-| Search folder + external disks | Both, in one index |
-| External disks only | Only the mounted removable volumes |
+The *USB disks* toggle adds the mounted removable volumes to whichever mode is
+on, in the same index.
 
 An *external disk* is a mounted volume that came from a USB port or reports
 itself removable: sticks, bus-powered SSDs, LUKS-encrypted drives, SD cards,
 optical media. Internal drives never count — put those in `search_folder`
 instead. The plugin mounts nothing; it only sees what your desktop already
-mounted. When disks are in scope, the scope button's tooltip also shows free
-space across them.
+mounted. With the toggle on, its tooltip also shows free space across them.
 
-The scope choice is shared with the `/fs` launcher, and each scope keeps its
-own index — switching to the disks and back never re-walks the search
-folder.
+The mode and the toggle are shared with the `/fs` launcher, and each
+combination keeps its own index — switching and switching back never re-walks
+the search folder.
 
 **External disks are only ever indexed on command.** Opening the panel,
-switching scope, changing a setting or plugging a disk in never starts a
-walk on a disk scope — the index stays as-is and the footer says *out of
-date*. Press refresh (or *Rebuild search index* in the launcher) to walk it.
-The search folder alone keeps re-indexing itself automatically, since that
-takes seconds rather than minutes.
+switching mode, changing a setting or plugging a disk in never starts a
+walk with USB disks on — the index stays as-is and the footer says *out of
+date*. Press *Re-index* (or *Rebuild search index* in the launcher) to walk it.
+With USB disks off, the index keeps re-indexing itself automatically, since
+that takes seconds rather than minutes.
 
 ### Disk usage chart
 
-A donut under the results shows what fills the search folder: its biggest
+A donut left of the results shows what fills the search folder: its biggest
 direct children, the rest folded into *other*, and loose files that belong
 to no subfolder. Each legend row gives the size and share of the total. It
-is only offered on the *search folder* scope, since measuring a disk means
-walking it — exactly what this plugin refuses to do unasked.
+is offered in every mode except *Whole system*; it always measures the search
+folder, never an added folder or a disk.
 
 Click a folder in the legend to search inside it: results narrow to that
 folder, a strip above them names it, and clicking the strip's ✕ (or the same
@@ -152,7 +169,7 @@ row again) lifts the restriction. It combines with whatever you type — pick
 
 Sizes come from `du -x -d1`, measured once and cached for a day, so restarts
 and reopens cost nothing (`du` over a home directory takes a few seconds).
-The refresh button re-measures immediately. Other filesystems are never
+The *Re-index* button re-measures immediately. Other filesystems are never
 walked — a mount point under the search folder is skipped and named in the
 legend as *not counted: … (other filesystem)*. The `usage_exclude_dirs`
 setting keeps `du` out of specific, slow-but-same-filesystem folders instead.
@@ -185,8 +202,8 @@ open / show in file manager / copy path / copy name.
 | ↑ / ↓     | Move through the results                  |
 | `Enter`   | Open the selected result (MIME/`xdg-open`) |
 
-An empty `/fs` query also offers *Rebuild search index* and the scope
-switch; the index is shared with the panel. *Rebuild search index* walks the
+An empty `/fs` query also offers *Rebuild search index* and the USB disks
+toggle; the index is shared with the panel. *Rebuild search index* walks the
 tree right away, keeping the launcher open, and is offered next to the
 results whenever the index is out of date.
 
@@ -239,7 +256,7 @@ results whenever the index is out of date.
 - `nice` (GNU coreutils) — runs the scan at low priority (needed only for the
   Space tab)
 - `lsblk` (util-linux) — lists mounted USB/removable volumes, only run when
-  the scope includes them. Missing, it falls back to `/proc/mounts` and the
+  USB disks are on. Missing, it falls back to `/proc/mounts` and the
   udisks2 layout (`/run/media/<user>/…`, `/media/…`)
 - `gdbus` (glib2) — reveals a result in the file manager. Missing, or with no
   file manager implementing `FileManager1`, *Show in file manager* opens the
@@ -261,8 +278,8 @@ noctalia msg plugins enable nightwatch75/file-search
 
 ### Whole-system search
 
-The 🌐 button searches all of `/` instead of the search folder. It is off by
-default. `/proc`, `/sys`, `/dev`, `/run`, remote and FUSE mounts (NFS, CIFS,
+The *Whole system* mode searches all of `/` instead of the search folder. It
+is off by default. `/proc`, `/sys`, `/dev`, `/run`, remote and FUSE mounts (NFS, CIFS,
 sshfs, rclone, OneDrive…) and removable disks stay excluded. Unreadable
 folders are skipped.
 
@@ -296,12 +313,13 @@ folders are skipped.
 - The index lives in the plugin's private data directory
   (`noctalia.pluginDataDir()`, by default
   `~/.local/state/noctalia/plugins/data/nightwatch75/file-search/`):
-  `list-<scope>` is the plain list of paths, `meta-<scope>` the fingerprint
-  it was built with, `count-<scope>` its entry count and build time, and
-  `scope`/`ranking`/`usage-chart` the one-word header choices. The disk usage
+  `list-<tag>` is the plain list of paths, `meta-<tag>` the fingerprint
+  it was built with, `count-<tag>` its entry count and build time, and
+  `scope`/`whole-system`/`folders`/`ranking`/`usage-chart` the one-word header
+  choices and `extra_roots` the added folders. The disk usage
   measurement is cached in `usage.json`, rendered as one of two alternating
   SVG files. The Space tab keeps one index per folder and settings
-  tag, `space-<root>-<tag>.json`, and its chart in `space-a.svg` / `space-b.svg`. A fingerprint mismatch (a settings change, a scope change, a
+  tag, `space-<root>-<tag>.json`, and its chart in `space-a.svg` / `space-b.svg`. A fingerprint mismatch (a settings change, a mode change, a
   disk plugged in or removed) rebuilds the search-folder index automatically
   and marks a disk index out of date.
 - Several disks share one index, not one each: a rebuild walks every mounted
