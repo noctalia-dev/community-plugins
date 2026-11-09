@@ -30,9 +30,9 @@ to keep the plugin fully offline.
 | Lunar date | baked-in astronomical tables, 1900-2100 | `八月初六`, `闰六月初一` |
 | 24 solar terms | the same tables, one per day of the year | `白露`, `冬至` |
 | Lunar festivals | lunar calendar rules | `春节` `元宵节` `龙抬头` `端午节` `七夕` `中元节` `中秋节` `重阳节` `腊八节` `小年` `除夕` |
-| Solar festivals | fixed dates, `清明节` from the term, and nth-weekday rules | `元旦` `情人节` `妇女节` `植树节` `劳动节` `青年节` `儿童节` `建党节` `建军节` `教师节` `国庆节` `万圣节` `平安夜` `圣诞节` `清明节` `母亲节` `父亲节` `感恩节` |
+| Solar festivals | fixed dates, Qingming from the solar term, and nth-weekday rules | `元旦` `情人节` `妇女节` `植树节` `劳动节` `青年节` `儿童节` `建党节` `建军节` `教师节` `国庆节` `万圣节` `平安夜` `圣诞节` `清明节` `母亲节` `父亲节` `感恩节` |
 | CN statutory holidays | `holiday-sync`, cached on disk | `国庆节` `休`, `班` |
-| 干支 / zodiac | sexagenary cycle anchored on a known 甲子 day | `丙午年 癸巳日 · 马年` |
+| Heavenly stems and earthly branches / zodiac | sexagenary cycle anchored on a known Jiazi day | `丙午年 癸巳日 · 马年` |
 
 ## Usage
 
@@ -51,7 +51,7 @@ end = ["cwhirly/lunar-calendar:calendar"]
 | Middle click | open this plugin's settings (the host's default binding) |
 | Scroll | free for the bar unless you bind it in the widget's actions |
 
-Hovering shows a tooltip with the Gregorian date, the lunar date, 干支, the next
+Hovering shows a tooltip with the Gregorian date, the lunar date, the sexagenary cycle, the next
 solar term and the next day off with a countdown.
 
 ### Month panel
@@ -63,9 +63,9 @@ noctalia msg panel-toggle cwhirly/lunar-calendar:panel
 ```
 
 Every cell carries its lunar day, and solar terms, festivals and holidays are
-drawn on top: 节气 in the accent colour, festivals in the tertiary colour, days
+drawn on top: solar terms in the accent colour, festivals in the tertiary colour, days
 off in red with the holiday name, and make-up work days as `班`. The footer shows
-the selected day in full (lunar date, 干支, zodiac, term, the month's holiday
+the selected day in full (lunar date, sexagenary cycle, zodiac, term, the month's holiday
 ranges, the next day off) and the state of the holiday data. `«` `‹` `今天` `›` `»`
 move by year, by month, or back to today; `✕` closes the panel.
 
@@ -106,7 +106,7 @@ and `today` on the panel jumps back to the current month.
 countdowns, the month title and the panel's weekday header - follow the shell's
 language (its `general.language` setting, falling back to `LC_ALL`/`LC_TIME`/`LANG`).
 The calendar's vocabulary is Chinese by nature and stays that way: lunar day names,
-the 24 solar terms, 干支, and the statutory holiday names that come from holiday-cn.
+the 24 solar terms, the sexagenary cycle, and the statutory holiday names that come from holiday-cn.
 
 **Network.** Only `holiday-sync` talks to the network: one HTTPS `GET` per tracked
 year (the current one and the next) to `cdn.jsdelivr.net` or
@@ -127,10 +127,10 @@ Nothing is written anywhere else.
 rows of plain day numbers and month lengths, produced by `tools/generate_data.py`
 (shipped in this plugin's `tools/` directory) from
 [lunar_python](https://github.com/6tail/lunar-python), which implements the ShouXing
-寿星天文历 algorithms. The generator round-trips every one of the 73,384 days from
+astronomical calendar algorithms. The generator round-trips every one of the 73,384 days from
 1900-01-31 to 2100-12-31 back through that library before it writes the file, so
 re-running it must leave `lib/data.luau` unchanged. Lunar dates, solar terms and
-干支 are supported for 1900-2100, and the panel's month navigation is clamped to
+the sexagenary cycle are supported for 1900-2100, and the panel's month navigation is clamped to
 that range.
 
 **Declarative UI gotchas** (both hit while building this plugin, both worked around

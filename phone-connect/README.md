@@ -58,7 +58,7 @@ noctalia msg plugin icefish/phone-connect:kde all cmd '{"op":"ring","device":"<i
 | Show Clipboard Action | true | Show clipboard button in panel |
 | Device Image | — | Custom image for selected device |
 | Device Alias | Your-Phone | Custom display name |
-| Language | en | English / 简体中文 |
+| Language | en | English / Simplified Chinese |
 | Panel Placement | attached | Attached / Floating center / Below widget |
 
 ## IPC

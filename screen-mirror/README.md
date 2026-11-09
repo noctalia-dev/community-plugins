@@ -41,7 +41,7 @@ OSD feedback and whether mirroring starts enabled.
 | `show_osd` | `bool` | `true` | Show an OSD popup when mirroring is toggled. |
 | `poll_interval` | `int` | `2000` | State refresh interval in milliseconds (minimum 500). |
 
-## 中文说明
+## Display selection
 
 Mirror the main niri output onto every other display — control-center tile, optional
 bar widget, and all the settings in the plugin settings page. Plugging a monitor in
@@ -54,8 +54,8 @@ A name that matches nothing is reported back with the list of what is actually
 connected:
 
 ```
-排除的显示器里有无法识别的显示器
-HDMI-X 不匹配任何已连接的显示器；可用: eDP-2, HDMI-A-1
+Some excluded displays could not be identified
+HDMI-X does not match any connected display; available: eDP-2, HDMI-A-1
 ```
 
 To see the names up front: `python3 engine/niri_mirror.py --list-outputs`.

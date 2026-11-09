@@ -10,7 +10,7 @@
 
 id          = "goldesquemoon/mic-denoise"
 name        = "Mic Denoise"
-version     = "1.4.0"
+version     = "1.4.1"
 plugin_api  = 24
 author      = "goldesquemoon"
 license     = "MIT"

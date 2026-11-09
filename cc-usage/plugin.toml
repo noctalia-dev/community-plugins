@@ -1,6 +1,6 @@
 id = "wennington/cc-usage"
 name = "Command Code Usage"
-version = "1.0.1"
+version = "1.0.2"
 plugin_api = 3
 author = "wennington"
 license = "MIT"

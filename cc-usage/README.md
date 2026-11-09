@@ -46,8 +46,8 @@ re-runs the command at most every `usage_interval_minutes`:
 
 ```json
 {
-  "title": "27% mês · 5h 8% · 7d 48%",
-  "description": "renova em 28d · 5h 3h08m · 7d 4d0h · GOAT",
+  "title": "27% month · 5h 8% · 7d 48%",
+  "description": "renews in 28d · 5h 3h08m · 7d 4d0h · GOAT",
   "month_percent": 27,
   "five_hour_percent": 8,
   "weekly_percent": 48,

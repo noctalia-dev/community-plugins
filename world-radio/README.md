@@ -18,10 +18,10 @@ mpv-mpris.
   from the radio-browser.info stats API, animated with a count-up effect every
   time the panel opens. Below them, genre and decade chips, then a searchable
   list of every country sorted by station count with each country's flag.
-- **Tappable stat cards** - tap **Total de estações** to open every station in
+- **Tappable stat cards** - tap **Total stations** to open every station in
   the directory ordered by votes (`Load more` fetches the next 100), or tap
-  **Total de países** to open the full country list (paginated 50 at a time).
-- **Paged country list** - the dashboard's "Todos os países" drawer and the
+  **Total countries** to open the full country list (paginated 50 at a time).
+- **Paged country list** - the dashboard's "All countries" drawer and the
   **All countries** view render 50 countries at a time with a `Load more`
   button, so the full ~240-country list never locks the panel while opening.
 - **Per-country stations** - tap a country to list its stations ordered by
@@ -102,8 +102,8 @@ floating window centered on the screen by default.
 1. **Dashboard** - search or scroll the country list; the stat cards show the
    total of stations and countries with a count-up animation on open. Tap a
    country to open it.
-2. **All stations** - tap the **Total de estações** card to browse the whole
-   directory ordered by votes (100 per page). Tap **Total de países** to open
+2. **All stations** - tap the **Total stations** card to browse the whole
+   directory ordered by votes (100 per page). Tap **Total countries** to open
    the full country list (50 per page). Use `Load more` to fetch the next
    page.
 3. **Country view** - type in the search box to filter stations by name, tap
