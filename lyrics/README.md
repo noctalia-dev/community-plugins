@@ -1,8 +1,8 @@
-# Noctalia Lyrics 1.6.0
+# Noctalia Lyrics 1.7.0
 
 Synchronized lyrics for the Noctalia bar, with multiple MPRIS players,
 translation and romanization layers, configurable sources, karaoke highlighting,
-album artwork, and layout controls.
+line-slide transitions, album artwork, and layout controls.
 
 ## Plugin
 
@@ -24,6 +24,11 @@ Install these commands on `PATH`:
 
 For a dependency table and package-manager install commands, see
 [DEPENDENCIES.md](DEPENDENCIES.md).
+
+The line-slide animation needs a Noctalia build with plugin API 52 (the
+paint-only `translateX`/`translateY`, `scale`, and `clip` declarative UI props).
+Older shells are held back to the 1.6.x release from the plugin source and keep
+the previous fade-based transitions.
 
 ## Usage
 
@@ -206,9 +211,13 @@ with `visible_when` instead of headers. The controls cover the fallback glyph,
 artist visibility, paused-state visibility, visibility when no lyrics are
 available, album-cover shape and size, primary, inactive, and secondary lyric
 colors, display mode, lyric layers, karaoke behavior (including forced karaoke
-for lines without word timings), scrolling, fixed lyric width, transitions,
-typography, spacing, padding, intro/interlude cue visibility and text, and text
-alignment. The Actions section lists the default left-click, right-click, and
+for lines without word timings), scrolling, fixed lyric width, and the lyric
+animation (karaoke fill + fade, slide up/down, swoosh left/right, spring push,
+drop + bounce, zoom, flip, spin, squash, character cascade, character wave,
+typewriter, flip, spin, squash, random, or none),
+plus typography, spacing, padding, intro/interlude cue visibility and text, and
+text alignment. The Actions section lists the default left-click, right-click,
+and
 scroll bindings described above. Credential and source-specific fields are
 shown only when their matching source is selected; source order, credentials,
 polling, player filters, and other plugin-wide controls remain on the plugin
@@ -254,8 +263,9 @@ a Settings category selector that shows one functional group at a time
     fetch and display lyrics normally.
 12. Font and double-line sizing: test `font_family`, `primary_font_size`,
     `secondary_font_size`, `line_gap`, `font_weight`, and `font_style`.
-13. Animations: test karaoke, cascade, wave, fade, typewriter, pulse, blink, and
-    none.
+13. Animations: test karaoke, slide up/down, swoosh left/right, spring, drop,
+    zoom, flip, spin, squash, cascade, wave, typewriter, random, and none; each must
+    keep the configured karaoke colors while it plays.
 14. Layout: test `max_chars` and `text_alignment` with short and long lyrics,
     plus `padding_left`, `padding_right`, and `line_gap` on horizontal and vertical
     bars.
