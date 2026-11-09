@@ -1,49 +1,27 @@
 --!nonstrict
--- shared — the search core behind all three entries (bar widget, panel,
--- launcher provider), pulled in via require() (relative same-plugin import,
--- plugin_api >= 22).
+-- shared — the search core behind all entries (bar widget, panel, launcher
+-- provider, Space tab), pulled in via require().
 --
--- Before 0.0.28 every helper below lived twice, copied by hand between
--- panel.luau and launcher.luau, with a comment in each asking the next reader
--- to keep them in step. They had already drifted: excludeNames() logged a bad
--- entry in one copy and swallowed it in the other, readRanking() validated
--- against a hard-coded pair of words instead of the constant. The fingerprint
--- functions are the reason that mattered — indexKey() and cacheSh() are how one
--- entry recognizes an index the other built, so a divergence there does not
--- fail loudly, it silently makes each entry re-walk the tree the other just
--- walked.
---
--- The module owns the search STATE as well as the functions, because almost
--- every helper reads it: `scope` decides the cache paths, `roots` and
--- `indexRoots` decide how a record resolves, `mounts` decides the roots. The
--- entries read and write those fields directly (shared.scope = ...); each entry
--- is its own Luau host, so each gets its own instance of this module and no
--- state is shared between them behind the entries' backs — the files under
--- pluginDataDir() remain the only channel between the entries, exactly as
--- before.
---
--- What stays out: anything one entry alone has. The panel keeps its row menu,
--- path elision, spinner and footer counts; the launcher keeps its row
--- construction and its query echo.
+-- Owns the search STATE and the helpers that read it:
+--   scope        which roots the index covers ("folder" | "all")
+--   whole        whole-system search ("/" instead of the search folder)
+--   folders      the extra folder list joins the search folder
+--   ranking      fzf scoring ("default" | "path")
+--   schemeSupported  the installed fzf understands --scheme
+--   mounts / mountsAt  removable volume mount points / time of the last scan
+--   roots        what an index built now would cover, ancestors first
+--   indexRoots / absoluteRecords  how the index on disk was built
+-- Each entry is its own Luau host with its own instance of this module; the
+-- files under pluginDataDir() are the only channel between them.
 
 local shared = {}
 
 -- ── constants ────────────────────────────────────────────────────────────────
 
--- Bumped whenever the record format or the pruned-name list below changes: it
--- is part of the cache fingerprint, so an index built by an older version of
--- this plugin is rebuilt instead of being read with the wrong rules.
+-- Part of the cache fingerprint; bump when the record format or the pruned names change.
 shared.INDEX_FORMAT = "2"
 
--- Volume metadata that other operating systems leave on removable media, plus
--- the filesystem-level ones. None of it is a user file and some of it is huge
--- (a Time Machine sparsebundle or a Spotlight store is tens of thousands of
--- entries), so it is pruned at every root, not only on external disks — the
--- names are vendor-fixed and never collide with real content. Matched with
--- -iname because Windows has shipped both "$RECYCLE.BIN" and "$Recycle.Bin".
--- Most of the macOS ones start with a dot and are already covered when hidden
--- entries are off; they are listed so that turning hidden entries ON does not
--- flood the index.
+-- Volume metadata pruned at every root (matched with -iname).
 shared.VOLUME_NOISE = {
     "lost+found",
     -- Windows / NTFS
@@ -60,50 +38,26 @@ shared.VOLUME_NOISE = {
     "Network Trash Folder", "Temporary Items", "TheVolumeSettingsFolder",
 }
 
--- Search scope: which roots the index covers. Persisted as a one-word file in
--- the plugin data directory because a plugin cannot write its own settings —
--- there is no setConfig in the host API — and every entry has to read the same
--- choice.
-shared.SCOPE_GLYPHS = { folder = "folder", all = "folders", external = "usb" }
-shared.NEXT_SCOPE = { folder = "all", all = "external", external = "folder" }
+-- Search scope: which roots the index covers. Persisted as a one-word file in the plugin data directory.
+shared.SCOPE_GLYPHS = { folder = "folder", all = "folders" }
+shared.NEXT_SCOPE = { folder = "all", all = "folder" }
 shared.DEFAULT_SCOPE = "folder"
 
--- How fzf scores a match, switched by the panel's third header button and
--- persisted next to the scope. "path" is fzf's --scheme=path: it treats / as a
--- strong boundary, so a match that starts a file or folder name beats the same
--- letters buried in a long directory. "default" is fzf's generic scoring, which
--- mostly rewards the shortest path. Path wins on most queries here — "config"
--- finds .ssh/config instead of a Steam directory five levels down — but not on
--- all of them, which is exactly why it is a toggle and not a constant.
+-- How fzf scores a match, persisted next to the scope: "path" is --scheme=path, "default" is fzf's generic scoring.
 shared.RANKING_GLYPHS = { default = "arrows-sort", path = "sitemap" }
 shared.NEXT_RANKING = { default = "path", path = "default" }
 shared.DEFAULT_RANKING = "path"
 
--- A walk over a USB spinning disk is seek-bound and can run for tens of
--- minutes on a multi-terabyte drive, where the search folder alone is seconds;
--- the timeout follows the scope. Nothing at that price is ever started on its
--- own — see autoIndexAllowed.
+-- Walk timeouts in ms, by scope.
 shared.BUILD_TIMEOUT_LOCAL = 180000
 shared.BUILD_TIMEOUT_DISKS = 1800000
 
--- Seconds a mount scan stays good for. Long enough that a burst of keystrokes
--- (or mashing the panel's scope button) costs one lsblk at most, short enough
--- that a disk plugged in mid-session shows up without a manual refresh.
+-- Seconds a mount scan stays good for.
 shared.MOUNT_TTL = 30
 
--- Whole-system search: the search folder is replaced by "/". Kept apart from
--- the scope because it answers a different question (how far the local tree
--- goes, not which disks join it), and persisted the same way, as a one-word
--- file. A walk of "/" is local but an order of magnitude bigger than a home
--- folder, so it gets its own timeout.
 shared.BUILD_TIMEOUT_WHOLE = 600000
 
--- Filesystems a whole-system walk may enter. An allow-list, not a deny-list:
--- a remote mount (nfs, cifs, sshfs, rclone, onedriver, gvfs…) has many names,
--- often "fuse.<something>", and a missing entry in a deny-list would stall
--- the walk on the network. Everything else in /proc/mounts — remote, pseudo
--- (proc, sysfs, cgroup), overlay and squashfs images — is pruned by path.
--- fuseblk is ntfs-3g/exfat-fuse on a local block device.
+-- Filesystems a whole-system walk may enter; every other /proc/mounts entry is pruned by path.
 shared.LOCAL_FS = {
     ext2 = true, ext3 = true, ext4 = true, btrfs = true, xfs = true,
     f2fs = true, bcachefs = true, zfs = true, jfs = true, reiserfs = true,
@@ -111,26 +65,21 @@ shared.LOCAL_FS = {
     ntfs3 = true, fuseblk = true, hfs = true, hfsplus = true, tmpfs = true,
 }
 
--- Remote filesystems: pruned from the Search tab's whole-system walk, and from
--- the Space scan while space_skip_network is on. Any FUSE type ("fuse",
--- "fuse.<name>": rclone, sshfs, onedriver, gvfsd-fuse) counts too (see
--- isRemote); fuseblk is a local block device (LOCAL_FS).
+-- Remote filesystems (any "fuse" / "fuse.<name>" type counts too, see isRemote).
 shared.REMOTE_FS = {
     nfs = true, nfs4 = true, cifs = true, smb3 = true, smbfs = true, davfs = true,
     ceph = true, glusterfs = true, afs = true, ["9p"] = true, lustre = true,
 }
 
--- Always pruned from a whole-system walk, whatever /proc/mounts says: kernel
--- views and runtime state, never user files (and /proc alone is endless).
+-- Always pruned from a whole-system walk.
 shared.WHOLE_SKIP = { "/proc", "/sys", "/dev", "/run" }
 
 -- ── state ────────────────────────────────────────────────────────────────────
 
 shared.scope = shared.DEFAULT_SCOPE
 shared.whole = false        -- whole-system search ("/" instead of the search folder)
+shared.folders = false      -- the extra folder list joins the search folder
 shared.ranking = shared.DEFAULT_RANKING
--- Whether the installed fzf understands --scheme, decided once per script load
--- (see probeFzfScheme). False until it answers, and on any fzf too old for it.
 shared.schemeSupported = false
 shared.mounts = {}          -- mount points of the detected removable volumes
 shared.mountsAt = 0         -- unix seconds of the last mount scan (0 = never)
@@ -159,19 +108,12 @@ function shared.startsWith(value, prefix)
     return value:sub(1, #prefix) == prefix
 end
 
--- plugin_api >= 16: a direct wall-clock read, no string formatting/parsing (and
--- no dependency on "%s" staying a Unix-epoch format) for a value only ever
--- diffed against itself.
+-- Wall-clock seconds.
 function shared.now()
     return noctalia.nowMs() / 1000
 end
 
--- Byte counts as a person reads them. One implementation, because there were
--- two and they disagreed: the panel's rounded to one decimal above KB and the
--- chart's dropped the decimal at three digits, so the same measurement showed
--- as "110.4 GB" in the free-space tooltip and "110 GB" in the donut. Three
--- significant figures throughout is the rule kept — a tenth of a gigabyte is
--- precision this plugin does not have and nobody asked for.
+-- Byte count as text, three significant figures.
 function shared.formatBytes(n)
     local units = { "B", "KB", "MB", "GB", "TB" }
     local index, value = 1, n + 0.0
@@ -185,38 +127,20 @@ function shared.formatBytes(n)
     return string.format("%.1f %s", value, units[index])
 end
 
--- Open a path with the system MIME association. An argv (plugin_api >= 24) is
--- exec'd directly, so nothing parses the path and it needs no quoting; the host
--- points a detached child's stdio at /dev/null itself.
+-- Open a path with the system MIME association.
 function shared.openPath(path)
     noctalia.runAsync({ "xdg-open", path })
 end
 
--- file:// URI for a local path. Every byte outside the unreserved set is
--- percent-encoded one byte at a time, which is also the correct encoding for
--- the UTF-8 sequences of a non-ASCII name — and it leaves the result free of
--- quotes and spaces, so it can be dropped into a GVariant literal as-is.
+-- file:// URI for a local path; every byte outside the unreserved set is percent-encoded.
 local function fileUri(path)
     return "file://" .. (path:gsub("[^%w%-%._~/]", function(byte)
         return string.format("%%%02X", string.byte(byte))
     end))
 end
 
--- Show the entry in the system file manager: its containing folder opens with
--- the entry itself selected, for a directory too (its parent opens, with the
--- directory highlighted) — left click is what enters a directory.
---
--- ShowItems on the org.freedesktop.FileManager1 interface is the portable way
--- to say "reveal this": Thunar, Nautilus, Dolphin, Nemo, Caja and PCManFM-Qt
--- all implement it, and the session bus activates the handler on demand, so
--- the file manager does not need to be running. When there is no such handler,
--- or no gdbus at all (execvp failing is a 127 exit like any other), the
--- fallback opens the containing folder through the MIME association, which is
--- the same window minus the selection.
---
--- An argv (plugin_api >= 24) rather than a shell line: the GVariant literal
--- carries a file name straight from the index and nothing parses it. That moves
--- the `||` fallback out of the shell and into the callback.
+-- Show the entry selected in its containing folder (FileManager1.ShowItems);
+-- falls back to opening the containing folder.
 function shared.revealPath(path)
     local parent = path:match("^(.*)/[^/]+$")
     if parent == nil or parent == "" then
@@ -246,10 +170,7 @@ end
 
 -- ── fzf capability + scoring ─────────────────────────────────────────────────
 
--- --scheme=path arrived in fzf 0.36; an older build exits with "unknown option"
--- and the entry would show an empty list forever. So the flag is only ever used
--- after the installed version says it is understood — one spawn per script
--- load, generic ranking until it answers.
+-- Sets schemeSupported from `fzf --version` (--scheme needs fzf >= 0.36); one spawn per script load.
 function shared.probeFzfScheme()
     noctalia.runAsync("fzf --version 2>/dev/null", function(result)
         local major, minor = (result.stdout or ""):match("(%d+)%.(%d+)")
@@ -263,20 +184,14 @@ function shared.rankingFlag()
     return (shared.ranking == "path" and shared.schemeSupported) and " --scheme=path" or ""
 end
 
--- Whether the plugin may walk the tree by itself. It may for the search folder,
--- which is local and takes seconds; it may NOT once an external disk is in
--- scope. A 5 TB mechanical USB drive takes minutes per walk and would otherwise
--- be re-walked on every scope change, settings change, disk plug and panel
--- open — the panel's refresh button (and the launcher's rebuild row) is the
--- only way.
+-- Whether the plugin may start a walk by itself: only for the search folder scope.
 function shared.autoIndexAllowed()
     return shared.scope == "folder"
 end
 
 -- ── plugin data directory ────────────────────────────────────────────────────
 
--- Private per-plugin storage (XDG state); the host creates the directory on
--- every call. nil (with a log line) when no state directory resolves.
+-- Private per-plugin storage; nil (with a log line) when no state directory resolves.
 function shared.dataDir()
     local dir, err = noctalia.pluginDataDir()
     if dir == nil then
@@ -286,11 +201,48 @@ function shared.dataDir()
     return dir
 end
 
--- Shell header shared by every cache command. One cache pair per scope, so
--- switching to the disks and back does not re-walk the search folder; the
--- .meta sidecar holds the settings fingerprint the cache was built with, so
--- every entry can tell a stale index apart. The scope is a word from
--- SCOPE_GLYPHS, never free text, so it is safe inside the path.
+-- A folder added by hand must be a plain absolute path: no control characters, no ".", ".." or empty segment, not "/".
+function shared.validRoot(path)
+    if path:sub(1, 1) ~= "/" or path == "/" or path:find("%c") ~= nil or path:find("//", 1, true) ~= nil then
+        return false
+    end
+    for part in path:gmatch("[^/]+") do
+        if part == "." or part == ".." then
+            return false
+        end
+    end
+    return true
+end
+
+-- Folders added from the panel, one absolute path per line in the plugin data directory; invalid lines are dropped.
+function shared.extraRoots()
+    local dir = shared.dataDir()
+    local raw = dir and noctalia.readFile(dir .. "/extra_roots")
+    local list = {}
+    if type(raw) ~= "string" then
+        return list
+    end
+    for line in raw:gmatch("[^\n]+") do
+        local path = line:gsub("/+$", "")
+        if shared.validRoot(path) then
+            table.insert(list, path)
+        end
+    end
+    return list
+end
+
+function shared.writeExtraRoots(list)
+    local dir = shared.dataDir()
+    if dir == nil then
+        return
+    end
+    local ok, err = noctalia.writeFile(dir .. "/extra_roots", table.concat(list, "\n"))
+    if not ok then
+        noctalia.log("file-search: could not persist the extra folders: " .. tostring(err))
+    end
+end
+
+-- Shell header shared by every cache command: list, meta (fingerprint) and count files for the current cache tag.
 function shared.cacheSh(dir)
     local tag = shared.cacheTag()
     return "CACHE_DIR=" .. shared.shellQuote(dir)
@@ -299,10 +251,24 @@ function shared.cacheSh(dir)
         .. '\nCOUNTF="$CACHE_DIR/count-' .. tag .. '"'
 end
 
--- The cache file suffix: the scope, plus "-root" for a whole-system index, so
--- toggling it keeps both indexes instead of re-walking the other one.
+-- The cache file suffix: the scope, plus "-dirs" / "-root" for the folder list / whole-system index.
 function shared.cacheTag()
-    return (shared.whole and shared.scope ~= "external") and (shared.scope .. "-root") or shared.scope
+    if shared.whole then
+        return shared.scope .. "-root"
+    end
+    return shared.folders and (shared.scope .. "-dirs") or shared.scope
+end
+
+function shared.readFolders(dir)
+    local raw = noctalia.readFile(dir .. "/folders")
+    return type(raw) == "string" and shared.trim(raw) == "on"
+end
+
+function shared.writeFolders(dir, value)
+    local ok, err = noctalia.writeFile(dir .. "/folders", value and "on" or "off")
+    if not ok then
+        noctalia.log("file-search: could not persist the folder mode: " .. tostring(err))
+    end
 end
 
 function shared.readWhole(dir)
@@ -321,6 +287,9 @@ function shared.readScope(dir)
     local raw = noctalia.readFile(dir .. "/scope")
     if type(raw) == "string" then
         local value = shared.trim(raw)
+        if value == "external" then
+            return "all"
+        end
         if shared.SCOPE_GLYPHS[value] ~= nil then
             return value
         end
@@ -369,9 +338,7 @@ function shared.searchRoot()
     return dir
 end
 
--- Excluded directory names from the setting, split on ',' or ';'. Matching
--- is by basename (find -name), so entries containing '/' are skipped and
--- logged. Hidden entries are folded in as an extra '.*' pattern.
+-- Excluded directory names from the setting, split on ',' or ';'; entries containing '/' are skipped and logged. Hidden entries add a '.*' pattern.
 function shared.excludeNames()
     local raw = noctalia.getConfig("exclude_dirs")
     if type(raw) ~= "string" then
@@ -394,9 +361,7 @@ end
 
 -- ── removable volume detection ───────────────────────────────────────────────
 
--- A mount point worth indexing: absolute, not the system root, no control
--- character (it becomes a shell word and a cache record), and not the boot
--- partition, which is a mount of firmware files even when it sits on a stick.
+-- A mount point worth indexing: absolute, not "/", no control character, not the boot partition.
 function shared.usableMount(path)
     if path == nil or path == "" or path:sub(1, 1) ~= "/" then
         return false
@@ -407,10 +372,7 @@ function shared.usableMount(path)
     return path ~= "/boot" and not shared.startsWith(path, "/boot/")
 end
 
--- lsblk --pairs quotes every value; depending on the util-linux version a
--- space or a quote inside one can come back as a \xNN escape. nil for an
--- escaped control byte: the whole mount point is then dropped by the caller,
--- rather than kept with a literal "\x0a" in it that no path would match.
+-- Decodes \xNN escapes in an lsblk value; nil when one decodes to a control byte.
 function shared.unescapeHex(value)
     local rejected = false
     local out = value:gsub("\\x(%x%x)", function(hex)
@@ -431,15 +393,8 @@ function shared.pairValue(line, key)
     return (" " .. line):match(" " .. key .. '="(.-)"')
 end
 
--- Mount points of the volumes that came from a USB port or report themselves
--- removable (sticks, SD cards, optical media).
---
--- The interesting attribute lives on the DISK, not on the partition that is
--- actually mounted: a USB partition row reports TRAN="" and, for a bus-powered
--- SSD, RM="0" as well — only its parent disk says TRAN="usb". So the PKNAME
--- chain is walked upwards (one more level for an encrypted stick: crypt →
--- part → disk). HOTPLUG is deliberately not part of the test: some NVMe and
--- hot-swap SATA controllers report HOTPLUG="1" for internal drives.
+-- Mount points of the volumes that are USB or removable; the PKNAME chain is
+-- walked up to the parent disk, which carries TRAN / RM.
 function shared.parseLsblk(out)
     local rows, byName = {}, {}
     for line in out:gmatch("[^\n]+") do
@@ -459,7 +414,6 @@ function shared.parseLsblk(out)
     for _, row in ipairs(rows) do
         if shared.usableMount(row.mount) then
             local node, depth = row, 0
-            -- Capped: PKNAME comes from outside and a cycle would hang here.
             while node ~= nil and depth < 4 do
                 if node.transport == "usb" or node.removable then
                     table.insert(found, row.mount)
@@ -473,12 +427,7 @@ function shared.parseLsblk(out)
     return found
 end
 
--- Fallback for a system without util-linux: the mount table still exposes the
--- udisks2 convention every mainstream desktop mounts removable media with
--- (/run/media/<user>/<label>), plus the older /media/<user>|<label> layout of
--- udisks1 and pmount. Paths in /proc/mounts spell space and tab as an octal
--- escape. Internal disks mounted by hand under /mnt are NOT picked up here —
--- same as with lsblk, where they are neither USB nor removable.
+-- Fallback without util-linux: removable mounts under /run/media/<user>/ and /media/ from /proc/mounts.
 function shared.fallbackMounts()
     local text = noctalia.readFile("/proc/mounts")
     if type(text) ~= "string" then
@@ -509,35 +458,18 @@ function shared.fallbackMounts()
     return found
 end
 
--- Whether a mount scan is in flight. The launcher checks it to park the query
--- it would otherwise have handed to a probe that is already running.
+-- Whether a mount scan is in flight.
 function shared.probeBusy()
     return probing
 end
 
--- Refresh `shared.mounts`, then continue. Async because lsblk is a process:
--- every caller has to be written as a continuation. Skipped entirely — no spawn
--- at all — while the scope is the search folder, so the default costs nothing,
--- and a scan younger than MOUNT_TTL is reused unless `force` says otherwise
--- (the panel's refresh button forces one, since noticing a disk is the point of
--- it).
---
--- A caller arriving while a scan is in flight does NOT get a second scan and
--- does not get called back immediately with the list that is about to be
--- replaced: its continuation takes the place of any other one waiting, and runs
--- when the scan lands. Latest-wins, because both callers are "show what is
--- current now" and the later one knows more. In practice neither entry gets
--- there — the panel serialises through requestReload and the launcher parks the
--- query itself (probeBusy above).
---
--- `any` (the Space tab) probes whatever the scope: its scan of "/" needs the
--- removable disks to exclude them.
+-- Refresh `shared.mounts`, then call done(). No spawn for the search-folder
+-- scope (unless `any`); a scan younger than MOUNT_TTL is reused unless `force`.
+-- A caller arriving during a scan replaces the waiting continuation (latest wins).
 function shared.probeMounts(force, done, any)
-    -- A whole-system walk needs the list too, to prune removable disks it would
-    -- otherwise reach under /mnt or /media.
     if shared.scope == "folder" and not shared.whole and not any then
         shared.mounts = {}
-        shared.mountsAt = 0 -- the list just emptied is not a fresh probe
+        shared.mountsAt = 0
         done()
         return
     end
@@ -581,19 +513,18 @@ end
 
 -- ── index identity ───────────────────────────────────────────────────────────
 
--- The roots the index covers, ancestors first and without overlaps: a volume
--- mounted inside the search folder (or inside another volume) would otherwise
--- be walked twice and produce duplicate rows. Sorting puts a parent before its
--- children, so one pass is enough to drop the nested ones.
---
--- A whole-system root is the exception: "/" is the ancestor of every mount, so
--- the disks are not folded into it. They stay separate roots and the walk of
--- "/" prunes them (see wholePrunePaths).
+-- The roots the index covers, ancestors first and without nested overlaps. A
+-- whole-system "/" root keeps the mounts as separate roots (wholePrunePaths prunes them).
 function shared.computeRoots()
     local list = {}
-    local whole = shared.whole and shared.scope ~= "external"
-    if shared.scope ~= "external" and not whole then
+    local whole = shared.whole
+    if not whole then
         table.insert(list, shared.searchRoot())
+        if shared.folders then
+            for _, extra in ipairs(shared.extraRoots()) do
+                table.insert(list, extra)
+            end
+        end
     end
     if shared.scope ~= "folder" then
         for _, mount in ipairs(shared.mounts) do
@@ -624,14 +555,9 @@ local function isRemote(fstype)
     return shared.REMOTE_FS[fstype] or fstype == "fuse" or fstype:sub(1, 5) == "fuse."
 end
 
--- Paths a walk of "/" must not enter. Always: the fixed kernel/runtime trees
--- and every pseudo mount (a filesystem neither in LOCAL_FS nor remote: proc,
--- cgroup, overlay, squashfs…). opts.network adds the remote mounts (see
--- isRemote), opts.external the removable disks (shared.mounts), which are
--- either their own root or out of scope. Read from /proc/mounts at build time
--- only — not part of the fingerprint, so a mount coming and going does not
--- trigger a rebuild. A path nested in one already pruned is dropped; the walk
--- never gets there anyway.
+-- Paths a walk of "/" must not enter: WHOLE_SKIP and every pseudo mount;
+-- opts.network adds the remote mounts, opts.external the removable disks.
+-- Read from /proc/mounts at build time only; nested paths are dropped.
 function shared.prunePaths(opts)
     local list = {}
     for _, path in ipairs(shared.WHOLE_SKIP) do
@@ -678,28 +604,19 @@ function shared.wholePrunePaths()
     return shared.prunePaths({ network = true, external = true })
 end
 
--- Everything that decides how the cache was built. Its two lists are joined
--- with a separator no root and no exclusion name can contain, so a name can
--- never be read back as a root. This string is the contract between the
--- entries: whichever one built the index, the others recognize it by this.
+-- The fingerprint of how the cache was built: format, scope, roots and exclusions. All entries recognize an index by it.
 function shared.indexKey()
     return shared.INDEX_FORMAT .. "\n" .. shared.scope
         .. "\n--\n" .. table.concat(shared.roots, "\n")
         .. "\n--\n" .. table.concat(shared.excludeNames(), "\n")
 end
 
--- The cache on disk is current when its fingerprint matches, whichever entry
--- built it.
+-- Whether the cache on disk matches the current fingerprint.
 function shared.cacheFresh(dir)
     return noctalia.readFile(dir .. "/meta-" .. shared.cacheTag()) == shared.indexKey()
 end
 
--- The roots the index on disk was built with, read back out of its fingerprint,
--- or nil when there is no index. Records must be read the way they were
--- WRITTEN, not the way a fresh walk would write them now: unplug one of two
--- disks and the file still holds absolute records, so deciding the format from
--- the current mount list would make every row unopenable — including the rows
--- of the disk still attached — until the next rebuild.
+-- The roots the index on disk was built with, read back from its fingerprint; nil when there is no index.
 function shared.indexRootsOf(dir)
     local meta = noctalia.readFile(dir .. "/meta-" .. shared.cacheTag())
     if type(meta) ~= "string" then
@@ -716,26 +633,18 @@ function shared.indexRootsOf(dir)
     return #list > 0 and list or nil
 end
 
--- An index record turned into a path, or nil when it could resolve outside the
--- roots it was supposed to come from. The cache is a plain user-editable file,
--- so records are untrusted. Only ever called from a callback that acts on a row
--- — never from a render: it walks every path component, and paying that per row
--- per frame is what gets a script callback killed for exceeding its CPU budget.
+-- An index record turned into a path, or nil when it could resolve outside the index roots. Call from callbacks, not from render.
 function shared.absolutePath(record)
     if record == "" or record:find("%c") ~= nil then
         return nil
     end
-    -- A directory keeps its trailing "/" in the index but not in a path meant
-    -- for xdg-open or for pasting into a shell.
     local path = record:gsub("/+$", "")
     for part in path:gmatch("[^/]+") do
         if part == ".." then
             return nil
         end
     end
-    -- Validated against the roots of the index the record came from, so a
-    -- record can still never escape a root, but one written for a disk that has
-    -- since been unplugged stays openable (xdg-open just fails if it is gone).
+    -- Validated against the roots of the index the record came from.
     local from = #shared.indexRoots > 0 and shared.indexRoots or shared.roots
     if shared.absoluteRecords then
         for _, root in ipairs(from) do
@@ -759,33 +668,19 @@ end
 
 -- Seconds a walk of the current scope is allowed to take.
 function shared.buildTimeout()
-    if shared.scope ~= "folder" then
+    local extras = shared.folders and not shared.whole and #shared.extraRoots() > 0
+    if shared.scope ~= "folder" or extras then
         return shared.BUILD_TIMEOUT_DISKS
     end
     return shared.whole and shared.BUILD_TIMEOUT_WHOLE or shared.BUILD_TIMEOUT_LOCAL
 end
 
--- The tree walk, written for `key` as the fingerprint it will leave behind.
--- Returns the shell script; the caller decides the timeout and what to do with
--- the result.
---
--- find's own exit status is ignored, so permission errors inside the tree don't
--- fail the build. Cache and fingerprint are written to mktemp-created private
--- files and renamed into place: rename replaces a planted symlink at the
--- destination instead of following it. The host guarantees $CACHE_DIR exists
--- (created by pluginDataDir above). The two cleanup lines drop the pre-0.0.20
--- single-scope cache and any temp file a killed build left behind — only ones
--- older than 90 minutes, comfortably past the 30-minute build ceiling, so a
--- walk running in another entry is never touched.
---
--- On success it prints "<count> <elapsed_ms>" and leaves the same pair in the
--- count sidecar, so the panel's footer can report both without re-reading an
--- index that may be 100 MB. The launcher ignores the output and reads nothing.
+-- The tree walk as a shell script; `key` is the fingerprint it leaves in the meta file.
+-- Cache, meta and count files are written via mktemp and renamed into place;
+-- stale temp files older than 90 minutes are removed.
+-- On success it prints "<count> <elapsed_ms>" and writes the same pair to the count file.
 function shared.buildCommand(dir, key, absolute)
-    -- Names containing a newline would each forge extra one-per-fragment
-    -- records (a crafted name can smuggle '..' lines into the index), so
-    -- they are pruned unconditionally, before the volume noise and the user's
-    -- own exclusions.
+    -- Names containing a newline are pruned first, then volume noise, then user exclusions.
     local names = { "-name " .. shared.shellQuote("*\n*") }
     for _, pattern in ipairs(shared.VOLUME_NOISE) do
         table.insert(names, "-iname " .. shared.shellQuote(pattern))
@@ -793,10 +688,7 @@ function shared.buildCommand(dir, key, absolute)
     for _, name in ipairs(shared.excludeNames()) do
         table.insert(names, "-name " .. shared.shellQuote(name))
     end
-    -- A whole-system walk also prunes mount points by full path. -path takes a
-    -- glob, so the glob characters a mount point may contain are escaped.
-    -- stderr goes to /dev/null below: the permission-denied lines a walk of
-    -- "/" produces by the thousand are expected and never fail the build.
+    -- A whole-system walk also prunes mount points by full path (glob characters escaped).
     if shared.whole and shared.roots[1] == "/" then
         for _, path in ipairs(shared.wholePrunePaths()) do
             local glob = path:gsub("[%*%?%[%]\\]", "\\%0")
@@ -808,11 +700,7 @@ function shared.buildCommand(dir, key, absolute)
     for _, root in ipairs(shared.roots) do
         table.insert(args, shared.shellQuote(root))
     end
-    -- %P prints paths relative to the root, %p the whole path. Relative is
-    -- what a single root gets: it keeps the rows short and, more to the point,
-    -- keeps the common "/home/<user>/" prefix out of every line, where it
-    -- would be fuzzy-matched like any other text. With several roots a
-    -- relative record would be ambiguous, so those are absolute.
+    -- Records are relative to the root (%P) for a single root, absolute (%p) for several.
     local printSpec = absolute
         and "-type d -printf '%p/\\n' -o -printf '%p\\n'"
         or "-type d -printf '%P/\\n' -o -printf '%P\\n'"
@@ -823,8 +711,6 @@ function shared.buildCommand(dir, key, absolute)
         .. '\nrm -f "$CACHE_DIR/index.list" "$CACHE_DIR/index.meta"\n'
         .. 'find "$CACHE_DIR" -maxdepth 1 \\( -name \'list-*.*\' -o -name \'meta-*.*\''
         .. " -o -name 'count-*.*' \\) -mmin +90 -delete 2>/dev/null\n"
-        -- Timed here rather than around runAsync: this is the walk itself,
-        -- without the queueing and callback hops the shell knows nothing about.
         .. 'START=$(date +%s%3N)\n'
         .. 'TMP=$(mktemp "$CACHE_DIR/list-' .. shared.cacheTag() .. '.XXXXXX") || exit 1\n'
         .. walk .. "\n"
@@ -832,9 +718,6 @@ function shared.buildCommand(dir, key, absolute)
         .. 'TMPM=$(mktemp "$CACHE_DIR/meta-' .. shared.cacheTag() .. '.XXXXXX") || exit 1\n'
         .. "printf '%s' " .. shared.shellQuote(key) .. ' > "$TMPM"\n'
         .. 'mv -f "$TMPM" "$META" || exit 1\n'
-        -- The count is taken here, while the file is already hot, and left in a
-        -- sidecar together with the elapsed milliseconds: every later open
-        -- reads a dozen bytes instead of the whole index.
         .. 'COUNT=$(wc -l < "$CACHE") || exit 1\n'
         .. 'ELAPSED=$(( $(date +%s%3N) - START ))\n'
         .. 'TMPN=$(mktemp "$CACHE_DIR/count-' .. shared.cacheTag() .. '.XXXXXX") || exit 1\n'
@@ -843,9 +726,7 @@ function shared.buildCommand(dir, key, absolute)
         .. 'printf "%s %s" "$COUNT" "$ELAPSED"'
 end
 
--- One search over the cache, capped at `limit` rows. An empty query is the
--- head of the index rather than an fzf run over everything. head closes the
--- pipe early; the pipeline status stays head's (0).
+-- One search over the cache, capped at `limit` rows; an empty query returns the head of the index.
 function shared.searchCommand(dir, text, limit)
     if shared.trim(text) == "" then
         return shared.cacheSh(dir) .. '\nhead -n ' .. limit .. ' "$CACHE" 2>/dev/null'

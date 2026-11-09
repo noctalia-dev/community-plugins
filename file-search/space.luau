@@ -11,11 +11,11 @@
 --
 -- UI state (file-locals): path (node stack from space.index down to the
 -- current folder; re-walked by name when a new index lands), sortKey
--- ("size" | "name" | "path"; path in Types mode only, see idx.sort), sortDesc,
+-- ("size" | "name" | "path"; path in Types mode only), sortDesc,
 -- mode ("folders" | "types"), typeFilter (a category number in Types mode,
--- nil = none; cleared by entering a folder, going up or switching mode). space.typeFilter is a test-only mirror of it.
--- With a category, the folder all listed files share (idx.commonDir) is shown
--- once above the list and cut from each row; sorting still uses the full name.
+-- nil = none; cleared by entering a folder, going up or switching mode).
+-- space.typeFilter is a test-only mirror of it. With a category, the folder all
+-- listed files share (idx.commonDir) is shown once above the list.
 --
 -- State (module fields, read by the panel):
 --   space.state     "idle" | "scanning" | "ready" | "error". A stale index
@@ -41,56 +41,33 @@
 --   space.phase     "scan" (ncdu) | "reduce" (jq) while the run is in flight
 --   space.elapsedMs time since the run started, nil without a run
 --   space.progress  ESTIMATE 0..0.95: elapsedMs over the duration of the last
---                   complete scan of this root and settings tag (the .time
---                   file, written on "ok"); nil without one. ncdu prints no
---                   progress without a terminal and the total is unknown.
+--                   complete scan of this root and settings tag; nil without one.
 --
 -- Pipeline:
---   1. `ncdu --version` with a callback, once per load (ncdu >= 2.0). Only a
---      parsed version is remembered; a timeout is retried on the next scan.
---   2. shared.probeMounts (see launch) so removable disks can be excluded;
---      skipped while space_skip_external is off.
---   3. One DETACHED `/bin/sh -c SCAN_SCRIPT` (runAsync without callback): the
---      host kills a captured run after 60 s and keeps only 1 MiB of its
---      stdout, and ncdu + jq take ~45 s on "/" here, so neither limit can
---      apply. The script runs ncdu (never -x: on "/" it skips /home and
---      /var/log when they are separate mounts), then jq into a temp file and
---      `mv -f` onto the index (atomic), removes the 100+ MB scan file and
---      writes a one-word marker file. ncdu exits 1 after unreadable folders;
---      a non-empty scan file decides, not the status. The script text is a
---      constant; every path, exclude and the jq program are positional
---      parameters. A detached run has no login PATH, so binaries are absolute
---      (TOOL_DIRS).
+--   1. `ncdu --version` with a callback, once per load (ncdu >= 2.0).
+--   2. shared.probeMounts, so removable disks can be excluded; skipped while
+--      space_skip_external is off.
+--   3. One DETACHED `/bin/sh -c SCAN_SCRIPT` (runAsync without callback): ncdu,
+--      then jq into a temp file, `mv -f` onto the index, scan file removed, a
+--      one-word marker file written. The script text is a constant; every path,
+--      exclude and the jq program are positional parameters. Binaries are
+--      absolute (TOOL_DIRS).
 --   4. step() polls the marker and the phase file about once a second, then
 --      loads the index.
---   jq writes the index file itself; there is no Lua-side save.
 --
--- The index is JSON Lines (see idx.jqProgram) and decoded a few lines per
--- step(), within SLICE_MS, because a host callback has a 25 ms CPU budget and
--- the whole file is ~4.5 MB. space.index keeps the previous tree until the
--- new one is complete.
---
--- Heap guard: the host refuses any allocation past 128 MiB of plugin heap.
--- Measured (offline, real indexes): the decoded tree is ~4.2 bytes of heap
--- per byte of JSON, the JSON string 1.0, and load garbage brings the peak
--- of a load to ~6.2 per byte. The guard trips at HEAP_SOFT_BYTES = 72 MiB
--- (56% of the ceiling). A first load of INDEX_MAX_BYTES = 9 MiB peaks at
--- 10 MiB (rest of the plugin) + 6.2 x 9.4 MB = ~68 MiB, under the trip
--- point; during a rescan the old tree (4.2 per byte) also counts, and the
--- heap check stops the load instead. gcinfo() is the sandbox's heap count
--- (Luau has no collectgarbage); it includes garbage, as the ceiling does.
--- An index that tripped is not read again until a new scan, and is not
--- rescanned by itself (see space.scan): the user must skip folders first.
+-- The index is JSON Lines (see idx.jqProgram) decoded a few lines per step(),
+-- within SLICE_MS. space.index keeps the previous tree until the new one is
+-- complete. Heap guard: an index over INDEX_MAX_BYTES, or a load that passes
+-- HEAP_SOFT_BYTES (gcinfo()), is refused and not read again until a new scan.
 --
 -- The index file name carries space.settingsTag(): a changed exclusion
 -- setting points at another file, and space.onConfigChanged drops the index
 -- in memory. A completed scan removes the same root's files of other tags.
 --
 -- A scan is a job table; setRoot() or a newer scan replaces it, and anything
--- belonging to an older job (probe answer, marker) is ignored. Each run has
--- its own scan/temp/marker/phase names; leftovers of dropped or orphaned runs are
--- swept when the next run starts, and on open when no job is active. The root
--- cannot be switched while a scan runs (see toggleRoot).
+-- belonging to an older job (probe answer, marker) is ignored. Leftovers of
+-- dropped runs are swept when the next run starts, and on open when no job is
+-- active.
 
 local shared = require("./shared.luau")
 local usage = require("./usage.luau")
@@ -101,11 +78,9 @@ local space = {}
 space.VERSION_TIMEOUT_MS = 5000
 space.POLL_MS = 1000
 space.SLICE_MS = 8
--- No host timeout applies to a detached run; ~45 s on "/" here.
 space.SCAN_DEADLINE_MS = 1800000
--- Longest wait for the mount probe (lsblk has 10 s) before launching anyway.
+-- Longest wait for the mount probe before launching anyway.
 space.PROBE_WAIT_MS = 15000
--- Heap guard, see the header.
 space.INDEX_MAX_BYTES = 9 * 1048576
 space.HEAP_SOFT_BYTES = 72 * 1048576
 
@@ -117,9 +92,7 @@ local TOOL_DIRS = { "/usr/bin", "/usr/local/bin", "/bin", "~/.local/bin" }
 
 -- $1 ncdu  $2 jq  $3 jq program  $4 scan file  $5 temp  $6 index  $7 marker
 -- $8 nice ("" = none), then the ncdu arguments. "$d.phase" says "reduce" while
--- jq runs. The first line makes ncdu and jq (~1.5 GB on "/") the OOM killer's
--- first choice, not the user's session; raising one's own score needs no
--- privilege.
+-- jq runs.
 local SCAN_SCRIPT = table.concat({
     'echo 1000 2>/dev/null > /proc/self/oom_score_adj',
     'n=$1 j=$2 p=$3 s=$4 t=$5 i=$6 d=$7 c=$8',
@@ -139,7 +112,6 @@ space.state = "idle"
 space.scanning = false
 space.loading = false
 space.errText = nil
--- expandPath answers "" (or nil under a stub) without a usable home.
 local function homeRoot()
     local home = noctalia.expandPath("~")
     return type(home) == "string" and home ~= "" and home or "/"
@@ -183,8 +155,7 @@ local function indexPath(dir, root, tag, ext)
     return dir .. "/space-" .. rootTag(root) .. "-" .. tag .. "." .. (ext or "json")
 end
 
--- Unlinking a file an older run still writes is harmless: it keeps its inode,
--- and that run's result is ignored anyway.
+-- Removes the scan, temp, marker and phase files of runs.
 local function sweep(dir)
     for _, name in ipairs(noctalia.listDir(dir) or {}) do
         if name:match("^space%-.+%.scan$") or name:match("^space%-.+%.tmp$") or name:match("^space%-.+%.done$")
@@ -195,7 +166,7 @@ local function sweep(dir)
 end
 
 -- After a scan of `tag` completed: the index and duration files of the same
--- root built with other settings, and the untagged name an older version wrote.
+-- root built with other settings, and the untagged name.
 local function dropOldIndexes(dir, root, tag)
     local rt = rootTag(root)
     local stem = "space-" .. rt .. "-" .. tag
@@ -225,8 +196,7 @@ local function skips()
 end
 
 -- 8 hex chars (djb2) over every setting that shapes the scan and the index
--- tuning (depth, top files, fold sizes). It is part of the index file name, so
--- a changed setting or a retuned build never serves an old index.
+-- tuning (depth, top files, fold sizes); part of the index file name.
 function space.settingsTag()
     local net, ext = skips()
     local dirs = noctalia.getConfig("usage_exclude_dirs")
@@ -244,7 +214,7 @@ function space.excludeArgs()
     local skipNet, skipExt = skips()
     for _, path in ipairs(shared.prunePaths({ network = skipNet, external = skipExt })) do
         table.insert(args, "--exclude")
-        -- --exclude is an fnmatch pattern; ncdu honours the backslash escape
+        -- fnmatch metacharacters are backslash-escaped
         table.insert(args, (path:gsub("[%*%?%[%]\\]", "\\%0")))
     end
     for _, pattern in ipairs(usage.excludes()) do
@@ -269,8 +239,8 @@ end
 
 -- ── scan end ─────────────────────────────────────────────────────────────────
 
--- State is settled before done() runs, so a throwing caller leaves nothing
--- stuck. A failure keeps an index already on screen ("ready" + errText).
+-- Settles the state, then calls done(). A failure keeps an index already on
+-- screen ("ready" + errText).
 local function endScan(errText)
     local done = job and job.done
     job = nil
@@ -290,8 +260,8 @@ end
 
 -- ── index load ───────────────────────────────────────────────────────────────
 
--- An index the heap guard refuses (startLoad, sliceLoad): remembered so it is not read again. A
--- scan load reports it through endScan; a cache load sets the notice here.
+-- An index the heap guard refuses: remembered so it is not read again. A scan
+-- load reports it through endScan; a cache load sets the notice here.
 local function tooBig(path, size)
     tripped = { path = path, size = size }
     if not (job ~= nil and job.loading) then
@@ -306,10 +276,8 @@ end
 
 -- Reads the index of space.root and checks its header; the records are
 -- decoded by step(). False (nothing loading) for a missing, corrupted or
--- other-version file: it is a cache, the caller rescans. False, "index_big"
--- for a file the heap guard refuses (see tooBig). The header's root is
--- not compared: ncdu writes the resolved path (a symlinked home differs), and
--- the file name is already per root. `tag` defaults to the current settings.
+-- other-version file. False, "index_big" for a file the heap guard refuses
+-- (see tooBig). `tag` defaults to the current settings.
 function space.startLoad(dir, tag)
     loader = nil
     space.loading = false
@@ -326,7 +294,7 @@ function space.startLoad(dir, tag)
     end
     local text = noctalia.readFile(path)
     if type(text) == "string" and #text > space.INDEX_MAX_BYTES then
-        return tooBig(path, size or #text) -- the stat size, so the next stat matches
+        return tooBig(path, size or #text)
     end
     local nl = type(text) == "string" and text:find("\n", 1, true)
     if not nl then
@@ -348,7 +316,6 @@ local function addRecord(l, line)
         or type(r.n) ~= "string" or type(r.s) ~= "number" or type(r.c) ~= "table" or type(r.t) ~= "table" then
         return false
     end
-    -- u is absent in an index written before it existed
     local node = { n = r.n, s = r.s, f = r.f or 0, u = type(r.u) == "number" and r.u or 0,
         nf = type(r.nf) == "number" and r.nf or 0, c = r.c, t = r.t, d = {}, leaf = r.leaf }
     local parentId = r.id:match("^(.+)/%d+$")
@@ -391,9 +358,7 @@ local function endLoad(tree, at, why)
     end
 end
 
--- At least one line per call, then lines until SLICE_MS is spent. Lines are
--- cut with find from a moving cursor: one gmatch pass over 4.5 MB would be a
--- slice of its own.
+-- At least one line per call, then lines until SLICE_MS is spent.
 local function sliceLoad(started)
     local l = loader
     if gcinfo() * 1024 > space.HEAP_SOFT_BYTES then
@@ -425,8 +390,7 @@ function space.fresh()
         and (shared.now() - space.scannedAt) < usage.TTL_SECONDS
 end
 
--- Drops the current index and any scan or load in progress. A detached run
--- keeps going; its marker is ignored.
+-- Drops the current index and any scan or load in progress.
 local function reset()
     job = nil
     loader = nil
@@ -452,7 +416,7 @@ end
 
 local function start(current)
     current.probeUntil = nil
-    -- Again after the async probes: a nil in argv would shift every $N.
+    -- Checked again after the async probes.
     local missing = space.checkTools()
     if missing ~= nil then
         endScan(missing)
@@ -463,7 +427,6 @@ local function start(current)
     current.tag = space.settingsTag()
     seenTag = current.tag
     scanCount += 1
-    -- The clock keeps names unique across reloads, where the counter restarts.
     local stem = string.format("%s/space-%s-%d-%d", dir, rootTag(root), noctalia.nowMs(), scanCount)
     sweep(dir)
     local argv = {
@@ -492,7 +455,7 @@ local function start(current)
     space.phase, space.elapsedMs = "scan", 0
     space.progress = current.lastMs and 0 or nil
     current.shown = space.progressText()
-    changed() -- the bar appears at once when there is an estimate
+    changed()
 end
 
 -- Progress of the run in hand; a redraw only when its label changes (a whole
@@ -513,10 +476,8 @@ local function track(now)
     end
 end
 
--- shared.mounts is filled by the Search side, which may not have run yet in
--- this session: removable disks (vfat, exfat, ntfs count as local) are only
--- known from it. A probe that never answers is replaced by step() after
--- PROBE_WAIT_MS; either way the run starts with what is known.
+-- Starts the run, after the mount probe when removable disks are skipped; step()
+-- starts it anyway after PROBE_WAIT_MS.
 local function launch(current)
     local _, skipExt = skips()
     if not skipExt then
@@ -540,7 +501,6 @@ local function poll(now)
     local text = noctalia.readFile(job.marker)
     local code = type(text) == "string" and text:match("^(%a+)") or nil
     if code == nil then
-        -- An empty marker is the script mid-write: wait for the next poll.
         if now > job.deadline then
             endScan("timeout")
         end
@@ -554,7 +514,7 @@ local function poll(now)
     end
     noctalia.writeFile(job.timeFile, tostring(now - job.started))
     job.loading = true
-    tripped = nil -- a new index file
+    tripped = nil
     local ok, why = space.startLoad(job.dir, job.tag)
     if not ok then
         endScan(why or "index")
@@ -563,8 +523,8 @@ end
 
 -- Scan `root` (switching to it first), then call done() unless the scan was
 -- dropped by setRoot. `force` skips the TTL; a scan of the current root
--- already in flight is never doubled. While an index loads (setRoot starts
--- one) the TTL check waits for it, so a fresh cached index is not rescanned.
+-- already in flight is never doubled. While an index loads the TTL check
+-- waits for it.
 function space.scan(root, force, done)
     space.setRoot(root)
     if space.scanning then
@@ -574,8 +534,6 @@ function space.scan(root, force, done)
         deferred = done
         return
     end
-    -- A too big index needs fewer folders, not the same scan again: only
-    -- refresh (force), a root switch or a settings change scans it again.
     if not force and (space.fresh() or space.errText == "index_big") then
         done()
         return
@@ -640,7 +598,7 @@ function space.step()
         local done = deferred
         deferred = nil
         space.scan(space.root, false, done)
-        changed() -- the "scanning again" label
+        changed()
     end
     return space.needsTick()
 end
@@ -654,12 +612,12 @@ end
 local LEFT_WIDTH = 340
 local DONUT_SIZE = 200
 local DONUT_THICKNESS = 28
-local LABEL_MAX = 34     -- legend, in the 340 px left column
-local ROW_LABEL_MAX = 52 -- list rows: a button wraps instead of eliding, so stay short
-local ROW_LABEL_MAX_FILES = 44 -- the same, when the row also shows a file count
+local LABEL_MAX = 34     -- legend
+local ROW_LABEL_MAX = 52 -- list rows
+local ROW_LABEL_MAX_FILES = 44 -- list rows with a file count
 local FILES_WIDTH = 64
 local ROW_HEIGHT = 22
-local MAX_ROWS = 200 -- a render builds every row; a cache folder can hold thousands
+local MAX_ROWS = 200
 local SVG_NAMES = { "space-a.svg", "space-b.svg" }
 local GREY = { dark = { other = "#5b6180", loose = "#3d4256" }, light = { other = "#9aa2b8", loose = "#c3c8d6" } }
 
@@ -670,8 +628,7 @@ local mode = "folders"
 local typeFilter = nil -- category number, Types mode only
 local svg = { slot = 0, path = nil, key = nil } -- written image and what it shows
 
--- The current folder. A new index (rescan, root switch) is walked again by
--- name, so the view stays where it was as far as the folders still exist.
+-- The current folder; a new index is walked again by name.
 local function current()
     local tree = space.index
     if tree == nil then
@@ -692,8 +649,7 @@ local function current()
     return path[#path]
 end
 
--- Absolute path of the current folder (+ `rel`). Built from space.root, not
--- the index's root name: ncdu writes a symlinked home resolved.
+-- Absolute path of the current folder (+ `rel`), built from space.root.
 local function absolute(rel)
     local parts = { space.root == "/" and "" or space.root }
     for i = 2, #path do
@@ -706,10 +662,9 @@ local function absolute(rel)
     return out == "" and "/" or out
 end
 
--- Names come from the disk: control characters (a newline would break the
--- row) become spaces, and long ones are cut to `max` characters with "…",
--- unless the UTF-8 is invalid. keepEnd keeps the tail (a path: the file name
--- is the useful part), from a "/" when the tail has one.
+-- Control characters become spaces, and long names are cut to `max`
+-- characters with "…" (unless the UTF-8 is invalid). keepEnd keeps the tail,
+-- from a "/" when the tail has one.
 local function display(name, max, keepEnd)
     local text = name:gsub("%c", " ")
     local len = utf8.len(text)
@@ -762,7 +717,7 @@ end
 function space.setMode(value)
     mode = value
     if mode == "folders" and sortKey == "path" then
-        sortKey = "name" -- a folder name has no "/": path == name
+        sortKey = "name"
     end
     typeFilter, space.typeFilter = nil, nil
     changed()
@@ -776,8 +731,7 @@ end
 
 local function noop() end
 
--- Refused while a scan runs: the detached run cannot be stopped, and a scan
--- per root would stack several ncdu + jq.
+-- Switches between home and "/"; refused while a scan runs.
 function space.toggleRoot()
     if space.scanning then
         return
@@ -793,8 +747,7 @@ function space.refresh()
     changed()
 end
 
--- A top file of the current folder (Types mode). The index may be a day
--- old, so a missing file is a notice, not an error.
+-- Reveals a top file of the current folder (Types mode); a missing file is a notice.
 local function revealFile(rel)
     local full = absolute(rel)
     if not noctalia.fileExists(full) then
@@ -830,7 +783,7 @@ function space.menuAction(action, path)
         noctalia.copyToClipboard(action == "copy_path" and path or path:match("[^/]+$") or path, "text/plain")
         noctalia.notify(shared.tr("title"), shared.tr(action == "copy_path" and "copied_entry" or "copied_name"))
     elseif action == "open" or action == "reveal" then
-        if not noctalia.fileExists(path) then -- the index may be a day old
+        if not noctalia.fileExists(path) then
             noctalia.notify(shared.tr("title"), shared.tr("space_gone", { path = path }))
         elseif action == "reveal" then
             shared.revealPath(path)
@@ -853,8 +806,7 @@ local function paint(slices)
     return slices
 end
 
--- Rewritten only when what it shows changes; two alternating names, since the
--- host caches an image by path (same pattern as usage.writeSvg).
+-- Rewritten only when what it shows changes; two alternating file names.
 local function writeSvg(node, slices)
     local dir = shared.dataDir()
     if dir == nil then
@@ -884,13 +836,12 @@ end
 
 -- ── panel hooks ──────────────────────────────────────────────────────────────
 
--- `onChange` re-renders the panel. Loads the current root's index first; the
--- scan's TTL check waits for that load (see space.scan), then rescans a
--- missing or stale index by itself. Safe to call again on every tab switch.
+-- `onChange` re-renders the panel. Loads the current root's index, then
+-- rescans a missing or stale one. Safe to call on every tab switch.
 function space.onOpen(onChange)
     isOpen = true
     redraw = onChange
-    -- Leftovers (100+ MB) of a scan killed with the host; a live job's are kept.
+    -- Leftovers of a scan killed with the host; a live job's are kept.
     local dir = shared.dataDir()
     if job == nil and dir ~= nil then
         sweep(dir)
@@ -901,9 +852,8 @@ function space.onOpen(onChange)
     space.scan(space.root, false, noop)
 end
 
--- From the panel's onConfigChanged. A changed settings tag drops the index:
--- its file was built with other excludes. The new tag's index is loaded or
--- scanned at once when the tab is shown, else on its next open.
+-- From the panel's onConfigChanged. A changed settings tag drops the index; the
+-- new tag's index is loaded or scanned at once when the tab is shown.
 function space.onConfigChanged()
     local tag = space.settingsTag()
     if seenTag == nil or tag == seenTag then
@@ -917,8 +867,7 @@ function space.onConfigChanged()
     end
 end
 
--- The tab was turned off in the settings: the running scan or load is dropped
--- (its marker is never polled again) and nothing new starts. No-op when idle.
+-- The tab was turned off in the settings: the running scan or load is dropped. No-op when idle.
 function space.onDisabled()
     if job == nil and loader == nil and deferred == nil then
         return
@@ -926,8 +875,7 @@ function space.onDisabled()
     reset()
 end
 
--- Also called when the panel leaves the Space tab. Scans and loads keep
--- going; their late results only stop redrawing.
+-- Also called when the panel leaves the Space tab; scans and loads keep going.
 function space.onClose()
     isOpen = false
 end
@@ -937,8 +885,7 @@ function space.formatElapsed(ms)
     return string.format("%d:%02d", s // 60, s % 60)
 end
 
--- "Scanning… 42% (estimate)", or the elapsed time without an estimate. Before
--- the run starts (version and mount probes) it reads as a scan at 0:00.
+-- "Scanning… 42% (estimate)", or the elapsed time without an estimate.
 function space.progressText()
     local phase = space.phase == "reduce" and "reduce" or "scan"
     if space.progress ~= nil then
@@ -1049,7 +996,6 @@ local function legendRow(slice, i, node)
     })
 end
 
--- The state is part of the key: each state change builds a new button.
 local function sortButton(key)
     local active = sortKey == key
     return ui.button({
@@ -1062,7 +1008,6 @@ local function sortButton(key)
 end
 
 -- The text in place of the chart and list, or nil when an index is shown.
--- Not used while a scan runs: render shows its progress instead.
 local function statusText()
     if space.index ~= nil then
         return nil
@@ -1076,8 +1021,6 @@ end
 function space.render()
     local node = current()
     local atHome = space.root ~= "/"
-    -- Two rows: up, top, root, search and refresh take about 220 px of the 340,
-    -- the Folders | Types switch another 120.
     local controls = ui.row({ key = "space-buttons", gap = 4, align = "center" }, {
         ui.button({ key = "space-up", glyph = "arrow-up", variant = "ghost", enabled = #path > 1,
             tooltip = shared.tr("space_tip_up"), onClick = space.up }),
@@ -1128,7 +1071,6 @@ function space.render()
             table.insert(left, ui.image({ key = "space-img", path = image, width = DONUT_SIZE, height = DONUT_SIZE }))
         end
     end
-    -- The end of a long path is the part that says where you are.
     table.insert(left, ui.label({ key = "space-path", text = display(absolute(), ROW_LABEL_MAX + 6, true), fontSize = 13,
         fontWeight = "bold", color = "on_surface" }))
     table.insert(left, controls)
@@ -1171,7 +1113,6 @@ function space.render()
         table.insert(right, ui.row({ key = "space-sort", gap = 4, align = "center" }, {
             sortButton("size"), sortButton("name"), mode == "types" and sortButton("path") or nil,
         }))
-        -- The index keeps only the TOP_N biggest files per type and folder.
         if mode == "types" and typeFilter and #entries >= TOP_N then
             table.insert(right, label("space-capped", shared.tr("space_capped", { count = #entries })))
         end

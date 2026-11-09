@@ -2,20 +2,14 @@
 -- file-search — launcher provider: the same fuzzy search with the native
 -- keyboard flow of the noctalia launcher (type, arrows, Enter).
 --
--- `/fs <text>` fuzzy-matches over the index file the panel builds; when the
--- index is missing it is built here on demand. Activating a result opens it
--- with the system MIME association (xdg-open) — directories open in the
--- file manager. Late async results map back through the query echo of
--- launcher.setResults, so fzf can answer out of band.
+-- `/fs <text>` fuzzy-matches over the index file the panel builds (built here
+-- on demand when missing). Activating a result opens it with xdg-open.
+-- An empty query offers rows that cycle the scope and rebuild the index.
+-- The index, its fingerprint and the helpers live in shared.luau.
 --
--- The search scope (search folder / + removable disks / disks only) is the one
--- the panel persists in the plugin data directory; an empty `/fs` query offers
--- a row that cycles it here too, and each scope keeps its own index, so
--- switching back and forth never re-walks a tree twice.
---
--- The index itself, the fingerprint that identifies it and every helper around
--- both live in shared.luau, required below (plugin_api >= 22) and shared with
--- panel.luau: whichever entry built the index, the other recognizes it.
+-- State: searching / indexing flags, forceBuild (set by the rebuild row,
+-- consumed by the next onQuery), pendingQuery (latest query typed while a
+-- search, index or probe ran), staleIndex (the index no longer matches the disks).
 
 local MAX_RESULTS = 9
 
@@ -33,21 +27,17 @@ local function noopRow(titleKey)
     return { id = "noop", title = shared.tr(titleKey), glyph = "info-circle" }
 end
 
--- Row that cycles the scope, offered whenever the query is empty (and whenever
--- there is nothing to search), so the launcher is never a dead end when the
--- scope points at disks that are not plugged in.
+-- Row that cycles the scope, offered on an empty query and when there is nothing to search.
 local function scopeRow()
     return {
         id = "scope",
-        title = shared.tr("launcher.scope_title", { current = shared.tr("scope." .. shared.scope) }),
-        subtitle = shared.tr("launcher.scope_next", { next = shared.tr("scope." .. shared.NEXT_SCOPE[shared.scope]) }),
+        title = shared.tr(shared.scope == "all" and "opt_disks_on" or "opt_disks_off"),
+        subtitle = shared.tr(shared.scope == "all" and "tip_disks_off" or "tip_disks_on"),
         glyph = shared.SCOPE_GLYPHS[shared.scope],
     }
 end
 
--- Activating this is what authorises a walk. It is always offered on an empty
--- query (above the results), and pushed to the top when the index for a disk scope is missing or
--- out of date, since nothing else will rebuild it.
+-- Row that authorises a walk; offered on an empty query and when the disk index is missing or stale.
 local function reindexRow()
     return {
         id = "reindex",
@@ -67,24 +57,13 @@ local function buildIndex(query)
         launcher.setResults(query, { noopRow("err_index") })
         return
     end
-    if #shared.roots == 0 then
-        -- Scope "external" with nothing plugged in: nothing to walk, and no
-        -- cache to write either. Say so, and keep the row that switches back.
-        launcher.setResults(query, { noopRow("no_external"), scopeRow() })
-        return
-    end
     indexing = true
     pendingQuery = query
 
     local key = shared.indexKey()
-    -- The format this walk writes follows the roots it is about to visit.
     local builtRoots = shared.roots
     local absolute = #builtRoots > 1
     local builtScope = shared.cacheTag()
-    -- The same walk the panel runs, from the same builder: the index and the
-    -- count sidecar it leaves behind are readable by either entry. Its stdout
-    -- (count and elapsed milliseconds) is only of use to the panel's footer,
-    -- so it is ignored here.
     local cmd = shared.buildCommand(dir, key, absolute)
 
     launcher.setResults(query, { noopRow("launcher.indexing") })
@@ -94,26 +73,17 @@ local function buildIndex(query)
         pendingQuery = nil
         if result.exitCode == 0 and not result.timedOut then
             if builtScope ~= shared.cacheTag() then
-                -- The scope row was activated while the walk ran: this index
-                -- is not the one the launcher is showing. Start the query over
-                -- so roots, records and freshness are derived for the scope
-                -- that is actually current.
+                -- The scope changed during the walk: start the query over.
                 onQuery(queued or query)
             else
-                -- The file on disk is the one this walk just wrote: read it
-                -- the way it was written.
                 shared.indexRoots = builtRoots
                 shared.absoluteRecords = absolute
                 if shared.indexKey() == key then
                     staleIndex = false
                     runQuery(queued or query)
                 elseif shared.autoIndexAllowed() then
-                    -- Roots or exclusions moved during the walk; chasing that
-                    -- is fine for the search folder.
                     buildIndex(queued or query)
                 else
-                    -- For a disk it would be a second unasked-for walk, which
-                    -- is exactly what this plugin must not do.
                     staleIndex = true
                     runQuery(queued or query)
                 end
@@ -143,12 +113,6 @@ runQuery = function(query)
         return
     end
     local text = shared.trim(query)
-    if #shared.roots == 0 then
-        -- Scope "external" with nothing plugged in: say so, and keep the row
-        -- that switches back within reach.
-        launcher.setResults(query, { noopRow("no_external"), scopeRow() })
-        return
-    end
     searching = true
     local ok = noctalia.runAsync(shared.searchCommand(dir, text, MAX_RESULTS), function(result)
         searching = false
@@ -172,8 +136,6 @@ runQuery = function(query)
             table.insert(rows, 1, scopeRow())
             table.insert(rows, 2, reindexRow())
         elseif staleIndex then
-            -- Results came from an index that no longer matches the disks;
-            -- the way to fix that travels with them.
             table.insert(rows, reindexRow())
         end
         launcher.setResults(query, rows)
@@ -188,24 +150,13 @@ runQuery = function(query)
     end
 end
 
--- Refresh the mount list if the scope needs it and the last scan has aged out,
--- then continue with whatever query is current by then. With the default scope
--- no process is spawned at all.
---
--- The scan itself is shared.probeMounts; what stays here is the query echo the
--- launcher runs on. A keystroke arriving while a scan is in flight parks its
--- query instead of starting a second scan, and the continuation below picks up
--- whichever query is the latest by the time lsblk answers.
+-- Refresh the mount list if needed, then call done() with the latest query; a query arriving mid-scan is parked.
 local function withMounts(query, done)
     if shared.probeBusy() then
         pendingQuery = query
         return
     end
-    -- shared.probeMounts calls back synchronously when it has nothing to scan
-    -- (the search-folder scope, or a scan still inside MOUNT_TTL). Nothing can
-    -- have been parked in between, so `pendingQuery` is not this call's to
-    -- read: it may belong to a build or a search still in flight, and taking it
-    -- here would hand that older text back and lose the one just typed.
+    -- A synchronous callback must not read pendingQuery.
     local immediate = true
     shared.probeMounts(false, function()
         if immediate then
@@ -229,14 +180,14 @@ function onQuery(query)
         launcher.setResults(query, { noopRow("err_index") })
         return
     end
-    -- Re-read on every query: the panel may have cycled the scope or the
-    -- ranking since the last keystroke, and both files are a single word.
+    -- Re-read the persisted settings on every query.
     shared.scope = shared.readScope(dir)
     shared.whole = shared.readWhole(dir)
+    shared.folders = shared.readFolders(dir)
     shared.ranking = shared.readRanking(dir)
     withMounts(query, function(current)
         shared.roots = shared.computeRoots()
-        -- How to read what is on disk right now; a walk below overwrites both.
+        -- How to read the index currently on disk.
         shared.indexRoots = shared.indexRootsOf(dir) or shared.roots
         shared.absoluteRecords = #shared.indexRoots > 1
         if shared.cacheFresh(dir) and not forceBuild then
@@ -244,11 +195,7 @@ function onQuery(query)
             runQuery(current)
             return
         end
-        -- A missing or stale index (no meta, or built with a different scope,
-        -- root set or exclusions) is rebuilt before searching — but only for
-        -- the search folder, or when the rebuild row asked for it. Records of
-        -- a vanished root are not joined to a new one either way: they are
-        -- validated against the current roots when activated.
+        -- A missing or stale index is rebuilt for the search folder or when the rebuild row asked for it.
         if forceBuild or shared.autoIndexAllowed() then
             forceBuild = false
             staleIndex = false
@@ -272,24 +219,14 @@ function onActivate(id)
         end
         shared.scope = shared.NEXT_SCOPE[shared.scope] or shared.DEFAULT_SCOPE
         shared.writeScope(dir, shared.scope)
-        shared.mountsAt = 0 -- the new scope may need a mount list this one never took
-        -- Rewriting the query keeps the launcher open (the host only closes on
-        -- an activation that does not call setQuery) and re-enters onQuery with
-        -- an empty text, so the list comes back with the new scope applied.
+        shared.mountsAt = 0
         launcher.setQuery("")
         return
     end
     if id == "reindex" then
-        -- The explicit command to walk the tree. Rewriting the query keeps the
-        -- launcher open and re-enters onQuery, which consumes the flag and
-        -- starts the build with "Indexing files…" on screen. It does not drop
-        -- the current index first: if the walk fails or is aborted, the old one
-        -- is still there to search.
         forceBuild = true
-        shared.mountsAt = 0 -- rescan: a disk may have been plugged in since
+        shared.mountsAt = 0
         launcher.setQuery("")
-        -- The query is already "" here, so the host may not re-enter onQuery on
-        -- its own; run it directly so the walk starts now, not on the next open.
         onQuery("")
         return
     end
