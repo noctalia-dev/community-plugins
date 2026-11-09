@@ -1,64 +1,64 @@
 {
-  "settings": {
-    "source": {
-      "label": "Denoised source",
-      "description": "Name of the virtual PipeWire source created by the bundled filter-chain config."
-    },
-    "poll_interval": {
-      "label": "Refresh interval (ms)",
-      "description": "How often the tile and widget re-read the current state."
-    },
-    "hardware_source": {
-      "label": "Microphone",
-      "description": "Source name of the physical microphone; leave empty for automatic (last used input, then the first available one). To see the names, run \"pactl list short sources\" in a terminal - the microphone is an alsa_input.* entry."
-    },
-    "auto_reload": {
-      "label": "Reload PipeWire automatically",
-      "description": "Restart PipeWire once after the filter-chain config is written, so denoising works without a manual restart. Turn off if you would rather pick the moment (e.g. during a call)."
-    }
-  },
-  "shortcut": {
-    "label-on": "Denoise On",
-    "label-off": "Denoise Off"
-  },
-  "widget": {
-    "tooltip": {
-      "state": "Noise suppression",
-      "input": "Input"
-    }
-  },
   "notify": {
     "config-installed": {
-      "title": "Mic Denoise ready",
       "body": "PipeWire filter-chain config installed. Restart PipeWire once, then toggle denoising on.",
-      "reloaded": "PipeWire was restarted to load it - switching denoising on works now."
+      "reloaded": "PipeWire was restarted to load it - switching denoising on works now.",
+      "title": "Mic Denoise ready"
+    },
+    "copied": {
+      "body": "{cmd}",
+      "title": "Command copied"
     },
     "failed": {
-      "title": "Mic Denoise failed",
-      "body": "The audio backend reported no details."
+      "body": "The audio backend reported no details.",
+      "title": "Mic Denoise failed"
     },
-    "timeout": {
-      "body": "pactl did not answer in time; is PipeWire running?"
+    "ladspa": {
+      "body": "The RNNoise LADSPA plugin is missing, so the denoised source cannot exist. Install it - typical command: {cmd} - then restart PipeWire and enable denoising again.",
+      "title": "Mic Denoise needs noise-suppression-for-voice"
+    },
+    "mic-changed": {
+      "body": "The filter-chain now captures from the new microphone.",
+      "body-restarted": "PipeWire was restarted so the filter-chain loads the new capture target.",
+      "title": "Microphone changed"
+    },
+    "not-ready": {
+      "body": "The denoised source is missing. Restart PipeWire to load the filter-chain: systemctl --user restart pipewire pipewire-pulse wireplumber",
+      "title": "Mic Denoise is not ready"
     },
     "spawn-failed": {
       "body": "Could not run the bundled backend script."
     },
-    "mic-changed": {
-      "title": "Microphone changed",
-      "body": "The filter-chain now captures from the new microphone.",
-      "body-restarted": "PipeWire was restarted so the filter-chain loads the new capture target."
+    "timeout": {
+      "body": "pactl did not answer in time; is PipeWire running?"
+    }
+  },
+  "settings": {
+    "auto_reload": {
+      "description": "Restart PipeWire once after the filter-chain config is written, so denoising works without a manual restart. Turn off if you would rather pick the moment (e.g. during a call).",
+      "label": "Reload PipeWire automatically"
     },
-    "ladspa": {
-      "title": "Mic Denoise needs noise-suppression-for-voice",
-      "body": "The RNNoise LADSPA plugin is missing, so the denoised source cannot exist. Install it - typical command: {cmd} - then restart PipeWire and enable denoising again."
+    "hardware_source": {
+      "description": "Source name of the physical microphone; leave empty for automatic (last used input, then the first available one). To see the names, run \"pactl list short sources\" in a terminal - the microphone is an alsa_input.* entry.",
+      "label": "Microphone"
     },
-    "not-ready": {
-      "title": "Mic Denoise is not ready",
-      "body": "The denoised source is missing. Restart PipeWire to load the filter-chain: systemctl --user restart pipewire pipewire-pulse wireplumber"
+    "poll_interval": {
+      "description": "How often the tile and widget re-read the current state.",
+      "label": "Refresh interval (ms)"
     },
-    "copied": {
-      "title": "Command copied",
-      "body": "{cmd}"
+    "source": {
+      "description": "Name of the virtual PipeWire source created by the bundled filter-chain config.",
+      "label": "Denoised source"
+    }
+  },
+  "shortcut": {
+    "label-off": "Denoise Off",
+    "label-on": "Denoise On"
+  },
+  "widget": {
+    "tooltip": {
+      "input": "Input",
+      "state": "Noise suppression"
     }
   }
 }

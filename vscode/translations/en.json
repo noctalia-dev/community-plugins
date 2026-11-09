@@ -1,49 +1,19 @@
 {
-  "plugin": {
-    "name": "VS Code"
+  "bar": {
+    "tooltip": "Open a VS Code project"
   },
-  "settings": {
-    "editor": {
-      "label": "Editor",
-      "description": "Which editor opens projects. Auto picks the most recently used editor that has projects.",
-      "options": {
-        "auto": "Auto",
-        "code": "VS Code",
-        "code-insiders": "VS Code Insiders",
-        "codium": "VSCodium",
-        "code-oss": "Code - OSS",
-        "cursor": "Cursor",
-        "flatpak": "VS Code (Flatpak)"
-      }
-    },
-    "recent_count": {
-      "label": "Recent projects",
-      "description": "How many recent projects the panel shows."
-    },
-    "show_git": {
-      "label": "Show git status",
-      "description": "Show the branch and a dot for uncommitted changes."
-    },
-    "show_remote": {
-      "label": "Show remote projects",
-      "description": "Include SSH, container, WSL and tunnel projects."
-    },
-    "hide_missing": {
-      "label": "Hide missing folders",
-      "description": "Hide projects whose folder no longer exists."
-    },
-    "show_hidden": {
-      "label": "Show hidden projects",
-      "description": "List hidden projects again, dimmed and marked Hidden, so you can unhide them with their eye button."
-    },
-    "clone_dir": {
-      "label": "Clone folder",
-      "description": "Where cloned repositories are placed."
-    },
-    "show_label": {
-      "label": "Show label",
-      "description": "Show the editor name next to the bar icon."
-    }
+  "clone": {
+    "cancel": "Cancel",
+    "cancelled": "Clone cancelled.",
+    "change": "Change",
+    "change_tooltip": "Change the clone folder in the plugin settings",
+    "dest": "Clones into {dest}",
+    "done": "Cloned {name}",
+    "exists": "{dest} already exists.",
+    "no_git": "Cloning needs git.",
+    "open_existing": "Open existing",
+    "running": "Cloning {name}…",
+    "starting": "Starting…"
   },
   "error": {
     "bad_url": "That doesn't look like a git URL with a folder name.",
@@ -59,80 +29,110 @@
     "save_failed": "Couldn't save pins and hidden projects.",
     "terminal_failed": "Couldn't open a terminal."
   },
+  "launcher": {
+    "empty": "No recent projects yet",
+    "loading": "Loading recent projects…",
+    "missing": "Missing",
+    "no_flavor": "No supported editor is installed.",
+    "pinned": "Pinned"
+  },
+  "menu": {
+    "copy_path": "Copy path",
+    "hide": "Hide from list",
+    "open_files": "Open in file manager",
+    "open_terminal": "Open in terminal",
+    "pin": "Pin",
+    "unhide": "Unhide",
+    "unpin": "Unpin"
+  },
   "notify": {
     "cloned": "Cloned {name}"
   },
+  "panel": {
+    "actions": "Actions (right-click for menu)",
+    "clone": "Clone",
+    "close": "Close",
+    "dismiss": "Dismiss",
+    "empty": "No recent projects yet",
+    "fallback_not_installed": "{wanted} isn't installed. Using {using} for now.",
+    "fallback_not_set_up": "{wanted} isn't set up yet: start it once and open a folder. Using {using} for now.",
+    "load_more": "Load more",
+    "loading": "Loading recent projects…",
+    "looked_for": "Looked for: {editors}",
+    "missing": "missing",
+    "no_flavor": "No supported editor is installed.",
+    "open": "Open",
+    "open_folder": "Open folder…",
+    "path_placeholder": "Paste a path or git URL",
+    "pick_hint": "Paste a folder's path above (the folder picker needs zenity).",
+    "pinned": "Pinned",
+    "recent": "Recent",
+    "settings": "Plugin settings",
+    "unhide": "Unhide"
+  },
   "path": {
-    "flatpak_hidden": "The Flatpak build of VS Code can't see this folder (its sandbox hides /tmp, /var/tmp and system folders). Move it under your home folder, or use a non-Flatpak editor.",
     "empty": "Enter a path.",
+    "flatpak_hidden": "The Flatpak build of VS Code can't see this folder (its sandbox hides /tmp, /var/tmp and system folders). Move it under your home folder, or use a non-Flatpak editor.",
     "missing": "That path doesn't exist.",
     "not_project": "Not a folder or a .code-workspace file."
   },
   "picker": {
     "title": "Open folder"
   },
-  "bar": {
-    "tooltip": "Open a VS Code project"
+  "plugin": {
+    "name": "VS Code"
   },
-  "panel": {
-    "fallback_not_set_up": "{wanted} isn't set up yet: start it once and open a folder. Using {using} for now.",
-    "fallback_not_installed": "{wanted} isn't installed. Using {using} for now.",
-    "unhide": "Unhide",
-    "settings": "Plugin settings",
-    "path_placeholder": "Paste a path or git URL",
-    "open": "Open",
-    "clone": "Clone",
-    "open_folder": "Open folder…",
-    "pick_hint": "Paste a folder's path above (the folder picker needs zenity).",
-    "pinned": "Pinned",
-    "recent": "Recent",
-    "load_more": "Load more",
-    "loading": "Loading recent projects…",
-    "empty": "No recent projects yet",
-    "no_flavor": "No supported editor is installed.",
-    "looked_for": "Looked for: {editors}",
-    "close": "Close",
-    "dismiss": "Dismiss",
-    "actions": "Actions (right-click for menu)",
-    "missing": "missing"
-  },
-  "clone": {
-    "change_tooltip": "Change the clone folder in the plugin settings",
-    "change": "Change",
-    "no_git": "Cloning needs git.",
-    "dest": "Clones into {dest}",
-    "running": "Cloning {name}…",
-    "starting": "Starting…",
-    "cancel": "Cancel",
-    "exists": "{dest} already exists.",
-    "open_existing": "Open existing",
-    "done": "Cloned {name}",
-    "cancelled": "Clone cancelled."
+  "settings": {
+    "clone_dir": {
+      "description": "Where cloned repositories are placed.",
+      "label": "Clone folder"
+    },
+    "editor": {
+      "description": "Which editor opens projects. Auto picks the most recently used editor that has projects.",
+      "label": "Editor",
+      "options": {
+        "auto": "Auto",
+        "code": "VS Code",
+        "code-insiders": "VS Code Insiders",
+        "code-oss": "Code - OSS",
+        "codium": "VSCodium",
+        "cursor": "Cursor",
+        "flatpak": "VS Code (Flatpak)"
+      }
+    },
+    "hide_missing": {
+      "description": "Hide projects whose folder no longer exists.",
+      "label": "Hide missing folders"
+    },
+    "recent_count": {
+      "description": "How many recent projects the panel shows.",
+      "label": "Recent projects"
+    },
+    "show_git": {
+      "description": "Show the branch and a dot for uncommitted changes.",
+      "label": "Show git status"
+    },
+    "show_hidden": {
+      "description": "List hidden projects again, dimmed and marked Hidden, so you can unhide them with their eye button.",
+      "label": "Show hidden projects"
+    },
+    "show_label": {
+      "description": "Show the editor name next to the bar icon.",
+      "label": "Show label"
+    },
+    "show_remote": {
+      "description": "Include SSH, container, WSL and tunnel projects.",
+      "label": "Show remote projects"
+    }
   },
   "tag": {
-    "hidden": "Hidden",
     "cloned": "Cloned",
-    "ssh": "SSH",
     "container": "Container",
-    "wsl": "WSL",
-    "tunnel": "Tunnel",
+    "hidden": "Hidden",
     "remote": "Remote",
-    "workspace": "Workspace"
-  },
-  "menu": {
-    "unhide": "Unhide",
-    "pin": "Pin",
-    "unpin": "Unpin",
-    "open_terminal": "Open in terminal",
-    "open_files": "Open in file manager",
-    "copy_path": "Copy path",
-    "hide": "Hide from list"
-  },
-  "launcher": {
-    "no_flavor": "No supported editor is installed.",
-    "empty": "No recent projects yet",
-    "loading": "Loading recent projects…",
-    "pinned": "Pinned",
-    "missing": "Missing"
+    "ssh": "SSH",
+    "tunnel": "Tunnel",
+    "workspace": "Workspace",
+    "wsl": "WSL"
   }
 }

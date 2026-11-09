@@ -1,0 +1,101 @@
+{
+  "bus": {
+    "optical": "Unità ottica",
+    "other": "Disco rimovibile",
+    "sd": "Scheda SD",
+    "usb": "USB"
+  },
+  "error": {
+    "busy": "è in uso: chiudi i file e le finestre che lo usano",
+    "lock": "Impossibile bloccare {name}: {reason}",
+    "mount": "Impossibile montare {name}: {reason}",
+    "no-udisks": "udisksctl non è disponibile: installa udisks2",
+    "not-authorized": "non autorizzato",
+    "passphrase": "passphrase errata",
+    "remove": "Impossibile rimuovere {name}: {reason}",
+    "timeout": "udisks non ha risposto in tempo",
+    "unlock": "Impossibile sbloccare {name}: {reason}",
+    "unmount": "Impossibile smontare {name}: {reason}"
+  },
+  "notify": {
+    "connected": "{name} collegato",
+    "removed": "{name} scollegato",
+    "safe": "{name} può essere rimosso in sicurezza",
+    "unsafe": "{name} è stato scollegato mentre era ancora montato: i file in scrittura potrebbero andare persi"
+  },
+  "panel": {
+    "busy": "Scrittura…",
+    "cancel": "Annulla",
+    "copied": "Percorso copiato",
+    "copy-path": "Copia il percorso di montaggio",
+    "count": "{count} dischi",
+    "count-one": "1 disco",
+    "eject-hint": "Espelle il supporto",
+    "empty": "Nessun disco rimovibile",
+    "empty-hint": "Collega un disco USB o una scheda SD.",
+    "encrypted": "Volume cifrato: sbloccalo con la sua passphrase",
+    "free": "{free} liberi su {total}",
+    "lock": "Blocca",
+    "locked": "Bloccato",
+    "mount": "Monta",
+    "mount-all": "Monta tutti",
+    "mounted-count": "{count} montati",
+    "no-media": "Nessun supporto",
+    "not-mounted": "Non montato",
+    "open": "Apri nel file manager",
+    "passphrase": "Passphrase di {name}",
+    "pending-lock": "Blocco…",
+    "pending-mount": "Montaggio…",
+    "pending-remove": "Preparazione alla rimozione…",
+    "pending-unlock": "Sblocco…",
+    "pending-unmount": "Smontaggio…",
+    "power-off-hint": "Smonta tutto e spegne il disco",
+    "read-only": "sola lettura",
+    "refresh": "Aggiorna",
+    "release-hint": "Smonta tutto",
+    "remove": "Rimuovi in sicurezza",
+    "remove-all": "Rimuovi tutti in sicurezza",
+    "settings": "Impostazioni",
+    "unlock": "Sblocca",
+    "unlocked": "Sbloccato",
+    "unmount": "Smonta",
+    "unnamed": "Senza nome"
+  },
+  "settings": {
+    "auto_mount": {
+      "description": "Monta i filesystem di un disco appena viene collegato. I volumi cifrati aspettano comunque la passphrase.",
+      "label": "Montaggio automatico"
+    },
+    "file_manager": {
+      "description": "Comando che apre una cartella, passata come ultimo argomento. Vuoto usa xdg-open.",
+      "label": "Comando del file manager"
+    },
+    "hide_when_empty": {
+      "description": "Nasconde il widget quando non è collegato nessun disco rimovibile.",
+      "label": "Nascondi se vuoto"
+    },
+    "notifications": {
+      "description": "Notifica quando un disco può essere rimosso in sicurezza. Gli errori e i dischi scollegati mentre erano montati sono sempre mostrati.",
+      "label": "Notifiche"
+    },
+    "open_after_mount": {
+      "description": "Apre la cartella nel file manager dopo aver montato un volume.",
+      "label": "Apri dopo il montaggio"
+    },
+    "scan_interval": {
+      "description": "Secondi tra due letture dell'elenco dei dispositivi del kernel.",
+      "label": "Intervallo di controllo"
+    },
+    "show_count": {
+      "description": "Mostra il numero di dischi accanto all'icona.",
+      "label": "Mostra il numero"
+    }
+  },
+  "title": "USB Manager",
+  "tooltip": {
+    "mounted": "montato in {path}",
+    "not-mounted": "non montato",
+    "remove-all": "rimuovi tutti i dischi in sicurezza",
+    "right-click": "Clic destro"
+  }
+}

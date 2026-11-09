@@ -1,0 +1,149 @@
+{
+  "action": {
+    "accept": "Accetta",
+    "browse": "Sfoglia",
+    "clipboard": "Appunti",
+    "pair": "Associa",
+    "ping": "Ping",
+    "refresh": "Aggiorna",
+    "reject": "Rifiuta",
+    "ring": "Fai squillare",
+    "share": "Condividi",
+    "sms": "SMS",
+    "switch": "Cambia dispositivo",
+    "unpair": "Dissocia"
+  },
+  "error": {
+    "accept_failed": "Impossibile accettare l'associazione",
+    "browse_failed": "Impossibile sfogliare il dispositivo",
+    "cli_failed": "Comando fallito",
+    "clipboard_failed": "Impossibile inviare gli appunti",
+    "no_backend": "Nessun backend",
+    "pairing_failed": "Associazione fallita",
+    "pick_failed": "Impossibile aprire la selezione dei file",
+    "pick_in_progress": "La selezione dei file è già aperta",
+    "ping_failed": "Impossibile inviare il ping",
+    "reject_failed": "Impossibile rifiutare l'associazione",
+    "ring_failed": "Impossibile far squillare il dispositivo",
+    "share_failed": "Condivisione fallita",
+    "unpair_failed": "Dissociazione fallita"
+  },
+  "media": {
+    "mute": "Disattiva audio",
+    "next": "Successivo",
+    "pause": "Pausa",
+    "play": "Riproduci",
+    "previous": "Precedente",
+    "stop": "Ferma",
+    "unmute": "Riattiva audio"
+  },
+  "notify": {
+    "clipboard_sent": "Appunti inviati",
+    "file_shared": "Invio del file al dispositivo...",
+    "opening_browser": "Apertura del file manager...",
+    "paired": "Dispositivo associato",
+    "pairing_sent": "Richiesta di associazione inviata",
+    "ping_sent": "Ping inviato a {name}",
+    "ringing": "{name} sta squillando...",
+    "sms_sent": "SMS inviato",
+    "unpaired": "Dispositivo dissociato"
+  },
+  "panel": {
+    "battery": "Batteria",
+    "close": "Chiudi",
+    "devices_connected": "{connected} connessi",
+    "empty": "Nessun dispositivo trovato. Associa un dispositivo in KDE Connect.",
+    "image_path": "Immagine personalizzata",
+    "network": "Rete",
+    "no_media": "Nessun contenuto in riproduzione",
+    "no_recent_images": "Nessuna immagine recente",
+    "now_playing": "In riproduzione",
+    "paired": "Associato",
+    "pairing": "Associazione",
+    "recent_images": "Immagini recenti",
+    "sms": "Invia SMS",
+    "sms_dest": "Numero di telefono",
+    "sms_msg": "Messaggio",
+    "sms_send": "Invia",
+    "title": "Phone Connect",
+    "type": "Tipo",
+    "unknown": "sconosciuto",
+    "unpaired": "Non associato"
+  },
+  "settings": {
+    "battery_display": {
+      "description": "Scegli se il widget nella barra mostra l'icona della batteria, la percentuale, entrambe o nessuna.",
+      "hidden": "Nascosta",
+      "icon": "Solo icona",
+      "icon_and_percent": "Icona e percentuale",
+      "label": "Indicatore batteria",
+      "percent": "Solo percentuale"
+    },
+    "custom_image": {
+      "description": "Imposta un'immagine personalizzata per il dispositivo selezionato. Vuoto per l'icona predefinita.",
+      "label": "Immagine del dispositivo"
+    },
+    "device_alias": {
+      "description": "Nome personalizzato del dispositivo selezionato.",
+      "label": "Alias del dispositivo"
+    },
+    "enable_charging_animation": {
+      "description": "Evidenzia il widget nella barra quando il dispositivo è in carica.",
+      "label": "Mostra la ricarica"
+    },
+    "enable_clipboard_action": {
+      "description": "Mostra un'azione rapida per inviare gli appunti al dispositivo.",
+      "label": "Mostra l'azione appunti"
+    },
+    "language": {
+      "description": "Lingua di visualizzazione",
+      "en": "English",
+      "label": "Lingua",
+      "zh-hans": "简体中文",
+      "zh_hans": "简体中文"
+    },
+    "max_recent_images": {
+      "description": "Numero di immagini recenti da mostrare.",
+      "label": "Massimo immagini recenti"
+    },
+    "migrated": {
+      "description": "Si modificano direttamente nel pannello: clic sull'avatar del dispositivo per cambiarne l'immagine, clic sul nome per rinominarlo. Per dispositivo, salvati automaticamente.",
+      "label": "Immagine e nome del dispositivo"
+    },
+    "panel_placement": {
+      "attached": "Agganciato alla barra",
+      "description": "Come si apre il pannello dei dettagli: agganciato alla barra o fluttuante.",
+      "floating": "Fluttuante (al centro)",
+      "label": "Posizione del pannello",
+      "widget": "Sotto il widget (fluttuante)"
+    },
+    "scan_subdirectories": {
+      "description": "Cerca anche nelle sottocartelle del percorso delle immagini recenti.",
+      "label": "Cerca nelle sottocartelle"
+    },
+    "show_device_name": {
+      "description": "Mostra nel widget della barra il nome o l'alias del dispositivo selezionato.",
+      "label": "Mostra il nome del dispositivo"
+    },
+    "show_device_placeholder": {
+      "description": "Mostra l'immagine del dispositivo nel pannello dei dettagli.",
+      "label": "Mostra l'immagine del dispositivo"
+    },
+    "show_ongoing_media": {
+      "description": "Mostra i contenuti in riproduzione sul telefono.",
+      "label": "Mostra la riproduzione in corso"
+    },
+    "state_update_interval": {
+      "description": "Secondi tra due aggiornamenti automatici dello stato del dispositivo. 0 li disattiva.",
+      "label": "Intervallo di aggiornamento"
+    }
+  },
+  "status": {
+    "connected": "Connesso",
+    "no_backend": "KDE Connect non in esecuzione",
+    "no_devices": "Nessun dispositivo",
+    "not_paired": "Non associato",
+    "offline": "Offline",
+    "unavailable": "Non disponibile"
+  }
+}

@@ -8,6 +8,10 @@
       "description": "Noctalia glyph shown while Voxtype is ready and waiting.",
       "label": "Idle icon"
     },
+    "osd_enabled": {
+      "description": "Show a small themed overlay with live microphone bars and a processing animation. No bar widget is needed.",
+      "label": "Live dictation overlay"
+    },
     "recording_color": {
       "description": "Color of the icon while Voxtype is recording.",
       "label": "Recording icon color"
@@ -59,10 +63,6 @@
     "transcribing_glyph": {
       "description": "Noctalia glyph shown while Voxtype is transcribing recorded audio.",
       "label": "Transcribing icon"
-    },
-    "osd_enabled": {
-      "label": "Live dictation overlay",
-      "description": "Show a small themed overlay with live microphone bars and a processing animation. No bar widget is needed."
     }
   },
   "widget": {

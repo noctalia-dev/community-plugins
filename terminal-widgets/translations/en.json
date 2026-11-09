@@ -10,47 +10,38 @@
   "edit_widget": "Edit widget",
   "editor_hint": "Leave a field empty to use the default.",
   "empty": "No widgets configured. Add some in Settings → Plugins or with the pencil button.",
+  "empty_command": "The command cannot be empty",
   "field_command": "Command (e.g. cava)",
   "field_layout": "Layout (e.g. bottom-center, 1610x584)",
   "field_name": "Name",
   "field_thumb": "Custom thumbnail/GIF (empty = no image)",
   "focused_output": "focused monitor",
+  "invalid_layout": "Invalid layout format. Use: bottom-center, 1610x584",
   "launch_failed": "Could not launch the terminal.",
   "layout_auto": "auto",
   "layout_custom": "absolute",
   "layout_global": "global · {width}×{height}",
   "layout_invalid": "invalid layout",
   "missing_command": "No command configured for {name}.",
-  "need_name": "The widget needs a name.",
   "name_exists": "A widget with that name already exists",
-  "empty_command": "The command cannot be empty",
-  "invalid_layout": "Invalid layout format. Use: bottom-center, 1610x584",
-  "nothing_to_rotate": "There are not enough open windows to rotate.",
+  "need_name": "The widget needs a name.",
   "no_free_space": "No free space available to move the window.",
+  "nothing_to_rotate": "There are not enough open windows to rotate.",
   "open_all": "Open all (rotates them when they are already open)",
   "open_settings": "Open settings",
   "rotate": "Rotate windows",
   "save": "Save",
   "save_failed": "Could not save the widget list: {detail}",
-  "thumb_not_found": "The thumbnail path does not exist or the file is empty.",
   "settings": {
-    "fallback_mode": {
-      "description": "How windows are positioned. Random = a widget without a layout opens in a free spot, and clicking an already open widget moves it to another free spot (keeping its current size unless Change size too is on); Custom = use the manual fallback X/Y/width/height.",
-      "label": "Fallback mode",
-      "options": {
-        "random": "Random (pick free spot on click)",
-        "custom": "Custom (use manual X/Y/width/height)"
-      }
-    },
     "card_preview": {
       "description": "Thumbnail of each widget: a screenshot of the window when it is open, live updating screenshots, animated GIF from recent frames, or a mock card.",
       "label": "Card preview",
       "options": {
         "auto": "Automatic (screenshot when open, GIF when closed)",
-        "screenshot": "Screenshot (capture once when window opens)",
-        "live": "Live (auto-refreshing screenshots)",
         "gif": "Animated GIF (from recent captures)",
-        "mock": "Mock (synthetic terminal preview)"
+        "live": "Live (auto-refreshing screenshots)",
+        "mock": "Mock (synthetic terminal preview)",
+        "screenshot": "Screenshot (capture once when window opens)"
       }
     },
     "close_on_launch": {
@@ -61,9 +52,25 @@
       "description": "Number of widget cards per row in the panel.",
       "label": "Columns"
     },
+    "fallback_mode": {
+      "description": "How windows are positioned. Random = a widget without a layout opens in a free spot, and clicking an already open widget moves it to another free spot (keeping its current size unless Change size too is on); Custom = use the manual fallback X/Y/width/height.",
+      "label": "Fallback mode",
+      "options": {
+        "custom": "Custom (use manual X/Y/width/height)",
+        "random": "Random (pick free spot on click)"
+      }
+    },
+    "fallback_random_resize": {
+      "description": "In Random mode, also change the window size in addition to its position.",
+      "label": "Change size too"
+    },
     "glyph": {
       "description": "Icon shown in the bar.",
       "label": "Bar glyph"
+    },
+    "height": {
+      "description": "Height used when Fallback mode = Custom.",
+      "label": "Height (custom)"
     },
     "margin": {
       "description": "Pixel margin from the monitor edges for anchored layouts.",
@@ -72,6 +79,10 @@
     "output": {
       "description": "Monitor connector where windows should open (e.g. DP-1). Empty = focused monitor.",
       "label": "Monitor"
+    },
+    "preview_interval": {
+      "description": "How often (in milliseconds) a live card preview is refreshed.",
+      "label": "Preview interval (ms)"
     },
     "reuse_existing": {
       "description": "If the command's window is already open, focus it and reapply its geometry instead of opening another one.",
@@ -100,10 +111,6 @@
       "description": "Width used when Fallback mode = Custom.",
       "label": "Width (custom)"
     },
-    "height": {
-      "description": "Height used when Fallback mode = Custom.",
-      "label": "Height (custom)"
-    },
     "x": {
       "description": "Fallback horizontal position (monitor coordinates) used when Fallback mode = Custom.",
       "label": "Fallback X position (custom)"
@@ -111,17 +118,10 @@
     "y": {
       "description": "Fallback vertical position (monitor coordinates) used when Fallback mode = Custom.",
       "label": "Fallback Y position (custom)"
-    },
-    "preview_interval": {
-      "description": "How often (in milliseconds) a live card preview is refreshed.",
-      "label": "Preview interval (ms)"
-    },
-    "fallback_random_resize": {
-      "description": "In Random mode, also change the window size in addition to its position.",
-      "label": "Change size too"
     }
   },
   "subtitle": "{terminal} · {margin} px margin · {output}",
+  "thumb_not_found": "The thumbnail path does not exist or the file is empty.",
   "title": "Terminal Widgets",
   "tooltip": "Floating terminal widgets"
 }

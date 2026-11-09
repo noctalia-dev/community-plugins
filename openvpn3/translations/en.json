@@ -11,9 +11,9 @@
     "timeout": "Connection timed out"
   },
   "notify": {
-    "dns-route-failed": "Could not set DNS routing domains",
     "connected": "Connected",
     "disconnected": "Disconnected",
+    "dns-route-failed": "Could not set DNS routing domains",
     "failed": "Connection failed",
     "paused": "Paused",
     "reconnecting": "Connection lost, reconnecting",
@@ -67,10 +67,10 @@
       "dns-disabled-hint": "Leave the system resolver untouched while connected.",
       "dns-google": "Fall back to Google DNS",
       "dns-google-hint": "Use 8.8.8.8 if the VPN provides no DNS server.",
-      "dns-scope": "DNS scope",
-      "dns-sync": "Synchronous DNS lookup",
       "dns-routes": "DNS routing domains",
       "dns-routes-hint": "example.internal (space separated)",
+      "dns-scope": "DNS scope",
+      "dns-sync": "Synchronous DNS lookup",
       "ipv6": "IPv6",
       "legacy": "Legacy algorithms",
       "legacy-hint": "Allow old ciphers some servers still need. Less secure.",

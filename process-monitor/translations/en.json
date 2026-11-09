@@ -1,124 +1,124 @@
 {
-  "plugin_name": "System Monitor Expanded",
   "plugin_description": "Which apps use your CPU, RAM, GPU and VRAM: a bar readout, a sortable panel with kill actions, and a desktop widget.",
+  "plugin_name": "System Monitor Expanded",
   "settings": {
-    "interval_ms": {
-      "label": "Refresh interval (ms)",
-      "description": "How often processes are sampled. At 2000 ms the sampler uses well under 1% of one core."
-    },
     "cpu_scale": {
-      "label": "CPU percentages",
+      "core": "Share of one core (like top)",
       "description": "Share of the whole CPU, or of one core like top and htop (a process maxing 4 cores shows 400%).",
-      "machine": "Share of the whole CPU (all cores = 100%)",
-      "core": "Share of one core (like top)"
+      "label": "CPU percentages",
+      "machine": "Share of the whole CPU (all cores = 100%)"
     },
-    "group_by_app": {
-      "label": "Group by app",
-      "description": "Add up processes of the same program into one row (a browser's or game's helper processes). Off: every process gets its own row."
+    "desktop_rows": {
+      "label": "Rows"
     },
-    "rows_per_metric": {
-      "label": "Rows kept per metric",
-      "description": "The sampler sends the top N processes by CPU, RAM, GPU and VRAM. Raise it if the panel filter misses idle processes."
+    "desktop_show_graph": {
+      "description": "CPU and GPU usage over the last 60 samples.",
+      "label": "Show usage graph"
+    },
+    "desktop_show_icons": {
+      "label": "App icons"
+    },
+    "desktop_show_totals": {
+      "label": "Show CPU / RAM / GPU totals"
+    },
+    "desktop_sort": {
+      "label": "Sort by"
+    },
+    "desktop_title": {
+      "description": "Heading on the tile. Leave empty to hide the header row.",
+      "label": "Title"
     },
     "display": {
-      "label": "Show",
+      "both": "Totals and busiest app",
       "description": "What the bar widget displays.",
+      "label": "Show",
       "top": "Busiest app",
-      "totals": "CPU / RAM / GPU totals",
-      "both": "Totals and busiest app"
+      "totals": "CPU / RAM / GPU totals"
     },
-    "metric": {
-      "label": "Busiest by",
-      "description": "Which resource decides the busiest app. Overall picks whichever resource the app strains most, as a share of the machine.",
-      "overall": "Overall",
-      "cpu": "CPU",
-      "ram": "RAM",
-      "gpu": "GPU",
-      "vram": "VRAM"
+    "group_by_app": {
+      "description": "Add up processes of the same program into one row (a browser's or game's helper processes). Off: every process gets its own row.",
+      "label": "Group by app"
+    },
+    "interval_ms": {
+      "description": "How often processes are sampled. At 2000 ms the sampler uses well under 1% of one core.",
+      "label": "Refresh interval (ms)"
     },
     "max_name_length": {
       "label": "Max name length (0 = no limit)"
     },
+    "metric": {
+      "cpu": "CPU",
+      "description": "Which resource decides the busiest app. Overall picks whichever resource the app strains most, as a share of the machine.",
+      "gpu": "GPU",
+      "label": "Busiest by",
+      "overall": "Overall",
+      "ram": "RAM",
+      "vram": "VRAM"
+    },
+    "rows_per_metric": {
+      "description": "The sampler sends the top N processes by CPU, RAM, GPU and VRAM. Raise it if the panel filter misses idle processes.",
+      "label": "Rows kept per metric"
+    },
     "show_app_icon": {
-      "label": "App icons",
-      "description": "Put the busiest app's icon (or its first letter) in front of its name on the bar."
+      "description": "Put the busiest app's icon (or its first letter) in front of its name on the bar.",
+      "label": "App icons"
     },
     "show_gauges": {
       "label": "Show gauges"
     },
     "show_temps": {
-      "label": "Show CPU and GPU temperature",
-      "description": "From Noctalia's system monitor, the same sensors the built-in widgets read."
+      "description": "From Noctalia's system monitor, the same sensors the built-in widgets read.",
+      "label": "Show CPU and GPU temperature"
     },
     "show_vram": {
       "label": "Show VRAM usage"
-    },
-    "desktop_title": {
-      "label": "Title",
-      "description": "Heading on the tile. Leave empty to hide the header row."
-    },
-    "desktop_rows": {
-      "label": "Rows"
-    },
-    "desktop_sort": {
-      "label": "Sort by"
-    },
-    "desktop_show_totals": {
-      "label": "Show CPU / RAM / GPU totals"
-    },
-    "desktop_show_graph": {
-      "label": "Show usage graph",
-      "description": "CPU and GPU usage over the last 60 samples."
-    },
-    "desktop_show_icons": {
-      "label": "App icons"
     }
   },
   "ui": {
-    "metric": {
-      "overall": "Overall",
-      "cpu": "CPU",
-      "ram": "RAM",
-      "gpu": "GPU",
-      "vram": "VRAM",
-      "name": "Name"
-    },
-    "cpu_sub": "{threads} threads · {procs} processes",
-    "ram_sub": "of {total} · swap {swap}",
-    "vram_of": "VRAM {used} of {total}",
-    "filter_placeholder": "Filter by name or PID",
-    "overall_tooltip": "Sort by whichever resource each app strains most",
     "apps": "Apps",
-    "processes": "Processes",
+    "click_again_terminate": "Click again to terminate",
+    "click_to_confirm": "Click to confirm",
     "col_app": "Application",
     "col_process": "Process",
-    "menu_header_group": "{name} ({count} processes)",
-    "menu_header_pid": "{name} (PID {pid})",
-    "terminate": "Terminate",
-    "force_kill": "Force kill",
-    "pause": "Pause",
-    "resume": "Resume",
+    "copy_name": "Copy name",
     "copy_pid": "Copy PID",
     "copy_pids": "Copy PIDs",
-    "copy_name": "Copy name",
-    "pid": "PID",
-    "strip_group": "{count} processes · PIDs {pids}",
-    "strip_pid": "PID {pid}",
-    "click_to_confirm": "Click to confirm",
-    "click_again_terminate": "Click again to terminate",
-    "paused": "paused",
-    "waiting_panel": "Waiting for the first sample… ({status})",
-    "waiting_desktop": "Waiting for data… Is the System Monitor Expanded plugin enabled?",
-    "no_matches": "No matches",
-    "updated": "updated {time}",
-    "top_apps": "Top apps",
-    "top_processes": "Top processes",
-    "top_columns": "CPU · RAM · GPU",
-    "desk_cpu_sub": "CPU · {procs} procs",
-    "desk_ram_sub": "RAM · of {total}",
-    "desk_gpu_sub": "GPU · {vram} VRAM",
     "count_apps": "{count} apps",
     "count_processes": "{count} processes",
-    "kill_failed": "kill -{signal} failed: {error}"
+    "cpu_sub": "{threads} threads · {procs} processes",
+    "desk_cpu_sub": "CPU · {procs} procs",
+    "desk_gpu_sub": "GPU · {vram} VRAM",
+    "desk_ram_sub": "RAM · of {total}",
+    "filter_placeholder": "Filter by name or PID",
+    "force_kill": "Force kill",
+    "kill_failed": "kill -{signal} failed: {error}",
+    "menu_header_group": "{name} ({count} processes)",
+    "menu_header_pid": "{name} (PID {pid})",
+    "metric": {
+      "cpu": "CPU",
+      "gpu": "GPU",
+      "name": "Name",
+      "overall": "Overall",
+      "ram": "RAM",
+      "vram": "VRAM"
+    },
+    "no_matches": "No matches",
+    "overall_tooltip": "Sort by whichever resource each app strains most",
+    "pause": "Pause",
+    "paused": "paused",
+    "pid": "PID",
+    "processes": "Processes",
+    "ram_sub": "of {total} · swap {swap}",
+    "resume": "Resume",
+    "strip_group": "{count} processes · PIDs {pids}",
+    "strip_pid": "PID {pid}",
+    "terminate": "Terminate",
+    "top_apps": "Top apps",
+    "top_columns": "CPU · RAM · GPU",
+    "top_processes": "Top processes",
+    "updated": "updated {time}",
+    "vram_of": "VRAM {used} of {total}",
+    "waiting_desktop": "Waiting for data… Is the System Monitor Expanded plugin enabled?",
+    "waiting_panel": "Waiting for the first sample… ({status})"
   }
 }

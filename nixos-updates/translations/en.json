@@ -3,6 +3,7 @@
     "all": "All ({count})",
     "changes": "Changes",
     "flatpak": "Flatpak ({count})",
+    "incomplete": "Nothing to show: the check did not complete.",
     "inputs": "Flake inputs ({count})",
     "installed": "Installed",
     "link_changelog": "Changelog",
@@ -16,7 +17,6 @@
     "no_match": "Nothing matches the search.",
     "not_installed": "not installed",
     "nothing": "Nothing to update.",
-    "incomplete": "Nothing to show: the check did not complete.",
     "packages": "Packages ({count})",
     "removed": "removed",
     "search": "Search by name or version"
@@ -108,16 +108,16 @@
       "label": "Compare package versions"
     },
     "cleanup_button": {
-      "label": "Clean up button",
-      "description": "Shows a Clean up button in the panel. It runs the system's own Nix cleanup (nix-gc.service and nix-optimise.service where NixOS has them, else only unused store paths, no generations) and removes unused Flatpak runtimes, in a terminal."
+      "description": "Shows a Clean up button in the panel. It runs the system's own Nix cleanup (nix-gc.service and nix-optimise.service where NixOS has them, else only unused store paths, no generations) and removes unused Flatpak runtimes, in a terminal.",
+      "label": "Clean up button"
     },
     "flake_dir": {
       "description": "Directory with flake.nix and flake.lock, as an absolute path. Not written to; the updated lock goes to the plugin's data directory. Empty: only Flatpaks.",
       "label": "Flake directory"
     },
     "github_token_file": {
-      "label": "GitHub token file (optional)",
-      "description": "Only needed if you reach GitHub's rate limit of 60 requests per hour. Path to a file holding a token without permissions, chmod 600, outside the flake directory. The README shows how to create it. Never paste the token itself here."
+      "description": "Only needed if you reach GitHub's rate limit of 60 requests per hour. Path to a file holding a token without permissions, chmod 600, outside the flake directory. The README shows how to create it. Never paste the token itself here.",
+      "label": "GitHub token file (optional)"
     },
     "glyph": {
       "label": "Glyph"
@@ -130,8 +130,8 @@
       "label": "Badge color with updates"
     },
     "home_configuration": {
-      "label": "Standalone Home Manager configuration",
-      "description": "Name under homeConfigurations in the same flake, for example alice. Its home.packages are compared too. Home Manager as a NixOS module needs nothing here: its users' packages are included anyway. Empty: none."
+      "description": "Name under homeConfigurations in the same flake, for example alice. Its home.packages are compared too. Home Manager as a NixOS module needs nothing here: its users' packages are included anyway. Empty: none.",
+      "label": "Standalone Home Manager configuration"
     },
     "ignored_inputs": {
       "description": "Flake input names to leave out of the input list, for example ones you update on your own schedule.",

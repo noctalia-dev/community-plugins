@@ -2,11 +2,14 @@
   "color_copied": "Color {color} copied.",
   "color_picked": "Color {color} picked.",
   "color_picker": "Color Picker",
-  "could_not_parse": "Could not parse output.",
+  "could_not_parse": "could not parse hyprpicker output.",
   "glyph": "Glyph",
+  "hex": "HEX",
+  "hyprpicker_not_installed": "hyprpicker is not installed.",
   "no_color_picked": "No color picked yet.",
   "no_history": "No colors in history yet.",
   "opacity": "Opacity",
+  "recent_colors": "Recent Colors",
   "rgb": "RGB",
   "settings": {
     "circular-swatch": {
@@ -25,6 +28,10 @@
       "description": "Default color format to copy to clipboard (Hex or RGB).",
       "label": "Default Format"
     },
+    "hyprpicker_lowercase": {
+      "description": "Outputs the hexcode in lowercase.",
+      "label": "Lowercase Hex"
+    },
     "hyprpicker_no_zoom": {
       "description": "Turns off the magnifying zoom lens while picking.",
       "label": "Disable Zoom Lens"
@@ -42,25 +49,29 @@
       "label": "Lowercase Hex"
     },
     "main-colorspace": {
-        "label": "Main Colorspace",
-        "description": "Main colorspace for hyprpicker and panel.",
-        "options": {
-          "hex": "HEX",
-          "rgb": "RGB(A)",
-          "hsl": "HSL(A)"
-        }
+      "description": "Main colorspace for hyprpicker and panel.",
+      "label": "Main Colorspace",
+      "options": {
+        "hex": "HEX",
+        "hsl": "HSL(A)",
+        "rgb": "RGB(A)"
+      }
     },
     "notify-on-copy": {
       "description": "Notify on color copy through screen pick or panel button.",
       "label": "Notify on Copy"
     },
     "picker_tool": {
-        "label": "Picker Tool",
-        "description": "Tool used to pick colors from the screen.",
-        "options": {
-          "hyprpicker": "Hyprpicker",
-          "grim_slurp": "Grim + Slurp"
-        }
+      "description": "Tool used to pick colors from the screen.",
+      "label": "Picker Tool",
+      "options": {
+        "grim_slurp": "Grim + Slurp",
+        "hyprpicker": "Hyprpicker"
+      }
+    },
+    "swatch_radius": {
+      "description": "Corner radius of the history swatches and current-color preview.",
+      "label": "Swatches Corner Roundness"
     }
   },
   "tool_missing": "{tool} not installed. You can change the picker tool in the plugin settings."

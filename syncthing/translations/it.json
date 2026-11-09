@@ -1,0 +1,115 @@
+{
+  "detail": {
+    "no-api-key": "Chiave API mancante. Impostala manualmente o esponila via config.xml.",
+    "no-folders": "Nessuna cartella monitorata configurata.",
+    "no-url": "Impossibile ricavare l'URL della GUI dalle impostazioni o da config.xml."
+  },
+  "device": {
+    "connected": "Connesso",
+    "disconnected": "Disconnesso",
+    "paused": "In pausa"
+  },
+  "launcher": {
+    "rescan-hint": "Invio: riscansiona {id}",
+    "rescan-started": "Riscansione di {id} avviata."
+  },
+  "notify": {
+    "device-connected": "{name} connesso.",
+    "device-disconnected": "{name} disconnesso.",
+    "folder-done": "Cartella “{label}” sincronizzata.",
+    "folder-error": "La cartella “{label}” ha segnalato un errore."
+  },
+  "panel": {
+    "device-pause": "Metti in pausa il dispositivo",
+    "device-resume": "Riprendi il dispositivo",
+    "devices": "Dispositivi",
+    "folder-pause": "Metti in pausa la cartella",
+    "folder-rescan": "Riscansiona la cartella",
+    "folder-resume": "Riprendi la cartella",
+    "folder-state": "{state} — {count} elementi",
+    "folders": "Cartelle",
+    "last-activity": "Ultima attività: {value}",
+    "last-check-info": "Ultimo controllo: {value}",
+    "no-devices": "Nessun dispositivo.",
+    "no-folders": "Nessuna cartella monitorata.",
+    "open-gui": "Apri GUI web",
+    "pause-all": "Metti in pausa tutti i dispositivi",
+    "pending": "In coda",
+    "refresh": "Aggiorna",
+    "resume-all": "Riprendi tutti i dispositivi",
+    "tab-devices": "Dispositivi",
+    "tab-folders": "Cartelle",
+    "title": "Syncthing"
+  },
+  "settings": {
+    "api_key": {
+      "description": "Chiave API REST di Syncthing. Vuota = rilevamento automatico da config.xml.",
+      "label": "Chiave API"
+    },
+    "config_path": {
+      "description": "Percorso esplicito del config.xml di Syncthing per il rilevamento automatico.",
+      "label": "Percorso config.xml"
+    },
+    "folders": {
+      "description": "ID delle cartelle da monitorare. Vuoto = tutte le cartelle.",
+      "label": "ID cartelle monitorate"
+    },
+    "insecure_tls": {
+      "description": "Accetta certificati self-signed su URL HTTPS (usa curl -k).",
+      "label": "Salta verifica TLS"
+    },
+    "notify_events": {
+      "description": "Notifica quando una cartella finisce di sincronizzare, va in errore o un dispositivo si connette/disconnette.",
+      "label": "Notifiche eventi"
+    },
+    "poll_interval": {
+      "description": "Frequenza di aggiornamento dello stato di Syncthing.",
+      "label": "Intervallo di aggiornamento (secondi)"
+    },
+    "show_pending": {
+      "description": "Mostra il numero di elementi in coda accanto all'icona durante la sincronizzazione.",
+      "label": "Mostra elementi in coda"
+    },
+    "url": {
+      "description": "URL base della GUI di Syncthing. Vuoto = rilevamento automatico da config.xml.",
+      "label": "URL GUI"
+    }
+  },
+  "shortcut": {
+    "label": "Syncthing"
+  },
+  "state": {
+    "disabled": "Disabilitato",
+    "disconnected": "Nessun dispositivo connesso",
+    "error": "Errore",
+    "idle": "Aggiornato",
+    "offline": "Syncthing non raggiungibile",
+    "paused": "In pausa",
+    "syncing": "Sincronizzazione",
+    "unauthorized": "Chiave API rifiutata",
+    "unconfigured": "Non configurato"
+  },
+  "summary": {
+    "disconnected": "Nessun dispositivo remoto connesso.",
+    "error": "Una o più cartelle hanno segnalato errori.",
+    "idle-devices": "Aggiornato — {connected}/{configured} dispositivi connessi.",
+    "idle-no-devices": "Aggiornato. Nessun dispositivo remoto configurato.",
+    "offline": "La GUI di Syncthing non è raggiungibile.",
+    "paused": "Tutte le cartelle monitorate sono in pausa.",
+    "syncing-folders": "Sincronizzazione di {count} cartelle.",
+    "syncing-items": "Sincronizzazione, {count} elementi in coda.",
+    "unauthorized": "Syncthing ha rifiutato la chiave API.",
+    "unconfigured": "Connessione non configurata."
+  },
+  "toast": {
+    "title": "Syncthing"
+  },
+  "tooltip": {
+    "checked": "Ultimo controllo",
+    "devices": "Dispositivi",
+    "folders": "Cartelle",
+    "pending": "In coda",
+    "rates": "Trasferimento",
+    "state": "Stato"
+  }
+}

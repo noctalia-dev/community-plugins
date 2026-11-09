@@ -9,16 +9,16 @@
     "saved_hint": "Saved to:"
   },
   "panel": {
-    "cancel": "Cancel",
-    "record": "Record",
     "audio": {
       "label": "Audio"
     },
+    "cancel": "Cancel",
+    "record": "Record",
     "source": {
+      "fullscreen": "Full screen",
       "label": "What to record",
       "region": "Region",
-      "window": "Application (window)",
-      "fullscreen": "Full screen"
+      "window": "Application (window)"
     },
     "title": "Record screen",
     "webcam": {

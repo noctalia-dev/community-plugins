@@ -1,0 +1,48 @@
+{
+  "color_copied": "Colore {color} copiato.",
+  "color_picked": "Colore {color} selezionato.",
+  "color_picker": "Selettore colore",
+  "could_not_parse": "impossibile leggere l'output di hyprpicker.",
+  "glyph": "Icona",
+  "hex": "HEX",
+  "hyprpicker_not_installed": "hyprpicker non è installato.",
+  "no_color_picked": "Nessun colore selezionato.",
+  "no_history": "Nessun colore nella cronologia.",
+  "opacity": "Opacità",
+  "recent_colors": "Colori recenti",
+  "rgb": "RGB",
+  "settings": {
+    "hyprpicker_cursor": {
+      "description": "Include il cursore nell'anteprima dello schermo congelato.",
+      "label": "Mostra il cursore"
+    },
+    "hyprpicker_disable_preview": {
+      "description": "Disattiva l'anteprima del colore durante la selezione.",
+      "label": "Disattiva l'anteprima dal vivo"
+    },
+    "hyprpicker_format": {
+      "description": "Formato predefinito del colore copiato negli appunti (HEX o RGB).",
+      "label": "Formato predefinito"
+    },
+    "hyprpicker_lowercase": {
+      "description": "Scrive il codice esadecimale in minuscolo.",
+      "label": "HEX minuscolo"
+    },
+    "hyprpicker_no_zoom": {
+      "description": "Disattiva la lente d'ingrandimento durante la selezione.",
+      "label": "Disattiva la lente"
+    },
+    "hyprpicker_radius": {
+      "description": "Raggio del cerchio della lente in pixel, da 1 a 1000.",
+      "label": "Raggio della lente"
+    },
+    "hyprpicker_scale": {
+      "description": "Ingrandimento della lente, da 1 a 10.",
+      "label": "Ingrandimento"
+    },
+    "swatch_radius": {
+      "description": "Raggio degli angoli dei campioni della cronologia e dell'anteprima del colore attuale.",
+      "label": "Arrotondamento dei campioni"
+    }
+  }
+}

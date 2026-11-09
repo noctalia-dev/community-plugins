@@ -71,7 +71,7 @@
     "loading": "Loading…",
     "logged_in_as": "Signed in: {name} ({username})",
     "mark_done": "Mark as completed",
-    "network_error": "Network error: cannot reach the configured Bangumi API",
+    "network_error": "Network error: cannot reach api.bgm.tv",
     "newly_unwatched": "{count} new unwatched",
     "no_next_episode": "No next episode to mark",
     "no_prev_episode": "No previous episode to unmark",
@@ -165,8 +165,12 @@
   },
   "settings": {
     "access_token": {
-      "description": "Get a token at https://next.bgm.tv/demo/access-token to read private collections and update watched progress. Leave empty to use the username below for public collections only.",
+      "description": "Generate at next.bgm.tv/demo/access-token while logged into bgm.tv (valid about one year). When set, your own collections (including private) are read. When empty, a username below is used to read public collections anonymously.",
       "label": "Bangumi personal access token"
+    },
+    "api_base_url": {
+      "description": "API root without /v0. Use trusted mirrors only. api_base_url in oauth-client.json overrides this setting.",
+      "label": "Bangumi API base URL"
     },
     "appearance_density": {
       "description": "Adjust collection cover sizes and spacing. The timeline follows this unless its own density is selected.",
@@ -314,10 +318,6 @@
     "widget_width": {
       "description": "Natural desktop widget width in logical pixels. Do not resize its tile in the desktop editor, or the host will still scale the content proportionally.",
       "label": "Content width"
-    },
-    "api_base_url": {
-      "label": "Bangumi API base URL",
-      "description": "API root without /v0. Use trusted mirrors only. api_base_url in oauth-client.json overrides this setting."
     }
   }
 }

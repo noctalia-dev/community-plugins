@@ -9,11 +9,11 @@
       "label": "Automatic filter"
     },
     "color_by_usage": {
-      "description": "Color the reading by quota severity. Turn off to use the bar text color.",
+      "description": "Tints the reading as the quota gets tight. Off keeps the capsule in the bar's own colour.",
       "label": "Color by usage"
     },
     "extras": {
-      "description": "Show the reset countdown, pace against elapsed time, both, or neither.",
+      "description": "The time left in the window, how far the spend is from the clock, both, or neither.",
       "label": "Extra reading",
       "option": {
         "both": "Both",
@@ -23,7 +23,7 @@
       }
     },
     "glyph_position": {
-      "description": "Place the icon before or after the reading.",
+      "description": "Which side of the reading the icon sits on.",
       "label": "Icon position",
       "option": {
         "after": "After",
@@ -49,15 +49,19 @@
       "label": "Refresh interval (minutes)"
     },
     "show_glyph": {
-      "description": "Show the provider icon beside the reading.",
+      "description": "The provider's icon. Off leaves the reading on its own.",
       "label": "Show icon"
     },
     "show_name": {
-      "description": "Show the provider or model name beside its reading.",
+      "description": "Adds the product name next to the percentage, so two capsules do not look alike.",
       "label": "Show provider name"
     },
+    "show_priorities": {
+      "description": "Show priority estimates inside each model card. Records quota history locally while enabled.",
+      "label": "Show priorities"
+    },
     "show_value": {
-      "description": "Show the percentage or balance as text.",
+      "description": "The percentage as text. Off leaves the gauge to say it.",
       "label": "Show value"
     },
     "style": {
@@ -91,8 +95,10 @@
         "copilot": "GitHub Copilot",
         "cursor": "Cursor",
         "deepinfra": "DeepInfra",
+        "deeprelay": "DeepRelay",
         "deepseek": "DeepSeek",
         "devin": "Devin",
+        "droid": "Droid",
         "grok": "Grok",
         "grokbot": "Grok Bot",
         "kilo": "Kilo",
@@ -112,22 +118,16 @@
         "orcarouter": "OrcaRouter",
         "supergrok": "SuperGrok",
         "synthetic": "Synthetic",
-        "zai": "Z.AI",
-        "droid": "Droid",
-        "deeprelay": "DeepRelay"
+        "zai": "Z.AI"
       }
     },
     "visualization": {
-      "description": "Show quota bars beside the reading, or hide them.",
+      "description": "A gauge beside the reading, or nothing.",
       "label": "Visualization",
       "option": {
         "gauge": "Quota bar",
-        "none": "No bars"
+        "none": "Nothing"
       }
-    },
-    "show_priorities": {
-      "label": "Show priorities",
-      "description": "Show priority estimates inside each model card. Records quota history locally while enabled."
     }
   },
   "ui": {
@@ -176,12 +176,31 @@
     "now": "now",
     "open_dashboard": "Open dashboard",
     "plan_changed": "The plan changed; readings taken under the previous one were dropped.",
+    "priorities": "Priorities",
+    "priorities_no_history": "Recent history is unavailable. Estimates use the window average.",
+    "priorities_unavailable": "This report has no priorities. Refresh, or use ai-usagebar 1.46 or newer.",
+    "priority_expired": "Reset time passed. Refresh to confirm the next window.",
+    "priority_not_reported": "No priority estimate for this account.",
+    "priority_recommended": "Suggested",
+    "priority_remaining": "{percent}% remaining",
+    "priority_scope_account": "Account priorities",
+    "priority_session_blocked": "Session quota exhausted. Check its reset in Usage.",
+    "priority_status": {
+      "blocked": "Weekly quota exhausted",
+      "on_track": "On track",
+      "priority": "Priority",
+      "unavailable": "Usage unavailable",
+      "unknown": "Not enough data to estimate"
+    },
+    "priority_unused": "{percent}% projected unused at reset",
     "provider_setup": "Diagnostics",
     "quota_exhausted": "Quota exhausted",
     "quota_reset": "Renews in {time}",
     "refresh": "Refresh now",
     "refresh_queued": "Refresh queued",
     "refreshing": "Refreshing usage",
+    "regenerates_at": "Regenerates {amount} at {time}",
+    "regenerates_in": "Regenerates {amount} in {time}",
     "remaining": "Remaining",
     "reset": "Reset",
     "retry": "Try again",
@@ -212,25 +231,6 @@
     "used": "Used",
     "waiting": "Waiting for usage data",
     "weekly": "Weekly",
-    "window_unavailable": "This window is not reported",
-    "regenerates_in": "Regenerates {amount} in {time}",
-    "regenerates_at": "Regenerates {amount} at {time}",
-    "priorities": "Priorities",
-    "priorities_unavailable": "This report has no priorities. Refresh, or use ai-usagebar 1.46 or newer.",
-    "priorities_no_history": "Recent history is unavailable. Estimates use the window average.",
-    "priority_recommended": "Suggested",
-    "priority_unused": "{percent}% projected unused at reset",
-    "priority_remaining": "{percent}% remaining",
-    "priority_session_blocked": "Session quota exhausted. Check its reset in Usage.",
-    "priority_status": {
-      "priority": "Priority",
-      "on_track": "On track",
-      "blocked": "Weekly quota exhausted",
-      "unavailable": "Usage unavailable",
-      "unknown": "Not enough data to estimate"
-    },
-    "priority_expired": "Reset time passed. Refresh to confirm the next window.",
-    "priority_scope_account": "Account priorities",
-    "priority_not_reported": "No priority estimate for this account."
+    "window_unavailable": "This window is not reported"
   }
 }

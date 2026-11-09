@@ -1,0 +1,57 @@
+{
+  "notify": {
+    "failed": "{command} non riuscito",
+    "synced": "Vault sincronizzato"
+  },
+  "panel": {
+    "expired-hint": "Il login è scaduto e l'agente non può più sincronizzare. Rifai il login in un terminale (codice a due fattori).",
+    "lock": "Blocca",
+    "logged-out-hint": "rbw non ha fatto il login. Fai il login in un terminale.",
+    "login": "Login",
+    "never-synced": "Mai sincronizzato",
+    "not-enhanced": "Questo rbw non ha `rbw status --json`: il plugin richiede rbw-enhanced.",
+    "not-installed": "rbw non è installato o non è nel PATH. Imposta il percorso nelle impostazioni del plugin.",
+    "open": "Apri il vault",
+    "settings": "Impostazioni",
+    "sync": "Sincronizza",
+    "sync-locked": "Prima sblocca",
+    "synced-days": "Sincronizzato {value} giorni fa",
+    "synced-hours": "Sincronizzato {value} h fa",
+    "synced-minutes": "Sincronizzato {value} min fa",
+    "synced-now": "Sincronizzato ora",
+    "tui-auth": "Aprire il vault chiede l'autenticazione di sistema, una volta per sessione",
+    "tui-open": "Aprire il vault non chiede altro",
+    "unlock": "Sblocca",
+    "unlock-auto": "Si sblocca da solo con la password salvata",
+    "unlock-with-both": "Si sblocca con l'autenticazione di sistema o il PIN",
+    "unlock-with-password": "Si sblocca con la master password",
+    "unlock-with-pin": "Si sblocca con il PIN",
+    "unlock-with-system": "Si sblocca con l'autenticazione di sistema"
+  },
+  "settings": {
+    "hide_when_unlocked": {
+      "description": "Mostra il widget solo quando il vault è bloccato o richiede attenzione.",
+      "label": "Nascondi quando è sbloccato"
+    },
+    "poll_interval": {
+      "description": "Secondi tra due controlli di `rbw status`.",
+      "label": "Intervallo di controllo"
+    },
+    "rbw_bin": {
+      "description": "Percorso dell'eseguibile rbw, se non è nel PATH. Vuoto usa rbw dal PATH.",
+      "label": "Percorso di rbw"
+    }
+  },
+  "state": {
+    "error": "Errore",
+    "expired": "Login scaduto",
+    "locked": "Bloccato",
+    "logged-out": "Login non fatto",
+    "not-installed": "rbw-enhanced non trovato",
+    "stopped": "Bloccato (agente non attivo)",
+    "unlocked": "Sbloccato"
+  },
+  "tooltip": {
+    "synced": "Ultima sincronizzazione"
+  }
+}

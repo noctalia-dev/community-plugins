@@ -1,0 +1,69 @@
+{
+  "btn_docs": "Consulta la documentazione",
+  "btn_eject": "Espelli",
+  "btn_mount": "Monta",
+  "btn_mount_all": "Monta tutti",
+  "btn_open": "Apri",
+  "btn_poweroff": "Spegni",
+  "btn_retry": "Riprova la connessione",
+  "btn_unlock": "Sblocca",
+  "btn_unmount": "Smonta",
+  "btn_unmount_all": "Smonta tutti",
+  "copy_path_tooltip": "Copia il percorso di montaggio",
+  "error_missing_dep": "L'eseguibile udiskie non è nel PATH",
+  "no_partitions_found": "Nessuna partizione trovata",
+  "notif_drive_connected_body": "{label} connesso",
+  "notif_drive_connected_title": "Disco connesso",
+  "notif_drive_mounted_body": "{label} è pronto all'uso",
+  "notif_drive_mounted_title": "Disco montato",
+  "notif_drive_removed_body": "{label} disconnesso",
+  "notif_drive_removed_title": "Disco rimosso",
+  "notif_drive_unmounted_body": "{label} è stato smontato in sicurezza",
+  "notif_drive_unmounted_title": "Disco smontato",
+  "notif_eject_failed_fallback": "Impossibile espellere {device}",
+  "notif_eject_failed_title": "Espulsione non riuscita",
+  "notif_mount_all_failed_fallback": "Impossibile montare tutti i dispositivi",
+  "notif_mount_all_failed_title": "Montaggio di tutti non riuscito",
+  "notif_mount_failed_fallback": "Impossibile montare {device}",
+  "notif_mount_failed_title": "Montaggio non riuscito",
+  "notif_poweroff_failed_fallback": "Impossibile spegnere {device}",
+  "notif_poweroff_failed_title": "Spegnimento non riuscito",
+  "notif_unmount_all_failed_fallback": "Uno o più dispositivi sono occupati",
+  "notif_unmount_all_failed_title": "Smontaggio di tutti non riuscito",
+  "notif_unmount_failed_fallback": "Il dispositivo {device} è occupato o in uso",
+  "notif_unmount_failed_title": "Smontaggio non riuscito",
+  "notify_path_copied": "Percorso copiato negli appunti",
+  "panel_empty": "Nessun disco USB rilevato",
+  "panel_title": "Udiskie Manager",
+  "settings": {
+    "auto_open_filemanager": {
+      "description": "Apre automaticamente nel file manager i dischi montati.",
+      "label": "Apri il file manager"
+    },
+    "enable_notifications": {
+      "description": "Mostra le notifiche desktop di Noctalia sugli eventi dei dispositivi.",
+      "label": "Notifiche desktop"
+    },
+    "file_manager_cmd": {
+      "description": "Comando usato per aprire le cartelle montate.",
+      "label": "Comando del file manager"
+    },
+    "glyph": {
+      "description": "L'icona del widget Udiskie nella barra.",
+      "label": "Icona nella barra"
+    },
+    "hide_when_empty": {
+      "description": "Nasconde il widget nella barra quando non ci sono dischi USB connessi.",
+      "label": "Nascondi se vuoto"
+    },
+    "show_count": {
+      "description": "Mostra nel widget della barra il numero di dispositivi montati.",
+      "label": "Mostra il numero di dispositivi"
+    }
+  },
+  "status_locked": "Bloccato (LUKS)",
+  "status_mounted": "Montato",
+  "status_unmounted": "Smontato",
+  "tooltip_empty": "Nessun dispositivo montato",
+  "tooltip_mounted": "Dispositivi montati"
+}

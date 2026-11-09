@@ -1,64 +1,64 @@
 {
-  "settings": {
-    "source": {
-      "label": "降噪输入源",
-      "description": "插件自带的 filter-chain 配置所创建的虚拟 PipeWire 输入源名称。"
-    },
-    "poll_interval": {
-      "label": "刷新间隔（毫秒）",
-      "description": "磁贴与挂件重新读取当前状态的频率。"
-    },
-    "hardware_source": {
-      "label": "麦克风设备",
-      "description": "物理麦克风的源名称；留空表示自动（先用上次使用的输入，再退到第一个可用输入）。查看可选名称：在终端执行 pactl list short sources，其中 alsa_input.* 就是麦克风。"
-    },
-    "auto_reload": {
-      "label": "自动重载 PipeWire",
-      "description": "首次写入 filter-chain 配置后自动重启一次 PipeWire，装好即可用，不用手动重启。想在合适时机自己重启（比如通话中）就关掉。"
-    }
-  },
-  "shortcut": {
-    "label-on": "降噪开",
-    "label-off": "降噪关"
-  },
-  "widget": {
-    "tooltip": {
-      "state": "降噪状态",
-      "input": "输入源"
-    }
-  },
   "notify": {
     "config-installed": {
-      "title": "麦克风降噪已就绪",
       "body": "已安装 PipeWire filter-chain 配置。请重启一次 PipeWire，然后打开降噪。",
-      "reloaded": "已重启 PipeWire 加载配置，现在可以直接打开降噪。"
+      "reloaded": "已重启 PipeWire 加载配置，现在可以直接打开降噪。",
+      "title": "麦克风降噪已就绪"
+    },
+    "copied": {
+      "body": "{cmd}",
+      "title": "命令已复制"
     },
     "failed": {
-      "title": "麦克风降噪操作失败",
-      "body": "音频后端没有返回详细原因。"
+      "body": "音频后端没有返回详细原因。",
+      "title": "麦克风降噪操作失败"
     },
-    "timeout": {
-      "body": "pactl 超时未响应，PipeWire 是否在运行？"
+    "ladspa": {
+      "body": "缺少 RNNoise 的 LADSPA 插件，降噪源无法创建。安装它（常见命令：{cmd}），然后重启 PipeWire 再打开降噪。",
+      "title": "缺少 noise-suppression-for-voice"
+    },
+    "mic-changed": {
+      "body": "降噪链路已改为从新的麦克风采集。",
+      "body-restarted": "已重启 PipeWire，让降噪链路加载新的采集目标。",
+      "title": "麦克风已切换"
+    },
+    "not-ready": {
+      "body": "虚拟降噪源不存在。重启 PipeWire 让 filter-chain 加载：systemctl --user restart pipewire pipewire-pulse wireplumber",
+      "title": "麦克风降噪未就绪"
     },
     "spawn-failed": {
       "body": "无法运行插件自带的后端脚本。"
     },
-    "mic-changed": {
-      "title": "麦克风已切换",
-      "body": "降噪链路已改为从新的麦克风采集。",
-      "body-restarted": "已重启 PipeWire，让降噪链路加载新的采集目标。"
+    "timeout": {
+      "body": "pactl 超时未响应，PipeWire 是否在运行？"
+    }
+  },
+  "settings": {
+    "auto_reload": {
+      "description": "首次写入 filter-chain 配置后自动重启一次 PipeWire，装好即可用，不用手动重启。想在合适时机自己重启（比如通话中）就关掉。",
+      "label": "自动重载 PipeWire"
     },
-    "ladspa": {
-      "title": "缺少 noise-suppression-for-voice",
-      "body": "缺少 RNNoise 的 LADSPA 插件，降噪源无法创建。安装它（常见命令：{cmd}），然后重启 PipeWire 再打开降噪。"
+    "hardware_source": {
+      "description": "物理麦克风的源名称；留空表示自动（先用上次使用的输入，再退到第一个可用输入）。查看可选名称：在终端执行 pactl list short sources，其中 alsa_input.* 就是麦克风。",
+      "label": "麦克风设备"
     },
-    "not-ready": {
-      "title": "麦克风降噪未就绪",
-      "body": "虚拟降噪源不存在。重启 PipeWire 让 filter-chain 加载：systemctl --user restart pipewire pipewire-pulse wireplumber"
+    "poll_interval": {
+      "description": "磁贴与挂件重新读取当前状态的频率。",
+      "label": "刷新间隔（毫秒）"
     },
-    "copied": {
-      "title": "命令已复制",
-      "body": "{cmd}"
+    "source": {
+      "description": "插件自带的 filter-chain 配置所创建的虚拟 PipeWire 输入源名称。",
+      "label": "降噪输入源"
+    }
+  },
+  "shortcut": {
+    "label-off": "降噪关",
+    "label-on": "降噪开"
+  },
+  "widget": {
+    "tooltip": {
+      "input": "输入源",
+      "state": "降噪状态"
     }
   }
 }

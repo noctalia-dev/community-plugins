@@ -33,7 +33,7 @@
       "label": "Viewport Color"
     },
     "viewport_model": {
-      "description": "Fallback when niri does not report a tiled window position. Match your niri center-focused-column setting: Fit for never, Center for always.",
+      "description": "How the viewport position is estimated. Should match your niri 'center-focused-column' setting. 'Fit' (default) works with niri's default 'never'; 'Center' works with 'always'.",
       "label": "Viewport Model",
       "option": {
         "center": "Center (niri: always)",
