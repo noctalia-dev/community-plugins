@@ -5619,8 +5619,8 @@ tags = ["hardware", "media", "network", "panel", "utility", "video"]
 [[plugin]]
 id = "3dprogramin/vscode"
 name = "VS Code"
-version = "0.1.0"
-updated_at = 1793977201
+version = "0.1.1"
+updated_at = 1794252000
 added_at = 1793977201
 author = "3dprogramin"
 license = "MIT"
