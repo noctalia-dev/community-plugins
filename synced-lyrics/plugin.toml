@@ -1,7 +1,7 @@
 id = "kaler/synced-lyrics"
 name = "Synced Lyrics"
 version = "1.0.1"
-plugin_api = 24
+plugin_api = 43
 author = "kaler"
 license = "MIT"
 description = "Syllable-level karaoke and line-synced lyrics on the Noctalia bar with auto-hide."
