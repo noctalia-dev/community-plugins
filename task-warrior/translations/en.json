@@ -83,6 +83,10 @@
     "refresh-interval": {
       "label": "Refresh interval (seconds)",
       "description": "How often the task list is refreshed in the background."
+    },
+    "max-tasks": {
+      "label": "Max tasks on desktop widget",
+      "description": "How many pending tasks the desktop widget shows before summarizing the rest as '+N'."
     }
   }
 }

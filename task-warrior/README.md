@@ -1,8 +1,9 @@
 # Task Warrior
 
-[Taskwarrior](https://taskwarrior.org/) on your Noctalia bar. A bar widget shows how many tasks are
-pending and turns red when something is overdue or due today. Its panel lets you view, add, edit,
-complete and delete tasks. Everything goes through the `task` CLI, so the panel and your terminal
+[Taskwarrior](https://taskwarrior.org/) on your Noctalia bar and desktop. A bar widget shows how many
+tasks are pending and turns red when something is overdue or due today. Its panel lets you view, add,
+edit, complete and delete tasks, and a desktop widget keeps a fixed urgent-first task list on your
+wallpaper. Everything goes through the `task` CLI, so the panel, the desktop widget and your terminal
 always show the same tasks.
 
 ## Plugin
@@ -10,7 +11,7 @@ always show the same tasks.
 | Field | Value |
 | --- | --- |
 | ID | `asj/task-warrior` |
-| Entries | Bar widget: `bar`; panel: `panel`; service: `tasks` |
+| Entries | Bar widget: `bar`; panel: `panel`; service: `tasks`; desktop widget: `desktop` |
 
 ## Requirements
 
@@ -48,12 +49,23 @@ In the panel:
 - The header's **undo** button reverts the last change, just like `task undo`; its **refresh**
   button reloads the list.
 
+### Desktop widget
+
+Add **Task Warrior** (`asj/task-warrior:desktop`) from the desktop widget editor. It shows your
+pending tasks sorted by urgency, and stays in sync with the same background refresh as the bar:
+
+- **Check button** on a row completes that task.
+- **Click a row** to open the panel with the task loaded for editing.
+- Due dates show in red when overdue and in the accent color when due today; the colored strip on
+  each row is the task's priority.
+
 ## Settings
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
 | `show_all_tab` | `bool` | `true` | Show an *All* tab listing every pending task. The other tabs come from the tags on your pending tasks. |
 | `refresh_interval` | `int` | `30` | How often, in seconds (5–3600), the task list is reloaded in the background so changes made elsewhere appear. |
+| `max_tasks` | `int` | `8` | How many pending tasks (1–50) the desktop widget shows before summarizing the rest as `+N`. |
 
 ## Notes
 
