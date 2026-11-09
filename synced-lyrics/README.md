@@ -119,8 +119,8 @@ Open Noctalia Settings GUI or edit `settings.toml` directly. See [## Settings](#
 
 ## Requirements
 
-- **python3** — Required for the lyric fetching scripts
-- **playerctl** — Required for media player control (play/pause, next, metadata)
+- **`python3`** — Required for the lyric fetching scripts
+- **`playerctl`** — Required for media player control (play/pause, next, metadata)
 
 Ensure both are installed and available in your PATH:
 
