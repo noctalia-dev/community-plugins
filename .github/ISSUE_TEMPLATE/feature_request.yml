@@ -291,6 +291,7 @@ body:
         - super-productivity
         - sway-mode
         - sway-scratchpad
+        - synced-lyrics
         - syncthing
         - system-monitor
         - system-updater
