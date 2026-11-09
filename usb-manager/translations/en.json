@@ -86,7 +86,7 @@
       "label": "Scan interval"
     },
     "show_count": {
-      "description": "Show the number of drives next to the icon.",
+      "description": "Show the number of drives next to the icon when there are two or more.",
       "label": "Show the count"
     }
   },

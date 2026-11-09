@@ -78,7 +78,7 @@ The header holds **Mount all**, **Remove all safely**, the plugin settings and
 | `file_manager` | `string` | `""` | Command that opens a folder, which is passed as the last argument (e.g. `nautilus`). Empty uses `xdg-open`. Advanced. |
 | `scan_interval` | `int` | `2` | Seconds between two reads of the kernel's device list (1–30). Advanced. |
 | `hide_when_empty` | `bool` | `true` | Widget setting: hide the widget while no removable drive is plugged in. |
-| `show_count` | `bool` | `true` | Widget setting: show the number of drives next to the glyph. |
+| `show_count` | `bool` | `true` | Widget setting: show the number of drives next to the glyph when there are two or more. |
 
 ## IPC
 
