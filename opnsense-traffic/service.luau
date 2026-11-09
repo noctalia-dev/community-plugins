@@ -10,12 +10,17 @@
 -- key=/secret= file (the format OPNsense offers for download), so it does not
 -- end up in settings.toml or anything mirrored from it.
 
+local checks = require("./lib/checks.luau")
 local peaks = require("./lib/peaks.luau")
+local storage = require("./lib/storage.luau")
 
 local SNAPSHOT_KEY = "opnsense_snapshot"
 local COMMAND_KEY = "opnsense_command"
 local HISTORY = 40
 local DETECT_EVERY_MS = 10 * 60 * 1000
+-- A refresh right after a poll gives a tiny interval, in which the slightly
+-- different read times of counters and timestamp would dominate the rate.
+local MIN_SAMPLE_S = 0.5
 
 local running = false
 local lastRun = 0
@@ -54,7 +59,7 @@ local function saveHidden()
 		table.insert(ids, id)
 	end
 	table.sort(ids)
-	noctalia.writeFile(p, noctalia.json.encode(ids))
+	storage.writeJson(p, ids)
 end
 
 -- nil when visible, else "panel" or "settings" (where it was hidden).
@@ -101,12 +106,11 @@ local function readCredentials()
 	if raw == nil then
 		return nil, noctalia.tr("errors.no_credentials", { path = path })
 	end
-	local key = raw:match("key%s*=%s*([^%s]+)")
-	local secret = raw:match("secret%s*=%s*([^%s]+)")
-	if key == nil or secret == nil then
+	local creds = checks.parseCredentials(raw)
+	if creds == nil then
 		return nil, noctalia.tr("errors.bad_credentials", { path = path })
 	end
-	return { key = key, secret = secret }
+	return creds
 end
 
 -- Noctalia's HTTP client keeps one HTTP/2 connection per host and reuses it.
@@ -129,11 +133,16 @@ local function startFallback()
 end
 
 -- The key never reaches a command line: the shell reads it from the key file
--- and hands it to curl as a config on stdin (printf is a shell builtin).
-local CURL_SCRIPT = [[
-k=$(sed -n 's/^key=//p' "$1"); s=$(sed -n 's/^secret=//p' "$1")
-printf 'user = "%s:%s"\n' "$k" "$s" | curl -sS -K - ${3:+-k} --max-time 10 -H 'Accept: application/json' -w '\n%{http_code}' "$2"
-]]
+-- and hands it to curl as a config on stdin (printf is a shell builtin). cred
+-- accepts the same lines as checks.parseCredentials and takes only the first of
+-- each, so a value is one line and cannot add options to that config; quotes and
+-- backslashes are escaped for it. -q keeps ~/.curlrc out, --proto enforces https.
+local CURL_SCRIPT = [=[
+cred() {
+  sed -n -E '/^[[:space:]]*'"$1"'[[:space:]]*=[[:space:]]*[^[:space:]]+[[:space:]]*$/{s/^[^=]*=[[:space:]]*([^[:space:]]+).*/\1/;s/["\\]/\\&/g;p;q;}' "$2"
+}
+printf 'user = "%s:%s"\n' "$(cred key "$1")" "$(cred secret "$1")" | curl -q -sS -K - --proto =https ${3:+-k} --max-time 10 -H 'Accept: application/json' -w '\n%{http_code}' "$2"
+]=]
 
 local function curlRequest(path, cb)
 	local keyFile = noctalia.expandPath(tostring(config("credentials_file", "")))
@@ -188,8 +197,25 @@ local function publish(snapshot)
 	noctalia.state.set(SNAPSHOT_KEY, snapshot)
 end
 
-local function publishError(err)
-	publish({ error = err, interfaces = {}, selected = "", rx = 0, tx = 0, history = history })
+-- The last snapshot with rates. A failed request keeps its rows in the panel
+-- below the error instead of emptying it; any other error clears them.
+local lastGood = {}
+
+local function publishError(err, keepRows)
+	if not keepRows then
+		lastGood = {}
+	end
+	publish({
+		error = err,
+		interfaces = lastGood.interfaces or {},
+		hidden = lastGood.hidden,
+		selected = lastGood.selected or "",
+		selectedName = lastGood.selectedName,
+		selectedDevice = lastGood.selectedDevice,
+		rx = 0,
+		tx = 0,
+		history = history,
+	})
 end
 
 local function detect(creds)
@@ -203,8 +229,9 @@ local function detect(creds)
 		local data = noctalia.json.decode(response.body or "")
 		detected.id = ""
 		detected.upstream = {}
-		for _, row in ipairs(type(data) == "table" and data.rows or {}) do
-			local id = tostring(row.identifier or "")
+		local rows = type(data) == "table" and data.rows or nil
+		for _, row in ipairs(type(rows) == "table" and rows or {}) do
+			local id = type(row) == "table" and tostring(row.identifier or "") or ""
 			if id ~= "" and type(row.routes) == "table" then
 				for _, route in ipairs(row.routes) do
 					if route == "default" then
@@ -277,7 +304,7 @@ end
 local function handleTraffic(response)
 	local err = responseError(response, "Reporting: Traffic")
 	if err ~= nil then
-		publishError(err)
+		publishError(err, (response.status or 0) == 0)
 		return
 	end
 	local data = noctalia.json.decode(response.body or "")
@@ -290,7 +317,9 @@ local function handleTraffic(response)
 	-- dropped; hidden ones get no rate, no counter state and no panel row.
 	local all = {}
 	for id, info in pairs(data.interfaces) do
-		table.insert(all, { id = id, name = tostring(info.name or id), device = tostring(info.device or "") })
+		if type(id) == "string" and type(info) == "table" then
+			table.insert(all, { id = id, name = tostring(info.name or id), device = tostring(info.device or "") })
+		end
 	end
 	local iface, resolveErr = resolve(all)
 	local selectedId = iface ~= nil and iface.id or ""
@@ -315,18 +344,22 @@ local function handleTraffic(response)
 			table.insert(hidden, { id = id, name = base.name, device = base.device, by = by })
 		elseif rx ~= nil and tx ~= nil then
 			local prev = counters[id]
-			if prev ~= nil and now > prev.t then
-				local dt = now - prev.t
-				-- Skip a sample whose counters went backwards (firewall reboot,
-				-- interface reattach) or lie too far apart (missed polls): an
-				-- average over such a gap is no current rate.
-				if rx >= prev.rx and tx >= prev.tx and dt <= maxGap then
-					rates[id] = { rx = (rx - prev.rx) / dt, tx = (tx - prev.tx) / dt }
-				else
-					rates[id] = nil
+			-- Too soon: keep the old counters, the next poll measures the whole span.
+			local fresh = prev == nil or now < prev.t or now - prev.t >= MIN_SAMPLE_S
+			if fresh then
+				if prev ~= nil and now > prev.t then
+					local dt = now - prev.t
+					-- Skip a sample whose counters went backwards (firewall reboot,
+					-- interface reattach) or lie too far apart (missed polls): an
+					-- average over such a gap is no current rate.
+					if rx >= prev.rx and tx >= prev.tx and dt <= maxGap then
+						rates[id] = { rx = (rx - prev.rx) / dt, tx = (tx - prev.tx) / dt }
+					else
+						rates[id] = nil
+					end
 				end
+				counters[id] = { rx = rx, tx = tx, t = now }
 			end
-			counters[id] = { rx = rx, tx = tx, t = now }
 			local rate = rates[id] or { rx = 0, tx = 0 }
 			local wanSide = isWanSide(id, base.name, base.device)
 			if not wanSide then
@@ -340,6 +373,7 @@ local function handleTraffic(response)
 				tx = rate.tx,
 				wanSide = wanSide,
 				ready = rates[id] ~= nil,
+				fresh = fresh,
 			})
 		end
 	end
@@ -350,6 +384,7 @@ local function handleTraffic(response)
 	table.sort(hidden, byName)
 
 	if iface == nil then
+		lastGood = { interfaces = interfaces, hidden = hidden }
 		publish({ error = resolveErr, interfaces = interfaces, hidden = hidden, selected = "", rx = 0, tx = 0, history = history })
 		return
 	end
@@ -362,7 +397,7 @@ local function handleTraffic(response)
 		history = { id = iface.id, rx = {}, tx = {} }
 	end
 	local nowSec = os.time()
-	if iface.ready then
+	if iface.ready and iface.fresh then
 		push(history.rx, iface.rx)
 		push(history.tx, iface.tx)
 		peaks.record(iface.id, iface.rx, iface.tx, nowSec)
@@ -378,6 +413,13 @@ local function handleTraffic(response)
 	history.peakTxAt = peak.txAt
 	history.since = peak.since
 	history.hold = hold
+	lastGood = {
+		interfaces = interfaces,
+		hidden = hidden,
+		selected = iface.id,
+		selectedName = iface.name,
+		selectedDevice = iface.device,
+	}
 	publish({
 		error = "",
 		interfaces = interfaces,
@@ -399,6 +441,10 @@ local function poll()
 	lastRun = noctalia.nowMs()
 	if baseUrl() == "" then
 		publishError(noctalia.tr("errors.no_url"))
+		return
+	end
+	if not checks.isSecureUrl(baseUrl()) then
+		publishError(noctalia.tr("errors.insecure_url"))
 		return
 	end
 	local creds, err = readCredentials()
@@ -425,7 +471,7 @@ local function poll()
 	end)
 	if not accepted then
 		running = false
-		publishError(noctalia.tr("errors.unreachable", { url = baseUrl() }))
+		publishError(noctalia.tr("errors.unreachable", { url = baseUrl() }), true)
 	end
 end
 
@@ -478,6 +524,7 @@ function update()
 	if nowSec - lastTickSec > SLEEP_GAP_S then
 		startFallback()
 		counters = {}
+		rates = {}
 		lastRun = 0
 	end
 	lastTickSec = nowSec

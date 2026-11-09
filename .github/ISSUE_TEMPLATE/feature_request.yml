@@ -147,6 +147,7 @@ body:
         - keysmith
         - keyviz
         - kineticwe-layouts
+        - kumacat
         - kwallet-secrets
         - launcher-pass
         - layout-fix
@@ -241,6 +242,7 @@ body:
         - procmon
         - profile-switcher
         - proton-pass
+        - proton-wireguard
         - pulsar-mouse
         - qr-share
         - qrcode

@@ -5,7 +5,7 @@
 
 id = "dmopp/opnsense-traffic"
 name = "OPNsense Traffic"
-version = "1.0.0"
+version = "1.0.1"
 plugin_api = 42
 author = "dMopp"
 license = "MIT"

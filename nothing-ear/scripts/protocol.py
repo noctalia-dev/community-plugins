@@ -205,7 +205,7 @@ class FrameParser:
 def parse_battery(payload: bytes) -> dict | None:
     if not payload:
         return None
-    device_names = {0x02: "left", 0x03: "right", 0x04: "case"}
+    device_names = {0x02: "left", 0x03: "right", 0x04: "case", 0x06: "single"}
     status: dict[str, dict | None] = {"left": None, "right": None, "case": None}
     count = min(payload[0], (len(payload) - 1) // 2)
     for i in range(count):

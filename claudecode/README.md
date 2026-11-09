@@ -67,7 +67,9 @@ binding.
 
 The panel header names the plan the account is on in words — "Claude Team 5x", rebuilt
 from the machine tokens the credentials file actually stores (`team`,
-`default_claude_max_5x`). The same name heads the tooltip.
+`default_claude_max_5x`). The same name heads the tooltip. Consumer Max plans use their
+current names: a `max` account on the `_5x` tier reads "Claude Max" and on the `_20x`
+tier "Claude Ultra", even though the credentials file still stores the old tokens.
 
 The panel opens attached under the pill and carries the full detail: a card for every
 rate window the plan reports, each with a reset countdown, the wall-clock time it lands
@@ -103,7 +105,7 @@ with the widget.
 | --- | --- | --- | --- |
 | `refresh_interval` | `int` | `2` | Minutes between background fetches (2–15). |
 | `currency` | `select` | `auto` | Cost display: `auto` follows the locale, or force `usd` / `eur`. |
-| `pill_metric` | `select` | `five_hour` | Which window the pill reports: `five_hour`, `seven_day`, or `both`. |
+| `pill_metric` | `select` | `five_hour` | Which window the pill reports: `five_hour`, `seven_day`, or `both`. On an account with no 5-hour window (verified Ultra), `five_hour` and `both` show the weekly window instead. |
 | `pill_style` | `select` | `glyph_text` | Pill appearance: glyph + percentage, a circular ring, or ring + percentage. |
 | `pill_extras` | `select` | `none` | What rides beside the percentage: `countdown`, `pace`, `both` or `none`. |
 | `show_glyph` | `bool` | `true` | Show the Claude glyph next to the percentage. |

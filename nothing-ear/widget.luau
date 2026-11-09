@@ -78,7 +78,9 @@ local function render()
 	local hasLeft = type(battery.left) == "table"
 	local hasRight = type(battery.right) == "table"
 	local base = "pair"
-	if type(battery.case) == "table" then
+	if (status.model or {}).battery_single or type(battery.single) == "table" then
+		base = "headphones"
+	elseif type(battery.case) == "table" then
 		base = "case"
 	elseif hasLeft and not hasRight then
 		base = "left"
@@ -97,6 +99,10 @@ local function render()
 		level = l or r
 	end
 
+	if type(battery.single) == "table" then
+		level = battery.single.level
+	end
+
 	if level ~= nil and not barWidget.isVertical() and showLiveStatus() then
 		barWidget.setText(showPercentage() and (tostring(level) .. "%") or tostring(level))
 	else
@@ -107,6 +113,9 @@ local function render()
 	local tooltipRows = {
 		{ key = model.name or noctalia.tr("panel.title"), value = noctalia.tr("panel.status.connected") },
 	}
+	if type(battery.single) == "table" then
+		table.insert(tooltipRows, { key = noctalia.tr("panel.headphones"), value = levelText(battery.single) })
+	end
 	-- Same left / case / right order as the panel and desktop widget.
 	if type(battery.left) == "table" then
 		table.insert(tooltipRows, { key = noctalia.tr("panel.left"), value = levelText(battery.left) })

@@ -48,7 +48,7 @@
     },
     "missing": {
       "title": "屏幕镜像还没安装",
-      "body": "请先安装 niri-mirror 命令行（在其仓库里运行 install.sh），然后重新启用这个插件。"
+      "body": "插件自带的镜像引擎（engine/niri_mirror.py）缺失；重新安装插件，或安装 niri-mirror（https://github.com/Goldppx/niri-mirror）后重新启用。"
     }
   }
 }

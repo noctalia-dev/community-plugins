@@ -9,12 +9,12 @@
 
 id = "zyrex/nothing-ear"
 name = "Nothing Ear"
-version = "0.2.0"
+version = "0.3.0"
 plugin_api = 43
 author = "zyrex"
 license = "MIT"
 icon = "headphones"
-description = "Battery, noise control, EQ and auto mono audio for Nothing and CMF earbuds, controlled directly over Bluetooth."
+description = "Battery, ANC, EQ and mono audio for Nothing/CMF earbuds and CMF Headphone Pro, controlled over Bluetooth."
 tags = ["audio", "bar", "panel", "desktop", "service", "hardware", "indicator"]
 dependencies = ["python3", "bluetoothctl", "pactl"]
 

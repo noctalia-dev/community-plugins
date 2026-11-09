@@ -121,7 +121,7 @@ end
 local function publish(data)
 	if type(data) == "table" then
 		data.mono_active = monoActive
-		data.mono_auto = monoAutoSetting()
+		data.mono_auto = monoAutoSetting() and not (data.model or {}).battery_single
 		data.mono_by_auto = monoActive and monoActivatedByAuto
 		noctalia.state.set(STATUS_KEY, data)
 	end
@@ -238,13 +238,13 @@ local function singleBudOut(battery)
 	return (type(battery.left) == "table") ~= (type(battery.right) == "table")
 end
 
-local function evaluateMonoAuto(battery)
+local function evaluateMonoAuto(battery, model)
 	if not monoAutoSetting() then
 		monoTriggerPolls = 0
 		monoClearPolls = 0
 		return
 	end
-	if singleBudOut(battery) then
+	if not (model or {}).battery_single and not (battery and type(battery.single) == "table") and singleBudOut(battery) then
 		monoClearPolls = 0
 		monoTriggerPolls += 1
 		if monoTriggerPolls >= MONO_DEBOUNCE_POLLS and not monoActive and not monoAutoSuppressed then
@@ -266,7 +266,7 @@ local function pollStatus()
 			pollFailures = 0
 			lastError = nil
 			if not monoActive then
-				evaluateMonoAuto(parsed.battery)
+				evaluateMonoAuto(parsed.battery, parsed.model)
 				publish(parsed)
 				return
 			end
@@ -279,7 +279,7 @@ local function pollStatus()
 					-- don't switch it straight back on behind the user's back
 					monoAutoSuppressed = true
 				end
-				evaluateMonoAuto(parsed.battery)
+				evaluateMonoAuto(parsed.battery, parsed.model)
 				publish(parsed)
 			end)
 			return
