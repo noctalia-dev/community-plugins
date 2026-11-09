@@ -1,6 +1,6 @@
 id = "fel/radio"
 name = "Radio"
-version = "0.1.2"
+version = "0.2.0"
 plugin_api = 43
 author = "fel"
 license = "MIT"
@@ -17,6 +17,13 @@ description_key = "settings.default_volume.description"
 default = 70
 min = 0
 max = 100
+
+[[setting]]
+key = "remember_volume"
+type = "bool"
+label_key = "settings.remember_volume.label"
+description_key = "settings.remember_volume.description"
+default = true
 
 [[setting]]
 key = "search_limit"
