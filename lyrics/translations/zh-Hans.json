@@ -5,13 +5,26 @@
   "panel": {
     "close": "关闭",
     "loading": "正在加载歌词……",
-    "no_candidates": "没有其他 LRCLIB 结果",
+    "no_candidates": "没有其他歌词结果",
     "no_track": "当前没有正在播放的歌曲",
     "result": "歌词结果",
     "selection_failed": "无法加载所选歌词",
     "synced": "同步歌词",
     "title": "选择歌词",
-    "unsynced": "非同步歌词"
+    "unsynced": "非同步歌词",
+    "apply_hint": "点击结果应用",
+    "applying": "正在应用……",
+    "candidates_count": "%d 个结果",
+    "untitled": "未知曲名",
+    "use_best": "最优结果",
+    "use_best_tooltip": "放弃手动选择，改用排名最优的结果",
+    "best_mode_title": "歌词选择器",
+    "best_mode_body": "“多个结果”当前设为“始终使用最优结果”，请在插件设置里改为“显示选择面板”。",
+    "duration_delta": "Δ%+d 秒",
+    "applied_format": "已应用：%s",
+    "sync_word": "逐字",
+    "sync_line": "行级",
+    "sync_plain": "纯文本"
   },
   "select_lyrics": "选择歌词",
   "settings": {
@@ -369,13 +382,13 @@
       "label": "设置分类",
       "description": "一次只显示一个功能分组；其他分类的设置值会保留。",
       "options": {
-        "basic": "基础显示",
-        "lyrics": "歌词与翻译",
-        "karaoke": "卡拉OK与动画",
+        "basic": "显示与行为",
+        "lyrics": "歌词内容",
+        "karaoke": "逐字与动画",
         "appearance": "封面与颜色",
-        "typography": "字体与排版",
+        "typography": "字体与布局",
         "scroll": "滚动与宽度",
-        "cues": "起始/间奏提示"
+        "cues": "间奏提示"
       }
     },
     "karaoke_active_color": {
@@ -385,6 +398,18 @@
     "karaoke_inactive_color": {
       "label": "逐字未唱颜色",
       "description": "有逐字时间的行中，未唱字符的颜色；行级歌词仍使用普通未唱颜色。"
+    },
+    "candidate_mode": {
+      "label": "多个结果",
+      "description": "同一首歌有多个歌词结果时的处理方式：显示选择面板，或始终使用排名最优的结果。",
+      "options": {
+        "choose": "有多个结果时显示选择面板",
+        "best": "始终使用最优结果"
+      }
+    },
+    "selector_enabled": {
+      "label": "悬停打开选择器",
+      "description": "有多个候选时，悬停歌词组件打开选择面板。需要“多个结果”设为“显示选择面板”；关闭后快捷键和 IPC 仍可打开。"
     }
   },
   "shortcut": {

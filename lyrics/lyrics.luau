@@ -47,6 +47,8 @@ local cueFontMode = noctalia.getConfig("cue_font_mode") or "custom"
 local cueFontFamily = noctalia.getConfig("cue_font_family") or "sans-serif"
 if cueFontFamily == "" then cueFontFamily = "sans-serif" end
 local displayMode = noctalia.getConfig("display_mode") or "toggle"
+local selectorEnabled = noctalia.getConfig("selector_enabled")
+if selectorEnabled == nil then selectorEnabled = true end
 local doubleLine = noctalia.getConfig("double_line")
 if doubleLine == nil then doubleLine = false end
 local doubleLineAutoFit = noctalia.getConfig("double_line_auto_fit")
@@ -102,6 +104,21 @@ local FADE_OUT_MS = 130
 local FADE_IN_MS = 260
 local MARQUEE_HOLD = 1.1
 local BLEND_MS = 350
+-- Hovering the widget with alternate lyric results opens the selector after a
+-- short intent delay, so a pass-over does not pop the panel.
+local SELECTOR_HOVER_DELAY = 0.55
+
+local lyricsCandidates = {}
+local hoverElapsed = 0
+local selectorOpenRequested = false
+
+local function trackKey(value)
+  if type(value) ~= "table" then return "" end
+  local durationSeconds = math.floor((tonumber(value.duration) or 0) / 1000000)
+  return (value.playerInstance or "") .. "|" .. (value.trackId or "") .. "|"
+    .. (value.title or "") .. "|" .. (value.artist or "") .. "|" .. (value.album or "")
+    .. "|" .. tostring(durationSeconds)
+end
 
 local function clamp(value, low, high)
   return math.min(high, math.max(low, value))
@@ -911,6 +928,10 @@ end
 
 function onHover(entered)
   hovered = entered == true
+  if not hovered then
+    hoverElapsed = 0
+    selectorOpenRequested = false
+  end
 end
 
 function onIpc(event, _payload)
@@ -928,6 +949,23 @@ function update()
   playing = noctalia.state.get("playing") == true
   sourceUsed = noctalia.state.get("lyrics_source_used") or ""
   lyricsLoading = noctalia.state.get("lyrics_loading") == true
+
+  local candidateState = noctalia.state.get("lyrics_candidate_state")
+  lyricsCandidates = type(candidateState) == "table" and candidateState.track_key == trackKey(track)
+    and candidateState.candidates or {}
+  local selectorOpen = noctalia.state.get("lyrics_selector_open") == true
+  if selectorEnabled and hovered and track ~= nil and #lyricsCandidates > 1
+    and not selectorOpen and not selectorOpenRequested and not lyricsLoading then
+    hoverElapsed = hoverElapsed + delta
+    if hoverElapsed >= SELECTOR_HOVER_DELAY then
+      hoverElapsed = 0
+      selectorOpenRequested = true
+      noctalia.state.set("lyrics_selector_origin", "hover")
+      noctalia.togglePanel("h465855hgg/lyrics:selector")
+    end
+  else
+    hoverElapsed = 0
+  end
 
   local info = getLineInfo()
   local nextKey = info and info.key or "fallback"

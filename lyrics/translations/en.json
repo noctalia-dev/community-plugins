@@ -5,13 +5,26 @@
   "panel": {
     "close": "Close",
     "loading": "Loading lyrics…",
-    "no_candidates": "No alternate LRCLIB results",
+    "no_candidates": "No alternate lyrics results",
     "no_track": "No track is playing",
     "result": "Lyrics result",
     "selection_failed": "Could not load the selected lyrics",
     "synced": "Synced",
     "title": "Choose lyrics",
-    "unsynced": "Unsynced"
+    "unsynced": "Unsynced",
+    "apply_hint": "Click a result to apply",
+    "applying": "Applying…",
+    "candidates_count": "%d results",
+    "untitled": "Unknown title",
+    "use_best": "Best match",
+    "use_best_tooltip": "Discard the manual pick and use the best-ranked result",
+    "best_mode_title": "Lyrics selector",
+    "best_mode_body": "Multiple results is set to Best match. Change it in the plugin settings to choose a result.",
+    "duration_delta": "Δ%+ds",
+    "applied_format": "Applied: %s",
+    "sync_word": "word",
+    "sync_line": "line",
+    "sync_plain": "plain"
   },
   "select_lyrics": "Choose lyrics",
   "settings": {
@@ -369,12 +382,12 @@
       "label": "Settings category",
       "description": "Show one functional group at a time. Values of hidden categories are kept.",
       "options": {
-        "basic": "Basic display",
-        "lyrics": "Lyrics and translation",
-        "karaoke": "Karaoke and animation",
-        "appearance": "Cover and colors",
-        "typography": "Font and layout",
-        "scroll": "Scrolling and width",
+        "basic": "Display & behavior",
+        "lyrics": "Lyrics",
+        "karaoke": "Karaoke & animation",
+        "appearance": "Cover & colors",
+        "typography": "Font & layout",
+        "scroll": "Scrolling & width",
         "cues": "Intro/interlude cues"
       }
     },
@@ -385,6 +398,18 @@
     "karaoke_inactive_color": {
       "label": "Unsung word color",
       "description": "Color of characters not yet sung on lines that have word timings. Line-mode lyrics use the regular inactive color."
+    },
+    "candidate_mode": {
+      "label": "Multiple results",
+      "description": "Choose how to handle several matches for one track: show the picker, or always use the best-ranked result.",
+      "options": {
+        "choose": "Show the picker when several results exist",
+        "best": "Always use the best match"
+      }
+    },
+    "selector_enabled": {
+      "label": "Hover picker",
+      "description": "Hover the widget to open the picker when several candidates exist. Requires Multiple results = Choose; the shortcut and IPC still work when off."
     }
   },
   "shortcut": {
