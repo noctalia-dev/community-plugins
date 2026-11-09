@@ -29,6 +29,23 @@ Enable the plugin and add ClearClock to your desktop:
    noctalia msg desktop-widgets-exit
    ```
 
+### Presets
+
+#### Frosted Glass Font (as shown in preview)
+To achieve translucent beveled glass digits with a softened wallpaper fill:
+- **Frosted glass font (`frostedFont`)**: `true`
+- **Font frosting strength (`fontGlassStrength`)**: `0.0`
+- **Wallpaper gradient (`adaptiveGradients`)**: `false`
+- **Adaptive colors (`adaptiveColors`)**: `true`
+- **Background**: `false` (transparent)
+- **Clock font size (`clockFontSize`)**: `218`
+
+#### Adaptive Wallpaper Gradient
+For smooth multi-color digits sampled from the underlying wallpaper:
+- **Wallpaper gradient (`adaptiveGradients`)**: `true`
+- **Adaptive colors (`adaptiveColors`)**: `true`
+- **Frosted glass font (`frostedFont`)**: `false`
+
 ## Settings
 
 Settings can be customized per widget instance in the Noctalia Desktop editor or widget settings:
