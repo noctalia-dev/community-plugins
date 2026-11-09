@@ -1,11 +1,11 @@
 id = "asj/task-warrior"
 name = "Task Warrior"
-version = "2.0.1"
+version = "2.1.0"
 plugin_api = 43
 author = "Anders Doozer"
 license = "MIT"
-description = "Taskwarrior in your bar: see pending and overdue counts, and add, edit, complete or delete tasks."
-tags = ["bar", "panel", "service", "productivity"]
+description = "Taskwarrior in your bar and on your desktop: pending/overdue counts, add, edit, complete or delete tasks, plus a fixed desktop task list."
+tags = ["bar", "panel", "service", "desktop", "productivity"]
 icon = "swords"
 dependencies = ["task"]
 
@@ -40,3 +40,16 @@ open_near_click = true
 [[service]]
 id = "tasks"
 entry = "service.luau"
+
+[[desktop_widget]]
+id = "desktop"
+entry = "desktop.luau"
+
+  [[desktop_widget.setting]]
+  key = "max_tasks"
+  type = "int"
+  label_key = "settings.max-tasks.label"
+  description_key = "settings.max-tasks.description"
+  default = 8
+  min = 1
+  max = 50
