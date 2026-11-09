@@ -1,0 +1,214 @@
+id = "nirusaki/clearclock"
+name = "ClearClock"
+version = "1.2.0"
+plugin_api = 31
+author = "Nirusaki; original design by qewer33"
+license = "GPL-3.0-or-later"
+icon = "clock"
+description = "ClearClock: a bold clock, script weekday overlay, and spaced date."
+tags = ["clock", "desktop", "time", "theming"]
+dependencies = ["python3", "python-pillow"]
+
+[[desktop_widget]]
+id = "desktop"
+entry = "desktop.luau"
+
+[[desktop_widget.setting]]
+key = "adaptiveColors"
+type = "bool"
+label_key = "settings.adaptive_colors.label"
+description_key = "settings.adaptive_colors.description"
+default = true
+
+[[desktop_widget.setting]]
+key = "adaptiveGradients"
+type = "bool"
+label_key = "settings.adaptive_gradients.label"
+description_key = "settings.adaptive_gradients.description"
+default = true
+visible_when = { key = "adaptiveColors", values = ["true"] }
+
+[[desktop_widget.setting]]
+key = "frostedGlass"
+type = "bool"
+label_key = "settings.frosted_glass.label"
+description_key = "settings.frosted_glass.description"
+default = false
+
+[[desktop_widget.setting]]
+key = "glassStrength"
+type = "double"
+label_key = "settings.glass_strength.label"
+default = 0.5
+min = 0.0
+max = 1.0
+visible_when = { key = "frostedGlass", values = ["true"] }
+
+[[desktop_widget.setting]]
+key = "frostedFont"
+type = "bool"
+label_key = "settings.frosted_font.label"
+description_key = "settings.frosted_font.description"
+default = false
+
+[[desktop_widget.setting]]
+key = "fontGlassStrength"
+type = "double"
+label_key = "settings.font_glass_strength.label"
+default = 0.55
+min = 0.0
+max = 1.0
+visible_when = { key = "frostedFont", values = ["true"] }
+
+# Host-internal instance association. Noctalia's desktop script API provides
+# no instance ID or geometry; the defaults service binds this to the saved ID.
+# The sentinel is intentionally absent from the boolean control's values.
+[[desktop_widget.setting]]
+key = "renderInstance"
+type = "string"
+label_key = "settings.render_instance.label"
+default = ""
+visible_when = { key = "adaptiveGradients", values = ["internal"] }
+
+[[desktop_widget.setting]]
+key = "clockUse24hFormat"
+type = "bool"
+label_key = "settings.clock_use_24h_format.label"
+default = true
+
+[[desktop_widget.setting]]
+key = "clockShowSeconds"
+type = "bool"
+label_key = "settings.clock_show_seconds.label"
+default = false
+
+[[desktop_widget.setting]]
+key = "clockSeparator"
+type = "string"
+label_key = "settings.clock_separator.label"
+default = "."
+
+[[desktop_widget.setting]]
+key = "timezone"
+type = "string"
+label_key = "settings.timezone.label"
+default = ""
+
+[[desktop_widget.setting]]
+key = "clockFontColor"
+type = "color"
+label_key = "settings.clock_font_color.label"
+default = "#ffffff"
+visible_when = { key = "adaptiveColors", values = ["false"] }
+
+[[desktop_widget.setting]]
+key = "clockFontFamily"
+type = "string"
+label_key = "settings.clock_font_family.label"
+default = "ccdefault"
+
+[[desktop_widget.setting]]
+key = "clockBoldText"
+type = "bool"
+label_key = "settings.clock_bold_text.label"
+default = true
+
+[[desktop_widget.setting]]
+key = "clockFontSize"
+type = "int"
+label_key = "settings.clock_font_size.label"
+default = 220
+min = 24
+max = 400
+
+[[desktop_widget.setting]]
+key = "showDayDisplay"
+type = "bool"
+label_key = "settings.show_day_display.label"
+default = true
+
+[[desktop_widget.setting]]
+key = "dayFontColor"
+type = "color"
+label_key = "settings.day_font_color.label"
+default = "#5e4573"
+visible_when = { key = "adaptiveColors", values = ["false"] }
+
+[[desktop_widget.setting]]
+key = "dayFontFamily"
+type = "string"
+label_key = "settings.day_font_family.label"
+default = "ccdefault"
+
+[[desktop_widget.setting]]
+key = "dayBoldText"
+type = "bool"
+label_key = "settings.day_bold_text.label"
+default = false
+
+[[desktop_widget.setting]]
+key = "dayFontSize"
+type = "int"
+label_key = "settings.day_font_size.label"
+default = 100
+min = 16
+max = 300
+
+[[desktop_widget.setting]]
+key = "showDateDisplay"
+type = "bool"
+label_key = "settings.show_date_display.label"
+default = true
+
+[[desktop_widget.setting]]
+key = "dateCustomDateFormat"
+type = "string"
+label_key = "settings.date_custom_date_format.label"
+default = "%-d %B %Y"
+
+[[desktop_widget.setting]]
+key = "dateFontColor"
+type = "color"
+label_key = "settings.date_font_color.label"
+default = "#ffffff"
+visible_when = { key = "adaptiveColors", values = ["false"] }
+
+[[desktop_widget.setting]]
+key = "dateFontFamily"
+type = "string"
+label_key = "settings.date_font_family.label"
+default = "ccdefault"
+
+[[desktop_widget.setting]]
+key = "dateBoldText"
+type = "bool"
+label_key = "settings.date_bold_text.label"
+default = false
+
+[[desktop_widget.setting]]
+key = "dateFontSize"
+type = "int"
+label_key = "settings.date_font_size.label"
+default = 24
+min = 8
+max = 100
+
+[[desktop_widget.setting]]
+key = "dateLetterSpacing"
+type = "int"
+label_key = "settings.date_letter_spacing.label"
+default = 2
+min = 0
+max = 20
+
+[[desktop_widget.setting]]
+key = "dateGap"
+type = "int"
+label_key = "settings.date_gap.label"
+default = -20
+min = -100
+max = 100
+
+[[service]]
+id = "defaults"
+entry = "defaults.luau"
