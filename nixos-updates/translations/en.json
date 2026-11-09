@@ -24,6 +24,7 @@
   "errors": {
     "bad_flake_dir": "The flake directory must be an absolute path without ? or #: {dir}",
     "bad_result": "The check finished, but its results could not be read",
+    "estimate_no_lock": "Check for updates first; the estimate needs the updated lock of a check.",
     "lock_bad_token": "GitHub rejected the token (expired or revoked?). Create a new one or clear the token file setting.",
     "lock_rate_limit": "GitHub's API rate limit is reached, so updates could not be checked. The list shows the last known state. It resets within an hour; a token (see the settings) raises the limit.",
     "lock_stale": "Could not ask every flake input for its latest revision (no network?). The list shows the last known state.",
@@ -48,9 +49,28 @@
   },
   "panel": {
     "added": "new: {version}",
+    "check_incomplete": "Check did not complete · tried {time}",
     "check_now": "Check now",
     "checking": "Checking for updates…",
     "checking_step": "Checking for updates: {step}…",
+    "cleanup": "Clean up",
+    "cleanup_hint": "Removes what nothing needs any more, following your system's own cleanup rules. Runs in a terminal and asks for your password.",
+    "estimate_build": {
+      "one": "{count} to build",
+      "other": "{count} to build"
+    },
+    "estimate_button": "Estimate download size",
+    "estimate_button_hint": "Asks nix build --dry-run what the updated system would download and build. Nothing is built or downloaded; Nix only asks the binary caches. Takes a few seconds to a minute.",
+    "estimate_fetch": {
+      "one": "Download: {count} store path, {download} ({unpacked} unpacked)",
+      "other": "Download: {count} store paths, {download} ({unpacked} unpacked)"
+    },
+    "estimate_hint": "What the updated system needs that is not in the Nix store yet, from nix build --dry-run. It counts every store path, libraries and packages rebuilt with the same version included, so it is higher than the list. The space is used on top of the current system until the old generations are cleaned up.",
+    "estimate_left": "about {seconds} s left, judging by the last estimate",
+    "estimate_left_guess": "about {seconds} s left, a rough guess before the first estimate",
+    "estimate_longer": "taking longer than last time",
+    "estimate_no_fetch": "Download: nothing, everything is in the store already",
+    "estimate_running": "Estimating download size… {seconds} s",
     "flatpak": "Flatpak updates: {count}",
     "inputs": "Flake inputs with new commits: {count}",
     "more_updates": "{hidden} more · show all {count} updates",
@@ -64,11 +84,14 @@
       "one": "{count} update · checked {time}",
       "other": "{count} updates · checked {time}"
     },
+    "reboot": "Restart needed: the running kernel or initrd is not the installed one",
+    "reboot_hint": "The last update changed the kernel, initrd or kernel modules; they take effect after a restart.",
+    "reboot_kernel": "Restart needed: kernel {installed} is installed, {running} is running",
     "removed": "removed: {version}",
     "set_update_command": "Set update command",
+    "storage": "Nix store: {free} free of {size} · {generations} system generations",
     "title": "NixOS Updates",
     "up_to_date": "Everything is up to date · checked {time}",
-    "check_incomplete": "Check did not complete · tried {time}",
     "update": "Update"
   },
   "settings": {
@@ -83,6 +106,10 @@
     "check_packages": {
       "description": "Evaluate the NixOS configuration with the current and the updated lock and list the package versions that change. This evaluates the code of input revisions you have not accepted yet; nothing is built. Takes a few seconds of CPU per check, longer when a new nixpkgs has to be downloaded.",
       "label": "Compare package versions"
+    },
+    "cleanup_button": {
+      "label": "Clean up button",
+      "description": "Shows a Clean up button in the panel. It runs the system's own Nix cleanup (nix-gc.service and nix-optimise.service where NixOS has them, else only unused store paths, no generations) and removes unused Flatpak runtimes, in a terminal."
     },
     "flake_dir": {
       "description": "Directory with flake.nix and flake.lock, as an absolute path. Not written to; the updated lock goes to the plugin's data directory. Empty: only Flatpaks.",
@@ -101,6 +128,10 @@
     },
     "highlight_color": {
       "label": "Badge color with updates"
+    },
+    "home_configuration": {
+      "label": "Standalone Home Manager configuration",
+      "description": "Name under homeConfigurations in the same flake, for example alice. Its home.packages are compared too. Home Manager as a NixOS module needs nothing here: its users' packages are included anyway. Empty: none."
     },
     "ignored_inputs": {
       "description": "Flake input names to leave out of the input list, for example ones you update on your own schedule.",
@@ -133,7 +164,9 @@
     "eval-new": "evaluating the updated configuration",
     "eval-old": "evaluating the current configuration",
     "flatpak": "Flatpak",
-    "lock": "flake update"
+    "home": "evaluating the Home Manager configuration",
+    "lock": "flake update",
+    "size": "estimating the download size"
   },
   "widget": {
     "checked": "Checked",
@@ -141,6 +174,8 @@
     "flatpak": "Flatpak updates",
     "inputs": "Changed flake inputs",
     "packages": "Package changes",
+    "reboot": "Restart",
+    "reboot_value": "needed",
     "title": "NixOS Updates"
   }
 }
