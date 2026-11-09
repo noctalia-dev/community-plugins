@@ -1,5 +1,42 @@
 # Changelog
 
+## 1.7.0
+
+- Marquee scrolling is pixel-smooth and follows the rendered text width: the
+  whole line renders once inside a clipped viewport whose width is
+  `max_chars * char_width`, and a paint-only `translateX` scrolls it at
+  `marquee_speed` pixels per second using real font metrics (a full-width CJK
+  character is one font size), so the scroll always reaches the final character
+  before the line loops. Changing Max characters or Character width visibly
+  changes the widget width and the clipped scroll area, and Character width now
+  defaults to 14 to match the inherited body font size.
+- Clip every transition frame to the marquee viewport: transitions used to
+  render the raw row, so a long line flashed at full width for the length of
+  the animation before snapping back to the clipped, scrolling viewport. Push
+  transitions now also clamp their track/viewport width. The line is clipped
+  from the first frame of every preset.
+- Animate a lyric line as one block: the primary row and its
+  translation/romanization row travel together through every transition, and
+  both rows share an explicit slot height so a line no longer nudges up when a
+  transition starts and settles back down when it ends (this also removed the
+  same vertical jump from the cover-art widget).
+- Replace the old animation presets with one set of twelve distinct lyrics
+  animations: karaoke fill + fade, slide up, slide down, swoosh left, swoosh
+  right, spring push, drop + bounce, zoom, character cascade, character wave,
+  typewriter, flip, spin, squash, random, and none. `random` re-rolls the
+  line motion for every line change and never repeats the previous one. The separate `line_transition` experiment and the
+  near-duplicate Lyricify lookalikes are gone; every remaining preset has a
+  visibly different motion in a one-line bar.
+- Bold motions use the paint-only compositing props: clipped two-row pushes for
+  slide/spring/drop, full-width horizontal swooshes, a zoom from 170%,
+  spring/bounce overshoot curves, and the new `rotation` / `scaleX` / `scaleY`
+  props for the flip, spin, and squash presets.
+- Keep the configured lyric colors through every animation: outgoing and
+  incoming rows share the karaoke palette, and word fill keeps running.
+- Requires plugin API 52 (paint-only `translateX`/`translateY`, `scale`,
+  `clip`). Older shells keep loading the 1.6.x release from the plugin source
+  and its previous animations.
+
 ## 1.6.0
 
 - Word-level lyric sources now drive per-character karaoke highlighting, while
