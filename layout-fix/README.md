@@ -49,8 +49,10 @@ off, or when a correction was not wanted:
 
 ```kdl
 binds {
-    // Re-encode what has been typed so far
+    // Re-encode what has been typed so far (entire recent buffer)
     Mod+Shift+X { spawn "noctalia" "msg" "plugin" "umedbazarov/layout-fix:service" "all" "fix"; }
+    // Re-encode only the last word
+    Mod+Shift+W { spawn "noctalia" "msg" "plugin" "umedbazarov/layout-fix:service" "all" "fix-word"; }
     // Undo the last automatic correction
     Mod+Shift+Z { spawn "noctalia" "msg" "plugin" "umedbazarov/layout-fix:service" "all" "undo"; }
     // Toggle automatic mode
@@ -111,6 +113,7 @@ it once, the plugin remembers and stays quiet.
 
 ```sh
 noctalia msg plugin umedbazarov/layout-fix:service all fix
+noctalia msg plugin umedbazarov/layout-fix:service all fix-word
 noctalia msg plugin umedbazarov/layout-fix:service all undo
 noctalia msg plugin umedbazarov/layout-fix:service all auto
 noctalia msg plugin umedbazarov/layout-fix:service all status
