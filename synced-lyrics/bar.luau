@@ -302,7 +302,7 @@ local function fetchLyrics(title: string, artist: string, album: string, trackId
       debugLog("fetchLyrics callback: FAILED - exitCode=" .. tostring(res.exitCode) .. " or no stdout")
     end
     safeRender()
-  end)
+  end, 60000)
 end
 
 -- ── State Watches ────────────────────────────────────────────────────────

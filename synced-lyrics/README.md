@@ -44,7 +44,7 @@ Features **syllable-level synchronization** (word-by-word / syllable-by-syllable
 
 ---
 
-## ## Plugin
+## Plugin
 
 This plugin provides the following components for Noctalia:
 
@@ -68,7 +68,7 @@ noctalia msg panel-toggle kaler/synced-lyrics:lyrics-panel
 
 ---
 
-## ## Usage
+## Usage
 
 ### 1. Enable the Plugin in Noctalia
 
@@ -117,7 +117,7 @@ Open Noctalia Settings GUI or edit `settings.toml` directly. See [## Settings](#
 
 ---
 
-## ## Requirements
+## Requirements
 
 - **python3** — Required for the lyric fetching scripts
 - **playerctl** — Required for media player control (play/pause, next, metadata)
@@ -137,7 +137,7 @@ sudo dnf install python3 playerctl
 
 ---
 
-## ## Settings
+## Settings
 
 Configurable via Noctalia Settings GUI or in your `settings.toml`:
 

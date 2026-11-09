@@ -5,7 +5,7 @@ plugin_api = 24
 author = "kaler"
 license = "MIT"
 description = "Syllable-level karaoke and line-synced lyrics on the Noctalia bar with auto-hide."
-tags = ["bar", "media"]
+tags = ["bar-widget", "lyrics", "karaoke", "media"]
 icon = "music"
 
 dependencies = [
@@ -161,7 +161,7 @@ key = "spicy_lyrics_api_key"
 type = "string"
 label_key = "settings.spicylyrics-key.label"
 description_key = "settings.spicylyrics-key.description"
-default = "sl_sk_4rhfvpO1I3ABaOAu6SxLiIraztksYfTa1eJPYCPDJc4"
+default = ""
 
 [[setting]]
 key = "betterlyrics_api_key"

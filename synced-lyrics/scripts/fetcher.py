@@ -1190,6 +1190,50 @@ def _fetch_json(url, timeout=1.5):
         return json.loads(resp.read().decode("utf-8"))
 
 
+def _select_best_source(sources, preferred_source):
+    """
+    Apply selection policy to choose the best source from collected results.
+    Returns the selected source key or None.
+    """
+    if not sources:
+        return None
+
+    # 1. If user specified a preferred source and it's available, use it
+    if preferred_source != "auto" and preferred_source in sources:
+        return preferred_source
+
+    # 2. Otherwise, prefer by quality: syllable > word > line
+    for granularity in ("syllable", "word"):
+        for candidate in ("amll_ttml", "kugou_krc", "parsenix", "spicylyrics", "binimum", "lyricsplus", "betterlyrics", "unison", "lrclib"):
+            if candidate in sources and sources[candidate].get("type") == granularity:
+                return candidate
+
+    # 3. Fall back to any karaoke/word source
+    for candidate in ("amll_ttml", "kugou_krc", "parsenix", "spicylyrics", "binimum", "lyricsplus", "betterlyrics", "unison", "lrclib", "local_cache"):
+        if candidate in sources and sources[candidate].get("type") in ("syllable", "word"):
+            return candidate
+
+    # 4. Last resort: any available source
+    return next(iter(sources.keys()))
+
+
+def _build_full_payload(sources, active_source, checked_sources):
+    """Build the final payload from collected sources and selected active source."""
+    active_data = sources[active_source]
+    return {
+        "status": "ok",
+        "active_source": active_source,
+        "type": active_data.get("type", "syllable"),
+        "source": active_source,
+        "name": active_data.get("name", active_source),
+        "badge": active_data.get("badge", ""),
+        "preview": active_data.get("preview", []),
+        "lines": active_data.get("lines", []),
+        "sources": sources,
+        "checked_sources": checked_sources,
+    }
+
+
 def _parse_lrc_red_song(isrc):
     """Read lrc.red's richer song record before trying its direct TTML route."""
     url = f"https://lrc.red/s/{urllib.parse.quote(isrc)}.song.json"
@@ -1616,17 +1660,17 @@ def get_lyrics(title, artist, album="", preferred_source="auto",
                 resolve_apple_music_isrc, isrc, apple_music_developer_token, apple_music_storefront
             )
 
-        # Helper to run a phase with proper total timeout
-        def run_phase(phase_futures, phase_timeout, phase_name, checked_sources_list):
-            """Run a phase of providers with total timeout.
-            Returns (best_result, best_source) or (None, None) if timeout/no results.
+        # Helper to run a phase and collect ALL results before applying selection policy
+        def run_phase_collect(phase_futures, phase_timeout, phase_name, phase_checked_sources, phase_check_list):
+            """Run a phase of providers, collect ALL results, then apply selection policy.
+            Returns (selected_source, all_phase_sources) or (None, {}) if timeout/no results.
             """
             nonlocal track_id_resolved, apple_metadata, spicy_submitted, parsenix_submitted
-            best_result = None
-            best_source = None
             pending = set(phase_futures.keys())
             start_time = time.monotonic()
+            phase_sources = {}
 
+            # Wait for all futures to complete or timeout
             while pending:
                 remaining = phase_timeout - (time.monotonic() - start_time)
                 if remaining <= 0:
@@ -1638,13 +1682,8 @@ def get_lyrics(title, artist, album="", preferred_source="auto",
                     try:
                         res = future.result()
                         if res and res.get("lines"):
+                            phase_sources[src_key] = res
                             sources[src_key] = res
-                            best_result = res
-                            best_source = src_key
-                            # Cancel all other pending futures in this phase
-                            for f in pending:
-                                f.cancel()
-                            return best_result, best_source
                     except Exception as e:
                         sys.stderr.write(f"{src_key} worker notice: {e}\n")
 
@@ -1654,10 +1693,12 @@ def get_lyrics(title, artist, album="", preferred_source="auto",
                             resolved_spotify_track_id = track_id_future.result(timeout=0)
                             track_id_resolved = resolved_spotify_track_id
                             if track_id_resolved:
-                                phase_futures[executor.submit(fetch_spicylyrics,
+                                new_future = executor.submit(fetch_spicylyrics,
                                     title, artist, track_id_resolved, spicy_lyrics_key,
                                     spotify_client_id, spotify_client_secret,
-                                )] = "spicylyrics"
+                                )
+                                phase_futures[new_future] = "spicylyrics"
+                                pending.add(new_future)
                         except Exception:
                             pass
                         spicy_submitted = True
@@ -1668,9 +1709,11 @@ def get_lyrics(title, artist, album="", preferred_source="auto",
                                 resolved_spotify_track_id = track_id_future.result(timeout=0)
                                 track_id_resolved = resolved_spotify_track_id
                             if track_id_resolved:
-                                phase_futures[executor.submit(fetch_parsenix,
+                                new_future = executor.submit(fetch_parsenix,
                                     title, artist, track_id_resolved, parsenix_base_url
-                                )] = "parsenix"
+                                )
+                                phase_futures[new_future] = "parsenix"
+                                pending.add(new_future)
                         except Exception:
                             pass
                         parsenix_submitted = True
@@ -1691,15 +1734,19 @@ def get_lyrics(title, artist, album="", preferred_source="auto",
             # Phase timed out - cancel remaining
             for f in pending:
                 f.cancel()
-            return None, None
+
+            if not phase_sources:
+                return None, {}
+
+            # Apply selection policy AFTER collecting all results from this phase
+            selected = _select_best_source(phase_sources, preferred_source)
+            checked_sources_list = list(phase_checked_sources)
+            return selected, phase_sources
 
         # Track Spotify-dependent providers
         spicy_submitted = False
         parsenix_submitted = False
 
-        # Process results as they complete - return early when we have ANY valid result
-        best_result = None
-        best_source = None
         track_id_resolved = None
         apple_metadata = None
 
@@ -1708,24 +1755,22 @@ def get_lyrics(title, artist, album="", preferred_source="auto",
         phase1_futures[executor.submit(fetch_lrclib, title, artist, album)] = "lrclib"
         phase1_futures[executor.submit(fetch_binimum, title, artist, album, duration_seconds, isrc)] = "binimum"
 
-        best_result, best_source = run_phase(phase1_futures, 1.5, "Phase 1", ["lrclib", "binimum"])
+        selected_source, phase1_sources = run_phase_collect(
+            phase1_futures, 1.5, "Phase 1", {"lrclib", "binimum"}, ["lrclib", "binimum"]
+        )
 
-        # If we found a result in Phase 1, return it
-        if best_result and best_source:
-            full_payload = {
-                "status": "ok",
-                "active_source": best_source,
-                "type": best_result.get("type", "line"),
-                "source": best_source,
-                "name": best_result.get("name", best_source),
-                "badge": best_result.get("badge", ""),
-                "preview": best_result.get("preview", []),
-                "lines": best_result.get("lines", []),
-                "sources": sources,
-                "checked_sources": ["lrclib", "binimum"],
-            }
-            save_payload_to_cache(full_payload, title, artist, cache_dir)
-            return full_payload
+        # Check Apple Music metadata after Phase 1
+        if apple_music_future and apple_metadata is None:
+            try:
+                apple_metadata = apple_music_future.result(timeout=0)
+                if apple_metadata:
+                    sys.stderr.write(f"apple music isrc resolved: {apple_metadata.get('name')} by {apple_metadata.get('artist')}\n")
+                    if not duration_seconds and apple_metadata.get("duration_ms"):
+                        duration_seconds = apple_metadata["duration_ms"] / 1000.0
+                    if not album and apple_metadata.get("album"):
+                        album = apple_metadata["album"]
+            except Exception:
+                pass
 
         # Phase 2: Medium providers (unison, betterlyrics, spicylyrics, parsenix) - 1.0s total timeout
         phase2_futures = {}
@@ -1758,7 +1803,12 @@ def get_lyrics(title, artist, album="", preferred_source="auto",
                 pass
             parsenix_submitted = True
 
-        # Check Apple Music metadata
+        selected_source, phase2_sources = run_phase_collect(
+            phase2_futures, 1.0, "Phase 2", {"unison", "betterlyrics", "spicylyrics", "parsenix"},
+            ["lrclib", "binimum", "unison", "betterlyrics", "spicylyrics", "parsenix"]
+        )
+
+        # Check Apple Music metadata after Phase 2
         if apple_music_future and apple_metadata is None:
             try:
                 apple_metadata = apple_music_future.result(timeout=0)
@@ -1771,50 +1821,35 @@ def get_lyrics(title, artist, album="", preferred_source="auto",
             except Exception:
                 pass
 
-        best_result, best_source = run_phase(phase2_futures, 1.0, "Phase 2", ["unison", "betterlyrics", "spicylyrics", "parsenix"])
-
-        # If we found a result in Phase 2, return it
-        if best_result and best_source:
-            full_payload = {
-                "status": "ok",
-                "active_source": best_source,
-                "type": best_result.get("type", "line"),
-                "source": best_source,
-                "name": best_result.get("name", best_source),
-                "badge": best_result.get("badge", ""),
-                "preview": best_result.get("preview", []),
-                "lines": best_result.get("lines", []),
-                "sources": sources,
-                "checked_sources": ["lrclib", "binimum", "unison", "betterlyrics", "spicylyrics", "parsenix"],
-            }
-            save_payload_to_cache(full_payload, title, artist, cache_dir)
-            return full_payload
-
         # Phase 3: Slow/unreliable providers as last resort (amll_ttml, kugou_krc, lyricsplus) - 1.0s total timeout
         phase3_futures = {}
         phase3_futures[executor.submit(fetch_amll_ttml, title, artist, album, duration_seconds, isrc)] = "amll_ttml"
         phase3_futures[executor.submit(fetch_kugou_krc, title, artist, album, duration_seconds)] = "kugou_krc"
         phase3_futures[executor.submit(fetch_lyricsplus, title, artist, album, duration_seconds, isrc)] = "lyricsplus"
 
-        best_result, best_source = run_phase(phase3_futures, 1.0, "Phase 3", ["amll_ttml", "kugou_krc", "lyricsplus"])
+        selected_source, phase3_sources = run_phase_collect(
+            phase3_futures, 1.0, "Phase 3", {"amll_ttml", "kugou_krc", "lyricsplus"},
+            [
+                "lrclib", "binimum", "unison", "betterlyrics", "spicylyrics", "parsenix",
+                "amll_ttml", "kugou_krc", "lyricsplus",
+            ]
+        )
 
-        # If we found any result, return it
-        if best_result and best_source:
-            full_payload = {
-                "status": "ok",
-                "active_source": best_source,
-                "type": best_result.get("type", "line"),
-                "source": best_source,
-                "name": best_result.get("name", best_source),
-                "badge": best_result.get("badge", ""),
-                "preview": best_result.get("preview", []),
-                "lines": best_result.get("lines", []),
-                "sources": sources,
-                "checked_sources": [
-                    "lrclib", "binimum", "unison", "betterlyrics", "spicylyrics", "parsenix",
-                    "amll_ttml", "kugou_krc", "lyricsplus",
-                ],
-            }
+        # Determine the final active source from all collected sources
+        if not sources:
+            # No sources found from any phase
+            pass
+        else:
+            active_source = _select_best_source(sources, preferred_source)
+            checked_sources_list = []
+            if phase1_sources:
+                checked_sources_list.extend(["lrclib", "binimum"])
+            if phase2_sources:
+                checked_sources_list.extend(["unison", "betterlyrics", "spicylyrics", "parsenix"])
+            if phase3_sources:
+                checked_sources_list.extend(["amll_ttml", "kugou_krc", "lyricsplus"])
+
+            full_payload = _build_full_payload(sources, active_source, checked_sources_list)
             save_payload_to_cache(full_payload, title, artist, cache_dir)
             return full_payload
 
@@ -1832,50 +1867,17 @@ def get_lyrics(title, artist, album="", preferred_source="auto",
             "lines": []
         }
 
-    # 3. Determine active source based on user preference or highest quality
-    active_source = ""
-    if preferred_source != "auto" and preferred_source in sources:
-        active_source = preferred_source
-    else:
-        for granularity in ("syllable", "word"):
-            for candidate in ("amll_ttml", "kugou_krc", "parsenix", "spicylyrics", "binimum", "lyricsplus", "betterlyrics", "unison"):
-                if candidate in sources and sources[candidate].get("type") == granularity:
-                    active_source = candidate
-                    break
-            if active_source:
-                break
+    # Fallback: use selection policy on whatever sources we have
+    active_source = _select_best_source(sources, preferred_source)
+    checked_sources_list = []
+    if phase1_sources:
+        checked_sources_list.extend(["lrclib", "binimum"])
+    if phase2_sources:
+        checked_sources_list.extend(["unison", "betterlyrics", "spicylyrics", "parsenix"])
+    if phase3_sources:
+        checked_sources_list.extend(["amll_ttml", "kugou_krc", "lyricsplus"])
 
-        if not active_source:
-            active_source = next(
-                (key for key, value in sources.items() if value.get("type") in ("syllable", "word")),
-                "",
-            )
-
-        if not active_source:
-            for candidate in ["amll_ttml", "kugou_krc", "parsenix", "spicylyrics", "binimum", "lyricsplus", "betterlyrics", "unison", "lrclib", "local_cache"]:
-                if candidate in sources:
-                    active_source = candidate
-                    break
-
-        if not active_source:
-            active_source = next(iter(sources.keys()))
-
-    active_data = sources[active_source]
-    full_payload = {
-        "status": "ok",
-        "active_source": active_source,
-        "type": active_data.get("type", "syllable"),
-        "source": active_source,
-        "name": active_data.get("name", active_source),
-        "badge": active_data.get("badge", ""),
-        "preview": active_data.get("preview", []),
-        "lines": active_data.get("lines", []),
-        "sources": sources,
-        "checked_sources": [
-            "amll_ttml", "kugou_krc", "parsenix", "spicylyrics", "binimum", "betterlyrics", "lyricsplus", "unison", "lrclib",
-        ],
-    }
-
+    full_payload = _build_full_payload(sources, active_source, checked_sources_list)
     save_payload_to_cache(full_payload, title, artist, cache_dir)
     return full_payload
 
