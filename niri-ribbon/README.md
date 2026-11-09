@@ -16,7 +16,7 @@ A bar widget for niri's scrollable-tiling layout: it draws the active workspace'
 
 ## Usage
 
-Add the widget via Noctalia Settings → Bar → widgets: pick **Niri Ribbon** and place it in the start/center/end section. Each instance renders its own monitor's active workspace; the highlighted segment is the current viewport. Estimated viewport positions are remembered separately by workspace ID.
+Add the widget via Noctalia Settings → Bar → widgets: pick **Niri Ribbon** and place it in the start/center/end section. Each instance renders its own monitor's active workspace; the highlighted segment is the current viewport. Reported tile positions are used automatically when available; otherwise, estimated viewport positions are remembered separately by workspace ID.
 
 The highlight smoothly animates position and width changes over 200 ms at the default **Animation Speed** of **1×**. Higher speeds are faster; **0** disables animations. Rapid changes continue from the current animated position; the initial state appears immediately.
 
@@ -35,12 +35,13 @@ Enable **Show Active Window** to mark the active tiled window within the viewpor
 | `active_window_color` | `color` | `secondary` | Color of the active-window marker. |
 | `thickness` | `double` | `4.0` | Vertical thickness of the ribbon (logical pixels). |
 | `radius` | `double` | `2.0` | Corner radius of the viewport highlight (logical pixels). |
-| `viewport_model` | `select` | `fit` | How the viewport position is estimated; must match your niri `center-focused-column` setting: `fit` for `never` (niri default), `center` for `always`. |
+| `viewport_model` | `select` | `fit` | Fallback when no tile position is reported; should match your niri `center-focused-column` setting: `fit` for `never` (niri default), `center` for `always`. |
 | `gaps` | `double` | `0.0` | The `layout.gaps` value from your niri config (logical pixels); used for accurate canvas-width estimation. |
 
 ## Notes
 
-- **Viewport position is estimated.** Standard niri IPC does not expose the live viewport offset. The `fit` model remembers the position per workspace, scrolls in either direction to reveal an off-screen focused column, and keeps the position when the focused column is already visible. The initial position, scrolling without a focus change, and custom struts can still differ from niri. Match the viewport model and gaps settings to your niri config. Exact viewport IPC is tracked in [niri#4147](https://github.com/niri-wm/niri/pull/4147).
+- **Automatic position detection:** when niri supplies `layout.tile_pos_in_workspace_view` for a tiled window ([niri#4711](https://github.com/niri-wm/niri/pull/4711)), the ribbon derives the viewport offset from that position. Any visible tile can serve as the reference, including when a floating window has focus. Position-only layout events update the ribbon without extra queries. Off-screen tiles may report `null`; if no tiled position is available, the existing per-workspace `fit`/`center` estimate is used. No version check or opt-in setting is required.
+- **Geometry settings:** keep `gaps` matched to your niri config: column widths plus gaps still determine the total ribbon width and each tile's canvas position. `viewport_model` only affects the fallback estimate. The ribbon uses the output's logical width as its viewport and clamps the highlight to the track, so blank space beyond the first/last column is not drawn separately.
 - **Resource use:** one shared service maintains the compositor cache for all monitors. It applies window/workspace events directly, ignores title and vertical-only changes, and batches changed views over 33 ms. Widgets receive only their monitor’s active workspace geometry and stop animation updates when settled.
 - **Recovery:** one shared snapshot round every 60 seconds covers missed events. Output topology/config changes also refresh output geometry, at most once per second. Failed queries preserve cached data, and older query responses cannot overwrite newer events. A stopped event stream reconnects after two seconds.
 - **Spawned processes:** read-only `niri msg` IPC queries (`windows`, `workspaces`, `outputs`), one shared `niri msg -j event-stream` subscription with a reconnecting shell, and `focus-column-*` actions on scroll. No network access, no filesystem writes.

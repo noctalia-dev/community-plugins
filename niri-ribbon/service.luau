@@ -26,9 +26,15 @@ local function layout(value)
   value = type(value) == "table" and value or {}
   local pos = value.pos_in_scrolling_layout
   local size = value.tile_size
+  local viewPos = value.tile_pos_in_workspace_view
+  local x = type(viewPos) == "table" and viewPos[1] or nil
+  -- Only horizontal movement affects the ribbon. Missing/null is expected
+  -- for off-screen tiles and older niri versions; never retain a stale x.
+  if type(x) ~= "number" or x ~= x or math.abs(x) == math.huge then x = nil end
   return {
     pos_in_scrolling_layout = type(pos) == "table" and { pos[1] } or nil,
     tile_size = type(size) == "table" and { size[1] } or nil,
+    tile_pos_in_workspace_view = x ~= nil and { x } or nil,
   }
 end
 
