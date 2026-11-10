@@ -1,5 +1,7 @@
 # Packages frontend
 
+![Made with AI](https://img.shields.io/badge/Made%20with-AI-76ddcf)
+
 Bundled Python-standard-library frontend using existing fzf, pacman and paru.
 It has no daemon, package database, automatic scanner installation or automatic
 Traur gate. The parent [plugin README](../README.md) documents dependencies,
@@ -24,6 +26,6 @@ helper configuration, which may or may not include an automatic audit gate.
 The Omarchy-inspired fzf multi-selection and package preview workflow retains
 its original MIT notice in `LICENSE-OMARCHY`.
 
----
+## AI assistance
 
-Built with AI assistance using OpenCode. AI assistance is not a security audit.
+**Made with AI.** This project was developed with AI assistance, including code, documentation, and testing.
