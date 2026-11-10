@@ -1,0 +1,53 @@
+id = "naijnus/flatpak-bg"
+name = "Flatpak Background Apps"
+version = "0.4.0"
+plugin_api = 43
+author = "Naijnus"
+license = "MIT"
+icon = "box-multiple"
+description = "See and stop Flatpak apps that keep running in the background without a window."
+dependencies = ["flatpak", "niri", "sh", "kill", "sleep"]
+tags = ["bar", "panel", "service", "indicator", "system", "utility", "niri"]
+
+[[setting]]
+key = "interval"
+type = "int"
+label_key = "settings.interval.label"
+description_key = "settings.interval.description"
+default = 5
+min = 1
+max = 60
+
+[[setting]]
+key = "stop_timeout"
+type = "int"
+label_key = "settings.stop_timeout.label"
+description_key = "settings.stop_timeout.description"
+default = 5
+min = 1
+max = 30
+
+[[setting]]
+key = "glyph"
+type = "glyph"
+label_key = "settings.glyph.label"
+description_key = "settings.glyph.description"
+default = "box-multiple"
+
+[[service]]
+id = "scanner"
+entry = "service.luau"
+
+[[widget]]
+id = "bar"
+entry = "widget.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 360
+height = "content"
+max_height = 480
+placement = "attached"
+position = "auto"
+open_near_click = true

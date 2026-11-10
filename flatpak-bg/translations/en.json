@@ -1,0 +1,34 @@
+{
+  "settings": {
+    "interval": {
+      "label": "Refresh seconds",
+      "description": "How often to check for Flatpak apps running in the background."
+    },
+    "stop_timeout": {
+      "label": "Stop timeout (seconds)",
+      "description": "How long an app gets to quit on its own before it is force-killed."
+    },
+    "glyph": {
+      "label": "Icon",
+      "description": "Icon shown in the bar and in the panel header."
+    }
+  },
+  "widget": {
+    "tooltip": {
+      "one": "{count} Flatpak app in the background",
+      "other": "{count} Flatpak apps in the background"
+    },
+    "scan_error": "Could not check for background apps"
+  },
+  "panel": {
+    "title": "Background apps",
+    "empty": "No Flatpak apps are running in the background.",
+    "scan_error": "Could not check for background apps. The list may be out of date.",
+    "refresh": "Refresh",
+    "stop": "Stop",
+    "stopping": "Stopping…"
+  },
+  "notify": {
+    "stop_failed": "Could not stop app"
+  }
+}
