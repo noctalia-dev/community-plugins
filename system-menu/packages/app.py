@@ -1,0 +1,545 @@
+"""Small fzf frontend. Package operations remain pacman's/paru's responsibility."""
+
+import colorsys
+import datetime
+import getpass
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import shlex
+import signal
+import subprocess
+import sys
+import tempfile
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+
+HOME = Path.home()
+HERE = Path(__file__).resolve()
+VT_KEY = HOME / ".config/package-menu/virustotal.key"
+NAME = re.compile(r"[A-Za-z0-9@._+-]+")
+MAX_BATCH = 50
+
+
+class Error(Exception):
+    pass
+
+
+def text(value):
+    return re.sub(r"[\x00-\x1f\x7f-\x9f]", " ", str(value)).strip()
+
+
+def valid_name(value):
+    if not NAME.fullmatch(value) or value.startswith(("-", ".")):
+        raise Error("Invalid package/repository name.")
+    return value
+
+
+def capture(argv, timeout=20, empty_ok=False, accept_report=False):
+    environment = dict(os.environ, LC_ALL="C")
+    process = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                               text=True, env=environment, start_new_session=True)
+    try:
+        output, errors = process.communicate(timeout=timeout)
+    except (subprocess.TimeoutExpired, KeyboardInterrupt):
+        os.killpg(process.pid, signal.SIGKILL)
+        process.communicate()
+        raise Error("Command cancelled or timed out; no result was accepted.") from None
+    if process.returncode and not (accept_report and output) and not (empty_ok and not output and not errors):
+        raise Error(text(errors) or f"{argv[0]} failed ({process.returncode}).")
+    return output
+
+
+def parse_search(output, kind):
+    records = []
+    for line in output.splitlines():
+        match = re.match(r"^([^/\s]+)/([^\s]+)\s+(\S+)(.*)$", line)
+        if match:
+            source, name, version, extra = match.groups()
+            valid_name(source)
+            valid_name(name)
+            records.append({"id": f"{source}/{name}", "name": name, "source": source,
+                            "version": version, "state": "installed" if "[installed" in extra else "",
+                            "description": "", "kind": kind, "extra": text(extra)})
+        elif line[:1].isspace() and records:
+            records[-1]["description"] += (" " if records[-1]["description"] else "") + text(line)
+    return records
+
+
+def parse_installed(output):
+    records = []
+    for block in re.split(r"\n\s*\n", output.strip()):
+        fields = {}
+        current = None
+        for line in block.splitlines():
+            match = re.match(r"^([A-Za-z][A-Za-z ]*?)\s+: (.*)$", line)
+            if match:
+                current, value = match.groups()
+                fields[current] = value
+            elif line[:1].isspace() and current:
+                fields[current] += " " + line.strip()
+        if "Name" not in fields:
+            continue
+        name = valid_name(fields["Name"])
+        source = fields.get("Installed From", "local/unknown")
+        if source == "None":
+            source = "local/unknown"
+        records.append({"id": f"installed/{name}", "name": name, "source": text(source),
+                        "version": fields.get("Version", "?"), "description": fields.get("Description", ""),
+                        "state": "installed", "kind": "installed", "extra": ""})
+    return records
+
+
+def catalog(mode, query=""):
+    if mode == "repos":
+        return parse_search(capture(["pacman", "-Ss", "."]), "repo")
+    if mode == "installed":
+        return parse_installed(capture(["pacman", "-Qi"]))
+    if not query.strip():
+        return []
+    # Search is read-only. No fallback mirror or alternative package is substituted.
+    output = capture(["paru", "-Ssa", "--color", "never", "--", query], timeout=30, empty_ok=True)
+    return parse_search(output, "aur")
+
+
+def theme_options():
+    # Read only generated color declarations, never source/evaluate a shell file.
+    path = HOME / ".config/fzf/themes/noctalia.sh"
+    if not path.is_file():
+        return []
+    return [line.rstrip('"') for line in path.read_text().splitlines()
+            if re.fullmatch(r'--color=[a-z+_-]+:#[0-9a-fA-F]{6}"?', line)]
+
+
+def search_options():
+    # --nth applies AFTER --with-nth; field 2 there is the full package name.
+    return ["--ansi", "--exact", "--no-extended", "--ignore-case", "--no-sort", "--highlight-line",
+            "--delimiter=\t", "--with-nth={3}\t{2}\t{4}", "--nth=2", "--tabstop=1", "--no-hscroll"]
+
+
+def source_order(record):
+    source = record["source"].casefold()
+    group = 2 if record["kind"] == "aur" else (1 if source.startswith("cachyos") else 0)
+    return group, source, record["name"].casefold()
+
+
+def aur_search(query, installed):
+    url = "https://aur.archlinux.org/rpc/v5/search/" + urllib.parse.quote(query, safe="") + "?by=name"
+    with urllib.request.urlopen(url, timeout=12) as response:
+        data = json.load(response)
+    if not isinstance(data, dict):
+        raise Error("Invalid AUR response")
+    if data.get("type") != "search" or not isinstance(data.get("results"), list):
+        raise Error(text(data.get("error", "Invalid AUR response")))
+    records = []
+    for item in data["results"]:
+        if not isinstance(item, dict) or not isinstance(item.get("Name"), str) or not isinstance(item.get("Version"), str):
+            raise Error("Invalid AUR package record")
+        name = valid_name(item["Name"])
+        if query.casefold() in name.casefold():
+            records.append({"id": "aur/" + name, "name": name, "source": "aur",
+                            "version": text(item["Version"]), "description": text(item.get("Description") or ""),
+                            "state": "installed" if name in installed else "", "kind": "aur", "extra": ""})
+    return records
+
+
+def merged_search(database, query):
+    # fzf cancels this process when another character is typed; no helper daemon.
+    time.sleep(0.3)
+    directory = Path(database).parent
+    lookup = json.loads(Path(database).read_text())
+    status = "AUR: type at least 2 characters"
+    if len(query.strip()) >= 2:
+        try:
+            installed = set(json.loads((directory / "installed.json").read_text()))
+            aur = aur_search(query, installed)
+            lookup.update({record["id"]: record for record in aur})
+            status = f"AUR: {len(aur)} results"
+        except (Error, OSError, ValueError, KeyError) as error:
+            status = "AUR unavailable (local/cached results only): " + text(error)
+    # Keep prior entries available for previews and selections during reload.
+    with tempfile.NamedTemporaryFile(mode="w", dir=directory, delete=False) as output:
+        json.dump(lookup, output)
+        temporary = Path(output.name)
+    temporary.replace(database)
+    base = (directory / "header.txt").read_text()
+    (directory / "status.txt").write_text(status + "\n" + base)
+    print(picker_rows(sorted(lookup.values(), key=source_order)), flush=True)
+
+
+def colored(value, color, bold=False, dim=False):
+    red, green, blue = (int(color[index:index + 2], 16) for index in (1, 3, 5))
+    style = "1;" if bold else ("2;" if dim else "")
+    return f"\033[{style}38;2;{red};{green};{blue}m{value}\033[0m"
+
+
+def source_color(source, kind, palette):
+    source = source.casefold()
+    if source in ("", "local/unknown"):
+        return palette.get("fg", "#cdd6f4")
+    if kind == "aur":
+        return "#f9e2af"
+    if source.startswith("cachyos"):
+        return palette.get("info", "#cba6f7")
+    if source.split("-", 1)[0] in ("core", "extra", "multilib"):
+        return palette.get("marker", "#a6e3a1")
+    # Stable across searches and Python restarts, including previously unseen repos.
+    hue = int.from_bytes(hashlib.sha256(source.encode()).digest()[:4], "big") / 2**32
+    return "#" + "".join(f"{round(channel * 255):02x}"
+                         for channel in colorsys.hls_to_rgb(hue, 0.74, 0.72))
+
+
+def picker_rows(records, show_state=True):
+    palette = dict(option.removeprefix("--color=").split(":", 1) for option in theme_options())
+    foreground = palette.get("fg", "#cdd6f4")
+    green = palette.get("marker", "#a6e3a1")
+    source_colors = {source: source_color(source, kind, palette)
+                     for source, kind in {(record["source"], record["kind"]) for record in records}}
+    lines = []
+    for record in records:
+        name = text(record["name"])
+        description = text(record.get("description", ""))
+        source = text(record["source"])
+        label = "AUR" if record["kind"] == "aur" else source
+        state = "[Installed]" if record.get("state") == "installed" else ""
+        state_column = colored(f"{state:<11}", green) + " " if show_state else ""
+        details = (colored(f"{record.get('version', ''):<14.14}", foreground, dim=True) + " "
+                   + state_column + colored(description, foreground, dim=True))
+        if record["kind"] == "menu":
+            details = colored(description, foreground, dim=True)
+        # Keep the complete name searchable, even when it exceeds the column width.
+        lines.append(record["id"] + "\t" + colored(name, foreground, bold=True) + "\t"
+                     + colored(f"{label:<16}", source_colors[record["source"]], bold=True) + "\t"
+                     + " " * max(0, 26 - len(name)) + details)
+    return "\n".join(lines)
+
+
+def clear_console():
+    if sys.stdout.isatty():
+        print("\033[2J\033[3J\033[H", end="", flush=True)
+
+
+def resize_preview(path, delta):
+    if delta not in (-5, 5):
+        raise Error("Invalid preview resize step.")
+    path = Path(path)
+    size = max(25, min(75, int(path.read_text()) + delta))
+    path.write_text(str(size))
+    return f"change-preview-window(right,{size}%,wrap)+refresh-preview"
+
+
+def picker(records, title, query="", multi=True, keys="", preview=True, searchable=True, merged=False, show_state=True):
+    clear_console()
+    runtime = os.environ.get("XDG_RUNTIME_DIR")
+    with tempfile.TemporaryDirectory(prefix="package-menu-", dir=runtime) as directory:
+        database = Path(directory) / "catalog.json"
+        database.write_text(json.dumps({record["id"]: record for record in records}))
+        header = "Tab multi · Enter confirm · Esc back · Shift+←/→ resize\nCtrl+A all · Ctrl+D clear · Alt+P preview · Alt+T Traur audit" if multi else "↑/↓ choose · Enter open · Esc exit"
+        if keys:
+            header += "\n" + keys
+        if multi:
+            header += f"\n{'SOURCE':<16} {'PACKAGE':<26} {'VERSION':<14}"
+            if show_state:
+                header += " STATE"
+        args = ["fzf", "--layout=reverse", "--border=rounded", "--info=inline", "--no-separator", *search_options(), "--print-query",
+                "--expect=alt-t", "--query=" + query,
+                "--border-label= " + title + " ", "--header=" + header, *theme_options()]
+        if searchable:
+            args += ["--prompt=Search packages > "]
+        else:
+            args += ["--no-input", "--disabled", "--info=hidden", "--with-nth=2,4", "--nth=1"]
+        if merged:
+            (Path(directory) / "installed.json").write_text(json.dumps(capture(["pacman", "-Qq"]).splitlines()))
+            (Path(directory) / "header.txt").write_text(header)
+            (Path(directory) / "status.txt").write_text("AUR: type at least 2 characters\n" + header)
+            command = "exec " + shlex.join([sys.executable, "-I", str(HERE), "--search", str(database)]) + " {q}"
+            status = shlex.join(["cat", str(Path(directory) / "status.txt")])
+            args += ["--id-nth=1", "--bind=start:reload-sync(" + command + "),change:reload-sync(" + command + ")",
+                     "--bind=load:transform-header(" + status + ")"]
+        if multi:
+            args += [f"--multi={MAX_BATCH}", "--bind=ctrl-a:select-all,ctrl-d:deselect-all"]
+        if preview:
+            command = shlex.join([sys.executable, "-I", str(HERE), "--preview", str(database)]) + " {1}"
+            size_file = Path(directory) / "preview-size"
+            size_file.write_text("48")
+            resize = shlex.join([sys.executable, "-I", str(HERE), "--resize-preview", str(size_file)])
+            args += ["--preview=" + command, "--preview-window=right,48%,wrap", "--bind=alt-p:toggle-preview",
+                     "--bind=shift-left:transform(" + resize + " 5),shift-right:transform(" + resize + " -5)"]
+        else:
+            args += ["--preview-window=hidden"]
+        selected = subprocess.run(args, input=picker_rows(records, show_state=show_state), text=True, stdout=subprocess.PIPE)
+        if selected.returncode in (1, 130):
+            return None
+        if selected.returncode:
+            raise Error("fzf could not open the package selector.")
+        output = selected.stdout.splitlines()
+        lookup = json.loads(database.read_text())
+        chosen = [lookup[line.split("\t", 1)[0]] for line in output[2:]]
+        return output[0], output[1], chosen
+
+
+def preview(database, identifier):
+    record = json.loads(Path(database).read_text()).get(identifier)
+    if not record:
+        raise Error("The selected package is no longer in this list.")
+    print(record["name"], "—", record["version"])
+    print("Source:", record["source"], "\n")
+    if record["kind"] == "aur":
+        print(text(record["description"]))
+        print("\n" + record.get("extra", ""))
+        print("\nhttps://aur.archlinux.org/packages/" + record["name"])
+        print("\nAUR: user-maintained recipe, not an official repository package.")
+        print("Installation uses your existing paru/makepkg configuration.\nNo scan result or automatic Traur gate is implied by this listing.")
+        print("\nAlt+T: Traur report for selected packages.")
+    else:
+        operation = "-Qi" if record["kind"] == "installed" else "-Si"
+        target = record["name"] if operation == "-Qi" else record["id"]
+        print(capture(["pacman", operation, "--", target]))
+
+
+def validate_selection(records):
+    if not records:
+        raise Error("No packages selected.")
+    if len(records) > MAX_BATCH:
+        raise Error(f"Select at most {MAX_BATCH} packages at a time; narrow the search first.")
+    names = [valid_name(record["name"]) for record in records]
+    if len(set(names)) != len(names):
+        raise Error("Select only one source/version of each package.")
+    return names
+
+
+def transaction_command(action, records):
+    names = validate_selection(records)
+    if action == "install":
+        kinds = {record["kind"] for record in records}
+        if kinds == {"repo"}:
+            targets = [valid_name(record["source"]) + "/" + name for record, name in zip(records, names)]
+            return ["sudo", "pacman", "-S", "--needed", "--", *targets]
+        if kinds == {"aur"}:
+            return ["paru", "-S", "--needed", "--aur", "--", *names]
+        raise Error("Install one source category at a time.")
+    if any(record["kind"] != "installed" for record in records):
+        raise Error("Choose installed packages for this action.")
+    if action == "remove":
+        return ["sudo", "pacman", "-Rns", "--", *names]
+    if action == "downgrade":
+        # No cross-repository substitution; includes helper caches explicitly.
+        args = ["sudo", "downgrade", "--cached-only", "--ignore=never"]
+        # Explicit --pacman-cache replaces the tool's defaults, so retain all
+        # configured system caches before adding the user's helper caches.
+        caches = [Path(line) for line in capture(["pacman-conf", "CacheDir"]).splitlines() if line]
+        for cache in [*caches, HOME / ".cache/paru/clone", HOME / ".cache/yay"]:
+            if cache.is_dir():
+                args += ["--pacman-cache=" + str(cache)]
+        return [*args, *names]
+    raise Error("Unknown package operation.")
+
+
+def transaction_commands(action, records):
+    validate_selection(records)
+    if action == "install" and {record["kind"] for record in records} == {"repo", "aur"}:
+        return [transaction_command(action, [record for record in records if record["kind"] == kind])
+                for kind in ("repo", "aur")]
+    return [transaction_command(action, records)]
+
+
+def confirm(message):
+    return input(message + " [y/N] ").strip().lower() == "y"
+
+
+def perform(action, records):
+    commands = transaction_commands(action, records)
+    print("\n" + action.upper())
+    for record in records:
+        print(f"  {record['name']}   [{record['source']}]   {record['version']}")
+    if len(commands) > 1:
+        print("Repository packages first, then AUR using your existing paru/makepkg configuration.")
+    if action == "remove":
+        print("Pacman will also show any unused dependencies selected for removal.")
+    elif action == "downgrade":
+        print("Local cache only. No Arch archive fallback and no automatic IgnorePkg changes.")
+        print("A downgrade can break dependencies; review pacman's transaction.")
+    if confirm("Continue to the package manager?"):
+        for command in commands:
+            code = subprocess.call(command)
+            if code:
+                raise Error(f"Package operation stopped (exit {code}). No fallback was attempted.")
+
+
+def audit(records):
+    for record in records:
+        if record["kind"] == "repo":
+            print("\nOfficial/configured repository selection:", record["id"], "— not an AUR recipe.")
+            continue
+        print("\nTraur:", record["name"])
+        try:
+            output = capture(["traur", "scan", valid_name(record["name"]), "--json"], timeout=90, accept_report=True)
+            report = json.loads(output)
+            print("Result:", report["tier"], "—", report.get("status", "unknown"))
+            for finding in report.get("signals", []):
+                if finding.get("role") not in ("Fact", "Provenance"):
+                    print(" ", text(finding.get("description", "")))
+        except (Error, ValueError, KeyError) as error:
+            print("NO VALID AUDIT RESULT:", text(error))
+    print("\nRead-only audit, not a sandbox or an automatic installation gate.")
+
+
+def file_digest(value):
+    value = value.strip()
+    if re.fullmatch(r"[a-fA-F0-9]{64}", value):
+        return value.lower()
+    path = Path(value).expanduser()
+    if not path.is_file():
+        raise Error("Enter a regular file path or a SHA-256 digest.")
+    digest = hashlib.sha256()
+    with path.open("rb") as source:
+        for chunk in iter(lambda: source.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def save_vt_key(key):
+    key = key.strip()
+    if not 20 <= len(key) <= 200 or any(character.isspace() for character in key):
+        raise Error("Invalid API key format.")
+    VT_KEY.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
+    with tempfile.NamedTemporaryFile(mode="w", dir=VT_KEY.parent, delete=False) as temporary:
+        temporary.write(key)
+        temporary_path = Path(temporary.name)
+    temporary_path.replace(VT_KEY)  # tempfile is owner-only (0600).
+
+
+def vt_lookup(digest, key):
+    if not re.fullmatch(r"[a-f0-9]{64}", digest):
+        raise Error("Invalid SHA-256.")
+    request = urllib.request.Request("https://www.virustotal.com/api/v3/files/" + digest,
+                                     headers={"x-apikey": key, "Accept": "application/json"})
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            return json.load(response)["data"]["attributes"]
+    except urllib.error.HTTPError as error:
+        if error.code == 404:
+            return None
+        if error.code == 429:
+            raise Error("VirusTotal rate limit reached. Try later; no verdict is available.") from None
+        raise Error(f"VirusTotal request failed (HTTP {error.code}); no verdict is available.") from None
+    except (urllib.error.URLError, TimeoutError, ValueError, KeyError):
+        raise Error("Could not read a valid VirusTotal report; no verdict is available.") from None
+
+
+def virustotal():
+    print("\nVIRUSTOTAL — existing reports only; files are never uploaded.")
+    value = input("File path or SHA-256 (empty = back): ").strip()
+    if not value:
+        return
+    digest = file_digest(value)
+    link = "https://www.virustotal.com/gui/file/" + digest
+    print("SHA-256:", digest)
+    key = os.environ.get("VT_API_KEY", "").strip()
+    if not key and VT_KEY.is_file():
+        if VT_KEY.stat().st_mode & 0o077:
+            raise Error("VT key file is not private (expected permissions 0600).")
+        key = VT_KEY.read_text().strip()
+    if not key and confirm("Add a VT API key for results in this terminal? (otherwise use browser)"):
+        key = getpass.getpass("VT API key (hidden, stored owner-only): ").strip()
+        save_vt_key(key)
+    if key:
+        attributes = vt_lookup(digest, key)
+        if attributes is None:
+            print("UNKNOWN: no existing report. This does NOT mean the file is safe.")
+        else:
+            stats = attributes.get("last_analysis_stats", {})
+            if not stats:
+                print("UNKNOWN: report contains no engine results.")
+            else:
+                print("Malicious:", stats.get("malicious", 0), " Suspicious:", stats.get("suspicious", 0),
+                      " Undetected:", stats.get("undetected", 0))
+                stamp = attributes.get("last_analysis_date")
+                if stamp:
+                    print("Last analysis:", datetime.datetime.fromtimestamp(stamp).astimezone().isoformat(timespec="minutes"))
+                print("No detections is NOT a safety guarantee. This is the existing report, not a new scan.")
+    print(link)
+    if confirm("Open the report in your browser?"):
+        subprocess.Popen(["xdg-open", link], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def pause():
+    input("\nEnter to return to Packages…")
+    clear_console()
+
+
+def browse(action):
+    mode, query = ("repos" if action == "install" else "installed"), ""
+    while True:
+        print("Loading " + mode + " packages…", flush=True)
+        records = sorted(catalog(mode, query), key=source_order)
+        title = {"install": "Find & install", "remove": "Installed / uninstall", "downgrade": "Downgrade (cache only)"}[action]
+        hints = "Finish selections before changing the search" if action == "install" else ""
+        selected = picker(records, title + (" — repos + AUR" if action == "install" else " — installed"),
+                          query, keys=hints, merged=action == "install", show_state=action == "install")
+        if selected is None:
+            return
+        query, key, chosen = selected
+        if not chosen:
+            continue
+        if key == "alt-t":
+            audit(chosen)
+        elif key == "":
+            perform(action, chosen)
+        pause()
+
+
+def main():
+    choices = [
+        ("install", "Find & install", "Repositories + AUR; alphabetical groups by source"),
+        ("remove", "Installed / uninstall", "List installed packages and select several to remove"),
+        ("downgrade", "Downgrade", "Select previous versions from local caches"),
+        ("vt", "VirusTotal", "Check a file/SHA-256; no upload"),
+        ("update", "Update system", "Normal paru update using your existing configuration"),
+        ("exit", "Exit", ""),
+    ]
+    records = [{"id": key, "name": name, "source": "", "description": description, "kind": "menu"}
+               for key, name, description in choices]
+    while True:
+        try:
+            selected = picker(records, "Packages", multi=False, preview=False, searchable=False)
+            if selected is None or not selected[2] or selected[2][0]["id"] == "exit":
+                return
+            action = selected[2][0]["id"]
+            if action in ("install", "remove", "downgrade"):
+                browse(action)
+            elif action == "vt":
+                virustotal()
+                pause()
+            elif action == "update" and confirm("Run the normal full system update with paru?"):
+                subprocess.call(["paru", "-Syu"])
+                pause()
+        except (Error, OSError) as error:
+            print("\nSTOP:", text(error))
+            print("No automatic retry, alternative package source or security bypass was used.")
+            pause()
+        except (KeyboardInterrupt, EOFError):
+            return
+
+
+if __name__ == "__main__":
+    try:
+        if len(sys.argv) == 4 and sys.argv[1] == "--preview":
+            preview(sys.argv[2], sys.argv[3])
+        elif len(sys.argv) == 4 and sys.argv[1] == "--search":
+            merged_search(sys.argv[2], sys.argv[3])
+        elif len(sys.argv) == 4 and sys.argv[1] == "--resize-preview":
+            print(resize_preview(sys.argv[2], int(sys.argv[3])))
+        elif len(sys.argv) >= 3 and sys.argv[1] == "--list":
+            print(json.dumps(catalog(sys.argv[2], " ".join(sys.argv[3:])), ensure_ascii=True))
+        elif len(sys.argv) == 1:
+            main()
+        else:
+            raise Error("Usage: package-menu [--list repos|installed|aur [query]]")
+    except (Error, OSError) as error:
+        print(text(error), file=sys.stderr)
+        raise SystemExit(1)

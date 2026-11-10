@@ -1,0 +1,36 @@
+id = "ajsem1337/system-menu"
+name = "System Menu"
+version = "1.0.0"
+plugin_api = 43
+author = "ajsem1337"
+license = "MIT"
+description = "System menu with an Arch package browser, btop, Kitty and a readable system profile."
+icon = "device-desktop"
+tags = ["bar", "panel", "system", "utility", "arch"]
+dependencies = ["python3", "fastfetch", "lsblk", "kitty", "btop", "fzf", "pacman", "pacman-conf", "paru", "sudo", "downgrade", "traur", "xdg-open", "cat"]
+
+[[widget]]
+id = "button"
+entry = "widget.luau"
+
+[[panel]]
+id = "menu"
+entry = "menu.luau"
+width = 300
+height = "content"
+max_height = 340
+placement = "attached"
+position = "auto"
+open_near_click = true
+
+[[panel]]
+id = "about"
+entry = "about.luau"
+width = 640
+height = 740
+placement = "floating"
+position = "center"
+open_near_click = false
+persistent = true
+dismiss_on_outside_click = false
+keyboard_focus = "on_demand"
