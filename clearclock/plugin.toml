@@ -1,13 +1,15 @@
 id = "nirusaki/clearclock"
 name = "ClearClock"
-version = "1.2.0"
+version = "1.2.1"
 plugin_api = 31
 author = "Nirusaki; original design by qewer33"
 license = "GPL-3.0-or-later"
 icon = "clock"
 description = "ClearClock: a bold clock, script weekday overlay, and spaced date."
 tags = ["clock", "desktop", "time", "theming"]
-dependencies = ["python3", "python-pillow"]
+# fontconfig is optional: its fc-match command resolves custom font families.
+# Without it, rendering falls back to the bundled Outfit and Smooch fonts.
+dependencies = ["python3", "python-pillow", "fontconfig"]
 
 [[desktop_widget]]
 id = "desktop"

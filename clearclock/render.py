@@ -39,6 +39,8 @@ def font(settings, kind, directory, scale):
     name = "Smooch-Regular.ttf" if kind == "day" else ("Outfit-Bold.ttf" if bold else "Outfit-Regular.ttf")
     path = Path(directory) / name
     if family not in ("", "ccdefault"):
+        # fc-match comes from optional fontconfig. Keep the bundled Outfit/Smooch
+        # face when fontconfig is absent, times out, or cannot resolve the family.
         try:
             found = subprocess.run(["fc-match", "-f", "%{file}", family + (":style=Bold" if bold else "")],
                                    check=True, capture_output=True, text=True, timeout=3).stdout

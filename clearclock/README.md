@@ -13,6 +13,8 @@ An adaptive desktop clock widget for Noctalia with a bold Outfit clock, script w
 
 Requires `python3` and `python-pillow` on your system for wallpaper gradient sampling and frosted glass rendering effects.
 
+Custom font families are resolved with `fc-match` from `fontconfig` when it is installed. `fontconfig` is optional: without it, or when a family cannot be matched, ClearClock falls back to the bundled Outfit and Smooch fonts.
+
 ## Usage
 
 Enable the plugin and add ClearClock to your desktop:
