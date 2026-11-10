@@ -192,15 +192,17 @@ local function render()
 
     local layout = vertical and ui.column or ui.row
 
-    desktopWidget.render(
-        layout({
-            gap = vertical and 0 or 4,
-            align = "center",
-            onClick = function()
-                noctalia.runAsync(config.click_action)
-            end
-        }, content)
-    )
+    local props = {
+      gap = vertical and 0 or 4,
+      align = "center",
+    }
+    if config.click_action ~= "" then
+      props.onClick = function()
+        noctalia.runAsync(config.click_action)
+      end
+    end
+
+    desktopWidget.render(layout(props, content))
 end
 
 local function refreshBattery(output)
