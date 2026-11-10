@@ -9,7 +9,8 @@ local imageSize = 400
 local generateButton = noctalia.getConfig("generate_button")
 local keepOnClose = noctalia.getConfig("keep_on_close")
 local notifyConf = noctalia.getConfig("notify")
-local corner_radius_scale = 1.0
+local corner_radius_scale = noctalia.getSetting("shell.corner_radius_scale") or 1.0
+local closeButton = noctalia.getSetting("shell.show_close_buttons") ~= false
 
 -- when toggling off keep_on_close, the image will not be deleted, so this runs every config change
 if not keepOnClose then
@@ -98,13 +99,21 @@ local function render()
 
     if noctalia.getConfig("titlebar") then
         imageSize = 350
+
+        local header = {
+          ui.label({ text = "QR Code Encoder", fontSize = 16, fontWeight = "bold", flexGrow = 1 }),
+          ui.button({ glyph = "settings", onClick = noctalia.openSettings }),
+        }
+        if closeButton then
+          table.insert(
+            header,
+            ui.button({ glyph = "close", onClick = "onCloseClicked" })
+          )
+        end
+
         table.insert(
             content, 1,
-            ui.row({ align = "center", justify = "space_between", gap = 8 }, {
-                ui.label({ text = "QR Code Encoder", fontSize = 16, fontWeight = "bold", flexGrow = 1 }),
-                ui.button({ glyph = "settings", onClick = noctalia.openSettings }),
-                ui.button({ glyph = "close", onClick = "onCloseClicked" }),
-            })
+            ui.row({ align = "center", justify = "space_between", gap = 8 }, header)
         )
     end
 
@@ -188,9 +197,6 @@ local function generate(text)
 end
 
 function onOpen(_context)
-    -- here because it needs to be reloaded when the setting is changed
-    corner_radius_scale = noctalia.getSetting("shell.corner_radius_scale") or 1.0
-
     if not keepOnClose then
         status = "idle"
     end
