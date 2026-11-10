@@ -13,6 +13,7 @@ local stateFile = dataDir .. "/originals.json"
 local originals = {}
 local appliedBrightness = {}
 local appliedSource = {}
+local appliedPath = {}
 local inFlight = {}
 local pendingSync = {}
 local generation = 0
@@ -39,11 +40,16 @@ local function isGeneratedPath(path)
   if type(path) ~= "string" or path == "" then
     return false
   end
-  if dataDir ~= "" and path:sub(1, #dataDir) == dataDir then
-    return true
+  for _, genPath in pairs(appliedPath) do
+    if genPath ~= "" and path == genPath then
+      return true
+    end
   end
-  local base = path:match("([^/]+)$") or ""
-  return base:match("^wallpaper_") ~= nil or base:match("^wp_dim_") ~= nil
+  if dataDir ~= "" then
+    local dirPrefix = dataDir:gsub("/+$", "") .. "/"
+    return path:sub(1, #dirPrefix) == dirPrefix
+  end
+  return false
 end
 
 local function loadState()
@@ -56,6 +62,21 @@ local function loadState()
   end
   local ok, decoded = pcall(noctalia.json.decode, raw)
   if ok and type(decoded) == "table" then
+    if type(decoded.applied) == "table" then
+      for k, v in pairs(decoded.applied) do
+        if type(k) == "string" and type(v) == "table" then
+          if v.brightness ~= nil then
+            appliedBrightness[k] = tonumber(v.brightness)
+          end
+          if type(v.source) == "string" and v.source ~= "" then
+            appliedSource[k] = v.source
+          end
+          if type(v.path) == "string" and v.path ~= "" then
+            appliedPath[k] = v.path
+          end
+        end
+      end
+    end
     if type(decoded.originals) == "table" then
       for k, v in pairs(decoded.originals) do
         if type(k) == "string" and type(v) == "string" and v ~= "" and not isGeneratedPath(v) then
@@ -69,18 +90,6 @@ local function loadState()
         currentBrightness = clampBrightness(savedB)
       end
     end
-    if type(decoded.applied) == "table" then
-      for k, v in pairs(decoded.applied) do
-        if type(k) == "string" and type(v) == "table" then
-          if v.brightness ~= nil then
-            appliedBrightness[k] = tonumber(v.brightness)
-          end
-          if type(v.source) == "string" and v.source ~= "" then
-            appliedSource[k] = v.source
-          end
-        end
-      end
-    end
   end
 end
 
@@ -92,6 +101,7 @@ local function saveState()
       appliedData[k] = {
         brightness = b,
         source = appliedSource[k] or "",
+        path = appliedPath[k] or "",
       }
     end
   end
@@ -141,6 +151,7 @@ syncOutput = function(connector, force)
     end
     appliedBrightness[connector] = 100
     appliedSource[connector] = origPath
+    appliedPath[connector] = ""
     saveState()
     noctalia.setWallpaper(connector, origPath)
     return
@@ -186,12 +197,14 @@ syncOutput = function(connector, force)
       if type(result) == "table" and result.exitCode == 0 and noctalia.fileExists(dstPath) then
         appliedBrightness[connector] = targetB
         appliedSource[connector] = origPath
+        appliedPath[connector] = dstPath
         saveState()
 
         -- Only apply if brightness hasn't changed while processing
         if currentBrightness == 100 then
           noctalia.setWallpaper(connector, origPath)
           appliedBrightness[connector] = 100
+          appliedPath[connector] = ""
           saveState()
         elseif currentBrightness == targetB then
           noctalia.setWallpaper(connector, dstPath)

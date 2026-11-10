@@ -45,7 +45,7 @@ def cleanup_previous_files(cache_dir: str, prefix: str, keep_filename: str) -> N
         return
     try:
         for name in os.listdir(cache_dir):
-            if (name.startswith(prefix) or name.startswith("wp_dim_")) and name != keep_filename and not name.endswith(".json"):
+            if name.startswith(prefix) and name != keep_filename and not name.endswith(".json"):
                 try:
                     os.remove(os.path.join(cache_dir, name))
                 except OSError:
