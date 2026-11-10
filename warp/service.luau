@@ -3,6 +3,9 @@
 
 local POLL_INTERVAL_MS = 10000
 local CLI = "warp-cli --accept-tos --json --no-paginate --no-ansi"
+local DAEMON_UNIT = "warp-svc"
+local DAEMON_READY_MAX_ATTEMPTS = 25
+local DAEMON_READY_DELAY_SECS = 0.2
 local MODES = {
   warp = true,
   doh = true,
@@ -40,6 +43,7 @@ local statusInFlight = false
 local settingsInFlight = false
 local statsInFlight = false
 local actionInFlight = false
+local daemonInactive = false
 local lastPublished = ""
 local refreshStatus
 
@@ -212,7 +216,14 @@ local function refreshStats()
   end
 end
 
+local function isManageDaemon(): boolean
+  return noctalia.getConfig ~= nil and noctalia.getConfig("manage_daemon") == true
+end
+
 local function refreshDetails()
+  if isManageDaemon() and (daemonInactive or actionInFlight or status.state == "checking" or status.state == "disconnecting") then
+    return
+  end
   refreshSettings()
   refreshStats()
 end
@@ -259,27 +270,16 @@ local function setMode(mode)
   end
 end
 
-refreshStatus = function()
-  if statusInFlight or actionInFlight then
-    return
-  end
-
-  status.available = noctalia.commandExists("warp-cli")
-  if not status.available then
-    patchStatus({
-      state = "unavailable",
-      busy = false,
-      message = noctalia.tr("error.cli-missing"),
-    })
-    return
-  end
-
-  statusInFlight = true
+local function queryCliStatus()
   local accepted = noctalia.runAsync(`{CLI} status`, function(result)
     statusInFlight = false
+    if actionInFlight then
+      return
+    end
     local decoded = noctalia.json.decode(result.stdout or "")
 
     if result.exitCode == 0 and type(decoded) == "table" and type(decoded.status) == "string" then
+      daemonInactive = false
       patchStatus({
         state = normalizedState(decoded.status),
         available = true,
@@ -290,6 +290,7 @@ refreshStatus = function()
       return
     end
 
+    daemonInactive = false
     patchStatus({
       state = "error",
       available = true,
@@ -299,6 +300,167 @@ refreshStatus = function()
   end, 8000)
   if not accepted then
     statusInFlight = false
+    patchStatus({
+      state = "error",
+      busy = false,
+      message = noctalia.tr("error.command-failed"),
+    })
+  end
+end
+
+refreshStatus = function()
+  if statusInFlight or actionInFlight then
+    return
+  end
+
+  status.available = noctalia.commandExists("warp-cli")
+  if not status.available then
+    daemonInactive = false
+    patchStatus({
+      state = "unavailable",
+      busy = false,
+      message = noctalia.tr("error.cli-missing"),
+    })
+    return
+  end
+
+  statusInFlight = true
+  if not isManageDaemon() then
+    daemonInactive = false
+    queryCliStatus()
+    return
+  end
+
+  local accepted = noctalia.runAsync(`systemctl is-active {DAEMON_UNIT}`, function(daemonResult)
+    if actionInFlight then
+      statusInFlight = false
+      return
+    end
+
+    local daemonState = (daemonResult.stdout or ""):gsub("%s+", ""):lower()
+    if daemonResult.exitCode == 3 and daemonState == "inactive" then
+      daemonInactive = true
+      statusInFlight = false
+      patchStatus({
+        state = "disconnected",
+        available = true,
+        busy = false,
+        message = "",
+        statsAvailable = false,
+      })
+      return
+    end
+
+    if daemonResult.exitCode ~= 0 and daemonResult.exitCode ~= 3 and type(daemonResult.stderr) == "string" and daemonResult.stderr:match("%S") then
+      daemonInactive = false
+      statusInFlight = false
+      patchStatus({
+        state = "error",
+        available = true,
+        busy = false,
+        message = commandError(daemonResult, nil),
+        statsAvailable = false,
+      })
+      return
+    end
+
+    -- Service is active, failed, missing, or transitioning; run warp-cli status so CLI errors remain visible.
+    queryCliStatus()
+  end, 4000)
+  if not accepted then
+    statusInFlight = false
+    patchStatus({
+      state = "error",
+      busy = false,
+      message = noctalia.tr("error.command-failed"),
+    })
+  end
+end
+
+local function isDaemonConnectError(result, decoded)
+  if type(decoded) == "table" and decoded.code == "FailedToConnectToDaemon" then
+    return true
+  end
+  local stderr = if type(result.stderr) == "string" then result.stderr else ""
+  return stderr:find("FailedToConnectToDaemon", 1, true) ~= nil
+end
+
+local function runCliToggle(command, onSuccess)
+  local accepted = noctalia.runAsync(`{CLI} {command}`, function(result)
+    local decoded = noctalia.json.decode(result.stdout or "")
+    local failed = result.exitCode ~= 0 or (type(decoded) == "table" and (decoded.error ~= nil or decoded.code ~= nil))
+
+    if failed then
+      actionInFlight = false
+      local message = commandError(result, decoded)
+      patchStatus({ state = "error", busy = false, message = message })
+      noctalia.notifyError(noctalia.tr("title"), message)
+      return
+    end
+
+    if onSuccess ~= nil then
+      onSuccess()
+      return
+    end
+
+    actionInFlight = false
+    refreshStatus()
+  end, 15000)
+  if not accepted then
+    actionInFlight = false
+    patchStatus({
+      state = "error",
+      busy = false,
+      message = noctalia.tr("error.command-failed"),
+    })
+  end
+end
+
+local function waitForDaemonAndConnect(attempt)
+  local probeCmd = if attempt == 1 then `{CLI} status` else `sleep {DAEMON_READY_DELAY_SECS} && {CLI} status`
+  local accepted = noctalia.runAsync(probeCmd, function(result)
+    local decoded = noctalia.json.decode(result.stdout or "")
+    if result.exitCode == 0 and type(decoded) == "table" and type(decoded.status) == "string" then
+      daemonInactive = false
+      runCliToggle("connect", nil)
+      return
+    end
+
+    if isDaemonConnectError(result, decoded) and attempt < DAEMON_READY_MAX_ATTEMPTS then
+      waitForDaemonAndConnect(attempt + 1)
+      return
+    end
+
+    actionInFlight = false
+    local message = commandError(result, decoded)
+    patchStatus({ state = "error", busy = false, message = message })
+    noctalia.notifyError(noctalia.tr("title"), message)
+  end, 5000)
+  if not accepted then
+    actionInFlight = false
+    patchStatus({
+      state = "error",
+      busy = false,
+      message = noctalia.tr("error.command-failed"),
+    })
+  end
+end
+
+local function stopDaemonAfterDisconnect()
+  local accepted = noctalia.runAsync(`systemctl stop {DAEMON_UNIT}`, function(result)
+    actionInFlight = false
+    if result.exitCode ~= 0 then
+      local message = commandError(result, nil)
+      patchStatus({ state = "error", busy = false, message = message })
+      noctalia.notifyError(noctalia.tr("title"), message)
+      return
+    end
+
+    daemonInactive = true
+    refreshStatus()
+  end, 25000)
+  if not accepted then
+    actionInFlight = false
     patchStatus({
       state = "error",
       busy = false,
@@ -329,20 +491,27 @@ local function toggle()
     message = "",
   })
 
-  local accepted = noctalia.runAsync(`{CLI} {command}`, function(result)
-    actionInFlight = false
-    local decoded = noctalia.json.decode(result.stdout or "")
-    local failed = result.exitCode ~= 0 or (type(decoded) == "table" and (decoded.error ~= nil or decoded.code ~= nil))
+  if not isManageDaemon() then
+    runCliToggle(command, nil)
+    return
+  end
 
-    if failed then
-      local message = commandError(result, decoded)
+  if command == "disconnect" then
+    runCliToggle("disconnect", stopDaemonAfterDisconnect)
+    return
+  end
+
+  local accepted = noctalia.runAsync(`systemctl is-active --quiet {DAEMON_UNIT} || systemctl start {DAEMON_UNIT}`, function(result)
+    if result.exitCode ~= 0 then
+      actionInFlight = false
+      local message = commandError(result, nil)
       patchStatus({ state = "error", busy = false, message = message })
       noctalia.notifyError(noctalia.tr("title"), message)
       return
     end
 
-    refreshStatus()
-  end, 15000)
+    waitForDaemonAndConnect(1)
+  end, 25000)
   if not accepted then
     actionInFlight = false
     patchStatus({
@@ -370,6 +539,10 @@ end)
 function update()
   refreshStatus()
   refreshDetails()
+end
+
+function onConfigChanged()
+  refreshStatus()
 end
 
 function onIpc(event, _payload)
