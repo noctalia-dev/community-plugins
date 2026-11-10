@@ -81,4 +81,4 @@ EOF
 
 ## Notes
 
-The plugin runs `warp-cli status`, `warp-cli settings list`, and `warp-cli tunnel stats` for read-only data. User actions run `warp-cli connect`, `warp-cli disconnect`, or `warp-cli mode <mode>`. It does not make network requests or write files itself; Cloudflare WARP owns the tunnel and its configuration.
+The plugin runs `warp-cli status`, `warp-cli settings list`, and `warp-cli tunnel stats` for read-only data. User actions run `warp-cli connect`, `warp-cli disconnect`, or `warp-cli mode <mode>`. When `manage_daemon` is enabled, it also runs `systemctl is-active warp-svc`, `systemctl start warp-svc`, and `systemctl stop warp-svc`. It does not make network requests or write files itself; Cloudflare WARP owns the tunnel and its configuration.
