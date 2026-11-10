@@ -1,14 +1,22 @@
+# Flatpak Background Apps lists Flatpak apps that keep running without an open
+# window in niri, and stops them. The service tracks niri windows through its
+# event stream and reads running instances from $XDG_RUNTIME_DIR/.flatpak/, then
+# publishes the background apps through noctalia.state. The bar widget and the
+# panel are thin clients of that state; the panel sends stop commands back.
+
 id = "naijnus/flatpak-bg"
 name = "Flatpak Background Apps"
-version = "0.4.0"
+version = "1.1.0"
 plugin_api = 43
 author = "Naijnus"
 license = "MIT"
-icon = "box-multiple"
-description = "See and stop Flatpak apps that keep running in the background without a window."
 dependencies = ["flatpak", "niri", "sh", "kill", "sleep"]
 tags = ["bar", "panel", "service", "indicator", "system", "utility", "niri"]
+icon = "box-multiple"
+description = "See and stop Flatpak apps that keep running in the background without a window."
 
+# Plugin-level settings are read by the service; entry settings are not visible
+# across entries.
 [[setting]]
 key = "interval"
 type = "int"
@@ -27,27 +35,51 @@ default = 5
 min = 1
 max = 30
 
+# App ids that are meant to run in the background (sync clients, download
+# managers). The service leaves them out of the list entirely.
 [[setting]]
-key = "glyph"
-type = "glyph"
-label_key = "settings.glyph.label"
-description_key = "settings.glyph.description"
-default = "box-multiple"
-
-[[service]]
-id = "scanner"
-entry = "service.luau"
+key = "ignored_apps"
+type = "string_list"
+label_key = "settings.ignored_apps.label"
+description_key = "settings.ignored_apps.description"
+default = []
 
 [[widget]]
 id = "bar"
-entry = "widget.luau"
+entry = "bar.luau"
 
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  label_key = "settings.glyph.label"
+  description_key = "settings.glyph.description"
+  default = "box-multiple"
+
+  [[widget.setting]]
+  key = "always_show"
+  type = "bool"
+  label_key = "settings.always_show.label"
+  description_key = "settings.always_show.description"
+  default = false
+
+  [[widget.setting]]
+  key = "show_count"
+  type = "bool"
+  label_key = "settings.show_count.label"
+  description_key = "settings.show_count.description"
+  default = true
+
+# Grows and shrinks with the list up to max_height; longer lists scroll.
 [[panel]]
 id = "panel"
 entry = "panel.luau"
 width = 360
 height = "content"
-max_height = 480
+max_height = 360
 placement = "attached"
 position = "auto"
 open_near_click = true
+
+[[service]]
+id = "service"
+entry = "service.luau"

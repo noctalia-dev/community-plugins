@@ -1,16 +1,29 @@
 {
+  "title": "Flatpak Background Apps",
   "settings": {
     "interval": {
-      "label": "Refresh seconds",
-      "description": "How often to check for Flatpak apps running in the background."
+      "label": "Refresh interval (seconds)",
+      "description": "How often to check for Flatpak apps that started or exited. Window changes show up right away."
     },
     "stop_timeout": {
       "label": "Stop timeout (seconds)",
       "description": "How long an app gets to quit on its own before it is force-killed."
     },
+    "ignored_apps": {
+      "label": "Ignored apps",
+      "description": "Flatpak app ids that are meant to run in the background, for example com.example.App. They are never listed or counted."
+    },
     "glyph": {
       "label": "Icon",
-      "description": "Icon shown in the bar and in the panel header."
+      "description": "Icon shown in the bar widget."
+    },
+    "always_show": {
+      "label": "Always show",
+      "description": "Keep the widget in the bar while no Flatpak app runs in the background. When off, it only appears while there are background apps."
+    },
+    "show_count": {
+      "label": "Show count",
+      "description": "Show the number of background apps next to the icon. The count is never shown while it is 0."
     }
   },
   "widget": {
@@ -18,7 +31,8 @@
       "one": "{count} Flatpak app in the background",
       "other": "{count} Flatpak apps in the background"
     },
-    "scan_error": "Could not check for background apps"
+    "scan_error": "Could not check for background apps",
+    "empty": "No Flatpak apps in the background"
   },
   "panel": {
     "title": "Background apps",
@@ -29,6 +43,11 @@
     "stopping": "Stopping…"
   },
   "notify": {
-    "stop_failed": "Could not stop app"
+    "stop_failed": "Could not stop {name}",
+    "missing_command": "{command} is not installed or not on PATH"
+  },
+  "ipc": {
+    "not_running": "{id} is not running",
+    "empty_list": "No Flatpak apps are running in the background"
   }
 }

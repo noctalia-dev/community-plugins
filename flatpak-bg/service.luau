@@ -1,19 +1,21 @@
 --!nonstrict
--- Finds Flatpak apps that are running but have no window in niri, and stops them.
+-- Flatpak Background Apps service - finds Flatpak apps that are running but
+-- have no window in niri, and stops them on request.
 --
 -- Windows come from `niri msg -j event-stream` and are kept in memory, so
 -- opening or closing a window updates the list right away. Running Flatpak
--- instances are read from $XDG_RUNTIME_DIR/.flatpak on every update tick,
--- which needs no extra process. If the event stream is unavailable, the
--- service falls back to polling `niri msg -j windows`.
+-- instances are read from $XDG_RUNTIME_DIR/.flatpak/ on every update tick,
+-- which starts no process. While the event stream is down, the service polls
+-- `niri msg -j windows` instead and restarts the stream.
 --
--- Published state:
---   "bg_apps"     list of { id, name, icon }, sorted by name
---   "bg_error"    true when the last scan failed (the list is then the last good one)
---   "bg_stopping" map of app id -> true while a stop is in progress
--- Read state:
---   "refresh"        any change asks for a new scan
---   "stop_requests"  list of { id, seq }; every seq above the last handled one is stopped
+-- State (published):
+--   flatpak_bg.apps     = { { id, name, icon }, ... } sorted by name
+--   flatpak_bg.error    = true when the last scan failed (apps is then the last good list)
+--   flatpak_bg.stopping = { [app id] = true } while a stop is in progress
+-- Commands: flatpak_bg.cmd = { op = "refresh" } | { op = "stop", id = "<app id>" },
+--   cleared to nil once handled
+-- IPC: refresh / stop <app id> / list
+-- Settings (plugin-level): interval, stop_timeout, ignored_apps
 
 local APP_ID_PATTERN = "^[%w_%-]+%.[%w_%-%.]+$"
 local ICON_SIZE = 32
@@ -21,7 +23,12 @@ local ICON_SIZE = 32
 local STARTUP_GRACE_MS = 5000
 -- Printed after the event stream ends, since runStream has no exit callback
 local STREAM_END = "__flatpak_bg_stream_end__"
+-- Restart delay after the stream ends; doubles on every failed restart (e.g.
+-- while niri is not running) and resets once a full window list arrives
 local STREAM_RESTART_SECONDS = 3
+local STREAM_RESTART_MAX_SECONDS = 60
+-- Upper bound for one-shot commands, so a hung process cannot stall the service
+local COMMAND_TIMEOUT_MS = 10000
 
 local function isAppId(s)
   return type(s) == "string" and s:match(APP_ID_PATTERN) ~= nil
@@ -84,7 +91,7 @@ local function loadInstallations(done)
     if not any then table.insert(paths, "/var/lib/flatpak") end
     setInstallations(paths)
     done()
-  end)
+  end, COMMAND_TIMEOUT_MS)
   if not started then
     table.insert(paths, "/var/lib/flatpak")
     setInstallations(paths)
@@ -317,6 +324,7 @@ local running = {}
 local runningPids = {}
 local instancesOk = false
 local lastPublished = nil
+local currentApps = {}
 local lastError = nil
 local firstSeenMs = {}  -- app id -> when it was first seen running
 local initialScan = true
@@ -324,8 +332,21 @@ local initialScan = true
 local function setError(failed)
   if failed ~= lastError then
     lastError = failed
-    noctalia.state.set("bg_error", failed)
+    noctalia.state.set("flatpak_bg.error", failed)
   end
+end
+
+-- App ids from the ignored_apps setting, as a set
+local function ignoredApps()
+  local set = {}
+  local list = noctalia.getConfig("ignored_apps")
+  if type(list) == "table" then
+    for _, value in ipairs(list) do
+      local id = type(value) == "string" and noctalia.string.trim(value) or ""
+      if id ~= "" then set[id] = true end
+    end
+  end
+  return set
 end
 
 -- Recomputes the list from what is already in memory. Cheap; called after
@@ -339,13 +360,14 @@ local function recompute()
   end
 
   local windowed = next(running) and windowedApps(running) or {}
+  local ignored = ignoredApps()
   local apps = {}
   for id in pairs(running) do
     if not firstSeenMs[id] then
       -- Apps already running when the plugin starts are not starting up
       firstSeenMs[id] = initialScan and (now - STARTUP_GRACE_MS) or now
     end
-    if not windowed[id] and now - firstSeenMs[id] >= STARTUP_GRACE_MS then
+    if not windowed[id] and not ignored[id] and now - firstSeenMs[id] >= STARTUP_GRACE_MS then
       local meta = appMeta(id)
       table.insert(apps, { id = id, name = meta.name, icon = meta.icon })
     end
@@ -353,10 +375,11 @@ local function recompute()
   initialScan = false
   table.sort(apps, function(a, b) return a.name:lower() < b.name:lower() end)
 
+  currentApps = apps
   local encoded = noctalia.json.encode(apps)
   if encoded ~= lastPublished then
     lastPublished = encoded
-    noctalia.state.set("bg_apps", apps)
+    noctalia.state.set("flatpak_bg.apps", apps)
   end
 end
 
@@ -376,6 +399,7 @@ end
 
 local streamActive = false
 local streamRestartPending = false
+local streamRestartDelay = STREAM_RESTART_SECONDS
 local pollingWindows = false
 local windowsFailed = false
 
@@ -394,6 +418,8 @@ local function handleEvent(line)
 
   if event.WindowsChanged then
     setWindows(event.WindowsChanged.windows or {})
+    -- The stream is healthy again: the next restart starts from the short delay
+    streamRestartDelay = STREAM_RESTART_SECONDS
   elseif event.WindowOpenedOrChanged then
     local w = event.WindowOpenedOrChanged.window
     if type(w) ~= "table" or w.id == nil then return end
@@ -427,7 +453,9 @@ end
 local function scheduleStreamRestart()
   if streamActive or streamRestartPending then return end
   streamRestartPending = true
-  local started = noctalia.runAsync({ "sleep", tostring(STREAM_RESTART_SECONDS) }, function()
+  local delay = streamRestartDelay
+  streamRestartDelay = math.min(streamRestartDelay * 2, STREAM_RESTART_MAX_SECONDS)
+  local started = noctalia.runAsync({ "sleep", tostring(delay) }, function()
     streamRestartPending = false
     startStream()
   end)
@@ -449,7 +477,7 @@ local function pollWindows(done)
       windowsFailed = true
     end
     done()
-  end)
+  end, COMMAND_TIMEOUT_MS)
   if not started then
     pollingWindows = false
     windowsFailed = true
@@ -483,20 +511,28 @@ local stopping = {}
 local function publishStopping()
   local copy = {}
   for id in pairs(stopping) do copy[id] = true end
-  noctalia.state.set("bg_stopping", copy)
+  noctalia.state.set("flatpak_bg.stopping", copy)
 end
 
 local function stopDone(id, failed)
   stopping[id] = nil
   publishStopping()
-  if failed then noctalia.notifyError(noctalia.tr("notify.stop_failed"), appMeta(id).name) end
+  if failed then
+    noctalia.notifyError(noctalia.tr("title"), noctalia.tr("notify.stop_failed", { name = appMeta(id).name }))
+  end
   scan()
 end
 
 local function forceKill(id)
   local started = noctalia.runAsync({ "flatpak", "kill", id }, function(res)
-    stopDone(id, res.exitCode ~= 0)
-  end)
+    local failed = res.exitCode ~= 0
+    if failed then
+      -- flatpak kill also fails when the app exited on its own just before
+      local r = readInstances()
+      if r and not r[id] then failed = false end
+    end
+    stopDone(id, failed)
+  end, COMMAND_TIMEOUT_MS)
   if not started then stopDone(id, true) end
 end
 
@@ -516,41 +552,29 @@ end
 
 -- Ask the app to quit with SIGTERM so it can save its state
 local function stopApp(id)
-  if not isAppId(id) or stopping[id] then return end
+  if not isAppId(id) then return false end
+  if stopping[id] then return true end
   stopping[id] = true
   publishStopping()
 
   local r, pids = readInstances()
   if not r then
     forceKill(id)
-    return
+    return true
   end
   local targets = pids[id]
   if not targets then
     stopDone(id, false)  -- already gone
-    return
+    return false
   end
 
   local argv = { "kill", "-TERM" }
   for _, pid in ipairs(targets) do table.insert(argv, pid) end
   local started = noctalia.runAsync(argv, function(res)
     if res.exitCode == 0 then forceKillIfRunning(id) else forceKill(id) end
-  end)
+  end, COMMAND_TIMEOUT_MS)
   if not started then forceKill(id) end
-end
-
-local lastStopSeq = 0
-
-local function handleStopRequests(requests)
-  if type(requests) ~= "table" then return end
-  local highest = lastStopSeq
-  for _, req in ipairs(requests) do
-    if type(req) == "table" and type(req.seq) == "number" and req.seq > lastStopSeq then
-      stopApp(req.id)
-      if req.seq > highest then highest = req.seq end
-    end
-  end
-  lastStopSeq = highest
+  return true
 end
 
 ---------------------------------------------------------------------------
@@ -567,31 +591,55 @@ end
 
 function onConfigChanged()
   applyInterval()
+  -- ignored_apps may have changed; the windows and instances are still current
+  recompute()
 end
 
-function onIpc(event)
-  if event == "refresh" then scan() end
+local function notifyList()
+  local names = {}
+  for _, app in ipairs(currentApps) do
+    table.insert(names, app.name .. " (" .. app.id .. ")")
+  end
+  local body = #names > 0 and table.concat(names, "\n") or noctalia.tr("ipc.empty_list")
+  noctalia.notify(noctalia.tr("title"), body)
 end
 
-noctalia.state.watch("refresh", function()
-  scan()
+function onIpc(event, payload)
+  if event == "refresh" then
+    scan()
+  elseif event == "stop" then
+    local id = noctalia.string.trim(payload or "")
+    if not stopApp(id) then
+      noctalia.notifyError(noctalia.tr("title"), noctalia.tr("ipc.not_running", { id = id }))
+    end
+  elseif event == "list" then
+    notifyList()
+  end
+end
+
+-- Commands from the panel
+noctalia.state.watch("flatpak_bg.cmd", function(cmd)
+  if type(cmd) ~= "table" then return end
+  if cmd.op == "refresh" then
+    scan()
+  elseif cmd.op == "stop" then
+    stopApp(cmd.id)
+  end
+  noctalia.state.set("flatpak_bg.cmd", nil)
 end)
 
-noctalia.state.watch("stop_requests", handleStopRequests)
-
--- Requests left over from before this service started are not replayed
-do
-  local pending = noctalia.state.get("stop_requests")
-  if type(pending) == "table" then
-    for _, req in ipairs(pending) do
-      if type(req) == "table" and type(req.seq) == "number" and req.seq > lastStopSeq then
-        lastStopSeq = req.seq
-      end
+-- niri provides the windows and flatpak the apps; without them nothing can work
+local function checkDependencies()
+  for _, command in ipairs({ "niri", "flatpak" }) do
+    if not noctalia.commandExists(command) then
+      noctalia.log("flatpak-bg: " .. command .. " not found on PATH")
+      noctalia.notifyError(noctalia.tr("title"), noctalia.tr("notify.missing_command", { command = command }))
     end
   end
 end
 
-noctalia.state.set("bg_stopping", {})
+checkDependencies()
+noctalia.state.set("flatpak_bg.stopping", {})
 applyInterval()
 loadInstallations(function()
   ready = true

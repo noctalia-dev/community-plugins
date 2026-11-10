@@ -1,30 +1,26 @@
 --!nonstrict
--- Drop-down panel: lists background Flatpak apps, each with a Stop button.
--- Stopping is done by the service; this panel only sends requests.
+-- Flatpak Background Apps panel - lists background Flatpak apps, each with a
+-- Stop button. Stopping is done by the service; the panel only sends commands.
+--
+-- State (read): flatpak_bg.apps, flatpak_bg.stopping, flatpak_bg.error
+-- Commands (sent): flatpak_bg.cmd = { op = "refresh" } | { op = "stop", id = "<app id>" }
 
-local apps = noctalia.state.get("bg_apps") or {}
-local stopping = noctalia.state.get("bg_stopping") or {}
-local scanError = noctalia.state.get("bg_error") == true
+-- The plugin's icon from plugin.toml; the glyph setting belongs to each bar widget
+local HEADER_GLYPH = "box-multiple"
+
+-- Rows are about 40px (28px icon, 4px padding top and bottom, 4px gap). Up to
+-- this many fit under the header, and a scan error line, within
+-- max_height = 360 in plugin.toml.
+local MAX_ROWS_WITHOUT_SCROLL = 5
+
+local apps = {}
+local stopping = {}
+local scanError = false
+local closeButton = true
 local isOpen = false
 
--- Rows of about 40px (28px icon, 4px padding top and bottom, 4px gap) that
--- fit under the header within max_height = 480; more than this scrolls
-local MAX_ROWS_WITHOUT_SCROLL = 8
-
-local function requestRefresh()
-  noctalia.state.set("refresh", (tonumber(noctalia.state.get("refresh")) or 0) + 1)
-end
-
-local function requestStop(id)
-  local requests = noctalia.state.get("stop_requests")
-  if type(requests) ~= "table" then requests = {} end
-  local last = requests[#requests]
-  local seq = (type(last) == "table" and tonumber(last.seq) or 0) + 1
-  local kept = {}
-  -- Keep a short tail so a request sent right before this one is not lost
-  for i = math.max(1, #requests - 9), #requests do table.insert(kept, requests[i]) end
-  table.insert(kept, { id = id, seq = seq })
-  noctalia.state.set("stop_requests", kept)
+local function sendCommand(cmd)
+  noctalia.state.set("flatpak_bg.cmd", cmd)
 end
 
 local function appRow(app)
@@ -48,7 +44,7 @@ local function appRow(app)
       variant = "destructive",
       controlSize = "sm",
       enabled = not busy,
-      onClick = function() requestStop(app.id) end,
+      onClick = function() sendCommand({ op = "stop", id = app.id }) end,
     }),
   })
 end
@@ -56,19 +52,30 @@ end
 local function render()
   if not isOpen then return end
 
-  local header = ui.row({ gap = 8, align = "center" }, {
-    ui.glyph({ name = noctalia.getConfig("glyph"), size = 18, color = "primary" }),
+  local headerContent = {
+    ui.glyph({ name = HEADER_GLYPH, size = 18, color = "primary" }),
     ui.label({ text = noctalia.tr("panel.title"), fontSize = 15, fontWeight = "bold", flexGrow = 1 }),
     ui.button({
       glyph = "refresh",
       variant = "ghost",
       controlSize = "sm",
       tooltip = noctalia.tr("panel.refresh"),
-      onClick = requestRefresh,
+      onClick = function() sendCommand({ op = "refresh" }) end,
     }),
-  })
+  }
+  if closeButton then
+    table.insert(headerContent, ui.button({
+      glyph = "close",
+      variant = "ghost",
+      controlSize = "sm",
+      onClick = function() panel.close() end,
+    }))
+  end
 
-  local children = { header, ui.separator({}) }
+  local children = {
+    ui.row({ gap = 8, align = "center" }, headerContent),
+    ui.separator({}),
+  }
 
   if scanError then
     table.insert(children, ui.label({ text = noctalia.tr("panel.scan_error"), color = "error" }))
@@ -96,32 +103,33 @@ local function render()
   panel.render(ui.column({ gap = 12 }, children))
 end
 
-noctalia.state.watch("bg_apps", function(value)
-  apps = value or {}
+local function readState()
+  apps = noctalia.state.get("flatpak_bg.apps") or {}
+  stopping = noctalia.state.get("flatpak_bg.stopping") or {}
+  scanError = noctalia.state.get("flatpak_bg.error") == true
+end
+
+noctalia.state.watch("flatpak_bg.apps", function(value)
+  apps = type(value) == "table" and value or {}
   render()
 end)
 
-noctalia.state.watch("bg_stopping", function(value)
+noctalia.state.watch("flatpak_bg.stopping", function(value)
   stopping = type(value) == "table" and value or {}
   render()
 end)
 
-noctalia.state.watch("bg_error", function(value)
+noctalia.state.watch("flatpak_bg.error", function(value)
   scanError = value == true
   render()
 end)
 
-function onConfigChanged()
-  render()
-end
-
-function onOpen()
+function onOpen(_context)
   isOpen = true
-  apps = noctalia.state.get("bg_apps") or {}
-  stopping = noctalia.state.get("bg_stopping") or {}
-  scanError = noctalia.state.get("bg_error") == true
+  closeButton = noctalia.getSetting("shell.show_close_buttons") ~= false
+  readState()
   render()
-  requestRefresh()
+  sendCommand({ op = "refresh" })
 end
 
 function onClose()
