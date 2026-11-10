@@ -176,7 +176,7 @@ end
 local function render()
     if (config.hide_plugged and (data.status == "charging" or data.status == "pending-charge"))
         or (config.hide_full and data.status == "fully-charged") then
-        desktopWidget.render(ui.row())
+        desktopWidget.setVisible(false)
         return
     end
 
@@ -202,6 +202,7 @@ local function render()
       end
     end
 
+    desktopWidget.setVisible(true)
     desktopWidget.render(layout(props, content))
 end
 

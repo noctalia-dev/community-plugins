@@ -1,7 +1,7 @@
 id = "yocraft/battery-widget"
 name = "Battery Widget"
 version = "2.1.0"
-plugin_api = 26
+plugin_api = 51
 author = "yocraft"
 license = "MIT"
 deprecated = false

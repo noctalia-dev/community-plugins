@@ -36,5 +36,4 @@ Add it to your desktop/lockscreen widgets using the widget editor. You can confi
 
 ## Notes
 
-`hide_full` and `hide_plugged` do not hide the background due to plugin limitations.
 The warning threshold is pulled from noctalia's settings.
