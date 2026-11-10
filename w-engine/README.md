@@ -110,6 +110,8 @@ The optional payload is an output connector such as `DP-1`. Without it, the focu
 - `ffmpeg` (optional, for video wallpaper colors and preview thumbnails)
 - Wallpaper Engine
 - Steam for Workshop access
+- `python3`
+- `playerctl`
 
 ## Install
 
