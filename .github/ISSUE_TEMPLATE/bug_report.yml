@@ -76,6 +76,7 @@ body:
         - claude-operator
         - claude-sessions
         - claudecode
+        - clearclock
         - cmd-runner
         - codexbar-meter
         - color_picker
