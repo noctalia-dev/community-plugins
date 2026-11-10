@@ -558,7 +558,9 @@ local function runDisconnect(quiet)
 		refreshProtonLink()
 		s.proton.busy = false
 		s.proton.action = ""
-		if r.exitCode ~= 0 or r.timedOut then
+		-- The interface is the truth: the CLI can exit non-zero after it has
+		-- already printed "Disconnected." and torn the tunnel down.
+		if s.proton.up then
 			if not quiet then
 				s.proton.error = errorText(r)
 				noctalia.notifyError(noctalia.tr("proton.title"), s.proton.error)

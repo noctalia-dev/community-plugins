@@ -427,16 +427,18 @@ render = function()
 		end
 	end
 
-	-- With "Advanced" unfolded the content can outgrow the panel's max_height,
-	-- so the body scrolls inside what is left under the header.
+	-- The panel follows its content up to max_height. Past that (Advanced
+	-- unfolded, or several tunnels under the Proton cards) the panel takes the
+	-- full height and the body scrolls under the header.
+	local tall = showAdvanced or (protonReady and #conns > 1)
 	local bodyNode
-	if showAdvanced then
+	if tall then
 		bodyNode = ui.scroll({ key = "body", gap = 10, align = "stretch", flexGrow = 1 }, body)
 	else
 		bodyNode = ui.column({ key = "body", gap = 10, align = "stretch" }, body)
 	end
 
-	panel.render(ui.column({ gap = 10, align = "stretch", flexGrow = if showAdvanced then 1 else nil }, {
+	panel.render(ui.column({ gap = 10, align = "stretch", flexGrow = if tall then 1 else nil }, {
 		ui.row({ align = "center", gap = 8 }, {
 			ui.glyph({ name = "shield-lock", size = 20, color = "primary" }),
 			ui.label({ text = tr("title"), fontSize = 16, fontWeight = "bold", flexGrow = 1 }),
