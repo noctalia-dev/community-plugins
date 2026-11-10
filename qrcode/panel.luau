@@ -6,14 +6,16 @@ local status = "idle"
 
 local imageSize = 400
 
-local generateButton = noctalia.getConfig("generate_button")
-local keepOnClose = noctalia.getConfig("keep_on_close")
-local notifyConf = noctalia.getConfig("notify")
-local corner_radius_scale = noctalia.getSetting("shell.corner_radius_scale") or 1.0
-local closeButton = noctalia.getSetting("shell.show_close_buttons") ~= false
+local config = {
+  generateButton = noctalia.getConfig("generate_button"),
+  keepOnClose = noctalia.getConfig("keep_on_close"),
+  notify = noctalia.getConfig("notify"),
+  radiusScale = noctalia.getSetting("shell.corner_radius_scale") or 1.0,
+  closeButton = noctalia.getSetting("shell.show_close_buttons") ~= false,
+}
 
 -- when toggling off keep_on_close, the image will not be deleted, so this runs every config change
-if not keepOnClose then
+if not config.keepOnClose then
   local dir = noctalia.pluginDir()
   local files = noctalia.listDir(dir)
 
@@ -41,7 +43,7 @@ local function statusText()
   elseif status == "copied" then
     return noctalia.tr("panel.status.copied")
   else
-    return noctalia.tr(generateButton and "panel.status.idle" or "panel.status.idlebis")
+    return noctalia.tr(config.generateButton and "panel.status.idle" or "panel.status.idlebis")
   end
 end
 
@@ -57,7 +59,7 @@ local function render()
     })
   }
 
-  if generateButton then
+  if config.generateButton then
     table.insert(
       rowContent,
       ui.button({
@@ -90,7 +92,7 @@ local function render()
           path = imagePath,
           width = imageSize,
           height = imageSize,
-          radius = 24 * corner_radius_scale,
+          radius = 24 * config.radiusScale,
           onClick = "onImageClick",
         })
       })
@@ -104,7 +106,7 @@ local function render()
       ui.label({ text = "QR Code Encoder", fontSize = 16, fontWeight = "bold", flexGrow = 1 }),
       ui.button({ glyph = "settings", onClick = noctalia.openSettings }),
     }
-    if closeButton then
+    if config.closeButton then
       table.insert(
         header,
         ui.button({ glyph = "close", onClick = "onCloseClicked" })
@@ -146,7 +148,7 @@ local function generate(text)
     status = "error"
     errorMessage = noctalia.tr("panel.error.missing_qrencode")
 
-    if notifyConf == "all" then
+    if config.notify == "all" then
       notify(statusText(), status == "error")
     end
 
@@ -187,7 +189,7 @@ local function generate(text)
         errorMessage = noctalia.tr("panel.error.generate_failed")
       end
 
-      if notifyConf == "all" then
+      if config.notify == "all" then
         notify(statusText(), status == "error")
       end
 
@@ -197,7 +199,7 @@ local function generate(text)
 end
 
 function onOpen(_context)
-  if not keepOnClose then
+  if not config.keepOnClose then
     status = "idle"
   end
 
@@ -229,12 +231,12 @@ function onImageClick()
     status = ok and "copied" or "error"
   end
 
-  if notifyConf == "all" then
+  if config.notify == "all" then
     notify(statusText(), status == "error")
   end
 
   if noctalia.getConfig("close_on_copy") then
-    if notifyConf == "minimal" then
+    if config.notify == "minimal" then
       notify(statusText(), status == "error")
     end
 
@@ -250,7 +252,7 @@ function onCloseClicked()
 end
 
 function onClose()
-  if not keepOnClose and imagePath ~= nil then
+  if not config.keepOnClose and imagePath ~= nil then
     noctalia.removeFile(imagePath)
     imagePath = nil
     errorMessage = nil
