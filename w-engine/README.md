@@ -75,11 +75,11 @@ You can create a `data.json` file in `$NOCTALIA_STATE_HOME` based on this exampl
 
 ```json
 {
-  "personnalPath": ["path1"]
+  "personnalPath": ["/path/to/workshop/content/431960/"]
 }
 ```
 
-Replace `path1` with your personal path or add other paths. The path is loaded after a reload or if you reopen the widget.
+Replace the example with your personal path or add other paths. The path is reread when the service next looks up a wallpaper, so it can be added while the plugin is running. The service passes the selected wallpaper's full Workshop path and the matching `common/wallpaper_engine/assets` directory to `linux-wallpaperengine`. If the engine exits immediately, the plugin keeps its output in `/tmp/w-engine-<output>.log`.
 
 The same file also stores the selection, cycle and per-wallpaper settings, so keep the other keys if it already exists.
 

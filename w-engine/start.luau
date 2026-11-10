@@ -58,7 +58,6 @@ local ENGINE_GLOBAL_VALUES = {
 local elapsed = {}  -- output -> seconds since that output last switched
 local shuffled = {} -- output -> ids left to play in this random pass
 local lastNonce = nil
-local workshopRoot = nil
 local rngState = 0
 
 -- Get All output for all fonctionnality --
@@ -122,12 +121,49 @@ local function loadData()
 	data.favorites = asTable(decoded.favorites)
 end
 
+local function loadExternalData()
+	local path = dataPath()
+	if not path then
+		return
+	end
+	local raw = noctalia.readFile(path)
+	if not raw then
+		return
+	end
+	local decoded = noctalia.json.decode(raw)
+	if type(decoded) ~= "table" then
+		return
+	end
+	data.personnalPath = asTable(decoded.personnalPath)
+	data.favorites = asTable(decoded.favorites)
+end
+
 local function saveData()
 	local path = dataPath()
 	if not path then
 		return
 	end
-	local encoded = noctalia.json.encode(data, true)
+	local persisted = {}
+	local raw = noctalia.readFile(path)
+	if raw then
+		local decoded = noctalia.json.decode(raw)
+		if type(decoded) == "table" then
+			persisted = decoded
+		end
+	end
+	for _, key in ipairs({
+		"selection",
+		"cycle",
+		"current",
+		"saved_wallpaper",
+		"options",
+		"defaults",
+	}) do
+		persisted[key] = data[key]
+	end
+	data.personnalPath = asTable(persisted.personnalPath)
+	data.favorites = asTable(persisted.favorites)
+	local encoded = noctalia.json.encode(persisted, true)
 	if encoded then
 		noctalia.writeFile(path, encoded)
 	end
@@ -163,12 +199,28 @@ local function resolveWorkshopRoot()
 	return root
 end
 
-local function itemDir(id)
-	workshopRoot = workshopRoot or resolveWorkshopRoot()
-	if not workshopRoot then
-		return nil
+local function findItemDir(id)
+	loadExternalData()
+	local found = nil
+	for _, root in ipairs(candidateRoots()) do
+		local expanded = noctalia.expandPath(root)
+		if not expanded:match("/$") then
+			expanded = expanded .. "/"
+		end
+		if noctalia.fileExists(expanded .. id .. "/project.json") then
+			found = expanded
+		end
 	end
-	return workshopRoot .. id .. "/"
+	if found then
+		workshopRoot = found
+		return found .. id .. "/", found
+	end
+	return nil, nil
+end
+
+local function itemDir(id)
+	local dir = findItemDir(id)
+	return dir
 end
 
 local function project(id)
@@ -365,9 +417,34 @@ local function propertyValue(value)
 	return tostring(value)
 end
 
+-- <steamapps>/workshop/content/431960/ -> <steamapps>/common/wallpaper_engine/assets
+local function assetsDirFor(root)
+	if not root then
+		return nil
+	end
+	local steamapps = root:match("^(.*)/workshop/content/431960/?$")
+	if not steamapps then
+		return nil
+	end
+	local assets = steamapps .. "/common/wallpaper_engine/assets"
+	if noctalia.listDir(assets) then
+		return assets
+	end
+	return nil
+end
+
 local function buildLaunchArgs(output, id)
+
 	local engine, properties = optionsFor(id)
-	local args = { "--screen-root", output, "--bg", id }
+	local dir, root = findItemDir(id)
+	local bg = dir and dir:gsub("/$", "") or id
+	local args = { "--screen-root", output, "--bg", bg }
+
+	local assets = assetsDirFor(root)
+	if assets then
+		table.insert(args, "--assets-dir")
+		table.insert(args, assets)
+	end
 
 	for _, spec in ipairs(ENGINE_SCREEN_VALUES) do
 		local value = engine[spec.key]
@@ -407,10 +484,15 @@ local function buildLaunchArgs(output, id)
 	return table.concat(quoted, " ")
 end
 
+-- create logfile after exit
+local function logFile(output)
+	return "/tmp/w-engine-" .. output .. ".log"
+end
+
 local function launch(output, id)
 	local cmd = "setsid linux-wallpaperengine "
 		.. buildLaunchArgs(output, id)
-		.. " > /dev/null 2>&1 & echo $! > "
+		.. " > '" .. logFile(output) .. "' 2>&1 & echo $! > "
 		.. pidFile(output)
 	noctalia.runAsync(cmd, nil, 5000)
 end
