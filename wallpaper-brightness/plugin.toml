@@ -1,0 +1,41 @@
+id = "rsmendes/wallpaper-brightness"
+name = "Wallpaper Brightness"
+version = "1.0.0"
+plugin_api = 30
+author = "rsmendes"
+license = "MIT"
+icon = "sun"
+description = "Adjust wallpaper brightness with a slider in settings or quick panel, automatically adapting to wallpaper changes."
+tags = ["bar", "desktop", "panel", "service", "shortcut", "utility", "wallpaper"]
+dependencies = ["python3"]
+
+[[setting]]
+key = "brightness"
+type = "int"
+label_key = "settings.brightness.label"
+description_key = "settings.brightness.description"
+default = 100
+min = 10
+max = 150
+step = 5
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 400
+height = 250
+placement = "attached"
+position = "auto"
+open_near_click = true
+
+[[shortcut]]
+id = "shortcut"
+entry = "shortcut.luau"
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+[[service]]
+id = "service"
+entry = "service.luau"
