@@ -162,6 +162,7 @@ body:
         - lunar-calendar
         - lunar-workspaces
         - lyrics
+        - lyrics-carousel
         - maildir
         - mango-displays
         - mango_layouts
