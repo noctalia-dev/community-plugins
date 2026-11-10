@@ -2429,8 +2429,8 @@ tags = ["launcher", "privacy", "productivity", "utility"]
 [[plugin]]
 id = "levi/warp"
 name = "Cloudflare WARP"
-version = "1.2.1"
-updated_at = 1792983494
+version = "1.3.0"
+updated_at = 1794319171
 added_at = 1788120574
 author = "Levi"
 license = "MIT"
