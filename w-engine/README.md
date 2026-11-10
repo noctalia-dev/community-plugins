@@ -12,6 +12,8 @@ You also need `kill` to stop duplicate wallpaper processes when changing wallpap
 
 `ffmpeg` is optional. It is used to take a still frame from video wallpapers for the color sync, and to build the panel's preview thumbnails.
 
+Also, use `python3` and `playerctl`
+
 For more details, see the install section below.
 
 ## Plugin
