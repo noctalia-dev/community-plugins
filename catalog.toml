@@ -2108,8 +2108,8 @@ tags = ["bar", "panel", "service", "ai", "indicator", "utility"]
 [[plugin]]
 id = "yocraft/custom-shortcut"
 name = "Custom Shortcut"
-version = "1.0.0"
-updated_at = 1787609905
+version = "1.0.1"
+updated_at = 1794331005
 added_at = 1787609905
 author = "yocraft"
 license = "MIT"
