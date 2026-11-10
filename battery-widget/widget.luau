@@ -22,6 +22,7 @@ local config = {
     color = getConf("color", "on_surface"),
     warning_color = getConf("warning_color", "error"),
     charging_color = getConf("charging_color", "on_surface"),
+    click_action = getConf("click_action", ""),
 }
 
 local path = "/sys/class/power_supply/"
@@ -194,7 +195,10 @@ local function render()
     desktopWidget.render(
         layout({
             gap = vertical and 0 or 4,
-            align = "center"
+            align = "center",
+            onClick = function()
+                noctalia.runAsync(config.click_action)
+            end
         }, content)
     )
 end

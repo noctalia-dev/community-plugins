@@ -110,3 +110,10 @@ entry = "widget.luau"
     description_key = "settings.battery_name.description"
     default = "BAT0"
     visible_when = { key = "battery", values = ["custom"] }
+
+    [[desktop_widget.setting]]
+    key = "click_action"
+    type = "string"
+    label_key = "settings.click_action.label"
+    description_key = "settings.click_action.description"
+    default = ""
