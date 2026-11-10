@@ -1,7 +1,7 @@
 id = "yocraft/qrcode"
 name = "QR Code Encoder"
 version = "1.2.0"
-plugin_api = 15
+plugin_api = 26
 author = "yocraft"
 license = "MIT"
 deprecated = false
