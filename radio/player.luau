@@ -20,15 +20,41 @@
 local dataDir = noctalia.pluginDataDir()
 local SOCK = dataDir .. "/mpv.sock"
 local PIDFILE = dataDir .. "/mpv.pid"
+local STATEFILE = dataDir .. "/state.json"
 local API_MIRRORS = { "https://de1.api.radio-browser.info", "https://de2.api.radio-browser.info" }
-local UA = "noctalia-radio/0.1.1"
+local UA = "noctalia-radio/0.2.0"
 local QUEUE_STUCK_SECS = 15
 
-local volume = tonumber(noctalia.getConfig("default_volume")) or 70
+-- The remembered level has to be read before status exists, and it must not be
+-- able to break the service: a missing, truncated or hand-edited file just
+-- means "no saved level". Anything outside 0-100 is clamped, not rejected.
+local function readSavedVolume()
+  local raw = noctalia.readFile(STATEFILE)
+  if not raw then
+    return nil
+  end
+  local ok, data = pcall(function()
+    return noctalia.json.decode(raw)
+  end)
+  if not ok or type(data) ~= "table" then
+    return nil
+  end
+  local saved = tonumber(data.volume)
+  if not saved then
+    return nil
+  end
+  return math.clamp(math.floor(saved), 0, 100)
+end
+
+-- config:default_volume is only the seed; the plugin is about background
+-- listening, so the level the user left last time is what they expect back.
+local defaultVolume = math.clamp(math.floor(tonumber(noctalia.getConfig("default_volume")) or 70), 0, 100)
+local rememberVolume = noctalia.getConfig("remember_volume") ~= false
 local mpvBin = noctalia.getConfig("mpv_bin") or "mpv"
 local hasSocat = noctalia.commandExists("socat")
 
-local status = { playing = false, name = "", url = "", uuid = "", volume = volume }
+local savedVolume = rememberVolume and readSavedVolume() or nil
+local status = { playing = false, name = "", url = "", uuid = "", volume = savedVolume or defaultVolume }
 local lastSeq = -1
 local launchedAt = 0
 local deadStreak = 0
@@ -38,7 +64,7 @@ local deadStreak = 0
 local playGen = 0
 local queue, queueBusy, queueSince = {}, false, 0
 
-noctalia.log("[radio] player loaded: datadir=" .. tostring(dataDir) .. " mpv=" .. tostring(mpvBin) .. " socat=" .. tostring(hasSocat))
+noctalia.log("[radio] player loaded: datadir=" .. tostring(dataDir) .. " mpv=" .. tostring(mpvBin) .. " socat=" .. tostring(hasSocat) .. " volume=" .. tostring(status.volume))
 
 local function publish()
   noctalia.state.set("radio_status", {
@@ -48,6 +74,20 @@ local function publish()
     uuid = status.uuid,
     volume = status.volume,
   })
+end
+
+-- Persistence is debounced: a slider drag or a scroll wheel fires a burst of
+-- volume requests and only the value it settles on is worth a write. A failed
+-- write is not fatal - the level stays correct for this session.
+local volumeDirty = false
+
+local function saveVolume()
+  local current = math.clamp(math.floor(tonumber(status.volume) or 0), 0, 100)
+  if not rememberVolume or current == savedVolume then
+    return
+  end
+  savedVolume = current
+  noctalia.writeFile(STATEFILE, noctalia.json.encode({ volume = current }) .. "\n")
 end
 
 -- Single-quote escaping for /bin/sh -c strings.
@@ -283,6 +323,7 @@ end
 local function doVolume(v)
   v = math.clamp(math.floor(tonumber(v) or status.volume), 0, 100)
   status.volume = v
+  volumeDirty = true
   publish()
   if not status.playing then
     return
@@ -339,7 +380,11 @@ end
 
 noctalia.state.watch("radio_request", handleRequest)
 local initial = noctalia.state.get("radio_request")
-if initial ~= nil then
+-- Replay the last request so a reload keeps playing what was playing. Volume is
+-- deliberately not replayed: the saved level (or default_volume) is the truth
+-- at startup, and replaying a stale volume request could undo a default_volume
+-- change that is already on disk.
+if type(initial) == "table" and initial.action ~= "volume" then
   handleRequest(initial)
 end
 
@@ -356,6 +401,11 @@ publish()
 noctalia.setUpdateInterval(2000)
 
 function update()
+  -- Flush a volume change once the burst of requests has settled.
+  if volumeDirty then
+    volumeDirty = false
+    saveVolume()
+  end
   -- Watchdog: a queued mpv transition must never wedge playback. If a shell
   -- callback is lost, drop the queue and let the next request through.
   if queueBusy and os.time() - queueSince > QUEUE_STUCK_SECS then
@@ -398,12 +448,16 @@ function update()
 end
 
 function onConfigChanged()
-  volume = math.clamp(math.floor(tonumber(noctalia.getConfig("default_volume")) or volume), 0, 100)
+  local newDefault = math.clamp(math.floor(tonumber(noctalia.getConfig("default_volume")) or defaultVolume), 0, 100)
+  rememberVolume = noctalia.getConfig("remember_volume") ~= false
   mpvBin = noctalia.getConfig("mpv_bin") or mpvBin
   hasSocat = noctalia.commandExists("socat")
-  if not status.playing then
-    status.volume = volume
-    publish()
+  -- Only an explicit change of default_volume overrides the level in use:
+  -- onConfigChanged also fires for unrelated settings, and those must not yank
+  -- the volume back while the user is listening.
+  if newDefault ~= defaultVolume then
+    defaultVolume = newDefault
+    doVolume(newDefault)
   end
 end
 
@@ -439,5 +493,7 @@ end
 
 function onExit(_signal, _reason)
   -- Detached: outlives this runtime, which is exactly what cleanup needs.
+  volumeDirty = false
+  saveVolume()
   stopMpv()
 end

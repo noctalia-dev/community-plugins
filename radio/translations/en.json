@@ -5,7 +5,7 @@
       "label": "Country filter"
     },
     "default_volume": {
-      "description": "Volume for mpv playback, 0-100. Used on play and until the widget, panel or launcher changes it.",
+      "description": "Volume used on first start, and whenever \"Remember volume\" is off. 0-100.",
       "label": "Default volume"
     },
     "max_length": {
@@ -15,6 +15,10 @@
     "mpv_bin": {
       "description": "mpv executable used for headless playback. Change only if mpv is not on PATH.",
       "label": "mpv binary"
+    },
+    "remember_volume": {
+      "description": "Restore the volume you last used instead of going back to the default volume on every start.",
+      "label": "Remember volume"
     },
     "search_limit": {
       "description": "How many stations to fetch per search or top list, 5-50.",
