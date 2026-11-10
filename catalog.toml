@@ -3382,13 +3382,13 @@ rev = "3b086c073b3058656cb877eb1d9d8094091dc7b7"
 [[plugin]]
 id = "thaer99ob/default-apps"
 name = "Default Apps"
-version = "1.0.1"
-updated_at = 1790130431
+version = "1.1.0"
+updated_at = 1794318910
 added_at = 1789560555
 author = "Thaer99ob"
 license = "MIT"
 icon = "apps"
-description = "View and change your default applications (browser, mail, files, media, and more)."
+description = "View and change your default applications (browser, mail, files, media, office documents, and more)."
 plugin_api = 24
 tags = ["utility", "system"]
 
@@ -3427,8 +3427,8 @@ rev = "22ec26b711e3a445a813b743c3778299901bcedb"
 [[plugin]]
 id = "fel/radio"
 name = "Radio"
-version = "0.1.2"
-updated_at = 1792983494
+version = "0.2.0"
+updated_at = 1794318879
 added_at = 1789561453
 author = "fel"
 license = "MIT"
