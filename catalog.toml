@@ -843,8 +843,8 @@ tags = ["hyprland", "bar"]
 [[plugin]]
 id = "yuuto/calculator"
 name = "Calculator"
-version = "1.0.0"
-updated_at = 1785069585
+version = "1.0.1"
+updated_at = 1794318676
 added_at = 1785069585
 author = "yuuto"
 license = "MIT"
