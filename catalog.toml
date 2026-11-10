@@ -5686,3 +5686,16 @@ icon = "music"
 description = "Syllable-level karaoke and line-synced lyrics on the Noctalia bar with auto-hide."
 plugin_api = 43
 tags = ["bar", "media"]
+
+[[plugin]]
+id = "nirusaki/clearclock"
+name = "ClearClock"
+version = "1.2.1"
+updated_at = 1794317478
+added_at = 1794317478
+author = "Nirusaki; original design by qewer33"
+license = "GPL-3.0-or-later"
+icon = "clock"
+description = "ClearClock: a bold clock, script weekday overlay, and spaced date."
+plugin_api = 31
+tags = ["clock", "desktop", "time", "theming"]
