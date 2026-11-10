@@ -1,13 +1,13 @@
 id           = "gitgxldf1sh/proton-wireguard"
 name         = "Proton VPN + WireGuard"
-version      = "0.1.0"
+version      = "0.2.0"
 plugin_api   = 43
 author       = "gitgxldf1sh"
 license      = "MIT"
 icon         = "shield-lock"
 description  = "Toggle Proton VPN and NetworkManager WireGuard tunnels from the bar. Control only: setup stays in the CLI."
 tags         = ["bar", "panel", "service", "shortcut", "network", "privacy"]
-dependencies = ["proton-vpn-cli", "nmcli", "getent", "bash"]
+dependencies = ["proton-vpn-cli", "nmcli", "getent", "bash", "pkill"]
 
 [[setting]]
 key             = "favorite_countries"
@@ -15,6 +15,17 @@ type            = "string_list"
 label_key       = "settings.favorite_countries.label"
 description_key = "settings.favorite_countries.description"
 default         = ["CH", "NL", "US"]
+
+[[setting]]
+key             = "quick_connect"
+type            = "select"
+label_key       = "settings.quick_connect.label"
+description_key = "settings.quick_connect.description"
+default         = "fastest"
+options         = [
+  { value = "fastest", label_key = "settings.quick_connect.options.fastest" },
+  { value = "last", label_key = "settings.quick_connect.options.last" },
+]
 
 [[setting]]
 key             = "hidden_connections"

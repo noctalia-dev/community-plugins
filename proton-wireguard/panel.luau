@@ -12,10 +12,8 @@ local CMD_KEY = "pw.cmd"
 local s = noctalia.state.get(STATE_KEY) or {}
 local tr = noctalia.tr
 
-local favs = noctalia.getConfig("favorite_countries")
-if type(favs) ~= "table" then
-	favs = {}
-end
+local showAdvanced = false -- "Advanced" section of the protection card
+local render -- forward declaration
 
 local function send(op, value)
 	noctalia.state.set(CMD_KEY, { op = op, value = value, n = noctalia.nowMs() })
@@ -95,19 +93,45 @@ local function protonCard()
 	local busy = p.busy == true
 	local children = {}
 
-	local statusText
-	if busy then
-		statusText = tr(if p.action == "disconnecting" then "status.disconnecting" else "status.connecting")
-	else
-		statusText = tr(if p.up then "status.connected" else "status.disconnected")
+	local favs = noctalia.getConfig("favorite_countries")
+	if type(favs) ~= "table" then
+		favs = {}
 	end
 
-	table.insert(children, infoRow(
-		if p.up then "shield-check" else "shield",
-		p.up,
-		tr("proton.title"),
-		statusText,
-		ui.button({
+	local statusText
+	if busy then
+		if p.action == "disconnecting" then
+			statusText = tr("status.disconnecting")
+		elseif p.action == "cancelling" then
+			statusText = tr("status.cancelling")
+		else
+			statusText = tr("status.connecting")
+		end
+	elseif p.up then
+		statusText = tr("status.connected")
+	else
+		statusText = tr("status.disconnected")
+		if p.quick == "last" and (p.last or "") ~= "" then
+			statusText = `{statusText} · {tr("proton.last", { target = p.last })}`
+		end
+	end
+
+	-- While connecting, the main button cancels the attempt.
+	local button
+	if busy and p.action == "connecting" and p.canCancel then
+		button = ui.button({
+			key = "proton-main",
+			text = tr("proton.cancel"),
+			glyph = "x",
+			variant = "outline",
+			controlSize = "sm",
+			onClick = function()
+				send("cancel")
+			end,
+		})
+	else
+		button = ui.button({
+			key = "proton-main",
 			text = tr(if p.up then "proton.disconnect" else "proton.connect"),
 			glyph = if p.up then "player-stop" else "bolt",
 			variant = if p.up then "outline" else "primary",
@@ -117,7 +141,19 @@ local function protonCard()
 				send(if p.up then "disconnect" else "connect")
 			end,
 		})
+	end
+
+	table.insert(children, infoRow(
+		if p.blocked then "shield-x" elseif p.up then "shield-check" else "shield",
+		p.up,
+		tr("proton.title"),
+		statusText,
+		button
 	))
+
+	if p.blocked then
+		table.insert(children, notice("error", tr("proton.blocked")))
+	end
 
 	if p.up then
 		local where = p.server or ""
@@ -167,12 +203,30 @@ local function protonCard()
 	end
 
 	local countries = s.countries or {}
-	if #favButtons > 0 or #countries > 0 then
-		table.insert(children, sectionLabel(tr("proton.quick")))
-	end
+	table.insert(children, sectionLabel(tr("proton.quick")))
 	if #favButtons > 0 then
 		table.insert(children, ui.row({ gap = 6 }, favButtons))
 	end
+
+	-- Fastest server of a kind: P2P, Secure Core, Tor, or a random one.
+	local function modeButton(target, text)
+		return ui.button({
+			key = `mode-{target}`,
+			text = text,
+			variant = "outline",
+			controlSize = "sm",
+			enabled = not busy,
+			onClick = function()
+				send("connect", target)
+			end,
+		})
+	end
+	table.insert(children, ui.row({ gap = 6, justify = "space_between" }, {
+		modeButton("p2p", "P2P"),
+		modeButton("securecore", "Secure Core"),
+		modeButton("tor", "Tor"),
+		modeButton("random", tr("proton.random")),
+	}))
 
 	-- Any other country. The first option doubles as the placeholder.
 	if #countries > 0 then
@@ -216,9 +270,10 @@ local function protectionCard()
 		})
 	end
 
-	return card(false, {
+	local children = {
 		sectionLabel(tr("protection.title")),
 		infoRow("shield-lock", ksOn, tr("protection.killswitch"), tr("protection.killswitch_desc"), ui.toggle({
+			key = "ks-toggle",
 			checked = ksOn,
 			onChange = function(v)
 				send("killswitch", if isOn(v) then "standard" else "off")
@@ -230,7 +285,53 @@ local function protectionCard()
 			nsButton("malware-only", "protection.netshield_malware"),
 			nsButton("malware-ads-trackers", "protection.netshield_all"),
 		}),
-	})
+	}
+
+	-- On/off settings, folded away by default. A setting this CLI version
+	-- does not report ("") is left out.
+	local advanced = {}
+	local function onOffRow(glyph, value, op, name)
+		if value ~= "on" and value ~= "off" then
+			return
+		end
+		local on = value == "on"
+		table.insert(advanced, infoRow(glyph, on, tr(`protection.{name}`), tr(`protection.{name}_desc`), ui.toggle({
+			key = `adv-{op}`,
+			checked = on,
+			onChange = function(v)
+				send(op, if isOn(v) then "on" else "off")
+			end,
+		}), `adv-row-{op}`))
+	end
+	onOffRow("arrows-exchange", cfg.portForwarding, "port_forwarding", "port_forwarding")
+	onOffRow("rocket", cfg.vpnAccelerator, "vpn_accelerator", "vpn_accelerator")
+	onOffRow("device-gamepad-2", cfg.moderateNat, "moderate_nat", "moderate_nat")
+	onOffRow("world", cfg.ipv6, "ipv6", "ipv6")
+
+	if #advanced > 0 then
+		table.insert(children, ui.button({
+			key = "adv-toggle",
+			text = tr("protection.advanced"),
+			glyph = if showAdvanced then "chevron-up" else "chevron-down",
+			variant = "ghost",
+			controlSize = "sm",
+			contentAlign = "start",
+			onClick = function()
+				showAdvanced = not showAdvanced
+				render()
+			end,
+		}))
+		if showAdvanced then
+			for _, row in ipairs(advanced) do
+				table.insert(children, row)
+			end
+			if (s.proton or {}).up then
+				table.insert(children, notice("info", tr("protection.reconnect_hint")))
+			end
+		end
+	end
+
+	return card(false, children)
 end
 
 -- ── WireGuard ─────────────────────────────────────────────────────────────
@@ -282,7 +383,7 @@ end
 
 -- ── Render ────────────────────────────────────────────────────────────────
 
-local function render()
+render = function()
 	local p = s.proton or {}
 	local wg = s.wg or {}
 	local conns = wg.connections or {}
@@ -326,7 +427,16 @@ local function render()
 		end
 	end
 
-	panel.render(ui.column({ gap = 10, align = "stretch" }, {
+	-- With "Advanced" unfolded the content can outgrow the panel's max_height,
+	-- so the body scrolls inside what is left under the header.
+	local bodyNode
+	if showAdvanced then
+		bodyNode = ui.scroll({ key = "body", gap = 10, align = "stretch", flexGrow = 1 }, body)
+	else
+		bodyNode = ui.column({ key = "body", gap = 10, align = "stretch" }, body)
+	end
+
+	panel.render(ui.column({ gap = 10, align = "stretch", flexGrow = if showAdvanced then 1 else nil }, {
 		ui.row({ align = "center", gap = 8 }, {
 			ui.glyph({ name = "shield-lock", size = 20, color = "primary" }),
 			ui.label({ text = tr("title"), fontSize = 16, fontWeight = "bold", flexGrow = 1 }),
@@ -340,7 +450,7 @@ local function render()
 				end,
 			}),
 		}),
-		ui.column({ gap = 10, align = "stretch" }, body),
+		bodyNode,
 	}))
 end
 
