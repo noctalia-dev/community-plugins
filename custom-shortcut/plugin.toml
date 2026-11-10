@@ -1,6 +1,6 @@
 id = "yocraft/custom-shortcut"
 name = "Custom Shortcut"
-version = "1.0.0"
+version = "1.0.1"
 plugin_api = 3
 author = "yocraft"
 license = "MIT"
