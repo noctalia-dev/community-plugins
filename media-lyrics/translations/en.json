@@ -46,13 +46,25 @@
       "description": "Number of spectrum bands, 1-64.",
       "label": "Spectrum bands"
     },
-    "desktop_background": {
-      "description": "Draw a surface behind the desktop widget. Off by default: like the built-in desktop widgets, the content sits straight on the wallpaper.",
-      "label": "Background"
+    "desktop_active_color": {
+      "description": "Color of the current lyric line and the karaoke word highlight.",
+      "label": "Active line color"
+    },
+    "desktop_color": {
+      "description": "Color of the regular lyric lines.",
+      "label": "Text color"
+    },
+    "desktop_font_size": {
+      "description": "Font size of the lyric lines, 8-96.",
+      "label": "Lyrics font size"
     },
     "desktop_lines": {
       "description": "Minimum lyric lines in the desktop widget; short tracks fill more.",
       "label": "Lyric lines"
+    },
+    "desktop_shadow": {
+      "description": "Drop shadow behind the lyric text; helps on a busy wallpaper.",
+      "label": "Text shadow"
     },
     "desktop_show_artist": {
       "description": "Show the artist line under the title on the desktop widget.",
@@ -63,8 +75,12 @@
       "label": "Show album art"
     },
     "desktop_width": {
-      "description": "Fixed widget width. Without it the surface resizes with every lyric line.",
+      "description": "Content width in logical pixels. Keep the editor box on auto (0) so the surface hugs the content.",
       "label": "Widget width"
+    },
+    "desktop_word_sweep": {
+      "description": "Sweep the highlight word by word through the current line. Off: the whole line is highlighted at once (line by line).",
+      "label": "Word-by-word highlight"
     },
     "hide_album_art": {
       "description": "Hide the artwork and its fallback icon.",
@@ -73,6 +89,10 @@
     "hide_artist": {
       "description": "Show only the track title.",
       "label": "Hide artist"
+    },
+    "hide_when_idle": {
+      "description": "Hide the widget while playback is paused.",
+      "label": "Hide when paused"
     },
     "hide_when_no_media": {
       "description": "Hide the widget when no MPRIS player is active.",

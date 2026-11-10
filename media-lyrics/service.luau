@@ -167,6 +167,20 @@ local function tryLocalLyrics(artist, title)
   return nil
 end
 
+-- Word-timed lyrics lookup (lrcmux.dev, aggregates enhanced LRCs): the only
+-- source in the chain that carries per-word times, which is what the karaoke
+-- sweep rides on.
+local function lrcmuxUrl(artist, title, album, durationSec)
+  local url = "https://api.lrcmux.dev/get?format=json&level=word"
+    .. "&title=" .. noctalia.string.urlEncode(title)
+    .. "&artist=" .. noctalia.string.urlEncode(artist)
+  if album ~= "" then url = url .. "&album=" .. noctalia.string.urlEncode(album) end
+  if durationSec and durationSec > 0 then
+    url = url .. "&duration=" .. tostring(math.floor(durationSec + 0.5))
+  end
+  return url
+end
+
 -- ============================= lyrics pipeline =============================
 
 local currentTrackKey = ""
@@ -222,6 +236,30 @@ local function finishError(msg)
   publish()
 end
 
+-- Per-word times make the karaoke sweep track the voice. When the text on
+-- screen carries none, ask the word-timed source for the same recording and
+-- swap it in ONLY when the lyrics match line for line: the text the configured
+-- provider gave is never swapped for another variant.
+local function tryWordUpgrade(artist, title, album, durationSec, key, gen, shownSynced)
+  noctalia.runAsync({ "curl", "-sSf", "-m", "8", "-4",
+    lrcmuxUrl(artist, title, album, durationSec) }, function(res)
+    if gen ~= fetchGeneration or res.exitCode ~= 0 then return end
+    local data = type(res.stdout) == "string" and noctalia.json.decode(res.stdout) or nil
+    local track = type(data) == "table" and data.track or nil
+    if type(data) ~= "table" or type(data.lines) ~= "table"
+      or not lyrics_lib.trackMatches({ title = title, artist = artist,
+          durationSec = durationSec }, type(track) == "table" and track or {}) then
+      return
+    end
+    local lrc = lyrics_lib.wordRowsToLrc(data.lines)
+    if lrc == "" or not lrc:find("<%d+:%d%d") then return end
+    if not lyrics_lib.textLooksSame(shownSynced, lrc) then return end
+    if acceptLyrics("lrcmux", lrc, "", key) then
+      cacheLyrics(artist, title, lrc, "")
+    end
+  end)
+end
+
 -- NetEase keeps placeholder "lyrics" for instrumentals / missing words
 -- (e.g. "[00:00.000] 纯音乐，请欣赏" = "instrumental music, enjoy", or
 -- "暂无歌词" = "no lyrics yet"). Those are NOT lyrics: treat the text as
@@ -267,6 +305,12 @@ local function loadLyricsForTrack(artist, title, album, durationSec, key, embedd
   local cached = loadCachedLyrics(title == "" and "" or artist, title)
   if cached and not isPlaceholderLyrics(cached) then
     acceptLyrics(noctalia.tr("provider.cache"), cached, "", key)
+    -- Entries fetched before the word-timed source existed carry no word times.
+    -- Show them at once, then quietly upgrade — once per track, because the
+    -- upgraded text is re-cached with its markers.
+    if not cached:find("<%d+:%d%d") then
+      tryWordUpgrade(artist, title, album, durationSec, key, gen, cached)
+    end
     return
   end
 
@@ -321,6 +365,9 @@ local function loadLyricsForTrack(artist, title, album, durationSec, key, embedd
   local function acceptAndCache(provider, synced, plain)
     if acceptLyrics(provider, synced, plain, key) then
       cacheLyrics(artist, title, synced, plain)
+      if synced ~= "" and not synced:find("<%d+:%d%d") then
+        tryWordUpgrade(artist, title, album, durationSec, key, gen, synced)
+      end
       return true
     end
     return false
@@ -385,14 +432,21 @@ local function loadLyricsForTrack(artist, title, album, durationSec, key, embedd
             return
           end
           tried = tried + 1
-          local lyricUrl = "https://music.163.com/api/song/lyric?os=pc&id="
-            .. tostring(ranked[i].id) .. "&lv=-1&kv=-1&tv=-1"
+          -- v1 with yv=1 returns the word-timed `yrc` alongside `lrc`.
+          local lyricUrl = "https://music.163.com/api/song/lyric/v1?id="
+            .. tostring(ranked[i].id) .. "&lv=1&yv=1&tv=-1"
           httpGetH(lyricUrl, neteaseHeaders, function(resp)
             if gen ~= fetchGeneration then return end
             if resp.ok and type(resp.body) == "string" then
               local d = noctalia.json.decode(resp.body)
-              local lrc = type(d) == "table" and d.lrc and type(d.lrc.lyric) == "string"
-                and trim(d.lrc.lyric) or ""
+              -- word-timed yrc first: the karaoke sweep rides on per-word times
+              local yrc = type(d) == "table" and d.yrc and type(d.yrc.lyric) == "string"
+                and d.yrc.lyric or ""
+              local lrc = lyrics_lib.yrcToLrc(yrc)
+              if lrc == "" then
+                lrc = type(d) == "table" and d.lrc and type(d.lrc.lyric) == "string"
+                  and trim(d.lrc.lyric) or ""
+              end
               if lrc ~= "" then
                 lrc = stripNetEaseMeta(lrc)
                 if trim(lrc) ~= "" then
@@ -426,6 +480,27 @@ local function loadLyricsForTrack(artist, title, album, durationSec, key, embedd
     else
       settle(false)
     end
+  end
+
+  -- Word-timed source. Same contract as the others; a wrong recording is
+  -- refused (strict match) and the chain moves on — a remix's timings over the
+  -- original would desync every line.
+  local function fetchLrcmux(nextFn, stash)
+    if gen ~= fetchGeneration then return end
+    httpGet(lrcmuxUrl(artist, title, album, durationSec), function(resp)
+      if gen ~= fetchGeneration then return end
+      if resp.ok and type(resp.body) == "string" then
+        local data = noctalia.json.decode(resp.body)
+        local track = type(data) == "table" and data.track or nil
+        if type(data) == "table" and type(data.lines) == "table"
+          and lyrics_lib.trackMatches({ title = title, artist = artist,
+              durationSec = durationSec }, type(track) == "table" and track or {}) then
+          local lrc = lyrics_lib.wordRowsToLrc(data.lines)
+          if lrc ~= "" and acceptAndCache("lrcmux", lrc, "") then return end
+        end
+      end
+      nextFn(stash)
+    end)
   end
 
   -- Online provider. Same contract as fetchNetEase: a miss calls nextFn with
@@ -533,7 +608,7 @@ local function loadLyricsForTrack(artist, title, album, durationSec, key, embedd
       -- this source had no usable hit (or its own transport failed)
       nextFn(stash)
     end)
-  end
+  end)
   end -- fetchLrclib
 
   -- Remote stage: the two online providers, in the configured order. The
@@ -548,11 +623,20 @@ local function loadLyricsForTrack(artist, title, album, durationSec, key, embedd
       finishEmpty()
     end
   end
-  local stages = { lrclib = fetchLrclib, netease = fetchNetEase }
+  local stages = { lrclib = fetchLrclib, netease = fetchNetEase, lrcmux = fetchLrcmux }
   local order = lyrics_lib.sourceOrder(noctalia.getConfig("source_order"))
-  local first = stages[order[1]] or fetchLrclib
-  local second = stages[order[2]] or fetchNetEase
-  first(function(stash, isError) second(finalSettle, stash) end)
+  local stageIdx = 0
+  local function runStage(stash, isError)
+    if gen ~= fetchGeneration then return end
+    stageIdx = stageIdx + 1
+    local fn = stages[order[stageIdx]]
+    if fn then
+      fn(runStage, stash)
+    else
+      finalSettle(stash, isError)
+    end
+  end
+  runStage(nil, false)
 end
 
 local function invalidateLyrics()

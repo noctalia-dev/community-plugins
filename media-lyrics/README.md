@@ -118,6 +118,17 @@ The panel shows the active MPRIS player automatically; when nothing is playing i
 
 ## Features
 
+- **Word-by-word karaoke** — the highlight sweeps the current line one word at a time
+  when the lyrics carry word timestamps (enhanced LRC: `<00:12.00>word` markers inside
+  the line, stripped from the displayed text). Without those markers the sweep is even
+  across the line, which is all the line timestamps can honestly support. Long lines
+  wrap and the sweep follows each wrapped row. Needs a shell with `ui.fillLabel`
+  (plugin_api 51); on older shells the current line is simply shown in the accent colour.
+  The `word_sweep` desktop-widget setting (on by default) switches the progression off:
+  the whole line then lights up at once and the highlight steps line by line.
+
+  ![Word-by-word karaoke: the highlight sweeps the current line word by word](screenshots/word-by-word.png)
+
 - **Karaoke lyric carousel** — 9/12/16 lines visible at once (compact/medium/large presets); the active line is bright, neighbours fade by distance (Clavis-style). Works with synced (LRC) and plain lyrics.
 - **Centred karaoke** — the active line is pinned to the vertical centre of the lyrics area (symmetric window around the cursor or the playing line): the first line starts centred on load, the anchor holds the centre line through the track, and the last line returns to the centre at the end. A **3-2-1 countdown** fills the space this frees above the first line, shown only in the last three seconds before it starts. Compact/medium/large only — `panel-mini` is untouched.
 - **Clickable lyric lines** — click a synced line to seek the player to that timestamp.
@@ -129,7 +140,7 @@ The panel shows the active MPRIS player automatically; when nothing is playing i
 - **Marquee titles** — long track/artist names hold for 2 s, then scroll slowly instead of wrapping or clipping. Overlap-free (per-slice node recreation).
 - **Album cover + seekable progress bar** — click to jump, drag to scrub (a real `ui.slider`), interpolated between polls; transport controls (prev / play-pause / next), shuffle and repeat state.
 - **Live lyric line in the chip** — optional `show_lyric_line` widget setting: while synced lyrics are ready the chip shows `Title · current line` instead of the artist (steps with playback, marquee for long lines).
-- **Desktop widget** — the same now-playing / lyrics view as a background layer-shell tile, pinned to the desktop and visible on the lockscreen, with no panel open. Long lyric lines wrap (measured in em and broken at the word nearest the middle), the band keeps a constant height so the widget never jumps as the lyrics arrive, and the tile is borderless by default like the built-in desktop widgets.
+- **Desktop widget** — the same now-playing / lyrics view as a background layer-shell tile, pinned to the desktop and visible on the lockscreen, with no panel open. Long lyric lines wrap (measured in em and broken at the word nearest the middle), the band keeps a constant height so the widget never jumps as the lyrics arrive, and the tile uses the host's widget surface (background, opacity, radius, padding — edited in the desktop-widget editor).
 - **Audio-reactive chip** — optional `audio_spectrum` setting: the bar chip draws a live band meter driven by the host's PipeWire monitor.
 - **Tooltips** — transport buttons and lyric rows explain themselves on hover; a lyric row shows the timestamp it seeks to.
 - **Settings** — lyric timing offset in ms, on-disk cache, local lyrics folder. Translatable UI: strings go through Noctalia's i18n (`noctalia.tr`, English ships in the plugin; other locales via Noctalia Translate).
@@ -144,6 +155,29 @@ The panel shows the active MPRIS player automatically; when nothing is playing i
 - **Also a desktop widget.** The same view can live on the wallpaper and the lockscreen, where a panel cannot.
 
 ## Settings
+
+### Desktop widget
+
+Per-instance settings, in the widget's own settings popup:
+
+| Setting | Type | Default | Description |
+| --- | --- | --- | --- |
+| `width` | `int` | `320` | Content width in logical px (160–4000). Keep the editor box on auto so the tile hugs the content. |
+| `font_size` | `int` | `12` | Lyrics font size (8–96); the row height follows it. |
+| `lines` | `int` | `3` | Lyric lines in the window (1–15); a wrapped line takes two rows. |
+| `color` | `color` | `on_surface` | Colour of the regular lyric rows. |
+| `active_color` | `color` | `primary` | Colour of the current line and the karaoke sweep. |
+| `shadow` | `bool` | off | Drop shadow behind the lyric text. |
+| `word_sweep` | `bool` | on | Word-by-word sweep of the current line; off = the whole line lights at once. |
+| `show_artist` | `bool` | on | Artist line under the title. |
+| `show_cover` | `bool` | on | Album art in the header. |
+| `hide_when_no_media` | `bool` | off | Hide the widget when no MPRIS player is active. |
+| `hide_when_idle` | `bool` | off | Hide the widget while playback is paused. |
+
+The widget surface itself — background, colour, opacity, radius, padding — is the
+host's and is edited in Noctalia's desktop-widget editor.
+
+### Plugin
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
@@ -174,7 +208,7 @@ noctalia msg config-reload
 ## To Do
 
 The authoritative, detailed list lives in
-[docs/ROADMAP.md](https://github.com/TraNZeM/media-lyrics/blob/main/docs/ROADMAP.md). Open items right now:
+[docs/ROADMAP.md](../docs/ROADMAP.md). Open items right now:
 
 - [ ] **Musixmatch / Spotify lyric sources** — the remaining network sources;
       both need API keys or OAuth tokens, so they can only ship as an opt-in
@@ -202,6 +236,11 @@ and display settings (0.8.1 / 0.9.0), karaoke centering (0.9.6), desktop widget
 and audio chip (0.9.8).
 
 ## Notes
+
+- **Where the cache lives.** With `use_cache` on, fetched lyrics are written to a
+  `lyrics/` subfolder of the plugin data directory (`noctalia.pluginDataDir()`), one
+  `.lrc` per artist and title. The folder is created on the first successful save.
+  `local_lyrics_dir` is separate: that is the folder you fill yourself.
 
 - The service polls MPRIS via `busctl` (150 ms cadence) and publishes a snapshot to `noctalia.state`; the panel animates from those publishes.
 - Lyrics are fetched from public services with `curl` — LRCLIB API primary,

@@ -10,8 +10,8 @@
 
 id = "tranzem/media-lyrics"
 name = "Media Lyrics"
-version = "0.9.9"
-plugin_api = 32
+version = "1.0.1"
+plugin_api = 43
 author = "tranzem"
 license = "MIT"
 tags = ["media", "music", "panel", "service", "desktop"]
@@ -68,7 +68,7 @@ key = "source_order"
 type = "string"
 label_key = "settings.source_order.label"
 description_key = "settings.source_order.description"
-default = "lrclib, netease"
+default = "lrcmux, lrclib, netease"
 
 # Player filtering: comma-separated identity or bus-name substrings. When
 # allowlist is non-empty, only matching players are shown; blocklist excludes
@@ -239,9 +239,10 @@ entry = "widget.luau"
 id = "desktop"
 entry = "desktop.luau"
 
-  # Fixed widget width in logical pixels. The widget is auto-sized by default, so
-  # without this every longer lyric line widens the surface and every shorter one
-  # narrows it again. The editor's box_width does the same job if it is set.
+  # Content width in logical pixels. The host sizes the tile as
+  # content + 2 * background_padding, so the right box mode in the editor is
+  # box_width/box_height = 0 (auto): a fixed box only adds empty fields around
+  # the content and they jump whenever these settings change.
   [[desktop_widget.setting]]
   key = "width"
   type = "int"
@@ -249,16 +250,58 @@ entry = "desktop.luau"
   description_key = "settings.desktop_width.description"
   default = 320
   min = 160
-  max = 900
+  max = 4000
 
-  # Opt-in card look. The built-in desktop widgets put their content straight on
-  # the wallpaper with no frame, so the widget matches that by default and this
-  # only adds a surface behind it when asked.
+  # Lyric rows only; header and transport keep their own sizes. Row height is
+  # font_size + 4 px (measured: 12px text renders a 16px line, 14px -> 18px).
   [[desktop_widget.setting]]
-  key = "background"
+  key = "font_size"
+  type = "int"
+  label_key = "settings.desktop_font_size.label"
+  description_key = "settings.desktop_font_size.description"
+  default = 12
+  min = 8
+  max = 96
+
+  [[desktop_widget.setting]]
+  key = "lines"
+  type = "int"
+  label_key = "settings.desktop_lines.label"
+  description_key = "settings.desktop_lines.description"
+  default = 3
+  min = 1
+  max = 15
+
+  # Text colors: regular lyric rows and the current line + karaoke sweep.
+  # Theme roles ("primary", "on_surface/55") or hex.
+  [[desktop_widget.setting]]
+  key = "color"
+  type = "color"
+  label_key = "settings.desktop_color.label"
+  description_key = "settings.desktop_color.description"
+  default = "on_surface"
+
+  [[desktop_widget.setting]]
+  key = "active_color"
+  type = "color"
+  label_key = "settings.desktop_active_color.label"
+  description_key = "settings.desktop_active_color.description"
+  default = "primary"
+
+  # Word-by-word karaoke sweep on the current line. Off keeps the earlier look:
+  # the whole line is highlighted at once and the highlight steps line by line.
+  [[desktop_widget.setting]]
+  key = "word_sweep"
   type = "bool"
-  label_key = "settings.desktop_background.label"
-  description_key = "settings.desktop_background.description"
+  label_key = "settings.desktop_word_sweep.label"
+  description_key = "settings.desktop_word_sweep.description"
+  default = true
+
+  [[desktop_widget.setting]]
+  key = "shadow"
+  type = "bool"
+  label_key = "settings.desktop_shadow.label"
+  description_key = "settings.desktop_shadow.description"
   default = false
 
   [[desktop_widget.setting]]
@@ -275,14 +318,23 @@ entry = "desktop.luau"
   description_key = "settings.desktop_show_cover.description"
   default = true
 
+  # No plugin-side Background toggle on purpose: the host's widget editor owns
+  # the card for EVERY desktop widget (background + background_opacity +
+  # background_padding + background_radius) under the same `background` key, so
+  # a second toggle here was a duplicate bound to one field.
   [[desktop_widget.setting]]
-  key = "lines"
-  type = "int"
-  label_key = "settings.desktop_lines.label"
-  description_key = "settings.desktop_lines.description"
-  default = 3
-  min = 1
-  max = 9
+  key = "hide_when_no_media"
+  type = "bool"
+  label_key = "settings.hide_when_no_media.label"
+  description_key = "settings.hide_when_no_media.description"
+  default = false
+
+  [[desktop_widget.setting]]
+  key = "hide_when_idle"
+  type = "bool"
+  label_key = "settings.hide_when_idle.label"
+  description_key = "settings.hide_when_idle.description"
+  default = false
 
 # Background service: polls D-Bus for player state, fetches + parses lyrics,
 # and publishes a snapshot to noctalia.state for the panel.
