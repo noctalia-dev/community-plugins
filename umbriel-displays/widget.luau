@@ -1,8 +1,5 @@
 --!nonstrict
--- Bar tile: left opens the display panel, right goes straight to the
--- arrangement. The right binding lives here rather than in [widget.actions]
--- because Noctalia 5.0.0-beta.8 does not apply manifest-declared gesture
--- defaults.
+-- Bind gestures here because the host does not apply manifest gesture defaults.
 
 barWidget.setGlyph(noctalia.getConfig("glyph"))
 barWidget.setTooltip(noctalia.tr("widget.tooltip"))
