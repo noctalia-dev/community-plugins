@@ -5699,3 +5699,16 @@ icon = "clock"
 description = "ClearClock: a bold clock, script weekday overlay, and spaced date."
 plugin_api = 31
 tags = ["clock", "desktop", "time", "theming"]
+
+[[plugin]]
+id = "faminec/lyrics-carousel"
+name = "Lyrics Carousel"
+version = "2.7.1"
+updated_at = 1794317591
+added_at = 1794317591
+author = "faminec"
+license = "MIT"
+icon = "music"
+description = "Synced lyrics in a floating terminal window with karaoke and a large active line."
+plugin_api = 34
+tags = ["music", "system", "utility", "media"]
