@@ -10,7 +10,7 @@ icon = "music"
 
 dependencies = [
   "python3",
-  "playerctl"
+  "systemd"
 ]
 
 [[setting]]
