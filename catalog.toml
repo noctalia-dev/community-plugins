@@ -3065,15 +3065,21 @@ rev = "342d37313974ccd6afa86276e82c3c8d3ad32785"
 [[plugin]]
 id = "prponkshe/umbriel-displays"
 name = "Umbriel Displays"
-version = "1.0.5"
-updated_at = 1793455620
+version = "1.0.6"
+updated_at = 1794404618
 added_at = 1789086907
 author = "prponkshe"
 license = "MIT"
 icon = "device-desktop"
 description = "Set resolution, refresh rate, scale and arrangement per connected display."
-plugin_api = 43
+plugin_api = 48
 tags = ["bar", "panel", "service", "hardware", "utility", "umbriel"]
+
+[[plugin.release]]
+plugin_api = 43
+version = "1.0.5"
+updated_at = 1793455620
+rev = "f0287bea83e80f57bc9cffd57e28063fa4b58b86"
 
 [[plugin.release]]
 plugin_api = 22
