@@ -1,0 +1,160 @@
+id = "yuta/meeting-bar"
+name = "Meeting Bar"
+version = "0.1.1"
+plugin_api = 37
+author = "yuta"
+license = "MIT"
+icon = "calendar-event"
+description = "Your agenda, meeting links and full-screen reminders in the bar."
+tags = ["bar", "panel", "service", "productivity", "countdown"]
+dependencies = ["xdg-open", "noctalia"]
+
+[[widget]]
+id = "bar"
+entry = "widget.luau"
+
+[[service]]
+id = "calendar"
+entry = "service.luau"
+
+[[panel]]
+id = "agenda"
+entry = "panel.luau"
+width = 480
+height = 460
+placement = "attached"
+open_near_click = true
+
+[[layer]]
+id = "reminder"
+entry = "reminder.luau"
+layer = "overlay"
+anchors = ["top", "bottom", "left", "right"]
+exclusive_zone = -1
+keyboard = "exclusive"
+output = "focused"
+
+[[setting]]
+key = "days"
+type = "int"
+label_key = "settings.days"
+default = 2
+min = 1
+max = 14
+
+[[setting]]
+key = "include_all_day"
+type = "bool"
+label_key = "settings.include_all_day"
+default = true
+
+[[setting]]
+key = "meetings_only"
+type = "bool"
+label_key = "settings.meetings_only"
+default = false
+
+[[setting]]
+key = "show_past"
+type = "bool"
+label_key = "settings.show_past"
+default = false
+
+[[setting]]
+key = "calendars"
+type = "string_list"
+label_key = "settings.calendars"
+default = []
+
+[[setting]]
+key = "deduplicate"
+type = "bool"
+label_key = "settings.deduplicate"
+default = true
+
+[[setting]]
+key = "prefer_current"
+type = "bool"
+label_key = "settings.prefer_current"
+default = true
+
+[[setting]]
+key = "preview_minutes"
+type = "int"
+label_key = "settings.preview_minutes"
+default = 0
+min = 0
+max = 1440
+
+[[setting]]
+key = "hide_empty"
+type = "bool"
+label_key = "settings.hide_empty"
+default = false
+
+[[setting]]
+key = "show_title"
+type = "bool"
+label_key = "settings.show_title"
+default = true
+
+[[setting]]
+key = "show_time"
+type = "bool"
+label_key = "settings.show_time"
+default = false
+
+[[setting]]
+key = "show_countdown"
+type = "bool"
+label_key = "settings.show_countdown"
+default = true
+
+[[setting]]
+key = "title_length"
+type = "int"
+label_key = "settings.title_length"
+default = 28
+min = 8
+max = 80
+
+[[setting]]
+key = "browser"
+type = "string"
+label_key = "settings.browser"
+default = ""
+
+[[setting]]
+key = "service_commands"
+type = "string_map"
+label_key = "settings.service_commands"
+default = {}
+
+[[setting]]
+key = "new_meeting_url"
+type = "string"
+label_key = "settings.new_meeting_url"
+default = "https://meet.google.com/new"
+
+[[setting]]
+key = "fullscreen_reminders"
+type = "bool"
+label_key = "settings.fullscreen_reminders"
+description_key = "settings.fullscreen_reminders_description"
+default = true
+
+[[setting]]
+key = "reminder_minutes"
+type = "int"
+label_key = "settings.reminder_minutes"
+default = 5
+min = 0
+max = 60
+
+[[setting]]
+key = "snooze_minutes"
+type = "int"
+label_key = "settings.snooze_minutes"
+default = 1
+min = 1
+max = 30
