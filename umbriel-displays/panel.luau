@@ -1,18 +1,11 @@
 --!nonstrict
--- Power, workspace floor, mode and scale for one display at a time, with the
--- arrangement above it and the rest of the section's keys behind Advanced.
---
--- Every control writes the include file and lets Umbriel's config watcher apply
--- it. The model is updated from what was written rather than re-read: the
--- reload is a filesystem round trip, so an immediate query would answer with
--- the state the control just replaced. Refresh re-reads on demand.
+-- Keep the written model until Refresh: an immediate query can precede the
+-- compositor's asynchronous config reload.
 
 local displays = require("./outputs.luau")
 local controls = require("./controls.luau")
 
--- Scales run from 0.25 to 3.0; the steps below 1x fit more on big monitors
--- with poor resolution. Fractional factors off this ladder produce blurry
--- integer-scaled clients more often than they help.
+-- Keep fractional scales on a fixed ladder to limit blur in integer-scaled clients.
 local SCALE_STEPS = { 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 3.0 }
 
 local opened = false
@@ -27,9 +20,7 @@ local powerKey = 0
 local render
 local applyRefresh, applyScale, applyWorkspaces
 
-local function tr(key, subst)
-  return noctalia.tr(key, subst)
-end
+local tr = noctalia.tr
 
 local function fail(message)
   status = message
@@ -38,8 +29,6 @@ end
 
 -- ── Model ──────────────────────────────────────────────────────────────────
 
--- Exact, so the lit tile and the card below it can never disagree: load() is
--- what guarantees selectedName still names a connected display.
 local function selected()
   for _, output in ipairs(outputs) do
     if output.name == selectedName then
@@ -146,9 +135,6 @@ local function detail(glyph, text)
   })
 end
 
--- The tile above already carries the connector, so the card leads with the
--- panel's own name and falls back to the connector only when the display
--- reports no make or model.
 local function displayTitle(output)
   local name = noctalia.string.trim(output.make .. " " .. output.model)
   if name == "" then
@@ -174,38 +160,6 @@ local function summary(output)
   -- settings survive a different port on the next plug.
   table.insert(rows, detail("plug-connected", output.key))
   return ui.column({ gap = 8, padding = controls.PADDING, radius = controls.RADIUS, fill = "surface_container" }, rows)
-end
-
--- A dynamic output keeps at least this many workspaces, so a bar always shows
--- them. One is the floor Umbriel already applies, so stepping down to it is the
--- same as leaving the key out.
---
--- A static inventory replaces that floor rather than sitting beside it: Umbriel
--- rejects the two together. So this one control edits whichever of the two the
--- display actually has, and Advanced is where the choice between them is made.
--- Three equal segments on the chip grid's rhythm, with the count wearing the
--- same tint a picked chip does.
-local function stepper(value, low, high, onSet)
-  local function step(label, to, enabled)
-    return ui.button({
-      text = label,
-      controlSize = "sm",
-      variant = "outline",
-      flexGrow = 1,
-      enabled = enabled,
-      onClick = function()
-        onSet(to)
-      end,
-    })
-  end
-
-  return ui.row({ gap = 8, align = "center" }, {
-    step("-", value - 1, value > low),
-    ui.row({ justify = "center", align = "center", flexGrow = 1, paddingV = 8, radius = 8, fill = "primary" }, {
-      ui.label({ text = tostring(value), fontSize = 13, fontWeight = "bold", color = "on_primary" }),
-    }),
-    step("+", value + 1, value < high),
-  })
 end
 
 local function modeCard(output)
@@ -266,9 +220,6 @@ local function headerButtons()
   }
 end
 
--- Arranging is the reason the panel exists, so it leads and sits above the
--- tiles: everything under a display's name belongs to that display. The rest
--- lives behind Advanced, at the bottom.
 render = function()
   if not noctalia.commandExists("umbriel") then
     panel.render(ui.column({ flexGrow = 1, gap = 14 }, { controls.header(tr("title"), headerButtons()), controls.message(tr("status.missing_umbriel")) }))
@@ -361,8 +312,7 @@ function onEnabledChange(value)
     return
   end
   local on = value == "true"
-  -- The service would switch it straight back on, and between the two writes
-  -- there is nothing to draw the panel that asked for it.
+  -- Keep a display available for the panel even if watchdog recovery fails.
   if not on and output.enabled and enabledCount() == 1 then
     fail(tr("status.last_output"))
     powerKey = powerKey + 1

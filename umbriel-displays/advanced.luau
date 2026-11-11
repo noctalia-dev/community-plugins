@@ -1,11 +1,4 @@
 --!nonstrict
--- The rest of what an [output.*] section can say: rotation, sync policy, HDR,
--- workspace inventory and the scrolling default.
---
--- These are set once for a display and then forgotten, so they live behind
--- their own window rather than in the panel that opens on a click. Every value
--- is written to the same include file the main panel and the arrangement write.
-
 local displays = require("./outputs.luau")
 local controls = require("./controls.luau")
 
@@ -32,9 +25,7 @@ local toggleKey = 0
 
 local render
 
-local function tr(key, subst)
-  return noctalia.tr(key, subst)
-end
+local tr = noctalia.tr
 
 -- ── Model ──────────────────────────────────────────────────────────────────
 
@@ -72,8 +63,7 @@ local function value(output, key, fallback)
   return displays.text(output.section[key]) or fallback
 end
 
--- Writing one key still lays the arrangement out again, since a rotation
--- changes the logical box every display to the right of it sits against.
+-- Rotation changes the logical box, so adjacent displays must be repositioned.
 local function commit(output, changes)
   local previousTransform = output.transform
   if changes.transform ~= nil then
@@ -104,7 +94,7 @@ end
 
 local function enumControl(output, key, options, fallback)
   return controls.control(tr("field." .. key), controls.chips(options, value(output, key, fallback), function(picked)
-    commit(output, { [key] = displays.quoted(picked) })
+    commit(output, { [key] = string.format("%q", picked) })
   end))
 end
 
