@@ -23,12 +23,40 @@ screen is yours again.
 
 ## Usage
 
-Show the sticker from anywhere, for example from a Hyprland keybind, a script or
-another plugin:
+The plugin never grabs a key on its own: Noctalia plugins cannot register global
+shortcuts, so the trigger key is a keybind in **your compositor** that runs the
+IPC command below. Pick whatever combination you like and set it there:
 
 ```sh
 noctalia msg plugin miixz/reaction:service all trigger
 ```
+
+### Keybind examples
+
+**Hyprland** (Lua config):
+
+```lua
+hl.bind(
+    "SUPER + SHIFT + R",
+    hl.dsp.exec_cmd("noctalia msg plugin miixz/reaction:service all trigger")
+)
+```
+
+**Niri** (`config.kdl`):
+
+```kdl
+binds {
+    Mod+Shift+R { spawn "noctalia" "msg" "plugin" "miixz/reaction:service" "all" "trigger"; }
+}
+```
+
+**Sway / Scroll**:
+
+```
+bindsym $mod+Shift+r exec noctalia msg plugin miixz/reaction:service all trigger
+```
+
+Any other compositor works the same way as long as it can run a command on a key.
 
 Triggering again while the sticker is on screen restarts it instead of closing
 it. To dismiss it early:
@@ -67,6 +95,10 @@ image stays for `hold_ms`. Either way the sticker fades out in the last 250 ms.
 | `opacity` | `double` | `1.0` | Maximum sticker opacity, before the fade-out. |
 | `hold_ms` | `int` | `2500` | How long a static sticker stays on screen. |
 | `extra_ms` | `int` | `250` | Extra time on screen after an animated GIF has finished. |
+
+The trigger key is deliberately **not** a plugin setting: Noctalia does not expose
+global shortcuts to plugins, so it lives in your compositor's keybind config (see
+[Usage](#usage)). What the key runs is the IPC command below.
 
 ## IPC
 
