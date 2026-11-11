@@ -1138,16 +1138,22 @@ tags = ["launcher", "development", "productivity"]
 [[plugin]]
 id = "yocraft/battery-widget"
 name = "Battery Widget"
-version = "2.1.0"
-updated_at = 1787087700
+version = "2.2.0"
+updated_at = 1794404562
 added_at = 1785554104
 author = "yocraft"
 license = "MIT"
 icon = "battery"
 description = "Desktop/Lockscreen widget that displays battery level, status, charging rate, and time remaining."
 deprecated = false
-plugin_api = 26
+plugin_api = 51
 tags = ["desktop", "hardware", "system", "utility"]
+
+[[plugin.release]]
+plugin_api = 26
+version = "2.1.0"
+updated_at = 1787087700
+rev = "e8262e84fe727cef00bf18d7fce4790498c1ac71"
 
 [[plugin.release]]
 plugin_api = 3
