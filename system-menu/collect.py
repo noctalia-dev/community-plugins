@@ -75,7 +75,7 @@ def collect():
     version = modules.get("OS", {}).get("version") or release.get("VERSION_ID") or release.get("BUILD_ID", "")
     hardware = {"title": "Hardware", "icon": "cpu", "rows": []}
     software = {"title": "Software", "icon": "apps", "rows": []}
-    disks = {"title": "Storage", "icon": "device-hard-drive", "rows": []}
+    disks = {"title": "Storage", "icon": "storage", "rows": []}
     details = {"title": "Technical Details", "icon": "settings", "rows": []}
     profile = {
         "hostname": socket.gethostname(),

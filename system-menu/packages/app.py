@@ -13,6 +13,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+import textwrap
 import time
 import urllib.error
 import urllib.parse
@@ -88,18 +89,22 @@ def parse_search(output, kind):
     return records
 
 
+def parse_info(output):
+    fields, current = {}, None
+    for line in output.splitlines():
+        match = re.match(r"^([A-Za-z][A-Za-z ]*?)\s+: (.*)$", line)
+        if match:
+            current, value = match.groups()
+            fields[current] = value
+        elif line[:1].isspace() and current:
+            fields[current] += " " + line.strip()
+    return fields
+
+
 def parse_installed(output):
     records = []
     for block in re.split(r"\n\s*\n", output.strip()):
-        fields = {}
-        current = None
-        for line in block.splitlines():
-            match = re.match(r"^([A-Za-z][A-Za-z ]*?)\s+: (.*)$", line)
-            if match:
-                current, value = match.groups()
-                fields[current] = value
-            elif line[:1].isspace() and current:
-                fields[current] += " " + line.strip()
+        fields = parse_info(block)
         if "Name" not in fields:
             continue
         name = valid_name(fields["Name"])
@@ -113,7 +118,7 @@ def parse_installed(output):
 
 
 def aur_info(names):
-    found = set()
+    found = {}
     # Exact-name lookup, including split packages; never infer AUR from -bin/-git.
     for start in range(0, len(names), 100):
         batch = names[start:start + 100]
@@ -128,7 +133,7 @@ def aur_info(names):
             name = valid_name(item["Name"])
             if name not in batch:
                 raise Error("Unexpected AUR package record")
-            found.add(name)
+            found[name] = item
     return found
 
 
@@ -316,6 +321,14 @@ def resize_preview(path, delta):
     return f"change-preview-window(right,{size}%,wrap)+refresh-preview"
 
 
+def preview_mode(database, mode):
+    if mode not in ("details", "recipe"):
+        raise Error("Invalid preview mode.")
+    path = Path(database).parent / "preview-mode"
+    path.write_text("summary" if path.read_text() == mode else mode)
+    return "refresh-preview"
+
+
 def picker(records, title, query="", multi=True, keys="", preview=True, searchable=True, merged=False, show_state=True):
     clear_console()
     runtime = os.environ.get("XDG_RUNTIME_DIR")
@@ -347,11 +360,14 @@ def picker(records, title, query="", multi=True, keys="", preview=True, searchab
         if multi:
             args += [f"--multi={MAX_BATCH}", "--bind=ctrl-a:select-all,ctrl-d:deselect-all"]
         if preview:
+            (Path(directory) / "preview-mode").write_text("summary")
             command = shlex.join(frontend_command("--preview", str(database))) + " {1}"
             size_file = Path(directory) / "preview-size"
             size_file.write_text("48")
             resize = shlex.join(frontend_command("--resize-preview", str(size_file)))
+            mode = shlex.join(frontend_command("--preview-mode", str(database)))
             args += ["--preview=" + command, "--preview-window=right,48%,wrap", "--bind=alt-p:toggle-preview",
+                     "--bind=alt-d:transform(" + mode + " details),alt-b:transform(" + mode + " recipe)",
                      "--bind=shift-left:transform(" + resize + " 5),shift-right:transform(" + resize + " -5)"]
         else:
             args += ["--preview-window=hidden"]
@@ -366,25 +382,103 @@ def picker(records, title, query="", multi=True, keys="", preview=True, searchab
         return output[0], output[1], chosen
 
 
+def preview_fields(fields):
+    for label, value in fields:
+        value = "  ".join(map(text, value)) if isinstance(value, list) else text(value if value is not None else "")
+        print(textwrap.fill(value or "None", width=max(24, int(os.environ.get("FZF_PREVIEW_COLUMNS", "80"))),
+                            initial_indent=f"{label:<16}: ", subsequent_indent=" " * 18, break_on_hyphens=False))
+
+
+def preview_aur(directory, record, mode):
+    name = valid_name(record["name"])
+    metadata = directory / ("aur-" + name + ".json")
+    try:
+        if not metadata.exists():
+            metadata.write_text(json.dumps(aur_info([name]).get(name)))
+        item = json.loads(metadata.read_text())
+        if not item:
+            raise Error("Package no longer listed in AUR.")
+        if mode == "recipe":
+            base = valid_name(item.get("PackageBase", name))
+            recipe = directory / ("recipe-" + base)
+            if not recipe.exists():
+                url = "https://aur.archlinux.org/cgit/aur.git/plain/PKGBUILD?" + urllib.parse.urlencode({"h": base})
+                with urllib.request.urlopen(url, timeout=12) as response:
+                    content = response.read(256 * 1024 + 1)
+                if len(content) > 256 * 1024:
+                    raise Error("PKGBUILD exceeds preview limit.")
+                if content.lstrip().lower().startswith((b"<!doctype", b"<html")):
+                    raise Error("AUR returned a web page, not a PKGBUILD.")
+                recipe.write_bytes(content)
+            print("Current AUR PKGBUILD · read-only · Alt+B back\n")
+            content = re.sub(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]", "", recipe.read_text(errors="replace"))
+            print(content)
+            return
+        if record["kind"] == "installed":
+            if mode == "details":
+                print("AUR metadata")
+            fields = []
+        else:
+            fields = [("Version", item.get("Version", record["version"])),
+                      ("Description", item.get("Description") or record.get("description", ""))]
+            fields += [(label, item.get(key, [])) for label, key in (
+                ("Licenses", "License"), ("Depends On", "Depends"))]
+        fields += [("Maintainer", item.get("Maintainer") or "Orphaned"),
+                   ("Votes", item.get("NumVotes", "?")), ("Popularity", item.get("Popularity", "?"))]
+        if record["kind"] == "installed" and item.get("Version") and item["Version"] != record["version"]:
+            fields.append(("AUR version", item["Version"]))
+        if item.get("OutOfDate"):
+            fields.append(("Status", "Flagged out-of-date"))
+        if mode == "details":
+            if record["kind"] != "installed":
+                fields += [(label, item.get(key, [])) for label, key in (
+                    ("URL", "URL"), ("Groups", "Groups"), ("Provides", "Provides"),
+                    ("Optional Deps", "OptDepends"), ("Conflicts With", "Conflicts"), ("Replaces", "Replaces"))]
+            fields += [(label, item.get(key, [])) for label, key in (
+                ("Make Deps", "MakeDepends"), ("Check Deps", "CheckDepends"),
+                ("Package Base", "PackageBase"), ("Keywords", "Keywords"))]
+            fields.append(("Package URL", "https://aur.archlinux.org/packages/" + name))
+            for label, key in (("Submitted", "FirstSubmitted"), ("Modified", "LastModified")):
+                if item.get(key):
+                    fields.append((label, datetime.datetime.fromtimestamp(item[key], datetime.timezone.utc).isoformat(timespec="minutes")))
+        preview_fields(fields)
+    except (Error, OSError, ValueError, TypeError, OverflowError) as error:
+        if record["kind"] != "installed":
+            print(text(record.get("description", "")))
+        print("\nAUR preview unavailable:", text(error))
+
+
 def preview(database, identifier):
     record = json.loads(Path(database).read_text()).get(identifier)
     if not record:
         raise Error("The selected package is no longer in this list.")
-    print(record["name"], "—", record["version"])
-    print("Source:", record["source"], "\n")
-    if record.get("source_detail"):
-        print(text(record["source_detail"]), "\n")
-    if record["kind"] == "aur":
-        print(text(record["description"]))
-        print("\n" + record.get("extra", ""))
-        print("\nhttps://aur.archlinux.org/packages/" + record["name"])
-        print("\nAUR: user-maintained recipe, not an official repository package.")
-        print(f"Installation uses your existing {text(AUR_HELPER)}/makepkg configuration.\nNo scan result or automatic Traur gate is implied by this listing.")
-        print("\nAlt+T: Traur report for selected packages.")
-    else:
+    print(text(record["name"]), flush=True)
+    directory = Path(database).parent
+    mode_file = directory / "preview-mode"
+    mode = mode_file.read_text() if mode_file.exists() else "summary"
+    if mode == "details" and record.get("source_detail"):
+        print(text(record["source_detail"]))
+    is_aur = record["source"].casefold() == "aur" or record["kind"] == "aur"
+    if record["kind"] != "aur" and not (is_aur and mode == "recipe"):
         operation = "-Qi" if record["kind"] == "installed" else "-Si"
         target = record["name"] if operation == "-Qi" else record["id"]
-        print(capture(["pacman", operation, "--", target]))
+        info = capture(["pacman", operation, "--", target])
+        if mode == "details":
+            print(info, flush=True)
+        else:
+            fields = parse_info(info)
+            fields.setdefault("Version", record["version"])
+            fields.setdefault("Description", record.get("description", ""))
+            keys = ["Version", "Description", "Licenses", "Depends On", "Installed Size", "Packager"]
+            if fields.get("Required By", "None") != "None":
+                keys.append("Required By")
+            preview_fields((key, fields[key]) for key in keys if key in fields
+                           and not (is_aur and key == "Packager" and fields[key] == "Unknown Packager"))
+            sys.stdout.flush()
+    if is_aur:
+        preview_aur(directory, record, mode)
+    print("\nAlt+D " + ("compact view" if mode == "details" else "full details")
+          + (" · Alt+B " + ("back" if mode == "recipe" else "PKGBUILD") if is_aur else ""))
 
 
 def validate_selection(records):
@@ -458,20 +552,22 @@ def perform(action, records):
 
 def audit(records):
     for record in records:
-        if record["kind"] == "repo":
-            print("\nOfficial/configured repository selection:", record["id"], "— not an AUR recipe.")
+        if record["kind"] != "aur" and record["source"].casefold() != "aur":
+            print("\nSkipping non-AUR package:", record["name"])
             continue
         print("\nTraur:", record["name"])
         try:
             output = capture(["traur", "scan", valid_name(record["name"]), "--json"], timeout=90, accept_report=True)
             report = json.loads(output)
-            print("Result:", report["tier"], "—", report.get("status", "unknown"))
+            if not isinstance(report, dict) or report.get("status") != "complete" or not isinstance(report.get("tier"), str) or not isinstance(report.get("signals"), list):
+                raise Error("Incomplete or invalid Traur report.")
+            print("Result:", text(report["tier"]), "—", text(report["status"]))
             for finding in report.get("signals", []):
-                if finding.get("role") not in ("Fact", "Provenance"):
+                if isinstance(finding, dict) and finding.get("role") not in ("Fact", "Provenance"):
                     print(" ", text(finding.get("description", "")))
-        except (Error, ValueError, KeyError) as error:
+        except (Error, OSError, ValueError, KeyError) as error:
             print("NO VALID AUDIT RESULT:", text(error))
-    print("\nRead-only audit, not a sandbox or an automatic installation gate.")
+    print("\nManual report only. Build-time protection depends on your helper/makepkg setup.")
 
 
 def file_digest(value):
@@ -620,6 +716,8 @@ def run(argv):
         argv = argv[2:]
     if len(argv) == 3 and argv[0] == "--preview":
         preview(argv[1], argv[2])
+    elif len(argv) == 3 and argv[0] == "--preview-mode":
+        print(preview_mode(argv[1], argv[2]))
     elif len(argv) == 3 and argv[0] == "--search":
         merged_search(argv[1], argv[2])
     elif len(argv) == 3 and argv[0] == "--resize-preview":
