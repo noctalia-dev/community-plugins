@@ -1,5 +1,7 @@
 --!nonstrict
 
+local distroIcon = require("./distro_icon.luau")
+
 local data = nil
 local loading = false
 local errorMessage = nil
@@ -43,7 +45,7 @@ local function render()
     local content = {}
     if data then
         table.insert(content, ui.column({ align = "center", gap = 8, paddingV = 12 }, {
-            ui.image({ path = data.logo, width = 64, height = 64 }),
+            ui.image({ path = distroIcon.path(64) or data.logo, width = 64, height = 64 }),
             ui.label({ text = data.hostname, fontSize = 25, fontWeight = "bold", maxLines = 2, textAlign = "center" }),
             ui.label({ text = data.subtitle, fontSize = 14, color = "on_surface_variant", textAlign = "center" }),
         }))

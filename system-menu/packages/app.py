@@ -1,4 +1,4 @@
-"""Small fzf frontend. Package operations remain pacman's/paru's responsibility."""
+"""Small fzf frontend. Package operations remain the package managers' responsibility."""
 
 import colorsys
 import datetime
@@ -23,10 +23,28 @@ HERE = Path(__file__).resolve()
 VT_KEY = HOME / ".config/package-menu/virustotal.key"
 NAME = re.compile(r"[A-Za-z0-9@._+-]+")
 MAX_BATCH = 50
+AUR_HELPER = "paru"
 
 
 class Error(Exception):
     pass
+
+
+def configure_helper(value):
+    global AUR_HELPER
+    value = value.strip()
+    if not value or value.startswith("-") or any(ord(char) < 32 or ord(char) == 127 for char in value):
+        raise Error("Set a valid AUR helper executable (for example paru, yay or an absolute path).")
+    AUR_HELPER = value
+
+
+def frontend_command(*args):
+    # fzf callbacks run in separate processes; retain the chosen helper there too.
+    return [sys.executable, "-I", str(HERE), "--aur-helper", AUR_HELPER, *args]
+
+
+def update_command():
+    return [AUR_HELPER, "-Syu"]
 
 
 def text(value):
@@ -85,8 +103,8 @@ def parse_installed(output):
         if "Name" not in fields:
             continue
         name = valid_name(fields["Name"])
-        source = fields.get("Installed From", "local/unknown")
-        if source == "None":
+        source = fields.get("Installed From", "").strip()
+        if source in ("", "None"):
             source = "local/unknown"
         records.append({"id": f"installed/{name}", "name": name, "source": text(source),
                         "version": fields.get("Version", "?"), "description": fields.get("Description", ""),
@@ -94,15 +112,81 @@ def parse_installed(output):
     return records
 
 
+def aur_info(names):
+    found = set()
+    # Exact-name lookup, including split packages; never infer AUR from -bin/-git.
+    for start in range(0, len(names), 100):
+        batch = names[start:start + 100]
+        url = "https://aur.archlinux.org/rpc/v5/info?" + urllib.parse.urlencode({"arg[]": batch}, doseq=True)
+        with urllib.request.urlopen(url, timeout=12) as response:
+            data = json.load(response)
+        if not isinstance(data, dict) or data.get("type") != "multiinfo" or not isinstance(data.get("results"), list):
+            raise Error("Invalid AUR info response")
+        for item in data["results"]:
+            if not isinstance(item, dict) or not isinstance(item.get("Name"), str):
+                raise Error("Invalid AUR package record")
+            name = valid_name(item["Name"])
+            if name not in batch:
+                raise Error("Unexpected AUR package record")
+            found.add(name)
+    return found
+
+
+def installed_catalog():
+    records = parse_installed(capture(["pacman", "-Qi"]))
+    unresolved = [record for record in records if record["source"] == "local/unknown"]
+    if not unresolved:
+        return records
+    # Local sync databases, in pacman repository priority order. No refresh.
+    repositories = {}
+    try:
+        for line in capture(["pacman", "-Sl"]).splitlines():
+            fields = line.split()
+            if len(fields) >= 3:
+                source, name, version = fields[:3]
+                repositories.setdefault(valid_name(name), []).append((valid_name(source), version))
+    except (Error, OSError) as error:
+        # Without the repo index we cannot safely distinguish foreign packages.
+        for record in unresolved:
+            record["source_detail"] = "Source lookup unavailable: " + text(error)
+        print("Source lookup unavailable: " + text(error), file=sys.stderr)
+        return records
+    foreign = []
+    for record in unresolved:
+        candidates = repositories.get(record["name"], [])
+        if candidates:
+            exact = [candidate for candidate in candidates if candidate[1] == record["version"]]
+            record["source"] = (exact or candidates)[0][0]
+            record["source_detail"] = ("Matching installed version in local sync database." if exact else
+                                       "Currently available in local sync database (version differs).")
+            record["source_detail"] += " Installation origin was not recorded; repository priority breaks ties."
+        else:
+            foreign.append(record)
+    try:
+        available = aur_info([record["name"] for record in foreign])
+    except (Error, OSError, ValueError) as error:
+        for record in foreign:
+            record["source_detail"] = "Not in configured repositories; AUR lookup unavailable: " + text(error)
+        print("AUR source lookup unavailable: " + text(error), file=sys.stderr)
+    else:
+        for record in foreign:
+            if record["name"] in available:
+                record["source"] = "aur"
+                record["source_detail"] = "Exact package name found in AUR; installation origin was not recorded."
+            else:
+                record["source_detail"] = "No recorded origin or exact name in configured repositories/AUR."
+    return records
+
+
 def catalog(mode, query=""):
     if mode == "repos":
         return parse_search(capture(["pacman", "-Ss", "."]), "repo")
     if mode == "installed":
-        return parse_installed(capture(["pacman", "-Qi"]))
+        return installed_catalog()
     if not query.strip():
         return []
     # Search is read-only. No fallback mirror or alternative package is substituted.
-    output = capture(["paru", "-Ssa", "--color", "never", "--", query], timeout=30, empty_ok=True)
+    output = capture([AUR_HELPER, "-Ssa", "--color", "never", "--", query], timeout=30, empty_ok=True)
     return parse_search(output, "aur")
 
 
@@ -123,7 +207,7 @@ def search_options():
 
 def source_order(record):
     source = record["source"].casefold()
-    group = 2 if record["kind"] == "aur" else (1 if source.startswith("cachyos") else 0)
+    group = 2 if source == "aur" or record["kind"] == "aur" else (1 if source.startswith("cachyos") else 0)
     return group, source, record["name"].casefold()
 
 
@@ -181,7 +265,7 @@ def source_color(source, kind, palette):
     source = source.casefold()
     if source in ("", "local/unknown"):
         return palette.get("fg", "#cdd6f4")
-    if kind == "aur":
+    if source == "aur" or kind == "aur":
         return "#f9e2af"
     if source.startswith("cachyos"):
         return palette.get("info", "#cba6f7")
@@ -204,7 +288,7 @@ def picker_rows(records, show_state=True):
         name = text(record["name"])
         description = text(record.get("description", ""))
         source = text(record["source"])
-        label = "AUR" if record["kind"] == "aur" else source
+        label = "AUR" if source.casefold() == "aur" or record["kind"] == "aur" else source
         state = "[Installed]" if record.get("state") == "installed" else ""
         state_column = colored(f"{state:<11}", green) + " " if show_state else ""
         details = (colored(f"{record.get('version', ''):<14.14}", foreground, dim=True) + " "
@@ -256,17 +340,17 @@ def picker(records, title, query="", multi=True, keys="", preview=True, searchab
             (Path(directory) / "installed.json").write_text(json.dumps(capture(["pacman", "-Qq"]).splitlines()))
             (Path(directory) / "header.txt").write_text(header)
             (Path(directory) / "status.txt").write_text("AUR: type at least 2 characters\n" + header)
-            command = "exec " + shlex.join([sys.executable, "-I", str(HERE), "--search", str(database)]) + " {q}"
+            command = "exec " + shlex.join(frontend_command("--search", str(database))) + " {q}"
             status = shlex.join(["cat", str(Path(directory) / "status.txt")])
             args += ["--id-nth=1", "--bind=start:reload-sync(" + command + "),change:reload-sync(" + command + ")",
                      "--bind=load:transform-header(" + status + ")"]
         if multi:
             args += [f"--multi={MAX_BATCH}", "--bind=ctrl-a:select-all,ctrl-d:deselect-all"]
         if preview:
-            command = shlex.join([sys.executable, "-I", str(HERE), "--preview", str(database)]) + " {1}"
+            command = shlex.join(frontend_command("--preview", str(database))) + " {1}"
             size_file = Path(directory) / "preview-size"
             size_file.write_text("48")
-            resize = shlex.join([sys.executable, "-I", str(HERE), "--resize-preview", str(size_file)])
+            resize = shlex.join(frontend_command("--resize-preview", str(size_file)))
             args += ["--preview=" + command, "--preview-window=right,48%,wrap", "--bind=alt-p:toggle-preview",
                      "--bind=shift-left:transform(" + resize + " 5),shift-right:transform(" + resize + " -5)"]
         else:
@@ -288,12 +372,14 @@ def preview(database, identifier):
         raise Error("The selected package is no longer in this list.")
     print(record["name"], "—", record["version"])
     print("Source:", record["source"], "\n")
+    if record.get("source_detail"):
+        print(text(record["source_detail"]), "\n")
     if record["kind"] == "aur":
         print(text(record["description"]))
         print("\n" + record.get("extra", ""))
         print("\nhttps://aur.archlinux.org/packages/" + record["name"])
         print("\nAUR: user-maintained recipe, not an official repository package.")
-        print("Installation uses your existing paru/makepkg configuration.\nNo scan result or automatic Traur gate is implied by this listing.")
+        print(f"Installation uses your existing {text(AUR_HELPER)}/makepkg configuration.\nNo scan result or automatic Traur gate is implied by this listing.")
         print("\nAlt+T: Traur report for selected packages.")
     else:
         operation = "-Qi" if record["kind"] == "installed" else "-Si"
@@ -320,7 +406,7 @@ def transaction_command(action, records):
             targets = [valid_name(record["source"]) + "/" + name for record, name in zip(records, names)]
             return ["sudo", "pacman", "-S", "--needed", "--", *targets]
         if kinds == {"aur"}:
-            return ["paru", "-S", "--needed", "--aur", "--", *names]
+            return [AUR_HELPER, "-S", "--needed", "--aur", "--", *names]
         raise Error("Install one source category at a time.")
     if any(record["kind"] != "installed" for record in records):
         raise Error("Choose installed packages for this action.")
@@ -357,7 +443,7 @@ def perform(action, records):
     for record in records:
         print(f"  {record['name']}   [{record['source']}]   {record['version']}")
     if len(commands) > 1:
-        print("Repository packages first, then AUR using your existing paru/makepkg configuration.")
+        print(f"Repository packages first, then AUR using your existing {text(AUR_HELPER)}/makepkg configuration.")
     if action == "remove":
         print("Pacman will also show any unused dependencies selected for removal.")
     elif action == "downgrade":
@@ -499,7 +585,7 @@ def main():
         ("remove", "Installed / uninstall", "List installed packages and select several to remove"),
         ("downgrade", "Downgrade", "Select previous versions from local caches"),
         ("vt", "VirusTotal", "Check a file/SHA-256; no upload"),
-        ("update", "Update system", "Normal paru update using your existing configuration"),
+        ("update", "Update system", f"Normal {text(AUR_HELPER)} update using your existing configuration"),
         ("exit", "Exit", ""),
     ]
     records = [{"id": key, "name": name, "source": "", "description": description, "kind": "menu"}
@@ -515,8 +601,8 @@ def main():
             elif action == "vt":
                 virustotal()
                 pause()
-            elif action == "update" and confirm("Run the normal full system update with paru?"):
-                subprocess.call(["paru", "-Syu"])
+            elif action == "update" and confirm(f"Run the normal full system update with {text(AUR_HELPER)}?"):
+                subprocess.call(update_command())
                 pause()
         except (Error, OSError) as error:
             print("\nSTOP:", text(error))
@@ -526,20 +612,29 @@ def main():
             return
 
 
+def run(argv):
+    if argv[:1] == ["--aur-helper"]:
+        if len(argv) < 2:
+            raise Error("--aur-helper requires an executable.")
+        configure_helper(argv[1])
+        argv = argv[2:]
+    if len(argv) == 3 and argv[0] == "--preview":
+        preview(argv[1], argv[2])
+    elif len(argv) == 3 and argv[0] == "--search":
+        merged_search(argv[1], argv[2])
+    elif len(argv) == 3 and argv[0] == "--resize-preview":
+        print(resize_preview(argv[1], int(argv[2])))
+    elif len(argv) >= 2 and argv[0] == "--list":
+        print(json.dumps(catalog(argv[1], " ".join(argv[2:])), ensure_ascii=True))
+    elif not argv:
+        main()
+    else:
+        raise Error("Usage: package-menu [--aur-helper EXECUTABLE] [--list repos|installed|aur [query]]")
+
+
 if __name__ == "__main__":
     try:
-        if len(sys.argv) == 4 and sys.argv[1] == "--preview":
-            preview(sys.argv[2], sys.argv[3])
-        elif len(sys.argv) == 4 and sys.argv[1] == "--search":
-            merged_search(sys.argv[2], sys.argv[3])
-        elif len(sys.argv) == 4 and sys.argv[1] == "--resize-preview":
-            print(resize_preview(sys.argv[2], int(sys.argv[3])))
-        elif len(sys.argv) >= 3 and sys.argv[1] == "--list":
-            print(json.dumps(catalog(sys.argv[2], " ".join(sys.argv[3:])), ensure_ascii=True))
-        elif len(sys.argv) == 1:
-            main()
-        else:
-            raise Error("Usage: package-menu [--list repos|installed|aur [query]]")
+        run(sys.argv[1:])
     except (Error, OSError) as error:
         print(text(error), file=sys.stderr)
         raise SystemExit(1)
