@@ -1,2 +1,1 @@
 PyGithub==2.9.1
-langdetect==1.0.9

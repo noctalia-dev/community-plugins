@@ -1,4 +1,5 @@
 SHELL := /bin/sh
+VALIDATOR ?= ../../official-plugins/.github/actions/validate-plugins/validate-plugins.py
 
 .PHONY: test translations lint
 
@@ -14,5 +15,6 @@ lint:
 	@if command -v noctalia >/dev/null 2>&1; then \
 		noctalia plugins lint . && echo "✓ Noctalia plugin lint passed"; \
 	fi
-	python3 ../.github/workflows/scripts/validate-plugins.py && echo "✓ Official repo manifest validation passed"
+	@test -f "$(VALIDATOR)" || { echo "Set VALIDATOR to the shared validate-plugins.py; see ../README.md for setup." >&2; exit 1; }
+	python3 "$(VALIDATOR)" --profile community --root .. && echo "✓ Community repo manifest validation passed"
 	git diff --check
