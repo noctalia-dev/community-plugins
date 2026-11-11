@@ -239,6 +239,7 @@ body:
         - plugin-hub
         - podcasts
         - pomodoro
+        - pomodoro-heatmap
         - portctl
         - portforward
         - printers
