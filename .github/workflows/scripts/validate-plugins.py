@@ -1129,7 +1129,7 @@ class Validator:
         if entry_count == 0:
             self.add_error(
                 manifest_path,
-                "must define at least one entry: widget, panel, shortcut, desktop_widget, launcher_provider, or service",
+                "must define at least one entry: widget, panel, shortcut, desktop_widget, launcher_provider, service, or layer",
             )
 
     def validate_default(
