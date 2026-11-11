@@ -5821,3 +5821,16 @@ icon = "calendar-event"
 description = "Your agenda, meeting links and full-screen reminders in the bar."
 plugin_api = 37
 tags = ["bar", "panel", "service", "productivity", "countdown"]
+
+[[plugin]]
+id = "adam-gassem/pomodoro-heatmap"
+name = "Pomodoro Heatmap"
+version = "0.3.0"
+updated_at = 1794410074
+added_at = 1794410074
+author = "Adam-Gassem"
+license = "MIT"
+icon = "brain"
+description = "Pomodoro timer for the bar with a focus heatmap, streaks and analytics."
+plugin_api = 43
+tags = ["bar", "panel", "service", "productivity", "time", "countdown"]
