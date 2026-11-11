@@ -172,6 +172,7 @@ body:
         - media-island
         - media-lyrics
         - media-player-icon
+        - meeting-bar
         - mic-denoise
         - mihomo-control
         - mimir
