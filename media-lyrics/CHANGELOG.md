@@ -4,6 +4,61 @@ All notable changes to **Media Lyrics** are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [1.0.1] — 2026-11-10
+
+### Added
+
+- **Word timings for the word-by-word highlight.** `lrcmux` joins the source list
+  and NetEase answers with its word-timed variant — the highlight follows the
+  real word onsets. `source_order` accepts `lrcmux`, `lrclib`, `netease`.
+- Lyrics cached without word timings gain them on their next play: the text
+  stays as it is, only the timings are added.
+
+### Fixed
+
+- **The word-by-word highlight no longer lags behind the singing.**
+
+## [1.0.0] — 2026-11-10
+
+The highlight now sweeps the current line **word by word**, the desktop widget is
+configurable, and a run of display bugs is fixed.
+
+### Added
+
+- **Word-by-word karaoke.** When the lyrics carry word timestamps (enhanced LRC), the
+  highlight moves one word at a time in time with the recording. Without them the sweep
+  is even across the line. Long lines wrap and the sweep follows each wrapped row. The
+  `<mm:ss.xx>` markers used to show up as literal text — they are stripped now.
+- **`word_sweep`** (desktop widget, on by default) — turn the word-by-word progression
+  off: the whole current line is highlighted at once and the highlight steps line by
+  line.
+- **Desktop widget settings** aligned with the official lyrics widget: `font_size`,
+  `color`, `active_color`, `shadow`, `hide_when_no_media`, `hide_when_idle`; `width`
+  now spans 160–4000 px and `lines` goes up to 15.
+- **`source_order`** — which online provider is asked first. Default `lrclib, netease`;
+  write `netease, lrclib` to prefer NetEase. An id left out of the list keeps its
+  default place at the end, so a partial list never drops a provider. A plain (untimed)
+  hit is still kept as a fallback and used only when nothing synced turns up.
+
+### Fixed
+
+- **The lyrics cache never wrote anything.** Cached lyrics are saved again and work
+  offline.
+- **Two Background toggles for one card.** One toggle now controls the widget
+  background — the one in the desktop-widget editor, with its colour, opacity, radius
+  and padding controls.
+- **Empty side fields when settings changed.** The widget now hugs its content at any
+  `width` and `lines` value — no empty margins around the text.
+
+### Changed
+
+- **`plugin_api` is declared as 32.** Tooltips need this level; on older shells they are
+  simply not shown.
+- **Colour roles follow Noctalia 5.4.0**, which retired `surface_variant` and `outline`:
+  they are now `surface_container` and `outline_variant`. The colours are the same.
+
 ## [0.9.8] — 2026-10-13
 
 A **desktop widget** — the now-playing view as a tile pinned to the desktop and shown on
