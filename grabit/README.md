@@ -1,8 +1,6 @@
 # Grabit Launcher
 
-## Description
-
-Grabit Launcher brings the `grabit` screenshot, recording, OCR, translation, and pinning workflow into Noctalia as a bar widget, mode menu, and control-center shortcut. It wraps the interactive `grabit` app so you can launch captures and recordings from Noctalia without losing the native region selector, annotator, and recording controls.
+Launch grabit for region screenshots, screen recording, OCR, translation, pins, and uploads from a bar widget, a mode menu, and a control-center shortcut.
 
 ## Plugin
 
