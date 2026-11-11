@@ -6,11 +6,18 @@
     "cancel": "Cancel",
     "copied": "Copied",
     "copy_tooltip": "Copy the command that starts {provider} as this account",
-    "count": "{n} accounts",
+    "count": {
+      "one": "{count} account",
+      "other": "{count} accounts"
+    },
     "default": "Default",
     "default_tooltip": "The account {provider} uses unless you pick another",
     "duplicate_body": "This folder is signed in to {account} too, so it shares those limits. Sign in with another account in a private browser window, or remove it.",
     "duplicate_title": "Same account as {account}",
+    "hidden": {
+      "one": "{count} hidden folder",
+      "other": "{count} hidden folders"
+    },
     "hide_confirm": "Hide?",
     "hide_tooltip": "Hide this account. Its folder stays as it is.",
     "hint": "Sign in again to see this account's usage.",
@@ -27,6 +34,7 @@
     "sign_in": "Sign in",
     "sign_in_again": "Sign in again",
     "sign_in_tooltip": "Opens the sign-in in a terminal",
+    "unhide": "Show",
     "unnamed": "Account {n}",
     "waiting": "Waiting for sign-in…"
   },
@@ -62,9 +70,6 @@
       "body": "This account's plan has no usage quota for this product. Headroom checks again every hour.",
       "title": "No quota on this plan"
     },
-    "not_configured": {
-      "title": "Not signed in"
-    },
     "parse": {
       "body": "The usage format may have changed. Please report it on GitHub.",
       "title": "Unexpected response"
@@ -88,6 +93,11 @@
   "notify": {
     "body": "{window} is at {percent}%.",
     "body_reset": "{window} is at {percent}%. Resets in {reset}.",
+    "credit_body": "{credit} expires in {duration}.",
+    "credit_title": {
+      "one": "{provider}: a reset credit expires soon",
+      "other": "{provider}: reset credits expire soon"
+    },
     "reset_body": "Usage is back to {percent}%.",
     "reset_title": "{provider} {window} has reset",
     "title": "{provider} usage is running low"
@@ -132,18 +142,31 @@
     "in": "Resets in {until_reset}",
     "now": "Resetting now"
   },
+  "resets": {
+    "count": {
+      "one": "{count} reset",
+      "other": "{count} resets"
+    },
+    "expires": "in {duration} · {when}",
+    "hint": "You have a reset credit. Spend it on the usage page to get this limit back now.",
+    "label": "Reset credits",
+    "unnamed": {
+      "one": "Limit reset",
+      "other": "{count} limit resets"
+    }
+  },
   "settings": {
     "bar_accounts": {
       "description": "Which accounts the bar shows when a provider has several. The panel always shows them all.",
-      "label": "Bar · Accounts",
+      "label": "Accounts",
       "option": {
         "all": "Every account",
         "default": "Default account only"
       }
     },
     "bar_style": {
-      "description": "What each provider shows next to its logo.",
-      "label": "Bar · Style",
+      "description": "What each item shows next to its logo.",
+      "label": "Style",
       "option": {
         "full": "Ring and percentage",
         "ring": "Ring only",
@@ -151,27 +174,31 @@
       }
     },
     "critical_percent": {
-      "description": "Usage at or above this turns the error color and can send a notification.",
-      "label": "Display · Critical at (%)"
+      "description": "Usage at or above this turns the error color and sends a notification.",
+      "label": "Critical at (%)"
     },
     "display": {
       "description": "Whether numbers, rings and meters show what you've used or what's left. Colors always follow usage.",
-      "label": "Display · Show amounts as",
+      "label": "Show amounts as",
       "option": {
         "remaining": "Remaining",
         "used": "Used"
       }
     },
-    "max_providers": {
-      "description": "The bar shows at most this many. If more qualify, it keeps the ones closest to their limits.",
-      "label": "Bar · Maximum providers"
+    "max_items": {
+      "description": "The most items the capsule shows. If more qualify, it keeps the ones closest to their limits.",
+      "label": "Maximum items"
     },
     "notify": {
-      "description": "Notify once when a window crosses the critical threshold, and again when it resets.",
-      "label": "Alerts · Notifications"
+      "description": "Notify once when a window crosses the critical level, and again when it resets.",
+      "label": "Notifications"
+    },
+    "notify_reset_credits": {
+      "description": "Notify once when a reset credit has two days left before it expires.",
+      "label": "Reset credit reminders"
     },
     "provider": {
-      "description": "Where this provider appears. Off: never fetched or shown.",
+      "description": "Where it appears. Off: never fetched or shown.",
       "option": {
         "bar": "Bar and panel",
         "off": "Off",
@@ -179,25 +206,25 @@
       }
     },
     "provider_antigravity": {
-      "label": "Providers · Antigravity"
+      "label": "Antigravity"
     },
     "provider_claude": {
-      "label": "Providers · Claude"
+      "label": "Claude"
     },
     "provider_codex": {
-      "label": "Providers · Codex"
+      "label": "Codex"
     },
     "refresh_minutes": {
       "description": "Minutes between fetches for each provider. Failed fetches retry sooner.",
-      "label": "Data · Refresh interval (min)"
+      "label": "Refresh every (minutes)"
     },
     "warn_percent": {
       "description": "Usage at or above this turns the warning color.",
-      "label": "Display · Warning at (%)"
+      "label": "Warning at (%)"
     },
     "window": {
-      "description": "Which usage window the bar shows for each provider.",
-      "label": "Bar · Window",
+      "description": "Which usage window each item shows.",
+      "label": "Window",
       "option": {
         "session": "Session (5-hour)",
         "tightest": "Closest to limit",
@@ -218,6 +245,7 @@
     "code_review": "Code review",
     "other": "Limit",
     "session": "Session",
+    "session_model": "Session · {model}",
     "weekly": "Weekly",
     "weekly_model": "Weekly · {model}"
   }
