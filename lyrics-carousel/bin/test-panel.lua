@@ -1178,13 +1178,32 @@ local brainButton = findByKey("button", "btn-karaoke-brain")
 check(brainButton ~= nil, "the panel has the brain button")
 if brainButton ~= nil then
   eq(brainButton.props.controlSize, "xs", "the brain button is small")
-  eq(brainButton.props.glyphSize, 13, "the brain button glyph is small")
+  eq(brainButton.props.glyphSize, 11, "the brain button glyph is small")
+  eq(brainButton.props.width, 18, "the brain button is narrow")
+  eq(brainButton.props.height, 18, "the brain button is low")
   overrides.karaoke_brain = nil
   settingsModule.refresh()
   commands = {}
   brainButton.props.onClick()
   check(commandContains("karaoke_brain"), "the brain button writes its setting")
   eq(overrides.karaoke_brain, false, "the brain button stores the new state")
+end
+
+-- The row must keep its height when the button appears: a label that wraps
+-- into two lines pushes everything below it down.
+local karaokeRow = findByKey("row", "row-karaoke")
+check(karaokeRow ~= nil, "the panel has the karaoke row")
+if karaokeRow ~= nil then
+  local karaokeLabel = nil
+  for _, child in ipairs(karaokeRow.children or {}) do
+    if child.kind == "label" then
+      karaokeLabel = child
+    end
+  end
+  check(
+    karaokeLabel ~= nil and karaokeLabel.props.maxLines == 1,
+    "the karaoke label stays on one line"
+  )
 end
 
 -- Result ------------------------------------------------------------------

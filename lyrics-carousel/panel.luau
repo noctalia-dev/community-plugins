@@ -860,7 +860,9 @@ render = function()
       local brainOn = boolOf("karaoke_brain")
       local children = {
         ui.glyph({ name = "sun", size = 14, color = "on_surface_variant" }),
-        ui.label({ text = tr("karaoke"), fontSize = 12, color = "on_surface", flexGrow = 1 }),
+        -- maxLines: the label must not wrap when the brain button appears,
+        -- or the row grows and pushes the whole panel down.
+        ui.label({ text = tr("karaoke"), fontSize = 12, color = "on_surface", flexGrow = 1, maxLines = 1 }),
       }
       if karaokeOn then
         table.insert(children, ui.button({
@@ -868,9 +870,12 @@ render = function()
           glyph = "psychology",
           variant = brainOn and "secondary" or "ghost",
           -- Small: a big button here made the row taller and pushed the
-          -- whole panel down.
+          -- whole panel down. The explicit size keeps it below the height
+          -- of the switch, so the row does not grow when it appears.
           controlSize = "xs",
-          glyphSize = 13,
+          glyphSize = 11,
+          width = 18,
+          height = 18,
           tooltip = "Intelligent karaoke (on): per-word glow only when word timing is available. Off: classic progressive karaoke",
           onClick = function()
             setSetting("karaoke_brain", not boolOf("karaoke_brain"))
