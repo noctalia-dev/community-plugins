@@ -20,11 +20,15 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+
+      - name: Validate plugin manifests
+        uses: noctalia-dev/official-plugins/.github/actions/validate-plugins@99a892dc9cb3490634412701c45acd024fe0383b # main
+        with:
+          profile: community
+          root: ${{ github.workspace }}
+
       - name: Install workflow test dependencies
         run: python3 -m pip install -r .github/workflows/scripts/PyGithub-requirement.txt
 
-      - name: Validate plugin manifests
-        run: python3 .github/workflows/scripts/validate-plugins.py
-
-      - name: Test plugin validator
+      - name: Test community workflow scripts
         run: python3 -m unittest discover -s .github/workflows/scripts -p 'test_*.py'

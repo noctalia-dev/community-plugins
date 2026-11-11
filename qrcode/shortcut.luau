@@ -1,6 +1,6 @@
 local function render()
-    shortcut.setLabel("QR Code")
-    shortcut.setIcon("qrcode")
+  shortcut.setLabel("QR Code")
+  shortcut.setIcon("qrcode")
 end
 
 render()

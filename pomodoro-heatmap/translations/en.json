@@ -1,0 +1,32 @@
+{
+  "settings": {
+    "work-minutes": { "label": "Focus length", "description": "Default minutes per focus session. You can also change this from the panel." },
+    "short-break-minutes": { "label": "Short break", "description": "Default minutes per short break." },
+    "long-break-minutes": { "label": "Long break", "description": "Default minutes for the long break at the end of a cycle." },
+    "rounds": { "label": "Rounds before long break", "description": "Focus sessions in one cycle before the long break." },
+    "breaks-enabled": { "label": "Breaks", "description": "Turn off to go straight from one focus session to the next." },
+    "auto-start-breaks": { "label": "Auto-start breaks", "description": "Start the break as soon as a focus session ends." },
+    "auto-start-work": { "label": "Auto-start focus", "description": "Start the next focus session as soon as a break ends." },
+    "daily-goal-minutes": { "label": "Daily goal (minutes)", "description": "Focus minutes per day you aim for. Set 0 to hide the goal." },
+    "log-partial": { "label": "Log interrupted sessions", "description": "Count focus time from sessions you skip or stop, if they lasted one minute or more." },
+    "notify": { "label": "Notifications", "description": "Show a notification when a session or break ends." },
+    "focus-end-sound": { "label": "Sound when focus ends", "description": "Played when a focus session finishes." },
+    "break-end-sound": { "label": "Sound when a break ends", "description": "Played when a break finishes." },
+    "sound-volume": { "label": "Sound volume", "description": "Volume of the end sounds, in percent." },
+    "custom-sound-file": { "label": "Custom sound file", "description": "Path to an audio file, used when a sound is set to Custom file." },
+    "widget": {
+      "show-idle-count": { "label": "Show today's count when idle", "description": "Show how many sessions you finished today while the timer is idle." },
+      "show-progress": { "label": "Show progress line", "description": "Show a thin progress line under the countdown." }
+    }
+  },
+  "sounds": {
+    "soft-chime": "Soft chime",
+    "gentle-bell": "Gentle bell",
+    "wood": "Wood",
+    "system-bell": "System bell",
+    "system-message": "System message",
+    "system-complete": "System complete",
+    "custom": "Custom file",
+    "none": "None"
+  }
+}

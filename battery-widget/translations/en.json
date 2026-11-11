@@ -18,6 +18,10 @@
       "description": "Color applied when connected to AC power.",
       "label": "Charging Color"
     },
+    "click_action": {
+      "description": "Shell command executed when clicking the widget, leaving empty does nothing.",
+      "label": "Click action"
+    },
     "color": {
       "description": "Color role for this widget's icon and label; fixed hex colors are also supported.",
       "label": "Color"

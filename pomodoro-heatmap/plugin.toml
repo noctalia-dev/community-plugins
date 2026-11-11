@@ -1,0 +1,179 @@
+id           = "adam-gassem/pomodoro-heatmap"
+name         = "Pomodoro Heatmap"
+version      = "0.3.0"
+plugin_api   = 43
+author       = "Adam-Gassem"
+license      = "MIT"
+icon         = "brain"
+description  = "Pomodoro timer for the bar with a focus heatmap, streaks and analytics."
+tags         = ["bar", "panel", "service", "productivity", "time", "countdown"]
+dependencies = ["pw-play"]
+
+# ---------------------------------------------------------------- durations
+[[setting]]
+key             = "work-minutes"
+type            = "int"
+label_key       = "settings.work-minutes.label"
+description_key = "settings.work-minutes.description"
+default         = 25
+min             = 1
+max             = 180
+
+[[setting]]
+key             = "short-break-minutes"
+type            = "int"
+label_key       = "settings.short-break-minutes.label"
+description_key = "settings.short-break-minutes.description"
+default         = 5
+min             = 1
+max             = 60
+
+[[setting]]
+key             = "long-break-minutes"
+type            = "int"
+label_key       = "settings.long-break-minutes.label"
+description_key = "settings.long-break-minutes.description"
+default         = 15
+min             = 1
+max             = 120
+
+[[setting]]
+key             = "rounds"
+type            = "int"
+label_key       = "settings.rounds.label"
+description_key = "settings.rounds.description"
+default         = 4
+min             = 1
+max             = 12
+
+# ---------------------------------------------------------------- flow
+[[setting]]
+key             = "breaks-enabled"
+type            = "bool"
+label_key       = "settings.breaks-enabled.label"
+description_key = "settings.breaks-enabled.description"
+default         = true
+
+[[setting]]
+key             = "auto-start-breaks"
+type            = "bool"
+label_key       = "settings.auto-start-breaks.label"
+description_key = "settings.auto-start-breaks.description"
+default         = true
+visible_when    = { key = "breaks-enabled", values = ["true"] }
+
+[[setting]]
+key             = "auto-start-work"
+type            = "bool"
+label_key       = "settings.auto-start-work.label"
+description_key = "settings.auto-start-work.description"
+default         = false
+
+# ---------------------------------------------------------------- goals & logging
+[[setting]]
+key             = "daily-goal-minutes"
+type            = "int"
+label_key       = "settings.daily-goal-minutes.label"
+description_key = "settings.daily-goal-minutes.description"
+default         = 120
+min             = 0
+max             = 960
+step            = 15
+
+[[setting]]
+key             = "log-partial"
+type            = "bool"
+label_key       = "settings.log-partial.label"
+description_key = "settings.log-partial.description"
+default         = true
+
+# ---------------------------------------------------------------- alerts
+[[setting]]
+key             = "notify"
+type            = "bool"
+label_key       = "settings.notify.label"
+description_key = "settings.notify.description"
+default         = true
+
+[[setting]]
+key             = "focus-end-sound"
+type            = "select"
+label_key       = "settings.focus-end-sound.label"
+description_key = "settings.focus-end-sound.description"
+default         = "soft-chime"
+options         = [
+  { value = "soft-chime", label_key = "sounds.soft-chime" },
+  { value = "gentle-bell", label_key = "sounds.gentle-bell" },
+  { value = "wood", label_key = "sounds.wood" },
+  { value = "system-bell", label_key = "sounds.system-bell" },
+  { value = "system-message", label_key = "sounds.system-message" },
+  { value = "system-complete", label_key = "sounds.system-complete" },
+  { value = "custom", label_key = "sounds.custom" },
+  { value = "none", label_key = "sounds.none" },
+]
+
+[[setting]]
+key             = "break-end-sound"
+type            = "select"
+label_key       = "settings.break-end-sound.label"
+description_key = "settings.break-end-sound.description"
+default         = "wood"
+options         = [
+  { value = "soft-chime", label_key = "sounds.soft-chime" },
+  { value = "gentle-bell", label_key = "sounds.gentle-bell" },
+  { value = "wood", label_key = "sounds.wood" },
+  { value = "system-bell", label_key = "sounds.system-bell" },
+  { value = "system-message", label_key = "sounds.system-message" },
+  { value = "system-complete", label_key = "sounds.system-complete" },
+  { value = "custom", label_key = "sounds.custom" },
+  { value = "none", label_key = "sounds.none" },
+]
+
+[[setting]]
+key             = "sound-volume"
+type            = "int"
+label_key       = "settings.sound-volume.label"
+description_key = "settings.sound-volume.description"
+default         = 60
+min             = 0
+max             = 100
+step            = 5
+
+[[setting]]
+key             = "custom-sound-file"
+type            = "string"
+label_key       = "settings.custom-sound-file.label"
+description_key = "settings.custom-sound-file.description"
+default         = ""
+
+# ---------------------------------------------------------------- entries
+[[service]]
+id    = "engine"
+entry = "src/service.luau"
+
+[[widget]]
+id    = "widget"
+entry = "src/widget.luau"
+
+    [[widget.setting]]
+    key             = "show-idle-count"
+    type            = "bool"
+    label_key       = "settings.widget.show-idle-count.label"
+    description_key = "settings.widget.show-idle-count.description"
+    default         = true
+
+    [[widget.setting]]
+    key             = "show-progress"
+    type            = "bool"
+    label_key       = "settings.widget.show-progress.label"
+    description_key = "settings.widget.show-progress.description"
+    default         = true
+
+[[panel]]
+id              = "panel"
+entry           = "src/panel.luau"
+placement       = "attached"
+position        = "auto"
+open_near_click = true
+width           = 432
+height          = 640

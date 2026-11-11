@@ -44,14 +44,14 @@ SECTION = f'[plugin_settings."{PLUGIN_ID}"]'
 
 ALLOWED = {
     "font_family", "font_size", "direction", "marker",
-    "karaoke", "footer", "hints", "header", "spacing",
+    "karaoke", "karaoke_brain", "footer", "hints", "header", "spacing",
     "ghost", "offset_ms", "width", "height", "anchor",
     "custom_x", "custom_y", "accent", "custom_color", "active_scale",
     "visible_above", "visible_below", "glyph",
 }
 
 BOOL_KEYS = {
-    "marker", "karaoke", "footer", "hints", "header", "ghost",
+    "marker", "karaoke", "karaoke_brain", "footer", "hints", "header", "ghost",
 }
 INT_KEYS = {
     "font_size", "spacing", "offset_ms", "width", "height",

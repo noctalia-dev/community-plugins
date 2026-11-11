@@ -17,6 +17,7 @@ local DEFAULTS = {
   direction = "down",
   marker = false,
   karaoke = true,
+  karaoke_brain = true,
   footer = false,
   hints = false,
   header = false,
@@ -38,7 +39,7 @@ local DEFAULTS = {
 }
 
 local BOOL_KEYS = {
-  marker = true, karaoke = true, footer = true,
+  marker = true, karaoke = true, karaoke_brain = true, footer = true,
   hints = true, header = true, ghost = true,
 }
 local INT_KEYS = {

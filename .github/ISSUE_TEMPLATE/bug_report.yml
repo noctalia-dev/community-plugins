@@ -105,6 +105,7 @@ body:
         - eyecare
         - f1
         - file-search
+        - flatpak-bg
         - game-launcher
         - gamer-mode
         - geoip-monitor
@@ -171,6 +172,7 @@ body:
         - media-island
         - media-lyrics
         - media-player-icon
+        - meeting-bar
         - mic-denoise
         - mihomo-control
         - mimir
@@ -223,6 +225,7 @@ body:
         - opnsense
         - opnsense-traffic
         - oppo-pods
+        - overview
         - owntone-control
         - paged-todo
         - palette-creator
@@ -233,12 +236,15 @@ body:
         - phone-operate
         - pixel-buds
         - pixel-shift
+        - plugin-hub
         - podcasts
         - pomodoro
+        - pomodoro-heatmap
         - portctl
         - portforward
         - printers
         - prismlauncher-instances
+        - process-manager
         - process-monitor
         - processes
         - procmon
@@ -266,6 +272,7 @@ body:
         - saved-desktop-widgets
         - screen-capture
         - screen-mirror
+        - screen-time
         - screen-toolkit
         - scroll-indicator
         - settings-to-nix
@@ -339,6 +346,7 @@ body:
         - vrchat-status
         - vscode
         - w-engine
+        - wallpaper-brightness
         - wallpaper-deck
         - wallpaper-switcher
         - wallpaper-widget

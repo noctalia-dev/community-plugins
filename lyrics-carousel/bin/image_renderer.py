@@ -33,6 +33,36 @@ def mmss(seconds):
     return f"{seconds // 60:02d}:{seconds % 60:02d}"
 
 
+def line_has_word_timing(line, text):
+    """True if the line carries usable per-character/word timings.
+
+    Mirrors the lyrics plugin's `lineHasWordTiming`: timings must be present,
+    aligned 1:1 with the rendered text, monotonic and covering time. Without
+    them the line falls back to line-mode (no progressive karaoke fill).
+    """
+    chars = getattr(line, "chars", None)
+    if not isinstance(chars, list) or len(chars) < 2:
+        return False
+    if len(chars) < len(text or ""):
+        return False
+    prev = None
+    for value in chars[: len(text or "")]:
+        try:
+            current = float(value)
+        except (TypeError, ValueError):
+            return False
+        if prev is not None and current < prev:
+            return False
+        prev = current
+    if prev is None:
+        return False
+    try:
+        first = float(chars[0])
+    except (TypeError, ValueError):
+        return False
+    return prev > first
+
+
 class ImageRenderer:
     """Renders the carousel with Pillow and displays it with the kitty protocol.
 
@@ -432,7 +462,7 @@ class ImageRenderer:
             app.track.artist, int(position) if cfg["footer"] else 0,
             accent, cfg["font_family"], cfg["font_size"], cfg["active_scale"],
             cfg["visible_above"], cfg["visible_below"], cfg["direction"],
-            cfg["karaoke"], cfg["marker"], cfg["header"], cfg["footer"],
+            cfg["karaoke"], getattr(app, "karaoke_brain", True), cfg["marker"], cfg["header"], cfg["footer"],
             cfg["hints"], cfg["spacing"], cfg["ghost"],
             round(position * MOTION_FPS),
         ]
@@ -450,6 +480,8 @@ class ImageRenderer:
         background = theme.background
         index, focus, progress = app.scroll_state(position)
         lines = app.lines
+        karaoke_enabled = bool(app.karaoke and app.cfg.get("karaoke"))
+        brain_on = bool(getattr(app, "karaoke_brain", True))
 
         pos_a = self._layout(index, center_y, size, scale)
         pos_b = self._layout(focus, center_y, size, scale)
@@ -523,6 +555,26 @@ class ImageRenderer:
             # already sung ones.
             is_sung = line_index == index
             is_focus = line_index == focus
+
+            text = self.fit_text(
+                line.text, draw.im.size[0] - size * 6, size * factor, family
+            )
+
+            # Karaoke mode:
+            # Brain on (intelligent): progressive per-char glow only for lines with
+            # valid word timings, like the lyrics plugin. Lines without usable
+            # timings fall back to line-mode (highlighted at once, no progressive
+            # fill/glow sweep).
+            # Brain off (classic/"boring" mode): progressive karaoke for all lines
+            # when karaoke glow is enabled.
+            has_word_timing = line_has_word_timing(line, text)
+            line_karaoke = False
+            if karaoke_enabled:
+                if brain_on:
+                    line_karaoke = has_word_timing
+                else:
+                    line_karaoke = True
+
             if is_sung:
                 # The main line that stops being it: from the main color to
                 # the color of the already sung lines.
@@ -533,7 +585,7 @@ class ImageRenderer:
                 # already had to the main color.
                 base_color = self._mix(theme.foreground, background, fade)
                 color = self._lerp(base_color, accent, progress)
-                if app.karaoke and app.cfg["karaoke"]:
+                if line_karaoke:
                     # With karaoke the main line is drawn in two tones: the
                     # sung part in the accent color and the missing part
                     # dimmed. The entering line has to arrive already at
@@ -551,22 +603,18 @@ class ImageRenderer:
             # Apply the transition alpha to the color (RGBA)
             color = color + (int(fade * 255),)
 
-            text = self.fit_text(
-                line.text, draw.im.size[0] - size * 6, size * factor, family
-            )
             marker = ""
             if app.cfg["marker"] and is_sung:
                 marker = "> "
             if marker:
                 self._draw_marker(draw, text, y, line_size, marker, family, accent)
-            if is_sung and app.karaoke and app.cfg["karaoke"]:
+
+            # Progressive per-char karaoke for the active sung line.
+            if is_sung and line_karaoke:
                 end = line.start + (line.duration or 4.0)
                 next_start = app.next_timed_start(line_index)
                 if next_start is not None and next_start > line.start:
                     end = next_start if not line.duration else min(end, next_start)
-                # The same calculation as text mode: if the adapter gives
-                # per-character timings the fill respects them, and if not
-                # it spreads the line duration across the characters.
                 amount = app.karaoke_amount(line, text, position, end)
                 sung_text = accent
                 pending_text = self._karaoke_pending(accent, background)
@@ -588,6 +636,12 @@ class ImageRenderer:
                     family,
                     int(fade * 255),
                 )
+            elif is_sung and karaoke_enabled and brain_on and not has_word_timing:
+                # Line-mode (no usable word timings): highlight the whole active
+                # line at once, with no progressive glow/fill sweep.
+                solid = self._lerp(accent, self._mix(theme.past, background, fade), progress)
+                solid = solid + (int(fade * 255),)
+                self._draw_centered(draw, text, y, line_size, solid, family)
             else:
                 self._draw_centered(draw, text, y, line_size, color, family)
 

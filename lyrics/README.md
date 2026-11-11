@@ -133,11 +133,12 @@ noctalia msg plugins enable h465855hgg/lyrics
 noctalia msg config-reload
 ```
 
-Run the Python tests from this directory, and the repository validator from the
-community-plugins repository root:
+Run the Python tests from this directory:
 
 ```sh
 python3 test_lyric_sources.py
 python3 test_music_sources.py
-python3 .github/workflows/scripts/validate-plugins.py
 ```
+
+For repository validation, follow the [shared validator setup](../README.md#manifest-validation) in the
+community-plugins README and run its command from the repository root with `--profile community`.
