@@ -5751,3 +5751,29 @@ icon = "list-details"
 description = "Find a running app and end it, or force it to end when it does not stop. Grouped by app, with CPU and memory."
 plugin_api = 43
 tags = ["bar", "system", "utility"]
+
+[[plugin]]
+id = "omerfuyar/overview"
+name = "Overview"
+version = "1.5.2"
+updated_at = 1794404457
+added_at = 1794404457
+author = "omerfuyar"
+license = "MIT"
+icon = "layout-grid"
+description = "See every workspace and its windows at once. Click a window to go to it, drag it to move it."
+plugin_api = 43
+tags = ["bar", "hyprland", "utility"]
+
+[[plugin]]
+id = "omerfuyar/plugin-hub"
+name = "Plugin Hub"
+version = "1.2.3"
+updated_at = 1794404478
+added_at = 1794404478
+author = "omerfuyar"
+license = "MIT"
+icon = "apps"
+description = "Every plugin in one panel: enable it, change its settings, open its panels, run its commands and give any of them a key."
+plugin_api = 43
+tags = ["hyprland", "launcher", "shortcut", "utility"]
