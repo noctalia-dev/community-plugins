@@ -36,6 +36,14 @@ The `calendar` service supplies events to every entry and checks reminders every
 
 Full-screen reminders are enabled by default. They are independent of native notification reminders: **Do Not Disturb and per-event notification settings do not suppress this layer**. Disable **Full-screen meeting reminders** if you only want native notifications. Close the overlay with its buttons or the IPC commands below; Noctalia 5.4.0 does not expose an Escape callback for layers.
 
+## Screenshots
+
+These screenshots use fictional calendar events.
+
+![Bar and agenda](screenshots/agenda.webp)
+
+![Full-screen meeting reminder](screenshots/reminder.webp)
+
 ## Settings
 
 | Setting | Type | Default | Description |
