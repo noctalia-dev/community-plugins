@@ -48,12 +48,28 @@ function M.dayEnd(now)
 	return high * 1000
 end
 
-function M.events(now)
+function M.events(now, calendar, deduplicate)
 	local snapshot = noctalia.state.get("snapshot")
 	if not snapshot or not snapshot.ready then
 		return nil
 	end
 	local opts = M.options()
+	if calendar and calendar ~= "" then
+		-- Apply the panel selection before collapsing cross-calendar duplicates.
+		if #opts.calendars > 0 then
+			local allowed = false
+			for _, name in ipairs(opts.calendars) do
+				allowed = allowed or name == calendar
+			end
+			if not allowed then
+				return {}
+			end
+		end
+		opts.calendars = { calendar }
+	end
+	if deduplicate ~= nil then
+		opts.dedupe = deduplicate
+	end
 	local limit = M.dayEnd(now)
 	for _ = 2, opts.days do
 		limit = M.dayEnd(limit + 1000)

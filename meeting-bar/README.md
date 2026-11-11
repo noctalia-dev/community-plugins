@@ -32,7 +32,7 @@ Open the `agenda` panel from a key binding or terminal:
 noctalia msg panel-toggle yuta/meeting-bar:agenda
 ```
 
-The `calendar` service supplies events to every entry and checks reminders every 15 seconds. The `reminder` layer appears on the focused output before a recognized online meeting. Choose **Join meeting**, **Snooze**, or **Dismiss**. Joining or dismissing suppresses that occurrence, including after a service restart. Snoozing postpones only that meeting; a snoozed meeting can reappear until it ends.
+The `calendar` service supplies events to every entry and checks reminders every 15 seconds. The `reminder` layer appears on the focused output before a recognized online meeting. Choose **Join meeting**, **Snooze**, or **Dismiss**. Joining or dismissing suppresses that occurrence, including after a service restart. Snoozing postpones only that meeting; a snoozed meeting can reappear until it ends. Meetings that become due while another reminder is open are queued, including across service restarts, and shown after the current reminder closes. Ended or removed meetings are discarded.
 
 Full-screen reminders are enabled by default. They are independent of native notification reminders: **Do Not Disturb and per-event notification settings do not suppress this layer**. Disable **Full-screen meeting reminders** if you only want native notifications. Close the overlay with its buttons or the IPC commands below; Noctalia 5.4.0 does not expose an Escape callback for layers.
 
@@ -89,10 +89,10 @@ noctalia msg plugin yuta/meeting-bar:calendar all snooze
 ## Notes
 
 - There are no direct network requests. Opening a meeting or creation URL launches `xdg-open` or your configured executable. Opening the native calendar launches `noctalia msg panel-open control-center calendar`.
-- Favorites (titles and URLs), already-fired or dismissed reminder occurrences, and snooze deadlines are stored in `bookmarks.json`, `reminders.json`, and `snoozed.json` under `noctalia.pluginDataDir()`. Meeting URLs can contain access tokens; these files stay in your local user state directory. The plugin does not save credentials or the whole agenda.
+- Favorites (titles and URLs), already-fired or dismissed reminder occurrences, snooze deadlines, and queued reminder occurrences are stored in `bookmarks.json`, `reminders.json`, `snoozed.json`, and `pending.json` under `noctalia.pluginDataDir()`. Meeting URLs can contain access tokens; these files stay in your local user state directory. The plugin does not save credentials or the whole agenda.
 - The calendar API does not expose RSVP status, participants, descriptions, stable calendar IDs, or event-edit URLs. Declined meetings cannot be filtered by RSVP, and same-named calendars cannot be distinguished across accounts.
 - Recognized meeting hosts include Google Meet, Zoom, Teams, Webex, Jitsi, Whereby, GoTo, Chime, RingCentral, Discord, Slack, and Zoho. Other HTTP(S) links can be opened from the agenda, but are excluded from automatic meeting selection and reminders.
-- A newly discovered event more than one minute past its start will not trigger a late reminder. Snoozed events remain eligible until they end. Removed or ended events close an active reminder on the next check.
+- A newly discovered event more than one minute past its start will not trigger a late reminder. Snoozed and already-queued events remain eligible until they end. Removed or ended events close an active reminder on the next check, as do events changed to all-day or no longer containing a recognized meeting link.
 - A sync failure can leave cached events visible. On Niri, launching a browser does not necessarily focus its window.
 - Tested on Noctalia 5.4.0 with Niri. This plugin does not install compositor key bindings.
 

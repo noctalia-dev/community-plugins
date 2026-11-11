@@ -90,9 +90,9 @@ render = function()
 		return
 	end
 	local now = noctalia.nowMs()
-	local events = common.events(now)
+	local calendarEvents = common.events(now, nil, false)
 	local names, known = { "All calendars" }, {}
-	for _, event in ipairs(events or {}) do
+	for _, event in ipairs(calendarEvents or {}) do
 		local name = event.calendarName or ""
 		if name ~= "" and not known[name] then
 			names[#names + 1] = name
@@ -120,6 +120,7 @@ render = function()
 	if selectedIndex == 0 then
 		selectedCalendar = ""
 	end
+	local events = common.events(now, selectedCalendar)
 	local rows, day, count = {}, nil, 0
 	local source = tab == "favorites" and common.bookmarks() or (events or {})
 	for _, event in ipairs(source) do
@@ -128,10 +129,7 @@ render = function()
 			.. model.clean(event.calendarName)
 			.. " "
 			.. model.clean(event.location)
-		if
-			(query == "" or text:lower():find(query:lower(), 1, true))
-			and (tab == "favorites" or selectedCalendar == "" or event.calendarName == selectedCalendar)
-		then
+		if query == "" or text:lower():find(query:lower(), 1, true) then
 			if tab ~= "favorites" then
 				local eventDay = common.dayKey(math.max(event.startMs, now))
 				if eventDay ~= day then

@@ -25,6 +25,8 @@ local config = {
 }
 local state, watchers, files, serialized, processes = {}, {}, {}, {}, {}
 local visible, tree, bar, raw = false, nil, {}, nil
+local failWrites, processAccepted, processExitCode = false, true, 0
+local expectedErrors, errors = false, {}
 local function clone(value)
 	if type(value) ~= "table" then
 		return value
@@ -35,6 +37,7 @@ local function clone(value)
 	end
 	return result
 end
+local defaults = clone(config)
 local function set(key, value)
 	state[key] = clone(value)
 	for _, fn in ipairs(watchers[key] or {}) do
@@ -65,6 +68,9 @@ local runtime = {
 		return files[path]
 	end,
 	writeFile = function(path, value)
+		if failWrites then
+			return false
+		end
 		files[path] = value
 		return true
 	end,
@@ -72,11 +78,15 @@ local runtime = {
 	notify = function() end,
 	notifyError = function(_, error)
 		error = tostring(error)
-		assert(false, error)
+		errors[#errors + 1] = error
+		assert(expectedErrors, error)
 	end,
-	runAsync = function(argv)
+	runAsync = function(argv, callback)
 		processes[#processes + 1] = argv
-		return true
+		if processAccepted and callback then
+			callback({ exitCode = processExitCode })
+		end
+		return processAccepted
 	end,
 	copyToClipboard = function(value)
 		state.clipboard = value
@@ -329,4 +339,171 @@ check(
 	end),
 	"Full-screen join control"
 )
-print("Meeting Bar: filtering, recurrence, DST, URLs, actions, persistence, snooze and UI callbacks passed")
+-- Each regression starts with a fresh host and service, without inherited timers or files.
+local function reset(events)
+	config = clone(defaults)
+	state, watchers, files, serialized, processes = {}, {}, {}, {}, {}
+	visible, tree, bar, raw = false, nil, {}, events
+	failWrites, processAccepted, processExitCode = false, true, 0
+	expectedErrors, errors = false, {}
+	now = initialNow
+	return loadEntry("service")
+end
+local function saved(name)
+	local value = files["/state/" .. name .. ".json"]
+	return value and runtime.json.decode(value) or {}
+end
+
+-- A visible reminder must not make another already-due meeting silently expire.
+for _, restart in ipairs({ false, true }) do
+	service = reset({ event("first", 1, 60), event("queued", 2, 32) })
+	service.update()
+	check(state.reminder.id == "first", "First reminder displayed")
+	now = initialNow + 4 * 60000
+	service.update()
+	set("reminderAction", { kind = "dismiss" })
+	if restart then
+		state, watchers = {}, {}
+		visible = false
+		service = loadEntry("service")
+	end
+	service.update()
+	check(
+		visible and state.reminder.id == "queued",
+		restart and "Queued meeting survives service restart"
+			or "Queued meeting survives its one-minute start grace period"
+	)
+	set("reminderAction", { kind = "dismiss" })
+	service.update()
+	check(not visible, "Queued meeting is still dismissed only once")
+end
+
+-- Queued meetings respect a shorter lead time selected while another reminder is open.
+service = reset({ event("first", 1, 60), event("later", 5, 35) })
+service.update()
+check(state.reminder.id == "first", "First reminder displayed before lead time change")
+config.reminder_minutes = 1
+set("reminderAction", { kind = "dismiss" })
+service.update()
+check(not visible and state.reminder == nil, "Queued meeting waits for the shortened lead time")
+now = initialNow + 4 * 60000
+service.update()
+check(visible and state.reminder.id == "later", "Queued meeting appears at the new lead time")
+
+-- Pending reminders must follow cancellation and expiration, not a stale event copy.
+for _, removed in ipairs({ false, true }) do
+	service = reset({ event("first", 1, 60), event("queued", 2, removed and 32 or 3) })
+	service.update()
+	now = initialNow + 4 * 60000
+	if removed then
+		raw = { raw[1] }
+	end
+	service.update()
+	set("reminderAction", { kind = "dismiss" })
+	service.update()
+	check(
+		not visible and state.reminder == nil,
+		removed and "Cancelled queue entry removed" or "Ended queue entry removed"
+	)
+end
+service = reset({ event("discovered-late", -2, 30) })
+service.update()
+check(not visible, "Newly discovered late meetings remain suppressed")
+
+for _, edit in ipairs({ "url", "allDay" }) do
+	service = reset({ event("edited", 1, 30) })
+	service.update()
+	check(visible, "Reminder visible before eligibility edit")
+	raw[1][edit] = edit == "url" and "" or true
+	service.update()
+	check(not visible and state.reminder == nil, "Removing meeting eligibility closes active reminder: " .. edit)
+end
+service = reset({ event("ended-short", -0.75, -0.25) })
+config.show_past = true
+service.update()
+check(not visible, "Past agenda entries never produce ended-meeting reminders")
+
+-- Expired and deleted snoozes are removed from disk even with no new reminder to write state.
+for _, removed in ipairs({ false, true }) do
+	service = reset({ event("snoozed", 1, 2) })
+	config.snooze_minutes = 30
+	service.update()
+	set("reminderAction", { kind = "snooze" })
+	check(next(saved("snoozed")) ~= nil, "Snooze initially persisted")
+	if removed then
+		raw = {}
+	else
+		now = initialNow + 3 * 60000
+	end
+	service.update()
+	check(
+		next(saved("snoozed")) == nil,
+		removed and "Deleted snooze persisted as removed" or "Expired snooze persisted as removed"
+	)
+end
+service = reset({ event("temporarily-unavailable", 1, 30) })
+service.update()
+set("reminderAction", { kind = "snooze" })
+local syncedEvents = raw
+raw = nil
+service.update()
+check(next(saved("snoozed")) ~= nil, "Unknown snapshot must not discard snooze")
+raw = syncedEvents
+now = initialNow + 2 * 60000
+service.update()
+check(visible and state.reminder.id == "temporarily-unavailable", "Snooze survives a temporary missing snapshot")
+
+-- Calendar choices and filtering must precede cross-calendar duplicate removal.
+for _, extraEvent in ipairs({ false, true }) do
+	service = reset({
+		event("work-copy", 10, 40, { title = "Shared meeting" }),
+		event("personal-copy", 10, 40, { title = "Shared meeting", calendarName = "Personal" }),
+	})
+	if extraEvent then
+		raw[#raw + 1] = event("personal-only", 50, 80, { calendarName = "Personal" })
+	end
+	service.update()
+	panel = loadEntry("panel")
+	panel.onOpen()
+	local selector = find(tree, function(node)
+		return node.props.key == "calendar-filter"
+	end)
+	local personalIndex
+	for i, name in ipairs(selector.props.options) do
+		if name == "Personal" then
+			personalIndex = i - 1
+		end
+	end
+	check(personalIndex ~= nil, "Calendar represented only by duplicate remains selectable")
+	selector.props.onChange(tostring(personalIndex))
+	check(
+		find(tree, function(node)
+			return node.props.text == "Shared meeting"
+		end),
+		"Selecting Personal preserves its duplicate meeting"
+	)
+	check(
+		find(tree, function(node)
+			return type(node.props.text) == "string" and node.props.text:find("Personal", 1, true)
+		end),
+		"Selected calendar's event is rendered"
+	)
+end
+
+-- Host failures should be reported and failed favorites must not appear saved.
+service = reset({})
+expectedErrors, failWrites = true, true
+common.toggleBookmark(event("unsaved", 10, 40))
+check(
+	#common.bookmarks() == 0 and files["/state/bookmarks.json"] == nil,
+	"Failed favorite write preserves previous state"
+)
+check(#errors == 1 and errors[1]:find("Could not save", 1, true), "Write failure reported")
+failWrites = false
+processAccepted = false
+check(not common.openLink("https://meet.google.com/valid"), "Opener rejection returned to caller")
+check(#errors == 2 and errors[2]:find("Could not start", 1, true), "Opener rejection reported")
+processAccepted, processExitCode = true, 1
+check(common.openLink("https://meet.google.com/valid"), "Started process remains accepted despite failed completion")
+check(#errors == 3 and errors[3]:find("Could not open", 1, true), "Nonzero opener exit reported")
+print("Meeting Bar: calendar filtering, reminder lifecycle, persistence, DST, UI and host failures passed")
