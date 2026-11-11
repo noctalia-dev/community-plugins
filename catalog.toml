@@ -5795,3 +5795,16 @@ icon = "apps"
 description = "Every plugin in one panel: enable it, change its settings, open its panels, run its commands and give any of them a key."
 plugin_api = 43
 tags = ["hyprland", "launcher", "shortcut", "utility"]
+
+[[plugin]]
+id = "naijnus/flatpak-bg"
+name = "Flatpak Background Apps"
+version = "1.1.0"
+updated_at = 1794404895
+added_at = 1794404895
+author = "Naijnus"
+license = "MIT"
+icon = "box-multiple"
+description = "See and stop Flatpak apps that keep running in the background without a window."
+plugin_api = 43
+tags = ["bar", "panel", "service", "indicator", "system", "utility", "niri"]
