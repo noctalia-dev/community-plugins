@@ -266,6 +266,7 @@ body:
         - saved-desktop-widgets
         - screen-capture
         - screen-mirror
+        - screen-time
         - screen-toolkit
         - scroll-indicator
         - settings-to-nix
@@ -339,6 +340,7 @@ body:
         - vrchat-status
         - vscode
         - w-engine
+        - wallpaper-brightness
         - wallpaper-deck
         - wallpaper-switcher
         - wallpaper-widget
