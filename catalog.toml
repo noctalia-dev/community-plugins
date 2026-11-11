@@ -1263,16 +1263,22 @@ rev = "4d93677e6d7f080cffd86cb1cab969c1070d20f9"
 [[plugin]]
 id = "yocraft/qrcode"
 name = "QR Code Encoder"
-version = "1.1.0"
-updated_at = 1787488112
+version = "1.2.0"
+updated_at = 1794404666
 added_at = 1785759441
 author = "yocraft"
 license = "MIT"
 icon = "qrcode"
 description = "Transform any text or URL in a QR code"
 deprecated = false
-plugin_api = 15
+plugin_api = 26
 tags = ["panel", "fun", "network", "privacy", "productivity", "utility"]
+
+[[plugin.release]]
+plugin_api = 15
+version = "1.1.0"
+updated_at = 1787488112
+rev = "b78a83b2b9923be34f24cbc20a9a5531ebdf37c5"
 
 [[plugin]]
 id = "alexander/screen-toolkit"
@@ -5676,8 +5682,8 @@ tags = ["bar", "animation", "system", "hardware", "fun"]
 [[plugin]]
 id = "gitgxldf1sh/proton-wireguard"
 name = "Proton VPN + WireGuard"
-version = "0.1.0"
-updated_at = 1794146174
+version = "0.2.0"
+updated_at = 1794404702
 added_at = 1794146174
 author = "gitgxldf1sh"
 license = "MIT"
