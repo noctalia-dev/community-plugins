@@ -223,6 +223,7 @@ body:
         - opnsense
         - opnsense-traffic
         - oppo-pods
+        - overview
         - owntone-control
         - paged-todo
         - palette-creator
@@ -233,12 +234,14 @@ body:
         - phone-operate
         - pixel-buds
         - pixel-shift
+        - plugin-hub
         - podcasts
         - pomodoro
         - portctl
         - portforward
         - printers
         - prismlauncher-instances
+        - process-manager
         - process-monitor
         - processes
         - procmon
