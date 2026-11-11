@@ -121,7 +121,7 @@ ROOT_STRING_FIELDS = (
     "description",
 )
 ROOT_ARRAY_FIELDS = ("dependencies", "tags")
-ENTRY_TYPES = ("widget", "panel", "shortcut", "desktop_widget", "launcher_provider", "service")
+ENTRY_TYPES = ("widget", "panel", "shortcut", "desktop_widget", "launcher_provider", "service", "layer")
 SETTING_OWNER_TYPES = ("widget", "panel", "desktop_widget", "launcher_provider")
 SETTING_TYPES = {
     "string",
@@ -188,6 +188,8 @@ ENTRY_FIELDS = {
     },
     "desktop_widget": BASE_ENTRY_FIELDS | {"setting"},
     "service": BASE_ENTRY_FIELDS,
+    "layer": BASE_ENTRY_FIELDS
+    | {"layer", "anchors", "width", "height", "margins", "exclusive_zone", "keyboard", "click_through", "output"},
     "shortcut": BASE_ENTRY_FIELDS,
     "launcher_provider": BASE_ENTRY_FIELDS
     | {"prefix", "glyph", "include_in_global_search", "debounce_ms", "setting", "category"},
@@ -1011,6 +1013,57 @@ class Validator:
                     manifest_path, context, f"actions.{gesture}: exec needs a command line"
                 )
 
+    def validate_layer_fields(
+        self, manifest_path: Path, context: str, entry: dict[str, Any], plugin_api: Any
+    ) -> None:
+        if not is_int(plugin_api) or plugin_api < 36:
+            self.add_context_error(manifest_path, context, "layer requires plugin_api >= 36")
+
+        for field, allowed in (
+            ("layer", {"background", "bottom", "top", "overlay"}),
+            ("keyboard", {"none", "on_demand", "exclusive"}),
+        ):
+            if field in entry and (
+                not isinstance(entry[field], str) or entry[field] not in allowed
+            ):
+                self.add_context_error(
+                    manifest_path, context, f"{field} must be one of: {', '.join(sorted(allowed))}"
+                )
+
+        if "anchors" in entry:
+            self.validate_string_list(manifest_path, context, "anchors", entry["anchors"], allow_empty=True)
+            if isinstance(entry["anchors"], list):
+                for anchor in entry["anchors"]:
+                    if isinstance(anchor, str) and anchor not in {"top", "right", "bottom", "left"}:
+                        self.add_context_error(manifest_path, context, f"unknown anchor '{anchor}'")
+
+        for field in ("width", "height"):
+            if field in entry:
+                value = entry[field]
+                if not is_number(value) or not math.isfinite(value) or not 0 <= value <= 65536:
+                    self.add_context_error(manifest_path, context, f"{field} must be a number from 0 to 65536")
+
+        if "exclusive_zone" in entry:
+            value = entry["exclusive_zone"]
+            if value != "auto" and (not is_int(value) or value < -1):
+                self.add_context_error(manifest_path, context, 'exclusive_zone must be an integer >= -1 or "auto"')
+
+        if "margins" in entry:
+            margins = entry["margins"]
+            if not isinstance(margins, dict):
+                self.add_context_error(manifest_path, context, "margins must be a table")
+            else:
+                for side, value in margins.items():
+                    if side not in {"top", "right", "bottom", "left"}:
+                        self.add_context_error(manifest_path, context, f"unknown margin '{side}'")
+                    if not is_number(value) or not math.isfinite(value):
+                        self.add_context_error(manifest_path, context, f"margins.{side} must be a finite number")
+
+        if "click_through" in entry and not isinstance(entry["click_through"], bool):
+            self.add_context_error(manifest_path, context, "click_through must be a bool")
+        if "output" in entry and not is_non_empty_string(entry["output"]):
+            self.add_context_error(manifest_path, context, "output must be a non-empty string")
+
     def validate_entries(
         self,
         manifest_path: Path,
@@ -1054,6 +1107,9 @@ class Validator:
 
                 if entry_type == "launcher_provider":
                     self.validate_launcher_fields(manifest_path, context, entry)
+
+                if entry_type == "layer":
+                    self.validate_layer_fields(manifest_path, context, entry, manifest.get("plugin_api"))
 
                 if entry_type == "panel":
                     self.validate_panel_fields(manifest_path, context, entry, manifest.get("plugin_api"))

@@ -831,5 +831,62 @@ class GitObjectTests(unittest.TestCase):
         self.assertEqual(exit_code, 1)
 
 
+
+class LayerEntryTests(unittest.TestCase):
+    def validate_layer(self, fields: dict, api: object = 36) -> list[str]:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plugin = root / "example"
+            plugin.mkdir()
+            (plugin / "layer.luau").write_text("", encoding="utf-8")
+            validator = validate_plugins.Validator(root)
+            validator.validate_entries(plugin / "plugin.toml", {
+                "plugin_api": api,
+                "layer": [{"id": "overlay", "entry": "layer.luau", **fields}],
+            }, {})
+            return validator.errors
+
+    def test_registers_layer_as_root_entry(self) -> None:
+        self.assertIn("layer", validate_plugins.ROOT_FIELDS)
+        self.assertEqual(self.validate_layer({}), [])
+
+    def test_accepts_fullscreen_overlay(self) -> None:
+        self.assertEqual(self.validate_layer({
+            "layer": "overlay", "anchors": ["top", "bottom", "left", "right"],
+            "exclusive_zone": -1, "keyboard": "exclusive", "output": "focused",
+        }, 37), [])
+
+    def test_requires_api_36(self) -> None:
+        for api in (35, None, True, "36"):
+            with self.subTest(api=api):
+                self.assertTrue(any("requires plugin_api >= 36" in e for e in self.validate_layer({}, api)))
+
+    def test_rejects_invalid_layer_fields(self) -> None:
+        cases = {
+            "layer": ["follow", [], 1], "keyboard": ["automatic", False],
+            "anchors": ["top", ["top", "top"], ["center"], [{}]],
+            "width": [-1, 65537, True, float("inf")], "height": [float("nan")],
+            "margins": [[], {"center": 0}, {"left": float("inf")}],
+            "exclusive_zone": [-2, True, "invalid"],
+            "click_through": ["false"], "output": ["", None],
+            "setting": [[]],
+        }
+        for field, values in cases.items():
+            for value in values:
+                with self.subTest(field=field, value=value):
+                    self.assertNotEqual(self.validate_layer({field: value}), [])
+
+    def test_accepts_supported_layer_options(self) -> None:
+        for layer in ("background", "bottom", "top", "overlay"):
+            for keyboard in ("none", "on_demand", "exclusive"):
+                with self.subTest(layer=layer, keyboard=keyboard):
+                    self.assertEqual(self.validate_layer({
+                        "layer": layer, "keyboard": keyboard, "anchors": [],
+                        "width": 0, "height": 65536, "exclusive_zone": "auto",
+                        "margins": {"left": -10, "right": 10},
+                        "click_through": True, "output": "DP-1",
+                    }), [])
+
+
 if __name__ == "__main__":
     unittest.main()
