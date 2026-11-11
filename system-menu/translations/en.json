@@ -2,19 +2,19 @@
   "settings": {
     "terminal": {
       "label": "Terminal executable",
-      "description": "Terminal of your choice, e.g. kitty, foot, alacritty or an absolute executable path. Do not include arguments here."
+      "description": "Executable name or absolute path, without arguments."
     },
     "terminal_args": {
       "label": "Terminal arguments",
-      "description": "Optional arguments, one list item per argument. Used for Terminal, Packages and Task Manager. No shell expansion."
+      "description": "Extra terminal options, one per item. No shell expansion."
     },
     "terminal_exec_args": {
       "label": "Run-program arguments",
-      "description": "Arguments before the program for Packages and Task Manager: -e for Kitty/foot/Alacritty, -- for GNOME Terminal, or an empty list if none are needed."
+      "description": "Before Packages/btop: -e for Kitty/foot/Alacritty, -- for GNOME Terminal; empty if not needed."
     },
     "aur_helper": {
       "label": "AUR helper executable",
-      "description": "Your choice of helper: paru, yay or an executable path. Must support -S --needed --aur, -Ssa --color never and -Syu. No arguments or shell aliases."
+      "description": "paru, yay or a compatible executable path, without arguments."
     }
   }
 }

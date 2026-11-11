@@ -1,6 +1,6 @@
 id = "ajsem1337/system-menu"
 name = "System Menu"
-version = "1.2.0"
+version = "1.2.1"
 plugin_api = 43
 author = "ajsem1337"
 license = "MIT"
@@ -17,11 +17,19 @@ description_key = "settings.terminal.description"
 default = "kitty"
 
 [[setting]]
+key = "aur_helper"
+type = "string"
+label_key = "settings.aur_helper.label"
+description_key = "settings.aur_helper.description"
+default = "paru"
+
+[[setting]]
 key = "terminal_args"
 type = "string_list"
 label_key = "settings.terminal_args.label"
 description_key = "settings.terminal_args.description"
 default = []
+advanced = true
 
 [[setting]]
 key = "terminal_exec_args"
@@ -29,13 +37,7 @@ type = "string_list"
 label_key = "settings.terminal_exec_args.label"
 description_key = "settings.terminal_exec_args.description"
 default = ["-e"]
-
-[[setting]]
-key = "aur_helper"
-type = "string"
-label_key = "settings.aur_helper.label"
-description_key = "settings.aur_helper.description"
-default = "paru"
+advanced = true
 
 [[widget]]
 id = "button"

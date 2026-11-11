@@ -33,9 +33,12 @@ Open **Settings → Plugins → System Menu**.
 | Setting | Default | Meaning |
 | --- | --- | --- |
 | Terminal executable | `kitty` | Executable name/path, without arguments |
-| Terminal arguments | Empty | One list item per option |
-| Run-program arguments | `-e` | Before Packages/btop; use `--` for GNOME Terminal |
 | AUR helper executable | `paru` | Compatible executable name/path |
+| Terminal arguments (advanced) | Empty | One list item per option |
+| Run-program arguments (advanced) | `-e` | Before Packages/btop; use `--` for GNOME Terminal |
+
+Enable **Show advanced** in Noctalia settings to edit the argument lists.
+Existing argument values are preserved.
 
 Arguments are passed directly: no aliases, shell quotes, `~` or variable expansion.
 The helper must support `-S --needed --aur -- PACKAGE`, `-Ssa --color never -- QUERY`
@@ -74,6 +77,15 @@ metadata. Installed fields come from `pacman -Qi`; AUR statistics use current RP
 data. Uninstalled packages never show invented build/install data.
 Votes are community statistics, not a security rating. Installed-source fallback
 uses local repositories then exact-name AUR metadata, not proven provenance.
+
+### VirusTotal API key
+
+Open **Packages → VirusTotal**, enter a file path or SHA-256, then answer **y** to
+**Add a VT API key for results in this terminal?** Paste your own
+[VirusTotal API key](https://www.virustotal.com/gui/my-apikey) into the hidden prompt.
+It is saved locally in `~/.config/package-menu/virustotal.key` with permissions
+`0600`, not in Noctalia settings. Later lookups reuse it; without a key you can
+open the report in your browser. `VT_API_KEY`, if set, takes precedence.
 
 ## Notes
 
