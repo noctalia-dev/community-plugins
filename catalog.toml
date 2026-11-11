@@ -5808,3 +5808,16 @@ icon = "box-multiple"
 description = "See and stop Flatpak apps that keep running in the background without a window."
 plugin_api = 43
 tags = ["bar", "panel", "service", "indicator", "system", "utility", "niri"]
+
+[[plugin]]
+id = "yuta/meeting-bar"
+name = "Meeting Bar"
+version = "0.1.4"
+updated_at = 1794406805
+added_at = 1794406805
+author = "yuta"
+license = "MIT"
+icon = "calendar-event"
+description = "Your agenda, meeting links and full-screen reminders in the bar."
+plugin_api = 37
+tags = ["bar", "panel", "service", "productivity", "countdown"]
