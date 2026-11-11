@@ -2615,8 +2615,8 @@ rev = "c1e115ff7ea0cc0fbfee3a1161409bde004f6374"
 [[plugin]]
 id = "tranzem/media-lyrics"
 name = "Media Lyrics"
-version = "0.9.9"
-updated_at = 1792983494
+version = "1.0.1"
+updated_at = 1794404251
 added_at = 1788381228
 author = "tranzem"
 license = "MIT"
