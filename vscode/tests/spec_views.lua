@@ -51,7 +51,8 @@ local function handlers()
   calls = {}
   local h = {}
   for _, name in ipairs({ "open", "openPath", "clone", "pickFolder", "cancelClone", "openExisting",
-    "dismiss", "loadMore", "setInput", "menu", "toggleActions", "action", "close", "unhide", "openSettings" }) do
+    "dismiss", "loadMore", "setInput", "menu", "toggleActions", "action", "close", "unhide", "openSettings",
+    "setMode", "setQuery" }) do
     h[name] = function(...) calls[#calls + 1] = { name, ... } end
   end
   return h
@@ -210,12 +211,10 @@ eq("views: menu button tooltip", menuBtn.props.tooltip, "panel.actions")
 
 -- ── views: git url swaps button to clone ─────────────────────────────────────
 
-t = build(snap(), uiState({ input = "/home/user/projects/demo-1" }))
-eq("views: path text shows Open", findKey(t, "btn.go").props.text, "panel.open")
-findKey(t, "btn.go").props.onClick()
-eq("views: Open sends open_path", calls[1] and calls[1][1], "openPath")
+t = build(snap(), uiState({ mode = "open", input = "/home/user/projects/demo-1" }))
+check("views: a typed path has no button (Enter opens it)", findKey(t, "btn.go") == nil)
 local url = "https://example.com/acme/demo-api.git"
-t = build(snap(), uiState({ input = url }))
+t = build(snap(), uiState({ mode = "open", input = url }))
 eq("views: git url swaps button to clone", findKey(t, "btn.go").props.text, "panel.clone")
 check("views: clone shows the target folder", findText(t, "clone.dest{dest=~/Projects/demo-api}") ~= nil)
 local change = findKey(t, "btn.clone_settings")
@@ -234,23 +233,28 @@ input.props.onSubmit("  ~/projects/demo-1  ")
 eq("views: Enter on a path opens", calls[3] and calls[3][1], "openPath")
 input.props.onSubmit("   ")
 eq("views: Enter on blank does nothing", calls[4], nil)
-t = build(snap({ hasGit = false }), uiState({ input = url }))
+t = build(snap({ hasGit = false }), uiState({ mode = "open", input = url }))
 check("views: no git hides the clone button", findKey(t, "btn.go") == nil)
 check("views: no git shows clone.no_git", findText(t, "clone.no_git") ~= nil)
 input = collect(t, function(n) return n.type == "input" end)[1]
 input.props.onSubmit(url)
 eq("views: Enter on a git url without git does nothing", calls[1], nil)
-t = build(snap({ pathError = "path.missing" }), uiState({ input = "/nope" }))
+t = build(snap({ pathError = "path.missing" }), uiState({ mode = "open", input = "/nope" }))
 check("views: pathError shows under the box", findText(t, "path.missing") ~= nil)
-eq("views: input key carries the seq", collect(build(snap(), uiState({ inputSeq = 4 })), function(n) return n.type == "input" end)[1].props.key, "input.path#4")
+t = build(snap({ pathError = "path.flatpak_hidden" }))
+check("views: pathError shows with the box closed too", findText(t, "path.flatpak_hidden") ~= nil)
+eq("views: input key carries the seq", collect(build(snap(), uiState({ mode = "open", inputSeq = 4 })), function(n) return n.type == "input" end)[1].props.key, "input.path#4")
 
 -- ── views: no picker shows paste hint ────────────────────────────────────────
 
-t = build(snap({ hasPicker = false }))
+t = build(snap({ hasPicker = false }), uiState({ mode = "open" }))
 check("views: no picker hides Open folder", findKey(t, "btn.pick") == nil)
 check("views: no picker shows paste hint", findText(t, "panel.pick_hint") ~= nil)
-t = build(snap())
+t = build(snap(), uiState({ mode = "open" }))
 check("views: picker shows Open folder", findKey(t, "btn.pick") ~= nil)
+eq("views: Open folder is an icon", findKey(t, "btn.pick").props.glyph, "folder-open")
+eq("views: Open folder icon has no text", findKey(t, "btn.pick").props.text, nil)
+eq("views: Open folder icon tooltip", findKey(t, "btn.pick").props.tooltip, "panel.open_folder")
 check("views: picker has no hint", findText(t, "panel.pick_hint") == nil)
 findKey(t, "btn.pick").props.onClick()
 eq("views: Open folder calls h.pickFolder", calls[1] and calls[1][1], "pickFolder")
@@ -338,13 +342,17 @@ eq("views: row back from missing has opacity 1", rp.opacity, 1)
 
 local STATES = {
   { "idle", snap() },
-  { "typed path", snap(), uiState({ input = "/home/user/projects/demo-1" }) },
-  { "typed url", snap(), uiState({ input = url }) },
+  { "open box", snap(), uiState({ mode = "open" }) },
+  { "typed path", snap(), uiState({ mode = "open", input = "/home/user/projects/demo-1" }) },
+  { "typed url", snap(), uiState({ mode = "open", input = url }) },
+  { "search", snap(), uiState({ mode = "search" }) },
+  { "search typed", snap({ recent = recents(12), pinned = { pin } }), uiState({ mode = "search", query = "demo-1" }) },
+  { "search no match", snap(), uiState({ mode = "search", query = "zzz" }) },
   { "loading", snap({ loading = true, recent = {} }) },
   { "no snapshot", nil },
   { "no flavor", snap({ flavor = false, recent = {} }) },
   { "empty", snap({ recent = {} }) },
-  { "clone running", snap({ clone = { state = "running", name = "demo-api", dest = "/home/user/Projects/demo-api", progress = "Receiving objects:  42%" } }), uiState({ input = url }) },
+  { "clone running", snap({ clone = { state = "running", name = "demo-api", dest = "/home/user/Projects/demo-api", progress = "Receiving objects:  42%" } }), uiState({ mode = "open", input = url }) },
   { "clone exists", snap({ clone = { state = "exists", name = "demo-api", dest = "/home/user/Projects/demo-api" } }), uiState({ input = url }) },
   { "clone done", snap({ clone = { state = "done", name = "demo-api", dest = "/home/user/Projects/demo-api" } }) },
   { "clone failed", snap({ clone = { state = "failed", name = "demo-api", error = "fatal: repository not found" } }) },
@@ -358,7 +366,7 @@ local STATES = {
 }
 
 local WANT_PRIMARY = {
-  ["typed path"] = "btn.go", ["typed url"] = "btn.go", ["clone exists"] = "btn.open_existing",
+  ["typed url"] = "btn.go", ["clone exists"] = "btn.open_existing",
 }
 
 for _, st in ipairs(STATES) do
@@ -399,7 +407,7 @@ for _, st in ipairs(STATES) do
 end
 
 -- clone status line
-t = build(snap({ clone = { state = "running", name = "demo-api", dest = "/x", progress = "Receiving objects:  42%" } }), uiState({ input = url }))
+t = build(snap({ clone = { state = "running", name = "demo-api", dest = "/x", progress = "Receiving objects:  42%" } }), uiState({ mode = "open", input = url }))
 check("views: running shows progress", findText(t, "Receiving objects:  42%") ~= nil)
 local cancel = findKey(t, "btn.cancel_clone")
 check("views: running offers cancel", cancel ~= nil)
@@ -413,12 +421,12 @@ eq("views: open existing passes the dest", calls[1] and calls[1][2], "/home/user
 check("views: exists can be dismissed", findKey(t, "btn.dismiss_clone") ~= nil)
 findKey(t, "btn.dismiss_clone").props.onClick()
 eq("views: exists dismiss calls h.dismiss", calls[2] and calls[2][1], "dismiss")
-t = build(snap({ clone = { state = "running", name = "demo-api", dest = "/x" } }), uiState({ input = url }))
+t = build(snap({ clone = { state = "running", name = "demo-api", dest = "/x" } }), uiState({ mode = "open", input = url }))
 collect(t, function(n) return n.type == "input" end)[1].props.onSubmit(url)
 eq("views: Enter on a git url while cloning does nothing", calls[1], nil)
 collect(t, function(n) return n.type == "input" end)[1].props.onSubmit("/home/user/projects/demo-1")
 eq("views: Enter on a path while cloning still opens", calls[1] and calls[1][1], "openPath")
-t = build(snap(), uiState({ input = url }))
+t = build(snap(), uiState({ mode = "open", input = url }))
 local pathRow = findKey(t, "box.path.row")
 check("views: Open folder sits on the path row", pathRow ~= nil and findKey(pathRow, "btn.pick") ~= nil)
 t = build(snap({ clone = { state = "failed", name = "demo-api", error = "fatal: repository not found" } }))
@@ -446,10 +454,99 @@ check("views: header glyph without icon", findKey(t, "hdr.glyph") ~= nil and fin
 check("views: header names VSCodium", findText(t, "VSCodium") ~= nil)
 
 -- typing reports through h.setInput
-t = build(snap())
+t = build(snap(), uiState({ mode = "open" }))
 collect(t, function(n) return n.type == "input" end)[1].props.onChange("abc")
 eq("views: typing calls h.setInput", calls[1] and calls[1][1], "setInput")
 eq("views: typing passes the text", calls[1] and calls[1][2], "abc")
+
+-- ── views: header search and + icons ─────────────────────────────────────────
+
+t = build(snap())
+eq("views: at rest no text fields", #collect(t, function(n) return n.type == "input" end), 0)
+check("views: at rest no path row", findKey(t, "box.path") == nil)
+local sb, ab = findKey(t, "btn.search"), findKey(t, "btn.add")
+check("views: header has search and + icons", sb ~= nil and ab ~= nil)
+eq("views: search icon glyph", sb.props.glyph, "search")
+eq("views: + icon glyph", ab.props.glyph, "plus")
+eq("views: search icon tooltip", sb.props.tooltip, "panel.search")
+eq("views: + icon tooltip", ab.props.tooltip, "panel.add")
+eq("views: idle search icon is ghost", sb.props.variant, "ghost")
+sb.props.onClick()
+eq("views: search icon opens search", calls[1] and calls[1][2], "search")
+eq("views: search icon calls setMode", calls[1] and calls[1][1], "setMode")
+ab.props.onClick()
+eq("views: + icon opens the path box", calls[2] and calls[2][2], "open")
+t = build(snap(), uiState({ mode = "search" }))
+eq("views: active search icon is outline", findKey(t, "btn.search").props.variant, "outline")
+eq("views: other icon stays ghost", findKey(t, "btn.add").props.variant, "ghost")
+findKey(t, "btn.search").props.onClick()
+check("views: search icon again closes search", calls[1] and calls[1][1] == "setMode" and calls[1][2] == nil and #calls[1] == 1)
+t = build(snap(), uiState({ mode = "open" }))
+findKey(t, "btn.add").props.onClick()
+check("views: + icon again closes the box", calls[1] and calls[1][1] == "setMode" and calls[1][2] == nil and #calls[1] == 1)
+eq("views: path box takes focus", findKey(t, "input.path#0").props.focus, true)
+eq("views: path placeholder", findKey(t, "input.path#0").props.placeholder, "panel.path_placeholder")
+eq("views: open box has no search field", findKey(t, "box.search"), nil)
+
+-- ── views: search field ──────────────────────────────────────────────────────
+
+t = build(snap(), uiState({ mode = "search", querySeq = 3 }))
+local sf = findKey(t, "input.search#3")
+check("views: search field keyed by its seq", sf ~= nil)
+eq("views: search field takes focus", sf.props.focus, true)
+eq("views: search placeholder", sf.props.placeholder, "panel.search_placeholder")
+check("views: search has no path box", findKey(t, "box.path") == nil)
+sf.props.onChange("dem")
+eq("views: typing in search calls setQuery", calls[1] and calls[1][1], "setQuery")
+eq("views: typing passes the query", calls[1] and calls[1][2], "dem")
+findKey(t, "btn.search_close").props.onClick()
+check("views: search x closes search", calls[2] and calls[2][1] == "setMode" and calls[2][2] == nil)
+eq("views: search x tooltip", findKey(t, "btn.search_close").props.tooltip, "panel.search_close")
+
+-- ── views: search filters every project by name ──────────────────────────────
+
+local function titlesOf(tree, prefix)
+  local out = {}
+  for _, r in ipairs(rows(tree, prefix)) do
+    out[#out + 1] = findKey(r, r.props.key .. ".title").props.text
+  end
+  return table.concat(out, ",")
+end
+local all = recents(12)
+t = build(snap({ recent = all }), uiState({ mode = "search", query = "demo-1" }))
+eq("views: search reaches past load more", titlesOf(t, "row.rec."), "demo-1,demo-10,demo-11,demo-12")
+check("views: no load more when every match fits", findKey(t, "btn.more") == nil)
+t = build(snap({ recent = all }), uiState({ mode = "search", query = "demo" }))
+eq("views: search shows the first `shown` matches", titlesOf(t, "row.rec."), "demo-1,demo-2,demo-3,demo-4,demo-5")
+check("views: load more for the rest of the matches", findKey(t, "btn.more") ~= nil)
+t = build(snap({ recent = all }), uiState({ mode = "search", query = "demo", shown = 15 }))
+eq("views: load more reveals more matches", #rows(t, "row.rec."), 12)
+check("views: no load more once every match shows", findKey(t, "btn.more") == nil)
+t = build(snap({ recent = all }), uiState({ mode = "search", query = "DEMO-12" }))
+eq("views: search ignores case", titlesOf(t, "row.rec."), "demo-12")
+t = build(snap({ recent = all }), uiState({ mode = "search", query = "  demo-12   " }))
+eq("views: search trims spaces", titlesOf(t, "row.rec."), "demo-12")
+t = build(snap({ recent = all }), uiState({ mode = "search", query = "demo.1" }))
+eq("views: search is plain text, not a pattern", #rows(t, "row.rec."), 0)
+t = build(snap({ recent = all }), uiState({ mode = "search", query = "projects" }))
+eq("views: search skips the path", #rows(t, "row.rec."), 0)
+check("views: no match line", findText(t, "panel.no_match") ~= nil)
+check("views: no match hides empty text", findText(t, "panel.empty") == nil)
+t = build(snap({ recent = all, pinned = { entry("pinned-api", { pinned = true }), entry("web", { pinned = true }) } }),
+  uiState({ mode = "search", query = "api" }))
+eq("views: search filters pinned too", titlesOf(t, "row.pin."), "pinned-api")
+check("views: recent section gone with no recent match", findKey(t, "sec.recent") == nil)
+check("views: a pinned match is not a no match", findText(t, "panel.no_match") == nil)
+t = build(snap({ recent = all }), uiState({ mode = "search", query = "   " }))
+eq("views: blank query lists as usual", #rows(t, "row.rec."), 5)
+check("views: blank query keeps load more", findKey(t, "btn.more") ~= nil)
+t = build(snap({ recent = all }), uiState({ query = "demo-12" }))
+eq("views: query ignored when search is closed", #rows(t, "row.rec."), 5)
+local titled = entry("x", { title = nil })
+t = build(snap({ recent = { titled } }), uiState({ mode = "search", query = "x" }))
+eq("views: untitled row falls back to its path", #rows(t, "row.rec."), 1)
+eq("views: git keys follow the search", #view.gitKeys(snap({ recent = all }), uiState({ mode = "search", query = "demo-1" })), 4)
+eq("views: git keys follow the search limit", #view.gitKeys(snap({ recent = all }), uiState({ mode = "search", query = "demo" })), 5)
 
 -- ── views: inline row actions ────────────────────────────────────────────────
 
@@ -516,6 +613,9 @@ do
   publish()
   onOpen()
   local function input() return collect(rendered, function(n) return n.type == "input" end)[1] end
+  check("panel: opens with no text field", input() == nil)
+  findKey(rendered, "btn.add").props.onClick()
+  check("panel: + shows the path box", findKey(rendered, "box.path") ~= nil)
   local opened = input().props.key
   input().props.onChange(cloneUrl)
   input().props.onSubmit(cloneUrl)
@@ -542,6 +642,53 @@ do
   publish({ requestSeq = 7, clone = { state = "exists", name = "demo-api", dest = "/home/user/Projects/demo-api" } })
   eq("panel: open existing then dismisses", fake.state["vscode.request"].action, "dismiss_error")
   eq("panel: open existing closes", closed, 2)
+  -- search: + and search swap; closing clears the query; reopening resets both
+  publish({ requestSeq = 8, recent = { entry("demo-1"), entry("web") } })
+  onOpen()
+  findKey(rendered, "btn.add").props.onClick()
+  input().props.onChange("/tmp")
+  findKey(rendered, "btn.search").props.onClick()
+  check("panel: search replaces the path box", findKey(rendered, "box.path") == nil and findKey(rendered, "box.search") ~= nil)
+  local searchKey = input().props.key
+  input().props.onChange("WEB ")
+  eq("panel: query filters the list", #rows(rendered, "row.rec."), 1)
+  eq("panel: typing keeps the search field mounted", input().props.key, searchKey)
+  -- search shares the list's limit: recent_count plus 10 per Load more, either side
+  publish({ requestSeq = 8, recent = recents(40) })
+  input().props.onChange("demo")
+  eq("panel: search shows recent_count matches", #rows(rendered, "row.rec."), 5)
+  findKey(rendered, "btn.more").props.onClick()
+  eq("panel: load more adds matches", #rows(rendered, "row.rec."), 15)
+  input().props.onChange("demo-")
+  eq("panel: a new query keeps the limit", #rows(rendered, "row.rec."), 15)
+  findKey(rendered, "btn.search_close").props.onClick()
+  eq("panel: closing search keeps the limit", #rows(rendered, "row.rec."), 15)
+  findKey(rendered, "btn.more").props.onClick()
+  findKey(rendered, "btn.search").props.onClick()
+  input().props.onChange("demo")
+  eq("panel: load more on the list carries into search", #rows(rendered, "row.rec."), 25)
+  onOpen()
+  findKey(rendered, "btn.search").props.onClick()
+  input().props.onChange("demo")
+  eq("panel: reopening resets the limit", #rows(rendered, "row.rec."), 5)
+  findKey(rendered, "btn.search_close").props.onClick()
+  publish({ requestSeq = 8, recent = { entry("demo-1"), entry("web") } })
+  findKey(rendered, "btn.search").props.onClick()
+  input().props.onChange("WEB ")
+  findKey(rendered, "btn.search_close").props.onClick()
+  check("panel: x closes search", findKey(rendered, "box.search") == nil)
+  eq("panel: closing search clears the filter", #rows(rendered, "row.rec."), 2)
+  findKey(rendered, "btn.search").props.onClick()
+  check("panel: reopened search starts empty", input().props.key ~= searchKey)
+  eq("panel: reopened search lists everything", #rows(rendered, "row.rec."), 2)
+  findKey(rendered, "btn.add").props.onClick()
+  eq("panel: leaving the path box cleared it", input().props.value, "")
+  input().props.onChange("we")
+  findKey(rendered, "btn.search").props.onClick()
+  input().props.onChange("web")
+  onOpen()
+  check("panel: open starts with both closed", input() == nil)
+  eq("panel: open drops the filter", #rows(rendered, "row.rec."), 2)
   -- left click on ⋮ expands; a second click collapses
   publish({ requestSeq = 8, recent = { entry("demo-1") } })
   onOpen()

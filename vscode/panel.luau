@@ -3,9 +3,10 @@
 -- view_panel and turns clicks into one "vscode.request" each (with a fresh requestId).
 --
 -- ui_state is local to the panel (see view_panel.luau): shown starts at recent_count on
--- every open and Load more adds 10; input is the path box's text, and a new inputSeq
--- remounts the box empty (on open, and once the service has accepted a clone; a refused
--- URL stays in the box). expandedKey is the one row with its inline actions open; it
+-- every open and Load more adds 10 (search results share that limit); input is the path box's text, and a new inputSeq
+-- remounts the box empty (on open, on closing the box, and once the service has accepted
+-- a clone; a refused URL stays in the box). mode is the open header field ("search" or
+-- "open"), closed on every open; query and querySeq work like input for the search field. expandedKey is the one row with its inline actions open; it
 -- collapses on open and after an action.
 --
 -- After each render the panel sends `git {keys}` for the visible local rows when that set
@@ -20,7 +21,7 @@ local STATE_KEY = "vscode.state"
 local REQUEST_KEY = "vscode.request"
 
 local snapshot = nil
-local ui_state = { shown = 5, input = "", inputSeq = 0, cloneDir = "~/Projects" }
+local ui_state = { shown = 5, input = "", inputSeq = 0, query = "", querySeq = 0, cloneDir = "~/Projects" }
 local isOpen = false
 local requestId = 0
 -- requests sent that the last snapshot's requestSeq does not cover yet
@@ -67,6 +68,21 @@ end
 local function resetInput()
   ui_state.input = ""
   ui_state.inputSeq = ui_state.inputSeq + 1
+end
+
+local function resetQuery()
+  ui_state.query = ""
+  ui_state.querySeq = ui_state.querySeq + 1
+end
+
+-- One header field at a time; leaving one empties it, so it reopens blank.
+local function setMode(mode)
+  if ui_state.mode == "search" and mode ~= "search" then
+    resetQuery()
+  elseif ui_state.mode == "open" and mode ~= "open" then
+    resetInput()
+  end
+  ui_state.mode = mode
 end
 
 -- Clears the box once the service answered the clone: running / exists with no error means
@@ -125,6 +141,14 @@ local handlers = {
   end,
   setInput = function(text)
     ui_state.input = text or ""
+    render()
+  end,
+  setMode = function(mode)
+    setMode(mode)
+    render()
+  end,
+  setQuery = function(text)
+    ui_state.query = text or ""
     render()
   end,
   menu = function(entry)
@@ -194,7 +218,9 @@ function onOpen(_context)
   end
   ui_state.shown = recentCount()
   ui_state.cloneDir = cloneDir()
+  ui_state.mode = nil
   resetInput()
+  resetQuery()
   ui_state.expandedKey = nil
   closeAtSeq, gitSig, awaitingClone, dismissAfterOpen = nil, nil, nil, false
   -- state.watch does not replay an old value; ask for a fresh snapshot (and a re-read).
