@@ -28,8 +28,8 @@ import unicodedata
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor, wait, as_completed, FIRST_COMPLETED
 
-# Global socket timeout - 1.5 seconds for fast responses
-socket.setdefaulttimeout(1.5)
+# Global socket timeout - 3.0 seconds to handle cold starts
+socket.setdefaulttimeout(3.0)
 
 USER_AGENT = "NoctaliaLyrics/1.0 (https://noctalia.dev; contact@noctalia.dev)"
 
@@ -1750,13 +1750,13 @@ def get_lyrics(title, artist, album="", preferred_source="auto",
         track_id_resolved = None
         apple_metadata = None
 
-        # Phase 1: Fast providers only (lrclib, binimum) - 1.5s total timeout
+        # Phase 1: Fast providers only (lrclib, binimum) - 3.0s total timeout
         phase1_futures = {}
         phase1_futures[executor.submit(fetch_lrclib, title, artist, album)] = "lrclib"
         phase1_futures[executor.submit(fetch_binimum, title, artist, album, duration_seconds, isrc)] = "binimum"
 
         selected_source, phase1_sources = run_phase_collect(
-            phase1_futures, 1.5, "Phase 1", {"lrclib", "binimum"}, ["lrclib", "binimum"]
+            phase1_futures, 3.0, "Phase 1", {"lrclib", "binimum"}, ["lrclib", "binimum"]
         )
 
         # Check Apple Music metadata after Phase 1

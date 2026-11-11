@@ -1,6 +1,6 @@
 id = "kaler/synced-lyrics"
 name = "Synced Lyrics"
-version = "1.0.2"
+version = "1.1.2"
 plugin_api = 43
 author = "kaler"
 license = "MIT"
@@ -10,7 +10,7 @@ icon = "music"
 
 dependencies = [
   "python3",
-  "playerctl"
+  "systemd"
 ]
 
 [[setting]]
