@@ -125,8 +125,8 @@ def ws_key(ws_id, name):
     """How a workspace is known everywhere here: its number, or "name:<name>"
     for a named workspace. Hyprland gives those negative ids in the order
     they're created, so the same name can get another id next session.
-    None for special workspaces."""
-    if ws_id > 0:
+    None for special workspaces (Hyprland 0.57+ gives those no id)."""
+    if ws_id is not None and ws_id > 0:
         return ws_id
     if not name or name.startswith("special:"):
         return None
@@ -159,14 +159,14 @@ def hypr(what):
     data = json.loads(out.stdout)
     if what == "workspaces":
         for w in data:
-            w["id"] = ws_key(w["id"], w["name"])
+            w["id"] = ws_key(w.get("id"), w["name"])
         data = [w for w in data if w["id"] is not None]
     elif what == "clients":
         for c in data:
-            c["workspace"]["id"] = ws_key(c["workspace"]["id"], c["workspace"]["name"])
+            c["workspace"]["id"] = ws_key(c["workspace"].get("id"), c["workspace"]["name"])
     elif what == "monitors":
         for m in data:
-            m["activeWorkspace"]["id"] = ws_key(m["activeWorkspace"]["id"], m["activeWorkspace"]["name"])
+            m["activeWorkspace"]["id"] = ws_key(m["activeWorkspace"].get("id"), m["activeWorkspace"]["name"])
     return data
 
 
