@@ -1,4 +1,8 @@
 {
+  "bar": {
+    "armed": "armed",
+    "blocking": "blocking Internet"
+  },
   "missing": {
     "nmcli": "NetworkManager (nmcli) was not found. WireGuard tunnels are managed through it.",
     "proton": "Proton VPN is not set up yet",
@@ -8,9 +12,12 @@
     "wireguard_hint": "Import a tunnel into NetworkManager: nmcli connection import type wireguard file <name>.conf"
   },
   "notify": {
+    "bad_target": "Unknown destination: {target}",
     "connect_failed": "Could not connect to Proton VPN",
     "connected": "Connected to {server}",
     "dropped": "Proton VPN disconnected",
+    "dropped_killswitch": "Proton VPN disconnected. The kill switch may be blocking Internet.",
+    "wg_dropped": "{name} disconnected",
     "wg_failed": "Could not switch {name}"
   },
   "panel": {
@@ -20,21 +27,35 @@
     "refresh": "Refresh"
   },
   "protection": {
+    "advanced": "Advanced",
+    "ipv6": "IPv6",
+    "ipv6_desc": "Route IPv6 traffic through the tunnel.",
     "killswitch": "Kill switch",
     "killswitch_desc": "Blocks Internet if Proton drops while connected.",
+    "moderate_nat": "Moderate NAT",
+    "moderate_nat_desc": "Better connectivity for games and P2P.",
     "netshield": "NetShield",
     "netshield_all": "+ Ads",
     "netshield_desc": "DNS blocking while Proton is active.",
     "netshield_malware": "Malware",
     "netshield_off": "Off",
-    "title": "PROTECTION"
+    "port_forwarding": "Port forwarding",
+    "port_forwarding_desc": "Requests a forwarded port on P2P servers.",
+    "reconnect_hint": "Some changes apply on the next connection.",
+    "title": "PROTECTION",
+    "vpn_accelerator": "VPN Accelerator",
+    "vpn_accelerator_desc": "Speed optimisations. Recommended."
   },
   "proton": {
+    "blocked": "The kill switch is blocking Internet. Reconnect, or turn the kill switch off.",
+    "cancel": "Cancel",
     "connect": "Connect",
     "disconnect": "Disconnect",
+    "last": "last: {target}",
     "load": "load {load}",
     "other_country": "Other country…",
     "quick": "QUICK CONNECT",
+    "random": "Random",
     "signin": "Sign in",
     "title": "Proton VPN"
   },
@@ -52,8 +73,16 @@
       "label": "Hidden WireGuard connections"
     },
     "notify": {
-      "description": "Notify on connect and when Proton drops.",
+      "description": "Notify on connect and when Proton or a WireGuard tunnel goes down.",
       "label": "Notifications"
+    },
+    "quick_connect": {
+      "description": "What connecting without choosing a destination does: the panel button, right click on the bar and the shortcut.",
+      "label": "Connect button",
+      "options": {
+        "fastest": "Fastest server",
+        "last": "Last connection"
+      }
     },
     "show_server": {
       "description": "Shows the Proton server (e.g. CH#120) next to the icon.",
@@ -61,6 +90,7 @@
     }
   },
   "status": {
+    "cancelling": "Cancelling…",
     "connected": "Connected",
     "connecting": "Connecting…",
     "disconnected": "Disconnected",

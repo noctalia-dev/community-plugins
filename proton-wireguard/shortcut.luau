@@ -1,5 +1,5 @@
 --!nonstrict
--- Control-center shortcut: toggles Proton VPN (fastest server).
+-- Control-center shortcut: toggles Proton VPN, or cancels a connection attempt.
 
 local STATE_KEY = "pw.state"
 local CMD_KEY = "pw.cmd"
@@ -15,7 +15,8 @@ local function render()
 	shortcut.setLabel(label)
 	shortcut.setIcon("shield-check", "shield")
 	shortcut.setActive(p.up == true)
-	shortcut.setEnabled(p.installed == true and p.signedIn == true and not p.busy)
+	local cancellable = p.action == "connecting" and p.canCancel == true
+	shortcut.setEnabled(p.installed == true and p.signedIn == true and (not p.busy or cancellable))
 end
 
 noctalia.state.watch(STATE_KEY, function(value)
