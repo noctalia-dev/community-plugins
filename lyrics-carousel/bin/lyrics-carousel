@@ -177,8 +177,23 @@ def detect_language(choice: str = "auto") -> str:
 # --------------------------------------------------------------------------
 
 
+# Fullwidth punctuation that some lyrics sources emit (e.g. NetEase) but that
+# the configured display fonts often lack. Map to ASCII equivalents so they
+# render instead of showing as missing-glyph boxes.
+FULLWIDTH_PUNCTUATION = str.maketrans({
+    "\uff08": "(",  # fullwidth left parenthesis
+    "\uff09": ")",  # fullwidth right parenthesis
+    "\uff3b": "[",  # fullwidth left square bracket
+    "\uff3d": "]",  # fullwidth right square bracket
+    "\uff5b": "{",  # fullwidth left curly bracket
+    "\uff5d": "}",  # fullwidth right curly bracket
+    "\u3000": " ",  # ideographic space
+})
+
+
 def normalize_text(value: str) -> str:
     value = unicodedata.normalize("NFC", value or "")
+    value = value.translate(FULLWIDTH_PUNCTUATION)
     value = value.replace("\t", " ").replace("\r", " ").replace("\n", " ")
     value = "".join(ch for ch in value if ch == " " or unicodedata.category(ch)[0] != "C")
     return re.sub(r"\s+", " ", value).strip()
@@ -1719,6 +1734,7 @@ DEFAULTS = {
     "direction": "down",
     "marker": False,
     "karaoke": True,
+    "karaoke_brain": True,
     "footer": False,
     "hints": False,
     "header": False,
@@ -1738,7 +1754,7 @@ DEFAULTS = {
     "translate_lyrics": False,
 }
 
-BOOL_KEYS = ("marker", "karaoke", "footer", "hints", "header", "ghost")
+BOOL_KEYS = ("marker", "karaoke", "karaoke_brain", "footer", "hints", "header", "ghost")
 INT_KEYS = (
     "font_size", "spacing", "offset_ms", "width", "height",
     "custom_x", "custom_y", "visible_above", "visible_below",
@@ -1896,6 +1912,7 @@ class LyricsCarousel:
         self._set_language(getattr(args, "lang", None) or "auto")
         self.direction = 1 if self.cfg["direction"] == "down" else -1
         self.karaoke = bool(self.cfg["karaoke"])
+        self.karaoke_brain = bool(self.cfg.get("karaoke_brain", True))
         self.spacing = int(self.cfg["spacing"])
         self.last_cfg = 0.0
         self.track = Track()
@@ -2216,6 +2233,7 @@ class LyricsCarousel:
         self.cfg = cfg
         self.direction = 1 if cfg["direction"] == "down" else -1
         self.karaoke = bool(cfg["karaoke"])
+        self.karaoke_brain = bool(cfg.get("karaoke_brain", True))
         self.spacing = int(cfg["spacing"])
         self.log("settings: " + json.dumps(cfg, ensure_ascii=False))
         # The window geometry is applied by the panel (it has the Noctalia
@@ -2538,6 +2556,40 @@ class LyricsCarousel:
             self.reload_lyrics(force=True)
         return True
 
+    def _toggle_bool_setting(self, key: str) -> bool:
+        value = not bool(self.cfg.get(key))
+        self.cfg[key] = value
+        if key == "karaoke":
+            self.karaoke = value
+        if key == "karaoke_brain":
+            self.karaoke_brain = value
+        self._save_override(key, value, "bool")
+        return True
+
+    def _cycle_accent(self) -> bool:
+        accents = ["primary", "green", "yellow", "blue", "magenta", "cyan", "red"]
+        current = str(self.cfg.get("accent") or "primary")
+        try:
+            index = accents.index(current)
+        except ValueError:
+            index = -1
+        self.cfg["accent"] = accents[(index + 1) % len(accents)]
+        self._save_override("accent", self.cfg["accent"], "string")
+        return True
+
+    def _adjust_font_size(self, delta: int) -> bool:
+        try:
+            size = int(self.cfg.get("font_size", DEFAULTS["font_size"]))
+        except (TypeError, ValueError):
+            size = int(DEFAULTS["font_size"])
+        size = max(6, min(96, size + delta))
+        self.cfg["font_size"] = size
+        self._save_override("font_size", size, "int")
+        image = getattr(self, "image", None)
+        if image is not None and hasattr(image, "invalidate_fonts"):
+            image.invalidate_fonts()
+        return True
+
     def handle_key(self, key: str) -> bool:
         if key in ("q", "Q", "\x03"):
             return False
@@ -2564,10 +2616,23 @@ class LyricsCarousel:
             self._save_override("direction", self.cfg["direction"], "string")
             return True
         if key in ("k", "K"):
-            self.karaoke = not self.karaoke
-            self.cfg["karaoke"] = self.karaoke
-            self._save_override("karaoke", self.karaoke, "bool")
-            return True
+            return self._toggle_bool_setting("karaoke")
+        if key in ("h", "H"):
+            return self._toggle_bool_setting("header")
+        if key in ("m", "M"):
+            return self._toggle_bool_setting("marker")
+        if key in ("g", "G"):
+            return self._toggle_bool_setting("ghost")
+        if key in ("f", "F"):
+            return self._toggle_bool_setting("footer")
+        if key in ("t", "T"):
+            return self._toggle_bool_setting("hints")
+        if key in ("c", "C"):
+            return self._cycle_accent()
+        if key in ("+", "="):
+            return self._adjust_font_size(1)
+        if key in ("-", "_"):
+            return self._adjust_font_size(-1)
         if key in ("r", "R"):
             if self.demo:
                 # In demo mode there is no lookup on the internet: the

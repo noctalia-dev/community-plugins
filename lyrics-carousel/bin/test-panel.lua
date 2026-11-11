@@ -166,6 +166,7 @@ ui = {
   select = node("select"),
   input = node("input"),
   slider = node("slider"),
+  progress = node("progress"),
 }
 
 panel = {
@@ -1166,6 +1167,25 @@ eq(
   "when the stored value changes the panel reflects it"
 )
 noctalia.getConfig = realGetConfig
+
+-- 27. The brain button is small and writes its setting ----------------------
+--
+-- The button was as big as the other controls and it pushed the whole panel
+-- down. It also has to write the setting it represents: if the helper
+-- rejects the key, the button does nothing at all.
+
+local brainButton = findByKey("button", "btn-karaoke-brain")
+check(brainButton ~= nil, "the panel has the brain button")
+if brainButton ~= nil then
+  eq(brainButton.props.controlSize, "xs", "the brain button is small")
+  eq(brainButton.props.glyphSize, 13, "the brain button glyph is small")
+  overrides.karaoke_brain = nil
+  settingsModule.refresh()
+  commands = {}
+  brainButton.props.onClick()
+  check(commandContains("karaoke_brain"), "the brain button writes its setting")
+  eq(overrides.karaoke_brain, false, "the brain button stores the new state")
+end
 
 -- Result ------------------------------------------------------------------
 
