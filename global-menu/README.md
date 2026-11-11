@@ -12,7 +12,7 @@ under a » button instead of being cut off.
 
 | Field | Value |
 | --- | --- |
-| ID | `amancode22/noctalia-gmenu` |
+| ID | `amancode22/global-menu` |
 | Entries | Bar widget: `menubar`; panel: `menu`; service: `service` |
 
 ## Requirements
@@ -55,7 +55,7 @@ widget to your bar. The widget appears only when a window is focused.
 - Open or close the popup from a terminal:
 
 ```sh
-noctalia msg panel-toggle amancode22/noctalia-gmenu:menu
+noctalia msg panel-toggle amancode22/global-menu:menu
 ```
 
 ### Custom shortcut menus
@@ -90,13 +90,13 @@ The service entry accepts two events (services have no output, so target
 `all`):
 
 ```sh
-noctalia msg plugin amancode22/noctalia-gmenu:service all refresh
+noctalia msg plugin amancode22/global-menu:service all refresh
 ```
 
 Re-requests the menu tree for the focused window.
 
 ```sh
-noctalia msg plugin amancode22/noctalia-gmenu:service all reload-shortcuts
+noctalia msg plugin amancode22/global-menu:service all reload-shortcuts
 ```
 
 Reloads custom shortcut mappings from

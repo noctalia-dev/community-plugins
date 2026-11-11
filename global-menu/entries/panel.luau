@@ -1,5 +1,5 @@
 --!nonstrict
--- panel.luau - the popup menu surface for amancode22/noctalia-gmenu
+-- panel.luau - the popup menu surface for amancode22/global-menu
 --
 -- Renders one menu of the focused application as a ui.* tree: rows with
 -- checkmarks, accelerators and submenu chevrons, keyboard navigation via
@@ -15,7 +15,7 @@
 --   __overflow__  the menu labels that did not fit in the bar (the »
 --                 button on the right of the strip)
 
-local PANEL = "amancode22/noctalia-gmenu:menu"
+local PANEL = "amancode22/global-menu:menu"
 
 local MODE_MENU = "menu"
 local MODE_APP = "app"

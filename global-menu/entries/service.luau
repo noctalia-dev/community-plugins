@@ -1,5 +1,5 @@
 --!nonstrict
--- service.luau - companion daemon lifecycle + bridge for amancode22/noctalia-gmenu
+-- service.luau - companion daemon lifecycle + bridge for amancode22/global-menu
 --
 -- Spawns the Python daemon (which owns all D-Bus and Wayland work) with
 -- noctalia.runStream and consumes its JSON lines. Menu trees are published
@@ -128,7 +128,7 @@ local function spawnDaemon()
         "python3 %s --data %s --shortcuts %s --plugin %s",
         shq(script), shq(dataDir),
         shq(pluginDir .. "/daemon/shortcuts/apps"),
-        shq("amancode22/noctalia-gmenu"))
+        shq("amancode22/global-menu"))
     local ok = noctalia.runStream(cmd, onLine)
     if not ok then
         log("could not start the daemon; is python3-dbus installed?")

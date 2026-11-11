@@ -1,5 +1,5 @@
 --!nonstrict
--- widget.luau - the bar menu bar for amancode22/noctalia-gmenu
+-- widget.luau - the bar menu bar for amancode22/global-menu
 --
 -- Renders the focused application's name plus one label per top-level
 -- menu, the way a native macOS menu bar behaves. Clicking the app name
@@ -7,7 +7,7 @@
 -- a label opens (or switches, or closes) the shared popup panel, which
 -- reads the selection from the plugin state channel.
 
-local PANEL_ID = "amancode22/noctalia-gmenu:menu"
+local PANEL_ID = "amancode22/global-menu:menu"
 
 -- reserved openMenu labels the popup panel understands
 local APP_MENU = "__app__"

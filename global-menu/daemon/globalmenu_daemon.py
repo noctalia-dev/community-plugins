@@ -624,7 +624,7 @@ def main():
                         help='persistent data directory')
     parser.add_argument('--shortcuts', required=True,
                         help='directory with built-in shortcut mappings')
-    parser.add_argument('--plugin', default='amancode22/noctalia-gmenu',
+    parser.add_argument('--plugin', default='amancode22/global-menu',
                         help='plugin marker used for pkill cleanup')
     parser.add_argument('--verbose', action='store_true')
     args = parser.parse_args()
