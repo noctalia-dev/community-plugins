@@ -3,8 +3,7 @@
 -- True syllable-level Apple Music karaoke animation with smooth progressive letter sweeps,
 -- jitter-free monotonic clock synchronization, multi-provider fallbacks (Spicy Lyrics,
 -- binimum/amlyrics, BetterLyrics, LRCLIB), auto-hide when media stops, and interactive popup panel.
-
-local SEP = string.char(31)
+-- Uses Noctalia's built-in MPRIS D-Bus service (dev.noctalia.Mpris) via busctl
 
 local dataDir = noctalia.pluginDataDir()
 local pluginDir = noctalia.pluginDir()
@@ -36,7 +35,6 @@ local currentIsrc = ""
 local currentDurationSec = 0
 local playbackStatus = "Stopped"
 local playerAvailable = false
-local playerName = ""
 
 -- High-precision monotonic playback clock (eliminates DBus jitter & rubber-banding)
 local playbackClockSec = 0.0
@@ -49,7 +47,7 @@ local activeSourceKey = ""
 local lyricsState = "idle" -- "idle" | "fetching" | "ready" | "not_found"
 local displayMode = "lyrics" -- "lyrics" | "track_info"
 local isQueryInFlight = false
-local lastQueryPlayerctlMs = 0
+local lastQueryNoctaliaMs = 0
 local activeFetchId = 0
 
 -- Offset state for real-time timing synchronization (wheel scroll & settings)
@@ -322,15 +320,39 @@ noctalia.state.watch("refresh_lyrics", function(_)
   fetchLyrics(currentTitle, currentArtist, currentAlbum, currentTrackId, true, currentDurationSec, currentIsrc)
 end)
 
--- ── Player Metadata Handling ─────────────────────────────────────────────
+-- ── Player Metadata Handling (Noctalia MPRIS DBus) ────────────────────────
 
-local function handlePlayerctlResult(res)
+local function extractValue(prop)
+  if type(prop) ~= "table" then return nil end
+  return prop.data
+end
+
+local function extractString(prop)
+  local val = extractValue(prop)
+  if type(val) == "string" then return val end
+  return ""
+end
+
+local function extractInteger(prop)
+  local val = extractValue(prop)
+  if type(val) == "number" then return val end
+  if type(val) == "string" then return tonumber(val) or 0 end
+  return 0
+end
+
+local function extractStringArray(prop)
+  local val = extractValue(prop)
+  if type(val) == "table" then return val end
+  return {}
+end
+
+local function handleNoctaliaResult(res)
   isQueryInFlight = false
-  debugLog("handlePlayerctlResult: exitCode=" .. tostring(res.exitCode) .. ", stdout_len=" .. tostring(res.stdout and #res.stdout or 0))
+  debugLog("handleNoctaliaResult: exitCode=" .. tostring(res.exitCode) .. ", stdout_len=" .. tostring(res.stdout and #res.stdout or 0))
 
   if res.exitCode ~= 0 or not res.stdout or res.stdout == "" then
     if playerAvailable then
-      debugLog("handlePlayerctlResult: player became unavailable, clearing state")
+      debugLog("handleNoctaliaResult: player became unavailable, clearing state")
       playerAvailable = false
       playbackStatus = "Stopped"
       currentTitle = ""
@@ -352,93 +374,98 @@ local function handlePlayerctlResult(res)
     return
   end
 
-  local line = res.stdout:gsub("[\r\n]+", "")
-  local parts = string.split(line, SEP)
+  local ok, decoded = pcall(function()
+    return noctalia.json.decode(res.stdout)
+  end)
 
-  local newStatus = parts[1] or "Stopped"
-  local posUs = tonumber(parts[2]) or 0
-  local lengthUs = tonumber(parts[3]) or 0
-  local title = parts[4] or ""
-  local artist = parts[5] or ""
-  local album = parts[6] or ""
-  local pName = parts[7] or ""
-  local rawTrackId = parts[8] or ""
-  local rawUrl = parts[9] or ""
-  local rawIsrc = (parts[10] or ""):upper():gsub("[^A-Z0-9]", "")
-  if #rawIsrc ~= 12 or not rawIsrc:match("^%a%a%w%w%w%d%d%d%d%d%d%d$") then
-    rawIsrc = ""
+  if not ok or type(decoded) ~= "table" or not decoded.data then
+    debugLog("handleNoctaliaResult: JSON decode failed or invalid structure")
+    return
   end
+
+  local data = decoded.data
+  if type(data) ~= "table" or #data < 2 or data[1] ~= true then
+    debugLog("handleNoctaliaResult: unexpected response structure")
+    return
+  end
+
+  local props = data[2]
+  if type(props) ~= "table" then
+    debugLog("handleNoctaliaResult: properties not a table")
+    return
+  end
+
+  local newStatus = extractString(props.playback_status) or "Stopped"
+  local posUs = extractInteger(props.position_us)
+  local lengthUs = extractInteger(props.length_us)
+  local title = extractString(props.title)
+  local artists = extractStringArray(props.artists)
+  local artist = ""
+  if #artists > 0 then
+    artist = table.concat(artists, ", ")
+  end
+  local album = extractString(props.album)
+  local trackId = extractString(props.track_id)
   local durationSec = math.max(0, lengthUs / 1000000)
 
   local statusChanged = (newStatus ~= playbackStatus)
   playerAvailable = true
   playbackStatus = newStatus
-  playerName = pName
 
   local reportedPosSec = posUs / 1000000
 
-  -- Extract 22-character Spotify track ID from MPRIS if available
-  local trackId = ""
-  local match1 = rawTrackId:match("spotify:track:([a-zA-Z0-9]+)") or rawTrackId:match("/track/([a-zA-Z0-9]+)")
-  local match2 = rawUrl:match("spotify:track:([a-zA-Z0-9]+)") or rawUrl:match("/track/([a-zA-Z0-9]+)")
-  if match1 and #match1 == 22 then
-    trackId = match1
-  elseif match2 and #match2 == 22 then
-    trackId = match2
+  -- Extract Spotify track ID from MPRIS track_id if available
+  local extractedTrackId = ""
+  if trackId and #trackId > 0 then
+    local match1 = trackId:match("spotify:track:([a-zA-Z0-9]+)") or trackId:match("/track/([a-zA-Z0-9]+)")
+    if match1 and #match1 == 22 then
+      extractedTrackId = match1
+    end
   end
 
   if title:lower():find("pattern recognition") then
-    trackId = "4YPIGH8FzY2OW33RJEIcSb"
+    extractedTrackId = "4YPIGH8FzY2OW33RJEIcSb"
   end
 
   local trackChanged = (title ~= currentTitle or artist ~= currentArtist)
-  debugLog("handlePlayerctlResult: title=" .. title .. ", artist=" .. artist .. ", status=" .. newStatus .. ", trackChanged=" .. tostring(trackChanged) .. ", statusChanged=" .. tostring(statusChanged) .. ", currentTitle=" .. currentTitle .. ", currentArtist=" .. currentArtist)
+  debugLog("handleNoctaliaResult: title=" .. title .. ", artist=" .. artist .. ", status=" .. newStatus .. ", trackChanged=" .. tostring(trackChanged) .. ", statusChanged=" .. tostring(statusChanged) .. ", position=" .. tostring(reportedPosSec))
 
-  -- Sync monotonic clock with playerctl reported position
+  -- Sync monotonic clock with reported position
   syncPlaybackClock(reportedPosSec, trackChanged or statusChanged)
 
   if trackChanged then
     currentTitle = title
     currentArtist = artist
     currentAlbum = album
-    currentTrackId = trackId
-    currentIsrc = rawIsrc
+    currentTrackId = extractedTrackId
+    currentIsrc = "" -- ISRC not exposed by Noctalia MPRIS yet
     currentDurationSec = durationSec
-    debugLog("handlePlayerctlResult: track changed, calling fetchLyrics")
-    fetchLyrics(title, artist, album, trackId, false, durationSec, rawIsrc)
+    debugLog("handleNoctaliaResult: track changed, calling fetchLyrics")
+    fetchLyrics(title, artist, album, extractedTrackId, false, durationSec, "")
   elseif statusChanged then
     safeRender()
   end
 end
 
-local function queryPlayerctl()
+local function queryNoctaliaPlayer()
   local now = nowMs()
-  -- If previous query took more than 3000ms, unlock watchdog (was 1500ms)
-  if isQueryInFlight and (now - lastQueryPlayerctlMs < 3000) then
+  -- If previous query took more than 1500ms, unlock watchdog
+  if isQueryInFlight and (now - lastQueryNoctaliaMs < 1500) then
     return
   end
   isQueryInFlight = true
-  lastQueryPlayerctlMs = now
-
-  local format = table.concat({
-    "{{status}}",
-    "{{position}}",
-    "{{mpris:length}}",
-    "{{title}}",
-    "{{artist}}",
-    "{{album}}",
-    "{{playerName}}",
-    "{{mpris:trackid}}",
-    "{{xesam:url}}",
-    "{{xesam:isrc}}",
-  }, SEP)
+  lastQueryNoctaliaMs = now
 
   noctalia.runAsync({
-    "playerctl",
-    "metadata",
-    "--format",
-    format,
-  }, handlePlayerctlResult)
+    "busctl",
+    "--user",
+    "--json=short",
+    "call",
+    "dev.noctalia.Mpris",
+    "/dev/noctalia/Mpris",
+    "dev.noctalia.Mpris",
+    "GetActivePlayer",
+  }, handleNoctaliaResult)
 end
 
 -- ── Syllable Windowing & Word Chunking ───────────────────────────────────
@@ -650,7 +677,7 @@ local function render()
     }))
   end
 
-  local tooltipLines = "Synced Lyrics\nClick to choose lyric provider\nRight-click to play/pause\nScroll: Timing offset (" .. string.format("%+d ms", math.floor(currentOffsetMs)) .. ")"
+  local tooltipLines = "Synced Lyrics\nClick to choose lyric provider\nScroll: Timing offset (" .. string.format("%+d ms", math.floor(currentOffsetMs)) .. ")"
   if currentTitle ~= "" then
     tooltipLines = string.format("%s - %s\nStatus: %s\nClick to choose provider (Spicy, Apple Music, LyricsPlus, Unison, LRCLIB)\nTiming Offset: %+d ms (scroll on widget to adjust)", currentTitle, currentArtist, playbackStatus, math.floor(currentOffsetMs))
     if lyricsData and lyricsData.name then
@@ -974,14 +1001,6 @@ function onClick()
   noctalia.togglePanel("kaler/synced-lyrics:lyrics-panel")
 end
 
-function onRightClick()
-  noctalia.runAsync({ "playerctl", "play-pause" }, function(res) end)
-end
-
-function onMiddleClick()
-  noctalia.runAsync({ "playerctl", "next" }, function(res) end)
-end
-
 function onScroll(axis, steps, startsGesture)
   local n = tonumber(steps) or 0
   if n == 0 then
@@ -1033,9 +1052,9 @@ function update()
   updatePlaybackClock()
 
   local now = nowMs()
-  local pollIntervalMs = isPlaying and 2000 or (playerAvailable and 2000 or 4000)
-  if now - lastQueryPlayerctlMs >= pollIntervalMs then
-    queryPlayerctl()
+  local pollIntervalMs = isPlaying and 1000 or (playerAvailable and 1000 or 2000)
+  if now - lastQueryNoctaliaMs >= pollIntervalMs then
+    queryNoctaliaPlayer()
   end
 
   safeRender()
@@ -1043,4 +1062,4 @@ end
 
 -- Initial render and query
 safeRender()
-queryPlayerctl()
+queryNoctaliaPlayer()

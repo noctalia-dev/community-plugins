@@ -23,6 +23,14 @@ local function renderEmpty()
         flexGrow = 1,
       }),
       ui.button({
+        glyph = "refresh",
+        variant = "ghost",
+        tooltip = noctalia.tr("panel.refresh") or "Force refresh lyrics",
+        onClick = function()
+          noctalia.state.set("refresh_lyrics", noctalia.nowMs())
+        end,
+      }),
+      ui.button({
         glyph = "close",
         variant = "ghost",
         tooltip = noctalia.tr("panel.close") or "Close",
