@@ -5738,3 +5738,16 @@ icon = "hourglass"
 description = "Today's screen time in the bar, from Noctalia's own record, with your most used apps."
 plugin_api = 43
 tags = ["bar", "productivity", "time"]
+
+[[plugin]]
+id = "omerfuyar/process-manager"
+name = "Process Manager"
+version = "1.1.5"
+updated_at = 1794404408
+added_at = 1794404408
+author = "omerfuyar"
+license = "MIT"
+icon = "list-details"
+description = "Find a running app and end it, or force it to end when it does not stop. Grouped by app, with CPU and memory."
+plugin_api = 43
+tags = ["bar", "system", "utility"]
