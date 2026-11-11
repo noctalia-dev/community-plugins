@@ -10,7 +10,9 @@ channels:
   daemon -> plugin   JSON lines on stdout, consumed by the plugin's
                      service entry with noctalia.runStream().
   plugin -> daemon   HTTP POST on a loopback-only server; the ephemeral
-                     port is reported in the initial hello line.
+                     port and a private per-session token are reported
+                     in the initial hello line, and every request must
+                     present the token in an X-GlobalMenu-Token header.
 
 Menus come from (in order of preference, per focused application):
   1. com.canonical.dbusmenu  (Qt, Electron, Chromium, Firefox apps that
@@ -25,9 +27,11 @@ compositor-specific IPC anywhere.
 """
 
 import argparse
+import hmac
 import json
 import os
 import re
+import secrets
 import signal
 import sys
 import threading
@@ -118,14 +122,50 @@ class CommandServer(BaseHTTPRequestHandler):
         except (OSError, BrokenPipeError):
             pass
 
+    def _deny(self):
+        try:
+            self.send_response(403)
+            self.send_header('Content-Length', '0')
+            self.end_headers()
+        except (OSError, BrokenPipeError):
+            pass
+
+    def _authorized(self):
+        """Only the plugin that spawned this daemon may talk to it.
+
+        A binding to 127.0.0.1 alone does not separate users on a
+        multi-user machine, so every request must present the private
+        token from the hello line and name the loopback host.
+        """
+        ref = self.daemon_ref
+        if ref is None or not ref.token:
+            return False
+        supplied = self.headers.get('X-GlobalMenu-Token', '')
+        try:
+            if not hmac.compare_digest(supplied.encode('utf-8'),
+                                       str(ref.token).encode('utf-8')):
+                return False
+        except (AttributeError, UnicodeEncodeError):
+            return False
+        host = self.headers.get('Host', '')
+        hostname = host.split(':', 1)[0].strip().lower()
+        return hostname in ('127.0.0.1', 'localhost')
+
     def do_GET(self):
+        if not self._authorized():
+            self._deny()
+            return
         if self.path == '/health':
             self._reply({'ok': True, 'source': self.daemon_ref.source_name})
         else:
             self._reply({'ok': False})
 
     def do_POST(self):
-        if self.path != '/cmd':
+        if not self._authorized():
+            self._deny()
+            return
+        ctype = self.headers.get('Content-Type', '').split(';', 1)[0]
+        if self.path != '/cmd' or ctype.strip().lower() != 'application/json':
             self._reply({'ok': False})
             return
         try:
@@ -147,6 +187,7 @@ class GlobalMenuDaemon(object):
         self.verbose = verbose
 
         self.out = StdoutBridge()
+        self.token = secrets.token_hex(32)
         self.session = None
         self.registrar = None
         self.gtk_probe = None
@@ -240,9 +281,19 @@ class GlobalMenuDaemon(object):
                               self._on_wayland_watch)
 
         self._heartbeat_id = GLib.timeout_add(HEARTBEAT_MS, self._heartbeat)
+        self._emit_hello()
+        # publish the focused window's state (maximized/minimized/...)
+        self._emit_window_state()
+        # first resolve once things settle
+        GLib.timeout_add(600, self.resolve)
+        return True
+
+    def _emit_hello(self):
+        """The one-time handshake: port + private token for the HTTP API."""
         self.out.line({
             'type': 'hello', 'protocol': PROTOCOL,
             'port': self._http_port,
+            'token': self.token,
             'features': {
                 'toplevels': self.wayland is not None,
                 'fullscreen': (self.wayland is not None and
@@ -253,11 +304,6 @@ class GlobalMenuDaemon(object):
                 'shortcuts': len(self.store.mappings),
             },
         })
-        # publish the focused window's state (maximized/minimized/...)
-        self._emit_window_state()
-        # first resolve once things settle
-        GLib.timeout_add(600, self.resolve)
-        return True
 
     def _start_http(self):
         CommandServer.daemon_ref = self

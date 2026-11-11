@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Offline test of the daemon's chunked emission + tree serialization."""
+"""Offline test of the daemon: chunked emission, tree serialization,
+loopback HTTP authentication, and login1 session actions."""
 
 import io
 import json
@@ -186,5 +187,180 @@ assert daemon._display_app_name('org.gnome.Nautilus') == 'Nautilus'
 assert daemon._display_app_name('google-chrome') == 'Google Chrome'
 assert daemon._display_app_name(None) == ''
 print('app display names OK')
+
+# --- hello carries a private token ------------------------------------------
+import re
+
+daemon = gmd.GlobalMenuDaemon('/nonexistent/noctalia-test-data',
+                              '/nonexistent/noctalia-test-shortcuts')
+assert re.fullmatch(r'[0-9a-f]{64}', daemon.token), \
+    'the HTTP token must be 64 hex chars from secrets.token_hex(32)'
+
+captured_hello = []
+daemon.out = types.SimpleNamespace(
+    line=lambda payload: captured_hello.append(payload))
+daemon.wayland = None
+daemon.keyer = types.SimpleNamespace(available=lambda: False)
+daemon.registrar = types.SimpleNamespace(owned=True)
+daemon.store = types.SimpleNamespace(mappings={})
+daemon._http_port = 0
+daemon._emit_hello()
+hello = captured_hello[0]
+assert hello['type'] == 'hello' and hello['port'] == 0, hello
+assert hello['token'] == daemon.token, 'hello must carry the private token'
+print('hello token OK (%d hex chars)' % len(daemon.token))
+
+# --- loopback HTTP server must reject unauthenticated callers ----------------
+import socket
+
+received = []
+daemon.queue_command = lambda request: received.append(request)
+daemon._start_http()
+port = daemon._http_port
+
+
+def raw_request(method, path, headers, body=b''):
+    request = '%s %s HTTP/1.1\r\n' % (method, path)
+    for name, value in headers:
+        request += '%s: %s\r\n' % (name, value)
+    request += 'Content-Length: %d\r\nConnection: close\r\n\r\n' % len(body)
+    with socket.create_connection(('127.0.0.1', port), timeout=5) as client:
+        client.sendall(request.encode('utf-8') + body)
+        data = b''
+        while True:
+            part = client.recv(65536)
+            if not part:
+                break
+            data += part
+    return data.split(b'\r\n', 1)[0].decode('ascii')
+
+
+attack_body = b'{"cmd":"window","action":"quit"}'
+# the isolated repro: no credentials, foreign Host, text/plain
+status = raw_request('POST', '/cmd',
+                     [('Host', 'evil.example'),
+                      ('Content-Type', 'text/plain')], attack_body)
+assert ' 403 ' in status and received == [], status
+# wrong token -> 403
+status = raw_request('POST', '/cmd',
+                     [('Host', '127.0.0.1:%d' % port),
+                      ('Content-Type', 'application/json'),
+                      ('X-GlobalMenu-Token', 'ab' * 32)], attack_body)
+assert ' 403 ' in status and received == [], status
+# valid token but foreign Host -> 403
+status = raw_request('POST', '/cmd',
+                     [('Host', 'evil.example'),
+                      ('Content-Type', 'application/json'),
+                      ('X-GlobalMenu-Token', daemon.token)], attack_body)
+assert ' 403 ' in status and received == [], status
+# the exact request shape the plugin sends -> accepted and dispatched
+status = raw_request('POST', '/cmd',
+                     [('Host', '127.0.0.1:%d' % port),
+                      ('Content-Type', 'application/json'),
+                      ('X-GlobalMenu-Token', daemon.token)], attack_body)
+assert ' 200 ' in status, status
+assert received == [{'cmd': 'window', 'action': 'quit'}], received
+# /health is token-gated too
+status = raw_request('GET', '/health', [('Host', '127.0.0.1:%d' % port)])
+assert ' 403 ' in status, status
+status = raw_request('GET', '/health',
+                     [('Host', '127.0.0.1:%d' % port),
+                      ('X-GlobalMenu-Token', daemon.token)])
+assert ' 200 ' in status, status
+daemon._http.shutdown()
+daemon._http.server_close()
+print('loopback HTTP auth OK: unauthenticated repro rejected, '
+      'tokenized request accepted')
+
+# --- session power actions must use the system-bus login1 API ----------------
+import fallback
+
+
+class DBusException(Exception):
+    pass
+
+
+class RecObj(object):
+    def __init__(self, kind, service, path):
+        self.kind, self.service, self.path = kind, service, path
+
+    def get_dbus_method(self, name, iface=None):
+        def call(*args, **kwargs):
+            calls.append(('call', self.kind, self.service, name,
+                          args, sorted(kwargs.items())))
+            if self.service != 'org.freedesktop.login1':
+                # ScreenSaver services are absent on this fake bus
+                raise DBusException('no such service')
+        return call
+
+
+class RecBus(object):
+    def __init__(self, kind):
+        self.kind = kind
+
+    def get_object(self, service, path):
+        calls.append(('bus', self.kind, service, path))
+        return RecObj(self.kind, service, path)
+
+
+class RecInterface(object):
+    def __init__(self, obj, iface):
+        calls.append(('interface', iface))
+
+    def __getattr__(self, name):
+        def call(*args, **kwargs):
+            calls.append(('manager', name, args, sorted(kwargs.items())))
+        return call
+
+
+class FakeSession(object):
+    def get_object(self, service, path):
+        return RecObj('session', service, path)
+
+
+recording_dbus = types.SimpleNamespace(
+    SystemBus=lambda: RecBus('system'),
+    Interface=RecInterface,
+    exceptions=types.SimpleNamespace(DBusException=DBusException))
+original_dbus = fallback.dbus
+
+# suspend: system bus + the mandatory boolean argument
+calls = []
+fallback.dbus = recording_dbus
+try:
+    menu = fallback.FallbackMenu(FakeSession(), None)
+    assert menu._session_action('suspend') is True
+finally:
+    fallback.dbus = original_dbus
+assert [c[1] for c in calls if c[0] == 'bus'] == ['system'], calls
+assert [c for c in calls if c[0] == 'manager'] == \
+    [('manager', 'Suspend', (False,), [('timeout', 10)])], calls
+
+# lock: ScreenSaver misses on the session bus, then LockSessions() (the
+# Manager has no Lock member) on the system bus
+calls = []
+fallback.dbus = recording_dbus
+try:
+    menu = fallback.FallbackMenu(FakeSession(), None)
+    assert menu._session_action('lock') is True
+finally:
+    fallback.dbus = original_dbus
+assert [c for c in calls if c[0] == 'call' and c[3] == 'LockSessions'] == \
+    [('call', 'system', 'org.freedesktop.login1', 'LockSessions',
+      (), [('timeout', 5)])], calls
+assert len([c for c in calls if c[0] == 'call' and c[1] == 'session']) == 2, calls
+
+# reboot / poweroff keep their boolean and go to the system bus too
+calls = []
+fallback.dbus = recording_dbus
+try:
+    menu = fallback.FallbackMenu(FakeSession(), None)
+    assert menu._session_action('reboot') is True
+    assert menu._session_action('poweroff') is True
+finally:
+    fallback.dbus = original_dbus
+assert [c[1] for c in calls if c[0] == 'manager'] == ['Reboot', 'PowerOff'], calls
+assert [c[1] for c in calls if c[0] == 'bus'] == ['system', 'system'], calls
+print('login1 session actions OK: system bus, correct methods/signatures')
 
 print('ALL DAEMON TESTS PASSED')

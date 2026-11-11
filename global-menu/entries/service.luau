@@ -5,7 +5,8 @@
 -- noctalia.runStream and consumes its JSON lines. Menu trees are published
 -- on the plugin state channel for the bar widget and the popup panel.
 -- Commands reach the daemon over a loopback HTTP server whose ephemeral
--- port arrives in the hello line.
+-- port and a private per-session token arrive in the hello line; every
+-- request carries the token in an X-GlobalMenu-Token header.
 
 local dataDir = noctalia.pluginDataDir()
 local pluginDir = noctalia.pluginDir()
@@ -16,6 +17,7 @@ local lastSpawnMs = 0
 local pendingChunks = nil      -- { id, part, chunks, body }
 local features = {}
 local port = nil
+local token = nil
 local killed = false
 
 -- ---------------------------------------------------------------- helpers
@@ -33,6 +35,20 @@ local function publish(menu)
     noctalia.state.set("menu", menu)
 end
 
+-- send a command to the daemon (authenticated with the hello token)
+local function postCommand(body)
+    if port == nil then return end
+    noctalia.http({
+        url = "http://127.0.0.1:" .. tostring(port) .. "/cmd",
+        method = "POST",
+        headers = {
+            "Content-Type: application/json",
+            "X-GlobalMenu-Token: " .. tostring(token or ""),
+        },
+        body = body,
+    }, function() end)
+end
+
 local function onLine(line)
     if line == nil or line == "" then return end
     local ok, msg = pcall(function() return noctalia.json.decode(line) end)
@@ -44,9 +60,11 @@ local function onLine(line)
     local kind = msg.type
     if kind == "hello" then
         port = tonumber(msg.port)
+        token = tostring(msg.token or "")
         features = msg.features or {}
         lastPingMs = noctalia.nowMs()
         noctalia.state.set("port", port)
+        noctalia.state.set("token", token)
         noctalia.state.set("features", features)
         log(("daemon up (port %s, toplevels=%s, fullscreen=%s, wtype=%s, registrar=%s, shortcuts=%d)")
             :format(tostring(port),
@@ -56,17 +74,11 @@ local function onLine(line)
                     tostring(features.registrar == true),
                     tonumber(features.shortcuts or 0)))
         -- push the plugin settings so the daemon gates match the UI
-        local cfg = noctalia.json.encode({
+        postCommand(noctalia.json.encode({
             cmd = "config",
             shortcutMenus = noctalia.getConfig("shortcut_menus") == true,
             fallbackMenus = noctalia.getConfig("fallback_menus") == true,
-        })
-        noctalia.http({
-            url = "http://127.0.0.1:" .. tostring(port) .. "/cmd",
-            method = "POST",
-            headers = { "Content-Type: application/json" },
-            body = cfg,
-        }, function() end)
+        }))
     elseif kind == "menu" then
         lastPingMs = noctalia.nowMs()
         if msg.body ~= nil then
@@ -184,7 +196,9 @@ function update()
         killed = false
         lastPingMs = 0
         port = nil
+        token = nil
         noctalia.state.set("port", nil)
+        noctalia.state.set("token", nil)
         -- a moment for the old process to die before starting a new one
         lastSpawnMs = 0
         spawnDaemon()
@@ -193,38 +207,18 @@ end
 
 function onConfigChanged()
     if port == nil then return end
-    local cfg = noctalia.json.encode({
+    postCommand(noctalia.json.encode({
         cmd = "config",
         shortcutMenus = noctalia.getConfig("shortcut_menus") == true,
         fallbackMenus = noctalia.getConfig("fallback_menus") == true,
-    })
-    noctalia.http({
-        url = "http://127.0.0.1:" .. tostring(port) .. "/cmd",
-        method = "POST",
-        headers = { "Content-Type: application/json" },
-        body = cfg,
-    }, function() end)
+    }))
 end
 
 function onIpc(event, payload)
     if event == "refresh" then
-        if port ~= nil then
-            noctalia.http({
-                url = "http://127.0.0.1:" .. tostring(port) .. "/cmd",
-                method = "POST",
-                headers = { "Content-Type: application/json" },
-                body = '{"cmd":"refresh"}',
-            }, function() end)
-        end
+        postCommand('{"cmd":"refresh"}')
     elseif event == "reload-shortcuts" then
-        if port ~= nil then
-            noctalia.http({
-                url = "http://127.0.0.1:" .. tostring(port) .. "/cmd",
-                method = "POST",
-                headers = { "Content-Type: application/json" },
-                body = '{"cmd":"reloadShortcuts"}',
-            }, function() end)
-        end
+        postCommand('{"cmd":"reloadShortcuts"}')
     end
 end
 

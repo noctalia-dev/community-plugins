@@ -48,6 +48,10 @@ local function getPort()
     return tonumber(noctalia.state.get("port"))
 end
 
+local function getToken()
+    return tostring(noctalia.state.get("token") or "")
+end
+
 local function appName()
     if data == nil then return nil end
     if data.appName ~= nil and data.appName ~= "" then return data.appName end
@@ -61,7 +65,10 @@ local function postCommand(body)
     noctalia.http({
         url = "http://127.0.0.1:" .. tostring(port) .. "/cmd",
         method = "POST",
-        headers = { "Content-Type: application/json" },
+        headers = {
+            "Content-Type: application/json",
+            "X-GlobalMenu-Token: " .. getToken(),
+        },
         body = noctalia.json.encode(body),
     }, function() end)
 end
@@ -215,12 +222,14 @@ local function buildOverflowMenu()
     return items
 end
 
+-- raw position of a top-level menu in the tree, separators included -
+-- the same index space the nav stack and the keyboard selection use
 local function topIndexForLabel(label)
     if data == nil or data.tree == nil then return 1 end
     if label ~= nil and label ~= "" then
         local seen = 0
         for _, node in ipairs(data.tree) do
-            if type(node) == "table" and node.separator ~= true then
+            if type(node) == "table" then
                 seen = seen + 1
                 if node.label == label then
                     return seen
@@ -244,19 +253,12 @@ local function currentItems()
     if root == nil then return nil, nil end
     local node = { children = root, label = "" }
     local items = root
+    -- nav holds the same raw indices the renderer and the keyboard
+    -- selection use: positions in each level's child list, separators
+    -- included
     for level, index in ipairs(nav or {}) do
-        local chosen = nil
-        local seen = 0
-        for _, child in ipairs(childItems(node)) do
-            if child.separator ~= true then
-                seen = seen + 1
-                if seen == index then
-                    chosen = child
-                    break
-                end
-            end
-        end
-        if chosen == nil then
+        local chosen = childItems(node)[index]
+        if chosen == nil or chosen.separator == true then
             -- the tree changed under us; clamp back to the top level
             nav = nil
             depthLabels = {}

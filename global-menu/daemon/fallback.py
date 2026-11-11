@@ -6,9 +6,10 @@ for applications that export no menu at all.
 * Window actions use wlr-foreign-toplevel (minimize / maximize / close),
   the same standard protocol the plugin already uses for focus tracking.
 * Session actions use standard D-Bus interfaces every compositor
-  session provides: org.freedesktop.ScreenSaver (or org.gnome.ScreenSaver
-  / org.freedesktop.login1) for locking and org.freedesktop.login1 for
-  suspend, reboot and power off.
+  session provides: org.freedesktop.ScreenSaver (or
+  org.gnome.ScreenSaver) on the session bus for locking, and
+  org.freedesktop.login1 on the system bus for suspend, reboot and
+  power off.
 
 No compositor-specific call is involved.
 """
@@ -60,6 +61,13 @@ class FallbackMenu(object):
         self.wayland = wayland
         self.on_change = on_change or (lambda: None)
         self.actions = {}
+        self._system = None
+
+    def _system_bus(self):
+        """Shared system-bus connection; login1 is a system-bus service."""
+        if self._system is None:
+            self._system = dbus.SystemBus()
+        return self._system
 
     def build_tree(self):
         self.actions = {}
@@ -134,16 +142,18 @@ class FallbackMenu(object):
                         return True
                     except dbus.exceptions.DBusException:
                         continue
-                obj = self.session.get_object('org.freedesktop.login1',
-                                              '/org/freedesktop/login1')
-                obj.get_dbus_method('Lock', 'org.freedesktop.login1.Manager')(
-                        timeout=5)
+                # login1 lives on the system bus, and its Manager has no
+                # Lock member; LockSessions() is the locking method
+                obj = self._system_bus().get_object(
+                        'org.freedesktop.login1', '/org/freedesktop/login1')
+                obj.get_dbus_method('LockSessions',
+                                    'org.freedesktop.login1.Manager')(timeout=5)
                 return True
-            obj = self.session.get_object('org.freedesktop.login1',
-                                          '/org/freedesktop/login1')
+            obj = self._system_bus().get_object('org.freedesktop.login1',
+                                                  '/org/freedesktop/login1')
             manager = dbus.Interface(obj, 'org.freedesktop.login1.Manager')
             if action == 'suspend':
-                manager.Suspend(timeout=10)
+                manager.Suspend(False, timeout=10)
             elif action == 'reboot':
                 manager.Reboot(False, timeout=10)
             elif action == 'poweroff':
