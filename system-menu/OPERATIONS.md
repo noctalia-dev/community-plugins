@@ -1,5 +1,12 @@
 # Operations and privacy
 
+## Baseline system commands
+
+The catalog lists extra tools, not the assumed Arch system commands: `pacman`
+queries package metadata and handles transactions, `pacman-conf` reads cache
+configuration, `sudo` authorizes confirmed package changes, `lsblk` reads local
+storage information, and `cat` displays selector search status.
+
 ## Package actions
 
 | Action | Command |

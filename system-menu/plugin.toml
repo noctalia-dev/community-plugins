@@ -1,13 +1,13 @@
 id = "ajsem1337/system-menu"
 name = "System Menu"
-version = "1.2.1"
+version = "1.2.2"
 plugin_api = 43
 author = "ajsem1337"
 license = "MIT"
 description = "System menu with an Arch package browser, your choice of terminal and AUR helper, btop and system information."
 icon = "device-desktop"
 tags = ["bar", "panel", "system", "utility", "arch"]
-dependencies = ["python3", "fastfetch", "lsblk", "btop", "fzf", "pacman", "pacman-conf", "sudo", "downgrade", "traur", "xdg-open", "cat"]
+dependencies = ["python3", "fastfetch", "btop", "fzf", "downgrade", "traur", "xdg-open"]
 
 [[setting]]
 key = "terminal"
@@ -24,12 +24,19 @@ description_key = "settings.aur_helper.description"
 default = "paru"
 
 [[setting]]
+key = "show_terminal_arguments"
+type = "bool"
+label_key = "settings.show_terminal_arguments.label"
+description_key = "settings.show_terminal_arguments.description"
+default = false
+
+[[setting]]
 key = "terminal_args"
 type = "string_list"
 label_key = "settings.terminal_args.label"
 description_key = "settings.terminal_args.description"
 default = []
-advanced = true
+visible_when = { key = "show_terminal_arguments", values = ["true"] }
 
 [[setting]]
 key = "terminal_exec_args"
@@ -37,7 +44,7 @@ type = "string_list"
 label_key = "settings.terminal_exec_args.label"
 description_key = "settings.terminal_exec_args.description"
 default = ["-e"]
-advanced = true
+visible_when = { key = "show_terminal_arguments", values = ["true"] }
 
 [[widget]]
 id = "button"

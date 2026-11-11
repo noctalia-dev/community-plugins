@@ -1,5 +1,9 @@
 {
   "settings": {
+    "show_terminal_arguments": {
+      "label": "Advanced terminal options",
+      "description": "Show argument lists. Saved values apply even when hidden."
+    },
     "terminal": {
       "label": "Terminal executable",
       "description": "Executable name or absolute path, without arguments."

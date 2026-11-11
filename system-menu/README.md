@@ -17,12 +17,13 @@ The bar, menu and About panel use your installed distribution's logo.
 
 ## Requirements
 
-Install tools separately; nothing is installed automatically.
+Arch system tools are assumed. Install extras separately; nothing is installed
+automatically. See [operations](OPERATIONS.md) for the full command list.
 
 - `python3` (3.11+), a terminal (default `kitty`).
-- `fzf` (0.74.5+), `pacman`, `pacman-conf`, `sudo`, `cat`, and a compatible AUR
-  helper (default `paru`; `yay` or a custom executable also works).
-- `btop` for Task Manager; `fastfetch` and `lsblk` for About.
+- `fzf` (0.74.5+) and a compatible AUR helper (default `paru`; `yay` or a custom
+  executable also works).
+- `btop` for Task Manager; `fastfetch` for About.
 - Optional: `downgrade` for cached versions, `traur` for manual audits,
   `xdg-open` for VirusTotal browser links.
 
@@ -34,11 +35,13 @@ Open **Settings → Plugins → System Menu**.
 | --- | --- | --- |
 | Terminal executable | `kitty` | Executable name/path, without arguments |
 | AUR helper executable | `paru` | Compatible executable name/path |
+| Advanced terminal options | Off | Show the two argument lists below |
 | Terminal arguments (advanced) | Empty | One list item per option |
 | Run-program arguments (advanced) | `-e` | Before Packages/btop; use `--` for GNOME Terminal |
 
-Enable **Show advanced** in Noctalia settings to edit the argument lists.
-Existing argument values are preserved.
+Enable **Advanced terminal options** in this plugin's settings to edit the lists.
+This switch is independent of Noctalia's global **Show advanced** filter.
+Hiding the lists preserves their values and does not disable the arguments.
 
 Arguments are passed directly: no aliases, shell quotes, `~` or variable expansion.
 The helper must support `-S --needed --aur -- PACKAGE`, `-Ssa --color never -- QUERY`
