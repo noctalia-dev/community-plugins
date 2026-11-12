@@ -49,7 +49,19 @@ Motionpaper requires the following dependencies installed and available on `PATH
 
 Add the **Motionpaper** widget (`lawnninja/motionpaper:wallpaper`) to your bar in Noctalia Settings.
 
-Left-click the widget to open the wallpaper picker. Select **All outputs** or a specific monitor (e.g. `DP-1`, `eDP-1`), then select an image or video to apply it. The control bar at the top lets you toggle video playback, toggle stop/restore, configure slideshow intervals, or toggle shuffle.
+### Bar Widget Gestures
+
+By default, the bar widget provides the following quick gestures:
+
+- **Left Click**: Toggles the wallpaper picker panel (`lawnninja/motionpaper:picker`).
+- **Right Click**: Toggles video playback pause / resume across active video wallpapers (`toggle-pause`).
+- **Middle Click**: Toggles stop / restore across all wallpaper outputs (`toggle-stop`).
+
+All gestures can be remapped in Noctalia's bar widget settings under gesture actions.
+
+### Panel Controls
+
+Select **All outputs** or a specific monitor (e.g. `DP-1`, `eDP-1`), then select an image or video to apply it. The control bar at the top lets you toggle video playback, toggle stop/restore, configure slideshow intervals, or toggle shuffle.
 
 Toggle the picker from a terminal or keybinding:
 
@@ -86,8 +98,12 @@ noctalia msg plugin lawnninja/motionpaper:service all toggle-stop DP-1
 noctalia msg plugin lawnninja/motionpaper:service all toggle DP-1
 
 # Pause or resume video playback across all or a specific output
+noctalia msg plugin lawnninja/motionpaper:service all toggle-pause
+noctalia msg plugin lawnninja/motionpaper:service all toggle-pause DP-1
+
+# Direct pause / resume commands (also supported)
 noctalia msg plugin lawnninja/motionpaper:service all pause
-noctalia msg plugin lawnninja/motionpaper:service all pause DP-1
+noctalia msg plugin lawnninja/motionpaper:service all resume DP-1
 
 # Switch to the next wallpaper in the current directory
 noctalia msg plugin lawnninja/motionpaper:service all next

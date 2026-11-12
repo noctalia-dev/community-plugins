@@ -109,3 +109,8 @@ keyboard_focus = "exclusive"
 [[widget]]
 id = "wallpaper"
 entry = "widget.luau"
+
+  [widget.actions]
+  left = "panel-toggle lawnninja/motionpaper:picker"
+  right = "plugin lawnninja/motionpaper:service all toggle-pause"
+  middle = "plugin lawnninja/motionpaper:service all toggle-stop"

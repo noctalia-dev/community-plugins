@@ -533,6 +533,7 @@ local COMMAND_ACTIONS = {
     ["set-slideshow"] = true,
     ["stop"] = true,
     ["stop-all"] = true,
+    ["toggle-pause"] = true,
     ["toggle-stop"] = true,
 }
 
@@ -1939,7 +1940,9 @@ local function runModelChecks()
         and validateCommand({ nonce = 1, action = "stop-all", target = "*" })
         and validateCommand({ nonce = 1, action = "stop", target = "DP-1" })
         and validateCommand({ nonce = 1, action = "toggle-stop", target = "*" })
-        and validateCommand({ nonce = 1, action = "toggle-stop", target = "DP-1" }), "stop/restore commands rejected")
+        and validateCommand({ nonce = 1, action = "toggle-stop", target = "DP-1" })
+        and validateCommand({ nonce = 1, action = "toggle-pause", target = "*" })
+        and validateCommand({ nonce = 1, action = "toggle-pause", target = "DP-1" }), "stop/restore commands rejected")
 
     local testStill = stillPathFor("/tmp/video.mp4")
     assert(testStill and testStill:match("/still%-[0-9a-f]+%.jpg$") ~= nil, "stillPathFor failed")
@@ -2068,6 +2071,28 @@ local function handleCommand(command)
         return true
     end
 
+    if command.action == "toggle-pause" then
+        local isAll = (command.target == "*" or command.target == nil or command.target == "")
+        if isAll then
+            local anyPlaying = false
+            for _, c in ipairs(connectors) do
+                if assignments[c] and assignments[c].kind == "video" then
+                    local live = runtime[c]
+                    local isHalted = live and (live.status == "stopped" or live.status == "error")
+                    if not isHalted and (not live or live.status ~= "paused") then
+                        anyPlaying = true
+                        break
+                    end
+                end
+            end
+            command.action = anyPlaying and "pause" or "resume"
+            command.target = "*"
+        else
+            local live = runtime[command.target]
+            command.action = (live and live.status == "paused") and "resume" or "pause"
+        end
+    end
+
     if command.action == "toggle-stop" then
         local isAll = (command.target == "*" or command.target == nil or command.target == "")
         if isAll then
@@ -2187,32 +2212,11 @@ function onIpc(event, payload)
             action = "next",
             target = target,
         })
-    elseif event == "pause" then
+    elseif event == "pause" or event == "toggle-pause" then
         local target = (type(payload) == "string" and payload ~= "") and payload or "*"
-        local action = "pause"
-        if target == "*" then
-            local anyPlaying = false
-            for _, c in ipairs(detectedConnectors()) do
-                if assignments[c] and assignments[c].kind == "video" then
-                    local live = runtime[c]
-                    if not live or live.status ~= "paused" then
-                        anyPlaying = true
-                        break
-                    end
-                end
-            end
-            if not anyPlaying then
-                action = "resume"
-            end
-        else
-            local live = runtime[target]
-            if live and live.status == "paused" then
-                action = "resume"
-            end
-        end
         handleCommand({
             nonce = nextIpcNonce(),
-            action = action,
+            action = "toggle-pause",
             target = target,
         })
     elseif event == "resume" then
