@@ -304,268 +304,6 @@ def _spotify_candidate_matches(track_id, title, artist):
         return False
 
 
-# ── Apple Music ISRC Resolution & WebPlayKid Token Auto-Regeneration ─────────────
-
-_APPLE_MUSIC_TOKEN = None
-_APPLE_MUSIC_TOKEN_EXPIRES = 0
-
-_APPLE_MUSIC_TOKEN_CACHE_FILE = os.path.expanduser("~/.cache/noctalia/apple_music_token.txt")
-_APPLE_MUSIC_TOKEN_LOCK = threading.Lock()
-
-def _extract_webplaykid_token_from_bundle(bundle_js: str) -> str | None:
-    """Extract WebPlayKid JWT token from Apple Music index bundle JavaScript."""
-    # JWT pattern: header.payload.signature (base64url encoded)
-    jwt_pattern = re.compile(r"e[yw][A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]{2,}")
-    candidates = jwt_pattern.findall(bundle_js)
-
-    for candidate in candidates:
-        try:
-            header_b64 = candidate.split('.')[0]
-            # Fix base64 padding
-            padding = '=' * (-len(header_b64) % 4)
-            header_json = json.loads(base64.urlsafe_b64decode(header_b64 + padding).decode('utf-8'))
-            if header_json.get("kid") == "WebPlayKid":
-                return candidate
-        except Exception:
-            continue
-    return None
-
-
-def _fetch_apple_music_bundle() -> str | None:
-    """Fetch the Apple Music index bundle JavaScript from music.apple.com."""
-    try:
-        # Step 1: Fetch browse page to find the index bundle URL
-        browse_url = "https://music.apple.com/us/browse"
-        req = urllib.request.Request(
-            browse_url,
-            headers={
-                "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0",
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            }
-        )
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            html_content = resp.read().decode("utf-8", "ignore")
-
-        # Extract the index bundle JS path
-        match = re.search(r'crossorigin src="(/assets/index[^"]+\.js)"', html_content)
-        if not match:
-            match = re.search(r'src="(/assets/index[^"]+\.js)"', html_content)
-
-        if not match:
-            sys.stderr.write("apple music token notice: Could not locate index.js bundle in page\n")
-            return None
-
-        js_url = f"https://music.apple.com{match.group(1)}"
-
-        # Step 2: Fetch the JavaScript bundle
-        js_req = urllib.request.Request(
-            js_url,
-            headers={
-                "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0",
-                "Referer": "https://music.apple.com/",
-            }
-        )
-        with urllib.request.urlopen(js_req, timeout=15) as resp:
-            return resp.read().decode("utf-8", "ignore")
-    except Exception as e:
-        sys.stderr.write(f"apple music token notice: Failed to fetch bundle: {e}\n")
-    return None
-
-
-def _load_cached_apple_music_token() -> str | None:
-    """Load cached Apple Music token from disk."""
-    try:
-        if os.path.exists(_APPLE_MUSIC_TOKEN_CACHE_FILE):
-            with open(_APPLE_MUSIC_TOKEN_CACHE_FILE, "r") as f:
-                token = f.read().strip()
-                if token:
-                    return token
-    except Exception:
-        pass
-    return None
-
-
-def _save_apple_music_token(token: str) -> None:
-    """Save Apple Music token to disk."""
-    try:
-        os.makedirs(os.path.dirname(_APPLE_MUSIC_TOKEN_CACHE_FILE), exist_ok=True)
-        with open(_APPLE_MUSIC_TOKEN_CACHE_FILE, "w") as f:
-            f.write(token)
-    except Exception as e:
-        sys.stderr.write(f"apple music token notice: Failed to save token: {e}\n")
-
-
-def _get_or_refresh_apple_music_token(force_refresh: bool = False) -> str | None:
-    """
-    Get a valid Apple Music WebPlayKid token.
-    Loads from cache, or scrapes a new one if missing/expired/forced.
-    Thread-safe.
-    """
-    with _APPLE_MUSIC_TOKEN_LOCK:
-        global _APPLE_MUSIC_TOKEN, _APPLE_MUSIC_TOKEN_EXPIRES
-
-        # Return cached token if valid and not forced
-        if not force_refresh and _APPLE_MUSIC_TOKEN and _APPLE_MUSIC_TOKEN_EXPIRES:
-            if time.time() < _APPLE_MUSIC_TOKEN_EXPIRES:
-                return _APPLE_MUSIC_TOKEN
-
-        # Try to load from disk cache
-        if not force_refresh:
-            cached_token = _load_cached_apple_music_token()
-            if cached_token:
-                _APPLE_MUSIC_TOKEN = cached_token
-                # Decode JWT to get expiry
-                try:
-                    payload_b64 = cached_token.split('.')[1]
-                    padding = '=' * (-len(payload_b64) % 4)
-                    payload = json.loads(base64.urlsafe_b64decode(payload_b64 + padding).decode('utf-8'))
-                    exp = payload.get("exp", 0)
-                    if exp and time.time() < exp - 60:  # 60s buffer
-                        _APPLE_MUSIC_TOKEN_EXPIRES = exp
-                        return cached_token
-                except Exception:
-                    pass
-
-        # Scrape a fresh token
-        sys.stderr.write("apple music token notice: Scraping fresh WebPlayKid token...\n")
-        bundle_js = _fetch_apple_music_bundle()
-        if not bundle_js:
-            return None
-
-        token = _extract_webplaykid_token_from_bundle(bundle_js)
-        if not token:
-            sys.stderr.write("apple music token notice: No WebPlayKid token found in bundle\n")
-            return None
-
-        # Decode to get expiry
-        try:
-            payload_b64 = token.split('.')[1]
-            padding = '=' * (-len(payload_b64) % 4)
-            payload = json.loads(base64.urlsafe_b64decode(payload_b64 + padding).decode('utf-8'))
-            exp = payload.get("exp", 0)
-            if exp:
-                _APPLE_MUSIC_TOKEN_EXPIRES = exp
-        except Exception:
-            _APPLE_MUSIC_TOKEN_EXPIRES = time.time() + 3600  # Fallback: 1 hour
-
-        _APPLE_MUSIC_TOKEN = token
-        _save_apple_music_token(token)
-        sys.stderr.write("apple music token notice: Successfully obtained fresh WebPlayKid token\n")
-        return token
-
-
-def resolve_apple_music_isrc(isrc: str, developer_token: str = "", storefront: str = "us") -> dict | None:
-    """
-    Resolve an ISRC using the Apple Music Catalog API.
-    Returns track metadata including Apple Music catalog ID, name, artist, album, duration, etc.
-    Automatically uses/refreshes WebPlayKid token if no explicit token provided.
-    """
-    global _APPLE_MUSIC_TOKEN, _APPLE_MUSIC_TOKEN_EXPIRES
-
-    if not isrc:
-        return None
-
-    # Clean ISRC: uppercase, strip whitespace
-    clean_isrc = isrc.strip().upper()
-
-    # Validate ISRC format (2 letters + 3 chars + 7 digits = 12 chars)
-    if not re.fullmatch(r"[A-Z]{2}[A-Z0-9]{3}\d{7}", clean_isrc):
-        return None
-
-    # Use provided token, or auto-get/refresh WebPlayKid token
-    token = developer_token.strip() if developer_token else _get_or_refresh_apple_music_token()
-    if not token:
-        sys.stderr.write("apple music isrc resolve notice: No developer token available (auto-scrape failed)\n")
-        return None
-
-    try:
-        url = f"https://api.music.apple.com/v1/catalog/{storefront}/songs"
-        params = {"filter[isrc]": clean_isrc}
-
-        req = urllib.request.Request(
-            url + "?" + urllib.parse.urlencode(params),
-            headers={
-                "Authorization": f"Bearer {token}",
-                "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                "Origin": "https://music.apple.com",
-            }
-        )
-
-        with urllib.request.urlopen(req, timeout=1.5) as resp:
-            if resp.status == 404:
-                return None
-            data = json.loads(resp.read().decode("utf-8"))
-
-        items = data.get("data", [])
-        if not items:
-            return None
-
-        # Return first match with normalized fields
-        item = items[0]
-        attrs = item.get("attributes", {})
-        return {
-            "apple_music_id": item.get("id"),
-            "isrc": attrs.get("isrc", clean_isrc),
-            "name": attrs.get("name"),
-            "artist": attrs.get("artistName"),
-            "album": attrs.get("albumName"),
-            "duration_ms": attrs.get("durationInMillis"),
-            "release_date": attrs.get("releaseDate"),
-            "artwork_url": (attrs.get("artwork", {}) or {}).get("url"),
-            "url": attrs.get("url"),
-            "storefront": storefront,
-        }
-    except urllib.error.HTTPError as e:
-        if e.code == 401:
-            # Token expired or invalid - force refresh and retry once
-            if not developer_token:
-                sys.stderr.write("apple music isrc resolve notice: Token expired (401), refreshing...\n")
-                fresh_token = _get_or_refresh_apple_music_token(force_refresh=True)
-                if fresh_token:
-                    # Retry with fresh token
-                    try:
-                        req = urllib.request.Request(
-                            url + "?" + urllib.parse.urlencode(params),
-                            headers={
-                                "Authorization": f"Bearer {fresh_token}",
-                                "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                                "Origin": "https://music.apple.com",
-                            }
-                        )
-                        with urllib.request.urlopen(req, timeout=1.5) as resp:
-                            if resp.status == 404:
-                                return None
-                            data = json.loads(resp.read().decode("utf-8"))
-                        items = data.get("data", [])
-                        if items:
-                            item = items[0]
-                            attrs = item.get("attributes", {})
-                            return {
-                                "apple_music_id": item.get("id"),
-                                "isrc": attrs.get("isrc", clean_isrc),
-                                "name": attrs.get("name"),
-                                "artist": attrs.get("artistName"),
-                                "album": attrs.get("albumName"),
-                                "duration_ms": attrs.get("durationInMillis"),
-                                "release_date": attrs.get("releaseDate"),
-                                "artwork_url": (attrs.get("artwork", {}) or {}).get("url"),
-                                "url": attrs.get("url"),
-                                "storefront": storefront,
-                            }
-                    except Exception as retry_e:
-                        sys.stderr.write(f"apple music isrc resolve notice: Retry failed: {retry_e}\n")
-                else:
-                    sys.stderr.write("apple music isrc resolve notice: Failed to refresh token\n")
-            else:
-                # Explicit token was provided but invalid
-                _APPLE_MUSIC_TOKEN = None
-                _APPLE_MUSIC_TOKEN_EXPIRES = 0
-        sys.stderr.write(f"apple music isrc resolve notice: HTTP {e.code}: {e.reason}\n")
-    except Exception as e:
-        sys.stderr.write(f"apple music isrc resolve notice: {e}\n")
-    return None
-
-
 # ── Helper Functions for New Providers ───────────────────────────────────────────
 
 def _timed_result(lines, source_name):
@@ -599,6 +337,26 @@ def _timed_result(lines, source_name):
         "badge": labels[lyric_type],
         "preview": [line["text"] for line in lines[:3]], "lines": lines,
     }
+
+
+def _metadata_match_score(wanted_title, wanted_artist, hit_title, hit_artist, wanted_album="", hit_album="", wanted_duration=0, hit_duration=0):
+    """Score a metadata hit against wanted metadata. Returns float score or None if not a match."""
+    wanted_title = _normalize_track_text(wanted_title)
+    wanted_artist = _normalize_track_text(wanted_artist)
+    wanted_album = _normalize_track_text(wanted_album)
+    hit_title = _normalize_track_text(hit_title)
+    hit_artist = _normalize_track_text(hit_artist)
+    hit_album = _normalize_track_text(hit_album)
+    if not hit_title:
+        return None
+    title_score = difflib.SequenceMatcher(None, wanted_title, hit_title).ratio()
+    artist_matches = not wanted_artist or wanted_artist == hit_artist or wanted_artist in hit_artist or hit_artist in wanted_artist
+    if title_score < 0.82 or not artist_matches:
+        return None
+    album_bonus = 0.1 if wanted_album and hit_album and (wanted_album in hit_album or hit_album in wanted_album) else 0
+    duration_bonus = 0.05 if wanted_duration and hit_duration and abs(wanted_duration - hit_duration) < 3.0 else 0
+    score = title_score + (0.25 if wanted_artist and artist_matches else 0) + album_bonus + duration_bonus
+    return score
 
 
 def _make_timed_segment(begin, duration, text):
@@ -870,6 +628,49 @@ def _amll_items(payload):
             if isinstance(items, list):
                 return items
     return []
+
+
+def fetch_musicbrainz_isrc(title, artist, album="", duration_seconds=0):
+    """Fetch ISRC from MusicBrainz by recording title/artist metadata."""
+    base = "https://musicbrainz.org/ws/2/recording"
+    query_parts = []
+    if title:
+        query_parts.append(f'recording:"{title}"')
+    if artist:
+        query_parts.append(f'artist:"{artist}"')
+    if not query_parts:
+        return None
+    query = " AND ".join(query_parts)
+    params = {"query": query, "fmt": "json", "limit": 10}
+    try:
+        with urllib.request.urlopen(urllib.request.Request(
+            base + "?" + urllib.parse.urlencode(params),
+            headers={"User-Agent": USER_AGENT}), timeout=3.0) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        recordings = data.get("recordings", [])
+        if not recordings:
+            return None
+        wanted_title = _normalize_track_text(title)
+        wanted_artist = _normalize_track_text(artist)
+        wanted_album = _normalize_track_text(album)
+        for rec in recordings:
+            rec_title = _normalize_track_text(rec.get("title", ""))
+            rec_artist = ""
+            if rec.get("artist-credit"):
+                rec_artist = _normalize_track_text(rec["artist-credit"][0].get("artist", {}).get("name", ""))
+            rec_album = ""
+            if rec.get("releases"):
+                rec_album = _normalize_track_text(rec["releases"][0].get("title", ""))
+            score = _metadata_match_score(
+                wanted_title, wanted_artist, rec_title, rec_artist,
+                wanted_album, rec_album, duration_seconds,
+                rec.get("length", 0) / 1000.0 if rec.get("length") else 0,
+            )
+            if score is not None and rec.get("isrcs"):
+                return rec["isrcs"][0]
+    except Exception as e:
+        sys.stderr.write(f"MusicBrainz ISRC notice: {e}\n")
+    return None
 
 
 def _amll_text(value):
@@ -1234,11 +1035,11 @@ def _build_full_payload(sources, active_source, checked_sources):
     }
 
 
-def _parse_lrc_red_song(isrc):
+def _parse_lrc_red_song(isrc, timeout=1.5):
     """Read lrc.red's richer song record before trying its direct TTML route."""
     url = f"https://lrc.red/s/{urllib.parse.quote(isrc)}.song.json"
     try:
-        payload = _fetch_json(url)
+        payload = _fetch_json(url, timeout=timeout)
         if isinstance(payload, dict):
             source = payload.get("source") or payload.get("ttml")
             if isinstance(source, str) and "<" in source:
@@ -1258,7 +1059,7 @@ def _parse_lrc_red_song(isrc):
     try:
         url = f"https://lrc.red/s/{urllib.parse.quote(isrc)}.ttml"
         req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-        with urllib.request.urlopen(req, timeout=1.5) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
             parsed = parse_ttml(resp.read().decode("utf-8"), "Apple Music (lrc.red)")
         if parsed and parsed.get("lines"):
             return parsed
@@ -1269,28 +1070,36 @@ def _parse_lrc_red_song(isrc):
 
 def fetch_binimum(title, artist, album="", duration_seconds=0, isrc=""):
     """Try lrc.red matching and BiniLyrics metadata/ISRC routes for Apple TTML."""
+    # Don't include album in query params - API can't handle specific/long album names.
+    # Album is used only for post-query scoring.
     query_params = {"track": title, "artist": artist}
-    if album:
-        query_params["album"] = album
     if duration_seconds:
         query_params["duration"] = str(round(float(duration_seconds)))
 
     candidates = []
     # lrc.red's match endpoint accepts richer metadata than its basic search route.
+    # Use longer timeout (3s) since these can be slow
     if title and artist:
         try:
             match_url = "https://lrc.red/match.json?" + urllib.parse.urlencode(query_params)
-            candidates.extend(_response_items(_fetch_json(match_url)))
+            candidates.extend(_response_items(_fetch_json(match_url, timeout=3.0)))
         except Exception:
             pass
 
-    search_query = " ".join(part for part in (artist, title, album) if part).strip()
+    search_query = " ".join(part for part in (title, artist) if part).strip()
     if search_query:
-        try:
-            search_url = "https://lrc.red/search.json?" + urllib.parse.urlencode({"q": search_query})
-            candidates.extend(_response_items(_fetch_json(search_url)))
-        except Exception as e:
-            sys.stderr.write(f"lrc.red search notice: {e}\n")
+        # Try original query and normalized query (remove apostrophes/special chars)
+        search_queries = [search_query]
+        # Also try with common apostrophe replacements
+        normalized = search_query.replace("'", "").replace("’", "").replace("`", "")
+        if normalized != search_query:
+            search_queries.append(normalized)
+        for sq in search_queries:
+            try:
+                search_url = "https://lrc.red/search.json?" + urllib.parse.urlencode({"q": sq})
+                candidates.extend(_response_items(_fetch_json(search_url, timeout=3.0)))
+            except Exception as e:
+                sys.stderr.write(f"lrc.red search notice: {e}\n")
 
     wanted_title = _normalize_track_text(title)
     wanted_artist = _normalize_track_text(artist)
@@ -1314,19 +1123,34 @@ def fetch_binimum(title, artist, album="", duration_seconds=0, isrc=""):
         hit_album = _normalize_track_text(hit.get("album", ""))
         if not hit_title:
             continue
-        title_score = difflib.SequenceMatcher(None, wanted_title, hit_title).ratio()
+        # Use lenient matching like Spotify search: allow substring match or high similarity
+        title_matches = (
+            wanted_title == hit_title
+            or wanted_title in hit_title
+            or hit_title in wanted_title
+            or difflib.SequenceMatcher(None, wanted_title, hit_title).ratio() >= 0.82
+        )
         artist_matches = not wanted_artist or wanted_artist == hit_artist or wanted_artist in hit_artist or hit_artist in wanted_artist
-        if title_score < 0.82 or not artist_matches:
+        if not title_matches or not artist_matches:
             continue
+        title_score = difflib.SequenceMatcher(None, wanted_title, hit_title).ratio()
         album_bonus = 0.1 if wanted_album and hit_album and (wanted_album in hit_album or hit_album in wanted_album) else 0
         score = title_score + (0.25 if wanted_artist and artist_matches else 0) + album_bonus
         ranked.append((score, str(isrc)))
         seen_isrcs.add(isrc)
 
-    for _, isrc in sorted(ranked, reverse=True)[:3]:
-        parsed = _parse_lrc_red_song(isrc)
-        if parsed:
-            return parsed
+    # Try all ranked ISRCs and prefer syllable > word > line quality
+    best_parsed = None
+    best_type_rank = 0  # 3=syllable, 2=word, 1=line
+    for _, isrc in sorted(ranked, reverse=True)[:5]:  # Try top 5 ISRCs
+        parsed = _parse_lrc_red_song(isrc, timeout=3.0)
+        if parsed and parsed.get("lines"):
+            type_rank = 3 if parsed.get("type") == "syllable" else (2 if parsed.get("type") == "word" else 1)
+            if type_rank > best_type_rank:
+                best_parsed = parsed
+                best_type_rank = type_rank
+                if best_type_rank == 3:  # syllable is best possible
+                    break
 
     # The am-lyrics flow also queries the public Binimum endpoint directly by ISRC
     # or recording metadata. Follow its lyricsUrl when the search endpoint misses.
@@ -1335,10 +1159,10 @@ def fetch_binimum(title, artist, album="", duration_seconds=0, isrc=""):
         lookup_params["album"] = album
     if duration_seconds:
         lookup_params["duration"] = str(round(float(duration_seconds)))
-    for isrc in [entry[1] for entry in sorted(ranked, reverse=True)[:3]] + [""]:
+    for isrc in [entry[1] for entry in sorted(ranked, reverse=True)[:5]] + [""]:
         params = {"isrc": isrc} if isrc else lookup_params
         try:
-            payload = _fetch_json("https://lyrics-api.binimum.org/?" + urllib.parse.urlencode(params))
+            payload = _fetch_json("https://lyrics-api.binimum.org/?" + urllib.parse.urlencode(params), timeout=3.0)
             for result in _response_items(payload):
                 if not isinstance(result, dict):
                     continue
@@ -1347,17 +1171,22 @@ def fetch_binimum(title, artist, album="", duration_seconds=0, isrc=""):
                 if lyrics_url:
                     try:
                         req = urllib.request.Request(lyrics_url, headers={"User-Agent": USER_AGENT})
-                        with urllib.request.urlopen(req, timeout=1.5) as resp:
+                        with urllib.request.urlopen(req, timeout=3.0) as resp:
                             ttml = resp.read().decode("utf-8", "ignore")
                     except Exception:
                         continue
                 if isinstance(ttml, str):
                     parsed = parse_ttml(ttml, "Apple Music (Binimum)")
                     if parsed and parsed.get("lines"):
-                        return parsed
+                        type_rank = 3 if parsed.get("type") == "syllable" else (2 if parsed.get("type") == "word" else 1)
+                        if type_rank > best_type_rank:
+                            best_parsed = parsed
+                            best_type_rank = type_rank
+                            if best_type_rank == 3:
+                                break
         except Exception:
             continue
-    return None
+    return best_parsed
 
 
 def _provider_seconds(value):
@@ -1481,36 +1310,6 @@ def fetch_unison(title, artist, album="", duration_seconds=0):
     return None
 
 
-def fetch_genius(title, artist):
-    """Fetch a plain-text Genius fallback via the am-lyrics public worker."""
-    url = "https://fetch-genius.samidy.workers.dev/?" + urllib.parse.urlencode({
-        "title": title, "artist": artist,
-    })
-    try:
-        payload = _fetch_json(url, timeout=1.5)
-        data = payload.get("data", payload) if isinstance(payload, dict) else {}
-        lyrics = data.get("lyrics") if isinstance(data, dict) else None
-        if not isinstance(lyrics, str) or not lyrics.strip():
-            return None
-        lines = []
-        for text in lyrics.splitlines():
-            text = text.strip()
-            if not text or (text.startswith("[") and text.endswith("]")):
-                continue
-            start = len(lines) * 5.0
-            end = start + 5.0
-            lines.append({"begin": start, "end": end, "end_": end, "endTime": end,
-                          "text": text, "syllables": []})
-        if lines:
-            return {
-                "status": "ok", "name": "Genius", "type": "line",
-                "badge": "Line-synced", "preview": [line["text"] for line in lines[:3]],
-                "lines": lines,
-            }
-    except Exception as e:
-        sys.stderr.write(f"genius fetch notice: {e}\n")
-    return None
-
 def fetch_betterlyrics(title, artist, album="", api_key=""):
     params = {"s": title, "a": artist}
     if album:
@@ -1538,7 +1337,7 @@ def fetch_lrclib(title, artist, album=""):
     url = f"https://lrclib.net/api/search?q={urllib.parse.quote(query)}"
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     try:
-        with urllib.request.urlopen(req, timeout=1.5) as resp:
+        with urllib.request.urlopen(req, timeout=3.0) as resp:
             hits = json.loads(resp.read().decode('utf-8'))
             for hit in hits:
                 synced = hit.get("syncedLyrics")
@@ -1598,8 +1397,7 @@ def save_payload_to_cache(payload, title, artist, cache_dir):
 def get_lyrics(title, artist, album="", preferred_source="auto",
                betterlyrics_key="", spicy_lyrics_key="", spotify_track_id="",
                spotify_client_id="", spotify_client_secret="", cache_dir=None,
-               parsenix_base_url="https://noctalialyrics.vercel.app/", force_refresh=False, isrc="", duration_seconds=0,
-               apple_music_developer_token="", apple_music_storefront="us"):
+               parsenix_base_url="https://noctalialyrics.vercel.app/", force_refresh=False, isrc="", duration_seconds=0):
 
     # A recent payload records which providers were checked. Reuse it until explicit
     # refresh or expiry, avoiding repeated network fan-out for the same recording.
@@ -1646,7 +1444,6 @@ def get_lyrics(title, artist, album="", preferred_source="auto",
 
     # Resolve once and share the Spotify ID between Spotify-backed providers.
     # Metadata-only providers also run for local files and non-Spotify players.
-    # Also resolve Apple Music metadata from ISRC if token is provided.
     with ThreadPoolExecutor(max_workers=12) as executor:
         # Submit all futures upfront - no sequential waiting
         track_id_future = executor.submit(
@@ -1654,18 +1451,12 @@ def get_lyrics(title, artist, album="", preferred_source="auto",
             spotify_client_id, spotify_client_secret,
         )
 
-        apple_music_future = None
-        if apple_music_developer_token and isrc:
-            apple_music_future = executor.submit(
-                resolve_apple_music_isrc, isrc, apple_music_developer_token, apple_music_storefront
-            )
-
         # Helper to run a phase and collect ALL results before applying selection policy
         def run_phase_collect(phase_futures, phase_timeout, phase_name, phase_checked_sources, phase_check_list):
             """Run a phase of providers, collect ALL results, then apply selection policy.
             Returns (selected_source, all_phase_sources) or (None, {}) if timeout/no results.
             """
-            nonlocal track_id_resolved, apple_metadata, spicy_submitted, parsenix_submitted
+            nonlocal track_id_resolved, spicy_submitted, parsenix_submitted
             pending = set(phase_futures.keys())
             start_time = time.monotonic()
             phase_sources = {}
@@ -1718,19 +1509,6 @@ def get_lyrics(title, artist, album="", preferred_source="auto",
                             pass
                         parsenix_submitted = True
 
-                    # Check Apple Music metadata if available
-                    if apple_music_future and apple_metadata is None:
-                        try:
-                            apple_metadata = apple_music_future.result(timeout=0)
-                            if apple_metadata:
-                                sys.stderr.write(f"apple music isrc resolved: {apple_metadata.get('name')} by {apple_metadata.get('artist')}\n")
-                                if not duration_seconds and apple_metadata.get("duration_ms"):
-                                    duration_seconds = apple_metadata["duration_ms"] / 1000.0
-                                if not album and apple_metadata.get("album"):
-                                    album = apple_metadata["album"]
-                        except Exception:
-                            pass
-
             # Phase timed out - cancel remaining
             for f in pending:
                 f.cancel()
@@ -1748,29 +1526,22 @@ def get_lyrics(title, artist, album="", preferred_source="auto",
         parsenix_submitted = False
 
         track_id_resolved = None
-        apple_metadata = None
 
-        # Phase 1: Fast providers only (lrclib, binimum) - 3.0s total timeout
+        # Fetch ISRC from MusicBrainz if not provided
+        if not isrc:
+            mb_isrc = fetch_musicbrainz_isrc(title, artist, album, duration_seconds)
+            if mb_isrc:
+                isrc = mb_isrc
+
+        # Phase 1: Metadata-based providers (lrclib, binimum) - 8.0s total timeout
+        # binimum needs ~4-5s for its multi-request search; lrclib ~1-2s
         phase1_futures = {}
         phase1_futures[executor.submit(fetch_lrclib, title, artist, album)] = "lrclib"
         phase1_futures[executor.submit(fetch_binimum, title, artist, album, duration_seconds, isrc)] = "binimum"
 
         selected_source, phase1_sources = run_phase_collect(
-            phase1_futures, 3.0, "Phase 1", {"lrclib", "binimum"}, ["lrclib", "binimum"]
+            phase1_futures, 8.0, "Phase 1", {"lrclib", "binimum"}, ["lrclib", "binimum"]
         )
-
-        # Check Apple Music metadata after Phase 1
-        if apple_music_future and apple_metadata is None:
-            try:
-                apple_metadata = apple_music_future.result(timeout=0)
-                if apple_metadata:
-                    sys.stderr.write(f"apple music isrc resolved: {apple_metadata.get('name')} by {apple_metadata.get('artist')}\n")
-                    if not duration_seconds and apple_metadata.get("duration_ms"):
-                        duration_seconds = apple_metadata["duration_ms"] / 1000.0
-                    if not album and apple_metadata.get("album"):
-                        album = apple_metadata["album"]
-            except Exception:
-                pass
 
         # Phase 2: Medium providers (unison, betterlyrics, spicylyrics, parsenix) - 1.0s total timeout
         phase2_futures = {}
@@ -1807,19 +1578,6 @@ def get_lyrics(title, artist, album="", preferred_source="auto",
             phase2_futures, 1.0, "Phase 2", {"unison", "betterlyrics", "spicylyrics", "parsenix"},
             ["lrclib", "binimum", "unison", "betterlyrics", "spicylyrics", "parsenix"]
         )
-
-        # Check Apple Music metadata after Phase 2
-        if apple_music_future and apple_metadata is None:
-            try:
-                apple_metadata = apple_music_future.result(timeout=0)
-                if apple_metadata:
-                    sys.stderr.write(f"apple music isrc resolved: {apple_metadata.get('name')} by {apple_metadata.get('artist')}\n")
-                    if not duration_seconds and apple_metadata.get("duration_ms"):
-                        duration_seconds = apple_metadata["duration_ms"] / 1000.0
-                    if not album and apple_metadata.get("album"):
-                        album = apple_metadata["album"]
-            except Exception:
-                pass
 
         # Phase 3: Slow/unreliable providers as last resort (amll_ttml, kugou_krc, lyricsplus) - 1.0s total timeout
         phase3_futures = {}
@@ -1899,8 +1657,6 @@ if __name__ == "__main__":
         duration_seconds = float(sys.argv[14]) if len(sys.argv) > 14 and sys.argv[14] else 0
     except ValueError:
         duration_seconds = 0
-    apple_music_developer_token = sys.argv[15] if len(sys.argv) > 15 else ""
-    apple_music_storefront = sys.argv[16] if len(sys.argv) > 16 else "us"
 
     if not title:
         print(json.dumps({"status": "error", "message": "Missing title"}))
@@ -1921,7 +1677,5 @@ if __name__ == "__main__":
         force_refresh=force_refresh,
         isrc=isrc,
         duration_seconds=duration_seconds,
-        apple_music_developer_token=apple_music_developer_token,
-        apple_music_storefront=apple_music_storefront,
     )
     print(json.dumps(lyrics, ensure_ascii=False))

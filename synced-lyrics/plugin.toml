@@ -10,7 +10,7 @@ icon = "music"
 
 dependencies = [
   "python3",
-  "systemd"
+  "playerctl"
 ]
 
 [[setting]]
@@ -115,7 +115,6 @@ options = [
   { value = "betterlyrics", label_key = "settings.preferred-source.options.betterlyrics" },
   { value = "unison", label_key = "settings.preferred-source.options.unison" },
   { value = "lrclib", label_key = "settings.preferred-source.options.lrclib" },
-  { value = "genius", label_key = "settings.preferred-source.options.genius" },
 ]
 
 [[setting]]
