@@ -8,14 +8,19 @@
 --   view_panel.menuRequest(id, key) -> request | nil  a menu pick as a vscode.request
 --
 -- snap may be nil (no snapshot yet: shown as loading). ui_state:
+--   mode       which header field is open: "search", "open" (the path box) or nil
 --   shown      how many recents are listed (the panel starts it at recent_count)
+--   query      the search field's text; while mode is "search" and it isn't blank,
+--              pinned and recent rows are those whose title holds it (plain text, any
+--              case, trimmed); recent matches are capped at `shown` like the full list
+--   querySeq   bumped to remount the search field empty (key "input.search#<seq>")
 --   input      the path box's text as last typed (the input is uncontrolled)
 --   inputSeq   bumped to remount the path box empty (key "input.path#<seq>")
 --   cloneDir   the clone_dir setting, for the "Clones into" line
 --   expandedKey  the one row whose inline actions are open (nil: none)
 -- h: open(key), openPath(text), clone(url), pickFolder(), cancelClone(), openExisting(dest),
 --   dismiss(), loadMore(), setInput(text), menu(entry), toggleActions(key), action(id, key),
---   close().
+--   close(), setMode(mode | nil), setQuery(text).
 --
 -- Row actions: only a ui.button's onRightClick may open the native menu, so each row ends in
 -- a "⋮" ghost button: right click opens the menu (h.menu), left click toggles an inline list
@@ -72,14 +77,43 @@ local function small(key, text, color)
   return label(key, text, { fontSize = 10, color = color or MUTED, maxLines = 1 })
 end
 
-local function shownRecent(snap, ui_state)
-  local list = snap.recent or {}
+-- The lowercased search text, or nil when not searching.
+local function searchText(ui_state)
+  if ui_state.mode ~= "search" then
+    return nil
+  end
+  local q = string.lower(trim(ui_state.query))
+  if q == "" then
+    return nil
+  end
+  return q
+end
+
+local function matching(list, q)
+  local out = {}
+  for _, e in ipairs(list) do
+    local name = string.lower(tostring(e.title or e.path or e.key or ""))
+    if string.find(name, q, 1, true) ~= nil then
+      out[#out + 1] = e
+    end
+  end
+  return out
+end
+
+-- The rows on screen: pinned, the first `shown` recent (of the matches when searching),
+-- and whether more wait.
+local function visible(snap, ui_state)
+  local pinned, list = snap.pinned or {}, snap.recent or {}
+  local q = searchText(ui_state)
+  if q ~= nil then
+    pinned, list = matching(pinned, q), matching(list, q)
+  end
   local n = tonumber(ui_state.shown) or 5
   local out = {}
   for i = 1, math.min(n, #list) do
     out[i] = list[i]
   end
-  return out, #list > n
+  return pinned, out, #list > n
 end
 
 -- The one primary button: "go" (the path box's Open / Clone), "open_existing", or nil.
@@ -94,7 +128,7 @@ local function primaryOf(snap, ui_state)
   if st == "exists" then
     return "open_existing"
   end
-  if trim(ui_state.input) ~= "" then
+  if ui_state.mode == "open" and snap.hasGit and uris.isGitUrl(trim(ui_state.input)) then
     return "go"
   end
   return nil
@@ -114,6 +148,27 @@ local function header(snap, ui_state, tr, h)
     icon,
     label("hdr.name", flavor and flavor.name or tr("plugin.name"), { fontSize = 16, fontWeight = "bold", flexGrow = 1, maxLines = 1 }),
   }
+  local function toggle(key, glyph, mode, tip)
+    local active = ui_state.mode == mode
+    kids[#kids + 1] = ui.button({
+      key = key,
+      glyph = glyph,
+      variant = active and "outline" or "ghost",
+      controlSize = "sm",
+      tooltip = tr(tip),
+      onClick = function()
+        if active then
+          h.setMode()
+        else
+          h.setMode(mode)
+        end
+      end,
+    })
+  end
+  if snap ~= nil and snap.flavor ~= nil and not snap.loading then
+    toggle("btn.search", "search", "search", "panel.search")
+    toggle("btn.add", "plus", "open", "panel.add")
+  end
   kids[#kids + 1] = ui.button({
     key = "btn.settings",
     glyph = "settings",
@@ -135,6 +190,34 @@ local function header(snap, ui_state, tr, h)
       end,
     })
   return ui.row({ key = "hdr", gap = 6, align = "center" }, kids)
+end
+
+-- ── search box ───────────────────────────────────────────────────────────────
+
+local function searchBox(ui_state, tr, h)
+  return ui.row({ key = "box.search", gap = 6, align = "center" }, {
+    ui.input({
+      key = "input.search#" .. tostring(ui_state.querySeq or 0),
+      value = ui_state.query or "",
+      placeholder = tr("panel.search_placeholder"),
+      controlSize = "sm",
+      flexGrow = 1,
+      focus = true,
+      onChange = function(value)
+        h.setQuery(value)
+      end,
+    }),
+    ui.button({
+      key = "btn.search_close",
+      glyph = "x",
+      variant = "ghost",
+      controlSize = "sm",
+      tooltip = tr("panel.search_close"),
+      onClick = function()
+        h.setMode()
+      end,
+    }),
+  })
 end
 
 -- ── path box ─────────────────────────────────────────────────────────────────
@@ -163,6 +246,7 @@ local function pathBox(snap, ui_state, tr, h, primary)
       placeholder = tr("panel.path_placeholder"),
       controlSize = "sm",
       flexGrow = 1,
+      focus = true,
       onChange = function(value)
         h.setInput(value)
       end,
@@ -171,15 +255,16 @@ local function pathBox(snap, ui_state, tr, h, primary)
       end,
     }),
   }
+  -- A path opens on Enter; a git URL also gets a Clone button, since it starts a download.
   if git and not snap.hasGit then
     row[#row + 1] = small("lbl.no_git", tr("clone.no_git"), "error")
-  else
+  elseif git then
     row[#row + 1] = ui.button({
       key = "btn.go",
-      text = tr(git and "panel.clone" or "panel.open"),
+      text = tr("panel.clone"),
       variant = primary == "go" and "primary" or "outline",
       controlSize = "sm",
-      enabled = text ~= "" and not (git and running),
+      enabled = not running,
       onClick = function()
         submit(text)
       end,
@@ -188,7 +273,8 @@ local function pathBox(snap, ui_state, tr, h, primary)
   if snap.hasPicker then
     row[#row + 1] = ui.button({
       key = "btn.pick",
-      text = tr("panel.open_folder"),
+      glyph = "folder-open",
+      tooltip = tr("panel.open_folder"),
       variant = "ghost",
       controlSize = "sm",
       onClick = function()
@@ -196,10 +282,7 @@ local function pathBox(snap, ui_state, tr, h, primary)
       end,
     })
   end
-  local children = { ui.row({ key = "box.path.row", gap = 8, align = "center" }, row) }
-  if snap.pathError ~= nil then
-    children[#children + 1] = label("lbl.path_error", tr(snap.pathError), { fontSize = 11, color = "error", maxLines = 2 })
-  end
+  local children = { ui.row({ key = "box.path.row", gap = 6, align = "center" }, row) }
   if git and snap.hasGit then
     local name = uris.cloneName(text)
     if name ~= nil then
@@ -479,14 +562,14 @@ end
 
 local function lists(snap, ui_state, tr, h)
   local out = {}
-  if #(snap.pinned or {}) > 0 then
+  local pinned, shown, more = visible(snap, ui_state)
+  if #pinned > 0 then
     local rows = {}
-    for _, e in ipairs(snap.pinned) do
+    for _, e in ipairs(pinned) do
       rows[#rows + 1] = projectRow("row.pin.", e, snap, ui_state, tr, h)
     end
     out[#out + 1] = section("sec.pinned", tr("panel.pinned"), rows)
   end
-  local shown, more = shownRecent(snap, ui_state)
   if #shown > 0 then
     local rows = {}
     for _, e in ipairs(shown) do
@@ -507,7 +590,8 @@ local function lists(snap, ui_state, tr, h)
     out[#out + 1] = section("sec.recent", tr("panel.recent"), rows)
   end
   if #out == 0 then
-    out[1] = label("lbl.empty", tr("panel.empty"), { fontSize = 12, color = MUTED })
+    local empty = searchText(ui_state) ~= nil and "panel.no_match" or "panel.empty"
+    out[1] = label("lbl.empty", tr(empty), { fontSize = 12, color = MUTED })
   end
   return out
 end
@@ -548,7 +632,15 @@ function view_panel.build(snap, ui_state, tr, h)
     local key = fb.reason == "not_installed" and "panel.fallback_not_installed" or "panel.fallback_not_set_up"
     add(label("lbl.fallback", tr(key, { wanted = fb.wanted, using = snap.flavor.name }), { fontSize = 11, color = DIRTY, maxLines = 3 }))
   end
-  add(pathBox(snap, ui_state, tr, h, primary))
+  if ui_state.mode == "search" then
+    add(searchBox(ui_state, tr, h))
+  elseif ui_state.mode == "open" then
+    add(pathBox(snap, ui_state, tr, h, primary))
+  end
+  -- Outside the box: a failed open_path can land after the panel reopens with it closed.
+  if snap.pathError ~= nil then
+    add(label("lbl.path_error", tr(snap.pathError), { fontSize = 11, color = "error", maxLines = 2 }))
+  end
   add(cloneBox(snap, tr, h, primary))
   add(errorBox(snap, tr, h))
   if snap.loading then
@@ -569,10 +661,10 @@ function view_panel.gitKeys(snap, ui_state)
       out[#out + 1] = e.key
     end
   end
-  for _, e in ipairs(snap.pinned or {}) do
+  local pinned, shown = visible(snap, ui_state or {})
+  for _, e in ipairs(pinned) do
     addEntry(e)
   end
-  local shown = shownRecent(snap, ui_state or {})
   for _, e in ipairs(shown) do
     addEntry(e)
   end
