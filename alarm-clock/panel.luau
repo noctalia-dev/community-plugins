@@ -127,7 +127,7 @@ local function renderNormal()
       align = "center",
       padding = 7,
       radius = 8,
-      fill = "surface_variant/0.25",
+      fill = "surface/0.25",
     }, {
       ui.toggle({
         checked = alarm.enabled,
@@ -198,8 +198,8 @@ local function renderNormal()
       width = 32,
       height = 32,
       radius = 16,
-      fill = selected and "primary" or "surface_variant/0.22",
-      border = selected and "primary" or "outline_variant",
+      fill = selected and "primary" or "surface/0.22",
+      border = selected and "primary" or "on_surface_variant/0.35",
       borderWidth = 1,
       align = "center",
       justify = "center",
@@ -291,7 +291,7 @@ local function renderNormal()
 
     -- Two-column layout: a compact editor at left and a tall scrollable list at right.
     ui.row({ flexGrow = 1, gap = 12, align = "stretch" }, {
-      ui.column({ width = 278, gap = 10, padding = 10, radius = 10, fill = "surface_variant/0.16" }, editorContents),
+      ui.column({ width = 278, gap = 10, padding = 10, radius = 10, fill = "surface/0.16" }, editorContents),
 
       ui.column({ flexGrow = 1, gap = 8 }, {
         ui.row({ align = "center", justify = "space_between" }, {
