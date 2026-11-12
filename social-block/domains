@@ -1,0 +1,359 @@
+# Social Block domains.
+#
+# Service headers are machine-readable:  ## <id> | <Category> | <Name>
+# The panel uses them to build per-service toggles. Toggle a service off to
+# ALLOW it (for example Slack or Discord at work) without turning the whole
+# block off.
+#
+# Edit with:  sudoedit /etc/social-block/domains
+# Then re-run: bash install-helper.sh --update-domains
+# (that also regenerates the per-service sudo/doas rules).
+#
+# Hosts entries are exact — add the subdomains you actually use. There are no
+# wildcards. The CDN/gateway entries are deliberate: blocking only the landing
+# page still lets an already-open tab or desktop app fetch media and reconnect.
+
+## youtube | Streaming | YouTube
+youtube.com
+www.youtube.com
+m.youtube.com
+music.youtube.com
+tv.youtube.com
+studio.youtube.com
+youtu.be
+youtube-nocookie.com
+googlevideo.com
+ytimg.com
+youtubei.googleapis.com
+youtube.googleapis.com
+ggpht.com
+
+## netflix | Streaming | Netflix
+netflix.com
+www.netflix.com
+nflxvideo.net
+nflximg.net
+nflxext.com
+nflxso.net
+
+## twitch | Streaming | Twitch
+twitch.tv
+www.twitch.tv
+m.twitch.tv
+clips.twitch.tv
+ttvnw.net
+jtvnw.net
+twitchcdn.net
+
+## hulu | Streaming | Hulu
+hulu.com
+www.hulu.com
+huluim.com
+
+## disneyplus | Streaming | Disney+
+disneyplus.com
+www.disneyplus.com
+dssott.com
+disney-plus.net
+
+## primevideo | Streaming | Prime Video
+primevideo.com
+www.primevideo.com
+aiv-cdn.net
+aiv-delivery.net
+
+## max | Streaming | Max
+max.com
+www.max.com
+play.max.com
+hbomax.com
+www.hbomax.com
+
+## peacock | Streaming | Peacock
+peacocktv.com
+www.peacocktv.com
+peacocktv.net
+
+## paramountplus | Streaming | Paramount+
+paramountplus.com
+www.paramountplus.com
+cbsivideo.com
+
+## crunchyroll | Streaming | Crunchyroll
+crunchyroll.com
+www.crunchyroll.com
+crunchyrollsvc.com
+
+## kick | Streaming | Kick
+kick.com
+www.kick.com
+
+## rumble | Streaming | Rumble
+rumble.com
+www.rumble.com
+
+## vimeo | Streaming | Vimeo
+vimeo.com
+www.vimeo.com
+vimeocdn.com
+
+## dailymotion | Streaming | Dailymotion
+dailymotion.com
+www.dailymotion.com
+dmcdn.net
+
+## pluto | Streaming | Pluto TV
+pluto.tv
+www.pluto.tv
+plutotv.net
+
+## tubi | Streaming | Tubi
+tubitv.com
+www.tubitv.com
+tubi.io
+
+## bilibili | Streaming | Bilibili
+bilibili.com
+www.bilibili.com
+bilivideo.com
+hdslb.com
+
+## iqiyi | Streaming | iQIYI
+iq.com
+www.iq.com
+iqiyi.com
+www.iqiyi.com
+qiyipic.com
+
+## youku | Streaming | Youku
+youku.com
+www.youku.com
+ykimg.com
+
+## facebook | Social | Facebook
+facebook.com
+www.facebook.com
+m.facebook.com
+web.facebook.com
+fb.com
+messenger.com
+www.messenger.com
+fbcdn.net
+fbsbx.com
+
+## instagram | Social | Instagram
+instagram.com
+www.instagram.com
+cdninstagram.com
+instagramstatic.com
+
+## threads | Social | Threads
+threads.net
+www.threads.net
+threads.com
+
+## tiktok | Social | TikTok
+tiktok.com
+www.tiktok.com
+m.tiktok.com
+tiktokcdn.com
+tiktokv.com
+tiktokcdn-us.com
+
+## x | Social | X
+x.com
+www.x.com
+twitter.com
+www.twitter.com
+t.co
+twimg.com
+
+## reddit | Social | Reddit
+reddit.com
+www.reddit.com
+old.reddit.com
+new.reddit.com
+redd.it
+redditmedia.com
+redditstatic.com
+
+## discord | Social | Discord
+discord.com
+www.discord.com
+discordapp.com
+discord.gg
+gateway.discord.gg
+cdn.discordapp.com
+media.discordapp.net
+discordapp.net
+
+## slack | Social | Slack
+slack.com
+www.slack.com
+app.slack.com
+slack-edge.com
+a.slack-edge.com
+slack-imgs.com
+slack-files.com
+slack-msgs.com
+slackb.com
+slackcdn.com
+wss-primary.slack.com
+wss-backup.slack.com
+
+## snapchat | Social | Snapchat
+snapchat.com
+www.snapchat.com
+sc-cdn.net
+snap.com
+
+## pinterest | Social | Pinterest
+pinterest.com
+www.pinterest.com
+pinimg.com
+
+## tumblr | Social | Tumblr
+tumblr.com
+www.tumblr.com
+
+## linkedin | Social | LinkedIn
+linkedin.com
+www.linkedin.com
+licdn.com
+
+## bluesky | Social | Bluesky
+bsky.app
+www.bsky.app
+bsky.social
+
+## mastodon | Social | Mastodon
+mastodon.social
+
+## telegram | Social | Telegram
+telegram.org
+web.telegram.org
+t.me
+telegram.me
+
+## whatsapp | Social | WhatsApp
+whatsapp.com
+www.whatsapp.com
+web.whatsapp.com
+whatsapp.net
+
+## vk | Social | VK
+vk.com
+m.vk.com
+userapi.com
+
+## okru | Social | OK.ru
+ok.ru
+www.ok.ru
+
+## weibo | Social | Weibo
+weibo.com
+www.weibo.com
+weibo.cn
+sinaimg.cn
+
+## douyin | Social | Douyin
+douyin.com
+www.douyin.com
+douyinpic.com
+
+## quora | Forums | Quora
+quora.com
+www.quora.com
+quoracdn.net
+
+## 9gag | Forums | 9GAG
+9gag.com
+www.9gag.com
+9cache.com
+
+## 4chan | Forums | 4chan
+4chan.org
+www.4chan.org
+boards.4chan.org
+
+## lemmy | Forums | Lemmy
+lemmy.world
+
+## tinder | Dating | Tinder
+tinder.com
+www.tinder.com
+gotinder.com
+
+## bumble | Dating | Bumble
+bumble.com
+www.bumble.com
+bumblecdn.com
+
+## hinge | Dating | Hinge
+hinge.co
+www.hinge.co
+
+## okcupid | Dating | OKCupid
+okcupid.com
+www.okcupid.com
+
+## match | Dating | Match
+match.com
+www.match.com
+
+## badoo | Dating | Badoo
+badoo.com
+www.badoo.com
+
+## amazon | Shopping | Amazon
+amazon.com
+www.amazon.com
+media-amazon.com
+ssl-images-amazon.com
+amazon.co.uk
+amazon.de
+amazon.fr
+amazon.ca
+amazon.com.au
+amazon.co.jp
+amazon.in
+amazon.es
+amazon.it
+
+## ebay | Shopping | eBay
+ebay.com
+www.ebay.com
+ebaystatic.com
+ebayimg.com
+ebay.co.uk
+ebay.de
+ebay.fr
+ebay.com.au
+ebay.ca
+
+## temu | Shopping | Temu
+temu.com
+www.temu.com
+
+## aliexpress | Shopping | AliExpress
+aliexpress.com
+www.aliexpress.com
+alicdn.com
+
+## shein | Shopping | Shein
+shein.com
+www.shein.com
+sheincdn.com
+
+## etsy | Shopping | Etsy
+etsy.com
+www.etsy.com
+etsystatic.com
+
+## doh | Network | Secure DNS endpoints
+dns.google
+cloudflare-dns.com
+mozilla.cloudflare-dns.com
+chrome.cloudflare-dns.com
+one.one.one.one
+dns.quad9.net
