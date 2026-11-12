@@ -119,6 +119,7 @@ body:
         - godot-provider
         - grabit
         - gslapper
+        - handy
         - hassio
         - headroom
         - headsetcontrol
