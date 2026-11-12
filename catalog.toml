@@ -5847,3 +5847,16 @@ icon = "photo"
 description = "Shows a sticker image or animated GIF with a sound as a heads-up overlay, then closes itself."
 plugin_api = 30
 tags = ["panel", "bar", "service", "animation", "audio", "fun"]
+
+[[plugin]]
+id = "amancode22/global-menu"
+name = "Global Menu"
+version = "1.0.0"
+updated_at = 1794452661
+added_at = 1794452661
+author = "amancode22"
+license = "GPL-3.0-or-later"
+icon = "menu-2"
+description = "macOS style menu bar: the focused application's menus move into the top bar."
+plugin_api = 24
+tags = ["bar", "panel", "system"]
