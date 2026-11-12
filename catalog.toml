@@ -4307,13 +4307,13 @@ rev = "961cf85442258251a6f5d16933f2f07eda0ccdca"
 [[plugin]]
 id = "ayagmar/headroom"
 name = "Headroom"
-version = "0.2.2"
-updated_at = 1792983494
+version = "0.3.0"
+updated_at = 1794452731
 added_at = 1791375801
 author = "ayagmar"
 license = "MIT"
 icon = "gauge"
-description = "How much of your Claude, Codex and Antigravity plan limits is left, per account, with reset times and forecasts."
+description = "Claude, Codex and Antigravity plan limits left per account, with reset times, forecasts and reset credits."
 plugin_api = 43
 tags = ["bar", "panel", "service", "ai", "indicator", "productivity"]
 
