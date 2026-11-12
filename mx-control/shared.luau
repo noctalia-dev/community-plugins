@@ -97,6 +97,48 @@ function M.pickDevice(status, preferred)
     return online or first
 end
 
+-- The online device with the lowest known battery level, so the bar capsule
+-- shows whichever device needs attention first. Falls back to the first online
+-- device, then the first device, when no online device reports a level.
+function M.lowestDevice(status)
+    if type(status) ~= "table" or type(status.devices) ~= "table" then
+        return nil
+    end
+    local lowest, level
+    local first, online
+    for _, device in ipairs(status.devices) do
+        first = first or device
+        if device.online then
+            online = online or device
+            local current = M.batteryLevel(device)
+            if current ~= nil and (level == nil or current < level) then
+                lowest, level = device, current
+            end
+        end
+    end
+    return lowest or online or first
+end
+
+-- All devices ordered by battery level, lowest first; devices without a known
+-- level (offline, or no battery) come last, ordered by name.
+function M.devicesByLevel(status)
+    local out = {}
+    for _, device in ipairs((type(status) == "table" and status.devices) or {}) do
+        out[#out + 1] = device
+    end
+    table.sort(out, function(a, b)
+        local la, lb = M.batteryLevel(a), M.batteryLevel(b)
+        if la ~= nil and lb ~= nil and la ~= lb then
+            return la < lb
+        end
+        if (la ~= nil) ~= (lb ~= nil) then
+            return la ~= nil
+        end
+        return tostring(a.name or "") < tostring(b.name or "")
+    end)
+    return out
+end
+
 -- jsonable() emits NamedInt values as {id, name}.
 function M.valueId(value)
     if type(value) == "table" then

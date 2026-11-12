@@ -31,8 +31,9 @@ and the Noctalia widget, panel and service are new.
 
 ## Usage
 
-Add **MX Control** to a bar in Settings → Bar. The capsule shows the mouse battery; it
-turns the error colour at 15% and shows a crossed-out mouse when the device is offline. Left click opens the
+Add **MX Control** to a bar in Settings → Bar. The capsule shows the battery of the
+device with the lowest level and turns the error colour at 15%; hover it for a per-device
+list. It shows a crossed-out icon when that device is offline. Left click opens the
 panel, right click reads the device again. The panel also opens with:
 
 ```sh
@@ -61,7 +62,7 @@ special code for still get a control.
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
-| `show_value` | `bool` | `true` | Show the battery percentage next to the mouse icon in the bar. |
+| `show_value` | `bool` | `true` | Show the lowest device's battery percentage next to the icon in the bar. |
 
 ## IPC
 
