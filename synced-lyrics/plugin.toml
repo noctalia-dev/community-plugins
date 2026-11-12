@@ -1,6 +1,6 @@
 id = "kaler/synced-lyrics"
 name = "Synced Lyrics"
-version = "1.1.2"
+version = "1.1.3"
 plugin_api = 43
 author = "kaler"
 license = "MIT"
@@ -10,7 +10,7 @@ icon = "music"
 
 dependencies = [
   "python3",
-  "playerctl"
+  "systemd"
 ]
 
 [[setting]]
@@ -51,7 +51,7 @@ options = [
 
 [[setting]]
 key = "font_size"
-type = "int"
+type = "int"
 label_key = "settings.font-size.label"
 description_key = "settings.font-size.description"
 default = 12
