@@ -6,6 +6,24 @@ local showWhenClean = noctalia.getConfig("show_widget_when_clean") ~= false
 
 local updateState = noctalia.state.get("update_state")
 
+local function formatAgo(timestamp)
+  if not timestamp or timestamp <= 0 then
+    return nil
+  end
+  local minutes = math.floor((os.time() - timestamp) / 60)
+  if minutes < 1 then
+    return noctalia.tr("ago.now") or "just now"
+  elseif minutes < 60 then
+    local s = noctalia.tr("ago.minutes") or "{n} min ago"
+    return s:gsub("{n}", tostring(minutes))
+  elseif minutes < 1440 then
+    local s = noctalia.tr("ago.hours") or "{n} h ago"
+    return s:gsub("{n}", tostring(math.floor(minutes / 60)))
+  end
+  local s = noctalia.tr("ago.days") or "{n} d ago"
+  return s:gsub("{n}", tostring(math.floor(minutes / 1440)))
+end
+
 local function render()
   glyph = noctalia.getConfig("glyph") or "package"
   showWhenClean = noctalia.getConfig("show_widget_when_clean") ~= false
@@ -49,7 +67,16 @@ local function render()
     if updateState.total_download_formatted and updateState.total_download_formatted ~= "0 B" then
       table.insert(tooltipEntries, { key = noctalia.tr("tooltip.download_size"), value = updateState.total_download_formatted })
     end
+    if updateState.total_delta_formatted and updateState.total_delta_formatted ~= "" then
+      table.insert(tooltipEntries, { key = noctalia.tr("tooltip.disk_delta"), value = updateState.total_delta_formatted })
+    end
     table.insert(tooltipEntries, { key = noctalia.tr("summary.last_checked"), value = updateState.last_check or "–" })
+    if updateState.last_update_timestamp and updateState.last_update_timestamp > 0 then
+      local ago = formatAgo(updateState.last_update_timestamp)
+      if ago then
+        table.insert(tooltipEntries, { key = noctalia.tr("summary.last_update"), value = ago })
+      end
+    end
     barWidget.setTooltip(tooltipEntries)
     barWidget.setVisible(true)
   else
@@ -63,11 +90,19 @@ local function render()
       barWidget.setVisible(true)
       barWidget.setGlyph(glyph)
       barWidget.setText("")
-      local tooltipText = noctalia.tr("tooltip.all_up_to_date")
+      local tooltipEntries = {
+        { key = noctalia.tr("summary.system"), value = noctalia.tr("tooltip.all_up_to_date") },
+      }
       if updateState.last_check then
-        tooltipText = tooltipText .. " (" .. updateState.last_check .. ")"
+        table.insert(tooltipEntries, { key = noctalia.tr("summary.last_checked"), value = updateState.last_check })
       end
-      barWidget.setTooltip(tooltipText)
+      if updateState.last_update_timestamp and updateState.last_update_timestamp > 0 then
+        local ago = formatAgo(updateState.last_update_timestamp)
+        if ago then
+          table.insert(tooltipEntries, { key = noctalia.tr("summary.last_update"), value = ago })
+        end
+      end
+      barWidget.setTooltip(tooltipEntries)
     else
       barWidget.setVisible(false)
     end
