@@ -1,0 +1,65 @@
+{
+  "plugin": {
+    "name": "LogonBox VPN"
+  },
+  "panel": {
+    "not_installed": "This plugin needs the LogonBox VPN client.",
+    "service_down": "The LogonBox VPN service is not running.",
+    "service_hint": "Start it with: sudo systemctl enable --now logonbox-vpn-service",
+    "no_connections": "Sign in to your VPN in the LogonBox app.",
+    "dns": "DNS {servers}",
+    "title": "LogonBox VPN",
+    "loading": "Loading…",
+    "dismiss": "Dismiss",
+    "test_mode": "Test mode: showing sample data"
+  },
+  "error": {
+    "reboot_needed": "Your kernel was updated. Reboot before connecting.",
+    "needs_signin": "Sign in again in the LogonBox app.",
+    "connect_timeout": "Connecting took too long. Try again.",
+    "connect_failed_detail": "Couldn't connect: {detail}",
+    "connect_failed": "Couldn't connect. Check the LogonBox app for details.",
+    "disconnect_timeout": "Disconnecting took too long. Check the LogonBox app.",
+    "disconnect_failed_detail": "Couldn't disconnect: {detail}",
+    "disconnect_failed": "Couldn't disconnect. Check the LogonBox app for details.",
+    "read": "Couldn't read the VPN state. Showing the last known state.",
+    "busy": "Wait for the current action to finish.",
+    "invalid_id": "That connection no longer exists.",
+    "simulated": "Test mode is on: actions are turned off.",
+    "unknown_action": "Unknown request.",
+    "open_gui_failed": "Couldn't open the LogonBox app.",
+    "open_download_failed": "Couldn't open the page on how to get the LogonBox client."
+  },
+  "status": {
+    "connected": "Connected",
+    "connecting": "Connecting…",
+    "disconnecting": "Disconnecting…",
+    "disconnected": "Disconnected",
+    "offline": "Offline",
+    "needs_signin": "Sign-in needed",
+    "unknown": "Unknown"
+  },
+  "button": {
+    "connect": "Connect",
+    "disconnect": "Disconnect",
+    "open_gui": "Open LogonBox",
+    "how_to_get": "How to get the client",
+    "copy": "Copy"
+  },
+  "tooltip": {
+    "loading": "LogonBox VPN",
+    "connected": "Connected to {host}",
+    "connected_n_one": "Connected to {n} VPN",
+    "connected_n_other": "Connected to {n} VPNs",
+    "disconnected": "Disconnected"
+  },
+  "notify": {
+    "connect_failed": "VPN connection failed"
+  },
+  "settings": {
+    "show_label": {
+      "label": "Show label",
+      "description": "Show the status text next to the lock icon."
+    }
+  }
+}

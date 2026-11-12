@@ -1,0 +1,2 @@
+Exception in thread "main" java.lang.NullPointerException
+	at com.example.Foo.bar(Foo.java:12)

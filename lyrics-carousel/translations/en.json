@@ -36,7 +36,6 @@
   "height": "Height",
   "hints": "Keyboard hints",
   "karaoke": "Karaoke glow",
-  "karaoke_brain": "Intelligent karaoke (on): per-word glow only when word timing is available. Off: classic progressive karaoke",
   "launch": "Open the carousel",
   "launch_failed": "Could not open the terminal.",
   "marker": "Active line marker",

@@ -26,10 +26,22 @@ export type Note = {
   value: string,
 }
 
+-- Resets of a usage limit the account can spend whenever it chooses, apart
+-- from the scheduled ones (Codex reset credits, Claude reset grants).
+export type ResetCredit = {
+  count: number, -- resets it holds, at least 1
+  label: string?, -- the vendor's name for it ("One full limit reset (November 2026)")
+  expiresAt: number?, -- Unix seconds
+}
+
 export type Snapshot = {
   plan: string?,
   windows: { Window },
   notes: { Note },
+  resetCredits: { ResetCredit }?, -- nil: the vendor says nothing; soonest to expire first
+  -- How many of them can clear a limit now, when the vendor says (a credit
+  -- may only apply to some limits, or only once one is reached).
+  resetsUsable: number?,
   fetchedAt: number, -- Unix seconds
 }
 
@@ -81,8 +93,28 @@ function M.snapshot(fields): Snapshot
     plan = fields.plan,
     windows = fields.windows or {},
     notes = fields.notes or {},
+    resetCredits = M.resetCredits(fields.resetCredits, fields.fetchedAt),
+    resetsUsable = fields.resetsUsable,
     fetchedAt = fields.fetchedAt,
   }
+end
+
+-- Reset credits worth showing: still valid at `now`, soonest to expire first
+-- (those without a date last). nil stays nil: the vendor said nothing.
+function M.resetCredits(credits: { ResetCredit }?, now: number): { ResetCredit }?
+  if credits == nil then
+    return nil
+  end
+  local out = {}
+  for _, c in credits do
+    if c.count > 0 and (c.expiresAt == nil or c.expiresAt > now) then
+      table.insert(out, c)
+    end
+  end
+  table.sort(out, function(a, b)
+    return (a.expiresAt or math.huge) < (b.expiresAt or math.huge)
+  end)
+  return out
 end
 
 -- The window closest to its limit. Ties prefer the one that resets later,

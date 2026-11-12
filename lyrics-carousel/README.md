@@ -123,7 +123,6 @@ it belongs to the bar widget, not to the lyrics window.
 | `direction` | `select` | `down` | `down`: the lyrics come in from the top. `up`: from the bottom. |
 | `marker` | `bool` | `false` | Shows a `>` next to the active line. |
 | `karaoke` | `bool` | `true` | Lights the active line as it is sung, letter by letter. |
-| `karaoke_brain` | `bool` | `true` | Intelligent karaoke control (global, persistent). When `karaoke` is on, the panel shows a brain button next to the Karaoke glow toggle: with it on (intelligent, like the `lyrics` plugin), karaoke uses per-word/per-character glow only for lines with precise word timing and highlights lines without usable word timing at once with no progressive glow. Turn it off to use the classic ("boring") progressive karaoke for all lines. |
 | `footer` | `bool` | `false` | Elapsed time and a progress bar. |
 | `hints` | `bool` | `false` | Keyboard hints at the bottom. |
 | `header` | `bool` | `false` | Title, artist and status tags. |
@@ -159,13 +158,11 @@ Both entries also accept messages, which is handy for keyboard shortcuts:
 ```sh
 noctalia msg plugin faminec/lyrics-carousel:panel all launch
 noctalia msg plugin faminec/lyrics-carousel:panel all toggle karaoke
-noctalia msg plugin faminec/lyrics-carousel:panel all toggle karaoke_brain
 noctalia msg plugin faminec/lyrics-carousel:panel all set font_size 26 int
 noctalia msg plugin faminec/lyrics-carousel:panel all refresh
 
 noctalia msg plugin faminec/lyrics-carousel:widget all launch
 noctalia msg plugin faminec/lyrics-carousel:widget all toggle karaoke
-noctalia msg plugin faminec/lyrics-carousel:widget all toggle karaoke_brain
 noctalia msg plugin faminec/lyrics-carousel:widget all set font_size 26 int
 noctalia msg plugin faminec/lyrics-carousel:widget all refresh
 ```
@@ -177,7 +174,7 @@ noctalia msg plugin faminec/lyrics-carousel:widget all refresh
 | `set <key> <value> [type]` | Sets a setting. | Sets a setting. |
 | `refresh` | Re-reads the settings and the track, and redraws the panel. | Redraws the bar icon. |
 
-`toggle` only works with the switches — `marker`, `karaoke`, `karaoke_brain`, `footer`, `hints`,
+`toggle` only works with the switches — `marker`, `karaoke`, `footer`, `hints`,
 `header` and `ghost` — because flipping a number makes no sense.
 
 The value of `set` can also be written as `key=value`. Its type (`bool`, `int`,
