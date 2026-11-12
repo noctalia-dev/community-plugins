@@ -20,6 +20,8 @@
 -- ── Configuration ─────────────────────────────────────────────────────────
 local BAR_COLOR = noctalia.getConfig("bar_color") or "outline_variant"
 local VIEWPORT_COLOR = noctalia.getConfig("viewport_color") or "primary"
+local HIDE_NON_SCROLLING = noctalia.getConfig("hide_non_scrolling") == true
+local backend, scrolling, hidden = nil, true, false
 local SHOW_ACTIVE_WINDOW = noctalia.getConfig("show_active_window") == true
 local ACTIVE_WINDOW_COLOR = noctalia.getConfig("active_window_color") or "secondary"
 local ANIMATION_SPEED = math.max(0, noctalia.getConfig("animation_speed") or 1.0)
@@ -51,6 +53,7 @@ local IDLE_INTERVAL_MS = 60000
 
 -- ── Rendering ─────────────────────────────────────────────────────────────
 local function render()
+  if hidden then return end
   -- Explicit widths also collapse a gap to zero. A flexGrow of zero instead
   -- lets the host measure the box using its previous laid-out width.
   local width = 80
@@ -184,6 +187,9 @@ local function computeRatios(windows, workspaces, outputs)
     return 0.0, 1.0
   end
 
+  if backend == "umbriel" and focusedWs.layout_mode ~= "scrolling" then
+    return 0, 1
+  end
   local wsId = focusedWs.id
   local outputName = focusedWs.output
   local activeWinId = focusedWs.active_window_id
@@ -212,6 +218,31 @@ local function computeRatios(windows, workspaces, outputs)
   if #wsWindows == 0 then
     workspaceViews[wsId] = nil
     return 0.0, 1.0
+  end
+
+  if backend == "umbriel" then
+    -- Umbriel reports global target positions. Extents include actual gaps and
+    -- count stacked/tabbed windows only once, without assuming column widths.
+    local left, right = math.huge, -math.huge
+    local activeX, activeW
+    for _, win in ipairs(wsWindows) do
+      local geometry = win.layout or {}
+      local x, width = geometry.global_x, (geometry.tile_size or {})[1]
+      if type(x) == "number" and type(width) == "number" and width > 0 then
+        left, right = math.min(left, x), math.max(right, x + width)
+        if win.id == activeWinId then activeX, activeW = x, width end
+      end
+    end
+    if left == math.huge then return 0, 1 end
+    local canvas = math.max(viewWidth, right - left)
+    local offset = math.max(0, math.min(canvas - viewWidth, (output.logical.x or 0) - left))
+    local start, width = offset / canvas, viewWidth / canvas
+    local activeStart, activeWidth = 0, 0
+    if activeX then
+      activeStart = math.max(start, (activeX - left) / canvas)
+      activeWidth = math.max(0, math.min(start + width, (activeX + activeW - left) / canvas) - activeStart)
+    end
+    return start, width, activeStart, activeWidth
   end
 
   -- Collect column widths: pos_in_scrolling_layout[1] is the column index
@@ -345,6 +376,22 @@ end
 -- ── Shared compositor state ──────────────────────────────────────────────
 local function applySnapshot(value)
   if type(value) ~= "table" then return end
+  backend = value.backend
+  scrolling = true
+  if backend == "umbriel" then
+    for _, ws in ipairs(value.workspaces or {}) do
+      if ws.is_active then scrolling = ws.layout_mode == "scrolling"; break end
+    end
+  end
+  local nextHidden = HIDE_NON_SCROLLING and backend == "umbriel" and not scrolling
+  if nextHidden ~= hidden then
+    hidden = nextHidden
+    initialized = false
+    animationStartedMs = nil
+    noctalia.setUpdateInterval(IDLE_INTERVAL_MS)
+    if barWidget.setVisible then barWidget.setVisible(not hidden) end
+  end
+  if hidden then return end
   if value.windows and value.workspaces and value.outputs then
     animateTo(computeRatios(value.windows, value.workspaces, value.outputs))
   else
@@ -368,7 +415,11 @@ end
 function onScroll(_axis, steps, _startsGesture)
   -- Noctalia guarantees steps is non-zero (continuous sources only fire the
   -- callback once a full detent accrues); this check is purely defensive
-  if steps == 0 then
+  if steps == 0 or not backend or not scrolling then
+    return
+  end
+  if backend == "umbriel" then
+    noctalia.runAsync("umbriel msg " .. ((steps < 0) and "window-focus-left" or "window-focus-right"))
     return
   end
   local action = (steps < 0) and "focus-column-left" or "focus-column-right"

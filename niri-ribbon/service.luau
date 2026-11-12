@@ -12,7 +12,22 @@ local inFlight = false
 local refreshOutputs = false
 local lastSnapshot = -RESYNC_MS
 local lastOutputFetch = -RESYNC_MS
-local enabled = noctalia.commandExists("niri")
+local function env(name)
+  return noctalia.getenv and noctalia.getenv(name) or ""
+end
+local desktop = string.lower(env("XDG_CURRENT_DESKTOP") .. ":" .. env("XDG_SESSION_DESKTOP"))
+local backend = "niri"
+if string.find(desktop, "umbriel", 1, true) then
+  backend = "umbriel"
+elseif not string.find(desktop, "niri", 1, true) then
+  if env("UMBRIEL_SOCKET") ~= "" or (env("NIRI_SOCKET") == "" and not noctalia.commandExists("niri")) then
+    backend = "umbriel"
+  end
+end
+local enabled = noctalia.commandExists(backend)
+local function finite(value)
+  return type(value) == "number" and value == value and math.abs(value) < math.huge
+end
 
 local function equal(a, b)
   if type(a) ~= type(b) then return false end
@@ -46,7 +61,29 @@ end
 
 local function normalize(key, data)
   local result = {}
-  if key == "windows" then
+  if backend == "umbriel" then
+    for _, value in ipairs(data) do
+      if key == "windows" then
+        -- Off-screen and hidden-tab windows still contribute to column extents.
+        if not value.floating and not value.pinned and not value.minimized
+          and (value.scratchpad == nil or value.scratchpad == "")
+          and finite(value.column) and value.column >= 0
+          and finite(value.x) and finite(value.w) and value.w > 0 then
+          result[value.id] = { id = value.id, workspace_id = value.workspace,
+            layout = { global_x = value.x, tile_size = { value.w } } }
+        end
+      elseif key == "workspaces" then
+        result[value.id] = { id = value.id, output = value.output,
+          is_active = value.active == true, is_focused = value.focused == true,
+          layout_mode = value.layout,
+          active_window_id = value.focused_window ~= "" and value.focused_window or nil }
+      elseif value.enabled and value.logical_size and value.position
+        and finite(value.logical_size.width) and value.logical_size.width > 0
+        and finite(value.position.x) then
+        result[value.name] = { logical = { width = value.logical_size.width, x = value.position.x } }
+      end
+    end
+  elseif key == "windows" then
     for _, value in ipairs(data) do result[value.id] = window(value) end
   elseif key == "workspaces" then
     for _, value in ipairs(data) do
@@ -92,7 +129,7 @@ local function publish()
   local views = {}
   local focusedOutput = nil
   for name, output in pairs(outputs) do
-    views[name] = { windows = {}, workspaces = {}, outputs = { [name] = output } }
+    views[name] = { backend = backend, windows = {}, workspaces = {}, outputs = { [name] = output } }
   end
   for _, ws in ipairs(sortedValues(workspaces)) do
     local view = views[ws.output]
@@ -100,7 +137,7 @@ local function publish()
       -- Global focus is irrelevant to a monitor's ribbon. Only the fallback
       -- key changes when focus moves between monitors.
       view.workspaces[#view.workspaces + 1] = { id = ws.id, output = ws.output,
-        is_active = ws.is_active, is_focused = ws.is_active,
+        is_active = ws.is_active, is_focused = ws.is_active, layout_mode = ws.layout_mode,
         active_window_id = ws.is_active and ws.active_window_id or nil }
       if ws.is_focused then focusedOutput = ws.output end
     end
@@ -141,7 +178,8 @@ local function fetch(keys)
       remaining = remaining - 1
       if remaining == 0 then inFlight = false end
     end
-    if noctalia.runAsync("niri msg -j " .. key, onResult, 3000) == false then
+    local command = backend == "umbriel" and ("umbriel " .. key .. " --json") or ("niri msg -j " .. key)
+    if noctalia.runAsync(command, onResult, 3000) == false then
       onResult({ exitCode = -1, stdout = "" })
     end
   end
@@ -160,6 +198,12 @@ end
 local function onEventLine(line)
   local ok, event = pcall(noctalia.json.decode, line)
   if not ok or type(event) ~= "table" then return end
+  if backend == "umbriel" then
+    if revision[event.event] ~= nil and type(event.data) == "table" then
+      replace(event.event, event.data)
+    end
+    return
+  end
   if event.WindowsChanged then
     replace("windows", event.WindowsChanged.windows or {})
   elseif event.WorkspacesChanged then
@@ -234,9 +278,10 @@ if enabled then
   fetch({ "windows", "workspaces", "outputs" })
   -- The host owns this process group. Reconnect after EOF without accumulating
   -- subscriptions; the new stream supplies full windows/workspaces snapshots.
-  if not noctalia.runStream("while :; do niri msg -j event-stream; sleep 2; done", onEventLine) then
-    noctalia.notifyError("Niri Ribbon", "Unable to subscribe to niri event-stream")
+  local subscribe = backend == "umbriel" and "umbriel subscribe windows,workspaces,outputs" or "niri msg -j event-stream"
+  if not noctalia.runStream("while :; do " .. subscribe .. "; sleep 2; done", onEventLine) then
+    noctalia.notifyError("Niri Ribbon", "Unable to subscribe to " .. backend .. " events")
   end
 else
-  noctalia.notifyError("Niri Ribbon", "niri command not found in PATH")
+  noctalia.notifyError("Niri Ribbon", backend .. " command not found in PATH")
 end

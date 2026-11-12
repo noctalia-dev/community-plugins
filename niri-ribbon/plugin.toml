@@ -19,10 +19,10 @@ version = "0.3.0"
 plugin_api = 43
 author = "luochen1990, thatonecalculator"
 license = "MIT"
-dependencies = ["niri"]
+dependencies = []
 icon = "view-column"
-description = "Viewport position indicator for niri scrollable-tiling layout."
-tags = ["bar", "indicator", "niri"]
+description = "Viewport position indicator for niri and Umbriel scrolling layouts."
+tags = ["bar", "indicator", "niri", "umbriel"]
 
 [[service]]
 id = "compositor"
@@ -124,3 +124,10 @@ entry = "ribbon.luau"
   min = 0.0
   max = 64.0
   step = 1.0
+
+  [[widget.setting]]
+  key = "hide_non_scrolling"
+  type = "bool"
+  label_key = "settings.hide_non_scrolling.label"
+  description_key = "settings.hide_non_scrolling.description"
+  default = false
