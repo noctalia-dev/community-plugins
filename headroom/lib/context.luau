@@ -17,9 +17,7 @@ function M.new(host, userAgent: string)
   end
 
   return {
-    now = function()
-      return math.floor(host.nowMs() / 1000)
-    end,
+    now = os.time,
     env = host.getenv,
     expandPath = host.expandPath,
     fileExists = host.fileExists,

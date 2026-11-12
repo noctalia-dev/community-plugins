@@ -10,8 +10,10 @@
 -- token refresh. API-key-only setups have no plan limits to report. The id
 -- token in the same file names the account and its email.
 --
--- Endpoint: GET https://chatgpt.com/backend-api/wham/usage, the one the Codex
--- CLI's /status reads. Undocumented, so every field is treated as optional.
+-- Endpoints: GET https://chatgpt.com/backend-api/wham/usage, the one the Codex
+-- CLI's /status reads, and, only when it reports reset credits available,
+-- GET .../wham/rate-limit-reset-credits for when each one expires. Both are
+-- undocumented, so every field is treated as optional.
 
 local provider = require("../../lib/provider.luau")
 local model = require("../../lib/model.luau")
@@ -21,6 +23,10 @@ local jwt = require("../../lib/jwt.luau")
 local E = model.ErrorCode
 
 local USAGE_URL = "https://chatgpt.com/backend-api/wham/usage"
+local RESET_CREDITS_URL = "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits"
+-- The credit list is re-read when the count or the account changes, else at
+-- most this often.
+local CREDITS_EVERY = 3600
 local AUTH_CLAIMS = "https://api.openai.com/auth"
 
 local PLAN_NAMES = {
@@ -108,7 +114,30 @@ local function creditsNote(credits, ctx): model.Note?
   return nil
 end
 
-local function parse(data, fallbackPlan: string?, ctx): (model.Snapshot?, model.ProviderError?)
+-- Reset credits: the count from the usage response, and from the credits
+-- list (when it could be read) each available one's name and expiry.
+local function resetCredits(summary, list): { model.ResetCredit }?
+  local available = type(summary) == "table" and tonumber(summary.available_count) or 0
+  if available <= 0 then
+    return nil
+  end
+  local out = {}
+  for _, credit in (if type(list) == "table" and type(list.credits) == "table" then list.credits else {}) do
+    if type(credit) == "table" and credit.status == "available" and #out < available then
+      table.insert(out, {
+        count = 1,
+        label = if type(credit.title) == "string" and credit.title ~= "" then credit.title else nil,
+        expiresAt = time.toUnix(credit.expires_at),
+      })
+    end
+  end
+  if #out < available then
+    table.insert(out, { count = available - #out })
+  end
+  return out
+end
+
+local function parse(data, fallbackPlan: string?, ctx, creditList): (model.Snapshot?, model.ProviderError?)
   local now = ctx.now()
   local windows = {}
   collect(windows, data.rate_limit, "", nil, ctx, now)
@@ -133,16 +162,20 @@ local function parse(data, fallbackPlan: string?, ctx): (model.Snapshot?, model.
     plan = planLabel(data.plan_type) or fallbackPlan,
     windows = windows,
     notes = notes,
+    resetCredits = resetCredits(data.rate_limit_reset_credits, creditList),
+    resetsUsable = type(data.rate_limit_reset_credits) == "table" and tonumber(data.rate_limit_reset_credits.applicable_available_count) or nil,
     fetchedAt = now,
   }), nil
 end
+
+-- Per home: the credit list as last read, with the account and count it was
+-- read for. Kept when a re-read fails, so one bad read loses no dates.
+local creditLists: { [string]: { account: string, count: number, at: number, list: any } } = {}
 
 return provider.define({
   id = "codex",
   name = "Codex",
   brand = {
-    logo = "providers/codex/logo.svg",
-    tint = "on_surface",
     glyph = "brand-openai",
     dashboard = "https://chatgpt.com/codex/settings/usage",
   },
@@ -153,6 +186,7 @@ return provider.define({
     siblingPrefix = ".codex-",
     command = "codex",
     login = { "login" },
+    credentials = "auth.json",
     identity = function(ctx)
       local auth = ctx.readJson(authPath(ctx))
       local tokens = type(auth) == "table" and auth.tokens or nil
@@ -206,7 +240,27 @@ return provider.define({
         done(nil, err)
         return
       end
-      done(parse(data, fallbackPlan, ctx))
+      local summary = data.rate_limit_reset_credits
+      if type(summary) ~= "table" or (tonumber(summary.available_count) or 0) <= 0 then
+        done(parse(data, fallbackPlan, ctx))
+        return
+      end
+      local key, account, count = ctx.home or "", tostring(tokens.account_id), tonumber(summary.available_count)
+      local last = creditLists[key]
+      if last and last.account == account and last.count == count and ctx.now() - last.at < CREDITS_EVERY then
+        done(parse(data, fallbackPlan, ctx, last.list))
+        return
+      end
+      -- The expiry dates are a nicety: if they can't be read, the count
+      -- alone (or the last list read for this account) is still worth showing.
+      ctx.getJson(RESET_CREDITS_URL, headers, function(list, listErr)
+        if listErr == nil and type(list) == "table" then
+          last = { account = account, count = count, at = ctx.now(), list = list }
+          creditLists[key] = last
+        end
+        local usable = last and last.account == account and last.list or nil
+        done(parse(data, fallbackPlan, ctx, if listErr then usable else list))
+      end)
     end)
   end,
 
