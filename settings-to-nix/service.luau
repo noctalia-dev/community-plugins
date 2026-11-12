@@ -43,8 +43,6 @@ local function publish(plan, err)
 	})
 end
 
-local runExport
-
 local function succeeded()
 	failures = 0
 	retryAt = nil
@@ -59,39 +57,23 @@ local function failed(err, manual)
 	end
 end
 
-local function refresh()
-	local cfg = config()
-	local plan, err = exporter.plan(cfg)
-	publish(plan, err)
-	if not plan then
-		failed(err, false)
-	elseif plan.content ~= plan.current then
-		runExport(false)
-	else
-		succeeded()
+-- Building the file (parse settings.toml, render Nix) takes well over 10 ms of Noctalia's
+-- 25 ms budget per callback, more on a busy system. It runs in a coroutine that yields
+-- after SLICE seconds, so each update() does a share of it; the update interval drops to
+-- FAST_INTERVAL until the job is done.
+local SLICE = 0.006
+local IDLE_INTERVAL = 2000
+local FAST_INTERVAL = 50
+local job = nil
+local sliceEnd = 0
+
+local function checkpoint()
+	if os.clock() > sliceEnd then
+		coroutine.yield()
 	end
 end
 
-function runExport(manual)
-	if busy then
-		return
-	end
-	local cfg = config()
-	local plan, err = exporter.plan(cfg)
-	if not plan then
-		publish(nil, err)
-		failed(err, manual)
-		return
-	end
-	if plan.content == plan.current then
-		publish(plan)
-		succeeded()
-		if manual then
-			noctalia.notify(noctalia.tr("notify.unchanged_title"), noctalia.tr("notify.unchanged_body", { path = plan.target }))
-		end
-		return
-	end
-
+local function write(plan, manual)
 	busy = true
 	exporter.write(plan, function(ok, writeErr)
 		busy = false
@@ -113,20 +95,72 @@ function runExport(manual)
 	end)
 end
 
-function update()
-	local cfg = config()
-	local signature = fileSignature(exporter.settingsPath())
-		.. "|"
-		.. fileSignature(exporter.targetPath(cfg.target))
-		.. "|"
-		.. tostring(cfg.target)
-	if signature ~= lastSignature then
-		lastSignature = signature
-		refresh()
-	elseif retryAt ~= nil and not busy and os.time() >= retryAt then
-		retryAt = nil
-		refresh()
+local function finish(plan, err, manual)
+	publish(plan, err)
+	if not plan then
+		failed(err, manual)
+	elseif plan.content ~= plan.current then
+		write(plan, manual)
+	else
+		succeeded()
+		if manual then
+			noctalia.notify(noctalia.tr("notify.unchanged_title"), noctalia.tr("notify.unchanged_body", { path = plan.target }))
+		end
 	end
+end
+
+local function step()
+	sliceEnd = os.clock() + SLICE
+	local ok, plan, err = coroutine.resume(job.co)
+	if coroutine.status(job.co) ~= "dead" then
+		return
+	end
+	local manual = job.manual
+	job = nil
+	if not ok then
+		plan, err = nil, tostring(plan)
+	end
+	finish(plan, err, manual)
+end
+
+-- Starts building the file; a request while a job runs only marks it manual.
+local function start(manual)
+	if job then
+		job.manual = job.manual or manual
+		return
+	end
+	if busy then
+		return
+	end
+	local cfg = config()
+	job = {
+		manual = manual,
+		co = coroutine.create(function()
+			return exporter.plan(cfg, checkpoint)
+		end),
+	}
+	step()
+end
+
+function update()
+	if job then
+		step()
+	elseif not busy then
+		local cfg = config()
+		local signature = fileSignature(exporter.settingsPath())
+			.. "|"
+			.. fileSignature(exporter.targetPath(cfg.target))
+			.. "|"
+			.. tostring(cfg.target)
+		if signature ~= lastSignature then
+			lastSignature = signature
+			start(false)
+		elseif retryAt ~= nil and os.time() >= retryAt then
+			retryAt = nil
+			start(false)
+		end
+	end
+	noctalia.setUpdateInterval(job and FAST_INTERVAL or IDLE_INTERVAL)
 end
 
 function onConfigChanged()
@@ -136,7 +170,7 @@ end
 
 function onIpc(event, _payload)
 	if event == "export" then
-		runExport(true)
+		start(true)
 	end
 end
 
