@@ -152,6 +152,7 @@ body:
         - keysmith
         - keyviz
         - kineticwe-layouts
+        - kuma-status
         - kumacat
         - kwallet-secrets
         - launcher-pass
