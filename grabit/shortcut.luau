@@ -33,7 +33,7 @@ function onClick()
     if state ~= "idle" then
         noctalia.state.set("command", { action = "stop" })
     else
-        noctalia.state.set("command", { action = "capture", mode = noctalia.getConfig("default_action") })
+        noctalia.state.set("command", { action = "capture", mode = "default" })
     end
 end
 

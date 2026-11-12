@@ -1,22 +1,5 @@
 {
   "settings": {
-    "default_action": {
-      "label": "Default action",
-      "description": "What happens when you left-click the widget",
-      "options": {
-        "copy": "Copy to clipboard",
-        "save": "Save to file",
-        "upload": "Upload"
-      }
-    },
-    "upload_service": {
-      "label": "Upload service",
-      "description": "grabit upload target: zipline, nest, or a ShareX .sxcu uploader name"
-    },
-    "show_cursor": {
-      "label": "Include mouse cursor",
-      "description": "Include the mouse pointer in captures and recordings (writes both capture.cursor and recording.cursor)"
-    },
     "record_upload": {
       "label": "Upload recordings",
       "description": "Upload a finished recording when an upload service is configured (adds --no-upload when off)"

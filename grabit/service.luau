@@ -109,21 +109,21 @@ local function buildCaptureArgv(mode)
         table.insert(args, "-u")
     elseif mode == "save" then
         table.insert(args, "-o")
+    elseif mode == "default" then
+        -- No action flag: grabit resolves the action from its own
+        -- `default_action` config key. That keeps the settings panel, the
+        -- widget, and the shortcut on one authoritative value instead of a
+        -- second copy in the plugin settings.
     else
         -- default: copy to clipboard
         table.insert(args, "-c")
     end
 
-    -- Upload service only applies to upload mode; grabit rejects service
-    -- flags for any other action.
-    if mode == "upload" then
-        local service = cfg("upload_service")
-        if service ~= "" and service ~= nil then
-            -- Pass as a separate argv element; no shell quoting needed.
-            table.insert(args, "--" .. service)
-        end
-    end
-
+    -- No --<service> flag here: bare -u already uploads through grabit's own
+    -- `service` key, which is what the settings panel writes. Appending a
+    -- second, plugin-side uploader would make captures and recordings upload
+    -- to different services.
+    --
     -- Cursor visibility is the `capture.cursor` config key (written by the
     -- settings panel). grabit has no --no-cursor flag, so don't pass one.
     return args
@@ -242,23 +242,49 @@ local function startRecording(delayMs)
     defer(delayMs, function()
         if not isAvailable or state ~= "idle" then return end
 
-        setState("pending")
-        pendingSince = os.clock()
-        ownedPid = nil -- will be populated by detectRecordingState once the lockfile appears
+        local function spawn()
+            if not isAvailable or state ~= "idle" then return end
 
-        local cmd = buildRecordCommand()
-        log("spawning: " .. table.concat(cmd, " "))
+            setState("pending")
+            pendingSince = os.clock()
+            ownedPid = nil -- will be populated by detectRecordingState once the lockfile appears
 
-        -- Detached form (no callback): the callback form has a default 5s
-        -- timeout and Noctalia kills the process group when it fires, which
-        -- cut recordings short. update() detects the process instead.
-        local ok = noctalia.runAsync(cmd)
+            local cmd = buildRecordCommand()
+            log("spawning: " .. table.concat(cmd, " "))
+
+            -- Detached form (no callback): the callback form has a default 5s
+            -- timeout and Noctalia kills the process group when it fires, which
+            -- cut recordings short. update() detects the process instead.
+            local ok = noctalia.runAsync(cmd)
+
+            if not ok then
+                log("failed to spawn grabit --record")
+                ownedPid = nil
+                setState("idle")
+                noctalia.notifyError("Grabit", "Failed to start recording")
+            end
+        end
+
+        -- grabit --record is a pid-file toggle: if a recording is already live
+        -- it stops that one instead of starting a new one. detectRecordingState
+        -- only runs while non-idle, so an externally started recording is
+        -- invisible here — and this is the one path that would toggle it off.
+        -- idle means ownedPid is nil, so any live --record is foreign.
+        local ok = noctalia.processMatches(function(anyRecording)
+            if anyRecording then
+                log("refusing to record: a grabit --record not started by this plugin is running")
+                noctalia.notifyError(
+                    "Grabit",
+                    "A recording started outside the plugin is running; not touching it"
+                )
+                return
+            end
+            spawn()
+        end, "grabit", "--record")
 
         if not ok then
-            log("failed to spawn grabit --record")
-            ownedPid = nil
-            setState("idle")
-            noctalia.notifyError("Grabit", "Failed to start recording")
+            log("processMatches unavailable; starting without the foreign-recording guard")
+            spawn()
         end
     end)
 end

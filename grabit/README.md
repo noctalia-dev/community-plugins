@@ -50,13 +50,12 @@ The control-center shortcut mirrors the widget: left-click captures or stops an 
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
-| `default_action` | `select` | `copy` | Action for a plain left-click: copy to clipboard, save to file, or upload. |
-| `upload_service` | `string` | empty | grabit upload target used by upload captures and the menu's upload entry, for example `zipline`, `nest`, or a ShareX `.sxcu` uploader name. |
-| `show_cursor` | `bool` | `true` | Include the mouse pointer in captures and recordings. Writes both `capture.cursor` and `recording.cursor`. |
 | `record_upload` | `bool` | `true` | Upload a finished recording when an upload service is configured. When off, recordings start with `--no-upload`. |
 | `hide_inactive` | `bool` | `false` | Hide the bar widget while no capture or recording is active. |
 
-The settings panel also edits grabit's own config: `also_save`, image `format`, `filename` and `filename_preset`, `recording.fps`, `recording.format`, `recording.crf`, and `translate.target`.
+Everything else lives in grabit's own config, so the plugin and grabit never hold competing copies. The settings panel edits `default_action`, `service`, `capture.cursor` and `recording.cursor`, `also_save`, image `format`, `filename` and `filename_preset`, `recording.fps`, `recording.format`, `recording.crf`, and `translate.target`.
+
+`default_action` is grabit's key. A plain left-click on the widget or shortcut sends no action flag, so grabit resolves the action itself; the menu's explicit entries pass their own flag.
 
 ## IPC
 
@@ -70,10 +69,11 @@ noctalia msg plugin snowballons/grabit:service all resume
 noctalia msg plugin snowballons/grabit:service all stop
 ```
 
-The `capture` payload is a mode name (`copy`, `save`, `upload`, `fullscreen`, `window`, `last`, `annotate`, `ocr`, `ocr-translate`, `pin`, `pin-grab`, `pin-release`, `unpin-all`) or a table with `mode` and `delay_ms`. `record` accepts a table with `delay_ms`.
+The `capture` payload is a mode name (`default`, `copy`, `save`, `upload`, `fullscreen`, `window`, `last`, `annotate`, `ocr`, `ocr-translate`, `pin`, `pin-grab`, `pin-release`, `unpin-all`) or a table with `mode` and `delay_ms`. `default` passes no action flag, leaving grabit to apply its `default_action` config. `record` accepts a table with `delay_ms`.
 
 ## Notes
 
 - Processes spawned: `grabit` (captures, recording, pause, pins, OCR), `sleep` (capture delay), and `xdg-open` (config folder). The plugin makes no network requests itself; uploads are done by grabit only when the chosen action uploads.
 - Files written: the plugin reads grabit's recording pid file in `$XDG_RUNTIME_DIR` and writes grabit config keys through the `grabit` CLI. Screenshots, recordings, and grabit's own log are written by grabit.
+- The plugin only controls recordings it started. `grabit --record` toggles on the pid file, so starting a recording while one started elsewhere is running would stop that one instead; the service checks for a live `grabit --record` first and refuses, leaving the external recording alone.
 - The recording indicator is a click-through `recording` layer shown by the `indicator` service only while recording or paused. The bar widget and shortcut mirror the same state.

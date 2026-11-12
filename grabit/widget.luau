@@ -96,8 +96,8 @@ function onClick()
     elseif state == "pending" then
         send("stop")
     else
-        -- default capture action from config
-        send("capture", { mode = noctalia.getConfig("default_action") })
+        -- Resolved by grabit from its own default_action config key.
+        send("capture", { mode = "default" })
     end
 end
 

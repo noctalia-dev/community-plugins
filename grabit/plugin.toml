@@ -20,36 +20,6 @@ description = "Launch grabit for screenshots, screen recording, OCR, and uploads
 # ── Plugin settings ──────────────────────────────────────────────
 
 [[setting]]
-key = "default_action"
-type = "select"
-label_key = "settings.default_action.label"
-description_key = "settings.default_action.description"
-default = "copy"
-options = [
-  { value = "copy", label_key = "settings.default_action.options.copy" },
-  { value = "save", label_key = "settings.default_action.options.save" },
-  { value = "upload", label_key = "settings.default_action.options.upload" },
-]
-
-[[setting]]
-key = "upload_service"
-type = "string"
-label_key = "settings.upload_service.label"
-description_key = "settings.upload_service.description"
-default = ""
-# visible_when was previously restricted to default_action == "upload", but the
-# menu's "Region (upload)" item uses upload_service regardless of default_action.
-# Always show it so users can configure their uploader even when their default
-# action is copy or save.
-
-[[setting]]
-key = "show_cursor"
-type = "bool"
-label_key = "settings.show_cursor.label"
-description_key = "settings.show_cursor.description"
-default = true
-
-[[setting]]
 key = "record_upload"
 type = "bool"
 label_key = "settings.record_upload.label"
