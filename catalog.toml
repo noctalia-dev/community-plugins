@@ -4537,8 +4537,8 @@ rev = "0af629732caa1dd5d9654e40ff39fd255ccf3cb3"
 [[plugin]]
 id = "gcap0n1/f1"
 name = "Formula 1"
-version = "0.1.1"
-updated_at = 1791919185
+version = "0.1.2"
+updated_at = 1794445182
 added_at = 1791760792
 author = "gcap0n1"
 license = "MIT"
