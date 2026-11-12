@@ -2576,8 +2576,8 @@ rev = "69edf25c45dc117d258a37106c2331787fac9a7a"
 [[plugin]]
 id = "0lucasmatheus/awwwall"
 name = "Awwwall"
-version = "0.1.0"
-updated_at = 1788316285
+version = "0.1.1"
+updated_at = 1794452788
 added_at = 1788316285
 author = "0lucasmatheus"
 license = "MIT"
