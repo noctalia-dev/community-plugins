@@ -114,6 +114,7 @@ body:
         - github-kanban
         - github-notifications
         - github-prs
+        - global-menu
         - gocryptfs
         - godot-provider
         - gslapper
