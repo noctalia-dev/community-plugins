@@ -5227,8 +5227,8 @@ tags = ["wallpaper", "animation", "theming", "desktop"]
 [[plugin]]
 id = "dmopp/settings-to-nix"
 name = "Settings to Nix"
-version = "1.0.0"
-updated_at = 1793111197
+version = "1.0.1"
+updated_at = 1794523162
 added_at = 1793111197
 author = "dMopp"
 license = "MIT"
