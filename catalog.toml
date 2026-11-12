@@ -5892,3 +5892,16 @@ icon = "screenshot"
 description = "Launch grabit for screenshots, screen recording, OCR, and uploads."
 plugin_api = 42
 tags = ["bar", "panel", "shortcut", "service", "recording", "utility", "network", "language"]
+
+[[plugin]]
+id = "ooodnakov/handy"
+name = "Handy"
+version = "0.3.0"
+updated_at = 1794500325
+added_at = 1794500325
+author = "ooodnakov"
+license = "MIT"
+icon = "microphone"
+description = "Control Handy dictation and browse recent transcripts from Noctalia."
+plugin_api = 24
+tags = ["audio", "bar", "indicator", "panel", "productivity", "service", "utility"]
