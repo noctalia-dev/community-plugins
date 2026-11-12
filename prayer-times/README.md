@@ -7,7 +7,7 @@ countdown to the next prayer and a panel listing today's schedule.
 
 | Field   | Value                                                     |
 | ------- | --------------------------------------------------------- |
-| ID      | `bekiry/prayer-times`                                     |
+| ID      | `bekiryildirimcode/prayer-times`                                     |
 | Entries | Bar widget: `bar`; panel: `panel`; service: `fetcher`     |
 
 ## Usage
@@ -20,7 +20,7 @@ widget to a bar section.
 Toggle the panel directly:
 
 ```sh
-noctalia msg panel-toggle bekiry/prayer-times:panel
+noctalia msg panel-toggle bekiryildirimcode/prayer-times:panel
 ```
 
 The panel lists Fajr, Sunrise, Dhuhr (Jumu'ah on Friday), Asr, Maghrib, and
@@ -55,7 +55,7 @@ Bar widget settings:
 Force an immediate refetch:
 
 ```sh
-noctalia msg plugin bekiry/prayer-times:fetcher all refresh
+noctalia msg plugin bekiryildirimcode/prayer-times:fetcher all refresh
 ```
 
 ## Notes

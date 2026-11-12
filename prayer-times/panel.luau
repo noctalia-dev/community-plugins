@@ -323,7 +323,7 @@ end
 function onRefresh()
 	noctalia.state.set("command", { action = "refresh" })
 	-- Also poke the service via IPC for reliability
-	noctalia.runAsync("noctalia msg plugin bekiry/prayer-times:fetcher all refresh")
+	noctalia.runAsync("noctalia msg plugin bekiryildirimcode/prayer-times:fetcher all refresh")
 end
 
 function update()

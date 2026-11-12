@@ -167,7 +167,7 @@ function update()
 end
 
 function onClick()
-	noctalia.togglePanel("bekiry/prayer-times:panel")
+	noctalia.togglePanel("bekiryildirimcode/prayer-times:panel")
 end
 
 function onConfigChanged()
