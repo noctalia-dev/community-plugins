@@ -503,8 +503,7 @@ local function resultsTab()
     end
     local name = data.results.raceName or ""
     out[#out + 1] = sectionHeader(noctalia.tr("results.header", { race = name:upper() }))
-    for i, row in ipairs(rows) do
-        if i > 12 then break end
+    for _, row in ipairs(rows) do
         out[#out + 1] = resultRow(row, { detailWidth = 92, points = true })
     end
     return out
@@ -518,8 +517,7 @@ local function driversTab()
         return out
     end
     out[#out + 1] = sectionHeader(noctalia.tr("drivers.header"))
-    for i, row in ipairs(rows) do
-        if i > 12 then break end
+    for _, row in ipairs(rows) do
         out[#out + 1] = standingRow(row, row.code, row.team)
     end
     return out
@@ -611,7 +609,10 @@ end
 
 -- ── Lifecycle ────────────────────────────────────────────────────────────────
 
-for key in pairs(data) do
+-- Watch every dataset explicitly. `pairs(data)` skips keys whose initial value
+-- was nil, so a dataset published after this script loaded (notably `race`
+-- when the poller's first fetch failed) would never reach the panel.
+for _, key in ipairs({ "race", "drivers", "constructors", "grid", "results", "live", "status" }) do
     noctalia.state.watch(key, function(value)
         data[key] = value
         render()
