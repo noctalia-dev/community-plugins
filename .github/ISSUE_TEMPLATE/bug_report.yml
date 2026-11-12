@@ -117,6 +117,7 @@ body:
         - global-menu
         - gocryptfs
         - godot-provider
+        - grabit
         - gslapper
         - hassio
         - headroom
