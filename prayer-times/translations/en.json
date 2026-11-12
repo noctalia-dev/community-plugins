@@ -1,62 +1,96 @@
 {
   "plugin_name": "Prayer Times",
-  "settings.location_mode.label": "Location source",
-  "settings.location_mode.description": "Where prayer times are calculated from",
-  "settings.location_mode.auto": "Automatic (IP)",
-  "settings.location_mode.city": "City / country",
-  "settings.location_mode.coords": "Latitude / longitude",
-  "settings.city.label": "City",
-  "settings.city.description": "e.g. London, Istanbul, Jakarta",
-  "settings.country.label": "Country",
-  "settings.country.description": "e.g. UK, Turkey, Indonesia",
-  "settings.latitude.label": "Latitude",
-  "settings.latitude.description": "e.g. 51.5074",
-  "settings.longitude.label": "Longitude",
-  "settings.longitude.description": "e.g. -0.1278",
-  "settings.method.label": "Calculation method",
-  "settings.method.description": "Choose the calculation authority used in your region",
-  "settings.method.diyanet": "Diyanet (Turkey)",
-  "settings.method.mwl": "Muslim World League",
-  "settings.method.isna": "ISNA",
-  "settings.method.egypt": "Egyptian General Authority",
-  "settings.method.makkah": "Umm al-Qura (Makkah)",
-  "settings.method.karachi": "University of Islamic Sciences, Karachi",
-  "settings.method.moonsighting": "Moonsighting Committee",
-  "settings.school.label": "Asr school",
-  "settings.school.description": "Juristic method for Asr",
-  "settings.school.shafi": "Shafi / Maliki / Hanbali",
-  "settings.school.hanafi": "Hanafi",
-  "settings.notify.label": "Notifications",
-  "settings.notify.description": "Notify when a prayer time begins",
-  "settings.show_countdown.label": "Countdown",
-  "settings.show_countdown.description": "Show time remaining until the next prayer",
-  "settings.show_name.label": "Prayer name",
-  "settings.show_name.description": "Show the next prayer name on the bar",
-  "settings.glyph.label": "Icon",
-  "prayer.fajr": "Fajr",
-  "prayer.sunrise": "Sunrise",
-  "prayer.dhuhr": "Dhuhr",
-  "prayer.jumuah": "Jumu'ah",
-  "prayer.asr": "Asr",
-  "prayer.maghrib": "Maghrib",
-  "prayer.isha": "Isha",
-  "panel.title": "Prayer Times",
-  "panel.next": "Next",
-  "panel.in": "left",
-  "panel.now": "now",
-  "panel.loading": "Loading prayer times…",
-  "panel.location": "Location",
-  "panel.refresh": "Refresh",
-  "panel.settings": "Settings",
-  "notify.title": "{name} time",
-  "notify.body": "At {time}",
-  "tooltip.next": "Next",
-  "tooltip.time": "Time",
-  "tooltip.in": "In",
-  "tooltip.location": "Location",
-  "error.network": "Network error",
-  "error.parse": "Could not parse response",
-  "error.location": "Could not resolve location",
-  "error.coords": "Invalid latitude/longitude",
-  "error.city": "City cannot be empty"
+  "settings": {
+    "location_mode": {
+      "label": "Location source",
+      "description": "Where prayer times are calculated from",
+      "auto": "Automatic (IP)",
+      "city": "City / country",
+      "coords": "Latitude / longitude"
+    },
+    "city": {
+      "label": "City",
+      "description": "e.g. London, Istanbul, Jakarta"
+    },
+    "country": {
+      "label": "Country",
+      "description": "e.g. UK, Turkey, Indonesia"
+    },
+    "latitude": {
+      "label": "Latitude",
+      "description": "e.g. 51.5074"
+    },
+    "longitude": {
+      "label": "Longitude",
+      "description": "e.g. -0.1278"
+    },
+    "method": {
+      "label": "Calculation method",
+      "description": "Choose the calculation authority used in your region",
+      "diyanet": "Diyanet (Turkey)",
+      "mwl": "Muslim World League",
+      "isna": "ISNA",
+      "egypt": "Egyptian General Authority",
+      "makkah": "Umm al-Qura (Makkah)",
+      "karachi": "University of Islamic Sciences, Karachi",
+      "moonsighting": "Moonsighting Committee"
+    },
+    "school": {
+      "label": "Asr school",
+      "description": "Juristic method for Asr",
+      "shafi": "Shafi / Maliki / Hanbali",
+      "hanafi": "Hanafi"
+    },
+    "notify": {
+      "label": "Notifications",
+      "description": "Notify when a prayer time begins"
+    },
+    "show_countdown": {
+      "label": "Countdown",
+      "description": "Show time remaining until the next prayer"
+    },
+    "show_name": {
+      "label": "Prayer name",
+      "description": "Show the next prayer name on the bar"
+    },
+    "glyph": {
+      "label": "Icon"
+    }
+  },
+  "prayer": {
+    "fajr": "Fajr",
+    "sunrise": "Sunrise",
+    "dhuhr": "Dhuhr",
+    "jumuah": "Jumu'ah",
+    "asr": "Asr",
+    "maghrib": "Maghrib",
+    "isha": "Isha"
+  },
+  "panel": {
+    "title": "Prayer Times",
+    "next": "Next",
+    "in": "left",
+    "now": "now",
+    "loading": "Loading prayer times…",
+    "location": "Location",
+    "refresh": "Refresh",
+    "settings": "Settings"
+  },
+  "notify": {
+    "title": "{name} time",
+    "body": "At {time}"
+  },
+  "tooltip": {
+    "next": "Next",
+    "time": "Time",
+    "in": "In",
+    "location": "Location"
+  },
+  "error": {
+    "network": "Network error",
+    "parse": "Could not parse response",
+    "location": "Could not resolve location",
+    "coords": "Invalid latitude/longitude",
+    "city": "City cannot be empty"
+  }
 }
