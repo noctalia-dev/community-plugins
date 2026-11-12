@@ -3560,8 +3560,8 @@ rev = "a2a071ba481c14bd9a9d3fba664ee4cc9cb517e6"
 [[plugin]]
 id = "strob3/dnf-updater"
 name = "DNF Updater"
-version = "1.1.0"
-updated_at = 1793026477
+version = "1.2.0"
+updated_at = 1794499934
 added_at = 1789909893
 author = "strob3"
 license = "MIT"
@@ -5879,3 +5879,16 @@ icon = "lock"
 description = "Show LogonBox VPN status in the bar; connect and disconnect saved connections from a panel."
 plugin_api = 43
 tags = ["bar", "panel", "service", "network"]
+
+[[plugin]]
+id = "snowballons/grabit"
+name = "Grabit Launcher"
+version = "1.0.0"
+updated_at = 1794499967
+added_at = 1794499967
+author = "snowballons"
+license = "MIT"
+icon = "screenshot"
+description = "Launch grabit for screenshots, screen recording, OCR, and uploads."
+plugin_api = 42
+tags = ["bar", "panel", "shortcut", "service", "recording", "utility", "network", "language"]
