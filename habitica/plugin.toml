@@ -1,0 +1,187 @@
+id = "vasqs/habitica"
+name = "Habitica"
+version = "2.0.0"
+plugin_api = 43
+author = "vasqs"
+license = "MIT"
+dependencies = ["magick"]
+tags = ["bar", "panel", "service", "productivity", "network"]
+icon = "sword"
+description = "Habitica dashboard in the bar and a panel to score dailies, todos, habits and checklists."
+
+# ---------------------------------------------------------------------------
+# Account and sync
+
+[[setting]]
+key = "habitica_user_id"
+type = "string"
+label_key = "settings.user_id.label"
+description_key = "settings.user_id.description"
+default = ""
+
+[[setting]]
+key = "habitica_api_token"
+type = "string"
+label_key = "settings.api_token.label"
+description_key = "settings.api_token.description"
+default = ""
+
+[[setting]]
+key = "refresh_interval"
+type = "int"
+label_key = "settings.refresh_interval.label"
+description_key = "settings.refresh_interval.description"
+default = 300
+min = 60
+max = 3600
+step = 60
+
+# ---------------------------------------------------------------------------
+# Display
+
+[[setting]]
+key = "max_dailies"
+type = "int"
+label_key = "settings.max_dailies.label"
+description_key = "settings.max_dailies.description"
+default = 8
+min = 1
+max = 25
+
+[[setting]]
+key = "max_todos"
+type = "int"
+label_key = "settings.max_todos.label"
+description_key = "settings.max_todos.description"
+default = 8
+min = 1
+max = 25
+
+[[setting]]
+key = "show_notification_badge"
+type = "bool"
+label_key = "settings.notification_badge.label"
+description_key = "settings.notification_badge.description"
+default = true
+
+[[setting]]
+key = "show_habits"
+type = "bool"
+label_key = "settings.show_habits.label"
+description_key = "settings.show_habits.description"
+default = false
+advanced = true
+
+[[setting]]
+key = "max_habits"
+type = "int"
+label_key = "settings.max_habits.label"
+description_key = "settings.max_habits.description"
+default = 8
+min = 1
+max = 25
+advanced = true
+visible_when = { key = "show_habits", values = ["true"] }
+
+[[setting]]
+key = "show_checklist_items"
+type = "bool"
+label_key = "settings.show_checklist.label"
+description_key = "settings.show_checklist.description"
+default = false
+advanced = true
+
+[[setting]]
+key = "enable_tag_filter"
+type = "bool"
+label_key = "settings.tag_filter.label"
+description_key = "settings.tag_filter.description"
+default = false
+advanced = true
+
+[[setting]]
+key = "selected_tag_id"
+type = "string"
+label_key = "settings.selected_tag.label"
+description_key = "settings.selected_tag.description"
+default = ""
+advanced = true
+visible_when = { key = "enable_tag_filter", values = ["true"] }
+
+# ---------------------------------------------------------------------------
+# Colors
+
+[[setting]]
+key = "colorization_enabled"
+type = "bool"
+label_key = "settings.colorization.label"
+description_key = "settings.colorization.description"
+default = false
+advanced = true
+
+[[setting]]
+key = "colorization_icon"
+type = "select"
+label_key = "settings.icon_color.label"
+default = "primary"
+advanced = true
+visible_when = { key = "colorization_enabled", values = ["true"] }
+options = [
+  { value = "none", label_key = "colors.none" },
+  { value = "primary", label_key = "colors.primary" },
+  { value = "secondary", label_key = "colors.secondary" },
+  { value = "tertiary", label_key = "colors.tertiary" },
+  { value = "error", label_key = "colors.error" }
+]
+
+[[setting]]
+key = "colorization_badge"
+type = "select"
+label_key = "settings.badge_color.label"
+default = "error"
+advanced = true
+visible_when = { key = "colorization_enabled", values = ["true"] }
+options = [
+  { value = "none", label_key = "colors.none" },
+  { value = "error", label_key = "colors.error" },
+  { value = "primary", label_key = "colors.primary" },
+  { value = "secondary", label_key = "colors.secondary" },
+  { value = "tertiary", label_key = "colors.tertiary" }
+]
+
+[[setting]]
+key = "colorization_badge_text"
+type = "select"
+label_key = "settings.badge_text_color.label"
+default = "on_error"
+advanced = true
+visible_when = { key = "colorization_enabled", values = ["true"] }
+options = [
+  { value = "none", label_key = "colors.none" },
+  { value = "on_error", label_key = "colors.on_error" },
+  { value = "primary", label_key = "colors.primary" },
+  { value = "secondary", label_key = "colors.secondary" },
+  { value = "tertiary", label_key = "colors.tertiary" }
+]
+
+# ---------------------------------------------------------------------------
+# Entries
+
+[[widget]]
+id = "bar"
+entry = "widget.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 500
+height = 680
+placement = "floating"
+position = "center"
+open_near_click = true
+keyboard_focus = "exclusive"
+dismiss_on_outside_click = true
+
+[[service]]
+id = "service"
+entry = "service.luau"
