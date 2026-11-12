@@ -18,12 +18,6 @@
     "update_selected": "Update Selected ({count})",
     "update_selected_size": "Update Selected ({count} · {size})"
   },
-  "ago": {
-    "days": "{n} d ago",
-    "hours": "{n} h ago",
-    "minutes": "{n} min ago",
-    "now": "just now"
-  },
   "notifications": {
     "update_complete_body": "System updates have completed successfully.",
     "update_complete_title": "Update Complete",
@@ -31,9 +25,6 @@
     "update_failed_title": "Update Failed",
     "updates_available_body": "{count} pending updates are ready to install.",
     "updates_available_title": "Updates Available"
-  },
-  "search": {
-    "no_matches": "No packages match \"{query}\""
   },
   "sections": {
     "dnf": "DNF · {count} updates",
@@ -55,13 +46,13 @@
       "description": "Check for and manage Flatpak application updates.",
       "label": "Enable Flatpak"
     },
-    "glyph": {
-      "description": "Icon glyph to display in the Noctalia bar widget.",
-      "label": "Widget Icon"
-    },
     "include_flatpak_runtimes": {
       "description": "Include Flatpak runtime and extension updates alongside applications.",
       "label": "Include Flatpak Runtimes"
+    },
+    "glyph": {
+      "description": "Icon glyph to display in the Noctalia bar widget.",
+      "label": "Widget Icon"
     },
     "notify_on_updates": {
       "description": "Send a desktop notification when new pending updates are found.",
@@ -74,6 +65,10 @@
     "update_in_terminal": {
       "description": "Launch update commands inside a terminal emulator instead of running in background with polkit.",
       "label": "Run Updates in Terminal"
+    },
+    "refresh_on_update": {
+      "description": "Pass --refresh to DNF on upgrade to force refreshing repository metadata cache.",
+      "label": "Refresh Metadata on Upgrade"
     }
   },
   "status": {
@@ -90,12 +85,21 @@
     "flatpak_idle": "Flatpak idle",
     "flatpak_updating": "Updating Flatpak…",
     "flatpak_waiting": "Flatpak waiting…",
-    "last_checked": "Last checked: {time}",
+    "last_checked": "Last check {time}",
     "last_update": "last update {time}",
     "never_checked": "Never checked",
     "reboot_required": "Restart required to complete updates",
     "skipped": "Skipped",
     "updating": "Updating packages…"
+  },
+  "search": {
+    "no_matches": "No packages match \"{query}\""
+  },
+  "ago": {
+    "days": "{n} d ago",
+    "hours": "{n} h ago",
+    "minutes": "{n} min ago",
+    "now": "just now"
   },
   "summary": {
     "disk_size": "Disk Size",
@@ -103,6 +107,7 @@
     "download": "Download",
     "flatpak": "Flatpak",
     "last_checked": "Last Checked",
+    "last_update": "Last Updated",
     "storage": "Storage",
     "system": "System",
     "total": "Total"
@@ -110,6 +115,7 @@
   "title": "DNF Updater",
   "tooltip": {
     "all_up_to_date": "All packages up to date",
+    "disk_delta": "Disk impact",
     "disk_size": "Disk size",
     "download_size": "Download size",
     "updates_available": "{count} updates available"

@@ -36,7 +36,7 @@ case "$ACTION" in
     uninstall|--uninstall|-u)
         echo "Removing DNF Updater privileged helper and Polkit rule..."
         rm -f "$DEST_BIN" "$DEST_POLKIT"
-        echo "✓ Successfully removed:"
+        echo "Successfully removed:"
         echo "  - $DEST_BIN"
         echo "  - $DEST_POLKIT"
         exit 0
@@ -50,7 +50,7 @@ case "$ACTION" in
         ;;
 esac
 
-echo "==> Installing DNF Updater privileged helper and Polkit rule..."
+echo "Installing DNF Updater privileged helper and Polkit rule..."
 
 # Determine script location if running locally
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd || true)"
@@ -61,15 +61,15 @@ CLEANUP_TMP=false
 TMP_DIR=""
 
 if [[ -n "$SCRIPT_DIR" && -f "${SCRIPT_DIR}/dnf-updater-helper.sh" && -f "${SCRIPT_DIR}/../polkit/50-dnf-updater.rules" ]]; then
-    echo "  → Using local repository files..."
+    echo "Using local repository files..."
     SRC_HELPER="${SCRIPT_DIR}/dnf-updater-helper.sh"
     SRC_POLKIT="${SCRIPT_DIR}/../polkit/50-dnf-updater.rules"
 elif [[ -n "$SCRIPT_DIR" && -f "${SCRIPT_DIR}/scripts/dnf-updater-helper.sh" && -f "${SCRIPT_DIR}/polkit/50-dnf-updater.rules" ]]; then
-    echo "  → Using local repository files..."
+    echo "Using local repository files..."
     SRC_HELPER="${SCRIPT_DIR}/scripts/dnf-updater-helper.sh"
     SRC_POLKIT="${SCRIPT_DIR}/polkit/50-dnf-updater.rules"
 else
-    echo "  → Fetching latest files from GitHub ($REPO_RAW_URL)..."
+    echo "Fetching latest files from GitHub ($REPO_RAW_URL)..."
     TMP_DIR="$(mktemp -d)"
     CLEANUP_TMP=true
     trap 'rm -rf "$TMP_DIR"' EXIT
@@ -91,11 +91,11 @@ fi
 
 # Install privileged helper
 install -Dm755 "$SRC_HELPER" "$DEST_BIN"
-echo "  ✓ Installed privileged helper: $DEST_BIN (mode 0755)"
+echo "Installed privileged helper: $DEST_BIN (mode 0755)"
 
 # Install Polkit rule
 install -Dm644 "$SRC_POLKIT" "$DEST_POLKIT"
-echo "  ✓ Installed Polkit policy:     $DEST_POLKIT (mode 0644)"
+echo "Installed Polkit policy: $DEST_POLKIT (mode 0644)"
 
 # Fix SELinux context if SELinux is available
 if command -v restorecon >/dev/null 2>&1; then
@@ -107,13 +107,13 @@ INVOKER="${SUDO_USER:-$USER}"
 if [[ -n "$INVOKER" && "$INVOKER" != "root" ]]; then
     if ! id -nG "$INVOKER" 2>/dev/null | grep -Ewq "wheel|sudo"; then
         echo ""
-        echo "  ⚠ Warning: User '$INVOKER' is not in the 'wheel' or 'sudo' group."
-        echo "    Polkit requires administrative group membership for passwordless updates."
-        echo "    Add your user with: sudo usermod -aG wheel $INVOKER"
+        echo "Warning: User '$INVOKER' is not in the 'wheel' or 'sudo' group."
+        echo "Polkit requires administrative group membership for passwordless updates."
+        echo "Add your user with: sudo usermod -aG wheel $INVOKER"
     fi
 fi
 
 echo ""
-echo "✓ Installation complete!"
-echo "💡 Tip: To enable background updates without terminal popups, ensure 'Run Updates in Terminal'"
-echo "   is turned off in Noctalia Settings → Plugins → DNF Updater."
+echo "Installation complete."
+echo "To enable background updates without terminal popups, ensure 'Run Updates in Terminal'"
+echo "is turned off in Noctalia Settings → Plugins → DNF Updater."
