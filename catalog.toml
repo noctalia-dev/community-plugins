@@ -5866,3 +5866,16 @@ icon = "menu-2"
 description = "macOS style menu bar: the focused application's menus move into the top bar."
 plugin_api = 24
 tags = ["bar", "panel", "system"]
+
+[[plugin]]
+id = "3dprogramin/logonbox"
+name = "LogonBox VPN"
+version = "0.1.0"
+updated_at = 1794453081
+added_at = 1794453081
+author = "3dprogramin"
+license = "MIT"
+icon = "lock"
+description = "Show LogonBox VPN status in the bar; connect and disconnect saved connections from a panel."
+plugin_api = 43
+tags = ["bar", "panel", "service", "network"]
