@@ -5834,3 +5834,16 @@ icon = "brain"
 description = "Pomodoro timer for the bar with a focus heatmap, streaks and analytics."
 plugin_api = 43
 tags = ["bar", "panel", "service", "productivity", "time", "countdown"]
+
+[[plugin]]
+id = "miixz/reaction"
+name = "Reaction"
+version = "0.4.0"
+updated_at = 1794446314
+added_at = 1794446314
+author = "miixz"
+license = "MIT"
+icon = "photo"
+description = "Shows a sticker image or animated GIF with a sound as a heads-up overlay, then closes itself."
+plugin_api = 30
+tags = ["panel", "bar", "service", "animation", "audio", "fun"]
