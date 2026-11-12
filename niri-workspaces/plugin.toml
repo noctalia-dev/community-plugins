@@ -1,0 +1,86 @@
+id = "madmedicnl/niri-workspaces"
+name = "Niri Workspaces"
+version = "1.0.0"
+plugin_api = 32
+author = "madmedicnl"
+license = "MIT"
+dependencies = ["niri"]
+icon = "layout-grid"
+deprecated = false
+description = "Dots for the workspaces you are not on, with named workspaces you can leave out of the bar."
+tags = ["bar", "indicator", "niri"]
+
+[[widget]]
+id = "niri-workspaces"
+entry = "widget.luau"
+
+    [[widget.setting]]
+    key             = "hidden"
+    type            = "string"
+    label_key       = "settings.hidden.label"
+    description_key = "settings.hidden.description"
+    default         = "scratch"
+
+    [[widget.setting]]
+    key             = "hide_empty"
+    type            = "bool"
+    label_key       = "settings.hide_empty.label"
+    description_key = "settings.hide_empty.description"
+    default         = true
+
+    [[widget.setting]]
+    key             = "dot_size"
+    type            = "int"
+    label_key       = "settings.dot_size.label"
+    description_key = "settings.dot_size.description"
+    default         = 7
+    min             = 3
+    max             = 20
+
+    [[widget.setting]]
+    key             = "dot_color"
+    type            = "string"
+    label_key       = "settings.dot_color.label"
+    description_key = "settings.dot_color.description"
+    default         = "tertiary"
+
+    [[widget.setting]]
+    key             = "focused_color"
+    type            = "string"
+    label_key       = "settings.focused_color.label"
+    description_key = "settings.focused_color.description"
+    default         = "primary"
+
+    [[widget.setting]]
+    key             = "focused_text_color"
+    type            = "string"
+    label_key       = "settings.focused_text_color.label"
+    description_key = "settings.focused_text_color.description"
+    default         = "on_primary"
+
+    [[widget.setting]]
+    key             = "font_size"
+    type            = "int"
+    label_key       = "settings.font_size.label"
+    description_key = "settings.font_size.description"
+    default         = 0
+    min             = 0
+    max             = 32
+
+    [[widget.setting]]
+    key             = "max_label_chars"
+    type            = "int"
+    label_key       = "settings.max_label_chars.label"
+    description_key = "settings.max_label_chars.description"
+    default         = 0
+    min             = 0
+    max             = 64
+
+    [[widget.setting]]
+    key             = "gap"
+    type            = "int"
+    label_key       = "settings.gap.label"
+    description_key = "settings.gap.description"
+    default         = 6
+    min             = 0
+    max             = 32

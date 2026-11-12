@@ -1,0 +1,40 @@
+{
+  "settings": {
+    "hidden": {
+      "description": "Workspace names left out of the bar, comma separated (a scratchpad's shelf, for instance). Lower case is not required. The workspace you are on is still drawn while you are on it.",
+      "label": "Hidden workspaces"
+    },
+    "hide_empty": {
+      "description": "Draw nothing for a workspace with no windows. The focused workspace is always drawn.",
+      "label": "Hide empty workspaces"
+    },
+    "dot_size": {
+      "description": "Diameter of a dot, in logical pixels.",
+      "label": "Dot size"
+    },
+    "dot_color": {
+      "description": "Palette role name (tertiary, secondary...) or hex value for the dots.",
+      "label": "Dot color"
+    },
+    "focused_color": {
+      "description": "Palette role name or hex value for the pill of the workspace you are on.",
+      "label": "Focused workspace color"
+    },
+    "focused_text_color": {
+      "description": "Palette role name or hex value for the name inside the focused pill.",
+      "label": "Focused workspace text color"
+    },
+    "font_size": {
+      "description": "Font size of the focused workspace name. 0 uses the bar default.",
+      "label": "Font size"
+    },
+    "max_label_chars": {
+      "description": "Truncate the focused workspace name to this many characters. 0 shows it whole.",
+      "label": "Maximum label characters"
+    },
+    "gap": {
+      "description": "Space between the dots and the pill, in logical pixels.",
+      "label": "Gap"
+    }
+  }
+}
