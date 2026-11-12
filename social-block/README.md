@@ -8,6 +8,13 @@ everything else stays blocked.
 
 ![Social Block panel](screenshot.webp)
 
+## Why
+
+Social Block is a productivity tool for people who work from home. The goal is
+to keep a work session from drifting into "just one quick look", while keeping
+the tools the team actually uses — Slack, Discord, and so on — one toggle away.
+It is deliberately not a parental-control or network-security tool.
+
 ## Plugin
 
 | Field | Value |
