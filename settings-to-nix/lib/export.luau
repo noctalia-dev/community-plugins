@@ -14,6 +14,8 @@ local M = {}
 local MARKER = "dmopp/settings-to-nix"
 -- Name part of the private temp directories next to the target.
 local MARKER_DIR = "settings-to-nix"
+-- Noctalia's default of 5 s is short when the system is busy (a rebuild, plugin reloads).
+local COMMAND_TIMEOUT_MS = 30000
 
 -- Left out of the export: the wallpaper paths Noctalia rewrites on every wallpaper
 -- change. Dotted paths; `*` matches exactly one level.
@@ -261,7 +263,7 @@ function M.write(plan, done)
 	local started = noctalia.runAsync({ "mktemp", "-d", prefix .. "XXXXXX" }, function(made)
 		local tmpDir = noctalia.string.trim(made.stdout or "")
 		if made.exitCode ~= 0 or string.sub(tmpDir, 1, #prefix) ~= prefix or string.find(tmpDir, "/", #prefix + 1, true) then
-			local reason = noctalia.string.trim(made.stderr or "")
+			local reason = made.timedOut and "mktemp timed out" or noctalia.string.trim(made.stderr or "")
 			return done(false, noctalia.tr("errors.write", { path = dir, error = reason ~= "" and reason or "mktemp failed" }))
 		end
 		local tmp = tmpDir .. "/" .. name
@@ -295,15 +297,18 @@ function M.write(plan, done)
 			return commit()
 		end
 		local checking = noctalia.runAsync({ "nix-instantiate", "--parse", tmp }, function(result)
+			if result.timedOut then
+				return finish(false, noctalia.tr("errors.timeout", { command = "nix-instantiate --parse" }))
+			end
 			if result.exitCode ~= 0 then
 				return finish(false, noctalia.tr("errors.invalid", { error = noctalia.string.trim(result.stderr or "") }))
 			end
 			commit()
-		end)
+		end, COMMAND_TIMEOUT_MS)
 		if not checking then
 			commit()
 		end
-	end)
+	end, COMMAND_TIMEOUT_MS)
 	if not started then
 		done(false, noctalia.tr("errors.write", { path = dir, error = "could not start mktemp" }))
 	end
