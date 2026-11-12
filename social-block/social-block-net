@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# social-block-net — manage the /etc/hosts block used by the Noctalia
+# social-block-net: manage the /etc/hosts block used by the Noctalia
 # "Social Block" plugin. Only the commands listed in the installed
 # sudoers/doas rule can be run without a password.
 #

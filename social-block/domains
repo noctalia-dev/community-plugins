@@ -9,7 +9,7 @@
 # Then re-run: bash install-helper.sh --update-domains
 # (that also regenerates the per-service sudo/doas rules).
 #
-# Hosts entries are exact — add the subdomains you actually use. There are no
+# Hosts entries are exact; add the subdomains you actually use. There are no
 # wildcards. The CDN/gateway entries are deliberate: blocking only the landing
 # page still lets an already-open tab or desktop app fetch media and reconnect.
 

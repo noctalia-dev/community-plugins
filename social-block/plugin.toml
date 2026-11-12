@@ -1,4 +1,4 @@
-# Social Block — one switch that quiets social media.
+# Social Block: one switch that quiets social media.
 #
 # ON  : /etc/hosts blocks the domains in /etc/social-block/domains and the
 #       service quits Discord (optional: closes matching windows).

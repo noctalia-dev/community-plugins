@@ -12,7 +12,7 @@ everything else stays blocked.
 
 Social Block is a productivity tool for people who work from home. The goal is
 to keep a work session from drifting into "just one quick look", while keeping
-the tools the team actually uses — Slack, Discord, and so on — one toggle away.
+the tools the team actually uses, such as Slack and Discord, one toggle away.
 It is deliberately not a parental-control or network-security tool.
 
 ## Plugin
@@ -26,7 +26,7 @@ It is deliberately not a parental-control or network-security tool.
 ## Requirements
 
 - Noctalia v5.4 or newer (plugin API 43).
-- `bash` — the root helper and its installer are bash scripts. Alpine and other
+- `bash`: the root helper and its installer are bash scripts. Alpine and other
   minimal systems do not ship bash by default (`apk add bash`).
 - `sudo` or `doas` for the one-time helper installation and for each toggle.
 - `flatpak` and `pkill` to quit blocked desktop apps (Discord, Slack, Vesktop,
@@ -155,7 +155,7 @@ The panel contains the master switch, session timers (`15m`, `30m`, `1h`,
 `∞`), today's blocked time, the streak graph, and the service list.
 
 **Every service has its own toggle.** A service is blocked when its toggle is
-on. Toggle it off to allow it — for example:
+on. Toggle it off to allow it, for example:
 
 - turn **Slack** off to keep work chat available;
 - turn **Discord** off if your team uses it;

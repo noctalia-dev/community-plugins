@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Social Block — install the privileged /etc/hosts helper on any Linux distro.
+# Social Block: install the privileged /etc/hosts helper on any Linux distro.
 #
 #   bash install-helper.sh                  # install / repair
 #   bash install-helper.sh --update-domains # replace the domain list + rules
