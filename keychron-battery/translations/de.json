@@ -1,4 +1,8 @@
 {
+  "bar": {
+    "no_value": "Kein Akkustand",
+    "no_value_hint": "Die Maus ist aus oder schläft, oder der Empfänger gibt nichts weiter. Oft hilft es, den Empfänger neu einzustecken."
+  },
   "connection": {
     "bluetooth": "Bluetooth",
     "receiver": "Empfänger / Kabel"
@@ -31,7 +35,7 @@
       "label": "Benachrichtigen ab (%)"
     },
     "mouse_name": {
-      "description": "Angezeigter Name. Leer lassen, um den Namen aus UPower zu nehmen (das Kernelmodul meldet immer „Keychron M5“).",
+      "description": "Angezeigter Name. Leer lassen, um den Modellnamen aus UPower zu nehmen; der kann allgemein sein (zum Beispiel „Keychron Ultra-Link 8K“).",
       "label": "Name der Maus"
     },
     "notify": {

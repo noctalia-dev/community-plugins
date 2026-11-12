@@ -7,20 +7,6 @@
 
 local M = {}
 
--- Days since 1970-01-01 for a proleptic Gregorian date (Howard Hinnant's
--- days_from_civil). Avoids os.time, which interprets tables in local time.
-local function daysFromCivil(y: number, m: number, d: number): number
-  if m <= 2 then
-    y -= 1
-  end
-  local era = (if y >= 0 then y else y - 399) // 400
-  local yoe = y - era * 400
-  local mp = if m > 2 then m - 3 else m + 9
-  local doy = (153 * mp + 2) // 5 + d - 1
-  local doe = yoe * 365 + yoe // 4 - yoe // 100 + doy
-  return era * 146097 + doe - 719468
-end
-
 -- "2026-10-03T20:19:59.911287+00:00" / "...Z" / "... 20:19:59" -> Unix seconds.
 -- Returns nil for anything that is not a full date-time.
 function M.parseIso8601(value: any): number?
@@ -40,8 +26,9 @@ function M.parseIso8601(value: any): number?
     end
     offset = (tonumber(oh) * 3600 + tonumber(om) * 60) * (if sign == "-" then -1 else 1)
   end
-  local days = daysFromCivil(tonumber(y), tonumber(mo), tonumber(d))
-  return days * 86400 + tonumber(h) * 3600 + tonumber(mi) * 60 + tonumber(s) - offset
+  -- Luau's os.time reads the table as UTC.
+  local at = os.time({ year = tonumber(y), month = tonumber(mo), day = tonumber(d), hour = tonumber(h), min = tonumber(mi), sec = tonumber(s) })
+  return if at then at - offset else nil
 end
 
 -- Accepts Unix seconds (number or numeric string) or an ISO-8601 string.

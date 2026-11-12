@@ -2576,8 +2576,8 @@ rev = "69edf25c45dc117d258a37106c2331787fac9a7a"
 [[plugin]]
 id = "0lucasmatheus/awwwall"
 name = "Awwwall"
-version = "0.1.0"
-updated_at = 1788316285
+version = "0.1.1"
+updated_at = 1794452788
 added_at = 1788316285
 author = "0lucasmatheus"
 license = "MIT"
@@ -4307,13 +4307,13 @@ rev = "961cf85442258251a6f5d16933f2f07eda0ccdca"
 [[plugin]]
 id = "ayagmar/headroom"
 name = "Headroom"
-version = "0.2.2"
-updated_at = 1792983494
+version = "0.3.0"
+updated_at = 1794452731
 added_at = 1791375801
 author = "ayagmar"
 license = "MIT"
 icon = "gauge"
-description = "How much of your Claude, Codex and Antigravity plan limits is left, per account, with reset times and forecasts."
+description = "Claude, Codex and Antigravity plan limits left per account, with reset times, forecasts and reset credits."
 plugin_api = 43
 tags = ["bar", "panel", "service", "ai", "indicator", "productivity"]
 
@@ -4537,8 +4537,8 @@ rev = "0af629732caa1dd5d9654e40ff39fd255ccf3cb3"
 [[plugin]]
 id = "gcap0n1/f1"
 name = "Formula 1"
-version = "0.1.1"
-updated_at = 1791919185
+version = "0.1.2"
+updated_at = 1794445182
 added_at = 1791760792
 author = "gcap0n1"
 license = "MIT"
@@ -4742,15 +4742,21 @@ tags = ["music", "media", "bar", "panel"]
 [[plugin]]
 id = "dmopp/keychron-battery"
 name = "Keychron Battery"
-version = "1.0.0"
-updated_at = 1792243561
+version = "1.1.0"
+updated_at = 1794452907
 added_at = 1792243561
 author = "dMopp"
 license = "MIT"
 icon = "mouse"
 description = "Battery of Keychron mice in the bar, with low-battery notifications. Needs keychron-battery-dkms for receiver and cable."
-plugin_api = 24
+plugin_api = 42
 tags = ["bar", "panel", "service", "hardware", "indicator"]
+
+[[plugin.release]]
+plugin_api = 24
+version = "1.0.0"
+updated_at = 1792243561
+rev = "9d4fb0af4480d845623f8cb314a968a433e02148"
 
 [[plugin]]
 id = "teslaoruz/bloom"
@@ -5643,8 +5649,8 @@ tags = ["hardware", "media", "network", "panel", "utility", "video"]
 [[plugin]]
 id = "3dprogramin/vscode"
 name = "VS Code"
-version = "0.1.1"
-updated_at = 1794252000
+version = "0.2.0"
+updated_at = 1794452859
 added_at = 1793977201
 author = "3dprogramin"
 license = "MIT"
@@ -5721,8 +5727,8 @@ tags = ["clock", "desktop", "time", "theming"]
 [[plugin]]
 id = "faminec/lyrics-carousel"
 name = "Lyrics Carousel"
-version = "2.8.0"
-updated_at = 1794404756
+version = "2.7.1"
+updated_at = 1794317591
 added_at = 1794317591
 author = "faminec"
 license = "MIT"
@@ -5834,3 +5840,42 @@ icon = "brain"
 description = "Pomodoro timer for the bar with a focus heatmap, streaks and analytics."
 plugin_api = 43
 tags = ["bar", "panel", "service", "productivity", "time", "countdown"]
+
+[[plugin]]
+id = "miixz/reaction"
+name = "Reaction"
+version = "0.4.0"
+updated_at = 1794446314
+added_at = 1794446314
+author = "miixz"
+license = "MIT"
+icon = "photo"
+description = "Shows a sticker image or animated GIF with a sound as a heads-up overlay, then closes itself."
+plugin_api = 30
+tags = ["panel", "bar", "service", "animation", "audio", "fun"]
+
+[[plugin]]
+id = "amancode22/global-menu"
+name = "Global Menu"
+version = "1.0.0"
+updated_at = 1794452661
+added_at = 1794452661
+author = "amancode22"
+license = "GPL-3.0-or-later"
+icon = "menu-2"
+description = "macOS style menu bar: the focused application's menus move into the top bar."
+plugin_api = 24
+tags = ["bar", "panel", "system"]
+
+[[plugin]]
+id = "3dprogramin/logonbox"
+name = "LogonBox VPN"
+version = "0.1.0"
+updated_at = 1794453081
+added_at = 1794453081
+author = "3dprogramin"
+license = "MIT"
+icon = "lock"
+description = "Show LogonBox VPN status in the bar; connect and disconnect saved connections from a panel."
+plugin_api = 43
+tags = ["bar", "panel", "service", "network"]

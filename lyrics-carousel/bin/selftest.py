@@ -812,10 +812,7 @@ class _SceneLine:
         self.text = text
         self.start = 0.0
         self.duration = 4.0
-        # Valid per-character timings so progressive karaoke applies in
-        # intelligent (brain-on) mode, matching the lyrics plugin behavior for
-        # word-synced lines.
-        self.chars = [round(index * 0.2, 3) for index in range(len(text))] if text else []
+        self.chars = []
 
 
 def render_handover(
@@ -1711,24 +1708,6 @@ def check_settings_limits():
         )
 
 
-def check_normalize_text():
-    """Text normalization keeps lyrics renderable across fonts."""
-    mod = script_module()
-    cases = [
-        ("make up\uff08make up\uff09", "make up(make up)"),
-        ("\uff3btag\uff3d", "[tag]"),
-        ("\uff5bkey\uff5d", "{key}"),
-        ("a\u3000b", "a b"),
-    ]
-    for source, expected in cases:
-        out = mod.normalize_text(source)
-        check(
-            "normalize_text maps fullwidth punctuation: %r" % (source,),
-            out == expected,
-            repr(out),
-        )
-
-
 def check_readme():
     """The README documents what the manifest declares.
 
@@ -2558,65 +2537,6 @@ def check_lyrics_settings_state_dir():
         )
 
 
-def check_helper_accepts_karaoke_brain():
-    """The helper knows the `karaoke_brain` key.
-
-    The brain button writes the setting with `set-setting.py override`. If
-    the helper does not know the key it rejects it ("unknown key"), the
-    write never happens and the button does nothing at all.
-    """
-    base = tempfile.mkdtemp(prefix="lyrics-carousel-selftest-")
-    try:
-        with temporary_state(base):
-            result = subprocess.run(
-                [sys.executable, HELPER, "override", "karaoke_brain", "false", "bool"],
-                capture_output=True,
-                text=True,
-                timeout=20,
-            )
-            check(
-                "the helper accepts the karaoke_brain key",
-                result.returncode == 0,
-                (result.stderr or result.stdout or "").strip()[:120],
-            )
-            overrides = os.path.join(
-                os.environ["LYRICS_CAROUSEL_OVERRIDES"]
-            )
-            stored = {}
-            try:
-                with open(overrides, encoding="utf-8") as handle:
-                    stored = json.load(handle)
-            except (OSError, ValueError):
-                stored = {}
-            check(
-                "the helper stores the brain as off",
-                stored.get("karaoke_brain") is False,
-                repr(stored.get("karaoke_brain")),
-            )
-            mod = script_module()
-            cfg = mod.load_settings()
-            check(
-                "the script reads the brain as off",
-                cfg.get("karaoke_brain") is False,
-                repr(cfg.get("karaoke_brain")),
-            )
-            # And the other way round: the value has to be able to go back on.
-            result = subprocess.run(
-                [sys.executable, HELPER, "override", "karaoke_brain", "true", "bool"],
-                capture_output=True,
-                text=True,
-                timeout=20,
-            )
-            check(
-                "the helper stores the brain as on",
-                result.returncode == 0
-                and mod.load_settings().get("karaoke_brain") is True,
-                (result.stderr or result.stdout or "").strip()[:120],
-            )
-    finally:
-        shutil.rmtree(base, ignore_errors=True)
-
-
 def check_karaoke_uses_real_times():
     """The karaoke uses the next real time, not the one of the next line.
 
@@ -2642,116 +2562,6 @@ def check_karaoke_uses_real_times():
                     next_timed_start_fn(2) is None,
                     str(next_timed_start_fn(2)),
                 )
-
-
-def check_brain_intelligent_per_line_karaoke():
-    """Brain active => intelligent per-line karaoke like the lyrics plugin.
-
-    With brain on, only lines with usable word timings get progressive
-    per-character karaoke; lines without them are highlighted at once (line
-    mode, no progressive glow sweep). With brain off, karaoke glow uses the
-    classic "boring" progressive behavior for all lines.
-    """
-    with tempfile.TemporaryDirectory(prefix="lyrics-carousel-cache-") as cache:
-        with temporary_env({"XDG_CACHE_HOME": cache}):
-            mod = script_module()
-            image = image_module()
-
-            class FakeTheme:
-                background = (10, 10, 10)
-                foreground = (200, 200, 200)
-                past = (120, 120, 120)
-                faint = (80, 80, 80)
-                bright = (220, 220, 220)
-
-                def accent_color(self, cfg):
-                    return (0, 200, 0)
-
-            class FakeBrush:
-                im = types.SimpleNamespace(size=(1500, 900))
-
-                def textlength(self, text, font=None):
-                    return len(text) * 12.0
-
-            def render_line(line, brain_on, pos=0.5):
-                app = types.SimpleNamespace()
-                app.cfg = {
-                    "karaoke": True,
-                    "marker": False,
-                    "ghost": False,
-                    "direction": "down",
-                    "spacing": 3,
-                    "visible_above": 2,
-                    "visible_below": 2,
-                    "header": False,
-                    "footer": False,
-                    "hints": False,
-                }
-                app.state = "lyrics"
-                app.lines = [line]
-                app.track = mod.Track()
-                app.theme = FakeTheme()
-                app.karaoke = True
-                app.karaoke_brain = brain_on
-                app.demo = False
-                app.position = lambda: pos
-                app.next_timed_start = lambda index: None
-                app.scroll_state = types.MethodType(mod.LyricsCarousel.scroll_state, app)
-                app._timed_lines = types.MethodType(mod.LyricsCarousel._timed_lines, app)
-                app.karaoke_amount = types.MethodType(mod.LyricsCarousel.karaoke_amount, app)
-                app.tr = lambda key, **kw: key
-
-                renderer = image.ImageRenderer.__new__(image.ImageRenderer)
-                renderer.app = app
-                renderer.fonts = {}
-                renderer.font_files = {"prueba": image.FALLBACK_FONT}
-                renderer._measure_draw = FakeBrush()
-                views = []
-                renderer._draw_karaoke = lambda *args: views.append(args)
-                renderer.fit_text = lambda text, limit, size, family: text
-                renderer._draw_centered = lambda *args, **kwargs: None
-                renderer._draw_marker = lambda *args, **kwargs: None
-                renderer._draw_lyrics(FakeBrush(), 450.0, 20.0, 1.2, "prueba", (0, 200, 0), pos, 0, 900)
-                return views
-
-            # Word-synced line (valid per-char timings)
-            synced = mod.LyricLine(0.0, 6.0, "hola mundo feliz")
-            synced.chars = [round(i * 0.2, 3) for i in range(len(synced.text))]
-
-            # Line without usable word timings
-            unsynced = mod.LyricLine(0.0, 6.0, "hola mundo feliz")
-            unsynced.chars = []
-
-            views = render_line(synced, brain_on=True, pos=0.5)
-            check("brain on: word-synced line uses progressive karaoke", len(views) == 1, "calls=%s" % len(views))
-            if views:
-                amount = views[0][6]
-                check(
-                    "brain on: word-synced line amount is progressive",
-                    0.0 < amount < len(synced.text),
-                    "amount=%r" % (amount,),
-                )
-
-            views = render_line(unsynced, brain_on=True, pos=0.5)
-            check(
-                "brain on: line without word timing has no progressive karaoke fill",
-                len(views) == 0 or (len(views) == 1 and views[0][6] >= len(unsynced.text) - 0.01),
-                "calls=%s amount=%r" % (len(views), views[0][6] if views else None),
-            )
-
-            views = render_line(synced, brain_on=False, pos=0.5)
-            check(
-                "brain off: classic progressive karaoke even with word timings",
-                len(views) == 1 and 0.0 < views[0][6] < len(synced.text),
-                "calls=%s amount=%r" % (len(views), views[0][6] if views else None),
-            )
-
-            views = render_line(unsynced, brain_on=False, pos=1.5)
-            check(
-                "brain off: classic progressive karaoke even without word timings",
-                len(views) == 1 and 0.0 < views[0][6] < len(unsynced.text),
-                "calls=%s amount=%r" % (len(views), views[0][6] if views else None),
-            )
 
 
 def check_estimated_times_do_not_advance_untimed_lines():
@@ -4089,8 +3899,6 @@ def main(argv):
     check_lrc_minutes()
     check_lrc_decimals()
     check_karaoke_uses_real_times()
-    check_helper_accepts_karaoke_brain()
-    check_brain_intelligent_per_line_karaoke()
     check_estimated_times_do_not_advance_untimed_lines()
     check_estimated_times_stay_inside_the_song()
     check_geometry_is_clipped_to_the_screen()
@@ -4111,7 +3919,6 @@ def main(argv):
     # 4e) the README documents what the manifest declares: if the manifest
     #     changes and the README does not, the store rejects the plugin.
     check_readme()
-    check_normalize_text()
 
     # 5) external tools.
     for tool in ("kitty", "fc-match", "playerctl", "hyprctl"):

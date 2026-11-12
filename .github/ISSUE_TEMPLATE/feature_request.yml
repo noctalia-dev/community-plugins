@@ -114,6 +114,7 @@ body:
         - github-kanban
         - github-notifications
         - github-prs
+        - global-menu
         - gocryptfs
         - godot-provider
         - gslapper
@@ -159,6 +160,7 @@ body:
         - llamanager
         - localsend
         - localsend-plus
+        - logonbox
         - lrc
         - lunar-calendar
         - lunar-workspaces
@@ -261,6 +263,7 @@ body:
         - radio
         - razer
         - rbw-enhanced
+        - reaction
         - reading-list
         - region-recorder
         - remmina

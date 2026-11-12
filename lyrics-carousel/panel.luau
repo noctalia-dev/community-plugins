@@ -528,7 +528,7 @@ local function chipRow(items)
       onClick = item.onClick,
     }))
   end
-  return ui.row({ gap = 6, justify = "center", align = "center" }, chips)
+  return ui.row({ gap = 6 }, chips)
 end
 
 -- Every font the panel offers, in the order they are shown.
@@ -716,10 +716,6 @@ end
 
 -- Slider with its label and the value on the right. The limits are the
 -- panel's: it cannot offer more than the script accepts.
---
--- Note: on this Noctalia version the native slider consumes the mouse wheel
--- when hovered (wheel-adjust cannot be disabled separately), so the wheel may
--- change the value instead of scrolling the panel while over the slider.
 local function sliderRow(key, label, min, max, step, integer)
   -- The displayed value is clamped: if the setting is out of range (for
   -- instance hand-written into settings.toml), the slider has to show the
@@ -855,42 +851,7 @@ render = function()
     -- What is drawn inside the window --------------------------------
     toggleRow("header", tr("header"), "heading"),
     toggleRow("marker", tr("marker"), "chevron-right"),
-    (function()
-      local karaokeOn = boolOf("karaoke")
-      local brainOn = boolOf("karaoke_brain")
-      local children = {
-        ui.glyph({ name = "sun", size = 14, color = "on_surface_variant" }),
-        -- maxLines: the label must not wrap when the brain button appears,
-        -- or the row grows and pushes the whole panel down.
-        ui.label({ text = tr("karaoke"), fontSize = 12, color = "on_surface", flexGrow = 1, maxLines = 1 }),
-      }
-      if karaokeOn then
-        table.insert(children, ui.button({
-          key = "btn-karaoke-brain",
-          glyph = "psychology",
-          variant = brainOn and "secondary" or "ghost",
-          -- Small: a big button here made the row taller and pushed the
-          -- whole panel down. The explicit size keeps it below the height
-          -- of the switch, so the row does not grow when it appears.
-          controlSize = "xs",
-          glyphSize = 11,
-          width = 18,
-          height = 18,
-          tooltip = "Intelligent karaoke (on): per-word glow only when word timing is available. Off: classic progressive karaoke",
-          onClick = function()
-            setSetting("karaoke_brain", not boolOf("karaoke_brain"))
-          end,
-        }))
-      end
-      table.insert(children, ui.toggle({
-        key = "toggle-karaoke",
-        checked = karaokeOn,
-        onChange = function(value)
-          setSetting("karaoke", truthy(value))
-        end,
-      }))
-      return ui.row({ key = "row-karaoke", align = "center", gap = 10, paddingH = 4, padding = 4 }, children)
-    end)(),
+    toggleRow("karaoke", tr("karaoke"), "sun"),
     toggleRow("ghost", tr("ghost"), "sparkles"),
     toggleRow("footer", tr("footer"), "clock"),
     toggleRow("hints", tr("hints"), "keyboard"),
@@ -898,7 +859,6 @@ render = function()
     -- Lyrics --------------------------------------------------------------
     ui.separator({ thickness = 1, spacing = 6 }),
     ui.label({ text = tr("section_lyrics"), fontSize = 11, fontWeight = "bold", color = "on_surface_variant" }),
-    sliderRow("font_size", tr("font_size"), 6, 96, 1, true),
     sliderRow("active_scale", tr("active_scale"), 1.0, 2.5, 0.05, false),
     ui.row({ gap = 10 }, {
       ui.column({ flexGrow = 1, gap = 4 }, {
@@ -913,17 +873,17 @@ render = function()
 
     -- Color --------------------------------------------------------------
     ui.separator({ thickness = 1, spacing = 6 }),
-    ui.column({ gap = 6, align = "center" }, {
-      ui.label({ text = tr("section_color"), fontSize = 11, fontWeight = "bold", color = "on_surface_variant" }),
+    ui.label({ text = tr("section_color"), fontSize = 11, fontWeight = "bold", color = "on_surface_variant" }),
+    ui.column({ gap = 4 }, {
       ui.label({ text = tr("accent"), fontSize = 11, color = "on_surface_variant" }),
       accentChips(),
-      (function()
-        if accent == "custom" then
-          return inputRow("custom_color", tr("custom_color"), tr("color_placeholder"))
-        end
-        return ui.column({})
-      end)(),
     }),
+    (function()
+      if accent == "custom" then
+        return inputRow("custom_color", tr("custom_color"), tr("color_placeholder"))
+      end
+      return ui.column({})
+    end)(),
 
     -- Typography ---------------------------------------------------------
     ui.separator({ thickness = 1, spacing = 6 }),
@@ -937,6 +897,7 @@ render = function()
       end
       return ui.column({})
     end)(),
+    sliderRow("font_size", tr("font_size"), 6, 96, 1, true),
 
     -- Window ------------------------------------------------------------
     ui.separator({ thickness = 1, spacing = 6 }),
