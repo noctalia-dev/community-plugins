@@ -1,8 +1,8 @@
-id = "odnakov/handy"
+id = "ooodnakov/handy"
 name = "Handy"
 version = "0.3.0"
 plugin_api = 24
-author = "odnakov"
+author = "ooodnakov"
 license = "MIT"
 description = "Control Handy dictation and browse recent transcripts from Noctalia."
 dependencies = ["handy", "sqlite3", "pactl", "pgrep", "xdg-open", "busctl", "dbus-send"]
@@ -80,8 +80,8 @@ id = "status"
 entry = "widget.luau"
 
   [widget.actions]
-  left = "plugin odnakov/handy:service all toggle"
-  right = "panel-toggle odnakov/handy:panel"
+  left = "plugin ooodnakov/handy:service all toggle"
+  right = "panel-toggle ooodnakov/handy:panel"
 
 [[panel]]
 id = "panel"

@@ -11,9 +11,9 @@ transcripts Handy has already saved.
 
 | Field | Value |
 | --- | --- |
-| ID | `odnakov/handy` |
+| ID | `ooodnakov/handy` |
 | Entries | Bar widget: `status`; panel: `panel`; service: `service` |
-| Panel command | `noctalia msg panel-toggle odnakov/handy:panel` |
+| Panel command | `noctalia msg panel-toggle ooodnakov/handy:panel` |
 
 ## Requirements
 
@@ -32,7 +32,7 @@ settings.
 
 ## Usage
 
-Add the `odnakov/handy:status` widget to a bar. It shows a microphone while
+Add the `ooodnakov/handy:status` widget to a bar. It shows a microphone while
 Handy is idle, a red record dot while recording, a loader while transcribing,
 and a muted microphone when Handy is not running.
 
@@ -69,15 +69,15 @@ not running; with a single downloaded model there is nothing to switch to.
 ## IPC
 
 ```sh
-noctalia msg plugin odnakov/handy:service all toggle
-noctalia msg plugin odnakov/handy:service all toggle_post_process
-noctalia msg plugin odnakov/handy:service all cancel
-noctalia msg plugin odnakov/handy:service all launch
-noctalia msg plugin odnakov/handy:service all refresh
-noctalia msg plugin odnakov/handy:service all copy_latest
-noctalia msg plugin odnakov/handy:service all open_recordings
-noctalia msg plugin odnakov/handy:service all select_model "Parakeet Ultra"
-noctalia msg plugin odnakov/handy:service all delete_transcript 42
+noctalia msg plugin ooodnakov/handy:service all toggle
+noctalia msg plugin ooodnakov/handy:service all toggle_post_process
+noctalia msg plugin ooodnakov/handy:service all cancel
+noctalia msg plugin ooodnakov/handy:service all launch
+noctalia msg plugin ooodnakov/handy:service all refresh
+noctalia msg plugin ooodnakov/handy:service all copy_latest
+noctalia msg plugin ooodnakov/handy:service all open_recordings
+noctalia msg plugin ooodnakov/handy:service all select_model "Parakeet Ultra"
+noctalia msg plugin ooodnakov/handy:service all delete_transcript 42
 ```
 
 `toggle` mirrors the bar click: it launches Handy when it is not running.

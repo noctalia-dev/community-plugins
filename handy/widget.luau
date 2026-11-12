@@ -100,7 +100,7 @@ function onClick()
 end
 
 function onRightClick()
-  noctalia.togglePanel("odnakov/handy:panel")
+  noctalia.togglePanel("ooodnakov/handy:panel")
 end
 
 render(snapshot)
