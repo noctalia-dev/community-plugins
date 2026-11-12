@@ -1,0 +1,67 @@
+{
+  "settings": {
+    "sticker_path": {
+      "label": "Sticker image",
+      "description": "PNG, JPEG, WebP, SVG or animated GIF shown over the screen. Bring your own file."
+    },
+    "sticker_dir": {
+      "label": "Sticker folder",
+      "description": "Folder with PNG, JPEG, WebP, SVG or animated GIF files. If set, one is picked on each trigger instead of the single sticker image."
+    },
+    "sticker_selection": {
+      "label": "Sticker selection",
+      "description": "How the next sticker is chosen from the folder.",
+      "random": "Random",
+      "sequential": "Sequential"
+    },
+    "sticker_position": {
+      "label": "Sticker position",
+      "description": "Where the sticker appears on screen. Auto keeps it centered.",
+      "top_left": "Top left",
+      "top_center": "Top center",
+      "top_right": "Top right",
+      "center_left": "Center left",
+      "center": "Center",
+      "center_right": "Center right",
+      "bottom_left": "Bottom left",
+      "bottom_center": "Bottom center",
+      "bottom_right": "Bottom right",
+      "auto": "Auto"
+    },
+    "sound_path": {
+      "label": "Sound",
+      "description": "Sound played when the sticker appears."
+    },
+    "size_px": {
+      "label": "Sticker size (px)",
+      "description": "Sticker box, in logical pixels. The image always fits inside this square."
+    },
+    "opacity": {
+      "label": "Opacity",
+      "description": "Maximum sticker opacity, before the fade-out."
+    },
+    "hold_ms": {
+      "label": "Hold time (ms)",
+      "description": "How long a static sticker stays on screen."
+    },
+    "extra_ms": {
+      "label": "Extra time after GIF (ms)",
+      "description": "Keep the sticker visible this long after an animated GIF has finished."
+    }
+  },
+  "panel": {
+    "no_sticker": "No sticker configured"
+  },
+  "widget": {
+    "tooltip": "Reaction sticker\nLeft click: show · Right click: dismiss"
+  },
+  "status": {
+    "unset": "(not set)"
+  },
+  "notify": {
+    "status": {
+      "title": "Reaction",
+      "body": "Sticker: {sticker}\nState: {state}"
+    }
+  }
+}
