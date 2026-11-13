@@ -9,6 +9,7 @@ local SNAPSHOT_KEY = "pixelbuds_snapshot"
 local snapshot = noctalia.state.get(SNAPSHOT_KEY) or {}
 local hideWhenDisconnected = noctalia.getConfig("hide_when_disconnected") ~= false
 local showPercentage = noctalia.getConfig("show_percentage") ~= false
+local isVertical = barWidget.isVertical()
 
 local function glyphColor()
 	if snapshot.hasBuds ~= true then
@@ -32,7 +33,7 @@ local function render()
 		barWidget.setVisible(true)
 	end
 
-	local container = barWidget.isVertical() and ui.column or ui.row
+	local container = isVertical and ui.column or ui.row
 	local children = {
 		ui.glyph({
 			name = hasBuds and "headphones" or "headphones-off",
