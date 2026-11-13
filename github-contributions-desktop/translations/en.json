@@ -33,7 +33,7 @@
     },
     "heatmap_only": {
       "label": "Heatmap only",
-      "description": "Show only the contribution heatmap, without the header and footer."
+      "description": "Show only the contribution heatmap grid, without the header, footer, or month and weekday labels."
     },
     "year": {
       "label": "Year",

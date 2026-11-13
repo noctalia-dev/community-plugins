@@ -353,12 +353,12 @@ local function statusText()
 end
 
 function render()
-  -- Heatmap-only mode: just the contribution grid, no header, no footer.
-  -- The setting is read here (not at the top) so a change in the editor
-  -- takes effect on the next render without a script reload.
+  -- Heatmap-only mode: just the contribution grid, no header, no footer,
+  -- and no month/weekday labels. The grid alone (cachedHeatmap) is rendered,
+  -- not the full calendar (cachedCalendar) which carries the labels.
   local heatmapOnly = noctalia.getConfig("heatmap_only") == true
 
-  if heatmapOnly and data ~= nil and cachedCalendar ~= nil then
+  if heatmapOnly and data ~= nil and cachedHeatmap ~= nil then
     desktopWidget.render(ui.column({
       gap = 0,
       fill = "surface",
@@ -367,7 +367,7 @@ function render()
       justify = "center",
       paddingH = 16,
       paddingV = 12,
-    }, { cachedCalendar }))
+    }, { cachedHeatmap }))
     return
   end
 
