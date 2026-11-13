@@ -1,0 +1,17 @@
+{
+  "title": "Habits",
+  "tab_habits": "Habits",
+  "tab_add": "Add",
+  "daily_completion": "DAILY COMPLETION",
+  "empty_habits": "No habits yet. Switch to Add tab to create one.",
+  "manage_habits": "MANAGE HABITS",
+  "no_habits_created": "No habits created yet.",
+  "input_placeholder": "Habit name...",
+  "add_button": "Add Habit",
+  "settings": {
+    "show_count": {
+      "label": "Show Count in Bar",
+      "description": "Show the number of completed habits (e.g. 1/2) next to the icon."
+    }
+  }
+}

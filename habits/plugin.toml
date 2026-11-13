@@ -1,0 +1,32 @@
+id = "mumenosman/habits"
+name = "Habits"
+version = "1.0.0"
+plugin_api = 43
+author = "MumenOsman"
+license = "MIT"
+icon = "circle-check"
+description = "Minimalist habit tracker with progressive completion ring."
+tags = ["bar", "panel", "productivity", "habits"]
+
+[[widget]]
+id = "habits"
+entry = "widget.luau"
+
+  [widget.actions]
+  left = "panel-toggle mumenosman/habits:panel"
+
+  [[widget.setting]]
+  key = "show_count"
+  type = "bool"
+  label_key = "settings.show_count.label"
+  description_key = "settings.show_count.description"
+  default = true
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 380
+height = 480
+placement = "attached"
+position = "auto"
+open_near_click = true
