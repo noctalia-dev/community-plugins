@@ -1,6 +1,6 @@
 # Oh My Pi Launcher
 
-An interactive, native bar launcher button and dropdown session manager for [Oh My Pi (`omp`)](https://github.com/can1357/oh-my-pi) with real-time background session detection, multi-state telemetry pulse, recent workspace tracking, and one-click session resume.
+An interactive, native bar launcher button and dropdown session manager for [Oh My Pi (`omp`)](https://github.com/can1357/oh-my-pi) with real-time background session detection, an attention-colored icon, recent workspace tracking, and one-click session resume.
 
 ## Plugin
 
@@ -33,11 +33,11 @@ capsule = true
 
 ### Click gestures
 
-- **Left-click** — opens the interactive **Oh My Pi dropdown panel** with live active sessions, recent workspaces, and quick actions.
+- **Left-click** — opens the interactive **Oh My Pi dropdown panel** with live active sessions, recent workspaces, and quick actions. The panel is 460px tall and its body scrolls when the active sessions and recent workspaces outgrow it, so nothing is clipped.
 - **Middle-click** — resumes the most recent project session directly in a terminal (`omp --continue`).
 - **Right-click** — launches a fresh session in `$HOME` (`omp --allow-home`).
 
-The capsule dot lights up in **Sky Blue** (`#38BDF8`) while OMP is thinking / executing tools, switches to **White** (`#FFFFFF`) when waiting for user input, and turns off when idle.
+The bar icon is white while no session needs attention and turns orange (`#F97316`) as soon as any running session is waiting for input.
 
 ### Panel IPC
 

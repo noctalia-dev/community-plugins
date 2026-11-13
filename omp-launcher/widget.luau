@@ -1,33 +1,24 @@
 --!nonstrict
 -- Oh My Pi (omp) Launcher Button for Noctalia Bar
--- Vector Pi glyph with dynamic pulse dot and click-to-toggle dropdown panel (hover tooltip disabled).
+-- Vector Pi glyph, white by default and orange while a session awaits input.
 
 local dir = noctalia.pluginDir()
 local SCRIPT_PATH = dir .. "/status.py"
 local LAUNCH_PATH = dir .. "/omp-launch"
-local LOGO_PATH   = dir .. "/omp-logo.svg"
+local ICON_PATH       = dir .. "/omp-logo.svg"
+local ICON_ALERT_PATH = dir .. "/omp-logo-alert.svg"
 
 local function render(data)
-  local isRunning = data and data.running == true
-  local pulse = data and data.pulse or "idle"
-  local pulseColor = data and data.pulse_color or "#38BDF8"
+  local needsInput = type(data) == "table" and data.needs_input == true
 
   local children = {
-    ui.image({ path = LOGO_PATH, width = 16, height = 16, fit = "contain" }),
-    ui.label({ text = "omp", fontSize = 11, color = "#FFFFFF", fontWeight = "bold" }),
+    ui.image({
+      path = needsInput and ICON_ALERT_PATH or ICON_PATH,
+      width = 16,
+      height = 16,
+      fit = "contain",
+    }),
   }
-
-  -- Visual Effect Dot:
-  -- Sky Blue (#38BDF8) when thinking / running tools
-  -- Clean White (#FFFFFF) when waiting for user prompt / input
-  if isRunning then
-    table.insert(children, ui.box({
-      width = 5,
-      height = 5,
-      radius = 3,
-      fill = pulseColor,
-    }))
-  end
 
   local container = barWidget.isVertical() and ui.column or ui.row
   barWidget.render(container({ gap = 5, align = "center" }, children))
