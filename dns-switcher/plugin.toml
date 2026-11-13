@@ -8,12 +8,14 @@
 
 id = "nightwatch75/dns-switcher"
 name = "DNS Switcher"
-version = "0.3.0"
+version = "0.5.0"
 # 28 for panel.openContextMenu: the provider row's right-click menu. Also 24
 # for direct argv process execution — every command this plugin runs is an
 # argument vector, so no shell ever parses a DNS address, a hostname or the
-# privilege command.
-plugin_api = 28
+# privilege command. 42 for the panel's height = "content". 39 (OSD) and 48
+# (service onResume) are used only when the host has them, so they do not raise
+# this.
+plugin_api = 42
 author = "nightwatch75"
 license = "MIT"
 # dig (bind-tools/dnsutils) is preferred for the panel's lookup tester;
@@ -108,9 +110,11 @@ id = "panel"
 entry = "panel.luau"
 # Wide enough for the longest built-in row, "OpenDNS · 208.67.222.222
 # 208.67.220.220", without eliding the addresses. Height grew in 0.0.13 to
-# fit the lookup tester below the provider list without starving it.
+# fit the lookup tester below the provider list without starving it; since
+# 0.5.0 the height follows the content, up to max_height.
 width = 430
-height = 460
+height = "content"
+max_height = 600
 placement = "attached"
 open_near_click = true
 

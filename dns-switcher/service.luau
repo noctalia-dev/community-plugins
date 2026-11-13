@@ -473,7 +473,12 @@ local function apply(provider)
                             return
                         end
                         changing = false
-                        noctalia.notify(tr("title"), tr("applied", { name = provider.label }))
+                        -- plugin_api 39 OSD; older hosts have no noctalia.osd and get the notification.
+                        if noctalia.osd ~= nil then
+                            noctalia.osd.show("world", tr("applied", { name = provider.label }))
+                        else
+                            noctalia.notify(tr("title"), tr("applied", { name = provider.label }))
+                        end
                         publish()
                         pollNow()
                     end, 60000
@@ -599,6 +604,15 @@ function onExit(_signal, reason)
     if changing then
         changing = false
         publish()
+    end
+end
+
+-- plugin_api 48: the host calls this after the machine wakes up. The network
+-- has usually changed during sleep, so re-detect the active DNS right away
+-- instead of waiting for the next poll. Older hosts never call it.
+function onResume()
+    if not nmcliMissing then
+        pollNow()
     end
 end
 

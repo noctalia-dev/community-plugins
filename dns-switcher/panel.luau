@@ -94,6 +94,38 @@ local function parseDigShort(stdout)
     return lines
 end
 
+local function isIpAddress(text)
+    return text:match("^%d+%.%d+%.%d+%.%d+$") ~= nil or (text:find(":", 1, true) ~= nil and text:match("^[%x:]+$") ~= nil)
+end
+
+-- dig +short prints one record per line (CNAMEs included): keep the addresses.
+local function ipsFromDig(lines)
+    local ips = {}
+    for _, line in ipairs(lines) do
+        if isIpAddress(line) then
+            table.insert(ips, line)
+        end
+    end
+    return ips
+end
+
+-- nslookup prints the server's own "Address:" first, then the answer after
+-- "Name:"; only the lines after the first "Name:" are answers.
+local function ipsFromNslookup(raw)
+    local ips, inAnswer = {}, false
+    for line in raw:gmatch("[^\n]+") do
+        if line:match("^Name:") then
+            inAnswer = true
+        elseif inAnswer then
+            local ip = line:match("^Address:%s*(%S+)")
+            if ip ~= nil and isIpAddress(ip) then
+                table.insert(ips, ip)
+            end
+        end
+    end
+    return ips
+end
+
 -- Prefers `dig +short` (one line per answer, trivial to parse); falls back to
 -- raw `nslookup` output, shown verbatim, when dig is not installed. Both are
 -- pointed at the active provider's own address when it has one, so the
@@ -156,6 +188,7 @@ local function runResolve(serverOverride)
                     serverIp = server ~= nil and server.ip or nil,
                     serverLabel = server ~= nil and server.label or nil,
                     lines = lines,
+                    ips = ipsFromDig(lines),
                 }
             end
         else
@@ -168,6 +201,7 @@ local function runResolve(serverOverride)
                     serverIp = server ~= nil and server.ip or nil,
                     serverLabel = server ~= nil and server.label or nil,
                     raw = raw,
+                    ips = ipsFromNslookup(raw),
                 }
             end
         end
@@ -314,7 +348,25 @@ local function resolveSection()
         local body = resolveResult.lines ~= nil and table.concat(resolveResult.lines, ", ") or resolveResult.raw
         -- The answer first, then which server gave it — the label is set
         -- apart with a slightly larger font since it names what answered.
-        table.insert(children, ui.label({ key = "resolve-body", text = body, fontSize = 14, color = "primary", maxLines = 6 }))
+        local answer = ui.label({ key = "resolve-body", text = body, fontSize = 14, color = "primary", maxLines = 6, flexGrow = 1 })
+        local ips = resolveResult.ips or {}
+        if #ips > 0 then
+            table.insert(children, ui.row({ key = "resolve-answer", gap = 6, align = "center" }, {
+                answer,
+                ui.button({
+                    key = "resolve-copy",
+                    glyph = "copy",
+                    variant = "ghost",
+                    tooltip = tr("tip_resolve_copy"),
+                    onClick = function()
+                        noctalia.copyToClipboard(table.concat(ips, "\n"), "text/plain")
+                        noctalia.notify(tr("title"), tr("copied_ips", { ip = table.concat(ips, ", ") }))
+                    end,
+                }),
+            }))
+        else
+            table.insert(children, answer)
+        end
         table.insert(children, ui.label({ key = "resolve-via", text = via, fontSize = 13, fontWeight = "medium", color = "on_surface_variant" }))
     end
 
