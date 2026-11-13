@@ -133,6 +133,13 @@ description_key = "settings.play_azan.description"
 default         = false
 
 [[setting]]
+key             = "pauseMediaOnAzan"
+type            = "bool"
+label_key       = "settings.pause_media_on_azan.label"
+description_key = "settings.pause_media_on_azan.description"
+default         = false
+
+[[setting]]
 key             = "azanFile"
 type            = "select"
 label_key       = "settings.azan_file.label"
