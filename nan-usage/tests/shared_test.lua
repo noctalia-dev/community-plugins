@@ -27,263 +27,296 @@ local function near(got, want, slack, what)
   check(math.abs((got or 0) - want) <= slack, string.format("%s: got %s, want %s", what, tostring(got), tostring(want)))
 end
 
+-- An instant given as UTC wall time, whatever zone the tests run in.
+local function utc(year, month, day, hour, min, sec)
+  local guess = os.time({ year = year, month = month, day = day, hour = hour or 0, min = min or 0, sec = sec or 0 })
+  local fields = os.date("!*t", guess)
+  fields.isdst = nil
+  return guess - (os.time(fields) - guess)
+end
+
+local DAY = 86400
+
 -- ── formatting ──────────────────────────────────────────────────────────────
 
 eq(model.fmtTokens(3e9), "3B", "3B")
 eq(model.fmtTokens(1.5e9), "1.5B", "1.5B")
 eq(model.fmtTokens(79.9e6), "79.9M", "79.9M")
-eq(model.fmtTokens(500e6), "500M", "500M")
+eq(model.fmtTokens(10650734), "10.65M", "millions keep two decimals")
 eq(model.fmtTokens(398000), "398K", "398K")
 eq(model.fmtTokens(42.4), "42", "42")
 eq(model.fmtTokens(0), "0", "zero")
 eq(model.fmtTokens(-5), "0", "negative token count floors at zero")
-eq(model.fmtTokens("1230000"), "1.2M", "a token count that arrives as a string")
+eq(model.fmtTokens("1230000"), "1.23M", "a token count that arrives as a string")
 
 eq(model.fmtPct(80, false), "80%", "whole percent")
 eq(model.fmtPct(0.4, false), "0%", "coarse zero")
 eq(model.fmtPct(0.4, true), "0.4%", "fine zero")
 eq(model.fmtPct(7.55, true), "7.5%", "fine percent")
 
-eq(model.humanDuration(20 * 86400, true), "20d", "20d compact")
-eq(model.humanDuration(20 * 86400, false), "20d 0h", "20d long")
+eq(model.fmtCredits(26.5), "26.5", "credits with a decimal")
+eq(model.fmtCredits(7000), "7,000", "whole credits drop the decimal and are grouped")
+eq(model.fmtCredits(6973.2), "6,973.2", "a large figure keeps its decimal")
+eq(model.fmtCredits(9, "fixed"), "9.0", "fixed always shows one decimal, for lists")
+eq(model.fmtCredits(6973.5, "whole"), "6,974", "whole rounds, for the bar")
+eq(model.fmtCredits(0), "0", "no credits")
+eq(model.fmtCredits("16.7"), "16.7", "credits that arrive as a string")
+
+eq(model.fmtCreditsShort(0), "", "a chart column with no credits carries no label")
+eq(model.fmtCreditsShort(0.2), "0.2", "small figures keep their decimal")
+eq(model.fmtCreditsShort(26.5), "27", "from 10 on, whole credits")
+eq(model.fmtCreditsShort(1240), "1.2k", "and thousands in k")
+
+eq(model.humanDuration(20 * DAY, true), "20d", "20d compact")
+eq(model.humanDuration(20 * DAY, false), "20d 0h", "20d long")
 eq(model.humanDuration(4 * 3600 + 21 * 60, true), "4h21m", "4h21m compact")
 eq(model.humanDuration(4 * 3600 + 21 * 60, false), "4h 21m", "4h 21m long")
-eq(model.humanDuration(45 * 60, true), "45m", "45m compact")
 eq(model.humanDuration(45 * 60, false), "45 min", "45 min long")
-eq(model.humanDuration(30, false), "30 s", "seconds long")
-eq(model.humanDuration(26 * 3600, false), "1d 2h", "26 hours")
 eq(model.humanDuration(-10, true), "0s", "negative duration floors at zero")
 
-eq(model.shortModel("deepseek-v4-flash"), "ds4f", "deepseek-v4-flash")
-eq(model.shortModel("glm5.3-flash"), "glm5.3f", "glm5.3-flash")
-eq(model.shortModel("glm5.3"), "glm5.3", "glm5.3 unchanged")
+eq(model.dayLabel("2026-11-10"), "10 Nov", "a day the API names, as the panel prints it")
+eq(model.utcDate(utc(2026, 11, 13, 23, 30)), "2026-11-13", "the UTC day of an instant")
 
--- ── levels ──────────────────────────────────────────────────────────────────
+-- ── the request window ──────────────────────────────────────────────────────
 
-eq(model.utilLevel(74.9), "ok", "74.9% is calm")
-eq(model.utilLevel(75), "warn", "75% warns")
-eq(model.utilLevel(89.9), "warn", "89.9% warns")
-eq(model.utilLevel(90), "crit", "90% is critical")
-eq(model.maxLevel("ok", "crit"), "crit", "crit beats ok")
-eq(model.maxLevel("warn", "ok"), "warn", "warn beats ok")
-
--- ── timestamps ──────────────────────────────────────────────────────────────
-
-eq(model.windows({})[1], nil, "no models, no windows")
-eq(model.windows(nil)[1], nil, "no response, no windows")
-
-local day = 86400
-local t0 = os.time({ year = 2026, month = 9, day = 1, hour = 12 })
-
--- A fixed clock: every case below states elapsed and remaining itself.
-local function window(opts)
-  return {
-    model = opts.model or "deepseek-v4-flash",
-    used = opts.used,
-    cap = opts.cap or 100,
-    startsAt = opts.startsAt,
-    resetsAt = opts.resetsAt,
-    utilization = (opts.used or 0) / (opts.cap or 100) * 100,
-    windowHours = opts.windowHours or 0,
-    windowCap = opts.windowCap or 0,
-  }
-end
-
--- Twenty days into a thirty-day period with 40% used: the average projects to 60%,
--- which is under every threshold, so the window is calm and says nothing.
-local steady = window({ used = 40, cap = 100, startsAt = t0, resetsAt = t0 + 30 * day })
-eq(model.windowLevel(steady, t0 + 20 * day), "ok", "40% at two thirds of a month is calm")
-near(model.projectedUtil(steady, t0 + 20 * day), 60, 0.5, "projection extrapolates the average")
-eq(model.exhaustAfter(steady, t0 + 20 * day), nil, "no exhaustion at that rate")
-eq(model.lockout(steady, t0 + 20 * day), nil, "no lockout without exhaustion")
-eq(model.projectionNote(steady, t0 + 20 * day), "", "nothing to say at that rate")
-
--- Three days in, the same 40% is a 400% pace — and three days is past the 5% floor,
--- so it counts.
-local sprint = window({ used = 40, cap = 100, startsAt = t0, resetsAt = t0 + 30 * day })
-near(model.projectedUtil(sprint, t0 + 3 * day), 400, 0.5, "the projection scales with elapsed time")
-eq(model.windowLevel(sprint, t0 + 3 * day), "crit", "a 400% pace exhausts early and locks the account out")
-
--- Inside the first 5% of a period the average is noise, whatever it says.
-local fresh = window({ used = 40, cap = 100, startsAt = t0, resetsAt = t0 + 30 * day })
-near(model.projectedUtil(fresh, t0 + day), 40, 0.001, "inside the 5% floor the projection is just the usage")
-
--- 80% twenty days into a thirty-day period: it runs out five days before the reset,
--- which is 5/30 of the period without quota — critical, by the lockout rule.
-local burning = window({ used = 80, cap = 100, startsAt = t0, resetsAt = t0 + 30 * day })
-near(model.exhaustAfter(burning, t0 + 20 * day), 5 * day, 60, "runs out five days before the reset")
-near(model.lockout(burning, t0 + 20 * day), 5 * day, 60, "five days locked out")
-eq(model.windowLevel(burning, t0 + 20 * day), "crit", "a long lockout is critical")
-check(model.projectionNote(burning, t0 + 20 * day):find("runs out in ~5d", 1, true) ~= nil, "the note names the run-out")
-
--- 78% at 22/30 days: it does run out, but only 1.8 days before the reset — under
--- the tenth of a period that would make it critical.
-local tight = window({ used = 78, cap = 100, startsAt = t0, resetsAt = t0 + 30 * day })
-eq(model.windowLevel(tight, t0 + 22 * day), "warn", "a short lockout only warns")
-eq(model.projectionNote(tight, t0 + 22 * day), "at this rate it runs out just before the reset",
-  "the note says just before the reset")
-
--- 55% at 20/30 days: on track for 82.5%, no exhaustion — a warning from the rate.
-local drifting = window({ used = 55, cap = 100, startsAt = t0, resetsAt = t0 + 30 * day })
-eq(model.windowLevel(drifting, t0 + 20 * day), "warn", "an 82% track warns")
-eq(model.projectionNote(drifting, t0 + 20 * day), "on track for ~83% at reset", "the note gives the projection")
-
--- Freshly started: the average is noise, so only the percentage counts.
-local fresh = window({ used = 5, cap = 100, startsAt = t0, resetsAt = t0 + 30 * day })
-eq(model.windowLevel(fresh, t0 + 120), "ok", "five percent in the first minutes stays calm")
-eq(model.projectionNote(fresh, t0 + 120), "", "no projection before 5% of the period")
-
--- Already overshot: the API is allowed to let usage go past the cap, and that shows.
-local over = window({ used = 110, cap = 100, startsAt = t0, resetsAt = t0 + 30 * day })
-eq(model.windowLevel(over, t0 + 20 * day), "crit", "over the cap is critical")
-near(model.projectedUtil(over, t0 + 20 * day), 165, 0.5, "the projection keeps extrapolating past the cap")
-check(model.projectedUtil(over, t0 + 20 * day) >= over.utilization, "never below what is already used")
-eq(model.exhaustAfter(over, t0 + 20 * day), 0, "already exhausted")
-
--- No period at all: the percentage is all there is.
-local bare = window({ used = 79e6, cap = 100e6 })
-eq(model.windowLevel(bare, t0), "warn", "without a period, only the percentage grades it")
-eq(model.caption(bare, t0), "79M / 100M", "no period, no countdown")
-eq(model.periodLine(bare, t0), "", "no period line without a period")
-
--- ── captions ────────────────────────────────────────────────────────────────
-
-local rolling = window({
-  model = "glm5.3", used = 2e9, cap = 3e9,
-  startsAt = t0, resetsAt = t0 + 4 * day + 2 * 3600,
-  windowHours = 4, windowCap = 4e8,
-})
-eq(model.caption(rolling, t0), "2B / 3B · resets in 4d 2h · window 4 h: 400M", "caption with a rolling window")
-eq(model.periodLine(rolling, t0), "Period from 1 Sep · resets in 4d 2h", "period line")
-
--- ── selecting and filtering ─────────────────────────────────────────────────
-
-local list = {
-  window({ model = "a", used = 30, cap = 100 }),
-  window({ model = "b", used = 95, cap = 100, startsAt = t0, resetsAt = t0 + 30 * day }),
-  window({ model = "c", used = 0, cap = 100 }),
-}
-
-eq(model.selectPanelWindow(list, "worst", "", t0).model, "b", "worst picks the alarming one")
-eq(model.selectPanelWindow(list, "max", "", t0).model, "b", "max picks the fullest")
-eq(model.selectPanelWindow(list, "fixed", "a", t0).model, "a", "fixed pins the model")
-eq(model.selectPanelWindow(list, "fixed", "nope", t0).model, "b", "fixed falls back when the pin is gone")
-
-local unused = { window({ model = "a", used = 0, cap = 100 }), window({ model = "b", used = 0, cap = 100 }) }
-eq(model.selectPanelWindow(unused, "worst", "", t0).model, "a", "with nothing used, the bar still says something")
-
-eq(#model.visibleWindows(list, false, ""), 3, "hide_unused off keeps everything")
-eq(#model.visibleWindows(list, true, ""), 2, "hide_unused drops the unused one")
-eq(#model.visibleWindows(list, true, "c"), 3, "the pinned model stays even unused")
+local now = utc(2026, 11, 13, 15, 40)
+eq(model.windowStart(nil, now), "2026-11-10", "before the period is known, 31 days back, but not before credits began")
+eq(model.windowStart("2026-10-26T14:52:52Z", now), "2026-11-10", "this period started before credit billing did")
+eq(model.windowStart("2026-11-26T14:52:52Z", utc(2026, 12, 3, 9)), "2026-11-26", "the next period starts on its own day")
+eq(model.windowStart(nil, utc(2027, 1, 20)), "2026-12-20", "and without it, 31 days back")
 
 -- ── reading a response ──────────────────────────────────────────────────────
 
-local parsed = model.windows({
-  periodStart = "2026-09-01",
-  models = {
-    { model = "deepseek-v4-flash", tokensUsed = "2000000000", cap = "3000000000", periodEnd = "2026-10-01T00:00:00Z" },
-    { model = "glm5.3", tokensUsed = 50, cap = 100, remaining = 30, periodEnd = t0 + 10 * day },
-    { model = "no-cap", tokensUsed = 10 },
-    { model = "", tokensUsed = 10, cap = 100 },
-    "not a table",
-  },
+eq(model.account(nil), nil, "an account not billed in credits has no credits block")
+local parsed = model.account({
+  period_start = "2026-10-26T14:52:52Z", period_end = "2026-11-26T14:52:52Z",
+  allowance = "7000", used = 26.8, pack_credits = 0, pack_expires_at = nil, frozen = false,
 })
-eq(#parsed, 2, "entries without a model or a cap are dropped, junk is ignored")
-eq(parsed[1].model, "deepseek-v4-flash", "the busiest model sorts first")
-eq(parsed[1].cap, 3e9, "a numeric string is read as a number")
-eq(parsed[2].model, "glm5.3", "then by usage")
-eq(parsed[2].remaining, 30, "the reported remaining wins over cap minus used")
-eq(parsed[1].startsAt ~= nil, true, "the period start is shared by every window")
-local shifted = model.windows({
-  models = { { model = "x", tokensUsed = 1, cap = 2, periodEnd = "2026-10-01T00:00:00Z" } },
-})
-local offset = model.windows({
-  models = { { model = "x", tokensUsed = 1, cap = 2, periodEnd = "2026-10-01T02:00:00+02:00" } },
-})
-eq(offset[1].resetsAt, shifted[1].resetsAt, "an explicit +02:00 offset names the same instant as its UTC form")
-eq(os.date("!%Y-%m-%d", shifted[1].resetsAt), "2026-10-01", "an ISO timestamp lands on its UTC day")
-eq(model.windows({
-  models = { { model = "x", tokensUsed = 1, cap = 2, periodEnd = "junk" } },
-})[1].resetsAt, nil, "an unreadable timestamp is simply absent")
+eq(parsed.allowance, 7000, "a numeric string is read as a number")
+near(parsed.remaining, 6973.2, 1e-9, "remaining defaults to allowance minus used")
+eq(parsed.resetsAt - parsed.startsAt, 31 * DAY, "the period's ends are read as instants")
+eq(model.account({ allowance = 100, used = 10, remaining = 5 }).remaining, 5, "the reported remaining wins")
 
--- The API may report a username and no handle; the fallback has to happen.
-eq(model.accountSummary({ username = "someone" }), "someone", "a username stands in for a missing handle")
-eq(model.accountSummary({ handle = "", username = "someone" }), "someone", "and for an empty one")
-eq(model.accountSummary({ handle = "carlos-3", username = "ignored" }), "carlos-3", "the handle wins when it is there")
-eq(model.accountSummary({}), "", "an account with nothing in it is empty")
+local rows = model.rows({ data = {
+  { date = "2026-11-08", model = "deepseek-v4-flash", prompt_tokens = 10, credits = 0 },
+  { date = "2026-11-10", model = "glm5.3", prompt_tokens = "100", cached_tokens = 500, completion_tokens = 5, credits = "9" },
+  { date = "junk", model = "x" },
+  { date = "2026-11-12", model = "" },
+  "not a table",
+} }, "2026-11-10")
+eq(#rows, 1, "rows before the window, without a day or a model, and junk are dropped")
+eq(rows[1].prompt, 100, "token counts that arrive as strings are read")
+eq(rows[1].cached, 100, "cached input never exceeds the input it is part of")
+eq(rows[1].credits, 9, "credits are read")
 
--- ── aggregates ──────────────────────────────────────────────────────────────
+-- ── pace and levels ─────────────────────────────────────────────────────────
 
-local metrics = { last24h = { totalTokens = 5e6 }, monthToDate = { totalTokens = 4e7 }, last30d = 4.4e7 }
-eq(model.metricsSummary(metrics), "24 h: 5M · month: 40M · 30 d: 44M", "aggregate line")
-eq(model.metricsSummary({ last24h = { totalTokens = 5e6 } }), "24 h: 5M", "only the buckets that exist")
-eq(model.metricsSummary(nil), "", "no metrics, no line")
-local buckets = model.usageBuckets(metrics)
-eq(#buckets, 3, "three buckets")
-eq(buckets[1].label, "24 h", "labelled")
-eq(buckets[1].text, "5M", "printed")
-eq(buckets[1].tokens, 5e6, "and drawn")
-eq(model.usageBuckets({}), nil, "an empty response gives no buckets")
+-- A thirty-day period well after credit billing began, so the whole period is
+-- measured. Every case states how far in it is.
+local p0 = utc(2027, 1, 1)
+local function acct(opts)
+  return {
+    allowance = opts.allowance or 7000,
+    used = opts.used,
+    remaining = opts.remaining or ((opts.allowance or 7000) - opts.used),
+    packs = opts.packs or 0,
+    frozen = opts.frozen == true,
+    startsAt = p0,
+    resetsAt = p0 + 30 * DAY,
+  }
+end
+
+local steady = acct({ used = 2800 })
+eq(model.accountLevel(steady, p0 + 20 * DAY), "ok", "40% at two thirds of the period is calm")
+near(model.projectedUsed(steady, p0 + 20 * DAY), 4200, 0.5, "the pace extrapolates the average")
+eq(model.paceNote(steady, p0 + 20 * DAY), "at this pace ~4,200 (60%) by the reset", "and says where it lands")
+
+local drifting = acct({ used = 3850 })
+eq(model.accountLevel(drifting, p0 + 20 * DAY), "warn", "a pace landing at 82.5% warns")
+eq(model.paceNote(drifting, p0 + 20 * DAY), "at this pace ~5,775 (83%) by the reset", "with the landing figure")
+
+local burning = acct({ used = 5600 })
+near(model.creditsOutIn(burning, p0 + 20 * DAY), 5 * DAY, 60, "80% on day 20 runs out five days later")
+near(model.lockout(burning, p0 + 20 * DAY), 5 * DAY, 60, "and waits five days for the renewal")
+eq(model.accountLevel(burning, p0 + 20 * DAY), "crit", "a lockout of a sixth of the period is critical")
+eq(model.paceNote(burning, p0 + 20 * DAY), "at this pace the credits run out in ~5d 0h", "the note names the run-out")
+
+local tight = acct({ used = 6000 })
+eq(model.accountLevel(tight, p0 + 25 * DAY), "warn", "running out under a day before the renewal only warns")
+
+local fresh = acct({ used = 2000 })
+eq(model.projectedUsed(fresh, p0 + 3600), nil, "inside the first 5% the pace means nothing")
+eq(model.accountLevel(fresh, p0 + 3600), "ok", "so only the percentage counts")
+eq(model.paceNote(fresh, p0 + 3600), "", "and there is nothing to say")
+
+local nearlyOut = acct({ used = 6440 })
+eq(model.accountLevel(nearlyOut, p0 + 29.5 * DAY), "crit", "92% with no packs is critical")
+
+local packed = acct({ used = 6300, packs = 5000 })
+eq(model.accountLevel(packed, p0 + 28 * DAY), "warn", "90% with packs in hand only warns")
+
+local onPacks = acct({ used = 7000, remaining = 0, packs = 1240 })
+eq(model.allowanceOutIn(onPacks, p0 + 24 * DAY), 0, "a spent allowance has run out")
+eq(model.accountLevel(onPacks, p0 + 24 * DAY), "warn", "drawing on packs that last almost to the renewal warns")
+eq(model.paceNote(onPacks, p0 + 24 * DAY), "the packs last about 4d 6h at this pace", "and says how long the packs last")
+
+local thinPacks = acct({ used = 7000, remaining = 0, packs = 500 })
+eq(model.accountLevel(thinPacks, p0 + 24 * DAY), "crit", "packs that run out days before the renewal are critical")
+
+local spent = acct({ used = 7000, remaining = 0 })
+eq(model.accountLevel(spent, p0 + 24 * DAY), "crit", "no credits at all is critical")
+eq(model.paceNote(spent, p0 + 24 * DAY), "no credits left until the renewal", "and said plainly")
+
+local paused = acct({ used = 10, frozen = true })
+eq(model.accountLevel(paused, p0 + 10 * DAY), "crit", "a paused subscription is critical")
+eq(model.paceNote(paused, p0 + 10 * DAY), "the subscription is paused", "whatever the pace")
+
+-- ── where the credits went ──────────────────────────────────────────────────
+
+local DS = { input = 10.5, cachedInput = 0.21, output = 42 }
+local split = model.creditSplit({ new = 4169800, cached = 6480934, output = 118012 }, 16.7, DS)
+near(split.new + split.cached + split.output, 16.7, 1e-9, "the estimate adds up to what NaN billed")
+near(split.new / 16.7, 0.874, 0.001, "new input carries most of the credits")
+near(split.cached / 16.7, 0.027, 0.001, "cached input, most of the tokens, a sliver of them")
+near(split.output / 16.7, 0.099, 0.001, "output, a percent of the tokens, a tenth of the credits")
+local unscaled = model.creditSplit({ new = 21271, cached = 27392, output = 287 }, 0, DS)
+near(unscaled.total, 0.2412, 0.0001, "with nothing billed, the prices alone")
+eq(model.creditSplit({ new = 1, cached = 0, output = 0 }, 1, nil), nil, "no price, no estimate")
+eq(model.creditSplit({ new = 0, cached = 0, output = 0 }, 1, DS), nil, "no tokens, no estimate")
+
+-- The dashboard's own "saved by cache" for 13 Nov was 0.281854: the same
+-- arithmetic, to four decimals.
+near(model.cacheSaved(27392, DS), 0.281854, 0.00005, "the cache saving matches the dashboard's figure")
+eq(model.cacheSaved(27392, nil), 0, "and nothing without a price")
 
 -- ── the document ────────────────────────────────────────────────────────────
 
-local cfg = {
-  panelModel = "worst", panelModelId = "deepseek-v4-flash", gauge = "bar",
-  hideUnused = false, showMetrics = true, showPercentage = true, showReset = true,
-  showModel = true, pollSeconds = 300,
+-- The live answer of 13 Nov 2026, trimmed to what the model reads.
+local USAGE = {
+  object = "usage.report",
+  data = {
+    { date = "2026-11-08", model = "deepseek-v4-flash", prompt_tokens = 3791660, completion_tokens = 46177, cached_tokens = 0, api_requests = 55, credits = 0 },
+    { date = "2026-11-10", model = "deepseek-v4-flash", prompt_tokens = 10650734, completion_tokens = 118012, cached_tokens = 0, api_requests = 113, credits = 16.7 },
+    { date = "2026-11-10", model = "glm5.3", prompt_tokens = 545756, completion_tokens = 1512, cached_tokens = 0, api_requests = 18, credits = 9 },
+    { date = "2026-11-10", model = "glm5.3-flash", prompt_tokens = 448897, completion_tokens = 213, cached_tokens = 0, api_requests = 11, credits = 0.8 },
+    { date = "2026-11-13", model = "deepseek-v4-flash", prompt_tokens = 48663, completion_tokens = 287, cached_tokens = 27392, api_requests = 10, credits = 0.2 },
+  },
+  all_time = { total_tokens = 1014906875, api_requests = 5152 },
+  credits = {
+    period_start = "2026-10-26T14:52:52Z", period_end = "2026-11-26T14:52:52Z",
+    allowance = 7000, used = 26.8, remaining = 6973.2, pack_credits = 0, frozen = false,
+  },
 }
-local record = model.build({
-  quota = { periodStart = "2026-09-01", models = {
-    { model = "deepseek-v4-flash", tokensUsed = 2.4e9, cap = 3e9, periodEnd = t0 + 4 * day },
-    { model = "glm5.3-flash", tokensUsed = 0, cap = 3e9, periodEnd = t0 + 4 * day },
-  } },
-  me = { handle = "carlos-3", region = "EU", tier = "inference" },
-  metrics = metrics,
-  fetchedAt = t0,
-}, cfg, t0)
+local PRICES = {
+  readAt = "2026-11-13T15:32:46Z",
+  models = {
+    ["deepseek-v4-flash"] = DS,
+    ["glm5.3"] = { input = 49, cachedInput = 9.1, output = 154 },
+  },
+}
 
-eq(record.version, 1, "the document carries its version")
-eq(record.ok, true, "with windows, it is ok")
-eq(record.stale, false, "and not stale")
+local record = model.build({ usage = USAGE, fetchedAt = now }, { gauge = "bar" }, now, PRICES)
+eq(record.version, 2, "the document carries its version")
+eq(record.ok, true, "with an answer, it is ok")
+eq(record.billed, true, "and billed in credits")
 eq(record.error, "", "no error")
-eq(record.totalWindows, 2, "every window counted, including hidden ones")
-eq(#record.windows, 2, "both painted")
-eq(record.windows[1].model, "deepseek-v4-flash", "busiest first")
-eq(record.windows[1].percentText, "80%", "percent")
-eq(record.windows[2].percentText, "0.0%", "a quiet model reads 0.0%")
-eq(record.windows[1].note, "at this rate it runs out in ~3h 0m", "twelve hours into the period at 80%, the run-out is hours away")
-eq(record.windows[1].level, "crit", "which is critical")
-eq(record.panel.model, "deepseek-v4-flash", "the bar reflects the worst model")
-eq(record.panel.level, "crit", "at the same level as the window")
-eq(record.panel.percentText, "80%", "the bar is whole numbers")
-eq(record.panel.resetsIn, "4d", "the bar counts down")
-eq(record.panel.text, "80%·4d·ds4f", "and composes the whole indicator, tight")
-eq(record.account.summary, "carlos-3 · EU", "account line")
-eq(record.account.tier, "INFERENCE", "the tier is upper-cased")
-eq(record.period, "Period from 1 Sep · resets in 4d 0h", "period line, in the long form")
-eq(record.updated, "Updated at " .. os.date("%H:%M", t0), "updated stamp")
-eq(record.metrics, "24 h: 5M · month: 40M · 30 d: 44M", "the aggregates ride along")
-eq(#record.usage, 3, "and as data")
-eq(record.gauge, "bar", "the gauge the bar should draw")
+eq(record.stale, false, "not stale")
 
--- Failure shapes: nothing read yet, and last data with an error on top.
-local empty = model.build({ error = "No API key at ~/.config/nan/api-key" }, cfg, t0)
+local account = record.account
+eq(account.pctText, "0.4%", "the share of the allowance, with a decimal below 10%")
+eq(account.level, "ok", "a calm level")
+eq(account.usedText, "26.8", "credits used")
+eq(account.allowanceText, "7,000", "of the allowance")
+eq(account.remainingText, "6,973.2", "and left")
+eq(account.resetsIn, "12d", "the bar's countdown")
+eq(account.resetsInLong, "12d 23h", "the long countdown")
+check(account.resetsAtText:match("^26 Nov %d%d:52$") ~= nil, "the renewal in local time: " .. account.resetsAtText)
+eq(account.periodText, "26 Oct – 26 Nov", "the period")
+eq(account.projectedText, "~122", "the pace is measured from 10 Nov, when credit billing began")
+eq(account.projectedPctText, "1.7%", "as a share of the allowance")
+eq(account.paceNote, "at this pace ~122 (1.7%) by the reset", "and as a sentence")
+
+eq(model.barFigure(account, "percent"), "0.4%", "the bar shows the percentage")
+eq(model.barFigure(account, "used"), "26.8", "or the credits used")
+eq(model.barFigure(account, "remaining"), "6,973", "or the credits left")
+
+eq(#record.models, 3, "the models used since credit billing began")
+eq(record.models[1].model, "deepseek-v4-flash", "the costliest first")
+eq(record.models[1].creditsText, "16.9", "its credits across the period's days")
+eq(record.models[1].shareText, "63%", "its share")
+eq(record.models[2].creditsText, "9.0", "fixed decimals line up in the list")
+eq(record.models[3].shareText, "3%", "down to the smallest")
+eq(record.models[1].tokensText, "10.82M", "tokens since credit billing began, not the 8 Nov row")
+eq(record.models[1].requestsText, "123", "requests")
+eq(record.models[1].tokenSplit.cachedPctText, "56%", "the cache share from 11 Nov on")
+eq(record.models[2].tokenSplit.cachedPctText, "", "no cache share for a model with no input since 11 Nov")
+
+local dsSplit = record.models[1].creditSplit
+eq(dsSplit.newPct, "93%", "new input's share of the estimated credits")
+eq(dsSplit.cachedPct, "2%", "cached input's")
+eq(dsSplit.outputPct, "5%", "output's")
+eq(dsSplit.newText, "0.19", "an estimate under one credit gets two decimals")
+eq(dsSplit.cachedText, "<0.01", "and under a hundredth it says so rather than print a zero")
+eq(dsSplit.totalText, "0.20", "the split adds up to the credits billed since 11 Nov, not the period's 16.9")
+eq(record.models[1].tokenSplit.totalText, "49K", "the token split's total, over the same days")
+eq(record.modelsTotalText, "26.7", "the breakdown by model adds up to its rows")
+eq(record.models[2].creditSplit, nil, "no split where there are no tokens to split")
+eq(record.models[3].creditSplit, nil, "nor without a price")
+
+eq(record.tokensSince, "11 Nov", "the token split says where it starts")
+eq(record.tokens.cachedPctText, "56%", "the period's cache share")
+eq(record.tokens.newText, "21K", "new input")
+eq(record.tokens.cachedText, "27K", "cached input")
+eq(record.tokens.outputText, "287", "output")
+eq(record.savedText, "~0.3", "what the cache saved")
+
+eq(#record.days, 17, "one bar per day from 10 Nov to the renewal")
+eq(record.days[1].label, "10 Nov", "the chart starts with credit billing")
+eq(record.days[4].today, true, "today is marked")
+near(record.days[4].credits, 0.2, 1e-9, "with today's credits")
+eq(record.days[5].future, true, "the days to come are marked")
+eq(record.days[4].valueText, "0.2", "each day carries its label")
+eq(record.days[1].valueText, "27", "a busy day in whole credits")
+eq(record.days[1].day, "10", "and its day of the month")
+eq(record.days[17].label, "26 Nov", "up to the renewal")
+eq(record.peak.label, "10 Nov", "the busiest day")
+near(record.peak.credits, 26.5, 1e-9, "and its credits")
+eq(record.todayText, "0.2", "today's credits")
+eq(record.models[1].peak.label, "10 Nov", "each model has its own series")
+
+eq(record.allTime, "1.01B tokens · 5,152 requests", "the lifetime line")
+eq(record.pricesDate, "13 Nov", "the date of the prices")
+eq(record.updated, "Updated at " .. os.date("%H:%M", now), "updated stamp")
+
+local listed = model.build({ usage = USAGE, fetchedAt = now }, {}, now, {
+  readAt = PRICES.readAt,
+  models = { ["deepseek-v4-flash"] = DS, ["qwen3.8-max"] = { input = 100, cachedInput = 12.5, output = 300 } },
+})
+eq(#listed.models, 4, "every model on the price list is listed, used or not")
+eq(listed.models[4].model, "qwen3.8-max", "the unused ones after the used")
+eq(listed.models[4].used, false, "marked unused")
+eq(listed.models[1].used, true, "while a used one is marked used")
+eq(listed.models[4].price.cachedText, "12.5", "with its prices")
+eq(listed.models[1].price.cachedText, "0.21", "two decimals where a price has them")
+eq(listed.models[1].price.outputText, "42", "and none where it does not")
+eq(listed.modelsTotalText, "26.7", "an unused model adds nothing to the breakdown")
+
+local unbilled = model.build({ usage = { data = USAGE.data }, fetchedAt = now }, {}, now, PRICES)
+eq(unbilled.ok, true, "an account not billed in credits still has an answer")
+eq(unbilled.billed, false, "but no credits")
+eq(unbilled.account, nil, "and no account block to paint")
+
+local empty = model.build({ error = "No API key at ~/.config/nan/api-key" }, {}, now, PRICES)
 eq(empty.ok, false, "no data is not ok")
-eq(empty.panel, nil, "and no indicator")
+eq(empty.account, nil, "and nothing to paint")
 eq(empty.updated, "No data", "which is said once")
 eq(empty.error, "No API key at ~/.config/nan/api-key", "with the reason")
-eq(empty.gauge, "bar", "still declares the gauge")
 
-local degraded = model.build({
-  quota = { models = { { model = "x", tokensUsed = 1, cap = 2 } } },
-  fetchedAt = t0, error = "HTTP 500",
-}, cfg, t0)
+local degraded = model.build({ usage = USAGE, fetchedAt = now, error = "NaN answered 500 for /v1/usage" }, {}, now + 90, PRICES)
 eq(degraded.ok, true, "last data still painted")
 eq(degraded.stale, true, "flagged stale")
-eq(degraded.updated, "Updated at " .. os.date("%H:%M", t0) .. " · with errors", "and said so")
-eq(degraded.ageSeconds, 0, "the age of the data is known")
-
-eq(model.build(nil, cfg, t0 + 90).ageSeconds, 0, "a record with no fetch has no age")
+eq(degraded.updated, "Updated at " .. os.date("%H:%M", now) .. " · with errors", "and said so")
+eq(degraded.ageSeconds, 90, "the age of the data is known")
 
 if #failures > 0 then
   io.stderr:write(("%d of %d checks failed:\n"):format(#failures, checks))
