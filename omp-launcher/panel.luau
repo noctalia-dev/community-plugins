@@ -3,7 +3,8 @@
 -- Clean layout with direct target launching and smooth focus handoff.
 
 local dir = noctalia.pluginDir()
-local LOGO_PATH   = dir .. "/omp-logo.svg"
+local ICON_PATH       = dir .. "/omp-logo.svg"
+local ICON_ALERT_PATH = dir .. "/omp-logo-alert.svg"
 local LAUNCH_PATH = dir .. "/omp-launch"
 
 local snapshot = nil
@@ -27,53 +28,29 @@ end
 
 local function render()
   local data = snapshot or {}
-  local runningCount = data.running_count or 0
-  local pulse = data.pulse or "idle"
-  local pulseColor = data.pulse_color or "#FFFFFF"
-  local pulseLabel = data.pulse_label or "Idle"
   local activeSessions = data.active_sessions or {}
   local recentProjects = data.recent_projects or {}
+  local needsInput = data.needs_input == true
 
-  local content = {}
+  local header = {}
 
-  -- 1. Header (Logo, Title, Multi-State Visual Pulse Badge)
-  local statusBadge
-  if runningCount > 0 then
-    statusBadge = ui.box({
-      radius = 999,
-      fill = pulse == "thinking" and "#142538" or "#1f2937",
-      border = pulseColor,
-      padding = { top = 2, bottom = 2, left = 8, right = 8 }
-    }, {
-      ui.row({ gap = 5, align = "center" }, {
-        ui.box({ width = 5, height = 5, radius = 3, fill = pulseColor }),
-        ui.label({ text = `{runningCount} active · {pulseLabel}`, fontSize = 10.5, color = pulseColor, fontWeight = "bold" })
-      })
-    })
-  else
-    statusBadge = ui.box({
-      radius = 999,
-      fill = "#171c26",
-      border = "#374151",
-      padding = { top = 2, bottom = 2, left = 8, right = 8 }
-    }, {
-      ui.label({ text = "idle", fontSize = 10.5, color = "#9ca3af" })
-    })
-  end
-
-  table.insert(content, ui.row({ align = "center", justify = "space-between" }, {
-    ui.row({ gap = 8, align = "center" }, {
-      ui.image({ path = LOGO_PATH, width = 20, height = 20, fit = "contain" }),
-      ui.label({ text = "Oh My Pi", fontSize = 15, fontWeight = "bold", color = "#FFFFFF" }),
+  -- 1. Header (icon only: white normally, orange while a session awaits input)
+  table.insert(header, ui.row({ align = "center" }, {
+    ui.image({
+      path = needsInput and ICON_ALERT_PATH or ICON_PATH,
+      width = 20,
+      height = 20,
+      fit = "contain",
     }),
-    statusBadge
   }))
 
-  table.insert(content, ui.separator({}))
+  table.insert(header, ui.separator({}))
 
   -- 2. Active Sessions (Resume Button Directly Targets Project Directory)
-  if runningCount > 0 and #activeSessions > 0 then
-    table.insert(content, ui.label({
+  local body = {}
+
+  if #activeSessions > 0 then
+    table.insert(body, ui.label({
       text = "ACTIVE SESSIONS",
       fontSize = 9.5,
       fontWeight = "bold",
@@ -81,13 +58,14 @@ local function render()
       opacity = 0.95
     }))
 
+    local rows = {}
     for i, s in ipairs(activeSessions) do
       if i > 1 then
-        table.insert(content, ui.separator({}))
+        table.insert(rows, ui.separator({}))
       end
-      table.insert(content, ui.row({ align = "center", justify = "space-between" }, {
-        ui.row({ gap = 7, align = "center", flexGrow = 1, maxWidth = 220 }, {
-          ui.box({ width = 6, height = 6, radius = 3, fill = pulseColor }),
+      table.insert(rows, ui.row({ align = "center", justify = "space_between" }, {
+        ui.row({ gap = 7, align = "center", flexGrow = 1 }, {
+          ui.box({ width = 6, height = 6, radius = 3, fill = s.needs_input and "#F97316" or "#38BDF8" }),
           ui.column({ gap = 1, flexGrow = 1 }, {
             ui.label({ text = s.short or "omp", fontSize = 12, fontWeight = "bold", color = "#F9FAFB", maxLines = 1 }),
             ui.label({ text = s.display or "~", fontSize = 9.5, color = "#94a3b8", maxLines = 1 }),
@@ -102,11 +80,15 @@ local function render()
       }))
     end
 
-    table.insert(content, ui.separator({}))
+    for _, row in ipairs(rows) do
+      table.insert(body, row)
+    end
+
+    table.insert(body, ui.separator({}))
   end
 
   -- 3. Recent Workspaces (Open Button Directly Targets Project Directory)
-  table.insert(content, ui.label({
+  table.insert(body, ui.label({
     text = "RECENT WORKSPACES",
     fontSize = 9.5,
     fontWeight = "bold",
@@ -119,10 +101,10 @@ local function render()
     if count < 4 then
       count = count + 1
       if count > 1 then
-        table.insert(content, ui.separator({}))
+        table.insert(body, ui.separator({}))
       end
-      table.insert(content, ui.row({ align = "center", justify = "space-between" }, {
-        ui.column({ gap = 1, flexGrow = 1, maxWidth = 230 }, {
+      table.insert(body, ui.row({ align = "center", justify = "space_between" }, {
+        ui.column({ gap = 1, flexGrow = 1 }, {
           ui.label({ text = p.short or "project", fontSize = 11.5, fontWeight = "bold", color = "#F1F5F9", maxLines = 1 }),
           ui.label({ text = `{p.display} · {p.ago}`, fontSize = 9.5, color = "#64748b", maxLines = 1 }),
         }),
@@ -136,10 +118,10 @@ local function render()
     end
   end
 
-  table.insert(content, ui.separator({}))
+  table.insert(body, ui.separator({}))
 
   -- 4. Quick Actions
-  table.insert(content, ui.row({ gap = 6, justify = "space-between" }, {
+  table.insert(body, ui.row({ gap = 6, justify = "space_between" }, {
     ui.button({
       text = "+ ~/ Home",
       controlSize = "sm",
@@ -166,7 +148,10 @@ local function render()
     }),
   }))
 
-  panel.render(ui.column({ gap = 7, padding = 12 }, content))
+  -- The root has to claim the panel height before the body gets leftover space;
+  -- without it the scroll falls back to content size and the panel clips.
+  table.insert(header, ui.scroll({ key = "body", gap = 7, flexGrow = 1 }, body))
+  panel.render(ui.column({ gap = 7, padding = 12, flexGrow = 1 }, header))
 end
 
 noctalia.state.watch("omp_launcher", function(val)
