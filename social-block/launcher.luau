@@ -68,9 +68,17 @@ function onQuery(text)
 end
 
 function onActivate(id)
-  local action, service = string.match(id or "", "^(allow|block):([a-z0-9-]+)$")
-  if action then
-    send(action, service)
+  local text = id or ""
+
+  -- Lua/Luau patterns have no alternation; validate each action explicitly.
+  local service = string.match(text, "^allow:([a-z0-9-]+)$")
+  if service then
+    send("allow", service)
+    return
+  end
+  service = string.match(text, "^block:([a-z0-9-]+)$")
+  if service then
+    send("block", service)
     return
   end
 

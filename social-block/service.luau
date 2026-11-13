@@ -549,8 +549,15 @@ function onIpc(event, payload)
     local id = payload and string.match(payload, "^([a-z0-9-]+)$")
     if id then setService(id, event == "block") end
   else
-    local action, id = string.match(event or "", "^(allow|block)%s+([a-z0-9-]+)$")
-    if action then setService(id, action == "block") end
+    -- Lua/Luau patterns have no alternation; validate each action explicitly.
+    local text = event or ""
+    local id = string.match(text, "^allow%s+([a-z0-9-]+)$")
+    if id then
+      setService(id, false)
+      return
+    end
+    id = string.match(text, "^block%s+([a-z0-9-]+)$")
+    if id then setService(id, true) end
   end
 end
 
@@ -660,7 +667,7 @@ function update()
       noctalia.processMatches(function(matched)
         appCheckBusy = false
         if matched then closeAppsNow() end
-      end, "discord", "vesktop", "webcord", "armcord")
+      end, "discord", "vesktop", "webcord", "armcord", "slack")
     end
     if closeWindows then closeSocialWindows() end
 
