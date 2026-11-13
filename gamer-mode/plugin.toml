@@ -1,6 +1,6 @@
 id = "nomadcxx/gamer-mode"
 name = "Gamer Mode"
-version = "0.7.1"
+version = "0.7.2"
 plugin_api = 43
 author = "Nomadcxx"
 license = "MIT"
