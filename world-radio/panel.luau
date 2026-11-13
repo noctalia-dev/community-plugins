@@ -8,7 +8,7 @@ local COUNTRIES_PAGE = 50
 local TOP_COUNTRIES = 12
 local SEARCH_DEBOUNCE_MS = 350
 local FAV_ANIM_MS = 500
-local API_BASE = "https://de1.api.radio-browser.info"
+local API_BASE = "https://all.api.radio-browser.info"
 local USER_AGENT = "nilsonlinux/world-radio/1.2.0"
 
 local GENRES = {
