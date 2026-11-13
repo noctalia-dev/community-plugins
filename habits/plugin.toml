@@ -4,9 +4,10 @@ version = "1.0.0"
 plugin_api = 43
 author = "MumenOsman"
 license = "MIT"
+dependencies = []
 icon = "circle-check"
 description = "Minimalist habit tracker with progressive completion ring."
-tags = ["bar", "panel", "productivity", "habits"]
+tags = ["bar", "panel", "productivity"]
 
 [[widget]]
 id = "habits"

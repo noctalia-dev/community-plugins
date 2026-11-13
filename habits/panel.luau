@@ -167,7 +167,7 @@ local function viewingTab(today, cornerRadius)
       ui.glyph({
         name = isDone and "circle-check" or "circle",
         size = 18,
-        color = isDone and "primary" or "outline",
+        color = isDone and "primary" or "outline_variant",
       }),
     }
 
@@ -245,7 +245,7 @@ local function addTab(cornerRadius)
       table.insert(itemChildren, ui.glyph({
         name = "circle",
         size = 12,
-        color = "outline",
+        color = "outline_variant",
       }))
     end
 
