@@ -18,14 +18,14 @@
 
 id = "nightwatch75/claude-cockpit"
 name = "Claude Cockpit"
-version = "1.3.0"
+version = "1.4.0"
 # 33 for `revealKey` on ui.scroll: the Sessions tab follows the keyboard
 # selection. 31 for noctalia.getColor: the bar widget's activity-mode rings
 # are SVGs that need the theme's real hex colors.
 # 24 for direct argv process execution: session delete/rename/repair, orphan
 # cleanup and opening a CLAUDE.md in an editor all exec directly, with no
 # shell parsing the path. 43 for the container color roles (surface_container). 22 for the relative luau imports (shared.luau,
-# sessions.luau).
+# sessions.luau). 36 for the [[layer]] "needs you" badge.
 plugin_api = 43
 author = "nightwatch75"
 license = "MIT"
@@ -101,9 +101,27 @@ label_key = "settings.editor_command.label"
 description_key = "settings.editor_command.description"
 default = ""
 
+# Opt-in: keeps the service polling live sessions (every 2 s) even with the panel
+# closed, so the badge can appear on its own.
+[[setting]]
+key = "waiting_badge"
+type = "bool"
+label_key = "settings.waiting_badge.label"
+description_key = "settings.waiting_badge.description"
+default = false
+
 [[service]]
 id = "service"
 entry = "service.luau"
+
+[[layer]]
+id = "badge"
+entry = "badge.luau"
+layer = "overlay"
+anchors = ["top", "right"]
+margins = { top = 12, right = 12 }
+click_through = true
+output = "all"
 
 [[panel]]
 id = "panel"
