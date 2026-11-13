@@ -12,7 +12,9 @@
 -- Live sessions ARE polled here, every LIVE_TICK_MS, but only while someone
 -- asks for them: the bar widget in activity mode and the panel on its Live
 -- tab stamp "live_wanted_at" every tick; with no stamp in the last
--- LIVE_WANTED_SECS the poll stops. One poller, however many readers.
+-- LIVE_WANTED_SECS the poll stops. One poller, however many readers. The
+-- `waiting_badge` setting is a permanent reader: it keeps the poll running so
+-- the "needs you" layer (badge.luau) can show and hide itself.
 --
 --   noctalia.state.set("usage", <table>)   -- the parsed usage object
 --   noctalia.state.set("status", {...})    -- loading / ready / error + availability
@@ -90,6 +92,20 @@ local function fetch()
     end
 end
 
+local function badgeEnabled()
+    return noctalia.getConfig("waiting_badge") == true
+end
+
+-- The badge layer shows while at least one session waits for the user.
+local function syncBadge(groups)
+    local waiting = groups ~= nil and #(groups.waiting or {}) or 0
+    if badgeEnabled() and waiting > 0 then
+        noctalia.layer.show("badge")
+    else
+        noctalia.layer.hide("badge")
+    end
+end
+
 local function pollLive()
     if livePolling then
         return
@@ -98,6 +114,7 @@ local function pollLive()
     live.refresh(function(groups, err)
         livePolling = false
         noctalia.state.set("live", { groups = groups, error = err })
+        syncBadge(groups)
     end)
 end
 
@@ -115,7 +132,7 @@ function update()
         fetch()
     end
     local wanted = tonumber(noctalia.state.get("live_wanted_at"))
-    if wanted ~= nil and os.time() - wanted <= LIVE_WANTED_SECS then
+    if badgeEnabled() or (wanted ~= nil and os.time() - wanted <= LIVE_WANTED_SECS) then
         pollLive()
     end
 end
@@ -129,6 +146,13 @@ end)
 noctalia.state.watch("refresh_nonce", function()
     fetch()
 end)
+
+-- Turning the badge off must hide it at once, not at the next poll.
+function onConfigChanged()
+    if not badgeEnabled() then
+        noctalia.layer.hide("badge")
+    end
+end
 
 function onIpc(event)
     if event == "refresh" then
