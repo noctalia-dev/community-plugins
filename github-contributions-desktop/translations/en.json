@@ -1,0 +1,44 @@
+{
+  "action": {
+    "try_again": "Try again"
+  },
+  "desktop": {
+    "day_total": "{date} · {count} contributions",
+    "preparing": "Preparing contribution calendar…",
+    "summary": "{login} · {count} in the last year · {streak} day streak",
+    "title": "GitHub Contributions"
+  },
+  "plugin": {
+    "description": "A GitHub contribution calendar as a Noctalia desktop widget.",
+    "name": "GitHub Contributions"
+  },
+  "settings": {
+    "cell_size": {
+      "description": "Width in pixels of each contribution day cell. Smaller cells make the whole calendar narrower.",
+      "label": "Cell size"
+    },
+    "desktop_color": {
+      "description": "Accent color of the contribution heatmap. The four activity levels are derived from this color. The default is GitHub green.",
+      "label": "Heatmap color"
+    },
+    "refresh_interval": {
+      "description": "How often GitHub contribution data refreshes automatically.",
+      "label": "Refresh interval",
+      "options": {
+        "fifteen": "Every 15 minutes",
+        "sixty": "Every 60 minutes",
+        "thirty": "Every 30 minutes"
+      }
+    }
+  },
+  "status": {
+    "auth_error": "GitHub CLI needs authentication: gh auth login -h github.com",
+    "invalid_response": "GitHub returned an unexpected contribution calendar.",
+    "loading": "Loading contribution data…",
+    "missing_gh": "GitHub CLI (gh) is required to load activity.",
+    "no_data": "No contribution data is available yet.",
+    "refreshing": "Refreshing contribution data…",
+    "request_error": "GitHub Contributions could not reach GitHub.",
+    "stale": "Showing cached contribution data."
+  }
+}
