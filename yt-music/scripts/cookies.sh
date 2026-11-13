@@ -70,7 +70,7 @@ open_browser() {   # $1=browser id
     chromium) B="$(first_cmd chromium)" ;;
     helium)   B="$(first_cmd helium helium-browser)" ;;
     firefox)  B="$(first_cmd firefox org.mozilla.firefox)" ;;
-    edge)     B="$(first_cmd microsoft-edge)" ;;
+    edge)     B="$(first_cmd microsoft-edge-stable microsoft-edge microsoft-edge-beta microsoft-edge-dev)" ;;
     brave)    B="$(first_cmd brave-browser brave brave-origin)" ;;
     opera)    B="$(first_cmd opera)" ;;
     vivaldi)  B="$(first_cmd vivaldi)" ;;
@@ -249,7 +249,7 @@ detect_browsers() {
   check chromium chromium
   check helium helium helium-browser
   check firefox firefox org.mozilla.firefox
-  check edge microsoft-edge
+  check edge microsoft-edge-stable microsoft-edge microsoft-edge-beta microsoft-edge-dev
   check brave brave-browser brave brave-origin
   check opera opera
   check vivaldi vivaldi
