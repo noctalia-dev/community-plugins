@@ -26,14 +26,6 @@ local ROW_GAP = 8
 local ROW_RADIUS = 8
 local ROW_PADDING = 8
 
--- Saves history to history table
-local function pushHistory(expr, result, isErr)
-	table.insert(history, { expr = expr, result = result, isError = isErr })
-	noctalia.writeFile(path, noctalia.json.encode(history))
-	checkHistorySize()
-	scrollRev = scrollRev + 1
-end
-
 -- Removes old entries from the history if it gets too large
 local function checkHistorySize()
 	local info = noctalia.fileInfo(path)
@@ -45,6 +37,14 @@ local function checkHistorySize()
 			size = noctalia.fileInfo(path).size
 		end
 	end
+end
+
+-- Saves history to history table
+local function pushHistory(expr, result, isErr)
+	table.insert(history, { expr = expr, result = result, isError = isErr })
+	noctalia.writeFile(path, noctalia.json.encode(history))
+	checkHistorySize()
+	scrollRev = scrollRev + 1
 end
 
 --The history's rows
