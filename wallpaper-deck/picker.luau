@@ -3470,6 +3470,10 @@ function render()
 
   local searchBoxW = clamp(math.floor(panelW * ((currentMode == "wallhaven") and 0.18 or 0.14)), 140, (currentMode == "wallhaven") and 340 or 240)
   local searchInputW = math.max(80, searchBoxW - 64)
+  local dismissSearch = (isSearchFocused or whQueryDirty or whResDirty) and function()
+    unfocusSearch()
+    render()
+  end or nil
 
   -- Fullscreen Immersive Overlay with Fullscreen Wallpaper Background
   panel.render(wrapFullBleed(ui.column({
@@ -3893,12 +3897,7 @@ function render()
           flexGrow = 1,
           fill = "#00000001",
           onHover = "onOutsideDeckHover",
-          onClick = function()
-            if isSearchFocused or whQueryDirty or whResDirty then
-              unfocusSearch()
-              render()
-            end
-          end,
+          onClick = dismissSearch,
         }),
 
         -- Bottom Section: Action Bar + Arched Deck docked cleanly together
@@ -3910,12 +3909,7 @@ function render()
           justify = "end",
           gap = 10,
           onHover = "onDeckHover",
-          onClick = function()
-            if isSearchFocused or whQueryDirty or whResDirty then
-              unfocusSearch()
-              render()
-            end
-          end,
+          onClick = dismissSearch,
         }, {
           -- Monitor Selection Dropdown Popover (floating directly above the action buttons)
           (activeItem and monitorDropdownOpen) and ui.row({
@@ -4011,12 +4005,7 @@ function render()
             radius = 0,
             fill = "#00000001",
             onHover = "onDeckContainerHover",
-            onClick = function()
-              if isSearchFocused or whQueryDirty or whResDirty then
-                unfocusSearch()
-                render()
-              end
-            end,
+            onClick = dismissSearch,
           }, {
             (leftSpacerWidth > 0) and ui.box({
               key = "deck_left_spacer",
