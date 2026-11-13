@@ -28,12 +28,13 @@ requirement shows up regardless of which one you pick. No token is ever stored b
 the plugin — each CLI keeps its own credentials.
 
 The CLI must be on the `PATH` Noctalia runs with, which is the session's, not
-your shell's. A CLI installed in `~/.local/bin` (a common place for `gt`) works
-in a terminal but makes the panel report "gt is not installed" when your shell
-profile is what adds that folder. Add it to the session with a file such as
-`~/.config/environment.d/10-local-bin.conf` containing
-`PATH=$HOME/.local/bin:$PATH`, then log out and back in; or link the binary
-into a system folder: `sudo ln -s ~/.local/bin/gt /usr/local/bin/gt`.
+your shell's. If the panel reports "gt is not installed" while `gt` works in a
+terminal (for example because it lives in `~/.local/bin`), link it into a
+system folder:
+
+```sh
+sudo ln -s ~/.local/bin/gt /usr/local/bin/gt
+```
 
 ## Usage
 
