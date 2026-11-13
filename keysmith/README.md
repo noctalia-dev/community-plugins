@@ -141,6 +141,7 @@ fields. On JWT it clears the token field.
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `start_tab` | select | `last` | Tab shown when the panel opens: `last` (the tab you used last) or a fixed one. |
+| `clear_after_idle` | int | `60` | Seconds of inactivity after which a copied secret is overwritten in the clipboard, if it is still there. `0` turns it off. |
 | `copy_on_generate` | bool | `false` | Copy each new secret to the clipboard when you press Generate, and show "Password copied", "Key copied" or "htpasswd copied". |
 | `glyph` | glyph | `key` | Bar icon. |
 

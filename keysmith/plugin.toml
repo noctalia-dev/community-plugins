@@ -10,9 +10,10 @@
 
 id = "nightwatch75/keysmith"
 name = "keysmith"
-version = "0.1.1"
+version = "0.2.0"
 # 24 for argv runAsync: user names and passwords reach htpasswd as plain
-# arguments, with no shell to break out of.
+# arguments, with no shell to break out of. 35 for noctalia.idle (clipboard
+# wipe), 43 for the container color roles (surface_container).
 plugin_api = 43
 author = "nightwatch75"
 license = "MIT"
@@ -41,6 +42,15 @@ options = [
   { value = "jwt", label_key = "settings.start_tab.options.jwt" },
   { value = "htpasswd", label_key = "settings.start_tab.options.htpasswd" },
 ]
+
+[[setting]]
+key = "clear_after_idle"
+type = "int"
+label_key = "settings.clear_after_idle.label"
+description_key = "settings.clear_after_idle.description"
+default = 60
+min = 0
+max = 3600
 
 [[panel]]
 id = "panel"
