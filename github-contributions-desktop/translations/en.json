@@ -6,7 +6,8 @@
     "day_total": "{date} · {count} contributions",
     "preparing": "Preparing contribution calendar…",
     "summary": "{login} · {count} in the last year · {streak} day streak",
-    "title": "GitHub Contributions"
+    "title": "GitHub Contributions",
+    "summary_year": "{login} · {count} contributions in {year}"
   },
   "plugin": {
     "description": "A GitHub contribution calendar as a Noctalia desktop widget.",
@@ -28,6 +29,23 @@
         "fifteen": "Every 15 minutes",
         "sixty": "Every 60 minutes",
         "thirty": "Every 30 minutes"
+      }
+    },
+    "heatmap_only": {
+      "label": "Heatmap only",
+      "description": "Show only the contribution heatmap, without the header and footer."
+    },
+    "year": {
+      "label": "Year",
+      "description": "Which year the contribution calendar covers. Changing it refetches the data.",
+      "options": {
+        "last12": "Last 12 months",
+        "y2026": "2026",
+        "y2025": "2025",
+        "y2024": "2024",
+        "y2023": "2023",
+        "y2022": "2022",
+        "y2021": "2021"
       }
     }
   },

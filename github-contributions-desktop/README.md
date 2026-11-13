@@ -31,18 +31,22 @@ gh auth login -h github.com
 2. Add the `calendar` desktop widget from Noctalia's desktop-widget editor
    (Settings → Desktop → Toggle Editor, or `noctalia msg desktop-widgets-edit`).
 3. Hover a day in the calendar to see its date and contribution count in the
-   footer line. Click the refresh button in the header to refresh now.
+   footer line. Click a day to pin its detail in the footer (click it again
+   to unpin). Click the refresh button in the header to refresh now.
 
 Desktop widgets cannot take keyboard focus and do not show tooltips, so the
 hovered day's detail is shown as a visible footer line instead of a tooltip.
+A pinned day is marked with a pin icon in the footer.
 
 ## Settings
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
 | Automatic refresh interval | select (15, 30, 60 minutes) | 30 minutes | How often contribution data refreshes automatically. |
+| Year | select (Last 12 months, 2021–2026) | Last 12 months | Which year the contribution calendar covers. Changing it refetches the data; the footer then shows the total for that year instead of the last-12-months streak summary. |
 | Heatmap color | color | `#39d353` (GitHub green) | Accent color of the heatmap. The four activity levels are derived from it: palette roles use alpha variants, a custom hex color is darkened per level. |
 | Cell size | int (6–16) | `10` | Width in pixels of each contribution day cell. Smaller cells make the whole calendar narrower; height is cell size + 2. |
+| Heatmap only | bool | off | Show only the contribution heatmap, without the header and footer. |
 
 Changing the interval applies it immediately and requests a refresh unless a
 request is already in progress.

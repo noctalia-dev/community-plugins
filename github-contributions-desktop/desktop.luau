@@ -36,7 +36,9 @@ local data = noctalia.state.get("data")
 local status = noctalia.state.get("status") or "loading"
 local stale = noctalia.state.get("stale") == true
 local detail = noctalia.state.get("error") or ""
+local selectedYear = noctalia.state.get("year") or "last12"
 local selectedDate = nil
+local pinnedDate = nil
 local selectedByKey = {}
 local cachedHeatmap = nil
 local cachedCalendar = nil
@@ -103,6 +105,7 @@ local function resetGrid(source)
   gridDetails = {}
   selectedByKey = {}
   selectedDate = nil
+  pinnedDate = nil
   gridWeek = 1
   gridPreparingDay = 1
   gridReady = source ~= nil and type(source.rows) == "table"
@@ -288,6 +291,7 @@ local function prepareGridColumns()
           width = calendarCellWidth,
           height = calendarCellHeight,
           onHover = "onDayHover",
+          onClick = "onDayClick",
         }))
       end
     end
@@ -316,6 +320,20 @@ local function selectedDay()
   return selectedByKey["day-" .. selectedDate]
 end
 
+local function pinnedDay()
+  if pinnedDate == nil then
+    return nil
+  end
+  return selectedByKey["day-" .. pinnedDate]
+end
+
+-- The footer shows the hovered day while hovering, otherwise the pinned day,
+-- otherwise the annual summary. A click pins (or unpins) a day so its detail
+-- stays in the footer after the pointer leaves.
+local function footerDay()
+  return selectedDay() or pinnedDay()
+end
+
 local function statusText()
   if status == "loading" then
     return data ~= nil and tr("status.refreshing") or tr("status.loading")
@@ -335,6 +353,24 @@ local function statusText()
 end
 
 function render()
+  -- Heatmap-only mode: just the contribution grid, no header, no footer.
+  -- The setting is read here (not at the top) so a change in the editor
+  -- takes effect on the next render without a script reload.
+  local heatmapOnly = noctalia.getConfig("heatmap_only") == true
+
+  if heatmapOnly and data ~= nil and cachedCalendar ~= nil then
+    desktopWidget.render(ui.column({
+      gap = 0,
+      fill = "surface",
+      flexGrow = 1,
+      align = "center",
+      justify = "center",
+      paddingH = 16,
+      paddingV = 12,
+    }, { cachedCalendar }))
+    return
+  end
+
   local root = {
     ui.row({ align = "center", gap = 10, paddingH = 16, paddingV = 8 }, {
       ui.glyph({ name = "brand-github", size = 20, color = "on_surface" }),
@@ -362,13 +398,27 @@ function render()
   else
     table.insert(body, cachedCalendar)
 
-    -- One footer line: the hovered day while hovering, otherwise the annual
-    -- summary (total + current streak).
-    local day = selectedDay()
-    local footerText = day ~= nil
-      and tr("desktop.day_total", { date = formatMonthDay(day.date), count = day.count })
-      or tr("desktop.summary", { login = data.login, count = data.total, streak = data.currentStreak })
-    table.insert(body, ui.label({ text = footerText, height = 14, fontSize = 11, color = "on_surface_variant", textAlign = "center" }))
+    -- One footer line: the hovered day while hovering, otherwise the pinned
+    -- day, otherwise the summary. A specific year shows the year instead of
+    -- the "last year" streak summary.
+    local day = footerDay()
+    local isPinned = day ~= nil and selectedDay() == nil and pinnedDay() ~= nil
+    local footerText
+    if day ~= nil then
+      footerText = tr("desktop.day_total", { date = formatMonthDay(day.date), count = day.count })
+    elseif selectedYear ~= "last12" then
+      footerText = tr("desktop.summary_year", { login = data.login, count = data.total, year = selectedYear })
+    else
+      footerText = tr("desktop.summary", { login = data.login, count = data.total, streak = data.currentStreak })
+    end
+    if isPinned then
+      table.insert(body, ui.row({ gap = 6, align = "center", justify = "center" }, {
+        ui.glyph({ name = "pinned", size = 12, color = "on_surface_variant" }),
+        ui.label({ text = footerText, height = 14, fontSize = 11, color = "on_surface_variant", textAlign = "center" }),
+      }))
+    else
+      table.insert(body, ui.label({ text = footerText, height = 14, fontSize = 11, color = "on_surface_variant", textAlign = "center" }))
+    end
   end
 
   table.insert(root, ui.column({
@@ -396,6 +446,22 @@ function onDayHover(hovered, key)
   end
 end
 
+-- Click a day to pin its detail in the footer; click it again to unpin.
+-- The pinned day stays after the pointer leaves, until another day is
+-- pinned or the same day is clicked again.
+function onDayClick(key)
+  local day = selectedByKey[key]
+  if day == nil then
+    return
+  end
+  if pinnedDate == day.date then
+    pinnedDate = nil
+  else
+    pinnedDate = day.date
+  end
+  render()
+end
+
 function onRefreshClicked()
   requestRefresh()
 end
@@ -414,6 +480,8 @@ local function rerender(valueName, value)
     stale = value == true
   elseif valueName == "error" then
     detail = value or ""
+  elseif valueName == "year" then
+    selectedYear = value or "last12"
   end
   render()
 end
@@ -450,6 +518,7 @@ noctalia.state.watch("data", function(value) rerender("data", value) end)
 noctalia.state.watch("status", function(value) rerender("status", value) end)
 noctalia.state.watch("stale", function(value) rerender("stale", value) end)
 noctalia.state.watch("error", function(value) rerender("error", value) end)
+noctalia.state.watch("year", function(value) rerender("year", value) end)
 
 -- A desktop widget has no open/close lifecycle: build the grid as soon as
 -- data is available, then draw the initial tree.

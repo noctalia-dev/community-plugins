@@ -10,7 +10,9 @@
 local Activity = require("./lib/activity.luau")
 local Settings = require("./lib/settings.luau")
 
-local QUERY = [[
+local function buildQuery(year)
+  if year == "last12" then
+    return [[
 query {
   viewer {
     login
@@ -29,6 +31,29 @@ query {
   }
 }
 ]]
+  end
+
+  -- A calendar year is fetched with an explicit from/to range.
+  return string.format([[
+query {
+  viewer {
+    login
+    contributionsCollection(from: "%s-01-01T00:00:00Z", to: "%s-12-31T23:59:59Z") {
+      contributionCalendar {
+        totalContributions
+        weeks {
+          contributionDays {
+            date
+            contributionCount
+            contributionLevel
+          }
+        }
+      }
+    }
+  }
+}
+]], year, year)
+end
 
 local JQ_QUERY = [=[
 def sym:
@@ -131,7 +156,17 @@ local function initialiseCache()
     return
   end
 
+  -- The cache is year-aware: only reuse it when it covers the year the
+  -- user currently selected (caches written before the year setting existed
+  -- count as "last12").
+  local selectedYear = Settings.selectedYear(noctalia.getConfig("year"))
+  if (cached.year or "last12") ~= selectedYear then
+    noctalia.log("GitHub Contributions ignored a cache from a different year.")
+    return
+  end
+
   noctalia.state.set("data", cached)
+  noctalia.state.set("year", selectedYear)
   noctalia.state.set("stale", true)
   publish("stale")
 end
@@ -171,7 +206,9 @@ local function refresh()
 
   inFlight = true
   publish("loading")
-  noctalia.runAsync({ "gh", "api", "graphql", "--jq", JQ_QUERY, "-f", "query=" .. QUERY }, function(result)
+  local year = Settings.selectedYear(noctalia.getConfig("year"))
+  noctalia.state.set("year", year)
+  noctalia.runAsync({ "gh", "api", "graphql", "--jq", JQ_QUERY, "-f", "query=" .. buildQuery(year) }, function(result)
     if result.exitCode ~= 0 then
       local message = string.lower(result.stderr or "")
       if string.find(message, "auth", 1, true) or string.find(message, "token", 1, true) then
@@ -189,6 +226,7 @@ local function refresh()
     end
 
     inFlight = false
+    data.year = year
     persist(data)
     noctalia.state.set("data", data)
     noctalia.state.set("stale", false)

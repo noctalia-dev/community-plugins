@@ -21,6 +21,22 @@ options = [
   { value = "60", label_key = "settings.refresh_interval.options.sixty" },
 ]
 
+[[setting]]
+key = "year"
+type = "select"
+label_key = "settings.year.label"
+description_key = "settings.year.description"
+default = "last12"
+options = [
+  { value = "last12", label_key = "settings.year.options.last12" },
+  { value = "2026", label_key = "settings.year.options.y2026" },
+  { value = "2025", label_key = "settings.year.options.y2025" },
+  { value = "2024", label_key = "settings.year.options.y2024" },
+  { value = "2023", label_key = "settings.year.options.y2023" },
+  { value = "2022", label_key = "settings.year.options.y2022" },
+  { value = "2021", label_key = "settings.year.options.y2021" },
+]
+
 [[service]]
 id = "sync"
 entry = "sync.luau"
@@ -44,3 +60,10 @@ entry = "desktop.luau"
   default = 10
   min = 6
   max = 16
+
+  [[desktop_widget.setting]]
+  key = "heatmap_only"
+  type = "bool"
+  label_key = "settings.heatmap_only.label"
+  description_key = "settings.heatmap_only.description"
+  default = false

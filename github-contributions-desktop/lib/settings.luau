@@ -25,4 +25,18 @@ function Settings.cellSize(value)
   return math.clamp(math.floor(size), 6, 16)
 end
 
+-- The year the calendar covers: "last12" (trailing 12 months, the default)
+-- or a four-digit calendar year. Anything else falls back to "last12".
+function Settings.selectedYear(value)
+  if value == "last12" then
+    return "last12"
+  end
+  local year = tonumber(value)
+  local currentYear = tonumber(os.date("%Y")) or 2026
+  if year ~= nil and year >= 2008 and year <= currentYear then
+    return tostring(math.floor(year))
+  end
+  return "last12"
+end
+
 return Settings
