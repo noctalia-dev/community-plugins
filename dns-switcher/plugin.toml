@@ -12,9 +12,8 @@ version = "0.5.0"
 # 28 for panel.openContextMenu: the provider row's right-click menu. Also 24
 # for direct argv process execution — every command this plugin runs is an
 # argument vector, so no shell ever parses a DNS address, a hostname or the
-# privilege command. 42 for the panel's height = "content". 39 (OSD) and 48
-# (service onResume) are used only when the host has them, so they do not raise
-# this.
+# privilege command. 42 for the panel's height = "content". The OSD (39) is
+# used only when the host has it, so it does not raise this.
 plugin_api = 42
 author = "nightwatch75"
 license = "MIT"

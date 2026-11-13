@@ -131,7 +131,7 @@ shared machines.
 
 ## Notes
 
-- On noctalia with plugin API 39 the switch confirmation is an OSD instead of a notification; with API 48 the active DNS is re-detected right after the machine resumes from sleep. Older versions skip both.
+- The switch confirmation is an OSD (plugin API 39) instead of a notification; older hosts get the notification.
 - IPv4 DNS only, like the v4 plugin.
 - Targets the first active wifi/ethernet connection, falling back to the first active
   non-loopback one; a VPN's own DNS is not touched.

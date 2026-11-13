@@ -607,15 +607,6 @@ function onExit(_signal, reason)
     end
 end
 
--- plugin_api 48: the host calls this after the machine wakes up. The network
--- has usually changed during sleep, so re-detect the active DNS right away
--- instead of waiting for the next poll. Older hosts never call it.
-function onResume()
-    if not nmcliMissing then
-        pollNow()
-    end
-end
-
 function onConfigChanged()
     -- Settings edits reshape the provider list and may relabel the current
     -- entry; re-publish and re-check right away.
