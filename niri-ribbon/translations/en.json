@@ -39,6 +39,10 @@
         "center": "Center (niri: always)",
         "fit": "Fit (niri: never)"
       }
+    },
+    "hide_non_scrolling": {
+      "label": "Hide Outside Scrolling Layout",
+      "description": "Hide this widget on Umbriel workspaces using a non-scrolling layout. Does not affect niri."
     }
   }
 }
