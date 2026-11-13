@@ -126,6 +126,15 @@ class ErrorCodeTests(unittest.TestCase):
         resolve.assert_not_called()
         sock.assert_not_called()
 
+    def test_bearer_lines_do_not_mean_disconnected(self):
+        # BlueZ 5.88: dual-mode headphones on classic Bluetooth (issue #1195).
+        info = "Name: CMF Headphone Pro\n\tConnected: yes\n\tBREDR.Connected: yes\n\tLE.Connected: no\n"
+        with patch.object(ctl, "_run", return_value=info):
+            self.assertFalse(ctl.bluez_disconnected(ADDRESS))
+            ctl.require_link(ADDRESS)
+            err = ctl.refine(ctl.CtlError("unreachable", "connect", "down"), ADDRESS)
+        self.assertEqual(err.code, "unreachable")
+
     def test_unreachable_is_not_retried(self):
         sock = Mock()
         sock.connect.side_effect = OSError(errno.EHOSTDOWN, "Host is down")

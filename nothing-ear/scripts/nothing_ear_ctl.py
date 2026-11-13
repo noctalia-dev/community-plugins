@@ -182,11 +182,18 @@ def discover_channel(address: str) -> int:
         raise sdp_error(e) from e
 
 
+def bluez_disconnected(address: str) -> bool:
+    """Only the device-level line counts: BlueZ 5.88+ also lists
+    "BREDR.Connected:" and "LE.Connected:", and dual-mode headphones on
+    classic Bluetooth report "LE.Connected: no" while connected."""
+    return re.search(r"^\s*Connected: no\s*$", _run(["bluetoothctl", "info", address]), re.M) is not None
+
+
 def require_link(address: str) -> None:
     """Paging earbuds that aren't connected to this computer blocks for ~8 s
     and ends in "Host is down" anyway. BlueZ already knows, so ask it first;
     if bluetoothctl can't say, just try."""
-    if "Connected: no" in _run(["bluetoothctl", "info", address]):
+    if bluez_disconnected(address):
         raise CtlError("not_connected", "precheck", "BlueZ reports the earbuds as not connected")
 
 
@@ -653,7 +660,7 @@ def refine(e: CtlError, address: str | None) -> CtlError:
         return e
     if "Powered: no" in _run(["bluetoothctl", "show"]):
         e.code = "bt_off"
-    elif "Connected: no" in _run(["bluetoothctl", "info", address]):
+    elif bluez_disconnected(address):
         e.code = "not_connected"
     return e
 
