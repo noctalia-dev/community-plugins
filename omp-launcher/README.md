@@ -37,7 +37,7 @@ capsule = true
 - **Middle-click** — resumes the most recent project session directly in a terminal (`omp --continue`).
 - **Right-click** — launches a fresh session in `$HOME` (`omp --allow-home`).
 
-The bar icon is white while no session needs attention and turns orange (`#F97316`) as soon as any running session is waiting for input.
+The bar entry is the π icon plus the `omp` label (on by default, see [Settings](#settings)). The icon is white while no session needs attention and turns orange (`#F97316`) as soon as any running session is waiting for input.
 
 ### Panel IPC
 
@@ -46,6 +46,19 @@ You can toggle the interactive dropdown panel directly via keybind or script:
 ```sh
 noctalia msg panel-toggle emiliovenegas/omp-launcher:panel
 ```
+
+## Settings
+
+Set these in the widget's own settings (bar → right-click the widget → Settings), or per instance in `~/.config/noctalia/config.toml`:
+
+```toml
+[widget.omp-launcher]
+show_label = false
+```
+
+| Setting | Type | Default | Description |
+| --- | --- | --- | --- |
+| `show_label` | `bool` | `true` | Show the `omp` text next to the bar icon. Turn off for an icon-only widget. |
 
 ## Notes
 

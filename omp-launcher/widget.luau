@@ -10,6 +10,7 @@ local ICON_ALERT_PATH = dir .. "/omp-logo-alert.svg"
 
 local function render(data)
   local needsInput = type(data) == "table" and data.needs_input == true
+  local showLabel = noctalia.getConfig("show_label") ~= false
 
   local children = {
     ui.image({
@@ -19,6 +20,10 @@ local function render(data)
       fit = "contain",
     }),
   }
+
+  if showLabel then
+    table.insert(children, ui.label({ text = "omp", fontSize = 11, color = "#FFFFFF", fontWeight = "bold" }))
+  end
 
   local container = barWidget.isVertical() and ui.column or ui.row
   barWidget.render(container({ gap = 5, align = "center" }, children))

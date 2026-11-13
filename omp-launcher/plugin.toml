@@ -20,3 +20,10 @@ open_near_click = true
 [[widget]]
 id    = "omp-launcher"
 entry = "widget.luau"
+
+  [[widget.setting]]
+  key             = "show_label"
+  type            = "bool"
+  default         = true
+  label_key       = "settings.show_label.label"
+  description_key = "settings.show_label.description"
