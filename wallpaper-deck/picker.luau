@@ -2739,6 +2739,19 @@ local function renderCard(item: any, index: number, distSigned: number, scale: n
 
   local itemKey = tostring(item.path or item.id or item.name or index)
 
+  local cardFolder = "Wallpapers"
+  if currentMode == "wallhaven" then
+    cardFolder = "Wallhaven"
+  elseif item.relDir and item.relDir ~= "" then
+    if string.find(item.relDir, "/", 1, true) then
+      cardFolder = string.match(item.relDir, "([^/]+)$") or item.relDir
+    else
+      cardFolder = item.relDir
+    end
+  elseif rootWpDir and rootWpDir ~= "" then
+    cardFolder = string.match(rootWpDir, "([^/]+)$") or "Wallpapers"
+  end
+
   return ui.column({
     key = "slot_wrap_" .. itemKey,
     width = cardW,
@@ -2791,7 +2804,7 @@ local function renderCard(item: any, index: number, distSigned: number, scale: n
             }),
           }) or ui.spacer({ width = 1 }),
           ui.label({
-            text = "// " .. ((item.relDir and item.relDir ~= "") and (item.relDir .. "/") or "") .. displayName,
+            text = "// " .. cardFolder,
             fontSize = (s < 0.7) and 6 or 7,
             fontFamily = "JetBrainsMono Nerd Font",
             color = isCenter and "primary" or "on_surface/0.5",
