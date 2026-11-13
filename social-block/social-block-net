@@ -235,6 +235,7 @@ list_services() {
   load_allowed
   local id state
   for id in "${SERVICE_IDS[@]}"; do
+    [ "${COUNT[$id]:-0}" -gt 0 ] || continue
     state="blocked"
     is_allowed "$id" && state="allowed"
     printf '%s|%s|%s|%d|%s\n' "$id" "${CAT[$id]}" "${NAME[$id]}" "${COUNT[$id]}" "$state"

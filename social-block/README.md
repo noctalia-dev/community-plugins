@@ -103,8 +103,13 @@ The installer creates:
 | `/usr/local/bin/social-block-net` | Root-owned helper with `on`, `off`, `status`, `list`, `allow <id>`, `block <id>` |
 | `/etc/social-block/domains` | Root-owned service/domain list (preserved on re-run) |
 | `/etc/social-block/allowed` | Root-owned allowlist; services you toggle off are written here |
+| `/etc/social-block/tool` | Records the selected `sudo`/`doas` so the service uses the same tool |
 | `/etc/hosts.social-block.bak` | Last clean `/etc/hosts` before a block |
 | `/etc/sudoers.d/social-block` | `NOPASSWD` for only the helper's commands, one rule per service, or an equivalent marked block in `/etc/doas.conf` |
+
+The installer records its choice in `/etc/social-block/tool`. Re-running it
+keeps that tool unless you pass `--doas` or `--sudo`, so the privilege rules
+and the service stay in sync.
 
 The commands below run **from the plugin directory found above** (the
 `bash -c` wrapper does not change your shell's working directory).
@@ -123,7 +128,9 @@ bash install-helper.sh --update-domains
 ```
 
 The installer preserves an existing domain list by default, so the
-`--update-domains` flag is the explicit opt-in to replacing it.
+`--update-domains` flag is the explicit opt-in to replacing it. Press
+**Re-check** in the panel afterwards; the service also refreshes its list every
+60 seconds.
 
 The helper is deliberately narrow: the plugin cannot feed arbitrary lines into
 `/etc/hosts`, and every privilege rule is scoped to a fixed command and service
@@ -209,8 +216,9 @@ timer so the block stays on until you turn it off.
 Enable **Daily schedule** in the plugin settings to block automatically every
 day between the start and end time (24-hour `HH:MM`). A window whose end is
 earlier than its start runs overnight. Turning the block off manually during
-a window keeps it off until the next day. Disabling the schedule ends an active
-scheduled block.
+a window keeps it off for the rest of that window. A session timer started
+during a window pauses the schedule only until the timer ends, then the
+schedule resumes. Disabling the schedule ends an active scheduled block.
 
 Day-to-day blocked minutes are stored in the plugin state directory and shown
 as today's total and a streak. Time while the machine is suspended is not

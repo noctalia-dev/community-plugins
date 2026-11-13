@@ -22,10 +22,24 @@ local busy = false
 local render
 local onServiceToggle
 
-local PRIV = noctalia.commandExists("sudo") and "sudo" or "doas"
-local BASE_SETUP_CMD = [[bash -c 'installer="$(find -L "${XDG_STATE_HOME:-$HOME/.local/state}/noctalia/plugins" "$HOME/.local/share/noctalia/plugins" -maxdepth 5 -name install-helper.sh -path "*social-block*" 2>/dev/null | head -n1)"; if [ -z "$installer" ]; then echo "Enable Social Block first, then re-run this command."; else cd "$(dirname "$installer")" && ]] .. PRIV .. [[ bash install-helper.sh]]
-local SETUP_CMD = BASE_SETUP_CMD .. "; fi'"
-local UPDATE_CMD = BASE_SETUP_CMD .. " --update-domains; fi'"
+local TOOL_FILE = "/etc/social-block/tool"
+
+local function preferredTool()
+  local raw = noctalia.readFile(TOOL_FILE)
+  if raw then
+    local t = (string.gsub(raw, "%s+", ""))
+    if t == "sudo" and noctalia.commandExists("sudo") then return "sudo" end
+    if t == "doas" and noctalia.commandExists("doas") then return "doas" end
+  end
+  return noctalia.commandExists("sudo") and "sudo" or "doas"
+end
+
+local function setupCommand(extra)
+  local priv = preferredTool()
+  local flag = (priv == "doas") and " --doas" or " --sudo"
+  return [[bash -c 'installer="$(find -L "${XDG_STATE_HOME:-$HOME/.local/state}/noctalia/plugins" "$HOME/.local/share/noctalia/plugins" -maxdepth 5 -name install-helper.sh -path "*social-block*" 2>/dev/null | head -n1)"; if [ -z "$installer" ]; then echo "Enable Social Block first, then re-run this command."; else cd "$(dirname "$installer")" && ]] .. priv .. [[ bash install-helper.sh]] .. flag .. (extra or "") .. [[; fi']]
+end
+
 
 local glyphs = {
   youtube = "brand-youtube", netflix = "brand-netflix", twitch = "brand-twitch",
@@ -66,10 +80,15 @@ local function send(event, payload)
   busy = true
   local args = { "noctalia", "msg", "plugin", SERVICE, "all", event }
   if payload then args[#args + 1] = payload end
-  noctalia.runAsync(args, function()
+  local accepted = noctalia.runAsync(args, function()
     busy = false
     if render then render() end
   end)
+  if not accepted then
+    busy = false
+    noctalia.notifyError("Social Block", "Could not reach the Social Block service.")
+    if render then render() end
+  end
 end
 
 onServiceToggle = function(id, shouldBlock)
@@ -88,7 +107,7 @@ end
 local function blockedCount()
   local n = 0
   for _, s in ipairs(services) do
-    if s.blocked then n = n + 1 end
+    if s.blocked and (s.count or 0) > 0 then n = n + 1 end
   end
   return n
 end
@@ -169,7 +188,7 @@ local function setupCard()
       maxLines = 3,
     }),
     ui.label({
-      text = SETUP_CMD,
+      text = setupCommand(""),
       fontSize = 9,
       color = "on_surface_variant",
       maxLines = 4,
@@ -399,9 +418,9 @@ function onToggleButton()
   send(blocked and "off" or "on")
 end
 
-function onTimer15() send("timer 15") end
-function onTimer30() send("timer 30") end
-function onTimer60() send("timer 60") end
+function onTimer15() send("timer", "15") end
+function onTimer30() send("timer", "30") end
+function onTimer60() send("timer", "60") end
 
 function onForever()
   if blocked then
@@ -412,12 +431,12 @@ function onForever()
 end
 
 function onCopySetup()
-  noctalia.copyToClipboard(SETUP_CMD, "text/plain")
+  noctalia.copyToClipboard(setupCommand(""), "text/plain")
   noctalia.notify("Social Block", "Install command copied. Run it in a terminal, then press Re-check.")
 end
 
 function onCopyUpdate()
-  noctalia.copyToClipboard(UPDATE_CMD, "text/plain")
+  noctalia.copyToClipboard(setupCommand(" --update-domains"), "text/plain")
   noctalia.notify("Social Block", "Update command copied. Run it in a terminal, then press Re-check.")
 end
 

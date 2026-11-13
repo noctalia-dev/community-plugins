@@ -6,7 +6,10 @@ local SERVICE = PLUGIN .. ":service"
 local function send(event, payload)
   local args = { "noctalia", "msg", "plugin", SERVICE, "all", event }
   if payload then args[#args + 1] = payload end
-  noctalia.runAsync(args)
+  local accepted = noctalia.runAsync(args)
+  if not accepted then
+    noctalia.notifyError("Social Block", "Could not reach the Social Block service.")
+  end
 end
 
 local function statusText()
@@ -18,12 +21,16 @@ local function statusText()
 end
 
 local function standardResults()
+  local blocked = noctalia.state.get("blocked") == true
   return {
     { id = "on",      title = "Block enabled services",   subtitle = "Until you turn it off", glyph = "shield-lock" },
     { id = "15",      title = "Block for 15 minutes",     subtitle = "Timer",                 glyph = "clock" },
     { id = "30",      title = "Block for 30 minutes",     subtitle = "Timer",                 glyph = "clock" },
     { id = "60",      title = "Block for 1 hour",         subtitle = "Timer",                 glyph = "clock" },
-    { id = "forever", title = "Clear my timer",           subtitle = "Keep blocking",         glyph = "infinity" },
+    { id = "forever",
+      title = blocked and "Clear my timer" or "Block until I turn it off",
+      subtitle = blocked and "Keep blocking" or "Until you turn it off",
+      glyph = "infinity" },
     { id = "off",     title = "Turn Social Block off",    subtitle = "Restore sites and DNS", glyph = "shield-off" },
     { id = "status",  title = "Show status",              subtitle = statusText(),            glyph = "info-circle" },
   }
@@ -82,7 +89,9 @@ function onActivate(id)
     return
   end
 
-  if id == "on" or id == "off" or id == "forever" then
+  if id == "forever" then
+    if noctalia.state.get("blocked") == true then send("forever") else send("on") end
+  elseif id == "on" or id == "off" then
     send(id)
   elseif id == "15" or id == "30" or id == "60" then
     send("timer", id)

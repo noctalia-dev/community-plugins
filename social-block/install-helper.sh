@@ -25,6 +25,7 @@ HELPER_DST="/usr/local/bin/social-block-net"
 DOMAINS_DIR="/etc/social-block"
 DOMAINS_DST="$DOMAINS_DIR/domains"
 ALLOWED_DST="$DOMAINS_DIR/allowed"
+TOOL_FILE="$DOMAINS_DIR/tool"
 BACKUP_DST="/etc/hosts.social-block.bak"
 SUDOERS="/etc/sudoers.d/social-block"
 DOAS_CONF="/etc/doas.conf"
@@ -66,6 +67,15 @@ if [ ! -f "$DOMAINS_SRC" ]; then
 fi
 [ -f "$HELPER_SRC" ] || die "social-block-net not found next to this script"
 [ -f "$DOMAINS_SRC" ] || die "domains file not found next to this script"
+
+# Keep using the tool selected by the previous install unless overridden.
+if [ -z "$FORCE_PRIV" ] && [ -r "$TOOL_FILE" ]; then
+  existing=$(tr -d '[:space:]' < "$TOOL_FILE" 2>/dev/null || true)
+  case "$existing" in
+    sudo) if command -v sudo >/dev/null 2>&1; then FORCE_PRIV=sudo; fi ;;
+    doas) if command -v doas >/dev/null 2>&1; then FORCE_PRIV=doas; fi ;;
+  esac
+fi
 
 # Detect privilege escalation. Running the script itself as root is fine too.
 IS_ROOT=0
@@ -125,6 +135,7 @@ strip_doas_block() {
 
 strip_hosts_block() {
   [ -f /etc/hosts ] || return 0
+  [ -L /etc/hosts ] && return 1
   grep -qF '# >>> social-block >>>' /etc/hosts 2>/dev/null || return 0
   grep -qF '# <<< social-block <<<' /etc/hosts 2>/dev/null || return 1
   local tmp
@@ -205,7 +216,7 @@ if [ "$ACTION" = "check" ]; then
     echo "  $PRIV_NAME (user: $USER_NAME)"
   fi
   say "Installed files"
-  files=("$HELPER_DST" "$DOMAINS_DST" "$ALLOWED_DST" "$BACKUP_DST")
+  files=("$HELPER_DST" "$DOMAINS_DST" "$ALLOWED_DST" "$TOOL_FILE" "$BACKUP_DST")
   if [ "$PRIV_NAME" = "doas" ]; then
     files+=("$DOAS_CONF")
   else
@@ -223,6 +234,9 @@ if [ "$ACTION" = "check" ]; then
     echo "  allowed: $(grep -cve '^[[:space:]]*$' "$ALLOWED_DST" 2>/dev/null || echo 0) service(s)"
   else
     echo "  allowed: none (everything blocked)"
+  fi
+  if [ -r "$TOOL_FILE" ]; then
+    echo "  tool: $(tr -d '[:space:]' < "$TOOL_FILE")"
   fi
   say "Current state"
   if [ -x "$HELPER_DST" ]; then
@@ -251,8 +265,13 @@ if [ "$ACTION" = "uninstall" ]; then
   else
     state=incomplete
   fi
+  # If the helper exists but off/status failed (e.g. a broken privilege rule),
+  # try the direct strip before removing the recovery backup.
+  if [ "$state" != "off" ] && [ "$state" != "incomplete" ]; then
+    if strip_hosts_block; then state=off; fi
+  fi
   say "Removing helper, domain list, allowlist and privilege rule"
-  run rm -f "$HELPER_DST" "$SUDOERS" "$ALLOWED_DST" "$DOMAINS_DST"
+  run rm -f "$HELPER_DST" "$SUDOERS" "$ALLOWED_DST" "$DOMAINS_DST" "$TOOL_FILE"
   remove_doas_block
   run rmdir "$DOMAINS_DIR" 2>/dev/null || true
   if [ "$state" = "off" ]; then
@@ -296,6 +315,12 @@ else
   echo "  $SUDOERS"
 fi
 
+tmp=$(mktemp)
+printf '%s\n' "$PRIV_NAME" > "$tmp"
+run install -o root -g root -m 0644 "$tmp" "$TOOL_FILE"
+rm -f "$tmp"
+echo "  $TOOL_FILE ($PRIV_NAME)"
+
 say "Verifying"
 if [ "$IS_ROOT" -eq 1 ]; then
   state=$("$HELPER_DST" status || true)
@@ -303,6 +328,9 @@ else
   state=$(run_n "$HELPER_DST" status 2>/dev/null || true)
 fi
 echo "  $state"
+if [ -z "$state" ]; then
+  warn "could not read the helper status after installing; run --check"
+fi
 if [ "$state" = "on" ]; then
   # Re-apply so a preserved or updated list immediately matches the new
   # service selection, even when the block was already on.

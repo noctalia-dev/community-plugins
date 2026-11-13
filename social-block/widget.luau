@@ -7,8 +7,13 @@ local SERVICE = PLUGIN .. ":service"
 local blocked = noctalia.state.get("blocked") == true
 local remaining = noctalia.state.get("remaining") or 0
 
-local function send(event)
-  noctalia.runAsync({ "noctalia", "msg", "plugin", SERVICE, "all", event })
+local function send(event, payload)
+  local args = { "noctalia", "msg", "plugin", SERVICE, "all", event }
+  if payload then args[#args + 1] = payload end
+  local accepted = noctalia.runAsync(args)
+  if not accepted then
+    noctalia.notifyError("Social Block", "Could not reach the Social Block service.")
+  end
 end
 
 local function render()

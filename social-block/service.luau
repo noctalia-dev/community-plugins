@@ -6,6 +6,7 @@
 local HELPER = "/usr/local/bin/social-block-net"
 local PLUGIN = "treeonlinux/social-block"
 local BACKUP = "/etc/hosts.social-block.bak"
+local TOOL_FILE = "/etc/social-block/tool"
 
 local function readConfig()
   return {
@@ -32,7 +33,9 @@ local busy = false
 local appCheckBusy = false
 local winCheckBusy = false
 local servicesBusy = false
+local servicesDirty = false
 local statusBusy = false
+local stateVersion = 0
 local lastPublishRemaining = -1
 local lastStatusCheck = 0
 
@@ -80,6 +83,23 @@ local function dayKey(offsetDays)
   return noctalia.formatTime("%Y-%m-%d", secs)
 end
 
+local function creditStats(now)
+  if not blocked then return false end
+  if lastStatMs == 0 then lastStatMs = now end
+  if now < lastStatMs then lastStatMs = now end
+  if now - lastStatMs > 120000 then lastStatMs = now end
+  local mins = math.floor((now - lastStatMs) / 60000)
+  if mins <= 0 then return false end
+  local key = dayKey(0)
+  stats[key] = (stats[key] or 0) + mins
+  lastStatMs = lastStatMs + mins * 60000
+  local cutoff = dayKey(-365)
+  for k in pairs(stats) do
+    if k < cutoff then stats[k] = nil end
+  end
+  return true
+end
+
 local function parseHHMM(value)
   local h, m = string.match(value or "", "^(%d%d?):(%d%d)$")
   if not h then return nil end
@@ -89,6 +109,12 @@ local function parseHHMM(value)
 end
 
 local function privilegeTool()
+  local raw = noctalia.readFile(TOOL_FILE)
+  if raw then
+    local t = trim(raw)
+    if t == "sudo" and noctalia.commandExists("sudo") then return "sudo" end
+    if t == "doas" and noctalia.commandExists("doas") then return "doas" end
+  end
   if noctalia.commandExists("sudo") then return "sudo" end
   return "doas"
 end
@@ -202,7 +228,7 @@ end
 local function closeSocialWindows()
   if winCheckBusy then return end
   winCheckBusy = true
-  noctalia.runAsync({ "hyprctl", "clients", "-j" }, function(res)
+  local accepted = noctalia.runAsync({ "hyprctl", "clients", "-j" }, function(res)
     winCheckBusy = false
     if res.exitCode ~= 0 or not res.stdout or res.stdout == "" then return end
     local ok, clients = pcall(noctalia.json.decode, res.stdout)
@@ -219,6 +245,7 @@ local function closeSocialWindows()
       end
     end
   end, 5000)
+  if not accepted then winCheckBusy = false end
 end
 
 local function parseServices(stdout)
@@ -240,9 +267,10 @@ local function parseServices(stdout)
 end
 
 local function fetchServices()
-  if servicesBusy then return end
+  if servicesBusy then servicesDirty = true; return end
   servicesBusy = true
-  noctalia.runAsync(listArgs(), function(res)
+  servicesDirty = false
+  local accepted = noctalia.runAsync(listArgs(), function(res)
     servicesBusy = false
     servicesLoaded = true
     if res.exitCode == 0 and res.stdout and res.stdout ~= "" then
@@ -267,7 +295,26 @@ local function fetchServices()
       end
     end
     publish()
+    if servicesDirty then
+      servicesDirty = false
+      fetchServices()
+    end
   end, 5000)
+  if not accepted then
+    servicesBusy = false
+    servicesLoaded = true
+    services = {}
+    if not noctalia.fileExists(HELPER) then
+      setupRequired = true
+    else
+      helperError = "Could not start the helper list command."
+    end
+    publish()
+    if servicesDirty then
+      servicesDirty = false
+      fetchServices()
+    end
+  end
 end
 
 local function apply(on, opts)
@@ -275,7 +322,7 @@ local function apply(on, opts)
   if on and #services > 0 then
     local any = false
     for _, s in ipairs(services) do
-      if s.blocked then any = true; break end
+      if s.blocked and (s.count or 0) > 0 then any = true; break end
     end
     if not any then
       notify("Allow at least one service before turning the block on.")
@@ -284,8 +331,10 @@ local function apply(on, opts)
   end
   busy = true
   opts = opts or {}
+  stateVersion = stateVersion + 1
+  if not on then creditStats(noctalia.nowMs()) end
 
-  noctalia.runAsync(helperArgs(on and "on" or "off"), function(res)
+  local accepted = noctalia.runAsync(helperArgs(on and "on" or "off"), function(res)
     busy = false
     lastStatusCheck = noctalia.nowMs()
     if res.exitCode ~= 0 then
@@ -338,24 +387,34 @@ local function apply(on, opts)
       notify("Social Block is off.")
     end
   end, 20000)
+  if not accepted then
+    busy = false
+    helperError = "Could not start the social-block helper."
+    setupRequired = not noctalia.fileExists(HELPER)
+    persist()
+    publish()
+    noctalia.notifyError("Social Block", "Could not start the helper. Run install-helper.sh (see README).")
+  end
 end
 
 local function blockedServiceCount()
   local n = 0
   for _, s in ipairs(services) do
-    if s.blocked then n = n + 1 end
+    if s.blocked and (s.count or 0) > 0 then n = n + 1 end
   end
   return n
 end
 
 local function setService(id, shouldBlock)
   if busy then return end
+  stateVersion = stateVersion + 1
 
   -- Allowing the last blocked service while the block is on should end the
   -- block instead of writing an empty hosts block (and then still allow it).
   if not shouldBlock and blocked and blockedServiceCount() <= 1 then
     busy = true
-    noctalia.runAsync(helperArgs("off"), function(res)
+    creditStats(noctalia.nowMs())
+    local accepted = noctalia.runAsync(helperArgs("off"), function(res)
       busy = false
       lastStatusCheck = noctalia.nowMs()
       if res.exitCode ~= 0 then
@@ -378,12 +437,20 @@ local function setService(id, shouldBlock)
       publish()
       setService(id, false)
     end, 20000)
+    if not accepted then
+      busy = false
+      helperError = "Could not start the social-block helper."
+      setupRequired = not noctalia.fileExists(HELPER)
+      persist()
+      publish()
+      noctalia.notifyError("Social Block", "Could not start the helper. Run install-helper.sh (see README).")
+    end
     return
   end
 
   busy = true
 
-  noctalia.runAsync(helperArgs(shouldBlock and "block" or "allow", id), function(res)
+  local accepted = noctalia.runAsync(helperArgs(shouldBlock and "block" or "allow", id), function(res)
     busy = false
     lastStatusCheck = noctalia.nowMs()
     if res.exitCode ~= 0 then
@@ -408,6 +475,14 @@ local function setService(id, shouldBlock)
     fetchServices()
     notify((shouldBlock and "Blocking " or "Allowing ") .. serviceLabel(id) .. ".")
   end, 15000)
+  if not accepted then
+    busy = false
+    helperError = "Could not start the social-block helper."
+    setupRequired = not noctalia.fileExists(HELPER)
+    persist()
+    publish()
+    noctalia.notifyError("Social Block", "Could not start the helper. Run install-helper.sh (see README).")
+  end
 end
 
 local function extend(minutes)
@@ -421,7 +496,7 @@ local function extend(minutes)
 end
 
 local function forever()
-  if not blocked then return end
+  if not blocked or busy then return end
   untilMs = 0
   mode = "manual"
   persist()
@@ -435,13 +510,15 @@ function toggle()
 end
 
 local function checkStatus(initial, savedSince)
-  if statusBusy then return end
+  if statusBusy or busy then return end
   statusBusy = true
   local started = noctalia.nowMs()
+  local version = stateVersion
 
-  noctalia.runAsync(helperArgs("status"), function(res)
+  local accepted = noctalia.runAsync(helperArgs("status"), function(res)
     statusBusy = false
     lastStatusCheck = noctalia.nowMs()
+    if version ~= stateVersion then return end
     local wasBlocked = blocked
 
     if res.exitCode == 0 then
@@ -460,6 +537,7 @@ local function checkStatus(initial, savedSince)
         if #services > 0 or not servicesLoaded then helperError = "" end
         setupRequired = false
       elseif s == "off" then
+        if wasBlocked then creditStats(noctalia.nowMs()) end
         blocked = false
         since = 0
         untilMs = 0
@@ -486,13 +564,21 @@ local function checkStatus(initial, savedSince)
     if not initial and wasBlocked ~= blocked then
       notify(blocked and "Blocking is on." or "Blocking is off.")
     end
-    -- After a helper update the service list may have been empty at load;
-    -- retry it on the periodic check so the panel fills in by itself.
-    if not initial and #services == 0 then fetchServices() end
+    -- Keep the service list fresh, including edits to /etc/social-block/domains
+    -- and helper updates made outside the panel.
+    if not initial then fetchServices() end
 
     persist()
     publish()
   end, 8000)
+  if not accepted then
+    statusBusy = false
+    lastStatusCheck = noctalia.nowMs()
+    helperError = "Could not start the helper status command."
+    setupRequired = not noctalia.fileExists(HELPER)
+    persist()
+    publish()
+  end
 end
 
 function onConfigChanged()
@@ -510,8 +596,14 @@ function onConfigChanged()
   if scheduleChanged then
     lastScheduleDate = ""
     persist()
-    if scheduleEnabled and (not parseHHMM(scheduleStart) or not parseHHMM(scheduleEnd)) then
-      noctalia.notifyError("Social Block", "Schedule start and end must be valid 24-hour HH:MM times.")
+    if scheduleEnabled then
+      local s = parseHHMM(scheduleStart)
+      local e = parseHHMM(scheduleEnd)
+      if not s or not e then
+        noctalia.notifyError("Social Block", "Schedule start and end must be valid 24-hour HH:MM times.")
+      elseif s == e then
+        noctalia.notifyError("Social Block", "Schedule start and end must be different times.")
+      end
     end
   end
 
@@ -521,6 +613,7 @@ function onConfigChanged()
 end
 
 function onExit(_signal, reason)
+  creditStats(noctalia.nowMs())
   persist()
   if reason == "disable" or reason == "uninstall" then
     noctalia.runAsync(helperArgs("off"))
@@ -551,6 +644,14 @@ function onIpc(event, payload)
   else
     -- Lua/Luau patterns have no alternation; validate each action explicitly.
     local text = event or ""
+    local minutes = string.match(text, "^timer%s+(%d+)$")
+    if minutes then
+      local n = tonumber(minutes)
+      if n and n > 0 then
+        if blocked then extend(n) else apply(true, { mode = "timer", duration = n }) end
+      end
+      return
+    end
     local id = string.match(text, "^allow%s+([a-z0-9-]+)$")
     if id then
       setService(id, false)
@@ -570,6 +671,18 @@ local function insideSchedule()
     return now >= s and now < e
   end
   return now >= s or now < e -- window crosses midnight
+end
+
+local function scheduleWindowKey()
+  if not insideSchedule() then return nil end
+  local s, e = parseHHMM(scheduleStart), parseHHMM(scheduleEnd)
+  if not s or not e or s == e then return nil end
+  local now = tonumber(noctalia.formatTime("%H")) * 60 + tonumber(noctalia.formatTime("%M"))
+  -- An overnight window that is still running after midnight belongs to the
+  -- previous day's window. Using the calendar day here would forget a manual
+  -- off at midnight and restart the block.
+  if s > e and now < e then return dayKey(-1) end
+  return dayKey(0)
 end
 
 function load()
@@ -608,25 +721,19 @@ function update()
   -- and schedule endings do not lose the last minute. A gap larger than two
   -- minutes means the machine slept or Noctalia was not running: do not count
   -- that wall-clock time as focus time.
-  if blocked then
-    if lastStatMs == 0 then lastStatMs = now end
-    if now - lastStatMs > 120000 then lastStatMs = now end
-    local mins = math.floor((now - lastStatMs) / 60000)
-    if mins > 0 then
-      local key = dayKey(0)
-      stats[key] = (stats[key] or 0) + mins
-      lastStatMs = lastStatMs + mins * 60000
-      local cutoff = dayKey(-365)
-      for k in pairs(stats) do
-        if k < cutoff then stats[k] = nil end
-      end
-      persist()
-      publish()
-    end
+  if creditStats(now) then
+    persist()
+    publish()
   end
 
   -- timer expiry
   if blocked and untilMs > 0 and now >= untilMs then
+    -- A session timer inside a schedule window only pauses the schedule for
+    -- that timer. Let the schedule take over again on the next tick.
+    if scheduleEnabled and insideSchedule() then
+      lastScheduleDate = ""
+      persist()
+    end
     apply(false)
     return
   end
@@ -634,7 +741,7 @@ function update()
   -- daily schedule
   if scheduleEnabled then
     if insideSchedule() then
-      local key = dayKey(0)
+      local key = scheduleWindowKey() or dayKey(0)
       if lastScheduleDate ~= key then
         lastScheduleDate = key
         persist()
@@ -654,7 +761,7 @@ function update()
     return
   end
 
-  -- Reconcile with /etc/hosts every 30 s, so an external off/on or a helper
+  -- Reconcile with /etc/hosts every 60 s, so an external off/on or a helper
   -- repair is reflected in the UI without a restart.
   if not statusBusy and now - lastStatusCheck >= 60000 then
     checkStatus(false, 0)
@@ -664,10 +771,11 @@ function update()
   if blocked then
     if closeApps and not appCheckBusy then
       appCheckBusy = true
-      noctalia.processMatches(function(matched)
+      local accepted = noctalia.processMatches(function(matched)
         appCheckBusy = false
         if matched then closeAppsNow() end
       end, "discord", "vesktop", "webcord", "armcord", "slack")
+      if not accepted then appCheckBusy = false end
     end
     if closeWindows then closeSocialWindows() end
 
