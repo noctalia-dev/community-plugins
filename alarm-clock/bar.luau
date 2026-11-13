@@ -7,7 +7,7 @@ local ringing = false
 
 local function render()
   local color = ringing and "error" or "on_surface"
-  local glyph = "alarm-clock"
+  local glyph = "bell"
   local children = {
     ui.glyph({ name = glyph, color = color, size = 14 }),
   }

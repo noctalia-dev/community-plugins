@@ -1,5 +1,9 @@
 {
   "settings": {
+    "opaque_ringer": {
+      "label": "Opaque ringing window",
+      "description": "Use a solid theme background for the ringing popup instead of the default translucent surface."
+    },
     "sound_enabled": {
       "label": "Alarm sound",
       "description": "Enable or disable alarm playback. The built-in tone uses Noctalia audio; custom audio uses the selected external player."

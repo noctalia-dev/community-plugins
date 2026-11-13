@@ -4,6 +4,16 @@ Alarm Clock is a fixed-time alarm manager for Noctalia. Create one-time or recur
 
 ![Alarm Clock ringing panel](screenshot.png)
 
+## Screenshots
+
+### Alarm editor
+
+![Alarm Clock editor showing alarm creation and saved alarms](screenshots/alarm-editor.png)
+
+### Ringing window
+
+![Alarm Clock ringing popup with snooze and dismiss controls](screenshots/ringing-window.png)
+
 ## Plugin
 
 | Field | Value |
@@ -15,7 +25,7 @@ Alarm Clock focuses on recurring wall-clock schedules and per-alarm settings. Th
 
 ## Requirements
 
-For interruptible custom audio playback, install **at least one** of these commands and make it available on `PATH`:
+For playing custom track for alarm, install **at least one** of these commands and make it available on `PATH`. This is only necessary if you are planning to play long custom music track as alarm tone and is not needed for built-in default alarm ring tone:
 
 - `mpv` (recommended)
 - `ffplay` (provided by `ffmpeg`)
@@ -55,6 +65,7 @@ noctalia msg panel-toggle spont-427/alarm-clock:ringing
 | --- | --- | --- | --- |
 | `custom_sound` | `file` | `""` | Optional audio file used for all alarms. An empty value selects the bundled tone. Supported extensions are WAV, FLAC, Ogg, Opus, MP3, and AIFF. Custom playback requires `mpv` or `ffplay`. |
 | `sound_enabled` | `bool` | `true` | Enables or disables alarm audio. The ringing panel and notifications still appear when audio is disabled. |
+| `opaque_ringer` | `bool` | `false` | Use a solid background for the ringing window instead of the default translucent appearance. |
 
 ## Notes
 

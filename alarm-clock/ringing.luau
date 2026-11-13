@@ -50,10 +50,17 @@ local function sendCommand(action)
   })
 end
 
+local function rootPanelProps(props)
+  if noctalia.getConfig("opaque_ringer") == true then
+    props.fill = "surface"
+  end
+  return props
+end
+
 local function render()
   local alarm = findRingingAlarm()
   if alarm == nil then
-    panel.render(ui.column({ gap = 8, padding = 14, align = "center" }, {
+    panel.render(ui.column(rootPanelProps({ flexGrow = 1, gap = 8, padding = 14, align = "center" }), {
       ui.label({ text = "Alarm", fontWeight = "bold", color = "primary" }),
       ui.label({ text = "No active alarm" , color = "on_surface_variant" }),
       ui.button({ text = "Close", variant = "outline", onClick = function() panel.close() end }),
@@ -63,8 +70,8 @@ local function render()
 
   local title = type(alarm.label) == "string" and alarm.label ~= "" and alarm.label or "Alarm"
   local snoozeMinutes = math.clamp(math.floor(tonumber(alarm.snoozeMinutes) or 5), 1, 60)
-  panel.render(ui.column({ flexGrow = 1, gap = 7, padding = 12, align = "center", justify = "center" }, {
-    ui.glyph({ name = "alarm-clock", size = 25, color = "error" }),
+  panel.render(ui.column(rootPanelProps({ flexGrow = 1, gap = 7, padding = 12, align = "center", justify = "center" }), {
+    ui.glyph({ name = "bell", size = 25, color = "error" }),
     ui.label({ text = "It's time", fontSize = 16, fontWeight = "bold", color = "primary" }),
     ui.label({ text = title, fontSize = 14, fontWeight = "bold" }),
     ui.label({ text = formatTime12(alarm.time), fontSize = 27, fontWeight = "bold", color = "primary" }),
@@ -72,7 +79,7 @@ local function render()
     ui.row({ gap = 8, justify = "center" }, {
       ui.button({
         text = "Snooze · " .. tostring(snoozeMinutes) .. " min",
-        glyph = "alarm-clock",
+        glyph = "bell",
         variant = "secondary",
         controlSize = "sm",
         onClick = function() sendCommand("snooze") end,

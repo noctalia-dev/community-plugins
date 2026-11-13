@@ -1,12 +1,12 @@
 id = "spont-427/alarm-clock"
 name = "Alarm Clock"
-version = "0.1.8"
+version = "0.1.9"
 plugin_api = 20
 author = "Spont-427"
 license = "MIT"
 dependencies = ["mpv", "ffplay"]
-icon = "alarm-clock"
-description = "A fixed-time alarm clock with weekday repeats, per-alarm snooze, and custom audio."
+icon = "bell"
+description = "A fixed-time alarm clock with weekday repeats, per-alarm snooze, custom audio, and optional opaque ringing window."
 tags = ["bar", "panel", "service", "clock", "time", "audio", "utility"]
 
 [[setting]]
@@ -24,6 +24,13 @@ label_key = "settings.sound_enabled.label"
 description_key = "settings.sound_enabled.description"
 default = true
 
+[[setting]]
+key = "opaque_ringer"
+type = "bool"
+label_key = "settings.opaque_ringer.label"
+description_key = "settings.opaque_ringer.description"
+default = false
+
 [[widget]]
 id = "bar"
 entry = "bar.luau"
@@ -32,7 +39,7 @@ entry = "bar.luau"
 id = "panel"
 entry = "panel.luau"
 width = 700
-height = 500
+height = 450
 placement = "attached"
 position = "auto"
 open_near_click = true

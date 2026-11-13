@@ -85,6 +85,16 @@ local function daySummary(days)
   return #parts == 0 and "Once" or table.concat(parts, " · ")
 end
 
+local function editorRepeatSummary()
+  local parts = {}
+  for day = 1, 7 do
+    if selectedDays[day] then
+      table.insert(parts, DAY_LABELS[day])
+    end
+  end
+  return "Repeat · " .. (#parts == 0 and "once" or table.concat(parts, " "))
+end
+
 local function alarmDaySummary(alarm)
   if type(alarm.repeatDays) == "table" then
     return daySummary(alarm.repeatDays)
@@ -139,18 +149,21 @@ local function renderNormal()
         ui.label({ text = formatTime12(alarm.time), fontWeight = "bold", fontSize = 14 }),
         ui.label({ text = title .. " · " .. subtitle, color = "on_surface_variant", fontSize = 10, maxLines = 1 }),
       }),
-      ui.select({
-        options = SNOOZE_LABELS,
-        selectedIndex = selectedSnooze,
-        controlSize = "sm",
-        width = 88,
-        onChange = function(index)
-          local selected = (tonumber(index) or 0) + 1
-          local minutes = SNOOZE_OPTIONS[selected]
-          if minutes ~= nil then
-            sendCommand("set_alarm_snooze", { id = id, minutes = minutes })
-          end
-        end,
+      ui.column({ width = 88, gap = 1, align = "center" }, {
+        ui.label({ text = "Snooze for", fontSize = 9, color = "on_surface_variant" }),
+        ui.select({
+          options = SNOOZE_LABELS,
+          selectedIndex = selectedSnooze,
+          controlSize = "sm",
+          width = 88,
+          onChange = function(index)
+            local selected = (tonumber(index) or 0) + 1
+            local minutes = SNOOZE_OPTIONS[selected]
+            if minutes ~= nil then
+              sendCommand("set_alarm_snooze", { id = id, minutes = minutes })
+            end
+          end,
+        }),
       }),
       ui.button({
         glyph = "pencil",
@@ -264,9 +277,8 @@ local function renderNormal()
       ui.input({ key = "label-" .. tostring(inputKey), value = inputLabel, placeholder = "Wake up", onChange = "onLabelChange" }),
     }),
     ui.column({ gap = 6 }, {
-      ui.label({ text = "Repeat · choose days", fontSize = 11, color = "on_surface_variant" }),
+      ui.label({ text = editorRepeatSummary(), fontSize = 11, color = "on_surface_variant" }),
       ui.row({ gap = 4, justify = "space_between" }, recurrenceButtons),
-      ui.label({ text = "No days selected = once", fontSize = 10, color = "on_surface_variant" }),
     }),
   }
   if errorText ~= "" then
