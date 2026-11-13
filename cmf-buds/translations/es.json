@@ -1,0 +1,253 @@
+{
+  "action": {
+    "game_mode": "Modo juego",
+    "no_action": "Sin acción",
+    "noise_control": "Cambiar ANC",
+    "play_pause": "Reproducir / pausar",
+    "skip_back": "Pista anterior",
+    "skip_forward": "Pista siguiente",
+    "voice_assistant": "Asistente de voz",
+    "volume_control": "Control de volumen",
+    "volume_down": "Bajar volumen",
+    "volume_up": "Subir volumen"
+  },
+  "anc": {
+    "adaptive": "Adaptativo",
+    "cancel": "Cancelación",
+    "high": "Alto",
+    "hint": "El cambio se aplica al instante en los auriculares.",
+    "level": "Intensidad",
+    "low": "Bajo",
+    "mid": "Medio",
+    "off": "Desactivado",
+    "title": "Cancelación de ruido",
+    "transparency": "Transparencia"
+  },
+  "battery": {
+    "case": "Estuche",
+    "left": "Izq.",
+    "right": "Der."
+  },
+  "button": {
+    "apply": "Aplicar",
+    "close": "Cerrar",
+    "connect": "Conectar",
+    "reconnect": "Reconectar",
+    "refresh": "Actualizar",
+    "settings": "Ajustes del plugin",
+    "disconnect": "Desconectar"
+  },
+  "controls": {
+    "case": "Dial del estuche",
+    "case_hint": "El dial del CMF Buds Pro 2 se puede configurar con estos gestos.",
+    "left": "Auricular izquierdo",
+    "right": "Auricular derecho"
+  },
+  "eq": {
+    "bass": "Graves",
+    "custom": "EQ personalizado",
+    "hint": "El modo Personalizado guarda la curva en los auriculares.",
+    "mid": "Medios",
+    "preset": {
+      "balanced": "Balanceado",
+      "classical": "Clásica",
+      "custom": "Personalizado",
+      "electronic": "Electrónico",
+      "more_bass": "Más graves",
+      "more_treble": "Más agudos",
+      "pop": "Pop",
+      "rock": "Rock",
+      "vocal": "Voces",
+      "voice": "Voz"
+    },
+    "title": "Ecualización",
+    "treble": "Agudos",
+    "ultra": "Ultra Bass",
+    "ultra_level": "Nivel"
+  },
+  "error": {
+    "code": {
+      "action_not_available": "Esa acción no está disponible para ese gesto.",
+      "channel_busy": "El canal de Bluetooth está ocupado. Cierra Nothing X en el teléfono o desconecta el móvil.",
+      "command_failed": "No se pudo ejecutar el comando.",
+      "connect_failed": "No se pudo conectar con los auriculares.",
+      "daemon_failed": "Falló el demonio de los auriculares.",
+      "disconnect_failed": "No se pudo desconectar el dispositivo.",
+      "disconnected": "Los auriculares están desconectados. Pulsa Conectar.",
+      "engine_unavailable": "El motor de atajos locales no está disponible.",
+      "generic": "No se pudo completar la operación.",
+      "invalid_action": "Esa acción no es válida.",
+      "invalid_anc": "Ese nivel de cancelación de ruido no es válido.",
+      "invalid_gesture": "Ese gesto no es válido.",
+      "invalid_json": "La petición no es JSON válido.",
+      "invalid_preset": "Ese preajuste del ecualizador no es válido.",
+      "invalid_request": "La petición no es válida.",
+      "invalid_rule": "La regla de atajo no es válida.",
+      "invalid_side": "Ese lado no es válido.",
+      "link_lost": "Se perdió la conexión con los auriculares.",
+      "missing_command": "No se indicó ningún comando.",
+      "no_sink": "No hay ninguna salida de audio disponible.",
+      "not_connected": "Los auriculares no están conectados por RFCOMM.",
+      "not_found": "No se encontraron los auriculares.",
+      "not_paired": "No se encontró ningún dispositivo CMF Buds emparejado.",
+      "unknown_command": "Comando desconocido.",
+      "unknown_setting": "Ese ajuste no existe."
+    },
+    "daemon": "No se pudo arrancar el demonio de los auriculares.",
+    "generic": "No se pudo completar la operación."
+  },
+  "fit": {
+    "bad": "Mal sellado",
+    "error": "Sin datos",
+    "good": "Buen sellado",
+    "hint": "Coloca ambos auriculares y pulsa Iniciar. Tarda unos segundos.",
+    "left": "Izquierdo",
+    "right": "Derecho",
+    "running": "Midiendo el sellado…",
+    "start": "Iniciar test",
+    "stop": "Detener test",
+    "title": "Test de ajuste",
+    "intro_audio": "Mejora la calidad de audio",
+    "intro_audio_desc": "Ajusta el sellado de los auriculares para una reproducción más fiel.",
+    "intro_anc": "Cancelación de ruido optimizada",
+    "intro_anc_desc": "Un buen sellado mejora la eficacia de la cancelación de ruido.",
+    "not_worn": "No se pudo medir. Ponte los auriculares y vuelve a intentarlo."
+  },
+  "gesture": {
+    "double": "Doble pulsación",
+    "double_hold": "Doble pulsación larga",
+    "hold": "Mantener pulsado",
+    "rotate": "Girar el dial",
+    "single": "Pulsación simple",
+    "triple": "Triple pulsación"
+  },
+  "hint": {
+    "phone": "Si el canal está ocupado, cierra Nothing X en el teléfono o desactiva la conexión con el móvil."
+  },
+  "info": {
+    "address": "Dirección",
+    "battery": "Batería",
+    "firmware": "Firmware",
+    "model": "Modelo",
+    "serial": "Serial",
+    "title": "Información"
+  },
+  "loading": "Leyendo los auriculares…",
+  "ring": {
+    "left": "Buscar izquierdo",
+    "right": "Buscar derecho",
+    "stop": "Detener",
+    "title": "Buscar auriculares"
+  },
+  "settings": {
+    "device_mac": {
+      "description": "Opcional. Si la indicas, se usa siempre esta dirección.",
+      "label": "MAC del dispositivo"
+    },
+    "device_name": {
+      "description": "Nombre Bluetooth que se busca si no hay MAC configurada.",
+      "label": "Nombre del dispositivo"
+    },
+    "glyph": {
+      "description": "Icono que se muestra en la barra.",
+      "label": "Icono de barra"
+    },
+    "poll_seconds": {
+      "description": "Cada cuántos segundos se consulta el estado a los auriculares.",
+      "label": "Intervalo de sondeo"
+    },
+    "volume_step": {
+      "description": "Cuánto sube o baja el volumen al hacer scroll sobre el widget.",
+      "label": "Paso de volumen"
+    },
+    "wheel_adjust": {
+      "description": "Ajusta el volumen girando la rueda del ratón sobre el widget de la barra. Las barras del panel siempre responden a la rueda.",
+      "label": "Rueda del ratón en el widget"
+    }
+  },
+  "shortcut": {
+    "add": "Añadir regla",
+    "command_label": "Comando",
+    "command_placeholder": "hyprctl dispatch workspace next",
+    "delete": "Eliminar regla",
+    "gesture": {
+      "dial_down": "Rueda del dial ↓",
+      "dial_up": "Rueda del dial ↑",
+      "knob": "Pulsar el knob"
+    },
+    "gesture_label": "Gesto",
+    "hint": "El dial del estuche envía al PC la señal de un cambio de volumen. Aquí decides qué hace esa señal: con SUPER pulsado, por ejemplo, cambiar de workspace en lugar de tocar el volumen. Las pulsaciones repetidas se agrupan para detectar dobles y triples.",
+    "last": "{trigger} x{presses}{modifiers}",
+    "last_action_label": "Última acción",
+    "last_label": "Último evento",
+    "modifier": {
+      "alt": "ALT",
+      "ctrl": "CTRL",
+      "no_super": "Sin SUPER",
+      "none": "Ninguno",
+      "shift": "SHIFT",
+      "super": "SUPER"
+    },
+    "modifier_label": "Modificador",
+    "mods_held": "Pulsados: {mods}",
+    "mods_label": "Modificadores",
+    "mods_unavailable": "Sin acceso a /dev/input",
+    "none": "—",
+    "note": "Para que la señal llegue al PC, el gesto debe tener asignada una acción de volumen (p. ej. triple pulsación del botón del estuche → Subir volumen). Ojo: si un gesto tiene una regla con un número de pulsaciones (2, 3...), la regla 'Cualquiera' de ese mismo gesto se ignora; la de N pulsaciones manda.",
+    "notify": "Notificar",
+    "presses": {
+      "any": "Cualquiera"
+    },
+    "presses_label": "Repeticiones",
+    "restore": "Restaurar volumen",
+    "rule_title": "{trigger} · {modifier}",
+    "test": "Probar",
+    "title": "Atajos locales"
+  },
+  "status": {
+    "connected": "Conectados",
+    "connecting": "Conectando…",
+    "disconnected": "Desconectados",
+    "error": "Error"
+  },
+  "subtitle": "CONTROL RFCOMM · NOTHING X PARA LINUX",
+  "system": {
+    "dual": "Conexión dual",
+    "dual_desc": "Mantiene dos dispositivos conectados a la vez.",
+    "in_ear": "Detección in-ear",
+    "in_ear_desc": "Pausa la música al quitarte un auricular.",
+    "low_latency": "Latencia baja",
+    "low_latency_desc": "Modo juego; reduce el retardo Bluetooth.",
+    "spatial": "Audio espacial",
+    "spatial_desc": "Sonido envolvente para música y vídeo.",
+    "title": "Ajustes del dispositivo",
+    "dual_note": "El PC se queda con la conexión cuando controlas desde aquí. El móvil puede reconectar y quitarle el audio.",
+    "dual_restart": "Reinicia los auriculares (guárdalos en el estuche y vuelve a sacarlos) para aplicar el cambio.",
+    "dual_restart_ack": "Ya los reinicié",
+    "devices_none": "No hay dispositivos Nothing/CMF emparejados en este PC.",
+    "devices_note": "Conexión dual: hasta 2 dispositivos a la vez. El segundo hueco lo gestiona el móvil."
+  },
+  "tab": {
+    "actions": "Atajos",
+    "controls": "Controles",
+    "sound": "Sonido",
+    "system": "Sistema"
+  },
+  "title": "CMF Buds",
+  "tooltip": {
+    "anc": "ANC",
+    "battery": "Batería",
+    "connected": "Conectados",
+    "connection": "Conexión",
+    "disconnected": "Desconectados",
+    "eq": "Ecualización",
+    "error": "Error",
+    "volume": "Volumen"
+  },
+  "volume": {
+    "mute": "Silenciar",
+    "system": "Volumen del sistema · {sink}",
+    "title": "Volumen",
+    "unmute": "Quitar silencio"
+  }
+}

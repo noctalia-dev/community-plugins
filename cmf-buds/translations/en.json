@@ -1,0 +1,253 @@
+{
+  "action": {
+    "game_mode": "Game mode",
+    "no_action": "No action",
+    "noise_control": "Cycle ANC",
+    "play_pause": "Play / pause",
+    "skip_back": "Previous track",
+    "skip_forward": "Next track",
+    "voice_assistant": "Voice assistant",
+    "volume_control": "Volume control",
+    "volume_down": "Volume down",
+    "volume_up": "Volume up"
+  },
+  "anc": {
+    "adaptive": "Adaptive",
+    "cancel": "Noise cancelling",
+    "high": "High",
+    "hint": "The change is applied to the earbuds instantly.",
+    "level": "Strength",
+    "low": "Low",
+    "mid": "Mid",
+    "off": "Off",
+    "title": "Noise control",
+    "transparency": "Transparency"
+  },
+  "battery": {
+    "case": "Case",
+    "left": "Left",
+    "right": "Right"
+  },
+  "button": {
+    "apply": "Apply",
+    "close": "Close",
+    "connect": "Connect",
+    "reconnect": "Reconnect",
+    "refresh": "Refresh",
+    "settings": "Plugin settings",
+    "disconnect": "Disconnect"
+  },
+  "controls": {
+    "case": "Case dial",
+    "case_hint": "The CMF Buds Pro 2 case dial can be mapped to these gestures.",
+    "left": "Left earbud",
+    "right": "Right earbud"
+  },
+  "eq": {
+    "bass": "Bass",
+    "custom": "Custom EQ",
+    "hint": "Custom mode stores the curve on the earbuds.",
+    "mid": "Mids",
+    "preset": {
+      "balanced": "Balanced",
+      "classical": "Classical",
+      "custom": "Custom",
+      "electronic": "Electronic",
+      "more_bass": "More bass",
+      "more_treble": "More treble",
+      "pop": "Pop",
+      "rock": "Rock",
+      "vocal": "Vocals",
+      "voice": "Voice"
+    },
+    "title": "Equalizer",
+    "treble": "Treble",
+    "ultra": "Ultra Bass",
+    "ultra_level": "Level"
+  },
+  "error": {
+    "code": {
+      "action_not_available": "That action is not available for that gesture.",
+      "channel_busy": "The Bluetooth channel is busy. Close Nothing X on the phone or disconnect the phone.",
+      "command_failed": "The command could not be run.",
+      "connect_failed": "Could not connect to the earbuds.",
+      "daemon_failed": "The earbuds daemon failed.",
+      "disconnect_failed": "Could not disconnect the device.",
+      "disconnected": "The earbuds are disconnected. Press Connect.",
+      "engine_unavailable": "The local action engine is not available.",
+      "generic": "The operation could not be completed.",
+      "invalid_action": "That action is not valid.",
+      "invalid_anc": "That noise cancelling level is not valid.",
+      "invalid_gesture": "That gesture is not valid.",
+      "invalid_json": "The request is not valid JSON.",
+      "invalid_preset": "That equalizer preset is not valid.",
+      "invalid_request": "The request is not valid.",
+      "invalid_rule": "The shortcut rule is not valid.",
+      "invalid_side": "That side is not valid.",
+      "link_lost": "The connection to the earbuds was lost.",
+      "missing_command": "No command was given.",
+      "no_sink": "No audio sink is available.",
+      "not_connected": "The earbuds are not connected over RFCOMM.",
+      "not_found": "The earbuds could not be found.",
+      "not_paired": "No paired CMF Buds device was found.",
+      "unknown_command": "Unknown command.",
+      "unknown_setting": "That setting does not exist."
+    },
+    "daemon": "Could not start the earbuds daemon.",
+    "generic": "The operation could not be completed."
+  },
+  "fit": {
+    "bad": "Bad seal",
+    "error": "No data",
+    "good": "Good seal",
+    "hint": "Place both earbuds in and press Start. It takes a few seconds.",
+    "left": "Left",
+    "right": "Right",
+    "running": "Measuring the seal…",
+    "start": "Start test",
+    "stop": "Stop test",
+    "title": "Ear tip fit test",
+    "intro_audio": "Improve audio quality",
+    "intro_audio_desc": "Tunes the earbud seal for more faithful playback.",
+    "intro_anc": "Optimized noise cancellation",
+    "intro_anc_desc": "A good seal improves noise cancellation effectiveness.",
+    "not_worn": "Could not measure. Put the earbuds on and try again."
+  },
+  "gesture": {
+    "double": "Double press",
+    "double_hold": "Double press and hold",
+    "hold": "Press and hold",
+    "rotate": "Rotate the dial",
+    "single": "Single press",
+    "triple": "Triple press"
+  },
+  "hint": {
+    "phone": "If the channel is busy, close Nothing X on your phone or disable the phone connection."
+  },
+  "info": {
+    "address": "Address",
+    "battery": "Battery",
+    "firmware": "Firmware",
+    "model": "Model",
+    "serial": "Serial",
+    "title": "Information"
+  },
+  "loading": "Reading the earbuds…",
+  "ring": {
+    "left": "Ring left",
+    "right": "Ring right",
+    "stop": "Stop",
+    "title": "Find my earbuds"
+  },
+  "settings": {
+    "device_mac": {
+      "description": "Optional. When set, this address is always used.",
+      "label": "Device MAC"
+    },
+    "device_name": {
+      "description": "Bluetooth name used when no MAC is configured.",
+      "label": "Device name"
+    },
+    "glyph": {
+      "description": "Icon shown in the bar.",
+      "label": "Bar glyph"
+    },
+    "poll_seconds": {
+      "description": "How often the earbuds are queried for their state.",
+      "label": "Poll interval"
+    },
+    "volume_step": {
+      "description": "How much the volume changes when scrolling over the widget.",
+      "label": "Volume step"
+    },
+    "wheel_adjust": {
+      "description": "Adjusts the volume by scrolling the mouse wheel over the bar widget. The panel sliders always take the wheel.",
+      "label": "Mouse wheel on the bar widget"
+    }
+  },
+  "shortcut": {
+    "add": "Add rule",
+    "command_label": "Command",
+    "command_placeholder": "hyprctl dispatch workspace next",
+    "delete": "Delete rule",
+    "gesture": {
+      "dial_down": "Dial wheel down",
+      "dial_up": "Dial wheel up",
+      "knob": "Press the knob"
+    },
+    "gesture_label": "Gesture",
+    "hint": "The case dial sends the PC a volume change signal. Here you decide what that signal does: with SUPER held, for example, switch workspace instead of touching the volume. Repeated presses are grouped so double and triple presses can be detected.",
+    "last": "{trigger} x{presses}{modifiers}",
+    "last_action_label": "Last action",
+    "last_label": "Last event",
+    "modifier": {
+      "alt": "ALT",
+      "ctrl": "CTRL",
+      "no_super": "Without SUPER",
+      "none": "None",
+      "shift": "SHIFT",
+      "super": "SUPER"
+    },
+    "modifier_label": "Modifier",
+    "mods_held": "Held: {mods}",
+    "mods_label": "Modifiers",
+    "mods_unavailable": "No access to /dev/input",
+    "none": "—",
+    "note": "For the signal to reach the PC, the gesture must be mapped to a volume action (e.g. triple press of the case button → Volume up). Note: if a gesture has a rule with a number of presses (2, 3...), the 'Any' rule for that same gesture is ignored; the N-press rule wins.",
+    "notify": "Notify",
+    "presses": {
+      "any": "Any"
+    },
+    "presses_label": "Repeats",
+    "restore": "Restore volume",
+    "rule_title": "{trigger} · {modifier}",
+    "test": "Test",
+    "title": "Local shortcuts"
+  },
+  "status": {
+    "connected": "Connected",
+    "connecting": "Connecting…",
+    "disconnected": "Disconnected",
+    "error": "Error"
+  },
+  "subtitle": "RFCOMM CONTROL · NOTHING X FOR LINUX",
+  "system": {
+    "dual": "Dual connection",
+    "dual_desc": "Keeps two devices connected at once.",
+    "in_ear": "In-ear detection",
+    "in_ear_desc": "Pauses playback when you remove an earbud.",
+    "low_latency": "Low latency",
+    "low_latency_desc": "Game mode; reduces Bluetooth delay.",
+    "spatial": "Spatial audio",
+    "spatial_desc": "Immersive sound for music and video.",
+    "title": "Device settings",
+    "dual_note": "The PC keeps the connection when you control from here. The phone can reconnect and take audio away.",
+    "dual_restart": "Restart the earbuds (put them in the case and take them out) to apply the change.",
+    "dual_restart_ack": "I restarted them",
+    "devices_none": "No Nothing/CMF devices paired on this PC.",
+    "devices_note": "Dual connection: up to 2 devices at once. The second slot is managed by the phone."
+  },
+  "tab": {
+    "actions": "Shortcuts",
+    "controls": "Controls",
+    "sound": "Sound",
+    "system": "System"
+  },
+  "title": "CMF Buds",
+  "tooltip": {
+    "anc": "ANC",
+    "battery": "Battery",
+    "connected": "Connected",
+    "connection": "Connection",
+    "disconnected": "Disconnected",
+    "eq": "Equalizer",
+    "error": "Error",
+    "volume": "Volume"
+  },
+  "volume": {
+    "mute": "Mute",
+    "system": "System volume · {sink}",
+    "title": "Volume",
+    "unmute": "Unmute"
+  }
+}
