@@ -42,6 +42,7 @@ local pinnedDate = nil
 local selectedByKey = {}
 local cachedHeatmap = nil
 local cachedCalendar = nil
+local cachedWrap = nil
 local gridColumns = {}
 local gridLevels = {}
 local gridDetails = {}
@@ -100,6 +101,7 @@ end
 local function resetGrid(source)
   cachedHeatmap = nil
   cachedCalendar = nil
+  cachedWrap = nil
   gridColumns = {}
   gridLevels = {}
   gridDetails = {}
@@ -194,7 +196,9 @@ local function representativeDateForDay(day)
   return nil
 end
 
-local function buildMonthHeader()
+-- Month labels for one block of weeks (startWeek..endWeek). A wrapped year
+-- gives each block its own header covering only the months in that block.
+local function buildMonthHeaderForRange(startWeek, endWeek)
   local segments = {}
   local segmentKey = nil
   local segmentDate = nil
@@ -219,7 +223,7 @@ local function buildMonthHeader()
     }))
   end
 
-  for week = 1, gridWeekCount do
+  for week = startWeek, endWeek do
     local date = representativeDateForWeek(week)
     local monthKey = date ~= nil and string.sub(date, 1, 7) or nil
     if segmentKey ~= nil and monthKey ~= nil and monthKey ~= segmentKey then
@@ -254,6 +258,55 @@ local function buildWeekdayLabels()
     }))
   end
   return ui.column({ gap = calendarRowGap, align = "end" }, labels)
+end
+
+-- Group the built week-columns into stacked blocks per the wrap setting
+-- and rebuild the two cached trees from them. A year is 53 week-columns in
+-- one row, which is why the widget is a long strip; wrapping splits it into
+-- 2/3/4 blocks so the widget is narrower and taller instead.
+-- Grouping only rearranges already-built column nodes, so it is cheap and
+-- safe to rerun when the wrap setting changes, unlike the incremental cell
+-- build (which stays in prepareGridColumns).
+local function layoutGrid()
+  local wrap = Settings.wrapBlocks(noctalia.getConfig("wrap"))
+  cachedWrap = wrap
+  if #gridColumns == 0 then
+    cachedHeatmap = nil
+    cachedCalendar = nil
+    return
+  end
+
+  local blockWeeks = math.ceil(gridWeekCount / wrap)
+  local heatmapBlocks = {}
+  local calendarBlocks = {}
+  for block = 1, wrap do
+    local startWeek = (block - 1) * blockWeeks + 1
+    if startWeek > gridWeekCount then
+      break
+    end
+    local endWeek = math.min(block * blockWeeks, gridWeekCount)
+    local blockColumns = {}
+    for week = startWeek, endWeek do
+      table.insert(blockColumns, gridColumns[week])
+    end
+    local blockRow = ui.row({ gap = calendarColumnGap, align = "start" }, blockColumns)
+    table.insert(heatmapBlocks, blockRow)
+    table.insert(calendarBlocks, ui.row({ gap = 10, align = "end", justify = "center" }, {
+      buildWeekdayLabels(),
+      ui.column({ gap = 6, align = "start" }, {
+        buildMonthHeaderForRange(startWeek, endWeek),
+        blockRow,
+      }),
+    }))
+  end
+
+  if #heatmapBlocks == 1 then
+    cachedHeatmap = heatmapBlocks[1]
+    cachedCalendar = calendarBlocks[1]
+  else
+    cachedHeatmap = ui.column({ gap = 10, align = "start" }, heatmapBlocks)
+    cachedCalendar = ui.column({ gap = 14, align = "start" }, calendarBlocks)
+  end
 end
 
 local function prepareGridDay()
@@ -300,14 +353,7 @@ local function prepareGridColumns()
   end
 
   if gridWeek > gridWeekCount then
-    cachedHeatmap = ui.row({ gap = calendarColumnGap, align = "start" }, gridColumns)
-    cachedCalendar = ui.row({ gap = 10, align = "end", justify = "center" }, {
-      buildWeekdayLabels(),
-      ui.column({ gap = 6, align = "start" }, {
-        buildMonthHeader(),
-        cachedHeatmap,
-      }),
-    })
+    layoutGrid()
   end
 end
 
@@ -353,6 +399,13 @@ local function statusText()
 end
 
 function render()
+  -- The wrap setting changes the grid layout, not the data, so a change in
+  -- the editor re-groups the already-built week-columns instead of
+  -- rebuilding (or refetching) anything.
+  if data ~= nil and cachedHeatmap ~= nil and cachedWrap ~= Settings.wrapBlocks(noctalia.getConfig("wrap")) then
+    layoutGrid()
+  end
+
   -- Heatmap-only mode: just the contribution grid, no header, no footer,
   -- and no month/weekday labels. The grid alone (cachedHeatmap) is rendered,
   -- not the full calendar (cachedCalendar) which carries the labels.

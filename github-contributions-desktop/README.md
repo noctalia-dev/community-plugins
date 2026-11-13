@@ -47,6 +47,7 @@ A pinned day is marked with a pin icon in the footer.
 | Heatmap color | color | `#39d353` (GitHub green) | Accent color of the heatmap. The four activity levels are derived from it: palette roles use alpha variants, a custom hex color is darkened per level. |
 | Cell size | int (6–16) | `10` | Width in pixels of each contribution day cell. Smaller cells make the whole calendar narrower; height is cell size + 2. |
 | Heatmap only | bool | off | Show only the contribution heatmap grid, without the header, footer, or month and weekday labels. |
+| Wrap into rows | select (off/2/3/4) | off | Split the year into stacked blocks so the widget is narrower and taller instead of one long strip. Each block gets its own month header and weekday labels. |
 
 Changing the interval applies it immediately and requests a refresh unless a
 request is already in progress.

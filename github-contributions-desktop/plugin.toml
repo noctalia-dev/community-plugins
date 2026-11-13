@@ -67,3 +67,16 @@ entry = "desktop.luau"
   label_key = "settings.heatmap_only.label"
   description_key = "settings.heatmap_only.description"
   default = false
+
+  [[desktop_widget.setting]]
+  key = "wrap"
+  type = "select"
+  label_key = "settings.wrap.label"
+  description_key = "settings.wrap.description"
+  default = "off"
+  options = [
+    { value = "off", label_key = "settings.wrap.options.off" },
+    { value = "2", label_key = "settings.wrap.options.two" },
+    { value = "3", label_key = "settings.wrap.options.three" },
+    { value = "4", label_key = "settings.wrap.options.four" },
+  ]

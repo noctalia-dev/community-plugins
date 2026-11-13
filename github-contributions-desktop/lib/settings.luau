@@ -25,6 +25,16 @@ function Settings.cellSize(value)
   return math.clamp(math.floor(size), 6, 16)
 end
 
+-- How many stacked blocks the year is split into: 1 (one long strip, the
+-- default), 2, 3, or 4. Anything else (including "off") falls back to 1.
+function Settings.wrapBlocks(value)
+  local blocks = tonumber(value)
+  if blocks == 2 or blocks == 3 or blocks == 4 then
+    return blocks
+  end
+  return 1
+end
+
 -- The year the calendar covers: "last12" (trailing 12 months, the default)
 -- or a four-digit calendar year. Anything else falls back to "last12".
 function Settings.selectedYear(value)

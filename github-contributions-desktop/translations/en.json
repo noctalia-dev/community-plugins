@@ -35,6 +35,16 @@
       "label": "Heatmap only",
       "description": "Show only the contribution heatmap grid, without the header, footer, or month and weekday labels."
     },
+    "wrap": {
+      "label": "Wrap into rows",
+      "description": "Split the year into stacked blocks so the widget is narrower and taller instead of one long strip. Off keeps a single row of weeks.",
+      "options": {
+        "off": "Off (one long strip)",
+        "two": "2 blocks",
+        "three": "3 blocks",
+        "four": "4 blocks"
+      }
+    },
     "year": {
       "label": "Year",
       "description": "Which year the contribution calendar covers. Changing it refetches the data.",
