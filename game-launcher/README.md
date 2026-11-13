@@ -72,7 +72,8 @@ The plugin addresses all findings from Noctalia's security audit:
 
 ## Notes
 
-- Scans all detected Steam library folders, Lutris SQLite databases, and Heroic store caches (Legendary, GOG, Nile).
+- Scans all detected Steam library folders (including non-Steam shortcuts added to Steam), Lutris SQLite databases, and Heroic store caches (Legendary, GOG, Nile).
+- Non-Steam shortcuts use their Steam custom grid art (`userdata/<id>/config/grid/<appid>p.png`) or shortcut icon when available.
 - Results are cached in `~/.cache/gamelauncher/games.json` and rescanned on click if sources changed.
 - Last-played launches are stored in the plugin data dir (`recent.json`, newest 30) and shared live between the panels and the `/g` provider, so the last game stays on top everywhere.
 - No external CLI tools (curl, wget, python3, grep) are invoked anywhere in the plugin.

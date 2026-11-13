@@ -9,6 +9,7 @@
 #include <libgen.h>
 #include <ctype.h>
 #include <time.h>
+#include <stdint.h>
 
 #define MAX_GAMES 4096
 #define MAX_STR 1024
@@ -138,21 +139,233 @@ int file_exists(const char *path) {
     return stat(path, &st) == 0;
 }
 
-void scan_steam_shortcuts() {
-    char base[MAX_PATH];
-    const char *data_home = get_xdg_data_home();
+/* Binary VDF ("KeyValues") parser for Steam's shortcuts.vdf.
+ * Entry layout: [type byte][key cstring][value], where the value is:
+ *   0x00 object (entries followed by an 0x08 terminator)
+ *   0x01 cstring
+ *   0x02 int32 (4 bytes LE)
+ *   0x03 float32
+ *   0x04 pointer
+ *   0x05 UTF-16LE cstring
+ *   0x06 color (4 bytes)
+ *   0x07 uint64
+ *   0x08 end of object
+ */
 
-    const char *steam_bases[] = {
-        "/Steam/userdata",
+int should_exclude_steam(const char *name);
+
+static const unsigned char *bvdf_skip_object(const unsigned char *p,
+                                             const unsigned char *end);
+
+static const unsigned char *bvdf_skip_value(const unsigned char *p,
+                                            const unsigned char *end,
+                                            unsigned char type) {
+    switch (type) {
+        case 0x00:
+            return bvdf_skip_object(p, end);
+        case 0x01:
+            while (p < end && *p) p++;
+            return p < end ? p + 1 : NULL;
+        case 0x02:
+        case 0x03:
+        case 0x04:
+        case 0x06:
+            return p + 4 <= end ? p + 4 : NULL;
+        case 0x07:
+            return p + 8 <= end ? p + 8 : NULL;
+        case 0x05:
+            while (p + 1 < end && (p[0] || p[1])) p += 2;
+            return p + 2 <= end ? p + 2 : NULL;
+        default:
+            return NULL;
+    }
+}
+
+static const unsigned char *bvdf_skip_object(const unsigned char *p,
+                                             const unsigned char *end) {
+    while (p < end) {
+        unsigned char type = *p++;
+        if (type == 0x08) return p;
+        while (p < end && *p) p++;          /* key */
+        if (p >= end) return NULL;
+        p++;                                /* key terminator */
+        p = bvdf_skip_value(p, end, type);
+        if (!p) return NULL;
+    }
+    return NULL;
+}
+
+/* Finds `key` in the object whose body starts at `p`. On success stores the
+ * entry type and a pointer to its value, and returns 1. */
+static int bvdf_get_entry(const unsigned char *p, const unsigned char *end,
+                          const char *key, unsigned char *type_out,
+                          const unsigned char **value_out) {
+    size_t key_len = strlen(key);
+    while (p < end) {
+        unsigned char type = *p++;
+        if (type == 0x08) return 0;
+        const unsigned char *key_start = p;
+        while (p < end && *p) p++;
+        if (p >= end) return 0;
+        size_t cur_len = (size_t)(p - key_start);
+        p++;
+        if (cur_len == key_len && memcmp(key_start, key, key_len) == 0) {
+            *type_out = type;
+            *value_out = p;
+            return 1;
+        }
+        p = (type == 0x00) ? bvdf_skip_object(p, end)
+                           : bvdf_skip_value(p, end, type);
+        if (!p) return 0;
+    }
+    return 0;
+}
+
+static void bvdf_get_string(const unsigned char *body, const unsigned char *end,
+                            const char *key, char *out, size_t out_size) {
+    unsigned char type;
+    const unsigned char *value;
+    out[0] = '\0';
+    if (!bvdf_get_entry(body, end, key, &type, &value) || type != 0x01) return;
+    size_t i = 0;
+    while (value + i < end && value[i] && i < out_size - 1) {
+        out[i] = (char)value[i];
+        i++;
+    }
+    out[i] = '\0';
+}
+
+static int bvdf_get_int32(const unsigned char *body, const unsigned char *end,
+                          const char *key, int32_t *out) {
+    unsigned char type;
+    const unsigned char *value;
+    if (!bvdf_get_entry(body, end, key, &type, &value) || type != 0x02) return 0;
+    if (value + 4 > end) return 0;
+    uint32_t u = (uint32_t)value[0] | ((uint32_t)value[1] << 8) |
+                 ((uint32_t)value[2] << 16) | ((uint32_t)value[3] << 24);
+    *out = (int32_t)u;
+    return 1;
+}
+
+static int collect_steam_userdata_roots(char (*roots)[MAX_PATH], int max) {
+    char buf[MAX_PATH];
+    int n = 0;
+
+    snprintf(buf, sizeof(buf), "%s/Steam/userdata", get_xdg_data_home());
+    if (file_exists(buf) && n < max) snprintf(roots[n++], MAX_PATH, "%s", buf);
+
+    const char *home = get_home();
+    const char *home_suffixes[] = {
+        "/.steam/steam/userdata",
         "/.steam/root/userdata",
         "/.var/app/com.valvesoftware.Steam/.local/share/Steam/userdata",
         NULL
     };
+    for (int i = 0; home_suffixes[i]; i++) {
+        snprintf(buf, sizeof(buf), "%s%s", home, home_suffixes[i]);
+        if (!file_exists(buf)) continue;
+        int dup = 0;
+        for (int j = 0; j < n; j++) {
+            if (strcmp(roots[j], buf) == 0) { dup = 1; break; }
+        }
+        if (!dup && n < max) snprintf(roots[n++], MAX_PATH, "%s", buf);
+    }
+    return n;
+}
 
-    for (int b = 0; steam_bases[b]; b++) {
-        snprintf(base, sizeof(base), "%s%s", data_home, steam_bases[b]);
+static void find_shortcut_cover(const char *userdata_root, const char *uid,
+                                const char *appid, char *out, size_t out_size) {
+    out[0] = '\0';
+    /* Steam stores custom art in userdata/<uid>/config/grid/<appid>[p].png */
+    const char *suffixes[] = { "p.png", "p.jpg", "p.jpeg",
+                               ".png", ".jpg", ".jpeg", NULL };
+    for (int i = 0; suffixes[i]; i++) {
+        char fp[MAX_PATH];
+        snprintf(fp, sizeof(fp), "%s/%s/config/grid/%s%s",
+                 userdata_root, uid, appid, suffixes[i]);
+        if (file_exists(fp)) {
+            strncpy(out, fp, out_size - 1);
+            out[out_size - 1] = '\0';
+            return;
+        }
+    }
+}
 
-        DIR *ud = opendir(base);
+static int is_supported_image(const char *path) {
+    const char *ext = strrchr(path, '.');
+    if (!ext) return 0;
+    return strcasecmp(ext, ".png") == 0 || strcasecmp(ext, ".jpg") == 0 ||
+           strcasecmp(ext, ".jpeg") == 0 || strcasecmp(ext, ".webp") == 0;
+}
+
+static void scan_shortcuts_buffer(const unsigned char *buf, size_t len,
+                                  const char *userdata_root, const char *uid) {
+    const unsigned char *end = buf + len;
+    const unsigned char *shortcuts;
+    unsigned char type;
+    if (!bvdf_get_entry(buf, end, "shortcuts", &type, &shortcuts) || type != 0x00)
+        return;
+
+    const unsigned char *p = shortcuts;
+    while (p < end) {
+        unsigned char entry_type = *p++;
+        if (entry_type == 0x08) break;          /* end of shortcuts object */
+        while (p < end && *p) p++;              /* shortcut index key */
+        if (p >= end) break;
+        p++;
+
+        if (entry_type != 0x00) {
+            p = bvdf_skip_value(p, end, entry_type);
+            if (!p) break;
+            continue;
+        }
+
+        const unsigned char *child_end = bvdf_skip_object(p, end);
+        if (!child_end) break;
+
+        int32_t appid = 0;
+        int32_t hidden = 0;
+        char name[MAX_STR] = "";
+        char icon[MAX_PATH] = "";
+
+        int has_appid = bvdf_get_int32(p, child_end, "appid", &appid);
+        bvdf_get_int32(p, child_end, "IsHidden", &hidden);
+        bvdf_get_string(p, child_end, "AppName", name, sizeof(name));
+        bvdf_get_string(p, child_end, "icon", icon, sizeof(icon));
+
+        if (has_appid && appid != 0 && !hidden && name[0] &&
+            !game_exists(name) && !should_exclude_steam(name)) {
+            unsigned int uappid = (unsigned int)appid;
+            char appid_str[32];
+            snprintf(appid_str, sizeof(appid_str), "%u", uappid);
+
+            unsigned long long long_id =
+                ((unsigned long long)uappid << 32) | 0x02000000ULL;
+
+            char run_command[MAX_RUN_CMD];
+            snprintf(run_command, sizeof(run_command),
+                     "steam://rungameid/%llu", long_id);
+
+            char cover[MAX_PATH] = "";
+            find_shortcut_cover(userdata_root, uid, appid_str, cover, sizeof(cover));
+            if (!cover[0] && icon[0] && file_exists(icon) && is_supported_image(icon)) {
+                strncpy(cover, icon, MAX_PATH - 1);
+                cover[MAX_PATH - 1] = '\0';
+            }
+
+            add_game(appid_str, name, "steam", cover, "", run_command, "");
+        }
+
+        p = child_end;
+    }
+}
+
+void scan_steam_shortcuts() {
+    char roots[8][MAX_PATH];
+    int num_roots = collect_steam_userdata_roots(roots, 8);
+
+    for (int r = 0; r < num_roots; r++) {
+        DIR *ud = opendir(roots[r]);
         if (!ud) continue;
 
         struct dirent *entry;
@@ -161,7 +374,7 @@ void scan_steam_shortcuts() {
 
             char config_path[MAX_PATH];
             snprintf(config_path, sizeof(config_path), "%s/%s/config/shortcuts.vdf",
-                     base, entry->d_name);
+                     roots[r], entry->d_name);
 
             FILE *f = fopen(config_path, "rb");
             if (!f) continue;
@@ -169,58 +382,15 @@ void scan_steam_shortcuts() {
             fseek(f, 0, SEEK_END);
             long fsize = ftell(f);
             rewind(f);
+            if (fsize <= 0) { fclose(f); continue; }
 
-            char *buf = malloc(fsize + 1);
+            unsigned char *buf = malloc((size_t)fsize);
             if (!buf) { fclose(f); continue; }
-            size_t nread = fread(buf, 1, fsize, f);
-            buf[nread] = '\0';
+            size_t nread = fread(buf, 1, (size_t)fsize, f);
             fclose(f);
 
-            char *p = buf;
-            while ((p = strstr(p, "\"AppName\""))) {
-                char *vstart = p + 9;
-                while (*vstart && *vstart != '"') vstart++;
-                if (*vstart != '"') { p++; continue; }
-                vstart++;
-                char *vend = strchr(vstart, '"');
-                if (!vend) { p++; continue; }
-
-                char appname[MAX_STR];
-                size_t nlen = vend - vstart;
-                if (nlen >= MAX_STR) nlen = MAX_STR - 1;
-                strncpy(appname, vstart, nlen);
-                appname[nlen] = '\0';
-
-                if (game_exists(appname)) { p = vend; continue; }
-
-                char *appid_p = strstr(vend, "\"appid\"");
-                if (!appid_p) { p = vend; continue; }
-
-                appid_p += 7;
-                while (*appid_p && *appid_p != '"') appid_p++;
-                if (*appid_p == '"') {
-                    appid_p++;
-                    char *appid_end = strchr(appid_p, '"');
-                    if (appid_end) {
-                        char appid_str[32];
-                        size_t idlen = appid_end - appid_p;
-                        if (idlen >= sizeof(appid_str)) idlen = sizeof(appid_str) - 1;
-                        strncpy(appid_str, appid_p, idlen);
-                        appid_str[idlen] = '\0';
-
-                        unsigned long long appid = strtoull(appid_str, NULL, 10);
-                        unsigned long long short_appid = appid & 0xFFFFFFFFULL;
-                        unsigned long long long_id = (short_appid << 32) | 0x02000000ULL;
-
-        char run_command[MAX_RUN_CMD];
-                         snprintf(run_command, sizeof(run_command),
-                                  "steam://rungameid/%llu", long_id);
-
-                        add_game(appid_str, appname, "steam", "", "", run_command, "");
-                    }
-                }
-                p = appid_p;
-            }
+            if (nread > 0)
+                scan_shortcuts_buffer(buf, nread, roots[r], entry->d_name);
 
             free(buf);
         }
@@ -1047,6 +1217,25 @@ int cache_valid() {
     snprintf(hp, sizeof(hp), "%s/heroic/sideload_apps/library.json", config_home);
     if (stat(hp, &st) == 0 && st.st_mtime > cached_ts) return 0;
 
+    char userdata_roots[8][MAX_PATH];
+    int num_roots = collect_steam_userdata_roots(userdata_roots, 8);
+    for (int r = 0; r < num_roots; r++) {
+        DIR *ud = opendir(userdata_roots[r]);
+        if (!ud) continue;
+        struct dirent *entry;
+        while ((entry = readdir(ud))) {
+            if (entry->d_name[0] == '.') continue;
+            char sc[MAX_PATH];
+            snprintf(sc, sizeof(sc), "%s/%s/config/shortcuts.vdf",
+                     userdata_roots[r], entry->d_name);
+            if (stat(sc, &st) == 0 && st.st_mtime > cached_ts) {
+                closedir(ud);
+                return 0;
+            }
+        }
+        closedir(ud);
+    }
+
     for (int r = 0; steam_roots[r]; r++) {
         char vdf_path[MAX_PATH];
         snprintf(vdf_path, sizeof(vdf_path), "%s%s/steamapps/libraryfolders.vdf", data_home, steam_roots[r]);
@@ -1188,7 +1377,7 @@ int main(int argc, char *argv[]) {
     }
 
     init_games();
-    if (use_lutris) { scan_lutris(); scan_lutris_manual_files(); }
+    if (use_lutris) { scan_lutris(); }
     if (use_steam) { scan_steam(); scan_steam_shortcuts(); }
     if (use_heroic) { scan_heroic(); }
     qsort(ga.games, ga.count, sizeof(Game), compare_names);
