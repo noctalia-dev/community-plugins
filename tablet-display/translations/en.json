@@ -42,6 +42,10 @@
     "keep_sunshine": {
       "label": "Keep Sunshine running when off",
       "description": "Off normally stops Sunshine so nothing can be streamed. Turn this on to leave Sunshine running as it was before, with your own Sunshine settings (which may stream your main screen)."
+    },
+    "usb_keep_internet": {
+      "label": "Keep internet off the USB cable",
+      "description": "With USB tethering on, the tablet offers the computer an internet connection and would take over its traffic. This keeps your internet on Wi-Fi or Ethernet, for the current connection only (nothing is saved, and it never applies when the cable is your only connection). Uses nmcli."
     }
   },
   "status": {
@@ -88,7 +92,9 @@
     "dismiss": "Dismiss",
     "refresh": "Refresh",
     "diagnostics": "Diagnostics",
-    "settings": "Settings"
+    "settings": "Settings",
+    "usb_address": "Over USB: add {ip} in Moonlight",
+    "usb_firewall": "If Moonlight can't connect over USB, your firewall may be blocking the cable's network. Diagnostics shows the command to allow it."
   },
   "widget": {
     "problem": "Problem",

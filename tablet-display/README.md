@@ -31,12 +31,15 @@ but haven't been tested; reports are welcome.
   CachyOS) or [LizardByte's releases](https://github.com/LizardByte/Sunshine/releases).
 - `jq` and `python3` on `PATH`. `python3` generates the display's EDID.
 - `pkexec` (polkit), only on compositors that need the port method below.
+- `nmcli` (NetworkManager), only for USB mode: it keeps your internet off the
+  USB cable (see [USB mode](#usb-mode)).
 - Moonlight on the tablet, from the
   [Play Store](https://play.google.com/store/apps/details?id=com.limelight) or the
   [App Store](https://apps.apple.com/app/moonlight-game-streaming/id1000551566).
-- The computer and tablet on the same network: 5 or 6 GHz Wi-Fi, or wired for
-  the computer. With a firewall, open Sunshine's ports: TCP 47984, 47989, 47990,
-  48010 and UDP 47998–48000.
+- The computer and tablet on the same network (5 or 6 GHz Wi-Fi, or wired for
+  the computer), or connected by a USB cable (see [USB mode](#usb-mode)). With
+  a firewall, open Sunshine's ports: TCP 47984, 47989, 47990, 48010 and UDP
+  47998–48000.
 - A supported compositor. How **Extend** adds a display depends on it:
 
 | Compositor | Method | Setup |
@@ -107,7 +110,34 @@ noctalia msg panel-toggle iwasironman/tablet-display:panel
 6. Choose **Off** when you're done. Sunshine stops.
 
 Right-clicking the bar widget, or clicking the control-center tile, turns
-Extend on and off. **Diagnostics** opens a terminal with a report for bug
+Extend on and off.
+
+### USB mode
+
+A USB cable gives a steadier frame rate and lower delay than Wi-Fi. Sunshine and
+Moonlight work the same way; only the address Moonlight connects to changes.
+
+1. Connect the tablet with a USB cable and turn on **USB tethering** on the
+   tablet (on Samsung: **Settings → Connections → Mobile Hotspot and Tethering
+   → USB tethering**). Leave its Wi-Fi on; Android may grey out the switch
+   without a connection to share. On an iPad this is Personal Hotspot over
+   USB, which needs a cellular model; this has not been tested.
+2. The panel's **Moonlight** card shows **Over USB: add `<address>` in
+   Moonlight**. Add that address in Moonlight; it is recognised as the same,
+   already-paired computer.
+3. With a firewall, allow Sunshine on the cable's network interface.
+   **Diagnostics** prints the exact commands, for example with ufw:
+   ```sh
+   sudo ufw allow in on enp199s0f4u1 proto tcp to any port 47984,47989,47990,48010
+   sudo ufw allow in on enp199s0f4u1 proto udp to any port 47998:48000
+   ```
+   The interface name comes from the physical USB port, so the same port keeps
+   the same name.
+
+With tethering on, the tablet also offers the computer an internet connection,
+and NetworkManager prefers it over Wi-Fi. The plugin takes the default route off
+the USB link (see the `usb_keep_internet` setting), so your internet stays on
+Wi-Fi or Ethernet. **Diagnostics** opens a terminal with a report for bug
 reports.
 
 ## Settings
@@ -121,6 +151,7 @@ Under **Settings → Plugins → Tablet Display**. Advanced settings are behind
 | `custom_resolution` | `string` | `2560x1600` | For *Custom*, and for *Auto* before Moonlight first connects: `WIDTHxHEIGHT` in landscape. |
 | `custom_diagonal` | `double` | `0` | Screen diagonal in inches, used to pick the automatic scale. `0` means unknown. |
 | `audio` | `bool` | `false` | Play the computer's sound on the tablet while streaming. |
+| `usb_keep_internet` | `bool` | `true` | In USB mode, keep the computer's internet traffic off the USB cable. Applies `nmcli device modify <iface> ipv4.never-default yes ipv6.never-default yes` to the current connection only (nothing is saved), and only when another internet connection exists. |
 | `keep_sunshine` | `bool` | `false` | Advanced. Leave Sunshine running after **Off**, as it was before. Sunshine then follows your own Sunshine settings, which may stream your main screen. |
 | `refresh_rates` | `string` | `60,90,120` | Advanced. Refresh rates the display offers, comma-separated; it uses the fastest. 2960×1848 at 120 Hz needs about 17 Gbit/s, which the GPU's port must carry. |
 | `method` | `select` | `auto` | Advanced. *Virtual output*, *Unused display port*, or *Automatic* (virtual where the compositor supports it, otherwise the port). |
@@ -155,7 +186,8 @@ $CTL uninstall      # turn off, restore sunshine.conf, delete state
   (bash), which calls `jq`, `python3 bin/make-edid.py`, the compositor's own
   tool (`niri msg`, `hyprctl`, `swaymsg`, `mmsg`, `wlr-randr`),
   `systemctl --user` to start and stop Sunshine, `pkexec` for the port helper,
-  and `xdg-open` for Sunshine's web page. The plugin makes no network
+  `nmcli` for USB mode, `ip` to find the USB link, and `xdg-open` for
+  Sunshine's web page. The plugin makes no network
   requests itself; Sunshine does the streaming.
 - **What it writes.**
   - `~/.config/sunshine/sunshine.conf`: only a marked block while the display
@@ -164,6 +196,8 @@ $CTL uninstall      # turn off, restore sunshine.conf, delete state
   - `~/.local/state/noctalia-tablet-display/`: settings, the generated EDID,
     and the hook Sunshine calls when Moonlight connects.
   - `$XDG_RUNTIME_DIR/noctalia-tablet-display/`: session state and a log.
+  - USB mode: the active NetworkManager connection of the tablet's USB link,
+    at runtime only (`never-default`); saved profiles are not changed.
   - Sunshine's systemd user environment (`WAYLAND_DISPLAY` and the
     compositor's socket), so it captures the session that turned the display
     on.
@@ -181,6 +215,16 @@ $CTL uninstall      # turn off, restore sunshine.conf, delete state
   as your laptop screen.
 - **120 Hz at full resolution** needs a lot of bandwidth. If the frame rate
   wanders, stream at 90 fps or pick a lower resolution in Moonlight.
+- **Touch and placement.** Sunshine maps touch onto a desktop it assumes
+  starts at 0,0, and refuses a display at a negative position. So the plugin
+  always lays the monitors out from 0,0: for **Left** and **Above** it moves
+  your other monitors right or down instead of using negative coordinates, and
+  **Off** moves them back (niri, sway, mango). Sunshine works out where touch
+  goes when Moonlight connects, so after changing **Placement** during a stream,
+  reconnect Moonlight for direct touch to follow; the panel reminds you.
+  Moonlight's trackpad mode isn't affected. On Hyprland, **Left** and
+  **Above** still use `auto-left`/`auto-up`; if touch is off there, use
+  **Right** or **Below**.
 - **Touch on niri:** niri maps touch to a monitor only from its config. For
   Moonlight's direct-touch mode add `input { touch { map-to-output "DP-3" } }`
   (your display's name) to `config.kdl`. Moonlight's trackpad mode works

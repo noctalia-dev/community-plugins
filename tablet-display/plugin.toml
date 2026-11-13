@@ -3,14 +3,14 @@
 
 id = "iwasironman/tablet-display"
 name = "Tablet Display"
-version = "0.2.0"
+version = "0.3.0"
 plugin_api = 43
 author = "iwasironman"
 license = "MIT"
 icon = "device-tablet"
 description = "Use an Android tablet or iPad as an extended or mirrored display, streamed by Sunshine to Moonlight."
 tags = ["bar", "panel", "service", "shortcut", "hardware", "utility", "niri", "hyprland", "sway", "mangowc"]
-dependencies = ["sunshine", "jq", "python3", "pkexec"]
+dependencies = ["sunshine", "jq", "python3", "pkexec", "nmcli"]
 
 [[setting]]
 key = "device"
@@ -53,6 +53,13 @@ type = "bool"
 label_key = "settings.audio.label"
 description_key = "settings.audio.description"
 default = false
+
+[[setting]]
+key = "usb_keep_internet"
+type = "bool"
+label_key = "settings.usb_keep_internet.label"
+description_key = "settings.usb_keep_internet.description"
+default = true
 
 [[setting]]
 key = "keep_sunshine"

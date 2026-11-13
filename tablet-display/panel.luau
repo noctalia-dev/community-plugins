@@ -121,6 +121,21 @@ local function moonlightCard()
     heading(tr("panel.moonlight")),
     muted(tr("panel.moonlight_help", { host = where })),
   }
+  -- USB tethering: the tablet reaches Sunshine over the cable at this address.
+  local usb = snapshot.usb or {}
+  if #usb > 0 then
+    local ips = {}
+    for _, link in ipairs(usb) do
+      table.insert(ips, tostring(link.ip))
+    end
+    table.insert(children, ui.row({ gap = 8, align = "center" }, {
+      ui.glyph({ name = "usb", size = 16, color = "primary" }),
+      ui.label({ text = tr("panel.usb_address", { ip = table.concat(ips, ", ") }), color = "primary", flexGrow = 1, maxLines = 3 }),
+    }))
+    if snapshot.firewall then
+      table.insert(children, muted(tr("panel.usb_firewall")))
+    end
+  end
   local client = common.clientLine(snapshot)
   if client ~= "" then
     table.insert(children, ui.label({ text = client, color = snapshot.client and "primary" or "on_surface_variant" }))

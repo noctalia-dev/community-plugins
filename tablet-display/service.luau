@@ -82,6 +82,7 @@ local function configJson()
     method = noctalia.getConfig("method"),
     port = noctalia.getConfig("port"),
     keepSunshine = noctalia.getConfig("keep_sunshine") == true,
+    usbKeepInternet = noctalia.getConfig("usb_keep_internet") ~= false,
   })
 end
 
