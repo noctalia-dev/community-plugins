@@ -1,6 +1,10 @@
 {
   "description": "Native Oh My Pi (omp) launcher with active session indicator and project discovery.",
-  "settings.show_label.label": "Show the omp label",
-  "settings.show_label.description": "Draw the omp text next to the bar icon. Turn off for an icon-only widget.",
+  "settings": {
+    "show_label": {
+      "description": "Draw the omp text next to the bar icon. Turn off for an icon-only widget.",
+      "label": "Show the omp label"
+    }
+  },
   "title": "Oh My Pi Launcher"
 }
