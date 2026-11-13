@@ -120,8 +120,17 @@ launch_in_terminal() {
     local cmd=("$@")
     
     # 1. Respect user's $TERMINAL environment variable if set
+    #    Each terminal spells "start in this directory" differently, and ghostty in
+    #    particular rejects the space-separated form (`--working-directory /path`)
+    #    with a "Configuration Errors" dialog, so pass `=` and the matching flag.
     if [[ -n "${TERMINAL-}" ]] && command -v "$TERMINAL" >/dev/null 2>&1; then
-        exec "$TERMINAL" --working-directory "$target" -e "${cmd[@]}"
+        case "${TERMINAL##*/}" in
+            kitty)   exec "$TERMINAL" --directory="$target" "${cmd[@]}" ;;
+            wezterm) exec "$TERMINAL" start --cwd "$target" -- "${cmd[@]}" ;;
+            konsole) exec "$TERMINAL" --workdir "$target" -e "${cmd[@]}" ;;
+            xterm)   cd "$target" && exec "$TERMINAL" -e "${cmd[@]}" ;;
+            *)       exec "$TERMINAL" --working-directory="$target" -e "${cmd[@]}" ;;
+        esac
     fi
 
     # 2. Try xdg-terminal-exec (freedesktop standard)
