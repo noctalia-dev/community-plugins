@@ -12,20 +12,32 @@ local offset, lastFocus, subscription = 0, nil, nil
 local initialized, dirty = false, true
 local subscriptionGeneration = 0
 local render, refresh, subscribe, handleHover
+local zoomFrom, zoomStart = {}, nil
 
+local function sameValue(a, b)
+  if type(a) ~= type(b) then return false end
+  if type(a) ~= "table" then return a == b end
+  for key, value in pairs(a) do if not sameValue(value, b[key]) then return false end end
+  for key in pairs(b) do if a[key] == nil then return false end end
+  return true
+end
 local function readConfig()
   -- All keys are manifest declared. The host validates types; clamp cross-field constraints here.
   local keys = { "expand_mode", "hover_delay", "collapse_delay", "animation_duration", "animations",
     "min_width", "max_width", "collapsed_width", "icon_size", "icon_spacing", "overflow_behavior",
     "scroll_step", "auto_reveal_focused", "show_scroll_indicators", "display_mode", "workspace_filter",
     "output_filter", "show_minimized", "grouping", "duplicate_indicator", "sorting", "exclusions",
-    "pinned_apps", "app_aliases", "collapsed_label", "placeholder", "placeholder_glyph", "capsule_radius",
+    "pinned_apps", "app_aliases", "collapsed_label", "capsule_radius", "hover_enlarge", "hover_scale",
     "opacity", "border", "active_indicator", "minimized_indicator", "urgent_indicator", "badge_placement",
     "click_behavior", "middle_click", "refresh_fallback", "diagnostic_logging", "compositor_compatibility" }
-  for _, key in ipairs(keys) do config[key] = noctalia.getConfig(key) end
-  config.min_width = math.min(config.min_width, config.max_width)
-  config.collapsed_width = math.min(config.collapsed_width, config.max_width)
-  icons = {}
+  local nextConfig = {}
+  for _, key in ipairs(keys) do nextConfig[key] = noctalia.getConfig(key) end
+  nextConfig.min_width = math.min(nextConfig.min_width, nextConfig.max_width)
+  nextConfig.collapsed_width = math.min(nextConfig.collapsed_width, nextConfig.max_width)
+  local changed = not sameValue(config, nextConfig)
+  config = nextConfig
+  if changed then icons = {} end
+  return changed
 end
 local function log(message)
   if config.diagnostic_logging then noctalia.log(message) end
@@ -34,7 +46,7 @@ local function schedule()
   -- No hover polling: ticks only implement a pending delay / short fade. Idle ticks do no rendering.
   local interval = config.refresh_fallback * 1000
   if deadline then interval = math.max(16, math.min(interval, deadline - noctalia.nowMs())) end
-  if transitionStart then interval = 33 end
+  if transitionStart or zoomStart then interval = 33 end
   noctalia.setUpdateInterval(interval)
 end
 local function setExpanded(value)
@@ -84,47 +96,71 @@ local function targetGroup()
   for _, group in ipairs(groups) do if group.key == hoveredKey then return group end end
   return focusedGroup()
 end
-local function icon(group, size)
-  local app = group and group.iconId or ""
-  local cacheKey = app .. ":" .. size
-  if icons[cacheKey] == nil then icons[cacheKey] = app ~= "" and (noctalia.appIconPath(app, size * 3) or false) or false end
-  if icons[cacheKey] then return ui.image({ path = icons[cacheKey], width = size, height = size, fit = "contain" }) end
-  return ui.glyph({ name = group and "app-window" or config.placeholder_glyph, size = size, color = "on_surface_variant" })
+local function hoverLevel(key)
+  local target = config.hover_enlarge and key == hoveredKey and 1 or 0
+  if not zoomStart then return target end
+  local t = math.clamp((noctalia.nowMs() - zoomStart) / math.max(1, config.animation_duration), 0, 1)
+  local eased = t * t * (3 - 2 * t)
+  return (zoomFrom[key] or 0) + (target - (zoomFrom[key] or 0)) * eased
 end
-local function countNode(group)
-  local n, mode = #group.windows, config.duplicate_indicator
-  if n <= 1 or mode == "none" then return ui.box({ width = 20, height = 1 }) end
+local function setHoverTarget(key)
+  if key == hoveredKey then return end
+  local from = {}
+  for _, group in ipairs(groups) do from[group.key] = hoverLevel(group.key) end
+  hoveredKey = key
+  zoomFrom = from
+  zoomStart = config.hover_enlarge and config.animations and config.animation_duration > 0 and noctalia.nowMs() or nil
+  dirty = true
+end
+local function icon(group, size, scale)
+  local app = group.iconId or ""
+  -- Resolve once for the maximum intended size, not on each magnification frame.
+  local targetSize = Model.peakIconSize(config)
+  local cacheKey = app .. ":" .. targetSize
+  if icons[cacheKey] == nil then icons[cacheKey] = app ~= "" and (noctalia.appIconPath(app, targetSize * 3) or false) or false end
+  if icons[cacheKey] then
+    return ui.image({ key = "icon:" .. group.key, path = icons[cacheKey], width = size, height = size,
+      fit = "contain", scale = scale or 1 })
+  end
+  return ui.glyph({ key = "icon:" .. group.key, name = "app-window", size = size,
+    scale = scale or 1, color = "on_surface_variant" })
+end
+local function countNode(group, peak)
+  local n = #group.windows
+  if n <= 1 or config.duplicate_indicator == "none" then return nil end
   local text = tostring(n)
-  if mode == "dots" then text = n <= 3 and string.rep("·", n) or "··+" end
-  return ui.row({ width = 20, justify = "center", radius = 6,
-    fill = mode == "badge" and "secondary_container" or nil,
-    height = 16, align = "center", clip = true }, {
-    ui.label({ text = text, fontSize = 10, maxWidth = 20, maxLines = 1,
-      color = mode == "badge" and "on_secondary_container" or "on_surface_variant" }),
+  local badgeWidth = math.min(peak + 8, math.max(16, #text * 6 + 6))
+  return ui.row({ key = "badge:" .. group.key, width = badgeWidth, height = 16,
+    justify = "center", align = "center", radius = 8, fill = "secondary_container",
+    -- Paint-only transforms overlay the badge; they do not add a layout lane.
+    translateX = config.badge_placement == "before" and -(peak + 2) or 2 - badgeWidth,
+    translateY = -(peak + 8 - 16) / 2, clip = true }, {
+    ui.label({ text = text, fontSize = 10, maxWidth = badgeWidth, maxLines = 1,
+      color = "on_secondary_container", fontWeight = "bold" }),
   })
 end
 local function cell(group, width)
-  local vertical = barWidget.isVertical()
-  local children = { icon(group, config.icon_size), countNode(group) }
-  if config.badge_placement == "before" then children = { children[2], children[1] } end
+  local peak = Model.peakIconSize(config)
+  local scale = 1 + ((config.hover_enlarge and config.hover_scale or 1) - 1) * hoverLevel(group.key)
+  local children = { ui.row({ width = peak, height = peak, justify = "center", align = "center" }, {
+    icon(group, config.icon_size, scale),
+  }) }
+  local badge = countNode(group, peak)
+  if badge then table.insert(children, badge) end
   local fill = group.focused and config.active_indicator and "primary_container" or "surface_container/0"
   local border = group.urgent and config.urgent_indicator and "error" or nil
-  local props = { key = group.key, width = width, height = config.icon_size + 4,
-    gap = 2, align = "center", justify = "center", radius = 8, fill = fill, border = border,
+  local props = { key = group.key, width = width, height = peak + 8,
+    paddingH = 4, gap = 0, align = "center", justify = "start", radius = 8, fill = fill, border = border,
     opacity = group.minimized and config.minimized_indicator and 0.5 or 1, clip = true,
-    tooltip = (group.title or group.appId) .. " (" .. tostring(#group.windows) .. ")",
+    tooltip = (group.title or group.appId) .. (#group.windows > 1 and (" (" .. tostring(#group.windows) .. ")") or ""),
     onClick = function() activate(group) end,
     onHover = function(entered)
-      if entered == "true" then hoveredKey = group.key elseif hoveredKey == group.key then hoveredKey = nil end
+      if entered == "true" then setHoverTarget(group.key)
+      elseif hoveredKey == group.key then setHoverTarget(nil) end
       handleHover(entered == "true")
     end }
-  if vertical then
-    -- Stack count below the icon to fit normal side-bar thickness.
-    props.width = config.icon_size + 8
-    props.height = width
-  end
   if config.sorting == "manual" then props.onClick = nil end
-  local content = (vertical and ui.column or ui.row)(props, children)
+  local content = ui.row(props, children)
   if config.sorting == "manual" then
     local dragProps = { key = "drag:" .. group.key, dragType = "smart-taskbar/app", payload = group.key,
       grabCursor = true, onClick = function() activate(group) end }
@@ -165,9 +201,20 @@ local function navigate(delta)
   dirty = true; render()
 end
 render = function()
-  if not dirty and not transitionStart then return end
+  if not dirty and not transitionStart and not zoomStart then return end
   local vertical = barWidget.isVertical()
   local container = vertical and ui.column or ui.row
+  local hasWindows = false
+  for _, group in ipairs(groups) do if #group.windows > 0 then hasWindows = true; break end end
+  barWidget.setVisible(hasWindows)
+  if not hasWindows then
+    -- Keep subscriptions alive so the first matching window can restore the widget.
+    hovered, hoveredKey, deadline, transitionStart, zoomStart = false, nil, nil, nil, nil
+    zoomFrom = {}; expanded = config.expand_mode == "always"
+    barWidget.render(container({ key = "smart-taskbar", visible = false }, {}))
+    barWidget.setTooltip("")
+    dirty = false; schedule(); return
+  end
   local layout = Model.layout(config, #groups)
   local children, width = {}, expanded and layout.width or layout.collapsed
   if expanded then
@@ -186,7 +233,6 @@ render = function()
       end
       table.insert(strip, item)
     end
-    if #strip == 0 then table.insert(strip, icon(nil, config.icon_size)) end
     local viewportProps = { key = "viewport", gap = config.icon_spacing, align = "center", clip = true }
     if vertical then viewportProps.height = layout.viewport else viewportProps.width = layout.viewport end
     local alpha = 1
@@ -204,13 +250,16 @@ render = function()
   else
     transitionStart = nil
     local group = focusedGroup()
+    if not group then
+      for _, candidate in ipairs(groups) do if #candidate.windows > 0 then group = candidate; break end end
+    end
     table.insert(children, icon(group, math.min(config.icon_size, width - 16)))
     local text = ""
     if group then
       if config.collapsed_label == "title" then text = group.title or group.appId
       elseif config.collapsed_label == "name" then text = group.appId
-      elseif config.collapsed_label == "count" then text = tostring(#group.windows) end
-    else text = config.placeholder end
+      elseif config.collapsed_label == "count" and #group.windows > 1 then text = tostring(#group.windows) end
+    end
     if text ~= "" and not vertical then
       table.insert(children, ui.label({ text = text, fontSize = 11, maxLines = 1,
         maxWidth = math.max(0, width - config.icon_size - 20), color = "on_surface" }))
@@ -220,10 +269,11 @@ render = function()
     radius = config.capsule_radius, fill = "surface_container/" .. tostring(config.opacity),
     border = config.border and "outline_variant" or nil, clip = true,
     onHover = function(entered) handleHover(entered == "true") end }
-  if vertical then props.paddingH = 0; props.paddingV = 8; props.height = width; props.width = config.icon_size + 8
-  else props.width = width; props.height = config.icon_size + 8 end
+  if vertical then props.paddingH = 0; props.paddingV = 8; props.height = width; props.width = layout.peak + 8
+  else props.width = width; props.height = layout.peak + 8 end
   barWidget.render(container(props, children))
   barWidget.setTooltip(backend.connected and noctalia.tr("hint") or noctalia.tr("disconnected"))
+  if zoomStart and noctalia.nowMs() - zoomStart >= config.animation_duration then zoomStart = nil; zoomFrom = {} end
   dirty = false; schedule()
 end
 handleHover = function(entered)
@@ -233,12 +283,13 @@ handleHover = function(entered)
       pendingExpand = true; deadline = noctalia.nowMs() + config.hover_delay
     else deadline = nil end
   else
-    hoveredKey = nil
+    setHoverTarget(nil)
     if config.expand_mode == "hover" and expanded and config.sorting ~= "manual" then
       pendingExpand = false; deadline = noctalia.nowMs() + config.collapse_delay
     else deadline = nil end
   end
   schedule()
+  render()
 end
 function onHover(entered)
   handleHover(entered)
@@ -267,7 +318,9 @@ function onScroll(axis, steps, startsGesture)
 end
 function onConfigChanged()
   local previousCompatibility = config.compositor_compatibility
-  readConfig();
+  -- The settings-page selector is editor navigation, not a presentation change.
+  if not readConfig() then return end
+  zoomStart = nil; zoomFrom = {}; hoveredKey = nil
   if previousCompatibility ~= config.compositor_compatibility then
     subscriptionGeneration += 1
     if subscription then transport.unsubscribe(subscription); subscription = nil end
@@ -305,7 +358,7 @@ function update()
   end
   if deadline and noctalia.nowMs() >= deadline then
     setExpanded(pendingExpand); refresh(pendingExpand); render()
-  elseif transitionStart then render()
+  elseif transitionStart or zoomStart then render()
   else subscribe(); schedule() end
 end
 function onExit()

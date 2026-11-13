@@ -1,6 +1,6 @@
 id = "omardardery/smart-taskbar"
 name = "Smart Taskbar"
-version = "0.1.1"
+version = "0.1.2"
 plugin_api = 52
 author = "OmarDardery"
 license = "MIT"
@@ -15,12 +15,21 @@ entry = "widget.luau"
 hover_highlight = false
 
 [[widget.setting]]
+key = "settings_page"
+type = "select"
+default = "behavior"
+label_key = "settings.settings_page.label"
+description_key = "settings.settings_page.description"
+options = [{ "value" = "behavior", "label_key" = "options.settings_page.behavior" }, { "value" = "applications", "label_key" = "options.settings_page.applications" }, { "value" = "layout", "label_key" = "options.settings_page.layout" }, { "value" = "appearance", "label_key" = "options.settings_page.appearance" }, { "value" = "interaction", "label_key" = "options.settings_page.interaction" }, { "value" = "advanced", "label_key" = "options.settings_page.advanced" }]
+
+[[widget.setting]]
 key = "expand_mode"
 type = "select"
 default = "hover"
 label_key = "settings.expand_mode.label"
 description_key = "settings.expand_mode.description"
-options = [{ value = "hover", label_key = "options.expand_mode.hover" }, { value = "click", label_key = "options.expand_mode.click" }, { value = "always", label_key = "options.expand_mode.always" }]
+options = [{ "value" = "hover", "label_key" = "options.expand_mode.hover" }, { "value" = "click", "label_key" = "options.expand_mode.click" }, { "value" = "always", "label_key" = "options.expand_mode.always" }]
+visible_when = { "key" = "settings_page", "values" = ["behavior"] }
 
 [[widget.setting]]
 key = "hover_delay"
@@ -30,6 +39,7 @@ label_key = "settings.hover_delay.label"
 description_key = "settings.hover_delay.description"
 min = 0
 max = 2000
+visible_when = { "key" = "settings_page", "values" = ["behavior"] }
 
 [[widget.setting]]
 key = "collapse_delay"
@@ -39,6 +49,7 @@ label_key = "settings.collapse_delay.label"
 description_key = "settings.collapse_delay.description"
 min = 0
 max = 5000
+visible_when = { "key" = "settings_page", "values" = ["behavior"] }
 
 [[widget.setting]]
 key = "animations"
@@ -46,6 +57,7 @@ type = "bool"
 default = true
 label_key = "settings.animations.label"
 description_key = "settings.animations.description"
+visible_when = { "key" = "settings_page", "values" = ["behavior"] }
 
 [[widget.setting]]
 key = "animation_duration"
@@ -55,6 +67,76 @@ label_key = "settings.animation_duration.label"
 description_key = "settings.animation_duration.description"
 min = 0
 max = 500
+visible_when = { "key" = "settings_page", "values" = ["behavior"] }
+
+[[widget.setting]]
+key = "display_mode"
+type = "select"
+default = "running"
+label_key = "settings.display_mode.label"
+description_key = "settings.display_mode.description"
+options = [{ "value" = "active", "label_key" = "options.display_mode.active" }, { "value" = "running", "label_key" = "options.display_mode.running" }, { "value" = "workspace", "label_key" = "options.display_mode.workspace" }, { "value" = "all_workspaces", "label_key" = "options.display_mode.all_workspaces" }, { "value" = "monitor", "label_key" = "options.display_mode.monitor" }, { "value" = "all_monitors", "label_key" = "options.display_mode.all_monitors" }, { "value" = "running_pinned", "label_key" = "options.display_mode.running_pinned" }, { "value" = "pinned", "label_key" = "options.display_mode.pinned" }]
+visible_when = { "key" = "settings_page", "values" = ["applications"] }
+
+[[widget.setting]]
+key = "grouping"
+type = "select"
+default = "app"
+label_key = "settings.grouping.label"
+description_key = "settings.grouping.description"
+options = [{ "value" = "app", "label_key" = "options.grouping.app" }, { "value" = "workspace", "label_key" = "options.grouping.workspace" }, { "value" = "app_workspace", "label_key" = "options.grouping.app_workspace" }, { "value" = "windows", "label_key" = "options.grouping.windows" }]
+visible_when = { "key" = "settings_page", "values" = ["applications"] }
+
+[[widget.setting]]
+key = "workspace_filter"
+type = "select"
+default = "all"
+label_key = "settings.workspace_filter.label"
+description_key = "settings.workspace_filter.description"
+options = [{ "value" = "all", "label_key" = "options.workspace_filter.all" }, { "value" = "active", "label_key" = "options.workspace_filter.active" }]
+visible_when = { "key" = "settings_page", "values" = ["applications"] }
+
+[[widget.setting]]
+key = "output_filter"
+type = "select"
+default = "all"
+label_key = "settings.output_filter.label"
+description_key = "settings.output_filter.description"
+options = [{ "value" = "all", "label_key" = "options.output_filter.all" }, { "value" = "current", "label_key" = "options.output_filter.current" }]
+visible_when = { "key" = "settings_page", "values" = ["applications"] }
+
+[[widget.setting]]
+key = "show_minimized"
+type = "bool"
+default = true
+label_key = "settings.show_minimized.label"
+description_key = "settings.show_minimized.description"
+visible_when = { "key" = "settings_page", "values" = ["applications"] }
+
+[[widget.setting]]
+key = "sorting"
+type = "select"
+default = "launch"
+label_key = "settings.sorting.label"
+description_key = "settings.sorting.description"
+options = [{ "value" = "mru", "label_key" = "options.sorting.mru" }, { "value" = "launch", "label_key" = "options.sorting.launch" }, { "value" = "alphabetical", "label_key" = "options.sorting.alphabetical" }, { "value" = "workspace", "label_key" = "options.sorting.workspace" }, { "value" = "manual", "label_key" = "options.sorting.manual" }]
+visible_when = { "key" = "settings_page", "values" = ["applications"] }
+
+[[widget.setting]]
+key = "pinned_apps"
+type = "string_list"
+default = []
+label_key = "settings.pinned_apps.label"
+description_key = "settings.pinned_apps.description"
+visible_when = { "key" = "settings_page", "values" = ["applications"] }
+
+[[widget.setting]]
+key = "exclusions"
+type = "string_list"
+default = []
+label_key = "settings.exclusions.label"
+description_key = "settings.exclusions.description"
+visible_when = { "key" = "settings_page", "values" = ["applications"] }
 
 [[widget.setting]]
 key = "min_width"
@@ -64,6 +146,7 @@ label_key = "settings.min_width.label"
 description_key = "settings.min_width.description"
 min = 32
 max = 2048
+visible_when = { "key" = "settings_page", "values" = ["layout"] }
 
 [[widget.setting]]
 key = "max_width"
@@ -73,6 +156,7 @@ label_key = "settings.max_width.label"
 description_key = "settings.max_width.description"
 min = 48
 max = 2048
+visible_when = { "key" = "settings_page", "values" = ["layout"] }
 
 [[widget.setting]]
 key = "collapsed_width"
@@ -82,6 +166,7 @@ label_key = "settings.collapsed_width.label"
 description_key = "settings.collapsed_width.description"
 min = 32
 max = 2048
+visible_when = { "key" = "settings_page", "values" = ["layout"] }
 
 [[widget.setting]]
 key = "icon_size"
@@ -91,6 +176,7 @@ label_key = "settings.icon_size.label"
 description_key = "settings.icon_size.description"
 min = 12
 max = 48
+visible_when = { "key" = "settings_page", "values" = ["layout"] }
 
 [[widget.setting]]
 key = "icon_spacing"
@@ -100,6 +186,7 @@ label_key = "settings.icon_spacing.label"
 description_key = "settings.icon_spacing.description"
 min = 0
 max = 24
+visible_when = { "key" = "settings_page", "values" = ["layout"] }
 
 [[widget.setting]]
 key = "overflow_behavior"
@@ -107,23 +194,8 @@ type = "select"
 default = "items"
 label_key = "settings.overflow_behavior.label"
 description_key = "settings.overflow_behavior.description"
-options = [{ value = "items", label_key = "options.overflow_behavior.items" }, { value = "pages", label_key = "options.overflow_behavior.pages" }]
-
-[[widget.setting]]
-key = "scroll_step"
-type = "int"
-default = 1
-label_key = "settings.scroll_step.label"
-description_key = "settings.scroll_step.description"
-min = 1
-max = 20
-
-[[widget.setting]]
-key = "auto_reveal_focused"
-type = "bool"
-default = true
-label_key = "settings.auto_reveal_focused.label"
-description_key = "settings.auto_reveal_focused.description"
+options = [{ "value" = "items", "label_key" = "options.overflow_behavior.items" }, { "value" = "pages", "label_key" = "options.overflow_behavior.pages" }]
+visible_when = { "key" = "settings_page", "values" = ["layout"] }
 
 [[widget.setting]]
 key = "show_scroll_indicators"
@@ -131,83 +203,7 @@ type = "bool"
 default = true
 label_key = "settings.show_scroll_indicators.label"
 description_key = "settings.show_scroll_indicators.description"
-
-[[widget.setting]]
-key = "display_mode"
-type = "select"
-default = "running"
-label_key = "settings.display_mode.label"
-description_key = "settings.display_mode.description"
-options = [{ value = "active", label_key = "options.display_mode.active" }, { value = "running", label_key = "options.display_mode.running" }, { value = "workspace", label_key = "options.display_mode.workspace" }, { value = "all_workspaces", label_key = "options.display_mode.all_workspaces" }, { value = "monitor", label_key = "options.display_mode.monitor" }, { value = "all_monitors", label_key = "options.display_mode.all_monitors" }, { value = "running_pinned", label_key = "options.display_mode.running_pinned" }, { value = "pinned", label_key = "options.display_mode.pinned" }]
-
-[[widget.setting]]
-key = "workspace_filter"
-type = "select"
-default = "all"
-label_key = "settings.workspace_filter.label"
-description_key = "settings.workspace_filter.description"
-options = [{ value = "all", label_key = "options.workspace_filter.all" }, { value = "active", label_key = "options.workspace_filter.active" }]
-
-[[widget.setting]]
-key = "output_filter"
-type = "select"
-default = "all"
-label_key = "settings.output_filter.label"
-description_key = "settings.output_filter.description"
-options = [{ value = "all", label_key = "options.output_filter.all" }, { value = "current", label_key = "options.output_filter.current" }]
-
-[[widget.setting]]
-key = "show_minimized"
-type = "bool"
-default = true
-label_key = "settings.show_minimized.label"
-description_key = "settings.show_minimized.description"
-
-[[widget.setting]]
-key = "grouping"
-type = "select"
-default = "app"
-label_key = "settings.grouping.label"
-description_key = "settings.grouping.description"
-options = [{ value = "app", label_key = "options.grouping.app" }, { value = "workspace", label_key = "options.grouping.workspace" }, { value = "app_workspace", label_key = "options.grouping.app_workspace" }, { value = "windows", label_key = "options.grouping.windows" }]
-
-[[widget.setting]]
-key = "duplicate_indicator"
-type = "select"
-default = "badge"
-label_key = "settings.duplicate_indicator.label"
-description_key = "settings.duplicate_indicator.description"
-options = [{ value = "badge", label_key = "options.duplicate_indicator.badge" }, { value = "dots", label_key = "options.duplicate_indicator.dots" }, { value = "label", label_key = "options.duplicate_indicator.label" }, { value = "none", label_key = "options.duplicate_indicator.none" }]
-
-[[widget.setting]]
-key = "sorting"
-type = "select"
-default = "launch"
-label_key = "settings.sorting.label"
-description_key = "settings.sorting.description"
-options = [{ value = "mru", label_key = "options.sorting.mru" }, { value = "launch", label_key = "options.sorting.launch" }, { value = "alphabetical", label_key = "options.sorting.alphabetical" }, { value = "workspace", label_key = "options.sorting.workspace" }, { value = "manual", label_key = "options.sorting.manual" }]
-
-[[widget.setting]]
-key = "exclusions"
-type = "string_list"
-default = []
-label_key = "settings.exclusions.label"
-description_key = "settings.exclusions.description"
-
-[[widget.setting]]
-key = "pinned_apps"
-type = "string_list"
-default = []
-label_key = "settings.pinned_apps.label"
-description_key = "settings.pinned_apps.description"
-
-[[widget.setting]]
-key = "app_aliases"
-type = "string_map"
-default = {  }
-label_key = "settings.app_aliases.label"
-description_key = "settings.app_aliases.description"
-advanced = true
+visible_when = { "key" = "settings_page", "values" = ["layout"] }
 
 [[widget.setting]]
 key = "collapsed_label"
@@ -215,21 +211,45 @@ type = "select"
 default = "none"
 label_key = "settings.collapsed_label.label"
 description_key = "settings.collapsed_label.description"
-options = [{ value = "none", label_key = "options.collapsed_label.none" }, { value = "title", label_key = "options.collapsed_label.title" }, { value = "name", label_key = "options.collapsed_label.name" }, { value = "count", label_key = "options.collapsed_label.count" }]
+options = [{ "value" = "none", "label_key" = "options.collapsed_label.none" }, { "value" = "title", "label_key" = "options.collapsed_label.title" }, { "value" = "name", "label_key" = "options.collapsed_label.name" }, { "value" = "count", "label_key" = "options.collapsed_label.count" }]
+visible_when = { "key" = "settings_page", "values" = ["appearance"] }
 
 [[widget.setting]]
-key = "placeholder"
-type = "string"
-default = ""
-label_key = "settings.placeholder.label"
-description_key = "settings.placeholder.description"
+key = "duplicate_indicator"
+type = "select"
+default = "badge"
+label_key = "settings.duplicate_indicator.label"
+description_key = "settings.duplicate_indicator.description"
+options = [{ "value" = "badge", "label_key" = "options.duplicate_indicator.badge" }, { "value" = "none", "label_key" = "options.duplicate_indicator.none" }]
+visible_when = { "key" = "settings_page", "values" = ["appearance"] }
 
 [[widget.setting]]
-key = "placeholder_glyph"
-type = "glyph"
-default = "apps"
-label_key = "settings.placeholder_glyph.label"
-description_key = "settings.placeholder_glyph.description"
+key = "badge_placement"
+type = "select"
+default = "after"
+label_key = "settings.badge_placement.label"
+description_key = "settings.badge_placement.description"
+options = [{ "value" = "after", "label_key" = "options.badge_placement.after" }, { "value" = "before", "label_key" = "options.badge_placement.before" }]
+visible_when = { "key" = "settings_page", "values" = ["appearance"] }
+
+[[widget.setting]]
+key = "hover_enlarge"
+type = "bool"
+default = false
+label_key = "settings.hover_enlarge.label"
+description_key = "settings.hover_enlarge.description"
+visible_when = { "key" = "settings_page", "values" = ["appearance"] }
+
+[[widget.setting]]
+key = "hover_scale"
+type = "double"
+default = 1.15
+min = 1.0
+max = 1.5
+step = 0.05
+label_key = "settings.hover_scale.label"
+description_key = "settings.hover_scale.description"
+visible_when = { "key" = "settings_page", "values" = ["appearance"] }
 
 [[widget.setting]]
 key = "capsule_radius"
@@ -239,6 +259,7 @@ label_key = "settings.capsule_radius.label"
 description_key = "settings.capsule_radius.description"
 min = 0
 max = 48
+visible_when = { "key" = "settings_page", "values" = ["appearance"] }
 
 [[widget.setting]]
 key = "opacity"
@@ -249,6 +270,7 @@ description_key = "settings.opacity.description"
 min = 0.0
 max = 1.0
 step = 0.05
+visible_when = { "key" = "settings_page", "values" = ["appearance"] }
 
 [[widget.setting]]
 key = "border"
@@ -256,6 +278,7 @@ type = "bool"
 default = false
 label_key = "settings.border.label"
 description_key = "settings.border.description"
+visible_when = { "key" = "settings_page", "values" = ["appearance"] }
 
 [[widget.setting]]
 key = "active_indicator"
@@ -263,6 +286,7 @@ type = "bool"
 default = true
 label_key = "settings.active_indicator.label"
 description_key = "settings.active_indicator.description"
+visible_when = { "key" = "settings_page", "values" = ["appearance"] }
 
 [[widget.setting]]
 key = "minimized_indicator"
@@ -270,6 +294,7 @@ type = "bool"
 default = true
 label_key = "settings.minimized_indicator.label"
 description_key = "settings.minimized_indicator.description"
+visible_when = { "key" = "settings_page", "values" = ["appearance"] }
 
 [[widget.setting]]
 key = "urgent_indicator"
@@ -277,14 +302,7 @@ type = "bool"
 default = true
 label_key = "settings.urgent_indicator.label"
 description_key = "settings.urgent_indicator.description"
-
-[[widget.setting]]
-key = "badge_placement"
-type = "select"
-default = "after"
-label_key = "settings.badge_placement.label"
-description_key = "settings.badge_placement.description"
-options = [{ value = "after", label_key = "options.badge_placement.after" }, { value = "before", label_key = "options.badge_placement.before" }]
+visible_when = { "key" = "settings_page", "values" = ["appearance"] }
 
 [[widget.setting]]
 key = "click_behavior"
@@ -292,7 +310,8 @@ type = "select"
 default = "cycle"
 label_key = "settings.click_behavior.label"
 description_key = "settings.click_behavior.description"
-options = [{ value = "cycle", label_key = "options.click_behavior.cycle" }, { value = "minimize", label_key = "options.click_behavior.minimize" }]
+options = [{ "value" = "cycle", "label_key" = "options.click_behavior.cycle" }, { "value" = "minimize", "label_key" = "options.click_behavior.minimize" }]
+visible_when = { "key" = "settings_page", "values" = ["interaction"] }
 
 [[widget.setting]]
 key = "middle_click"
@@ -300,7 +319,34 @@ type = "select"
 default = "settings"
 label_key = "settings.middle_click.label"
 description_key = "settings.middle_click.description"
-options = [{ value = "settings", label_key = "options.middle_click.settings" }, { value = "none", label_key = "options.middle_click.none" }, { value = "close", label_key = "options.middle_click.close" }, { value = "minimize", label_key = "options.middle_click.minimize" }]
+options = [{ "value" = "settings", "label_key" = "options.middle_click.settings" }, { "value" = "none", "label_key" = "options.middle_click.none" }, { "value" = "close", "label_key" = "options.middle_click.close" }, { "value" = "minimize", "label_key" = "options.middle_click.minimize" }]
+visible_when = { "key" = "settings_page", "values" = ["interaction"] }
+
+[[widget.setting]]
+key = "scroll_step"
+type = "int"
+default = 1
+label_key = "settings.scroll_step.label"
+description_key = "settings.scroll_step.description"
+min = 1
+max = 20
+visible_when = { "key" = "settings_page", "values" = ["interaction"] }
+
+[[widget.setting]]
+key = "auto_reveal_focused"
+type = "bool"
+default = true
+label_key = "settings.auto_reveal_focused.label"
+description_key = "settings.auto_reveal_focused.description"
+visible_when = { "key" = "settings_page", "values" = ["interaction"] }
+
+[[widget.setting]]
+key = "app_aliases"
+type = "string_map"
+default = {  }
+label_key = "settings.app_aliases.label"
+description_key = "settings.app_aliases.description"
+visible_when = { "key" = "settings_page", "values" = ["advanced"] }
 
 [[widget.setting]]
 key = "refresh_fallback"
@@ -310,7 +356,7 @@ label_key = "settings.refresh_fallback.label"
 description_key = "settings.refresh_fallback.description"
 min = 5
 max = 300
-advanced = true
+visible_when = { "key" = "settings_page", "values" = ["advanced"] }
 
 [[widget.setting]]
 key = "diagnostic_logging"
@@ -318,7 +364,7 @@ type = "bool"
 default = false
 label_key = "settings.diagnostic_logging.label"
 description_key = "settings.diagnostic_logging.description"
-advanced = true
+visible_when = { "key" = "settings_page", "values" = ["advanced"] }
 
 [[widget.setting]]
 key = "compositor_compatibility"
@@ -326,4 +372,5 @@ type = "select"
 default = "auto"
 label_key = "settings.compositor_compatibility.label"
 description_key = "settings.compositor_compatibility.description"
-options = [{ value = "auto", label_key = "options.compositor_compatibility.auto" }, { value = "umbriel", label_key = "options.compositor_compatibility.umbriel" }, { value = "niri", label_key = "options.compositor_compatibility.niri" }]
+options = [{ "value" = "auto", "label_key" = "options.compositor_compatibility.auto" }, { "value" = "umbriel", "label_key" = "options.compositor_compatibility.umbriel" }, { "value" = "niri", "label_key" = "options.compositor_compatibility.niri" }]
+visible_when = { "key" = "settings_page", "values" = ["advanced"] }

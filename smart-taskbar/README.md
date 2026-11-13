@@ -1,38 +1,43 @@
 # Smart Taskbar
 
-A compact, collapsible application switcher with grouped window counts, focused-application reveal, and a bounded wheel-navigable icon strip. Uses one Luau bar widget and Noctalia's active theme roles.
+A compact application dock inside the Noctalia bar: grouped windows, focused-app switching, optional hover enlargement, and a clipped icon strip that stays within its width budget.
 
-**Preview release:** requires **plugin API 52 or newer**. Umbriel uses a CLI event stream on API 52/53 and native subscriptions on API 54+. This is not compatible with all Noctalia v5 versions. Desktop acceptance testing is pending; the images below are clearly labeled offline fixture renders, not live screenshots.
+**Requires plugin API 52+.** Umbriel works on API 52/53 through its public CLI event stream; API 54+ uses native subscriptions. Native desktop acceptance and real screenshots remain pending. The images below are labeled offline fixture previews.
 
 ## Plugin
 
 | Field | Value |
 | --- | --- |
 | ID | `omardardery/smart-taskbar` |
-| Entries | Bar widget: `taskbar` |
+| Entry | Bar widget: `taskbar` |
 | Full widget type | `omardardery/smart-taskbar:taskbar` |
 | License | MIT |
 
 ## Requirements
 
-- A Noctalia build supporting plugin API 52 or newer; Umbriel is the primary target. Check the supported API range rather than relying only on the Noctalia version label.
-- `umbriel` and `sleep` are required on PATH for the API 52/53 fallback. `sleep` is a standard system utility; `umbriel` is the compositor’s own CLI.
-- `niri` is required on PATH only when running under niri on API 54+, for focus/close actions. niri events use the host's native subscription. On API 52/53, niri shows a placeholder.
-- `gtk-launch` is required on PATH only to launch pinned desktop entries. On many distributions it is supplied by GTK's utilities package. Enter desktop-entry IDs with their original case.
-- Hyprland, Sway, Mango, labwc, and KDE currently show a placeholder. They do not receive guessed or unverified actions.
+- Noctalia with API 52 or newer. Use the host's reported API range rather than the version label alone.
+- `umbriel` and `sleep` on PATH for the API 52/53 event stream. `sleep` is a standard system utility; `umbriel` is the compositor's CLI.
+- `gtk-launch` only for launching pinned desktop entries. Preserve their original desktop-entry ID case.
+- `niri` on PATH for focus/close actions under niri, which requires API 54 native subscriptions. Minimize is unavailable there.
+- Hyprland, Sway, Mango, labwc, and KDE currently have no adapter and the widget stays hidden.
 
 ## Usage
-
-Add the custom Git source and enable the plugin:
 
 ```sh
 noctalia msg plugins source add smart-taskbar git https://github.com/OmarDardery/smart-taskbar-noctalia
 noctalia msg plugins enable omardardery/smart-taskbar
 ```
 
-In Settings → Bar, add the plugin widget **Smart Taskbar / taskbar** to the desired bar lane. Remove the existing taskbar from that lane and disable the dock in your own configuration if desired.
+For an existing installation:
 
-For a hand-written configuration, declare a named instance and add `smart_taskbar` to your existing bar's `start`, `center`, or `end` list:
+```sh
+noctalia msg plugins update smart-taskbar
+noctalia msg plugins enable omardardery/smart-taskbar
+```
+
+Use your configured source name if it differs from `smart-taskbar`. Add **Smart Taskbar / taskbar** in Settings → Bar. Its full type is `omardardery/smart-taskbar:taskbar`.
+
+For a hand-written configuration, define the instance below and include `smart_taskbar` in your existing bar's `start`, `center`, or `end` list:
 
 ```toml
 [widget.smart_taskbar]
@@ -44,68 +49,80 @@ max_width = 420
 collapsed_width = 64
 ```
 
-The maximum applies to the plugin's rendered main-axis content extent, **including its own padding and arrows**. For the same outer limit, use the host settings above, no custom label, and no capsule group padding. The owning bar’s scale and host widget scale multiply the extent; use both at 1.0 for the stated budget. output DPI scaling does not change logical pixels. On side bars the main-axis budget limits height. The root is clipped in both orientations. Oversized icons under exceptionally small budgets are clipped instead of growing the root.
+Use bar and widget scale 1, no custom label, and no capsule-group wrapper padding for a matching outer width budget. The plugin's extent includes its own padding and arrows. Output DPI scaling preserves logical pixels. On side bars the main-axis limit applies to height.
 
-Hover the capsule to expand; leaving it collapses after the configured delay. Click capsule padding to toggle expansion, or select click/always mode. Clicking an application focuses it or cycles its windows in first-observed order. The count lane stays fixed as counts change; the focused icon is revealed when focus changes or the strip expands.
+The widget **disappears completely when no matching windows are open**: no icon, capsule, or count placeholder. It reappears from compositor events when a matching window opens. Pinned launchers also hide while there are no matching running windows; keep Noctalia's launcher available for starting the first application. Including minimized windows is enabled by default.
 
-Wheel up/down or scroll horizontally to navigate overflow. Each new wheel/touchpad gesture moves one configured step or page; the host accumulates touchpad movement into whole detents. Repeated detents within a gesture are ignored. This is discrete navigation with a clipped, virtualized viewport, not pixel-continuous scrolling. Arrows indicate hidden content and are not separate buttons.
+Hover to expand, then leave to collapse after the configured delay. Click capsule padding to toggle, or choose click/always-expanded mode. Clicking an app focuses or cycles its windows. A single-window app shows just its icon; duplicate windows add a numeric corner badge. There are no dot indicators, dashes, or empty count lanes. When windows remain open but focus is on the desktop, the collapsed capsule shows a running application.
 
-Choose manual sorting to drag an application onto another and place it before that application. This reorders the taskbar model, not compositor window layout. In manual sorting the widget stays expanded until clicked, to protect pointer interactions when dragging outside it. Reordering is within this widget instance and resets on reload/restart. IPC previous/next provides a non-drag overflow alternative; the bar does not take keyboard focus.
+Wheel vertically or horizontally to navigate overflowing applications. The strip renders a bounded subset with discrete item/page navigation and reveals newly focused apps. Each new wheel/touchpad gesture moves one configured step; the host accumulates fine touchpad input into whole detents. Arrows indicate hidden content. This is not pixel-continuous scrolling.
 
-Right click opens plugin settings. The host's built-in middle click still opens widget settings. To enable an optional middle-click action, explicitly free the gesture:
+For a dock-style layout, choose **Always expanded**, application grouping, numeric badges, and optionally pinned applications. Remove your old taskbar and disable the dock after verifying the replacement on your desktop.
+
+### Hover enlargement
+
+Under **Appearance**, enable **Enlarge icons on hover**. The default factor is 1.15. Icons scale smoothly inside fixed cells, so neighboring apps, count badges, and the rest of the bar stay in place. The maximum size is reserved while the option is enabled; there is no width growth while moving the pointer.
+
+Choose a bar thickness of at least `ceil(icon_size × hover_scale) + 8` logical pixels. A 22 px icon at 1.15 fits a 34 px bar. Larger scales need more room; the host clips drawing to bar thickness. Disable **Animate transitions** for immediate enlargement and reduced motion. This is in-bar magnification, not a floating macOS-style surface extending beyond the bar.
+
+### Actions and ordering
+
+Manual sorting lets you drag an application onto another to place it before that app. It changes taskbar order, not compositor layout. Expansion stays open until clicked in manual mode because the public API has no drag-start/end callback. Manual order is per instance and resets on reload/restart. IPC previous/next provides a non-drag overflow alternative; the bar does not take keyboard focus.
+
+Right click opens settings. Middle click retains Noctalia's built-in settings gesture. To use optional Close or Minimize/Restore actions, explicitly free middle click and select its action under **Interaction**:
 
 ```toml
 [widget.smart_taskbar.actions]
 middle = "none"
 ```
 
-Then select Close or Minimize/Restore in this widget's settings. The action targets the hovered group, preferring its focused member; otherwise its first window. On capsule padding it targets the focused group. Host bindings take precedence over widget-level callbacks. Inline application controls consume their own left-clicks; right, middle, and scroll continue through the host gesture path.
+The action targets the hovered group, preferring its focused window, or the group's first window. Capsule padding targets the focused group. Host bindings take precedence over widget-level callbacks; inline app controls consume their own left-clicks. Right, middle, and scroll use the host gesture path.
 
 ## Settings
 
-All settings use `[[widget.setting]]`, with English labels, descriptions, defaults, and numeric limits. Settings labels are prefixed by category because the manifest does not expose arbitrary category containers.
+Choose **Settings page** in the normal widget editor to show related **Behavior**, **Applications**, **Layout**, **Appearance**, **Interaction**, or **Advanced** controls. This uses manifest-declared conditional visibility, not a custom settings window. Changing pages does not reset the widget or its icon cache.
 
-| Setting | Default | Meaning |
-| --- | --- | --- |
-| `expand_mode` | `"hover"` | Whole-widget native hover, click toggle, or always expanded. |
-| `hover_delay` | `150` | Milliseconds before expanding. |
-| `collapse_delay` | `400` | Milliseconds before collapsing. Manual sorting stays open until clicked to protect drags. |
-| `animations` | `true` | Fade newly expanded content. Disable for reduced motion. |
-| `animation_duration` | `120` | Milliseconds for the content fade. No continuous scroll animation is implied. |
-| `min_width` | `64` | Minimum expanded extent, clamped to maximum width. |
-| `max_width` | `420` | Maximum content extent in logical pixels; use capsule_padding = 0 and scale = 1 for a matching outer budget. |
-| `collapsed_width` | `64` | Stable collapsed extent, clamped to maximum width. |
-| `icon_size` | `22` | Logical pixels. Choose a size that fits your bar thickness. |
-| `icon_spacing` | `4` | Logical pixels between application cells. |
-| `overflow_behavior` | `"items"` | Wheel navigation replaces visible items; the viewport is clipped. |
-| `scroll_step` | `1` | Application items per wheel gesture in item mode. |
-| `auto_reveal_focused` | `true` | Reveal on focus changes and expansion. Manual wheel navigation remains usable until focus changes. |
-| `show_scroll_indicators` | `true` | Subtle direction indicators inside the width budget. |
-| `display_mode` | `"running"` | Additional workspace and output filters below apply to running windows. |
-| `workspace_filter` | `"all"` | Active uses compositor active or focused workspaces; combines with output filtering. |
-| `output_filter` | `"all"` | Current means this bar instance’s output, not the globally focused monitor. |
-| `show_minimized` | `true` | Umbriel reports minimized state; unavailable state is treated as not minimized. |
-| `grouping` | `"app"` | Unknown application IDs remain separate. Workspace groups use a representative application icon. |
-| `duplicate_indicator` | `"badge"` | Every grouped window contributes to the count. Dots above three show an overflow mark. |
-| `sorting` | `"launch"` | Launch order means first observed order. Manual order is per instance and resets on reload. |
-| `exclusions` | `[]` | Exact normalized desktop/application IDs. No shell patterns. |
-| `pinned_apps` | `[]` | Desktop-entry IDs, for example org.mozilla.firefox. gtk-launch is needed only to launch pins. |
-| `app_aliases` | `{}` | Map normalized unusual application IDs to desktop-entry IDs. Matching ignores case and a .desktop suffix. |
-| `collapsed_label` | `"none"` | Text is ellipsized within the stable width. Side bars show the icon only. |
-| `placeholder` | `""` | Shown when there is no focused application. Bounded by collapsed width. |
-| `placeholder_glyph` | `"apps"` | Theme glyph when no application is focused. |
-| `capsule_radius` | `14` | Logical pixels for the plugin’s own theme-colored capsule. |
-| `opacity` | `0.9` | Background alpha only; icons and text stay opaque. |
-| `border` | `false` | Use the active theme outline role. |
-| `active_indicator` | `true` | Use the theme primary container role. |
-| `minimized_indicator` | `true` | Dim a group only when every member is minimized. |
-| `urgent_indicator` | `true` | Use the theme error role when compositor events provide urgency. Umbriel does not guarantee this field. |
-| `badge_placement` | `"after"` | A fixed count lane prevents layout shifts. Badges are inline, not absolute overlays. |
-| `click_behavior` | `"cycle"` | Grouped apps always cycle windows. Minimize requires compositor support. |
-| `middle_click` | `"settings"` | Host defaults to widget settings. To use these actions, explicitly set this instance’s actions.middle = "none". |
-| `refresh_fallback` | `60` | Seconds between idle subscription retries if a supported compositor could not subscribe. No subprocess polling. |
-| `diagnostic_logging` | `false` | Log subscription and action errors. Window titles are not logged. |
-| `compositor_compatibility` | `"auto"` | Unsupported compositors show a placeholder. Umbriel supports API 52+. niri requires API 54 for native events. |
+| Page | Setting | Default | Meaning |
+| --- | --- | --- | --- |
+| Behavior | `expand_mode` | `"hover"` | Hover to reveal running apps, click to toggle, or keep the dock expanded. |
+| Behavior | `hover_delay` | `150` | Wait before opening the application strip on hover. |
+| Behavior | `collapse_delay` | `400` | Wait after the pointer leaves. Manual sorting stays open until clicked to protect drags. |
+| Behavior | `animations` | `true` | Smooth expansion fades and optional icon enlargement. Turn off for reduced motion. |
+| Behavior | `animation_duration` | `120` | Duration of short fades and hover enlargement; no idle frame loop. |
+| Applications | `display_mode` | `"running"` | Additional workspace and output filters below apply to running windows. |
+| Applications | `grouping` | `"app"` | Unknown application IDs remain separate. Workspace groups use a representative application icon. |
+| Applications | `workspace_filter` | `"all"` | Active uses compositor active or focused workspaces; combines with output filtering. |
+| Applications | `output_filter` | `"all"` | Current means this bar instance’s output, not the globally focused monitor. |
+| Applications | `show_minimized` | `true` | Umbriel reports minimized state; unavailable state is treated as not minimized. |
+| Applications | `sorting` | `"launch"` | Launch order means first observed order. Manual order is per instance and resets on reload. |
+| Applications | `pinned_apps` | `[]` | Exact desktop-entry IDs for launchers. Launchers appear with matching open windows; the entire widget hides when no matching windows remain. |
+| Applications | `exclusions` | `[]` | Exact normalized desktop/application IDs. No shell patterns. |
+| Layout | `min_width` | `64` | Minimum expanded extent in logical pixels, limited by maximum width. |
+| Layout | `max_width` | `420` | Main-axis limit, including padding and arrows. Use bar/widget scale 1 and host capsule padding 0 for the same outer limit. |
+| Layout | `collapsed_width` | `64` | Fixed collapsed extent in logical pixels. Hidden completely when no matching windows are open. |
+| Layout | `icon_size` | `22` | Base size in logical pixels. Leave room for hover enlargement within your bar thickness. |
+| Layout | `icon_spacing` | `4` | Gap between application cells. Single-window apps have no count lane or marker. |
+| Layout | `overflow_behavior` | `"items"` | Wheel navigation replaces visible items; the viewport is clipped. |
+| Layout | `show_scroll_indicators` | `true` | Subtle direction indicators inside the width budget. |
+| Appearance | `collapsed_label` | `"none"` | Optional text within the fixed width. Single-window apps never show a count; side bars show the icon only. |
+| Appearance | `duplicate_indicator` | `"badge"` | Numeric corner badges appear only for applications with more than one window. |
+| Appearance | `badge_placement` | `"after"` | Place duplicate-window count badges at the upper left or upper right of the icon. |
+| Appearance | `hover_enlarge` | `false` | Magnify the hovered application inside a fixed cell. No bar movement; respects reduced motion. |
+| Appearance | `hover_scale` | `1.15` | Maximum icon scale. Set bar thickness to at least icon size × scale + 8 logical pixels; 1.15 fits a 22 px icon in a 34 px bar. |
+| Appearance | `capsule_radius` | `14` | Logical pixels for the plugin’s own theme-colored capsule. |
+| Appearance | `opacity` | `0.9` | Background alpha only; icons and text stay opaque. |
+| Appearance | `border` | `false` | Use the active theme outline role. |
+| Appearance | `active_indicator` | `true` | Use the theme primary container role. |
+| Appearance | `minimized_indicator` | `true` | Dim a group only when every member is minimized. |
+| Appearance | `urgent_indicator` | `true` | Use the theme error role when compositor events provide urgency. Umbriel does not guarantee this field. |
+| Interaction | `click_behavior` | `"cycle"` | Grouped apps always cycle windows. Minimize requires compositor support. |
+| Interaction | `middle_click` | `"settings"` | Host defaults to widget settings. To use these actions, explicitly set this instance’s actions.middle = "none". |
+| Interaction | `scroll_step` | `1` | Application items per wheel gesture in item mode. |
+| Interaction | `auto_reveal_focused` | `true` | Reveal on focus changes and expansion. Manual wheel navigation remains usable until focus changes. |
+| Advanced | `app_aliases` | `{}` | Map normalized unusual application IDs to desktop-entry IDs. Matching ignores case and a .desktop suffix. |
+| Advanced | `refresh_fallback` | `60` | Retry interval if subscription startup fails. A disconnected Umbriel CLI stream reconnects after two seconds. |
+| Advanced | `diagnostic_logging` | `false` | Log subscription and action errors. Window titles are not logged. |
+| Advanced | `compositor_compatibility` | `"auto"` | Umbriel supports API 52+. niri requires API 54 for native events. |
 
 ## IPC
 
@@ -116,38 +133,27 @@ noctalia msg plugin omardardery/smart-taskbar:taskbar focused next
 noctalia msg plugin omardardery/smart-taskbar:taskbar focused previous
 ```
 
-`focused` targets the focused output; use `all`, a connector, or `connector:bar-name` for other instances. Always-expanded mode ignores collapse.
+Use `all`, a connector, or `connector:bar-name` instead of `focused` for other instances. Always-expanded mode ignores collapse; empty states stay hidden in every mode.
 
 ## Previews
 
-These images were rendered from the actual Luau test fixture's UI trees with an illustrative palette and symbolic application icons. They are **not live Noctalia screenshots**, and do not verify native layout, pointer input, or DPI behavior.
+Offline fixture renders use the actual Luau UI trees with an illustrative palette and symbolic icons. They do not verify native rendering, device input, or scaling.
 
 ![Collapsed offline preview](screenshots/collapsed.png)
 ![Expanded offline preview](screenshots/expanded.png)
-![Five grouped windows offline preview](screenshots/grouped.png)
+![Grouped numeric badge offline preview](screenshots/grouped.png)
 ![Overflow offline preview](screenshots/overflow.png)
 
 ## Notes
 
-Umbriel window IDs, active state, workspace, minimized state, and minimizability are normalized from its public windows/workspaces streams. Focus, close, and minimize use `noctalia.umbriel.action`. Restore uses focus, matching Noctalia's taskbar behavior. Scratchpad windows without a workspace are excluded. Urgency is shown only if the stream supplies it; Umbriel does not guarantee urgency in this schema.
+Umbriel window/workspace snapshots normalize stable IDs, identity, output, focus and minimized state. Focus, close and minimize use `noctalia.umbriel.action`; restore uses focus. Scratchpads without a workspace are excluded. Urgency appears only if supplied by the compositor.
 
-niri receives native events with stable numeric IDs. Focus and close use argument-array `niri` commands only when clicked. Minimize is unavailable and degrades to an informational notification. Unknown compositors render a placeholder. Subscription resets clear stale identities; the host reconnects and sends fresh snapshots. Titles are displayed locally and never logged.
+niri uses native events on API 54+ and argument-array CLI commands for explicit focus/close actions. It has no minimize action. Missing adapters stay hidden. Subscription resets clear stale identities and new snapshots rebuild the view. Titles are displayed locally and never logged.
 
-Application IDs are normalized for grouping without fuzzy-merging distinct applications. Missing IDs stay separate. Icons use cached `noctalia.appIconPath`, including the host's desktop-entry, StartupWMClass, and fuzzy icon matching; a theme glyph replaces missing icons. Configure `app_aliases` for unusual IDs. Pins preserve the exact desktop-entry ID for launching. Pins are edited through settings because the API cannot persist configuration changes from callbacks.
+Application grouping uses exact normalized IDs without fuzzy-merging distinct applications. Missing IDs stay separate. Cached `noctalia.appIconPath` handles desktop-entry, StartupWMClass and fuzzy icon matching; a theme glyph replaces missing icons. Use `app_aliases` for unusual IDs. Settings are read-only from plugins, so pin lists are edited through the normal settings GUI. Native context menus are public only for panels; this single-widget plugin offers settings on right click.
 
-Native context menus are only public for panels, so this single-widget plugin offers settings on right click. There is no fabricated bar context menu or runtime Pin/Unpin operation. Animations fade expanded content briefly at 30 Hz; no frame loop runs while idle. Manual order is not persisted, workspace sorting follows snapshot order/index, and launch order means first observed since connection.
+The plugin makes **no network calls or filesystem writes**. API 54+ uses one native compositor subscription per widget. On API 52/53, one host-managed shell runs `umbriel subscribe windows workspaces`, clearing stale state and reconnecting two seconds after disconnection. A healthy stream sleeps in its socket read, without window polling. The host cancels the shell/CLI/sleep process group on reload or disable. Compatibility-setting toggles pause delivery and replay cached snapshots, reusing that stream until teardown. Explicit pin launches and niri actions also spawn processes; nothing starts per icon or animation frame.
 
-The plugin makes **no network calls and no filesystem writes**. On API 54+ it uses one native compositor subscription per widget instance. On API 52/53 with Umbriel, it uses one host-managed `runStream` shell running `umbriel subscribe windows workspaces`. It reconnects two seconds after a disconnection and clears stale snapshots. A healthy stream is idle until an event arrives; no repeated window queries run. The shell, CLI, and reconnect sleep are in Noctalia’s process group and are canceled on widget reload/disable. A compatibility-setting toggle pauses delivery and replays cached full snapshots on resume, keeping the same single stream until teardown. Explicit pin launches and niri window actions also spawn processes. No subprocesses run per icon or frame. Theme colors remain role references and follow host palette changes without a private theme API.
+Animations run briefly at about 30 Hz while changing. No render loop runs while idle or hidden, and hover animation does not resolve icons repeatedly. Theme colors are host palette roles. Badges are paint-transformed over fixed icon cells using public API 52 controls.
 
-Installation commands and placement syntax were checked against official documentation. Manifest and Luau fixture tests ran; enabling, adding the widget, real pointer behavior, multi-monitor scaling, hot reload, compositor restarts, and resource measurements still require a live Noctalia session. See the source repository's `docs/TESTING.md` for the complete acceptance matrix. Do not interpret this preview as production acceptance.
-
-## Update from 0.1.0 on Umbriel
-
-Version 0.1.1 removes the API 54 event-subscription requirement for Umbriel. Its minimum is API 52 because the viewport uses public container clipping. Run:
-
-```sh
-noctalia msg plugins update smart-taskbar
-noctalia msg plugins enable omardardery/smart-taskbar
-```
-
-Use the source name you originally added if it differs from `smart-taskbar`. The plugin version should show **0.1.1** and API **52**. Then add the widget in Bar settings. Native desktop acceptance is still pending.
+Compilation, fixture tests, a shell-stream lifecycle test, and canonical manifest validation run automatically. Native desktop screenshots, multi-monitor/DPI acceptance, real gesture delivery, and resource measurements remain pending; see the source repository's `docs/TESTING.md`.

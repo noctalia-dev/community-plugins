@@ -7,160 +7,164 @@
   "launcher_missing": "Install gtk-launch to start pinned desktop entries.",
   "settings": {
     "expand_mode": {
-      "label": "Behavior: Expansion",
-      "description": "Whole-widget native hover, click toggle, or always expanded."
+      "label": "Expansion",
+      "description": "Hover to reveal running apps, click to toggle, or keep the dock expanded."
     },
     "hover_delay": {
-      "label": "Behavior: Hover delay",
-      "description": "Milliseconds before expanding."
+      "label": "Expand delay (ms)",
+      "description": "Wait before opening the application strip on hover."
     },
     "collapse_delay": {
-      "label": "Behavior: Collapse delay",
-      "description": "Milliseconds before collapsing. Manual sorting stays open until clicked to protect drags."
+      "label": "Collapse delay (ms)",
+      "description": "Wait after the pointer leaves. Manual sorting stays open until clicked to protect drags."
     },
     "animations": {
-      "label": "Behavior: Animations",
-      "description": "Fade newly expanded content. Disable for reduced motion."
+      "label": "Animate transitions",
+      "description": "Smooth expansion fades and optional icon enlargement. Turn off for reduced motion."
     },
     "animation_duration": {
-      "label": "Behavior: Animation duration",
-      "description": "Milliseconds for the content fade. No continuous scroll animation is implied."
+      "label": "Animation duration (ms)",
+      "description": "Duration of short fades and hover enlargement; no idle frame loop."
     },
     "min_width": {
-      "label": "Dimensions: Minimum width",
-      "description": "Minimum expanded extent, clamped to maximum width."
+      "label": "Minimum width (px)",
+      "description": "Minimum expanded extent in logical pixels, limited by maximum width."
     },
     "max_width": {
-      "label": "Dimensions: Maximum width",
-      "description": "Maximum content extent in logical pixels; use capsule_padding = 0 and scale = 1 for a matching outer budget."
+      "label": "Maximum width (px)",
+      "description": "Main-axis limit, including padding and arrows. Use bar/widget scale 1 and host capsule padding 0 for the same outer limit."
     },
     "collapsed_width": {
-      "label": "Dimensions: Collapsed width",
-      "description": "Stable collapsed extent, clamped to maximum width."
+      "label": "Collapsed width (px)",
+      "description": "Fixed collapsed extent in logical pixels. Hidden completely when no matching windows are open."
     },
     "icon_size": {
-      "label": "Dimensions: Icon size",
-      "description": "Logical pixels. Choose a size that fits your bar thickness."
+      "label": "Icon size (px)",
+      "description": "Base size in logical pixels. Leave room for hover enlargement within your bar thickness."
     },
     "icon_spacing": {
-      "label": "Dimensions: Icon spacing",
-      "description": "Logical pixels between application cells."
+      "label": "Icon spacing (px)",
+      "description": "Gap between application cells. Single-window apps have no count lane or marker."
     },
     "overflow_behavior": {
-      "label": "Dimensions: Overflow navigation",
+      "label": "Overflow navigation",
       "description": "Wheel navigation replaces visible items; the viewport is clipped."
     },
     "scroll_step": {
-      "label": "Interaction: Scroll step",
+      "label": "Scroll step",
       "description": "Application items per wheel gesture in item mode."
     },
     "auto_reveal_focused": {
-      "label": "Interaction: Reveal focused app",
+      "label": "Reveal focused app",
       "description": "Reveal on focus changes and expansion. Manual wheel navigation remains usable until focus changes."
     },
     "show_scroll_indicators": {
-      "label": "Appearance: Overflow arrows",
+      "label": "Overflow arrows",
       "description": "Subtle direction indicators inside the width budget."
     },
     "display_mode": {
-      "label": "Windows: Application display",
+      "label": "Application display",
       "description": "Additional workspace and output filters below apply to running windows."
     },
     "workspace_filter": {
-      "label": "Windows: Workspace filter",
+      "label": "Workspace filter",
       "description": "Active uses compositor active or focused workspaces; combines with output filtering."
     },
     "output_filter": {
-      "label": "Windows: Output filter",
+      "label": "Output filter",
       "description": "Current means this bar instance’s output, not the globally focused monitor."
     },
     "show_minimized": {
-      "label": "Windows: Include minimized",
+      "label": "Include minimized",
       "description": "Umbriel reports minimized state; unavailable state is treated as not minimized."
     },
     "grouping": {
-      "label": "Windows: Grouping",
+      "label": "Grouping",
       "description": "Unknown application IDs remain separate. Workspace groups use a representative application icon."
     },
     "duplicate_indicator": {
-      "label": "Appearance: Duplicate windows",
-      "description": "Every grouped window contributes to the count. Dots above three show an overflow mark."
+      "label": "Window count badges",
+      "description": "Numeric corner badges appear only for applications with more than one window."
     },
     "sorting": {
-      "label": "Interaction: Sorting",
+      "label": "Sorting",
       "description": "Launch order means first observed order. Manual order is per instance and resets on reload."
     },
     "exclusions": {
-      "label": "Windows: Excluded apps",
+      "label": "Excluded apps",
       "description": "Exact normalized desktop/application IDs. No shell patterns."
     },
     "pinned_apps": {
-      "label": "Windows: Pinned apps",
-      "description": "Desktop-entry IDs, for example org.mozilla.firefox. gtk-launch is needed only to launch pins."
+      "label": "Pinned applications",
+      "description": "Exact desktop-entry IDs for launchers. Launchers appear with matching open windows; the entire widget hides when no matching windows remain."
     },
     "app_aliases": {
-      "label": "Advanced: Application aliases",
+      "label": "Application aliases",
       "description": "Map normalized unusual application IDs to desktop-entry IDs. Matching ignores case and a .desktop suffix."
     },
     "collapsed_label": {
-      "label": "Appearance: Collapsed label",
-      "description": "Text is ellipsized within the stable width. Side bars show the icon only."
-    },
-    "placeholder": {
-      "label": "Appearance: Empty label",
-      "description": "Shown when there is no focused application. Bounded by collapsed width."
-    },
-    "placeholder_glyph": {
-      "label": "Appearance: Empty icon",
-      "description": "Theme glyph when no application is focused."
+      "label": "Collapsed text",
+      "description": "Optional text within the fixed width. Single-window apps never show a count; side bars show the icon only."
     },
     "capsule_radius": {
-      "label": "Appearance: Capsule radius",
+      "label": "Capsule radius",
       "description": "Logical pixels for the plugin’s own theme-colored capsule."
     },
     "opacity": {
-      "label": "Appearance: Capsule opacity",
+      "label": "Capsule opacity",
       "description": "Background alpha only; icons and text stay opaque."
     },
     "border": {
-      "label": "Appearance: Capsule border",
+      "label": "Capsule border",
       "description": "Use the active theme outline role."
     },
     "active_indicator": {
-      "label": "Appearance: Highlight focused app",
+      "label": "Highlight focused app",
       "description": "Use the theme primary container role."
     },
     "minimized_indicator": {
-      "label": "Appearance: Dim minimized apps",
+      "label": "Dim minimized apps",
       "description": "Dim a group only when every member is minimized."
     },
     "urgent_indicator": {
-      "label": "Appearance: Urgency border",
+      "label": "Urgency border",
       "description": "Use the theme error role when compositor events provide urgency. Umbriel does not guarantee this field."
     },
     "badge_placement": {
-      "label": "Appearance: Badge placement",
-      "description": "A fixed count lane prevents layout shifts. Badges are inline, not absolute overlays."
+      "label": "Badge corner",
+      "description": "Place duplicate-window count badges at the upper left or upper right of the icon."
     },
     "click_behavior": {
-      "label": "Interaction: Left click",
+      "label": "Left click",
       "description": "Grouped apps always cycle windows. Minimize requires compositor support."
     },
     "middle_click": {
-      "label": "Interaction: Middle click",
+      "label": "Middle click",
       "description": "Host defaults to widget settings. To use these actions, explicitly set this instance’s actions.middle = \"none\"."
     },
     "refresh_fallback": {
-      "label": "Advanced: Retry interval",
-      "description": "Seconds between idle subscription retries if a supported compositor could not subscribe. No subprocess polling."
+      "label": "Subscription retry (s)",
+      "description": "Retry interval if subscription startup fails. A disconnected Umbriel CLI stream reconnects after two seconds."
     },
     "diagnostic_logging": {
-      "label": "Advanced: Diagnostic logging",
+      "label": "Diagnostic logging",
       "description": "Log subscription and action errors. Window titles are not logged."
     },
     "compositor_compatibility": {
-      "label": "Advanced: Compositor compatibility",
+      "label": "Compositor compatibility",
       "description": "Umbriel supports API 52+. niri requires API 54 for native events."
+    },
+    "settings_page": {
+      "label": "Settings page",
+      "description": "Choose a page to configure related options together."
+    },
+    "hover_enlarge": {
+      "label": "Enlarge icons on hover",
+      "description": "Magnify the hovered application inside a fixed cell. No bar movement; respects reduced motion."
+    },
+    "hover_scale": {
+      "label": "Hover enlargement",
+      "description": "Maximum icon scale. Set bar thickness to at least icon size × scale + 8 logical pixels; 1.15 fits a 22 px icon in a 34 px bar."
     }
   },
   "options": {
@@ -198,10 +202,8 @@
       "windows": "Individual windows"
     },
     "duplicate_indicator": {
-      "badge": "Numeric badge",
-      "dots": "Dots",
-      "label": "Count label",
-      "none": "None"
+      "badge": "Show numeric badges",
+      "none": "Hide badges"
     },
     "sorting": {
       "mru": "Most recently focused",
@@ -217,8 +219,8 @@
       "count": "Window count"
     },
     "badge_placement": {
-      "after": "After icon",
-      "before": "Before icon"
+      "before": "Upper left",
+      "after": "Upper right"
     },
     "click_behavior": {
       "cycle": "Focus or cycle",
@@ -234,6 +236,14 @@
       "auto": "Automatic",
       "umbriel": "Umbriel only",
       "niri": "niri only"
+    },
+    "settings_page": {
+      "behavior": "Behavior",
+      "applications": "Applications",
+      "layout": "Layout",
+      "appearance": "Appearance",
+      "interaction": "Interaction",
+      "advanced": "Advanced"
     }
   }
 }

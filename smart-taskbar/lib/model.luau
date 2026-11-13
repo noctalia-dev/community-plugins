@@ -63,7 +63,7 @@ function M.groups(state, c, output, workspaces, previous)
     if not g then
       g = { key = key, appId = app, iconId = w.appId, title = w.title or app,
         windows = {}, order = w.order or math.huge, recent = 0, focused = false,
-        minimized = true, urgent = false, workspace = w.workspace or "", pinned = pinned == true, launchId = pinned and w.appId or nil }
+        minimized = pinned ~= true, urgent = false, workspace = w.workspace or "", pinned = pinned == true, launchId = pinned and w.appId or nil }
       byKey[key] = g; table.insert(groups, g)
     end
     if not pinned then
@@ -130,10 +130,14 @@ function M.cycle(group, cursor)
   index = index % #group.windows + 1
   return group.windows[index], index
 end
+function M.peakIconSize(c)
+  return math.ceil(c.icon_size * (c.hover_enlarge and c.hover_scale or 1))
+end
 function M.layout(c, count)
   local maxWidth = math.max(48, c.max_width)
   local collapsed = math.clamp(c.collapsed_width, 32, maxWidth)
-  local cell = c.icon_size + 24 -- fixed count lane, including three-digit counts
+  local peak = M.peakIconSize(c)
+  local cell = peak + 8 -- badges paint over the corner; singles reserve no count lane
   local gap = c.icon_spacing
   local available = maxWidth - 16 -- plugin's own capsule padding
   local capacity = math.max(1, math.floor((available + gap) / (cell + gap)))
@@ -146,7 +150,7 @@ function M.layout(c, count)
   local visible = math.min(count, capacity)
   local wanted = 16 + visible * cell + math.max(0, visible - 1) * gap + (indicators and 32 or 0)
   local width = math.clamp(wanted, math.min(c.min_width, maxWidth), maxWidth)
-  return { width = width, collapsed = collapsed, capacity = capacity, cell = cell,
+  return { width = width, collapsed = collapsed, capacity = capacity, cell = cell, peak = peak,
     indicators = indicators, viewport = math.max(1, width - 16 - (indicators and 32 or 0)) }
 end
 function M.reveal(offset, capacity, count, focused)
