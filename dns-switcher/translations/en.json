@@ -1,6 +1,7 @@
 {
   "applied": "DNS switched to {name}",
   "copied": "DNS servers copied: {ip}",
+  "copied_ips": "Resolved IP copied: {ip}",
   "err_apply_failed": "Failed to apply the DNS settings",
   "err_auth_dismissed": "Authorization dismissed",
   "err_invalid_ip": "Invalid DNS address: {ip}",
@@ -70,6 +71,7 @@
   "status_no_nmcli": "nmcli unavailable",
   "status_switching": "Switching…",
   "tip_close": "Close",
+  "tip_resolve_copy": "Copy the resolved IP addresses",
   "tip_copy": "Copy the active DNS servers",
   "tip_resolve": "Resolve this name with the active DNS",
   "tip_settings": "Plugin settings",

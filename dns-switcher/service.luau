@@ -473,7 +473,12 @@ local function apply(provider)
                             return
                         end
                         changing = false
-                        noctalia.notify(tr("title"), tr("applied", { name = provider.label }))
+                        -- plugin_api 39 OSD; older hosts have no noctalia.osd and get the notification.
+                        if noctalia.osd ~= nil then
+                            noctalia.osd.show("world", tr("applied", { name = provider.label }))
+                        else
+                            noctalia.notify(tr("title"), tr("applied", { name = provider.label }))
+                        end
                         publish()
                         pollNow()
                     end, 60000
