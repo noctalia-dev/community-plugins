@@ -26,6 +26,7 @@ local ROW_GAP = 8
 local ROW_RADIUS = 8
 local ROW_PADDING = 8
 
+-- Saves history to history table
 local function pushHistory(expr, result, isErr)
 	table.insert(history, { expr = expr, result = result, isError = isErr })
 	noctalia.writeFile(path, noctalia.json.encode(history))
@@ -33,7 +34,8 @@ local function pushHistory(expr, result, isErr)
 	scrollRev = scrollRev + 1
 end
 
-function checkHistorySize()
+-- Removes old entries from the history if it gets too large
+local function checkHistorySize()
 	local info = noctalia.fileInfo(path)
 	if info then
 		local size = info.size
@@ -45,6 +47,7 @@ function checkHistorySize()
 	end
 end
 
+--The history's rows
 local function historyRows()
 	if #history == 0 then
 		return {
@@ -112,6 +115,7 @@ local function historyRows()
 	return rows
 end
 
+-- Header (Title, Trash, Close)
 local function header()
 	return ui.row({ align = "center", justify = "space_between" }, {
 		ui.label({ text = noctalia.tr("panel.title"), fontSize = 16, fontWeight = "bold", flexGrow = 1 }),
@@ -133,6 +137,7 @@ local function header()
 	})
 end
 
+-- Calculation Inputs Bar
 local function inputBar()
 	local children = {}
 
@@ -178,10 +183,12 @@ local function render()
 	}))
 end
 
+-- Data to be used by `qalc`
 local function scratchPath()
 	return noctalia.pluginDataDir() .. "/session.qalc"
 end
 
+-- `qalc` evalutes the expression
 local function evaluate(expr)
 	table.insert(sessionExprs, expr)
 	local body = table.concat(sessionExprs, "\n")
@@ -233,11 +240,13 @@ local function evaluate(expr)
 	end)
 end
 
+-- Save the input to temporary memory
 function onInputChange(value)
 	currentInput = value
 	historyIndex = nil
 end
 
+-- When evaluation is triggered
 function onEvaluate()
 	if isEvaluating then return end
 
@@ -260,6 +269,7 @@ function onEvaluate()
 	evaluate(expr)
 end
 
+-- When clear is triggered
 function onClear()
 	history = {}
 	sessionExprs = {}
@@ -269,7 +279,7 @@ function onClear()
 	render()
 end
 
-
+-- Move through history using arrow keys
 local function stepHistory(chord)
 	if #history == 0 or isEvaluating then return end
 
@@ -297,6 +307,7 @@ local function stepHistory(chord)
 	end
 end
 
+-- Record key presses
 function onKey(chord, pressed)
 	if chord ~= "up" and chord ~= "down" then return end
 
@@ -326,6 +337,7 @@ function onRowHover(state, key)
 	render()
 end
 
+-- A row's context menu
 function onRowMenuClick(index)
 	panel.openContextMenu({
 		items = {
@@ -339,6 +351,7 @@ function onRowMenuClick(index)
 	})
 end
 
+-- Functions of the row's context menu
 function onRowMenuAction(actionId, index)
 	local h = history[index]
 	if not h then return end
@@ -360,6 +373,7 @@ function onCloseClicked()
 	panel.close()
 end
 
+-- Retype the previous input on opening the widget and fetch history
 function onOpen(context)
 	heldChord = nil
 	inputGen = inputGen + 1
