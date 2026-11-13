@@ -64,6 +64,10 @@
   "sep_none": "none",
   "separator": "Separator",
   "settings": {
+    "clear_after_idle": {
+      "description": "Seconds of inactivity after which a copied secret is wiped from the clipboard. 0 turns it off. Needs a newer noctalia.",
+      "label": "Clear clipboard when idle"
+    },
     "copy_on_generate": {
       "description": "Copy each new secret to the clipboard when you press Generate.",
       "label": "Copy on generate"

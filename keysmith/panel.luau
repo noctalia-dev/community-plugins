@@ -73,12 +73,44 @@ local function fail(detail)
     noctalia.notifyError(tr("title"), detail or tr("err_generic"))
 end
 
+-- Idle clipboard wipe (`noctalia.idle`, plugin_api 35). After a copy we arm one watch: once
+-- the user has been idle for `clear_after_idle` seconds, a clipboard that still
+-- holds our secret is overwritten with a space (the host refuses an empty copy).
+local copiedText, idleWatch = nil, nil
+
+local function disarmIdleClear()
+    if idleWatch ~= nil then
+        noctalia.idle.unwatch(idleWatch)
+        idleWatch = nil
+    end
+    copiedText = nil
+end
+
+local function armIdleClear(text)
+    disarmIdleClear()
+    local seconds = tonumber(noctalia.getConfig("clear_after_idle")) or 0
+    if seconds <= 0 then
+        return
+    end
+    copiedText = text
+    idleWatch = noctalia.idle.watch(seconds, function(idle)
+        if not idle then
+            return
+        end
+        if noctalia.clipboardText() == copiedText then
+            noctalia.copyToClipboard(" ", "text/plain")
+        end
+        disarmIdleClear()
+    end)
+end
+
 -- `kind` ("password" | "key" | "htpasswd") picks the notification text.
 local function copySecret(text, kind)
     if text == "" then
         return
     end
     if noctalia.copyToClipboard(text, "text/plain") then
+        armIdleClear(text)
         noctalia.notify(tr("title"), tr(kind .. "_copied"))
     else
         fail(tr("err_copy"))
