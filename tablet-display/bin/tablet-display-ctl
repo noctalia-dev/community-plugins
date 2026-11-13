@@ -1,0 +1,1037 @@
+#!/bin/bash
+#
+# tablet-display-ctl -- the backend for the Noctalia Tablet Display plugin.
+#
+# Turns an Android tablet or iPad running Moonlight into a second screen,
+# streamed by Sunshine. The Noctalia panel is a thin front end over this
+# script; Sunshine also calls it (hook-start / hook-stop) when Moonlight
+# connects. Everything works from a shell too: see `usage` at the bottom.
+#
+# Modes:
+#   extend  -- adds a display for the tablet and streams it. How the display
+#              is made depends on the compositor:
+#                virtual: the compositor's own headless output (Hyprland,
+#                         mango, sway; niri once it ships virtual outputs)
+#                port:    an unused DP/HDMI connector, forced on with a
+#                         generated EDID by a small root helper (niri today,
+#                         or any compositor on AMD/Intel graphics)
+#   mirror  -- streams an existing monitor (the focused one unless named).
+#   off     -- stops Sunshine BEFORE removing the display (Sunshine otherwise
+#              falls back to streaming another monitor), restores
+#              sunshine.conf, and removes the display.
+#
+# Sunshine reads output_name once when it starts, so every mode change
+# restarts it. Our settings live in a marked block at the end of
+# sunshine.conf; the user's own lines for the same keys are commented out with
+# a recognisable prefix while we are active and restored afterwards.
+
+set -uo pipefail
+
+APP=noctalia-tablet-display
+CTL=$(realpath "${BASH_SOURCE[0]}")
+BIN_DIR=$(dirname "$CTL")
+PLUGIN_DIR=$(dirname "$BIN_DIR")
+
+# The overrides exist for testing (test/nested-test.sh): a separate state,
+# and Sunshine started directly rather than through its systemd unit.
+STATE_DIR="${TABLET_DISPLAY_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/$APP}"
+RUN_DIR="${TABLET_DISPLAY_RUN_DIR:-${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/$APP}"
+SETTINGS="$STATE_DIR/settings.json"
+EDID="$STATE_DIR/edid.bin"
+EDID_ARGS="$STATE_DIR/edid.args"
+# What sunshine.conf calls. It lives outside the plugin so that removing the
+# plugin without turning it off first cannot leave Sunshine calling a missing
+# file, which would abort every stream.
+HOOK="$STATE_DIR/sunshine-hook"
+SESSION="$RUN_DIR/session.json"
+LOCK="$RUN_DIR/lock"
+LOG="$RUN_DIR/ctl.log"
+
+SUNSHINE_CONF="${TABLET_DISPLAY_SUNSHINE_CONF:-$HOME/.config/sunshine/sunshine.conf}"
+HYPR_OUTPUT="${TABLET_DISPLAY_OUTPUT:-TABLET-1}"
+
+HELPER=/usr/local/libexec/noctalia-tablet-display/port-helper
+HELPER_SRC="$PLUGIN_DIR/helper/port-helper"
+
+MARK_BEGIN="# >>> $APP: managed block, removed when the tablet display is turned off"
+MARK_END="# <<< $APP"
+DISABLED_PREFIX="#$APP# "
+MANAGED_KEYS="output_name|capture|global_prep_cmd|stream_audio"
+
+DEFAULT_SETTINGS='{
+  "position": "right", "scale": "auto",
+  "device": "auto", "customResolution": "2560x1600", "customDiagonal": 0,
+  "refreshRates": "60,90,120", "audio": false, "method": "auto", "port": "auto",
+  "keepSunshine": false,
+  "workingPort": null, "lastClient": null
+}'
+EMPTY_SESSION='{"mode":"off","method":"","output":"","port":"","target":"","compositor":"","env":{},"sunshineWasRunning":false,"client":null,"applied":"","mapped":[],"errors":[],"notice":"","busy":""}'
+
+mkdir -p "$STATE_DIR" "$RUN_DIR"
+
+log() { printf '%s %s\n' "$(date +%T)" "$*" >>"$LOG"; }
+
+# ---------------------------------------------------------------- json files
+
+read_json() { # file default
+  local v
+  v=$(jq -c . "$1" 2>/dev/null) && [[ -n $v ]] && { printf '%s' "$v"; return; }
+  printf '%s' "$2"
+}
+settings() { jq -c --argjson d "$DEFAULT_SETTINGS" '$d + .' <<<"$(read_json "$SETTINGS" '{}')"; }
+session() { jq -c --argjson d "$EMPTY_SESSION" '$d + .' <<<"$(read_json "$SESSION" '{}')"; }
+setting() { settings | jq -r --arg k "$1" '.[$k] // empty'; }
+
+write_atomic() { # file content
+  local tmp
+  tmp=$(mktemp "$1.XXXXXX") || return 1
+  printf '%s\n' "$2" >"$tmp" && mv -f "$tmp" "$1"
+}
+update_settings() { write_atomic "$SETTINGS" "$(settings | jq -c "$@")"; }
+update_session() { write_atomic "$SESSION" "$(session | jq -c "$@")"; }
+
+add_error() { log "error: $1"; update_session '.errors = (.errors + [$m])[-5:]' --arg m "$1"; }
+set_notice() { update_session '.notice = $m' --arg m "$1"; }
+
+# All mutations go through this lock. `state` only tries briefly and reports
+# without reconciling while an operation (Sunshine restarts take seconds)
+# holds it.
+with_lock() {
+  exec 9>"$LOCK"
+  flock -w "${LOCK_WAIT:-30}" 9 || { echo "$APP: busy" >&2; return 75; }
+  "$@"
+}
+
+# ---------------------------------------------------------------- compositor
+
+# Variables can outlive their session (systemd's user environment keeps what
+# the last session imported), so trust them only when their socket exists.
+detect_compositor() {
+  local rt=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}
+  if [[ -n ${NIRI_SOCKET:-} && -S $NIRI_SOCKET ]]; then echo niri
+  elif [[ -n ${HYPRLAND_INSTANCE_SIGNATURE:-} && -d $rt/hypr/$HYPRLAND_INSTANCE_SIGNATURE ]]; then echo hyprland
+  elif [[ -n ${SWAYSOCK:-} && -S $SWAYSOCK ]]; then echo sway
+  elif [[ -n ${MANGO_INSTANCE_SIGNATURE:-} && -S $MANGO_INSTANCE_SIGNATURE ]]; then echo mango
+  elif command -v wlr-randr >/dev/null && wlr-randr >/dev/null 2>&1; then echo wlr
+  else echo unknown
+  fi
+}
+
+# While a display is on, every caller talks to the compositor that owns it:
+# Sunshine's hooks (systemd's environment), and the plugin's service in
+# another session on another VT, which shares this state. So the saved
+# compositor variables replace the caller's own, and empty ones are unset.
+COMP=""
+ensure_env() {
+  local s k v
+  s=$(session)
+  while IFS=$'\t' read -r k v; do
+    [[ -n $k ]] || continue
+    if [[ -n $v ]]; then export "$k=$v"; else unset "$k"; fi
+  done < <(jq -r 'select(.mode != "off") | .env | to_entries[] | "\(.key)\t\(.value)"' <<<"$s" 2>/dev/null)
+  if [[ -z ${HYPRLAND_INSTANCE_SIGNATURE:-} && -z ${NIRI_SOCKET:-} ]]; then
+    local dir
+    dir=$(ls -td "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"/hypr/*/ 2>/dev/null | head -1)
+    [[ -n $dir ]] && pgrep -x Hyprland >/dev/null 2>&1 && export HYPRLAND_INSTANCE_SIGNATURE=$(basename "$dir")
+  fi
+  # The saved compositor only matters while a display is on (hooks run from
+  # Sunshine's environment); otherwise detect, since the session may differ.
+  COMP=$(jq -r 'if .mode != "off" then (.compositor // empty) else empty end' <<<"$s")
+  [[ -n $COMP ]] || COMP=$(detect_compositor)
+}
+
+env_snapshot() {
+  # mmsg needs MANGO_INSTANCE_SIGNATURE (the path of mango's socket).
+  jq -cn --arg n "${NIRI_SOCKET:-}" --arg h "${HYPRLAND_INSTANCE_SIGNATURE:-}" \
+    --arg s "${SWAYSOCK:-}" --arg m "${MANGO_INSTANCE_SIGNATURE:-}" --arg w "${WAYLAND_DISPLAY:-}" \
+    '{NIRI_SOCKET: $n, HYPRLAND_INSTANCE_SIGNATURE: $h, SWAYSOCK: $s, MANGO_INSTANCE_SIGNATURE: $m, WAYLAND_DISPLAY: $w}'
+}
+
+niri_has_virtual() { niri msg create-virtual-output --help >/dev/null 2>&1; }
+
+# The method `extend` will use: virtual or port.
+choose_method() {
+  local m
+  m=$(setting method)
+  [[ $m == virtual || $m == port ]] && { echo "$m"; return; }
+  case $COMP in
+    hyprland|mango|sway) echo virtual ;;
+    niri) niri_has_virtual && echo virtual || echo port ;;
+    *) echo port ;;
+  esac
+}
+
+# ---------------------------------------------------------------- monitors
+#
+# Every backend prints the same JSON array:
+#   [{name, enabled, focused, x, y, lw, lh, pw, ph, refresh, scale,
+#     modes: [{w, h, r}]}]
+# x/y/lw/lh are logical (scaled) coordinates; pw/ph the pixel mode.
+
+MONS_OVERRIDE=""   # set by apply_display to place against remembered positions
+monitors_json() {
+  [[ -n $MONS_OVERRIDE ]] && { printf '%s' "$MONS_OVERRIDE"; return; }
+  local out=""
+  case $COMP in
+    niri) out=$(niri_monitors) ;;
+    hyprland) out=$(hypr_monitors) ;;
+    *) out=$(wlr_monitors) ;;
+  esac
+  [[ -n $out ]] && printf '%s' "$out" || printf '[]'
+}
+
+niri_monitors() {
+  local f
+  f=$(niri msg -j focused-output 2>/dev/null | jq -r '.name // empty' 2>/dev/null)
+  niri msg -j outputs 2>/dev/null | jq -c --arg f "$f" '
+    [.[] | (if .current_mode != null then .modes[.current_mode] else null end) as $m | {
+      name, enabled: (.logical != null), focused: (.name == $f),
+      x: (.logical.x // 0), y: (.logical.y // 0),
+      lw: (.logical.width // 0), lh: (.logical.height // 0),
+      pw: ($m.width // 0), ph: ($m.height // 0),
+      refresh: (($m.refresh_rate // 0) / 1000), scale: (.logical.scale // 1),
+      modes: [.modes[] | {w: .width, h: .height, r: (.refresh_rate / 1000)}]
+    }]' 2>/dev/null
+}
+
+hypr_monitors() {
+  hyprctl -j monitors all 2>/dev/null | jq -c '
+    [.[] | {
+      name, enabled: (.disabled != true), focused: (.focused == true),
+      x, y, lw: ((.width / .scale) | round), lh: ((.height / .scale) | round),
+      pw: .width, ph: .height, refresh: .refreshRate, scale,
+      modes: [(.availableModes // [])[]
+              | capture("(?<w>[0-9]+)x(?<h>[0-9]+)@(?<r>[0-9.]+)")
+              | {w: (.w | tonumber), h: (.h | tonumber), r: (.r | tonumber)}]
+    }]' 2>/dev/null
+}
+
+wlr_monitors() {
+  # wlr-randr has no notion of focus; sway can tell us.
+  local f=""
+  case $COMP in
+    sway) f=$(swaymsg -t get_outputs 2>/dev/null | jq -r '.[] | select(.focused) | .name' 2>/dev/null) ;;
+    mango) f=$(mmsg get all-monitors 2>/dev/null | jq -r '.monitors[]? | select(.active) | .name' 2>/dev/null | head -1) ;;
+  esac
+  wlr-randr --json 2>/dev/null | jq -c --arg f "$f" '
+    [.[] | ((.modes // []) | map(select(.current)) | .[0]) as $m | (.scale // 1) as $s | {
+      name, enabled: (.enabled == true), focused: (.name == $f),
+      x: (.position.x // 0), y: (.position.y // 0),
+      lw: ((($m.width // 0) / $s) | round), lh: ((($m.height // 0) / $s) | round),
+      pw: ($m.width // 0), ph: ($m.height // 0), refresh: ($m.refresh // 0), scale: $s,
+      modes: [(.modes // [])[] | {w: .width, h: .height, r: .refresh}]
+    }]' 2>/dev/null
+}
+
+monitor_exists() { monitors_json | jq -e --arg n "$1" 'any(.[]; .name == $n and .enabled)' >/dev/null; }
+monitor_names() { monitors_json | jq -r '.[].name'; }
+
+# The monitor to place the tablet next to, and to mirror by default.
+reference_monitor() { # [exclude]
+  monitors_json | jq -c --arg x "${1:-}" '
+    (map(select(.name != $x and .enabled))) as $m
+    | ($m | map(select(.focused)) | .[0])
+      // ($m | map(select(.name | test("^(HEADLESS|TABLET)-") | not)) | .[0])
+      // $m[0] // empty'
+}
+
+monitor_signature() {
+  monitors_json | jq -r --arg n "$1" '
+    .[] | select(.name == $n) | "\(.pw)x\(.ph)@\(.refresh | round)*\(.scale * 100 | round)/\(.x),\(.y)"'
+}
+
+# ---------------------------------------------------------------- device profile & EDID
+
+# Native resolution and screen diagonal (inches) for the tablet. "auto" uses
+# the size Moonlight last asked for, which is the tablet's own resolution when
+# Moonlight is set to Native.
+profile() {
+  settings | jq -c '
+    def landscape: if .h > .w then {w: .h, h: .w} else . end;
+    def res($s): ($s | capture("^(?<w>[0-9]+)x(?<h>[0-9]+)$")? // null)
+                 | if . then {w: (.w | tonumber), h: (.h | tonumber)} else null end;
+    {
+      "galaxy-tab-s9-ultra": {w: 2960, h: 1848, diag: 14.6, name: "Tab S9 Ultra"},
+      "galaxy-tab-s9-plus":  {w: 2800, h: 1752, diag: 12.4, name: "Tab S9+"},
+      "galaxy-tab-s9":       {w: 2560, h: 1600, diag: 11.0, name: "Tab S9"},
+      "ipad-pro-13-m4":      {w: 2752, h: 2064, diag: 13.0, name: "iPad Pro 13"},
+      "ipad-pro-11-m4":      {w: 2420, h: 1668, diag: 11.1, name: "iPad Pro 11"}
+    } as $presets
+    | if $presets[.device] then $presets[.device]
+      elif .device == "custom" then
+        ((res(.customResolution) // {w: 2560, h: 1600}) + {diag: (.customDiagonal // 0), name: "Tablet"})
+      else
+        ((if .lastClient then {w: .lastClient.width, h: .lastClient.height} | landscape
+          else res(.customResolution) // {w: 2560, h: 1600} end)
+         + {diag: (.customDiagonal // 0), name: "Tablet"})
+      end
+    | .w = (.w | floor) | .h = (.h | floor)'
+}
+
+# Builds $EDID from the profile when it changed. Prints nothing; returns 1 on
+# failure.
+build_edid() {
+  local p w h diag name rates args wmm hmm
+  p=$(profile)
+  w=$(jq -r .w <<<"$p"); h=$(jq -r .h <<<"$p")
+  diag=$(jq -r .diag <<<"$p"); name=$(jq -r .name <<<"$p")
+  rates=$(setting refreshRates)
+  [[ $rates =~ ^[0-9]+(\.[0-9]+)?(,[0-9]+(\.[0-9]+)?)*$ ]] || rates="60,90,120"
+  # Physical size from the diagonal; without one assume ~220 ppi, which only
+  # affects what the compositor reports, not the picture.
+  read -r wmm hmm < <(awk -v w="$w" -v h="$h" -v d="$diag" 'BEGIN {
+    dpx = sqrt(w * w + h * h); din = (d > 0) ? d : dpx / 220
+    printf "%d %d\n", din * 25.4 * w / dpx + 0.5, din * 25.4 * h / dpx + 0.5 }')
+  args="--native ${w}x${h} --refresh $rates --size-mm ${wmm}x${hmm} --name $name"
+  if [[ -f $EDID && -f $EDID_ARGS && $(cat "$EDID_ARGS") == "$args" ]]; then return 0; fi
+  # shellcheck disable=SC2086
+  if python3 -I "$BIN_DIR/make-edid.py" -o "$EDID.tmp" --native "${w}x${h}" --refresh "$rates" \
+       --size-mm "${wmm}x${hmm}" --name "$name" >>"$LOG" 2>&1; then
+    mv -f "$EDID.tmp" "$EDID" && printf '%s' "$args" >"$EDID_ARGS"
+    log "edid: $args"
+  else
+    rm -f "$EDID.tmp"
+    add_error "Could not build an EDID for ${w}x${h} (see $LOG)"
+    return 1
+  fi
+}
+
+# ---------------------------------------------------------------- port method
+
+helper_installed() { [[ -x $HELPER ]]; }
+helper_current() {
+  helper_installed || return 1
+  [[ $("$HELPER" version 2>/dev/null) == $(sed -n 's/^VERSION=//p' "$HELPER_SRC") ]]
+}
+
+# Free external connectors, best first: the remembered working one, then the
+# GPU that drives the built-in panel (so the tablet is drawn on the same GPU),
+# then the rest.
+free_ports() {
+  local c base internal="" st
+  for c in /sys/class/drm/card*-eDP-*; do
+    [[ -e $c && $(cat "$c/status" 2>/dev/null) == connected ]] && { internal=${c##*/}; internal=${internal%%-*}; break; }
+  done
+  {
+    for c in /sys/class/drm/card*-*; do
+      base=${c##*/}
+      [[ $base =~ ^card[0-9]+-(DP|HDMI-A|HDMI-B|DVI-D|DVI-I)-[0-9]+$ ]] || continue
+      st=$(cat "$c/status" 2>/dev/null)
+      [[ $st == disconnected ]] || continue
+      printf '%s %s\n' "$([[ ${base%%-*} == "$internal" ]] && echo 0 || echo 1)" "$base"
+    done
+  } | sort -k1,1n -k2,2V | awk '{print $2}'
+}
+
+port_candidates() {
+  local want working
+  want=$(setting port)
+  if [[ -n $want && $want != auto ]]; then echo "$want"; return; fi
+  working=$(setting workingPort)
+  local free
+  free=$(free_ports)
+  [[ -n $working ]] && grep -qx "$working" <<<"$free" && echo "$working"
+  grep -vx "${working:-//}" <<<"$free"
+}
+
+wait_for_monitor() { # name seconds
+  local i
+  for ((i = 0; i < $2 * 10; i++)); do
+    monitor_exists "$1" && return 0
+    sleep 0.1
+  done
+  return 1
+}
+
+# Forces a port on and waits for the compositor to show it. Prints the output
+# name. Tries up to three candidates when the port is "auto".
+port_on() {
+  local c out tries=0
+  helper_installed || { add_error "The port helper is not installed. Open the panel and choose Install helper."; return 1; }
+  build_edid || return 1
+  for c in $(port_candidates); do
+    ((tries++ < 3)) || break
+    out=${c#*-}
+    log "port: trying $c"
+    local err
+    if ! err=$(pkexec "$HELPER" on "$c" <"$EDID" 2>&1 >>"$LOG"); then
+      log "port: $err"
+      add_error "${err#port-helper: }"
+      continue
+    fi
+    if wait_for_monitor "$out" 6; then
+      update_settings '.workingPort = $c' --arg c "$c"
+      update_session '.port = $c' --arg c "$c"
+      echo "$out"
+      return 0
+    fi
+    log "port: $c did not appear in the compositor"
+    pkexec "$HELPER" off "$c" >>"$LOG" 2>&1
+  done
+  ((tries)) || add_error "No free display port found (all are in use)"
+  return 1
+}
+
+port_off() { # card-connector
+  [[ -n $1 ]] || return 0
+  local err
+  if ! err=$(pkexec "$HELPER" off "$1" 2>&1 >>"$LOG"); then
+    log "port: $err"
+    add_error "Could not release $1: ${err#port-helper: }"
+  fi
+}
+
+# ---------------------------------------------------------------- virtual method
+
+virtual_create() { # w h r -> prints output name
+  local w=$1 h=$2 r=$3 before name i
+  before=$(monitor_names)
+  case $COMP in
+    hyprland)
+      monitor_exists "$HYPR_OUTPUT" || hyprctl output create headless "$HYPR_OUTPUT" >/dev/null 2>&1
+      wait_for_monitor "$HYPR_OUTPUT" 3 && { echo "$HYPR_OUTPUT"; return 0; }
+      return 1 ;;
+    niri) niri msg create-virtual-output --width "$w" --height "$h" --refresh-rate "${r%.*}" >>"$LOG" 2>&1 || return 1 ;;
+    mango) mmsg dispatch create_virtual_output >>"$LOG" 2>&1 || return 1 ;;
+    sway) swaymsg create_output >>"$LOG" 2>&1 || return 1 ;;
+    *) return 1 ;;
+  esac
+  for ((i = 0; i < 30; i++)); do
+    name=$(monitor_names | grep -vxF -f <(printf '%s\n' "$before") | head -1)
+    [[ -n $name ]] && { echo "$name"; return 0; }
+    sleep 0.1
+  done
+  return 1
+}
+
+virtual_remove() { # name
+  [[ -n $1 ]] || return 0
+  case $COMP in
+    hyprland) hyprctl output remove "$1" >/dev/null 2>&1 ;;
+    niri) niri msg remove-virtual-output "$1" >>"$LOG" 2>&1 ;;
+    # mango can only destroy all virtual outputs at once.
+    mango) mmsg dispatch destroy_all_virtual_output >>"$LOG" 2>&1 ;;
+    sway) swaymsg output "$1" unplug >>"$LOG" 2>&1 ;;
+  esac
+}
+
+# ---------------------------------------------------------------- display mode & placement
+
+auto_scale() { # w h diag
+  awk -v w="$1" -v h="$2" -v d="$3" 'BEGIN {
+    if (d > 0) { s = sqrt(w * w + h * h) / d / 120 } else { s = (w >= 2400) ? 2 : (w >= 1900 ? 1.5 : 1) }
+    s = int(s * 4 + 0.5) / 4; if (s < 1) s = 1; if (s > 3) s = 3; print s }'
+}
+
+current_scale() {
+  local s p
+  s=$(setting scale)
+  if [[ $s =~ ^[0-9]+(\.[0-9]+)?$ ]]; then echo "$s"; return; fi
+  p=$(profile)
+  auto_scale "$(jq -r .w <<<"$p")" "$(jq -r .h <<<"$p")" "$(jq -r .diag <<<"$p")"
+}
+
+# The mode the display should have right now, as "W H R".
+desired_mode() { # output method
+  local out=$1 method=$2 st p w h fps
+  st=$(settings); p=$(profile)
+  w=$(jq -r '.lastClient.width // empty' <<<"$st"); h=$(jq -r '.lastClient.height // empty' <<<"$st")
+  fps=$(jq -r '.lastClient.fps // 60' <<<"$st")
+  if [[ -z $w ]]; then w=$(jq -r .w <<<"$p"); h=$(jq -r .h <<<"$p"); fi
+  ((h > w)) && { local t=$w; w=$h; h=$t; }
+  if [[ $method == virtual ]]; then
+    # Twice the stream rate: Sunshine's capture waits for the next refresh,
+    # and at 1x the wait costs frames. Capped at 240.
+    echo "$w $h $((fps * 2 > 240 ? 240 : fps * 2))"
+    return
+  fi
+  # Port: pick from the EDID's modes. The client's size if present, else the
+  # native size; the fastest refresh at that size.
+  monitors_json | jq -r --arg n "$out" --argjson w "$w" --argjson h "$h" --argjson nw "$(jq .w <<<"$p")" --argjson nh "$(jq .h <<<"$p")" '
+    (.[] | select(.name == $n) | .modes) as $m
+    | (($m | map(select(.w == $w and .h == $h))) as $x | if ($x | length) > 0 then $x
+       else ($m | map(select(.w == $nw and .h == $nh))) end)
+    | max_by(.r) // empty | "\(.w) \(.h) \(.r)"'
+}
+
+# Position for a display of logical size lw x lh next to the reference
+# monitor, for compositors that take coordinates.
+placement() { # lw lh exclude
+  local ref pos
+  ref=$(reference_monitor "$3")
+  [[ -n $ref ]] || { echo "0 0"; return; }
+  pos=$(setting position)
+  # The reference's size comes from its pixel mode, rounded up: compositors
+  # report logical sizes rounded down (1600 / 1.5 = 1066.67 shows as 1066),
+  # and niri moves an output that overlaps another by even a fraction.
+  jq -r --arg p "$pos" --argjson lw "$1" --argjson lh "$2" '
+    (if .pw > 0 then ((.pw / .scale) | ceil) else .lw end) as $rw
+    | (if .ph > 0 then ((.ph / .scale) | ceil) else .lh end) as $rh
+    | if $p == "left" then "\(.x - $lw) \(.y)"
+      elif $p == "above" then "\(.x) \(.y - $lh)"
+      elif $p == "below" then "\(.x) \(.y + $rh)"
+      else "\(.x + $rw) \(.y)" end' <<<"$ref"
+}
+
+apply_display() { # output method
+  local out=$1 method=$2 mode w h r scale lw lh x y
+  mode=$(desired_mode "$out" "$method")
+  read -r w h r <<<"$mode"
+  [[ $w =~ ^[0-9]+$ && $h =~ ^[0-9]+$ ]] || { add_error "No usable mode for $out"; return 1; }
+  scale=$(current_scale)
+  # Rounded up, so a display placed left of or above another never overlaps it.
+  lw=$(awk -v a="$w" -v s="$scale" 'BEGIN { v = a / s; printf "%d", (v == int(v)) ? v : int(v) + 1 }')
+  lh=$(awk -v a="$h" -v s="$scale" 'BEGIN { v = a / s; printf "%d", (v == int(v)) ? v : int(v) + 1 }')
+
+  case $COMP in
+    hyprland)
+      local kw
+      case $(setting position) in left) kw=auto-left ;; above) kw=auto-up ;; below) kw=auto-down ;; *) kw=auto-right ;; esac
+      local res
+      res=$(hyprctl eval "hl.monitor({ output = \"$out\", mode = \"${w}x${h}@${r%.*}\", position = \"$kw\", scale = $scale })" 2>&1)
+      if [[ $res != ok* ]]; then
+        res=$(hyprctl keyword monitor "$out,${w}x${h}@${r%.*},$kw,$scale" 2>&1)
+        [[ $res == ok* ]] || { add_error "Hyprland rejected the monitor rule: $res"; return 1; }
+      fi
+      ;;
+    niri)
+      if [[ $method == port ]]; then
+        niri msg output "$out" mode "${w}x${h}@$(printf '%.3f' "$r")" >>"$LOG" 2>&1 || log "niri: mode ${w}x${h}@$r failed"
+      fi
+      niri msg output "$out" scale "$scale" >>"$LOG" 2>&1
+      # niri re-places every output without an explicit position to the right
+      # of the positioned ones, so placing the tablet pushes the laptop screen
+      # away. Pin the other monitors where they were before Extend first.
+      local home n px py
+      home=$(session | jq -c '.home // {}')
+      MONS_OVERRIDE=$(monitors_json | jq -c --argjson h "$home" \
+        'map(if $h[.name] then .x = $h[.name].x | .y = $h[.name].y else . end)')
+      while read -r n px py; do
+        niri msg output "$n" position set -- "$px" "$py" >>"$LOG" 2>&1
+      done < <(monitors_json | jq -r --arg o "$out" '.[] | select(.enabled and .name != $o) | "\(.name) \(.x) \(.y)"')
+      read -r x y < <(placement "$lw" "$lh" "$out")
+      MONS_OVERRIDE=""
+      niri msg output "$out" position set -- "$x" "$y" >>"$LOG" 2>&1
+      ;;
+    *)
+      # mango re-arranges every monitor when one changes mode, so the other
+      # monitors drift. Pin them at the positions they had when Extend
+      # started ("home"), place the tablet against those, and send it all in
+      # one request.
+      local home pins=()
+      home=$(session | jq -c '.home // {}')
+      MONS_OVERRIDE=$(monitors_json | jq -c --argjson h "$home" \
+        'map(if $h[.name] then .x = $h[.name].x | .y = $h[.name].y else . end)')
+      mapfile -t pins < <(monitors_json | jq -r --arg o "$out" \
+        '.[] | select(.enabled and .name != $o) | "--output", .name, "--pos=\(.x),\(.y)"')
+      read -r x y < <(placement "$lw" "$lh" "$out")
+      MONS_OVERRIDE=""
+      local modearg=(--mode "${w}x${h}@${r}")
+      [[ $method == virtual ]] && modearg=(--custom-mode "${w}x${h}@${r}Hz")
+      # Mode and scale first, then positions: mango re-arranges monitors when
+      # a mode change and a position arrive in the same request.
+      wlr-randr "${pins[@]}" --output "$out" "${modearg[@]}" --scale "$scale" >>"$LOG" 2>&1
+      # mango sometimes re-sorts monitors after a move (seen moving the tablet
+      # from beside to above the screen); check, and send it again.
+      local want got try
+      want=$(jq -cn --argjson h "$home" --arg o "$out" --argjson x "$x" --argjson y "$y" '$h + {($o): {x: $x, y: $y}}')
+      for try in 1 2 3; do
+        wlr-randr "${pins[@]}" --output "$out" --pos="${x},${y}" >>"$LOG" 2>&1
+        sleep 0.15
+        got=$(monitors_json | jq -c --argjson w "$want" 'map(select($w[.name])) | map({(.name): {x, y}}) | add // {}')
+        [[ $(jq -n --argjson a "$got" --argjson b "$want" '$a == $b') == true ]] && break
+        log "placement: try $try got $got"
+      done
+      ;;
+  esac
+  sleep 0.2
+  update_session '.applied = $s' --arg s "$(monitor_signature "$out")"
+  log "applied $out ${w}x${h}@$r scale $scale"
+}
+
+# ---------------------------------------------------------------- touch
+
+# Sunshine's virtual touchscreen and pen only exist once a client uses them,
+# and absolute devices span the whole layout unless pinned to an output.
+# Hyprland can pin them at runtime; niri only from its config file.
+map_input_devices() {
+  local target=$1 names name
+  [[ $COMP == hyprland && -n $target ]] || return 0
+  names=$(hyprctl -j devices 2>/dev/null | jq -r '
+    [(.touch // [])[], (.tablets // [])[]] | map(.name // empty)
+    | map(select(test("passthrough|sunshine"; "i"))) | unique[]') || return 0
+  while IFS= read -r name; do
+    [[ -n $name && $name =~ ^[A-Za-z0-9._:()-]+$ ]] || continue
+    session | jq -e --arg k "$name=$target" '.mapped | index($k)' >/dev/null && continue
+    if [[ $(hyprctl eval "hl.device({ name = \"$name\", output = \"$target\" })" 2>&1) == ok* ]] ||
+       [[ $(hyprctl keyword "device[$name]:output" "$target" 2>&1) == ok* ]]; then
+      log "mapped $name -> $target"
+      update_session '.mapped = ((.mapped | map(select(startswith($n + "=") | not))) + [$k])' \
+        --arg n "$name" --arg k "$name=$target"
+    fi
+  done <<<"$names"
+}
+
+unmap_input_devices() {
+  local entry name
+  if [[ $COMP == hyprland ]]; then
+    while IFS= read -r entry; do
+      name="${entry%%=*}"
+      [[ -n $name ]] && hyprctl eval "hl.device({ name = \"$name\", output = \"\" })" >/dev/null 2>&1
+    done < <(session | jq -r '.mapped[]?')
+  fi
+  update_session '.mapped = []'
+}
+
+# ---------------------------------------------------------------- sunshine
+
+sunshine_installed() { command -v sunshine >/dev/null 2>&1; }
+sunshine_running() { pgrep -x sunshine >/dev/null 2>&1; }
+# The package ships app-dev.lizardbyte.app.Sunshine.service, with
+# "sunshine.service" only as an Alias= that exists once the unit is enabled.
+SUNSHINE_UNIT=""
+sunshine_has_unit() {
+  [[ ${TABLET_DISPLAY_SUNSHINE_UNIT:-} == none ]] && return 1
+  [[ -n $SUNSHINE_UNIT ]] && return 0
+  local u
+  for u in app-dev.lizardbyte.app.Sunshine.service sunshine.service; do
+    if systemctl --user cat "$u" >/dev/null 2>&1; then SUNSHINE_UNIT=$u; return 0; fi
+  done
+  return 1
+}
+
+stop_sunshine() {
+  if sunshine_has_unit; then systemctl --user stop "$SUNSHINE_UNIT" 2>/dev/null; fi
+  pkill -x sunshine 2>/dev/null
+  for _ in {1..30}; do sunshine_running || return 0; sleep 0.1; done
+  pkill -9 -x sunshine 2>/dev/null
+}
+
+restart_sunshine() {
+  stop_sunshine
+  if sunshine_has_unit; then
+    # The unit gets systemd's user environment, which holds whatever session
+    # last imported into it. Point it at this one.
+    local v unset=()
+    for v in NIRI_SOCKET HYPRLAND_INSTANCE_SIGNATURE SWAYSOCK MANGO_INSTANCE_SIGNATURE; do [[ -n ${!v:-} ]] || unset+=("$v"); done
+    ((${#unset[@]})) && systemctl --user unset-environment "${unset[@]}" 2>/dev/null
+    systemctl --user set-environment "WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-}" \
+      ${NIRI_SOCKET:+"NIRI_SOCKET=$NIRI_SOCKET"} \
+      ${HYPRLAND_INSTANCE_SIGNATURE:+"HYPRLAND_INSTANCE_SIGNATURE=$HYPRLAND_INSTANCE_SIGNATURE"} \
+      ${SWAYSOCK:+"SWAYSOCK=$SWAYSOCK"} \
+      ${MANGO_INSTANCE_SIGNATURE:+"MANGO_INSTANCE_SIGNATURE=$MANGO_INSTANCE_SIGNATURE"} 2>/dev/null
+    systemctl --user reset-failed "$SUNSHINE_UNIT" 2>/dev/null
+    systemctl --user start "$SUNSHINE_UNIT" || return 1
+  else
+    # 9>&- : the daemon must not inherit, and so hold forever, our lock.
+    setsid -f sunshine >>"$RUN_DIR/sunshine.log" 2>&1 </dev/null 9>&- || return 1
+  fi
+  # Some packaged units sleep a few seconds before starting.
+  for _ in {1..150}; do sunshine_running && return 0; sleep 0.1; done
+  return 1
+}
+
+conf_has_block() { [[ -f $SUNSHINE_CONF ]] && grep -qF "$MARK_BEGIN" "$SUNSHINE_CONF"; }
+
+# Puts sunshine.conf back exactly as the user had it.
+restore_conf() {
+  [[ -f $SUNSHINE_CONF ]] || return 0
+  local out
+  out=$(awk -v b="$MARK_BEGIN" -v e="$MARK_END" -v p="$DISABLED_PREFIX" '
+    $0 == b { skip = 1; next }
+    skip && $0 == e { skip = 0; next }
+    skip { next }
+    index($0, p) == 1 { print substr($0, length(p) + 1); next }
+    { print }
+  ' "$SUNSHINE_CONF") || return 1
+  # Drop the blank line apply_conf added before the block.
+  out=$(printf '%s\n' "$out" | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}')
+  write_atomic "$SUNSHINE_CONF" "$out"
+}
+
+# Sunshine runs prep commands directly, without a shell, and aborts the
+# stream when one fails. While the plugin exists this hands over to it. If the
+# plugin was removed, it puts sunshine.conf back and exits 0 so streaming
+# keeps working.
+write_hook() {
+  write_atomic "$HOOK" "$(cat <<HOOK_EOF
+#!/bin/sh
+# Written by $APP. Sunshine runs this when a Moonlight session starts or ends.
+$(for v in TABLET_DISPLAY_STATE_DIR TABLET_DISPLAY_RUN_DIR TABLET_DISPLAY_SUNSHINE_UNIT TABLET_DISPLAY_SUNSHINE_CONF; do
+    [ -n "${!v:-}" ] && printf "export %s='%s'\n" "$v" "${!v}"
+  done)
+ctl='$CTL'
+if [ -f "\$ctl" ]; then exec bash "\$ctl" "\$@"; fi
+conf='$SUNSHINE_CONF'
+[ -f "\$conf" ] && sed -i -e '/^# >>> $APP:/,/^# <<< $APP\$/d' -e 's/^#$APP# //' "\$conf"
+exit 0
+HOOK_EOF
+)" && chmod 755 "$HOOK"
+}
+
+apply_conf() { # output_name
+  local target="$1" audio existing ours merged body
+  restore_conf || return 1
+  mkdir -p "$(dirname "$SUNSHINE_CONF")"
+  touch "$SUNSHINE_CONF"
+  [[ $HOOK =~ [[:space:]] ]] && { add_error "Path contains spaces; Sunshine cannot run its hook: $HOOK"; return 1; }
+  write_hook || return 1
+
+  ours=$(jq -cn --arg c "$HOOK" '[{do: ($c + " hook-start"), undo: ($c + " hook-stop"), elevated: false}]')
+  existing=$(sed -nE 's/^[[:space:]]*global_prep_cmd[[:space:]]*=[[:space:]]*//p' "$SUNSHINE_CONF" | tail -1)
+  merged=$(jq -c --argjson o "$ours" '(if type == "array" then . else [] end) + $o' <<<"${existing:-[]}" 2>/dev/null) || merged="$ours"
+  audio=$(settings | jq -r 'if .audio then "enabled" else "disabled" end')
+
+  body=$(awk -v p="$DISABLED_PREFIX" -v keys="^[[:space:]]*($MANAGED_KEYS)[[:space:]]*=" '
+    $0 ~ keys { print p $0; next } { print }
+  ' "$SUNSHINE_CONF") || return 1
+
+  write_atomic "$SUNSHINE_CONF" "$(printf '%s\n\n%s\n%s\n%s\n%s\n%s\n%s' \
+    "$body" "$MARK_BEGIN" \
+    "output_name = $target" \
+    "capture = wlr" \
+    "stream_audio = $audio" \
+    "global_prep_cmd = $merged" \
+    "$MARK_END")"
+}
+
+# ---------------------------------------------------------------- operations
+
+remove_display() { # session-json
+  local s=$1 method out port
+  method=$(jq -r .method <<<"$s"); out=$(jq -r .output <<<"$s"); port=$(jq -r .port <<<"$s")
+  case $method in
+    virtual) virtual_remove "$out" ;;
+    port) port_off "$port" ;;
+  esac
+}
+
+teardown() { # [notice]
+  local s mode was
+  s=$(session)
+  mode=$(jq -r .mode <<<"$s")
+  was=$(jq -r .sunshineWasRunning <<<"$s")
+
+  update_session '.busy = "stopping"'
+  unmap_input_devices
+  # Stop Sunshine before the display goes away: it would otherwise switch to
+  # streaming another monitor, such as the laptop screen.
+  [[ $mode != off ]] && stop_sunshine
+  restore_conf || add_error "Could not restore $SUNSHINE_CONF"
+  [[ $mode == extend ]] && remove_display "$s"
+  # Off means nothing is streamed: leave Sunshine stopped, unless the user
+  # asked to keep it running (as it was before we started).
+  if [[ $mode != off && $was == true && $(setting keepSunshine) == true ]]; then
+    restart_sunshine || add_error "Sunshine did not come back after restoring its config"
+  fi
+  update_session '. + {mode: "off", method: "", output: "", port: "", target: "", client: null, applied: "", busy: "", notice: $n}' \
+    --arg n "${1:-}"
+  log "off"
+}
+
+do_start() { # mode [target]
+  local mode=$1 target=${2:-} was method out
+  sunshine_installed || { add_error "Sunshine is not installed."; return 1; }
+
+  if [[ $(session | jq -r .mode) != off ]]; then
+    was=$(session | jq -r .sunshineWasRunning)
+    # Tear down with the compositor that owns the current display; a
+    # subshell so the new session below keeps the caller's own environment.
+    ( ensure_env; teardown )
+  else
+    sunshine_running && was=true || was=false
+  fi
+
+  COMP=$(detect_compositor)
+  update_session '. + {errors: [], notice: "", busy: "starting", mode: "off", compositor: $c, env: $e}' \
+    --arg c "$COMP" --argjson e "$(env_snapshot)"
+
+  if [[ $mode == extend ]]; then
+    # Where the real monitors are before the tablet appears; placement pins
+    # them here (see apply_display).
+    update_session '.home = $h' --argjson h "$(monitors_json | jq -c 'map(select(.enabled) | {(.name): {x, y}}) | add // {}')"
+    method=$(choose_method)
+    if [[ $method == virtual ]]; then
+      local w h r
+      read -r w h r <<<"$(desired_mode "" virtual)"
+      out=$(virtual_create "$w" "$h" "$r") || { add_error "$COMP would not create a virtual output"; update_session '.busy = ""'; return 1; }
+    else
+      out=$(port_on) || { update_session '.busy = ""'; return 1; }
+    fi
+    target=$out
+    update_session '. + {method: $m, output: $o}' --arg m "$method" --arg o "$out"
+    apply_display "$out" "$method" || true
+  else
+    [[ -n $target ]] || target=$(reference_monitor | jq -r '.name // empty')
+    if [[ -z $target ]] || ! monitor_exists "$target"; then
+      add_error "No monitor to mirror"
+      update_session '.busy = ""'
+      return 1
+    fi
+  fi
+
+  # Record the session before touching Sunshine, so a failure from here on is
+  # cleaned up by `off` or by the next reconcile.
+  update_session '. + {mode: $m, target: $t, sunshineWasRunning: $w}' \
+    --arg m "$mode" --arg t "$target" --argjson w "$was"
+
+  if ! apply_conf "$target"; then
+    add_error "Could not write $SUNSHINE_CONF"
+    teardown
+    return 1
+  fi
+  if ! restart_sunshine; then
+    add_error "Sunshine failed to start; see: journalctl --user -u app-dev.lizardbyte.app.Sunshine"
+    update_session '.busy = ""'
+    return 1
+  fi
+  update_session '.busy = ""'
+  log "$mode -> $target"
+}
+
+# Called by Sunshine (global_prep_cmd) when Moonlight starts a session. Must
+# be fast and must exit 0: a failing prep command aborts the stream.
+hook_start() {
+  local w="${SUNSHINE_CLIENT_WIDTH:-}" h="${SUNSHINE_CLIENT_HEIGHT:-}" fps="${SUNSHINE_CLIENT_FPS:-}" s
+  log "hook-start ${w}x${h}@${fps}"
+  [[ $w =~ ^[0-9]+$ && $h =~ ^[0-9]+$ ]] || return 0
+  [[ $fps =~ ^[0-9]+$ ]] || fps=60
+  update_settings '.lastClient = {width: $w, height: $h, fps: $f}' --argjson w "$w" --argjson h "$h" --argjson f "$fps"
+  update_session '.client = {width: $w, height: $h, fps: $f, since: now | floor}' --argjson w "$w" --argjson h "$h" --argjson f "$fps"
+  s=$(session)
+  [[ $(jq -r .mode <<<"$s") == extend ]] || return 0
+  ensure_env
+  local out method lw lh
+  out=$(jq -r .output <<<"$s"); method=$(jq -r .method <<<"$s")
+  if [[ $method == port ]]; then
+    # A port's modes come from the EDID, built before Moonlight connected.
+    lw=$((w > h ? w : h)); lh=$((w > h ? h : w))
+    if ! monitors_json | jq -e --arg n "$out" --argjson w "$lw" --argjson h "$lh" \
+         'any(.[] | select(.name == $n) | .modes[]; .w == $w and .h == $h)' >/dev/null; then
+      if [[ $(setting device) == auto ]]; then
+        set_notice "Moonlight asked for ${lw}×${lh}, which this display doesn't have yet. Turn the tablet display off and on again to add it."
+      else
+        set_notice "Moonlight asked for ${lw}×${lh}, but the selected device is $(profile | jq -r '"\(.w)×\(.h)"'). Set Moonlight to Native, or change the device in the plugin settings."
+      fi
+    fi
+  fi
+  apply_display "$out" "$method"
+}
+
+hook_stop() {
+  log "hook-stop"
+  update_session '.client = null'
+}
+
+# Fixes drift between what we think is going on and what is. Cheap enough to
+# run on every poll.
+reconcile() {
+  local s mode target out
+  s=$(session)
+  mode=$(jq -r .mode <<<"$s")
+
+  if [[ $mode == off ]]; then
+    # Left over from a crash or a reboot: the config still points Sunshine at
+    # a display that may not exist, and Sunshine would stream another one.
+    if conf_has_block; then
+      log "reconcile: stale sunshine.conf block"
+      local was_running=false
+      sunshine_running && { was_running=true; stop_sunshine; }
+      restore_conf
+      [[ $was_running == true ]] && restart_sunshine
+    fi
+    return 0
+  fi
+
+  [[ -n $(jq -r .busy <<<"$s") ]] && return 0
+  target=$(jq -r .target <<<"$s")
+  out=$(jq -r .output <<<"$s")
+
+  if ! monitor_exists "$target"; then
+    log "reconcile: $target vanished"
+    teardown "$target went away, so the tablet display was turned off."
+    return 0
+  fi
+
+  if [[ $mode == extend ]]; then
+    local now applied
+    now=$(monitor_signature "$out"); applied=$(jq -r .applied <<<"$s")
+    if [[ -n $applied && $now != "$applied" ]]; then
+      log "reconcile: $out drifted ($now != $applied), re-applying"
+      apply_display "$out" "$(jq -r .method <<<"$s")"
+    fi
+  fi
+  map_input_devices "$target"
+}
+
+print_state() {
+  local s st mons method="" helper_needed=false
+  s=$(session); st=$(settings)
+  [[ -n $COMP ]] || COMP=$(detect_compositor)
+  mons=$(monitors_json)
+  method=$(jq -r '.method // empty' <<<"$s")
+  [[ -n $method ]] || method=$(choose_method)
+  [[ $method == port ]] && helper_needed=true
+
+  jq -cn \
+    --argjson s "$s" --argjson st "$st" --argjson mons "$mons" --argjson prof "$(profile)" \
+    --argjson installed "$(sunshine_installed && echo true || echo false)" \
+    --argjson running "$(sunshine_running && echo true || echo false)" \
+    --argjson hInst "$(helper_installed && echo true || echo false)" \
+    --argjson hCur "$(helper_current && echo true || echo false)" \
+    --argjson hNeed "$helper_needed" \
+    --arg comp "$COMP" --arg method "$method" --arg scale "$(current_scale)" \
+    --arg host "$(cat /etc/hostname 2>/dev/null || hostname)" \
+    --arg addrs "$(ip -4 -o addr show scope global 2>/dev/null | awk '$2 !~ /^(tailscale|docker|br-|veth|virbr)/ {split($4, a, "/"); print a[1]}' | paste -sd' ')" \
+    '{
+      installed: $installed, running: $running,
+      mode: $s.mode, busy: $s.busy, method: $method, compositor: $comp,
+      output: $s.output, port: $s.port, target: $s.target,
+      client: $s.client, errors: $s.errors, notice: $s.notice,
+      position: $st.position, scaleSetting: $st.scale, scale: $scale, audio: $st.audio,
+      profile: $prof,
+      helper: {needed: $hNeed, installed: $hInst, current: $hCur},
+      monitor: ($mons | map(select(.name == $s.target)) | .[0]
+                | if . then {name, width: .pw, height: .ph, refresh: (.refresh * 1000 | round / 1000), scale} else null end),
+      monitors: ($mons | map(select(.enabled and .name != $s.output) | .name)),
+      host: $host, addresses: ($addrs | split(" ") | map(select(. != "")))
+    }
+    | .hint = (
+        if .client and .monitor then
+          (.client.width / .client.height) as $cr | (.monitor.width / .monitor.height) as $mr
+          | "\(.client.width)×\(.client.height)" as $c | "\(.monitor.width)×\(.monitor.height)" as $m
+          | if (($cr - $mr) | fabs) / $mr > 0.02 then
+              "Moonlight is streaming \($c), a different shape from this \($m) display, so you will see black bars. Set Moonlight to Native resolution and reconnect."
+            elif .client.width < 1600 then
+              "Moonlight is streaming only \($c), so it will look soft. Set Moonlight to Native resolution and reconnect."
+            else "" end
+        else "" end)'
+}
+
+cmd_state() {
+  ensure_env
+  if [[ ${1:-} != --no-reconcile ]]; then
+    exec 9>"$LOCK"
+    if flock -w 0.3 9; then reconcile; fi
+    exec 9>&-
+  fi
+  print_state
+}
+
+cmd_set() { # key value
+  local key=$1 value=$2 s mode
+  case $key in
+    position) [[ $value =~ ^(left|right|above|below)$ ]] || return 64 ;;
+    scale) [[ $value == auto || $value =~ ^[0-9](\.[0-9]{1,3})?$ ]] || return 64 ;;
+    *) echo "unknown setting: $key" >&2; return 64 ;;
+  esac
+  update_settings '.[$k] = $v' --arg k "$key" --arg v "$value"
+  s=$(session); mode=$(jq -r .mode <<<"$s")
+  if [[ $mode == extend ]]; then
+    ensure_env
+    apply_display "$(jq -r .output <<<"$s")" "$(jq -r .method <<<"$s")"
+  fi
+  return 0
+}
+
+# The plugin's settings, pushed by the Noctalia service whenever they change.
+cmd_configure() { # json
+  local new old s mode
+  new=$(jq -c '{
+      device: (.device // "auto"), customResolution: (.customResolution // "2560x1600"),
+      customDiagonal: ((.customDiagonal // 0) | tonumber? // 0),
+      refreshRates: (.refreshRates // "60,90,120"), audio: (.audio == true),
+      method: (.method // "auto"), port: (.port // "auto"),
+      keepSunshine: (.keepSunshine == true)
+    }' <<<"$1") || { echo "configure: invalid JSON" >&2; return 64; }
+  old=$(settings | jq -c '{device, customResolution, customDiagonal, refreshRates, audio, method, port, keepSunshine}')
+  [[ $new == "$old" ]] && return 0
+  update_settings '. + $n' --argjson n "$new"
+  s=$(session); mode=$(jq -r .mode <<<"$s")
+  [[ $mode == off ]] && return 0
+  if [[ $(jq -r .audio <<<"$new") != $(jq -r .audio <<<"$old") ]]; then
+    # Only Sunshine reads this, and only at start.
+    apply_conf "$(jq -r .target <<<"$s")" && restart_sunshine
+  fi
+  if [[ $mode == extend && $(jq -c 'del(.audio, .keepSunshine)' <<<"$new") != $(jq -c 'del(.audio, .keepSunshine)' <<<"$old") ]]; then
+    set_notice "Turn the tablet display off and on again to apply the new device settings."
+  fi
+}
+
+open_admin() { # [path]
+  setsid -f xdg-open "https://localhost:47990${1:-}" >/dev/null 2>&1
+}
+
+cmd_doctor() {
+  ensure_env
+  echo "== $APP doctor"
+  echo "compositor:       $COMP"
+  echo "extend method:    $(choose_method)"
+  echo "sunshine:         $(command -v sunshine || echo 'NOT INSTALLED')"
+  echo "sunshine running: $(sunshine_running && echo yes || echo no)"
+  echo "systemd unit:     $(sunshine_has_unit && echo "$SUNSHINE_UNIT ($(systemctl --user is-active "$SUNSHINE_UNIT"))" || echo none)"
+  echo "sunshine hook:    $HOOK -> $CTL"
+  echo "sunshine.conf:    $SUNSHINE_CONF ($(conf_has_block && echo managed || echo untouched))"
+  echo "port helper:      $(helper_installed && echo "installed (version $("$HELPER" version), $(helper_current && echo current || echo OUTDATED))" || echo 'not installed')"
+  echo "kernel lockdown:  $(cat /sys/kernel/security/lockdown 2>/dev/null || echo unknown)"
+  echo "free ports:       $(free_ports | paste -sd' ')"
+  echo "profile:          $(profile)"
+  echo "edid:             $([[ -f $EDID ]] && cat "$EDID_ARGS" || echo 'not built yet')"
+  if command -v ufw >/dev/null; then echo "firewall:         ufw is installed; Sunshine needs TCP 47984,47989,47990,48010 and UDP 47998-48000 open"; fi
+  if command -v firewall-cmd >/dev/null; then echo "firewall:         firewalld is installed; open the same Sunshine ports"; fi
+  [[ $COMP == niri ]] && cat <<'NIRI'
+touch on niri:    niri can only map touch to a monitor from its config. For
+                  Moonlight's direct-touch mode, add to ~/.config/niri/config.kdl:
+                    input { touch { map-to-output "DP-3" } }   (your display's name)
+NIRI
+  echo
+  echo "== session";  session | jq .
+  echo "== settings"; settings | jq .
+  echo "== monitors"; monitors_json | jq -r '.[] | "\(.name)\t\(.pw)x\(.ph)@\(.refresh)\tscale \(.scale)\tat \(.x),\(.y)\(if .enabled then "" else "\tdisabled" end)"'
+  echo "== last log lines"; tail -n 20 "$LOG" 2>/dev/null
+}
+
+usage() {
+  cat >&2 <<USAGE
+usage: tablet-display-ctl <command>
+
+  state [--no-reconcile]   print state as JSON (the panel polls this)
+  extend                   add a display for the tablet and stream it
+  mirror [monitor]         stream an existing monitor (default: focused)
+  off                      stop, restore sunshine.conf, remove the display
+  set position left|right|above|below
+  set scale auto|1|1.25|1.5|...
+  configure '<json>'       plugin settings (sent by the Noctalia service)
+  pair                     open Sunshine's PIN page to pair Moonlight
+  admin                    open Sunshine's web UI
+  clear-errors             dismiss errors and notices
+  uninstall                turn off, restore sunshine.conf, delete state
+  doctor                   print diagnostics
+
+Sunshine calls 'hook-start' and 'hook-stop' itself when Moonlight connects.
+USAGE
+  exit 64
+}
+
+case "${1:-}" in
+  state) cmd_state "${2:-}" ;;
+  extend) with_lock do_start extend ;;
+  mirror) with_lock do_start mirror "${2:-}" ;;
+  off) ensure_env; with_lock teardown ;;
+  set) [[ $# -eq 3 ]] || usage; with_lock cmd_set "$2" "$3" ;;
+  configure) [[ $# -eq 2 ]] || usage; ensure_env; with_lock cmd_configure "$2" ;;
+  hook-start) LOCK_WAIT=5 with_lock hook_start; exit 0 ;;
+  hook-stop) LOCK_WAIT=5 with_lock hook_stop; exit 0 ;;
+  pair) open_admin /pin ;;
+  admin) open_admin ;;
+  clear-errors) with_lock update_session '.errors = [] | .notice = ""' ;;
+  uninstall)
+    ensure_env
+    with_lock teardown
+    restore_conf
+    rm -rf "$STATE_DIR" "$RUN_DIR"
+    echo "$APP: turned off, sunshine.conf restored, state removed."
+    ;;
+  doctor) cmd_doctor ;;
+  *) usage ;;
+esac
