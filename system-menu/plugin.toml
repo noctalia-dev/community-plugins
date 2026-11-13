@@ -1,13 +1,13 @@
 id = "ajsem1337/system-menu"
 name = "System Menu"
-version = "1.2.2"
+version = "2.0.1"
 plugin_api = 43
 author = "ajsem1337"
 license = "MIT"
-description = "System menu with an Arch package browser, your choice of terminal and AUR helper, btop and system information."
+description = "Launch your choice of package manager, system monitor and terminal, with native system information."
 icon = "device-desktop"
-tags = ["bar", "panel", "system", "utility", "arch"]
-dependencies = ["python3", "fastfetch", "btop", "fzf", "downgrade", "traur", "xdg-open"]
+tags = ["bar", "panel", "system", "utility", "launcher"]
+dependencies = ["python3", "fastfetch"]
 
 [[setting]]
 key = "terminal"
@@ -15,13 +15,6 @@ type = "string"
 label_key = "settings.terminal.label"
 description_key = "settings.terminal.description"
 default = "kitty"
-
-[[setting]]
-key = "aur_helper"
-type = "string"
-label_key = "settings.aur_helper.label"
-description_key = "settings.aur_helper.description"
-default = "paru"
 
 [[setting]]
 key = "show_terminal_arguments"
@@ -45,6 +38,72 @@ label_key = "settings.terminal_exec_args.label"
 description_key = "settings.terminal_exec_args.description"
 default = ["-e"]
 visible_when = { key = "show_terminal_arguments", values = ["true"] }
+
+[[setting]]
+key = "terminal_command_format"
+type = "select"
+label_key = "settings.terminal_command_format.label"
+description_key = "settings.terminal_command_format.description"
+default = "argv"
+options = [
+  { value = "argv", label_key = "command_formats.argv" },
+  { value = "quoted", label_key = "command_formats.quoted" },
+]
+visible_when = { key = "show_terminal_arguments", values = ["true"] }
+
+[[setting]]
+key = "packages_mode"
+type = "select"
+label_key = "settings.packages_mode.label"
+description_key = "settings.packages_mode.description"
+default = "desktop"
+options = [
+  { value = "direct", label_key = "launch_modes.direct" },
+  { value = "terminal", label_key = "launch_modes.terminal" },
+  { value = "desktop", label_key = "launch_modes.desktop" },
+]
+
+[[setting]]
+key = "packages_command"
+type = "string"
+label_key = "settings.packages_command.label"
+description_key = "settings.packages_command.description"
+default = ""
+
+[[setting]]
+key = "packages_args"
+type = "string_list"
+label_key = "settings.packages_args.label"
+description_key = "settings.packages_args.description"
+default = []
+visible_when = { key = "packages_mode", values = ["direct", "terminal"] }
+
+[[setting]]
+key = "monitor_mode"
+type = "select"
+label_key = "settings.monitor_mode.label"
+description_key = "settings.monitor_mode.description"
+default = "desktop"
+options = [
+  { value = "direct", label_key = "launch_modes.direct" },
+  { value = "terminal", label_key = "launch_modes.terminal" },
+  { value = "desktop", label_key = "launch_modes.desktop" },
+]
+
+[[setting]]
+key = "monitor_command"
+type = "string"
+label_key = "settings.monitor_command.label"
+description_key = "settings.monitor_command.description"
+default = ""
+
+[[setting]]
+key = "monitor_args"
+type = "string_list"
+label_key = "settings.monitor_args.label"
+description_key = "settings.monitor_args.description"
+default = []
+visible_when = { key = "monitor_mode", values = ["direct", "terminal"] }
 
 [[widget]]
 id = "button"

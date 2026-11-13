@@ -2,106 +2,72 @@
 
 ![Made with AI](https://img.shields.io/badge/Made%20with-AI-76ddcf)
 
-Packages, Task Manager, Terminal and About This System in a Noctalia menu.
-Native Luau panels; the package browser uses fzf in your chosen terminal.
-The bar, menu and About panel use your installed distribution's logo.
+Launch a package manager, system monitor and terminal. View system information
+in a native About panel.
 
 ## Plugin
 
 | Field | Value |
 | --- | --- |
 | ID | `ajsem1337/system-menu` |
-| Entries | Widget `button`; panels `menu`, `about` |
-| Compatibility | Plugin API 43+; Arch or compatible derivative for package actions |
-| License | MIT |
+| Entries | Bar widget: `button`; panels: `menu`, `about` |
 
 ## Requirements
 
-Arch system tools are assumed. Install extras separately; nothing is installed
-automatically. See [operations](OPERATIONS.md) for the full command list.
-
-- `python3` (3.11+), a terminal (default `kitty`).
-- `fzf` (0.74.5+) and a compatible AUR helper (default `paru`; `yay` or a custom
-  executable also works).
-- `btop` for Task Manager; `fastfetch` for About.
-- Optional: `downgrade` for cached versions, `traur` for manual audits,
-  `xdg-open` for VirusTotal browser links.
-
-## Settings
-
-Open **Settings → Plugins → System Menu**.
-
-| Setting | Default | Meaning |
-| --- | --- | --- |
-| Terminal executable | `kitty` | Executable name/path, without arguments |
-| AUR helper executable | `paru` | Compatible executable name/path |
-| Advanced terminal options | Off | Show the two argument lists below |
-| Terminal arguments (advanced) | Empty | One list item per option |
-| Run-program arguments (advanced) | `-e` | Before Packages/btop; use `--` for GNOME Terminal |
-
-Enable **Advanced terminal options** in this plugin's settings to edit the lists.
-This switch is independent of Noctalia's global **Show advanced** filter.
-Hiding the lists preserves their values and does not disable the arguments.
-
-Arguments are passed directly: no aliases, shell quotes, `~` or variable expansion.
-The helper must support `-S --needed --aur -- PACKAGE`, `-Ssa --color never -- QUERY`
-and `-Syu`. Existing configuration is preserved; failures never switch helpers.
+- Noctalia plugin API 43+.
+- `python3` (3.11+) and `fastfetch` for About; standard Linux tools including `lsblk`.
+- Your chosen applications, installed separately.
+- `gtk-launch` for Desktop entry mode.
 
 ## Usage
 
-Add `ajsem1337/system-menu:button` through bar settings, or open either panel:
+Add `ajsem1337/system-menu:button` in bar settings. Configure your applications
+under **Settings → Plugins → System Menu**.
 
 ```sh
 noctalia msg panel-toggle ajsem1337/system-menu:menu
 noctalia msg panel-toggle ajsem1337/system-menu:about
 ```
 
-- **Packages:** install/uninstall, cache-only downgrade, update and VirusTotal.
-- **Task Manager / Terminal:** btop or a terminal using your existing settings.
-- **About:** hardware/software, on-demand refresh, technical details and copy.
+About shows hardware/software information and the widget version, with refresh
+and copy controls. The bar, menu and About use your distribution's logo.
 
-| Key | Action |
-| --- | --- |
-| Enter / Esc | Confirm / back |
-| Tab / Shift+Tab | Select / unselect, at most 50 packages |
-| Ctrl+A / Ctrl+D | Select matches / clear selection |
-| Alt+P | Toggle preview |
-| Alt+D | Toggle compact / full details for repository and AUR packages |
-| Alt+B | Current AUR PKGBUILD, read-only; press again to return |
-| Alt+T | Manual Traur report, without installing |
-| Shift+Left/Right | Resize preview; Shift+Up/Down scrolls it |
+## Settings
 
-Search matches names only. AUR joins after two characters; results are grouped
-by source, with AUR last. Finish selections before changing the query.
-Compact previews show version, description, license, dependencies, size and packager
-where available; AUR adds maintainer, votes/popularity and out-of-date warnings.
-Full details include URL, architecture, groups, conflicts, timestamps and other
-metadata. Installed fields come from `pacman -Qi`; AUR statistics use current RPC
-data. Uninstalled packages never show invented build/install data.
-Votes are community statistics, not a security rating. Installed-source fallback
-uses local repositories then exact-name AUR metadata, not proven provenance.
+| Key | Default | Purpose |
+| --- | --- | --- |
+| `terminal` | `kitty` | Terminal executable |
+| `show_terminal_arguments` | `false` | Show advanced terminal options |
+| `terminal_args` | `[]` | Extra terminal arguments |
+| `terminal_exec_args` | `["-e"]` | Arguments before a TUI command |
+| `terminal_command_format` | `argv` | Separate arguments; `quoted` for terminals expecting one command string |
+| `packages_mode` | `desktop` | Package manager launch mode |
+| `packages_command` | Empty | Executable or desktop ID |
+| `packages_args` | `[]` | Package manager arguments |
+| `monitor_mode` | `desktop` | Task Manager launch mode |
+| `monitor_command` | Empty | Executable or desktop ID |
+| `monitor_args` | `[]` | Task Manager arguments |
 
-### VirusTotal API key
+Modes: **Direct** (`direct`) for GUI commands, **In configured terminal** (`terminal`)
+for TUIs, **Desktop entry** (`desktop`) for installed `.desktop` IDs.
 
-Open **Packages → VirusTotal**, enter a file path or SHA-256, then answer **y** to
-**Add a VT API key for results in this terminal?** Paste your own
-[VirusTotal API key](https://www.virustotal.com/gui/my-apikey) into the hidden prompt.
-It is saved locally in `~/.config/package-menu/virustotal.key` with permissions
-`0600`, not in Noctalia settings. Later lookups reuse it; without a key you can
-open the report in your browser. `VT_API_KEY`, if set, takes precedence.
+| Example | Mode | Executable / ID |
+| --- | --- | --- |
+| Pacseek / Pacsea / package-menu | Terminal | `pacseek` / `pacsea` / `package-menu` |
+| GNOME Software | Desktop entry | `org.gnome.Software.desktop` |
+| Mission Center | Direct | `missioncenter` |
+| btop / htop | Terminal | `btop` / `htop` |
+
+Arguments are separate list items, without shell quotes or variable expansion.
+`~/` works in executable paths. Desktop mode uses the entry's own launch settings;
+custom arguments are inactive. Entries with `Terminal=true` use the desktop's
+terminal selection.
+
+For TUI mode, set run-program arguments to `-e` for Kitty/foot/Alacritty, `--` for
+GNOME Terminal, or `start`, `--` for WezTerm. Hidden terminal options still apply.
 
 ## Notes
 
-**Traur:** Alt+T calls `traur scan NAME --json`. The plugin does not install a
-makepkg wrapper or enable automatic scanning. An existing helper/build gate
-still runs independently; incomplete/failed scans do not approve anything.
+See [operations and privacy](OPERATIONS.md) for process and data access.
 
-Package-manager confirmations remain. Downgrades use local caches only and can
-break dependencies. VirusTotal retrieves existing hash reports: no file uploads,
-no promise of safety. See [operations and privacy](OPERATIONS.md) for data access.
-
-## Credits
-
-Inspired by GNOME [Logo Menu](https://github.com/Aryan20/Logomenu) and Omarchy's
-fzf workflow ([MIT notice](packages/LICENSE-OMARCHY)).
-**Made with AI:** code, documentation and tests received AI assistance.
+MIT. Inspired by [GNOME Logo Menu](https://github.com/Aryan20/Logomenu).

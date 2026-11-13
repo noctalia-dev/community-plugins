@@ -1,6 +1,8 @@
 --!nonstrict
 
 local distroIcon = require("./distro_icon.luau")
+local manifest = noctalia.readFile(noctalia.pluginDir() .. "/plugin.toml") or ""
+local version = ("\n" .. manifest):match('\nversion%s*=%s*"([^"\r\n]+)"') or "unknown"
 
 local data = nil
 local loading = false
@@ -82,6 +84,7 @@ local function render()
             ui.button({ text = copied and "Copied" or "Copy Information", glyph = copied and "check" or "copy",
                 variant = "primary", enabled = data ~= nil, onClick = "copyInformation" }),
         }),
+        ui.label({ text = "System Menu " .. version, fontSize = 12, color = "on_surface_variant", textAlign = "center" }),
     }))
 end
 

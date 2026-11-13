@@ -1,24 +1,57 @@
 {
+  "launch_modes": {
+    "direct": "Direct (GUI)",
+    "terminal": "In configured terminal (TUI)",
+    "desktop": "Desktop entry (.desktop)"
+  },
+  "command_formats": {
+    "argv": "Separate arguments",
+    "quoted": "One POSIX-quoted command string"
+  },
   "settings": {
-    "show_terminal_arguments": {
-      "label": "Advanced terminal options",
-      "description": "Show argument lists. Saved values apply even when hidden."
-    },
     "terminal": {
-      "label": "Terminal executable",
-      "description": "Executable name or absolute path, without arguments."
+      "label": "Terminal — executable",
+      "description": "Program name or absolute path, without arguments."
+    },
+    "show_terminal_arguments": {
+      "label": "Terminal — advanced options",
+      "description": "Show terminal arguments and command format."
     },
     "terminal_args": {
-      "label": "Terminal arguments",
-      "description": "Extra terminal options, one per item. No shell expansion."
+      "label": "Terminal — arguments",
+      "description": "Extra terminal options, one per item."
     },
     "terminal_exec_args": {
-      "label": "Run-program arguments",
-      "description": "Before Packages/btop: -e for Kitty/foot/Alacritty, -- for GNOME Terminal; empty if not needed."
+      "label": "Terminal — run-program arguments",
+      "description": "Before the TUI command: -e for Kitty/foot/Alacritty, -- for GNOME Terminal."
     },
-    "aur_helper": {
-      "label": "AUR helper executable",
-      "description": "paru, yay or a compatible executable path, without arguments."
+    "terminal_command_format": {
+      "label": "Terminal — command format",
+      "description": "Use separate arguments unless the terminal requires one quoted command string."
+    },
+    "packages_mode": {
+      "label": "Packages — launch mode",
+      "description": "Direct for GUI apps, terminal for TUIs, or an installed desktop entry."
+    },
+    "packages_command": {
+      "label": "Packages — executable or desktop ID",
+      "description": "Program name/path, or .desktop ID in desktop mode."
+    },
+    "packages_args": {
+      "label": "Packages — arguments",
+      "description": "One argument per item, without shell quotes."
+    },
+    "monitor_mode": {
+      "label": "Task Manager — launch mode",
+      "description": "Direct for GUI apps, terminal for TUIs, or an installed desktop entry."
+    },
+    "monitor_command": {
+      "label": "Task Manager — executable or desktop ID",
+      "description": "Program name/path, or .desktop ID in desktop mode."
+    },
+    "monitor_args": {
+      "label": "Task Manager — arguments",
+      "description": "One argument per item, without shell quotes."
     }
   }
 }
