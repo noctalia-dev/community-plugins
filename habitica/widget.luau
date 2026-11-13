@@ -85,7 +85,7 @@ local function updatedText()
     return noctalia.tr("widget.updated_now")
   end
   if minutes < 60 then
-    return noctalia.tr("widget.updated_minutes", { n = minutes })
+    return noctalia.tr("widget.updated_mins", { n = minutes })
   end
   return noctalia.tr("widget.updated_hours", { n = math.floor(minutes / 60) })
 end
