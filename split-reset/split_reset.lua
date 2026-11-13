@@ -10,22 +10,34 @@
 -- The bar widget runs this file with `hyprctl eval`. To use it from a
 -- keybind too, require it from hyprland.lua.
 --
---   split_reset()                          active workspace
+--   split_reset()                          active workspace (or open scratchpad)
 --   split_reset({ monitor = "DP-1" })      that monitor's active workspace
 --   split_reset({ workspace = "77" })      a given workspace
 --   split_reset({ snap = 0.05 })           only dividers within 5% of center
 
 local TOL = 2 -- px a divider may sit off center and still count as centered
 
+-- An open special workspace (scratchpad) sits on top of the monitor's
+-- regular one, so it is the one the user sees and wants reset.
 local function resolve_workspace(opts)
     if opts.workspace ~= nil then
         return hl.get_workspace(opts.workspace)
     end
+    local mon
     if opts.monitor ~= nil then
-        local mon = hl.get_monitor(opts.monitor)
-        return mon and mon.active_workspace or nil
+        mon = hl.get_monitor(opts.monitor)
+    else
+        mon = hl.get_active_monitor()
     end
-    return hl.get_active_workspace()
+    if not mon then
+        return nil
+    end
+    return mon.active_special_workspace or mon.active_workspace
+end
+
+-- Special workspaces have a nil id in Hyprland's Lua, so match by name.
+local function same_workspace(p, q)
+    return p ~= nil and q ~= nil and p.name == q.name
 end
 
 -- Tiled windows on the workspace as plain boxes, or nil if the
@@ -34,7 +46,7 @@ local function tiled_windows(ws)
     local out = {}
     for _, w in ipairs(hl.get_windows({ workspace = ws })) do
         -- the filter falls back to all windows on a bad selector, so check again
-        if w.workspace and w.workspace.id == ws.id and not w.floating then
+        if same_workspace(w.workspace, ws) and not w.floating then
             if w.fullscreen ~= 0 then
                 return nil
             end
