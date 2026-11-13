@@ -1,8 +1,10 @@
 --!nonstrict
 local Model = require("./lib/model.luau")
 local Compositor = require("./lib/compositor.luau")
+local Transport = require("./lib/transport.luau")
+local transport = Transport.new(noctalia)
 local state = Model.new()
-local backend = Compositor.new(noctalia.compositor.name())
+local backend = Compositor.new(transport.name)
 local config, groups, ranks, icons, cursors = {}, {}, nil, {}, {}
 local expanded, hovered, hoveredKey = false, false, nil
 local deadline, pendingExpand, transitionStart = nil, false, nil
@@ -268,7 +270,7 @@ function onConfigChanged()
   readConfig();
   if previousCompatibility ~= config.compositor_compatibility then
     subscriptionGeneration += 1
-    if subscription then noctalia.compositor.unsubscribe(subscription); subscription = nil end
+    if subscription then transport.unsubscribe(subscription); subscription = nil end
     Compositor.event(backend, "reset", nil)
     state = Model.new()
   end
@@ -288,7 +290,7 @@ subscribe = function()
   if subscription or (backend.name ~= "umbriel" and backend.name ~= "niri") then return end
   if config.compositor_compatibility ~= "auto" and config.compositor_compatibility ~= backend.name then return end
   local generation = subscriptionGeneration
-  subscription = noctalia.compositor.subscribe({ events = { "windows", "workspaces" } }, function(event, data)
+  subscription = transport.subscribe({ events = { "windows", "workspaces" } }, function(event, data)
     if generation ~= subscriptionGeneration then return end
     if event == "error" then log("Compositor subscription: " .. tostring(data)) end
     if event == "reset" then icons = {}; cursors = {}; state = Model.new(); ranks = nil; offset = 0 end
@@ -308,5 +310,5 @@ function update()
 end
 function onExit()
   subscriptionGeneration += 1
-  if subscription then noctalia.compositor.unsubscribe(subscription) end
+  if subscription then transport.unsubscribe(subscription) end
 end

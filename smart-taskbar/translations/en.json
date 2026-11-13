@@ -1,7 +1,7 @@
 {
   "title": "Smart Taskbar",
   "hint": "Click to expand or collapse • Wheel to navigate • Right click for settings",
-  "disconnected": "No compositor snapshot. Requires API 54 and Umbriel or niri. Right click for settings.",
+  "disconnected": "No compositor snapshot. Umbriel needs API 52+ and its CLI; niri needs API 54. Right click for settings.",
   "action_failed": "The compositor could not complete the window action.",
   "unsupported_action": "This compositor does not support the requested action.",
   "launcher_missing": "Install gtk-launch to start pinned desktop entries.",
@@ -160,7 +160,7 @@
     },
     "compositor_compatibility": {
       "label": "Advanced: Compositor compatibility",
-      "description": "Unsupported compositors show a placeholder. API 54 is required even in automatic mode."
+      "description": "Umbriel supports API 52+. niri requires API 54 for native events."
     }
   },
   "options": {

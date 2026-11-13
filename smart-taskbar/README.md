@@ -2,7 +2,7 @@
 
 A compact, collapsible application switcher with grouped window counts, focused-application reveal, and a bounded wheel-navigable icon strip. Uses one Luau bar widget and Noctalia's active theme roles.
 
-**Preview release:** requires **plugin API 54**, currently marked unreleased in the official documentation. This is not compatible with all Noctalia v5 versions. Desktop acceptance testing is pending; the images below are clearly labeled offline fixture renders, not live screenshots.
+**Preview release:** requires **plugin API 52 or newer**. Umbriel uses a CLI event stream on API 52/53 and native subscriptions on API 54+. This is not compatible with all Noctalia v5 versions. Desktop acceptance testing is pending; the images below are clearly labeled offline fixture renders, not live screenshots.
 
 ## Plugin
 
@@ -15,8 +15,9 @@ A compact, collapsible application switcher with grouped window counts, focused-
 
 ## Requirements
 
-- A Noctalia build supporting plugin API 54; Umbriel is the primary target.
-- `niri` is required on PATH only when running under niri, for focus/close actions. Events use the host's native subscription, without subprocess polling.
+- A Noctalia build supporting plugin API 52 or newer; Umbriel is the primary target. Check the supported API range rather than relying only on the Noctalia version label.
+- `umbriel` and `sleep` are required on PATH for the API 52/53 fallback. `sleep` is a standard system utility; `umbriel` is the compositor’s own CLI.
+- `niri` is required on PATH only when running under niri on API 54+, for focus/close actions. niri events use the host's native subscription. On API 52/53, niri shows a placeholder.
 - `gtk-launch` is required on PATH only to launch pinned desktop entries. On many distributions it is supplied by GTK's utilities package. Enter desktop-entry IDs with their original case.
 - Hyprland, Sway, Mango, labwc, and KDE currently show a placeholder. They do not receive guessed or unverified actions.
 
@@ -104,7 +105,7 @@ All settings use `[[widget.setting]]`, with English labels, descriptions, defaul
 | `middle_click` | `"settings"` | Host defaults to widget settings. To use these actions, explicitly set this instance’s actions.middle = "none". |
 | `refresh_fallback` | `60` | Seconds between idle subscription retries if a supported compositor could not subscribe. No subprocess polling. |
 | `diagnostic_logging` | `false` | Log subscription and action errors. Window titles are not logged. |
-| `compositor_compatibility` | `"auto"` | Unsupported compositors show a placeholder. API 54 is required even in automatic mode. |
+| `compositor_compatibility` | `"auto"` | Unsupported compositors show a placeholder. Umbriel supports API 52+. niri requires API 54 for native events. |
 
 ## IPC
 
@@ -136,6 +137,17 @@ Application IDs are normalized for grouping without fuzzy-merging distinct appli
 
 Native context menus are only public for panels, so this single-widget plugin offers settings on right click. There is no fabricated bar context menu or runtime Pin/Unpin operation. Animations fade expanded content briefly at 30 Hz; no frame loop runs while idle. Manual order is not persisted, workspace sorting follows snapshot order/index, and launch order means first observed since connection.
 
-The plugin makes **no network calls and no filesystem writes**. It uses one native compositor subscription per widget instance, cached host icon lookup, and host actions. Only explicit pin launches and niri window actions spawn processes. No repeated subprocesses run per icon or frame. Theme colors remain role references and follow host palette changes without a private theme API.
+The plugin makes **no network calls and no filesystem writes**. On API 54+ it uses one native compositor subscription per widget instance. On API 52/53 with Umbriel, it uses one host-managed `runStream` shell running `umbriel subscribe windows workspaces`. It reconnects two seconds after a disconnection and clears stale snapshots. A healthy stream is idle until an event arrives; no repeated window queries run. The shell, CLI, and reconnect sleep are in Noctalia’s process group and are canceled on widget reload/disable. A compatibility-setting toggle pauses delivery and replays cached full snapshots on resume, keeping the same single stream until teardown. Explicit pin launches and niri window actions also spawn processes. No subprocesses run per icon or frame. Theme colors remain role references and follow host palette changes without a private theme API.
 
 Installation commands and placement syntax were checked against official documentation. Manifest and Luau fixture tests ran; enabling, adding the widget, real pointer behavior, multi-monitor scaling, hot reload, compositor restarts, and resource measurements still require a live Noctalia session. See the source repository's `docs/TESTING.md` for the complete acceptance matrix. Do not interpret this preview as production acceptance.
+
+## Update from 0.1.0 on Umbriel
+
+Version 0.1.1 removes the API 54 event-subscription requirement for Umbriel. Its minimum is API 52 because the viewport uses public container clipping. Run:
+
+```sh
+noctalia msg plugins update smart-taskbar
+noctalia msg plugins enable omardardery/smart-taskbar
+```
+
+Use the source name you originally added if it differs from `smart-taskbar`. The plugin version should show **0.1.1** and API **52**. Then add the widget in Bar settings. Native desktop acceptance is still pending.

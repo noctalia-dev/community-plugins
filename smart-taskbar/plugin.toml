@@ -1,13 +1,13 @@
 id = "omardardery/smart-taskbar"
 name = "Smart Taskbar"
-version = "0.1.0"
-plugin_api = 54
+version = "0.1.1"
+plugin_api = 52
 author = "OmarDardery"
 license = "MIT"
 icon = "apps"
 description = "Compact application switcher with grouped counts, focus reveal, and bounded wheel navigation."
 tags = ["bar", "productivity", "system"]
-dependencies = ["gtk-launch", "niri"]
+dependencies = ["gtk-launch", "niri", "umbriel", "sleep"]
 
 [[widget]]
 id = "taskbar"
