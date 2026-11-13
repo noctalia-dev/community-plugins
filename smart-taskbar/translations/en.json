@@ -154,10 +154,6 @@
       "label": "Compositor compatibility",
       "description": "Umbriel supports API 52+. niri requires API 54 for native events."
     },
-    "settings_page": {
-      "label": "Settings page",
-      "description": "Choose a page to configure related options together."
-    },
     "hover_enlarge": {
       "label": "Enlarge icons on hover",
       "description": "Magnify the hovered application inside a fixed cell. No bar movement; respects reduced motion."
@@ -236,14 +232,6 @@
       "auto": "Automatic",
       "umbriel": "Umbriel only",
       "niri": "niri only"
-    },
-    "settings_page": {
-      "behavior": "Behavior",
-      "applications": "Applications",
-      "layout": "Layout",
-      "appearance": "Appearance",
-      "interaction": "Interaction",
-      "advanced": "Advanced"
     }
   }
 }

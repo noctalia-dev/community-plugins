@@ -61,7 +61,7 @@ For a dock-style layout, choose **Always expanded**, application grouping, numer
 
 ### Hover enlargement
 
-Under **Appearance**, enable **Enlarge icons on hover**. The default factor is 1.15. Icons scale smoothly inside fixed cells, so neighboring apps, count badges, and the rest of the bar stay in place. The maximum size is reserved while the option is enabled; there is no width growth while moving the pointer.
+Expand **Widget** in the settings dialog and enable **Enlarge icons on hover**. The default factor is 1.15. Icons scale smoothly inside fixed cells, so neighboring apps, count badges, and the rest of the bar stay in place. The maximum size is reserved while the option is enabled; there is no width growth while moving the pointer.
 
 Choose a bar thickness of at least `ceil(icon_size × hover_scale) + 8` logical pixels. A 22 px icon at 1.15 fits a 34 px bar. Larger scales need more room; the host clips drawing to bar thickness. Disable **Animate transitions** for immediate enlargement and reduced motion. This is in-bar magnification, not a floating macOS-style surface extending beyond the bar.
 
@@ -69,7 +69,7 @@ Choose a bar thickness of at least `ceil(icon_size × hover_scale) + 8` logical 
 
 Manual sorting lets you drag an application onto another to place it before that app. It changes taskbar order, not compositor layout. Expansion stays open until clicked in manual mode because the public API has no drag-start/end callback. Manual order is per instance and resets on reload/restart. IPC previous/next provides a non-drag overflow alternative; the bar does not take keyboard focus.
 
-Right click opens settings. Middle click retains Noctalia's built-in settings gesture. To use optional Close or Minimize/Restore actions, explicitly free middle click and select its action under **Interaction**:
+Right click opens settings. Middle click retains Noctalia's built-in settings gesture. To use optional Close or Minimize/Restore actions, explicitly free middle click and select its action in **Widget**:
 
 ```toml
 [widget.smart_taskbar.actions]
@@ -80,9 +80,9 @@ The action targets the hovered group, preferring its focused window, or the grou
 
 ## Settings
 
-Choose **Settings page** in the normal widget editor to show related **Behavior**, **Applications**, **Layout**, **Appearance**, **Interaction**, or **Advanced** controls. This uses manifest-declared conditional visibility, not a custom settings window. Changing pages does not reset the widget or its icon cache.
+Expand **Widget** in the normal settings dialog. All plugin controls are shown together, in related order: behavior, applications, layout, appearance, interaction, and diagnostics. There is no page dropdown and no hidden plugin-controls toggle. The public manifest API does not expose custom accordion sections, so these areas are logical ordering, not separate host sections. The normal host-owned Content, Colors, Size and Text, Capsule, Behavior, and Actions sections remain separate.
 
-| Page | Setting | Default | Meaning |
+| Area | Setting | Default | Meaning |
 | --- | --- | --- | --- |
 | Behavior | `expand_mode` | `"hover"` | Hover to reveal running apps, click to toggle, or keep the dock expanded. |
 | Behavior | `hover_delay` | `150` | Wait before opening the application strip on hover. |

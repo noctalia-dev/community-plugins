@@ -318,7 +318,7 @@ function onScroll(axis, steps, startsGesture)
 end
 function onConfigChanged()
   local previousCompatibility = config.compositor_compatibility
-  -- The settings-page selector is editor navigation, not a presentation change.
+  -- Ignore unrelated host/editor configuration changes without resetting the widget.
   if not readConfig() then return end
   zoomStart = nil; zoomFrom = {}; hoveredKey = nil
   if previousCompatibility ~= config.compositor_compatibility then
