@@ -768,7 +768,7 @@ local function handleEvent(event)
       catalog_id = event.catalog_id or "",
       song_id = event.song_id or "",
     }
-    if np.artwork_path == "" and type(nowPlaying) == "table" then
+    if np.artwork_path == "" and type(nowPlaying) == "table" and trackKey(np) == trackKey(nowPlaying) then
       np.artwork_path = tostring(nowPlaying.artwork_path or "")
     end
     -- Keep metadata; position is applied via anchor so OSD/lyrics don't scrub.
