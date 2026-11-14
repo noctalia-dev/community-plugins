@@ -1,0 +1,96 @@
+{
+  "plugin_name": "Prayer Times",
+  "settings": {
+    "location_mode": {
+      "label": "Location source",
+      "description": "Where prayer times are calculated from",
+      "auto": "Automatic (IP)",
+      "city": "City / country",
+      "coords": "Latitude / longitude"
+    },
+    "city": {
+      "label": "City",
+      "description": "e.g. London, Istanbul, Jakarta"
+    },
+    "country": {
+      "label": "Country",
+      "description": "e.g. UK, Turkey, Indonesia"
+    },
+    "latitude": {
+      "label": "Latitude",
+      "description": "e.g. 51.5074"
+    },
+    "longitude": {
+      "label": "Longitude",
+      "description": "e.g. -0.1278"
+    },
+    "method": {
+      "label": "Calculation method",
+      "description": "Choose the calculation authority used in your region",
+      "diyanet": "Diyanet (Turkey)",
+      "mwl": "Muslim World League",
+      "isna": "ISNA",
+      "egypt": "Egyptian General Authority",
+      "makkah": "Umm al-Qura (Makkah)",
+      "karachi": "University of Islamic Sciences, Karachi",
+      "moonsighting": "Moonsighting Committee"
+    },
+    "school": {
+      "label": "Asr school",
+      "description": "Juristic method for Asr",
+      "shafi": "Shafi / Maliki / Hanbali",
+      "hanafi": "Hanafi"
+    },
+    "notify": {
+      "label": "Notifications",
+      "description": "Notify when a prayer time begins"
+    },
+    "show_countdown": {
+      "label": "Countdown",
+      "description": "Show time remaining until the next prayer"
+    },
+    "show_name": {
+      "label": "Prayer name",
+      "description": "Show the next prayer name on the bar"
+    },
+    "glyph": {
+      "label": "Icon"
+    }
+  },
+  "prayer": {
+    "fajr": "Fajr",
+    "sunrise": "Sunrise",
+    "dhuhr": "Dhuhr",
+    "jumuah": "Jumu'ah",
+    "asr": "Asr",
+    "maghrib": "Maghrib",
+    "isha": "Isha"
+  },
+  "panel": {
+    "title": "Prayer Times",
+    "next": "Next",
+    "in": "left",
+    "now": "now",
+    "loading": "Loading prayer times…",
+    "location": "Location",
+    "refresh": "Refresh",
+    "settings": "Settings"
+  },
+  "notify": {
+    "title": "{name} time",
+    "body": "At {time}"
+  },
+  "tooltip": {
+    "next": "Next",
+    "time": "Time",
+    "in": "In",
+    "location": "Location"
+  },
+  "error": {
+    "network": "Network error",
+    "parse": "Could not parse response",
+    "location": "Could not resolve location",
+    "coords": "Invalid latitude/longitude",
+    "city": "City cannot be empty"
+  }
+}
