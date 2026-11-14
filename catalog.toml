@@ -5937,3 +5937,17 @@ icon = "sword"
 description = "Habitica dashboard in the bar and a panel to score dailies, todos, habits and checklists."
 plugin_api = 43
 tags = ["bar", "panel", "service", "productivity", "network"]
+
+[[plugin]]
+id = "madmedicnl/niri-workspaces"
+name = "Niri Workspaces"
+version = "1.0.0"
+updated_at = 1794622154
+added_at = 1794622154
+author = "madmedicnl"
+license = "MIT"
+icon = "layout-grid"
+description = "Dots for the workspaces you are not on, with named workspaces you can leave out of the bar."
+deprecated = false
+plugin_api = 32
+tags = ["bar", "indicator", "niri"]
