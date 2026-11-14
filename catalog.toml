@@ -5951,3 +5951,16 @@ description = "Dots for the workspaces you are not on, with named workspaces you
 deprecated = false
 plugin_api = 32
 tags = ["bar", "indicator", "niri"]
+
+[[plugin]]
+id = "bekiryildirimcode/prayer-times"
+name = "Prayer Times"
+version = "1.0.0"
+updated_at = 1794622266
+added_at = 1794622266
+author = "bekiryildirimcode"
+license = "MIT"
+icon = "building-mosque"
+description = "Shows the next prayer and a live countdown on the bar, with a panel of today's times based on your location."
+plugin_api = 43
+tags = ["bar", "panel", "service", "time", "countdown", "utility"]
