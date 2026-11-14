@@ -1,0 +1,82 @@
+id = "darulqutni-q/github-contributions-desktop"
+name = "GitHub Contributions"
+version = "1.0.0"
+plugin_api = 43
+author = "DarulQutni-Q"
+license = "MIT"
+icon = "brand-github"
+description = "A GitHub contribution calendar as a Noctalia desktop widget."
+tags = ["desktop", "service", "development", "productivity", "utility", "network"]
+dependencies = ["gh"]
+
+[[setting]]
+key = "refresh_interval_minutes"
+type = "select"
+label_key = "settings.refresh_interval.label"
+description_key = "settings.refresh_interval.description"
+default = "30"
+options = [
+  { value = "15", label_key = "settings.refresh_interval.options.fifteen" },
+  { value = "30", label_key = "settings.refresh_interval.options.thirty" },
+  { value = "60", label_key = "settings.refresh_interval.options.sixty" },
+]
+
+[[setting]]
+key = "year"
+type = "select"
+label_key = "settings.year.label"
+description_key = "settings.year.description"
+default = "last12"
+options = [
+  { value = "last12", label_key = "settings.year.options.last12" },
+  { value = "2026", label_key = "settings.year.options.y2026" },
+  { value = "2025", label_key = "settings.year.options.y2025" },
+  { value = "2024", label_key = "settings.year.options.y2024" },
+  { value = "2023", label_key = "settings.year.options.y2023" },
+  { value = "2022", label_key = "settings.year.options.y2022" },
+  { value = "2021", label_key = "settings.year.options.y2021" },
+]
+
+[[service]]
+id = "sync"
+entry = "sync.luau"
+
+[[desktop_widget]]
+id = "calendar"
+entry = "desktop.luau"
+
+  [[desktop_widget.setting]]
+  key = "color"
+  type = "color"
+  label_key = "settings.desktop_color.label"
+  description_key = "settings.desktop_color.description"
+  default = "primary"
+
+  [[desktop_widget.setting]]
+  key = "cell_size"
+  type = "int"
+  label_key = "settings.cell_size.label"
+  description_key = "settings.cell_size.description"
+  default = 10
+  min = 6
+  max = 24
+
+  [[desktop_widget.setting]]
+  key = "heatmap_only"
+  type = "bool"
+  label_key = "settings.heatmap_only.label"
+  description_key = "settings.heatmap_only.description"
+  default = false
+
+  [[desktop_widget.setting]]
+  key = "wrap"
+  type = "select"
+  label_key = "settings.wrap.label"
+  description_key = "settings.wrap.description"
+  default = "2"
+  options = [
+    { value = "off", label_key = "settings.wrap.options.off" },
+    { value = "2", label_key = "settings.wrap.options.two" },
+    { value = "3", label_key = "settings.wrap.options.three" },
+    { value = "4", label_key = "settings.wrap.options.four" },
+  ]
