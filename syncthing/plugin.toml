@@ -5,7 +5,7 @@
 
 id = "rylos/syncthing"
 name = "Syncthing"
-version = "2.1.2"
+version = "2.2.0"
 plugin_api = 43
 author = "Marco Ziliani"
 license = "MIT"
@@ -61,6 +61,30 @@ type = "bool"
 label_key = "settings.notify_events.label"
 description_key = "settings.notify_events.description"
 default = true
+
+[[setting]]
+key = "notify_folder_synced"
+type = "bool"
+label_key = "settings.notify_folder_synced.label"
+description_key = "settings.notify_folder_synced.description"
+default = true
+visible_when = { key = "notify_events", values = ["true"] }
+
+[[setting]]
+key = "notify_folder_error"
+type = "bool"
+label_key = "settings.notify_folder_error.label"
+description_key = "settings.notify_folder_error.description"
+default = true
+visible_when = { key = "notify_events", values = ["true"] }
+
+[[setting]]
+key = "notify_device_connection"
+type = "bool"
+label_key = "settings.notify_device_connection.label"
+description_key = "settings.notify_device_connection.description"
+default = true
+visible_when = { key = "notify_events", values = ["true"] }
 
 [[setting]]
 key = "insecure_tls"
