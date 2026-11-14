@@ -5918,3 +5918,16 @@ icon = "heartbeat"
 description = "Uptime Kuma monitors on the bar: a glyph shows the overall state, a panel lists monitors and status pages."
 plugin_api = 43
 tags = ["bar", "panel", "network"]
+
+[[plugin]]
+id = "vasqs/habitica"
+name = "Habitica"
+version = "2.0.0"
+updated_at = 1794621749
+added_at = 1794621749
+author = "vasqs"
+license = "MIT"
+icon = "sword"
+description = "Habitica dashboard in the bar and a panel to score dailies, todos, habits and checklists."
+plugin_api = 43
+tags = ["bar", "panel", "service", "productivity", "network"]
