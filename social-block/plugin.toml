@@ -1,0 +1,78 @@
+# Social Block: one switch that quiets social media.
+#
+# ON  : /etc/hosts blocks the domains in /etc/social-block/domains and the
+#       service quits Discord (optional: closes matching windows).
+# OFF : removes the marked hosts block.
+#
+# Requires the root helper installed by rice/18-social-block.sh.
+id = "treeonlinux/social-block"
+name = "Social Block"
+version = "1.1.0"
+plugin_api = 43
+author = "TreeOnLinux"
+license = "MIT"
+icon = "shield-lock"
+description = "One switch for focus: block social sites via /etc/hosts, with per-service toggles and app closing."
+tags = ["bar", "panel", "shortcut", "launcher", "service", "productivity", "privacy", "network", "hyprland"]
+dependencies = ["sudo", "bash", "flatpak", "hyprctl", "pkill"]
+
+[[setting]]
+key = "close_apps"
+type = "bool"
+label_key = "settings.close_apps.label"
+description_key = "settings.close_apps.description"
+default = true
+
+[[setting]]
+key = "close_windows"
+type = "bool"
+label_key = "settings.close_windows.label"
+description_key = "settings.close_windows.description"
+default = false
+
+[[setting]]
+key = "schedule_enabled"
+type = "bool"
+label_key = "settings.schedule_enabled.label"
+description_key = "settings.schedule_enabled.description"
+default = false
+
+[[setting]]
+key = "schedule_start"
+type = "string"
+label_key = "settings.schedule_start.label"
+description_key = "settings.schedule_start.description"
+default = "09:00"
+
+[[setting]]
+key = "schedule_end"
+type = "string"
+label_key = "settings.schedule_end.label"
+description_key = "settings.schedule_end.description"
+default = "17:00"
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[widget]]
+id = "widget"
+entry = "widget.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 460
+height = "content"
+max_height = 660
+
+[[shortcut]]
+id = "shortcut"
+entry = "shortcut.luau"
+
+[[launcher_provider]]
+id = "launcher"
+entry = "launcher.luau"
+prefix = "block"
+glyph = "shield-lock"
+include_in_global_search = false

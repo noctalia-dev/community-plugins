@@ -1,0 +1,303 @@
+#!/usr/bin/env bash
+# social-block-net: manage the /etc/hosts block used by the Noctalia
+# "Social Block" plugin. Only the commands listed in the installed
+# sudoers/doas rule can be run without a password.
+#
+#   social-block-net on|off|status
+#   social-block-net list
+#   social-block-net allow|block <service-id>
+#
+# The service list lives in /etc/social-block/domains (root-owned). Services
+# are declared with:
+#
+#   ## <id> | <Category> | <Display Name>
+#   example.com
+#   www.example.com
+#
+# Services toggled off in the panel are written to
+# /etc/social-block/allowed (also root-owned) and skipped in /etc/hosts.
+# Override SOCIAL_BLOCK_HOSTS / SOCIAL_BLOCK_DOMAINS / SOCIAL_BLOCK_ALLOWED for
+# testing.
+set -euo pipefail
+
+HOSTS="${SOCIAL_BLOCK_HOSTS:-/etc/hosts}"
+DOMAINS="${SOCIAL_BLOCK_DOMAINS:-/etc/social-block/domains}"
+ALLOWED="${SOCIAL_BLOCK_ALLOWED:-/etc/social-block/allowed}"
+BACKUP="${SOCIAL_BLOCK_BACKUP:-/etc/hosts.social-block.bak}"
+BEGIN="# >>> social-block >>>"
+END="# <<< social-block <<<"
+
+die() { printf 'social-block-net: %s\n' "$*" >&2; exit 1; }
+
+trim() {
+  local s="$1"
+  s="${s#"${s%%[![:space:]]*}"}"
+  s="${s%"${s##*[![:space:]]}"}"
+  printf '%s' "$s"
+}
+
+require_root() {
+  if { [ "$HOSTS" = "/etc/hosts" ] || [ "$ALLOWED" = "/etc/social-block/allowed" ]; } \
+     && [ "$(id -u)" -ne 0 ]; then
+    die "must run as root (use sudo or doas)"
+  fi
+}
+
+# Refuse to touch a half-written block: stripping from BEGIN to EOF would
+# delete unrelated hosts entries. A backup is kept from the last clean state.
+check_markers() {
+  local b e
+  b=$(grep -cF "$BEGIN" "$HOSTS" 2>/dev/null || true)
+  e=$(grep -cF "$END" "$HOSTS" 2>/dev/null || true)
+  if [ "${b:-0}" -gt 0 ] && [ "${e:-0}" -eq 0 ]; then
+    die "incomplete social-block block in $HOSTS (BEGIN without END). Not touching it. Restore $BACKUP or edit the file by hand."
+  fi
+}
+
+strip_block() {
+  awk -v b="$BEGIN" -v e="$END" '
+    $0 == b { skip = 1; next }
+    $0 == e { skip = 0; next }
+    !skip   { print }
+  ' "$HOSTS"
+}
+
+backup_hosts() {
+  if ! grep -qF "$BEGIN" "$HOSTS" 2>/dev/null; then
+    cp -a "$HOSTS" "$BACKUP" 2>/dev/null || true
+  fi
+}
+
+flush_dns() {
+  if command -v resolvectl >/dev/null 2>&1; then
+    resolvectl flush-caches >/dev/null 2>&1 || true
+  elif command -v systemd-resolve >/dev/null 2>&1; then
+    systemd-resolve --flush-caches >/dev/null 2>&1 || true
+  fi
+  command -v nscd >/dev/null 2>&1 && nscd -i hosts >/dev/null 2>&1 || true
+}
+
+write_hosts() {
+  local tmp
+  if [ -L "$HOSTS" ]; then
+    die "$HOSTS is a symlink (NixOS/Guix-style); runtime host blocking is not supported here"
+  fi
+  tmp=$(mktemp)
+  cat > "$tmp"
+  cat "$tmp" > "$HOSTS"   # preserves owner/mode of /etc/hosts
+  rm -f "$tmp"
+}
+
+# Parse the service headers and count domains. A file with no headers is
+# treated as one legacy service called "all".
+declare -A CAT=() NAME=() COUNT=() SEEN=() ALLOW=()
+SERVICE_IDS=()
+
+add_service() {
+  local id="$1" cat="$2" name="$3"
+  if [ -z "${SEEN[$id]:-}" ]; then
+    SEEN[$id]=1
+    SERVICE_IDS+=("$id")
+    CAT[$id]="$cat"
+    NAME[$id]="$name"
+    COUNT[$id]=0
+  fi
+}
+
+build_index() {
+  SERVICE_IDS=()
+  CAT=(); NAME=(); COUNT=(); SEEN=()
+  local line id cat name domain cur=""
+  while IFS= read -r line || [ -n "$line" ]; do
+    if [[ "$line" =~ ^##[[:space:]]+([a-z0-9-]+)[[:space:]]*\|[[:space:]]*([^|]*)\|[[:space:]]*(.+)$ ]]; then
+      id="${BASH_REMATCH[1]}"
+      cat="$(trim "${BASH_REMATCH[2]}")"
+      name="$(trim "${BASH_REMATCH[3]}")"
+      [ -n "$cat" ] || cat="Other"
+      [ -n "$name" ] || name="$id"
+      add_service "$id" "$cat" "$name"
+      cur="$id"
+      continue
+    fi
+    if [[ "$line" =~ ^##[[:space:]]+([a-z0-9-]+)[[:space:]]*\|[[:space:]]*(.+)$ ]]; then
+      id="${BASH_REMATCH[1]}"
+      cat="$(trim "${BASH_REMATCH[2]}")"
+      [ -n "$cat" ] || cat="Other"
+      add_service "$id" "$cat" "$id"
+      cur="$id"
+      continue
+    fi
+    if [[ "$line" =~ ^[[:space:]]*# ]] || [ -z "${line//[[:space:]]/}" ]; then
+      continue
+    fi
+    domain="${line%%#*}"
+    domain="$(trim "$domain")"
+    [ -z "$domain" ] && continue
+    [[ "$domain" =~ ^[A-Za-z0-9._-]+$ ]] || continue
+    if [ -z "$cur" ]; then
+      cur="all"
+      add_service all "Other" "All sites"
+    fi
+    COUNT[$cur]=$(( ${COUNT[$cur]:-0} + 1 ))
+  done < "$DOMAINS"
+
+  [ ${#SERVICE_IDS[@]} -gt 0 ] || die "no services or domains found in $DOMAINS"
+}
+
+load_allowed() {
+  ALLOW=()
+  if [ -r "$ALLOWED" ]; then
+    local id
+    while IFS= read -r id || [ -n "$id" ]; do
+      id="$(trim "$id")"
+      [ -n "$id" ] && ALLOW[$id]=1
+    done < "$ALLOWED"
+  fi
+}
+
+is_allowed() { [ -n "${ALLOW[$1]:-}" ]; }
+
+write_allowed() {
+  local id tmp
+  tmp=$(mktemp)
+  for id in "${SERVICE_IDS[@]}"; do
+    [ -n "${ALLOW[$id]:-}" ] && printf '%s\n' "$id"
+  done > "$tmp"
+  if [ "$ALLOWED" = "/etc/social-block/allowed" ]; then
+    install -o root -g root -m 0644 "$tmp" "$ALLOWED"
+  else
+    cat "$tmp" > "$ALLOWED"
+  fi
+  rm -f "$tmp"
+}
+
+emit_block() {
+  local line domain cur=""
+  while IFS= read -r line || [ -n "$line" ]; do
+    if [[ "$line" =~ ^##[[:space:]]+([a-z0-9-]+)[[:space:]]*\| ]]; then
+      cur="${BASH_REMATCH[1]}"
+      continue
+    fi
+    if [[ "$line" =~ ^[[:space:]]*# ]] || [ -z "${line//[[:space:]]/}" ]; then
+      continue
+    fi
+    domain="${line%%#*}"
+    domain="$(trim "$domain")"
+    [ -z "$domain" ] && continue
+    [[ "$domain" =~ ^[A-Za-z0-9._-]+$ ]] || continue
+    [ -z "$cur" ] && cur="all"
+    is_allowed "$cur" && continue
+    printf '0.0.0.0 %s\n:: %s\n' "$domain" "$domain"
+  done < "$DOMAINS"
+}
+
+apply_on() {
+  require_root
+  [ -r "$DOMAINS" ] || die "domain list not found: $DOMAINS"
+  build_index
+  load_allowed
+  local any=0
+  local id
+  for id in "${SERVICE_IDS[@]}"; do
+    if [ "${COUNT[$id]:-0}" -gt 0 ] && ! is_allowed "$id"; then
+      any=1
+      break
+    fi
+  done
+  [ "$any" -eq 1 ] || die "all services are allowed; nothing to block"
+  check_markers
+  backup_hosts
+  {
+    strip_block
+    printf '%s\n' "$BEGIN"
+    emit_block
+    printf '%s\n' "$END"
+  } | write_hosts
+  flush_dns
+  echo on
+}
+
+status_block() {
+  local b e
+  b=$(grep -cF "$BEGIN" "$HOSTS" 2>/dev/null || true)
+  e=$(grep -cF "$END" "$HOSTS" 2>/dev/null || true)
+  if [ "${b:-0}" -gt 0 ] && [ "${e:-0}" -gt 0 ]; then
+    echo on
+  elif [ "${b:-0}" -gt 0 ]; then
+    echo incomplete
+  else
+    echo off
+  fi
+}
+
+list_services() {
+  build_index
+  load_allowed
+  local id state
+  for id in "${SERVICE_IDS[@]}"; do
+    [ "${COUNT[$id]:-0}" -gt 0 ] || continue
+    state="blocked"
+    is_allowed "$id" && state="allowed"
+    printf '%s|%s|%s|%d|%s\n' "$id" "${CAT[$id]}" "${NAME[$id]}" "${COUNT[$id]}" "$state"
+  done
+}
+
+set_service() {
+  local action="$1" id="${2:-}"
+  require_root
+  [ -n "$id" ] || die "usage: $0 allow|block <service-id>"
+  build_index
+  [ -n "${SEEN[$id]:-}" ] || die "unknown service '$id' (re-run install-helper.sh --update-domains?)"
+  load_allowed
+  if [ "$action" = "allow" ]; then
+    ALLOW[$id]=1
+  else
+    unset "ALLOW[$id]"
+  fi
+  write_allowed
+  if grep -qF "$BEGIN" "$HOSTS" 2>/dev/null; then
+    apply_on >/dev/null
+    echo "on"
+  else
+    printf '%s %s\n' "$action" "$id"
+  fi
+}
+
+usage() {
+  cat >&2 <<'EOF'
+usage: social-block-net <command> [service-id]
+
+  on                 block every service except the ones in the allowlist
+  off                remove the block
+  status             print on | off | incomplete
+  list               print id|category|name|domain-count|blocked|allowed
+  allow <service>    allow one service (immediately rewrites hosts when on)
+  block <service>    block one service again
+EOF
+  exit 1
+}
+
+case "${1:-}" in
+  on)
+    apply_on
+    ;;
+  off)
+    require_root
+    check_markers
+    strip_block | write_hosts
+    flush_dns
+    echo off
+    ;;
+  status)
+    status_block
+    ;;
+  list)
+    list_services
+    ;;
+  allow|block)
+    set_service "$1" "${2:-}"
+    ;;
+  *)
+    usage
+    ;;
+esac

@@ -1,0 +1,25 @@
+{
+  "title": "Social Block",
+  "settings": {
+    "close_apps": {
+      "label": "Quit social apps",
+      "description": "Quit Discord when the block is enabled."
+    },
+    "close_windows": {
+      "label": "Close matching windows",
+      "description": "Also close windows whose title matches a social service. Warning: this can close a whole browser window."
+    },
+    "schedule_enabled": {
+      "label": "Daily schedule",
+      "description": "Block automatically during the daily window below."
+    },
+    "schedule_start": {
+      "label": "Schedule start",
+      "description": "Start time in 24-hour HH:MM, e.g. 09:00."
+    },
+    "schedule_end": {
+      "label": "Schedule end",
+      "description": "End time in 24-hour HH:MM. A window that ends before it starts runs overnight."
+    }
+  }
+}
