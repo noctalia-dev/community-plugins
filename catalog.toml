@@ -1474,8 +1474,8 @@ rev = "fe464e7301b2c14bba98b7460ae1710106985a07"
 [[plugin]]
 id = "weinguyen/shell-command"
 name = "Shell Command"
-version = "0.1.0"
-updated_at = 1786216031
+version = "0.1.1"
+updated_at = 1794621541
 added_at = 1786216031
 author = "weinguyen"
 license = "MIT"
