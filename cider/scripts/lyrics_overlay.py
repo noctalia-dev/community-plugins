@@ -49,9 +49,14 @@ from lyrics_overlay_cfg import (  # noqa: E402
     NEXT_MAX_LINES,
     PAST_FONT_PX,
     PAST_LIFT_PX,
+    ROMANIZATION_FONT_PX,
+    ROMANIZATION_GAP_PX,
+    ROMANIZATION_MAX_LINES,
+    ROMANIZATION_PLAIN_ALPHA,
     SURFACE_ANIM_MS,
     SURFACE_SLIDE_PX,
     TRACK_CROSS_MS,
+    apply_romanization_mode,
     content_width_px,
     cue_centered_y,
     cue_pulse_scale,
@@ -470,6 +475,7 @@ class LyricsHud(Gtk.Window):
         lines = lyrics.get("lyrics_lines")
         if not isinstance(lines, list):
             lines = []
+        lines = apply_romanization_mode(lines, self._cfg.get("romanization"))
         pos = _read_json(POSITION_PATH) or {}
         state = _read_json(STATE_PATH) or {}
         prev_outro = outro_lyric_alpha(self._remaining_ms, self._playing)
@@ -822,7 +828,7 @@ class LyricsHud(Gtk.Window):
     def _measure_needed_height(self, width: int) -> int:
         show_next = self._cfg.get("show_next") is not False
         nxt = self._incoming_next or self._next
-        current_h = self._current_body_h(width)
+        current_h = self._current_body_h(width) + self._romanization_height(width)
         next_h = 0
         if show_next and nxt:
             try:
@@ -831,6 +837,48 @@ class LyricsHud(Gtk.Window):
             except Exception:
                 next_h = 18
         return hud_height_px(current_h, next_h, show_next and bool(nxt), False)
+
+    def _romanization_line(self) -> str:
+        if self._is_cue or self._cfg.get("romanization") != "both":
+            return ""
+        return str((self._current or {}).get("romanization") or "")
+
+    def _romanization_karaoke_line(self) -> dict[str, Any] | None:
+        words = (self._current or {}).get("romanization_words")
+        if not words or self._cfg.get("karaoke") is False:
+            return None
+        return {"text": self._romanization_line(), "words": words}
+
+    def _romanization_height(self, width: int) -> int:
+        text = self._romanization_line()
+        if not text:
+            return 0
+        karaoke = self._romanization_karaoke_line()
+        if karaoke:
+            body_h = self._draw_karaoke(
+                None, width, 0, line=karaoke, font_px=ROMANIZATION_FONT_PX, bold=False
+            )
+            return body_h + ROMANIZATION_GAP_PX
+        layout, _cw = self._wrap_layout(text, ROMANIZATION_FONT_PX, False, width, ROMANIZATION_MAX_LINES)
+        return layout.get_pixel_size()[1] + ROMANIZATION_GAP_PX
+
+    def _draw_romanization(self, cr: Any, width: int, y: float, alpha: float) -> None:
+        karaoke = self._romanization_karaoke_line()
+        if karaoke:
+            self._draw_karaoke(
+                cr, width, y, alpha, line=karaoke, font_px=ROMANIZATION_FONT_PX, bold=False
+            )
+            return
+        self._draw_plain_line(
+            cr,
+            width,
+            y,
+            self._romanization_line(),
+            (1.0, 1.0, 1.0, ROMANIZATION_PLAIN_ALPHA * alpha),
+            ROMANIZATION_FONT_PX,
+            False,
+            ROMANIZATION_MAX_LINES,
+        )
 
     def _draw_plain_line(
         self,
@@ -1053,6 +1101,7 @@ class LyricsHud(Gtk.Window):
     def _draw_karaoke(
         self, cr: Any, width: int, y: float, alpha: float = 1.0, *,
         line: dict[str, Any] | None = None, preview_u: float | None = None,
+        font_px: int = CURRENT_FONT_PX, bold: bool = True,
     ) -> int:
         line = self._current if line is None else line
         if not isinstance(line, dict):
@@ -1069,7 +1118,8 @@ class LyricsHud(Gtk.Window):
             next_start = min(int(t["start"]) for t in groups[g_i + 1]) if g_i + 1 < len(groups) else following_start
             for t in group:
                 tagged.append({**t, "_ws": word_start, "_we": word_end, "_ns": next_start, "_group": g_i})
-        font = Pango.FontDescription("Sans Bold 22")
+        weight = "Bold" if bold else "Medium"
+        font = Pango.FontDescription(f"Sans {weight} {font_px}")
         use_karaoke = self._cfg.get("karaoke") is not False and bool(tagged)
         if not use_karaoke:
             text = _line_text(line) or "…"
@@ -1370,6 +1420,12 @@ class LyricsHud(Gtk.Window):
                 else:
                     current_h = self._draw_karaoke(cr, width, y, live_a)
                     next_slot_y = next_line_y(y, current_h)
+                romanization_h = self._romanization_height(width)
+                if romanization_h:
+                    self._draw_romanization(
+                        cr, width, y + current_h + ROMANIZATION_GAP_PX, live_a * anim_u
+                    )
+                    next_slot_y += romanization_h
             if show_mix_dots:
                 self._draw_cue_dots(cr, width, y, dots_a)
                 current_h = max(current_h, CURRENT_SLOT_PX)

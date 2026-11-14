@@ -43,6 +43,7 @@ local rememberWorkspace = false
 local lyricsOsdEnabled = true
 local lyricsOsdPosition = "top_center"
 local lyricsOsdShowNext = true
+local lyricsRomanization = "both"
 local lyricsOsdAnimateCues = true
 local lyricsOsdShowIdle = true
 local lyricsOsdKaraoke = true
@@ -111,6 +112,7 @@ local function persistConfig()
     lyrics_osd_enabled = lyricsOsdEnabled == true,
     lyrics_osd_position = lyricsOsdPosition,
     lyrics_osd_show_next = lyricsOsdShowNext == true,
+    lyrics_romanization = lyricsRomanization,
     lyrics_osd_animate_cues = lyricsOsdAnimateCues == true,
     lyrics_osd_show_idle = lyricsOsdShowIdle == true,
     lyrics_osd_karaoke = lyricsOsdKaraoke == true,
@@ -195,6 +197,7 @@ local function publishLyricsOsdCfg()
     remember_workspace = rememberWorkspace == true,
     position = lyricsOsdPosition,
     show_next = lyricsOsdShowNext == true,
+    romanization = lyricsRomanization,
     animate_cues = lyricsOsdAnimateCues == true,
     show_idle = lyricsOsdShowIdle == true,
     karaoke = lyricsOsdKaraoke == true,
@@ -228,6 +231,7 @@ local function refreshConfig()
   lyricsOsdEnabled = cfgBool("lyrics_osd_enabled", true, durable)
   lyricsOsdPosition = cfgString("lyrics_osd_position", "top_center", durable)
   lyricsOsdShowNext = cfgBool("lyrics_osd_show_next", true, durable)
+  lyricsRomanization = cfgString("lyrics_romanization", "both", durable)
   lyricsOsdAnimateCues = cfgBool("lyrics_osd_animate_cues", true, durable)
   lyricsOsdShowIdle = cfgBool("lyrics_osd_show_idle", true, durable)
   lyricsOsdKaraoke = cfgBool("lyrics_osd_karaoke", true, durable)

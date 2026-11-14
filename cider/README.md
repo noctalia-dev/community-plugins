@@ -56,7 +56,7 @@ noctalia msg panel-toggle dragged/cider:osd
 
 `osd` is the now-playing card (also opened automatically on track change when **Track alert** is OSD). It is a persistent floating panel. Lyrics always use the gtk-layer-shell overlay. Noctalia 5.2.1 exposes the panel’s position and layer overrides under **Settings → Plugins** (gear on this plugin).
 
-Cider’s MPRIS has no synced lyrics. The bridge pulls Apple Music TTML via Cider’s amapi (LRCLIB fallback) for the sticky HUD.
+Cider’s MPRIS has no synced lyrics. The bridge pulls Apple Music TTML via Cider’s amapi (LRCLIB fallback) for the sticky HUD, trying the signed-in account's storefront first. Where Apple provides a Latin transliteration, it is shown with the same syllable timing as the original line.
 
 The bridge polls Cider's v2 playback clock every 100 ms. While that clock is healthy, it owns playback updates so delayed engine Socket.IO samples cannot undo a seek. Older or unsupported v2 endpoints use the existing v1 snapshot. Failed v2 requests release playback to Socket.IO until a healthy snapshot takes over again.
 
@@ -143,6 +143,7 @@ Without `xdotool`, with native Wayland Cider, or when a unique window cannot be 
 | `lyrics_osd_enabled`      | `bool`   | `true`                   | Master switch for the sticky lyrics HUD.                                    |
 | `lyrics_osd_position`     | `select` | `top_center`             | Overlay HUD edge.                                                           |
 | `lyrics_osd_show_next`    | `bool`   | `true`                   | Dim upcoming lyric line.                                                    |
+| `lyrics_romanization`     | `select` | `both`                   | Romanized lyrics where Apple Music has them: `both`, `romaji`, or `original`. |
 | `lyrics_osd_animate_cues` | `bool`   | `true`                   | Animate intro cue dots.                                                     |
 | `lyrics_osd_karaoke`      | `bool`   | `true`                   | Word-level sing-along when Apple timings exist.                             |
 | `lyrics_osd_glow`         | `bool`   | `true`                   | Overlay-only drop shadow under glyphs.                                      |

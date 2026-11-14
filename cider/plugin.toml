@@ -7,7 +7,7 @@
 
 id = "dragged/cider"
 name = "Cider"
-version = "1.11.2"
+version = "1.12.0"
 plugin_api = 43
 author = "dragged"
 license = "MIT"
@@ -102,6 +102,19 @@ label_key = "settings.lyrics_osd_show_next.label"
 description_key = "settings.lyrics_osd_show_next.description"
 default = true
 visible_when = { key = "lyrics_osd_enabled", values = ["true"] }
+
+[[setting]]
+key = "lyrics_romanization"
+type = "select"
+label_key = "settings.lyrics_romanization.label"
+description_key = "settings.lyrics_romanization.description"
+default = "both"
+visible_when = { key = "lyrics_osd_enabled", values = ["true"] }
+options = [
+  { value = "both", label_key = "settings.lyrics_romanization.options.both" },
+  { value = "romaji", label_key = "settings.lyrics_romanization.options.romaji" },
+  { value = "original", label_key = "settings.lyrics_romanization.options.original" },
+]
 
 [[setting]]
 key = "lyrics_osd_karaoke"
