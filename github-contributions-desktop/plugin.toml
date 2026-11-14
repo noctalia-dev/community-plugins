@@ -73,7 +73,7 @@ entry = "desktop.luau"
   type = "select"
   label_key = "settings.wrap.label"
   description_key = "settings.wrap.description"
-  default = "off"
+  default = "2"
   options = [
     { value = "off", label_key = "settings.wrap.options.off" },
     { value = "2", label_key = "settings.wrap.options.two" },
