@@ -165,13 +165,17 @@ local function makeResults(query)
     if text ~= "" then
         local provider = currentProvider()
         local icon = loadIcon(provider.domain, query, refresh)
+        local priority = noctalia.getConfig("search_priority")
+        local searchScore = 2048
+        if priority == "relevance" then
+            searchScore = noctalia.fuzzyScore(text, "Search " .. provider.label) or 0
+        end
         table.insert(results, 1, {
-            id = "search:" .. text,
-            title = "Search " .. provider.label,
+            id = "search:" .. text, title = "Search " .. provider.label,
             subtitle = text,
             glyph = icon and nil or "world-search",
             icon = icon,
-            score = 2048,
+            score = searchScore,
         })
     end
     return results
