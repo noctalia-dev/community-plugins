@@ -3,6 +3,8 @@
 
 local store = require("./store.luau")
 
+local DRAG_TYPE = "mumenosman-habit"
+
 local ICON_ROWS = {
   {
     { id = "none", label = "None", glyph = "circle" },
@@ -88,6 +90,56 @@ local function deleteHabit(id)
   end
 end
 
+local function moveHabitTo(id, insertAt)
+  local fromIndex = nil
+  for i, h in ipairs(data.habits) do
+    if h.id == id then
+      fromIndex = i
+      break
+    end
+  end
+  if fromIndex == nil or type(insertAt) ~= "number" then
+    return
+  end
+  local moved = table.remove(data.habits, fromIndex)
+  if fromIndex < insertAt then
+    insertAt -= 1
+  end
+  insertAt = math.max(1, math.min(insertAt, #data.habits + 1))
+  table.insert(data.habits, insertAt, moved)
+  store.save(data)
+  render()
+end
+
+local function moveHabitUp(index)
+  if index <= 1 or index > #data.habits then
+    return
+  end
+  local h = table.remove(data.habits, index)
+  table.insert(data.habits, index - 1, h)
+  store.save(data)
+  render()
+end
+
+local function moveHabitDown(index)
+  if index < 1 or index >= #data.habits then
+    return
+  end
+  local h = table.remove(data.habits, index)
+  table.insert(data.habits, index + 1, h)
+  store.save(data)
+  render()
+end
+
+function onHabitDrop(payload, value)
+  local id = tostring(payload)
+  local insertAt = tonumber(value)
+  if id == nil or insertAt == nil then
+    return
+  end
+  moveHabitTo(id, insertAt)
+end
+
 function onNewHabitChange(value)
   newHabitText = value
 end
@@ -98,6 +150,20 @@ end
 
 function onAddClicked()
   addHabit(newHabitText)
+end
+
+-- Insertion zone for drag-and-drop reordering
+local function insertionZone(index)
+  return ui.dropZone({
+    key = "gap-" .. tostring(index),
+    accepts = { DRAG_TYPE },
+    value = tostring(index),
+    onDrop = "onHabitDrop",
+    height = 3,
+    radius = 4,
+    expandOnDrag = true,
+    hitSlop = 20,
+  })
 end
 
 -- Clean minimal completion metric: numbers above, thin hairline below
@@ -133,7 +199,7 @@ local function completionHeader(summary)
   })
 end
 
--- Tab 1: Viewing and checking off habits
+-- Tab 1: Viewing, checking off, and drag-and-drop reordering habits
 local function viewingTab(today, cornerRadius)
   if #data.habits == 0 then
     return ui.column({
@@ -159,10 +225,30 @@ local function viewingTab(today, cornerRadius)
   end
 
   local rows = {}
-  for _, h in ipairs(data.habits) do
+  for i, h in ipairs(data.habits) do
+    table.insert(rows, insertionZone(i))
+
     local isDone = h.history and h.history[today] == true
 
     local rowChildren = {
+      ui.dragSource({
+        key = "grip_" .. h.id,
+        dragType = DRAG_TYPE,
+        payload = tostring(h.id),
+        previewAncestor = 1,
+        liftFromLayout = true,
+        width = 18,
+        height = 18,
+        align = "center",
+        justify = "center",
+        tooltip = "Drag to reorder",
+      }, {
+        ui.glyph({
+          name = "grip-vertical",
+          size = 14,
+          color = "outline",
+        }),
+      }),
       -- Green icon when completed, muted outline when unfinished
       ui.glyph({
         name = isDone and "circle-check" or "circle",
@@ -202,14 +288,16 @@ local function viewingTab(today, cornerRadius)
     }, rowChildren))
   end
 
+  table.insert(rows, insertionZone(#data.habits + 1))
+
   return ui.scroll({
     key = "scroll_habits_list",
     flexGrow = 1,
-    gap = 6,
+    gap = 4,
   }, rows)
 end
 
--- Tab 2: Adding and managing habits
+-- Tab 2: Adding and managing habits (with arrow reordering and delete)
 local function addTab(cornerRadius)
   local function makeIconRow(options)
     local buttons = {}
@@ -217,7 +305,7 @@ local function addTab(cornerRadius)
       local isSelected = selectedIcon == opt.id
       table.insert(buttons, ui.button({
         glyph = opt.glyph,
-        variant = isSelected and "tonal" or "ghost",
+        variant = isSelected and "secondary" or "ghost",
         controlSize = "sm",
         flexGrow = 1,
         tooltip = opt.label,
@@ -231,7 +319,7 @@ local function addTab(cornerRadius)
   end
 
   local manageRows = {}
-  for _, h in ipairs(data.habits) do
+  for i, h in ipairs(data.habits) do
     local isPendingDelete = pendingDeleteId == h.id
     local itemChildren = {}
 
@@ -262,7 +350,7 @@ local function addTab(cornerRadius)
       table.insert(itemChildren, ui.label({ text = "Delete?", color = "error", fontSize = 11 }))
       table.insert(itemChildren, ui.button({
         glyph = "check",
-        variant = "tonal",
+        variant = "destructive",
         controlSize = "sm",
         onClick = function()
           deleteHabit(h.id)
@@ -279,6 +367,26 @@ local function addTab(cornerRadius)
       }))
     else
       table.insert(itemChildren, ui.button({
+        glyph = "arrow-up",
+        variant = "ghost",
+        controlSize = "sm",
+        enabled = i > 1,
+        tooltip = "Move up",
+        onClick = function()
+          moveHabitUp(i)
+        end,
+      }))
+      table.insert(itemChildren, ui.button({
+        glyph = "arrow-down",
+        variant = "ghost",
+        controlSize = "sm",
+        enabled = i < #data.habits,
+        tooltip = "Move down",
+        onClick = function()
+          moveHabitDown(i)
+        end,
+      }))
+      table.insert(itemChildren, ui.button({
         glyph = "trash",
         variant = "ghost",
         controlSize = "sm",
@@ -292,7 +400,7 @@ local function addTab(cornerRadius)
 
     table.insert(manageRows, ui.row({
       key = "manage_" .. h.id,
-      gap = 8,
+      gap = 6,
       align = "center",
       padding = 8,
       paddingH = 10,
@@ -320,7 +428,7 @@ local function addTab(cornerRadius)
         }),
         ui.button({
           glyph = "plus",
-          variant = "tonal",
+          variant = "primary",
           tooltip = "Add habit",
           onClick = "onAddClicked",
         }),
@@ -365,7 +473,7 @@ render = function()
     ui.button({
       key = "btn_tab_habits",
       text = "Habits",
-      variant = activeTab == "habits" and "tonal" or "ghost",
+      variant = activeTab == "habits" and "secondary" or "ghost",
       controlSize = "sm",
       flexGrow = 1,
       opacity = activeTab == "habits" and 1.0 or 0.45,
@@ -378,7 +486,7 @@ render = function()
     ui.button({
       key = "btn_tab_add",
       text = "Add",
-      variant = activeTab == "add" and "tonal" or "ghost",
+      variant = activeTab == "add" and "secondary" or "ghost",
       controlSize = "sm",
       flexGrow = 1,
       opacity = activeTab == "add" and 1.0 or 0.45,

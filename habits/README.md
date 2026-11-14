@@ -20,11 +20,13 @@ noctalia msg panel-toggle mumenosman/habits:panel
 ### Habits Tab
 - View your daily completion percentage and ratio (e.g. `1/2`).
 - Click any habit row to toggle its completion for today. Completed tasks display their icon highlighted in the primary theme color.
+- Drag and drop habits via the grip handle to reorder them in the list.
 
 ### Add Tab
 - Type a habit name in the input field.
 - Optionally select an icon from the icon grid (or keep the default circle).
 - Click **+** or press Enter to add the habit.
+- Reorder existing habits using the up and down arrow buttons.
 - Manage existing habits with delete buttons and confirmation.
 
 ## Settings
