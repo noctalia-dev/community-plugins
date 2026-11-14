@@ -409,16 +409,20 @@ function onQuery(query)
 		-- actually extends the typed text) becomes the one Enter action — run the
 		-- completed command directly without first picking a fill row. Multiple
 		-- candidates: keep normal suggestions. Uses its own seen-table so the
-		-- suggestion pass below still emits the full list.
-		local seenScan, single, count = { [query] = true }, nil, 0
+		-- suggestion pass below still emits the full list. No snap when the typed
+		-- text is itself a completion (`foo` with `foo` and `foo-bar` installed):
+		-- Enter must still run what was typed.
+		local seenScan, single, count, exact = { [query] = true }, nil, 0, false
 		for _, comp in ipairs(comps) do
 			local full = fullCommand(query, comp)
-			if full ~= query and not seenScan[full] then
+			if full == query then
+				exact = true
+			elseif not seenScan[full] then
 				seenScan[full] = true
 				single, count = full, count + 1
 			end
 		end
-		if count == 1 and single then
+		if count == 1 and single and not exact then
 			results = { runEntry(single, noctalia.tr("snap_subtitle", { command = single })) }
 		end
 		local seen = { [query] = true }

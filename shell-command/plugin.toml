@@ -1,6 +1,6 @@
 id           = "weinguyen/shell-command"
 name         = "Shell Command"
-version      = "0.1.0"
+version      = "0.1.1"
 plugin_api   = 3
 author       = "weinguyen"
 license      = "MIT"
