@@ -5009,8 +5009,8 @@ rev = "bbd3837669f62c7fe4d1ed11b9e29eb4d3dc7122"
 [[plugin]]
 id = "soulmanyes/split-reset"
 name = "Split Reset"
-version = "1.0.0"
-updated_at = 1792784801
+version = "1.0.1"
+updated_at = 1794623444
 added_at = 1792784801
 author = "Soulmanyes"
 license = "CC0-1.0"
