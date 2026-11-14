@@ -124,10 +124,22 @@ The script handles left click; the shell opens settings on middle click.
 Right click is a gesture binding in the widget settings, where you can assign
 another action or choose `none`.
 
-The panel shows provider tabs at the top and the selected provider's limits
-below. With more than three providers, tabs show icons only and reveal names on
-hover. Session and weekly limits share a card; Antigravity has a separate card
-for each model. Each window shows its quota bar, a short reset countdown and reported consumption pace.
+Opening the panel directly starts with **All accounts**: a scrolling overview
+with up to four named account cards per page. Previous/next controls and the
+visible range keep every account reachable. Each card previews up to three
+reported quota windows, or its balance, and shows reading age and stale status.
+Extra windows are identified rather than silently dropped. The header states
+whether percentages show used or remaining quota.
+
+Open a card's detail action for all its windows, models, credits and optional
+priorities. Clicking a bar capsule opens its account directly. **All accounts**
+returns to the overview without changing the CLI's active account.
+
+The detail header identifies the selected account and plan. Up to five account
+tabs remain visible; previous/next controls handle longer lists. Compact tabs
+reveal full names on hover. Session and weekly limits share a card; Antigravity
+has a separate card for each model. Each window shows its quota bar, a short
+reset countdown and reported consumption pace.
 Hover the countdown for the local reset time. A thinner bar compares quota with
 reported window time: elapsed in used mode, time left in remaining mode.
 Hover the window label for its time percentage. The thin bar stays hidden when
@@ -140,15 +152,18 @@ its full status. Exhausted quotas also show their reset countdown.
 Read failures show the last known state. The panel displays quota readings,
 not agent process health.
 
-The header stays fixed while reports scroll. Cards reserve space for the
-scrollbar so their width stays the same between providers.
+The header stays fixed while reports scroll. The reading viewport adapts to the
+amount of data within a 560px panel maximum; scrolling keeps long reports
+accessible. Cards reserve space for the scrollbar so their width stays the same
+between providers.
 
 Opening the panel requests fresh data. The header keeps refresh and close within
 reach. The **⋯** menu has diagnostics, Copy summary, the provider dashboard and
 plugin settings. Both Antigravity model groups share the same
 service link. Click outside, click the widget again or press Escape to close
 the panel. Press R to refresh usage, or the catalog while Diagnostics is open.
-Arrow keys cycle through providers outside Diagnostics.
+Arrow keys select accounts outside Diagnostics. In the overview they reveal the
+selected card; Enter opens its detail. Press O to return to All accounts.
 
 The list contains only providers with a usable reading. A provider the CLI
 reports no API key for never appears, because it was never set up. A configured
@@ -240,7 +255,9 @@ Plugin-level, shared by the poller, every capsule and the panel:
 | `refresh_minutes` | `int` | `5` | Minutes between quota calls, from 1 to 120. Countdowns tick locally in between. |
 | `usage_display` | `select` | `used` | Show `used` or `remaining` quota in every capsule and the panel. Numbers and gauges change together; colors and priority still follow consumption. Balances are unchanged. |
 
-Per widget instance, so two capsules can follow two providers:
+Per widget instance, so two capsules can follow two providers. Turn on the native
+settings editor's **Advanced** switch to edit `account`, `auto_providers`,
+`glyph_position` and `color_by_usage`; existing values remain active either way.
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
@@ -283,6 +300,12 @@ noctalia msg panel-open felipeartur/ai-usagebar:panel setup
 
 ## IPC
 
+Open the multi-account overview explicitly:
+
+```sh
+noctalia msg panel-open felipeartur/ai-usagebar:panel overview
+```
+
 Force a refresh without waiting for the interval:
 
 ```sh
@@ -324,6 +347,11 @@ labels; long technical details require an explicit click inside Diagnostics.
 - A failed whole-report read keeps the previous report and marks it as stale.
   Without a previous report, the panel shows the failure and its scrubbed
   diagnostic. Raw HTTP details stay out of the reading cards.
+- CLI documents are limited to 1 MiB, 32 structural levels and 20,000 value nodes
+  before scrubbing or publication. Usage reports support up to 128 accounts. The byte limit applies before JSON decoding;
+  structural limits apply after decoding. Rejected reports retain the previous
+  reading and allow another refresh. Diagnostics applies the same limits to its
+  catalog and retains the previous catalog on failure.
 - Report text is scrubbed for common credential patterns before publication to
   plugin state. This is a precaution, not a guarantee that arbitrary CLI output
   contains no sensitive data. Review account labels and diagnostics before
@@ -344,6 +372,7 @@ lua tests/catalog_test.lua
 
 The suites cover secret redaction and its callback CPU budget, refresh scheduling,
 account selection, bar and panel rendering, optional priorities, timestamps and
-on-demand diagnostics. They use synthetic reports; they do not read credentials
+on-demand diagnostics, multi-account overview navigation and excessive reports.
+They use synthetic reports; they do not read credentials
 or call provider APIs. UI trees are checked in a test host, without rendering the
 native shell.

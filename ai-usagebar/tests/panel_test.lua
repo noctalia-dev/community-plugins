@@ -88,7 +88,7 @@ local function loadPanel(entry, failure, config)
         end,
     }, { __index = _G })
     assert(load(read("panel.luau"), "panel", "t", env))()
-    env.onOpen()
+    env.onOpen(values.selected or (first and first.id))
     -- Publishing a second report exercises what the panel carries between reads.
     local function publish(nextEntry)
         values.report = { entries = { nextEntry } }
@@ -804,7 +804,6 @@ local codexWithActiveCredits = {
 local activeCreditsTree = loadPanel(codexWithActiveCredits)
 assert(has(labels(activeCreditsTree), "Credits"), "active credits block with positive balance should be displayed")
 
-io.write("ok: panel degrades safely, sorts usage, and removes unavailable providers\n")
 local parserError = "schema mismatch: openai usage response: invalid type: null"
 local parserPanel = loadPanel({ id = "openai", display_name = "Codex", status = "error",
     error = parserError, metrics = {}, sections = {} })
@@ -1549,3 +1548,111 @@ assert(has(labels(host.tree()), "ui.diagnostics_login"),
 assert(has(labels(host.tree()), "HTTP 403: authentication rejected"),
     "Diagnostics must retain the status code supplied separately from its message")
 end
+
+
+-- General panel opens compare accounts; bar contexts still open one detail.
+do
+local work = provider("openai@work", "Codex · Work", 42)
+local personal = provider("openai@personal", "Codex · Personal", 72)
+local tree, _, runtime, _, _, _, host = loadPanel({ entries = { work, personal } })
+runtime.onOpen()
+assert(host.tree().props.key == "overview", "a direct panel open must start with the account overview")
+assert(has(labels(host.tree()), "Codex · Work") and has(labels(host.tree()), "Codex · Personal"),
+    "the overview must identify accounts with identical provider glyphs")
+assert(#collect(host.tree(), "progress") == 2, "both account quotas must be visible together")
+assert(has(labels(host.tree()), "42%") and has(labels(host.tree()), "72%"),
+    "overview percentages must remain visible when reset timestamps are absent")
+local opened = false
+for _, button in ipairs(collect(host.tree(), "button")) do
+    if button.props.key == "overview-open-openai@work" then button.props.onClick(); opened = true; break end
+end
+assert(opened and host.values.selected == "openai@work" and host.tree().props.key == "usage",
+    "the account detail action must select its stable ID")
+assert(has(labels(host.tree()), "Codex · Work"), "detail must keep the selected account identity visible")
+clickButton(host.tree(), "ui.overview")
+assert(host.tree().props.key == "overview", "detail needs a direct return to all accounts")
+runtime.onOpen("openai@personal")
+assert(host.tree().props.key == "usage" and host.values.selected == "openai@personal",
+    "a bar context must retain direct account access")
+runtime.onKey("o", true)
+assert(host.tree().props.key == "overview", "O returns to the account overview")
+runtime.onKey("down", true)
+assert(host.tree().props.key == "overview", "arrow selection must not leave the overview")
+runtime.onKey("return", true)
+assert(host.tree().props.key == "usage", "Enter opens the selected account")
+end
+
+do
+local many = { entries = {} }
+for index = 1, 14 do many.entries[index] = provider("openai@" .. index, "Codex · " .. index, index) end
+local _, _, runtime, _, _, _, host = loadPanel(many)
+runtime.onOpen("openai@8")
+local count = 0
+for _, row in ipairs(collect(host.tree(), "row")) do
+    if tostring(row.props.key):match("^provider%-") then count = count + 1 end
+end
+assert(count <= 5, "detail navigation must not overflow with many accounts")
+assert(has(labels(host.tree()), "Codex · 8"), "bounded tabs must preserve the selected account identity")
+end
+
+do
+local balance = { id = "deeprelay", display_name = "DeepRelay", status = "ready", stale = true,
+    fetched_at = "2026-10-16T15:00:00Z", metrics = {},
+    sections = { { type = "text", label = "Balance", value = "$12.50" } } }
+local _, _, runtime, _, _, _, host = loadPanel(balance)
+runtime.onOpen()
+assert(has(labels(host.tree()), "$12.50") and has(labels(host.tree()), "ui.stale_hint"),
+    "overview balances must stay monetary and identify old readings")
+assert(#collect(host.tree(), "progress") == 0, "a balance must never become a quota gauge")
+end
+
+-- Overview limits remain explicit, and display mode never rewrites source data.
+do
+local entry = provider("openai@work", "Codex · 工作", 42)
+for index = 2, 5 do
+    entry.metrics[index] = { type = "metric", label = "Window " .. index,
+        percent = index * 10, value = tostring(index * 10) .. "%" }
+end
+entry.metrics[5].model_pool = true
+entry.sections = entry.metrics
+local _, _, runtime, _, _, _, host = loadPanel(entry, nil, { usage_display = "remaining" })
+runtime.onOpen()
+assert(#collect(host.tree(), "progress") == 3 and has(labels(host.tree()), "ui.more_windows"),
+    "overview must bound window previews and disclose omitted windows")
+assert(has(labels(host.tree()), "58%") and entry.metrics[1].percent == 42,
+    "overview remaining mode must transform only the presentation")
+assert(host.tree().props.height <= 560, "large overviews must stay inside the declared maximum")
+end
+
+do
+local one = provider("openai", "Codex", 42)
+local _, _, runtime, _, _, _, host = loadPanel(one)
+local compactHeight = host.tree().props.height
+runtime.onOpen()
+assert(host.tree().props.height < 560 and compactHeight < 560,
+    "a small report must not reserve the panel's maximum height")
+host.publishState("error", { code = "timed_out", detail = "" })
+assert(has(labels(host.tree()), "ui.stale_hint"), "a whole-report failure must mark overview readings as old")
+end
+
+-- Large overviews bound native work without losing access to any account.
+do
+local report = { entries = {} }
+for index = 1, 14 do report.entries[index] = provider("openai@" .. index, "Codex · " .. index, index) end
+local _, _, runtime, _, _, _, host = loadPanel(report)
+runtime.onOpen()
+local shown = 0
+for _, column in ipairs(collect(host.tree(), "column")) do
+    if tostring(column.props.key):match("^overview%-openai@") then shown = shown + 1 end
+end
+assert(shown > 0 and shown <= 4, "a page must bound native rendering work to four account cards")
+local previous
+for _, button in ipairs(collect(host.tree(), "button")) do
+    if button.props.tooltip == "ui.previous_page" then previous = button end
+end
+assert(previous and previous.props.enabled, "the last page must expose navigation to earlier accounts")
+previous.props.onClick()
+assert(host.tree().props.key == "overview", "page navigation must preserve the overview")
+end
+
+io.write("ok: panel degrades safely, sorts usage, and removes unavailable providers\n")

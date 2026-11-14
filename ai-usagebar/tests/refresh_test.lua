@@ -152,7 +152,6 @@ assert(shared.providerGlyph("anthropic@gmail") == shared.providerGlyph("anthropi
     "an account should inherit the provider's glyph")
 assert(shared.providerGlyph("unknown") == "brain", "an unknown provider falls back")
 
-io.write("ok: refresh queue coalesced, timeouts rejected, provider visuals complete\n")
 
 local intervalBody = assert(read("service.luau"):match("local function intervalMs%(%)\n(.-)\nend"))
 for _, case in ipairs({
@@ -193,3 +192,44 @@ do
     configured=true; clock=11000; runtime.onConfigChanged()
     assert(reads[4].command=="ai-usagebar usage --json --priorities", "config changes allow a CLI upgrade to be retried")
 end
+
+-- Excessive CLI documents must leave the last reading intact and allow retries.
+do
+    local deep = {}
+    local leaf = deep
+    for _ = 1, 40 do leaf.child = {}; leaf = leaf.child end
+    local wide = {}
+    for i = 1, 20001 do wide[i] = i end
+    local accounts = {}
+    for index = 1, 129 do accounts[index] = { id = "openai@" .. index } end
+    for _, case in ipairs({
+        { stdout = "{}", document = { entries = accounts } },
+        { stdout = string.rep(" ", 1024 * 1024 + 1), document = { entries = {} }, noDecode = true },
+        { stdout = "{}", document = { entries = {}, metadata = deep } },
+        { stdout = "{}", document = { entries = {}, metadata = wide } },
+    }) do
+        local previous = values.report
+        decodedReport = case.document
+        noctalia.json.decode = function()
+            assert(not case.noDecode, "oversized stdout must not reach json.decode")
+            return decodedReport
+        end
+        now = now + 3000
+        env.onIpc("refresh")
+        callbacks[#callbacks]({ exitCode = 0, stdout = case.stdout })
+        assert(values.report == previous, "excessive documents must preserve cached report")
+        assert(values.error.code == "too_large" and values.polling == false,
+            "excessive documents must report too_large and release the poller")
+        decodedReport = { entries = {}, optional = { old_cli = true } }
+        noctalia.json.decode = function() return decodedReport end
+        now = now + 3000
+        local before = #callbacks
+        env.onIpc("refresh")
+        assert(#callbacks == before + 1, "rejected report must not leave refresh in flight")
+        callbacks[#callbacks]({ exitCode = 0, stdout = "{}" })
+        assert(values.report == decodedReport and values.error.code == "",
+            "a small legacy report must recover after rejection")
+    end
+end
+
+io.write("ok: refresh queue coalesced, timeouts rejected, provider visuals complete\n")

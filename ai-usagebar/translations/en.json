@@ -152,7 +152,9 @@
       "spawn_failed": "Could not start ai-usagebar",
       "spawn_failed_hint": "The process never started. Try again in a moment.",
       "timed_out": "ai-usagebar did not answer",
-      "timed_out_hint": "The read took too long. A provider may be answering slowly."
+      "timed_out_hint": "The read took too long. A provider may be answering slowly.",
+      "too_large": "Usage report is too large",
+      "too_large_hint": "The CLI report exceeded display limits. The last reading is preserved; reduce the report size or check the CLI output, then retry."
     },
     "hidden_label": "Not shown",
     "hidden_value": "{count} more, click to open the panel",
@@ -219,6 +221,16 @@
     },
     "priority_expired": "Reset time passed. Refresh to confirm the next window.",
     "priority_scope_account": "Account priorities",
-    "priority_not_reported": "No priority estimate for this account."
+    "priority_not_reported": "No priority estimate for this account.",
+    "overview": "All accounts",
+    "previous_page": "Previous accounts",
+    "next_page": "Next accounts",
+    "overview_hint": "Compare readings below. Open an account for all limits.",
+    "account_count": "Accounts: {count}",
+    "account_details": "View {account} details",
+    "more_windows": "+{count} more windows in details",
+    "previous_account": "Previous account",
+    "next_account": "Next account",
+    "empty_hint": "Configure a provider in ai-usagebar, then refresh. Diagnostics explains unavailable accounts."
   }
 }
