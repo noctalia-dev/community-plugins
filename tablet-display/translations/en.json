@@ -1,0 +1,115 @@
+{
+  "title": "Tablet Display",
+  "settings": {
+    "device": {
+      "label": "Tablet",
+      "description": "Sets the display's resolution and size. Auto uses the resolution Moonlight asks for (set Moonlight to Native), falling back to the custom resolution before the first connection.",
+      "auto": "Auto (from Moonlight)",
+      "galaxy-tab-s9-ultra": "Samsung Galaxy Tab S9 Ultra (2960×1848)",
+      "galaxy-tab-s9-plus": "Samsung Galaxy Tab S9+ (2800×1752)",
+      "galaxy-tab-s9": "Samsung Galaxy Tab S9 (2560×1600)",
+      "ipad-pro-13-m4": "iPad Pro 13-inch, M4 (2752×2064)",
+      "ipad-pro-11-m4": "iPad Pro 11-inch, M4 (2420×1668)",
+      "custom": "Custom"
+    },
+    "custom_resolution": {
+      "label": "Resolution",
+      "description": "The tablet's screen resolution in landscape, as WIDTHxHEIGHT, for example 2560x1600."
+    },
+    "custom_diagonal": {
+      "label": "Screen size (inches)",
+      "description": "The tablet's screen diagonal. Used to pick a sensible automatic scale; 0 means unknown."
+    },
+    "audio": {
+      "label": "Play sound on the tablet",
+      "description": "Send the computer's audio to the tablet while streaming. Off keeps sound on the computer."
+    },
+    "refresh_rates": {
+      "label": "Refresh rates",
+      "description": "Refresh rates the tablet display offers, comma-separated. The display uses the fastest one; 120 needs a GPU and port that can carry it."
+    },
+    "method": {
+      "label": "How to add the display",
+      "description": "Virtual uses the compositor's own virtual output (Hyprland, mango, sway). Port borrows an unused DP/HDMI connector through a small root helper (needed on niri; AMD and Intel graphics only).",
+      "auto": "Automatic",
+      "virtual": "Virtual output",
+      "port": "Unused display port"
+    },
+    "port": {
+      "label": "Display port",
+      "description": "Which unused connector the port method borrows, such as card2-DP-3. Auto tries free connectors on the GPU that drives the built-in screen first."
+    },
+    "keep_sunshine": {
+      "label": "Keep Sunshine running when off",
+      "description": "Off normally stops Sunshine so nothing can be streamed. Turn this on to leave Sunshine running as it was before, with your own Sunshine settings (which may stream your main screen)."
+    },
+    "usb_keep_internet": {
+      "label": "Keep internet off the USB cable",
+      "description": "With USB tethering on, the tablet offers the computer an internet connection and would take over its traffic. This keeps your internet on Wi-Fi or Ethernet, for the current connection only (nothing is saved, and it never applies when the cable is your only connection). Uses nmcli."
+    }
+  },
+  "status": {
+    "loading": "Loading…",
+    "script_failed": "Control script failed",
+    "starting_extend": "Adding the tablet display…",
+    "starting_mirror": "Starting to mirror…",
+    "stopping": "Turning off…",
+    "extended_on": "Extended on {output} · {width}×{height} @ {hz} Hz",
+    "extended": "Extended",
+    "mirroring": "Mirroring {output}",
+    "off": "Off",
+    "client_connected": "Moonlight connected · {width}×{height} @ {fps} fps",
+    "client_waiting": "Waiting for Moonlight to connect"
+  },
+  "panel": {
+    "mode": {
+      "off": "Off",
+      "extend": "Extend",
+      "mirror": "Mirror"
+    },
+    "position": {
+      "left": "Left",
+      "above": "Above",
+      "below": "Below",
+      "right": "Right"
+    },
+    "placement": "Placement",
+    "scale": "Scale",
+    "scale_auto": "Auto ({scale}×)",
+    "moonlight": "Moonlight",
+    "this_computer": "this computer",
+    "moonlight_help": "On the tablet, add {host} in Moonlight, then start Desktop. Set Moonlight's resolution to Native.",
+    "pair": "Pair",
+    "pair_tooltip": "Open Sunshine's PIN page",
+    "sunshine": "Sunshine",
+    "sunshine_tooltip": "Open Sunshine's web settings",
+    "script_failed": "The control script failed: {error}",
+    "sunshine_missing": "Sunshine isn't installed. Install it with your package manager (for example: sudo pacman -S sunshine), then open this panel again.",
+    "helper_outdated": "The port helper is out of date. Update it to keep Extend working.",
+    "helper_needed": "Extend on {compositor} borrows an unused display port, which needs a small helper installed once with sudo.",
+    "helper_update": "Update helper",
+    "helper_install": "Install helper",
+    "dismiss": "Dismiss",
+    "refresh": "Refresh",
+    "diagnostics": "Diagnostics",
+    "settings": "Settings",
+    "usb_address": "Over USB: add {ip} in Moonlight",
+    "usb_firewall": "If Moonlight can't connect over USB, your firewall may be blocking the cable's network. Diagnostics shows the command to allow it."
+  },
+  "widget": {
+    "problem": "Problem",
+    "see_panel": "see the panel",
+    "hint": "Click: panel · Right-click: Extend on/off"
+  },
+  "shortcut": {
+    "off": "Tablet",
+    "on": "Tablet on",
+    "mirroring": "Mirroring"
+  },
+  "service": {
+    "press_enter": "Press Enter to close",
+    "installing_helper": "Installing the Tablet Display port helper (needs sudo).",
+    "busy": "Still busy: {action}",
+    "timed_out": "'{action}' timed out"
+  }
+}
