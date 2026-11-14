@@ -1655,4 +1655,29 @@ previous.props.onClick()
 assert(host.tree().props.key == "overview", "page navigation must preserve the overview")
 end
 
+-- A bar opening carries explicit account intent; closing clears pending intent.
+do
+local report = { entries = { provider("openai@work", "Codex · Work", 42), provider("openai@personal", "Codex · Personal", 30) } }
+local _, _, runtime, _, _, _, host = loadPanel(report)
+host.values.panel_context = "openai@work"
+runtime.onOpen()
+assert(host.tree().props.key == "usage" and host.values.selected == "openai@work",
+    "bar handoff must open account detail rather than the general overview")
+assert(host.values.panel_context == nil, "opening consumes the pending context")
+host.values.panel_context = "openai@personal"
+runtime.onClose()
+runtime.onOpen()
+assert(host.tree().props.key == "overview", "a closed bar toggle must not affect the next direct open")
+end
+
+-- A local AGY RPC rejection does not establish that the AGY login is expired.
+do
+local failed = { id = "antigravity", display_name = "Antigravity", status = "error",
+    error = "HTTP 401: authentication rejected", metrics = {}, sections = {} }
+local tree, _, _, _, _, _, host = loadPanel(failed)
+clickButton(openActions(tree, host), "ui.provider_setup")
+assert(has(labels(host.tree()), "ui.diagnostics_antigravity_auth"),
+    "Antigravity auth guidance must distinguish local RPC access from the CLI session")
+end
+
 io.write("ok: panel degrades safely, sorts usage, and removes unavailable providers\n")

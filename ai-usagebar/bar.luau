@@ -271,14 +271,20 @@ local function miniGauge(percent, tint)
     })
 end
 
+local function readingGlyph(name, color)
+    return ui.glyph({ name = name, size = 16, width = 18, height = 18, color = color })
+end
+
 local function withCountdown(value, metric, isVert)
     if isVert or (extras ~= "countdown" and extras ~= "both") then return value end
     local left = fixedCountdown(metric)
     if left == "" then return value end
-    local countdown = ui.label({ text = left, fontSize = 12, color = "on_surface_variant", maxLines = 1 })
+    local countdown = ui.row({ gap = 3, align = "center" }, {
+        ui.glyph({ name = "clock", size = 11, color = "on_surface/0.8" }),
+        ui.label({ text = left, fontSize = 11, color = "on_surface/0.8", maxLines = 1 }),
+    })
     if value == nil then return countdown end
-    -- Keep the smaller reset beside the value's lower edge, not floating at its centre.
-    return ui.row({ gap = 3, align = "end" }, { value, countdown })
+    return ui.row({ gap = 6, align = "center" }, { value, countdown })
 end
 
 local function chip(entry, flagged, isVert)
@@ -287,7 +293,7 @@ local function chip(entry, flagged, isVert)
         local nodes = { ui.label({ text = "—", color = "on_surface_variant" }) }
         if showGlyph then
             table.insert(nodes, glyphAfter and #nodes + 1 or 1,
-                ui.glyph({ name = providerGlyph(entry.id, entry.brand), color = "error" }))
+                readingGlyph(providerGlyph(entry.id, entry.brand), "error"))
         end
         if isVert then
             return ui.column({ gap = 2, align = "center" }, nodes)
@@ -311,8 +317,7 @@ local function chip(entry, flagged, isVert)
     local hasSubmodels = #submodels > 0
 
     local glyph = (showGlyph and not hasSubmodels)
-        and ui.glyph({ name = providerGlyph(entry.id, entry.brand),
-                       color = flagged and "error" or "on_surface" }) or nil
+        and readingGlyph(providerGlyph(entry.id, entry.brand), flagged and "error" or "on_surface") or nil
     local pct = nil
     if showValue or hasSubmodels then
         if hasSubmodels then
@@ -323,10 +328,8 @@ local function chip(entry, flagged, isVert)
                 local mTint = colorByUsage and isCritical(shownMetric) and "error"
                     or severityRole(shownMetric, "on_surface")
                 local rowChildren = {}
-                local modelGlyph = showGlyph and ui.glyph({
-                        name = item.glyph or providerGlyph(entry.id, entry.brand),
-                        color = flagged and "error" or "on_surface",
-                    }) or nil
+                local modelGlyph = showGlyph and readingGlyph(item.glyph or providerGlyph(entry.id, entry.brand),
+                    flagged and "error" or "on_surface") or nil
                 if modelGlyph and not glyphAfter then rowChildren[#rowChildren + 1] = modelGlyph end
                 if showName and not isVert then
                     rowChildren[#rowChildren + 1] = ui.label({
@@ -424,7 +427,7 @@ local function chip(entry, flagged, isVert)
     if entry.stale == true then
         add(ui.glyph({ name = "clock-exclamation", size = 11, color = "secondary" }))
     end
-    return ui.row({ gap = 4, align = "center" }, nodes)
+    return ui.row({ gap = 6, align = "center" }, nodes)
 end
 
 local MAX_TOOLTIP_ROWS = 10
@@ -594,8 +597,9 @@ end)
 
 function onClick()
     local picked = shown()
-    -- One panel serves every capsule and is not told which one opened it.
+    -- Native togglePanel has no context argument; preserve this capsule's account intent.
     noctalia.state.set("selected", picked[1] ~= nil and picked[1].id or wantedEntryId())
+    noctalia.state.set("panel_context", picked[1] ~= nil and picked[1].id or "overview")
     noctalia.togglePanel("felipeartur/ai-usagebar:panel")
 end
 

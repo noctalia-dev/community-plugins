@@ -130,6 +130,7 @@
     "diagnostics_configure": "Configure this provider's credentials for ai-usagebar, then refresh status and usage.",
     "diagnostics_disabled": "Disabled providers ({count})",
     "diagnostics_enabled": "Other enabled providers ({count})",
+    "diagnostics_antigravity_auth": "Run agy -p /quota first. If quota works, check local-server integration; otherwise check your Antigravity login.",
     "diagnostics_local_app": "If Antigravity is closed, open it so its local server can run, then refresh usage. No API key is required.",
     "diagnostics_login": "Check this account's credentials and access with the provider, then refresh usage.",
     "diagnostics_no_problems": "No problems found in the available reports. Credential presence does not confirm a working connection.",

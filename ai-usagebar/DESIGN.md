@@ -54,7 +54,9 @@ and previous/next controls. Each card identifies an account, shows up to three s
 or its balance, and offers a detail action. Extra windows are disclosed explicitly.
 The detail view retains model groups, credits and optional CLI priorities. Use
 native provider glyphs, clock, refresh, settings, navigation and status icons.
-Unknown providers keep a readable name and neutral glyph.
+Unknown providers keep a readable name and neutral glyph. Bar provider/model
+marks use a consistent 16px glyph in an 18px slot; reset metadata uses a separate
+11px clock/text group with readable foreground-derived color.
 
 ## Do's and Don'ts
 

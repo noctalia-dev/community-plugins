@@ -431,7 +431,6 @@ local countdownTooltip = countdownBar.tooltip()
 assert(countdownTooltip[1].value == "64% · 0h 54m", "reset stays with the corresponding model")
 assert(countdownTooltip[2].value == "69% · 23h 05m", "fixed hours and minutes stay visible")
 
-io.write("ok: account selection, unavailable providers, and a steady capsule\n")
 local parserFailure = loadBar({ vendor = "openai", extras = "countdown" }, { entries = {
     { id = "openai", display_name = "Codex", status = "error", metrics = {}, sections = {},
       error = "schema mismatch: openai usage response: invalid type: null" },
@@ -899,3 +898,31 @@ for _, mode in ipairs({ "used", "remaining" }) do
     end
     assert(described, "the tooltip names the partial refill instead of a full reset")
 end
+
+
+-- Main provider marks use a consistent readable slot, separate from reset metadata.
+do
+local item = entry("openai", "Codex", 70)
+item.metrics[1].reset_at = "2026-10-16T20:00:00Z"
+local capsule = loadBar({ vendor = "openai", extras = "countdown", visualization = "none" }, { entries = { item } })
+local function find(node, predicate)
+    if type(node) ~= "table" then return nil end
+    if predicate(node) then return node end
+    for _, child in ipairs(node.children or {}) do
+        local result = find(child, predicate)
+        if result then return result end
+    end
+end
+local mark = find(capsule.rendered(), function(n) return n.kind == "glyph" and n.props.name == "brand-openai" end)
+assert(mark and mark.props.size == 16 and mark.props.width == 18 and mark.props.height == 18,
+    "provider marks need a consistent 18px slot and readable 16px glyph")
+assert(containsGlyph(capsule.rendered(), "clock", "on_surface/0.8"),
+    "reset metadata needs the same clock cue and contrast as the panel")
+local noReset = loadBar({ vendor = "openai", extras = "countdown" }, { entries = { entry("openai", "Codex", 70) } })
+assert(not containsGlyph(noReset.rendered(), "clock"), "missing reset must not reserve a clock or empty gap")
+end
+
+named.env.onClick()
+assert(named.values.panel_context == "openai@work", "bar clicks must hand the exact account to the panel")
+
+io.write("ok: account selection, unavailable providers, and a steady capsule\n")

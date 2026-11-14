@@ -53,7 +53,9 @@ It will not install on an older shell. Plugin version 1.1.0 remains available fo
 
 The main readings and provider icons follow the shell's typography and bar scale.
 Text also follows the configured font family, weight and font scale. Countdown and
-pace remain smaller secondary readings.
+pace remain smaller secondary readings. Provider and model marks use a consistent
+16px glyph in an 18px slot. Reset metadata has a small clock, readable secondary
+text and spacing separate from the quota value.
 
 ## Usage
 
@@ -297,6 +299,19 @@ The existing IPC context opens Diagnostics directly:
 ```sh
 noctalia msg panel-open felipeartur/ai-usagebar:panel setup
 ```
+
+### Antigravity disappears with HTTP 401/403
+
+First check the official CLI with `agy -p /quota`. A rejected local Antigravity
+RPC does not establish that the Google login or quota is unavailable. For example,
+AGY 1.5.7 can answer its quota command successfully while its local RPC answers
+plain-text `401 Unauthorized`; ai-usagebar 1.51.0 recognizes a narrower JSON
+missing-CSRF response before using its fallback.
+
+If the quota command works, investigate the collector's local-server integration.
+If it also fails, check the Antigravity login. The plugin does not rewrite
+credentials or turn a rejected report into a zero or a fresh cached quota.
+An unavailable provider remains documented in Diagnostics.
 
 ## IPC
 

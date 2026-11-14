@@ -911,6 +911,7 @@ local function recovery(entry, cause, missingCredential)
     local text = cause:lower()
     if readFailure(entry) then return "ui.diagnostics_update_cli" end
     if shared.terminalAuth(entry) or text:match("http%s*:?%s*40[13]") then
+        if shared.baseProvider(entry.id) == "antigravity" then return "ui.diagnostics_antigravity_auth" end
         return "ui.diagnostics_login"
     end
     if text:find("429", 1, true) or text:find("rate limit", 1, true)
@@ -1497,6 +1498,9 @@ noctalia.state.watch("catalog_error", function(value)
 end)
 
 function onOpen(context)
+    local requested = noctalia.state.get("panel_context")
+    noctalia.state.set("panel_context", nil)
+    if (context == nil or context == "") and type(requested) == "string" then context = requested end
     expandedDiagnosticKey = nil
     showEnabled, showDisabled = false, false
     showActions = false
@@ -1532,6 +1536,7 @@ function onConfigChanged()
 end
 
 function onClose()
+    noctalia.state.set("panel_context", nil)
     panel.setWantsSecondTicks(false)
 end
 
