@@ -1474,15 +1474,21 @@ rev = "fe464e7301b2c14bba98b7460ae1710106985a07"
 [[plugin]]
 id = "weinguyen/shell-command"
 name = "Shell Command"
-version = "0.1.1"
-updated_at = 1794621541
+version = "0.2.0"
+updated_at = 1794622031
 added_at = 1786216031
 author = "weinguyen"
 license = "MIT"
 icon = "terminal"
-description = "Run a shell command from the launcher. Type /sh then command open it your default terminal."
-plugin_api = 3
+description = "Run shell commands from the launcher: /sh opens them in your terminal, /shb runs them in the background."
+plugin_api = 22
 tags = ["launcher", "productivity", "development"]
+
+[[plugin.release]]
+plugin_api = 3
+version = "0.1.1"
+updated_at = 1794621541
+rev = "aab5e34da74a70ce7d96c15ebbab7f99fe1680d8"
 
 [[plugin]]
 id = "weinguyen/9router-control"
