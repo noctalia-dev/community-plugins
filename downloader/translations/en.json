@@ -1,0 +1,99 @@
+{
+  "job": {
+    "cancel": "Cancel",
+    "cancelled": "Cancelled",
+    "done": "Saved",
+    "failed": "Download failed",
+    "open": "Open",
+    "processing": "Processing…",
+    "queued": "Waiting",
+    "remove": "Remove from list",
+    "retry": "Try again"
+  },
+  "mode": {
+    "audio": "Audio",
+    "video": "Video"
+  },
+  "notify": {
+    "done": {
+      "title": "Download finished"
+    },
+    "failed": {
+      "title": "Download failed"
+    },
+    "not_a_link": {
+      "title": "Downloader: not a link"
+    }
+  },
+  "panel": {
+    "clear": "Clear finished",
+    "download": "Download",
+    "empty": "Downloads appear here.",
+    "loading": "Loading…",
+    "not_a_link": "This does not look like a link.",
+    "open_folder": "Open download folder",
+    "paste": "Paste from clipboard",
+    "placeholder": "Paste a link",
+    "saves_to": "Saves to {folder}",
+    "sites": "Works with YouTube, Instagram, TikTok, X, Facebook, Reddit, Vimeo, Twitch, SoundCloud and over a thousand other sites.",
+    "title": "Downloader"
+  },
+  "settings": {
+    "audio_format": {
+      "description": "File type for audio downloads. Original keeps the site's own format without converting.",
+      "label": "Audio format",
+      "options": {
+        "best": "Original",
+        "m4a": "M4A",
+        "mp3": "MP3",
+        "opus": "Opus"
+      }
+    },
+    "extra_args": {
+      "description": "More yt-dlp arguments, separated by spaces, such as --cookies-from-browser firefox for videos that need a sign-in. They come after the plugin's own, so they win.",
+      "label": "Extra yt-dlp arguments"
+    },
+    "folder": {
+      "description": "Where downloads are saved.",
+      "label": "Download folder"
+    },
+    "notify": {
+      "description": "Show a notification when a download finishes or fails.",
+      "label": "Notify when done"
+    },
+    "video_quality": {
+      "description": "Highest video resolution to download. A smaller video is used when the site has nothing this large.",
+      "label": "Video quality",
+      "options": {
+        "1080": "1080p",
+        "1440": "1440p",
+        "2160": "2160p (4K)",
+        "480": "480p",
+        "720": "720p",
+        "best": "Best available"
+      }
+    },
+    "whole_playlist": {
+      "description": "For a link to a video in a playlist, download the whole playlist instead of the one video.",
+      "label": "Download whole playlists"
+    }
+  },
+  "setup": {
+    "body": "Downloader needs {list} to download.",
+    "check": "Check again",
+    "install": "Install in terminal",
+    "manual": "Install {list} with your package manager, then open this panel again.",
+    "title": "Setup needed"
+  },
+  "widget": {
+    "idle": "Downloader: click to download a link",
+    "setup": "Downloader needs {list}. Click to set it up.",
+    "tooltip": {
+      "eta": "Time left",
+      "file": "Downloading",
+      "progress": "Progress",
+      "queued": "Waiting",
+      "speed": "Speed"
+    }
+  }
+}
