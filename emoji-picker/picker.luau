@@ -103,7 +103,19 @@ local PANEL_WIDTH_BY_ID = { wide = 780, desktop = 640, compact = 480 }
 local fitWidth = PANEL_WIDTH_BY_ID.compact -- replaced by the shim's width at onOpen
 local MAX_SEARCH_RESULTS = 300
 local RECENCY_HALF_LIFE_DAYS = 14.0
-
+-- How far usage may lift a search match up the ranking: the boost is
+-- added to the match tier (see the Search section) and capped so it can
+-- bridge exactly one tier step — heavy use promotes a match past the
+-- next-weaker match class, never past two. 250 spans the gap from an
+-- emoji name word-boundary match (700) past a symbol alias-boundary
+-- match (900), but stays under an exact name/alias (1000) from every
+-- class except the 900 class itself.
+local FRECENCY_BOOST_MAX = 250.0
+-- The boost saturates at log2(1 + f) == 6, i.e. ~63 same-half-life
+-- picks: enough history that "my most-used emoji" reliably maxes out
+-- while a handful of picks stays in the gentle within-tier range.
+local FRECENCY_BOOST_LOG2_MAX = 6.0
+local LN2 = math.log(2.0)
 -- ── State ──────────────────────────────────────────────────────────────
 local data = nil -- dataset array; published only by a fully successful load
 local byCat = nil -- { [catId] = {entry, …} } browse list (no skin-tone variants)
@@ -201,6 +213,21 @@ local function frecency(emoji, now)
     return 0.0
   end
   return frecencyScore(u.c, u.t, now)
+end
+
+-- Log-scaled, capped conversion of the decayed pick count into ranking
+-- points. Log scale so pick #1..#5 move an entry meaningfully within its
+-- tier (a recently picked 💜 reads ahead of ❤️ for "heart") while only
+-- genuinely heavy use accumulates enough points to bridge a tier step.
+local function frecencyBoost(f)
+  if f <= 0.0 then
+    return 0.0
+  end
+  local b = FRECENCY_BOOST_MAX * (math.log(1.0 + f) / LN2) / FRECENCY_BOOST_LOG2_MAX
+  if b > FRECENCY_BOOST_MAX then
+    return FRECENCY_BOOST_MAX
+  end
+  return b
 end
 
 -- A load attempt either publishes a complete dataset or NOTHING: every
@@ -304,7 +331,7 @@ local function recents(now, n)
   return out
 end
 
--- ── Search (relevance dominates; frecency is a small tie-breaker) ──────
+-- ── Search (relevance tiers + a capped usage boost) ───────────────────
 -- Per word, the BEST of the entry's match classes:
 --   character: the query word IS the entry itself (typing/pasting "€")
 --     1100 — beats every name match.
@@ -329,13 +356,25 @@ end
 -- "heart") above "red heart" (a name word-boundary match) is exactly the
 -- bug this replaced.
 --
--- Entries tied on tier: a symbol beats an emoji (the query named a
+-- The ranking score is tier + frecencyBoost(f): what you actually pick
+-- rises in the ranking, in the query states that matter while typing.
+-- The boost is capped at 250 points (see FRECENCY_BOOST_MAX), which
+-- spans exactly one tier step: a heavily used emoji's name word-boundary
+-- match (700) climbs past a symbol alias-boundary match (900) — "t",
+-- "th", "thu" put a heavily used 👍 ahead of τ, θ and ∴ — but a keyword
+-- match (450) can never muscle past a word-boundary match (700), and
+-- only the 900 class itself can boost past an exact name/alias (1000).
+-- Below saturation the boost orders equals within one tier: a recently
+-- picked 💜 reads ahead of ❤️ for "heart" long before it can displace
+-- the ♥ suit the query names exactly.
+--
+-- Entries tied on score: a symbol beats an emoji (the query named a
 -- character), then SPECIFICITY, not dataset order: fewer name words,
 -- then a shorter name, wins — "red heart" (2 words, 9 chars) reads ahead
 -- of "smiling face with hearts" (4 words) and every other equally
 -- matching colour/decorated heart, because a short, focused name is more
 -- centrally "about" the matched word than a longer compound one.
--- Frecency (capped) breaks any tie still remaining, then dataset order.
+-- Dataset order breaks any tie still remaining.
 --
 -- Plain substring scans throughout, no per-entry token arrays: this runs
 -- over the full ~4000-entry dataset on every keystroke inside the host's
@@ -448,13 +487,13 @@ local function search(now)
   local scored = {}
   -- Broad queries (a single "e") match thousands of entries, and sorting
   -- them all once blew the host's per-callback CPU budget on the first
-  -- keystroke (confirmed live). Only the top MAX_SEARCH_RESULTS are ever
-  -- shown, so once the kept set is full, entries at or below its weakest
-  -- tier are skipped WITHOUT building a scored row (frecency, word count,
-  -- insert). Strictly-better tiers still enter, so the bounded set stays
-  -- a superset of the true top slice; only equal-tier ordering beyond the
-  -- cap can differ from an exact full sort — invisible results nobody
-  -- scrolls to.
+  -- shown, so once the kept set is full, entries whose boosted score
+  -- cannot pass the weakest kept tier are skipped WITHOUT building a
+  -- scored row (boost, word count, insert). Strictly-better tiers — and
+  -- any used entry whose boost lifts it past the weakest kept tier —
+  -- still enter, so the bounded set stays a superset of the true top
+  -- slice; only equal-score ordering beyond the cap can differ from an
+  -- exact full sort — invisible results nobody scrolls to.
   local minKeptTier = 1200
   for idx, e in ipairs(data) do
     local tierScore = 1000
@@ -468,26 +507,30 @@ local function search(now)
         tierScore = t
       end
     end
-    if tierScore > 0 and (#scored < MAX_SEARCH_RESULTS or tierScore > minKeptTier) then
-      local f = frecency(e.e, now)
-      if f > 25 then
-        f = 25 -- cap the tie-breaker: usage never outranks relevance
-      end
-      table.insert(
-        scored,
-        { e = e, tier = tierScore, s = e.s == 1, nwords = nameWordCount(e.l), nlen = #e.l, f = f, i = idx }
-      )
-      if tierScore < minKeptTier then
-        minKeptTier = tierScore
+    if tierScore > 0 then
+      -- Usage must be known BEFORE the admission test: a used entry at a
+      -- weaker tier can still outrank kept rows once boosted, and must
+      -- not be pruned as if it were bare. This is one table lookup over
+      -- a small usage map — the same cost class the old post-admission
+      -- lookup had, just moved for correctness.
+      local score = tierScore + frecencyBoost(frecency(e.e, now))
+      if #scored < MAX_SEARCH_RESULTS or score > minKeptTier then
+        table.insert(
+          scored,
+          { e = e, score = score, s = e.s == 1, nwords = nameWordCount(e.l), nlen = #e.l, i = idx }
+        )
+        if tierScore < minKeptTier then
+          minKeptTier = tierScore
+        end
       end
     end
   end
   table.sort(scored, function(a, b)
-    if a.tier ~= b.tier then
-      return a.tier > b.tier
+    if a.score ~= b.score then
+      return a.score > b.score
     end
-    -- Equal relevance: the query named a character, so the symbol beats
-    -- an equally-scoring emoji ("copyright" → © before the ©️ emoji).
+    -- Equal score: the query named a character, so the symbol beats an
+    -- equally-scoring emoji ("copyright" → © before the ©️ emoji).
     if a.s ~= b.s then
       return a.s
     end
@@ -496,9 +539,6 @@ local function search(now)
     end
     if a.nlen ~= b.nlen then
       return a.nlen < b.nlen
-    end
-    if a.f ~= b.f then
-      return a.f > b.f
     end
     return a.i < b.i
   end)
@@ -557,9 +597,10 @@ local function buildView()
 end
 
 -- Grows the render budget so the row a keyboard move lands on is always
--- built (arrows can otherwise select a not-yet-rendered — but real —
--- item; there is no scroll-into-view API for plugin panels, so this at
--- least guarantees the tile exists once the user scrolls to it).
+-- built: the grid's ui.scroll carries revealKey (see gridArea), and the
+-- host can only scroll-reveal a row that EXISTS in the rendered tree —
+-- arrows past the rendered edge would otherwise select a real-but-
+-- unrendered item the viewport can never show.
 local function ensureRowRendered(rowIndex)
   if rowIndex > renderLimit then
     renderLimit = math.min(#rows, rowIndex)
@@ -677,10 +718,13 @@ end
 
 -- `entries` must be the same slice of `items` that buildView laid out,
 -- starting at flat item index `startIndex` (keeps tiles' idx in sync with
--- the keyboard model). `budget` caps how many ROWS this call may add —
--- shared across every sectionBlock call in one gridArea() build, so the
--- cap applies to the whole view, not per-section (see renderLimit above).
-local function sectionBlock(label, entries, startIndex, budget)
+-- the keyboard model) and at global ROW index `rowStart` (rows are keyed
+-- "row-<n>" by their index into `rows`, so gridArea can name the row the
+-- keyboard selection sits on for ui.scroll's revealKey — see gridArea).
+-- `budget` caps how many ROWS this call may add — shared across every
+-- sectionBlock call in one gridArea() build, so the cap applies to the
+-- whole view, not per-section (see renderLimit above).
+local function sectionBlock(label, entries, startIndex, rowStart, budget)
   local children = {}
   if label ~= nil then
     table.insert(children, ui.label({
@@ -699,6 +743,7 @@ local function sectionBlock(label, entries, startIndex, budget)
   if #entries == 0 then
     return children
   end
+  local n = 0
   for base = 1, #entries, gridCols do
     if budget.remaining <= 0 then
       break
@@ -707,8 +752,9 @@ local function sectionBlock(label, entries, startIndex, budget)
     for i = base, math.min(base + gridCols - 1, #entries) do
       table.insert(rowChildren, tile(entries[i], startIndex + i - 1))
     end
+    n += 1
     table.insert(children, ui.row({
-      key = "r" .. tostring(startIndex) .. "-" .. tostring(base),
+      key = "row-" .. tostring(rowStart + n - 1),
       width = gridRowWidth,
       gap = GAP,
       align = "center",
@@ -797,18 +843,20 @@ local function gridArea()
     for i = 1, #items do
       table.insert(section, items[i])
     end
-    for _, b in ipairs(sectionBlock(nil, section, 1, budget)) do
+    for _, b in ipairs(sectionBlock(nil, section, 1, 1, budget)) do
       table.insert(children, b)
     end
   else
     -- Browse view: Frequently Used + category sections.
     local startIndex = 1
+    local rowStart = 1
     local recent = recents(nowSec(), gridCols * 2)
     if #recent > 0 then
-      for _, b in ipairs(sectionBlock("Frequently Used", recent, startIndex, budget)) do
+      for _, b in ipairs(sectionBlock("Frequently Used", recent, startIndex, rowStart, budget)) do
         table.insert(children, b)
       end
       startIndex += #recent
+      rowStart += math.ceil(#recent / gridCols)
     end
     local sections = {}
     if cat == "all" then
@@ -823,19 +871,32 @@ local function gridArea()
       end
     end
     for _, s in ipairs(sections) do
-      for _, b in ipairs(sectionBlock(s.label, s.entries, startIndex, budget)) do
+      for _, b in ipairs(sectionBlock(s.label, s.entries, startIndex, rowStart, budget)) do
         table.insert(children, b)
       end
       startIndex += #s.entries
+      rowStart += math.ceil(#s.entries / gridCols)
     end
   end
 
+  -- Keep the keyboard selection in view (#1304): revealKey names the
+  -- scroll's direct child row the selection sits on, and the host
+  -- scrolls that row into the viewport whenever the key changes. Arrow
+  -- navigation used to walk the highlight past the last rendered row
+  -- while the scrollbar stayed at the top — the grid never followed the
+  -- selection. moveSelection's ensureRowRendered guarantees the revealed
+  -- row is actually in the tree (see the incremental-render note above).
+  local revealKey = nil
+  if sel >= 1 and rowOfItem[sel] ~= nil then
+    revealKey = "row-" .. tostring(rowOfItem[sel])
+  end
   return ui.scroll({
     -- The key tracks the VIEW identity (search vs. each browse tab):
     -- switching tabs recreates the scroll container, so the new category
     -- opens at its top instead of inheriting the old tab's scroll offset.
     -- Within one view re-renders keep the key and preserve the position.
     key = "grid-" .. (if searchActive() then "search" else cat),
+    revealKey = revealKey,
     flexGrow = 1,
     gap = GAP,
     -- Children (row boxes of gridRowWidth) center in the scroll's inner

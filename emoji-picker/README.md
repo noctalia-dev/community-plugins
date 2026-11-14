@@ -39,8 +39,9 @@ noctalia msg panel-toggle liamwh/emoji-picker:compact
 
 - **Type** to search names and keywords — "coffee", "arrow right",
   "euro", "plusminus", or paste a character itself to find it.
-- **Arrows** move the selection, **Enter** copies the selected entry and
-  closes the panel, **Escape** closes without copying.
+- **Arrows** move the selection (the grid scrolls to keep it visible),
+  **Enter** copies the selected entry and closes the panel, **Escape**
+  closes without copying.
 - Exactly one tile is highlighted: the selected one, which the footer
   names. Hovering a tile selects it (the footer then shows its name rather
   than a tooltip), and the pointer leaving a tile never changes the
@@ -62,6 +63,12 @@ noctalia msg panel-toggle liamwh/emoji-picker:compact
 - Queries that name a symbol ("euro", "gbp", "check") rank the plain
   character (€, £, ✓) above related emoji, so text symbols are one
   keystroke away too.
+- Search is weighted by what you pick: the same recency-decayed frequency
+  score that orders **Frequently Used** also lifts entries up the search
+  ranking (capped at one relevance class), so a heavily used emoji wins
+  the prefixes you type on the way to its name — "t", "th", "thu" put a
+  heavily used 👍 ahead of τ, θ and ∴ — without ever hijacking queries
+  the entry does not match.
 
 ## Settings
 

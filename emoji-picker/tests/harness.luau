@@ -132,6 +132,9 @@ local CHUNK_TAIL = "\n\nonOpen = M.onOpen\nonKey = M.onKey\nreturn {\n"
   .. "  moveSelection = moveSelection,\n"
   .. "  setQuery = function(q) query = q end,\n"
   .. "  getSel = function() return sel end,\n"
+  .. "  setUsage = function(u) usage = u end,\n"
+  .. "  rowOf = function(i) return rowOfItem[i] end,\n"
+  .. "  getRenderLimit = function() return renderLimit end,\n"
   .. "  getItem = function(i) return items[i] end,\n"
   .. "  setCat = function(c) cat = c end,\n"
   .. "  getCat = function() return cat end,\n"
@@ -310,6 +313,46 @@ do
   local res = searchFor("triangle")
   check(indexOf(res, "▲") ~= nil and indexOf(res, "▲") <= 3, "triangle: ▲ near top")
 end
+
+-- ── Frecency-weighted search: usage lifts what you actually pick ──────
+-- The usage boost bridges exactly one tier step (see the Search section
+-- of picker.luau): heavy 👍 use must put 👍 first in the "t"/"th"/"thu"
+-- typing prefixes — ahead of the symbol names τ/θ/∴ that own them cold
+-- — while exact-name queries stay owned by the entry they name.
+do
+  -- Cold usage: the prefixes belong to the symbol names.
+  check(firstChar(searchFor("t")) == "τ", "t: cold ranking is tau")
+  check(firstChar(searchFor("th")) == "θ", "th: cold ranking is theta")
+  check(firstChar(searchFor("thu")) == "∴", "thu: cold ranking is therefore")
+
+  -- Heavy 👍 use (500 fresh picks): the boost saturates and carries the
+  -- name word-boundary class (700) past the symbol alias-boundary class
+  -- (900) in every prefix state the user types through.
+  picker.setUsage({ ["👍"] = { c = 500, t = 1700000000 } })
+  check(firstChar(searchFor("t")) == "👍", "t: heavily used 👍 outranks τ")
+  check(firstChar(searchFor("th")) == "👍", "th: heavily used 👍 outranks θ")
+  check(firstChar(searchFor("thu")) == "👍", "thu: heavily used 👍 outranks ∴")
+  check(firstChar(searchFor("thumb")) == "👍", "thumb: 👍 stays first once named")
+
+  -- Usage never hijacks queries the entry does not match, and moderate
+  -- use does not dislodge an exact name/alias from the top.
+  check(firstChar(searchFor("euro")) == "€", "heavy 👍 use does not touch euro")
+  picker.setUsage({ ["💶"] = { c = 3, t = 1700000000 } })
+  check(firstChar(searchFor("euro")) == "€", "a few 💶 picks do not outrank €'s exact alias")
+
+  -- Within one tier even light use promotes: 💜 (5 picks) reads ahead of
+  -- the equally-matching ❤️ for "heart" (♥ still owns the exact name).
+  picker.setUsage({ ["💜"] = { c = 5, t = 1700000000 } })
+  local res = searchFor("heart")
+  check(firstChar(res) == "♥", "heart: exact-name ♥ still first")
+  check(
+    indexOf(res, "💜") ~= nil and indexOf(res, "❤️") ~= nil and indexOf(res, "💜") < indexOf(res, "❤️"),
+    "heart: recently used 💜 ranks ahead of ❤️"
+  )
+
+  picker.setUsage({}) -- leave no usage state for the interaction tests below
+end
+
 
 -- ── Interaction: symbols ride the same selection/commit path ───────────
 picker.setQuery("euro")
@@ -704,7 +747,7 @@ do
   -- the content box, so rendered tile = w + TILE_CHROME = gridCell, and
   -- n tiles + gaps + gutter must fit the panel minus the root padding.
   local rows = findNodes(function(n)
-    return n.kind == "row" and type(keyOf(n)) == "string" and string.find(keyOf(n), "^r%d+%-%d+$") ~= nil
+    return n.kind == "row" and type(keyOf(n)) == "string" and string.find(keyOf(n), "^row%-%d+$") ~= nil
   end)
   check(#rows > 0, "grid renders tile rows")
   local budgetOk = true
@@ -746,6 +789,75 @@ do
     end
   end
   check(labelsOk, "section labels share the row box and stay left-aligned")
+end
+
+-- ── Keyboard navigation scrolls the selection into view (#1304) ────────
+-- The grid scroll carries revealKey naming the direct-child row the
+-- selection sits on; the host reveals that row whenever the key changes.
+-- The contract here: the revealed key always names an EXISTING direct
+-- child of the scroll (the render budget must cover the selected row),
+-- in both the browse grid and search results.
+do
+  local function scrollNode()
+    return findNodes(function(n) return n.kind == "scroll" end)[1]
+  end
+  local function hasDirectChild(scroll, key)
+    for _, c in ipairs(scroll.children or {}) do
+      if keyOf(c) == key then
+        return true
+      end
+    end
+    return false
+  end
+  local function checkFollowsSelection(view)
+    local scroll = scrollNode()
+    local selRow = picker.rowOf(picker.getSel())
+    check(scroll ~= nil, view .. ": the grid scroll is rendered")
+    check(
+      scroll ~= nil and selRow ~= nil and scroll.opts.revealKey == "row-" .. tostring(selRow),
+      view .. ": revealKey names the row the selection sits on"
+    )
+    check(selRow ~= nil and picker.getRenderLimit() >= selRow, view .. ": render budget covers the selected row")
+    check(
+      scroll ~= nil and scroll.opts.revealKey ~= nil and hasDirectChild(scroll, scroll.opts.revealKey),
+      view .. ": the revealed row is an existing direct child of the scroll"
+    )
+  end
+
+  -- Drive typing through the rendered input's onChange (as the host
+  -- does): it resets the selection to the first result, which a bare
+  -- setQuery + buildView does not.
+  local function typeIntoInput(text)
+    local input = findNodes(function(n)
+      return n.kind == "input" and type(keyOf(n)) == "string" and string.sub(keyOf(n), 1, 2) == "q-"
+    end)[1]
+    check(input ~= nil, "the search input is rendered")
+    if input ~= nil then
+      input.opts.onChange(text)
+    end
+  end
+
+  -- Browse grid: walk the selection well past the first eight rendered
+  -- rows (INITIAL_RENDER_ROWS); the reveal must track it the whole way.
+  typeIntoInput("")
+  checkFollowsSelection("browse")
+  for _ = 1, 12 do
+    onKey("down", true)
+  end
+  check(picker.rowOf(picker.getSel()) ~= nil and picker.rowOf(picker.getSel()) > 8,
+    "browse: 12 downs carry the selection past the first eight rendered rows")
+  checkFollowsSelection("browse after downs")
+
+  -- Search results: same contract while navigating a query's results.
+  typeIntoInput("arrow")
+  checkFollowsSelection("search")
+  for _ = 1, 12 do
+    onKey("down", true)
+  end
+  checkFollowsSelection("search after downs")
+
+  -- Leave clean state for the contract tests below.
+  typeIntoInput("")
 end
 
 -- ── Contract: search fields arrive pre-lowered/pre-indexed from the
