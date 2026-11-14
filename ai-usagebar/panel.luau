@@ -162,8 +162,8 @@ local function metricRows(section, title)
     local bottomRowElements = {}
     if resetStr ~= "" then
         bottomRowElements[#bottomRowElements + 1] = ui.row({ gap = 4, align = "center", tooltip = clock ~= "" and clock or nil }, {
-            ui.glyph({ name = "clock", size = 10, color = "on_surface_variant" }),
-            ui.label({ text = resetStr, fontSize = 11, color = "on_surface_variant",
+            ui.glyph({ name = "clock", size = 10, color = "on_surface/0.8" }),
+            ui.label({ text = resetStr, fontSize = 11, color = "on_surface/0.8",
                        maxLines = 1, maxWidth = paceText ~= "" and 190 or 340 }),
         })
     end
@@ -171,7 +171,7 @@ local function metricRows(section, title)
     local subRight = {}
     if paceText ~= "" then
         local paceColor = paceWord == "ahead" and "secondary"
-            or "on_surface_variant"
+            or "on_surface/0.8"
         local paceIcon = paceWord == "ahead" and "trending-up"
             or paceWord == "behind" and "trending-down"
             or "check"
@@ -190,7 +190,7 @@ local function metricRows(section, title)
 
     if showValue then
         body[#body + 1] = ui.label({ text = value, fontSize = 11,
-                                    color = "on_surface_variant", maxLines = 2 })
+                                    color = "on_surface/0.8", maxLines = 2 })
     end
 
     if #bottomRowElements > 0 or #subRight > 0 then
@@ -203,7 +203,7 @@ local function metricRows(section, title)
 
     local rest = plainDetail(section.detail)
     if rest ~= "" then
-        body[#body + 1] = ui.label({ text = rest, fontSize = 10, color = "on_surface_variant" })
+        body[#body + 1] = ui.label({ text = rest, fontSize = 10, color = "on_surface/0.8" })
     end
 
     return body
@@ -275,7 +275,7 @@ local function stackCard(name, readings, glyph, priority)
     local body = {}
     if titled then
         body[#body + 1] = ui.row({ gap = 6, align = "center" }, {
-            ui.glyph({ name = glyph or modelGlyph(name), size = 13, color = "on_surface_variant" }),
+            ui.glyph({ name = glyph or modelGlyph(name), size = 13, color = "on_surface/0.8" }),
             ui.label({ text = glyph and name or modelDisplayName(name), fontSize = 12, fontWeight = "bold",
                        color = "on_surface", maxLines = 1 }),
         })
@@ -305,7 +305,7 @@ local function blockCard(section)
     local iconColor = isResetCredits and "primary"
         or isUnavailable and "error"
         or isCredits and "secondary"
-        or "on_surface_variant"
+        or "on_surface/0.8"
 
     local body = {
         ui.row({ gap = 6, align = "center" }, {
@@ -323,13 +323,13 @@ local function blockCard(section)
         if isResetCredits and kind and expiry then
             body[#body + 1] = ui.column({ gap = 1 }, {
                 ui.label({ text = kind, fontSize = 11, fontWeight = "medium", color = "on_surface", maxLines = 2 }),
-                ui.label({ text = expiry, fontSize = 10, color = "on_surface_variant", maxLines = 2 }),
+                ui.label({ text = expiry, fontSize = 10, color = "on_surface/0.8", maxLines = 2 }),
             })
         else
             body[#body + 1] = ui.label({
                 text = text ~= "" and text or "—",
                 fontSize = 11,
-                color = "on_surface_variant",
+                color = "on_surface/0.8",
                 maxLines = isResetCredits and 3 or 1,
             })
         end
@@ -438,7 +438,7 @@ local function recordCard(entry, items, windowed)
         local line = table.concat(parts, " · ")
         if name ~= "" then
             body[#body + 1] = ui.row({ gap = 6, align = "center" }, {
-                ui.label({ text = modelDisplayName(name), fontSize = 11, color = "on_surface_variant", maxLines = 1 }),
+                ui.label({ text = modelDisplayName(name), fontSize = 11, color = "on_surface/0.8", maxLines = 1 }),
                 ui.spacer({ flexGrow = 1 }),
                 ui.label({ text = line, fontSize = 11, color = "on_surface", maxLines = 1 }),
             })
@@ -513,7 +513,7 @@ local function otherCard(section, warned)
                 ui.row({ gap = 6, align = "center" }, {
                     ui.label({ text = label, fontSize = 12, fontWeight = "semibold", color = "on_surface", maxLines = 1 }),
                     ui.spacer({ flexGrow = 1 }),
-                    ui.label({ text = value, fontSize = 11, color = "on_surface_variant", maxLines = 1 }),
+                    ui.label({ text = value, fontSize = 11, color = "on_surface/0.8", maxLines = 1 }),
                 }),
                 ui.progress({ progress = ratio(percent), height = 5, radius = 2,
                     fill = severityRole(section, "primary"), track = "on_surface/0.10" }),
@@ -522,7 +522,7 @@ local function otherCard(section, warned)
         local props = cardStyle(6)
         props.align = "center"
         return ui.row(props, {
-            ui.label({ text = label, fontSize = 10, color = "on_surface_variant" }),
+            ui.label({ text = label, fontSize = 10, color = "on_surface/0.8" }),
             ui.spacer({ flexGrow = 1 }),
             ui.label({ text = value, fontSize = 10, fontWeight = "medium", color = "on_surface", maxLines = 1 }),
         })
@@ -538,7 +538,7 @@ local function otherCard(section, warned)
     -- Keep schema additions visible instead of silently losing report data.
     return ui.label({
         text = tostring(section.value or section.label or section.type or "—"),
-        fontSize = 11, color = "on_surface_variant",
+        fontSize = 11, color = "on_surface/0.8",
     })
 end
 
@@ -605,12 +605,12 @@ local function errorBlock()
             ui.glyph({ name = "alert-circle", size = 18, color = "error" }),
             ui.label({ text = noctalia.tr(key), fontSize = 12, fontWeight = "bold", color = "error" }),
         }),
-        ui.label({ text = noctalia.tr(key .. "_hint"), fontSize = 11, color = "on_surface_variant" }),
+        ui.label({ text = noctalia.tr(key .. "_hint"), fontSize = 11, color = "on_surface/0.8" }),
     }
 
     if failure.detail ~= "" then
         children[#children + 1] = ui.label({
-            text = failure.detail, fontSize = 11, color = "on_surface_variant", maxLines = 3,
+            text = failure.detail, fontSize = 11, color = "on_surface/0.8", maxLines = 3,
         })
     end
 
@@ -677,7 +677,7 @@ local function statusIndicator(entry)
         return ui.row({ gap = 4, align = "center" }, {
             ui.glyph({ name = "clock-exclamation", size = 12, color = "secondary" }),
             ui.label({ text = noctalia.tr("ui.stale_hint"), fontSize = 11,
-                color = "on_surface_variant", maxLines = 1 }),
+                color = "on_surface/0.8", maxLines = 1 }),
             ui.button({ text = noctalia.tr("ui.retry"), glyph = "refresh",
                 variant = "ghost", controlSize = "sm", enabled = not polling,
                 onClick = requestRefresh }),
@@ -688,7 +688,7 @@ local function statusIndicator(entry)
         return ui.row({ gap = 4, align = "center" }, {
             ui.glyph({ name = "clock-exclamation", size = 12, color = "secondary" }),
             ui.label({ text = noctalia.tr("ui.stale_hint"), fontSize = 11,
-                color = "on_surface_variant", maxLines = 1 }),
+                color = "on_surface/0.8", maxLines = 1 }),
         })
     end
     if unavailable(entry) then
@@ -698,7 +698,7 @@ local function statusIndicator(entry)
 
     if type(entry.metrics) ~= "table" or #entry.metrics == 0 then
         return ui.label({ text = shared.balanceText(entry) or noctalia.tr("ui.waiting"), fontSize = 11,
-            color = "on_surface_variant", maxLines = 1 })
+            color = "on_surface/0.8", maxLines = 1 })
     end
 
     local models = modelHeadlines(entry)
@@ -826,7 +826,7 @@ local function detailPane(entry)
         -- entry that fell over and stopped naming one says nothing.
         if previous ~= nil and previous ~= "" and current ~= "" and previous ~= current then
             cards[#cards + 1] = ui.label({ text = noctalia.tr("ui.plan_changed"), fontSize = 11,
-                                           color = "on_surface_variant", maxLines = 2 })
+                                           color = "on_surface/0.8", maxLines = 2 })
         else
             local record = recordCard(entry, items, windowed)
             if record ~= nil then cards[#cards + 1] = record end
@@ -867,8 +867,8 @@ local function detailPane(entry)
             paddingV = 2, align = "stretch", flexGrow = 1 }, cards)
     elseif entry ~= nil then
         children[#children + 1] = ui.row({ gap = 6, align = "center" }, {
-            ui.glyph({ name = "info-circle", size = 14, color = "on_surface_variant" }),
-            ui.label({ text = noctalia.tr("ui.no_usage"), fontSize = 11, color = "on_surface_variant" }),
+            ui.glyph({ name = "info-circle", size = 14, color = "on_surface/0.8" }),
+            ui.label({ text = noctalia.tr("ui.no_usage"), fontSize = 11, color = "on_surface/0.8" }),
         })
         children[#children + 1] = ui.spacer({ flexGrow = 1 })
     end
@@ -932,8 +932,8 @@ local function setupPane()
         if expanded then expandedFound = true end
         local children = {
             ui.label({ text = name, fontSize = 12, fontWeight = "semibold", color = "on_surface", maxLines = 2 }),
-            ui.label({ text = cause, fontSize = 11, color = "on_surface_variant", maxLines = 4 }),
-            ui.label({ text = noctalia.tr(impact), fontSize = 11, color = "on_surface_variant", maxLines = 2 }),
+            ui.label({ text = cause, fontSize = 11, color = "on_surface/0.8", maxLines = 4 }),
+            ui.label({ text = noctalia.tr(impact), fontSize = 11, color = "on_surface/0.8", maxLines = 2 }),
             ui.label({ text = noctalia.tr(guidance), fontSize = 11, color = "on_surface", maxLines = 3 }),
         }
         if details ~= nil and details ~= "" and details ~= cause then
@@ -945,14 +945,14 @@ local function setupPane()
                 end })
             if expanded then
                 children[#children + 1] = ui.label({ text = details, fontSize = 11,
-                    color = "on_surface_variant", maxLines = 0 })
+                    color = "on_surface/0.8", maxLines = 0 })
             end
         end
         return ui.column({ gap = 4, padding = 8, radius = 8,
             fill = "error/0.06", border = "error/0.12", borderWidth = 1 }, children)
     end
     local rows = { ui.label({ text = noctalia.tr("ui.setup_hint"), fontSize = 12,
-        color = "on_surface_variant", maxLines = 2 }) }
+        color = "on_surface/0.8", maxLines = 2 }) }
     local problems, failedDefaults, failedProviders, readyProviders, disabledProviders = 0, {}, {}, {}, {}
     local missingCredentials = {}
     local validCatalog = not catalogError and not catalogLoading
@@ -995,7 +995,10 @@ local function setupPane()
                     if type(section) == "table" and section.type == "text"
                         and (tostring(section.label or ""):lower() == "unavailable"
                             or transportError(section.label) or transportError(section.value)) then
-                        cause = tostring(section.value or section.label or "")
+                        local label = tostring(section.label or "")
+                        local value = tostring(section.value or "")
+                        cause = transportError(label) and not transportError(value)
+                            and (label .. ": " .. value) or (value ~= "" and value or label)
                         if cause ~= "" then break end
                     end
                 end
@@ -1017,14 +1020,14 @@ local function setupPane()
         end
     end
     if catalogLoading then
-        rows[#rows + 1] = ui.label({ text = noctalia.tr("ui.setup_loading"), fontSize = 12, color = "on_surface_variant" })
+        rows[#rows + 1] = ui.label({ text = noctalia.tr("ui.setup_loading"), fontSize = 12, color = "on_surface/0.8" })
     end
     local enabled, disabled = {}, {}
     if not validCatalog then
         rows[#rows + 1] = ui.label({ text = noctalia.tr("ui.setup_unavailable"), fontSize = 12,
-            color = "on_surface_variant", maxLines = 3 })
+            color = "on_surface/0.8", maxLines = 3 })
     elseif #vendors == 0 then
-        rows[#rows + 1] = ui.label({ text = noctalia.tr("ui.setup_empty"), fontSize = 12, color = "on_surface_variant" })
+        rows[#rows + 1] = ui.label({ text = noctalia.tr("ui.setup_empty"), fontSize = 12, color = "on_surface/0.8" })
     end
     for _, vendor in ipairs(vendors) do
         if type(vendor) == "table" then
@@ -1045,7 +1048,7 @@ local function setupPane()
     end
     if not expandedFound then expandedDiagnosticKey = nil end
     if validCatalog and report ~= nil and problems == 0 and not catalogLoading then
-        rows[#rows + 1] = ui.label({ text = noctalia.tr("ui.diagnostics_no_problems"), fontSize = 12, color = "on_surface_variant" })
+        rows[#rows + 1] = ui.label({ text = noctalia.tr("ui.diagnostics_no_problems"), fontSize = 12, color = "on_surface/0.8" })
     end
     local controls = { ui.button({ text = noctalia.tr("ui.diagnostics_refresh_status"), glyph = "refresh",
         variant = "outline", controlSize = "sm", enabled = not catalogLoading, onClick = requestCatalog }) }
@@ -1066,7 +1069,7 @@ local function setupPane()
                 ui.glyph({ name = providerGlyph(vendor.id), size = 15, color = "on_surface" }),
                 ui.label({ text = tostring(vendor.name or vendor.id or ""), fontSize = 12, color = "on_surface", maxLines = 2 }),
                 ui.spacer({ flexGrow = 1 }),
-                ui.label({ text = noctalia.tr(status), fontSize = 11, color = "on_surface_variant", maxLines = 2 }),
+                ui.label({ text = noctalia.tr(status), fontSize = 11, color = "on_surface/0.8", maxLines = 2 }),
             })
         end
     end
@@ -1093,11 +1096,8 @@ function render()
         return
     end
     local entry = currentEntry()
-    -- A failure with nothing behind it is the whole panel; with a report behind
-    -- it, a banner over readings that are still the best answer available. A
-    -- report whose every row was dropped still counts as one: the panel it draws
-    -- is empty, not absent.
-    if failure.code ~= "" and report == nil then
+    -- Without a visible reading, show the failure rather than implying a cache.
+    if failure.code ~= "" and entry == nil then
         -- The panel keeps its manifest size, and a failure has nowhere near
         -- 720x400 to say. Bounded and centred, the empty surround reads as
         -- composition rather than a half-drawn frame.
@@ -1136,11 +1136,11 @@ function render()
     local fetched = parseIso(entry and entry.fetched_at)
     if fetched ~= nil then
         updatedRow = ui.row({ gap = 3, align = "center", tooltip = updatedText(entry) }, {
-            ui.glyph({ name = "clock", size = 10, color = "on_surface_variant" }),
+            ui.glyph({ name = "clock", size = 10, color = "on_surface/0.8" }),
             ui.label({
                 text = noctalia.tr("ui.updated") .. " " .. noctalia.formatTime(noctalia.timeFormat(), fetched),
                 fontSize = 11,
-                color = "on_surface_variant",
+                color = "on_surface/0.8",
             }),
         })
     end
@@ -1230,7 +1230,11 @@ function render()
     panel.render(ui.column({ key = "usage", gap = 6, paddingH = 10, paddingV = 8, flexGrow = 1, align = "stretch" }, {
         ui.column({ gap = 6 }, topChildren),
         ui.separator({ orientation = "horizontal", color = "outline_variant", opacity = 0.15 }),
-        detailPane(entry),
+        entry ~= nil and detailPane(entry) or ui.column({ gap = 10, padding = 12,
+            flexGrow = 1, align = "center", justify = "center" }, {
+            ui.label({ text = noctalia.tr("ui.no_usage"), fontSize = 12, color = "on_surface/0.8" }),
+            setupButton(),
+        }),
         footer,
     }))
 end

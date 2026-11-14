@@ -41,11 +41,13 @@ local PROVIDER_GLYPHS = {
     synthetic = "flask",
     droid = "robot",
     deeprelay = "route",
+    mistral = "wind",
 }
 
 local PROVIDER_DASHBOARDS = {
     droid = "https://app.factory.ai/",
     deeprelay = "https://deeprelay.ai/",
+    mistral = "https://console.mistral.ai/",
     anthropic = "https://claude.ai/settings/usage",
     anthropic_api = "https://console.anthropic.com/",
     openai = "https://chatgpt.com/codex/settings/usage",
@@ -121,6 +123,13 @@ local function terminalAuthText(value)
     return status and text:find("auth", 1, true) ~= nil and rejected
 end
 
+-- The CLI owns cache validity; a dated ready snapshot stays visible as stale.
+local function cachedReading(entry)
+    return type(entry) == "table" and entry.status == "ready" and entry.stale == true
+        and M.parseIso(entry.fetched_at) ~= nil
+        and ((type(entry.metrics) == "table" and #entry.metrics > 0) or M.balanceText(entry) ~= nil)
+end
+
 function M.terminalAuth(entry)
     if type(entry) ~= "table" then return false end
     if terminalAuthText(entry.error) then return true end
@@ -155,6 +164,7 @@ function M.warning(entry)
 end
 
 function M.unavailable(entry)
+    if cachedReading(entry) then return false end
     if type(entry) ~= "table" then return true end
     if entry.status == "error" or M.warning(entry) ~= "" then return true end
     if entry.stale ~= true then return false end
@@ -592,7 +602,7 @@ function M.entries(report)
     if type(report) ~= "table" or type(report.entries) ~= "table" then return {} end
     local visible, positions = {}, {}
     for _, entry in ipairs(report.entries) do
-        if type(entry) == "table" and not M.terminalAuth(entry)
+        if type(entry) == "table" and (cachedReading(entry) or not M.terminalAuth(entry))
             and (not M.unavailable(entry) or M.readFailure(entry)) then
             visible[#visible + 1] = entry
             positions[entry] = #visible

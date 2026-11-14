@@ -1,6 +1,6 @@
 id = "felipeartur/ai-usagebar"
 name = "AI Usage"
-version = "2.13.2"
+version = "2.13.3"
 plugin_api = 43
 author = "felipeartur"
 license = "MIT"
@@ -105,6 +105,7 @@ options = [
   { value = "synthetic", label_key = "settings.vendor.option.synthetic" },
   { value = "droid", label_key = "settings.vendor.option.droid" },
   { value = "deeprelay", label_key = "settings.vendor.option.deeprelay" },
+  { value = "mistral", label_key = "settings.vendor.option.mistral" },
 ]
 
 # Named CLI accounts use stable `<provider>@<label>` entry ids. Keeping the

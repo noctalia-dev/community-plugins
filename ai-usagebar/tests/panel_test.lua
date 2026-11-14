@@ -140,7 +140,7 @@ for _, mode in ipairs({ "used", "remaining" }) do
     end
     for _, label in ipairs(collect(tree, "label")) do
         if label.props.text == "20pts behind" then
-            assert(label.props.color == "on_surface_variant", "under pace must not imply failure")
+            assert(label.props.color == "on_surface/0.8", "under pace stays neutral and readable")
         end
     end
     assert(timeHint, "window label must expose time semantics through a larger hover target")
@@ -508,9 +508,7 @@ local emptyFailure = loadPanel(nil, { code = "timed_out", detail = "" })
 assert(has(labels(emptyFailure), "ui.error.timed_out_hint"),
        "a failure without cached data keeps the full error state")
 
--- Every row can be dropped -- a vendor with no key at all is not listed -- and a
--- report is still a report. The failure is a banner over the panel it arrived
--- in; only a panel with no report behind it at all gives itself over to one.
+-- A report whose providers were all dropped has no cached reading to show.
 local unlisted = {
     id = "zai",
     display_name = "Z.AI",
@@ -521,9 +519,10 @@ local unlisted = {
     sections = {},
 }
 local dropped = loadPanel(unlisted, { code = "timed_out", detail = "" })
-assert(#collect(dropped, "separator") == 1, "the panel keeps its two panes")
-assert(not has(labels(dropped), "ui.error.timed_out_hint"),
-       "and says the failure once, in the pane, not across the whole panel")
+assert(has(labels(dropped), "ui.error.timed_out_hint"),
+       "a report without visible providers needs the full error and recovery hint")
+assert(not has(labels(dropped), "ui.stale_hint"),
+       "dropped providers must not imply a usable last reading")
 
 local bottleneckPanelEntry = {
     id = "openai",
@@ -1494,4 +1493,59 @@ local oldEntry={id="synthetic",display_name="Synthetic",status="error",stale=tru
 local recordTree=loadPanel(oldEntry,nil,{usage_display="used"})
 assert(has(labels(recordTree),"Weekly 69.4% ui.remaining"),
  "cached percentages preserve the same precision and reading direction as live values")
+end
+
+-- CLI 1.49+ calendar budgets omit window_secs: never invent a pace gauge.
+do
+local vibe = { type = "metric", label = "Vibe budget", percent = 35, value = "35%",
+    reset_at = "2026-11-01T00:00:00Z", detail = "Resets in 15d 8h" }
+local mistral = { id = "mistral", display_name = "Mistral", status = "ready", metrics = { vibe },
+    sections = { vibe, { type = "text", label = "Monthly Vibe budget", value = "€20.00" } } }
+local tree = loadPanel(mistral)
+assert(has(labels(tree), "Vibe budget") and not has(labels(tree), "API budget"),
+    "plans without an API allowance render only the reported Vibe budget")
+assert(#collect(tree, "progress") == 1, "calendar budgets must not invent elapsed pacing")
+mistral.stale = true
+mistral.fetched_at = "2026-10-16T15:00:00Z"
+mistral.sections[#mistral.sections + 1] = { type = "text", label = "HTTP 403", value = "authentication rejected" }
+local old = loadPanel(mistral)
+assert(has(labels(old), "Vibe budget") and has(labels(old), "ui.stale_hint"),
+    "rejected refreshes keep the dated Mistral budget with a stale notice")
+end
+
+do
+local monthly = { type = "metric", label = "Monthly", percent = 26, value = "26%", detail = "" }
+local kimi = { id = "kimi", display_name = "Kimi", status = "ready", metrics = { monthly }, sections = { monthly } }
+local tree = loadPanel(kimi)
+assert(has(labels(tree), "Monthly") and not has(labels(tree), "Session"),
+    "Kimi reports without rolling limits must not invent a session reading")
+assert(#collect(tree, "progress") == 1, "Kimi's sole monthly quota renders one gauge")
+end
+
+-- An empty report is actionable, and cannot turn a read failure into stale data.
+do
+local blank = { entries = {} }
+local empty = loadPanel(blank)
+assert(has(labels(empty), "ui.no_usage"), "an empty report must explain why there are no cards")
+local diagnostics = false
+for _, button in ipairs(collect(empty, "button")) do
+    if button.props.text == "ui.provider_setup" then diagnostics = true end
+end
+assert(diagnostics, "an empty report needs a visible Diagnostics action")
+local failed = loadPanel(blank, { code = "timed_out", detail = "Synthetic timeout" })
+assert(has(labels(failed), "ui.error.timed_out"), "an empty report must not hide the actual refresh failure")
+assert(not has(labels(failed), "ui.stale_hint"), "an empty report has no last reading to show")
+end
+
+do
+local budget = { type = "metric", label = "Vibe budget", percent = 35, value = "35%" }
+local cached = { id = "mistral", display_name = "Mistral", status = "ready", stale = true,
+    fetched_at = "2026-10-16T15:00:00Z", metrics = { budget }, sections = {
+        budget, { type = "text", label = "HTTP 403", value = "authentication rejected" } } }
+local tree, _, _, _, _, _, host = loadPanel(cached)
+clickButton(openActions(tree, host), "ui.provider_setup")
+assert(has(labels(host.tree()), "ui.diagnostics_login"),
+    "a usable cache must not hide authentication recovery guidance")
+assert(has(labels(host.tree()), "HTTP 403: authentication rejected"),
+    "Diagnostics must retain the status code supplied separately from its message")
 end

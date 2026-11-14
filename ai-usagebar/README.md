@@ -6,7 +6,7 @@ The numbers come from [ai-usagebar](https://github.com/akitaonrails/ai-usagebar)
 a Rust CLI that reads Claude, Codex, GitHub Copilot, Cursor, Antigravity, Kiro,
 Z.AI, Nous Research, OpenCode Go, Command Code, OpenRouter, DeepSeek, Kimi and Grok, among
 others. The selector also includes DeepInfra, Grok Bot, Ollama Cloud, OrcaRouter,
-Model Studio, Lyceum, Devin, Cline, Muse Code, Synthetic, Droid and DeepRelay. The plugin runs
+Model Studio, Lyceum, Devin, Cline, Muse Code, Synthetic, Droid, DeepRelay and Mistral. The plugin runs
 `ai-usagebar usage --json` and displays the report.
 Diagnostics reads the provider catalog with `ai-usagebar vendors --json` on demand.
 It does not call provider APIs or read credential files.
@@ -26,9 +26,11 @@ tarballs on the project's GitHub Releases page. Configure your providers once in
 `~/.config/ai-usagebar/config.toml`; the CLI manages credentials and provider
 connections.
 
-The plugin accepts the optional fields in ai-usagebar 1.48.1, including
+The plugin accepts the optional fields through ai-usagebar 1.52.0, including
 Antigravity model pools and Synthetic refill metadata. Older CLI reports remain supported; a
-provider appears only when the installed CLI can report it. Since 1.40.1, the CLI
+provider appears only when the installed CLI can report it. Mistral budgets and
+Kimi monthly-only plans use only the windows supplied by the CLI; calendar
+budgets without a fixed duration do not get an elapsed-time gauge. Since 1.40.1, the CLI
 may run `agy -p "/quota" --output-format json` when `agy` is installed to read
 Antigravity quotas. The plugin does not start or configure `agy` itself.
 
@@ -151,7 +153,14 @@ Arrow keys cycle through providers outside Diagnostics.
 The list contains only providers with a usable reading. A provider the CLI
 reports no API key for never appears, because it was never set up. A configured
 provider with its own refresh failure also leaves the bar and panel, then
-returns automatically after a healthy read. Model-specific Gemini pools, such as
+returns automatically after a healthy read. If the CLI instead supplies a dated,
+ready cache, its last quota or balance stays visible as stale, including after
+a rejected API-key request. Diagnostics retains the reported failure and recovery guidance.
+
+An empty report shows a message and a direct Diagnostics action. A failed refresh
+without a visible reading shows the error and retry action instead of a stale-data notice.
+
+Model-specific Gemini pools, such as
 Gemini 4 Argon, appear inside the Gemini card with their own name, reset and usage. They do not add a separate bar reading.
 A full Gemini 4 Argon pool does not mark Antigravity as
 exhausted while its shared windows remain available. The panel sorts providers by headline
