@@ -1,0 +1,25 @@
+{
+  "title": "Dock 图钉",
+  "tooltip": {
+    "pinned": "已钉住 · 常驻显示（点击回到智能隐藏）",
+    "smart": "智能隐藏（点击钉住）"
+  },
+  "notify": {
+    "pinned": "已钉住 · 常驻显示",
+    "unpinned": "已解锁 · 智能隐藏"
+  },
+  "settings": {
+    "config_path": {
+      "label": "配置路径",
+      "description": "要翻转的 bar smart_auto_hide 配置路径"
+    },
+    "glyph": {
+      "label": "图钉图标",
+      "description": "bar 上显示的图标"
+    },
+    "pin_color": {
+      "label": "钉住颜色",
+      "description": "钉住状态时图标的颜色"
+    }
+  }
+}
