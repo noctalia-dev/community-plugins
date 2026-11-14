@@ -1,61 +1,71 @@
 --!nonstrict
--- Bar widget of the lyrics carousel.
+-- Bar widget: the active line, with the karaoke fill.
 --
--- Besides opening the panel, it accepts IPC to change settings without
--- opening it (useful for keyboard shortcuts):
---   noctalia msg plugin faminec/lyrics-carousel:widget all set visible_above 4 int
---   noctalia msg plugin faminec/lyrics-carousel:widget all toggle karaoke
+-- It owns no data: the service publishes the track and the lyrics and this
+-- entry only draws them, so the search happens once no matter how many
+-- surfaces are on screen.
 
-local settings = require("./lib/settings.luau")
+local render = require("./lib/render.luau")
+local model = require("./lib/lyrics.luau")
+local state = require("./lib/state.luau")
 
--- The glyph is read from the overrides layer and not only from the
--- configuration: the panel writes there and flushes it when it closes, so
--- if the widget only looked at the configuration, the bar icon would not
--- change until the panel was closed.
-local function currentGlyph()
-  local value = settings.value("glyph")
-  if type(value) == "string" and value ~= "" then
-    return value
+-- 30 frames per second is what the karaoke needs to look smooth.
+noctalia.setUpdateInterval(33)
+
+-- Settings are read once and again when the user changes one: reading twenty
+-- of them thirty times per second would be pointless work.
+local settings = state.read(noctalia)
+
+local function draw()
+  local track = noctalia.state.get("track")
+  local lyrics = noctalia.state.get("lyrics")
+  local loading = noctalia.state.get("loading") == true
+
+  if type(track) ~= "table" then
+    -- Nothing playing: a music note instead of an empty slot, so the widget
+    -- still shows where it is.
+    barWidget.render(ui.row({ key = "widget", gap = 0, align = "center" }, {
+      ui.glyph({ key = "widget-glyph", name = "music", size = 14, color = "on_surface_variant" }),
+    }))
+    barWidget.setTooltip(state.tooltip(track, noctalia.tr))
+    return
   end
-  return "music"
-end
 
-local glyph = currentGlyph()
-
-local function render()
-  barWidget.setGlyph(glyph)
-  barWidget.setTooltip(noctalia.tr("tooltip"))
+  barWidget.render(render.surface({
+    ui = ui,
+    model = model,
+    tr = function(key)
+      return noctalia.tr(key)
+    end,
+    lines = type(lyrics) == "table" and lyrics.lines or nil,
+    position = state.position(track, noctalia.nowMs()),
+    duration = tonumber(track.duration) or 0,
+    cfg = state.karaoke(settings, noctalia.state.get("brain")),
+    state = state.stateOf(track, lyrics, loading),
+    mode = "widget",
+    title = track.title,
+    artist = track.artist,
+  }))
+  barWidget.setTooltip(state.tooltip(track, noctalia.tr))
 end
 
 function update()
-  glyph = currentGlyph()
-  render()
+  draw()
 end
 
 function onClick()
-  noctalia.togglePanel("faminec/lyrics-carousel:panel")
+  noctalia.openPanel("faminec/lyrics-carousel:panel")
 end
 
 function onConfigChanged()
-  render()
+  settings = state.read(noctalia)
+  draw()
 end
 
 function onIpc(event, payload)
-  if event == "launch" then
-    noctalia.togglePanel("faminec/lyrics-carousel:panel")
-  elseif event == "set" then
-    local key, value = settings.parse(payload)
-    if key ~= nil then
-      settings.apply(key, value)
-    end
-  elseif event == "toggle" then
-    -- Only toggles are toggled: toggling a number makes no sense.
-    if type(payload) == "string" and settings.BOOL_KEYS[payload] then
-      settings.apply(payload, nil)
-    end
-  elseif event == "refresh" then
-    render()
+  if event == "refresh" then
+    draw()
   end
 end
 
-render()
+draw()
