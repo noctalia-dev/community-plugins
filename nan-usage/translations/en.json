@@ -1,104 +1,120 @@
 {
-  "panel": {
-    "cached": "cached",
-    "consumption": "Consumption",
-    "contributions": "Where it went",
-    "copied": "The address is in your clipboard",
-    "copy_failed": "Could not copy the address",
-    "no_data": "No data yet",
-    "no_opener_copied": "No browser opener installed, so the address is in your clipboard",
-    "no_usage": "No usage in this period",
-    "open_failed": "Could not open the NaN panel",
-    "overall": "Overall",
-    "period": "Period",
-    "recent": "{label}: {value}",
-    "resets_in": "resets in {when}",
-    "title": "NaN Usage",
-    "tooltip_refresh": "Refresh now",
-    "tooltip_settings": "Settings",
-    "tooltip_site": "Copy the NaN panel address (cloud.nan.builders)",
-    "waiting": "Waiting for the first poll…",
-    "waiting_hint": "The poller runs inside Noctalia. If this stays empty, check the API key path in the settings."
-  },
   "settings": {
     "api_key": {
-      "description": "The file holding your NaN API key.",
-      "label": "API key file"
-    },
-    "glyph": {
-      "description": "The glyph to draw when Show a glyph is on.",
-      "label": "Glyph"
-    },
-    "hide_unused": {
-      "description": "Drop models with no usage from the panel's list.",
-      "label": "Hide unused models"
-    },
-    "icon_style": {
-      "color": "Colour",
-      "description": "Ghost draws the mark in the theme's own ink, white on a dark theme and black on a light one; color draws it as NaN does.",
-      "ghost": "Ghost (themed)",
-      "label": "Logo style"
+      "label": "API key file",
+      "description": "The file holding your NaN API key."
     },
     "interval": {
-      "description": "Seconds between requests to the NaN API.",
-      "label": "Poll interval (seconds)"
+      "label": "Poll interval (seconds)",
+      "description": "Seconds between requests to the NaN API."
     },
-    "left_click": {
-      "description": "Open the panel, or do nothing. A right click opens these settings.",
-      "label": "What a left click does",
-      "nothing": "Nothing",
-      "panel": "Open the panel"
+    "bar_value": {
+      "label": "What the bar shows",
+      "description": "The figure in the bar: the share of the period's allowance used, the credits used, or the credits left.",
+      "percent": "Percentage used",
+      "used": "Credits used",
+      "remaining": "Credits left"
     },
     "panel_gauge": {
-      "bar": "A bar",
-      "description": "Draw a bar beside the text, or nothing at all.",
       "label": "Gauge",
+      "description": "What to draw beside the text to show how much of the allowance is used, or nothing at all.",
+      "bar": "A bar",
+      "battery": "A battery, draining as credits go",
+      "sparkline": "Credits per day, as a line",
       "none": "No gauge, text only"
     },
-    "panel_model": {
-      "description": "Which model the bar reflects.",
-      "fixed": "A pinned model",
-      "label": "Which model the bar shows",
-      "max": "The fullest",
-      "worst": "The most alarming"
+    "show_reset": {
+      "label": "Show the countdown",
+      "description": "How long until the allowance renews, next to the figure."
     },
-    "panel_model_id": {
-      "description": "The model id to pin, spelled as the API does (deepseek-v4-flash).",
-      "label": "Pinned model"
-    },
-    "show_glyph": {
-      "description": "Draw a glyph before the text.",
-      "label": "Show a glyph"
+    "show_cache": {
+      "label": "Show the cache share",
+      "description": "Add how much of the period's input came from the cache, after the countdown."
     },
     "show_icon": {
-      "description": "Draw the NaN logo before the text.",
-      "label": "Show the NaN logo"
+      "label": "Show the NaN logo",
+      "description": "Draw the NaN logo before the text."
     },
-    "show_metrics": {
-      "description": "Add the account-wide 24 h, month and 30 d totals to the panel and the tooltip. It costs one more request per poll.",
-      "label": "Show consumption totals"
+    "icon_style": {
+      "label": "Logo style",
+      "description": "Ghost draws the mark in the theme's own ink, white on a dark theme and black on a light one; color draws it as NaN does.",
+      "ghost": "Ghost (themed)",
+      "color": "Colour"
     },
-    "show_model": {
-      "description": "Which model the percentage belongs to, abbreviated (ds4f for deepseek-v4-flash).",
-      "label": "Show the model"
+    "show_glyph": {
+      "label": "Show a glyph",
+      "description": "Draw a glyph before the text."
     },
-    "show_percentage": {
-      "description": "The usage figure in the bar.",
-      "label": "Show the percentage"
-    },
-    "show_reset": {
-      "description": "How long until the quota resets, next to the percentage.",
-      "label": "Show the countdown"
+    "glyph": {
+      "label": "Glyph",
+      "description": "The glyph to draw when Show a glyph is on."
     },
     "show_tooltip": {
-      "description": "Show a line per model, with tokens used against the cap and the countdown, when you hover the widget.",
-      "label": "Details in the tooltip"
+      "label": "Details in the tooltip",
+      "description": "Show the period's credits, the cache and a line per model when you hover the widget."
+    },
+    "left_click": {
+      "label": "What a left click does",
+      "description": "Open the panel, or do nothing. A right click opens these settings.",
+      "panel": "Open the panel",
+      "nothing": "Nothing"
     },
     "site_action": {
-      "copy": "Copy the address",
+      "label": "What the link buttons do",
       "description": "Open NaN's dashboard in your browser, through gio or xdg-open, or copy the address instead.",
-      "label": "What the link button does",
-      "open": "Open in the browser"
+      "open": "Open in the browser",
+      "copy": "Copy the address"
     }
+  },
+  "panel": {
+    "title": "NaN Usage",
+    "overall": "Overall",
+    "this_period": "This period",
+    "of": "of {total}",
+    "resets_in": "resets in {when}",
+    "resets_on": "Resets in {when}, on {at}",
+    "credits": "Credits",
+    "used": "Used",
+    "left": "Left",
+    "packs": "Packs",
+    "packs_expire": "Pack credits expire on {date}",
+    "using_packs": "USING PACKS",
+    "tokens": "Tokens",
+    "new_input": "New input",
+    "cached_input": "Cached input",
+    "output": "Output",
+    "cached_share": "{share} cached",
+    "cached_pill": "{share} CACHED",
+    "saved": "The cache saved {value} credits",
+    "requests": "{count} requests",
+    "split_title": "Credits by token type",
+    "no_usage": "No usage this period",
+    "prices": "Prices per 1M tokens",
+    "prices_note": "In credits, from NaN's price list of {date}.",
+    "split_note": "Estimated from NaN's prices of {date}.",
+    "total": "Total",
+    "total_since": "Total since {date}",
+    "per_day": "Daily credit usage",
+    "contributions": "Credit breakdown by model",
+    "share_of_credits": "{share} of credits",
+    "share_pill": "{share} OF CREDITS",
+    "share_of_period": "{share} of the {total} credits used this period",
+    "all_time": "All time: {value}",
+    "frozen": "Your subscription is paused, so NaN refuses credit-billed requests. Check billing on the dashboard.",
+    "out_of_credits": "You've used this period's credits and have no packs. NaN refuses credit-billed requests until the renewal on {date}.",
+    "not_billed": "This account isn't billed in credits, so there is nothing to count.",
+    "open_dashboard": "Open the dashboard",
+    "buy_credits": "Buy a credit pack",
+    "tooltip_refresh": "Refresh now",
+    "tooltip_settings": "Settings",
+    "tooltip_site": "Open NaN's dashboard (cloud.nan.builders)",
+    "no_data": "No data yet",
+    "waiting": "Waiting for the first poll…",
+    "waiting_hint": "The poller runs inside Noctalia. If this stays empty, check the API key path in the settings.",
+    "cached": "cached",
+    "copied": "The address is in your clipboard",
+    "copy_failed": "Could not copy the address",
+    "no_opener_copied": "No browser opener installed, so the address is in your clipboard",
+    "open_failed": "Could not open the NaN dashboard"
   }
 }

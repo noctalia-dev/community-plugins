@@ -1,8 +1,10 @@
 # NaN Usage — Noctalia v5+ plugin: a bar widget and the panel behind it.
 #
-# Self-contained: this plugin calls the NaN cloud API itself, so it needs nothing
-# installed beyond Noctalia. `service.luau` is the only part that touches the
-# network, `shared.luau` holds the model, and the two surfaces paint what it says.
+# Self-contained: this plugin calls NaN's documented usage report itself, so it
+# needs nothing installed beyond Noctalia. `service.luau` is the only part that
+# touches the network, `shared.luau` holds the model, `prices.luau` is NaN's price
+# list as tools/prices-from-har.py read it, and the two surfaces paint what the
+# model says.
 #
 # The repository root is a plugin *source*: this directory is named after the part
 # of the id that follows the slash, which is the layout a source has to have. That
@@ -11,24 +13,26 @@
 
 id = "cmoro-deusto/nan-usage"
 name = "NaN Usage"
-version = "1.0.1"
-# 22 is what require() needs for shared.luau, the model the three entries share;
-# 15 of it is noctalia.openSettings(), behind the cog and the right-click.
+version = "2.0.0"
+# 43 is what the palette roles the panel draws its cards with (surface_container,
+# outline_variant) need; 22 of it is require(), for shared.luau and prices.luau,
+# and 15 is noctalia.openSettings(), behind the cog and the right-click.
 plugin_api = 43
 # The first half of every entry id ("cmoro-deusto/nan-usage:bar"), so it has to
 # stay put once someone has the widget on their bar.
 author = "cmoro-deusto"
 license = "MIT"
 # The API key is read by this plugin itself, so there is no CLI to depend on. The
-# one thing that leaves the process is the panel's link button: Noctalia has no API
-# to open a URL, so NaN's dashboard goes to whichever browser opener exists —
-# `gio` (glib2) or `xdg-open` (xdg-utils) — and with neither installed the address
-# is copied to the clipboard instead. Declared rather than left implicit, since the
-# submission template asks for every command a plugin shells out to.
-dependencies = ["gio", "xdg-open"]
+# one thing that leaves the process is the panel's link buttons: Noctalia has no API
+# to open a URL, so NaN's dashboard goes to whichever browser opener exists, `gio`
+# (glib2) or `xdg-open` (xdg-utils), and with neither installed the address is
+# copied to the clipboard instead. Noctalia shows this list as "requires …", so it
+# names the one opener most plugins declare, rather than two that read as both
+# being needed; the README's Requirements say either works.
+dependencies = ["xdg-open"]
 tags = ["bar", "panel", "ai", "indicator", "utility"]
 icon = "brain"
-description = "Your NaN (nan.builders) quota in the bar: usage per model, time to the reset, and a warning if the burn rate is risky."
+description = "Your NaN (nan.builders) credits in the bar: allowance used, cache share, where the credits went, and pace warnings."
 
 # Settings are plugin-level, which is what puts them behind the cog: the panel's
 # header opens this page, and both surfaces read the same values.
@@ -50,23 +54,16 @@ min = 15
 max = 1800
 
 [[setting]]
-key = "panel_model"
+key = "bar_value"
 type = "select"
-label_key = "settings.panel_model.label"
-description_key = "settings.panel_model.description"
-default = "worst"
+label_key = "settings.bar_value.label"
+description_key = "settings.bar_value.description"
+default = "percent"
 options = [
-  { value = "worst", label_key = "settings.panel_model.worst" },
-  { value = "max", label_key = "settings.panel_model.max" },
-  { value = "fixed", label_key = "settings.panel_model.fixed" },
+  { value = "percent", label_key = "settings.bar_value.percent" },
+  { value = "used", label_key = "settings.bar_value.used" },
+  { value = "remaining", label_key = "settings.bar_value.remaining" },
 ]
-
-[[setting]]
-key = "panel_model_id"
-type = "string"
-label_key = "settings.panel_model_id.label"
-description_key = "settings.panel_model_id.description"
-default = "deepseek-v4-flash"
 
 [[setting]]
 key = "panel_gauge"
@@ -76,15 +73,10 @@ description_key = "settings.panel_gauge.description"
 default = "bar"
 options = [
   { value = "bar", label_key = "settings.panel_gauge.bar" },
+  { value = "battery", label_key = "settings.panel_gauge.battery" },
+  { value = "sparkline", label_key = "settings.panel_gauge.sparkline" },
   { value = "none", label_key = "settings.panel_gauge.none" },
 ]
-
-[[setting]]
-key = "show_percentage"
-type = "bool"
-label_key = "settings.show_percentage.label"
-description_key = "settings.show_percentage.description"
-default = true
 
 [[setting]]
 key = "show_reset"
@@ -94,25 +86,11 @@ description_key = "settings.show_reset.description"
 default = true
 
 [[setting]]
-key = "show_model"
+key = "show_cache"
 type = "bool"
-label_key = "settings.show_model.label"
-description_key = "settings.show_model.description"
-default = true
-
-[[setting]]
-key = "hide_unused"
-type = "bool"
-label_key = "settings.hide_unused.label"
-description_key = "settings.hide_unused.description"
+label_key = "settings.show_cache.label"
+description_key = "settings.show_cache.description"
 default = false
-
-[[setting]]
-key = "show_metrics"
-type = "bool"
-label_key = "settings.show_metrics.label"
-description_key = "settings.show_metrics.description"
-default = true
 
 [[setting]]
 key = "show_icon"
@@ -175,7 +153,7 @@ options = [
   { value = "nothing", label_key = "settings.left_click.nothing" },
 ]
 
-# The poller. It owns the API key and the three requests; the widget and the panel
+# The poller. It owns the API key and the one request; the widget and the panel
 # are subscribers of what it publishes.
 [[service]]
 id = "poller"
