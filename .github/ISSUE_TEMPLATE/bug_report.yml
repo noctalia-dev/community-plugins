@@ -317,6 +317,7 @@ body:
         - system-updater
         - systemd
         - systempulse
+        - tablet-display
         - taildrop
         - tailnet
         - tailscale
