@@ -20,9 +20,22 @@ upstream Noctalia v5 plugin API.
 
 ## Display modes
 
-| Battery only | Compact | Full |
-| --- | --- | --- |
-| ![Battery only](docs/screenshots/battery.png) | ![Compact](docs/screenshots/compact.png) | ![Full](docs/screenshots/full.png) |
+<div align="center">
+
+<table>
+  <tr>
+    <th align="center">Battery only</th>
+    <th align="center">Compact</th>
+    <th align="center">Full</th>
+  </tr>
+  <tr>
+    <td align="center" valign="middle"><img src="docs/screenshots/battery.png" height="300" alt="Battery only"></td>
+    <td align="center" valign="middle"><img src="docs/screenshots/compact.png" height="300" alt="Compact"></td>
+    <td align="center" valign="middle"><img src="docs/screenshots/full.png" height="300" alt="Full"></td>
+  </tr>
+</table>
+
+</div>
 
 ## Supported controllers
 
