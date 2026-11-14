@@ -50,6 +50,10 @@ local isQueryInFlight = false
 local lastQueryNoctaliaMs = 0
 local activeFetchId = 0
 
+-- Cooldown for instrumental placeholders (show last line for 2s after it ends)
+local lastLineEndTime = 0.0
+local placeholderCooldownSec = 2.0
+
 -- Offset state for real-time timing synchronization (wheel scroll & settings)
 local currentOffsetMs = 0
 local lastOffsetScrollMs = 0
@@ -785,6 +789,11 @@ local function render()
       local actEnd = tonumber(activeLine["end"] or activeLine.end_ or activeLine.endTime) or (actBegin + 5.0)
       local isLineActive = (curTime >= actBegin and curTime <= actEnd)
 
+      -- Track when the last line ended for placeholder cooldown
+      if not isLineActive and curTime > actEnd then
+        lastLineEndTime = actEnd
+      end
+
       if isLineActive then
         local syllables = activeLine.syllables or {}
 
@@ -961,13 +970,111 @@ local function render()
           }))
         end
       else
-        -- Instrumental break between lines
-        table.insert(children, ui.label({
-          text = "♪  • • •  ♪",
-          color = activeColor,
-          fontWeight = "bold",
-          fontSize = fontSize,
-        }))
+        -- Instrumental break between lines - respect cooldown
+        local timeSinceLastLine = curTime - lastLineEndTime
+        if timeSinceLastLine > placeholderCooldownSec then
+          -- Cooldown expired, show placeholders
+          table.insert(children, ui.label({
+            text = "♪  • • •  ♪",
+            color = activeColor,
+            fontWeight = "bold",
+            fontSize = fontSize,
+          }))
+        else
+          -- Within cooldown: freeze the last line in its final sung state
+          -- Re-render with full karaoke styling (all syllables/words as "sung")
+          local syllables = activeLine.syllables or {}
+
+          if isKaraoke and #syllables > 0 then
+            -- Syllable/word karaoke: render all syllables as fully sung (bold, sungColor)
+            local lyricsRowItems = {}
+
+            local startIdx, endIdx, hasLeft, hasRight
+            if wrappingMode == "words" then
+              startIdx, endIdx, hasLeft, hasRight = getWordChunks(syllables, maxWords, #syllables)
+            elseif wrappingMode == "chars" then
+              startIdx, endIdx, hasLeft, hasRight = windowSyllables(syllables, #syllables, maxChars)
+            else
+              startIdx, endIdx, hasLeft, hasRight = 1, #syllables, false, false
+            end
+
+            if hasLeft then
+              table.insert(lyricsRowItems, ui.label({
+                text = "… ",
+                color = sungColor,
+                fontSize = math.max(9, fontSize - 1),
+              }))
+            end
+
+            for sIdx = startIdx, endIdx do
+              local syl = syllables[sIdx]
+              local sylText = syl.text or ""
+              local spaceStr = syl.space and " " or ""
+              local fullSyl = sylText .. spaceStr
+
+              -- All syllables rendered as fully sung (frozen state)
+              table.insert(lyricsRowItems, ui.label({
+                text = fullSyl,
+                color = sungColor,
+                fontWeight = "bold",
+                fontSize = fontSize,
+              }))
+            end
+
+            if hasRight then
+              table.insert(lyricsRowItems, ui.label({
+                text = " …",
+                color = sungColor,
+                fontSize = math.max(9, fontSize - 1),
+              }))
+            end
+
+            table.insert(children, ui.row({
+              gap = 0,
+              align = "center",
+            }, lyricsRowItems))
+          else
+            -- Line-synced fallback: render full line with active styling
+            local lineText = activeLine.text or ""
+
+            if wrappingMode == "words" then
+              local words = {}
+              for w in string.gmatch(lineText, "%S+") do
+                table.insert(words, w)
+              end
+
+              if #words > maxWords then
+                local chunkIdx = math.floor((#words - 1) / maxWords)
+                local chunkStartWord = chunkIdx * maxWords + 1
+                local chunkEndWord = math.min(chunkStartWord + maxWords - 1, #words)
+
+                local chunkWords = {}
+                for wi = chunkStartWord, chunkEndWord do
+                  table.insert(chunkWords, words[wi])
+                end
+                local chunkText = table.concat(chunkWords, " ")
+                if chunkStartWord > 1 then
+                  chunkText = "… " .. chunkText
+                end
+                if chunkEndWord < #words then
+                  chunkText = chunkText .. " …"
+                end
+                lineText = chunkText
+              end
+            elseif wrappingMode == "chars" then
+              if #lineText > maxChars then
+                lineText = string.sub(lineText, 1, maxChars - 1) .. "…"
+              end
+            end
+
+            table.insert(children, ui.label({
+              text = lineText,
+              color = activeColor,  -- Active color, not faded
+              fontWeight = "bold",
+              fontSize = fontSize,
+            }))
+          end
+        end
       end
     end
   end
