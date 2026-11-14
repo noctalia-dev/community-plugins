@@ -365,6 +365,7 @@ function onRowMenuAction(actionId, index)
     end
 	elseif actionId == "delete" then
 		table.remove(history, index)
+		noctalia.writeFile(path, noctalia.json.encode(history))
 		render()
 	end
 end
