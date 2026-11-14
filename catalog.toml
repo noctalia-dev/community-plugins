@@ -4837,8 +4837,8 @@ rev = "1abd4500577ac9f20d888456d6b4139fb1d6d802"
 [[plugin]]
 id = "zyrex/nothing-ear"
 name = "Nothing Ear"
-version = "0.3.0"
-updated_at = 1794060152
+version = "0.3.1"
+updated_at = 1794623177
 added_at = 1792534252
 author = "zyrex"
 license = "MIT"
@@ -5990,3 +5990,16 @@ icon = "shield-lock"
 description = "One switch for focus: block social sites via /etc/hosts, with per-service toggles and app closing."
 plugin_api = 43
 tags = ["bar", "panel", "shortcut", "launcher", "service", "productivity", "privacy", "network", "hyprland"]
+
+[[plugin]]
+id = "iwasironman/tablet-display"
+name = "Tablet Display"
+version = "0.3.0"
+updated_at = 1794623137
+added_at = 1794623137
+author = "iwasironman"
+license = "MIT"
+icon = "device-tablet"
+description = "Use an Android tablet or iPad as an extended or mirrored display, streamed by Sunshine to Moonlight."
+plugin_api = 43
+tags = ["bar", "panel", "service", "shortcut", "hardware", "utility", "niri", "hyprland", "sway", "mangowc"]
