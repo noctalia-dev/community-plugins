@@ -1,6 +1,6 @@
 id = "omardardery/smart-taskbar"
 name = "Smart Taskbar"
-version = "1.1.1"
+version = "1.1.2"
 plugin_api = 52
 author = "OmarDardery"
 license = "MIT"
@@ -200,6 +200,14 @@ default = "overlay"
 label_key = "settings.badge_style.label"
 description_key = "settings.badge_style.description"
 options = [{ "value" = "overlay", "label_key" = "options.badge_style.overlay" }, { "value" = "inline", "label_key" = "options.badge_style.inline" }]
+
+[[widget.setting]]
+key = "inline_count_style"
+type = "select"
+default = "plain"
+label_key = "settings.inline_count_style.label"
+description_key = "settings.inline_count_style.description"
+options = [{ "value" = "plain", "label_key" = "options.inline_count_style.plain" }, { "value" = "bubble", "label_key" = "options.inline_count_style.bubble" }]
 
 [[widget.setting]]
 key = "badge_placement"

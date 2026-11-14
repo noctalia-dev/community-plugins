@@ -29,7 +29,7 @@ local function readConfig()
     "scroll_step", "auto_reveal_focused", "show_scroll_indicators", "display_mode", "workspace_filter",
     "output_filter", "show_minimized", "grouping", "duplicate_indicator", "sorting", "exclusions",
     "pinned_apps", "app_aliases", "collapsed_label", "capsule_radius", "hover_enlarge", "hover_scale",
-    "opacity", "border", "active_indicator", "minimized_indicator", "urgent_indicator", "badge_placement", "badge_style",
+    "opacity", "border", "active_indicator", "minimized_indicator", "urgent_indicator", "badge_placement", "badge_style", "inline_count_style",
     "click_behavior", "middle_click", "refresh_fallback", "diagnostic_logging", "compositor_compatibility" }
   local nextConfig = {}
   for _, key in ipairs(keys) do nextConfig[key] = noctalia.getConfig(key) end
@@ -136,16 +136,19 @@ local function countNode(group, peak, inline)
   local width = inline and badge.width or math.min(peak+8,badge.width)
   local props = { key="badge:"..group.key, width=width, height=badge.height,
     justify="center", align="center", clip=true }
-  if not inline then
+  local bubble = not inline or config.inline_count_style=="bubble"
+  if bubble then
     props.radius=badge.height/2
     props.fill=group.focused and "primary" or "secondary_container"
+  end
+  if not inline then
     props.translateX = config.badge_placement=="before" and -(peak+2) or 2-width
     props.translateY = -(peak+8-badge.height)/2
     props.border = "surface_container"
   end
   return ui.row(props, { ui.label({text=tostring(n),fontSize=badge.font,
     maxWidth=width-4,maxLines=1,fontWeight="bold",
-    color=inline and (group.focused and config.active_indicator and "on_primary_container" or "on_surface")
+    color=not bubble and (group.focused and config.active_indicator and "on_primary_container" or "on_surface")
       or (group.focused and "on_primary" or "on_secondary_container")}) })
 end
 local function cell(group, extent)
