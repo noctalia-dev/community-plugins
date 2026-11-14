@@ -20,22 +20,9 @@ upstream Noctalia v5 plugin API.
 
 ## Display modes
 
-<div align="center">
-
-<table>
-  <tr>
-    <th align="center">Battery only</th>
-    <th align="center">Compact</th>
-    <th align="center">Full</th>
-  </tr>
-  <tr>
-    <td align="center" valign="middle"><img src="docs/screenshots/battery.png" height="300" alt="Battery only"></td>
-    <td align="center" valign="middle"><img src="docs/screenshots/compact.png" height="300" alt="Compact"></td>
-    <td align="center" valign="middle"><img src="docs/screenshots/full.png" height="300" alt="Full"></td>
-  </tr>
-</table>
-
-</div>
+| Battery only | Compact | Full |
+| --- | --- | --- |
+| ![Battery only](docs/screenshots/battery.png) | ![Compact](docs/screenshots/compact.png) | ![Full](docs/screenshots/full.png) |
 
 ## Supported controllers
 
@@ -176,30 +163,21 @@ Unplug/replug USB pads or reconnect Bluetooth afterwards.
 
 ## Install
 
-From the app directory (`apps/lgl-dualsense` in the repository):
+1. In Noctalia, open **Settings → Plugins → Browse Plugins**, find **Gamepad Display** and click **Add to Noctalia**.
+2. Open **Settings → Desktop → Toggle Editor** and add **Gamepad Display**. Choose a `display_mode`: `battery`, `compact` or `full`.
+
+To install from a local checkout instead, link or copy this directory to
+`~/.local/share/noctalia/plugins/gamepad-display` (the directory name must match
+the part of `id` after the `/`), then run:
 
 ```bash
-./install-kwe.sh    # noctalia-kwe
-./install.sh        # upstream Noctalia
+noctalia msg config-reload
+noctalia msg plugins enable tylorismusic/gamepad-display
 ```
-
-The scripts symlink the plugin into
-`~/.local/share/noctalia-kwe/plugins` or `~/.local/share/noctalia/plugins`,
-reload the config and enable `tylorismusic/gamepad-display` when the shell is running.
 
 If the widget was added before, place it again from the desktop-widget editor.
 Re-enabling a plugin can reset its saved placement, so re-check the box position
 after toggling the plugin.
-
-Manual install:
-
-```bash
-ln -sfn /path/to/lgl-dualsense-fork ~/.local/share/noctalia-kwe/plugins/gamepad-display
-noctalia-kwe msg config-reload
-noctalia-kwe msg plugins enable tylorismusic/gamepad-display
-```
-
-Then open **Settings → Desktop → Toggle Editor** and add **Gamepad Display**.
 
 A box of roughly **240 × 152** logical pixels shows the full card at 100% scale
 on a 1080p output. The widget scales its content down if the box is smaller.
@@ -245,6 +223,33 @@ Desktop widget:
 Colour settings accept a `#rrggbb` value or a Noctalia palette role such as
 `primary`, `on_surface` or `on_surface_variant`. Palette roles follow the live
 theme; the generated artwork is rewritten when a colour changes.
+
+## IPC
+
+The `battery` service accepts these events:
+
+```sh
+noctalia msg plugin tylorismusic/gamepad-display:battery all buzz
+noctalia msg plugin tylorismusic/gamepad-display:battery all cycle-profile
+noctalia msg plugin tylorismusic/gamepad-display:battery all switch-profile "Profile name"
+noctalia msg plugin tylorismusic/gamepad-display:battery all restart
+```
+
+- `buzz` rumbles the active pad through ds4u IPC or a direct HID output report.
+- `cycle-profile` switches to the next saved ds4u profile.
+- `switch-profile <name>` switches to the named ds4u profile.
+- `restart` restarts the battery daemon.
+
+## Notes
+
+- Profile switching uses the running ds4u daemon when it answers. If it does not,
+  the battery service writes `~/.config/ds4u/settings.json`, setting `profile` to
+  the chosen name and keeping the other keys, and applies that profile's lightbar
+  and player LEDs directly over HID.
+- The daemons write only their own state and lock files under
+  `$XDG_RUNTIME_DIR`, generated controller SVGs under the plugin data directory,
+  and the ds4u settings file above. They do not download anything and make no
+  network calls.
 
 ## Diagnostics
 
