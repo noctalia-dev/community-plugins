@@ -1917,8 +1917,8 @@ rev = "b2ee06f7a78dd6fa216e23b381b92132d3066585"
 [[plugin]]
 id = "tphilippot/git_companion"
 name = "Git Companion"
-version = "1.4.1"
-updated_at = 1792983494
+version = "2.0.0"
+updated_at = 1794624593
 added_at = 1786925440
 author = "thomas-philippot"
 license = "MIT"
