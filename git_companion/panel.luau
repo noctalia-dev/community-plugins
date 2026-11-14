@@ -47,13 +47,9 @@ local TABS = {
 }
 
 local function visibleTabs()
-  -- tea has no review-requested filter, so Gitea can never fill that tab and
-  -- it is dropped rather than shown permanently empty (see service.luau).
-  local platform = noctalia.getConfig("platform")
   local shown = {}
   for _, tab in ipairs(TABS) do
-    local supported = not (platform == "gitea" and tab.id == "reviews")
-    if supported and noctalia.getConfig(tab.setting) ~= false then
+    if noctalia.getConfig(tab.setting) ~= false then
       table.insert(shown, tab)
     end
   end
@@ -132,7 +128,7 @@ end
 local PLATFORM_BIN = {
   github = "gh",
   gitlab = "glab",
-  gitea = "tea",
+  gitea = "gt",
 }
 local PLATFORM_GLYPH = {
   github = "brand-github",
@@ -153,11 +149,8 @@ local function statusInfo()
   if status == "gitlab_scope_missing" then
     return "alert-triangle", tr("gitlab_scope_missing")
   end
-  if status == "gitea_ctx_failed" then
-    return "alert-triangle", tr("gitea_ctx_failed")
-  end
-  if status == "gitea_login_missing" then
-    return "alert-triangle", tr("gitea_login_missing")
+  if status == "gitea_auth_missing" then
+    return "alert-triangle", tr("gitea_auth_missing")
   end
   return "alert-triangle", tr("no_items")
 end

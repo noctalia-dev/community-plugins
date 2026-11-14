@@ -3,7 +3,7 @@
 Monitor your git repositories from the Noctalia bar. See your open pull requests
 and issues at a glance, and jump to any of them on the web without leaving your
 desktop. Works with **GitHub** (via `gh`), **GitLab** (via `glab`) and
-**Gitea** (via `tea`).
+**Gitea** (via `gt`).
 
 ## Plugin
 
@@ -18,14 +18,22 @@ Install the CLI for the platform you want to monitor and sign in once:
 
 - `gh` — the [GitHub CLI](https://cli.github.com/), for `platform = github`. Run `gh auth login`.
 - `glab` — the [GitLab CLI](https://glab.readthedocs.io/), for `platform = gitlab`. Run `glab auth login`.
-- `tea` — the [Gitea CLI](https://gitea.com/gitea/tea), for `platform = gitea`. Run
-  `tea login add --url https://git.example.com`.
-- `git` — only for `platform = gitea`; see **Gitea working directory** below.
+- `gt` — the [Gitea CLI](https://gitea.com/gitea/cli), for `platform = gitea`. Run
+  `gt auth login --host https://git.example.com`. With accounts on several instances,
+  `gt config set default_host https://git.example.com` picks the one the plugin follows.
 - `xdg-open` — opens a PR/MR or issue in your default browser when you click it in the panel.
 
 You only need the CLI matching your chosen `platform`; all three are listed so the
 requirement shows up regardless of which one you pick. No token is ever stored by
 the plugin — each CLI keeps its own credentials.
+
+The CLI must be on the `PATH` Noctalia runs with, which is the session's, not
+your shell's. A CLI installed in `~/.local/bin` (a common place for `gt`) works
+in a terminal but makes the panel report "gt is not installed" when your shell
+profile is what adds that folder. Add it to the session with a file such as
+`~/.config/environment.d/10-local-bin.conf` containing
+`PATH=$HOME/.local/bin:$PATH`, then log out and back in; or link the binary
+into a system folder: `sudo ln -s ~/.local/bin/gt /usr/local/bin/gt`.
 
 ## Usage
 
@@ -46,8 +54,7 @@ Then up to three tabs, each listing items by title and reference:
 
 - **Pull Requests / Merge Requests** — the ones you authored.
 - **Issues** — the ones assigned to you.
-- **Code Review** — open, unmerged PR/MRs waiting on your review. **Not available
-  on Gitea**, where the tab is hidden; `tea` has no review-requested filter.
+- **Code Review** — open, unmerged PR/MRs waiting on your review.
 
 On GitLab, a glyph at the end of a merge request card shows its
 `detailed_merge_status`
@@ -66,15 +73,14 @@ which **GitHub does not** — see Notes.
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
-| `platform` | `select` | `github` | `github` (uses `gh`), `gitlab` (uses `glab`) or `gitea` (uses `tea`). |
-| `gitea_login` | `string` | `""` | Gitea only: which `tea` login to use, as listed by `tea login list`. Empty uses tea's default login. |
+| `platform` | `select` | `github` | `github` (uses `gh`), `gitlab` (uses `glab`) or `gitea` (uses `gt`). |
 | `repo` | `string` | `""` | Scope to one repo: `owner/repo` (GitHub, Gitea) or the project path (GitLab). Leave empty to use the group/owner. |
 | `group` | `string` | `""` | Filter by group (GitLab) or owner (GitHub, Gitea). Leave empty to use `repo`. |
 | `refresh_interval` | `int` | `60` | Seconds between automatic refreshes (minimum 10). |
 | `bar_display_mode` | `select` | `both` | What the bar shows next to the glyph: `none`, `prs` (PRs/MRs only), `issues` (Issues only), or `both`. |
 | `show_prs` | `bool` | `true` | Show the PRs/MRs tab. |
 | `show_issues` | `bool` | `true` | Show the Issues tab. |
-| `show_reviews` | `bool` | `true` | Show the Code Review tab. Ignored on Gitea, which cannot fill it. |
+| `show_reviews` | `bool` | `true` | Show the Code Review tab. |
 | `count_reviews_with_prs` | `bool` | `false` | Add the review count to the PR/MR number in the bar. Hidden while `show_reviews` is off. |
 | `notify_mr_mergeable` | `bool` | `true` | GitLab only: notify when one of your MRs becomes ready to merge. See **Notifications**. |
 | `notify_mr_pipeline_failed` | `bool` | `true` | GitLab only: notify when the pipeline of one of your MRs fails. |
@@ -97,12 +103,12 @@ chips only appear for providers that report a target branch, which leaves
 GitLab alone, so the four lists are only shown in settings when `platform` is
 `gitlab` — see Notes.
 
-On GitHub the widget lists pull requests **authored by you** and issues **assigned
-to you**. On GitLab it lists merge requests and issues **authored by you** — both
-GitLab lists are filtered by author, not by assignee. On Gitea both lists are
-**authored by you** too: its cross-repository search rejects an assignee filter
-unless a single `repo` is set. The Code Review tab is filtered by **requested
-reviewer** on GitHub and GitLab, and includes drafts; Gitea has no such filter.
+On GitHub and Gitea the widget lists pull requests **authored by you** and issues
+**assigned to you**. On GitLab it lists merge requests and issues **authored by
+you** — both GitLab lists are filtered by author, not by assignee. The Code
+Review tab is filtered by **requested reviewer** and includes drafts. On Gitea
+that filter only runs across a whole instance, so with a `repo` set the plugin
+searches the repo's owner and keeps the pull requests of that repo.
 
 ### Notifications
 
@@ -131,20 +137,17 @@ your own doing, and the rest depend on project settings.
 - Notifications have no click action: `noctalia.notify` takes a title and a
   body only. Open the panel to jump to the MR.
 
-Setup errors (missing CLI, missing GitLab scope, no tea login) are notified
-once when they first occur, not on every refresh while they last.
+Setup errors (missing CLI, missing GitLab scope, `gt` not signed in) are
+notified once when they first occur, not on every refresh while they last.
 
-### Gitea working directory
+### Gitea
 
-`tea` resolves its context by running `git rev-parse --show-toplevel` before it reads
-`--login` or `--repo`, so every one of its repo-scoped commands fails when the working
-directory is not a git repository — and a background service has no such directory. Any
-repository satisfies it, so on the first Gitea refresh the plugin runs `git init` once in
-an empty `tea-ctx` folder inside its own data directory and runs `tea` from there. Nothing
-is committed to it and it is never touched again.
-
-Other Gitea-compatible forges (Forgejo, Codeberg) expose the same v1 API and should work
-through `tea` as well, but they are not tested here.
+Since 2.0.0 the plugin drives `gt`, the CLI Gitea now recommends, instead of
+`tea`. `gt` runs from any directory and picks the instance itself, like `glab`:
+the only one you are signed in to, else its `default_host`. The former
+`gitea_login` setting is gone. Other Gitea-compatible forges (Forgejo,
+Codeberg) expose the same v1 API and should work through `gt` as well, but
+they are not tested here.
 
 `show_reviews` is the master switch for the Code Review feature: turned off, the
 tab disappears, nothing is fetched for it, and `count_reviews_with_prs` has no
@@ -164,31 +167,27 @@ fetch completes.
 ## Notes
 
 - **Network:** each refresh calls the forge API through the installed CLI
-  (`gh search prs/issues`, `glab mr/issue list`, or `tea issues list --kind
-  pulls/issues`), scoped by your `repo` or `group` setting. One call per visible
-  tab, so hiding a tab removes its request. The Code Review tab uses
-  `glab mr list --reviewer=@me` or `gh search prs --review-requested=@me`; `tea`
-  offers no equivalent, so the tab is hidden on Gitea. Your avatar is then
-  downloaded from the forge; on Gitea it comes from the instance's public
-  `<instance>/<user>.png` route, so it needs no token.
+  (`gh search prs/issues`, `glab mr/issue list`, or `gt search pr/issue`),
+  scoped by your `repo` or `group` setting. One call per visible tab, so hiding
+  a tab removes its request. The Code Review tab uses `glab mr list
+  --reviewer=@me`, `gh search prs --review-requested=@me` or `gt search pr
+  --review-requested`. Your account comes from `<cli> api user`, and your avatar
+  is then downloaded from the forge.
 - **Branch badges are not available on GitHub.** The chip needs each item's
   target branch, which the provider has to report. `glab` returns it with every
   merge request. `gh search prs` has no base-branch field at all, and it is the
   only GitHub call that works across a whole owner, so pull requests fetched
-  from GitHub render without a chip. `tea` is in the same position: none of the
-  fields it can print for a search carries a base branch, so Gitea items have no
-  chip either. This is a per-provider capability rather than a setting: the
+  from GitHub render without a chip. `gt search` is in the same position: none
+  of its fields carries a base branch, so Gitea items have no chip either. This is a per-provider capability rather than a setting: the
   `branch_badge_*` lists stay configured and apply to any provider that does
   report a target branch.
-- **Processes:** the service spawns `gh`, `glab` or `tea` for fetches, plus a
-  one-time `git init` on Gitea; the panel spawns `xdg-open` (non-blocking) when
+- **Processes:** the service spawns `gh`, `glab` or `gt` for fetches; the panel spawns `xdg-open` (non-blocking) when
   you click an item.
 - **Filesystem:** the service downloads your profile picture to the plugin's own
   data directory, at `~/.local/state/noctalia/plugins/data/tphilippot/git_companion/avatar`
   (it follows `NOCTALIA_STATE_HOME` if you set it), so the panel can show it next
   to your username. It is re-downloaded only when the avatar URL changes, and the
-  file persists until you delete it. On Gitea the same directory also holds the
-  empty `tea-ctx` repository described above. Nothing else is written: the PR/MR
+  file persists until you delete it. Nothing else is written: the PR/MR
   and issue lists are in-memory only and are cleared when the plugin stops.
 - **GitLab scope:** GitLab requires a `repo` or `group` scope in settings; the
   service shows an error notification if neither is set. GitHub and Gitea both
