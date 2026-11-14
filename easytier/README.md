@@ -1,4 +1,4 @@
-# EasyTier
+# EasyTier Status
 
 Show your EasyTier mesh VPN right in the Noctalia bar: how many peers are
 online, which of them are reached directly, the best latency and the running

@@ -12,7 +12,7 @@
 
 author = "ylxc"
 id = "ylxc/easytier"
-name = "EasyTier"
+name = "EasyTier Status"
 description = "Shows EasyTier mesh VPN status in the bar, with per-peer latency, loss, traffic, routes and connectors in the panel."
 license = "MIT"
 version = "1.0.0"
