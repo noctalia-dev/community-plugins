@@ -1,7 +1,7 @@
 # GitHub Contributions
 
 A minimalist GitHub contribution calendar as a Noctalia desktop widget. Just
-the annual heatmap in GitHub green, with one footer line for the total and
+the annual heatmap in the theme's primary color, with one footer line for the total and
 the current streak. Hover a day to see its date and contribution count.
 
 ![GitHub Contributions desktop widget](thumbnail.webp)
@@ -44,7 +44,7 @@ A pinned day is marked with a pin icon in the footer.
 | --- | --- | --- | --- |
 | Automatic refresh interval | select (15, 30, 60 minutes) | 30 minutes | How often contribution data refreshes automatically. |
 | Year | select (Last 12 months, 2021–2026) | Last 12 months | Which year the contribution calendar covers. Changing it refetches the data; the footer then shows the total for that year instead of the last-12-months streak summary. |
-| Heatmap color | color | `#39d353` (GitHub green) | Accent color of the heatmap. The four activity levels are derived from it: palette roles use alpha variants, a custom hex color is darkened per level. |
+| Heatmap color | color | `primary` (theme primary) | Accent color of the heatmap. The four activity levels are derived from it: palette roles use alpha variants, a custom hex color is darkened per level. |
 | Cell size | int (6–24) | `10` | Width in pixels of each contribution day cell. Smaller cells make the whole calendar narrower; height is cell size + 2. |
 | Heatmap only | bool | off | Show only the contribution heatmap grid, without the header, footer, or month and weekday labels. |
 | Wrap into rows | select (off/2/3/4) | 2 | Split the year into stacked blocks so the widget is narrower and taller instead of one long strip. Each block gets its own month header and weekday labels. |
@@ -82,7 +82,7 @@ derived from [alexmnrs/github-activity](https://github.com/noctalia-dev/communit
 (MIT), which provides the same contribution calendar as a bar widget and
 panel. This plugin reuses its data fetching and grid code but ships a
 different, minimalist desktop-only surface: no metric columns, no profile
-button, GitHub green by default. The reference implementation for the
+button, theme primary color by default. The reference implementation for the
 `[[desktop_widget]]` entry is the official
 [noctalia/timer](https://github.com/noctalia-dev/official-plugins/tree/main/timer)
 plugin.

@@ -19,7 +19,7 @@
       "label": "Cell size"
     },
     "desktop_color": {
-      "description": "Accent color of the contribution heatmap. The four activity levels are derived from this color. The default is GitHub green.",
+      "description": "Accent color of the contribution heatmap. The four activity levels are derived from this color. The default follows the theme (primary color).",
       "label": "Heatmap color"
     },
     "refresh_interval": {

@@ -50,7 +50,7 @@ entry = "desktop.luau"
   type = "color"
   label_key = "settings.desktop_color.label"
   description_key = "settings.desktop_color.description"
-  default = "#39d353"
+  default = "primary"
 
   [[desktop_widget.setting]]
   key = "cell_size"
