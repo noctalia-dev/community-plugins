@@ -520,40 +520,6 @@ local function gaugeWith(gauge, data, dark)
   load("bar.luau")
   return journal.tree
 end
-local function gaugeImage(tree)
-  local images = collect(tree, "image")
-  return images[2] and images[2].props.path
-end
-
-eq(gaugeImage(gaugeWith("segments10")), "gauges/seg10-dark-ok-4.png", "segments10 lights four of ten cells at 40%")
-eq(gaugeImage(gaugeWith("segments5")), "gauges/seg5-dark-ok-2.png", "segments5 lights two of five")
-eq(gaugeImage(gaugeWith("ring")), "gauges/ring-dark-ok-40.png", "the ring fills to the 40% step in the theme's ink")
-eq(gaugeImage(gaugeWith("ring", { usage = CRITICAL, fetchedAt = NOW, error = "" }, false)), "gauges/ring-light-crit-90.png",
-  "and in red on a light theme when critical")
-local missing = {}
-local function expect(name)
-  local file = io.open(PLUGIN .. "/gauges/" .. name, "rb")
-  if file == nil then
-    missing[#missing + 1] = name
-  else
-    file:close()
-  end
-end
-for _, theme in ipairs({ "dark", "light" }) do
-  for _, level in ipairs({ "ok", "warn", "crit" }) do
-    for step = 0, 100, 10 do
-      expect("ring-" .. theme .. "-" .. level .. "-" .. step .. ".png")
-    end
-    for lit = 0, 10 do
-      expect("seg10-" .. theme .. "-" .. level .. "-" .. lit .. ".png")
-    end
-    for lit = 0, 5 do
-      expect("seg5-" .. theme .. "-" .. level .. "-" .. lit .. ".png")
-    end
-  end
-end
-eq(#missing, 0, "every gauge raster the bar can ask for exists: " .. table.concat(missing, ", "))
-
 local battery = collect(gaugeWith("battery"), "glyph")
 eq(battery[1] and battery[1].props.name, "battery-2", "the battery keeps two of four bars with 60% left")
 

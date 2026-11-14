@@ -37,8 +37,8 @@ to the renewal. It is coloured by the pace rather than by the percentage alone:
 
 When the allowance is spent and requests draw on packs, the bar shows the packs left
 instead. When the subscription is paused it says `paused`. The gauge beside the
-figure is set by `panel_gauge`: a bar, 10 or 5 segments, a ring, a battery that drains
-as credits go, a line of credits per day, or none.
+figure is set by `panel_gauge`: a bar, a battery that drains as credits go, a line of
+credits per day, or none.
 
 - **Left click** opens the panel. Pressing again closes it.
 - **Right click** opens these settings.
@@ -72,7 +72,7 @@ own cog.
 | `api_key` | `file` | `~/.config/nan/api-key` | The file holding your NaN API key. |
 | `interval` | `int` | `300` | Seconds between requests to the NaN API. |
 | `bar_value` | `select` | `percent` | The figure in the bar: `percent` of the allowance used, credits `used`, or credits `remaining`. |
-| `panel_gauge` | `select` | `bar` | The indicator beside the text: `bar`, `segments10`, `segments5`, `ring`, `battery` (draining as credits go), `sparkline` (credits per day), or `none` for text only. |
+| `panel_gauge` | `select` | `bar` | The indicator beside the text: `bar`, `battery` (draining as credits go), `sparkline` (credits per day), or `none` for text only. |
 | `show_reset` | `bool` | `true` | The countdown to the renewal, in the bar. |
 | `show_cache` | `bool` | `false` | The period's cache share, after the countdown. |
 | `site_action` | `select` | `open` | What the link buttons do: open NaN's dashboard, or copy its address. |
@@ -125,9 +125,7 @@ own cog.
   (where it writes one depends on how the shell was started on your setup). Noctalia
   also logs every prop or control it skips. If the bar shows a dash, the tooltip
   names the reason first. If the NaN mark never appears, this Qt build has no image
-  support: turn `show_icon` off and `show_glyph` on, and pick a gauge that is not an
-  image (`bar`, `battery` or `sparkline`), since the ring and the segments are images
-  too.
+  support: turn `show_icon` off and `show_glyph` on instead.
 - **Community project, not official**: not affiliated with or endorsed by
   nan.builders. "NaN" and its logo belong to their owners, and the logo shipped here,
   the SVG the rasters are drawn from, derives from their public favicon.
@@ -150,10 +148,10 @@ because the model takes the current time as an argument instead of reading a clo
 The second drives the real `service.luau`, `bar.luau` and `panel.luau` under a fixed
 clock: that the poller reads the key, asks `/v1/usage` and nothing else, follows a
 second page, publishes what came back and keeps the last good numbers when a poll
-fails; that the widget and the panel paint that data, with every gauge and every
-gauge raster it can ask for; that the only thing ever spawned is the browser opener,
-and only when a link button is pressed; and that a refresh is asked for over the
-shared state channel rather than by running a program.
+fails; that the widget and the panel paint that data, with every gauge; that the
+only thing ever spawned is the browser opener, and only when a link button is
+pressed; and that a refresh is asked for over the shared state channel rather than
+by running a program.
 
 The third is static, and needs Python 3.11 or newer for its TOML reader: the
 manifest against its own translation keys, the plugin directory against its id, and

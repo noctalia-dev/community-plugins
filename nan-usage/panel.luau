@@ -55,7 +55,7 @@ local BUY_URL = "https://cloud.nan.builders/dashboard?buy=credits"
 -- The logos, rasterised from the SVG next to them: whether the shell's Qt build
 -- can render an SVG is not something to bet on, and a PNG always works. The ghost
 -- pair is the silhouette in the theme's own ink, so the mark sits in a row of
--- glyphs instead of shouting; see generate-icons.sh next to this plugin.
+-- glyphs instead of shouting.
 local ICON_COLOR = "nan.png"
 local ICON_GHOST_ON_DARK = "nan-ghost-white.png"
 local ICON_GHOST_ON_LIGHT = "nan-ghost-black.png"

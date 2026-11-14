@@ -73,9 +73,6 @@ description_key = "settings.panel_gauge.description"
 default = "bar"
 options = [
   { value = "bar", label_key = "settings.panel_gauge.bar" },
-  { value = "segments10", label_key = "settings.panel_gauge.segments10" },
-  { value = "segments5", label_key = "settings.panel_gauge.segments5" },
-  { value = "ring", label_key = "settings.panel_gauge.ring" },
   { value = "battery", label_key = "settings.panel_gauge.battery" },
   { value = "sparkline", label_key = "settings.panel_gauge.sparkline" },
   { value = "none", label_key = "settings.panel_gauge.none" },

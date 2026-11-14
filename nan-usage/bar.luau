@@ -73,14 +73,10 @@ local ICON_GHOST_ON_LIGHT = "nan-ghost-black.png"
 local ICON_SIZE = 14
 
 -- The gauges `panel_gauge` offers. bar: ui.progress, the control a bar widget renders a
--- level with. segments10 and segments5: cells that light up, one per 10% or 20%, and
--- ring: a ring filling by 10% steps, both drawn from the rasters in gauges/ (see
--- generate-icons.sh for why they are rasters). battery: Noctalia's battery glyph, draining by quarters as the
--- credits go. sparkline: the period's credits per day, a trend rather than a level.
+-- level with. battery: Noctalia's battery glyph, draining by quarters as the credits
+-- go. sparkline: the period's credits per day, a trend rather than a level.
 local GAUGE_WIDTH = 34
 local GAUGE_HEIGHT = 5
-local SEGMENT_HEIGHT = 8
-local RING_SIZE = 14
 local SPARK_HEIGHT = 12
 
 -- The track the unlit parts are drawn in, the same for every gauge.
@@ -237,34 +233,6 @@ local function textNodes(level, record)
   return ui.row({ gap = 3, align = "center" }, parts)
 end
 
--- The theme half of a gauge raster's name: the rasters are drawn once for a dark
--- theme and once for a light one, where the ink and the track differ.
-local function gaugeTheme()
-  return noctalia.isDarkMode() and "dark" or "light"
-end
-
--- A segmented bar: one raster per number of lit cells, so the gaps between cells
--- stay even at any scale (a row of separate boxes rounds each gap on its own). Any
--- usage at all lights the first cell, so a period that has started never reads as
--- untouched.
-local function segmentsFile(count, level, percent)
-  local lit = 0
-  if percent > 0 then
-    lit = math.max(1, math.min(count, math.floor(percent / (100 / count) + 0.5)))
-  end
-  return "gauges/seg" .. count .. "-" .. gaugeTheme() .. "-" .. (level or "ok") .. "-" .. lit .. ".png"
-end
-
--- The ring raster for a level, in the 10% step nearest the usage, and never empty
--- once the period has any.
-local function ringFile(level, percent)
-  local step = math.floor(math.max(0, math.min(percent, 100)) / 10 + 0.5) * 10
-  if percent > 0 and step == 0 then
-    step = 10
-  end
-  return "gauges/ring-" .. gaugeTheme() .. "-" .. (level or "ok") .. "-" .. step .. ".png"
-end
-
 -- The battery glyph with as many bars as quarters of the allowance are left.
 local function batteryGlyph(percent)
   local bars = math.floor((100 - math.max(0, math.min(percent, 100))) / 25 + 0.5)
@@ -295,13 +263,6 @@ end
 
 local function gaugeNode(gauge, level, percent, record)
   percent = math.max(0, tonumber(percent) or 0)
-  if gauge == "segments10" or gauge == "segments5" then
-    local count = gauge == "segments10" and 10 or 5
-    return ui.image({ path = segmentsFile(count, level, percent), width = GAUGE_WIDTH, height = SEGMENT_HEIGHT })
-  end
-  if gauge == "ring" then
-    return ui.image({ path = ringFile(level, percent), width = RING_SIZE, height = RING_SIZE })
-  end
   if gauge == "battery" then
     return ui.glyph({ name = batteryGlyph(percent), size = ICON_SIZE + 2, color = levelColor(level) })
   end

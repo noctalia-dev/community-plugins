@@ -19,9 +19,6 @@
       "label": "Gauge",
       "description": "What to draw beside the text to show how much of the allowance is used, or nothing at all.",
       "bar": "A bar",
-      "segments10": "Segments, 10 cells",
-      "segments5": "Segments, 5 cells",
-      "ring": "A ring",
       "battery": "A battery, draining as credits go",
       "sparkline": "Credits per day, as a line",
       "none": "No gauge, text only"
