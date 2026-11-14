@@ -6,7 +6,7 @@ author = "DarulQutni-Q"
 license = "MIT"
 icon = "brand-github"
 description = "A GitHub contribution calendar as a Noctalia desktop widget."
-tags = ["desktop", "service", "development", "productivity", "utility", "network", "hyprland", "arch"]
+tags = ["desktop", "service", "development", "productivity", "utility", "network"]
 dependencies = ["gh"]
 
 [[setting]]
