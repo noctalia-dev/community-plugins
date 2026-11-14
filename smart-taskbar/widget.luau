@@ -135,16 +135,18 @@ local function countNode(group, peak, inline)
   local badge = Model.badgeMetrics(config,n)
   local width = inline and badge.width or math.min(peak+8,badge.width)
   local props = { key="badge:"..group.key, width=width, height=badge.height,
-    justify="center", align="center", radius=badge.height/2,
-    fill=group.focused and "primary" or "secondary_container", clip=true }
+    justify="center", align="center", clip=true }
   if not inline then
+    props.radius=badge.height/2
+    props.fill=group.focused and "primary" or "secondary_container"
     props.translateX = config.badge_placement=="before" and -(peak+2) or 2-width
     props.translateY = -(peak+8-badge.height)/2
     props.border = "surface_container"
   end
   return ui.row(props, { ui.label({text=tostring(n),fontSize=badge.font,
     maxWidth=width-4,maxLines=1,fontWeight="bold",
-    color=group.focused and "on_primary" or "on_secondary_container"}) })
+    color=inline and (group.focused and config.active_indicator and "on_primary_container" or "on_surface")
+      or (group.focused and "on_primary" or "on_secondary_container")}) })
 end
 local function cell(group, extent)
   local peak = Model.peakIconSize(config)

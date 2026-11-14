@@ -1,6 +1,6 @@
 id = "omardardery/smart-taskbar"
 name = "Smart Taskbar"
-version = "1.1.0"
+version = "1.1.1"
 plugin_api = 52
 author = "OmarDardery"
 license = "MIT"

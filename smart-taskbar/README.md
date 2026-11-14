@@ -4,7 +4,7 @@
 
 A compact application dock inside the Noctalia bar: grouped windows, focused-app switching, optional hover enlargement, and a clipped icon strip that stays within its width budget.
 
-**Requires plugin API 52+.** Version 1.1.0 release candidate supports Umbriel, niri, Hyprland, Mango and Sway through public compositor protocols. Umbriel and niri prefer native subscriptions on API 54+. Native desktop acceptance and real screenshots remain pending. The images below are labeled offline fixture previews.
+**Requires plugin API 52+.** Version 1.1.1 release candidate supports Umbriel, niri, Hyprland, Mango and Sway through public compositor protocols. Umbriel and niri prefer native subscriptions on API 54+. Native desktop acceptance and real screenshots remain pending. The images below are labeled offline fixture previews.
 
 ## Plugin
 
@@ -66,7 +66,7 @@ For a dock-style layout, choose **Always expanded**, application grouping, numer
 
 ### Window counts
 
-Under **Widget → Count layout**, choose **Overlay** for a compact corner badge or **Inline capsule** to keep the icon unobstructed with a count beside it. **Badge placement** selects before/after the icon; on side bars inline counts appear below it. Counts scale with icon size and use theme contrast roles. If a count is too wide to fit an overlay, it automatically uses inline placement rather than clipping digits. Single-window apps show no badge and reserve no count space. Inline groups use only the room they need; wheel navigation and focus reveal include that space within `max_width`.
+Under **Widget → Count layout**, choose **Overlay** for a compact corner badge or **Inline capsule** to show the icon and a plain count together on one shared capsule background, without a separate count bubble. **Badge placement** selects before/after the icon; on side bars inline counts appear below it. Counts scale with icon size and use theme contrast roles. If a count is too wide to fit an overlay, it automatically uses inline placement rather than clipping digits. Single-window apps show no badge and reserve no count space. Inline groups use only the room they need; wheel navigation and focus reveal include that space within `max_width`.
 
 Inactive apps now have hover feedback even with icon enlargement disabled. Minimized groups remain recognizable at reduced opacity.
 
