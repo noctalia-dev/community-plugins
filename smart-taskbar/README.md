@@ -4,7 +4,7 @@
 
 A compact application dock inside the Noctalia bar: grouped windows, focused-app switching, optional hover enlargement, and a clipped icon strip that stays within its width budget.
 
-**Requires plugin API 52+.** Version 1.0.0 release candidate supports Umbriel, niri, Hyprland, Mango and Sway through public compositor protocols. Umbriel and niri prefer native subscriptions on API 54+. Native desktop acceptance and real screenshots remain pending. The images below are labeled offline fixture previews.
+**Requires plugin API 52+.** Version 1.1.0 release candidate supports Umbriel, niri, Hyprland, Mango and Sway through public compositor protocols. Umbriel and niri prefer native subscriptions on API 54+. Native desktop acceptance and real screenshots remain pending. The images below are labeled offline fixture previews.
 
 ## Plugin
 
@@ -58,11 +58,17 @@ Use bar and widget scale 1, no custom label, and no capsule-group wrapper paddin
 
 The widget **disappears completely when no matching windows are open**: no icon, capsule, or count placeholder. It reappears from compositor events when a matching window opens. Pinned launchers also hide while there are no matching running windows; keep Noctalia's launcher available for starting the first application. Including minimized windows is enabled by default.
 
-Hover to expand, then leave to collapse after the configured delay. Click capsule padding to toggle, or choose click/always-expanded mode. Clicking an app focuses or cycles its windows. A single-window app shows just its icon; duplicate windows add a numeric corner badge. There are no dot indicators, dashes, or empty count lanes. When windows remain open but focus is on the desktop, the collapsed capsule shows a running application.
+Hover to expand, then leave to collapse after the configured delay. Click capsule padding to toggle, or choose click/always-expanded mode. Clicking an app focuses or cycles its windows. A single-window app shows just its icon; duplicate windows add a numeric badge in the selected layout. There are no dot indicators, dashes, or empty count lanes. When windows remain open but focus is on the desktop, the collapsed capsule shows a running application.
 
 Wheel vertically or horizontally to navigate overflowing applications. The strip renders a bounded subset with discrete item/page navigation and reveals newly focused apps. Each new wheel/touchpad gesture moves one configured step; the host accumulates fine touchpad input into whole detents. Arrows indicate hidden content. This is not pixel-continuous scrolling.
 
 For a dock-style layout, choose **Always expanded**, application grouping, numeric badges, and optionally pinned applications. Remove your old taskbar and disable the dock after verifying the replacement on your desktop.
+
+### Window counts
+
+Under **Widget → Count layout**, choose **Overlay** for a compact corner badge or **Inline capsule** to keep the icon unobstructed with a count beside it. **Badge placement** selects before/after the icon; on side bars inline counts appear below it. Counts scale with icon size and use theme contrast roles. If a count is too wide to fit an overlay, it automatically uses inline placement rather than clipping digits. Single-window apps show no badge and reserve no count space. Inline groups use only the room they need; wheel navigation and focus reveal include that space within `max_width`.
+
+Inactive apps now have hover feedback even with icon enlargement disabled. Minimized groups remain recognizable at reduced opacity.
 
 ### Hover enlargement
 
@@ -111,7 +117,8 @@ Expand **Widget** in the normal settings dialog. All plugin controls are shown t
 | Layout | `show_scroll_indicators` | `true` | Subtle direction indicators inside the width budget. |
 | Appearance | `collapsed_label` | `"none"` | Optional text within the fixed width. Single-window apps never show a count; side bars show the icon only. |
 | Appearance | `duplicate_indicator` | `"badge"` | Numeric corner badges appear only for applications with more than one window. |
-| Appearance | `badge_placement` | `"after"` | Place duplicate-window count badges at the upper left or upper right of the icon. |
+| Appearance | `badge_style` | `"overlay"` | Overlay a proportional count or place it beside the icon inside its app capsule. Inline counts appear below icons on side bars; single-window apps reserve no count space. |
+| Appearance | `badge_placement` | `"after"` | Choose the upper left/right overlay corner or before/after the inline icon. Side bars keep inline counts below. |
 | Appearance | `hover_enlarge` | `false` | Magnify the hovered application inside a fixed cell. No bar movement; respects reduced motion. |
 | Appearance | `hover_scale` | `1.15` | Maximum icon scale. Set bar thickness to at least icon size × scale + 8 logical pixels; 1.15 fits a 22 px icon in a 34 px bar. |
 | Appearance | `capsule_radius` | `14` | Logical pixels for the plugin’s own theme-colored capsule. |

@@ -29,7 +29,7 @@ local function readConfig()
     "scroll_step", "auto_reveal_focused", "show_scroll_indicators", "display_mode", "workspace_filter",
     "output_filter", "show_minimized", "grouping", "duplicate_indicator", "sorting", "exclusions",
     "pinned_apps", "app_aliases", "collapsed_label", "capsule_radius", "hover_enlarge", "hover_scale",
-    "opacity", "border", "active_indicator", "minimized_indicator", "urgent_indicator", "badge_placement",
+    "opacity", "border", "active_indicator", "minimized_indicator", "urgent_indicator", "badge_placement", "badge_style",
     "click_behavior", "middle_click", "refresh_fallback", "diagnostic_logging", "compositor_compatibility" }
   local nextConfig = {}
   for _, key in ipairs(keys) do nextConfig[key] = noctalia.getConfig(key) end
@@ -114,7 +114,7 @@ local function setHoverTarget(key)
   hoveredKey = key
   zoomFrom = from
   zoomStart = config.hover_enlarge and config.animations and config.animation_duration > 0 and noctalia.nowMs() or nil
-  if config.hover_enlarge then dirty=true end
+  dirty=true -- hover feedback is also available without magnification
 end
 local function icon(group, size, scale)
   local app = group.iconId or ""
@@ -129,42 +129,52 @@ local function icon(group, size, scale)
   return ui.glyph({ key = "icon:" .. group.key, name = "app-window", size = size,
     scale = scale or 1, color = "on_surface_variant" })
 end
-local function countNode(group, peak)
+local function countNode(group, peak, inline)
   local n = #group.windows
   if n <= 1 or config.duplicate_indicator == "none" then return nil end
-  local text = tostring(n)
-  local badgeWidth = math.min(peak + 8, math.max(16, #text * 6 + 6))
-  return ui.row({ key = "badge:" .. group.key, width = badgeWidth, height = 16,
-    justify = "center", align = "center", radius = 8, fill = "secondary_container",
-    -- Paint-only transforms overlay the badge; they do not add a layout lane.
-    translateX = config.badge_placement == "before" and -(peak + 2) or 2 - badgeWidth,
-    translateY = -(peak + 8 - 16) / 2, clip = true }, {
-    ui.label({ text = text, fontSize = 10, maxWidth = badgeWidth, maxLines = 1,
-      color = "on_secondary_container", fontWeight = "bold" }),
-  })
+  local badge = Model.badgeMetrics(config,n)
+  local width = inline and badge.width or math.min(peak+8,badge.width)
+  local props = { key="badge:"..group.key, width=width, height=badge.height,
+    justify="center", align="center", radius=badge.height/2,
+    fill=group.focused and "primary" or "secondary_container", clip=true }
+  if not inline then
+    props.translateX = config.badge_placement=="before" and -(peak+2) or 2-width
+    props.translateY = -(peak+8-badge.height)/2
+    props.border = "surface_container"
+  end
+  return ui.row(props, { ui.label({text=tostring(n),fontSize=badge.font,
+    maxWidth=width-4,maxLines=1,fontWeight="bold",
+    color=group.focused and "on_primary" or "on_secondary_container"}) })
 end
-local function cell(group, width)
+local function cell(group, extent)
   local peak = Model.peakIconSize(config)
+  local vertical = barWidget.isVertical()
+  local inline = Model.inlineBadge(config,group)
   local scale = 1 + ((config.hover_enlarge and config.hover_scale or 1) - 1) * hoverLevel(group.key)
-  local children = { ui.row({ width = peak, height = peak, justify = "center", align = "center" }, {
-    icon(group, config.icon_size, scale),
+  local children = { ui.row({width=peak,height=peak,justify="center",align="center"}, {
+    icon(group,config.icon_size,scale),
   }) }
-  local badge = countNode(group, peak)
-  if badge then table.insert(children, badge) end
-  local fill = group.focused and config.active_indicator and "primary_container" or "surface_container/0"
-  local border = group.urgent and config.urgent_indicator and "error" or nil
-  local props = { key = group.key, width = width, height = peak + 8,
-    paddingH = 4, gap = 0, align = "center", justify = "start", radius = 8, fill = fill, border = border,
-    opacity = group.minimized and config.minimized_indicator and 0.5 or 1, clip = true,
-    tooltip = (group.title or group.appId) .. (#group.windows > 1 and (" (" .. tostring(#group.windows) .. ")") or ""),
-    onClick = function() activate(group) end,
-    onHover = function(entered)
-      if entered == "true" then setHoverTarget(group.key)
-      elseif hoveredKey == group.key then setHoverTarget(nil) end
-      handleHover(entered == "true")
+  local badge = countNode(group,peak,inline)
+  if badge then
+    if inline and not vertical and config.badge_placement=="before" then table.insert(children,1,badge)
+    else table.insert(children,badge) end
+  end
+  local fill = group.focused and config.active_indicator and "primary_container"
+    or (hoveredKey==group.key and "surface_container_highest" or (inline and "surface_container_high" or "surface_container/0"))
+  local props = {key=group.key,width=vertical and peak+8 or extent,
+    height=vertical and extent or peak+8,paddingH=4,paddingV=inline and vertical and 4 or 0,
+    gap=inline and 4 or 0,align="center",justify="start",radius=math.min(12,(peak+8)/2),fill=fill,
+    border=group.urgent and config.urgent_indicator and "error" or nil,
+    opacity=group.minimized and config.minimized_indicator and 0.65 or 1,clip=true,
+    tooltip=(group.title or group.appId)..(#group.windows>1 and (" ("..tostring(#group.windows)..")") or ""),
+    onClick=function() activate(group) end,
+    onHover=function(entered)
+      if entered=="true" then setHoverTarget(group.key)
+      elseif hoveredKey==group.key then setHoverTarget(nil) end
+      handleHover(entered=="true")
     end }
   if config.sorting == "manual" then props.onClick = nil end
-  local content = ui.row(props, children)
+  local content = (inline and vertical and ui.column or ui.row)(props, children)
   if config.sorting == "manual" then
     local dragProps = { key = "drag:" .. group.key, dragType = "smart-taskbar/app", payload = group.key,
       grabCursor = true, onClick = function() activate(group) end }
@@ -190,16 +200,30 @@ refresh = function(reveal)
   end
   local focusIndex
   for i, group in ipairs(groups) do if group.focused then focusIndex = i; break end end
-  local layout = Model.layout(config, #groups)
+  local layout = Model.layout(config, #groups, groups, offset, barWidget.isVertical())
   local focusChanged = state.lastFocus ~= lastFocus
   if focusChanged then cursors = {} end
-  offset = Model.reveal(offset, layout.capacity, #groups,
-    config.auto_reveal_focused and (reveal or focusChanged) and focusIndex or nil)
+  offset = math.clamp(offset,0,math.max(0,#groups-1))
+  if config.auto_reveal_focused and (reveal or focusChanged) and focusIndex then
+    if focusIndex<=offset then offset=focusIndex-1 end
+    layout=Model.layout(config,#groups,groups,offset,barWidget.isVertical())
+    if focusIndex>offset+layout.capacity then
+      -- Fit backwards from the target in one pass, even for thousands of apps.
+      local available=config.max_width-16-(layout.indicators and 32 or 0)
+      offset=focusIndex-1
+      local used=Model.cellExtent(config,groups[focusIndex],barWidget.isVertical())
+      while offset>0 do
+        local extra=config.icon_spacing+Model.cellExtent(config,groups[offset],barWidget.isVertical())
+        if used+extra>available then break end
+        used+=extra; offset-=1
+      end
+    end
+  end
   lastFocus = state.lastFocus
   dirty = true
 end
 local function navigate(delta)
-  local layout = Model.layout(config, #groups)
+  local layout = Model.layout(config, #groups, groups, offset, barWidget.isVertical())
   local amount = config.overflow_behavior == "pages" and layout.capacity or config.scroll_step
   offset = Model.reveal(offset + delta * amount, layout.capacity, #groups, nil)
   dirty = true; render()
@@ -219,7 +243,7 @@ render = function()
     barWidget.setTooltip("")
     dirty = false; schedule(); return
   end
-  local layout = Model.layout(config, #groups)
+  local layout = Model.layout(config, #groups, groups, offset, barWidget.isVertical())
   local children, width = {}, expanded and layout.width or layout.collapsed
   if expanded then
     if layout.indicators then
@@ -231,9 +255,10 @@ render = function()
     -- Virtualization: render only the visible cells. The fixed viewport clips small budgets and all paint.
     for i = offset + 1, math.min(#groups, offset + layout.capacity) do
       local group = groups[i]
-      local item = cell(group, layout.cell)
+      local extent = Model.cellExtent(config,group,vertical)
+      local item = cell(group, extent)
       if vertical then
-        item = ui.column({ height = layout.cell, justify = "center", align = "center" }, { item })
+        item = ui.column({ height = extent, justify = "center", align = "center" }, { item })
       end
       table.insert(strip, item)
     end

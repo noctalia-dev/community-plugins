@@ -139,25 +139,46 @@ end
 function M.peakIconSize(c)
   return math.ceil(c.icon_size * (c.hover_enlarge and c.hover_scale or 1))
 end
-function M.layout(c, count)
+function M.badgeMetrics(c, count)
+  local height = math.clamp(math.floor(c.icon_size * 0.6 + 0.5), 14, 20)
+  local font = math.clamp(math.floor(height * 0.7), 10, 12)
+  local width = math.max(height, math.ceil(#tostring(count) * font * 0.7) + 8)
+  return { height=height, font=font, width=width }
+end
+function M.inlineBadge(c, group)
+  return c.duplicate_indicator~="none" and group and #group.windows>1
+    and (c.badge_style=="inline" or M.badgeMetrics(c,#group.windows).width>M.peakIconSize(c)+8)
+end
+function M.cellExtent(c, group, vertical)
+  local base = M.peakIconSize(c) + 8
+  if M.inlineBadge(c,group) then
+    local badge = M.badgeMetrics(c, #group.windows)
+    return base + 4 + (vertical and badge.height or badge.width)
+  end
+  return base
+end
+function M.layout(c, count, groups, offset, vertical)
   local maxWidth = math.max(48, c.max_width)
   local collapsed = math.clamp(c.collapsed_width, 32, maxWidth)
-  local peak = M.peakIconSize(c)
-  local cell = peak + 8 -- badges paint over the corner; singles reserve no count lane
-  local gap = c.icon_spacing
-  local available = maxWidth - 16 -- plugin's own capsule padding
-  local capacity = math.max(1, math.floor((available + gap) / (cell + gap)))
-  local indicators = c.show_scroll_indicators and count > capacity and maxWidth >= 16 + 32 + cell
-  if indicators then
-    available -= 32
-    capacity = math.max(1, math.floor((available + gap) / (cell + gap)))
+  local peak, gap = M.peakIconSize(c), c.icon_spacing
+  local cell = peak + 8
+  offset = offset or 0
+  local total = math.max(0,count-1)*gap
+  for i=1,count do total += M.cellExtent(c,groups and groups[i],vertical) end
+  local available = maxWidth - 16
+  local indicators = c.show_scroll_indicators and total > available and maxWidth >= 16 + 32 + cell
+  if indicators then available -= 32 end
+  local used, capacity = 0, 0
+  for i=offset+1,count do
+    local extent = M.cellExtent(c,groups and groups[i],vertical)
+    local nextUsed = used + (capacity > 0 and gap or 0) + extent
+    if capacity > 0 and nextUsed > available then break end
+    used = nextUsed; capacity += 1
   end
-  -- A single cell is clipped for exceptionally small budgets; never enlarge the root.
-  local visible = math.min(count, capacity)
-  local wanted = 16 + visible * cell + math.max(0, visible - 1) * gap + (indicators and 32 or 0)
+  local wanted = 16 + used + (indicators and 32 or 0)
   local width = math.clamp(wanted, math.min(c.min_width, maxWidth), maxWidth)
-  return { width = width, collapsed = collapsed, capacity = capacity, cell = cell, peak = peak,
-    indicators = indicators, viewport = math.max(1, width - 16 - (indicators and 32 or 0)) }
+  return { width=width, collapsed=collapsed, capacity=math.max(1,capacity), cell=cell, peak=peak,
+    indicators=indicators, viewport=math.max(1,width-16-(indicators and 32 or 0)) }
 end
 function M.reveal(offset, capacity, count, focused)
   offset = math.clamp(offset, 0, math.max(0, count - capacity))

@@ -1,6 +1,6 @@
 {
   "title": "Smart Taskbar",
-  "hint": "Click to expand or collapse • Wheel to navigate • Right click for settings",
+  "hint": "Click to expand or collapse \u2022 Wheel to navigate \u2022 Right click for settings",
   "disconnected": "Waiting for compositor windows. Check the compositor requirements and diagnostic logging if the taskbar stays hidden.",
   "action_failed": "The compositor could not complete the window action.",
   "unsupported_action": "This compositor does not support the requested action.",
@@ -72,7 +72,7 @@
     },
     "output_filter": {
       "label": "Output filter",
-      "description": "Current means this bar instance’s output, not the globally focused monitor."
+      "description": "Current means this bar instance\u2019s output, not the globally focused monitor."
     },
     "show_minimized": {
       "label": "Include minimized",
@@ -108,7 +108,7 @@
     },
     "capsule_radius": {
       "label": "Capsule radius",
-      "description": "Logical pixels for the plugin’s own theme-colored capsule."
+      "description": "Logical pixels for the plugin\u2019s own theme-colored capsule."
     },
     "opacity": {
       "label": "Capsule opacity",
@@ -131,8 +131,8 @@
       "description": "Use the theme error role when compositor events provide urgency. Umbriel does not guarantee this field."
     },
     "badge_placement": {
-      "label": "Badge corner",
-      "description": "Place duplicate-window count badges at the upper left or upper right of the icon."
+      "label": "Count position",
+      "description": "Place overlay counts on the upper left or right; inline counts before or after the icon. Side bars keep inline counts below the icon."
     },
     "click_behavior": {
       "label": "Left click",
@@ -140,7 +140,7 @@
     },
     "middle_click": {
       "label": "Middle click",
-      "description": "Host defaults to widget settings. To use these actions, explicitly set this instance’s actions.middle = \"none\"."
+      "description": "Host defaults to widget settings. To use these actions, explicitly set this instance\u2019s actions.middle = \"none\"."
     },
     "refresh_fallback": {
       "label": "Subscription retry (s)",
@@ -160,7 +160,11 @@
     },
     "hover_scale": {
       "label": "Hover enlargement",
-      "description": "Maximum icon scale. Set bar thickness to at least icon size × scale + 8 logical pixels; 1.15 fits a 22 px icon in a 34 px bar."
+      "description": "Maximum icon scale. Set bar thickness to at least icon size \u00d7 scale + 8 logical pixels; 1.15 fits a 22 px icon in a 34 px bar."
+    },
+    "badge_style": {
+      "label": "Count layout",
+      "description": "Overlay a compact count on the icon, or place it beside the icon inside the app capsule. Side bars place inline counts below the icon. Only duplicate windows show a count."
     }
   },
   "options": {
@@ -198,7 +202,7 @@
       "windows": "Individual windows"
     },
     "duplicate_indicator": {
-      "badge": "Show numeric badges",
+      "badge": "Numeric count",
       "none": "Hide badges"
     },
     "sorting": {
@@ -215,8 +219,8 @@
       "count": "Window count"
     },
     "badge_placement": {
-      "before": "Upper left",
-      "after": "Upper right"
+      "before": "Before icon / upper left",
+      "after": "After icon / upper right"
     },
     "click_behavior": {
       "cycle": "Focus or cycle",
@@ -235,6 +239,10 @@
       "hyprland": "Hyprland only",
       "mango": "Mango only",
       "sway": "Sway only"
+    },
+    "badge_style": {
+      "overlay": "Overlay",
+      "inline": "Inline capsule"
     }
   },
   "dependency_missing": "Cannot start the application taskbar: {dependency} is unavailable."
