@@ -1655,19 +1655,28 @@ previous.props.onClick()
 assert(host.tree().props.key == "overview", "page navigation must preserve the overview")
 end
 
--- A bar opening carries explicit account intent; closing clears pending intent.
+-- Opening from the bar highlights the selected account inside the All accounts overview;
+-- Antigravity shows all windows (including weekly and model pools) without truncation.
 do
-local report = { entries = { provider("openai@work", "Codex · Work", 42), provider("openai@personal", "Codex · Personal", 30) } }
+local agyMetrics = {
+    { type = "metric", label = "Gemini", percent = 9, value = "9%", window_secs = 18000 },
+    { type = "metric", label = "Claude & GPT OSS", percent = 62, value = "62%", window_secs = 18000 },
+    { type = "metric", label = "Gemini", percent = 2, value = "2%", window_secs = 604800 },
+    { type = "metric", label = "Gemini 4 Argon", percent = 6, value = "6%", window_secs = 604800, model_pool = true },
+    { type = "metric", label = "Claude & GPT OSS", percent = 31, value = "31%", window_secs = 604800 },
+}
+local agy = { id = "antigravity", display_name = "Antigravity", status = "ready",
+    metrics = agyMetrics, sections = agyMetrics }
+local report = { entries = { provider("openai@work", "Codex · Work", 42), agy } }
 local _, _, runtime, _, _, _, host = loadPanel(report)
-host.values.panel_context = "openai@work"
+host.values.selected = "openai@work"
 runtime.onOpen()
-assert(host.tree().props.key == "usage" and host.values.selected == "openai@work",
-    "bar handoff must open account detail rather than the general overview")
-assert(host.values.panel_context == nil, "opening consumes the pending context")
-host.values.panel_context = "openai@personal"
-runtime.onClose()
-runtime.onOpen()
-assert(host.tree().props.key == "overview", "a closed bar toggle must not affect the next direct open")
+assert(host.tree().props.key == "overview" and host.values.selected == "openai@work",
+    "opening from the bar must start in the All accounts overview with the account selected")
+assert(has(labels(host.tree()), "Gemini 4 Argon · Weekly")
+    and has(labels(host.tree()), "Claude & GPT OSS · Weekly")
+    and not has(labels(host.tree()), "ui.more_windows"),
+    "Antigravity overview card must show all reported windows and model pools without omission")
 end
 
 -- A local AGY RPC rejection does not establish that the AGY login is expired.

@@ -1122,13 +1122,15 @@ local function overviewCard(entry)
             variant = "ghost", controlSize = "sm", tooltip = noctalia.tr("ui.account_details", { account = name }),
             onClick = function() openAccount(entry) end }),
     }) }
+    local isAntigravity = shared.baseProvider(entry.id) == "antigravity"
+    local maxWindows = isAntigravity and math.huge or 3
     local count = 0
     for _, metric in ipairs(type(entry.metrics) == "table" and entry.metrics or {}) do
-        if type(metric) == "table" and metric.model_pool ~= true then
+        if type(metric) == "table" and (isAntigravity or metric.model_pool ~= true) then
             count = count + 1
-            if count <= 3 then
+            if count <= maxWindows then
                 local label = tostring(metric.label or "")
-                if shared.baseProvider(entry.id) == "antigravity" then
+                if isAntigravity then
                     local window = shared.metricWindow(metric)
                     if window ~= nil then label = label .. " · " .. noctalia.tr("ui." .. window) end
                 end
@@ -1150,8 +1152,8 @@ local function overviewCard(entry)
             end
         end
     end
-    if count > 3 then
-        body[#body + 1] = ui.label({ text = noctalia.tr("ui.more_windows", { count = count - 3 }),
+    if count > maxWindows then
+        body[#body + 1] = ui.label({ text = noctalia.tr("ui.more_windows", { count = count - maxWindows }),
             fontSize = 10, color = "on_surface/0.8" })
     elseif count == 0 then
         body[#body + 1] = ui.label({ text = shared.balanceText(entry) or noctalia.tr("ui.no_usage"),
@@ -1193,11 +1195,13 @@ local function renderOverview(candidates)
     for index = first, last do
         local entry = candidates[index]
         cards[#cards + 1] = overviewCard(entry)
+        local isAntigravity = shared.baseProvider(entry.id) == "antigravity"
+        local maxWindows = isAntigravity and math.huge or 3
         local windows = 0
         for _, metric in ipairs(type(entry.metrics) == "table" and entry.metrics or {}) do
-            if type(metric) == "table" and metric.model_pool ~= true then windows = windows + 1 end
+            if type(metric) == "table" and (isAntigravity or metric.model_pool ~= true) then windows = windows + 1 end
         end
-        height = height + 80 + math.min(windows, 3) * 28 + (windows > 3 and 16 or 0)
+        height = height + 80 + math.min(windows, maxWindows) * 28 + (windows > maxWindows and 16 or 0)
     end
     if #cards == 0 then
         cards[#cards + 1] = ui.label({ text = noctalia.tr("ui.no_usage"), fontSize = 12, color = "on_surface/0.8" })
@@ -1498,9 +1502,6 @@ noctalia.state.watch("catalog_error", function(value)
 end)
 
 function onOpen(context)
-    local requested = noctalia.state.get("panel_context")
-    noctalia.state.set("panel_context", nil)
-    if (context == nil or context == "") and type(requested) == "string" then context = requested end
     expandedDiagnosticKey = nil
     showEnabled, showDisabled = false, false
     showActions = false
@@ -1536,7 +1537,6 @@ function onConfigChanged()
 end
 
 function onClose()
-    noctalia.state.set("panel_context", nil)
     panel.setWantsSecondTicks(false)
 end
 

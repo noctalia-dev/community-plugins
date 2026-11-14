@@ -113,8 +113,8 @@ start = [ "clock", "ai_usage" ]
   with `100%` and counts down to the blocking window's reset. If several windows
   are exhausted, it uses the latest reset. A critical warning below 100% does
   not count as exhaustion.
-- Left click opens the `AI Usage` panel for the provider that capsule
-  tracks.
+- Left click opens the `AI Usage` panel on **All accounts** with the capsule's
+  account highlighted.
 - Right click requests a refresh. One poller serves every capsule and keeps at
   most one pending refresh when requests arrive during a read.
 - Middle click opens the widget's settings, as everywhere else in the shell.
@@ -126,15 +126,16 @@ The script handles left click; the shell opens settings on middle click.
 Right click is a gesture binding in the widget settings, where you can assign
 another action or choose `none`.
 
-Opening the panel directly starts with **All accounts**: a scrolling overview
+Opening the panel starts with **All accounts**: a scrolling overview
 with up to four named account cards per page. Previous/next controls and the
 visible range keep every account reachable. Each card previews up to three
-reported quota windows, or its balance, and shows reading age and stale status.
+reported quota windows (or all reported windows and model pools for Antigravity),
+or its balance, and shows reading age and stale status.
 Extra windows are identified rather than silently dropped. The header states
 whether percentages show used or remaining quota.
 
 Open a card's detail action for all its windows, models, credits and optional
-priorities. Clicking a bar capsule opens its account directly. **All accounts**
+priorities. **All accounts**
 returns to the overview without changing the CLI's active account.
 
 The detail header identifies the selected account and plan. Up to five account

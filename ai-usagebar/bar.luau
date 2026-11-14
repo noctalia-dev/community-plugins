@@ -597,9 +597,8 @@ end)
 
 function onClick()
     local picked = shown()
-    -- Native togglePanel has no context argument; preserve this capsule's account intent.
+    -- Highlight this capsule's account while opening the All accounts overview.
     noctalia.state.set("selected", picked[1] ~= nil and picked[1].id or wantedEntryId())
-    noctalia.state.set("panel_context", picked[1] ~= nil and picked[1].id or "overview")
     noctalia.togglePanel("felipeartur/ai-usagebar:panel")
 end
 

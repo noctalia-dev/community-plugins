@@ -923,6 +923,7 @@ assert(not containsGlyph(noReset.rendered(), "clock"), "missing reset must not r
 end
 
 named.env.onClick()
-assert(named.values.panel_context == "openai@work", "bar clicks must hand the exact account to the panel")
+assert(named.values.selected == "openai@work" and named.values.panel_context == nil,
+    "bar clicks must highlight the account in the overview without bypassing it")
 
 io.write("ok: account selection, unavailable providers, and a steady capsule\n")

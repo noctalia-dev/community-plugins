@@ -34,8 +34,7 @@ retain their full value in a tooltip. Never replace provider names with icons al
 
 Fixed header, a bounded scrolling account overview or detail body,
 and supporting freshness information. Use a content-aware viewport within the manifest's
-maximum, with scrolling for overflow. Keep one panel entry. A bar click opens the corresponding account;
-a direct panel open starts with the overview. Detail navigation has at most five
+maximum, with scrolling for overflow. Keep one panel entry. Opening the panel—including from a bar capsule—starts with the overview and highlights the tracked account. Detail navigation has at most five
 account tabs, with previous/next controls for larger lists.
 
 ## Elevation & Depth
@@ -51,7 +50,7 @@ Preserve the existing 9px card and 8px tab radii. Meters are thin and linear.
 
 The overview renders at most four account cards per page, with an explicit range
 and previous/next controls. Each card identifies an account, shows up to three supplied quota windows
-or its balance, and offers a detail action. Extra windows are disclosed explicitly.
+(or all reported windows and model pools for Antigravity) or its balance, and offers a detail action. Extra windows are disclosed explicitly.
 The detail view retains model groups, credits and optional CLI priorities. Use
 native provider glyphs, clock, refresh, settings, navigation and status icons.
 Unknown providers keep a readable name and neutral glyph. Bar provider/model
