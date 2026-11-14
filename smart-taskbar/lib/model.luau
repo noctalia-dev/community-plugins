@@ -43,8 +43,8 @@ function M.groups(state, c, output, workspaces, previous)
   local groups, byKey, excluded, pinnedSet, groupsByApp = {}, {}, {}, {}, {}
   for _, app in ipairs(c.pinned_apps) do pinnedSet[canonical(c, app)] = true end
   for _, app in ipairs(c.exclusions) do excluded[canonical(c, app)] = true end
-  local function add(w, pinned)
-    local app = canonical(c, w.appId)
+  local function add(w, pinned, app)
+    app = app or canonical(c, w.appId)
     if excluded[app] then return end
     -- Unknown app IDs never merge unrelated windows.
     local appKey = app ~= "" and app or ("window:" .. w.id)
@@ -81,13 +81,14 @@ function M.groups(state, c, output, workspaces, previous)
     end
   end
   local activeWorkspace, workspaceRank = {}, {}
-  local focusedApp
-  for _, w in pairs(state.windows) do if w.focused then focusedApp = canonical(c, w.appId) end end
+  local focusedWindow=state.lastFocus and state.windows[state.lastFocus]
+  local focusedApp=focusedWindow and canonical(c,focusedWindow.appId)
   for i, ws in ipairs(workspaces) do
     workspaceRank[tostring(ws.id)] = ws.idx or i
     if ws.active or ws.focused then activeWorkspace[tostring(ws.id)] = true end
   end
   for _, w in pairs(state.windows) do
+    local app=canonical(c,w.appId)
     local ws = tostring(w.workspace or "")
     local onOutput = c.output_filter ~= "current" or w.output == output
     local visibleWorkspace=activeWorkspace[ws]==true
@@ -96,8 +97,8 @@ function M.groups(state, c, output, workspaces, previous)
     local mode = c.display_mode
     if mode == "workspace" then onWorkspace = visibleWorkspace end
     if mode == "monitor" then onOutput = w.output == output end
-    if (mode ~= "pinned" or pinnedSet[canonical(c, w.appId)]) and onOutput and onWorkspace and (c.show_minimized or not w.minimized)
-      and (mode ~= "active" or (focusedApp ~= nil and canonical(c, w.appId) == focusedApp and (focusedApp~="" or w.focused))) then add(w, false) end
+    if (mode ~= "pinned" or pinnedSet[app]) and onOutput and onWorkspace and (c.show_minimized or not w.minimized)
+      and (mode ~= "active" or (focusedApp ~= nil and app == focusedApp and (focusedApp~="" or w.focused))) then add(w, false, app) end
   end
   if c.display_mode == "running_pinned" or c.display_mode == "pinned" then
     for _, app in ipairs(c.pinned_apps) do
@@ -163,9 +164,15 @@ function M.layout(c, count, groups, offset, vertical)
   local peak, gap = M.peakIconSize(c), c.icon_spacing
   local cell = peak + 8
   offset = offset or 0
-  local total = math.max(0,count-1)*gap
-  for i=1,count do total += M.cellExtent(c,groups and groups[i],vertical) end
   local available = maxWidth - 16
+  -- Only need to know whether content overflows, not its unbounded full extent.
+  local total = 0
+  if c.show_scroll_indicators then
+    for i=1,count do
+      total+=M.cellExtent(c,groups and groups[i],vertical)+(i>1 and gap or 0)
+      if total>available then break end
+    end
+  end
   local indicators = c.show_scroll_indicators and total > available and maxWidth >= 16 + 32 + cell
   if indicators then available -= 32 end
   local used, capacity = 0, 0

@@ -11,6 +11,11 @@ end
 local function text(value)
   return type(value) == "string" and string.gsub(value,"[%c]"," ") or ""
 end
+local function niriWindow(w)
+  if type(w)~="table" or type(w.id)~="number" or w.id<0 or w.id%1~=0 then return nil end
+  return {id=tostring(w.id),appId=text(w.app_id),title=text(w.title),workspace=tostring(w.workspace_id or ""),
+    output="",focused=w.is_focused==true,minimized=false,minimizable=false,urgent=w.is_urgent==true}
+end
 local function replaceWindows(state, windows)
   local previous = {}
   for _, w in ipairs(state.windows) do previous[w.id] = w end
@@ -30,7 +35,9 @@ function M.new(name)
 end
 local function list(payload, key)
   if type(payload) ~= "table" then return nil end
-  return payload[key] or payload
+  local value=payload[key]
+  if value~=nil then return type(value)=="table" and value or nil end
+  return payload
 end
 function M.event(state, event, data)
   if event == "reset" then
@@ -90,18 +97,21 @@ function M.event(state, event, data)
     if event == "WindowsChanged" then
       local windows = list(data, "windows")
       if not windows then return false end
-      local nextState = M.new("niri")
-      for _, w in ipairs(windows) do M.event(nextState,"WindowOpenedOrChanged",{window=w}) end
-      return replaceWindows(state,nextState.windows)
+      if type(windows)~="table" then return false end
+      local normalized,seen={},{}
+      for _,w in ipairs(windows) do
+        local item=niriWindow(w)
+        if item and not seen[item.id] then seen[item.id]=true; table.insert(normalized,item) end
+      end
+      return replaceWindows(state,normalized)
     elseif event == "WindowOpenedOrChanged" then
-      local w = type(data) == "table" and (data.window or data)
-      if type(w)~="table" or w.id == nil then return false end
-      local id = tostring(w.id)
-      local item = { id=id,appId=text(w.app_id),title=text(w.title),workspace=tostring(w.workspace_id or ""),
-        output="",focused=w.is_focused==true,minimized=false,minimizable=false,urgent=w.is_urgent==true }
+      local w=type(data)=="table" and (data.window or data)
+      local item=niriWindow(w)
+      if not item then return false end
+      local id=item.id
       local found, changed = nil, false
       for i, old in ipairs(state.windows) do
-        if old.id == id then found=i; changed=not same(old,item)
+        if old.id == id then found=i; changed=not same(old,item) or changed
         elseif item.focused and old.focused then old.focused=false; changed=true end
       end
       if not found then table.insert(state.windows,item); return true end

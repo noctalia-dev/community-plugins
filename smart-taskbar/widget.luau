@@ -12,6 +12,7 @@ local offset, lastFocus, subscription = 0, nil, nil
 local initialized, dirty = false, true
 local subscriptionGeneration = 0
 local scheduledInterval,reportedProblem = nil,nil
+local cachedLayout, layoutConfig, layoutGroups, layoutOffset, layoutVertical
 local render, refresh, subscribe, handleHover
 local zoomFrom, zoomStart = {}, nil
 
@@ -37,8 +38,15 @@ local function readConfig()
   nextConfig.collapsed_width = math.min(nextConfig.collapsed_width, nextConfig.max_width)
   local changed = not sameValue(config, nextConfig)
   config = nextConfig
-  if changed then icons = {} end
   return changed
+end
+local function getLayout()
+  local vertical=barWidget.isVertical()
+  if not cachedLayout or layoutConfig~=config or layoutGroups~=groups or layoutOffset~=offset or layoutVertical~=vertical then
+    cachedLayout=Model.layout(config,#groups,groups,offset,vertical)
+    layoutConfig,layoutGroups,layoutOffset,layoutVertical=config,groups,offset,vertical
+  end
+  return cachedLayout
 end
 local function log(message)
   if config.diagnostic_logging then noctalia.log(message) end
@@ -110,10 +118,17 @@ end
 local function setHoverTarget(key)
   if key == hoveredKey then return end
   local from = {}
-  for _, group in ipairs(groups) do from[group.key] = hoverLevel(group.key) end
-  hoveredKey = key
-  zoomFrom = from
-  zoomStart = config.hover_enlarge and config.animations and config.animation_duration > 0 and noctalia.nowMs() or nil
+  local animate=config.hover_enlarge and config.animations and config.animation_duration>0
+  if animate then
+    -- Only previously animated icons can have a nonzero starting scale.
+    for previous in pairs(zoomFrom) do
+      local level=hoverLevel(previous)
+      if level>0 then from[previous]=level end
+    end
+    if hoveredKey then from[hoveredKey]=hoverLevel(hoveredKey) end
+  end
+  hoveredKey=key; zoomFrom=from
+  zoomStart=animate and noctalia.nowMs() or nil
   dirty=true -- hover feedback is also available without magnification
 end
 local function icon(group, size, scale)
@@ -199,19 +214,23 @@ refresh = function(reveal)
   local nextRanks = {}
   for i, group in ipairs(groups) do nextRanks[i] = group.key end
   ranks = nextRanks
+  local retainedIcons={}
+  local size=Model.peakIconSize(config)
+  for _,group in ipairs(groups) do retainedIcons[(group.iconId or "")..":"..size]=true end
+  for key in pairs(icons) do if not retainedIcons[key] then icons[key]=nil end end
   -- Preserve the leading identity through membership changes before applying focus reveal.
   if previousKey then
     for i, group in ipairs(groups) do if group.key == previousKey then offset = i - 1; break end end
   end
   local focusIndex
   for i, group in ipairs(groups) do if group.focused then focusIndex = i; break end end
-  local layout = Model.layout(config, #groups, groups, offset, barWidget.isVertical())
+  local layout = getLayout()
   local focusChanged = state.lastFocus ~= lastFocus
   if focusChanged then cursors = {} end
   offset = math.clamp(offset,0,math.max(0,#groups-1))
   if config.auto_reveal_focused and (reveal or focusChanged) and focusIndex then
     if focusIndex<=offset then offset=focusIndex-1 end
-    layout=Model.layout(config,#groups,groups,offset,barWidget.isVertical())
+    layout=getLayout()
     if focusIndex>offset+layout.capacity then
       -- Fit backwards from the target in one pass, even for thousands of apps.
       local available=config.max_width-16-(layout.indicators and 32 or 0)
@@ -228,10 +247,11 @@ refresh = function(reveal)
   dirty = true
 end
 local function navigate(delta)
-  local layout = Model.layout(config, #groups, groups, offset, barWidget.isVertical())
+  local layout = getLayout()
   local amount = config.overflow_behavior == "pages" and layout.capacity or config.scroll_step
-  offset = Model.reveal(offset + delta * amount, layout.capacity, #groups, nil)
-  dirty = true; render()
+  local nextOffset=Model.reveal(offset+delta*amount,layout.capacity,#groups,nil)
+  if nextOffset~=offset then offset=nextOffset; dirty=true end
+  render()
 end
 render = function()
   if not dirty and not transitionStart and not zoomStart then return end
@@ -243,12 +263,13 @@ render = function()
   if not hasWindows then
     -- Keep subscriptions alive so the first matching window can restore the widget.
     hovered, hoveredKey, deadline, transitionStart, zoomStart = false, nil, nil, nil, nil
-    zoomFrom = {}; expanded = config.expand_mode == "always"
+    zoomFrom = {}; cachedLayout,layoutGroups=nil,nil
+    expanded = config.expand_mode == "always"
     barWidget.render(container({ key = "smart-taskbar", visible = false }, {}))
     barWidget.setTooltip("")
     dirty = false; schedule(); return
   end
-  local layout = Model.layout(config, #groups, groups, offset, barWidget.isVertical())
+  local layout = getLayout()
   local children, width = {}, expanded and layout.width or layout.collapsed
   if expanded then
     if layout.indicators then
@@ -352,6 +373,7 @@ function onScroll(axis, steps, startsGesture)
 end
 function onConfigChanged()
   local previousCompatibility = config.compositor_compatibility
+  local previousMode = config.expand_mode
   -- Ignore unrelated host/editor configuration changes without resetting the widget.
   if not readConfig() then return end
   zoomStart = nil; zoomFrom = {}; hoveredKey = nil
@@ -362,7 +384,8 @@ function onConfigChanged()
     state = Model.new()
   end
   subscribe(); cursors = {}; ranks = nil; offset = 0
-  setExpanded(config.expand_mode == "always")
+  if previousMode~=config.expand_mode then setExpanded(config.expand_mode=="always")
+  else deadline=nil; schedule() end
   refresh(true); render()
 end
 function onIpc(event)
