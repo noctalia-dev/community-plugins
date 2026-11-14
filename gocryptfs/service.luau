@@ -519,7 +519,7 @@ local function secureTempDir()
     base = noctalia.pluginDataDir() or "/tmp"
   end
   -- Per-user private subdirectory under the base (not a flat file on world-writable shm).
-  local dir = base .. "/noctalia-gocryptfs." .. tostring(os.getenv("USER") or "user")
+  local dir = base .. "/noctalia-gocryptfs." .. tostring(noctalia.getenv("USER") or "user")
   noctalia.mkdirAll(dir)
   secureTempDirPath = dir
   return dir
