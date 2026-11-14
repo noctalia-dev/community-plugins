@@ -1,6 +1,6 @@
 id           = "mahmoudomiesh/network-monitor"
 name         = "Network Monitor"
-version      = "2.0.1"
+version      = "2.1.0"
 plugin_api   = 43
 author       = "Mahmoud Omiesh"
 license      = "MIT"
@@ -52,6 +52,13 @@ type            = "bool"
 label_key       = "settings.include_udp.label"
 description_key = "settings.include_udp.description"
 default         = false
+
+[[setting]]
+key             = "check_firewall"
+type            = "bool"
+label_key       = "settings.check_firewall.label"
+description_key = "settings.check_firewall.description"
+default         = true
 
 [[service]]
 id    = "scanner"

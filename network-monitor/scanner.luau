@@ -1,10 +1,12 @@
 --!nonstrict
 
 local listeners = require("./listeners.luau")
+local firewall = require("./firewall.luau")
 
 local TICK_MS = 1000
 local HISTORY_LENGTH = 60
 local ssOutput = ""
+local ruleset = nil
 local published = nil
 local scanPending = false
 local nextScanAt = 0
@@ -17,6 +19,12 @@ local function publishListeners()
     hideSystemPorts = noctalia.getConfig("hide_system_ports"),
     onlyOwnProcesses = noctalia.getConfig("only_own_processes"),
   })
+  local checkFirewall = noctalia.getConfig("check_firewall")
+  for _, listener in list do
+    listener.exposure = if checkFirewall
+      then firewall.classify(listener, ruleset)
+      else (if listener.localOnly then "local" else "unknown")
+  end
   -- Stable lists preserve the panel's row identity and hover state across scans.
   local encoded = noctalia.json.encode(list)
   if encoded ~= published then
@@ -39,6 +47,8 @@ local function scan()
     end
     noctalia.state.set("scan_error", false)
     ssOutput = result.stdout
+    -- Re-read each scan so `ufw allow` / `ufw deny` show up without a restart.
+    ruleset = if noctalia.getConfig("check_firewall") then firewall.loadSystem() else nil
     publishListeners()
   end)
 end
@@ -92,6 +102,7 @@ function onIpc(event)
     local ok, err = pcall(function()
       require("./tests/listeners_test.luau")(noctalia.log)
       require("./tests/rates_test.luau")(noctalia.log)
+      require("./tests/firewall_test.luau")(noctalia.log)
     end)
     if not ok then
       noctalia.log(`not ok - {err}`)

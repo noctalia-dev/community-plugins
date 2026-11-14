@@ -8,6 +8,40 @@ local GRAPH_MIN_PEAK = 10000
 local STOP_RESCAN_DELAY_MS = 600
 local HOVER_SETTLE_MS = 32
 
+-- Beside the exposed chip: whether UFW actually lets anyone reach the bind.
+local LOCK_GLYPHS = { firewalled = "lock", limited = "lock-share", exposed = "lock-open" }
+-- Tabler has no Tailscale glyph, so draw its 3x3 dot mark (solid "T") in theme colors.
+local TAILSCALE_SOLID = { false, false, false, true, true, true, false, true, false }
+
+local function tailscaleMark()
+  local rows = {}
+  for r = 0, 2 do
+    local dots = {}
+    for c = 1, 3 do
+      local solid = TAILSCALE_SOLID[r * 3 + c]
+      table.insert(dots, ui.box({
+        width = 4,
+        height = 4,
+        radius = 2,
+        fill = if solid then "tertiary" else "tertiary/0.25",
+      }))
+    end
+    table.insert(rows, ui.row({ gap = 1 }, dots))
+  end
+  return ui.column({ gap = 1 }, rows)
+end
+
+local function firewallIcon(exposure)
+  if exposure == "tailnet" then
+    return tailscaleMark()
+  end
+  return ui.glyph({
+    name = LOCK_GLYPHS[exposure] or "lock",
+    size = 14,
+    color = if exposure == "exposed" then "tertiary" else "on_surface_variant",
+  })
+end
+
 local traffic, listeners, scanError
 local isOpen = false
 -- Hover transfers from a row to its buttons; render after both events arrive.
@@ -63,6 +97,7 @@ local function listenerRow(listener)
   end
   local hovered = (hoverCounts[listener.key] or 0) > 0
   local chipColor = if listener.localOnly then "on_surface_variant" else "tertiary"
+  local hasIcon = LOCK_GLYPHS[listener.exposure] ~= nil or listener.exposure == "tailnet"
 
   return ui.row({ key = listener.key, fill = "surface", radius = 8 }, {
     ui.row({
@@ -91,6 +126,11 @@ local function listenerRow(listener)
         }),
         ui.label({ text = metaLine(listener), fontSize = 11, color = "on_surface_variant", maxLines = 1 }),
       }),
+      ui.row({
+        visible = hasIcon,
+        tooltip = if hasIcon then noctalia.tr(`firewall.{listener.exposure}`) else nil,
+        onHover = onHover,
+      }, { firewallIcon(listener.exposure) }),
       ui.row({ fill = `{chipColor}/0.12`, radius = 3, paddingH = 6, paddingV = 2, onHover = onHover }, {
         ui.label({
           text = noctalia.tr(if listener.localOnly then "panel.local" else "panel.exposed"),
