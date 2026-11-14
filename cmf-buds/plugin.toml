@@ -1,0 +1,79 @@
+# Native control of the CMF Buds Pro 2 (B172) from Noctalia.
+# Speaks RFCOMM with the earbuds: ANC, volume, EQ, Ultra Bass, case-dial
+# gestures, spatial audio, in-ear detection, low latency, multipoint,
+# battery, ring my buds and the fit test.
+
+id = "faminec/cmf-buds"
+name = "CMF Buds"
+version = "1.1.0"
+plugin_api = 43
+author = "faminec"
+license = "MIT"
+dependencies = ["python3", "bluetoothctl", "pactl", "hyprctl", "notify-send", "dbus-monitor"]
+tags = ["audio", "utility", "bar", "panel", "hardware"]
+icon = "headphones"
+description = "Native control for Nothing CMF Buds Pro 2: ANC, EQ, Ultra Bass, case-dial gestures, spatial audio, and more."
+
+[[setting]]
+key = "device_name"
+type = "string"
+label_key = "settings.device_name.label"
+description_key = "settings.device_name.description"
+default = "CMF Buds Pro 2"
+
+[[setting]]
+key = "device_mac"
+type = "string"
+label_key = "settings.device_mac.label"
+description_key = "settings.device_mac.description"
+default = ""
+
+[[setting]]
+key = "glyph"
+type = "glyph"
+label_key = "settings.glyph.label"
+description_key = "settings.glyph.description"
+default = "headphones-filled"
+
+[[setting]]
+key = "volume_step"
+type = "int"
+label_key = "settings.volume_step.label"
+description_key = "settings.volume_step.description"
+default = 1
+min = 1
+max = 25
+
+[[setting]]
+key = "wheel_adjust"
+type = "bool"
+label_key = "settings.wheel_adjust.label"
+description_key = "settings.wheel_adjust.description"
+default = true
+
+[[setting]]
+key = "poll_seconds"
+type = "int"
+label_key = "settings.poll_seconds.label"
+description_key = "settings.poll_seconds.description"
+default = 20
+min = 20
+max = 300
+
+[[widget]]
+id = "widget"
+entry = "widget.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 600
+height = 965
+placement = "attached"
+position = "auto"
+layer = "overlay"
+open_near_click = false
+
+[[service]]
+id = "service"
+entry = "service.luau"
