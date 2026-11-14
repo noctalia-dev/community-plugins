@@ -229,6 +229,14 @@ def get_cached_channel():
             pass
     return 12  # Default on most OPPO Enco Air4 / Air3
 
+def bt_connected(mac):
+    """Return whether BlueZ still reports this device as connected over the ACL link"""
+    try:
+        out = subprocess.check_output(["bluetoothctl", "info", mac], text=True, stderr=subprocess.DEVNULL)
+        return any(line.strip().lower() == "connected: yes" for line in out.splitlines())
+    except Exception:
+        return False
+
 def connect_rfcomm(mac, timeout=1.5):
     # HeyMelody SPP protocol is exclusively on RFCOMM channel 12 (or 13 fallback on older models)
     channels = [12, 13]
@@ -356,7 +364,12 @@ def query_device(mac, device_name=None):
 
     s, ch = connect_rfcomm(mac)
     if not s:
-        # If RFCOMM socket is temporarily busy, return last-known good cached state
+        # RFCOMM can fail either because the earbuds are gone or because the socket is
+        # briefly busy. Tell the two apart by asking BlueZ whether the ACL link is still
+        # up, so a fixed --mac that is no longer connected does not keep a stale cache.
+        if not bt_connected(mac):
+            return {"connected": False, "error": "Device is not connected"}
+        # Still connected over ACL, so the socket was just busy: reuse last-known state.
         if prev_cache and prev_cache.get("connected"):
             prev_cache["timestamp"] = int(time.time())
             return prev_cache
