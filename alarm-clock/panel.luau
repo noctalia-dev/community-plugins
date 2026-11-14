@@ -186,7 +186,7 @@ local function renderNormal()
         end,
       }),
       ui.button({
-        glyph = "trash-2",
+        glyph = "trash",
         variant = "ghost",
         controlSize = "sm",
         tooltip = "Delete alarm",
