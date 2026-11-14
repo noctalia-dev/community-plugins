@@ -19,7 +19,7 @@ A bar button for Hyprland's dwindle layout. One click puts every split on that b
 
 1. Install and enable `soulmanyes/split-reset`.
 2. Add the `bar` widget to your bar.
-3. Click the columns icon. Every split on the workspace shown on that bar's monitor goes back to 50/50.
+3. Click the columns icon. Every split on the workspace shown on that bar's monitor goes back to 50/50. If a special workspace (scratchpad) is open on that monitor, that one is reset instead.
 
 For example: four windows in a 2×2 grid, with the middle divider dragged to one side. One click makes them four equal quarters again.
 
@@ -36,8 +36,8 @@ hl.bind("SUPER + equal", function() split_reset() end)
 
 | Call | Resets |
 | --- | --- |
-| `split_reset()` | the active workspace |
-| `split_reset({ monitor = "DP-1" })` | that monitor's active workspace |
+| `split_reset()` | the focused monitor's open special workspace, else its active workspace |
+| `split_reset({ monitor = "DP-1" })` | that monitor's open special workspace, else its active workspace |
 | `split_reset({ workspace = "3" })` | workspace 3 |
 | `split_reset({ snap = 0.05 })` | only dividers already within 5% of the center |
 
@@ -47,7 +47,7 @@ hl.bind("SUPER + equal", function() split_reset() end)
 - **Processes:** each click runs `hyprctl eval 'dofile("<plugin dir>/split_reset.lua"); split_reset({ monitor = "<this bar's output>" })'`. The plugin makes no network calls and writes no files.
 - **Left alone:** floating windows, workspaces with a fullscreen window, and workspaces with a layout other than dwindle.
 - **One case it can't fix:** a split whose two halves are both split the same way, like a row of four built as `(A|B)|(C|D)`. No window resize reaches that middle divider, so it is skipped. Every other divider still gets reset.
-- Tested on Hyprland 0.56.2 with Noctalia 5.3.0, on a 2×2 grid and on 3- and 4-window dwindle spirals.
+- Tested on Hyprland 0.56.2 and 0.57.1 with Noctalia 5.3.0, on a 2×2 grid, on 3- and 4-window dwindle spirals, and on a special workspace.
 
 ## License
 
