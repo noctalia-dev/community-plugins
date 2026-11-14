@@ -1,40 +1,203 @@
-# Synced lyrics in the terminal, in the spirit of cava/unimatrix.
+# Synced lyrics for the bar, a panel and the desktop, drawn natively.
 #
-# Reads the active MPRIS player with playerctl, looks the lyrics up (LRCLIB,
-# NetEase and the source adapter of Noctalia's Lyrics plugin) and draws them in
-# a floating kitty window with a vertical scroll.
+# A headless service reads the active MPRIS player with playerctl, asks a small
+# Python adapter for the lyrics (LRCLIB, plain or word-timed LRC) and publishes
+# the result on noctalia.state. The bar widget, the panel and the desktop
+# widget are thin UI clients of that state: they build one ui.label per
+# character of the active line, which is how the karaoke fill is drawn.
 #
-# Settings: only the bar glyph is left here. Everything else is changed in the
-# plugin panel (the one opened from the widget), which is where the user has it
-# at hand. Declaring them here duplicated them: Noctalia's settings page and
-# the panel offered the same thing with two different ranges, and the values
-# were read through two different paths. Noctalia keeps the saved keys in the
-# settings.toml even when the manifest does not declare them, and the panel
-# reads them back from there (see lib/settings.luau and `set-setting.py read`),
-# so nothing is lost.
-#
-# The Python script reads those same settings from the settings.toml, plus an
-# overrides file the panel writes for the quick switches.
+# No terminal, no window manager and no image library: everything renders with
+# the declarative UI, so the only dependencies are playerctl and python3.
 
 id = "faminec/lyrics-carousel"
 name = "Lyrics Carousel"
-version = "2.7.1"
+version = "3.0.0"
 plugin_api = 34
 author = "faminec"
 license = "MIT"
-dependencies = ["kitty", "hyprland", "hyprctl", "playerctl", "python3", "python-pillow", "fc-match"]
+dependencies = ["playerctl", "python3"]
 tags = ["music", "system", "utility", "media"]
 icon = "music"
-description = "Synced lyrics in a floating terminal window with karaoke and a large active line."
+description = "Synced lyrics with a native carousel and karaoke, in the bar, a panel and the desktop."
 
-# The only thing that is not in the panel: the icon belongs to the bar widget,
-# configured on this page and not in the lyrics window.
+# -- display -----------------------------------------------------------------
+
 [[setting]]
-key = "glyph"
-type = "glyph"
-label_key = "settings.glyph.label"
-description_key = "settings.glyph.description"
-default = "music"
+key = "font_size"
+type = "int"
+label_key = "settings.font_size.label"
+description_key = "settings.font_size.description"
+default = 22
+min = 6
+max = 96
+
+[[setting]]
+key = "direction"
+type = "select"
+label_key = "settings.direction.label"
+description_key = "settings.direction.description"
+default = "down"
+options = [
+  { value = "down", label_key = "settings.direction.down" },
+  { value = "up", label_key = "settings.direction.up" },
+]
+
+[[setting]]
+key = "marker"
+type = "bool"
+label_key = "settings.marker.label"
+description_key = "settings.marker.description"
+default = false
+
+[[setting]]
+key = "marker_style"
+type = "int"
+label_key = "settings.marker_style.label"
+description_key = "settings.marker_style.description"
+default = 0
+min = 0
+max = 5
+visible_when = { key = "marker", values = ["true"] }
+
+[[setting]]
+key = "karaoke"
+type = "bool"
+label_key = "settings.karaoke.label"
+description_key = "settings.karaoke.description"
+default = true
+
+[[setting]]
+key = "ghost"
+type = "bool"
+label_key = "settings.ghost.label"
+description_key = "settings.ghost.description"
+default = true
+
+[[setting]]
+key = "header"
+type = "bool"
+label_key = "settings.header.label"
+description_key = "settings.header.description"
+default = false
+
+[[setting]]
+key = "footer"
+type = "bool"
+label_key = "settings.footer.label"
+description_key = "settings.footer.description"
+default = false
+
+[[setting]]
+key = "spacing"
+type = "int"
+label_key = "settings.spacing.label"
+description_key = "settings.spacing.description"
+default = 2
+min = 1
+max = 6
+
+[[setting]]
+key = "active_scale"
+type = "double"
+label_key = "settings.active_scale.label"
+description_key = "settings.active_scale.description"
+default = 1.35
+min = 1.0
+max = 2.5
+step = 0.05
+
+[[setting]]
+key = "visible_above"
+type = "int"
+label_key = "settings.visible_above.label"
+description_key = "settings.visible_above.description"
+default = 2
+min = 0
+max = 20
+
+[[setting]]
+key = "visible_below"
+type = "int"
+label_key = "settings.visible_below.label"
+description_key = "settings.visible_below.description"
+default = 2
+min = 0
+max = 20
+
+# -- colour ------------------------------------------------------------------
+
+[[setting]]
+key = "accent"
+type = "select"
+label_key = "settings.accent.label"
+description_key = "settings.accent.description"
+default = "primary"
+options = [
+  { value = "primary", label_key = "settings.accent.primary" },
+  { value = "secondary", label_key = "settings.accent.secondary" },
+  { value = "tertiary", label_key = "settings.accent.tertiary" },
+  { value = "error", label_key = "settings.accent.error" },
+  { value = "custom", label_key = "settings.accent.custom" },
+]
+
+[[setting]]
+key = "custom_color"
+type = "color"
+label_key = "settings.custom_color.label"
+description_key = "settings.custom_color.description"
+default = "#e46767"
+visible_when = { key = "accent", values = ["custom"] }
+
+# -- timing ------------------------------------------------------------------
+
+[[setting]]
+key = "offset_ms"
+type = "int"
+label_key = "settings.offset_ms.label"
+description_key = "settings.offset_ms.description"
+default = 0
+min = -3000
+max = 3000
+step = 10
+
+# -- instrumental gaps -------------------------------------------------------
+
+[[setting]]
+key = "instrumental"
+type = "bool"
+label_key = "settings.instrumental.label"
+description_key = "settings.instrumental.description"
+default = true
+
+[[setting]]
+key = "instrumental_icon"
+type = "int"
+label_key = "settings.instrumental_icon.label"
+description_key = "settings.instrumental_icon.description"
+default = 0
+min = 0
+max = 3
+visible_when = { key = "instrumental", values = ["true"] }
+
+[[setting]]
+key = "instrumental_text"
+type = "string"
+label_key = "settings.instrumental_text.label"
+description_key = "settings.instrumental_text.description"
+default = ""
+visible_when = { key = "instrumental", values = ["true"] }
+
+[[setting]]
+key = "silence_threshold"
+type = "int"
+label_key = "settings.silence_threshold.label"
+description_key = "settings.silence_threshold.description"
+default = 4
+min = 1
+max = 15
+visible_when = { key = "instrumental", values = ["true"] }
+
+# -- entries -----------------------------------------------------------------
 
 [[widget]]
 id = "widget"
@@ -43,12 +206,19 @@ entry = "widget.luau"
 [[panel]]
 id = "panel"
 entry = "panel.luau"
-width = 470
-height = 760
+width = 760
+height = 520
 placement = "attached"
 open_near_click = true
-# The panel has text fields (X and Y): if it closed on an outside click, the
-# user would lose what they were typing. With exclusive focus the keys
-# (including the ones of the lyrics window) do not leak to the desktop.
-dismiss_on_outside_click = false
-keyboard_focus = "exclusive"
+
+[[desktop_widget]]
+id = "desktop"
+entry = "desktop.luau"
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[shortcut]]
+id = "shortcut"
+entry = "shortcut.luau"
