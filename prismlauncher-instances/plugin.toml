@@ -1,6 +1,6 @@
 id = "radimous/prismlauncher-instances"
 name = "PrismLauncher Instances"
-version = "1.0.1"
+version = "1.0.2"
 plugin_api = 3
 author = "radimous"
 license = "MIT"

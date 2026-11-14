@@ -10,19 +10,70 @@ local function getLauncherCommand()
     return noctalia.expandPath(launcherCommand)
 end
 
+local CFG_CACHE_SECONDS = 3
+local instanceDirCache = nil
+local instanceDirCacheAt = 0
+
+-- Prism stores InstanceDir in its main config file; the name differs per fork.
+-- Try the known names first, then any other *.cfg in the data dir.
+local function cfgCandidates(prismPath)
+    local names, seen = {}, {}
+    local function add(name)
+        if name and not seen[name] then
+            seen[name] = true
+            table.insert(names, name)
+        end
+    end
+    add("prismlauncher.cfg")
+    add("polymc.cfg")
+    add("multimc.cfg")
+    local entries = noctalia.listDir(prismPath)
+    if entries ~= nil then
+        for _, entry in ipairs(entries) do
+            if entry:sub(-4) == ".cfg" then add(entry) end
+        end
+    end
+    local existing = {}
+    for _, name in ipairs(names) do
+        if noctalia.fileExists(prismPath .. "/" .. name) then table.insert(existing, name) end
+    end
+    return existing
+end
+
+local function readConfiguredInstanceDir(prismPath)
+    for _, name in ipairs(cfgCandidates(prismPath)) do
+        local value = getCfgValue(prismPath .. "/" .. name, "InstanceDir")
+        if value ~= nil then
+            value = value:gsub("^%s+", ""):gsub("%s+$", "")
+            value = value:gsub('^"(.*)"$', "%1"):gsub("^'(.*)'$", "%1")
+            if value ~= "" then return value end
+        end
+    end
+    return nil
+end
+
 local function getInstancesDir()
     local prismPath = getPrismPath()
 
-    local configuredInstanceDir = getCfgValue(prismPath .. "/*.cfg", "InstanceDir")
+    local now = os.time()
+    if instanceDirCache ~= nil and now - instanceDirCacheAt < CFG_CACHE_SECONDS then
+        return instanceDirCache
+    end
+
+    local configuredInstanceDir = readConfiguredInstanceDir(prismPath)
 
     local instances
     if configuredInstanceDir == nil then -- default path
         instances = prismPath .. "/instances"
     elseif configuredInstanceDir:sub(1, 1) == "/" then -- absolute path
         instances = configuredInstanceDir
-    else -- relative path
+    elseif configuredInstanceDir == "~" or configuredInstanceDir:sub(1, 2) == "~/" then
+        instances = noctalia.expandPath(configuredInstanceDir)
+    else -- relative to the launcher data dir
         instances = prismPath .. "/" .. configuredInstanceDir
     end
+    instances = instances:gsub("/+$", "")
+    instanceDirCache, instanceDirCacheAt = instances, now
     return instances
 end
 
