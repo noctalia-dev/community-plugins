@@ -1,21 +1,29 @@
 {
   "settings": {
+    "account": {
+      "description": "Rótulo opcional da conta nomeada no ai-usagebar. Deixe vazio para a conta padrão. Ignorado quando o provedor é Automático.",
+      "label": "Rótulo da conta"
+    },
+    "auto_providers": {
+      "description": "IDs de provedor ou provedor@conta. Vazio inclui todos. Apenas no modo Automático.",
+      "label": "Filtro automático"
+    },
     "color_by_usage": {
-      "description": "Confere uma tonalidade à leitura à medida que a cota se esgota. A opção \"Off\" mantém a cápsula na cor da própria barra.",
+      "description": "Colore a leitura conforme a severidade da cota. Desative para usar a cor de texto da barra.",
       "label": "Cor por uso"
     },
     "extras": {
-      "description": "O tempo restante na janela, a distância do gasto em relação ao cronômetro, ambos ou nenhum dos dois.",
+      "description": "Exibe a contagem regressiva de reset, o ritmo em relação ao tempo decorrido, ambos ou nenhum.",
       "label": "Leitura complementar",
       "option": {
-        "both": "Ambas",
-        "countdown": "Tempo até a reinicialização",
+        "both": "Ambos",
+        "countdown": "Tempo até o reset",
         "none": "Nenhum",
-        "pace": "Corra contra o relógio"
+        "pace": "Ritmo no tempo"
       }
     },
     "glyph_position": {
-      "description": "Em qual lado da leitura o ícone está posicionado.",
+      "description": "Posiciona o ícone antes ou depois da leitura.",
       "label": "Posição do ícone",
       "option": {
         "after": "Depois",
@@ -23,51 +31,117 @@
       }
     },
     "provider_limit": {
-      "description": "Define quantos provedores uma cápsula exibe, começando pelos mais movimentados e indicando o restante como \"+N\". Aplica-se apenas quando o provedor é definido como \"Automático\".",
-      "label": "Prestadores na cápsula"
+      "description": "Quantos provedores uma cápsula exibe, começando pelos mais ocupados, com +N para o restante. Aplica-se apenas quando o provedor é Automático.",
+      "label": "Provedores na cápsula"
+    },
+    "quota_window": {
+      "description": "Janelas esgotadas têm prioridade. Sem porcentagem se indisponível.",
+      "label": "Janela de cota",
+      "option": {
+        "auto": "Automática",
+        "monthly": "Mensal",
+        "session": "Sessão",
+        "weekly": "Semanal"
+      }
     },
     "refresh_minutes": {
-      "description": "Com que frequência a CLI é solicitada para obter dados de uso atualizados. As contagens regressivas são processadas localmente entre as chamadas.",
+      "description": "Com que frequência a CLI é consultada para dados de uso recentes. As contagens regressivas avançam localmente entre as chamadas.",
       "label": "Intervalo de atualização (minutos)"
     },
     "show_glyph": {
-      "description": "O ícone do provedor. A opção \"Desligado\" deixa a leitura por conta própria.",
+      "description": "Exibe o ícone do provedor ao lado da leitura.",
       "label": "Mostrar ícone"
     },
     "show_name": {
-      "description": "Adiciona o nome do produto ao lado da porcentagem, para que duas cápsulas não pareçam iguais.",
+      "description": "Exibe o nome do provedor ou modelo ao lado da leitura.",
       "label": "Mostrar nome do provedor"
     },
     "show_value": {
-      "description": "A porcentagem como texto. A opção \"Off\" faz com que o indicador a exiba.",
+      "description": "Exibe a porcentagem ou o saldo em texto.",
       "label": "Mostrar valor"
     },
-    "style": {
-      "description": "Como esta cápsula fica no bar.",
-      "label": "Estilo",
+    "usage_display": {
+      "description": "Cota usada ou restante. As cores e a prioridade acompanham o consumo.",
+      "label": "Exibir cota como",
       "option": {
-        "gauge": "Medida e porcentagem",
-        "label": "Nome, calibre e porcentagem",
-        "meter": "Segmentos",
-        "pill": "Percentagem"
+        "remaining": "Restante",
+        "used": "Usada"
       }
     },
     "vendor": {
-      "description": "O plano que esta cápsula monitora. Adicione o widget duas vezes para acompanhar dois.",
-      "label": "Prestador de serviços",
+      "description": "Qual plano esta cápsula acompanha. Adicione o widget duas vezes para monitorar dois.",
+      "label": "Provedor",
       "option": {
         "anthropic": "Claude",
-        "anthropic_api": "API da Anthropic",
+        "anthropic_api": "Anthropic API",
+        "antigravity": "Antigravity",
         "auto": "Automático (primário)",
+        "cline": "Cline",
+        "commandcode": "Command Code",
+        "copilot": "GitHub Copilot",
         "cursor": "Cursor",
+        "deepinfra": "DeepInfra",
         "deepseek": "DeepSeek",
+        "devin": "Devin",
         "grok": "Grok",
-        "kilo": "Quilo"
+        "grokbot": "Grok Bot",
+        "kilo": "Kilo",
+        "kimi": "Kimi",
+        "kiro": "Kiro",
+        "lyceum": "Lyceum",
+        "minimax": "MiniMax",
+        "mistral": "Mistral",
+        "modelstudio": "Model Studio",
+        "moonshot": "Moonshot",
+        "muse_code": "Muse Code",
+        "nous": "Nous Research",
+        "novita": "Novita",
+        "ollama": "Ollama Cloud",
+        "openai": "Codex",
+        "opencode_go": "OpenCode Go",
+        "openrouter": "OpenRouter",
+        "orcarouter": "OrcaRouter",
+        "supergrok": "SuperGrok",
+        "synthetic": "Synthetic",
+        "zai": "Z.AI",
+        "droid": "Droid",
+        "deeprelay": "DeepRelay"
       }
+    },
+    "visualization": {
+      "description": "Exibe barras de cota ao lado da leitura ou as oculta.",
+      "label": "Visualização",
+      "option": {
+        "gauge": "Barra de cota",
+        "none": "Sem barras"
+      }
+    },
+    "show_priorities": {
+      "label": "Mostrar prioridades",
+      "description": "Exibe estimativas de prioridade dentro de cada cartão de modelo. Registra o histórico de cota localmente enquanto ativado."
     }
   },
   "ui": {
+    "back_to_usage": "Voltar ao uso",
+    "close": "Fechar",
+    "copy_summary": "Copiar resumo de uso",
     "details": "Detalhes",
+    "diagnostics_check_cli": "Verifique este provedor e conta no ai-usagebar para mais detalhes e atualize o uso.",
+    "diagnostics_configure": "Configure as credenciais deste provedor para o ai-usagebar e atualize o status e o uso.",
+    "diagnostics_disabled": "Provedores desativados ({count})",
+    "diagnostics_enabled": "Outros provedores ativados ({count})",
+    "diagnostics_antigravity_auth": "Execute agy -p /quota primeiro. Se a cota funcionar, verifique a integração do servidor local; caso contrário, verifique seu login no Antigravity.",
+    "diagnostics_local_app": "Se o Antigravity estiver fechado, abra-o para iniciar o servidor local e atualize o uso. Nenhuma chave de API é necessária.",
+    "diagnostics_login": "Verifique as credenciais e o acesso desta conta no provedor e atualize o uso.",
+    "diagnostics_no_problems": "Nenhum problema encontrado nos relatórios disponíveis. A presença de credenciais não confirma uma conexão ativa.",
+    "diagnostics_no_usage": "O uso atual está indisponível.",
+    "diagnostics_old_usage": "O uso exibido é uma leitura antiga.",
+    "diagnostics_recheck": "Atualize o uso para verificar se este problema anterior persiste.",
+    "diagnostics_refresh_status": "Atualizar status",
+    "diagnostics_refresh_usage": "Atualizar uso",
+    "diagnostics_retry": "Aguarde um instante e atualize o uso.",
+    "diagnostics_update_cli": "Atualize o ai-usagebar e atualize o uso para tentar ler este relatório novamente.",
+    "diagnostics_usage_status": "Relatório de uso indisponível",
     "elapsed": "{percent}% da janela decorridos",
     "error": {
       "failed": "Não foi possível ler o uso",
@@ -79,17 +153,84 @@
       "spawn_failed": "Não foi possível iniciar o ai-usagebar",
       "spawn_failed_hint": "O processo nunca foi iniciado. Tente novamente em instantes.",
       "timed_out": "ai-usagebar não respondeu",
-      "timed_out_hint": "A leitura demorou muito. Um provedor pode estar respondendo lentamente."
+      "timed_out_hint": "A leitura demorou muito. Um provedor pode estar respondendo lentamente.",
+      "too_large": "O relatório de uso é grande demais",
+      "too_large_hint": "O relatório da CLI excedeu os limites de exibição. A última leitura foi preservada; reduza o tamanho do relatório ou verifique a saída da CLI e tente novamente."
     },
     "hidden_label": "Não exibido",
     "hidden_value": "Mais {count}, clique para abrir o painel",
-    "loading": "Carregando…",
+    "install": "Página de instalação",
+    "last_reading": "Última leitura há {minutes} min",
+    "last_reading_now": "Última leitura há instantes",
+    "more_actions": "Mais ações",
+    "no_matching_providers": "Nenhum provedor correspondente",
     "no_usage": "Nenhum uso registrado",
     "not_configured": "`{vendor}` não está configurado no ai-usagebar",
     "now": "agora",
-    "retry": "Tente novamente",
+    "open_dashboard": "Abrir painel web",
+    "plan_changed": "O plano mudou; as leituras obtidas no plano anterior foram descartadas.",
+    "provider_setup": "Diagnóstico",
+    "quota_exhausted": "Cota esgotada",
+    "quota_reset": "Renova em {time}",
+    "refresh": "Atualizar agora",
+    "refresh_queued": "Atualização na fila",
+    "refreshing": "Atualizando uso",
+    "remaining": "Restante",
+    "retry": "Tentar novamente",
+    "session": "Sessão",
+    "settings": "Configurações do plugin",
+    "setup_credentials_found": "Credenciais encontradas",
+    "setup_disabled": "Desativado no ai-usagebar",
+    "setup_empty": "Nenhum provedor reportado",
+    "setup_hint": "Verifique as falhas relatadas e a configuração local dos provedores.",
+    "setup_loading": "Lendo provedores…",
+    "setup_no_credential": "Sem credencial necessária",
+    "setup_required": "Configuração necessária",
+    "setup_unavailable": "Status dos provedores indisponível",
+    "severity": {
+      "critical": "crítico",
+      "high": "alto"
+    },
+    "stale": "desatualizado",
     "stale_hint": "exibindo os últimos dados conhecidos",
+    "time_remaining": "{percent}% da janela restantes",
     "title": "Uso de IA",
-    "unavailable": "Indisponível"
+    "tooltip_more": "Clique no widget para detalhes.",
+    "unavailable": "Indisponível",
+    "updated": "Atualizado",
+    "updated_ago": "Atualizado há {minutes} min",
+    "updated_now": "Atualizado agora",
+    "used": "Usado",
+    "waiting": "Aguardando dados de uso",
+    "weekly": "Semanal",
+    "window_unavailable": "Esta janela não é reportada",
+    "regenerates_in": "Regenera {amount} em {time}",
+    "regenerates_at": "Regenera {amount} às {time}",
+    "priorities": "Prioridades",
+    "priorities_unavailable": "Este relatório não inclui prioridades. Atualize ou use o ai-usagebar 1.46 ou superior.",
+    "priorities_no_history": "O histórico recente está indisponível. As estimativas usam a média da janela.",
+    "priority_recommended": "Sugerido",
+    "priority_unused": "{percent}% projetados sem uso até o reset",
+    "priority_remaining": "{percent}% restantes",
+    "priority_session_blocked": "Cota da sessão esgotada. Verifique o reset em Uso.",
+    "priority_status": {
+      "priority": "Prioridade",
+      "on_track": "No ritmo",
+      "blocked": "Cota semanal esgotada",
+      "unavailable": "Uso indisponível",
+      "unknown": "Dados insuficientes para estimar"
+    },
+    "priority_expired": "O horário de reset passou. Atualize para confirmar a próxima janela.",
+    "priority_scope_account": "Prioridades da conta",
+    "priority_not_reported": "Sem estimativa de prioridade para esta conta.",
+    "overview": "Todas as contas",
+    "previous_page": "Contas anteriores",
+    "next_page": "Próximas contas",
+    "account_count": "Contas: {count}",
+    "account_details": "Ver detalhes de {account}",
+    "more_windows": "+{count} janelas nos detalhes",
+    "previous_account": "Conta anterior",
+    "next_account": "Próxima conta",
+    "empty_hint": "Configure um provedor no ai-usagebar e atualize. O Diagnóstico explica contas indisponíveis."
   }
 }

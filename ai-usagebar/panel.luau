@@ -76,16 +76,21 @@ local function entries()
     return visibleEntries
 end
 
+local function configuredEntries()
+    local list = {}
+    for _, entry in ipairs(entries()) do
+        if configured(entry) then list[#list + 1] = entry end
+    end
+    return list
+end
+
 local function currentEntry()
     local wanted = noctalia.state.get("selected")
-    local first = nil
-    for _, entry in ipairs(entries()) do
-        if configured(entry) then
-            if entry.id == wanted then return entry end
-            if first == nil then first = entry end
-        end
+    local list = configuredEntries()
+    for _, entry in ipairs(list) do
+        if entry.id == wanted then return entry end
     end
-    return first
+    return list[1]
 end
 
 local function updatedText(entry)
@@ -104,8 +109,29 @@ local function severityWord(section)
     return noctalia.tr("ui.severity." .. severity)
 end
 
+local function windowTiming(section)
+    local paceText, _, paceWord = pace(section and section.detail)
+    local elapsed = shared.elapsedPercent(section and section.detail)
+    if elapsed == nil then
+        local at = parseIso(section and section.reset_at)
+        local win = tonumber(section and section.window_secs)
+        if at ~= nil and win ~= nil and win > 0 then
+            local rem = math.max(0, at - os.time())
+            if rem <= win then
+                elapsed = math.floor(((win - rem) / win) * 100 + 0.5)
+            end
+        end
+    end
+    local remaining = shared.isRemaining(section, displayMode())
+    local timePercent = elapsed ~= nil and elapsed >= 0 and elapsed <= 100
+        and (remaining and (100 - elapsed) or elapsed) or nil
+    local timeTooltip = timePercent ~= nil and noctalia.tr(
+        remaining and "ui.time_remaining" or "ui.elapsed", { percent = timePercent }) or nil
+    return paceText, paceWord, elapsed, timePercent, timeTooltip
+end
+
 -- One reading, without the card around it. `title` names it: the metric's own
--- label, or the window's name inside a card that stacks a model's readings.
+-- label, or the window's name inside a model card.
 local function metricRows(section, title)
     local percent = shared.displayPercent(section, displayMode())
     local tint = severityRole(section, "on_surface")
@@ -118,14 +144,7 @@ local function metricRows(section, title)
     if clock ~= "" and type(section.regen) == "string" and noctalia.string.trim(section.regen) ~= "" then
         clock = noctalia.tr("ui.regenerates_at", { amount = section.regen, time = clock })
     end
-    local paceText, _, paceWord = pace(section.detail)
-
-    local elapsed = shared.elapsedPercent(section.detail)
-    local remaining = shared.isRemaining(section, displayMode())
-    local timePercent = elapsed ~= nil and elapsed >= 0 and elapsed <= 100
-        and (remaining and (100 - elapsed) or elapsed) or nil
-    local timeTooltip = timePercent ~= nil and noctalia.tr(
-        remaining and "ui.time_remaining" or "ui.elapsed", { percent = timePercent }) or nil
+    local paceText, paceWord, _, timePercent, timeTooltip = windowTiming(section)
     local resetStr = shared.resetDescription(section)
 
     local displayTitle = tostring(title or "")
@@ -381,18 +400,21 @@ local function recordAge(entry)
     return noctalia.tr("ui.last_reading", { minutes = minutes })
 end
 
+local function isGeminiPool(section, label)
+    return section.model_pool == true
+        and (label == "Gemini" or label:match("^Gemini%s") ~= nil)
+end
+
 -- Every reading a provider sent, grouped into the subjects it is read by:
 -- Windowed reports group by model; other reports keep their readings in one
 -- provider card. The card and the record share this grouping.
 local function groupReadings(items, windowed, entry)
     local order, byName, pools = {}, {}, {}
+    local antigravity = windowed and entry ~= nil and shared.baseProvider(entry.id) == "antigravity"
     for _, item in ipairs(items) do
         if item.section.type == "metric" then
             local label = tostring(item.section.label or "")
-            local geminiPool = windowed and entry ~= nil
-                and shared.baseProvider(entry.id) == "antigravity"
-                and item.section.model_pool == true
-                and (label == "Gemini" or label:match("^Gemini%s") ~= nil)
+            local geminiPool = antigravity and isGeminiPool(item.section, label)
             local name = geminiPool and "Gemini" or windowed and label or ""
             if byName[name] == nil then
                 byName[name] = {}
@@ -1114,18 +1136,7 @@ end
 local function overviewMetricNode(metric, label)
     local text = shared.metricText(metric, displayMode())
     local left = shared.countdown(metric)
-    local paceText, _, paceWord = pace(metric.detail)
-    local elapsed = shared.elapsedPercent(metric.detail)
-    if elapsed == nil then
-        local at = parseIso(metric and metric.reset_at)
-        local win = tonumber(metric and metric.window_secs)
-        if at ~= nil and win ~= nil and win > 0 then
-            local rem = math.max(0, at - os.time())
-            if rem <= win then
-                elapsed = math.floor(((win - rem) / win) * 100 + 0.5)
-            end
-        end
-    end
+    local paceText, paceWord, elapsed, timePercent, timeTooltip = windowTiming(metric)
     if paceWord == nil and elapsed ~= nil and tonumber(metric and metric.percent) ~= nil then
         local delta = (tonumber(metric.percent) or 0) - elapsed
         if math.abs(delta) <= 5 then
@@ -1134,17 +1145,13 @@ local function overviewMetricNode(metric, label)
             paceWord = delta > 0 and "ahead" or "behind"
         end
     end
-    local remaining = shared.isRemaining(metric, displayMode())
-    local timePercent = elapsed ~= nil and elapsed >= 0 and elapsed <= 100
-        and (remaining and (100 - elapsed) or elapsed) or nil
     local clock = resetClock(metric)
     local tipParts = {}
     if clock ~= "" then tipParts[#tipParts + 1] = clock end
     if paceText ~= "" then
         tipParts[#tipParts + 1] = paceText
-    elseif timePercent ~= nil then
-        tipParts[#tipParts + 1] = noctalia.tr(
-            remaining and "ui.time_remaining" or "ui.elapsed", { percent = timePercent })
+    elseif timeTooltip ~= nil then
+        tipParts[#tipParts + 1] = timeTooltip
     end
     local rowTooltip = #tipParts > 0 and table.concat(tipParts, " · ") or nil
 
@@ -1184,8 +1191,7 @@ local function antigravityOverviewGroups(entry)
     for _, metric in ipairs(type(entry.metrics) == "table" and entry.metrics or {}) do
         if type(metric) == "table" then
             local rawLabel = tostring(metric.label or "")
-            local geminiPool = metric.model_pool == true
-                and (rawLabel == "Gemini" or rawLabel:match("^Gemini%s") ~= nil)
+            local geminiPool = isGeminiPool(metric, rawLabel)
             local family = geminiPool and "Gemini" or rawLabel
             if byName[family] == nil then
                 byName[family] = {}
@@ -1393,12 +1399,7 @@ function render()
         return
     end
 
-    local candidates = {}
-    for _, candidate in ipairs(entries()) do
-        if configured(candidate) then
-            candidates[#candidates + 1] = candidate
-        end
-    end
+    local candidates = configuredEntries()
 
     if showOverview then renderOverview(candidates); return end
 
@@ -1609,7 +1610,7 @@ function onOpen(context)
     catalog = noctalia.state.get("catalog")
     catalogLoading = noctalia.state.get("catalog_loading") == true
     catalogError = noctalia.state.get("catalog_error") == true
-    if not showSetup and context ~= "priorities" and context ~= "overview" and type(context) == "string" and context ~= "" then
+    if not showSetup and not showOverview and type(context) == "string" then
         noctalia.state.set("selected", context)
     end
     -- Every open asks for fresh numbers. The CLI answers from its cache when it
@@ -1654,15 +1655,13 @@ function onKey(chord, pressed)
     elseif lower == "r" then
         if showSetup then requestCatalog() else requestRefresh() end
     elseif not showSetup and (lower == "up" or lower == "down" or lower == "left" or lower == "right") then
-        local list = {}
+        local list = configuredEntries()
         local currentIndex = 1
         local current = currentEntry()
-        for _, candidate in ipairs(entries()) do
-            if configured(candidate) then
-                list[#list + 1] = candidate
-                if current ~= nil and candidate.id == current.id then
-                    currentIndex = #list
-                end
+        for index, candidate in ipairs(list) do
+            if current ~= nil and candidate.id == current.id then
+                currentIndex = index
+                break
             end
         end
         if #list > 1 then

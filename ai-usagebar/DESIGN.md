@@ -34,7 +34,7 @@ retain their full value in a tooltip. Never replace provider names with icons al
 
 Fixed header, a bounded scrolling account overview or detail body,
 and supporting freshness information. Use a content-aware viewport within the manifest's
-maximum, with scrolling for overflow. Keep one panel entry. Opening the panel—including from a bar capsule—starts with the overview and highlights the tracked account. Detail navigation has at most five
+maximum, with scrolling for overflow. Keep one panel entry. Opening the panel, including from a bar capsule, starts with the overview and highlights the tracked account. Detail navigation has at most five
 account tabs, with previous/next controls for larger lists.
 
 ## Elevation & Depth

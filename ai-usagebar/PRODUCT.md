@@ -4,8 +4,7 @@
 
 ## Platform
 
-Native Linux desktop: Noctalia's declarative Luau plugin API. This is neither a
-web interface nor an iOS/Android application.
+adaptive
 
 ## Users
 
@@ -26,7 +25,8 @@ it does not switch an agent's login. Priorities remain opt-in.
 
 ## Operating Context
 
-The plugin follows the system palette, font and scale. Different widget instances
+Native Linux desktop on Noctalia's declarative Luau plugin API. The plugin follows
+the system palette, font and scale. Different widget instances
 can follow different accounts. English strings are maintained here; other locales
 are managed through Noctalia Translate. Contributions follow the repository README.
 

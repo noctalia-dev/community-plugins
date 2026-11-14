@@ -88,6 +88,19 @@ local function rank(entry)
     return SEVERITY_RANK[tostring(metric.severity or "")] or 0, tonumber(metric.percent) or -1
 end
 
+local function readyEntries()
+    local ready = {}
+    for _, entry in ipairs(entries()) do
+        -- A provider whose service is down drops out on the first report that
+        -- says so, rather than sitting there with a frozen reading. Not counted
+        -- as hidden either: hidden means the panel has more to show.
+        if (entry.status ~= "error" and not unavailable(entry)) or shared.readFailure(entry) then
+            ready[#ready + 1] = entry
+        end
+    end
+    return ready
+end
+
 -- A pinned vendor shows only itself. "auto" ranks by severity then percentage,
 -- so the provider closest to running out is the one on the bar. `primary` breaks
 -- ties.
@@ -106,15 +119,7 @@ local function shown()
         return {}, 0
     end
 
-    local ready = {}
-    for _, entry in ipairs(all) do
-        -- A provider whose service is down drops out on the first report that
-        -- says so, rather than sitting there with a frozen reading. Not counted
-        -- as hidden either: hidden means the panel has more to show.
-        if (entry.status ~= "error" and not unavailable(entry)) or shared.readFailure(entry) then
-            ready[#ready + 1] = entry
-        end
-    end
+    local ready = readyEntries()
     local primary = type(report) == "table" and report.primary or nil
     -- The CLI names its primary either as a provider or as one of its accounts,
     -- so an entry answers to the whole id and to the part before the "@".
@@ -606,12 +611,7 @@ end
 
 function onScroll(_axis, steps, _startsGesture)
     if vendor ~= "auto" then return end
-    local ready = {}
-    for _, entry in ipairs(entries()) do
-        if (entry.status ~= "error" and not unavailable(entry)) or shared.readFailure(entry) then
-            ready[#ready + 1] = entry
-        end
-    end
+    local ready = readyEntries()
     if #ready <= 1 then return end
 
     if steps > 0 then
