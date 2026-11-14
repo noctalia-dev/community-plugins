@@ -14,7 +14,7 @@ end
 function M.reconcile(state, snapshot)
   local nextWindows = {}
   for _, source in ipairs(snapshot) do
-    local id = tostring(source.id)
+    local id = tostring(source.id or "")
     if id ~= "" and not nextWindows[id] then
       local old = state.windows[id]
       local w = table.clone(source)
@@ -40,7 +40,7 @@ local function canonical(c, app)
   return M.appId(c.app_aliases[id] or id)
 end
 function M.groups(state, c, output, workspaces, previous)
-  local groups, byKey, excluded, pinnedSet = {}, {}, {}, {}
+  local groups, byKey, excluded, pinnedSet, groupsByApp = {}, {}, {}, {}, {}
   for _, app in ipairs(c.pinned_apps) do pinnedSet[canonical(c, app)] = true end
   for _, app in ipairs(c.exclusions) do excluded[canonical(c, app)] = true end
   local function add(w, pinned)
@@ -54,8 +54,8 @@ function M.groups(state, c, output, workspaces, previous)
     elseif c.grouping == "windows" then key = "win:" .. M.identity(w.id) end
     if pinned then
       -- Pins join an existing application group, even with workspace/window grouping.
-      for _, g in ipairs(groups) do
-        if g.appId == app then g.pinned = true; g.launchId = w.appId; return end
+      if groupsByApp[app] then
+        groupsByApp[app].pinned=true; groupsByApp[app].launchId=w.appId; return
       end
       key = "pin:" .. M.identity(app)
     end
@@ -63,10 +63,14 @@ function M.groups(state, c, output, workspaces, previous)
     if not g then
       g = { key = key, appId = app, iconId = w.appId, title = w.title or app,
         windows = {}, order = w.order or math.huge, recent = 0, focused = false,
-        minimized = pinned ~= true, urgent = false, workspace = w.workspace or "", pinned = pinned == true, launchId = pinned and w.appId or nil }
+        iconOrder=w.order or math.huge, minimized = pinned ~= true, urgent = false, workspace = w.workspace or "", pinned = pinned == true, launchId = pinned and w.appId or nil }
       byKey[key] = g; table.insert(groups, g)
     end
     if not pinned then
+      groupsByApp[app]=groupsByApp[app] or g
+      if w.focused or (not g.focused and w.order<g.iconOrder) then
+        g.iconOrder=w.order; g.iconId=w.appId; g.appId=app; g.title=w.title
+      end
       table.insert(g.windows, w)
       g.order = math.min(g.order, w.order)
       g.recent = math.max(g.recent, w.recent)
@@ -86,12 +90,14 @@ function M.groups(state, c, output, workspaces, previous)
   for _, w in pairs(state.windows) do
     local ws = tostring(w.workspace or "")
     local onOutput = c.output_filter ~= "current" or w.output == output
-    local onWorkspace = c.workspace_filter ~= "active" or activeWorkspace[ws] == true
+    local visibleWorkspace=activeWorkspace[ws]==true
+    for _,member in ipairs(w.workspaces or {}) do visibleWorkspace=visibleWorkspace or activeWorkspace[member]==true end
+    local onWorkspace = c.workspace_filter ~= "active" or visibleWorkspace
     local mode = c.display_mode
-    if mode == "workspace" then onWorkspace = activeWorkspace[ws] == true end
+    if mode == "workspace" then onWorkspace = visibleWorkspace end
     if mode == "monitor" then onOutput = w.output == output end
     if (mode ~= "pinned" or pinnedSet[canonical(c, w.appId)]) and onOutput and onWorkspace and (c.show_minimized or not w.minimized)
-      and (mode ~= "active" or (focusedApp ~= nil and canonical(c, w.appId) == focusedApp)) then add(w, false) end
+      and (mode ~= "active" or (focusedApp ~= nil and canonical(c, w.appId) == focusedApp and (focusedApp~="" or w.focused))) then add(w, false) end
   end
   if c.display_mode == "running_pinned" or c.display_mode == "pinned" then
     for _, app in ipairs(c.pinned_apps) do

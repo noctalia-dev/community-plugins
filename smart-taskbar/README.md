@@ -2,7 +2,7 @@
 
 A compact application dock inside the Noctalia bar: grouped windows, focused-app switching, optional hover enlargement, and a clipped icon strip that stays within its width budget.
 
-**Requires plugin API 52+.** Umbriel works on API 52/53 through its public CLI event stream; API 54+ uses native subscriptions. Native desktop acceptance and real screenshots remain pending. The images below are labeled offline fixture previews.
+**Requires plugin API 52+.** Version 1.0.0 release candidate supports Umbriel, niri, Hyprland, Mango and Sway through public compositor protocols. Umbriel and niri prefer native subscriptions on API 54+. Native desktop acceptance and real screenshots remain pending. The images below are labeled offline fixture previews.
 
 ## Plugin
 
@@ -16,10 +16,13 @@ A compact application dock inside the Noctalia bar: grouped windows, focused-app
 ## Requirements
 
 - Noctalia with API 52 or newer. Use the host's reported API range rather than the version label alone.
-- `umbriel` and `sleep` on PATH for the API 52/53 event stream. `sleep` is a standard system utility; `umbriel` is the compositor's CLI.
-- `gtk-launch` only for launching pinned desktop entries. Preserve their original desktop-entry ID case.
-- `niri` on PATH for focus/close actions under niri, which requires API 54 native subscriptions. Minimize is unavailable there.
-- Hyprland, Sway, Mango, labwc, and KDE currently have no adapter and the widget stays hidden.
+- Umbriel: `umbriel` and `sleep` on PATH on API 52/53. API 54+ native events need neither helper.
+- niri: `niri` for explicit focus/close actions; `niri` and `sleep` for the event stream on API 52/53.
+- Hyprland: Python 3.9+ (`python3`) for public local socket events/snapshots; `hyprctl` for explicit focus/close actions.
+- Mango: Python 3.9+ (`python3`) and public `watch all-clients` / `watch all-monitors` support; `mmsg` for explicit focus/close/minimize actions.
+- Sway: Python 3.9+ (`python3`) for public i3 IPC; `swaymsg` for explicit focus/close actions.
+- `gtk-launch` only for launching pinned desktop entries. Preserve their original desktop-entry ID case. Launches are detached from widget reload; immediate launch failures are reported, but desktop-entry utility errors are not captured.
+- Install only the dependencies for your compositor and enabled features. Missing helpers are reported without a repeated process-start loop. Other compositors, including labwc and KDE, stay hidden.
 
 ## Usage
 
@@ -93,7 +96,7 @@ Expand **Widget** in the normal settings dialog. All plugin controls are shown t
 | Applications | `grouping` | `"app"` | Unknown application IDs remain separate. Workspace groups use a representative application icon. |
 | Applications | `workspace_filter` | `"all"` | Active uses compositor active or focused workspaces; combines with output filtering. |
 | Applications | `output_filter` | `"all"` | Current means this bar instance’s output, not the globally focused monitor. |
-| Applications | `show_minimized` | `true` | Umbriel reports minimized state; unavailable state is treated as not minimized. |
+| Applications | `show_minimized` | `true` | Umbriel and Mango report minimized state; unavailable state is treated as not minimized. |
 | Applications | `sorting` | `"launch"` | Launch order means first observed order. Manual order is per instance and resets on reload. |
 | Applications | `pinned_apps` | `[]` | Exact desktop-entry IDs for launchers. Launchers appear with matching open windows; the entire widget hides when no matching windows remain. |
 | Applications | `exclusions` | `[]` | Exact normalized desktop/application IDs. No shell patterns. |
@@ -120,9 +123,9 @@ Expand **Widget** in the normal settings dialog. All plugin controls are shown t
 | Interaction | `scroll_step` | `1` | Application items per wheel gesture in item mode. |
 | Interaction | `auto_reveal_focused` | `true` | Reveal on focus changes and expansion. Manual wheel navigation remains usable until focus changes. |
 | Advanced | `app_aliases` | `{}` | Map normalized unusual application IDs to desktop-entry IDs. Matching ignores case and a .desktop suffix. |
-| Advanced | `refresh_fallback` | `60` | Retry interval if subscription startup fails. A disconnected Umbriel CLI stream reconnects after two seconds. |
+| Advanced | `refresh_fallback` | `60` | Retry interval if subscription startup fails. Umbriel/niri CLI streams reconnect after two seconds; socket bridges back off from 1 to 30 seconds. |
 | Advanced | `diagnostic_logging` | `false` | Log subscription and action errors. Window titles are not logged. |
-| Advanced | `compositor_compatibility` | `"auto"` | Umbriel supports API 52+. niri requires API 54 for native events. |
+| Advanced | `compositor_compatibility` | `"auto"` | Auto-detect Umbriel, niri, Hyprland, Mango or Sway; explicit selection validates the detected compositor. |
 
 ## IPC
 
@@ -148,12 +151,13 @@ Offline fixture renders use the actual Luau UI trees with an illustrative palett
 
 Umbriel window/workspace snapshots normalize stable IDs, identity, output, focus and minimized state. Focus, close and minimize use `noctalia.umbriel.action`; restore uses focus. Scratchpads without a workspace are excluded. Urgency appears only if supplied by the compositor.
 
-niri uses native events on API 54+ and argument-array CLI commands for explicit focus/close actions. It has no minimize action. Missing adapters stay hidden. Subscription resets clear stale identities and new snapshots rebuild the view. Titles are displayed locally and never logged.
+niri uses native events on API 54+ or its JSON CLI event stream on API 52/53. Hyprland, Mango and Sway use one host-owned Python standard-library helper per widget, reading public local UNIX sockets. Hyprland and Sway reconcile snapshots after relevant events, coalescing bursts; Mango merges its two watched snapshot streams. No polling or query subprocesses run while idle. Mango multi-tag windows remain visible on any active matching tag and count once. Focus and close use validated argument-array CLI commands with a five-second timeout. Minimize is available only on Umbriel and Mango; focus restores supported minimized windows. No scratchpad workaround is used for other compositors.
 
+Disconnection clears stale state and reconnects automatically. Subscription replay reuses the existing helper. Compatibility is protocol-tested, with live desktop acceptance pending; see the source repository's `docs/COMPATIBILITY.md`.
 Application grouping uses exact normalized IDs without fuzzy-merging distinct applications. Missing IDs stay separate. Cached `noctalia.appIconPath` handles desktop-entry, StartupWMClass and fuzzy icon matching; a theme glyph replaces missing icons. Use `app_aliases` for unusual IDs. Settings are read-only from plugins, so pin lists are edited through the normal settings GUI. Native context menus are public only for panels; this single-widget plugin offers settings on right click.
 
-The plugin makes **no network calls or filesystem writes**. API 54+ uses one native compositor subscription per widget. On API 52/53, one host-managed shell runs `umbriel subscribe windows workspaces`, clearing stale state and reconnecting two seconds after disconnection. A healthy stream sleeps in its socket read, without window polling. The host cancels the shell/CLI/sleep process group on reload or disable. Compatibility-setting toggles pause delivery and replay cached snapshots, reusing that stream until teardown. Explicit pin launches and niri actions also spawn processes; nothing starts per icon or animation frame.
+The plugin makes **no network calls or filesystem writes**. Native Umbriel/niri subscriptions need no helper. API 52/53 starts one host-managed reconnecting shell/CLI stream. Hyprland/Mango/Sway start one Python helper, blocked on local socket events while idle. Noctalia owns process-group cleanup on reload/disable. Compatibility toggles pause delivery and replay cached snapshots without duplicating streams. Explicit pin launches and window actions also spawn processes; nothing starts per icon or animation frame. Snapshot framing stays below the host stream-line limit, and complete snapshots are applied atomically. Geometry-only updates do not rebuild the widget.
 
 Animations run briefly at about 30 Hz while changing. No render loop runs while idle or hidden, and hover animation does not resolve icons repeatedly. Theme colors are host palette roles. Badges are paint-transformed over fixed icon cells using public API 52 controls.
 
-Compilation, fixture tests, a shell-stream lifecycle test, and canonical manifest validation run automatically. Native desktop screenshots, multi-monitor/DPI acceptance, real gesture delivery, and resource measurements remain pending; see the source repository's `docs/TESTING.md`.
+Compilation, fixture tests, two shell-stream lifecycle tests and local socket protocol tests, and canonical manifest validation run automatically. Native desktop screenshots, multi-monitor/DPI acceptance, real gesture delivery, and resource measurements remain pending; see the source repository's `docs/TESTING.md`.

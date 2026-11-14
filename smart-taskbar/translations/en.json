@@ -1,7 +1,7 @@
 {
   "title": "Smart Taskbar",
   "hint": "Click to expand or collapse • Wheel to navigate • Right click for settings",
-  "disconnected": "No compositor snapshot. Umbriel needs API 52+ and its CLI; niri needs API 54. Right click for settings.",
+  "disconnected": "Waiting for compositor windows. Check the compositor requirements and diagnostic logging if the taskbar stays hidden.",
   "action_failed": "The compositor could not complete the window action.",
   "unsupported_action": "This compositor does not support the requested action.",
   "launcher_missing": "Install gtk-launch to start pinned desktop entries.",
@@ -144,7 +144,7 @@
     },
     "refresh_fallback": {
       "label": "Subscription retry (s)",
-      "description": "Retry interval if subscription startup fails. A disconnected Umbriel CLI stream reconnects after two seconds."
+      "description": "Seconds between failed startup retries. Connected streams are event-driven; disconnected streams use their own bounded reconnect delay."
     },
     "diagnostic_logging": {
       "label": "Diagnostic logging",
@@ -152,7 +152,7 @@
     },
     "compositor_compatibility": {
       "label": "Compositor compatibility",
-      "description": "Umbriel supports API 52+. niri requires API 54 for native events."
+      "description": "Automatic supports Umbriel, niri, Hyprland, Mango, and Sway. A selected compositor restricts this widget to that session."
     },
     "hover_enlarge": {
       "label": "Enlarge icons on hover",
@@ -231,7 +231,11 @@
     "compositor_compatibility": {
       "auto": "Automatic",
       "umbriel": "Umbriel only",
-      "niri": "niri only"
+      "niri": "niri only",
+      "hyprland": "Hyprland only",
+      "mango": "Mango only",
+      "sway": "Sway only"
     }
-  }
+  },
+  "dependency_missing": "Cannot start the application taskbar: {dependency} is unavailable."
 }

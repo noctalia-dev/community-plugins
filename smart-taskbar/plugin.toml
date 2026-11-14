@@ -1,13 +1,13 @@
 id = "omardardery/smart-taskbar"
 name = "Smart Taskbar"
-version = "0.1.3"
+version = "1.0.0"
 plugin_api = 52
 author = "OmarDardery"
 license = "MIT"
 icon = "apps"
 description = "Compact application switcher with grouped counts, focus reveal, and bounded wheel navigation."
-tags = ["bar", "productivity", "system"]
-dependencies = ["gtk-launch", "niri", "umbriel", "sleep"]
+tags = ["bar", "productivity", "system", "niri", "hyprland", "mangowc", "sway"]
+dependencies = ["gtk-launch", "niri", "umbriel", "sleep", "python3", "hyprctl", "mmsg", "swaymsg"]
 
 [[widget]]
 id = "taskbar"
@@ -326,4 +326,4 @@ type = "select"
 default = "auto"
 label_key = "settings.compositor_compatibility.label"
 description_key = "settings.compositor_compatibility.description"
-options = [{ "value" = "auto", "label_key" = "options.compositor_compatibility.auto" }, { "value" = "umbriel", "label_key" = "options.compositor_compatibility.umbriel" }, { "value" = "niri", "label_key" = "options.compositor_compatibility.niri" }]
+options = [{ value = "auto", label_key = "options.compositor_compatibility.auto" }, { value = "umbriel", label_key = "options.compositor_compatibility.umbriel" }, { value = "niri", label_key = "options.compositor_compatibility.niri" }, { value = "hyprland", label_key = "options.compositor_compatibility.hyprland" }, { value = "mango", label_key = "options.compositor_compatibility.mango" }, { value = "sway", label_key = "options.compositor_compatibility.sway" }]

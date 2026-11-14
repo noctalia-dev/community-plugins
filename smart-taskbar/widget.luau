@@ -11,6 +11,7 @@ local deadline, pendingExpand, transitionStart = nil, false, nil
 local offset, lastFocus, subscription = 0, nil, nil
 local initialized, dirty = false, true
 local subscriptionGeneration = 0
+local scheduledInterval,reportedProblem = nil,nil
 local render, refresh, subscribe, handleHover
 local zoomFrom, zoomStart = {}, nil
 
@@ -47,7 +48,9 @@ local function schedule()
   local interval = config.refresh_fallback * 1000
   if deadline then interval = math.max(16, math.min(interval, deadline - noctalia.nowMs())) end
   if transitionStart or zoomStart then interval = 33 end
-  noctalia.setUpdateInterval(interval)
+  if scheduledInterval~=interval then
+    scheduledInterval=interval; noctalia.setUpdateInterval(interval)
+  end
 end
 local function setExpanded(value)
   value = config.expand_mode == "always" or value
@@ -77,9 +80,10 @@ local function activate(group)
       noctalia.notifyError(noctalia.tr("title"), noctalia.tr("launcher_missing")); return
     end
     -- Desktop IDs only, passed as a single argument. Never execute a configured shell string.
-    if not noctalia.runAsync({ "gtk-launch", group.launchId or group.iconId }, function(result)
-      if result.exitCode ~= 0 then reportFailure(false, result.stderr) end
-    end) then reportFailure(false, "launch rejected") end
+    -- Detached launch: disabling/reloading the dock must not own the application's lifetime.
+    if not noctalia.runAsync({ "gtk-launch", "--", group.launchId or group.iconId }) then
+      reportFailure(false,"launch rejected")
+    end
     return
   end
   local window, cursor = Model.cycle(group, cursors[group.key])
@@ -110,7 +114,7 @@ local function setHoverTarget(key)
   hoveredKey = key
   zoomFrom = from
   zoomStart = config.hover_enlarge and config.animations and config.animation_duration > 0 and noctalia.nowMs() or nil
-  dirty = true
+  if config.hover_enlarge then dirty=true end
 end
 local function icon(group, size, scale)
   local app = group.iconId or ""
@@ -340,7 +344,7 @@ function onIpc(event)
   refresh(true); render()
 end
 subscribe = function()
-  if subscription or (backend.name ~= "umbriel" and backend.name ~= "niri") then return end
+  if subscription then return end
   if config.compositor_compatibility ~= "auto" and config.compositor_compatibility ~= backend.name then return end
   local generation = subscriptionGeneration
   subscription = transport.subscribe({ events = { "windows", "workspaces" } }, function(event, data)
@@ -349,6 +353,13 @@ subscribe = function()
     if event == "reset" then icons = {}; cursors = {}; state = Model.new(); ranks = nil; offset = 0 end
     if Compositor.event(backend, event, data) then refresh(false); render() end
   end)
+  if not subscription and transport.problem and transport.problem~=reportedProblem then
+    reportedProblem=transport.problem
+    log("Compositor unavailable: "..reportedProblem)
+    if reportedProblem~="unsupported compositor" then
+      noctalia.notify(noctalia.tr("title"),noctalia.tr("dependency_missing",{dependency=reportedProblem}))
+    end
+  end
 end
 function update()
   if not initialized then
