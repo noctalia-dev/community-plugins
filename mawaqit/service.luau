@@ -7,7 +7,7 @@ noctalia.setUpdateInterval(5000)
 
 local city, country, method, school, hijriDayOffset, fajrAngle, ishaAngle
 local tune, tuneFajr, tuneDhuhr, tuneAsr, tuneMaghrib, tuneIsha
-local showNotifications, playAzan, azanFile, twelveHourFormat
+local showNotifications, playAzan, pauseMediaOnAzan, azanFile, twelveHourFormat
 
 -- Safely quotes strings for shell execution to prevent injection.
 local function shellQuote(s)
@@ -36,6 +36,7 @@ local function reloadConfig()
     local c_tuneIsha          = noctalia.getConfig("tuneIsha")
     local c_showNotifications = noctalia.getConfig("showNotifications")
     local c_playAzan          = noctalia.getConfig("playAzan")
+    local c_pauseMediaOnAzan  = noctalia.getConfig("pauseMediaOnAzan")
     local c_azanFile          = noctalia.getConfig("azanFile")
     local c_twelveHourFormat  = noctalia.getConfig("twelveHourFormat")
 
@@ -63,6 +64,7 @@ local function reloadConfig()
     tuneIsha          = tonumber(c_tuneIsha)    or 0
     showNotifications = (c_showNotifications ~= false and c_showNotifications ~= "false")
     playAzan          = (c_playAzan == true or c_playAzan == "true")
+    pauseMediaOnAzan  = (c_pauseMediaOnAzan == true or c_pauseMediaOnAzan == "true")
     azanFile          = (type(c_azanFile) == "string" and c_azanFile ~= "") and c_azanFile or "azan1.mp3"
     twelveHourFormat  = (c_twelveHourFormat == true or c_twelveHourFormat == "true")
 end
@@ -93,6 +95,7 @@ local retryAt         = 0
 local tomorrowFetched = false
 local lastNotified    = ""
 local lastAzanPlayed  = ""
+local lastMediaPaused = ""
 local playingAzanPath = ""  -- absolute path of the azan file currently playing, if any
 local azanGeneration  = 0
 local RETRY_DELAYS    = { 5, 10, 15, 30, 60 }
@@ -444,8 +447,9 @@ local function processPrayerData(data)
 
     local fetchedDate = todayStr()
     if loadedDate ~= fetchedDate then
-        lastNotified   = ""
-        lastAzanPlayed = ""
+        lastNotified    = ""
+        lastAzanPlayed  = ""
+        lastMediaPaused = ""
     end
     loadedDate = fetchedDate
     retryCount     = 0
@@ -657,6 +661,11 @@ local function startAzan()
     return true
 end
 
+local function pauseMedia()
+    if not pauseMediaOnAzan then return end
+    noctalia.runAsync("noctalia msg media pause >/dev/null 2>&1")
+end
+
 local function previewAzan()
     reloadConfig()
     if not startAzan() then
@@ -692,6 +701,11 @@ local function checkPrayerEvents()
             if showNotifications and lastNotified ~= key then
                 lastNotified = key
                 noctalia.notify(title .. " - " .. p.time, "حان الآن موعد صلاة " .. (arabicName or title))
+            end
+
+            if pauseMediaOnAzan and (showNotifications or playAzan) and lastMediaPaused ~= key then
+                lastMediaPaused = key
+                pauseMedia()
             end
 
             if playAzan and lastAzanPlayed ~= key then

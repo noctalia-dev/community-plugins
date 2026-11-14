@@ -1,6 +1,6 @@
 id           = "ycf/mawaqit"
 name         = "Mawaqit"
-version      = "1.3.8"
+version      = "1.4.0"
 plugin_api   = 43
 author       = "ycf-anon"
 license      = "MIT"  # Applies to the plugin code. Bundled font (ReemKufi.ttf) is
@@ -130,6 +130,13 @@ key             = "playAzan"
 type            = "bool"
 label_key       = "settings.play_azan.label"
 description_key = "settings.play_azan.description"
+default         = false
+
+[[setting]]
+key             = "pauseMediaOnAzan"
+type            = "bool"
+label_key       = "settings.pause_media_on_azan.label"
+description_key = "settings.pause_media_on_azan.description"
 default         = false
 
 [[setting]]
