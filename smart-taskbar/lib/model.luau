@@ -137,21 +137,26 @@ function M.cycle(group, cursor)
   index = index % #group.windows + 1
   return group.windows[index], index
 end
+function M.cellPadding(c)
+  return c.cell_padding or 4
+end
 function M.peakIconSize(c)
   return math.ceil(c.icon_size * (c.hover_enlarge and c.hover_scale or 1))
 end
 function M.badgeMetrics(c, count)
   local height = math.clamp(math.floor(c.icon_size * 0.6 + 0.5), 14, 20)
+  if c.auto_sized then height=math.min(height,M.peakIconSize(c)) end
   local font = math.clamp(math.floor(height * 0.7), 10, 12)
+  if c.auto_sized then font=math.max(1,math.min(font,height-2)) end
   local width = math.max(height, math.ceil(#tostring(count) * font * 0.7) + 8)
   return { height=height, font=font, width=width }
 end
 function M.inlineBadge(c, group)
   return c.duplicate_indicator~="none" and group and #group.windows>1
-    and (c.badge_style=="inline" or M.badgeMetrics(c,#group.windows).width>M.peakIconSize(c)+8)
+    and (c.badge_style=="inline" or M.badgeMetrics(c,#group.windows).width>M.peakIconSize(c)+2*M.cellPadding(c))
 end
 function M.cellExtent(c, group, vertical)
-  local base = M.peakIconSize(c) + 8
+  local base = M.peakIconSize(c) + 2*M.cellPadding(c)
   if M.inlineBadge(c,group) then
     local badge = M.badgeMetrics(c, #group.windows)
     return base + 4 + (vertical and badge.height or badge.width)
@@ -159,10 +164,10 @@ function M.cellExtent(c, group, vertical)
   return base
 end
 function M.layout(c, count, groups, offset, vertical)
-  local maxWidth = math.max(48, c.max_width)
-  local collapsed = math.clamp(c.collapsed_width, 32, maxWidth)
+  local maxWidth = math.max(1, c.max_width)
+  local collapsed = math.clamp(c.collapsed_width, math.min(32,maxWidth), maxWidth)
   local peak, gap = M.peakIconSize(c), c.icon_spacing
-  local cell = peak + 8
+  local cell = peak + 2*M.cellPadding(c)
   offset = offset or 0
   local available = maxWidth - 16
   -- Only need to know whether content overflows, not its unbounded full extent.

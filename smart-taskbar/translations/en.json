@@ -28,7 +28,7 @@
     },
     "min_width": {
       "label": "Minimum width (px)",
-      "description": "Minimum expanded extent in logical pixels, limited by maximum width."
+      "description": "Manual mode. Minimum expanded extent in logical pixels, limited by maximum width."
     },
     "max_width": {
       "label": "Maximum width (px)",
@@ -36,15 +36,15 @@
     },
     "collapsed_width": {
       "label": "Collapsed width (px)",
-      "description": "Fixed collapsed extent in logical pixels. Hidden completely when no matching windows are open."
+      "description": "Manual mode. Fixed collapsed extent in logical pixels. Hidden completely when no matching windows are open."
     },
     "icon_size": {
       "label": "Icon size (px)",
-      "description": "Base size in logical pixels. Leave room for hover enlargement within your bar thickness."
+      "description": "Manual mode. Base size in logical pixels. Leave room for hover enlargement within your bar thickness."
     },
     "icon_spacing": {
       "label": "Icon spacing (px)",
-      "description": "Gap between application cells. Single-window apps have no count lane or marker."
+      "description": "Manual mode. Gap between application cells. Single-window apps have no count lane or marker."
     },
     "overflow_behavior": {
       "label": "Overflow navigation",
@@ -108,7 +108,7 @@
     },
     "capsule_radius": {
       "label": "Capsule radius",
-      "description": "Logical pixels for the plugin\u2019s own theme-colored capsule."
+      "description": "Manual mode. Logical pixels for the plugin\u2019s own theme-colored capsule."
     },
     "opacity": {
       "label": "Capsule opacity",
@@ -169,6 +169,14 @@
     "inline_count_style": {
       "label": "Inline count appearance",
       "description": "Choose a plain number on the shared app capsule or a separate number bubble within it. Applies only to inline counts; overlay badges keep their bubble."
+    },
+    "sizing_mode": {
+      "label": "Sizing",
+      "description": "Auto fits icons, spacing, capsule radius and collapsed size to bar configuration, and hides those manual controls. Manual restores your saved dimensions. Maximum width remains available in both modes."
+    },
+    "sizing_bar": {
+      "label": "Sizing bar name",
+      "description": "Leave empty to fit matching bars conservatively, or enter a configured bar name such as default. Used only in Automatic mode. If no matching placement is found, manual dimensions are used."
     }
   },
   "options": {
@@ -251,6 +259,10 @@
     "inline_count_style": {
       "plain": "Plain number",
       "bubble": "Number bubble"
+    },
+    "sizing_mode": {
+      "auto": "Auto",
+      "manual": "Manual"
     }
   },
   "dependency_missing": "Cannot start the application taskbar: {dependency} is unavailable."

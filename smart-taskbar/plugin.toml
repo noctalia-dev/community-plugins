@@ -1,6 +1,6 @@
 id = "omardardery/smart-taskbar"
 name = "Smart Taskbar"
-version = "1.1.3"
+version = "2.0.0"
 plugin_api = 52
 author = "OmarDardery"
 license = "MIT"
@@ -118,7 +118,24 @@ label_key = "settings.exclusions.label"
 description_key = "settings.exclusions.description"
 
 [[widget.setting]]
+key = "sizing_mode"
+type = "select"
+default = "auto"
+label_key = "settings.sizing_mode.label"
+description_key = "settings.sizing_mode.description"
+options = [{ "value" = "auto", "label_key" = "options.sizing_mode.auto" }, { "value" = "manual", "label_key" = "options.sizing_mode.manual" }]
+
+[[widget.setting]]
+key = "sizing_bar"
+visible_when = { key = "sizing_mode", values = ["auto"] }
+type = "string"
+default = ""
+label_key = "settings.sizing_bar.label"
+description_key = "settings.sizing_bar.description"
+
+[[widget.setting]]
 key = "min_width"
+visible_when = { key = "sizing_mode", values = ["manual"] }
 type = "int"
 default = 64
 label_key = "settings.min_width.label"
@@ -137,6 +154,7 @@ max = 2048
 
 [[widget.setting]]
 key = "collapsed_width"
+visible_when = { key = "sizing_mode", values = ["manual"] }
 type = "int"
 default = 64
 label_key = "settings.collapsed_width.label"
@@ -146,6 +164,7 @@ max = 2048
 
 [[widget.setting]]
 key = "icon_size"
+visible_when = { key = "sizing_mode", values = ["manual"] }
 type = "int"
 default = 22
 label_key = "settings.icon_size.label"
@@ -155,6 +174,7 @@ max = 48
 
 [[widget.setting]]
 key = "icon_spacing"
+visible_when = { key = "sizing_mode", values = ["manual"] }
 type = "int"
 default = 4
 label_key = "settings.icon_spacing.label"
@@ -236,6 +256,7 @@ description_key = "settings.hover_scale.description"
 
 [[widget.setting]]
 key = "capsule_radius"
+visible_when = { key = "sizing_mode", values = ["manual"] }
 type = "int"
 default = 14
 label_key = "settings.capsule_radius.label"

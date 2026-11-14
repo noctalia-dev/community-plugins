@@ -4,7 +4,7 @@
 
 A compact application dock inside the Noctalia bar: grouped windows, focused-app switching, optional hover enlargement, and a clipped icon strip that stays within its width budget.
 
-**Requires plugin API 52+.** Version 1.1.3 release candidate supports Umbriel, niri, Hyprland, Mango and Sway through public compositor protocols. Umbriel and niri prefer native subscriptions on API 54+. Native desktop acceptance and real screenshots remain pending. The images below are labeled offline fixture previews.
+**Requires plugin API 52+.** Version 2.0.0 release candidate supports Umbriel, niri, Hyprland, Mango and Sway through public compositor protocols. Umbriel and niri prefer native subscriptions on API 54+. Native desktop acceptance and real screenshots remain pending. The images below are labeled offline fixture previews.
 
 ## Plugin
 
@@ -54,7 +54,7 @@ max_width = 420
 collapsed_width = 64
 ```
 
-Use bar and widget scale 1, no custom label, and no capsule-group wrapper padding for a matching outer width budget. The plugin's extent includes its own padding and arrows. Output DPI scaling preserves logical pixels. On side bars the main-axis limit applies to height.
+In Manual mode, use bar and widget scale 1, no custom label, and no capsule-group wrapper padding for a matching outer width budget. The plugin's extent includes its own padding and arrows. Output DPI scaling preserves logical pixels. On side bars the main-axis limit applies to height.
 
 The widget **disappears completely when no matching windows are open**: no icon, capsule, or count placeholder. It reappears from compositor events when a matching window opens. Pinned launchers also hide while there are no matching running windows; keep Noctalia's launcher available for starting the first application. Including minimized windows is enabled by default.
 
@@ -70,11 +70,21 @@ Under **Widget → Count layout**, choose **Overlay** for a compact corner badge
 
 Inactive apps now have hover feedback even with icon enlargement disabled. Minimized groups remain recognizable at reduced opacity.
 
+### Automatic sizing in 2.0
+
+Choose **Widget → Sizing → Auto** (the default) to fit icon size, icon spacing, capsule radius, minimum extent and collapsed extent to public bar configuration. These five manual controls hide in Auto; choose **Manual** to show them and restore their saved values. **Maximum width** stays visible and bounds expanded content in both modes. Hover enlargement and its factor remain adjustable: Auto reserves room for the maximum scale.
+
+Auto uses `noctalia.getSetting("bar")` and `noctalia.getSetting("widget")` and responds to host configuration notifications, without polling. It resolves enabled Smart Taskbar placements for this output and orientation, including capsule-group membership and matching monitor overrides. It compensates for bar/widget content scale and explicit text scale, leaving output DPI to Noctalia. A standard 34 px bar without a host capsule uses a 22 px icon; a 44 px bar uses 32 px. Enabling magnification reduces base size so the enlarged icon still fits.
+
+The public API exposes neither measured bar thickness nor this placement's instance ID. When several candidates or monitor overrides match, Auto fits the smallest available cross-axis extent and the largest scale conservatively rather than guessing source order. **Sizing bar name** can restrict matching to one named bar. If no matching placement is found, saved manual dimensions are used. Very thin bars or extreme content scales necessarily produce small content; switch to Manual or increase the bar thickness for readability. Auto icon size is capped at 64 source logical pixels.
+
+For the most predictable outer width, keep the host capsule disabled and avoid a capsule-group wrapper. Auto includes known per-widget host capsule padding in its budget, but group padding, other group members, custom labels and wrappers can add outer extent. No plugin can fit a wrapper whose own padding already exceeds the entire budget. Manual mode retains the original requirement to account for host content scaling yourself. The new behavior is fixture-tested and needs an Umbriel desktop recheck.
+
 ### Hover enlargement
 
 Expand **Widget** in the settings dialog and enable **Enlarge icons on hover**. The default factor is 1.15. Icons scale smoothly inside fixed cells, so neighboring apps, count badges, and the rest of the bar stay in place. The maximum size is reserved while the option is enabled; there is no width growth while moving the pointer.
 
-Choose a bar thickness of at least `ceil(icon_size × hover_scale) + 8` logical pixels. A 22 px icon at 1.15 fits a 34 px bar. Larger scales need more room; the host clips drawing to bar thickness. Disable **Animate transitions** for immediate enlargement and reduced motion. This is in-bar magnification, not a floating macOS-style surface extending beyond the bar.
+In Manual mode, choose a bar thickness of at least `ceil(icon_size × hover_scale) + 8` logical pixels. A 22 px icon at 1.15 fits a 34 px bar. Larger scales need more room; the host clips drawing to bar thickness. Disable **Animate transitions** for immediate enlargement and reduced motion. This is in-bar magnification, not a floating macOS-style surface extending beyond the bar.
 
 ### Actions and ordering
 
@@ -91,7 +101,7 @@ The action targets the hovered group, preferring its focused window, or the grou
 
 ## Settings
 
-Expand **Widget** in the normal settings dialog. All plugin controls are shown together, in related order: behavior, applications, layout, appearance, interaction, and diagnostics. There is no page dropdown and no hidden plugin-controls toggle. The public manifest API does not expose custom accordion sections, so these areas are logical ordering, not separate host sections. The normal host-owned Content, Colors, Size and Text, Capsule, Behavior, and Actions sections remain separate.
+Expand **Widget** in the normal settings dialog. Plugin controls are ordered by topic: behavior, applications, layout, appearance, interaction, and diagnostics. There is no settings-page dropdown or hidden advanced toggle; only mode-dependent sizing fields are conditional. The public manifest API does not expose custom accordion sections, so these areas are logical ordering, not separate host sections. The normal host-owned Content, Colors, Size and Text, Capsule, Behavior, and Actions sections remain separate.
 
 | Area | Setting | Default | Meaning |
 | --- | --- | --- | --- |
@@ -108,11 +118,13 @@ Expand **Widget** in the normal settings dialog. All plugin controls are shown t
 | Applications | `sorting` | `"launch"` | Launch order means first observed order. Manual order is per instance and resets on reload. |
 | Applications | `pinned_apps` | `[]` | Exact desktop-entry IDs for launchers. Launchers appear with matching open windows; the entire widget hides when no matching windows remain. |
 | Applications | `exclusions` | `[]` | Exact normalized desktop/application IDs. No shell patterns. |
-| Layout | `min_width` | `64` | Minimum expanded extent in logical pixels, limited by maximum width. |
+| Layout | `sizing_mode` | `"auto"` | Auto fits dimensions to matching configured bars; Manual restores saved sizes. Auto hides the dimensions it controls. |
+| Layout | `sizing_bar` | `""` | Optional configured bar name; shown only in Auto. Empty fits matching placements conservatively. |
+| Layout | `min_width` | `64` | Manual only; hidden in Auto. Minimum expanded extent in logical pixels, limited by maximum width. |
 | Layout | `max_width` | `420` | Main-axis limit, including padding and arrows. Use bar/widget scale 1 and host capsule padding 0 for the same outer limit. |
-| Layout | `collapsed_width` | `64` | Fixed collapsed extent in logical pixels. Hidden completely when no matching windows are open. |
-| Layout | `icon_size` | `22` | Base size in logical pixels. Leave room for hover enlargement within your bar thickness. |
-| Layout | `icon_spacing` | `4` | Gap between application cells. Single-window apps have no count lane or marker. |
+| Layout | `collapsed_width` | `64` | Manual only; hidden in Auto. Fixed collapsed extent in logical pixels. Hidden completely when no matching windows are open. |
+| Layout | `icon_size` | `22` | Manual only; hidden in Auto. Base size in logical pixels. Leave room for hover enlargement within your bar thickness. |
+| Layout | `icon_spacing` | `4` | Manual only; hidden in Auto. Gap between application cells. Single-window apps have no count lane or marker. |
 | Layout | `overflow_behavior` | `"items"` | Wheel navigation replaces visible items; the viewport is clipped. |
 | Layout | `show_scroll_indicators` | `true` | Subtle direction indicators inside the width budget. |
 | Appearance | `collapsed_label` | `"none"` | Optional text within the fixed width. Single-window apps never show a count; side bars show the icon only. |
@@ -122,7 +134,7 @@ Expand **Widget** in the normal settings dialog. All plugin controls are shown t
 | Appearance | `badge_placement` | `"after"` | Choose the upper left/right overlay corner or before/after the inline icon. Side bars keep inline counts below. |
 | Appearance | `hover_enlarge` | `false` | Magnify the hovered application inside a fixed cell. No bar movement; respects reduced motion. |
 | Appearance | `hover_scale` | `1.15` | Maximum icon scale. Set bar thickness to at least icon size × scale + 8 logical pixels; 1.15 fits a 22 px icon in a 34 px bar. |
-| Appearance | `capsule_radius` | `14` | Logical pixels for the plugin’s own theme-colored capsule. |
+| Appearance | `capsule_radius` | `14` | Manual only; hidden in Auto. Logical pixels for the plugin’s own theme-colored capsule. |
 | Appearance | `opacity` | `0.9` | Background alpha only; icons and text stay opaque. |
 | Appearance | `border` | `false` | Use the active theme outline role. |
 | Appearance | `active_indicator` | `true` | Use the theme primary container role. |

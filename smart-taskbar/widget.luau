@@ -1,5 +1,6 @@
 --!nonstrict
 local Model = require("./lib/model.luau")
+local Sizing = require("./lib/sizing.luau")
 local Compositor = require("./lib/compositor.luau")
 local Transport = require("./lib/transport.luau")
 local transport = Transport.new(noctalia)
@@ -26,7 +27,7 @@ end
 local function readConfig()
   -- All keys are manifest declared. The host validates types; clamp cross-field constraints here.
   local keys = { "expand_mode", "hover_delay", "collapse_delay", "animation_duration", "animations",
-    "min_width", "max_width", "collapsed_width", "icon_size", "icon_spacing", "overflow_behavior",
+    "sizing_mode", "sizing_bar", "min_width", "max_width", "collapsed_width", "icon_size", "icon_spacing", "overflow_behavior",
     "scroll_step", "auto_reveal_focused", "show_scroll_indicators", "display_mode", "workspace_filter",
     "output_filter", "show_minimized", "grouping", "duplicate_indicator", "sorting", "exclusions",
     "pinned_apps", "app_aliases", "collapsed_label", "capsule_radius", "hover_enlarge", "hover_scale",
@@ -34,8 +35,13 @@ local function readConfig()
     "click_behavior", "middle_click", "refresh_fallback", "diagnostic_logging", "compositor_compatibility" }
   local nextConfig = {}
   for _, key in ipairs(keys) do nextConfig[key] = noctalia.getConfig(key) end
+  nextConfig.sizing_bar=string.match(nextConfig.sizing_bar,"^%s*(.-)%s*$")
   nextConfig.min_width = math.min(nextConfig.min_width, nextConfig.max_width)
   nextConfig.collapsed_width = math.min(nextConfig.collapsed_width, nextConfig.max_width)
+  if nextConfig.sizing_mode=="auto" and type(noctalia.getSetting)=="function" then
+    nextConfig=Sizing.resolve(nextConfig,noctalia.getSetting("bar"),noctalia.getSetting("widget"),
+      barWidget.outputName(),barWidget.isVertical(),noctalia.outputs())
+  end
   local changed = not sameValue(config, nextConfig)
   config = nextConfig
   return changed
@@ -148,7 +154,12 @@ local function countNode(group, peak, inline)
   local n = #group.windows
   if n <= 1 or config.duplicate_indicator == "none" then return nil end
   local badge = Model.badgeMetrics(config,n)
-  local width = inline and badge.width or math.min(peak+8,badge.width)
+  local width = inline and badge.width or math.min(peak+2*Model.cellPadding(config),badge.width)
+  local font=badge.font
+  if inline and barWidget.isVertical() then
+    width=math.min(width,peak)
+    font=math.max(1,math.min(font,math.floor(math.max(1,width-4)/(#tostring(n)*0.7))))
+  end
   local props = { key="badge:"..group.key, width=width, height=badge.height,
     justify="center", align="center", clip=true }
   local bubble = not inline or config.inline_count_style=="bubble"
@@ -158,11 +169,11 @@ local function countNode(group, peak, inline)
   end
   if not inline then
     props.translateX = config.badge_placement=="before" and -(peak+2) or 2-width
-    props.translateY = -(peak+8-badge.height)/2
+    props.translateY = -(peak+2*Model.cellPadding(config)-badge.height)/2
     props.border = "surface_container"
   end
-  return ui.row(props, { ui.label({text=tostring(n),fontSize=badge.font,
-    maxWidth=width-4,maxLines=1,fontWeight="bold",
+  return ui.row(props, { ui.label({text=tostring(n),fontSize=font/(config.auto_text_scale or 1),
+    maxWidth=math.max(1,width-4),maxLines=1,fontWeight="bold",
     color=not bubble and (group.focused and config.active_indicator and "on_primary_container" or "on_surface")
       or (group.focused and "on_primary" or "on_secondary_container")}) })
 end
@@ -181,9 +192,9 @@ local function cell(group, extent)
   end
   local fill = group.focused and config.active_indicator and "primary_container"
     or (hoveredKey==group.key and "surface_container_highest" or (inline and "surface_container_high" or "surface_container/0"))
-  local props = {key=group.key,width=vertical and peak+8 or extent,
-    height=vertical and extent or peak+8,paddingH=4,paddingV=inline and vertical and 4 or 0,
-    gap=inline and 4 or 0,align="center",justify="start",radius=math.min(12,(peak+8)/2),fill=fill,
+  local props = {key=group.key,width=vertical and peak+2*Model.cellPadding(config) or extent,
+    height=vertical and extent or peak+2*Model.cellPadding(config),paddingH=Model.cellPadding(config),paddingV=inline and vertical and Model.cellPadding(config) or 0,
+    gap=inline and 4 or 0,align="center",justify="start",radius=math.min(12,(peak+2*Model.cellPadding(config))/2),fill=fill,
     border=group.urgent and config.urgent_indicator and "error" or nil,
     opacity=group.minimized and config.minimized_indicator and 0.65 or 1,clip=true,
     tooltip=(group.title or group.appId)..(#group.windows>1 and (" ("..tostring(#group.windows)..")") or ""),
@@ -273,7 +284,7 @@ render = function()
   local children, width = {}, expanded and layout.width or layout.collapsed
   if expanded then
     if layout.indicators then
-      table.insert(children, ui.glyph({ name = vertical and "chevron-up" or "chevron-left", size = 14,
+      table.insert(children, ui.glyph({ name = vertical and "chevron-up" or "chevron-left", size = math.min(14,layout.peak),
         width = vertical and nil or 16, height = vertical and 16 or nil,
         color = offset > 0 and "primary" or "on_surface_variant/0.25" }))
     end
@@ -298,7 +309,7 @@ render = function()
     viewportProps.opacity = 0.65 + 0.35 * alpha
     table.insert(children, container(viewportProps, strip))
     if layout.indicators then
-      table.insert(children, ui.glyph({ name = vertical and "chevron-down" or "chevron-right", size = 14,
+      table.insert(children, ui.glyph({ name = vertical and "chevron-down" or "chevron-right", size = math.min(14,layout.peak),
         width = vertical and nil or 16, height = vertical and 16 or nil,
         color = offset + layout.capacity < #groups and "primary" or "on_surface_variant/0.25" }))
     end
@@ -308,7 +319,7 @@ render = function()
     if not group then
       for _, candidate in ipairs(groups) do if #candidate.windows > 0 then group = candidate; break end end
     end
-    table.insert(children, icon(group, math.min(config.icon_size, width - 16)))
+    table.insert(children, icon(group, math.max(1,math.min(config.icon_size, width - 16))))
     local text = ""
     if group then
       if config.collapsed_label == "title" then text = group.title or group.appId
@@ -316,7 +327,7 @@ render = function()
       elseif config.collapsed_label == "count" and #group.windows > 1 then text = tostring(#group.windows) end
     end
     if text ~= "" and not vertical then
-      table.insert(children, ui.label({ text = text, fontSize = 11, maxLines = 1,
+      table.insert(children, ui.label({ text = text, fontSize = 11/(config.auto_text_scale or 1), maxLines = 1,
         maxWidth = math.max(0, width - config.icon_size - 20), color = "on_surface" }))
     end
   end
@@ -324,8 +335,8 @@ render = function()
     radius = config.capsule_radius, fill = "surface_container/" .. tostring(config.opacity),
     border = config.border and "outline_variant" or nil, clip = true,
     onHover = function(entered) handleHover(entered == "true") end }
-  if vertical then props.paddingH = 0; props.paddingV = 8; props.height = width; props.width = layout.peak + 8
-  else props.width = width; props.height = layout.peak + 8 end
+  if vertical then props.paddingH = 0; props.paddingV = 8; props.height = width; props.width = layout.peak + 2*Model.cellPadding(config)
+  else props.width = width; props.height = layout.peak + 2*Model.cellPadding(config) end
   barWidget.render(container(props, children))
   barWidget.setTooltip(backend.connected and noctalia.tr("hint") or noctalia.tr("disconnected"))
   if zoomStart and noctalia.nowMs() - zoomStart >= config.animation_duration then zoomStart = nil; zoomFrom = {} end
