@@ -1,6 +1,6 @@
 id = "felipeartur/ai-usagebar"
 name = "AI Usage"
-version = "2.14.2"
+version = "2.14.3"
 plugin_api = 43
 author = "felipeartur"
 license = "MIT"
@@ -226,7 +226,7 @@ entry = "panel.luau"
 # Multi-account overview with linked quota details and accessory cards.
 width = 440
 height = "content"
-max_height = 560
+max_height = 640
 # The shell draws the Placement and Position rows for every plugin panel whether
 # or not they are declared; declaring them only picks the default the user gets.
 placement = "attached"

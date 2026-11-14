@@ -156,7 +156,7 @@ Read failures show the last known state. The panel displays quota readings,
 not agent process health.
 
 The header stays fixed while reports scroll. The reading viewport adapts to the
-amount of data within a 560px panel maximum; scrolling keeps long reports
+amount of data within a 640px panel maximum; scrolling keeps long reports
 accessible. Cards reserve space for the scrollbar so their width stays the same
 between providers.
 

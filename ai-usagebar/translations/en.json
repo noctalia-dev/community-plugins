@@ -226,7 +226,6 @@
     "overview": "All accounts",
     "previous_page": "Previous accounts",
     "next_page": "Next accounts",
-    "overview_hint": "Compare readings below. Open an account for all limits.",
     "account_count": "Accounts: {count}",
     "account_details": "View {account} details",
     "more_windows": "+{count} more windows in details",

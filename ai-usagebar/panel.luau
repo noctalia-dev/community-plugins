@@ -1111,6 +1111,58 @@ local function closeButton()
 end
 
 -- Compact rows use the same direction, severity and resets as account details.
+local function overviewMetricNode(metric, label)
+    local text = shared.metricText(metric, displayMode())
+    local left = shared.countdown(metric)
+    local reading = { ui.label({ text = label, fontSize = 11, color = "on_surface/0.8", maxLines = 1,
+        maxWidth = 210, flexGrow = 1 }) }
+    if left ~= "" then
+        reading[#reading + 1] = ui.row({ gap = 3, align = "center" }, {
+            ui.glyph({ name = "clock", size = 10, color = "on_surface/0.8" }),
+            ui.label({ text = left, fontSize = 10, color = "on_surface/0.8", maxLines = 1 }),
+        })
+    end
+    reading[#reading + 1] = ui.label({ text = text, fontSize = 12, fontWeight = "bold",
+        color = severityRole(metric, "on_surface") })
+    local children = { ui.row({ gap = 6, align = "center", tooltip = resetClock(metric) }, reading) }
+    local percent = shared.displayPercent(metric, displayMode())
+    if percent ~= nil then
+        children[#children + 1] = ui.progress({ progress = ratio(percent), height = 4, radius = 2,
+            fill = severityRole(metric, "primary"), track = "on_surface/0.10" })
+    end
+    return ui.column({ gap = 2, align = "stretch" }, children)
+end
+
+local function antigravityOverviewGroups(entry)
+    local order, byName, pools = {}, {}, {}
+    for _, metric in ipairs(type(entry.metrics) == "table" and entry.metrics or {}) do
+        if type(metric) == "table" then
+            local rawLabel = tostring(metric.label or "")
+            local geminiPool = metric.model_pool == true
+                and (rawLabel == "Gemini" or rawLabel:match("^Gemini%s") ~= nil)
+            local family = geminiPool and "Gemini" or rawLabel
+            if byName[family] == nil then
+                byName[family] = {}
+                order[#order + 1] = family
+            end
+            local windowKey = shared.metricWindow(metric)
+            local windowLabel = windowKey ~= nil and noctalia.tr("ui." .. windowKey) or ""
+            local rowLabel = (geminiPool or windowLabel == "")
+                and (rawLabel .. (windowLabel ~= "" and " · " .. windowLabel or ""))
+                or windowLabel
+            local target = geminiPool and (pools[family] or {}) or byName[family]
+            if geminiPool then pools[family] = target end
+            target[#target + 1] = { metric = metric, label = rowLabel }
+        end
+    end
+    for family, list in pairs(pools) do
+        for _, item in ipairs(list) do
+            byName[family][#byName[family] + 1] = item
+        end
+    end
+    return order, byName
+end
+
 local function overviewCard(entry)
     local name = tostring(entry.display_name or entry.name or entry.id or "")
     local old = entry.stale == true or failure.code ~= ""
@@ -1123,39 +1175,40 @@ local function overviewCard(entry)
             onClick = function() openAccount(entry) end }),
     }) }
     local isAntigravity = shared.baseProvider(entry.id) == "antigravity"
-    local maxWindows = isAntigravity and math.huge or 3
     local count = 0
-    for _, metric in ipairs(type(entry.metrics) == "table" and entry.metrics or {}) do
-        if type(metric) == "table" and (isAntigravity or metric.model_pool ~= true) then
-            count = count + 1
-            if count <= maxWindows then
-                local label = tostring(metric.label or "")
-                if isAntigravity then
-                    local window = shared.metricWindow(metric)
-                    if window ~= nil then label = label .. " · " .. noctalia.tr("ui." .. window) end
-                end
-                local text = shared.metricText(metric, displayMode())
-                local left = shared.countdown(metric)
-                local reading = { ui.label({ text = label, fontSize = 11, color = "on_surface/0.8", maxLines = 1,
-                    maxWidth = 210, flexGrow = 1 }) }
-                if left ~= "" then
-                    reading[#reading + 1] = ui.label({ text = left, fontSize = 10, color = "on_surface/0.8" })
-                end
-                reading[#reading + 1] = ui.label({ text = text, fontSize = 12, fontWeight = "bold",
-                    color = severityRole(metric, "on_surface") })
-                body[#body + 1] = ui.row({ gap = 8, align = "center", tooltip = resetClock(metric) }, reading)
-                local percent = shared.displayPercent(metric, displayMode())
-                if percent ~= nil then
-                    body[#body + 1] = ui.progress({ progress = ratio(percent), height = 4, radius = 2,
-                        fill = severityRole(metric, "primary"), track = "on_surface/0.10" })
+    if isAntigravity then
+        local order, byName = antigravityOverviewGroups(entry)
+        for index, family in ipairs(order) do
+            if index > 1 then
+                body[#body + 1] = ui.box({ height = 1, fill = "outline_variant/0.14" })
+            end
+            if family ~= "" then
+                body[#body + 1] = ui.row({ gap = 6, align = "center" }, {
+                    ui.glyph({ name = modelGlyph(family), size = 13, color = "on_surface/0.8" }),
+                    ui.label({ text = modelDisplayName(family), fontSize = 11, fontWeight = "semibold",
+                        color = "on_surface", maxLines = 1 }),
+                })
+            end
+            for _, item in ipairs(byName[family]) do
+                count = count + 1
+                body[#body + 1] = overviewMetricNode(item.metric, item.label)
+            end
+        end
+    else
+        for _, metric in ipairs(type(entry.metrics) == "table" and entry.metrics or {}) do
+            if type(metric) == "table" and metric.model_pool ~= true then
+                count = count + 1
+                if count <= 3 then
+                    body[#body + 1] = overviewMetricNode(metric, tostring(metric.label or ""))
                 end
             end
         end
+        if count > 3 then
+            body[#body + 1] = ui.label({ text = noctalia.tr("ui.more_windows", { count = count - 3 }),
+                fontSize = 10, color = "on_surface/0.8" })
+        end
     end
-    if count > maxWindows then
-        body[#body + 1] = ui.label({ text = noctalia.tr("ui.more_windows", { count = count - maxWindows }),
-            fontSize = 10, color = "on_surface/0.8" })
-    elseif count == 0 then
+    if count == 0 then
         body[#body + 1] = ui.label({ text = shared.balanceText(entry) or noctalia.tr("ui.no_usage"),
             fontSize = 12, fontWeight = "bold", color = "on_surface" })
     end
@@ -1172,13 +1225,13 @@ local function overviewCard(entry)
                 color = "on_surface/0.8", maxLines = 2 }) or nil,
         })
     end
-    return ui.column({ key = "overview-" .. tostring(entry.id), gap = 4, padding = 10, radius = 9,
+    return ui.column({ key = "overview-" .. tostring(entry.id), gap = 5, padding = 10, radius = 9,
         fill = "surface_container/0.34", borderWidth = 1,
         border = noctalia.state.get("selected") == entry.id and "primary/0.45" or "outline_variant/0.08" }, body)
 end
 
--- Reserve native frame/padding space inside the manifest's 560px maximum.
-local MAX_VIEWPORT_HEIGHT = 528
+-- Reserve native frame/padding space inside the manifest's 640px maximum.
+local MAX_VIEWPORT_HEIGHT = 608
 
 local function renderOverview(candidates)
     local selected = currentEntry()
@@ -1191,7 +1244,7 @@ local function renderOverview(candidates)
     end
     local first = math.floor((selectedIndex - 1) / 4) * 4 + 1
     local last = math.min(#candidates, first + 3)
-    local cards, height = {}, 160
+    local cards, height = {}, 140
     for index = first, last do
         local entry = candidates[index]
         cards[#cards + 1] = overviewCard(entry)
@@ -1201,7 +1254,8 @@ local function renderOverview(candidates)
         for _, metric in ipairs(type(entry.metrics) == "table" and entry.metrics or {}) do
             if type(metric) == "table" and (isAntigravity or metric.model_pool ~= true) then windows = windows + 1 end
         end
-        height = height + 80 + math.min(windows, maxWindows) * 28 + (windows > maxWindows and 16 or 0)
+        local familyOverhead = isAntigravity and 48 or 0
+        height = height + 72 + familyOverhead + math.min(windows, maxWindows) * 28 + (windows > maxWindows and 16 or 0)
     end
     if #cards == 0 then
         cards[#cards + 1] = ui.label({ text = noctalia.tr("ui.no_usage"), fontSize = 12, color = "on_surface/0.8" })
@@ -1223,7 +1277,7 @@ local function renderOverview(candidates)
         footer[#footer + 1] = ui.label({ text = noctalia.tr("ui.stale_hint"), fontSize = 10,
             color = "secondary", maxLines = 1 })
     end
-    panel.render(ui.column({ key = "overview", height = math.max(220, math.min(MAX_VIEWPORT_HEIGHT, height)), gap = 8,
+    panel.render(ui.column({ key = "overview", height = math.max(220, math.min(MAX_VIEWPORT_HEIGHT, height)), gap = 6,
         padding = 10, align = "stretch", flexGrow = 1 }, {
         ui.row({ gap = 8, align = "center" }, {
             ui.glyph({ name = "brain", size = 18, color = "primary" }),
@@ -1239,7 +1293,6 @@ local function renderOverview(candidates)
             ui.label({ text = noctalia.tr("ui.account_count", { count = #candidates }) .. " · "
                 .. noctalia.tr(displayMode() == "remaining" and "ui.remaining" or "ui.used"), fontSize = 11, color = "on_surface/0.8" }),
         }),
-        ui.label({ text = noctalia.tr("ui.overview_hint"), fontSize = 10, color = "on_surface/0.8", maxLines = 2 }),
         ui.scroll({ key = "overview-scroll", gap = 8, align = "stretch", flexGrow = 1,
             revealKey = "overview-" .. tostring(noctalia.state.get("selected") or "") }, cards),
         ui.row({ gap = 4, align = "center" }, footer),

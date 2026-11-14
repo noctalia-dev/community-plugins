@@ -1621,7 +1621,7 @@ assert(#collect(host.tree(), "progress") == 3 and has(labels(host.tree()), "ui.m
     "overview must bound window previews and disclose omitted windows")
 assert(has(labels(host.tree()), "58%") and entry.metrics[1].percent == 42,
     "overview remaining mode must transform only the presentation")
-assert(host.tree().props.height <= 560, "large overviews must stay inside the declared maximum")
+assert(host.tree().props.height <= 640, "large overviews must stay inside the declared maximum")
 end
 
 do
@@ -1629,7 +1629,7 @@ local one = provider("openai", "Codex", 42)
 local _, _, runtime, _, _, _, host = loadPanel(one)
 local compactHeight = host.tree().props.height
 runtime.onOpen()
-assert(host.tree().props.height < 560 and compactHeight < 560,
+assert(host.tree().props.height < 640 and compactHeight < 640,
     "a small report must not reserve the panel's maximum height")
 host.publishState("error", { code = "timed_out", detail = "" })
 assert(has(labels(host.tree()), "ui.stale_hint"), "a whole-report failure must mark overview readings as old")
@@ -1673,10 +1673,14 @@ host.values.selected = "openai@work"
 runtime.onOpen()
 assert(host.tree().props.key == "overview" and host.values.selected == "openai@work",
     "opening from the bar must start in the All accounts overview with the account selected")
-assert(has(labels(host.tree()), "Gemini 4 Argon · Weekly")
-    and has(labels(host.tree()), "Claude & GPT OSS · Weekly")
+assert(has(labels(host.tree()), "Gemini")
+    and has(labels(host.tree()), "Claude & GPT OSS")
+    and has(labels(host.tree()), "Gemini 4 Argon · Weekly")
+    and has(labels(host.tree()), "Session")
+    and has(labels(host.tree()), "Weekly")
+    and #collect(host.tree(), "progress") == 6
     and not has(labels(host.tree()), "ui.more_windows"),
-    "Antigravity overview card must show all reported windows and model pools without omission")
+    "Antigravity overview card must group model families and show all reported windows and model pools without omission")
 end
 
 -- A local AGY RPC rejection does not establish that the AGY login is expired.
