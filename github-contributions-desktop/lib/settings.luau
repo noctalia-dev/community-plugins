@@ -22,7 +22,7 @@ end
 
 function Settings.cellSize(value)
   local size = tonumber(value) or 10
-  return math.clamp(math.floor(size), 6, 16)
+  return math.clamp(math.floor(size), 6, 24)
 end
 
 -- How many stacked blocks the year is split into: 1 (one long strip, the

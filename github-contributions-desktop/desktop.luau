@@ -427,7 +427,7 @@ function render()
   local root = {
     ui.row({ align = "center", gap = 10, paddingH = 16, paddingV = 8 }, {
       ui.glyph({ name = "brand-github", size = 20, color = "on_surface" }),
-      ui.label({ text = tr("desktop.title"), fontSize = 17, fontWeight = "bold", flexGrow = 1 }),
+      ui.label({ text = tr("desktop.title"), fontSize = 17, fontWeight = "bold", flexGrow = 1, maxLines = 1 }),
       ui.button({ glyph = "refresh", variant = "ghost", onClick = "onRefreshClicked" }),
     }),
     ui.separator({ thickness = 1, color = "outline_variant/0.35" }),
