@@ -60,16 +60,6 @@
       "description": "Show the percentage or balance as text.",
       "label": "Show value"
     },
-    "style": {
-      "description": "How this capsule looks in the bar.",
-      "label": "Style",
-      "option": {
-        "gauge": "Gauge and percentage",
-        "label": "Name, gauge and percentage",
-        "meter": "Segments",
-        "pill": "Percentage"
-      }
-    },
     "usage_display": {
       "description": "Used or remaining quota. Colors and priority follow usage.",
       "label": "Show quota as",
@@ -168,7 +158,6 @@
     "install": "Install page",
     "last_reading": "Last reading, {minutes} min ago",
     "last_reading_now": "Last reading, moments ago",
-    "loading": "Loading…",
     "more_actions": "More actions",
     "no_matching_providers": "No matching providers",
     "no_usage": "No usage reported",
@@ -183,7 +172,6 @@
     "refresh_queued": "Refresh queued",
     "refreshing": "Refreshing usage",
     "remaining": "Remaining",
-    "reset": "Reset",
     "retry": "Try again",
     "session": "Session",
     "settings": "Plugin settings",
@@ -193,7 +181,6 @@
     "setup_hint": "Check reported failures and local provider configuration.",
     "setup_loading": "Reading providers…",
     "setup_no_credential": "No credential required",
-    "setup_notifications": "The CLI manages alerts. To turn them off, set enabled = false under [notifications] in its config.toml.",
     "setup_required": "Setup required",
     "setup_unavailable": "Provider status unavailable",
     "severity": {

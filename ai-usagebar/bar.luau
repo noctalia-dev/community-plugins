@@ -322,8 +322,6 @@ local function chip(entry, flagged, isVert)
                     or shared.capsuleMetric({ metrics = item.metrics }, quotaWindow)
                 local mTint = colorByUsage and isCritical(shownMetric) and "error"
                     or severityRole(shownMetric, "on_surface")
-                local mFill = isCritical(shownMetric) and "error"
-                    or severityRole(shownMetric, "primary")
                 local rowChildren = {}
                 local modelGlyph = showGlyph and ui.glyph({
                         name = item.glyph or providerGlyph(entry.id, entry.brand),

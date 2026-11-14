@@ -115,8 +115,12 @@ start = [ "clock", "ai_usage" ]
   most one pending refresh when requests arrive during a read.
 - Middle click opens the widget's settings, as everywhere else in the shell.
 
-The script handles left and middle clicks. Right click is a gesture binding in
-the widget settings, where you can assign another action or choose `none`.
+Scroll over an automatic capsule to cycle through providers in its filter.
+A pinned provider does not cycle.
+
+The script handles left click; the shell opens settings on middle click.
+Right click is a gesture binding in the widget settings, where you can assign
+another action or choose `none`.
 
 The panel shows provider tabs at the top and the selected provider's limits
 below. With more than three providers, tabs show icons only and reveal names on
@@ -140,7 +144,9 @@ scrollbar so their width stays the same between providers.
 Opening the panel requests fresh data. The header keeps refresh and close within
 reach. The **⋯** menu has diagnostics, Copy summary, the provider dashboard and
 plugin settings. Both Antigravity model groups share the same
-service link. Click outside or click the widget again to close the panel.
+service link. Click outside, click the widget again or press Escape to close
+the panel. Press R to refresh usage, or the catalog while Diagnostics is open.
+Arrow keys cycle through providers outside Diagnostics.
 
 The list contains only providers with a usable reading. A provider the CLI
 reports no API key for never appears, because it was never set up. A configured
@@ -306,10 +312,6 @@ labels; long technical details require an explicit click inside Diagnostics.
 - The plugin makes no network calls and writes no files of its own. Everything
   it knows arrives on those commands' stdout. Catalog state retains only provider
   names, IDs and configuration flags, without login commands or environment fields.
-- A provider whose service is down leaves the bar and panel on the first report
-  that says so, except for Antigravity's temporary local-server loss described
-  above. It is not counted behind the `+n`, and returns when a report carries a
-  healthy reading for it again.
 - A failed whole-report read keeps the previous report and marks it as stale.
   Without a previous report, the panel shows the failure and its scrubbed
   diagnostic. Raw HTTP details stay out of the reading cards.
@@ -331,20 +333,8 @@ TZ=America/New_York lua tests/shared_test.lua
 lua tests/catalog_test.lua
 ```
 
-The first test reads `safeText` and `scrub` out of `service.luau` rather than
-copying them, then checks that real credential shapes never survive, that ordinary
-readings pass through unchanged, and that scrubbing a four-vendor report stays
-inside the CPU budget the poller's async callback is given. The second exercises
-the coalesced refresh state, rejects output from a timed-out process, checks
-quiet quota changes, optional priorities, the fallback for an older CLI, and
-provider glyphs.
-The third drives the real bar script through default, named, missing and automatic
-account selection, plus malformed metrics. The fourth checks that malformed panel
-sections degrade safely, temporal bars follow used/remaining mode, and secondary
-actions stay collapsed until requested. Priority cases cover embedded model details, provider selection,
-stale or expired suggestions and the opt-in default. The fifth verifies
-RFC3339 offsets, invalid dates and UTC parsing through a daylight-saving
-transition. An overrun in the first test loses the whole reading, not just time.
-
-The catalog test checks on-demand collection, a whitelist of public fields,
-older CLI failures, timeout handling and isolation from quota polling.
+The suites cover secret redaction and its callback CPU budget, refresh scheduling,
+account selection, bar and panel rendering, optional priorities, timestamps and
+on-demand diagnostics. They use synthetic reports; they do not read credentials
+or call provider APIs. UI trees are checked in a test host, without rendering the
+native shell.

@@ -53,7 +53,6 @@ local function loadBar(config, report, err)
         tr = function(key, args)
             if key == "ui.regenerates_in" and args then return "Regenerates " .. args.amount .. " in " .. args.time end
             if key == "ui.regenerates_at" and args then return "Regenerates " .. args.amount .. " at " .. args.time end
-            if key == "ui.reset" then return "Reset" end
             if key == "ui.hidden_value" then return tostring(args.count) .. " provider(s)" end
             if key == "ui.not_configured" then
                 return tostring(args.vendor) .. " not configured"
