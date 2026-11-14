@@ -42,7 +42,7 @@ Mouse interactions on the bar pill:
 
 - **Activity**: Live hero status badge, 9Router Overview stats card (requests, in/out/cached tokens, cost) with interactive period filter (`today`, `24h`, `7d`, `30d`, `60d`), active in-flight requests, and recent requests with token metrics.
 - **Models**: Usage breakdown by model for the selected period (`today`, `24h`, `7d`, `30d`, `60d`), showing total requests, prompt tokens, completion tokens, cached tokens, and estimated costs.
-- **Quotas**: Multi-provider quota tracker (`antigravity`, `kiro`, `codex`, etc.) with color-coded progress bars, remaining percentages, and live reset countdowns.
+- **Quotas**: Multi-provider quota tracker (`antigravity`, `kiro`, `codex`, etc.) showing **active accounts only**, always in the same order as the 9Router dashboard, with quotas **aggregated like the dashboard** (e.g. Antigravity: Gemini (5h), Claude & GPT (5h), image models, Gemini Weekly, Claude & GPT Weekly). Includes a **provider filter** dropdown (shown when more than one provider is connected), color-coded progress bars, compact used/total numbers (`60 / 100 used`), remaining percentages, and live reset countdowns.
 
 ## Settings
 

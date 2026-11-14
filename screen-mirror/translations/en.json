@@ -1,0 +1,54 @@
+{
+  "notify": {
+    "failed": {
+      "body": "The niri-mirror daemon reported no details.",
+      "title": "Screen Mirror failed"
+    },
+    "missing": {
+      "body": "The bundled mirroring engine (engine/niri_mirror.py) is missing; reinstall the plugin, or install niri-mirror (https://github.com/Goldppx/niri-mirror) and re-enable it.",
+      "title": "Screen Mirror is not installed"
+    }
+  },
+  "settings": {
+    "enabled_on_start": {
+      "description": "Start the daemon with mirroring on. Turn off if you only want to mirror after pressing the toggle. The off state does not survive a logout: mirroring always starts from this value.",
+      "label": "Enabled on start"
+    },
+    "excluded_outputs": {
+      "description": "Connector names that never get a mirror window, not even when plugged in, one per entry (e.g. HDMI-A-1). Run `niri-mirror --list-outputs` to see the names; partial names like `hdmi` are accepted.",
+      "label": "Excluded displays"
+    },
+    "poll_interval": {
+      "description": "How often the tile and widget re-read the daemon state file. The daemon itself follows niri's event stream, so this only affects the UI.",
+      "label": "Refresh interval (ms)"
+    },
+    "scaling": {
+      "cover": "Cover (fill, crop the edges)",
+      "description": "How wl-mirror fits the source onto the mirrored display.",
+      "exact": "Exact (integer multiples only)",
+      "fit": "Fit (keep aspect ratio, letterbox)",
+      "label": "Scaling"
+    },
+    "show_osd": {
+      "description": "Show the shell OSD (or a notification) whenever mirroring is switched on or off, including toggles done with a keybind.",
+      "label": "Show OSD feedback"
+    },
+    "source_output": {
+      "description": "Connector to mirror from. Leave empty to use the focused display at startup (and re-elect when it disappears). Run `niri-mirror --list-outputs` to see the names; partial names like `hdmi` are accepted.",
+      "label": "Source display"
+    }
+  },
+  "shortcut": {
+    "label-off": "Mirror Off",
+    "label-on": "Mirror On"
+  },
+  "widget": {
+    "tooltip": {
+      "daemon": "Daemon",
+      "source": "From",
+      "state": "Mirroring",
+      "stopped": "not running",
+      "targets": "To"
+    }
+  }
+}

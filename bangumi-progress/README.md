@@ -67,6 +67,12 @@ collection covers while open with covers enabled; its current page has priority.
 The desktop widget requests only its displayed entries. A closed panel or hidden
 collection covers do not trigger background collection-cover downloads.
 
+The API address can be changed in plugin settings using **Bangumi API base URL**.
+Use only a mirror you trust: authenticated API requests, including browser sign-in
+identity verification, send your access token to this address. Public reads and
+progress writes also use it. Browser authorization and token exchange default to
+`bgm.tv` (the OAuth profile can override them); website links and image URLs returned by the API are unchanged.
+
 ## Airing timeline
 
 Open **Airing timeline** in the panel and use its date selector to browse **Today** or **This week**. The
@@ -182,6 +188,7 @@ Plugin settings:
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
+| `api_base_url` | `string` | `https://api.bgm.tv` | API root (without `/v0`); supports a mirror URL with an optional path prefix. Whitespace and trailing slashes are removed; an empty value uses the default. Changes apply automatically; active sign-in and progress writes finish before switching. |
 | `access_token` | `string` | empty | Personal access token used to read your own collection, including private entries, and update progress. Takes precedence over `username`; a successfully saved browser sign-in takes precedence over both. |
 | `username` | `string` | empty | Bangumi username used to read public collections anonymously when no browser session or personal token is set. |
 | `refresh_minutes` | `int` | `30` | Automatic refresh interval and cache lifetime in minutes, from `5` to `1440`. Manual refreshes are not throttled. |
@@ -257,12 +264,12 @@ When browser sign-in is active, the `logout` event pauses authenticated requests
 
 ## Notes
 
-- Browser sign-in starts the local Python helper `scripts/bangumi_oauth.py` as a process and invokes `xdg-open`. The helper uses the fixed `https://bgm.tv/oauth/authorize` and `https://bgm.tv/oauth/access_token` endpoints and verifies identity through `https://api.bgm.tv/v0/me`. It sends authorization codes, application credentials, and refresh tokens only to the token endpoint; access tokens go to `api.bgm.tv`.
+- Browser sign-in starts the local Python helper `scripts/bangumi_oauth.py` as a process and invokes `xdg-open`. The helper defaults to `https://bgm.tv/oauth/authorize` and `https://bgm.tv/oauth/access_token` (overridable in the OAuth profile) and verifies identity through `/v0/me` on the configured API root. It sends authorization codes, application credentials, and refresh tokens only to the token endpoint; access tokens go to the configured API root.
 - OAuth session data is stored in `pluginDataDir/oauth/oauth-session.json` using atomic writes and owner-only file permissions (`0600`). Credentials are not published in the panel snapshot or logged. The bundled public application profile and optional private development override are separate from user session storage.
 - OAuth access and refresh credentials remain in the private session file. The helper uses the provider's returned expiry and saves a rotated refresh token when one is returned.
-- The service sends the active access token to `api.bgm.tv` as a Bearer token. A normal bgm.tv website login cookie cannot authenticate the v0 API.
-- It calls `/v0/me`, collection, and episode endpoints on `api.bgm.tv`, and downloads cover images from URLs returned by the API, normally on `lain.bgm.tv`.
-- The timeline makes a public `GET https://api.bgm.tv/calendar` without sending a Bearer token. It starts no additional process and performs no remote writes. Public calendar data is saved separately as `calendar.json`; account matching happens in the panel using the current collection.
+- The service sends the active access token to the configured API root as a Bearer token. A normal bgm.tv website login cookie cannot authenticate the v0 API.
+- It calls `/v0/me`, collection, and episode endpoints on the configured API root, and downloads cover images from URLs returned by the API, normally on `lain.bgm.tv`.
+- The timeline makes a public `GET /calendar` on the configured API root without sending a Bearer token. It starts no additional process and performs no remote writes. Public calendar data is saved separately as `calendar.json`; account matching happens in the panel using the current collection.
 - Cache data is written under Noctalia's plugin data directory, normally `~/.local/state/noctalia/plugins/data/mirei124/bangumi-progress/`, as `cache.json`, `badge-baselines.json`, `calendar.json`, and files under `covers/`. `collection-layout.txt` and `timeline-layout.txt` store only the respective list/grid preferences.
 - Opening the panel can read the public `GET /v0/users/{username}` profile without an authorization header. The response supplies the bio (`sign`) and avatar URL; complete `/v0/me` data is reused when available. Profile JSON and downloaded avatars are cached by account under `profiles/`, using `refresh_minutes`. Disabling the avatar prevents new avatar downloads, and disabling all profile fields skips this optional read. A failed profile or avatar refresh preserves previous data and does not fail collection loading or sign-in. No additional external command or process is started for profiles.
 - Collection, identity, and episode caches use `refresh_minutes` (30 minutes by default). Reopening the panel and restarting the service reuse fresh collection data; expired data remains visible during refresh and after a network failure. Same-account OAuth token rotation preserves cached collections; account changes remain isolated. The panel's refresh button and the `refresh` IPC event force a collection refresh; an expired browser session first attempts token renewal.
@@ -277,3 +284,19 @@ When browser sign-in is active, the `logout` event pauses authenticated requests
 ## License
 
 MIT
+
+### Custom OAuth provider endpoints
+
+An optional `oauth-client.json` override can set `api_base_url`, `authorize_url`
+and `token_url` alongside `client_id`, `client_secret` and `redirect_uri`.
+Empty or omitted endpoint fields retain the plugin API setting and official
+OAuth endpoints respectively. `api_base_url` overrides the plugin setting for
+both service requests and OAuth identity verification. If a mirror hosts its own
+OAuth provider, set its full authorization and token URLs explicitly; they are
+not inferred from the API root. Register the application with that provider.
+Only use endpoints you trust: they receive account credentials and tokens.
+Changing these profile fields requires signing in again. Reload the plugin after
+editing this file; GUI API address changes still apply automatically when no
+profile API override is present. The example contains the official endpoint URLs;
+clear `api_base_url` to follow the GUI setting instead. See `oauth-client.example.json`
+for the fields.

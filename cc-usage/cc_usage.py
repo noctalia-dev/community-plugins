@@ -25,7 +25,9 @@ PLANS = {
 }
 PLAN = os.environ.get("CC_USAGE_PLAN", "GOAT").upper()
 MONTHLY_CREDITS, CAP_5H, CAP_7D = PLANS.get(PLAN, PLANS["GOAT"])
-CREDIT_MULTIPLIER = float(os.environ.get("CC_USAGE_MULTIPLIER", "2.5"))
+MULT_5H = float(os.environ.get("CC_USAGE_MULT_5H", os.environ.get("CC_USAGE_MULTIPLIER", "2.5")))
+MULT_7D = float(os.environ.get("CC_USAGE_MULT_7D", os.environ.get("CC_USAGE_MULTIPLIER", "2.5")))
+MULT_MONTH = float(os.environ.get("CC_USAGE_MULT_MONTH", os.environ.get("CC_USAGE_MULTIPLIER", "2.5")))
 BILLING_DAY = int(os.environ.get("CC_USAGE_BILLING_DAY", "28"))
 DATA_DIR = os.path.expanduser("~/.commandcode/projects")
 
@@ -112,10 +114,10 @@ def add_month(dt):
     return dt.replace(year=year, month=month)
 
 
-def pct(spent, cap):
+def pct(spent, cap, multiplier):
     if cap <= 0:
         return 0.0
-    return min(999.0, spent * CREDIT_MULTIPLIER / cap * 100.0)
+    return min(999.0, spent * multiplier / cap * 100.0)
 
 
 def main():
@@ -133,9 +135,9 @@ def main():
     secs_left = (renew - now_dt).total_seconds()
     days_left = int((secs_left + 86399) // 86400) if secs_left > 0 else 0
 
-    p_month = pct(spent_month, MONTHLY_CREDITS)
-    p_5h = pct(spent_5h, CAP_5H)
-    p_7d = pct(spent_7d, CAP_7D)
+    p_month = pct(spent_month, MONTHLY_CREDITS, MULT_MONTH)
+    p_5h = pct(spent_5h, CAP_5H, MULT_5H)
+    p_7d = pct(spent_7d, CAP_7D, MULT_7D)
 
     result = {
         "title": f"{p_month:.0f}% mês · 5h {p_5h:.0f}% · 7d {p_7d:.0f}%",

@@ -1,17 +1,10 @@
 --!nonstrict
--- The panel vocabulary both display panels are built from.
---
--- Pure functions taking their state as arguments, since every entry script runs
--- in its own Luau state and the two panels would otherwise each carry a copy.
-
 local M = {}
 
 M.PADDING = 16
 M.RADIUS = 14
 
--- A handful of choices reads better as a row of buttons than as a list behind a
--- dropdown. Long labels fit three to a row, short ones four; past the limit the
--- wrapping costs more height than the select it replaces.
+-- Use a select beyond this limit to avoid excessive wrapping.
 M.CHIP_LIMIT = 8
 
 function M.card(children)
@@ -39,10 +32,8 @@ function M.control(caption, node, reading)
   })
 end
 
--- A range wide enough that stepping through it is not an option. The host emits
--- onChange while dragging and again when it applies a controlled value, so the
--- caller has to feed its own preview back in as `value`: passing the stored
--- number instead resets the handle under the pointer.
+-- Feed the drag preview back as value; the stored value resets the handle
+-- because the host also emits onChange when applying controlled values.
 function M.slider(value, low, high, step, onPreview, onSet)
   return ui.slider({
     key = "slider",
@@ -96,8 +87,6 @@ function M.chips(labels, current, onPick)
   return ui.column({ gap = 8 }, rows)
 end
 
--- Three equal segments on the chip grid's rhythm, with the count wearing the
--- same tint a picked chip does.
 function M.stepper(value, low, high, step, onSet)
   local function arrow(label, to, enabled)
     return ui.button({
@@ -134,8 +123,6 @@ function M.toggleRow(caption, checked, onSet, key)
   })
 end
 
--- One tile per display, the active one tinted, the way the control center marks
--- a live toggle.
 function M.tiles(outputs, selectedName, onPick)
   local tiles = {}
   for _, entry in ipairs(outputs) do

@@ -6,7 +6,7 @@
 
 id = "edward/claude-operator"
 name = "Claude Operator"
-version = "0.7.4"
+version = "0.7.5"
 # 43 (noctalia 5.4): the surface_container / outline_variant color roles that replace
 # surface_variant / outline.
 # 33: revealKey on ui.scroll (session browser keeps the selection in view).
@@ -126,6 +126,18 @@ type = "string"
 label_key = "settings.terminal.label"
 description_key = "settings.terminal.description"
 default = ""
+
+# Only for kitty remote control: every other terminal already opens a new window.
+[[setting]]
+key = "open_in"
+type = "select"
+label_key = "settings.open_in.label"
+description_key = "settings.open_in.description"
+default = "tab"
+options = [
+  { value = "tab", label_key = "settings.open_in.options.tab" },
+  { value = "window", label_key = "settings.open_in.options.window" },
+]
 
 # Empty: try code, then zed.
 [[setting]]

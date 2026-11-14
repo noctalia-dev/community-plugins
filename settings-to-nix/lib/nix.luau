@@ -60,6 +60,8 @@ local function scalar(node, inList)
 end
 
 local value
+-- Set for the duration of M.render; called once per binding and list element.
+local checkpoint = nil
 
 local function sortedKeys(tbl)
 	local keys = table.clone(tbl.keys)
@@ -85,6 +87,9 @@ local function attrset(node, indent)
 	local inner = indent .. "  "
 	local lines = { "{" }
 	for _, k in sortedKeys(node) do
+		if checkpoint then
+			checkpoint()
+		end
 		if not node.map[k].special then
 			table.insert(lines, inner .. binding(k, node.map[k], inner))
 		end
@@ -101,6 +106,9 @@ local function list(node, indent)
 		-- Nix has no literal for inf/nan; such list elements are left out.
 		if item.special then
 			continue
+		end
+		if checkpoint then
+			checkpoint()
 		end
 		if item.t == "table" or item.t == "array" then
 			simple = false
@@ -130,8 +138,15 @@ end
 
 -- Renders a root table node as a Nix attribute set. `indent` is the indentation of the
 -- line the set starts on; the result has no trailing newline.
-function M.render(root, indent)
-	return value(root, indent or "", false)
+-- `check`, when given, is called regularly (see toml.parse).
+function M.render(root, indent, check)
+	checkpoint = check
+	local ok, result = pcall(value, root, indent or "", false)
+	checkpoint = nil
+	if not ok then
+		error(result, 0)
+	end
+	return result
 end
 
 return M

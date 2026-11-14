@@ -1,0 +1,67 @@
+{
+  "settings": {
+    "sticker_path": {
+      "label": "Imagen del sticker",
+      "description": "PNG, JPEG, WebP, SVG o GIF animado que se muestra sobre la pantalla. Usa tu propio archivo."
+    },
+    "sticker_dir": {
+      "label": "Carpeta de stickers",
+      "description": "Carpeta con archivos PNG, JPEG, WebP, SVG o GIF animados. Si está configurada, se elige uno en cada activación en lugar de la imagen única."
+    },
+    "sticker_selection": {
+      "label": "Selección de sticker",
+      "description": "Cómo se elige el siguiente sticker de la carpeta.",
+      "random": "Aleatorio",
+      "sequential": "Secuencial"
+    },
+    "sticker_position": {
+      "label": "Posición del sticker",
+      "description": "Dónde aparece el sticker en pantalla. «Auto» lo mantiene centrado.",
+      "top_left": "Arriba izquierda",
+      "top_center": "Arriba centro",
+      "top_right": "Arriba derecha",
+      "center_left": "Centro izquierda",
+      "center": "Centro",
+      "center_right": "Centro derecha",
+      "bottom_left": "Abajo izquierda",
+      "bottom_center": "Abajo centro",
+      "bottom_right": "Abajo derecha",
+      "auto": "Auto"
+    },
+    "sound_path": {
+      "label": "Sonido",
+      "description": "Sonido que suena al aparecer el sticker."
+    },
+    "size_px": {
+      "label": "Tamaño del sticker (px)",
+      "description": "Caja del sticker, en píxeles lógicos. La imagen siempre se ajusta dentro de este cuadrado."
+    },
+    "opacity": {
+      "label": "Opacidad",
+      "description": "Opacidad máxima del sticker, antes del desvanecido final."
+    },
+    "hold_ms": {
+      "label": "Tiempo en pantalla (ms)",
+      "description": "Cuánto tiempo permanece un sticker estático en pantalla."
+    },
+    "extra_ms": {
+      "label": "Tiempo extra tras el GIF (ms)",
+      "description": "Mantiene el sticker visible este tiempo después de que el GIF animado termine."
+    }
+  },
+  "panel": {
+    "no_sticker": "No hay sticker configurado"
+  },
+  "widget": {
+    "tooltip": "Sticker de reacción\nClic izquierdo: mostrar · Clic derecho: ocultar"
+  },
+  "status": {
+    "unset": "(sin configurar)"
+  },
+  "notify": {
+    "status": {
+      "title": "Reaction",
+      "body": "Sticker: {sticker}\nEstado: {state}"
+    }
+  }
+}

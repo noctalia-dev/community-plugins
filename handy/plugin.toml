@@ -1,0 +1,95 @@
+id = "ooodnakov/handy"
+name = "Handy"
+version = "0.3.0"
+plugin_api = 24
+author = "ooodnakov"
+license = "MIT"
+description = "Control Handy dictation and browse recent transcripts from Noctalia."
+dependencies = ["handy", "sqlite3", "pactl", "pgrep", "xdg-open", "busctl", "dbus-send"]
+tags = ["audio", "bar", "indicator", "panel", "productivity", "service", "utility"]
+icon = "microphone"
+
+# Plugin-level: shared by the service, widget, and panel.
+[[setting]]
+key = "handy_command"
+type = "string"
+label_key = "settings.handy_command.label"
+description_key = "settings.handy_command.description"
+default = "handy"
+
+[[setting]]
+key = "data_dir"
+type = "folder"
+label_key = "settings.data_dir.label"
+description_key = "settings.data_dir.description"
+default = ""
+
+[[setting]]
+key = "refresh_seconds"
+type = "int"
+label_key = "settings.refresh_seconds.label"
+description_key = "settings.refresh_seconds.description"
+default = 1
+min = 1
+max = 10
+step = 1
+
+[[setting]]
+key = "model_refresh_seconds"
+type = "int"
+label_key = "settings.model_refresh_seconds.label"
+description_key = "settings.model_refresh_seconds.description"
+default = 10
+min = 5
+max = 60
+step = 5
+
+[[setting]]
+key = "history_limit"
+type = "int"
+label_key = "settings.history_limit.label"
+description_key = "settings.history_limit.description"
+default = 30
+min = 5
+max = 100
+step = 5
+
+[[setting]]
+key = "transcript_lines"
+type = "int"
+label_key = "settings.transcript_lines.label"
+description_key = "settings.transcript_lines.description"
+default = 4
+min = 1
+max = 10
+step = 1
+
+[[setting]]
+key = "show_state_text"
+type = "bool"
+label_key = "settings.show_state_text.label"
+description_key = "settings.show_state_text.description"
+default = false
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[widget]]
+id = "status"
+entry = "widget.luau"
+
+  [widget.actions]
+  left = "plugin ooodnakov/handy:service all toggle"
+  right = "panel-toggle ooodnakov/handy:panel"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 620
+height = 640
+placement = "floating"
+position = "center"
+open_near_click = false
+dismiss_on_outside_click = true
+keyboard_focus = "exclusive"

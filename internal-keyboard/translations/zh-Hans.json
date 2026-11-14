@@ -1,0 +1,60 @@
+{
+  "notify": {
+    "failed": {
+      "hint": "检查 /etc/sudoers.d/internal-keyboard 与 /etc/udev/rules.d/90-internal-keyboard.rules。",
+      "title": "内置键盘切换失败"
+    },
+    "select": {
+      "title": "无法切换到该键盘"
+    },
+    "setup": {
+      "cancelled": {
+        "title": "已取消初始化"
+      },
+      "failed": {
+        "title": "初始化失败"
+      },
+      "hint": "点磁贴即可安装；或者在终端执行一次：sudo %s",
+      "ok": {
+        "body": "后端命令、sudoers 条目与 udev 规则已安装，用磁贴切换键盘即可。",
+        "title": "内置键盘已就绪"
+      },
+      "timeout": {
+        "body": "setup.sh 超时未结束，请在终端手动执行以查看错误。"
+      },
+      "title": "内置键盘插件需要初始化"
+    }
+  },
+  "settings": {
+    "backend": {
+      "description": "setup.sh 安装的 internal-keyboard 命令路径。只有把后端装到别处时才需要修改。",
+      "label": "后端命令"
+    },
+    "device": {
+      "description": "要切换的设备全名；留空则沿用 setup.sh 选中的键盘。在终端执行 `internal-keyboard devices` 可列出所有可选名字。",
+      "label": "键盘"
+    },
+    "poll_interval": {
+      "description": "磁贴与挂件重新读取键盘状态的频率。",
+      "label": "刷新间隔（毫秒）"
+    },
+    "show_osd": {
+      "description": "切换键盘时弹出 Noctalia 的 OSD 提示，显示切换后的状态。",
+      "label": "显示 OSD 提示"
+    }
+  },
+  "shortcut": {
+    "setup": "去初始化",
+    "state": {
+      "off": "内置键盘 关",
+      "on": "内置键盘 开"
+    }
+  },
+  "widget": {
+    "tooltip": {
+      "device": "设备",
+      "setup": "尚未初始化，点击安装",
+      "state": "内置键盘"
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "settings": {
+    "date_format": {
+      "description": "Формат даты Luau, например {:%A, %B %d}",
+      "label": "Формат даты"
+    }
+  }
+}

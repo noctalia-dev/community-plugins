@@ -1,0 +1,22 @@
+{
+  "entries": {
+    "panel": "Wallpaper Brightness",
+    "shortcut": "Wallpaper Brightness",
+    "bar": "Wallpaper Brightness"
+  },
+  "settings": {
+    "brightness": {
+      "label": "Wallpaper Brightness (%)",
+      "description": "Adjust the brightness level of your current wallpaper (100% keeps the original image)."
+    }
+  },
+  "panel": {
+    "title": "Wallpaper Brightness",
+    "subtitle": "Adjust the brightness of your active wallpaper",
+    "reset": "Reset (100%)",
+    "presets": "Quick Presets",
+    "open_settings": "Plugin Settings",
+    "original_restored": "Original brightness (100%)",
+    "applying": "Applying changes..."
+  }
+}

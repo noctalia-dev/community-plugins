@@ -1,0 +1,96 @@
+{
+  "appearance": "Aspetto",
+  "back": "Indietro",
+  "background": "Sfondo",
+  "binding_count": "{count} scorciatoie",
+  "cancel": "Annulla",
+  "choose_color": "Scegli il colore",
+  "clear": "Cancella la ricerca",
+  "customize_colors": "Colori dei tasti",
+  "edit_bindings": "Modifica le scorciatoie",
+  "edit_description": "Modifica la descrizione",
+  "finish_editing": "Fine modifiche",
+  "hidden_count": "{count} nascoste",
+  "hide_binding": "Nascondi la scorciatoia",
+  "hyprctl_failed": "Hyprland non ha restituito le scorciatoie attive.",
+  "hyprctl_missing": "Per le scorciatoie Lua di Hyprland serve hyprctl.",
+  "loading": "Lettura delle scorciatoie...",
+  "missing_config": "Impossibile leggere il file delle scorciatoie configurato.",
+  "no_results": "Nessuna scorciatoia corrisponde alla ricerca.",
+  "other": "Altro",
+  "paste": "Incolla il colore",
+  "refresh": "Aggiorna",
+  "reset": "Ripristina",
+  "reset_colors": "Ripristina tutti i colori",
+  "restore_hidden": "Ripristina le scorciatoie nascoste",
+  "save": "Salva",
+  "search_placeholder": "Cerca tasti, descrizioni e azioni",
+  "settings": {
+    "columns": {
+      "description": "Numero massimo di colonne bilanciate nel pannello.",
+      "label": "Colonne"
+    },
+    "compositor": {
+      "description": "Rileva il compositor attivo o forza un parser.",
+      "label": "Compositor",
+      "options": {
+        "auto": "Automatico",
+        "hyprland": "Hyprland",
+        "mango": "Mango",
+        "niri": "Niri"
+      }
+    },
+    "glyph": {
+      "description": "Icona mostrata nella barra.",
+      "label": "Icona"
+    },
+    "hyprland_config": {
+      "description": "File di configurazione classico principale di Hyprland.",
+      "label": "Configurazione Hyprland"
+    },
+    "hyprland_lua_config": {
+      "description": "Configurazione Lua usata per ricavare le categorie delle scorciatoie attive.",
+      "label": "Configurazione Lua di Hyprland"
+    },
+    "hyprland_parser": {
+      "description": "Usa l'elenco attivo delle scorciatoie Lua, la configurazione classica o il rilevamento automatico.",
+      "label": "Parser Hyprland",
+      "options": {
+        "auto": "Automatico",
+        "conf": "Configurazione classica",
+        "lua": "Lua / hyprctl"
+      }
+    },
+    "mango_config": {
+      "description": "File di configurazione principale di Mango. Le direttive source vengono seguite.",
+      "label": "Configurazione Mango"
+    },
+    "merge_sequential": {
+      "description": "Raggruppa in una riga le scorciatoie che differiscono solo per un numero (workspace 1, 2, 3…).",
+      "label": "Unisci le serie numerate"
+    },
+    "modifier_labels": {
+      "description": "Rinomina le etichette dei modificatori, es. MOD3 → Hyper. Le chiavi sono i nomi dei modificatori di Hyprland.",
+      "label": "Etichette dei modificatori"
+    },
+    "niri_config": {
+      "description": "File di configurazione KDL principale di Niri. Le direttive include vengono seguite.",
+      "label": "Configurazione Niri"
+    },
+    "show_actions": {
+      "description": "Mostra i comandi del compositor sotto le descrizioni delle scorciatoie.",
+      "label": "Mostra le azioni"
+    },
+    "show_undescribed": {
+      "description": "Mette le scorciatoie senza descrizione in una sezione separata.",
+      "label": "Mostra le scorciatoie senza descrizione"
+    }
+  },
+  "show_binding": "Mostra la scorciatoia",
+  "source_warning": "Alcuni file di configurazione non sono leggibili.",
+  "text": "Testo",
+  "title": "Scorciatoie da tastiera",
+  "unsupported": "Nessun compositor supportato rilevato.",
+  "widget_tooltip": "Apri l'elenco delle scorciatoie",
+  "without_description": "Senza descrizione"
+}

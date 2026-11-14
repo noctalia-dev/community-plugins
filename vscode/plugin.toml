@@ -1,0 +1,116 @@
+# VS Code - recent projects in the Noctalia bar, a panel and the launcher.
+#
+# One [[service]] owns every read of the editor's recent-projects data and every process
+# started on the user's behalf; it publishes `vscode.state`, UI entries send `vscode.request`.
+#
+# plugin_api = 43: the catalog validator requires it for the panel's color roles
+# surface_container, surface_container_high and outline_variant (API 43). Before that the
+# binding level was [[panel]] height = "content" (API 42, reported by `noctalia plugins
+# lint`). Of the APIs the plugin calls, the highest are panel.openContextMenu (API 28) and
+# noctalia.readFileAsync (API 23); fileInfo, listDir, mkdirAll, renameFile, appIconPath,
+# copyToClipboard and getenv carry no higher marker in the type definitions.
+
+id = "3dprogramin/vscode"
+name = "VS Code"
+version = "0.2.0"
+plugin_api = 43
+author = "3dprogramin"
+license = "MIT"
+# Optional: a missing editor flavor is skipped; sqlite3 (recents DB), git (branch/dirty and
+# clone), zenity (folder picker), flatpak, setsid, xdg-open, kill. See the README.
+dependencies = ["code", "codium", "code-insiders", "code-oss", "cursor", "flatpak", "sqlite3", "git", "zenity", "setsid", "xdg-open", "kill"]
+tags = ["bar", "panel", "launcher", "service", "development", "productivity"]
+icon = "brand-vscode"
+description = "Open recent VS Code projects from the bar, a panel or the launcher; clone a repo and see git status."
+
+# Headless owner of all reads and processes.
+[[service]]
+id = "service"
+entry = "service.luau"
+
+# Bar button. Click opens the panel.
+[[widget]]
+id = "button"
+entry = "bar.luau"
+
+  [[widget.setting]]
+  key = "show_label"
+  type = "bool"
+  label_key = "settings.show_label.label"
+  description_key = "settings.show_label.description"
+  default = false
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 420
+height = "content"
+max_height = 640
+open_near_click = true
+
+[[launcher_provider]]
+id = "provider"
+entry = "launcher.luau"
+prefix = "code"
+include_in_global_search = false
+debounce_ms = 0
+
+[[setting]]
+key = "editor"
+type = "select"
+label_key = "settings.editor.label"
+description_key = "settings.editor.description"
+default = "auto"
+options = [
+  { value = "auto", label_key = "settings.editor.options.auto" },
+  { value = "code", label_key = "settings.editor.options.code" },
+  { value = "code-insiders", label_key = "settings.editor.options.code-insiders" },
+  { value = "codium", label_key = "settings.editor.options.codium" },
+  { value = "code-oss", label_key = "settings.editor.options.code-oss" },
+  { value = "cursor", label_key = "settings.editor.options.cursor" },
+  { value = "flatpak", label_key = "settings.editor.options.flatpak" },
+]
+
+[[setting]]
+key = "recent_count"
+type = "int"
+label_key = "settings.recent_count.label"
+description_key = "settings.recent_count.description"
+default = 5
+min = 1
+max = 20
+
+[[setting]]
+key = "show_git"
+type = "bool"
+label_key = "settings.show_git.label"
+description_key = "settings.show_git.description"
+default = true
+
+[[setting]]
+key = "show_remote"
+type = "bool"
+label_key = "settings.show_remote.label"
+description_key = "settings.show_remote.description"
+default = true
+
+[[setting]]
+key = "hide_missing"
+type = "bool"
+label_key = "settings.hide_missing.label"
+description_key = "settings.hide_missing.description"
+default = true
+
+[[setting]]
+key = "show_hidden"
+type = "bool"
+label_key = "settings.show_hidden.label"
+description_key = "settings.show_hidden.description"
+default = false
+
+[[setting]]
+key = "clone_dir"
+type = "folder"
+label_key = "settings.clone_dir.label"
+description_key = "settings.clone_dir.description"
+default = "~/Projects"

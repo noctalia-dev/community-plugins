@@ -1,0 +1,51 @@
+# UFW Firewall - show and control the UFW firewall from the Noctalia bar and a panel.
+#
+# One [[service]] owns every ufw/systemctl call and publishes the firewall state on
+# `ufw.state`; UI entries send `ufw.request`.
+#
+# Requires `ufw`, `pkexec` (privileged changes), `systemctl` (the ufw service) and
+# `noctalia`.
+
+id = "3dprogramin/ufw"
+name = "UFW Firewall"
+version = "0.1.0"
+plugin_api = 43
+author = "3dprogramin"
+license = "MIT"
+dependencies = ["ufw", "pkexec", "systemctl", "noctalia"]
+tags = ["bar", "panel", "service", "network", "system"]
+icon = "shield"
+description = "Show UFW firewall status in the bar; turn it on or off and manage allowed ports from a panel."
+
+# Headless owner of all ufw I/O.
+[[service]]
+id = "service"
+entry = "service.luau"
+
+# Bar tile: status dot, label and the allowed-port count. Click opens the panel.
+[[widget]]
+id = "status"
+entry = "bar.luau"
+
+  [[widget.setting]]
+  key = "show_label"
+  type = "bool"
+  label_key = "settings.show_label.label"
+  description_key = "settings.show_label.description"
+  default = true
+
+  [[widget.setting]]
+  key = "show_count"
+  type = "bool"
+  label_key = "settings.show_count.label"
+  description_key = "settings.show_count.description"
+  default = true
+
+# Firewall panel: on/off, the rule list, staged adds/removes and Save. Opened by the bar tile.
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 380
+height = "content"
+max_height = 640
+placement = "floating"

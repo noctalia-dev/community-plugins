@@ -53,6 +53,8 @@
 **Ready-for-review requirement:** Every box in this section must be checked. If any statement is not true, keep the
 pull request as Draft. An explanation does not replace a required check.
 
+Manifest descriptions and all README prose must be English; no translated sections or localized README copies.
+
 - [ ] The directory name matches the part of `id` after the `/` in `plugin.toml` exactly.
 - [ ] It ships `plugin.toml`, `README.md`, `thumbnail.webp`, and `translations/en.json`.
 - [ ] `README.md` follows the
@@ -71,6 +73,7 @@ Plugins run as trusted, unsandboxed Luau in the user's session. Confirm:
 **Ready-for-review requirement:** Every attestation below must be checked.
 
 - [ ] The code is readable and not obfuscated, minified, or generated.
+- [ ] Code identifiers and code comments are in English.
 - [ ] It does not download and execute remote code.
 - [ ] Every network call, filesystem write, and spawned process is something the description above accounts for.
 - [ ] I have the right to publish this code under the `license` declared in `plugin.toml`.

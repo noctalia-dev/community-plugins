@@ -9,13 +9,29 @@
     "previous": "Previous track"
   },
   "settings": {
+    "audio-visualizer": {
+      "description": "Show a full-width audio-reactive wave along the bar.",
+      "label": "Audio visualizer"
+    },
     "auto-show": {
       "description": "Briefly show the island when playback starts or the current track changes.",
       "label": "Show on playback changes"
     },
+    "click-action": {
+      "description": "What clicking the track title does: \"island\" opens a brief island preview, \"panel\" opens the control center media tab.",
+      "label": "Click action"
+    },
     "preview-seconds": {
       "description": "How many seconds an automatic island preview remains visible.",
       "label": "Preview duration"
+    },
+    "show-hours": {
+      "description": "Show times of one hour or longer as h:mm:ss (for example 4:48:55) instead of total minutes (288:55).",
+      "label": "Show hours"
+    },
+    "title-limit": {
+      "description": "Maximum number of characters of the track title shown in the bar.",
+      "label": "Title length"
     }
   },
   "tooltip": {

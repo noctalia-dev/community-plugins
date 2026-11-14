@@ -1,0 +1,72 @@
+{
+  "settings": {
+    "idle_color": {
+      "description": "Colore dell'icona quando Voxtype è pronto e in attesa.",
+      "label": "Colore icona in attesa"
+    },
+    "idle_glyph": {
+      "description": "Icona Noctalia mostrata quando Voxtype è pronto e in attesa.",
+      "label": "Icona in attesa"
+    },
+    "recording_color": {
+      "description": "Colore dell'icona mentre Voxtype registra.",
+      "label": "Colore icona in registrazione"
+    },
+    "recording_glyph": {
+      "description": "Icona Noctalia mostrata mentre Voxtype registra.",
+      "label": "Icona in registrazione"
+    },
+    "show_alt": {
+      "description": "Mostra accanto all'icona lo stato attuale di Voxtype (in attesa, streaming, registrazione, trascrizione o fermo).",
+      "label": "Mostra il testo dello stato"
+    },
+    "show_backend": {
+      "description": "Mostra nella barra il backend audio attivo.",
+      "label": "Mostra il backend nella barra"
+    },
+    "show_device": {
+      "description": "Mostra nella barra il dispositivo audio attivo.",
+      "label": "Mostra il dispositivo nella barra"
+    },
+    "show_extended": {
+      "description": "Chiede a Voxtype lo stato esteso. Il tooltip include modello, dispositivo e backend; le impostazioni sotto scelgono quali campi compaiono anche nella barra.",
+      "label": "Stato esteso"
+    },
+    "show_model": {
+      "description": "Mostra nella barra il modello di trascrizione attivo.",
+      "label": "Mostra il modello nella barra"
+    },
+    "stopped_color": {
+      "description": "Colore dell'icona quando Voxtype non è in esecuzione.",
+      "label": "Colore icona fermo"
+    },
+    "stopped_glyph": {
+      "description": "Icona Noctalia mostrata quando Voxtype non è in esecuzione.",
+      "label": "Icona fermo"
+    },
+    "streaming_color": {
+      "description": "Colore dell'icona mentre Voxtype trasmette l'audio dal vivo.",
+      "label": "Colore icona in streaming"
+    },
+    "streaming_glyph": {
+      "description": "Icona Noctalia mostrata mentre Voxtype trasmette l'audio dal vivo.",
+      "label": "Icona in streaming"
+    },
+    "transcribing_color": {
+      "description": "Colore dell'icona mentre Voxtype trascrive l'audio registrato.",
+      "label": "Colore icona in trascrizione"
+    },
+    "transcribing_glyph": {
+      "description": "Icona Noctalia mostrata mentre Voxtype trascrive l'audio registrato.",
+      "label": "Icona in trascrizione"
+    }
+  },
+  "widget": {
+    "backend": "Backend: {value}",
+    "device": "Dispositivo: {value}",
+    "model": "Modello: {value}",
+    "stream_error": "Impossibile avviare il flusso di stato di Voxtype",
+    "unavailable": "Voxtype non è installato o non è nel PATH",
+    "waiting": "In attesa dello stato di Voxtype…"
+  }
+}

@@ -3,6 +3,7 @@
     "helper_missing": "scripts/kwallet-nm-agent.py is missing from the plugin directory.",
     "procps_missing": "pkill was not found on PATH (install procps-ng).",
     "python_missing": "python3 was not found on PATH.",
+    "setsid_missing": "setsid was not found on PATH (install util-linux).",
     "systemd_cat_missing": "systemd-cat was not found on PATH (install systemd)."
   },
   "settings": {

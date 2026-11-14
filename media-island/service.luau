@@ -22,6 +22,7 @@ local previousPlaying = false
 local previousTrackKey = ""
 local panelOpen = false
 local panelCloseAtMs = 0
+local autoPreviewSuppressedUntilMs = 0
 
 local artworkRequestUrl = ""
 local artworkResolvedUrl = ""
@@ -64,12 +65,29 @@ local function previewDurationMs()
   return math.max(1, math.min(10, seconds)) * 1000
 end
 
+local function suppressAutoPreviews(now)
+  autoPreviewSuppressedUntilMs = now + 5000
+end
+
 local function showPreview()
   if noctalia.getConfig("auto_show") == false then
     return
   end
+
+  local now = nowMs()
+  if now < autoPreviewSuppressedUntilMs then
+    suppressAutoPreviews(now)
+    return
+  end
+
+  if panelCloseAtMs > now then
+    closePanel()
+    suppressAutoPreviews(now)
+    return
+  end
+
   openPanel()
-  panelCloseAtMs = nowMs() + previewDurationMs()
+  panelCloseAtMs = now + previewDurationMs()
 end
 
 local function publish(player)
@@ -150,7 +168,7 @@ local function resolveArtwork(player, artUrl)
   local generation = artworkGeneration
   artworkRequestUrl = artUrl
   local destination = dataDir .. "/artwork-" .. tostring(generation % 2) .. ".img"
-  noctalia.download(artUrl, destination, function(success)
+  local accepted = noctalia.download(artUrl, destination, function(success)
     if generation ~= artworkGeneration then
       return
     end
@@ -221,8 +239,14 @@ local function handleQuery(result)
   local playing = status == "Playing"
   local trackKey = table.concat({ busName, trackId, title, artist, album, tostring(lengthUs) }, "\31")
 
+  local artUrl = field(fields, "art_url", "")
+  local hasArt = (type(artUrl) == "string" and artUrl ~= "")
+  local metaText = string.lower(busName .. " " .. title .. " " .. artist .. " " .. album)
+  local isYouTube = string.find(metaText, "youtube")
+
   local shouldPreview = observedPlayer
       and playing
+      and not isYouTube
       and ((not previousPlaying) or trackKey ~= previousTrackKey)
 
   local player = {
@@ -246,8 +270,7 @@ local function handleQuery(result)
   previousPlaying = playing
   previousTrackKey = trackKey
 
-  local artUrl = field(fields, "art_url", "")
-  resolveArtwork(player, type(artUrl) == "string" and artUrl or "")
+  resolveArtwork(player, hasArt and artUrl or "")
 
   if shouldPreview then
     showPreview()
@@ -281,7 +304,10 @@ local function handleCommand(command)
     return
   end
   local action = command.action
-  if action == "toggle-panel" then
+  if action == "preview-panel" then
+    openPanel()
+    panelCloseAtMs = nowMs() + previewDurationMs()
+  elseif action == "toggle-panel" then
     panelCloseAtMs = 0
     if panelOpen then
       closePanel()

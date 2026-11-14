@@ -9,6 +9,7 @@ Browse and launch games from Steam, Lutris, and Heroic Games Launcher directly f
 | ID | `alexander/game-launcher` |
 | Entries | Bar widget: `launcher`; panels: `browser` (sidebar dock), `original` (center box); launcher provider: `search` |
 | Launcher Prefix | `/g` |
+| Plugin API | `43` |
 
 ## Requirements
 
@@ -31,7 +32,7 @@ The scanner binary (`gamelauncher`) is compiled automatically on first use — t
 
 Add the bar widget `alexander/game-launcher:launcher` to your bar. The widget shows a gamepad icon — click it to open it (look follows Panel style).
 
-In the panel, use the search bar to filter by name or runner. Click **Launch** on any game to start it.
+In the panel, use the search bar to filter by name or runner. Click **Launch** on any game to start it. The last game you launched always moves to the top of the list with a Last played badge, and stays there across restarts.
 
 To open the panel via IPC:
 
@@ -42,7 +43,7 @@ noctalia msg panel-toggle alexander/game-launcher:original
 
 From the launcher, type `/g` followed by a game name to search. Activate a result to launch the game.
 
-In the panel: Up/Down moves the highlight (pages turn automatically), Enter launches the highlighted game. The list is keyboard-only with no scrolling — 8 games per page, covers sized to fill the dock. To dock the panel on the left instead of the right, change its Position under Settings → Plugins.
+In the panel: Up/Down moves the highlight and keeps it in view, the mouse wheel scrolls the list, and Enter launches the highlighted game. Both panels show the full game list in a scroll. The side panel (`browser`) is 400 px wide and docks on the right by default; the original panel (`original`) is 680 × 560 and centered. To dock the side panel on the left instead, change its Position under Settings → Plugins.
 
 ## Settings
 
@@ -73,4 +74,5 @@ The plugin addresses all findings from Noctalia's security audit:
 
 - Scans all detected Steam library folders, Lutris SQLite databases, and Heroic store caches (Legendary, GOG, Nile).
 - Results are cached in `~/.cache/gamelauncher/games.json` and rescanned on click if sources changed.
+- Last-played launches are stored in the plugin data dir (`recent.json`, newest 30) and shared live between the panels and the `/g` provider, so the last game stays on top everywhere.
 - No external CLI tools (curl, wget, python3, grep) are invoked anywhere in the plugin.

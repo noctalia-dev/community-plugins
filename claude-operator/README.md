@@ -38,7 +38,7 @@ Claude Operator merges [claude-cockpit](https://github.com/noctalia-dev/communit
   `mkdir`, `mv`, `rm`, `pgrep`, `kill`.
 - `xdg-open` to open folders, transcripts and claude.ai links.
 - Optional: kitty with remote control, to land on the exact tab of a session and to open
-  new or resumed sessions as kitty tabs. Add to `kitty.conf` and restart kitty:
+  new or resumed sessions as kitty tabs (or kitty windows, with `open_in`). Add to `kitty.conf` and restart kitty:
 
   ```conf
   allow_remote_control socket-only
@@ -176,6 +176,7 @@ the first five lines (click one to jump to its terminal) and the status line.
 | `currency` | `select` | `usd` | Currency for cost estimates: `usd`, `eur`, `gbp`, `jpy`, `cny`, `chf`, `aud`, `cad`, `inr`. |
 | `currency_api_url` | `string` | `https://api.frankfurter.dev/v1/latest` | Exchange-rate API for non-USD currencies. *(Advanced)* |
 | `terminal` | `string` | empty | Terminal for new and resumed sessions, e.g. `ghostty`. Empty opens a kitty tab when kitty remote control is on, else Noctalia's terminal. |
+| `open_in` | `select` | `tab` | Where new and resumed sessions open when kitty remote control is on: `tab` (a new tab in the most recently focused kitty) or `window` (a new kitty window). Other terminals always open a new window. |
 | `editor_command` | `string` | empty | Command that opens a CLAUDE.md. Empty tries `code`, then `zed`. |
 | `work_root` | `folder` | empty | Project paths under this folder are shown relative to it. |
 | `glyph` | `glyph` | `headset` | Bar widget glyph. |

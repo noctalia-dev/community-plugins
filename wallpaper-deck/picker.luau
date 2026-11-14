@@ -4,6 +4,16 @@
 -- Live fullscreen wallpaper preview, arched coverflow card deck, spectrum ribbon,
 -- 5 Material 3 color chips, floating action buttons above center card, and peek mode.
 
+local function trText(key: string, fallback: string): string
+  if type(noctalia) == "table" and type(noctalia.tr) == "function" then
+    local ok, val = pcall(noctalia.tr, key)
+    if ok and type(val) == "string" and val ~= "" and val ~= key then
+      return val
+    end
+  end
+  return fallback
+end
+
 local function loadCacheDirect(): {any}
   local deckPath = (type(noctalia.pluginDataDir) == "function" and (noctalia.pluginDataDir() .. "/deck.json"))
     or noctalia.expandPath("~/.local/state/noctalia/plugins/data/ishan0121/wallpaper-deck/deck.json")
@@ -44,10 +54,9 @@ end
 
 local stateWps = noctalia.state.get("wallpapers")
 local allWallpapers = (type(stateWps) == "table" and #stateWps > 0) and stateWps or loadCacheDirect()
-local allWallpapersNewest: { any }? = noctalia.state.get("wallpapers_newest")
-local allWallpapersColour: { any }? = noctalia.state.get("wallpapers_colour")
 local stateFavs = noctalia.state.get("favorites")
 local favorites = (type(stateFavs) == "table" and next(stateFavs) ~= nil) and stateFavs or loadFavoritesDirect()
+local hasAnyFavorites = (type(favorites) == "table" and next(favorites) ~= nil)
 local activeWallpaper = noctalia.state.get("active_wallpaper") or ""
 local initialWallpaper = activeWallpaper
 local currentWallDir = noctalia.state.get("wallpaper_dir") or noctalia.getConfig("wallpaper_dir") or ""
@@ -64,6 +73,21 @@ local STATE_DIR = (type(noctalia.pluginDataDir) == "function" and noctalia.plugi
   or noctalia.expandPath("~/.local/state/noctalia/plugins/data/ishan0121/wallpaper-deck")
 
 local displayedBgPath = ""
+local previewFit = noctalia.getConfig("preview_fit") or "cover"
+if previewFit ~= "cover" and previewFit ~= "contain" and previewFit ~= "stretch" then
+  previewFit = "cover"
+end
+
+local function clampVal(val: number, minVal: number, maxVal: number): number
+  if val < minVal then return minVal end
+  if val > maxVal then return maxVal end
+  return val
+end
+
+local function setDisplayedBackground(newPath: string)
+  if not newPath or newPath == "" or displayedBgPath == newPath then return end
+  displayedBgPath = newPath
+end
 
 local WHEEL_PID_FILE = STATE_DIR .. "/wheel_listener.pid"
 
@@ -86,10 +110,11 @@ local function stopWheelListener()
   pcall(function()
     if noctalia.fileExists(WHEEL_PID_FILE) then
       local pid = noctalia.readFile(WHEEL_PID_FILE)
+      pcall(noctalia.removeFile, WHEEL_PID_FILE)
       if pid and pid ~= "" then
         local trimmed = string.gsub(pid, "%s+", "")
         if tonumber(trimmed) then
-          noctalia.runAsync(string.format("kill -9 %s 2>/dev/null; rm -f '%s'", trimmed, WHEEL_PID_FILE))
+          noctalia.runAsync({ "kill", "-15", trimmed })
         end
       end
     end
@@ -102,18 +127,50 @@ local function startWheelListener()
     local script = getWheelScript()
     if not script then return end
     pcall(noctalia.mkdirAll, STATE_DIR)
-    local cmd = string.format("python3 '%s' '%s' &", script, WHEEL_PID_FILE)
-    noctalia.runAsync(cmd)
+    noctalia.runAsync({ "python3", script, WHEEL_PID_FILE })
   end)
 end
+
+local function baseName(name: string): string
+  for j = #name, 2, -1 do
+    if string.byte(name, j) == 46 then
+      return string.sub(name, 1, j - 1)
+    end
+  end
+  return name
+end
+
+local function isItemFavorite(item: any?): boolean
+  if not item or not hasAnyFavorites then return false end
+  if item.path and favorites[item.path] then return true end
+  if item.name and favorites[item.name] then return true end
+  local b = item.base
+  if not b and item.name then
+    b = baseName(item.name)
+    item.base = b
+  end
+  if b and favorites[b] then return true end
+  if item.id then
+    local whName = "wallhaven-" .. tostring(item.id)
+    if favorites[whName] or favorites[whName .. ".jpg"] or favorites[whName .. ".png"] then
+      return true
+    end
+  end
+  return false
+end
+
 local cachedFavCount = -1
 local function getFavCount(): number
+  if not hasAnyFavorites then
+    cachedFavCount = 0
+    return 0
+  end
   if cachedFavCount >= 0 then
     return cachedFavCount
   end
   local count = 0
   for _, it in ipairs(allWallpapers) do
-    if favorites[it.name] then count = count + 1 end
+    if isItemFavorite(it) then count = count + 1 end
   end
   cachedFavCount = count
   return count
@@ -127,12 +184,103 @@ local THUMB_MAX_CONCURRENT = 4
 local displayedItems = {}
 local selectedIdx = 1
 local isPickerOpen = false
+local isDeckAreaHovered = false
+local hoveredDeckKeys: { [string]: boolean } = {}
+local isSearchBoxHovered = false
 local currentMode = "local" -- "local" | "favorites" | "wallhaven"
 local pendingStepAfterAppend = false
 local render: () -> ()
 local toggleCurrentFavorite -- forward declaration
 local toggleFavoriteItem -- forward declaration
 local changeSort -- forward declaration
+
+local function isHoverTruthy(state: any): boolean
+  if state == "true" or state == true or state == 1 then
+    return true
+  end
+  if type(state) == "table" then
+    return state.hovered == true or state.state == true or state.hovered == "true" or state.state == "true"
+  end
+  return false
+end
+
+local function updateDeckHoverState(state: any, fallbackKey: string, explicitKey: string?)
+  local k = (type(explicitKey) == "string" and explicitKey ~= "") and explicitKey or fallbackKey
+  if isHoverTruthy(state) then
+    hoveredDeckKeys[k] = true
+    isSearchBoxHovered = false
+  else
+    hoveredDeckKeys[k] = nil
+  end
+  isDeckAreaHovered = (next(hoveredDeckKeys) ~= nil)
+end
+
+function onDeckHover(state: any, key: string?)
+  if isHoverTruthy(state) then
+    local k = (type(key) == "string" and key ~= "") and key or "deck_bottom_section"
+    hoveredDeckKeys[k] = true
+    isDeckAreaHovered = true
+    isSearchBoxHovered = false
+  else
+    hoveredDeckKeys = {}
+    isDeckAreaHovered = false
+  end
+end
+
+function onDeckContainerHover(state: any, key: string?)
+  if isHoverTruthy(state) then
+    local k = (type(key) == "string" and key ~= "") and key or "deck_cards_outer_row"
+    hoveredDeckKeys[k] = true
+    isDeckAreaHovered = true
+    isSearchBoxHovered = false
+  else
+    hoveredDeckKeys["deck_cards_outer_row"] = nil
+    hoveredDeckKeys["deck_cards_row"] = nil
+    hoveredDeckKeys["deck_card_slot"] = nil
+    hoveredDeckKeys["deck_card_item"] = nil
+    if type(key) == "string" and key ~= "" then
+      hoveredDeckKeys[key] = nil
+    end
+    isDeckAreaHovered = (next(hoveredDeckKeys) ~= nil)
+  end
+end
+
+function onDeckRowHover(state: any, key: string?)
+  updateDeckHoverState(state, "deck_cards_row", key)
+end
+
+function onDeckActionHover(state: any, key: string?)
+  updateDeckHoverState(state, "deck_action_bar", key)
+end
+
+function onDeckPopoverHover(state: any, key: string?)
+  updateDeckHoverState(state, "monitor_dropdown_popover", key)
+end
+
+function onDeckSlotHover(state: any, key: string?)
+  updateDeckHoverState(state, "deck_card_slot", key)
+end
+
+function onDeckCardHover(state: any, key: string?)
+  updateDeckHoverState(state, "deck_card_item", key)
+end
+
+function onOutsideDeckHover(state: any, _key: string?)
+  if isHoverTruthy(state) then
+    hoveredDeckKeys = {}
+    isDeckAreaHovered = false
+  end
+end
+
+function onSearchBoxHover(state: any, _key: string?)
+  if isHoverTruthy(state) then
+    isSearchBoxHovered = true
+    hoveredDeckKeys = {}
+    isDeckAreaHovered = false
+  else
+    isSearchBoxHovered = false
+  end
+end
 
 local function isValidFile(path: string?): boolean
   if not path or path == "" then return false end
@@ -153,7 +301,6 @@ local function pumpThumbQueue()
         item.thumb = dest
         item.preview = dest
       else
-        -- Remove corrupt/partial file if it exists but is invalid
         if noctalia.fileExists(dest) then
           pcall(noctalia.removeFile, dest)
         end
@@ -169,11 +316,13 @@ local function pumpThumbQueue()
               if ok and isValidFile(dest) then
                 item.thumb = dest
                 item.preview = dest
+                item._thumbValid = true
                 if displayedItems then
                   for _, it in ipairs(displayedItems) do
                     if it.id == id then
                       it.thumb = dest
                       it.preview = dest
+                      it._thumbValid = true
                     end
                   end
                 end
@@ -191,11 +340,13 @@ local function pumpThumbQueue()
               if res and res.exitCode == 0 and isValidFile(dest) then
                 item.thumb = dest
                 item.preview = dest
+                item._thumbValid = true
                 if displayedItems then
                   for _, it in ipairs(displayedItems) do
                     if it.id == id then
                       it.thumb = dest
                       it.preview = dest
+                      it._thumbValid = true
                     end
                   end
                 end
@@ -217,44 +368,60 @@ local function requestWallhavenThumb(item: any, priority: boolean?): string?
   if item.thumb and item._thumbValid then
     return item.thumb
   end
-  if item.thumb and isValidFile(item.thumb) then
-    item.preview = item.thumb
-    item._thumbValid = true
-    return item.thumb
+  if thumbPending[item.id] then
+    return nil
   end
-  local dest = WALLHAVEN_CACHE_DIR .. "/" .. item.id .. ".jpg"
-  if isValidFile(dest) then
-    item.thumb = dest
-    item.preview = dest
-    item._thumbValid = true
-    return dest
-  end
-  -- Remove 0-byte/corrupt cached file so re-download is triggered
-  if noctalia.fileExists(dest) then
-    pcall(noctalia.removeFile, dest)
-  end
-  if not thumbPending[item.id] then
-    local found = false
-    for _, it in ipairs(thumbQueue) do
-      if it.id == item.id then
-        found = true
-        break
-      end
+  if not item._thumbDiskChecked then
+    item._thumbDiskChecked = true
+    if item.thumb and isValidFile(item.thumb) then
+      item.preview = item.thumb
+      item._thumbValid = true
+      return item.thumb
     end
-    if not found then
-      if priority then
+    local dest = WALLHAVEN_CACHE_DIR .. "/" .. item.id .. ".jpg"
+    if isValidFile(dest) then
+      item.thumb = dest
+      item.preview = dest
+      item._thumbValid = true
+      return dest
+    end
+    if noctalia.fileExists(dest) then
+      pcall(noctalia.removeFile, dest)
+    end
+  end
+  local found = false
+  for i, it in ipairs(thumbQueue) do
+    if it.id == item.id then
+      found = true
+      if priority and i > 1 then
+        table.remove(thumbQueue, i)
         table.insert(thumbQueue, 1, item)
-      else
-        table.insert(thumbQueue, item)
       end
-      pumpThumbQueue()
+      break
     end
+  end
+  if not found then
+    if priority then
+      table.insert(thumbQueue, 1, item)
+    else
+      table.insert(thumbQueue, item)
+    end
+    pumpThumbQueue()
   end
   return nil
 end
 
 local WALLHAVEN_PREVIEW_DIR = noctalia.expandPath("~/.cache/noctalia/wallhaven-previews")
 pcall(noctalia.mkdirAll, WALLHAVEN_PREVIEW_DIR)
+
+local PERMANENT_WH_DIRS = {
+  noctalia.expandPath("~/Pictures/Wallpapers/WallHaven"),
+  noctalia.expandPath("~/Pictures/WallHaven"),
+  noctalia.expandPath("~/Pictures/Wallpapers"),
+  noctalia.expandPath("~/Pictures/wallpapers/WallHaven"),
+  noctalia.expandPath("~/Pictures/wallhaven"),
+  noctalia.expandPath("~/Pictures/wallpapers"),
+}
 
 local hiResPreview = noctalia.getConfig("wallhaven_hires_preview") == true
 local hiResQueue = {}
@@ -286,24 +453,15 @@ local function pumpHiResQueue()
         end
         local active = displayedItems[selectedIdx]
         if active and active.id == id and hiResPreview then
-          if displayedBgPath ~= dest then
-            displayedBgPath = dest
-            if type(render) == "function" then render() end
-          end
+          setDisplayedBackground(dest)
+          if type(render) == "function" then render() end
         end
       else
-        -- Remove corrupt/partial file if it exists but is invalid
         if noctalia.fileExists(dest) then
           pcall(noctalia.removeFile, dest)
         end
-        local permanentDirs = {
-          noctalia.expandPath("~/Pictures/Wallpapers/WallHaven"),
-          noctalia.expandPath("~/Pictures/Wallpapers"),
-          noctalia.expandPath("~/Pictures/wallpapers/WallHaven"),
-          noctalia.expandPath("~/Pictures/wallpapers"),
-        }
         local alreadySaved = false
-        for _, pdir in ipairs(permanentDirs) do
+        for _, pdir in ipairs(PERMANENT_WH_DIRS) do
           local pf = pdir .. "/wallhaven-" .. id .. "." .. ext
           if isValidFile(pf) then
             item.hiResPath = pf
@@ -311,10 +469,8 @@ local function pumpHiResQueue()
             alreadySaved = true
             local active = displayedItems[selectedIdx]
             if active and active.id == id and hiResPreview then
-              if displayedBgPath ~= pf then
-                displayedBgPath = pf
-                if type(render) == "function" then render() end
-              end
+              setDisplayedBackground(pf)
+              if type(render) == "function" then render() end
             end
             break
           end
@@ -340,7 +496,7 @@ local function pumpHiResQueue()
               end
               local active = displayedItems[selectedIdx]
               if active and active.id == id and hiResPreview then
-                displayedBgPath = dest
+                setDisplayedBackground(dest)
                 if type(render) == "function" then render() end
               end
             else
@@ -373,6 +529,11 @@ local function getWallhavenHiResCached(item: any): string?
   if item.hiResPath and item._hiResValid then
     return item.hiResPath
   end
+  if hiResPending[item.id] or item._hiResDiskChecked then
+    return nil
+  end
+  item._hiResDiskChecked = true
+
   local urlExt = string.match(item.fullUrl or "", "%.([^%.]+)$") or item.ext or "jpg"
   local ext = string.lower(urlExt)
   if ext == "jpeg" then ext = "jpg" end
@@ -384,13 +545,7 @@ local function getWallhavenHiResCached(item: any): string?
     return dest
   end
 
-  local permanentDirs = {
-    noctalia.expandPath("~/Pictures/Wallpapers/WallHaven"),
-    noctalia.expandPath("~/Pictures/Wallpapers"),
-    noctalia.expandPath("~/Pictures/wallpapers/WallHaven"),
-    noctalia.expandPath("~/Pictures/wallpapers"),
-  }
-  for _, pdir in ipairs(permanentDirs) do
+  for _, pdir in ipairs(PERMANENT_WH_DIRS) do
     local pf = pdir .. "/wallhaven-" .. item.id .. "." .. ext
     if isValidFile(pf) then
       item.hiResPath = pf
@@ -417,11 +572,6 @@ local function requestWallhavenHiRes(item: any, priority: boolean?): string?
   if not item or not item.id or not item.fullUrl then return nil end
   local cached = getWallhavenHiResCached(item)
   if cached then return cached end
-
-  local urlExt = string.match(item.fullUrl, "%.([^%.]+)$") or item.ext or "jpg"
-  local ext = string.lower(urlExt)
-  if ext == "jpeg" then ext = "jpg" end
-  local dest = WALLHAVEN_PREVIEW_DIR .. "/" .. item.id .. "." .. ext
 
   if not hiResPending[item.id] then
     local inQueueIdx = nil
@@ -450,21 +600,28 @@ local function requestWallhavenHiRes(item: any, priority: boolean?): string?
 end
 
 local function onCardSettled()
-  if currentMode ~= "wallhaven" or not hiResPreview then return end
   local item = displayedItems[selectedIdx]
-  if not item or not item.id or not item.fullUrl then return end
+  if not item then return end
+
+  if currentMode ~= "wallhaven" then
+    local colors = item.colors
+    local hasRealColors = (colors and colors.primary and colors.primary ~= "#80a9ff")
+    if not hasRealColors and not item._paletteRequested and item.path then
+      item._paletteRequested = true
+      noctalia.state.set("deck_command", { action = "prioritize_palette", path = item.path })
+    end
+    return
+  end
+
+  if not hiResPreview or not item.id or not item.fullUrl then return end
 
   local cached = getWallhavenHiResCached(item)
   if cached then
-    if displayedBgPath ~= cached then
-      displayedBgPath = cached
-      if type(render) == "function" then render() end
-    end
+    setDisplayedBackground(cached)
   else
     requestWallhavenHiRes(item, true)
   end
 
-  -- User convenience: also download high resolution of the next 2 cards in background
   for offset = 1, 2 do
     local nextItem = displayedItems[selectedIdx + offset]
     if nextItem and nextItem.id and nextItem.fullUrl then
@@ -475,21 +632,28 @@ local function onCardSettled()
   end
 end
 
-local settleToken = 0
 local function scheduleSettle()
-  if currentMode ~= "wallhaven" or not hiResPreview then return end
-  settleToken = settleToken + 1
-  local myToken = settleToken
-  noctalia.runAsync({ "sleep", "0.2" }, function()
-    if myToken ~= settleToken or not isPickerOpen then return end
-    onCardSettled()
-  end)
+  -- Handled deterministically when spring animation completes in onFrameTick
 end
 
-local currentSort = "name_asc"  -- "name_asc" | "name_desc" | "colour" | "newest" | "oldest"
+local currentSort = "name_asc" -- "name_asc" | "name_desc" | "colour" | "newest" | "oldest"
 local searchQuery = ""
-local searchActive = false
+local isSearchFocused = false
+local whQueryDirty = false
+local whResDirty = false
+local searchInputNonce = 0
+local lastSearchSubmitMs = 0
 local isPeeking = false
+
+local function unfocusSearch()
+  isSearchBoxHovered = false
+  if isSearchFocused or whQueryDirty or whResDirty then
+    isSearchFocused = false
+    whQueryDirty = false
+    whResDirty = false
+    searchInputNonce = searchInputNonce + 1
+  end
+end
 local cfgScanSub = noctalia.getConfig("scan_subdirectories")
 local isFlattened = if cfgScanSub ~= nil then (cfgScanSub == true or cfgScanSub == "true" or cfgScanSub == 1) else true
 
@@ -545,11 +709,6 @@ local function updateCornerRadiusScale()
       cachedRadiusScale = scale
       return
     end
-    local pcallOk2, scale2 = pcall(noctalia.getSetting, "corner_radius_scale")
-    if pcallOk2 and type(scale2) == "number" then
-      cachedRadiusScale = scale2
-      return
-    end
   end
   cachedRadiusScale = 1.0
 end
@@ -596,8 +755,8 @@ local function loadCommunityPalettes(): {string}
   if noctalia.fileExists(catPath) then
     local raw = noctalia.readFile(catPath)
     if raw and raw ~= "" then
-      local dec = noctalia.json.decode(raw)
-      if type(dec) == "table" then
+      local ok, dec = pcall(noctalia.json.decode, raw)
+      if ok and type(dec) == "table" then
         local names = {}
         for _, p in ipairs(dec) do
           if type(p) == "table" and type(p.name) == "string" and p.name ~= "" then
@@ -649,11 +808,15 @@ end
 local VISIBLE_DECK_CARDS = 11
 local DECK_K = 5
 
-local function getCardWidth(dist: number, scale: number): number
+local function getCardWidthFloat(dist: number, scale: number): number
   local t = clamp(math.abs(dist) / DECK_K, 0.0, 1.0)
-  local centerW = 224 * scale
-  local sideW = 132 * scale
-  return math.floor(lerp(centerW, sideW, t))
+  local centerW = 224.0 * scale
+  local sideW = 132.0 * scale
+  return lerp(centerW, sideW, t)
+end
+
+local function getCardWidth(dist: number, scale: number): number
+  return math.floor(getCardWidthFloat(dist, scale) + 0.5)
 end
 
 local function getCardHeight(dist: number, scale: number): number
@@ -669,7 +832,8 @@ local function getCardLift(dist: number, scale: number): number
   return math.floor((1.0 - math.pow(t, 1.45)) * maxLift)
 end
 
-local function getDeckScale(panelW: number): number
+-- Responsive deck scale constrained by BOTH panel width AND panel height
+local function getDeckScale(panelW: number, panelH: number?): number
   local centerW = 224.0
   local sideW = 132.0
   local span = centerW
@@ -679,37 +843,163 @@ local function getDeckScale(panelW: number): number
     span = span + 2 * w
   end
   span = span + (2 * (DECK_K + 1)) * 12.0
-  local availableW = panelW - 120.0
-  if span <= availableW then
-    return 1.0
+
+  local availableW = math.max(360.0, panelW - 96.0)
+  local scaleW = (span <= availableW) and 1.0 or (availableW / span)
+
+  local scaleH = 1.0
+  if panelH and panelH > 0 then
+    -- Reserve ~165px for header rows + spectrum ribbon + hints bar, and ~76px for action bar + bottom margin
+    local availH = math.max(180.0, panelH - 245.0)
+    local fullDeckH = 344.0 + 80.0
+    if fullDeckH > availH then
+      scaleH = availH / fullDeckH
+    end
   end
-  local s = availableW / span
-  return clamp(s, 0.40, 1.0)
+
+  return clamp(math.min(scaleW, scaleH), 0.35, 1.0)
 end
 
 local visibleCards = VISIBLE_DECK_CARDS
 
-local function getScreenGeometry()
+-- Resolves the geometry of the monitor where the picker panel is actually displayed
+-- (Always the focused output — NEVER `selectedOutput`, which is the wallpaper apply target!)
+local function getScreenGeometry(): (number, number, string, number)
   local w = 1920
   local h = 1080
-  local focusedName = type(noctalia.focusedOutputName) == "function" and noctalia.focusedOutputName()
+  local currentMonitorName = ""
+  local outScale = 1.0
+
   if type(noctalia.outputs) == "function" then
-    for _, out in ipairs(noctalia.outputs()) do
-      if out.name == focusedName or out.focused then
-        w = math.floor(out.width / math.max(out.scale or 1, 1))
-        h = math.floor(out.height / math.max(out.scale or 1, 1))
-        break
+    local ok, outs = pcall(noctalia.outputs)
+    if ok and type(outs) == "table" then
+      local outList = outs.outputs or outs
+      if type(outList) == "table" and #outList > 0 then
+        local focusedName = type(noctalia.focusedOutputName) == "function" and noctalia.focusedOutputName()
+        local chosen = nil
+
+        -- 1. Try focusedOutputName (the monitor where Noctalia opens the panel)
+        if focusedName and focusedName ~= "" then
+          for _, out in ipairs(outList) do
+            if out.name == focusedName then
+              chosen = out
+              break
+            end
+          end
+        end
+
+        -- 2. Try output with focused == true
+        if not chosen then
+          for _, out in ipairs(outList) do
+            if out.focused == true then
+              chosen = out
+              break
+            end
+          end
+        end
+
+        -- 3. Fallback to first output
+        if not chosen then
+          chosen = outList[1]
+        end
+
+        if chosen then
+          currentMonitorName = chosen.name or ""
+          local cw = tonumber(chosen.width)
+          local ch = tonumber(chosen.height)
+          outScale = tonumber(chosen.scale) or 1.0
+          if outScale <= 0 then outScale = 1.0 end
+
+          if cw and cw > 0 and ch and ch > 0 then
+            local scaleMode = noctalia.getConfig("scale_compensation") or "auto"
+            local shouldDivideByScale = false
+
+            if scaleMode == "scaled" then
+              shouldDivideByScale = (outScale ~= 1.0)
+            elseif scaleMode == "unscaled" then
+              shouldDivideByScale = false
+            else
+              -- Auto-detect whether chosen.width is physical pixels or already logical pixels:
+              -- 1. Check multi-monitor logical x/y offsets if multiple outputs exist
+              if outScale ~= 1.0 and #outList > 1 then
+                local cx = tonumber(chosen.x) or 0
+                local cy = tonumber(chosen.y) or 0
+                for _, other in ipairs(outList) do
+                  if other ~= chosen then
+                    local ox = tonumber(other.x) or 0
+                    local oy = tonumber(other.y) or 0
+                    if ox > cx then
+                      local dx = ox - cx
+                      if math.abs(dx - (cw / outScale)) < math.abs(dx - cw) then
+                        shouldDivideByScale = true
+                      end
+                      break
+                    elseif oy > cy then
+                      local dy = oy - cy
+                      if math.abs(dy - (ch / outScale)) < math.abs(dy - ch) then
+                        shouldDivideByScale = true
+                      end
+                      break
+                    end
+                  end
+                end
+              end
+            end
+
+            if shouldDivideByScale and outScale > 0 then
+              w = math.floor(cw / outScale + 0.5)
+              h = math.floor(ch / outScale + 0.5)
+            else
+              w = math.floor(cw)
+              h = math.floor(ch)
+            end
+          end
+        end
       end
     end
   end
-  return w, h
+  return w, h, currentMonitorName, outScale
 end
 
-local cachedPanelW = 1876
-local cachedPanelH = 1036
+local cachedPanelW = 1860
+local cachedPanelH = 1040
+local panelInnerPad = 14
+
+local function monitorMatchesList(monList: any, monString: any, currentMonitorName: string): boolean
+  if currentMonitorName == "" then return true end
+  if type(monList) == "table" then
+    if #monList == 0 then return true end
+    for _, m in ipairs(monList) do
+      if m == "ALL" or m == "*" or m == currentMonitorName then
+        return true
+      end
+    end
+    return false
+  end
+  if type(monString) == "string" and monString ~= "" and monString ~= "ALL" and monString ~= "*" then
+    return monString == currentMonitorName
+  end
+  return true
+end
+
+local function resolveBarMonitorOverride(monTable: any, currentMonitorName: string): any
+  if type(monTable) ~= "table" or currentMonitorName == "" then return nil end
+  if type(monTable[currentMonitorName]) == "table" then
+    return monTable[currentMonitorName]
+  end
+  for k, v in pairs(monTable) do
+    if type(v) == "table" then
+      local m = v.match or k
+      if m == currentMonitorName then
+        return v
+      end
+    end
+  end
+  return nil
+end
 
 local function updatePanelGeometry()
-  local screenW, screenH = getScreenGeometry()
+  local screenW, screenH, currentMonitorName, _ = getScreenGeometry()
   local barThicknessLeft = 0
   local barThicknessRight = 0
   local barThicknessTop = 0
@@ -719,28 +1009,106 @@ local function updatePanelGeometry()
     local pcallOk, bars = pcall(noctalia.getSetting, "bar")
     if pcallOk and type(bars) == "table" then
       for k, bar in pairs(bars) do
-        if k ~= "order" and type(bar) == "table" and type(bar.position) == "string" and bar.enabled ~= false and not bar.auto_hide and bar.reserve_space ~= false then
-          local pos = bar.position
-          local th = tonumber(bar.thickness) or 34
-          if pos == "left" then
-            barThicknessLeft = math.max(barThicknessLeft, th)
-          elseif pos == "right" then
-            barThicknessRight = math.max(barThicknessRight, th)
-          elseif pos == "top" then
-            barThicknessTop = math.max(barThicknessTop, th)
-          elseif pos == "bottom" then
-            barThicknessBottom = math.max(barThicknessBottom, th)
+        if k ~= "order" and type(bar) == "table" then
+          local monOverride = resolveBarMonitorOverride(bar.monitor, currentMonitorName)
+          local effEnabled = (monOverride and monOverride.enabled ~= nil) and monOverride.enabled or bar.enabled
+          local effAutoHide = (monOverride and monOverride.auto_hide ~= nil) and monOverride.auto_hide or bar.auto_hide
+          local effReserve = (monOverride and monOverride.reserve_space ~= nil) and monOverride.reserve_space or bar.reserve_space
+          local effPos = (monOverride and type(monOverride.position) == "string" and monOverride.position)
+            or (type(bar.position) == "string" and bar.position)
+            or "top"
+
+          if effEnabled ~= false and not effAutoHide and effReserve ~= false then
+            local matchesMon = monitorMatchesList(bar.monitors, type(bar.monitor) == "string" and bar.monitor or nil, currentMonitorName)
+            if matchesMon then
+              local th = tonumber((monOverride and monOverride.thickness) or bar.thickness) or 34
+              local mEdge = tonumber((monOverride and monOverride.margin_edge) or bar.margin_edge) or 0
+              local mOpp = tonumber((monOverride and monOverride.margin_opposite_edge) or bar.margin_opposite_edge) or 0
+              local totalBarSpan = math.max(0, th + mEdge + mOpp)
+
+              if effPos == "left" then
+                barThicknessLeft = barThicknessLeft + totalBarSpan
+              elseif effPos == "right" then
+                barThicknessRight = barThicknessRight + totalBarSpan
+              elseif effPos == "bottom" then
+                barThicknessBottom = barThicknessBottom + totalBarSpan
+              else
+                barThicknessTop = barThicknessTop + totalBarSpan
+              end
+            end
           end
+        end
+      end
+    end
+
+    local pcallDock, dock = pcall(noctalia.getSetting, "dock")
+    if pcallDock and type(dock) == "table" and dock.enabled ~= false and not dock.auto_hide and dock.reserve_space == true then
+      local matchesDockMon = monitorMatchesList(dock.monitors, type(dock.monitor) == "string" and dock.monitor or nil, currentMonitorName)
+      if matchesDockMon then
+        local dpos = (type(dock.position) == "string" and dock.position ~= "") and dock.position or "bottom"
+        local dth = tonumber(dock.thickness) or 48
+        local dmEdge = tonumber(dock.margin_edge) or tonumber(dock.margin) or 0
+        local dmOpp = tonumber(dock.margin_opposite_edge) or 0
+        local totalDockSpan = math.max(0, dth + dmEdge + dmOpp)
+
+        if dpos == "left" then
+          barThicknessLeft = barThicknessLeft + totalDockSpan
+        elseif dpos == "right" then
+          barThicknessRight = barThicknessRight + totalDockSpan
+        elseif dpos == "top" then
+          barThicknessTop = barThicknessTop + totalDockSpan
+        else
+          barThicknessBottom = barThicknessBottom + totalDockSpan
         end
       end
     end
   end
 
-  local totalPadH = (8 + 14) * 2
-  local totalPadV = (8 + 14) * 2
+  local floatingOffset = 8
+  local borderWidth = 1
+  local uiScale = 1.0
 
-  cachedPanelW = math.max(800, screenW - barThicknessLeft - barThicknessRight - totalPadH)
-  cachedPanelH = math.max(600, screenH - barThicknessTop - barThicknessBottom - totalPadV)
+  if type(noctalia.getSetting) == "function" then
+    local okFo, fo = pcall(noctalia.getSetting, "shell.panel.floating_offset")
+    if okFo and type(fo) == "number" then
+      floatingOffset = fo
+    end
+    local okBorders, hasBorders = pcall(noctalia.getSetting, "shell.panel.borders")
+    if okBorders and hasBorders == false then
+      borderWidth = 0
+    else
+      local okBw, bw = pcall(noctalia.getSetting, "shell.panel.border_width")
+      if okBw and type(bw) == "number" then
+        borderWidth = math.max(0, bw)
+      end
+    end
+    local okUs, us = pcall(noctalia.getSetting, "accessibility.ui_scale")
+    if okUs and type(us) == "number" and us > 0.2 then
+      uiScale = us
+    end
+  end
+
+  local padFloat = (floatingOffset > 0) and (floatingOffset * 2) or 0
+  local chromeInset = tonumber(noctalia.getConfig("panel_padding_offset"))
+  -- Treat legacy default 24 or nil as 0 (full bleed, zero panel padding)
+  if chromeInset == nil or chromeInset == 24 then
+    chromeInset = 0
+  end
+
+  -- Offset the host's built-in 14px panel inner padding so panel_root starts at (0, 0)
+  panelInnerPad = math.max(0, 14 - math.floor(chromeInset / 2 + 0.5))
+  local totalChrome = chromeInset + (borderWidth * 2)
+
+  local rawW = screenW - barThicknessLeft - barThicknessRight - padFloat - totalChrome
+  local rawH = screenH - barThicknessTop - barThicknessBottom - padFloat - totalChrome
+
+  if uiScale ~= 1.0 then
+    rawW = math.floor(rawW / uiScale + 0.5)
+    rawH = math.floor(rawH / uiScale + 0.5)
+  end
+
+  cachedPanelW = math.max(640, math.floor(rawW))
+  cachedPanelH = math.max(420, math.floor(rawH))
 end
 updatePanelGeometry()
 
@@ -810,7 +1178,6 @@ local function getWallpaperPaletteFontColors(item: any?)
   local bgHex = item.sourceColor or colors.source_color or "#111418"
   local bgLum = getWcagLuminance(bgHex)
 
-  -- Accurately determine whether the wallpaper (specifically its top-left header region) is light or dark
   local isLight = false
   if item.isLight ~= nil then
     isLight = (item.isLight == true)
@@ -845,7 +1212,6 @@ local function getWallpaperPaletteFontColors(item: any?)
     return a.contrast > b.contrast
   end)
 
-  -- Filter palette candidates that are on the high-contrast side
   local sideCandidates = {}
   for _, c in ipairs(scored) do
     if (useDarkInk and c.lum < 0.35) or (not useDarkInk and c.lum > 0.35) then
@@ -863,7 +1229,6 @@ local function getWallpaperPaletteFontColors(item: any?)
       primaryText = useDarkInk and "#111418" or "#ffffff"
     end
 
-    -- Look for a chromatic accent on the same contrast side
     for _, c in ipairs(sideCandidates) do
       if (c.key == "primary_container" or c.key == "primary" or c.key == "tertiary" or c.key == "secondary") and c.contrast >= 2.0 then
         accentColor = c.hex
@@ -874,7 +1239,6 @@ local function getWallpaperPaletteFontColors(item: any?)
       accentColor = primaryText
     end
 
-    -- Look for secondary/muted text on the same contrast side
     if #sideCandidates >= 2 and sideCandidates[2].contrast >= 2.0 then
       mutedText = sideCandidates[2].hex
     else
@@ -909,14 +1273,6 @@ local function formatBytes(bytes: number): string
   else
     return string.format("%d KB", math.floor(bytes / 1024.0))
   end
-end
-
-local function baseName(name: string): string
-  local dot = string.find(name, "%.[^%.]+$")
-  if dot and dot > 1 then
-    return string.sub(name, 1, dot - 1)
-  end
-  return name
 end
 
 local rawRoot = (currentWallDir ~= "" and currentWallDir)
@@ -955,23 +1311,44 @@ local function itemIsSubdir(item: any): boolean
 end
 
 local function openPluginSettings()
+  stopWheelListener()
+  if type(noctalia.openSettings) == "function" then
+    local ok = pcall(noctalia.openSettings)
+    if ok then return end
+  end
   noctalia.runAsync({ "noctalia", "msg", "settings-open-plugin", "ishan0121/wallpaper-deck" }, function() end)
   panel.close()
 end
 
 local function updateThemeFromSystem()
+  -- 1. Synchronous fast path using native Noctalia settings API (zero flicker)
+  if type(noctalia.getSetting) == "function" then
+    local okMode, cfgMode = pcall(noctalia.getSetting, "theme.mode")
+    if okMode and type(cfgMode) == "string" and cfgMode ~= "" then
+      currentThemeMode = cfgMode
+    elseif type(noctalia.isDarkMode) == "function" then
+      currentThemeMode = noctalia.isDarkMode() and "dark" or "light"
+    end
+  end
+
+  -- 2. Async CLI verification for active palette source & scheme
   noctalia.runAsync({ "noctalia", "msg", "theme-mode-get" }, function(res)
     if res and res.exitCode == 0 and res.stdout and res.stdout ~= "" then
       local mode = string.match(res.stdout, "[%w_-]+")
-      if mode and mode ~= "" then
+      if mode and mode ~= "" and mode ~= currentThemeMode then
         currentThemeMode = mode
-        render()
+        if isPickerOpen then render() end
       end
     end
   end)
 
   noctalia.runAsync({ "noctalia", "msg", "color-scheme-get" }, function(res)
     if res and res.exitCode == 0 and res.stdout and res.stdout ~= "" then
+      local prevSource = currentPaletteSource
+      local prevBuiltin = selectedBuiltinIdx
+      local prevCommunity = selectedCommunityIdx
+      local prevScheme = selectedSchemeIdx
+
       local src, scheme = string.match(res.stdout, "(%S+)%s+(.+)")
       if src and src ~= "" then
         src = string.lower(noctalia.string.trim(src))
@@ -995,7 +1372,7 @@ local function updateThemeFromSystem()
               break
             end
           end
-        else -- wallpaper
+        else
           for idx, s in ipairs(SCHEMES) do
             if s.id == scheme or string.lower(s.label) == string.lower(scheme) then
               selectedSchemeIdx = idx
@@ -1004,7 +1381,11 @@ local function updateThemeFromSystem()
           end
         end
       end
-      render()
+      local changed = (prevSource ~= currentPaletteSource)
+        or (prevBuiltin ~= selectedBuiltinIdx)
+        or (prevCommunity ~= selectedCommunityIdx)
+        or (prevScheme ~= selectedSchemeIdx)
+      if changed and isPickerOpen then render() end
     end
   end)
 end
@@ -1012,9 +1393,15 @@ end
 local function refreshConnectedOutputs()
   connectedOutputs = { "ALL" }
   if type(noctalia.outputs) == "function" then
-    for _, out in ipairs(noctalia.outputs()) do
-      if out.name and out.name ~= "" then
-        table.insert(connectedOutputs, out.name)
+    local ok, outs = pcall(noctalia.outputs)
+    if ok and type(outs) == "table" then
+      local outList = outs.outputs or outs
+      if type(outList) == "table" then
+        for _, out in ipairs(outList) do
+          if out.name and out.name ~= "" then
+            table.insert(connectedOutputs, out.name)
+          end
+        end
       end
     end
   end
@@ -1036,8 +1423,72 @@ local function reverseArray(arr: { any }): { any }
   return rev
 end
 
+local function sortItemsInPlace(arr: { any }, sortMode: string)
+  if #arr <= 1 then return end
+  if sortMode == "name_desc" then
+    table.sort(arr, function(a, b) return (a.lowerName or "") > (b.lowerName or "") end)
+  elseif sortMode == "newest" then
+    table.sort(arr, function(a, b) return (a.mtime or 0) > (b.mtime or 0) end)
+  elseif sortMode == "oldest" then
+    table.sort(arr, function(a, b) return (a.mtime or 0) < (b.mtime or 0) end)
+  elseif sortMode == "colour" then
+    table.sort(arr, function(a, b) return (a.hueKey or 3.0) < (b.hueKey or 3.0) end)
+  else
+    table.sort(arr, function(a, b) return (a.lowerName or "") < (b.lowerName or "") end)
+  end
+end
+
+local sortedListCache: { [string]: { any } } = {}
+
 local function invalidateSortCache()
-  -- No-op: sorting uses pre-sorted arrays and fast pointer assignments
+  sortedListCache = {}
+end
+
+local cachedRibbon = nil
+local cachedRibbonIdx = -1
+local cachedRibbonCount = -1
+local cachedRibbonW = -1
+
+local function getCachedLocalList(sortMode: string, flattened: boolean): { any }
+  local cacheKey = sortMode .. "_" .. (flattened and "1" or "0")
+  if sortedListCache[cacheKey] then
+    return sortedListCache[cacheKey]
+  end
+
+  local base: { any }
+  if flattened then
+    if sortMode == "name_asc" or sortMode == "name" then
+      sortedListCache[cacheKey] = allWallpapers
+      return allWallpapers
+    elseif sortMode == "name_desc" then
+      local rev = reverseArray(allWallpapers)
+      sortedListCache[cacheKey] = rev
+      return rev
+    end
+    base = table.create(#allWallpapers)
+    for i, it in ipairs(allWallpapers) do
+      base[i] = it
+    end
+  else
+    base = {}
+    for _, it in ipairs(allWallpapers) do
+      if not itemIsSubdir(it) then
+        table.insert(base, it)
+      end
+    end
+    if sortMode == "name_asc" or sortMode == "name" then
+      sortedListCache[cacheKey] = base
+      return base
+    elseif sortMode == "name_desc" then
+      local rev = reverseArray(base)
+      sortedListCache[cacheKey] = rev
+      return rev
+    end
+  end
+
+  sortItemsInPlace(base, sortMode)
+  sortedListCache[cacheKey] = base
+  return base
 end
 
 local function rebuildList()
@@ -1061,37 +1512,27 @@ local function rebuildList()
 
   local src = {}
   if currentMode == "favorites" then
-    for _, item in ipairs(allWallpapers) do
-      if favorites[item.name] then
-        if isFlattened or not itemIsSubdir(item) then
-          table.insert(src, item)
+    if hasAnyFavorites then
+      for _, item in ipairs(allWallpapers) do
+        if isItemFavorite(item) then
+          if isFlattened or not itemIsSubdir(item) then
+            table.insert(src, item)
+          end
         end
       end
-    end
-    if hasSearch then
-      local q = string.lower(searchQuery)
-      local filtered = {}
-      for _, item in ipairs(src) do
-        local ln = item.lowerName or string.lower(item.name or "")
-        local rel = item.relDir and string.lower(item.relDir) or ""
-        if string.find(ln, q, 1, true) or (rel ~= "" and string.find(rel, q, 1, true)) then
-          table.insert(filtered, item)
+      if hasSearch then
+        local q = string.lower(searchQuery)
+        local filtered = {}
+        for _, item in ipairs(src) do
+          local ln = item.lowerName or string.lower(item.name or "")
+          local rel = item.relDir and string.lower(item.relDir) or ""
+          if string.find(ln, q, 1, true) or (rel ~= "" and string.find(rel, q, 1, true)) then
+            table.insert(filtered, item)
+          end
         end
+        src = filtered
       end
-      src = filtered
-    end
-    if #src > 1 and #src <= 300 then
-      if currentSort == "name_desc" then
-        table.sort(src, function(a, b) return (a.lowerName or "") > (b.lowerName or "") end)
-      elseif currentSort == "newest" then
-        table.sort(src, function(a, b) return (a.mtime or 0) > (b.mtime or 0) end)
-      elseif currentSort == "oldest" then
-        table.sort(src, function(a, b) return (a.mtime or 0) < (b.mtime or 0) end)
-      elseif currentSort == "colour" then
-        table.sort(src, function(a, b) return (a.hueKey or 0) < (b.hueKey or 0) end)
-      else
-        table.sort(src, function(a, b) return (a.lowerName or "") < (b.lowerName or "") end)
-      end
+      sortItemsInPlace(src, currentSort)
     end
   else
     -- Local mode
@@ -1108,63 +1549,9 @@ local function rebuildList()
         end
       end
       src = filtered
-      if #src > 1 and #src <= 300 then
-        if currentSort == "name_desc" then
-          table.sort(src, function(a, b) return (a.lowerName or "") > (b.lowerName or "") end)
-        elseif currentSort == "newest" then
-          table.sort(src, function(a, b) return (a.mtime or 0) > (b.mtime or 0) end)
-        elseif currentSort == "oldest" then
-          table.sort(src, function(a, b) return (a.mtime or 0) < (b.mtime or 0) end)
-        elseif currentSort == "colour" then
-          table.sort(src, function(a, b) return (a.hueKey or 0) < (b.hueKey or 0) end)
-        else
-          table.sort(src, function(a, b) return (a.lowerName or "") < (b.lowerName or "") end)
-        end
-      end
+      sortItemsInPlace(src, currentSort)
     else
-      -- Zero CPU overhead: uses pre-sorted arrays or pure array index reversal
-      if isFlattened then
-        if currentSort == "name_asc" then
-          src = allWallpapers
-        elseif currentSort == "name_desc" then
-          src = reverseArray(allWallpapers)
-        elseif currentSort == "newest" then
-          src = allWallpapersNewest or allWallpapers
-        elseif currentSort == "oldest" then
-          src = reverseArray(allWallpapersNewest or allWallpapers)
-        elseif currentSort == "colour" then
-          src = allWallpapersColour or allWallpapers
-        else
-          src = allWallpapers
-        end
-      else
-        local base = {}
-        for _, it in ipairs(allWallpapers) do
-          if not itemIsSubdir(it) then
-            table.insert(base, it)
-          end
-        end
-        if currentSort == "name_desc" then
-          src = reverseArray(base)
-        elseif currentSort == "newest" then
-          if #base <= 300 then
-            table.sort(base, function(a, b) return (a.mtime or 0) > (b.mtime or 0) end)
-          end
-          src = base
-        elseif currentSort == "oldest" then
-          if #base <= 300 then
-            table.sort(base, function(a, b) return (a.mtime or 0) < (b.mtime or 0) end)
-          end
-          src = base
-        elseif currentSort == "colour" then
-          if #base <= 300 then
-            table.sort(base, function(a, b) return (a.hueKey or 0) < (b.hueKey or 0) end)
-          end
-          src = base
-        else
-          src = base
-        end
-      end
+      src = getCachedLocalList(currentSort, isFlattened)
     end
   end
 
@@ -1173,15 +1560,9 @@ local function rebuildList()
   selectedIdx = clamp(selectedIdx, 1, math.max(1, #displayedItems))
 end
 
+local cachedApiKey = noctalia.getConfig("wallhaven_api_key") or ""
 local function getApiKey(): string
-  local key = noctalia.getConfig("wallhaven_api_key") or ""
-  if key == "" and type(noctalia.getSetting) == "function" then
-    local pcallOk, officialKey = pcall(noctalia.getSetting, "plugin_settings.noctalia/wallhaven.api_key")
-    if pcallOk and type(officialKey) == "string" and officialKey ~= "" then
-      key = officialKey
-    end
-  end
-  return key
+  return cachedApiKey
 end
 
 local function isNsfwAllowed(): boolean
@@ -1260,12 +1641,13 @@ local function getActiveFilters(): any
   }
 end
 
-local function doWallhavenSearch(resetPage: boolean?)
+local function doWallhavenSearch(resetPage: boolean?, skipRender: boolean?)
   local targetPage = resetPage and 1 or (wallhavenData.page or 1)
   wallhavenLoadingMore = false
   wallhavenError = nil
   pendingStepAfterAppend = false
   if resetPage then
+    unfocusSearch()
     selectedIdx = 1
     resetDeckAnimation(1.0)
     thumbQueue = {}
@@ -1279,7 +1661,7 @@ local function doWallhavenSearch(resetPage: boolean?)
     filters = getActiveFilters(),
     nonce = noctalia.nowMs(),
   })
-  if type(render) == "function" then
+  if not skipRender and type(render) == "function" then
     render()
   end
 end
@@ -1321,25 +1703,30 @@ local function togglePurityNsfw()
   doWallhavenSearch(true)
 end
 
-local function buildWallhavenRow2(paletteColors: any?)
+local function buildWallhavenRow2(paletteColors: any?, panelW: number?)
+  local pW = panelW or cachedPanelW
+  local isCompact = (pW < 1560)
+  local isUltraCompact = (pW < 1260)
   local pColors = paletteColors or {
     primaryText = "on_surface",
     accent = "primary",
     muted = "on_surface/0.7",
   }
+
   return ui.row({
     align = "center",
     justify = "space_between",
     height = 36,
+    width = pW - 64,
   }, {
     ui.row({
       align = "center",
-      gap = 12,
+      gap = isCompact and 6 or 12,
       flexGrow = 1,
     }, {
       -- 1. Categories
-      ui.row({ align = "center", gap = 5 }, {
-        ui.label({ text = "Categories", fontSize = 11, fontWeight = "bold", color = pColors.muted }),
+      ui.row({ align = "center", gap = 4 }, {
+        not isCompact and ui.label({ text = "Categories", fontSize = 11, fontWeight = "bold", color = pColors.muted }) or ui.spacer({ width = 1 }),
         ui.row({
           align = "center",
           gap = 2,
@@ -1350,7 +1737,7 @@ local function buildWallhavenRow2(paletteColors: any?)
           padding = 2,
         }, {
           ui.button({
-            text = "General",
+            text = isUltraCompact and "Gen" or "General",
             variant = whCatGeneral and "primary" or "ghost",
             controlSize = "sm",
             onClick = toggleCategoryGeneral,
@@ -1362,7 +1749,7 @@ local function buildWallhavenRow2(paletteColors: any?)
             onClick = toggleCategoryAnime,
           }),
           ui.button({
-            text = "People",
+            text = isUltraCompact and "Ppl" or "People",
             variant = whCatPeople and "primary" or "ghost",
             controlSize = "sm",
             onClick = toggleCategoryPeople,
@@ -1371,8 +1758,8 @@ local function buildWallhavenRow2(paletteColors: any?)
       }),
 
       -- 2. Purity
-      ui.row({ align = "center", gap = 5 }, {
-        ui.label({ text = "Purity", fontSize = 11, fontWeight = "bold", color = pColors.muted }),
+      ui.row({ align = "center", gap = 4 }, {
+        not isCompact and ui.label({ text = "Purity", fontSize = 11, fontWeight = "bold", color = pColors.muted }) or ui.spacer({ width = 1 }),
         ui.row({
           align = "center",
           gap = 2,
@@ -1389,7 +1776,7 @@ local function buildWallhavenRow2(paletteColors: any?)
             onClick = togglePuritySfw,
           }),
           ui.button({
-            text = "Sketchy",
+            text = isUltraCompact and "Sk" or "Sketchy",
             variant = whPuritySketchy and "primary" or "ghost",
             controlSize = "sm",
             onClick = togglePuritySketchy,
@@ -1406,14 +1793,14 @@ local function buildWallhavenRow2(paletteColors: any?)
       }),
 
       -- 3. Sort & Order
-      ui.row({ align = "center", gap = 5 }, {
-        ui.label({ text = "Sort", fontSize = 11, fontWeight = "bold", color = pColors.muted }),
+      ui.row({ align = "center", gap = 4 }, {
+        not isCompact and ui.label({ text = "Sort", fontSize = 11, fontWeight = "bold", color = pColors.muted }) or ui.spacer({ width = 1 }),
         ui.select({
           key = "wh_sort_select_" .. tostring(whSortIdx),
           options = WH_SORT_LABELS,
           selectedIndex = tonumber(whSortIdx) or 0,
           controlSize = "sm",
-          width = 110,
+          width = isCompact and 94 or 110,
           onChange = function(idx, text)
             local num = tonumber(idx)
             if not num and text then
@@ -1444,14 +1831,14 @@ local function buildWallhavenRow2(paletteColors: any?)
       }),
 
       -- 4. Aspect Ratio
-      ui.row({ align = "center", gap = 5 }, {
-        ui.label({ text = "Ratio", fontSize = 11, fontWeight = "bold", color = pColors.muted }),
+      ui.row({ align = "center", gap = 4 }, {
+        not isCompact and ui.label({ text = "Ratio", fontSize = 11, fontWeight = "bold", color = pColors.muted }) or ui.spacer({ width = 1 }),
         ui.select({
           key = "wh_ratio_select_" .. tostring(whRatioIdx),
           options = WH_RATIO_LABELS,
           selectedIndex = tonumber(whRatioIdx) or 0,
           controlSize = "sm",
-          width = 95,
+          width = isCompact and 80 or 95,
           onChange = function(idx, text)
             local num = tonumber(idx)
             if not num and text then
@@ -1469,14 +1856,14 @@ local function buildWallhavenRow2(paletteColors: any?)
       }),
 
       -- 5. Resolution & Clear
-      ui.row({ align = "center", gap = 5 }, {
-        ui.label({ text = "Res", fontSize = 11, fontWeight = "bold", color = pColors.muted }),
+      ui.row({ key = "wh_res_row", align = "center", gap = 4, onHover = "onSearchBoxHover" }, {
+        not isCompact and ui.label({ text = "Res", fontSize = 11, fontWeight = "bold", color = pColors.muted }) or ui.spacer({ width = 1 }),
         ui.select({
           key = "wh_res_mode_select_" .. tostring(whResModeIdx),
           options = WH_RES_MODE_LABELS,
           selectedIndex = tonumber(whResModeIdx) or 0,
           controlSize = "sm",
-          width = 90,
+          width = isCompact and 76 or 90,
           onChange = function(idx, text)
             local num = tonumber(idx)
             if not num and text then
@@ -1498,11 +1885,13 @@ local function buildWallhavenRow2(paletteColors: any?)
         }),
         ui.input({
           key = "wh_res_w_" .. whClearCounter,
-          placeholder = "Width",
+          placeholder = isCompact and "W" or "Width",
           value = whResWidth,
           controlSize = "sm",
-          width = 80,
+          width = isCompact and 58 or 76,
           onChange = function(val)
+            isSearchFocused = true
+            whResDirty = true
             whResWidth = noctalia.string.trim(val or "")
             local mw, mh = string.match(whResWidth, "(%d+)[xX%*×%s]+(%d+)")
             if mw and mh then
@@ -1514,6 +1903,8 @@ local function buildWallhavenRow2(paletteColors: any?)
           end,
           onSubmit = function(val)
             whResWidth = noctalia.string.trim(val or "")
+            unfocusSearch()
+            lastSearchSubmitMs = noctalia.nowMs()
             local res, _ = getResolutionParam()
             if res then
               doWallhavenSearch(true)
@@ -1523,11 +1914,13 @@ local function buildWallhavenRow2(paletteColors: any?)
         ui.label({ text = "×", fontSize = 12, color = pColors.muted }),
         ui.input({
           key = "wh_res_h_" .. whClearCounter,
-          placeholder = "Height",
+          placeholder = isCompact and "H" or "Height",
           value = whResHeight,
           controlSize = "sm",
-          width = 80,
+          width = isCompact and 58 or 76,
           onChange = function(val)
+            isSearchFocused = true
+            whResDirty = true
             whResHeight = noctalia.string.trim(val or "")
             local mw, mh = string.match(whResHeight, "(%d+)[xX%*×%s]+(%d+)")
             if mw and mh then
@@ -1539,6 +1932,8 @@ local function buildWallhavenRow2(paletteColors: any?)
           end,
           onSubmit = function(val)
             whResHeight = noctalia.string.trim(val or "")
+            unfocusSearch()
+            lastSearchSubmitMs = noctalia.nowMs()
             local res, _ = getResolutionParam()
             if res then
               doWallhavenSearch(true)
@@ -1558,9 +1953,10 @@ local function buildWallhavenRow2(paletteColors: any?)
           end,
         }),
         ui.button({
-          text = "Clear",
+          text = isUltraCompact and "×" or "Clear",
           variant = "destructive",
           controlSize = "sm",
+          tooltip = "Clear Resolution Filter",
           onClick = function()
             whResWidth = ""
             whResHeight = ""
@@ -1583,10 +1979,11 @@ local function buildWallhavenRow2(paletteColors: any?)
       padding = 2,
     }, {
       ui.button({
-        text = "Dark",
+        text = isCompact and nil or "Dark",
         glyph = "moon",
         variant = currentThemeMode == "dark" and "primary" or "ghost",
         controlSize = "sm",
+        tooltip = "Dark Theme",
         onClick = function()
           currentThemeMode = "dark"
           noctalia.runAsync({ "noctalia", "msg", "theme-mode-set", "dark" }, function() end)
@@ -1594,10 +1991,11 @@ local function buildWallhavenRow2(paletteColors: any?)
         end,
       }),
       ui.button({
-        text = "Light",
+        text = isCompact and nil or "Light",
         glyph = "sun",
         variant = currentThemeMode == "light" and "primary" or "ghost",
         controlSize = "sm",
+        tooltip = "Light Theme",
         onClick = function()
           currentThemeMode = "light"
           noctalia.runAsync({ "noctalia", "msg", "theme-mode-set", "light" }, function() end)
@@ -1605,10 +2003,11 @@ local function buildWallhavenRow2(paletteColors: any?)
         end,
       }),
       ui.button({
-        text = "Auto",
+        text = isCompact and nil or "Auto",
         glyph = "brightness-auto",
         variant = currentThemeMode == "auto" and "primary" or "ghost",
         controlSize = "sm",
+        tooltip = "Auto Theme",
         onClick = function()
           currentThemeMode = "auto"
           noctalia.runAsync({ "noctalia", "msg", "theme-mode-set", "auto" }, function() end)
@@ -1619,19 +2018,24 @@ local function buildWallhavenRow2(paletteColors: any?)
   })
 end
 
-local function buildStandardRow2()
+local function buildStandardRow2(panelW: number?)
+  local pW = panelW or cachedPanelW
+  local isCompact = (pW < 1260)
   local activeItem = displayedItems[selectedIdx]
+  local activeFav = isItemFavorite(activeItem)
+
   return ui.row({
     align = "center",
     justify = "space_between",
     height = 36,
+    width = pW - 64,
   }, {
     -- Left: Palette Source + Scheme Dropdown + Fav button
     ui.row({
       flexGrow = 1,
       align = "center",
       justify = "start",
-      gap = 10,
+      gap = isCompact and 6 or 10,
     }, {
       ui.row({
         align = "center",
@@ -1681,16 +2085,16 @@ local function buildStandardRow2()
       (function()
         local currentOptions = SCHEME_OPTIONS
         local currentSelectedIdx = math.max(0, (selectedSchemeIdx or 1) - 1)
-        local selectWidth = 140
+        local selectWidth = isCompact and 120 or 140
 
         if currentPaletteSource == "builtin" then
           currentOptions = BUILTIN_PALETTES
           currentSelectedIdx = math.max(0, (selectedBuiltinIdx or 1) - 1)
-          selectWidth = 130
+          selectWidth = isCompact and 110 or 130
         elseif currentPaletteSource == "community" then
           currentOptions = communityPalettes
           currentSelectedIdx = math.max(0, (selectedCommunityIdx or 1) - 1)
-          selectWidth = 170
+          selectWidth = isCompact and 135 or 170
         end
 
         return ui.select({
@@ -1714,7 +2118,7 @@ local function buildStandardRow2()
               if name then
                 noctalia.runAsync({ "noctalia", "msg", "color-scheme-set", "community", name }, function() end)
               end
-            else -- wallpaper
+            else
               selectedSchemeIdx = chosenIdx
               local s = SCHEMES[chosenIdx]
               if s then
@@ -1727,10 +2131,10 @@ local function buildStandardRow2()
       end)(),
 
       ui.button({
-        glyph = (activeItem and favorites[activeItem.name]) and "star-filled" or "star",
-        variant = (activeItem and favorites[activeItem.name]) and "primary" or "ghost",
+        glyph = activeFav and "star-filled" or "star",
+        variant = activeFav and "primary" or "ghost",
         controlSize = "sm",
-        tooltip = (activeItem and favorites[activeItem.name]) and "Remove from Favourites (F)" or "Add to Favourites (F)",
+        tooltip = activeFav and "Remove from Favourites (F)" or "Add to Favourites (F)",
         onClick = function()
           if toggleCurrentFavorite then
             toggleCurrentFavorite()
@@ -1765,7 +2169,7 @@ local function buildStandardRow2()
           end,
         }),
         ui.button({
-          text = "Colour",
+          text = trText("ui.sort_colour", "Colour"),
           glyph = "palette",
           variant = currentSort == "colour" and "secondary" or "ghost",
           controlSize = "sm",
@@ -1775,7 +2179,7 @@ local function buildStandardRow2()
           end,
         }),
         ui.button({
-          text = (currentSort == "oldest") and "Oldest" or "Newest",
+          text = (currentSort == "oldest") and "Oldest" or trText("ui.sort_newest", "Newest"),
           glyph = (currentSort == "oldest") and "history" or "clock",
           variant = (currentSort == "newest" or currentSort == "oldest") and "secondary" or "ghost",
           controlSize = "sm",
@@ -1804,10 +2208,11 @@ local function buildStandardRow2()
         padding = 2,
       }, {
         ui.button({
-          text = "Dark",
+          text = isCompact and nil or "Dark",
           glyph = "moon",
           variant = currentThemeMode == "dark" and "primary" or "ghost",
           controlSize = "sm",
+          tooltip = "Dark Theme",
           onClick = function()
             currentThemeMode = "dark"
             noctalia.runAsync({ "noctalia", "msg", "theme-mode-set", "dark" }, function() end)
@@ -1815,10 +2220,11 @@ local function buildStandardRow2()
           end,
         }),
         ui.button({
-          text = "Light",
+          text = isCompact and nil or "Light",
           glyph = "sun",
           variant = currentThemeMode == "light" and "primary" or "ghost",
           controlSize = "sm",
+          tooltip = "Light Theme",
           onClick = function()
             currentThemeMode = "light"
             noctalia.runAsync({ "noctalia", "msg", "theme-mode-set", "light" }, function() end)
@@ -1826,10 +2232,11 @@ local function buildStandardRow2()
           end,
         }),
         ui.button({
-          text = "Auto",
+          text = isCompact and nil or "Auto",
           glyph = "brightness-auto",
           variant = currentThemeMode == "auto" and "primary" or "ghost",
           controlSize = "sm",
+          tooltip = "Auto Theme",
           onClick = function()
             currentThemeMode = "auto"
             noctalia.runAsync({ "noctalia", "msg", "theme-mode-set", "auto" }, function() end)
@@ -1858,7 +2265,6 @@ local function checkWallhavenLazyLoad()
 
   if currentPage >= lastPage then return end
 
-  -- Trigger next batch when viewing within the last 5 cards (e.g. index 20 of 24, 44 of 48, etc.)
   if selectedIdx >= #displayedItems - 5 then
     wallhavenLoadingMore = true
     wallhavenLoadingStartMs = noctalia.nowMs()
@@ -1869,7 +2275,7 @@ local function checkWallhavenLazyLoad()
       page = nextPage,
       append = true,
       filters = getActiveFilters(),
-      nonce = noctalia.nowMs()
+      nonce = noctalia.nowMs(),
     })
     if type(render) == "function" then
       render()
@@ -1907,6 +2313,30 @@ local function startDeckAnimation(targetIdx: number)
     animTargetPos = targetIdx
     animVel = 0.0
     panel.setNeedsFrameTick(false)
+  end
+end
+
+local lastSearchMs = 0
+local function executeSearch()
+  local now = noctalia.nowMs()
+  if now - lastSearchMs < 150 then return end
+  lastSearchMs = now
+
+  if currentMode == "wallhaven" then
+    local trimmed = noctalia.string.trim(whQuery or "")
+    if trimmed ~= "" and (whSortIdx == 0 or whSortIdx == 1 or whSortIdx == 2) then
+      whSortIdx = 5
+      noctalia.state.set("wallhaven_sort", "relevance")
+    end
+    doWallhavenSearch(true)
+  else
+    selectedIdx = 1
+    resetDeckAnimation(1.0)
+    rebuildList()
+    triggerPreview()
+    if type(render) == "function" then
+      render()
+    end
   end
 end
 
@@ -1966,6 +2396,17 @@ local function cancelAndClose()
   panel.close()
 end
 
+local function cyclePreviewFit()
+  if previewFit == "cover" then
+    previewFit = "contain"
+  elseif previewFit == "contain" then
+    previewFit = "stretch"
+  else
+    previewFit = "cover"
+  end
+  render()
+end
+
 local function cycleOutput()
   refreshConnectedOutputs()
   selectedOutputIdx = (selectedOutputIdx % #connectedOutputs) + 1
@@ -2010,13 +2451,35 @@ end
 
 toggleFavoriteItem = function(item: any)
   if not item or not item.name then return end
-  noctalia.state.set("deck_command", { action = "toggle_favorite", fileName = item.name, nonce = noctalia.nowMs() })
-  if favorites[item.name] then
+  noctalia.state.set("deck_command", {
+    action = "toggle_favorite",
+    fileName = item.name,
+    path = item.path,
+    nonce = noctalia.nowMs(),
+  })
+  local b = item.base or baseName(item.name)
+  if isItemFavorite(item) then
     favorites[item.name] = nil
+    favorites[b] = nil
+    if item.path then favorites[item.path] = nil end
+    for _, ext in ipairs({ ".jpg", ".jpeg", ".png", ".webp" }) do
+      favorites[b .. ext] = nil
+    end
   else
     favorites[item.name] = true
+    if string.sub(b, 1, 10) == "wallhaven-" then
+      favorites[b] = true
+      for _, ext in ipairs({ ".jpg", ".png", ".webp" }) do
+        favorites[b .. ext] = true
+      end
+    end
   end
+  hasAnyFavorites = (next(favorites) ~= nil)
   cachedFavCount = -1
+  if currentMode == "favorites" then
+    rebuildList()
+    resetDeckAnimation(selectedIdx)
+  end
   render()
 end
 
@@ -2056,12 +2519,13 @@ local function cycleSort()
 end
 
 local function cycleMode()
+  unfocusSearch()
   if currentMode == "local" then
     currentMode = "favorites"
   elseif currentMode == "favorites" then
     currentMode = "wallhaven"
     if #((wallhavenData and wallhavenData.items) or {}) == 0 then
-      doWallhavenSearch(true)
+      doWallhavenSearch(true, true)
     end
   else
     currentMode = "local"
@@ -2083,14 +2547,11 @@ local function pickRandom()
 end
 
 -- Renders the full-screen width Spectrum Ribbon below the header
-local cachedRibbon = nil
-local cachedRibbonIdx = -1
-local cachedRibbonCount = -1
-
-local function renderSpectrumRibbon()
+local function renderSpectrumRibbon(panelW: number?)
+  local pW = panelW or cachedPanelW
   local count = #displayedItems
   if count == 0 then
-    return ui.box({ height = 6, fill = "surface_container/0.3", radius = R(3) })
+    return ui.box({ width = pW - 64, height = 6, fill = "surface_container/0.3", radius = R(3) })
   end
   if cachedRibbon and cachedRibbonIdx == selectedIdx and cachedRibbonCount == count then
     return cachedRibbon
@@ -2114,13 +2575,14 @@ local function renderSpectrumRibbon()
       radius = (i == 1 or i == segCount) and R(3) or 0,
       onClick = function()
         selectCardIndex(itemIndex)
-      end
+      end,
     }))
   end
 
   local res = ui.row({
     align = "center",
     justify = "center",
+    width = pW - 64,
     gap = 2,
     height = 16,
     paddingV = 2,
@@ -2144,7 +2606,6 @@ local function renderCard(item: any, index: number, distSigned: number, scale: n
   local slotH = cardH + lift
   local maxDeckH = math.floor(344 * s + 80 * s)
 
-  -- Smooth continuous opacity fade at the outer boundaries of the visible window
   local opacity = 1.0
   if dist > DECK_K then
     opacity = math.max(0.0, clamp(1.0 - (dist - DECK_K), 0.0, 1.0) * 0.80)
@@ -2152,8 +2613,7 @@ local function renderCard(item: any, index: number, distSigned: number, scale: n
     opacity = lerp(1.0, 0.80, dist / DECK_K)
   end
 
-  local isFav = favorites[item.name] == true
-  local isCurrent = activeWallpaper == item.path
+  local isCurrent = activeWallpaper ~= "" and activeWallpaper == item.path
 
   local previewPath = nil
   if currentMode == "wallhaven" then
@@ -2244,10 +2704,7 @@ local function renderCard(item: any, index: number, distSigned: number, scale: n
     end
   end
 
-  if currentMode ~= "wallhaven" and not hasRealColors and not item._paletteRequested and item.path then
-    item._paletteRequested = true
-    noctalia.state.set("deck_command", { action = "prioritize_palette", path = item.path })
-  end
+  -- Palette prioritization is triggered on settle (onCardSettled) to keep render() pure and fast
 
   local chipsElement = (cardH >= 210) and ui.column({ gap = 2 }, chipRows) or chipStrip
 
@@ -2263,7 +2720,19 @@ local function renderCard(item: any, index: number, distSigned: number, scale: n
       resText = string.format("%d × %d • ", item.width, item.height)
     end
     displayName = item.base or baseName(item.name or "")
-    detailLine = string.format("%s • %s%s", item.ext or "IMG", resText, item.sizeStr or formatBytes(item.size or 0))
+    local extStr = item.ext
+    if not extStr or extStr == "" then
+      local dotExt = string.match(item.name or item.path or "", "%.([^%.]+)$")
+      extStr = dotExt and string.upper(dotExt) or "IMG"
+    end
+    local sizeFormatted = item.sizeStr or formatBytes(item.size or 0)
+    if sizeFormatted ~= "" then
+      detailLine = string.format("%s • %s%s", extStr, resText, sizeFormatted)
+    elseif resText ~= "" then
+      detailLine = string.format("%s • %s", extStr, string.gsub(resText, " • $", ""))
+    else
+      detailLine = extStr
+    end
     item._displayName = displayName
     item._detailLine = detailLine
   end
@@ -2277,6 +2746,7 @@ local function renderCard(item: any, index: number, distSigned: number, scale: n
     align = "center",
     justify = "end",
     opacity = opacity,
+    onHover = "onDeckSlotHover",
   }, {
     ui.column({
       key = "card_" .. itemKey,
@@ -2284,7 +2754,9 @@ local function renderCard(item: any, index: number, distSigned: number, scale: n
       height = slotH,
       align = "center",
       justify = "start",
+      onHover = "onDeckCardHover",
       onClick = function()
+        unfocusSearch()
         if selectedIdx == index then
           applyCurrent()
         else
@@ -2312,7 +2784,7 @@ local function renderCard(item: any, index: number, distSigned: number, scale: n
             paddingV = 1,
           }, {
             ui.label({
-              text = "✓ current",
+              text = "✓ " .. trText("ui.current", "current"),
               fontSize = (s < 0.7) and 6 or 7,
               fontWeight = "bold",
               color = "on_primary",
@@ -2323,7 +2795,7 @@ local function renderCard(item: any, index: number, distSigned: number, scale: n
             fontSize = (s < 0.7) and 6 or 7,
             fontFamily = "JetBrainsMono Nerd Font",
             color = isCenter and "primary" or "on_surface/0.5",
-            maxWidth = cardW - (isCurrent and 60 or 10),
+            maxWidth = math.max(24, cardW - (isCurrent and 60 or 14)),
             maxLines = 1,
           }),
         }),
@@ -2366,13 +2838,14 @@ local function renderCard(item: any, index: number, distSigned: number, scale: n
             fontSize = isCenter and ((s < 0.7) and 8 or 10) or ((s < 0.7) and 7 or 9),
             fontWeight = "bold",
             maxLines = 1,
-            maxWidth = cardW - 12,
+            maxWidth = math.max(24, cardW - 12),
           }),
           ui.label({
             text = detailLine,
             fontSize = (s < 0.7) and 6 or 7,
             color = "on_surface/0.65",
             maxLines = 1,
+            maxWidth = math.max(24, cardW - 12),
           }),
         }),
       }),
@@ -2479,7 +2952,7 @@ local function renderEmptyState(paletteColors: any)
   if currentMode == "favorites" then
     glyphName = "heart-off"
     title = "No Favourites Yet"
-    subtitle = "Press F on any wallpaper in the deck to add it to your favourites."
+    subtitle = trText("ui.no_favorites", "Press F on any wallpaper in the deck to add it to your favourites.")
     buttons = {
       ui.button({
         text = "Browse Local",
@@ -2506,13 +2979,11 @@ local function renderEmptyState(paletteColors: any)
   elseif currentMode == "wallhaven" then
     if wallhavenError ~= nil then
       local isOffline = true
-      local errTitle = "Network Unavailable"
-      local errSub = "Could not connect to Wallhaven. Check your internet connection and try again."
+      local errTitle = trText("ui.network_unavailable", "Network Unavailable")
+      local errSub = trText("ui.network_unavailable_desc", "Could not connect to Wallhaven. Check your internet connection and try again.")
       if type(wallhavenError) == "table" then
         if wallhavenError.type == "offline" or wallhavenError.status == 0 or wallhavenError.offline == true then
           isOffline = true
-          errTitle = "Network Unavailable"
-          errSub = "Could not connect to Wallhaven. Check your internet connection and try again."
         elseif wallhavenError.type == "unauthorized" or wallhavenError.status == 401 or wallhavenError.status == 403 then
           isOffline = false
           errTitle = "Invalid API Key"
@@ -2529,8 +3000,6 @@ local function renderEmptyState(paletteColors: any)
       elseif type(wallhavenError) == "string" then
         if string.find(string.lower(wallhavenError), "network") or string.find(string.lower(wallhavenError), "contact") or string.find(string.lower(wallhavenError), "offline") then
           isOffline = true
-          errTitle = "Network Unavailable"
-          errSub = "Could not connect to Wallhaven. Check your internet connection and try again."
         else
           isOffline = false
           errTitle = "Connection Failed"
@@ -2543,7 +3012,7 @@ local function renderEmptyState(paletteColors: any)
       subtitle = errSub
       buttons = {
         ui.button({
-          text = "Retry",
+          text = trText("ui.retry", "Retry"),
           glyph = "refresh",
           variant = "primary",
           controlSize = "md",
@@ -2561,7 +3030,7 @@ local function renderEmptyState(paletteColors: any)
       }
     else
       glyphName = "photo-off"
-      title = "No Wallpapers Found"
+      title = trText("ui.no_wallhaven", "No Wallpapers Found")
       subtitle = (whQuery and whQuery ~= "")
         and string.format("No wallpapers matched \"%s\". Try searching with different tags.", whQuery)
         or "Try searching with different tags or adjust your Wallhaven filters above."
@@ -2569,7 +3038,7 @@ local function renderEmptyState(paletteColors: any)
       if whQuery and whQuery ~= "" then
         buttons = {
           ui.button({
-            text = "Clear Search",
+            text = trText("ui.clear_search", "Clear Search"),
             glyph = "close",
             variant = "primary",
             controlSize = "md",
@@ -2589,7 +3058,7 @@ local function renderEmptyState(paletteColors: any)
       else
         buttons = {
           ui.button({
-            text = "Retry",
+            text = trText("ui.retry", "Retry"),
             glyph = "refresh",
             variant = "primary",
             controlSize = "md",
@@ -2699,13 +3168,64 @@ local function renderEmptyState(paletteColors: any)
   })
 end
 
+local function renderBgLayer(panelW: number, panelH: number, activeItem: any)
+  local bgFill = (#displayedItems > 0 and activeItem and activeItem.sourceColor) or "surface"
+
+  if displayedBgPath ~= "" then
+    return ui.column({
+      key = "bg_layer",
+      width = panelW,
+      height = panelH,
+      padding = 0,
+      fill = (previewFit == "contain") and bgFill or nil,
+      align = "stretch",
+      justify = "start",
+      onHover = "onOutsideDeckHover",
+    }, {
+      ui.image({
+        key = "deck_bg_curr_img_" .. displayedBgPath,
+        path = displayedBgPath,
+        width = panelW,
+        height = panelH,
+        radius = R(12),
+        fit = previewFit,
+      }),
+    })
+  end
+
+  return ui.column({
+    key = "bg_layer",
+    width = panelW,
+    height = panelH,
+    radius = R(12),
+    fill = bgFill,
+    align = "center",
+    justify = "center",
+    onHover = "onOutsideDeckHover",
+  }, {
+    (#displayedItems > 0 and currentMode == "wallhaven") and ui.row({
+      align = "center",
+      justify = "center",
+      paddingH = 18,
+      paddingV = 9,
+      radius = R(20),
+      fill = "surface/0.8",
+      border = "outline_variant/0.3",
+      borderWidth = 1,
+      gap = 8,
+    }, {
+      ui.glyph({ name = "loader-2", size = 16, color = "primary" }),
+      ui.label({ text = trText("ui.loading", "Loading preview..."), fontSize = 11, fontWeight = "bold", color = "on_surface" }),
+    }) or ui.spacer({ width = 1, height = 1 }),
+  })
+end
+
 function render()
   local panelW, panelH = getPanelGeometry()
-  local screenW, screenH = getScreenGeometry()
   local centerIdx = clamp(math.floor(animatedPos + 0.5), 1, math.max(1, #displayedItems))
   local activeItem = displayedItems[centerIdx]
-  local isCurrent = activeItem and activeWallpaper == activeItem.path
-  local isFav = activeItem and favorites[activeItem.name] == true
+  local isCurrent = activeItem and activeWallpaper ~= "" and activeWallpaper == activeItem.path
+  local isFav = isItemFavorite(activeItem)
   local paletteColors = getWallpaperPaletteFontColors(activeItem)
   local isStripeWhite = paletteColors.isLight == true
   local headerTextColor = isStripeWhite and "#000000" or "#ffffff"
@@ -2715,47 +3235,101 @@ function render()
   local stripeBorder = isStripeWhite and (paletteColors.accent .. "30") or "outline_variant/0.2"
 
   local deckCards = {}
-  local screenCenterX = panelW / 2
-  local deckScale = getDeckScale(panelW)
+  local leftSpacerWidth = 0
+  local screenCenterX = panelW / 2.0
+  local deckScale = getDeckScale(panelW, panelH)
   local gap = math.max(6, math.floor(12 * deckScale))
   local maxDeckH = math.floor(344 * deckScale + 80 * deckScale)
 
   if #displayedItems > 0 then
     local pos = clamp(animatedPos, 1.0, #displayedItems)
-    local C = math.floor(pos)
+    -- Anchor the visible card window to the nearest integer index so the card window
+    -- switches at the midpoint (frac = +/-0.5) and stays 100% constant while settling!
+    local C = clamp(math.floor(pos + 0.5), 1, #displayedItems)
     local frac = pos - C
 
     local minIdx = math.max(1, C - DECK_K)
-    local maxIdx = math.min(#displayedItems, C + DECK_K + 1)
+    local maxIdx = math.min(#displayedItems, C + DECK_K)
 
     local cardWidths = {}
+    local cardWidthsFloat = {}
     for idx = minIdx, maxIdx do
-      cardWidths[idx] = getCardWidth(idx - pos, deckScale)
+      local d = idx - pos
+      cardWidthsFloat[idx] = getCardWidthFloat(d, deckScale)
+      cardWidths[idx] = math.floor(cardWidthsFloat[idx] + 0.5)
     end
 
-    local sumLeft = 0
+    local wCFloat = cardWidthsFloat[C] or getCardWidthFloat(0, deckScale)
+    local neighborIdx = (frac >= 0) and (C + 1) or (C - 1)
+    local wNeighborFloat = cardWidthsFloat[neighborIdx] or getCardWidthFloat(1.0 - math.abs(frac), deckScale)
+    local pitchC = (wCFloat + wNeighborFloat) / 2.0 + gap
+
+    -- Dynamically ensure left and right card spans never overflow panelW
+    while minIdx < C do
+      local sumLeftTmp = 0.0
+      for idx = minIdx, C - 1 do
+        sumLeftTmp = sumLeftTmp + cardWidths[idx] + gap
+      end
+      local testLeft = screenCenterX - (wCFloat / 2.0) - sumLeftTmp - (frac * pitchC)
+      if testLeft < 8 then
+        minIdx = minIdx + 1
+      else
+        break
+      end
+    end
+
+    local sumLeft = 0.0
     for idx = minIdx, C - 1 do
       sumLeft = sumLeft + cardWidths[idx] + gap
     end
 
-    local wC = cardWidths[C] or getCardWidth(0, deckScale)
-    local wC_next = cardWidths[C + 1] or wC
-    local pitchC = (wC + wC_next) / 2.0 + gap
+    local leftEdgeMin = screenCenterX - (wCFloat / 2.0) - sumLeft - (frac * pitchC)
+    leftSpacerWidth = math.max(0, math.floor(leftEdgeMin + 0.5))
 
-    -- Exactly anchor the active focal point to screenCenterX with zero accumulated drift
-    local leftEdgeMin = screenCenterX - (wC / 2.0) - sumLeft - (frac * pitchC)
-    local leftSpacerWidth = math.max(0, math.floor(leftEdgeMin - gap))
+    while maxIdx > C do
+      local totalCardsW = 0
+      for idx = minIdx, maxIdx do
+        totalCardsW = totalCardsW + cardWidths[idx] + ((idx < maxIdx) and gap or 0)
+      end
+      if leftSpacerWidth + totalCardsW > panelW - 8 then
+        maxIdx = maxIdx - 1
+      else
+        break
+      end
+    end
 
-    table.insert(deckCards, ui.box({
-      key = "deck_left_spacer",
-      width = leftSpacerWidth,
-      height = 1,
-    }))
+    local activeHoverKeys: { [string]: boolean } = {
+      deck_bottom_section = true,
+      deck_cards_outer_row = true,
+      deck_cards_row = true,
+      deck_card_slot = true,
+      deck_card_item = true,
+    }
+    if activeItem then
+      activeHoverKeys["deck_action_bar"] = true
+      if monitorDropdownOpen then
+        activeHoverKeys["monitor_dropdown_popover"] = true
+      end
+    end
 
     for idx = minIdx, maxIdx do
+      local it = displayedItems[idx]
+      local itKey = tostring(it and (it.path or it.id or it.name) or idx)
+      activeHoverKeys["slot_wrap_" .. itKey] = true
+      activeHoverKeys["card_" .. itKey] = true
       local distSigned = idx - pos
-      table.insert(deckCards, renderCard(displayedItems[idx], idx, distSigned, deckScale))
+      table.insert(deckCards, renderCard(it, idx, distSigned, deckScale))
     end
+
+    for k in pairs(hoveredDeckKeys) do
+      if not activeHoverKeys[k] then
+        hoveredDeckKeys[k] = nil
+      end
+    end
+    isDeckAreaHovered = (next(hoveredDeckKeys) ~= nil)
+  else
+    hoveredDeckKeys = {}
+    isDeckAreaHovered = false
   end
 
   local favCount = getFavCount()
@@ -2781,16 +3355,52 @@ function render()
     end
   end
 
-  -- Keep background image stable during card sliding animation to prevent decoding stalls
-  local isSettled = math.abs(animatedPos - selectedIdx) < 0.01
-  if isSettled or displayedBgPath == "" then
-    displayedBgPath = activeBg
+  if #displayedItems == 0 then
+    displayedBgPath = ""
+  else
+    -- Only update the full-screen background when the card has settled at its target index so card movement is 60fps smooth
+    local isSettled = (not animateSelected) or (animatedPos == selectedIdx)
+    if (isSettled or displayedBgPath == "") and activeBg ~= "" then
+      setDisplayedBackground(activeBg)
+    end
   end
-  local bgPath = displayedBgPath
+
+  local function wrapFullBleed(rootNode: any)
+    if panelInnerPad <= 0 then
+      return rootNode
+    end
+    return ui.column({
+      key = "panel_bleed_v",
+      width = panelW,
+      height = panelH,
+      padding = 0,
+      gap = -(panelInnerPad + 1),
+      align = "start",
+      justify = "start",
+    }, {
+      ui.box({ key = "bleed_anchor_v", width = 1, height = 1 }),
+      ui.row({
+        key = "panel_bleed_h",
+        width = panelW,
+        height = panelH,
+        padding = 0,
+        gap = -(panelInnerPad + 1),
+        align = "start",
+        justify = "start",
+      }, {
+        ui.box({ key = "bleed_anchor_h", width = 1, height = 1 }),
+        rootNode,
+      }),
+    })
+  end
 
   if isPeeking then
-    panel.render(ui.column({
+    hoveredDeckKeys = {}
+    isDeckAreaHovered = false
+    panel.render(wrapFullBleed(ui.column({
       key = "panel_root",
+      width = panelW,
+      height = panelH,
       flexGrow = 1,
       gap = -panelH,
       padding = 0,
@@ -2798,65 +3408,25 @@ function render()
       justify = "start",
     }, {
       -- Slot 1: Fullscreen Wallpaper Background
-      ui.column({
-        key = "bg_layer",
-        width = panelW,
-        height = panelH,
-        padding = 0,
-        gap = 0,
-        align = "center",
-        justify = "center",
-      }, {
-        (bgPath ~= "") and ui.image({
-          key = "deck_bg_preview_image_" .. bgPath,
-          path = bgPath,
-          width = panelW,
-          height = panelH,
-          fit = "cover",
-        }) or ui.column({
-          key = "bg_fallback",
-          width = panelW,
-          height = panelH,
-          fill = (activeItem and activeItem.sourceColor) or "surface",
-          align = "center",
-          justify = "center",
-        }, {
-          (currentMode == "wallhaven" and (not bgPath or bgPath == "")) and ui.row({
-            align = "center",
-            justify = "center",
-            paddingH = 18,
-            paddingV = 9,
-            radius = R(20),
-            fill = "surface/0.8",
-            border = "outline_variant/0.3",
-            borderWidth = 1,
-            gap = 8,
-          }, {
-            ui.glyph({ name = "loader-2", size = 16, color = "primary" }),
-            ui.label({ text = "Loading preview...", fontSize = 11, fontWeight = "bold", color = "on_surface" }),
-          }) or ui.spacer({ width = 1, height = 1 }),
-        }),
-      }),
+      renderBgLayer(panelW, panelH, activeItem),
 
       -- Slot 2: Peek Bottom Pill Overlay
       ui.column({
         key = "peek_overlay",
+        width = panelW,
+        height = panelH,
         flexGrow = 1,
         padding = 0,
         gap = 0,
         align = "stretch",
         justify = "space_between",
       }, {
-        -- 1: Empty Top Spacer
         ui.spacer({ height = 16 }),
-
-        -- 2: Flexible Center Spacer
         ui.spacer({ flexGrow = 1 }),
-
-        -- 3: Bottom Pill Row
         ui.row({
           align = "center",
           justify = "center",
+          width = panelW,
           height = 48,
           paddingV = 6,
           borderWidth = 0,
@@ -2875,17 +3445,24 @@ function render()
           }, {
             ui.label({ text = activeItem and activeItem.name or "", fontSize = 12, fontWeight = "bold", color = paletteColors.accent }),
             ui.label({ text = "•", fontSize = 10, color = paletteColors.bullet }),
+            ui.label({ text = "Fit: " .. previewFit .. " (V)", fontSize = 11, color = paletteColors.muted }),
+            ui.label({ text = "•", fontSize = 10, color = paletteColors.bullet }),
             ui.label({ text = "Space or Esc: back to deck", fontSize = 11, color = paletteColors.muted }),
           }),
         }),
       }),
-    }))
+    })))
     return
   end
 
+  local searchBoxW = clamp(math.floor(panelW * ((currentMode == "wallhaven") and 0.18 or 0.14)), 140, (currentMode == "wallhaven") and 340 or 240)
+  local searchInputW = math.max(80, searchBoxW - 64)
+
   -- Fullscreen Immersive Overlay with Fullscreen Wallpaper Background
-  panel.render(ui.column({
+  panel.render(wrapFullBleed(ui.column({
     key = "panel_root",
+    width = panelW,
+    height = panelH,
     flexGrow = 1,
     gap = -panelH,
     padding = 0,
@@ -2893,296 +3470,178 @@ function render()
     justify = "start",
   }, {
     -- Slot 1: Fullscreen Wallpaper Background Preview
-    ui.column({
-      key = "bg_layer",
-      width = panelW,
-      height = panelH,
-      padding = 0,
-      gap = 0,
-      align = "center",
-      justify = "center",
-    }, {
-      (#displayedItems > 0 and bgPath ~= "") and ui.image({
-        key = "deck_bg_preview_image_" .. bgPath,
-        path = bgPath,
-        width = panelW,
-        height = panelH,
-        fit = "cover",
-      }) or ui.column({
-        key = "bg_fallback",
-        width = panelW,
-        height = panelH,
-        fill = (#displayedItems > 0 and activeItem and activeItem.sourceColor) or "surface",
-        align = "center",
-        justify = "center",
-      }, {
-        (#displayedItems > 0 and currentMode == "wallhaven" and (not bgPath or bgPath == "")) and ui.row({
-          align = "center",
-          justify = "center",
-          paddingH = 18,
-          paddingV = 9,
-          radius = R(20),
-          fill = "surface/0.8",
-          border = "outline_variant/0.3",
-          borderWidth = 1,
-          gap = 8,
-        }, {
-          ui.glyph({ name = "loader-2", size = 16, color = "primary" }),
-          ui.label({ text = "Loading preview...", fontSize = 11, fontWeight = "bold", color = "on_surface" }),
-        }) or ui.spacer({ width = 1, height = 1 }),
-      }),
-    }),
+    renderBgLayer(panelW, panelH, activeItem),
 
     -- Slot 2: Fullscreen UI Elements Overlaid on Top
     ui.column({
       key = "deck_overlay",
+      width = panelW,
+      height = panelH,
       flexGrow = 1,
       padding = 0,
       gap = 0,
       align = "stretch",
       justify = "space_between",
-      -- fill = "#00000070",
     }, {
-    -- ── TOP HEADER SECTION ─────────────────────────────────────────
-    ui.column({ gap = 8, paddingH = 32, paddingV = 14 }, {
-      -- Row 1: App Info + Filter Input | Mode Pills | Flatten Toggle + Output Select + Actions
-      ui.row({
-        align = "center",
-        justify = "space_between",
-        height = 42,
-      }, {
-        -- Left: Title & Filter Input
+      -- ── TOP HEADER SECTION ─────────────────────────────────────────
+      ui.column({ key = "deck_header_section", width = panelW, gap = 8, paddingH = 32, paddingV = 14, onHover = "onOutsideDeckHover" }, {
+        -- Row 1: App Info + Filter Input | Mode Pills | Flatten Toggle + Action Icons
         ui.row({
-          flexGrow = 1,
           align = "center",
-          justify = "start",
-          gap = 14,
+          justify = "space_between",
+          width = panelW - 64,
+          height = 42,
         }, {
-          ui.row({ align = "center", gap = 10 }, {
-            ui.glyph({ name = "cards", size = 24, color = isStripeWhite and "#000000" or paletteColors.accent }),
-            ui.column({ gap = 1 }, {
-              ui.label({ text = "Wallpapers", fontSize = 16, fontWeight = "heavy", color = headerTextColor }),
-              ui.label({
-                text = (#displayedItems == 0) and (
-                  (currentMode ~= "wallhaven" and currentMode ~= "favorites" and isScanning) and "scanning..."
-                    or (currentMode == "wallhaven" and wallhavenLoading) and "searching..."
-                    or (currentMode == "wallhaven" and wallhavenError ~= nil) and "offline"
-                    or "0 wallpapers"
-                )
-                  or ((currentMode == "wallhaven" and wallhavenLoadingMore)
-                    and string.format("%d of %d (loading...)", selectedIdx, math.max(1, #displayedItems))
-                    or string.format("%d of %d", selectedIdx, math.max(1, #displayedItems))),
-                fontSize = 10,
-                color = isStripeWhite and "#00000099" or paletteColors.muted,
+          -- Left: Title & Filter Input
+          ui.row({
+            flexGrow = 1,
+            align = "center",
+            justify = "start",
+            gap = 12,
+          }, {
+            ui.row({ align = "center", gap = 10 }, {
+              ui.glyph({ name = "cards", size = 24, color = isStripeWhite and "#000000" or paletteColors.accent }),
+              ui.column({ gap = 1 }, {
+                ui.label({ text = trText("title", "Wallpapers"), fontSize = 16, fontWeight = "heavy", color = headerTextColor }),
+                ui.label({
+                  text = (#displayedItems == 0) and (
+                    (currentMode ~= "wallhaven" and currentMode ~= "favorites" and isScanning) and "scanning..."
+                      or (currentMode == "wallhaven" and wallhavenLoading) and "searching..."
+                      or (currentMode == "wallhaven" and wallhavenError ~= nil) and "offline"
+                      or "0 wallpapers"
+                  )
+                    or ((currentMode == "wallhaven" and wallhavenLoadingMore)
+                      and string.format("%d of %d (loading...)", selectedIdx, math.max(1, #displayedItems))
+                      or string.format("%d of %d", selectedIdx, math.max(1, #displayedItems))),
+                  fontSize = 10,
+                  color = isStripeWhite and "#00000099" or paletteColors.muted,
+                }),
               }),
             }),
-          }),
 
-          -- Search / Filter Input
-          ui.row({
-            align = "center",
-            gap = 6,
-          }, {
+            -- Search / Filter Input
             ui.row({
               align = "center",
               gap = 6,
-              fill = "surface/0.85",
-              border = ((currentMode == "wallhaven" and whQuery ~= "") or (currentMode ~= "wallhaven" and searchQuery ~= "")) and paletteColors.accent or "outline_variant/0.25",
-              borderWidth = 1,
-              radius = R(10),
-              paddingH = 10,
-              height = 32,
-              width = (currentMode == "wallhaven") and 350 or 240,
             }, {
-              ui.glyph({
-                name = "search",
-                size = 14,
-                color = ((currentMode == "wallhaven" and whQuery ~= "") or (currentMode ~= "wallhaven" and searchQuery ~= "")) and paletteColors.accent or paletteColors.muted,
-              }),
-              ui.input({
-                value = (currentMode == "wallhaven") and whQuery or searchQuery,
-                placeholder = (currentMode == "wallhaven") and "Search tags..." or "Filter...",
-                controlSize = "sm",
-                frameVisible = false,
-                flexGrow = 1,
-                width = (currentMode == "wallhaven") and 270 or 180,
-                onChange = function(val)
-                  if currentMode == "wallhaven" then
-                    whQuery = val or ""
-                  else
-                    searchQuery = val or ""
-                    selectedIdx = 1
-                    resetDeckAnimation(1.0)
-                    rebuildList()
-                    triggerPreview()
-                    render()
-                  end
+              ui.row({
+                key = "deck_search_box",
+                align = "center",
+                gap = 6,
+                fill = "surface/0.85",
+                border = (isSearchFocused or (currentMode == "wallhaven" and whQuery ~= "") or (currentMode ~= "wallhaven" and searchQuery ~= "")) and paletteColors.accent or "outline_variant/0.25",
+                borderWidth = isSearchFocused and 1.5 or 1,
+                radius = R(10),
+                paddingH = 10,
+                height = 32,
+                width = searchBoxW,
+                onHover = "onSearchBoxHover",
+                onClick = function()
+                  isSearchFocused = true
+                  render()
                 end,
-                onSubmit = function(val)
-                  if currentMode == "wallhaven" then
-                    whQuery = val or ""
-                    local trimmed = noctalia.string.trim(whQuery)
-                    if trimmed ~= "" and (whSortIdx == 0 or whSortIdx == 1 or whSortIdx == 2) then
-                      whSortIdx = 5 -- auto-switch to relevance for keyword search
-                      noctalia.state.set("wallhaven_sort", "relevance")
+              }, {
+                ui.glyph({
+                  name = "search",
+                  size = 14,
+                  color = (isSearchFocused or (currentMode == "wallhaven" and whQuery ~= "") or (currentMode ~= "wallhaven" and searchQuery ~= "")) and paletteColors.accent or paletteColors.muted,
+                }),
+                ui.input({
+                  key = "deck_search_input_" .. (currentMode == "wallhaven" and "wh_" or "local_") .. tostring(searchInputNonce),
+                  value = (currentMode == "wallhaven") and whQuery or searchQuery,
+                  placeholder = (currentMode == "wallhaven") and "Search tags..." or trText("ui.search_placeholder", "Filter..."),
+                  controlSize = "sm",
+                  frameVisible = false,
+                  flexGrow = 1,
+                  focus = isSearchFocused and true or nil,
+                  submitOnEnter = true,
+                  width = searchInputW,
+                  onChange = function(val)
+                    isSearchFocused = true
+                    if currentMode == "wallhaven" then
+                      whQuery = val or ""
+                      whQueryDirty = true
+                      whResDirty = false
+                    else
+                      searchQuery = val or ""
+                      selectedIdx = 1
+                      resetDeckAnimation(1.0)
+                      rebuildList()
+                      triggerPreview()
+                      render()
                     end
-                    doWallhavenSearch(true)
-                  else
-                    searchQuery = val or ""
-                    selectedIdx = 1
-                    resetDeckAnimation(1.0)
-                    rebuildList()
-                    render()
-                  end
-                end,
+                  end,
+                  onSubmit = function(val)
+                    if type(val) == "string" then
+                      if currentMode == "wallhaven" then
+                        whQuery = val
+                      else
+                        searchQuery = val
+                      end
+                    end
+                    local isWh = (currentMode == "wallhaven")
+                    unfocusSearch()
+                    lastSearchSubmitMs = noctalia.nowMs()
+                    if isWh then
+                      executeSearch()
+                    else
+                      applyCurrent()
+                    end
+                  end,
+                }),
+                ((currentMode == "wallhaven" and whQuery ~= "") or (currentMode ~= "wallhaven" and searchQuery ~= "")) and ui.button({
+                  glyph = "close",
+                  variant = "ghost",
+                  controlSize = "sm",
+                  onClick = function()
+                    unfocusSearch()
+                    if currentMode == "wallhaven" then
+                      whQuery = ""
+                      if whSortIdx == 5 then
+                        whSortIdx = 0
+                        noctalia.state.set("wallhaven_sort", "date_added")
+                      end
+                      doWallhavenSearch(true)
+                    else
+                      searchQuery = ""
+                      selectedIdx = 1
+                      resetDeckAnimation(1.0)
+                      rebuildList()
+                      triggerPreview()
+                      render()
+                    end
+                  end,
+                }) or ui.spacer({ width = 1 }),
               }),
-              ((currentMode == "wallhaven" and whQuery ~= "") or (currentMode ~= "wallhaven" and searchQuery ~= "")) and ui.button({
-                glyph = "close",
-                variant = "ghost",
+              (currentMode == "wallhaven") and ui.button({
+                text = "Search",
+                variant = "primary",
                 controlSize = "sm",
                 onClick = function()
-                  if currentMode == "wallhaven" then
-                    whQuery = ""
-                    if whSortIdx == 5 then
-                      whSortIdx = 0 -- revert to date_added when query is cleared
-                      noctalia.state.set("wallhaven_sort", "date_added")
-                    end
-                    doWallhavenSearch(true)
-                  else
-                    searchQuery = ""
-                    selectedIdx = 1
-                    resetDeckAnimation(1.0)
-                    rebuildList()
-                    triggerPreview()
-                    render()
-                  end
+                  unfocusSearch()
+                  executeSearch()
                 end,
               }) or ui.spacer({ width = 1 }),
             }),
-            (currentMode == "wallhaven") and ui.button({
-              text = "Search",
-              variant = "primary",
+          }),
+
+          -- Center: Mode selector pills
+          ui.row({
+            align = "center",
+            gap = 4,
+            fill = "surface/0.75",
+            border = "outline_variant/0.25",
+            borderWidth = 1,
+            radius = R(20),
+            padding = 3,
+          }, {
+            ui.button({
+              text = trText("ui.tab_local", "Local"),
+              variant = currentMode == "local" and "primary" or "ghost",
               controlSize = "sm",
               onClick = function()
-                local trimmed = noctalia.string.trim(whQuery or "")
-                if trimmed ~= "" and (whSortIdx == 0 or whSortIdx == 1 or whSortIdx == 2) then
-                  whSortIdx = 5 -- auto-switch to relevance for keyword search
-                  noctalia.state.set("wallhaven_sort", "relevance")
-                end
-                doWallhavenSearch(true)
-              end,
-            }) or ui.spacer({ width = 1 }),
-          }),
-        }),
-
-        -- Center: Mode selector pills (always in the middle)
-        ui.row({
-          align = "center",
-          gap = 4,
-          fill = "surface/0.75",
-          border = "outline_variant/0.25",
-          borderWidth = 1,
-          radius = R(20),
-          padding = 3,
-        }, {
-          ui.button({
-            text = "Local",
-            variant = currentMode == "local" and "primary" or "ghost",
-            controlSize = "sm",
-            onClick = function()
-              currentMode = "local"
-              selectedIdx = 1
-              resetDeckAnimation(1.0)
-              rebuildList()
-              triggerPreview()
-              render()
-            end,
-          }),
-          ui.button({
-            text = string.format("Favourites %d", favCount),
-            glyph = "heart",
-            variant = currentMode == "favorites" and "primary" or "ghost",
-            controlSize = "sm",
-            onClick = function()
-              currentMode = "favorites"
-              selectedIdx = 1
-              resetDeckAnimation(1.0)
-              rebuildList()
-              triggerPreview()
-              render()
-            end,
-          }),
-          ui.button({
-            text = "Wallhaven",
-            glyph = "world",
-            variant = currentMode == "wallhaven" and "primary" or "ghost",
-            controlSize = "sm",
-            onClick = function()
-              currentMode = "wallhaven"
-              selectedIdx = 1
-              resetDeckAnimation(1.0)
-              if #((wallhavenData and wallhavenData.items) or {}) == 0 then
-                doWallhavenSearch(true)
-              end
-              rebuildList()
-              triggerPreview()
-              onCardSettled()
-              render()
-            end,
-          }),
-        }),
-
-        -- Right: Hi-Res preview button (spawns next to Wallhaven) + Flatten toggle + Action icons
-        ui.row({
-          flexGrow = 1,
-          align = "center",
-          gap = 12,
-        }, {
-          -- Hi-Res Preview Button (spawns directly next to the Wallhaven option with a clean 8px gap)
-          (currentMode == "wallhaven") and ui.row({
-            align = "center",
-            gap = 0,
-          }, {
-            ui.spacer({ width = 8 }),
-            (function()
-              local isLoadingHiRes = hiResPreview and activeItem and (hiResPending[activeItem.id] == true or (function()
-                for _, it in ipairs(hiResQueue) do
-                  if it.id == (activeItem and activeItem.id) then return true end
-                end
-                return false
-              end)())
-
-              return ui.button({
-                text = isLoadingHiRes and "Hi-Res..." or (hiResPreview and "Hi-Res ON" or "Hi-Res OFF"),
-                glyph = isLoadingHiRes and "loader-2" or "sparkles",
-                variant = hiResPreview and "primary" or "secondary",
-                controlSize = "sm",
-                tooltip = hiResPreview and "Hi-Res Preview is ON (caching full HD for preview) [Press P]" or "Enable Hi-Res Preview (downloads full HD to cache) [Press P]",
-                onClick = function()
-                  hiResPreview = not hiResPreview
-                  if not hiResPreview then
-                    hiResQueue = {}
-                  else
-                    displayedBgPath = ""
-                    onCardSettled()
-                  end
-                  triggerPreview()
-                  render()
-                end,
-              })
-            end)(),
-          }) or ui.spacer({ width = 1 }),
-
-          -- Spacer pushes the remaining action buttons to the far right
-          ui.spacer({ flexGrow = 1 }),
-          -- Flatten Toggle (Local)
-          (currentMode ~= "wallhaven" and ui.row({ align = "center", gap = 8 }, {
-            ui.label({ text = "Flatten", fontSize = 12, color = isFlattened and paletteColors.accent or paletteColors.primaryText }),
-            ui.toggle({
-              checked = isFlattened,
-              onChange = function(checked)
-                isFlattened = checked
-                invalidateSortCache()
+                unfocusSearch()
+                currentMode = "local"
                 selectedIdx = 1
                 resetDeckAnimation(1.0)
                 rebuildList()
@@ -3190,291 +3649,440 @@ function render()
                 render()
               end,
             }),
-          }) or ui.spacer({ width = 1 })),
-
-          -- Action Buttons (Folder, Peek, Random, Rescan, Close)
-          ui.row({
-            align = "center",
-            gap = 2,
-            fill = "surface/0.65",
-            border = "outline_variant/0.2",
-            borderWidth = 1,
-            radius = R(16),
-            padding = 2,
-          }, {
             ui.button({
-              glyph = "settings",
-              variant = "ghost",
+              text = string.format("%s %d", trText("ui.tab_favorites", "Favourites"), favCount),
+              glyph = "heart",
+              variant = currentMode == "favorites" and "primary" or "ghost",
               controlSize = "sm",
-              tooltip = "Plugin Settings",
-              onClick = openPluginSettings,
-            }),
-            ui.button({
-              glyph = isPeeking and "eye-off" or "eye",
-              variant = isPeeking and "primary" or "ghost",
-              controlSize = "sm",
-              tooltip = "Peek Wallpaper (Space)",
               onClick = function()
-                isPeeking = not isPeeking
+                unfocusSearch()
+                currentMode = "favorites"
+                selectedIdx = 1
+                resetDeckAnimation(1.0)
+                rebuildList()
+                triggerPreview()
                 render()
               end,
             }),
             ui.button({
-              glyph = "dice",
-              variant = "ghost",
+              text = trText("ui.tab_wallhaven", "Wallhaven"),
+              glyph = "world",
+              variant = currentMode == "wallhaven" and "primary" or "ghost",
               controlSize = "sm",
-              tooltip = "Random Wallpaper (R)",
-              onClick = pickRandom,
-            }),
-            ui.button({
-              glyph = "refresh",
-              variant = "ghost",
-              controlSize = "sm",
-              tooltip = (currentMode == "wallhaven") and "Refresh Wallhaven" or "Rescan Folder",
               onClick = function()
-                if currentMode == "wallhaven" then
+                unfocusSearch()
+                currentMode = "wallhaven"
+                selectedIdx = 1
+                resetDeckAnimation(1.0)
+                if #((wallhavenData and wallhavenData.items) or {}) == 0 then
                   doWallhavenSearch(true)
-                else
-                  noctalia.state.set("deck_command", { action = "rescan", nonce = noctalia.nowMs() })
                 end
+                rebuildList()
+                triggerPreview()
+                onCardSettled()
+                render()
               end,
             }),
-            ui.button({
-              glyph = "close",
-              variant = "ghost",
-              controlSize = "sm",
-              tooltip = "Close (Esc)",
-              onClick = cancelAndClose,
+          }),
+
+          -- Right: Hi-Res preview button + Flatten toggle + Action icons
+          ui.row({
+            flexGrow = 1,
+            align = "center",
+            gap = 10,
+          }, {
+            (currentMode == "wallhaven") and ui.row({
+              align = "center",
+              gap = 0,
+            }, {
+              ui.spacer({ width = 6 }),
+              (function()
+                local isLoadingHiRes = hiResPreview and activeItem and (hiResPending[activeItem.id] == true or (function()
+                  for _, it in ipairs(hiResQueue) do
+                    if it.id == (activeItem and activeItem.id) then return true end
+                  end
+                  return false
+                end)())
+
+                return ui.button({
+                  text = isLoadingHiRes and "Hi-Res..." or (hiResPreview and "Hi-Res ON" or "Hi-Res OFF"),
+                  glyph = isLoadingHiRes and "loader-2" or "sparkles",
+                  variant = hiResPreview and "primary" or "secondary",
+                  controlSize = "sm",
+                  tooltip = hiResPreview and "Hi-Res Preview is ON (caching full HD for preview) [Press P]" or "Enable Hi-Res Preview (downloads full HD to cache) [Press P]",
+                  onClick = function()
+                    hiResPreview = not hiResPreview
+                    if not hiResPreview then
+                      hiResQueue = {}
+                    else
+                      displayedBgPath = "" 
+                      onCardSettled()
+                    end
+                    triggerPreview()
+                    render()
+                  end,
+                })
+              end)(),
+            }) or ui.spacer({ width = 1 }),
+
+            ui.spacer({ flexGrow = 1 }),
+
+            -- Flatten Toggle (Local)
+            (currentMode ~= "wallhaven" and ui.row({ align = "center", gap = 6 }, {
+              ui.label({ text = "Flatten", fontSize = 12, color = isFlattened and paletteColors.accent or paletteColors.primaryText }),
+              ui.toggle({
+                checked = isFlattened,
+                onChange = function(checked)
+                  isFlattened = (checked == "true" or checked == true)
+                  invalidateSortCache()
+                  selectedIdx = 1
+                  resetDeckAnimation(1.0)
+                  rebuildList()
+                  triggerPreview()
+                  render()
+                end,
+              }),
+            }) or ui.spacer({ width = 1 })),
+
+            -- Action Buttons (Settings, Fit, Peek, Random, Rescan, Close)
+            ui.row({
+              align = "center",
+              gap = 2,
+              fill = "surface/0.65",
+              border = "outline_variant/0.2",
+              borderWidth = 1,
+              radius = R(16),
+              padding = 2,
+            }, {
+              ui.button({
+                glyph = "settings",
+                variant = "ghost",
+                controlSize = "sm",
+                tooltip = "Plugin Settings",
+                onClick = openPluginSettings,
+              }),
+              ui.button({
+                glyph = (previewFit == "contain") and "aspect-ratio" or ((previewFit == "stretch") and "arrows-maximize" or "crop"),
+                variant = (previewFit ~= "cover") and "secondary" or "ghost",
+                controlSize = "sm",
+                tooltip = "Preview Fit: " .. previewFit .. " (Press V to cycle cover/contain/stretch)",
+                onClick = cyclePreviewFit,
+              }),
+              ui.button({
+                glyph = isPeeking and "eye-off" or "eye",
+                variant = isPeeking and "primary" or "ghost",
+                controlSize = "sm",
+                tooltip = "Peek Wallpaper (Space)",
+                onClick = function()
+                  isPeeking = not isPeeking
+                  render()
+                end,
+              }),
+              ui.button({
+                glyph = "dice",
+                variant = "ghost",
+                controlSize = "sm",
+                tooltip = "Random Wallpaper (R)",
+                onClick = pickRandom,
+              }),
+              ui.button({
+                glyph = "refresh",
+                variant = "ghost",
+                controlSize = "sm",
+                tooltip = (currentMode == "wallhaven") and "Refresh Wallhaven" or "Rescan Folder",
+                onClick = function()
+                  if currentMode == "wallhaven" then
+                    doWallhavenSearch(true)
+                  else
+                    noctalia.state.set("deck_command", { action = "rescan", nonce = noctalia.nowMs() })
+                  end
+                end,
+              }),
+              ui.button({
+                glyph = "close",
+                variant = "ghost",
+                controlSize = "sm",
+                tooltip = "Close (Esc)",
+                onClick = cancelAndClose,
+              }),
             }),
           }),
         }),
+
+        -- Row 2: Individual controls (Wallhaven row in wallhaven mode, Standard palette/theme in local mode)
+        (#displayedItems > 0) and ((currentMode == "wallhaven") and buildWallhavenRow2(paletteColors, panelW) or buildStandardRow2(panelW)) or ui.spacer({ width = 1, height = 1 }),
+
+        -- Spectrum Ribbon (Edge-to-Edge)
+        (#displayedItems > 0) and renderSpectrumRibbon(panelW) or ui.spacer({ width = 1, height = 1 }),
+
+        -- Keyboard Hints Bar
+        (#displayedItems > 0) and (function()
+          local hintLabels = {
+            ui.label({ text = "← → or wheel browse", fontSize = 10, color = stripeTextColor }),
+            ui.label({ text = "•", fontSize = 10, color = stripeBulletColor }),
+            ui.label({ text = "Enter apply", fontSize = 10, fontWeight = "bold", color = stripeTextColor }),
+            ui.label({ text = "•", fontSize = 10, color = stripeBulletColor }),
+            ui.label({ text = "F favourite", fontSize = 10, color = stripeTextColor }),
+            ui.label({ text = "•", fontSize = 10, color = stripeBulletColor }),
+            ui.label({ text = "S sort", fontSize = 10, color = stripeTextColor }),
+            ui.label({ text = "•", fontSize = 10, color = stripeBulletColor }),
+            ui.label({ text = "R random", fontSize = 10, color = stripeTextColor }),
+            ui.label({ text = "•", fontSize = 10, color = stripeBulletColor }),
+            ui.label({ text = "V fit (" .. previewFit .. ")", fontSize = 10, color = stripeTextColor }),
+            ui.label({ text = "•", fontSize = 10, color = stripeBulletColor }),
+            ui.label({ text = "Space peek", fontSize = 10, color = stripeTextColor }),
+            ui.label({ text = "•", fontSize = 10, color = stripeBulletColor }),
+          }
+          if currentMode == "wallhaven" then
+            table.insert(hintLabels, ui.label({ text = "P hi-res", fontSize = 10, fontWeight = hiResPreview and "bold" or "normal", color = stripeTextColor }))
+            table.insert(hintLabels, ui.label({ text = "•", fontSize = 10, color = stripeBulletColor }))
+          end
+          table.insert(hintLabels, ui.label({ text = "M monitor", fontSize = 10, color = stripeTextColor }))
+          table.insert(hintLabels, ui.label({ text = "•", fontSize = 10, color = stripeBulletColor }))
+          table.insert(hintLabels, ui.label({ text = "Tab source", fontSize = 10, color = stripeTextColor }))
+          table.insert(hintLabels, ui.label({ text = "•", fontSize = 10, color = stripeBulletColor }))
+          table.insert(hintLabels, ui.label({ text = "Esc close", fontSize = 10, color = stripeTextColor }))
+
+          return ui.row({
+            align = "center",
+            justify = "center",
+            width = panelW - 64,
+            gap = (panelW < 1360) and 6 or 10,
+            height = 24,
+            paddingH = 14,
+            fill = stripeFill,
+            border = stripeBorder,
+            borderWidth = 1,
+            radius = R(12),
+          }, hintLabels)
+        end)() or ui.spacer({ width = 1, height = 1 }),
       }),
 
-      -- Row 2: Individual controls (Wallhaven row in wallhaven mode, Standard palette/theme in local mode)
-      (#displayedItems > 0) and ((currentMode == "wallhaven") and buildWallhavenRow2(paletteColors) or buildStandardRow2()) or ui.spacer({ width = 1, height = 1 }),
-
-      -- Spectrum Ribbon (Edge-to-Edge)
-      (#displayedItems > 0) and renderSpectrumRibbon() or ui.spacer({ width = 1, height = 1 }),
-
-      -- Keyboard Hints Bar (Full Width)
-      (#displayedItems > 0) and (function()
-        local hintLabels = {
-          ui.label({ text = "← → or wheel browse", fontSize = 10, color = stripeTextColor }),
-          ui.label({ text = "•", fontSize = 10, color = stripeBulletColor }),
-          ui.label({ text = "Enter apply", fontSize = 10, fontWeight = "bold", color = stripeTextColor }),
-          ui.label({ text = "•", fontSize = 10, color = stripeBulletColor }),
-          ui.label({ text = "F favourite", fontSize = 10, color = stripeTextColor }),
-          ui.label({ text = "•", fontSize = 10, color = stripeBulletColor }),
-          ui.label({ text = "S sort", fontSize = 10, color = stripeTextColor }),
-          ui.label({ text = "•", fontSize = 10, color = stripeBulletColor }),
-          ui.label({ text = "R random", fontSize = 10, color = stripeTextColor }),
-          ui.label({ text = "•", fontSize = 10, color = stripeBulletColor }),
-          ui.label({ text = "Space peek", fontSize = 10, color = stripeTextColor }),
-          ui.label({ text = "•", fontSize = 10, color = stripeBulletColor }),
-        }
-        if currentMode == "wallhaven" then
-          table.insert(hintLabels, ui.label({ text = "P hi-res", fontSize = 10, fontWeight = hiResPreview and "bold" or "normal", color = stripeTextColor }))
-          table.insert(hintLabels, ui.label({ text = "•", fontSize = 10, color = stripeBulletColor }))
-        end
-        table.insert(hintLabels, ui.label({ text = "Tab source", fontSize = 10, color = stripeTextColor }))
-        table.insert(hintLabels, ui.label({ text = "•", fontSize = 10, color = stripeBulletColor }))
-        table.insert(hintLabels, ui.label({ text = "Esc close", fontSize = 10, color = stripeTextColor }))
-
-        return ui.row({
-          align = "center",
-          justify = "center",
-          width = panelW - 64,
-          gap = 12,
-          height = 24,
-          paddingH = 14,
-          fill = stripeFill,
-          border = stripeBorder,
-          borderWidth = 1,
-          radius = R(12),
-        }, hintLabels)
-      end)() or ui.spacer({ width = 1, height = 1 }),
-    }),
-
-    -- Middle & Bottom: Scanning State, Empty State, or Arched Deck
-    (#displayedItems == 0) and (
-      (currentMode ~= "wallhaven" and currentMode ~= "favorites" and isScanning)
-        and renderScanningState(paletteColors)
-        or (currentMode == "wallhaven" and wallhavenLoading and not wallhavenError)
-          and renderWallhavenLoadingState(paletteColors)
-        or renderEmptyState(paletteColors)
-    ) or ui.column({
-      key = "deck_content_column",
-      flexGrow = 1,
-      padding = 0,
-      gap = 0,
-      align = "stretch",
-      justify = "space_between",
-    }, {
-      -- 1. Middle Spacer (unobstructed fullscreen wallpaper preview)
-      ui.spacer({ flexGrow = 1 }),
-
-      -- 2. Bottom Section: Action Bar + Arched Deck docked cleanly together
-      ui.column({
-        key = "deck_bottom_section",
-        align = "center",
-        justify = "end",
-        gap = 12,
+      -- Middle & Bottom: Scanning State, Empty State, or Arched Deck
+      (#displayedItems == 0) and (
+        (currentMode ~= "wallhaven" and currentMode ~= "favorites" and isScanning)
+          and renderScanningState(paletteColors)
+          or (currentMode == "wallhaven" and wallhavenLoading and not wallhavenError)
+            and renderWallhavenLoadingState(paletteColors)
+          or renderEmptyState(paletteColors)
+      ) or ui.column({
+        key = "deck_content_column",
+        width = panelW,
+        flexGrow = 1,
+        padding = 0,
+        gap = 0,
+        align = "stretch",
+        justify = "space_between",
       }, {
-        -- Monitor Selection Dropdown Popover (floating directly above the action buttons)
-        (activeItem and monitorDropdownOpen) and ui.row({
-          key = "monitor_dropdown_popover",
-          align = "center",
-          justify = "center",
-          fill = paletteColors.isLight and "surface/0.95" or "surface/0.92",
-          border = "primary/0.4",
-          borderWidth = 1,
-          radius = R(14),
-          paddingH = 6,
-          paddingV = 4,
-          gap = 4,
-        }, (function()
-          local rows = {}
-          for idx, outName in ipairs(connectedOutputs) do
-            local isSel = (outName == selectedOutput)
-            table.insert(rows, ui.button({
-              text = outName,
-              glyph = isSel and "check" or (outName == "ALL" and "devices" or "screen-share"),
-              variant = isSel and "primary" or "ghost",
-              controlSize = "sm",
-              onClick = function()
-                selectedOutputIdx = idx
-                selectedOutput = outName
-                monitorDropdownOpen = false
-                render()
-              end,
-            }))
-          end
-          return rows
-        end)()) or ui.spacer({ width = 1, height = 1 }),
+        ui.box({
+          key = "deck_upper_spacer",
+          width = panelW,
+          flexGrow = 1,
+          fill = "#00000001",
+          onHover = "onOutsideDeckHover",
+          onClick = function()
+            if isSearchFocused or whQueryDirty or whResDirty then
+              unfocusSearch()
+              render()
+            end
+          end,
+        }),
 
-        -- Floating Action Buttons directly above Center Card (12px gap)
-        activeItem and ui.row({
-          key = "deck_action_bar",
+        -- Bottom Section: Action Bar + Arched Deck docked cleanly together
+        ui.column({
+          key = "deck_bottom_section",
+          width = panelW,
+          fill = "#00000001",
           align = "center",
-          justify = "center",
-          gap = 8,
-          height = 36,
+          justify = "end",
+          gap = 10,
+          onHover = "onDeckHover",
+          onClick = function()
+            if isSearchFocused or whQueryDirty or whResDirty then
+              unfocusSearch()
+              render()
+            end
+          end,
         }, {
-          -- Favourite Button
-          ui.button({
-            glyph = isFav and "heart-filled" or "heart",
-            variant = isFav and "primary" or "secondary",
-            controlSize = "sm",
-            tooltip = "Toggle Favourite (F)",
-            onClick = toggleCurrentFavorite,
-          }),
-
-          -- Merged Apply Button + Monitor Selector Trigger
-          ui.row({
+          -- Monitor Selection Dropdown Popover (floating directly above the action buttons)
+          (activeItem and monitorDropdownOpen) and ui.row({
+            key = "monitor_dropdown_popover",
             align = "center",
-            gap = 2,
+            justify = "center",
+            fill = paletteColors.isLight and "surface/0.95" or "surface/0.92",
+            border = "primary/0.4",
+            borderWidth = 1,
+            radius = R(14),
+            paddingH = 6,
+            paddingV = 4,
+            gap = 4,
+            onHover = "onDeckPopoverHover",
+          }, (function()
+            local rows = {}
+            for idx, outName in ipairs(connectedOutputs) do
+              local isSel = (outName == selectedOutput)
+              table.insert(rows, ui.button({
+                text = outName,
+                glyph = isSel and "check" or (outName == "ALL" and "devices" or "screen-share"),
+                variant = isSel and "primary" or "ghost",
+                controlSize = "sm",
+                onClick = function()
+                  selectedOutputIdx = idx
+                  selectedOutput = outName
+                  monitorDropdownOpen = false
+                  render()
+                end,
+              }))
+            end
+            return rows
+          end)()) or ui.spacer({ width = 1, height = 1 }),
+
+          -- Floating Action Buttons directly above Center Card
+          activeItem and ui.row({
+            key = "deck_action_bar",
+            align = "center",
+            justify = "center",
+            gap = 8,
+            height = 36,
+            onHover = "onDeckActionHover",
           }, {
             ui.button({
-              text = isCurrent and ("On " .. selectedOutput) or ("Apply to " .. selectedOutput),
-              glyph = isCurrent and "check" or "screen-share",
-              variant = isCurrent and "secondary" or "primary",
+              glyph = isFav and "heart-filled" or "heart",
+              variant = isFav and "primary" or "secondary",
               controlSize = "sm",
-              tooltip = "Apply wallpaper (Enter)",
-              onClick = applyCurrent,
-              onRightClick = function()
-                refreshConnectedOutputs()
-                monitorDropdownOpen = not monitorDropdownOpen
-                render()
-              end,
+              tooltip = "Toggle Favourite (F)",
+              onClick = toggleCurrentFavorite,
             }),
-            ui.button({
-              glyph = monitorDropdownOpen and "chevron-up" or "chevron-down",
-              variant = monitorDropdownOpen and "primary" or (isCurrent and "secondary" or "primary"),
-              controlSize = "sm",
-              tooltip = "Change Target Monitor",
-              onClick = function()
-                refreshConnectedOutputs()
-                monitorDropdownOpen = not monitorDropdownOpen
-                render()
-              end,
-            }),
-          }),
-        }) or ui.spacer({ width = 1, height = 1 }),
 
-        -- Bottom: Arched Coverflow Card Deck Row
-        ui.row({
-          key = "deck_cards_row",
-          width = panelW,
-          align = "end",
-          justify = "start",
-          gap = gap,
-          height = maxDeckH,
-          paddingV = 0,
-          borderWidth = 0,
-          radius = 0,
-        }, deckCards),
-        ui.spacer({ height = 16 }),
+            ui.row({
+              align = "center",
+              gap = 2,
+            }, {
+              ui.button({
+                text = isCurrent and ("On " .. selectedOutput) or ("Apply to " .. selectedOutput),
+                glyph = isCurrent and "check" or "screen-share",
+                variant = isCurrent and "secondary" or "primary",
+                controlSize = "sm",
+                tooltip = "Apply wallpaper (Enter) • Right-click to choose monitor (M)",
+                onClick = applyCurrent,
+                onRightClick = function()
+                  refreshConnectedOutputs()
+                  monitorDropdownOpen = not monitorDropdownOpen
+                  render()
+                end,
+              }),
+              ui.button({
+                glyph = monitorDropdownOpen and "chevron-up" or "chevron-down",
+                variant = monitorDropdownOpen and "primary" or (isCurrent and "secondary" or "primary"),
+                controlSize = "sm",
+                tooltip = "Change Target Monitor (M)",
+                onClick = function()
+                  refreshConnectedOutputs()
+                  monitorDropdownOpen = not monitorDropdownOpen
+                  render()
+                end,
+              }),
+            }),
+          }) or ui.spacer({ width = 1, height = 1 }),
+
+          -- Bottom: Arched Coverflow Card Deck Row (outer gap=0 wrapper eliminates spacer gap jump)
+          ui.row({
+            key = "deck_cards_outer_row",
+            width = panelW,
+            align = "end",
+            justify = "start",
+            gap = 0,
+            height = maxDeckH,
+            paddingV = 0,
+            borderWidth = 0,
+            radius = 0,
+            fill = "#00000001",
+            onHover = "onDeckContainerHover",
+            onClick = function()
+              if isSearchFocused or whQueryDirty or whResDirty then
+                unfocusSearch()
+                render()
+              end
+            end,
+          }, {
+            (leftSpacerWidth > 0) and ui.box({
+              key = "deck_left_spacer",
+              width = leftSpacerWidth,
+              height = 1,
+            }) or nil,
+            ui.row({
+              key = "deck_cards_row",
+              align = "end",
+              justify = "start",
+              gap = gap,
+              height = maxDeckH,
+              paddingV = 0,
+              borderWidth = 0,
+              radius = 0,
+              fill = "#00000001",
+              onHover = "onDeckRowHover",
+            }, deckCards),
+          }),
+          ui.spacer({ height = 12 }),
+        }),
       }),
     }),
-  }),
-  }))
+  })))
 end
+
+local nativeScrollActive = false
 
 function onOpen(context: any?)
   isPickerOpen = true
+  isDeckAreaHovered = false
+  isSearchBoxHovered = false
+  nativeScrollActive = false
+  hoveredDeckKeys = {}
   noctalia.state.set("deck_command", { action = "panel_state", open = true })
   updatePanelGeometry()
   updateCornerRadiusScale()
   animateSelected = noctalia.getConfig("animate_selected_card") ~= false
+  cachedApiKey = noctalia.getConfig("wallhaven_api_key") or ""
+  local cfgFit = noctalia.getConfig("preview_fit")
+  if cfgFit == "cover" or cfgFit == "contain" or cfgFit == "stretch" then
+    previewFit = cfgFit
+  end
   displayedBgPath = ""
-  cachedFavCount = -1
   cachedRibbon = nil
-  startWheelListener()
-
-  local savedSort = noctalia.state.get("wallhaven_sort") or noctalia.getConfig("wallhaven_sorting") or "date_added"
-  whSortIdx = getSortIndexFromValue(savedSort)
-  local savedOrder = noctalia.state.get("wallhaven_order") or noctalia.getConfig("wallhaven_order") or "desc"
-  whOrder = (savedOrder == "asc") and "asc" or "desc"
 
   if context == "wallhaven" then
     currentMode = "wallhaven"
+    local stateWallhaven = noctalia.state.get("wallhaven_results")
+    if type(stateWallhaven) == "table" then
+      wallhavenData = stateWallhaven
+    end
     if #((wallhavenData and wallhavenData.items) or {}) == 0 then
-      doWallhavenSearch(true)
+      doWallhavenSearch(true, true)
     end
   else
     currentMode = "local"
   end
-  searchActive = false
+  isSearchFocused = false
+  whQueryDirty = false
+  whResDirty = false
+  lastSearchSubmitMs = 0
   isPeeking = false
   monitorDropdownOpen = false
   searchQuery = ""
   wallhavenLoadingMore = false
   wallhavenLoadingStartMs = 0
 
-  local stateWallhaven = noctalia.state.get("wallhaven_results")
-  if type(stateWallhaven) == "table" then
-    wallhavenData = stateWallhaven
-  end
-
-  refreshConnectedOutputs()
-  if not communityPalettes or #communityPalettes == 0 then
-    communityPalettes = loadCommunityPalettes()
-  end
-  updateThemeFromSystem()
-
   if #allWallpapers == 0 then
     local stateWps = noctalia.state.get("wallpapers")
     if type(stateWps) == "table" and #stateWps > 0 then
       allWallpapers = stateWps
+      invalidateSortCache()
     else
-      pcall(function()
-        allWallpapers = loadCacheDirect()
-      end)
+      noctalia.state.set("deck_command", { action = "rescan", dir = currentWallDir, nonce = noctalia.nowMs() })
     end
   end
 
-  favorites = noctalia.state.get("favorites") or {}
-  local stateActive = noctalia.state.get("active_wallpaper") or noctalia.state.get("current_wallpaper") or ""
+  local stateActive = noctalia.state.get("active_wallpaper") or activeWallpaper
   if stateActive ~= "" and not string.find(stateActive, "_screen%.webp") and not string.find(stateActive, "_card%.webp") then
     activeWallpaper = stateActive
     initialWallpaper = stateActive
@@ -3501,71 +4109,174 @@ function onOpen(context: any?)
   panel.setNeedsFrameTick(false)
   onCardSettled()
   render()
+
+  -- Defer non-critical background initialization to a separate async tick so onOpen stays well within CPU budget
+  noctalia.runAsync({ "true" }, function()
+    if not isPickerOpen then return end
+    refreshConnectedOutputs()
+    updateThemeFromSystem()
+    startWheelListener()
+  end)
 end
 
-function onFrameTick(deltaMs: number)
-  if not animateSelected then
-    animatedPos = selectedIdx
-    animVel = 0.0
-    panel.setNeedsFrameTick(false)
-    onCardSettled()
+function onFrameTick(deltaMs: any)
+  local ok, err = pcall(function()
+    local numDelta = tonumber(deltaMs)
+    local nowMs = noctalia.nowMs()
+    local dt = 0.016
+    if lastFrameMs > 0 then
+      local elapsed = (nowMs - lastFrameMs) / 1000.0
+      if elapsed > 0.0005 then
+        dt = clamp(elapsed, 0.001, 0.15)
+      end
+    elseif numDelta and numDelta > 0 then
+      dt = clamp(numDelta / 1000.0, 0.001, 0.05)
+    end
+    lastFrameMs = nowMs
+
+    local isSpringActive = false
+    if not animateSelected then
+      animatedPos = selectedIdx
+      animTargetPos = selectedIdx
+      animVel = 0.0
+    else
+      local diff = animatedPos - animTargetPos
+      if math.abs(diff) < 0.008 and math.abs(animVel) < 0.15 then
+        local wasMoving = (animatedPos ~= animTargetPos or animVel ~= 0.0)
+        animatedPos = animTargetPos
+        animVel = 0.0
+        if wasMoving then
+          onCardSettled()
+        end
+      else
+        isSpringActive = true
+        local omega = 32.0
+        local c = (animVel + omega * diff) * dt
+        local e = math.exp(-omega * dt)
+        animatedPos = animTargetPos + (diff + c) * e
+        animVel = (animVel - omega * c) * e
+      end
+    end
+
+    panel.setNeedsFrameTick(isSpringActive)
     render()
-    return
-  end
+  end)
 
-  local nowMs = noctalia.nowMs()
-  local dt = 0.016
-  if lastFrameMs > 0 then
-    local elapsed = (nowMs - lastFrameMs) / 1000.0
-    if elapsed > 0.0005 and elapsed < 0.1 then
-      dt = elapsed
+  if not ok then
+    if type(noctalia.log) == "function" then
+      noctalia.log("[wallpaper-deck] onFrameTick error: " .. tostring(err))
     end
-  elseif deltaMs and tonumber(deltaMs) and deltaMs > 0 then
-    dt = clamp(deltaMs / 1000.0, 0.001, 0.05)
-  end
-  lastFrameMs = nowMs
-
-  local diff = animatedPos - animTargetPos
-  if math.abs(diff) < 0.002 and math.abs(animVel) < 0.05 then
-    local wasMoving = (animatedPos ~= animTargetPos or animVel ~= 0.0)
-    animatedPos = animTargetPos
-    animVel = 0.0
     panel.setNeedsFrameTick(false)
-    if wasMoving then
-      onCardSettled()
-    end
-  else
-    -- Critically damped spring simulation (omega = 26.0):
-    -- Unconditionally stable analytic solution, zero jitter, seamless momentum preservation
-    local omega = 26.0
-    local c = (animVel + omega * diff) * dt
-    local e = math.exp(-omega * dt)
-    animatedPos = animTargetPos + (diff + c) * e
-    animVel = (animVel - omega * c) * e
   end
-  render()
 end
 
 function onKey(chord: string, pressed: boolean)
   if not pressed then return end
 
-  if chord == "left" or chord == "h" then
+  local chordLower = string.lower(chord)
+  local isReturn = (chordLower == "return" or chordLower == "enter" or chordLower == "kp_enter")
+
+  if isReturn then
+    local nowMs = noctalia.nowMs()
+    if nowMs - lastSearchSubmitMs < 300 then
+      return
+    end
+    if currentMode == "wallhaven" and (isSearchFocused or isSearchBoxHovered or whQueryDirty or whResDirty) then
+      local wasResDirty = whResDirty
+      unfocusSearch()
+      lastSearchSubmitMs = nowMs
+      if wasResDirty then
+        local res, _ = getResolutionParam()
+        if res then
+          doWallhavenSearch(true)
+          return
+        end
+      end
+      executeSearch()
+      return
+    else
+      unfocusSearch()
+      lastSearchSubmitMs = nowMs
+      applyCurrent()
+      return
+    end
+  end
+
+  if chordLower == "escape" then
+    if monitorDropdownOpen then
+      monitorDropdownOpen = false
+      render()
+    elseif isPeeking then
+      isPeeking = false
+      render()
+    elseif isSearchFocused or whQueryDirty or whResDirty then
+      unfocusSearch()
+      render()
+    else
+      cancelAndClose()
+    end
+    return
+  end
+
+  if chordLower == "pointer_button4" or chordLower == "pointer_dfltbtnprev" then
+    if not nativeScrollActive then
+      nativeScrollActive = true
+      stopWheelListener()
+    end
+    if not isDeckAreaHovered or isPeeking then return end
+    unfocusSearch()
     if selectedIdx > 1 then
       selectCardIndex(selectedIdx - 1)
     end
-  elseif chord == "right" or chord == "l" then
+    return
+  elseif chordLower == "pointer_button5" or chordLower == "pointer_dfltbtnnext" then
+    if not nativeScrollActive then
+      nativeScrollActive = true
+      stopWheelListener()
+    end
+    if not isDeckAreaHovered or isPeeking then return end
+    unfocusSearch()
     if selectedIdx < #displayedItems then
       selectCardIndex(selectedIdx + 1)
     else
       pendingStepAfterAppend = true
       checkWallhavenLazyLoad()
     end
-  elseif chord == "up" or chord == "k" or chord == "u" then
+    return
+  end
+
+  if isSearchFocused or isSearchBoxHovered then
+    if chordLower == "down" or chordLower == "up" then
+      unfocusSearch()
+      render()
+    elseif chordLower == "tab" then
+      unfocusSearch()
+      cycleMode()
+    end
+    return
+  end
+
+  if chordLower == "left" or chordLower == "h" then
+    unfocusSearch()
+    if selectedIdx > 1 then
+      selectCardIndex(selectedIdx - 1)
+    end
+  elseif chordLower == "right" or chordLower == "l" then
+    unfocusSearch()
+    if selectedIdx < #displayedItems then
+      selectCardIndex(selectedIdx + 1)
+    else
+      pendingStepAfterAppend = true
+      checkWallhavenLazyLoad()
+    end
+  elseif chordLower == "up" or chordLower == "k" or chordLower == "u" then
+    unfocusSearch()
     local newIdx = math.max(1, selectedIdx - 5)
     if newIdx ~= selectedIdx then
       selectCardIndex(newIdx)
     end
-  elseif chord == "down" or chord == "j" or chord == "d" then
+  elseif chordLower == "down" or chordLower == "j" or chordLower == "d" then
+    unfocusSearch()
     local newIdx = math.min(#displayedItems, selectedIdx + 5)
     if newIdx ~= selectedIdx then
       selectCardIndex(newIdx)
@@ -3573,26 +4284,26 @@ function onKey(chord: string, pressed: boolean)
       pendingStepAfterAppend = true
       checkWallhavenLazyLoad()
     end
-  elseif chord == "return" then
-    applyCurrent()
-  elseif chord == "f" then
+  elseif chordLower == "f" then
     toggleCurrentFavorite()
-  elseif chord == "s" then
+  elseif chordLower == "s" then
     cycleSort()
-  elseif chord == "tab" then
+  elseif chordLower == "tab" then
     cycleMode()
-  elseif chord == "r" then
+  elseif chordLower == "r" then
     pickRandom()
-  elseif chord == "space" then
+  elseif chordLower == "v" then
+    cyclePreviewFit()
+  elseif chordLower == "space" then
     isPeeking = not isPeeking
     render()
-  elseif chord == "p" then
+  elseif chordLower == "p" then
     if currentMode == "wallhaven" then
       hiResPreview = not hiResPreview
       if not hiResPreview then
         hiResQueue = {}
       else
-        displayedBgPath = ""
+        displayedBgPath = "" 
         onCardSettled()
       end
       triggerPreview()
@@ -3601,52 +4312,44 @@ function onKey(chord: string, pressed: boolean)
       isPeeking = not isPeeking
       render()
     end
-  elseif chord == "m" then
+  elseif chordLower == "m" then
     refreshConnectedOutputs()
     monitorDropdownOpen = not monitorDropdownOpen
     render()
-  elseif chord == "/" or chord == "slash" then
-    searchActive = not searchActive
+  elseif chordLower == "/" or chordLower == "slash" then
+    isSearchFocused = true
     render()
-  elseif chord == "Pointer_Button4" or chord == "Pointer_DfltBtnPrev" or chord == "Page_Up" or chord == "Prior" then
-    if selectedIdx > 1 then
-      selectCardIndex(selectedIdx - 1)
+  elseif chordLower == "page_up" or chordLower == "prior" then
+    local newIdx = math.max(1, selectedIdx - 5)
+    if newIdx ~= selectedIdx then
+      selectCardIndex(newIdx)
     end
-  elseif chord == "Pointer_Button5" or chord == "Pointer_DfltBtnNext" or chord == "Page_Down" or chord == "Next" then
-    if selectedIdx < #displayedItems then
-      selectCardIndex(selectedIdx + 1)
+  elseif chordLower == "page_down" or chordLower == "next" then
+    local newIdx = math.min(#displayedItems, selectedIdx + 5)
+    if newIdx ~= selectedIdx then
+      selectCardIndex(newIdx)
     else
       pendingStepAfterAppend = true
       checkWallhavenLazyLoad()
     end
-  elseif chord == "escape" then
-    if monitorDropdownOpen then
-      monitorDropdownOpen = false
-      render()
-    elseif isPeeking then
-      isPeeking = false
-      render()
-    elseif searchActive then
-      searchActive = false
-      searchQuery = ""
-      rebuildList()
-      render()
-    else
-      cancelAndClose()
-    end
   end
 end
 
-
 local lastScrollMs = 0
 
-function onScroll(_axis: any, steps: number, _startsGesture: any)
-  if #displayedItems == 0 then return end
+function onScroll(_axis: any, steps: any, _startsGesture: any)
+  if not isPickerOpen or #displayedItems == 0 then return end
+  if not nativeScrollActive then
+    nativeScrollActive = true
+    stopWheelListener()
+  end
+  if not isDeckAreaHovered or isPeeking then return end
+  unfocusSearch()
   local nowMs = noctalia.nowMs()
   if nowMs - lastScrollMs < 35 then return end
   lastScrollMs = nowMs
 
-  local stepVal = steps or 0
+  local stepVal = tonumber(steps) or 0
   if stepVal < 0 then
     if selectedIdx < #displayedItems then
       selectCardIndex(selectedIdx + 1)
@@ -3663,10 +4366,20 @@ end
 
 function onIpc(event: string, _payload: string?)
   if event == "prev" or event == "step_left" or event == "left" then
+    if not isPickerOpen or nativeScrollActive or not isDeckAreaHovered or isPeeking then return end
+    local nowMs = noctalia.nowMs()
+    if nowMs - lastScrollMs < 35 then return end
+    lastScrollMs = nowMs
+    unfocusSearch()
     if selectedIdx > 1 then
       selectCardIndex(selectedIdx - 1)
     end
   elseif event == "next" or event == "step_right" or event == "right" then
+    if not isPickerOpen or nativeScrollActive or not isDeckAreaHovered or isPeeking then return end
+    local nowMs = noctalia.nowMs()
+    if nowMs - lastScrollMs < 35 then return end
+    lastScrollMs = nowMs
+    unfocusSearch()
     if selectedIdx < #displayedItems then
       selectCardIndex(selectedIdx + 1)
     else
@@ -3691,7 +4404,7 @@ function onIpc(event: string, _payload: string?)
       if not hiResPreview then
         hiResQueue = {}
       else
-        displayedBgPath = ""
+        displayedBgPath = "" 
         onCardSettled()
       end
       triggerPreview()
@@ -3704,7 +4417,7 @@ function onIpc(event: string, _payload: string?)
     selectedIdx = 1
     resetDeckAnimation(1.0)
     if #((wallhavenData and wallhavenData.items) or {}) == 0 then
-      doWallhavenSearch(true)
+      doWallhavenSearch(true, true)
     end
     rebuildList()
     triggerPreview()
@@ -3728,9 +4441,9 @@ noctalia.state.watch("wallpapers", function(val)
     cachedRibbon = nil
     if not isPickerOpen then return end
     local currentItem = displayedItems and displayedItems[selectedIdx] or nil
-    local currentPath = currentItem and (currentItem.path or currentItem.id) or nil
+    local currentPath = currentItem and (currentItem.path or currentItem.id) or activeWallpaper
     rebuildList()
-    if currentPath and #displayedItems > 0 then
+    if currentPath and currentPath ~= "" and #displayedItems > 0 then
       local found = false
       for idx, it in ipairs(displayedItems) do
         if (it.path or it.id) == currentPath then
@@ -3744,36 +4457,22 @@ noctalia.state.watch("wallpapers", function(val)
       end
     else
       selectedIdx = 1
-      resetDeckAnimation(1.0)
     end
+    -- Keep spring target and position synchronized when wallpaper list updates
+    animatedPos = selectedIdx
+    animTargetPos = selectedIdx
+    animVel = 0.0
     triggerPreview()
     render()
   end
 end)
 
-noctalia.state.watch("wallpapers_newest", function(val)
-  if type(val) == "table" and #val > 0 then
-    allWallpapersNewest = val
-    if isPickerOpen and currentMode == "local" and (currentSort == "newest" or currentSort == "oldest") and searchQuery == "" then
-      rebuildList()
-      render()
-    end
-  end
-end)
-
-noctalia.state.watch("wallpapers_colour", function(val)
-  if type(val) == "table" and #val > 0 then
-    allWallpapersColour = val
-    if isPickerOpen and currentMode == "local" and currentSort == "colour" and searchQuery == "" then
-      rebuildList()
-      render()
-    end
-  end
-end)
+-- Sorted views (newest/oldest/colour) are computed and cached on-demand in picker.luau via sortedListCache
 
 noctalia.state.watch("palette_update", function(update)
   if type(update) == "table" and update.path and update.colors then
     local changed = false
+    paletteCache[update.path] = nil
     if displayedItems then
       for _, it in ipairs(displayedItems) do
         if it.path == update.path then
@@ -3801,25 +4500,75 @@ noctalia.state.watch("palette_update", function(update)
         end
       end
     end
+    if changed then
+      cachedRibbon = nil
+      sortedListCache["colour_1"] = nil
+      sortedListCache["colour_0"] = nil
+      if isPickerOpen then
+        render()
+      end
+    end
+  end
+end)
+
+noctalia.state.watch("thumb_update", function(update)
+  if type(update) == "table" and update.path and update.thumb then
+    local changed = false
+    if displayedItems then
+      for _, it in ipairs(displayedItems) do
+        if it.path == update.path then
+          it.thumb = update.thumb
+          it.preview = update.thumb
+          it._previewPath = update.thumb
+          changed = true
+          break
+        end
+      end
+    end
+    if allWallpapers then
+      for _, it in ipairs(allWallpapers) do
+        if it.path == update.path then
+          it.thumb = update.thumb
+          it.preview = update.thumb
+          it._previewPath = update.thumb
+          break
+        end
+      end
+    end
     if changed and isPickerOpen then
       render()
     end
   end
 end)
 
+noctalia.state.watch("outputs_changed", function(_val)
+  refreshConnectedOutputs()
+  updatePanelGeometry()
+  if isPickerOpen then
+    render()
+  end
+end)
+
 noctalia.state.watch("favorites", function(val)
   if type(val) == "table" then
     favorites = val
+    hasAnyFavorites = (next(favorites) ~= nil)
     cachedFavCount = -1
-    rebuildList()
-    render()
+    if isPickerOpen then
+      if currentMode == "favorites" then
+        rebuildList()
+      end
+      render()
+    end
   end
 end)
 
 noctalia.state.watch("active_wallpaper", function(val)
   if type(val) == "string" then
     activeWallpaper = val
-    render()
+    if isPickerOpen then
+      render()
+    end
   end
 end)
 
@@ -3828,7 +4577,9 @@ noctalia.state.watch("wallhaven_loading", function(val)
   if not wallhavenLoading then
     wallhavenLoadingMore = false
   end
-  render()
+  if isPickerOpen then
+    render()
+  end
 end)
 
 noctalia.state.watch("wallhaven_error", function(val)
@@ -3837,13 +4588,14 @@ noctalia.state.watch("wallhaven_error", function(val)
     wallhavenLoading = false
     wallhavenLoadingMore = false
   end
-  render()
+  if isPickerOpen then
+    render()
+  end
 end)
 
 noctalia.state.watch("wallhaven_results", function(value)
   if type(value) ~= "table" then return end
   local wasAppend = value.isAppend == true
-  local prevCount = #displayedItems
   local prevIdx = selectedIdx
 
   wallhavenData = value
@@ -3863,7 +4615,6 @@ noctalia.state.watch("wallhaven_results", function(value)
         selectedIdx = prevIdx
         scheduleSettle()
       end
-      -- Pre-queue thumbnails for next cards in newly appended batch
       local batchToPreload = value.newBatch or {}
       for i = 1, math.min(#batchToPreload, 6) do
         local it = batchToPreload[i]
@@ -3886,7 +4637,9 @@ noctalia.state.watch("wallhaven_results", function(value)
         end
       end
     end
-    render()
+    if isPickerOpen then
+      render()
+    end
   end
 end)
 
@@ -3897,19 +4650,28 @@ noctalia.state.watch("wallpaper_dir", function(val)
     selectedIdx = 1
     resetDeckAnimation(1.0)
     rebuildList()
-    render()
+    if isPickerOpen then
+      render()
+    end
   end
 end)
 
 noctalia.state.watch("is_scanning", function(val)
   isScanning = (val == true)
-  render()
+  if isPickerOpen then
+    render()
+  end
 end)
 
 function onConfigChanged()
   updatePanelGeometry()
   updateCornerRadiusScale()
   animateSelected = noctalia.getConfig("animate_selected_card") ~= false
+  cachedApiKey = noctalia.getConfig("wallhaven_api_key") or "" 
+  local cfgFit = noctalia.getConfig("preview_fit")
+  if cfgFit == "cover" or cfgFit == "contain" or cfgFit == "stretch" then
+    previewFit = cfgFit
+  end
   local cfgDir = noctalia.getConfig("wallpaper_dir")
   if cfgDir and cfgDir ~= "" then
     local exp = noctalia.expandPath(cfgDir)
@@ -3923,16 +4685,25 @@ function onConfigChanged()
   selectedIdx = 1
   resetDeckAnimation(1.0)
   rebuildList()
-  render()
+  if isPickerOpen then
+    render()
+  end
   noctalia.state.set("deck_command", { action = "rescan", nonce = noctalia.nowMs() })
 end
 
 function onClose()
   isPickerOpen = false
+  isDeckAreaHovered = false
+  isSearchBoxHovered = false
+  hoveredDeckKeys = {}
   stopWheelListener()
   if isPeeking then
     isPeeking = false
   end
   noctalia.state.set("deck_command", { action = "panel_state", open = false })
   noctalia.state.set("deck_command", { action = "prune_cache", nonce = noctalia.nowMs() })
+end
+
+function onExit(_signal: any, _reason: any)
+  stopWheelListener()
 end

@@ -1,0 +1,48 @@
+{
+  "panel": {
+    "close": "Close",
+    "empty": "No minimized windows.",
+    "hint": "Click a window to restore it",
+    "restore_all": "Restore all",
+    "title": "Minimized windows"
+  },
+  "settings": {
+    "hide_when_empty": {
+      "description": "Hide the widget when there are no minimized windows",
+      "label": "Hide when empty"
+    },
+    "max_items": {
+      "description": "Maximum windows in the row before a +N button appears",
+      "label": "Windows shown"
+    },
+    "mode": {
+      "auto": "Automatic (by screen width)",
+      "button": "Button with menu",
+      "description": "Row of windows or a single button with a menu",
+      "label": "Display",
+      "list": "Row of windows"
+    },
+    "restore_on_focus": {
+      "description": "Restore a minimized window when it is focused from outside, for example from the window switcher, instead of showing the special workspace",
+      "label": "Restore when focused"
+    },
+    "restore_to": {
+      "current": "Current workspace",
+      "description": "Where a window goes when restored",
+      "label": "Restore to",
+      "origin": "Workspace it came from"
+    },
+    "show_titles": {
+      "description": "Show the window title next to its icon",
+      "label": "Show titles"
+    }
+  },
+  "title": "Minimized windows",
+  "widget": {
+    "more": "More windows",
+    "tooltip": {
+      "one": "{count} minimized window",
+      "other": "{count} minimized windows"
+    }
+  }
+}

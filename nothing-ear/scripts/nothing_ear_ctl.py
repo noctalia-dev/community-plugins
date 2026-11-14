@@ -34,7 +34,7 @@ SPP_UUID = "aeac4a03-dff5-498f-843a-34487cf133eb"
 # "CMF Buds Pro" etc.) — scan_devices() only uses this to rank results and to
 # decide whether exactly one candidate is unambiguous; the user always sees
 # the full paired-device list and picks explicitly otherwise.
-NAME_HINTS = ("nothing ear", "cmf buds")
+NAME_HINTS = ("nothing ear", "cmf buds", "cmf headphone")
 
 CACHE_DIR = os.environ.get("XDG_RUNTIME_DIR", "/tmp")
 STATE_FILE = os.path.join(CACHE_DIR, "nothing_ear_state.json")
@@ -267,7 +267,13 @@ def cached_model(address: str) -> dict | None:
         return None
     if model.get("base") is None or "eq" not in model:
         return None
-    return model
+    descriptor = m.describe(model["base"])
+    if descriptor.get("battery_single") and model.get("eq") in ("classic", "listening"):
+        descriptor["eq"] = model["eq"]
+        descriptor["eq_presets"] = m._presets(m.HEADPHONE_EQ[model["eq"]])
+    if "model_id" in model:
+        descriptor["model_id"] = model["model_id"]
+    return descriptor
 
 
 def identify_model(sock: socket.socket, address: str, raw: bytearray) -> dict:
@@ -313,7 +319,13 @@ def read_state(address: str, lock_wait: float = 0.0, identify: bool = False) -> 
                 model = identify_model(sock, address, raw)
             reads = [p.BATTERY_READ, p.ANC_READ, p.FIRMWARE_READ, p.LATENCY_READ]
             wanted = {p.BATTERY_RESP, p.ANC_RESP, p.FIRMWARE_RESP, p.LATENCY_RESP}
-            if model["eq"] == "classic":
+            optional = set()
+            if model.get("battery_single"):
+                # References disagree for B175. Probe both families; never
+                # choose a write command from the model name alone.
+                reads += [p.EQ_PRESET_READ, p.LISTENING_MODE_READ]
+                optional |= {p.EQ_PRESET_RESP, p.LISTENING_MODE_RESP}
+            elif model["eq"] == "classic":
                 reads.append(p.EQ_PRESET_READ)
                 wanted.add(p.EQ_PRESET_RESP)
             elif model["eq"] == "listening":
@@ -321,8 +333,9 @@ def read_state(address: str, lock_wait: float = 0.0, identify: bool = False) -> 
                 wanted.add(p.LISTENING_MODE_RESP)
             # Not waited for: models without these features may never answer,
             # and leaving the key out is what hides the toggle in the panel.
-            optional = {p.PERSONAL_ANC_RESP, p.SOUND_PROFILE_RESP, p.SOUND_PROFILE_ID_RESP}
-            reads += [p.PERSONAL_ANC_READ, p.SOUND_PROFILE_READ, p.SOUND_PROFILE_ID_READ]
+            if not model.get("battery_single"):
+                optional |= {p.PERSONAL_ANC_RESP, p.SOUND_PROFILE_RESP, p.SOUND_PROFILE_ID_RESP}
+                reads += [p.PERSONAL_ANC_READ, p.SOUND_PROFILE_READ, p.SOUND_PROFILE_ID_READ]
             if model["bass"]:
                 reads.append(p.BASS_READ)
                 optional.add(p.BASS_RESP)
@@ -350,7 +363,21 @@ def read_state(address: str, lock_wait: float = 0.0, identify: bool = False) -> 
             frames_seen=[f"{cmd:04x}" for cmd in frames],
         )
 
+    if model.get("battery_single"):
+        candidates = []
+        for family, resp in (("classic", p.EQ_PRESET_RESP), ("listening", p.LISTENING_MODE_RESP)):
+            allowed = {index for index, _ in m.HEADPHONE_EQ[family]}
+            if resp in frames and p.parse_eq_preset(frames[resp].payload) in allowed:
+                candidates.append(family)
+        model["eq"] = candidates[0] if len(candidates) == 1 else "probe"
+        model["eq_presets"] = m._presets(m.HEADPHONE_EQ[candidates[0]]) if len(candidates) == 1 else []
+
     state: dict = {"connected": True, "updated_at": time.time(), "address": address, "model": model}
+    if model.get("battery_single"):
+        state["eq_probe"] = {
+            f"{resp:04x}": frames[resp].payload.hex(" ") if resp in frames else None
+            for resp in (p.EQ_PRESET_RESP, p.LISTENING_MODE_RESP)
+        }
     # Replies whose payload didn't parse, kept for a bug report instead of
     # failing the whole read over one setting.
     unparsed: dict[str, str] = {}
@@ -362,9 +389,16 @@ def read_state(address: str, lock_wait: float = 0.0, identify: bool = False) -> 
             profile_id = frames.get(p.SOUND_PROFILE_ID_RESP)
             if profile_id is None or not p.has_sound_profile(profile_id.payload):
                 continue
+        if model.get("battery_single") and key == "eq_preset":
+            expected = {"classic": p.EQ_PRESET_RESP, "listening": p.LISTENING_MODE_RESP}.get(model["eq"])
+            if resp != expected:
+                continue
         payload = frames[resp].payload
         try:
             value = parse(payload)
+            if model.get("battery_single") and key == "bass":
+                if len(payload) < 2 or payload[0] not in (0, 1) or payload[1] not in (0, 2, 4, 6, 8, 10):
+                    value = None
         except (IndexError, ValueError):
             value = None
         if value is None:
@@ -689,6 +723,11 @@ def diagnose(address: str | None, last_error: str | None) -> dict:
             model = state.get("model") or {}
             rows.append(("model", f"{model.get('name')} ({model.get('base')}, id {model.get('model_id')})"))
             rows.append(("firmware", str(state.get("firmware"))))
+            if model.get("battery_single"):
+                rows.append(("EQ family", str(model.get("eq"))))
+                rows.append(("EQ probe", json.dumps(state.get("eq_probe"))))
+                rows.append(("battery", json.dumps(state.get("battery"))))
+                rows.append(("bass", json.dumps(state.get("bass"))))
             for cmd, payload in (state.get("unparsed") or {}).items():
                 rows.append(("unparsed " + cmd, payload or "(empty)"))
         except CtlError as e:

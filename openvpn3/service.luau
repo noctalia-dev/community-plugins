@@ -44,6 +44,7 @@ local function nonce()
 end
 
 local AUTOCONNECT_TAG = "noctalia-autoconnect"
+local DNS_ROUTE_PREFIX = "noctalia-dns-route:" -- one profile tag per routing domain
 local lastStates = {} -- session path -> { state, config } for notifications
 local refreshStartedMs = 0
 local workingSinceMs = 0
@@ -86,7 +87,7 @@ local function publish()
   end
   for _, p in ipairs(status.profiles) do
     table.insert(parts, table.concat({
-      p.path, p.name, tostring(p.valid), tostring(p.dco), tostring(p.autoconnect), p.lastUsed, overridesKey(p.overrides),
+      p.path, p.name, tostring(p.valid), tostring(p.dco), tostring(p.autoconnect), p.dnsRoutes or "", p.lastUsed, overridesKey(p.overrides),
     }, "~"))
   end
   if type(status.pending) == "table" then
@@ -247,6 +248,7 @@ local function refreshProfiles()
           dco = entry.dco == true,
           overrides = {},
           autoconnect = false,
+          dnsRoutes = "",
           lastUsed = formatStamp(entry.lastused_tstamp),
         })
       end
@@ -266,11 +268,16 @@ local function refreshProfiles()
         if props ~= nil then
           local tags = prop(props, "tags")
           if type(tags) == "table" then
+            local routes = {}
             for _, tag in ipairs(tags) do
               if tag == AUTOCONNECT_TAG then
                 profile.autoconnect = true
+              elseif string.sub(tag, 1, #DNS_ROUTE_PREFIX) == DNS_ROUTE_PREFIX then
+                table.insert(routes, string.sub(tag, #DNS_ROUTE_PREFIX + 1))
               end
             end
+            table.sort(routes)
+            profile.dnsRoutes = table.concat(routes, " ")
           end
           local overrides = prop(props, "overrides")
           if type(overrides) == "table" then
@@ -320,6 +327,29 @@ local function parseSession(path, props)
   }
 end
 
+-- Some gateways push a DNS server but no domains, and with the "tunnel" DNS
+-- scope systemd-resolved then never queries it. Route the configured domains
+-- to the tunnel link. Needs polkit to allow resolve1.set-domains (see README).
+local function applyDnsRoutes(device, raw)
+  if raw == nil or raw == "" or device == "" or not string.match(device, "^[%w_.-]+$") then
+    return
+  end
+  local argv = { "resolvectl", "domain", device }
+  for domain in string.gmatch(raw, "%S+") do
+    if string.match(domain, "^[%w][%w.-]*$") then
+      table.insert(argv, "~" .. domain)
+    end
+  end
+  if #argv == 3 then
+    return
+  end
+  noctalia.runAsync(argv, function(result)
+    if result.exitCode ~= 0 then
+      noctalia.notifyError(noctalia.tr("title"), noctalia.tr("notify.dns-route-failed"))
+    end
+  end, 8000)
+end
+
 -- Tell the user about connection changes, whoever started the session.
 local function notifyTransitions(sessions)
   local enabled = noctalia.getConfig("notifications") ~= false
@@ -327,6 +357,13 @@ local function notifyTransitions(sessions)
   for _, s in ipairs(sessions) do
     seen[s.path] = true
     local prev = lastStates[s.path]
+    if s.state == "connected" and (prev == nil or prev.state ~= "connected") then
+      for _, p in ipairs(status.profiles) do
+        if p.path == s.configPath then
+          applyDnsRoutes(s.device, p.dnsRoutes)
+        end
+      end
+    end
     if enabled and sessionsLoaded and (prev == nil or prev.state ~= s.state) then
       local title = noctalia.tr("title")
       local ownAttempt = attempt ~= nil and attempt.session == s.path
@@ -1055,6 +1092,7 @@ local OPTION_KINDS = {
   ["auth-fail-retry"] = "b", ["persist-tun"] = "b", ["enable-legacy-algorithms"] = "b",
   ["dns-fallback-google"] = "b", ["dns-setup-disabled"] = "b", ["dns-sync-lookup"] = "b",
   ["proxy-auth-cleartext"] = "b", ["dco"] = "b", ["autoconnect"] = "b",
+  ["dns-routes"] = "s",
 }
 
 local function setOptions(path, options, rename)
@@ -1079,6 +1117,26 @@ local function setOptions(path, options, rename)
             noctalia.runAsync({ "openvpn3", "config-manage", "--path", other.path, "--remove-tag", AUTOCONNECT_TAG })
           end
         end
+      end
+    elseif key == "dns-routes" then
+      -- Stored as one profile tag per domain; replace the whole set.
+      local oldRoutes = ""
+      for _, p in ipairs(status.profiles) do
+        if p.path == path then
+          oldRoutes = p.dnsRoutes or ""
+        end
+      end
+      for old in string.gmatch(oldRoutes, "%S+") do
+        table.insert(argv, "--remove-tag")
+        table.insert(argv, DNS_ROUTE_PREFIX .. old)
+      end
+      for domain in string.gmatch(tostring(value or ""), "%S+") do
+        if not string.match(domain, "^[%w][%w.-]*$") then
+          fail(noctalia.tr("error.bad-value"))
+          return
+        end
+        table.insert(argv, "--tag")
+        table.insert(argv, DNS_ROUTE_PREFIX .. domain)
       end
     elseif OPTION_KINDS[key] == "b" then
       table.insert(argv, `--{key}`)

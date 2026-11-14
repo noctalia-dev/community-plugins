@@ -7,7 +7,6 @@ import http.server
 import io
 import json
 import os
-from pathlib import Path
 import socket
 import stat
 import sys
@@ -16,10 +15,10 @@ import threading
 import time
 import unittest
 import urllib.parse
+from pathlib import Path
 from unittest import mock
 
 import bangumi_oauth as oauth
-
 
 ATTEMPT = "test_attempt_1234567890"
 
@@ -233,6 +232,79 @@ class OAuthTests(unittest.TestCase):
             self.assertEqual(result, [oauth.error("browser_open_failed")])
             self.assertIsNone(self.session())
             self.assertEqual(self.calls, [])
+
+    def test_custom_api_root_is_used_for_login_and_refresh(self):
+        self.helper = oauth.Helper(
+            str(self.directory), str(self.client_file),
+            api_base_url=" https://mirror.example/api/ ",
+            transport=self.transport, browser=self.browser,
+            clock=lambda: self.now, login_timeout=3)
+        original_transport = self.helper.transport
+
+        def transport(method, url, data=None, token=None):
+            if method == "GET":
+                self.assertEqual(url, "https://mirror.example/api/v0/me")
+                url = oauth.ME_URL
+            return original_transport(method, url, data=data, token=token)
+
+        self.helper.transport = transport
+        self.login()
+        self.assertTrue(self.browser_url.startswith(oauth.AUTHORIZE_URL + "?"))
+        self.now += 120
+        self.assertTrue(self.helper.run("refresh")["ok"])
+        self.assertEqual(sum(call[1] == oauth.TOKEN_URL for call in self.calls), 2)
+
+    def test_client_profile_api_override_and_endpoint_identity(self):
+        original = oauth.read_client(self.client_file)
+        self.client.update(api_base_url=" https://mirror.example/api/ ",
+                           authorize_url="https://mirror.example/oauth/authorize",
+                           token_url="https://mirror.example/oauth/access_token")
+        self.write_client()
+        config = oauth.read_client(self.client_file)
+        self.assertEqual(config["api_base_url"], "https://mirror.example/api")
+        self.assertNotEqual(config["fingerprint"], original["fingerprint"])
+        calls = []
+        def transport(method, url, data=None, token=None):
+            calls.append((method, url))
+            if method == "POST":
+                self.assertEqual(url, config["token_url"])
+                return dict(self.token_response)
+            self.assertEqual(url, "https://mirror.example/api/v0/me")
+            return dict(self.profile)
+        self.helper.transport = transport
+        self.login()
+        self.assertTrue(self.browser_url.startswith(config["authorize_url"] + "?"))
+        self.now += 120
+        self.assertTrue(self.helper.run("refresh")["ok"])
+        self.assertEqual(len(calls), 3)
+
+    def test_invalid_profile_endpoints_are_rejected(self):
+        for value in (123, "file:///tmp/api", "https://user:secret@example.com",
+                      "https://example.com/api?token=x", "https://example.com/#fragment",
+                      "https://example.com:invalid", "https://exam\nple.com"):
+            for key in ("api_base_url", "authorize_url", "token_url"):
+                with self.subTest(key=key, value=value):
+                    self.client[key] = value
+                    self.write_client()
+                    with self.assertRaises(oauth.OAuthError):
+                        oauth.read_client(self.client_file)
+                    del self.client[key]
+
+    def test_empty_profile_endpoints_preserve_existing_session_identity(self):
+        original = oauth.read_client(self.client_file)
+        self.client.update(api_base_url="", authorize_url="", token_url="")
+        self.write_client()
+        self.assertEqual(oauth.read_client(self.client_file)["fingerprint"],
+                         original["fingerprint"])
+
+    def test_api_root_normalization(self):
+        for value, expected in (("  https://mirror.example/api///  ",
+                                 "https://mirror.example/api/v0/me"),
+                                ("  ", oauth.ME_URL)):
+            with self.subTest(value=value):
+                helper = oauth.Helper(str(self.directory), str(self.client_file),
+                                      api_base_url=value)
+                self.assertEqual(helper.me_url, expected)
 
     def test_login_profile_and_no_credential_in_result_or_status(self):
         answer = self.login()

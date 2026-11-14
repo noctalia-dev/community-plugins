@@ -5,10 +5,12 @@
     "detecting": "Detecting the WAN interface…",
     "forbidden": "API user lacks the privilege \"{privilege}\"",
     "http": "OPNsense API answered HTTP {status}",
+    "insecure_url": "The OPNsense URL must start with https://: the API key would otherwise travel in clear text",
     "no_credentials": "API key file not found: {path}",
     "no_default_route": "No interface with a default route found",
     "no_interface": "No interface set (enter one or turn on auto-detect)",
     "no_url": "No OPNsense URL set",
+    "stale": "No fresh data from the service, restart or reload the plugin if this stays",
     "unauthorized": "API key rejected (HTTP 401)",
     "unknown_interface": "Interface \"{name}\" not found on OPNsense",
     "unreachable": "OPNsense not reachable at {url}"
@@ -62,20 +64,20 @@
       "label": "Glyph position"
     },
     "hidden_interfaces": {
-      "label": "Hidden interfaces",
-      "description": "Identifiers, names or devices to leave out of the panel; their counters are not evaluated. The eye button in the panel hides more on top of this list."
+      "description": "Identifiers, names or devices to leave out of the panel; their counters are not evaluated. The eye button in the panel hides more on top of this list.",
+      "label": "Hidden interfaces"
     },
     "highlight_color": {
       "description": "The value fades to this color between the two highlight thresholds (needs a line speed).",
       "label": "Highlight color"
     },
     "highlight_from": {
-      "label": "Highlight from (% of line)",
-      "description": "Below this share of the line speed the value keeps the bar color."
+      "description": "Below this share of the line speed the value keeps the bar color.",
+      "label": "Highlight from (% of line)"
     },
     "highlight_full": {
-      "label": "Full highlight at (% of line)",
-      "description": "From this share of the line speed the value has the full highlight color."
+      "description": "From this share of the line speed the value has the full highlight color.",
+      "label": "Full highlight at (% of line)"
     },
     "interface": {
       "description": "Identifier (opt1), name (WAN) or device (pppoe0). The panel lists all of them.",
@@ -93,8 +95,8 @@
       "label": "Line speed up (Mbit/s)"
     },
     "peak_hold_hours": {
-      "label": "Keep peaks (hours)",
-      "description": "How long a measured peak counts for the adaptive scale (no line speed set). 0 keeps it until you reset it in the panel. Stored on disk, survives restarts. Does not add API requests."
+      "description": "How long a measured peak counts for the adaptive scale (no line speed set). 0 keeps it until you reset it in the panel. Stored on disk, survives restarts. Does not add API requests.",
+      "label": "Keep peaks (hours)"
     },
     "poll_interval": {
       "description": "Seconds between two API requests.",
@@ -123,7 +125,7 @@
       "label": "Upload glyph"
     },
     "url": {
-      "description": "Base URL of the web GUI, e.g. https://opnsense.lan:443",
+      "description": "Base URL of the web GUI (HTTPS only), e.g. https://opnsense.lan:443",
       "label": "OPNsense URL"
     },
     "visualization": {
@@ -133,8 +135,8 @@
       "none": "None"
     },
     "wan_interfaces": {
-      "label": "WAN-side interfaces",
-      "description": "Interfaces counted from the firewall side (received = download). All others are counted from the network behind them, so download is what their clients download. Empty: interfaces with a default route plus any with \"wan\" in identifier or name."
+      "description": "Interfaces counted from the firewall side (received = download). All others are counted from the network behind them, so download is what their clients download. Empty: interfaces with a default route plus any with \"wan\" in identifier or name.",
+      "label": "WAN-side interfaces"
     }
   },
   "tooltip": {

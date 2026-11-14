@@ -1,3 +1,18 @@
+## [1.2.0] - 2026-11-12
+
+### Added
+- **Disk Space Impact**: Tooltip now displays the real disk space added or freed by updates alongside the download size.
+- **Last Updated Time**: Moved last update time from panel to tooltip.
+- **Refresh Metadata Setting**: Added an optional `refresh_on_update` setting to refresh DNF cache before upgrading (#7).
+
+### Fixed
+- **Replaced Packages Count**: Fixed packages that replace older versions (like `kernel-headers`) not showing up in the update list.
+- **Multi-arch Packages**: Fixed size and selection issues when both 32-bit and 64-bit versions of a package are installed.
+- **Faster Checks**: Update checks now use local cache directly, which finishes faster.
+- **Cleaned Up Skipped Packages**: Unchecked packages are now reset when updates change instead of staying skipped forever.
+- **Panel Header**: Removed redundant timestamps to cleanup panel.
+- **Last Update Memory**: Fixed last update time being lost when restarting the shell without checking (#6).
+
 ## [1.1.0] - 2026-10-26
 
 ### Added

@@ -402,120 +402,117 @@ local function calc_rem_pct(q)
     return 100.0
 end
 
+-- Antigravity aggregation, mirroring the 9Router dashboard's `parseQuotaData`:
+-- prefer the session/weekly summary keys (`gemini_session`, `claude_gpt_session`,
+-- `gemini_weekly`, `claude_gpt_weekly`) and hide the per-model rows they already
+-- represent. Falls back to per-family aggregation for older API payloads.
 local function summarize_antigravity(quotas_dict)
-    local weekly_set = { gemini_weekly = true, claude_gpt_weekly = true }
-    local gemini_pool = {}
-    local claude_pool = {}
-    local other_pool = {}
-    local image_pool = {}
+    local res = {}
+
+    local function push_row(key, q)
+        table.insert(res, {
+            id = tostring(key),
+            display_name = tostring(q.displayName or key),
+            used = round2(tonumber(q.used) or 0),
+            total = round2(tonumber(q.total) or 0),
+            remaining_percentage = round1(calc_rem_pct(q)),
+            reset_at = tostring(q.resetAt or ""),
+            unlimited = (q.unlimited == true),
+        })
+    end
+
+    local has_gemini_session = type(quotas_dict.gemini_session) == "table"
+    local has_claude_session = type(quotas_dict.claude_gpt_session) == "table"
+    local has_gemini_weekly = type(quotas_dict.gemini_weekly) == "table"
+    local has_claude_weekly = type(quotas_dict.claude_gpt_weekly) == "table"
+
+    local gemini_models = {}
+    local claude_models = {}
+    local image_models = {}
+    local other_models = {}
 
     for k, q in pairs(quotas_dict) do
         if type(q) == "table" then
-            local is_gemini = (k:find("^gemini%-") ~= nil or k == "gemini-pro-agent") and k:find("image") == nil
-            local is_claude = k:find("^claude%-") ~= nil
-            local is_image = k:find("image") ~= nil
-
-            if is_gemini then
-                table.insert(gemini_pool, { k = k, q = q })
-            elseif is_claude then
-                table.insert(claude_pool, { k = k, q = q })
-            elseif is_image then
-                table.insert(image_pool, { k = k, q = q })
-            elseif not weekly_set[k] and k ~= "gemini-pro-agent" then
-                table.insert(other_pool, { k = k, q = q })
+            local key = tostring(k)
+            if key == "gemini_session" or key == "claude_gpt_session"
+                or key == "gemini_weekly" or key == "claude_gpt_weekly" then
+                -- summary rows, emitted below in a fixed order
+            elseif key:find("image") ~= nil then
+                table.insert(image_models, { k = key, q = q })
+            elseif key:find("^gemini%-") ~= nil or key == "gemini-pro-agent" then
+                table.insert(gemini_models, { k = key, q = q })
+            elseif key:find("^claude%-") ~= nil then
+                table.insert(claude_models, { k = key, q = q })
+            else
+                table.insert(other_models, { k = key, q = q })
             end
         end
     end
 
-    local res = {}
-
-    -- 1. Gemini (Flash / Pro)
-    if #gemini_pool > 0 then
-        local min_item = gemini_pool[1]
-        local min_pct = calc_rem_pct(min_item.q)
-        for i = 2, #gemini_pool do
-            local p = calc_rem_pct(gemini_pool[i].q)
+    -- Pick the family member with the lowest remaining percentage.
+    local function lowest(pool)
+        local rep = pool[1]
+        local min_pct = calc_rem_pct(rep.q)
+        for i = 2, #pool do
+            local p = calc_rem_pct(pool[i].q)
             if p < min_pct then
-                min_item = gemini_pool[i]
+                rep = pool[i]
                 min_pct = p
             end
         end
-        local q = min_item.q
-        table.insert(res, {
-            id = "gemini_flash_pro",
-            display_name = "Gemini (Flash / Pro)",
-            used = round2(tonumber(q.used) or 0),
-            total = round2(tonumber(q.total) or 1000),
-            remaining_percentage = round1(min_pct),
-            reset_at = tostring(q.resetAt or ""),
-            unlimited = (q.unlimited == true),
+        return rep
+    end
+
+    -- 1. Gemini (5h): session summary, else synthesized Gemini family row.
+    if has_gemini_session then
+        push_row("gemini_session", quotas_dict.gemini_session)
+    elseif #gemini_models > 0 then
+        local rep = lowest(gemini_models)
+        push_row("gemini_flash_pro", {
+            displayName = "Gemini (Flash / Pro)",
+            used = rep.q.used,
+            total = rep.q.total,
+            resetAt = rep.q.resetAt,
+            remainingPercentage = rep.q.remainingPercentage,
+            unlimited = rep.q.unlimited,
         })
     end
 
-    -- 2. Claude (Sonnet / Opus)
-    if #claude_pool > 0 then
-        local min_item = claude_pool[1]
-        local min_pct = calc_rem_pct(min_item.q)
-        for i = 2, #claude_pool do
-            local p = calc_rem_pct(claude_pool[i].q)
-            if p < min_pct then
-                min_item = claude_pool[i]
-                min_pct = p
-            end
-        end
-        local q = min_item.q
-        table.insert(res, {
-            id = "claude_sonnet_opus",
-            display_name = "Claude (Sonnet / Opus)",
-            used = round2(tonumber(q.used) or 0),
-            total = round2(tonumber(q.total) or 1000),
-            remaining_percentage = round1(min_pct),
-            reset_at = tostring(q.resetAt or ""),
-            unlimited = (q.unlimited == true),
+    -- 2. Claude & GPT (5h): session summary, else synthesized Claude family row.
+    if has_claude_session then
+        push_row("claude_gpt_session", quotas_dict.claude_gpt_session)
+    elseif #claude_models > 0 then
+        local rep = lowest(claude_models)
+        push_row("claude_sonnet_opus", {
+            displayName = "Claude (Sonnet / Opus)",
+            used = rep.q.used,
+            total = rep.q.total,
+            resetAt = rep.q.resetAt,
+            remainingPercentage = rep.q.remainingPercentage,
+            unlimited = rep.q.unlimited,
         })
     end
 
-    -- 3. Non-gemini / non-claude / non-image (e.g. GPT-OSS 120B)
-    for _, item in ipairs(other_pool) do
-        local q = item.q
-        table.insert(res, {
-            id = tostring(item.k),
-            display_name = tostring(q.displayName or item.k),
-            used = round2(tonumber(q.used) or 0),
-            total = round2(tonumber(q.total) or 1000),
-            remaining_percentage = round1(calc_rem_pct(q)),
-            reset_at = tostring(q.resetAt or ""),
-            unlimited = (q.unlimited == true),
-        })
+    -- 3. Image models (e.g. Gemini 3.1 Flash Image).
+    for _, item in ipairs(image_models) do
+        push_row(item.k, item.q)
     end
 
-    -- 4. Image models (e.g. Gemini 3.1 Flash Image)
-    for _, item in ipairs(image_pool) do
-        local q = item.q
-        table.insert(res, {
-            id = tostring(item.k),
-            display_name = tostring(q.displayName or item.k),
-            used = round2(tonumber(q.used) or 0),
-            total = round2(tonumber(q.total) or 1000),
-            remaining_percentage = round1(calc_rem_pct(q)),
-            reset_at = tostring(q.resetAt or ""),
-            unlimited = (q.unlimited == true),
-        })
+    -- 4. Gemini weekly.
+    if has_gemini_weekly then
+        push_row("gemini_weekly", quotas_dict.gemini_weekly)
     end
 
-    -- 5. Weekly pools (Gemini Weekly, Claude & GPT Weekly)
-    for _, k in ipairs({ "gemini_weekly", "claude_gpt_weekly" }) do
-        if quotas_dict[k] and type(quotas_dict[k]) == "table" then
-            local q = quotas_dict[k]
-            table.insert(res, {
-                id = k,
-                display_name = tostring(q.displayName or k),
-                used = round2(tonumber(q.used) or 0),
-                total = round2(tonumber(q.total) or 1000),
-                remaining_percentage = round1(calc_rem_pct(q)),
-                reset_at = tostring(q.resetAt or ""),
-                unlimited = (q.unlimited == true),
-            })
+    -- 5. Claude & GPT weekly.
+    if has_claude_weekly then
+        push_row("claude_gpt_weekly", quotas_dict.claude_gpt_weekly)
+    end
+
+    -- 6. Other models (e.g. GPT-OSS) — only when the Claude/GPT pool has no
+    --    summary row, since those summaries already represent them.
+    if not has_claude_session and not has_claude_weekly then
+        for _, item in ipairs(other_models) do
+            push_row(item.k, item.q)
         end
     end
 
@@ -589,8 +586,21 @@ local function fetch_quotas()
         local connections = pdata.connections
         if type(connections) ~= "table" then return end
 
+        -- Only track active accounts; remember original order and each
+        -- provider's first-seen index so the list order stays stable and
+        -- matches the dashboard's "Default quota order".
+        local work = {}
+        local prov_first = {}
+        for i, conn in ipairs(connections) do
+            if type(conn) == "table" and conn.id and conn.isActive ~= false then
+                local provider = tostring(conn.provider or "")
+                table.insert(work, { conn = conn, order = i })
+                if prov_first[provider] == nil then prov_first[provider] = i end
+            end
+        end
+
         local new_quotas = {}
-        local pending = #connections
+        local pending = #work
 
         if pending == 0 then
             if gen ~= current_generation then return end
@@ -599,77 +609,79 @@ local function fetch_quotas()
             return
         end
 
-        for _, conn in ipairs(connections) do
-            if type(conn) == "table" and conn.id then
-                local cid = conn.id
-                local provider = tostring(conn.provider or "")
-                local name = tostring(conn.name or conn.email or conn.displayName or provider)
-                local is_active = (conn.isActive ~= false)
-                local priority = tonumber(conn.priority) or 1
+        for _, item in ipairs(work) do
+            local conn = item.conn
+            local cid = conn.id
+            local provider = tostring(conn.provider or "")
+            local name = tostring(conn.name or conn.email or conn.displayName or provider)
+            local is_active = (conn.isActive ~= false)
 
-                local q_headers = get_auth_headers()
-                table.insert(q_headers, "Accept: application/json")
+            local q_headers = get_auth_headers()
+            table.insert(q_headers, "Accept: application/json")
 
-                noctalia.http({
-                    url = base .. "/api/usage/" .. cid,
-                    method = "GET",
-                    headers = q_headers,
-                }, function(qres)
-                    if gen ~= current_generation then return end
-                    pending -= 1
-                    local quotas_list = {}
-                    local plan = ""
-                    if qres and qres.ok and qres.status == 200 and qres.body then
-                        local qdata = noctalia.json.decode(qres.body)
-                        if type(qdata) == "table" then
-                            plan = tostring(qdata.plan or "")
-                            local raw_quotas = qdata.quotas
-                            if type(raw_quotas) == "table" then
-                                if provider:lower() == "antigravity" then
-                                    quotas_list = summarize_antigravity(raw_quotas)
-                                else
-                                    for qk, q in pairs(raw_quotas) do
-                                        if type(q) == "table" then
-                                            local disp = tostring(q.displayName or qk)
-                                            local used = tonumber(q.used) or 0
-                                            local total = tonumber(q.total) or 1000
-                                            table.insert(quotas_list, {
-                                                id = tostring(qk),
-                                                display_name = disp,
-                                                used = round2(used),
-                                                total = round2(total),
-                                                remaining_percentage = round1(calc_rem_pct(q)),
-                                                reset_at = tostring(q.resetAt or ""),
-                                                unlimited = (q.unlimited == true),
-                                            })
-                                        end
+            noctalia.http({
+                url = base .. "/api/usage/" .. cid,
+                method = "GET",
+                headers = q_headers,
+            }, function(qres)
+                if gen ~= current_generation then return end
+                pending -= 1
+                local quotas_list = {}
+                local plan = ""
+                if qres and qres.ok and qres.status == 200 and qres.body then
+                    local qdata = noctalia.json.decode(qres.body)
+                    if type(qdata) == "table" then
+                        plan = tostring(qdata.plan or "")
+                        local raw_quotas = qdata.quotas
+                        if type(raw_quotas) == "table" then
+                            if provider:lower() == "antigravity" then
+                                quotas_list = summarize_antigravity(raw_quotas)
+                            else
+                                for qk, q in pairs(raw_quotas) do
+                                    if type(q) == "table" then
+                                        local disp = tostring(q.displayName or qk)
+                                        local used = tonumber(q.used) or 0
+                                        local total = tonumber(q.total) or 1000
+                                        table.insert(quotas_list, {
+                                            id = tostring(qk),
+                                            display_name = disp,
+                                            used = round2(used),
+                                            total = round2(total),
+                                            remaining_percentage = round1(calc_rem_pct(q)),
+                                            reset_at = tostring(q.resetAt or ""),
+                                            unlimited = (q.unlimited == true),
+                                        })
                                     end
-                                    table.sort(quotas_list, function(a, b) return tostring(a.id):lower() < tostring(b.id):lower() end)
                                 end
+                                table.sort(quotas_list, function(a, b) return tostring(a.id):lower() < tostring(b.id):lower() end)
                             end
                         end
                     end
+                end
 
-                    table.insert(new_quotas, {
-                        id = cid,
-                        provider = provider,
-                        name = name,
-                        is_active = is_active,
-                        priority = priority,
-                        plan = plan,
-                        quotas = quotas_list,
-                    })
+                table.insert(new_quotas, {
+                    id = cid,
+                    provider = provider,
+                    name = name,
+                    is_active = is_active,
+                    order = item.order,
+                    prov_order = prov_first[provider] or 0,
+                    plan = plan,
+                    quotas = quotas_list,
+                })
 
-                    if pending <= 0 then
-                        if gen ~= current_generation then return end
-                        table.sort(new_quotas, function(a, b) return (a.priority or 1) < (b.priority or 1) end)
-                        quotas = new_quotas
-                        publish_state()
-                    end
-                end)
-            else
-                pending -= 1
-            end
+                if pending <= 0 then
+                    if gen ~= current_generation then return end
+                    table.sort(new_quotas, function(a, b)
+                        if (a.prov_order or 0) ~= (b.prov_order or 0) then
+                            return (a.prov_order or 0) < (b.prov_order or 0)
+                        end
+                        return (a.order or 0) < (b.order or 0)
+                    end)
+                    quotas = new_quotas
+                    publish_state()
+                end
+            end)
         end
     end)
 end

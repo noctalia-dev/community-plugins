@@ -56,6 +56,10 @@
       "description": "Adds the product name next to the percentage, so two capsules do not look alike.",
       "label": "Show provider name"
     },
+    "show_priorities": {
+      "description": "Show priority estimates inside each model card. Records quota history locally while enabled.",
+      "label": "Show priorities"
+    },
     "show_value": {
       "description": "The percentage as text. Off leaves the gauge to say it.",
       "label": "Show value"
@@ -91,8 +95,10 @@
         "copilot": "GitHub Copilot",
         "cursor": "Cursor",
         "deepinfra": "DeepInfra",
+        "deeprelay": "DeepRelay",
         "deepseek": "DeepSeek",
         "devin": "Devin",
+        "droid": "Droid",
         "grok": "Grok",
         "grokbot": "Grok Bot",
         "kilo": "Kilo",
@@ -170,12 +176,31 @@
     "now": "now",
     "open_dashboard": "Open dashboard",
     "plan_changed": "The plan changed; readings taken under the previous one were dropped.",
+    "priorities": "Priorities",
+    "priorities_no_history": "Recent history is unavailable. Estimates use the window average.",
+    "priorities_unavailable": "This report has no priorities. Refresh, or use ai-usagebar 1.46 or newer.",
+    "priority_expired": "Reset time passed. Refresh to confirm the next window.",
+    "priority_not_reported": "No priority estimate for this account.",
+    "priority_recommended": "Suggested",
+    "priority_remaining": "{percent}% remaining",
+    "priority_scope_account": "Account priorities",
+    "priority_session_blocked": "Session quota exhausted. Check its reset in Usage.",
+    "priority_status": {
+      "blocked": "Weekly quota exhausted",
+      "on_track": "On track",
+      "priority": "Priority",
+      "unavailable": "Usage unavailable",
+      "unknown": "Not enough data to estimate"
+    },
+    "priority_unused": "{percent}% projected unused at reset",
     "provider_setup": "Diagnostics",
     "quota_exhausted": "Quota exhausted",
     "quota_reset": "Renews in {time}",
     "refresh": "Refresh now",
     "refresh_queued": "Refresh queued",
     "refreshing": "Refreshing usage",
+    "regenerates_at": "Regenerates {amount} at {time}",
+    "regenerates_in": "Regenerates {amount} in {time}",
     "remaining": "Remaining",
     "reset": "Reset",
     "retry": "Try again",

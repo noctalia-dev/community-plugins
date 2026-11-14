@@ -8,21 +8,26 @@ local enableFlatpak = noctalia.getConfig("enable_flatpak") ~= false
 local notifyOnUpdates = noctalia.getConfig("notify_on_updates") ~= false
 local updateInTerminal = noctalia.getConfig("update_in_terminal") ~= false
 local includeFlatpakRuntimes = noctalia.getConfig("include_flatpak_runtimes") == true
+local refreshOnUpdate = noctalia.getConfig("refresh_on_update") == true
 
 local state = {
   status = "IDLE", -- "IDLE" | "CHECKING" | "UPDATING" | "SUCCESS" | "ERROR"
   total_count = 0,
   total_download_bytes = 0,
   total_install_bytes = 0,
+  total_delta_bytes = 0,
   total_download_formatted = "0 B",
   total_install_formatted = "0 B",
+  total_delta_formatted = "0 B",
   dnf = {
     count = 0,
     packages = {},
     total_download_bytes = 0,
     total_install_bytes = 0,
+    total_delta_bytes = 0,
     total_download_formatted = "0 B",
     total_install_formatted = "0 B",
+    total_delta_formatted = "0 B",
     status = "idle", -- "idle" | "checking" | "updating" | "done" | "error"
     error = nil,
   },
@@ -31,8 +36,10 @@ local state = {
     packages = {},
     total_download_bytes = 0,
     total_install_bytes = 0,
+    total_delta_bytes = 0,
     total_download_formatted = "0 B",
     total_install_formatted = "0 B",
+    total_delta_formatted = "0 B",
     status = "idle", -- "idle" | "checking" | "updating" | "done" | "error"
     error = nil,
   },
@@ -63,6 +70,15 @@ local function formatBytes(bytes)
   else
     return string.format("%.1f %s", b, units[uIndex])
   end
+end
+
+local function formatDeltaBytes(bytes)
+  if not bytes or bytes == 0 then
+    return "0 B"
+  end
+  local sign = bytes > 0 and "+" or "-"
+  local absVal = math.abs(bytes)
+  return sign .. formatBytes(absVal)
 end
 
 local function parseSizeToBytes(sizeStr)
@@ -233,44 +249,67 @@ local function checkDnf(onFinished, isRetry)
     end
 
     local decoded, err = noctalia.json.decode(raw)
-    if type(decoded) == "table" and type(decoded.upgrades) == "table" then
+    if type(decoded) == "table" and (type(decoded.upgrades) == "table" or type(decoded.obsoleting_packages) == "table") then
       local packages = {}
-      for _, item in ipairs(decoded.upgrades) do
+      local seenPkgs = {}
+
+      local function addPackage(item)
         if type(item) == "table" and item.name then
-          table.insert(packages, {
-            name = item.name,
-            evr = item.evr or "",
-            arch = item.arch or "",
-            repo = item.repository or "",
-            download_bytes = 0,
-            install_bytes = 0,
-            download_formatted = "",
-            install_formatted = "",
-          })
+          local arch = item.arch or ""
+          local key = item.name .. "." .. arch
+          if not seenPkgs[key] then
+            seenPkgs[key] = true
+            table.insert(packages, {
+              name = item.name,
+              evr = item.evr or "",
+              arch = arch,
+              repo = item.repository or "",
+              download_bytes = 0,
+              install_bytes = 0,
+              download_formatted = "",
+              install_formatted = "",
+            })
+          end
         end
       end
+
+      if type(decoded.upgrades) == "table" then
+        for _, item in ipairs(decoded.upgrades) do
+          addPackage(item)
+        end
+      end
+      if type(decoded.obsoleting_packages) == "table" then
+        for _, item in ipairs(decoded.obsoleting_packages) do
+          addPackage(item)
+        end
+      end
+
       state.dnf.count = #packages
       state.dnf.packages = packages
 
       if #packages > 0 then
-        -- Query individual package download and install sizes
-        noctalia.runAsync({ dnfBin, "repoquery", "--upgrades", "--queryformat", "%{name}\t%{downloadsize}\t%{installsize}\n" }, function(resSizes)
+        -- Query individual package download and install sizes from local cache
+        noctalia.runAsync({ dnfBin, "repoquery", "--cacheonly", "--upgrades", "--queryformat", "%{name}\t%{arch}\t%{downloadsize}\t%{installsize}\n" }, function(resSizes)
           local dnfTotalDownload = 0
           local dnfTotalInstall = 0
           if resSizes.exitCode == 0 and resSizes.stdout and resSizes.stdout ~= "" then
             local sizeMap = {}
             for line in resSizes.stdout:gmatch("[^\r\n]+") do
-              local name, dl, inst = line:match("([^\t]+)\t([^\t]+)\t([^\t]+)")
-              if name then
-                sizeMap[name] = {
+              local name, arch, dl, inst = line:match("([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)")
+              if name and arch then
+                local s = {
                   dl = tonumber(dl) or 0,
                   inst = tonumber(inst) or 0,
                 }
+                sizeMap[name .. "." .. arch] = s
+                if not sizeMap[name] then
+                  sizeMap[name] = s
+                end
               end
             end
 
             for _, pkg in ipairs(packages) do
-              local s = sizeMap[pkg.name]
+              local s = sizeMap[pkg.name .. "." .. (pkg.arch or "")] or sizeMap[pkg.name]
               if s then
                 pkg.download_bytes = s.dl
                 pkg.install_bytes = s.inst
@@ -282,19 +321,57 @@ local function checkDnf(onFinished, isRetry)
             end
           end
 
-          state.dnf.total_download_bytes = dnfTotalDownload
-          state.dnf.total_install_bytes = dnfTotalInstall
-          state.dnf.total_download_formatted = formatBytes(dnfTotalDownload)
-          state.dnf.total_install_formatted = formatBytes(dnfTotalInstall)
-          state.dnf.status = "done"
-          state.dnf.error = nil
-          onFinished(true)
+          local rpmArgs = { "rpm", "-q", "--queryformat", "%{name}\t%{arch}\t%{SIZE}\n" }
+          local seenNames = {}
+          for _, pkg in ipairs(packages) do
+            if not seenNames[pkg.name] then
+              seenNames[pkg.name] = true
+              table.insert(rpmArgs, pkg.name)
+            end
+          end
+
+          noctalia.runAsync(rpmArgs, function(resRpm)
+            local oldSizeMap = {}
+            if resRpm and resRpm.stdout and resRpm.stdout ~= "" then
+              for line in resRpm.stdout:gmatch("[^\r\n]+") do
+                local name, arch, sz = line:match("([^\t]+)\t([^\t]+)\t([^\t]+)")
+                if name and arch and sz then
+                  local num = tonumber(sz) or 0
+                  oldSizeMap[name .. "." .. arch] = num
+                  if not oldSizeMap[name] then
+                    oldSizeMap[name] = num
+                  end
+                end
+              end
+            end
+
+            local dnfTotalDelta = 0
+            for _, pkg in ipairs(packages) do
+              local oldSize = oldSizeMap[pkg.name .. "." .. (pkg.arch or "")] or oldSizeMap[pkg.name] or 0
+              local delta = (pkg.install_bytes or 0) - oldSize
+              pkg.delta_bytes = delta
+              pkg.delta_formatted = formatDeltaBytes(delta)
+              dnfTotalDelta += delta
+            end
+
+            state.dnf.total_delta_bytes = dnfTotalDelta
+            state.dnf.total_delta_formatted = formatDeltaBytes(dnfTotalDelta)
+            state.dnf.total_download_bytes = dnfTotalDownload
+            state.dnf.total_install_bytes = dnfTotalInstall
+            state.dnf.total_download_formatted = formatBytes(dnfTotalDownload)
+            state.dnf.total_install_formatted = formatBytes(dnfTotalInstall)
+            state.dnf.status = "done"
+            state.dnf.error = nil
+            onFinished(true)
+          end, 10000)
         end, 30000)
       else
         state.dnf.total_download_bytes = 0
         state.dnf.total_install_bytes = 0
+        state.dnf.total_delta_bytes = 0
         state.dnf.total_download_formatted = "0 B"
         state.dnf.total_install_formatted = "0 B"
+        state.dnf.total_delta_formatted = "0 B"
         state.dnf.status = "done"
         state.dnf.error = nil
         onFinished(true)
@@ -412,13 +489,53 @@ local function checkFlatpak(onFinished, isRetry)
       end
       state.flatpak.count = #packages
       state.flatpak.packages = packages
-      state.flatpak.total_download_bytes = flatpakTotalDownload
-      state.flatpak.total_install_bytes = flatpakTotalInstall
-      state.flatpak.total_download_formatted = formatBytes(flatpakTotalDownload)
-      state.flatpak.total_install_formatted = formatBytes(flatpakTotalInstall)
-      state.flatpak.status = "done"
-      state.flatpak.error = nil
-      onFinished(true)
+
+      if #packages > 0 then
+        noctalia.runAsync({ "flatpak", "list", "--columns=ref,size" }, function(resList)
+          local oldFpSizes = {}
+          if resList and resList.stdout and resList.stdout ~= "" then
+            for line in resList.stdout:gmatch("[^\r\n]+") do
+              local ref, sz = line:match("(%S+)%s+(.+)")
+              if ref and sz then
+                local b = parseSizeToBytes(sz)
+                oldFpSizes[ref] = b
+                local shortRef = ref:gsub("^[^/]+/", "")
+                oldFpSizes[shortRef] = b
+              end
+            end
+          end
+
+          local fpTotalDelta = 0
+          for _, pkg in ipairs(packages) do
+            local shortRef = (pkg.ref or ""):gsub("^[^/]+/", "")
+            local oldSize = oldFpSizes[pkg.ref] or oldFpSizes[shortRef] or 0
+            local delta = (pkg.install_bytes or 0) - oldSize
+            pkg.delta_bytes = delta
+            pkg.delta_formatted = formatDeltaBytes(delta)
+            fpTotalDelta += delta
+          end
+
+          state.flatpak.total_delta_bytes = fpTotalDelta
+          state.flatpak.total_delta_formatted = formatDeltaBytes(fpTotalDelta)
+          state.flatpak.total_download_bytes = flatpakTotalDownload
+          state.flatpak.total_install_bytes = flatpakTotalInstall
+          state.flatpak.total_download_formatted = formatBytes(flatpakTotalDownload)
+          state.flatpak.total_install_formatted = formatBytes(flatpakTotalInstall)
+          state.flatpak.status = "done"
+          state.flatpak.error = nil
+          onFinished(true)
+        end, 10000)
+      else
+        state.flatpak.total_download_bytes = 0
+        state.flatpak.total_install_bytes = 0
+        state.flatpak.total_delta_bytes = 0
+        state.flatpak.total_download_formatted = "0 B"
+        state.flatpak.total_install_formatted = "0 B"
+        state.flatpak.total_delta_formatted = "0 B"
+        state.flatpak.status = "done"
+        state.flatpak.error = nil
+        onFinished(true)
+      end
     else
       if result.exitCode ~= 0 then
         state.flatpak.status = "error"
@@ -475,6 +592,7 @@ local function refreshLastUpdate()
     if latest > 0 and latest ~= state.last_update_timestamp then
       state.last_update_timestamp = latest
       publishState()
+      saveState()
     end
   end)
 end
@@ -537,8 +655,10 @@ local function checkAll(force)
     state.total_count = state.dnf.count + state.flatpak.count
     state.total_download_bytes = (state.dnf.total_download_bytes or 0) + (state.flatpak.total_download_bytes or 0)
     state.total_install_bytes = (state.dnf.total_install_bytes or 0) + (state.flatpak.total_install_bytes or 0)
+    state.total_delta_bytes = (state.dnf.total_delta_bytes or 0) + (state.flatpak.total_delta_bytes or 0)
     state.total_download_formatted = formatBytes(state.total_download_bytes)
     state.total_install_formatted = formatBytes(state.total_install_bytes)
+    state.total_delta_formatted = formatDeltaBytes(state.total_delta_bytes)
     state.last_check = noctalia.formatTime("%d/%m %H:%M")
     state.last_check_timestamp = os.time()
 
@@ -598,11 +718,13 @@ local function updateDnf(excludedList, onFinished)
   end
 
   local validExcluded = {}
+  local seenExcluded = {}
   if excludedList and type(excludedList) == "table" then
     for _, name in ipairs(excludedList) do
-      if isValidPackageName(name) then
+      if isValidPackageName(name) and not seenExcluded[name] then
+        seenExcluded[name] = true
         table.insert(validExcluded, name)
-      else
+      elseif not isValidPackageName(name) then
         print(string.format("[dnf-updater] Warning: invalid DNF package name skipped: %s", tostring(name)))
       end
     end
@@ -624,6 +746,9 @@ local function updateDnf(excludedList, onFinished)
   if updateInTerminal then
     local sudoCmd = noctalia.commandExists("sudo") and "sudo" or "pkexec"
     local cmd = sudoCmd .. " " .. dnfBin .. " upgrade -y"
+    if refreshOnUpdate then
+      cmd = cmd .. " --refresh"
+    end
     if excludeArg then
       cmd = cmd .. " " .. shellQuote(excludeArg)
     end
@@ -644,6 +769,9 @@ local function updateDnf(excludedList, onFinished)
     args = { "pkexec", helperBin, "upgrade" }
   else
     args = { "pkexec", dnfBin, "upgrade", "-y" }
+  end
+  if refreshOnUpdate then
+    table.insert(args, "--refresh")
   end
   if excludeArg then
     table.insert(args, excludeArg)
@@ -808,6 +936,9 @@ local function updateAll(excludedDnf, selectedFlatpaks)
     if dnfNeedsUpdate and dnfBin then
       local sudoCmd = noctalia.commandExists("sudo") and "sudo" or "pkexec"
       local dnfCmd = sudoCmd .. " " .. dnfBin .. " upgrade -y"
+      if refreshOnUpdate then
+        dnfCmd = dnfCmd .. " --refresh"
+      end
       if #validExcluded > 0 then
         dnfCmd = dnfCmd .. " " .. shellQuote("--exclude=" .. table.concat(validExcluded, ","))
       end
@@ -901,11 +1032,18 @@ local function updateAll(excludedDnf, selectedFlatpaks)
   end
 end
 
+local lastCommandTimestamp = os.time()
+
 -- Watch for commands from widget and panel
 noctalia.state.watch("service_command", function(cmd)
   if type(cmd) ~= "table" or not cmd.action then
     return
   end
+
+  if cmd.ts and cmd.ts <= lastCommandTimestamp then
+    return
+  end
+  lastCommandTimestamp = cmd.ts or os.time()
 
   if cmd.action == "check_now" then
     checkAll(true)
@@ -937,6 +1075,7 @@ function onConfigChanged()
   includeFlatpakRuntimes = noctalia.getConfig("include_flatpak_runtimes") == true
   notifyOnUpdates = noctalia.getConfig("notify_on_updates") ~= false
   updateInTerminal = noctalia.getConfig("update_in_terminal") ~= false
+  refreshOnUpdate = noctalia.getConfig("refresh_on_update") == true
   if checkDue() then
     checkAll(true)
   end
@@ -980,4 +1119,6 @@ local restored = loadState()
 publishState()
 if not restored or checkDue() then
   checkAll(true)
+else
+  refreshLastUpdate()
 end

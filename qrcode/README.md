@@ -40,3 +40,4 @@ Enter your text or URL and click on Generate or press enter to generate the QR c
 
 The plugin runs entirely locally and does not require network access.
 The plugin does not store anyting in files when the panel is closed, except when `keep_on_close` option is enabled.
+The panel close button will follow the noctalia setting `shell.show_close_buttons`.

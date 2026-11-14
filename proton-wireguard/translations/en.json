@@ -1,0 +1,107 @@
+{
+  "bar": {
+    "armed": "armed",
+    "blocking": "blocking Internet"
+  },
+  "missing": {
+    "nmcli": "NetworkManager (nmcli) was not found. WireGuard tunnels are managed through it.",
+    "proton": "Proton VPN is not set up yet",
+    "proton_install": "Install proton-vpn-cli and sign in with: protonvpn signin <user>",
+    "proton_signin": "The Proton VPN CLI is installed but not signed in.",
+    "wireguard": "WireGuard is not set up yet",
+    "wireguard_hint": "Import a tunnel into NetworkManager: nmcli connection import type wireguard file <name>.conf"
+  },
+  "notify": {
+    "bad_target": "Unknown destination: {target}",
+    "connect_failed": "Could not connect to Proton VPN",
+    "connected": "Connected to {server}",
+    "dropped": "Proton VPN disconnected",
+    "dropped_killswitch": "Proton VPN disconnected. The kill switch may be blocking Internet.",
+    "wg_dropped": "{name} disconnected",
+    "wg_failed": "Could not switch {name}"
+  },
+  "panel": {
+    "control_only": "Control only. WireGuard tunnels and peers are configured with nmcli, and Proton VPN with the protonvpn CLI.",
+    "loading": "Checking Proton VPN and WireGuard…",
+    "nothing_configured": "No Proton VPN or WireGuard configured",
+    "refresh": "Refresh"
+  },
+  "protection": {
+    "advanced": "Advanced",
+    "ipv6": "IPv6",
+    "ipv6_desc": "Route IPv6 traffic through the tunnel.",
+    "killswitch": "Kill switch",
+    "killswitch_desc": "Blocks Internet if Proton drops while connected.",
+    "moderate_nat": "Moderate NAT",
+    "moderate_nat_desc": "Better connectivity for games and P2P.",
+    "netshield": "NetShield",
+    "netshield_all": "+ Ads",
+    "netshield_desc": "DNS blocking while Proton is active.",
+    "netshield_malware": "Malware",
+    "netshield_off": "Off",
+    "port_forwarding": "Port forwarding",
+    "port_forwarding_desc": "Requests a forwarded port on P2P servers.",
+    "reconnect_hint": "Some changes apply on the next connection.",
+    "title": "PROTECTION",
+    "vpn_accelerator": "VPN Accelerator",
+    "vpn_accelerator_desc": "Speed optimisations. Recommended."
+  },
+  "proton": {
+    "blocked": "The kill switch is blocking Internet. Reconnect, or turn the kill switch off.",
+    "cancel": "Cancel",
+    "connect": "Connect",
+    "disconnect": "Disconnect",
+    "last": "last: {target}",
+    "load": "load {load}",
+    "other_country": "Other country…",
+    "quick": "QUICK CONNECT",
+    "random": "Random",
+    "signin": "Sign in",
+    "title": "Proton VPN"
+  },
+  "settings": {
+    "dns_check_host": {
+      "description": "A name only your WireGuard DNS resolves (e.g. nas.lan). When Proton and a WireGuard tunnel are both up, the panel warns if it stops resolving. Leave empty to skip.",
+      "label": "DNS test host"
+    },
+    "favorite_countries": {
+      "description": "Two-letter country codes (CH, NL…) shown as quick-connect buttons.",
+      "label": "Favourite countries"
+    },
+    "hidden_connections": {
+      "description": "NetworkManager connection names to leave out of the panel.",
+      "label": "Hidden WireGuard connections"
+    },
+    "notify": {
+      "description": "Notify on connect and when Proton or a WireGuard tunnel goes down.",
+      "label": "Notifications"
+    },
+    "quick_connect": {
+      "description": "What connecting without choosing a destination does: the panel button, right click on the bar and the shortcut.",
+      "label": "Connect button",
+      "options": {
+        "fastest": "Fastest server",
+        "last": "Last connection"
+      }
+    },
+    "show_server": {
+      "description": "Shows the Proton server (e.g. CH#120) next to the icon.",
+      "label": "Show server in the bar"
+    }
+  },
+  "status": {
+    "cancelling": "Cancelling…",
+    "connected": "Connected",
+    "connecting": "Connecting…",
+    "disconnected": "Disconnected",
+    "disconnecting": "Disconnecting…",
+    "none_active": "None active",
+    "working": "Switching…"
+  },
+  "title": "Proton VPN + WireGuard",
+  "wg": {
+    "dns_fail": "{host} does not resolve: Proton's DNS is shadowing your WireGuard DNS. Use the IP or disconnect Proton.",
+    "dns_hint": "With Proton up, its DNS takes priority and names served by your WireGuard DNS may not resolve. Set a DNS test host in the settings to check.",
+    "dns_ok": "WireGuard DNS OK ({host})"
+  }
+}

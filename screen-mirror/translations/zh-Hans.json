@@ -1,0 +1,54 @@
+{
+  "notify": {
+    "failed": {
+      "body": "niri-mirror 守护进程没有给出更多细节。",
+      "title": "屏幕镜像操作失败"
+    },
+    "missing": {
+      "body": "插件自带的镜像引擎（engine/niri_mirror.py）缺失；重新安装插件，或安装 niri-mirror（https://github.com/Goldppx/niri-mirror）后重新启用。",
+      "title": "屏幕镜像还没安装"
+    }
+  },
+  "settings": {
+    "enabled_on_start": {
+      "description": "随桌面启动就打开镜像。关掉它则只在按开关后才镜像。注意：关闭状态不会跨登录保存，每次登录都从这个值开始。",
+      "label": "启动时默认开启"
+    },
+    "excluded_outputs": {
+      "description": "永远不做镜像的显示器连接名，一行一个（例如 HDMI-A-1），接上也不会创建镜像窗口。用 `niri-mirror --list-outputs` 可以看准确名字；也接受模糊匹配，比如只写 `hdmi`。",
+      "label": "排除的显示器"
+    },
+    "poll_interval": {
+      "description": "磁贴与挂件重新读取守护进程状态文件的频率。守护进程自己监听 niri 事件，这里只影响界面。",
+      "label": "刷新间隔（毫秒）"
+    },
+    "scaling": {
+      "cover": "铺满（裁掉超出部分）",
+      "description": "wl-mirror 把画面铺到目标屏上的方式。",
+      "exact": "精确（仅整数倍缩放）",
+      "fit": "适应（保持比例，留黑边）",
+      "label": "缩放方式"
+    },
+    "show_osd": {
+      "description": "开关镜像时弹一条 shell OSD（没有 OSD 时退化为通知），用快捷键切换也会提示。",
+      "label": "显示 OSD 提示"
+    },
+    "source_output": {
+      "description": "作为镜像来源的显示器连接名。留空则用启动时聚焦的屏，源消失后自动重新选举。用 `niri-mirror --list-outputs` 可以看准确名字；也接受模糊匹配，比如只写 `hdmi`。",
+      "label": "镜像源显示器"
+    }
+  },
+  "shortcut": {
+    "label-off": "镜像关",
+    "label-on": "镜像开"
+  },
+  "widget": {
+    "tooltip": {
+      "daemon": "守护进程",
+      "source": "来源",
+      "state": "镜像状态",
+      "stopped": "未运行",
+      "targets": "目标"
+    }
+  }
+}

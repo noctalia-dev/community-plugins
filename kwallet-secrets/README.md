@@ -29,8 +29,11 @@ to check all of that yourself.
   D-Bus interface this plugin reads. The newer `ksecretd` serves the same wallet
   file over the Secret Service API but does not implement that interface, so it
   is not a substitute.
-- `pkill` (from procps-ng) and `systemd-cat` (from systemd), used to supervise
-  the helper process and to route its output to the journal.
+- `pkill` (from procps-ng) and `setsid` (from util-linux), used to supervise
+  the helper process.
+- Optionally `systemd-cat` (from systemd), which routes the helper's output to
+  the journal. systemd is not required: on systems without it (dinit, OpenRC,
+  runit) the log goes to `${XDG_STATE_HOME:-~/.local/state}/noctalia-kwallet-secrets/agent.log`.
 - NetworkManager as the network stack, and a KWallet wallet that is unlocked.
   `kwallet-pam` can unlock it at login, but only once `/usr/lib/pam_kwallet_init`
   runs in the session. Plasma runs it for you. On any other session, start it
@@ -52,6 +55,8 @@ To check that it is working:
 ```sh
 journalctl -b -t NetworkManager | grep 'agent registered'
 journalctl --user -t noctalia-kwallet-secrets -f
+# without systemd:
+tail -f "${XDG_STATE_HOME:-$HOME/.local/state}/noctalia-kwallet-secrets/agent.log"
 ```
 
 The first command should list an agent named `io.github.grassyloki.kwalletSecrets`.
@@ -260,6 +265,7 @@ pgrep -af kwallet-nm-agent
 
 # Every request it answered or refused, with key names but never values:
 journalctl --user -t noctalia-kwallet-secrets
+# (without systemd: ${XDG_STATE_HOME:-~/.local/state}/noctalia-kwallet-secrets/agent.log)
 
 # No network sockets at all (prints nothing):
 ss -tunap | grep "pid=$(pgrep -f 'kwallet-nm-agent[.]py'),"
@@ -381,23 +387,30 @@ Qt bindings — just D-Bus and a main loop.
 
 ### Supervision
 
-`service.luau` does no secret handling at all. It starts the helper under
-`systemd-cat`, so the helper's output lands in the journal under the tag
-`noctalia-kwallet-secrets` instead of a private log file, and re-checks every 30
-seconds that it is still alive. "Alive" is decided by looking for the helper's
+`service.luau` does no secret handling at all. Where the systemd journal is
+running it starts the helper under `systemd-cat`, so the helper's output lands in
+the journal under the tag `noctalia-kwallet-secrets`. Without systemd — no
+`systemd-cat`, or no journald socket for it to talk to — the output goes to
+`${XDG_STATE_HOME:-~/.local/state}/noctalia-kwallet-secrets/agent.log` instead,
+created readable by you alone; each launch moves the previous log to
+`agent.log.1`, so the directory never holds more than two runs. Lines in the file
+carry a timestamp; in the journal they don't need one. The service then re-checks
+every 30 seconds that it is still alive. "Alive" is decided by looking for the helper's
 single-instance lock, an abstract unix socket, in `/proc/net/unix`; the helper
 takes that lock at startup and a duplicate copy exits immediately, so no
 combination of restarts can end up with two agents fighting over the same
 identifier.
 
 A launch is confirmed the same way. The helper is started in the background, so
-the launching shell exits successfully whatever happens to it — a missing
-`systemd-cat` would look exactly like a clean start. Rather than trust that, the
+the launching shell exits successfully whatever happens to it — a helper that
+dies at once would look exactly like a clean start. Rather than trust that, the
 service waits for the lock to appear and only then reports the agent as running;
 if it never appears the service says so, logs it, and tries again on the next
 check. The helper is detached from Noctalia, so the service also stops it
 explicitly when the plugin is disabled or uninstalled, or when Noctalia exits.
-A hot reload of `service.luau` leaves it running. The four commands the plugin depends on are verified before any of this,
+A hot reload of `service.luau` leaves it running. The three commands the plugin
+needs (`python3`, `pkill`, `setsid`) and the helper script itself are verified
+before any of this,
 and a missing one disables the plugin with a message naming it rather than
 failing quietly.
 
@@ -405,15 +418,18 @@ failing quietly.
 
 - **Processes spawned.** One long-lived `python3` process per session. Around
   it the service runs only short-lived shell commands: `grep` against
-  `/proc/net/unix` and `id -u` to check whether the helper is up, `setsid` plus
-  `systemd-cat` to launch it, and `pkill` to stop it when a setting changes.
-  `grep`, `id`, and `setsid` are not declared as dependencies because they come
-  with coreutils and util-linux on every supported system.
+  `/proc/net/unix` and `id -u` to check whether the helper is up, `setsid` (plus
+  `systemd-cat` where the journal is running) to launch it, and `pkill` to stop
+  it when a setting changes. `grep` and `id` are not declared as dependencies
+  because they come with grep and coreutils on every supported system.
 - **Network access.** None. The helper talks to two D-Bus buses and nothing
   else: NetworkManager on the system bus, KWallet on the session bus.
-- **Files written.** None. The only thing the plugin ever changes is wallet
-  content, and only through KWallet's own API when NetworkManager asks for a
-  save or a delete.
+- **Files written.** With systemd, none. Without it, only its own log,
+  `${XDG_STATE_HOME:-~/.local/state}/noctalia-kwallet-secrets/agent.log` (and the
+  previous run's `agent.log.1`), mode 0600 in a 0700 directory; it holds the
+  same names-only lines the journal would. Beyond that, the only thing the
+  plugin ever changes is wallet content, and only through KWallet's own API when
+  NetworkManager asks for a save or a delete.
 - **Sensitive data.** Wi-Fi, VPN and WireGuard passwords pass through the helper
   on their way from the wallet to NetworkManager. They are never logged, stored,
   or sent anywhere else; see

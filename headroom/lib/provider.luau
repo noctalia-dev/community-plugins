@@ -31,17 +31,17 @@ export type Context = {
   which: (name: string) -> boolean, -- is `name` on PATH?
   duration: (seconds: number) -> string, -- "3h 12m", localized
   tr: (key: string, subst: { [string]: any }?) -> string,
-  userAgent: string, -- "headroom-noctalia/<version>"; identify honestly to vendors
+  userAgent: string, -- "headroom-noctalia/<version>", for vendors that accept it
   -- The account being fetched (providers with `accounts` only, see below).
   home: string?, -- its config folder: read credentials from here
   inHome: (argv: { string }) -> { string }, -- points a CLI command at that folder
   mayRenew: boolean, -- false: never run the CLI to renew this account's session
 }
 
+-- One of `logo` or `glyph` draws the provider's mark.
 export type Brand = {
-  logo: string, -- plugin-relative SVG; monochrome, tinted at runtime
-  tint: string, -- logo color: "#rrggbb" or a palette role ("on_surface")
-  glyph: string, -- Tabler glyph fallback where an image cannot be used
+  logo: string?, -- plugin-relative SVG in its brand color
+  glyph: string?, -- a Tabler glyph, in the text color (for marks the font has)
   dashboard: string?, -- the vendor's usage page, opened from the panel card
 }
 
@@ -55,8 +55,10 @@ export type Accounts = {
   command: string, -- the CLI
   fallbacks: { string }?, -- where the CLI may live when it is not on PATH
   login: { string }, -- its interactive login arguments ({ "auth", "login" })
+  credentials: string, -- the sign-in file in the folder; a change means a sign-in, renewal or /login
   -- Who is signed in at ctx.home: a stable id (to spot the same account in two
-  -- folders) and the email for tooltips. nil when unknown. Local reads only.
+  -- folders) and the email for tooltips. nil when unknown. Local reads only;
+  -- called when the credentials change and after each fetch.
   identity: (ctx: Context) -> { id: string, email: string? }?,
 }
 
@@ -84,11 +86,9 @@ function M.define(spec): Provider
     assert(spec[key] ~= nil, `provider is missing required field '{key}'`)
   end
   assert(spec.id:match("^[a-z0-9][a-z0-9_-]*$"), `provider id '{spec.id}' must be lowercase [a-z0-9_-]`)
-  for _, key in { "logo", "tint", "glyph" } do
-    assert(spec.brand[key] ~= nil, `provider '{spec.id}' brand is missing '{key}'`)
-  end
+  assert(spec.brand.logo or spec.brand.glyph, `provider '{spec.id}' brand needs a logo or a glyph`)
   if spec.accounts then
-    for _, key in { "env", "default", "siblingPrefix", "command", "login", "identity" } do
+    for _, key in { "env", "default", "siblingPrefix", "command", "login", "credentials", "identity" } do
       assert(spec.accounts[key] ~= nil, `provider '{spec.id}' accounts is missing '{key}'`)
     end
   end

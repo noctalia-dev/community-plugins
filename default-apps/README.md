@@ -1,6 +1,6 @@
 # Default Apps
 
-View and change your XDG default applications from Noctalia: web browser, email, calendar, file manager, terminal, music/video players, image viewer, text editor, PDF viewer, archive manager, word processor, and BitTorrent client. Changes are written through `xdg-mime`, so they apply desktop-wide.
+View and change your XDG default applications from Noctalia: web browser, email, calendar, file manager, archive manager, video and music players, photos, plain text editor, code editor, PDF viewer, word processor, spreadsheet, presentation, and BitTorrent client. Changes are written through `xdg-mime`, so they apply desktop-wide.
 
 ## Plugin
 
@@ -36,4 +36,7 @@ Open the Noctalia global search and type `/apps`. Clicking the provider will imm
 ## Notes
 
 - Defaults are stored by `xdg-mime` in `~/.config/mimeapps.list`.
-- Candidate apps come from desktop entries in standard system and Flatpak paths.
+- Candidate apps come from desktop entries in standard system and Flatpak paths, plus any directory in `XDG_DATA_DIRS`. On Non-FHS systems such as Guix or Nix, `GUIX_PROFILE` and `GUIX_ENVIRONMENT` are also scanned.
+- The Code Editor row lists text editors, IDEs and development tools, plus apps that handle plain text or common source-code MIME types. Web browsers are excluded.
+- Hidden and `NoDisplay` entries and URL-handler entries (such as `code-url-handler.desktop`) are not shown.
+- The current default is always kept in the dropdown, even if the app doesn't match the row's filter.

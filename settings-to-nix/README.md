@@ -204,6 +204,9 @@ want one, there are two ways.
      the tile switches to a warning icon, is highlighted and reads **Nix export
      failed**. Open the panel to see the error. Noctalia's tiles cannot be colored, so
      this is as close to "red" as it gets.
+   - **A failed export is tried again on its own**, after 5 seconds and then less
+     often, up to every 5 minutes, until it succeeds. You get one notification per
+     failure streak, and the error is also written to Noctalia's log.
 
 The same in TOML:
 

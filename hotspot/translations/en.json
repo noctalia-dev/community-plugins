@@ -45,6 +45,10 @@
     }
   },
   "settings": {
+    "autostart": {
+      "description": "Automatically start the hotspot when the system boots.",
+      "label": "Autostart hotspot"
+    },
     "glyph": {
       "label": "Bar glyph"
     },
@@ -59,10 +63,6 @@
     "refresh_interval": {
       "description": "How often the service refreshes hotspot status and the connected device list, in seconds.",
       "label": "Refresh interval"
-    },
-    "autostart": {
-      "description": "Automatically start the hotspot when the system boots.",
-      "label": "Autostart hotspot"
     },
     "ssid": {
       "description": "Network name broadcast by the hotspot.",

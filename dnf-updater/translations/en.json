@@ -65,6 +65,10 @@
     "update_in_terminal": {
       "description": "Launch update commands inside a terminal emulator instead of running in background with polkit.",
       "label": "Run Updates in Terminal"
+    },
+    "refresh_on_update": {
+      "description": "Pass --refresh to DNF on upgrade to force refreshing repository metadata cache.",
+      "label": "Refresh Metadata on Upgrade"
     }
   },
   "status": {
@@ -103,6 +107,7 @@
     "download": "Download",
     "flatpak": "Flatpak",
     "last_checked": "Last Checked",
+    "last_update": "Last Updated",
     "storage": "Storage",
     "system": "System",
     "total": "Total"
@@ -110,6 +115,7 @@
   "title": "DNF Updater",
   "tooltip": {
     "all_up_to_date": "All packages up to date",
+    "disk_delta": "Disk impact",
     "disk_size": "Disk size",
     "download_size": "Download size",
     "updates_available": "{count} updates available"

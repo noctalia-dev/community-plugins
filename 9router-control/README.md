@@ -63,7 +63,7 @@ reuses the session cookie for subsequent requests.
 | Server Host    | `127.0.0.1`  | Hostname of the 9Router dashboard.                                      |
 | Server Port    | `20128`      | Port of the 9Router dashboard.                                          |
 | Data Directory | `~/.9router` | 9Router data dir, used to compute the CLI token when login is required. |
-| Language       | `auto`       | UI language (auto / English / Tiếng Việt).                              |
+| Language       | `auto`       | UI language (auto / English / Vietnamese).                             |
 | Debug Logging  | off          | Print debug messages to the Noctalia log.                               |
 
 ## Notes

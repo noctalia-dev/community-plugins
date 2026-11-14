@@ -1,0 +1,232 @@
+{
+  "settings": {
+    "chat_enabled": {
+      "description": "Продолжение или безопасное ветвление сеансов OMP, либо запуск полноценных сеансов в любой поддерживаемой установленной среде из панели Agentik и опционального виджета рабочего стола.",
+      "label": "Включить чат сеанса кодинга"
+    },
+    "display_label": {
+      "description": "Основная метка для каждого сеанса в панели: каталог проекта, имя сеанса, выбранное агентом, или активная модель (только имя, без провайдера).",
+      "label": "Основная метка",
+      "option_agent": "Имя агента",
+      "option_model": "Имя модели",
+      "option_project": "Проект"
+    },
+    "excluded_projects": {
+      "description": "Через запятую имена каталогов проектов или полные пути для исключения из мониторинга и чата Agentik.",
+      "label": "Исключенные проекты"
+    },
+    "filter_attention": {
+      "description": "Показывать только ожидающие или заблокированные сеансы.",
+      "label": "Только требующие внимания"
+    },
+    "high_contrast": {
+      "description": "Усилить фон сеансов и контраст основного текста",
+      "label": "Увеличить контраст"
+    },
+    "notification_cooldown_seconds": {
+      "description": "Минимальный интервал между уведомлениями Agentik",
+      "label": "Интервал уведомлений (в секундах)"
+    },
+    "notification_privacy": {
+      "description": "Не включать имена проектов и задач в текст уведомлений; показывать только состояние, требующее внимания.",
+      "label": "Конфиденциальные уведомления"
+    },
+    "notify_attention": {
+      "description": "Уведомлять только при переходе известного активного агента в состояние ожидания или блокировки. Отключено по умолчанию.",
+      "label": "Уведомлять при необходимости внимания"
+    },
+    "presentation_mode": {
+      "description": "Медленное движение сферы и смена сеансов, отображение более длинных меток и использование высококонтрастного стиля интерфейса.",
+      "label": "Режим презентации"
+    },
+    "reduce_motion": {
+      "description": "Использовать статические кадры сферы и сразу выводить текст помощника в реальном времени",
+      "label": "Уменьшить анимацию"
+    },
+    "show_attention": {
+      "description": "Отображать состояние (активен, ожидает или заблокирован) рядом с каждым сеансом в панели.",
+      "label": "Отображать состояние внимания"
+    },
+    "show_count": {
+      "description": "Порядковый номер активного агента",
+      "label": "Показывать номер отображаемого агента"
+    },
+    "show_intent": {
+      "description": "Отображать в панели состояние, определенное на основе текущих намерений инструментов активных агентов OMP.",
+      "label": "Отображать состояние намерений"
+    },
+    "show_task": {
+      "description": "Отображать состояние намерений",
+      "label": "Показывать текущую задачу"
+    },
+    "sort_mode": {
+      "description": "Сортировать сеансы в панели по времени работы или в приоритете внимания (сначала заблокированные, затем ожидающие).",
+      "label": "Порядок сортировки",
+      "option_attention": "Сначала с требованием внимания",
+      "option_duration": "Время работы"
+    }
+  },
+  "ui": {
+    "active_agents": {
+      "one": "1 активный агент",
+      "other": "{count} активных агентов"
+    },
+    "activity_empty": "Нет зарегистрированных операций инструментов",
+    "activity_title": "Текущая активность инструментов",
+    "attach_files": "Прикрепить файлы",
+    "attach_screenshot": "Прикрепить скриншот",
+    "attachments_unavailable": "Вложения не поддерживаются в этом сеансе",
+    "attention_active": "Активно",
+    "attention_blocked": "Заблокировано",
+    "attention_blocked_group": "Заблокировано · {count}",
+    "attention_copy_task": "Скопировать задачу",
+    "attention_counts": "{blocked} заблокировано · {waiting} ожидает",
+    "attention_inbox": "Внимание",
+    "attention_last_activity": "Последняя активность былa в {time}",
+    "attention_open_session": "Открыть сессию",
+    "attention_open_session_help": "Открыть владеющий сеанс. Сеансы, принадлежащие терминалу, остаются здесь доступными только для чтения.",
+    "attention_recent_activity": "Недавняя активность",
+    "attention_required": "Требуется внимание",
+    "attention_target": "Выбранный сеанс с требованием внимания",
+    "attention_waiting": "Ожидание",
+    "attention_waiting_group": "Ожидание · {count}",
+    "blocked_count": {
+      "one": "1 заблокирован",
+      "other": "{count} заблокировано"
+    },
+    "chat_assistant": "Ассистент",
+    "chat_cancel": "Отменить",
+    "chat_close": "Закрыть чат",
+    "chat_code": "Код",
+    "chat_collapse_output": "Свернуть вывод",
+    "chat_copy_code": "Копировать код",
+    "chat_copy_output": "Скопировать полный вывод",
+    "chat_empty": "Отправить сообщение в этот сеанс разработки. Его встроенные инструменты, правила, навыки, расширения, модель и история активны.",
+    "chat_error": "Мост сеанса разработки вернул недействительный ответ",
+    "chat_error_detail": "Ошибка сеанса: {error}",
+    "chat_event": "Событие",
+    "chat_event_session_exit": "Сессия окончена",
+    "chat_event_thinking": "Размышление",
+    "chat_event_todo": "Обновление задачи",
+    "chat_event_todo_update": "Обновление списка задач",
+    "chat_event_tool_call": "Вызов инструмента · {tool}",
+    "chat_event_tool_output": "Вывод инструмента · {tool}",
+    "chat_event_tool_start": "Запуск инструмента · {tool}",
+    "chat_expand_output": "Развернуть вывод",
+    "chat_find_sessions_placeholder": "Найти недавние сеансы",
+    "chat_fork_active": "Активен в другом месте · ответ создаст ответвление",
+    "chat_fork_snapshot": "Создать снимок и ответвление при отправке",
+    "chat_harness": "Среда исполнения",
+    "chat_loading": "Загрузка сеансов разработки...",
+    "chat_loading_conversation": "Загрузка беседы...",
+    "chat_model": "Модель",
+    "chat_model_placeholder": "Введите название модели",
+    "chat_model_suggestions": "Предложения",
+    "chat_new": "Новая сессия",
+    "chat_no_sessions": "Сеансы OMP не найдены",
+    "chat_open": "Чат",
+    "chat_open_terminal": "Открыть в терминале",
+    "chat_picker_help": "Продолжите завершённый сеанс OMP, безопасно ответвите активный в другом месте или выберите установленную среду исполнения и модель для нового проекта.",
+    "chat_placeholder": "Написать в этот сеанс разработки...",
+    "chat_project_placeholder": "Директория проекта",
+    "chat_ready": "Готов к продолжению",
+    "chat_recent": "Недавние сеансы OMP",
+    "chat_send": "Отправить",
+    "chat_session": "Сеанс разработки",
+    "chat_show_earlier": "Показать {count} предыдущих событий",
+    "chat_start": "Запустить",
+    "chat_switch": "Переключить сессию",
+    "chat_terminal_active": "Эта сессия управляется терминалом. Диалог обновится здесь; прежде чем отвечать в этой панели, выйдите из терминала.",
+    "chat_thinking": "Сеанс программирования запущен...",
+    "chat_title": "Сеанс разработки",
+    "chat_unavailable": "Невозможно безопасно возобновить",
+    "chat_you": "Ты",
+    "choice_needed": "Требуется выбор",
+    "collapse_group": "Свернуть {project}",
+    "copy_choice": "Скопировать выбор: {choice}",
+    "copy_custom_response": "Скопировать префикс пользовательского ответа",
+    "copy_proposal": "Скопировать {choice}",
+    "copy_proposal_help": "Скопировать только «{choice}»; вставьте в управляющий сеанс для ответа. Здесь ничего не отправляется и не утверждается.",
+    "custom_response": "Пользовательский",
+    "done": "Готово",
+    "exited_ago": "Завершено {time} назад",
+    "expand_group": "Развернуть {project}",
+    "focus_session": "Перейти к управляющему терминалу",
+    "harness_auth_local": "Аутентификация с помощью интерфейса командной строки Harness",
+    "harness_unavailable": "Не установлено",
+    "health_not_ready": "Нет ни одного поддерживаемого агента разработки (harness)",
+    "health_ready": "Доступные агенты разработки: {harnesses}",
+    "health_title_action": "Требуется настройка",
+    "health_title_ready": "Среда выполнения агента готова",
+    "idle": "Monitoring failed — displayed sessions may be outdated",
+    "monitor_error": "Сбой мониторинга — отображаемые сеансы могут быть устаревшими",
+    "monitor_last_success": "Последнее успешное обновление: {time} назад",
+    "monitor_pending": "Мониторинг: ожидание первого обновления",
+    "monitor_stale": "Мониторинг неактуален — отображаемые сеансы могут быть устаревшими",
+    "more": {
+      "one": "(+eщё 1)",
+      "other": "(+ещё {count})"
+    },
+    "no_attention_sessions": "Нет сеансов, требующих внимания",
+    "no_sessions": "Нет активных агентов",
+    "open_agentik": "Открыть Agentik",
+    "open_project": "Открыть директорию проекта",
+    "pin_session": "Закрепить сеанс на панели",
+    "pinned_session": "Закреплёная сессия",
+    "quota_empty": "Нет доступных квот по подписке",
+    "quota_loading": "Загрузка квот подписки...",
+    "quota_provider": "Провайдер",
+    "quota_refresh": "Обновить квоты подписки",
+    "quota_remaining": "осталось {remaining}",
+    "quota_resets": "Сброс через {time}",
+    "quota_title": "Квоты подписки",
+    "quota_unknown": "Неизвестно",
+    "quota_usage": "Использование",
+    "recent_activity_read_only": "Недавняя активность (только чтение). Из этого окна ответы и одобрения не отправляются.",
+    "recent_outcomes": "Недавние результаты",
+    "recent_outcomes_empty": "Latest 8 outcomes from the last 10 minutes. Transcripts are read-only.",
+    "recent_outcomes_retention": "Последние 8 результатов за последние 10 минут. Стенограммы доступны только для чтения.",
+    "remove_attachment": "Удалить вложение",
+    "request_acknowledged": "Ответ доставлен агенту разработки",
+    "request_cancel": "Отменить запрос",
+    "request_choose": "Выбрать атвет",
+    "request_decline": "Отменить",
+    "request_invalid": "Недопустимое значение для поля {field}",
+    "request_no": "Нет",
+    "request_required": "Поле {field} обязательно для заполнения",
+    "request_submit": "Отправить ответ",
+    "request_submitting": "Отправка ответа...",
+    "request_waiting_ack": "Ответ в очереди · ожидание доставки",
+    "request_yes": "Да",
+    "session_timeline": "запущен {started} назад · последняя активность {activity} назад",
+    "sessions": "Сеансы",
+    "state_breathing": "Приостановка",
+    "state_composing": "Создание",
+    "state_connecting": "Подключение",
+    "state_description": "{harness} · {state} · {activity}",
+    "state_done": "Завершено",
+    "state_listening": "Ожидание ввода",
+    "state_searching": "Поиск",
+    "state_shaping": "Планирование",
+    "state_solving": "Проверка",
+    "state_weaving": "Интеграция",
+    "state_working": "Работа",
+    "status_cancelled": "Отменено",
+    "status_completed": "Завершено",
+    "status_failed": "Ошибка",
+    "status_running": "Выполнение",
+    "toast_attention": {
+      "one": "Agentik: 1 агент требует внимания",
+      "other": "Agentik: {count} агент(а) требуют внимания"
+    },
+    "toast_blocked": "Agentik: заблокирован",
+    "toast_waiting": "Agentik: ожидание ввода",
+    "todo_progress": "Выполнено {completed} из {total} задач",
+    "transcript_back": "Назад к сессиям",
+    "unpin_session": "Открепить сессию",
+    "waiting_count": {
+      "one": "1 ожидает",
+      "other": "{count} ожидают"
+    }
+  }
+}

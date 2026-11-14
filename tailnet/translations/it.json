@@ -1,0 +1,122 @@
+{
+  "launcher": {
+    "copy-ip": "Invio: copia {value}",
+    "copy-name": "Invio: copia {value}",
+    "offline": "offline",
+    "online": "online",
+    "this-host": "questo host"
+  },
+  "panel": {
+    "admin": "Apri la console di amministrazione",
+    "connect": "Connetti (tailscale up)",
+    "copy-ip": "Copia IP",
+    "copy-ip-value": "Copia IP {value}",
+    "copy-name": "Copia nome",
+    "copy-name-value": "Copia nome {value}",
+    "disconnect": "Disconnetti (tailscale down)",
+    "exit-node-active": "Exit node: {name}",
+    "exit-node-clear": "Disattiva",
+    "exit-node-use": "Usa come exit node",
+    "filter": "Filtra {online}/{total} host…",
+    "last-check-info": "Ultimo controllo: {value}",
+    "login": "Accedi",
+    "needs-login": "Tailscale richiede l'autenticazione. Apri la pagina di login nel browser.",
+    "no-peers": "Nessun peer da mostrare.",
+    "ping": "Ping",
+    "refresh": "Aggiorna",
+    "ssh": "Apri SSH nel terminale",
+    "taildrop": "Ricevi file Taildrop",
+    "title": "Tailnet"
+  },
+  "peer": {
+    "last-seen": "visto {value}"
+  },
+  "ping": {
+    "relayed": "Nessuna connessione diretta — il traffico passa da un relay DERP."
+  },
+  "pref": {
+    "accept-routes": "Accetta le route delle subnet",
+    "advertise-exit-node": "Offriti come exit node",
+    "allow-lan-access": "Consenti l'accesso alla LAN con un exit node attivo",
+    "off": "disattivo",
+    "on": "attivo",
+    "run-ssh": "Server SSH Tailscale",
+    "shields-up": "Scudi alzati (blocca le connessioni in entrata)"
+  },
+  "settings": {
+    "admin_url": {
+      "description": "Aperto dal pulsante admin. Vuoto = la console Tailscale.",
+      "label": "URL della console di amministrazione"
+    },
+    "hide_mullvad": {
+      "description": "Nasconde gli exit node Mullvad VPN dalla lista dei peer.",
+      "label": "Nascondi exit node Mullvad"
+    },
+    "hide_not_installed": {
+      "description": "Nasconde il widget quando Tailscale non è installato.",
+      "label": "Nascondi il widget se Tailscale manca"
+    },
+    "hide_offline": {
+      "description": "Nasconde i peer offline dal pannello e dal launcher.",
+      "label": "Nascondi peer offline"
+    },
+    "poll_interval": {
+      "description": "Frequenza di aggiornamento dello stato di Tailscale.",
+      "label": "Intervallo di aggiornamento (secondi)"
+    },
+    "show_count": {
+      "description": "Mostra peer online/totali accanto all'icona.",
+      "label": "Mostra conteggio peer"
+    },
+    "show_ip": {
+      "description": "Mostra l'IP Tailscale di questo nodo nella barra.",
+      "label": "Mostra IP proprio"
+    },
+    "ssh_username": {
+      "description": "Utente per il bottone SSH. Vuoto = default di sistema.",
+      "label": "Utente SSH"
+    },
+    "taildrop_dir": {
+      "description": "Dove salvare i file ricevuti. Vuoto = cartella download XDG.",
+      "label": "Cartella download Taildrop"
+    },
+    "tailscale_bin": {
+      "description": "Percorso completo del comando tailscale. Vuoto = cercalo nel PATH.",
+      "label": "Binario tailscale"
+    }
+  },
+  "shortcut": {
+    "label": "Tailnet"
+  },
+  "state": {
+    "error": "Errore",
+    "needs-login": "Login richiesto",
+    "not-installed": "Tailscale non installato",
+    "running": "Connesso",
+    "stopped": "Disconnesso"
+  },
+  "taildrop": {
+    "failed": "Ricezione Taildrop fallita (operator mode impostato?).",
+    "none": "Nessun file in attesa.",
+    "received": "{count} file ricevuti in {dir}:"
+  },
+  "toast": {
+    "connected": "Connesso.",
+    "copied-ip": "{host}: IP {value} copiato.",
+    "copied-name": "{host}: nome {value} copiato.",
+    "disconnected": "Disconnesso.",
+    "exit-node-disabled": "Exit node disattivato.",
+    "exit-node-enabled": "Exit node attivato.",
+    "failed": "Comando fallito.",
+    "invalid-username": "Nome utente SSH non valido: usa lettere, cifre, punti, trattini o underscore.",
+    "pref-off": "{name}: disattivato.",
+    "pref-on": "{name}: attivato.",
+    "title": "Tailnet"
+  },
+  "tooltip": {
+    "exit-node": "Exit node",
+    "online": "Peer online",
+    "self": "Questo nodo",
+    "state": "Stato"
+  }
+}

@@ -1,7 +1,8 @@
 {
   "notify": {
     "apply_failed": "awww img failed for {connector}",
-    "awww_missing": "awww command not found. Install awww and awww-daemon."
+    "awww_missing": "awww command not found. Install awww and awww-daemon.",
+    "daemon_failed": "awww-daemon did not start. Check that it runs from a terminal."
   },
   "settings": {
     "filter": {
