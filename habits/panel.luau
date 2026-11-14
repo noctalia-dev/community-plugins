@@ -246,7 +246,7 @@ local function viewingTab(today, cornerRadius)
         ui.glyph({
           name = "grip-vertical",
           size = 14,
-          color = "outline",
+          color = "outline_variant",
         }),
       }),
       -- Green icon when completed, muted outline when unfinished
