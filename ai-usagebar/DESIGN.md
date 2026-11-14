@@ -50,12 +50,12 @@ Preserve the existing 9px card and 8px tab radii. Meters are thin and linear.
 
 The overview renders at most four account cards per page, with an explicit range
 and previous/next controls. Each card identifies an account, shows up to three supplied quota windows
-(or all reported windows and model pools for Antigravity) or its balance, and offers a detail action. Extra windows are disclosed explicitly.
+(or all reported windows and model pools grouped by family for Antigravity) with a compact reset badge, pace trend icon, usage bar, and elapsed-time track, or its balance, and offers a detail action. Extra windows are disclosed explicitly.
 The detail view retains model groups, credits and optional CLI priorities. Use
 native provider glyphs, clock, refresh, settings, navigation and status icons.
 Unknown providers keep a readable name and neutral glyph. Bar provider/model
-marks use a consistent 16px glyph in an 18px slot; reset metadata uses a separate
-11px clock/text group with readable foreground-derived color.
+marks use a consistent 16px glyph in an 18px slot; bar reset metadata uses a separate
+11px clock/text group shown when usage is near 100% (`>= 90%`) or critical.
 
 ## Do's and Don'ts
 

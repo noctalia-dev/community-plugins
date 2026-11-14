@@ -418,18 +418,18 @@ local countdownBar = loadBar({
             plan = "Google AI Pro",
             status = "ready",
             metrics = {
-                { label = "Gemini", percent = 64, reset_at = os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() + 3240), severity = "low", value = "64%" },
-                { label = "Claude & GPT OSS", percent = 69, reset_at = os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() + 83100), severity = "low", value = "69%" },
+                { label = "Gemini", percent = 94, reset_at = os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() + 3240), severity = "high", value = "94%" },
+                { label = "Claude & GPT OSS", percent = 96, reset_at = os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() + 83100), severity = "critical", value = "96%" },
             },
         },
     },
 })
-assert(containsText(countdownBar.rendered(), "0h 54m"), "capsule should retain hours below one hour")
-assert(containsText(countdownBar.rendered(), "23h 05m"), "capsule should show hours and minutes below 24 hours")
+assert(containsText(countdownBar.rendered(), "0h 54m"), "capsule should retain hours below one hour when near limit")
+assert(containsText(countdownBar.rendered(), "23h 05m"), "capsule should show hours and minutes below 24 hours when near limit")
 assert(containsText(countdownBar.rendered(), "·"), "capsule should show dot separator between submodels")
 local countdownTooltip = countdownBar.tooltip()
-assert(countdownTooltip[1].value == "64% · 0h 54m", "reset stays with the corresponding model")
-assert(countdownTooltip[2].value == "69% · 23h 05m", "fixed hours and minutes stay visible")
+assert(countdownTooltip[1].value == "94% · 0h 54m", "reset stays with the corresponding model")
+assert(countdownTooltip[2].value == "96% · 23h 05m", "fixed hours and minutes stay visible")
 
 local parserFailure = loadBar({ vendor = "openai", extras = "countdown" }, { entries = {
     { id = "openai", display_name = "Codex", status = "error", metrics = {}, sections = {},
@@ -505,12 +505,13 @@ poolEntry.metrics[2].severity = "critical"
 poolEntry.metrics[2].reset_at = resetLater
 poolEntry.metrics[1].reset_at = resetSoon
 local blockedPool = loadBar({ vendor = "antigravity", extras = "countdown" }, poolReport)
-assert(containsText(blockedPool.rendered(), "10%") and containsText(blockedPool.rendered(), "2h 00m"),
-       "an exhausted model pool must not replace the Gemini quota or reset")
+assert(containsText(blockedPool.rendered(), "10%") and not containsText(blockedPool.rendered(), "2h 00m"),
+       "an exhausted model pool must not replace the Gemini quota or force a low-usage reset onto the bar")
 assert(not containsText(blockedPool.rendered(), "100%") and not containsText(blockedPool.rendered(), "6d 20h"),
        "model pool exhaustion must not add a bar reading")
-assert(blockedPool.tooltip()[2].key == "Gemini 4 Argon" and blockedPool.tooltip()[2].value == "100% · 6d 20h",
-       "an exhausted pool remains available in the tooltip")
+assert(blockedPool.tooltip()[1].value == "10% · 2h 00m"
+       and blockedPool.tooltip()[2].key == "Gemini 4 Argon" and blockedPool.tooltip()[2].value == "100% · 6d 20h",
+       "both the shared window reset and exhausted pool remain available in the tooltip")
 local poolWindow = loadBar({ vendor = "antigravity", quota_window = "weekly" }, poolReport)
 assert(containsText(poolWindow.rendered(), "—") and not containsText(poolWindow.rendered(), "100%"),
        "a pool cannot substitute for a missing shared quota window")
@@ -900,9 +901,14 @@ for _, mode in ipairs({ "used", "remaining" }) do
 end
 
 
--- Main provider marks use a consistent readable slot, separate from reset metadata.
+-- Main provider marks use a consistent readable slot, and reset clock appears only near/at limit.
 do
-local item = entry("openai", "Codex", 70)
+local lowItem = entry("openai", "Codex", 70)
+lowItem.metrics[1].reset_at = "2026-10-16T20:00:00Z"
+local lowCapsule = loadBar({ vendor = "openai", extras = "countdown", visualization = "none" }, { entries = { lowItem } })
+assert(not containsGlyph(lowCapsule.rendered(), "clock"),
+    "the reset clock must stay hidden below 90% when the window is not critical")
+local item = entry("openai", "Codex", 95)
 item.metrics[1].reset_at = "2026-10-16T20:00:00Z"
 local capsule = loadBar({ vendor = "openai", extras = "countdown", visualization = "none" }, { entries = { item } })
 local function find(node, predicate)
@@ -917,8 +923,8 @@ local mark = find(capsule.rendered(), function(n) return n.kind == "glyph" and n
 assert(mark and mark.props.size == 16 and mark.props.width == 18 and mark.props.height == 18,
     "provider marks need a consistent 18px slot and readable 16px glyph")
 assert(containsGlyph(capsule.rendered(), "clock", "on_surface/0.8"),
-    "reset metadata needs the same clock cue and contrast as the panel")
-local noReset = loadBar({ vendor = "openai", extras = "countdown" }, { entries = { entry("openai", "Codex", 70) } })
+    "reset metadata needs the same clock cue and contrast as the panel when near or at the limit")
+local noReset = loadBar({ vendor = "openai", extras = "countdown" }, { entries = { entry("openai", "Codex", 95) } })
 assert(not containsGlyph(noReset.rendered(), "clock"), "missing reset must not reserve a clock or empty gap")
 end
 

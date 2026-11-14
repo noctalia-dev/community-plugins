@@ -54,8 +54,8 @@ It will not install on an older shell. Plugin version 1.1.0 remains available fo
 The main readings and provider icons follow the shell's typography and bar scale.
 Text also follows the configured font family, weight and font scale. Countdown and
 pace remain smaller secondary readings. Provider and model marks use a consistent
-16px glyph in an 18px slot. Reset metadata has a small clock, readable secondary
-text and spacing separate from the quota value.
+16px glyph in an 18px slot. On the bar, the reset clock and countdown appear only
+when a window is near 100% (`>= 90%`) or at its limit, keeping normal usage compact.
 
 ## Usage
 
@@ -87,7 +87,8 @@ including Antigravity's individual model readings. Provider groups use a subtle
 divider; models within one provider use dots. Enable `show_name` to distinguish
 the shared model groups. Names remain bounded so they do not take over the bar.
 
-`extras` adds the reset countdown (`3h 51m`), consumption pace (`↑3` means three
+`extras` adds the reset countdown (`3h 51m`, shown on the bar when usage reaches
+`90%` or is critical, and always shown in the tooltip), consumption pace (`↑3` means three
 percentage points ahead of elapsed time; `↓3` means three behind), both, or
 neither. Countdowns show days and hours from 24 hours onward, and hours and
 minutes below that.

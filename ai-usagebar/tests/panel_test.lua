@@ -1659,9 +1659,9 @@ end
 -- Antigravity shows all windows (including weekly and model pools) without truncation.
 do
 local agyMetrics = {
-    { type = "metric", label = "Gemini", percent = 9, value = "9%", window_secs = 18000 },
-    { type = "metric", label = "Claude & GPT OSS", percent = 62, value = "62%", window_secs = 18000 },
-    { type = "metric", label = "Gemini", percent = 2, value = "2%", window_secs = 604800 },
+    { type = "metric", label = "Gemini", percent = 9, value = "9%", window_secs = 18000, reset_at = "2026-10-16T20:00:00Z" },
+    { type = "metric", label = "Claude & GPT OSS", percent = 95, value = "95%", window_secs = 18000, reset_at = "2026-10-16T21:00:00Z" },
+    { type = "metric", label = "Gemini", percent = 2, value = "2%", window_secs = 604800, reset_at = "2026-10-20T18:00:00Z" },
     { type = "metric", label = "Gemini 4 Argon", percent = 6, value = "6%", window_secs = 604800, model_pool = true },
     { type = "metric", label = "Claude & GPT OSS", percent = 31, value = "31%", window_secs = 604800 },
 }
@@ -1678,9 +1678,12 @@ assert(has(labels(host.tree()), "Gemini")
     and has(labels(host.tree()), "Gemini 4 Argon · Weekly")
     and has(labels(host.tree()), "Session")
     and has(labels(host.tree()), "Weekly")
-    and #collect(host.tree(), "progress") == 6
+    and has(labels(host.tree()), "4h 0m")
+    and has(labels(host.tree()), "5h 0m")
+    and has(labels(host.tree()), "4d 2h")
+    and #collect(host.tree(), "progress") == 9
     and not has(labels(host.tree()), "ui.more_windows"),
-    "Antigravity overview card must group model families and show all reported windows and model pools without omission")
+    "Antigravity overview card must group model families and show all reported windows, model pools, elapsed tracks, and reset times")
 end
 
 -- A local AGY RPC rejection does not establish that the AGY login is expired.

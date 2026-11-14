@@ -1114,21 +1114,67 @@ end
 local function overviewMetricNode(metric, label)
     local text = shared.metricText(metric, displayMode())
     local left = shared.countdown(metric)
+    local paceText, _, paceWord = pace(metric.detail)
+    local elapsed = shared.elapsedPercent(metric.detail)
+    if elapsed == nil then
+        local at = parseIso(metric and metric.reset_at)
+        local win = tonumber(metric and metric.window_secs)
+        if at ~= nil and win ~= nil and win > 0 then
+            local rem = math.max(0, at - os.time())
+            if rem <= win then
+                elapsed = math.floor(((win - rem) / win) * 100 + 0.5)
+            end
+        end
+    end
+    if paceWord == nil and elapsed ~= nil and tonumber(metric and metric.percent) ~= nil then
+        local delta = (tonumber(metric.percent) or 0) - elapsed
+        if math.abs(delta) <= 5 then
+            paceWord = "even"
+        else
+            paceWord = delta > 0 and "ahead" or "behind"
+        end
+    end
+    local remaining = shared.isRemaining(metric, displayMode())
+    local timePercent = elapsed ~= nil and elapsed >= 0 and elapsed <= 100
+        and (remaining and (100 - elapsed) or elapsed) or nil
+    local clock = resetClock(metric)
+    local tipParts = {}
+    if clock ~= "" then tipParts[#tipParts + 1] = clock end
+    if paceText ~= "" then
+        tipParts[#tipParts + 1] = paceText
+    elseif timePercent ~= nil then
+        tipParts[#tipParts + 1] = noctalia.tr(
+            remaining and "ui.time_remaining" or "ui.elapsed", { percent = timePercent })
+    end
+    local rowTooltip = #tipParts > 0 and table.concat(tipParts, " · ") or nil
+
     local reading = { ui.label({ text = label, fontSize = 11, color = "on_surface/0.8", maxLines = 1,
-        maxWidth = 210, flexGrow = 1 }) }
+        maxWidth = 185, flexGrow = 1 }) }
     if left ~= "" then
-        reading[#reading + 1] = ui.row({ gap = 3, align = "center" }, {
-            ui.glyph({ name = "clock", size = 10, color = "on_surface/0.8" }),
+        reading[#reading + 1] = ui.row({ gap = 3, align = "center", paddingH = 5, paddingV = 1,
+            radius = 4, fill = "on_surface/0.07", border = "outline_variant/0.12", borderWidth = 1 }, {
+            ui.glyph({ name = "refresh", size = 9, color = "on_surface/0.8" }),
             ui.label({ text = left, fontSize = 10, color = "on_surface/0.8", maxLines = 1 }),
         })
     end
+    if paceWord ~= nil then
+        local paceColor = paceWord == "ahead" and "secondary" or "on_surface/0.8"
+        local paceIcon = paceWord == "ahead" and "trending-up"
+            or paceWord == "behind" and "trending-down"
+            or "check"
+        reading[#reading + 1] = ui.glyph({ name = paceIcon, size = 11, color = paceColor })
+    end
     reading[#reading + 1] = ui.label({ text = text, fontSize = 12, fontWeight = "bold",
         color = severityRole(metric, "on_surface") })
-    local children = { ui.row({ gap = 6, align = "center", tooltip = resetClock(metric) }, reading) }
+    local children = { ui.row({ gap = 5, align = "center", tooltip = rowTooltip }, reading) }
     local percent = shared.displayPercent(metric, displayMode())
     if percent ~= nil then
         children[#children + 1] = ui.progress({ progress = ratio(percent), height = 4, radius = 2,
             fill = severityRole(metric, "primary"), track = "on_surface/0.10" })
+        if timePercent ~= nil then
+            children[#children + 1] = ui.progress({ progress = ratio(timePercent), height = 2, radius = 1,
+                fill = "on_surface_variant/0.45", track = "on_surface/0.06" })
+        end
     end
     return ui.column({ gap = 2, align = "stretch" }, children)
 end
@@ -1225,7 +1271,7 @@ local function overviewCard(entry)
                 color = "on_surface/0.8", maxLines = 2 }) or nil,
         })
     end
-    return ui.column({ key = "overview-" .. tostring(entry.id), gap = 5, padding = 10, radius = 9,
+    return ui.column({ key = "overview-" .. tostring(entry.id), gap = 4, padding = 9, radius = 9,
         fill = "surface_container/0.34", borderWidth = 1,
         border = noctalia.state.get("selected") == entry.id and "primary/0.45" or "outline_variant/0.08" }, body)
 end
@@ -1255,7 +1301,7 @@ local function renderOverview(candidates)
             if type(metric) == "table" and (isAntigravity or metric.model_pool ~= true) then windows = windows + 1 end
         end
         local familyOverhead = isAntigravity and 48 or 0
-        height = height + 72 + familyOverhead + math.min(windows, maxWindows) * 28 + (windows > maxWindows and 16 or 0)
+        height = height + 70 + familyOverhead + math.min(windows, maxWindows) * 30 + (windows > maxWindows and 16 or 0)
     end
     if #cards == 0 then
         cards[#cards + 1] = ui.label({ text = noctalia.tr("ui.no_usage"), fontSize = 12, color = "on_surface/0.8" })
@@ -1277,7 +1323,7 @@ local function renderOverview(candidates)
         footer[#footer + 1] = ui.label({ text = noctalia.tr("ui.stale_hint"), fontSize = 10,
             color = "secondary", maxLines = 1 })
     end
-    panel.render(ui.column({ key = "overview", height = math.max(220, math.min(MAX_VIEWPORT_HEIGHT, height)), gap = 6,
+    panel.render(ui.column({ key = "overview", height = math.max(220, math.min(MAX_VIEWPORT_HEIGHT, height)), gap = 5,
         padding = 10, align = "stretch", flexGrow = 1 }, {
         ui.row({ gap = 8, align = "center" }, {
             ui.glyph({ name = "brain", size = 18, color = "primary" }),
@@ -1293,7 +1339,7 @@ local function renderOverview(candidates)
             ui.label({ text = noctalia.tr("ui.account_count", { count = #candidates }) .. " · "
                 .. noctalia.tr(displayMode() == "remaining" and "ui.remaining" or "ui.used"), fontSize = 11, color = "on_surface/0.8" }),
         }),
-        ui.scroll({ key = "overview-scroll", gap = 8, align = "stretch", flexGrow = 1,
+        ui.scroll({ key = "overview-scroll", gap = 6, align = "stretch", flexGrow = 1,
             revealKey = "overview-" .. tostring(noctalia.state.get("selected") or "") }, cards),
         ui.row({ gap = 4, align = "center" }, footer),
     }))

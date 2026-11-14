@@ -277,6 +277,8 @@ end
 
 local function withCountdown(value, metric, isVert)
     if isVert or (extras ~= "countdown" and extras ~= "both") then return value end
+    local pct = type(metric) == "table" and tonumber(metric.percent) or 0
+    if not isCritical(metric) and pct < 90 then return value end
     local left = fixedCountdown(metric)
     if left == "" then return value end
     local countdown = ui.row({ gap = 3, align = "center" }, {
