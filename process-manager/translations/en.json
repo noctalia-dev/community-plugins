@@ -6,8 +6,29 @@
     "force": "Force end",
     "force_admin": "Force end as admin"
   },
+  "details": {
+    "back": "Back to the list",
+    "command": "Command line",
+    "cpu": "CPU",
+    "days": "{days} d {clock}",
+    "elapsed": "Running for",
+    "gone": "This process has ended.",
+    "io_hidden": "Only its owner or an administrator can see what it reads and writes.",
+    "memory": "Memory",
+    "parent": "Started by",
+    "parent_of": "{name} ({pid})",
+    "pid": "PID {pid}",
+    "rate": "{total} · {rate}/s",
+    "read": "Read",
+    "share": "{size} · {share}%",
+    "status": "Status",
+    "threads": "Threads",
+    "user": "User",
+    "written": "Written"
+  },
   "group": {
-    "count": "{name} ({count})"
+    "count": "{name} ({count})",
+    "more": "{count} more. Search by name or PID to find one."
   },
   "panel": {
     "all_users": "All users",
@@ -49,6 +70,16 @@
     "stuck": "Did not end. Force end stops it at once, without saving.",
     "waiting": "Waiting on a disk or device. It ends only once that answers.",
     "zombie": "Already ended, waiting for its parent to notice."
+  },
+  "status": {
+    "dead": "Dead",
+    "device": "Waiting on a device",
+    "idle": "Idle",
+    "running": "Running",
+    "sleeping": "Sleeping",
+    "stopped": "Stopped",
+    "traced": "Stopped by a debugger",
+    "zombie": "Zombie"
   },
   "widget": {
     "tooltip": "Processes: find and end a running app"

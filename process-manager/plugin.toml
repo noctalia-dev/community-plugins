@@ -1,11 +1,11 @@
 id = "omerfuyar/process-manager"
 name = "Process Manager"
-version = "1.1.5"
+version = "1.2.0"
 plugin_api = 43
 author = "omerfuyar"
 license = "MIT"
 icon = "list-details"
-description = "Find a running app and end it, or force it to end when it does not stop. Grouped by app, with CPU and memory."
+description = "Find a running app and end it, or force it to end. Grouped by app, with CPU and memory, and details for each process."
 dependencies = ["sh", "ps", "kill", "getconf", "pkexec", "sudo"]
 tags = ["bar", "system", "utility"]
 

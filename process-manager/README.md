@@ -18,7 +18,7 @@ by name, with the CPU and memory they use right now.
 | --------- | -------- | ----------------------------------------------------------------------------------------------------------------------- |
 | `ps`      | Required | Lists the processes, with their owner and command line.                                                                 |
 | `kill`    | Required | Ends a process.                                                                                                         |
-| `sh`      | Required | Reads every process in one go, with `awk` and `cat`. They come with every Linux system.                                 |
+| `sh`      | Required | Reads every process in one go, with `awk`, `cat`, `tr` and `head`. They come with every Linux system.                   |
 | `getconf` | Required | Finds the clock rate and page size, to turn the kernel's numbers into CPU and memory. It comes with every Linux system. |
 | `pkexec`  | Required | Ends another user's process, after asking for an administrator's password. Without it, those cannot be ended.           |
 | `sudo`    | Optional | Ends another user's process in a terminal, when **End as admin with** is set to it.                                     |
@@ -30,7 +30,16 @@ Add the **Process Manager** widget to the bar and click it.
 ![Process Manager in the bar](screenshots/bar.webp)
 
 - Search by name, command line, user or process ID, and sort by CPU, memory or name.
-- Each row is an app with how many processes it has. Open it to see each process.
+- Each row is an app. An app with more than one process shows how many and opens to them
+  with a click; it shows its first 30, and search finds the others. An app with one process
+  has no arrow.
+- Click a process, or an app with one process, for its details: its CPU over the last
+  minutes as a graph, memory, status, how long it has run, threads, owner, the process that
+  started it, what it has read and written, and its whole command line. **Started by**
+  opens that process's details, and ← goes back to the list.
+
+  ![A process's details](screenshots/details.webp)
+
 - **✕** asks the app or process to end, so it can save and close. When it is still running
   3 seconds later, the skull, **Force end**, stops it at once, without saving.
 - A process that belongs to another user, such as root, shows a shield, **End as admin**,
@@ -53,6 +62,9 @@ noctalia msg panel-toggle omerfuyar/process-manager:panel
 
 ## Notes
 
-- Processes are read only while the panel is open, from `/proc` and `ps`.
+- Processes are read only while the panel is open, from `/proc` and `ps`. Nothing is
+  written to disk.
+- What a process reads and writes shows only for your own processes: the kernel shows it
+  only to the owner and administrators.
 - CPU is the use since the last read, where 100% is one core, as `top` shows it.
 - System totals are not shown here: Noctalia's system monitor shows them.
