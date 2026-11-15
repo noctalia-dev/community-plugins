@@ -106,17 +106,6 @@ local lastPublished = nil
 local PREVIEW_SCALE = "0.25"
 local previewDir = (noctalia.pluginDataDir() or "") .. "/previews"
 
--- Takes the pictures one after another in one process. Arguments are the scale, then pairs
--- of toplevel id and file. Prints each file that worked.
-local CAPTURE = [[
-scale=$1
-shift
-while [ $# -ge 2 ]; do
-  grim -T "$1" -s "$scale" "$2" 2>/dev/null && echo "$2"
-  shift 2
-done
-]]
-
 local pictures = {} -- the last good picture of each window, by toplevel id
 local icons = {} -- app icon path by window class, or false when there is none
 local iconsWanted = {} -- classes still to look up
@@ -124,6 +113,7 @@ local iconsWanted = {} -- classes still to look up
 -- lookups only while it has used less than this.
 local ICON_MS = 6
 local capturing = false
+local cleared = false -- the pictures of an earlier run are gone
 local capturedFor = nil -- the windows and places the last pictures were taken for
 local generation = 0
 
@@ -179,41 +169,47 @@ local function capture(model)
     return
   end
   local key = layoutKey(model)
-  if capturing or key == capturedFor or not noctalia.commandExists("grim") then
+  if not cleared or capturing or key == capturedFor or not noctalia.commandExists("grim") then
     return
   end
   capturing = true
   generation += 1
   noctalia.mkdirAll(previewDir)
-  local argv = { "sh", "-c", CAPTURE, "overview", PREVIEW_SCALE }
-  local wanted = {}
+  local shots = {}
   for _, workspace in ipairs(model.workspaces) do
     for _, window in ipairs(workspace.windows) do
       if window.stableId then
-        local path = `{previewDir}/{window.stableId}-{generation}.png`
-        wanted[path] = window.stableId
-        table.insert(argv, window.stableId)
-        table.insert(argv, path)
+        table.insert(shots, { id = window.stableId, path = `{previewDir}/{window.stableId}-{generation}.png` })
       end
     end
   end
-  noctalia.runAsync(argv, function(result)
+  -- One grim at a time, so a screen full of windows does not start dozens at once.
+  local taken = {}
+  local function done()
     capturing = false
     capturedFor = key
-    local old = pictures
-    pictures = {}
-    for path in (result.stdout or ""):gmatch("[^\n]+") do
-      if wanted[path] then
-        pictures[wanted[path]] = path
-      end
-    end
-    for _, path in pairs(old) do
+    for _, path in pairs(pictures) do
       noctalia.removeFile(path)
     end
+    pictures = taken
     applyPictures(model)
     lastPublished = noctalia.json.encode(model)
     noctalia.state.set("overview.model", model)
-  end, 30000)
+  end
+  local function take(index)
+    local shot = shots[index]
+    if shot == nil then
+      done()
+      return
+    end
+    noctalia.runAsync({ "grim", "-T", shot.id, "-s", PREVIEW_SCALE, shot.path }, function(result)
+      if result.exitCode == 0 then
+        taken[shot.id] = shot.path
+      end
+      take(index + 1)
+    end, 10000)
+  end
+  take(1)
 end
 
 -- Shows why the overview cannot be read, in the panel and once in Noctalia's log, instead of
@@ -399,7 +395,20 @@ end
 
 local lastBindingMs = 0
 
+-- Pictures left by an earlier run are not known to this one, so they go before any is taken.
+local function clearOldPictures()
+  for _, name in ipairs(noctalia.listDir(previewDir) or {}) do
+    if name:match("%.png$") then
+      noctalia.removeFile(previewDir .. "/" .. name)
+    end
+  end
+  cleared = true
+end
+
 function update()
+  if not cleared then
+    clearOldPictures()
+  end
   -- While the panel is open, workspaces and windows are read again, so it follows changes.
   if watching then
     lookUpIcons()
@@ -422,12 +431,5 @@ function onExit()
 end
 
 noctalia.setUpdateInterval(1500)
--- Pictures left by an earlier run are not known to this one, so they go, and so does the
--- model that names them. No picture is taken until they are gone.
+-- The model of an earlier run names pictures that are about to go.
 noctalia.state.set("overview.model", nil)
-if noctalia.pluginDataDir() then
-  capturing = true
-  noctalia.runAsync({ "sh", "-c", 'rm -f -- "$1"/*.png', "overview", previewDir }, function()
-    capturing = false
-  end)
-end
