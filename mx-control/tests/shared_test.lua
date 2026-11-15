@@ -72,8 +72,8 @@ check("lowestDevice without a status is nil", shared.lowestDevice(nil) == nil)
 
 -- devicesByLevel
 local ordered = shared.devicesByLevel(levels)
-check("devicesByLevel sorts known levels ascending",
-    ordered[1].id == "C" and ordered[2].id == "B" and ordered[3].id == "A")
+check("devicesByLevel sorts known levels ascending, offline last",
+    ordered[1].id == "B" and ordered[2].id == "A" and ordered[3].id == "C")
 local noLevels = shared.devicesByLevel({ devices = {
     { id = "A", name = "Zeta" }, { id = "B", name = "Alpha" },
 } })

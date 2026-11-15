@@ -23,6 +23,9 @@ local function deviceRows()
 	local rows = {}
 	for _, device in ipairs(shared.devicesByLevel(status)) do
 		local value = device.online and shared.batteryText(device) or noctalia.tr("panel.offline")
+		if device.online and device.connection and device.connection ~= "" then
+			value = value .. " · " .. tostring(device.connection)
+		end
 		rows[#rows + 1] = { key = device.name or "MX", value = value }
 	end
 	return rows

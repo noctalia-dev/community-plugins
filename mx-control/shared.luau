@@ -127,7 +127,8 @@ function M.devicesByLevel(status)
         out[#out + 1] = device
     end
     table.sort(out, function(a, b)
-        local la, lb = M.batteryLevel(a), M.batteryLevel(b)
+        local la = a.online and M.batteryLevel(a) or nil
+        local lb = b.online and M.batteryLevel(b) or nil
         if la ~= nil and lb ~= nil and la ~= lb then
             return la < lb
         end
