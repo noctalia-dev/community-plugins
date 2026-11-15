@@ -190,6 +190,15 @@ end
 
 -- `qalc` evalutes the expression
 local function evaluate(expr)
+	local start, finish = string.find(expr, "ans", 1, true)
+
+	if start and #history then
+		local before = string.sub(expr, 1, start - 1)
+		local after = string.sub(expr, finish + 1)
+		expr = before .. history[#history].result .. after
+	end
+
+
 	table.insert(sessionExprs, expr)
 	local body = table.concat(sessionExprs, "\n")
 
