@@ -39,9 +39,10 @@ noctalia msg panel-toggle liamwh/emoji-picker:compact
 
 - **Type** to search names and keywords — "coffee", "arrow right",
   "euro", "plusminus", or paste a character itself to find it.
-- **Arrows** move the selection (the grid scrolls to keep it visible),
-  **Enter** copies the selected entry and closes the panel, **Escape**
-  closes without copying.
+- **Arrows** move the selection — the grid scrolls to keep it visible,
+  keeping a one-row buffer below (or above) the selection so each step
+  brings new rows into view — **Enter** copies the selected entry and
+  closes the panel, **Escape** closes without copying.
 - Exactly one tile is highlighted: the selected one, which the footer
   names. Hovering a tile selects it (the footer then shows its name rather
   than a tooltip), and the pointer leaving a tile never changes the

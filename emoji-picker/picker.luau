@@ -147,6 +147,10 @@ local items = {} -- flat item list for the current view (entry tables)
 local rows = {} -- { { base = first item index, len = n }, … }
 local rowOfItem = {} -- item index -> row index
 local sel = 0 -- focused item index into `items` (0 = none)
+-- Row the scroll reveals (index into `rows`); nil = the selected row.
+-- Keyboard moves aim it one row past the selection in the travel
+-- direction (scroll-off buffer — see moveSelection).
+local revealRow = nil
 
 -- Incremental rendering: building all of "items" as UI nodes on the first
 -- open (up to ~560 tiles for one category) is the dominant cost of open
@@ -594,18 +598,28 @@ local function buildView()
     sel = if #items > 0 then 1 else 0
   end
   renderLimit = math.min(#rows, INITIAL_RENDER_ROWS)
-end
+  revealRow = nil -- fresh view: reveal the selected row itself
+ end
 
 -- Grows the render budget so the row a keyboard move lands on is always
 -- built: the grid's ui.scroll carries revealKey (see gridArea), and the
 -- host can only scroll-reveal a row that EXISTS in the rendered tree —
 -- arrows past the rendered edge would otherwise select a real-but-
--- unrendered item the viewport can never show.
+-- unrendered item the viewport can never show. The +1 lookahead covers
+-- the reveal row BELOW the selection (see revealRow below).
 local function ensureRowRendered(rowIndex)
   if rowIndex > renderLimit then
     renderLimit = math.min(#rows, rowIndex)
   end
 end
+
+-- revealRow (declared with the view state above): keyboard moves set it
+-- one row PAST the selection in the direction of travel, so the selection
+-- never sits on the viewport's edge — landing on the bottom visible row
+-- scrolls one more row into view (a buffer row below, symmetrically above
+-- after Up moves) and each step brings new content in instead of the
+-- highlight creeping along the edge. Clamped at both ends: the first/last
+-- row reveals itself.
 
 local function moveSelection(dr, dc)
   if #items == 0 then
@@ -620,7 +634,15 @@ local function moveSelection(dr, dc)
     col = math.min(col, rows[target].len)
     sel = rows[target].base + col - 1
   end
-  ensureRowRendered(rowOfItem[sel] or 1)
+  ensureRowRendered((rowOfItem[sel] or 1) + 1)
+  -- Scroll-off: reveal one row past the selection in the travel
+  -- direction (clamped: the first/last row reveals itself).
+  local selRow = rowOfItem[sel] or 1
+  if dr > 0 then
+    revealRow = math.min(#rows, selRow + 1)
+  elseif dr < 0 then
+    revealRow = math.max(1, selRow - 1)
+  end
 end
 
 -- ── Actions ────────────────────────────────────────────────────────────
@@ -880,15 +902,18 @@ local function gridArea()
   end
 
   -- Keep the keyboard selection in view (#1304): revealKey names the
-  -- scroll's direct child row the selection sits on, and the host
-  -- scrolls that row into the viewport whenever the key changes. Arrow
-  -- navigation used to walk the highlight past the last rendered row
-  -- while the scrollbar stayed at the top — the grid never followed the
-  -- selection. moveSelection's ensureRowRendered guarantees the revealed
-  -- row is actually in the tree (see the incremental-render note above).
+  -- scroll's direct child row the scroll should bring into the viewport,
+  -- and the host reveals it whenever the key changes. moveSelection aims
+  -- it one row past the selection (scroll-off buffer, see revealRow);
+  -- hover and typing reveal the selected row itself. Arrow navigation
+  -- used to walk the highlight past the last rendered row while the
+  -- scrollbar stayed at the top — the grid never followed the selection.
+  -- moveSelection's ensureRowRendered guarantees the revealed row is
+  -- actually in the tree (see the incremental-render note above).
+  local selRow = rowOfItem[sel]
   local revealKey = nil
-  if sel >= 1 and rowOfItem[sel] ~= nil then
-    revealKey = "row-" .. tostring(rowOfItem[sel])
+  if sel >= 1 and selRow ~= nil then
+    revealKey = "row-" .. tostring(revealRow or selRow)
   end
   return ui.scroll({
     -- The key tracks the VIEW identity (search vs. each browse tab):

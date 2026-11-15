@@ -134,6 +134,7 @@ local CHUNK_TAIL = "\n\nonOpen = M.onOpen\nonKey = M.onKey\nreturn {\n"
   .. "  getSel = function() return sel end,\n"
   .. "  setUsage = function(u) usage = u end,\n"
   .. "  rowOf = function(i) return rowOfItem[i] end,\n"
+  .. "  rowsCount = function() return #rows end,\n"
   .. "  getRenderLimit = function() return renderLimit end,\n"
   .. "  getItem = function(i) return items[i] end,\n"
   .. "  setCat = function(c) cat = c end,\n"
@@ -792,11 +793,13 @@ do
 end
 
 -- ── Keyboard navigation scrolls the selection into view (#1304) ────────
--- The grid scroll carries revealKey naming the direct-child row the
--- selection sits on; the host reveals that row whenever the key changes.
--- The contract here: the revealed key always names an EXISTING direct
--- child of the scroll (the render budget must cover the selected row),
--- in both the browse grid and search results.
+-- The grid scroll carries revealKey naming a direct-child row; the host
+-- reveals that row whenever the key changes. Keyboard moves aim the
+-- reveal one row PAST the selection in the travel direction (scroll-off
+-- buffer: the selection never hugs the viewport edge); hover and typing
+-- reveal the selected row itself. The contract: the revealed key always
+-- names an EXISTING direct child of the scroll, covered by the render
+-- budget, in both the browse grid and search results.
 do
   local function scrollNode()
     return findNodes(function(n) return n.kind == "scroll" end)[1]
@@ -809,15 +812,17 @@ do
     end
     return false
   end
-  local function checkFollowsSelection(view)
+  local function checkReveal(view, expectedRow)
     local scroll = scrollNode()
-    local selRow = picker.rowOf(picker.getSel())
     check(scroll ~= nil, view .. ": the grid scroll is rendered")
     check(
-      scroll ~= nil and selRow ~= nil and scroll.opts.revealKey == "row-" .. tostring(selRow),
-      view .. ": revealKey names the row the selection sits on"
+      scroll ~= nil and expectedRow ~= nil and scroll.opts.revealKey == "row-" .. tostring(expectedRow),
+      view .. ": revealKey names row " .. tostring(expectedRow) .. " (got " .. tostring(scroll ~= nil and scroll.opts.revealKey or nil) .. ")"
     )
-    check(selRow ~= nil and picker.getRenderLimit() >= selRow, view .. ": render budget covers the selected row")
+    check(
+      expectedRow ~= nil and picker.getRenderLimit() >= expectedRow,
+      view .. ": render budget covers the revealed row"
+    )
     check(
       scroll ~= nil and scroll.opts.revealKey ~= nil and hasDirectChild(scroll, scroll.opts.revealKey),
       view .. ": the revealed row is an existing direct child of the scroll"
@@ -837,24 +842,43 @@ do
     end
   end
 
-  -- Browse grid: walk the selection well past the first eight rendered
-  -- rows (INITIAL_RENDER_ROWS); the reveal must track it the whole way.
+  -- Browse grid, fresh view: no keyboard move yet, so the reveal is the
+  -- selected row itself (typing must not scroll).
   typeIntoInput("")
-  checkFollowsSelection("browse")
+  checkReveal("browse", picker.rowOf(picker.getSel()))
+
+  -- 12 downs: the selection moves well past the first eight rendered rows
+  -- (INITIAL_RENDER_ROWS) and the reveal stays one row BELOW it.
   for _ = 1, 12 do
     onKey("down", true)
   end
-  check(picker.rowOf(picker.getSel()) ~= nil and picker.rowOf(picker.getSel()) > 8,
-    "browse: 12 downs carry the selection past the first eight rendered rows")
-  checkFollowsSelection("browse after downs")
+  local selRow = picker.rowOf(picker.getSel())
+  check(selRow ~= nil and selRow > 8, "browse: 12 downs carry the selection past the first eight rendered rows")
+  checkReveal("browse after downs", selRow ~= nil and selRow + 1 or nil)
+
+  -- An up move flips the buffer above: the reveal lands one row ABOVE the
+  -- selection.
+  onKey("up", true)
+  selRow = picker.rowOf(picker.getSel())
+  checkReveal("browse after up", selRow ~= nil and selRow - 1 or nil)
 
   -- Search results: same contract while navigating a query's results.
   typeIntoInput("arrow")
-  checkFollowsSelection("search")
+  checkReveal("search", picker.rowOf(picker.getSel())) -- fresh view: selected row
   for _ = 1, 12 do
     onKey("down", true)
   end
-  checkFollowsSelection("search after downs")
+  selRow = picker.rowOf(picker.getSel())
+  checkReveal("search after downs", selRow ~= nil and selRow + 1 or nil)
+
+  -- The last row of the view clamps: revealing past the end reveals the
+  -- selected row itself (nothing below to buffer with).
+  for _ = 1, 200 do
+    onKey("down", true)
+  end
+  selRow = picker.rowOf(picker.getSel())
+  check(selRow ~= nil and selRow == picker.rowsCount(), "200 downs clamp the selection to the last row")
+  checkReveal("search at last row", selRow)
 
   -- Leave clean state for the contract tests below.
   typeIntoInput("")
