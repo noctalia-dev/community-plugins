@@ -177,6 +177,7 @@ body:
         - mango-displays
         - mango_layouts
         - mangowm-keymode
+        - mathsym
         - mawaqit
         - media-island
         - media-lyrics
