@@ -6054,3 +6054,16 @@ icon = "math-symbols"
 description = "Find math symbols from the launcher by description, code point, LaTeX command or Lean 4 input name"
 plugin_api = 24
 tags = ["productivity", "launcher"]
+
+[[plugin]]
+id = "crsmthw/passwordless-sudo"
+name = "Passwordless Sudo"
+version = "1.0.0"
+updated_at = 1794783566
+added_at = 1794783566
+author = "CrsMthw"
+license = "MIT"
+icon = "shield-lock"
+description = "Temporarily allow sudo without a password, so AI agents can run privileged commands."
+plugin_api = 55
+tags = ["bar", "panel", "shortcut", "service", "ai", "system"]
