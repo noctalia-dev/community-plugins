@@ -18,7 +18,7 @@ plugin_api = 43
 author = "GenuineMoron"
 license = "MIT"
 icon = "gauge"
-description = "Performance modes, battery charge limit, graphics mode, panel overdrive, fans and lighting for ASUS ROG laptops, through asusd."
+description = "Performance modes, charge limit, graphics mode, overdrive, fans and lighting for ASUS ROG laptops, via asusd."
 tags = ["bar", "panel", "service", "shortcut", "hardware", "system"]
 dependencies = ["asusctl", "busctl", "gdbus"]
 
