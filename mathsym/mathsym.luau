@@ -43,19 +43,19 @@ local function noMatchHint(text)
   local dec = compact:match("^%d+$")
   if dec and #dec <= 7 then
     local code = string.format("U+%04X", tonumber(dec) :: number)
-    return "No character with code point " .. dec,
-      "Decimal " .. dec .. " is " .. code .. ", which is not in the data. Type U+" .. dec
-        .. " to browse code points starting with " .. dec
+    return noctalia.tr("hint.unknown_decimal_title", { dec = dec }),
+      noctalia.tr("hint.unknown_decimal_subtitle", { dec = dec, code = code })
   end
   local hex = compact:match("^u%+(%x+)$") or compact:match("^0x(%x+)$") or compact:match("^\\u(%x+)$")
   if hex then
-    return "No character at U+" .. hex:upper(),
-      "Only math symbols and Lean abbreviations are included, not every unicode character"
+    return noctalia.tr("hint.unknown_hex_title", { hex = hex:upper() }),
+      noctalia.tr("hint.unknown_hex_subtitle")
   end
   if compact:match("^%x+$") then
-    return "No matches", "If you meant a code point, type U+" .. compact:upper()
+    return noctalia.tr("hint.no_matches_title"),
+      noctalia.tr("hint.no_matches_hex_subtitle", { code = compact:upper() })
   end
-  return "No matches", "Try a different name"
+  return noctalia.tr("hint.no_matches_title"), noctalia.tr("hint.no_matches_subtitle")
 end
 
 -- `query` is the launcher text after the `/sym` prefix.
@@ -64,8 +64,8 @@ function onQuery(query)
   if text == "" then
     hint(
       query,
-      "Search mathematical symbols",
-      "try LaTeX name, Lean abbr., unicode number, literal symbol, or description",
+      noctalia.tr("hint.empty_title"),
+      noctalia.tr("hint.empty_subtitle"),
       "math-symbols"
     )
     return
@@ -73,13 +73,13 @@ function onQuery(query)
 
   local dir = noctalia.pluginDir()
   if not dir then
-    hint(query, "Search failed", "Could not locate the plugin directory", "alert-triangle")
+    hint(query, noctalia.tr("hint.search_failed_title"), noctalia.tr("hint.no_dir_subtitle"), "alert-triangle")
     return
   end
   local ok = noctalia.runAsync({ "sh", dir .. "/search.sh", dir, text }, function(result)
     if result.exitCode ~= 0 or result.timedOut then
       noctalia.log(result.stderr)
-      hint(query, "Search failed", "Is fzf installed? See the noctalia log", "alert-triangle")
+      hint(query, noctalia.tr("hint.search_failed_title"), noctalia.tr("hint.search_failed_subtitle"), "alert-triangle")
       return
     end
     local rows = {}
@@ -106,7 +106,7 @@ function onQuery(query)
     launcher.setResults(query, rows)
   end, 5000)
   if not ok then
-    hint(query, "Search failed", "Could not start sh", "alert-triangle")
+    hint(query, noctalia.tr("hint.search_failed_title"), noctalia.tr("hint.no_spawn_subtitle"), "alert-triangle")
   end
 end
 
@@ -121,7 +121,7 @@ function onActivate(id)
   end
   noctalia.copyToClipboard(ch, "text/plain")
   if NOTIFY then
-    noctalia.notify("Unicode", ch .. " copied to clipboard")
+    noctalia.notify(noctalia.tr("notify.copied_title"), noctalia.tr("notify.copied_body", { char = ch }))
   end
   if PASTE then
     pasteAfterClose(ch)

@@ -1,4 +1,23 @@
 {
+  "hint": {
+    "empty_subtitle": "try LaTeX name, Lean abbr., unicode number, literal symbol, or description",
+    "empty_title": "Search mathematical symbols",
+    "no_dir_subtitle": "Could not locate the plugin directory",
+    "no_matches_hex_subtitle": "If you meant a code point, type U+{code}",
+    "no_matches_subtitle": "Try a different name",
+    "no_matches_title": "No matches",
+    "no_spawn_subtitle": "Could not start sh",
+    "search_failed_subtitle": "Is fzf installed? See the noctalia log",
+    "search_failed_title": "Search failed",
+    "unknown_decimal_subtitle": "Decimal {dec} is {code}, which is not in the data. Type U+{dec} to browse code points starting with {dec}",
+    "unknown_decimal_title": "No character with code point {dec}",
+    "unknown_hex_subtitle": "Only math symbols and Lean abbreviations are included, not every unicode character",
+    "unknown_hex_title": "No character at U+{hex}"
+  },
+  "notify": {
+    "copied_body": "{char} copied to clipboard",
+    "copied_title": "Unicode"
+  },
   "settings": {
     "notify_on_copy": {
       "description": "Show a notification when a character is copied to the clipboard",
