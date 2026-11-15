@@ -17,12 +17,16 @@ M.PROFILES = {
   { value = 1, key = "profile.turbo", glyph = "rocket" },
 }
 
--- supergfxd GfxMode values. Only these three are offered; supergfxd's VFIO,
--- eGPU and "no modeset" modes are for setups this panel isn't aimed at.
+-- Graphics modes, numbered as supergfxd's GfxMode so both back ends share them.
+-- Only these three are offered; supergfxd's VFIO, eGPU and "no modeset" modes are
+-- for setups this panel isn't aimed at.
+M.GPU_ECO = 1
+M.GPU_STANDARD = 0
+M.GPU_ULTIMATE = 5
 M.GPU_MODES = {
-  { value = 1, key = "gpu.eco", glyph = "leaf" },
-  { value = 0, key = "gpu.standard", glyph = "device-laptop" },
-  { value = 5, key = "gpu.ultimate", glyph = "bolt" },
+  { value = M.GPU_ECO, key = "gpu.eco", glyph = "leaf" },
+  { value = M.GPU_STANDARD, key = "gpu.standard", glyph = "device-laptop" },
+  { value = M.GPU_ULTIMATE, key = "gpu.ultimate", glyph = "bolt" },
 }
 
 -- supergfxd UserActionRequired values that need the user to act.

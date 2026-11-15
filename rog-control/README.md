@@ -4,6 +4,8 @@ Performance modes, battery charge limit, graphics mode, panel overdrive, fans an
 
 ![ROG Control panel](screenshots/panel.webp)
 
+Source, issues and changelog: [GenuineMoron/noctalia-rog-control](https://github.com/GenuineMoron/noctalia-rog-control). Install it from Noctalia's plugin store (Settings → Plugins), or clone the repository into `~/.local/share/noctalia/plugins/rog-control` and enable it there.
+
 ## Plugin
 
 | Field | Value |
@@ -15,7 +17,7 @@ Performance modes, battery charge limit, graphics mode, panel overdrive, fans an
 
 - An ASUS laptop supported by asusctl, with `asusd` running: install `asusctl` and enable `asusd.service`.
 - `busctl` (systemd) and `gdbus` (glib2) on `PATH`.
-- Optional: `supergfxd` (supergfxctl) for switching the graphics mode. Without it, the panel shows the current mode without switching, because a safe switch has to unload the NVIDIA driver first.
+- For switching the graphics mode: asusctl's `asus-shutdown.service` enabled (`systemctl enable --now asus-shutdown`). asusd queues the switch and that service applies it at shutdown, after preparing the NVIDIA driver, so it takes effect at the next start. If the deprecated `supergfxd` is running, the plugin uses it instead.
 - Optional: UPower 1.90 or newer with charge-threshold support, for the charge limit.
 
 Each section only appears when the hardware and daemons report it, so a laptop without Slash lighting or panel overdrive simply doesn't show those controls.
@@ -37,7 +39,7 @@ noctalia msg panel-toggle genuinemoron/rog-control:panel
 The panel has these sections:
 
 - **Performance:** Silent, Balanced or Turbo. The choice also becomes the default for the power source you are on (charger or battery), and asusd switches between the two defaults by itself, as Armoury Crate does.
-- **Graphics:** Eco, Standard or Ultimate. When a switch needs you to log out or restart, a banner offers that and a Cancel. A status line says whether the NVIDIA GPU is asleep.
+- **Graphics:** Eco, Standard or Ultimate. A switch takes effect at the next start: a banner offers Restart or Cancel until then. A status line says whether the NVIDIA GPU is asleep.
 - **Battery:** **Limit charge to N%**, and **Charge to 100% once** while the limit is on. The limit is UPower's, the same one Noctalia's Control Center Power tab shows, so both stay in sync.
 - **Display:** **Panel overdrive**.
 - **Lighting:**
@@ -72,12 +74,12 @@ noctalia msg plugin genuinemoron/rog-control:service all refresh        # re-rea
 ## Notes
 
 - **Processes:**
-  - One long-lived `gdbus monitor --system` per daemon (asusd; supergfxd if present; the UPower battery object, filtered to charge-threshold changes).
+  - One long-lived `gdbus monitor --system` per daemon (asusd; the UPower battery object, filtered to charge-threshold changes; supergfxd only if it is running).
   - One `busctl --json=short` read when a daemon reports a change.
   - One `busctl set-property` or `call` per action you take.
-  - `noctalia msg panel-toggle session` when you press Restart or Log out in the graphics banner.
+  - `noctalia msg panel-toggle session` when you press Restart (or Log out, with supergfxd) in the graphics banner.
 - **Polling:** nothing polls the hardware. The panel reads hwmon fan speeds, the CPU package temperature, the NVIDIA GPU's `power/runtime_status`, battery capacity and status, and AC state from sysfs once a second while it is open, never otherwise. Reading `runtime_status` does not wake the GPU. The service ticks every 20 s to restart a dropped stream and to notice a theme colour change for the keyboard; neither spawns anything unless something changed.
 - **Files written:** `prefs.json` in the plugin's data directory (`noctalia.pluginDataDir()`), holding the Match theme colour choice and your custom keyboard colour.
 - **Network:** none.
-- **Permissions:** asusd accepts property writes from local users. UPower's `enable-charging-limit` action is allowed for the active session by default. supergfxd mode changes follow its own policy.
-- **Tested on:** ROG Zephyrus G16 GU605MI (2024), asusctl 6.5.0, supergfxctl 5.2, UPower 1.91, Noctalia 5.4.1 on Umbriel.
+- **Permissions:** asusd accepts property writes from local users, including the graphics switches it queues. UPower's `enable-charging-limit` action is allowed for the active session by default. With supergfxd, mode changes follow its own policy.
+- **Tested on:** ROG Zephyrus G16 GU605MI (2024), asusctl 6.5.0 (graphics switching through asusd and asus-shutdown; 1.0.0 also with supergfxctl 5.2), UPower 1.91, Noctalia 5.4.1 on Umbriel.

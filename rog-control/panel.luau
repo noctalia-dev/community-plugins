@@ -227,9 +227,16 @@ local function graphicsSection(s)
         table.insert(options, { value = g.value, text = tr(g.key), glyph = g.glyph })
       end
     end
-    table.insert(children, segmented(options, gpu.mode, function(value)
-      request("gpuMode", value)
-    end))
+    if #options >= 2 then
+      table.insert(children, segmented(options, gpu.mode, function(value)
+        request("gpuMode", value)
+      end))
+    else
+      local current = model.gpuMode(gpu.mode)
+      table.insert(children, settingRow(tr("gpu.mode"), ui.label({
+        text = tr(current ~= nil and current.key or "gpu.other"), fontSize = 13, fontWeight = "medium",
+      })))
+    end
 
     local pending = model.gpuMode(gpu.pending)
     if gpu.action ~= nil and gpu.action ~= model.GPU_ACTION_NONE and pending ~= nil then
@@ -261,8 +268,8 @@ local function graphicsSection(s)
       }))
     end
   else
-    -- No supergfxd: say which mode the firmware is in; switching is left to a
-    -- tool that can safely unload the NVIDIA driver first.
+    -- Briefly at startup, before the service has worked out the graphics mode:
+    -- show what the firmware is set to.
     local key = fw.muxDiscrete and "gpu.ultimate" or (fw.dgpuDisabled and "gpu.eco" or "gpu.standard")
     table.insert(children, settingRow(tr("gpu.mode"), ui.label({ text = tr(key), fontSize = 13, fontWeight = "medium" })))
   end

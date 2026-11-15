@@ -1,6 +1,10 @@
 --!nonstrict
 -- ROG Control service: the only entry that talks to asusd and supergfxd.
 --
+-- Graphics mode: asusd's firmware switches (gpu_mux_mode, dgpu_disable) take
+-- effect at the next restart, which is what upstream asusctl recommends now that
+-- supergfxd is deprecated. If supergfxd is running it is used instead, as before.
+--
 -- Cost model: nothing polls the hardware. One `gdbus monitor` stream per daemon
 -- reports property changes; each change triggers a single snapshot read
 -- (asusd: one GetManagedObjects call, ~6 KB), and bursts collapse into at most
@@ -34,7 +38,7 @@ local GFX_QUERY = [[for m in Mode PendingMode PendingUserAction Supported; do bu
 
 local state = {
   asusd = nil, -- normalised asusd state, nil while asusd is unreachable
-  gpu = nil, -- normalised supergfxd state, nil when supergfxd isn't running
+  gpu = nil, -- graphics mode from supergfxd, or else from asusd's firmware switches
   charge = nil, -- UPower charge-limit state, nil when the battery has none
   prefs = { followTheme = true, colour = nil },
   error = nil,
@@ -125,6 +129,58 @@ end
 local applyThemeColour -- defined below; needs the fresh snapshot
 local startStreams -- defined below; supergfxd's stream starts once it answers
 
+-- Without supergfxd, the graphics mode is asusd's two firmware switches, the way
+-- upstream asusctl does it now. asusd queues a change (QueuedGpuValue) and its
+-- asus-shutdown service applies it while the machine shuts down, after preparing
+-- the NVIDIA driver, so every mode is safe to pick here. CurrentValue stays the
+-- mode this boot runs; a queued value is a pending switch, shown with Restart
+-- and Cancel. Upstream's pairs: Eco = dGPU off + MUX hybrid, Standard = dGPU on +
+-- MUX hybrid, Ultimate = dGPU on + MUX discrete.
+local function gpuModeOf(dgpuOff, discrete)
+  if dgpuOff then
+    return model.GPU_ECO
+  end
+  return discrete and model.GPU_ULTIMATE or model.GPU_STANDARD
+end
+
+local function firmwareGpu()
+  local fw = state.asusd ~= nil and state.asusd.gpuFirmware or nil
+  if fw == nil then
+    return nil
+  end
+  local running = gpuModeOf(fw.dgpuDisabled, fw.muxDiscrete)
+  local nextDgpuOff, nextDiscrete = fw.dgpuDisabled, fw.muxDiscrete
+  if fw.dgpuQueued ~= nil then
+    nextDgpuOff = fw.dgpuQueued == 1
+  end
+  if fw.muxQueued ~= nil then
+    nextDiscrete = fw.muxQueued == 0
+  end
+  local configured = gpuModeOf(nextDgpuOff, nextDiscrete)
+
+  local supported = { model.GPU_STANDARD }
+  if fw.hasDgpu then
+    table.insert(supported, model.GPU_ECO)
+  end
+  if fw.hasMux then
+    table.insert(supported, model.GPU_ULTIMATE)
+  end
+  local pending = configured ~= running and configured or nil
+  return {
+    source = "asusd",
+    mode = running,
+    pending = pending,
+    action = pending ~= nil and model.GPU_ACTION_REBOOT or model.GPU_ACTION_NONE,
+    supported = supported,
+  }
+end
+
+-- asusd's QueuedGpuValue is -1 when nothing is waiting for the next boot.
+local function queuedGpuValue(attribute)
+  local q = attribute ~= nil and attribute.QueuedGpuValue or nil
+  return (type(q) == "number" and q >= 0) and q or nil
+end
+
 local function applyAsusd(objects)
   local platform = props(objects, PLATFORM_PATH, PLATFORM)
   if platform == nil then
@@ -150,10 +206,14 @@ local function applyAsusd(objects)
     profileChoices = platform.PlatformProfileChoices or {},
     chargeLimit = platform.ChargeControlEndThreshold,
     overdrive = overdrive ~= nil and overdrive.CurrentValue or nil,
-    -- Without supergfxd, the firmware switches still say which mode is live.
+    -- The firmware graphics switches (what the next boot will use).
     gpuFirmware = (dgpu ~= nil or mux ~= nil) and {
+      hasDgpu = dgpu ~= nil,
+      hasMux = mux ~= nil,
       dgpuDisabled = dgpu ~= nil and dgpu.CurrentValue == 1,
       muxDiscrete = mux ~= nil and mux.CurrentValue == 0,
+      dgpuQueued = queuedGpuValue(dgpu),
+      muxQueued = queuedGpuValue(mux),
     } or nil,
     aura = aura ~= nil and {
       path = auraPath,
@@ -183,6 +243,9 @@ local function applyAsusd(objects)
 
   state.asusd = fresh
   state.error = nil
+  if gfxPresent == false then
+    state.gpu = firmwareGpu()
+  end
   publish()
   applyThemeColour()
 end
@@ -239,6 +302,7 @@ local function refreshGfx()
         startStreams()
       end
       state.gpu = {
+        source = "supergfxd",
         mode = mode[1],
         pending = type(pending) == "table" and pending[1] or nil,
         action = type(action) == "table" and action[1] or model.GPU_ACTION_NONE,
@@ -246,7 +310,7 @@ local function refreshGfx()
       }
     else
       gfxPresent = false
-      state.gpu = nil
+      state.gpu = firmwareGpu()
     end
     publish()
     if again.gfx then
@@ -482,10 +546,42 @@ function ACTIONS.overdrive(on)
   setProperty("/xyz/ljones/asus_armoury/panel_overdrive", ARMOURY, "CurrentValue", "i", on and 1 or 0, "action.overdrive")
 end
 
-function ACTIONS.gpuMode(value)
-  run({ "busctl", "--system", "call", GFX, GFX_PATH, GFX, "SetMode", "u", tostring(value) }, "action.gpu_mode", function()
-    refreshGfx()
+local function setGpuSwitch(attribute, value)
+  run({
+    "busctl", "--system", "set-property", ASUSD, `/xyz/ljones/asus_armoury/{attribute}`, ARMOURY,
+    "CurrentValue", "i", tostring(value),
+  }, "action.gpu_mode", function()
+    refreshAsusd()
   end)
+end
+
+function ACTIONS.gpuMode(value)
+  if gfxPresent then
+    run({ "busctl", "--system", "call", GFX, GFX_PATH, GFX, "SetMode", "u", tostring(value) }, "action.gpu_mode", function()
+      refreshGfx()
+    end)
+    return
+  end
+  -- asusd: set the firmware switches for the next boot. Setting a switch back to
+  -- its running value clears asusd's queue, which is how Cancel works.
+  local fw = state.asusd ~= nil and state.asusd.gpuFirmware or nil
+  local gpu = state.gpu
+  if fw == nil or gpu == nil or gpu.source ~= "asusd" then
+    return
+  end
+  if (value == model.GPU_ULTIMATE and not fw.hasMux) or (value == model.GPU_ECO and not fw.hasDgpu) then
+    return
+  end
+  local wantDgpuOff = value == model.GPU_ECO
+  local wantDiscrete = value == model.GPU_ULTIMATE
+  local nextDgpuOff = fw.dgpuQueued ~= nil and fw.dgpuQueued == 1 or (fw.dgpuQueued == nil and fw.dgpuDisabled)
+  local nextDiscrete = fw.muxQueued ~= nil and fw.muxQueued == 0 or (fw.muxQueued == nil and fw.muxDiscrete)
+  if fw.hasDgpu and nextDgpuOff ~= wantDgpuOff then
+    setGpuSwitch("dgpu_disable", wantDgpuOff and 1 or 0)
+  end
+  if fw.hasMux and nextDiscrete ~= wantDiscrete then
+    setGpuSwitch("gpu_mux_mode", wantDiscrete and 0 or 1)
+  end
 end
 
 function ACTIONS.keyboardBrightness(value)
