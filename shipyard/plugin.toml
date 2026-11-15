@@ -1,0 +1,83 @@
+id = "ishan0121/shipyard"
+name = "Docker & Podman Shipyard"
+version = "1.0.0"
+plugin_api = 43
+author = "Ishan0121"
+license = "GPL-3.0"
+icon = "ship"
+description = "Unified Docker and Podman manager for Wayland: compose stacks, atomic containers, and asset pruning."
+tags = ["development", "system", "utility", "panel"]
+dependencies = ["docker"]
+
+# --- Plugin Settings ---
+[[setting]]
+key = "daemon_type"
+type = "select"
+label_key = "settings.daemon_type.label"
+description_key = "settings.daemon_type.description"
+default = "docker"
+options = [
+  { value = "docker", label_key = "settings.daemon_type.docker" },
+  { value = "podman", label_key = "settings.daemon_type.podman" }
+]
+
+[[setting]]
+key = "compose_scan_dirs"
+type = "string_list"
+label_key = "settings.compose_scan_dirs.label"
+description_key = "settings.compose_scan_dirs.description"
+default = ["~/docker", "~/Projects", "~/compose", "~/Labs"]
+
+[[setting]]
+key = "refresh_interval"
+type = "int"
+label_key = "settings.refresh_interval.label"
+description_key = "settings.refresh_interval.description"
+default = 3
+min = 1
+max = 60
+
+[[setting]]
+key = "confirm_destructive"
+type = "bool"
+label_key = "settings.confirm_destructive.label"
+description_key = "settings.confirm_destructive.description"
+default = true
+
+# --- Entries ---
+[[service]]
+id = "daemon"
+entry = "service.luau"
+
+[[widget]]
+id = "shipyard"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "show_stats"
+  type = "bool"
+  label_key = "settings.widget.show_stats.label"
+  description_key = "settings.widget.show_stats.description"
+  default = true
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  label_key = "settings.widget.glyph.label"
+  description_key = "settings.widget.glyph.description"
+  default = "ship"
+
+[widget.actions]
+left = "panel-toggle ishan0121/shipyard:manager"
+
+[[panel]]
+id = "manager"
+entry = "panel.luau"
+width = 820
+height = 620
+placement = "floating"
+position = "center"
+
+[[shortcut]]
+id = "toggle"
+entry = "shortcut.luau"
