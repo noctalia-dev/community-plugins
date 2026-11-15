@@ -1,0 +1,134 @@
+{
+  "settings": {
+    "user_id": {
+      "label": "User ID",
+      "description": "Habitica User ID, sent as the x-api-user header. Find it under Settings → API."
+    },
+    "api_token": {
+      "label": "API Token",
+      "description": "Habitica API Token, sent as the x-api-key header. It is stored in Noctalia plugin settings."
+    },
+    "refresh_interval": {
+      "label": "Refresh interval",
+      "description": "How often to sync with Habitica, in seconds."
+    },
+    "max_dailies": {
+      "label": "Dailies shown",
+      "description": "Maximum number of due dailies in the panel."
+    },
+    "max_todos": {
+      "label": "Todos shown",
+      "description": "Maximum number of open todos in the panel."
+    },
+    "notification_badge": {
+      "label": "Show notification badge",
+      "description": "Show the pending count on the bar widget."
+    },
+    "show_habits": {
+      "label": "Show habits",
+      "description": "Add a Habits section with up and down scoring."
+    },
+    "max_habits": {
+      "label": "Habits shown",
+      "description": "Maximum number of habits in the panel."
+    },
+    "show_checklist": {
+      "label": "Show checklist items",
+      "description": "Show dailies and todos checklists, and let them be scored."
+    },
+    "tag_filter": {
+      "label": "Enable tag filtering",
+      "description": "Only show tasks that carry the selected Habitica tag."
+    },
+    "selected_tag": {
+      "label": "Selected Tag ID",
+      "description": "Habitica tag UUID. Leave empty to show every task."
+    },
+    "colorization": {
+      "label": "Enable colorization",
+      "description": "Apply theme colors to the bar icon and pending count."
+    },
+    "icon_color": {
+      "label": "Icon color"
+    },
+    "badge_color": {
+      "label": "Badge color"
+    },
+    "badge_text_color": {
+      "label": "Badge text color"
+    }
+  },
+  "colors": {
+    "none": "None",
+    "primary": "Primary",
+    "secondary": "Secondary",
+    "tertiary": "Tertiary",
+    "error": "Error",
+    "on_error": "On error"
+  },
+  "widget": {
+    "configure": "Habitica\nConfigure User ID and API Token",
+    "error": "Habitica\nError: {error}",
+    "loading": "Habitica\nLoading…",
+    "player": "Player",
+    "level": "Level {level}",
+    "level_unknown": "Level --",
+    "hp": "{hp} HP",
+    "xp": "{exp} / {next} XP",
+    "xp_total": "{exp} XP",
+    "gold": "{gold} gold",
+    "summary": "{dailies} dailies · {todos} todos",
+    "updated_now": "Updated just now",
+    "updated_hours": "Updated {n}h ago",
+    "actions_hint": "Left-click to open · Right-click to refresh",
+    "refresh_requested": "Refreshing Habitica",
+    "updated_mins": "Updated {n}m ago"
+  },
+  "panel": {
+    "health": "Health",
+    "experience": "Experience",
+    "mana": "Mana",
+    "gold": "Gold",
+    "rate": "Rate",
+    "refresh": "Refresh Habitica",
+    "close": "Close",
+    "credentials_required": "Credentials required",
+    "credentials_description": "Add your Habitica User ID and API Token under Settings → Plugins → Habitica.",
+    "loading": "Loading Habitica…",
+    "loading_description": "Fetching your profile and active tasks.",
+    "today": "Today",
+    "no_dailies": "No due dailies.",
+    "todos": "Todos",
+    "no_todos": "No open todos.",
+    "habits": "Habits",
+    "no_habits": "No habits to show.",
+    "complete": "Complete task",
+    "score_up": "Score up",
+    "score_up_disabled": "Score up is disabled for this habit",
+    "score_down": "Score down",
+    "score_down_disabled": "Score down is disabled for this habit",
+    "toggle_checklist": "Toggle checklist item",
+    "untitled": "Untitled task",
+    "not_configured": "Habitica is not configured.",
+    "tag_filtered": "Tag filter: {tag}",
+    "updated": "Updated {time}",
+    "unknown_tag": "unknown tag",
+    "notes": "Notes",
+    "open_settings": "Open plugin settings"
+  },
+  "task": {
+    "difficulty": "difficulty {n}",
+    "streak": "streak {n}",
+    "value": "value {n}",
+    "tone_high_risk": "high risk",
+    "tone_weak": "weak",
+    "tone_neutral": "neutral",
+    "tone_steady": "steady",
+    "tone_strong": "strong"
+  },
+  "toast": {
+    "refreshing": "Refreshing Habitica",
+    "score_failed": "Could not score task: {error}",
+    "configure": "Configure Habitica credentials in plugin settings"
+  }
+}

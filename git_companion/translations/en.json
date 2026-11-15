@@ -2,8 +2,7 @@
   "panel": {
     "bin_missing": "{bin} is not installed. Install it to use this plugin.",
     "fetch_failed": "{bin} could not fetch your items:",
-    "gitea_ctx_failed": "Could not prepare tea's working directory. Is git installed?",
-    "gitea_login_missing": "No matching tea login. Run `tea login add` to sign in to your Gitea instance.",
+    "gitea_auth_missing": "gt is not signed in to your Gitea instance. Run `gt auth login`.",
     "gitlab_scope_missing": "Set a Repository or Group in settings to view your items.",
     "last_update": "Last update",
     "last_update_placeholder": "...",
@@ -19,8 +18,7 @@
   },
   "service": {
     "bin_missing": "{bin} is not installed.",
-    "gitea_ctx_failed": "Could not prepare tea's working directory.",
-    "gitea_login_missing": "No matching tea login. Run `tea login add`.",
+    "gitea_auth_missing": "gt is not signed in. Run `gt auth login`.",
     "gitlab_scope_missing": "GitLab requires a repo or group scope in settings.",
     "merge_status": {
       "ci_must_pass": "Pipeline failed on {ref}",
@@ -62,12 +60,8 @@
       "description": "Add reviews to the PR/MR count in the bar. The tooltip always lists both.",
       "label": "Count Code Reviews with PRs/MRs"
     },
-    "gitea_login": {
-      "description": "Name of the tea login to use, as shown by `tea login list`. Leave empty for tea's default login.",
-      "label": "Gitea Login"
-    },
     "group": {
-      "description": "Filter by group (GitLab) or owner (GitHub). Leave empty to use repo.",
+      "description": "Filter by group (GitLab) or owner (GitHub, Gitea). Leave empty to use repo.",
       "label": "Group / Owner"
     },
     "notify_mr_changes_requested": {
@@ -87,7 +81,7 @@
       "label": "Notify: Pipeline Failed"
     },
     "platform": {
-      "description": "Choose between GitHub or GitLab.",
+      "description": "Choose GitHub, GitLab or Gitea.",
       "label": "Platform",
       "options": {
         "gitea": "Gitea",
@@ -100,7 +94,7 @@
       "label": "Refresh Interval (seconds)"
     },
     "repo": {
-      "description": "e.g. owner/repo (GitHub) or project path (GitLab). Leave empty to use group/owner.",
+      "description": "e.g. owner/repo (GitHub, Gitea) or project path (GitLab). Leave empty to use group/owner.",
       "label": "Repository"
     },
     "show_issues": {
@@ -112,7 +106,7 @@
       "label": "Show PRs/MRs tab"
     },
     "show_reviews": {
-      "description": "Show the tab listing open pull/merge requests awaiting your review. Not available on Gitea.",
+      "description": "Show the tab listing open pull/merge requests awaiting your review.",
       "label": "Show Code Review tab"
     }
   },

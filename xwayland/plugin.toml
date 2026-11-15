@@ -5,8 +5,8 @@
 
 id = "tordex/xwayland"
 name = "XWayland Indicator"
-version = "1.0.0"
-plugin_api = 28
+version = "1.1.0"
+plugin_api = 45
 author = "tordex"
 license = "MIT"
 dependencies = ["umbriel"]
@@ -37,6 +37,13 @@ entry = "bar.luau"
   type = "bool"
   label_key = "settings.hide_on_wayland.label"
   description_key = "settings.hide_on_wayland.description"
+  default = true
+
+  [[widget.setting]]
+  key = "indicate_focused_only"
+  type = "bool"
+  label_key = "settings.indicate_focused_only.label"
+  description_key = "settings.indicate_focused_only.description"
   default = true
 
 [[service]]

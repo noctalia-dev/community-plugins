@@ -1,5 +1,5 @@
 # Compositor helpers, sourced by focus.sh / launch.sh. Supports Hyprland (classic and Lua-config
-# dispatch syntax), niri and sway; elsewhere every helper fails and the caller falls back.
+# dispatch syntax), niri, sway and Umbriel; elsewhere every helper fails and the caller falls back.
 
 # Pick from a JSON array of {pid, title, key, recent} candidates: prefer an exact title match,
 # then the most recently focused. Prints the key.
@@ -18,6 +18,9 @@ wm_windows() {
     swaymsg -t get_tree | jq -c '[.. | objects | select(.pid? and (.type == "con" or .type == "floating_con"))
       | {pid, title: .name, class: (.app_id // .window_properties.class // ""), key: (.id | tostring),
          recent: (if .focused then 0 else 1 end)}]'
+  elif [ -n "$UMBRIEL_SOCKET" ]; then
+    umbriel windows --json | jq -c 'map({pid, title, class: .app_id, key: .id,
+      recent: (if .focused then 0 else 1 end)})'
   else
     return 1
   fi
@@ -33,6 +36,8 @@ wm_focus_key() {
     niri msg action focus-window --id "$1" >/dev/null
   elif [ -n "$SWAYSOCK" ]; then
     swaymsg "[con_id=$1] focus" >/dev/null
+  elif [ -n "$UMBRIEL_SOCKET" ]; then
+    umbriel msg window-focus "$1" >/dev/null
   else
     return 1
   fi

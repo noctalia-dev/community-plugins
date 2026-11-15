@@ -1,0 +1,56 @@
+{
+  "settings": {
+    "active_color": {
+      "description": "Colore di riempimento delle capsule dei workspace attivi. Nome di un ruolo della palette (primary, secondary, tertiary...) o valore esadecimale.",
+      "label": "Colore workspace attivo"
+    },
+    "active_style": {
+      "description": "Mostra i workspace attivi come capsule piene del colore primario o come etichette trasparenti con testo primario.",
+      "label": "Stile workspace attivo"
+    },
+    "active_text_color": {
+      "description": "Colore dell'etichetta nelle capsule attive. Nome di un ruolo della palette o valore esadecimale.",
+      "label": "Colore testo workspace attivo"
+    },
+    "capsule_min_width": {
+      "description": "Lunghezza minima della capsula lungo l'asse della barra: larghezza nelle barre orizzontali, altezza in quelle verticali. I valori sotto 0 valgono 0.",
+      "label": "Lunghezza minima della capsula"
+    },
+    "capsule_padding": {
+      "description": "Spazio prima e dopo l'etichetta lungo l'asse della barra, in pixel logici. I valori sotto 0 valgono 0.",
+      "label": "Margine interno della capsula"
+    },
+    "capsule_radius": {
+      "description": "Raggio degli angoli di ogni capsula in pixel logici. I valori sotto 0 valgono 0.",
+      "label": "Raggio della capsula"
+    },
+    "font_size": {
+      "description": "Dimensione del carattere del nome del workspace. 0 usa quella di sistema.",
+      "label": "Dimensione carattere"
+    },
+    "hide_inactive": {
+      "description": "Nasconde i workspace speciali con finestre se non sono visibili su un monitor.",
+      "label": "Nascondi workspace inattivi"
+    },
+    "inactive_color": {
+      "description": "Colore di riempimento delle capsule dei workspace con finestre ma nascosti. Nome di un ruolo della palette o valore esadecimale.",
+      "label": "Colore workspace inattivo"
+    },
+    "inactive_style": {
+      "description": "Mostra i workspace inattivi come capsule piene del colore secondario o come etichette trasparenti con testo di superficie.",
+      "label": "Stile workspace inattivo"
+    },
+    "inactive_text_color": {
+      "description": "Colore dell'etichetta nelle capsule inattive. Nome di un ruolo della palette o valore esadecimale.",
+      "label": "Colore testo workspace inattivo"
+    },
+    "max_label_chars": {
+      "description": "Numero massimo di caratteri mostrati del nome di ogni workspace. 0 mostra il nome intero.",
+      "label": "Caratteri massimi dell'etichetta"
+    },
+    "style": {
+      "fill": "Pieno",
+      "ghost": "Trasparente"
+    }
+  }
+}

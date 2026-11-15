@@ -3,6 +3,8 @@
 import base64
 import hashlib
 import json
+import shutil
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -20,6 +22,18 @@ class ObsControlTests(unittest.TestCase):
                 client.ws.recv.return_value = json.dumps(message)
                 with self.assertRaisesRegex(TypeError, "Invalid OBS WebSocket"):
                     client.receive()
+
+    def test_nixos_wrapped_obs_counts_as_running(self):
+        # NixOS runs OBS through a wrapper whose process name is .obs-wrapped.
+        with tempfile.TemporaryDirectory() as tmp:
+            wrapped = Path(tmp) / ".obs-wrapped"
+            shutil.copy(shutil.which("sleep"), wrapped)
+            process = subprocess.Popen([wrapped, "30"])
+            try:
+                self.assertTrue(obs.obs_running())
+            finally:
+                process.kill()
+                process.wait()
 
     def test_malformed_owner_state_never_signals_a_process(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -3,9 +3,9 @@
 
 Stateless: each invocation opens RFCOMM, does its job, exits. No background
 daemon — the Luau service.luau drives polling via Noctalia's own scheduler.
-Wire protocol implemented from PROTOCOL.md (own clean-room spec,
-hardware-verified against a Nothing Ear (2)), not transliterated from any
-AGPL/GPL reference. See models.py for how other models are identified.
+Wire protocol implemented from PROTOCOL.md (own clean-room spec, mostly
+hardware-verified against a Nothing Ear (2); protocol.py marks what isn't),
+not transliterated from any AGPL/GPL reference. See models.py for how other models are identified.
 """
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ SPP_UUID = "aeac4a03-dff5-498f-843a-34487cf133eb"
 # "CMF Buds Pro" etc.) — scan_devices() only uses this to rank results and to
 # decide whether exactly one candidate is unambiguous; the user always sees
 # the full paired-device list and picks explicitly otherwise.
-NAME_HINTS = ("nothing ear", "cmf buds")
+NAME_HINTS = ("nothing ear", "cmf buds", "cmf headphone")
 
 CACHE_DIR = os.environ.get("XDG_RUNTIME_DIR", "/tmp")
 STATE_FILE = os.path.join(CACHE_DIR, "nothing_ear_state.json")
@@ -182,12 +182,24 @@ def discover_channel(address: str) -> int:
         raise sdp_error(e) from e
 
 
+def bluez_disconnected(address: str) -> bool:
+    """Only the device-level line counts: BlueZ 5.88+ also lists
+    "BREDR.Connected:" and "LE.Connected:", and dual-mode headphones on
+    classic Bluetooth report "LE.Connected: no" while connected."""
+    return re.search(r"^\s*Connected: no\s*$", _run(["bluetoothctl", "info", address]), re.M) is not None
+
+
 def require_link(address: str) -> None:
     """Paging earbuds that aren't connected to this computer blocks for ~8 s
     and ends in "Host is down" anyway. BlueZ already knows, so ask it first;
     if bluetoothctl can't say, just try."""
-    if "Connected: no" in _run(["bluetoothctl", "info", address]):
+    if bluez_disconnected(address):
         raise CtlError("not_connected", "precheck", "BlueZ reports the earbuds as not connected")
+
+
+def bluez_name(address: str) -> str | None:
+    match = re.search(r"^\s*Name: (.+)$", _run(["bluetoothctl", "info", address]), re.M)
+    return match.group(1).strip() if match else None
 
 
 def connect(address: str) -> socket.socket:
@@ -253,34 +265,98 @@ def gather(
     return found
 
 
-def read_state(address: str, lock_wait: float = 0.0) -> dict:
+def cached_model(address: str) -> dict | None:
+    """The model found on an earlier poll of this same device, if its
+    descriptor is complete and the model was actually recognised."""
+    cached = read_cached()
+    model = cached.get("model")
+    if cached.get("address") != address or not isinstance(model, dict):
+        return None
+    if model.get("base") is None or "eq" not in model:
+        return None
+    descriptor = m.describe(model["base"])
+    if descriptor.get("battery_single") and model.get("eq") in ("classic", "listening"):
+        descriptor["eq"] = model["eq"]
+        descriptor["eq_presets"] = m._presets(m.HEADPHONE_EQ[model["eq"]])
+    if "model_id" in model:
+        descriptor["model_id"] = model["model_id"]
+    return descriptor
+
+
+def identify_model(sock: socket.socket, address: str, raw: bytearray) -> dict:
+    # Asked on its own first, because which reads follow depends on the answer.
+    sock.send(p.build_frame(p.MODEL_READ, seq=10))
+    sock.send(p.build_frame(p.SERIAL_READ, seq=6))
+    frames = gather(sock, {p.MODEL_RESP}, timeout=1.5, optional={p.SERIAL_RESP}, raw=raw)
+    model_id = p.parse_model(frames[p.MODEL_RESP].payload) if p.MODEL_RESP in frames else None
+    serial = p.parse_serial(frames[p.SERIAL_RESP].payload) if p.SERIAL_RESP in frames else None
+    model = m.identify(model_id, serial, bluez_name(address))
+    if model_id:
+        model["model_id"] = model_id
+    return model
+
+
+# reply -> (state key, parser); a parser returning None leaves the key out.
+_READS = {
+    p.BATTERY_RESP: ("battery", p.parse_battery),
+    p.ANC_RESP: ("anc", p.parse_anc),
+    p.EQ_PRESET_RESP: ("eq_preset", p.parse_eq_preset),
+    p.LISTENING_MODE_RESP: ("eq_preset", p.parse_eq_preset),
+    p.FIRMWARE_RESP: ("firmware", p.parse_firmware),
+    p.LATENCY_RESP: ("latency_mode", p.parse_latency),
+    p.PERSONAL_ANC_RESP: ("personal_anc", p.parse_personal_anc),
+    p.SOUND_PROFILE_RESP: ("sound_profile", p.parse_sound_profile),
+    p.BASS_RESP: ("bass", p.parse_bass),
+}
+# Pushes the buds send unprompted carry the same payload as the reply, so
+# one arriving during the read stands in for a reply that didn't.
+_PUSH_FOR = {p.BATTERY_RESP: p.BATTERY_PUSH, p.ANC_RESP: p.ANC_PUSH}
+
+
+def read_state(address: str, lock_wait: float = 0.0, identify: bool = False) -> dict:
     # The model doesn't change between polls, so only spend a round-trip on
     # it once per device and carry the result forward from the disk cache.
-    cached_model = read_cached().get("model")
-    need_serial = not (isinstance(cached_model, dict) and cached_model.get("base") is not None)
+    model = None if identify else cached_model(address)
     raw = bytearray()
 
     with channel_lock(wait=lock_wait):
         sock = connect(address)
         try:
-            sock.send(p.build_frame(p.BATTERY_READ, seq=1))
-            sock.send(p.build_frame(p.ANC_READ, seq=2))
-            sock.send(p.build_frame(p.EQ_PRESET_READ, seq=3))
-            sock.send(p.build_frame(p.FIRMWARE_READ, seq=4))
-            sock.send(p.build_frame(p.LATENCY_READ, seq=5))
-            sock.send(p.build_frame(p.PERSONAL_ANC_READ, seq=7))
-            sock.send(p.build_frame(p.SOUND_PROFILE_READ, seq=8))
-            sock.send(p.build_frame(p.SOUND_PROFILE_ID_READ, seq=9))
-            wanted = {p.BATTERY_RESP, p.ANC_RESP, p.EQ_PRESET_RESP, p.FIRMWARE_RESP, p.LATENCY_RESP}
-            if need_serial:
-                sock.send(p.build_frame(p.SERIAL_READ, seq=6))
-                wanted.add(p.SERIAL_RESP)
-            optional = {p.PERSONAL_ANC_RESP, p.SOUND_PROFILE_RESP, p.SOUND_PROFILE_ID_RESP}
+            if model is None:
+                model = identify_model(sock, address, raw)
+            reads = [p.BATTERY_READ, p.ANC_READ, p.FIRMWARE_READ, p.LATENCY_READ]
+            wanted = {p.BATTERY_RESP, p.ANC_RESP, p.FIRMWARE_RESP, p.LATENCY_RESP}
+            optional = set()
+            if model.get("battery_single"):
+                # References disagree for B175. Probe both families; never
+                # choose a write command from the model name alone.
+                reads += [p.EQ_PRESET_READ, p.LISTENING_MODE_READ]
+                optional |= {p.EQ_PRESET_RESP, p.LISTENING_MODE_RESP}
+            elif model["eq"] == "classic":
+                reads.append(p.EQ_PRESET_READ)
+                wanted.add(p.EQ_PRESET_RESP)
+            elif model["eq"] == "listening":
+                reads.append(p.LISTENING_MODE_READ)
+                wanted.add(p.LISTENING_MODE_RESP)
+            # Not waited for: models without these features may never answer,
+            # and leaving the key out is what hides the toggle in the panel.
+            if not model.get("battery_single"):
+                optional |= {p.PERSONAL_ANC_RESP, p.SOUND_PROFILE_RESP, p.SOUND_PROFILE_ID_RESP}
+                reads += [p.PERSONAL_ANC_READ, p.SOUND_PROFILE_READ, p.SOUND_PROFILE_ID_READ]
+            if model["bass"]:
+                reads.append(p.BASS_READ)
+                optional.add(p.BASS_RESP)
+            for seq, cmd in enumerate(reads, start=1):
+                sock.send(p.build_frame(cmd, seq=seq))
             frames = gather(sock, wanted, optional=optional, raw=raw)
         except OSError as e:
             raise os_error(e, "read", reply=raw.hex(" ")) from e
         finally:
             sock.close()
+
+    for resp, push in _PUSH_FOR.items():
+        if resp not in frames and push in frames:
+            frames[resp] = frames[push]
 
     if not (wanted | optional) & frames.keys():
         # Connected, but nothing we asked for came back: most likely a model
@@ -294,31 +370,50 @@ def read_state(address: str, lock_wait: float = 0.0) -> dict:
             frames_seen=[f"{cmd:04x}" for cmd in frames],
         )
 
-    state: dict = {"connected": True, "updated_at": time.time()}
-    if p.BATTERY_RESP in frames:
-        state["battery"] = p.parse_battery(frames[p.BATTERY_RESP].payload)
-    if p.ANC_RESP in frames:
-        state["anc"] = p.parse_anc(frames[p.ANC_RESP].payload)
-    if p.EQ_PRESET_RESP in frames:
-        state["eq_preset"] = p.parse_eq_preset(frames[p.EQ_PRESET_RESP].payload)
-    if p.FIRMWARE_RESP in frames:
-        state["firmware"] = p.parse_firmware(frames[p.FIRMWARE_RESP].payload)
-    if p.LATENCY_RESP in frames:
-        state["latency_mode"] = p.parse_latency(frames[p.LATENCY_RESP].payload)
-    # Not waited for: models without these features may never answer, and
-    # leaving the key out is what hides the toggle in the panel.
-    if p.PERSONAL_ANC_RESP in frames:
-        state["personal_anc"] = p.parse_personal_anc(frames[p.PERSONAL_ANC_RESP].payload)
-    if p.SOUND_PROFILE_RESP in frames and p.SOUND_PROFILE_ID_RESP in frames:
-        # Without a hearing-test profile saved from the app there's nothing to switch on.
-        if p.has_sound_profile(frames[p.SOUND_PROFILE_ID_RESP].payload):
-            state["sound_profile"] = p.parse_sound_profile(frames[p.SOUND_PROFILE_RESP].payload)
+    if model.get("battery_single"):
+        candidates = []
+        for family, resp in (("classic", p.EQ_PRESET_RESP), ("listening", p.LISTENING_MODE_RESP)):
+            allowed = {index for index, _ in m.HEADPHONE_EQ[family]}
+            if resp in frames and p.parse_eq_preset(frames[resp].payload) in allowed:
+                candidates.append(family)
+        model["eq"] = candidates[0] if len(candidates) == 1 else "probe"
+        model["eq_presets"] = m._presets(m.HEADPHONE_EQ[candidates[0]]) if len(candidates) == 1 else []
 
-    if need_serial and p.SERIAL_RESP in frames:
-        serial = p.parse_serial(frames[p.SERIAL_RESP].payload)
-        state["model"] = m.identify(serial)
-    elif isinstance(cached_model, dict):
-        state["model"] = cached_model
+    state: dict = {"connected": True, "updated_at": time.time(), "address": address, "model": model}
+    if model.get("battery_single"):
+        state["eq_probe"] = {
+            f"{resp:04x}": frames[resp].payload.hex(" ") if resp in frames else None
+            for resp in (p.EQ_PRESET_RESP, p.LISTENING_MODE_RESP)
+        }
+    # Replies whose payload didn't parse, kept for a bug report instead of
+    # failing the whole read over one setting.
+    unparsed: dict[str, str] = {}
+    for resp, (key, parse) in _READS.items():
+        if resp not in frames:
+            continue
+        if resp == p.SOUND_PROFILE_RESP:
+            # Without a hearing-test profile saved from the app there's nothing to switch on.
+            profile_id = frames.get(p.SOUND_PROFILE_ID_RESP)
+            if profile_id is None or not p.has_sound_profile(profile_id.payload):
+                continue
+        if model.get("battery_single") and key == "eq_preset":
+            expected = {"classic": p.EQ_PRESET_RESP, "listening": p.LISTENING_MODE_RESP}.get(model["eq"])
+            if resp != expected:
+                continue
+        payload = frames[resp].payload
+        try:
+            value = parse(payload)
+            if model.get("battery_single") and key == "bass":
+                if len(payload) < 2 or payload[0] not in (0, 1) or payload[1] not in (0, 2, 4, 6, 8, 10):
+                    value = None
+        except (IndexError, ValueError):
+            value = None
+        if value is None:
+            unparsed[f"{resp:04x}"] = payload.hex(" ")
+        else:
+            state[key] = value
+    if unparsed:
+        state["unparsed"] = unparsed
 
     with open(STATE_FILE + ".tmp", "w") as f:
         json.dump(state, f)
@@ -348,7 +443,7 @@ def write_anc(address: str, mode: str, strength: str | None) -> dict:
                 current = gather(sock, {p.ANC_RESP}, timeout=1.5)
                 strength = "adaptive"
                 if p.ANC_RESP in current:
-                    now = p.parse_anc(current[p.ANC_RESP].payload)
+                    now = p.parse_anc(current[p.ANC_RESP].payload) or {}
                     if now.get("mode") == "anc" and now.get("strength"):
                         strength = now["strength"]
             mode_byte = p.anc_mode_to_byte(mode, strength)
@@ -359,24 +454,55 @@ def write_anc(address: str, mode: str, strength: str | None) -> dict:
         finally:
             sock.close()
     result = {"ok": True}
-    if p.ANC_RESP in frames:
+    if p.ANC_RESP in frames and p.parse_anc(frames[p.ANC_RESP].payload) is not None:
         result["anc"] = p.parse_anc(frames[p.ANC_RESP].payload)
     return result
 
 
 def write_eq(address: str, preset: int) -> dict:
+    model = cached_model(address) or m.describe(None)
+    if preset not in (entry["index"] for entry in model["eq_presets"]):
+        raise CtlError("bad_value", "set-eq", f"preset {preset} isn't one this model has")
+    if model["eq"] == "listening":
+        write_cmd, read_cmd, resp = p.LISTENING_MODE_WRITE, p.LISTENING_MODE_READ, p.LISTENING_MODE_RESP
+    else:
+        write_cmd, read_cmd, resp = p.EQ_PRESET_WRITE, p.EQ_PRESET_READ, p.EQ_PRESET_RESP
     with channel_lock(wait=WRITE_LOCK_WAIT):
         sock = connect(address)
         try:
-            sock.send(p.build_frame(p.EQ_PRESET_WRITE, p.eq_preset_write_payload(preset), seq=1))
-            gather(sock, {p.EQ_PRESET_WRITE & 0x7FFF}, timeout=1.5)
-            sock.send(p.build_frame(p.EQ_PRESET_READ, seq=2))
-            frames = gather(sock, {p.EQ_PRESET_RESP}, timeout=1.5)
+            sock.send(p.build_frame(write_cmd, p.eq_preset_write_payload(preset), seq=1))
+            gather(sock, {write_cmd & 0x7FFF}, timeout=1.5)
+            sock.send(p.build_frame(read_cmd, seq=2))
+            frames = gather(sock, {resp}, timeout=1.5)
         finally:
             sock.close()
     result = {"ok": True}
-    if p.EQ_PRESET_RESP in frames:
-        result["eq_preset"] = p.parse_eq_preset(frames[p.EQ_PRESET_RESP].payload)
+    if resp in frames and p.parse_eq_preset(frames[resp].payload) is not None:
+        result["eq_preset"] = p.parse_eq_preset(frames[resp].payload)
+    return result
+
+
+def write_bass(address: str, level: int) -> dict:
+    """level 0 turns bass boost off (keeping the last level), 1-5 turns it on."""
+    if not 0 <= level <= 5:
+        raise CtlError("bad_value", "set-bass", f"level {level} is outside 0-5")
+    if not (cached_model(address) or {}).get("bass"):
+        raise CtlError("bad_value", "set-bass", "this model has no bass boost")
+    current = read_cached().get("bass") or {}
+    enabled = level > 0
+    wire_level = level if enabled else max(1, min(5, current.get("level") or 1))
+    with channel_lock(wait=WRITE_LOCK_WAIT):
+        sock = connect(address)
+        try:
+            sock.send(p.build_frame(p.BASS_WRITE, p.bass_write_payload(enabled, wire_level), seq=1))
+            gather(sock, {p.BASS_WRITE & 0x7FFF}, timeout=1.5)
+            sock.send(p.build_frame(p.BASS_READ, seq=2))
+            frames = gather(sock, {p.BASS_RESP}, timeout=1.5)
+        finally:
+            sock.close()
+    result = {"ok": True}
+    if p.BASS_RESP in frames and p.parse_bass(frames[p.BASS_RESP].payload) is not None:
+        result["bass"] = p.parse_bass(frames[p.BASS_RESP].payload)
     return result
 
 
@@ -391,7 +517,7 @@ def write_latency(address: str, enabled: bool) -> dict:
         finally:
             sock.close()
     result = {"ok": True}
-    if p.LATENCY_RESP in frames:
+    if p.LATENCY_RESP in frames and p.parse_latency(frames[p.LATENCY_RESP].payload) is not None:
         result["latency_mode"] = p.parse_latency(frames[p.LATENCY_RESP].payload)
     return result
 
@@ -407,7 +533,7 @@ def write_personal_anc(address: str, enabled: bool) -> dict:
         finally:
             sock.close()
     result = {"ok": True}
-    if p.PERSONAL_ANC_RESP in frames:
+    if p.PERSONAL_ANC_RESP in frames and p.parse_personal_anc(frames[p.PERSONAL_ANC_RESP].payload) is not None:
         result["personal_anc"] = p.parse_personal_anc(frames[p.PERSONAL_ANC_RESP].payload)
     return result
 
@@ -423,7 +549,7 @@ def write_sound_profile(address: str, enabled: bool) -> dict:
         finally:
             sock.close()
     result = {"ok": True}
-    if p.SOUND_PROFILE_RESP in frames:
+    if p.SOUND_PROFILE_RESP in frames and p.parse_sound_profile(frames[p.SOUND_PROFILE_RESP].payload) is not None:
         result["sound_profile"] = p.parse_sound_profile(frames[p.SOUND_PROFILE_RESP].payload)
     return result
 
@@ -534,7 +660,7 @@ def refine(e: CtlError, address: str | None) -> CtlError:
         return e
     if "Powered: no" in _run(["bluetoothctl", "show"]):
         e.code = "bt_off"
-    elif "Connected: no" in _run(["bluetoothctl", "info", address]):
+    elif bluez_disconnected(address):
         e.code = "not_connected"
     return e
 
@@ -597,12 +723,20 @@ def diagnose(address: str | None, last_error: str | None) -> dict:
         rows.append(("cached channel", str(cached_channel(address))))
 
         try:
-            state = read_state(address, lock_wait=WRITE_LOCK_WAIT)
+            # Identify the model afresh, so a wrong cached one shows up here.
+            state = read_state(address, lock_wait=WRITE_LOCK_WAIT, identify=True)
             got = sorted(k for k in state if k not in ("connected", "updated_at"))
             rows.append(("read", "ok: " + ", ".join(got)))
             model = state.get("model") or {}
-            rows.append(("model", f"{model.get('name')} ({model.get('base')})"))
+            rows.append(("model", f"{model.get('name')} ({model.get('base')}, id {model.get('model_id')})"))
             rows.append(("firmware", str(state.get("firmware"))))
+            if model.get("battery_single"):
+                rows.append(("EQ family", str(model.get("eq"))))
+                rows.append(("EQ probe", json.dumps(state.get("eq_probe"))))
+                rows.append(("battery", json.dumps(state.get("battery"))))
+                rows.append(("bass", json.dumps(state.get("bass"))))
+            for cmd, payload in (state.get("unparsed") or {}).items():
+                rows.append(("unparsed " + cmd, payload or "(empty)"))
         except CtlError as e:
             rows += [("read" + (" " + k if k else ""), v) for k, v in describe_error(e.to_dict())]
         except Exception as e:  # noqa: BLE001 - a report should never fail to produce
@@ -621,6 +755,7 @@ NEEDS_MAC = {
     "set-latency",
     "set-personal-anc",
     "set-sound-profile",
+    "set-bass",
     "cycle-anc",
 }
 
@@ -638,6 +773,7 @@ def main() -> None:
             "set-latency",
             "set-personal-anc",
             "set-sound-profile",
+            "set-bass",
             "cycle-anc",
             "diag",
         ],
@@ -667,6 +803,8 @@ def main() -> None:
             result = write_personal_anc(args.mac, args.value in ("1", "true", "on", "yes"))
         elif args.command == "set-sound-profile":
             result = write_sound_profile(args.mac, args.value in ("1", "true", "on", "yes"))
+        elif args.command == "set-bass":
+            result = write_bass(args.mac, int(args.value))
         elif args.command == "cycle-anc":
             result = cycle_anc(args.mac)
         elif args.command == "diag":

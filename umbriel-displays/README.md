@@ -14,7 +14,9 @@ includes: a change applies live and is already persistent, with nothing to save.
 
 ## Requirements
 
-- [Umbriel](https://github.com/noctalia-dev/umbriel), with `umbriel` on `PATH`.
+- [Umbriel](https://github.com/noctalia-dev/umbriel), with `umbriel` on `PATH`
+  and support for the `output-enable` action.
+- Noctalia plugin API 48 or newer, for native Umbriel actions and sleep callbacks.
 - Two minutes of setup below, done once.
 
 ## Install
@@ -59,9 +61,9 @@ position = [0, 0]
 scale = 1.0
 ```
 
-`umbriel outputs` prints the `Config name` for each display; use the connector,
-`eDP-1` above, for one that reports no serial. The file is created on the first
-change if you have nothing to move.
+`umbriel outputs` prints the `Config name` for each display. Use the connector
+when all identity fields are blank or connected displays have identical
+identities. The file is created on the first change if you have nothing to move.
 
 Done. The plugin owns `outputs.toml` from here, and there is no output config
 left to edit by hand.
@@ -114,8 +116,9 @@ however many there are, rather than the window growing.
 
 ## Notes
 
-- **Files written.** Only the file named by `outputs_path`. Sections are
-  rewritten in place, and keys the plugin does not manage are preserved.
+- **Files written.** Explicit panel edits write the file named by `outputs_path`.
+  Sections are rewritten in place, and keys the plugin does not manage are
+  preserved. The watchdog never writes display configuration.
 - **Keyed to the display, not the port.** A section is named
   `<make> <model> <serial>`, with `Unknown` filling any field the display leaves
   blank, which is the form Umbriel matches. Settings then follow the monitor
@@ -125,26 +128,31 @@ however many there are, rather than the window growing.
   the same three and would answer to one name while both are attached. A section
   found under a connector moves to the monitor name on the next write, carrying
   its settings.
-- **Processes spawned.** `umbriel outputs --json` on panel open, on Refresh and
-  on a hotplug event, and `umbriel config validate` once per change. There is no
-  polling and no network access.
+- **Processes spawned.** `umbriel outputs --json` on panel open, on Refresh,
+  at service startup, on hotplug and on resume, and `umbriel config validate`
+  once per change. There is no
+  polling and no network access. Queries execute the CLI directly without a
+  shell. Emergency enablement uses Noctalia's native Umbriel IPC, with no process.
 - **Nothing lands unvalidated.** A change is written to a candidate file beside
   the target and handed to `umbriel config validate` first; only a config the
   running compositor accepts is renamed into place. A key your Umbriel is too
   old for is named back to you and the live file is left alone, so the plugin
   stays usable on an older build than the one it was written against.
-- **Never dark.** The `watchdog` service takes `onOutputsChanged`. If no
-  connected display is enabled, which happens when you turn one off and then
-  unplug the other, it turns the best survivor back on, preferring the internal
-  panel. It also relays out the arrangement whenever a display returns, since
-  the returning display would otherwise reclaim a position the others have since
-  been packed into and the two would overlap. Both surfaces refuse to turn off
-  the last enabled display.
+- **Never dark.** The `watchdog` service takes `onOutputsChanged`. If connected
+  displays exist but none is enabled, it temporarily enables the best survivor
+  through Umbriel, preferring the internal panel. Saved `enabled = false`
+  settings remain intact. Umbriel retains temporary enablement across reconnects
+  within the same session, until a changed output policy reapplies configuration.
+  The service pauses during suspend and queries again on resume. An empty output
+  list, including during KVM switching, never triggers recovery. Both surfaces
+  refuse to turn off the last enabled display.
 - **Limitations.** No mirroring: Umbriel cannot clone an output. Displays are
   edge to edge within each row, and rows are centered, so a deliberate custom
   pixel offset has to be written by hand. Positions are normalised so the
   top-left of the arrangement sits at `0, 0`; Umbriel accepts negative
   coordinates, but the origin carries no meaning, so a hand-written negative
-  layout is rewritten to the equivalent one. Disabling an output is a config
-  decision by design, since
-  Umbriel rejects protocol requests that disable one.
+  layout is rewritten to the equivalent one on a panel edit. Hotplug alone does
+  not repack or save the arrangement: a config rewrite would clear Umbriel's
+  temporary output overrides. If returning displays overlap, use the arrangement
+  panel to place them. Panel enablement changes are persistent; external
+  output-management tools and Umbriel output actions can make temporary changes.

@@ -37,8 +37,12 @@ local function render()
 		return
 	end
 
+	local noiseControl = snapshot.noise_control ~= false
 	local mode = snapshot.noise_mode or "off"
-	if mode == "anc" then
+	if not noiseControl then
+		barWidget.setGlyph("headphones")
+		barWidget.setGlyphColor("default")
+	elseif mode == "anc" then
 		barWidget.setGlyph("shield-check")
 		barWidget.setGlyphColor("primary")
 	elseif mode == "transparency" then
@@ -65,10 +69,13 @@ local function render()
 
 	local tooltipRows = {
 		{ key = noctalia.tr("widget.device"), value = snapshot.model_name or snapshot.device_name or noctalia.tr("panel.title") },
-		{ key = noctalia.tr("widget.mode"), value = getModeName(mode) },
 	}
 
-	if mode == "transparency" and snapshot.ambient_level ~= nil then
+	if noiseControl then
+		table.insert(tooltipRows, { key = noctalia.tr("widget.mode"), value = getModeName(mode) })
+	end
+
+	if noiseControl and mode == "transparency" and snapshot.ambient_level ~= nil then
 		table.insert(tooltipRows, { key = noctalia.tr("panel.ambient_level"), value = tostring(snapshot.ambient_level) })
 	end
 
@@ -78,7 +85,9 @@ local function render()
 	end
 
 	table.insert(tooltipRows, { key = noctalia.tr("widget.action.left_click"), value = noctalia.tr("widget.action.open_controls") })
-	table.insert(tooltipRows, { key = noctalia.tr("widget.action.right_click"), value = noctalia.tr("widget.action.cycle_noise") })
+	if noiseControl then
+		table.insert(tooltipRows, { key = noctalia.tr("widget.action.right_click"), value = noctalia.tr("widget.action.cycle_noise") })
+	end
 
 	barWidget.setTooltip(tooltipRows)
 end

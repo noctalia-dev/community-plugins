@@ -398,6 +398,19 @@ local function goBackRow(parent, subtitle)
   }
 end
 
+-- Path-scoped id: Noctalia restores the previous selection by id, so a stable
+-- "back:<parent>" would steal the first keystroke. The query still navigates.
+local function createBackRow(path)
+  local parent = parentOf(path)
+  return {
+    id = "createback:" .. path,
+    query = parent ~= "" and (parent .. "/") or " ",
+    title = tr("result.go-back"),
+    subtitle = path ~= "" and path or tr("action.new"),
+    glyph = "arrow-left",
+  }
+end
+
 local function fragments(search)
   local frags = {}
   for f in search:lower():gmatch("%S+") do
@@ -1024,7 +1037,7 @@ end
 -- can't be created. Stale callbacks are dropped on `lastQuery`.
 local function showCreateMenu(text, rest)
   local path = trim(rest)
-  local backRow = goBackRow(parentOf(path), path ~= "" and path or tr("action.new"))
+  local backRow = createBackRow(path)
 
   if path == "" or path:sub(-1) == "/" then
     launcher.setResults(text, {
@@ -1035,7 +1048,6 @@ local function showCreateMenu(text, rest)
   end
 
   launcher.setResults(text, {
-    backRow,
     {
       id = "create-go",
       query = "+!" .. path .. " ",
@@ -1043,6 +1055,7 @@ local function showCreateMenu(text, rest)
       subtitle = path,
       glyph = "plus",
     },
+    backRow,
   })
 
   noctalia.runAsync({ "test", "-e", storeDir() .. "/" .. path .. ".gpg" }, function(res)
@@ -1057,14 +1070,16 @@ local function showCreateMenu(text, rest)
       noctalia.log("launcher-pass: existence check for '" .. path .. "' failed (exit "
         .. tostring(res.exitCode) .. (res.timedOut and ", timed out" or "") .. ")")
     end
+    -- Keep the status row first too: the user is still editing this path, and
+    -- Enter on the inert row re-asserts the query instead of backing out.
     launcher.setResults(text, {
-      backRow,
       {
         id = taken and "create-exists" or "create-error",
         title = tr(taken and "action.create-exists" or "action.create-error"),
         subtitle = path,
         glyph = "alert-triangle",
       },
+      backRow,
     })
   end)
 end
@@ -1073,19 +1088,21 @@ end
 -- editable menu; "Create entry now" is a newrun:<path> row onActivate hands to
 -- newEntry. Static rows, no subprocess here.
 local function renderCreateConfirmRows(path)
+  -- Create first for the same preselection reason: the user reached this view
+  -- through the "Create entry" row, so Enter should confirm rather than cancel.
   return {
+    {
+      id = "newrun:" .. path,
+      title = tr("action.create-confirm"),
+      subtitle = path,
+      glyph = "alert-triangle",
+    },
     {
       id = "create-cancel",
       query = "+" .. path .. " ",
       title = tr("action.create-cancel"),
       subtitle = tr("action.create-cancel-desc"),
       glyph = "arrow-left",
-    },
-    {
-      id = "newrun:" .. path,
-      title = tr("action.create-confirm"),
-      subtitle = path,
-      glyph = "alert-triangle",
     },
   }
 end
@@ -1837,6 +1854,9 @@ function onActivate(id)
     launcher.setQuery(rest .. "/")
   elseif kind == "back" then
     launcher.setQuery(rest ~= "" and (rest .. "/") or " ")
+  elseif kind == "createback" then
+    local parent = parentOf(rest)
+    launcher.setQuery(parent ~= "" and (parent .. "/") or " ")
   elseif kind == "entry" then
     -- Trailing space: detail mode is ":<path> <filter>", so the just-opened
     -- state is ":<path> " with an empty filter, ready for the user to type a

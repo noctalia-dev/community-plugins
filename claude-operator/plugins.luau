@@ -9,163 +9,22 @@
 -- ~/.claude/skills (hand-copied, or a symlink from a skills installer):
 -- those are listed from disk and can only be removed, never updated.
 -- ~/.claude/skills/synced is claude.ai's own sync bucket and stays hidden.
+--
+-- Running the CLI is plugins-cli.luau; where a plugin or marketplace lives on the
+-- web, and the newest version its clone offers, is plugins-links.luau.
 
 local shared = require("./shared.luau")
+local actions = require("./actions.luau")
+local cli = require("./plugins-cli.luau")
+local links = require("./plugins-links.luau")
+local isName, trim, outcomeMessage, logFailure = cli.isName, cli.trim, cli.outcomeMessage, cli.logFailure
+local cliArgv, runCli, CLI_TIMEOUT = cli.cliArgv, cli.runCli, cli.CLI_TIMEOUT
+local webUrl, readJson, marketplaceUrl, pluginUrl = links.webUrl, links.readJson, links.marketplaceUrl, links.pluginUrl
+local catalogEntry, latestVersion, localSkillUrl, skillLock = links.catalogEntry, links.latestVersion, links.localSkillUrl, links.skillLock
 local M = {}
 
 local LOCAL_SKILLS_DIR = noctalia.expandPath("~/.claude/skills")
 M.LOCAL_SKILLS_DIR = LOCAL_SKILLS_DIR
-
--- Install/update fetch over git; the host caps a command at 60s anyway.
-local CLI_TIMEOUT = 60000
-
--- Safe folder/plugin/marketplace name: also what keeps a newline-forged or
--- "-"-leading record out of an argv list.
-local function isName(s)
-    return type(s) == "string" and s:match("^[%w_][%w._-]*$") ~= nil
-end
-
-local function trim(s)
-    return (s:gsub("^%s+", ""):gsub("%s+$", ""))
-end
-
--- One-line human outcome of a --json run: the JSON's message, else the
--- first stderr line. Also returns the decoded JSON line, when there is one.
-local function outcomeMessage(result)
-    local last = nil
-    for line in (result.stdout or ""):gmatch("[^\n]+") do
-        last = line
-    end
-    local data = last and noctalia.json.decode(last)
-    if type(data) ~= "table" then data = nil end
-    if data and type(data.message) == "string" and data.message ~= "" then
-        return data.message, data
-    end
-    -- A success with nothing to say: the caller says "done".
-    if result.exitCode == 0 then return "", data end
-    local err = (result.stderr or ""):match("[^\n]+")
-    if err then return err, data end
-    -- Nothing said: at least say how it ended.
-    if result.timedOut then return "timed out", data end
-    return result.exitCode == 127 and "claude not found" or `exit {result.exitCode}`, data
-end
-
--- Logged with the command, so a failure on someone else's machine can be traced.
-local function logFailure(args, message)
-    noctalia.log(`claude-operator: claude plugin {table.concat(args, " ")}: {message}`)
-end
-
--- `claude plugin <args>` with stdin on /dev/null. noctalia's own stdin is whatever it
--- was started from (a login tty, when launched from a console), and claude waits for
--- input there until it closes, so every listing would hang until the timeout.
-local function cliArgv(args)
-    local argv = { "bash", "-c", 'exec "$@" </dev/null', "bash", shared.claudeBin() or "claude", "plugin" }
-    for _, a in ipairs(args) do
-        table.insert(argv, a)
-    end
-    return argv
-end
-
-local function runCli(args, done)
-    local argv = cliArgv(args)
-    local ok = noctalia.runAsync(argv, function(result)
-        if type(result) ~= "table" then
-            done(false, "")
-            return
-        end
-        local message, data = outcomeMessage(result)
-        message = trim(message)
-        if result.exitCode ~= 0 then logFailure(args, message) end
-        done(result.exitCode == 0, message, data)
-    end, CLI_TIMEOUT)
-    if not ok then
-        logFailure(args, "could not start")
-        done(false, "could not start claude")
-    end
-end
-
--- ── project links ────────────────────────────────────────────────────────
--- Only plain http(s) URLs ever reach xdg-open.
-
-local function webUrl(s)
-    if type(s) ~= "string" then
-        return nil
-    end
-    s = s:gsub("^git%+", ""):gsub("%.git$", "")
-    return s:match("^https?://[^%s]+$")
-end
-
-local function readJson(path)
-    local text = noctalia.readFile(path)
-    return type(text) == "string" and noctalia.json.decode(text) or nil
-end
-
-local function marketplaceUrl(m)
-    if m.source == "github" and type(m.repo) == "string" and m.repo:match("^[%w_.-]+/[%w_.-]+$") then
-        return "https://github.com/" .. m.repo
-    end
-    return webUrl(m.url)
-end
-
--- The plugin's own repository/homepage, else where its marketplace entry
--- points (a sub-folder of the marketplace repo, or a repo of its own),
--- else the marketplace itself.
-local function pluginUrl(p, entry, market)
-    local manifest = type(p.installPath) == "string" and readJson(p.installPath .. "/.claude-plugin/plugin.json")
-    if type(manifest) == "table" then
-        local repo = manifest.repository
-        local url = webUrl(type(repo) == "table" and repo.url or repo) or webUrl(manifest.homepage)
-        if url then
-            return url
-        end
-    end
-    local src = entry and entry.source
-    if type(src) == "table" then
-        return marketplaceUrl({ source = src.source, repo = src.repo, url = src.url }) or market.url
-    end
-    local path = type(src) == "string" and src:match("^%./(.*)$")
-    if path and path ~= "" and market.url and market.url:match("^https://github%.com/") then
-        return market.url .. "/tree/HEAD/" .. path:gsub("/$", "")
-    end
-    return market.url
-end
-
--- The plugin's entry in its marketplace's local clone, or nil.
-local function catalogEntry(market, name)
-    if market.catalog == nil then
-        local data = market.installLocation and readJson(market.installLocation .. "/.claude-plugin/marketplace.json")
-        market.catalog = type(data) == "table" and type(data.plugins) == "table" and data.plugins or {}
-    end
-    for _, entry in ipairs(market.catalog) do
-        if type(entry) == "table" and entry.name == name then
-            return entry
-        end
-    end
-    return nil
-end
-
--- Newest version the marketplace clone offers: the catalog entry's own
--- `version`, else the plugin.json inside the clone. "" when the plugin
--- lives in another repo (object source): that would need a fetch per plugin.
-local function latestVersion(entry, market)
-    if entry == nil then
-        return ""
-    end
-    if type(entry.version) == "string" then
-        return entry.version
-    end
-    local path = type(entry.source) == "string" and entry.source:match("^%./(.*)$")
-    local dir = path and market.installLocation and (market.installLocation .. "/" .. path):gsub("/+$", "")
-    local manifest = dir and readJson(dir .. "/.claude-plugin/plugin.json")
-    return type(manifest) == "table" and type(manifest.version) == "string" and manifest.version or ""
-end
-
--- Repo of a bare skill installed by the `skills` CLI (it keeps a lock file).
-local skillLock = noctalia.expandPath("~/.agents/.skill-lock.json")
-local function localSkillUrl(lock, name)
-    local entry = type(lock) == "table" and type(lock.skills) == "table" and lock.skills[name]
-    return type(entry) == "table" and webUrl(entry.sourceUrl) or nil
-end
 
 function M.openUrl(url)
     if webUrl(url) == nil or not noctalia.runAsync({ "xdg-open", url }) then
@@ -174,7 +33,7 @@ function M.openUrl(url)
 end
 
 function M.available()
-    return shared.claudeBin() ~= nil
+    return actions.claudeBin() ~= nil
 end
 
 -- Classifies what the user typed in the install box:

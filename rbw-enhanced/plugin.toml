@@ -6,11 +6,11 @@
 
 id = "rylos/rbw-enhanced"
 name = "rbw-enhanced"
-version = "1.1.2"
+version = "1.1.3"
 plugin_api = 43
 author = "Marco Ziliani"
 license = "MIT"
-dependencies = ["rbw"]
+dependencies = ["rbw-enhanced"]
 tags = ["bar", "panel", "service", "privacy", "utility"]
 icon = "lock"
 description = "Bitwarden vault status for rbw-enhanced: see if it is unlocked, then unlock, lock, sync or open rbw tui."

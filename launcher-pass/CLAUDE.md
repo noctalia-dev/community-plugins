@@ -44,9 +44,12 @@ Re-checked against noctalia `main` @ `47945ec` (2026-10-18, `plugin_api` 34): st
 
 ### List item preselection
 
-In every menu where the `Go Back` button is shown, the second item (the one after the back button) should be preselected at the submenu entry.
+Menus with a `Go Back` row put the primary action first, because Noctalia always
+preselects row 0 and has no API to request another row.
 
-The current noctalia plugin api does not provide a way to do so, it should be implemented as soon as the plugin interface adds a method to preselect launcher list entries.
+The host preserves the previous selection by id `back:<path>` across refreshes, so
+the creation menu's back row uses a path-scoped `createback:<path>` id to keep it
+from stealing that selection.
 
 ### Settings grouping
 
@@ -445,9 +448,9 @@ Its own `+` prefix (never produced by browsing), `+!` for the confirm step
   `create-hint` / `create-exists` / `create-error` are inert: activating one
   does nothing but re-assert `lastQuery` via `setQuery`, so the host keeps the
   creation menu open instead of closing the launcher.
-- `onQuery` `+!<path>` → `renderCreateConfirmRows(path)`: **Cancel** (`query`
-  back to `"+"..path.." "`, the editable menu) and **"Create entry now"**
-  (`newrun:<path>`). Static rows.
+- `onQuery` `+!<path>` → `renderCreateConfirmRows(path)`: **"Create entry now"**
+  (`newrun:<path>`) and **Cancel** (`query` back to `"+"..path.." "`, the editable
+  menu). Static rows.
 - `onActivate` `newrun:<path>` → `newEntry(path)`: re-`trim`s and rejects an
   empty / trailing-`/` path (`notification.create-failed`). Then repeats the
   `test -e <storeDir>/<path>.gpg` guard as a TOCTOU safety net (and for a

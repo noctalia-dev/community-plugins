@@ -1,12 +1,10 @@
 --!nonstrict
--- Helpers shared by the widget, panel and launcher: formatting, the pace model and the
--- actions a session card or launcher result can take. No state of its own.
+-- Helpers shared by the widget, panel and launcher: paths, formatting, the pace model and
+-- accounts. No state of its own. The actions a card or result can take are in actions.luau.
 --
 -- pace and planName are ported from jrohland/noctalia-v5-claudecode via claude-cockpit
--- (MIT); focus, launch and resume from claude-sessions (lfdominguez, MIT).
+-- (MIT).
 local M = {}
-local PLUGIN = noctalia.pluginDir()
-local SCRIPTS = PLUGIN .. "/scripts"
 local HOME = noctalia.getenv("HOME") or ""
 local DEFAULT_DIR = HOME .. "/.claude"
 
@@ -263,98 +261,6 @@ function M.multiAccount(accounts) return #accounts > 1 end
 function M.accountLabel(accounts, dir)
   for _, a in ipairs(accounts) do if a.dir == dir then return a.label end end
   return dir and (string.match(dir, "([^/]+)$") or dir) or "default"
-end
-
--- ── Actions ─────────────────────────────────────────────────────────────────
-
-function M.quote(s) return "'" .. string.gsub(s, "'", "'\\''") .. "'" end
-
--- The claude binary. Noctalia's environment often lacks the user's shell PATH, so look
--- where the installers put it: native (~/.local/bin), the older local install
--- (~/.claude/local), npm with a user prefix (~/.npm-global/bin), bun, and /usr/local.
-function M.claudeBin()
-  if noctalia.commandExists("claude") then return "claude" end
-  for _, p in ipairs({ HOME .. "/.local/bin/claude", HOME .. "/.claude/local/claude",
-    HOME .. "/.npm-global/bin/claude", HOME .. "/.bun/bin/claude", "/usr/local/bin/claude" }) do
-    if noctalia.fileExists(p) then return p end
-  end
-  return nil
-end
-
--- argv running claude (plus args) under the given account.
-function M.claudeArgv(account, ...)
-  local argv = {}
-  if account and account ~= DEFAULT_DIR then argv = { "env", "CLAUDE_CONFIG_DIR=" .. account } end
-  argv[#argv + 1] = M.claudeBin() or "claude"
-  for _, a in ipairs({ ... }) do argv[#argv + 1] = a end
-  return argv
-end
-
-function M.open(target) return noctalia.runAsync({ "xdg-open", target }) end
-
--- Brings the session's terminal to the front (the exact kitty tab with kitty remote
--- control, the exact pane in tmux). A Remote Control session with no window, e.g. a
--- headless `claude remote-control`, opens on claude.ai instead; anything else says why
--- nothing happened.
-function M.focus(s)
-  noctalia.runAsync({ "bash", SCRIPTS .. "/focus.sh", tostring(s.pid) }, function(r)
-    if r.exitCode == 0 then return end
-    if s.remote then
-      M.open(s.remote)
-    else
-      noctalia.notify("Claude Operator", "Could not find this session's window. Window focus works on Hyprland, "
-        .. "niri, sway and Umbriel; inside tmux it needs an attached client.")
-    end
-  end, 10000)
-end
-
--- A configured terminal is wired the way the host does it: `<term> -e sh -lc <cmd>`,
--- with `--` for the GTK terminals that need it.
-local function inTerminal(cmd)
-  local term = trim(noctalia.getConfig("terminal"))
-  if term == "" then return noctalia.runInTerminal(cmd) end
-  local bin = string.match(string.match(term, "^%S+") or term, "([^/]+)$") or term
-  local sep = (bin == "gnome-terminal" or bin == "kgx" or bin == "ptyxis") and "--" or "-e"
-  return noctalia.runAsync(term .. " " .. sep .. " sh -lc " .. M.quote(cmd))
-end
-
--- Runs argv (or a shell when empty) in dir: a new tab in the most recently focused kitty
--- when no terminal is configured and kitty remote control is on, else in a terminal.
-function M.launch(dir, argv)
-  argv = argv or {}
-  local function fallback()
-    local words = {}
-    for _, a in ipairs(argv) do words[#words + 1] = M.quote(a) end
-    local run = #words > 0 and table.concat(words, " ") or "exec \"${SHELL:-sh}\""
-    inTerminal(`cd {M.quote(dir)} && {run}`)
-  end
-  if trim(noctalia.getConfig("terminal")) ~= "" then return fallback() end
-  local cmd = { "bash", SCRIPTS .. "/launch.sh", dir }
-  for _, a in ipairs(argv) do cmd[#cmd + 1] = a end
-  if not noctalia.runAsync(cmd, function(r) if r.exitCode ~= 0 then fallback() end end, 15000) then fallback() end
-end
-
-function M.resume(account, cwd, sid) M.launch(cwd, M.claudeArgv(account, "--resume", sid)) end
-
-function M.resumeCommand(account, cwd, sid)
-  local env = account and account ~= DEFAULT_DIR and `CLAUDE_CONFIG_DIR={M.quote(account)} ` or ""
-  return `cd {M.quote(cwd)} && {env}claude --resume {sid}`
-end
-
--- The configured editor, else the first of code / zed that is installed. No $EDITOR
--- fallback: that is usually a terminal editor, which fails without a tty.
-function M.openInEditor(path)
-  local configured = trim(noctalia.getConfig("editor_command"))
-  local bin = configured ~= "" and configured
-    or noctalia.commandExists("code") and "code" or noctalia.commandExists("zed") and "zed" or nil
-  if not bin then
-    noctalia.notifyError("Claude Operator", "No editor found: set Editor command in the plugin settings.")
-    return false
-  end
-  local argv = {}
-  for word in string.gmatch(bin, "%S+") do argv[#argv + 1] = word end
-  argv[#argv + 1] = path
-  return noctalia.runAsync(argv)
 end
 
 -- Ask the service to refresh everything now (the panel's refresh button).

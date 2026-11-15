@@ -36,13 +36,14 @@ PRICING='{}'
 transcript_stats() {
     jq -c -R -n --argjson price "$PRICING" '
         reduce (inputs | fromjson? | select(type == "object")) as $o (
-            { usage: {}, model: "", ctx: 0, title: "", prompt: "", branch: "", mode: "" };
+            { usage: {}, model: "", ctx: 0, title: "", custom: "", prompt: "", branch: "", mode: "" };
             if $o.type == "assistant" and ($o.message.usage | type) == "object" then
                 ($o.message.usage) as $u
                 | .usage[($o.message.id // ($o.uuid // ""))] = { model: ($o.message.model // ""), u: $u }
                 | .model = ($o.message.model // .model)
                 | .ctx = (($u.input_tokens // 0) + ($u.cache_read_input_tokens // 0) + ($u.cache_creation_input_tokens // 0))
             elif $o.type == "ai-title" then .title = ($o.aiTitle // .title)
+            elif $o.type == "custom-title" then .custom = ($o.customTitle // .custom)
             elif $o.type == "last-prompt" then .prompt = ($o.lastPrompt // .prompt)
             elif $o.type == "permission-mode" then .mode = ($o.permissionMode // .mode)
             else . end
@@ -50,7 +51,7 @@ transcript_stats() {
         )
         | . as $s
         | {
-            title: .title, lastPrompt: .prompt, model: .model, contextTokens: .ctx,
+            title: (if .custom != "" then .custom else .title end), lastPrompt: .prompt, model: .model, contextTokens: .ctx,
             gitBranch: .branch, permissionMode: .mode,
             costUSD: (if ($price | length) == 0 then null else
                 ([ $s.usage[] | (.model | split("-") | if .[0] == "claude" then .[1] else .[0] end) as $f

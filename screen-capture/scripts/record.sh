@@ -153,6 +153,82 @@ default_resolution() {
 
 # ── webcam overlay ────────────────────────────────────────────────────────────
 
+# Pick a capture mode that actually runs at 30 fps. Matching "1280x720" is not
+# enough: many cameras expose that size only as YUYV at 10 fps (USB 2.0
+# bandwidth) and reach 30 fps through MJPG, which the V4L2 demuxer does not
+# select unless input_format says so. Parse the modes the device advertises and
+# print "FORMAT SIZE FPS"; prefer 1280x720 and 640x360, then any larger mode.
+choose_webcam_mode() {
+  local device="$1" out
+  out=$(v4l2-ctl --list-formats-ext -d "$device" 2>/dev/null) || return 1
+  [[ -n $out ]] || return 1
+
+  printf '%s\n' "$out" | awk '
+    /^[[:space:]]*\[[0-9]+\]:/ {
+      n = split($0, parts, "\047")
+      format = parts[2]
+      next
+    }
+    /Size: Discrete/ {
+      size = $NF
+      next
+    }
+    /Size: Stepwise/ {
+      for (i = 1; i <= NF; i++)
+        if ($i ~ /^[0-9]+x[0-9]+$/) size = $i
+      next
+    }
+    /Interval: Discrete/ {
+      n = split($0, parts, "(")
+      if (n < 2) next
+      split(parts[2], fields, " ")
+      fps = fields[1] + 0
+      if (format != "" && size != "" && fps > 0) print format, size, fps
+      next
+    }
+    /Interval: (Stepwise|Continuous)/ {
+      for (i = 1; i <= NF; i++)
+        if ($i ~ /^[0-9.]+s$/) {
+          seconds = substr($i, 1, length($i) - 1) + 0
+          break
+        }
+      if (format != "" && size != "" && seconds > 0) print format, size, 1 / seconds
+      next
+    }
+  ' | awk '
+    NF == 3 {
+      format = $1
+      size = $2
+      fps = $3 + 0
+      if (fps <= 0 || size !~ /^[0-9]+x[0-9]+$/) next
+      split(size, wh, "x")
+      area = (wh[1] + 0) * (wh[2] + 0)
+      if (size == "1280x720") resolution = 0
+      else if (size == "640x360") resolution = 1
+      else if (size == "640x480") resolution = 2
+      else resolution = 3
+      if (format == "MJPG") kind = 0
+      else if (format == "YUYV") kind = 1
+      else kind = 2
+      # A mode that reaches 30 fps wins over a sharper but slower one.
+      if (fps >= 29.5)
+        key = sprintf("0 %d %08.3f %d %010d", resolution, 1000 - fps, kind, 999999999 - area)
+      else
+        key = sprintf("1 %08.3f %d %d %010d", 1000 - fps, resolution, kind, 999999999 - area)
+      if (best == "" || key < best) {
+        best = key
+        chosen_format = format
+        chosen_size = size
+        chosen_fps = fps
+      }
+    }
+    END {
+      if (best != "")
+        printf "%s %s %d\n", chosen_format, chosen_size, chosen_fps + 0.5
+    }
+  '
+}
+
 start_webcam_overlay() {
   local target="${1:-}"
 
@@ -166,19 +242,24 @@ start_webcam_overlay() {
     return 1
   fi
 
-  # Prefer the highest 16:9 resolution the device actually offers.
-  local preferred=("1280x720" "640x360")
-  local capture_options="framerate=30"
-  local available
-  available=$(v4l2-ctl --list-formats-ext -d "$WEBCAM_DEVICE" 2>/dev/null)
-
-  local resolution
-  for resolution in "${preferred[@]}"; do
-    if echo "$available" | grep -q "$resolution"; then
-      capture_options="video_size=$resolution,$capture_options"
-      break
-    fi
-  done
+  # Ask for a mode the device actually runs at 30 fps. MJPG needs an explicit
+  # input_format: without it the V4L2 demuxer prefers raw YUYV and silently
+  # stays at 10 fps on cameras that only offer 720p raw.
+  local mode="" format size fps capture_options="framerate=30"
+  mode=$(choose_webcam_mode "$WEBCAM_DEVICE") || mode=""
+  if [[ -n $mode ]]; then
+    read -r format size fps <<<"$mode"
+    capture_options="video_size=$size,framerate=$fps"
+    case $format in
+    MJPG) capture_options+=",input_format=mjpeg" ;;
+    YUYV) capture_options+=",input_format=yuyv422" ;;
+    esac
+    log "webcam: $format $size at $fps fps"
+  else
+    # A transient query failure (busy node, permissions) must not break the
+    # overlay: let mpv open the device rather than guessing a size.
+    log "webcam: could not read formats from $WEBCAM_DEVICE; letting mpv choose"
+  fi
 
   # 8:9 portrait crop: the sensor is 16:9, a talking-head bubble is not.
   mpv "av://v4l2:$WEBCAM_DEVICE" \

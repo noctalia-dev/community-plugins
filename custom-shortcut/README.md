@@ -1,6 +1,6 @@
 # Custom Shortcut
 
-Add a custom centrol center tile. Choose the label, icon and command launched when clicked.
+Add a custom control center tile. Choose the label, icon and command launched when clicked.
 
 ## Plugin
 
@@ -23,4 +23,4 @@ Add the shortcut to your control center and configure it in the plugin settings.
 
 ## Notes
 
-The shortcut need a noctalia restart to appear.
+The shortcut might need a noctalia restart to appear, depending on the version.

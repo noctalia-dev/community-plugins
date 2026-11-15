@@ -3,6 +3,7 @@
 local SNAPSHOT_KEY = "audio_switcher_snapshot"
 local COMMAND_KEY = "audio_switcher_command"
 local RESULT_KEY = "audio_switcher_result"
+local PANEL_OPEN_KEY = "audio_switcher_panel_open"
 
 local snapshot = noctalia.state.get(SNAPSHOT_KEY) or {
   available = false,
@@ -485,8 +486,13 @@ function onOpen(_context)
   feedbackError = false
   groupingOutputs = false
   selectedGroupOutputs = {}
+  noctalia.state.set(PANEL_OPEN_KEY, true)
   sendCommand("refresh")
   render()
+end
+
+function onClose()
+  noctalia.state.set(PANEL_OPEN_KEY, false)
 end
 
 function onConfigChanged()

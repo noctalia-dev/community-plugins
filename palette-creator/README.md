@@ -85,7 +85,8 @@ found a way to make this instant.
   needs it out of the way to sample what's behind it.
 - Colors are normalized to plain 6-digit hex; Noctalia's palette format
   doesn't support per-role alpha.
-- Targets Noctalia 5.4+: the live-snapshot template reads the renamed
-  `surface_container` and `outline_variant` roles, which map to a palette's
-  `mSurfaceVariant` and `mOutline`.
+- Saves palettes in Noctalia's palette format 2 (`"version": 2`, keys named after
+  the color roles: `on_primary`, `surface_container`, terminal `selection_fg`), so it
+  needs a Noctalia release with plugin API 44. Older format 1 palettes
+  (`mOnPrimary`-style keys) still load in the editor.
 - No network access.

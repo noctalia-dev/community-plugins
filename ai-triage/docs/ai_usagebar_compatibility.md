@@ -9,7 +9,7 @@ separate from ordinary weekly urgency, with deadline/capacity regression coverag
 Version **1.7.4** suppresses false early-renewal notices when rolling 7-day windows
 (such as OpenAI Codex) clear usage or wake up idle at 0% with unanchored `now + 7d` deadlines.
 
-Checked on 2026-10-23 against the latest published release,
+The original audit was checked on 2026-10-23 against the then-current release,
 [v1.43.0](https://github.com/akitaonrails/ai-usagebar/releases/tag/v1.43.0),
 commit `d1af986`. Installed shell: Noctalia v5.3.0.
 
@@ -19,13 +19,41 @@ rate-limit backoff. The plugin consumes the report without modifying credentials
 See upstream's [report projection](https://github.com/akitaonrails/ai-usagebar/blob/v1.43.0/src/report.rs)
 and [Antigravity CLI deadlines](https://github.com/akitaonrails/ai-usagebar/blob/v1.43.0/src/antigravity/agy.rs).
 
+## Factory Droid and the 1.44 catalog in 1.8.1
+
+Reviewed 2026-10-27 with installed ai-usagebar 1.44.0 and Noctalia 5.4.0.
+Droid (`droid`) is the sole added provider relative to the recorded 1.43 catalog.
+The selector and all three shipped translations now include it, with a robot
+glyph and a [Factory App](https://app.factory.ai/) dashboard link. The 1.44 fixture
+records the 31 built-in IDs/names; the strict mismatch check remains in place
+for future additions/removals. The 1.43 fixture stays as historical evidence.
+
+The CLI continues to own Droid authentication and data access. It is opt-in:
+use an existing official `droid` login on Linux and `[droid] enabled = true` in
+the ai-usagebar configuration. Choosing a capsule does not enable it. No plugin
+credentials, additional requests, kickstart command or account changes were added.
+
+Tests exercise pinning Droid rather than a preceding Codex entry, glyph and
+Factory link resolution, Standard 5-hour/weekly percentages, supplementary
+monthly/Core sections, and successful report publication through the actual
+poller and mocked bar/panel hosts. The twelve existing Lua suites, both extra
+Brussels timezone checks, strict installed catalog/translations/process checks,
+plugin lint and Noctalia config validation pass. Droid is unconfigured on this
+machine, so this is source/contract and synthetic-rendering coverage, not a
+claim of an authenticated Factory response or complete monthly/Core feature parity.
+
+Sources: [1.44 release](https://github.com/akitaonrails/ai-usagebar/releases/tag/v1.44.0),
+[provider metadata](https://github.com/akitaonrails/ai-usagebar/blob/v1.44.0/src/vendor.rs),
+[Droid projection](https://github.com/akitaonrails/ai-usagebar/blob/v1.44.0/src/tui/panels.rs),
+[Factory usage documentation](https://docs.factory.ai/pricing/individuals).
+
 ## Findings and corrections
 
 | Area | Verified behavior |
 | --- | --- |
 | Commands and exit codes | `usage --json` remains valid. Complete reports are accepted with individual provider errors; a timed-out process never publishes its partial stdout. Missing commands and refused spawns clear the busy state. |
 | Long queries | Upstream permits 90 seconds for a cold `agy` quota read. Noctalia caps `runAsync` at 60 seconds, so the poller now uses `runStream` with coreutils `timeout`, a completion marker and a configurable 180-second overall deadline. Deadlines terminate the CLI process group. |
-| Provider catalog | All 30 IDs from `ai-usagebar vendors --json` are selectable and have glyphs, links and labels in all shipped locales. `gemini` and `claude-oss` remain plugin aliases for Antigravity model groups. |
+| Provider catalog | All 31 IDs from `ai-usagebar vendors --json` are selectable and have glyphs, links and labels in all shipped locales. `gemini` and `claude-oss` remain plugin aliases for Antigravity model groups. |
 | Grouped metrics | Claude's `group: Sessions` context windows and other grouped breakdowns do not exhaust an account's quota or fill an absent weekly window. |
 | Partial quotas | A weekly-only response stays weekly-only; two session metrics do not fabricate a weekly quota. Missing windows render as `Not reported`, and weekly-only tooltips contain no `nil` prefix. |
 | Amounts and balances | `headline: value` is honored by the capsule and tooltip. Existing balance-only providers remain supported. |
@@ -211,7 +239,7 @@ The twelve Lua suites pass, including real credit deadlines, availability budget
 weekly renewal observations, 22 diagnostic
 classification cases, visible recovery guidance, clipboard actions, automatic-bar failures and recovery after
 a successful read. The Python check compares the installed provider
-catalog with the recorded 1.43.0 catalog and the manifest/translations. It also
+catalog with the recorded 1.44.0 catalog and the manifest/translations. It also
 executes the poller's actual shell command with isolated fake CLI processes to
 check success, failure and timeout markers. With `--live`, it queries configured
 providers and feeds their actual JSON document through the poller and mocked

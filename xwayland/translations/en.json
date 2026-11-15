@@ -1,11 +1,16 @@
 {
   "error": {
+    "stream_closed": "Umbriel connection closed; retrying.",
     "stream_failed": "Could not start `umbriel subscribe workspaces`."
   },
   "settings": {
     "hide_on_wayland": {
       "description": "Hide the bar widget on a Wayland windows is focused.",
       "label": "Hide on Wayland window"
+    },
+    "indicate_focused_only": {
+      "description": "Only indicate the focused window. When off indicate any XWayland window present",
+      "label": "Indicate focused only"
     },
     "wayland_glyph": {
       "description": "Glyph for Wayland windows",
@@ -15,5 +20,9 @@
       "description": "Glyph for XWayland windows",
       "label": "XWayland glyph"
     }
+  },
+  "tooltip": {
+    "no_xwayland_windows": "No XWayland windows are open",
+    "xwayland_windows": "XWayland windows"
   }
 }

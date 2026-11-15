@@ -1,0 +1,157 @@
+# Reaction - heads-up sticker overlay with a sound.
+#
+#   sticker  [[panel]]   fallback surface, self-closing (see below)
+#   trigger  [[service]] always on: owns the trigger path and warms the cache
+#   tile     [[widget]]  bar button: left click shows, right click dismisses
+#
+# Trigger it from anywhere (keybind, script, another plugin):
+#
+#   noctalia msg plugin miixz/reaction:service all trigger
+#
+# The sticker is normally drawn by bin/reaction-overlay.py: a companion process
+# that creates a transparent layer-shell surface, so the image floats above
+# windows with no theme card behind it. The [[panel]] entry is the fallback for
+# systems without the python3 + GTK3 + gtk-layer-shell stack: a plugin panel
+# always paints the theme's rounded card (Noctalia has no decoration-less
+# panel), which is exactly what the overlay exists to avoid.
+
+id          = "miixz/reaction"
+name        = "Reaction"
+version     = "0.4.0"
+plugin_api  = 30
+author      = "miixz"
+license     = "MIT"
+icon        = "photo"
+description = "Shows a sticker image or animated GIF with a sound as a heads-up overlay, then closes itself."
+tags        = ["panel", "bar", "service", "animation", "audio", "fun"]
+
+# ffmpeg (or ImageMagick) measures animated GIFs; the transparent overlay needs
+# python3 with GTK3 and gtk-layer-shell. Without the python stack the plugin
+# falls back to the panel entry, which shows the theme's card.
+dependencies = ["ffmpeg", "python3", "python-gobject", "gtk-layer-shell"]
+
+# Plugin-level settings: shared by the panel, the trigger service and the bar
+# tile, and edited under Settings -> Plugins.
+
+[[setting]]
+key             = "sticker_path"
+type            = "file"
+extensions      = [".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif"]
+label_key       = "settings.sticker_path.label"
+description_key = "settings.sticker_path.description"
+default         = ""
+
+# Optional: when set, the plugin chooses one supported image from this folder
+# on each trigger instead of always using sticker_path. sticker_path still acts
+# as a fallback when the folder is empty or unset.
+[[setting]]
+key             = "sticker_dir"
+type            = "folder"
+label_key       = "settings.sticker_dir.label"
+description_key = "settings.sticker_dir.description"
+default         = ""
+
+[[setting]]
+key             = "sticker_selection"
+type            = "select"
+label_key       = "settings.sticker_selection.label"
+description_key = "settings.sticker_selection.description"
+default         = "random"
+options = [
+  { value = "random",    label_key = "settings.sticker_selection.random" },
+  { value = "sequential", label_key = "settings.sticker_selection.sequential" },
+]
+
+# Declared here on purpose: the shell injects its own position field for panel
+# entries (sticker_position), and the settings editor hides that one when the
+# manifest already declares the same key. This way the single control drives
+# both the transparent overlay and the panel fallback, and the trigger service
+# can read it with noctalia.getConfig - injected fields never reach services.
+[[setting]]
+key             = "sticker_position"
+type            = "select"
+label_key       = "settings.sticker_position.label"
+description_key = "settings.sticker_position.description"
+default         = "center"
+options = [
+  { value = "top_left",      label_key = "settings.sticker_position.top_left" },
+  { value = "top_center",    label_key = "settings.sticker_position.top_center" },
+  { value = "top_right",     label_key = "settings.sticker_position.top_right" },
+  { value = "center_left",   label_key = "settings.sticker_position.center_left" },
+  { value = "center",        label_key = "settings.sticker_position.center" },
+  { value = "center_right",  label_key = "settings.sticker_position.center_right" },
+  { value = "bottom_left",   label_key = "settings.sticker_position.bottom_left" },
+  { value = "bottom_center", label_key = "settings.sticker_position.bottom_center" },
+  { value = "bottom_right",  label_key = "settings.sticker_position.bottom_right" },
+  { value = "auto",          label_key = "settings.sticker_position.auto" },
+]
+
+[[setting]]
+key             = "sound_path"
+type            = "file"
+extensions      = [".wav", ".ogg", ".mp3", ".opus", ".flac"]
+label_key       = "settings.sound_path.label"
+description_key = "settings.sound_path.description"
+default         = ""
+
+[[setting]]
+key             = "size_px"
+type            = "int"
+label_key       = "settings.size_px.label"
+description_key = "settings.size_px.description"
+default         = 420
+min             = 64
+max             = 420
+
+[[setting]]
+key             = "opacity"
+type            = "double"
+label_key       = "settings.opacity.label"
+description_key = "settings.opacity.description"
+default         = 1.0
+min             = 0.1
+max             = 1.0
+
+[[setting]]
+key             = "hold_ms"
+type            = "int"
+label_key       = "settings.hold_ms.label"
+description_key = "settings.hold_ms.description"
+default         = 2500
+min             = 200
+max             = 20000
+advanced        = true
+
+[[setting]]
+key             = "extra_ms"
+type            = "int"
+label_key       = "settings.extra_ms.label"
+description_key = "settings.extra_ms.description"
+default         = 250
+min             = 0
+max             = 5000
+advanced        = true
+
+# The overlay itself: floating, centered, above fullscreen windows, and with no
+# keyboard focus so it never steals input from the application in use.
+[[panel]]
+id                       = "sticker"
+entry                    = "panel.luau"
+placement                = "floating"
+position                 = "center"
+layer                    = "overlay"
+keyboard_focus           = "none"
+dismiss_on_outside_click = false
+persistent               = true
+width                    = 448
+height                   = 448
+
+# Owns the trigger path for the whole session.
+[[service]]
+id    = "service"
+entry = "service.luau"
+
+# Bar tile. Left click shows the sticker, right click dismisses it.
+[[widget]]
+id    = "tile"
+entry = "widget.luau"

@@ -13,6 +13,7 @@
       "transparency": "Ambient Sound"
     },
     "noise_control": "Noise Control",
+    "noise_control_unavailable": "Noise control isn't available for this model (MDR V1).",
     "status": {
       "connected": "Connected",
       "disconnected": "Not Connected"

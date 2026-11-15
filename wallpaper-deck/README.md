@@ -1,25 +1,19 @@
 # Wallpaper Deck
 
-A native Noctalia wallpaper picker inspired by Magic: The Gathering cards, featuring Material 3 dynamic color extraction, tiered coverflow navigation, multi-monitor targeting, and Wallhaven search integration.
-
-![Wallpaper Deck Preview](./thumbnail.webp)
+A native Noctalia v5 wallpaper picker inspired by Magic: The Gathering cards, featuring Material 3 dynamic color extraction, tiered coverflow navigation, multi-monitor targeting, and Wallhaven search integration.
 
 ## Plugin
 
 | Field | Value |
 | --- | --- |
 | ID | `ishan0121/wallpaper-deck` |
+| Version | `1.3.1` |
 | Entries | Bar widget: `bar`; panel: `picker`; shortcut: `toggle`; service: `service` |
 
 ## Requirements
 
-The plugin works out of the box with native Luau scanning. For enhanced features, the following optional tools are supported:
-
-### Optional Tools
-
-- `matugen` - Generates Material 3 color palettes and dynamic contrast tokens from wallpapers.
-- `ffmpeg` or `imagemagick` - Generates cached thumbnails for faster rendering.
-- `swww` or `awww` - Alternative wallpaper daemons supported via the custom command setting.
+Install `ffmpeg` and `matugen` on `PATH` for thumbnail generation and dynamic Material 3 color extraction. Optional wallpaper tools:
+- `swww` or `awww` - Alternative wallpaper daemons if `backend_mode` is set to `custom`.
 
 ## Usage
 
@@ -48,17 +42,20 @@ Enable the `toggle` shortcut in Noctalia Settings or bind `noctalia msg panel-to
 | Key / Gesture | Action |
 | --- | --- |
 | `←` / `→` or `h` / `l` | Browse cards left / right |
-| `Mouse Wheel` | Scroll smoothly through the card deck |
-| `↑` / `↓` or `u` / `d` | Jump 5 cards |
-| `Enter` / `Return` | Apply selected wallpaper to active target monitor |
+| `Mouse Wheel` | Scroll smoothly through the card deck when hovering over the cards or lower card container |
+| `↑` / `↓` or `j` / `k` or `u` / `d` | Jump 5 cards |
+| `Page_Up` / `Page_Down` | Jump 5 cards |
+| `Enter` / `Return` | Trigger Wallhaven search when Wallhaven search input is focused; otherwise apply selected wallpaper |
 | `Space` | Toggle Peek mode (temporarily hides deck to inspect full wallpaper) |
+| `V` | Cycle background preview fit mode (`cover` -> `contain` -> `stretch`) |
 | `F` | Toggle favourite status on current wallpaper |
-| `S` | Cycle sort mode (`Name` -> `Colour` -> `Newest`) |
+| `S` | Cycle sort mode (`Name A-Z` -> `Name Z-A` -> `Colour` -> `Newest` -> `Oldest`) |
 | `R` | Jump to a random wallpaper |
-| `P` | Toggle hi-res preview in Wallhaven mode |
+| `P` | Toggle hi-res preview in Wallhaven mode (or Peek mode in Local/Favourites) |
+| `M` | Toggle target monitor selection menu |
 | `Tab` | Switch source tab (`Local` -> `Favourites` -> `Wallhaven`) |
 | `/` | Focus search filter bar |
-| `Esc` | Close picker panel (or close search input / monitor menu) |
+| `Esc` | Close picker panel (or close search input / monitor menu / peek mode) |
 | `Left Click (Card)` | Focus flanking card, or apply if already in center |
 | `Right Click (Apply)` | Toggle monitor selection dropdown |
 | `Click (Spectrum)` | Jump directly to that color position in the deck |
@@ -69,7 +66,7 @@ Configurable inside Noctalia Settings (**Settings** -> **Plugins** -> **Wallpape
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
-| `wallpaper_dir` | `folder` | `~/Pictures/wallpapers` | Primary directory scanned for wallpapers. |
+| `wallpaper_dir` | `folder` | `~/Pictures/Wallpapers` | Primary directory scanned for wallpapers. |
 | `extra_wallpaper_dir` | `folder` | `~/Pictures/WallHaven` | Additional secondary directory scanned for wallpapers. |
 | `include_wallhaven_downloads` | `bool` | `true` | Automatically includes the Wallhaven download directory in the local deck. |
 | `additional_wallpaper_dirs` | `string_list` | `[]` | List of extra directories to scan (add more using the '+' button in Settings). |
@@ -78,7 +75,9 @@ Configurable inside Noctalia Settings (**Settings** -> **Plugins** -> **Wallpape
 | `custom_command` | `string` | `swww img "{path}" --transition-type grow --transition-fps 60` | Shell command executed when `backend_mode` is set to `custom`. Supports `{path}` and `{output}`. |
 | `post_hook_command` | `string` | `""` | Optional shell hook executed after applying a wallpaper (e.g. `matugen image "{path}"`). |
 | `animate_selected_card` | `bool` | `true` | Enables subtle floating bobbing animation on the active center card. |
-| `visible_deck_cards` | `int` | `7` | Number of cards rendered simultaneously in the deck (3 to 11). |
+| `preview_fit` | `select` | `cover` | How the fullscreen background preview fits the panel (`cover`, `contain`, `stretch`). |
+| `scale_compensation` | `select` | `auto` | Controls how monitor HiDPI scaling is applied to panel preview dimensions (`auto`, `scaled`, `unscaled`). |
+| `panel_padding_offset` | `int` | `0` | Total horizontal/vertical inset subtracted for panel chrome and borders. |
 | `wallhaven_api_key` | `string` | `""` | Optional API key for Wallhaven (unlocks user collections and NSFW filters). |
 | `wallhaven_categories` | `string` | `"111"` | Wallhaven categories bitflag (General/Anime/People, e.g. 111). |
 | `wallhaven_purity` | `string` | `"100"` | Wallhaven purity bitflag (SFW/Sketchy/NSFW, e.g. 100 for SFW). |
@@ -90,7 +89,7 @@ Configurable inside Noctalia Settings (**Settings** -> **Plugins** -> **Wallpape
 
 ## IPC
 
-The picker panel can be opened, closed, or toggled via Noctalia's IPC interface:
+The picker panel and service can be triggered via Noctalia's IPC interface:
 
 ```sh
 # Toggle picker panel
@@ -101,11 +100,7 @@ noctalia msg panel-open ishan0121/wallpaper-deck:picker
 
 # Close picker panel
 noctalia msg panel-close ishan0121/wallpaper-deck:picker
+
+# Rescan wallpaper directories
+noctalia msg plugin ishan0121/wallpaper-deck:service all rescan
 ```
-
-## Notes
-
-- **Filesystem & Cache**: Cached thumbnails, Material 3 palettes, and favourites are stored in `~/.cache/wallpaper-deck/`.
-- **Processes**: Folder scanning runs natively in Luau asynchronously without blocking the UI thread. Palettes and thumbnails are extracted in the background when supported tools are available.
-- **Network**: Wallhaven mode queries `https://wallhaven.cc/api/v1` strictly upon user request or search query. Local and Favourites modes do not perform any network operations.
-- **Compositor Support**: Compatible with Wayland compositors including Niri, Hyprland, Sway, River, MangoWC, and Labwc.

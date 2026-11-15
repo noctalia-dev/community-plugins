@@ -4,13 +4,14 @@
 
 id = "lowcache/claude-companion"
 name = "Claude Companion"
-version = "1.6.0"
+version = "1.6.1"
 # Plugin API level this manifest targets — mandatory as of the Noctalia 5 beta
-# manifest parser (replaces the older min_noctalia gate). 3 is the oldest-supported
-# level and covers every feature this plugin uses ([[panel]], ui controls, plugin IPC
-# dispatch, barWidget/onIpc). The [[service]] entry additionally needs a build that
-# ships the Service entry kind (Noctalia 5 beta, upstream rev da014f72 or newer).
-plugin_api = 3
+# manifest parser (replaces the older min_noctalia gate). 31 is the gate:
+# noctalia.getColor, which the bar pulse resolves its accent colors through. The rest
+# ([[panel]], ui controls, plugin IPC dispatch, barWidget/onIpc) sits lower. The
+# [[service]] entry additionally needs a build that ships the Service entry kind
+# (Noctalia 5 beta, upstream rev da014f72 or newer).
+plugin_api = 31
 author = "lowcache"
 license = "MIT"
 icon = "robot"

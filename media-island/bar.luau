@@ -5,6 +5,14 @@
 local player = noctalia.state.get("player")
 local commandSerial = 0
 
+local function request(action)
+  commandSerial += 1
+  noctalia.state.set("command", {
+    action = action,
+    nonce = tostring(noctalia.nowMs()) .. ":" .. tostring(commandSerial),
+  })
+end
+
 local function shorten(text, limit)
   text = tostring(text or "")
   local byteIndex = 1
@@ -45,51 +53,69 @@ local function shorten(text, limit)
 end
 
 local function render()
-  if type(player) ~= "table" then
-    barWidget.setGlyph("music")
-    barWidget.setText(noctalia.tr("widget.no-media"))
-    barWidget.setTooltip(noctalia.tr("widget.open-island"))
+  local artPath = type(player) == "table" and tostring(player.artPath or "") or ""
+  local hasArtwork = artPath ~= "" and noctalia.fileExists(artPath)
+  local title = type(player) == "table" and tostring(player.title or "") or ""
+  if type(player) ~= "table" or not player.playing or not hasArtwork or title == "" then
+    barWidget.render(ui.label({ text = "" }))
+    barWidget.setTooltip("")
     return
   end
 
-  local artPath = tostring(player.artPath or "")
-  if artPath ~= "" and noctalia.fileExists(artPath) then
-    barWidget.setImage(artPath, true, 18, 18)
-  else
-    barWidget.setGlyph(player.playing and "player-pause" or "player-play")
-  end
+  local limit = tonumber(noctalia.getConfig("title_limit")) or 30
+  local shortTitle = shorten(title, limit)
 
-  local title = tostring(player.title or "")
-  if title == "" then
-    title = noctalia.tr("widget.unknown-title")
-  end
-  barWidget.setText(shorten(title, 36))
+  local cd_image = ui.image({
+    path = artPath,
+    width = 20,
+    height = 20,
+    radius = 10,
+    fit = "cover",
+  })
+  local title_label = ui.button({
+    text = shortTitle,
+    variant = "ghost",
+    controlSize = "sm",
+    tooltip = noctalia.tr("widget.open-island"),
+    onClick = function() onTitleClick() end,
+  })
+  local children = {}
+  children[#children + 1] = cd_image
+  children[#children + 1] = title_label
+  barWidget.render(ui.row({ gap = 6, align = "center" }, children))
+  -- Tooltip
   barWidget.setTooltip({
     { key = noctalia.tr("tooltip.title"), value = title },
-    { key = noctalia.tr("tooltip.artist"), value = tostring(player.artist or "") },
-    {
-      key = noctalia.tr("tooltip.playback"),
-      value = player.playing and noctalia.tr("tooltip.playing") or noctalia.tr("tooltip.paused"),
-    },
+    { key = noctalia.tr("tooltip.artist"), value = tostring(player.artist or "") }
   })
 end
 
-local function request(action)
-  commandSerial += 1
-  noctalia.state.set("command", {
-    action = action,
-    nonce = tostring(noctalia.nowMs()) .. ":" .. tostring(commandSerial),
-  })
+function onTitleClick()
+  local action = noctalia.getConfig("click_action") or "island"
+  if action == "panel" then
+    noctalia.runAsync({"noctalia", "msg", "panel-toggle", "control-center", "media"})
+  else
+    request("preview-panel")
+  end
+end
+
+function onAudioSpectrum(valuesCsv, stateCsv)
+  local active = type(player) == "table" and player.playing
+    and noctalia.getConfig("audio_visualizer") ~= false
+    and string.sub(stateCsv or "", 1, 1) == "1"
+  local values = {}
+  if active then
+    for value in string.gmatch(valuesCsv or "", "[^,]+") do
+      values[#values + 1] = math.max(0, math.min(1, tonumber(value) or 0))
+    end
+  end
+  noctalia.state.set("audio-spectrum", { active = active and #values > 0, values = values })
 end
 
 noctalia.state.watch("player", function(value)
   player = value
   render()
 end)
-
-function onClick()
-  request("toggle-panel")
-end
 
 function update()
   noctalia.setUpdateInterval(1000)

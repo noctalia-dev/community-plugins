@@ -356,4 +356,16 @@ local agyStartBtnsExhausted = buttonsWithText(agyPanelTreeExhausted, "Start 5h")
 assert(#agyStartBtnsExhausted == 1,
     "When Claude & GPT OSS weekly is 100% exhausted, only Gemini (10% weekly) should show Start 5h. Got: " .. #agyStartBtnsExhausted)
 
+-- Test scenario 9: Bundled helper discovery via noctalia.pluginDir()
+mockNoctalia.pluginDir = function()
+    return "/test/plugins/ai-triage"
+end
+local pluginDirPanelTree = loadPanelWithReport(testReport)
+local pluginDirBtns = buttonsWithText(pluginDirPanelTree, "Start 5h")
+assert(#pluginDirBtns == 1, "Expected 1 'Start 5h' button for bundled script test")
+pluginDirBtns[1].props.onClick()
+assert(lastCmdRun:find("/test/plugins/ai%-triage/bin/ai%-kickstart"),
+    "When noctalia.pluginDir() is provided, bundled path must be prioritized in command. Got: " .. tostring(lastCmdRun))
+mockNoctalia.pluginDir = nil
+
 io.write("ok: all 5h session initiation scenarios and kickstart button tests passed!\n")

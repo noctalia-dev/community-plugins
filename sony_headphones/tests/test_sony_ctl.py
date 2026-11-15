@@ -7,6 +7,7 @@ Run with:  python3 -m unittest discover -s tests -v
 import os
 import sys
 import unittest
+from unittest import mock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
 
@@ -104,6 +105,97 @@ class ModelTests(unittest.TestCase):
         self.assertEqual(sc._canonical_model("WH-1000XX/B"), "WH-1000XX")
         self.assertIsNone(sc._canonical_model("Some Random Speaker"))
         self.assertIsNone(sc._canonical_model(None))
+
+
+class ProtocolGatingTests(unittest.TestCase):
+    MAC = "AA:BB:CC:DD:EE:FF"
+
+    def test_v1_models_are_detected(self):
+        for name in ("WH-1000XM4", "LE_WH-1000XM3", "WH-1000XM2"):
+            self.assertTrue(sc._is_v1_model(name), name)
+        for name in ("WH-1000XM5", "WH-1000XM6", "WF-1000XM4", "LinkBuds S", "Sony Headphones", None):
+            self.assertFalse(sc._is_v1_model(name), name)
+
+    def test_query_device_skips_v2_handshake_for_xm4(self):
+        with mock.patch.object(sc, "_load_cache", return_value={}), \
+             mock.patch.object(sc, "bluez_device_name", return_value="WH-1000XM4"), \
+             mock.patch.object(sc, "bluez_battery", return_value=87), \
+             mock.patch.object(sc, "SonySession") as session_cls, \
+             mock.patch.object(sc, "_save_cache"):
+            state = sc.query_device(self.MAC)
+
+        session_cls.assert_not_called()
+        self.assertEqual(state["battery"], 87)
+        self.assertEqual(state["model_name"], "WH-1000XM4")
+        self.assertEqual(state["protocol"], "v1")
+        self.assertFalse(state["noise_control"])
+        self.assertTrue(state["connected"])
+
+    def test_detect_protocol(self):
+        self.assertEqual(sc.detect_protocol(sc.V1_UUID), "v1")
+        self.assertEqual(sc.detect_protocol(sc.V2_UUID.upper()), "v2")
+        self.assertIsNone(sc.detect_protocol(""))
+        self.assertIsNone(sc.detect_protocol("Service Name: Something Else"))
+
+    def test_query_device_skips_v2_when_sdp_advertises_v1(self):
+        sdp = "Service Name: Serial HPC\n%s\n" % sc.V1_UUID
+        with mock.patch.object(sc, "_load_cache", return_value={}), \
+             mock.patch.object(sc, "bluez_device_name", return_value="Some Sony Headphones"), \
+             mock.patch.object(sc, "browse_sdp", return_value=sdp), \
+             mock.patch.object(sc, "bluez_battery", return_value=64), \
+             mock.patch.object(sc, "SonySession") as session_cls, \
+             mock.patch.object(sc, "_save_cache"):
+            state = sc.query_device(self.MAC)
+
+        session_cls.assert_not_called()
+        self.assertEqual(state["battery"], 64)
+        self.assertEqual(state["protocol"], "v1")
+        self.assertFalse(state["noise_control"])
+
+    def test_query_device_uses_v2_for_xm5(self):
+        fake = mock.MagicMock()
+        fake.open.return_value = True
+        fake.transact.return_value = []
+        sdp = "Service Name: Serial HPC\n%s\n" % sc.V2_UUID
+        with mock.patch.object(sc, "_load_cache", return_value={}), \
+             mock.patch.object(sc, "bluez_device_name", return_value="WH-1000XM5"), \
+             mock.patch.object(sc, "browse_sdp", return_value=sdp), \
+             mock.patch.object(sc, "bluez_battery", return_value=55), \
+             mock.patch.object(sc, "resolve_channel", return_value=9), \
+             mock.patch.object(sc, "SonySession", return_value=fake) as session_cls, \
+             mock.patch.object(sc, "_save_cache"):
+            state = sc.query_device(self.MAC)
+
+        session_cls.assert_called_once()
+        fake.open.assert_called_once()
+        fake.close.assert_called_once()
+        self.assertEqual(state["battery"], 55)
+        self.assertEqual(state["model_name"], "WH-1000XM5")
+        self.assertEqual(state["protocol"], "v2")
+        self.assertTrue(state["noise_control"])
+
+    def test_set_nc_mode_rejects_v1_without_opening_rfcomm(self):
+        with mock.patch.object(sc, "_load_cache", return_value={}), \
+             mock.patch.object(sc, "bluez_device_name", return_value="WH-1000XM4"), \
+             mock.patch.object(sc, "SonySession") as session_cls, \
+             mock.patch.object(sc, "_save_cache"):
+            result = sc.set_nc_mode(self.MAC, sc.MODE_ANC)
+
+        self.assertFalse(result["success"])
+        self.assertIn("not supported", result["error"])
+        session_cls.assert_not_called()
+
+    def test_set_nc_mode_rejects_sdp_detected_v1(self):
+        with mock.patch.object(sc, "_load_cache", return_value={}), \
+             mock.patch.object(sc, "bluez_device_name", return_value="Some Sony Headphones"), \
+             mock.patch.object(sc, "browse_sdp", return_value=sc.V1_UUID), \
+             mock.patch.object(sc, "SonySession") as session_cls, \
+             mock.patch.object(sc, "_save_cache"):
+            result = sc.set_nc_mode(self.MAC, sc.MODE_ANC)
+
+        self.assertFalse(result["success"])
+        self.assertIn("not supported", result["error"])
+        session_cls.assert_not_called()
 
 
 if __name__ == "__main__":

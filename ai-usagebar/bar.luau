@@ -444,7 +444,7 @@ local function formatMetric(metric)
     if quotaWindow ~= "auto" then
         value = tostring(metric.label or quotaWindow) .. ": " .. value
     end
-    local left = fixedCountdown(metric)
+    local left = shared.resetDescription(metric, true)
     if left ~= "" then value = value .. " · " .. left end
     return value
 end

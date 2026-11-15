@@ -1,6 +1,6 @@
 id          = "0rgl/localsend-plus"
 name        = "LocalSend Plus"
-version     = "1.2.1"
+version     = "1.3.0"
 plugin_api  = 43
 author      = "0rgl"
 license     = "MIT"

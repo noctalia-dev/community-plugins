@@ -1,0 +1,24 @@
+{
+  "settings": {
+    "show_app_name": {
+      "label": "Show application name",
+      "description": "Show the focused application's name in front of its menus."
+    },
+    "shortcut_menus": {
+      "label": "Shortcut menus",
+      "description": "Show curated menus for applications that export none. Clicking an item sends its keyboard shortcut to the window (needs wtype)."
+    },
+    "fallback_menus": {
+      "label": "Fallback menus",
+      "description": "Show window and session actions when the application exports no menu at all."
+    },
+    "max_menus": {
+      "label": "Menu labels in the bar",
+      "description": "Maximum top-level menu labels shown before truncation; 0 shows every menu."
+    },
+    "bar_max_width": {
+      "label": "Menu bar width budget",
+      "description": "Maximum width in px for the app name and menu labels before the rest moves under the » button; 0 fits to half of the screen width."
+    }
+  }
+}

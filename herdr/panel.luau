@@ -14,6 +14,11 @@ local pendingDelete = nil
 local commandNonce = 0
 
 local function request(action, sessionName, pane)
+  -- Release the layer-shell panel before asking the compositor to focus/pick a
+  -- normal window. Otherwise the panel can intercept the selection click.
+  if action == "focus_agent" or action == "open_session" then
+    panel.close()
+  end
   commandNonce = commandNonce + 1
   noctalia.state.set("herdr.command", {
     action = action,

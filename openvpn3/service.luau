@@ -44,6 +44,7 @@ local function nonce()
 end
 
 local AUTOCONNECT_TAG = "noctalia-autoconnect"
+local DNS_ROUTE_PREFIX = "noctalia-dns-route:" -- one profile tag per routing domain
 local lastStates = {} -- session path -> { state, config } for notifications
 local refreshStartedMs = 0
 local workingSinceMs = 0
@@ -86,7 +87,7 @@ local function publish()
   end
   for _, p in ipairs(status.profiles) do
     table.insert(parts, table.concat({
-      p.path, p.name, tostring(p.valid), tostring(p.dco), tostring(p.autoconnect), p.lastUsed, overridesKey(p.overrides),
+      p.path, p.name, tostring(p.valid), tostring(p.dco), tostring(p.autoconnect), p.dnsRoutes or "", p.lastUsed, overridesKey(p.overrides),
     }, "~"))
   end
   if type(status.pending) == "table" then
@@ -247,6 +248,7 @@ local function refreshProfiles()
           dco = entry.dco == true,
           overrides = {},
           autoconnect = false,
+          dnsRoutes = "",
           lastUsed = formatStamp(entry.lastused_tstamp),
         })
       end
@@ -266,11 +268,16 @@ local function refreshProfiles()
         if props ~= nil then
           local tags = prop(props, "tags")
           if type(tags) == "table" then
+            local routes = {}
             for _, tag in ipairs(tags) do
               if tag == AUTOCONNECT_TAG then
                 profile.autoconnect = true
+              elseif string.sub(tag, 1, #DNS_ROUTE_PREFIX) == DNS_ROUTE_PREFIX then
+                table.insert(routes, string.sub(tag, #DNS_ROUTE_PREFIX + 1))
               end
             end
+            table.sort(routes)
+            profile.dnsRoutes = table.concat(routes, " ")
           end
           local overrides = prop(props, "overrides")
           if type(overrides) == "table" then
@@ -320,6 +327,29 @@ local function parseSession(path, props)
   }
 end
 
+-- Some gateways push a DNS server but no domains, and with the "tunnel" DNS
+-- scope systemd-resolved then never queries it. Route the configured domains
+-- to the tunnel link. Needs polkit to allow resolve1.set-domains (see README).
+local function applyDnsRoutes(device, raw)
+  if raw == nil or raw == "" or device == "" or not string.match(device, "^[%w_.-]+$") then
+    return
+  end
+  local argv = { "resolvectl", "domain", device }
+  for domain in string.gmatch(raw, "%S+") do
+    if string.match(domain, "^[%w][%w.-]*$") then
+      table.insert(argv, "~" .. domain)
+    end
+  end
+  if #argv == 3 then
+    return
+  end
+  noctalia.runAsync(argv, function(result)
+    if result.exitCode ~= 0 then
+      noctalia.notifyError(noctalia.tr("title"), noctalia.tr("notify.dns-route-failed"))
+    end
+  end, 8000)
+end
+
 -- Tell the user about connection changes, whoever started the session.
 local function notifyTransitions(sessions)
   local enabled = noctalia.getConfig("notifications") ~= false
@@ -327,6 +357,13 @@ local function notifyTransitions(sessions)
   for _, s in ipairs(sessions) do
     seen[s.path] = true
     local prev = lastStates[s.path]
+    if s.state == "connected" and (prev == nil or prev.state ~= "connected") then
+      for _, p in ipairs(status.profiles) do
+        if p.path == s.configPath then
+          applyDnsRoutes(s.device, p.dnsRoutes)
+        end
+      end
+    end
     if enabled and sessionsLoaded and (prev == nil or prev.state ~= s.state) then
       local title = noctalia.tr("title")
       local ownAttempt = attempt ~= nil and attempt.session == s.path
@@ -502,16 +539,94 @@ local function collectFields(sessionPath, cb)
   end)
 end
 
-local function requestInput(fields, errorMessage)
-  if attempt == nil then
+-- ---------------------------------------------------------------------------
+-- Remembered credentials (system keyring through secret-tool)
+-- ---------------------------------------------------------------------------
+
+-- Only the username / password pair (ClientAttentionGroup USER_PASSWORD) is
+-- remembered; one-time codes, challenges and passphrases are always asked for.
+local KEYRING_APP = "noctalia-openvpn3"
+local REMEMBERED = { username = true, password = true }
+
+local function rememberable(field)
+  return tonumber(field.group) == 1 and REMEMBERED[field.name] == true
+end
+
+local function keyringEnabled()
+  return noctalia.getConfig("remember_credentials") ~= false and noctalia.commandExists("secret-tool")
+end
+
+-- cb receives an array aligned with fields: the saved value, or "".
+local function lookupSaved(profilePath, fields, cb)
+  local saved = {}
+  for index = 1, #fields do
+    saved[index] = ""
+  end
+  if profilePath == nil or profilePath == "" or not keyringEnabled() then
+    cb(saved)
     return
   end
-  attempt.phase = "input"
-  noctalia.notify(noctalia.tr("title"), `{noctalia.tr("panel.auth-needed")}: {attempt.profile}`)
-  patch({
-    pending = { kind = "credentials", profile = attempt.profile, fields = fields, error = errorMessage or "" },
-    busy = true,
-  })
+  local function nextField(index)
+    local field = fields[index]
+    if field == nil then
+      cb(saved)
+      return
+    end
+    if not rememberable(field) then
+      nextField(index + 1)
+      return
+    end
+    noctalia.runAsync({ "secret-tool", "lookup", "application", KEYRING_APP, "profile", profilePath, "field", field.name }, function(result)
+      if result.exitCode == 0 and not result.timedOut and type(result.stdout) == "string" then
+        saved[index] = string.gsub(result.stdout, "\n$", "")
+      end
+      nextField(index + 1)
+    end, 5000)
+  end
+  nextField(1)
+end
+
+-- values: field name -> value, as submitted for a connection that succeeded.
+local function storeSaved(profilePath, profileName, values)
+  if profilePath == nil or profilePath == "" or not keyringEnabled() then
+    return
+  end
+  for name, value in pairs(values) do
+    -- secret-tool reads the secret from stdin. It is still an argument of sh
+    -- for a moment, the same exposure as the busctl calls that answer prompts.
+    noctalia.runAsync({
+      "sh", "-c", 'printf %s "$1" | secret-tool store --label "$2" application "$3" profile "$4" field "$5"',
+      "sh", value, `OpenVPN 3: {profileName} ({name})`, KEYRING_APP, profilePath, name,
+    }, function(result)
+      if result.exitCode ~= 0 then
+        noctalia.log(`openvpn3: could not save the {name} of {profileName} to the keyring`)
+      end
+    end, 10000)
+  end
+end
+
+local function clearSaved(profilePath)
+  if profilePath ~= nil and profilePath ~= "" and noctalia.commandExists("secret-tool") then
+    noctalia.runAsync({ "secret-tool", "clear", "application", KEYRING_APP, "profile", profilePath })
+  end
+end
+
+local function requestInput(fields, errorMessage)
+  local cur = attempt
+  if cur == nil then
+    return
+  end
+  cur.phase = "input"
+  noctalia.notify(noctalia.tr("title"), `{noctalia.tr("panel.auth-needed")}: {cur.profile}`)
+  patch({ busy = true })
+  lookupSaved(cur.path, fields, function(saved)
+    if attempt ~= cur or cur.phase ~= "input" then
+      return
+    end
+    patch({
+      pending = { kind = "credentials", profile = cur.profile, fields = fields, saved = saved, remember = keyringEnabled(), error = errorMessage or "" },
+    })
+  end)
 end
 
 local function startConnect(sessionPath)
@@ -622,6 +737,7 @@ local function connect(name, path)
 
   attempt = {
     profile = profile.name,
+    path = profile.path,
     session = "",
     phase = "starting",
     deadline = os.time() + (noctalia.getConfig("connect_timeout") or 45) + 10,
@@ -663,6 +779,14 @@ local function submitInput(values)
   local fields = status.pending.fields
   local sessionPath = attempt.session
   local cur = attempt
+  -- Kept until the connection succeeds, so wrong credentials are never saved.
+  cur.remember = cur.remember or {}
+  for index, field in ipairs(fields) do
+    local value = if type(values) == "table" then tostring(values[index] or "") else ""
+    if rememberable(field) and value ~= "" then
+      cur.remember[field.name] = value
+    end
+  end
   attempt.phase = "starting"
   attempt.deadline = os.time() + (noctalia.getConfig("connect_timeout") or 45) + 10
   patch({ pending = false })
@@ -733,6 +857,9 @@ local function checkAttempt()
   if session.state == "connected" then
     endAttempt()
     patch({ message = "" })
+    if cur.remember ~= nil then
+      storeSaved(cur.path, cur.profile, cur.remember)
+    end
     return
   end
   if cur.phase == "input" then
@@ -951,6 +1078,7 @@ local function removeProfile(path)
       disconnectPaths({ s.path }, 1, function() end)
     end
   end
+  clearSaved(path)
   runManaged({ "openvpn3", "config-remove", "--path", path, "--force" }, { kind = "removed", nonce = nonce() })
 end
 
@@ -964,6 +1092,7 @@ local OPTION_KINDS = {
   ["auth-fail-retry"] = "b", ["persist-tun"] = "b", ["enable-legacy-algorithms"] = "b",
   ["dns-fallback-google"] = "b", ["dns-setup-disabled"] = "b", ["dns-sync-lookup"] = "b",
   ["proxy-auth-cleartext"] = "b", ["dco"] = "b", ["autoconnect"] = "b",
+  ["dns-routes"] = "s",
 }
 
 local function setOptions(path, options, rename)
@@ -988,6 +1117,26 @@ local function setOptions(path, options, rename)
             noctalia.runAsync({ "openvpn3", "config-manage", "--path", other.path, "--remove-tag", AUTOCONNECT_TAG })
           end
         end
+      end
+    elseif key == "dns-routes" then
+      -- Stored as one profile tag per domain; replace the whole set.
+      local oldRoutes = ""
+      for _, p in ipairs(status.profiles) do
+        if p.path == path then
+          oldRoutes = p.dnsRoutes or ""
+        end
+      end
+      for old in string.gmatch(oldRoutes, "%S+") do
+        table.insert(argv, "--remove-tag")
+        table.insert(argv, DNS_ROUTE_PREFIX .. old)
+      end
+      for domain in string.gmatch(tostring(value or ""), "%S+") do
+        if not string.match(domain, "^[%w][%w.-]*$") then
+          fail(noctalia.tr("error.bad-value"))
+          return
+        end
+        table.insert(argv, "--tag")
+        table.insert(argv, DNS_ROUTE_PREFIX .. domain)
       end
     elseif OPTION_KINDS[key] == "b" then
       table.insert(argv, `--{key}`)

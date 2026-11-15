@@ -32,8 +32,8 @@ Add it to your desktop/lockscreen widgets using the widget editor. You can confi
 | `charging_color` | `color` | `on_surface` | Color applied when connected to AC power. |
 | `battery` | `select` | `auto` | Detect the battery automatically or set a custom name. |
 | `battery_name` | `string` | `BAT0` | Set a custom name for the battery. |
+| `click_action` | `string` | `""` | Shell command executed when clicking the widget, leaving empty does nothing. |
 
 ## Notes
 
-`hide_full` and `hide_plugged` do not hide the background due to plugin limitations.
 The warning threshold is pulled from noctalia's settings.

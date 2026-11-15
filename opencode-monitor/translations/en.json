@@ -1,41 +1,41 @@
 {
   "settings": {
-    "poll_interval": {
-      "label": "Poll interval",
-      "description": "How often to ask the local OpenCode server for active sessions, permissions, and current activity."
-    },
-    "recent_minutes": {
-      "label": "Recent session window",
-      "description": "Show sessions updated within this many minutes in the recent list."
-    },
-    "recent_count": {
-      "label": "Recent session limit",
-      "description": "Maximum number of recent sessions shown in the panel."
-    },
     "display_mode": {
-      "label": "Bar display",
       "description": "Activity shows the current tool or waiting reason; counts shows a compact active count; dots shows up to six dots, one per visible session.",
+      "label": "Bar display",
       "options": {
         "activity": "Activity",
         "counts": "Counts",
         "dots": "Dots"
       }
     },
-    "show_label": {
-      "label": "Show label",
-      "description": "Show text next to the bar icon. Disable for an icon-and-dots only widget."
+    "glyph": {
+      "description": "Tabler glyph used when OpenCode is idle.",
+      "label": "Icon"
     },
     "label_width": {
-      "label": "Label width",
-      "description": "Maximum number of characters shown in the bar label."
+      "description": "Maximum number of characters shown in the bar label.",
+      "label": "Label width"
     },
-    "glyph": {
-      "label": "Icon",
-      "description": "Tabler glyph used when OpenCode is idle."
+    "poll_interval": {
+      "description": "How often to ask the local OpenCode server for active sessions, permissions, and current activity.",
+      "label": "Poll interval"
+    },
+    "recent_count": {
+      "description": "Maximum number of recent sessions shown in the panel.",
+      "label": "Recent session limit"
+    },
+    "recent_minutes": {
+      "description": "Show sessions updated within this many minutes in the recent list.",
+      "label": "Recent session window"
     },
     "show_children": {
-      "label": "Show child sessions",
-      "description": "Include subagent and child sessions in the bar widget. The panel always shows them."
+      "description": "Include subagent and child sessions in the bar widget. The panel always shows them.",
+      "label": "Show child sessions"
+    },
+    "show_label": {
+      "description": "Show text next to the bar icon. Disable for an icon-and-dots only widget.",
+      "label": "Show label"
     }
   }
 }

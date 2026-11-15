@@ -1,0 +1,131 @@
+# dropkitty — a drop-down terminal for Noctalia on kitty's quick-access-terminal kitten.
+# bin/dropkitty does the window work and is what compositor keybinds call; the service
+# and widget only configure and reflect it.
+
+id = "lowcache/dropkitty"
+name = "dropkitty"
+version = "0.1.0"
+# 26: noctalia.getSetting (bar reserves). Also uses runAsync argv (24) and openSettings (15).
+plugin_api = 26
+author = "lowcache"
+license = "MIT"
+icon = "terminal-2"
+description = "Quake-style drop-down terminal on kitty, with a bar toggle and a finished-command badge."
+dependencies = ["kitty", "jq", "flock", "setsid", "timeout"]
+tags = ["bar", "service", "productivity", "utility", "niri", "hyprland", "sway"]
+
+# ── Opening geometry (live toggles from the helper override these until changed) ──
+[[setting]]
+key = "orientation"
+type = "select"
+label_key = "settings.orientation.label"
+description_key = "settings.orientation.description"
+default = "landscape"
+options = [
+  { value = "landscape", label_key = "settings.orientation.option.landscape" },
+  { value = "portrait", label_key = "settings.orientation.option.portrait" },
+]
+
+[[setting]]
+key = "edge_h"
+type = "select"
+label_key = "settings.edge_h.label"
+description_key = "settings.edge_h.description"
+default = "top"
+options = [
+  { value = "top", label_key = "settings.edge.option.top" },
+  { value = "bottom", label_key = "settings.edge.option.bottom" },
+]
+
+[[setting]]
+key = "edge_v"
+type = "select"
+label_key = "settings.edge_v.label"
+description_key = "settings.edge_v.description"
+default = "right"
+options = [
+  { value = "left", label_key = "settings.edge.option.left" },
+  { value = "right", label_key = "settings.edge.option.right" },
+]
+
+[[setting]]
+key = "size"
+type = "select"
+label_key = "settings.size.label"
+description_key = "settings.size.description"
+default = "normal"
+options = [
+  { value = "normal", label_key = "settings.size.option.normal" },
+  { value = "full", label_key = "settings.size.option.full" },
+]
+
+[[setting]]
+key = "normal_height"
+type = "int"
+label_key = "settings.normal_height.label"
+description_key = "settings.normal_height.description"
+default = 40
+min = 10
+max = 100
+step = 5
+
+[[setting]]
+key = "normal_width"
+type = "int"
+label_key = "settings.normal_width.label"
+description_key = "settings.normal_width.description"
+default = 50
+min = 10
+max = 100
+step = 5
+
+[[setting]]
+key = "bar_aware"
+type = "bool"
+label_key = "settings.bar_aware.label"
+description_key = "settings.bar_aware.description"
+default = true
+
+# ── Applied at launch (helper `restart` to apply to a running terminal) ──
+[[setting]]
+key = "opacity"
+type = "double"
+label_key = "settings.opacity.label"
+description_key = "settings.opacity.description"
+default = 0.9
+min = 0.1
+max = 1.0
+step = 0.05
+
+[[setting]]
+key = "focus_policy"
+type = "select"
+label_key = "settings.focus_policy.label"
+description_key = "settings.focus_policy.description"
+default = "on-demand"
+options = [
+  { value = "on-demand", label_key = "settings.focus_policy.option.on_demand" },
+  { value = "exclusive", label_key = "settings.focus_policy.option.exclusive" },
+]
+
+[[setting]]
+key = "hide_on_focus_loss"
+type = "bool"
+label_key = "settings.hide_on_focus_loss.label"
+description_key = "settings.hide_on_focus_loss.description"
+default = false
+
+[[setting]]
+key = "kitty_conf"
+type = "file"
+label_key = "settings.kitty_conf.label"
+description_key = "settings.kitty_conf.description"
+default = ""
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[widget]]
+id = "toggle"
+entry = "widget.luau"

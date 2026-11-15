@@ -11,7 +11,7 @@ local theme = require("./theme.luau")
 local M = {}
 
 function M.now(): number
-  return math.floor(noctalia.nowMs() / 1000)
+  return os.time()
 end
 
 local RANK = { ok = 0, warn = 1, critical = 2 }
@@ -132,26 +132,24 @@ function M.pace(window, now: number): (string?, string?, pace.Pace?)
   return nil, nil, p
 end
 
+-- Numbers worth dimming and marking "cached": the last fetch failed, or they
+-- are more than two intervals old.
+function M.isStale(account, interval: number, now: number): boolean
+  local snapshot = account.snapshot
+  return account.phase == "failing" or (snapshot ~= nil and now - snapshot.fetchedAt > 2 * interval)
+end
+
 -- The name an account goes by on compact surfaces: the provider's alone when
 -- it has one account, "Claude · Work" when it has several.
 function M.accountName(provider, account): string
   if #provider.accounts <= 1 then
     return provider.name
   end
-  return `{provider.name} · {account.label or noctalia.tr("accounts.default")}`
+  return `{provider.name} · {account.name}`
 end
 
--- Signed-in accounts as { provider, account } pairs, in display order.
-function M.signedIn(report): { any }
-  local out = {}
-  for _, provider in (if type(report) == "table" and report.providers then report.providers else {}) do
-    for _, account in provider.accounts or {} do
-      if account.status ~= "absent" then
-        table.insert(out, { provider = provider, account = account })
-      end
-    end
-  end
-  return out
+local function isShown(account): boolean
+  return account.phase ~= "signed_out" and account.duplicateOf == nil
 end
 
 -- What a bar capsule shows: a list of { provider, account, name, window? },
@@ -160,23 +158,28 @@ end
 --   windowPref:   "tightest" | "session" | "weekly"
 --   maxItems:     when more match, the most urgent ones are kept
 --                 (forecast-aware severity first, then usage)
---   allAccounts:  every signed-in account, or only each provider's default
+--   allAccounts:  every signed-in account, or one per provider: the default,
+--                 else the first signed-in one
 function M.barItems(report, shown: (string) -> boolean, windowPref: string, maxItems: number, now: number, allAccounts: boolean?): { any }
   local items = {}
-  for index, entry in M.signedIn(report) do
-    local provider, account = entry.provider, entry.account
-    -- A copy of an account already listed would show the same numbers twice.
-    if shown(provider.id) and account.duplicateOf == nil and (allAccounts or account.kind == "default") then
-      local window = model.pick(account.snapshot and account.snapshot.windows or {}, windowPref)
-      local urgency = if window then RANK[M.severity(window, now)] * 1000 + window.usedPercent else -1
-      table.insert(items, {
-        provider = provider,
-        account = account,
-        name = M.accountName(provider, account),
-        window = window,
-        order = index,
-        urgency = urgency,
-      })
+  for _, provider in (if type(report) == "table" and report.providers then report.providers else {}) do
+    if shown(provider.id) then
+      for _, account in provider.accounts do
+        if isShown(account) then
+          local window = model.pick(account.snapshot and account.snapshot.windows or {}, windowPref)
+          table.insert(items, {
+            provider = provider,
+            account = account,
+            name = M.accountName(provider, account),
+            window = window,
+            order = #items + 1,
+            urgency = if window then RANK[M.severity(window, now)] * 1000 + window.usedPercent else -1,
+          })
+          if not allAccounts then
+            break
+          end
+        end
+      end
     end
   end
   if #items <= maxItems then
@@ -193,6 +196,39 @@ function M.barItems(report, shown: (string) -> boolean, windowPref: string, maxI
     return a.order < b.order
   end)
   return kept
+end
+
+-- ── Reset credits ─────────────────────────────────────────────────────────
+
+-- How many resets an account holds, over all its credits.
+function M.creditCount(snapshot): number
+  local n = 0
+  for _, credit in (snapshot and snapshot.resetCredits) or {} do
+    n += credit.count
+  end
+  return n
+end
+
+-- When a credit expires: "in 6d · Tue 17 Nov" (the date in the shell's own
+-- format), "in 5h · 20:19" within a day.
+function M.expiry(at: number, now: number): string
+  local when = if at - now < 86400
+    then noctalia.formatTime(noctalia.timeFormat(), at)
+    else noctalia.formatTime(noctalia.dateFormat(), at)
+  return noctalia.tr("resets.expires", { duration = time.duration(at - now), when = when })
+end
+
+-- Expiring within this long: worth the warning color.
+M.CREDIT_SOON = 48 * 3600
+
+-- "2 resets", and the soonest expiry when there is one.
+function M.creditSummary(snapshot, now: number): (string, string?, boolean)
+  local count = M.creditCount(snapshot)
+  local first = snapshot.resetCredits[1]
+  local expiresAt = first and first.expiresAt
+  return noctalia.trp("resets.count", count),
+    if expiresAt then M.expiry(expiresAt, now) else nil,
+    expiresAt ~= nil and expiresAt - now <= M.CREDIT_SOON
 end
 
 return M

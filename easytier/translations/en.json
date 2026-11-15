@@ -1,0 +1,176 @@
+{
+  "bar_off": "offline",
+  "level_crit": "critical",
+  "level_loading": "reading",
+  "level_off": "offline",
+  "level_ok": "healthy",
+  "level_warn": "degraded",
+  "notify_down_body": "easytier-cli can no longer reach the core; the mesh may be down",
+  "notify_down_title": "EasyTier disconnected",
+  "notify_up_body": "the core is reachable again",
+  "notify_up_title": "EasyTier recovered",
+  "opt_direct": "Direct / total",
+  "opt_error": "Error",
+  "opt_ip": "Virtual IPv4",
+  "opt_latency": "Best latency",
+  "opt_level": "By health",
+  "opt_peers": "Peer count",
+  "opt_primary": "Primary",
+  "opt_secondary": "Secondary",
+  "opt_status": "Peer status",
+  "opt_tertiary": "Tertiary",
+  "opt_theme": "Widget colors",
+  "opt_traffic": "Total traffic",
+  "panel_avg": "Avg latency",
+  "panel_best": "Best latency",
+  "panel_cli_line": "easytier-cli: %s",
+  "panel_cli_missing": "not found (set an absolute path in the plugin settings)",
+  "panel_collapse": "Collapse",
+  "panel_connected": "connected",
+  "panel_connectors": "Connectors",
+  "panel_connectors_toggle": "Click to show or hide the connector list",
+  "panel_cost": "cost",
+  "panel_direct": "Direct",
+  "panel_expand": "Show %d more",
+  "panel_fail_reason": "Last failure: %s",
+  "panel_forward": "Port forwarding",
+  "panel_hop": "via %s",
+  "panel_hops": "%d hops",
+  "panel_inst": "Instance",
+  "panel_listen": "Listen",
+  "panel_loading": "Reading easytier-cli…",
+  "panel_loss": "Lossy peers",
+  "panel_loss_rate": "loss",
+  "panel_more": "%d more…",
+  "panel_nat": "NAT",
+  "panel_no_peer": "No other peer yet.",
+  "panel_offline": "EasyTier core is not running, or the RPC portal is unreachable",
+  "panel_offline_hint": "Make sure easytier-core is running and its --rpc-portal matches this plugin's setting.",
+  "panel_peer_id": "Peer ID",
+  "panel_peers": "Peers",
+  "panel_port_range": "Public ports",
+  "panel_proxy": "Proxy CIDRs",
+  "panel_proxy_title": "Subnet proxy",
+  "panel_public": "Public",
+  "panel_refresh": "Read again",
+  "panel_relay": "Relay",
+  "panel_servers": "Servers",
+  "panel_servers_toggle": "Click to show or hide server nodes",
+  "panel_retry": "Retry",
+  "panel_route_failed": "Route table failed: %s",
+  "panel_routes": "Routes",
+  "panel_routes_toggle": "Click to show or hide the route table",
+  "panel_rpc_line": "RPC portal: %s",
+  "panel_show": "Show",
+  "panel_source": "Source: %s (read-only, EasyTier config is never modified)",
+  "panel_status_code": "status %d",
+  "panel_traffic": "Traffic",
+  "panel_updated": "Updated %s",
+  "panel_version": "Version",
+  "panel_worst": "Worst latency",
+  "settings": {
+    "cli_path": {
+      "description": "Leave empty to use easytier-cli from PATH; set an absolute path to pick another build.",
+      "label": "easytier-cli path"
+    },
+    "crit_latency_ms": {
+      "description": "Best latency at or above this value is reported as critical (it wins over the warning threshold).",
+      "label": "Critical latency (ms)"
+    },
+    "display": {
+      "description": "What the widget shows next to the glyph.",
+      "label": "Bar text"
+    },
+    "fetch_extras": {
+      "description": "Also read routes, connectors, proxies and port forwarding while the panel is open (a few extra subprocess calls).",
+      "label": "Read extra info in panel"
+    },
+    "glyph": {
+      "description": "Tabler icon shown in the bar.",
+      "label": "Glyph"
+    },
+    "glyph_color": {
+      "description": "\"By health\" follows the mesh state; the other options pin one theme role.",
+      "label": "Glyph color"
+    },
+    "hide_when_stopped": {
+      "description": "Hide the whole widget while the core is not running.",
+      "label": "Hide when offline"
+    },
+    "instance_id": {
+      "description": "Passed to easytier-cli -i/--instance-id; prefer this when you know the instance id.",
+      "label": "Instance ID"
+    },
+    "instance_name": {
+      "description": "Passed to easytier-cli -n/--instance-name; only needed with several instances on one host.",
+      "label": "Instance name"
+    },
+    "loss_crit_percent": {
+      "description": "Any peer at or above this packet loss is reported as critical.",
+      "label": "Critical loss (%)"
+    },
+    "loss_warn_percent": {
+      "description": "Any peer at or above this packet loss is reported as degraded; raise it so an occasional 1% jitter does not keep the widget yellow.",
+      "label": "Warning loss (%)"
+    },
+    "max_peers": {
+      "description": "How many peers the panel lists before collapsing the rest behind an expand button.",
+      "label": "Peer list limit"
+    },
+    "server_prefix": {
+      "description": "Hostnames containing any of these prefixes are treated as shared server nodes: grouped separately and collapsed by default. Separate prefixes with commas.",
+      "label": "Server node prefixes"
+    },
+    "notify_state_change": {
+      "description": "Send a notification when the mesh goes from working to unreachable (and back).",
+      "label": "Notify on state change"
+    },
+    "refresh_seconds": {
+      "description": "How often easytier-cli is called again (2-600 seconds).",
+      "label": "Refresh interval (s)"
+    },
+    "relay_warn": {
+      "description": "Treat peers reached through a relay as degraded (relays add latency).",
+      "label": "Warn on relayed peers"
+    },
+    "rpc_portal": {
+      "description": "RPC portal of easytier-core, 127.0.0.1:15888 by default; leave empty for the default.",
+      "label": "RPC portal"
+    },
+    "show_glyph": {
+      "description": "Turn off to keep the text only.",
+      "label": "Show glyph"
+    },
+    "warn_latency_ms": {
+      "description": "Best latency at or above this value is reported as degraded.",
+      "label": "Warning latency (ms)"
+    }
+  },
+  "status_loading": "reading…",
+  "status_no_cli": "easytier-cli not found",
+  "status_nofork": "cannot start easytier-cli",
+  "status_running": "running",
+  "status_stopped": "not running",
+  "status_timeout": "RPC timeout",
+  "tt_hint": "Left: details · Right: refresh now",
+  "tt_hint_key": "Hint",
+  "tt_hint_off": "Check that easytier-core is running; left click opens the panel",
+  "tt_latency": "Latency",
+  "tt_latency_value": "best %s · avg %s · worst %s",
+  "tt_loss": "Loss",
+  "tt_loss_value": "%d peer(s) losing packets, worst %s",
+  "tt_nat": "NAT type",
+  "tt_network": "Network",
+  "tt_peers": "Peers",
+  "tt_peers_value": "%d (direct %d · relay %d)",
+  "tt_servers": "Servers",
+  "tt_servers_down": "all %d unreachable",
+  "tt_servers_none": "none",
+  "tt_servers_ok": "all %d healthy",
+  "tt_servers_partial": "%d/%d healthy (%d unreachable)",
+  "tt_portal": "RPC portal",
+  "tt_public_ip": "Public address",
+  "tt_status": "Status",
+  "tt_traffic": "Traffic",
+  "tt_version": "Version"
+}

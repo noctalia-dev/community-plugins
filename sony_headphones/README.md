@@ -74,6 +74,10 @@ python3 scripts/sony_ctl.py cached
   No network access.
 - Over-ear models report a single battery level; BlueZ `Battery Percentage`
   is the fallback when RFCOMM is busy.
+- **MDR V1** devices are detected through their advertised SDP service UUID
+  (`96cc203e-…`) and by model name (WH-1000XM4/XM3/XM2). They never receive a
+  V2 handshake: some units power themselves off on an unexpected V2 frame.
+  They get battery reporting through BlueZ, and the noise-control UI is hidden.
 - The device does not echo the ambient level back, so the panel shows the
   last-set level (persisted in the cache).
 - `device_mac` and IPC payloads are shell-quoted before use.
@@ -88,8 +92,9 @@ noise-control bytes differ per generation.
 | WH-1000XM5 | ✅ V2 + BlueZ fallback | ✅ verified (`0x17` subtype) | reference device |
 | WH-1000XM6 | ✅ | ⚠️ untested (`0x19` fallback) | please report |
 | WH-1000XX (1000X The Collexion) | ✅ BlueZ | ⚠️ untested | artwork included |
-| WH-1000XM4 / XM3 | ✅ BlueZ | ⚠️ likely need V1 protocol | tracked for v0.2 |
-| WF-1000XM5 / WF-1000XM4 | ✅ BlueZ | ⚠️ untested V2 subtypes | please report |
+| WH-1000XM4 / XM3 / XM2 | ✅ BlueZ | ❌ MDR V1 — safely skipped | battery only; never sent V2 frames |
+| WF-1000XM5 | ✅ BlueZ | ⚠️ untested V2 subtypes | please report |
+| WF-1000XM4 / XM3 | ✅ BlueZ | ⚠️ protocol auto-detected | V1 units get battery only |
 | LinkBuds / WH-CH720N / ULT | ✅ BlueZ | ⚠️ untested | please report |
 
 The bundled artwork is a pair of generic headphone symbols from

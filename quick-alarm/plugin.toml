@@ -1,0 +1,39 @@
+id = "rsmendes/quick-alarm"
+name = "Quick Alarm"
+version = "1.2.0"
+plugin_api = 43
+author = "rsmendes"
+license = "MIT"
+icon = "bell"
+description = "Quick alarms and reminders with natural language input, matching the Cinnamon Quick Alarm applet."
+tags = ["bar", "panel", "service", "time", "clock", "countdown", "utility", "productivity"]
+dependencies = []
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 400
+height = 420
+placement = "attached"
+position = "auto"
+open_near_click = true
+
+[[panel]]
+id = "alert"
+entry = "alert.luau"
+width = 460
+height = 320
+placement = "floating"
+position = "center"
+layer = "overlay"
+dismiss_on_outside_click = true
+keyboard_focus = "on_demand"
+capture_keys = ["space", "return", "escape"]
+
+[[service]]
+id = "service"
+entry = "service.luau"

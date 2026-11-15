@@ -41,7 +41,6 @@ local OUTPUT_NAMES = tostring(noctalia.getConfig("output_names") or "")
 local generatedFiles = {}
 local generatedByOutput = {}
 local exactCache = {}
-local themeColors = nil
 local exactFocusCursor = {}
 local windowClickTargets = {}
 local windowClickSlots = {}
@@ -357,46 +356,10 @@ local function xmlEscape(value)
   return tostring(value):gsub("&", "&amp;"):gsub('"', "&quot;"):gsub("<", "&lt;"):gsub(">", "&gt;")
 end
 
-local THEME_COLOR_KEYS = {
-  primary = "mPrimary",
-  on_primary = "mOnPrimary",
-  secondary = "mSecondary",
-  on_secondary = "mOnSecondary",
-  tertiary = "mTertiary",
-  on_tertiary = "mOnTertiary",
-  error = "mError",
-  on_error = "mOnError",
-  surface = "mSurface",
-  on_surface = "mOnSurface",
-  surface_container = "mSurfaceVariant",
-  on_surface_variant = "mOnSurfaceVariant",
-  outline_variant = "mOutline",
-  shadow = "mShadow",
-  hover = "mHover",
-  on_hover = "mOnHover",
-}
-
-local function loadThemeColors()
-  if themeColors ~= nil then return themeColors end
-  themeColors = {}
-  local configHome = noctalia.getenv("XDG_CONFIG_HOME")
-  if configHome == nil or configHome == "" then
-    configHome = (noctalia.getenv("HOME") or "") .. "/.config"
-  end
-  local contents = noctalia.readFile(configHome .. "/noctalia/config.toml")
-  if contents ~= nil then
-    for role, key in pairs(THEME_COLOR_KEYS) do
-      local color = contents:match(key .. '%s*=%s*"(#[%x]+)"')
-      if color ~= nil then themeColors[role] = color end
-    end
-  end
-  return themeColors
-end
-
 local function svgColor(value)
   local color = tostring(value or "")
   if color:match("^#%x%x%x%x%x%x$") or color:match("^#%x%x%x%x%x%x%x%x$") then return color end
-  local resolved = loadThemeColors()[color]
+  local resolved = noctalia.getColor(color)
   if type(resolved) == "string" then return resolved end
   return "#ffb74d"
 end

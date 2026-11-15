@@ -3,6 +3,7 @@
 -- each project with sessions but no file. Opens in the configured GUI editor.
 -- Ported from claude-cockpit's CLAUDE.md tab (nightwatch75, MIT).
 local shared = require("./shared.luau")
+local actions = require("./actions.luau")
 local kit = require("./kit.luau")
 local sessionsTab = require("./tab-sessions.luau")
 local M = {}
@@ -61,14 +62,14 @@ function M.busy() return data.loading end
 local function row(label, path, selected)
   local exists = noctalia.fileExists(path)
   return ui.row({ key = "md-" .. path, gap = 8, align = "center", padding = 6, radius = 8,
-    fill = selected and "primary/0.10" or "#00000000", onClick = function() shared.openInEditor(path) end }, {
+    fill = selected and "primary/0.10" or "#00000000", onClick = function() actions.openInEditor(path) end }, {
     ui.glyph({ name = exists and "file-text" or "file-plus", size = 15, color = exists and "primary" or "on_surface_variant" }),
     ui.column({ gap = 0, flexGrow = 1 }, {
       ui.label({ text = label, fontSize = 13 }),
       kit.muted(shared.projectPath(path), 10, { maxLines = 1 }),
     }),
     kit.iconButton(exists and "external-link" or "plus", exists and "Open in editor" or "Create in editor",
-      function() shared.openInEditor(path) end),
+      function() actions.openInEditor(path) end),
   })
 end
 
@@ -76,7 +77,7 @@ function M.render(ctx)
   M.nav:begin()
   local rows = {}
   local function add(label, path)
-    rows[#rows + 1] = row(label, path, M.nav:add("md-" .. path, function() shared.openInEditor(path) end))
+    rows[#rows + 1] = row(label, path, M.nav:add("md-" .. path, function() actions.openInEditor(path) end))
   end
   add("Global (~/.claude)", GLOBAL)
   if data.error then

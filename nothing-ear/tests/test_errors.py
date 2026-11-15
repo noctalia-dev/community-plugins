@@ -2,6 +2,7 @@
 and the cases that can't be reproduced on hardware here keep the raw bytes."""
 import errno
 import io
+import itertools
 import json
 import pathlib
 import socket
@@ -18,6 +19,12 @@ import protocol as p
 import sdp
 
 ADDRESS = "AA:BB:CC:DD:EE:FF"
+
+
+def closed_after(*chunks):
+    """recv() results for a socket the buds close after sending `chunks`:
+    a closed socket keeps returning b"" however often it's read."""
+    return itertools.chain(chunks, itertools.repeat(b""))
 
 
 def run_cli(*argv):
@@ -92,7 +99,7 @@ class ErrorCodeTests(unittest.TestCase):
     def test_unrecognised_reply_keeps_raw_bytes(self):
         # Answers in a framing this plugin doesn't parse.
         sock = Mock()
-        sock.recv.side_effect = [bytes.fromhex("55 20 01 e0 01 00 00"), b""]
+        sock.recv.side_effect = closed_after(bytes.fromhex("55 20 01 e0 01 00 00"))
         with patch.object(ctl, "resolve_rfcomm_channel", return_value=16), patch.object(
             ctl.socket, "socket", return_value=sock
         ):
@@ -103,10 +110,10 @@ class ErrorCodeTests(unittest.TestCase):
     def test_recognised_reply_is_connected(self):
         sock = Mock()
         frame = p.build_frame(p.BATTERY_RESP, bytes([0]), seq=1)
-        sock.recv.side_effect = [frame, b""]
+        sock.recv.side_effect = closed_after(frame)
         with patch.object(ctl, "resolve_rfcomm_channel", return_value=16), patch.object(
             ctl.socket, "socket", return_value=sock
-        ), patch.object(ctl, "read_cached", return_value={"model": {"base": "B155"}}):
+        ), patch.object(ctl, "cached_model", return_value=ctl.m.describe("B155")):
             result = run_cli("status", "--mac", ADDRESS)
         self.assertTrue(result["connected"])
 
@@ -118,6 +125,15 @@ class ErrorCodeTests(unittest.TestCase):
         self.assertEqual(result["error"], "not_connected")
         resolve.assert_not_called()
         sock.assert_not_called()
+
+    def test_bearer_lines_do_not_mean_disconnected(self):
+        # BlueZ 5.88: dual-mode headphones on classic Bluetooth (issue #1195).
+        info = "Name: CMF Headphone Pro\n\tConnected: yes\n\tBREDR.Connected: yes\n\tLE.Connected: no\n"
+        with patch.object(ctl, "_run", return_value=info):
+            self.assertFalse(ctl.bluez_disconnected(ADDRESS))
+            ctl.require_link(ADDRESS)
+            err = ctl.refine(ctl.CtlError("unreachable", "connect", "down"), ADDRESS)
+        self.assertEqual(err.code, "unreachable")
 
     def test_unreachable_is_not_retried(self):
         sock = Mock()

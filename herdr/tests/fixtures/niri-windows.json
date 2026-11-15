@@ -1,0 +1,32 @@
+[
+  {
+    "id": 42,
+    "title": "HerdR — \"client\"",
+    "app_id": "com.mitchellh.ghostty",
+    "pid": 100,
+    "workspace_id": 1,
+    "is_focused": true,
+    "is_floating": false,
+    "is_urgent": false
+  },
+  {
+    "id": 43,
+    "title": "HerdR\nsecond client",
+    "app_id": "com.mitchellh.ghostty",
+    "pid": 100,
+    "workspace_id": 2,
+    "is_focused": false,
+    "is_floating": false,
+    "is_urgent": false
+  },
+  {
+    "id": 44,
+    "title": null,
+    "app_id": null,
+    "pid": null,
+    "workspace_id": 2,
+    "is_focused": false,
+    "is_floating": false,
+    "is_urgent": false
+  }
+]

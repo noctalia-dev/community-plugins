@@ -67,7 +67,9 @@ binding.
 
 The panel header names the plan the account is on in words — "Claude Team 5x", rebuilt
 from the machine tokens the credentials file actually stores (`team`,
-`default_claude_max_5x`). The same name heads the tooltip.
+`default_claude_max_5x`). The same name heads the tooltip. Consumer Max plans use their
+current names: a `max` account on the `_5x` tier reads "Claude Max" and on the `_20x`
+tier "Claude Ultra", even though the credentials file still stores the old tokens.
 
 The panel opens attached under the pill and carries the full detail: a card for every
 rate window the plan reports, each with a reset countdown, the wall-clock time it lands
@@ -103,13 +105,13 @@ with the widget.
 | --- | --- | --- | --- |
 | `refresh_interval` | `int` | `2` | Minutes between background fetches (2–15). |
 | `currency` | `select` | `auto` | Cost display: `auto` follows the locale, or force `usd` / `eur`. |
-| `pill_metric` | `select` | `five_hour` | Which window the pill reports: `five_hour`, `seven_day`, or `both`. |
+| `pill_metric` | `select` | `five_hour` | Which window the pill reports: `five_hour`, `seven_day`, or `both`. On an account with no 5-hour window (verified Ultra), `five_hour` and `both` show the weekly window instead. |
 | `pill_style` | `select` | `glyph_text` | Pill appearance: glyph + percentage, a circular ring, or ring + percentage. |
 | `pill_extras` | `select` | `none` | What rides beside the percentage: `countdown`, `pace`, `both` or `none`. |
 | `show_glyph` | `bool` | `true` | Show the Claude glyph next to the percentage. |
 | `ring_size` | `int` | `16` | Ring diameter in pixels (10–28). Keep it under the bar height or it clips. |
 | `ring_thickness` | `int` | `3` | Ring stroke width in pixels (1–6). |
-| `ring_color` | `color` | `#89B4FA` | Ring progress color, used only when the active palette cannot be read. |
+| `ring_color` | `color` | `#89B4FA` | Ring progress color, used only when a palette role does not resolve. |
 | `ring_track_color` | `color` | `#585B70` | Ring background color, same fallback. |
 | `accent` | `color` | `primary` | Desktop widget accent. |
 
@@ -131,11 +133,8 @@ arithmetic, so a card never reads calm while the vendor is calling it urgent.
 
 - Noctalia's `ui.*` has no arc primitive, so `ring.luau` generates an SVG and hands it to
   `barWidget.setImage`; the image loader rasterizes it through librsvg.
-- An SVG needs literal hex and the plugin API has no palette-role resolver, so
-  `ring.luau` resolves the active palette itself: custom and community palettes are read
-  from disk, wallpaper palettes are re-derived by running `noctalia theme`. Built-in
-  palettes live inside the shell binary and cannot be read, so those fall back to
-  `ring_color` / `ring_track_color`.
+- An SVG needs literal hex, so `ring.luau` resolves each palette role with
+  `noctalia.getColor` against the active theme, whatever its source.
 - Inside the panel and the desktop widget, progress is still linear (`ui.progress`).
 - The panel is a fixed 380×640 and scrolls; the DMS popout auto-sizes.
 
@@ -155,7 +154,7 @@ summed, so week and month totals and costs read about twice as high as they were
 - `shared.luau` — formatters, countdown math, pacing model and profile projection,
   required by the three UI entries so they cannot drift on how a number reads.
 - `widget.luau` — the bar pill.
-- `ring.luau` — the pill's circular-progress SVG and palette resolution.
+- `ring.luau` — the pill's circular-progress SVG.
 - `panel.luau` — the click panel.
 - `desktop.luau` — the desktop tile.
 
@@ -169,8 +168,7 @@ What this plugin touches, so nothing is a surprise:
 - **Network**: the Anthropic usage API for your account's rate windows; LiteLLM's public
   model-price table to cost the tokens; Frankfurter (ECB rates) for USD to EUR. All over
   HTTPS, on the refresh interval.
-- **Spawns** `get-claude-usage` through `bash`, and `noctalia theme` when the ring needs
-  a wallpaper-derived palette.
+- **Spawns** `get-claude-usage` through `bash`.
 - **Writes** small caches next to Claude Code's own files: `~/.claude/pricing-cache.json`
   (refreshed daily), `~/.claude/usage-cache*.json` (the last usage response), and
   `~/.claude/usage-cache*-refresh.json` (a remembered refresh failure). When the access

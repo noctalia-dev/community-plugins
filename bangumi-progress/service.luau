@@ -3,6 +3,7 @@
 -- The desktop widget, bar widget, and panel communicate only through noctalia.state and never access the network directly.
 
 local API_BASE = "https://api.bgm.tv"
+local apiConfigPending = false
 local USER_AGENT = "noctalia-bangumi-progress/1.2.0 (https://github.com/noctalia-dev/community-plugins)"
 local SUBJECT_TYPE_ANIME = 2
 local PAGE_LIMIT = 50
@@ -2080,6 +2081,7 @@ local function runOAuth(action, onDone, attempt)
     if not ok then error(failure, 0) end
   end
   local command = "exec python3 -u " .. shellQuote(paths.script) .. " " .. shellQuote(action)
+    .. " --api-base-url " .. shellQuote(API_BASE)
     .. " --data-dir " .. shellQuote(paths.data) .. " --client-file " .. shellQuote(paths.client)
     .. " --attempt-id " .. shellQuote(oauthAttempt) .. " 2>/dev/null"
   -- runStream is stopped by the host on reload and is not subject to the short runAsync timeout.
@@ -2288,10 +2290,51 @@ syncInterval = function()
   if pendingEpisodePersistence or pendingUnwatchedUpdate or pendingBadgePersistence then
     ms = math.min(ms, EPISODE_PERSIST_INTERVAL_MS)
   end
+  if apiConfigPending then ms = math.min(ms, 250) end
   noctalia.setUpdateInterval(ms)
 end
 
+local function configuredApiBase()
+  local paths = oauthPaths()
+  local profile = paths and readJson(paths.client)
+  local override = profile and profile.api_base_url
+  if type(override) == "string" and trim(override) ~= "" then
+    return trim(override):gsub("/+$", "")
+  end
+  local value = trim(noctalia.getConfig("api_base_url")):gsub("/+$", "")
+  return if value ~= "" then value else "https://api.bgm.tv"
+end
+
+local function applyApiConfig()
+  -- Let credential operations and progress writes finish against their original
+  -- endpoint. Read callbacks are invalidated before starting fresh requests.
+  if not apiConfigPending or snapshot.oauthBusy or snapshot.busy then return end
+  apiConfigPending = false
+  local nextBase = configuredApiBase()
+  if nextBase == API_BASE then return end
+  suspendAccountRequests()
+  API_BASE = nextBase
+  meCache = { result = nil, fetchedAt = 0 }
+  profileState.fetchedAt = 0
+  profileState.attemptedAt = 0
+  for _, count in pairs(snapshot.barCounts) do count.fetchedAt = 0 end
+  lastAutoRefreshAt = noctalia.nowMs()
+  refreshAll(true)
+  if snapshot.calendar.loaded or noctalia.state.get("bgm_open") == true then
+    loadCalendar(true)
+  end
+  publishSnapshot()
+  syncInterval()
+end
+
+function onConfigChanged()
+  apiConfigPending = configuredApiBase() ~= API_BASE
+  applyApiConfig()
+  syncInterval()
+end
+
 function update()
+  applyApiConfig()
   syncInterval()
   if coverPersistDueAt > 0 and noctalia.nowMs() >= coverPersistDueAt then flushCoverPersistence() end
   if episodePersistDueAt > 0 and noctalia.nowMs() >= episodePersistDueAt then flushEpisodePersistence() end
@@ -2381,6 +2424,7 @@ function onIpc(event, _payload)
 end
 
 function init()
+  API_BASE = configuredApiBase()
   refreshMs = math.max(MIN_IDLE_MS, (tonumber(noctalia.getConfig("refresh_minutes")) or 30) * 60000)
   loadCalendarCache()
   updateOAuthAvailability()
@@ -2405,4 +2449,4 @@ init()
 
 
 -- The host invokes entry points by name; this reference suppresses static-analysis unused warnings.
-local _ = { update, onIpc }
+local _ = { update, onIpc, onConfigChanged }

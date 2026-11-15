@@ -1,42 +1,26 @@
 --!nonstrict
 -- file-search — disk usage donut for the panel.
 --
--- `du` measures the direct children of the search root; the biggest few become
--- a donut, the rest is folded into one "other" slice.
---
+-- `du` (spawned as an argv) measures the direct children of the search root;
+-- the biggest few become a donut, the rest is folded into one "other" slice.
 -- The chart is an SVG written into the plugin data directory and shown with
--- ui.image. The noctalia ui tree has no arc element (ui.graph is a line
--- sparkline) and the host rasterizes SVG through librsvg, so a generated file
--- is the only way to draw one. A data: URI does not work: the panel's path
--- resolver treats anything not starting with '/' or '~' as relative to the
--- plugin directory.
+-- ui.image. Colours come from two fixed ramps chosen with isDarkMode().
 --
--- Colours are hardcoded in two ramps chosen with isDarkMode(). The ui tree
--- takes theme *role* names, but no API returns the palette as hex, so an SVG
--- cannot follow the theme; the legend's swatches reuse these same values.
---
--- du is spawned as an argv (plugin_api >= 24), never as a shell line.
+-- State keys (module fields, read by the panel): state, slices, total, root,
+-- scannedAt, errText, imagePath, skipped, looseLabel, otherLabel.
 
--- Only for formatBytes and now(): both existed here as private copies until the
--- byte formatter drifted from the panel's and the same measurement started
--- reading as "110 GB" in the donut and "110.4 GB" in the free-space tooltip.
--- require is cached per VM, so this is the same table panel.luau holds.
 local shared = require("./shared.luau")
 
 local usage = {}
 
--- Eight, which is also the length of the palette, so no folder ever borrows a
--- colour already on screen. Six left "other" as the second-biggest slice on a
--- home directory (21% of it) while hiding two folders larger than the smallest
--- one shown — and "other" is the one slice that cannot be clicked into.
+-- Same as the palette length.
 usage.MAX_SLICES = 8
 
--- A day: du over a home directory takes ~7 seconds, disk usage moves over
--- days, and the measurement is saved to disk. ↻ ignores this.
+-- A measurement younger than this is reused; refresh ignores it.
 usage.TTL_SECONDS = 86400
 usage.TIMEOUT_MS = 120000
 
--- Fixed order, so a folder keeps its colour between measurements.
+-- Fixed order: a folder keeps its colour between measurements.
 usage.PALETTE_DARK = {
     "#7aa2f7", "#9ece6a", "#e0af68", "#f7768e",
     "#bb9af7", "#2ac3de", "#ff9e64", "#73daca",
@@ -60,28 +44,20 @@ usage.errText = nil
 usage.imagePath = nil  -- current SVG, nil until one is written
 usage.skipped = {}     -- mount points under the root, so they can be named
 
--- Set by the panel from translations/en.json: this module builds the slice
--- labels, but user-visible strings still live in the translation file.
+-- Set by the panel from translations/en.json.
 usage.looseLabel = "(files)"
 usage.otherLabel = "other"
 
--- Two fixed names, alternating: ui.image reloads only when the path string
--- changes, and a counter would restart at zero on every reload and delete the
--- file this run just wrote, leaking the older ones.
+-- Two file names, alternating.
 local SVG_NAMES = { "usage-a.svg", "usage-b.svg" }
 local svgSlot = 0
 local scanning = false
 
 -- ── settings ─────────────────────────────────────────────────────────────────
 
--- Kept apart from the index's exclude_dirs, which defaults to hiding .git and
--- node_modules — what fills a source folder usually IS .git.
---
--- du's semantics, verified: a bare name matches anywhere below the root, a path
--- matches exactly one folder. A leading '~' has to be expanded here, since the
--- argv never reaches a shell and du would take it literally and match nothing,
--- silently. Values are otherwise passed through; only a newline or NUL is
--- rejected, as the one thing that could make a pattern mean something else.
+-- The usage_exclude_dirs setting as du --exclude patterns: a bare name matches
+-- anywhere below the root, a path matches one folder. A leading '~' is
+-- expanded; entries with a newline or NUL are dropped.
 function usage.excludes()
     local raw = noctalia.getConfig("usage_exclude_dirs")
     if type(raw) ~= "string" then
@@ -97,8 +73,6 @@ function usage.excludes()
                 if name:sub(1, 1) == "~" then
                     name = noctalia.expandPath(name)
                 end
-                -- du matches the path as it builds it, never with a trailing
-                -- slash, so one here would make the pattern miss.
                 if #name > 1 then
                     name = name:gsub("/+$", "")
                 end
@@ -111,10 +85,7 @@ end
 
 -- ── mounts ───────────────────────────────────────────────────────────────────
 
--- Mount points directly inside `root`, from /proc/self/mounts: one file read,
--- no process, no new dependency. They are not excluded here — `du -x` already
--- refuses to cross a filesystem boundary — only named, so the panel can say
--- what is missing from the total rather than under-report it.
+-- Names of the mount points directly inside `root`, from /proc/self/mounts.
 function usage.mountChildren(root)
     local text = noctalia.readFile("/proc/self/mounts")
     if type(text) ~= "string" then
@@ -123,7 +94,7 @@ function usage.mountChildren(root)
     local prefix = root .. "/"
     local names, seen = {}, {}
     for line in text:gmatch("[^\n]+") do
-        -- Second field is the target, with spaces and newlines octal-escaped.
+        -- Second field is the target, octal-escaped.
         local target = line:match("^%S+%s+(%S+)")
         if target ~= nil then
             target = target:gsub("\\(%d%d%d)", function(digits)
@@ -144,13 +115,8 @@ end
 
 -- ── du output ────────────────────────────────────────────────────────────────
 
--- One `<bytes>\t<path>` line per direct child, the root itself last.
---
--- Records are validated, not trusted: du separates them with a newline and a
--- directory name may contain one, so a crafted name can forge a line. Keeping
--- only paths that are a direct child of the root is what a forged fragment
--- cannot produce — it would have to reproduce the root prefix inside a name
--- below that same root.
+-- One `<bytes>\t<path>` line per direct child, the root itself last. Only
+-- paths that are a direct child of the root are kept (names may forge lines).
 local function parseDu(out, root)
     local entries, rootBytes = {}, nil
     local prefix = root .. "/"
@@ -162,9 +128,6 @@ local function parseDu(out, root)
                 rootBytes = bytes
             elseif path:sub(1, #prefix) == prefix then
                 local name = path:sub(#prefix + 1)
-                -- An exclusion given as a bare name empties every folder whose
-                -- CONTENTS it matched instead of removing the folder, and a
-                -- "0 B · 0%" legend row is noise.
                 if name ~= "" and not name:find("/") and bytes > 0 then
                     table.insert(entries, { name = name, bytes = bytes })
                 end
@@ -174,16 +137,13 @@ local function parseDu(out, root)
     return entries, rootBytes
 end
 
--- Colour by position, in place. Separate from building the slices because a
--- measurement restored from disk was written under whatever theme was up then,
--- so colours are re-derived on load rather than persisted.
+-- Colours the slices by position, in place.
 function usage.paint(slices)
     local palette = noctalia.isDarkMode() and usage.PALETTE_DARK or usage.PALETTE_LIGHT
     local rank = 0
     for _, slice in ipairs(slices) do
         if slice.kind == "other" then
-            -- Outside the ramp: a leftover, not a folder. Dark enough to still
-            -- read as a 9px swatch on the light theme.
+            -- "other" is outside the ramp.
             slice.color = noctalia.isDarkMode() and "#5b6180" or "#9aa2b8"
         else
             rank += 1
@@ -193,9 +153,8 @@ function usage.paint(slices)
     return slices
 end
 
--- Biggest MAX_SLICES children, the tail merged, plus whatever the root holds
--- outside any child folder — without that last one the parts visibly fail to
--- add up to the number in the middle.
+-- Biggest MAX_SLICES children, the tail merged, plus what the root holds
+-- outside any child folder.
 local function toSlices(entries, rootBytes, looseLabel, otherLabel)
     table.sort(entries, function(a, b)
         return a.bytes > b.bytes
@@ -237,13 +196,10 @@ local function escapeXml(text)
     return (text:gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;"):gsub('"', "&quot;"))
 end
 
--- A dashed circle, not an arc path: "run, remainder" with a negative dashoffset
--- puts one visible run anywhere on the ring, with no large-arc-flag case to get
--- wrong at half the circle.
+-- One ring segment, drawn as a dashed circle.
 local function segment(cx, cy, radius, width, color, fromFraction, lengthFraction)
     local circumference = 2 * math.pi * radius
-    -- A hairline gap between neighbours. Subtracted from the run, never added,
-    -- or the ring drifts.
+    -- A hairline gap between neighbours.
     local run = circumference * lengthFraction - 1.5
     if run <= 0 then
         return ""
@@ -322,9 +278,7 @@ end
 
 -- ── persistence ──────────────────────────────────────────────────────────────
 
--- The measurement outlives the process, so a restart (or a hot reload) does not
--- pay a du walk for numbers that have not changed. Anything unreadable or from
--- another version is discarded, not repaired: it is a cache.
+-- The measurement is cached on disk; an unreadable or other-version file is discarded.
 local STORE_VERSION = 1
 
 function usage.save(dataDir)
@@ -394,12 +348,8 @@ function usage.fresh(root)
 end
 
 -- Measure `root`, then call done() either way. `force` skips the TTL; a scan
--- already in flight is never doubled.
---
--- -x keeps du inside one filesystem, so a mount below the root is not descended
--- and cannot stall the panel. -d1 stops at the direct children, -B1 makes the
--- first column plain bytes. The root goes after "--", so one starting with a
--- dash is still a path.
+-- already in flight is never doubled. du: -x stays on one filesystem, -d1 stops
+-- at the direct children, -B1 prints plain bytes.
 function usage.scan(root, dataDir, force, done)
     if scanning then
         return
@@ -427,8 +377,7 @@ function usage.scan(root, dataDir, force, done)
     local started = noctalia.runAsync(argv, function(result)
         scanning = false
         local entries, rootBytes = parseDu(result.stdout or "", root)
-        -- A non-zero exit is normal: one unreadable directory makes du exit 1
-        -- after printing everything else. The output decides, not the status.
+        -- The output decides, not the exit status.
         if result.timedOut or rootBytes == nil then
             usage.state = "error"
             usage.errText = result.timedOut and "timeout" or "empty"

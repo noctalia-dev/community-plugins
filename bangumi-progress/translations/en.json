@@ -168,6 +168,10 @@
       "description": "Generate at next.bgm.tv/demo/access-token while logged into bgm.tv (valid about one year). When set, your own collections (including private) are read. When empty, a username below is used to read public collections anonymously.",
       "label": "Bangumi personal access token"
     },
+    "api_base_url": {
+      "description": "API root without /v0. Use trusted mirrors only. api_base_url in oauth-client.json overrides this setting.",
+      "label": "Bangumi API base URL"
+    },
     "appearance_density": {
       "description": "Adjust collection cover sizes and spacing. The timeline follows this unless its own density is selected.",
       "label": "Collection density",

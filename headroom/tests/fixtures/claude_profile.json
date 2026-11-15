@@ -1,0 +1,15 @@
+{
+ "account": {
+  "uuid": "acct-a",
+  "email": "a@example.com",
+  "display_name": "A",
+  "has_claude_max": true
+ },
+ "organization": {
+  "uuid": "org-a",
+  "organization_type": "claude_max",
+  "rate_limit_tier": "default_claude_max_20x",
+  "plan_display_name": "Ultra",
+  "plan_display_label": "Ultra plan"
+ }
+}

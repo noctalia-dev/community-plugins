@@ -1,0 +1,76 @@
+{
+  "action": {
+    "panel": "Open its panel",
+    "panel_named": "Open the {name} panel"
+  },
+  "custom": {
+    "placeholder": "Add a command, such as panel-toggle wallpaper"
+  },
+  "group": {
+    "custom": "Your commands",
+    "noctalia": "Noctalia"
+  },
+  "key": {
+    "invalid": "Not a key",
+    "placeholder": "SUPER + K",
+    "taken": "Taken"
+  },
+  "launcher": {
+    "open": "Open Plugin Hub"
+  },
+  "noctalia": {
+    "audio": "Audio",
+    "bluetooth": "Bluetooth",
+    "calendar": "Calendar",
+    "clipboard": "Clipboard",
+    "control_center": "Control center",
+    "dnd": "Do not disturb",
+    "emoji": "Emoji",
+    "launcher": "Launcher",
+    "media": "Media",
+    "network": "Network",
+    "notifications": "Notifications",
+    "panels": "Panels",
+    "power": "Power",
+    "screen_time": "Screen time",
+    "session": "Session menu",
+    "settings": "Settings",
+    "system": "System",
+    "wallpaper": "Wallpapers",
+    "weather": "Weather"
+  },
+  "page": {
+    "advanced": "Show advanced settings",
+    "items": {
+      "one": "1 item",
+      "other": "{count} items"
+    },
+    "none": "This plugin has no settings here. Its widgets' settings show once a widget is on a bar or the desktop.",
+    "not_an_option": "Not one of the choices.",
+    "not_here": "Edit this one in Noctalia's settings.",
+    "number": "Not a number.",
+    "open_noctalia": "Noctalia",
+    "range": "A number from {min} to {max}.",
+    "secret_set": "Set",
+    "secret_unset": "Not set",
+    "section_desktop": "Desktop widget",
+    "section_lockscreen": "Lock screen widget",
+    "section_plugin": "Plugin",
+    "section_widget": "Bar widget on {bar}",
+    "whole_number": "Not a whole number."
+  },
+  "panel": {
+    "loading": "Loading…",
+    "no_keys": "Keys need Hyprland. The actions still run from here and from the launcher.",
+    "no_match": "Nothing matches.",
+    "search": "Search",
+    "title": "Plugin Hub"
+  },
+  "plugin": {
+    "nothing": "No panels or commands found.",
+    "off": "Off. Switch it on to use it."
+  },
+  "widget": {
+    "tooltip": "Plugin Hub"
+  }
+}

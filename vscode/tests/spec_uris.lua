@@ -1,0 +1,67 @@
+local uris = loadModule("uris.luau")
+
+local function p(raw) return uris.parse(raw) end
+
+local u = p("file:///home/user/my%20app")
+eq("file path decoded", u.path, "/home/user/my app")
+eq("file key keeps encoding", u.key, "file:///home/user/my%20app")
+eq("file key strips trailing slash", p("file:///home/user/my%20app/").key, "file:///home/user/my%20app")
+eq("root key keeps slash", p("file:///").key, "file:///")
+eq("unicode", p("file:///srv/%C3%BCnicode").path, "/srv/\195\188nicode")
+eq("percent hash", p("file:///home/user/a%25b%23c").path, "/home/user/a%b#c")
+eq("apostrophe", p("file:///home/user/it%27s").path, "/home/user/it's")
+eq("file remote nil", u.remote, nil)
+
+local r = p("vscode-remote://ssh-remote%2Bmybox/home/me/api")
+eq("ssh remote", r.remote, "ssh")
+eq("ssh host", r.host, "mybox")
+eq("ssh path", r.path, "/home/me/api")
+local r2 = p("vscode-remote://ssh-remote+mybox/x")
+eq("unencoded plus host", r2.host, "mybox")
+eq("authority key matches", p("vscode-remote://ssh-remote%2Bmybox/x").key, r2.key)
+eq("authority key lowercased", p("vscode-remote://SSH-Remote%2BMyBox/x").key, r2.key)
+eq("authority key decoded", r2.key, "vscode-remote://ssh-remote+mybox/x")
+local c = p("vscode-remote://dev-container%2B7b2268%22/workspaces/app")
+eq("container", c.remote, "container")
+eq("container host nil", c.host, nil)
+eq("wsl", p("vscode-remote://wsl%2BUbuntu/home/x").remote, "wsl")
+local t = p("vscode-remote://tunnel%2Bmytun/x")
+eq("tunnel", t.remote, "tunnel")
+eq("tunnel host", t.host, "mytun")
+eq("other remote", p("vscode-remote://codespaces%2Bfoo/x").remote, "other")
+eq("drive path", p("file:///c%3A/Users/x").path, "c:/Users/x")
+eq("untitled nil", p("untitled:Untitled-1"), nil)
+eq("http nil", p("https://x/y"), nil)
+eq("nil input", p(nil), nil)
+
+eq("decode once", uris.decode("a%2520b"), "a%20b")
+
+eq("fromPath space", uris.fromPath("/home/user/my app").key, "file:///home/user/my%20app")
+eq("fromPath matches parse", uris.fromPath("/home/user/a%b#c's ü").key, p("file:///home/user/a%25b%23c%27s%20%C3%BC").key)
+eq("fromPath path", uris.fromPath("/home/user/my app/").path, "/home/user/my app")
+eq("fromPath scheme", uris.fromPath("/x").scheme, "file")
+eq("fromPath root", uris.fromPath("/").key, "file:///")
+
+eq("title", uris.title(p("file:///home/user/proj.code-workspace"), "workspace"), "proj")
+eq("title folder", uris.title(u, "folder"), "my app")
+eq("title root", uris.title(p("file:///"), "folder"), "/")
+eq("shortenHome", uris.shortenHome("/home/user/p", "/home/user"), "~/p")
+eq("shortenHome exact", uris.shortenHome("/home/user", "/home/user"), "~")
+eq("shortenHome prefix only", uris.shortenHome("/home/username2/p", "/home/user"), "/home/username2/p")
+eq("subtitle ssh", uris.subtitle(r, "/home/user"), "mybox:/home/me/api")
+eq("subtitle file", uris.subtitle(p("file:///home/user/x"), "/home/user"), "~/x")
+
+for _, s in ipairs({ "https://github.com/a/b.git", "git@github.com:a/b.git", "ssh://git@host/x", "git://h/x" }) do
+  check("isGitUrl " .. s, uris.isGitUrl(s) == true)
+end
+for _, s in ipairs({ "/home/user/x", "~/x", "github.com/a/b" }) do
+  check("not git " .. s, uris.isGitUrl(s) == false)
+end
+eq("cloneName .git", uris.cloneName("https://github.com/a/b.git"), "b")
+eq("cloneName slash", uris.cloneName("https://github.com/a/b/"), "b")
+eq("cloneName scp", uris.cloneName("git@h:x/my-repo.git"), "my-repo")
+eq("cloneName empty path", uris.cloneName("https://github.com/"), nil)
+eq("cloneName dotdot", uris.cloneName("https://h/a/.."), nil)
+eq("cloneName dot", uris.cloneName("https://h/a/."), nil)
+eq("cloneName bad chars", uris.cloneName("https://h/a/b c"), nil)
+eq("cloneName bad chars 2", uris.cloneName("https://h/a/b$c"), nil)

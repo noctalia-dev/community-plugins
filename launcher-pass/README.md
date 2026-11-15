@@ -127,7 +127,7 @@ Copy or Type. This is irreversible — the old password is not kept anywhere.
 The **"New entry"** row in any folder view (or typing `/pass +`) opens the
 creation menu on the `+` prefix, pre-filled with the current folder path. Edit
 the path by typing; a **"Create entry"** row appears once the path has a leaf
-name. Activating it shows a **Cancel** / **Create entry now** confirm step with
+name. Activating it shows a **Create entry now** / **Cancel** confirm step with
 the full path. If the path already has an entry the **"Create entry"** row turns
 into an *"already exists"* message right there in the menu, so you never reach
 the confirm step for a name that can't be created.

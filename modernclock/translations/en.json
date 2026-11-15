@@ -1,0 +1,68 @@
+{
+  "settings": {
+    "date_font_color": {
+      "description": "Color for the date text",
+      "label": "Date Color"
+    },
+    "date_font_size": {
+      "description": "Font size for the date",
+      "label": "Date Font Size"
+    },
+    "date_format": {
+      "description": "Date format string (e.g. %d %b %Y)",
+      "label": "Date Format"
+    },
+    "date_letter_spacing": {
+      "description": "Letter spacing for date text",
+      "label": "Date Spacing"
+    },
+    "day_font_color": {
+      "description": "Color for the day text",
+      "label": "Day Color"
+    },
+    "day_font_path": {
+      "description": "Select font file (.otf/.ttf; leave empty for bundled FN Octahedron)",
+      "label": "Custom Day Font"
+    },
+    "day_font_size": {
+      "description": "Font size for the day",
+      "label": "Day Font Size"
+    },
+    "day_letter_spacing": {
+      "description": "Letter spacing for day text",
+      "label": "Day Spacing"
+    },
+    "show_date": {
+      "description": "Display current date",
+      "label": "Show Date"
+    },
+    "show_day": {
+      "description": "Display day name",
+      "label": "Show Day"
+    },
+    "show_time": {
+      "description": "Display current time",
+      "label": "Show Time"
+    },
+    "time_character": {
+      "description": "Enclosing character around time",
+      "label": "Time Character"
+    },
+    "time_font_color": {
+      "description": "Color for the time text",
+      "label": "Time Color"
+    },
+    "time_font_size": {
+      "description": "Font size for the time",
+      "label": "Time Font Size"
+    },
+    "time_letter_spacing": {
+      "description": "Letter spacing for time text",
+      "label": "Time Spacing"
+    },
+    "use_24_hour_format": {
+      "description": "Use 24-hour time instead of 12-hour",
+      "label": "24-Hour Format"
+    }
+  }
+}

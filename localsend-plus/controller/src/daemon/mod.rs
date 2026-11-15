@@ -227,6 +227,20 @@ struct Controller {
     internal_tx: mpsc::Sender<InternalEvent>,
 }
 
+/// The part of the snapshot the plugin needs to hear about at once, even with
+/// its panel closed: a request waiting for an answer, transfers starting and
+/// ending, and errors. Progress and the device list are left out, since the
+/// plugin polls while a transfer runs or its panel is open.
+#[derive(PartialEq)]
+struct Activity {
+    status: DaemonStatus,
+    visibility: Visibility,
+    receiving: bool,
+    pending: Option<String>,
+    transfers: Vec<(String, TransferState)>,
+    error: Option<(String, String)>,
+}
+
 pub async fn run(config: DaemonConfig) -> Result<()> {
     anyhow::ensure!(config.port != 0, "Port 0 is not supported");
     anyhow::ensure!(config.socket.is_absolute(), "Socket path must be absolute");
@@ -336,6 +350,7 @@ pub async fn run(config: DaemonConfig) -> Result<()> {
     let shutdown_signal = shutdown_signal();
     tokio::pin!(shutdown_signal);
 
+    let mut activity = controller.activity();
     let mut stop = false;
     while !stop {
         tokio::select! {
@@ -354,7 +369,7 @@ pub async fn run(config: DaemonConfig) -> Result<()> {
             Some(event) = internal_rx.recv() => {
                 controller.handle_internal_event(event);
             }
-            _ = progress_tick.tick() => {
+            _ = progress_tick.tick(), if controller.has_work_in_progress() => {
                 controller.sync_progress();
                 controller.expire_pending();
                 controller.expire_incoming().await;
@@ -381,6 +396,13 @@ pub async fn run(config: DaemonConfig) -> Result<()> {
         // serving has finished.
         if controller.should_stop_server() {
             controller.stop_server().await;
+        }
+        // Tells the plugin to fetch a snapshot now instead of at its next
+        // idle poll.
+        let current = controller.activity();
+        if current != activity {
+            activity = current;
+            emit_daemon_event("changed", json!({}));
         }
     }
 
@@ -1201,6 +1223,38 @@ impl Controller {
         }
         if let Some(active) = &mut self.incoming {
             sync_record_progress(&mut active.record, &active.progress);
+        }
+    }
+
+    /// Whether the progress tick has anything to do: a request waiting for an
+    /// answer, or a transfer whose progress and timeouts it tracks. An idle
+    /// daemon then sleeps until the network or the plugin wakes it.
+    fn has_work_in_progress(&self) -> bool {
+        self.pending.is_some() || self.incoming.is_some() || self.outgoing.is_some()
+    }
+
+    fn activity(&self) -> Activity {
+        let transfers = self
+            .incoming
+            .iter()
+            .map(|active| &active.record)
+            .chain(self.outgoing.iter().map(|active| &active.record))
+            .chain(self.recent.iter())
+            .map(|record| (record.id.clone(), record.state))
+            .collect();
+        Activity {
+            status: self.status,
+            visibility: self.visibility,
+            receiving: self.server.is_some(),
+            pending: self
+                .pending
+                .as_ref()
+                .map(|pending| pending.snapshot.id.clone()),
+            transfers,
+            error: self
+                .error
+                .as_ref()
+                .map(|error| (error.code.clone(), error.at.clone())),
         }
     }
 

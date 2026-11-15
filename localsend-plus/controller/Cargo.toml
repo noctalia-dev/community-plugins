@@ -1,6 +1,6 @@
 [package]
 name = "localsend-controller"
-version = "2.3.2"
+version = "2.4.0"
 description = "LocalSend receiver and sender for the LocalSend Plus Noctalia plugin"
 license = "MIT"
 rust-version = "1.97"

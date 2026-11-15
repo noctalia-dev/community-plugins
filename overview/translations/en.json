@@ -1,0 +1,35 @@
+{
+  "keybind": {
+    "invalid": "“{key}” is not a key binding. Write it like SUPER + Tab.",
+    "invalid_title": "Overview: key not understood",
+    "taken": "{key} is already bound in Hyprland, so Overview did not take it. Pick another key in its settings, or free this one.",
+    "taken_title": "Overview: key already in use"
+  },
+  "panel": {
+    "hint": "Click a window to go to it. Drag it onto a workspace to move it.",
+    "loading": "Loading…",
+    "no_windows": "No windows open.",
+    "not_hyprland": "Overview works on Hyprland.",
+    "title": "Overview"
+  },
+  "settings": {
+    "keybind": {
+      "description": "A key that opens Overview, such as SUPER + Tab. It is added to Hyprland while Noctalia runs; a key that is already bound is left alone. Empty adds none.",
+      "label": "Key binding"
+    },
+    "previews": {
+      "description": "Show a small picture of each window, taken with grim. Off, each window shows its app's icon and title, for systems where grim fails or is slow.",
+      "label": "Window previews"
+    }
+  },
+  "widget": {
+    "tooltip": "Overview: all workspaces and windows"
+  },
+  "workspace": {
+    "name": "Workspace {name}",
+    "windows": {
+      "one": "1 window",
+      "other": "{count} windows"
+    }
+  }
+}

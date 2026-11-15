@@ -24,19 +24,32 @@ local function levelFraction(level)
 	return math.max(0, math.min(100, n)) / 100
 end
 
-local function batteryColumn(glyphName, label, level, charging)
+local function earbudAvailable(level)
+	return level == nil or level > 0
+end
+
+local function batteryColumn(glyphName, label, level, charging, isEarbud)
 	local hasLevel = level ~= nil and level >= 0
-	local text = hasLevel and (tostring(level) .. "%") or "--%"
-	local meta = charging and noctalia.tr("panel.charging") or " "
-	local low = hasLevel and level <= 20 and not charging
+	-- A battery reading of 0 means the earbud is off (usually sitting in the case).
+	local connected = hasLevel and (not isEarbud or level > 0)
+	local text
+	if connected then
+		text = tostring(level) .. "%"
+	elseif isEarbud and hasLevel then
+		text = noctalia.tr("panel.status.disconnected")
+	else
+		text = "--%"
+	end
+	local meta = connected and charging and noctalia.tr("panel.charging") or " "
+	local low = connected and level <= 20 and not charging
 
 	local fillRole = "primary"
-	if low then
+	if not connected then
+		fillRole = "outline_variant"
+	elseif low then
 		fillRole = "error"
 	elseif charging then
 		fillRole = "secondary"
-	elseif not hasLevel then
-		fillRole = "outline_variant"
 	end
 
 	return ui.column({
@@ -48,7 +61,7 @@ local function batteryColumn(glyphName, label, level, charging)
 			ui.glyph({
 				name = glyphName,
 				size = 16,
-				color = hasLevel and "primary" or "outline_variant",
+				color = connected and "primary" or "outline_variant",
 			}),
 			ui.label({
 				text = label,
@@ -61,11 +74,11 @@ local function batteryColumn(glyphName, label, level, charging)
 			text = text,
 			fontSize = 15,
 			fontWeight = "bold",
-			color = low and "error" or (hasLevel and "on_surface" or "on_surface_variant"),
+			color = low and "error" or (connected and "on_surface" or "on_surface_variant"),
 			textAlign = "center",
 		}),
 		ui.progress({
-			progress = levelFraction(level),
+			progress = connected and levelFraction(level) or 0,
 			height = 4,
 			radius = 2,
 			fill = fillRole,
@@ -74,7 +87,7 @@ local function batteryColumn(glyphName, label, level, charging)
 		ui.label({
 			text = meta,
 			fontSize = 11,
-			color = charging and "secondary" or "on_surface_variant",
+			color = connected and charging and "secondary" or "on_surface_variant",
 			textAlign = "center",
 		}),
 	})
@@ -82,6 +95,7 @@ end
 
 local function render()
 	local connected = snapshot.connected == true
+	local canControlNoise = earbudAvailable(snapshot.battery_left) and earbudAvailable(snapshot.battery_right)
 	local body = {}
 
 	if connected then
@@ -91,9 +105,9 @@ local function render()
 			justify = "space_between",
 			padding = 8,
 		}, {
-			batteryColumn("ear", noctalia.tr("panel.left"), snapshot.battery_left, snapshot.charging_left),
-			batteryColumn("ear", noctalia.tr("panel.right"), snapshot.battery_right, snapshot.charging_right),
-			batteryColumn("package", noctalia.tr("panel.case"), snapshot.battery_case, snapshot.charging_case),
+			batteryColumn("ear", noctalia.tr("panel.left"), snapshot.battery_left, snapshot.charging_left, true),
+			batteryColumn("ear", noctalia.tr("panel.right"), snapshot.battery_right, snapshot.charging_right, true),
+			batteryColumn("package", noctalia.tr("panel.case"), snapshot.battery_case, snapshot.charging_case, false),
 		}))
 
 		-- Separator
@@ -109,6 +123,8 @@ local function render()
 				variant = (currentMode == "anc") and "primary" or "ghost",
 				selected = (currentMode == "anc"),
 				contentAlign = "start",
+				enabled = canControlNoise,
+				tooltip = not canControlNoise and noctalia.tr("panel.noise_requires_both") or nil,
 				onClick = function()
 					sendCommand("set-noise", "anc")
 				end,
@@ -120,6 +136,8 @@ local function render()
 				variant = (currentMode == "transparency") and "primary" or "ghost",
 				selected = (currentMode == "transparency"),
 				contentAlign = "start",
+				enabled = canControlNoise,
+				tooltip = not canControlNoise and noctalia.tr("panel.noise_requires_both") or nil,
 				onClick = function()
 					sendCommand("set-noise", "transparency")
 				end,
@@ -131,21 +149,31 @@ local function render()
 				variant = (currentMode == "off") and "primary" or "ghost",
 				selected = (currentMode == "off"),
 				contentAlign = "start",
+				enabled = canControlNoise,
+				tooltip = not canControlNoise and noctalia.tr("panel.noise_requires_both") or nil,
 				onClick = function()
 					sendCommand("set-noise", "off")
 				end,
 			}),
 		}
 
-		table.insert(body, ui.column({ gap = 4 }, {
+		local noiseChildren = {
 			ui.label({
 				text = noctalia.tr("panel.noise_control"),
 				fontSize = 11,
 				fontWeight = "bold",
 				color = "on_surface_variant",
 			}),
-			ui.column({ gap = 3 }, modeButtons),
-		}))
+		}
+		if not canControlNoise then
+			table.insert(noiseChildren, ui.label({
+				text = noctalia.tr("panel.noise_requires_both"),
+				fontSize = 11,
+				color = "on_surface_variant",
+			}))
+		end
+		table.insert(noiseChildren, ui.column({ gap = 3 }, modeButtons))
+		table.insert(body, ui.column({ gap = 4 }, noiseChildren))
 
 
 	else
@@ -164,7 +192,7 @@ local function render()
 				textAlign = "center",
 			}),
 			ui.button({
-				text = "Обновить",
+				text = noctalia.tr("panel.refresh"),
 				glyph = "reload",
 				variant = "primary",
 				onClick = function()

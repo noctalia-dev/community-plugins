@@ -20,6 +20,7 @@ M.ANC_MODES = {
 
 -- Wire index -> preset, mapped against the Nothing X app on a Nothing Ear (2)
 -- (see PROTOCOL.md). Index 4 is unused; 5 is the user's custom EQ curve.
+-- Only a fallback for a status without the model's own list (models.py).
 M.EQ_PRESETS = {
 	{ index = 0, name = "balanced" },
 	{ index = 3, name = "more_bass" },
@@ -44,8 +45,8 @@ M.ERROR_HINTS = {
 	helper_failed = true,
 }
 
-function M.isEqPreset(index)
-	for _, preset in ipairs(M.EQ_PRESETS) do
+function M.isEqPreset(index, presets)
+	for _, preset in ipairs(presets or M.EQ_PRESETS) do
 		if preset.index == index then
 			return true
 		end
