@@ -143,6 +143,30 @@ local function listName(list)
 end
 
 -- Packages and services other devices have and this one does not, with Install and Not here.
+-- Save steps that are new or changed, such as ones from the remote, run only once approved
+-- on this device. Review opens a terminal that shows each one's code and asks.
+local function approvalCard()
+  local count = model.counts and model.counts.waiting or 0
+  if count == 0 then
+    return nil
+  end
+  local text = noctalia.trp("approval.title", count)
+  return card({
+    ui.row({ gap = 8, align = "center", height = TITLE_HEIGHT }, {
+      ui.glyph({ name = "alert-triangle", size = 18, color = "error" }),
+      ui.label({ text = text, fontWeight = "semibold", flexGrow = 1 }),
+    }),
+    ui.label({ text = noctalia.tr("approval.body"), color = "on_surface_variant", maxLines = 3 }),
+    ui.row({ gap = 8, justify = "end", height = BUTTON_ROW_HEIGHT }, {
+      ui.button({ text = noctalia.tr("approval.review"), glyph = "terminal-2", variant = "primary", controlSize = "sm",
+        onClick = function()
+          send({ action = "review" })
+          panel.close()
+        end }),
+    }),
+  }, TITLE_HEIGHT + textHeight(noctalia.tr("approval.body"), 3) + BUTTON_ROW_HEIGHT)
+end
+
 local function missingCard()
   local missing = model.missing or {}
   if #missing == 0 then
@@ -256,8 +280,10 @@ local function included()
   local counts = model.counts
   local files = #model.files > 0 and table.concat(model.files, ", ") or noctalia.tr("saved.no_files")
   -- Until a save has counted them, the steps are named without a number.
-  local hookText = counts.hooks and noctalia.trp("saved.hooks", counts.hooks) or noctalia.tr("saved.hooks_any")
-  local hookItem, hookHeight = includedRow("terminal-2", hookText, counts.hooks ~= 0)
+  -- Every step counts here, also those that wait for approval.
+  local steps = counts.hooks and counts.hooks + (counts.waiting or 0) or nil
+  local hookText = steps and noctalia.trp("saved.hooks", steps) or noctalia.tr("saved.hooks_any")
+  local hookItem, hookHeight = includedRow("terminal-2", hookText, steps ~= 0)
   local hookRow = { hookItem }
   if model.canOpen then
     table.insert(hookRow, ui.button({ glyph = "folder", variant = "ghost", controlSize = "sm",
@@ -275,16 +301,6 @@ local function included()
   add(includedRow("settings", noctalia.tr("saved.services"), model.services, counts.services))
   add(includedRow("adjustments", noctalia.tr("saved.noctalia"), model.noctalia, counts.plugins))
   table.insert(rows, ui.row({ gap = 4, align = "center" }, hookRow))
-  -- Steps that are new or changed, such as from the remote, run only once approved here.
-  if (counts.waiting or 0) > 0 then
-    local text = noctalia.trp("saved.waiting", counts.waiting)
-    local item, itemHeight = includedRow("alert-triangle", text, true)
-    add(ui.row({ gap = 4, align = "center" }, {
-      item,
-      ui.button({ text = noctalia.tr("saved.review"), variant = "outline", controlSize = "sm",
-        onClick = function() send({ action = "review" }) end }),
-    }), itemHeight)
-  end
   height += 6 * (#rows - 1)
   return ui.column({ gap = 6 }, rows), height
 end
@@ -358,6 +374,7 @@ render = function()
     end
   end
   add(statusCard())
+  add(approvalCard())
   add(waiting())
   add(missingCard())
   add(leftCard())

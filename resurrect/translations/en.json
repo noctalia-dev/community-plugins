@@ -4,6 +4,14 @@
     "restore": "Restore…",
     "save": "Save now"
   },
+  "approval": {
+    "body": "New or changed save steps run only once you approve them on this device. Review shows each one's code and asks.",
+    "review": "Review",
+    "title": {
+      "one": "1 step waits for approval",
+      "other": "{count} steps wait for approval"
+    }
+  },
   "error": {
     "unknown": "Saving stopped with an error."
   },
@@ -67,13 +75,8 @@
     "noctalia": "Noctalia's settings and plugins",
     "open_hooks": "Open the hooks folder",
     "packages": "Installed packages",
-    "review": "Review",
     "services": "Services that start by themselves",
-    "title": "Saved each time",
-    "waiting": {
-      "one": "1 step waits for your approval and does not run",
-      "other": "{count} steps wait for your approval and do not run"
-    }
+    "title": "Saved each time"
   },
   "settings": {
     "daily": {
