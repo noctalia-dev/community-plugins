@@ -269,6 +269,12 @@ local function rpc(req, cb)
   end
   local launched = noctalia.runAsync(argv, function(result)
     loading = false
+    if closed then
+      if cb ~= nil then
+        cb(nil)
+      end
+      return
+    end
     local ok, data = pcall(noctalia.json.decode, result.stdout or "")
     if not ok or type(data) ~= "table" then
       -- The answer of the daemon is not JSON: the raw output goes as the
@@ -327,6 +333,12 @@ local function rpc(req, cb)
   if not launched then
     -- The host did not start the process and never calls the callback: the
     -- failure has to be reported here or the panel would wait forever.
+    if closed then
+      if cb ~= nil then
+        cb(nil)
+      end
+      return false
+    end
     loading = false
     errorText = C.error_text("daemon_failed")
     if cb ~= nil then
