@@ -1,5 +1,18 @@
 {
+  "pace": {
+    "idle": "asleep",
+    "run": "running",
+    "walk": "walking"
+  },
+  "panel": {
+    "cpu": "CPU {percent}%",
+    "cpu_unknown": "CPU —"
+  },
   "settings": {
+    "bounce": {
+      "description": "Bob the cat up and down in step with its stride while it walks or runs.",
+      "label": "Bounce While Running"
+    },
     "cat_color": {
       "description": "Used when Cat Color is set to Custom.",
       "label": "Custom Color"
@@ -31,5 +44,6 @@
       "label": "Walk Threshold"
     }
   },
-  "title": "Cat"
+  "title": "Cat",
+  "tooltip": "Cat — CPU {percent}% ({pace})"
 }
