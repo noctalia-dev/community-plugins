@@ -21,13 +21,13 @@ Bandcamp, Dailymotion and Bilibili. The full list is
 
 ## Requirements
 
-| Command    | Needed   | What for                                                                            |
-| ---------- | -------- | ----------------------------------------------------------------------------------- |
-| `yt-dlp`   | Required | Downloads from the sites it supports.                                               |
-| `ffmpeg`   | Required | Joins video and audio, and converts audio.                                          |
-| `sh`       | Required | Runs each download in the background. It comes with every Linux system.             |
-| `kill`     | Required | Stops a download. It comes with every Linux system.                                 |
-| `xdg-open` | Required | Opens finished files and the download folder. Without it, those buttons are hidden. |
+| Command    | Needed   | What for                                                                                                                                   |
+| ---------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `yt-dlp`   | Required | Downloads from the sites it supports.                                                                                                      |
+| `ffmpeg`   | Required | Joins video and audio, and converts audio.                                                                                                 |
+| `sh`       | Required | Runs each download in the background, and checks a download is still its own process before stopping it. It comes with every Linux system. |
+| `kill`     | Required | Stops a download. It comes with every Linux system.                                                                                        |
+| `xdg-open` | Required | Opens finished files and the download folder. Without it, those buttons are hidden.                                                        |
 
 When `yt-dlp` or `ffmpeg` is missing, the panel offers to install both in a terminal.
 

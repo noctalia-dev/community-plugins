@@ -1,6 +1,6 @@
 id = "omerfuyar/downloader"
 name = "Downloader"
-version = "1.3.2"
+version = "1.3.3"
 plugin_api = 43
 author = "omerfuyar"
 license = "MIT"

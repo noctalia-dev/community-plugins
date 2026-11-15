@@ -16,14 +16,28 @@ local INSTALLERS = {
   { manager = "zypper", command = "sudo zypper install yt-dlp ffmpeg" },
 }
 
--- $1 is the path prefix of the job's files, the rest is the yt-dlp command.
+-- $1 is the path prefix of the job's files, the rest is the yt-dlp command. The .pid file
+-- holds the process id with the boot id and the process's start time, so a later run can
+-- tell this process from another that got the same id after a reboot.
 local RUNNER = [[
 prefix=$1
 shift
 "$@" >"$prefix.log" 2>&1 &
-echo $! >"$prefix.pid"
-wait $!
+pid=$!
+start=$(sed 's/.*) //' "/proc/$pid/stat" 2>/dev/null | cut -d' ' -f20)
+echo "$pid $(cat /proc/sys/kernel/random/boot_id) $start" >"$prefix.pid"
+wait $pid
 echo $? >"$prefix.exit"
+]]
+
+-- Sends signal $2 to the process the .pid file $1 names, only while it is still that
+-- process: the same boot and the same start time. Fails otherwise. Signal 0 only checks.
+local SIGNAL = [[
+read -r pid boot start <"$1" || exit 1
+case $pid in '' | *[!0-9]*) exit 1 ;; esac
+[ -n "$start" ] && [ "$boot" = "$(cat /proc/sys/kernel/random/boot_id)" ] || exit 1
+[ "$(sed 's/.*) //' "/proc/$pid/stat" 2>/dev/null | cut -d' ' -f20)" = "$start" ] || exit 1
+kill -"$2" "$pid"
 ]]
 
 -- Bytes rather than yt-dlp's percent text, which can lag behind on fast downloads.
@@ -274,12 +288,7 @@ local function cancel(job)
     save()
   elseif job.status == "running" then
     job.cancelling = true
-    noctalia.readFileAsync(jobPrefix(job) .. ".pid", function(pid)
-      pid = pid and noctalia.string.trim(pid)
-      if pid and pid:match("^%d+$") then
-        noctalia.runAsync({ "kill", pid })
-      end
-    end)
+    noctalia.runAsync({ "sh", "-c", SIGNAL, "downloader", jobPrefix(job) .. ".pid", "TERM" })
   end
 end
 
@@ -366,25 +375,18 @@ noctalia.state.watch("downloader.command", function(command)
 end)
 
 -- A download that was running when Noctalia stopped either finished meanwhile (its exit
--- file exists, and poll() picks it up) or died with Noctalia.
+-- file exists, and poll() picks it up), still runs, or died with Noctalia or a reboot. It
+-- counts as running only while its process is the one that was started.
 local function recover()
   local job = runningJob()
   if job == nil or noctalia.fileExists(jobPrefix(job) .. ".exit") then
     return
   end
-  noctalia.readFileAsync(jobPrefix(job) .. ".pid", function(pid)
-    pid = pid and noctalia.string.trim(pid)
-    if pid == nil or not pid:match("^%d+$") then
+  noctalia.runAsync({ "sh", "-c", SIGNAL, "downloader", jobPrefix(job) .. ".pid", "0" }, function(result)
+    if result.exitCode ~= 0 and not noctalia.fileExists(jobPrefix(job) .. ".exit") then
       finish(job, -1)
       publish()
-      return
     end
-    noctalia.runAsync({ "kill", "-0", pid }, function(result)
-      if result.exitCode ~= 0 and not noctalia.fileExists(jobPrefix(job) .. ".exit") then
-        finish(job, -1)
-        publish()
-      end
-    end)
   end)
 end
 
