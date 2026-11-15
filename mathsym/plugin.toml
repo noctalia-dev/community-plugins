@@ -6,7 +6,7 @@ plugin_api = 24
 author = "fisherman"
 license = "MIT"
 dependencies = ["fzf", "wtype"]
-tags = ["unicode", "latex", "lean", "launcher"]
+tags = ["productivity", "launcher"]
 icon = "math-symbols"
 description = "Find math symbols from the launcher by description, code point, LaTeX command or Lean 4 input name"
 
