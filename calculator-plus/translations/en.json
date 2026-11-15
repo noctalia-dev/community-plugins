@@ -9,7 +9,7 @@
     "empty": "No calculations yet, type an expression below",
     "error": "Could not evaluate expression",
     "evaluating": "Evaluating...",
-    "hint": "'clear' clears history - 'exit' closes",
+    "hint": "'clear' clears history - 'exit' closes\n'ans' will be replaced by the previous result",
     "placeholder": "Type an expression...",
     "rerun": "Re-run",
     "title": "Calculator"
