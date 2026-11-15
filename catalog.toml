@@ -511,8 +511,8 @@ rev = "378127963fc2febcaaa1f99b6e3672f10bc0e769"
 [[plugin]]
 id = "ycf/mawaqit"
 name = "Mawaqit"
-version = "1.3.8"
-updated_at = 1792983494
+version = "1.4.0"
+updated_at = 1794782513
 added_at = 1784594730
 author = "ycf-anon"
 license = "MIT"
@@ -5778,21 +5778,21 @@ tags = ["bar", "productivity", "time"]
 [[plugin]]
 id = "omerfuyar/process-manager"
 name = "Process Manager"
-version = "1.1.5"
-updated_at = 1794404408
+version = "1.3.0"
+updated_at = 1794782461
 added_at = 1794404408
 author = "omerfuyar"
 license = "MIT"
 icon = "list-details"
-description = "Find a running app and end it, or force it to end when it does not stop. Grouped by app, with CPU and memory."
+description = "Find a running app and end it, or force it to end. Grouped by app, with CPU and memory, and details for each process."
 plugin_api = 43
 tags = ["bar", "system", "utility"]
 
 [[plugin]]
 id = "omerfuyar/overview"
 name = "Overview"
-version = "1.5.2"
-updated_at = 1794404457
+version = "1.6.0"
+updated_at = 1794782432
 added_at = 1794404457
 author = "omerfuyar"
 license = "MIT"
