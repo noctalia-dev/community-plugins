@@ -200,8 +200,7 @@ end
 -- ── Rendering ─────────────────────────────────────────────────────────────────
 
 local function metricFill(metric)
-    if not colorByUsage then return "primary" end
-    if isCritical(metric) then return "error" end
+    if colorByUsage and isCritical(metric) then return "error" end
     return severityRole(metric, "primary")
 end
 
@@ -542,8 +541,8 @@ end
 local function tooltip(picked, hidden)
     local rows = tooltipSummary(picked, hidden)
     for _, row in ipairs(rows) do
-        row.key = noctalia.string.trim(tostring(row.key):gsub("%s+", " "))
-        row.value = noctalia.string.trim(tostring(row.value):gsub("%s+", " "))
+        row.key = noctalia.string.trim((tostring(row.key):gsub("%s+", " ")))
+        row.value = noctalia.string.trim((tostring(row.value):gsub("%s+", " ")))
     end
     return rows
 end

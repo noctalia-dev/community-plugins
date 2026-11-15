@@ -494,7 +494,6 @@ end
 function M.modelDisplayName(label)
     local lower = tostring(label or ""):lower()
     if lower:find("oss", 1, true) or lower:find("claude", 1, true) then return tostring(label or "") end
-    if lower:find("gemini", 1, true) then return tostring(label or "") end
     if lower:find("gpt", 1, true) or lower:find("openai", 1, true) then return "GPT" end
     return tostring(label or "")
 end
@@ -544,15 +543,9 @@ function M.dualMetrics(metrics)
     if #metrics == 0 then return nil, nil end
     if #metrics == 1 then
         local m = metrics[1]
-        local isWeekly = false
-        if type(m) == "table" then
-            local w = tonumber(m.window_secs)
-            local lbl = tostring(m.label or ""):lower()
-            if (w ~= nil and w > 86400) or lbl:find("week", 1, true) or lbl:find("7d", 1, true) then
-                isWeekly = true
-            end
-        end
-        if isWeekly then
+        local w = tonumber(m.window_secs)
+        local lbl = tostring(m.label or ""):lower()
+        if (w ~= nil and w > 86400) or lbl:find("week", 1, true) or lbl:find("7d", 1, true) then
             return nil, m
         end
         return m, nil
@@ -562,20 +555,18 @@ function M.dualMetrics(metrics)
     local weeklyMetric = nil
 
     for _, m in ipairs(metrics) do
-        if type(m) == "table" then
-            local w = tonumber(m.window_secs)
-            local lbl = tostring(m.label or ""):lower()
-            if w ~= nil then
-                if w <= 86400 and shortMetric == nil then
-                    shortMetric = m
-                elseif w > 86400 and weeklyMetric == nil then
-                    weeklyMetric = m
-                end
-            elseif lbl:find("5h", 1, true) or lbl:find("session", 1, true) or lbl:find("hour", 1, true) then
-                if shortMetric == nil then shortMetric = m end
-            elseif lbl:find("week", 1, true) or lbl:find("7d", 1, true) then
-                if weeklyMetric == nil then weeklyMetric = m end
+        local w = tonumber(m.window_secs)
+        local lbl = tostring(m.label or ""):lower()
+        if w ~= nil then
+            if w <= 86400 and shortMetric == nil then
+                shortMetric = m
+            elseif w > 86400 and weeklyMetric == nil then
+                weeklyMetric = m
             end
+        elseif lbl:find("5h", 1, true) or lbl:find("session", 1, true) or lbl:find("hour", 1, true) then
+            if shortMetric == nil then shortMetric = m end
+        elseif lbl:find("week", 1, true) or lbl:find("7d", 1, true) then
+            if weeklyMetric == nil then weeklyMetric = m end
         end
     end
 
@@ -666,11 +657,16 @@ function M.priorities(report)
             seen[id] = true
             local status = type(row.status) == "string" and statuses[row.status] and row.status or "unknown"
             local reset = type(row.reset_at) == "string" and #row.reset_at <= 64 and row.reset_at or nil
+            local parsedReset = nil
             if reset ~= nil then
                 local ok, parsed = pcall(M.parseIso, reset)
-                if not ok or parsed == nil then reset = nil end
+                if ok and parsed ~= nil then
+                    parsedReset = parsed
+                else
+                    reset = nil
+                end
             end
-            local expired = reset ~= nil and M.parseIso(reset) <= os.time()
+            local expired = parsedReset ~= nil and parsedReset <= os.time()
             local stale = entry.stale == true or row.stale == true or report.stale == true or expired
             rows[#rows + 1] = {
                 entry = entry, status = status, stale = stale, expired = expired,

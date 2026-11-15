@@ -294,13 +294,13 @@ local function priorityDetails(entry, scoped)
     return ui.column({ key = "inline-priority", gap = 4 }, body)
 end
 
-local function stackCard(name, readings, glyph, priority)
+local function stackCard(name, readings, priority)
     local titled = name ~= ""
     local body = {}
     if titled then
         body[#body + 1] = ui.row({ gap = 6, align = "center" }, {
-            ui.glyph({ name = glyph or modelGlyph(name), size = 13, color = "on_surface/0.8" }),
-            ui.label({ text = glyph and name or modelDisplayName(name), fontSize = 12, fontWeight = "bold",
+            ui.glyph({ name = modelGlyph(name), size = 13, color = "on_surface/0.8" }),
+            ui.label({ text = modelDisplayName(name), fontSize = 12, fontWeight = "bold",
                        color = "on_surface", maxLines = 1 }),
         })
     end
@@ -625,6 +625,13 @@ end
 
 -- ── Render ────────────────────────────────────────────────────────────────────
 
+local function openUrl(url)
+    if type(url) == "string" and url:match("^https://[%w%.%-/_]+$") ~= nil
+        and type(noctalia.runAsync) == "function" then
+        noctalia.runAsync("xdg-open '" .. url .. "'")
+    end
+end
+
 -- The CLI's own words come last and smallest, where a bug report can quote them.
 local function errorBlock()
     local key = "ui.error." .. failure.code
@@ -659,11 +666,7 @@ local function errorBlock()
         actions[#actions + 1] = ui.button({
             text = noctalia.tr("ui.install"), glyph = "brand-github",
             variant = "outline", controlSize = "sm",
-            onClick = function()
-                if type(noctalia.runAsync) == "function" then
-                    noctalia.runAsync("xdg-open 'https://github.com/akitaonrails/ai-usagebar'")
-                end
-            end,
+            onClick = function() openUrl("https://github.com/akitaonrails/ai-usagebar") end,
         })
     end
     children[#children + 1] = ui.row({ gap = 6, align = "center" }, actions)
@@ -863,7 +866,7 @@ local function detailPane(entry)
         -- Pass two: every reading a provider sends, in the cards it is read by.
         local order, byName = groupReadings(items, windowed, entry)
         for _, name in ipairs(order) do
-            local cardName, glyph = name, nil
+            local cardName = name
             local readings = byName[name]
             if not windowed and entry ~= nil then
                 cardName = ""
@@ -876,7 +879,7 @@ local function detailPane(entry)
                     end
                 end
             end
-            cards[#cards + 1] = stackCard(cardName, readings, glyph, priorityDetails(entry, windowed))
+            cards[#cards + 1] = stackCard(cardName, readings, priorityDetails(entry, windowed))
         end
     end
 
@@ -1456,11 +1459,7 @@ function render()
                 variant = "outline",
                 controlSize = "sm",
                 tooltip = noctalia.tr("ui.open_dashboard"),
-                onClick = function()
-                    if type(noctalia.runAsync) == "function" then
-                        noctalia.runAsync("xdg-open '" .. dashUrl .. "'")
-                    end
-                end,
+                onClick = function() openUrl(dashUrl) end,
             })
         end
     end

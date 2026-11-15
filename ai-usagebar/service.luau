@@ -186,7 +186,8 @@ end
 
 local function decodeDocument(stdout)
     if #stdout > MAX_JSON_BYTES then return nil, true end
-    local decoded = noctalia.json.decode(stdout)
+    local ok, decoded = pcall(noctalia.json.decode, stdout)
+    if not ok or decoded == nil then return nil, false end
     if documentBudget(decoded, 1, MAX_DOCUMENT_NODES) == nil then return nil, true end
     return decoded, false
 end

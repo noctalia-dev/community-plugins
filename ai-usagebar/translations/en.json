@@ -203,6 +203,7 @@
     "used": "Used",
     "waiting": "Waiting for usage data",
     "weekly": "Weekly",
+    "monthly": "Monthly",
     "window_unavailable": "This window is not reported",
     "regenerates_in": "Regenerates {amount} in {time}",
     "regenerates_at": "Regenerates {amount} at {time}",
