@@ -1,0 +1,121 @@
+{
+  "plugin": {
+    "name": "ROG Control"
+  },
+  "profile": {
+    "silent": "Silent",
+    "balanced": "Balanced",
+    "turbo": "Turbo"
+  },
+  "gpu": {
+    "eco": "Eco",
+    "standard": "Standard",
+    "ultimate": "Ultimate",
+    "other": "Custom",
+    "mode": "Mode",
+    "asleep": "NVIDIA GPU asleep",
+    "awake": "NVIDIA GPU awake",
+    "off": "NVIDIA GPU off",
+    "pending_reboot": "Restart to switch to {mode}",
+    "pending_logout": "Log out to switch to {mode}",
+    "restart": "Restart",
+    "log_out": "Log out",
+    "cancel": "Cancel"
+  },
+  "aura": {
+    "static": "Static",
+    "breathe": "Breathe",
+    "rainbow_cycle": "Rainbow cycle",
+    "rainbow_wave": "Rainbow wave",
+    "pulse": "Pulse"
+  },
+  "section": {
+    "performance": "Performance",
+    "graphics": "Graphics",
+    "battery": "Battery",
+    "display": "Display",
+    "lighting": "Lighting",
+    "sensors": "Sensors"
+  },
+  "performance": {
+    "defaults": "On battery: {battery} · Plugged in: {ac}"
+  },
+  "power": {
+    "plugged_in": "Plugged in",
+    "battery": "On battery",
+    "charging": "Charging",
+    "held": "Held at limit"
+  },
+  "battery": {
+    "limit": "Limit charge to {percent}%",
+    "full_once": "Charge to 100% once"
+  },
+  "display": {
+    "overdrive": "Panel overdrive"
+  },
+  "keyboard": {
+    "off": "Off",
+    "low": "Low",
+    "medium": "Medium",
+    "high": "High"
+  },
+  "lighting": {
+    "keyboard": "Keyboard",
+    "effect": "Effect",
+    "follow_theme": "Match theme colour",
+    "colour": "Colour",
+    "slash": "Slash lighting",
+    "animation": "Animation"
+  },
+  "sensors": {
+    "cpu": "CPU",
+    "cpu_fan": "CPU fan",
+    "gpu_fan": "GPU fan",
+    "mid_fan": "Mid fan",
+    "rpm": "{rpm} rpm",
+    "idle": "Off"
+  },
+  "panel": {
+    "settings": "Settings"
+  },
+  "tooltip": {
+    "mode": "Mode",
+    "graphics": "Graphics",
+    "battery": "Battery",
+    "limit": "Limit {percent}%",
+    "full": "Charges to 100%"
+  },
+  "action": {
+    "profile": "change the performance mode",
+    "charge_limit": "change the charge limit",
+    "full_charge": "start a full charge",
+    "overdrive": "change panel overdrive",
+    "gpu_mode": "change the graphics mode",
+    "keyboard": "change the keyboard lighting",
+    "keyboard_colour": "change the keyboard colour",
+    "slash": "change the Slash lighting"
+  },
+  "notify": {
+    "failed": "Couldn't {action}"
+  },
+  "error": {
+    "no_asusd": "asusd isn't running",
+    "no_platform": "asusd doesn't expose platform controls on this machine",
+    "no_tools": "busctl and gdbus are needed (systemd and glib2)",
+    "hint": "Install asusctl and enable asusd.service."
+  },
+  "settings": {
+    "show_osd": {
+      "label": "Show mode changes on screen",
+      "description": "Briefly shows the new mode, including when the ROG key changes it."
+    },
+    "show_label": {
+      "label": "Show mode name",
+      "description": "Adds the mode name next to the icon on horizontal bars."
+    },
+    "scroll_changes_mode": {
+      "label": "Scroll changes mode",
+      "description": "One scroll flick over the icon steps to the next mode."
+    }
+  }
+}
