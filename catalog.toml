@@ -2337,8 +2337,8 @@ rev = "ec83ef27bac7e5bea8ee0853d98b612967013ce1"
 [[plugin]]
 id = "kjvdven/case-convert"
 name = "Case Convert"
-version = "1.0.0"
-updated_at = 1788114941
+version = "1.1.0"
+updated_at = 1794760935
 added_at = 1788114941
 author = "kjvdven"
 license = "MIT"
