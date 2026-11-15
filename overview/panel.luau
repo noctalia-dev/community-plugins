@@ -181,6 +181,13 @@ local function render()
     }))
     return
   end
+  if model.error then
+    panel.render(ui.column({ padding = 20, gap = 8, width = 420 }, {
+      ui.label({ text = noctalia.tr("panel.error"), fontWeight = "semibold" }),
+      ui.label({ text = model.error, color = "on_surface_variant", maxLines = 6 }),
+    }))
+    return
+  end
 
   -- A scroll keeps the height of its first content, so it fills a column of the list's
   -- height (DESIGN.md, section 6.3).

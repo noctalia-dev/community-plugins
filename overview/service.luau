@@ -24,12 +24,26 @@ local function idOf(value)
   return type(value) == "table" and value.id or value
 end
 
+local function isNumber(value)
+  return type(value) == "number" and value == value and value ~= math.huge and value ~= -math.huge
+end
+
+-- A pair of numbers, such as a window's "at" and "size".
+local function isPair(value)
+  return type(value) == "table" and isNumber(value[1]) and isNumber(value[2])
+end
+
 -- Builds the model from the three hyprctl answers. Window positions are kept relative to
--- their monitor, in logical pixels.
+-- their monitor, in logical pixels. An entry without the fields it needs is left out, so one
+-- odd monitor, workspace or window cannot stop the whole overview.
 local function build(monitorList, workspaceList, clientList)
   local monitors, monitorById, monitorByName = {}, {}, {}
   for _, m in ipairs(monitorList) do
-    local scale = m.scale or 1
+    if type(m) ~= "table" or type(m.name) ~= "string" or not isNumber(m.width) or not isNumber(m.height)
+      or m.width <= 0 or m.height <= 0 or not isNumber(m.x) or not isNumber(m.y) then
+      continue
+    end
+    local scale = isNumber(m.scale) and m.scale > 0 and m.scale or 1
     local width, height = m.width / scale, m.height / scale
     if m.transform == 1 or m.transform == 3 or m.transform == 5 or m.transform == 7 then
       width, height = height, width
@@ -52,7 +66,7 @@ local function build(monitorList, workspaceList, clientList)
   local workspaces, workspaceById = {}, {}
   for _, w in ipairs(workspaceList) do
     -- Special workspaces have negative ids and live outside the usual flow.
-    if w.id > 0 then
+    if type(w) == "table" and isNumber(w.id) and w.id > 0 then
       local monitor = monitorByName[w.monitor] or monitorById[w.monitorID]
       local workspace = { id = w.id, name = w.name, monitor = monitor and monitor.name or "", windows = {} }
       table.insert(workspaces, workspace)
@@ -62,20 +76,21 @@ local function build(monitorList, workspaceList, clientList)
   table.sort(workspaces, function(a, b) return a.id < b.id end)
 
   for _, c in ipairs(clientList) do
-    local workspace = workspaceById[idOf(c.workspace)]
+    local workspace = type(c) == "table" and workspaceById[idOf(c.workspace)]
     local monitor = workspace and monitorByName[workspace.monitor]
-    if workspace and monitor and c.mapped ~= false and c.hidden ~= true then
+    if workspace and monitor and c.mapped ~= false and c.hidden ~= true and isPair(c.at) and isPair(c.size)
+      and type(c.address) == "string" then
       table.insert(workspace.windows, {
         address = c.address,
-        class = c.class or "",
-        title = c.title or "",
+        class = type(c.class) == "string" and c.class or "",
+        title = type(c.title) == "string" and c.title or "",
         x = c.at[1] - monitor.x,
         y = c.at[2] - monitor.y,
         width = c.size[1],
         height = c.size[2],
         floating = c.floating == true,
         focused = c.focusHistoryID == 0,
-        stableId = c.stableId,
+        stableId = type(c.stableId) == "string" and c.stableId or nil,
       })
     end
   end
@@ -201,6 +216,18 @@ local function capture(model)
   end, 30000)
 end
 
+-- Shows why the overview cannot be read, in the panel and once in Noctalia's log, instead of
+-- loading forever.
+local lastError = nil
+local function fail(message)
+  if message ~= lastError then
+    lastError = message
+    noctalia.log("overview could not read Hyprland: " .. message)
+  end
+  lastPublished = nil
+  noctalia.state.set("overview.model", { hyprland = true, error = message })
+end
+
 local function refresh()
   if not onHyprland() then
     noctalia.state.set("overview.model", { hyprland = false })
@@ -215,17 +242,24 @@ local function refresh()
       noctalia.runAsync({ "hyprctl", "-j", "clients" }, function(clients)
         reading = false
         local m, w, c = decode(monitors), decode(workspaces), decode(clients)
-        if m and w and c then
-          local model = build(m, w, c)
-          applyPictures(model)
-          -- Rendered again only when something changed.
-          local text = noctalia.json.encode(model)
-          if text ~= lastPublished then
-            lastPublished = text
-            noctalia.state.set("overview.model", model)
-          end
-          capture(model)
+        if not (m and w and c) then
+          fail("hyprctl did not answer with JSON")
+          return
         end
+        local ok, model = pcall(build, m, w, c)
+        if not ok then
+          fail(tostring(model))
+          return
+        end
+        lastError = nil
+        applyPictures(model)
+        -- Rendered again only when something changed.
+        local text = noctalia.json.encode(model)
+        if text ~= lastPublished then
+          lastPublished = text
+          noctalia.state.set("overview.model", model)
+        end
+        capture(model)
       end)
     end)
   end)
@@ -388,7 +422,12 @@ function onExit()
 end
 
 noctalia.setUpdateInterval(1500)
--- Pictures left by an earlier run are not known to this one, so they go.
+-- Pictures left by an earlier run are not known to this one, so they go, and so does the
+-- model that names them. No picture is taken until they are gone.
+noctalia.state.set("overview.model", nil)
 if noctalia.pluginDataDir() then
-  noctalia.runAsync({ "sh", "-c", 'rm -f -- "$1"/*.png', "overview", previewDir })
+  capturing = true
+  noctalia.runAsync({ "sh", "-c", 'rm -f -- "$1"/*.png', "overview", previewDir }, function()
+    capturing = false
+  end)
 end
