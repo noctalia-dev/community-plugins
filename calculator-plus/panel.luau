@@ -190,7 +190,9 @@ end
 
 -- `qalc` evalutes the expression
 local function evaluate(expr)
-	expr = string.gsub(expr, "ans", history[#history].result)
+	if #history > 0 then
+		expr = string.gsub(expr, "ans", history[#history].result)
+	end
 
 	table.insert(sessionExprs, expr)
 	local body = table.concat(sessionExprs, "\n")
