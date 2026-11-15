@@ -6041,3 +6041,16 @@ icon = "network"
 description = "Shows EasyTier mesh VPN status in the bar, with per-peer latency, loss, traffic, routes and connectors in the panel."
 plugin_api = 43
 tags = ["network", "indicator", "bar", "panel"]
+
+[[plugin]]
+id = "fisherman/mathsym"
+name = "Mathsym"
+version = "0.1.0"
+updated_at = 1794783500
+added_at = 1794783500
+author = "fisherman"
+license = "MIT"
+icon = "math-symbols"
+description = "Find math symbols from the launcher by description, code point, LaTeX command or Lean 4 input name"
+plugin_api = 24
+tags = ["productivity", "launcher"]
