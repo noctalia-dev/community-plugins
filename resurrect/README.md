@@ -15,18 +15,19 @@ your devices, and on a new install, bring it all back with one script.
 
 ## Requirements
 
-| Command                       | Needed                     | What for                                                                                                                                          |
-| ----------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `git`                         | Required                   | Keeps each save as a commit, and pushes it when a remote is set. Without it, the panel says so.                                                   |
-| `sh`, `awk`                   | Required                   | Run the plugin's save scripts, and share Noctalia's settings one setting at a time. They come with every Linux system.                            |
-| `sha256sum`                   | Required                   | Tells whether a save step changed since you approved it. It comes with every Linux system.                                                        |
-| `systemctl`                   | Required                   | Lists and restores the services that start by themselves. Without it, services are not saved.                                                     |
-| `xdg-open`                    | Required                   | Opens the repository folder. Without it, that button is hidden.                                                                                   |
-| `pacman`, `apt-mark` or `dnf` | Required                   | Lists the installed packages, with the system's package manager. Without one, no packages are saved.                                              |
-| `flatpak`                     | Optional                   | Lists the installed Flatpak apps too. Without it, none are saved.                                                                                 |
-| `paru` or `yay`               | Required with AUR packages | Restores AUR packages. Without them, the AUR list stays in `packages/aur.txt`.                                                                    |
-| `gitleaks`                    | Optional                   | Checks each save for passwords, tokens and keys before it is committed, except Noctalia's config and settings. Without it, saves are not checked. |
-| `hyprctl`                     | Required on Hyprland       | Checks Hyprland's config after shared files come in. Without it, they are not checked.                                                            |
+| Command                        | Needed                     | What for                                                                                                                                                                                   |
+| ------------------------------ | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `git`                          | Required                   | Keeps each save as a commit, and pushes it when a remote is set. Without it, the panel says so.                                                                                            |
+| `sh`                           | Required                   | Runs git's network commands in the background, as a push can take longer than a minute, and the restore, review and install scripts in a terminal.                                         |
+| `env`, `find`, `chmod`, `grep` | Required                   | Run your own save steps from the repository's folder, keep which saved files are executable, and leave out the packages `packages/exclude.txt` matches. They come with every Linux system. |
+| `sha256sum`                    | Required                   | Tells whether a save step changed since you approved it. It comes with every Linux system.                                                                                                 |
+| `systemctl`                    | Required                   | Lists and restores the services that start by themselves. Without it, services are not saved.                                                                                              |
+| `xdg-open`                     | Required                   | Opens the repository folder. Without it, that button is hidden.                                                                                                                            |
+| `pacman`, `apt-mark` or `dnf`  | Required                   | Lists the installed packages, with the system's package manager (and `dpkg-query` or `rpm`). Without one, no packages are saved.                                                           |
+| `flatpak`                      | Optional                   | Lists the installed Flatpak apps too. Without it, none are saved.                                                                                                                          |
+| `paru` or `yay`                | Required with AUR packages | Restores AUR packages. Without them, the AUR list stays in `packages/aur.txt`.                                                                                                             |
+| `gitleaks`                     | Optional                   | Checks each save for passwords, tokens and keys before it is committed, except Noctalia's config and settings. Without it, saves are not checked.                                          |
+| `hyprctl`                      | Required on Hyprland       | Checks Hyprland's config after shared files come in. Without it, they are not checked.                                                                                                     |
 
 ## Usage
 
@@ -67,7 +68,8 @@ a folder there. Without sharing, it asks which device's save to use when there i
 of this device. It asks before each step, and copies any file it would replace to
 `~/.local/state/resurrect/backup-<date>` first. A file it cannot copy there is left as it
 is, and the script lists it at the end. Before each of your restore steps, it shows the
-step's code.
+step's code. Noctalia's settings this device kept for itself, such as its monitors, are
+added once Noctalia runs with Resurrect on.
 
 ```sh
 noctalia msg panel-toggle omerfuyar/resurrect:panel
@@ -142,10 +144,9 @@ Either way:
 | `.gitleaksignore`      | Optional, yours. Findings of the secret check that may be committed.                                                                           |
 | `hooks/`               | Yours. The steps every device runs, in `save/` and `restore/`.                                                                                 |
 | `restore.sh`           | The restore script, updated on each save.                                                                                                      |
-| `settings.awk`         | What the restore script reads Noctalia's settings with, updated on each save.                                                                  |
 
 Anything else in the repository is yours too: Resurrect only writes `shared/`, the files it
-names in `devices/<name>/` of the device it runs on, `restore.sh` and `settings.awk`. A
+names in `devices/<name>/` of the device it runs on, and `restore.sh`. A
 repository from an older version moves to this layout on each device's next save.
 
 ### Secrets

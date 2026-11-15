@@ -11,7 +11,7 @@ file=$1
 
 # The names of one list, on one line each.
 names() {
-  awk -v list="$1" '$1 == list { print $2 }' "$file"
+  sed -n "s/^$1 //p" "$file"
 }
 
 if [ -n "$(names pacman)" ]; then

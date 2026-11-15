@@ -25,7 +25,9 @@ for hook in hooks/save/* "devices/$device/hooks/save/"*; do
   read -r answer
   if [ "$answer" = y ] || [ "$answer" = Y ]; then
     # Approving a path again replaces its old checksum.
-    { awk -v path="$hook" '{ line = $0; sub(/^[^ ]* /, "", line) } line != path' "$approved"
+    { while read -r old_sum path; do
+        [ "$path" = "$hook" ] || echo "$old_sum $path"
+      done <"$approved"
       echo "$sum $hook"; } >"$approved.new" &&
       mv -f "$approved.new" "$approved" && echo "Approved. It runs from the next save."
   else

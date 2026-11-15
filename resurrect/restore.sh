@@ -79,7 +79,7 @@ wanted() {
     entries "$own/exclude.txt" >"$work/excluded"
     {
       [ -f "$repo/shared/$1/$2.txt" ] && grep -vxFf "$work/excluded" "$repo/shared/$1/$2.txt"
-      [ -f "$own/extra.txt" ] && awk -v list="$2" '$1 == list { print $2 }' "$own/extra.txt"
+      [ -f "$own/extra.txt" ] && sed -n "s/^$2 //p" "$own/extra.txt"
     } | sort -u
   elif [ -f "$own/$1/$2.txt" ]; then
     cat "$own/$1/$2.txt"
@@ -126,25 +126,20 @@ if { [ -d "$repo/shared/files" ] || [ -d "$own/files" ]; } &&
   [ -d "$own/files" ] && put_back "$own/files" "$HOME"
 fi
 
-# Noctalia's settings: the shared ones with this device's own, or this device's saved copy.
-# Its config folder comes with the dotfiles when it is shared.
+# Noctalia's settings: the shared ones, or this device's saved copy. The settings this
+# device kept for itself, such as its monitors, go to Resurrect, which adds them when
+# Noctalia runs with it on. The config folder comes with the dotfiles when it is shared.
 if [ -f "$repo/shared/noctalia/settings.toml" ]; then
   if ask "Put back Noctalia's settings?"; then
-    if LC_ALL=C awk -f "$repo/settings.awk" -v mine="$own/settings.toml" \
-      -v theirs="$repo/shared/noctalia/settings.toml" -v base= -v out="$work" >/dev/null &&
-      [ -f "$work/settings" ]; then
-      put_file "$work/settings" "$HOME/.local/state/noctalia/settings.toml"
-    else
-      echo "Could not read the saved settings."
+    put_file "$repo/shared/noctalia/settings.toml" "$HOME/.local/state/noctalia/settings.toml"
+    if [ -f "$own/settings.toml" ]; then
+      data=$HOME/.local/state/noctalia/plugins/data/omerfuyar/resurrect
+      mkdir -p "$data" && cp "$own/settings.toml" "$data/restore-device.toml"
     fi
   fi
-  # The plugins that are on, from the line settings.awk writes in [plugins].
-  awk '/^\[/ { table = $0; next }
-    table == "[plugins]" && /^enabled = \[/ {
-      sub(/^enabled = \[/, ""); sub(/\]$/, "")
-      n = split($0, ids, /, /)
-      for (i = 1; i <= n; i++) { gsub(/^"|"$/, "", ids[i]); if (ids[i] != "") print ids[i] }
-    }' "$repo/shared/noctalia/settings.toml" >"$work/plugins"
+  # The plugins that are on, from the line "enabled = [...]" in [plugins].
+  sed -n '/^\[plugins\]$/,/^\[/s/^enabled = \[\(.*\)\]$/\1/p' "$repo/shared/noctalia/settings.toml" |
+    tr ',' '\n' | sed 's/^ *"//; s/" *$//; /^$/d' >"$work/plugins"
 elif [ -d "$own/noctalia" ]; then
   if ask "Put back Noctalia's settings?"; then
     [ -d "$own/noctalia/config" ] && put_back "$own/noctalia/config" "$HOME/.config/noctalia"
@@ -155,9 +150,12 @@ fi
 
 if [ -s "$work/plugins" ] && command -v noctalia >/dev/null &&
   ask "Turn on the saved Noctalia plugins? Noctalia must be running."; then
+  # Resurrect first, so it adds this device's own settings.
+  grep -x 'omerfuyar/resurrect' "$work/plugins" >"$work/first"
+  grep -v -x 'omerfuyar/resurrect' "$work/plugins" >>"$work/first"
   while read -r plugin; do
     noctalia msg plugins enable "$plugin" </dev/null >/dev/null || echo "skipped: $plugin"
-  done <"$work/plugins"
+  done <"$work/first"
 fi
 
 wanted services system >"$work/system"

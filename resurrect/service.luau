@@ -1,39 +1,39 @@
 --!nonstrict
--- Resurrect service: runs snapshot.sh to save the system's setup into a git repository,
--- once a day, when Noctalia starts with sharing on, and when asked, and opens restore.sh
--- from that repository in a terminal. With sharing on, each save also takes in what other
--- devices changed; files changed on two devices wait for the owner's choice, which goes to
--- snapshot.sh in resolveFile. Packages and services other devices have and this one does not
--- are listed; install.sh sets them up in a terminal, and names the owner leaves out go in
--- excludeFile. Those another device removed and this one still has are listed too; the owner
--- shares them again, through againFile, or keeps them only here, through onlyFile.
+-- Resurrect service: saves the system's setup into a git repository (lib/save.luau), once a
+-- day, when Noctalia starts with sharing on, and when asked, and opens restore.sh from that
+-- repository in a terminal. With sharing on, each save also takes in what other devices
+-- changed; files changed on two devices wait for the owner's choice, which goes with the next
+-- save. Packages and services other devices have and this one does not are listed; install.sh
+-- sets them up in a terminal, and names the owner leaves out go with the next save. Those
+-- another device removed and this one still has are listed too; the owner shares them again,
+-- or keeps them only here.
 --
--- snapshot.sh runs detached, as a push can take longer than the 60 s limit of runAsync
--- callbacks. RUNNER writes its output and exit code to the data directory; update() reads
--- them back.
+-- The save runs as a coroutine: it pauses while each command runs, and at the end of each
+-- update tick's share of time, so no callback goes over its CPU time. A git command that
+-- reaches the network may take longer than the 60 s limit of runAsync callbacks, so it runs
+-- detached through LONG, which writes its output and exit code to the data directory.
 --
 -- Publishes "resurrect.model" and takes commands on "resurrect.command".
 
+local Save = require("./lib/save.luau")
+local Settings = require("./lib/settings.luau")
+
 local DAY_MS = 24 * 60 * 60 * 1000
--- A run that started longer ago than this was stopped without an exit code.
+-- A network command that runs longer than this is given up.
 local RUN_LIMIT_MS = 30 * 60 * 1000
 
--- $1 is the path prefix of the run's files, the rest is the snapshot command.
-local RUNNER = [[
-prefix=$1
-shift
-rm -f "$prefix.exit"
-"$@" >"$prefix.log" 2>&1
-echo $? >"$prefix.exit"
-]]
+-- How long the save runs in one callback before it waits for the next update tick.
+local SLICE_SECONDS = 0.008
+local SAVING_TICK_MS = 50
+local IDLE_TICK_MS = 2000
+
+-- $1 is the path prefix of the command's files, the rest is the command.
+local LONG = 'prefix=$1; shift; "$@" >"$prefix.log" 2>&1; echo $? >"$prefix.exit"'
 
 local dataDir = noctalia.pluginDataDir() or ""
 local stateFile = dataDir .. "/state.json"
-local runPrefix = dataDir .. "/snapshot"
-local resolveFile = dataDir .. "/resolve"
-local excludeFile = dataDir .. "/exclude"
-local againFile = dataDir .. "/again"
-local onlyFile = dataDir .. "/only"
+-- The settings this device kept for itself, which restore.sh leaves for the service.
+local restoreFile = dataDir .. "/restore-device.toml"
 local installFile = dataDir .. "/install.txt"
 -- The save steps this device approved, as "<checksum> <path>" lines; see review.sh.
 local approvedFile = dataDir .. "/approved-steps"
@@ -57,8 +57,10 @@ local saveAgain = false
 -- The file lists the running save started with. When the save takes in other ones from
 -- another device, it saves once more with them.
 local runLists = ""
-local reading = false
 local loaded = false
+-- The save under way: { co, waiting = "tick" or "call", out = { lines }, done }.
+local job = nil
+local sliceStart = 0
 
 local function repo()
   return noctalia.expandPath(noctalia.getConfig("folder") or "~/resurrect")
@@ -111,68 +113,190 @@ local function publish()
   })
 end
 
--- "<list> <name>" lines for the save, from { list, name } items.
-local function itemLines(items)
-  local lines = {}
-  for _, item in ipairs(items) do
-    table.insert(lines, item.list .. " " .. item.name)
-  end
-  return #lines > 0 and table.concat(lines, "\n") .. "\n" or ""
-end
-
 local function lists()
   return noctalia.json.encode({ list("files"), list("device_files"), list("leave_out") })
 end
 
-local function snapshot()
+local finish
+local snapshot
+local restoreSettings
+
+-- Runs the save until it waits for a command or the next tick, or ends.
+local function resume(...)
+  local current = job
+  sliceStart = os.clock()
+  local ok, why = coroutine.resume(current.co, ...)
+  if job ~= current then
+    return
+  end
+  if not ok then
+    if type(why) == "table" and why.stopCode then
+      current.done(why.stopCode, current.out)
+    else
+      table.insert(current.out, tostring(why))
+      current.done(1, current.out)
+    end
+  elseif coroutine.status(current.co) == "dead" then
+    current.done(0, current.out)
+  else
+    current.waiting = why
+  end
+end
+
+-- What the save uses to run commands and to pause; see lib/save.luau.
+local function newJob(out)
+  local jobApi = {}
+  function jobApi.emit(line)
+    table.insert(out, line)
+  end
+  function jobApi.stop(code)
+    error({ stopCode = code }, 0)
+  end
+  function jobApi.breathe()
+    if os.clock() - sliceStart >= SLICE_SECONDS then
+      coroutine.yield("tick")
+    end
+  end
+  function jobApi.wait(ms)
+    local untilMs = noctalia.nowMs() + ms
+    repeat
+      coroutine.yield("tick")
+    until noctalia.nowMs() >= untilMs
+  end
+  function jobApi.run(argv)
+    local box = { co = coroutine.running(), paused = false, result = nil }
+    local started = noctalia.runAsync(argv, function(result)
+      if box.paused and job and job.co == box.co then
+        resume(result)
+      else
+        box.result = result
+      end
+    end, 60000)
+    if not started then
+      return { exitCode = 127, stdout = "", stderr = "could not run " .. argv[1] }
+    end
+    if box.result then
+      return box.result
+    end
+    box.paused = true
+    return coroutine.yield("call")
+  end
+  function jobApi.long(argv)
+    local prefix = dataDir .. "/net-" .. noctalia.nowMs()
+    local full = { "sh", "-c", LONG, "resurrect", prefix }
+    table.move(argv, 1, #argv, #full + 1, full)
+    noctalia.runAsync(full)
+    local startMs = noctalia.nowMs()
+    while not noctalia.fileExists(prefix .. ".exit") do
+      if noctalia.nowMs() - startMs >= RUN_LIMIT_MS then
+        return { exitCode = 1, output = "timed out: " .. table.concat(argv, " ") }
+      end
+      coroutine.yield("tick")
+    end
+    local code = tonumber(noctalia.string.trim(noctalia.readFile(prefix .. ".exit") or "")) or 1
+    local output = noctalia.readFile(prefix .. ".log") or ""
+    noctalia.removeFile(prefix .. ".exit")
+    noctalia.removeFile(prefix .. ".log")
+    return { exitCode = code, output = output }
+  end
+  return jobApi
+end
+
+local function expanded(key)
+  local paths = {}
+  for _, path in ipairs(list(key)) do
+    table.insert(paths, noctalia.expandPath(path))
+  end
+  return paths
+end
+
+-- Starts <work> as the job under way; <done> reads its exit code and output lines.
+local function startJob(work, done)
+  local out = {}
+  local api = newJob(out)
+  job = { co = coroutine.create(function()
+    work(api)
+  end), out = out, done = done }
+  noctalia.setUpdateInterval(SAVING_TICK_MS)
+  resume()
+end
+
+-- Puts back the settings this device kept for itself, which restore.sh leaves in
+-- restoreFile; the shared ones are already in place. They join the settings as they are now.
+restoreSettings = function()
+  running = true
+  startJob(function(api)
+    Settings.breathe = api.breathe
+    local path = noctalia.expandPath("~/.local/state/noctalia/settings.toml")
+    local before = noctalia.readFile(path) or ""
+    local ok, merged = pcall(Settings.merge, noctalia.readFile(restoreFile) or "", before, "")
+    if not ok then
+      api.emit(tostring(merged))
+      api.stop(1)
+    end
+    if merged.settings then
+      local backup = noctalia.expandPath("~/.local/state/resurrect/backup-" .. os.date("%Y%m%d-%H%M%S")
+        .. "/.local/state/noctalia")
+      noctalia.mkdirAll(backup)
+      local tmp = path .. ".resurrect-tmp"
+      if not (noctalia.writeFile(backup .. "/settings.toml", before) and noctalia.writeFile(tmp, merged.settings)
+        and noctalia.renameFile(tmp, path)) then
+        api.emit("could not write " .. path)
+        api.stop(1)
+      end
+      api.run({ "noctalia", "msg", "config-reload" })
+    end
+  end, function(code, out)
+    job = nil
+    running = false
+    noctalia.setUpdateInterval(IDLE_TICK_MS)
+    noctalia.removeFile(restoreFile)
+    if code ~= 0 then
+      noctalia.notifyError(noctalia.tr("notify.failed"), out[#out] or noctalia.tr("error.unknown"))
+    end
+    if sharing() then
+      snapshot()
+    end
+  end)
+end
+
+snapshot = function()
   if running or not noctalia.commandExists("git") then
     return
   end
   running = true
   saveAgain = false
   runLists = lists()
-  state.runMs = noctalia.nowMs()
-  save()
   noctalia.mkdirAll(dataDir)
-  -- "mine <path>" or "theirs <path>" per line; snapshot.sh removes the file once read.
-  local lines = {}
-  for path, choice in pairs(choices) do
-    table.insert(lines, choice .. " " .. path)
+  -- Files a save stopped by a reload left behind.
+  for _, name in ipairs(noctalia.listDir(dataDir) or {}) do
+    if name:match("^net%-") then
+      noctalia.removeFile(dataDir .. "/" .. name)
+    end
   end
-  choices = {}
-  noctalia.writeFile(resolveFile, table.concat(lines, "\n") .. "\n")
-  noctalia.writeFile(excludeFile, #skips > 0 and table.concat(skips, "\n") .. "\n" or "")
-  skips = {}
-  noctalia.writeFile(againFile, itemLines(again))
-  again = {}
-  noctalia.writeFile(onlyFile, itemLines(only))
-  only = {}
-  local leaveOut = {}
-  for _, path in ipairs(list("leave_out")) do
-    table.insert(leaveOut, noctalia.expandPath(path))
-  end
-  local argv = {
-    "sh", "-c", RUNNER, "resurrect", runPrefix,
-    "env", "RESURRECT_RESOLVE=" .. resolveFile, "RESURRECT_EXCLUDE=" .. excludeFile,
-    "RESURRECT_AGAIN=" .. againFile, "RESURRECT_ONLY=" .. onlyFile,
-    "RESURRECT_LEAVE_OUT=" .. table.concat(leaveOut, "\n"),
-    "RESURRECT_SECRET_CHECK=" .. tostring(noctalia.getConfig("secret_check") ~= false),
-    "RESURRECT_APPROVED=" .. approvedFile,
-    "sh", (noctalia.pluginDir() or "") .. "/snapshot.sh", repo(), noctalia.getConfig("remote") or "",
-    tostring(noctalia.getConfig("packages") ~= false),
-    tostring(noctalia.getConfig("services") ~= false),
-    tostring(noctalia.getConfig("noctalia") ~= false),
-    tostring(sharing()),
+  local opt = {
+    repo = repo(),
+    remote = noctalia.getConfig("remote") or "",
+    packages = noctalia.getConfig("packages") ~= false,
+    services = noctalia.getConfig("services") ~= false,
+    noctalia = noctalia.getConfig("noctalia") ~= false,
+    share = sharing(),
+    secretCheck = noctalia.getConfig("secret_check") ~= false,
+    files = expanded("files"),
+    deviceFiles = expanded("device_files"),
+    leaveOut = expanded("leave_out"),
+    approved = approvedFile,
+    dataDir = dataDir,
+    resolve = choices,
+    exclude = skips,
+    again = again,
+    only = only,
   }
-  for _, path in ipairs(list("files")) do
-    table.insert(argv, noctalia.expandPath(path))
-  end
-  table.insert(argv, "--")
-  for _, path in ipairs(list("device_files")) do
-    table.insert(argv, noctalia.expandPath(path))
-  end
-  noctalia.runAsync(argv)
+  choices, skips, again, only = {}, {}, {}, {}
   publish()
+  startJob(function(api)
+    Save.run(api, opt)
+  end, finish)
 end
 
 -- Saves now, or right after the save that runs.
@@ -184,7 +308,7 @@ local function saveSoon()
   end
 end
 
--- The last line of the run's output that is not a "skipped" note or a shared file's state,
+-- The last line of the save's output that is not a "skipped" note or a shared file's state,
 -- as the error to show.
 local function lastLine(text)
   local found = nil
@@ -198,107 +322,100 @@ local function lastLine(text)
   return found
 end
 
-local function poll()
-  if not running or reading then
-    return
+-- Reads what a save did, from its exit code and output lines.
+finish = function(code, out)
+  job = nil
+  running = false
+  noctalia.setUpdateInterval(IDLE_TICK_MS)
+  local log = table.concat(out, "\n")
+  -- Kept for the owner to read when a save fails.
+  noctalia.writeFile(dataDir .. "/save.log", log .. "\n")
+  state.lastMs = noctalia.nowMs()
+  local counts = {}
+  for what, number in (log or ""):gmatch("count (%a+) (%d+)") do
+    counts[what] = tonumber(number)
   end
-  reading = true
-  noctalia.readFileAsync(runPrefix .. ".exit", function(exitText)
-    local code = tonumber(exitText and noctalia.string.trim(exitText) or "")
-    if code == nil then
-      reading = false
-      return
+  if next(counts) then
+    state.counts = counts
+  end
+  -- What the save did with the other devices' files. A file held back was also applied
+  -- first, then put back.
+  local applied, conflicts, held, heldSet = {}, {}, {}, {}
+  local lines = {}
+  for line in (log or ""):gmatch("[^\n]+") do
+    local word, path = line:match("^(%a+) (.+)$")
+    if word then
+      table.insert(lines, { word = word, path = path })
     end
-    noctalia.readFileAsync(runPrefix .. ".log", function(log)
-      reading = false
-      running = false
-      state.lastMs = noctalia.nowMs()
-      local counts = {}
-      for what, number in (log or ""):gmatch("count (%a+) (%d+)") do
-        counts[what] = tonumber(number)
+  end
+  for _, line in ipairs(lines) do
+    if line.word == "held" then
+      heldSet[line.path] = true
+      table.insert(held, line.path)
+    elseif line.word == "conflict" then
+      table.insert(conflicts, line.path)
+    end
+  end
+  for _, line in ipairs(lines) do
+    if (line.word == "applied" or line.word == "removed") and not heldSet[line.path] then
+      table.insert(applied, line.path)
+    end
+  end
+  -- Choices made while this run went are not in its lists yet; the next run adds them.
+  local chosen = {}
+  for _, name in ipairs(skips) do
+    chosen[name] = true
+  end
+  for _, item in ipairs(again) do
+    chosen[item.name] = true
+  end
+  for _, item in ipairs(only) do
+    chosen[item.name] = true
+  end
+  local missing, left = {}, {}
+  for _, line in ipairs(lines) do
+    if line.word == "missing" or line.word == "left" then
+      local listName, name = line.path:match("^(%S+) (%S+)$")
+      if listName and not chosen[name] then
+        table.insert(line.word == "missing" and missing or left, { list = listName, name = name })
       end
-      if next(counts) then
-        state.counts = counts
-      end
-      -- What share.sh did with the other devices' files. A file held back was also applied
-      -- first, then put back.
-      local applied, conflicts, held, heldSet = {}, {}, {}, {}
-      local lines = {}
-      for line in (log or ""):gmatch("[^\n]+") do
-        local word, path = line:match("^(%a+) (.+)$")
-        if word then
-          table.insert(lines, { word = word, path = path })
-        end
-      end
-      for _, line in ipairs(lines) do
-        if line.word == "held" then
-          heldSet[line.path] = true
-          table.insert(held, line.path)
-        elseif line.word == "conflict" then
-          table.insert(conflicts, line.path)
-        end
-      end
-      for _, line in ipairs(lines) do
-        if (line.word == "applied" or line.word == "removed") and not heldSet[line.path] then
-          table.insert(applied, line.path)
-        end
-      end
-      -- Choices made while this run went are not in its lists yet; the next run adds them.
-      local chosen = {}
-      for _, name in ipairs(skips) do
-        chosen[name] = true
-      end
-      for _, item in ipairs(again) do
-        chosen[item.name] = true
-      end
-      for _, item in ipairs(only) do
-        chosen[item.name] = true
-      end
-      local missing, left = {}, {}
-      for _, line in ipairs(lines) do
-        if line.word == "missing" or line.word == "left" then
-          local listName, name = line.path:match("^(%S+) (%S+)$")
-          if listName and not chosen[name] then
-            table.insert(line.word == "missing" and missing or left, { list = listName, name = name })
-          end
-        end
-      end
-      local newlyHeld = #held > #(state.held or {})
-      state.conflicts, state.held = conflicts, held
-      if code == 0 then
-        state.missing, state.left = missing, left
-      end
-      if #applied > 0 then
-        noctalia.notify(noctalia.trp("notify.applied", #applied), table.concat(applied, "\n"))
-      end
-      local settingsTaken = tonumber((log or ""):match("settings applied (%d+)") or "0") or 0
-      if settingsTaken > 0 then
-        noctalia.notify(noctalia.trp("notify.settings", settingsTaken))
-      end
-      if newlyHeld then
-        noctalia.notifyError(noctalia.tr("notify.held"), table.concat(held, "\n"))
-      end
-      if code == 0 then
-        state.error = nil
-        state.result = (log or ""):find("pushed") and "pushed"
-          or (log or ""):find("unchanged") and "unchanged" or "saved"
-      else
-        -- Exit code 2 is a failed push: the snapshot itself is saved.
-        state.result = code == 2 and "saved" or nil
-        state.error = lastLine(log) or noctalia.tr("error.unknown")
-        noctalia.notifyError(noctalia.tr("notify.failed"), state.error)
-      end
-      save()
-      publish()
-      if settingsTaken > 0 and lists() ~= runLists then
-        saveAgain = true
-      end
-      if saveAgain then
-        snapshot()
-      end
-    end)
-  end)
+    end
+  end
+  local newlyHeld = #held > #(state.held or {})
+  state.conflicts, state.held = conflicts, held
+  if code == 0 then
+    state.missing, state.left = missing, left
+  end
+  if #applied > 0 then
+    noctalia.notify(noctalia.trp("notify.applied", #applied), table.concat(applied, "\n"))
+  end
+  local settingsTaken = tonumber((log or ""):match("settings applied (%d+)") or "0") or 0
+  if settingsTaken > 0 then
+    noctalia.notify(noctalia.trp("notify.settings", settingsTaken))
+  end
+  if newlyHeld then
+    noctalia.notifyError(noctalia.tr("notify.held"), table.concat(held, "\n"))
+  end
+  if code == 0 then
+    state.error = nil
+    state.result = (log or ""):find("pushed") and "pushed"
+      or (log or ""):find("unchanged") and "unchanged" or "saved"
+  else
+    -- Exit code 2 is a failed push: the snapshot itself is saved.
+    state.result = code == 2 and "saved" or nil
+    state.error = lastLine(log) or noctalia.tr("error.unknown")
+    noctalia.notifyError(noctalia.tr("notify.failed"), state.error)
+  end
+  save()
+  publish()
+  if settingsTaken > 0 and lists() ~= runLists then
+    saveAgain = true
+  end
+  if saveAgain then
+    snapshot()
+  end
 end
+
 
 -- Opens a terminal that installs every missing package, then saves again.
 local function install()
@@ -406,11 +523,15 @@ function onIpc(event)
 end
 
 function update()
-  if running and not reading and type(state.runMs) == "number" and noctalia.nowMs() - state.runMs >= RUN_LIMIT_MS then
-    running = false
+  if job then
+    if job.waiting == "tick" then
+      resume()
+    end
+    return
   end
-  poll()
-  if loaded and not running and noctalia.getConfig("daily") ~= false
+  if noctalia.fileExists(restoreFile) then
+    restoreSettings()
+  elseif loaded and noctalia.getConfig("daily") ~= false
     and (state.lastMs == nil or noctalia.nowMs() - state.lastMs >= DAY_MS) then
     snapshot()
   end
@@ -425,19 +546,23 @@ noctalia.readFileAsync(stateFile, function(text)
   if type(saved) == "table" then
     state = saved
   end
-  -- A run that was going when Noctalia stopped is read back by poll(). One that was stopped
-  -- left no exit code: it is over, or the next save would wait for it forever.
-  running = noctalia.fileExists(runPrefix .. ".log") and not noctalia.fileExists(runPrefix .. ".exit")
-    and type(state.runMs) == "number" and noctalia.nowMs() - state.runMs < RUN_LIMIT_MS
+  state.runMs = nil
   state.conflicts = state.conflicts or {}
   state.held = state.held or {}
   state.missing = state.missing or {}
   state.left = state.left or {}
+  -- Files of versions that saved with shell scripts.
+  for _, name in ipairs({ "snapshot.log", "snapshot.exit", "resolve", "exclude", "again", "only" }) do
+    noctalia.removeFile(dataDir .. "/" .. name)
+  end
   loaded = true
   publish()
-  noctalia.setUpdateInterval(2000)
-  -- With sharing on, what other devices changed comes in as soon as Noctalia starts.
-  if sharing() and not running then
+  noctalia.setUpdateInterval(IDLE_TICK_MS)
+  -- Settings restore.sh left come first, so the save does not drop them.
+  if noctalia.fileExists(restoreFile) then
+    restoreSettings()
+  elseif sharing() then
+    -- With sharing on, what other devices changed comes in as soon as Noctalia starts.
     snapshot()
   end
 end)
