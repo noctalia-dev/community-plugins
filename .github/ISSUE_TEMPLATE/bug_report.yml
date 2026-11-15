@@ -242,6 +242,7 @@ body:
         - palette-creator
         - palettes
         - pass
+        - passwordless-sudo
         - performance-plus
         - phone-connect
         - phone-operate
