@@ -28,6 +28,16 @@ local POLL_FAILURE_THRESHOLD = 2
 local lastError = nil
 local DIAG_TIMEOUT_MS = 30000
 
+-- A codec switch makes the headphones restart. Failed polls in that window
+-- are expected, so they don't flip the panel to "not connected".
+local RESTART_GRACE_MS = 30000
+local restartUntil = 0
+local restartSawFailure = false
+
+local function restarting()
+	return noctalia.nowMs() < restartUntil
+end
+
 -- When nothing else needs live status (no panel/bar/widget) but the mono
 -- setting is on, poll anyway so single-bud detection keeps working — just
 -- slower than the foreground 4s cadence, since it's the only reason we're
@@ -123,6 +133,7 @@ local function publish(data)
 		data.mono_active = monoActive
 		data.mono_auto = monoAutoSetting() and not (data.model or {}).battery_single
 		data.mono_by_auto = monoActive and monoActivatedByAuto
+		data.restarting = restarting()
 		noctalia.state.set(STATUS_KEY, data)
 	end
 end
@@ -265,6 +276,11 @@ local function pollStatus()
 		if parsed ~= nil and parsed.connected == true then
 			pollFailures = 0
 			lastError = nil
+			if restartSawFailure then
+				-- back from the restart
+				restartUntil = 0
+				restartSawFailure = false
+			end
 			if not monoActive then
 				evaluateMonoAuto(parsed.battery, parsed.model)
 				publish(parsed)
@@ -296,6 +312,10 @@ local function pollStatus()
 		-- The advisory BT lock held by a command still in flight (e.g. right
 		-- after set-anc) isn't a disconnect, and mustn't replace a real error.
 		if parsed ~= nil and parsed.error == "busy" then
+			return
+		end
+		if restarting() then
+			restartSawFailure = true
 			return
 		end
 		if parsed ~= nil then
@@ -375,6 +395,28 @@ end
 
 local function setSoundProfile(enabled)
 	runCtl({ "set-sound-profile", enabled and "1" or "0" }, applyResultThenRefresh)
+end
+
+local function setSpatial(mode)
+	if type(mode) == "string" and mode ~= "" then
+		runCtl({ "set-spatial", mode }, applyResultThenRefresh)
+	end
+end
+
+-- The headphones restart to apply this; hold the panel on "restarting"
+-- rather than "not connected" until they answer again.
+local function setCodec(codec)
+	if type(codec) ~= "string" or codec == "" then
+		return
+	end
+	runCtl({ "set-codec", codec }, function(parsed)
+		if parsed ~= nil and parsed.ok then
+			restartUntil = noctalia.nowMs() + RESTART_GRACE_MS
+			restartSawFailure = false
+			republishMono()
+		end
+		pollStatus()
+	end)
 end
 
 local function cycleAnc()
@@ -502,6 +544,10 @@ local function executeCommand(cmdObj)
 		setPersonalAnc(shared.toBool(cmdObj.value))
 	elseif cmdObj.action == "set-sound-profile" then
 		setSoundProfile(shared.toBool(cmdObj.value))
+	elseif cmdObj.action == "set-spatial" then
+		setSpatial(cmdObj.value)
+	elseif cmdObj.action == "set-codec" then
+		setCodec(cmdObj.value)
 	elseif cmdObj.action == "cycle-anc" then
 		cycleAnc()
 	elseif cmdObj.action == "refresh" then
@@ -536,7 +582,9 @@ end
 -- preset list (shared.EQ_PRESETS on an Ear (2)). `set-bass` payload is a
 -- bass boost level 1-5, or 0 for off. `set-latency`,
 -- `set-mono`, `set-personal-anc` and `set-sound-profile` payloads are
--- "0"/"1"/"true"/"false".
+-- "0"/"1"/"true"/"false". `set-spatial` payload is a mode name from the
+-- model's list (concert/cinema/off on a CMF Headphone Pro). `set-codec`
+-- payload is aac or ldac; it restarts the headphones without asking.
 function onIpc(event, payload)
 	if event == "cycle-anc" then
 		cycleAnc()
@@ -571,6 +619,10 @@ function onIpc(event, payload)
 	elseif event == "set-sound-profile" then
 		local text = type(payload) == "string" and payload:lower() or ""
 		setSoundProfile(text == "1" or text == "true" or text == "on")
+	elseif event == "set-spatial" then
+		setSpatial(payload)
+	elseif event == "set-codec" then
+		setCodec(type(payload) == "string" and payload:lower() or nil)
 	elseif event == "scan-devices" then
 		scanDevices(false)
 	elseif event == "select-device" then

@@ -5,6 +5,7 @@ local rendered
 local text
 local icon
 local tooltip
+local modeIcons = 0
 noctalia = {
  state = {get=function() return current end, watch=function() end, set=function() end},
  getConfig=function() return nil end, tr=function(k) return k end,
@@ -23,7 +24,9 @@ local realRequire=require
 require=function(name) if name=='./shared.luau' then return dofile(root..'shared.luau') end return realRequire(name) end
 local function inspect(tree, images, labels)
  if not tree then return end
- if tree.kind=='image' then table.insert(images, tree.props.path) end
+ if tree.kind=='image' and not tree.props.path:find('icons/mode%-') then table.insert(images, tree.props.path) end
+ if tree.kind=='image' and tree.props.path:find('icons/mode%-') then modeIcons = modeIcons + 1 end
+ if tree.kind=='button' and tree.props.text then table.insert(labels, tree.props.text) end
  if tree.kind=='label' then table.insert(labels, tree.props.text) end
  for _, child in ipairs(tree.children or {}) do inspect(child, images, labels) end
 end
@@ -45,7 +48,54 @@ for _, single in ipairs({true,false}) do
  assert(text==(single and '80%' or '85%'), 'bar percentage')
  if single then assert(icon:find('bar%-headphones%-anc.svg'), 'bar headphone icon') end
 end
+assert(modeIcons==12, 'three noise-mode icons per panel and desktop render')
 print('Panel, desktop and bar render correctly for headphones and earbuds')
+
+local function findKey(tree, key)
+ if not tree then return nil end
+ if tree.props and tree.props.key==key then return tree end
+ for _, child in ipairs(tree.children or {}) do
+  local hit=findKey(child, key)
+  if hit then return hit end
+ end
+end
+-- Headphone-only controls: shown when the read answered, codec needs a confirm.
+local function panelText(state)
+ current=state
+ dofile(root..'panel.luau')
+ local images, labels={},{}
+ inspect(rendered, images, labels)
+ return table.concat(labels,',')
+end
+local hp={connected=true, battery={single={level=80}}, anc={mode='off'},
+ model={name='CMF Headphone Pro', battery_single=true, eq_presets={{index=3,name='pop'}},
+  spatial={'concert','cinema','off'}, codecs={'aac','ldac'}}, eq_preset=3, spatial='concert', codec='aac'}
+local shown=panelText(hp)
+assert(shown:find('panel.eq.pop',1,true), 'headphone EQ presets')
+assert(shown:find('panel.spatial.cinema',1,true), 'spatial audio modes')
+assert(findKey(rendered,'spatial-concert').children[1].props.path=='icons/spatial-concert.svg', 'spatial icon')
+assert(shown:find('panel.codec.ldac',1,true) and shown:find('panel.codec.caption',1,true), 'codec row')
+assert(not shown:find('panel.bass.title',1,true), 'no bass boost on headphones')
+-- One click only arms the switch; the command goes out on Restart.
+local sentCommand
+noctalia.state.set=function(_, value) sentCommand=value end
+findKey(rendered,'codec-aac').props.onClick()
+assert(findKey(rendered,'codec-confirm')==nil and sentCommand==nil, 'current codec is not re-sent')
+findKey(rendered,'codec-ldac').props.onClick()
+assert(sentCommand==nil, 'codec switch waits for confirmation')
+findKey(rendered,'codec-cancel').props.onClick()
+assert(findKey(rendered,'codec-ldac') and sentCommand==nil, 'cancel restores the choice')
+findKey(rendered,'codec-ldac').props.onClick()
+findKey(rendered,'codec-confirm').props.onClick()
+assert(sentCommand.action=='set-codec' and sentCommand.value=='ldac', 'confirmed codec switch is sent')
+noctalia.state.set=function() end
+hp.restarting=true
+shown=panelText(hp)
+assert(shown:find('panel.codec.restarting',1,true) and not shown:find('panel.codec.ldac',1,true), 'restarting hides codec buttons')
+hp.restarting=false hp.spatial=nil hp.codec=nil
+shown=panelText(hp)
+assert(not shown:find('panel.spatial.title',1,true) and not shown:find('panel.codec.title',1,true), 'unanswered reads stay hidden')
+print('Headphone panel: EQ, spatial audio and codec shown only when readable; no bass boost')
 
 local service = assert(io.open(root .. 'service.luau')):read('*a')
 local beginAt = assert(service:find('local function singleBudOut', 1, true))
