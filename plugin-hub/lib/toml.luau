@@ -24,29 +24,36 @@ end
 
 local function parseString(text, at)
   local quote = text:sub(at, at)
+  if quote == "'" then
+    local close = text:find("'", at + 1, true)
+    if close == nil then
+      return nil, #text + 1
+    end
+    return text:sub(at + 1, close - 1), close + 1
+  end
   local parts = {}
   local i = at + 1
-  while i <= #text do
-    local c = text:sub(i, i)
-    if c == quote then
-      return table.concat(parts), i + 1
-    elseif c == "\\" and quote == '"' then
-      local nextChar = text:sub(i + 1, i + 1)
-      if nextChar == "u" or nextChar == "U" then
-        local size = nextChar == "u" and 4 or 8
-        local code = tonumber(text:sub(i + 2, i + 1 + size), 16)
-        table.insert(parts, code and utf8.char(code) or "")
-        i += 2 + size
-      else
-        table.insert(parts, ESCAPES[nextChar] or nextChar)
-        i += 2
-      end
+  while true do
+    -- The next quote or backslash; the text before it is taken whole.
+    local stop = text:find('["\\]', i)
+    if stop == nil then
+      return nil, #text + 1
+    end
+    table.insert(parts, text:sub(i, stop - 1))
+    if text:sub(stop, stop) == '"' then
+      return table.concat(parts), stop + 1
+    end
+    local nextChar = text:sub(stop + 1, stop + 1)
+    if nextChar == "u" or nextChar == "U" then
+      local size = nextChar == "u" and 4 or 8
+      local code = tonumber(text:sub(stop + 2, stop + 1 + size), 16)
+      table.insert(parts, code and utf8.char(code) or "")
+      i = stop + 2 + size
     else
-      table.insert(parts, c)
-      i += 1
+      table.insert(parts, ESCAPES[nextChar] or nextChar)
+      i = stop + 2
     end
   end
-  return nil, i
 end
 
 local function parseKey(text, at)
@@ -110,6 +117,57 @@ function Toml.parse(text)
     return nil
   end
   return (parseValue(text, 1))
+end
+
+-- How many brackets and braces <line> leaves open, outside strings and comments.
+local function openBrackets(line)
+  if not line:find("[%[%]{}]") then
+    return 0
+  end
+  line = line:gsub('"[^"\\]*\\.', ""):gsub('"[^"]*"', ""):gsub("'[^']*'", ""):gsub("#.*$", "")
+  local opened = select(2, line:gsub("[%[{]", ""))
+  local closed = select(2, line:gsub("[%]}]", ""))
+  return opened - closed
+end
+
+-- The tables of a plugin manifest, in order, as { header, values }. The first has no header:
+-- the top-level keys. A header is the name inside [[...]] or [...], such as "panel" or
+-- "widget.setting". A value may span lines, as an array does. With <only>, a set of key
+-- names, other values are skipped, which is quicker.
+function Toml.manifest(text, only)
+  local current = { header = nil, values = {} }
+  local sections = { current }
+  local pendingKey, pendingText, depth = nil, nil, 0
+  for line in (text or ""):gmatch("[^\n]*") do
+    if pendingKey then
+      pendingText ..= "\n" .. line
+      depth += openBrackets(line)
+      if depth <= 0 then
+        if only == nil or only[pendingKey] then
+          current.values[pendingKey] = Toml.parse(pendingText)
+        end
+        pendingKey = nil
+      end
+      continue
+    end
+    line = line:match("^%s*(.*)")
+    local header = line:match("^%[%[%s*([%w_%.%-]+)%s*%]%]") or line:match("^%[%s*([%w_%.%-]+)%s*%]")
+    if header then
+      current = { header = header, values = {} }
+      table.insert(sections, current)
+    else
+      local key, value = line:match("^([%w_%-]+)%s*=%s*(.*)$")
+      if key then
+        depth = openBrackets(value)
+        if depth > 0 then
+          pendingKey, pendingText = key, value
+        elseif only == nil or only[key] then
+          current.values[key] = Toml.parse(value)
+        end
+      end
+    end
+  end
+  return sections
 end
 
 local function quote(text)
