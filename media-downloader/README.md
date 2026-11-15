@@ -25,7 +25,7 @@ Bandcamp, Dailymotion and Bilibili. The full list is
 | ---------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | `yt-dlp`   | Required | Downloads from the sites it supports.                                                                                                      |
 | `ffmpeg`   | Required | Joins video and audio, and converts audio.                                                                                                 |
-| `sh`       | Required | Runs each download in the background, and checks a download is still its own process before stopping it. It comes with every Linux system. |
+| `sh`       | Required | Runs each download in the background, so it goes on when Noctalia reloads. It comes with every Linux system.                               |
 | `kill`     | Required | Stops a download. It comes with every Linux system.                                                                                        |
 | `xdg-open` | Required | Opens finished files and the download folder. Without it, those buttons are hidden.                                                        |
 
@@ -70,6 +70,12 @@ binding can download whatever link was just copied.
 ```sh
 noctalia msg plugin omerfuyar/media-downloader:service all video "https://example.com/watch/123"
 noctalia msg plugin omerfuyar/media-downloader:service all audio
+```
+
+Cancel the running download:
+
+```sh
+noctalia msg plugin omerfuyar/media-downloader:service all cancel
 ```
 
 ## Notes

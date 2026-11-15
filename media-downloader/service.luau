@@ -3,7 +3,9 @@
 --
 -- yt-dlp runs detached, so a download outlives the 60 s limit of runAsync callbacks and
 -- survives a reload of this script. RUNNER writes yt-dlp's output, its process id and its
--- exit code next to the queue in the data directory; update() reads them back.
+-- exit code next to the queue in the data directory; update() reads them back. The job keeps
+-- the process's boot and start time, read from /proc, so a stop never reaches another
+-- process that got the same id.
 --
 -- Publishes "media-downloader.model" and takes commands on "media-downloader.command".
 
@@ -16,28 +18,16 @@ local INSTALLERS = {
   { manager = "zypper", command = "sudo zypper install yt-dlp ffmpeg" },
 }
 
--- $1 is the path prefix of the job's files, the rest is the yt-dlp command. The .pid file
--- holds the process id with the boot id and the process's start time, so a later run can
--- tell this process from another that got the same id after a reboot.
+-- $1 is the path prefix of the job's files, the rest is the yt-dlp command. It writes the
+-- process id, then the exit code. This is the one shell a download needs: it outlives a
+-- reload of the service and is still there to write the exit code.
 local RUNNER = [[
 prefix=$1
 shift
 "$@" >"$prefix.log" 2>&1 &
-pid=$!
-start=$(sed 's/.*) //' "/proc/$pid/stat" 2>/dev/null | cut -d' ' -f20)
-echo "$pid $(cat /proc/sys/kernel/random/boot_id) $start" >"$prefix.pid"
-wait $pid
+echo $! >"$prefix.pid"
+wait $!
 echo $? >"$prefix.exit"
-]]
-
--- Sends signal $2 to the process the .pid file $1 names, only while it is still that
--- process: the same boot and the same start time. Fails otherwise. Signal 0 only checks.
-local SIGNAL = [[
-read -r pid boot start <"$1" || exit 1
-case $pid in '' | *[!0-9]*) exit 1 ;; esac
-[ -n "$start" ] && [ "$boot" = "$(cat /proc/sys/kernel/random/boot_id)" ] || exit 1
-[ "$(sed 's/.*) //' "/proc/$pid/stat" 2>/dev/null | cut -d' ' -f20)" = "$start" ] || exit 1
-kill -"$2" "$pid"
 ]]
 
 -- Bytes rather than yt-dlp's percent text, which can lag behind on fast downloads.
@@ -251,6 +241,44 @@ local function findJob(id)
   return nil
 end
 
+-- This boot's id, so a process id saved before a reboot is never taken for a new process.
+local function bootId()
+  return noctalia.string.trim(noctalia.readFile("/proc/sys/kernel/random/boot_id") or "")
+end
+
+-- When process <pid> started, in clock ticks since boot, or nil when it does not run. The
+-- name in /proc/<pid>/stat sits in parentheses and may hold spaces, so the fields are
+-- counted from its last ")"; the start time is the 20th after it.
+local function startTime(pid)
+  local stat = noctalia.readFile(`/proc/{pid}/stat`)
+  local rest = stat and stat:match(".*%) (.*)$")
+  return rest and string.split(rest, " ")[20] or nil
+end
+
+-- The job's process, the first time its pid file is seen: its id, this boot, and its start.
+local function learnProcess(job)
+  if job.pid then
+    return
+  end
+  local pid = tonumber(noctalia.string.trim(noctalia.readFile(jobPrefix(job) .. ".pid") or ""))
+  local start = pid and startTime(pid)
+  if start then
+    job.pid, job.boot, job.start = pid, bootId(), start
+    save()
+  end
+end
+
+-- Whether the job's process still runs: the same boot and the same start time.
+local function stillRuns(job)
+  return job.pid ~= nil and job.boot == bootId() and startTime(job.pid) == job.start
+end
+
+local function stop(job)
+  if stillRuns(job) then
+    noctalia.runAsync({ "kill", "-TERM", tostring(job.pid) })
+  end
+end
+
 local function poll()
   local job = runningJob()
   if job == nil then
@@ -265,6 +293,10 @@ local function poll()
     return
   end
 
+  learnProcess(job)
+  if job.cancelling then
+    stop(job)
+  end
   reading = true
   local prefix = jobPrefix(job)
   noctalia.readFileAsync(prefix .. ".log", function(text)
@@ -287,8 +319,9 @@ local function cancel(job)
     job.status = "cancelled"
     save()
   elseif job.status == "running" then
+    -- Before its pid file is written, poll() stops it once it is.
     job.cancelling = true
-    noctalia.runAsync({ "sh", "-c", SIGNAL, "media-downloader", jobPrefix(job) .. ".pid", "TERM" })
+    stop(job)
   end
 end
 
@@ -382,21 +415,25 @@ local function recover()
   if job == nil or noctalia.fileExists(jobPrefix(job) .. ".exit") then
     return
   end
-  noctalia.runAsync({ "sh", "-c", SIGNAL, "media-downloader", jobPrefix(job) .. ".pid", "0" }, function(result)
-    if result.exitCode ~= 0 and not noctalia.fileExists(jobPrefix(job) .. ".exit") then
-      finish(job, -1)
-      publish()
-    end
-  end)
+  learnProcess(job)
+  if not stillRuns(job) and not noctalia.fileExists(jobPrefix(job) .. ".exit") then
+    finish(job, -1)
+  end
 end
-
 
 -- noctalia msg plugin omerfuyar/media-downloader:service all video <link>
 -- noctalia msg plugin omerfuyar/media-downloader:service all audio <link>
 -- Without a link, the clipboard's text is used.
+-- noctalia msg plugin omerfuyar/media-downloader:service all cancel
 function onIpc(event, payload)
   if event == "video" or event == "audio" then
     queueLink(payload, event)
+  elseif event == "cancel" then
+    local job = runningJob()
+    if job then
+      cancel(job)
+      publish()
+    end
   end
 end
 
