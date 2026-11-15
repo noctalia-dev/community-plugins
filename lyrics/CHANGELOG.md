@@ -1,5 +1,91 @@
 # Changelog
 
+## 1.7.1
+
+- Add `candidate_mode`: **Choose** shows the picker when several results exist,
+  **Best match** always uses the best-ranked result and disables the picker
+  (the shortcut explains this instead of opening an empty panel).
+- A failed candidate selection now falls back to the best match automatically,
+  and the picker has a **Best match** button to discard the manual pick.
+- Show the lyric format and the applied format in the picker: LRCLIB rows are
+  labelled `LRC · Synced` / `PLAIN · Unsynced`, and the footer reports the format
+  and timing granularity actually used (`Applied: YRC · word`).
+- Prefer duration-matched versions when automatically choosing a result. LRCLIB
+  ranking now weighs duration closeness before album identity, so a longer
+  album version no longer wins over the version whose length matches the track.
+  The picker also shows a `Δ` offset next to durations that differ from the
+  playing track; `同步歌词`/`Synced` still describes the lyric format (timed
+  lines) rather than duration.
+- The picker redraws from `noctalia.state.watch` callbacks instead of a panel
+  update loop. Plugin panels have no periodic `update()` timer, so previously
+  the rows and selection stayed stale until the picker was reopened; applying a
+  row, a new candidate list, or a track change is now reflected immediately.
+- Document the runtime dependencies inline in `README.md` (purpose table,
+  Arch/Debian/Fedora/NixOS install commands, `PATH`/OpenSSL checks) and drop the
+  bundled `scripts/setup-deps.sh` helper: users run their package manager, and
+  the installed plugin location differs from the repository checkout.
+- Reclassify the bar widget settings categories: Display & behavior, Lyrics,
+  Cover & colors, Karaoke & animation, Font & layout, Scrolling & width, and
+  Intro/interlude cues. Cover visibility now lives with cover options, text
+  alignment with font and layout, and the hover-picker toggle with behavior.
+- Restore hover access to the alternate-lyrics picker: hovering the widget for
+  0.55 s opens the selector when the current track has more than one matching
+  lyric result from any source. It opens once per hover and only after that delay, so pointer
+  pass-overs no longer pop the panel. New `selector_enabled` widget setting
+  (default on) turns the picker off completely for that widget.
+- Rework the picker from a dropdown into a list of clickable result rows: the
+  current result is highlighted, hovering a row gives feedback, the header
+  shows the result count, and each row shows the lyric source (`LRCLIB`), artist,
+  duration, and synced/unsynced state. Applying a result highlights that row
+  immediately and keeps the picker open so the selection is visible; a
+  hover-opened picker closes itself after 8 s without interaction or when the
+  track changes.
+- Candidates are now collected from any source that can return more than one
+  match: LRCLIB search results (up to 20), ranked NetEase and QQ Music search
+  hits (up to 3 each), and Kugou lyric versions. Every candidate carries its
+  source name, so the picker labels rows with `LRCLIB`, `NetEase`, `QQ Music`,
+  `Kugou`, etc., and applying a row fetches that exact source entry.
+- Translate every new string: settings labels/descriptions and picker strings
+  are localized in English and Simplified Chinese (other locales fall back to
+  English for the new keys).
+
+## 1.7.0
+
+- Marquee scrolling is pixel-smooth and follows the rendered text width: the
+  whole line renders once inside a clipped viewport whose width is
+  `max_chars * char_width`, and a paint-only `translateX` scrolls it at
+  `marquee_speed` pixels per second using real font metrics (a full-width CJK
+  character is one font size), so the scroll always reaches the final character
+  before the line loops. Changing Max characters or Character width visibly
+  changes the widget width and the clipped scroll area, and Character width now
+  defaults to 14 to match the inherited body font size.
+- Clip every transition frame to the marquee viewport: transitions used to
+  render the raw row, so a long line flashed at full width for the length of
+  the animation before snapping back to the clipped, scrolling viewport. Push
+  transitions now also clamp their track/viewport width. The line is clipped
+  from the first frame of every preset.
+- Animate a lyric line as one block: the primary row and its
+  translation/romanization row travel together through every transition, and
+  both rows share an explicit slot height so a line no longer nudges up when a
+  transition starts and settles back down when it ends (this also removed the
+  same vertical jump from the cover-art widget).
+- Replace the old animation presets with one set of twelve distinct lyrics
+  animations: karaoke fill + fade, slide up, slide down, swoosh left, swoosh
+  right, spring push, drop + bounce, zoom, character cascade, character wave,
+  typewriter, flip, spin, squash, random, and none. `random` re-rolls the
+  line motion for every line change and never repeats the previous one. The separate `line_transition` experiment and the
+  near-duplicate Lyricify lookalikes are gone; every remaining preset has a
+  visibly different motion in a one-line bar.
+- Bold motions use the paint-only compositing props: clipped two-row pushes for
+  slide/spring/drop, full-width horizontal swooshes, a zoom from 170%,
+  spring/bounce overshoot curves, and the new `rotation` / `scaleX` / `scaleY`
+  props for the flip, spin, and squash presets.
+- Keep the configured lyric colors through every animation: outgoing and
+  incoming rows share the karaoke palette, and word fill keeps running.
+- Requires plugin API 52 (paint-only `translateX`/`translateY`, `scale`,
+  `clip`). Older shells keep loading the 1.6.x release from the plugin source
+  and its previous animations.
+
 ## 1.6.0
 
 - Word-level lyric sources now drive per-character karaoke highlighting, while

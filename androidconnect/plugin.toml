@@ -1,0 +1,73 @@
+id = "demencia89/androidconnect"
+name = "AndroidConnect"
+version = "2.4.1"
+plugin_api = 43
+author = "demencia89"
+license = "GPL-2.0-only"
+icon = "device-mobile"
+description = "Android status, KDE Connect actions, and an interactive scrcpy preview using upstream pixel streams."
+tags = ["hardware", "media", "network", "panel", "utility", "video"]
+dependencies = ["python3", "adb", "scrcpy", "ffmpeg", "fuser", "busctl", "qrencode", "avahi-browse", "xdg-open", "xdg-user-dir"]
+
+[[service]]
+id = "devices"
+entry = "service.luau"
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+[[shortcut]]
+id = "toggle"
+entry = "shortcut.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 680
+height = "content"
+max_height = 900
+placement = "attached"
+position = "auto"
+open_near_click = true
+
+[[setting]]
+key = "video_device"
+type = "string"
+label_key = "settings.video_device"
+description_key = "settings.video_device_description"
+default = "/dev/video10"
+
+[[setting]]
+key = "auto_mirror"
+type = "bool"
+label_key = "settings.auto_mirror"
+default = true
+
+[[setting]]
+key = "preview_height"
+type = "int"
+label_key = "settings.preview_height"
+default = 720
+min = 240
+max = 720
+
+[[setting]]
+key = "fps"
+type = "int"
+label_key = "settings.fps"
+default = 60
+min = 1
+max = 60
+
+[[setting]]
+key = "hide_when_disconnected"
+type = "bool"
+label_key = "settings.hide_when_disconnected"
+default = false
+
+[[setting]]
+key = "icon_color"
+type = "color"
+label_key = "settings.icon_color"
+default = "primary"

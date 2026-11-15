@@ -157,6 +157,7 @@ end
 
 local function render(raw)
     S.beginRender()
+    S.wantGpuStats(showTemps)
     local snap = S.decode(raw, cpuScale)
     local vertical = barWidget.isVertical()
     local container = vertical and ui.column or ui.row

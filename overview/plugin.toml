@@ -1,0 +1,55 @@
+id = "omerfuyar/overview"
+name = "Overview"
+version = "1.5.2"
+plugin_api = 43
+author = "omerfuyar"
+license = "MIT"
+icon = "layout-grid"
+description = "See every workspace and its windows at once. Click a window to go to it, drag it to move it."
+dependencies = ["hyprctl", "grim"]
+tags = ["bar", "hyprland", "utility"]
+
+[[setting]]
+key = "keybind"
+type = "string"
+label_key = "settings.keybind.label"
+description_key = "settings.keybind.description"
+default = ""
+
+[[setting]]
+key = "previews"
+type = "bool"
+label_key = "settings.previews.label"
+description_key = "settings.previews.description"
+default = true
+advanced = true
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[widget]]
+id = "widget"
+entry = "widget.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 872
+height = "content"
+max_height = 900
+placement = "attached"
+position = "auto"
+open_near_click = true
+keyboard_focus = "exclusive"
+
+# The same overview, floating in the middle of the screen, for the key binding.
+[[panel]]
+id = "center"
+entry = "panel.luau"
+width = 872
+height = "content"
+max_height = 900
+placement = "floating"
+position = "center"
+keyboard_focus = "exclusive"

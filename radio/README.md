@@ -48,7 +48,8 @@ noctalia msg plugin fel/radio:player all volume 60
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
-| `default_volume` | `int` | `70` | mpv volume 0-100, used until changed from widget, panel or launcher. |
+| `default_volume` | `int` | `70` | mpv volume 0-100, used on first start and whenever `remember_volume` is off. |
+| `remember_volume` | `bool` | `true` | Restore the volume last used instead of resetting to `default_volume` on every start. |
 | `search_limit` | `int` | `20` | Stations fetched per search or top list, 5-50. |
 | `country` | `string` | `""` | Optional country filter, e.g. Germany. Empty means worldwide. |
 | `mpv_bin` | `string` | `mpv` | mpv executable for headless playback. |
@@ -86,7 +87,9 @@ noctalia msg plugin fel/radio:browser all search "lofi"
 
 Network: `de1.api.radio-browser.info` for search/top/click-count plus the
 stream hosts themselves. Files: favorites at the plugin data dir
-`favorites.json`, mpv IPC socket `mpv.sock` in the same dir. Processes: one
+`favorites.json`, remembered volume in `state.json` next to it (written
+debounced, ~2 s after the last change, and on plugin exit), mpv IPC socket
+`mpv.sock` in the same dir. Processes: one
 headless `mpv --no-video` owned by the player service. Playing a station stops
 the running one first and waits for it to exit, so switching stations never
 leaves a second stream playing. Killed on plugin disable/uninstall/exit.

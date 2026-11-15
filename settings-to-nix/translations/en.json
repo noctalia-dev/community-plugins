@@ -5,6 +5,7 @@
     "no_target": "No target file is set in the plugin settings.",
     "parse": "Could not read {path}: {error}",
     "read": "Could not read {path}: {error}",
+    "timeout": "{command} did not finish in time, nothing was written. The export is tried again on its own.",
     "unverifiable": "{path} exists, but it cannot be checked whether this plugin wrote it ({error}), so it is not replaced.",
     "write": "Could not write {path}: {error}. Your user needs write access to the directory of the target file."
   },

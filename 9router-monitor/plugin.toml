@@ -1,6 +1,6 @@
 id = "bardiz12/9router-monitor"
 name = "9Router Monitor"
-version = "0.1.1"
+version = "0.2.0"
 plugin_api = 43
 author = "bardiz12"
 license = "MIT"

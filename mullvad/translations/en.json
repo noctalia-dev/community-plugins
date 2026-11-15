@@ -1,162 +1,162 @@
 {
- "plugin": {
-  "name": "Mullvad VPN"
- },
- "tooltip": {
-  "unknown": "Mullvad status unknown",
-  "loading": "Mullvad: loading…",
-  "disconnected": "Mullvad: disconnected",
-  "connecting": "Mullvad: connecting",
-  "disconnecting": "Mullvad: disconnecting",
-  "connected": "Mullvad: connected to {place}",
-  "connected_nowhere": "Mullvad: connected",
-  "with_ip": "{text} · {ip}"
- },
- "header": {
-  "daemon_down": "The Mullvad service is not running.",
-  "unknown": "Mullvad status unknown",
-  "disconnected": "Disconnected",
-  "connecting": "Connecting…",
-  "disconnecting": "Disconnecting…",
-  "connected": "Connected to {place}",
-  "connected_nowhere": "Connected",
-  "loading": "Loading Mullvad status…",
-  "ip": "IP: {ip}",
-  "action": {
-   "start_service": "Start service",
-   "enable_service": "Start at boot",
-   "restart_service": "Restart service",
-   "disconnect": "Disconnect",
-   "connect": "Connect",
-   "lockdown_off": "Turn off lockdown",
-   "open_account_tab": "Open Account tab",
-   "open_account_page": "Open account page"
+  "account": {
+    "current_device": "This device",
+    "devices": "Devices on this account",
+    "expired_on": "Expired on {date}",
+    "expires": "Paid until {date}",
+    "input_placeholder": "Account number",
+    "loading": "Reading your Mullvad account…",
+    "logged_out_hint": "Log in with your 16-digit Mullvad account number.",
+    "login": "Log in",
+    "logout": "Log out",
+    "number": "Account {number}",
+    "open_page": "Open account page",
+    "read_failed": "Couldn't read your Mullvad account. Check your connection.",
+    "retry": "Retry",
+    "revoke": "Revoke",
+    "this_device": "This device: {name}",
+    "voucher": "Voucher",
+    "voucher_placeholder": "Voucher code"
   },
-  "visible_location": "Visible location: {location}",
-  "place": "{city}, {country}",
-  "place_flag": "{city} {country}"
- },
- "settings": {
-  "show_flags": {
-   "label": "Show country flags",
-   "description": "Needs an emoji font. Turn off if flags show as letter pairs."
+  "advanced": {
+    "in_app": "Advanced settings like DNS blocking, tunnel options and split tunneling are in the Mullvad app.",
+    "open_app": "Open Mullvad app"
   },
-  "show_label": {
-   "label": "Show label",
-   "description": "Show the exit country code (or Off) next to the shield."
+  "confirm": {
+    "no": "Cancel",
+    "prompt": "Are you sure?",
+    "yes": "Yes"
+  },
+  "connect": {
+    "any_city": "Any city",
+    "auto_connect": "Auto-connect",
+    "auto_connect_hint": "Connects when the Mullvad service starts.",
+    "city": "City",
+    "connect": "Connect",
+    "country": "Country",
+    "current_setting": "Current setting",
+    "current_setting_named": "Current setting: {name}",
+    "disconnect": "Disconnect",
+    "entry_any_option": "Any country",
+    "entry_city": "Entry city",
+    "entry_country": "Entry country",
+    "entry_list_option": "Custom list: {name}",
+    "entry_unknown": "The entry server is set to “{entry}”, which this panel cannot show.",
+    "entry_unknown_option": "Other",
+    "lockdown": "Lockdown mode",
+    "lockdown_hint": "Blocks all traffic whenever the VPN is not connected, even after you disconnect.",
+    "mode": {
+      "country": "Pick country",
+      "my_country": "My country",
+      "random": "Random"
+    },
+    "mode_label": "Connect to",
+    "multihop": "Multihop",
+    "multihop_hint": "Routes traffic through an entry server before the exit server.",
+    "my_country_hint": "Connects to a server in {country}, or the nearest country with servers.",
+    "my_country_unknown": "Disconnect once so I can see your real location.",
+    "random_hint": "Picks a random country each time you connect.",
+    "reconnect": "Reconnect",
+    "reconnect_tooltip": "Reconnect to a new server in the same location.",
+    "switch": "Switch",
+    "switch_tooltip": "Connect to the location picked above."
+  },
+  "error": {
+    "account_not_found": "There is no Mullvad account with that number.",
+    "action": {
+      "enable_polkit_agent": "Turn on password prompt",
+      "run_in_terminal": "Run in terminal"
+    },
+    "auth_cancelled": "The password prompt was cancelled, so nothing was changed.",
+    "auth_failed": "Mullvad rejected this device. Check your account.",
+    "busy": "Another Mullvad action is still running. Try again in a moment.",
+    "command_failed": "The Mullvad command failed: {detail}",
+    "expired": "Your Mullvad account has expired.",
+    "firewall": "Mullvad could not set its firewall policy. Restarting the service may help.",
+    "invalid_account": "A Mullvad account number has 16 digits.",
+    "invalid_request": "That request is not valid.",
+    "invalid_voucher": "That voucher code is not valid.",
+    "ipv6_unavailable": "IPv6 is turned off on this system, so the tunnel cannot start.",
+    "kernel_updated": "Your kernel was updated. Reboot so Mullvad can set its firewall.",
+    "lockdown_blocking": "Lockdown mode is blocking traffic while you are disconnected.",
+    "logged_out": "You are logged out of Mullvad.",
+    "no_polkit_agent": "No password prompt is available, so Mullvad couldn't be changed. Turn on Noctalia's polkit agent, or run the command in a terminal.",
+    "no_relays": "The Mullvad server list is not loaded yet.",
+    "offline": "This device is offline.",
+    "set_dns": "Mullvad could not set the system DNS server.",
+    "start_tunnel": "Mullvad could not start the tunnel.",
+    "timeout": "Mullvad did not answer in time.",
+    "too_many_devices": "This account already has the most devices it can have. Revoke one first (on mullvad.net or another device).",
+    "tunnel_parameter": "Mullvad could not pick a matching server. Check your relay settings.",
+    "unknown": "Mullvad is blocking traffic after an error ({reason}).",
+    "unknown_action": "That action is not supported.",
+    "unknown_device": "That device is not on this account, or it is the device you are using.",
+    "unknown_location": "That country or city has no Mullvad servers.",
+    "unknown_no_reason": "Mullvad is blocking traffic after an error.",
+    "used_voucher": "That voucher code has already been used."
+  },
+  "header": {
+    "action": {
+      "connect": "Connect",
+      "disconnect": "Disconnect",
+      "enable_service": "Start at boot",
+      "lockdown_off": "Turn off lockdown",
+      "open_account_page": "Open account page",
+      "open_account_tab": "Open Account tab",
+      "restart_service": "Restart service",
+      "start_service": "Start service"
+    },
+    "connected": "Connected to {place}",
+    "connected_nowhere": "Connected",
+    "connecting": "Connecting…",
+    "daemon_down": "The Mullvad service is not running.",
+    "disconnected": "Disconnected",
+    "disconnecting": "Disconnecting…",
+    "ip": "IP: {ip}",
+    "loading": "Loading Mullvad status…",
+    "place": "{city}, {country}",
+    "place_flag": "{city} {country}",
+    "unknown": "Mullvad status unknown",
+    "visible_location": "Visible location: {location}"
+  },
+  "notice": {
+    "polkit_agent_on": "Noctalia's password prompt is on. Try again."
+  },
+  "panel": {
+    "busy": "Working…",
+    "close": "Close",
+    "dismiss": "Dismiss",
+    "refresh": "Refresh"
+  },
+  "plugin": {
+    "name": "Mullvad VPN"
+  },
+  "settings": {
+    "show_flags": {
+      "description": "Needs an emoji font. Turn off if flags show as letter pairs.",
+      "label": "Show country flags"
+    },
+    "show_label": {
+      "description": "Show the exit country code (or Off) next to the shield.",
+      "label": "Show label"
+    }
+  },
+  "tab": {
+    "account": "Account",
+    "advanced": "Advanced",
+    "connect": "Connect"
+  },
+  "tooltip": {
+    "connected": "Mullvad: connected to {place}",
+    "connected_nowhere": "Mullvad: connected",
+    "connecting": "Mullvad: connecting",
+    "disconnected": "Mullvad: disconnected",
+    "disconnecting": "Mullvad: disconnecting",
+    "loading": "Mullvad: loading…",
+    "unknown": "Mullvad status unknown",
+    "with_ip": "{text} · {ip}"
+  },
+  "voucher": {
+    "redeem": "Redeem"
   }
- },
- "connect": {
-  "my_country_unknown": "Disconnect once so I can see your real location.",
-  "mode_label": "Connect to",
-  "mode": {
-   "country": "Pick country",
-   "my_country": "My country",
-   "random": "Random"
-  },
-  "country": "Country",
-  "city": "City",
-  "any_city": "Any city",
-  "connect": "Connect",
-  "disconnect": "Disconnect",
-  "reconnect": "Reconnect",
-  "reconnect_tooltip": "Reconnect to a new server in the same location.",
-  "my_country_hint": "Connects to a server in {country}, or the nearest country with servers.",
-  "random_hint": "Picks a random country each time you connect.",
-  "switch": "Switch",
-  "switch_tooltip": "Connect to the location picked above.",
-  "lockdown": "Lockdown mode",
-  "lockdown_hint": "Blocks all traffic whenever the VPN is not connected, even after you disconnect.",
-  "multihop": "Multihop",
-  "multihop_hint": "Routes traffic through an entry server before the exit server.",
-  "entry_country": "Entry country",
-  "entry_city": "Entry city",
-  "auto_connect": "Auto-connect",
-  "auto_connect_hint": "Connects when the Mullvad service starts.",
-  "entry_any_option": "Any country",
-  "entry_list_option": "Custom list: {name}",
-  "entry_unknown_option": "Other",
-  "entry_unknown": "The entry server is set to “{entry}”, which this panel cannot show.",
-  "current_setting": "Current setting",
-  "current_setting_named": "Current setting: {name}"
- },
- "panel": {
-  "refresh": "Refresh",
-  "close": "Close",
-  "dismiss": "Dismiss",
-  "busy": "Working…"
- },
- "tab": {
-  "connect": "Connect",
-  "advanced": "Advanced",
-  "account": "Account"
- },
- "advanced": {
-  "in_app": "Advanced settings like DNS blocking, tunnel options and split tunneling are in the Mullvad app.",
-  "open_app": "Open Mullvad app"
- },
- "account": {
-  "loading": "Reading your Mullvad account…",
-  "read_failed": "Couldn't read your Mullvad account. Check your connection.",
-  "retry": "Retry",
-  "logged_out_hint": "Log in with your 16-digit Mullvad account number.",
-  "input_placeholder": "Account number",
-  "login": "Log in",
-  "number": "Account {number}",
-  "expires": "Paid until {date}",
-  "expired_on": "Expired on {date}",
-  "this_device": "This device: {name}",
-  "devices": "Devices on this account",
-  "current_device": "This device",
-  "revoke": "Revoke",
-  "voucher": "Voucher",
-  "voucher_placeholder": "Voucher code",
-  "logout": "Log out",
-  "open_page": "Open account page"
- },
- "error": {
-  "auth_cancelled": "The password prompt was cancelled, so nothing was changed.",
-  "no_polkit_agent": "No password prompt is available, so Mullvad couldn't be changed. Turn on Noctalia's polkit agent, or run the command in a terminal.",
-  "busy": "Another Mullvad action is still running. Try again in a moment.",
-  "timeout": "Mullvad did not answer in time.",
-  "unknown_action": "That action is not supported.",
-  "unknown_location": "That country or city has no Mullvad servers.",
-  "no_relays": "The Mullvad server list is not loaded yet.",
-  "command_failed": "The Mullvad command failed: {detail}",
-  "kernel_updated": "Your kernel was updated. Reboot so Mullvad can set its firewall.",
-  "firewall": "Mullvad could not set its firewall policy. Restarting the service may help.",
-  "auth_failed": "Mullvad rejected this device. Check your account.",
-  "ipv6_unavailable": "IPv6 is turned off on this system, so the tunnel cannot start.",
-  "set_dns": "Mullvad could not set the system DNS server.",
-  "start_tunnel": "Mullvad could not start the tunnel.",
-  "tunnel_parameter": "Mullvad could not pick a matching server. Check your relay settings.",
-  "offline": "This device is offline.",
-  "unknown": "Mullvad is blocking traffic after an error ({reason}).",
-  "unknown_no_reason": "Mullvad is blocking traffic after an error.",
-  "lockdown_blocking": "Lockdown mode is blocking traffic while you are disconnected.",
-  "logged_out": "You are logged out of Mullvad.",
-  "expired": "Your Mullvad account has expired.",
-  "invalid_request": "That request is not valid.",
-  "invalid_account": "A Mullvad account number has 16 digits.",
-  "unknown_device": "That device is not on this account, or it is the device you are using.",
-  "invalid_voucher": "That voucher code is not valid.",
-  "used_voucher": "That voucher code has already been used.",
-  "too_many_devices": "This account already has the most devices it can have. Revoke one first (on mullvad.net or another device).",
-  "account_not_found": "There is no Mullvad account with that number.",
-  "action": {
-   "run_in_terminal": "Run in terminal",
-   "enable_polkit_agent": "Turn on password prompt"
-  }
- },
- "notice": {
-  "polkit_agent_on": "Noctalia's password prompt is on. Try again."
- },
- "voucher": {
-  "redeem": "Redeem"
- },
- "confirm": {
-  "prompt": "Are you sure?",
-  "yes": "Yes",
-  "no": "Cancel"
- }
 }

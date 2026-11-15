@@ -268,6 +268,9 @@ end
 -- mono off if auto-detection gets it wrong. The caption says which of the
 -- two is in charge, since the toggle alone can't.
 local function monoCaption(s)
+	if s.model and s.model.battery_single then
+		return noctalia.tr("panel.mono.caption_headphones")
+	end
 	if s.mono_by_auto then
 		return noctalia.tr("panel.mono.caption_auto_active")
 	elseif s.mono_auto then
@@ -321,12 +324,18 @@ local function render()
 			table.insert(body, notConnected(status.error))
 		else
 			local battery = status.battery or {}
-			table.insert(body, ui.row({ align = "center", justify = "space_between", gap = 12, padding = 4 }, {
-				batteryColumn(noctalia.tr("panel.left"), battery.left, "bud-left"),
-				batteryColumn(noctalia.tr("panel.case"), battery.case, "case"),
-				batteryColumn(noctalia.tr("panel.right"), battery.right, "bud-right"),
-			}))
 			local model = status.model or {}
+			local batteries
+			if model.battery_single or type(battery.single) == "table" then
+				batteries = { batteryColumn(noctalia.tr("panel.headphones"), battery.single, "headphones") }
+			else
+				batteries = {
+					batteryColumn(noctalia.tr("panel.left"), battery.left, "bud-left"),
+					batteryColumn(noctalia.tr("panel.case"), battery.case, "case"),
+					batteryColumn(noctalia.tr("panel.right"), battery.right, "bud-right"),
+				}
+			end
+			table.insert(body, ui.row({ align = "center", justify = "space_between", gap = 12, padding = 4 }, batteries))
 			if model.anc ~= false then
 				table.insert(body, sectionSeparator())
 				table.insert(body, ancControls(status.anc or {}, status.personal_anc))

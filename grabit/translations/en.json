@@ -1,0 +1,12 @@
+{
+  "settings": {
+    "record_upload": {
+      "label": "Upload recordings",
+      "description": "Upload a finished recording when an upload service is configured (adds --no-upload when off)"
+    },
+    "hide_inactive": {
+      "label": "Hide widget when idle",
+      "description": "Hide the bar widget when no capture or recording is active"
+    }
+  }
+}

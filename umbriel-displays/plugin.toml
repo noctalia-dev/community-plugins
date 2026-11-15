@@ -1,11 +1,7 @@
-# Per-output mode, refresh rate, scale and arrangement, written as [output.*]
-# sections into an Umbriel config include. Umbriel watches its include set, so a
-# write applies live and survives a reboot.
-
 id = "prponkshe/umbriel-displays"
 name = "Umbriel Displays"
-version = "1.0.5"
-plugin_api = 43
+version = "1.0.6"
+plugin_api = 48
 author = "prponkshe"
 license = "MIT"
 dependencies = ["umbriel"]

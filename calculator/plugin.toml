@@ -1,6 +1,6 @@
 id = "yuuto/calculator"
 name = "Calculator"
-version = "1.0.0"
+version = "1.0.1"
 plugin_api = 3
 author = "yuuto"
 license = "MIT"

@@ -397,7 +397,9 @@ function Parser:header(root)
 end
 
 -- Parses a TOML document. Returns the root table node, or nil and an error message.
-function M.parse(text)
+-- `checkpoint`, when given, is called between statements; the service passes one that
+-- yields its coroutine, so a large file is parsed across several update() calls.
+function M.parse(text, checkpoint)
 	if sub(text, 1, 3) == "\239\187\191" then
 		text = sub(text, 4)
 	end
@@ -406,6 +408,9 @@ function M.parse(text)
 	local ok, err = pcall(function()
 		local current = root
 		while p.i <= #p.s do
+			if checkpoint then
+				checkpoint()
+			end
 			p:skipWs()
 			local c = p:peek()
 			if c == "" then

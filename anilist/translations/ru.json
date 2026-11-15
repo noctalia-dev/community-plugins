@@ -1,0 +1,98 @@
+{
+  "panel": {
+    "close": "Закрыть",
+    "close_preview": "Закрыть предпросмотр",
+    "connect": "Подключить AniList",
+    "cover_preview": "Посмотреть обложку",
+    "decrement": "Предыдущий эпизод/главу",
+    "download_cover": "Скачать обложку",
+    "download_cover_failed": "Не удалось сохранить изображение обложки.",
+    "download_cover_success": "Обложка сохранена в {path}",
+    "download_cover_unavailable": "Установите zenity или kdialog, чтобы выбрать место сохранения.",
+    "empty": "В этом списке нет записей.",
+    "error": "Ошибка: {message}",
+    "filter_all": "Все",
+    "filter_completed": "Завершено",
+    "filter_current": "Смотрю",
+    "filter_dropped": "Брошено",
+    "filter_paused": "Приостановлено",
+    "filter_planning": "В планах",
+    "filter_planning_manga": "В планах прочитать",
+    "filter_reading": "Читаю",
+    "filter_rereading": "Перечитываю",
+    "filter_rewatching": "Пересматриваю",
+    "increment": "Следующий эпизод/главу",
+    "loading": "Загрузка ваших списков…",
+    "loading_more": "Загрузка дополнительных записей…",
+    "loading_progress": "Загрузка списков… Аниме: {anime}, манга: {manga}",
+    "logged_in_as": "Вы вошли как {name}",
+    "login_help": "Укажите Client ID и Client Secret в настройках плагина, затем нажмите «Подключить». Откроется браузер, где нужно подтвердить доступ к AniList. После этого плагин автоматически завершит вход.",
+    "login_title": "Подключиться к AniList",
+    "login_waiting": "Ожидание входа через браузер…",
+    "logout": "Выйти",
+    "mark_complete": "Завершено",
+    "next_episode": "Скоро: эпизод {episode}",
+    "open_anilist": "Открыть на AniList",
+    "progress_anime": "Эп. {current}/{total}",
+    "progress_anime_unknown": "Эп. {current}",
+    "progress_manga": "Гл. {current}/{total}",
+    "progress_manga_unknown": "Гл. {current}",
+    "refresh": "Обновить список",
+    "refreshing": "Обновление…",
+    "settings": "Настройки плагина",
+    "tab_anime": "Аниме",
+    "tab_manga": "Манга",
+    "title": "AniList (НЕОФИЦИАЛЬНЫЙ)",
+    "updating": "Обновление…"
+  },
+  "service": {
+    "empty_response": "AniList вернул пустой ответ.",
+    "invalid_response": "AniList вернул ответ в нечитаемом формате.",
+    "invalid_token": "Недействительный или просроченный токен доступа.",
+    "mutation_failed": "Не удалось обновить данные.",
+    "network_error": "Не удалось подключиться к AniList.",
+    "not_configured": "Укажите Client ID и Client Secret AniList в настройках плагина.",
+    "oauth_busy": "Вход уже выполняется.",
+    "oauth_failed": "Не удалось выполнить вход через браузер.",
+    "oauth_unavailable": "Не удалось запустить локальный помощник входа. Установлен ли python3?"
+  },
+  "settings": {
+    "access_token": {
+      "description": "Пропустите вход через браузер, если у вас уже есть Bearer-токен. Обычно это поле оставляют пустым.",
+      "label": "Токен доступа (необязательно)"
+    },
+    "client_id": {
+      "description": "Client ID вашего приложения AniList (anilist.co/settings/developer). URL перенаправления должен быть http://127.0.0.1:7823/callback",
+      "label": "ID клиента"
+    },
+    "client_secret": {
+      "description": "Секретный ключ того же приложения AniList. Никогда не публикуйте его — каждый пользователь должен использовать собственное приложение.",
+      "label": "Секретный ключ клиента"
+    },
+    "count_mode": {
+      "description": "Какое число отображать рядом со значком панели.",
+      "label": "Счётчик панели",
+      "options": {
+        "completed": "Завершено (аниме)",
+        "current": "Смотрю (аниме)",
+        "in_progress": "В процессе (аниме + манга)",
+        "planning": "В планах (аниме)",
+        "total": "Всего (всё аниме)"
+      }
+    },
+    "glyph": {
+      "label": "Значок панели"
+    }
+  },
+  "widget": {
+    "tooltip_completed": "Завершено аниме: {count}",
+    "tooltip_current": "Аниме в прогрессе: {count}",
+    "tooltip_empty": "AniList — открыть библиотеку",
+    "tooltip_error": "AniList — {error}",
+    "tooltip_in_progress": "В процессе: {count} (аниме + манга)",
+    "tooltip_loading": "AniList — загрузка…",
+    "tooltip_oauth": "AniList — ожидание входа через браузер…",
+    "tooltip_planning": "Запланировано аниме: {count}",
+    "tooltip_total": "Аниме в вашем списке: {count}"
+  }
+}

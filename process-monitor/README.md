@@ -1,8 +1,13 @@
-# Process Monitor
+# System Monitor Expanded
 
 See which apps are using your CPU, RAM, GPU and VRAM right now: a compact bar readout, a sortable panel where you
 can terminate, kill or pause processes, and a desktop widget. Per-process GPU and VRAM usage come from the kernel's
 DRM fdinfo, the same counters `nvtop` and `amdgpu_top` read, so games and browsers show up with their real GPU load.
+
+It expands on Noctalia's built-in System Monitor bar widgets: the bar readout uses the same glyphs, gauges and
+warning thresholds, and adds which app is using the most, with per-app detail in the panel and on the desktop.
+
+Called *Process Monitor* before 1.0.3. The id is unchanged, so existing installs update in place.
 
 ## Plugin
 
@@ -19,7 +24,7 @@ DRM fdinfo, the same counters `nvtop` and `amdgpu_top` read, so games and browse
 
 ## Usage
 
-- **Bar widget:** add **Process Monitor** to a bar in Settings → Bar. It shows CPU, temperature, RAM, GPU and VRAM
+- **Bar widget:** add **System Monitor Expanded** to a bar in Settings → Bar. It shows CPU, temperature, RAM, GPU and VRAM
   totals with small gauges that turn towards the error colour under load, followed by the busiest app. Hover for the
   top five apps; click to open the panel.
 - **Panel:** CPU, RAM and GPU cards with 60-sample history graphs, then a table of processes. Type in the filter box
@@ -32,7 +37,7 @@ DRM fdinfo, the same counters `nvtop` and `amdgpu_top` read, so games and browse
   noctalia msg panel-toggle yahya637/process-monitor:panel
   ```
 
-- **Desktop widget:** add **Process Monitor** in the desktop widgets editor. It shows totals, a CPU and GPU graph,
+- **Desktop widget:** add **System Monitor Expanded** in the desktop widgets editor. It shows totals, a CPU and GPU graph,
   sort chips (Overall, CPU, RAM, GPU, VRAM) and the top processes. Click the title to open the panel, or a row to open
   the panel filtered to that app. Hover a row to show its ✕ (two clicks to terminate). The sort you pick is remembered.
 

@@ -10,13 +10,20 @@
 --   Usage     jrohland/claudecode's panel.luau, trimmed port (MIT, see
 --             README Notes) — a thin client of service.luau's "usage"/
 --             "status" state.
---   Sessions  every local session, grouped by project, sortable by date or
---             name, filterable to empty ones (no prompt ever sent). Up/Down
---             select a row, Enter opens it; a glyph marks the running ones
---             (the service's "live" state). Click to resume in
---             a terminal, eye toggles a preview, trash deletes after an
---             inline confirm. Fetched on-demand via sessions.luau, never
---             polled.
+--   Sessions  every local session, grouped by project, sortable by date,
+--             name or session count, filterable to empty ones (no prompt
+--             ever sent), moved ones ("relocated": the folder was renamed,
+--             resume runs from the real one) or orphan ones ("orphan": no
+--             folder at all, "misplaced": transcript in a project dir that
+--             matches no folder); a glyph per status gives the reason.
+--             Up/Down select a row, Enter opens it; a glyph marks the
+--             running ones (the service's "live" state). Click to resume in
+--             a terminal (refused for orphan/misplaced), copy puts the resume
+--             command on the clipboard, pencil renames (custom title, not
+--             for a running or orphan session), eye toggles a preview, trash deletes
+--             after an inline confirm. "Orphans" scans for leftovers of
+--             deleted sessions and removes them after an inline confirm.
+--             Fetched on-demand via sessions.luau, never polled.
 --   CLAUDE.md Global file + one row per known project, each opening in an
 --             external editor. Reuses the Sessions tab's project list.
 --   Skills    installed Claude Code plugins (skills and mods) grouped by
@@ -24,9 +31,6 @@
 --             uninstall per row (uninstall behind an inline confirm), refresh/
 --             remove per marketplace, an install box at the bottom. Fetched
 --             on-demand via skills.luau, never polled.
---
--- No rename: Claude Code has no command to rename a session after it is
--- created, so the label is the AI title (or the opening prompt, cut short).
 
 local shared = require("./shared.luau")
 local sessions = require("./sessions.luau")
@@ -75,12 +79,32 @@ local function groupLimit(cwd)
 end
 local expandedSessionId = nil -- one preview open at a time
 local confirmingDeleteId = nil
+-- Locked sessions cannot be deleted (trash is greyed out, "delete all empty"
+-- skips them). Persisted as one id per line in the plugin data dir.
+local lockedIds = {}
+local lockFile = (function()
+    local dir = noctalia.pluginDataDir()
+    return dir and (dir .. "/locked-sessions.txt") or nil
+end)()
+if lockFile then
+    for line in (noctalia.readFile(lockFile) or ""):gmatch("[^\n]+") do
+        lockedIds[line] = true
+    end
+end
 local confirmingClean = false -- inline confirm strip for "delete all empty sessions"
--- Sessions tab ordering/filter. Date sorts newest first, name A-Z, until the
--- active button is clicked again.
-local sortBy = "date" -- "date" | "name"
+-- Sessions tab ordering/filter. Date sorts newest first, name A-Z, count
+-- (sessions per folder, folders only) most first, until the active button is
+-- clicked again.
+local sortBy = "date" -- "date" | "name" | "count"
 local sortAsc = false
 local emptyOnly = false -- only sessions that never got a prompt
+local statusFilter = nil -- nil | "moved" (relocated) | "orphan" (orphan + misplaced)
+local renamingId = nil -- session with the inline rename strip open
+local repairingId = nil -- session with the inline repair strip open
+local renamingSession = nil -- its session record, for the Return key
+local renameDraft = ""
+local renameRev = 0 -- bumped on each open to reseed the uncontrolled input
+local orphanState = { scanning = false, list = nil, confirming = false, showing = false }
 
 -- Keyboard selection on the Sessions tab: Up/Down walk `navItems` (the rows
 -- the last render drew: project headers and sessions), Enter runs the
@@ -133,7 +157,24 @@ local function card(children)
     return ui.column({ gap = 8, padding = 14, fill = "surface_container/0.45", radius = 12, align = "stretch" }, children)
 end
 
+-- The Usage tab packs everything into one screen: tighter padding, and an
+-- optional flexGrow so two cards can share a row.
+local function compactCard(children, flexGrow)
+    return ui.column({
+        gap = 6, padding = 10, fill = "surface_container/0.45", radius = 12, align = "stretch", flexGrow = flexGrow,
+    }, children)
+end
+
 -- ── sessions/CLAUDE.md data loading ─────────────────────────────────────────
+
+-- utf8.offset is only safe on valid UTF-8; invalid text is left as is.
+local function capDraft(value)
+    local n = utf8.len(value)
+    if n ~= nil and n > 120 then
+        return value:sub(1, utf8.offset(value, 121) - 1)
+    end
+    return value
+end
 
 local reloadQueued = false -- a forced reload asked for while a scan was running
 
@@ -151,6 +192,10 @@ local function loadSessions(force)
     end
     sessionsState.loading = true
     sessionsState.error = nil
+    if force then
+        repairingId = nil
+        orphanState = { scanning = false, list = nil, confirming = false, showing = false }
+    end
     render()
     sessions.refresh(function(projects, err)
         sessionsState.loading = false
@@ -294,8 +339,9 @@ local function headerRow()
 
     return ui.row({ gap = 10, align = "center" }, {
         ui.glyph({ name = "robot", size = 20, color = "primary" }),
-        ui.label({ text = tr("title"), fontSize = 16, fontWeight = "bold", flexGrow = 1 }),
+        ui.label({ text = tr("title"), fontSize = 16, fontWeight = "bold" }),
         ui.label({ text = pluginVersion, fontSize = 10, color = "on_surface_variant" }),
+        ui.label({ key = "hdr-spacer", text = "", flexGrow = 1 }),
         ui.button({
             glyph = loading and "loader-2" or "refresh",
             variant = "ghost", controlSize = "sm",
@@ -333,14 +379,55 @@ end
 
 -- ── Usage tab (trimmed port of jrohland/claudecode's panel.luau) ──────────
 
-local function rateCard(w)
+-- The plan-wide weekly window (not a per-model one).
+local function isWeekly(w)
+    return w.group == "weekly" and (type(w.model) ~= "string" or w.model == "")
+end
+
+local function windowGlyph(w)
+    if w.kind == "session" then
+        return "clock"
+    end
+    return isWeekly(w) and "calendar-stats" or "cpu"
+end
+
+-- Title colour per window, all from the theme: session, weekly, anything else.
+local function windowColor(w)
+    if w.kind == "session" then
+        return "primary"
+    end
+    return isWeekly(w) and "tertiary" or "secondary"
+end
+
+-- Big coloured card title, same look as the limit windows' titles.
+local function sectionTitle(text, color, glyph)
+    return ui.row({ gap = 6, align = "center" }, {
+        ui.glyph({ name = glyph, size = 18, color = color }),
+        ui.label({ text = text, fontSize = 17, fontWeight = "bold", color = color }),
+    })
+end
+
+-- One window: a big coloured title with the percent at the far end, the
+-- pace/reset text under it, then the two bars.
+local function rateRow(w)
     local util = w.percent
     local p = w.pace
     local fill = shared.paceColor(w.status, "primary")
 
+    local caption = shared.paceLabel(p)
+    local cd = shared.formatCountdown(w.resetIso)
+    if cd then
+        local clock = shared.formatResetClock(w.resetIso, true)
+        local resets = `{tr("resets_in")} {cd}`
+        if clock then
+            resets = `{resets} ({clock})`
+        end
+        caption = caption and `{caption} · {resets}` or resets
+    end
+
     local rows = {
         ui.row({ align = "center", justify = "space_between" }, {
-            heading(w.label),
+            sectionTitle(w.label, windowColor(w), windowGlyph(w)),
             ui.label({ text = `{shared.round(util)}% {tr("used")}`, fontSize = 14, color = fill }),
         }),
         ui.progress({
@@ -354,36 +441,26 @@ local function rateCard(w)
             fill = "on_surface/0.45", track = "on_surface/0.10", radius = 2, height = 3,
         }))
     end
-
-    local caption = shared.paceLabel(p)
-    local cd = shared.formatCountdown(w.resetIso)
-    if cd then
-        local clock = shared.formatResetClock(w.resetIso, true)
-        local resets = `{tr("resets_in")} {cd}`
-        if clock then
-            resets = `{resets} ({clock})`
-        end
-        caption = caption and `{caption} · {resets}` or resets
-    end
     if caption then
-        table.insert(rows, muted(caption, 11))
+        table.insert(rows, 2, muted(caption, 11))
     end
-    return card(rows)
+    return ui.column({ gap = 4, align = "stretch" }, rows)
 end
 
 local function metricCol(label, tokens, cost, rate)
-    return ui.column({ gap = 2, align = "center", flexGrow = 1 }, {
-        muted(label, 12),
+    return ui.column({ gap = 1, align = "center", flexGrow = 1 }, {
+        muted(label, 11),
         ui.label({ text = shared.formatTokens(tokens), fontSize = 16, fontWeight = "bold", color = "primary" }),
         ui.label({ text = shared.formatCost(cost, rate), fontSize = 11, color = "on_surface_variant" }),
     })
 end
 
+-- Heading at the left, the three periods in one row beside it.
 local function tokensCard(u, todayTokens)
     local rate = u.currency_rates
-    return card({
-        heading(tr("token_consumption")),
-        ui.row({ gap = 8, align = "start" }, {
+    return compactCard({
+        ui.row({ gap = 8, align = "center" }, {
+            sectionTitle(tr("token_consumption"), "secondary", "coins"),
             metricCol(tr("today"), todayTokens, u.today_cost, rate),
             metricCol(tr("week"), u.week_tokens, u.week_cost, rate),
             metricCol(tr("month"), u.month_tokens, u.month_cost, rate),
@@ -409,7 +486,7 @@ local function dailyChart(daily, dailyCosts, rate)
     end
 
     local todayIdx = shared.todayIndex()
-    local barH = 64
+    local barH = 52
     local cols = {}
     for i = 1, 7 do
         local v = tonumber(daily[i]) or 0
@@ -422,7 +499,7 @@ local function dailyChart(daily, dailyCosts, rate)
         end
 
         table.insert(cols, ui.column({
-            key = `day-{i}`, flexGrow = 1, gap = 4, align = "center",
+            key = `day-{i}`, flexGrow = 1, gap = 3, align = "center",
             onHover = function(state)
                 if state == "true" then
                     hoveredDay = i
@@ -435,7 +512,7 @@ local function dailyChart(daily, dailyCosts, rate)
             end,
         }, {
             ui.column({ height = barH, justify = "end", align = "center" }, {
-                ui.box({ width = isHover and 22 or 18, height = h, radius = 3, fill = fill }),
+                ui.box({ width = isHover and 34 or 30, height = h, radius = 3, fill = fill }),
             }),
             ui.label({
                 text = labels[i] or tostring(i), fontSize = 10,
@@ -453,12 +530,12 @@ local function dailyChart(daily, dailyCosts, rate)
         })
     end
 
-    return card({
+    return compactCard({
         ui.row({ align = "center", justify = "space_between" }, {
-            heading(tr("daily_activity")),
+            sectionTitle(tr("daily_activity"), "tertiary", "chart-bar"),
             ui.label({ text = detail, fontSize = 11, color = "primary", maxLines = 1 }),
         }),
-        ui.row({ gap = 6, align = "end" }, cols),
+        ui.row({ gap = 4, align = "end" }, cols),
     })
 end
 
@@ -469,22 +546,25 @@ local function modelsCard(weekModels, weekTokens)
     end
     weekTokens = tonumber(weekTokens) or 0
 
-    local rows = { heading(tr("models_this_week")) }
+    local rows = { sectionTitle(tr("models_this_week"), "primary", "robot") }
     for _, m in list do
         local share = (weekTokens > 0) and math.min(1, m.tokens / weekTokens) or 0
         table.insert(rows, ui.column({ gap = 2, align = "stretch" }, {
             ui.row({ align = "center", justify = "space_between" }, {
                 ui.label({ text = shared.shortModelName(m.name), fontSize = 12 }),
-                muted(`{shared.formatTokens(m.tokens)} · {shared.round(share * 100)}%`, 12),
+                muted(`{shared.round(share * 100)}% · {shared.formatTokens(m.tokens)}`, 11),
             }),
             ui.progress({ progress = share, fill = "primary", track = "on_surface/0.14", height = 5, radius = 2 }),
         }))
     end
-    return card(rows)
+    return compactCard(rows)
 end
 
-local function allTimeRow(u)
+local function allTimeRow(u, plan)
     local parts = {}
+    if type(plan) == "string" and plan ~= "" then
+        table.insert(parts, plan)
+    end
     local first = u.first_session
     if type(first) == "string" and first ~= "" and first ~= "unknown" then
         table.insert(parts, `{tr("since")} {first}`)
@@ -528,22 +608,26 @@ local function renderUsageTab()
     local plan = shared.planName(usage.subscription_type, usage.rate_limit_tier)
     local todayTokens = (type(usage.daily) == "table" and usage.daily[shared.todayIndex()]) or 0
 
-    local cards = { muted(plan, 11) }
+    local cards = {}
+    local rates = {}
     for _, w in shared.windows(usage) do
-        table.insert(cards, rateCard(w))
+        table.insert(rates, rateRow(w))
     end
+    table.insert(cards, compactCard(rates))
     table.insert(cards, tokensCard(usage, todayTokens))
-    table.insert(cards, dailyChart(usage.daily, usage.daily_costs, usage.currency_rates))
+    local daily = dailyChart(usage.daily, usage.daily_costs, usage.currency_rates)
     local models = modelsCard(usage.week_models, usage.week_tokens)
     if models then
         table.insert(cards, models)
     end
-    local footer = allTimeRow(usage)
+    table.insert(cards, daily)
+    -- The plan name moves to the footer line, next to the all-time totals.
+    local footer = allTimeRow(usage, plan)
     if footer then
         table.insert(cards, footer)
     end
 
-    return ui.scroll({ key = "usage-scroll", flexGrow = 1, gap = 10, align = "stretch" }, cards)
+    return ui.scroll({ key = "usage-scroll", flexGrow = 1, gap = 8, align = "stretch" }, cards)
 end
 
 -- ── Sessions tab ─────────────────────────────────────────────────────────
@@ -566,6 +650,7 @@ local function matchesSearch(session, cwd, needle)
     return session.label:lower():find(needle, 1, true) ~= nil
         or session.firstPrompt:lower():find(needle, 1, true) ~= nil
         or cwd:lower():find(needle, 1, true) ~= nil
+        or session.cwd:lower():find(needle, 1, true) ~= nil -- the old folder of a relocated session
 end
 
 -- The opening prompt in full, untruncated — the label already shows the
@@ -589,10 +674,14 @@ local function liveIds()
 end
 
 local function resumeSession(session)
+    if session.status == "orphan" or session.status == "misplaced" or session.status == "unknown" then
+        noctalia.notifyError(tr("title"), tr("err_resume_refused", { reason = tr("resume_reason_" .. session.status) }))
+        return
+    end
     if session.empty then
         return -- `claude --resume` finds nothing and the terminal closes at once
     end
-    local cmd = "cd " .. shared.shellQuote(session.cwd) .. " && exec claude --resume " .. shared.shellQuote(session.id)
+    local cmd = "cd " .. shared.shellQuote(session.runCwd) .. " && exec claude --resume " .. shared.shellQuote(session.id)
     if not shared.launchTerminal(cmd) then
         noctalia.notifyError(tr("title"), tr("err_no_terminal"))
     end
@@ -603,6 +692,21 @@ local function togglePreview(id)
         expandedSessionId = nil
     else
         expandedSessionId = id
+    end
+    render()
+end
+
+local function toggleLock(id)
+    lockedIds[id] = (not lockedIds[id]) or nil
+    if lockedIds[id] and confirmingDeleteId == id then
+        confirmingDeleteId = nil
+    end
+    if lockFile then
+        local ids = {}
+        for k in pairs(lockedIds) do
+            table.insert(ids, k)
+        end
+        noctalia.writeFile(lockFile, table.concat(ids, "\n"))
     end
     render()
 end
@@ -618,10 +722,82 @@ local function cancelDelete()
 end
 
 local function confirmDelete(session)
+    -- Decided before the delete: the reload afterwards drops the session.
+    local last = sessions.isLastInProject(sessionsState.projects or {}, session)
     sessions.deleteSession(session, function(ok)
         confirmingDeleteId = nil
         if not ok then
             noctalia.notifyError(tr("title"), tr("err_delete_failed"))
+        elseif last and sessions.memoryKept(session) then
+            -- The project vanishes from the list, but its memory/ stays on disk.
+            noctalia.notify(tr("title"), tr("memory_kept", { dir = session.projectDir }))
+        end
+        loadSessions(true)
+    end)
+end
+
+-- Only a real cwd and a plain hex id: the text gets pasted into a shell.
+local function copyResume(session)
+    local text = "cd " .. shared.shellQuote(session.runCwd) .. " && claude --resume " .. session.id
+    if noctalia.copyToClipboard(text, "text/plain") then
+        noctalia.notify(tr("title"), tr("copied_resume"))
+    end
+end
+
+local function openRename(session)
+    renamingId = session.id
+    renamingSession = session
+    renameDraft = ""
+    renameRev += 1
+    render()
+end
+
+local function closeRename()
+    renamingId = nil
+    renamingSession = nil
+    render()
+end
+
+local function confirmRename(session)
+    if shared.trim(renameDraft) == "" then
+        return
+    end
+    sessions.renameSession(session, renameDraft, function(ok)
+        renamingId = nil
+        renamingSession = nil
+        if not ok then
+            noctalia.notifyError(tr("title"), tr("err_rename_failed"))
+        end
+        loadSessions(true)
+    end)
+end
+
+local REPAIR_ERRORS = {
+    not_absolute = "err_repair_not_absolute", exists = "err_repair_exists",
+    move = "err_repair_move", unsafe = "err_repair_unsafe", same_dir = "err_repair_same_dir",
+    mkdir = "err_repair_mkdir", sidecar = "err_repair_sidecar",
+    status = "err_repair_status", cwd_missing = "err_repair_cwd_missing",
+}
+
+local function openRepair(session)
+    repairingId = session.id
+    render()
+end
+
+local function closeRepair()
+    repairingId = nil
+    render()
+end
+
+local function confirmRepair(session)
+    sessions.repairSession(session, function(ok, code)
+        repairingId = nil
+        if ok then
+            noctalia.notify(tr("title"), tr("repair_done"))
+        elseif REPAIR_ERRORS[code] then
+            noctalia.notifyError(tr("title"), tr("err_repair_failed", { reason = tr(REPAIR_ERRORS[code]) }))
+        else
+            noctalia.notifyError(tr("title"), tr("err_repair_generic"))
         end
         loadSessions(true)
     end)
@@ -673,10 +849,55 @@ local function contextRow(session)
     })
 end
 
+-- Theme roles have no yellow; a hex that reads on dark and light themes.
+local YELLOW = "#e8b923"
+
+-- Row glyph per status; "ok" has none.
+local STATUS_MARK = {
+    relocated = { glyph = "folder-symlink", color = YELLOW },
+    orphan = { glyph = "folder-off", color = "error" },
+    misplaced = { glyph = "alert-triangle", color = "tertiary" },
+    unknown = { glyph = "help-circle", color = "on_surface_variant" },
+}
+
+-- ui.button cannot colour its glyph, so the row actions are clickable rows.
+-- Hover fill is driven by onHover; render() runs only when the hovered key changes.
+local hoveredIcon = nil
+local HOVER_FILL = "on_surface/0.08"
+-- The host keeps the last fill when the prop is absent, so "no fill" must be sent explicitly.
+local NO_FILL = "#00000000"
+
+local function onIconHover(key)
+    return function(state)
+        local nextKey = hoveredIcon
+        if state == "true" then
+            nextKey = key
+        elseif hoveredIcon == key then
+            nextKey = nil
+        end
+        if nextKey ~= hoveredIcon then
+            hoveredIcon = nextKey
+            render()
+        end
+    end
+end
+
+local function iconButton(key, glyph, color, tooltip, onClick)
+    return ui.row({
+        key = key, tooltip = tooltip, onClick = onClick, onHover = onIconHover(key),
+        align = "center", justify = "center", padding = 8, radius = 6,
+        fill = hoveredIcon == key and HOVER_FILL or NO_FILL,
+    }, {
+        ui.glyph({ name = glyph, size = 16, color = color }),
+    })
+end
+
 local function sessionWrapKey(session)
     return "sess-wrap-" .. session.id
         .. (expandedSessionId == session.id and "-prev" or "")
         .. (confirmingDeleteId == session.id and "-del" or "")
+        .. (renamingId == session.id and "-ren" or "")
+        .. (repairingId == session.id and "-rep" or "")
 end
 
 local function sessionRow(session, selected, isLive)
@@ -698,36 +919,88 @@ local function sessionRow(session, selected, isLive)
 
     local rowButtons = {}
     if isLive then
-        table.insert(rowButtons, ui.glyph({ name = "activity", size = 14, color = "primary" }))
+        table.insert(rowButtons, ui.glyph({ name = "activity", size = 14, color = YELLOW }))
+    end
+    local mark = STATUS_MARK[session.status]
+    if mark then
+        local tip = tr("status_misplaced")
+        if session.status == "relocated" then
+            tip = tr("status_relocated", { path = session.resolvedCwd })
+        elseif session.status == "orphan" then
+            tip = tr(session.hasMemory and "status_orphan_memory" or "status_orphan")
+        elseif session.status == "unknown" then
+            tip = tr("status_unknown")
+        end
+        table.insert(rowButtons, ui.row({ key = "status-" .. id, tooltip = tip }, {
+            ui.glyph({ name = mark.glyph, size = 14, color = mark.color }),
+        }))
     end
     table.insert(rowButtons, ui.button({
+        key = "resume-" .. id,
         text = session.label, variant = "ghost", contentAlign = "start", flexGrow = 1,
         controlSize = "sm", tooltip = tr(session.empty and "tip_resume_empty" or "tip_resume"), selected = selected,
         onClick = function() resumeSession(session) end,
     }))
 
     -- Only a real cwd has a CLAUDE.md path worth opening — "unknown project"
-    -- sessions (no recorded cwd) skip this button entirely.
-    if session.cwd:sub(1, 1) == "/" then
-        local claudeMdPath = session.cwd .. "/CLAUDE.md"
+    -- sessions (no recorded cwd) skip both buttons. Copy only where the
+    -- command works; no CLAUDE.md where no folder is known to exist.
+    local resumable = session.status == "ok" or session.status == "relocated"
+    if resumable and session.cwd:sub(1, 1) == "/" and session.cwdKnown and session.runCwd:sub(1, 1) == "/" and id:match("^[%x-]+$") then
+        table.insert(rowButtons, iconButton(
+            "copy-" .. id, "copy", "on_surface_variant", tr("tip_copy_resume"),
+            function() copyResume(session) end
+        ))
+    end
+    if session.runCwd:sub(1, 1) == "/" and session.status ~= "orphan" and session.status ~= "unknown" then
+        local claudeMdPath = session.runCwd .. "/CLAUDE.md"
         local exists = noctalia.fileExists(claudeMdPath)
-        table.insert(rowButtons, ui.button({
-            glyph = "brain", variant = "ghost", controlSize = "sm",
-            tooltip = tr(exists and "tip_open_editor" or "tip_create_editor"),
-            onClick = function() shared.openInEditor(claudeMdPath) end,
-        }))
+        table.insert(rowButtons, iconButton(
+            "md-" .. id, "brain", "tertiary", tr(exists and "tip_open_editor" or "tip_create_editor"),
+            function() shared.openInEditor(claudeMdPath) end
+        ))
     end
 
-    table.insert(rowButtons, ui.button({
+    table.insert(rowButtons, iconButton(
         -- Glyph flips eye/eye-off with the toggle state.
-        glyph = previewOpen and "eye-off" or "eye", variant = "ghost", controlSize = "sm",
-        tooltip = tr(previewOpen and "tip_hide_preview" or "tip_preview"),
-        onClick = function() togglePreview(id) end,
-    }))
-    table.insert(rowButtons, ui.button({
-        glyph = "trash", variant = "ghost", controlSize = "sm", tooltip = tr("tip_delete_session"),
-        onClick = function() requestDelete(id) end,
-    }))
+        "prev-" .. id, previewOpen and "eye-off" or "eye", "secondary",
+        tr(previewOpen and "tip_hide_preview" or "tip_preview"),
+        function() togglePreview(id) end
+    ))
+    -- A running session would write over the custom title on its next turn;
+    -- an orphan cannot resume, so a name on it is pointless.
+    if not isLive and session.status ~= "orphan" then
+        table.insert(rowButtons, iconButton(
+            "ren-" .. id, "pencil", "primary", tr("tip_rename_session"),
+            function() openRename(session) end
+        ))
+    end
+    if session.status == "misplaced" and not isLive then
+        table.insert(rowButtons, iconButton(
+            "repair-" .. id, "arrows-exchange", "tertiary", tr("tip_repair_session"),
+            function() openRepair(session) end
+        ))
+    end
+    local locked = lockedIds[id]
+    table.insert(rowButtons, iconButton(
+        "lock-" .. id, locked and "lock" or "lock-open", locked and "primary" or "on_surface_variant",
+        tr(locked and "tip_unlock_session" or "tip_lock_session"),
+        function() toggleLock(id) end
+    ))
+    if locked then
+        -- Not an iconButton: no onClick and no hover fill, so it reads as disabled.
+        table.insert(rowButtons, ui.row({
+            key = "del-" .. id, tooltip = tr("tip_delete_locked"),
+            align = "center", justify = "center", padding = 8, radius = 6,
+        }, {
+            ui.glyph({ name = "trash", size = 16, color = "outline_variant" }),
+        }))
+    else
+        table.insert(rowButtons, iconButton(
+            "del-" .. id, "trash", "error", tr("tip_delete_session"),
+            function() requestDelete(id) end
+        ))
+    end
 
     local blocks = {
         ui.column({ key = "sess-" .. id, gap = 2, align = "stretch" }, {
@@ -739,8 +1012,40 @@ local function sessionRow(session, selected, isLive)
     if confirmingDeleteId == id then
         table.insert(blocks, ui.row({ key = "confirm-del-" .. id, gap = 8, align = "center" }, {
             ui.label({ text = tr("delete_session_confirm"), fontSize = 12, color = "on_surface", flexGrow = 1 }),
-            ui.button({ text = tr("yes"), variant = "destructive", controlSize = "sm", onClick = function() confirmDelete(session) end }),
+            ui.button({ key = "del-ok-" .. id, text = tr("yes"), variant = "destructive", controlSize = "sm", onClick = function() confirmDelete(session) end }),
             ui.button({ text = tr("no"), variant = "ghost", controlSize = "sm", onClick = function() cancelDelete() end }),
+        }))
+    end
+
+    if repairingId == id then
+        table.insert(blocks, ui.row({ key = "confirm-repair-" .. id, gap = 8, align = "center" }, {
+            ui.label({
+                text = tr("repair_confirm", { cwd = session.cwd }),
+                fontSize = 12, color = "on_surface", flexGrow = 1,
+            }),
+            ui.button({ key = "repair-ok-" .. id, text = tr("repair_yes"), variant = "primary", controlSize = "sm", onClick = function() confirmRepair(session) end }),
+            ui.button({ key = "repair-no-" .. id, text = tr("no"), variant = "ghost", controlSize = "sm", onClick = closeRepair }),
+        }))
+    end
+
+    if renamingId == id then
+        table.insert(blocks, ui.row({ key = "rename-" .. id, gap = 8, align = "center" }, {
+            ui.input({
+                key = "ren-input-" .. id .. "-" .. renameRev,
+                value = renameDraft,
+                placeholder = tr("rename_placeholder"),
+                flexGrow = 1,
+                onChange = function(value)
+                    renameDraft = capDraft(value)
+                    render()
+                end,
+            }),
+            ui.button({
+                key = "ren-ok-" .. id, text = tr("rename_save"), variant = "primary", controlSize = "sm",
+                enabled = shared.trim(renameDraft) ~= "",
+                onClick = function() confirmRename(session) end,
+            }),
+            ui.button({ key = "ren-no-" .. id, text = tr("no"), variant = "ghost", controlSize = "sm", onClick = closeRename }),
         }))
     end
 
@@ -764,7 +1069,7 @@ local function groupHeader(group, count, selected, hasLive)
     }, compact(
         ui.glyph({ name = expanded and "chevron-down" or "chevron-right", size = 14, color = "on_surface_variant" }),
         ui.glyph({ name = "folder", size = 14, color = "on_surface_variant" }),
-        hasLive and ui.glyph({ name = "activity", size = 14, color = "primary" }) or nil,
+        hasLive and ui.glyph({ name = "activity", size = 14, color = YELLOW }) or nil,
         ui.button({
             text = basename, variant = "ghost", contentAlign = "start", flexGrow = 1,
             controlSize = "sm", fontSize = 13, tooltip = group.cwd, selected = selected,
@@ -796,6 +1101,9 @@ end
 
 local function sortGroups(list)
     table.sort(list, byActiveSort(function(group)
+        if sortBy == "count" then
+            return #group.matches
+        end
         return sortBy == "name" and (group.cwd:match("([^/]+)/?$") or group.cwd):lower() or group.lastActivity
     end))
 end
@@ -811,16 +1119,158 @@ local function setSort(key)
     render()
 end
 
-local function countEmpty()
+local function countSessions(pred)
     local n = 0
     for _, group in ipairs(sessionsState.projects or {}) do
         for _, session in ipairs(group.sessions) do
-            if session.empty then
+            if pred(session) then
                 n += 1
             end
         end
     end
     return n
+end
+
+local function isEmpty(session)
+    return session.empty
+end
+
+local function isMoved(session)
+    return session.status == "relocated"
+end
+
+local function isOrphan(session)
+    return session.status == "orphan" or session.status == "misplaced"
+end
+
+local STATUS_FILTERS = { moved = isMoved, orphan = isOrphan }
+
+-- Moved and Orphan show a glyph and the count only, so the toolbar keeps its width.
+-- A clickable row, so the glyph can be coloured; the selected fill is the
+-- host's selected ghost button look (primary fill, on_primary text).
+local function statusFilterButton(name, glyph, glyphColor, test)
+    local key = "sort-" .. name
+    local selected = statusFilter == name
+    return ui.row({
+        key = key, tooltip = tr("tip_filter_" .. name), gap = 6, align = "center", padding = 8, radius = 6,
+        fill = selected and "primary" or (hoveredIcon == key and HOVER_FILL or NO_FILL),
+        onHover = onIconHover(key),
+        onClick = function()
+            statusFilter = (statusFilter ~= name) and name or nil
+            sel = 1
+            render()
+        end,
+    }, {
+        ui.glyph({ name = glyph, size = 16, color = selected and glyphColor == "on_surface" and "on_primary" or glyphColor }),
+        ui.label({ text = tostring(countSessions(test)), fontSize = 13, color = selected and "on_primary" or "on_surface" }),
+    })
+end
+
+local function checkOrphans()
+    orphanState = { scanning = true, list = nil, confirming = false, showing = false }
+    render()
+    local ids = {}
+    for id in pairs(liveIds()) do
+        table.insert(ids, id)
+    end
+    sessions.checkOrphans(ids, function(list, err)
+        if not isOpen then
+            return
+        end
+        orphanState = { scanning = false, list = list, confirming = list ~= nil and #list > 0, showing = false }
+        if err ~= nil then
+            noctalia.notifyError(tr("title"), err)
+        elseif #list == 0 then
+            noctalia.notify(tr("title"), tr("orphans_none"))
+        end
+        render()
+    end)
+end
+
+local function removeOrphans()
+    local list = orphanState.list or {}
+    orphanState = { scanning = false, list = nil, confirming = false, showing = false }
+    sessions.removeOrphans(list, function(ok)
+        if not ok then
+            noctalia.notifyError(tr("title"), tr("err_orphans_failed"))
+        end
+        loadSessions(true)
+    end)
+end
+
+local function orphansMb(list)
+    local bytes = 0
+    for _, o in ipairs(list) do
+        bytes += tonumber(o.bytes) or 0
+    end
+    return string.format("%.1f", bytes / 1048576)
+end
+
+local function formatSize(bytes)
+    if bytes < 1024 then
+        return string.format("%d B", bytes)
+    end
+    if bytes < 1048576 then
+        return string.format("%.1f KB", bytes / 1024)
+    end
+    return string.format("%.1f MB", bytes / 1048576)
+end
+
+local ORPHAN_PAGE = 20 -- detail rows drawn first, and added per "show more"
+local ORPHAN_KINDS = { ["session-env"] = "session_env", ["file-history"] = "file_history", project = "project" }
+local ORPHAN_REASONS = { no_transcript = true, project_empty = true }
+
+-- Detail rows for the confirm strip, biggest first, from the list in memory.
+local function orphanDetails(list)
+    local sorted = {}
+    for _, o in ipairs(list) do
+        table.insert(sorted, o)
+    end
+    table.sort(sorted, function(a, b)
+        local x, y = tonumber(a.bytes) or 0, tonumber(b.bytes) or 0
+        if x ~= y then
+            return x > y
+        end
+        return tostring(a.path) < tostring(b.path)
+    end)
+    local rows = {}
+    local drawn = math.min(#sorted, orphanState.shown or ORPHAN_PAGE)
+    for i = 1, drawn do
+        local o = sorted[i]
+        local path = tostring(o.path)
+        local name = path:match("([^/]+)$") or path
+        if name:match("^%x%x%x%x%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%x%x%x%x%x%x%x%x$") then
+            name = name:sub(1, 8) .. "…"
+        end
+        local kind = ORPHAN_KINDS[o.kind]
+        local cells = {
+            muted(kind and tr("orphan_kind_" .. kind) or tostring(o.kind), 10),
+            ui.label({ text = name, fontSize = 12, color = "on_surface", flexGrow = 1 }),
+            muted(formatSize(tonumber(o.bytes) or 0), 11),
+        }
+        if (tonumber(o.mtime) or 0) > 0 then
+            table.insert(cells, muted(relativeTime(o.mtime), 11))
+        end
+        local lines = { ui.row({ gap = 8, align = "center", tooltip = path }, cells) }
+        if ORPHAN_REASONS[o.reason] then
+            table.insert(lines, muted(tr("orphan_reason_" .. o.reason), 11))
+        end
+        table.insert(rows, ui.column({ key = "orph-row-" .. path, gap = 2 }, lines))
+    end
+    if drawn < #sorted then
+        local remaining = #sorted - drawn
+        -- Not in navItems: the whole orphan strip is mouse-only.
+        table.insert(rows, ui.button({
+            key = "orph-more",
+            text = tr("show_more", { n = math.min(remaining, ORPHAN_PAGE), total = remaining }),
+            variant = "ghost", controlSize = "sm",
+            onClick = function()
+                orphanState.shown = drawn + ORPHAN_PAGE
+                render()
+            end,
+        }))
+    end
+    return rows
 end
 
 -- Empty sessions that are safe to delete: one that is running right now has
@@ -830,7 +1280,7 @@ local function deletableEmpty()
     local list = {}
     for _, group in ipairs(sessionsState.projects or {}) do
         for _, session in ipairs(group.sessions) do
-            if session.empty and not running[session.id] then
+            if session.empty and not running[session.id] and not lockedIds[session.id] then
                 table.insert(list, session)
             end
         end
@@ -897,10 +1347,18 @@ local function stopKeyRepeat()
     panel.setNeedsFrameTick(false)
 end
 
+local function sessionsBody(top, scroll)
+    return ui.column({ key = "sessions-body", flexGrow = 1, gap = 6, align = "stretch" }, {
+        ui.column({ key = "sessions-top", gap = 6, align = "stretch" }, top),
+        scroll,
+    })
+end
+
 local function renderSessionsTab()
     loadSessions(false)
 
-    local rows = {
+    -- Pinned above the scroll: only one-line strips, the tall orphan list stays in the scroll.
+    local top = {
         ui.row({ key = "sess-tools", gap = 6, align = "center" }, {
             ui.input({
                 key = "sess-search",
@@ -927,8 +1385,9 @@ local function renderSessionsTab()
         ui.row({ key = "sess-sort", gap = 6, align = "center" }, {
             sortButton("date", "sort_date"),
             sortButton("name", "sort_name"),
+            sortButton("count", "sort_count"),
             ui.button({
-                key = "sort-empty", text = tr("filter_empty", { n = countEmpty() }),
+                key = "sort-empty", text = tr("filter_empty", { n = countSessions(isEmpty) }),
                 variant = "ghost", controlSize = "sm", selected = emptyOnly, tooltip = tr("tip_filter_empty"),
                 onClick = function()
                     emptyOnly = not emptyOnly
@@ -936,6 +1395,8 @@ local function renderSessionsTab()
                     render()
                 end,
             }),
+            statusFilterButton("moved", "folder-symlink", YELLOW, isMoved),
+            statusFilterButton("orphan", "folder-off", "error", isOrphan),
             ui.label({ key = "sort-spacer", text = "", flexGrow = 1 }),
             ui.button({
                 key = "sess-refresh", glyph = sessionsState.loading and "loader-2" or "refresh",
@@ -954,10 +1415,48 @@ local function renderSessionsTab()
                     render()
                 end,
             }),
+            ui.button({
+                key = "sess-orphans", text = tr("orphans_button"),
+                glyph = orphanState.scanning and "loader-2" or "search",
+                variant = "ghost", controlSize = "sm", enabled = not orphanState.scanning,
+                tooltip = tr("tip_orphans"),
+                onClick = checkOrphans,
+            }),
         }),
     }
+    local rows = {}
+    if orphanState.confirming then
+        local list = orphanState.list or {}
+        table.insert(top, ui.row({ key = "confirm-orphans", gap = 8, align = "center" }, {
+            ui.label({
+                text = tr("orphans_confirm", { n = #list, mb = orphansMb(list) }),
+                fontSize = 12, color = "on_surface", flexGrow = 1,
+            }),
+            ui.button({
+                key = "orphans-toggle", text = tr(orphanState.showing and "orphans_hide" or "orphans_show"),
+                variant = "ghost", controlSize = "sm",
+                onClick = function()
+                    orphanState.showing = not orphanState.showing
+                    orphanState.shown = nil
+                    render()
+                end,
+            }),
+            ui.button({ key = "orphans-ok", text = tr("yes"), variant = "destructive", controlSize = "sm", onClick = removeOrphans }),
+            ui.button({
+                text = tr("no"), variant = "ghost", controlSize = "sm",
+                onClick = function()
+                    orphanState = { scanning = false, list = nil, confirming = false, showing = false }
+                    render()
+                end,
+            }),
+        }))
+        table.insert(top, muted(tr("orphans_rule"), 11))
+        if orphanState.showing then
+            table.insert(rows, ui.scroll({ key = "orph-list", height = 220, gap = 6, align = "stretch" }, orphanDetails(list)))
+        end
+    end
     if confirmingClean then
-        table.insert(rows, ui.row({ key = "confirm-clean", gap = 8, align = "center" }, {
+        table.insert(top, ui.row({ key = "confirm-clean", gap = 8, align = "center" }, {
             ui.label({ text = tr("clean_empty_confirm", { n = #deletableEmpty() }), fontSize = 12, color = "on_surface", flexGrow = 1 }),
             ui.button({ text = tr("yes"), variant = "destructive", controlSize = "sm", onClick = cleanEmpty }),
             ui.button({
@@ -981,7 +1480,8 @@ local function renderSessionsTab()
         for _, group in ipairs(sessionsState.projects) do
             local matches = {}
             for _, session in ipairs(group.sessions) do
-                if (needle == "" or matchesSearch(session, group.cwd, needle)) and (not emptyOnly or session.empty) then
+                if (needle == "" or matchesSearch(session, group.cwd, needle)) and (not emptyOnly or session.empty)
+                    and (statusFilter == nil or STATUS_FILTERS[statusFilter](session)) then
                     table.insert(matches, session)
                 end
             end
@@ -1047,10 +1547,10 @@ local function renderSessionsTab()
         if #shown == 0 then
             table.insert(rows, muted(tr("no_sessions")))
         end
-        return ui.scroll({ key = "sessions-scroll", flexGrow = 1, gap = 6, align = "stretch", revealKey = revealKey }, rows)
+        return sessionsBody(top, ui.scroll({ key = "sessions-scroll", flexGrow = 1, gap = 6, align = "stretch", revealKey = revealKey }, rows))
     end
 
-    return ui.scroll({ key = "sessions-scroll", flexGrow = 1, gap = 6, align = "stretch" }, rows)
+    return sessionsBody(top, ui.scroll({ key = "sessions-scroll", flexGrow = 1, gap = 6, align = "stretch" }, rows))
 end
 
 -- ── CLAUDE.md tab ────────────────────────────────────────────────────────
@@ -1566,6 +2066,10 @@ function onClose()
     stopKeyRepeat() -- a key held while the panel closes never reports its release
     confirmingDeleteId = nil
     confirmingClean = false
+    renamingId = nil
+    renamingSession = nil
+    repairingId = nil
+    orphanState.confirming = false
     confirmingSkillKey = nil
     panel.setWantsSecondTicks(false)
     noctalia.state.set("claude_cockpit_open", false)
@@ -1588,7 +2092,11 @@ function onKey(chord, pressed)
     end
     if chord == "Return" or chord == "KP_Enter" then
         if pressed then
-            activateSelected()
+            if renamingSession ~= nil then
+                confirmRename(renamingSession)
+            else
+                activateSelected()
+            end
         end
         return
     end

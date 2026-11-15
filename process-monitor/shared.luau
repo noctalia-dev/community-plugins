@@ -36,6 +36,18 @@ function M.radius(base)
     return base * radiusScale
 end
 
+-- Since plugin API 46 the host refreshes systemStats().gpu (the GPU
+-- temperature) only while an entry requests GPU sampling; each entry needs its
+-- own request, and unloading the entry releases it. Older hosts have no
+-- setGpuMonitoring and sample on every systemStats() read, so the call is
+-- skipped there. Repeated calls don't stack, so calling this on every render
+-- also retries a request refused while the host's monitor wasn't up yet.
+function M.wantGpuStats(wanted)
+    if noctalia.setGpuMonitoring ~= nil then
+        noctalia.setGpuMonitoring(wanted)
+    end
+end
+
 -- Open the panel, optionally filtered to one app (`noctalia msg panel-open`
 -- carries the context; togglePanel cannot).
 function M.openPanel(filter)

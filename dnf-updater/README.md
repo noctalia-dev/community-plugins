@@ -1,7 +1,7 @@
 # DNF Updater
 ![dnf-updater thumbnail](thumbnail.webp)
 
-DNF Updater monitors and manages pending DNF5 and Flatpak updates directly from the Noctalia bar. It provides a lightweight update badge in the bar, per-package selection to skip or apply specific upgrades, package search filtering, reboot required detection, download size estimation, and safe execution through Polkit or an interactive terminal.
+DNF Updater monitors and manages pending DNF5 and Flatpak updates directly from the Noctalia bar. It provides a lightweight update badge in the bar, per-package selection to skip or apply specific upgrades, package search filtering, reboot required detection, download size and disk impact estimation, and safe execution through Polkit or an interactive terminal.
 
 ## Plugin
 
@@ -94,6 +94,7 @@ alias dnf-check="noctalia msg plugin strob3/dnf-updater:service service check"
 | `show_widget_when_clean` | `bool` | `true` | Show the widget icon in the bar even when system is up to date. |
 | `notify_on_updates` | `bool` | `true` | Send a desktop notification when new pending updates are found. |
 | `update_in_terminal` | `bool` | `true` | Launch update commands inside your terminal emulator instead of background Polkit execution. |
+| `refresh_on_update` | `bool` | `false` | Pass `--refresh` to DNF on upgrade to force refreshing repository metadata cache. |
 | `glyph` | `glyph` | `package` | Widget icon glyph displayed in the bar. |
 
 ## IPC
@@ -107,13 +108,6 @@ noctalia msg plugin strob3/dnf-updater:service service check
 # Apply updates for all pending packages
 noctalia msg plugin strob3/dnf-updater:service service update
 ```
-
-## Notes
-
-- **Privilege Separation**: Noctalia never runs as root. System upgrades invoke hardened helper script with explicit arguments via Polkit, or launch inside the user's terminal emulator when configured.
-- **Selective Upgrades**: When packages are deselected, DNF5 is invoked with `--exclude=<pkg>` arguments and Flatpak is invoked with only selected application IDs.
-- **Background Checks**: Update queries use non-blocking JSON queries (`dnf5 check-upgrade --json` and `flatpak remote-ls --updates -j`) to prevent freezing the shell.
-- **Reboot Detection**: Checks `dnf needs-restarting -r` to detect when core packages (kernel, systemd, glibc) require a system restart.
 
 ## License
 [MIT](LICENSE)

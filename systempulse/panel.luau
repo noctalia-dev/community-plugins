@@ -226,6 +226,14 @@ function onOpen(_context)
   render()
 end
 
+-- Closing keeps the panel runtime alive, so release the GPU sampling request
+-- explicitly; onOpen re-acquires it through attach.
+function onClose()
+  for _, m in pairs(monitors) do
+    if m.detach then m.detach() end
+  end
+end
+
 -- Periodic tick: advance every monitor's sampling, refresh the process list
 -- and redraw. Runs at the interval requested in onOpen (1s).
 function update()

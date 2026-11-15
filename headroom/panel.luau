@@ -1,41 +1,60 @@
 --!nonstrict
 -- Headroom panel: one card per signed-in provider, with every usage window of
 -- each of its accounts, and the controls to add, sign in and remove accounts.
---
--- Each window shows its usage meter with a thin time track beneath it: when the
--- meter runs ahead of the time track you are burning faster than the window
--- allows, and the pace line says when you would run out. Presentation only;
--- refreshes and account changes are requested from the service through
--- shared state.
+-- Presentation only; refreshes and account changes are requested from the
+-- service through shared state.
 
 local state = require("./lib/state.luau")
 local view = require("./lib/view.luau")
 local time = require("./lib/time.luau")
 local cards = require("./ui/cards.luau")
 
+-- How long a removal waits for its second click, and a copy shows its check.
+local CONFIRM_SECONDS = 5
+local COPIED_SECONDS = 2
+-- Opening the panel fetches anything older than this, in the background.
+-- Long enough that opening it again and again adds no requests: the usage
+-- endpoints throttle, and Claude's budget is shared with Claude Code.
+local OPEN_FRESHNESS = 120
+
 local report = noctalia.state.get(state.REPORT)
 local isOpen = false
 local lastRenderAt = 0
 
--- How long a removal waits for its second click, and a copy shows its check.
-local CONFIRM_SECONDS = 5
-local COPIED_SECONDS = 2
-
--- Panel-only state, reset when the panel closes.
-local adding: string? = nil -- provider whose add form is open
-local addDraft = ""
-local renaming: string? = nil -- account whose name is being edited
-local renameDraft = ""
-local confirming: { key: string, untilAt: number }? = nil
+-- What the panel is doing, one thing at a time:
+--   { kind = "idle" }
+--   { kind = "adding", provider, draft }       the add-account form is open
+--   { kind = "renaming", key, draft }          an account's name is being edited
+--   { kind = "confirming", key, untilAt }      a removal waits for its second click
+local IDLE = { kind = "idle" }
+local mode = IDLE
+-- The copy button's check mark: { key, untilAt }, alongside any mode.
 local copied: { key: string, untilAt: number }? = nil
 
 local render
+
+local function setMode(next)
+  mode = next
+  render()
+end
+
+-- Drops what has timed out. Returns true when something did.
+local function expire(now: number): boolean
+  local lapsed = false
+  if mode.kind == "confirming" and now >= mode.untilAt then
+    mode, lapsed = IDLE, true
+  end
+  if copied and now >= copied.untilAt then
+    copied, lapsed = nil, true
+  end
+  return lapsed
+end
 
 -- The vendor's own usage page, one click from its card. xdg-open runs as an
 -- argv (no shell), and the URL is a constant from the provider's brand.
 local canOpenUrls = noctalia.commandExists("xdg-open")
 
-local cardOptions = {
+local options = {
   onOpenDashboard = if canOpenUrls
     then function(url: string)
       noctalia.runAsync({ "xdg-open", url })
@@ -45,17 +64,15 @@ local cardOptions = {
   onRefresh = function()
     state.requestRefresh()
   end,
-  onSignIn = function(key: string)
-    state.signIn(key)
-  end,
+  onSignIn = state.signIn,
+  onUnhide = state.unhide,
   onRemove = function(key: string)
-    if confirming and confirming.key == key and view.now() < confirming.untilAt then
-      confirming = nil
+    if mode.kind == "confirming" and mode.key == key then
       state.removeAccount(key)
+      setMode(IDLE)
     else
-      confirming = { key = key, untilAt = view.now() + CONFIRM_SECONDS }
+      setMode({ kind = "confirming", key = key, untilAt = view.now() + CONFIRM_SECONDS })
     end
-    render()
   end,
   onCopy = function(key: string, text: string)
     noctalia.copyToClipboard(text, "text/plain")
@@ -63,42 +80,44 @@ local cardOptions = {
     render()
   end,
   onAddOpen = function(id: string)
-    adding, addDraft = id, ""
-    render()
-  end,
-  onAddCancel = function()
-    adding = nil
-    render()
+    setMode({ kind = "adding", provider = id, draft = "" })
   end,
   onAddChange = function(text: string)
-    addDraft = text
+    if mode.kind == "adding" then
+      mode.draft = text
+    end
   end,
   onAddSubmit = function(id: string)
-    adding = nil
-    state.addAccount(id, addDraft)
-    render()
+    state.addAccount(id, mode.draft or "")
+    setMode(IDLE)
   end,
-  onRenameOpen = function(key: string, current: string)
-    renaming, renameDraft = key, current
-    render()
-  end,
-  onRenameCancel = function()
-    renaming = nil
-    render()
+  onRenameOpen = function(key: string, label: string)
+    setMode({ kind = "renaming", key = key, draft = label })
   end,
   onRenameChange = function(text: string)
-    renameDraft = text
+    if mode.kind == "renaming" then
+      mode.draft = text
+    end
   end,
   onRenameSubmit = function(key: string)
-    renaming = nil
-    state.renameAccount(key, renameDraft)
-    render()
+    state.renameAccount(key, mode.draft or "")
+    setMode(IDLE)
+  end,
+  onAddCancel = function()
+    setMode(IDLE)
+  end,
+  onRenameCancel = function()
+    setMode(IDLE)
   end,
 }
 
+local function providers()
+  return if type(report) == "table" and type(report.providers) == "table" then report.providers else {}
+end
+
 local function isRefreshing(): boolean
-  for _, provider in (if type(report) == "table" then report.providers else {}) do
-    for _, account in provider.accounts or {} do
+  for _, provider in providers() do
+    for _, account in provider.accounts do
       if account.busy then
         return true
       end
@@ -109,19 +128,27 @@ end
 
 -- A provider shows as a card unless its only account isn't signed in.
 local function isConnected(provider): boolean
-  local accounts = provider.accounts or {}
-  return #accounts > 1 or (accounts[1] ~= nil and accounts[1].status ~= "absent")
+  local accounts = provider.accounts
+  return #accounts > 1 or accounts[1].phase ~= "signed_out"
 end
 
+-- When the newest numbers were fetched.
 local function subtitle(now: number): string
   if type(report) ~= "table" then
     return noctalia.tr("panel.starting")
   elseif isRefreshing() then
     return noctalia.tr("status.refreshing")
-  elseif report.lastRefreshAt then
-    return noctalia.tr("panel.updated", { ago = time.ago(now - report.lastRefreshAt) })
   end
-  return noctalia.tr("panel.not_refreshed")
+  local newest = nil
+  for _, provider in providers() do
+    for _, account in provider.accounts do
+      local at = account.snapshot and account.snapshot.fetchedAt
+      if at and (newest == nil or at > newest) then
+        newest = at
+      end
+    end
+  end
+  return if newest then noctalia.tr("panel.updated", { ago = time.ago(now - newest) }) else noctalia.tr("panel.not_refreshed")
 end
 
 -- ── Render ────────────────────────────────────────────────────────────────
@@ -132,36 +159,25 @@ function render()
   end
   local now = view.now()
   lastRenderAt = now
-  cardOptions.adding = adding
-  cardOptions.renaming = renaming
-  cardOptions.confirmingRemove = if confirming and now < confirming.untilAt then confirming.key else nil
-  cardOptions.copied = if copied and now < copied.untilAt then copied.key else nil
+  expire(now)
+  options.now = now
+  options.interval = if type(report) == "table" and report.interval then report.interval else 300
+  options.mode = mode
+  options.copied = copied and copied.key
 
   local connected, disconnected = {}, {}
-  if type(report) == "table" and type(report.providers) == "table" then
-    for _, provider in report.providers do
-      if isConnected(provider) or adding == provider.id then
-        table.insert(connected, cards.providerCard(provider, now, cardOptions))
-      else
-        table.insert(disconnected, cards.disconnectedRow(provider, cardOptions))
-      end
+  for _, provider in providers() do
+    if isConnected(provider) or (mode.kind == "adding" and mode.provider == provider.id) then
+      table.insert(connected, cards.providerCard(provider, options))
+    else
+      table.insert(disconnected, cards.disconnectedRow(provider, options))
     end
   end
 
-  local content
-  if #connected == 0 then
-    content = { cards.emptyState() }
-    for _, row in disconnected do
-      table.insert(content, row)
-    end
-  else
-    content = connected
-    if #disconnected > 0 then
-      table.insert(content, ui.column({ gap = 8, key = "disconnected" }, disconnected))
-    end
+  local content = if #connected == 0 then { cards.emptyState() } else connected
+  if #disconnected > 0 then
+    table.insert(content, ui.column({ gap = 8, key = "disconnected" }, disconnected))
   end
-
-  local refreshing = isRefreshing()
 
   panel.render(ui.column({ flexGrow = 1, gap = 14 }, {
     ui.row({ align = "center", gap = 6 }, {
@@ -173,11 +189,9 @@ function render()
         glyph = "refresh",
         variant = "ghost",
         controlSize = "sm",
-        enabled = not refreshing,
+        enabled = not isRefreshing(),
         tooltip = noctalia.tr("panel.refresh_tooltip"),
-        onClick = function()
-          state.requestRefresh()
-        end,
+        onClick = options.onRefresh,
       }),
       ui.button({
         glyph = "settings",
@@ -185,7 +199,6 @@ function render()
         controlSize = "sm",
         tooltip = noctalia.tr("panel.settings_tooltip"),
         onClick = function()
-          panel.close()
           noctalia.openSettings()
         end,
       }),
@@ -201,12 +214,6 @@ noctalia.state.watch(state.REPORT, function(value)
   render()
 end)
 
--- Opening the panel is a request to see current numbers: show what we have
--- immediately, and fetch anything older than this in the background. Long
--- enough that opening the panel again and again doesn't add requests: the
--- usage endpoints throttle, and Claude's limit is shared with Claude Code.
-local OPEN_FRESHNESS = 120
-
 function onOpen(_context)
   isOpen = true
   report = noctalia.state.get(state.REPORT)
@@ -217,35 +224,23 @@ end
 
 function onClose()
   isOpen = false
-  adding, renaming, confirming, copied = nil, nil, nil, nil
+  mode, copied = IDLE, nil
   panel.setWantsSecondTicks(false)
 end
 
--- Second ticks keep "updated 2m ago" and the countdowns honest; minute
--- precision is all they show, so a re-render every 15s is plenty. A pending
+-- Countdowns show minutes, so a re-render every 15s is plenty; a pending
 -- removal or copy check redraws as soon as it lapses.
 function update()
-  if not isOpen then
-    return
-  end
-  local now = view.now()
-  local lapsed = (confirming and now >= confirming.untilAt) or (copied and now >= copied.untilAt)
-  if lapsed then
-    confirming = if confirming and now < confirming.untilAt then confirming else nil
-    copied = if copied and now < copied.untilAt then copied else nil
-  end
-  if lapsed or now - lastRenderAt >= 15 then
-    render()
+  if isOpen then
+    local now = view.now()
+    if expire(now) or now - lastRenderAt >= 15 then
+      render()
+    end
   end
 end
 
 function onKey(chord, pressed)
-  if not pressed then
-    return
-  end
-  if chord == "r" then
+  if pressed and chord == "r" then
     state.requestRefresh()
-  elseif chord == "escape" then
-    panel.close()
   end
 end

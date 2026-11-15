@@ -12,14 +12,12 @@ import time
 import socket
 import argparse
 import subprocess
-import shutil
 import urllib.request
 import hmac
 import hashlib
 import uuid
 import zipfile
 import io
-import threading
 
 CACHE_DIR = os.environ.get("XDG_RUNTIME_DIR", "/tmp")
 STATE_FILE = os.path.join(CACHE_DIR, "oppo_pods_state.json")
@@ -27,7 +25,6 @@ CHANNEL_FILE = os.path.join(CACHE_DIR, "oppo_pods_channel.txt")
 
 MEDIA_CACHE_DIR = os.path.join(os.environ.get("XDG_CACHE_HOME", os.path.expanduser("~/.cache")), "noctalia", "oppo-pods")
 SECRET_HEYMELODY = "&*%earphone-OP6r888s**%$"
-RENDER_DOWNLOADS = set()
 
 # Noise modes
 MODE_OFF = "off"
@@ -35,6 +32,74 @@ MODE_ANC = "anc"
 MODE_TRANSPARENCY = "transparency"
 
 CYCLE_MODES = [MODE_ANC, MODE_TRANSPARENCY, MODE_OFF]
+MODE_NAMES = {MODE_ANC: "Шумоподавление", MODE_TRANSPARENCY: "Прозрачность", MODE_OFF: "Выключено"}
+
+# Noise mode bit layouts from HeyMelody's bundled whitelist: product_id -> {bit index: modeType}.
+# The mode byte on the wire is a bitmask (1 << bit index); what each bit means differs per model.
+# modeType: 1 off, 2 transparency, 6 voice enhancement (transparency), anything else a noise cancellation level.
+NOISE_LAYOUTS = {
+    "050C10": {0: 5, 1: 1, 2: 2},  # OPPO Enco M33
+    "050C14": {0: 5, 1: 1, 2: 2},  # OnePlus BulletsWireless Z2 ANC
+    "060C14": {0: 1, 1: 2, 2: 3, 3: 4, 4: 7},  # OnePlus Buds Pro
+    "061014": {0: 1, 1: 2, 2: 3, 3: 4},  # OnePlus Buds Z2
+    "061410": {0: 1, 1: 2, 2: 3, 3: 4},  # OPPO Enco X
+    "062010": {0: 5, 1: 1, 2: 2, 3: 6},  # OPPO Enco Free2
+    "062014": {0: 1, 1: 5, 2: 2, 3: 1, 4: 4, 5: 8, 6: 3, 7: 7, 8: 2},  # OnePlus Buds Pro 2
+    "062414": {0: 5, 1: 1, 2: 2},  # OnePlus Nord Buds 2
+    "062814": {0: 5, 1: 1, 2: 2},  # OnePlus Buds Ace
+    "063014": {0: 1, 1: 5, 2: 2, 3: 1, 4: 4, 5: 8, 6: 3, 7: 7, 8: 2},  # OnePlus Buds Pro 2（轻享版）
+    "063414": {0: 1, 1: 5, 2: 2, 3: 1, 4: 4, 5: 8, 6: 3, 7: 7, 8: 2},  # OnePlus Buds Pro 2R
+    "063810": {0: 5, 1: 1, 2: 2, 3: 6},  # OPPO Enco Air2 Pro
+    "063C10": {0: 1, 1: 5, 2: 2, 3: 1, 4: 4, 5: 8, 6: 3, 7: 7, 8: 2, 9: 6},  # OPPO Enco X2
+    "063C14": {0: 1, 1: 5, 2: 2, 3: 1, 4: 4, 5: 8, 6: 3, 7: 7, 8: 2},  # OnePlus Buds 3
+    "064010": {0: 5, 1: 1, 2: 2, 3: 6},  # OPPO Enco Free2i
+    "064014": {0: 1, 1: 5, 2: 2, 3: 1, 4: 4, 5: 8, 6: 3, 7: 7, 8: 2},  # OnePlus Buds Pro 3
+    "064414": {0: 1, 1: 5, 2: 2, 3: 1, 4: 4, 5: 8, 6: 3, 7: 7, 8: 2},  # OnePlus Nord Buds 3 Pro
+    "064C14": {0: 5, 1: 1, 2: 2},  # OnePlus Buds Ace 2
+    "065010": {0: 5, 1: 1, 2: 2, 3: 6},  # OPPO Enco R Pro
+    "065014": {0: 5, 1: 1, 2: 2},  # OnePlus Nord Buds 3
+    "065414": {0: 1, 1: 5, 2: 2, 3: 1, 4: 4, 5: 8, 6: 3, 7: 7, 8: 2, 11: 10},  # OnePlus Buds 4
+    "065C10": {0: 1, 1: 5, 2: 2, 3: 1, 4: 4, 5: 8, 6: 3, 7: 7, 8: 2},  # OPPO Enco Air3 Pro
+    "066010": {0: 1, 1: 5, 2: 2, 3: 1, 4: 4, 5: 8, 6: 3, 7: 7, 8: 2},  # OPPO Enco Free3
+    "066414": {0: 1, 1: 5, 2: 2, 3: 1, 4: 4, 5: 8, 6: 3, 7: 7, 8: 2},  # OnePlus Buds Ace 3
+    "066810": {0: 1, 1: 5, 2: 2, 3: 1, 4: 4, 5: 8, 6: 3, 7: 7, 8: 2},  # OPPO Enco X3i
+    "066814": {0: 1, 1: 5, 2: 2, 3: 1, 4: 4, 5: 8, 6: 3, 7: 7, 8: 2},  # OnePlus Nord Buds 4 Pro
+    "067014": {0: 1, 1: 5, 2: 2, 3: 1, 4: 4, 5: 8, 6: 3, 7: 7, 8: 2},  # OnePlus Nord Buds 4
+    "067410": {0: 1, 1: 5, 2: 2, 3: 1, 4: 4, 5: 8, 6: 3, 7: 7, 8: 2, 9: 6},  # OPPO Enco X3
+    "067414": {0: 1, 1: 5, 2: 2, 3: 1, 4: 4, 6: 3, 7: 7, 8: 2},  # OnePlus Flow Buds
+    "067814": {0: 1, 1: 5, 2: 2, 3: 1, 4: 4, 5: 8, 6: 3, 7: 7, 8: 2, 11: 10, 12: 11, 13: 12, 14: 13},  # OnePlus Buds Pro 4
+    "067C10": {0: 1, 1: 5, 2: 2, 3: 1, 4: 4, 5: 8, 6: 3, 7: 7, 8: 2},  # OPPO Enco Air4 Pro
+    "068C10": {0: 1, 1: 5, 2: 2, 3: 1, 4: 4, 5: 8, 6: 3, 7: 7, 8: 2, 11: 10},  # OPPO Enco Free4
+    "069010": {0: 5, 1: 1, 2: 2},  # OPPO Enco Air4
+    "069C10": {0: 1, 1: 5, 2: 2, 3: 1, 4: 4, 5: 8, 6: 3, 7: 7, 8: 2},  # OPPO Enco R3 Pro
+    "06A010": {0: 5, 1: 1, 2: 2},  # OPPO Enco Buds3 Pro+
+    "06BC10": {0: 1, 1: 5, 2: 2, 3: 1, 4: 4, 5: 8, 6: 3, 7: 7, 8: 2, 11: 10},  # OPPO Enco X3s
+    "06C010": {0: 1, 1: 5, 2: 2, 3: 1, 4: 4, 5: 8, 6: 3, 7: 7, 8: 2, 11: 10},  # OPPO Enco Free4（丹拿版）
+    "06C410": {0: 1, 1: 5, 2: 2, 3: 1, 4: 4, 5: 8, 6: 3, 7: 7, 8: 2},  # OPPO Enco Air5 Pro
+    "06C810": {0: 1, 1: 5, 2: 2, 3: 1, 4: 4, 6: 3, 7: 7, 8: 2},  # OPPO Enco Air5s
+    "06D810": {0: 1, 1: 5, 2: 2, 3: 1, 4: 4, 5: 8, 6: 3, 7: 7, 8: 2},  # OPPO Enco Air5
+    "06E810": {0: 1, 1: 5, 2: 2, 3: 1, 4: 4, 6: 3, 7: 7, 8: 2},  # OPPO Enco Air5s（星光版）
+    "06EC10": {0: 1, 1: 5, 2: 2, 3: 1, 4: 4, 5: 8, 6: 3, 7: 7, 8: 2, 11: 10, 12: 11, 13: 12, 14: 13},  # OPPO Enco X4
+    "06F010": {0: 5, 1: 1, 2: 2},  # OPPO Enco Air4s
+}
+DEFAULT_NOISE_LAYOUT = NOISE_LAYOUTS["067C10"]  # most OPPO/OnePlus models share the Enco Air4 Pro layout
+# realme Link uses one wire layout for all its earbuds: off, transparency, mild, max, moderate, smart.
+REALME_NOISE_LAYOUT = {0: 1, 1: 2, 2: 3, 3: 4, 4: 8, 5: 7}
+# realme product IDs with noise control, from realme Link's bundled headset configs.
+REALME_PRODUCT_IDS = {
+    "050812", "051412", "052052", "061C12", "062012", "062412", "063012", "063412", "063812", "063C12", "064012",
+    "064812", "064C12", "065452", "065852", "066452", "066812", "066C12", "067052", "067452", "067852",
+}
+# modeTypes tried in order when setting a mode; for ANC: the ANC group, else max, smart, moderate, mild.
+# Noise cancellation levels by modeType, in display order.
+ANC_LEVELS = {"mild": 3, "moderate": 8, "max": 4, "smart": 7}
+SET_MODE_TYPES = {MODE_OFF: (1,), MODE_TRANSPARENCY: (2, 6), MODE_ANC: (5, 4, 7, 8, 3),
+                  **{level: (t,) for level, t in ANC_LEVELS.items()}}
+
+# Game mode is HeyMelody switch feature 6 (0x0403 [id, on]), or 40 on models with "game sound" profiles.
+# The earbuds only push changes (0x0204 [05, on] / 0x0503 [01, id, on]); there is no query, so the state is last-known.
+GAME_MODE_PRODUCT_IDS = {"061414", "061814", "061C14", "062010", "062014", "062410", "062414", "062810", "062814", "062C14", "063010", "063014", "063410", "063414", "063810", "063C10", "063C14", "064010", "064014", "064410", "064414", "064810", "064814", "064C10", "064C14", "065010", "065014", "065414", "065810", "065854", "065C10", "066010", "066054", "066414", "066810", "066814", "066C10", "067010", "067014", "067410", "067414", "067810", "067814", "067C10", "068010", "068410", "068810", "068C10", "069010", "069850", "069C10", "06A010", "06A450", "06A850", "06AC50", "06B050", "06B450", "06B810", "06BC10", "06C010", "06C410", "06C810", "06D810", "06E010", "06E410", "06E810", "06EC10", "06F010", "06F450"}
+GAME_SOUND_PRODUCT_IDS = {"066414", "066814", "067014", "067414", "067814", "06C410", "06C810", "06D810", "06E810", "06EC10"}
 
 # Product ID to model map (sample of most popular)
 MODEL_NAMES = {
@@ -59,6 +124,27 @@ MODEL_NAMES = {
     "054410": "realme Buds T300",
     "054810": "realme Buds T310",
 }
+
+def noise_layout(product_id, device_name):
+    if product_id in NOISE_LAYOUTS:
+        return NOISE_LAYOUTS[product_id]
+    if product_id in REALME_PRODUCT_IDS or (device_name and "realme" in device_name.lower()):
+        return REALME_NOISE_LAYOUT
+    return DEFAULT_NOISE_LAYOUT
+
+def noise_mode_from_type(mode_type):
+    if mode_type == 1:
+        return MODE_OFF
+    if mode_type in (2, 6):
+        return MODE_TRANSPARENCY
+    return MODE_ANC
+
+def noise_mode_bit(layout, target_mode):
+    for mode_type in SET_MODE_TYPES[target_mode]:
+        for bit, t in sorted(layout.items()):
+            if t == mode_type:
+                return bit
+    return None
 
 def make_frame(command, seq=0x01, payload=b""):
     total_len = len(payload) + 7
@@ -90,6 +176,22 @@ def parse_frames(data):
                 continue
         i += 1
     return frames
+
+def read_frames(s, wanted, timeout=0.6):
+    raw = bytearray()
+    s.settimeout(timeout)
+    while True:
+        try:
+            chunk = s.recv(1024)
+        except socket.timeout:
+            break
+        if not chunk:
+            break
+        raw.extend(chunk)
+        frames = parse_frames(raw)
+        if wanted <= {cmd for cmd, _, _ in frames}:
+            return frames
+    return parse_frames(raw)
 
 def find_connected_device():
     """Find connected OPPO/OnePlus/realme device MAC via bluetoothctl or DBus"""
@@ -230,11 +332,15 @@ def ensure_device_image(product_id):
         out_file = os.path.join(MEDIA_CACHE_DIR, f"{product_id}.png")
         if os.path.exists(out_file) and os.path.getsize(out_file) > 1000:
             return out_file
-        # Do not start a new network request on every poll while the first is running.
-        if product_id not in RENDER_DOWNLOADS:
-            RENDER_DOWNLOADS.add(product_id)
-            t = threading.Thread(target=_download_render_worker, args=(product_id, out_file), daemon=True)
-            t.start()
+        # Each status call is a short-lived process, so the fetch runs detached to outlive it;
+        # the marker limits attempts to one per hour across polls, including failed ones.
+        marker = out_file + ".attempt"
+        if os.path.exists(marker) and time.time() - os.path.getmtime(marker) < 3600:
+            return None
+        open(marker, "w").close()
+        subprocess.Popen([sys.executable, os.path.abspath(__file__), "fetch-image", product_id],
+                         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                         start_new_session=True)
     except Exception:
         pass
     return None
@@ -263,6 +369,7 @@ def query_device(mac, device_name=None):
         "model_name": device_name or prev_cache.get("model_name") or "OPPO Earbuds",
         "product_id": prev_cache.get("product_id"),
         "noise_mode": prev_cache.get("noise_mode", "unknown"),
+        "noise_level": prev_cache.get("noise_level"),
         "noise_mode_name": prev_cache.get("noise_mode_name", "Неизвестно"),
         "battery_left": prev_cache.get("battery_left", -1),
         "battery_right": prev_cache.get("battery_right", -1),
@@ -273,7 +380,7 @@ def query_device(mac, device_name=None):
         "charging_case": prev_cache.get("charging_case", False),
         "has_anc": True,
         "dual_device": False,
-        "game_mode": False,
+        "game_mode": prev_cache.get("game_mode", False),
         "timestamp": int(time.time()),
         "device_image": prev_cache.get("device_image")
     }
@@ -295,19 +402,9 @@ def query_device(mac, device_name=None):
         s.sendall(make_frame(0x010C, seq=4, payload=bytes([0x01, 0x01])))
         time.sleep(0.04)
 
-        # Read responses
-        raw = bytearray()
-        s.settimeout(0.6)
-        while True:
-            try:
-                chunk = s.recv(1024)
-                if not chunk:
-                    break
-                raw.extend(chunk)
-            except socket.timeout:
-                break
-
-        frames = parse_frames(raw)
+        # Read until product ID, battery and noise mode have all answered (0.6s cap per read).
+        frames = read_frames(s, {0x8103, 0x8106, 0x810C})
+        noise_bit = None
         for cmd, seq, payload in frames:
             # Product ID (0x8103)
             if cmd == 0x8103 and len(payload) >= 4 and payload[0] == 0:
@@ -354,17 +451,25 @@ def query_device(mac, device_name=None):
                 p = list(payload)
                 for idx in range(len(p) - 2):
                     if p[idx] == 0x01 and p[idx+1] == 0x01:
-                        mode_val = p[idx+2]
-                        high_val = p[idx+3] if idx + 3 < len(p) else 0
-                        if mode_val in (0x02, 0x10, 0x20, 0x40, 0x80):
-                            state["noise_mode"] = MODE_ANC
-                            state["noise_mode_name"] = "Шумоподавление"
-                        elif mode_val == 0x04 or (mode_val == 0x00 and high_val == 0x01):
-                            state["noise_mode"] = MODE_TRANSPARENCY
-                            state["noise_mode_name"] = "Прозрачность"
-                        elif mode_val in (0x01, 0x08):
-                            state["noise_mode"] = MODE_OFF
-                            state["noise_mode_name"] = "Выключено"
+                        mask = p[idx+2] | ((p[idx+3] if idx + 3 < len(p) else 0) << 8)
+                        if mask:
+                            noise_bit = (mask & -mask).bit_length() - 1
+
+            # Game mode change pushes
+            if cmd == 0x0204 and len(payload) >= 2 and payload[0] == 0x05:
+                state["game_mode"] = bool(payload[1])
+            if cmd == 0x0503 and len(payload) >= 3 and payload[0] == 0x01 and payload[1] in (6, 40):
+                state["game_mode"] = bool(payload[2])
+
+        # Decode after the loop so the product ID from this session picks the layout.
+        layout = noise_layout(state["product_id"], state["device_name"])
+        state["game_mode_supported"] = state["product_id"] in GAME_MODE_PRODUCT_IDS
+        state["anc_levels"] = [level for level, t in ANC_LEVELS.items() if t in layout.values()]
+        mode_type = layout.get(noise_bit)
+        if mode_type is not None:
+            state["noise_mode"] = noise_mode_from_type(mode_type)
+            state["noise_mode_name"] = MODE_NAMES[state["noise_mode"]]
+            state["noise_level"] = next((level for level, t in ANC_LEVELS.items() if t == mode_type), None)
 
         # Resolve or fetch official 3D render. Keep the previous path while a
         # first download is still running so the image never disappears.
@@ -384,8 +489,15 @@ def query_device(mac, device_name=None):
 
 def set_anc_mode(mac, target_mode):
     target_mode = target_mode.lower()
-    if target_mode not in (MODE_ANC, MODE_TRANSPARENCY, MODE_OFF):
+    if target_mode not in SET_MODE_TYPES:
         return {"success": False, "error": f"Invalid mode: {target_mode}"}
+    level = target_mode if target_mode in ANC_LEVELS else None
+    mode = MODE_ANC if level else target_mode
+
+    cache = read_cache()
+    bit = noise_mode_bit(noise_layout(cache.get("product_id"), cache.get("device_name")), target_mode)
+    if bit is None:
+        return {"success": False, "error": f"Mode not supported by this model: {target_mode}"}
 
     s, ch = connect_rfcomm(mac)
     if not s:
@@ -395,38 +507,34 @@ def set_anc_mode(mac, target_mode):
         s.sendall(make_frame(0x0100, seq=1))
         time.sleep(0.04)
 
-        # Mode payloads:
-        # Off: [0x01, 0x01, 0x01]
-        # ANC: [0x01, 0x01, 0x02]
-        # Transparency: [0x01, 0x01, 0x04]
-        if target_mode == MODE_ANC:
-            payload = bytes([0x01, 0x01, 0x02])
-            mode_name = "Шумоподавление"
-        elif target_mode == MODE_TRANSPARENCY:
-            payload = bytes([0x01, 0x01, 0x04])
-            mode_name = "Прозрачность"
-        else:
-            payload = bytes([0x01, 0x01, 0x01])
-            mode_name = "Выключено"
+        # Payload: [0x01, 0x01, little-endian bitmask with the mode's bit set]
+        payload = bytes([0x01, 0x01]) + (1 << bit).to_bytes(bit // 8 + 1, "little")
+        mode_name = MODE_NAMES[mode]
 
         cmd_frame = make_frame(0x0404, seq=0xF0, payload=payload)
         s.sendall(cmd_frame)
         time.sleep(0.12)
 
-        # Update cache if file exists
-        if os.path.exists(STATE_FILE):
-            try:
-                with open(STATE_FILE, "r") as f:
-                    data = json.load(f)
-                data["noise_mode"] = target_mode
-                data["noise_mode_name"] = mode_name
-                data["timestamp"] = int(time.time())
-                with open(STATE_FILE, "w") as f:
-                    json.dump(data, f, indent=2, ensure_ascii=False)
-            except Exception:
-                pass
+        update_cache(noise_mode=mode, noise_level=level, noise_mode_name=mode_name)
+        return {"success": True, "mode": mode, "level": level, "mode_name": mode_name}
+    finally:
+        s.close()
 
-        return {"success": True, "mode": target_mode, "mode_name": mode_name}
+def set_game_mode(mac, enabled):
+    feature = 40 if read_cache().get("product_id") in GAME_SOUND_PRODUCT_IDS else 6
+    s, ch = connect_rfcomm(mac)
+    if not s:
+        return {"success": False, "error": "Could not connect to RFCOMM"}
+
+    try:
+        s.sendall(make_frame(0x0100, seq=1))
+        time.sleep(0.04)
+        s.sendall(make_frame(0x0403, seq=0xF1, payload=bytes([feature, int(enabled)])))
+        acked = any(cmd == 0x8403 and payload[:1] == b"\x00" for cmd, _, payload in read_frames(s, {0x8403}, 0.5))
+        if not acked:
+            return {"success": False, "error": "Earbuds did not confirm game mode"}
+        update_cache(game_mode=enabled)
+        return {"success": True, "game_mode": enabled}
     finally:
         s.close()
 
@@ -446,20 +554,19 @@ def cycle_anc(mac):
     except ValueError:
         next_mode = MODE_ANC
 
-    res = set_anc_mode(mac, next_mode)
-    if res.get("success"):
-        # Show desktop notification if notify-send exists
-        if shutil.which("notify-send"):
-            icon = "audio-headphones"
-            subprocess.run([
-                "notify-send",
-                "OPPO Pods",
-                f"Режим: {res['mode_name']}",
-                "-i", icon,
-                "-t", "1200",
-                "-h", "string:x-canonical-private-synchronous:oppo-anc"
-            ], check=False)
-    return res
+    # The service shows the (localized) mode notification.
+    return set_anc_mode(mac, next_mode)
+
+def update_cache(**fields):
+    if os.path.exists(STATE_FILE):
+        try:
+            with open(STATE_FILE, "r") as f:
+                data = json.load(f)
+            data.update(fields, timestamp=int(time.time()))
+            with open(STATE_FILE, "w") as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+        except Exception:
+            pass
 
 def read_cache():
     if os.path.exists(STATE_FILE):
@@ -472,11 +579,16 @@ def read_cache():
 
 def main():
     parser = argparse.ArgumentParser(description="OPPO / OnePlus / realme Earbuds CLI")
-    parser.add_argument("command", choices=["status", "cached", "set-anc", "cycle-anc"], help="Action to perform")
-    parser.add_argument("value", nargs="?", help="Value for set-anc (anc/transparency/off)")
+    parser.add_argument("command", choices=["status", "cached", "set-anc", "cycle-anc", "set-game", "fetch-image"], help="Action to perform")
+    parser.add_argument("value", nargs="?", help="Value for set-anc (anc/transparency/off/mild/moderate/max/smart), set-game (on/off) or fetch-image (product ID)")
     parser.add_argument("--mac", help="Earbuds Bluetooth MAC address")
 
     args = parser.parse_args()
+
+    if args.command == "fetch-image":
+        if args.value and args.value.isalnum():
+            _download_render_worker(args.value, os.path.join(MEDIA_CACHE_DIR, f"{args.value}.png"))
+        return
 
     mac = args.mac
     device_name = None
@@ -506,6 +618,11 @@ def main():
     elif args.command == "cycle-anc":
         res = cycle_anc(mac)
         print(json.dumps(res, ensure_ascii=False))
+    elif args.command == "set-game":
+        if args.value not in ("on", "off"):
+            print(json.dumps({"success": False, "error": "set-game needs on or off"}))
+            sys.exit(1)
+        print(json.dumps(set_game_mode(mac, args.value == "on"), ensure_ascii=False))
 
 if __name__ == "__main__":
     main()

@@ -1,10 +1,10 @@
 {
   "panel": {
     "add_custom_cancel": "Cancel",
-    "add_custom_cover_placeholder": "Cover image URL (optional override)",
+    "add_custom_cover_placeholder": "Cover image URL (optional)",
     "add_custom_name_placeholder": "Station name (optional)",
     "add_custom_save": "Save",
-    "add_custom_subtitle": "Play any stream from a URL. Artwork is looked up automatically when possible.",
+    "add_custom_subtitle": "Play any stream from a URL",
     "add_custom_title": "Add local radio",
     "add_custom_tooltip": "Add local radio",
     "add_custom_url_placeholder": "https://example.com/stream.mp3",

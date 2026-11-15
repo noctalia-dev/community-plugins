@@ -1,0 +1,120 @@
+{
+  "add_model": {
+    "back": "Назад к комбо",
+    "empty": "Модели недоступны.",
+    "no_match": "Нет моделей, соответствующих вашему поиску.",
+    "search": "Поиск моделей…",
+    "title": "Добавить модель"
+  },
+  "create": {
+    "back": "Назад",
+    "cancel": "Отмена",
+    "kind_label": "Тип",
+    "models_hint": "По одной модели на строку, в порядке резервного выбора (например, cc/claude-opus-4-7).",
+    "models_label": "Модели",
+    "models_placeholder": "cc/claude-opus-4-7\nglm/glm-5.1",
+    "name_label": "Имя",
+    "name_placeholder": "например, my-fallback",
+    "submit": "Создать",
+    "title": "Новое комбо"
+  },
+  "detail": {
+    "add_model": "Добавить модель",
+    "back": "Назад к комбо",
+    "delete": "Удалить комбо",
+    "delete_confirm": "Удалить это комбо?",
+    "delete_no": "Отмена",
+    "delete_yes": "Да, удалить",
+    "drag_hint": "Перетащите модель для изменения порядка",
+    "kind_label": "Тип",
+    "models_count": "Моделей: {count}",
+    "models_title": "Цепочка моделей",
+    "move_down": "Переместить вниз",
+    "move_up": "Переместить вверх",
+    "no_models": "В этом комбо пока нет моделей.",
+    "refresh": "Обновить",
+    "remove_model": "Удалить модель",
+    "rename": "Переименовать",
+    "rename_cancel": "Отмена",
+    "rename_placeholder": "Новое имя...",
+    "rename_save": "Сохранить"
+  },
+  "error": {
+    "add_model_failed": "Не удалось добавить модель",
+    "auth_required": "Требуется аутентификация",
+    "bad_response": "Неожиданный ответ от 9Router",
+    "connection_failed": "Не удалось подключиться к 9Router",
+    "create_failed": "Не удалось создать комбинацию",
+    "delete_failed": "Не удалось удалить комбинацию",
+    "dismiss": "Закрыть",
+    "http_status": "HTTP {status}",
+    "invalid_name": "Имя может содержать только буквы, цифры, -, _ и .",
+    "kind_failed": "Failed to update kind",
+    "login_failed": "Не удалось обновить тип",
+    "need_name_models": "Необходимо указать имя и хотя бы одну модель.",
+    "need_password": "Введите пароль.",
+    "remove_model_failed": "Не удалось удалить модель",
+    "rename_failed": "Не удалось переименовать комбинацию",
+    "reorder_failed": "Не удалось изменить порядок моделей"
+  },
+  "kind": {
+    "fallback": "Резерв",
+    "fusion": "Слияние",
+    "none": "Нетw",
+    "round_robin": "Круговая система"
+  },
+  "list": {
+    "delete": "Удалить комбо",
+    "delete_cancel": "Отменить",
+    "delete_confirm": "Подтвердить удаление",
+    "empty": "Комбо пока нет. Создайте одно, чтобы начать.",
+    "kind": "Тип: {kind}",
+    "new_combo": "Новое комбо",
+    "no_match": "Нет комбо, соответствующих вашему поиску.",
+    "open": "Открыть комбо",
+    "refresh": "Возобновить",
+    "search": "Искать комбо...",
+    "title": "9Router — Комбо"
+  },
+  "login": {
+    "hint": "Для доступа к панели управления требуется аутентификация. Введите пароль 9Router, чтобы продолжить.",
+    "password_placeholder": "Пароль...",
+    "submit": "Войти",
+    "title": "Войти в 9Router"
+  },
+  "settings": {
+    "data_dir": {
+      "description": "Каталог данных 9Router (используется для получения токена CLI, когда панель управления требует входа). По умолчанию: ~/.9router.",
+      "label": "Каталог данных"
+    },
+    "debug_logging": {
+      "description": "Выводить отладочные сообщения в журнал Noctalia.",
+      "label": "Ведение журнала отладки"
+    },
+    "language": {
+      "description": "Язык интерфейса этого плагина. «Авто» использует язык оболочки Noctalia.",
+      "label": "Язык",
+      "options": {
+        "auto": "Авто (как в оболочке)",
+        "en": "English",
+        "vi": "Tiếng Việt"
+      }
+    },
+    "server_host": {
+      "description": "Имя хоста панели управления 9Router. По умолчанию: 127.0.0.1.",
+      "label": "Адрес сервера"
+    },
+    "server_port": {
+      "description": "Порт панели управления 9Router. По умолчанию: 20128.",
+      "label": "Порт сервета"
+    }
+  },
+  "state": {
+    "combos": "Комбинаций: {count}",
+    "tip": {
+      "auth_required": "9Router: требуется вход в систему",
+      "offline": "9Router: не в сети",
+      "online": "9Router: подключено"
+    }
+  }
+}

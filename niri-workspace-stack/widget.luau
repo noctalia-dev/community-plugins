@@ -129,8 +129,8 @@ local function diagnosticLines()
   for _, name in ipairs(names) do
     local parts = {}
     for _, ws in ipairs(model:workspacesOn(name)) do
-      parts[#parts + 1] = string.format("%s%sidx%d=id%d(%dw)", ws.isFocused and "F" or "", ws.isActive and "*" or "",
-        ws.idx or -1, ws.id, model:windowCount(ws.id))
+      parts[#parts + 1] = string.format("%s%sidx%d=id%s(%dw)", ws.isFocused and "F" or "", ws.isActive and "*" or "",
+        ws.idx or -1, tostring(ws.id), model:windowCount(ws.id))
     end
     add("  %s: %s", name, table.concat(parts, " "))
   end
@@ -222,7 +222,7 @@ function onHover(entered)
   end
 end
 
--- One workspace up/down on this bar's monitor through `niri msg`, so niri's
+-- One workspace up/down on this bar's monitor through the compositor's CLI, so niri's
 -- warp-mouse-to-focus applies (see README, Known limitations). The manifest leaves the
 -- wheel unbound; a user scroll binding in the widget's actions would replace this handler.
 function onScroll(axis, steps, startsGesture)

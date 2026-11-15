@@ -70,15 +70,23 @@ local function render()
   local pFive = pace(five, usage.five_hour_reset, shared.FIVE_HOUR_SECS)
   local pSeven = pace(seven, usage.seven_day_reset, shared.SEVEN_DAY_SECS)
 
+  -- With no 5-hour window (verified Ultra), a pill set to five_hour or both
+  -- would read a permanent 0% with no countdown. The week is the only
+  -- plan-wide window left, so it reports that instead.
+  local metric = cfg.metric
+  if (metric == "five_hour" or metric == "both") and not shared.hasFiveHourWindow(usage) then
+    metric = "seven_day"
+  end
+
   -- The ring shows one window; with metric "both" that is the 5-hour one (the
   -- one that moves minute to minute) and the text carries both numbers.
   local text, shown, arc, tracked
-  if cfg.metric == "both" then
+  if metric == "both" then
     text = `{round(five)}% · {round(seven)}%`
     shown = { pFive, pSeven }
     arc = { pct = five, p = pFive }
     tracked = { p = pFive, reset = usage.five_hour_reset }
-  elseif cfg.metric == "seven_day" then
+  elseif metric == "seven_day" then
     text, shown = `{round(seven)}%`, { pSeven }
     arc = { pct = seven, p = pSeven }
     tracked = { p = pSeven, reset = usage.seven_day_reset }

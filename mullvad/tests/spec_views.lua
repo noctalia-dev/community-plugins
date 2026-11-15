@@ -84,17 +84,19 @@ check("view: connected has no connect.button", findKey(tree, "connect.button") =
 -- my country without a real location
 local noLocation = snapshot("status-connected.json")
 noLocation.realLocation = nil
-tree = view_connect.build(noLocation, uiState({ mode = "my_country" }), send)
+tree = view_connect.build(noLocation, uiState(), send)
 local myCountry = findKey(tree, "mode.my_country")
 eq("view: my_country disabled without a real location", myCountry and myCountry.props.enabled, false)
+tree = view_connect.build(noLocation, uiState({ mode = "my_country" }), send)
 check("view: my_country explains why", findText(tree, "connect.my_country_unknown") ~= nil)
 local disconnected = snapshot("status-disconnected.json")
 disconnected.realLocation = nil
 tree = view_connect.build(disconnected, uiState({ mode = "my_country" }), send)
 eq("view: my_country without a location cannot connect", findKey(tree, "connect.button").props.enabled, false)
-tree = view_connect.build(snapshot("status-disconnected.json"), uiState({ mode = "my_country" }), send)
+tree = view_connect.build(snapshot("status-disconnected.json"), uiState(), send)
 myCountry = findKey(tree, "mode.my_country")
 check("view: my_country enabled with a real location", myCountry and myCountry.props.enabled ~= false)
+tree = view_connect.build(snapshot("status-disconnected.json"), uiState({ mode = "my_country" }), send)
 check("view: no my_country warning with a real location", findText(tree, "connect.my_country_unknown") == nil)
 
 -- city select: "any city" first, then the selected country's cities
@@ -716,18 +718,64 @@ check("account: too many devices offers the account page", findKey(view_account.
 
 _G.noctalia = previousNoctalia
 
--- mode selector: unfilled segmented buttons, active one boxed in primary, with a label
-do
-  local t = view_connect.build(snapshot("status-disconnected.json"), uiState(), send)
-  for _, id in ipairs({ "country", "my_country", "random" }) do
-    local variant = findKey(t, "mode." .. id).props.variant
-    check("mode: " .. id .. " is not the filled variant", variant ~= "primary" and variant ~= "default" and variant ~= "secondary")
+-- mode selector: exactly one option looks active, for every mode. The host keeps a
+-- row's border/opacity when the prop disappears between renders, so every box sets
+-- border, borderWidth and opacity each time (an inactive border is transparent, never
+-- nil). Active and inactive look the same except the outline: same opacity, same text
+-- colour (a ghost button's text is on_surface) and the host's default text size and
+-- weight on both. The active option is a plain label (no click, no hover look); the
+-- others are ghost buttons. Nothing filled.
+local MODE_IDS = { "country", "my_country", "random" }
+for _, mode in ipairs(MODE_IDS) do
+  local modePatches = {}
+  local t = view_connect.build(snapshot("status-disconnected.json"), uiState({ mode = mode }), send,
+    function(p) modePatches[#modePatches + 1] = p end)
+  local primaryBoxes = 0
+  for _, id in ipairs(MODE_IDS) do
+    local box = findKey(t, "mode.box." .. id)
+    local tag = "mode[" .. mode .. "]: " .. id
+    check(tag .. " box exists", box ~= nil)
+    box = box or { props = {}, children = {} }
+    if box.props.border == "primary" then primaryBoxes = primaryBoxes + 1 end
+    eq(tag .. " box sets borderWidth", box.props.borderWidth, 1)
+    -- controlSize "sm" pins a button at the host's small control height (32)
+    eq(tag .. " box keeps the small button height", box.props.minHeight, 32)
+    eq(tag .. " box has no fill", box.props.fill, nil)
+    eq(tag .. " box is fully opaque", box.props.opacity, 1)
+    if id == mode then
+      eq(tag .. " active box border is primary", box.props.border, "primary")
+      check(tag .. " active option has no button", findKey(t, "mode." .. id) == nil)
+      local label = findKey(t, "mode." .. id .. ".on")
+      eq(tag .. " active option is a label", label and label.type, "label")
+      eq(tag .. " active label text", label and label.props.text, "connect.mode." .. id)
+      eq(tag .. " active label is centred", label and label.props.textAlign, "center")
+      eq(tag .. " active label has the ghost button's text colour", label and label.props.color, "on_surface")
+      eq(tag .. " active label keeps the default text size, like the button", label and label.props.fontSize, nil)
+      eq(tag .. " active label keeps the default weight, like the button", label and label.props.fontWeight, nil)
+      check(tag .. " active option has no onClick", label ~= nil and label.props.onClick == nil)
+    else
+      eq(tag .. " inactive box border is transparent", box.props.border, "#00000000")
+      local button = findKey(t, "mode." .. id)
+      eq(tag .. " inactive option is a ghost button", button and button.props.variant, "ghost")
+      eq(tag .. " inactive button keeps the default text size", button and button.props.fontSize, nil)
+      check(tag .. " inactive button is not host-selected (that paints a fill)", button ~= nil and button.props.selected == nil)
+      if button then button.props.onClick() end
+      eq(tag .. " clicking it patches the mode", modePatches[#modePatches] and modePatches[#modePatches].mode, id)
+    end
   end
-  check("mode: no button is selected (selected paints a fill)", findKey(t, "mode.country").props.selected == nil)
-  eq("mode: inactive is ghost", findKey(t, "mode.random").props.variant, "ghost")
-  eq("mode: active box has a primary border", findKey(t, "mode.box.country").props.border, "primary")
-  eq("mode: inactive box has no border", findKey(t, "mode.box.random").props.border, nil)
-  eq("mode: label above the row", findKey(t, "mode.label") and findKey(t, "mode.label").props.text, "connect.mode_label")
+  eq("mode[" .. mode .. "]: exactly one primary box", primaryBoxes, 1)
+  eq("mode[" .. mode .. "]: label above the row", findKey(t, "mode.label") and findKey(t, "mode.label").props.text,
+    "connect.mode_label")
+end
+-- "My country" stays disabled without a real location, whichever other mode is active
+for _, mode in ipairs({ "country", "random" }) do
+  local s = snapshot("status-disconnected.json")
+  s.realLocation = nil
+  local t = view_connect.build(s, uiState({ mode = mode }), send, function() end)
+  local myButton = findKey(t, "mode.my_country")
+  eq("mode[" .. mode .. "]: my_country disabled without a real location", myButton and myButton.props.enabled, false)
+  eq("mode[" .. mode .. "]: disabled my_country box sets its border",
+    findKey(t, "mode.box.my_country") and findKey(t, "mode.box.my_country").props.border, "#00000000")
 end
 
 -- hint texts carry the flag (show_flags)

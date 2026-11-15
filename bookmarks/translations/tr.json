@@ -104,6 +104,10 @@
       "description": "Çubuk aracının simgesi (ör. bookmark)",
       "label": "Simge"
     },
+    "show_info_button": {
+      "description": "Yer imlerinde (klasörlerde değil) üzerine gelindiğinde açıklamalarını ve komutlarını görüntülemek için bir \"?\" düğmesi göster.",
+      "label": "Bilgi butonunu göster"
+    },
     "text": {
       "description": "Çubuk aracının etiketi. Çubukta sadece simgenin görünmesi için boş bırakın.",
       "label": "Yazı"

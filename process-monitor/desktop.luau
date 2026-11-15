@@ -250,6 +250,9 @@ end
 
 function render()
     S.beginRender()
+    -- The GPU temperature is drawn only inside the GPU stat, which needs the
+    -- sampler's machine-wide GPU busy value.
+    S.wantGpuStats(showTotals and snap ~= nil and snap.gpu ~= nil and snap.gpu.pct ~= nil)
     if not snap then
         desktopWidget.render(ui.column({ width = fitWidth(), gap = S.SM, padding = S.MD }, {
             ui.label({ text = showHeader and title or tr("plugin_name"), fontSize = S.F_TITLE, fontWeight = "bold" }),

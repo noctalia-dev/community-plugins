@@ -4,33 +4,32 @@
 # into the shared model (lib/model.luau). The [[service]] is the only entry that
 # fetches; it publishes one normalized report through noctalia.state, and the
 # bar [[widget]] and [[panel]] only draw it. Adding a provider never touches the
-# surfaces: see CONTRIBUTING.md.
+# surfaces: see the README.
 #
-# plugin_api 32: argv runAsync (24), noctalia.getColor (31) for theme-tinted
-# logos and gauges, and container tooltips (32) on the panel's time tracks.
+# plugin_api 43 is the newest level a released Noctalia (5.4.1) loads. Used:
+# argv runAsync (24), container tooltips (32), content-height panels (42) and
+# container color roles (43).
 
 id = "ayagmar/headroom"
 name = "Headroom"
-version = "0.2.2"
+version = "0.3.0"
 plugin_api = 43
 author = "ayagmar"
 license = "MIT"
 icon = "gauge"
-description = "How much of your Claude, Codex and Antigravity plan limits is left, per account, with reset times and forecasts."
+description = "Claude, Codex and Antigravity plan limits left per account, with reset times, forecasts and reset credits."
 tags = ["bar", "panel", "service", "ai", "indicator", "productivity"]
 # All optional: each powers one feature listed in the README's Requirements,
 # and that feature is skipped when the tool is missing.
 dependencies = ["xdg-open", "secret-tool", "claude", "codex", "agy", "env", "rm"]
 
 # ── Settings ────────────────────────────────────────────────────────────────
-# One page, read top to bottom in groups whose labels carry the group name
-# (the settings schema has no section headers): Providers, Bar, Display,
-# Alerts, Data. Every entry reads them, so all capsules and the panel agree.
-# The schema has no multi-select either, so where each provider appears is one
+# Plugin settings (Settings → Plugins → Headroom) are what every entry reads:
+# where each provider appears, how amounts read, alerts, refresh. What the bar
+# capsule shows is a setting of the widget itself (below), so two capsules can
+# differ. The schema has no multi-select, so where each provider appears is one
 # provider_<id> select per provider: in the bar and panel, panel only, or off
 # (never fetched).
-
-# Providers ·
 
 [[setting]]
 key = "provider_claude"
@@ -68,54 +67,6 @@ options = [
   { value = "off", label_key = "settings.provider.option.off" },
 ]
 
-# Bar ·
-
-[[setting]]
-key = "max_providers"
-type = "int"
-label_key = "settings.max_providers.label"
-description_key = "settings.max_providers.description"
-default = 3
-min = 1
-max = 8
-
-[[setting]]
-key = "window"
-type = "select"
-label_key = "settings.window.label"
-description_key = "settings.window.description"
-default = "tightest"
-options = [
-  { value = "tightest", label_key = "settings.window.option.tightest" },
-  { value = "session", label_key = "settings.window.option.session" },
-  { value = "weekly", label_key = "settings.window.option.weekly" },
-]
-
-[[setting]]
-key = "bar_style"
-type = "select"
-label_key = "settings.bar_style.label"
-description_key = "settings.bar_style.description"
-default = "full"
-options = [
-  { value = "full", label_key = "settings.bar_style.option.full" },
-  { value = "value", label_key = "settings.bar_style.option.value" },
-  { value = "ring", label_key = "settings.bar_style.option.ring" },
-]
-
-[[setting]]
-key = "bar_accounts"
-type = "select"
-label_key = "settings.bar_accounts.label"
-description_key = "settings.bar_accounts.description"
-default = "default"
-options = [
-  { value = "default", label_key = "settings.bar_accounts.option.default" },
-  { value = "all", label_key = "settings.bar_accounts.option.all" },
-]
-
-# Display ·
-
 [[setting]]
 key = "display"
 type = "select"
@@ -128,13 +79,30 @@ options = [
 ]
 
 [[setting]]
+key = "notify"
+type = "bool"
+label_key = "settings.notify.label"
+description_key = "settings.notify.description"
+default = true
+
+[[setting]]
+key = "notify_reset_credits"
+type = "bool"
+label_key = "settings.notify_reset_credits.label"
+description_key = "settings.notify_reset_credits.description"
+default = true
+visible_when = { key = "notify", values = ["true"] }
+
+[[setting]]
 key = "warn_percent"
 type = "int"
 label_key = "settings.warn_percent.label"
 description_key = "settings.warn_percent.description"
 default = 70
-min = 1
+min = 5
 max = 100
+step = 5
+advanced = true
 
 [[setting]]
 key = "critical_percent"
@@ -142,19 +110,10 @@ type = "int"
 label_key = "settings.critical_percent.label"
 description_key = "settings.critical_percent.description"
 default = 90
-min = 1
+min = 5
 max = 100
-
-# Alerts ·
-
-[[setting]]
-key = "notify"
-type = "bool"
-label_key = "settings.notify.label"
-description_key = "settings.notify.description"
-default = true
-
-# Data ·
+step = 5
+advanced = true
 
 [[setting]]
 key = "refresh_minutes"
@@ -164,6 +123,7 @@ description_key = "settings.refresh_minutes.description"
 default = 5
 min = 1
 max = 120
+advanced = true
 
 
 # ── Entries ─────────────────────────────────────────────────────────────────
@@ -178,20 +138,64 @@ id = "usage"
 entry = "bar.luau"
 
   # Right click refreshes. A binding rather than onRightClick, so it is listed
-  # in the widget's settings and users can rebind it.
-  # Middle click opens Headroom's settings page: all options live there.
+  # in the widget's settings and users can rebind it. Middle click keeps the
+  # host's default: this widget's settings.
   [widget.actions]
   right = "plugin ayagmar/headroom:poller all refresh"
-  middle = "settings-open-plugin ayagmar/headroom"
+
+  [[widget.setting]]
+  key = "window"
+  type = "select"
+  label_key = "settings.window.label"
+  description_key = "settings.window.description"
+  default = "tightest"
+  options = [
+    { value = "tightest", label_key = "settings.window.option.tightest" },
+    { value = "session", label_key = "settings.window.option.session" },
+    { value = "weekly", label_key = "settings.window.option.weekly" },
+  ]
+
+  [[widget.setting]]
+  key = "bar_style"
+  type = "select"
+  label_key = "settings.bar_style.label"
+  description_key = "settings.bar_style.description"
+  default = "full"
+  options = [
+    { value = "full", label_key = "settings.bar_style.option.full" },
+    { value = "value", label_key = "settings.bar_style.option.value" },
+    { value = "ring", label_key = "settings.bar_style.option.ring" },
+  ]
+
+  [[widget.setting]]
+  key = "bar_accounts"
+  type = "select"
+  label_key = "settings.bar_accounts.label"
+  description_key = "settings.bar_accounts.description"
+  default = "default"
+  options = [
+    { value = "default", label_key = "settings.bar_accounts.option.default" },
+    { value = "all", label_key = "settings.bar_accounts.option.all" },
+  ]
+
+  [[widget.setting]]
+  key = "max_items"
+  type = "int"
+  label_key = "settings.max_items.label"
+  description_key = "settings.max_items.description"
+  default = 3
+  min = 1
+  max = 8
 
 # Open with: noctalia msg panel-toggle ayagmar/headroom:panel
 [[panel]]
 id = "panel"
 entry = "panel.luau"
 width = 420
-height = 640
+height = "content"
+max_height = 640
 placement = "attached"
 position = "auto"
 open_near_click = true
 dismiss_on_outside_click = true
-capture_keys = ["escape", "r"]
+capture_keys = ["r"]

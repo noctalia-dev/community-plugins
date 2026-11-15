@@ -4,7 +4,7 @@ A small Noctalia v5 plugin for the **Vietnamese lunar calendar**.
 
 It provides:
 
-- a Control Center shortcut named **Âm lịch**
+- a Control Center shortcut named **Lunar Calendar**
 - an attached monthly calendar panel that opens near its trigger
 - lunar day/month shown below each Gregorian date
 - leap-month marker (`N`)
@@ -35,7 +35,7 @@ Or enable it from the command line:
 noctalia msg plugins enable notoxus/vietnamese-lunar-calendar
 ```
 
-Add the **Âm lịch** shortcut from:
+Add the **Lunar Calendar** shortcut from:
 
 ```text
 Settings → Control Center → Shortcuts
@@ -51,7 +51,7 @@ noctalia msg panel-toggle notoxus/vietnamese-lunar-calendar:calendar
 ```
 
 Click any date in the calendar to inspect its lunar date. Use the arrow buttons
-to change month and **Hôm nay** to return to the current date.
+to change month and **Today** to return to the current date.
 
 ## Settings
 

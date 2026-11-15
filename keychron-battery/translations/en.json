@@ -1,4 +1,8 @@
 {
+  "bar": {
+    "no_value": "No battery level",
+    "no_value_hint": "The mouse may be off or asleep, or the receiver passes nothing on. Replugging the receiver often helps."
+  },
   "connection": {
     "bluetooth": "Bluetooth",
     "receiver": "Receiver / cable"
@@ -31,7 +35,7 @@
       "label": "Notify at (%)"
     },
     "mouse_name": {
-      "description": "Name shown. Leave empty to use the name from UPower (the kernel module always reports \"Keychron M5\").",
+      "description": "Name shown. Leave empty to use the model name from UPower, which can be generic (for example \"Keychron Ultra-Link 8K\").",
       "label": "Mouse name"
     },
     "notify": {
