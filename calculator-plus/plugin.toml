@@ -1,6 +1,6 @@
 id           = "samuelskovbakke/calculator-plus"
 name         = "Calculator Plus"
-version      = "1.0.2"
+version      = "1.1.0"
 plugin_api   = 43
 author       = "samuelskovbakke"
 license      = "MIT"
