@@ -1,0 +1,42 @@
+id = "fisherman/mathsym"
+name = "Mathsym"
+version = "0.1.0"
+# 24 for argv-style noctalia.runAsync.
+plugin_api = 24
+author = "fisherman"
+license = "MIT"
+dependencies = ["fzf", "wtype"]
+tags = ["unicode", "latex", "lean", "launcher"]
+icon = "math-symbols"
+description = "Find mathematical symbols by their descriptions, unicode numbers, LaTeX commands, or Lean 4 input-method names from the launcher"
+
+[[setting]]
+key = "notify_on_copy"
+type = "bool"
+label_key = "settings.notify_on_copy.label"
+description_key = "settings.notify_on_copy.description"
+default = true
+
+[[setting]]
+key = "paste_after_copy"
+type = "bool"
+label_key = "settings.paste_after_copy.label"
+description_key = "settings.paste_after_copy.description"
+default = false
+
+[[setting]]
+key = "paste_delay_ms"
+type = "int"
+label_key = "settings.paste_delay_ms.label"
+description_key = "settings.paste_delay_ms.description"
+default = 150
+min = 0
+max = 2000
+
+[[launcher_provider]]
+id = "mathsym"
+entry = "mathsym.luau"
+prefix = "sym"
+glyph = "math-symbols"
+include_in_global_search = false
+debounce_ms = 60

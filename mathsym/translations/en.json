@@ -1,0 +1,17 @@
+{
+  "settings": {
+    "notify_on_copy": {
+      "description": "Show a notification when a character is copied to the clipboard",
+      "label": "Notify on Copy"
+    },
+    "paste_after_copy": {
+      "description": "Also type the character into the focused window after copying, using wtype. Works in terminals and GUI apps without relying on a paste shortcut.",
+      "label": "Paste After Copy"
+    },
+    "paste_delay_ms": {
+      "description": "Wait this long after the launcher closes before typing, so focus has returned to the previous window",
+      "label": "Paste Delay (ms)"
+    }
+  },
+  "title": "Mathsym"
+}
