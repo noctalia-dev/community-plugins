@@ -17,6 +17,13 @@ description_key = "settings.notify_on_copy.description"
 default         = true
 
 [[setting]]
+key             = "preserve_history"
+type            = "bool"
+label_key       = "settings.preserve_history.label"
+description_key = "settings.preserve_history.description"
+default         = true
+
+[[setting]]
 key             = "history_size"
 type            = "int"
 min             = 0

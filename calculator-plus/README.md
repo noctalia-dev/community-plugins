@@ -14,7 +14,7 @@ expression history. Click a history row to copy its result to the clipboard.
 
 - `qalc`, the command-line calculator from
   [libqalculate](https://qalculate.github.io/). Install the `libqalculate`
-  (Arch), `qalculate` (Fedora/Debian family package names vary) package for your
+  (Arch/NixOS), `qalculate` (Fedora/Debian family package names vary) package for your
   distro; the binary is usually just called `qalc`.
 
 ## Usage
@@ -29,13 +29,14 @@ expression history. Click a history row to copy its result to the clipboard.
 
 ## Settings
 
-| Setting              | Type    | Default      | Description                                                                      |
-| -------------------- | ------- | ------------ | -------------------------------------------------------------------------------- |
-| `notify_on_copy`     | `bool`  | `true`       | Send a notification whenever an expression or result is copied to the clipboard. |
-| `history_size`       | `int`   | `4`          | Size of the history stored.                                                      |
-| `repeat_delay_ms`    | `int`   | `400`        | Change repeat delay of up/down arrow for history navigation.                     |
-| `repeat_interval_ms` | `int`   | `120`        | Change repeat interval of up/down arrow for history navigation.                  |
-| `glyph`              | `glyph` | `calculator` | Icon glyph name.                                                                 |
+| Setting              | Type    | Default      | Description                                                                                         |
+| -------------------- | ------- | ------------ | --------------------------------------------------------------------------------------------------- |
+| `notify_on_copy`     | `bool`  | `true`       | Send a notification whenever an expression or result is copied to the clipboard.                    |
+| `preserve_history`   | `bool`  | `true`       | Saves the history between restarts. Disabling this clears history whenever the plugin is restarted. |
+| `history_size`       | `int`   | `4`          | Size of the history stored.                                                                         |
+| `repeat_delay_ms`    | `int`   | `400`        | Change repeat delay of up/down arrow for history navigation.                                        |
+| `repeat_interval_ms` | `int`   | `120`        | Change repeat interval of up/down arrow for history navigation.                                     |
+| `glyph`              | `glyph` | `calculator` | Icon glyph name.                                                                                    |
 
 ## IPC
 
@@ -53,8 +54,9 @@ noctalia msg panel-toggle samuelskovbakke/calculator-plus:panel
   shell. Session variables persist across evaluations by re-reading the full
   expression history from that file each time.
 - The visible history list is stored and persisted in `data.json` in the plugin's data directory,
-  and it can be cleared with a button or by writing `clear` in the input field. (The scratch file
-  used internally to replay session variables to `qalc` does live in the plugin's data directory,
+  with an option to disable it resulting in history being held only until a restart, and it can
+  be cleared with a button or by writing `clear` in the input field. (The scratch file used
+  internally to replay session variables to `qalc` does live in the plugin's data directory,
   but it holds only the raw expression text already visible in the history above, not anything
   separately sensitive, and is overwritten on every evaluation.) The history's size limit can be
   set by the setting `history_size`

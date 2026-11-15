@@ -24,6 +24,10 @@
       "description": "Size of the history stored.",
       "label": "History size in MB"
     },
+    "preserve_history": {
+      "description": "Saves the history between restarts. Disabling this clears history whenever the plugin is restarted.",
+      "label": "Preserve History"
+    },
     "notify_on_copy": {
       "description": "Send a notification whenever an expression or result is copied to the clipboard.",
       "label": "Notify on copy"

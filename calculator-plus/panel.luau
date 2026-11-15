@@ -14,6 +14,7 @@ local isEvaluating = false
 local hoveredRow = nil
 
 local notifyOnCopy = noctalia.getConfig("notify_on_copy")
+local preserveHistory = noctalia.getConfig("preserve_history")
 local historySize = noctalia.getConfig("history_size")
 local heldChord = nil
 local heldElapsedMs = 0
@@ -42,8 +43,10 @@ end
 -- Saves history to history table
 local function pushHistory(expr, result, isErr)
 	table.insert(history, { expr = expr, result = result, isError = isErr })
-	noctalia.writeFile(path, noctalia.json.encode(history))
-	checkHistorySize()
+	if preserveHistory then
+		noctalia.writeFile(path, noctalia.json.encode(history))
+		checkHistorySize()
+	end
 	scrollRev = scrollRev + 1
 end
 
@@ -279,7 +282,9 @@ function onClear()
 	sessionExprs = {}
 	lastLineCount = 0
 	scrollRev = scrollRev + 1
-	noctalia.writeFile(path, noctalia.json.encode(history))
+	if preserveHistory then
+		noctalia.writeFile(path, noctalia.json.encode(history))
+	end
 	render()
 end
 
@@ -375,7 +380,9 @@ function onRowMenuAction(actionId, index)
 		end
 	elseif actionId == "delete" then
 		table.remove(history, index)
-		noctalia.writeFile(path, noctalia.json.encode(history))
+		if preserveHistory then
+			noctalia.writeFile(path, noctalia.json.encode(history))
+		end
 		render()
 	end
 end
@@ -388,7 +395,9 @@ end
 function onOpen(context)
 	heldChord = nil
 	inputGen = inputGen + 1
-	local raw = noctalia.readFile(path)
-	if raw then history = noctalia.json.decode(raw) end
+	if preserveHistory then
+		local raw = noctalia.readFile(path)
+		if raw then history = noctalia.json.decode(raw) end
+	end
 	render()
 end
