@@ -5,6 +5,7 @@
     "close": "Close panel",
     "copied": "Copied {value} to clipboard",
     "copy_expr": "Copy expression",
+    "copy_result": "Copy result",
     "delete": "Delete",
     "empty": "No calculations yet, type an expression below",
     "error": "Could not evaluate expression",

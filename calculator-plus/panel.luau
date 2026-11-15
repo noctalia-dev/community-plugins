@@ -347,6 +347,7 @@ function onRowMenuClick(index)
 		items = {
 			{ id = "rerun", label = noctalia.tr("panel.rerun") },
 			{ id = "copyExpr", label = noctalia.tr("panel.copy_expr") },
+			{ id = "copyResult", label = noctalia.tr("panel.copy_result") },
 			{ kind = "separator" },
 			{ id = "delete", label = noctalia.tr("panel.delete") },
 		},
@@ -363,10 +364,15 @@ function onRowMenuAction(actionId, index)
 	if actionId == "rerun" then
 		evaluate(h.expr)
 	elseif actionId == "copyExpr" then
-    noctalia.copyToClipboard(h.expr, "text/plain")
-    if notifyOnCopy then
-		noctalia.notify(noctalia.tr("panel.title"), noctalia.tr("panel.copied", { value = h.expr }))
-    end
+		noctalia.copyToClipboard(h.expr, "text/plain")
+		if notifyOnCopy then
+			noctalia.notify(noctalia.tr("panel.title"), noctalia.tr("panel.copied", { value = h.expr }))
+		end
+	elseif actionId == "copyResult" then
+		noctalia.copyToClipboard(h.result, "text/plain")
+		if notifyOnCopy then
+			noctalia.notify(noctalia.tr("panel.title"), noctalia.tr("panel.copied", { value = h.result }))
+		end
 	elseif actionId == "delete" then
 		table.remove(history, index)
 		noctalia.writeFile(path, noctalia.json.encode(history))
