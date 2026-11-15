@@ -530,15 +530,21 @@ rev = "5a5a0d171b87f8ceb18409a07a782b7c5874393c"
 [[plugin]]
 id = "dotnetrob/cat"
 name = "Cat"
-version = "1.3.0"
-updated_at = 1791604745
+version = "1.4.0"
+updated_at = 1794782627
 added_at = 1784595702
 author = "DotNetRob"
 license = "MIT"
 icon = "paw"
 description = "An animated running cat bar widget whose speed reflects CPU usage."
-plugin_api = 12
+plugin_api = 52
 tags = ["bar", "animation", "system", "fun"]
+
+[[plugin.release]]
+plugin_api = 12
+version = "1.3.0"
+updated_at = 1791604745
+rev = "01e79890da1c2f5fab194f3614dd2709afeeed7b"
 
 [[plugin.release]]
 plugin_api = 3
