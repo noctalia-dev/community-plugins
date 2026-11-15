@@ -20,9 +20,13 @@
       "description": "Icon glyph name.",
       "label": "Glyph"
     },
+    "preserve_history": {
+      "description": "Saves the history between restarts. Disabling this clears history whenever the plugin is restarted.",
+      "label": "Preserve History"
+    },
     "history_size": {
-      "description": "Size of the history stored.",
-      "label": "History size in MB"
+      "description": "Size of the history stored. (Only applies when the above is enabled)",
+      "label": "History size in MB."
     },
     "preserve_history": {
       "description": "Saves the history between restarts. Disabling this clears history whenever the plugin is restarted.",
