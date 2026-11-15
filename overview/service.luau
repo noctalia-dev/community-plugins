@@ -24,12 +24,26 @@ local function idOf(value)
   return type(value) == "table" and value.id or value
 end
 
+local function isNumber(value)
+  return type(value) == "number" and value == value and value ~= math.huge and value ~= -math.huge
+end
+
+-- A pair of numbers, such as a window's "at" and "size".
+local function isPair(value)
+  return type(value) == "table" and isNumber(value[1]) and isNumber(value[2])
+end
+
 -- Builds the model from the three hyprctl answers. Window positions are kept relative to
--- their monitor, in logical pixels.
+-- their monitor, in logical pixels. An entry without the fields it needs is left out, so one
+-- odd monitor, workspace or window cannot stop the whole overview.
 local function build(monitorList, workspaceList, clientList)
   local monitors, monitorById, monitorByName = {}, {}, {}
   for _, m in ipairs(monitorList) do
-    local scale = m.scale or 1
+    if type(m) ~= "table" or type(m.name) ~= "string" or not isNumber(m.width) or not isNumber(m.height)
+      or m.width <= 0 or m.height <= 0 or not isNumber(m.x) or not isNumber(m.y) then
+      continue
+    end
+    local scale = isNumber(m.scale) and m.scale > 0 and m.scale or 1
     local width, height = m.width / scale, m.height / scale
     if m.transform == 1 or m.transform == 3 or m.transform == 5 or m.transform == 7 then
       width, height = height, width
@@ -52,7 +66,7 @@ local function build(monitorList, workspaceList, clientList)
   local workspaces, workspaceById = {}, {}
   for _, w in ipairs(workspaceList) do
     -- Special workspaces have negative ids and live outside the usual flow.
-    if w.id > 0 then
+    if type(w) == "table" and isNumber(w.id) and w.id > 0 then
       local monitor = monitorByName[w.monitor] or monitorById[w.monitorID]
       local workspace = { id = w.id, name = w.name, monitor = monitor and monitor.name or "", windows = {} }
       table.insert(workspaces, workspace)
@@ -62,20 +76,21 @@ local function build(monitorList, workspaceList, clientList)
   table.sort(workspaces, function(a, b) return a.id < b.id end)
 
   for _, c in ipairs(clientList) do
-    local workspace = workspaceById[idOf(c.workspace)]
+    local workspace = type(c) == "table" and workspaceById[idOf(c.workspace)]
     local monitor = workspace and monitorByName[workspace.monitor]
-    if workspace and monitor and c.mapped ~= false and c.hidden ~= true then
+    if workspace and monitor and c.mapped ~= false and c.hidden ~= true and isPair(c.at) and isPair(c.size)
+      and type(c.address) == "string" then
       table.insert(workspace.windows, {
         address = c.address,
-        class = c.class or "",
-        title = c.title or "",
+        class = type(c.class) == "string" and c.class or "",
+        title = type(c.title) == "string" and c.title or "",
         x = c.at[1] - monitor.x,
         y = c.at[2] - monitor.y,
         width = c.size[1],
         height = c.size[2],
         floating = c.floating == true,
         focused = c.focusHistoryID == 0,
-        stableId = c.stableId,
+        stableId = type(c.stableId) == "string" and c.stableId or nil,
       })
     end
   end
@@ -91,27 +106,41 @@ local lastPublished = nil
 local PREVIEW_SCALE = "0.25"
 local previewDir = (noctalia.pluginDataDir() or "") .. "/previews"
 
--- Takes the pictures one after another in one process. Arguments are the scale, then pairs
--- of toplevel id and file. Prints each file that worked.
-local CAPTURE = [[
-scale=$1
-shift
-while [ $# -ge 2 ]; do
-  grim -T "$1" -s "$scale" "$2" 2>/dev/null && echo "$2"
-  shift 2
-done
-]]
-
 local pictures = {} -- the last good picture of each window, by toplevel id
+local icons = {} -- app icon path by window class, or false when there is none
+local iconsWanted = {} -- classes still to look up
+-- Looking up an icon takes a few milliseconds, and a callback has 25: each update starts
+-- lookups only while it has used less than this.
+local ICON_MS = 6
 local capturing = false
+local cleared = false -- the pictures of an earlier run are gone
 local capturedFor = nil -- the windows and places the last pictures were taken for
 local generation = 0
 
+-- Gives each window its picture, and its app icon for while it has none.
 local function applyPictures(model)
   for _, workspace in ipairs(model.workspaces) do
     for _, window in ipairs(workspace.windows) do
       window.preview = window.stableId and pictures[window.stableId] or nil
+      if window.class ~= "" then
+        if icons[window.class] == nil then
+          iconsWanted[window.class] = true
+        end
+        window.icon = icons[window.class] or nil
+      end
     end
+  end
+end
+
+-- Looks up the icons of new window classes, a few at a time; the next read publishes them.
+local function lookUpIcons()
+  local started = os.clock()
+  for class in pairs(iconsWanted) do
+    if (os.clock() - started) * 1000 >= ICON_MS then
+      break
+    end
+    iconsWanted[class] = nil
+    icons[class] = noctalia.appIconPath(class, 32) or false
   end
 end
 
@@ -140,41 +169,59 @@ local function capture(model)
     return
   end
   local key = layoutKey(model)
-  if capturing or key == capturedFor or not noctalia.commandExists("grim") then
+  if not cleared or capturing or key == capturedFor or not noctalia.commandExists("grim") then
     return
   end
   capturing = true
   generation += 1
   noctalia.mkdirAll(previewDir)
-  local argv = { "sh", "-c", CAPTURE, "overview", PREVIEW_SCALE }
-  local wanted = {}
+  local shots = {}
   for _, workspace in ipairs(model.workspaces) do
     for _, window in ipairs(workspace.windows) do
       if window.stableId then
-        local path = `{previewDir}/{window.stableId}-{generation}.png`
-        wanted[path] = window.stableId
-        table.insert(argv, window.stableId)
-        table.insert(argv, path)
+        table.insert(shots, { id = window.stableId, path = `{previewDir}/{window.stableId}-{generation}.png` })
       end
     end
   end
-  noctalia.runAsync(argv, function(result)
+  -- One grim at a time, so a screen full of windows does not start dozens at once.
+  local taken = {}
+  local function done()
     capturing = false
     capturedFor = key
-    local old = pictures
-    pictures = {}
-    for path in (result.stdout or ""):gmatch("[^\n]+") do
-      if wanted[path] then
-        pictures[wanted[path]] = path
-      end
-    end
-    for _, path in pairs(old) do
+    for _, path in pairs(pictures) do
       noctalia.removeFile(path)
     end
+    pictures = taken
     applyPictures(model)
     lastPublished = noctalia.json.encode(model)
     noctalia.state.set("overview.model", model)
-  end, 30000)
+  end
+  local function take(index)
+    local shot = shots[index]
+    if shot == nil then
+      done()
+      return
+    end
+    noctalia.runAsync({ "grim", "-T", shot.id, "-s", PREVIEW_SCALE, shot.path }, function(result)
+      if result.exitCode == 0 then
+        taken[shot.id] = shot.path
+      end
+      take(index + 1)
+    end, 10000)
+  end
+  take(1)
+end
+
+-- Shows why the overview cannot be read, in the panel and once in Noctalia's log, instead of
+-- loading forever.
+local lastError = nil
+local function fail(message)
+  if message ~= lastError then
+    lastError = message
+    noctalia.log("overview could not read Hyprland: " .. message)
+  end
+  lastPublished = nil
+  noctalia.state.set("overview.model", { hyprland = true, error = message })
 end
 
 local function refresh()
@@ -191,17 +238,24 @@ local function refresh()
       noctalia.runAsync({ "hyprctl", "-j", "clients" }, function(clients)
         reading = false
         local m, w, c = decode(monitors), decode(workspaces), decode(clients)
-        if m and w and c then
-          local model = build(m, w, c)
-          applyPictures(model)
-          -- Rendered again only when something changed.
-          local text = noctalia.json.encode(model)
-          if text ~= lastPublished then
-            lastPublished = text
-            noctalia.state.set("overview.model", model)
-          end
-          capture(model)
+        if not (m and w and c) then
+          fail("hyprctl did not answer with JSON")
+          return
         end
+        local ok, model = pcall(build, m, w, c)
+        if not ok then
+          fail(tostring(model))
+          return
+        end
+        lastError = nil
+        applyPictures(model)
+        -- Rendered again only when something changed.
+        local text = noctalia.json.encode(model)
+        if text ~= lastPublished then
+          lastPublished = text
+          noctalia.state.set("overview.model", model)
+        end
+        capture(model)
       end)
     end)
   end)
@@ -235,6 +289,8 @@ noctalia.state.watch("overview.command", function(command)
   local action = command.action
   if action == "open" then
     watching = true
+    -- Windows may show something new, so their pictures are taken again.
+    capturedFor = nil
     refresh()
   elseif action == "close" then
     watching = false
@@ -339,9 +395,23 @@ end
 
 local lastBindingMs = 0
 
+-- Pictures left by an earlier run are not known to this one, so they go before any is taken.
+local function clearOldPictures()
+  for _, name in ipairs(noctalia.listDir(previewDir) or {}) do
+    if name:match("%.png$") then
+      noctalia.removeFile(previewDir .. "/" .. name)
+    end
+  end
+  cleared = true
+end
+
 function update()
+  if not cleared then
+    clearOldPictures()
+  end
   -- While the panel is open, workspaces and windows are read again, so it follows changes.
   if watching then
+    lookUpIcons()
     refresh()
   end
   if noctalia.nowMs() - lastBindingMs >= 5000 then
@@ -361,3 +431,5 @@ function onExit()
 end
 
 noctalia.setUpdateInterval(1500)
+-- The model of an earlier run names pictures that are about to go.
+noctalia.state.set("overview.model", nil)

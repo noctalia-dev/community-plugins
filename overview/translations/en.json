@@ -6,6 +6,7 @@
     "taken_title": "Overview: key already in use"
   },
   "panel": {
+    "error": "Overview could not read Hyprland's workspaces and windows:",
     "hint": "Click a window to go to it. Drag it onto a workspace to move it.",
     "loading": "Loading…",
     "no_windows": "No windows open.",
