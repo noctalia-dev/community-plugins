@@ -334,7 +334,7 @@ local function refresh()
         end
 
         if pendingRefresh then refresh() end
-    end, 30000)
+    end, 60000)
 
     -- A refusal to spawn never calls back, and the poller would sit in flight
     -- forever.

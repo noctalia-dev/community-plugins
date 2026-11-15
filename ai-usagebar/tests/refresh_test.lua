@@ -8,7 +8,7 @@ local function read(path)
 end
 
 local values, watchers = {}, {}
-local commands, callbacks = {}, {}
+local commands, callbacks, timeouts = {}, {}, {}
 local notifications = {}
 local decodedReport = { entries = {} }
 local now = 5000
@@ -28,9 +28,10 @@ local noctalia = {
     nowMs = function() return now end,
     getConfig = function(key) return key == "refresh_minutes" and 5 or nil end,
     setUpdateInterval = function(ms) intervals[#intervals + 1] = ms end,
-    runAsync = function(command, callback)
+    runAsync = function(command, callback, timeout)
         commands[#commands + 1] = command
         callbacks[#callbacks + 1] = callback
+        timeouts[#timeouts + 1] = timeout
         return true
     end,
     json = { decode = function() return decodedReport end },
@@ -50,6 +51,7 @@ local service = assert(load(read("service.luau"), "service", "t", env))
 service()
 
 assert(#callbacks == 1, "service should start one initial refresh")
+assert(timeouts[1] == 60000, "usage polling should allow 60s for slower provider and agy reads")
 env.onIpc("refresh")
 assert(#callbacks == 1, "refresh while busy should be coalesced")
 assert(values.refresh_queued == true, "coalesced refresh should be visible as queued")
