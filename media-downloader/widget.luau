@@ -1,8 +1,8 @@
 --!nonstrict
--- Downloader bar widget: a download glyph, and the running download's progress.
--- Renders "downloader.model" from service.luau; a click opens the panel.
+-- Media Downloader bar widget: a download glyph, and the running download's progress.
+-- Renders "media-downloader.model" from service.luau; a click opens the panel.
 
-local PANEL = "omerfuyar/downloader:panel"
+local PANEL = "omerfuyar/media-downloader:panel"
 
 local model = nil
 
@@ -64,14 +64,14 @@ local function render()
   barWidget.setTooltip(rows)
 end
 
-noctalia.state.watch("downloader.model", function(value)
+noctalia.state.watch("media-downloader.model", function(value)
   model = value
   render()
 end)
 
 function update()
   noctalia.setUpdateInterval(60000)
-  model = model or noctalia.state.get("downloader.model")
+  model = model or noctalia.state.get("media-downloader.model")
   render()
 end
 
@@ -81,5 +81,5 @@ end
 
 -- Right click downloads the link on the clipboard, as video or audio like the last download.
 function onRightClick()
-  noctalia.state.set("downloader.command", { action = "clipboard", n = noctalia.nowMs() })
+  noctalia.state.set("media-downloader.command", { action = "clipboard", n = noctalia.nowMs() })
 end

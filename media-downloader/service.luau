@@ -1,11 +1,11 @@
 --!nonstrict
--- Downloader service: owns the queue and runs yt-dlp, one download at a time.
+-- Media Downloader service: owns the queue and runs yt-dlp, one download at a time.
 --
 -- yt-dlp runs detached, so a download outlives the 60 s limit of runAsync callbacks and
 -- survives a reload of this script. RUNNER writes yt-dlp's output, its process id and its
 -- exit code next to the queue in the data directory; update() reads them back.
 --
--- Publishes "downloader.model" and takes commands on "downloader.command".
+-- Publishes "media-downloader.model" and takes commands on "media-downloader.command".
 
 local REQUIRED = { "yt-dlp", "ffmpeg" }
 
@@ -89,7 +89,7 @@ local function checkDependencies()
 end
 
 local function publish()
-  noctalia.state.set("downloader.model", {
+  noctalia.state.set("media-downloader.model", {
     ready = #missing == 0,
     missing = missing,
     installCommand = install,
@@ -182,7 +182,7 @@ local function start(job)
   job.progress = 0
   noctalia.mkdirAll(jobsDir)
   noctalia.mkdirAll(noctalia.expandPath(noctalia.getConfig("folder")))
-  local argv = { "sh", "-c", RUNNER, "downloader", jobPrefix(job) }
+  local argv = { "sh", "-c", RUNNER, "media-downloader", jobPrefix(job) }
   for _, arg in ipairs(downloadArgs(job)) do
     table.insert(argv, arg)
   end
@@ -288,7 +288,7 @@ local function cancel(job)
     save()
   elseif job.status == "running" then
     job.cancelling = true
-    noctalia.runAsync({ "sh", "-c", SIGNAL, "downloader", jobPrefix(job) .. ".pid", "TERM" })
+    noctalia.runAsync({ "sh", "-c", SIGNAL, "media-downloader", jobPrefix(job) .. ".pid", "TERM" })
   end
 end
 
@@ -329,7 +329,7 @@ local function queueLink(payload, mode)
   poll()
 end
 
-noctalia.state.watch("downloader.command", function(command)
+noctalia.state.watch("media-downloader.command", function(command)
   if type(command) ~= "table" then
     return
   end
@@ -382,7 +382,7 @@ local function recover()
   if job == nil or noctalia.fileExists(jobPrefix(job) .. ".exit") then
     return
   end
-  noctalia.runAsync({ "sh", "-c", SIGNAL, "downloader", jobPrefix(job) .. ".pid", "0" }, function(result)
+  noctalia.runAsync({ "sh", "-c", SIGNAL, "media-downloader", jobPrefix(job) .. ".pid", "0" }, function(result)
     if result.exitCode ~= 0 and not noctalia.fileExists(jobPrefix(job) .. ".exit") then
       finish(job, -1)
       publish()
@@ -391,8 +391,8 @@ local function recover()
 end
 
 
--- noctalia msg plugin omerfuyar/downloader:service all video <link>
--- noctalia msg plugin omerfuyar/downloader:service all audio <link>
+-- noctalia msg plugin omerfuyar/media-downloader:service all video <link>
+-- noctalia msg plugin omerfuyar/media-downloader:service all audio <link>
 -- Without a link, the clipboard's text is used.
 function onIpc(event, payload)
   if event == "video" or event == "audio" then

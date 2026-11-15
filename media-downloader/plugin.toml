@@ -1,6 +1,6 @@
-id = "omerfuyar/downloader"
-name = "Downloader"
-version = "1.3.3"
+id = "omerfuyar/media-downloader"
+name = "Media Downloader"
+version = "2.0.0"
 plugin_api = 43
 author = "omerfuyar"
 license = "MIT"

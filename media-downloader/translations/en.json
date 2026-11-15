@@ -22,7 +22,7 @@
       "title": "Download failed"
     },
     "not_a_link": {
-      "title": "Downloader: not a link"
+      "title": "Media Downloader: not a link"
     }
   },
   "panel": {
@@ -36,7 +36,7 @@
     "placeholder": "Paste a link",
     "saves_to": "Saves to {folder}",
     "sites": "Works with YouTube, Instagram, TikTok, X, Facebook, Reddit, Vimeo, Twitch, SoundCloud and over a thousand other sites.",
-    "title": "Downloader"
+    "title": "Media Downloader"
   },
   "settings": {
     "audio_format": {
@@ -79,15 +79,15 @@
     }
   },
   "setup": {
-    "body": "Downloader needs {list} to download.",
+    "body": "Media Downloader needs {list} to download.",
     "check": "Check again",
     "install": "Install in terminal",
     "manual": "Install {list} with your package manager, then open this panel again.",
     "title": "Setup needed"
   },
   "widget": {
-    "idle": "Downloader: click to download a link",
-    "setup": "Downloader needs {list}. Click to set it up.",
+    "idle": "Media Downloader: click to download a link",
+    "setup": "Media Downloader needs {list}. Click to set it up.",
     "tooltip": {
       "eta": "Time left",
       "file": "Downloading",

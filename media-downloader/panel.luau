@@ -1,8 +1,8 @@
 --!nonstrict
--- Downloader panel: a link field, video or audio, and the queue.
--- Renders "downloader.model" from service.luau and sends actions on "downloader.command".
+-- Media Downloader panel: a link field, video or audio, and the queue.
+-- Renders "media-downloader.model" from service.luau and sends actions on "media-downloader.command".
 
-local model = noctalia.state.get("downloader.model")
+local model = noctalia.state.get("media-downloader.model")
 local url = ""
 local mode = nil
 -- A new key gives the link field a new value (ui.input is seeded only when created).
@@ -26,7 +26,7 @@ local STATUS_GLYPHS = {
 
 local function send(command)
   command.n = noctalia.nowMs()
-  noctalia.state.set("downloader.command", command)
+  noctalia.state.set("media-downloader.command", command)
 end
 
 -- Takes the first word of the text that is a web link. With allowBare, a word that is only a
@@ -316,7 +316,7 @@ render = function()
   }))
 end
 
-noctalia.state.watch("downloader.model", function(value)
+noctalia.state.watch("media-downloader.model", function(value)
   model = value
   if mode == nil and model then
     mode = model.lastMode
@@ -326,7 +326,7 @@ end)
 
 function onOpen(_context)
   send({ action = "recheck" })
-  model = noctalia.state.get("downloader.model") or model
+  model = noctalia.state.get("media-downloader.model") or model
   mode = mode or (model and model.lastMode) or "video"
   -- Offer the link on the clipboard, unless it is already in the queue.
   if url == "" then

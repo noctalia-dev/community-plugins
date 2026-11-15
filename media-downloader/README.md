@@ -1,20 +1,20 @@
-# Downloader
+# Media Downloader
 
 Download a video or its audio from a link, with yt-dlp, right from the bar. Paste a link,
 pick video or audio, and follow the queue and progress in the bar.
 
-![Downloader panel](screenshots/panel.webp)
+![Media Downloader panel](screenshots/panel.webp)
 
 ## Plugin
 
 | Field   | Value                                                    |
 | ------- | -------------------------------------------------------- |
-| ID      | `omerfuyar/downloader`                                   |
+| ID      | `omerfuyar/media-downloader`                             |
 | Entries | Bar widget: `widget`; panel: `panel`; service: `service` |
 
 ## Supported sites
 
-Downloader works with every site yt-dlp supports: more than a thousand, among them
+Media Downloader works with every site yt-dlp supports: more than a thousand, among them
 YouTube, Instagram, TikTok, X (Twitter), Facebook, Reddit, Vimeo, Twitch, SoundCloud,
 Bandcamp, Dailymotion and Bilibili. The full list is
 [yt-dlp's supported sites](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md).
@@ -33,7 +33,7 @@ When `yt-dlp` or `ffmpeg` is missing, the panel offers to install both in a term
 
 ## Usage
 
-1. Add the **Downloader** widget to the bar and click it.
+1. Add the **Media Downloader** widget to the bar and click it.
 2. A link on the clipboard is filled in for you. Otherwise paste one, or press the
    clipboard button.
 3. Pick **Video** or **Audio** and press **Download** or Enter.
@@ -45,10 +45,10 @@ Downloads run one at a time. While one runs, the bar shows its progress, and the
 shows its name, speed and time left. The panel lists waiting and finished downloads; a
 finished file opens with the play button, and a failed one can be tried again.
 
-![Downloader in the bar](screenshots/bar.webp)
+![Media Downloader in the bar](screenshots/bar.webp)
 
 ```sh
-noctalia msg panel-toggle omerfuyar/downloader:panel
+noctalia msg panel-toggle omerfuyar/media-downloader:panel
 ```
 
 ## Settings
@@ -68,8 +68,8 @@ Queue a link as video or audio. Without a link, the clipboard's text is used, so
 binding can download whatever link was just copied.
 
 ```sh
-noctalia msg plugin omerfuyar/downloader:service all video "https://example.com/watch/123"
-noctalia msg plugin omerfuyar/downloader:service all audio
+noctalia msg plugin omerfuyar/media-downloader:service all video "https://example.com/watch/123"
+noctalia msg plugin omerfuyar/media-downloader:service all audio
 ```
 
 ## Notes
