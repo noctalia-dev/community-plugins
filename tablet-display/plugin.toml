@@ -1,0 +1,123 @@
+# Use an Android tablet or iPad as an extended or mirrored display, streamed
+# by Sunshine to Moonlight.
+
+id = "iwasironman/tablet-display"
+name = "Tablet Display"
+version = "0.3.0"
+plugin_api = 43
+author = "iwasironman"
+license = "MIT"
+icon = "device-tablet"
+description = "Use an Android tablet or iPad as an extended or mirrored display, streamed by Sunshine to Moonlight."
+tags = ["bar", "panel", "service", "shortcut", "hardware", "utility", "niri", "hyprland", "sway", "mangowc"]
+dependencies = ["sunshine", "jq", "python3", "pkexec", "nmcli"]
+
+[[setting]]
+key = "device"
+type = "select"
+label_key = "settings.device.label"
+description_key = "settings.device.description"
+default = "auto"
+options = [
+  { value = "auto", label_key = "settings.device.auto" },
+  { value = "galaxy-tab-s9-ultra", label_key = "settings.device.galaxy-tab-s9-ultra" },
+  { value = "galaxy-tab-s9-plus", label_key = "settings.device.galaxy-tab-s9-plus" },
+  { value = "galaxy-tab-s9", label_key = "settings.device.galaxy-tab-s9" },
+  { value = "ipad-pro-13-m4", label_key = "settings.device.ipad-pro-13-m4" },
+  { value = "ipad-pro-11-m4", label_key = "settings.device.ipad-pro-11-m4" },
+  { value = "custom", label_key = "settings.device.custom" },
+]
+
+[[setting]]
+key = "custom_resolution"
+type = "string"
+label_key = "settings.custom_resolution.label"
+description_key = "settings.custom_resolution.description"
+default = "2560x1600"
+visible_when = { key = "device", values = ["auto", "custom"] }
+
+[[setting]]
+key = "custom_diagonal"
+type = "double"
+label_key = "settings.custom_diagonal.label"
+description_key = "settings.custom_diagonal.description"
+default = 0.0
+min = 0.0
+max = 32.0
+step = 0.1
+visible_when = { key = "device", values = ["auto", "custom"] }
+
+[[setting]]
+key = "audio"
+type = "bool"
+label_key = "settings.audio.label"
+description_key = "settings.audio.description"
+default = false
+
+[[setting]]
+key = "usb_keep_internet"
+type = "bool"
+label_key = "settings.usb_keep_internet.label"
+description_key = "settings.usb_keep_internet.description"
+default = true
+
+[[setting]]
+key = "keep_sunshine"
+type = "bool"
+label_key = "settings.keep_sunshine.label"
+description_key = "settings.keep_sunshine.description"
+default = false
+advanced = true
+
+[[setting]]
+key = "refresh_rates"
+type = "string"
+label_key = "settings.refresh_rates.label"
+description_key = "settings.refresh_rates.description"
+default = "60,90,120"
+advanced = true
+
+[[setting]]
+key = "method"
+type = "select"
+label_key = "settings.method.label"
+description_key = "settings.method.description"
+default = "auto"
+advanced = true
+options = [
+  { value = "auto", label_key = "settings.method.auto" },
+  { value = "virtual", label_key = "settings.method.virtual" },
+  { value = "port", label_key = "settings.method.port" },
+]
+
+[[setting]]
+key = "port"
+type = "string"
+label_key = "settings.port.label"
+description_key = "settings.port.description"
+default = "auto"
+advanced = true
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[widget]]
+id = "status"
+entry = "widget.luau"
+
+[[shortcut]]
+id = "toggle"
+entry = "shortcut.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 420
+height = "content"
+max_height = 720
+placement = "floating"
+position = "center"
+open_near_click = true
+keyboard_focus = "on_demand"
+dismiss_on_outside_click = true

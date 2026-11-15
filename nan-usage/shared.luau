@@ -1,31 +1,42 @@
 --!nonstrict
--- The model: what NaN's API returns in, what the bar widget and the panel paint out.
+-- The model: what NaN's /v1/usage returns in, what the bar widget and the panel paint out.
 --
 -- Pure by construction. It calls nothing on `noctalia.*` and reads no clock of its
 -- own: every derivation that depends on time takes it as an argument, in whole
--- seconds since the epoch. That is what lets `tests/shared_test.lua` run this file
--- under a fixed clock with plain Lua, and it is also why a countdown can be
--- recomputed from data already held without touching the network.
+-- seconds since the epoch, and the price table comes in as an argument too. That is
+-- what lets `tests/shared_test.lua` run this file under a fixed clock with plain Lua,
+-- and it is also why a countdown can be recomputed from data already held without
+-- touching the network.
 --
--- The NaN API has no published contract — the shapes below were read off the
--- panel bundle, and can change without notice — so every reader here is tolerant:
--- numbers may arrive as strings, timestamps as ISO strings, dates or epoch
--- numbers, and anything unreadable degrades to a zero value rather than throwing
--- away the whole response.
+-- The readers are tolerant: numbers may arrive as strings, timestamps as ISO strings,
+-- dates or epoch numbers, and anything unreadable degrades to a zero value rather
+-- than throwing away the whole response.
 
 local M = {}
+
+-- ── Days the data changes meaning on ────────────────────────────────────────
+
+-- The UTC day NaN began billing in credits. Rows before it bill nothing, so the
+-- plugin neither counts them nor measures a pace across them.
+M.CREDITS_SINCE = "2026-11-10"
+
+-- The UTC day NaN began reporting cached input. Before it `cached_tokens` is 0
+-- whatever happened, so the cache share and the token split start here.
+M.CACHE_SINCE = "2026-11-11"
 
 -- ── Levels ──────────────────────────────────────────────────────────────────
 
 local RANK = { ok = 0, warn = 1, crit = 2 }
 
--- Share of the period that has to have elapsed before a burn rate means
--- anything: in the first hours of a period the average is noise.
+-- Share of the measured span that has to have passed before a pace means anything:
+-- in the first hours the average is noise.
 local MIN_ELAPSED_FRAC = 0.05
 
--- Share of the period that has to be spent without quota for that to count as
--- critical. Running out just before the reset only warrants a warning.
+-- Share of the period that has to be spent without credits for that to count as
+-- critical. Running out just before the renewal only warrants a warning.
 local LOCKOUT_CRIT_FRAC = 0.10
+
+local DAY = 86400
 
 function M.rank(level)
   return RANK[level] or 0
@@ -39,7 +50,7 @@ function M.maxLevel(a, b)
   return b
 end
 
--- How full a window is right now.
+-- How full the allowance is right now.
 function M.utilLevel(util)
   if util >= 90 then
     return "crit"
@@ -130,6 +141,16 @@ local function unix(value)
   return at
 end
 
+-- The UTC day an instant falls on, the way the API names days: "2026-11-13".
+function M.utcDate(at)
+  return os.date("!%Y-%m-%d", at)
+end
+
+-- Midnight UTC at the start of a day named that way.
+local function utcMidnight(date)
+  return unix(date .. "T00:00:00Z")
+end
+
 -- ── Formatting ──────────────────────────────────────────────────────────────
 
 -- 3.00 → 3, 1.50 → 1.5
@@ -141,21 +162,27 @@ local function trimZeros(text)
   return (text:gsub("%.$", ""))
 end
 
+-- 6973 → 6,973
+local function group(digits)
+  local out = digits:reverse():gsub("(%d%d%d)", "%1,"):reverse()
+  return (out:gsub("^,", ""))
+end
+
 -- A token count in compact form: 3B, 1.5B, 79.9M, 398K, 42.
 function M.fmtTokens(n)
   local v = math.max(0, num(n))
   if v >= 1e9 then
     return trimZeros(string.format("%.2f", v / 1e9)) .. "B"
   elseif v >= 1e6 then
-    return trimZeros(string.format("%.1f", v / 1e6)) .. "M"
+    return trimZeros(string.format("%.2f", v / 1e6)) .. "M"
   elseif v >= 1e3 then
     return string.format("%.0f", math.floor(v / 1e3 + 0.5)) .. "K"
   end
   return string.format("%.0f", math.floor(v + 0.5))
 end
 
--- A percentage: whole numbers for the bar, and one decimal below 10% when fine is
--- set, where a plain "0%" says nothing for weeks.
+-- A percentage: whole numbers, and one decimal below 10% when fine is set, where a
+-- plain "0%" says nothing for weeks.
 function M.fmtPct(util, fine)
   local v = math.max(0, num(util))
   if fine and v < 10 then
@@ -164,10 +191,36 @@ function M.fmtPct(util, fine)
   return string.format("%.0f%%", math.floor(v + 0.5))
 end
 
--- A model id abbreviated for the bar: deepseek-v4-flash → ds4f, glm5.3-flash → glm5.3f.
-function M.shortModel(id)
-  local out = str(id):gsub("deepseek%-v4%-flash", "ds4f")
-  return (out:gsub("%-flash", "f"))
+-- Credits, which NaN reports to one decimal. form is "fixed" (always one decimal,
+-- for figures that line up in a list), "whole" (rounded, for large figures in the
+-- bar), or anything else for one decimal only when there is one: 26.5, 7,000.
+function M.fmtCredits(n, form)
+  local v = math.max(0, num(n))
+  if form == "whole" then
+    return group(string.format("%.0f", math.floor(v + 0.5)))
+  end
+  local text = string.format("%.1f", math.floor(v * 10 + 0.5) / 10)
+  local whole, frac = text:match("^(%d+)%.(%d)$")
+  if form ~= "fixed" and frac == "0" then
+    return group(whole)
+  end
+  return group(whole) .. "." .. frac
+end
+
+-- Credits in the fewest characters, for a label over a chart column a few pixels
+-- wide: 0.2, 5.6, 27, 1.2k. Empty for none, so a quiet day carries no label.
+function M.fmtCreditsShort(n)
+  local v = math.max(0, num(n))
+  if v <= 0 then
+    return ""
+  end
+  if v >= 1000 then
+    return trimZeros(string.format("%.1f", v / 1000)) .. "k"
+  end
+  if v >= 10 then
+    return string.format("%.0f", math.floor(v + 0.5))
+  end
+  return trimZeros(string.format("%.1f", math.floor(v * 10 + 0.5) / 10))
 end
 
 -- A duration with at most two units. compact is the bar form (20d, 4h21m, 45m);
@@ -212,418 +265,562 @@ function M.shortDate(at)
   return day .. " " .. os.date("%b", at)
 end
 
--- ── Windows ─────────────────────────────────────────────────────────────────
+-- A day the API names ("2026-11-10") the same way: "10 Nov".
+function M.dayLabel(date)
+  return M.shortDate(unix(date))
+end
 
--- One model in one period, normalised.
---
--- cap is always > 0: entries without a usable cap are dropped. utilization is
--- deliberately not clamped to 100 — if NaN lets usage overshoot, that should be
--- visible.
-function M.windows(raw)
-  local models = raw and raw.models
-  if type(models) ~= "table" then
+-- ── The request window ──────────────────────────────────────────────────────
+
+-- The first day to ask /v1/usage for: the UTC day the billing period started, or
+-- 31 days back while the period is not known yet, and never before credit billing
+-- began. periodStart is the previous answer's `credits.period_start`, or nil.
+function M.windowStart(periodStart, now)
+  local at = unix(periodStart)
+  local from = M.utcDate(at or (now - 31 * DAY))
+  if from < M.CREDITS_SINCE then
+    from = M.CREDITS_SINCE
+  end
+  return from
+end
+
+-- ── Reading a response ──────────────────────────────────────────────────────
+
+-- The `credits` block: the current billing period, whatever window was asked for.
+-- nil when the account is not billed in credits (the API sends null).
+function M.account(raw)
+  if type(raw) ~= "table" then
+    return nil
+  end
+  local allowance = math.max(0, num(raw.allowance))
+  local used = math.max(0, num(raw.used))
+  local remaining = allowance - used
+  if raw.remaining ~= nil then
+    remaining = num(raw.remaining)
+  end
+  return {
+    allowance = allowance,
+    used = used,
+    remaining = remaining,
+    packs = math.max(0, num(raw.pack_credits)),
+    packsExpireAt = unix(raw.pack_expires_at),
+    frozen = raw.frozen == true,
+    startsAt = unix(raw.period_start),
+    resetsAt = unix(raw.period_end),
+  }
+end
+
+-- The (day, model) rows from `from` on, normalised. cached never exceeds the input
+-- it is part of.
+function M.rows(raw, from)
+  local data = raw and raw.data
+  if type(data) ~= "table" then
     return {}
   end
-  local startsAt = unix(raw.periodStart)
   local out = {}
-  for _, entry in ipairs(models) do
+  for _, entry in ipairs(data) do
     if type(entry) == "table" then
-      local model = str(entry.model)
-      local cap = num(entry.cap)
-      if model ~= "" and cap > 0 then
-        local used = math.max(0, num(entry.tokensUsed))
-        local remaining = cap - used
-        if entry.remaining ~= nil then
-          remaining = num(entry.remaining)
-        end
+      local date, model = str(entry.date), str(entry.model)
+      if date:match("^%d%d%d%d%-%d%d%-%d%d$") and model ~= "" and (from == nil or date >= from) then
+        local prompt = math.max(0, num(entry.prompt_tokens))
         out[#out + 1] = {
-          key = model,
+          date = date,
           model = model,
-          label = model,
-          used = used,
-          cap = cap,
-          remaining = remaining,
-          utilization = used / cap * 100,
-          startsAt = startsAt,
-          resetsAt = unix(entry.periodEnd),
-          windowHours = num(entry.windowHours),
-          windowCap = num(entry.fullWindowTokens),
-          updatedAt = unix(entry.updatedAt),
+          prompt = prompt,
+          cached = math.min(prompt, math.max(0, num(entry.cached_tokens))),
+          output = math.max(0, num(entry.completion_tokens)),
+          requests = math.max(0, num(entry.api_requests)),
+          credits = math.max(0, num(entry.credits)),
         }
       end
     end
   end
-  -- Busiest first, then by name, so the list is stable between refreshes.
-  table.sort(out, function(a, b)
-    if a.utilization ~= b.utilization then
-      return a.utilization > b.utilization
-    end
-    return a.model < b.model
-  end)
   return out
 end
 
--- The timing of a period, and only when there is something to extrapolate from:
--- both ends known, period not over, and not freshly started.
-local function span(w, now)
-  if not w.startsAt or not w.resetsAt then
+-- ── Pace ────────────────────────────────────────────────────────────────────
+
+-- The span the average rate is measured over: from the later of the period start
+-- and the day credit billing began, to the renewal. nil until enough of it has
+-- passed to mean something, and once the period is over.
+local function span(acct, now)
+  if not acct.startsAt or not acct.resetsAt or acct.resetsAt <= acct.startsAt then
     return nil
   end
-  if w.resetsAt <= w.startsAt then
-    return nil
-  end
-  local total = w.resetsAt - w.startsAt
-  local elapsed = now - w.startsAt
-  local remaining = w.resetsAt - now
-  if remaining <= 0 or elapsed <= 0 or elapsed < total * MIN_ELAPSED_FRAC then
+  local from = math.max(acct.startsAt, utcMidnight(M.CREDITS_SINCE))
+  local total = acct.resetsAt - from
+  local elapsed = now - from
+  local remaining = acct.resetsAt - now
+  if total <= 0 or remaining <= 0 or elapsed <= 0 or elapsed < total * MIN_ELAPSED_FRAC then
     return nil
   end
   return { total = total, elapsed = elapsed, remaining = remaining }
 end
 
--- The usage the period would end at if the average rate held until the reset.
--- Never below the usage already seen.
-function M.projectedUtil(w, now)
-  local s = span(w, now)
+-- The credits the period would end at if the average rate held until the renewal.
+-- Never below what is already used.
+function M.projectedUsed(acct, now)
+  local s = span(acct, now)
   if not s then
-    return w.utilization
-  end
-  return math.max(w.utilization, w.utilization * s.total / s.elapsed)
-end
-
--- How long until the quota runs out at the average rate, and only when that
--- happens before the reset.
-function M.exhaustAfter(w, now)
-  local s = span(w, now)
-  if not s or w.utilization <= 0 then
     return nil
   end
-  if w.utilization >= 100 then
+  return math.max(acct.used, acct.used * s.total / s.elapsed)
+end
+
+-- How long `left` credits last at the average rate, and only when they run out
+-- before the renewal.
+local function lastsFor(acct, left, now)
+  if left <= 0 then
     return 0
   end
-  local toExhaust = s.elapsed * (100 - w.utilization) / w.utilization
-  if toExhaust < s.remaining then
-    return toExhaust
+  local s = span(acct, now)
+  if not s or acct.used <= 0 then
+    return nil
+  end
+  local after = left * s.elapsed / acct.used
+  if after < s.remaining then
+    return after
   end
   return nil
 end
 
--- How long the account would sit without quota before the reset at the current
--- rate, when the rate does exhaust it.
-function M.lockout(w, now)
-  local after = M.exhaustAfter(w, now)
-  if not after then
-    return nil
-  end
-  return math.max(0, (w.resetsAt - now) - after)
+-- When the plan's allowance runs out at the average rate, if before the renewal.
+function M.allowanceOutIn(acct, now)
+  return lastsFor(acct, math.max(0, acct.remaining), now)
 end
 
--- Level by the consequence of the burn rate, not by the percentage alone.
-function M.windowLevel(w, now)
-  local level = M.utilLevel(w.utilization)
-  local s = span(w, now)
-  local lock = M.lockout(w, now)
-  if lock and s then
-    if lock >= s.total * LOCKOUT_CRIT_FRAC then
-      return M.maxLevel(level, "crit")
-    end
-    return M.maxLevel(level, "warn")
+-- When every credit, the allowance and then the packs, runs out at the average
+-- rate, if before the renewal.
+function M.creditsOutIn(acct, now)
+  return lastsFor(acct, math.max(0, acct.remaining) + acct.packs, now)
+end
+
+-- How long the account would wait for the renewal with no credits at all.
+function M.lockout(acct, now)
+  local out = M.creditsOutIn(acct, now)
+  if out == nil or not acct.resetsAt then
+    return nil
   end
-  if M.projectedUtil(w, now) >= 75 then
-    return M.maxLevel(level, "warn")
+  return math.max(0, (acct.resetsAt - now) - out)
+end
+
+-- Level by the consequence of the pace, not by the percentage alone. Packs are
+-- credits that can still be spent, so 90% with packs in hand is not critical.
+function M.accountLevel(acct, now)
+  if acct.frozen then
+    return "crit"
+  end
+  if math.max(0, acct.remaining) + acct.packs <= 0 then
+    return "crit"
+  end
+  local pct = acct.allowance > 0 and acct.used / acct.allowance * 100 or 100
+  local level = "ok"
+  if acct.packs <= 0 then
+    level = M.utilLevel(pct)
+  elseif pct >= 75 then
+    level = "warn"
+  end
+  local lock = M.lockout(acct, now)
+  if lock ~= nil and acct.startsAt and acct.resetsAt then
+    if lock >= (acct.resetsAt - acct.startsAt) * LOCKOUT_CRIT_FRAC then
+      return "crit"
+    end
+    level = M.maxLevel(level, "warn")
+  end
+  -- Drawing on packs, or heading there before the renewal.
+  if M.allowanceOutIn(acct, now) ~= nil then
+    level = M.maxLevel(level, "warn")
+  end
+  local projected = M.projectedUsed(acct, now)
+  if projected and acct.allowance > 0 and projected / acct.allowance * 100 >= 75 then
+    level = M.maxLevel(level, "warn")
   end
   return level
 end
 
--- The footer line of a window, tied to the same thresholds as windowLevel.
--- Empty when there is nothing worth saying.
-function M.projectionNote(w, now)
-  local s = span(w, now)
-  if not s then
-    return ""
+-- The pace as a sentence, tied to the same thresholds as accountLevel. Empty when
+-- there is too little of the period to judge.
+function M.paceNote(acct, now)
+  if acct.frozen then
+    return "the subscription is paused"
   end
-  local lock = M.lockout(w, now)
-  if lock then
-    if lock >= s.total * LOCKOUT_CRIT_FRAC then
-      return "at this rate it runs out in ~" .. M.humanDuration(M.exhaustAfter(w, now), false)
+  if math.max(0, acct.remaining) + acct.packs <= 0 then
+    return "no credits left until the renewal"
+  end
+  local out = M.creditsOutIn(acct, now)
+  if out then
+    if acct.remaining <= 0 then
+      return "the packs last about " .. M.humanDuration(out, false) .. " at this pace"
     end
-    return "at this rate it runs out just before the reset"
+    return "at this pace the credits run out in ~" .. M.humanDuration(out, false)
   end
-  local projected = M.projectedUtil(w, now)
-  if projected >= 75 and math.floor(projected + 0.5) > math.floor(w.utilization + 0.5) then
-    return "on track for ~" .. M.fmtPct(projected, false) .. " at reset"
+  local projected = M.projectedUsed(acct, now)
+  if projected and acct.allowance > 0 then
+    return "at this pace ~" .. M.fmtCredits(projected, "whole") .. " ("
+      .. M.fmtPct(projected / acct.allowance * 100, true) .. ") by the reset"
   end
   return ""
 end
 
--- The detail line under a window's bar: tokens used against the cap, time to
--- reset, the rolling window when there is one, and the projection note.
-function M.caption(w, now)
-  local parts = { M.fmtTokens(w.used) .. " / " .. M.fmtTokens(w.cap) }
-  if w.resetsAt then
-    parts[#parts + 1] = "resets in " .. M.humanDuration(w.resetsAt - now, false)
+-- ── Where the credits went ──────────────────────────────────────────────────
+
+-- The credits a model's tokens cost, split by type, from NaN's prices, then scaled
+-- so the three add up to what NaN billed. The scaling absorbs NaN's rounding to one
+-- decimal, and means only the ratio between a model's three prices matters. nil
+-- without a price or without tokens.
+function M.creditSplit(tokens, billed, price)
+  if type(price) ~= "table" then
+    return nil
   end
-  if w.windowHours > 0 then
-    parts[#parts + 1] = "window " .. M.fmtTokens(w.windowHours) .. " h: " .. M.fmtTokens(w.windowCap)
+  local new = tokens.new * num(price.input) / 1e6
+  local cached = tokens.cached * num(price.cachedInput) / 1e6
+  local output = tokens.output * num(price.output) / 1e6
+  local raw = new + cached + output
+  if raw <= 0 then
+    return nil
   end
-  local note = M.projectionNote(w, now)
-  if note ~= "" then
-    parts[#parts + 1] = note
-  end
-  return table.concat(parts, " · ")
+  local scale = billed > 0 and billed / raw or 1
+  return {
+    new = new * scale,
+    cached = cached * scale,
+    output = output * scale,
+    total = raw * scale,
+  }
 end
 
--- The period shared by the listed windows.
-function M.periodLine(ref, now)
-  if not ref or not ref.startsAt or not ref.resetsAt then
-    return ""
+-- A model's three prices as the panel prints them, in credits per 1M tokens: up to
+-- two decimals, since some are fractions of a credit (0.21). nil without a price.
+function M.priceView(price)
+  if type(price) ~= "table" then
+    return nil
   end
-  return "Period from " .. M.shortDate(ref.startsAt) .. " · resets in " .. M.humanDuration(ref.resetsAt - now, false)
+  local function text(value)
+    return trimZeros(string.format("%.2f", num(value)))
+  end
+  return { newText = text(price.input), cachedText = text(price.cachedInput), outputText = text(price.output) }
 end
 
--- What a list shows: with hideUnused, windows with no usage are dropped, except
--- the pinned one, which stays so it can be inspected.
-function M.visibleWindows(windows, hideUnused, pinned)
-  if not hideUnused then
-    return windows
+-- What the cache saved: the cached tokens at the input price, less what they cost
+-- at the cached price. The same arithmetic as the dashboard's own figure.
+function M.cacheSaved(cached, price)
+  if type(price) ~= "table" then
+    return 0
+  end
+  return cached * math.max(0, num(price.input) - num(price.cachedInput)) / 1e6
+end
+
+local function tokenView(t)
+  local input = t.new + t.cached
+  local view = {
+    new = t.new,
+    cached = t.cached,
+    output = t.output,
+    newText = M.fmtTokens(t.new),
+    totalText = M.fmtTokens(t.new + t.cached + t.output),
+    cachedText = M.fmtTokens(t.cached),
+    outputText = M.fmtTokens(t.output),
+    cachedPct = nil,
+    cachedPctText = "",
+  }
+  if input > 0 then
+    view.cachedPct = t.cached / input * 100
+    view.cachedPctText = M.fmtPct(view.cachedPct, false)
+  end
+  return view
+end
+
+local function splitView(s)
+  if s == nil then
+    return nil
+  end
+  local function share(part)
+    return s.total > 0 and part / s.total * 100 or 0
+  end
+  -- An estimate under one credit gets two decimals: "0.0" would hide that the
+  -- cached input cost anything at all. Under a hundredth, two decimals would still
+  -- print zero next to a share that is not, so it says so instead.
+  local function amount(part)
+    if part > 0 and part < 0.01 then
+      return "<0.01"
+    end
+    if part > 0 and part < 1 then
+      return string.format("%.2f", part)
+    end
+    return M.fmtCredits(part, "fixed")
+  end
+  return {
+    new = s.new,
+    cached = s.cached,
+    output = s.output,
+    newText = amount(s.new),
+    totalText = amount(s.total),
+    cachedText = amount(s.cached),
+    outputText = amount(s.output),
+    newPct = M.fmtPct(share(s.new), false),
+    cachedPct = M.fmtPct(share(s.cached), false),
+    outputPct = M.fmtPct(share(s.output), false),
+  }
+end
+
+-- The days a chart draws: every UTC day from the window start to the renewal.
+local function dayList(from, resetsAt, today)
+  local last = resetsAt and M.utcDate(resetsAt - 1) or today
+  if last < today then
+    last = today
   end
   local out = {}
-  for _, w in ipairs(windows) do
-    if w.used > 0 or (pinned ~= "" and w.model == pinned) then
-      out[#out + 1] = w
+  local at = utcMidnight(from)
+  while at ~= nil and #out < 45 do
+    local date = M.utcDate(at)
+    if date > last then
+      break
     end
+    out[#out + 1] = date
+    at = at + DAY
   end
   return out
 end
 
--- Which window the bar indicator reflects. mode: "worst", "max" or "fixed".
-function M.selectPanelWindow(windows, mode, modelID, now)
-  if #windows == 0 then
-    return nil
-  end
-  if mode == "fixed" then
-    for _, w in ipairs(windows) do
-      if w.model == modelID then
-        return w
-      end
+local function series(dates, byDate, today)
+  local out, peak = {}, nil
+  for _, date in ipairs(dates) do
+    local credits = byDate[date] or 0
+    local entry = {
+      date = date,
+      label = M.dayLabel(date),
+      day = tostring(tonumber(date:sub(9, 10))),
+      credits = credits,
+      valueText = M.fmtCreditsShort(credits),
+      today = date == today,
+      future = date > today,
+    }
+    out[#out + 1] = entry
+    if credits > 0 and (peak == nil or credits > peak.credits) then
+      peak = entry
     end
   end
-  -- Only consider windows actually in use; if none are, fall back to all of
-  -- them so the bar still says something.
-  local candidates = {}
-  for _, w in ipairs(windows) do
-    if w.used > 0 then
-      candidates[#candidates + 1] = w
-    end
-  end
-  if #candidates == 0 then
-    candidates = windows
-  end
-  local best = candidates[1]
-  for _, w in ipairs(candidates) do
-    if M.better(w, best, mode, now) then
-      best = w
-    end
-  end
-  return best
-end
-
--- Worst ranks by alarm level and then by usage; max goes by usage alone.
-function M.better(a, b, mode, now)
-  if mode == "max" then
-    return a.utilization > b.utilization
-  end
-  return M.rank(M.windowLevel(a, now)) * 1000 + a.utilization
-    > M.rank(M.windowLevel(b, now)) * 1000 + b.utilization
-end
-
--- ── Account and aggregates ──────────────────────────────────────────────────
-
--- The "handle · region" line under the title.
-function M.accountSummary(me)
-  local name = str(me and me.handle)
-  if name == "" then
-    name = str(me and me.username)
-  end
-  local parts = {}
-  if name ~= "" then
-    parts[#parts + 1] = name
-  end
-  if me and str(me.region) ~= "" then
-    parts[#parts + 1] = str(me.region)
-  end
-  return table.concat(parts, " · ")
-end
-
-local function bucket(raw, key)
-  local value = raw and raw[key]
-  if type(value) == "table" then
-    return num(value.totalTokens)
-  end
-  if value ~= nil then
-    return num(value)
-  end
-  return nil
-end
-
--- "24 h: 5M · month: 40M · 30 d: 44M"
-function M.metricsSummary(metrics)
-  local parts = {}
-  local labels = { { "last24h", "24 h" }, { "monthToDate", "month" }, { "last30d", "30 d" } }
-  for _, entry in ipairs(labels) do
-    local tokens = bucket(metrics, entry[1])
-    if tokens then
-      parts[#parts + 1] = entry[2] .. ": " .. M.fmtTokens(tokens)
-    end
-  end
-  return table.concat(parts, " · ")
-end
-
--- The same aggregates as data, so a UI can draw bars instead of printing a line.
-function M.usageBuckets(metrics)
-  local out = {}
-  local labels = { { "last24h", "24 h" }, { "monthToDate", "month" }, { "last30d", "30 d" } }
-  for _, entry in ipairs(labels) do
-    local tokens = bucket(metrics, entry[1])
-    if tokens then
-      out[#out + 1] = { label = entry[2], text = M.fmtTokens(tokens), tokens = tokens }
-    end
-  end
-  if #out == 0 then
-    return nil
-  end
-  return out
+  return out, peak
 end
 
 -- ── The document the surfaces paint ─────────────────────────────────────────
 
--- Which pieces the indicator is made of, composed the way the tool composes it.
-function M.barText(panel, cfg)
-  if not panel then
-    return "—"
+-- What the bar's figure says, for a `bar_value` of percent, used or remaining. A
+-- paused subscription and an account drawing on packs override it, because the
+-- usual figure would hide what matters.
+function M.barFigure(acct, barValue)
+  if acct.frozen then
+    return "paused"
   end
-  local parts = {}
-  if cfg.showPercentage then
-    parts[#parts + 1] = panel.percentText
+  if acct.usingPacks then
+    return "packs " .. M.fmtCredits(acct.packs, "whole")
   end
-  if cfg.showReset and panel.resetsIn ~= "" then
-    parts[#parts + 1] = panel.resetsIn
+  if barValue == "used" then
+    return acct.used < 100 and M.fmtCredits(acct.used) or M.fmtCredits(acct.used, "whole")
   end
-  if cfg.showModel and panel.short ~= "" then
-    parts[#parts + 1] = panel.short
+  if barValue == "remaining" then
+    return M.fmtCredits(math.max(0, acct.remaining), "whole")
   end
-  if #parts == 0 then
-    -- Everything is off: the model is the only useful leftover.
-    return panel.short
-  end
-  -- No spaces around the separator: in a bar, a full space either side of a middot
-  -- reads as three separate things rather than one figure. (A thin space would be
-  -- the typographic answer, but the theme's bar font may not have U+2009, and a
-  -- missing glyph is worse than a tight separator.)
-  return table.concat(parts, "·")
+  return acct.pctText
 end
 
-local function toWindow(w, now)
-  local resetsIn = ""
-  if w.resetsAt then
-    resetsIn = M.humanDuration(w.resetsAt - now, true)
-  end
-  return {
-    key = w.key,
-    model = w.model,
-    short = M.shortModel(w.model),
-    used = w.used,
-    cap = w.cap,
-    remaining = w.remaining,
-    percent = w.utilization,
-    percentText = M.fmtPct(w.utilization, true),
-    usedText = M.fmtTokens(w.used),
-    capText = M.fmtTokens(w.cap),
-    level = M.windowLevel(w, now),
-    resetsIn = resetsIn,
-    caption = M.caption(w, now),
-    note = M.projectionNote(w, now),
-  }
-end
-
-local function toPanel(w, now, cfg)
-  if not w then
-    return nil
-  end
-  local panel = {
-    model = w.model,
-    short = M.shortModel(w.model),
-    percent = w.utilization,
-    percentText = M.fmtPct(w.utilization, false),
-    level = M.windowLevel(w, now),
+local function accountView(acct, now)
+  local pct = acct.allowance > 0 and acct.used / acct.allowance * 100 or 100
+  local view = {
+    allowance = acct.allowance,
+    used = acct.used,
+    remaining = acct.remaining,
+    packs = acct.packs,
+    frozen = acct.frozen,
+    usingPacks = acct.remaining <= 0 and acct.packs > 0,
+    outOfCredits = math.max(0, acct.remaining) + acct.packs <= 0,
+    pct = pct,
+    pctText = M.fmtPct(pct, true),
+    level = M.accountLevel(acct, now),
+    usedText = M.fmtCredits(acct.used),
+    allowanceText = M.fmtCredits(acct.allowance),
+    remainingText = M.fmtCredits(math.max(0, acct.remaining)),
+    packsText = M.fmtCredits(acct.packs),
+    packsExpire = M.shortDate(acct.packsExpireAt),
     resetsIn = "",
+    resetsInLong = "",
+    resetsAtText = "",
+    periodText = "",
+    projected = M.projectedUsed(acct, now),
+    projectedText = "",
+    projectedPctText = "",
+    paceNote = M.paceNote(acct, now),
   }
-  if w.resetsAt then
-    panel.resetsIn = M.humanDuration(w.resetsAt - now, true)
+  if acct.resetsAt then
+    view.resetsIn = M.humanDuration(acct.resetsAt - now, true)
+    view.resetsInLong = M.humanDuration(acct.resetsAt - now, false)
+    view.resetsAtText = M.shortDate(acct.resetsAt) .. " " .. M.clockTime(acct.resetsAt)
   end
-  panel.text = M.barText(panel, cfg)
-  return panel
+  if acct.startsAt and acct.resetsAt then
+    view.periodText = M.shortDate(acct.startsAt) .. " – " .. M.shortDate(acct.resetsAt)
+  end
+  if view.projected and acct.allowance > 0 then
+    view.projectedText = "~" .. M.fmtCredits(view.projected, "whole")
+    view.projectedPctText = M.fmtPct(view.projected / acct.allowance * 100, true)
+  end
+  return view
 end
 
 -- Assembles the record the widget and the panel paint.
 --
--- `state` is what the service holds: the last responses it read, when, and any
--- error. `now` is the clock, so every countdown is recomputed from the same data
--- on each repaint rather than only on each poll.
-function M.build(state, cfg, now)
+-- `state` is what the service holds: the last /v1/usage answer, when it was read,
+-- and any error. `prices` is prices.luau. `now` is the clock, so every countdown is
+-- recomputed from the same data on each repaint rather than only on each poll.
+function M.build(state, cfg, now, prices)
   state = state or {}
   cfg = cfg or {}
+  local priceTable = (type(prices) == "table" and type(prices.models) == "table") and prices.models or {}
   local record = {
-    version = 1,
+    version = 2,
     ok = false,
+    billed = false,
     stale = false,
     error = state.error or "",
     fetchedAt = state.fetchedAt,
     ageSeconds = state.fetchedAt and math.max(0, now - state.fetchedAt) or 0,
     updated = "",
-    account = { handle = "", region = "", tier = "", summary = "" },
-    period = "",
-    panel = nil,
-    windows = {},
-    totalWindows = 0,
+    account = nil,
+    models = {},
+    days = {},
+    peak = nil,
+    today = 0,
+    todayText = "0",
+    tokens = nil,
+    tokensSince = "",
+    saved = 0,
+    savedText = "",
+    allTime = "",
+    modelsTotalText = "0.0",
+    pricesDate = "",
     gauge = cfg.gauge or "bar",
-    metrics = "",
-    usage = nil,
     pollSeconds = cfg.pollSeconds or 300,
   }
-
-  local me = state.me
-  if type(me) == "table" then
-    local name = str(me.handle ~= "" and me.handle or me.username)
-    record.account = {
-      handle = name,
-      region = str(me.region),
-      tier = str(me.tier):upper():gsub("^%s*(.-)%s*$", "%1"),
-      summary = M.accountSummary(me),
-    }
+  if type(prices) == "table" and prices.readAt then
+    record.pricesDate = M.shortDate(unix(prices.readAt))
   end
 
-  if cfg.showMetrics then
-    record.metrics = M.metricsSummary(state.metrics)
-    record.usage = M.usageBuckets(state.metrics)
+  local usage = state.usage
+  if type(usage) == "table" then
+    record.ok = true
+    local acct = M.account(usage.credits)
+    local from = M.windowStart(acct and acct.startsAt, now)
+    local today = M.utcDate(now)
+    local cacheFrom = from < M.CACHE_SINCE and M.CACHE_SINCE or from
+    if from < M.CACHE_SINCE then
+      record.tokensSince = M.dayLabel(M.CACHE_SINCE)
+    end
+
+    if acct then
+      record.billed = true
+      record.account = accountView(acct, now)
+    end
+
+    -- One pass over the rows: per model, per day, and the cache-era totals.
+    local byModel, order = {}, {}
+    local byDate = {}
+    local totalCredits = 0
+    local all = { new = 0, cached = 0, output = 0 }
+    for _, row in ipairs(M.rows(usage, from)) do
+      local m = byModel[row.model]
+      if m == nil then
+        m = {
+          model = row.model, credits = 0, tokens = 0, requests = 0,
+          split = { new = 0, cached = 0, output = 0, credits = 0 }, byDate = {},
+        }
+        byModel[row.model] = m
+        order[#order + 1] = m
+      end
+      m.credits = m.credits + row.credits
+      m.tokens = m.tokens + row.prompt + row.output
+      m.requests = m.requests + row.requests
+      m.byDate[row.date] = (m.byDate[row.date] or 0) + row.credits
+      if row.date >= cacheFrom then
+        m.split.new = m.split.new + row.prompt - row.cached
+        m.split.cached = m.split.cached + row.cached
+        m.split.output = m.split.output + row.output
+        m.split.credits = m.split.credits + row.credits
+      end
+      byDate[row.date] = (byDate[row.date] or 0) + row.credits
+      totalCredits = totalCredits + row.credits
+      if row.date == today then
+        record.today = record.today + row.credits
+      end
+    end
+    record.todayText = M.fmtCredits(record.today)
+    -- What the models' rows add up to. NaN rounds each row on its own, so this can
+    -- be a tenth off the account's own total; the breakdown sums to this one.
+    record.modelsTotalText = M.fmtCredits(totalCredits, "fixed")
+
+    -- Every model on NaN's price list is listed, used or not, so the panel can show
+    -- what each costs before it has been used. A used model that is not on the list
+    -- (one added after the prices were read) is listed all the same.
+    for name in pairs(priceTable) do
+      if byModel[name] == nil then
+        byModel[name] = {
+          model = name, credits = 0, tokens = 0, requests = 0,
+          split = { new = 0, cached = 0, output = 0, credits = 0 }, byDate = {},
+        }
+        order[#order + 1] = byModel[name]
+      end
+    end
+
+    table.sort(order, function(a, b)
+      if a.credits ~= b.credits then
+        return a.credits > b.credits
+      end
+      if a.tokens ~= b.tokens then
+        return a.tokens > b.tokens
+      end
+      return a.model < b.model
+    end)
+
+    local dates = dayList(from, acct and acct.resetsAt, today)
+    record.days, record.peak = series(dates, byDate, today)
+
+    for _, m in ipairs(order) do
+      local price = priceTable[m.model]
+      local share = totalCredits > 0 and m.credits / totalCredits * 100 or 0
+      local saved = M.cacheSaved(m.split.cached, price)
+      local view = {
+        model = m.model,
+        credits = m.credits,
+        creditsText = M.fmtCredits(m.credits, "fixed"),
+        share = share,
+        shareText = M.fmtPct(share, false),
+        tokens = m.tokens,
+        tokensText = M.fmtTokens(m.tokens),
+        requests = m.requests,
+        requestsText = group(string.format("%.0f", m.requests)),
+        tokenSplit = tokenView(m.split),
+        creditSplit = splitView(M.creditSplit(m.split, m.split.credits, price)),
+        saved = saved,
+        priced = price ~= nil,
+        used = m.credits > 0 or m.tokens > 0,
+        price = M.priceView(price),
+      }
+      view.days, view.peak = series(dates, m.byDate, today)
+      record.models[#record.models + 1] = view
+      all.new = all.new + m.split.new
+      all.cached = all.cached + m.split.cached
+      all.output = all.output + m.split.output
+      record.saved = record.saved + saved
+    end
+    record.tokens = tokenView(all)
+    if record.saved > 0 then
+      record.savedText = "~" .. M.fmtCredits(record.saved, "fixed")
+    end
+
+    local lifetime = usage.all_time
+    if type(lifetime) == "table" then
+      record.allTime = M.fmtTokens(lifetime.total_tokens) .. " tokens · "
+        .. group(string.format("%.0f", math.max(0, num(lifetime.api_requests)))) .. " requests"
+    end
   end
 
-  local windows = M.windows(state.quota)
-  record.totalWindows = #windows
-
-  local pinned = ""
-  if cfg.panelModel == "fixed" then
-    pinned = cfg.panelModelId or ""
-  end
-  for _, w in ipairs(M.visibleWindows(windows, cfg.hideUnused, pinned)) do
-    record.windows[#record.windows + 1] = toWindow(w, now)
-  end
-  if windows[1] then
-    record.period = M.periodLine(windows[1], now)
-  end
-  record.panel = toPanel(M.selectPanelWindow(windows, cfg.panelModel, cfg.panelModelId, now), now, cfg)
-
-  record.ok = #windows > 0
   record.stale = record.error ~= "" and record.ok
   if state.fetchedAt then
     record.updated = "Updated at " .. M.clockTime(state.fetchedAt)

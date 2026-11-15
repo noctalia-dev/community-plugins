@@ -11,6 +11,7 @@
 -- no window rule to get wrong. Right-clicking opens this plugin's own settings.
 
 local shared = require("./shared.luau")
+local prices = require("./prices.luau")
 
 -- Read per paint rather than once at load, so a change in the settings page lands
 -- without a reload. `~= false` for a setting whose manifest default is true, `== true`
@@ -41,16 +42,17 @@ local function iconStyle()
   return noctalia.getConfig("icon_style") or "ghost"
 end
 
-local function showPercentage()
-  return noctalia.getConfig("show_percentage") ~= false
+-- percent | used | remaining: what the figure in the bar counts.
+local function barValue()
+  return noctalia.getConfig("bar_value") or "percent"
 end
 
 local function showReset()
   return noctalia.getConfig("show_reset") ~= false
 end
 
-local function showModel()
-  return noctalia.getConfig("show_model") ~= false
+local function showCache()
+  return noctalia.getConfig("show_cache") == true
 end
 
 -- The panel this plugin owns, addressed the way Noctalia names entries.
@@ -70,27 +72,35 @@ local ICON_GHOST_ON_DARK = "nan-ghost-white.png"
 local ICON_GHOST_ON_LIGHT = "nan-ghost-black.png"
 local ICON_SIZE = 14
 
--- The gauge, as a bar: ui.progress is the control a bar widget renders a level with.
+-- The gauges `panel_gauge` offers. bar: ui.progress, the control a bar widget renders a
+-- level with. battery: Noctalia's battery glyph, draining by quarters as the credits
+-- go. sparkline: the period's credits per day, a trend rather than a level.
 local GAUGE_WIDTH = 34
 local GAUGE_HEIGHT = 5
+local SPARK_HEIGHT = 12
+
+-- The track the unlit parts are drawn in, the same for every gauge.
+local TRACK = "on_surface/0.16"
 
 -- The two alarm colours. The healthy level keeps the theme's own text colour, so
 -- the bar stays quiet until there is something to say.
 local COLOR_WARN = "#ff7800"
 local COLOR_CRIT = "#e01b24"
 
--- The muted ink for the countdown and the model, which are context rather than the
--- reading itself.
+-- The cache share has a colour of its own, the one the panel gives cached input, so
+-- it is not read as a second usage figure.
+local COLOR_CACHE = "#3fb8a8"
+
+-- The muted ink for the countdown, which is context rather than the reading itself.
 local MUTED = "on_surface_variant"
 
 -- Text sizes, matching the widgets this sits beside: the figure reads at the bar's
--- size and carries the alarm colour, the countdown and the model are a point or two
--- smaller and muted. In a row centred on the cross axis a smaller label sits a
--- little above the centre of its taller neighbour, which is what makes the pair read
--- as one figure rather than two.
+-- size and carries the alarm colour, the countdown and the cache share are a point
+-- smaller. In a row centred on the cross axis a smaller label sits a little above
+-- the centre of its taller neighbour, which is what makes the pair read as one
+-- figure rather than two.
 local SIZE_VALUE = 11
 local SIZE_CONTEXT = 10
-local SIZE_MODEL = 11
 
 -- How often the record is rebuilt from the data already held. Polling is the
 -- service's business; this only moves the countdowns on, so 15 s is plenty and
@@ -101,41 +111,65 @@ local UPDATE_MS = 15000
 -- a reload.
 local function config()
   return {
-    panelModel = noctalia.getConfig("panel_model") or "worst",
-    panelModelId = noctalia.getConfig("panel_model_id") or "deepseek-v4-flash",
     gauge = noctalia.getConfig("panel_gauge") or "bar",
-    hideUnused = noctalia.getConfig("hide_unused") == true,
-    showMetrics = noctalia.getConfig("show_metrics") ~= false,
-    showPercentage = noctalia.getConfig("show_percentage") ~= false,
-    showReset = noctalia.getConfig("show_reset") ~= false,
-    showModel = noctalia.getConfig("show_model") ~= false,
-    pollSeconds = tonumber(noctalia.getConfig("interval")) or 60,
+    pollSeconds = tonumber(noctalia.getConfig("interval")) or 300,
   }
 end
 
--- The tooltip is the per-model detail, which is what the bar has no room for.
+-- The tooltip is the detail the bar has no room for: the period's credits, the
+-- cache, and one line per model. Noctalia draws it as key/value rows and cuts a
+-- value off past about fourteen characters, with no way to set the font or the
+-- width, so every value here stays short and a second detail gets its own row
+-- rather than a "·" on the first.
 local function rowsFor(record)
   local rows = {}
-  -- Values only, and tight: the caption says the same thing in a sentence ("… ·
-  -- resets in 7d 8h · at this rate …"), whose tail is what a tooltip cuts off first.
+  local function add(key, value)
+    table.insert(rows, { key = key, value = value })
+  end
   if record.error ~= nil and record.error ~= "" then
     local text = record.error
     if record.stale == true then
       text = text .. " (showing the last data)"
     end
-    table.insert(rows, { key = "error", value = text })
+    add("error", text)
   end
-  for _, window in ipairs(record.windows or {}) do
-    local value = (window.usedText or "") .. " / " .. (window.capText or "")
-    if window.resetsIn ~= nil and window.resetsIn ~= "" then
-      value = value .. "·" .. window.resetsIn
+  local account = record.account
+  if account ~= nil then
+    if account.frozen then
+      add("Subscription", "paused")
     end
-    table.insert(rows, { key = window.model, value = value })
+    add("Used", account.usedText .. " · " .. account.pctText)
+    add("Allowance", account.allowanceText)
+    add("Left", account.remainingText)
+    if account.packs > 0 then
+      add("Packs", account.packsText)
+      if account.packsExpire ~= "" then
+        add("Packs expire", account.packsExpire)
+      end
+    end
+    if account.resetsInLong ~= "" then
+      add("Resets in", account.resetsInLong)
+      add("Renews", account.resetsAtText)
+    end
+    if account.projectedText ~= "" then
+      add("Pace at reset", account.projectedText .. " · " .. account.projectedPctText)
+    end
   end
-  -- Consumption one row per period, from the numbers rather than from a sentence:
-  -- a tooltip that does not fit is a tooltip nobody can read.
-  for _, bucket in ipairs(record.usage or {}) do
-    table.insert(rows, { key = bucket.label, value = bucket.text })
+  add("Today", record.todayText or "0")
+  local tokens = record.tokens
+  if tokens ~= nil and tokens.cachedPctText ~= "" then
+    add("Cached", tokens.cachedPctText .. " of input")
+    add("New input", tokens.newText)
+    add("Cached input", tokens.cachedText)
+    add("Output", tokens.outputText)
+  end
+  if record.savedText ~= nil and record.savedText ~= "" then
+    add("Cache saved", record.savedText)
+  end
+  for _, model in ipairs(record.models or {}) do
+    if model.used then
+      add(model.model, model.creditsText .. " · " .. model.shareText)
+    end
   end
   return rows
 end
@@ -164,50 +198,98 @@ local function levelColor(level)
   return "on_surface"
 end
 
--- The figure, its countdown and the model, as separate labels so each can carry its
--- own size and ink. `panel` is the record's own panel block; when it is absent the
--- widget is showing a dash and there is nothing to break up.
-local function textNodes(level, panel)
-  if panel == nil then
+-- The figure, its countdown and the cache share, as separate labels so each can
+-- carry its own size and ink. `record` is nil when the widget shows a dash.
+local function textNodes(level, record)
+  if record == nil then
     return ui.label({ text = "—", color = levelColor(level) })
   end
-  local parts = {}
-  if showPercentage() then
-    parts[#parts + 1] = ui.label({
-      text = panel.percentText,
+  local account = record.account
+  local parts = {
+    ui.label({
+      text = shared.barFigure(account, barValue()),
       fontSize = SIZE_VALUE,
       fontWeight = "semibold",
       color = levelColor(level),
       maxLines = 1,
-    })
-  end
-  if showReset() and panel.resetsIn ~= nil and panel.resetsIn ~= "" then
+    }),
+  }
+  if showReset() and not account.frozen and account.resetsIn ~= "" then
     parts[#parts + 1] = ui.label({
-      text = panel.resetsIn,
+      text = account.resetsIn,
       fontSize = SIZE_CONTEXT,
       color = MUTED,
       maxLines = 1,
     })
   end
-  if showModel() and panel.short ~= nil and panel.short ~= "" then
+  if showCache() and record.tokens ~= nil and record.tokens.cachedPctText ~= "" then
     parts[#parts + 1] = ui.label({
-      text = panel.short,
-      fontSize = SIZE_MODEL,
-      color = MUTED,
+      text = record.tokens.cachedPctText .. " cached",
+      fontSize = SIZE_CONTEXT,
+      color = COLOR_CACHE,
       maxLines = 1,
     })
   end
-  if #parts == 0 then
-    -- Everything is off: the model is the only useful leftover.
-    return ui.label({ text = panel.short, fontSize = SIZE_MODEL, color = MUTED, maxLines = 1 })
-  end
   return ui.row({ gap = 3, align = "center" }, parts)
+end
+
+-- The battery glyph with as many bars as quarters of the allowance are left.
+local function batteryGlyph(percent)
+  local bars = math.floor((100 - math.max(0, math.min(percent, 100))) / 25 + 0.5)
+  if bars <= 0 then
+    return "battery"
+  end
+  return "battery-" .. bars
+end
+
+-- The days of the period so far, each as its share of the busiest one. A graph needs
+-- two points to draw a line, so a single day is drawn flat.
+local function sparkValues(record)
+  local values, top = {}, 0
+  for _, day in ipairs(record and record.days or {}) do
+    if not day.future then
+      values[#values + 1] = day.credits
+      top = math.max(top, day.credits)
+    end
+  end
+  for index, value in ipairs(values) do
+    values[index] = top > 0 and value / top or 0
+  end
+  if #values == 1 then
+    values[2] = values[1]
+  end
+  return values
+end
+
+local function gaugeNode(gauge, level, percent, record)
+  percent = math.max(0, tonumber(percent) or 0)
+  if gauge == "battery" then
+    return ui.glyph({ name = batteryGlyph(percent), size = ICON_SIZE + 2, color = levelColor(level) })
+  end
+  if gauge == "sparkline" then
+    return ui.graph({
+      values = sparkValues(record),
+      color = levelColor(level),
+      lineWidth = 1.5,
+      fillOpacity = 0.18,
+      width = GAUGE_WIDTH,
+      height = SPARK_HEIGHT,
+    })
+  end
+  return ui.progress({
+    progress = math.min(percent, 100) / 100,
+    fill = levelColor(level),
+    track = TRACK,
+    width = GAUGE_WIDTH,
+    height = GAUGE_HEIGHT,
+    radius = 3,
+  })
 end
 
 -- The widget as a tree: the mark, the gauge, the text. One node set per paint, so
 -- nothing is left over from the render before it — the same reason the panel's
 -- cards set every prop.
-local function nodesFor(level, panel, percent, gauge)
+local function nodesFor(level, record, percent, gauge)
   local nodes = {}
   if showIcon() then
     table.insert(nodes, ui.image({ path = iconFile(), width = ICON_SIZE, height = ICON_SIZE }))
@@ -215,21 +297,14 @@ local function nodesFor(level, panel, percent, gauge)
     table.insert(nodes, ui.glyph({ name = glyphName(), size = ICON_SIZE, color = levelColor(level) }))
   end
   if gauge ~= "none" then
-    table.insert(nodes, ui.progress({
-      progress = math.max(0, math.min(tonumber(percent) or 0, 100)) / 100,
-      fill = levelColor(level),
-      track = "on_surface/0.12",
-      width = GAUGE_WIDTH,
-      height = GAUGE_HEIGHT,
-      radius = 3,
-    }))
+    table.insert(nodes, gaugeNode(gauge, level, percent, record))
   end
-  table.insert(nodes, textNodes(level, panel))
+  table.insert(nodes, textNodes(level, record))
   return nodes
 end
 
-local function paint(level, panel, percent, gauge, tooltip)
-  barWidget.render(ui.row({ gap = 6, align = "center" }, nodesFor(level, panel, percent, gauge)))
+local function paint(level, record, percent, gauge, tooltip)
+  barWidget.render(ui.row({ gap = 6, align = "center" }, nodesFor(level, record, percent, gauge)))
   if not showTooltip() then
     return
   end
@@ -254,14 +329,20 @@ local function paintNothing(record)
 end
 
 local function paintRecord(record)
-  local panel = record.panel
-  if panel == nil then
-    paintNothing(record)
+  local account = record.account
+  if account == nil then
+    if record.ok and (record.error == nil or record.error == "") then
+      paintNothing({ error = "This account isn't billed in credits" })
+    else
+      paintNothing(record)
+    end
     return
   end
-  -- The parts are passed through rather than the record's composed one-liner: each
-  -- label needs its own size and ink, which a single string cannot carry.
-  paint(panel.level, panel, panel.percent, record.gauge or "bar", rowsFor(record))
+  -- A paused subscription draws no gauge: it measures nothing while requests are
+  -- refused.
+  local gauge = account.frozen and "none" or (record.gauge or "bar")
+  local percent = account.usingPacks and 100 or account.pct
+  paint(account.level, record, percent, gauge, rowsFor(record))
 end
 
 local function repaint(data)
@@ -269,7 +350,7 @@ local function repaint(data)
     paintNothing({ error = "waiting for the first poll" })
     return
   end
-  paintRecord(shared.build(data, config(), os.time()))
+  paintRecord(shared.build(data, config(), os.time(), prices))
 end
 
 -- The service publishes as soon as a poll lands, so the bar never waits for the
@@ -290,8 +371,8 @@ function onClick()
   noctalia.togglePanel(PANEL_ID)
 end
 
--- No external settings window any more: the plugin's own page is the cog, and it is
--- where the key path, the poll interval and the gauge live.
+-- The plugin's own page is the cog, and it is where the key path, the poll interval
+-- and the gauge live.
 function onRightClick()
   noctalia.openSettings()
 end

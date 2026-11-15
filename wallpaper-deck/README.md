@@ -7,7 +7,7 @@ A native Noctalia v5 wallpaper picker inspired by Magic: The Gathering cards, fe
 | Field | Value |
 | --- | --- |
 | ID | `ishan0121/wallpaper-deck` |
-| Version | `1.3.0` |
+| Version | `1.3.1` |
 | Entries | Bar widget: `bar`; panel: `picker`; shortcut: `toggle`; service: `service` |
 
 ## Requirements

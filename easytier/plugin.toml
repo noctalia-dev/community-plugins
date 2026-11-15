@@ -1,0 +1,213 @@
+# ══════════════════════════════════════════════════════════════════════════
+# ylxc/easytier — EasyTier mesh VPN status (bar widget + detail panel)
+#
+# Every value comes from `easytier-cli -o json` through a subprocess call.
+# The plugin only reads: it never writes EasyTier config files, never changes
+# runtime state and keeps no daemon running.
+#   bar.luau            bar widget: state / peer count / direct ratio / best latency / traffic / virtual IP
+#   panel.luau          detail panel: self card, overview, peers, routes, connectors, proxies
+#   lib/easytier.luau   fetching, parsing, derived metrics and formatting shared by both
+# Local check: noctalia plugins lint ~/.local/share/noctalia/plugins/ylxc-easytier
+# ══════════════════════════════════════════════════════════════════════════
+
+author = "ylxc"
+id = "ylxc/easytier"
+name = "EasyTier Status"
+description = "Shows EasyTier mesh VPN status in the bar, with per-peer latency, loss, traffic, routes and connectors in the panel."
+license = "MIT"
+version = "1.0.0"
+plugin_api = 43
+icon = "network"
+dependencies = ["easytier-cli"]
+tags = ["network", "indicator", "bar", "panel"]
+
+# ── Plugin settings shared by the bar widget and the panel ───────────────────
+
+[[setting]]
+key = "cli_path"
+type = "string"
+default = ""
+label_key = "settings.cli_path.label"
+description_key = "settings.cli_path.description"
+
+[[setting]]
+key = "rpc_portal"
+type = "string"
+default = ""
+label_key = "settings.rpc_portal.label"
+description_key = "settings.rpc_portal.description"
+
+[[setting]]
+key = "instance_name"
+type = "string"
+default = ""
+label_key = "settings.instance_name.label"
+description_key = "settings.instance_name.description"
+
+[[setting]]
+key = "instance_id"
+type = "string"
+default = ""
+label_key = "settings.instance_id.label"
+description_key = "settings.instance_id.description"
+
+[[setting]]
+key = "refresh_seconds"
+type = "int"
+default = 10
+min = 2
+max = 600
+label_key = "settings.refresh_seconds.label"
+description_key = "settings.refresh_seconds.description"
+
+# ── Thresholds that drive the colour level in the bar and the panel ─────────
+
+[[setting]]
+key = "warn_latency_ms"
+type = "int"
+default = 150
+min = 20
+max = 2000
+label_key = "settings.warn_latency_ms.label"
+description_key = "settings.warn_latency_ms.description"
+
+[[setting]]
+key = "crit_latency_ms"
+type = "int"
+default = 400
+min = 50
+max = 5000
+label_key = "settings.crit_latency_ms.label"
+description_key = "settings.crit_latency_ms.description"
+
+[[setting]]
+key = "relay_warn"
+type = "bool"
+default = true
+label_key = "settings.relay_warn.label"
+description_key = "settings.relay_warn.description"
+
+[[setting]]
+key = "loss_warn_percent"
+type = "int"
+default = 2
+min = 1
+max = 100
+label_key = "settings.loss_warn_percent.label"
+description_key = "settings.loss_warn_percent.description"
+
+[[setting]]
+key = "loss_crit_percent"
+type = "int"
+default = 10
+min = 1
+max = 100
+label_key = "settings.loss_crit_percent.label"
+description_key = "settings.loss_crit_percent.description"
+
+# ── Extra queries used by the panel ─────────────────────────────────────────
+
+[[setting]]
+key = "fetch_extras"
+type = "bool"
+default = true
+label_key = "settings.fetch_extras.label"
+description_key = "settings.fetch_extras.description"
+
+[[setting]]
+key = "max_peers"
+type = "int"
+default = 64
+min = 4
+max = 512
+label_key = "settings.max_peers.label"
+description_key = "settings.max_peers.description"
+
+[[setting]]
+key = "server_prefix"
+type = "string"
+default = "PublicServer"
+label_key = "settings.server_prefix.label"
+description_key = "settings.server_prefix.description"
+
+[[setting]]
+key = "notify_state_change"
+type = "bool"
+default = false
+label_key = "settings.notify_state_change.label"
+description_key = "settings.notify_state_change.description"
+
+# ── Bar widget ──────────────────────────────────────────────────────────────
+
+[[widget]]
+id = "status"
+entry = "bar.luau"
+
+  [[widget.setting]]
+  key = "display"
+  type = "select"
+  default = "status"
+  label_key = "settings.display.label"
+  description_key = "settings.display.description"
+  options = [
+    { value = "status", label_key = "opt_status" },
+    { value = "peers", label_key = "opt_peers" },
+    { value = "direct", label_key = "opt_direct" },
+    { value = "latency", label_key = "opt_latency" },
+    { value = "traffic", label_key = "opt_traffic" },
+    { value = "ip", label_key = "opt_ip" }
+  ]
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  default = "network"
+  label_key = "settings.glyph.label"
+  description_key = "settings.glyph.description"
+
+  [[widget.setting]]
+  key = "show_glyph"
+  type = "bool"
+  default = true
+  label_key = "settings.show_glyph.label"
+  description_key = "settings.show_glyph.description"
+
+  [[widget.setting]]
+  key = "glyph_color"
+  type = "select"
+  default = "level"
+  label_key = "settings.glyph_color.label"
+  description_key = "settings.glyph_color.description"
+  options = [
+    { value = "level", label_key = "opt_level" },
+    { value = "theme", label_key = "opt_theme" },
+    { value = "primary", label_key = "opt_primary" },
+    { value = "secondary", label_key = "opt_secondary" },
+    { value = "tertiary", label_key = "opt_tertiary" },
+    { value = "error", label_key = "opt_error" }
+  ]
+
+  [[widget.setting]]
+  key = "hide_when_stopped"
+  type = "bool"
+  default = false
+  label_key = "settings.hide_when_stopped.label"
+  description_key = "settings.hide_when_stopped.description"
+
+  # Default gestures; users can rebind or set them to none in the settings.
+  # Right click is deliberately left unbound: per the host rules any binding
+  # (even "none") overrides onRightClick in bar.luau and breaks right-click
+  # refresh. Rebind it from the settings instead.
+  [widget.actions]
+  left = "panel-toggle ylxc/easytier:panel"
+  middle = "settings-open-widget"
+
+# ── Detail panel ────────────────────────────────────────────────────────────
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 460
+height = 620
+placement = "floating"
+position = "center"
