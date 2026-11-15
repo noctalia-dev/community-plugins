@@ -103,15 +103,39 @@ done
 ]]
 
 local pictures = {} -- the last good picture of each window, by toplevel id
+local icons = {} -- app icon path by window class, or false when there is none
+local iconsWanted = {} -- classes still to look up
+-- Looking up an icon takes a few milliseconds, and a callback has 25: each update starts
+-- lookups only while it has used less than this.
+local ICON_MS = 6
 local capturing = false
 local capturedFor = nil -- the windows and places the last pictures were taken for
 local generation = 0
 
+-- Gives each window its picture, and its app icon for while it has none.
 local function applyPictures(model)
   for _, workspace in ipairs(model.workspaces) do
     for _, window in ipairs(workspace.windows) do
       window.preview = window.stableId and pictures[window.stableId] or nil
+      if window.class ~= "" then
+        if icons[window.class] == nil then
+          iconsWanted[window.class] = true
+        end
+        window.icon = icons[window.class] or nil
+      end
     end
+  end
+end
+
+-- Looks up the icons of new window classes, a few at a time; the next read publishes them.
+local function lookUpIcons()
+  local started = os.clock()
+  for class in pairs(iconsWanted) do
+    if (os.clock() - started) * 1000 >= ICON_MS then
+      break
+    end
+    iconsWanted[class] = nil
+    icons[class] = noctalia.appIconPath(class, 32) or false
   end
 end
 
@@ -235,6 +259,8 @@ noctalia.state.watch("overview.command", function(command)
   local action = command.action
   if action == "open" then
     watching = true
+    -- Windows may show something new, so their pictures are taken again.
+    capturedFor = nil
     refresh()
   elseif action == "close" then
     watching = false
@@ -342,6 +368,7 @@ local lastBindingMs = 0
 function update()
   -- While the panel is open, workspaces and windows are read again, so it follows changes.
   if watching then
+    lookUpIcons()
     refresh()
   end
   if noctalia.nowMs() - lastBindingMs >= 5000 then
@@ -361,3 +388,7 @@ function onExit()
 end
 
 noctalia.setUpdateInterval(1500)
+-- Pictures left by an earlier run are not known to this one, so they go.
+if noctalia.pluginDataDir() then
+  noctalia.runAsync({ "sh", "-c", 'rm -f -- "$1"/*.png', "overview", previewDir })
+end
