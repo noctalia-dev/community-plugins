@@ -275,6 +275,16 @@ local function included()
   add(includedRow("settings", noctalia.tr("saved.services"), model.services, counts.services))
   add(includedRow("adjustments", noctalia.tr("saved.noctalia"), model.noctalia, counts.plugins))
   table.insert(rows, ui.row({ gap = 4, align = "center" }, hookRow))
+  -- Steps that are new or changed, such as from the remote, run only once approved here.
+  if (counts.waiting or 0) > 0 then
+    local text = noctalia.trp("saved.waiting", counts.waiting)
+    local item, itemHeight = includedRow("alert-triangle", text, true)
+    add(ui.row({ gap = 4, align = "center" }, {
+      item,
+      ui.button({ text = noctalia.tr("saved.review"), variant = "outline", controlSize = "sm",
+        onClick = function() send({ action = "review" }) end }),
+    }), itemHeight)
+  end
   height += 6 * (#rows - 1)
   return ui.column({ gap = 6 }, rows), height
 end

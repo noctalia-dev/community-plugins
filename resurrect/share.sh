@@ -125,6 +125,13 @@ for path in $only; do
 done
 find "$mine" -name .git -prune -exec rm -rf {} +
 
+# Stops the save when the file at path $1 under the home folder could not be backed up, so
+# nothing is replaced without a copy to go back to.
+no_backup() {
+  echo "could not back up ~/$1 to $backup, so the save stopped before replacing it"
+  exit 1
+}
+
 # Puts blob $2 with mode $3 at path $1 under the home folder, in one step.
 put() {
   target=$HOME/$1
@@ -132,8 +139,8 @@ put() {
     return 1
   fi
   if [ -e "$target" ] || [ -L "$target" ]; then
-    mkdir -p "$backup/$(dirname "$1")"
-    cp -PR --preserve=mode,timestamps "$target" "$backup/$1"
+    mkdir -p "$backup/$(dirname "$1")" &&
+      cp -PR --preserve=mode,timestamps "$target" "$backup/$1" || no_backup "$1"
   fi
   mkdir -p "$(dirname "$target")" || return 1
   tmp=$(dirname "$target")/.$(basename "$target").resurrect-tmp
@@ -145,8 +152,7 @@ put() {
 # Moves path $1 under the home folder into the backup.
 drop() {
   [ -e "$HOME/$1" ] || return 0
-  mkdir -p "$backup/$(dirname "$1")"
-  mv -f "$HOME/$1" "$backup/$1"
+  mkdir -p "$backup/$(dirname "$1")" && mv -f "$HOME/$1" "$backup/$1" || no_backup "$1"
 }
 
 # Writes the shared copy of path $1: this device's file, or blob $2 with mode $3.

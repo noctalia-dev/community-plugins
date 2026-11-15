@@ -10,9 +10,12 @@
 # shared/ instead: the dotfiles, Noctalia's config and settings, and the package and service
 # lists. share.sh, settings.sh and lists.sh bring in what other devices changed, and this
 # device's folder keeps only what differs. Then every executable file in hooks/save/ runs,
-# in name order, and in devices/<hostname>/hooks/save/, for the owner's own steps.
-# Prints "count <what> <number>" lines, share.sh's lines, then "saved" or "unchanged", and
-# "pushed".
+# in name order, and in devices/<hostname>/hooks/save/, for the owner's own steps. A step
+# runs only when this device approved it as it is now: its path and checksum are in the file
+# $RESURRECT_APPROVED, which lives outside the repository, so a step that came from the
+# remote never runs unseen. review.sh shows each new or changed step and approves it.
+# Prints "count <what> <number>" lines, share.sh's lines, "unapproved <path>" for each
+# step that waits, then "saved" or "unchanged", and "pushed".
 set -u
 
 repo=$1
@@ -286,10 +289,18 @@ cp "$here/settings.awk" settings.awk
 # devices/<name>/hooks/save/. Each gets the repository, this device's name and the folder
 # its files go in: with sharing on, shared/steps/ for the shared steps, else this device's.
 hooks=0
+waiting=0
+approved=${RESURRECT_APPROVED:-}
 run_hooks() {
   [ -d "$1" ] || return 0
   for hook in "$1"/*; do
     [ -f "$hook" ] && [ -x "$hook" ] || continue
+    sum=$(sha256sum "$hook" | cut -d ' ' -f 1)
+    if [ -z "$approved" ] || ! grep -q -x -F "$sum $hook" "$approved" 2>/dev/null; then
+      waiting=$((waiting + 1))
+      echo "unapproved $hook"
+      continue
+    fi
     hooks=$((hooks + 1))
     mkdir -p "$2"
     RESURRECT_REPO=$(pwd) RESURRECT_DEVICE=$device RESURRECT_DIR=$2 "$hook" ||
@@ -304,6 +315,7 @@ else
 fi
 run_hooks "$dir/hooks/save" "$(pwd)/$dir"
 echo "count hooks $hooks"
+echo "count waiting $waiting"
 
 git add -A
 

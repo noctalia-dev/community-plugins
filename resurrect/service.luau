@@ -35,6 +35,8 @@ local excludeFile = dataDir .. "/exclude"
 local againFile = dataDir .. "/again"
 local onlyFile = dataDir .. "/only"
 local installFile = dataDir .. "/install.txt"
+-- The save steps this device approved, as "<checksum> <path>" lines; see review.sh.
+local approvedFile = dataDir .. "/approved-steps"
 
 -- result: "saved", "unchanged" or "pushed"; counts: what the last save held, by kind.
 -- conflicts and held: shared files that wait for the owner, by path under the home folder.
@@ -155,6 +157,7 @@ local function snapshot()
     "RESURRECT_AGAIN=" .. againFile, "RESURRECT_ONLY=" .. onlyFile,
     "RESURRECT_LEAVE_OUT=" .. table.concat(leaveOut, "\n"),
     "RESURRECT_SECRET_CHECK=" .. tostring(noctalia.getConfig("secret_check") ~= false),
+    "RESURRECT_APPROVED=" .. approvedFile,
     "sh", (noctalia.pluginDir() or "") .. "/snapshot.sh", repo(), noctalia.getConfig("remote") or "",
     tostring(noctalia.getConfig("packages") ~= false),
     tostring(noctalia.getConfig("services") ~= false),
@@ -312,12 +315,23 @@ local function install()
   noctalia.runInTerminal("sh '" .. script:gsub("'", "'\\''") .. "' '" .. installFile:gsub("'", "'\\''") .. "'")
 end
 
+-- A path in single quotes, with any single quote in it closed and escaped.
+local function quoted(path)
+  return "'" .. path:gsub("'", "'\\''") .. "'"
+end
+
+-- Restores with the plugin's own restore.sh, not the repository's copy, which the remote
+-- could have changed.
 local function restore()
-  local script = repo() .. "/restore.sh"
-  if noctalia.fileExists(script) then
-    -- The path goes in single quotes, with any single quote in it closed and escaped.
-    noctalia.runInTerminal("sh '" .. script:gsub("'", "'\\''") .. "'")
+  if noctalia.fileExists(repo() .. "/restore.sh") then
+    noctalia.runInTerminal("sh " .. quoted((noctalia.pluginDir() or "") .. "/restore.sh") .. " " .. quoted(repo()))
   end
+end
+
+-- Opens a terminal that shows each save step waiting for approval and asks about it.
+local function review()
+  noctalia.runInTerminal("sh " .. quoted((noctalia.pluginDir() or "") .. "/review.sh") .. " " .. quoted(repo())
+    .. " " .. quoted(approvedFile))
 end
 
 noctalia.state.watch("resurrect.command", function(command)
@@ -369,6 +383,8 @@ noctalia.state.watch("resurrect.command", function(command)
     saveSoon()
   elseif command.action == "install" then
     install()
+  elseif command.action == "review" then
+    review()
   elseif command.action == "restore" then
     restore()
   elseif command.action == "open" and noctalia.commandExists("xdg-open") then

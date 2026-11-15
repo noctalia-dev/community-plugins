@@ -19,6 +19,7 @@ your devices, and on a new install, bring it all back with one script.
 | ----------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `git`                         | Required                   | Keeps each save as a commit, and pushes it when a remote is set. Without it, the panel says so.                                                   |
 | `sh`, `awk`                   | Required                   | Run the plugin's save scripts, and share Noctalia's settings one setting at a time. They come with every Linux system.                            |
+| `sha256sum`                   | Required                   | Tells whether a save step changed since you approved it. It comes with every Linux system.                                                        |
 | `systemctl`                   | Required                   | Lists and restores the services that start by themselves. Without it, services are not saved.                                                     |
 | `xdg-open`                    | Required                   | Opens the repository folder. Without it, that button is hidden.                                                                                   |
 | `pacman`, `apt-mark` or `dnf` | Required                   | Lists the installed packages, with the system's package manager. Without one, no packages are saved.                                              |
@@ -49,7 +50,8 @@ press **Save now** in the panel.
 - When the dotfiles still add up to more than 50 MB, or a file cannot be read, nothing is
   saved, and the panel names the folder.
 - To keep a copy off this device, set **Push to** to a private git repository.
-- **Restore…** opens a terminal that asks before each step.
+- **Restore…** opens a terminal that asks before each step. It runs the plugin's own
+  restore script, not the repository's copy.
 
 On a new install, before anything else:
 
@@ -63,7 +65,9 @@ turns on the saved Noctalia plugins and services, and runs your own steps. With 
 it brings back what your devices share, with what this device keeps for itself when it has
 a folder there. Without sharing, it asks which device's save to use when there is no save
 of this device. It asks before each step, and copies any file it would replace to
-`~/.local/state/resurrect/backup-<date>` first.
+`~/.local/state/resurrect/backup-<date>` first. A file it cannot copy there is left as it
+is, and the script lists it at the end. Before each of your restore steps, it shows the
+step's code.
 
 ```sh
 noctalia msg panel-toggle omerfuyar/resurrect:panel
@@ -76,7 +80,8 @@ repository share their setup. Each save, and each start of Noctalia, also takes 
 other devices changed:
 
 - A dotfile that only another device changed is put in place here. The file it replaces
-  goes to `~/.local/state/resurrect/backup-<date>` first.
+  goes to `~/.local/state/resurrect/backup-<date>` first. When that copy fails, the save
+  stops before replacing the file, and the panel shows why.
 - A dotfile that only this device changed reaches the others on their next save. A file
   deleted on one device is deleted on the others, into the same backup. When a device
   deletes more than half of the shared files at once, the others keep theirs and share
@@ -166,6 +171,11 @@ others. They run in name order, from the repository's folder, with these variabl
 | `RESURRECT_REPO`   | The repository's folder.                                                                                                  |
 | `RESURRECT_DEVICE` | The hostname of the device whose save it is.                                                                              |
 | `RESURRECT_DIR`    | The folder for the step's files: `shared/steps/` for a step every device runs, with sharing on; else the device's folder. |
+
+A save step runs only once you approve it on this device, and again each time it changes,
+so a step that came from the remote never runs unseen. The panel shows how many steps wait;
+**Review** opens a terminal that shows each one's code and asks. Approvals are kept in the
+plugin's data folder, outside the repository, so each device approves for itself.
 
 Whatever a save step writes into the repository is committed with the save. A save step
 that fails stops the save, and the panel shows it. For example, to also save a database:
