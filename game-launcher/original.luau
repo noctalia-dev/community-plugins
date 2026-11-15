@@ -47,7 +47,7 @@ local cSource = noctalia.pluginDir() .. "/gamelauncher.c"
 local cReaderSource = noctalia.pluginDir() .. "/sqlite_reader.c"
 
 local function buildCommand()
-  return "cc -o " .. binary .. " " .. cSource .. " " .. cReaderSource
+  return "cc -O2 -o " .. binary .. " " .. cSource .. " " .. cReaderSource
 end
 
 local buildTagFile

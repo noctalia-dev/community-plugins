@@ -402,6 +402,8 @@ typedef struct {
     int col_installed;
 } LutrisCtx;
 
+void trim_quotes(char *s);
+
 static int lutris_row_cb(void *ctxp, long long rowid, const unsigned char *rec, int reclen) {
     LutrisCtx *c = ctxp;
     SqliteRecHeader h;
@@ -421,10 +423,15 @@ static int lutris_row_cb(void *ctxp, long long rowid, const unsigned char *rec, 
     int has_slug = sq_col_text(&h, rec, reclen, c->col_slug, slug, sizeof(slug));
 
     if (!has_name || !has_slug) return 0;
+    while (name[0] == ' ' || name[0] == '\t') memmove(name, name + 1, strlen(name));
+    trim_quotes(name);
+    if (!name[0]) return 0;
     if (game_exists(name)) return 0;
 
     int has_runner = sq_col_text(&h, rec, reclen, c->col_runner, runner, sizeof(runner));
     if (!has_runner) strncpy(runner, "linux", sizeof(runner) - 1);
+
+    if (c->col_installed >= 0 && sq_col_int(&h, rec, reclen, c->col_installed) == 0) return 0;
 
     char cover[MAX_PATH] = "";
     const char *cover_dirs[] = {
@@ -582,6 +589,19 @@ void scan_lutris() {
     sq_close(&db);
 }
 
+void trim_quotes(char *s) {
+    size_t l = strlen(s);
+    while (l > 0 && (s[l - 1] == ' ' || s[l - 1] == '\t' ||
+                     s[l - 1] == '\n' || s[l - 1] == '\r')) s[--l] = '\0';
+    if (l >= 2 && ((s[0] == '"' && s[l - 1] == '"') ||
+                   (s[0] == '\'' && s[l - 1] == '\''))) {
+        memmove(s, s + 1, l - 2);
+        s[l - 2] = '\0';
+        l -= 2;
+        while (l > 0 && (s[l - 1] == ' ' || s[l - 1] == '\t')) s[--l] = '\0';
+    }
+}
+
 void scan_lutris_manual_files() {
     const char *data_home = get_xdg_data_home();
     char games_dir[MAX_PATH];
@@ -602,18 +622,33 @@ void scan_lutris_manual_files() {
         if (!f) continue;
 
         char name[MAX_STR] = "";
+        char file_slug[MAX_STR] = "";
         char line[1024];
         while (fgets(line, sizeof(line), f)) {
-            if (strncmp(line, "name:", 5) == 0) {
-                const char *v = line + 5;
-                while (*v == ' ') v++;
+            const char *k = line;
+            while (*k == ' ' || *k == '\t') k++;
+            if (strncmp(k, "name:", 5) == 0) {
+                const char *v = k + 5;
+                while (*v == ' ' || *v == '\t') v++;
                 size_t l = strlen(v);
-                while (l > 0 && (v[l - 1] == '\n' || v[l - 1] == '\r')) l--;
+                while (l > 0 && (v[l - 1] == '\n' || v[l - 1] == '\r' ||
+                                 v[l - 1] == ' ' || v[l - 1] == '\t')) l--;
                 if (l >= MAX_STR) l = MAX_STR - 1;
                 strncpy(name, v, l);
                 name[l] = '\0';
-                break;
+                trim_quotes(name);
+            } else if (strncmp(k, "slug:", 5) == 0) {
+                const char *v = k + 5;
+                while (*v == ' ' || *v == '\t') v++;
+                size_t l = strlen(v);
+                while (l > 0 && (v[l - 1] == '\n' || v[l - 1] == '\r' ||
+                                 v[l - 1] == ' ' || v[l - 1] == '\t')) l--;
+                if (l >= MAX_STR) l = MAX_STR - 1;
+                strncpy(file_slug, v, l);
+                file_slug[l] = '\0';
+                trim_quotes(file_slug);
             }
+            if (name[0] && file_slug[0]) break;
         }
         fclose(f);
 
@@ -621,10 +656,16 @@ void scan_lutris_manual_files() {
         if (game_exists(name)) continue;
 
         char slug[MAX_STR];
-        for (int si = 0; name[si]; si++) {
-            slug[si] = isalnum((unsigned char)name[si]) ?
-                       tolower((unsigned char)name[si]) : '-';
-            slug[si + 1] = '\0';
+        if (file_slug[0]) {
+            strncpy(slug, file_slug, MAX_STR - 1);
+            slug[MAX_STR - 1] = '\0';
+        } else {
+            size_t wi = 0;
+            for (size_t si = 0; name[si] && wi + 1 < sizeof(slug); si++) {
+                slug[wi++] = isalnum((unsigned char)name[si]) ?
+                             tolower((unsigned char)name[si]) : '-';
+            }
+            slug[wi] = '\0';
         }
 
         char run_command[MAX_RUN_CMD];
@@ -761,14 +802,16 @@ void heroic_scan_sideloaded(const char *config_home) {
                     char *app_name = json_extract_string(obj, "app_name");
                     char *title = json_extract_string(obj, "title");
                     int installed = json_extract_bool(obj, "is_installed");
+                    char *art_square = json_extract_string(obj, "art_square");
                     char *art_cover = json_extract_string(obj, "art_cover");
+                    char *art = (art_square && art_square[0]) ? art_square : art_cover;
                     if (title && installed && !game_exists(title)) {
                         char cover_path[MAX_PATH] = "";
                         char cover_url[MAX_PATH] = "";
-                        if (art_cover && strstr(art_cover, "http")) {
-                            strncpy(cover_url, art_cover, MAX_PATH - 1);
-                        } else if (art_cover) {
-                            strncpy(cover_path, art_cover, MAX_PATH - 1);
+                        if (art && strstr(art, "http")) {
+                            strncpy(cover_url, art, MAX_PATH - 1);
+                        } else if (art) {
+                            strncpy(cover_path, art, MAX_PATH - 1);
                         }
                         char run_command[MAX_RUN_CMD];
                         snprintf(run_command, sizeof(run_command),
@@ -776,7 +819,7 @@ void heroic_scan_sideloaded(const char *config_home) {
                         add_game(app_name ? app_name : "", title, "heroic",
                                  cover_path, cover_url, run_command, "");
                     }
-                    free(app_name); free(title); free(art_cover); free(obj);
+                    free(app_name); free(title); free(art_square); free(art_cover); free(obj);
                     obj_start = NULL;
                 }
             }
@@ -862,10 +905,12 @@ void heroic_load_library_map(const char *path, KVMap *titles, KVMap *covers) {
                         obj[olen] = '\0';
                         char *app_name = json_extract_string(obj, "app_name");
                         char *title = json_extract_string(obj, "title");
+                        char *art_square = json_extract_string(obj, "art_square");
                         char *art_cover = json_extract_string(obj, "art_cover");
+                        char *art = (art_square && art_square[0]) ? art_square : art_cover;
                         if (app_name && title) kv_add(titles, app_name, title);
-                        if (app_name && art_cover) kv_add(covers, app_name, art_cover);
-                        free(app_name); free(title); free(art_cover); free(obj);
+                        if (app_name && art && art[0]) kv_add(covers, app_name, art);
+                        free(app_name); free(title); free(art_square); free(art_cover); free(obj);
                         obj_start = NULL;
                     }
                 }
@@ -891,10 +936,12 @@ void heroic_load_library_map(const char *path, KVMap *titles, KVMap *covers) {
                     obj[olen] = '\0';
                     char *app_name = json_extract_string(obj, "app_name");
                     char *title = json_extract_string(obj, "title");
+                    char *art_square = json_extract_string(obj, "art_square");
                     char *art_cover = json_extract_string(obj, "art_cover");
+                    char *art = (art_square && art_square[0]) ? art_square : art_cover;
                     if (app_name && title) kv_add(titles, app_name, title);
-                    if (app_name && art_cover) kv_add(covers, app_name, art_cover);
-                    free(app_name); free(title); free(art_cover); free(obj);
+                    if (app_name && art && art[0]) kv_add(covers, app_name, art);
+                    free(app_name); free(title); free(art_square); free(art_cover); free(obj);
                     obj_start = NULL;
                 }
             }
@@ -905,8 +952,36 @@ void heroic_load_library_map(const char *path, KVMap *titles, KVMap *covers) {
     free(content);
 }
 
+void heroic_purge_stale_covers() {
+    char dir[MAX_PATH];
+    snprintf(dir, sizeof(dir), "%s/gamelauncher/heroic", get_xdg_cache_home());
+    char tag[MAX_PATH];
+    snprintf(tag, sizeof(tag), "%s/.artv", dir);
+    FILE *f = fopen(tag, "r");
+    if (f) {
+        char v[16] = "";
+        if (fgets(v, sizeof(v), f) && v[0] == '2') { fclose(f); return; }
+        fclose(f);
+    }
+    DIR *d = opendir(dir);
+    if (d) {
+        struct dirent *e;
+        while ((e = readdir(d))) {
+            if (e->d_name[0] == '.') continue;
+            char fp[MAX_PATH];
+            snprintf(fp, sizeof(fp), "%s/%s", dir, e->d_name);
+            unlink(fp);
+        }
+        closedir(d);
+    }
+    mkdir(dir, 0755);
+    f = fopen(tag, "w");
+    if (f) { fputs("2\n", f); fclose(f); }
+}
+
 void scan_heroic() {
     const char *config_home = get_xdg_config_home();
+    heroic_purge_stale_covers();
     heroic_scan_sideloaded(config_home);
     char installed_ids[MAX_GAMES][64];
     int num_installed = 0;
