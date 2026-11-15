@@ -1,0 +1,27 @@
+id = "nitesh/clipboard-viewer"
+name = "Clipboard Viewer"
+version = "1.0.0"
+plugin_api = 14
+author = "Nitesh"
+license = "MIT"
+icon = "clipboard"
+description = "Shows what is on the clipboard right now as text in the bar, with the full content in a tooltip."
+tags = ["bar", "indicator", "utility"]
+dependencies = ["wl-clipboard"]
+
+[[widget]]
+id = "clipboard"
+entry = "widget.luau"
+
+  [widget.actions]
+  left = "panel-toggle clipboard"
+
+  [[widget.setting]]
+  key = "max_length"
+  type = "int"
+  label_key = "settings.max_length.label"
+  description_key = "settings.max_length.description"
+  default = 25
+  min = 5
+  max = 200
+  step = 5

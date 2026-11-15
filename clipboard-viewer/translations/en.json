@@ -1,0 +1,23 @@
+{
+  "title": "Clipboard",
+  "bar": {
+    "empty": "(empty)",
+    "binary": "{type}",
+    "sensitive": "(hidden)"
+  },
+  "tooltip": {
+    "empty": "Clipboard is empty",
+    "binary": "Clipboard holds {type} data",
+    "sensitive": "A password manager copied this, so it is not shown"
+  },
+  "settings": {
+    "max_length": {
+      "label": "Maximum characters in the bar",
+      "description": "Longer clipboard text is cut to this many characters and ends with an ellipsis."
+    }
+  },
+  "error": {
+    "missing-tool": "wl-paste not found — install wl-clipboard to enable the clipboard viewer",
+    "stream": "Unable to start the clipboard watcher"
+  }
+}
