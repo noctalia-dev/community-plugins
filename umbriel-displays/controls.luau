@@ -34,9 +34,9 @@ end
 
 -- Feed the drag preview back as value; the stored value resets the handle
 -- because the host also emits onChange when applying controlled values.
-function M.slider(value, low, high, step, onPreview, onSet)
+function M.slider(value, low, high, step, onPreview, onSet, key)
   return ui.slider({
-    key = "slider",
+    key = key or "slider",
     min = low,
     max = high,
     step = step,
