@@ -299,6 +299,7 @@ body:
         - shell-command
         - shelly
         - shift
+        - shipyard
         - shloka
         - sing-box-status
         - social-block
