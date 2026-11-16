@@ -6138,3 +6138,16 @@ icon = "file"
 description = "Localcheck"
 plugin_api = 43
 tags = ["network", "utility", "system"]
+
+[[plugin]]
+id = "kryzhh/spotify-ambient"
+name = "Spotify Ambient"
+version = "0.4.2"
+updated_at = 1794869374
+added_at = 1794869374
+author = "kryzhh"
+license = "MIT"
+icon = "brand-spotify"
+description = "Create ambient wallpapers from Spotify artwork and generate matching Noctalia palettes from the original cover art."
+plugin_api = 44
+tags = ["wallpaper", "music", "theming", "media"]
