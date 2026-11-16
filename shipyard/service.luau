@@ -170,6 +170,15 @@ local function getHomeDir()
   if cachedHomeDir and cachedHomeDir ~= "" then
     return cachedHomeDir
   end
+  pcall(function()
+    local h = os.getenv("HOME")
+    if type(h) == "string" and h ~= "" then
+      cachedHomeDir = h
+    end
+  end)
+  if cachedHomeDir and cachedHomeDir ~= "" then
+    return cachedHomeDir
+  end
   if type(noctalia.getenv) == "function" then
     local h = noctalia.getenv("HOME")
     if type(h) == "string" and h ~= "" then
@@ -208,9 +217,16 @@ end
 -- Validation Helpers
 local function isValidIdentifier(str)
   if type(str) ~= "string" or str == "" or #str > 256 then return false end
-  -- Reject flag injection (leading hyphen)
-  if str:sub(1, 1) == "-" then return false end
-  return str:match("^[a-zA-Z0-9_.:/%%-]+$") ~= nil
+  -- Reject flag injection and path traversal
+  if str:sub(1, 1) == "-" or str:find("%.%.") or str:find("/") then return false end
+  return str:match("^[a-zA-Z0-9_.-]+$") ~= nil
+end
+
+local function isValidImageRef(str)
+  if type(str) ~= "string" or str == "" or #str > 256 then return false end
+  -- Reject flag injection and path traversal
+  if str:sub(1, 1) == "-" or str:find("%.%.") then return false end
+  return str:match("^[a-zA-Z0-9_.:/@%%-]+$") ~= nil
 end
 
 local function isValidPath(str)
@@ -857,14 +873,17 @@ refreshContainerStats = function(onComplete)
               ramBytes = entry.MemUsage
               ramShort = formatBytes(ramBytes)
             elseif type(entry.MemUsage) == "string" then
-              local usedPart = entry.MemUsage:match("^([%d%.]+%s*%a+)") or entry.MemUsage
-              ramShort = trim(usedPart)
-              local num, unit = ramShort:match("([%d%.]+)%s*(%a+)")
-              local rNum = tonumber(num) or 0
-              if     unit == "GiB" or unit == "GB" then ramBytes = rNum * 1024 * 1024 * 1024
-              elseif unit == "MiB" or unit == "MB" then ramBytes = rNum * 1024 * 1024
-              elseif unit == "KiB" or unit == "KB" then ramBytes = rNum * 1024
-              else ramBytes = rNum end
+              local raw = trim(entry.MemUsage)
+              if not raw:find("^%-%-") and not raw:find("^0B%s*/") and raw ~= "" then
+                local usedPart = raw:match("^([%d%.]+%s*%a+)") or raw
+                ramShort = trim(usedPart)
+                local num, unit = ramShort:match("([%d%.]+)%s*(%a+)")
+                local rNum = tonumber(num) or 0
+                if     unit == "GiB" or unit == "GB" then ramBytes = rNum * 1024 * 1024 * 1024
+                elseif unit == "MiB" or unit == "MB" then ramBytes = rNum * 1024 * 1024
+                elseif unit == "KiB" or unit == "KB" then ramBytes = rNum * 1024
+                else ramBytes = rNum end
+              end
             end
 
             local s = { cpu = cpuStr, ram = ramShort }
@@ -911,8 +930,9 @@ end
 
 local function triggerEventStreamCheck()
   if eventListenerRunning or not isDaemonActive then return end
+  if noctalia.state.get(KEY_PANEL_OPEN) ~= true then return end
   eventListenerRunning = true
-  runCli({ "events", "--since", "10s", "--until", "0s", "--format", "{{json .}}" }, function(result)
+  runCli({ "events", "--since", "3s", "--until", "0s", "--format", "{{json .}}" }, function(result)
     eventListenerRunning = false
     if result and result.exitCode == 0 and trim(result.stdout) ~= "" then
       refreshContainers()
@@ -926,7 +946,6 @@ end
 
 local function scanComposeStacks(onComplete, notifyUser)
   snapshot.scanningStacks = true
-  snapshot.isScanning     = true
   snapshot.scanError      = nil
   snapshot.scanDirsList   = scanDirs
   publishSnapshot()
@@ -934,9 +953,6 @@ local function scanComposeStacks(onComplete, notifyUser)
   if #scanDirs == 0 then
     snapshot.stacks         = {}
     snapshot.scanningStacks = false
-    if not isRefreshing then
-      snapshot.isScanning = false
-    end
     snapshot.scanMessage    = "No scan directories configured. Add directories in Settings."
     publishSnapshot()
     if notifyUser then
@@ -958,44 +974,39 @@ local function scanComposeStacks(onComplete, notifyUser)
        .. " -o -name 'container-compose.yml' -o -name 'container-compose.yaml' \\)"
 
   local dirsArgs = table.concat(expandedDirs, " ")
-  local findScript = string.format([[
-    any_dir=0
-    for d in %s; do
-      case "$d" in
-        "~"/*) d="$HOME/${d#\~/}" ;;
-        "~")   d="$HOME" ;;
-      esac
-      if [ -d "$d" ]; then
-        any_dir=1
-        break
-      fi
-    done
-    if [ "$any_dir" -eq 0 ]; then
-      echo "__SHIPYARD_NO_DIRS__"
-    else
-      for d in %s; do
-        case "$d" in
-          "~"/*) d="$HOME/${d#\~/}" ;;
-          "~")   d="$HOME" ;;
-        esac
-        if [ -d "$d" ]; then
-          find "$d" -maxdepth 8 \( -name .git -o -name node_modules \) -prune -o -type f %s -print 2>/dev/null
-        fi
-      done | head -n 120 | while IFS= read -r f; do
-        [ -f "$f" ] || continue
-        d="${f%%/*}"
-        s="${d##*/}"
-        printf '%%s\t%%s\t%%s\n' "$s" "$d" "$f"
-      done
-    fi
-  ]], dirsArgs, dirsArgs, names)
+  local findScript = 'any_dir=0\n'
+    .. 'for d in ' .. dirsArgs .. '; do\n'
+    .. '  case "$d" in\n'
+    .. '    "~"/*) d="$HOME/${d#\\~/}" ;;\n'
+    .. '    "~")   d="$HOME" ;;\n'
+    .. '  esac\n'
+    .. '  if [ -d "$d" ]; then\n'
+    .. '    any_dir=1\n'
+    .. '    break\n'
+    .. '  fi\n'
+    .. 'done\n'
+    .. 'if [ "$any_dir" -eq 0 ]; then\n'
+    .. '  echo "__SHIPYARD_NO_DIRS__"\n'
+    .. 'else\n'
+    .. '  for d in ' .. dirsArgs .. '; do\n'
+    .. '    case "$d" in\n'
+    .. '      "~"/*) d="$HOME/${d#\\~/}" ;;\n'
+    .. '      "~")   d="$HOME" ;;\n'
+    .. '    esac\n'
+    .. '    if [ -d "$d" ]; then\n'
+    .. '      find "$d" -maxdepth 8 \\( -name .git -o -name node_modules \\) -prune -o -type f ' .. names .. ' -print 2>/dev/null\n'
+    .. '    fi\n'
+    .. '  done | head -n 120 | while IFS= read -r f; do\n'
+    .. '    [ -f "$f" ] || continue\n'
+    .. '    d="${f%/*}"\n'
+    .. '    s="${d##*/}"\n'
+    .. '    printf \'%s\\t%s\\t%s\\n\' "$s" "$d" "$f"\n'
+    .. '  done\n'
+    .. 'fi\n'
 
   runRaw(findScript, function(result)
     pcall(function()
       snapshot.scanningStacks = false
-      if not isRefreshing then
-        snapshot.isScanning = false
-      end
 
       local stdout = (result and result.stdout) or ""
 
@@ -1821,7 +1832,7 @@ local function onCommandReceived(cmd)
       end
       refreshImages()
     end)
-  elseif action == "image_remove" and isValidIdentifier(cmd.id) then
+  elseif action == "image_remove" and isValidImageRef(cmd.id) then
     setBusyState(true, string.format("Removing image %s…", cmd.name or cmd.id), "image_remove", cmd.id)
     runCli({ "rmi", "-f", cmd.id }, function(res)
       setBusyState(false)
@@ -1931,7 +1942,7 @@ local function onCommandReceived(cmd)
       end
     end, 20000)
 
-  elseif action == "image_pull" and isValidIdentifier(cmd.image) then
+  elseif action == "image_pull" and isValidImageRef(cmd.image) then
     local imgName = trim(cmd.image)
     local pullRef = qualifyImageRef(imgName, activeDaemon)
     runStreamingTask({
@@ -1951,7 +1962,7 @@ local function onCommandReceived(cmd)
       refreshImages()
     end)
 
-  elseif action == "container_run_image" and isValidIdentifier(cmd.image) then
+  elseif action == "container_run_image" and isValidImageRef(cmd.image) then
     local imgName = trim(cmd.image)
     local runRef = qualifyImageRef(imgName, activeDaemon)
     local flags = { "-d" }
@@ -2101,6 +2112,21 @@ function update()
     refreshQueued       = false
     snapshot.isScanning = false
     publishSnapshot()
+  end
+
+  -- Task watchdog: if a streaming task's process group has vanished from the OS, unlock the busy state
+  if isBusy and activeTaskPid and not activeTaskCancelling then
+    if tickCounter % 5 == 0 then
+      local pidToCheck = activeTaskPid
+      noctalia.runAsync(string.format("kill -0 -%d 2>/dev/null", pidToCheck), function(res)
+        if res and res.exitCode ~= 0 and isBusy and activeTaskPid == pidToCheck and not activeTaskCancelling then
+          isBusy = false
+          activeTaskPid = nil
+          currentActiveTask = nil
+          publishSnapshot()
+        end
+      end)
+    end
   end
 
   if tickCounter % 2 == 0 then

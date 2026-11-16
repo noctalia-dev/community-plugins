@@ -24,7 +24,7 @@ noctalia msg panel-toggle ishan0121/shipyard:manager
 ### Features
 
 - **Persistent Header:** Seamless toggle switch between Docker and Podman, with live daemon-wide CPU and RAM aggregation.
-- **Stacks Tab (Compose Director):** Scans configured directories for `docker-compose.yml` or `compose.yaml`. Provides `Up` and `Down` controls alongside a **Deploy & Eject** feature that starts a stack and delegates running containers directly to atomic management.
+- **Stacks Tab (Compose Director):** Scans configured directories for `docker-compose.yml` or `compose.yaml`. Provides `Up` and `Down` controls alongside a **Deploy & Eject** action that starts a stack and switches directly to the Containers view for atomic container inspection and management.
 - **Containers Tab (Atomic View):** Live event-stream-driven container inspection. Displays live CPU and memory usage, status badges, and inline Start, Stop, Restart, and Remove buttons.
 - **Images Tab (Asset Manager):** Lists downloaded images with tags, size, and container reference count, with a one-click **Prune Unused Images** action.
 - **Infrastructure Tab (Volumes & Networks):** Split view for volumes and networks, highlighting unattached orphans for quick deletion.
