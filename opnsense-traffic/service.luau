@@ -78,6 +78,16 @@ local function hiddenBy(id, name, device)
 end
 
 peaks.load()
+
+-- This PC's own rate from Noctalia's system monitor (show_local), with a
+-- history for the graph. Its scale is the link speed of the network card,
+-- not a measured peak. nil while turned off or the source is unavailable.
+local pc = nil
+local pcHistory = { id = "", rx = {}, tx = {}, sampledAt = nil }
+-- Read once, then again only while unknown (a card that has no link yet at
+-- start), after waking up (renegotiation) or when the interface setting changes.
+local LINK_RETRY_MS = 30 * 1000
+local link = { name = nil, bytesPerSec = 0, at = 0, stale = true }
 loadHidden()
 -- From /api/interfaces/overview: the first interface with a default route
 -- (auto-detect) and every one that has one (WAN side, see isWanSide).
@@ -194,6 +204,7 @@ end
 
 local function publish(snapshot)
 	snapshot.updatedAt = noctalia.nowMs()
+	snapshot.pc = pc
 	noctalia.state.set(SNAPSHOT_KEY, snapshot)
 end
 
@@ -434,11 +445,100 @@ local function handleTraffic(response)
 	})
 end
 
+-- Link speed in bytes/s from sysfs: the named interface, or the sum over the
+-- physical interfaces that report one (a card that is down or wireless has
+-- none). 0 when unknown.
+local function refreshLink(name)
+	link.name = name
+	link.at = noctalia.nowMs()
+	link.stale = false
+	local candidates = {}
+	if name ~= "" then
+		candidates = { name }
+	else
+		for _, entry in ipairs(noctalia.listDir("/sys/class/net") or {}) do
+			if noctalia.fileExists("/sys/class/net/" .. entry .. "/device") then
+				table.insert(candidates, entry)
+			end
+		end
+	end
+	local pending = #candidates
+	local mbit = 0
+	if pending == 0 then
+		link.bytesPerSec = 0
+		return
+	end
+	local function done()
+		pending -= 1
+		if pending == 0 and link.name == name then
+			link.bytesPerSec = mbit * 125000
+		end
+	end
+	for _, entry in ipairs(candidates) do
+		local accepted = noctalia.readFileAsync("/sys/class/net/" .. entry .. "/speed", function(contents)
+			local value = tonumber(noctalia.string.trim(tostring(contents or "")))
+			if value ~= nil and value > 0 then
+				mbit += value
+			end
+			done()
+		end)
+		if not accepted then
+			done()
+		end
+	end
+end
+
+local function samplePc()
+	if config("show_local", false) ~= true or noctalia.systemStats == nil then
+		pc = nil
+		return
+	end
+	local stats = noctalia.systemStats()
+	if type(stats) ~= "table" or type(stats.net) ~= "table" then
+		pc = nil
+		return
+	end
+	local name = noctalia.string.trim(tostring(config("local_interface", "")))
+	local rates = stats.net
+	if name ~= "" then
+		rates = type(stats.net.interfaces) == "table" and stats.net.interfaces[name] or nil
+	end
+	local rx = type(rates) == "table" and tonumber(rates.rxBytesPerSec) or nil
+	local tx = type(rates) == "table" and tonumber(rates.txBytesPerSec) or nil
+	if rx == nil or tx == nil then
+		pc = nil
+		return
+	end
+	local unknownForAWhile = link.bytesPerSec <= 0 and noctalia.nowMs() - link.at >= LINK_RETRY_MS
+	if link.stale or link.name ~= name or unknownForAWhile then
+		refreshLink(name)
+	end
+	if pcHistory.id ~= name then
+		pcHistory = { id = name, rx = {}, tx = {}, sampledAt = nil }
+	end
+	-- The monitor samples on its own interval; count each sample once.
+	local sampledAt = tonumber(stats.sampledAtMs)
+	if sampledAt == nil or sampledAt ~= pcHistory.sampledAt then
+		pcHistory.sampledAt = sampledAt
+		push(pcHistory.rx, rx)
+		push(pcHistory.tx, tx)
+	end
+	pc = {
+		name = name,
+		rx = rx,
+		tx = tx,
+		rxHistory = pcHistory.rx,
+		txHistory = pcHistory.tx,
+		link = link.bytesPerSec,
+	}
+end
+
 local function poll()
 	if running then
 		return
 	end
 	lastRun = noctalia.nowMs()
+	samplePc()
 	if baseUrl() == "" then
 		publishError(noctalia.tr("errors.no_url"))
 		return
@@ -522,6 +622,7 @@ function update()
 	-- it just woke up, so skip the dead connection right away.
 	local nowSec = os.time()
 	if nowSec - lastTickSec > SLEEP_GAP_S then
+		link.stale = true
 		startFallback()
 		counters = {}
 		rates = {}
