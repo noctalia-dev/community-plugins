@@ -1,0 +1,32 @@
+id = "omerfuyar/plugin-hub"
+name = "Plugin Hub"
+version = "1.2.3"
+plugin_api = 43
+author = "omerfuyar"
+license = "MIT"
+icon = "apps"
+description = "Every plugin in one panel: enable it, change its settings, open its panels, run its commands and give any of them a key."
+dependencies = ["hyprctl", "sh", "awk", "git"]
+tags = ["hyprland", "launcher", "shortcut", "utility"]
+
+[[widget]]
+id = "widget"
+entry = "widget.luau"
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 460
+height = "content"
+max_height = 640
+
+[[launcher_provider]]
+id = "hub"
+entry = "launcher.luau"
+prefix = "hub"
+glyph = "apps"
+include_in_global_search = false

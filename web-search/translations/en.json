@@ -16,6 +16,14 @@
         "kagi": "Kagi",
         "mojeek": "Mojeek"
       }
+    },
+    "search_priority": {
+      "description": "Position of the web search result in the launcher.",
+      "label": "Search result priority",
+      "options": {
+        "top": "Top",
+        "relevance": "By relevance"
+      }
     }
   }
 }

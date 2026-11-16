@@ -31,10 +31,14 @@ noctalia msg panel-toggle dotnetrob/cat:panel
 | `walk_threshold` | `int` | `15` | CPU percentage at which the cat wakes up and starts walking. |
 | `run_threshold` | `int` | `60` | CPU percentage at which the cat breaks into a run. |
 | `poll_interval` | `int` | `2` | How often to read CPU usage, in seconds (1–10). Noctalia's system monitor sets the fastest refresh, 2 seconds by default. |
+| `bounce` | `bool` | `true` | Bob the cat up and down in step with its stride while it walks or runs, in the bar and in the panel. |
 | `cat_color_mode` | `select` | `theme` | `theme` colors the cat with the palette's `secondary` role and tracks theme changes; `custom` uses the color below. |
 | `cat_color` | `color` | `#E8A24C` | Used when `cat_color_mode` is `custom`. |
 
 ## Notes
+
+Requires Noctalia 5.5.0 or newer (plugin API 52, for the bounce). Older
+shells keep getting version 1.3.0 from the plugin store.
 
 Every `poll_interval` seconds the widget reads CPU usage from Noctalia's
 system monitor (`noctalia.systemStats()`, plugin API 12) — apart from loading
@@ -46,4 +50,6 @@ bar widget through the plugin's in-process shared state store, so without a
 cat widget in any bar it shows a sleeping cat with no CPU reading. The cat's shape comes from a small custom icon font
 (`fonts/catwalk2.otf`) traced from the MIT-licensed
 [CatWalk](https://store.kde.org/p/2055225) plasmoid by Driglu4it, which lets
-it be recolored like normal bar text instead of a fixed-color image.
+it be recolored like normal bar text instead of a fixed-color image. The
+bounce is a paint-only offset, so it never changes the widget's size or
+shifts its neighbors in the bar.

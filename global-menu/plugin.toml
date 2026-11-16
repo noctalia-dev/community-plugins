@@ -1,0 +1,67 @@
+id           = "amancode22/global-menu"
+name         = "Global Menu"
+version      = "1.0.0"
+plugin_api   = 24
+author       = "amancode22"
+license      = "GPL-3.0-or-later"
+icon         = "menu-2"
+description  = "macOS style menu bar: the focused application's menus move into the top bar."
+tags         = ["bar", "panel", "system"]
+dependencies = ["python3", "python3-dbus", "python3-gi"]
+
+[[setting]]
+key      = "show_app_name"
+type     = "bool"
+label_key = "settings.show_app_name.label"
+description_key = "settings.show_app_name.description"
+default  = true
+
+[[setting]]
+key      = "shortcut_menus"
+type     = "bool"
+label_key = "settings.shortcut_menus.label"
+description_key = "settings.shortcut_menus.description"
+default  = true
+
+[[setting]]
+key      = "fallback_menus"
+type     = "bool"
+label_key = "settings.fallback_menus.label"
+description_key = "settings.fallback_menus.description"
+default  = true
+
+[[widget]]
+id    = "menubar"
+entry = "entries/widget.luau"
+
+  [[widget.setting]]
+  key      = "max_menus"
+  type     = "int"
+  label_key = "settings.max_menus.label"
+  description_key = "settings.max_menus.description"
+  default  = 0
+  min      = 0
+  max      = 60
+
+  [[widget.setting]]
+  key      = "bar_max_width"
+  type     = "int"
+  label_key = "settings.bar_max_width.label"
+  description_key = "settings.bar_max_width.description"
+  default  = 0
+  min      = 0
+  max      = 4000
+
+[[panel]]
+id          = "menu"
+entry       = "entries/panel.luau"
+width       = 360
+height      = 440
+placement   = "attached"
+open_near_click = true
+keyboard_focus = "exclusive"
+capture_keys = ["Up", "Down", "Return", "Left", "Right"]
+
+[[service]]
+id    = "service"
+entry = "entries/service.luau"

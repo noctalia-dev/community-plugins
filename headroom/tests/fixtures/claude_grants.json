@@ -1,0 +1,65 @@
+{
+ "eligible": true,
+ "ineligible_reason": null,
+ "at_limit": false,
+ "exhausted": [],
+ "next_grant_id": null,
+ "grants": [
+  {
+   "id": "launch-fable",
+   "label": "New model launch: one Fable reset",
+   "resets_total": 1,
+   "resets_left": 1,
+   "starts_at": "2026-09-01T00:00:00+00:00",
+   "ends_at": "2026-09-30T00:00:00+00:00",
+   "clears": [
+    "seven_day"
+   ],
+   "paused": false,
+   "usable_now": true,
+   "type": "weekly"
+  },
+  {
+   "id": "full-reset",
+   "label": "One full limit reset (September 2026)",
+   "resets_total": 1,
+   "resets_left": 1,
+   "starts_at": "2026-09-10T21:30:00+00:00",
+   "ends_at": "2026-09-25T22:00:00+00:00",
+   "clears": [
+    "five_hour",
+    "seven_day"
+   ],
+   "paused": false,
+   "usable_now": true,
+   "type": "full"
+  },
+  {
+   "id": "paused",
+   "label": "Paused grant",
+   "resets_total": 1,
+   "resets_left": 1,
+   "starts_at": "2026-09-01T00:00:00+00:00",
+   "ends_at": "2026-12-01T00:00:00+00:00",
+   "paused": true
+  },
+  {
+   "id": "spent",
+   "label": "Spent grant",
+   "resets_total": 1,
+   "resets_left": 0,
+   "starts_at": "2026-09-01T00:00:00+00:00",
+   "ends_at": "2026-12-01T00:00:00+00:00",
+   "paused": false
+  },
+  {
+   "id": "future",
+   "label": "Not started",
+   "resets_total": 1,
+   "resets_left": 1,
+   "starts_at": "2026-12-01T00:00:00+00:00",
+   "ends_at": "2027-01-01T00:00:00+00:00",
+   "paused": false
+  }
+ ]
+}

@@ -8,6 +8,7 @@ local M = {}
 M.RESULT_KEY = "nixos_updates"
 M.COMMAND_KEY = "nixos_updates_command"
 M.DETAILS_ID = "dmopp/nixos-updates:details"
+M.SYSTEM_KEY = "nixos_updates_system"
 
 function M.send(action)
 	noctalia.state.set(M.COMMAND_KEY, { action = action, nonce = tostring(noctalia.nowMs()) })
@@ -92,8 +93,145 @@ function M.openUrl(url)
 	end
 end
 
--- Check now plus Update (or a shortcut to the settings when no update
--- command is set), for the bottom of both panels.
+-- Bytes as Nix and df users read them: "1.2 GiB".
+function M.bytes(n)
+	n = tonumber(n) or 0
+	local units = { "B", "KiB", "MiB", "GiB", "TiB" }
+	local i = 1
+	while n >= 1024 and i < #units do
+		n /= 1024
+		i += 1
+	end
+	return string.format(i == 1 and "%d %s" or "%.1f %s", n, units[i])
+end
+
+-- Lines under the status: a restart that is due, and what the update would
+-- download and build. Each { glyph, text, color, tooltip }.
+function M.notes(result, system)
+	local notes = {}
+	local reboot = type(system) == "table" and system.reboot or nil
+	if type(reboot) == "table" then
+		local text = noctalia.tr("panel.reboot")
+		if reboot.installed ~= "" and reboot.running ~= "" and reboot.installed ~= reboot.running then
+			text = noctalia.tr("panel.reboot_kernel", { installed = reboot.installed, running = reboot.running })
+		end
+		table.insert(notes, { glyph = "refresh-alert", text = text, color = "error", tooltip = noctalia.tr("panel.reboot_hint") })
+	end
+	local estimate = result.estimate
+	if result.estimating then
+		-- Shown by estimateButton, with its progress.
+	elseif result.estimateError ~= nil then
+		table.insert(notes, { glyph = "cloud-download", text = tostring(result.estimateError), color = "error" })
+	elseif type(estimate) == "table" and (tonumber(result.count) or 0) > 0 then
+		local parts = {}
+		-- Always a line once there is an estimate, also when everything is in the
+		-- store already, so the result is never just a vanished button.
+		if (tonumber(estimate.fetch) or 0) > 0 then
+			table.insert(parts, noctalia.trp("panel.estimate_fetch", estimate.fetch, { download = estimate.download, unpacked = estimate.unpacked }))
+		else
+			table.insert(parts, noctalia.tr("panel.estimate_no_fetch"))
+		end
+		if (tonumber(estimate.build) or 0) > 0 then
+			table.insert(parts, noctalia.trp("panel.estimate_build", estimate.build))
+		end
+		table.insert(notes, {
+			glyph = "cloud-download",
+			text = table.concat(parts, " · "),
+			color = "on_surface_variant",
+			tooltip = noctalia.tr("panel.estimate_hint"),
+		})
+	end
+	return notes
+end
+
+-- Nix reports no progress for a dry run, so the bar runs against how long the
+-- last estimate took (30 s before the first one) and stops short of the end
+-- when it takes longer.
+local DEFAULT_ESTIMATE_MS = 30 * 1000
+
+local function estimateProgress(result)
+	local elapsed = math.max(noctalia.nowMs() - (tonumber(result.estimateStartedMs) or noctalia.nowMs()), 0)
+	local expected = math.max(tonumber(result.estimateMs) or DEFAULT_ESTIMATE_MS, 1000)
+	local seconds = math.floor(elapsed / 1000)
+	local hint
+	if elapsed < expected then
+		local key = result.estimateMs ~= nil and "panel.estimate_left" or "panel.estimate_left_guess"
+		hint = noctalia.tr(key, { seconds = tostring(math.ceil((expected - elapsed) / 1000)) })
+	else
+		hint = noctalia.tr("panel.estimate_longer")
+	end
+	return ui.column({ key = "estimate-progress", gap = 4 }, {
+		ui.button({
+			key = "estimate",
+			text = noctalia.tr("panel.estimate_running", { seconds = tostring(seconds) }),
+			glyph = "cloud-download",
+			fontSize = 12,
+			glyphSize = 12,
+			variant = "ghost",
+			controlSize = "sm",
+			contentAlign = "start",
+			enabled = false,
+		}),
+		ui.progress({ progress = math.min(elapsed / expected, 0.95), height = 4, radius = 2 }),
+		ui.label({ text = hint, fontSize = 11, color = "on_surface_variant" }),
+	})
+end
+
+-- The button that starts the download estimate: only while updates are pending,
+-- package versions are compared and no estimate is there. While it runs: the
+-- disabled button with elapsed seconds and a progress bar.
+function M.estimateButton(result)
+	if result.estimating then
+		return estimateProgress(result)
+	end
+	if result.running or result.estimate ~= nil or (tonumber(result.count) or 0) == 0 then
+		return nil
+	end
+	if type(result.packages) ~= "table" then
+		return nil
+	end
+	return ui.button({
+		key = "estimate",
+		text = noctalia.tr("panel.estimate_button"),
+		glyph = "cloud-download",
+		fontSize = 12,
+		glyphSize = 12,
+		variant = "ghost",
+		controlSize = "sm",
+		contentAlign = "start",
+		tooltip = noctalia.tr("panel.estimate_button_hint"),
+		onClick = function()
+			M.send("estimate")
+		end,
+	})
+end
+
+function M.noteRows(notes)
+	local rows = {}
+	for i, note in ipairs(notes) do
+		table.insert(rows, ui.row({ key = "note-" .. i, align = "center", gap = 8, tooltip = note.tooltip }, {
+			ui.glyph({ name = note.glyph, size = 14, color = note.color }),
+			ui.label({ text = note.text, fontSize = 12, color = note.color, flexGrow = 1, maxLines = 2 }),
+		}))
+	end
+	return rows
+end
+
+-- "Nix store: 1.0 TiB free of 1.8 TiB · 91 system generations", or nil.
+function M.storage(system)
+	if type(system) ~= "table" or system.size == nil then
+		return nil
+	end
+	return noctalia.tr("panel.storage", {
+		free = M.bytes(system.free),
+		size = M.bytes(system.size),
+		generations = tostring(system.generations or 0),
+	})
+end
+
+-- Check now, Clean up unless turned off, and Update (or a
+-- shortcut to the settings when no update command is set), for the bottom of
+-- both panels.
 function M.actions(result, onUpdate)
 	local buttons = {
 		ui.button({
@@ -108,6 +246,19 @@ function M.actions(result, onUpdate)
 		}),
 		ui.box({ flexGrow = 1, height = 1, fill = "on_surface/0" }),
 	}
+	if result.hasCleanupButton then
+		table.insert(buttons, ui.button({
+			text = noctalia.tr("panel.cleanup"),
+			glyph = "trash",
+			variant = "ghost",
+			controlSize = "sm",
+			tooltip = noctalia.tr("panel.cleanup_hint"),
+			onClick = function()
+				M.send("cleanup")
+				onUpdate()
+			end,
+		}))
+	end
 	if result.hasUpdateCommand then
 		table.insert(buttons, ui.button({
 			text = noctalia.tr("panel.update"),

@@ -1,0 +1,316 @@
+{
+  "bar": {
+    "tooltip_all_caught_up": "自上次更新進度後，沒有新增的未看集數（{series} 部在看）",
+    "tooltip_cached": "快取：{message}",
+    "tooltip_cached_error": "快取：{message} · 重新整理失敗：{error}",
+    "tooltip_counting": "正在統計新增的未看集數…",
+    "tooltip_empty": "目前沒有在看的作品",
+    "tooltip_forbidden": "目前的授權不允許此操作。請檢查你的 Bangumi 存取權限。",
+    "tooltip_icon_only": "Bangumi 追番",
+    "tooltip_loading": "正在載入追番資料…",
+    "tooltip_mode_completed": "{count} 部看過作品",
+    "tooltip_mode_dropped": "{count} 部拋棄作品",
+    "tooltip_mode_on_hold": "{count} 部擱置作品",
+    "tooltip_mode_today_all": "今日 Bangumi 日曆中有 {count} 部作品（僅供排期參考，不代表集數已播出）",
+    "tooltip_mode_today_watching": "今日 Bangumi 日曆中有 {count} 部在看作品（僅供排期參考，不代表集數已播出）",
+    "tooltip_mode_watching": "{count} 部在看作品",
+    "tooltip_mode_wish": "{count} 部想看作品",
+    "tooltip_network": "網路錯誤：無法連線至 api.bgm.tv",
+    "tooltip_not_configured": "尚未設定：請在插件設定中新增存取權杖或使用者名稱",
+    "tooltip_oauth_unauthorized": "Bangumi 登入已失效或過期。請開啟面板並重新登入。",
+    "tooltip_unauthorized": "存取權杖無效或已過期，請在插件設定中更新",
+    "tooltip_unwatched": "自上次更新進度後新增 {count} 集未看（{series} 部在看）"
+  },
+  "desktop": {
+    "empty": "目前沒有在看的作品",
+    "forbidden": "目前的授權不允許此操作。請檢查你的 Bangumi 存取權限。",
+    "http_error": "API 錯誤：HTTP {status}",
+    "loading": "載入中…",
+    "more": "另有 {count} 部未顯示",
+    "network_error": "網路錯誤：無法連線至 api.bgm.tv",
+    "next_page": "下一頁",
+    "not_configured": "尚未設定：請在插件設定中新增 Bangumi 存取權杖或使用者名稱",
+    "oauth_unauthorized": "Bangumi 登入已失效或過期。請開啟面板並重新登入。",
+    "open": "開啟條目頁面",
+    "page_range": "{first}-{last} / {total}",
+    "parse_error": "無法解析 API 回應",
+    "previous_page": "上一頁",
+    "progress": "已看 {current}/{total}",
+    "progress_aired": "已看 {current} · 已播 {aired}/{total}",
+    "progress_unknown": "已看 {current}",
+    "public_view": "公開收藏：{username}",
+    "title": "Bangumi 追番",
+    "unauthorized": "存取權杖無效或已過期，請在插件設定中更新",
+    "unknown_error": "未知錯誤",
+    "watching_count": "{count} 部在看"
+  },
+  "panel": {
+    "account": "帳號",
+    "browser_open_failed": "無法開啟瀏覽器。請確認 xdg-open 可用後再試一次。",
+    "busy": "更新中，請稍候",
+    "callback_port_in_use": "本機登入連接埠已被占用。請關閉另一個登入流程後再試一次。",
+    "collection_status": "收藏狀態",
+    "empty": "此分類中沒有作品",
+    "ep_decrement": "進度 -1",
+    "ep_increment": "進度 +1",
+    "episodes_unavailable": "無法取得劇集清單",
+    "filter_done": "看過",
+    "filter_dropped": "拋棄",
+    "filter_on_hold": "擱置",
+    "filter_watching": "在看",
+    "filter_wish": "想看",
+    "forbidden": "目前的授權不允許此操作。請檢查你的 Bangumi 存取權限。",
+    "grid_next": "下一頁",
+    "grid_page": "第 {page}/{pages} 頁 · 共 {total} 部作品",
+    "grid_previous": "上一頁",
+    "grid_progress": "{current}/{total} 集",
+    "grid_progress_unknown": "已看 {current} 集",
+    "http_error": "API 錯誤：HTTP {status}",
+    "layout_grid": "封面宮格檢視",
+    "layout_list": "清單檢視",
+    "loading": "載入中…",
+    "logged_in_as": "已登入：{name}（{username}）",
+    "mark_done": "全部標為已看",
+    "network_error": "網路錯誤：無法連線至 api.bgm.tv",
+    "newly_unwatched": "新增 {count} 集未看",
+    "no_next_episode": "沒有下一集可標為已看",
+    "no_prev_episode": "沒有上一集可取消已看標記",
+    "not_configured": "尚未設定",
+    "oauth_access_denied": "Bangumi 授權遭到拒絕。請重新登入以授予存取權限，或使用手動設定。",
+    "oauth_already_completed": "登入已在取消前完成。你的 Bangumi 帳號現已連線。",
+    "oauth_busy": "已有 Bangumi 登入操作正在執行。請稍候。",
+    "oauth_cached_read_only": "目前顯示的快取資料僅供讀取。請再次重新整理或重新登入，以恢復需驗證身分的存取。",
+    "oauth_cancel": "取消",
+    "oauth_cancelled": "已取消網頁登入。",
+    "oauth_client_changed": "網頁登入使用的應用程式已變更。請重新登入。",
+    "oauth_confirm_disconnect": "確認中斷連線",
+    "oauth_disconnect": "中斷連線",
+    "oauth_disconnect_hint": "這會移除此裝置上的網頁登入資料，並改用已設定的個人存取權杖或使用者名稱。若兩者都未設定，則會登出。",
+    "oauth_exchange_failed": "Bangumi 無法完成登入。請再試一次。",
+    "oauth_forbidden": "目前的授權不允許此操作。請檢查授予 Bangumi 應用程式的權限；你可以重新登入以授權存取。",
+    "oauth_internal_error": "無法完成網頁登入。請再試一次。",
+    "oauth_invalid_attempt": "這次網頁登入已失效。請重新開始登入。",
+    "oauth_invalid_grant": "Bangumi 登入已過期或授權已撤銷。請重新登入。",
+    "oauth_keep_signed_in": "保持登入",
+    "oauth_manual_settings": "手動設定",
+    "oauth_network": "登入時無法連線至 Bangumi。請檢查網路連線後再試一次。",
+    "oauth_network_error": "登入時無法連線至 Bangumi。請檢查網路連線後再試一次。",
+    "oauth_not_authenticated": "找不到已儲存的 Bangumi 網頁登入資料。請重新登入。",
+    "oauth_not_configured": "維護者尚未為此版本設定網頁登入。請在設定中使用個人存取權杖。",
+    "oauth_profile_failed": "無法驗證你的 Bangumi 帳號。請重新登入。",
+    "oauth_retry_refresh": "再次重新整理",
+    "oauth_sign_in": "使用 Bangumi 登入",
+    "oauth_sign_in_again": "切換帳號",
+    "oauth_signed_in": "已登入 Bangumi。請重新開啟面板以查看收藏。",
+    "oauth_signed_in_title": "Bangumi 登入",
+    "oauth_storage_error": "無法將 Bangumi 登入資料儲存至本機。請檢查插件資料目錄的存取權限。",
+    "oauth_timeout": "網頁登入逾時。請重新登入。",
+    "oauth_unauthorized": "Bangumi 登入已失效或過期。請重新登入以繼續使用。",
+    "oauth_unavailable": "網頁登入需要 PATH 中有 python3。請在設定中使用個人存取權杖。",
+    "oauth_unknown_error": "網頁登入失敗。請再試一次，或在設定中使用個人存取權杖。",
+    "oauth_waiting": "請在瀏覽器中完成登入。你可以關閉此面板，登入流程會繼續在背景執行。",
+    "oauth_working": "正在檢查 Bangumi 登入狀態…",
+    "open": "開啟條目頁面",
+    "open_settings": "開啟設定",
+    "parse_error": "無法解析 API 回應",
+    "progress": "{current}/{total} 集",
+    "progress_aired": "已看 {current} 集 / 已播 {aired} 集 / 共 {total} 集",
+    "progress_unknown": "已看 {current} 集",
+    "public_view": "公開收藏：{username}",
+    "refresh": "重新整理",
+    "score": "評分 {score}",
+    "settings": "設定",
+    "timeline_all": "全部日曆作品",
+    "timeline_cached": "正在顯示快取日曆 · 更新於 {date}",
+    "timeline_dates": "日期",
+    "timeline_day": "{day} · {date} · {count} 部作品",
+    "timeline_day_count_many": "{count} 部作品",
+    "timeline_day_count_one": "1 部作品",
+    "timeline_empty_calendar": "所選日期內沒有日曆作品。尚未首播的作品會在首播日期當天起顯示。",
+    "timeline_empty_watching": "所選日期內沒有符合條件的在看作品。請查看本週或全部日曆作品；未列入日曆的作品在此沒有排期。",
+    "timeline_error": "無法重新整理日曆：{error}",
+    "timeline_info": "資訊",
+    "timeline_loading": "正在載入日曆…",
+    "timeline_premiere": "首播：{date}",
+    "timeline_premiere_unknown": "無首播日期",
+    "timeline_reference_hint": "Bangumi 日曆是依星期排列的參考排期，可能包含尚未首播的作品與長篇連載。日期依本機所在的一週計算；不提供確切播出時間，也不代表集數已實際播出。",
+    "timeline_retry": "重試載入日曆",
+    "timeline_summary": "每週排期 · 本機日期",
+    "timeline_titles": "作品",
+    "timeline_today": "今天",
+    "timeline_today_heading": "今天 · {heading}",
+    "timeline_unlisted": "有 {count} 部在看作品未列入此日曆的排期。",
+    "timeline_unloaded": "尚未載入日曆。",
+    "timeline_update_unknown": "未知",
+    "timeline_updated": "日曆更新於 {date}",
+    "timeline_watching": "在看",
+    "timeline_watching_error": "無法載入你的在看清單：{error}",
+    "timeline_watching_loading": "正在載入你的在看清單…",
+    "timeline_watching_unloaded": "尚未載入你的在看清單。請重新整理收藏以載入，或選擇全部日曆作品。",
+    "timeline_week": "本週",
+    "timeline_weekday_1": "星期一",
+    "timeline_weekday_2": "星期二",
+    "timeline_weekday_3": "星期三",
+    "timeline_weekday_4": "星期四",
+    "timeline_weekday_5": "星期五",
+    "timeline_weekday_6": "星期六",
+    "timeline_weekday_7": "星期日",
+    "title": "Bangumi 追番",
+    "unauthorized": "存取權杖無效或已過期，請在插件設定中更新",
+    "unknown_error": "未知錯誤",
+    "updating": "更新中…",
+    "view_collections": "收藏",
+    "view_timeline": "播出時間線"
+  },
+  "settings": {
+    "access_token": {
+      "label": "Bangumi 個人存取權杖"
+    },
+    "appearance_density": {
+      "description": "調整收藏封面大小與間距。除非另行選擇時間線密度，否則時間線也會沿用此設定。",
+      "label": "收藏密度",
+      "options": {
+        "comfortable": "寬鬆",
+        "compact": "緊湊",
+        "standard": "適中"
+      }
+    },
+    "collection_layout": {
+      "description": "記住上次使用的版面配置，或選擇初始配置。你仍可在面板中切換。",
+      "label": "收藏版面配置",
+      "options": {
+        "grid": "封面宮格",
+        "list": "清單",
+        "remember": "記住上次選擇"
+      }
+    },
+    "collection_page_size": {
+      "description": "每頁最多顯示的收藏作品數。",
+      "label": "每頁作品數"
+    },
+    "collection_row_style": {
+      "description": "保留原本的簡潔列樣式，或改用帶有背景與較大內距的卡片。",
+      "label": "收藏清單樣式",
+      "options": {
+        "cards": "卡片",
+        "plain": "原始簡潔列"
+      }
+    },
+    "count_mode": {
+      "description": "選擇此狀態列圖示旁數字的意義。今日數量計算的是排期中的作品，不代表集數已確認播出。",
+      "label": "狀態列數字",
+      "options": {
+        "completed": "看過",
+        "dropped": "拋棄",
+        "newly_unwatched": "新增的未看集數（原始模式）",
+        "none": "無（僅顯示圖示）",
+        "on_hold": "擱置",
+        "today_all": "今日完整排期",
+        "today_watching": "今日在看排期",
+        "watching": "在看",
+        "wish": "想看"
+      }
+    },
+    "glyph": {
+      "label": "圖示"
+    },
+    "panel_default_view": {
+      "description": "選擇開啟面板時顯示的檢視。",
+      "label": "開啟時的檢視",
+      "options": {
+        "collections": "收藏",
+        "timeline": "播出時間線"
+      }
+    },
+    "refresh_minutes": {
+      "description": "自動重新整理追番資料的頻率。",
+      "label": "重新整理間隔（分鐘）"
+    },
+    "show_collection_covers": {
+      "description": "在清單與封面宮格配置中顯示收藏封面。時間線封面有獨立開關。",
+      "label": "顯示收藏封面"
+    },
+    "show_collection_metadata": {
+      "description": "在清單檢視中，於觀看進度旁顯示評分與首播日期。",
+      "label": "顯示收藏詳細資訊"
+    },
+    "show_covers": {
+      "description": "在桌面小工具中顯示條目封面。",
+      "label": "顯示封面"
+    },
+    "show_profile_avatar": {
+      "description": "顯示目前帳號的頭像，並快取至本機。",
+      "label": "顯示帳號頭像"
+    },
+    "show_profile_bio": {
+      "description": "若帳號有個人簡介，最多顯示兩行。",
+      "label": "顯示個人簡介"
+    },
+    "show_profile_identity": {
+      "description": "在暱稱下方顯示帳號的使用者名稱與 Bangumi 數字 ID。",
+      "label": "顯示使用者名稱與 ID"
+    },
+    "show_progress_bar": {
+      "description": "在收藏卡片上顯示進度條。",
+      "label": "顯示進度條"
+    },
+    "timeline_default_filter": {
+      "description": "選擇播出時間線的初始收藏篩選條件。",
+      "label": "時間線作品",
+      "options": {
+        "all": "全部日曆作品",
+        "watching": "在看"
+      }
+    },
+    "timeline_default_range": {
+      "description": "選擇播出時間線的初始日期範圍。",
+      "label": "時間線日期範圍",
+      "options": {
+        "today": "今天",
+        "week": "本週"
+      }
+    },
+    "timeline_density": {
+      "description": "另外選擇時間線的封面大小與間距，不受收藏配置影響。",
+      "label": "時間線密度",
+      "options": {
+        "comfortable": "寬鬆",
+        "compact": "緊湊",
+        "inherit": "沿用收藏密度",
+        "standard": "適中"
+      }
+    },
+    "timeline_layout": {
+      "description": "記住時間線上次使用的版面配置，或另外選擇初始配置，不受收藏配置影響。",
+      "label": "時間線版面配置",
+      "options": {
+        "grid": "封面宮格",
+        "list": "清單",
+        "remember": "記住上次選擇"
+      }
+    },
+    "timeline_show_covers": {
+      "description": "顯示符合所選時間線日期與篩選條件的作品封面，並快取至本機。",
+      "label": "顯示時間線封面"
+    },
+    "timeline_show_details": {
+      "description": "顯示首播日期、更新時間，以及未列入日曆的作品數量。",
+      "label": "顯示時間線詳細資訊"
+    },
+    "timeline_show_empty_days": {
+      "description": "沒有符合條件作品的日期也會顯示精簡的日期標題。",
+      "label": "顯示沒有作品的日期"
+    },
+    "username": {
+      "label": "使用者名稱"
+    },
+    "visible_items": {
+      "description": "桌面小工具每頁顯示的列數；可使用上一頁與下一頁按鈕瀏覽其餘內容。",
+      "label": "顯示項目數"
+    },
+    "widget_width": {
+      "description": "桌面小工具的原始寬度，單位為邏輯像素。請勿在桌面編輯器中調整元件外框大小，否則宿主仍會等比例縮放內容。",
+      "label": "內容寬度"
+    }
+  }
+}

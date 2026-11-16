@@ -38,6 +38,7 @@
     "mount": "Mount",
     "mount-all": "Mount all",
     "mounted-count": "{count} mounted",
+    "mounted-count-one": "1 mounted",
     "no-media": "No medium",
     "not-mounted": "Not mounted",
     "open": "Open in the file manager",
@@ -85,7 +86,7 @@
       "label": "Scan interval"
     },
     "show_count": {
-      "description": "Show the number of drives next to the icon.",
+      "description": "Show the number of drives next to the icon when there are two or more.",
       "label": "Show the count"
     }
   },

@@ -1,0 +1,87 @@
+{
+  "state": {
+    "idle": "Idle",
+    "recording": "Recording",
+    "transcribing": "Transcribing",
+    "offline": "Handy is not running",
+    "unavailable": "Unavailable"
+  },
+  "widget": {
+    "idle": "Handy ready — click to start dictation",
+    "recording": "Handy recording — click to stop",
+    "transcribing": "Handy transcribing…",
+    "offline": "Handy is not running — click to launch",
+    "unavailable": "Handy data directory not found — open the panel"
+  },
+  "panel": {
+    "title": "Handy",
+    "record": "Record",
+    "stop": "Stop",
+    "cancel": "Cancel",
+    "launch": "Launch Handy",
+    "refresh": "Refresh",
+    "close": "Close",
+    "search": "Search transcripts…",
+    "no_transcripts": "No transcripts yet. Press the Handy shortcut or click Record.",
+    "no_matches": "No transcripts match your search.",
+    "copy": "Copy transcript",
+    "copied": "Copied",
+    "open_recordings": "Open recordings folder",
+    "latest": "Latest transcript",
+    "transcripts": "Recent transcripts",
+    "hint": "Click a transcript to copy it.",
+    "offline": "Handy is not running.",
+    "unavailable": "Handy data directory not found. Set it in the plugin settings.",
+    "footer_count": "{count} transcripts",
+    "language": "{language}",
+    "model": "Model",
+    "no_model": "No model selected",
+    "delete": "Delete transcript",
+    "delete_confirm": "Click again to delete"
+  },
+  "notify": {
+    "switching": "Switching model to {model}"
+  },
+  "errors": {
+    "model_not_found": "Model not found in Handy's menu",
+    "tray_unavailable": "Handy tray menu is unavailable",
+    "handy_missing": "The handy command was not found",
+    "command_failed": "Handy command failed: {command}",
+    "not_running": "Handy is not running",
+    "data_dir_missing": "Handy data directory not found",
+    "sqlite_missing": "sqlite3 was not found",
+    "history": "Could not read Handy history",
+    "open_folder": "Could not open the recordings folder",
+    "delete_failed": "Could not delete transcript"
+  },
+  "settings": {
+    "handy_command": {
+      "label": "Handy command",
+      "description": "Command name or absolute path used to start and control Handy. Use this for non-standard installs such as an AppImage or a user-local binary."
+    },
+    "data_dir": {
+      "label": "Data directory",
+      "description": "Override Handy's data directory (history.db, logs, recordings). Leave empty for the default location."
+    },
+    "refresh_seconds": {
+      "label": "Refresh interval",
+      "description": "How often the service checks Handy's state and history, in seconds."
+    },
+    "model_refresh_seconds": {
+      "label": "Model refresh interval",
+      "description": "How often the downloaded-model list is read from Handy's tray menu, in seconds."
+    },
+    "history_limit": {
+      "label": "Transcripts shown",
+      "description": "Maximum number of transcripts listed in the panel."
+    },
+    "transcript_lines": {
+      "label": "Transcript preview lines",
+      "description": "How many lines of each transcript to show before clicking to copy it."
+    },
+    "show_state_text": {
+      "label": "Show state text",
+      "description": "Show REC / … / OFF next to the bar icon instead of only changing the glyph."
+    }
+  }
+}

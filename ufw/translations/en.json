@@ -1,154 +1,154 @@
 {
-  "plugin": {
-    "name": "UFW Firewall"
+  "action": {
+    "discard": "Discard",
+    "load_rules": "Load rules",
+    "polkit_agent": "Turn on password prompt",
+    "remove": "Remove this rule",
+    "run_in_terminal": "Run in terminal",
+    "save": "Save",
+    "start_at_boot": "Start at boot",
+    "start_service": "Start ufw",
+    "turn_off": "Turn off",
+    "turn_on": "Turn on",
+    "undo": "undo"
+  },
+  "add": {
+    "both": "Both",
+    "button": "Add",
+    "comment": "Comment (optional)",
+    "error_comment": "That comment can't be used. Keep it to 64 plain characters, without quotes or backslashes.",
+    "error_exists": "That port is already allowed or staged.",
+    "error_port": "Enter a port from 1 to 65535.",
+    "error_proto": "Pick Both, TCP or UDP.",
+    "error_proto_in_port": "Pick TCP or UDP with the buttons, not in the port.",
+    "port": "Port"
   },
   "bar": {
-    "on": "UFW",
     "off": "UFW OFF",
+    "on": "UFW",
     "unknown": "UFW ?"
-  },
-  "tooltip": {
-    "on_one": "Firewall on · {n} port allowed in",
-    "on_other": "Firewall on · {n} ports allowed in",
-    "off": "Firewall off",
-    "stopped": "Firewall off until you turn it on or restart",
-    "not_running": "ufw isn't running · rules not loaded",
-    "failed": "ufw failed to start",
-    "missing": "ufw isn't installed",
-    "unknown": "Can't read ufw's settings",
-    "unit_unknown": "Can't read the ufw service state",
-    "loading": "Reading ufw's status…",
-    "test_mode": "{text} · test mode"
-  },
-  "header": {
-    "on_blocked": "On · incoming blocked unless allowed below",
-    "on_open": "On · everything is allowed in",
-    "off": "Off · everything is allowed in",
-    "stopped": "Off until you turn it on or restart",
-    "not_running": "ufw isn't running · your rules aren't loaded",
-    "failed": "ufw failed to start",
-    "missing": "ufw isn't installed",
-    "unknown": "Can't read ufw's settings",
-    "unit_unknown": "Can't read the ufw service state",
-    "on": "On"
-  },
-  "warning": {
-    "off": "ufw is off. Your rules below aren't being enforced.",
-    "not_running": "ufw isn't running. Your rules below aren't being enforced.",
-    "failed": "ufw failed to start. Your rules below aren't being enforced."
-  },
-  "notice": {
-    "saved_one": "{n} change saved",
-    "saved_other": "{n} changes saved",
-    "saved_not_live_one": "{n} change saved. It takes effect when ufw is turned on.",
-    "saved_not_live_other": "{n} changes saved. They take effect when ufw is turned on.",
-    "cancelled": "Cancelled. Nothing was changed.",
-    "pending_dropped_one": "{n} staged change is no longer needed and was dropped",
-    "pending_dropped_other": "{n} staged changes are no longer needed and were dropped"
-  },
-  "error": {
-    "busy": "Another change is still running. Try again in a moment.",
-    "timeout": "ufw took too long to answer.",
-    "no_polkit_agent": "No password prompt is available.",
-    "test_mode": "Test mode: changes are turned off.",
-    "command_failed": "The command failed.",
-    "save_failed": "Saving failed. Nothing was reported back.",
-    "load_failed": "Couldn't load the rules.",
-    "op_failed": "This change failed.",
-    "terminal_failed": "Couldn't open a terminal.",
-    "not_removable": "This rule can't be removed from here.",
-    "unknown_action": "Unknown request.",
-    "save_partial_one": "{n} change wasn't saved. It is still listed below.",
-    "save_partial_other": "{n} changes weren't saved. They are still listed below.",
-    "save_dropped_one": "{n} change wasn't saved: it can't be applied from here.",
-    "save_dropped_other": "{n} changes weren't saved: they can't be applied from here."
-  },
-  "panel": {
-    "title": "UFW Firewall",
-    "loading": "Reading ufw's status…",
-    "busy": "Working…",
-    "test_mode": "Test mode: reading fixture files, changes are turned off.",
-    "dismiss": "Dismiss"
-  },
-  "action": {
-    "turn_on": "Turn on",
-    "turn_off": "Turn off",
-    "start_service": "Start ufw",
-    "load_rules": "Load rules",
-    "start_at_boot": "Start at boot",
-    "save": "Save",
-    "discard": "Discard",
-    "undo": "undo",
-    "remove": "Remove this rule",
-    "polkit_agent": "Turn on password prompt",
-    "run_in_terminal": "Run in terminal"
   },
   "boot": {
     "notice": "ufw won't start after a reboot."
   },
-  "missing": {
-    "body": "Install ufw with your package manager, then open this panel again."
+  "confirm": {
+    "cancel": "Cancel",
+    "turn_off": "Turn off the firewall? Incoming connections will be allowed until you turn it back on or restart."
   },
-  "unreadable": {
-    "body": "Can't read ufw's rules without your password."
+  "error": {
+    "busy": "Another change is still running. Try again in a moment.",
+    "command_failed": "The command failed.",
+    "load_failed": "Couldn't load the rules.",
+    "no_polkit_agent": "No password prompt is available.",
+    "not_removable": "This rule can't be removed from here.",
+    "op_failed": "This change failed.",
+    "save_dropped_one": "{n} change wasn't saved: it can't be applied from here.",
+    "save_dropped_other": "{n} changes weren't saved: they can't be applied from here.",
+    "save_failed": "Saving failed. Nothing was reported back.",
+    "save_partial_one": "{n} change wasn't saved. It is still listed below.",
+    "save_partial_other": "{n} changes weren't saved. They are still listed below.",
+    "terminal_failed": "Couldn't open a terminal.",
+    "test_mode": "Test mode: changes are turned off.",
+    "timeout": "ufw took too long to answer.",
+    "unknown_action": "Unknown request."
   },
   "fallback": {
     "hint": "Turn on Noctalia's password prompt and try again, or run the command in a terminal.",
     "hint_prompt_only": "Turn on Noctalia's password prompt, then try again."
   },
-  "rules": {
-    "title": "Rules",
-    "title_off": "Rules (when on)",
-    "empty": "No rules yet.",
-    "any_port": "All ports",
-    "from_anywhere": "from anywhere",
-    "from_only": "from {from} only",
-    "from_port": "from port {port}",
-    "from_app": "from {app}",
-    "to": "to {to}",
-    "limited": "limited",
-    "denied": "denied",
-    "rejected": "rejected",
-    "outgoing": "outgoing",
-    "routed": "routed",
-    "on_iface": "on {iface}",
-    "new": "new",
-    "will_be_removed": "will be removed",
-    "remove_in_terminal": "remove in a terminal",
-    "incomplete": "ufw's rules file looks incomplete; retrying"
-  },
-  "proto": {
-    "tcp": "TCP",
-    "udp": "UDP",
-    "any": "TCP/UDP"
-  },
-  "add": {
-    "port": "Port",
-    "comment": "Comment (optional)",
-    "both": "Both",
-    "button": "Add",
-    "error_port": "Enter a port from 1 to 65535.",
-    "error_proto_in_port": "Pick TCP or UDP with the buttons, not in the port.",
-    "error_proto": "Pick Both, TCP or UDP.",
-    "error_comment": "That comment can't be used. Keep it to 64 plain characters, without quotes or backslashes.",
-    "error_exists": "That port is already allowed or staged."
-  },
   "footer": {
     "unsaved_one": "{n} change not saved",
     "unsaved_other": "{n} changes not saved"
   },
-  "confirm": {
-    "turn_off": "Turn off the firewall? Incoming connections will be allowed until you turn it back on or restart.",
-    "cancel": "Cancel"
+  "header": {
+    "failed": "ufw failed to start",
+    "missing": "ufw isn't installed",
+    "not_running": "ufw isn't running · your rules aren't loaded",
+    "off": "Off · everything is allowed in",
+    "on": "On",
+    "on_blocked": "On · incoming blocked unless allowed below",
+    "on_open": "On · everything is allowed in",
+    "stopped": "Off until you turn it on or restart",
+    "unit_unknown": "Can't read the ufw service state",
+    "unknown": "Can't read ufw's settings"
+  },
+  "missing": {
+    "body": "Install ufw with your package manager, then open this panel again."
+  },
+  "notice": {
+    "cancelled": "Cancelled. Nothing was changed.",
+    "pending_dropped_one": "{n} staged change is no longer needed and was dropped",
+    "pending_dropped_other": "{n} staged changes are no longer needed and were dropped",
+    "saved_not_live_one": "{n} change saved. It takes effect when ufw is turned on.",
+    "saved_not_live_other": "{n} changes saved. They take effect when ufw is turned on.",
+    "saved_one": "{n} change saved",
+    "saved_other": "{n} changes saved"
+  },
+  "panel": {
+    "busy": "Working…",
+    "dismiss": "Dismiss",
+    "loading": "Reading ufw's status…",
+    "test_mode": "Test mode: reading fixture files, changes are turned off.",
+    "title": "UFW Firewall"
+  },
+  "plugin": {
+    "name": "UFW Firewall"
+  },
+  "proto": {
+    "any": "TCP/UDP",
+    "tcp": "TCP",
+    "udp": "UDP"
+  },
+  "rules": {
+    "any_port": "All ports",
+    "denied": "denied",
+    "empty": "No rules yet.",
+    "from_anywhere": "from anywhere",
+    "from_app": "from {app}",
+    "from_only": "from {from} only",
+    "from_port": "from port {port}",
+    "incomplete": "ufw's rules file looks incomplete; retrying",
+    "limited": "limited",
+    "new": "new",
+    "on_iface": "on {iface}",
+    "outgoing": "outgoing",
+    "rejected": "rejected",
+    "remove_in_terminal": "remove in a terminal",
+    "routed": "routed",
+    "title": "Rules",
+    "title_off": "Rules (when on)",
+    "to": "to {to}",
+    "will_be_removed": "will be removed"
   },
   "settings": {
-    "show_label": {
-      "label": "Show label",
-      "description": "Show the UFW text next to the status dot."
-    },
     "show_count": {
-      "label": "Show port count",
-      "description": "Show how many ports are allowed in when the firewall is on."
+      "description": "Show how many ports are allowed in when the firewall is on.",
+      "label": "Show port count"
+    },
+    "show_label": {
+      "description": "Show the UFW text next to the status dot.",
+      "label": "Show label"
     }
+  },
+  "tooltip": {
+    "failed": "ufw failed to start",
+    "loading": "Reading ufw's status…",
+    "missing": "ufw isn't installed",
+    "not_running": "ufw isn't running · rules not loaded",
+    "off": "Firewall off",
+    "on_one": "Firewall on · {n} port allowed in",
+    "on_other": "Firewall on · {n} ports allowed in",
+    "stopped": "Firewall off until you turn it on or restart",
+    "test_mode": "{text} · test mode",
+    "unit_unknown": "Can't read the ufw service state",
+    "unknown": "Can't read ufw's settings"
+  },
+  "unreadable": {
+    "body": "Can't read ufw's rules without your password."
+  },
+  "warning": {
+    "failed": "ufw failed to start. Your rules below aren't being enforced.",
+    "not_running": "ufw isn't running. Your rules below aren't being enforced.",
+    "off": "ufw is off. Your rules below aren't being enforced."
   }
 }

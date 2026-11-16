@@ -6,6 +6,8 @@
 --             maximum over the slots of the last N hours
 -- Times are Unix seconds.
 
+local storage = require("./storage.luau")
+
 local M = {}
 
 local BUCKET = 15 * 60
@@ -28,6 +30,39 @@ local function file()
 	return path
 end
 
+local function number(value)
+	return type(value) == "number" and value or nil
+end
+
+local function cleanRecord(record)
+	return {
+		rx = number(record.rx) or 0,
+		rxAt = number(record.rxAt),
+		tx = number(record.tx) or 0,
+		txAt = number(record.txAt),
+	}
+end
+
+-- Keeps what is well-formed: a damaged entry would otherwise raise an error on
+-- every poll, and Noctalia stops a service that keeps failing.
+local function clean(data)
+	local result = {}
+	for id, e in pairs(data) do
+		if type(id) == "string" and type(e) == "table" and number(e.since) ~= nil and type(e.all) == "table" then
+			local buckets = {}
+			for _, b in ipairs(type(e.buckets) == "table" and e.buckets or {}) do
+				if type(b) == "table" and number(b.t) ~= nil then
+					local bucket = cleanRecord(b)
+					bucket.t = b.t
+					table.insert(buckets, bucket)
+				end
+			end
+			result[id] = { since = e.since, all = cleanRecord(e.all), buckets = buckets }
+		end
+	end
+	return result
+end
+
 function M.load()
 	local p = file()
 	if p == nil or not noctalia.fileExists(p) then
@@ -35,7 +70,7 @@ function M.load()
 	end
 	local data = noctalia.json.decode(noctalia.readFile(p) or "")
 	if type(data) == "table" then
-		store = data
+		store = clean(data)
 	end
 end
 
@@ -45,10 +80,10 @@ function M.save(force)
 		return
 	end
 	local p = file()
-	if p ~= nil then
-		noctalia.writeFile(p, noctalia.json.encode(store))
+	-- A failed write stays dirty and is tried again after SAVE_EVERY.
+	if p ~= nil and storage.writeJson(p, store) then
+		dirty = false
 	end
-	dirty = false
 	lastSave = now
 end
 

@@ -12,7 +12,7 @@
 
 id = "0lucasmatheus/awwwall"
 name = "Awwwall"
-version = "0.1.0"
+version = "0.1.1"
 plugin_api = 25
 author = "0lucasmatheus"
 license = "MIT"

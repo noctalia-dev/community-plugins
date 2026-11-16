@@ -636,7 +636,8 @@ local function keypadRow(row, rowIndex)
 				variant = spec.variant or "default",
 				fontSize = 15,
 				height = 34,
-				flexGrow = spec.grow or 1,
+				width = spec.grow == 2 and 128.5 or 61.25,
+				flexGrow = 0,
 				onClick = spec.handler,
 			})
 		)

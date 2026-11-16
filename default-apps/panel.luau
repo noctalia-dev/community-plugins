@@ -6,19 +6,44 @@
 
 local tr = noctalia.tr
 
+-- MIME types owned by the Code Editor row. Add new types here to extend it.
+local CODE_MIMES = {
+  "text/x-python",
+  "text/x-csrc",
+  "text/x-chdr",
+  "text/x-c++src",
+  "text/x-c++hdr",
+  "text/x-java",
+  "text/x-rust",
+  "text/x-go",
+  "text/javascript",
+  "application/json",
+  "application/x-shellscript",
+  "text/x-lua",
+  "text/html",
+  "text/css",
+  "application/xml",
+  "text/markdown",
+  "application/x-yaml",
+  "application/toml",
+}
+
 local CATEGORIES = {
   { key = "browser",  glyph = "world",      mimes = { "x-scheme-handler/http", "x-scheme-handler/https" } },
   { key = "mail",     glyph = "mail",       mimes = { "x-scheme-handler/mailto" }, categories = { "Email" } },
   { key = "calendar", glyph = "calendar",   mimes = { "text/calendar", "x-scheme-handler/webcal" }, categories = { "Calendar" } },
   { key = "files",    glyph = "folder",     mimes = { "inode/directory" }, categories = { "FileManager" } },
-  { key = "music",    glyph = "music",      mimes = { "audio/mpeg", "audio/flac", "audio/ogg", "audio/x-wav" }, categories = { "Audio", "Music", "Player" } },
+  { key = "archive",  glyph = "archive",    mimes = { "application/zip", "application/x-tar", "application/x-7z-compressed", "application/x-xz", "application/vnd.rar" }, categories = { "Archiver", "Compression" } },
   { key = "video",    glyph = "device-tv",  mimes = { "video/mp4", "video/x-matroska", "video/webm" }, categories = { "Video", "Player" } },
+  { key = "music",    glyph = "music",      mimes = { "audio/mpeg", "audio/flac", "audio/ogg", "audio/x-wav" }, categories = { "Audio", "Music", "Player" } },
   { key = "photos",   glyph = "photo",      mimes = { "image/png", "image/jpeg", "image/webp", "image/gif" }, categories = { "Graphics", "2DGraphics", "Viewer" } },
   { key = "editor",   glyph = "pencil",     mimes = { "text/plain" }, categories = { "TextEditor" } },
+  { key = "code",     glyph = "code",       mimes = CODE_MIMES, categories = { "TextEditor", "Development", "IDE" } },
   { key = "pdf",      glyph = "file-text",  mimes = { "application/pdf" }, categories = { "Viewer", "Office" } },
-  { key = "archive",  glyph = "archive",    mimes = { "application/zip", "application/x-tar", "application/x-7z-compressed", "application/x-xz", "application/vnd.rar" }, categories = { "Archiver", "Compression" } },
-  { key = "word",     glyph = "file-text",  mimes = { "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/msword", "application/vnd.oasis.opendocument.text" }, categories = { "Office", "WordProcessor" } },
-  { key = "torrent",  glyph = "download",   mimes = { "application/x-bittorrent", "x-scheme-handler/magnet" }, categories = { "P2P", "FileTransfer" } },
+  { key = "word",         glyph = "file-text",        mimes = { "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/msword", "application/vnd.oasis.opendocument.text" }, categories = { "Office", "WordProcessor" } },
+  { key = "spreadsheet", glyph = "table",        mimes = { "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/vnd.ms-excel", "application/vnd.oasis.opendocument.spreadsheet", "application/wps-office.xlsx", "application/wps-office.xls" } },
+  { key = "presentation",glyph = "presentation", mimes = { "application/vnd.openxmlformats-officedocument.presentationml.presentation", "application/vnd.ms-powerpoint", "application/vnd.oasis.opendocument.presentation", "application/x-deckcraft", "application/wps-office.pptx", "application/wps-office.ppt" } },
+  { key = "torrent",     glyph = "download",          mimes = { "application/x-bittorrent", "x-scheme-handler/magnet" }, categories = { "P2P", "FileTransfer" } },
 }
 
 local SCAN_DIRS = {
@@ -70,11 +95,11 @@ local function getScanDirs()
 end
 
 -- 'pending' tracks unsaved dropdown changes until Apply is clicked.
-local state = { ready = false, defaults = {}, candidates = {}, pending = {} }
+local state = { ready = false, defaults = {}, candidates = {}, pending = {}, allApps = {} }
 local loadingStatus = noctalia.tr("panel.init")
 
 local function parseDesktopFile(text)
-  local app = { name = nil, mimes = {}, categories = {}, hidden = false }
+  local app = { name = nil, mimes = {}, categories = {}, hidden = false, noDisplay = false }
   local inMainEntry = false
   for line in string.gmatch(text, "[^\r\n]+") do
     if string.match(line, "^%[Desktop Entry%]") then
@@ -97,11 +122,19 @@ local function parseDesktopFile(text)
           end
         elseif key == "Hidden" then
           app.hidden = (value == "true")
+        elseif key == "NoDisplay" then
+          app.noDisplay = (value == "true")
         end
       end
     end
   end
   return app
+end
+
+-- Build a lookup set from CODE_MIMES for O(1) membership tests.
+local CODE_MIME_SET = {}
+for _, m in ipairs(CODE_MIMES) do
+  CODE_MIME_SET[m] = true
 end
 
 local function isCandidateForCategory(app, cat)
@@ -117,6 +150,26 @@ local function isCandidateForCategory(app, cat)
     if app.categories[category] then
       return true
     end
+  end
+  return false
+end
+
+-- Returns true when 'app' should appear in the Code Editor dropdown.
+-- An app qualifies if:
+--   (a) its Categories contains TextEditor, IDE, or Development, OR
+--   (b) its MimeType contains text/plain, any text/x-* type, or any CODE_MIME.
+-- Web-browser entries are excluded regardless.
+local function isCandidateForCode(app)
+  if app.categories.WebBrowser then return false end
+  -- (a) category match
+  if app.categories.TextEditor or app.categories.IDE or app.categories.Development then
+    return true
+  end
+  -- (b) MIME match
+  for mime in pairs(app.mimes) do
+    if mime == "text/plain" then return true end
+    if string.sub(mime, 1, 7) == "text/x-" then return true end
+    if CODE_MIME_SET[mime] then return true end
   end
   return false
 end
@@ -266,6 +319,7 @@ end
 local function scanCandidatesAsync(onDone)
   local seen = {}
   local queue = {}
+  state.allApps = {}
   loadingStatus = noctalia.tr("panel.locating")
   render()
   for _, dir in ipairs(getScanDirs()) do
@@ -276,7 +330,16 @@ local function scanCandidatesAsync(onDone)
       for _, file in ipairs(names) do
         if string.sub(file, -8) == ".desktop" and not seen[file] then
           seen[file] = true
-          table.insert(queue, { file = file, path = abs .. "/" .. file })
+          -- Skip URL-handler shims (e.g. code-url-handler.desktop,
+          -- com.microsoft.VSCode.UrlHandler.desktop). These entries exist
+          -- solely to register x-scheme-handler/* and should never appear
+          -- in an "open with" list.
+          local lowerFile = string.lower(file)
+          if not string.find(lowerFile, "urlhandler")
+             and not string.find(lowerFile, "url%-handler")
+             and not string.find(lowerFile, "url_handler") then
+            table.insert(queue, { file = file, path = abs .. "/" .. file })
+          end
         end
       end
     end
@@ -303,15 +366,27 @@ local function scanCandidatesAsync(onDone)
       local accepted = noctalia.readFileAsync(entry.path, function(text)
         if text ~= nil then
           local app = parseDesktopFile(text)
-          if app.name ~= nil and not app.hidden then
+          if app.name ~= nil then
+            state.allApps[entry.file] = app.name
+          end
+          -- Skip hidden and no-display entries.
+          if app.name ~= nil and not app.hidden and not app.noDisplay then
             for _, cat in ipairs(CATEGORIES) do
-              if isCandidateForCategory(app, cat) then
+              local qualifies = false
+              if cat.key == "code" then
+                qualifies = isCandidateForCode(app)
+              elseif isCandidateForCategory(app, cat) then
+                -- For all other rows: category match is necessary but a MIME
+                -- match is also required (keeps the list focused).
                 for _, mime in ipairs(cat.mimes) do
                   if app.mimes[mime] then
-                    table.insert(result[cat.key], { id = entry.file, name = app.name })
+                    qualifies = true
                     break
                   end
                 end
+              end
+              if qualifies then
+                table.insert(result[cat.key], { id = entry.file, name = app.name })
               end
             end
           end
@@ -336,6 +411,30 @@ function queryDefaults()
   local nextIndex = 1
   local function step()
     if nextIndex > #CATEGORIES then
+      -- Ensure the current default is present in candidates even if it fell
+      -- outside the filter (e.g. a manually set app or missing declarations),
+      -- keeping it checked in the dropdown.
+      for _, cat in ipairs(CATEGORIES) do
+        local defId = state.defaults[cat.key]
+        local cands = state.candidates[cat.key]
+        if defId ~= nil and cands ~= nil then
+          local found = false
+          for _, app in ipairs(cands) do
+            if app.id == defId then
+              found = true
+              break
+            end
+          end
+          if not found then
+            local displayName = (state.allApps and state.allApps[defId])
+              or string.gsub(defId, "%.desktop$", "")
+            table.insert(cands, { id = defId, name = displayName })
+            table.sort(cands, function(a, b)
+              return string.lower(a.name) < string.lower(b.name)
+            end)
+          end
+        end
+      end
       state.ready = true
       render()
       return

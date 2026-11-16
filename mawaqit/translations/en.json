@@ -101,6 +101,10 @@
       "tunisia": "Tunisia",
       "turkey": "Diyanet İşleri Başkanlığı, Turkey"
     },
+    "pause_media_on_azan": {
+      "description": "Pause playing media (MPRIS) when a prayer notification or azan fires.",
+      "label": "Pause media on azan"
+    },
     "play_azan": {
       "description": "Play an azan audio file when each prayer time begins.",
       "label": "Play Azan"

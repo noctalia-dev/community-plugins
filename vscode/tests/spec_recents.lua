@@ -24,6 +24,60 @@ eq("parseMenu 3 host", menu[3].uri.host, "mybox")
 eq("parseMenu empty obj", #recents.parseMenu("{}", decode), 0)
 eq("parseMenu truncated", recents.parseMenu(fixture("storage-truncated.json"), decode), nil)
 
+-- VS Code 1.140 writes storage.json pretty-printed; older ones compact. Both parse.
+local function menuItem(id, external)
+  return '{\n      "id": "' .. id .. '",\n      "uri": {\n        "$mid": 1,\n        "external": "' .. external .. '",\n        "path": "/x",\n        "scheme": "file"\n      },\n      "enabled": true,\n      "label": "x"\n    }'
+end
+local function prettyStorage(items, filler)
+  return '{\n  "theme": "dark",\n  "lastKnownMenubarData": {\n    "menus": {\n      "File": {\n        "items": [\n          {\n            "id": "submenuitem.MenubarRecentMenu",\n            "submenu": {\n              "items": [\n' .. table.concat(items, ",\n") .. '\n              ]\n            }\n          }\n        ]\n      }\n    }\n  },\n  "profileAssociations": {\n' .. (filler or "") .. '  "z": 1\n  }\n}\n'
+end
+local pretty = recents.parseMenu(prettyStorage({
+  menuItem("openRecentFolder", "file:///home/user/projects/demo-api"),
+  menuItem("openRecentFile", "file:///home/user/notes.txt"),
+  menuItem("openRecentWorkspace", "file:///home/user/work/team.code-workspace"),
+  menuItem("openRecentFolder", "file:///home/user/work/my%20app"),
+}), decode)
+eq("parseMenu pretty count (files skipped)", pretty and #pretty, 3)
+eq("parseMenu pretty order 1", pretty and pretty[1].uri.path, "/home/user/projects/demo-api")
+eq("parseMenu pretty workspace", pretty and pretty[2].kind, "workspace")
+eq("parseMenu pretty decodes path", pretty and pretty[3].uri.path, "/home/user/work/my app")
+eq("parseMenu pretty truncated is nil", recents.parseMenu(prettyStorage({ menuItem("openRecentFolder", "file:///home/user/a") }):sub(1, -40), decode), nil)
+
+-- Field order other than id-then-uri still parses (fallback walk).
+local swapped = '{"lastKnownMenubarData":{"menus":{"File":{"items":[{"submenu":{"items":[{"uri":{"external":"file:///home/user/projects/demo-api","scheme":"file","path":"/home/user/projects/demo-api"},"id":"openRecentFolder"}]}}]}}}}'
+local sw = recents.parseMenu(swapped, decode)
+eq("parseMenu other field order", sw and #sw, 1)
+eq("parseMenu other field order path", sw and sw[1].uri.path, "/home/user/projects/demo-api")
+
+-- A brace inside a path cannot derail the fast scan: falls back and stays correct.
+local braced = recents.parseMenu(prettyStorage({
+  '{\n      "id": "openRecentFolder",\n      "uri": {\n        "external": "file:///home/user/a%7Bb",\n        "path": "/home/user/a{b",\n        "scheme": "file"\n      }\n    }',
+  menuItem("openRecentFolder", "file:///home/user/projects/demo-api"),
+}), decode)
+eq("parseMenu brace in path count", braced and #braced, 2)
+eq("parseMenu brace in path decoded", braced and braced[1].uri.path, "/home/user/a{b")
+
+-- Cost: a ~120 KB storage.json with a large menu cache must stay cheap (the host runs
+-- Luau ~40x slower than this runner and a callback gets ~25 ms).
+do
+  local items = {}
+  for i = 1, 10 do items[#items + 1] = menuItem("openRecentFolder", "file:///home/user/p" .. i) end
+  for i = 1, 400 do items[#items + 1] = '{\n      "id": "workbench.action.x' .. i .. '",\n      "label": "&&Item ' .. i .. '",\n      "keybinding": { "label": "Ctrl+' .. i .. '", "userSettingsLabel": "ctrl+' .. i .. '" }\n    }' end
+  local filler = {}
+  for i = 1, 900 do filler[#filler + 1] = '    "file:///home/user/w' .. i .. '": "__default__profile__",\n' end
+  local big = prettyStorage(items, table.concat(filler))
+  check("cost fixture is large (" .. (#big // 1024) .. " KB)", #big > 100 * 1024)
+  local best = math.huge
+  local got
+  for _ = 1, 5 do
+    local t0 = os.clock()
+    got = recents.parseMenu(big, decode)
+    best = math.min(best, os.clock() - t0)
+  end
+  eq("parseMenu big file finds the recents", got and #got, 10)
+  check(string.format("parseMenu big file is cheap (%.3f ms)", best * 1000), best < 0.003) -- the old full walk took ~18 ms
+end
+
 -- parseWorkspaceJson
 local wf = recents.parseWorkspaceJson('{"folder":"file:///home/user/a"}', decode)
 eq("ws folder", wf.kind, "folder")

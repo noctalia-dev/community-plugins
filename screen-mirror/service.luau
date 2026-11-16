@@ -50,31 +50,55 @@ end
 
 -- ── daemon discovery ────────────────────────────────────────────────────────
 
-local daemonPath = nil
+local daemonArgv = nil
 
+-- The engine ships inside the plugin, so a store install needs no second
+-- repository. An external `niri-mirror` CLI still wins when the bundled copy is
+-- absent, which keeps hand-installed setups working.
 local function resolveDaemon()
-    if daemonPath and noctalia.fileExists(daemonPath) then
-        return daemonPath
+    if daemonArgv and noctalia.fileExists(daemonArgv[#daemonArgv]) then
+        return daemonArgv
     end
-    daemonPath = nil
+    daemonArgv = nil
+    local dir = noctalia.pluginDir()
+    if dir then
+        local bundled = dir .. "/engine/niri_mirror.py"
+        if noctalia.fileExists(bundled) and noctalia.commandExists("python3") then
+            daemonArgv = { "python3", bundled }
+            return daemonArgv
+        end
+    end
     for _, candidate in ipairs(DAEMON_CANDIDATES) do
         local full = noctalia.expandPath(candidate)
         if noctalia.fileExists(full) then
-            daemonPath = full
-            return daemonPath
+            daemonArgv = { full }
+            return daemonArgv
         end
     end
     return nil
 end
 
-local function runDaemon(args, onDone)
-    local bin = resolveDaemon()
-    if not bin then
-        return false
+-- Launcher plus subcommand, so a bundled engine ("python3") and an installed
+-- CLI ("niri-mirror") go through the same argv path.
+local function daemonCommand(args)
+    local launcher = resolveDaemon()
+    if not launcher then
+        return nil
     end
-    local argv = { bin }
+    local argv = {}
+    for _, item in ipairs(launcher) do
+        argv[#argv + 1] = item
+    end
     for _, arg in ipairs(args) do
-        table.insert(argv, arg)
+        argv[#argv + 1] = arg
+    end
+    return argv
+end
+
+local function runDaemon(args, onDone)
+    local argv = daemonCommand(args)
+    if not argv then
+        return false
     end
     return noctalia.runAsync(argv, onDone)
 end
@@ -254,8 +278,7 @@ end
 
 local function sync(force)
     writeConfig()
-    local bin = resolveDaemon()
-    if not bin then
+    if not resolveDaemon() then
         publish(unavailable(noctalia.tr("notify.missing.body")))
         reportOnce(noctalia.tr("notify.missing.body"))
         return
@@ -268,17 +291,25 @@ local function sync(force)
     -- `ensure` starts the daemon when it is missing (respecting
     -- enabled_on_start), `reload` pushes the freshly written config into an
     -- already running one. Sequential, so the second waits for the socket.
-    local command = string.format("'%s' ensure; '%s' reload", bin, bin)
-    noctalia.runAsync({ "sh", "-c", command }, function(result)
+    local started = runDaemon({ "ensure" }, function(result)
         if result.exitCode ~= 0 then
-            local detail = trim(result.stderr)
-            log(`sync failed: {detail}`)
-            reportOnce(detail ~= "" and detail or noctalia.tr("notify.failed.body"))
-        else
-            lastReportedError = nil
+            log(`ensure failed: {trim(result.stderr)}`)
         end
-        poll()
+        runDaemon({ "reload" }, function(reloaded)
+            if reloaded.exitCode ~= 0 then
+                local detail = trim(reloaded.stderr)
+                log(`sync failed: {detail}`)
+                reportOnce(detail ~= "" and detail or noctalia.tr("notify.failed.body"))
+            else
+                lastReportedError = nil
+            end
+            poll()
+        end)
     end)
+    if not started then
+        publish(unavailable(noctalia.tr("notify.missing.body")))
+        reportOnce(noctalia.tr("notify.missing.body"))
+    end
 end
 
 local function ensureDaemon()
@@ -297,8 +328,7 @@ end
 -- ── poll: daemon -> status ──────────────────────────────────────────────────
 
 function poll()
-    local bin = resolveDaemon()
-    if not bin then
+    if not resolveDaemon() then
         publish(unavailable(noctalia.tr("notify.missing.body")))
         return
     end

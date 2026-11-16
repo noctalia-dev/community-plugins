@@ -88,7 +88,7 @@ local function loadPanel(entry, failure, config)
         end,
     }, { __index = _G })
     assert(load(read("panel.luau"), "panel", "t", env))()
-    env.onOpen()
+    env.onOpen(values.selected or (first and first.id))
     -- Publishing a second report exercises what the panel carries between reads.
     local function publish(nextEntry)
         values.report = { entries = { nextEntry } }
@@ -140,7 +140,7 @@ for _, mode in ipairs({ "used", "remaining" }) do
     end
     for _, label in ipairs(collect(tree, "label")) do
         if label.props.text == "20pts behind" then
-            assert(label.props.color == "on_surface_variant", "under pace must not imply failure")
+            assert(label.props.color == "on_surface/0.8", "under pace stays neutral and readable")
         end
     end
     assert(timeHint, "window label must expose time semantics through a larger hover target")
@@ -508,9 +508,7 @@ local emptyFailure = loadPanel(nil, { code = "timed_out", detail = "" })
 assert(has(labels(emptyFailure), "ui.error.timed_out_hint"),
        "a failure without cached data keeps the full error state")
 
--- Every row can be dropped -- a vendor with no key at all is not listed -- and a
--- report is still a report. The failure is a banner over the panel it arrived
--- in; only a panel with no report behind it at all gives itself over to one.
+-- A report whose providers were all dropped has no cached reading to show.
 local unlisted = {
     id = "zai",
     display_name = "Z.AI",
@@ -521,9 +519,10 @@ local unlisted = {
     sections = {},
 }
 local dropped = loadPanel(unlisted, { code = "timed_out", detail = "" })
-assert(#collect(dropped, "separator") == 1, "the panel keeps its two panes")
-assert(not has(labels(dropped), "ui.error.timed_out_hint"),
-       "and says the failure once, in the pane, not across the whole panel")
+assert(has(labels(dropped), "ui.error.timed_out_hint"),
+       "a report without visible providers needs the full error and recovery hint")
+assert(not has(labels(dropped), "ui.stale_hint"),
+       "dropped providers must not imply a usable last reading")
 
 local bottleneckPanelEntry = {
     id = "openai",
@@ -805,7 +804,6 @@ local codexWithActiveCredits = {
 local activeCreditsTree = loadPanel(codexWithActiveCredits)
 assert(has(labels(activeCreditsTree), "Credits"), "active credits block with positive balance should be displayed")
 
-io.write("ok: panel degrades safely, sorts usage, and removes unavailable providers\n")
 local parserError = "schema mismatch: openai usage response: invalid type: null"
 local parserPanel = loadPanel({ id = "openai", display_name = "Codex", status = "error",
     error = parserError, metrics = {}, sections = {} })
@@ -1495,3 +1493,207 @@ local recordTree=loadPanel(oldEntry,nil,{usage_display="used"})
 assert(has(labels(recordTree),"Weekly 69.4% ui.remaining"),
  "cached percentages preserve the same precision and reading direction as live values")
 end
+
+-- CLI 1.49+ calendar budgets omit window_secs: never invent a pace gauge.
+do
+local vibe = { type = "metric", label = "Vibe budget", percent = 35, value = "35%",
+    reset_at = "2026-11-01T00:00:00Z", detail = "Resets in 15d 8h" }
+local mistral = { id = "mistral", display_name = "Mistral", status = "ready", metrics = { vibe },
+    sections = { vibe, { type = "text", label = "Monthly Vibe budget", value = "€20.00" } } }
+local tree = loadPanel(mistral)
+assert(has(labels(tree), "Vibe budget") and not has(labels(tree), "API budget"),
+    "plans without an API allowance render only the reported Vibe budget")
+assert(#collect(tree, "progress") == 1, "calendar budgets must not invent elapsed pacing")
+mistral.stale = true
+mistral.fetched_at = "2026-10-16T15:00:00Z"
+mistral.sections[#mistral.sections + 1] = { type = "text", label = "HTTP 403", value = "authentication rejected" }
+local old = loadPanel(mistral)
+assert(has(labels(old), "Vibe budget") and has(labels(old), "ui.stale_hint"),
+    "rejected refreshes keep the dated Mistral budget with a stale notice")
+end
+
+do
+local monthly = { type = "metric", label = "Monthly", percent = 26, value = "26%", detail = "" }
+local kimi = { id = "kimi", display_name = "Kimi", status = "ready", metrics = { monthly }, sections = { monthly } }
+local tree = loadPanel(kimi)
+assert(has(labels(tree), "Monthly") and not has(labels(tree), "Session"),
+    "Kimi reports without rolling limits must not invent a session reading")
+assert(#collect(tree, "progress") == 1, "Kimi's sole monthly quota renders one gauge")
+end
+
+-- An empty report is actionable, and cannot turn a read failure into stale data.
+do
+local blank = { entries = {} }
+local empty = loadPanel(blank)
+assert(has(labels(empty), "ui.no_usage"), "an empty report must explain why there are no cards")
+local diagnostics = false
+for _, button in ipairs(collect(empty, "button")) do
+    if button.props.text == "ui.provider_setup" then diagnostics = true end
+end
+assert(diagnostics, "an empty report needs a visible Diagnostics action")
+local failed = loadPanel(blank, { code = "timed_out", detail = "Synthetic timeout" })
+assert(has(labels(failed), "ui.error.timed_out"), "an empty report must not hide the actual refresh failure")
+assert(not has(labels(failed), "ui.stale_hint"), "an empty report has no last reading to show")
+end
+
+do
+local budget = { type = "metric", label = "Vibe budget", percent = 35, value = "35%" }
+local cached = { id = "mistral", display_name = "Mistral", status = "ready", stale = true,
+    fetched_at = "2026-10-16T15:00:00Z", metrics = { budget }, sections = {
+        budget, { type = "text", label = "HTTP 403", value = "authentication rejected" } } }
+local tree, _, _, _, _, _, host = loadPanel(cached)
+clickButton(openActions(tree, host), "ui.provider_setup")
+assert(has(labels(host.tree()), "ui.diagnostics_login"),
+    "a usable cache must not hide authentication recovery guidance")
+assert(has(labels(host.tree()), "HTTP 403: authentication rejected"),
+    "Diagnostics must retain the status code supplied separately from its message")
+end
+
+
+-- General panel opens compare accounts; bar contexts still open one detail.
+do
+local work = provider("openai@work", "Codex · Work", 42)
+local personal = provider("openai@personal", "Codex · Personal", 72)
+local tree, _, runtime, _, _, _, host = loadPanel({ entries = { work, personal } })
+runtime.onOpen()
+assert(host.tree().props.key == "overview", "a direct panel open must start with the account overview")
+assert(has(labels(host.tree()), "Codex · Work") and has(labels(host.tree()), "Codex · Personal"),
+    "the overview must identify accounts with identical provider glyphs")
+assert(#collect(host.tree(), "progress") == 2, "both account quotas must be visible together")
+assert(has(labels(host.tree()), "42%") and has(labels(host.tree()), "72%"),
+    "overview percentages must remain visible when reset timestamps are absent")
+local opened = false
+for _, button in ipairs(collect(host.tree(), "button")) do
+    if button.props.key == "overview-open-openai@work" then button.props.onClick(); opened = true; break end
+end
+assert(opened and host.values.selected == "openai@work" and host.tree().props.key == "usage",
+    "the account detail action must select its stable ID")
+assert(has(labels(host.tree()), "Codex · Work"), "detail must keep the selected account identity visible")
+clickButton(host.tree(), "ui.overview")
+assert(host.tree().props.key == "overview", "detail needs a direct return to all accounts")
+runtime.onOpen("openai@personal")
+assert(host.tree().props.key == "usage" and host.values.selected == "openai@personal",
+    "a bar context must retain direct account access")
+runtime.onKey("o", true)
+assert(host.tree().props.key == "overview", "O returns to the account overview")
+runtime.onKey("down", true)
+assert(host.tree().props.key == "overview", "arrow selection must not leave the overview")
+runtime.onKey("return", true)
+assert(host.tree().props.key == "usage", "Enter opens the selected account")
+end
+
+do
+local many = { entries = {} }
+for index = 1, 14 do many.entries[index] = provider("openai@" .. index, "Codex · " .. index, index) end
+local _, _, runtime, _, _, _, host = loadPanel(many)
+runtime.onOpen("openai@8")
+local count = 0
+for _, row in ipairs(collect(host.tree(), "row")) do
+    if tostring(row.props.key):match("^provider%-") then count = count + 1 end
+end
+assert(count <= 5, "detail navigation must not overflow with many accounts")
+assert(has(labels(host.tree()), "Codex · 8"), "bounded tabs must preserve the selected account identity")
+end
+
+do
+local balance = { id = "deeprelay", display_name = "DeepRelay", status = "ready", stale = true,
+    fetched_at = "2026-10-16T15:00:00Z", metrics = {},
+    sections = { { type = "text", label = "Balance", value = "$12.50" } } }
+local _, _, runtime, _, _, _, host = loadPanel(balance)
+runtime.onOpen()
+assert(has(labels(host.tree()), "$12.50") and has(labels(host.tree()), "ui.stale_hint"),
+    "overview balances must stay monetary and identify old readings")
+assert(#collect(host.tree(), "progress") == 0, "a balance must never become a quota gauge")
+end
+
+-- Overview limits remain explicit, and display mode never rewrites source data.
+do
+local entry = provider("openai@work", "Codex · 工作", 42)
+for index = 2, 5 do
+    entry.metrics[index] = { type = "metric", label = "Window " .. index,
+        percent = index * 10, value = tostring(index * 10) .. "%" }
+end
+entry.metrics[5].model_pool = true
+entry.sections = entry.metrics
+local _, _, runtime, _, _, _, host = loadPanel(entry, nil, { usage_display = "remaining" })
+runtime.onOpen()
+assert(#collect(host.tree(), "progress") == 3 and has(labels(host.tree()), "ui.more_windows"),
+    "overview must bound window previews and disclose omitted windows")
+assert(has(labels(host.tree()), "58%") and entry.metrics[1].percent == 42,
+    "overview remaining mode must transform only the presentation")
+assert(host.tree().props.height <= 640, "large overviews must stay inside the declared maximum")
+end
+
+do
+local one = provider("openai", "Codex", 42)
+local _, _, runtime, _, _, _, host = loadPanel(one)
+local compactHeight = host.tree().props.height
+runtime.onOpen()
+assert(host.tree().props.height < 640 and compactHeight < 640,
+    "a small report must not reserve the panel's maximum height")
+host.publishState("error", { code = "timed_out", detail = "" })
+assert(has(labels(host.tree()), "ui.stale_hint"), "a whole-report failure must mark overview readings as old")
+end
+
+-- Large overviews bound native work without losing access to any account.
+do
+local report = { entries = {} }
+for index = 1, 14 do report.entries[index] = provider("openai@" .. index, "Codex · " .. index, index) end
+local _, _, runtime, _, _, _, host = loadPanel(report)
+runtime.onOpen()
+local shown = 0
+for _, column in ipairs(collect(host.tree(), "column")) do
+    if tostring(column.props.key):match("^overview%-openai@") then shown = shown + 1 end
+end
+assert(shown > 0 and shown <= 4, "a page must bound native rendering work to four account cards")
+local previous
+for _, button in ipairs(collect(host.tree(), "button")) do
+    if button.props.tooltip == "ui.previous_page" then previous = button end
+end
+assert(previous and previous.props.enabled, "the last page must expose navigation to earlier accounts")
+previous.props.onClick()
+assert(host.tree().props.key == "overview", "page navigation must preserve the overview")
+end
+
+-- Opening from the bar highlights the selected account inside the All accounts overview;
+-- Antigravity shows all windows (including weekly and model pools) without truncation.
+do
+local agyMetrics = {
+    { type = "metric", label = "Gemini", percent = 9, value = "9%", window_secs = 18000, reset_at = "2026-10-16T20:00:00Z" },
+    { type = "metric", label = "Claude & GPT OSS", percent = 95, value = "95%", window_secs = 18000, reset_at = "2026-10-16T21:00:00Z" },
+    { type = "metric", label = "Gemini", percent = 2, value = "2%", window_secs = 604800, reset_at = "2026-10-20T18:00:00Z" },
+    { type = "metric", label = "Gemini 4 Argon", percent = 6, value = "6%", window_secs = 604800, model_pool = true },
+    { type = "metric", label = "Claude & GPT OSS", percent = 31, value = "31%", window_secs = 604800 },
+}
+local agy = { id = "antigravity", display_name = "Antigravity", status = "ready",
+    metrics = agyMetrics, sections = agyMetrics }
+local report = { entries = { provider("openai@work", "Codex · Work", 42), agy } }
+local _, _, runtime, _, _, _, host = loadPanel(report)
+host.values.selected = "openai@work"
+runtime.onOpen()
+assert(host.tree().props.key == "overview" and host.values.selected == "openai@work",
+    "opening from the bar must start in the All accounts overview with the account selected")
+assert(has(labels(host.tree()), "Gemini")
+    and has(labels(host.tree()), "Claude & GPT OSS")
+    and has(labels(host.tree()), "Gemini 4 Argon · Weekly")
+    and has(labels(host.tree()), "Session")
+    and has(labels(host.tree()), "Weekly")
+    and has(labels(host.tree()), "4h 0m")
+    and has(labels(host.tree()), "5h 0m")
+    and has(labels(host.tree()), "4d 2h")
+    and #collect(host.tree(), "progress") == 9
+    and not has(labels(host.tree()), "ui.more_windows"),
+    "Antigravity overview card must group model families and show all reported windows, model pools, elapsed tracks, and reset times")
+end
+
+-- A local AGY RPC rejection does not establish that the AGY login is expired.
+do
+local failed = { id = "antigravity", display_name = "Antigravity", status = "error",
+    error = "HTTP 401: authentication rejected", metrics = {}, sections = {} }
+local tree, _, _, _, _, _, host = loadPanel(failed)
+clickButton(openActions(tree, host), "ui.provider_setup")
+assert(has(labels(host.tree()), "ui.diagnostics_antigravity_auth"),
+    "Antigravity auth guidance must distinguish local RPC access from the CLI session")
+end
+
+io.write("ok: panel degrades safely, sorts usage, and removes unavailable providers\n")

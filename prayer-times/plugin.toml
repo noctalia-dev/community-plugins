@@ -1,0 +1,125 @@
+id = "bekiryildirimcode/prayer-times"
+name = "Prayer Times"
+version = "1.0.0"
+plugin_api = 43
+author = "bekiryildirimcode"
+license = "MIT"
+icon = "building-mosque"
+description = "Shows the next prayer and a live countdown on the bar, with a panel of today's times based on your location."
+tags = ["bar", "panel", "service", "time", "countdown", "utility"]
+dependencies = []
+
+[[setting]]
+key = "location_mode"
+type = "select"
+label_key = "settings.location_mode.label"
+description_key = "settings.location_mode.description"
+default = "auto"
+options = [
+    { value = "auto", label_key = "settings.location_mode.auto" },
+    { value = "city", label_key = "settings.location_mode.city" },
+    { value = "coords", label_key = "settings.location_mode.coords" },
+]
+
+[[setting]]
+key = "city"
+type = "string"
+label_key = "settings.city.label"
+description_key = "settings.city.description"
+default = ""
+visible_when = { key = "location_mode", values = ["city"] }
+
+[[setting]]
+key = "country"
+type = "string"
+label_key = "settings.country.label"
+description_key = "settings.country.description"
+default = ""
+visible_when = { key = "location_mode", values = ["city"] }
+
+[[setting]]
+key = "latitude"
+type = "string"
+label_key = "settings.latitude.label"
+description_key = "settings.latitude.description"
+default = ""
+visible_when = { key = "location_mode", values = ["coords"] }
+
+[[setting]]
+key = "longitude"
+type = "string"
+label_key = "settings.longitude.label"
+description_key = "settings.longitude.description"
+default = ""
+visible_when = { key = "location_mode", values = ["coords"] }
+
+[[setting]]
+key = "method"
+type = "select"
+label_key = "settings.method.label"
+description_key = "settings.method.description"
+default = "13"
+options = [
+    { value = "13", label_key = "settings.method.diyanet" },
+    { value = "3", label_key = "settings.method.mwl" },
+    { value = "2", label_key = "settings.method.isna" },
+    { value = "5", label_key = "settings.method.egypt" },
+    { value = "4", label_key = "settings.method.makkah" },
+    { value = "1", label_key = "settings.method.karachi" },
+    { value = "15", label_key = "settings.method.moonsighting" },
+]
+
+[[setting]]
+key = "school"
+type = "select"
+label_key = "settings.school.label"
+description_key = "settings.school.description"
+default = "1"
+options = [
+    { value = "0", label_key = "settings.school.shafi" },
+    { value = "1", label_key = "settings.school.hanafi" },
+]
+
+[[setting]]
+key = "notify"
+type = "bool"
+label_key = "settings.notify.label"
+description_key = "settings.notify.description"
+default = true
+
+[[service]]
+id = "fetcher"
+entry = "service.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 360
+height = 420
+placement = "floating"
+position = "auto"
+open_near_click = true
+
+[[widget]]
+id = "bar"
+entry = "widget.luau"
+
+    [[widget.setting]]
+    key = "show_countdown"
+    type = "bool"
+    label_key = "settings.show_countdown.label"
+    description_key = "settings.show_countdown.description"
+    default = true
+
+    [[widget.setting]]
+    key = "show_name"
+    type = "bool"
+    label_key = "settings.show_name.label"
+    description_key = "settings.show_name.description"
+    default = true
+
+    [[widget.setting]]
+    key = "glyph"
+    type = "glyph"
+    label_key = "settings.glyph.label"
+    default = "building-mosque"

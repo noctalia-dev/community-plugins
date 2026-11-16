@@ -78,6 +78,17 @@ BASS_READ = 0xC04E
 BASS_RESP = 0x404E
 BASS_WRITE = 0xF051
 
+# Both from ear-web only, confirmed working by a CMF Headphone Pro owner
+# through ear-web itself. Spatial payload [mode, head tracking]; codec
+# payload [index] (see models.CODEC_NAMES), and the buds restart on a write.
+SPATIAL_READ = 0xC04F
+SPATIAL_RESP = 0x404F
+SPATIAL_WRITE = 0xF052
+
+CODEC_READ = 0xC029
+CODEC_RESP = 0x4029
+CODEC_WRITE = 0xF01C
+
 SERIAL_READ = 0xC006
 SERIAL_RESP = 0x4006
 GESTURE_WRITE = 0xF003
@@ -335,6 +346,25 @@ def parse_bass(payload: bytes) -> dict | None:
 
 def bass_write_payload(enabled: bool, level: int) -> bytes:
     return bytes([0x01 if enabled else 0x00, level * 2])
+
+
+def parse_spatial(payload: bytes) -> tuple[int, int] | None:
+    """(mode, head tracking); models answer with one or two bytes."""
+    if not payload:
+        return None
+    return payload[0], payload[1] if len(payload) > 1 else 0
+
+
+def spatial_write_payload(mode: int) -> bytes:
+    return bytes([mode, 0x00])
+
+
+def parse_codec(payload: bytes) -> int | None:
+    return payload[0] if payload else None
+
+
+def codec_write_payload(index: int) -> bytes:
+    return bytes([index])
 
 
 def parse_gestures(payload: bytes) -> list[dict]:

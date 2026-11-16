@@ -34,6 +34,7 @@ body:
         - ai-triage
         - ai-usagebar
         - airpods
+        - alarm-clock
         - als-brightness
         - ambient-sounds
         - androidconnect
@@ -76,6 +77,7 @@ body:
         - claude-operator
         - claude-sessions
         - claudecode
+        - clearclock
         - cmd-runner
         - codexbar-meter
         - color_picker
@@ -100,21 +102,29 @@ body:
         - dropkitty
         - dropwall
         - ds4-color
+        - easytier
         - emoji-picker
         - eyecare
         - f1
         - file-search
+        - flatpak-bg
         - game-launcher
+        - gamepad-display
         - gamer-mode
         - geoip-monitor
         - git_companion
         - github-activity
+        - github-contributions-desktop
         - github-kanban
         - github-notifications
         - github-prs
+        - global-menu
         - gocryptfs
         - godot-provider
+        - grabit
         - gslapper
+        - habitica
+        - handy
         - hassio
         - headroom
         - headsetcontrol
@@ -147,6 +157,7 @@ body:
         - keysmith
         - keyviz
         - kineticwe-layouts
+        - kuma-status
         - kumacat
         - kwallet-secrets
         - launcher-pass
@@ -157,18 +168,22 @@ body:
         - llamanager
         - localsend
         - localsend-plus
+        - logonbox
         - lrc
         - lunar-calendar
         - lunar-workspaces
         - lyrics
+        - lyrics-carousel
         - maildir
         - mango-displays
         - mango_layouts
         - mangowm-keymode
+        - mathsym
         - mawaqit
         - media-island
         - media-lyrics
         - media-player-icon
+        - meeting-bar
         - mic-denoise
         - mihomo-control
         - mimir
@@ -195,6 +210,7 @@ body:
         - niri-rules-studio
         - niri-workspace-preview
         - niri-workspace-stack
+        - niri-workspaces
         - nix-monitor
         - nix-search
         - nix-status
@@ -221,27 +237,34 @@ body:
         - opnsense
         - opnsense-traffic
         - oppo-pods
+        - overview
         - owntone-control
         - paged-todo
         - palette-creator
         - palettes
         - pass
+        - passwordless-sudo
         - performance-plus
         - phone-connect
         - phone-operate
         - pixel-buds
         - pixel-shift
+        - plugin-hub
         - podcasts
         - pomodoro
+        - pomodoro-heatmap
         - portctl
         - portforward
+        - prayer-times
         - printers
         - prismlauncher-instances
+        - process-manager
         - process-monitor
         - processes
         - procmon
         - profile-switcher
         - proton-pass
+        - proton-wireguard
         - pulsar-mouse
         - qr-share
         - qrcode
@@ -252,6 +275,7 @@ body:
         - radio
         - razer
         - rbw-enhanced
+        - reaction
         - reading-list
         - region-recorder
         - remmina
@@ -263,6 +287,7 @@ body:
         - saved-desktop-widgets
         - screen-capture
         - screen-mirror
+        - screen-time
         - screen-toolkit
         - scroll-indicator
         - settings-to-nix
@@ -274,6 +299,7 @@ body:
         - shift
         - shloka
         - sing-box-status
+        - social-block
         - sonolith
         - sony_headphones
         - soundcore-buds
@@ -290,11 +316,13 @@ body:
         - super-productivity
         - sway-mode
         - sway-scratchpad
+        - synced-lyrics
         - syncthing
         - system-monitor
         - system-updater
         - systemd
         - systempulse
+        - tablet-display
         - taildrop
         - tailnet
         - tailscale
@@ -335,6 +363,7 @@ body:
         - vrchat-status
         - vscode
         - w-engine
+        - wallpaper-brightness
         - wallpaper-deck
         - wallpaper-switcher
         - wallpaper-widget

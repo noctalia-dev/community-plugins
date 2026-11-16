@@ -1,0 +1,35 @@
+{
+ "credits": [
+  {
+   "id": "rc-1",
+   "reset_type": "codex_rate_limits",
+   "status": "available",
+   "title": "Weekly limit reset",
+   "granted_at": 1789000000,
+   "expires_at": 1790500000,
+   "redeemed_at": null
+  },
+  {
+   "id": "rc-2",
+   "reset_type": "codex_rate_limits",
+   "status": "available",
+   "title": "Weekly limit reset",
+   "granted_at": 1789100000,
+   "expires_at": 1790100000,
+   "redeemed_at": null
+  },
+  {
+   "id": "rc-0",
+   "reset_type": "codex_rate_limits",
+   "status": "redeemed",
+   "title": "Weekly limit reset",
+   "granted_at": 1788000000,
+   "expires_at": 1790900000,
+   "redeemed_at": 1789500000
+  }
+ ],
+ "available_count": 2,
+ "total_earned_count": 3,
+ "immediate_reset_purchase_eligible": false,
+ "history_enabled": true
+}

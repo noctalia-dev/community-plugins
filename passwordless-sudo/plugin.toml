@@ -1,0 +1,64 @@
+# Passwordless sudo toggle, modeled on Omarchy's bar indicator.
+#
+# The [[service]] owns the state: it probes sudo without prompting, runs the
+# enable/disable actions and publishes { active, mode, deadline } to the other
+# entries through noctalia.state. The bar [[widget]] turns red while a grant is
+# active; clicking it then revokes the grant at once. While inactive, clicking
+# opens the [[panel]] duration picker. Authentication goes through pkexec, so
+# Noctalia's own polkit dialog asks for the password.
+#
+# Grants are sudoers rules with a NOTAFTER deadline enforced by sudo itself,
+# written by the root-owned helper in /usr/local/bin (see install.sh).
+
+id = "crsmthw/passwordless-sudo"
+name = "Passwordless Sudo"
+version = "1.0.0"
+plugin_api = 55
+author = "CrsMthw"
+license = "MIT"
+icon = "shield-lock"
+description = "Temporarily allow sudo without a password, so AI agents can run privileged commands."
+tags = ["bar", "panel", "shortcut", "service", "ai", "system"]
+dependencies = ["sudo", "polkit", "systemd"]
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[widget]]
+id = "indicator"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  label_key = "settings.glyph.label"
+  default = "shield-lock"
+
+  [[widget.setting]]
+  key = "hide_when_inactive"
+  type = "bool"
+  label_key = "settings.hide_when_inactive.label"
+  description_key = "settings.hide_when_inactive.description"
+  default = false
+
+  [[widget.setting]]
+  key = "show_countdown"
+  type = "bool"
+  label_key = "settings.show_countdown.label"
+  description_key = "settings.show_countdown.description"
+  default = false
+
+[[shortcut]]
+id = "shortcut"
+entry = "shortcut.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 400
+height = "content"
+max_height = 560
+placement = "attached"
+position = "auto"
+open_near_click = true

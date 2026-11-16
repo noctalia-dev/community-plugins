@@ -1,7 +1,7 @@
 id = "h465855hgg/lyrics"
 name = "Lyrics"
-version = "1.6.0"
-plugin_api = 14
+version = "1.7.1"
+plugin_api = 52
 author = "h465855hgg"
 license = "MIT"
 dependencies = ["playerctl", "python3", "cp", "chmod", "timeout"]
@@ -80,6 +80,18 @@ label_key = "settings.auto_source_routing.label"
 description_key = "settings.auto_source_routing.description"
 default = true
 advanced = true
+
+# How to treat multiple lyric matches from one source.
+[[setting]]
+key = "candidate_mode"
+type = "select"
+label_key = "settings.candidate_mode.label"
+description_key = "settings.candidate_mode.description"
+default = "choose"
+options = [
+  { value = "choose", label_key = "settings.candidate_mode.options.choose" },
+  { value = "best", label_key = "settings.candidate_mode.options.best" },
+]
 
 [[setting]]
 key = "translation_language"
@@ -236,7 +248,7 @@ entry = "lyrics_service.luau"
 id = "selector"
 entry = "lyrics_selector.luau"
 width = 520
-height = 210
+height = 380
 placement = "attached"
 open_near_click = true
 
@@ -262,8 +274,8 @@ scroll_down = "plugin h465855hgg/lyrics:service all previous"
   options = [
     { value = "basic", label_key = "settings.settings_page.options.basic" },
     { value = "lyrics", label_key = "settings.settings_page.options.lyrics" },
-    { value = "karaoke", label_key = "settings.settings_page.options.karaoke" },
     { value = "appearance", label_key = "settings.settings_page.options.appearance" },
+    { value = "karaoke", label_key = "settings.settings_page.options.karaoke" },
     { value = "typography", label_key = "settings.settings_page.options.typography" },
     { value = "scroll", label_key = "settings.settings_page.options.scroll" },
     { value = "cues", label_key = "settings.settings_page.options.cues" },
@@ -283,6 +295,14 @@ scroll_down = "plugin h465855hgg/lyrics:service all previous"
   visible_when = { key = "settings_page", values = ["basic"] }
 
   [[widget.setting]]
+  key = "selector_enabled"
+  type = "bool"
+  label_key = "settings.selector_enabled.label"
+  description_key = "settings.selector_enabled.description"
+  default = true
+  visible_when = { key = "settings_page", values = ["basic"] }
+
+  [[widget.setting]]
   key = "text_alignment"
   type = "select"
   label_key = "settings.text_alignment.label"
@@ -293,7 +313,7 @@ scroll_down = "plugin h465855hgg/lyrics:service all previous"
     { value = "center", label_key = "settings.text_alignment.options.center" },
     { value = "right", label_key = "settings.text_alignment.options.right" },
   ]
-  visible_when = { key = "settings_page", values = ["basic"] }
+  visible_when = { key = "settings_page", values = ["typography"] }
 
   [[widget.setting]]
   key = "show_artist"
@@ -323,7 +343,7 @@ scroll_down = "plugin h465855hgg/lyrics:service all previous"
   label_key = "settings.show_cover.label"
   description_key = "settings.show_cover.description"
   default = true
-  visible_when = { key = "settings_page", values = ["basic"] }
+  visible_when = { key = "settings_page", values = ["appearance"] }
 
   [[widget.setting]]
   key = "hide_when_paused"
@@ -435,12 +455,20 @@ scroll_down = "plugin h465855hgg/lyrics:service all previous"
   default = "karaoke"
   options = [
     { value = "karaoke", label_key = "settings.animation.options.karaoke" },
+    { value = "slide_up", label_key = "settings.animation.options.slide_up" },
+    { value = "slide_down", label_key = "settings.animation.options.slide_down" },
+    { value = "slide_left", label_key = "settings.animation.options.slide_left" },
+    { value = "slide_right", label_key = "settings.animation.options.slide_right" },
+    { value = "spring", label_key = "settings.animation.options.spring" },
+    { value = "drop", label_key = "settings.animation.options.drop" },
+    { value = "zoom", label_key = "settings.animation.options.zoom" },
+    { value = "flip", label_key = "settings.animation.options.flip" },
+    { value = "spin", label_key = "settings.animation.options.spin" },
+    { value = "squash", label_key = "settings.animation.options.squash" },
     { value = "cascade", label_key = "settings.animation.options.cascade" },
     { value = "wave", label_key = "settings.animation.options.wave" },
-    { value = "fade", label_key = "settings.animation.options.fade" },
     { value = "typewriter", label_key = "settings.animation.options.typewriter" },
-    { value = "pulse", label_key = "settings.animation.options.pulse" },
-    { value = "blink", label_key = "settings.animation.options.blink" },
+    { value = "random", label_key = "settings.animation.options.random" },
     { value = "none", label_key = "settings.animation.options.none" },
   ]
   visible_when = { key = "settings_page", values = ["karaoke"] }
@@ -647,7 +675,7 @@ scroll_down = "plugin h465855hgg/lyrics:service all previous"
   type = "int"
   label_key = "settings.char_width.label"
   description_key = "settings.char_width.description"
-  default = 9
+  default = 14
   min = 4
   max = 24
   visible_when = { key = "settings_page", values = ["scroll"] }

@@ -1,52 +1,52 @@
 {
+  "notify": {
+    "mode_changed": "ANC mode: %s"
+  },
   "panel": {
-    "title": "Honor Earbuds",
+    "case": "Case",
+    "charging": "Charging",
+    "left": "Left",
+    "mode": {
+      "anc": "Noise Cancellation",
+      "off": "Off (Normal)",
+      "transparency": "Awareness"
+    },
+    "noise_control": "NOISE CONTROL",
+    "noise_requires_both": "Both earbuds are required to change noise control",
+    "refresh": "Refresh",
+    "right": "Right",
     "status": {
       "connected": "Connected",
       "disconnected": "Disconnected"
     },
-    "left": "Left",
-    "right": "Right",
-    "case": "Case",
-    "charging": "Charging",
-    "refresh": "Refresh",
-    "noise_control": "NOISE CONTROL",
-    "noise_requires_both": "Both earbuds are required to change noise control",
-    "mode": {
-      "anc": "Noise Cancellation",
-      "transparency": "Awareness",
-      "off": "Off (Normal)"
-    }
-  },
-  "widget": {
-    "mode": "Mode",
-    "not_connected": "Earbuds not connected",
-    "action": {
-      "left_click": "Open panel",
-      "right_click": "Cycle ANC",
-      "left_click_label": "LMB",
-      "right_click_label": "RMB"
-    }
-  },
-  "notify": {
-    "mode_changed": "ANC mode: %s"
+    "title": "Honor Earbuds"
   },
   "settings": {
     "device_mac": {
-      "label": "Device MAC address",
-      "description": "Override Bluetooth MAC address (optional, automatically detected by default)"
+      "description": "Override Bluetooth MAC address (optional, automatically detected by default)",
+      "label": "Device MAC address"
     },
     "hide_when_disconnected": {
-      "label": "Hide when disconnected",
-      "description": "Hide the widget from the bar when the earbuds are not connected"
+      "description": "Hide the widget from the bar when the earbuds are not connected",
+      "label": "Hide when disconnected"
     },
     "notify_on_connect": {
-      "label": "Notify on connect",
-      "description": "Show a popup notification with battery status upon connection"
+      "description": "Show a popup notification with battery status upon connection",
+      "label": "Notify on connect"
     },
     "poll_interval": {
-      "label": "Poll interval (ms)",
-      "description": "How often to query earbuds status in milliseconds (default: 2500)"
+      "description": "How often to query earbuds status in milliseconds (default: 2500)",
+      "label": "Poll interval (ms)"
     }
+  },
+  "widget": {
+    "action": {
+      "left_click": "Open panel",
+      "left_click_label": "LMB",
+      "right_click": "Cycle ANC",
+      "right_click_label": "RMB"
+    },
+    "mode": "Mode",
+    "not_connected": "Earbuds not connected"
   }
 }

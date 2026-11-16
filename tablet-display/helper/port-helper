@@ -1,0 +1,122 @@
+#!/bin/bash
+#
+# port-helper -- root helper for the Noctalia Tablet Display plugin.
+#
+# Turns an unused display connector into a "monitor" by loading an EDID onto
+# it and forcing it connected, so a compositor without virtual outputs (niri)
+# gets a display to stream. Runs as root through pkexec; the polkit policy
+# lets the active local session call it without a password.
+#
+#   port-helper on <card-connector> < edid.bin   e.g. on card2-DP-3
+#   port-helper off <card-connector>
+#   port-helper list                               connectors this helper forced
+#   port-helper version
+#
+# It accepts as little as possible: the EDID only on stdin and only after
+# checking its header and checksums; only external connectors (DP, HDMI,
+# DVI); "on" only for a connector that is disconnected; "off" only for one it
+# forced itself. Everything is runtime-only and undone by a reboot.
+
+set -euo pipefail
+umask 077
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+
+VERSION=2
+RUN=/run/noctalia-tablet-display-port
+DEBUGFS=/sys/kernel/debug
+
+die() { echo "port-helper: $*" >&2; exit 1; }
+
+[[ ${1:-} == version ]] && { echo "$VERSION"; exit 0; }
+[[ $EUID -eq 0 ]] || die "must run as root (through pkexec)"
+
+check_conn() {
+  [[ $1 =~ ^card[0-9]+-(DP|HDMI-A|HDMI-B|DVI-D|DVI-I)-[0-9]+$ ]] || die "not an external connector: $1"
+  [[ -d /sys/class/drm/$1 ]] || die "no such connector: $1"
+}
+
+debugfs_dir() { # card-connector
+  local card=${1%%-*} name=${1#*-} pci d
+  pci=$(basename "$(readlink -f "/sys/class/drm/$card/device")")
+  mountpoint -q "$DEBUGFS" || mount -t debugfs none "$DEBUGFS" || die "cannot mount debugfs"
+  for d in "$DEBUGFS"/dri/*/; do
+    if [[ -f $d/name ]] && grep -q "dev=$pci" "$d/name" && [[ -d $d$name ]]; then
+      echo "$d$name"
+      return
+    fi
+  done
+  die "no debugfs entry for $1; kernel lockdown is: $(cat /sys/kernel/security/lockdown 2>/dev/null || echo unknown)"
+}
+
+# Compositors only rescan connectors on a uevent; writing sysfs status sends
+# none. HOTPLUG=1 is what wlroots-based compositors look for.
+hotplug() {
+  echo "change $(cat /proc/sys/kernel/random/uuid) HOTPLUG=1" >"/sys/class/drm/${1%%-*}/uevent"
+}
+
+read_edid() { # -> path of a validated copy
+  local f="$RUN/edid.$$" size
+  head -c 2048 >"$f"
+  size=$(stat -c %s "$f")
+  (( size >= 128 && size <= 1024 && size % 128 == 0 )) || { rm -f "$f"; die "EDID must be 128-1024 bytes in 128-byte blocks (got $size)"; }
+  [[ $(head -c 8 "$f" | od -An -tx1 | tr -d ' \n') == 00ffffffffffff00 ]] || { rm -f "$f"; die "not an EDID (bad header)"; }
+  local bad
+  bad=$(od -An -tu1 -v "$f" | tr -s ' ' '\n' | awk 'NF { s += $1; n++; if (n % 128 == 0) { if (s % 256) bad = 1; s = 0 } } END { print bad + 0 }')
+  [[ $bad == 0 ]] || { rm -f "$f"; die "EDID checksum mismatch"; }
+  echo "$f"
+}
+
+cmd_on() {
+  local c=$1 sys dbg edid
+  check_conn "$c"
+  sys=/sys/class/drm/$c
+  mkdir -p "$RUN/forced"
+  if [[ ! -e $RUN/forced/$c && $(cat "$sys/status") != disconnected ]]; then
+    die "$c has something connected; pick a free connector"
+  fi
+  dbg=$(debugfs_dir "$c")
+  edid=$(read_edid)
+  cat "$edid" >"$dbg/edid_override"
+  rm -f "$edid"
+  : >"$RUN/forced/$c"
+  echo on >"$sys/status"
+  hotplug "$c"
+  echo "$c: $(cat "$sys/status")"
+}
+
+cmd_off() {
+  local c=$1 sys dbg
+  check_conn "$c"
+  [[ -e $RUN/forced/$c ]] || die "$c was not forced on by this helper"
+  sys=/sys/class/drm/$c
+  dbg=$(debugfs_dir "$c")
+  echo off >"$sys/status"
+  hotplug "$c"
+  # Exactly "reset": with a trailing newline the kernel reads it as an EDID.
+  printf reset >"$dbg/edid_override"
+  echo detect >"$sys/status"
+  # amdgpu keeps the emulated sink attached across a re-detect, so the port
+  # still reads "connected". Its trigger_hotplug file simulates the unplug.
+  if [[ $(cat "$sys/status") == connected && -e $dbg/trigger_hotplug ]]; then
+    echo 0 >"$dbg/trigger_hotplug"
+  fi
+  hotplug "$c"
+  sleep 0.2
+  if [[ $(cat "$sys/status") == connected ]]; then
+    # Last resort: keep it forced off (a reboot clears this).
+    echo off >"$sys/status"
+    hotplug "$c"
+    rm -f "$RUN/forced/$c"
+    echo "$c: forced off; the driver would not release it until reboot" >&2
+    exit 2
+  fi
+  rm -f "$RUN/forced/$c"
+  echo "$c: $(cat "$sys/status")"
+}
+
+case "${1:-}" in
+  on) [[ $# -eq 2 ]] || die "usage: port-helper on <card-connector> < edid.bin"; cmd_on "$2" ;;
+  off) [[ $# -eq 2 ]] || die "usage: port-helper off <card-connector>"; cmd_off "$2" ;;
+  list) ls "$RUN/forced" 2>/dev/null || true ;;
+  *) die "usage: port-helper on|off <card-connector> | list | version" ;;
+esac

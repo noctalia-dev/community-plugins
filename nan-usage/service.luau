@@ -1,27 +1,32 @@
 --!nonstrict
 -- The poller: the one part of this plugin that talks to NaN.
 --
--- It holds the API key, fetches the three responses the model reads, and publishes
--- what came back on the plugin's shared state under "data". The bar widget and the
--- panel are subscribers: each builds the record from that data with its own clock,
--- so the bar's countdowns move between polls — the panel rebuilds on each poll and
--- on opening, since it is usually open for a moment — and neither of them spawns a
+-- It holds the API key, asks /v1/usage for the billing period, and publishes the
+-- answer on the plugin's shared state under "data". The bar widget and the panel
+-- are subscribers: each builds the record from that data with its own clock, so the
+-- bar's countdowns move between polls — the panel rebuilds on each poll and on
+-- opening, since it is usually open for a moment — and neither of them spawns a
 -- process or touches the network.
 --
--- Nothing here judges anything. Levels, projections and text live in shared.luau,
--- which the surfaces run too; this file only says what came back and what did not.
+-- Nothing here judges anything. Levels, the pace and every text live in
+-- shared.luau, which the surfaces run too; this file only says what came back and
+-- what did not.
 
--- The NaN cloud API. It has no published contract — the shapes the model reads were
--- taken from the panel bundle — so a failure here is reported, not interpreted.
-local API = "https://cloud-api.nan.builders"
+local shared = require("./shared.luau")
 
--- The three responses. The quota is the one that matters; the account decorates it
--- and the aggregates are opt-out, because they cost a request of their own.
-local ENDPOINTS = {
-  { path = "/api/usage/quota", slot = "quota" },
-  { path = "/api/auth/me", slot = "me" },
-  { path = "/api/metrics/usage", slot = "metrics", setting = "show_metrics" },
-}
+-- The one endpoint: NaN's documented usage report, which an API key may read. It
+-- carries the period's credits, and the tokens and credits per model per day.
+local API = "https://api.nan.builders/v1/usage"
+
+-- Rows per page. A billing period is about 31 days of a handful of models, so one
+-- page covers it; the cursor is followed anyway, up to a bound.
+local PAGE_LIMIT = 500
+local MAX_PAGES = 5
+
+-- How long to stay quiet after NaN says 429. The host does not hand over response
+-- headers, so Retry-After cannot be read; the usage report allows 30 requests a
+-- minute, and a minute clears that.
+local BACKOFF_SECONDS = 60
 
 -- Where the data is published, and the key a surface uses to ask for a refresh.
 -- One VM cannot call into another, so the channel is how the panel's header asks
@@ -34,26 +39,22 @@ local REFRESH_KEY = "refresh"
 local DEFAULT_KEY_PATH = "~/.config/nan/api-key"
 
 local data = {
-  quota = nil,
-  me = nil,
-  metrics = nil,
+  usage = nil,
   fetchedAt = nil,
   error = "",
 }
-local pending = 0
+local busy = false
 local lastPoll = 0
+local quietUntil = 0
 
 local function publish()
   -- A copy, not the same table every time: a host that compares by identity would
   -- otherwise see no change and never notify the surfaces.
-  local snapshot = {
-    quota = data.quota,
-    me = data.me,
-    metrics = data.metrics,
+  noctalia.state.set(DATA_KEY, {
+    usage = data.usage,
     fetchedAt = data.fetchedAt,
     error = data.error,
-  }
-  noctalia.state.set(DATA_KEY, snapshot)
+  })
 end
 
 local function keyPath()
@@ -90,7 +91,7 @@ end
 
 -- The tick rate is the poll interval: there is nothing to do in between.
 local function intervalMs()
-  local seconds = tonumber(noctalia.getConfig("interval")) or 60
+  local seconds = tonumber(noctalia.getConfig("interval")) or 300
   if seconds < 15 then
     seconds = 15
   elseif seconds > 1800 then
@@ -99,65 +100,94 @@ local function intervalMs()
   return seconds * 1000
 end
 
--- One response settled. The quota decides whether the poll worked; the last good
--- numbers are never thrown away, because an error next to them is what lets a
--- surface say "showing the last data" instead of going blank.
-local function settle(slot, value, reason)
-  pending = pending - 1
-  if slot == "quota" then
-    if value ~= nil then
-      data.quota = value
-      data.error = ""
-      data.fetchedAt = os.time()
-    elseif reason ~= nil then
-      data.error = reason
-    end
-  elseif value ~= nil then
-    data[slot] = value
+-- The poll is over. A good answer replaces the data; a failed one keeps the last
+-- good numbers, because an error next to them is what lets a surface say "showing
+-- the last data" instead of going blank.
+local function finish(usage, reason)
+  busy = false
+  if usage ~= nil then
+    data.usage = usage
+    data.error = ""
+    data.fetchedAt = os.time()
+  else
+    data.error = reason
+    noctalia.log("NaN Usage: " .. reason)
   end
-  if pending <= 0 then
-    pending = 0
-    publish()
-  end
+  publish()
 end
 
-local function get(endpoint, key)
+local function url(from, cursor)
+  local query = API .. "?start_date=" .. from .. "&limit=" .. PAGE_LIMIT
+  if cursor ~= nil then
+    -- An opaque token; percent-encode anything that is not plainly safe in a query.
+    query = query .. "&cursor=" .. cursor:gsub("[^%w%-%._~]", function(c)
+      return string.format("%%%02X", string.byte(c))
+    end)
+  end
+  return query
+end
+
+-- One page. The first one carries the totals and the credits; any later page only
+-- adds rows, which are appended to the first.
+local function fetch(key, from, cursor, first, page)
   local started = noctalia.http({
-    url = API .. endpoint.path,
+    url = url(from, cursor),
     headers = {
       "Authorization: Bearer " .. key,
       "Accept: application/json",
       "User-Agent: noctalia-nan-usage",
     },
   }, function(response)
-    local value, reason = nil, nil
     if not response.ok then
-      reason = "Could not reach " .. API
-    elseif response.status == 401 or response.status == 403 then
-      reason = "NaN rejected the API key in " .. keyPath()
-    elseif response.status < 200 or response.status > 299 then
-      reason = "NaN answered " .. tostring(response.status) .. " for " .. endpoint.path
-    else
-      local decoded, err = noctalia.json.decode(response.body or "")
-      if decoded == nil then
-        reason = "Unreadable answer from " .. endpoint.path .. " (" .. tostring(err) .. ")"
-      else
-        value = decoded
+      finish(nil, "Could not reach " .. API)
+      return
+    end
+    if response.status == 401 or response.status == 403 then
+      finish(nil, "NaN rejected the API key in " .. keyPath())
+      return
+    end
+    if response.status == 429 then
+      quietUntil = os.time() + BACKOFF_SECONDS
+      finish(nil, "NaN asked to slow down; trying again in a minute")
+      return
+    end
+    if response.status < 200 or response.status > 299 then
+      finish(nil, "NaN answered " .. tostring(response.status) .. " for /v1/usage")
+      return
+    end
+    local decoded, err = noctalia.json.decode(response.body or "")
+    if type(decoded) ~= "table" then
+      finish(nil, "Unreadable answer from /v1/usage (" .. tostring(err) .. ")")
+      return
+    end
+    local whole = first or decoded
+    if first ~= nil and type(decoded.data) == "table" and type(whole.data) == "table" then
+      for _, row in ipairs(decoded.data) do
+        table.insert(whole.data, row)
       end
     end
-    settle(endpoint.slot, value, reason)
+    local nextCursor = decoded.next_cursor
+    if decoded.has_more == true and type(nextCursor) == "string" and nextCursor ~= "" and page < MAX_PAGES then
+      fetch(key, from, nextCursor, whole, page + 1)
+      return
+    end
+    finish(whole, nil)
   end)
   if started == false then
-    settle(endpoint.slot, nil, "Could not start a request to " .. API)
+    finish(nil, "Could not start a request to " .. API)
   end
 end
 
 -- force skips the rate limit, and is what a surface's refresh button uses.
 local function poll(force)
-  if pending > 0 then
+  if busy then
     return
   end
-  if not force and lastPoll > 0 and os.time() - lastPoll < intervalMs() / 2000 then
+  local now = os.time()
+  if now < quietUntil then
+    return
+  end
+  if not force and lastPoll > 0 and now - lastPoll < intervalMs() / 2000 then
     -- The first tick after load can arrive almost immediately, and the host calls
     -- update() again on a settings change. Half an interval is the floor between
     -- two polls; a surface's refresh bypasses it.
@@ -165,30 +195,24 @@ local function poll(force)
   end
   local key, reason = readKey()
   if key == nil then
-    reason = reason or ("Could not read a key from " .. keyPath())
-    data.error = reason
+    data.error = reason or ("Could not read a key from " .. keyPath())
     publish()
-    noctalia.log("NaN Usage: " .. reason)
+    noctalia.log("NaN Usage: " .. data.error)
     return
   end
-  lastPoll = os.time()
-  local wanted = {}
-  for _, endpoint in ipairs(ENDPOINTS) do
-    if endpoint.setting == nil or noctalia.getConfig(endpoint.setting) ~= false then
-      wanted[#wanted + 1] = endpoint
-    end
-  end
-  pending = #wanted
-  for _, endpoint in ipairs(wanted) do
-    get(endpoint, key)
-  end
+  lastPoll = now
+  busy = true
+  -- The billing period's first day, once an answer has said what it is.
+  local credits = data.usage and data.usage.credits
+  local periodStart = type(credits) == "table" and credits.period_start or nil
+  fetch(key, shared.windowStart(periodStart, now), nil, nil, 1)
 end
 
 noctalia.state.watch(REFRESH_KEY, function()
   poll(true)
 end)
 
--- The service's tick is the poll: one pass over the three endpoints per interval.
+-- The service's tick is the poll: one request per interval.
 function update()
   noctalia.setUpdateInterval(intervalMs())
   poll(false)

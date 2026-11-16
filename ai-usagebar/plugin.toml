@@ -1,6 +1,6 @@
 id = "felipeartur/ai-usagebar"
 name = "AI Usage"
-version = "2.13.1"
+version = "2.15.1"
 plugin_api = 43
 author = "felipeartur"
 license = "MIT"
@@ -58,9 +58,8 @@ entry = "bar.luau"
 # bar.luau because a binding is what the settings editor lists and what a user
 # can point somewhere else; an onRightClick callback is neither.
 #
-# Left stays in the script: it sets `selected` before opening the panel, so the
-# panel lands on the provider this capsule tracks, which `panel-toggle` alone
-# cannot do.
+# Left stays in the script: it sets `selected` before opening the overview, so
+# the tracked account is highlighted, which `panel-toggle` alone cannot do.
   [widget.actions]
   right = "plugin felipeartur/ai-usagebar:poller all refresh"
 
@@ -105,6 +104,7 @@ options = [
   { value = "synthetic", label_key = "settings.vendor.option.synthetic" },
   { value = "droid", label_key = "settings.vendor.option.droid" },
   { value = "deeprelay", label_key = "settings.vendor.option.deeprelay" },
+  { value = "mistral", label_key = "settings.vendor.option.mistral" },
 ]
 
 # Named CLI accounts use stable `<provider>@<label>` entry ids. Keeping the
@@ -112,6 +112,7 @@ options = [
 # user's ai-usagebar config declares.
 [[widget.setting]]
 key = "account"
+advanced = true
 type = "string"
 label_key = "settings.account.label"
 description_key = "settings.account.description"
@@ -132,6 +133,7 @@ options = [
 
 [[widget.setting]]
 key = "auto_providers"
+advanced = true
 visible_when = { key = "vendor", values = ["auto"] }
 type = "string_list"
 label_key = "settings.auto_providers.label"
@@ -167,6 +169,7 @@ default = true
 
 [[widget.setting]]
 key = "glyph_position"
+advanced = true
 visible_when = { key = "show_glyph", values = ["true"] }
 type = "select"
 label_key = "settings.glyph_position.label"
@@ -210,6 +213,7 @@ default = false
 
 [[widget.setting]]
 key = "color_by_usage"
+advanced = true
 type = "bool"
 label_key = "settings.color_by_usage.label"
 description_key = "settings.color_by_usage.description"
@@ -218,13 +222,14 @@ default = true
 [[panel]]
 id = "panel"
 entry = "panel.luau"
-# Provider tabs at the top, detailed charts and accessory cards below.
+# Multi-account overview with linked quota details and accessory cards.
 width = 440
-height = 440
+height = "content"
+max_height = 640
 # The shell draws the Placement and Position rows for every plugin panel whether
 # or not they are declared; declaring them only picks the default the user gets.
 placement = "attached"
 position = "auto"
 open_near_click = true
 dismiss_on_outside_click = true
-capture_keys = ["escape", "r", "up", "down", "left", "right"]
+capture_keys = ["escape", "r", "up", "down", "left", "right", "return", "o"]

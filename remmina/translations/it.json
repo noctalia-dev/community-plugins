@@ -1,0 +1,35 @@
+{
+  "err-launch": "Impossibile avviare Remmina",
+  "err-no-remmina": "comando remmina non trovato",
+  "err-no-remmina-subtitle": "Installa Remmina e assicurati che sia nel PATH",
+  "filter-empty": "Filtro: \"{filter}\"",
+  "no-profiles-found": "Nessuna connessione corrispondente",
+  "panel": {
+    "count": "{count} connessioni salvate",
+    "filter": "Filtra le connessioni…",
+    "loading": "Lettura delle connessioni…",
+    "open-remmina": "Apri la finestra di Remmina",
+    "open-tooltip": "Apri {name}",
+    "pin-tooltip": "Fissa in cima",
+    "pinned": "Preferiti",
+    "ungrouped": "Senza gruppo",
+    "unpin-tooltip": "Togli dai preferiti"
+  },
+  "profiles-empty": "Nessun profilo Remmina in questa cartella",
+  "profiles-missing": "Cartella dei profili Remmina non trovata",
+  "settings": {
+    "max_results": {
+      "description": "Numero massimo di connessioni mostrate nel launcher.",
+      "label": "Numero massimo di risultati"
+    },
+    "profiles_path": {
+      "description": "Cartella che contiene i profili di connessione .remmina.",
+      "label": "Cartella dei profili"
+    },
+    "show_group": {
+      "description": "Mostra il gruppo Remmina del profilo nel sottotitolo del risultato.",
+      "label": "Mostra il gruppo"
+    }
+  },
+  "title": "Remmina"
+}

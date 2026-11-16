@@ -860,10 +860,13 @@ def lrclib_candidates(items, track):
 
         if identity_score >= 3:
             seen_ids.add(candidate_id)
+            # Duration closeness wins over album identity: a version that is
+            # several seconds longer than the playing track will not stay in
+            # sync even when its album name matches exactly.
             ranked.append((
-                -identity_score,
                 duration_bucket,
                 -int(synced),
+                -identity_score,
                 duration_difference,
                 index,
                 item,
@@ -881,6 +884,8 @@ def lrclib_candidate_metadata(item):
         "album_name": clean_text(item.get("albumName")),
         "duration": max(0, number(item.get("duration"), 0)),
         "synced": bool(clean_text(item.get("syncedLyrics"))),
+        "format": "lrc" if clean_text(item.get("syncedLyrics")) else "plain",
+        "source": "lrclib",
     }
 
 
@@ -980,7 +985,8 @@ def adapter_lrclib(track, credentials, options):
         duration_ms(track.get("duration")), itunes_cover(track), format_name,
     )
     if response.get("type") == "lyrics":
-        response["candidates"] = [lrclib_candidate_metadata(item) for item in matches]
+        if options.get("collect_candidates", True):
+            response["candidates"] = [lrclib_candidate_metadata(item) for item in matches]
         response["selected_candidate_id"] = clean_text(best.get("id"))
     return response
 
@@ -1047,24 +1053,86 @@ def provider_lines(payload, source, options=None):
     return provider_lines_with_format(payload, source, options)[0]
 
 
+def candidate_identity(song):
+    return clean_text(song.get("mid") or song.get("id"))
+
+
+def catalogue_candidate_metadata(song, source, track):
+    identity = candidate_identity(song)
+    if not identity:
+        return None
+    duration = number(song.get("duration"), 0)
+    if duration <= 0:
+        duration = duration_ms(track.get("duration"))
+    elif duration > 1000:
+        duration = int(duration / 1000)
+    return {
+        "id": identity,
+        "track_name": clean_text(song.get("title")) or clean_text(track.get("title")),
+        "artist_name": clean_text(song.get("artist")) or clean_text(track.get("artist")),
+        "album_name": clean_text(song.get("album")) or clean_text(track.get("album")),
+        "duration": max(0, int(duration)),
+        "synced": None,
+        "source": source,
+    }
+
+
+def catalogue_candidates(songs, source, track):
+    candidates, seen = [], set()
+    for song in songs if isinstance(songs, list) else []:
+        if not isinstance(song, dict):
+            continue
+        identity = candidate_identity(song)
+        if not identity or identity in seen:
+            continue
+        seen.add(identity)
+        metadata = catalogue_candidate_metadata(song, source, track)
+        if metadata:
+            candidates.append(metadata)
+    return candidates
+
+
 def adapter_catalogue(track, source, options=None):
     options = options if isinstance(options, dict) else {}
     client = CatalogueClient(request_json, source)
+    requested_id = clean_text(options.get("lyrics_candidate_id"))
+    collect = bool(options.get("collect_candidates", False))
     direct = direct_song(track, source)
-    candidates = [direct] if direct else []
-    searched = False
-    while True:
-        for song in candidates:
-            for payload in client.lyric_responses(song):
-                lines, format_name = provider_lines_with_format(payload, source, options)
-                if lines:
-                    return success(source, lines,
-                                   [source + ": match " + (song.get("mid") or song["id"])],
+    songs = []
+    seen = set()
+    # A direct player URL can fetch its lyrics without searching. Only pay for
+    # the extra search request when collecting alternates or resolving a
+    # requested candidate.
+    source_songs = client.search(track) if (collect or requested_id or not direct) else []
+    for song in ([direct] if direct else []) + source_songs:
+        if not isinstance(song, dict):
+            continue
+        identity = candidate_identity(song)
+        if not identity or identity in seen:
+            continue
+        seen.add(identity)
+        songs.append(song)
+    if not songs:
+        return empty(source, source + ": no match", *client.diag[-3:])
+    candidates = catalogue_candidates(songs, source, track) if collect else []
+    selected = requested_id
+    if requested_id:
+        songs = [song for song in songs if candidate_identity(song) == requested_id]
+        if not songs:
+            return empty(source, source + ": requested match unavailable")
+    for song in songs:
+        for payload in client.lyric_responses(song):
+            lines, format_name = provider_lines_with_format(payload, source, options)
+            if lines:
+                response = success(source, lines,
+                                   [source + ": match " + candidate_identity(song)],
                                    duration_ms(track.get("duration")), song.get("cover", ""), format_name)
-        if searched or time.monotonic() >= client.deadline:
-            break
-        candidates = client.search(track)
-        searched = True
+                if collect:
+                    response["candidates"] = candidates
+                response["selected_candidate_id"] = candidate_identity(song)
+                return response
+    if requested_id:
+        return empty(source, source + ": requested lyrics unavailable")
     return empty(source, source + ": lyrics unavailable", *client.diag[-3:])
 
 
@@ -1259,6 +1327,8 @@ def adapter_splayer_next(track, credentials, options):
 
 def adapter_kugou(track, credentials, options):
     source = "kugou"
+    options = options if isinstance(options, dict) else {}
+    requested_id = clean_text(options.get("lyrics_candidate_id"))
     keyword = " ".join(filter(None, (track.get("title"), track.get("artist"))))
     search = request_json(query_url("https://mobilecdn.kugou.com/api/v3/search/song", {
         "format": "json", "keyword": keyword, "page": 1, "pagesize": 10, "showtype": 1
@@ -1271,26 +1341,55 @@ def adapter_kugou(track, credentials, options):
     cover = first_cover(best.get("album_sizable_cover"), best.get("imgUrl"), best.get("album_img"), best.get("cover"))
     if cover:
         cover = cover.replace("{size}", "400")
-    candidates = request_json(query_url("https://lyrics.kugou.com/search", {
+    versions = request_json(query_url("https://lyrics.kugou.com/search", {
         "ver": 1, "man": "yes", "client": "pc", "keyword": keyword,
         "duration": best.get("duration", duration_ms(track.get("duration"))), "hash": best.get("hash", "")
     })).get("candidates", [])
-    if not candidates:
+    if not versions:
         return empty(source, "kugou: lyrics unavailable")
-    candidate = candidates[0]
-    data = request_json(query_url("https://lyrics.kugou.com/download", {
-        "ver": 1, "client": "pc", "id": candidate.get("id"), "accesskey": candidate.get("accesskey"),
-        "fmt": "lrc", "charset": "utf8"
-    }))
-    content = data.get("content", "")
-    try:
-        content = base64.b64decode(content).decode("utf-8", "replace")
-    except (ValueError, TypeError):
-        pass
-    lines, format_name = parse_lyric_text(content)
-    return success(source, lines, ["kugou: match"], duration_ms(track.get("duration")), cover, format_name)
-
-
+    candidates = []
+    for version in versions:
+        candidate_id = clean_text(version.get("id"))
+        if not candidate_id:
+            continue
+        duration = number(version.get("duration"), 0)
+        candidates.append({
+            "id": candidate_id,
+            "track_name": clean_text(version.get("song")) or clean_text(best.get("songname", best.get("filename", ""))),
+            "artist_name": clean_text(version.get("singer")) or clean_text(best.get("singername", "")),
+            "album_name": clean_text(best.get("album_name", "")),
+            "duration": max(0, int(duration / 1000)) if duration > 1000 else max(0, int(duration)),
+            "synced": None,
+            "source": source,
+        })
+    targets = versions
+    selected_id = ""
+    if requested_id:
+        targets = [version for version in versions if clean_text(version.get("id")) == requested_id]
+        if not targets:
+            return empty(source, "kugou: requested match unavailable")
+    for version in targets:
+        data = request_json(query_url("https://lyrics.kugou.com/download", {
+            "ver": 1, "client": "pc", "id": version.get("id"), "accesskey": version.get("accesskey"),
+            "fmt": "lrc", "charset": "utf8"
+        }))
+        content = data.get("content", "")
+        try:
+            content = base64.b64decode(content).decode("utf-8", "replace")
+        except (ValueError, TypeError):
+            pass
+        lines, format_name = parse_lyric_text(content)
+        if lines:
+            selected_id = clean_text(version.get("id"))
+            response = success(source, lines, ["kugou: match " + selected_id],
+                               duration_ms(track.get("duration")), cover, format_name)
+            if options.get("collect_candidates", True):
+                response["candidates"] = candidates
+            response["selected_candidate_id"] = selected_id
+            return response
+    if requested_id:
+        return empty(source, "kugou: requested lyrics unavailable")
+    return empty(source, "kugou: lyrics unavailable")
 def adapter_qishui(track, credentials, options):
     source = "qishui"
     template = clean_text(credentials.get("qishui_api_url"))

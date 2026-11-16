@@ -16,10 +16,24 @@ noctalia.setUpdateInterval(1000)
 
 local STATE_FILE_NAME = "state.json"
 
+-- A freshly launched awww-daemon needs a moment before it answers on its
+-- socket; how long that takes varies by machine. turnOn() polls `awww query`
+-- every DAEMON_POLL_SECONDS, up to DAEMON_POLL_ATTEMPTS times (~5 s in total),
+-- and continues as soon as the daemon answers.
+local DAEMON_POLL_ATTEMPTS = 50
+local DAEMON_POLL_SECONDS = "0.1"
+
 local enabled = false
 local available = false
+local starting = false -- true while turnOn() waits for awww-daemon to come up
 local hidden = {}   -- connector -> true once we've disabled the host surface there
 local lastSeen = {} -- connector -> path last sent to awww
+local failures = {} -- connector -> consecutive `awww img` failures
+
+-- Right after awww-daemon starts (especially at login), a single `awww img`
+-- can still fail while the daemon finishes setting up its outputs; the next
+-- tick then succeeds. Only notify once failures persist for this many ticks.
+local MAX_SILENT_FAILURES = 3
 
 -- ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -45,16 +59,20 @@ local function persist()
   noctalia.writeFile(path, noctalia.json.encode({ enabled = enabled }) or "")
 end
 
-local function load()
+-- Returns the persisted toggle state. It deliberately does not set `enabled`:
+-- that only flips once awww-daemon is ready (startEnabled), otherwise the 1 s
+-- update() tick would send `awww img` before the daemon exists.
+local function loadPersistedEnabled()
   local path = statePath()
-  if not path then return end
+  if not path then return false end
   local content = noctalia.readFile(path)
   if type(content) == "string" and content ~= "" then
     local decoded = noctalia.json.decode(content)
-    if type(decoded) == "table" and type(decoded.enabled) == "boolean" then
-      enabled = decoded.enabled
+    if type(decoded) == "table" and decoded.enabled == true then
+      return true
     end
   end
+  return false
 end
 
 local function publish()
@@ -97,14 +115,22 @@ local function applyToAwww(connector, path)
   -- Only a real non-zero exit (not a timeout) is treated as a failure.
   noctalia.runAsync(cmd, function(result)
     if result and result.exitCode == 0 then
+      failures[connector] = nil
       return
     end
     if result and result.timedOut then
       noctalia.log("Awwwall: awww img for " .. connector .. " is still running past the wait timeout, leaving it be")
       return
     end
+    -- Clearing lastSeen makes the next tick retry.
     lastSeen[connector] = nil
-    noctalia.notifyError("Awwwall", noctalia.tr("notify.apply_failed", { connector = connector }))
+    local count = (failures[connector] or 0) + 1
+    failures[connector] = count
+    local stderr = result and result.stderr or ""
+    noctalia.log("Awwwall: awww img failed for " .. connector .. " (attempt " .. count .. "): " .. stderr)
+    if count == MAX_SILENT_FAILURES then
+      noctalia.notifyError("Awwwall", noctalia.tr("notify.apply_failed", { connector = connector }))
+    end
   end, 60000)
 end
 
@@ -121,6 +147,7 @@ local function restoreAllHosts()
   end
   hidden = {}
   lastSeen = {}
+  failures = {}
 end
 
 local function pollOutputs()
@@ -156,6 +183,19 @@ local function daemonRunning(onResult)
   end, 3000)
 end
 
+-- Polls `awww query` until the daemon answers or the attempts run out, then
+-- reports whether it is ready.
+local function waitForDaemon(onResult)
+  local cmd = "i=0; while [ \"$i\" -lt " .. DAEMON_POLL_ATTEMPTS .. " ]; do " ..
+    -- Ready means the daemon answers AND already lists at least one output.
+    "out=$(awww query 2>/dev/null) && [ -n \"$out\" ] && exit 0; " ..
+    "i=$((i + 1)); sleep " .. DAEMON_POLL_SECONDS .. "; " ..
+    "done; exit 1"
+  noctalia.runAsync(cmd, function(result)
+    onResult(result ~= nil and result.exitCode == 0)
+  end, 10000)
+end
+
 local function startEnabled()
   enabled = true
   persist()
@@ -164,21 +204,33 @@ local function startEnabled()
 end
 
 local function turnOn()
+  if starting then
+    -- Already waiting for the daemon; a second click must not launch another.
+    return
+  end
   if not available then
     noctalia.notifyError("Awwwall", noctalia.tr("notify.awww_missing"))
     return
   end
+  starting = true
   daemonRunning(function(running)
     if running then
+      starting = false
       startEnabled()
-    else
-      noctalia.runAsync("exec awww-daemon >/dev/null 2>&1 &")
-      -- Give the daemon a moment to open its Wayland connection before the
-      -- first `awww img` call.
-      noctalia.runAsync("sleep 0.5", function()
-        startEnabled()
-      end)
+      return
     end
+    noctalia.runAsync("exec awww-daemon >/dev/null 2>&1 &")
+    -- Only send the first `awww img` once the daemon actually answers;
+    -- sending it earlier fails and shows a spurious error notification.
+    waitForDaemon(function(ready)
+      starting = false
+      if ready then
+        startEnabled()
+      else
+        -- Leave the persisted state alone so the next Noctalia start retries.
+        noctalia.notifyError("Awwwall", noctalia.tr("notify.daemon_failed"))
+      end
+    end)
   end)
 end
 
@@ -218,7 +270,7 @@ function onExit(_signal, reason)
     -- developing) — leave the running daemon and wallpaper alone.
     return
   end
-  if enabled then
+  if enabled or starting then
     -- Clean up the running process and restore Noctalia's own wallpaper
     -- surface, but deliberately do NOT persist enabled=false here: on the
     -- next Noctalia start (or re-enabling the plugin), turnOn() re-launches
@@ -236,9 +288,9 @@ if not available then
   noctalia.notifyError("Awwwall", noctalia.tr("notify.awww_missing"))
 end
 
-load()
+local wasEnabled = loadPersistedEnabled()
 publish()
-if enabled and available then
+if wasEnabled and available then
   -- Re-assert on a Noctalia restart: the daemon may or may not have survived,
   -- turnOn() handles both cases.
   turnOn()

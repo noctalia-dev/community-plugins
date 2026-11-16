@@ -1,0 +1,121 @@
+{
+  "panel": {
+    "active_now": "АКТИВНО СЕЙЧАС",
+    "apply_reconnect": "Применить и переподключиться",
+    "cached_tokens": "Кэшировано",
+    "cached_tokens_label": "Токены в кэше",
+    "completion_tokens": "Токены генерации",
+    "connecting_to": "Подключение к {url}…",
+    "connection": "ПОДКЛЮЧЕНИЕ",
+    "cost": "Стоимость",
+    "dashboard_login": "ВХОД В ПАНЕЛЬ УПРАВЛЕНИЯ",
+    "est_cost": "Примерная стоимость",
+    "est_cost_sub": "Расчётная стоимость, не фактическое списание средств",
+    "hide_password": "Скрыть",
+    "host": "Хост",
+    "invalid_host": "Введите корректное имя хоста или IP-адрес (без http:// и пути).",
+    "invalid_port": "Порт должен быть числом от 1 до 65535.",
+    "login_description": "Срок действия сеанса истёк или требуется аутентификация. Введите пароль панели управления 9Router для входа.",
+    "logout": "Выйти",
+    "models_usage": "ИСПОЛЬЗОВАНИЕ МОДЕЛЕЙ",
+    "no_models_period": "За этот период использование моделей не зафиксировано.",
+    "no_quotas": "Данные о квотах провайдеров не найдены.",
+    "no_recent": "Запросы пока не зафиксированы. Отправьте запрос через 9Router, и он появится здесь.",
+    "open_dashboard": "Открыть панель управления",
+    "output_tokens": "Открыть панель управления",
+    "overview": "ОБЗОР",
+    "password_placeholder": "Пароль панели управления",
+    "port": "Порт",
+    "prompt_tokens": "Токены запроса",
+    "quota_remaining": "Осталось: {pct}%",
+    "quota_resets_at": "Сброс: {date}",
+    "quota_resets_in": "Сброс через {time}",
+    "quota_tracker": "КВОТЫ ПРОВАЙДЕРОВ",
+    "quota_used": "Использовано: {used} / {total}",
+    "recent_models": "НЕДАВНИЕ МОДЕЛИ",
+    "recent_requests": "Недавние запросы",
+    "refresh": "Обновить",
+    "remember_password": "Сохранить пароль в системной связке ключей",
+    "show_password": "Показать",
+    "sign_in": "Войти",
+    "signing_in": "Вход…",
+    "title": "9Router",
+    "total_input_tokens": "Всего входных токенов",
+    "total_requests": "Всего запросов",
+    "unlimited": "Неограничего",
+    "updated_at": "Обновлено {time} · {url}"
+  },
+  "period": {
+    "24h": "24ч",
+    "30d": "30д",
+    "60d": "60д",
+    "7d": "7д",
+    "today": "Сегодня"
+  },
+  "settings": {
+    "auth_mode": {
+      "description": "Выберите между автоматическим локальным CLI-токеном или паролем дашборда.",
+      "label": "Режим аутентификаций",
+      "options": {
+        "cli_token": "CLI-токен (Локальные секреты)",
+        "password": "Пароль дашборда"
+      }
+    },
+    "base_url": {
+      "description": "Полный базовый URL сервера 9Router.",
+      "label": "Базовый URL"
+    },
+    "busy_hold_seconds": {
+      "description": "Как долго оставлять активное свечение после завершения запроса.",
+      "label": "Длительность удержания активного состояния (с)"
+    },
+    "cli_token_path": {
+      "description": "Путь к папке с machine-id и auth/cli-secret (по умолчанию ~/.9router).",
+      "label": "Директория секретов CLI"
+    },
+    "dashboard_password": {
+      "description": "Пароль для аутентификации в дашборде 9Router.",
+      "label": "Пароль дашборда"
+    },
+    "refresh_seconds": {
+      "description": "Как часто опрашивать обновления статуса, если поток отключается.",
+      "label": "Интервал обновления heartbeat (с)"
+    },
+    "remember_password": {
+      "description": "Сохранять пароль дашборда в связке ключей для автоматического повторного входа.",
+      "label": "Запомнить пароль дашборда"
+    },
+    "show_model_label": {
+      "description": "Показывать текст модели в pill на панели. Если выключено — только глиф статуса.",
+      "label": "Показывать текст модели в pill на панели. Если выключено — только глиф статуса."
+    }
+  },
+  "status": {
+    "connecting": "ПОДКЛЮЧЕНИE...",
+    "idle": "ПРОСТОИ",
+    "login_needed": "Требуется вход",
+    "no_requests": "Запросов сейчяс нету",
+    "offline": "ОФЛАЙН",
+    "request_in_flight": "ЗАПРОС В ОБРАБОТКЕ",
+    "session_expired": "СЕССИЯ ИСТЕКЛА",
+    "working": "Выполняется…"
+  },
+  "tab": {
+    "activity": "Активность",
+    "models": "Модели",
+    "quotas": "Трекер квот"
+  },
+  "time": {
+    "days_ago": "{count}д назад",
+    "hours_ago": "{count}ч назад",
+    "just_now": "Только что",
+    "minutes_ago": "{count}мин назад",
+    "seconds_ago": "{count}сек назад"
+  },
+  "tooltip": {
+    "expired": "Сессия 9Router истекла — нажмите для входа",
+    "in_flight": "Запрос в обработке",
+    "last_model": "Последняя модель",
+    "offline": "9Router офлайн"
+  }
+}

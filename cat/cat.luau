@@ -27,8 +27,16 @@ local WALK_MIN_MS = 180
 local RUN_MAX_MS = 160
 local RUN_MIN_MS = 55
 
+-- Bounce (plugin_api 52): a paint-only translateY that lifts the cat once per
+-- stride (one hop per pass through the 5 run frames), as a fraction of the
+-- cat size so it scales with cat_size and with the bigger panel cat. Paint-
+-- only means the bar layout never reflows; the capsule may clip the very top
+-- of the hop at large sizes on a thin bar.
+local BOUNCE_HEIGHT = 0.08
+
 local catSize = noctalia.getConfig("cat_size")
 local showCpuPercent = noctalia.getConfig("show_cpu_percent")
+local bounce = noctalia.getConfig("bounce")
 local walkThreshold = noctalia.getConfig("walk_threshold")
 local runThreshold = noctalia.getConfig("run_threshold")
 local pollIntervalMs = noctalia.getConfig("poll_interval") * 1000
@@ -80,29 +88,52 @@ local function resolveColor()
   return "secondary"
 end
 
+-- Returns the current lift as a fraction of cat size (0 = on the ground),
+-- tracing half a sine over one stride: frames 1..5 plus progress through the
+-- current frame, so it moves smoothly on every 80ms tick, not just per frame.
+local function bounceLift(pace)
+  if not bounce or pace == "idle" then
+    return 0
+  end
+  local progress = math.clamp(frameElapsed / frameDurationMs, 0, 1)
+  local phase = ((frameIndex - 1) + progress) / #RUN_GLYPHS
+  return BOUNCE_HEIGHT * math.sin(phase * math.pi)
+end
+
 -- The click panel (cat_panel.luau) runs in a separate runtime; it mirrors the
 -- bar cat from this shared-state snapshot, republished whenever the visible
--- glyph, whole CPU percent, or color changes (so at most once per animation
--- frame, and only on sample/theme changes while idle).
+-- glyph, whole CPU percent, color, or bounce lift changes (so at most once
+-- per 80ms tick while moving, and only on sample/theme changes while idle).
+-- `lift` is the bounce as a fraction of cat size, rounded so tiny changes
+-- don't republish.
 local lastPublished = nil
-local function publishState(pace, glyph, color)
+local function publishState(pace, glyph, color, lift)
   local cpu = math.floor(cpuPercent)
-  local key = `{glyph}|{cpu}|{color}|{pace}`
+  local liftKey = math.floor(lift * 1000 + 0.5)
+  local key = `{glyph}|{cpu}|{color}|{pace}|{liftKey}`
   if key == lastPublished then
     return
   end
   lastPublished = key
-  noctalia.state.set("cat", { glyph = glyph, cpu = cpu, color = color, pace = pace })
+  noctalia.state.set("cat", { glyph = glyph, cpu = cpu, color = color, pace = pace, lift = liftKey / 1000 })
 end
 
 local function render(pace)
   local glyph = pace == "idle" and GLYPH_IDLE or RUN_GLYPHS[frameIndex]
   local color = resolveColor()
+  local lift = bounceLift(pace)
 
-  publishState(pace, glyph, color)
+  publishState(pace, glyph, color, lift)
 
   local children = {
-    ui.label({ text = glyph, fontFamily = catFont, baseline = "inkCentered", fontSize = catSize, color = color }),
+    ui.label({
+      text = glyph,
+      fontFamily = catFont,
+      baseline = "inkCentered",
+      fontSize = catSize,
+      color = color,
+      translateY = -lift * catSize,
+    }),
   }
 
   if showCpuPercent then
@@ -111,7 +142,10 @@ local function render(pace)
 
   local container = barWidget.isVertical() and ui.column or ui.row
   barWidget.render(container({ gap = 4, align = "center" }, children))
-  barWidget.setTooltip(`Cat — CPU {math.floor(cpuPercent)}% ({pace})`)
+  barWidget.setTooltip(noctalia.tr("tooltip", {
+    percent = tostring(math.floor(cpuPercent)),
+    pace = noctalia.tr(`pace.{pace}`),
+  }))
 end
 
 noctalia.setUpdateInterval(TICK_MS)
@@ -147,6 +181,7 @@ end
 function onConfigChanged()
   catSize = noctalia.getConfig("cat_size")
   showCpuPercent = noctalia.getConfig("show_cpu_percent")
+  bounce = noctalia.getConfig("bounce")
   walkThreshold = noctalia.getConfig("walk_threshold")
   runThreshold = noctalia.getConfig("run_threshold")
   pollIntervalMs = noctalia.getConfig("poll_interval") * 1000

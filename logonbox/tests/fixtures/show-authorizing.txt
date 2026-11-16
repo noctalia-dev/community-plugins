@@ -1,0 +1,22 @@
+Basic
+ Connection: 0
+ Name: 
+ Uri: https://user%40example.com@vpn.example.com:8443/app
+ Status: AUTHORIZING
+ Mode: CLIENT
+ Transient: No
+ Authorized: Yes
+ Shared: No
+ Connect At Startup: No
+ Stay Connected: Yes
+ Owner: user
+VPN
+ Interface: 
+ Address: 10.99.0.2
+ Endpoint: vpn.example.com:51820
+ DNS: 
+ Allowed IPs: 192.0.2.2/24,192.0.2.3/16
+ Route All: No
+ MTU: 0
+ Persistent Keep Alive: 30
+

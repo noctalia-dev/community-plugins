@@ -274,4 +274,70 @@ function M.pendingCount(r)
 	return n
 end
 
+-- One size as Nix prints it ("1.2 GiB"), or "" for anything else.
+local function size(text)
+	return tostring(text or ""):match("^%s*(%d[%d%.]* %a?i?B)%s*$") or ""
+end
+
+-- What `nix build --dry-run` says the new system needs: store paths to download
+-- with their sizes, derivations to build. nil when it said nothing usable.
+function M.dryRun(text)
+	if type(text) ~= "string" or text == "" then
+		return nil
+	end
+	local estimate = { build = 0, fetch = 0, download = "", unpacked = "" }
+	local found = false
+	local built = text:match("these (%d+) derivations will be built")
+	if built ~= nil then
+		estimate.build = tonumber(built)
+		found = true
+	elseif text:find("this derivation will be built", 1, true) ~= nil then
+		estimate.build = 1
+		found = true
+	end
+	local fetched, download, unpacked = text:match("these (%d+) paths will be fetched %(([^,]+) download, ([^%)]+) unpacked%)")
+	if fetched == nil then
+		download, unpacked = text:match("this path will be fetched %(([^,]+) download, ([^%)]+) unpacked%)")
+		fetched = download ~= nil and "1" or nil
+	end
+	if fetched ~= nil then
+		estimate.fetch = tonumber(fetched)
+		estimate.download = size(download)
+		estimate.unpacked = size(unpacked)
+		found = true
+	end
+	if not found and text:find("will be", 1, true) ~= nil then
+		return nil
+	end
+	return estimate
+end
+
+-- Two package lists as one, either may be missing.
+function M.concat(a, b)
+	local out = {}
+	-- Not ipairs({ a, b }): it would stop at a missing first list.
+	for _, list in { a, b } do
+		for _, entry in ipairs(type(list) == "table" and list or {}) do
+			table.insert(out, entry)
+		end
+	end
+	return out
+end
+
+-- Restart needed when the running kernel, initrd or kernel modules are not the
+-- ones of the current system. `paths` are the resolved links in the order
+-- booted/current kernel, initrd, kernel-modules; nil when they say nothing.
+function M.reboot(paths)
+	if type(paths) ~= "table" or #paths ~= 6 then
+		return nil
+	end
+	if paths[1] == paths[2] and paths[3] == paths[4] and paths[5] == paths[6] then
+		return nil
+	end
+	local function kernel(path)
+		return tostring(path):match("%-linux%-([%w%.%-_]+)/") or ""
+	end
+	return { running = kernel(paths[1]), installed = kernel(paths[2]) }
+end
+
 return M

@@ -1,74 +1,40 @@
 --!nonstrict
 -- file-search — fuzzy search panel, fzf as the matching subsystem.
 --
--- On open the active roots are walked once with `find` into a cache file
--- (excluded directory names are pruned, hidden entries too unless enabled);
--- after that every keystroke runs `fzf --filter=<query>` over the cache, so
--- typing stays responsive even on large trees. Results update live; picking
--- one opens it with the system MIME association (xdg-open) — directories
--- open in the file manager. Up/Down move a selection through the results,
--- Enter opens it (the top match until moved). Right-clicking a row raises a
--- native context menu (plugin_api >= 28) with open, reveal in the file
--- manager, copy path and copy name.
+-- Walks the active roots with `find` into a cache file, then runs
+-- `fzf --filter=<query>` over it on every keystroke. A click or Enter opens the
+-- result with xdg-open; right-click raises a context menu (open, reveal, copy
+-- path, copy name). Up/Down move the selection. Tabs: Search (this file) and
+-- Space (space.luau); the usage donut comes from usage.luau.
 --
--- The roots come from the search scope, cycled with the panel's disk button
--- and persisted in the plugin data directory so the launcher entry follows the
--- same choice: the search folder alone (default), the search folder plus every
--- mounted USB/removable volume, or those volumes alone. Mounts are detected
--- with `lsblk` (see probeMounts), only when the scope needs them.
---
--- The globe button swaps the search folder for "/" (whole-system search),
--- still pruning remote, FUSE and pseudo filesystems and the removable disks
--- (see shared.wholePrunePaths). Unreadable folders are skipped silently.
---
--- The index is rebuilt when the panel opens with changed settings, a different
--- scope or a different set of disks, and on demand via the refresh button. The
--- bar widget mirrors the panel's open state through the shared
--- "file_search_open" state key.
+-- The roots follow the mode (home / home + folders / system) and the disks
+-- toggle, persisted in the plugin data directory and shared with the launcher.
+-- Shared state key: "file_search_open" (the bar widget mirrors the open state).
 
--- How many characters of a result path fit on one row, from the panel's 520
--- width in plugin.toml: 520 − 2 × Style::panelPadding (14) − the scrollbar
--- gutter (scrollbarWidth 6 + scrollbarGap 8) = 478 usable, less the row
--- Button's 2 × Style::spaceMd (12) horizontal padding, its 14px glyph and the
--- 4px gap between them → 436px of text. Measured against a rendered row, a
--- lowercase path averages 7.2px per character at Style::fontSizeBody, so 61
--- characters is the limit; 56 leaves headroom, because the font is
--- proportional and capitals or digits measure wider than that average.
---
--- A Button cannot do this itself: it has no maxLines, so constraining its
--- width makes the label WRAP rather than ellipsize, and a plain flexGrow never
--- shrinks it below the full text — which is why a long path used to run under
--- the scrollbar and get clipped.
+-- Max characters of a result path shown on one row; longer paths lose their middle.
 local PATH_MAX_CHARS = 56
 local ELLIPSIS = "…"
 
--- The search core: constants, the state describing what is being searched, and
--- every helper that depends on it — shared with launcher.luau and the bar
--- widget through require() (plugin_api >= 22). See shared.luau for why.
+-- The search core, shared with launcher.luau and the bar widget.
 local shared = require("./shared.luau")
 
 -- The usage donut under the results. Panel-only, so it is not in shared.luau:
 -- the bar widget and the launcher have no chart to draw.
 local usage = require("./usage.luau")
 
--- The Space tab's body. Same require() route as above.
+-- The Space tab's body.
 local space = require("./space.luau")
--- Late-bound: onSearchHere is the global defined further down this file.
 space.onSearchHere = function(path) onSearchHere(path) end
 
 -- Which tab is showing: "search" | "space". Reset to search on every open.
 local activeTab = "search"
 
--- The Space tab can be turned off in the settings (nil = not set = on). Every
--- call into `space` below sits behind this.
+-- The Space tab can be turned off in the settings (nil = on).
 local function spaceOn()
     return noctalia.getConfig("space_enabled") ~= false
 end
 
--- Read out of the plugin's own manifest (readFile resolves a relative path
--- against the plugin directory), so the header cannot drift from the version
--- the store shows. Empty when unreadable — a missing version is not worth an
--- error line in the panel.
+-- Plugin version read from plugin.toml; empty when unreadable.
 local pluginVersion = (function()
     local text = noctalia.readFile("plugin.toml")
     if type(text) ~= "string" then
@@ -95,17 +61,14 @@ local queuedBuild = false
 local totals = {}       -- scope → { count, size, mtime }: see readTotal
 local showUsage = true  -- the usage donut, toggled from the header
 -- Folder the results are restricted to, picked from the chart's legend, or nil.
--- Kept apart from `query` rather than written into it as '^name/': the input
--- stays the user's own text, and the restriction gets its own removable strip
--- instead of being fzf syntax to recognise and edit out.
 local usageFilter = nil
+-- The "add a folder" row under the query input shows its path input.
+local addingRoot = false
+local rootRev = 0 -- bumped to reseed that input
 
--- Keyboard selection: Up/Down move it, Enter opens it. `revealKey` on the
--- scroll view (plugin_api >= 33) keeps the selected row in view.
+-- Keyboard selection: Up/Down move it, Enter opens it.
 local sel = 1 -- index into `results`
--- capture_keys filters key repeat (one press, one release), so holding an
--- arrow is repeated from the frame tick. It stops at the end of the list
--- instead of wrapping, which also bounds it should a release ever go missing.
+-- Held arrow keys repeat from the frame tick; the list does not wrap on repeat.
 local KEY_STEPS = { up = -1, down = 1 }
 local REPEAT_DELAY_MS = 350
 local REPEAT_STEP_MS = 60
@@ -117,16 +80,8 @@ local runSearch
 local buildIndex
 local applyState
 
--- Braille spinner shown in the status footer during a from-scratch index
--- build (plugin_api >= 18: panel.setNeedsFrameTick + onFrameTick). Gated on
--- `#results == 0` in updateSpinnerState below, not just `indexing`: a stale
--- index keeps showing its OLD results while a fresh build runs behind it
--- (indexState == "stale"), and re-running render() at spinner speed would
--- re-walk that whole results list (resultRow + elidePathCached) many times a
--- second — the exact CPU-budget trap 0.0.26 was released to fix. An empty
--- results list makes that rebuild cost nothing, so ticking is only ever
--- armed for the genuinely slow case this exists for: a disk scope indexed
--- for the first time, with nothing yet to show.
+-- Braille spinner in the status footer during a from-scratch index build
+-- (only while there are no results to show).
 local SPINNER_FRAMES = { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" }
 local SPINNER_STEP_MS = 90
 local spinnerIndex = 1
@@ -151,10 +106,7 @@ local function setSpinnerTicking(on)
     end
 end
 
--- Whether the usage donut is shown, persisted next to the scope. A header
--- button and a file rather than a bool setting: no API lets a plugin write its
--- own settings (getSetting, added in 26, only reads), so a setting would only
--- be changeable from the settings window, three clicks from the panel.
+-- Whether the usage donut is shown, persisted next to the scope.
 local function readShowUsage(dir)
     return shared.trim(noctalia.readFile(dir .. "/usage-chart") or "") ~= "0"
 end
@@ -186,19 +138,11 @@ local function tailChars(value, count)
     return byte ~= nil and value:sub(byte) or value
 end
 
--- Shorten an over-long path by dropping its MIDDLE, keeping both the root it
--- starts from and the name it ends with:
+-- Shorten an over-long path by dropping its middle, keeping the root and the name:
 --   .local/share/flatpak/repo/tmp/cache/summaries/dolphin.idx.sig
 --   → .local/share/flatpak/repo/tmp/cache/…dolphin.idx.sig
--- End-truncation would cut away the file name, which is the very thing the
--- query matched, so the trailing component is kept whole whenever it fits and
--- the head takes what is left of the budget. utf8.len returns nil on invalid
--- UTF-8 (it never throws, unlike utf8.codes), and such a name is left alone
--- rather than sliced at a guessed offset.
 local function elidePath(rel)
     -- Byte length is never below the code-point count, so a string short in
-    -- bytes is short in characters — and the common case skips the O(n)
-    -- utf8.len entirely. This runs for every visible row on every render.
     if #rel <= PATH_MAX_CHARS then
         return rel
     end
@@ -215,10 +159,7 @@ local function elidePath(rel)
         return ELLIPSIS .. tailChars(rel, budget)
     end
     local headPart = headChars(rel, budget - baseLen)
-    -- Retreat to the last separator so the head ends on a whole directory:
-    -- ".../tmp/cache/…name" reads as a path, ".../tmp/cache/summ…name" reads
-    -- as a glitch. Costs a few characters; kept raw when there is no
-    -- separator to retreat to.
+    -- Retreat to the last separator so the head ends on a whole directory.
     local atSeparator = headPart:match("^(.*/)[^/]*$")
     if atSeparator ~= nil and atSeparator ~= "" then
         headPart = atSeparator
@@ -226,18 +167,7 @@ local function elidePath(rel)
     return headPart .. ELLIPSIS .. base
 end
 
--- Cache keyed by the raw record: elidePath is pure, so the same rel never
--- needs recomputing across the many render() calls that leave `results`
--- untouched (toggling the usage chart, resizing, other settings changes all
--- re-render the whole row list). On a flatpak-heavy $HOME almost every
--- visible row is over PATH_MAX_CHARS (runtime trees nest well past 56
--- chars), so the "common case skips this" comment above routinely fails and
--- render() was recomputing the full utf8 walk for up to `max_results` rows
--- on every one of those unrelated re-renders — that is what exceeded a
--- panel callback's CPU budget and got the panel disabled. Cleared wholesale
--- rather than LRU-evicted once it grows past a session's realistic working
--- set — simplicity over a perfect policy, since a full miss just costs one
--- elidePath call again.
+-- elidePath results keyed by record; cleared wholesale past ELIDE_CACHE_MAX.
 local elideCache = {}
 local elideCacheCount = 0
 local ELIDE_CACHE_MAX = 4000
@@ -257,31 +187,14 @@ local function elidePathCached(rel)
     return shown
 end
 
--- Count the cache the panel is about to search. buildIndex records the total
--- as a side effect of building, but a panel opening on a cache that is already
--- fresh -- the common case, and the one the launcher leaves behind -- never
--- runs it, so the footer used to report "0 indexed" for a perfectly good
--- index. Counted with wc rather than readFile: the list can hold hundreds of
--- thousands of paths and none of them are needed here, only how many.
---
--- A build records its own count in a `count-<scope>` sidecar, so the usual path
--- is a 7-byte read and no process at all. The rest is the fallback for an index
--- built before that existed: memoized per scope against the file's size and
--- mtime, because wc has to read the whole thing — an index of a large disk is
--- >100 MB, and paying that read on every scope change is what made the button
--- feel like it wedged the shell.
+-- Count the cache the panel is about to search: from the count-<scope> sidecar
+-- (count and build millis), else `wc -l` memoized per scope by size and mtime.
 local function readTotal(dir)
     local target = shared.cacheTag()
     buildMs = nil -- belongs to the index of this scope, if that one recorded it
     local recorded = noctalia.readFile(dir .. "/count-" .. target)
     if recorded ~= nil then
-        -- The `or shared.trim(recorded)` is NOT dead: 0.0.22 added the elapsed
-        -- millis to this sidecar, and one written before that holds the count
-        -- alone. That file is still on disk for any scope not rebuilt since —
-        -- count-all here is a bare "1166625" — and without the fallback the
-        -- match fails and the footer reports 0 indexed for a perfectly good
-        -- index. buildMs stays nil for those, which is exactly right: that
-        -- build never recorded one.
+        -- A sidecar without the elapsed millis holds the count alone.
         local count, elapsed = shared.trim(recorded):match("^(%d+)%s+(%d+)$")
         total = tonumber(count or shared.trim(recorded)) or 0
         buildMs = tonumber(elapsed)
@@ -320,21 +233,9 @@ buildIndex = function()
         render()
         return
     end
-    if #shared.roots == 0 then
-        -- Scope "external" with nothing plugged in. Nothing to walk, and no
-        -- cache to write either: render() says so, and the next call is one
-        -- cheap early return rather than a spawn per keystroke.
-        haveIndex = false
-        results = {}
-        total = 0
-        render()
-        return
-    end
     indexing = true
     errMsg = nil
     local key = shared.indexKey()
-    -- The format this walk WRITES follows the roots it is about to visit, not
-    -- the format of the index being replaced.
     local builtRoots = shared.roots
     local absolute = #builtRoots > 1
     local builtScope = shared.cacheTag()
@@ -347,14 +248,10 @@ buildIndex = function()
         if result.exitCode == 0 and not result.timedOut then
             totals[builtScope] = nil -- size/mtime moved; recount lazily
             if builtScope ~= shared.cacheTag() then
-                -- The scope was cycled while the walk ran, so what just landed
-                -- on disk is not what the panel is showing: none of it — the
-                -- count, the freshness — describes the current scope. Derive
-                -- the state again instead of inheriting it.
+                -- The scope was cycled while the walk ran: derive the state again.
                 applyState()
             else
-                -- The file on disk is the one this walk just wrote: read it
-                -- the way it was written.
+                -- The file on disk is the one this walk just wrote.
                 shared.indexRoots = builtRoots
                 shared.absoluteRecords = absolute
                 haveIndex = true
@@ -365,12 +262,10 @@ buildIndex = function()
                     indexState = "fresh"
                     runSearch()
                 elseif shared.autoIndexAllowed() then
-                    -- Roots or exclusions moved during the walk (a disk came or
-                    -- went). Chasing that is fine for the search folder.
+                    -- Roots or exclusions moved during the walk: walk again.
                     buildIndex()
                 else
-                    -- For a disk it would be a second multi-minute walk nobody
-                    -- asked for, so the index is just marked out of date.
+                    -- Disk scope: just mark the index out of date.
                     indexState = "stale"
                     runSearch()
                 end
@@ -388,16 +283,12 @@ buildIndex = function()
     end
 end
 
--- The fzf term that restricts the results to one direct child of the root.
---
--- '^' is fzf's EXACT prefix operator, not a fuzzy one (verified: '^x.y/' takes
--- 'x.y/g', not 'xxy/g2'), and the trailing '/' keeps '^src/' off a sibling
--- called 'srcold'. Only spaces need escaping — fzf splits terms on them; '!',
--- '$' and '|' are special only at a token boundary this one does not put them
--- at. Works on records relative to a single root (find -printf '%P'), which is
--- the folder scope, the only scope offering the chart.
+-- The fzf term restricting the results to one direct child of the root
+-- (exact prefix, e.g. '^src/').
 local function folderToken(name)
-    return "^" .. name:gsub(" ", "\\ ") .. "/"
+    -- Extra folders mean absolute records, so the token carries the search folder.
+    local full = shared.absoluteRecords and (shared.searchRoot() .. "/" .. name) or name
+    return "^" .. full:gsub(" ", "\\ ") .. "/"
 end
 
 -- The restriction and what the user typed, ANDed as fzf does for
@@ -432,10 +323,7 @@ runSearch = function()
             end
             sel = 1
         end
-        -- The query moved on while this search ran: chase it. The stale
-        -- rows rendered below are overwritten as soon as it completes.
-        -- Compared on the composed query, so picking a folder from the chart
-        -- mid-search is chased exactly like a keystroke would be.
+        -- The query moved on while this search ran: search again.
         if effectiveQuery() ~= q then
             runSearch()
         end
@@ -494,15 +382,8 @@ local function revealEntry(rel)
     shared.revealPath(path)
 end
 
--- The result row's right-click menu (plugin_api >= 28). Only a ui.button's
--- onRightClick reports the pointer serial openContextMenu needs, so the row
--- itself is what raises it. `onActivate` must NAME a global (openContextMenu is
--- a raw binding, not a UI tree prop, so closures are not registered for it),
--- and the record rides along in `context` — a path, so it comes back verbatim
--- and every action re-validates it through absolutePath.
---
--- The header is the elided path, not the full one: it is the same string the row
--- shows, which is what makes the menu read as belonging to that row.
+-- The result row's right-click menu (plugin_api >= 28). `context` carries the
+-- record; every action re-validates it through absolutePath.
 local function openResultMenu(rel)
     panel.openContextMenu({
         onActivate = "onResultMenu",
@@ -520,10 +401,6 @@ end
 
 local function resultRow(rel, index)
     local isDir = rel:sub(-1) == "/"
-    -- The row carries no tooltip on purpose: one string per row is enough
-    -- extra weight, over a list this long, to get the render's callback killed
-    -- for exceeding its CPU budget. The row menu's copy entries yield the
-    -- full path instead.
     local shown = elidePathCached(rel)
     return ui.button({
         key = "hit-" .. index,
@@ -535,32 +412,14 @@ local function resultRow(rel, index)
         onClick = function()
             openEntry(rel) -- always the full record, never the elided label
         end,
-        -- Right rather than middle because a ui.button never receives the
-        -- middle button: it accepts BTN_LEFT, plus BTN_RIGHT only once an
-        -- onRightClick is attached, and no node in the declarative UI exposes
-        -- a middle-click callback at all — that one is a bar-widget gesture.
         onRightClick = function()
             openResultMenu(rel)
         end,
     })
 end
 
--- Free space across every mount the current scope would walk (plugin_api >=
--- 16). One noctalia.diskStats(path) call per mount — the same small, stable
--- set `mounts` already holds, never per matched file — because each distinct
--- path queried is retained by the host until the plugin unloads.
---
--- Memoized, because the caller is not what the comment above assumed. This
--- feeds scopeButton()'s tooltip, so it runs from render() — and render() runs
--- at SPINNER_STEP_MS while a first-time disk index builds, which turned "one
--- call per mount" into one call per mount roughly eleven times a second. It is
--- the same CPU-budget trap elidePathCached exists to close, except this one
--- crosses into the host every frame instead of only burning Luau cycles. Free
--- space has no business being sampled at frame rate anyway: it is a tooltip the
--- user reads after hovering, so a few seconds stale is invisible.
---
--- Keyed on scope plus the mount list, so cycling the scope or a disk appearing
--- refreshes it immediately instead of waiting out the TTL.
+-- Free-space summary across the mounts of the current scope, memoized for
+-- FREE_TTL_MS and keyed on scope plus mount list.
 local FREE_TTL_MS = 5000
 local freeCacheKey = nil
 local freeCacheValue = nil
@@ -586,8 +445,6 @@ local function diskFreeSummary()
     end
     freeCacheKey = key
     freeCacheAtMs = nowMs
-    -- nil is cached too: with no readable mount, retrying every frame is the
-    -- worst case, not the safe one.
     freeCacheValue = sampled > 0
         and shared.tr("tip_scope_free", { free = shared.formatBytes(freeBytes), count = sampled })
         or nil
@@ -596,23 +453,18 @@ end
 
 -- ── usage donut ──────────────────────────────────────────────────────────────
 
--- The chart measures the search folder, and its legend filters records
--- relative to it: neither holds on a disk scope or on a whole-system index.
+-- The chart measures the search folder only: not available on a whole-system index.
 local function usageAvailable()
-    return shared.scope == "folder" and not shared.whole
+    return not shared.whole
 end
 
+local USAGE_COLUMN_WIDTH = 270
 local USAGE_SIZE = 108
 local USAGE_THICKNESS = 16
 local USAGE_LABEL_MAX = 16
--- Pinned, because a Button sizes itself for the bar's chrome: at its natural
--- height a legend row came out at ~50px, and seven of those made the legend
--- three times the height of the donut. `height` sets a Button's min AND max.
 local USAGE_ROW_HEIGHT = 20
 
--- Measure the current search root and redraw when it lands. Never on a disk
--- scope: those roots are removable volumes, du over one is a minutes-long
--- walk, and the panel already refuses to index them unasked.
+-- Measure the current search root and redraw when it lands. Never on a disk scope.
 local function requestUsage(force)
     if not showUsage or not usageAvailable() then
         return
@@ -631,12 +483,7 @@ local function requestUsage(force)
     end)
 end
 
--- Restrict the results to a folder from the chart, or lift the restriction by
--- picking the same one again.
---
--- Spelled out rather than `(usageFilter == name) and nil or name`, the Lua trap
--- that shipped in the first cut: `and nil` yields nil, which is falsy, so `or`
--- takes the other branch and the expression returns `name` in BOTH cases.
+-- Restrict the results to a folder from the chart, or lift it by picking it again.
 local function pickUsageFolder(name)
     if usageFilter == name then
         usageFilter = nil
@@ -647,16 +494,9 @@ local function pickUsageFolder(name)
     runSearch()
 end
 
--- One legend row: swatch, folder, size and share. The swatch takes the SAME hex
--- the SVG used, which is why the two halves of the chart agree.
---
--- Only the name is a Button, growing into the space between swatch and size, so
--- the hover highlight covers the row while the numbers keep their right-aligned
--- column. Only "folder" slices get one — "other" and the loose files name
--- nothing fzf could be pointed at.
+-- One legend row: swatch, folder, size and share. Only "folder" slices are clickable.
 local function usageLegendRow(slice, index)
-    -- utf8.len returns nil on an invalid sequence, which headChars would then
-    -- split mid-character. Left whole rather than risking a throw in render().
+    -- Left whole when utf8.len is nil (invalid UTF-8).
     local label = slice.label
     local labelLen = utf8.len(label)
     if labelLen ~= nil and labelLen > USAGE_LABEL_MAX then
@@ -666,8 +506,6 @@ local function usageLegendRow(slice, index)
     local name
     if slice.kind == "folder" then
         local active = usageFilter == slice.label
-        -- Keyed apart from the label below: a slice can change kind between
-        -- measurements, and the reconciler matches children by type AND key.
         name = ui.button({
             key = "name-folder",
             text = label,
@@ -691,7 +529,6 @@ local function usageLegendRow(slice, index)
         ui.box({ key = "swatch", fill = slice.color, radius = 2, width = 9, height = 9 }),
         name,
         -- One label, not two: a label honours maxWidth but not width, so a
-        -- separate percent column would sit at a different offset per row.
         ui.label({
             key = "size",
             text = shared.tr("usage_amount", {
@@ -704,8 +541,101 @@ local function usageLegendRow(slice, index)
     })
 end
 
--- The whole strip, or nil when it is off — which leaves the panel exactly the
--- shape it had before the chart existed.
+-- Adds a folder to the search. The path is typed: a panel has no folder
+-- picker. Accepted only if it is an existing absolute directory.
+function onAddRoot(value)
+    local path = noctalia.expandPath(shared.trim(value or "")):gsub("/+$", "")
+    if not shared.validRoot(path) then
+        noctalia.notifyError(shared.tr("title"), shared.tr("root_invalid"))
+        return
+    end
+    if not noctalia.fileExists(path) then
+        noctalia.notifyError(shared.tr("title"), shared.tr("root_missing", { path = path }))
+        return
+    end
+    local list = shared.extraRoots()
+    for _, root in ipairs(list) do
+        if root == path then
+            addingRoot = false
+            render()
+            return
+        end
+    end
+    table.insert(list, path)
+    shared.writeExtraRoots(list)
+    addingRoot = false
+    rootRev += 1
+    -- The index covers a new set of roots: walk it now, the user asked.
+    requestReload(false, true)
+    requestUsage(false)
+end
+
+local function removeRoot(path)
+    local list = {}
+    for _, root in ipairs(shared.extraRoots()) do
+        if root ~= path then
+            table.insert(list, root)
+        end
+    end
+    shared.writeExtraRoots(list)
+    requestReload(false, true)
+    requestUsage(false)
+end
+
+-- Folders searched next to the search folder, under the query input: one row
+-- per added folder (✕ drops it) and the "add" row. Only in the "home +
+-- folders" mode, the one where the list has an effect.
+local function extrasSection()
+    if activeTab ~= "search" or shared.whole or not shared.folders then
+        return nil
+    end
+    local rows = {}
+    for _, root in ipairs(shared.extraRoots()) do
+        table.insert(rows, ui.row({ key = "extra-" .. root, gap = 4, align = "center" }, {
+            ui.glyph({ key = "extra-glyph", name = "folder", size = 12, color = "primary" }),
+            ui.label({ key = "extra-text", text = root, fontSize = 11, color = "on_surface", flexGrow = 1 }),
+            ui.button({ key = "extra-x", glyph = "close", variant = "ghost", height = 20,
+                tooltip = shared.tr("tip_root_remove", { folder = root }),
+                onClick = function() removeRoot(root) end }),
+        }))
+    end
+    if addingRoot then
+        table.insert(rows, ui.input({ key = "root-input-" .. rootRev, value = "", focus = true,
+            placeholder = shared.tr("root_placeholder"), onSubmit = "onAddRoot" }))
+    end
+    if #rows == 0 then
+        return nil
+    end
+    return ui.column({ key = "extras", gap = 2, align = "stretch" }, rows)
+end
+
+-- The query input with its two buttons: Search re-runs the search, and "add
+-- search path" opens the path input below. That one stays on screen but is
+-- disabled outside the "home + folders" mode, the only one the list applies to.
+local function queryRow()
+    local canAdd = shared.folders and not shared.whole
+    return ui.row({ key = "query-row", gap = 6, align = "center" }, {
+        ui.input({
+            key = "query-" .. inputRev,
+            value = query,
+            focus = true,
+            placeholder = shared.tr("search_placeholder"),
+            onChange = "onQueryChanged",
+            onSubmit = "onOpenSelected",
+            flexGrow = 1,
+        }),
+        ui.button({ key = "search-go", glyph = "search", text = shared.tr("opt_search"),
+            variant = "secondary", controlSize = "sm",
+            tooltip = shared.tr("tip_search"),
+            onClick = function() runSearch() end }),
+        ui.button({ key = "root-add", glyph = "plus", text = shared.tr("root_add"),
+            variant = addingRoot and "secondary" or "ghost", controlSize = "sm", enabled = canAdd,
+            tooltip = shared.tr(canAdd and "tip_root_add" or "tip_root_add_off"),
+            onClick = function() addingRoot = not addingRoot render() end }),
+    })
+end
+
+-- The usage strip, or nil when it is off.
 local function usageSection()
     if not showUsage or not usageAvailable() then
         return nil
@@ -717,9 +647,7 @@ local function usageSection()
         for index, slice in ipairs(usage.slices) do
             table.insert(legend, usageLegendRow(slice, index))
         end
-        -- Nothing else in the panel is a list of buttons that look like text,
-        -- so the rows being clickable is said once, in words. Dropped once a
-        -- restriction is on: the strip above the results is then what to read.
+        -- Hint that legend rows are clickable; dropped while a restriction is on.
         if usageFilter == nil then
             table.insert(legend, ui.label({
                 key = "ulegend-hint",
@@ -728,9 +656,7 @@ local function usageSection()
                 color = "on_surface_variant",
             }))
         end
-        -- Mount points are absent from the total, since `du -x` never crosses a
-        -- filesystem boundary. Naming them is the difference between a number
-        -- that is incomplete and one that is wrong.
+        -- Mount points are absent from the total (du -x); name them.
         if #usage.skipped > 0 then
             table.insert(legend, ui.label({
                 key = "ulegend-skipped",
@@ -764,12 +690,10 @@ local function usageSection()
         }))
     end
 
-    return ui.row({ key = "usage", gap = 12, align = "center" }, children)
+    return ui.column({ key = "usage", gap = 10, width = USAGE_COLUMN_WIDTH, align = "stretch" }, children)
 end
 
--- The active restriction as its own strip under the query input, or nil. In
--- words with one way out, rather than as '^winboat/' inside the input, where it
--- would be indistinguishable from what the user typed.
+-- The active folder restriction as its own strip under the query input, or nil.
 local function usageFilterStrip()
     if usageFilter == nil then
         return nil
@@ -804,15 +728,7 @@ local function formatDuration(ms)
     return string.format("%dm %02ds", math.floor(seconds / 60), math.floor(seconds % 60))
 end
 
--- One dim line of fzf's extended-search operators, directly under the query
--- input — next to the field they describe, rather than at the far end of the
--- panel where the usage chart had pushed them out of sight of it. They are the
--- difference between "many matches" and "the one", and nothing else here hints
--- that the field understands more than letters. One label, not a row of chips:
--- the cheapest node count for something that renders on every keystroke.
--- Two labels rather than one string: the caption says what the row is, dimmed
--- so it reads as a label and not as part of the syntax, and the operators
--- themselves stay in the brighter colour because they are the content.
+-- One dim line of fzf's extended-search operators under the query input.
 local function syntaxLegend()
     return ui.row({ key = "legend", gap = 6, align = "center" }, {
         ui.label({
@@ -825,17 +741,10 @@ local function syntaxLegend()
     })
 end
 
--- Counts on the left, how long the walk behind this index took on the right.
--- The duration is the one recorded in the count sidecar, so it survives a
--- restart and follows the scope: switching to the disks shows the disks' own
--- walk, not the last one that happened to run. It stays on screen during a
--- rebuild too — "the last one took 7m 41s" is exactly what you want to know
--- while waiting for this one.
+-- Counts on the left, the recorded build duration of this scope's index on the right.
 local function statusFooter()
     local left, tone
     if indexing then
-        -- One root gets named; several would wrap the footer onto a second
-        -- line, so they are counted instead.
         left = #shared.roots > 1
             and shared.tr("status_indexing_multi", { count = #shared.roots })
             or shared.tr("status_indexing", { path = shared.roots[1] or shared.searchRoot() })
@@ -849,8 +758,7 @@ local function statusFooter()
             left = left .. shared.tr("counts_disks", { disks = #shared.mounts })
         end
         if indexState == "stale" then
-            -- Searchable, but built for a different scope or disk set. Saying
-            -- so is the honest alternative to silently re-walking a 5 TB drive.
+            -- Searchable, but built for a different scope or disk set.
             left = left .. shared.tr("counts_stale")
             tone = "secondary"
         else
@@ -871,10 +779,7 @@ local function statusFooter()
     return ui.row({ key = "footer", gap = 8, align = "center" }, children)
 end
 
--- Names the scoring scheme and switches it. The tooltip has to carry the whole
--- explanation: the difference only shows up in the order of the rows, and there
--- is nowhere else to say what changed. When fzf is too old for --scheme the
--- button stays on the generic scheme and says why, rather than disappearing.
+-- Names the scoring scheme and switches it; generic scheme when fzf lacks --scheme.
 local function rankingButton()
     local tip = shared.schemeSupported
         and shared.tr("tip_ranking", {
@@ -885,7 +790,8 @@ local function rankingButton()
     return ui.button({
         key = "ranking-" .. shared.ranking,
         glyph = shared.RANKING_GLYPHS[shared.schemeSupported and shared.ranking or "default"],
-        variant = "ghost",
+        text = shared.tr("opt_ranking." .. (shared.schemeSupported and shared.ranking or "default")),
+        variant = "ghost", controlSize = "sm", flexGrow = 1,
         tooltip = tip,
         onClick = "onCycleRanking",
     })
@@ -897,7 +803,8 @@ local function usageButton()
     return ui.button({
         key = "usage-toggle",
         glyph = "chart-donut",
-        variant = showUsage and "secondary" or "ghost",
+        text = shared.tr(showUsage and "opt_usage_on" or "opt_usage_off"),
+        variant = showUsage and "secondary" or "ghost", controlSize = "sm", flexGrow = 1,
         enabled = usageAvailable(),
         tooltip = usageAvailable()
             and shared.tr(showUsage and "tip_usage_hide" or "tip_usage_show")
@@ -906,36 +813,78 @@ local function usageButton()
     })
 end
 
--- Whole-system search on/off. Highlighted while on, like the usage toggle.
-local function wholeButton()
-    return ui.button({
-        key = "whole-toggle",
-        glyph = "world",
-        variant = shared.whole and "secondary" or "ghost",
-        tooltip = shared.tr(shared.whole and "tip_whole_off" or "tip_whole_on"),
-        onClick = "onToggleWhole",
-    })
+-- The three exclusive source modes, as one row of text buttons under the input.
+-- home = the search folder, folders = search folder + the added folders,
+-- system = "/". The mapping to state lives in currentMode()/setMode().
+local MODES = { "home", "folders", "system" }
+local MODE_GLYPH = { home = "home", folders = "folders", system = "world" }
+
+local function currentMode()
+    if shared.whole then
+        return "system"
+    end
+    return shared.folders and "folders" or "home"
 end
 
--- The scope button cycles folder → folder+disks → disks only. A cycling button
--- rather than a ui.select: the panel is 480px tall and the header row is the
--- only space that costs nothing, and the tooltip names both the current scope
--- and the next one, which a select's collapsed state would not.
-local function scopeButton()
-    local tooltip = shared.tr("tip_scope", {
-        current = shared.tr("scope." .. shared.scope),
-        next = shared.tr("scope." .. shared.NEXT_SCOPE[shared.scope]),
-    })
+local function setMode(mode)
+    shared.whole = mode == "system"
+    shared.folders = mode == "folders"
+    local dir = shared.dataDir()
+    if dir ~= nil then
+        shared.writeWhole(dir, shared.whole)
+        shared.writeFolders(dir, shared.folders)
+    end
+    shared.mountsAt = 0 -- the folder scope never took a mount list
+    addingRoot = false
+    results = {}
+    total = nil
+    errMsg = nil
+    usageFilter = nil
+    render()
+    requestReload(false, false)
+    requestUsage(false)
+end
+
+local function modeRow()
+    local buttons = {}
+    for _, mode in ipairs(MODES) do
+        table.insert(buttons, ui.button({
+            key = "mode-" .. mode,
+            glyph = MODE_GLYPH[mode],
+            text = shared.tr("opt_mode." .. mode),
+            variant = currentMode() == mode and "secondary" or "ghost",
+            controlSize = "sm", flexGrow = 1,
+            tooltip = shared.tr("tip_mode." .. mode),
+            onClick = function() setMode(mode) end,
+        }))
+    end
+    table.insert(buttons, ui.button({
+        key = "refresh",
+        glyph = "refresh",
+        text = shared.tr("opt_reindex"),
+        variant = "ghost", controlSize = "sm", flexGrow = 1,
+        tooltip = shared.tr("tip_refresh"),
+        onClick = "onRefreshIndex",
+    }))
+    return ui.row({ key = "modes", gap = 6, align = "center" }, buttons)
+end
+
+-- Removable (USB) disks join whichever mode is on. The tooltip carries the
+-- free-space summary of the mounted ones.
+local function disksButton()
+    local on = shared.scope == "all"
+    local tooltip = shared.tr(on and "tip_disks_off" or "tip_disks_on")
     local free = diskFreeSummary()
     if free ~= nil then
         tooltip = tooltip .. "\n" .. free
     end
     return ui.button({
-        key = "scope-" .. shared.scope,
-        glyph = shared.SCOPE_GLYPHS[shared.scope],
-        variant = "ghost",
+        key = "disks-toggle",
+        glyph = "usb",
+        text = shared.tr(on and "opt_disks_on" or "opt_disks_off"),
+        variant = on and "secondary" or "ghost", controlSize = "sm", flexGrow = 1,
         tooltip = tooltip,
-        onClick = "onCycleScope",
+        onClick = "onToggleDisks",
     })
 end
 
@@ -965,8 +914,7 @@ local function stopKeyRepeat()
     syncFrameTick()
 end
 
--- Tab bar under the header: Search (this file) and Space (space.luau). The
--- ids double as node keys ("tab-<id>"), so both stay stable across renders.
+-- Tab bar under the header: Search and Space. The ids double as node keys.
 local TABS = { "search", "space" }
 local TAB_GLYPH = { search = "search", space = "chart-pie" }
 
@@ -977,7 +925,6 @@ local function setActiveTab(id)
     activeTab = id
     stopKeyRepeat()
     if id == "space" then
-        -- Not on panel open: a Search-only session never starts an ncdu scan.
         space.onOpen(render)
     elseif spaceOn() then
         space.onClose() -- its scan events stop re-rendering this tab
@@ -1003,11 +950,9 @@ end
 render = function()
     setSpinnerTicking(indexing and #results == 0)
     syncFrameTick() -- also follows space.needsTick(), which changes outside this file
-    -- Clamped here, so a list that shrank or emptied needs no call of its own.
+    -- Clamp the selection to the results.
     sel = math.max(1, math.min(sel, #results))
 
-    -- Every child of the panel and of the header carries a stable key, so the
-    -- reconciler matches roles instead of guessing by position and type.
     local headerItems = {
         ui.label({
             key = "title",
@@ -1016,20 +961,10 @@ render = function()
             fontWeight = "bold",
             color = "on_surface",
         }),
-        -- Version off the manifest, small and dimmed: it answers "which
-        -- build am I running" without competing with the title. The spacer
-        -- rather than a flexGrow title keeps the two together on the left.
+        -- Plugin version off the manifest.
         ui.label({ key = "version", text = pluginVersion, fontSize = 10, color = "on_surface_variant" }),
         ui.spacer({ key = "gap", flexGrow = 1 }),
     }
-    -- Search-only buttons; the Space tab has its own row.
-    if activeTab == "search" then
-        table.insert(headerItems, rankingButton())
-        table.insert(headerItems, usageButton())
-        table.insert(headerItems, wholeButton())
-        table.insert(headerItems, scopeButton())
-        table.insert(headerItems, ui.button({ key = "refresh", glyph = "refresh", variant = "ghost", tooltip = shared.tr("tip_refresh"), onClick = "onRefreshIndex" }))
-    end
     table.insert(headerItems, ui.button({ key = "settings", glyph = "settings", variant = "ghost", tooltip = shared.tr("tip_settings"), onClick = "onOpenSettings" }))
     table.insert(headerItems, ui.button({ key = "close", glyph = "close", variant = "ghost", tooltip = shared.tr("tip_close"), onClick = "onClosePanel" }))
     local header = ui.row({ key = "header", gap = 6, align = "center" }, headerItems)
@@ -1043,16 +978,17 @@ render = function()
 
     local children = {
         header,
-        ui.input({
-            key = "query-" .. inputRev,
-            value = query,
-            focus = true,
-            placeholder = shared.tr("search_placeholder"),
-            onChange = "onQueryChanged",
-            onSubmit = "onOpenSelected",
-        }),
+        queryRow(),
         syntaxLegend(),
+        modeRow(),
+        ui.row({ key = "options", gap = 6, align = "center" }, {
+            usageButton(), rankingButton(), disksButton(),
+        }),
     }
+    local extras = extrasSection()
+    if extras ~= nil then
+        table.insert(children, 4, extras) -- under the syntax line (children: header, input, syntax, modes)
+    end
     if spaceOn() then
         table.insert(children, 2, tabSelector())
     end
@@ -1062,27 +998,13 @@ render = function()
         table.insert(children, strip)
     end
 
-    -- Whatever the state, the body is ONE keyed column that grows: the results
-    -- list and every message live inside it. Swapping node types at the top
-    -- level is what left the panel short of its own height, with dead space
-    -- under the status bar: the reconciler matches children by (type, key), so
-    -- a changed sequence detaches them all and re-matches — unkeyed labels get
-    -- handed to whichever role asks for a label first, and a prop the new role
-    -- does not set (flexGrow among them) is never reset, it just carries over
-    -- from the previous tenant. A constant shape has nothing to re-match.
+    -- The body is one keyed column that grows; results and messages live inside it.
     local body
     if fzfMissing then
         body = ui.label({ key = "body-msg", text = shared.tr("err_no_fzf"), color = "error", flexGrow = 1 })
     elseif errMsg ~= nil then
         body = ui.label({ key = "body-msg", text = errMsg, color = "error", flexGrow = 1 })
-    elseif #shared.roots == 0 and not indexing then
-        -- Only reachable with scope "external": nothing to search, and
-        -- "no matches" would blame the query for it.
-        body = ui.label({ key = "body-msg", text = shared.tr("no_external"), color = "on_surface_variant", flexGrow = 1 })
     elseif indexState == "missing" and not indexing then
-        -- A disk scope that has never been indexed. Walking it is a
-        -- minutes-long operation on a large drive, so it is offered rather
-        -- than performed.
         body = ui.label({ key = "body-msg", text = shared.tr("index_missing"), color = "on_surface_variant", flexGrow = 1 })
     elseif #results == 0 and not indexing and shared.trim(query) ~= "" then
         body = ui.label({
@@ -1098,22 +1020,20 @@ render = function()
         end
         body = ui.scroll({ key = "hits", flexGrow = 1, gap = 2, revealKey = "hit-" .. sel }, rows)
     end
-    table.insert(children, ui.column({ key = "body", flexGrow = 1, align = "stretch" }, { body }))
-    -- Below the results: the chart describes the folder, not the query.
+    -- The chart sits to the left of the results.
+    local main = { ui.column({ key = "body", flexGrow = 1, align = "stretch" }, { body }) }
     local chart = usageSection()
     if chart ~= nil then
-        table.insert(children, ui.separator({ key = "usage-rule" }))
-        table.insert(children, chart)
+        table.insert(main, 1, chart)
     end
+    table.insert(children, ui.row({ key = "main", flexGrow = 1, gap = 16, align = "stretch" }, main))
     table.insert(children, statusFooter())
 
     panel.render(ui.column({ flexGrow = 1, gap = 12, align = "stretch" }, children))
 end
 
--- Recompute the roots from the current scope and mounts, then search the cache
--- that belongs to them. A stale fingerprint only triggers a walk when
--- autoIndexAllowed() says so; otherwise the existing index is searched as-is
--- and flagged, or the panel asks for a rebuild when there is none at all.
+-- Recompute the roots from the scope and mounts, then search the cache that
+-- belongs to them; walk only when autoIndexAllowed() says so.
 applyState = function()
     shared.roots = shared.computeRoots()
     local dir = shared.dataDir()
@@ -1128,8 +1048,6 @@ applyState = function()
     if shared.cacheFresh(dir) then
         haveIndex = true
         indexState = "fresh"
-        -- buildIndex would have set the total; reusing a cache has to go and
-        -- count it (memoized).
         readTotal(dir)
         runSearch()
     elseif shared.autoIndexAllowed() then
@@ -1137,9 +1055,7 @@ applyState = function()
         total = nil
         buildIndex()
     else
-        -- Out of date, and not ours to fix on our own: an index built for
-        -- another disk set still answers most queries, so it is searched and
-        -- labelled rather than thrown away.
+        -- Out of date: search the existing index and label it.
         haveIndex = noctalia.fileExists(dir .. "/list-" .. shared.cacheTag())
         indexState = haveIndex and "stale" or "missing"
         if haveIndex then
@@ -1153,16 +1069,12 @@ applyState = function()
     render()
 end
 
--- The one way to refresh what the panel shows. Mashing the scope button must
--- not stack work: while a pass is in flight the next one is a single flag, and
--- it then runs once against whatever the state has become. Without this, every
--- press queued its own mount scan, its own count and its own search.
+-- The one way to refresh what the panel shows; presses during a pass collapse
+-- into one queued pass.
 --
--- force: rescan the disks even if the last scan is still young.
--- build: walk the tree when the probe comes back, whatever the fingerprint
--- says. Only the refresh button passes it — it is the explicit command that
--- autoIndexAllowed() defers to.
-local function requestReload(force, build)
+-- force: rescan the disks even if the last scan is young.
+-- build: walk the tree when the probe comes back (refresh button only).
+requestReload = function(force, build)
     if reloading then
         reloadQueued = true
         queuedForce = queuedForce or force
@@ -1174,8 +1086,6 @@ local function requestReload(force, build)
         reloading = false
         if build then
             shared.roots = shared.computeRoots()
-            -- The index being replaced stays readable until the walk lands, so
-            -- a row clicked meanwhile still resolves.
             local dir = shared.dataDir()
             if dir ~= nil then
                 shared.indexRoots = shared.indexRootsOf(dir) or shared.roots
@@ -1205,26 +1115,21 @@ function onOpen(_context)
     query = ""
     results = {}
     errMsg = nil
-    -- Not carried across opens: a restriction whose origin is off screen
-    -- ("why does this find nothing?") is worse than re-picking it.
     usageFilter = nil
-    -- Not trusted across opens: the scope may have moved under us (the
-    -- launcher can cycle it), so nothing is searched until reload() has
-    -- checked the fingerprint of the cache this scope actually uses.
+    addingRoot = false
+    -- Nothing is searched until requestReload has checked the cache fingerprint.
     haveIndex = false
     sel = 1
     inputRev += 1
     noctalia.state.set("file_search_open", true)
     local dir = shared.dataDir()
     if dir ~= nil then
-        -- Re-read on every open: the launcher may have cycled the scope, and
-        -- a script reload drops both of these from memory.
         shared.scope = shared.readScope(dir)
         shared.whole = shared.readWhole(dir)
+        shared.folders = shared.readFolders(dir)
         shared.ranking = shared.readRanking(dir)
         showUsage = readShowUsage(dir)
-        -- An earlier session's measurement, so the chart is up with the panel
-        -- and du only runs when it is actually out of date.
+        -- Load the last usage measurement.
         if usage.load(dir) then
             usage.writeSvg(
                 dir, USAGE_SIZE, USAGE_THICKNESS,
@@ -1237,31 +1142,24 @@ function onOpen(_context)
         render()
         return
     end
-    render() -- the panel is up while lsblk answers
+    render()
     requestReload(false, false)
-    -- Independent of the index: one being stale says nothing about the other.
-    -- Cheap on a repeat open — usage.scan honours its own TTL.
     requestUsage(false)
 end
 
 function onClose()
-    -- Stop the frame tick even mid-build; the next onOpen re-arms it if the
-    -- build is somehow still running (buildIndex survives the panel closing).
+    -- Stop the frame tick, even mid-build.
     setSpinnerTicking(false)
-    stopKeyRepeat() -- a key held while the panel closes never reports its release
+    stopKeyRepeat()
     noctalia.state.set("file_search_open", false)
     if spaceOn() then
         space.onClose()
     end
-    panel.setNeedsFrameTick(false) -- a running scan resumes on the next open
+    panel.setNeedsFrameTick(false)
 end
 
--- plugin_api >= 18. Throttled to SPINNER_STEP_MS regardless of the host's
--- actual tick rate; render() itself flips setNeedsFrameTick off once indexing
--- ends or results stop being empty, so this never spins forever unattended.
+-- plugin_api >= 18. Drives the spinner, the key repeat and the Space scan.
 function onFrameTick(deltaMs)
-    -- The tick follows needsTick() after every step: a step can end a load
-    -- (whose redraw turns the tick off) and then start the deferred rescan.
     if spaceOn() and space.needsTick() then
         space.step()
         syncFrameTick()
@@ -1291,7 +1189,7 @@ end
 
 function onConfigChanged()
     if spaceOn() then
-        space.onConfigChanged() -- before the Search side's early return
+        space.onConfigChanged()
     elseif activeTab == "space" then
         activeTab = "search"
         space.onClose()
@@ -1304,18 +1202,14 @@ function onConfigChanged()
     if fzfMissing or indexing then
         return
     end
-    -- Scope and mounts are re-read rather than reused: this fires while the
-    -- panel is closed too, when the launcher may have cycled the scope and the
-    -- in-memory mount list can predate it. Rebuilding a disk index from a stale
-    -- (empty) list would throw away a good index and take minutes to redo.
+    -- Re-read scope and mounts from disk; this also fires with the panel closed.
     local dir = shared.dataDir()
     if dir ~= nil then
         shared.scope = shared.readScope(dir)
         shared.whole = shared.readWhole(dir)
+        shared.folders = shared.readFolders(dir)
     end
-    -- Expired, not redone: this also fires with the panel closed. A changed
-    -- search_folder invalidates itself (usage.fresh compares the root); a
-    -- changed exclusion list does not, which is what this covers.
+    -- Expire the usage measurement (a changed exclusion list does not invalidate it).
     usage.scannedAt = 0
     requestReload(false, false)
 end
@@ -1355,33 +1249,22 @@ function onKey(chord, pressed)
     end
 end
 
--- The explicit command. This is the ONLY thing that walks an external disk:
--- opening the panel, changing the scope, changing a setting or plugging a disk
--- in all leave the existing index alone and just mark it out of date.
+-- The explicit command: the only thing that walks an external disk.
 function onRefreshIndex()
     if indexing then
         return
     end
-    -- A refresh is also how a disk plugged in after the panel opened gets
-    -- noticed, so the mount scan is forced rather than reused.
     requestReload(true, true)
-    -- TTL ignored: "refresh" has to mean everything the panel shows.
     requestUsage(true)
 end
 
--- The Space tab's "search here" button. Records are relative to the single
--- search root, so a folder below it is just a longer prefix for folderToken
--- ("^a/b/"); the root itself means no restriction. Anything else (another
--- root, the home when the search folder is elsewhere, several roots) cannot
--- be expressed, so it is a notice and the tab stays. So is a path with a
--- control character (it comes from a disk name).
+-- The Space tab's "search here" button: restricts the results to a folder below
+-- the search root. Anything else, or a path with a control character, is a notice.
 function onSearchHere(path)
     if not spaceOn() then
         return
     end
     local root = shared.roots[1]
-    -- Only the folder scope on the search folder has records relative to one
-    -- root (the only place the restriction strip and chart exist).
     if shared.scope ~= "folder" or shared.whole or #shared.roots ~= 1 or root == nil or path:find("%c") then
         noctalia.notify(shared.tr("title"), shared.tr("space_search_unavailable"))
         return
@@ -1403,8 +1286,7 @@ function onSearchHere(path)
     runSearch()
 end
 
--- The strip's ✕. Same effect as re-clicking the highlighted legend row, offered
--- where the restriction is shown: the chart can be switched off while it is on.
+-- The strip's ✕: lifts the folder restriction.
 function onClearUsageFilter()
     if usageFilter == nil then
         return
@@ -1414,7 +1296,6 @@ function onClearUsageFilter()
     runSearch()
 end
 
--- Hiding does not discard the measurement, so showing it again is instant.
 function onToggleUsage()
     if not usageAvailable() then
         return
@@ -1428,8 +1309,7 @@ function onToggleUsage()
     requestUsage(false)
 end
 
--- The index is untouched; only the order of the rows changes, so the current
--- query is simply run again through the other scheme.
+-- Re-run the current query through the other scoring scheme.
 function onCycleRanking()
     if not shared.schemeSupported then
         return
@@ -1443,42 +1323,14 @@ function onCycleRanking()
     runSearch()
 end
 
--- Allowed mid-build on purpose: a walk over a slow disk can run for minutes and
--- there is no way to cancel it, so blocking the button would trap the user in
--- the scope they are trying to leave. The in-flight build finishes against the
--- cache of the scope it started in and never starts another one by itself.
---
--- The press itself is deliberately cheap — a 6-byte write and a render. Every
--- process it might need (mount scan, count, search) goes through
--- requestReload, which collapses a burst of presses into one pass.
-function onCycleScope()
+-- Allowed mid-build: the in-flight build finishes against the cache of its own
+-- scope. Process work goes through requestReload.
+function onToggleDisks()
     shared.scope = shared.NEXT_SCOPE[shared.scope] or shared.DEFAULT_SCOPE
     local dir = shared.dataDir()
     if dir ~= nil then
         shared.writeScope(dir, shared.scope)
     end
-    results = {}
-    total = nil
-    errMsg = nil
-    -- The token is a relative-path prefix; a disk scope stores absolute
-    -- records, where it would silently match nothing.
-    usageFilter = nil
-    render()
-    requestReload(false, false)
-    -- A no-op on a disk scope, so this is safe on every leg.
-    requestUsage(false)
-end
-
--- Same shape as onCycleScope: persist, clear, and let requestReload decide
--- whether the other index is fresh or needs a walk. Each side keeps its own
--- cache (shared.cacheTag), so toggling back is instant.
-function onToggleWhole()
-    shared.whole = not shared.whole
-    local dir = shared.dataDir()
-    if dir ~= nil then
-        shared.writeWhole(dir, shared.whole)
-    end
-    shared.mountsAt = 0 -- the folder scope never took a mount list
     results = {}
     total = nil
     errMsg = nil
@@ -1513,9 +1365,7 @@ function onSpaceMenu(action, context)
     space.menuAction(action, context)
 end
 
--- Opens the settings window on this plugin's own page (the host supplies the
--- plugin id, so a plugin can only ever open its own). The panel closes on the
--- way; the index survives it, since it lives in the plugin data directory.
+-- Opens the settings window on this plugin's own page.
 function onOpenSettings()
     noctalia.openSettings()
 end
@@ -1526,8 +1376,6 @@ end
 
 shared.probeFzfScheme()
 
--- usage.luau builds the slice labels, so the two it invents rather than reads
--- off the filesystem are handed to it from here — every user-visible string
--- still comes out of translations/en.json.
+-- Hand usage.luau the two slice labels it does not read off the filesystem.
 usage.looseLabel = shared.tr("usage_loose")
 usage.otherLabel = shared.tr("usage_other")

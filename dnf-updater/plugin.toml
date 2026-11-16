@@ -1,6 +1,6 @@
 id = "strob3/dnf-updater"
 name = "DNF Updater"
-version = "1.1.0"
+version = "1.2.0"
 plugin_api = 43
 author = "strob3"
 license = "MIT"
@@ -59,6 +59,13 @@ type = "bool"
 label_key = "settings.update_in_terminal.label"
 description_key = "settings.update_in_terminal.description"
 default = true
+
+[[setting]]
+key = "refresh_on_update"
+type = "bool"
+label_key = "settings.refresh_on_update.label"
+description_key = "settings.refresh_on_update.description"
+default = false
 
 [[service]]
 id = "service"

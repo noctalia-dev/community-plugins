@@ -60,16 +60,6 @@
       "description": "Show the percentage or balance as text.",
       "label": "Show value"
     },
-    "style": {
-      "description": "How this capsule looks in the bar.",
-      "label": "Style",
-      "option": {
-        "gauge": "Gauge and percentage",
-        "label": "Name, gauge and percentage",
-        "meter": "Segments",
-        "pill": "Percentage"
-      }
-    },
     "usage_display": {
       "description": "Used or remaining quota. Colors and priority follow usage.",
       "label": "Show quota as",
@@ -100,6 +90,7 @@
         "kiro": "Kiro",
         "lyceum": "Lyceum",
         "minimax": "MiniMax",
+        "mistral": "Mistral",
         "modelstudio": "Model Studio",
         "moonshot": "Moonshot",
         "muse_code": "Muse Code",
@@ -139,6 +130,7 @@
     "diagnostics_configure": "Configure this provider's credentials for ai-usagebar, then refresh status and usage.",
     "diagnostics_disabled": "Disabled providers ({count})",
     "diagnostics_enabled": "Other enabled providers ({count})",
+    "diagnostics_antigravity_auth": "Run agy -p /quota first. If quota works, check local-server integration; otherwise check your Antigravity login.",
     "diagnostics_local_app": "If Antigravity is closed, open it so its local server can run, then refresh usage. No API key is required.",
     "diagnostics_login": "Check this account's credentials and access with the provider, then refresh usage.",
     "diagnostics_no_problems": "No problems found in the available reports. Credential presence does not confirm a working connection.",
@@ -161,14 +153,15 @@
       "spawn_failed": "Could not start ai-usagebar",
       "spawn_failed_hint": "The process never started. Try again in a moment.",
       "timed_out": "ai-usagebar did not answer",
-      "timed_out_hint": "The read took too long. A provider may be answering slowly."
+      "timed_out_hint": "The read took too long. A provider may be answering slowly.",
+      "too_large": "Usage report is too large",
+      "too_large_hint": "The CLI report exceeded display limits. The last reading is preserved; reduce the report size or check the CLI output, then retry."
     },
     "hidden_label": "Not shown",
     "hidden_value": "{count} more, click to open the panel",
     "install": "Install page",
     "last_reading": "Last reading, {minutes} min ago",
     "last_reading_now": "Last reading, moments ago",
-    "loading": "Loading…",
     "more_actions": "More actions",
     "no_matching_providers": "No matching providers",
     "no_usage": "No usage reported",
@@ -183,7 +176,6 @@
     "refresh_queued": "Refresh queued",
     "refreshing": "Refreshing usage",
     "remaining": "Remaining",
-    "reset": "Reset",
     "retry": "Try again",
     "session": "Session",
     "settings": "Plugin settings",
@@ -193,7 +185,6 @@
     "setup_hint": "Check reported failures and local provider configuration.",
     "setup_loading": "Reading providers…",
     "setup_no_credential": "No credential required",
-    "setup_notifications": "The CLI manages alerts. To turn them off, set enabled = false under [notifications] in its config.toml.",
     "setup_required": "Setup required",
     "setup_unavailable": "Provider status unavailable",
     "severity": {
@@ -212,6 +203,7 @@
     "used": "Used",
     "waiting": "Waiting for usage data",
     "weekly": "Weekly",
+    "monthly": "Monthly",
     "window_unavailable": "This window is not reported",
     "regenerates_in": "Regenerates {amount} in {time}",
     "regenerates_at": "Regenerates {amount} at {time}",
@@ -231,6 +223,15 @@
     },
     "priority_expired": "Reset time passed. Refresh to confirm the next window.",
     "priority_scope_account": "Account priorities",
-    "priority_not_reported": "No priority estimate for this account."
+    "priority_not_reported": "No priority estimate for this account.",
+    "overview": "All accounts",
+    "previous_page": "Previous accounts",
+    "next_page": "Next accounts",
+    "account_count": "Accounts: {count}",
+    "account_details": "View {account} details",
+    "more_windows": "+{count} more windows in details",
+    "previous_account": "Previous account",
+    "next_account": "Next account",
+    "empty_hint": "Configure a provider in ai-usagebar, then refresh. Diagnostics explains unavailable accounts."
   }
 }

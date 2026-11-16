@@ -1,0 +1,89 @@
+{
+  "settings": {
+    "glyph": {
+      "label": "Icon"
+    },
+    "hide_when_inactive": {
+      "label": "Hide when inactive",
+      "description": "Show the icon only while passwordless sudo is on, like Omarchy. Use the control center tile or IPC to turn it on."
+    },
+    "show_countdown": {
+      "label": "Show countdown",
+      "description": "Show the time left next to the icon while a timed grant is active."
+    }
+  },
+  "duration": {
+    "15m": "15 minutes",
+    "1h": "1 hour",
+    "1d": "1 day",
+    "permanent": "Permanently"
+  },
+  "time": {
+    "seconds": "{n} s",
+    "minutes": "{n} min",
+    "hours": "{h} h",
+    "hours_minutes": "{h} h {m} min"
+  },
+  "phrase": {
+    "for": "for {span}",
+    "permanently": "permanently"
+  },
+  "state": {
+    "on": "On",
+    "off": "Off"
+  },
+  "tooltip": {
+    "title": "Passwordless sudo",
+    "expires": "Expires",
+    "never": "Never",
+    "source": "Granted by",
+    "external": "another sudoers rule",
+    "click_disable": "Click to disable",
+    "click_enable": "Click to enable",
+    "working": "Working…",
+    "waiting_auth": "Waiting for authentication…"
+  },
+  "shortcut": {
+    "label": "No-pass sudo",
+    "on": "Sudo: no password",
+    "left": "Sudo: {span} left"
+  },
+  "panel": {
+    "title": "Passwordless sudo",
+    "checking": "Checking…",
+    "status_off": "Off. sudo asks for your password.",
+    "status_timed": "On until {time} ({span} left)",
+    "status_permanent": "On permanently",
+    "status_external": "On, granted by another sudoers rule",
+    "prompt": "How long should passwordless sudo stay enabled?",
+    "change_prompt": "Change how long it stays enabled",
+    "waiting": "Waiting for authentication…",
+    "external_note": "Passwordless sudo comes from a sudoers rule this plugin did not create, so it cannot turn it off. Edit /etc/sudoers.d to remove it."
+  },
+  "warning": {
+    "title": "Significant security risk",
+    "body": "Any process running as your user can run any command as root without a password {span}.",
+    "agents": "This is useful for AI agents that need sudo, but anyone or anything with access to your account gets full root.",
+    "expiry_timed": "It turns off automatically after {span}, even if the machine reboots before then.",
+    "expiry_permanent": "It stays on across reboots until you turn it off."
+  },
+  "button": {
+    "cancel": "Cancel",
+    "close": "Close",
+    "enable": "Enable {span}",
+    "apply": "Apply",
+    "disable": "Disable now"
+  },
+  "notify": {
+    "title": "Passwordless sudo",
+    "enabled_timed": "Enabled. It will automatically turn off in {span}.",
+    "enabled_permanent": "Enabled permanently. Click the bar icon to turn it off.",
+    "disabled": "Disabled. sudo asks for a password again once any cached authorization expires.",
+    "already_disabled": "Already disabled.",
+    "still_external": "Your grant was removed, but another sudoers rule still allows sudo without a password.",
+    "not_authorized": "Authentication failed or not authorized. Your account must be an administrator (wheel group).",
+    "enable_failed": "Could not enable passwordless sudo",
+    "enable_failed_body": "Check the Noctalia log for details.",
+    "bad_duration": "Duration must be 1–1440 minutes or \"permanent\"."
+  }
+}

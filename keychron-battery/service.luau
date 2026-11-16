@@ -12,8 +12,14 @@ local SNAPSHOT_KEY = "keychron_snapshot"
 local COMMAND_KEY = "keychron_command"
 local HYSTERESIS = 5
 
+-- While no battery level comes in, read UPower at least this often so the bar
+-- recovers soon after the mouse or receiver is back.
+local MISSING_POLL_S = 30
+
 local running = false
 local lastRun = 0
+-- True while the last reading had no Keychron mouse with a battery level.
+local missing = false
 -- Per device id: "normal" | "low" | "critical".
 local alertState = {}
 
@@ -97,7 +103,9 @@ local function parseBlock(block)
 		model = props.model or "",
 		connection = nativePath:find("keychron_mouse", 1, true) and "receiver" or "bluetooth",
 		level = level,
-		charging = state == "charging" or state == "fully-charged",
+		-- UPower also reports "fully-charged" for a mouse at 100% on the receiver,
+		-- so only "charging" means it is on the cable.
+		charging = state == "charging",
 		available = level ~= nil and (props.present or "yes") ~= "no",
 	}
 	device.displayName = displayName(device.model)
@@ -105,6 +113,12 @@ local function parseBlock(block)
 end
 
 local function publish(devices, err)
+	missing = true
+	for _, d in ipairs(devices) do
+		if type(d.level) == "number" then
+			missing = false
+		end
+	end
 	noctalia.state.set(SNAPSHOT_KEY, { devices = devices, error = err or "", updatedAt = noctalia.nowMs() })
 end
 
@@ -150,7 +164,11 @@ end
 noctalia.setUpdateInterval(5000)
 
 function update()
-	if noctalia.nowMs() - lastRun >= intConfig("poll_interval", 60) * 1000 then
+	local interval = intConfig("poll_interval", 60)
+	if missing then
+		interval = math.min(interval, MISSING_POLL_S)
+	end
+	if noctalia.nowMs() - lastRun >= interval * 1000 then
 		poll()
 	end
 end
