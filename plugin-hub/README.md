@@ -16,11 +16,9 @@ Noctalia's own panels and commands of your own are in the same list, and in the 
 
 ## Requirements
 
-| Command     | Needed               | What for                                                                                   |
-| ----------- | -------------------- | ------------------------------------------------------------------------------------------ |
-| `hyprctl`   | Required on Hyprland | Adds the keys you give actions. Without it, actions still run from the panel and launcher. |
-| `sh`, `awk` | Required             | Read each plugin's manifest and README. They come with every Linux system.                 |
-| `git`       | Required             | Reads a plugin that is off from its source. Noctalia itself needs it for plugins.          |
+| Command   | Needed               | What for                                                                                   |
+| --------- | -------------------- | ------------------------------------------------------------------------------------------ |
+| `hyprctl` | Required on Hyprland | Adds the keys you give actions. Without it, actions still run from the panel and launcher. |
 
 ## Usage
 
@@ -44,8 +42,9 @@ The panel lists Noctalia, each plugin you use, and your own commands. Search fil
 all.
 
 - **Plugins.** Each enabled plugin is listed, and each one the hub saw enabled before, so a
-  plugin you switch off here can be switched on again. The switch turns a plugin on or off,
-  and the gear opens its settings.
+  plugin you switch off here can be switched on again. A plugin you remove in Noctalia's
+  settings leaves the list. The switch turns a plugin on or off, and the gear opens its
+  settings.
 - **Settings.** A plugin's settings page holds all of them, wherever Noctalia keeps them:
   the plugin's own, and those of each of its widgets on a bar, the desktop or the lock
   screen. A switch or a choice is saved at once, and a text or number when you press Enter.
