@@ -121,4 +121,9 @@ local beforeTick = #calls
 env.update()
 assert(#calls == beforeTick + 1 and calls[#calls].command == "ai-usagebar usage --json",
        "periodic polling never requests the catalog")
+now = now + 3000
+local beforeCombined = #calls
+watchers.command({ action = "diagnostics" })
+assert(#calls == beforeCombined + 1 and calls[#calls].command == "ai-usagebar vendors --json"
+    and values.refresh_queued == true, "diagnostics refresh starts catalog and queues an in-flight usage read")
 io.write("ok: on-demand catalog, public whitelist, isolated failures, no retry loops\n")

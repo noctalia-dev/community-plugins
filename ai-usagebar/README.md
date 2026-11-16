@@ -83,9 +83,9 @@ Settings use the same names as the core `sysmon` widget. Set `visualization` to
 `gauge` for short-window usage above a thinner long-window usage bar, or
 `none` to hide the bars. A provider with one available window shows one bar. `show_value`,
 `show_glyph` and `glyph_position` control the percentage and icon placement,
-including Antigravity's individual model readings. Provider groups use a subtle
-divider; models within one provider use dots. Enable `show_name` to distinguish
-the shared model groups. Names remain bounded so they do not take over the bar.
+including Antigravity's individual model readings. A divider separates providers
+and models. Enable `show_name` to distinguish shared model groups. Names remain
+bounded so they do not take over the bar.
 
 `extras` adds the reset countdown (`3h 51m`, shown on the bar when usage reaches
 `90%` or is critical, and always shown in the tooltip), consumption pace (`↑3` means three
@@ -110,12 +110,14 @@ start = [ "clock", "ai_usage" ]
 
 - Hover shows a compact summary of at most ten rows, with each quota window and
   its reset countdown on its own line. Open the panel for all windows, models and diagnostics.
-- When a long window is exhausted, the capsule replaces the short-window value
-  with `100%` and counts down to the blocking window's reset. If several windows
-  are exhausted, it uses the latest reset. A critical warning below 100% does
-  not count as exhaustion.
-- Left click opens the `AI Usage` panel on **All accounts** with the capsule's
-  account highlighted.
+- When a window is exhausted, the capsule shows its reset countdown without a
+  redundant percentage. If the countdown is unavailable or disabled, the
+  percentage remains visible. If several windows are exhausted, it uses the
+  latest reset. A critical warning below 100% does not count as exhaustion.
+- Click a provider or model to select its account. **Open panel in** chooses
+  whether the click opens All accounts or the selected provider's details. In
+  provider detail mode, clicking a model also highlights its card. All accounts
+  is available when more than one account is configured.
 - Right click requests a refresh. One poller serves every capsule and keeps at
   most one pending refresh when requests arrive during a read.
 - Middle click opens the widget's settings, as everywhere else in the shell.
@@ -127,32 +129,33 @@ The script handles left click; the shell opens settings on middle click.
 Right click is a gesture binding in the widget settings, where you can assign
 another action or choose `none`.
 
-Opening the panel starts with **All accounts**: a scrolling overview
+With multiple accounts, a direct panel open starts with **All accounts**: a scrolling overview
 with up to four named account cards per page. Previous/next controls and the
 visible range keep every account reachable. Each card previews up to three
 reported quota windows (or all reported windows and model pools for Antigravity),
 or its balance, and shows reading age and stale status.
-Extra windows are identified rather than silently dropped. The header states
-whether percentages show used or remaining quota.
+Extra windows are identified rather than silently dropped.
 
-Open a card's detail action for all its windows, models, credits and optional
-priorities. **All accounts**
-returns to the overview without changing the CLI's active account.
+Click a card to see its windows, models, credits and optional priorities.
+**All accounts** returns to the overview without changing the CLI's active
+account. With one account, the panel opens directly in its details.
 
-The detail header identifies the selected account and plan. Up to five account
-tabs remain visible; previous/next controls handle longer lists. Compact tabs
+The detail tabs identify the selected account. Up to five account tabs remain
+visible; previous/next controls handle longer lists. Compact tabs
 reveal full names on hover. Session and weekly limits share a card; Antigravity
 has a separate card for each model. Each window shows its quota bar, a short
-reset countdown and reported consumption pace.
+reset countdown and consumption pace. For Antigravity, pace is estimated from
+usage, window duration and reset time; it is hidden if those values are unavailable
+or the reset has passed.
 Hover the countdown for the local reset time. A thinner bar compares quota with
 reported window time: elapsed in used mode, time left in remaining mode.
 Hover the window label for its time percentage. The thin bar stays hidden when
 the CLI supplies no window time.
 The shared `Claude & GPT OSS` quota keeps the name supplied by the CLI.
 
-The footer shows the update time and quota warnings above 50% usage, with one
-compact pill per model showing its most restrictive window. Hover a pill for
-its full status. Exhausted quotas also show their reset countdown.
+The footer shows the update time and up to two quota warnings above 50% usage,
+with the most restrictive window per model. A `+N` indicates additional warnings.
+Hover a pill for its full status. Exhausted quotas also show their reset countdown.
 Read failures show the last known state. The panel displays quota readings,
 not agent process health.
 
@@ -162,15 +165,15 @@ accessible. Cards reserve space for the scrollbar so their width stays the same
 between providers.
 
 Opening the panel requests fresh data. The header keeps refresh and close within
-reach. The **⋯** menu has diagnostics, Copy summary, the provider dashboard and
-plugin settings. Both Antigravity model groups share the same
-service link. Click outside, click the widget again or press Escape to close
-the panel. Press R to refresh usage, or the catalog while Diagnostics is open.
+reach, alongside diagnostics and settings. The account footer offers Copy summary
+and the provider dashboard. Both Antigravity model groups share the same service link. Click outside, click the widget again or press Escape to close
+the panel. Press R to refresh usage, or both usage and the catalog while Diagnostics is open.
 Arrow keys select accounts outside Diagnostics. In the overview they reveal the
 selected card; Enter opens its detail. Press O to return to All accounts.
 
-The list contains only providers with a usable reading. A provider the CLI
-reports no API key for never appears, because it was never set up. A configured
+The list contains providers with usable readings and parser failures. A default
+provider reporting no API key is hidden because the CLI does not distinguish
+a missing credential from a provider that was never configured. A configured
 provider with its own refresh failure also leaves the bar and panel, then
 returns automatically after a healthy read. If the CLI instead supplies a dated,
 ready cache, its last quota or balance stays visible as stale, including after
@@ -194,8 +197,7 @@ Parser errors are an exception: the provider remains visible with missing usage
 and the CLI error, because a response-format failure does not establish that the
 account is unavailable.
 
-Details include the plan and account name, reading age, stale status, window
-labels, percentages, elapsed time, reset countdowns and local reset times, pace,
+Details include the account name, reading age, stale status, window labels, percentages, elapsed time, reset countdowns and local reset times, pace,
 and high or critical severity labels. Raw values appear when they add information
 to the percentage. Credit blocks and free text are also shown; zero credit
 balances are hidden. Codex reset credits show the reset type and expiry on
@@ -270,9 +272,11 @@ settings editor's **Advanced** switch to edit `account`, `auto_providers`,
 | `quota_window` | `select` | `auto` | Keep the default windows, or choose `session`, `weekly` or `monthly`. An exhausted window takes priority. A window the provider does not report shows no percentage. |
 | `auto_providers` | `string_list` | `[]` | Limit automatic selection, scroll and `+N` to these provider or account IDs. A provider ID includes all its accounts; `provider@account` selects that account. Empty includes all. Ignored for a pinned provider. |
 | `visualization` | `select` | `gauge` | `gauge` or `none`, as described above. |
+| `show_exhausted_value` | `bool` | `false` | Keep the exhausted percentage visible alongside the reset countdown when `show_value` is enabled. |
 | `show_value` | `bool` | `true` | Show the reported percentage or amount as text. |
 | `show_glyph` | `bool` | `true` | Show the provider's icon. |
 | `glyph_position` | `select` | `before` | `before` or `after` the reading. |
+| `panel_view` | `select` | `overview` | Open All accounts or the selected provider's details. An empty capsule opens All accounts. |
 | `provider_limit` | `int` | `1` | How many providers one capsule carries, busiest first, from 1 to 4. Only applies on `auto`. |
 | `extras` | `select` | `countdown` | Information beside the percentage: `countdown`, `pace`, `both` or `none`. |
 | `show_name` | `bool` | `false` | Show the provider name, or each model name for Antigravity. Long names are shortened; tooltips keep the full label. |
@@ -280,21 +284,16 @@ settings editor's **Advanced** switch to edit `account`, `auto_providers`,
 
 ## Diagnostics
 
-Open **⋯ → Diagnostics** when a configured provider is missing or shows an old
-reading. Problems appear first, with their effect on the widget and a suggested
-next step. Named account failures retain
-the account label. Technical causes expand with **Details** inside the scrolling
-view, one problem at a time. They do not open a popup over the card. Other enabled
-providers and disabled providers stay collapsed
-until requested. Finding credentials does not establish that an account can
-authenticate; Antigravity needs no separate API key.
+Open Diagnostics from the panel header when a configured provider is missing or
+shows an old reading. Each problem shows a status and a suggested next step. Named
+account failures retain the account label. Open **Details** to see a technical
+cause. Provider lists are omitted from this view.
 
-Opening this view reads the local provider catalog. Its refresh control updates
-that catalog; **Refresh usage** explicitly requests a quota read through the
-shared poller. The view never signs in, changes configuration or executes commands
-from the response. If the CLI does not support `vendors --json` (available since
-1.13.0), the catalog remains unavailable; known failures from the usage report
-can still appear.
+Opening Diagnostics reads the local provider catalog. **Refresh** requests both
+the catalog and usage through the shared poller. The view never signs in, changes
+configuration or executes commands from the response. If the CLI does not support
+`vendors --json` (available since 1.13.0), the catalog remains unavailable; known
+failures from the usage report can still appear.
 
 The existing IPC context opens Diagnostics directly:
 
@@ -317,7 +316,8 @@ An unavailable provider remains documented in Diagnostics.
 
 ## IPC
 
-Open the multi-account overview explicitly:
+Open the multi-account overview explicitly. With only one available account,
+the panel opens its details instead:
 
 ```sh
 noctalia msg panel-open felipeartur/ai-usagebar:panel overview

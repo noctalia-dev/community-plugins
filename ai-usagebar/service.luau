@@ -350,6 +350,7 @@ end
 noctalia.state.watch("command", function(value)
     if type(value) == "table" and value.action == "refresh" then refresh() end
     if type(value) == "table" and value.action == "catalog" then loadCatalog() end
+    if type(value) == "table" and value.action == "diagnostics" then loadCatalog(); refresh() end
 end)
 
 function update()

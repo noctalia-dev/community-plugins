@@ -1,5 +1,9 @@
 {
   "settings": {
+    "show_exhausted_value": {
+      "description": "Keep the percentage visible beside the reset time when a quota is exhausted.",
+      "label": "Show exhausted percentage"
+    },
     "account": {
       "description": "Optional named account label from ai-usagebar. Leave empty for the default account. Ignored when the provider is Automatic.",
       "label": "Account label"
@@ -28,6 +32,14 @@
       "option": {
         "after": "After",
         "before": "Before"
+      }
+    },
+    "panel_view": {
+      "description": "Choose whether this capsule opens all accounts or the clicked provider's details.",
+      "label": "Open panel in",
+      "option": {
+        "overview": "All accounts",
+        "provider": "Provider in capsule"
       }
     },
     "provider_limit": {
@@ -122,6 +134,7 @@
     }
   },
   "ui": {
+    "more_statuses": "{count} more status alerts",
     "back_to_usage": "Back to usage",
     "close": "Close",
     "copy_summary": "Copy usage summary",
@@ -133,7 +146,7 @@
     "diagnostics_antigravity_auth": "Run agy -p /quota first. If quota works, check local-server integration; otherwise check your Antigravity login.",
     "diagnostics_local_app": "If Antigravity is closed, open it so its local server can run, then refresh usage. No API key is required.",
     "diagnostics_login": "Check this account's credentials and access with the provider, then refresh usage.",
-    "diagnostics_no_problems": "No problems found in the available reports. Credential presence does not confirm a working connection.",
+    "diagnostics_no_problems": "No problems found in the available reports.",
     "diagnostics_no_usage": "Current usage is unavailable.",
     "diagnostics_old_usage": "The displayed usage is an old reading.",
     "diagnostics_recheck": "Refresh usage to check whether this earlier problem persists.",

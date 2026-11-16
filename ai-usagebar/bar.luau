@@ -279,18 +279,41 @@ local function readingGlyph(name, color)
     return ui.glyph({ name = name, size = 16, width = 18, height = 18, color = color })
 end
 
+local function hideExhaustedValue(metric, isVert)
+    return noctalia.getConfig("show_exhausted_value") ~= true
+        and (extras == "countdown" or extras == "both")
+        and type(metric) == "table" and (tonumber(metric.percent) or 0) >= 100
+        and fixedCountdown(metric) ~= ""
+end
+
 local function withCountdown(value, metric, isVert)
-    if isVert or (extras ~= "countdown" and extras ~= "both") then return value end
+    if extras ~= "countdown" and extras ~= "both" then return value end
     local pct = type(metric) == "table" and tonumber(metric.percent) or 0
     if not isCritical(metric) and pct < 90 then return value end
     local left = fixedCountdown(metric)
     if left == "" then return value end
+    local color = pct >= 100 and "error" or "on_surface/0.8"
     local countdown = ui.row({ gap = 3, align = "center" }, {
-        ui.glyph({ name = "clock", size = 11, color = "on_surface/0.8" }),
-        ui.label({ text = left, fontSize = 11, color = "on_surface/0.8", maxLines = 1 }),
+        ui.glyph({ name = "clock", size = 11, color = color }),
+        ui.label({ text = left, fontSize = 11, color = color, maxLines = 1 }),
     })
     if value == nil then return countdown end
-    return ui.row({ gap = 6, align = "center" }, { value, countdown })
+    return isVert and ui.column({ gap = 2, align = "center" }, { value, countdown })
+        or ui.row({ gap = 6, align = "center" }, { value, countdown })
+end
+
+local function separator(isVert)
+    return isVert
+        and ui.box({ width = 12, height = 1, fill = "on_surface_variant", opacity = 0.3 })
+        or ui.box({ width = 1, height = 14, fill = "on_surface_variant", opacity = 0.3 })
+end
+
+local function openDetail(id, model)
+    noctalia.state.set("selected", id)
+    local detail = noctalia.getConfig("panel_view") == "provider"
+    noctalia.state.set("bar_model", detail and model or nil)
+    noctalia.state.set("bar_detail", detail)
+    noctalia.togglePanel("felipeartur/ai-usagebar:panel")
 end
 
 local function chip(entry, flagged, isVert)
@@ -351,7 +374,7 @@ local function chip(entry, flagged, isVert)
                 if visualization == "gauge" and not isVert and barNode ~= nil then
                     rowChildren[#rowChildren + 1] = barNode
                 end
-                local value = showValue and ui.label({
+                local value = showValue and not hideExhaustedValue(shownMetric, isVert) and ui.label({
                     text = shared.metricText(shownMetric, usageDisplay),
                     color = mTint,
                     maxLines = 1,
@@ -360,23 +383,18 @@ local function chip(entry, flagged, isVert)
                 if reading ~= nil then rowChildren[#rowChildren + 1] = reading end
                 if modelGlyph and glyphAfter then rowChildren[#rowChildren + 1] = modelGlyph end
                 if #parts > 0 and #rowChildren > 0 then
-                    parts[#parts + 1] = isVert
-                        and ui.box({ width = 10, height = 1, fill = "on_surface_variant", opacity = 0.25 })
-                        or ui.label({
-                            text = "·",
-                            color = "on_surface_variant",
-                        })
+                    parts[#parts + 1] = separator(isVert)
                 end
                 if #rowChildren > 0 then
-                    parts[#parts + 1] = isVert
-                        and ui.column({ gap = 2, align = "center" }, rowChildren)
-                        or ui.row({ gap = 4, align = "center" }, rowChildren)
+                    local target = { key = "model-click-" .. tostring(item.model), gap = isVert and 2 or 4,
+                        align = "center", onClick = function() openDetail(entry.id, item.model) end }
+                    parts[#parts + 1] = isVert and ui.column(target, rowChildren) or ui.row(target, rowChildren)
                 end
             end
             pct = isVert
                 and ui.column({ gap = 3, align = "center" }, parts)
                 or ui.row({ gap = 8, align = "center" }, parts)
-        else
+        elseif not hideExhaustedValue(metric, isVert) then
             pct = ui.label({
                 text = text,
                 color = tint,
@@ -391,7 +409,8 @@ local function chip(entry, flagged, isVert)
         if percent ~= nil and visualization == "gauge" and not hasSubmodels then
             vertNodes[#vertNodes + 1] = miniGauge(percent, fill)
         end
-        if pct ~= nil then vertNodes[#vertNodes + 1] = pct end
+        local reading = hasSubmodels and pct or withCountdown(pct, metric, true)
+        if reading ~= nil then vertNodes[#vertNodes + 1] = reading end
         if glyphAfter and glyph ~= nil then vertNodes[#vertNodes + 1] = glyph end
         if entry.stale == true then
             vertNodes[#vertNodes + 1] = ui.glyph({ name = "clock-exclamation", size = 11, color = "secondary" })
@@ -557,13 +576,14 @@ local function render()
 
     local children = {}
     for _, entry in ipairs(picked) do
-        -- A divider separates providers; dots join models within one provider.
-        if #children > 0 then
-            children[#children + 1] = isVert
-                and ui.box({ width = 12, height = 1, fill = "on_surface_variant", opacity = 0.3 })
-                or ui.box({ width = 1, height = 14, fill = "on_surface_variant", opacity = 0.3 })
+        if #children > 0 then children[#children + 1] = separator(isVert) end
+        local content = chip(entry, flagged, isVert)
+        if #modelHeadlines(barEntry(entry)) == 0 then
+            local props = { key = "provider-click-" .. tostring(entry.id),
+                onClick = function() openDetail(entry.id, nil) end }
+            content = isVert and ui.column(props, { content }) or ui.row(props, { content })
         end
-        children[#children + 1] = chip(entry, flagged, isVert)
+        children[#children + 1] = content
     end
 
     if #children == 0 then
@@ -603,8 +623,9 @@ end)
 
 function onClick()
     local picked = shown()
-    -- Highlight this capsule's account while opening the All accounts overview.
     noctalia.state.set("selected", picked[1] ~= nil and picked[1].id or wantedEntryId())
+    noctalia.state.set("bar_model", nil)
+    noctalia.state.set("bar_detail", noctalia.getConfig("panel_view") == "provider" and picked[1] ~= nil)
     noctalia.togglePanel("felipeartur/ai-usagebar:panel")
 end
 
