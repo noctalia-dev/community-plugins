@@ -14,6 +14,7 @@ local isEvaluating = false
 local hoveredRow = nil
 
 local notifyOnCopy = noctalia.getConfig("notify_on_copy")
+local preserveHistory = noctalia.getConfig("preserve_history")
 local historySize = noctalia.getConfig("history_size")
 local heldChord = nil
 local heldElapsedMs = 0
@@ -26,13 +27,26 @@ local ROW_GAP = 8
 local ROW_RADIUS = 8
 local ROW_PADDING = 8
 
-local function pushHistory(expr, result, isErr)
-	table.insert(history, { expr = expr, result = result, isError = isErr })
-	noctalia.writeFile(path, noctalia.json.encode(history))
-	checkHistorySize()
-	scrollRev = scrollRev + 1
+local checkHistorySize -- forward decalration to access the function before initialization (in `writeHistoryToFile`)
+
+-- Reads history saved to file
+local function readHistoryFromFile()
+	if preserveHistory then
+		return noctalia.readFile(path)
+	end
+	return
 end
 
+local function writeHistoryToFile(checkSize)
+	if preserveHistory then
+		noctalia.writeFile(path, noctalia.json.encode(history))
+		if checkSize then
+			checkHistorySize()
+		end
+	end
+end
+
+-- Removes old entries from the history if it gets too large
 function checkHistorySize()
 	local info = noctalia.fileInfo(path)
 	if info then
@@ -45,6 +59,14 @@ function checkHistorySize()
 	end
 end
 
+-- Saves history to history table
+local function pushHistory(expr, result, isErr)
+	table.insert(history, { expr = expr, result = result, isError = isErr })
+	writeHistoryToFile(true)
+	scrollRev = scrollRev + 1
+end
+
+--The history's rows
 local function historyRows()
 	if #history == 0 then
 		return {
@@ -112,6 +134,7 @@ local function historyRows()
 	return rows
 end
 
+-- Header (Title, Trash, Close)
 local function header()
 	return ui.row({ align = "center", justify = "space_between" }, {
 		ui.label({ text = noctalia.tr("panel.title"), fontSize = 16, fontWeight = "bold", flexGrow = 1 }),
@@ -133,6 +156,7 @@ local function header()
 	})
 end
 
+-- Calculation Inputs Bar
 local function inputBar()
 	local children = {}
 
@@ -178,11 +202,17 @@ local function render()
 	}))
 end
 
+-- Data to be used by `qalc`
 local function scratchPath()
 	return noctalia.pluginDataDir() .. "/session.qalc"
 end
 
+-- `qalc` evalutes the expression
 local function evaluate(expr)
+	if #history > 0 then
+		expr = string.gsub(expr, "ans", history[#history].result)
+	end
+
 	table.insert(sessionExprs, expr)
 	local body = table.concat(sessionExprs, "\n")
 
@@ -233,11 +263,13 @@ local function evaluate(expr)
 	end)
 end
 
+-- Save the input to temporary memory
 function onInputChange(value)
 	currentInput = value
 	historyIndex = nil
 end
 
+-- When evaluation is triggered
 function onEvaluate()
 	if isEvaluating then return end
 
@@ -260,16 +292,17 @@ function onEvaluate()
 	evaluate(expr)
 end
 
+-- When clear is triggered
 function onClear()
 	history = {}
 	sessionExprs = {}
 	lastLineCount = 0
 	scrollRev = scrollRev + 1
-	noctalia.writeFile(path, noctalia.json.encode(history))
+	writeHistoryToFile()
 	render()
 end
 
-
+-- Move through history using arrow keys
 local function stepHistory(chord)
 	if #history == 0 or isEvaluating then return end
 
@@ -297,6 +330,7 @@ local function stepHistory(chord)
 	end
 end
 
+-- Record key presses
 function onKey(chord, pressed)
 	if chord ~= "up" and chord ~= "down" then return end
 
@@ -326,11 +360,13 @@ function onRowHover(state, key)
 	render()
 end
 
+-- A row's context menu
 function onRowMenuClick(index)
 	panel.openContextMenu({
 		items = {
 			{ id = "rerun", label = noctalia.tr("panel.rerun") },
 			{ id = "copyExpr", label = noctalia.tr("panel.copy_expr") },
+			{ id = "copyResult", label = noctalia.tr("panel.copy_result") },
 			{ kind = "separator" },
 			{ id = "delete", label = noctalia.tr("panel.delete") },
 		},
@@ -339,6 +375,7 @@ function onRowMenuClick(index)
 	})
 end
 
+-- Functions of the row's context menu
 function onRowMenuAction(actionId, index)
 	local h = history[index]
 	if not h then return end
@@ -346,12 +383,18 @@ function onRowMenuAction(actionId, index)
 	if actionId == "rerun" then
 		evaluate(h.expr)
 	elseif actionId == "copyExpr" then
-    noctalia.copyToClipboard(h.expr, "text/plain")
-    if notifyOnCopy then
-		noctalia.notify(noctalia.tr("panel.title"), noctalia.tr("panel.copied", { value = h.expr }))
-    end
+		noctalia.copyToClipboard(h.expr, "text/plain")
+		if notifyOnCopy then
+			noctalia.notify(noctalia.tr("panel.title"), noctalia.tr("panel.copied", { value = h.expr }))
+		end
+	elseif actionId == "copyResult" then
+		noctalia.copyToClipboard(h.result, "text/plain")
+		if notifyOnCopy then
+			noctalia.notify(noctalia.tr("panel.title"), noctalia.tr("panel.copied", { value = h.result }))
+		end
 	elseif actionId == "delete" then
 		table.remove(history, index)
+		writeHistoryToFile()
 		render()
 	end
 end
@@ -360,10 +403,13 @@ function onCloseClicked()
 	panel.close()
 end
 
+-- Retype the previous input on opening the widget and fetch history
 function onOpen(context)
 	heldChord = nil
 	inputGen = inputGen + 1
-	local raw = noctalia.readFile(path)
-	if raw then history = noctalia.json.decode(raw) end
+	if preserveHistory then
+		local raw = readHistoryFromFile()
+		if raw then history = noctalia.json.decode(raw) end
+	end
 	render()
 end
