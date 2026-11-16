@@ -5277,8 +5277,8 @@ tags = ["ai", "development", "bar", "desktop", "panel", "launcher", "service", "
 [[plugin]]
 id = "dmopp/opnsense-traffic"
 name = "OPNsense Traffic"
-version = "1.0.1"
-updated_at = 1794189524
+version = "1.1.0"
+updated_at = 1794869428
 added_at = 1793112472
 author = "dMopp"
 license = "MIT"
