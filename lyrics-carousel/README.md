@@ -90,11 +90,21 @@ by then, the lookup is retried a minute later. The result is cached in
 | `space` | Pause / resume |
 | `d` | Reverse the scroll direction |
 | `k` | Toggle the karaoke effect |
+| `h` | Show / hide the header |
+| `m` | Show / hide the active-line marker |
+| `g` | Soft transition between lines on / off |
+| `f` | Show / hide the footer (time and progress bar) |
+| `t` | Keyboard hints on / off |
+| `c` | Cycle the accent colour |
+| `+` / `=` | Grow the lyrics one pixel |
+| `-` / `_` | Shrink the lyrics one pixel |
 | `r` | Look the lyrics up again |
 
-`d` and `k` write their value to `settings.toml`, so the change survives a restart
-and shows up in the settings page. Writing that file makes Noctalia reload the
-configuration, so a panel that happened to be open at that moment is closed.
+The hints row at the bottom shows every shortcut that fits in the window (the
+longest list first, then shorter ones). `d`, `k`, `h`, `m`, `g`, `f`, `t`, `c`
+and the font size write their value to `settings.toml`, so the change survives a
+restart and shows up in the settings page. Writing that file makes Noctalia reload
+the configuration, so a panel that happened to be open at that moment is closed.
 
 ## Settings
 
@@ -191,6 +201,16 @@ poured into `settings.toml` when the panel is closed and is visible in the setti
 page afterwards.
 
 ## Changelog
+
+### 2.8.0
+
+- **Every shortcut has a key**: `h` (header), `m` (marker), `g` (ghost), `f`
+  (footer), `t` (hints), `c` (accent colour) and `+`/`-` (font size) join the
+  keys that already worked. They change the window live and store the value in
+  `settings.toml`, so the panel shows what the window did.
+- **The hints row lists them all**: the 13 implemented keys fit in the first
+  candidate and the row falls back to progressively shorter lists when the
+  window is narrow. The README table matches the real key map.
 
 ### 2.7.1
 

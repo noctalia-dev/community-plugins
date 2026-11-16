@@ -3027,6 +3027,203 @@ def check_shortcut_is_not_reverted():
             )
 
 
+def check_settings_shortcuts():
+    """The switches, the accent and the size have a key of their own.
+
+    Each shortcut has to change the configuration in memory at once (the
+    renderer reads it every frame) and store it through _save_override: a
+    value that only lives in the process is lost on restart and the panel
+    never shows it.
+    """
+    with tempfile.TemporaryDirectory(prefix="lyrics-carousel-cache-") as cache:
+        with temporary_env({"XDG_CACHE_HOME": cache}):
+            mod = script_module()
+            app = _config_app(mod)
+            saved = []
+
+            def save(key, value, kind="string", persist=True):
+                saved.append((key, value, kind))
+
+            app._save_override = save
+            invalidated = []
+            app.image = types.SimpleNamespace(
+                invalidate_fonts=lambda: invalidated.append(True)
+            )
+
+            # -- the five switches that were missing
+            toggles = (
+                ("h", "header", False), ("H", "header", False),
+                ("m", "marker", False), ("M", "marker", False),
+                ("g", "ghost", True), ("G", "ghost", True),
+                ("f", "footer", False), ("F", "footer", False),
+                ("t", "hints", False), ("T", "hints", False),
+            )
+            wrong = []
+            for key, setting, default in toggles:
+                app.cfg[setting] = default
+                expected = not default
+                saved.clear()
+                outcome = app.handle_key(key)
+                if (
+                    outcome is not True
+                    or app.cfg.get(setting) is not expected
+                    or saved != [(setting, expected, "bool")]
+                ):
+                    wrong.append((key, outcome, app.cfg.get(setting), saved[:]))
+            check(
+                "h/m/g/f/t toggle their setting and store it",
+                not wrong,
+                repr(wrong[:3]),
+            )
+
+            # The karaoke is also a live attribute the renderer reads: the
+            # shortcut has to move both, not only the stored setting.
+            saved.clear()
+            app.cfg["karaoke"] = True
+            app.karaoke = True
+            outcome = app.handle_key("k")
+            check(
+                "the 'k' shortcut keeps the live karaoke value in sync",
+                outcome is True
+                and app.cfg.get("karaoke") is False
+                and app.karaoke is False
+                and saved == [("karaoke", False, "bool")],
+                "cfg=%s karaoke=%s saved=%s"
+                % (app.cfg.get("karaoke"), app.karaoke, saved[:2]),
+            )
+
+            # -- the accent cycles through the theme colours
+            app.cfg["accent"] = "primary"
+            saved.clear()
+            seen = []
+            for _ in range(8):
+                app.handle_key("c")
+                seen.append(app.cfg.get("accent"))
+            check(
+                "the 'c' shortcut cycles every accent and starts over",
+                seen == [
+                    "green", "yellow", "blue", "magenta", "cyan", "red",
+                    "primary", "green",
+                ]
+                and all(kind == "string" for _, _, kind in saved),
+                repr(seen),
+            )
+            saved.clear()
+            app.cfg["accent"] = "custom"
+            app.handle_key("C")
+            check(
+                "the accent cycle starts over from a custom colour",
+                app.cfg.get("accent") == "primary",
+                repr(app.cfg.get("accent")),
+            )
+
+            # -- the font size, with its limits and the font cache
+            saved.clear()
+            invalidated.clear()
+            app.cfg["font_size"] = 22
+            app.handle_key("+")
+            grown = (app.cfg.get("font_size"), saved[:])
+            app.handle_key("=")
+            equals = app.cfg.get("font_size")
+            app.handle_key("-")
+            app.handle_key("_")
+            check(
+                "the +/- shortcuts resize and invalidate the font cache",
+                grown == (23, [("font_size", 23, "int")])
+                and equals == 24
+                and app.cfg.get("font_size") == 22
+                and len(invalidated) == 4,
+                "grown=%s equals=%s final=%s fonts=%d"
+                % (grown, equals, app.cfg.get("font_size"), len(invalidated)),
+            )
+            app.cfg["font_size"] = 96
+            app.handle_key("+")
+            top = app.cfg.get("font_size")
+            app.cfg["font_size"] = 6
+            app.handle_key("-")
+            check(
+                "the font size shortcut stays within 6..96",
+                top == 96 and app.cfg.get("font_size") == 6,
+                "top=%s bottom=%s" % (top, app.cfg.get("font_size")),
+            )
+            app.cfg["font_size"] = "not a number"
+            app.handle_key("+")
+            check(
+                "a broken font size falls back to the default",
+                app.cfg.get("font_size") == mod.DEFAULTS["font_size"] + 1,
+                repr(app.cfg.get("font_size")),
+            )
+
+            # -- the README table has to match the real key map
+            try:
+                with open(os.path.join(PLUGIN_DIR, "README.md"), encoding="utf-8") as handle:
+                    readme = handle.read()
+            except OSError as error:  # noqa: BLE001
+                readme = ""
+                check("the README can be read for the shortcuts", False, repr(error)[:120])
+            rows = {
+                "q": "| `q` |",
+                "space": "| `space` |",
+                "d": "| `d` |",
+                "k": "| `k` |",
+                "h": "| `h` |",
+                "m": "| `m` |",
+                "g": "| `g` |",
+                "f": "| `f` |",
+                "t": "| `t` |",
+                "c": "| `c` |",
+                "+": "| `+` / `=` |",
+                "-": "| `-` / `_` |",
+                "r": "| `r` |",
+            }
+            missing = [key for key, row in rows.items() if row not in readme]
+            check(
+                "the README table lists the 13 shortcuts",
+                not missing,
+                "missing=%s" % (missing,),
+            )
+
+
+def check_hints_list_every_shortcut():
+    """The hints row includes every key handled by the window."""
+    with tempfile.TemporaryDirectory(prefix="lyrics-carousel-cache-") as cache:
+        with temporary_env({"XDG_CACHE_HOME": cache}):
+            mod = script_module()
+            expected_by_language = {
+                "en": ("q", "space", "d", "k", "h", "m", "g", "f", "t", "c", "+", "-", "r"),
+                "es": ("q", "espacio", "d", "k", "h", "m", "g", "f", "t", "c", "+", "-", "r"),
+            }
+            for language in ("en", "es"):
+                hints = mod.TEXTS[language]["hints"]
+                full = hints[0] if hints else ""
+                missing = [
+                    key for key in expected_by_language[language]
+                    if f"[{key}]" not in full
+                ]
+                check(
+                    f"the {language} hints list every shortcut",
+                    not missing,
+                    "missing=%s hints=%r" % (missing, full),
+                )
+                check(
+                    f"the {language} hints label h as the header",
+                    "header" in full.lower() or "cabecera" in full.lower(),
+                    full,
+                )
+                # Progressive fallbacks: the renderer picks the first line
+                # that fits, so a narrower window drops shortcuts instead of
+                # overflowing the row.
+                check(
+                    f"the {language} hints get shorter when they do not fit",
+                    len(hints) >= 3
+                    and all(
+                        len(hints[index]) > len(hints[index + 1])
+                        for index in range(len(hints) - 1)
+                    ),
+                    repr(hints),
+                )
+
+
 def check_panel_covers_the_manifest():
     """Every setting of the manifest can be changed from the panel.
 
@@ -3910,6 +4107,8 @@ def main(argv):
     check_cache_json_is_not_an_object()
     check_pause_key_survives_playerctl_failure()
     check_shortcut_is_not_reverted()
+    check_settings_shortcuts()
+    check_hints_list_every_shortcut()
     check_panel_covers_the_manifest()
     check_centered_hints()
     check_translate_lyrics_false_default()

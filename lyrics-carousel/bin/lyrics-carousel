@@ -119,8 +119,10 @@ TEXTS = {
         "no_graphics": "the terminal does not support the graphics protocol",
         "unknown_reason": "unknown reason",
         "hints": [
+            "[q] quit  [space] pause  [d] direction  [k] karaoke  "
+            "[h] header  [m] marker  [g] ghost  [f] footer  [t] hints  "
+            "[c] accent  [+]/[-] size  [r] reload",
             "[q] quit  [space] pause  [d] direction  [k] karaoke  [r] reload",
-            "[q] quit  [space] pause  [d] dir  [r] reload",
             "[q] quit  [space] pause  [r] reload",
             "[q] quit  [space] pause",
             "[q] quit",
@@ -144,8 +146,10 @@ TEXTS = {
         "no_graphics": "el terminal no admite el protocolo de gráficos",
         "unknown_reason": "motivo desconocido",
         "hints": [
+            "[q] salir  [espacio] pausa  [d] dirección  [k] karaoke  "
+            "[h] cabecera  [m] marca  [g] transición  [f] pie  [t] atajos  "
+            "[c] acento  [+]/[-] tamaño  [r] recargar",
             "[q] salir  [espacio] pausa  [d] dirección  [k] karaoke  [r] recargar",
-            "[q] salir  [espacio] pausa  [d] dir  [r] recargar",
             "[q] salir  [espacio] pausa  [r] recargar",
             "[q] salir  [espacio] pausa",
             "[q] salir",
@@ -2538,6 +2542,55 @@ class LyricsCarousel:
             self.reload_lyrics(force=True)
         return True
 
+    def _toggle_bool_setting(self, key: str) -> bool:
+        """Flips a switch and leaves it stored.
+
+        The value is written to the overrides layer and to settings.toml, so
+        the change survives a restart and the panel shows what the window
+        did. `karaoke` also has a live attribute read by the renderer, which
+        is kept in sync here.
+        """
+        value = not bool(self.cfg.get(key))
+        self.cfg[key] = value
+        if key == "karaoke":
+            self.karaoke = value
+        self._save_override(key, value, "bool")
+        return True
+
+    def _cycle_accent(self) -> bool:
+        """Steps to the next accent colour of the theme.
+
+        `custom` is skipped: it is the colour the user picked in the panel,
+        and pressing a key should not replace it with a hard-coded one.
+        """
+        accents = ["primary", "green", "yellow", "blue", "magenta", "cyan", "red"]
+        current = str(self.cfg.get("accent") or "primary")
+        try:
+            index = accents.index(current)
+        except ValueError:
+            index = -1
+        self.cfg["accent"] = accents[(index + 1) % len(accents)]
+        self._save_override("accent", self.cfg["accent"], "string")
+        return True
+
+    def _adjust_font_size(self, delta: int) -> bool:
+        """Grows or shrinks the lyrics, within the range of the panel.
+
+        The font cache has to be invalidated: it keeps the loaded sizes and
+        the renderer would keep drawing at the previous one.
+        """
+        try:
+            size = int(self.cfg.get("font_size", DEFAULTS["font_size"]))
+        except (TypeError, ValueError):
+            size = int(DEFAULTS["font_size"])
+        size = max(6, min(96, size + delta))
+        self.cfg["font_size"] = size
+        self._save_override("font_size", size, "int")
+        image = getattr(self, "image", None)
+        if image is not None and hasattr(image, "invalidate_fonts"):
+            image.invalidate_fonts()
+        return True
+
     def handle_key(self, key: str) -> bool:
         if key in ("q", "Q", "\x03"):
             return False
@@ -2564,10 +2617,23 @@ class LyricsCarousel:
             self._save_override("direction", self.cfg["direction"], "string")
             return True
         if key in ("k", "K"):
-            self.karaoke = not self.karaoke
-            self.cfg["karaoke"] = self.karaoke
-            self._save_override("karaoke", self.karaoke, "bool")
-            return True
+            return self._toggle_bool_setting("karaoke")
+        if key in ("h", "H"):
+            return self._toggle_bool_setting("header")
+        if key in ("m", "M"):
+            return self._toggle_bool_setting("marker")
+        if key in ("g", "G"):
+            return self._toggle_bool_setting("ghost")
+        if key in ("f", "F"):
+            return self._toggle_bool_setting("footer")
+        if key in ("t", "T"):
+            return self._toggle_bool_setting("hints")
+        if key in ("c", "C"):
+            return self._cycle_accent()
+        if key in ("+", "="):
+            return self._adjust_font_size(1)
+        if key in ("-", "_"):
+            return self._adjust_font_size(-1)
         if key in ("r", "R"):
             if self.demo:
                 # In demo mode there is no lookup on the internet: the
