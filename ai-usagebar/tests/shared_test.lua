@@ -389,3 +389,24 @@ priorityReport.ranking[2].reset_at="2026-10-16T15:59:00Z"
 assert(not shared.priorities(priorityReport)[2].recommended
     and shared.priorities(priorityReport)[2].expired,
     "a passed reset must be confirmed before the account is suggested again")
+
+-- CLI 1.49+ retains usable API-key snapshots after a rejected request.
+local cachedMistral = { id = "mistral", status = "ready", stale = true,
+    fetched_at = "2026-10-16T15:00:00Z", metrics = { { label = "Vibe budget", percent = 35 } },
+    sections = { { type = "text", label = "HTTP 403", value = "authentication rejected" } } }
+assert(#shared.entries({ entries = { cachedMistral } }) == 1,
+    "a dated CLI cache must stay visible after an API-key auth failure")
+assert(not shared.unavailable(cachedMistral), "cached budgets remain usable as old readings")
+local cachedWallet = { id = "deeprelay", status = "ready", stale = true,
+    fetched_at = "2026-10-16T15:00:00Z", metrics = {}, sections = {
+        { type = "text", label = "Balance", value = "$12.50" },
+        { type = "text", label = "HTTP 401", value = "authentication rejected" } } }
+assert(#shared.entries({ entries = { cachedWallet } }) == 1
+    and shared.balanceText(cachedWallet) == "$12.50", "a cached PAYG wallet must keep its balance")
+cachedWallet.status = "error"
+assert(shared.unavailable(cachedWallet), "an outright failure must not revive a cached wallet")
+cachedMistral.fetched_at = nil
+assert(shared.unavailable(cachedMistral), "an undated rejected reading must remain unavailable")
+assert(shared.providerGlyph("mistral") ~= "brain", "Mistral needs a provider glyph")
+assert(shared.providerDashboard("mistral@work") == "https://console.mistral.ai/",
+    "Mistral accounts open the fixed provider dashboard")
