@@ -6099,3 +6099,16 @@ icon = "gauge"
 description = "Performance modes, charge limit, graphics mode, overdrive, fans and lighting for ASUS ROG laptops, via asusd."
 plugin_api = 43
 tags = ["bar", "panel", "service", "shortcut", "hardware", "system"]
+
+[[plugin]]
+id = "faminec/cmf-buds"
+name = "CMF Buds"
+version = "1.1.0"
+updated_at = 1794867299
+added_at = 1794867299
+author = "faminec"
+license = "MIT"
+icon = "headphones"
+description = "Native control for Nothing CMF Buds Pro 2: ANC, EQ, Ultra Bass, case-dial gestures, spatial audio, and more."
+plugin_api = 43
+tags = ["audio", "utility", "bar", "panel", "hardware"]
