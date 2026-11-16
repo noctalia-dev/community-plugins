@@ -899,12 +899,19 @@ local function renderOnlineImagesView(snapshot)
     local rows = {}
     for _, item in ipairs(results) do
       local it = item
+      local badges = {
+        ui.label({ text = it.displayName or it.name, fontWeight = "bold", color = "on_surface", fontSize = 13 }),
+      }
+      if it.official then
+        table.insert(badges, pill(tr("images.official_badge"), "primary/0.2", "primary", "Official build on Docker Hub"))
+      end
+      table.insert(badges, pill(`★ {it.stars}`, "surface_container_highest", "on_surface_variant", tr("images.stars_count", { count = it.stars })))
+      if it.sizeStr and it.sizeStr ~= "" then
+        table.insert(badges, pill(it.sizeStr, "secondary_container", "on_secondary_container", `Approximate download size: {it.sizeStr}`))
+      end
+
       local colChildren = {
-        ui.row({ align = "center", gap = 6 }, {
-          ui.label({ text = it.displayName or it.name, fontWeight = "bold", color = "on_surface", fontSize = 13 }),
-          it.official and pill(tr("images.official_badge"), "primary/0.2", "primary", "Official build on Docker Hub") or ui.box({ width = 0, height = 0 }),
-          pill(`★ {it.stars}`, "surface_container_highest", "on_surface_variant", tr("images.stars_count", { count = it.stars })),
-        }),
+        ui.row({ align = "center", gap = 6 }, badges),
       }
       if it.name ~= (it.displayName or it.name) then
         table.insert(colChildren, ui.label({
@@ -971,6 +978,39 @@ end
 -- ---------------------------------------------------------------------------
 
 local function renderLaunchModal(imageName, snapshot)
+  local foundSize = nil
+  if snapshot.onlineSearchResults then
+    for _, item in ipairs(snapshot.onlineSearchResults) do
+      if item.name == imageName or item.displayName == imageName then
+        if item.sizeStr and item.sizeStr ~= "" then
+          foundSize = item.sizeStr
+          break
+        end
+      end
+    end
+  end
+  if not foundSize and snapshot.images then
+    for _, img in ipairs(snapshot.images) do
+      if img.repo == imageName or img.name == imageName or img.id == imageName then
+        foundSize = img.size
+        break
+      end
+    end
+  end
+
+  local headerTitleRow = {
+    ui.glyph({ name = "player-play", size = 20, color = "primary" }),
+    ui.label({
+      text       = tr("images.launch_modal_title", { image = imageName }),
+      fontWeight = "bold",
+      fontSize   = 14,
+      color      = "on_surface",
+    }),
+  }
+  if foundSize then
+    table.insert(headerTitleRow, pill(foundSize, "secondary_container", "on_secondary_container", "Image size"))
+  end
+
   return ui.column({
     key      = "modal-launch",
     fill     = "surface_container_high",
@@ -979,15 +1019,7 @@ local function renderLaunchModal(imageName, snapshot)
     gap      = 12,
   }, {
     ui.row({ align = "center", justify = "space_between" }, {
-      ui.row({ align = "center", gap = 8 }, {
-        ui.glyph({ name = "player-play", size = 20, color = "primary" }),
-        ui.label({
-          text       = tr("images.launch_modal_title", { image = imageName }),
-          fontWeight = "bold",
-          fontSize   = 14,
-          color      = "on_surface",
-        }),
-      }),
+      ui.row({ align = "center", gap = 8 }, headerTitleRow),
       ui.button({
         glyph       = "close",
         variant     = "ghost",
@@ -1000,7 +1032,9 @@ local function renderLaunchModal(imageName, snapshot)
       }),
     }),
     ui.label({
-      text     = `Configure and run a container from "{imageName}". If not downloaded locally, image layers will stream automatically with live download progress.`,
+      text     = foundSize
+        and `Configure and run a container from "{imageName}" (~{foundSize}). If not downloaded locally, image layers will stream automatically with live download progress.`
+        or `Configure and run a container from "{imageName}". If not downloaded locally, image layers will stream automatically with live download progress.`,
       color    = "on_surface_variant",
       fontSize = 11,
     }),

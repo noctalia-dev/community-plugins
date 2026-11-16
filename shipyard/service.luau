@@ -1832,12 +1832,58 @@ local function onCommandReceived(cmd)
         end
         snapshot.onlineSearchResults = results
         snapshot.onlineSearchError = nil
+        publishSnapshot()
+
+        -- Asynchronously query registry for image download sizes (top 20 results in parallel)
+        if noctalia.commandExists("curl") and #results > 0 then
+          local fetchScripts = {}
+          local countToFetch = math.min(#results, 20)
+          for i = 1, countToFetch do
+            local item = results[i]
+            local rawName = item.name:gsub("^docker%.io/", "")
+            local repo = rawName
+            if not repo:find("/", 1, true) then
+              repo = "library/" .. repo
+            end
+            if repo:match("^[a-zA-Z0-9_./-]+$") then
+              table.insert(fetchScripts, string.format(
+                '(s=$(curl -sSf --max-time 3 "https://hub.docker.com/v2/repositories/%s/tags/latest" 2>/dev/null | grep -o \'"full_size":[0-9]*\' | head -n 1 | cut -d: -f2); [ -n "$s" ] && echo "%d:$s") &',
+                repo, i
+              ))
+            end
+          end
+          if #fetchScripts > 0 then
+            local fetchCmd = table.concat(fetchScripts, "\n") .. "\nwait\n"
+            local thisResultsRef = results
+            noctalia.runAsync(fetchCmd, function(sizeRes)
+              if sizeRes and sizeRes.stdout and snapshot.onlineSearchResults == thisResultsRef then
+                local updated = false
+                for line in string.gmatch(sizeRes.stdout, "[^\r\n]+") do
+                  local idxStr, bytesStr = line:match("^(%d+):(%d+)$")
+                  if idxStr and bytesStr then
+                    local idx = tonumber(idxStr)
+                    local bytes = tonumber(bytesStr)
+                    if idx and bytes and thisResultsRef[idx] then
+                      thisResultsRef[idx].size = bytes
+                      thisResultsRef[idx].sizeStr = formatBytes(bytes)
+                      updated = true
+                    end
+                  end
+                end
+                if updated then
+                  publishSnapshot()
+                end
+              end
+            end, 8000)
+          end
+        end
+        return
       else
         snapshot.onlineSearchResults = {}
         local err = trim(result.stderr or "")
         snapshot.onlineSearchError = (err ~= "") and err or "Search query returned an error"
+        publishSnapshot()
       end
-      publishSnapshot()
     end, 20000)
 
   elseif action == "image_pull" and isValidIdentifier(cmd.image) then
