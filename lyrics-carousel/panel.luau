@@ -855,6 +855,7 @@ render = function()
     toggleRow("ghost", tr("ghost"), "sparkles"),
     toggleRow("footer", tr("footer"), "clock"),
     toggleRow("hints", tr("hints"), "keyboard"),
+    toggleRow("pin", tr("pin"), "pin"),
 
     -- Lyrics --------------------------------------------------------------
     ui.separator({ thickness = 1, spacing = 6 }),

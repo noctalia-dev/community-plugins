@@ -35,11 +35,12 @@ local DEFAULTS = {
   visible_below = 6,
   glyph = "music",
   translate_lyrics = false,
+  pin = false,
 }
 
 local BOOL_KEYS = {
   marker = true, karaoke = true, footer = true,
-  hints = true, header = true, ghost = true,
+  hints = true, header = true, ghost = true, pin = true,
 }
 local INT_KEYS = {
   font_size = true, spacing = true, offset_ms = true,

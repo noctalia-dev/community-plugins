@@ -46,6 +46,11 @@ VERSION = "2.5.0"
 SEARCH_TIMEOUT = 15.0
 # How often a song without lyrics is retried (seconds).
 RETRY_SECONDS = 60
+WINDOW_CLASS = "noctalia-lyrics-carousel"
+# The pin dispatch does not stick while the window is still appearing, so it
+# is retried every PIN_CHECK_STEP seconds for PIN_RETRY_SECONDS.
+PIN_CHECK_STEP = 0.5
+PIN_RETRY_SECONDS = 5.0
 # Grace period, after the first lyrics, for a version with word timings to
 # arrive: the first one is shown right away and improved when it appears.
 WORD_GRACE = 3.0
@@ -1736,9 +1741,10 @@ DEFAULTS = {
     "visible_above": 6,
     "visible_below": 6,
     "translate_lyrics": False,
+    "pin": False,
 }
 
-BOOL_KEYS = ("marker", "karaoke", "footer", "hints", "header", "ghost")
+BOOL_KEYS = ("marker", "karaoke", "footer", "hints", "header", "ghost", "pin")
 INT_KEYS = (
     "font_size", "spacing", "offset_ms", "width", "height",
     "custom_x", "custom_y", "visible_above", "visible_below",
@@ -1847,13 +1853,16 @@ def normalize_anchor(value) -> str:
     return ANCHOR_ALIASES.get(key, "center")
 
 
-def window_size_px():
-    """Size in pixels of the carousel window, according to Hyprland.
+def window_info():
+    """Size and pin state of the carousel window, according to Hyprland.
 
     The width/height setting is the size of the window in pixels (what the
     panel uses to create it), not the number of cells nor the kitty drawing
     area. Asking Hyprland avoids mixing the three measures: the script
     used to store the terminal cells and the window came out tiny.
+
+    Returns `(width, height, pinned)` or None when the window does not
+    exist (it is still being created, or it was already closed).
     """
     try:
         result = subprocess.run(
@@ -1867,13 +1876,13 @@ def window_size_px():
     for client in clients:
         if not isinstance(client, dict):
             continue
-        if client.get("class") != "noctalia-lyrics-carousel":
+        if client.get("class") != WINDOW_CLASS:
             continue
         size = client.get("size") or []
         if len(size) < 2:
             return None
         try:
-            return int(size[0]), int(size[1])
+            return int(size[0]), int(size[1]), bool(client.get("pinned"))
         except (TypeError, ValueError):
             return None
     return None
@@ -2005,6 +2014,67 @@ class LyricsCarousel:
             self.width = width
             self.height = height
 
+    def _sync_pin(self, now):
+        """Applies the `pin` setting (a desired state, not an action).
+
+        `hl.dsp.window.pin` accepts an explicit action in Hyprland 0.57, so
+        the desired state is dispatched instead of toggling: a blind toggle
+        would flip the window on every check. A dispatch that does not
+        stick (the window is still appearing, it is not floating yet) is
+        retried for a few seconds; after that only a change of the setting
+        (or of the window state) triggers another one. Failures are silent
+        on purpose: the window must not draw an error because of this.
+        """
+        if now - getattr(self, "_last_pin_check", 0.0) < PIN_CHECK_STEP:
+            return
+        desired = bool(self.cfg.get("pin", False))
+        if desired != getattr(self, "_pin_setting", None):
+            # The user changed the toggle: apply it now, without waiting for
+            # the next steady-state check.
+            self._pin_setting = desired
+            self._pin_attempts = 0
+            self._pin_giveup = False
+            self._pin_verified_at = 0.0
+        if getattr(self, "_pin_giveup", False):
+            return
+        # In the steady state (nothing pending) Hyprland is asked every two
+        # seconds, not twice a second: it is only to notice a manual unpin.
+        settled = getattr(self, "_pin_attempts", 0) == 0
+        if settled and now - getattr(self, "_pin_verified_at", 0.0) < PIN_CHECK_STEP * 4:
+            return
+        self._last_pin_check = now
+        info = window_info()
+        if info is None:
+            return
+        if info[2] == desired:
+            self._pin_attempts = 0
+            self._pin_verified_at = now
+            return
+        attempts = getattr(self, "_pin_attempts", 0)
+        if attempts * PIN_CHECK_STEP >= PIN_RETRY_SECONDS:
+            self._pin_giveup = True
+            return
+        self._pin_attempts = attempts + 1
+        self._dispatch_pin(desired)
+
+    def _dispatch_pin(self, pinned):
+        """Sends the pin action to Hyprland, ignoring any failure."""
+        action = "on" if pinned else "off"
+        expression = (
+            'hl.dsp.window.pin({action="%s", window="class:^%s$"})'
+            % (action, WINDOW_CLASS)
+        )
+        try:
+            subprocess.run(
+                ["hyprctl", "dispatch", expression],
+                capture_output=True,
+                text=True,
+                timeout=3,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError):
+            pass
+
     def check_manual_resize(self):
         """Stores the size if the user resized the window by hand.
 
@@ -2019,10 +2089,10 @@ class LyricsCarousel:
         if now - getattr(self, "_last_size_check", 0.0) < 2.0:
             return
         self._last_size_check = now
-        size = window_size_px()
-        if size is None:
+        info = window_info()
+        if info is None:
             return
-        width, height = size
+        width, height = info[0], info[1]
         # Only what the panel and the script accept is stored: a tiny
         # window (for example half dragged) is not valid.
         if not (400 <= width <= 3840 and 200 <= height <= 2160):
@@ -2227,6 +2297,7 @@ class LyricsCarousel:
         if time.monotonic() - self.last_cfg > 0.5:
             self.last_cfg = time.monotonic()
             self._reload_config()
+            self._sync_pin(self.last_cfg)
 
         if self.demo:
             position, duration = self._demo_position()

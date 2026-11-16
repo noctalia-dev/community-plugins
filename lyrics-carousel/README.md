@@ -125,6 +125,7 @@ it belongs to the bar widget, not to the lyrics window.
 | `karaoke` | `bool` | `true` | Lights the active line as it is sung, letter by letter. |
 | `footer` | `bool` | `false` | Elapsed time and a progress bar. |
 | `hints` | `bool` | `false` | Keyboard hints at the bottom. |
+| `pin` | `bool` | `false` | Keeps the window always on top (Hyprland). |
 | `header` | `bool` | `false` | Title, artist and status tags. |
 | `spacing` | `int` | `2` | Space between the lines. |
 | `ghost` | `bool` | `true` | Smooth ~0.9 s slide between lines. Off: the change is instant. |
@@ -191,6 +192,13 @@ poured into `settings.toml` when the panel is closed and is visible in the setti
 page afterwards.
 
 ## Changelog
+
+### 2.8.0
+
+- **Always on top**: the new `pin` toggle keeps the lyrics window above the
+  other windows. The script reads the real state from Hyprland and only
+  dispatches `on`/`off` when it differs, retrying briefly while the window is
+  still appearing, so the window never flips on its own.
 
 ### 2.7.1
 

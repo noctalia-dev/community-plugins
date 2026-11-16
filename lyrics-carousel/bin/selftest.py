@@ -2811,19 +2811,110 @@ def check_window_size_via_hyprctl():
         )
         check(
             "the window size is read from Hyprland",
-            mod.window_size_px() == (1300, 900),
-            str(mod.window_size_px()),
+            mod.window_info() == (1300, 900, False),
+            str(mod.window_info()),
         )
         mod.subprocess.run = lambda args, **kwargs: types.SimpleNamespace(
             returncode=0, stdout="[]", stderr=""
         )
         check(
             "without the carousel window there is no size",
-            mod.window_size_px() is None,
-            str(mod.window_size_px()),
+            mod.window_info() is None,
+            str(mod.window_info()),
         )
     finally:
         mod.subprocess.run = original
+
+
+def check_pin_follows_the_setting():
+    """`pin` is the desired state: it is dispatched, not toggled blind.
+
+    The window may not exist yet when the settings are read, so a failed
+    attempt is retried for a few seconds; once it sticks, only a setting
+    change (or a manual unpin) triggers a new dispatch.
+    """
+    mod = script_module()
+    calls = []
+
+    class Result:
+        returncode = 0
+        stdout = ""
+        stderr = ""
+
+    original_run = mod.subprocess.run
+    original_info = mod.window_info
+    try:
+        mod.subprocess.run = lambda args, **kwargs: calls.append(list(args)) or Result()
+        app = object.__new__(mod.LyricsCarousel)
+        app.demo = False
+        app.cfg = {"pin": True}
+        app.log = lambda message: None
+        app._last_pin_check = 0.0
+
+        mod.window_info = lambda: None
+        app._sync_pin(10.0)
+        check("without a window nothing is dispatched", not calls, str(calls))
+
+        mod.window_info = lambda: (1200, 880, True)
+        app._sync_pin(10.5)
+        check("an already pinned window is not touched again", not calls, str(calls))
+
+        mod.window_info = lambda: (1200, 880, False)
+        app._sync_pin(12.6)
+        check(
+            "the pin is applied when the window is not pinned",
+            len(calls) == 1,
+            str(calls),
+        )
+        expression = calls[0][-1] if calls else ""
+        check(
+            "the pin uses an explicit action and the window class",
+            'action="on"' in expression and "noctalia-lyrics-carousel" in expression,
+            expression,
+        )
+        check(
+            "the pin is dispatched with hyprctl",
+            bool(calls) and calls[0][:2] == ["hyprctl", "dispatch"],
+            str(calls[:1]),
+        )
+
+        app._last_pin_check = 0.0
+        app._sync_pin(13.2)
+        check("a pin that does not stick is retried", len(calls) == 2, str(calls))
+
+        calls.clear()
+        app._pin_attempts = 0
+        for step in range(20):
+            app._last_pin_check = 0.0
+            app._sync_pin(100.0 + step)
+        check(
+            "the pin retries stop after a few seconds",
+            0 < len(calls) <= 10,
+            "%d dispatches" % len(calls),
+        )
+
+        calls.clear()
+        mod.window_info = lambda: (1200, 880, True)
+        app._last_pin_check = 0.0
+        app._pin_giveup = False
+        app._pin_attempts = 0
+        app._pin_verified_at = 0.0
+        app._sync_pin(200.0)
+        check("a pinned window stops the retries", not calls, str(calls))
+
+        calls.clear()
+        app.cfg = {"pin": False}
+        mod.window_info = lambda: (1200, 880, True)
+        app._last_pin_check = 0.0
+        app._sync_pin(201.0)
+        check(
+            "turning the setting off unpins a pinned window",
+            len(calls) == 1 and 'action="off"' in calls[0][-1],
+            str(calls),
+        )
+    finally:
+        mod.subprocess.run = original_run
+        mod.window_info = original_info
 
 
 def check_redimensionado_manual_se_guarda():
@@ -2848,9 +2939,9 @@ def check_redimensionado_manual_se_guarda():
                     (key, value, kind, persist)
                 )
             )
-            original = mod.window_size_px
+            original = mod.window_info
             try:
-                mod.window_size_px = lambda: (1300, 900)
+                mod.window_info = lambda: (1300, 900, False)
                 app.check_manual_resize()
                 check(
                     "the resized width is saved",
@@ -2882,7 +2973,7 @@ def check_redimensionado_manual_se_guarda():
 
                 # A tiny window (for example halfway through a drag) is no good.
                 saved_values.clear()
-                mod.window_size_px = lambda: (55, 15)
+                mod.window_info = lambda: (55, 15, False)
                 app._last_size_check = 0.0
                 app.check_manual_resize()
                 check(
@@ -2891,7 +2982,7 @@ def check_redimensionado_manual_se_guarda():
                     str(saved_values),
                 )
             finally:
-                mod.window_size_px = original
+                mod.window_info = original
 
 
 def check_lrc_hours():
@@ -3903,6 +3994,7 @@ def main(argv):
     check_estimated_times_stay_inside_the_song()
     check_geometry_is_clipped_to_the_screen()
     check_window_size_via_hyprctl()
+    check_pin_follows_the_setting()
     check_redimensionado_manual_se_guarda()
     check_text_between_angle_brackets()
     check_enhanced_lrc_to_characters()

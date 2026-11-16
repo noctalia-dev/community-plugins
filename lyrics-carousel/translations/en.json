@@ -35,6 +35,7 @@
   "header": "Header (title / artist)",
   "height": "Height",
   "hints": "Keyboard hints",
+  "pin": "Always on top",
   "karaoke": "Karaoke glow",
   "launch": "Open the carousel",
   "launch_failed": "Could not open the terminal.",
@@ -117,6 +118,10 @@
     "hints": {
       "description": "Show the keyboard shortcuts at the bottom.",
       "label": "Keyboard hints"
+    },
+    "pin": {
+      "description": "Keep the window above the other windows.",
+      "label": "Always on top"
     },
     "karaoke": {
       "description": "Light up the active line character by character as the song plays.",
