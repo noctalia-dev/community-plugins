@@ -2,9 +2,9 @@
 -- Media Downloader service: owns the queue and runs yt-dlp, one download at a time.
 --
 -- yt-dlp runs detached, so a download outlives the 60 s limit of runAsync callbacks and
--- survives a reload of this script. RUNNER writes yt-dlp's output, its process id and its
--- exit code next to the queue in the data directory; update() reads them back. The job keeps
--- the process's boot and start time, read from /proc, so a stop never reaches another
+-- survives a reload of this script. RUNNER writes yt-dlp's output, its process and its exit
+-- code next to the queue in the data directory; update() reads them back. The process is
+-- its id, the boot and its start time, written as it starts, so a stop never reaches another
 -- process that got the same id.
 --
 -- Publishes "media-downloader.model" and takes commands on "media-downloader.command".
@@ -19,14 +19,18 @@ local INSTALLERS = {
 }
 
 -- $1 is the path prefix of the job's files, the rest is the yt-dlp command. It writes the
--- process id, then the exit code. This is the one shell a download needs: it outlives a
--- reload of the service and is still there to write the exit code.
+-- process id, this boot's id and the process's /proc stat line, then the exit code. This is
+-- the one shell a download needs: it outlives a reload of the service and is still there to
+-- write the exit code.
 local RUNNER = [[
 prefix=$1
 shift
 "$@" >"$prefix.log" 2>&1 &
-echo $! >"$prefix.pid"
-wait $!
+pid=$!
+read -r boot </proc/sys/kernel/random/boot_id
+read -r stat <"/proc/$pid/stat"
+printf '%s\n%s\n%s\n' "$pid" "$boot" "$stat" >"$prefix.pid"
+wait "$pid"
 echo $? >"$prefix.exit"
 ]]
 
@@ -246,31 +250,31 @@ local function bootId()
   return noctalia.string.trim(noctalia.readFile("/proc/sys/kernel/random/boot_id") or "")
 end
 
--- When process <pid> started, in clock ticks since boot, or nil when it does not run. The
--- name in /proc/<pid>/stat sits in parentheses and may hold spaces, so the fields are
--- counted from its last ")"; the start time is the 20th after it.
-local function startTime(pid)
-  local stat = noctalia.readFile(`/proc/{pid}/stat`)
+-- When a process started, in clock ticks since boot, from its /proc/<pid>/stat line. The
+-- name sits in parentheses and may hold spaces, so the fields are counted from its last ")";
+-- the start time is the 20th after it.
+local function startOf(stat)
   local rest = stat and stat:match(".*%) (.*)$")
   return rest and string.split(rest, " ")[20] or nil
 end
 
--- The job's process, the first time its pid file is seen: its id, this boot, and its start.
+-- The job's process as RUNNER wrote it when it started: its id, the boot and its start. It
+-- is never read from /proc afterwards, where the id may by then belong to another process.
 local function learnProcess(job)
   if job.pid then
     return
   end
-  local pid = tonumber(noctalia.string.trim(noctalia.readFile(jobPrefix(job) .. ".pid") or ""))
-  local start = pid and startTime(pid)
+  local pid, boot, stat = (noctalia.readFile(jobPrefix(job) .. ".pid") or ""):match("^(%d+)\n(%S+)\n([^\n]+)\n")
+  local start = startOf(stat)
   if start then
-    job.pid, job.boot, job.start = pid, bootId(), start
+    job.pid, job.boot, job.start = tonumber(pid), boot, start
     save()
   end
 end
 
 -- Whether the job's process still runs: the same boot and the same start time.
 local function stillRuns(job)
-  return job.pid ~= nil and job.boot == bootId() and startTime(job.pid) == job.start
+  return job.pid ~= nil and job.boot == bootId() and startOf((noctalia.readFile(`/proc/{job.pid}/stat`))) == job.start
 end
 
 local function stop(job)
@@ -409,7 +413,8 @@ end)
 
 -- A download that was running when Noctalia stopped either finished meanwhile (its exit
 -- file exists, and poll() picks it up), still runs, or died with Noctalia or a reboot. It
--- counts as running only while its process is the one that was started.
+-- counts as running only while its process is the one that was started; without the
+-- identity RUNNER wrote, it counts as failed.
 local function recover()
   local job = runningJob()
   if job == nil or noctalia.fileExists(jobPrefix(job) .. ".exit") then
