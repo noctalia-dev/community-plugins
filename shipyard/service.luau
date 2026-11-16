@@ -1963,14 +1963,15 @@ local function onCommandReceived(cmd)
     end
 
     local ports = trim(cmd.ports or "")
-    if ports ~= "" then
+    local publishAll = cmd.publishAll == true or ports:upper() == "-P"
+    if ports ~= "" and ports:upper() ~= "-P" then
       for p in string.gmatch(ports, "[^,;%s]+") do
         if isValidPortMapping(p) then
           table.insert(flags, "-p")
           table.insert(flags, shellQuote(p))
         end
       end
-    elseif cmd.publishAll then
+    elseif publishAll then
       table.insert(flags, "-P")
     end
 

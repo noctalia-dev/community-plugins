@@ -16,6 +16,7 @@ local onlineSearchInput     = ""
 local launchModalImage      = nil
 local launchNameInput       = ""
 local launchPortInput       = ""
+local launchPublishAll      = false
 local launchEnvInput        = ""
 local launchCommandInput    = ""
 local confirmPending        = nil
@@ -120,6 +121,7 @@ local function openLaunchModal(imgName)
   launchModalImage   = imgName
   launchNameInput    = defaultContainerName(imgName)
   launchPortInput    = ""
+  launchPublishAll   = false
   launchEnvInput     = ""
   launchCommandInput = ""
   render()
@@ -1024,7 +1026,17 @@ local function renderLaunchModal(imageName, snapshot)
       }),
     }),
     ui.column({ gap = 4 }, {
-      ui.label({ text = tr("images.launch_port_label"), fontSize = 12, fontWeight = "medium", color = "on_surface" }),
+      ui.row({ align = "center", justify = "space_between" }, {
+        ui.label({ text = tr("images.launch_port_label"), fontSize = 12, fontWeight = "medium", color = "on_surface" }),
+        ui.row({ align = "center", gap = 6 }, {
+          ui.label({ text = tr("images.publish_all_label"), fontSize = 11, color = "on_surface_variant" }),
+          ui.toggle({
+            key = "launch_publish_all",
+            checked = launchPublishAll == true,
+            onChange = "onLaunchPublishAllToggle",
+          }),
+        }),
+      }),
       ui.input({
         key         = "launch_port",
         placeholder = tr("images.launch_port_placeholder"),
@@ -1072,9 +1084,15 @@ local function renderLaunchModal(imageName, snapshot)
           local ports = noctalia.string.trim(launchPortInput)
           local env = noctalia.string.trim(launchEnvInput)
           local cmd = noctalia.string.trim(launchCommandInput)
+          local isP = (ports:upper() == "-P")
+          local publishAll = launchPublishAll or isP
+          if isP then
+            ports = ""
+          end
           launchModalImage = nil
           local payload = {
-            image = img,
+            image      = img,
+            publishAll = publishAll,
           }
           if name ~= "" then payload.name = name end
           if ports ~= "" then payload.ports = ports end
@@ -1703,6 +1721,15 @@ end
 
 function onLaunchPortChange(value)
   launchPortInput = tostring(value or "")
+  local trimmed = noctalia.string.trim(launchPortInput):upper()
+  if trimmed == "-P" then
+    launchPublishAll = true
+  end
+  render()
+end
+
+function onLaunchPublishAllToggle(value)
+  launchPublishAll = (value == "true" or value == true)
   render()
 end
 
