@@ -1,6 +1,6 @@
 # dropkitty
 
-A Quake-style drop-down terminal for Noctalia, built on kitty's `quick-access-terminal` kitten. One key drops it down and hides it again with your shell session intact. A bar widget shows whether it's open and lights up when a command finishes while it's hidden.
+A Quake-style drop-down terminal for Noctalia, built on kitty's `quick-access-terminal` kitten. One key drops it down and hides it again with your shell session intact. A bar widget toggles it (scroll to resize, middle-click to flip position), shows whether it's open and lights up when a command finishes while it's hidden; a long-running one also sends a notification. `/dk <command>` in the launcher drops the terminal down and runs the command in a new tab.
 
 The terminal is a layer-shell panel that kitty draws itself, so it works the same on niri, Hyprland and sway. It doesn't depend on compositor scratchpads, which niri doesn't have.
 
@@ -9,11 +9,12 @@ The terminal is a layer-shell panel that kitty draws itself, so it works the sam
 | Field | Value |
 | --- | --- |
 | ID | `lowcache/dropkitty` |
-| Entries | Bar widget: `toggle`; service: `service` |
+| Entries | Bar widget: `toggle`; service: `service`; launcher provider: `run` (`/dk`) |
 
 - **Helper** (`bin/dropkitty`): shows, hides, moves and resizes the terminal. Your compositor keybinds call it directly, so the terminal keeps working while Noctalia is reloading or not running.
-- **Bar widget** (`toggle`): click to toggle, right-click for settings. The colour shows the state: muted when stopped, normal when hidden, primary when open. After a command finishes while hidden it turns tertiary (exit 0) or error (non-zero) until you show the terminal again.
-- **Service** (`service`): copies your settings to the helper and works out how much room your Noctalia bars take, so a full-size terminal never runs under a bar.
+- **Bar widget** (`toggle`): click to toggle, middle-click to flip position, scroll up to grow or down to shrink by 5 percentage points per step, right-click for settings. Landscape resizes height; portrait resizes width. The colour shows the state: muted when stopped, normal when hidden, primary when open. After a command finishes while hidden it turns tertiary (exit 0) or error (non-zero) until you show the terminal again.
+- **Service** (`service`): copies your settings to the helper and works out how much room your Noctalia bars take, so a full-size terminal never runs under a bar. It also sends the finished-command notifications.
+- **Launcher** (`run`): `/dk` toggles the terminal; `/dk <command>` shows it and runs the command in a new tab.
 
 ## Requirements
 
@@ -65,13 +66,15 @@ The helper takes one command:
 | `toggle` | Show or hide; starts the terminal if it isn't running |
 | `show`, `hide` | Explicit show and hide |
 | `position` | Landscape: top ↔ bottom. Portrait: left ↔ right |
+| `grow [PCT]`, `shrink [PCT]` | Show and resize the current orientation by 1–90 percentage points (default 5), clamped to 10–100%; sets size to normal |
 | `size` | Normal ↔ full |
 | `orientation` | Landscape (full width, drops from top or bottom) ↔ portrait (full height, slides from the side) |
 | `top`, `bottom`, `left`, `right`, `landscape`, `portrait`, `normal`, `full` | Set one directly |
 | `restart` | Restart kitty to apply launch-time settings (this ends the shell session) |
 | `status` | Prints `alive=0/1 visible=0/1` |
+| `run CMD…` | Shows the terminal and types `CMD` at a new tab's shell prompt (the first window if the terminal wasn't running), so aliases, history and the finished-command report all work. One line only |
 
-Live changes from these commands last until kitty restarts or you change the matching setting.
+Live changes from these commands, including scroll resizing, last until kitty restarts or you change the matching setting (`normal_height` for landscape height, `normal_width` for portrait width). Changing a geometry default re-seeds all live geometry from settings.
 
 ## Settings
 
@@ -86,10 +89,11 @@ Live changes from these commands last until kitty restarts or you change the mat
 | `bar_aware` | `bool` | `true` | Subtract the space Noctalia bars reserve before sizing |
 | `opacity` | `double` | `0.9` | Background opacity (0.1–1.0). Applies on next launch |
 | `focus_policy` | `select` | `on-demand` | `on-demand` keeps compositor keybinds working while the terminal is open; `exclusive` grabs the keyboard. Applies on next launch |
-| `hide_on_focus_loss` | `bool` | `false` | Hide when you click elsewhere. Applies on next launch |
+| `hide_on_focus_loss` | `bool` | `false` | Hide when you click elsewhere; changes apply immediately |
+| `notify_after` | `int` | `10` | Notify when a command that ran at least this many seconds finishes while the terminal is hidden. `0` turns notifications off. The badge appears either way |
 | `kitty_conf` | `file` | (none) | Kitten config used instead of `~/.config/kitty/quick-access-terminal.conf`. Applies on next launch |
 
-"Applies on next launch" means after `restart`, or the next time the terminal starts. Everything else (font, colours, shell) comes from your kitty and kitten config. The plugin's settings take precedence over the same options there.
+"Applies on next launch" (`opacity`, `focus_policy` and `kitty_conf`) means after `restart`, or the next time the terminal starts. Everything else (font, colours, shell) comes from your kitty and kitten config. The plugin's settings take precedence over the same options there.
 
 ## IPC
 
@@ -99,7 +103,7 @@ The helper reports state changes to the service. You don't need to send these yo
 noctalia msg plugin lowcache/dropkitty:service all shown
 noctalia msg plugin lowcache/dropkitty:service all hidden
 noctalia msg plugin lowcache/dropkitty:service all exited
-noctalia msg plugin lowcache/dropkitty:service all cmd-finished <exit-code>
+noctalia msg plugin lowcache/dropkitty:service all cmd-finished <exit-code>,<seconds>,<uri-encoded-command>
 ```
 
 To control the terminal itself, call the helper (see Usage).
@@ -108,15 +112,16 @@ To control the terminal itself, call the helper (see Usage).
 
 ### What it runs and writes
 
-- The service and widget run only the bundled helper (`bin/dropkitty`), with the arguments shown in Usage plus `_settings key=value…` when settings or bar reserves change.
-- The helper starts kitty with `kitten quick-access-terminal --instance-group dropkitty`, a group separate from your other kitty windows and any other quick-access terminal. It controls that kitty through a remote-control socket limited to it (`allow_remote_control=socket-only`). kitty loads the bundled watcher (`bin/dropkitty-watcher.py`), which calls the helper on focus changes, finished commands and the last window closing.
+- The service, widget and launcher provider run only the bundled helper (`bin/dropkitty`), with the arguments shown in Usage plus `_settings key=value…` when settings or bar reserves change.
+- The helper starts kitty with `kitten quick-access-terminal --instance-group dropkitty`, a group separate from your other kitty windows and any other quick-access terminal. It controls that kitty through a remote-control socket limited to it (`allow_remote_control=socket-only`). kitty loads the bundled watcher (`bin/dropkitty-watcher.py`), which calls the helper on focus changes, finished commands (exit code, run time and command line) and the last window closing. `run` opens a tab with `kitten @ launch` and types the command with `kitten @ send-text`.
 - The helper sends its state changes as the IPC messages above, through `timeout 1 noctalia msg …` in the background. Failures are ignored, so the helper works without Noctalia.
 - Files: `$XDG_RUNTIME_DIR/dropkitty/`, holding settings, state, a lock and kitty's socket. Nothing else is written, and there are no network calls.
 
 ### Known limits
 
-- **Occasional badge delay.** A command that finishes just after you hide the terminal can occasionally badge several seconds late, because kitty delivers the event late.
-- **No badge inside tmux or zellij.** kitty can't see commands run inside a multiplexer.
+- **Occasional badge delay.** A command that finishes just after you hide the terminal can occasionally badge (and notify) several seconds late, because kitty delivers the event late.
+- **No badge or notification inside tmux or zellij.** kitty can't see commands run inside a multiplexer.
+- **`run` needs shell integration to wait for the prompt.** Without it, `run` waits 3 s and types the command anyway.
 - **One monitor at a time.** The terminal opens on the focused output. Moving it to another monitor needs `restart`, which ends the session.
 - **Bar sizing is approximate.** It doesn't account for per-monitor bar layouts or the shadow bleed adjustment, so it can leave a few pixels too much room.
 
