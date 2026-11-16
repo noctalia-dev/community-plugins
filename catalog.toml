@@ -1397,8 +1397,8 @@ rev = "1a08a98c4e819a560232c1ae81e34a01aa4d2d88"
 [[plugin]]
 id = "aristides/udiskie"
 name = "Udiskie Manager"
-version = "0.1.1"
-updated_at = 1792983494
+version = "0.1.2"
+updated_at = 1794847692
 added_at = 1785967095
 author = "aristides"
 license = "MIT"
