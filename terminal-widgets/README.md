@@ -21,7 +21,7 @@ Then add the **launcher** widget from Noctalia's widget picker.
 | Field | Value |
 | --- | --- |
 | ID | `faminec/terminal-widgets` |
-| Entries | Bar widget: `launcher`; panel: `panel` |
+| Entries | Bar widget: `launcher`; panel: `panel`; service: `service` |
 
 ## Requirements
 
