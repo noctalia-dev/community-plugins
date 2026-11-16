@@ -6080,3 +6080,16 @@ icon = "device-gamepad-2"
 description = "Live controller button, stick, trigger and D-pad display with battery level and artwork."
 plugin_api = 17
 tags = ["gaming", "hardware", "desktop", "indicator"]
+
+[[plugin]]
+id = "genuinemoron/rog-control"
+name = "ROG Control"
+version = "1.0.0"
+updated_at = 1794844331
+added_at = 1794844331
+author = "GenuineMoron"
+license = "MIT"
+icon = "gauge"
+description = "Performance modes, charge limit, graphics mode, overdrive, fans and lighting for ASUS ROG laptops, via asusd."
+plugin_api = 43
+tags = ["bar", "panel", "service", "shortcut", "hardware", "system"]
