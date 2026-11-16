@@ -52,6 +52,19 @@ local function jsonString(value)
   return s
 end
 
+-- Every request is a `python3 budsctl.py rpc` process, so the round trip is
+-- only sent when it can change something: the payload built here is compared
+-- with the last one that was applied.
+local function configPayload()
+  local poll = C.poll_seconds()
+  return '{"cmd":"configure","poll":' .. tostring(poll)
+    .. ',"device_mac":"' .. jsonString(noctalia.getConfig("device_mac")) .. '"'
+    .. ',"device_name":"' .. jsonString(noctalia.getConfig("device_name")) .. '"}'
+end
+
+local lastPayload = nil
+local lastPid = nil
+
 -- The daemon can start with the factory configuration: when the plugin is
 -- reloaded, the user configuration is not applied yet and the service starts
 -- it with the default values (polling every 20 s instead of what the user
@@ -62,9 +75,7 @@ local function configureDaemon()
     return
   end
   local poll = C.poll_seconds()
-  local payload = '{"cmd":"configure","poll":' .. tostring(poll)
-    .. ',"device_mac":"' .. jsonString(noctalia.getConfig("device_mac")) .. '"'
-    .. ',"device_name":"' .. jsonString(noctalia.getConfig("device_name")) .. '"}'
+  local payload = configPayload()
   noctalia.runAsync({
     "python3", pluginPath .. "/bin/budsctl.py", "rpc", payload,
     "--state", statePath,
@@ -77,6 +88,20 @@ local function configureDaemon()
     -- when the plugin is disabled must not bring it back.
     "--no-autostart",
   })
+  lastPayload = payload
+end
+
+-- The configuration is only sent when it changed or when the daemon is not
+-- the one that already has it (a restart loses the values it was started
+-- with). The daemon publishes its pid in the state it answers.
+local function needsConfigure(pid)
+  if lastPayload ~= configPayload() then
+    return true
+  end
+  if pid == nil or lastPid == nil or pid ~= lastPid then
+    return true
+  end
+  return false
 end
 
 local function stopDaemon(onStopped)
@@ -144,6 +169,12 @@ local function ping()
     local answered = decoded and type(data) == "table" and data.ok == true
     if not answered then
       startDaemon()
+      return
+    end
+    local pid = data.state ~= nil and data.state.daemon_pid or nil
+    if needsConfigure(pid) then
+      lastPid = pid
+      configureDaemon()
     end
   end)
 end
@@ -153,7 +184,6 @@ function update()
     startDaemon()
   end
   ping()
-  configureDaemon()
 end
 
 function onEnable()

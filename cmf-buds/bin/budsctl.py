@@ -27,21 +27,68 @@ import signal
 import socket
 import socketserver
 import struct
-import subprocess
 import sys
 import threading
 import time
-import traceback
 
-try:
-    from local_actions import LocalActionEngine
-except Exception as exc:  # pragma: no cover - the shortcut engine is optional
-    LocalActionEngine = None
-    # The reason is kept: without it the daemon would answer
-    # "engine_unavailable" without saying why the engine did not load.
-    LOCAL_ACTIONS_IMPORT_ERROR = exc
-else:
-    LOCAL_ACTIONS_IMPORT_ERROR = None
+
+class _LazyModule:
+    """A module imported the first time something of it is used.
+
+    Every call of the widget or the panel is a `python3 budsctl.py rpc ...`
+    process that lives for ~100 ms, and most of that time is imports the
+    RPC path does not need: `subprocess` and `traceback` are only used by
+    the daemon and by the paths that start a command. Importing them on
+    first use takes ~50 ms out of every call. Attribute access is the only
+    thing the call sites do, so the proxy is transparent to them.
+    """
+
+    def __init__(self, name):
+        self._name = name
+        self._module = None
+
+    def _load(self):
+        module = self._module
+        if module is None:
+            import importlib
+
+            module = importlib.import_module(self._name)
+            self._module = module
+        return module
+
+    def __getattr__(self, item):
+        return getattr(self._load(), item)
+
+
+subprocess = _LazyModule("subprocess")
+traceback = _LazyModule("traceback")
+
+# The shortcut engine is only needed by the daemon: the CLI that answers a
+# single request must not pay for importing it.
+LocalActionEngine = None
+LOCAL_ACTIONS_IMPORT_ERROR = None
+_LOCAL_ACTIONS_LOADED = False
+
+
+def local_engine_class():
+    """The shortcut engine, imported on the first call.
+
+    Returns ``(class, error)``: the error is kept so the daemon can say why
+    the engine is not available instead of answering "engine_unavailable"
+    without a reason.
+    """
+    global LocalActionEngine, LOCAL_ACTIONS_IMPORT_ERROR, _LOCAL_ACTIONS_LOADED
+    if not _LOCAL_ACTIONS_LOADED:
+        _LOCAL_ACTIONS_LOADED = True
+        try:
+            from local_actions import LocalActionEngine as _engine
+        except Exception as exc:  # pragma: no cover - optional engine
+            LOCAL_ACTIONS_IMPORT_ERROR = exc
+            LocalActionEngine = None
+        else:
+            LocalActionEngine = _engine
+            LOCAL_ACTIONS_IMPORT_ERROR = None
+    return LocalActionEngine, LOCAL_ACTIONS_IMPORT_ERROR
 
 # ── 0x55 protocol ────────────────────────────────────────────────────────────
 
@@ -302,6 +349,29 @@ def model_from_name(name: str | None) -> str | None:
     if "cmf buds" in n:
         return "B168"
     return None
+
+
+def _threading_unix_server():
+    """The threading Unix-stream server, on the interpreter that is there.
+
+    `socketserver.ThreadingUnixStreamServer` only exists from Python 3.12.
+    The plugin has to run on the `python3` the distribution ships (Debian 12
+    has 3.11, Ubuntu 22.04 has 3.10), and without this the daemon died at
+    start-up with an AttributeError: the whole plugin was dead on those
+    systems. The class is assembled from the same pieces the standard
+    library uses.
+    """
+    server = getattr(socketserver, "ThreadingUnixStreamServer", None)
+    if server is not None:
+        return server
+
+    class ThreadingUnixStreamServer(  # pragma: no cover - Python < 3.12
+        socketserver.ThreadingMixIn, socketserver.UnixStreamServer
+    ):
+        daemon_threads = True
+        block_on_close = False
+
+    return ThreadingUnixStreamServer
 
 
 def run(cmd, timeout=10):
@@ -838,18 +908,19 @@ class BudsDaemon:
         self._started_at = time.time()
         self._save_lock = threading.Lock()
         self.local = None
-        if LocalActionEngine is None:
-            if LOCAL_ACTIONS_IMPORT_ERROR is not None:
+        engine_class, import_error = local_engine_class()
+        if engine_class is None:
+            if import_error is not None:
                 # The engine did not load: the reason goes to the log, or the
                 # daemon would answer "engine_unavailable" without saying
                 # why the shortcuts do not work.
                 self.log(
                     "The local action engine could not be loaded: %s"
-                    % LOCAL_ACTIONS_IMPORT_ERROR
+                    % import_error
                 )
         else:
             try:
-                self.local = LocalActionEngine(
+                self.local = engine_class(
                     os.path.dirname(self.state_path), log=self.log
                 )
                 # Volume changes made from the phone or with the dial: the
@@ -1747,7 +1818,7 @@ class BudsDaemon:
         self._sink_cache = (now, sink)
         return sink
 
-    def refresh_volume(self, force=False):
+    def refresh_volume(self, force=False, publish=False):
         """Read the volume, the mute state and the description of the sink.
 
         The panel asks for the status twice a second: without a cache every
@@ -1755,6 +1826,11 @@ class BudsDaemon:
         for it). The values are kept for a couple of seconds; the changes of
         the earbuds arrive at once, through the 'pactl subscribe' watcher of
         the shortcut engine, so the cache does not hide them.
+
+        With 'publish' the state file is rewritten when the values changed:
+        the panel and the bar widget read state.json instead of asking the
+        daemon on every tick, so the file has to carry what the monitor sees
+        (a volume moved by another application, for instance).
         """
         sink = self._sink()
         now = time.time()
@@ -1766,6 +1842,7 @@ class BudsDaemon:
             and now - cache[1] < self.VOLUME_CACHE_TTL
         ):
             with self.lock:
+                previous = dict(self.state.get("volume") or {})
                 self.state["volume"] = {
                     "percent": cache[2],
                     "muted": cache[3],
@@ -1773,6 +1850,8 @@ class BudsDaemon:
                     "description": cache[4],
                 }
                 volume = dict(self.state["volume"])
+            if publish and previous != volume:
+                self.save()
             return volume
         pct = None
         muted = False
@@ -1806,8 +1885,14 @@ class BudsDaemon:
                 self._sink_desc = (sink, desc)
         self._volume_cache = (sink, now, pct, muted, desc)
         with self.lock:
+            previous = dict(self.state.get("volume") or {})
             self.state["volume"] = {"percent": pct, "muted": muted, "sink": sink, "description": desc}
             volume = dict(self.state["volume"])
+        # Outside the state lock: save() takes the save lock and then the
+        # state lock, and taking them in the other order here would deadlock
+        # with a thread that is saving.
+        if publish and previous != volume:
+            self.save()
         return volume
 
     def set_volume(self, percent: int | None = None, mute: str | None = None):
@@ -1875,7 +1960,11 @@ class BudsDaemon:
                             self._last_volume_check = 0
                         if now - self._last_volume_check >= 5:
                             self._last_volume_check = now
-                            self.refresh_volume()
+                            # publish=True: the panel and the bar read the
+                            # state file, so a volume moved by another
+                            # application has to reach it without waiting
+                            # for the next full query.
+                            self.refresh_volume(publish=True)
                 # A fit test that never returns a result (earbud badly seated,
                 # firmware that does not notify): close it with a warning
                 # instead of staying "measuring" forever.
@@ -1952,7 +2041,10 @@ class BudsDaemon:
             self.save()
             return {"ok": True, "state": self.snapshot()}
         if cmd == "status":
-            self.refresh_volume()
+            # publish=True: the panel reads state.json, so the answer and the
+            # file have to carry the same volume (otherwise the panel shows
+            # the fresher answer for one tick and the file undoes it).
+            self.refresh_volume(publish=True)
             return {"ok": True, "state": self.snapshot()}
         if cmd == "refresh":
             if self.link and self.link.connected:
@@ -2165,7 +2257,7 @@ class BudsDaemon:
                 os.unlink(self.socket_path)
         except OSError:
             pass
-        class Server(socketserver.ThreadingUnixStreamServer):
+        class Server(_threading_unix_server()):
             allow_reuse_address = True
             daemon_threads = True
 

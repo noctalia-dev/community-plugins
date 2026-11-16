@@ -15,7 +15,7 @@ The plugin talks the vendor **RFCOMM** protocol directly through a Python daemon
 
 | Command | Package | Required | Used for |
 | --- | --- | --- | --- |
-| `python3` | `python` | Yes | Runs the daemon and the RPC client (`bin/budsctl.py`). |
+| `python3` | `python` | Yes | Runs the daemon and the RPC client (`bin/budsctl.py`). Version 3.8 or newer: the sources are checked against that syntax, and the threading server that Python 3.12 added is assembled from the standard library pieces when the interpreter does not have it. |
 | `bluetoothctl` | `bluez-utils` | Yes | Discovers the paired device and manages its Bluetooth connection. |
 | `pactl` | `pipewire-pulse` or `pulseaudio-utils` | Yes | Reads and sets the system sink volume and mute state. |
 | `notify-send` | `libnotify` | No | Shows the toast for local shortcuts whose *Enable notification* toggle is on. Without it the shortcut still runs. |

@@ -242,7 +242,10 @@
     "disconnected": "Desconectados",
     "eq": "Ecualización",
     "error": "Error",
-    "volume": "Volumen"
+    "volume": "Volumen",
+    "left": "Izq.",
+    "right": "Der.",
+    "case": "Estuche"
   },
   "volume": {
     "mute": "Silenciar",

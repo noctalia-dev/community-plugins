@@ -242,7 +242,10 @@
     "disconnected": "Disconnected",
     "eq": "Equalizer",
     "error": "Error",
-    "volume": "Volume"
+    "volume": "Volume",
+    "left": "Left",
+    "right": "Right",
+    "case": "Case"
   },
   "volume": {
     "mute": "Mute",

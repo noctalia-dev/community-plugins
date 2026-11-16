@@ -30,19 +30,19 @@ local function readState()
     ensurePaths()
   end
   if statePath == nil then
-    return nil
+    return nil, false
   end
   local raw = noctalia.readFile(statePath)
   if raw == nil or raw == lastRaw then
-    return lastState
+    return lastState, false
   end
   local ok, data = pcall(noctalia.json.decode, raw)
   if not ok or type(data) ~= "table" then
-    return lastState
+    return lastState, false
   end
   lastRaw = raw
   lastState = data
-  return data
+  return data, true
 end
 
 -- The daemon can take a while: a full query of the earbuds is about 15 s
@@ -179,8 +179,13 @@ render = function()
 end
 
 function update()
-  readState()
-  render()
+  -- The bar redraws the whole widget: with the daemon writing state.json
+  -- every poll, an unconditional render rebuilt the tree once a second for
+  -- nothing. Only a real change of the file redraws.
+  local _, changed = readState()
+  if changed then
+    render()
+  end
 end
 
 function onClick()

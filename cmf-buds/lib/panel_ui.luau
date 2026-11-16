@@ -40,6 +40,14 @@ local pendingVolume = nil
 local pendingEq = nil
 local refreshElapsedMs = 0
 local refreshIntervalMs = 500
+-- Every `status` request is a `python3 budsctl.py rpc` process: ~100 ms of
+-- interpreter start-up, twice a second while the panel is open. The daemon
+-- already publishes everything the panel shows in state.json, so the ticks
+-- read that file (a fraction of a millisecond) and a real round trip is
+-- kept as a safety net: it forces the daemon to refresh the volume and it
+-- is the only way to hear about an error the file cannot carry.
+local RPC_REFRESH_SECONDS = 5
+local lastRpcRefreshAt = 0
 local autoRefreshInFlight = false
 local autoRefreshAt = 0
 local autoRefreshSeq = 0
@@ -352,12 +360,14 @@ end
 
 local function refresh()
   loading = st == nil
+  lastRpcRefreshAt = nowSec()
   render()
   rpc({ cmd = "status" })
 end
 
 local function fullRefresh()
   loading = st == nil
+  lastRpcRefreshAt = nowSec()
   render()
   rpc({ cmd = "refresh" })
 end
@@ -1631,6 +1641,7 @@ function M.onOpen(_context)
   errorText = ""
   readState()
   render()
+  lastRpcRefreshAt = nowSec()
   rpc({ cmd = "status" })
   rpc({ cmd = "configure", poll = C.poll_seconds(), device_mac = noctalia.getConfig("device_mac") or "", device_name = noctalia.getConfig("device_name") or "" })
   rpc({ cmd = "devices" })
@@ -1642,6 +1653,13 @@ function M.onClose()
   -- The command that was typed but not submitted is saved: otherwise it
   -- would be lost when the panel is closed.
   flushPendingCommands()
+end
+
+local function hasPendingLocal()
+  -- While the user is moving something, their value has to win: the panel
+  -- keeps rendering so an override that expires (the daemon never confirmed
+  -- it) is dropped from the screen too.
+  return localVolume ~= nil or localEq ~= nil or pendingVolume ~= nil or pendingEq ~= nil
 end
 
 local function tickRefresh()
@@ -1659,6 +1677,16 @@ local function tickRefresh()
     pendingEq = nil
     rpc({ cmd = "custom_eq", bass = c.bass, mid = c.mid, treble = c.treble })
   end
+  -- The state that comes from the file: a change is redrawn, and a tick that
+  -- finds the same file does not touch the tree at all.
+  local changed = readState()
+  if hasPendingLocal() then
+    applyLocalOverrides()
+    changed = true
+  end
+  if changed then
+    render()
+  end
   if autoRefreshInFlight then
     -- The request is released when its answer arrives. If the daemon
     -- does not answer at all, it is released when the timeout of the
@@ -1669,6 +1697,10 @@ local function tickRefresh()
     end
     autoRefreshInFlight = false
   end
+  if now - lastRpcRefreshAt < RPC_REFRESH_SECONDS then
+    return
+  end
+  lastRpcRefreshAt = now
   autoRefreshInFlight = true
   autoRefreshAt = now
   autoRefreshSeq = autoRefreshSeq + 1
@@ -1683,6 +1715,13 @@ local function tickRefresh()
 end
 
 function M.update()
+  if closed then
+    -- The panel is closed: the host can still call the entry's update()
+    -- (a service tick or a late queued callback). Without this guard the
+    -- plugin would keep asking the daemon for the state with no panel to
+    -- show it.
+    return
+  end
   tickRefresh()
 end
 
@@ -1707,6 +1746,12 @@ function M.onIpc(event, payload)
 end
 
 function M.onFrameTick(deltaMs)
+  if closed then
+    -- A frame tick queued before the close (or delivered after it) must not
+    -- re-arm the tick: setNeedsFrameTick(true) made the host keep ticking
+    -- forever and the plugin polled the daemon at 2 Hz with the panel closed.
+    return
+  end
   refreshElapsedMs = refreshElapsedMs + (tonumber(deltaMs) or 16)
   if refreshElapsedMs >= refreshIntervalMs then
     refreshElapsedMs = 0

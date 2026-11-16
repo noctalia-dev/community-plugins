@@ -302,6 +302,37 @@ class PanelContractTests(unittest.TestCase):
             "the poll does not wait for the timeout of the request",
         )
 
+    def test_the_poll_reads_the_state_file_instead_of_a_process_per_tick(self):
+        # Every status request is a `python3 budsctl.py rpc` process (~100 ms of
+        # start-up): asking for it twice a second kept an interpreter busy all
+        # the time the panel was open. The daemon publishes the same state in
+        # state.json, so the tick reads that file and the round trip is kept
+        # as a safety net.
+        body = function_body(self.panel, "tickRefresh")
+        self.assertTrue(
+            "readState()" in body,
+            "the tick does not read the state the daemon publishes",
+        )
+        self.assertTrue(
+            "RPC_REFRESH_SECONDS" in body,
+            "the tick asks the daemon for the status without a rate limit",
+        )
+        self.assertTrue(
+            "lastRpcRefreshAt" in body,
+            "the tick does not remember when it last asked the daemon",
+        )
+
+    def test_an_unchanged_state_does_not_redraw_the_panel(self):
+        body = function_body(self.panel, "tickRefresh")
+        self.assertTrue(
+            "if changed then" in body and "render()" in body,
+            "the panel rebuilds its tree on every tick, changed or not",
+        )
+        self.assertTrue(
+            "hasPendingLocal()" in body,
+            "a local value the daemon never confirmed is never released",
+        )
+
     def test_the_reconnect_button_asks_the_daemon_to_reopen_the_link(self):
         self.assertTrue(
             '"reconnect"' in self.panel,

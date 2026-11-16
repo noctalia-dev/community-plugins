@@ -13,9 +13,12 @@ Run with: python3 bin/test_luau_fixes.py
 """
 
 import argparse
+import ast
+import inspect
 import json
 import os
 import re
+import subprocess
 import sys
 import tempfile
 import threading
@@ -52,6 +55,18 @@ def function_body(text, name):
     and the global functions are found.
     """
     match = re.search(r"^(?:local )?function %s\(" % re.escape(name), text, re.M)
+    if match is None:
+        return ""
+    rest = text[match.start() :]
+    end = re.search(r"^end\s*$", rest, re.M)
+    if end is None:
+        return rest
+    return rest[: end.end()]
+
+
+def method_body(text, name):
+    """The source of a method of a returned module (M.name) in a Luau file."""
+    match = re.search(r"^function M\.%s\(" % re.escape(name), text, re.M)
     if match is None:
         return ""
     rest = text[match.start() :]
@@ -300,11 +315,109 @@ class LuauContractTests(unittest.TestCase):
         self.assertFalse(contains(self.widget, "loadFonts"))
         self.assertFalse(contains(self.widget, "batteryValue"))
 
+    def test_the_widget_only_redraws_when_the_state_changed(self):
+        # update() runs every second and redrawing the bar rebuilt the whole
+        # node tree even when the daemon had published the same state.
+        body = function_body(self.widget, "update")
+        self.assertTrue(
+            contains(body, "changed"),
+            "the widget redraws the bar on every tick",
+        )
+        self.assertTrue(
+            contains(function_body(self.widget, "readState"), ", false"),
+            "readState does not tell an unchanged state apart",
+        )
+
+    def test_the_service_only_sends_the_configuration_when_it_is_needed(self):
+        # The service sent `configure` every round, which is one more python3
+        # process per 20 s for values the daemon already had.
+        self.assertTrue(
+            contains(self.service, "configPayload()"),
+            "the configuration payload is not built in one place",
+        )
+        body = function_body(self.service, "needsConfigure")
+        self.assertTrue(
+            contains(body, "lastPayload") and contains(body, "pid"),
+            "the configuration is sent without checking whether it changed",
+        )
+        self.assertTrue(
+            contains(function_body(self.service, "update"), "ping()"),
+            "the round no longer asks the daemon how it is doing",
+        )
+        self.assertFalse(
+            contains(function_body(self.service, "update"), "configureDaemon()"),
+            "the round still sends the configuration unconditionally",
+        )
+
+    def test_the_cli_does_not_import_the_shortcut_engine(self):
+        # The engine, subprocess and traceback are only used by the daemon:
+        # importing them on every RPC call cost about 50 ms of the ~100 ms
+        # the process lives.
+        source = read("bin", "budsctl.py")
+        self.assertNotRegex(
+            source,
+            r"(?m)^import subprocess$",
+            "subprocess is imported on every call, the RPC path does not use it",
+        )
+        self.assertNotRegex(
+            source,
+            r"(?m)^import traceback$",
+            "traceback is imported on every call, the RPC path does not use it",
+        )
+        # Checked in a fresh interpreter: another test may already have
+        # loaded the engine in this one.
+        probe = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "import sys, budsctl; "
+                "print('local_actions' in sys.modules, "
+                "'subprocess' in sys.modules, budsctl.LocalActionEngine)",
+            ],
+            cwd=os.path.join(ROOT, "bin"),
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        self.assertEqual(probe.returncode, 0, probe.stderr)
+        self.assertEqual(
+            probe.stdout.split(),
+            ["False", "False", "None"],
+            "loading the CLI pulls in the modules only the daemon needs",
+        )
+        engine, error = budsctl.local_engine_class()
+        self.assertIsNotNone(engine, "the engine is not importable: %s" % (error,))
+
+    def test_the_daemon_publishes_a_volume_moved_by_another_application(self):
+        # The panel and the bar read state.json now, so the monitor has to
+        # write the volume it reads instead of keeping it in memory only.
+        self.assertIn("publish", inspect.getsource(budsctl.BudsDaemon.refresh_volume))
+        monitor = inspect.getsource(budsctl.BudsDaemon.monitor)
+        self.assertIn("refresh_volume(publish=True)", monitor)
+
     def test_the_panel_has_no_unused_font_or_animation(self):
         self.assertFalse(contains(self.panel, "grotesk"))
         self.assertIsNone(
             re.search(r"\banim\b", self.panel),
             "the animation state of the panel is never used",
+        )
+
+    def test_a_late_frame_tick_does_not_rearm_the_closed_panel(self):
+        # With the panel closed, a frame tick queued before the close called
+        # setNeedsFrameTick(true) again: the host kept ticking forever and
+        # the plugin polled the daemon at 2 Hz with no panel to show it.
+        body = method_body(self.panel, "onFrameTick")
+        self.assertTrue(
+            contains(body, "if closed then"),
+            "a late frame tick re-arms the tick after the panel was closed",
+        )
+        self.assertTrue(
+            contains(body, "return"),
+            "the guard of the frame tick does not stop the function",
+        )
+        self.assertTrue(
+            contains(method_body(self.panel, "update"), "if closed then"),
+            "update() keeps polling the daemon after the panel was closed",
         )
 
     def test_an_unknown_shortcut_value_shows_itself_and_not_a_key(self):
@@ -315,6 +428,37 @@ class LuauContractTests(unittest.TestCase):
         manifest = read("plugin.toml")
         self.assertIn("dbus-monitor", manifest)
         self.assertIn("dbus-monitor", read("README.md"))
+
+    def test_the_daemon_server_runs_before_python_312(self):
+        # `socketserver.ThreadingUnixStreamServer` only exists from Python
+        # 3.12: on Debian 12 (3.11) or Ubuntu 22.04 (3.10) the daemon died at
+        # start-up with an AttributeError and the plugin did nothing.
+        import socketserver
+
+        self.assertIs(
+            budsctl._threading_unix_server(),
+            getattr(socketserver, "ThreadingUnixStreamServer", None),
+            "the server class of the interpreter is not the one used",
+        )
+        saved = socketserver.ThreadingUnixStreamServer
+        del socketserver.ThreadingUnixStreamServer
+        try:
+            server = budsctl._threading_unix_server()
+        finally:
+            socketserver.ThreadingUnixStreamServer = saved
+        self.assertTrue(issubclass(server, socketserver.ThreadingMixIn))
+        self.assertTrue(issubclass(server, socketserver.UnixStreamServer))
+        self.assertTrue(server.daemon_threads)
+
+    def test_the_python_sources_parse_as_python_38(self):
+        # The plugin runs on the `python3` of the distribution: the syntax
+        # has to stay valid on the oldest interpreter the README promises.
+        for name in ("budsctl.py", "local_actions.py"):
+            source = read("bin", name)
+            try:
+                ast.parse(source, filename=name, feature_version=(3, 8))
+            except SyntaxError as exc:  # pragma: no cover - the test fails
+                self.fail("%s is not valid Python 3.8: %s" % (name, exc))
 
     def test_the_engine_has_no_unused_state(self):
         engine = read("bin", "local_actions.py")
