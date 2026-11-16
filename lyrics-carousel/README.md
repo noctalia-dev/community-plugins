@@ -121,11 +121,13 @@ it belongs to the bar widget, not to the lyrics window.
 | `font_family` | `string` | `Departure Mono` | Font used for the lyrics. |
 | `font_size` | `int` | `22` | Size of the lyrics, in pixels. |
 | `direction` | `select` | `down` | `down`: the lyrics come in from the top. `up`: from the bottom. |
-| `marker` | `bool` | `false` | Shows a `>` next to the active line. |
+| `marker` | `bool` | `false` | Shows a marker next to the active line. |
+| `marker_style` | `int` | `0` | Marker shape: `0` chevron, `1` bullet, `2` bar, `3` note, `4` block, `5` arrow. Drawn as vector shapes, not as a font glyph. |
 | `karaoke` | `bool` | `true` | Lights the active line as it is sung, letter by letter. |
 | `footer` | `bool` | `false` | Elapsed time and a progress bar. |
 | `hints` | `bool` | `false` | Keyboard hints at the bottom. |
 | `header` | `bool` | `false` | Title, artist and status tags. |
+| `header_pos` | `int` | `0` | Header alignment: `0` left, `1` centered, `2` right. The rule always spans the window. |
 | `spacing` | `int` | `2` | Space between the lines. |
 | `ghost` | `bool` | `true` | Smooth ~0.9 s slide between lines. Off: the change is instant. |
 | `offset_ms` | `int` | `0` | Offset to fine-tune the synchronisation. |
@@ -191,6 +193,15 @@ poured into `settings.toml` when the panel is closed and is visible in the setti
 page afterwards.
 
 ## Changelog
+
+### 2.8.0
+
+- **Marker styles and header alignment**: `marker_style` picks one of six
+  marker shapes for the active line, and `header_pos` moves the title/artist
+  block to the left, the center or the right. Both markers are vector
+  primitives (lines, polygons, ellipses), so they never depend on the font
+  having the glyph. The panel rotates both values with a small button next
+  to their toggle.
 
 ### 2.7.1
 

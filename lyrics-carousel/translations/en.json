@@ -35,6 +35,8 @@
   "header": "Header (title / artist)",
   "height": "Height",
   "hints": "Keyboard hints",
+  "marker_style_tooltip": "Rotate the active line marker style",
+  "header_pos_tooltip": "Rotate the header alignment",
   "karaoke": "Karaoke glow",
   "launch": "Open the carousel",
   "launch_failed": "Could not open the terminal.",

@@ -517,6 +517,46 @@ local function toggleRow(key, label, glyph)
   })
 end
 
+local MARKER_STYLE_GLYPHS = { "chevron-right", "circle", "minus", "music", "square", "arrow-right" }
+local HEADER_POS_GLYPHS = {
+  "align-box-left-middle",
+  "align-box-center-middle",
+  "align-box-right-middle",
+}
+
+local function rotatorRow(key, label, glyph, valueKey, glyphs, tooltipKey)
+  local enabled = boolOf(key)
+  local current = math.floor(numberOf(valueKey) or 0) % #glyphs
+  local children = {
+    ui.glyph({ name = glyph, size = 14, color = "on_surface_variant" }),
+    ui.label({ text = label, fontSize = 12, color = "on_surface", flexGrow = 1, maxLines = 1 }),
+  }
+  if enabled then
+    table.insert(children, ui.button({
+      key = "btn-" .. valueKey:gsub("_", "-"),
+      glyph = glyphs[current + 1],
+      variant = "secondary",
+      controlSize = "xs",
+      glyphSize = 11,
+      width = 18,
+      height = 18,
+      tooltip = tr(tooltipKey),
+      onClick = function()
+        local value = math.floor(numberOf(valueKey) or 0)
+        setSetting(valueKey, (value + 1) % #glyphs)
+      end,
+    }))
+  end
+  table.insert(children, ui.toggle({
+    key = "toggle-" .. key,
+    checked = enabled,
+    onChange = function(value)
+      setSetting(key, truthy(value))
+    end,
+  }))
+  return ui.row({ key = "row-" .. key, align = "center", gap = 10, paddingH = 4, padding = 4 }, children)
+end
+
 local function chipRow(items)
   local chips = {}
   for _, item in ipairs(items) do
@@ -849,8 +889,8 @@ render = function()
       }),
     }),
     -- What is drawn inside the window --------------------------------
-    toggleRow("header", tr("header"), "heading"),
-    toggleRow("marker", tr("marker"), "chevron-right"),
+    rotatorRow("header", tr("header"), "heading", "header_pos", HEADER_POS_GLYPHS, "header_pos_tooltip"),
+    rotatorRow("marker", tr("marker"), "chevron-right", "marker_style", MARKER_STYLE_GLYPHS, "marker_style_tooltip"),
     toggleRow("karaoke", tr("karaoke"), "sun"),
     toggleRow("ghost", tr("ghost"), "sparkles"),
     toggleRow("footer", tr("footer"), "clock"),

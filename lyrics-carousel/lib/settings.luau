@@ -16,10 +16,12 @@ local DEFAULTS = {
   font_size = 22,
   direction = "down",
   marker = false,
+  marker_style = 0,
   karaoke = true,
   footer = false,
   hints = false,
   header = false,
+  header_pos = 0,
   spacing = 2,
   ghost = true,
   offset_ms = 0,
@@ -45,6 +47,7 @@ local INT_KEYS = {
   font_size = true, spacing = true, offset_ms = true,
   width = true, height = true, visible_above = true, visible_below = true,
   custom_x = true, custom_y = true,
+  marker_style = true, header_pos = true,
 }
 local FLOAT_KEYS = { active_scale = true }
 
@@ -70,6 +73,8 @@ local LIMITS = {
   custom_y = { 0, 10000 },
   visible_above = { 0, 20 },
   visible_below = { 0, 20 },
+  marker_style = { 0, 5 },
+  header_pos = { 0, 2 },
   active_scale = { 1.0, 2.5 },
 }
 

@@ -1681,6 +1681,266 @@ def check_without_text_mode():
             )
 
 
+MARKER_STYLE_COUNT = 6
+
+
+def marker_image(mod, style, text="hello", size=24.0):
+    """Draws only the active-line marker on a blank canvas."""
+    renderer = mod.ImageRenderer.__new__(mod.ImageRenderer)
+    renderer.fonts = {}
+    renderer.font_files = {"prueba": mod.FALLBACK_FONT}
+    image = mod.Image.new("RGBA", (420, 140), (0, 0, 0, 0))
+    draw = mod.ImageDraw.Draw(image)
+    renderer._measure_draw = draw
+    renderer._draw_marker(draw, text, 70.0, size, style, "prueba", (230, 60, 60, 255))
+    return image
+
+
+def check_marker_styles():
+    """The six marker styles are vectorial and each one looks different.
+
+    The marker cannot be a font glyph: `♪` is missing in many typefaces
+    and the marker would silently disappear. The drawing also has to stay
+    on the left of the active line and an out-of-range value has to wrap
+    instead of drawing nothing.
+    """
+    mod = image_module()
+    renderer = mod.ImageRenderer.__new__(mod.ImageRenderer)
+    renderer.fonts = {}
+    renderer.font_files = {"prueba": mod.FALLBACK_FONT}
+    reference = mod.Image.new("RGBA", (420, 140), (0, 0, 0, 0))
+    brush = mod.ImageDraw.Draw(reference)
+    renderer._measure_draw = brush
+    renderer._draw_centered(brush, "hello", 70.0, 24.0, (230, 60, 60, 255), "prueba")
+    text_box = reference.getbbox()
+    check("the marker test draws the active line", text_box is not None, str(text_box))
+
+    shots = []
+    for style in range(MARKER_STYLE_COUNT):
+        image = marker_image(mod, style)
+        box = image.getbbox()
+        check(f"the marker style {style} draws something", box is not None, str(box))
+        if box is not None and text_box is not None:
+            check(
+                f"the marker style {style} stays left of the text",
+                box[2] <= text_box[0] + 1,
+                "marker=%r text=%r" % (box, text_box),
+            )
+        shots.append(image.tobytes())
+    check(
+        "the six marker styles look different",
+        len(set(shots)) == MARKER_STYLE_COUNT,
+        "%d distinct of %d" % (len(set(shots)), MARKER_STYLE_COUNT),
+    )
+    wrapped = marker_image(mod, MARKER_STYLE_COUNT + 3)
+    check(
+        "an out-of-range marker style wraps",
+        wrapped.tobytes() == shots[3],
+        "style %d must equal style 3" % (MARKER_STYLE_COUNT + 3),
+    )
+
+
+class _HeaderTheme:
+    background = (12, 12, 18)
+    foreground = (240, 240, 245)
+    past = (110, 110, 120)
+    bright = (240, 240, 245)
+    faint = (150, 150, 160)
+
+
+def header_image(mod, header_pos, size=20.0):
+    """Draws only the header block on a blank canvas."""
+
+    class App:
+        pass
+
+    app = App()
+    app.theme = _HeaderTheme()
+    app.track = types.SimpleNamespace(title="Hello there", artist="The Artist")
+    app.tr = lambda key: key
+    app.cfg = {"header_pos": header_pos}
+    renderer = mod.ImageRenderer.__new__(mod.ImageRenderer)
+    renderer.app = app
+    renderer.fonts = {}
+    renderer.font_files = {"prueba": mod.FALLBACK_FONT}
+    image = mod.Image.new("RGBA", (900, 240), (0, 0, 0, 0))
+    draw = mod.ImageDraw.Draw(image)
+    renderer._measure_draw = draw
+    renderer._draw_header(draw, 900, 40.0, size, "prueba", (12, 12, 18))
+    return image
+
+
+def check_header_alignment():
+    """The header follows `header_pos` and the separator stays full width."""
+    mod = image_module()
+    size = 20.0
+    rule_y = int(40.0 + size * 2.0)
+    boxes = {}
+    for position, name in ((0, "left"), (1, "center"), (2, "right")):
+        image = header_image(mod, position)
+        text_area = image.crop((0, 0, 900, rule_y))
+        box = text_area.getbbox()
+        check(f"the {name} header draws the title", box is not None, str(box))
+        if box is None:
+            continue
+        boxes[position] = box
+        if position == 0:
+            check(
+                "the left header starts at the left margin",
+                box[0] < 90,
+                str(box),
+            )
+        elif position == 1:
+            center = (box[0] + box[2]) / 2.0
+            check(
+                "the centered header is centered",
+                abs(center - 450.0) < 40.0,
+                "center=%.1f" % center,
+            )
+        else:
+            check(
+                "the right header ends at the right margin",
+                box[2] > 810,
+                str(box),
+            )
+        rule = image.crop((0, rule_y, 900, rule_y + 3))
+        rule_box = rule.getbbox()
+        check(
+            f"the {name} header keeps the full-width rule",
+            rule_box is not None and rule_box[0] < 60 and rule_box[2] > 840,
+            str(rule_box),
+        )
+    check(
+        "the three header positions align differently",
+        len({tuple(box) for box in boxes.values()}) == 3,
+        str(boxes),
+    )
+
+
+def check_frame_signature_includes_visual_settings():
+    """The cached frame is dropped when a visual setting changes."""
+    mod = image_module()
+
+    def signature(**overrides):
+        class App:
+            pass
+
+        app = App()
+        app.theme = _SceneTheme()
+        app.track = types.SimpleNamespace(title="Song", artist="Artist", duration=180.0)
+        app.state = "lyrics"
+        app.lines = [_SceneLine("one"), _SceneLine("two")]
+        app.karaoke = True
+        app.position = lambda: 5.0
+        app.scroll_state = lambda scroll_position: (0, 1, 0.0)
+        app.cfg = {
+            "visible_above": 1,
+            "visible_below": 1,
+            "direction": "down",
+            "spacing": 2,
+            "marker": True,
+            "karaoke": True,
+            "footer": False,
+            "font_family": "Departure Mono",
+            "font_size": 22,
+            "active_scale": 1.35,
+            "header": True,
+            "hints": False,
+            "ghost": True,
+            "marker_style": 0,
+            "header_pos": 0,
+        }
+        app.cfg.update(overrides)
+        renderer = mod.ImageRenderer.__new__(mod.ImageRenderer)
+        renderer.app = app
+        return renderer._frame_signature((200, 50, 60))
+
+    base = signature()
+    check("the frame signature is stable when nothing changes", signature() == base)
+    check(
+        "the frame signature changes with the marker style",
+        signature(marker_style=2) != base,
+        "marker_style is not part of the signature",
+    )
+    check(
+        "the frame signature changes with the header position",
+        signature(header_pos=2) != base,
+        "header_pos is not part of the signature",
+    )
+
+
+def _lua_block(text, header):
+    """Body of a top-level Lua table declared as `<header> = { ... }`."""
+    found = re.search(re.escape(header) + r"\s*=\s*\{(.*?)\n\}", text, re.S)
+    return found.group(1) if found else ""
+
+
+def check_visual_settings_allowlists():
+    """`marker_style` and `header_pos` are registered on all sides.
+
+    A setting missing from one of the allowlists is a dead control: the
+    panel writes it and the window or the helper silently ignores it.
+    """
+    lib_path = os.path.join(os.path.dirname(HERE), "lib", "settings.luau")
+    with open(lib_path, encoding="utf-8") as handle:
+        lib = handle.read()
+    defaults = _lua_block(lib, "local DEFAULTS")
+    ints = _lua_block(lib, "local INT_KEYS")
+    limits = _lua_block(lib, "local LIMITS")
+    for key in ("marker_style", "header_pos"):
+        check(
+            f"lib/settings.luau defaults `{key}`",
+            re.search(rf"\b{key}\s*=\s*0\b", defaults) is not None,
+            defaults[:160],
+        )
+        check(
+            f"lib/settings.luau declares `{key}` as an int",
+            re.search(rf"\b{key}\s*=\s*true", ints) is not None,
+            ints[:160],
+        )
+    for key, low, high in (("marker_style", 0, 5), ("header_pos", 0, 2)):
+        check(
+            f"lib/settings.luau limits `{key}`",
+            re.search(rf"\b{key}\s*=\s*\{{\s*{low}\s*,\s*{high}\s*\}}", limits) is not None,
+            limits[:200],
+        )
+
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("set_setting_visual", HELPER)
+    helper = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(helper)
+    for key in ("marker_style", "header_pos"):
+        check(f"set-setting.py allows `{key}`", key in helper.ALLOWED, str(sorted(helper.ALLOWED)))
+        check(f"set-setting.py treats `{key}` as an int", key in helper.INT_KEYS)
+
+    mod = script_module()
+    with tempfile.TemporaryDirectory(prefix="lyrics-carousel-visual-") as temporary:
+        with temporary_env(
+            {"XDG_CACHE_HOME": os.path.join(temporary, "cache")}
+        ), temporary_state(temporary) as destination:
+            os.makedirs(os.path.join(destination, "plugins", "data"), exist_ok=True)
+            with open(
+                os.path.join(destination, "settings.toml"), "w", encoding="utf-8"
+            ) as handle:
+                handle.write(
+                    '[plugin_settings."faminec/lyrics-carousel"]\n'
+                    "marker_style = 9\n"
+                    "header_pos = 7\n"
+                )
+            cfg = mod.load_settings()
+        check(
+            "the engine clamps marker_style like the panel",
+            cfg.get("marker_style") == 5,
+            str(cfg.get("marker_style")),
+        )
+        check(
+            "the engine clamps header_pos like the panel",
+            cfg.get("header_pos") == 2,
+            str(cfg.get("header_pos")),
+        )
+
+
 def check_settings_limits():
     """The limits of the script are the ones of the manifest."""
     with tempfile.TemporaryDirectory(prefix="lyrics-carousel-limites-") as temporary:
@@ -3880,6 +4140,10 @@ def main(argv):
     check_state_paths()
     check_without_text_mode()
     check_settings_limits()
+    check_marker_styles()
+    check_header_alignment()
+    check_frame_signature_includes_visual_settings()
+    check_visual_settings_allowlists()
     check_limits_of_panel_and_script()
     check_helper_formats()
     check_empty_title_does_not_search_again()

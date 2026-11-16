@@ -43,8 +43,8 @@ PLUGIN_ID = "faminec/lyrics-carousel"
 SECTION = f'[plugin_settings."{PLUGIN_ID}"]'
 
 ALLOWED = {
-    "font_family", "font_size", "direction", "marker",
-    "karaoke", "footer", "hints", "header", "spacing",
+    "font_family", "font_size", "direction", "marker", "marker_style",
+    "karaoke", "footer", "hints", "header", "header_pos", "spacing",
     "ghost", "offset_ms", "width", "height", "anchor",
     "custom_x", "custom_y", "accent", "custom_color", "active_scale",
     "visible_above", "visible_below", "glyph",
@@ -56,6 +56,7 @@ BOOL_KEYS = {
 INT_KEYS = {
     "font_size", "spacing", "offset_ms", "width", "height",
     "custom_x", "custom_y", "visible_above", "visible_below",
+    "marker_style", "header_pos",
 }
 FLOAT_KEYS = {"active_scale"}
 

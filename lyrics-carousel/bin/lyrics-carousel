@@ -1736,12 +1736,15 @@ DEFAULTS = {
     "visible_above": 6,
     "visible_below": 6,
     "translate_lyrics": False,
+    "marker_style": 0,
+    "header_pos": 0,
 }
 
 BOOL_KEYS = ("marker", "karaoke", "footer", "hints", "header", "ghost")
 INT_KEYS = (
     "font_size", "spacing", "offset_ms", "width", "height",
     "custom_x", "custom_y", "visible_above", "visible_below",
+    "marker_style", "header_pos",
 )
 FLOAT_KEYS = ("active_scale",)
 
@@ -1804,6 +1807,8 @@ def load_settings() -> dict:
     cfg["height"] = max(200, min(2160, cfg["height"]))
     cfg["visible_above"] = max(0, min(20, cfg["visible_above"]))
     cfg["visible_below"] = max(0, min(20, cfg["visible_below"]))
+    cfg["marker_style"] = max(0, min(5, cfg["marker_style"]))
+    cfg["header_pos"] = max(0, min(2, cfg["header_pos"]))
     try:
         cfg["custom_x"] = max(0, min(10000, int(cfg["custom_x"])))
     except (TypeError, ValueError):

@@ -26,6 +26,11 @@ FALLBACK_FONT = "/usr/share/fonts/TTF/DejaVuSansMono.ttf"
 IMAGE_FPS = 30
 MOTION_FPS = 60
 
+# Marker shapes of the active line (`marker_style`). They are vectorial
+# Pillow primitives, not font glyphs: `♪` does not exist in every typeface
+# and the marker would silently disappear.
+MARKER_STYLES = 6
+
 
 def mmss(seconds):
     """Seconds -> mm:ss."""
@@ -316,6 +321,39 @@ class ImageRenderer:
 
     # -- layout ---------------------------------------------------------
 
+    def _draw_header(self, draw, xpix, top, size, family, background):
+        """Draws the title/artist header and returns the new top of the lyrics.
+
+        `header_pos` moves the two text lines as a block (0 left, 1 centered,
+        2 right); the separator always spans the width of the window, so the
+        header does not look lopsided when the text is not on the left.
+        """
+        app = self.app
+        theme = app.theme
+        try:
+            position = int(app.cfg.get("header_pos", 0)) % 3
+        except (TypeError, ValueError):
+            position = 0
+        margin = size * 1.6
+        title = app.track.title or app.tr("nothing_playing")
+        artist = app.track.artist or ""
+        rows = [(title, top, size * 0.95, theme.bright)]
+        if artist:
+            rows.append(("— " + artist, top + size * 1.2, size * 0.8, theme.faint))
+        for text, y, text_size, color in rows:
+            if position == 1:
+                self._draw_centered(draw, text, y, text_size, color, family)
+            elif position == 2:
+                self._draw_right(draw, text, xpix - margin, y, text_size, color, family)
+            else:
+                self._draw_left(draw, text, margin, y, text_size, color, family)
+        rule_y = top + size * 2.0
+        draw.rectangle(
+            [margin, rule_y, xpix - margin, rule_y + max(1, size * 0.05)],
+            fill=self._mix(theme.faint, background, 0.35),
+        )
+        return rule_y + size * 0.9
+
     def _layout(self, focus, center_y, size, scale):
         """Returns the positions (vertical center) of the lines around focus.
 
@@ -390,20 +428,7 @@ class ImageRenderer:
         top = size * 1.9
         bottom = ypix - size * 1.9
         if cfg["header"]:
-            title = app.track.title or app.tr("nothing_playing")
-            artist = app.track.artist or ""
-            self._draw_left(draw, title, size * 1.6, top, size * 0.95, theme.bright, family)
-            if artist:
-                self._draw_left(
-                    draw, "— " + artist, size * 1.6, top + size * 1.2,
-                    size * 0.8, theme.faint, family,
-                )
-            rule_y = top + size * 2.0
-            ImageDraw.Draw(image).rectangle(
-                [size * 1.6, rule_y, xpix - size * 1.6, rule_y + max(1, size * 0.05)],
-                fill=self._mix(theme.faint, background, 0.35),
-            )
-            top = rule_y + size * 0.9
+            top = self._draw_header(draw, xpix, top, size, family, background)
 
         # -- lyrics
         center_y = (top + bottom) / 2
@@ -434,6 +459,7 @@ class ImageRenderer:
             cfg["visible_above"], cfg["visible_below"], cfg["direction"],
             cfg["karaoke"], cfg["marker"], cfg["header"], cfg["footer"],
             cfg["hints"], cfg["spacing"], cfg["ghost"],
+            cfg.get("marker_style", 0), cfg.get("header_pos", 0),
             round(position * MOTION_FPS),
         ]
         # The background moves even when the lyrics do not change: its
@@ -558,7 +584,10 @@ class ImageRenderer:
             if app.cfg["marker"] and is_sung:
                 marker = "> "
             if marker:
-                self._draw_marker(draw, text, y, line_size, marker, family, accent)
+                self._draw_marker(
+                    draw, text, y, line_size, app.cfg.get("marker_style", 0),
+                    family, accent,
+                )
             if is_sung and app.karaoke and app.cfg["karaoke"]:
                 end = line.start + (line.duration or 4.0)
                 next_start = app.next_timed_start(line_index)
@@ -591,15 +620,75 @@ class ImageRenderer:
             else:
                 self._draw_centered(draw, text, y, line_size, color, family)
 
-    def _draw_marker(self, draw, text, center_y, size, marker, family, color):
-        """The ">" marker glued to the left of the active line."""
+    def _draw_marker(self, draw, text, center_y, size, style, family, color):
+        """Draws the active-line marker with Pillow primitives.
+
+        `marker_style` picks one of the six shapes. They are vectorial on
+        purpose: a font glyph would look different with every typeface and
+        `♪` is missing in many of them, so the marker would disappear
+        without a word. The marker sits to the left of the line, glued to
+        it, and keeps its size when the line grows.
+        """
         font = self.font(family, size)
         if font is None:
             return
+        try:
+            index = int(style) % MARKER_STYLES
+        except (TypeError, ValueError):
+            index = 0
         width = text_width(draw, text, font)
-        marker_width = text_width(draw, marker, font)
-        x = (draw.im.size[0] - width) / 2 - marker_width - size * 0.35
-        draw.text((x, center_y), marker, font=font, fill=color, anchor="lm")
+        right = (draw.im.size[0] - width) / 2 - size * 0.35
+        box_width = size * 0.42
+        left = right - box_width
+        height = size * 0.62
+        top = center_y - height / 2
+        bottom = center_y + height / 2
+        thickness = max(1, int(round(size * 0.09)))
+        if index == 0:  # chevron: two strokes, like the old ">"
+            draw.line(
+                [(left, top), (right, center_y), (left, bottom)],
+                fill=color,
+                width=thickness,
+                joint="curve",
+            )
+        elif index == 1:  # bullet
+            draw.ellipse([right - height, top, right, bottom], fill=color)
+        elif index == 2:  # bar
+            bar = max(2, int(round(size * 0.16)))
+            draw.rectangle([right - bar, top, right, bottom], fill=color)
+        elif index == 3:  # note: head, stem and flag
+            head = height * 0.56
+            head_left = left
+            head_top = bottom - head
+            draw.ellipse(
+                [head_left, head_top, head_left + head, bottom], fill=color
+            )
+            stem_x = head_left + head * 0.82
+            draw.line(
+                [(stem_x, head_top + head * 0.2), (stem_x, top)],
+                fill=color,
+                width=thickness,
+            )
+            draw.line(
+                [(stem_x, top), (stem_x + height * 0.3, top + height * 0.22)],
+                fill=color,
+                width=thickness,
+            )
+        elif index == 4:  # block: a half-filled slab
+            draw.rectangle([left, top, left + box_width * 0.55, bottom], fill=color)
+        else:  # arrow
+            draw.line([(left, center_y), (right, center_y)], fill=color, width=thickness)
+            head = height * 0.42
+            draw.line(
+                [(right - head, top + height * 0.12), (right, center_y)],
+                fill=color,
+                width=thickness,
+            )
+            draw.line(
+                [(right - head, bottom - height * 0.12), (right, center_y)],
+                fill=color,
+                width=thickness,
+            )
 
     def _draw_state(self, draw, center_y, size, family):
         app = self.app
