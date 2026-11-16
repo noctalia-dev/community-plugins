@@ -3979,8 +3979,8 @@ tags = ["system", "utility"]
 [[plugin]]
 id = "gamaraan/mx-control"
 name = "MX Control"
-version = "0.2.3"
-updated_at = 1792499677
+version = "0.2.4"
+updated_at = 1794789667
 added_at = 1790468021
 author = "gamaraan"
 license = "GPL-2.0-or-later"
