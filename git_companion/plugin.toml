@@ -1,6 +1,6 @@
 id = "tphilippot/git_companion"
 name = "Git Companion"
-version = "2.0.0"
+version = "2.1.0"
 plugin_api = 43
 author = "thomas-philippot"
 license = "MIT"
@@ -58,6 +58,20 @@ options = [
   { value = "both", label_key = "settings.bar_display_mode.options.both" }
 ]
 
+# How the tab buttons read: simple (text), full (text with the tab glyph) or
+# compact (the glyph and count, with the tab name as a tooltip).
+[[setting]]
+key = "tab_style"
+type = "select"
+label_key = "settings.tab_style.label"
+description_key = "settings.tab_style.description"
+default = "simple"
+options = [
+  { value = "simple", label_key = "settings.tab_style.options.simple" },
+  { value = "full", label_key = "settings.tab_style.options.full" },
+  { value = "compact", label_key = "settings.tab_style.options.compact" }
+]
+
 # Tab visibility. Each list is only fetched when its tab is shown.
 [[setting]]
 key = "show_prs"
@@ -89,15 +103,46 @@ description_key = "settings.count_reviews_with_prs.description"
 default = false
 visible_when = { key = "show_reviews", values = ["true"] }
 
+# Gitea has no deployments API, so the Deploys tab never shows there.
+[[setting]]
+key = "show_deploys"
+type = "bool"
+label_key = "settings.show_deploys.label"
+description_key = "settings.show_deploys.description"
+default = true
+visible_when = { key = "platform", values = ["gitlab", "github"] }
+
+# The two Deploys settings are hidden while the tab is off. A setting takes
+# one visibility condition only, so they follow show_deploys rather than the
+# platform.
+# Repositories of the Deploys tab. Empty uses `repo`; with neither, the tab is
+# hidden.
+[[setting]]
+key = "deploy_repos"
+type = "string_list"
+label_key = "settings.deploy_repos.label"
+description_key = "settings.deploy_repos.description"
+default = []
+visible_when = { key = "show_deploys", values = ["true"] }
+
+# Environments left out of the Deploys tab, in every followed repository:
+# exact names or prefixes ending in `*` (`bot-*`), matched without case.
+[[setting]]
+key = "deploy_hidden_envs"
+type = "string_list"
+label_key = "settings.deploy_hidden_envs.label"
+description_key = "settings.deploy_hidden_envs.description"
+default = []
+visible_when = { key = "show_deploys", values = ["true"] }
+
 # Merge status notifications: one toggle per status worth acting on (see
-# gitlab.luau). Only glab reports that status, so they are hidden elsewhere.
+# status.luau). Gitea reports no CI status, so the pipeline toggle is hidden there.
 [[setting]]
 key = "notify_mr_mergeable"
 type = "bool"
 label_key = "settings.notify_mr_mergeable.label"
 description_key = "settings.notify_mr_mergeable.description"
 default = true
-visible_when = { key = "platform", values = ["gitlab"] }
 
 [[setting]]
 key = "notify_mr_pipeline_failed"
@@ -105,7 +150,7 @@ type = "bool"
 label_key = "settings.notify_mr_pipeline_failed.label"
 description_key = "settings.notify_mr_pipeline_failed.description"
 default = true
-visible_when = { key = "platform", values = ["gitlab"] }
+visible_when = { key = "platform", values = ["gitlab", "github"] }
 
 [[setting]]
 key = "notify_mr_conflict"
@@ -113,7 +158,6 @@ type = "bool"
 label_key = "settings.notify_mr_conflict.label"
 description_key = "settings.notify_mr_conflict.description"
 default = true
-visible_when = { key = "platform", values = ["gitlab"] }
 
 [[setting]]
 key = "notify_mr_changes_requested"
@@ -121,18 +165,15 @@ type = "bool"
 label_key = "settings.notify_mr_changes_requested.label"
 description_key = "settings.notify_mr_changes_requested.description"
 default = true
-visible_when = { key = "platform", values = ["gitlab"] }
 
 # Branch badges: one list of branch patterns per theme colour. Declaration
 # order is match priority — the first bucket holding a matching pattern wins.
-# Only glab reports a target branch, so the lists are hidden on other platforms.
 [[setting]]
 key = "branch_badge_primary"
 type = "string_list"
 label_key = "settings.branch_badge_primary.label"
 description_key = "settings.branch_badge.description"
 default = ["develop"]
-visible_when = { key = "platform", values = ["gitlab"] }
 
 [[setting]]
 key = "branch_badge_secondary"
@@ -140,7 +181,6 @@ type = "string_list"
 label_key = "settings.branch_badge_secondary.label"
 description_key = "settings.branch_badge.description"
 default = ["release/*"]
-visible_when = { key = "platform", values = ["gitlab"] }
 
 [[setting]]
 key = "branch_badge_tertiary"
@@ -148,7 +188,6 @@ type = "string_list"
 label_key = "settings.branch_badge_tertiary.label"
 description_key = "settings.branch_badge.description"
 default = []
-visible_when = { key = "platform", values = ["gitlab"] }
 
 [[setting]]
 key = "branch_badge_alert"
@@ -156,7 +195,6 @@ type = "string_list"
 label_key = "settings.branch_badge_alert.label"
 description_key = "settings.branch_badge.description"
 default = ["master", "main"]
-visible_when = { key = "platform", values = ["gitlab"] }
 
 # ── Entryfiles ────────────────────────────────────
 

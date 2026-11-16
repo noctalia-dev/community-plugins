@@ -17,7 +17,10 @@ local PLATFORM_GROUP = {
   gitea = "--owner",
 }
 
-local gitlab = require("./gitlab.luau")
+local status = require("./status.luau")
+local github = require("./github.luau")
+local gitea = require("./gitea.luau")
+local deploys = require("./deploys.luau")
 
 local bin = PLATFORM_BIN[platform] or PLATFORM_BIN.github
 
@@ -81,18 +84,15 @@ local function buildCommand(kind)
     table.insert(parts, "--output")
     table.insert(parts, "json")
   else
-    -- GitHub
-    local sub = kind == "issue" and "issues" or "prs"
-    local filter = "--assignee=@me"
-    if kind == "pr" then
-      filter = "--author=@me"
-    elseif kind == "review" then
-      filter = "--review-requested=@me"
+    -- GitHub: pull requests go through GraphQL to get their merge state (see
+    -- github.luau); issues need none, so they stay on `gh search`.
+    if kind ~= "issue" then
+      return github.command(kind, { repo = repo, group = group })
     end
     table.insert(parts, bin)
     table.insert(parts, "search")
-    table.insert(parts, sub)
-    table.insert(parts, filter)
+    table.insert(parts, "issues")
+    table.insert(parts, "--assignee=@me")
     table.insert(parts, "--state=open")
     table.insert(parts, "--json")
     table.insert(parts, "number,title,url,repository")
@@ -103,10 +103,10 @@ local function buildCommand(kind)
   return parts
 end
 
--- Every item carries `mergeStatus`. Only GitLab fills it so far, from the
--- detailed_merge_status that `glab mr list` already returns, so no extra call
--- is needed. gh and gt searches return no such field; until one is mapped the
--- other platforms report an empty string.
+-- Every item carries `mergeStatus`, a status.luau key ("" for issues and when
+-- the platform cannot tell). GitLab returns it with every merge request;
+-- GitHub pull requests are normalized by github.luau, and Gitea ones get it
+-- from gitea.enrich after the search.
 local function normalizeItem(raw, kind)
   if platform == "gitlab" then
     local prefix = kind == "issue" and "#" or "!"
@@ -120,16 +120,21 @@ local function normalizeItem(raw, kind)
     }
   end
   if platform == "gitea" then
-    -- gt reports the repository as a plain "owner/repo" string.
+    -- gt reports the repository as a plain "owner/repo" string. repository and
+    -- number stay on the item so gitea.enrich can find its merge state.
+    local repoName = tostring(raw.repository or "")
+    local number = tostring(raw.number or "")
     return {
       title = raw.title or "",
       url = raw.url or "",
-      ref = tostring(raw.repository or "") .. "#" .. tostring(raw.number or ""),
+      ref = repoName .. "#" .. number,
       targetBranch = "",
       mergeStatus = "",
+      repository = repoName,
+      number = number,
     }
   end
-  -- GitHub
+  -- GitHub issues (pull requests go through github.normalize)
   local repoName = (raw.repository and (raw.repository.nameWithOwner or raw.repository.name)) or ""
   return {
     title = raw.title or "",
@@ -144,6 +149,15 @@ local function processList(kind, output)
   if not output or output == "" then return {} end
   local decoded = noctalia.json.decode(output)
   if type(decoded) ~= "table" then return {} end
+
+  if platform == "github" and kind ~= "issue" then
+    local list = {}
+    for _, node in ipairs(github.nodes(decoded) or {}) do
+      -- A search hit that is not a pull request comes back as an empty object.
+      if node.number then table.insert(list, github.normalize(node)) end
+    end
+    return list
+  end
 
   -- The Gitea review search ran on the repo's owner (see giteaScopeArgs), so
   -- it may bring pull requests of that owner's other repositories.
@@ -162,7 +176,7 @@ end
 -- stale count the bar would still display.
 local function clearList(kind)
   -- Re-enabling the tab then starts from a fresh, silent baseline.
-  if kind == "pr" then gitlab.resetMergeStatus() end
+  if kind == "pr" then status.resetBaseline() end
   noctalia.state.set(kind .. "s", {})
   noctalia.state.set(kind .. "s_count", 0)
 end
@@ -210,11 +224,19 @@ local function fetchList(kind)
       noctalia.state.set("error_detail", errorLine(stderr))
       return
     end
+    local function publish(list)
+      if kind == "pr" then status.notifyChanges(list) end
+      noctalia.state.set(kind .. "s", list) -- "prs", "issues" or "reviews"
+      noctalia.state.set(kind .. "s_count", #list)
+      noctalia.state.set("last_update", noctalia.formatTime("%H:%M:%S"))
+    end
+
     local list = processList(kind, res.stdout)
-    if platform == "gitlab" and kind == "pr" then gitlab.notifyMergeStatusChanges(list) end
-    noctalia.state.set(kind .. "s", list) -- "issues" or "prs"
-    noctalia.state.set(kind .. "s_count", #list)
-    noctalia.state.set("last_update", noctalia.formatTime("%H:%M:%S"))
+    if platform == "gitea" and kind ~= "issue" then
+      gitea.enrich(bin, list, publish)
+    else
+      publish(list)
+    end
   end)
 end
 
@@ -278,6 +300,21 @@ local function fetchEnabledLists()
       clearList(entry.kind)
     end
   end
+
+  -- The Deploys tab exists only on GitLab and GitHub with a repository to
+  -- follow (see deploys.luau). A failed repository is reported like a failed
+  -- list, and the cards of the others are still shown.
+  if deploys.enabled(platform) then
+    deploys.fetch(platform, function(cards, err)
+      if err then
+        noctalia.log("[Git Companion] deploys fetch failed: " .. err)
+        noctalia.state.set("error_detail", err)
+      end
+      noctalia.state.set("deploys", cards)
+    end)
+  else
+    noctalia.state.set("deploys", {})
+  end
 end
 
 local function fail(status, args)
@@ -295,13 +332,13 @@ local function refresh()
     return fail("bin_missing", { bin = bin })
   end
 
-  -- On Gitea the user call doubles as the sign-in check: gt exits with 4 when
-  -- it has no account on the instance it picked, and every search would fail
-  -- the same way. Gitea's search works without a repo or owner scope, so it
-  -- has no equivalent of the GitLab check below.
-  if platform == "gitea" then
+  -- On GitHub and Gitea the user call doubles as the sign-in check: gh and gt
+  -- exit with 4 when they have no usable credential, and every search would
+  -- fail the same way. Their search works without a repo or owner scope, so
+  -- they have no equivalent of the GitLab check below.
+  if platform == "gitea" or platform == "github" then
     fetchUser(function(_, exitCode)
-      if exitCode == 4 then return fail("gitea_auth_missing") end
+      if exitCode == 4 then return fail(platform == "github" and "gh_auth_missing" or "gitea_auth_missing") end
       fetchEnabledLists()
     end)
     return
