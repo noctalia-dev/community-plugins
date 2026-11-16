@@ -109,50 +109,82 @@ local function pill(text, fillColor, textColor, tooltip)
   })
 end
 
+local function extractImageRepo(imgName)
+  if type(imgName) ~= "string" or imgName == "" then return "" end
+  local ref = imgName:gsub("@.*$", "")
+  local base = ref:match("([^/]+)$") or ref
+  local repo = base:match("^([^:]+)") or base
+  return repo:lower()
+end
+
+local BASE_OS_REPOS = {
+  alpine = true,
+  busybox = true,
+  ubuntu = true,
+  debian = true,
+  archlinux = true,
+  fedora = true,
+  centos = true,
+  almalinux = true,
+  rockylinux = true,
+}
+
+local function isBaseOsImage(imgName)
+  local repo = extractImageRepo(imgName)
+  return BASE_OS_REPOS[repo] == true
+end
+
+local function generateSecret(length)
+  local len = length or 24
+  local charset = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+  local t = {}
+  local seed = math.floor((os.time() + os.clock() * 1000000) % 2147483647)
+  math.randomseed(seed)
+  for _ = 1, len do
+    local idx = math.random(1, #charset)
+    table.insert(t, charset:sub(idx, idx))
+  end
+  return table.concat(t, "")
+end
+
 local function suggestPortForImage(imgName)
-  local lower = imgName:lower()
-  if lower:find("nginx", 1, true) or lower:find("httpd", 1, true) or lower:find("apache", 1, true) then
+  local repo = extractImageRepo(imgName)
+  -- Web / proxy applications
+  if repo == "nginx" or repo == "httpd" or repo == "apache" or repo == "apache2" then
     return "8080:80"
-  elseif lower:find("redis", 1, true) then
-    return "6379:6379"
-  elseif lower:find("postgres", 1, true) then
-    return "5432:5432"
-  elseif lower:find("mysql", 1, true) or lower:find("mariadb", 1, true) then
-    return "3306:3306"
-  elseif lower:find("mongo", 1, true) then
-    return "27017:27017"
-  elseif lower:find("caddy", 1, true) then
-    return "80:80, 443:443"
-  elseif lower:find("traefik", 1, true) then
-    return "80:80, 8080:8080"
-  elseif lower:find("memcached", 1, true) then
-    return "11211:11211"
-  elseif lower:find("elasticsearch", 1, true) then
-    return "9200:9200"
-  elseif lower:find("rabbitmq", 1, true) then
-    return "5672:5672, 15672:15672"
+  elseif repo == "caddy" then
+    return "8080:80, 8443:443"
+  elseif repo == "traefik" then
+    return "8080:80, 8081:8080"
+  -- Database publishing defaults to loopback (127.0.0.1) to prevent external network exposure
+  elseif repo == "postgres" then
+    return "127.0.0.1:5432:5432"
+  elseif repo == "mysql" or repo == "mariadb" then
+    return "127.0.0.1:3306:3306"
+  elseif repo == "redis" or repo == "valkey" then
+    return "127.0.0.1:6379:6379"
+  elseif repo == "mongo" or repo == "mongodb" then
+    return "127.0.0.1:27017:27017"
+  elseif repo == "memcached" then
+    return "127.0.0.1:11211:11211"
+  elseif repo == "elasticsearch" then
+    return "127.0.0.1:9200:9200"
+  elseif repo == "rabbitmq" then
+    return "127.0.0.1:5672:5672, 127.0.0.1:15672:15672"
   end
   return ""
 end
 
 local function suggestEnvForImage(imgName)
-  local lower = imgName:lower()
-  if lower:find("postgres", 1, true) then
-    return "POSTGRES_PASSWORD=postgres"
-  elseif lower:find("mysql", 1, true) or lower:find("mariadb", 1, true) then
-    return "MYSQL_ROOT_PASSWORD=root"
+  local repo = extractImageRepo(imgName)
+  if repo == "postgres" then
+    return "POSTGRES_PASSWORD=" .. generateSecret(24)
+  elseif repo == "mysql" or repo == "mariadb" then
+    return "MYSQL_ROOT_PASSWORD=" .. generateSecret(24)
+  elseif repo == "mongo" or repo == "mongodb" then
+    return "MONGO_INITDB_ROOT_PASSWORD=" .. generateSecret(24)
   end
   return ""
-end
-
-local function isBaseOsImage(imgName)
-  local lower = imgName:lower()
-  return lower:find("alpine", 1, true) ~= nil
-    or lower:find("busybox", 1, true) ~= nil
-    or lower:find("ubuntu", 1, true) ~= nil
-    or lower:find("debian", 1, true) ~= nil
-    or lower:find("archlinux", 1, true) ~= nil
-    or lower:find("fedora", 1, true) ~= nil
 end
 
 local function suggestCommandForImage(imgName)

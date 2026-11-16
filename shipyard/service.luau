@@ -237,7 +237,10 @@ end
 
 local function isValidPortMapping(str)
   if type(str) ~= "string" or str == "" or #str > 64 then return false end
-  return str:match("^%d+:%d+$") ~= nil
+  return str:match("^%d+%.%d+%.%d+%.%d+:%d+:%d+$") ~= nil
+    or str:match("^%d+%.%d+%.%d+%.%d+:%d+:%d+/%a+$") ~= nil
+    or str:match("^%d+%.%d+%.%d+%.%d+::%d+$") ~= nil
+    or str:match("^%d+:%d+$") ~= nil
     or str:match("^%d+$") ~= nil
     or str:match("^%d+:%d+/%a+$") ~= nil
     or str:match("^%d+/%a+$") ~= nil
@@ -375,9 +378,12 @@ end
 local function runStreamingTask(opts, onComplete)
   local taskPidMarker = "__SHIPYARD_TASK_PID__"
   local taskEndMarker = "__SHIPYARD_TASK_DONE__"
-  -- Execute command in subshell, track its PID for actual termination, and capture exit code upon process completion.
+  -- Execute command in a dedicated process group via job control (set -m).
+  -- $PID is the process group leader (PGID).
+  -- On exit or cancellation, terminate and account for any remaining descendants in -$PID
+  -- before emitting the completion marker. The mutation lock is held until the entire process group exits.
   local cmd = string.format(
-    "(%s) & PID=$!; echo \"%s:$PID\"; wait $PID; CODE=$?; echo \"%s:$CODE\"",
+    "set -m; (%s) & PID=$!; echo \"%s:$PID\"; wait $PID; CODE=$?; if kill -0 -$PID 2>/dev/null; then kill -TERM -$PID 2>/dev/null; for _i in 1 2 3 4 5; do kill -0 -$PID 2>/dev/null || break; sleep 0.1; done; if kill -0 -$PID 2>/dev/null; then kill -KILL -$PID 2>/dev/null; while kill -0 -$PID 2>/dev/null; do sleep 0.05; done; fi; fi; echo \"%s:$CODE\"",
     opts.command, taskPidMarker, taskEndMarker
   )
 
@@ -1455,21 +1461,21 @@ local function onCommandReceived(cmd)
   local action = cmd.action
   if not ALLOWED_ACTIONS[action] then return end
 
-  -- Task cancellation with actual process termination
+  -- Task cancellation with actual process group termination
   if action == "cancel_task" then
     if activeTaskPid and not activeTaskCancelling then
       activeTaskCancelling = true
       if currentActiveTask then
         currentActiveTask.stage = "Cancelling…"
         currentActiveTask.cancelling = true
-        table.insert(currentActiveTask.recentLogs, "Cancellation requested: terminating process…")
+        table.insert(currentActiveTask.recentLogs, "Cancellation requested: terminating process group…")
         publishSnapshot()
       end
       local pid = activeTaskPid
-      -- Terminate the process tree. Crucially, isBusy remains true until wait $PID naturally exits and finish() is called.
+      -- Terminate the entire process group (-$pid). The wrapper ensures all descendants exit before emitting DONE.
       noctalia.runAsync(string.format(
-        "pkill -TERM -P %d 2>/dev/null; kill -TERM %d 2>/dev/null; sleep 0.4; pkill -KILL -P %d 2>/dev/null; kill -KILL %d 2>/dev/null",
-        pid, pid, pid, pid
+        "kill -TERM -%d 2>/dev/null; for i in 1 2 3 4 5; do kill -0 -%d 2>/dev/null || break; sleep 0.1; done; if kill -0 -%d 2>/dev/null; then kill -KILL -%d 2>/dev/null; while kill -0 -%d 2>/dev/null; do sleep 0.05; done; fi",
+        pid, pid, pid, pid, pid
       ))
     end
     return
