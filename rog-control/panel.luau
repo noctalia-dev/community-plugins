@@ -343,14 +343,13 @@ local function keyboardRows(aura, prefs)
     end))
   end
 
+  local colour = noctalia.getConfig("rgb_keyboard") ~= false
   local modeNames, modeValues, selected = {}, {}, 0
-  for _, v in ipairs(aura.modes) do
-    if model.AURA_MODES[v] ~= nil then
-      table.insert(modeNames, tr(model.AURA_MODES[v]))
-      table.insert(modeValues, v)
-      if v == aura.mode then
-        selected = #modeValues - 1
-      end
+  for _, v in ipairs(model.auraModes(aura.modes, colour)) do
+    table.insert(modeNames, tr(model.AURA_MODES[v]))
+    table.insert(modeValues, v)
+    if v == aura.mode then
+      selected = #modeValues - 1
     end
   end
   if #modeValues > 1 then
@@ -369,8 +368,8 @@ local function keyboardRows(aura, prefs)
   end
 
   -- Rainbows pick their own colours, so the colour controls only appear for
-  -- single-colour effects.
-  if aura.mode == 0 or aura.mode == 1 or aura.mode == 10 then
+  -- single-colour effects, and never on a keyboard that has one colour only.
+  if colour and (aura.mode == 0 or aura.mode == 1 or aura.mode == 10) then
     table.insert(rows, settingRow(tr("lighting.follow_theme"), ui.toggle({
       checked = prefs.followTheme == true,
       onChange = function(value)

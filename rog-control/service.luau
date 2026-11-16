@@ -50,6 +50,7 @@ local again = { asusd = false, gfx = false, upower = false }
 local batteryPath = nil -- UPower object path of the system battery
 local gfxPresent = nil -- nil = not probed yet
 local lastProfile = nil
+local lastAuraMode = nil
 local lastAppliedLed = nil
 
 -- Preferences -------------------------------------------------------------
@@ -231,7 +232,7 @@ local function applyAsusd(objects)
     } or nil,
   }
 
-  -- The ROG key (Fn+F5) and the panel both land here, so one place gives every
+  -- The fan key (Fn+F5) and the panel both land here, so one place gives every
   -- profile change the same native on-screen confirmation.
   if lastProfile ~= nil and fresh.profile ~= lastProfile and noctalia.getConfig("show_osd") ~= false then
     local p = model.profile(fresh.profile)
@@ -240,6 +241,16 @@ local function applyAsusd(objects)
     end
   end
   lastProfile = fresh.profile
+
+  -- Same for the lighting effect, which the Aura key (Fn+F4) steps through.
+  local auraMode = fresh.aura ~= nil and fresh.aura.mode or nil
+  if lastAuraMode ~= nil and auraMode ~= nil and auraMode ~= lastAuraMode and noctalia.getConfig("show_osd") ~= false then
+    local key = model.AURA_MODES[auraMode]
+    if key ~= nil then
+      noctalia.osd.show("keyboard", noctalia.tr(key))
+    end
+  end
+  lastAuraMode = auraMode
 
   state.asusd = fresh
   state.error = nil
@@ -461,9 +472,13 @@ end
 -- Only single-colour effects take a colour; a rainbow keeps its own.
 local COLOUR_MODES = { [0] = true, [1] = true, [10] = true }
 
+local function colourKeyboard()
+  return noctalia.getConfig("rgb_keyboard") ~= false
+end
+
 applyThemeColour = function()
   local aura = ledData()
-  if aura == nil or not state.prefs.followTheme or not COLOUR_MODES[aura.mode] then
+  if aura == nil or not colourKeyboard() or not state.prefs.followTheme or not COLOUR_MODES[aura.mode] then
     return
   end
   local r, g, b = model.ledColour(noctalia.getColor("primary"))
@@ -598,6 +613,25 @@ function ACTIONS.keyboardMode(value)
   end
 end
 
+-- The Aura key (Fn+F4): step through the lighting effects this keyboard can show.
+function ACTIONS.cycleAura(delta)
+  local aura = ledData()
+  local modes = aura ~= nil and model.auraModes(aura.modes, colourKeyboard()) or {}
+  if #modes == 0 then
+    return
+  end
+  local current = 0
+  for i, m in ipairs(modes) do
+    if m == aura.mode then
+      current = i
+      break
+    end
+  end
+  -- From an effect not on the list (a rainbow left on a white keyboard), start at the top.
+  local nextIndex = current == 0 and 1 or ((current - 1 + delta) % #modes) + 1
+  ACTIONS.keyboardMode(modes[nextIndex])
+end
+
 function ACTIONS.followTheme(on)
   state.prefs.followTheme = on
   savePrefs()
@@ -656,6 +690,12 @@ function update()
   applyThemeColour()
 end
 
+-- Settings change in place: keep the streams, re-check the keyboard colour.
+function onConfigChanged()
+  lastAppliedLed = nil
+  applyThemeColour()
+end
+
 function onIpc(event)
   if event == "refresh" then
     refreshAsusd()
@@ -663,6 +703,12 @@ function onIpc(event)
     refreshCharge()
   elseif event == "next-profile" then
     ACTIONS.cycleProfile(1)
+  elseif event == "previous-profile" then
+    ACTIONS.cycleProfile(-1)
+  elseif event == "next-aura" then
+    ACTIONS.cycleAura(1)
+  elseif event == "previous-aura" then
+    ACTIONS.cycleAura(-1)
   end
 end
 

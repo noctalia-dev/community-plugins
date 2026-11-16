@@ -13,7 +13,7 @@
 
 id = "genuinemoron/rog-control"
 name = "ROG Control"
-version = "1.1.0"
+version = "1.2.0"
 plugin_api = 43
 author = "GenuineMoron"
 license = "MIT"
@@ -27,6 +27,13 @@ key = "show_osd"
 type = "bool"
 label_key = "settings.show_osd.label"
 description_key = "settings.show_osd.description"
+default = true
+
+[[setting]]
+key = "rgb_keyboard"
+type = "bool"
+label_key = "settings.rgb_keyboard.label"
+description_key = "settings.rgb_keyboard.description"
 default = true
 
 [[widget]]

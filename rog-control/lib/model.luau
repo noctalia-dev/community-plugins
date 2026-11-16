@@ -43,6 +43,21 @@ M.AURA_MODES = {
   [10] = "aura.pulse",
 }
 
+-- Rainbow effects cycle colours, so a single-colour keyboard can't show them.
+M.RAINBOW_MODES = { [2] = true, [3] = true }
+
+-- The effects worth offering: the ones asusd supports that have a name here, minus
+-- the rainbows on a single-colour keyboard. Keeps asusd's order.
+function M.auraModes(supported, colour)
+  local out = {}
+  for _, v in ipairs(supported or {}) do
+    if M.AURA_MODES[v] ~= nil and (colour or not M.RAINBOW_MODES[v]) then
+      table.insert(out, v)
+    end
+  end
+  return out
+end
+
 -- rog-slash SlashMode byte values, in asusctl's listing order.
 M.SLASH_MODES = {
   { value = 0x06, name = "Static" },

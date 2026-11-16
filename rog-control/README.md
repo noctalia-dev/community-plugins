@@ -56,7 +56,8 @@ When the mode changes from anywhere, including the laptop's ROG key, the shell's
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
-| `show_osd` | `bool` | `true` | Show the new mode in the on-screen display whenever it changes. |
+| `show_osd` | `bool` | `true` | Show the new mode or lighting effect in the on-screen display whenever it changes. |
+| `rgb_keyboard` | `bool` | `true` | Turn off for a single-colour (usually white) keyboard backlight: hides the colour and rainbow options and stops matching the theme colour. Same idea as G-Helper's `no_rgb`. |
 | `show_label` (bar widget) | `bool` | `false` | Show the mode name next to the icon on horizontal bars. |
 | `scroll_changes_mode` (bar widget) | `bool` | `true` | One scroll flick over the icon steps the mode. |
 
@@ -65,11 +66,25 @@ The charge-limit percentage is UPower's configured limit (udev hwdb `CHARGE_LIMI
 ## IPC
 
 ```sh
-noctalia msg plugin genuinemoron/rog-control:service all next-profile   # step to the next mode
-noctalia msg plugin genuinemoron/rog-control:service all refresh        # re-read every daemon
+noctalia msg plugin genuinemoron/rog-control:service all next-profile       # next performance mode
+noctalia msg plugin genuinemoron/rog-control:service all previous-profile   # previous performance mode
+noctalia msg plugin genuinemoron/rog-control:service all next-aura          # next keyboard lighting effect
+noctalia msg plugin genuinemoron/rog-control:service all previous-aura      # previous keyboard lighting effect
+noctalia msg plugin genuinemoron/rog-control:service all refresh            # re-read every daemon
+noctalia msg panel-toggle genuinemoron/rog-control:panel                    # open or close the panel
 ```
 
-`next-profile` is handy to bind to a key.
+### ROG keyboard keys
+
+On ROG laptops the Aura key sends `XF86Launch3`, the fan key `XF86Launch4` and the ROG key `XF86Launch1`. Bound to the commands above they behave as in Armoury Crate, with an on-screen confirmation. For example, in Umbriel's `config.toml`:
+
+```toml
+"XF86Launch3" = { action = "spawn noctalia msg plugin genuinemoron/rog-control:service all next-aura", repeat = false }
+"XF86Launch4" = { action = "spawn noctalia msg plugin genuinemoron/rog-control:service all next-profile", repeat = false }
+"XF86Launch1" = { action = "spawn noctalia msg panel-toggle genuinemoron/rog-control:panel", repeat = false }
+```
+
+On many models the kernel already cycles the mode on Fn+F5 itself; the panel and on-screen display follow it either way.
 
 ## Notes
 
@@ -82,4 +97,4 @@ noctalia msg plugin genuinemoron/rog-control:service all refresh        # re-rea
 - **Files written:** `prefs.json` in the plugin's data directory (`noctalia.pluginDataDir()`), holding the Match theme colour choice and your custom keyboard colour.
 - **Network:** none.
 - **Permissions:** asusd accepts property writes from local users, including the graphics switches it queues. UPower's `enable-charging-limit` action is allowed for the active session by default. With supergfxd, mode changes follow its own policy.
-- **Tested on:** ROG Zephyrus G16 GU605MI (2024), asusctl 6.5.0 (graphics switching through asusd and asus-shutdown; 1.0.0 also with supergfxctl 5.2), UPower 1.91, Noctalia 5.4.1 on Umbriel.
+- **Tested on:** ROG Zephyrus G16 GU605MI (2024), asusctl 6.5.0 (graphics switching through asusd and asus-shutdown; 1.0.0 also with supergfxctl 5.2), UPower 1.91, Noctalia 5.5.0 on Umbriel (1.2.0: white-keyboard GU605MI-QR081W, ROG keys bound as in the IPC section).

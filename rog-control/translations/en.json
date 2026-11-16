@@ -107,7 +107,7 @@
   "settings": {
     "show_osd": {
       "label": "Show mode changes on screen",
-      "description": "Briefly shows the new mode, including when the ROG key changes it."
+      "description": "Briefly shows the new mode or lighting effect, including when the fan or Aura key changes it."
     },
     "show_label": {
       "label": "Show mode name",
@@ -116,6 +116,10 @@
     "scroll_changes_mode": {
       "label": "Scroll changes mode",
       "description": "One scroll flick over the icon steps to the next mode."
+    },
+    "rgb_keyboard": {
+      "label": "Colour keyboard backlight",
+      "description": "Turn off if your keyboard lights in one colour only (many ROG models are white). Hides the colour and rainbow options and stops matching the theme colour."
     }
   }
 }
