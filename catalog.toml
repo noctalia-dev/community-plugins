@@ -6112,3 +6112,16 @@ icon = "headphones"
 description = "Native control for Nothing CMF Buds Pro 2: ANC, EQ, Ultra Bass, case-dial gestures, spatial audio, and more."
 plugin_api = 43
 tags = ["audio", "utility", "bar", "panel", "hardware"]
+
+[[plugin]]
+id = "ishan0121/shipyard"
+name = "Docker & Podman Shipyard"
+version = "1.0.0"
+updated_at = 1794868602
+added_at = 1794868602
+author = "Ishan0121"
+license = "MIT"
+icon = "ship"
+description = "Unified Docker and Podman manager for Wayland: compose stacks, atomic containers, and asset pruning."
+plugin_api = 43
+tags = ["development", "system", "utility", "panel"]
