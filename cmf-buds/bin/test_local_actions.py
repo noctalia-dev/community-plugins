@@ -204,19 +204,19 @@ def test_different_modifiers():
     print('3) rules with different modifiers do not overlap')
     r = Runner(
         [
-            rule("without", "volume_up", 0, None, "SIN"),
-            rule("with", "volume_up", 3, "super", "CON_SUPER"),
+            rule("without", "volume_up", 0, None, "WITHOUT"),
+            rule("with", "volume_up", 3, "super", "WITH_SUPER"),
         ]
     )
     r.push_event(60, [])
     time.sleep(0.2)
-    r.check('no modifier triggers its own rule', r.engine.fired == ["SIN"], r.engine.fired)
+    r.check('no modifier triggers its own rule', r.engine.fired == ["WITHOUT"], r.engine.fired)
     r.settle()
     r.push_event(65, ["super"], 0.15)
     r.push_event(70, ["super"], 0.15)
     r.push_event(75, ["super"], 0.05)
     time.sleep(0.3)
-    r.check('with SUPER, it waits for 3 presses', r.engine.fired == ["CON_SUPER"], r.engine.fired)
+    r.check('with SUPER, it waits for 3 presses', r.engine.fired == ["WITH_SUPER"], r.engine.fired)
     return r.failures
 
 
@@ -224,17 +224,17 @@ def test_specificity():
     print("4) with two 'any' rules, the more specific one wins")
     r = Runner(
         [
-            rule("without", "volume_up", 0, None, "SIN"),
-            rule("with", "volume_up", 0, "super", "CON_SUPER"),
+            rule("without", "volume_up", 0, None, "WITHOUT"),
+            rule("with", "volume_up", 0, "super", "WITH_SUPER"),
         ]
     )
     r.push_event(60, ["super"])
     time.sleep(0.2)
-    r.check('with SUPER, the SUPER rule wins', r.engine.fired == ["CON_SUPER"], r.engine.fired)
+    r.check('with SUPER, the SUPER rule wins', r.engine.fired == ["WITH_SUPER"], r.engine.fired)
     r.settle()
     r.push_event(75, [])
     time.sleep(0.2)
-    r.check('without a modifier, the rule without a modifier wins', r.engine.fired == ["SIN"], r.engine.fired)
+    r.check('without a modifier, the rule without a modifier wins', r.engine.fired == ["WITHOUT"], r.engine.fired)
     return r.failures
 
 
@@ -278,13 +278,13 @@ def test_presses_too_close():
     r = Runner(
         [
             rule("any", "volume_up", 0, "super", "CUALQUIERA"),
-            rule("dos", "volume_up", 2, "super", "DOS"),
+            rule("two", "volume_up", 2, "super", "TWO"),
         ]
     )
     r.push_event(60, ["super"], 0.05)
     r.push_event(65, ["super"], 0.05)
     time.sleep(0.3)
-    r.check('two quick clicks trigger the 2-press rule', r.engine.fired == ["DOS"], r.engine.fired)
+    r.check('two quick clicks trigger the 2-press rule', r.engine.fired == ["TWO"], r.engine.fired)
     return r.failures
 
 
@@ -647,11 +647,11 @@ def test_file_rules_are_not_overwritten():
             )
         )
     # The panel adds another rule: the file's rule must not be lost.
-    r.engine.upsert(rule("nueva", "volume_up", 0, "super", "NUEVA"))
+    r.engine.upsert(rule("new", "volume_up", 0, "super", "NEW"))
     with open(path, "r", encoding="utf-8") as fh:
         ids = [x["id"] for x in json.load(fh)["rules"]]
     r.check("the file's rule is still there", "manual" in ids, ids)
-    r.check('and the new rule was added', "nueva" in ids, ids)
+    r.check('and the new rule was added', "new" in ids, ids)
     r.check(
         'the panel sees the file rules',
         "manual" in [x["id"] for x in r.engine.snapshot()["rules"]],
@@ -1216,7 +1216,7 @@ def test_restore_respects_the_user():
 
 def test_forbidden_modifier():
     print('34) a rule can require a modifier NOT to be held')
-    r = Runner([rule("a", "volume_up", 0, "none", "SIN_SUPER")])
+    r = Runner([rule("a", "volume_up", 0, "none", "WITHOUT_SUPER")])
     # The UI's "no_super" option is stored as forbid: ["super"].
     r.engine.rules[0]["require"] = []
     r.engine.rules[0]["forbid"] = ["super"]
@@ -1226,17 +1226,17 @@ def test_forbidden_modifier():
     r.settle()
     r.push_event(70, [])
     time.sleep(0.3)
-    r.check('without SUPER, it does run', r.engine.fired == ["SIN_SUPER"], r.engine.fired)
+    r.check('without SUPER, it does run', r.engine.fired == ["WITHOUT_SUPER"], r.engine.fired)
     # And a rule requiring SUPER continues to require it.
     r.settle()
-    r2 = Runner([rule("b", "volume_up", 0, "super", "CON_SUPER")])
+    r2 = Runner([rule("b", "volume_up", 0, "super", "WITH_SUPER")])
     r2.push_event(60, [])
     time.sleep(0.3)
     r2.check('the rule requiring SUPER does not run without it', r2.engine.fired == [], r2.engine.fired)
     r2.settle()
     r2.push_event(70, ["super"])
     time.sleep(0.3)
-    r2.check('and it does run with it', r2.engine.fired == ["CON_SUPER"], r2.engine.fired)
+    r2.check('and it does run with it', r2.engine.fired == ["WITH_SUPER"], r2.engine.fired)
     return r.failures
 
 
@@ -1425,10 +1425,10 @@ def test_reload():
     r = Runner([rule("a", "volume_up", 0, "super", "UNO")])
     r.engine.rules_path = path
     with open(path, "w", encoding="utf-8") as fh:
-        fh.write('{"rules": [%s]}' % _json_rule("b", "volume_up", 0, "super", "DESDE_FICHERO"))
+        fh.write('{"rules": [%s]}' % _json_rule("b", "volume_up", 0, "super", "FROM_FILE"))
     r.push_event(60, ["super"])
     time.sleep(0.2)
-    r.check('it uses the rule from the file', r.engine.fired == ["DESDE_FICHERO"], r.engine.fired)
+    r.check('it uses the rule from the file', r.engine.fired == ["FROM_FILE"], r.engine.fired)
     if os.path.exists(path):
         os.unlink(path)
     return r.failures
@@ -1627,7 +1627,7 @@ def test_gesture_modifiers():
     # resolved when the gesture closes.
     reglas = [
         rule("n", "volume_up", 3, "none", "TRES"),
-        rule("a", "volume_up", 0, "super", "CON_SUPER"),
+        rule("a", "volume_up", 0, "super", "WITH_SUPER"),
     ]
 
     r = Runner(reglas)
@@ -1637,10 +1637,10 @@ def test_gesture_modifiers():
     # The user releases SUPER before the gesture closes: the gesture was
     # made with SUPER, so the rule still matches.
     r.engine.modifiers.held = set()
-    wait_until(lambda: "CON_SUPER" in r.engine.fired, timeout=4.0)
+    wait_until(lambda: "WITH_SUPER" in r.engine.fired, timeout=4.0)
     r.check(
         'the gesture remembers the modifiers from the start',
-        "CON_SUPER" in r.engine.fired,
+        "WITH_SUPER" in r.engine.fired,
         r.engine.fired,
     )
 
