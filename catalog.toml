@@ -5550,15 +5550,15 @@ tags = ["hyprland", "indicator", "bar"]
 [[plugin]]
 id = "lowcache/dropkitty"
 name = "dropkitty"
-version = "0.1.0"
-updated_at = 1793800113
+version = "0.2.0"
+updated_at = 1794845923
 added_at = 1793800113
 author = "lowcache"
 license = "MIT"
 icon = "terminal-2"
-description = "Quake-style drop-down terminal on kitty, with a bar toggle and a finished-command badge."
+description = "Quake-style drop-down terminal on kitty: bar toggle, launcher command runner, finished-command notifications."
 plugin_api = 26
-tags = ["bar", "service", "productivity", "utility", "niri", "hyprland", "sway"]
+tags = ["bar", "service", "launcher", "productivity", "utility", "niri", "hyprland", "sway"]
 
 [[plugin]]
 id = "fr4j4/hyprland-minimize"
