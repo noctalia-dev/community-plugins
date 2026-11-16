@@ -19,6 +19,7 @@ local launchPortInput       = ""
 local launchEnvInput        = ""
 local confirmPending        = nil
 local cmdNonce              = 0
+local render
 
 local function tr(key, params)
   return noctalia.tr(key, params)
@@ -84,8 +85,6 @@ local function getSnapshot()
     scanDirsList       = {},
   }
 end
-
-local render
 
 -- ---------------------------------------------------------------------------
 -- UI Helpers
@@ -246,19 +245,6 @@ local function renderActiveTaskCard(task)
       ui.row({ align = "center", gap = 6 }, {
         pill(stagePillText, "primary/0.2", "primary"),
         ui.label({ text = elapsedStr, fontSize = 11, color = "on_surface_variant" }),
-        ui.button({
-          text        = "Cancel",
-          fontSize    = 11,
-          paddingH    = 6,
-          paddingV    = 2,
-          radius      = 4,
-          fill        = "error/0.15",
-          color       = "error",
-          tooltip     = "Cancel current operation",
-          onClick     = function()
-            sendCommand("cancel_task")
-          end,
-        }),
       }),
     }),
     ui.progress({

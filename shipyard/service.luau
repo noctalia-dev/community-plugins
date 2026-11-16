@@ -49,8 +49,6 @@ local snapshot = {
 }
 
 local currentActiveTask        = nil
-local activeTaskDeadline       = 0
-local activeTaskCancelFn       = nil
 local eventListenerRunning     = false
 local tickCounter              = 0
 local isRefreshing             = false
@@ -317,7 +315,6 @@ end
 local function setBusyState(busy, title, action, targetId)
   isBusy = busy
   if busy then
-    activeTaskDeadline = os.time() + 60
     currentActiveTask = {
       id         = targetId or "task",
       name       = targetId or "Task",
@@ -330,8 +327,6 @@ local function setBusyState(busy, title, action, targetId)
       startTime  = os.time(),
     }
   else
-    activeTaskDeadline = 0
-    activeTaskCancelFn = nil
     currentActiveTask = nil
   end
   publishSnapshot()
@@ -342,7 +337,6 @@ local function runStreamingTask(opts, onComplete)
   local cmd = string.format("%s; echo \"%s:$?\"", opts.command, taskEndMarker)
 
   isBusy = true
-  activeTaskDeadline = os.time() + 300
   currentActiveTask = {
     id         = opts.id or opts.name or "task",
     name       = opts.name or "Task",
@@ -364,16 +358,12 @@ local function runStreamingTask(opts, onComplete)
     if isFinished then return end
     isFinished = true
     isBusy = false
-    activeTaskDeadline = 0
-    activeTaskCancelFn = nil
     currentActiveTask = nil
     publishSnapshot()
     if onComplete then
       onComplete(exitCode, collectedLogs)
     end
   end
-
-  activeTaskCancelFn = finish
 
   local ok = noctalia.runStream(cmd, function(rawChunk)
     if isFinished then return end
@@ -1377,7 +1367,6 @@ local ALLOWED_ACTIONS = {
   refresh_infra          = true,
   refresh_pods           = true,
   save_config            = true,
-  cancel_task            = true,
   container_logs         = true,
   clear_logs             = true,
   podman_generate_systemd = true,
@@ -1408,19 +1397,6 @@ local function onCommandReceived(cmd)
   if type(cmd) ~= "table" or not cmd.action then return end
   local action = cmd.action
   if not ALLOWED_ACTIONS[action] then return end
-
-  -- Task cancellation
-  if action == "cancel_task" then
-    if activeTaskCancelFn then
-      activeTaskCancelFn(130)
-    else
-      isBusy = false
-      activeTaskDeadline = 0
-      currentActiveTask = nil
-      publishSnapshot()
-    end
-    return
-  end
 
   -- Daemon switch with persistence
   if action == "toggle_daemon" then
@@ -1464,7 +1440,6 @@ local function onCommandReceived(cmd)
 
   -- Manual Scan / Refresh
   if action == "refresh" or action == "scan_now" then
-    isBusy = false
     currentRefreshGen += 1
     isRefreshing = false
     refreshQueued = false
@@ -1974,19 +1949,6 @@ function update()
     refreshQueued       = false
     snapshot.isScanning = false
     publishSnapshot()
-  end
-
-  -- Task watchdog: timeout streaming/mutating tasks that exceed deadline (300s)
-  if isBusy and activeTaskDeadline > 0 and os.time() > activeTaskDeadline then
-    if activeTaskCancelFn then
-      activeTaskCancelFn(124)
-    else
-      isBusy = false
-      activeTaskDeadline = 0
-      currentActiveTask = nil
-      publishSnapshot()
-    end
-    noctalia.notify(noctalia.tr("name"), "Operation timed out after 5 minutes")
   end
 
   if tickCounter % 2 == 0 then
