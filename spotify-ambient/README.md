@@ -66,7 +66,7 @@ The plugin does not expose custom IPC actions. Its service is managed through **
 ### What it reads and writes
 
 - Reads Spotify playback status, track ID, and artwork URI through `playerctl` / MPRIS. It does not use Spotify Web API credentials or OAuth.
-- Artwork may be read from a local `file://` URI or downloaded from an HTTP(S) artwork URI supplied by MPRIS. Downloads have a 12 MiB size limit and a 15-second timeout; images above 50 megapixels are rejected before pixel decoding. File URIs must refer to the local machine. HTTP(S) hosts and redirect targets are checked to reject non-public IP addresses.
+- Artwork may be read from a local `file://` URI or downloaded from an HTTP(S) artwork URI supplied by MPRIS. Downloads have a 12 MiB size limit and a 15-second timeout; images above 50 megapixels are rejected before pixel decoding. File URIs must refer to the local machine. HTTP(S) hostnames and redirect targets are resolved and checked; requests are rejected if any resolved address is non-public.
 - Writes its session snapshot to Noctalia's plugin data directory and generated wallpaper JPEGs to its plugin-owned `wallpapers/` cache directory.
 - Writes uniquely named custom palettes to Noctalia's palette directory. It does not overwrite existing user palettes.
 - Uses Noctalia IPC to read and set the current color scheme and per-output wallpaper. On pause, stop, or Spotify disappearing, it restores only values that still match what the plugin applied; manual theme or wallpaper changes are preserved.
