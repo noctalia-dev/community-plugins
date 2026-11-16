@@ -192,6 +192,12 @@ page afterwards.
 
 ## Changelog
 
+### 2.8.0
+
+- **Full-width punctuation**: lyrics that come with `（）`, `［］`, `｛｝` or an
+  ideographic space are normalized to their ASCII equivalents, so display
+  fonts can render them instead of showing blank boxes.
+
 ### 2.7.1
 
 - **The right lyrics, not the first with timing**: a NetEase lyrics that comes

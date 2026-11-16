@@ -177,8 +177,20 @@ def detect_language(choice: str = "auto") -> str:
 # --------------------------------------------------------------------------
 
 
+FULLWIDTH_PUNCTUATION = str.maketrans({
+    "\uff08": "(",  # fullwidth left parenthesis
+    "\uff09": ")",  # fullwidth right parenthesis
+    "\uff3b": "[",  # fullwidth left square bracket
+    "\uff3d": "]",  # fullwidth right square bracket
+    "\uff5b": "{",  # fullwidth left curly bracket
+    "\uff5d": "}",  # fullwidth right curly bracket
+    "\u3000": " ",  # ideographic space
+})
+
+
 def normalize_text(value: str) -> str:
     value = unicodedata.normalize("NFC", value or "")
+    value = value.translate(FULLWIDTH_PUNCTUATION)
     value = value.replace("\t", " ").replace("\r", " ").replace("\n", " ")
     value = "".join(ch for ch in value if ch == " " or unicodedata.category(ch)[0] != "C")
     return re.sub(r"\s+", " ", value).strip()

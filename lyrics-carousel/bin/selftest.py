@@ -1708,6 +1708,24 @@ def check_settings_limits():
         )
 
 
+def check_normalize_text():
+    """Text normalization keeps lyrics renderable across fonts."""
+    mod = script_module()
+    cases = [
+        ("make up\uff08make up\uff09", "make up(make up)"),
+        ("\uff3btag\uff3d", "[tag]"),
+        ("\uff5bkey\uff5d", "{key}"),
+        ("a\u3000b", "a b"),
+    ]
+    for source, expected in cases:
+        out = mod.normalize_text(source)
+        check(
+            "normalize_text maps fullwidth punctuation: %r" % (source,),
+            out == expected,
+            repr(out),
+        )
+
+
 def check_readme():
     """The README documents what the manifest declares.
 
@@ -3880,6 +3898,7 @@ def main(argv):
     check_state_paths()
     check_without_text_mode()
     check_settings_limits()
+    check_normalize_text()
     check_limits_of_panel_and_script()
     check_helper_formats()
     check_empty_title_does_not_search_again()
