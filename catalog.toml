@@ -6125,3 +6125,16 @@ icon = "ship"
 description = "Unified Docker and Podman manager for Wayland: compose stacks, atomic containers, and asset pruning."
 plugin_api = 43
 tags = ["development", "system", "utility", "panel"]
+
+[[plugin]]
+id = "tadomika_ari/localcheck"
+name = "Localcheck"
+version = "0.1.0"
+updated_at = 1794868864
+added_at = 1794868864
+author = "TadomiKa-Ari"
+license = "MIT"
+icon = "file"
+description = "Localcheck"
+plugin_api = 43
+tags = ["network", "utility", "system"]
