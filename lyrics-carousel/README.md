@@ -192,6 +192,14 @@ page afterwards.
 
 ## Changelog
 
+### 2.8.0
+
+- **Colours follow the wallpaper right away**: the window no longer
+  re-reads `kitty.conf` on a 15 s timer. It stats the palette sources four
+  times per second and reloads them only when they change, so a new
+  wallpaper is reflected in under a second with no parsing in between, and
+  the cached frame is dropped when the background or the foreground changes.
+
 ### 2.7.1
 
 - **The right lyrics, not the first with timing**: a NetEase lyrics that comes

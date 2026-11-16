@@ -434,6 +434,10 @@ class ImageRenderer:
             cfg["visible_above"], cfg["visible_below"], cfg["direction"],
             cfg["karaoke"], cfg["marker"], cfg["header"], cfg["footer"],
             cfg["hints"], cfg["spacing"], cfg["ghost"],
+            # A theme change can keep the accent and alter only the
+            # background/foreground: without them the cached signature would
+            # suppress the repaint.
+            app.theme.background, app.theme.foreground,
             round(position * MOTION_FPS),
         ]
         # The background moves even when the lyrics do not change: its

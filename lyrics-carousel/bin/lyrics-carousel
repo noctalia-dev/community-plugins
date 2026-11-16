@@ -46,6 +46,10 @@ VERSION = "2.5.0"
 SEARCH_TIMEOUT = 15.0
 # How often a song without lyrics is retried (seconds).
 RETRY_SECONDS = 60
+# The palette sources are stat'ed at this rate. It is a stat, not a read:
+# the window follows a wallpaper change in under a second without parsing
+# kitty.conf when nothing changed.
+THEME_CHECK_STEP = 0.25
 # Grace period, after the first lyrics, for a version with word timings to
 # arrive: the first one is shown right away and improved when it appears.
 WORD_GRACE = 3.0
@@ -331,7 +335,34 @@ class Theme:
             "cyan": (184, 233, 150),
         }
         self.source = ""
+        self.sources = []
+        self._fingerprint = None
         self.reload()
+
+
+    def fingerprint(self):
+        """Cheap identity of the palette sources: path, mtime and size.
+
+        Reading and parsing every kitty.conf four times per second just to
+        discover that nothing changed is wasteful; their stat is enough.
+        """
+        parts = []
+        for path in self.sources or []:
+            try:
+                info = os.stat(path)
+            except OSError:
+                parts.append((path, None, None))
+                continue
+            parts.append((path, info.st_mtime_ns, info.st_size))
+        return tuple(parts)
+
+    def changed(self) -> bool:
+        """True when one of the palette sources changed since the last read."""
+        current = self.fingerprint()
+        if current != self._fingerprint:
+            self._fingerprint = current
+            return True
+        return False
 
     @staticmethod
     def _parse_hex(value: str):
@@ -387,6 +418,11 @@ class Theme:
                         paths.append((key, color))
 
         read_config(base)
+        # The files that take part in the palette: the main kitty.conf and
+        # every included file. Their stat is what tells whether the desktop
+        # theme changed, without parsing them again.
+        self.sources = sorted(seen)
+        self._fingerprint = self.fingerprint()
         colors = dict(paths)
         self.foreground = colors.get("foreground", self.foreground)
         self.background = colors.get("background", self.background)
@@ -1917,6 +1953,7 @@ class LyricsCarousel:
         self.last_active = -1
         self.moving = False
         self.last_reload = 0.0
+        self._last_theme_check = 0.0
         self.last_fetch = 0.0
         # Last check of the window size (manual resize).
         self._last_size_check = 0.0
@@ -2222,6 +2259,24 @@ class LyricsCarousel:
         # API): it is not touched here, only the size is watched in case
         # the user resizes the window by hand.
 
+    def _refresh_theme(self, now):
+        """Reloads the palette only when its sources changed.
+
+        Noctalia rewrites the kitty template when the wallpaper changes, so
+        its mtime is the signal. Reloading on a fixed timer spent the whole
+        day re-reading the same file, and the window kept the old colours
+        for up to 15 s after a change.
+        """
+        if now - getattr(self, "_last_theme_check", 0.0) < THEME_CHECK_STEP:
+            return
+        self._last_theme_check = now
+        try:
+            changed = self.theme.changed()
+        except Exception:  # noqa: BLE001
+            changed = True
+        if changed:
+            self.theme.reload()
+
     def _poll_data(self):
         # Settings reload: it applies both in demo mode and in real mode.
         if time.monotonic() - self.last_cfg > 0.5:
@@ -2261,9 +2316,7 @@ class LyricsCarousel:
 
         # (the settings reload already happened above, it covers demo and real)
 
-        if time.monotonic() - self.last_reload > 15:
-            self.last_reload = time.monotonic()
-            self.theme.reload()
+        self._refresh_theme(time.monotonic())
 
     # ---- active line calculation ----------------------------------
 

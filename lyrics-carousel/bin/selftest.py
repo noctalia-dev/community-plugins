@@ -1681,6 +1681,79 @@ def check_without_text_mode():
             )
 
 
+def check_theme_fingerprint():
+    """The palette follows the kitty sources without re-reading them."""
+    mod = script_module()
+    with tempfile.TemporaryDirectory(prefix="lyrics-carousel-theme-") as temporary:
+        config = os.path.join(temporary, "kitty")
+        os.makedirs(config)
+        main = os.path.join(config, "kitty.conf")
+        included = os.path.join(config, "colors.conf")
+        with open(main, "w", encoding="utf-8") as handle:
+            handle.write("include colors.conf\nforeground #ffffff\n")
+        with open(included, "w", encoding="utf-8") as handle:
+            handle.write("background #101010\n")
+        with temporary_env({"XDG_CONFIG_HOME": temporary}):
+            theme = mod.Theme()
+            check(
+                "the theme tracks the main file and its includes",
+                len(theme.sources) == 2,
+                str(theme.sources),
+            )
+            check("the theme reads the included palette", theme.background == (16, 16, 16), str(theme.background))
+            check("a fresh theme has not changed", theme.changed() is False)
+            check("the fingerprint is stable", theme.fingerprint() == theme.fingerprint())
+            with open(included, "w", encoding="utf-8") as handle:
+                handle.write("background #202020\n")
+            check("touching an include is detected", theme.changed() is True)
+            check("the change is reported only once", theme.changed() is False)
+            theme.reload()
+            check(
+                "reloading applies the new palette",
+                theme.background == (32, 32, 32),
+                str(theme.background),
+            )
+        # A missing kitty.conf is not an error: the defaults stay.
+        with tempfile.TemporaryDirectory(prefix="lyrics-carousel-theme-empty-") as empty:
+            with temporary_env({"XDG_CONFIG_HOME": empty}):
+                fallback = mod.Theme()
+                check(
+                    "a missing kitty.conf keeps the default palette",
+                    fallback.background == (31, 31, 31),
+                    str(fallback.background),
+                )
+                check("a missing source does not report changes", fallback.changed() is False)
+
+
+def check_theme_reload_only_on_change():
+    """The window stats the palette instead of re-reading it on a timer."""
+    mod = script_module()
+    app = object.__new__(mod.LyricsCarousel)
+
+    class FakeTheme:
+        def __init__(self, changes):
+            self.changes = list(changes)
+            self.reloads = 0
+
+        def changed(self):
+            return self.changes.pop(0) if self.changes else False
+
+        def reload(self):
+            self.reloads += 1
+
+    theme = FakeTheme([False, True, False])
+    app.theme = theme
+    app._last_theme_check = 0.0
+    app._refresh_theme(0.1)
+    check("the palette is not stat'ed before the step", theme.reloads == 0, str(theme.reloads))
+    app._refresh_theme(0.3)
+    check("an unchanged palette is not reloaded", theme.reloads == 0, str(theme.reloads))
+    app._refresh_theme(0.6)
+    check("a changed palette is reloaded", theme.reloads == 1, str(theme.reloads))
+    app._refresh_theme(1.0)
+    check("a stable palette is not reloaded again", theme.reloads == 1, str(theme.reloads))
+
+
 def check_settings_limits():
     """The limits of the script are the ones of the manifest."""
     with tempfile.TemporaryDirectory(prefix="lyrics-carousel-limites-") as temporary:
@@ -3879,6 +3952,8 @@ def main(argv):
     check_real_terminal_size()
     check_state_paths()
     check_without_text_mode()
+    check_theme_fingerprint()
+    check_theme_reload_only_on_change()
     check_settings_limits()
     check_limits_of_panel_and_script()
     check_helper_formats()
