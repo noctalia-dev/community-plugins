@@ -2030,8 +2030,8 @@ rev = "45757b8932bfe2362aa818705d81d0e2e9c23f0b"
 [[plugin]]
 id = "dragged/cider"
 name = "Cider"
-version = "1.11.2"
-updated_at = 1792983494
+version = "1.11.3"
+updated_at = 1794868654
 added_at = 1787148354
 author = "dragged"
 license = "MIT"
@@ -2569,8 +2569,8 @@ tags = ["desktop", "utility"]
 [[plugin]]
 id = "aabidk20/yt-music"
 name = "YouTube Music"
-version = "0.4.4"
-updated_at = 1793800177
+version = "0.4.5"
+updated_at = 1794868674
 added_at = 1788315521
 author = "Aabid"
 license = "MIT"
