@@ -17,6 +17,16 @@ M.PROFILES = {
   { value = 1, key = "profile.turbo", glyph = "rocket" },
 }
 
+-- asusd also knows LowPower (3) and Custom (4). LowPower is what amd-pmf calls the
+-- quiet mode; asusd treats it as an alias of Quiet both ways (it writes whichever
+-- the kernel offers), so it is shown and chosen as Silent. Custom is only shown.
+M.PROFILE_LOW_POWER = 3
+M.PROFILE_CUSTOM = { value = 4, key = "profile.custom", glyph = "gauge" }
+
+function M.canonicalProfile(value)
+  return value == M.PROFILE_LOW_POWER and 2 or value
+end
+
 -- Graphics modes, numbered as supergfxd's GfxMode so both back ends share them.
 -- Only these three are offered; supergfxd's VFIO, eGPU and "no modeset" modes are
 -- for setups this panel isn't aimed at.
@@ -42,6 +52,7 @@ M.AURA_MODES = {
   [3] = "aura.rainbow_wave",
   [10] = "aura.pulse",
 }
+M.AURA_OTHER = "aura.other"
 
 -- Rainbow effects cycle colours, so a single-colour keyboard can't show them.
 M.RAINBOW_MODES = { [2] = true, [3] = true }
@@ -79,10 +90,14 @@ M.SLASH_MODES = {
 }
 
 function M.profile(value)
+  value = M.canonicalProfile(value)
   for _, p in ipairs(M.PROFILES) do
     if p.value == value then
       return p
     end
+  end
+  if value == M.PROFILE_CUSTOM.value then
+    return M.PROFILE_CUSTOM
   end
   return nil
 end
@@ -91,7 +106,7 @@ end
 function M.availableProfiles(choices)
   local offered = {}
   for _, v in ipairs(choices or {}) do
-    offered[v] = true
+    offered[M.canonicalProfile(v)] = true
   end
   local list = {}
   for _, p in ipairs(M.PROFILES) do
@@ -108,6 +123,7 @@ function M.stepProfile(current, choices, delta)
   if #list == 0 then
     return nil
   end
+  current = M.canonicalProfile(current)
   local index = 1
   for i, p in ipairs(list) do
     if p.value == current then

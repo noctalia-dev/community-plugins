@@ -4,8 +4,8 @@
 -- Everything the hardware does is shown from the service's snapshot; every
 -- control sends one request back. Live readings (fans, CPU temperature, whether
 -- the NVIDIA GPU is awake, the power source) are plain sysfs reads made once a
--- second while the panel is open, never otherwise. Reading runtime_status does not
--- wake the GPU.
+-- second while the panel is open, never otherwise. Reading runtime_status, vendor,
+-- class and boot_vga does not wake the GPU (no config-space access).
 
 local model = require("./lib/model.luau")
 
@@ -43,25 +43,37 @@ local function discover()
           table.insert(paths.fans, { label = label, path = `{base}/fan{i}_input` })
         end
       end
-    elseif name == "coretemp" then
-      paths.cpuTemp = `{base}/temp1_input` -- package temperature
+    elseif name == "coretemp" or name == "k10temp" then
+      paths.cpuTemp = `{base}/temp1_input` -- Intel package / AMD Tctl
     end
   end
+  -- The discrete GPU: an NVIDIA or AMD display device that isn't the boot (VGA)
+  -- device. In MUX "Ultimate" mode an NVIDIA GPU can be the boot device itself.
+  local bootNvidia = nil
   for _, dev in ipairs(noctalia.listDir("/sys/bus/pci/devices") or {}) do
     local base = `/sys/bus/pci/devices/{dev}`
     local class = read(`{base}/class`) or ""
-    if read(`{base}/vendor`) == "0x10de" and string.sub(class, 1, 4) == "0x03" then
-      paths.gpu = `{base}/power/runtime_status`
-      break
+    local vendor = read(`{base}/vendor`)
+    if string.sub(class, 1, 4) == "0x03" and (vendor == "0x10de" or vendor == "0x1002") then
+      local name = vendor == "0x10de" and "NVIDIA" or "AMD"
+      if read(`{base}/boot_vga`) ~= "1" then
+        paths.gpu, paths.gpuName = `{base}/power/runtime_status`, name
+        break
+      elseif vendor == "0x10de" then
+        bootNvidia = base
+      end
     end
+  end
+  if paths.gpu == nil and bootNvidia ~= nil then
+    paths.gpu, paths.gpuName = `{bootNvidia}/power/runtime_status`, "NVIDIA"
   end
   for _, name in ipairs(noctalia.listDir("/sys/class/power_supply") or {}) do
     local base = `/sys/class/power_supply/{name}`
     local kind = read(`{base}/type`)
     if kind == "Mains" then
       paths.mains = base
-    elseif kind == "Battery" and paths.battery == nil then
-      paths.battery = base
+    elseif kind == "Battery" and paths.battery == nil and read(`{base}/scope`) ~= "Device" then
+      paths.battery = base -- not a mouse's or pad's battery (scope "Device")
     end
   end
 end
@@ -155,12 +167,13 @@ local function header()
     table.insert(parts, tr("power.charging"))
   end
 
+  local titles = { ui.label({ text = product, fontWeight = "bold", fontSize = 14, maxLines = 1 }) }
+  if #parts > 0 then
+    table.insert(titles, caption(table.concat(parts, " · ")))
+  end
   return ui.row({ gap = 10, align = "center" }, {
     ui.glyph({ name = "device-laptop", size = 22, color = "primary" }),
-    ui.column({ gap = 2, flexGrow = 1 }, {
-      ui.label({ text = product, fontWeight = "bold", fontSize = 14, maxLines = 1 }),
-      caption(table.concat(parts, " · ")),
-    }),
+    ui.column({ gap = 2, flexGrow = 1 }, titles),
     ui.button({
       glyph = "settings",
       variant = "ghost",
@@ -204,7 +217,7 @@ local function gpuStatusLine()
   end
   return ui.row({ gap = 8, align = "center" }, {
     ui.box({ width = 8, height = 8, radius = 4, fill = colour }),
-    ui.label({ text = tr(key), fontSize = 12, color = "on_surface_variant" }),
+    ui.label({ text = tr(key, { vendor = paths ~= nil and paths.gpuName or "" }), fontSize = 12, color = "on_surface_variant" }),
   })
 end
 
@@ -290,6 +303,7 @@ local function batterySection(a, charge)
   local children = {
     sectionTitle("section.battery"),
     settingRow(tr("battery.limit", { percent = charge.limit or 80 }), ui.toggle({
+      key = `charge-limit:{snapshot.failures or 0}`, -- rebuilt after a refused write
       checked = charge.enabled,
       onChange = function(value)
         request("chargeLimit", value == "true")
@@ -317,6 +331,7 @@ local function displaySection(a)
   return card({
     sectionTitle("section.display"),
     settingRow(tr("display.overdrive"), ui.toggle({
+      key = `overdrive:{snapshot.failures or 0}`,
       checked = a.overdrive == 1,
       onChange = function(value)
         request("overdrive", value == "true")
@@ -344,7 +359,7 @@ local function keyboardRows(aura, prefs)
   end
 
   local colour = noctalia.getConfig("rgb_keyboard") ~= false
-  local modeNames, modeValues, selected = {}, {}, 0
+  local modeNames, modeValues, selected = {}, {}, nil
   for _, v in ipairs(model.auraModes(aura.modes, colour)) do
     table.insert(modeNames, tr(model.AURA_MODES[v]))
     table.insert(modeValues, v)
@@ -352,6 +367,14 @@ local function keyboardRows(aura, prefs)
       selected = #modeValues - 1
     end
   end
+  -- The current effect isn't offered here (a rainbow on a white keyboard, or an
+  -- effect set with asusctl): show it first, so picking any listed one changes it.
+  if selected == nil and aura.mode ~= nil then
+    table.insert(modeNames, 1, tr(model.AURA_MODES[aura.mode] or model.AURA_OTHER))
+    table.insert(modeValues, 1, aura.mode)
+    selected = 0
+  end
+  selected = selected or 0
   if #modeValues > 1 then
     table.insert(rows, settingRow(tr("lighting.effect"), ui.select({
       options = modeNames,
@@ -414,6 +437,7 @@ local function lightingSection(a, prefs)
       table.insert(children, ui.separator({ spacing = 4 }))
     end
     table.insert(children, settingRow(tr("lighting.slash"), ui.toggle({
+      key = `slash:{snapshot.failures or 0}`,
       checked = a.slash.enabled == true,
       onChange = function(value)
         request("slash", value == "true")
@@ -491,18 +515,19 @@ local function render()
   if snapshot.available ~= true or a == nil then
     table.insert(children, unavailable())
   else
-    for _, section in ipairs({
-      performanceSection(a),
-      graphicsSection(snapshot),
-      batterySection(a, snapshot.charge),
-      displaySection(a),
-      lightingSection(a, snapshot.prefs or {}),
-      sensorsSection(),
-    }) do
+    -- Any section can be absent (nil), so each is appended on its own: a table
+    -- constructor with nil holes would stop ipairs at the first missing one.
+    local function add(section)
       if section ~= nil then
         table.insert(children, section)
       end
     end
+    add(performanceSection(a))
+    add(graphicsSection(snapshot))
+    add(batterySection(a, snapshot.charge))
+    add(displaySection(a))
+    add(lightingSection(a, snapshot.prefs or {}))
+    add(sensorsSection())
   end
   panel.render(ui.column({ gap = 12, padding = 14 }, children))
 end

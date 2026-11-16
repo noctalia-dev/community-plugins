@@ -9,9 +9,9 @@
 -- reports property changes; each change triggers a single snapshot read
 -- (asusd: one GetManagedObjects call, ~6 KB), and bursts collapse into at most
 -- one follow-up read. Writes are direct D-Bus property sets, made only when the
--- user acts. The once-every-20-seconds tick only retries a dropped stream and
--- checks whether the theme accent moved (for the keyboard colour); both are
--- in-process and spawn nothing unless something changed.
+-- user acts. The once-every-20-seconds tick only retries a dropped stream or a
+-- read that failed, and checks whether the theme accent moved (for the keyboard
+-- colour); it spawns nothing unless one of those needs it.
 --
 --   noctalia.state "rog.state"    snapshot for the bar, panel and tile
 --   noctalia.state "rog.request"  actions from the bar, panel and tile
@@ -40,18 +40,25 @@ local state = {
   asusd = nil, -- normalised asusd state, nil while asusd is unreachable
   gpu = nil, -- graphics mode from supergfxd, or else from asusd's firmware switches
   charge = nil, -- UPower charge-limit state, nil when the battery has none
-  prefs = { followTheme = true, colour = nil },
+  -- Matching the theme colour is opt-in: nothing is written to the keyboard until
+  -- the user asks for it.
+  prefs = { followTheme = false, colour = nil },
   error = nil,
+  failures = 0, -- counts failed writes; the panel keys its toggles on it
 }
 
 local streams = { asusd = false, gfx = false, upower = false }
 local busy = { asusd = false, gfx = false, upower = false }
 local again = { asusd = false, gfx = false, upower = false }
+-- A read to repeat on the next tick: it failed, or runAsync refused to start it
+-- (it returns false, without calling back, when too many commands are running).
+local retry = { asusd = false, gfx = false, upower = false }
 local batteryPath = nil -- UPower object path of the system battery
 local gfxPresent = nil -- nil = not probed yet
 local lastProfile = nil
 local lastAuraMode = nil
 local lastAppliedLed = nil
+local lastRgbKeyboard = nil
 
 -- Preferences -------------------------------------------------------------
 
@@ -94,12 +101,17 @@ local function publish()
     gpu = state.gpu,
     charge = state.charge,
     prefs = state.prefs,
+    failures = state.failures,
   })
 end
 
 local function fail(action, result)
   local reason = result ~= nil and noctalia.string.trim(result.stderr or "") or ""
   noctalia.notifyError(noctalia.tr("notify.failed", { action = noctalia.tr(action) }), reason)
+  -- A rejected write leaves a toggle where the user flipped it; a new count
+  -- makes the panel rebuild its toggles from the real state.
+  state.failures += 1
+  publish()
 end
 
 -- asusd -------------------------------------------------------------------
@@ -113,7 +125,11 @@ local function props(objects, path, iface)
   end
   local out = {}
   for key, value in pairs(raw) do
-    out[key] = type(value) == "table" and value.data or value
+    if type(value) == "table" then
+      out[key] = value.data -- may be false: not `and value.data or value`
+    else
+      out[key] = value
+    end
   end
   return out
 end
@@ -159,12 +175,15 @@ local function firmwareGpu()
   end
   local configured = gpuModeOf(nextDgpuOff, nextDiscrete)
 
-  local supported = { model.GPU_STANDARD }
-  if fw.hasDgpu then
-    table.insert(supported, model.GPU_ECO)
-  end
-  if fw.hasMux then
-    table.insert(supported, model.GPU_ULTIMATE)
+  local supported = { running }
+  if fw.canQueue then
+    supported = { model.GPU_STANDARD }
+    if fw.hasDgpu then
+      table.insert(supported, model.GPU_ECO)
+    end
+    if fw.hasMux then
+      table.insert(supported, model.GPU_ULTIMATE)
+    end
   end
   local pending = configured ~= running and configured or nil
   return {
@@ -201,9 +220,9 @@ local function applyAsusd(objects)
   local slash = slashPath ~= nil and props(objects, slashPath, SLASH) or nil
 
   local fresh = {
-    profile = platform.PlatformProfile,
-    profileOnAc = platform.PlatformProfileOnAc,
-    profileOnBattery = platform.PlatformProfileOnBattery,
+    profile = model.canonicalProfile(platform.PlatformProfile),
+    profileOnAc = model.canonicalProfile(platform.PlatformProfileOnAc),
+    profileOnBattery = model.canonicalProfile(platform.PlatformProfileOnBattery),
     profileChoices = platform.PlatformProfileChoices or {},
     chargeLimit = platform.ChargeControlEndThreshold,
     overdrive = overdrive ~= nil and overdrive.CurrentValue or nil,
@@ -215,6 +234,9 @@ local function applyAsusd(objects)
       muxDiscrete = mux ~= nil and mux.CurrentValue == 0,
       dgpuQueued = queuedGpuValue(dgpu),
       muxQueued = queuedGpuValue(mux),
+      -- Only an asusd that queues switches until shutdown (QueuedGpuValue) is
+      -- safe to switch through: an older one would cut the dGPU off live.
+      canQueue = (dgpu == nil or dgpu.QueuedGpuValue ~= nil) and (mux == nil or mux.QueuedGpuValue ~= nil),
     } or nil,
     aura = aura ~= nil and {
       path = auraPath,
@@ -267,7 +289,7 @@ local function refreshAsusd()
     return
   end
   busy.asusd = true
-  noctalia.runAsync({
+  local started = noctalia.runAsync({
     "busctl", "--system", "--json=short", "call", ASUSD, "/",
     "org.freedesktop.DBus.ObjectManager", "GetManagedObjects",
   }, function(result)
@@ -282,12 +304,19 @@ local function refreshAsusd()
       state.asusd = nil
       state.error = noctalia.tr("error.no_asusd")
       publish()
+      -- asusd not on the bus at all: its stream says when it appears. Anything
+      -- else (a timeout, a busy daemon) is worth another try on the next tick.
+      retry.asusd = not string.find(result.stderr or "", "not activatable", 1, true)
     end
     if again.asusd then
       again.asusd = false
       refreshAsusd()
     end
   end, CALL_TIMEOUT_MS)
+  if not started then
+    busy.asusd = false
+    retry.asusd = true
+  end
 end
 
 -- supergfxd ---------------------------------------------------------------
@@ -298,7 +327,7 @@ local function refreshGfx()
     return
   end
   busy.gfx = true
-  noctalia.runAsync({ "sh", "-c", GFX_QUERY }, function(result)
+  local started = noctalia.runAsync({ "sh", "-c", GFX_QUERY }, function(result)
     busy.gfx = false
     local values = {}
     for line in string.gmatch(result.stdout or "", "[^\n]+") do
@@ -329,6 +358,10 @@ local function refreshGfx()
       refreshGfx()
     end
   end, CALL_TIMEOUT_MS)
+  if not started then
+    busy.gfx = false
+    retry.gfx = true
+  end
 end
 
 -- UPower charge limit ----------------------------------------------------
@@ -342,7 +375,7 @@ local function refreshCharge()
     return
   end
   busy.upower = true
-  noctalia.runAsync({
+  local started = noctalia.runAsync({
     "busctl", "--system", "--json=short", "call", UPOWER, batteryPath,
     "org.freedesktop.DBus.Properties", "GetAll", "s", UPOWER_DEVICE,
   }, function(result)
@@ -351,7 +384,10 @@ local function refreshCharge()
     local p = type(decoded) == "table" and type(decoded.data) == "table" and decoded.data[1] or nil
     local function value(key)
       local v = type(p) == "table" and p[key] or nil
-      return type(v) == "table" and v.data or nil
+      if type(v) == "table" then
+        return v.data
+      end
+      return nil
     end
     if value("ChargeThresholdSupported") == true then
       state.charge = {
@@ -367,23 +403,65 @@ local function refreshCharge()
       refreshCharge()
     end
   end, CALL_TIMEOUT_MS)
+  if not started then
+    busy.upower = false
+    retry.upower = true
+  end
+end
+
+-- The laptop's own battery: UPower also lists the batteries of mice, pads and
+-- headsets, some under battery_* names; only the system battery powers the machine.
+local findingBattery = false
+local noBattery = false -- UPower answered and lists no system battery
+
+local function tryBattery(candidates, i)
+  local path = candidates[i]
+  if path == nil then
+    findingBattery = false
+    noBattery = true
+    return
+  end
+  local started = noctalia.runAsync({
+    "busctl", "--system", "--json=short", "get-property", UPOWER, path, UPOWER_DEVICE, "PowerSupply",
+  }, function(result)
+    local decoded = result.exitCode == 0 and noctalia.json.decode(result.stdout) or nil
+    if type(decoded) == "table" and decoded.data == true then
+      findingBattery = false
+      batteryPath = path
+      refreshCharge()
+      startStreams()
+    else
+      tryBattery(candidates, i + 1)
+    end
+  end, CALL_TIMEOUT_MS)
+  if not started then
+    findingBattery = false
+  end
 end
 
 local function findBattery()
-  noctalia.runAsync({ "busctl", "--system", "--json=short", "call", UPOWER, "/org/freedesktop/UPower", UPOWER, "EnumerateDevices" }, function(result)
+  if batteryPath ~= nil or findingBattery or noBattery then
+    return
+  end
+  findingBattery = true
+  local started = noctalia.runAsync({ "busctl", "--system", "--json=short", "call", UPOWER, "/org/freedesktop/UPower", UPOWER, "EnumerateDevices" }, function(result)
     local decoded = result.exitCode == 0 and noctalia.json.decode(result.stdout) or nil
-    local devices = type(decoded) == "table" and type(decoded.data) == "table" and decoded.data[1] or {}
+    if type(decoded) ~= "table" then
+      findingBattery = false -- UPower didn't answer; the next tick asks again
+      return
+    end
+    local devices = type(decoded.data) == "table" and decoded.data[1] or {}
+    local candidates = {}
     for _, path in ipairs(devices) do
       if string.find(path, "/battery_", 1, true) then
-        batteryPath = path
-        break
+        table.insert(candidates, path)
       end
     end
-    if batteryPath ~= nil then
-      refreshCharge()
-      startStreams()
-    end
+    tryBattery(candidates, 1)
   end, CALL_TIMEOUT_MS)
+  if not started then
+    findingBattery = false
+  end
 end
 
 -- Streams -----------------------------------------------------------------
@@ -393,8 +471,22 @@ local function onAsusdLine(line)
     streams.asusd = false
     return
   end
-  -- Property changes, and asusd (re)appearing on the bus after a restart.
-  if string.find(line, "PropertiesChanged", 1, true) or string.find(line, " is owned by ", 1, true) then
+  -- asusd leaving the bus: drop the controls rather than leave dead ones live.
+  if string.find(line, " does not have an owner", 1, true) then
+    state.asusd = nil
+    state.error = noctalia.tr("error.no_asusd")
+    retry.asusd = false
+    publish()
+    return
+  end
+  -- Property changes; keyboard and Slash objects coming and going (their paths
+  -- carry the USB device number, which changes when the keyboard re-enumerates);
+  -- and asusd (re)appearing on the bus after a restart.
+  if string.find(line, "PropertiesChanged", 1, true)
+    or string.find(line, "InterfacesAdded", 1, true)
+    or string.find(line, "InterfacesRemoved", 1, true)
+    or string.find(line, " is owned by ", 1, true)
+  then
     refreshAsusd()
   end
 end
@@ -507,7 +599,7 @@ local function pluggedIn()
 end
 
 local function run(argv, actionKey, after)
-  noctalia.runAsync(argv, function(result)
+  local started = noctalia.runAsync(argv, function(result)
     if result.exitCode ~= 0 or result.timedOut then
       fail(actionKey, result)
     end
@@ -515,6 +607,10 @@ local function run(argv, actionKey, after)
       after(result)
     end
   end, CALL_TIMEOUT_MS)
+  if not started then
+    fail(actionKey, { stderr = noctalia.tr("error.busy") })
+  end
+  return started
 end
 
 local function setProperty(path, iface, prop, signature, value, actionKey)
@@ -525,9 +621,10 @@ local ACTIONS = {}
 
 -- Choosing a mode also makes it the default for the current power source, so it
 -- sticks the way it does in Armoury Crate and G-Helper: asusd switches between the
--- charger and battery defaults by itself when the power source changes.
+-- charger and battery defaults by itself when the power source changes. asusd's
+-- per-source setter also applies the mode, so this is one write, not two (each
+-- profile write makes the firmware notify the NVIDIA driver, which wakes the GPU).
 function ACTIONS.profile(value)
-  setProperty(PLATFORM_PATH, PLATFORM, "PlatformProfile", "u", value, "action.profile")
   local perSource = pluggedIn() and "PlatformProfileOnAc" or "PlatformProfileOnBattery"
   setProperty(PLATFORM_PATH, PLATFORM, perSource, "u", value, "action.profile")
 end
@@ -540,6 +637,8 @@ function ACTIONS.cycleProfile(delta)
   local target = model.stepProfile(a.profile, a.profileChoices, delta or 1)
   if target ~= nil then
     ACTIONS.profile(target)
+    -- Step from here if the key is pressed again before asusd's change arrives.
+    a.profile = target
   end
 end
 
@@ -581,7 +680,7 @@ function ACTIONS.gpuMode(value)
   -- its running value clears asusd's queue, which is how Cancel works.
   local fw = state.asusd ~= nil and state.asusd.gpuFirmware or nil
   local gpu = state.gpu
-  if fw == nil or gpu == nil or gpu.source ~= "asusd" then
+  if fw == nil or not fw.canQueue or gpu == nil or gpu.source ~= "asusd" then
     return
   end
   if (value == model.GPU_ULTIMATE and not fw.hasMux) or (value == model.GPU_ECO and not fw.hasDgpu) then
@@ -630,6 +729,7 @@ function ACTIONS.cycleAura(delta)
   -- From an effect not on the list (a rainbow left on a white keyboard), start at the top.
   local nextIndex = current == 0 and 1 or ((current - 1 + delta) % #modes) + 1
   ACTIONS.keyboardMode(modes[nextIndex])
+  aura.mode = modes[nextIndex] -- a quick second press steps on from here
 end
 
 function ACTIONS.followTheme(on)
@@ -684,23 +784,45 @@ end)
 
 function update()
   startStreams()
-  if gfxPresent == nil then
+  if retry.asusd then
+    retry.asusd = false
+    refreshAsusd()
+  end
+  if gfxPresent == nil or retry.gfx then
+    retry.gfx = false
     refreshGfx()
+  end
+  if retry.upower then
+    retry.upower = false
+    refreshCharge()
+  end
+  if batteryPath == nil then
+    findBattery()
   end
   applyThemeColour()
 end
 
--- Settings change in place: keep the streams, re-check the keyboard colour.
+-- Settings change in place: keep the streams. Only the single-colour setting
+-- touches the keyboard, so other settings (like show_osd) never repaint it.
 function onConfigChanged()
-  lastAppliedLed = nil
-  applyThemeColour()
+  local rgb = colourKeyboard()
+  if rgb ~= lastRgbKeyboard then
+    lastRgbKeyboard = rgb
+    lastAppliedLed = nil
+    applyThemeColour()
+  end
 end
 
 function onIpc(event)
   if event == "refresh" then
     refreshAsusd()
     refreshGfx()
-    refreshCharge()
+    if batteryPath == nil then
+      noBattery = false
+      findBattery()
+    else
+      refreshCharge()
+    end
   elseif event == "next-profile" then
     ACTIONS.cycleProfile(1)
   elseif event == "previous-profile" then
@@ -713,6 +835,7 @@ function onIpc(event)
 end
 
 noctalia.setUpdateInterval(TICK_MS)
+lastRgbKeyboard = colourKeyboard()
 loadPrefs()
 publish()
 refreshAsusd()

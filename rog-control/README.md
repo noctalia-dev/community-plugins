@@ -38,13 +38,13 @@ noctalia msg panel-toggle genuinemoron/rog-control:panel
 
 The panel has these sections:
 
-- **Performance:** Silent, Balanced or Turbo. The choice also becomes the default for the power source you are on (charger or battery), and asusd switches between the two defaults by itself, as Armoury Crate does.
-- **Graphics:** Eco, Standard or Ultimate. A switch takes effect at the next start: a banner offers Restart or Cancel until then. A status line says whether the NVIDIA GPU is asleep.
+- **Performance:** Silent, Balanced or Turbo (on AMD models whose kernel calls the quiet mode `low-power`, that is Silent). The choice also becomes the default for the power source you are on (charger or battery), and asusd switches between the two defaults by itself, as Armoury Crate does.
+- **Graphics:** Eco, Standard or Ultimate. A switch takes effect at the next start: a banner offers Restart or Cancel until then. A status line says whether the discrete GPU (NVIDIA or AMD) is asleep. Switching is offered only with an asusd that queues the change until shutdown (asusctl 6.5 does); otherwise the mode is shown, not switched.
 - **Battery:** **Limit charge to N%**, and **Charge to 100% once** while the limit is on. The limit is UPower's, the same one Noctalia's Control Center Power tab shows, so both stay in sync.
 - **Display:** **Panel overdrive**.
 - **Lighting:**
   - keyboard brightness and effect;
-  - **Match theme colour**, which tints the keyboard with the current theme accent and follows wallpaper-driven themes; turn it off to pick a colour;
+  - **Match theme colour** (off until you turn it on), which tints the keyboard with the current theme accent and follows wallpaper-driven themes; otherwise pick a colour;
   - **Slash lighting** and its animation, on laptops that have it.
 - **Sensors:** CPU temperature and fan speeds, read while the panel is open.
 
@@ -93,8 +93,9 @@ On many models the kernel already cycles the mode on Fn+F5 itself; the panel and
   - One `busctl --json=short` read when a daemon reports a change.
   - One `busctl set-property` or `call` per action you take.
   - `noctalia msg panel-toggle session` when you press Restart (or Log out, with supergfxd) in the graphics banner.
-- **Polling:** nothing polls the hardware. The panel reads hwmon fan speeds, the CPU package temperature, the NVIDIA GPU's `power/runtime_status`, battery capacity and status, and AC state from sysfs once a second while it is open, never otherwise. Reading `runtime_status` does not wake the GPU. The service ticks every 20 s to restart a dropped stream and to notice a theme colour change for the keyboard; neither spawns anything unless something changed.
+- **Polling:** nothing polls the hardware. The panel reads hwmon fan speeds, the CPU temperature (`coretemp` or `k10temp`), the discrete GPU's `power/runtime_status`, battery capacity and status, and AC state from sysfs once a second while it is open, never otherwise. Reading `runtime_status` does not wake the GPU. The service ticks every 20 s to restart a dropped stream, to repeat a read that failed, and to notice a theme colour change for the keyboard; it spawns nothing unless one of those needs it.
+- **Hardware writes:** only when you act, plus the keyboard colour while Match theme colour is on. Nothing is written at startup.
 - **Files written:** `prefs.json` in the plugin's data directory (`noctalia.pluginDataDir()`), holding the Match theme colour choice and your custom keyboard colour.
 - **Network:** none.
 - **Permissions:** asusd accepts property writes from local users, including the graphics switches it queues. UPower's `enable-charging-limit` action is allowed for the active session by default. With supergfxd, mode changes follow its own policy.
-- **Tested on:** ROG Zephyrus G16 GU605MI (2024), asusctl 6.5.0 (graphics switching through asusd and asus-shutdown; 1.0.0 also with supergfxctl 5.2), UPower 1.91, Noctalia 5.5.0 on Umbriel (1.2.0: white-keyboard GU605MI-QR081W, ROG keys bound as in the IPC section).
+- **Tested on:** ROG Zephyrus G16 GU605MI (2024), asusctl 6.5.0 (graphics switching through asusd and asus-shutdown; 1.0.0 also with supergfxctl 5.2), UPower 1.91, Noctalia 5.5.0 on Umbriel (1.2.0: white-keyboard GU605MI-QR081W, ROG keys bound as in the IPC section). The AMD paths (`low-power`, `k10temp`, AMD dGPU) follow the kernel and asusd sources but are untested on hardware.

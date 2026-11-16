@@ -5,7 +5,8 @@
   "profile": {
     "silent": "Silent",
     "balanced": "Balanced",
-    "turbo": "Turbo"
+    "turbo": "Turbo",
+    "custom": "Custom"
   },
   "gpu": {
     "eco": "Eco",
@@ -13,9 +14,9 @@
     "ultimate": "Ultimate",
     "other": "Custom",
     "mode": "Mode",
-    "asleep": "NVIDIA GPU asleep",
-    "awake": "NVIDIA GPU awake",
-    "off": "NVIDIA GPU off",
+    "asleep": "{vendor} GPU asleep",
+    "awake": "{vendor} GPU awake",
+    "off": "Discrete GPU off",
     "pending_reboot": "Restart to switch to {mode}",
     "pending_logout": "Log out to switch to {mode}",
     "restart": "Restart",
@@ -27,7 +28,8 @@
     "breathe": "Breathe",
     "rainbow_cycle": "Rainbow cycle",
     "rainbow_wave": "Rainbow wave",
-    "pulse": "Pulse"
+    "pulse": "Pulse",
+    "other": "Other"
   },
   "section": {
     "performance": "Performance",
@@ -102,7 +104,8 @@
     "no_asusd": "asusd isn't running",
     "no_platform": "asusd doesn't expose platform controls on this machine",
     "no_tools": "busctl and gdbus are needed (systemd and glib2)",
-    "hint": "Install asusctl and enable asusd.service."
+    "hint": "Install asusctl and enable asusd.service.",
+    "busy": "Too many commands are running. Try again in a moment."
   },
   "settings": {
     "show_osd": {
