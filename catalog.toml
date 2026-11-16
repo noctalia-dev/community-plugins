@@ -3196,8 +3196,8 @@ rev = "8291ec1fe6f35a4e2a37f6d88254b87800ede10f"
 [[plugin]]
 id = "samuelskovbakke/calculator-plus"
 name = "Calculator Plus"
-version = "1.0.2"
-updated_at = 1792983494
+version = "1.1.0"
+updated_at = 1794845775
 added_at = 1789149960
 author = "samuelskovbakke"
 license = "MIT"
