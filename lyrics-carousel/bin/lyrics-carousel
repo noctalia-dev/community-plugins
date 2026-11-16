@@ -46,6 +46,9 @@ VERSION = "2.5.0"
 SEARCH_TIMEOUT = 15.0
 # How often a song without lyrics is retried (seconds).
 RETRY_SECONDS = 60
+# A gap shorter than this is a normal breath between lines, not an
+# instrumental section worth replacing with the notes row.
+INSTRUMENTAL_GAP_SECONDS = 4.0
 # Grace period, after the first lyrics, for a version with word timings to
 # arrive: the first one is shown right away and improved when it appears.
 WORD_GRACE = 3.0
@@ -1736,12 +1739,21 @@ DEFAULTS = {
     "visible_above": 6,
     "visible_below": 6,
     "translate_lyrics": False,
+    "instrumental_marks": True,
+    "instrumental_icon": 0,
+    "silence_threshold": 4,
+    "instrumental_text": "",
+    "instrumental_custom": False,
 }
 
-BOOL_KEYS = ("marker", "karaoke", "footer", "hints", "header", "ghost")
+BOOL_KEYS = (
+    "marker", "karaoke", "footer", "hints", "header", "ghost",
+    "instrumental_marks", "instrumental_custom",
+)
 INT_KEYS = (
     "font_size", "spacing", "offset_ms", "width", "height",
     "custom_x", "custom_y", "visible_above", "visible_below",
+    "instrumental_icon", "silence_threshold",
 )
 FLOAT_KEYS = ("active_scale",)
 
@@ -1804,6 +1816,8 @@ def load_settings() -> dict:
     cfg["height"] = max(200, min(2160, cfg["height"]))
     cfg["visible_above"] = max(0, min(20, cfg["visible_above"]))
     cfg["visible_below"] = max(0, min(20, cfg["visible_below"]))
+    cfg["instrumental_icon"] = max(0, min(3, cfg["instrumental_icon"]))
+    cfg["silence_threshold"] = max(1, min(15, cfg["silence_threshold"]))
     try:
         cfg["custom_x"] = max(0, min(10000, int(cfg["custom_x"])))
     except (TypeError, ValueError):
@@ -1813,6 +1827,9 @@ def load_settings() -> dict:
     except (TypeError, ValueError):
         cfg["custom_y"] = 100
     cfg["active_scale"] = max(1.0, min(2.5, cfg["active_scale"]))
+    cfg["instrumental_text"] = (
+        str(cfg.get("instrumental_text") or "").replace("\r", "").replace("\n", "")[:24]
+    )
     if cfg["direction"] not in ("down", "up"):
         cfg["direction"] = "down"
     if cfg["accent"] not in ACCENT_NAMES:
@@ -2293,6 +2310,43 @@ class LyricsCarousel:
         ]
         pairs.sort(key=lambda pair: pair[0])
         return pairs
+
+    def instrumental_gap(self, position) -> bool:
+        """True when playback is inside a real instrumental/silent section.
+
+        Only synced lyrics can prove a gap. The line duration is the sung
+        part; the raw next timestamp is what marks the end of the gap.
+        Intro and outro count too, as long as they exceed the threshold.
+        """
+        if not self.cfg.get("instrumental_marks", True):
+            return False
+        if not self.synced or self.state != "lyrics" or not self.lines:
+            return False
+        timed = sorted(
+            (line.start, index)
+            for index, line in enumerate(self.lines)
+            if line.start >= 0 and line.text
+        )
+        if not timed:
+            return False
+        threshold = float(
+            self.cfg.get("silence_threshold", INSTRUMENTAL_GAP_SECONDS)
+        )
+        first_start = timed[0][0]
+        if position < first_start:
+            return first_start >= threshold
+        times = [start for start, _ in timed]
+        slot = bisect.bisect_right(times, position) - 1
+        slot = max(0, min(slot, len(timed) - 1))
+        start, index = timed[slot]
+        line_end = start + max(0.0, float(self.lines[index].duration or 0.0))
+        if position < line_end:
+            return False
+        if slot + 1 < len(timed):
+            next_start = timed[slot + 1][0]
+            return next_start - line_end >= threshold and position < next_start
+        duration = float(self.track.duration or 0.0) if self.track else 0.0
+        return duration > 0 and duration - line_end >= threshold and position <= duration
 
     def next_timed_start(self, index):
         """Start of the next line with a real timing (or None).

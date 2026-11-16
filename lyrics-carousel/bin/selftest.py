@@ -1681,6 +1681,215 @@ def check_without_text_mode():
             )
 
 
+def check_instrumental_gap_detection():
+    """Instrumental spans are detected only for synced lyrics and when enabled."""
+    with tempfile.TemporaryDirectory(prefix="lyrics-carousel-cache-") as cache:
+        with temporary_env({"XDG_CACHE_HOME": cache}):
+            mod = script_module()
+            app = object.__new__(mod.LyricsCarousel)
+            app.cfg = dict(mod.DEFAULTS)
+            app.demo = False
+            app.state = "lyrics"
+            app.synced = True
+            app.track = mod.Track("Tema", "Artista", duration=40.0)
+            app.lines = [
+                mod.LyricLine(6.0, 2.0, "primera"),
+                mod.LyricLine(14.0, 2.0, "segunda"),
+            ]
+            cases = (
+                ("before the first lyric", 1.0, True),
+                ("while a line is sung", 6.5, False),
+                ("between two separated lines", 10.0, True),
+                ("at the start of the next line", 14.0, False),
+                ("after the last line", 20.0, True),
+            )
+            for label, position, expected in cases:
+                value = app.instrumental_gap(position)
+                check(
+                    f"instrumental gap: {label}",
+                    value is expected,
+                    f"position={position} got={value!r}",
+                )
+
+            app.cfg["instrumental_marks"] = False
+            check(
+                "instrumental gaps respect the general toggle",
+                app.instrumental_gap(10.0) is False,
+                repr(app.instrumental_gap(10.0)),
+            )
+            app.cfg["instrumental_marks"] = True
+            app.synced = False
+            check(
+                "unsynced lyrics never become instrumental",
+                app.instrumental_gap(10.0) is False,
+                repr(app.instrumental_gap(10.0)),
+            )
+
+            app.synced = True
+            app.cfg["silence_threshold"] = 7
+            check(
+                "a threshold above the gap hides the notes",
+                app.instrumental_gap(10.0) is False,
+                repr(app.instrumental_gap(10.0)),
+            )
+            app.cfg["silence_threshold"] = 6
+            check(
+                "a threshold equal to the gap shows the notes",
+                app.instrumental_gap(10.0) is True,
+                repr(app.instrumental_gap(10.0)),
+            )
+            app.cfg["silence_threshold"] = 1
+            check(
+                "a threshold below the gap shows the notes",
+                app.instrumental_gap(10.0) is True,
+                repr(app.instrumental_gap(10.0)),
+            )
+
+            app.cfg["silence_threshold"] = 5
+            check(
+                "the intro uses the threshold",
+                app.instrumental_gap(2.0) is True,
+                repr(app.instrumental_gap(2.0)),
+            )
+            app.cfg["silence_threshold"] = 7
+            check(
+                "a title card longer than the intro is not a gap",
+                app.instrumental_gap(2.0) is False,
+                repr(app.instrumental_gap(2.0)),
+            )
+
+
+class _InstrumentalTheme:
+    background = (12, 12, 18)
+    foreground = (240, 240, 245)
+    past = (110, 110, 120)
+    bright = (240, 240, 245)
+    faint = (150, 150, 160)
+
+
+def instrumental_row_image(mod, variant=0, custom="", custom_on=False, size=26.0):
+    """Draws only the instrumental row on a blank canvas."""
+
+    class App:
+        pass
+
+    app = App()
+    app.theme = _InstrumentalTheme()
+    app.cfg = {
+        "instrumental_icon": variant,
+        "instrumental_custom": custom_on,
+        "instrumental_text": custom,
+    }
+    renderer = mod.ImageRenderer.__new__(mod.ImageRenderer)
+    renderer.app = app
+    renderer.fonts = {}
+    renderer.font_files = {"prueba": mod.FALLBACK_FONT}
+    image = mod.Image.new("RGBA", (600, 160), (0, 0, 0, 0))
+    draw = mod.ImageDraw.Draw(image)
+    renderer._measure_draw = draw
+    renderer._draw_instrumental(draw, 80.0, size, "prueba", (220, 60, 60))
+    return image
+
+
+def check_instrumental_variants():
+    """The notes row is vectorial, rotates variants and accepts custom text.
+
+    The glyphs cannot come from the font: with a typeface without the note
+    glyph the row came out as empty boxes.
+    """
+    mod = image_module()
+    shots = []
+    for variant in range(4):
+        image = instrumental_row_image(mod, variant)
+        box = image.getbbox()
+        check(f"the instrumental variant {variant} draws something", box is not None, str(box))
+        if box is not None:
+            center = (box[0] + box[2]) / 2.0
+            check(
+                f"the instrumental variant {variant} is centered",
+                abs(center - 300.0) < 30.0,
+                "center=%.1f" % center,
+            )
+        shots.append(image.tobytes())
+    check(
+        "the four instrumental variants look different",
+        len(set(shots)) == 4,
+        "%d distinct" % len(set(shots)),
+    )
+    wrapped = instrumental_row_image(mod, 9)
+    check("an out-of-range icon rotates inside the variants", wrapped.tobytes() == shots[1])
+    custom = instrumental_row_image(mod, 0, custom="air", custom_on=True)
+    check("the custom text replaces the notes", custom.tobytes() != shots[0])
+    check(
+        "the custom text is centered",
+        custom.getbbox() is not None
+        and abs((custom.getbbox()[0] + custom.getbbox()[2]) / 2.0 - 300.0) < 30.0,
+        str(custom.getbbox()),
+    )
+    empty = instrumental_row_image(mod, 0, custom="  ", custom_on=True)
+    check("an empty custom text falls back to the notes", empty.tobytes() == shots[0])
+    unused = instrumental_row_image(mod, 0, custom="air", custom_on=False)
+    check("the saved text is ignored while the custom switch is off", unused.tobytes() == shots[0])
+
+
+def check_instrumental_in_frame_signature():
+    """A change in the instrumental row drops the cached frame."""
+    mod = image_module()
+
+    def signature(**overrides):
+        class App:
+            pass
+
+        app = App()
+        app.theme = _SceneTheme() if "_SceneTheme" in globals() else types.SimpleNamespace(
+            background=(10, 10, 12), foreground=(240, 240, 245), past=(110, 110, 120)
+        )
+        app.track = types.SimpleNamespace(title="Song", artist="Artist", duration=180.0)
+        app.state = "lyrics"
+        app.lines = [types.SimpleNamespace(text="one", start=0.0, duration=2.0, chars=[])]
+        app.karaoke = True
+        app.position = lambda: 5.0
+        app.scroll_state = lambda scroll_position: (0, 0, 0.0)
+        app.instrumental_gap = lambda position: False
+        app.cfg = {
+            "visible_above": 1,
+            "visible_below": 1,
+            "direction": "down",
+            "spacing": 2,
+            "marker": False,
+            "karaoke": True,
+            "footer": False,
+            "font_family": "Departure Mono",
+            "font_size": 22,
+            "active_scale": 1.35,
+            "header": False,
+            "hints": False,
+            "ghost": True,
+            "instrumental_marks": True,
+            "instrumental_icon": 0,
+            "instrumental_custom": False,
+            "instrumental_text": "",
+        }
+        app.cfg.update(overrides)
+        renderer = mod.ImageRenderer.__new__(mod.ImageRenderer)
+        renderer.app = app
+        return renderer._frame_signature((200, 50, 60))
+
+    base = signature()
+    check("the instrumental signature is stable", signature() == base)
+    for key, value in (
+        ("instrumental_marks", False),
+        ("instrumental_icon", 2),
+        ("instrumental_custom", True),
+        ("instrumental_text", "solo"),
+    ):
+        check(
+            f"the frame signature changes with `{key}`",
+            signature(**{key: value}) != base,
+            f"{key} is not part of the signature",
+        )
+
+
 def check_settings_limits():
     """The limits of the script are the ones of the manifest."""
     with tempfile.TemporaryDirectory(prefix="lyrics-carousel-limites-") as temporary:
@@ -3880,6 +4089,9 @@ def main(argv):
     check_state_paths()
     check_without_text_mode()
     check_settings_limits()
+    check_instrumental_gap_detection()
+    check_instrumental_variants()
+    check_instrumental_in_frame_signature()
     check_limits_of_panel_and_script()
     check_helper_formats()
     check_empty_title_does_not_search_again()

@@ -35,6 +35,11 @@
   "header": "Header (title / artist)",
   "height": "Height",
   "hints": "Keyboard hints",
+  "instrumental_marks": "Instrumental marks",
+  "instrumental_icon_tooltip": "Rotate the instrumental icon",
+  "instrumental_custom_tooltip": "Custom instrumental text · click to toggle · right click to edit",
+  "instrumental_text_placeholder": "Custom text (max 24 characters)",
+  "silence_threshold": "Instrumental gap (seconds)",
   "karaoke": "Karaoke glow",
   "launch": "Open the carousel",
   "launch_failed": "Could not open the terminal.",
@@ -117,6 +122,14 @@
     "hints": {
       "description": "Show the keyboard shortcuts at the bottom.",
       "label": "Keyboard hints"
+    },
+    "instrumental_marks": {
+      "description": "Show musical notes during instrumental pauses.",
+      "label": "Instrumental marks"
+    },
+    "silence_threshold": {
+      "description": "Minimum gap, in seconds, to draw the notes row.",
+      "label": "Instrumental gap"
     },
     "karaoke": {
       "description": "Light up the active line character by character as the song plays.",

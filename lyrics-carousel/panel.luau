@@ -65,6 +65,8 @@ local lastError = ""
 -- The font selector shows the list until the user picks
 -- "Other". It is interface state, not a setting: nothing is written.
 local fontCustom = nil
+-- The instrumental custom-text editor is open (interface state only).
+local instrumentalEditing = false
 -- An async callback (playerctl, the helper) can arrive after the panel has
 -- closed. Without this flag the callback would redraw a dead tree.
 local panelClosed = false
@@ -517,6 +519,98 @@ local function toggleRow(key, label, glyph)
   })
 end
 
+local function instrumentalRow()
+  local enabled = boolOf("instrumental_marks")
+  local custom = boolOf("instrumental_custom")
+  local children = {
+    ui.glyph({ name = "music", size = 14, color = "on_surface_variant" }),
+    ui.label({
+      text = tr("instrumental_marks"),
+      fontSize = 12,
+      color = "on_surface",
+      flexGrow = 1,
+      maxLines = 1,
+    }),
+  }
+  if enabled then
+    table.insert(children, ui.button({
+      key = "btn-instrumental-icon",
+      glyph = "music",
+      variant = "secondary",
+      controlSize = "xs",
+      glyphSize = 11,
+      width = 18,
+      height = 18,
+      tooltip = tr("instrumental_icon_tooltip"),
+      onClick = function()
+        setSetting("instrumental_icon", (math.floor(numberOf("instrumental_icon")) + 1) % 4)
+      end,
+    }))
+    table.insert(children, ui.button({
+      key = "btn-instrumental-custom",
+      glyph = "typography",
+      variant = custom and "secondary" or "ghost",
+      controlSize = "xs",
+      glyphSize = 11,
+      width = 18,
+      height = 18,
+      tooltip = tr("instrumental_custom_tooltip"),
+      onClick = function()
+        local saved = tostring(valueOf("instrumental_text") or "")
+        if saved == "" then
+          instrumentalEditing = true
+          render()
+          return
+        end
+        setSetting("instrumental_custom", not boolOf("instrumental_custom"))
+      end,
+      onRightClick = function()
+        instrumentalEditing = true
+        render()
+      end,
+    }))
+  end
+  table.insert(children, ui.toggle({
+    key = "toggle-instrumental_marks",
+    checked = enabled,
+    onChange = function(value)
+      setSetting("instrumental_marks", truthy(value))
+    end,
+  }))
+  return ui.row({
+    key = "row-instrumental_marks",
+    align = "center",
+    gap = 10,
+    paddingH = 4,
+    padding = 4,
+  }, children)
+end
+
+local function instrumentalEditor()
+  if not instrumentalEditing then
+    return ui.column({})
+  end
+  return ui.input({
+    key = "instrumental-text-editor",
+    value = tostring(valueOf("instrumental_text") or ""),
+    placeholder = tr("instrumental_text_placeholder"),
+    controlSize = "sm",
+    focus = true,
+    submitOnEnter = true,
+    onChange = function(value)
+      if type(value) ~= "string" then
+        return
+      end
+      local clean = value:gsub("[\r\n]", ""):sub(1, 24)
+      setSetting("instrumental_text", clean)
+    end,
+    onSubmit = function()
+      instrumentalEditing = false
+      render()
+    end,
+  })
+end
+
 local function chipRow(items)
   local chips = {}
   for _, item in ipairs(items) do
@@ -855,6 +949,11 @@ render = function()
     toggleRow("ghost", tr("ghost"), "sparkles"),
     toggleRow("footer", tr("footer"), "clock"),
     toggleRow("hints", tr("hints"), "keyboard"),
+    instrumentalRow(),
+    (boolOf("instrumental_marks")
+      and sliderRow("silence_threshold", tr("silence_threshold"), 1, 15, 1, true)
+      or ui.column({})),
+    instrumentalEditor(),
 
     -- Lyrics --------------------------------------------------------------
     ui.separator({ thickness = 1, spacing = 6 }),

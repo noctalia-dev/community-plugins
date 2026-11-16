@@ -128,6 +128,11 @@ it belongs to the bar widget, not to the lyrics window.
 | `header` | `bool` | `false` | Title, artist and status tags. |
 | `spacing` | `int` | `2` | Space between the lines. |
 | `ghost` | `bool` | `true` | Smooth ~0.9 s slide between lines. Off: the change is instant. |
+| `instrumental_marks` | `bool` | `true` | Show a row of notes during long instrumental passages and when a track has no lyrics. |
+| `instrumental_icon` | `int` | `0` | Notes shape: `0` single notes, `1` double notes, `2` beamed notes, `3` dots. Drawn as vector shapes. |
+| `silence_threshold` | `int` | `4` | Minimum gap (seconds) that counts as an instrumental section. |
+| `instrumental_custom` | `bool` | `false` | Draw the saved custom text instead of the notes. |
+| `instrumental_text` | `string` | `""` | Custom text for the instrumental row (max 24 characters). |
 | `offset_ms` | `int` | `0` | Offset to fine-tune the synchronisation. |
 | `width` | `int` | `1200` | Window width. |
 | `height` | `int` | `820` | Window height. |
@@ -191,6 +196,14 @@ poured into `settings.toml` when the panel is closed and is visible in the setti
 page afterwards.
 
 ## Changelog
+
+### 2.8.0
+
+- **Instrumental row**: during a long instrumental passage (intro, solo,
+  outro) the window replaces the frozen active line with a row of notes drawn
+  as vector primitives (single, double, beamed or dots), or with your own
+  custom text. The gap threshold is configurable, and a track with no lyrics
+  also shows the row instead of an empty window.
 
 ### 2.7.1
 

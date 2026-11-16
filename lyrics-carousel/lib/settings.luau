@@ -35,11 +35,17 @@ local DEFAULTS = {
   visible_below = 6,
   glyph = "music",
   translate_lyrics = false,
+  instrumental_marks = true,
+  instrumental_icon = 0,
+  silence_threshold = 4,
+  instrumental_text = "",
+  instrumental_custom = false,
 }
 
 local BOOL_KEYS = {
   marker = true, karaoke = true, footer = true,
   hints = true, header = true, ghost = true,
+  instrumental_marks = true, instrumental_custom = true,
 }
 local INT_KEYS = {
   font_size = true, spacing = true, offset_ms = true,
@@ -70,6 +76,8 @@ local LIMITS = {
   custom_y = { 0, 10000 },
   visible_above = { 0, 20 },
   visible_below = { 0, 20 },
+  instrumental_icon = { 0, 3 },
+  silence_threshold = { 1, 15 },
   active_scale = { 1.0, 2.5 },
 }
 

@@ -407,8 +407,19 @@ class ImageRenderer:
 
         # -- lyrics
         center_y = (top + bottom) / 2
+        instrumental = self._instrumental_enabled(app, position)
+        active_index, _, _ = app.scroll_state(position)
         if app.state == "lyrics" and app.lines:
-            self._draw_lyrics(draw, center_y, size, scale, family, accent, position, top, bottom)
+            self._draw_lyrics(
+                draw, center_y, size, scale, family, accent, position,
+                top, bottom, hide_index=active_index if instrumental else None,
+            )
+            if instrumental:
+                self._draw_instrumental(
+                    draw, center_y, size * 1.1, family, accent,
+                )
+        elif app.state == "empty" and instrumental:
+            self._draw_instrumental(draw, center_y, size * 1.1, family, accent)
         else:
             self._draw_state(draw, center_y, size, family)
 
@@ -434,6 +445,11 @@ class ImageRenderer:
             cfg["visible_above"], cfg["visible_below"], cfg["direction"],
             cfg["karaoke"], cfg["marker"], cfg["header"], cfg["footer"],
             cfg["hints"], cfg["spacing"], cfg["ghost"],
+            cfg.get("instrumental_marks", True),
+            cfg.get("instrumental_icon", 0),
+            cfg.get("instrumental_custom", False),
+            cfg.get("instrumental_text", ""),
+            self._instrumental_enabled(app, position),
             round(position * MOTION_FPS),
         ]
         # The background moves even when the lyrics do not change: its
@@ -444,7 +460,118 @@ class ImageRenderer:
             parts.append(visualizer.signature())
         return tuple(parts)
 
-    def _draw_lyrics(self, draw, center_y, size, scale, family, accent, position, area_top, area_bottom):
+    def _instrumental_enabled(self, app, position):
+        cfg = getattr(app, "cfg", {}) or {}
+        if not cfg.get("instrumental_marks", True):
+            return False
+        # A track without any lyrics has no "last line" to keep: the notes
+        # row is the honest placeholder. Loading and idle keep their text.
+        if getattr(app, "state", "") == "empty":
+            return True
+        detector = getattr(app, "instrumental_gap", None)
+        if detector is None:
+            return False
+        try:
+            return bool(detector(position))
+        except Exception:  # noqa: BLE001
+            return False
+
+    def _instrumental_custom_text(self, cfg):
+        """Saved custom text that replaces the notes, or an empty string."""
+        text = str(cfg.get("instrumental_text") or "").strip()
+        if bool(cfg.get("instrumental_custom")) and text:
+            return text
+        return ""
+
+    def _draw_instrumental(self, draw, center_y, size, family, accent):
+        """Draws the notes row (or the saved custom text) of an instrumental.
+
+        The notes are vectorial, like the marker: `♪` does not exist in every
+        typeface, and with a font without it the row came out as empty boxes.
+        The custom text is drawn with the lyrics typography, which is what the
+        user asked for when they typed it.
+        """
+        cfg = self.app.cfg
+        color = self._mix(self.app.theme.faint, accent, 0.45)
+        custom = self._instrumental_custom_text(cfg)
+        if custom:
+            self._draw_centered(draw, custom, center_y, size, color, family)
+            return
+        try:
+            variant = int(cfg.get("instrumental_icon", 0)) % 4
+        except (TypeError, ValueError):
+            variant = 0
+        self._draw_notes_row(draw, center_y, size, variant, color)
+
+    def _draw_notes_row(self, draw, center_y, size, variant, color):
+        """Three notes (or dots) centered in the window."""
+        center_x = draw.im.size[0] / 2.0
+        if variant == 3:  # dots
+            radius = max(1.0, size * 0.09)
+            gap = size * 0.55
+            for index in (-1, 0, 1):
+                x = center_x + index * gap
+                draw.ellipse(
+                    [x - radius, center_y - radius, x + radius, center_y + radius],
+                    fill=color,
+                )
+            return
+        gap = size * (1.9 if variant else 1.5)
+        for index in (-1, 0, 1):
+            x = center_x + index * gap
+            self._draw_note(
+                draw, x, center_y, size, color,
+                double=variant >= 1, beamed=variant >= 2,
+            )
+
+    def _draw_note(self, draw, x, center_y, size, color, double=False, beamed=False):
+        """One note (single head, or two heads joined by a beam)."""
+        thickness = max(1, int(round(size * 0.07)))
+        head_w = size * 0.32
+        head_h = size * 0.24
+        stem_h = size * 0.72
+        head_y = center_y + size * 0.18
+        stem_top = center_y - stem_h / 2
+        offsets = (-size * 0.26, size * 0.26) if double else (0.0,)
+        for offset in offsets:
+            head_x = x + offset
+            draw.ellipse(
+                [head_x - head_w / 2, head_y - head_h / 2,
+                 head_x + head_w / 2, head_y + head_h / 2],
+                fill=color,
+            )
+            stem_x = head_x + head_w / 2 - thickness / 2
+            draw.line(
+                [(stem_x, head_y), (stem_x, stem_top)],
+                fill=color,
+                width=thickness,
+            )
+        if not double:
+            # Single note: the flag hangs from the top of the stem.
+            stem_x = x + head_w / 2 - thickness / 2
+            draw.line(
+                [(stem_x, stem_top), (stem_x + size * 0.22, stem_top + size * 0.2)],
+                fill=color,
+                width=thickness,
+            )
+            return
+        # Double note: a beam joins both stems (two beams when beamed).
+        left_stem = x - size * 0.26 + head_w / 2 - thickness / 2
+        right_stem = x + size * 0.26 + head_w / 2 - thickness / 2
+        draw.line(
+            [(left_stem, stem_top), (right_stem, stem_top)],
+            fill=color,
+            width=thickness,
+        )
+        if beamed:
+            draw.line(
+                [(left_stem, stem_top + size * 0.14),
+                 (right_stem, stem_top + size * 0.14)],
+                fill=color,
+                width=thickness,
+            )
+
+    def _draw_lyrics(self, draw, center_y, size, scale, family, accent, position, area_top, area_bottom, hide_index=None):
         app = self.app
         theme = app.theme
         background = theme.background
@@ -471,6 +598,8 @@ class ImageRenderer:
         # Interpolated scale: the leaving line shrinks, the entering one grows.
         for line_index in sorted(visible):
             if line_index < 0 or line_index >= len(lines):
+                continue
+            if hide_index is not None and line_index == hide_index:
                 continue
             line = lines[line_index]
             y_a = pos_a.get(line_index)
