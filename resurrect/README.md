@@ -81,7 +81,8 @@ With **Share between devices** on, as it is by default, devices that push to the
 repository share their setup. Each save, and each start of Noctalia, also takes in what the
 other devices changed:
 
-- A dotfile that only another device changed is put in place here. The file it replaces
+- A dotfile that only another device changed is put in place here, when it is in this
+  device's **Files**. The file it replaces
   goes to `~/.local/state/resurrect/backup-<date>` first. When that copy fails, the save
   stops before replacing the file, and the panel shows why.
 - A dotfile that only this device changed reaches the others on their next save. A file
@@ -102,7 +103,8 @@ idle: a setting only another device changed is taken, and when two devices chang
 each keeps its own. A setting shared for the first time takes the value of the device that
 shared it first. Plugins turned on or off on one device are turned on or off on the others.
 Only settings tied to the hardware stay on each device: brightness, battery, widgets placed
-on a monitor, and Resurrect's **Share between devices** and **Only this device**.
+on a monitor, and Resurrect's own settings, so another device never changes which files are
+written here. Resurrect's data folder, with the steps you approved, is never shared.
 
 The devices also share one list of packages and one of services:
 

@@ -37,10 +37,12 @@ put_file() {
   mkdir -p "$(dirname "$2")" && cp -a "$1" "$2" || { echo "$2" >>"$work/failed"; return 1; }
 }
 
-# Copies the content of folder $1 over folder $2, which is under the home folder.
+# Copies the content of folder $1 over folder $2, which is under the home folder. Resurrect's
+# data folder, where this device's approved steps are, is left as it is.
 put_back() {
   (cd "$1" && find . -type f -o -type l) | while read -r file; do
     file=${file#./}
+    case $2/$file in "$HOME/.local/state/noctalia/plugins/data/omerfuyar/resurrect/"*) continue ;; esac
     put_file "$1/$file" "$2/$file"
   done
 }

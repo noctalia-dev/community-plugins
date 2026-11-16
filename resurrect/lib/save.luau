@@ -742,13 +742,26 @@ function Save.run(job, opt)
         table.insert(kept, path:sub(#home + 2))
       end
     end
-    local function isKept(path)
-      for _, keptPath in ipairs(kept) do
-        if path == keptPath or path:sub(1, #keptPath + 1) == keptPath .. "/" then
+    -- Only the paths this device lists are written by a save. Resurrect's data folder, which
+    -- holds the approved steps, is never shared, so no other device can approve a step here.
+    local listed = {}
+    for _, path in ipairs(roots) do
+      path = path:gsub("/$", "")
+      if path:sub(1, #home + 1) == home .. "/" then
+        table.insert(listed, path:sub(#home + 2))
+      end
+    end
+    local data = opt.dataDir:sub(1, #home + 1) == home .. "/" and { opt.dataDir:sub(#home + 2) } or {}
+    local function under(path, list)
+      for _, top in ipairs(list) do
+        if path == top or path:sub(1, #top + 1) == top .. "/" then
           return true
         end
       end
       return false
+    end
+    local function isKept(path)
+      return under(path, kept) or not under(path, listed) or under(path, data)
     end
 
     local function readPairs(path)
@@ -787,8 +800,8 @@ function Save.run(job, opt)
       end
     end
 
-    -- A file other devices share is this device's too when it is here, even outside the
-    -- paths it lists; otherwise its next save would read it as deleted.
+    -- A file other devices share is this device's too when it is here; otherwise its next
+    -- save would read it as deleted.
     local others = {}
     for path in pairs(their) do
       others[path] = true
@@ -799,7 +812,7 @@ function Save.run(job, opt)
     for _, path in ipairs(sorted(others)) do
       breathe()
       local full = home .. "/" .. path
-      if mine[path] == nil and noctalia.fileExists(full) and not isDir(full) then
+      if mine[path] == nil and not isKept(path) and noctalia.fileExists(full) and not isDir(full) then
         local content = noctalia.readFile(full)
         if content == nil then
           job.emit("could not read ~/" .. path)
@@ -943,7 +956,8 @@ function Save.run(job, opt)
       local choice = resolve[path]
 
       if isKept(path) then
-        -- Kept on this device: the shared copy stays as the other devices left it.
+        -- Kept on this device, or not listed here: the shared copy stays as the other devices
+        -- left it.
         if t then
           keep(path, t, mode)
         end

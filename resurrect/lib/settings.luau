@@ -16,7 +16,7 @@
 -- changed is taken; otherwise this device's value stays. The list of enabled plugins is
 -- merged item by item. Settings tied to the hardware are never shared: brightness and
 -- battery, any table named after a monitor or placed on one (except the wallpaper's), and
--- Resurrect's share and device_files. Plugin sources that are folders on this device stay
+-- Resurrect's own settings, so another device never changes what this one writes. Plugin sources that are folders on this device stay
 -- too. A setting shared for the first time takes the value already shared, so the device
 -- that shared it first wins.
 --
@@ -589,7 +589,7 @@ local function classify(file)
     Settings.breathe()
     local value = file.values[path]
     local m = meta[path]
-    if isLocal(file, m.parent) or (m.parent == RESURRECT and (m.name == "share" or m.name == "device_files")) then
+    if isLocal(file, m.parent) or m.parent == RESURRECT then
       file.localValues[path] = value
     elseif path == "plugins.source" and value:sub(1, 1) == "[" then
       -- Plugin sources that are folders on this device stay here.
