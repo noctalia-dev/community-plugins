@@ -1,6 +1,6 @@
 id = "felipeartur/ai-usagebar"
 name = "AI Usage"
-version = "2.15.1"
+version = "2.16.0"
 plugin_api = 43
 author = "felipeartur"
 license = "MIT"
@@ -58,8 +58,7 @@ entry = "bar.luau"
 # bar.luau because a binding is what the settings editor lists and what a user
 # can point somewhere else; an onRightClick callback is neither.
 #
-# Left stays in the script: it sets `selected` before opening the overview, so
-# the tracked account is highlighted, which `panel-toggle` alone cannot do.
+# Left stays in the script to select the account shown by this capsule.
   [widget.actions]
   right = "plugin felipeartur/ai-usagebar:poller all refresh"
 
@@ -105,6 +104,17 @@ options = [
   { value = "droid", label_key = "settings.vendor.option.droid" },
   { value = "deeprelay", label_key = "settings.vendor.option.deeprelay" },
   { value = "mistral", label_key = "settings.vendor.option.mistral" },
+]
+
+[[widget.setting]]
+key = "panel_view"
+type = "select"
+label_key = "settings.panel_view.label"
+description_key = "settings.panel_view.description"
+default = "overview"
+options = [
+  { value = "overview", label_key = "settings.panel_view.option.overview" },
+  { value = "provider", label_key = "settings.panel_view.option.provider" },
 ]
 
 # Named CLI accounts use stable `<provider>@<label>` entry ids. Keeping the
@@ -159,6 +169,14 @@ type = "bool"
 label_key = "settings.show_value.label"
 description_key = "settings.show_value.description"
 default = true
+
+[[widget.setting]]
+key = "show_exhausted_value"
+visible_when = { key = "show_value", values = ["true"] }
+type = "bool"
+label_key = "settings.show_exhausted_value.label"
+description_key = "settings.show_exhausted_value.description"
+default = false
 
 [[widget.setting]]
 key = "show_glyph"

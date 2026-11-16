@@ -114,7 +114,19 @@ end
 
 local function labels(node)
     local out = {}
-    for _, label in ipairs(collect(node, "label")) do out[#out + 1] = tostring(label.props.text or "") end
+    local function visit(item)
+        if type(item) ~= "table" then return end
+        if item.props and tostring(item.props.key):match("^status%-pill%-") then
+            local parts = {}
+            for _, label in ipairs(collect(item, "label")) do parts[#parts + 1] = tostring(label.props.text or "") end
+            out[#out + 1] = table.concat(parts, " ")
+            return
+        end
+        if item.kind == "label" then out[#out + 1] = tostring(item.props.text or "") end
+        for _, child in ipairs(item.children or {}) do visit(child) end
+        for _, child in ipairs(item) do visit(child) end
+    end
+    visit(node)
     return out
 end
 
@@ -174,34 +186,14 @@ unavailableTime.status = "error"
 unavailableTime.sections[#unavailableTime.sections + 1] = { type = "text", label = "Unavailable", value = "authentication failed" }
 assert(#collect(loadPanel(unavailableTime), "progress") == 0,
     "unavailable historical readings must not draw quota or temporal gauges")
-local menuTree, _, _, menuOpened, menuCopied, _, menuHost = loadPanel(timedEntry(""))
+local menuTree = loadPanel(timedEntry(""))
+local foundSettings, foundCopy = false, false
 for _, button in ipairs(collect(menuTree, "button")) do
-    assert(button.props.tooltip ~= "ui.copy_summary", "secondary actions start collapsed")
+    assert(button.props.tooltip ~= "ui.more_actions", "the more-actions control is removed")
+    if button.props.tooltip == "ui.settings" then foundSettings = button.props.variant == "outline" end
+    if button.props.tooltip == "ui.copy_summary" then foundCopy = button.props.variant == "ghost" end
 end
-local menuButton
-for _, button in ipairs(collect(menuTree, "button")) do
-    if button.props.tooltip == "ui.more_actions" then menuButton = button end
-end
-assert(menuButton, "header must expose a more-actions control")
-menuButton.props.onClick()
-local foundCopy = false
-for _, button in ipairs(collect(menuHost.tree(), "button")) do
-    if button.props.tooltip == "ui.copy_summary" then foundCopy = true end
-end
-assert(foundCopy, "opening menu must expose existing copy action")
-assert(#menuOpened == 0 and #menuCopied == 0, "opening the actions must not execute a provider command")
-menuButton.props.onClick()
-for _, button in ipairs(collect(menuHost.tree(), "button")) do
-    assert(button.props.tooltip ~= "ui.copy_summary", "menu must collapse again")
-end
-
-local function openActions(tree, host)
-    for _, button in ipairs(collect(tree, "button")) do
-        if button.props.tooltip == "ui.more_actions" then button.props.onClick(); return host.tree() end
-    end
-    return tree
-end
-
+assert(foundSettings and foundCopy, "settings and unobtrusive copy action remain accessible")
 local malformedSections = {
     id = "openai",
     display_name = "Codex",
@@ -298,7 +290,7 @@ end
 local function cards(node)
     local out = {}
     for _, column in ipairs(collect(node, "column")) do
-        if column.props.fill == "surface_container/0.34" and #collect(column, "progress") > 0 then
+        if column.props.fill == "surface_container" and #collect(column, "progress") > 0 then
             out[#out + 1] = column
         end
     end
@@ -542,6 +534,28 @@ local bottleneckPanelTree = loadPanel(bottleneckPanelEntry)
 assert(has(labels(bottleneckPanelTree), "100%"),
        "panel sidebar should display the 100% bottleneck reading")
 
+-- Provider tabs already identify the selection; no duplicate header is needed.
+do
+local tree = loadPanel({ id = "antigravity", display_name = "Antigravity",
+    plan = "Antigravity", status = "ready", metrics = {} })
+for _, row in ipairs(collect(tree, "row")) do
+    assert(row.props.tooltip ~= "Antigravity", "detail must not repeat the selected provider header")
+end
+end
+
+-- Antigravity pacing compares consumed quota with elapsed window time.
+do
+local reset = os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() + 9000)
+local metric = { type = "metric", label = "Gemini", percent = 60, window_secs = 18000, reset_at = reset }
+local entry = { id = "antigravity", status = "ready", metrics = { metric },
+    sections = { { type = "text", label = "Session", value = "" }, metric } }
+assert(has(labels(loadPanel(entry)), "10pts ahead"), "Antigravity shows estimated pace")
+metric.percent = 30
+assert(has(labels(loadPanel(entry)), "20pts behind"), "Antigravity shows pace behind elapsed time")
+metric.reset_at = os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() - 1)
+assert(not has(labels(loadPanel(entry)), "70pts behind"), "expired reset cannot imply a current pace")
+end
+
 local agyPanelEntry = {
     id = "antigravity",
     display_name = "Antigravity",
@@ -562,8 +576,58 @@ local agyPanelEntry = {
         { label = "Claude & GPT OSS", percent = 100, severity = "critical", type = "metric", value = "100%" },
     },
 }
+do
+local _, _, runtime, _, _, _, host = loadPanel(agyPanelEntry)
+host.values.selected = "antigravity"
+host.values.bar_detail = true
+host.values.bar_model = "Claude & GPT OSS"
+runtime.onOpen()
+local found, reveal = false, false
+for _, card in ipairs(collect(host.tree(), "column")) do
+    if card.props.key == "model-card-Claude & GPT OSS" and card.props.border == "primary" then found = true end
+end
+for _, scroll in ipairs(collect(host.tree(), "scroll")) do
+    if scroll.props.revealKey == "model-card-Claude & GPT OSS" then reveal = true end
+end
+assert(found and reveal and host.values.bar_model == nil, "model click highlights and reveals its card")
+end
+do
+local families = { "Gemini", "Claude & GPT OSS", "GPT", "Other" }
+local metrics, sections = {}, { { type = "text", label = "Session", value = "" } }
+for index, family in ipairs(families) do
+    local metric = { type = "metric", label = family, percent = index * 10, window_secs = 18000 }
+    metrics[#metrics + 1] = metric
+    sections[#sections + 1] = metric
+end
+local report = { entries = {
+    { id = "antigravity@work", display_name = "Antigravity Work", status = "ready", metrics = metrics, sections = sections },
+    provider("openai", "Codex", 50),
+} }
+local _, _, runtime, _, _, _, host = loadPanel(report)
+for _, family in ipairs(families) do
+    host.values.selected = "antigravity@work"
+    host.values.bar_detail = true
+    host.values.bar_model = family
+    runtime.onOpen("")
+    local count = 0
+    for _, card in ipairs(collect(host.tree(), "column")) do
+        if card.props.border == "primary" and tostring(card.props.key):match("^model%-card%-") then
+            count = count + 1
+            assert(card.props.key == "model-card-" .. family, "only the clicked family is highlighted")
+        end
+    end
+    assert(count == 1 and host.values.selected == "antigravity@work", "each click selects one matching card")
+end
+host.values.selected = "openai"
+host.values.bar_detail = true
+runtime.onOpen("")
+for _, card in ipairs(collect(host.tree(), "column")) do
+    assert(not (tostring(card.props.key):match("^model%-card%-") and card.props.border == "primary"),
+        "a different provider must not inherit the model highlight")
+end
+end
 local agyPanelTree, _, _, agyOpened, _, _, agyHost = loadPanel(agyPanelEntry)
-agyPanelTree = openActions(agyPanelTree, agyHost)
+agyPanelTree = agyPanelTree
 for _, button in ipairs(collect(agyPanelTree, "button")) do
     if button.props.glyph == "external-link" then button.props.onClick() end
 end
@@ -596,6 +660,33 @@ for _, row in ipairs(collect(twoModelMeta, "row")) do
     end
 end
 assert(quotaPills == 2, "four affected windows should collapse into one pill per model")
+do
+local many = { id = "antigravity", status = "ready", metrics = {}, sections = {} }
+for index = 1, 5 do
+    many.metrics[index] = { label = "Extremely long model name " .. index, percent = 60 + index, window_secs = 604800 }
+end
+local tree = loadPanel(many)
+assert(has(labels(tree), "+3"), "hidden status tags must be counted")
+local tagged = 0
+for _, row in ipairs(collect(tree, "row")) do
+    if row.props.key == "status-tags" then
+        for _, pill in ipairs(row.children) do
+            if pill.props.borderWidth == 1 then
+                tagged = tagged + 1
+                for _, label in ipairs(collect(pill, "label")) do
+                    if label.props.key == "status-name" then
+                        assert(label.props.maxWidth == 48, "long status names must be bounded")
+                    else
+                        assert(label.props.maxWidth == nil, "quota and percentage must remain visible")
+                    end
+                end
+            end
+        end
+    end
+end
+assert(tagged == 2, "status line keeps at most two urgency tags")
+end
+
 agyPanelEntry.metrics[1].percent = 0
 agyPanelEntry.metrics[2].percent = 0
 agyPanelEntry.metrics[3].percent = 24
@@ -668,14 +759,11 @@ local codexDualEntry = {
     sections = {},
 }
 local codexTree, _, _, codexOpened, _, _, codexHost = loadPanel(codexDualEntry)
-codexTree = openActions(codexTree, codexHost)
+codexTree = codexTree
 for _, button in ipairs(collect(codexTree, "button")) do
     if button.props.glyph == "external-link" then button.props.onClick() end
-    if button.props.glyph == "refresh" or button.props.glyph == "settings"
-        or button.props.glyph == "x" or button.props.glyph == "copy"
-        or button.props.glyph == "external-link" then
-        assert(button.props.variant == "outline",
-               "header actions should use the outlined square button style")
+    if button.props.glyph == "copy" or button.props.glyph == "external-link" then
+        assert(button.props.variant == "ghost", "secondary actions should be visually quiet")
     end
 end
 assert(codexOpened[1] == "xdg-open 'https://chatgpt.com/codex/settings/usage'",
@@ -768,7 +856,7 @@ assert(codexLayout.props.paddingRight == agyViewport.props.paddingRight,
 local providerCards = cards(codexWithResetTree)
 local auxiliaryCard = nil
 for _, column in ipairs(collect(codexWithResetTree, "column")) do
-    if has(labels(column), "Reset credits") and column.props.fill == "surface_container/0.34" then
+    if has(labels(column), "Reset credits") and column.props.fill == "surface_container" then
         auxiliaryCard = column
     end
 end
@@ -822,7 +910,7 @@ local weeklyTooltip = nil
 for _, row in ipairs(collect(singleModelTree, "row")) do
     if has(labels(row), "Gemini 7d 100%") and row.props.tooltip ~= nil then weeklyTooltip = row.props.tooltip end
 end
-assert(weeklyTooltip == "ui.quota_exhausted · ui.quota_reset: 6d 20h",
+assert(weeklyTooltip == "Gemini 7d 100% · ui.quota_exhausted · ui.quota_reset: 6d 20h",
        "weekly exhaustion should keep its reset countdown in the pill tooltip")
 oneModelEntry.metrics[1].percent = 100
 oneModelEntry.metrics[1].severity = "critical"
@@ -836,7 +924,7 @@ do
         { label = "Gemini 4 Argon", percent = 100, window_secs = 604800, model_pool = true },
     } }
     local threeModelLabels = labels(loadPanel(threeModelEntry))
-    assert(has(threeModelLabels, "Gemini 4 Argon 7d 100%") and has(threeModelLabels, "OSS 5h 65%")
+    assert(has(threeModelLabels, "G4 Argon 7d 100%") and has(threeModelLabels, "OSS 5h 65%")
         and not has(threeModelLabels, "Gemini 5h 60%"),
         "the two footer warnings must include the exhausted third model before less-used quotas")
     for _, metric in ipairs(threeModelEntry.metrics) do metric.percent = 100 end
@@ -845,7 +933,7 @@ do
     for _, text in ipairs(labels(loadPanel(threeModelEntry))) do
         if text:match(" [57][hd] 100%%$") then ranked[#ranked + 1] = text end
     end
-    assert(ranked[1] == "Gemini 4 Argon 7d 100%" and ranked[2] == "Gemini 5h 100%" and #ranked == 2,
+    assert(ranked[1] == "G4 Argon 7d 100%" and ranked[2] == "Gemini 5h 100%" and #ranked == 2,
         "blocked notices must rank later resets first and preserve model order on ties")
 end
 local installTree = loadPanel(nil, { code = "not_installed", detail = "" })
@@ -878,7 +966,7 @@ local anthropicTree, _, _, _, copied, notifications, anthropicHost = loadPanel({
     id = "anthropic", display_name = "Claude", status = "ready",
     metrics = { { label = "Session", percent = 42 } }, sections = {},
 })
-anthropicTree = openActions(anthropicTree, anthropicHost)
+anthropicTree = anthropicTree
 local anthropicButtons = collect(anthropicTree, "button")
 local hasExternalLink = false
 local hasCopyBtn = false
@@ -931,6 +1019,9 @@ assert(balanceMeta ~= nil and has(labels(balanceMeta), "$5.00")
 
 
 local function clickButton(tree, key)
+    for _, row in ipairs(collect(tree, "row")) do
+        if row.props.key == "overview-tab" and key == "ui.overview" then row.props.onClick(); return end
+    end
     for _, button in ipairs(collect(tree, "button")) do
         if button.props.text == key or button.props.tooltip == key then
             button.props.onClick()
@@ -944,9 +1035,52 @@ do
     local malformedCopyTree, _, _, _, malformedCopied, _, malformedCopyHost = loadPanel({
         id = "openai", display_name = "Codex", status = "ready", metrics = 42, sections = {},
     })
-    clickButton(openActions(malformedCopyTree, malformedCopyHost), "ui.copy_summary")
+    clickButton(malformedCopyTree, "ui.copy_summary")
     assert(#malformedCopied == 1 and malformedCopied[1].text == "Codex",
         "copying a tolerated scalar metric collection must still copy the provider name")
+end
+
+-- Enabled catalog defaults with missing credentials are not configured accounts.
+do
+local tree, _, _, _, _, _, host = loadPanel({ entries = {
+    provider("openai", "Codex", 42),
+    { id = "anthropic", display_name = "Claude", status = "error", error = "io error: credentials file: No such file" },
+    { id = "zai", display_name = "Z.AI", status = "error", error = "credentials error: no API key" },
+} })
+clickButton(tree, "ui.provider_setup")
+host.publishState("catalog", { vendors = {
+    { id = "anthropic", name = "Claude", enabled = true, configured = false, needs_credential = true },
+    { id = "zai", name = "Z.AI", enabled = true, configured = false, needs_credential = true },
+    { id = "openrouter", name = "OpenRouter", enabled = true, configured = false, needs_credential = true },
+} })
+assert(not has(labels(host.tree()), "Claude") and not has(labels(host.tree()), "Z.AI")
+    and not has(labels(host.tree()), "OpenRouter"), "never-configured defaults must not become problems")
+assert(has(labels(host.tree()), "ui.diagnostics_no_problems"), "unused catalog entries do not prevent a healthy result")
+end
+
+-- Diagnostics offers one refresh and only actionable account problems.
+do
+local tree, _, _, _, _, _, host = loadPanel({ id = "openai", display_name = "Codex",
+    status = "error", error = "HTTP 401: credentials expired", metrics = {}, sections = {} })
+clickButton(tree, "ui.provider_setup")
+host.publishState("catalog", { vendors = { { id = "openai", name = "Codex", enabled = true, configured = true } } })
+assert(not has(labels(host.tree()), "HTTP 401: credentials expired"), "technical cause starts collapsed")
+assert(not has(labels(host.tree()), "ui.diagnostics_enabled") and not has(labels(host.tree()), "ui.diagnostics_disabled"),
+    "diagnostics must not show provider lists")
+clickButton(host.tree(), "ui.details")
+assert(has(labels(host.tree()), "HTTP 401: credentials expired"), "details retain the technical cause")
+clickButton(host.tree(), "ui.refresh")
+assert(host.values.command.action == "diagnostics", "one refresh requests catalog and usage together")
+end
+
+-- Details use the same compact diagnostics action as the overview.
+do
+local tree = loadPanel(provider("openai", "Codex", 42))
+local found = false
+for _, button in ipairs(collect(tree, "button")) do
+    if button.props.tooltip == "ui.provider_setup" and button.props.glyph == "stethoscope" then found = true end
+end
+assert(found, "diagnostics should be accessible directly in the detail header")
 end
 
 -- Setup must remain reachable when quota acquisition has never succeeded.
@@ -957,8 +1091,8 @@ assert(setupHost.values.command.action == "catalog", "setup opening requests the
 local setupTree = setupHost.tree()
 assert(has(labels(setupTree), "ui.setup_unavailable"), "an absent catalog must not fabricate provider setup states")
 assert(#collect(setupTree, "progress") == 0, "setup never displays quota gauges")
-clickButton(setupTree, "ui.diagnostics_refresh_status")
-assert(setupHost.values.command.action == "catalog", "setup retry must not fetch quota or launch login")
+clickButton(setupTree, "ui.refresh")
+assert(setupHost.values.command.action == "diagnostics", "refresh requests diagnostics")
 
 setupHost.publishState("catalog", { vendors = {
     { id = "openai", name = "Codex", enabled = false, configured = true, needs_credential = true,
@@ -967,12 +1101,8 @@ setupHost.publishState("catalog", { vendors = {
     { id = "deepseek", name = "DeepSeek", enabled = true, configured = true, needs_credential = true },
     { id = "antigravity", name = "Antigravity", enabled = true, configured = true, needs_credential = false },
 } })
-clickButton(setupHost.tree(), "ui.diagnostics_enabled")
-clickButton(setupHost.tree(), "ui.diagnostics_disabled")
 local setupLabels = labels(setupHost.tree())
-for _, key in ipairs({ "ui.setup_disabled", "ui.setup_required", "ui.setup_credentials_found", "ui.setup_no_credential" }) do
-    assert(has(setupLabels, key), "catalog must display factual state " .. key)
-end
+assert(not has(setupLabels, "ui.setup_required"), "unused catalog entries are not actionable failures")
 assert(#setupOpened == 0 and #setupNotifications == 0, "setup must not execute catalog commands or notify")
 setupHost.publishState("catalog_error", true)
 assert(has(labels(setupHost.tree()), "ui.setup_unavailable"), "catalog failure must stay visible beside any old catalog")
@@ -1007,7 +1137,7 @@ end
 
 local tree, _, _, _, _, _, host = loadPanel(provider("openai", "Codex", 42))
 local layout = reconcileLayout(nil, tree)
-clickButton(openActions(tree, host), "ui.provider_setup")
+clickButton(tree, "ui.provider_setup")
 layout = reconcileLayout(layout, host.tree())
 clickButton(host.tree(), "ui.back_to_usage")
 layout = reconcileLayout(layout, host.tree())
@@ -1021,14 +1151,13 @@ local failureReport = { entries = {
       error = "authentication error: credentials expired", metrics = {}, sections = {} },
 } }
 local quotaTree, _, _, _, _, _, quotaHost = loadPanel(failureReport)
-clickButton(openActions(quotaTree, quotaHost), "ui.provider_setup")
+clickButton(quotaTree, "ui.provider_setup")
 quotaHost.publishState("catalog", { vendors = {
     { id = "openai", name = "Codex", enabled = true, configured = true, needs_credential = true },
 } })
 assert(has(labels(quotaHost.tree()), "Codex · work"), "setup must retain unavailable named accounts from raw report")
-assert(has(labels(quotaHost.tree()), "authentication error: credentials expired"), "setup must explain the account's actual failure")
-clickButton(quotaHost.tree(), "ui.diagnostics_enabled")
-assert(has(labels(quotaHost.tree()), "ui.setup_credentials_found"), "account failure must not rewrite base catalog state")
+clickButton(quotaHost.tree(), "ui.details")
+assert(has(labels(quotaHost.tree()), "authentication error: credentials expired"), "details retain the account failure")
 assert(#collect(quotaHost.tree(), "progress") == 0, "setup failures must not expose old readings as gauges")
 clickButton(quotaHost.tree(), "ui.back_to_usage")
 assert(has(labels(quotaHost.tree()), "42%"), "closing setup must preserve quota cards")
@@ -1051,7 +1180,7 @@ for _, row in ipairs(collect(remainingTree, "row")) do
 end
 assert(remainingMeta and has(labels(remainingMeta), "Usage 30% ui.remaining"),
     "status pills transform the number while retaining usage-based warning selection")
-clickButton(openActions(remainingTree, remainingHost), "ui.copy_summary")
+clickButton(remainingTree, "ui.copy_summary")
 assert(remainingCopies[1].text:find("Usage 30%% ui.remaining"), "copied summary must state remaining quota explicitly")
 assert(remainingEntry.metrics[1].percent == 70 and remainingEntry.metrics[1].value == "7 of 10",
     "remaining display must never mutate the shared report")
@@ -1068,7 +1197,7 @@ for _, mode in ipairs({ "used", "remaining" }) do
         id = "deepseek", display_name = "DeepSeek", status = "ready", metrics = {},
         sections = { { type = "text", label = "Balance", value = "$2.90" } },
     }, nil, { usage_display = mode })
-    clickButton(openActions(balanceTree, balanceHost), "ui.copy_summary")
+    clickButton(balanceTree, "ui.copy_summary")
     assert(balanceCopies[1].text == "DeepSeek · $2.90",
         "copying a balance-only provider must include its reading in either display mode")
 end
@@ -1076,7 +1205,7 @@ end
 local missingBalanceTree, _, _, _, missingBalanceCopies, _, missingBalanceHost = loadPanel({
     id = "deepseek", display_name = "DeepSeek", status = "ready", metrics = {}, sections = {},
 })
-clickButton(openActions(missingBalanceTree, missingBalanceHost), "ui.copy_summary")
+clickButton(missingBalanceTree, "ui.copy_summary")
 assert(missingBalanceCopies[1].text == "DeepSeek",
     "copying missing data must not invent a balance or percentage")
 
@@ -1097,7 +1226,7 @@ for _, mode in ipairs({ "used", "remaining" }) do
 end
 
 local emptySetupTree, _, _, _, _, _, emptySetupHost = loadPanel(nil)
-clickButton(openActions(emptySetupTree, emptySetupHost), "ui.provider_setup")
+clickButton(emptySetupTree, "ui.provider_setup")
 emptySetupHost.publishState("catalog", { vendors = {} })
 assert(has(labels(emptySetupHost.tree()), "ui.setup_empty"),
     "a valid empty catalog should report no providers rather than a failed read")
@@ -1112,7 +1241,7 @@ local diagnosticsReport = { entries = {
       error = "local server unavailable", metrics = { { label = "Usage", percent = 70 } }, sections = {} },
 } }
 local diagnosticTree, _, diagnosticEnv, diagnosticOpened, _, diagnosticNotifications, diagnosticHost = loadPanel(diagnosticsReport)
-clickButton(openActions(diagnosticTree, diagnosticHost), "ui.provider_setup")
+clickButton(diagnosticTree, "ui.provider_setup")
 diagnosticHost.publishState("catalog", { vendors = {
     { id = "openai", name = "Codex", enabled = true, needs_credential = true, configured = false },
     { id = "anthropic", name = "Claude", enabled = true, needs_credential = true, configured = false },
@@ -1123,28 +1252,16 @@ diagnosticHost.publishState("catalog", { vendors = {
 local diagnosticLabels = labels(diagnosticHost.tree())
 assert(has(diagnosticLabels, "ui.diagnostics_login"), "auth failure must offer CLI login recovery")
 assert(has(diagnosticLabels, "ui.diagnostics_local_app"), "Antigravity recovery must refer to its local app")
-assert(has(diagnosticLabels, "ui.diagnostics_configure"), "missing required credential must offer CLI configuration")
+assert(not has(diagnosticLabels, "ui.diagnostics_configure"), "unused catalog entries must not appear as failures")
 assert(not has(diagnosticLabels, "ui.setup_disabled"), "disabled catalog facts start collapsed")
 assert(not has(diagnosticLabels, "ui.setup_credentials_found"), "catalog facts start collapsed")
 assert(not has(diagnosticLabels, "ui.setup_notifications"), "diagnostics must omit unrelated alert configuration")
 assert(#collect(diagnosticHost.tree(), "progress") == 0, "diagnostics never draws stale gauges")
-local workIndex, requiredIndex
-for index, text in ipairs(diagnosticLabels) do
-    if text == "Codex · work" then workIndex = index end
-    if text == "ui.setup_required" and requiredIndex == nil then requiredIndex = index end
-end
-assert(workIndex < requiredIndex, "raw account failures must precede catalog setup problems")
-clickButton(diagnosticHost.tree(), "ui.diagnostics_disabled")
-assert(has(labels(diagnosticHost.tree()), "ui.setup_disabled"), "disabled toggle exposes factual state")
-clickButton(diagnosticHost.tree(), "ui.diagnostics_enabled")
-assert(has(labels(diagnosticHost.tree()), "ui.setup_no_credential"), "providers without required credentials belong to secondary facts")
-clickButton(diagnosticHost.tree(), "ui.diagnostics_refresh_status")
-assert(diagnosticHost.values.command.action == "catalog", "status refresh only reads local catalog")
-clickButton(diagnosticHost.tree(), "ui.diagnostics_refresh_usage")
-assert(diagnosticHost.values.command.action == "refresh", "usage recovery explicitly requests quota refresh")
+clickButton(diagnosticHost.tree(), "ui.refresh")
+assert(diagnosticHost.values.command.action == "diagnostics", "refresh requests both catalog and usage")
 diagnosticHost.publishState("polling", true)
 for _, button in ipairs(collect(diagnosticHost.tree(), "button")) do
-    if button.props.text == "ui.diagnostics_refresh_usage" then assert(button.props.enabled == false) end
+    if button.props.text == "ui.refresh" then assert(button.props.enabled == false) end
 end
 diagnosticHost.publishState("catalog_error", true)
 assert(has(labels(diagnosticHost.tree()), "Codex · work"), "catalog failure must retain known raw account failure")
@@ -1160,13 +1277,15 @@ for _, fixture in ipairs({
 }) do
     local tree, _, _, _, _, _, host = loadPanel({ id = "openai", display_name = "Codex",
         status = fixture.status, error = fixture.error, metrics = {}, sections = {} })
-    clickButton(openActions(tree, host), "ui.provider_setup")
-    assert(has(labels(host.tree()), fixture.error) and has(labels(host.tree()), fixture.want),
-        "diagnostics must preserve literal cause and choose evidence-based recovery")
+    clickButton(tree, "ui.provider_setup")
+    assert(has(labels(host.tree()), fixture.want), "diagnostics must choose evidence-based recovery")
+    clickButton(host.tree(), "ui.details")
+    assert(has(labels(host.tree()), fixture.error), "details preserve the literal cause")
 end
 local globalTree, _, _, _, _, _, globalHost = loadPanel(provider("openai", "Codex", 42),
     { code = "timed_out", detail = "read deadline" })
-clickButton(openActions(globalTree, globalHost), "ui.provider_setup")
+clickButton(globalTree, "ui.provider_setup")
+clickButton(globalHost.tree(), "ui.details")
 assert(has(labels(globalHost.tree()), "ui.error.timed_out") and has(labels(globalHost.tree()), "read deadline"),
     "global acquisition failure must be explicit without blaming healthy accounts")
 assert(not has(labels(globalHost.tree()), "Codex"), "healthy account must not be blamed by global failure")
@@ -1175,7 +1294,7 @@ end
 
 do
 local quietTree, _, _, _, _, _, quietHost = loadPanel(provider("openai@work", "Codex · work", 25))
-clickButton(openActions(quietTree, quietHost), "ui.provider_setup")
+clickButton(quietTree, "ui.provider_setup")
 quietHost.publishState("catalog", { vendors = {
     { id = "openai", name = "Codex", enabled = true, configured = false, needs_credential = true },
     { id = "antigravity", name = "Antigravity", enabled = true, configured = false, needs_credential = false },
@@ -1183,15 +1302,13 @@ quietHost.publishState("catalog", { vendors = {
 assert(not has(labels(quietHost.tree()), "ui.diagnostics_configure"),
     "a ready named account must not acquire a false missing-credential diagnosis")
 assert(has(labels(quietHost.tree()), "ui.diagnostics_no_problems"), "valid healthy reports allow a quiet result")
-clickButton(quietHost.tree(), "ui.diagnostics_enabled")
-assert(has(labels(quietHost.tree()), "ui.setup_no_credential"), "Antigravity never requires a credential")
 quietHost.publishState("catalog_loading", true)
 assert(not has(labels(quietHost.tree()), "ui.setup_no_credential"), "loading must not show cached catalog facts as current")
 assert(not has(labels(quietHost.tree()), "ui.diagnostics_no_problems"), "loading is not evidence of health")
 
 local disabledTree, _, _, _, _, _, disabledHost = loadPanel({ id = "deepseek", display_name = "DeepSeek",
     status = "error", error = "credentials error: no API key", metrics = {}, sections = {} })
-clickButton(openActions(disabledTree, disabledHost), "ui.provider_setup")
+clickButton(disabledTree, "ui.provider_setup")
 disabledHost.publishState("catalog", { vendors = {
     { id = "deepseek", name = "DeepSeek", enabled = false, configured = false, needs_credential = true },
 } })
@@ -1199,8 +1316,8 @@ assert(not has(labels(disabledHost.tree()), "credentials error: no API key"), "d
 
 local staleTree, _, _, _, _, _, staleHost = loadPanel({ id = "antigravity", display_name = "Antigravity",
     status = "ready", stale = true, metrics = {}, sections = {} })
-clickButton(openActions(staleTree, staleHost), "ui.provider_setup")
-assert(has(labels(staleHost.tree()), "ui.diagnostics_old_usage")
+clickButton(staleTree, "ui.provider_setup")
+assert(has(labels(staleHost.tree()), "ui.stale_hint")
     and not has(labels(staleHost.tree()), "ui.diagnostics_login"), "stale Antigravity must not invent authentication failure")
 
 end
@@ -1208,31 +1325,31 @@ end
 do
 local tree, _, _, _, _, _, host = loadPanel({ id = "openai@work", display_name = "Codex · work",
     status = "error", error = "authentication error: expired", metrics = {}, sections = {} })
-clickButton(openActions(tree, host), "ui.provider_setup")
+clickButton(tree, "ui.provider_setup")
 host.publishState("catalog", { vendors = {
     { id = "openai", name = "Codex", enabled = true, configured = false, needs_credential = true },
 } })
 assert(has(labels(host.tree()), "Codex · work") and not has(labels(host.tree()), "ui.diagnostics_configure"),
     "catalog absence must not duplicate the exact account authentication problem")
-clickButton(host.tree(), "ui.diagnostics_enabled")
 clickButton(host.tree(), "ui.back_to_usage")
-clickButton(openActions(host.tree(), host), "ui.provider_setup")
+clickButton(host.tree(), "ui.provider_setup")
 assert(not has(labels(host.tree()), "ui.setup_required"), "entering diagnostics from UI resets collapsed groups")
 end
 
 do
 local tree, _, _, _, _, _, host = loadPanel(provider("openai", "Codex", 42))
-clickButton(openActions(tree, host), "ui.provider_setup")
+clickButton(tree, "ui.provider_setup")
 host.publishState("catalog", { vendors = {
     { id = "anthropic", name = "Claude", enabled = true, configured = false, needs_credential = true },
 } })
-clickButton(host.tree(), "ui.diagnostics_refresh_usage")
-assert(host.values.command.action == "refresh", "credential recovery must allow explicitly fetching usage after setup")
+clickButton(host.tree(), "ui.refresh")
+assert(host.values.command.action == "diagnostics", "credential recovery must allow explicitly fetching usage after setup")
 local unavailableTree, _, _, _, _, _, unavailableHost = loadPanel({ id = "openai", display_name = "Codex",
     status = "ready", stale = true, metrics = {}, sections = {
         { type = "text", label = "Unavailable", value = "HTTP 403: unauthorized" },
     } })
-clickButton(openActions(unavailableTree, unavailableHost), "ui.provider_setup")
+clickButton(unavailableTree, "ui.provider_setup")
+clickButton(unavailableHost.tree(), "ui.details")
 assert(has(labels(unavailableHost.tree()), "HTTP 403: unauthorized")
     and has(labels(unavailableHost.tree()), "ui.diagnostics_login"),
     "unavailable section must retain its real cause instead of generic stale text")
@@ -1241,7 +1358,7 @@ end
 do
 local tree, _, _, _, _, _, host = loadPanel({ id = "openai", display_name = "Codex",
     status = "error", error = "authentication error: HTTP 500 temporarily unavailable", metrics = {}, sections = {} })
-clickButton(openActions(tree, host), "ui.provider_setup")
+clickButton(tree, "ui.provider_setup")
 assert(has(labels(host.tree()), "ui.diagnostics_retry") and not has(labels(host.tree()), "ui.diagnostics_login"),
     "upstream authentication transport failure must not be treated as rejected credentials")
 end
@@ -1253,7 +1370,7 @@ assert(has(labels(host.tree()), "ui.error.not_installed_hint"),
     "a missing CLI needs installation guidance even when the failure has raw detail")
 local agyTree, _, _, _, _, _, agyHost = loadPanel({ id = "antigravity", display_name = "Antigravity",
     status = "error", error = "HTTP 429: rate limited", metrics = {}, sections = {} })
-clickButton(openActions(agyTree, agyHost), "ui.provider_setup")
+clickButton(agyTree, "ui.provider_setup")
 assert(has(labels(agyHost.tree()), "ui.diagnostics_retry") and not has(labels(agyHost.tree()), "ui.diagnostics_local_app"),
     "Antigravity rate limits need wait-and-refresh guidance rather than local app recovery")
 end
@@ -1262,9 +1379,8 @@ do
 local tree, _, _, _, _, _, host = loadPanel({ id = "openai@work", display_name = "Codex · work",
     status = "error", error = "HTTP 401: authentication failed", metrics = {}, sections = {} },
     { code = "timed_out", detail = "latest fetch failed" })
-clickButton(openActions(tree, host), "ui.provider_setup")
-assert(has(labels(host.tree()), "HTTP 401: authentication failed")
-    and has(labels(host.tree()), "ui.diagnostics_recheck")
+clickButton(tree, "ui.provider_setup")
+assert(has(labels(host.tree()), "ui.diagnostics_recheck")
     and not has(labels(host.tree()), "ui.diagnostics_login"),
     "a global failure makes earlier account problems historical until explicitly refreshed")
 end
@@ -1274,9 +1390,9 @@ for _, fixture in ipairs({
     { id = "zai", display_name = "Z.AI", error = "credentials error: Zai: no API key configured" },
     { id = "anthropic", display_name = "Claude", error = "io error: ~/.claude/.credentials.json: No such file" },
 }) do
-    local tree, _, _, _, _, _, host = loadPanel({ id = fixture.id, display_name = fixture.display_name,
+    local tree, _, _, _, _, _, host = loadPanel({ id = fixture.id .. "@work", display_name = fixture.display_name,
         status = "error", error = fixture.error, metrics = {}, sections = {} })
-    clickButton(openActions(tree, host), "ui.provider_setup")
+    clickButton(tree, "ui.provider_setup")
     host.publishState("catalog", { vendors = {
         { id = fixture.id, name = fixture.display_name, enabled = true, configured = false, needs_credential = true },
     } })
@@ -1289,7 +1405,7 @@ for _, fixture in ipairs({
     assert(has(labels(host.tree()), fixture.error), "inline details must preserve the actual credential error")
     for _, scroll in ipairs(collect(host.tree(), "scroll")) do
         for _, button in ipairs(collect(scroll, "button")) do
-            assert(button.props.text ~= "ui.diagnostics_refresh_status" and button.props.text ~= "ui.diagnostics_refresh_usage",
+            assert(button.props.text ~= "ui.refresh",
                 "diagnostic refresh controls must stay visible outside the scrolling problems")
         end
     end
@@ -1304,7 +1420,7 @@ for _, fixture in ipairs({
 }) do
     local tree, _, _, _, _, _, host = loadPanel({ id = "anthropic", display_name = "Claude",
         status = "error", error = fixture.error, metrics = {}, sections = {} })
-    clickButton(openActions(tree, host), "ui.provider_setup")
+    clickButton(tree, "ui.provider_setup")
     host.publishState("catalog", { vendors = {
         { id = "anthropic", name = "Claude", enabled = true, configured = false, needs_credential = true },
     } })
@@ -1315,9 +1431,9 @@ end
 
 do
 local cause = "credentials error: Zai: no API key configured; configure credentials in the CLI"
-local tree, _, env, _, _, _, host = loadPanel({ id = "zai", display_name = "Z.AI",
+local tree, _, env, _, _, _, host = loadPanel({ id = "zai@work", display_name = "Z.AI",
     status = "error", error = cause, metrics = {}, sections = {} })
-clickButton(openActions(tree, host), "ui.provider_setup")
+clickButton(tree, "ui.provider_setup")
 assert(has(labels(host.tree()), "ui.setup_required") and not has(labels(host.tree()), cause),
     "credential setup cards must show a concise cause")
 clickButton(host.tree(), "ui.details")
@@ -1325,7 +1441,7 @@ assert(has(labels(host.tree()), cause), "opening details must retain the full te
 host.publishState("polling", true)
 assert(has(labels(host.tree()), cause), "polling updates must preserve the expanded cause")
 local function reportWith(error)
-    return { entries = {{ id = "zai", display_name = "Z.AI", status = "error", error = error, metrics = {}, sections = {} }} }
+    return { entries = {{ id = "zai@work", display_name = "Z.AI", status = "error", error = error, metrics = {}, sections = {} }} }
 end
 host.publishState("report", reportWith(cause))
 assert(has(labels(host.tree()), cause), "an unchanged cause must remain expanded after refresh")
@@ -1350,7 +1466,7 @@ local tree, _, _, _, _, _, host = loadPanel({ entries = {
     { id = "zai@first", display_name = "First account", status = "error", error = firstCause },
     { id = "zai@second", display_name = "Second account", status = "error", error = secondCause },
 } })
-clickButton(openActions(tree, host), "ui.provider_setup")
+clickButton(tree, "ui.provider_setup")
 local function expandAccount(name)
     for _, card in ipairs(collect(host.tree(), "column")) do
         if card.props.fill == "error/0.06" and has(labels(card), name) then
@@ -1373,7 +1489,7 @@ local cause = "credentials error: Custom: no API key configured"
 local first = { id = "custom@first", display_name = "Custom", status = "error", error = cause }
 local second = { id = "custom@second", display_name = "Custom", status = "error", error = cause }
 local tree, _, _, _, _, _, host = loadPanel({ entries = { first, second } })
-clickButton(openActions(tree, host), "ui.provider_setup")
+clickButton(tree, "ui.provider_setup")
 local function cards()
     local found = {}
     for _, column in ipairs(collect(host.tree(), "column")) do
@@ -1528,7 +1644,7 @@ local empty = loadPanel(blank)
 assert(has(labels(empty), "ui.no_usage"), "an empty report must explain why there are no cards")
 local diagnostics = false
 for _, button in ipairs(collect(empty, "button")) do
-    if button.props.text == "ui.provider_setup" then diagnostics = true end
+    if button.props.text == "ui.provider_setup" or button.props.tooltip == "ui.provider_setup" then diagnostics = true end
 end
 assert(diagnostics, "an empty report needs a visible Diagnostics action")
 local failed = loadPanel(blank, { code = "timed_out", detail = "Synthetic timeout" })
@@ -1542,35 +1658,96 @@ local cached = { id = "mistral", display_name = "Mistral", status = "ready", sta
     fetched_at = "2026-10-16T15:00:00Z", metrics = { budget }, sections = {
         budget, { type = "text", label = "HTTP 403", value = "authentication rejected" } } }
 local tree, _, _, _, _, _, host = loadPanel(cached)
-clickButton(openActions(tree, host), "ui.provider_setup")
+clickButton(tree, "ui.provider_setup")
 assert(has(labels(host.tree()), "ui.diagnostics_login"),
     "a usable cache must not hide authentication recovery guidance")
+clickButton(host.tree(), "ui.details")
 assert(has(labels(host.tree()), "HTTP 403: authentication rejected"),
     "Diagnostics must retain the status code supplied separately from its message")
 end
 
 
+-- One account goes straight to details and has no overview button.
+do
+local _, _, runtime, _, _, _, host = loadPanel(provider("openai", "Codex", 42))
+runtime.onOpen()
+assert(host.tree().props.key == "usage" and not has(labels(host.tree()), "ui.overview"),
+    "a single account must open details without the overview button")
+runtime.onKey("o", true)
+assert(host.tree().props.key == "usage", "the overview shortcut must respect the single-account rule")
+end
+
 -- General panel opens compare accounts; bar contexts still open one detail.
 do
 local work = provider("openai@work", "Codex · Work", 42)
 local personal = provider("openai@personal", "Codex · Personal", 72)
+personal.metrics[1].reset_at = os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() + 3600)
+personal.metrics[1].window_secs = 18000
 local tree, _, runtime, _, _, _, host = loadPanel({ entries = { work, personal } })
 runtime.onOpen()
 assert(host.tree().props.key == "overview", "a direct panel open must start with the account overview")
+local diagnosticsHeader = false
+for _, button in ipairs(collect(host.tree(), "button")) do
+    if button.props.tooltip == "ui.provider_setup" and button.props.glyph == "stethoscope"
+        and button.props.variant == "outline" then diagnosticsHeader = true end
+end
+assert(diagnosticsHeader, "overview header must include a compact diagnostics action")
 assert(has(labels(host.tree()), "Codex · Work") and has(labels(host.tree()), "Codex · Personal"),
     "the overview must identify accounts with identical provider glyphs")
-assert(#collect(host.tree(), "progress") == 2, "both account quotas must be visible together")
+assert(#collect(host.tree(), "progress") == 3, "both quotas and the elapsed window must be visible")
 assert(has(labels(host.tree()), "42%") and has(labels(host.tree()), "72%"),
     "overview percentages must remain visible when reset timestamps are absent")
+for _, card in ipairs(collect(host.tree(), "column")) do
+    if card.props.key == "overview-openai@work" or card.props.key == "overview-openai@personal" then
+        assert(card.props.border ~= "primary/0.45", "entering overview must not highlight the previously active account")
+    end
+end
+local personalCard
+for _, card in ipairs(collect(host.tree(), "column")) do
+    if card.props.key == "overview-openai@personal" then personalCard = card end
+end
+for _, row in ipairs(collect(personalCard, "row")) do
+    assert(row.props.tooltip == nil, "nested hover targets must not interrupt the card highlight")
+end
+assert(personalCard and personalCard.props.border ~= "primary/0.45" and type(personalCard.props.onHover) == "function",
+    "unselected cards need a hover target without an active border")
+personalCard.props.onHover("true")
+for _, card in ipairs(collect(host.tree(), "column")) do
+    if card.props.key == "overview-openai@personal" then personalCard = card end
+end
+assert(personalCard.props.border == "hover", "hover uses the system hover color")
+personalCard.props.onHover("false")
+for _, card in ipairs(collect(host.tree(), "column")) do
+    if card.props.key == "overview-openai@personal" then personalCard = card end
+end
+assert(personalCard.props.border ~= "hover", "leaving removes the hover highlight")
 local opened = false
-for _, button in ipairs(collect(host.tree(), "button")) do
-    if button.props.key == "overview-open-openai@work" then button.props.onClick(); opened = true; break end
+for _, card in ipairs(collect(host.tree(), "column")) do
+    if card.props.key == "overview-openai@work" and type(card.props.onClick) == "function" then
+        card.props.onClick(); opened = true; break
+    end
 end
 assert(opened and host.values.selected == "openai@work" and host.tree().props.key == "usage",
     "the account detail action must select its stable ID")
 assert(has(labels(host.tree()), "Codex · Work"), "detail must keep the selected account identity visible")
+local overviewTab
+for _, row in ipairs(collect(host.tree(), "row")) do
+    if row.props.key == "overview-tab" then overviewTab = row end
+end
+assert(overviewTab and overviewTab.props.fill == "surface_container/0.22" and overviewTab.props.borderWidth == 1,
+    "All accounts must use the same block style as provider tabs")
+assert(type(overviewTab.props.onHover) == "function", "overview tab responds to hover")
+overviewTab.props.onHover("true")
+for _, row in ipairs(collect(host.tree(), "row")) do if row.props.key == "overview-tab" then overviewTab = row end end
+assert(overviewTab.props.fill == "hover", "overview tab uses the system hover color")
+overviewTab.props.onHover("false")
 clickButton(host.tree(), "ui.overview")
 assert(host.tree().props.key == "overview", "detail needs a direct return to all accounts")
+for _, card in ipairs(collect(host.tree(), "column")) do
+    if card.props.key == "overview-openai@work" then
+        assert(card.props.border ~= "primary/0.45", "returning to overview clears account selection highlight")
+    end
+end
 runtime.onOpen("openai@personal")
 assert(host.tree().props.key == "usage" and host.values.selected == "openai@personal",
     "a bar context must retain direct account access")
@@ -1615,7 +1792,7 @@ for index = 2, 5 do
 end
 entry.metrics[5].model_pool = true
 entry.sections = entry.metrics
-local _, _, runtime, _, _, _, host = loadPanel(entry, nil, { usage_display = "remaining" })
+local _, _, runtime, _, _, _, host = loadPanel({ entries = { entry, { id = "deeprelay", status = "ready", metrics = {} } } }, nil, { usage_display = "remaining" })
 runtime.onOpen()
 assert(#collect(host.tree(), "progress") == 3 and has(labels(host.tree()), "ui.more_windows"),
     "overview must bound window previews and disclose omitted windows")
@@ -1626,7 +1803,7 @@ end
 
 do
 local one = provider("openai", "Codex", 42)
-local _, _, runtime, _, _, _, host = loadPanel(one)
+local _, _, runtime, _, _, _, host = loadPanel({ entries = { one, { id = "deeprelay", status = "ready", metrics = {} } } })
 local compactHeight = host.tree().props.height
 runtime.onOpen()
 assert(host.tree().props.height < 640 and compactHeight < 640,
@@ -1653,6 +1830,35 @@ end
 assert(previous and previous.props.enabled, "the last page must expose navigation to earlier accounts")
 previous.props.onClick()
 assert(host.tree().props.key == "overview", "page navigation must preserve the overview")
+end
+
+-- A contextless bar open may reach the host as an empty string.
+do
+local report = { entries = { provider("antigravity", "Antigravity", 40), provider("openai", "Codex", 20) } }
+local _, _, runtime, _, _, _, host = loadPanel(report)
+host.values.selected = "openai"
+host.values.bar_detail = true
+runtime.onOpen("")
+assert(host.values.selected == "openai" and host.tree().props.key == "usage",
+    "an empty context must preserve the account clicked on the bar")
+end
+
+-- A bar instance can request the selected account detail for one opening.
+do
+local report = { entries = { provider("openai@work", "Codex · Work", 42), provider("anthropic", "Claude", 20) } }
+local _, _, runtime, _, _, _, host = loadPanel(report)
+host.values.selected = "openai@work"
+host.values.bar_detail = true
+runtime.onOpen()
+assert(host.tree().props.key ~= "overview", "bar detail preference must open the selected account")
+assert(host.values.bar_detail == nil, "bar preference must be consumed after opening")
+runtime.onOpen()
+assert(host.tree().props.key == "overview", "later direct opens must still show the overview")
+host.values.bar_detail = true
+runtime.onClose()
+assert(host.values.bar_detail == nil, "closing the panel must discard the bar preference")
+runtime.onOpen("overview")
+assert(host.tree().props.key == "overview", "explicit overview must remain available")
 end
 
 -- Opening from the bar highlights the selected account inside the All accounts overview;
@@ -1691,7 +1897,7 @@ do
 local failed = { id = "antigravity", display_name = "Antigravity", status = "error",
     error = "HTTP 401: authentication rejected", metrics = {}, sections = {} }
 local tree, _, _, _, _, _, host = loadPanel(failed)
-clickButton(openActions(tree, host), "ui.provider_setup")
+clickButton(tree, "ui.provider_setup")
 assert(has(labels(host.tree()), "ui.diagnostics_antigravity_auth"),
     "Antigravity auth guidance must distinguish local RPC access from the CLI session")
 end
