@@ -167,6 +167,7 @@ body:
         - lid-guard
         - link-ip-monitor
         - llamanager
+        - localcheck
         - localsend
         - localsend-plus
         - logonbox
