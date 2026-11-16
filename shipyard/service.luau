@@ -459,7 +459,8 @@ local function runStreamingTask(opts, onComplete)
         end
       end
     end
-  end)
+  end
+end)
 
   if not ok then
     finish(1)
