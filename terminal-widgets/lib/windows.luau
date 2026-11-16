@@ -33,7 +33,9 @@ function M.dispatch(expression, callback)
   end
 end
 
-function M.selectorFor(class)
+-- Selector por clase de ventana: compartido por todo lo que despacha
+-- (foco, movimiento, tamaño, cierre) para no duplicar el patrón.
+local function selectorFor(class)
   return "class:^" .. class .. "$"
 end
 
@@ -237,7 +239,7 @@ end
 
 -- Enfoca (y recoloca) una ventana que ya existe.
 function M.focusExisting(class, geometry, callback)
-  local selector = M.selectorFor(class)
+  local selector = selectorFor(class)
   M.dispatch(resizeExpression(selector, geometry.width, geometry.height), function()
     M.dispatch(moveExpression(selector, geometry.x, geometry.y), function()
       M.dispatch(focusExpression(selector), function()
@@ -246,6 +248,16 @@ function M.focusExisting(class, geometry, callback)
         end
       end)
     end)
+  end)
+end
+
+-- Solo foco: no recoloca ni redimensiona (el cerebro ON no debe pisar lo que
+-- el usuario movió a mano).
+function M.focusOnly(class, callback)
+  local expression = focusExpression(selectorFor(class))
+  -- misma vía de dispatch que M.focusExisting; un único dispatch
+  M.dispatch(expression, function()
+    if callback ~= nil then callback(true) end
   end)
 end
 
@@ -547,7 +559,9 @@ function M.rotate(windows, mode, swapSizes, callback)
   M.applyGeometry(moves, function()
     M.rotating = false
     if callback ~= nil then
-      callback()
+      -- Las rotaciones se entregan al llamador para que pueda publicarlas como
+      -- geometrías impuestas (el service no debe memorizarlas).
+      callback(moves)
     end
   end)
   return true

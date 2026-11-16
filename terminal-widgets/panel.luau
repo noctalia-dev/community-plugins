@@ -15,6 +15,8 @@ local storeLib = require("./lib/store.luau")
 local win = require("./lib/windows.luau")
 local preview = require("./lib/preview.luau")
 local gifLib = require("./lib/gif.luau")
+local outputLib = require("./lib/output.luau")
+local brainLib = require("./lib/brain.luau")
 
 -- Semilla aleatoria inicializada una vez al cargar el plugin.
 math.randomseed(noctalia.nowMs() + (os.time() or 0) * 1000)
@@ -101,6 +103,13 @@ local state = {
   launching = {},
   rotating = false,
   open = false,
+  -- Interruptor del cerebro y memoria releída del disco (la escribe el service).
+  brain = false,
+  -- Rectángulo ABSOLUTO que el plugin impuso por última vez a cada ventana.
+  applied = {},
+  -- Widgets cuyo layout se acaba de escribir en el formulario (esta sesión de
+  -- edición): su layout manda y no se pisa con la geometría viva.
+  formLayouts = {},
 }
 
 -- Las funciones se referencian entre sí (una tarjeta llama a render() y
@@ -213,6 +222,15 @@ local function loadWidgets()
   noctalia.log("terminal-widgets: widgets -> " .. table.concat(widgetNames(), ", "))
 end
 
+-- El panel cachea el store al arrancar, pero la memoria del cerebro la escribe
+-- el service en disco: se relee justo antes de usarla.
+local function refreshBrain()
+  local data = storeLib.loadBrain()
+  state.brain = data.brain == true
+  state.store = state.store or {}
+  state.store.brainGeometry = data.brainGeometry or {}
+end
+
 local function classMap()
   local map = {}
   for _, name in ipairs(widgetNames()) do
@@ -236,31 +254,10 @@ end
 
 -- --------------------------------------------------------------- geometría --
 
+-- Caja del output donde se coloca el widget (una sola fuente: lib/output.luau).
 local function outputGeometry()
-  local outputs = noctalia.outputs() or {}
-  local wanted = cfg.output
-  local chosen = nil
-  local focused = nil
-
-  for _, output in ipairs(outputs) do
-    if output.focused then
-      focused = output
-    end
-    if wanted ~= "" and output.name == wanted then
-      chosen = output
-    end
-  end
-
-  chosen = chosen or focused or outputs[1]
-  if chosen ~= nil then
-    local width = tonumber(chosen.width) or 0
-    local height = tonumber(chosen.height) or 0
-    if width >= 320 and height >= 240 then
-      return math.floor(width), math.floor(height), chosen.name or ""
-    end
-  end
-
-  return 1920, 1080, ""
+  local box = outputLib.outputBox(cfg)
+  return box.width, box.height, box.name
 end
 
 local function resolveGeometry(name)
@@ -321,6 +318,74 @@ local function resolveGeometry(name)
     custom = custom,
     auto = auto,
   }
+end
+
+-- Geometría efectiva de un widget: con el cerebro encendido, la memoria de la
+-- última posición manual manda sobre el layout oficial. Sin entrada (o con el
+-- cerebro apagado) se comporta exactamente como `resolveGeometry`.
+local function geometryFor(name)
+  local geometry = resolveGeometry(name)
+  if state.brain ~= true then
+    return geometry
+  end
+  local memory = (state.store and state.store.brainGeometry or {})[util.classFor(name)]
+  if type(memory) ~= "string" then
+    return geometry
+  end
+  local box = outputLib.outputBox(cfg)
+  local remembered = brainLib.geometryFromMemory(memory, box.width, box.height, cfg.margin)
+  if remembered == nil then
+    return geometry
+  end
+  geometry.x = remembered.x
+  geometry.y = remembered.y
+  geometry.width = math.max(100, math.min(remembered.width, box.width))
+  geometry.height = math.max(50, math.min(remembered.height, box.height))
+  geometry.anchor = nil
+  geometry.auto = false
+  geometry.remembered = true
+  return geometry
+end
+
+-- Publica el rectángulo que el plugin acaba de imponer (coordenadas
+-- ABSOLUTAS: `hyprctl clients -j` devuelve `at`/`size` absolutos y el service
+-- compara contra eso). Así el service no memoriza lo que movió el plugin.
+local function publishImposed(name, rect)
+  state.applied[name] = { x = rect.x, y = rect.y, w = rect.w, h = rect.h }
+  local shared = noctalia.state
+  if shared == nil then
+    return
+  end
+  local now = noctalia.nowMs()
+  local pruned = {}
+  local ok, current = pcall(shared.get, "imposed")
+  if ok and type(current) == "table" then
+    for class, entry in pairs(current) do
+      if type(entry) == "table" and (now - (entry.at or 0)) <= brainLib.IMPOSED_TTL_MS then
+        pruned[class] = entry
+      end
+    end
+  end
+  pruned[util.classFor(name)] = {
+    x = math.floor(rect.x),
+    y = math.floor(rect.y),
+    w = math.floor(rect.w),
+    h = math.floor(rect.h),
+    at = now,
+  }
+  pcall(shared.set, "imposed", pruned)
+end
+
+-- Igual que `publishImposed`, pero a partir de una geometría relativa a la
+-- caja del output (el formato que maneja `resolveGeometry`).
+local function noteImposed(name, geometry)
+  local box = outputLib.outputBox(cfg)
+  publishImposed(name, {
+    x = (box.x or 0) + geometry.x,
+    y = (box.y or 0) + geometry.y,
+    w = geometry.width,
+    h = geometry.height,
+  })
 end
 
 local function layoutText(name)
@@ -742,7 +807,8 @@ launch = function(name, opts)
   state.lastLaunch[class] = now
   state.launching[class] = true
 
-  local geometry = resolveGeometry(name)
+  refreshBrain()
+  local geometry = geometryFor(name)
 
   local function finish(doRefresh)
     state.launching[class] = nil
@@ -765,11 +831,21 @@ launch = function(name, opts)
     win.monitors(function(monitors)
       local existing = findByClass(clients, class)
 
-      -- Si "Cambiar tamaño también" está desactivado, conservar el último
-      -- tamaño real del widget (el que el usuario dejó al ajustarlo a mano).
-      applyRememberedSize(geometry, name, existing)
-
       if existing ~= nil and cfg.reuseExisting then
+        -- Con el cerebro encendido, pulsar la tarjeta de un widget abierto
+        -- solo lo enfoca: recolocarlo pisaría el ajuste manual que la memoria
+        -- tiene que conservar.
+        if state.brain == true then
+          win.focusOnly(class, function()
+            finish(true)
+          end)
+          return
+        end
+
+        -- Si "Cambiar tamaño también" está desactivado, conservar el último
+        -- tamaño real del widget (el que el usuario dejó al ajustarlo a mano).
+        applyRememberedSize(geometry, name, existing)
+
         -- El widget ya está abierto: en modo random se mueve a un hueco
         -- libre (el layout solo aporta el tamaño), en modo custom vuelve a
         -- su posición configurada.
@@ -780,10 +856,15 @@ launch = function(name, opts)
             return
           end
         end
+        noteImposed(name, geometry)
         win.focusExisting(class, geometry, function()
           finish(true)
         end)
       else
+        -- Si "Cambiar tamaño también" está desactivado, conservar el último
+        -- tamaño real del widget (el que el usuario dejó al ajustarlo a mano).
+        applyRememberedSize(geometry, name, existing)
+
         -- Widget nuevo: si no tiene layout explícito (geometry.auto) se abre
         -- en un hueco libre; si lo tiene, se respetan su dirección y su
         -- tamaño tal y como están definidos.
@@ -795,6 +876,7 @@ launch = function(name, opts)
             return
           end
         end
+        noteImposed(name, geometry)
         win.spawn({
           terminal = cfg.terminal,
           class = class,
@@ -836,8 +918,27 @@ rotateWindows = function()
         return
       end
 
-      local started = win.rotate(windows, cfg.rotation, cfg.rotationSizes, function()
+      local started = win.rotate(windows, cfg.rotation, cfg.rotationSizes, function(moves)
         state.rotating = false
+        -- La rotación también impone geometrías: se publican para que el
+        -- service no las confunda con movimientos manuales.
+        if moves ~= nil then
+          local byAddress = {}
+          for _, window in ipairs(windows) do
+            byAddress[window.address] = window
+          end
+          for _, move in ipairs(moves) do
+            local window = byAddress[move.address]
+            if window ~= nil and window.name ~= nil then
+              publishImposed(window.name, {
+                x = (window.monitor.x or 0) + move.x,
+                y = (window.monitor.y or 0) + move.y,
+                w = move.w,
+                h = move.h,
+              })
+            end
+          end
+        end
         refresh()
       end)
       if started == false then
@@ -852,6 +953,7 @@ end
 -- ventanas que ya están abiertas y no se pisan). Si ya estaban todos
 -- abiertos, los rota.
 openAll = function()
+  refreshBrain()
   win.list(function(clients)
     win.monitors(function(monitors)
       local map = classMap()
@@ -907,7 +1009,7 @@ openAll = function()
         if type(command) ~= "string" or command == "" then
           noctalia.notifyError(tr("title"), tr("missing_command", { name = tostring(name) }))
         else
-          local geometry = resolveGeometry(name)
+          local geometry = geometryFor(name)
 
           -- Conservar el último tamaño ajustado a mano si el resize aleatorio
           -- está desactivado.
@@ -944,6 +1046,10 @@ openAll = function()
       if #paramsList == 0 then
         refresh()
         return
+      end
+
+      for _, params in ipairs(paramsList) do
+        noteImposed(params.name, params.geometry)
       end
 
       win.spawnMany(paramsList, function()
@@ -997,11 +1103,21 @@ local function applyWidget(name, command, layout, thumb)
 
   -- `layout` y `thumb` vacíos SÍ se guardan: significan "quitar el valor"
   -- (volver al layout por defecto / no usar miniatura personalizada).
+  --
+  -- Un layout escrito por el usuario manda sobre la memoria del cerebro: se
+  -- descarta la entrada de ese widget para que las dos capas no se
+  -- contradigan.
+  if layout ~= "" then
+    storeLib.saveBrainForget(util.classFor(name))
+  end
   storeLib.upsert(state.store, name, command, layout, thumb)
-  local saved, err = storeLib.save(state.store)
+  local saved, err = storeLib.saveWidgets(state.store)
   if not saved then
     return false, tr("save_failed", { detail = tostring(err or "") })
   end
+  -- Este widget tiene un layout decidido en el formulario: al salir de
+  -- edición no se pisará con la geometría viva de la ventana.
+  state.formLayouts[name] = true
 
   loadWidgets()
 
@@ -1010,6 +1126,7 @@ local function applyWidget(name, command, layout, thumb)
   local window = state.windows[name]
   if window ~= nil then
     local geometry = resolveGeometry(name)
+    noteImposed(name, geometry)
     win.focusExisting(util.classFor(name), geometry, function()
       refresh()
     end)
@@ -1024,10 +1141,12 @@ local function removeWidget(name)
   end
 
   storeLib.remove(state.store, name)
-  local saved, err = storeLib.save(state.store)
+  local saved, err = storeLib.saveWidgets(state.store)
   if not saved then
     return false, tr("save_failed", { detail = tostring(err or "") })
   end
+  -- Un widget borrado no debe dejar su memoria huérfana en el store.
+  storeLib.saveBrainForget(util.classFor(name))
   -- La tarjeta ya no existe: su entrada en la tabla de animaciones es
   -- basura, y si se queda el panel seguiría pidiendo ticks de frame para
   -- algo que no está.
@@ -1040,6 +1159,9 @@ startEditing = function(name)
   state.editing = true
   state.editTarget = name
   state.editSession = state.editSession + 1
+  -- Cada sesión de edición empieza sin layouts "de formulario": así una
+  -- edición anterior no protege a un widget que ahora sí se movió a mano.
+  state.formLayouts = {}
   if name ~= nil then
     state.form = {
       name = name,
@@ -1053,7 +1175,62 @@ startEditing = function(name)
   render()
 end
 
+local GEOMETRY_TOLERANCE = 4
+
+local function absoluteOf(geometry, box)
+  return {
+    x = (box.x or 0) + geometry.x,
+    y = (box.y or 0) + geometry.y,
+    w = geometry.width,
+    h = geometry.height,
+  }
+end
+
+-- Al salir del modo edición, la geometría viva de cada ventana abierta se
+-- compara con la última que impuso el plugin. Si difiere, la movió (o
+-- redimensionó) el usuario y pasa a ser su layout permanente. Funciona con
+-- el cerebro encendido o apagado.
+local function saveEditedGeometry()
+  local names = widgetNames()
+  if #names == 0 then
+    return
+  end
+  local box = outputLib.outputBox(cfg)
+  win.list(function(clients)
+    local dirty = false
+    for _, name in ipairs(names) do
+      if state.formLayouts[name] ~= true then
+        local window = findByClass(clients, util.classFor(name))
+        if window ~= nil and (window.w or 0) > 0 and (window.h or 0) > 0 then
+          local live = { x = window.x, y = window.y, w = window.w, h = window.h }
+          -- Referencia: lo que impuso el plugin, o donde lo pondría si la
+          -- ventana ya estaba abierta antes de que arrancara este panel.
+          local reference = state.applied[name] or absoluteOf(resolveGeometry(name), box)
+          local moved = math.abs(live.x - reference.x) > GEOMETRY_TOLERANCE
+            or math.abs(live.y - reference.y) > GEOMETRY_TOLERANCE
+            or math.abs(live.w - reference.w) > GEOMETRY_TOLERANCE
+            or math.abs(live.h - reference.h) > GEOMETRY_TOLERANCE
+          if moved then
+            local value = brainLib.layoutString(live, box, cfg.margin)
+            if state.layouts[name] ~= value then
+              storeLib.upsert(state.store, name, nil, value, nil)
+              dirty = true
+            end
+          end
+        end
+      end
+    end
+    if dirty then
+      storeLib.saveWidgets(state.store)
+      loadWidgets()
+      render()
+    end
+  end)
+end
+
 local cancelEditing = function()
+  -- Salir de edición consolida lo que el usuario haya movido a mano.
+  saveEditedGeometry()
   state.editing = false
   state.editTarget = nil
   state.editSession = state.editSession + 1
@@ -1121,6 +1298,8 @@ saveForm = function()
   state.editTarget = nil
   state.editSession = state.editSession + 1
   state.form = { name = "", command = "", layout = "", thumb = "" }
+  -- Las demás ventanas abiertas también consolidan su geometría viva.
+  saveEditedGeometry()
   render()
 end
 
@@ -1570,6 +1749,18 @@ header = function()
 
   local buttons = {}
   append(buttons, ui.button({
+    key = "brain",
+    glyph = "brain",
+    variant = "ghost",
+    selected = state.brain == true,
+    tooltip = tr(state.brain == true and "brain_on" or "brain_off"),
+    onClick = function()
+      state.brain = not (state.brain == true)
+      storeLib.saveBrainToggle(state.brain)
+      render()
+    end,
+  }))
+  append(buttons, ui.button({
     key = "open-all",
     glyph = "layout-grid",
     variant = "ghost",
@@ -1609,7 +1800,9 @@ header = function()
     variant = "ghost",
     tooltip = tr("open_settings"),
     onClick = function()
-      noctalia.openSettings()
+      if noctalia.openSettings then
+        noctalia.openSettings()
+      end
     end,
   }))
   append(buttons, ui.button({
@@ -1643,11 +1836,6 @@ render = function()
   local cards = {}
   local names = widgetNames()
 
-  -- El formulario de "nuevo widget" va primero, para que se vea sin desplazar.
-  if state.editing and state.editTarget == nil then
-    table.insert(cards, editorCard(nil))
-  end
-
   -- Al editar uno existente, el formulario ocupa el sitio de SU tarjeta (así
   -- los campos aparecen junto al widget que se está editando).
   for _, name in ipairs(names) do
@@ -1656,6 +1844,12 @@ render = function()
     else
       table.insert(cards, card(name))
     end
+  end
+
+  -- El formulario de "nuevo widget" va al final, para no desplazar las
+  -- miniaturas al entrar en modo edición.
+  if state.editing and state.editTarget == nil then
+    table.insert(cards, editorCard(nil))
   end
 
   if #cards == 0 then
@@ -1748,8 +1942,10 @@ function onOpen(_context)
   defaults.reset()
   loadConfig()
   loadWidgets()
+  refreshBrain()
   state.editing = false
   state.editTarget = nil
+  state.formLayouts = {}
   state.frames = {}
   state.captureAnim = {}
   state.recentFrames = {}
@@ -1779,6 +1975,7 @@ function onConfigChanged()
   defaults.reset()
   loadConfig()
   loadWidgets(true)
+  refreshBrain()
   syncFrameTicks()
   if state.open then
     render()
@@ -1790,7 +1987,8 @@ function onConfigChanged()
         for _, name in ipairs(widgetNames()) do
           local window = state.windows[name]
           if window ~= nil then
-            local geometry = resolveGeometry(name)
+            local geometry = geometryFor(name)
+            noteImposed(name, geometry)
             win.focusExisting(util.classFor(name), geometry, function() end)
           end
         end

@@ -9,13 +9,26 @@
 --
 -- Así se puede añadir un widget sin perder los que ya estaban y también borrar
 -- los que vienen por defecto. Ajustes de Noctalia no participa.
+--
+-- El mismo fichero guarda la memoria del cerebro: el interruptor (`brain`) y
+-- las geometrías recordadas por clase de ventana (`brainGeometry`). Como se
+-- escriben desde sitios distintos (la lista de widgets, el interruptor, la
+-- geometría al salir de editar), cada escritura lee el disco y pisa solo sus
+-- claves: nadie pierde lo que otro guardó.
 
 local util = require("./util.luau")
 
 local M = {}
 
 local function emptyStore()
-  return { commands = {}, layouts = {}, thumbs = {}, removed = {} }
+  return {
+    commands = {},
+    layouts = {},
+    thumbs = {},
+    removed = {},
+    brain = false,
+    brainGeometry = {},
+  }
 end
 
 function M.path()
@@ -24,6 +37,22 @@ function M.path()
     return nil
   end
   return dir .. "/store.json"
+end
+
+-- Escritura atómica: ningún lector puede ver el fichero a medias.
+local function writeStore(store)
+  local path = M.path()
+  if path == nil then return false, "sin directorio de datos" end
+  local ok, encoded = pcall(noctalia.json.encode, store, true)
+  if not ok or type(encoded) ~= "string" then return false, "no se pudo codificar el store" end
+  local tmp = path .. ".tmp"
+  local wrote = noctalia.writeFile(tmp, encoded)
+  if wrote ~= true then return false, "no se pudo escribir " .. tmp end
+  if noctalia.renameFile ~= nil then
+    local renamed = noctalia.renameFile(tmp, path)
+    if renamed ~= true then return false, "no se pudo renombrar " .. path end
+  end
+  return true
 end
 
 function M.load()
@@ -72,26 +101,20 @@ function M.load()
       end
     end
   end
+  store.brain = decoded.brain == true
+  if type(decoded.brainGeometry) == "table" then
+    for key, value in pairs(decoded.brainGeometry) do
+      if type(value) == "string" then
+        store.brainGeometry[key] = value
+      end
+    end
+  end
 
   return store
 end
 
 function M.save(store)
-  local path = M.path()
-  if path == nil then
-    return false, "sin directorio de datos"
-  end
-
-  local ok, encoded = pcall(noctalia.json.encode, store, true)
-  if not ok or encoded == nil then
-    return false, "no se pudo serializar"
-  end
-
-  local wrote = noctalia.writeFile(path, encoded)
-  if wrote ~= true then
-    return false, "no se pudo escribir " .. path
-  end
-  return true
+  return writeStore(store)
 end
 
 -- Fusiona las tres capas y aplica los borrados.
@@ -188,6 +211,44 @@ function M.upsert(store, name, command, layout, thumb)
       store.thumbs[name] = thumb
     end
   end
+end
+
+-- Las cuatro claves de la lista de widgets. La memoria del cerebro no está:
+-- se escribe desde sus propias funciones para no pisarla por accidente.
+local WIDGET_KEYS = { "commands", "layouts", "thumbs", "removed" }
+
+function M.saveWidgets(store)
+  local disk = M.load()
+  for _, key in ipairs(WIDGET_KEYS) do
+    disk[key] = (store and store[key]) or {}
+  end
+  return writeStore(disk)
+end
+
+function M.loadBrain()
+  local disk = M.load()
+  return { brain = disk.brain == true, brainGeometry = disk.brainGeometry or {} }
+end
+
+function M.saveBrainToggle(brain)
+  local disk = M.load()
+  disk.brain = brain == true
+  return writeStore(disk)
+end
+
+function M.saveBrainGeometry(changes, removals)
+  local disk = M.load()
+  local map = disk.brainGeometry or {}
+  for class, value in pairs(changes or {}) do
+    if type(value) == "string" then map[class] = value end
+  end
+  for _, class in ipairs(removals or {}) do map[class] = nil end
+  disk.brainGeometry = map
+  return writeStore(disk)
+end
+
+function M.saveBrainForget(class)
+  return M.saveBrainGeometry({}, { class })
 end
 
 return M

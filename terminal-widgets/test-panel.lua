@@ -87,23 +87,52 @@ local function jsonQuote(value)
   return '"' .. tostring(value):gsub('\\', '\\\\'):gsub('"', '\\"') .. '"'
 end
 
+-- Codificador recursivo (objetos, arrays, booleanos y números) para que el
+-- store pueda guardar mapas dentro del mapa raíz y el interruptor del cerebro.
 local function jsonEncode(value)
-  if type(value) ~= "table" then
+  if type(value) == "string" then
+    return jsonQuote(value)
+  elseif type(value) == "boolean" or type(value) == "number" then
     return tostring(value)
+  elseif type(value) ~= "table" then
+    return "null"
   end
   local parts = {}
-  for key, item in pairs(value) do
-    if type(item) == "table" then
-      local inner = {}
-      for k2, v2 in pairs(item) do
-        inner[#inner + 1] = jsonQuote(k2) .. ":" .. jsonQuote(v2)
-      end
-      parts[#parts + 1] = jsonQuote(key) .. ":{" .. table.concat(inner, ",") .. "}"
-    else
-      parts[#parts + 1] = jsonQuote(key) .. ":" .. jsonQuote(item)
+  if value[1] ~= nil then
+    for _, item in ipairs(value) do
+      parts[#parts + 1] = jsonEncode(item)
     end
+    return "[" .. table.concat(parts, ",") .. "]"
+  end
+  for key, item in pairs(value) do
+    parts[#parts + 1] = jsonQuote(key) .. ":" .. jsonEncode(item)
   end
   return "{" .. table.concat(parts, ",") .. "}"
+end
+
+-- JSON de `hyprctl clients -j` a partir de la tabla `clients`. Acepta las dos
+-- formas que usan las secciones: la cruda de hyprctl (`at` y `size` como
+-- arrays posicionales, lo que llega de verdad del compositor) y la normalizada
+-- (`x`, `y`, `w`, `h`). El callback recibe el `CommandResult` real del host:
+-- una sola tabla `{ exitCode, stdout, stderr }`.
+local function clientsJson()
+  local parts = {}
+  for _, client in ipairs(clients) do
+    local at = client.at or { client.x or 0, client.y or 0 }
+    local size = client.size or { client.w or 0, client.h or 0 }
+    parts[#parts + 1] = string.format(
+      '{"address":"%s","class":"%s","title":"%s","at":[%d,%d],"size":[%d,%d],"monitor":"%s"}',
+      client.address or "0x0",
+      client.class or "",
+      client.title or "",
+      math.floor(tonumber(at[1]) or 0),
+      math.floor(tonumber(at[2]) or 0),
+      math.floor(tonumber(size[1]) or 0),
+      math.floor(tonumber(size[2]) or 0),
+      client.monitor or "1"
+    )
+  end
+  return "[" .. table.concat(parts, ",") .. "]"
 end
 
 local mock = {
@@ -178,11 +207,140 @@ local mock = {
         end
         return out
       end
-      local out = {}
-      for key, value in trimmed:gmatch('"([^"]+)":"([^"]*)"') do
-        out[key] = value
+      -- Objetos: con valores anidados (el store guarda mapas dentro del
+      -- mapa raíz) y booleanos. Parser recursivo mínimo.
+      local src = trimmed
+      local pos = 1
+
+      local function skipSpaces()
+        while src:sub(pos, pos):match("%s") do pos = pos + 1 end
       end
-      return out
+
+      local function parseString()
+        pos = pos + 1
+        local out = {}
+        while pos <= #src do
+          local ch = src:sub(pos, pos)
+          if ch == '"' then
+            pos = pos + 1
+            return table.concat(out)
+          elseif ch == "\\" then
+            local esc = src:sub(pos + 1, pos + 1)
+            if esc == "n" then
+              out[#out + 1] = "\n"
+              pos = pos + 2
+            elseif esc == "t" then
+              out[#out + 1] = "\t"
+              pos = pos + 2
+            elseif esc == "r" then
+              out[#out + 1] = "\r"
+              pos = pos + 2
+            elseif esc == "u" then
+              out[#out + 1] = "?"
+              pos = pos + 6
+            elseif esc == "" then
+              pos = pos + 1
+            else
+              out[#out + 1] = esc
+              pos = pos + 2
+            end
+          else
+            out[#out + 1] = ch
+            pos = pos + 1
+          end
+        end
+        return table.concat(out)
+      end
+
+      local parseValue
+
+      local function parseArray()
+        pos = pos + 1
+        local out = {}
+        skipSpaces()
+        if src:sub(pos, pos) == "]" then
+          pos = pos + 1
+          return out
+        end
+        while true do
+          out[#out + 1] = parseValue()
+          skipSpaces()
+          local ch = src:sub(pos, pos)
+          if ch == "," then
+            pos = pos + 1
+          elseif ch == "]" then
+            pos = pos + 1
+            return out
+          else
+            return out
+          end
+        end
+      end
+
+      local function parseObject()
+        pos = pos + 1
+        local out = {}
+        skipSpaces()
+        if src:sub(pos, pos) == "}" then
+          pos = pos + 1
+          return out
+        end
+        while true do
+          skipSpaces()
+          local key = parseString()
+          if key == nil then
+            return out
+          end
+          skipSpaces()
+          if src:sub(pos, pos) == ":" then
+            pos = pos + 1
+          end
+          out[key] = parseValue()
+          skipSpaces()
+          local ch = src:sub(pos, pos)
+          if ch == "," then
+            pos = pos + 1
+          elseif ch == "}" then
+            pos = pos + 1
+            return out
+          else
+            return out
+          end
+        end
+      end
+
+      function parseValue()
+        skipSpaces()
+        local ch = src:sub(pos, pos)
+        if ch == '"' then
+          return parseString()
+        elseif ch == "{" then
+          return parseObject()
+        elseif ch == "[" then
+          return parseArray()
+        elseif src:sub(pos, pos + 4) == "false" then
+          pos = pos + 5
+          return false
+        elseif src:sub(pos, pos + 3) == "true" then
+          pos = pos + 4
+          return true
+        elseif src:sub(pos, pos + 3) == "null" then
+          pos = pos + 4
+          return nil
+        else
+          local from = pos
+          while src:sub(pos, pos):match("[%d%.%+%-eE]") do
+            pos = pos + 1
+          end
+          return tonumber(src:sub(from, pos - 1))
+        end
+      end
+
+      local value = parseValue()
+      if type(value) == "table" then
+        return value
+      end
+      return {}
     end,
   },
   log = function() end,
@@ -217,22 +375,8 @@ local mock = {
   runAsync = function(argv, callback)
     local command = table.concat(argv, " ")
     if command:find("hyprctl clients", 1, true) then
-      local parts = {}
-      for _, client in ipairs(clients) do
-        parts[#parts + 1] = string.format(
-          '{"address":"%s","class":"%s","title":"%s","at":[%d,%d],"size":[%d,%d],"monitor":"%s"}',
-          client.address or "0x0",
-          client.class or "",
-          client.title or "",
-          client.x or 0,
-          client.y or 0,
-          client.w or 0,
-          client.h or 0,
-          client.monitor or "1"
-        )
-      end
       if callback ~= nil then
-        callback({ exitCode = 0, stdout = "[" .. table.concat(parts, ",") .. "]", stderr = "" })
+        callback({ exitCode = 0, stdout = clientsJson(), stderr = "" })
       end
       return true
     end
@@ -252,6 +396,25 @@ local mock = {
     return true
   end,
 }
+
+-- Estado compartido en memoria (`noctalia.state`), renombrado atómico y tick
+-- del service. `serviceUpdatedMs` es un global del fichero de pruebas: lo lee
+-- la sección del service.
+local sharedState = {}
+mock.state = {
+  get = function(key) return sharedState[key] end,
+  set = function(key, value) sharedState[key] = value end,
+  watch = function(_key, _callback) end,
+}
+mock.renameFile = function(from, to)
+  local content = files[from]
+  if content == nil then return false end
+  files[to] = content
+  files[from] = nil
+  return true
+end
+serviceUpdatedMs = nil
+mock.setUpdateInterval = function(ms) serviceUpdatedMs = ms return true end
 
 local function makeNode(kind)
   return function(props, children)
@@ -343,6 +506,34 @@ check("valor vacío de Ajustes se ignora", store.merge({ a = "x" }, { a = "" }, 
 check("valor vacío del store se respeta", store.merge({ a = "x" }, {}, { a = "" }, {}).a, "")
 check("el store pisa al default", store.merge({ a = "x" }, {}, { a = "y" }, {}).a, "y")
 
+-- Claves de los nodos del árbol en pre-orden (sirve para comprobar el orden
+-- relativo de las tarjetas al renderizar). Es un global a propósito: la usan
+-- las secciones de más abajo.
+function nodeKeys(tree, out)
+  out = out or {}
+  if type(tree) ~= "table" then return out end
+  if tree.key ~= nil then table.insert(out, tree.key) end
+  for _, child in ipairs(tree.children or {}) do nodeKeys(child, out) end
+  return out
+end
+
+-- --- arnés: estado compartido, renombrado atómico y tick del service ---
+check("noctalia.state escribe y lee", "hola", (function()
+  mock.state.set("k", "hola")
+  return mock.state.get("k")
+end)())
+check("noctalia.state ausente es nil", nil, mock.state.get("no-existe"))
+files["/tmp/a.tmp"] = "contenido"
+check("renameFile devuelve true", true, mock.renameFile("/tmp/a.tmp", "/tmp/a.json"))
+check("renameFile mueve el contenido", "contenido", files["/tmp/a.json"])
+check("renameFile borra el origen", nil, files["/tmp/a.tmp"])
+check("renameFile sin origen devuelve false", false, mock.renameFile("/tmp/nada", "/tmp/otro"))
+check("setUpdateInterval existe", "function", type(mock.setUpdateInterval))
+check("nodeKeys recorre en pre-orden", "raiz/hijo1/hijo2", (function()
+  local tree = { key = "raiz", children = { { key = "hijo1" }, { key = "hijo2" } } }
+  return table.concat(nodeKeys(tree), "/")
+end)())
+
 -- -------------------------------------------------------------- store --
 
 print("\n== store: añadir y borrar ==")
@@ -361,6 +552,52 @@ store.upsert(stClear, "x", "cmd", "center, 800x400", "/tmp/miniatura.png")
 store.upsert(stClear, "x", nil, "", "")
 check("layout vacío quita la posición", stClear.layouts.x, nil)
 check("thumb vacío quita la miniatura", stClear.thumbs.x, nil)
+
+-- La memoria del cerebro (interruptor y geometrías recordadas) vive en el
+-- mismo store.json: un store antiguo no la tiene y cada escritura parcial
+-- debe conservar la que hay en disco.
+local storeLib = store
+local storePath = storeLib.path()
+
+-- campos nuevos con valor por defecto en un store antiguo
+files[storePath] = '{"commands":{"a":"uno"},"layouts":{"a":"center, 100x100"}}'
+local legacy = storeLib.load()
+check("store: brain por defecto false", false, legacy.brain)
+check("store: brainGeometry por defecto vacío", 0, (function() local n = 0 for _ in pairs(legacy.brainGeometry) do n = n + 1 end return n end)())
+
+-- saveWidgets preserva la memoria del disco
+files[storePath] = '{"commands":{},"layouts":{},"thumbs":{},"removed":{},"brain":true,"brainGeometry":{"noctalia-term-a":"center, 100x100"}}'
+storeLib.saveWidgets({ commands = { a = "uno" }, layouts = {}, thumbs = {}, removed = {} })
+local afterWidgets = storeLib.load()
+check("saveWidgets: escribe commands", "uno", afterWidgets.commands.a)
+check("saveWidgets: preserva brain", true, afterWidgets.brain)
+check("saveWidgets: preserva brainGeometry", "center, 100x100", afterWidgets.brainGeometry["noctalia-term-a"])
+check("saveWidgets: fichero temporal borrado", nil, files[storePath .. ".tmp"])
+
+-- saveBrainToggle preserve los widgets
+storeLib.saveBrainToggle(false)
+local afterToggle = storeLib.load()
+check("saveBrainToggle: apaga", false, afterToggle.brain)
+check("saveBrainToggle: preserva commands", "uno", afterToggle.commands.a)
+
+-- saveBrainGeometry cambia solo lo que recibe
+storeLib.saveBrainGeometry({ ["noctalia-term-b"] = "top-right, 200x200" })
+local afterGeometry = storeLib.load()
+check("saveBrainGeometry: añade", "top-right, 200x200", afterGeometry.brainGeometry["noctalia-term-b"])
+check("saveBrainGeometry: conserva las demás", "center, 100x100", afterGeometry.brainGeometry["noctalia-term-a"])
+check("saveBrainGeometry: conserva brain", false, afterGeometry.brain)
+
+-- saveBrainForget borra una sola
+storeLib.saveBrainForget("noctalia-term-a")
+local afterForget = storeLib.load()
+check("saveBrainForget: borra la pedida", nil, afterForget.brainGeometry["noctalia-term-a"])
+check("saveBrainForget: deja las demás", "top-right, 200x200", afterForget.brainGeometry["noctalia-term-b"])
+
+-- loadBrain relee el disco aunque el state en memoria sea viejo
+files[storePath] = '{"commands":{},"brain":true,"brainGeometry":{"noctalia-term-c":"center, 50x50"}}'
+local fresh = storeLib.loadBrain()
+check("loadBrain: brain del disco", true, fresh.brain)
+check("loadBrain: memoria del disco", "center, 50x50", fresh.brainGeometry["noctalia-term-c"])
 
 -- -------------------------------------------------------------- posiciones --
 
@@ -608,22 +845,8 @@ mock.runAsync = function(argv, callback)
     dispatched[#dispatched + 1] = argv[3]
   end
   if command:find("hyprctl clients", 1, true) then
-    local parts = {}
-    for _, client in ipairs(clients) do
-      parts[#parts + 1] = string.format(
-        '{"address":"%s","class":"%s","title":"%s","at":[%d,%d],"size":[%d,%d],"monitor":"%s"}',
-        client.address or "0x0",
-        client.class or "",
-        client.title or "",
-        client.x or 0,
-        client.y or 0,
-        client.w or 0,
-        client.h or 0,
-        client.monitor or "1"
-      )
-    end
     if callback ~= nil then
-      callback({ exitCode = 0, stdout = "[" .. table.concat(parts, ",") .. "]", stderr = "" })
+      callback({ exitCode = 0, stdout = clientsJson(), stderr = "" })
     end
     return true
   end
@@ -756,12 +979,141 @@ local locked = win.rotate(group, "clockwise", false, function() end)
 check("rotación bloqueada mientras gira", false, locked)
 win.rotating = false
 
+-- Enfocar sin recolocar: un solo dispatch de foco, ni resize ni move.
+dispatched = {}
+win.focusOnly("noctalia-term-lavat", function() end)
+check("focusOnly: un solo dispatch", 1, #dispatched)
+check("focusOnly: es un foco", true, dispatched[1]:find("hl.dsp.focus") ~= nil)
+check("focusOnly: no redimensiona", nil, dispatched[1]:find("resize"))
+check("focusOnly: no mueve", nil, dispatched[1]:find("move"))
+
+-- ------------------------------------------------------------- lib/output.luau --
+
+print("\n== lib/output.luau ==")
+
+local outputLib = loadModule("output.luau")
+local box = outputLib.outputBox({ output = "" })
+check("outputBox: caja del output enfocado", 3440, box.width)
+check("outputBox: alto", 1440, box.height)
+check("outputBox: nombre", "DP-1", box.name)
+check("outputBox: origen", 0, box.x)
+check("outputBox: origen y", 0, box.y)
+check("outputBox: cfg.output manda", "DP-1", outputLib.outputBox({ output = "DP-1" }).name)
+check("outputBox: cfg.output inexistente cae al enfocado", "DP-1", outputLib.outputBox({ output = "HDMI-9" }).name)
+-- caja demasiado pequeña -> respaldo
+local savedOutputs = mock.outputs
+mock.outputs = function() return { { name = "X", width = 100, height = 80, x = 0, y = 0, scale = 1, focused = true } } end
+local tiny = outputLib.outputBox({ output = "" })
+check("outputBox: caja diminuta -> 1920x1080", "1920x1080", tiny.width .. "x" .. tiny.height)
+mock.outputs = savedOutputs
+
+-- --------------------------------------------------------------- lib/brain.luau --
+
+print("\n== lib/brain.luau ==")
+
+local layoutLib = loadModule("layout.luau")
+local brain = loadModule("brain.luau")
+local SCREEN = { x = 0, y = 0, width = 3440, height = 1440, name = "DP-1" }
+
+local function anchorOf(x, y, w, h)
+  return brain.anchorFromRect({ x = x, y = y, w = w, h = h }, SCREEN, 0).anchor
+end
+check("ancla: esquina inferior izquierda", "bottom-left", anchorOf(0, 800, 802, 582))
+check("ancla: esquina superior derecha", "top-right", anchorOf(2400, 0, 802, 582))
+check("ancla: centro exacto", "center", anchorOf(1319, 429, 802, 582))
+check("ancla: banda izquierda, fila central", "left-center", anchorOf(10, 429, 802, 582))
+check("ancla: banda derecha, fila central", "right-center", anchorOf(2600, 429, 802, 582))
+check("ancla: banda central, fila superior", "top-center", anchorOf(1319, 10, 802, 582))
+check("ancla: banda central, fila inferior", "bottom-center", anchorOf(1319, 800, 802, 582))
+-- esquinas restantes
+check("ancla: superior izquierda", "top-left", anchorOf(0, 0, 802, 582))
+check("ancla: inferior derecha", "bottom-right", anchorOf(2600, 800, 802, 582))
+
+-- ida y vuelta: reconstruir devuelve la posición exacta (relativa a la caja)
+local function roundTrip(rect, screen, margin)
+  local memory = brain.anchorFromRect(rect, screen, margin)
+  local baseX, baseY = layoutLib.anchorPosition(memory.anchor, memory.width, memory.height, screen.width, screen.height, margin)
+  return (baseX + memory.dx) .. "," .. (baseY + memory.dy)
+end
+check("ida y vuelta: bottom-left", "0,800", roundTrip({ x = 0, y = 800, w = 802, h = 582 }, SCREEN, 0))
+check("ida y vuelta: centro", "1319,429", roundTrip({ x = 1319, y = 429, w = 802, h = 582 }, SCREEN, 0))
+check("ida y vuelta: con margen 24", "24,24", roundTrip({ x = 24, y = 24, w = 802, h = 582 }, SCREEN, 24))
+-- caja con origen desplazado (segundo monitor): el desfase es relativo a la caja
+local OFFSET = { x = 1920, y = 0, width = 1920, height = 1080, name = "DP-2" }
+check("ida y vuelta: caja desplazada", "0,0", roundTrip({ x = 1920, y = 0, w = 600, h = 400 }, OFFSET, 0))
+
+check("layoutString: formato exacto", "bottom-left, 802x582, 0, -58", brain.layoutString({ x = 0, y = 800, w = 802, h = 582 }, SCREEN, 0))
+-- desfase positivo: ventana a 100 px del borde izquierdo y a la altura de la base inferior
+local shifted = brain.anchorFromRect({ x = 100, y = 800, w = 802, h = 582 }, SCREEN, 0)
+check("layoutString: desfase en x", 100, shifted.dx)
+check("layoutString: desfase en y", -58, shifted.dy)
+check("layoutString: string con desfase", "bottom-left, 802x582, 100, -58", brain.layoutString({ x = 100, y = 800, w = 802, h = 582 }, SCREEN, 0))
+check("geometryFromMemory: reconstruye", 800, (brain.geometryFromMemory("bottom-left, 802x582, 0, -58", 3440, 1440, 0) or {}).y)
+check("geometryFromMemory: ancho", 802, (brain.geometryFromMemory("bottom-left, 802x582, 0, -58", 3440, 1440, 0) or {}).width)
+check("geometryFromMemory: string inválido", nil, brain.geometryFromMemory("no es un layout", 3440, 1440, 0))
+check("geometryFromMemory: nil", nil, brain.geometryFromMemory(nil, 3440, 1440, 0))
+
+-- Cliente crudo de `hyprctl clients -j`: `at` y `size` son arrays posicionales.
+local function clientAt(class, x, y, w, h)
+  return { class = class, at = { x, y }, size = { w, h }, address = "0x" .. x, monitor = 0 }
+end
+
+-- sondeo 1: nada memorizado, pendiente creado
+local rect = { x = 0, y = 800, w = 802, h = 582 }
+local r1 = brain.capture({ clientAt("noctalia-term-lavat", 0, 800, 802, 582) }, SCREEN, 0, {}, {}, {})
+check("captura: primer sondeo no memoriza", nil, r1.memory["noctalia-term-lavat"])
+check("captura: primer sondeo deja pendiente", 800, (r1.pending["noctalia-term-lavat"] or {}).y)
+check("captura: primer sondeo sin cambios", false, r1.changed)
+
+-- sondeo 2 idéntico: memoriza
+local r2 = brain.capture({ clientAt("noctalia-term-lavat", 0, 800, 802, 582) }, SCREEN, 0, {}, {}, r1.pending)
+check("captura: segundo sondeo memoriza", "bottom-left, 802x582, 0, -58", r2.memory["noctalia-term-lavat"])
+check("captura: segundo sondeo marca cambio", true, r2.changed)
+
+-- rect distinto: reinicia el pendiente y no memoriza
+local r3 = brain.capture({ clientAt("noctalia-term-lavat", 0, 700, 802, 582) }, SCREEN, 0, {}, {}, r2.pending)
+check("captura: rect distinto no memoriza", nil, r3.memory["noctalia-term-lavat"])
+check("captura: rect distinto reinicia pendiente", 700, (r3.pending["noctalia-term-lavat"] or {}).y)
+
+-- imposición reciente y coincidente: suprime y cancela el pendiente
+clock = 10000
+local imposed = { ["noctalia-term-lavat"] = { x = 0, y = 800, w = 802, h = 582, at = 9000 } }
+local r4 = brain.capture({ clientAt("noctalia-term-lavat", 0, 800, 802, 582) }, SCREEN, 0, {}, imposed, r1.pending)
+check("captura: imposición reciente no memoriza", nil, r4.memory["noctalia-term-lavat"])
+check("captura: imposición cancela pendiente", nil, r4.pending["noctalia-term-lavat"])
+check("captura: imposición no marca cambio", false, r4.changed)
+
+-- imposición caducada: ya cuenta como manual
+local old = { ["noctalia-term-lavat"] = { x = 0, y = 800, w = 802, h = 582, at = 1000 } }
+local r5 = brain.capture({ clientAt("noctalia-term-lavat", 0, 800, 802, 582) }, SCREEN, 0, {}, old, r1.pending)
+check("captura: imposición caducada memoriza", "bottom-left, 802x582, 0, -58", r5.memory["noctalia-term-lavat"])
+
+-- ventanas ajenas al plugin
+local r6 = brain.capture({ clientAt("kitty", 0, 0, 100, 100) }, SCREEN, 0, {}, {}, {})
+local foreign = 0
+for _ in pairs(r6.pending) do foreign = foreign + 1 end
+check("captura: ignora ventanas ajenas", 0, foreign)
+
+-- ventana cerrada: su pendiente desaparece
+local r7 = brain.capture({}, SCREEN, 0, {}, {}, r1.pending)
+check("captura: ventana cerrada borra pendiente", nil, r7.pending["noctalia-term-lavat"])
+
+-- sin cambios respecto a la memoria previa: no marca cambio
+local prev = { ["noctalia-term-lavat"] = "bottom-left, 802x582, 0, -58" }
+local r8 = brain.capture({ clientAt("noctalia-term-lavat", 0, 800, 802, 582) }, SCREEN, 0, prev, {}, r1.pending)
+check("captura: memoria igual no marca cambio", false, r8.changed)
+
 -- -------------------------------------------------------------------- panel --
 
 print("\n== panel ==")
 
 -- Se carga el panel con la UI simulada. Si usa un global que no existe
 -- (un `local` declarado más abajo, por ejemplo), aquí se rompe.
+--
+-- El panel cachea el store en memoria desde su primera apertura: se deja en
+-- disco un store conocido (cerebro apagado y sin memoria) para que la sección
+-- arranque siempre en el mismo estado.
+files[storePath] = '{"commands":{},"layouts":{},"thumbs":{},"removed":{},"brain":false,"brainGeometry":{}}'
 local panelChunk, panelErr = loadfile(DIR .. "panel.luau", "t", env)
 if not panelChunk then
   print("  FALLA no se pudo cargar panel.luau: " .. tostring(panelErr))
@@ -1080,6 +1432,210 @@ check("botón de cerrar en widget abierto", true, (function()
   end)())
 clients = {}
 
+-- ---------------------------------------------- cerebro y geometría --
+
+print("\n== cerebro ==")
+
+-- El margen se fija a 0 para que las posiciones esperadas sean exactas (el
+-- margen por defecto, 16 px, desplaza la base de cada ancla).
+local savedMarginPanel = config.margin
+config.margin = 0
+env.onOpen("")
+
+-- El botón va primero de su fila: a la izquierda de "abrir todo".
+local brainButton = findNode(lastTree, "brain")
+check("panel: el botón del cerebro existe", true, brainButton ~= nil)
+check("panel: glifo brain", "brain", brainButton ~= nil and brainButton.props.glyph or nil)
+check("panel: variante ghost", "ghost", brainButton ~= nil and brainButton.props.variant or nil)
+check("panel: arranca apagado", false, brainButton ~= nil and brainButton.props.selected == true)
+check("panel: tooltip de apagado", "brain_off", brainButton ~= nil and brainButton.props.tooltip or nil)
+
+-- Orden de las claves del árbol renderizado (las claves viven en
+-- `props.key`; `nodeKeys` de arriba sirve para árboles crudos).
+local function keyOrder(tree, out)
+  out = out or {}
+  if type(tree) ~= "table" then return out end
+  if type(tree.props) == "table" and tree.props.key ~= nil then
+    table.insert(out, tree.props.key)
+  end
+  for _, child in ipairs(tree.children or {}) do keyOrder(child, out) end
+  return out
+end
+
+local brainKeys = keyOrder(lastTree)
+local brainIndex, openAllIndex
+for index, key in ipairs(brainKeys) do
+  if key == "brain" then brainIndex = index end
+  if key == "open-all" then openAllIndex = index end
+end
+check("panel: cerebro a la izquierda de abrir todo", true,
+  brainIndex ~= nil and openAllIndex ~= nil and brainIndex < openAllIndex)
+
+-- Pulsarlo enciende, repinta y persiste.
+if brainButton ~= nil and brainButton.props.onClick ~= nil then
+  brainButton.props.onClick()
+end
+check("panel: enciende el cerebro", true, storeLib.loadBrain().brain == true)
+local brainOn = findNode(lastTree, "brain")
+check("panel: marcado al encender", true, brainOn ~= nil and brainOn.props.selected == true)
+check("panel: tooltip de encendido", "brain_on", brainOn ~= nil and brainOn.props.tooltip or nil)
+
+-- Apagarlo no borra la memoria.
+storeLib.saveBrainGeometry({ ["noctalia-term-cerebro"] = "center, 10x10" })
+env.onOpen("")
+local brainOffButton = findNode(lastTree, "brain")
+if brainOffButton ~= nil and brainOffButton.props.onClick ~= nil then
+  brainOffButton.props.onClick()
+end
+check("panel: apaga el cerebro", false, storeLib.loadBrain().brain)
+check("panel: apagar no borra la memoria", "center, 10x10",
+  storeLib.loadBrain().brainGeometry["noctalia-term-cerebro"])
+
+-- Las dos claves existen en los dos idiomas.
+for _, lang in ipairs({ "en", "es" }) do
+  local raw = readRealFile(DIR .. "translations/" .. lang .. ".json")
+  check("traducciones " .. lang .. ": brain_on", true, raw ~= nil and raw:find('"brain_on"') ~= nil)
+  check("traducciones " .. lang .. ": brain_off", true, raw ~= nil and raw:find('"brain_off"') ~= nil)
+end
+
+-- Widget de prueba con layout oficial y memoria distinta.
+env.onIpc("remove", "cerebro")
+env.onIpc("add", "cerebro|cerebro --demo|bottom-left, 802x582")
+storeLib.saveBrainToggle(false)
+storeLib.saveBrainGeometry({ ["noctalia-term-cerebro"] = "top-right, 400x300, -10, 10" })
+env.onOpen("")
+
+-- Cerebro OFF: manda el layout oficial (comportamiento de siempre).
+clients = {
+  { class = "noctalia-term-cerebro", at = { 100, 100 }, size = { 600, 400 }, address = "0x77", monitor = 0 },
+}
+clock = clock + 5000
+dispatched = {}
+clickCard("cerebro")
+local offText = dispatchText()
+check("sin cerebro: resize al tamaño del layout", true, offText:find("resize%({ x = 802, y = 582") ~= nil)
+check("sin cerebro: vuelve a su ancla", true, offText:find("move%({ x = 0, y = 858") ~= nil)
+
+-- Lo que impone el plugin se publica para que el service no lo memorice.
+local published = mock.state.get("imposed") or {}
+local imposedEntry = published["noctalia-term-cerebro"]
+check("imposed: publica la clase", true, imposedEntry ~= nil)
+check("imposed: ancho del layout", 802, imposedEntry ~= nil and imposedEntry.w or nil)
+check("imposed: posición absoluta", 858, imposedEntry ~= nil and imposedEntry.y or nil)
+check("imposed: lleva sello temporal", true,
+  imposedEntry ~= nil and (imposedEntry.at or 0) > 0)
+
+-- Las entradas caducadas se podan al publicar la siguiente geometría.
+mock.state.set("imposed", { ["noctalia-term-vieja"] = { x = 0, y = 0, w = 10, h = 10, at = 1 } })
+clock = clock + 5000
+clickCard("cerebro")
+check("imposed: poda las caducadas", nil, (mock.state.get("imposed") or {})["noctalia-term-vieja"])
+
+-- Cerebro ON y ya abierto: solo foco, sin recolocar.
+storeLib.saveBrainToggle(true)
+env.onOpen("")
+clients = {
+  { class = "noctalia-term-cerebro", at = { 100, 100 }, size = { 600, 400 }, address = "0x77", monitor = 0 },
+}
+clock = clock + 5000
+dispatched = {}
+clickCard("cerebro")
+check("con cerebro y abierto: un solo dispatch", 1, #dispatched)
+check("con cerebro y abierto: es un foco", true,
+  dispatched[1] ~= nil and dispatched[1]:find("hl.dsp.focus") ~= nil)
+check("con cerebro y abierto: no redimensiona", nil,
+  dispatched[1] ~= nil and dispatched[1]:find("resize") or nil)
+
+-- Cerebro ON y cerrado: la apertura usa la memoria.
+clients = {}
+clock = clock + 5000
+dispatched = {}
+clickCard("cerebro")
+local onText = dispatched[1] or ""
+check("con cerebro: abre con el tamaño recordado", true, onText:find("size = { 400, 300") ~= nil)
+check("con cerebro: abre en la posición recordada", true, onText:find("move = { 3030, 10") ~= nil)
+
+-- Guardar un layout en el formulario borra la memoria del widget.
+storeLib.saveBrainGeometry({ ["noctalia-term-cerebro"] = "top-right, 400x300, -10, 10" })
+env.onIpc("add", "cerebro|cerebro --demo|center, 500x400")
+check("formulario: borra la memoria del widget", nil,
+  storeLib.loadBrain().brainGeometry["noctalia-term-cerebro"])
+
+-- O5: al salir de edición se guarda la geometría que movió el usuario.
+local function enterEditMode()
+  local node = findNode(lastTree, "edit")
+  if node ~= nil and node.props.onClick ~= nil then node.props.onClick() end
+end
+
+storeLib.saveBrainToggle(false)
+env.onIpc("add", "cerebro|cerebro --demo|bottom-left, 802x582")
+env.onOpen("")
+clients = {}
+clock = clock + 5000
+clickCard("cerebro")  -- coloca la ventana y registra lo que impone el plugin
+
+-- Una ventana que sigue donde el plugin la puso no toca el layout.
+clients = {
+  { class = "noctalia-term-cerebro", at = { 0, 858 }, size = { 802, 582 }, address = "0x77", monitor = 0 },
+}
+enterEditMode()
+enterEditMode()
+check("O5: no toca una ventana quieta", "bottom-left, 802x582", storeLib.load().layouts.cerebro)
+
+-- Una ventana movida a mano se guarda como layout permanente.
+clients = {
+  { class = "noctalia-term-cerebro", at = { 0, 0 }, size = { 700, 400 }, address = "0x77", monitor = 0 },
+}
+enterEditMode()
+enterEditMode()
+check("O5: guarda la geometría movida", "top-left, 700x400, 0, 0", storeLib.load().layouts.cerebro)
+
+-- Y funciona igual con el cerebro ON.
+storeLib.saveBrainToggle(true)
+env.onOpen("")
+clients = {}
+env.onIpc("add", "cerebro|cerebro --demo|bottom-left, 802x582")
+clock = clock + 5000
+clickCard("cerebro")
+clients = {
+  { class = "noctalia-term-cerebro", at = { 0, 0 }, size = { 700, 400 }, address = "0x77", monitor = 0 },
+}
+enterEditMode()
+enterEditMode()
+check("O5: también guarda con cerebro ON", "top-left, 700x400, 0, 0", storeLib.load().layouts.cerebro)
+
+-- Un layout escrito en el formulario manda sobre la geometría viva.
+storeLib.saveBrainToggle(false)
+env.onOpen("")
+clients = {}
+env.onIpc("add", "cerebro|cerebro --demo|bottom-left, 802x582")
+clock = clock + 5000
+clickCard("cerebro")
+clients = {
+  { class = "noctalia-term-cerebro", at = { 0, 0 }, size = { 700, 400 }, address = "0x77", monitor = 0 },
+}
+enterEditMode()
+env.onIpc("add", "cerebro|cerebro --demo|bottom-center, 600x300")
+enterEditMode()
+check("O5: el formulario manda", "bottom-center, 600x300", storeLib.load().layouts.cerebro)
+
+-- O4: el editor de alta va después de la última tarjeta.
+clients = {}
+env.onOpen("")
+enterEditMode()
+local editOrder = keyOrder(lastTree)
+local lastCardIndex, addEditorIndex = nil, nil
+for index, key in ipairs(editOrder) do
+  if key:sub(1, 5) == "card-" then lastCardIndex = index end
+  if key == "editor" then addEditorIndex = index end
+end
+check("edición: hay más de una tarjeta", true, countKeys(lastTree, "card-") > 1)
+check("edición: el editor de alta va al final", true,
+  addEditorIndex ~= nil and lastCardIndex ~= nil and addEditorIndex > lastCardIndex)
+enterEditMode()  -- salir del modo edición
+
+config.margin = savedMarginPanel
+
 -- ------------------------------------------------- borrar desde el panel --
 
 env.onOpen("")
@@ -1337,8 +1893,8 @@ mock.runAsync = function(argv, callback)
       pendingCapture = nil
       local raw = files[batchPath]
       if raw ~= nil then
-        -- El codificador del simulador no produce arrays, así que las rutas
-        -- se leen del texto del lote.
+        -- Las rutas se leen del texto del lote: basta con el texto, no
+        -- hace falta decodificar el JSON del batch.
         for out in raw:gmatch('"out":"([^"]*)"') do
           files[out] = true
           capturedFrames[#capturedFrames + 1] = out
@@ -1414,6 +1970,62 @@ check(
 mock.runAsync = previousRunAsync
 mock.removeFile = previousRemoveFile
 clients = {}
+
+-- ------------------------------------------------------------- service.luau --
+
+print("\n== service.luau ==")
+
+-- El service usa su propio entorno (globals propios) con el mismo `noctalia`.
+local service = {}
+setmetatable(service, { __index = env })
+local chunk = assert(loadfile(DIR .. "service.luau", "t", service))
+chunk()
+check("service: exporta update", "function", type(service.update))
+-- el mock de getConfig debe devolver margin = 0 para que los esperados sean exactos
+check("service: intervalo de sondeo 1 s", true, serviceUpdatedMs == 1000)
+
+-- El string memorizado depende del margen configurado: se fija a 0 para que
+-- los valores esperados de abajo sean exactos (se restaura al salir).
+local savedMargin = config.margin
+config.margin = 0
+
+local callsBefore = #dispatched
+files[storePath] = '{"commands":{},"brain":false,"brainGeometry":{}}'
+service.update()
+check("service: cerebro OFF no consulta hyprctl", callsBefore, #dispatched)
+check("service: cerebro OFF no escribe memoria", nil, storeLib.load().brainGeometry["noctalia-term-lavat"])
+
+-- cerebro ON: dos ticks con la misma ventana memorizan
+files[storePath] = '{"commands":{},"brain":true,"brainGeometry":{}}'
+clients = { { class = "noctalia-term-lavat", at = { 0, 800 }, size = { 802, 582 }, address = "0x1", monitor = 0 } }
+service.update()
+service.update()
+check("service: cerebro ON memoriza tras dos ticks", "bottom-left, 802x582, 0, -58", storeLib.load().brainGeometry["noctalia-term-lavat"])
+clients = {}
+
+-- cerebro ON y rectángulo impuesto reciente: no memoriza
+files[storePath] = '{"commands":{},"brain":true,"brainGeometry":{}}'
+mock.state.set("imposed", { ["noctalia-term-lavat"] = { x = 0, y = 800, w = 802, h = 582, at = clock } })
+clients = { { class = "noctalia-term-lavat", at = { 0, 800 }, size = { 802, 582 }, address = "0x1", monitor = 0 } }
+service.update()
+service.update()
+check("service: respeta la supresión de impuestos", nil, storeLib.load().brainGeometry["noctalia-term-lavat"])
+mock.state.set("imposed", {})
+clients = {}
+
+-- si runAsync no arranca, el sondeo no debe quedar bloqueado
+files[storePath] = '{"commands":{},"brain":true,"brainGeometry":{}}'
+local realRunAsync = mock.runAsync
+mock.runAsync = function() return false end
+service.update()
+mock.runAsync = realRunAsync
+clients = { { class = "noctalia-term-lavat", at = { 0, 800 }, size = { 802, 582 }, address = "0x1", monitor = 0 } }
+service.update()
+service.update()
+check("service: runAsync fallido no bloquea el sondeo", "bottom-left, 802x582, 0, -58", storeLib.load().brainGeometry["noctalia-term-lavat"])
+clients = {}
+
+config.margin = savedMargin
 
 print(string.format("\n%d comprobaciones, %d fallos", PASSED + FAILED, FAILED))
 os.exit(FAILED == 0 and 0 or 1)
