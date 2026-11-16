@@ -18,7 +18,7 @@ STATE="$RUN/state"
 SOCK_BASE="$RUN/kitty" # kitty appends -<pid>
 
 SETTING_KEYS="orientation edge_h edge_v size normal_height normal_width opacity focus_policy hide_on_focus_loss kitty_conf reserve_top reserve_bottom reserve_left reserve_right"
-GEOMETRY_KEYS="orientation edge_h edge_v size"
+GEOMETRY_KEYS="orientation edge_h edge_v size normal_height normal_width"
 
 die() { echo "dropkitty: $*" >&2; exit 2; }
 
@@ -48,11 +48,10 @@ cfg() {
 }
 
 # --- runtime state ---------------------------------------------------------------
-# hofl: hide_on_focus_loss the running kitty was launched with (settings may have moved since).
 state_reset() {
-    printf 'orient=%s\npos_h=%s\npos_v=%s\nsize=%s\nvisible=%s\nhofl=%s\n' \
-        "$(cfg orientation)" "$(cfg edge_h)" "$(cfg edge_v)" "$(cfg size)" "$(state_peek visible 0)" \
-        "$(state_peek hofl no)" >"$STATE.tmp"
+    printf 'orient=%s\npos_h=%s\npos_v=%s\nsize=%s\npct_h=%s\npct_v=%s\nvisible=%s\n' \
+        "$(cfg orientation)" "$(cfg edge_h)" "$(cfg edge_v)" "$(cfg size)" \
+        "$(cfg normal_height)" "$(cfg normal_width)" "$(state_peek visible 0)" >"$STATE.tmp"
     mv "$STATE.tmp" "$STATE"
 }
 state_peek() {
@@ -66,6 +65,8 @@ state_set() {
     if grep -q "^$1=" "$STATE"; then sed -i "s/^$1=.*/$1=$2/" "$STATE"
     else printf '%s=%s\n' "$1" "$2" >>"$STATE"; fi
 }
+# live_pct KEY SETTING: live size percentage; state from 0.1.0 has none, so fall back to the setting.
+live_pct() { local v; v=$(state_get "$1"); [[ $v =~ ^[0-9]+$ ]] || v=$(cfg "$2"); printf '%s' "$v"; }
 flip() { [ "$1" = "$2" ] && printf '%s' "$3" || printf '%s' "$2"; } # flip CUR A B
 
 # --- kitty ---------------------------------------------------------------------
@@ -110,10 +111,10 @@ geometry() {
     [[ $w =~ ^[0-9]+$ && $h =~ ^[0-9]+$ ]] || die "could not read the focused output size"
     local usable pct dim edge
     if [ "$(state_get orient)" = portrait ]; then
-        edge=$(state_get pos_v); dim=columns; pct=$(cfg normal_width)
+        edge=$(state_get pos_v); dim=columns; pct=$(live_pct pct_v normal_width)
         usable=$(( w - $(cfg reserve_left) - $(cfg reserve_right) ))
     else
-        edge=$(state_get pos_h); dim=lines; pct=$(cfg normal_height)
+        edge=$(state_get pos_h); dim=lines; pct=$(live_pct pct_h normal_height)
         usable=$(( h - $(cfg reserve_top) - $(cfg reserve_bottom) ))
     fi
     if (( usable <= 0 )); then if [ "$dim" = columns ]; then usable=$w; else usable=$h; fi; fi
@@ -143,13 +144,11 @@ set_visible() {
 launch() { # start the singleton (visible), echo its socket once it answers
     command -v kitten >/dev/null 2>&1 || die "kitten not found (install kitty >= 0.42)"
     state_reset
-    state_set hofl "$(cfg hide_on_focus_loss)"
     local geo g args=(quick-access-terminal --instance-group dropkitty) conf
     geo=$(geometry)
     conf=$(cfg kitty_conf); [ -n "$conf" ] && args+=(-c "$conf")
     args+=(-o "background_opacity=$(cfg opacity)"
            -o "focus_policy=$(cfg focus_policy)"
-           -o "hide_on_focus_loss=$(state_get hofl)"
            -o "kitty_override=allow_remote_control=socket-only"
            -o "kitty_override=listen_on=unix:$SOCK_BASE"
            -o "kitty_override=watcher=$HERE/dropkitty-watcher.py")
@@ -190,7 +189,7 @@ cmd_settings() {
     if [ -n "$s" ]; then apply "$s"; fi
 }
 
-# _event KIND [ARG]: reports from the kitty watcher, which sets DROPKITTY_PID to its kitty's pid.
+# _event KIND [ARGS]: reports from the kitty watcher, which sets DROPKITTY_PID to its kitty's pid.
 cmd_event() {
     local s; s=$(sock)
     if [ -n "${DROPKITTY_PID:-}" ] && [ -n "$s" ] && [ "${s##*-}" != "$DROPKITTY_PID" ]; then
@@ -199,13 +198,43 @@ cmd_event() {
     case "${1:-}" in
         focus)
             if [ "${2:-}" = 1 ]; then set_visible 1
-            elif [ "$(state_peek hofl no)" = yes ]; then set_visible 0; fi ;;
-        cmd)
-            [ "$(state_peek visible 0)" = 1 ] || notify cmd-finished "${2:-0}" ;;
+            elif [ "${2:-}" = 0 ] && [ "$(cfg hide_on_focus_loss)" = yes ]; then set_visible 0; fi ;;
+        cmd) # CODE SECONDS CMDLINE -> one whitespace-free IPC token: code,secs,uri(cmdline)
+            [ "$(state_peek visible 0)" = 1 ] && return 0
+            local code=${2:-0} secs=${3:-0} line
+            [[ $code =~ ^-?[0-9]+$ ]] || code=0
+            [[ $secs =~ ^[0-9]+$ ]] || secs=0
+            line=$(printf '%s' "${4:-}" | head -c 200 | jq -sRr @uri)
+            notify cmd-finished "$code,$secs,$line" ;;
         exit)
             state_set visible 0; notify exited ;;
         *) die "unknown event ${1:-}" ;;
     esac
+}
+
+# run CMD...: type CMD at a fresh shell prompt (a new tab, or the first window of a fresh
+# kitty) so it gets aliases, history and the finished-command report.
+cmd_run() {
+    local text="$*" s wid
+    [ -n "$text" ] || usage
+    [[ $text != *$'\n'* ]] || die "run: the command must be a single line"
+    s=$(sock)
+    if [ -z "$s" ]; then
+        s=$(launch)
+        wid=$(rc "$s" ls | jq -r '[.. | objects | select(has("at_prompt")) | .id][0] // empty')
+    else
+        s=$(ensure)
+        wid=$(rc "$s" launch --type=tab --tab-title "$text") || die "run: kitty could not open a tab"
+    fi
+    [[ $wid =~ ^[0-9]+$ ]] || die "run: kitty did not report a window to type into"
+    # Typed before the prompt, the line can be eaten by shell start-up; without shell
+    # integration at_prompt never turns true, so give up waiting after 3 s.
+    for _ in $(seq 1 30); do
+        rc "$s" ls --match "id:$wid" 2>/dev/null \
+            | jq -e '[.. | .at_prompt? | select(. == true)] | length > 0' >/dev/null && break
+        sleep 0.1
+    done
+    printf '%s\r' "$text" | rc "$s" send-text --match "id:$wid" --stdin >/dev/null
 }
 
 cmd_status() {
@@ -218,7 +247,9 @@ usage() {
     cat >&2 <<'EOF'
 usage: dropkitty COMMAND
   toggle | show | hide | restart | status
+  run CMD...   show the terminal and run CMD at a new shell prompt
   position     landscape: top <-> bottom, portrait: left <-> right
+  grow [PCT] | shrink [PCT]  resize by 1-90 percentage points (default 5; limits 10-100)
   size         normal <-> full
   orientation  landscape <-> portrait
   top | bottom | left | right | landscape | portrait | normal | full
@@ -255,7 +286,21 @@ case "$cmd" in
         fi
         launch >/dev/null ;;
     status) cmd_status ;;
+    run) cmd_run "$@" ;;
 
+    grow|shrink)
+        [ "$#" -le 1 ] || usage
+        pct=${1-5}
+        [[ $pct =~ ^([1-9]|[1-8][0-9]|90)$ ]] || usage
+        s=$(ensure)
+        key=pct_h conf=normal_height
+        [ "$(state_get orient)" != portrait ] || { key=pct_v; conf=normal_width; }
+        [ "$cmd" = grow ] || pct=$(( -pct ))
+        pct=$(( $(live_pct "$key" "$conf") + pct ))
+        if (( pct < 10 )); then pct=10; elif (( pct > 100 )); then pct=100; fi
+        state_set "$key" "$pct"
+        state_set size normal
+        apply "$s" ;;
     position)
         s=$(ensure)
         if [ "$(state_get orient)" = portrait ]; then state_set pos_v "$(flip "$(state_get pos_v)" left right)"
