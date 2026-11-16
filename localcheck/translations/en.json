@@ -1,3 +1,12 @@
 {
-  "no_more_page": "No more page available"
+  "title": "LocalCheck",
+  "description": "View and manage TCP services running on your machine.",
+  "panel": {
+    "tcp_listeners": "TCP network listeners",
+    "no_services": "No listening services found",
+    "kill": "Kill",
+    "ip_not_found": "IP address not found",
+    "kill_success": "Process stopped successfully",
+    "kill_failed": "Failed to stop process"
+  }
 }

@@ -1,13 +1,13 @@
 id = "tadomika_ari/localcheck"
 name = "Localcheck"
-version = "1.0.0"
+version = "0.1.0"
 plugin_api = 43
 author = "TadomiKa-Ari"
 license = "MIT"
 dependencies = []
-icon = "movie"
+icon = "file"
 description = "Localcheck"
-tags = ["desktop", "utility"]
+tags = ["network", "utility", "system"]
 
 [[widget]]
 id = "localcheck-widget"
