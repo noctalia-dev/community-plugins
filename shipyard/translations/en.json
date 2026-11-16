@@ -111,6 +111,9 @@
     "launch_port_placeholder": "e.g. 8080:80 or 6379:6379 (leave blank for -P)",
     "launch_env_label": "Environment Variables",
     "launch_env_placeholder": "KEY=VALUE (comma-separated, optional)",
+    "launch_cmd_label": "Command (optional)",
+    "launch_cmd_placeholder": "e.g. sleep infinity (prefilled for base OS distributions)",
+    "base_os_tip": "Base OS distribution: Unlike application services, {image} has no background daemon and runs /bin/sh, which exits immediately in detached mode. \"sleep infinity\" is prefilled to keep it running.",
     "launch_button": "Launch Container",
     "cancel_button": "Cancel"
   },

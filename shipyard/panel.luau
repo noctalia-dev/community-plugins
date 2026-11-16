@@ -17,6 +17,7 @@ local launchModalImage      = nil
 local launchNameInput       = ""
 local launchPortInput       = ""
 local launchEnvInput        = ""
+local launchCommandInput    = ""
 local confirmPending        = nil
 local cmdNonce              = 0
 local render
@@ -134,6 +135,33 @@ local function suggestPortForImage(imgName)
   return ""
 end
 
+local function suggestEnvForImage(imgName)
+  local lower = imgName:lower()
+  if lower:find("postgres", 1, true) then
+    return "POSTGRES_PASSWORD=postgres"
+  elseif lower:find("mysql", 1, true) or lower:find("mariadb", 1, true) then
+    return "MYSQL_ROOT_PASSWORD=root"
+  end
+  return ""
+end
+
+local function isBaseOsImage(imgName)
+  local lower = imgName:lower()
+  return lower:find("alpine", 1, true) ~= nil
+    or lower:find("busybox", 1, true) ~= nil
+    or lower:find("ubuntu", 1, true) ~= nil
+    or lower:find("debian", 1, true) ~= nil
+    or lower:find("archlinux", 1, true) ~= nil
+    or lower:find("fedora", 1, true) ~= nil
+end
+
+local function suggestCommandForImage(imgName)
+  if isBaseOsImage(imgName) then
+    return "sleep infinity"
+  end
+  return ""
+end
+
 local function defaultContainerName(imgName)
   local withoutTag = imgName:gsub(":[^:]*$", "")
   local base = withoutTag:match("[^/]+$") or withoutTag
@@ -142,10 +170,11 @@ local function defaultContainerName(imgName)
 end
 
 local function openLaunchModal(imgName)
-  launchModalImage = imgName
-  launchNameInput  = defaultContainerName(imgName)
-  launchPortInput  = suggestPortForImage(imgName)
-  launchEnvInput   = ""
+  launchModalImage   = imgName
+  launchNameInput    = defaultContainerName(imgName)
+  launchPortInput    = suggestPortForImage(imgName)
+  launchEnvInput     = suggestEnvForImage(imgName)
+  launchCommandInput = suggestCommandForImage(imgName)
   render()
 end
 
@@ -1070,6 +1099,34 @@ local function renderLaunchModal(imageName, snapshot)
         onChange    = "onLaunchEnvChange",
       }),
     }),
+    ui.column({ gap = 4 }, {
+      ui.label({ text = tr("images.launch_cmd_label"), fontSize = 12, fontWeight = "medium", color = "on_surface" }),
+      ui.input({
+        key         = "launch_cmd",
+        placeholder = tr("images.launch_cmd_placeholder"),
+        value       = launchCommandInput,
+        onChange    = "onLaunchCommandChange",
+      }),
+    }),
+    if isBaseOsImage(imageName) then
+      ui.row({
+        fill     = "primary/0.12",
+        radius   = 8,
+        paddingH = 10,
+        paddingV = 8,
+        align    = "center",
+        gap      = 8,
+      }, {
+        ui.glyph({ name = "info", size = 16, color = "primary" }),
+        ui.label({
+          text     = tr("images.base_os_tip", { image = imageName }),
+          color    = "on_surface",
+          fontSize = 11,
+          flexGrow = 1,
+        }),
+      })
+    else
+      ui.box({ width = 0, height = 0 }),
     ui.row({ align = "center", justify = "flex_end", gap = 8, paddingV = 4 }, {
       ui.button({
         text        = tr("images.cancel_button"),
@@ -1091,6 +1148,7 @@ local function renderLaunchModal(imageName, snapshot)
           local name = noctalia.string.trim(launchNameInput)
           local ports = noctalia.string.trim(launchPortInput)
           local env = noctalia.string.trim(launchEnvInput)
+          local cmd = noctalia.string.trim(launchCommandInput)
           launchModalImage = nil
           local payload = {
             image      = img,
@@ -1099,6 +1157,7 @@ local function renderLaunchModal(imageName, snapshot)
           if name ~= "" then payload.name = name end
           if ports ~= "" then payload.ports = ports end
           if env ~= "" then payload.env = env end
+          if cmd ~= "" then payload.command = cmd end
           sendCommand("container_run_image", payload)
           currentTab = "containers"
           render()
@@ -1727,6 +1786,11 @@ end
 
 function onLaunchEnvChange(value)
   launchEnvInput = tostring(value or "")
+  render()
+end
+
+function onLaunchCommandChange(value)
+  launchCommandInput = tostring(value or "")
   render()
 end
 

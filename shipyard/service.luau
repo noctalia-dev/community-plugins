@@ -75,6 +75,44 @@ local function daemonCmd()
   return activeDaemon == "podman" and "podman" or "docker"
 end
 
+local function splitCommandLine(cmdStr)
+  local args = {}
+  local p = 1
+  local len = #cmdStr
+  while p <= len do
+    while p <= len and cmdStr:sub(p, p):match("%s") do
+      p = p + 1
+    end
+    if p > len then break end
+    local arg = ""
+    while p <= len and not cmdStr:sub(p, p):match("%s") do
+      local ch = cmdStr:sub(p, p)
+      if ch == "'" then
+        p = p + 1
+        while p <= len and cmdStr:sub(p, p) ~= "'" do
+          arg = arg .. cmdStr:sub(p, p)
+          p = p + 1
+        end
+        if p <= len then p = p + 1 end
+      elseif ch == '"' then
+        p = p + 1
+        while p <= len and cmdStr:sub(p, p) ~= '"' do
+          arg = arg .. cmdStr:sub(p, p)
+          p = p + 1
+        end
+        if p <= len then p = p + 1 end
+      else
+        arg = arg .. ch
+        p = p + 1
+      end
+    end
+    if arg ~= "" then
+      table.insert(args, arg)
+    end
+  end
+  return args
+end
+
 local function formatBytes(bytes)
   local b = tonumber(bytes) or 0
   if b < 1024 then return string.format("%dB", b) end
@@ -1942,6 +1980,15 @@ local function onCommandReceived(cmd)
     end
 
     table.insert(flags, shellQuote(runRef))
+
+    local runCmd = trim(cmd.command or "")
+    if runCmd ~= "" then
+      local parts = splitCommandLine(runCmd)
+      for _, part in ipairs(parts) do
+        table.insert(flags, shellQuote(part))
+      end
+    end
+
     local fullCmd = string.format("%s run %s 2>&1", daemonCmd(), table.concat(flags, " "))
 
     runStreamingTask({
