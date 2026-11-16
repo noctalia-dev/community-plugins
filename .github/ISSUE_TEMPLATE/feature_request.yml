@@ -79,6 +79,7 @@ body:
         - claudecode
         - clearclock
         - cmd-runner
+        - cmf-buds
         - codexbar-meter
         - color_picker
         - competitive-programming-contest-tracker
