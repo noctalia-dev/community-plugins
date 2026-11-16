@@ -27,8 +27,27 @@ local ROW_GAP = 8
 local ROW_RADIUS = 8
 local ROW_PADDING = 8
 
+local checkHistorySize -- forward decalration to access the function before initialization (in `writeHistoryToFile`)
+
+-- Reads history saved to file
+local function readHistoryFromFile()
+	if preserveHistory then
+		return noctalia.readFile(path)
+	end
+	return
+end
+
+local function writeHistoryToFile(checkSize)
+	if preserveHistory then
+		noctalia.writeFile(path, noctalia.json.encode(history))
+		if checkSize then
+			checkHistorySize()
+		end
+	end
+end
+
 -- Removes old entries from the history if it gets too large
-local function checkHistorySize()
+function checkHistorySize()
 	local info = noctalia.fileInfo(path)
 	if info then
 		local size = info.size
@@ -43,10 +62,7 @@ end
 -- Saves history to history table
 local function pushHistory(expr, result, isErr)
 	table.insert(history, { expr = expr, result = result, isError = isErr })
-	if preserveHistory then
-		noctalia.writeFile(path, noctalia.json.encode(history))
-		checkHistorySize()
-	end
+	writeHistoryToFile(true)
 	scrollRev = scrollRev + 1
 end
 
@@ -282,9 +298,7 @@ function onClear()
 	sessionExprs = {}
 	lastLineCount = 0
 	scrollRev = scrollRev + 1
-	if preserveHistory then
-		noctalia.writeFile(path, noctalia.json.encode(history))
-	end
+	writeHistoryToFile()
 	render()
 end
 
@@ -380,9 +394,7 @@ function onRowMenuAction(actionId, index)
 		end
 	elseif actionId == "delete" then
 		table.remove(history, index)
-		if preserveHistory then
-			noctalia.writeFile(path, noctalia.json.encode(history))
-		end
+		writeHistoryToFile()
 		render()
 	end
 end
@@ -396,7 +408,7 @@ function onOpen(context)
 	heldChord = nil
 	inputGen = inputGen + 1
 	if preserveHistory then
-		local raw = noctalia.readFile(path)
+		local raw = readHistoryFromFile()
 		if raw then history = noctalia.json.decode(raw) end
 	end
 	render()

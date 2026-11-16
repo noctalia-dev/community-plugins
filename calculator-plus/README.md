@@ -33,7 +33,7 @@ expression history. Click a history row to copy its result to the clipboard.
 | -------------------- | ------- | ------------ | --------------------------------------------------------------------------------------------------- |
 | `notify_on_copy`     | `bool`  | `true`       | Send a notification whenever an expression or result is copied to the clipboard.                    |
 | `preserve_history`   | `bool`  | `true`       | Saves the history between restarts. Disabling this clears history whenever the plugin is restarted. |
-| `history_size`       | `int`   | `4`          | Size of the history stored. (Only applies when the above is enabled)                                |
+| `history_size`       | `int`   | `4`          | Size of the history stored. (Only applies when `preserve_history` is enabled)                       |
 | `repeat_delay_ms`    | `int`   | `400`        | Change repeat delay of up/down arrow for history navigation.                                        |
 | `repeat_interval_ms` | `int`   | `120`        | Change repeat interval of up/down arrow for history navigation.                                     |
 | `glyph`              | `glyph` | `calculator` | Icon glyph name.                                                                                    |

@@ -25,8 +25,8 @@
       "label": "Preserve History"
     },
     "history_size": {
-      "description": "Size of the history stored. (Only applies when the above is enabled)",
-      "label": "History size in MB."
+      "description": "Size of the history stored. (Only applies when 'Preserve History' is enabled)",
+      "label": "History size in MB"
     },
     "preserve_history": {
       "description": "Saves the history between restarts. Disabling this clears history whenever the plugin is restarted.",
