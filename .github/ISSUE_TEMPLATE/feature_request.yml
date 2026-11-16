@@ -311,6 +311,7 @@ body:
         - speedtest-meter
         - split-reset
         - spotify
+        - spotify-ambient
         - spotify-lyrics
         - spotify-media
         - ssh-launcher
