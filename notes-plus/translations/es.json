@@ -1,0 +1,91 @@
+{
+  "settings": {
+    "extension": {
+      "description": "Extensión de los archivos de notas (sin el punto); solo se listan los archivos con esta extensión",
+      "label": "Extensión de archivo"
+    },
+    "glyph": {
+      "label": "Glifo de la barra"
+    },
+    "notes_dir": {
+      "label": "Carpeta de notas",
+      "description": "Dónde se guardan los archivos de notas"
+    },
+    "watch": {
+      "description": "Refresca el panel cuando las notas cambian fuera de él (app móvil, herramientas de sincronización)",
+      "label": "Vigilar carpeta"
+    },
+    "server_url": {
+      "label": "URL del servidor",
+      "description": "Dirección del servidor notes-mobile"
+    },
+    "token": {
+      "label": "Token",
+      "description": "Token de autenticación"
+    },
+    "poll_interval": {
+      "label": "Intervalo de sondeo (segundos)",
+      "description": "Frecuencia de sondeo cuando el SSE no está activo"
+    },
+    "show_text": {
+      "label": "Mostrar texto",
+      "description": "Mostrar texto de la etiqueta en el widget"
+    }
+  },
+  "scratchpad": "Notas rápidas",
+  "title": "Notas Plus",
+  "sync": {
+    "status": "Estado",
+    "connected": "Conectado",
+    "disconnected": "Desconectado",
+    "phone": "Teléfono",
+    "push": "Enviar a móvil",
+    "settings": "Configuración",
+    "open_on_phone": "Abrir en mi móvil",
+    "open_on_phone_tooltip": "Copia un enlace que abre las notas de este equipo en el navegador del móvil. Desde ahí puedes instalarla como app o dejarla como una pestaña más.",
+    "public_link": "Enlace de mis notas",
+    "copy_link_tooltip": "Copiar el enlace otra vez",
+    "link_ready": "Enlace listo.",
+    "link_copied": "Enlace copiado. Ábrelo en el navegador del móvil; si quieres, instálalo como app desde el menú del navegador.",
+    "copy_failed": "No se pudo copiar el enlace. Cópialo a mano desde abajo.",
+    "no_public_tunnel": "No hay túnel público ahora mismo: el túnel no está activo (falta public-url.txt o está vacío).",
+    "missing_token": "Falta el token de notes-mobile: configúralo en los ajustes del plugin o en ~/notes-mobile/config.json.",
+    "public_link_hint": "El enlace lleva el token de acceso y abre tus notas a quien lo tenga: mantenlo en privado.",
+    "link_changes_hint": "La dirección cambia cada vez que se reinicia el túnel de Cloudflare.",
+    "label_server": "Servidor",
+    "label_phone": "Teléfono",
+    "label_pending": "En cola",
+    "label_notes": "Notas",
+    "label_last_seen": "Última conexión",
+    "label_note": "Nota",
+    "label_url": "URL del servidor",
+    "value_online": "En línea",
+    "value_offline": "Sin conexión",
+    "value_connected": "Conectado",
+    "value_disconnected": "Desconectado",
+    "value_never": "Nunca",
+    "value_just_now": "Ahora mismo",
+    "value_minutes": "hace {count} min",
+    "value_hours": "hace {count} h",
+    "value_no_note": "Ninguna",
+    "value_last_note": "Última: {name}"
+  },
+  "tooltip_offline": "Notas: el servidor no responde",
+  "tooltip_pending": "Notas: {count} mensaje(s) en cola para el celular",
+  "tooltip_online": "Notas: el celular está conectado",
+  "tooltip_disconnected": "Notas: el celular no está conectado",
+  "errors": {
+    "bad_name": "El nombre de la nota no es válido",
+    "cannot_read": "No se pudo leer la nota",
+    "empty": "La nota está vacía",
+    "no_note_open": "No hay ninguna nota abierta",
+    "note_gone": "La nota ya no existe",
+    "push_failed": "No se pudo enviar al móvil",
+    "queue_full": "La cola de mensajes está llena",
+    "conflict": "La nota cambió fuera mientras la editabas: no se ha sobrescrito",
+    "conflict_saved": "Se guardó una copia de tu texto en la carpeta .conflicts"
+  },
+  "save_failed": "No se pudo guardar",
+  "bad_extension": "La extensión de las notas no es válida",
+  "rename_exists": "Ya existe una nota con ese nombre"
+}

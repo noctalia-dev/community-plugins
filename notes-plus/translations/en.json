@@ -1,0 +1,91 @@
+{
+  "settings": {
+    "extension": {
+      "description": "Extension of note files (without the dot); only files with this extension are listed",
+      "label": "File extension"
+    },
+    "glyph": {
+      "label": "Bar glyph"
+    },
+    "notes_dir": {
+      "label": "Notes folder",
+      "description": "Where note files are stored"
+    },
+    "watch": {
+      "description": "Refresh the panel when notes change outside it (mobile app, sync tools)",
+      "label": "Watch folder"
+    },
+    "server_url": {
+      "label": "Server URL",
+      "description": "Address of the notes-mobile server"
+    },
+    "token": {
+      "label": "Token",
+      "description": "Authentication token"
+    },
+    "poll_interval": {
+      "label": "Poll interval (seconds)",
+      "description": "Polling frequency when SSE is not active"
+    },
+    "show_text": {
+      "label": "Show text",
+      "description": "Show label text in the widget"
+    }
+  },
+  "scratchpad": "Quick notes",
+  "title": "Notes Plus",
+  "sync": {
+    "status": "Status",
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "phone": "Phone",
+    "push": "Push to mobile",
+    "settings": "Settings",
+    "open_on_phone": "Open on my phone",
+    "open_on_phone_tooltip": "Copies a link that opens the notes of this computer in the phone's browser. From there you can install it as an app or keep it as one more tab.",
+    "public_link": "My notes link",
+    "copy_link_tooltip": "Copy the link again",
+    "link_ready": "Link ready.",
+    "link_copied": "Link copied. Open it in the phone's browser; if you want, install it as an app from the browser menu.",
+    "copy_failed": "The link could not be copied. Copy it by hand from below.",
+    "no_public_tunnel": "No public tunnel right now: the tunnel is not running (public-url.txt is missing or empty).",
+    "missing_token": "Missing notes-mobile token: set it in the plugin settings or in ~/notes-mobile/config.json.",
+    "public_link_hint": "The link carries the access token and opens your notes to whoever has it: keep it private.",
+    "link_changes_hint": "The address changes every time the Cloudflare tunnel restarts.",
+    "label_server": "Server",
+    "label_phone": "Phone",
+    "label_pending": "Queued",
+    "label_notes": "Notes",
+    "label_last_seen": "Last seen",
+    "label_note": "Note",
+    "label_url": "Server URL",
+    "value_online": "Online",
+    "value_offline": "Offline",
+    "value_connected": "Connected",
+    "value_disconnected": "Disconnected",
+    "value_never": "Never",
+    "value_just_now": "Just now",
+    "value_minutes": "{count} min ago",
+    "value_hours": "{count} h ago",
+    "value_no_note": "None",
+    "value_last_note": "Last: {name}"
+  },
+  "tooltip_offline": "Notes: the server is not responding",
+  "tooltip_pending": "Notes: {count} message(s) queued for the phone",
+  "tooltip_online": "Notes: the phone is connected",
+  "tooltip_disconnected": "Notes: the phone is not connected",
+  "errors": {
+    "bad_name": "The note name is not valid",
+    "cannot_read": "The note could not be read",
+    "empty": "The note is empty",
+    "no_note_open": "There is no open note",
+    "note_gone": "The note no longer exists",
+    "push_failed": "It could not be sent to the phone",
+    "queue_full": "The message queue is full",
+    "conflict": "The note changed outside while you were editing it: it was not overwritten",
+    "conflict_saved": "A copy of your text was saved in the .conflicts folder"
+  },
+  "save_failed": "It could not be saved",
+  "bad_extension": "The notes extension is not valid",
+  "rename_exists": "A note with that name already exists"
+}
