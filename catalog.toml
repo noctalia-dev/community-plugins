@@ -1339,15 +1339,21 @@ rev = "8aa75342f304aac8b3b4fd43a71c029354a450c6"
 [[plugin]]
 id = "ezequiel/mango_layouts"
 name = "Mango Layouts"
-version = "1.0.1"
-updated_at = 1792682998
+version = "2.0.0"
+updated_at = 1794848066
 added_at = 1785788249
 author = "ezequiel"
 license = "MIT"
 icon = "layout-filled"
 description = "Layout switcher for MangoWC"
-plugin_api = 14
+plugin_api = 24
 tags = ["bar", "panel", "mangowc", "utility"]
+
+[[plugin.release]]
+plugin_api = 14
+version = "1.0.1"
+updated_at = 1792682998
+rev = "cdc24dae9661c0378615fdf31bc0cd6622cbfe95"
 
 [[plugin]]
 id = "maddingo/hypr-layout-switcher"
