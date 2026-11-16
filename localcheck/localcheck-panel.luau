@@ -30,7 +30,7 @@
 local closeButton = true
 
 local commande = "ss -tlnp"
-local tableau = { "test1", "test2" }
+local tableau = {}
 local render
 
 local function getLocalhost()
@@ -44,6 +44,56 @@ local function getLocalhost()
 	end)
 end
 
+local function buildLocalHostView(tableau)
+	local localView = {}
+	table.insert(localView, ui.label({
+		text = "TCP network listeners",
+		fontSize = 13,
+		fontWeight = "bold",
+		color = "on_surface"
+	}))
+	if #tableau == 0 then
+		table.insert(localView, ui.label({
+			text = "No localhost found",
+			fontSize = 12,
+			color = "on_surface_variant"
+		}))
+		return localView
+	end
+	for index, line in ipairs(tableau) do
+		if index > 1 and line ~= "" then
+			table.insert(localView, ui.row({ align = "center", gap = 8 }, {
+				ui.label({
+					text = line,
+					fontSize = 12,
+					color = "on_surface_variant",
+					flexGrow = 1
+				}),
+				ui.button({
+					text = "kill",
+					fontSize = 12,
+					onClick = function()
+						local local_address = string.match(line, "^%S+%s+%S+%s+%S+%s+(%S+)")
+						if not local_address then
+							noctalia.notify("LocalCheck", "IP not found")
+							return
+						end
+						local kill_commande =
+							"ss -tulpn | grep -F '" .. local_address ..
+							"' | grep -o 'pid=[0-9]*' | cut -d= -f2 | xargs -r kill -9"
+
+						noctalia.runAsync(kill_commande, function(result)
+							noctalia.notify("LocalCheck", "kill success")
+							getLocalhost()
+						end)
+					end
+				})
+			}))
+		end
+	end
+	return localView
+end
+
 render = function()
   	local headerContent = {
     	ui.label({ text = "LocalCheck", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 })
@@ -51,6 +101,7 @@ render = function()
   	if closeButton then
     	table.insert(headerContent, ui.button({ glyph = "close", onClick = "onCloseClicked" }))
   	end
+	local buildView = buildLocalHostView(tableau)
   	-- The panel surface already insets its content (Style::panelPadding), so this
   	-- adds gaps between rows, not its own outer padding.
   	panel.render(ui.column({ flexGrow = 1, gap = 16 }, {
@@ -59,11 +110,9 @@ render = function()
     	ui.row({ align = "center", justify = "space_between", gap = 8 }, headerContent),
 
     	-- Body: a scrollable stack of settings.
-    	ui.scroll({ flexGrow = 1, gap = 16 }, {
-			ui.button({
-				text = tableau[2]
-		})
-    	}),
+	    ui.scroll({ flexGrow = 1, gap = 8, align = "stretch" },
+			buildView
+		),
   	}))
 end
 
