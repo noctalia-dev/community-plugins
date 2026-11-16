@@ -49,6 +49,8 @@ local snapshot = {
 }
 
 local currentActiveTask        = nil
+local activeTaskPid            = nil
+local activeTaskCancelling     = false
 local eventListenerRunning     = false
 local tickCounter              = 0
 local isRefreshing             = false
@@ -333,10 +335,17 @@ local function setBusyState(busy, title, action, targetId)
 end
 
 local function runStreamingTask(opts, onComplete)
+  local taskPidMarker = "__SHIPYARD_TASK_PID__"
   local taskEndMarker = "__SHIPYARD_TASK_DONE__"
-  local cmd = string.format("%s; echo \"%s:$?\"", opts.command, taskEndMarker)
+  -- Execute command in subshell, track its PID for actual termination, and capture exit code upon process completion.
+  local cmd = string.format(
+    "(%s) & PID=$!; echo \"%s:$PID\"; wait $PID; CODE=$?; echo \"%s:$CODE\"",
+    opts.command, taskPidMarker, taskEndMarker
+  )
 
   isBusy = true
+  activeTaskPid = nil
+  activeTaskCancelling = false
   currentActiveTask = {
     id         = opts.id or opts.name or "task",
     name       = opts.name or "Task",
@@ -347,6 +356,7 @@ local function runStreamingTask(opts, onComplete)
     recentLogs = {},
     progress   = 0.1,
     startTime  = os.time(),
+    cancelling = false,
   }
   publishSnapshot()
 
@@ -358,10 +368,13 @@ local function runStreamingTask(opts, onComplete)
     if isFinished then return end
     isFinished = true
     isBusy = false
+    local wasCancelling = activeTaskCancelling
+    activeTaskPid = nil
+    activeTaskCancelling = false
     currentActiveTask = nil
     publishSnapshot()
     if onComplete then
-      onComplete(exitCode, collectedLogs)
+      onComplete(exitCode, collectedLogs, wasCancelling)
     end
   end
 
@@ -373,23 +386,27 @@ local function runStreamingTask(opts, onComplete)
       line = line:gsub("\27%[[0-9;]*[a-zA-Z]", "")
       line = trim(line)
       if line ~= "" then
-        local endCode = line:match("^" .. taskEndMarker .. ":(%d+)")
-        if endCode then
-          finish(tonumber(endCode) or 0)
-          return
-        end
-
-        table.insert(collectedLogs, line)
-        if #collectedLogs > 80 then
-          table.remove(collectedLogs, 1)
-        end
-
-        if currentActiveTask then
-          currentActiveTask.lastLog = line
-          table.insert(currentActiveTask.recentLogs, line)
-          if #currentActiveTask.recentLogs > 5 then
-            table.remove(currentActiveTask.recentLogs, 1)
+        local pidStr = line:match("^" .. taskPidMarker .. ":(%d+)")
+        if pidStr then
+          activeTaskPid = tonumber(pidStr)
+        else
+          local endCode = line:match("^" .. taskEndMarker .. ":(%d+)")
+          if endCode then
+            finish(tonumber(endCode) or 0)
+            return
           end
+
+          table.insert(collectedLogs, line)
+          if #collectedLogs > 80 then
+            table.remove(collectedLogs, 1)
+          end
+
+          if currentActiveTask and not activeTaskCancelling then
+            currentActiveTask.lastLog = line
+            table.insert(currentActiveTask.recentLogs, line)
+            if #currentActiveTask.recentLogs > 5 then
+              table.remove(currentActiveTask.recentLogs, 1)
+            end
 
           local l = line:lower()
           if l:find("downloading", 1, true) or l:find("pulling fs layer", 1, true) then
@@ -1367,6 +1384,7 @@ local ALLOWED_ACTIONS = {
   refresh_infra          = true,
   refresh_pods           = true,
   save_config            = true,
+  cancel_task            = true,
   container_logs         = true,
   clear_logs             = true,
   podman_generate_systemd = true,
@@ -1397,6 +1415,26 @@ local function onCommandReceived(cmd)
   if type(cmd) ~= "table" or not cmd.action then return end
   local action = cmd.action
   if not ALLOWED_ACTIONS[action] then return end
+
+  -- Task cancellation with actual process termination
+  if action == "cancel_task" then
+    if activeTaskPid and not activeTaskCancelling then
+      activeTaskCancelling = true
+      if currentActiveTask then
+        currentActiveTask.stage = "Cancelling…"
+        currentActiveTask.cancelling = true
+        table.insert(currentActiveTask.recentLogs, "Cancellation requested: terminating process…")
+        publishSnapshot()
+      end
+      local pid = activeTaskPid
+      -- Terminate the process tree. Crucially, isBusy remains true until wait $PID naturally exits and finish() is called.
+      noctalia.runAsync(string.format(
+        "pkill -TERM -P %d 2>/dev/null; kill -TERM %d 2>/dev/null; sleep 0.4; pkill -KILL -P %d 2>/dev/null; kill -KILL %d 2>/dev/null",
+        pid, pid, pid, pid
+      ))
+    end
+    return
+  end
 
   -- Daemon switch with persistence
   if action == "toggle_daemon" then
@@ -1670,8 +1708,10 @@ local function onCommandReceived(cmd)
       title        = `Deploying {cmd.name or "stack"}…`,
       initialStage = "Preparing deployment…",
       command      = string.format("cd %s 2>&1 && %s up -d 2>&1", shellQuote(cmd.path), compCmd),
-    }, function(exitCode, logs)
-      if exitCode ~= 0 then
+    }, function(exitCode, logs, wasCancelling)
+      if wasCancelling then
+        noctalia.notify(noctalia.tr("name"), `Deployment of {cmd.name or "stack"} was cancelled`)
+      elseif exitCode ~= 0 then
         local errMsg = (#logs > 0 and logs[#logs]) or "Command failed"
         noctalia.notify(noctalia.tr("name"), `Failed to deploy {cmd.name or ""}: {errMsg}`)
       end
@@ -1690,8 +1730,10 @@ local function onCommandReceived(cmd)
       title        = `Stopping {cmd.name or "stack"}…`,
       initialStage = "Stopping services…",
       command      = string.format("cd %s 2>&1 && %s down 2>&1", shellQuote(cmd.path), compCmd),
-    }, function(exitCode, logs)
-      if exitCode ~= 0 then
+    }, function(exitCode, logs, wasCancelling)
+      if wasCancelling then
+        noctalia.notify(noctalia.tr("name"), `Stopping of {cmd.name or "stack"} was cancelled`)
+      elseif exitCode ~= 0 then
         local errMsg = (#logs > 0 and logs[#logs]) or "Command failed"
         noctalia.notify(noctalia.tr("name"), `Failed to stop {cmd.name or ""}: {errMsg}`)
       end
@@ -1710,8 +1752,10 @@ local function onCommandReceived(cmd)
       title        = `Deploying & Ejecting {cmd.name or "stack"}…`,
       initialStage = "Preparing deployment…",
       command      = string.format("cd %s 2>&1 && %s up -d 2>&1", shellQuote(cmd.path), compCmd),
-    }, function(exitCode, logs)
-      if exitCode ~= 0 then
+    }, function(exitCode, logs, wasCancelling)
+      if wasCancelling then
+        noctalia.notify(noctalia.tr("name"), `Deployment of {cmd.name or "stack"} was cancelled`)
+      elseif exitCode ~= 0 then
         local errMsg = (#logs > 0 and logs[#logs]) or "Command failed"
         noctalia.notify(noctalia.tr("name"), `Failed to deploy {cmd.name or ""}: {errMsg}`)
       end
@@ -1726,7 +1770,10 @@ local function onCommandReceived(cmd)
       title        = "Pruning unused images…",
       initialStage = "Pruning images…",
       command      = string.format("%s image prune -a -f 2>&1", daemonCmd()),
-    }, function(exitCode)
+    }, function(exitCode, logs, wasCancelling)
+      if wasCancelling then
+        noctalia.notify(noctalia.tr("name"), "Image pruning was cancelled")
+      end
       refreshImages()
     end)
   elseif action == "image_remove" and isValidIdentifier(cmd.id) then
@@ -1803,8 +1850,10 @@ local function onCommandReceived(cmd)
       title        = `Pulling {imgName}…`,
       initialStage = "Pulling image layers…",
       command      = string.format("%s pull %s 2>&1", daemonCmd(), shellQuote(pullRef)),
-    }, function(exitCode, logs)
-      if exitCode ~= 0 then
+    }, function(exitCode, logs, wasCancelling)
+      if wasCancelling then
+        noctalia.notify(noctalia.tr("name"), `Pull of {imgName} was cancelled`)
+      elseif exitCode ~= 0 then
         local errMsg = (#logs > 0 and logs[#logs]) or "Failed to pull image"
         noctalia.notify(noctalia.tr("name"), `Failed to pull {imgName}: {errMsg}`)
       end
@@ -1855,8 +1904,10 @@ local function onCommandReceived(cmd)
       title        = `Starting container from {imgName}…`,
       initialStage = "Pulling image and starting container…",
       command      = fullCmd,
-    }, function(exitCode, logs)
-      if exitCode ~= 0 then
+    }, function(exitCode, logs, wasCancelling)
+      if wasCancelling then
+        noctalia.notify(noctalia.tr("name"), `Container launch from {imgName} was cancelled`)
+      elseif exitCode ~= 0 then
         local errMsg = (#logs > 0 and logs[#logs]) or "Failed to start container"
         noctalia.notify(noctalia.tr("name"), `Failed to run {imgName}: {errMsg}`)
       end

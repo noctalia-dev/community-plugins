@@ -225,15 +225,40 @@ local function renderActiveTaskCard(task)
     }))
   end
 
-  local stagePillText = task.stage or "Working…"
-  if pctStr ~= "" then
+  local isCancelling = task.cancelling == true
+  local stagePillText = isCancelling and "Cancelling…" or (task.stage or "Working…")
+  if not isCancelling and pctStr ~= "" then
     stagePillText = `{pctStr} · {stagePillText}`
+  end
+  local pillBg = isCancelling and "error/0.2" or "primary/0.2"
+  local pillFg = isCancelling and "error" or "primary"
+
+  local headerControls = {
+    pill(stagePillText, pillBg, pillFg),
+    ui.label({ text = elapsedStr, fontSize = 11, color = "on_surface_variant" }),
+  }
+  if isCancelling then
+    table.insert(headerControls, ui.label({ text = "Terminating…", fontSize = 11, color = "error" }))
+  else
+    table.insert(headerControls, ui.button({
+      text        = "Cancel",
+      fontSize    = 11,
+      paddingH    = 6,
+      paddingV    = 2,
+      radius      = 4,
+      fill        = "error/0.15",
+      color       = "error",
+      tooltip     = "Cancel and terminate current operation",
+      onClick     = function()
+        sendCommand("cancel_task")
+      end,
+    }))
   end
 
   local cardChildren = {
     ui.row({ align = "center", justify = "space_between", gap = 8 }, {
       ui.row({ align = "center", gap = 8, flexGrow = 1 }, {
-        ui.glyph({ name = "loader", size = 16, color = "primary" }),
+        ui.glyph({ name = "loader", size = 16, color = isCancelling and "error" or "primary" }),
         ui.label({
           text       = task.title or tr("tasks.in_progress"),
           fontWeight = "bold",
@@ -242,16 +267,13 @@ local function renderActiveTaskCard(task)
           maxLines   = 1,
         }),
       }),
-      ui.row({ align = "center", gap = 6 }, {
-        pill(stagePillText, "primary/0.2", "primary"),
-        ui.label({ text = elapsedStr, fontSize = 11, color = "on_surface_variant" }),
-      }),
+      ui.row({ align = "center", gap = 6 }, headerControls),
     }),
     ui.progress({
       progress = progressVal,
       height   = 4,
       radius   = 2,
-      fill     = "primary",
+      fill     = isCancelling and "error" or "primary",
       track    = "on_surface/0.10",
     }),
   }
