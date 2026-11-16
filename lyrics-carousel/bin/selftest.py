@@ -555,6 +555,107 @@ def check_image_layout():
             )
 
 
+def check_karaoke_line_mode_without_word_timings():
+    """Karaoke without usable timings highlights the line at once."""
+    mod = script_module()
+    image = image_module()
+
+    class FakeTheme:
+        background = (10, 10, 10)
+        foreground = (200, 200, 200)
+        past = (120, 120, 120)
+        faint = (80, 80, 80)
+        bright = (220, 220, 220)
+
+        def accent_color(self, cfg):
+            return (0, 200, 0)
+
+    class FakeBrush:
+        im = types.SimpleNamespace(size=(1500, 900))
+
+        def textlength(self, text, font=None):
+            return len(text) * 12.0
+
+    def render_line(line, pos=0.5):
+        app = types.SimpleNamespace()
+        app.cfg = {
+            "karaoke": True,
+            "marker": False,
+            "ghost": False,
+            "direction": "down",
+            "spacing": 3,
+            "visible_above": 2,
+            "visible_below": 2,
+            "header": False,
+            "footer": False,
+            "hints": False,
+        }
+        app.state = "lyrics"
+        app.lines = [line]
+        app.track = mod.Track()
+        app.theme = FakeTheme()
+        app.karaoke = True
+        app.demo = False
+        app.position = lambda: pos
+        app.next_timed_start = lambda index: None
+        app.scroll_state = types.MethodType(mod.LyricsCarousel.scroll_state, app)
+        app._timed_lines = types.MethodType(mod.LyricsCarousel._timed_lines, app)
+        app.karaoke_amount = types.MethodType(mod.LyricsCarousel.karaoke_amount, app)
+        app.tr = lambda key, **kw: key
+
+        renderer = image.ImageRenderer.__new__(image.ImageRenderer)
+        renderer.app = app
+        renderer.fonts = {}
+        renderer.font_files = {"prueba": image.FALLBACK_FONT}
+        renderer._measure_draw = FakeBrush()
+        views = []
+        renderer._draw_karaoke = lambda *args: views.append(args)
+        renderer.fit_text = lambda text, limit, size, family: text
+        renderer._draw_centered = lambda *args, **kwargs: None
+        renderer._draw_marker = lambda *args, **kwargs: None
+        renderer._draw_lyrics(FakeBrush(), 450.0, 20.0, 1.2, "prueba", (0, 200, 0), pos, 0, 900)
+        return views
+
+    synced = mod.LyricLine(0.0, 6.0, "hola mundo feliz")
+    synced.chars = [round(i * 0.2, 3) for i in range(len(synced.text))]
+    unsynced = mod.LyricLine(0.0, 6.0, "hola mundo feliz")
+    unsynced.chars = []
+
+    check(
+        "line_has_word_timing accepts aligned monotonic timings",
+        image.line_has_word_timing(synced, synced.text) is True,
+    )
+    check(
+        "line_has_word_timing rejects a line without timings",
+        image.line_has_word_timing(unsynced, unsynced.text) is False,
+    )
+    partial = mod.LyricLine(0.0, 6.0, "hola mundo feliz")
+    partial.chars = [0.0, 0.2, 0.4]
+    check(
+        "line_has_word_timing rejects timings shorter than the text",
+        image.line_has_word_timing(partial, partial.text) is False,
+    )
+    backwards = mod.LyricLine(0.0, 6.0, "hola")
+    backwards.chars = [0.0, 0.5, 0.3, 0.7]
+    check(
+        "line_has_word_timing rejects non-monotonic timings",
+        image.line_has_word_timing(backwards, backwards.text) is False,
+    )
+
+    views = render_line(synced)
+    check(
+        "word-synced line keeps the progressive karaoke fill",
+        len(views) == 1 and 0.0 < views[0][6] < len(synced.text),
+        "calls=%s amount=%r" % (len(views), views[0][6] if views else None),
+    )
+    views = render_line(unsynced)
+    check(
+        "line without word timings is highlighted at once",
+        len(views) == 0,
+        "calls=%s" % (len(views),),
+    )
+
+
 def check_karaoke_image_pixel_by_pixel():
     """The image karaoke is filled at pixel level and with decimals.
 
@@ -844,6 +945,11 @@ def render_handover(
         "karaoke": karaoke,
     }
     app.lines = [_SceneLine(text) for text in texts]
+    if karaoke:
+        # Karaoke only fills progressively when the line has usable timings;
+        # these scenes test that glow, so every line carries synthetic ones.
+        for line in app.lines:
+            line.chars = [round(i * 0.1, 3) for i in range(len(line.text))]
     app.karaoke = karaoke
     app.next_timed_start = lambda indice: None
     app.karaoke_amount = lambda *args: amount if karaoke else 0.0
@@ -3862,6 +3968,7 @@ def main(argv):
     check_lyrics_search()
     check_lyrics_retry()
     check_image_layout()
+    check_karaoke_line_mode_without_word_timings()
     check_karaoke_image_pixel_by_pixel()
     check_karaoke_without_glow()
     check_karaoke_smooth_edge()

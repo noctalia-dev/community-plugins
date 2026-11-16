@@ -192,6 +192,13 @@ page afterwards.
 
 ## Changelog
 
+### 2.8.0
+
+- **Karaoke that never fakes it**: the progressive fill is only drawn for
+  lines that carry real per-character timings. A line without usable timings
+  is highlighted whole instead of sweeping a glow across it, and the incoming
+  line no longer darkens for a pending tone it will not show.
+
 ### 2.7.1
 
 - **The right lyrics, not the first with timing**: a NetEase lyrics that comes
