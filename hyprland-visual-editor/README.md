@@ -69,6 +69,10 @@ noctalia msg panel-toggle linux-fertxo/hyprland-visual-editor:hve-panel
 - Ships 18 animation presets, 13 border presets and 9 GLSL shaders. Add your own
   by dropping a `.conf`/`.frag` into the matching `assets/` folder with the
   `@Title` / `@Desc` / `@Icon` / `@Color` / `@Tag` metadata header.
+- Border presets resolve their colours **at load time** from the live Noctalia
+  palette, so changing the colour scheme repaints the border on the next
+  `hyprctl reload` without re-applying the preset. Roles the Lua template does
+  not export (`tertiary`, `surface_lowest`) fall back to `secondary` / `surface`.
 - Shaders are applied as absolute-path `screen_shader` entries; re-apply the
   shader after moving the plugin directory.
 - UI is localized: English (`en`), Spanish (`es`) and Catalan (`ca`).

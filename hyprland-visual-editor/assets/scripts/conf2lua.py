@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""conf2lua.py — Convierte presets .conf/.frag a llamadas hl.* para Hyprland Lua
+"""conf2lua.py — Converts .conf/.frag presets into hl.* calls for Hyprland Lua
 
-Uso: conf2lua.py <archivo> [--color KEY=VALUE ...]
+Usage: conf2lua.py <file>
 
-Las variables $color se expanden con los valores proporcionados.
-Ej: conf2lua.py border.conf --color primary=rgb(67e4d4) --color surface=rgb(0d2f30)
+Presets may reference $colour variables. Those are emitted as c("name") and
+resolved by the overlay at runtime against the live Noctalia palette, so a
+colour-scheme change is picked up on the next Hyprland reload.
 """
 
 import sys, re, os
@@ -25,17 +26,13 @@ def gradient_to_lua(value, colors):
     if not color_tokens:
         return '""'
     
-    # Expandir $var → valor real. Una variable que la paleta no define se
-    # descarta: emitirla en crudo deja un "rgb($foo)" y Hyprland rechaza el
-    # fichero entero con "invalid color".
+    # Expand $var to a live-palette read at runtime. c() is defined in the
+    # overlay prelude: expanding to hex here freezes the colour, and a scheme
+    # change then leaves the border on the old palette until re-apply.
     resolved = []
     for t in color_tokens:
         if t.startswith('$'):
-            value = colors.get(t[1:])
-            if not value:
-                print(f"conf2lua: la paleta no define {t}; color omitido", file=sys.stderr)
-                continue
-            resolved.append('"' + value + '"')
+            resolved.append('c("%s")' % t[1:])
         else:
             resolved.append('"' + t + '"')
 
@@ -43,10 +40,10 @@ def gradient_to_lua(value, colors):
         return None
     
     if len(resolved) == 1 and not angle:
-        # Color sólido → string simple
+        # Solid colour → plain string
         return resolved[0]
     
-    # Gradiente → formato tabla
+    # Gradient → table form
     parts = ["{\n                colors = { " + ", ".join(resolved) + " }"]
     if angle:
         parts.append("angle = " + angle)
@@ -202,6 +199,20 @@ def parse(text, filepath='', colors=None):
     ]
     
     preset_type = detect_type(text, filepath)
+    
+    if preset_type == 'border':
+        # The overlay is re-executed on every `hyprctl reload`, so resolving the
+        # palette here keeps the border in step with the colour scheme without
+        # re-applying. Noctalia's Lua template exports neither tertiary nor
+        # surface_lowest, so those fall back to the nearest exported role.
+        lines += [
+            'local ok, pal = pcall(require, "noctalia")',
+            "local C = (ok and pal.colors) or {}",
+            "C.tertiary = C.tertiary or C.secondary",
+            "C.surface_lowest = C.surface_lowest or C.surface",
+            'local function c(name) return C[name] or "rgb(808080)" end',
+            "",
+        ]
     
     if preset_type == 'animation':
         lines.append(f"-- [ANIMATION: {os.path.basename(filepath)}]")
