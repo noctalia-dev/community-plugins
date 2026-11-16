@@ -277,6 +277,10 @@ noctalia = {
 local settingsModule = nil
 require = function(name)
   local relative = name:gsub("^%./", ""):gsub("%.luau$", "")
+  -- lib/launch.luau requires ./settings.luau relative to lib/.
+  if relative == "settings" then
+    relative = "lib/settings"
+  end
   local module = dofile(pluginDir .. "/" .. relative .. ".luau")
   if relative:match("settings") then
     settingsModule = module

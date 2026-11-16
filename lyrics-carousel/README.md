@@ -11,9 +11,9 @@ noctalia msg plugins source add dev path https://github.com/F4M1N3C/noctalia-plu
 noctalia msg plugins enable faminec/lyrics-carousel
 ```
 
-Then add the **Lyrics Carousel** bar widget from Noctalia's widget picker. Clicking it
-opens the panel (attached to the widget) and holds every setting of the plugin; the
-lyrics window itself is opened from the panel's **Open the carousel** button.
+Then add the **Lyrics Carousel** bar widget from Noctalia's widget picker. Left
+clicking it opens the panel (attached to the widget), which holds every setting of
+the plugin; right clicking it opens the lyrics window directly.
 
 ## Plugin
 
@@ -51,8 +51,9 @@ or Musixmatch.
 
 ## Usage
 
-Add the `widget` bar icon and click it to open the lyrics window. The panel opens
-attached to the widget and holds every setting of the plugin.
+Add the `widget` bar icon: left click opens the panel attached to it, right click
+opens the lyrics window directly. The panel holds every setting of the plugin and
+its **Open the carousel** button does the same as the right click.
 
 The panel can also be opened directly:
 

@@ -1,12 +1,14 @@
 --!nonstrict
 -- Bar widget of the lyrics carousel.
 --
--- Besides opening the panel, it accepts IPC to change settings without
--- opening it (useful for keyboard shortcuts):
+-- Left click opens the panel; right click opens the lyrics window directly.
+-- It also accepts IPC to change settings without opening the panel (useful
+-- for keyboard shortcuts):
 --   noctalia msg plugin faminec/lyrics-carousel:widget all set visible_above 4 int
 --   noctalia msg plugin faminec/lyrics-carousel:widget all toggle karaoke
 
 local settings = require("./lib/settings.luau")
+local launch = require("./lib/launch.luau")
 
 -- The glyph is read from the overrides layer and not only from the
 -- configuration: the panel writes there and flushes it when it closes, so
@@ -36,13 +38,18 @@ function onClick()
   noctalia.togglePanel("faminec/lyrics-carousel:panel")
 end
 
+-- Right click opens the window without going through the panel.
+function onRightClick()
+  launch.launch()
+end
+
 function onConfigChanged()
   render()
 end
 
 function onIpc(event, payload)
   if event == "launch" then
-    noctalia.togglePanel("faminec/lyrics-carousel:panel")
+    launch.launch()
   elseif event == "set" then
     local key, value = settings.parse(payload)
     if key ~= nil then

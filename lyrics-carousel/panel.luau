@@ -14,6 +14,7 @@
 -- instead of blowing up the script.
 
 local settingsLib = require("./lib/settings.luau")
+local launchLib = require("./lib/launch.luau")
 
 -- Default values and the list of keys live in lib/settings.luau
 -- so the panel, the widget and the script share a single source.
@@ -60,7 +61,6 @@ local closePanel
 local settings = {}
 local trackTitle = ""
 local trackArtist = ""
-local launching = false
 local lastError = ""
 -- The font selector shows the list until the user picks
 -- "Other". It is interface state, not a setting: nothing is written.
@@ -237,19 +237,6 @@ end
 
 -- ---------------------------------------------------------------- launch
 
-local function shellQuote(value)
-  return "'" .. tostring(value):gsub("'", "'\\''") .. "'"
-end
-
-local function luaQuote(value)
-  local escaped = tostring(value)
-  escaped = escaped:gsub("\\", "\\\\")
-  escaped = escaped:gsub('"', '\\"')
-  escaped = escaped:gsub("\r", "\\r")
-  escaped = escaped:gsub("\n", "\\n")
-  return '"' .. escaped .. '"'
-end
-
 local ANCHORS = {
   ["top-left"] = true,
   ["top-center"] = true,
@@ -387,84 +374,20 @@ applyGeometry = function()
 end
 
 launch = function()
-  if launching then
-    return
-  end
-  launching = true
-  -- Watchdog: if the window never gets created, the button does not hang.
-  runAsync({ "sleep", "6" }, function()
-    if launching then
-      launching = false
+  -- The command builder is shared with the bar widget: both entry points
+  -- have to open exactly the same window (same class, size and position).
+  launchLib.launch({
+    valueOf = valueOf,
+    onError = function(kind)
+      safe("notifyError", noctalia.notifyError, tr("title"), tr(
+        kind == "plugin_dir" and "launch_failed" or kind
+      ))
       render()
-    end
-  end)
-  refreshSettings()
-  local family = tostring(valueOf("font_family"))
-  local size = math.floor(numberOf("font_size"))
-  local screenWidth, screenHeight = outputGeometry()
-  local width = math.min(math.floor(numberOf("width")), screenWidth)
-  local height = math.min(math.floor(numberOf("height")), screenHeight)
-  local anchor = normalizeAnchor(valueOf("anchor"))
-
-  local x, y
-  if anchor == "custom" then
-    x = math.floor(numberOf("custom_x"))
-    y = math.floor(numberOf("custom_y"))
-  else
-    x, y = anchorPosition(anchor, width, height, screenWidth, screenHeight)
-  end
-
-  -- The script is launched by absolute path (and with python3): relying on
-  -- PATH would require a symlink in ~/.local/bin that the plugin does not
-  -- create, and this way the executable bit is not needed either.
-  local script = "lyrics-carousel"
-  local pluginDir = noctalia.pluginDir()
-  if pluginDir ~= nil and pluginDir ~= "" then
-    script = "python3 " .. pluginDir .. "/bin/lyrics-carousel"
-  end
-  -- The window is created with the pixel size that the exec_cmd rules
-  -- dictate; inside kitty the script reads the real terminal size
-  -- (kitty publishes it through TIOCGWINSZ), so nothing has to be passed
-  -- through environment variables.
-  local command = string.format(
-    "kitty -o confirm_os_window_close=0 -o font_family=%s -o font_size=%d --class noctalia-lyrics-carousel --title lyrics -e sh -lc %s",
-    shellQuote(family),
-    size,
-    shellQuote(script)
-  )
-  local rules = string.format(
-    "{ float = true, move = { %d, %d }, size = { %d, %d } }",
-    x, y, width, height
-  )
-  local expression = string.format("hl.dsp.exec_cmd(%s, %s)", luaQuote(command), rules)
-
-  -- Restarts the previous window so it picks up the new typography.
-  local started = runAsync(
-    { "pkill", "-f", "noctalia-lyrics-carousel --title lyrics" },
-    function()
-      local ok = runAsync({ "sleep", "0.25" }, function()
-        dispatch(expression, function(success)
-          launching = false
-          if not success then
-            safe("notifyError", noctalia.notifyError, tr("title"), tr("launch_failed"))
-          end
-        end)
-      end)
-      if not ok then
-        launching = false
-        dispatch(expression, function(success)
-          if not success then
-            safe("notifyError", noctalia.notifyError, tr("title"), tr("launch_failed"))
-          end
-        end)
-        render()
-      end
-    end
-  )
-  if not started then
-    launching = false
-    render()
-  end
+    end,
+    onState = function()
+      render()
+    end,
+  })
 end
 
 -- ------------------------------------------------------------- track
