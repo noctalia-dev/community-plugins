@@ -109,6 +109,7 @@ body:
         - file-search
         - flatpak-bg
         - game-launcher
+        - gamepad-display
         - gamer-mode
         - geoip-monitor
         - git_companion
