@@ -2152,8 +2152,8 @@ tags = ["shortcut", "utility"]
 [[plugin]]
 id = "tmelik/system-monitor"
 name = "System Monitor"
-version = "1.5.3"
-updated_at = 1792983494
+version = "1.5.4"
+updated_at = 1794847959
 added_at = 1787614505
 author = "TMelik"
 license = "GPL-3.0-only"
