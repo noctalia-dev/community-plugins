@@ -75,6 +75,8 @@ local renders = 0
 local failMerge = false
 local deferPlayerctl = false
 local deferredPlayerctl = nil
+-- Long-lived streams started by the panel (the pointer repeat helper).
+local streamCallbacks = {}
 
 local function parseValue(value, kind)
   if kind == "bool" then
@@ -166,6 +168,7 @@ ui = {
   select = node("select"),
   input = node("input"),
   slider = node("slider"),
+  progress = node("progress"),
 }
 
 panel = {
@@ -230,6 +233,13 @@ noctalia = {
   log = function(message)
     table.insert(logs, tostring(message))
   end,
+  runStream = function(argv, onLine)
+    if type(argv) == "table" then
+      table.insert(commands, argv)
+    end
+    table.insert(streamCallbacks, onLine)
+    return true
+  end,
   runAsync = function(argv, callback)
     local exitCode = 0
     local output = ""
@@ -277,6 +287,10 @@ noctalia = {
 local settingsModule = nil
 require = function(name)
   local relative = name:gsub("^%./", ""):gsub("%.luau$", "")
+  -- lib/launch.luau requires ./settings.luau relative to lib/.
+  if relative == "settings" then
+    relative = "lib/settings"
+  end
   local module = dofile(pluginDir .. "/" .. relative .. ".luau")
   if relative:match("settings") then
     settingsModule = module
@@ -496,17 +510,15 @@ onConfigChanged()
 local minus = findByKey("button", "width-dec")
 check(minus ~= nil, "the panel has a button to subtract width")
 if minus ~= nil then
-  -- Hovering must not change the width. The panel uses no hover
-  -- handlers anywhere, so the button must not have one:
-  -- if it ever did, it would have to be harmless (and the
-  -- assertion below checks that).
+  -- Hover only identifies the stepper for the press-and-hold stream: it
+  -- must never change the value by itself.
   check(
-    minus.props.onHover == nil,
-    "the width button does not define a hover handler"
+    minus.props.onHover ~= nil,
+    "the width button identifies itself on hover"
   )
   if minus.props.onHover ~= nil then
-    minus.props.onHover("true")
-    minus.props.onHover("false")
+    minus.props.onHover("true", "width-dec")
+    minus.props.onHover("false", "width-dec")
   end
   eq(overrides.width, nil, "hover does not change the width")
   eq(stepperValue("width-dec"), 1200, "hover does not change the visible width")
@@ -516,6 +528,32 @@ if minus ~= nil then
   local plus = findByKey("button", "width-inc")
   plus.props.onClick()
   eq(overrides.width, 1200, "a click adds 100 to the width")
+end
+
+-- 4-bis. Holding a stepper repeats without consuming the final click -----
+--
+-- Noctalia does not expose pointer press/release, so the panel listens to a
+-- small evdev helper. It repeats only the stepper currently under the
+-- pointer, and the click emitted on release must not add one more step.
+
+config.width = 1200
+overrides.width = nil
+settingsModule.refresh()
+onConfigChanged()
+local holdDec = findByKey("button", "width-dec")
+check(#streamCallbacks > 0, "the panel starts the pointer repeat helper")
+if #streamCallbacks > 0 and holdDec ~= nil then
+  holdDec.props.onHover("true", "width-dec")
+  streamCallbacks[1]("repeat 0")
+  eq(overrides.width, 1100, "a repeat step subtracts once")
+  streamCallbacks[1]("repeat 0")
+  eq(overrides.width, 1000, "a second repeat step subtracts again")
+  findByKey("button", "width-dec").props.onClick()
+  eq(overrides.width, 1000, "the release click after a repeat is suppressed")
+  streamCallbacks[1]("up 0")
+  findByKey("button", "width-dec").props.onHover("false", "width-dec")
+  findByKey("button", "width-dec").props.onClick()
+  eq(overrides.width, 900, "the next normal click subtracts one step")
 end
 
 -- 5. The X/Y fields only appear with the custom position --------------
@@ -888,6 +926,27 @@ local glyphUsed = nil
 barWidget = {
   setGlyph = function(name) glyphUsed = name end,
   setTooltip = function(text) end,
+  render = function(nextTree)
+    local function findGlyph(current)
+      if type(current) ~= "table" then
+        return nil
+      end
+      if current.kind == "glyph" then
+        return current
+      end
+      for _, child in ipairs(current.children or {}) do
+        local found = findGlyph(child)
+        if found ~= nil then
+          return found
+        end
+      end
+      return nil
+    end
+    local glyphNode = findGlyph(nextTree)
+    if glyphNode ~= nil then
+      glyphUsed = glyphNode.props.name
+    end
+  end,
 }
 config.glyph = "music"
 overrides = {}
@@ -932,6 +991,29 @@ overrides.glyph = "volume"
 settingsModule.refresh()
 update()
 eq(glyphUsed, "volume", "the widget uses the glyph from the overrides")
+
+-- 22-bis. The widget opens the right surface ------------------------------
+--
+-- Left click opens the settings panel. Right click opens the lyrics window
+-- directly; it must not become a play/pause shortcut.
+
+local widgetOnRightClick = onRightClick
+local toggledPanels = {}
+noctalia.togglePanel = function(panelId)
+  table.insert(toggledPanels, panelId)
+end
+commands = {}
+widgetOnRightClick()
+check(#toggledPanels == 0, "right click does not open the settings panel")
+check(
+  not commandContains("play-pause"),
+  "right click does not toggle playback"
+)
+check(
+  commandContains("noctalia-lyrics-carousel")
+  or commandContains("lyrics-carousel"),
+  "right click opens the lyrics window"
+)
 
 -- 23. All visible text goes through the translations ----------------------
 --
@@ -1166,6 +1248,202 @@ eq(
   "when the stored value changes the panel reflects it"
 )
 noctalia.getConfig = realGetConfig
+
+-- 27. The brain button is small and writes its setting ----------------------
+--
+-- The button was as big as the other controls and it pushed the whole panel
+-- down. It also has to write the setting it represents: if the helper
+-- rejects the key, the button does nothing at all.
+
+local brainButton = findByKey("button", "btn-karaoke-brain")
+check(brainButton ~= nil, "the panel has the brain button")
+if brainButton ~= nil then
+  eq(brainButton.props.controlSize, "sm", "the brain button is small")
+  eq(brainButton.props.glyphSize, 11, "the brain button glyph is small")
+  eq(brainButton.props.width, 18, "the brain button is narrow")
+  eq(brainButton.props.height, 18, "the brain button is low")
+  overrides.karaoke_brain = nil
+  settingsModule.refresh()
+  commands = {}
+  brainButton.props.onClick()
+  check(commandContains("karaoke_brain"), "the brain button writes its setting")
+  eq(overrides.karaoke_brain, false, "the brain button stores the new state")
+end
+
+-- The row must keep its height when the button appears: a label that wraps
+-- into two lines pushes everything below it down.
+local karaokeRow = findByKey("row", "row-karaoke")
+check(karaokeRow ~= nil, "the panel has the karaoke row")
+if karaokeRow ~= nil then
+  local karaokeLabel = nil
+  for _, child in ipairs(karaokeRow.children or {}) do
+    if child.kind == "label" then
+      karaokeLabel = child
+    end
+  end
+  check(
+    karaokeLabel ~= nil and karaokeLabel.props.maxLines == 1,
+    "the karaoke label stays on one line"
+  )
+end
+
+-- 28. Instrumental controls rotate, edit and toggle a custom row -----------
+--
+-- Both small controls only make sense while instrumental marks are enabled.
+-- The first rotates the built-in variants; the second opens an inline editor
+-- with the right click and toggles the saved custom text with the left click.
+
+config.instrumental_marks = true
+config.instrumental_text = ""
+config.instrumental_custom = false
+overrides = {}
+settingsModule.refresh()
+onOpen()
+
+local iconButton = findByKey("button", "btn-instrumental-icon")
+local customButton = findByKey("button", "btn-instrumental-custom")
+check(iconButton ~= nil, "the instrumental icon button is shown")
+check(customButton ~= nil, "the instrumental custom button is shown")
+if iconButton ~= nil then
+  eq(iconButton.props.controlSize, "sm", "the instrumental icon button is small")
+  iconButton.props.onClick()
+  eq(overrides.instrumental_icon, 1, "the instrumental button rotates the icon")
+end
+if customButton ~= nil then
+  check(customButton.props.onRightClick ~= nil, "the custom text button has a right-click editor")
+  customButton.props.onRightClick()
+  local editor = findByKey("input", "instrumental-text-editor")
+  check(editor ~= nil, "right click opens the custom text editor")
+  if editor ~= nil then
+    editor.props.onChange("♪ custom ♪")
+    eq(overrides.instrumental_text, "♪ custom ♪", "the editor stores the custom text")
+    editor.props.onChange("line\nbreak")
+    eq(overrides.instrumental_text, "linebreak", "the editor removes line breaks")
+    editor.props.onChange(string.rep("x", 30))
+    eq(#overrides.instrumental_text, 24, "the editor limits the custom text to 24 characters")
+  end
+  customButton = findByKey("button", "btn-instrumental-custom")
+  if customButton ~= nil then
+    customButton.props.onClick()
+    eq(overrides.instrumental_custom, true, "the custom button enables the saved text")
+    findByKey("button", "btn-instrumental-custom").props.onClick()
+    eq(overrides.instrumental_custom, false, "the custom button disables the saved text")
+  end
+end
+
+config.instrumental_marks = false
+overrides = {}
+settingsModule.refresh()
+onConfigChanged()
+check(findByKey("button", "btn-instrumental-icon") == nil, "the icon button hides with instrumental marks")
+check(findByKey("button", "btn-instrumental-custom") == nil, "the custom button hides with instrumental marks")
+
+-- 29. The marker style and the header position rotate and are remembered ------
+--
+-- Both are numbers with their own key: the small button only appears while its
+-- toggle is on. Turning the toggle off does not throw the chosen value away,
+-- so turning it back on resumes where the user left it.
+
+config.marker = true
+config.marker_style = 0
+config.header = true
+config.header_pos = 0
+overrides = {}
+settingsModule.refresh()
+onOpen()
+
+local markerButton = findByKey("button", "btn-marker-style")
+check(markerButton ~= nil, "the marker style button is shown with the marker on")
+if markerButton ~= nil then
+  eq(markerButton.props.controlSize, "sm", "the marker style button is small")
+  eq(markerButton.props.glyphSize, 11, "the marker style glyph is small")
+  eq(markerButton.props.width, 18, "the marker style button is narrow")
+  eq(markerButton.props.height, 18, "the marker style button is low")
+  check(markerButton.props.tooltip ~= "", "the marker style button explains itself")
+  markerButton.props.onClick()
+  eq(overrides.marker_style, 1, "the marker button rotates the style")
+  overrides.marker_style = 5
+  settingsModule.refresh()
+  onConfigChanged()
+  markerButton = findByKey("button", "btn-marker-style")
+  if markerButton ~= nil then
+    markerButton.props.onClick()
+  end
+  eq(overrides.marker_style, 0, "the marker style wraps after the sixth")
+end
+
+local headerButton = findByKey("button", "btn-header-pos")
+check(headerButton ~= nil, "the header position button is shown with the header on")
+if headerButton ~= nil then
+  eq(headerButton.props.controlSize, "sm", "the header position button is small")
+  eq(headerButton.props.width, 18, "the header position button is narrow")
+  headerButton.props.onClick()
+  eq(overrides.header_pos, 1, "the header button rotates the alignment")
+  overrides.header_pos = 2
+  settingsModule.refresh()
+  onConfigChanged()
+  headerButton = findByKey("button", "btn-header-pos")
+  if headerButton ~= nil then
+    headerButton.props.onClick()
+  end
+  eq(overrides.header_pos, 0, "the header position wraps after the third")
+end
+
+-- The value survives the toggle: the button disappears, the setting does not.
+overrides.marker_style = 4
+overrides.header_pos = 2
+local markerToggle = findByKey("toggle", "toggle-marker")
+check(markerToggle ~= nil, "the panel has the marker toggle")
+if markerToggle ~= nil then
+  markerToggle.props.onChange(false)
+end
+local headerToggle = findByKey("toggle", "toggle-header")
+if headerToggle ~= nil then
+  headerToggle.props.onChange(false)
+end
+settingsModule.refresh()
+onConfigChanged()
+check(findByKey("button", "btn-marker-style") == nil, "the marker style button hides with the marker off")
+check(findByKey("button", "btn-header-pos") == nil, "the header position button hides with the header off")
+eq(overrides.marker_style, 4, "turning the marker off keeps the chosen style")
+eq(overrides.header_pos, 2, "turning the header off keeps the chosen alignment")
+
+-- And coming back does not reset it: the next click continues from the saved value.
+local markerBack = findByKey("toggle", "toggle-marker")
+if markerBack ~= nil then
+  markerBack.props.onChange(true)
+end
+settingsModule.refresh()
+onConfigChanged()
+markerButton = findByKey("button", "btn-marker-style")
+check(markerButton ~= nil, "the marker style button comes back with the marker on")
+if markerButton ~= nil then
+  markerButton.props.onClick()
+end
+eq(overrides.marker_style, 5, "the marker style resumes from the saved value")
+
+-- 30. The always-on-top toggle stores the desired state ------------------------
+--
+-- `pin` is state, not an action: the window applies it when it exists, so the
+-- panel only has to store what the user wants.
+
+config.pin = false
+overrides = {}
+settingsModule.refresh()
+onOpen()
+local pinToggle = findByKey("toggle", "toggle-pin")
+check(pinToggle ~= nil, "the panel has the always-on-top toggle")
+if pinToggle ~= nil then
+  eq(pinToggle.props.checked, false, "the pin toggle starts off")
+  pinToggle.props.onChange(true)
+  eq(overrides.pin, true, "the pin toggle stores the desired state")
+  overrides.pin = false
+  settingsModule.refresh()
+  onConfigChanged()
+  pinToggle = findByKey("toggle", "toggle-pin")
+  eq(pinToggle.props.checked, false, "the pin toggle follows the saved value")
+  pinToggle.props.onChange(false)
+end
 
 -- Result ------------------------------------------------------------------
 

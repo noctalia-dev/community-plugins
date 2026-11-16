@@ -16,15 +16,24 @@ local DEFAULTS = {
   font_size = 22,
   direction = "down",
   marker = false,
+  marker_style = 0,
   karaoke = true,
+  karaoke_brain = true,
+  instrumental_marks = true,
+  instrumental_icon = 0,
+  silence_threshold = 4,
+  instrumental_text = "",
+  instrumental_custom = false,
   footer = false,
   hints = false,
   header = false,
+  header_pos = 0,
   spacing = 2,
   ghost = true,
+  pin = false,
   offset_ms = 0,
   width = 1200,
-  height = 820,
+  height = 880,
   anchor = "center",
   custom_x = 100,
   custom_y = 100,
@@ -38,13 +47,15 @@ local DEFAULTS = {
 }
 
 local BOOL_KEYS = {
-  marker = true, karaoke = true, footer = true,
-  hints = true, header = true, ghost = true,
+  marker = true, karaoke = true, karaoke_brain = true, footer = true,
+  hints = true, instrumental_marks = true, instrumental_custom = true,
+  header = true, ghost = true, pin = true,
 }
 local INT_KEYS = {
   font_size = true, spacing = true, offset_ms = true,
   width = true, height = true, visible_above = true, visible_below = true,
-  custom_x = true, custom_y = true,
+  custom_x = true, custom_y = true, instrumental_icon = true,
+  silence_threshold = true, marker_style = true, header_pos = true,
 }
 local FLOAT_KEYS = { active_scale = true }
 
@@ -52,6 +63,17 @@ M.BOOL_KEYS = BOOL_KEYS
 M.INT_KEYS = INT_KEYS
 M.FLOAT_KEYS = FLOAT_KEYS
 M.DEFAULTS = DEFAULTS
+
+--- Backwards-compatible names accepted by the widget and panel IPC.
+---
+--- The aliases are normalized before a value is read or written so the
+--- external command line keeps working after a setting was renamed.
+local ALIASES = {
+  instrumental = "instrumental_marks",
+  visualizer_position = "position",
+}
+
+M.ALIASES = ALIASES
 
 --- Ranges (min, max) for the numeric settings.
 ---
@@ -71,6 +93,10 @@ local LIMITS = {
   visible_above = { 0, 20 },
   visible_below = { 0, 20 },
   active_scale = { 1.0, 2.5 },
+  instrumental_icon = { 0, 3 },
+  silence_threshold = { 1, 15 },
+  marker_style = { 0, 5 },
+  header_pos = { 0, 2 },
 }
 
 M.LIMITS = LIMITS
@@ -89,6 +115,7 @@ local PATTERNS = {
   -- typography: the panel field and the widget IPC have to reject it alike. A
   -- line break is not valid either: the font is passed to the kitty command.
   font_family = "^[^\n]+$",
+  instrumental_text = "^[^\r\n]*$",
 }
 
 M.PATTERNS = PATTERNS
@@ -103,6 +130,9 @@ function M.validate(key, value)
     return value
   end
   if type(value) ~= "string" or value:match(pattern) == nil then
+    return nil
+  end
+  if key == "instrumental_text" and #value > 24 then
     return nil
   end
   return value
@@ -206,6 +236,7 @@ end
 
 --- Effective value of a setting: overrides > configuration > saved > default.
 function M.value(key)
+  key = M.ALIASES[key] or key
   local override = M.overrides()[key]
   if override ~= nil then
     return override
@@ -426,6 +457,7 @@ end
 --- with the same normalization the panel uses, so that "true" (a string) is
 --- read the same way in both places.
 function M.apply(key, value)
+  key = M.ALIASES[key] or key
   if value == nil then
     if not BOOL_KEYS[key] then
       return nil

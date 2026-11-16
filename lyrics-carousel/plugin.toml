@@ -18,11 +18,11 @@
 
 id = "faminec/lyrics-carousel"
 name = "Lyrics Carousel"
-version = "2.7.1"
+version = "2.8.0"
 plugin_api = 34
 author = "faminec"
 license = "MIT"
-dependencies = ["kitty", "hyprland", "hyprctl", "playerctl", "python3", "python-pillow", "fc-match"]
+dependencies = ["kitty", "hyprland", "hyprctl", "playerctl", "python3", "python-pillow", "fc-match", "pkill", "sleep"]
 tags = ["music", "system", "utility", "media"]
 icon = "music"
 description = "Synced lyrics in a floating terminal window with karaoke and a large active line."
@@ -39,6 +39,10 @@ default = "music"
 [[widget]]
 id = "widget"
 entry = "widget.luau"
+
+[[service]]
+id = "service"
+entry = "service.luau"
 
 [[panel]]
 id = "panel"

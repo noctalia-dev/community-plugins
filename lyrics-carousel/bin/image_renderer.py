@@ -26,11 +26,46 @@ FALLBACK_FONT = "/usr/share/fonts/TTF/DejaVuSansMono.ttf"
 IMAGE_FPS = 30
 MOTION_FPS = 60
 
+# Marker shapes of the active line (`marker_style`). They are vectorial
+# Pillow primitives, not font glyphs: `♪` does not exist in every typeface
+# and the marker would silently disappear.
+MARKER_STYLES = 6
+
 
 def mmss(seconds):
     """Seconds -> mm:ss."""
     seconds = max(0, int(seconds or 0))
     return f"{seconds // 60:02d}:{seconds % 60:02d}"
+
+
+def line_has_word_timing(line, text):
+    """True if the line carries usable per-character/word timings.
+
+    Mirrors the lyrics plugin's `lineHasWordTiming`: timings must be present,
+    aligned 1:1 with the rendered text, monotonic and covering time. Without
+    them the line falls back to line-mode (no progressive karaoke fill).
+    """
+    chars = getattr(line, "chars", None)
+    if not isinstance(chars, list) or len(chars) < 2:
+        return False
+    if len(chars) < len(text or ""):
+        return False
+    prev = None
+    for value in chars[: len(text or "")]:
+        try:
+            current = float(value)
+        except (TypeError, ValueError):
+            return False
+        if prev is not None and current < prev:
+            return False
+        prev = current
+    if prev is None:
+        return False
+    try:
+        first = float(chars[0])
+    except (TypeError, ValueError):
+        return False
+    return prev > first
 
 
 class ImageRenderer:
@@ -96,6 +131,10 @@ class ImageRenderer:
         """Clears the font cache (after a font_family/font_size change)."""
         self.fonts.clear()
         self.font_files.clear()
+
+    def invalidate_frame(self):
+        """Forces the next render to repaint even if the lyrics did not move."""
+        self.last_signature = None
 
     # -- drawing utilities ---------------------------------------------
 
@@ -291,7 +330,7 @@ class ImageRenderer:
             soft_mask = Image.new("L", (limit, height), 255)
             ramp_span = min(ramp, limit)
             ramp_values = [
-                int(255 * (ramp_span - indice) / float(ramp_span)) for indice in range(ramp_span)
+                int(255 * (ramp_span - idx) / float(ramp_span)) for idx in range(ramp_span)
             ]
             ramp_column = Image.new("L", (ramp_span, 1))
             ramp_column.putdata(ramp_values)
@@ -313,6 +352,39 @@ class ImageRenderer:
             return
         width = text_width(draw, text, font)
         draw.text((right_x - width, y), text, font=font, fill=color, anchor="lm")
+
+    def _draw_header(self, draw, xpix, top, size, family, background):
+        """Draws the title/artist header and returns the new top of the lyrics.
+
+        `header_pos` moves the two text lines as a block (0 left, 1 centered,
+        2 right); the separator always spans the width of the window, so the
+        header does not look lopsided when the text is not on the left.
+        """
+        app = self.app
+        theme = app.theme
+        try:
+            position = int(app.cfg.get("header_pos", 0)) % 3
+        except (TypeError, ValueError):
+            position = 0
+        margin = size * 1.6
+        title = app.track.title or app.tr("nothing_playing")
+        artist = app.track.artist or ""
+        rows = [(title, top, size * 0.95, theme.bright)]
+        if artist:
+            rows.append(("— " + artist, top + size * 1.2, size * 0.8, theme.faint))
+        for text, y, text_size, color in rows:
+            if position == 1:
+                self._draw_centered(draw, text, y, text_size, color, family)
+            elif position == 2:
+                self._draw_right(draw, text, xpix - margin, y, text_size, color, family)
+            else:
+                self._draw_left(draw, text, margin, y, text_size, color, family)
+        rule_y = top + size * 2.0
+        draw.rectangle(
+            [margin, rule_y, xpix - margin, rule_y + max(1, size * 0.05)],
+            fill=self._mix(theme.faint, background, 0.35),
+        )
+        return rule_y + size * 0.9
 
     # -- layout ---------------------------------------------------------
 
@@ -390,25 +462,23 @@ class ImageRenderer:
         top = size * 1.9
         bottom = ypix - size * 1.9
         if cfg["header"]:
-            title = app.track.title or app.tr("nothing_playing")
-            artist = app.track.artist or ""
-            self._draw_left(draw, title, size * 1.6, top, size * 0.95, theme.bright, family)
-            if artist:
-                self._draw_left(
-                    draw, "— " + artist, size * 1.6, top + size * 1.2,
-                    size * 0.8, theme.faint, family,
-                )
-            rule_y = top + size * 2.0
-            ImageDraw.Draw(image).rectangle(
-                [size * 1.6, rule_y, xpix - size * 1.6, rule_y + max(1, size * 0.05)],
-                fill=self._mix(theme.faint, background, 0.35),
-            )
-            top = rule_y + size * 0.9
+            top = self._draw_header(draw, xpix, top, size, family, background)
 
         # -- lyrics
         center_y = (top + bottom) / 2
+        instrumental = self._instrumental_enabled(app, position)
+        active_index, _, _ = app.scroll_state(position)
         if app.state == "lyrics" and app.lines:
-            self._draw_lyrics(draw, center_y, size, scale, family, accent, position, top, bottom)
+            self._draw_lyrics(
+                draw, center_y, size, scale, family, accent, position,
+                top, bottom, hide_index=active_index if instrumental else None,
+            )
+            if instrumental:
+                self._draw_instrumental(
+                    draw, center_y, size * 1.1, family, accent,
+                )
+        elif app.state == "empty" and instrumental:
+            self._draw_instrumental(draw, center_y, size * 1.1, family, accent)
         else:
             self._draw_state(draw, center_y, size, family)
 
@@ -432,9 +502,20 @@ class ImageRenderer:
             app.track.artist, int(position) if cfg["footer"] else 0,
             accent, cfg["font_family"], cfg["font_size"], cfg["active_scale"],
             cfg["visible_above"], cfg["visible_below"], cfg["direction"],
-            cfg["karaoke"], cfg["marker"], cfg["header"], cfg["footer"],
+            cfg["karaoke"], getattr(app, "karaoke_brain", True), cfg["marker"], cfg["header"], cfg["footer"],
             cfg["hints"], cfg["spacing"], cfg["ghost"],
+            cfg.get("marker_style", 0), cfg.get("header_pos", 0),
+            cfg.get("pin", False),
+            cfg.get("instrumental_marks", True),
+            cfg.get("instrumental_icon", 0),
+            cfg.get("instrumental_custom", False),
+            cfg.get("instrumental_text", ""),
+            self._instrumental_enabled(app, position),
             round(position * MOTION_FPS),
+            # A theme change can keep the accent and alter only the
+            # background/foreground: without them the cached signature would
+            # suppress the repaint.
+            app.theme.background, app.theme.foreground,
         ]
         # The background moves even when the lyrics do not change: its
         # signature is part of the frame signature, otherwise the image
@@ -444,12 +525,125 @@ class ImageRenderer:
             parts.append(visualizer.signature())
         return tuple(parts)
 
-    def _draw_lyrics(self, draw, center_y, size, scale, family, accent, position, area_top, area_bottom):
+    def _instrumental_enabled(self, app, position):
+        cfg = getattr(app, "cfg", {}) or {}
+        if not cfg.get("instrumental_marks", True):
+            return False
+        # A track without any lyrics has no "last line" to keep: the notes
+        # row is the honest placeholder. Loading and idle keep their text.
+        if getattr(app, "state", "") == "empty":
+            return True
+        detector = getattr(app, "instrumental_gap", None)
+        if detector is None:
+            return False
+        try:
+            return bool(detector(position))
+        except Exception:  # noqa: BLE001
+            return False
+
+    def _instrumental_custom_text(self, cfg):
+        """Saved custom text that replaces the notes, or an empty string."""
+        text = str(cfg.get("instrumental_text") or "").strip()
+        if bool(cfg.get("instrumental_custom")) and text:
+            return text
+        return ""
+
+    def _draw_instrumental(self, draw, center_y, size, family, accent):
+        """Draws the notes row (or the saved custom text) of an instrumental.
+
+        The notes are vectorial, like the marker: `♪` does not exist in every
+        typeface, and with a font without it the row came out as empty boxes.
+        The custom text is drawn with the lyrics typography, which is what the
+        user asked for when they typed it.
+        """
+        cfg = self.app.cfg
+        color = self._mix(self.app.theme.faint, accent, 0.45)
+        custom = self._instrumental_custom_text(cfg)
+        if custom:
+            self._draw_centered(draw, custom, center_y, size, color, family)
+            return
+        try:
+            variant = int(cfg.get("instrumental_icon", 0)) % 4
+        except (TypeError, ValueError):
+            variant = 0
+        self._draw_notes_row(draw, center_y, size, variant, color)
+
+    def _draw_notes_row(self, draw, center_y, size, variant, color):
+        """Three notes (or dots) centered in the window."""
+        center_x = draw.im.size[0] / 2.0
+        if variant == 3:  # dots
+            radius = max(1.0, size * 0.09)
+            gap = size * 0.55
+            for index in (-1, 0, 1):
+                x = center_x + index * gap
+                draw.ellipse(
+                    [x - radius, center_y - radius, x + radius, center_y + radius],
+                    fill=color,
+                )
+            return
+        gap = size * (1.9 if variant else 1.5)
+        for index in (-1, 0, 1):
+            x = center_x + index * gap
+            self._draw_note(
+                draw, x, center_y, size, color,
+                double=variant >= 1, beamed=variant >= 2,
+            )
+
+    def _draw_note(self, draw, x, center_y, size, color, double=False, beamed=False):
+        """One note (single head, or two heads joined by a beam)."""
+        thickness = max(1, int(round(size * 0.07)))
+        head_w = size * 0.32
+        head_h = size * 0.24
+        stem_h = size * 0.72
+        head_y = center_y + size * 0.18
+        stem_top = center_y - stem_h / 2
+        offsets = (-size * 0.26, size * 0.26) if double else (0.0,)
+        for offset in offsets:
+            head_x = x + offset
+            draw.ellipse(
+                [head_x - head_w / 2, head_y - head_h / 2,
+                 head_x + head_w / 2, head_y + head_h / 2],
+                fill=color,
+            )
+            stem_x = head_x + head_w / 2 - thickness / 2
+            draw.line(
+                [(stem_x, head_y), (stem_x, stem_top)],
+                fill=color,
+                width=thickness,
+            )
+        if not double:
+            # Single note: the flag hangs from the top of the stem.
+            stem_x = x + head_w / 2 - thickness / 2
+            draw.line(
+                [(stem_x, stem_top), (stem_x + size * 0.22, stem_top + size * 0.2)],
+                fill=color,
+                width=thickness,
+            )
+            return
+        # Double note: a beam joins both stems (two beams when beamed).
+        left_stem = x - size * 0.26 + head_w / 2 - thickness / 2
+        right_stem = x + size * 0.26 + head_w / 2 - thickness / 2
+        draw.line(
+            [(left_stem, stem_top), (right_stem, stem_top)],
+            fill=color,
+            width=thickness,
+        )
+        if beamed:
+            draw.line(
+                [(left_stem, stem_top + size * 0.14),
+                 (right_stem, stem_top + size * 0.14)],
+                fill=color,
+                width=thickness,
+            )
+
+    def _draw_lyrics(self, draw, center_y, size, scale, family, accent, position, area_top, area_bottom, hide_index=None):
         app = self.app
         theme = app.theme
         background = theme.background
         index, focus, progress = app.scroll_state(position)
         lines = app.lines
+        karaoke_enabled = bool(app.karaoke and app.cfg.get("karaoke"))
+        brain_on = bool(getattr(app, "karaoke_brain", True))
 
         pos_a = self._layout(index, center_y, size, scale)
         pos_b = self._layout(focus, center_y, size, scale)
@@ -471,6 +665,8 @@ class ImageRenderer:
         # Interpolated scale: the leaving line shrinks, the entering one grows.
         for line_index in sorted(visible):
             if line_index < 0 or line_index >= len(lines):
+                continue
+            if hide_index is not None and line_index == hide_index:
                 continue
             line = lines[line_index]
             y_a = pos_a.get(line_index)
@@ -523,6 +719,26 @@ class ImageRenderer:
             # already sung ones.
             is_sung = line_index == index
             is_focus = line_index == focus
+
+            text = self.fit_text(
+                line.text, draw.im.size[0] - size * 6, size * factor, family
+            )
+
+            # Karaoke mode:
+            # Brain on (intelligent): progressive per-char glow only for lines with
+            # valid word timings, like the lyrics plugin. Lines without usable
+            # timings fall back to line-mode (highlighted at once, no progressive
+            # fill/glow sweep).
+            # Brain off (classic/"boring" mode): progressive karaoke for all lines
+            # when karaoke glow is enabled.
+            has_word_timing = line_has_word_timing(line, text)
+            line_karaoke = False
+            if karaoke_enabled:
+                if brain_on:
+                    line_karaoke = has_word_timing
+                else:
+                    line_karaoke = True
+
             if is_sung:
                 # The main line that stops being it: from the main color to
                 # the color of the already sung lines.
@@ -533,7 +749,7 @@ class ImageRenderer:
                 # already had to the main color.
                 base_color = self._mix(theme.foreground, background, fade)
                 color = self._lerp(base_color, accent, progress)
-                if app.karaoke and app.cfg["karaoke"]:
+                if line_karaoke:
                     # With karaoke the main line is drawn in two tones: the
                     # sung part in the accent color and the missing part
                     # dimmed. The entering line has to arrive already at
@@ -551,22 +767,19 @@ class ImageRenderer:
             # Apply the transition alpha to the color (RGBA)
             color = color + (int(fade * 255),)
 
-            text = self.fit_text(
-                line.text, draw.im.size[0] - size * 6, size * factor, family
-            )
-            marker = ""
-            if app.cfg["marker"] and is_sung:
-                marker = "> "
+            marker = app.cfg["marker"] and is_sung
             if marker:
-                self._draw_marker(draw, text, y, line_size, marker, family, accent)
-            if is_sung and app.karaoke and app.cfg["karaoke"]:
+                self._draw_marker(
+                    draw, text, y, line_size, app.cfg.get("marker_style", 0),
+                    family, accent,
+                )
+
+            # Progressive per-char karaoke for the active sung line.
+            if is_sung and line_karaoke:
                 end = line.start + (line.duration or 4.0)
                 next_start = app.next_timed_start(line_index)
                 if next_start is not None and next_start > line.start:
                     end = next_start if not line.duration else min(end, next_start)
-                # The same calculation as text mode: if the adapter gives
-                # per-character timings the fill respects them, and if not
-                # it spreads the line duration across the characters.
                 amount = app.karaoke_amount(line, text, position, end)
                 sung_text = accent
                 pending_text = self._karaoke_pending(accent, background)
@@ -588,18 +801,84 @@ class ImageRenderer:
                     family,
                     int(fade * 255),
                 )
+            elif is_sung and karaoke_enabled and brain_on and not has_word_timing:
+                # Line-mode (no usable word timings): highlight the whole active
+                # line at once, with no progressive glow/fill sweep.
+                solid = self._lerp(accent, self._mix(theme.past, background, fade), progress)
+                solid = solid + (int(fade * 255),)
+                self._draw_centered(draw, text, y, line_size, solid, family)
             else:
                 self._draw_centered(draw, text, y, line_size, color, family)
 
-    def _draw_marker(self, draw, text, center_y, size, marker, family, color):
-        """The ">" marker glued to the left of the active line."""
+    def _draw_marker(self, draw, text, center_y, size, style, family, color):
+        """Draws the active-line marker with Pillow primitives.
+
+        `marker_style` picks one of the six shapes. They are vectorial on
+        purpose: a font glyph would look different with every typeface and
+        `♪` is missing in many of them, so the marker would disappear
+        without a word. The marker sits to the left of the line, glued to
+        it, and keeps its size when the line grows.
+        """
         font = self.font(family, size)
         if font is None:
             return
+        try:
+            index = int(style) % MARKER_STYLES
+        except (TypeError, ValueError):
+            index = 0
         width = text_width(draw, text, font)
-        marker_width = text_width(draw, marker, font)
-        x = (draw.im.size[0] - width) / 2 - marker_width - size * 0.35
-        draw.text((x, center_y), marker, font=font, fill=color, anchor="lm")
+        right = (draw.im.size[0] - width) / 2 - size * 0.35
+        box_width = size * 0.42
+        left = right - box_width
+        height = size * 0.62
+        top = center_y - height / 2
+        bottom = center_y + height / 2
+        thickness = max(1, int(round(size * 0.09)))
+        if index == 0:  # chevron: two strokes, like the old ">"
+            draw.line(
+                [(left, top), (right, center_y), (left, bottom)],
+                fill=color,
+                width=thickness,
+                joint="curve",
+            )
+        elif index == 1:  # bullet
+            draw.ellipse([right - height, top, right, bottom], fill=color)
+        elif index == 2:  # bar
+            bar = max(2, int(round(size * 0.16)))
+            draw.rectangle([right - bar, top, right, bottom], fill=color)
+        elif index == 3:  # note: head, stem and flag
+            head = height * 0.56
+            head_left = left
+            head_top = bottom - head
+            draw.ellipse(
+                [head_left, head_top, head_left + head, bottom], fill=color
+            )
+            stem_x = head_left + head * 0.82
+            draw.line(
+                [(stem_x, head_top + head * 0.2), (stem_x, top)],
+                fill=color,
+                width=thickness,
+            )
+            draw.line(
+                [(stem_x, top), (stem_x + height * 0.3, top + height * 0.22)],
+                fill=color,
+                width=thickness,
+            )
+        elif index == 4:  # block: a half-filled slab
+            draw.rectangle([left, top, left + box_width * 0.55, bottom], fill=color)
+        else:  # arrow
+            draw.line([(left, center_y), (right, center_y)], fill=color, width=thickness)
+            head = height * 0.42
+            draw.line(
+                [(right - head, top + height * 0.12), (right, center_y)],
+                fill=color,
+                width=thickness,
+            )
+            draw.line(
+                [(right - head, bottom - height * 0.12), (right, center_y)],
+                fill=color,
+                width=thickness,
+            )
 
     def _draw_state(self, draw, center_y, size, family):
         app = self.app
@@ -637,27 +916,40 @@ class ImageRenderer:
                 [bar_x0, y - size * 0.18, bar_x0 + filled, y + size * 0.18], fill=accent
             )
 
+
+    def _wrap_hints(self, text, font, limit):
+        """Splits the shortcut list into as many lines as it needs."""
+        lines = []
+        current = ""
+        for word in text.split():
+            candidate = word if current == "" else current + " " + word
+            if current == "" or text_width(self._measure_draw, candidate, font) <= limit:
+                current = candidate
+            else:
+                lines.append(current)
+                current = word
+        if current:
+            lines.append(current)
+        return lines
+
     def _draw_hints(self, draw, size, family):
         app = self.app
         theme = app.theme
         xpix, ypix = app.terminal_pixels()
-        y = ypix - size * 0.6
         candidates = app.texts.get("hints") or [""]
         self._measure_draw = draw
         limit = max(1.0, xpix - size * 3.2)
+        font_size = size * 0.8
+        font = self.font(family, font_size)
         text = candidates[0]
-        font = self.font(family, size * 0.8)
+        lines = [text]
         if font is not None:
-            for candidate in candidates:
-                if text_width(draw, candidate, font) <= limit:
-                    text = candidate
-                    break
-            else:
-                text = self.fit_text(candidates[0], limit, size * 0.8, family)
-        # The whole row is centered in the window: it used to start on the
-        # left and the leftover piled up on the right.
-        self._draw_centered(
-            draw, text, y, size * 0.8,
-            self._mix(theme.faint, theme.background, 0.7), family,
-        )
+            lines = self._wrap_hints(text, font, limit)
+        # The full list is wrapped instead of replaced by a shorter subset:
+        # every shortcut stays visible, and every row is centered.
+        color = self._mix(theme.faint, theme.background, 0.7)
+        y = ypix - size * 0.5
+        for row in reversed(lines):
+            self._draw_centered(draw, row, y, font_size, color, family)
+            y -= size * 0.95
 

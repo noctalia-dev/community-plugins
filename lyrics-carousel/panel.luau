@@ -14,6 +14,7 @@
 -- instead of blowing up the script.
 
 local settingsLib = require("./lib/settings.luau")
+local launchLib = require("./lib/launch.luau")
 
 -- Default values and the list of keys live in lib/settings.luau
 -- so the panel, the widget and the script share a single source.
@@ -60,11 +61,13 @@ local closePanel
 local settings = {}
 local trackTitle = ""
 local trackArtist = ""
-local launching = false
 local lastError = ""
 -- The font selector shows the list until the user picks
 -- "Other". It is interface state, not a setting: nothing is written.
 local fontCustom = nil
+-- Inline editor for the custom instrumental text. It is opened by the
+-- right-click of the second instrumental button.
+local instrumentalEditing = false
 -- An async callback (playerctl, the helper) can arrive after the panel has
 -- closed. Without this flag the callback would redraw a dead tree.
 local panelClosed = false
@@ -237,19 +240,6 @@ end
 
 -- ---------------------------------------------------------------- launch
 
-local function shellQuote(value)
-  return "'" .. tostring(value):gsub("'", "'\\''") .. "'"
-end
-
-local function luaQuote(value)
-  local escaped = tostring(value)
-  escaped = escaped:gsub("\\", "\\\\")
-  escaped = escaped:gsub('"', '\\"')
-  escaped = escaped:gsub("\r", "\\r")
-  escaped = escaped:gsub("\n", "\\n")
-  return '"' .. escaped .. '"'
-end
-
 local ANCHORS = {
   ["top-left"] = true,
   ["top-center"] = true,
@@ -387,84 +377,21 @@ applyGeometry = function()
 end
 
 launch = function()
-  if launching then
-    return
-  end
-  launching = true
-  -- Watchdog: if the window never gets created, the button does not hang.
-  runAsync({ "sleep", "6" }, function()
-    if launching then
-      launching = false
-      render()
-    end
-  end)
   refreshSettings()
-  local family = tostring(valueOf("font_family"))
-  local size = math.floor(numberOf("font_size"))
-  local screenWidth, screenHeight = outputGeometry()
-  local width = math.min(math.floor(numberOf("width")), screenWidth)
-  local height = math.min(math.floor(numberOf("height")), screenHeight)
-  local anchor = normalizeAnchor(valueOf("anchor"))
-
-  local x, y
-  if anchor == "custom" then
-    x = math.floor(numberOf("custom_x"))
-    y = math.floor(numberOf("custom_y"))
-  else
-    x, y = anchorPosition(anchor, width, height, screenWidth, screenHeight)
-  end
-
-  -- The script is launched by absolute path (and with python3): relying on
-  -- PATH would require a symlink in ~/.local/bin that the plugin does not
-  -- create, and this way the executable bit is not needed either.
-  local script = "lyrics-carousel"
-  local pluginDir = noctalia.pluginDir()
-  if pluginDir ~= nil and pluginDir ~= "" then
-    script = "python3 " .. pluginDir .. "/bin/lyrics-carousel"
-  end
-  -- The window is created with the pixel size that the exec_cmd rules
-  -- dictate; inside kitty the script reads the real terminal size
-  -- (kitty publishes it through TIOCGWINSZ), so nothing has to be passed
-  -- through environment variables.
-  local command = string.format(
-    "kitty -o confirm_os_window_close=0 -o font_family=%s -o font_size=%d --class noctalia-lyrics-carousel --title lyrics -e sh -lc %s",
-    shellQuote(family),
-    size,
-    shellQuote(script)
-  )
-  local rules = string.format(
-    "{ float = true, move = { %d, %d }, size = { %d, %d } }",
-    x, y, width, height
-  )
-  local expression = string.format("hl.dsp.exec_cmd(%s, %s)", luaQuote(command), rules)
-
-  -- Restarts the previous window so it picks up the new typography.
-  local started = runAsync(
-    { "pkill", "-f", "noctalia-lyrics-carousel --title lyrics" },
-    function()
-      local ok = runAsync({ "sleep", "0.25" }, function()
-        dispatch(expression, function(success)
-          launching = false
-          if not success then
-            safe("notifyError", noctalia.notifyError, tr("title"), tr("launch_failed"))
-          end
-        end)
-      end)
-      if not ok then
-        launching = false
-        dispatch(expression, function(success)
-          if not success then
-            safe("notifyError", noctalia.notifyError, tr("title"), tr("launch_failed"))
-          end
-        end)
-        render()
+  launchLib.launch({
+    valueOf = valueOf,
+    onState = function()
+      render()
+    end,
+    onError = function(kind)
+      if kind == "launch_failed" then
+        safe("notifyError", noctalia.notifyError, tr("title"), tr("launch_failed"))
+      else
+        reportError(tr("launch_failed"))
       end
-    end
-  )
-  if not started then
-    launching = false
-    render()
-  end
+      render()
+    end,
+  })
 end
 
 -- ------------------------------------------------------------- track
@@ -517,6 +444,146 @@ local function toggleRow(key, label, glyph)
   })
 end
 
+-- Glyph of every value of the two rotating settings. The tiny button shows
+-- the current one, so the user sees what is applied without opening the
+-- window: the panel is often covering it.
+local MARKER_STYLE_GLYPHS = { "chevron-right", "circle", "minus", "music", "square", "arrow-right" }
+local HEADER_POS_GLYPHS = {
+  "align-box-left-middle",
+  "align-box-center-middle",
+  "align-box-right-middle",
+}
+
+-- A toggle with a tiny rotating button next to it.
+--
+-- The button only appears while the toggle is on (with the marker or the
+-- header hidden it would change something the user cannot see) and it writes
+-- its own key, so the chosen value is remembered when the toggle goes off.
+local function rotatorRow(key, label, glyph, valueKey, glyphs, tooltipKey)
+  local enabled = boolOf(key)
+  local current = math.floor(numberOf(valueKey) or 0) % #glyphs
+  local children = {
+    ui.glyph({ name = glyph, size = 14, color = "on_surface_variant" }),
+    ui.label({ text = label, fontSize = 12, color = "on_surface", flexGrow = 1, maxLines = 1 }),
+  }
+  if enabled then
+    table.insert(children, ui.button({
+      key = "btn-" .. valueKey:gsub("_", "-"),
+      glyph = glyphs[current + 1],
+      variant = "secondary",
+      controlSize = "sm",
+      glyphSize = 11,
+      width = 18,
+      height = 18,
+      tooltip = tr(tooltipKey),
+      onClick = function()
+        local value = math.floor(numberOf(valueKey) or 0)
+        setSetting(valueKey, (value + 1) % #glyphs)
+      end,
+    }))
+  end
+  table.insert(children, ui.toggle({
+    key = "toggle-" .. key,
+    checked = enabled,
+    onChange = function(value)
+      setSetting(key, truthy(value))
+    end,
+  }))
+  return ui.row({ key = "row-" .. key, align = "center", gap = 10, paddingH = 4, padding = 4 }, children)
+end
+
+local function instrumentalRow()
+  local enabled = boolOf("instrumental_marks")
+  local custom = boolOf("instrumental_custom")
+  local children = {
+    ui.glyph({ name = "music", size = 14, color = "on_surface_variant" }),
+    ui.label({
+      text = tr("instrumental_marks"),
+      fontSize = 12,
+      color = "on_surface",
+      flexGrow = 1,
+      maxLines = 1,
+    }),
+  }
+  if enabled then
+    table.insert(children, ui.button({
+      key = "btn-instrumental-icon",
+      glyph = "music",
+      variant = "secondary",
+      controlSize = "sm",
+      glyphSize = 11,
+      width = 18,
+      height = 18,
+      tooltip = tr("instrumental_icon_tooltip"),
+      onClick = function()
+        setSetting("instrumental_icon", (math.floor(numberOf("instrumental_icon")) + 1) % 4)
+      end,
+    }))
+    table.insert(children, ui.button({
+      key = "btn-instrumental-custom",
+      glyph = "typography",
+      variant = custom and "secondary" or "ghost",
+      controlSize = "sm",
+      glyphSize = 11,
+      width = 18,
+      height = 18,
+      tooltip = tr("instrumental_custom_tooltip"),
+      onClick = function()
+        local saved = tostring(valueOf("instrumental_text") or "")
+        if saved == "" then
+          instrumentalEditing = true
+          render()
+          return
+        end
+        setSetting("instrumental_custom", not boolOf("instrumental_custom"))
+      end,
+      onRightClick = function()
+        instrumentalEditing = true
+        render()
+      end,
+    }))
+  end
+  table.insert(children, ui.toggle({
+    key = "toggle-instrumental_marks",
+    checked = enabled,
+    onChange = function(value)
+      setSetting("instrumental_marks", truthy(value))
+    end,
+  }))
+  return ui.row({
+    key = "row-instrumental_marks",
+    align = "center",
+    gap = 10,
+    paddingH = 4,
+    padding = 4,
+  }, children)
+end
+
+local function instrumentalEditor()
+  if not instrumentalEditing then
+    return ui.column({})
+  end
+  return ui.input({
+    key = "instrumental-text-editor",
+    value = tostring(valueOf("instrumental_text") or ""),
+    placeholder = tr("instrumental_text_placeholder"),
+    controlSize = "sm",
+    focus = true,
+    submitOnEnter = true,
+    onChange = function(value)
+      if type(value) ~= "string" then
+        return
+      end
+      local clean = value:gsub("[\r\n]", ""):sub(1, 24)
+      setSetting("instrumental_text", clean)
+    end,
+    onSubmit = function()
+      instrumentalEditing = false
+      render()
+    end,
+  })
+end
+
 local function chipRow(items)
   local chips = {}
   for _, item in ipairs(items) do
@@ -528,7 +595,7 @@ local function chipRow(items)
       onClick = item.onClick,
     }))
   end
-  return ui.row({ gap = 6 }, chips)
+  return ui.row({ gap = 6, justify = "center", align = "center" }, chips)
 end
 
 -- Every font the panel offers, in the order they are shown.
@@ -556,6 +623,92 @@ local function fontIndex(name)
     end
   end
   return nil
+end
+
+-- Stepper hold-to-repeat ------------------------------------------------
+--
+-- Noctalia does not expose pointer press/release to declarative controls.
+-- The evdev helper reports repeat ticks while the left button is held; the
+-- panel applies them only to the stepper currently under the pointer.
+local stepperSpecs = {}
+local hoveredStepper = nil
+local repeatSuppressed = {}
+local holdRepeatStarted = false
+
+local function applyStep(buttonKey)
+  local spec = stepperSpecs[buttonKey]
+  if spec == nil then
+    return
+  end
+  local delta = spec.step
+  if buttonKey:match("%-dec$") then
+    delta = -delta
+  end
+  local base = buttonKey:gsub("%-dec$", ""):gsub("%-inc$", "")
+  local current = math.floor(numberOf(base))
+  local value = current + delta
+  if value < spec.min then
+    value = spec.min
+  elseif value > spec.max then
+    value = spec.max
+  end
+  if value == current then
+    return
+  end
+  setSetting(base, value, { geometry = true })
+end
+
+local function stepperHover(buttonKey)
+  return function(state)
+    if state == "true" then
+      hoveredStepper = buttonKey
+      repeatSuppressed[buttonKey] = nil
+    else
+      if hoveredStepper == buttonKey then
+        hoveredStepper = nil
+      end
+      repeatSuppressed[buttonKey] = nil
+    end
+  end
+end
+
+local function consumeRepeat(buttonKey)
+  if repeatSuppressed[buttonKey] then
+    repeatSuppressed[buttonKey] = nil
+    return true
+  end
+  return false
+end
+
+local function ensureHoldRepeat()
+  if holdRepeatStarted then
+    return
+  end
+  local dir = noctalia.pluginDir()
+  if dir == nil or dir == "" or noctalia.runStream == nil then
+    return
+  end
+  holdRepeatStarted = true
+  local ok, error_message = pcall(noctalia.runStream, {
+    "python3",
+    dir .. "/bin/hold-repeat.py",
+  }, function(line)
+    if panelClosed or type(line) ~= "string" then
+      return
+    end
+    if not line:match("^repeat") then
+      return
+    end
+    local key = hoveredStepper
+    if key ~= nil and stepperSpecs[key] ~= nil then
+      repeatSuppressed[key] = true
+      applyStep(key)
+    end
+  end)
+  if not ok then
+    error_message = tostring(error_message)
+    noctalia.log("lyrics-carousel: hold-repeat: " .. error_message)
+  end
 end
 
 -- A single font selector: the list of available fonts plus a last option
@@ -679,6 +832,8 @@ end
 -- over it, and a width that shrank on its own was a bug.
 local function sizeStepper(key, min, max, step)
   local current = math.floor(numberOf(key))
+  stepperSpecs[key .. "-dec"] = { step = step, min = min, max = max }
+  stepperSpecs[key .. "-inc"] = { step = step, min = min, max = max }
   local function bump(delta)
     local newValue = math.floor(numberOf(key)) + delta
     if newValue < min then
@@ -691,15 +846,24 @@ local function sizeStepper(key, min, max, step)
     end
     setSetting(key, newValue, { geometry = true })
   end
+  local function clicked(buttonKey, delta)
+    return function()
+      -- The click that arrives with the release of a hold already had its
+      -- repeats applied: adding one more would overshoot the target.
+      if consumeRepeat(buttonKey) then
+        return
+      end
+      bump(delta)
+    end
+  end
   return ui.row({ align = "center", gap = 6 }, {
     ui.button({
       key = key .. "-dec",
       text = "-",
       variant = "ghost",
       fontSize = 12,
-      onClick = function()
-        bump(-step)
-      end,
+      onHover = stepperHover(key .. "-dec"),
+      onClick = clicked(key .. "-dec", -step),
     }),
     ui.label({ text = tostring(current), fontSize = 12, color = "on_surface", flexGrow = 1 }),
     ui.button({
@@ -707,15 +871,18 @@ local function sizeStepper(key, min, max, step)
       text = "+",
       variant = "ghost",
       fontSize = 12,
-      onClick = function()
-        bump(step)
-      end,
+      onHover = stepperHover(key .. "-inc"),
+      onClick = clicked(key .. "-inc", step),
     }),
   })
 end
 
 -- Slider with its label and the value on the right. The limits are the
 -- panel's: it cannot offer more than the script accepts.
+--
+-- Note: on this Noctalia version the native slider consumes the mouse wheel
+-- when hovered (wheel-adjust cannot be disabled separately), so the wheel may
+-- change the value instead of scrolling the panel while over the slider.
 local function sliderRow(key, label, min, max, step, integer)
   -- The displayed value is clamped: if the setting is out of range (for
   -- instance hand-written into settings.toml), the slider has to show the
@@ -849,16 +1016,57 @@ render = function()
       }),
     }),
     -- What is drawn inside the window --------------------------------
-    toggleRow("header", tr("header"), "heading"),
-    toggleRow("marker", tr("marker"), "chevron-right"),
-    toggleRow("karaoke", tr("karaoke"), "sun"),
+    rotatorRow("header", tr("header"), "heading", "header_pos", HEADER_POS_GLYPHS, "header_pos_tooltip"),
+    rotatorRow("marker", tr("marker"), "chevron-right", "marker_style", MARKER_STYLE_GLYPHS, "marker_style_tooltip"),
+    (function()
+      local karaokeOn = boolOf("karaoke")
+      local brainOn = boolOf("karaoke_brain")
+      local children = {
+        ui.glyph({ name = "sun", size = 14, color = "on_surface_variant" }),
+        -- maxLines: the label must not wrap when the brain button appears,
+        -- or the row grows and pushes the whole panel down.
+        ui.label({ text = tr("karaoke"), fontSize = 12, color = "on_surface", flexGrow = 1, maxLines = 1 }),
+      }
+      if karaokeOn then
+        table.insert(children, ui.button({
+          key = "btn-karaoke-brain",
+          glyph = "wand",
+          variant = brainOn and "secondary" or "ghost",
+          -- Small: a big button here made the row taller and pushed the
+          -- whole panel down. The explicit size keeps it below the height
+          -- of the switch, so the row does not grow when it appears.
+          controlSize = "sm",
+          glyphSize = 11,
+          width = 18,
+          height = 18,
+          tooltip = tr("karaoke_brain"),
+          onClick = function()
+            setSetting("karaoke_brain", not boolOf("karaoke_brain"))
+          end,
+        }))
+      end
+      table.insert(children, ui.toggle({
+        key = "toggle-karaoke",
+        checked = karaokeOn,
+        onChange = function(value)
+          setSetting("karaoke", truthy(value))
+        end,
+      }))
+      return ui.row({ key = "row-karaoke", align = "center", gap = 10, paddingH = 4, padding = 4 }, children)
+    end)(),
     toggleRow("ghost", tr("ghost"), "sparkles"),
     toggleRow("footer", tr("footer"), "clock"),
+    instrumentalRow(),
+    (boolOf("instrumental_marks")
+      and sliderRow("silence_threshold", tr("silence_threshold"), 1, 15, 1, true)
+      or ui.column({})),
+    instrumentalEditor(),
     toggleRow("hints", tr("hints"), "keyboard"),
 
     -- Lyrics --------------------------------------------------------------
     ui.separator({ thickness = 1, spacing = 6 }),
     ui.label({ text = tr("section_lyrics"), fontSize = 11, fontWeight = "bold", color = "on_surface_variant" }),
+    sliderRow("font_size", tr("font_size"), 6, 96, 1, true),
     sliderRow("active_scale", tr("active_scale"), 1.0, 2.5, 0.05, false),
     ui.row({ gap = 10 }, {
       ui.column({ flexGrow = 1, gap = 4 }, {
@@ -873,17 +1081,17 @@ render = function()
 
     -- Color --------------------------------------------------------------
     ui.separator({ thickness = 1, spacing = 6 }),
-    ui.label({ text = tr("section_color"), fontSize = 11, fontWeight = "bold", color = "on_surface_variant" }),
-    ui.column({ gap = 4 }, {
+    ui.column({ gap = 6, align = "center" }, {
+      ui.label({ text = tr("section_color"), fontSize = 11, fontWeight = "bold", color = "on_surface_variant" }),
       ui.label({ text = tr("accent"), fontSize = 11, color = "on_surface_variant" }),
       accentChips(),
+      (function()
+        if accent == "custom" then
+          return inputRow("custom_color", tr("custom_color"), tr("color_placeholder"))
+        end
+        return ui.column({})
+      end)(),
     }),
-    (function()
-      if accent == "custom" then
-        return inputRow("custom_color", tr("custom_color"), tr("color_placeholder"))
-      end
-      return ui.column({})
-    end)(),
 
     -- Typography ---------------------------------------------------------
     ui.separator({ thickness = 1, spacing = 6 }),
@@ -897,11 +1105,11 @@ render = function()
       end
       return ui.column({})
     end)(),
-    sliderRow("font_size", tr("font_size"), 6, 96, 1, true),
 
     -- Window ------------------------------------------------------------
     ui.separator({ thickness = 1, spacing = 6 }),
     ui.label({ text = tr("section_window"), fontSize = 11, fontWeight = "bold", color = "on_surface_variant" }),
+    toggleRow("pin", tr("pin"), "pin"),
     ui.label({ text = tr("anchor"), fontSize = 11, color = "on_surface_variant" }),
     anchorButtons(),
     (function()
@@ -964,6 +1172,8 @@ function onOpen()
   -- Every open works out again whether the current font is in the list:
   -- that way a hand-picked font does not leave the field open forever.
   fontCustom = nil
+  instrumentalEditing = false
+  ensureHoldRepeat()
   refreshSettings()
   readTrack()
   render()

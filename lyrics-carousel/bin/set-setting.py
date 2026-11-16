@@ -22,6 +22,12 @@ the panel sees the settings the manifest no longer declares.
 
 from __future__ import annotations
 
+import sys
+
+# The plugin directory must stay clean: importing the sibling `paths` module
+# would leave a bin/__pycache__ inside the deployed copy.
+sys.dont_write_bytecode = True
+
 import fcntl
 import json
 import os
@@ -43,19 +49,23 @@ PLUGIN_ID = "faminec/lyrics-carousel"
 SECTION = f'[plugin_settings."{PLUGIN_ID}"]'
 
 ALLOWED = {
-    "font_family", "font_size", "direction", "marker",
-    "karaoke", "footer", "hints", "header", "spacing",
-    "ghost", "offset_ms", "width", "height", "anchor",
-    "custom_x", "custom_y", "accent", "custom_color", "active_scale",
-    "visible_above", "visible_below", "glyph",
+    "font_family", "font_size", "direction", "marker", "marker_style",
+    "karaoke", "karaoke_brain", "footer", "hints",
+    "instrumental_marks", "instrumental_icon", "instrumental_text",
+    "instrumental_custom", "silence_threshold", "header", "header_pos",
+    "spacing", "ghost", "pin", "offset_ms",
+    "width", "height", "anchor", "custom_x", "custom_y", "accent",
+    "custom_color", "active_scale", "visible_above", "visible_below", "glyph",
 }
 
 BOOL_KEYS = {
-    "marker", "karaoke", "footer", "hints", "header", "ghost",
+    "marker", "karaoke", "karaoke_brain", "footer", "hints",
+    "instrumental_marks", "instrumental_custom", "header", "ghost", "pin",
 }
 INT_KEYS = {
     "font_size", "spacing", "offset_ms", "width", "height",
     "custom_x", "custom_y", "visible_above", "visible_below",
+    "instrumental_icon", "silence_threshold", "marker_style", "header_pos",
 }
 FLOAT_KEYS = {"active_scale"}
 
@@ -68,6 +78,7 @@ PATTERNS = {
     # Same pattern as in lib/settings.luau: the font cannot be empty nor
     # contain line breaks (it is passed to the kitty command).
     "font_family": r"^[^\n]+$",
+    "instrumental_text": r"^[^\r\n]{0,24}$",
 }
 
 # The limits (min/max) are not hardcoded here: they are read from the
