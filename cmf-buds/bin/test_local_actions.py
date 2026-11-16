@@ -172,7 +172,7 @@ def test_count_wins():
     print("2) 'any' + 3 presses: the 3-press rule wins, and the other serves as the fallback")
     r = Runner(
         [
-            rule("any", "volume_up", 0, "super", "CUALQUIERA"),
+            rule("any", "volume_up", 0, "super", "ANY"),
             rule("tres", "volume_up", 3, "super", "TRES"),
         ]
     )
@@ -187,7 +187,7 @@ def test_count_wins():
         r.engine.fired,
     )
     time.sleep(1.0)
-    r.check("a single click triggers the 'any' fallback", r.engine.fired == ["CUALQUIERA"], r.engine.fired)
+    r.check("a single click triggers the 'any' fallback", r.engine.fired == ["ANY"], r.engine.fired)
     r.settle()
     # Three clicks: the 3-press rule wins.
     r.push_event(65, ["super"], 0.15)
@@ -277,7 +277,7 @@ def test_presses_too_close():
     print('9) very closely spaced clicks (50 ms) are counted separately')
     r = Runner(
         [
-            rule("any", "volume_up", 0, "super", "CUALQUIERA"),
+            rule("any", "volume_up", 0, "super", "ANY"),
             rule("two", "volume_up", 2, "super", "TWO"),
         ]
     )
@@ -634,7 +634,7 @@ def test_file_rules_are_not_overwritten():
     import json
 
     r = Runner([rule("a", "volume_up", 0, "super", "UNO")])
-    path = "/tmp/cmf-buds-test-fichero.json"
+    path = "/tmp/cmf-buds-test-rules-file.json"
     r.engine.rules_path = path
     r.engine._rules_mtime = 0.0
     # Someone adds a rule to the file manually, outside the panel.
@@ -666,7 +666,7 @@ def test_gesture_is_not_lost():
     # With a 3-press rule, a single click does NOT fire anything: the
     # action is decided when the gesture closes (by the timer that triggers it).
     r = Runner([
-        rule("any", "volume_up", 0, "super", "CUALQUIERA"),
+        rule("any", "volume_up", 0, "super", "ANY"),
         rule("tres", "volume_up", 3, "super", "TRES"),
     ])
     logs = []
@@ -692,7 +692,7 @@ def test_gesture_is_not_lost():
     r.push_event(70, ["super"])
     wait_until(lambda: r.engine.fired == [], timeout=0.5)
     time.sleep(1.2)
-    r.check('the engine remains alive', r.engine.fired == ["CUALQUIERA"], r.engine.fired)
+    r.check('the engine remains alive', r.engine.fired == ["ANY"], r.engine.fired)
     return r.failures
 
 
@@ -1625,12 +1625,12 @@ def test_gesture_modifiers():
     print('41) the gesture resolves with the modifiers used to make it')
     # A 3-press rule blocks the "any" rule: it is
     # resolved when the gesture closes.
-    reglas = [
+    rules = [
         rule("n", "volume_up", 3, "none", "TRES"),
         rule("a", "volume_up", 0, "super", "WITH_SUPER"),
     ]
 
-    r = Runner(reglas)
+    r = Runner(rules)
     r.engine.modifiers.held = {"super"}
     r.engine.volume = 60
     r.engine._on_volume_change("fake")
@@ -1644,7 +1644,7 @@ def test_gesture_modifiers():
         r.engine.fired,
     )
 
-    r2 = Runner(reglas)
+    r2 = Runner(rules)
     # The opposite: the gesture was made WITHOUT a modifier and SUPER is pressed
     # afterward. The gesture is already complete: the SUPER rule cannot activate.
     r2.engine.volume = 60
