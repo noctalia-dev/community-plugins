@@ -75,7 +75,7 @@ local function ancRow(anc)
 				shared.sendCommand("set-anc", spec.mode, spec.mode == "anc" and "high" or nil)
 			end,
 		}, {
-			ui.glyph({ name = spec.glyph, size = 18, color = selected and "primary" or "on_surface_variant" }),
+			ui.image({ path = iconPath(spec.icon), width = 18, height = 18, fit = "contain", opacity = selected and 1 or 0.6 }),
 		}))
 	end
 	return ui.row({ gap = 8, justify = "center" }, buttons)

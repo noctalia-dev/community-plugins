@@ -1,7 +1,7 @@
 # Nothing Ear
 
-Battery, noise control, EQ presets, bass boost, Personalised ANC, Personal Sound Profile,
-low-latency mode and auto mono audio for Nothing and CMF earbuds and CMF Headphone Pro, controlled directly over Bluetooth. No Nothing X app
+Battery, noise control, EQ presets, bass boost, spatial audio, Bluetooth codec, Personalised ANC,
+Personal Sound Profile, low-latency mode and auto mono audio for Nothing and CMF earbuds and CMF Headphone Pro, controlled directly over Bluetooth. No Nothing X app
 and no background daemon.
 
 Tested on a **Nothing Ear (2)** only. The other models below use the same protocol according to
@@ -15,19 +15,24 @@ please open an issue.
 | Nothing Ear (1), Ear (2), Ear (3), Ear (3a) | yes | no |
 | Nothing Ear (2024), Ear (a) | yes | yes |
 | Nothing Ear (stick), Ear (open) | no | no |
-| CMF Headphone Pro | yes | reply-dependent |
+| CMF Headphone Pro | yes | no (physical bass slider) |
 | CMF Buds Pro, Buds 2a | yes | no |
 | CMF Buds, Buds Pro 2, Buds 2, Buds 2 Plus | yes | yes |
 
 CMF Buds 2, 2 Plus and 2a get their own EQ presets. CMF Buds and Buds Pro 2 use presets this
 plugin can't map reliably yet, so EQ is hidden there; every other model gets the Ear (2) presets.
 
-CMF Headphone Pro (B175) uses a single headphone battery display. Its EQ command family is
-selected from read-only replies because the reference projects disagree: presets appear only
-when exactly one family returns a recognized preset, using that family’s preset names. Bass boost appears only if the headphones
-return a readable status. Automatic mono does not apply to headphones; manual mono remains
-available. This support is tested with simulated protocol replies, not CMF headphone hardware.
-See [the B175 research notes](PROTOCOL.md#cmf-headphone-pro-b175) for sources and limitations.
+CMF Headphone Pro (B175) shows a single headphone battery and gets its own EQ presets (Pop, Rock,
+Electronic, Vocals, Classical, Custom) and **Spatial Audio** (Concert, Cinema, Off). Automatic mono does not apply to
+headphones; manual mono remains available. The author doesn't own this model: detection, noise
+control, low latency and mono were confirmed by an owner, the rest is tested with simulated
+replies. See [the B175 research notes](https://github.com/Zyrecx/noctalia-plugins/blob/main/nothing-ear/PROTOCOL.md#cmf-headphone-pro-b175).
+
+**Bluetooth Codec** appears on models that can switch: AAC/LHDC on the Ear (2), AAC/LHDC/LDAC on
+the Ear (2024), AAC/LDAC on the Ear (a), Ear (3), Ear (3a), CMF Buds Pro 2, Buds 2 Plus and
+Headphone Pro. Switching restarts the earbuds, so the panel asks first; audio stops for about
+10 seconds. This only sets what the earbuds offer: LHDC or LDAC is used only if your system's
+audio setup (PipeWire) supports it, and you may have to pick it there too.
 
 ## Plugin
 
@@ -93,11 +98,17 @@ noctalia msg plugin zyrex/nothing-ear:service all cycle-anc
 
 # EQ preset: 0 Balanced, 1 Voice, 2 More Treble, 3 More Bass, 5 Custom.
 # CMF Buds 2 / 2 Plus / 2a: 0 Dirac (2a: 7, 2 Plus: none), 1 Rock, 2 Electronic, 3 Pop, 4 Vocals,
-# 5 Classical, 6 Custom.
+# 5 Classical, 6 Custom. CMF Headphone Pro: the same without Dirac.
 noctalia msg plugin zyrex/nothing-ear:service all set-eq 0
 
 # Bass boost level 1-5, or 0 for off.
 noctalia msg plugin zyrex/nothing-ear:service all set-bass 3
+
+# Spatial audio on the CMF Headphone Pro: concert, cinema or off.
+# Codec: aac, lhdc or ldac, whichever your model has (see above).
+# set-codec restarts the earbuds straight away, without the panel's confirmation.
+noctalia msg plugin zyrex/nothing-ear:service all set-spatial concert
+noctalia msg plugin zyrex/nothing-ear:service all set-codec ldac
 
 # On/off toggles: 1/true/on or 0/false/off.
 noctalia msg plugin zyrex/nothing-ear:service all set-latency 1
@@ -141,6 +152,7 @@ python3 ~/.local/state/noctalia/plugins/materialized/community/nothing-ear/scrip
   `pluginDataDir()/device.json`. No network access.
 - Polling only runs while the bar number, panel or desktop widget is showing, or auto mono is on
   (slower). Mono is always turned off when the plugin loads.
+- The noise-mode icons were drawn for this plugin; no Nothing artwork is included.
 - EQ preset indexes were mapped on an Ear (2); the CMF tables come from the projects below.
 - One device at a time.
 - Protocol facts were cross-checked against [ear-web](https://github.com/radiance-project/ear-web)

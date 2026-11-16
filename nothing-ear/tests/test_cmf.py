@@ -87,7 +87,13 @@ class ModelTests(unittest.TestCase):
         for name in ("CMF Headphone Pro", "CMF Headphones Pro", " cmf headphone pro "):
             self.assertEqual(m.identify(bt_name=name)["base"], "B175")
         self.assertEqual(m.identify("B175", "SH0101xxxxxxxx")["base"], "B175")
-        self.assertEqual(m.describe("B175")["eq_presets"], [])
+        headphones = m.describe("B175")
+        self.assertEqual(headphones["eq"], "listening")
+        self.assertEqual([preset["name"] for preset in headphones["eq_presets"]],
+                         ["pop", "rock", "electronic", "enhance_vocals", "classical", "custom"])
+        self.assertFalse(headphones["bass"])
+        self.assertEqual(headphones["spatial"], ["concert", "cinema", "off"])
+        self.assertEqual(headphones["codecs"], ["aac", "ldac"])
         self.assertEqual(m.identify(serial="SH0101xxxxxxxx", bt_name="CMF Headphone Pro")["base"], "B175")
 
     def test_listening_model_without_table_hides_eq(self):
@@ -155,59 +161,54 @@ class ReadStateTests(unittest.TestCase):
         self.assertIn(p.LISTENING_MODE_READ, sent)
         self.assertNotIn(p.EQ_PRESET_READ, sent)
 
-    def test_headphones_single_battery_and_eq_probe(self):
-        # Synthetic B175 packets from the published layouts, not a capture.
-        for response, family, write in (
-            (p.EQ_PRESET_RESP, "classic", p.EQ_PRESET_WRITE),
-            (p.LISTENING_MODE_RESP, "listening", p.LISTENING_MODE_WRITE),
-        ):
-            with self.subTest(family=family):
-                state, sent = self.read(
-                    build(p.MODEL_RESP, [0x75, 0xB1]) + build(p.SERIAL_RESP, []),
-                    build(p.BATTERY_RESP, [1, 0x06, 0xD0]) +
-                    build(response, [3]) + build(p.BASS_RESP, [1, 10]),
-                )
-                self.assertEqual(state["model"]["base"], "B175")
-                self.assertTrue(state["model"]["battery_single"])
-                self.assertEqual(state["battery"]["single"], {"level": 80, "charging": True})
-                self.assertIsNone(state["battery"]["left"])
-                self.assertEqual(state["model"]["eq"], family)
-                expected_name = "more_bass" if family == "classic" else "pop"
-                self.assertIn({"index": 3, "name": expected_name}, state["model"]["eq_presets"])
-                self.assertEqual(state["eq_preset"], 3)
-                self.assertEqual(state["bass"], {"enabled": True, "level": 5})
-                self.assertIn(p.EQ_PRESET_READ, sent)
-                self.assertIn(p.LISTENING_MODE_READ, sent)
-                self.assertNotIn(p.PERSONAL_ANC_READ, sent)
-                self.assertNotIn(p.SOUND_PROFILE_READ, sent)
-                # The selected family survives caching and routes writes.
-                sock = Mock()
-                with patch.object(ctl, "connect", return_value=sock), patch.object(ctl, "gather", return_value={}):
-                    ctl.write_eq(ADDRESS, 2)
-                packet = sock.send.call_args_list[0].args[0]
-                self.assertEqual(packet, build(write, [2, 0]))
+    HEADPHONES = build(p.MODEL_RESP, [0x75, 0xB1]) + build(p.SERIAL_RESP, [])
 
-    def test_headphone_eq_ambiguous_or_missing_is_hidden_and_refused(self):
-        for replies in (b"", build(p.EQ_PRESET_RESP, []),
-                        build(p.EQ_PRESET_RESP, [255]),
-                        build(p.EQ_PRESET_RESP, [0]) + build(p.LISTENING_MODE_RESP, [3])):
-            with self.subTest(replies=replies):
-                state, _ = self.read(build(p.MODEL_RESP, [0x75, 0xB1]) + build(p.SERIAL_RESP, []),
-                                     build(p.BATTERY_RESP, [1, 6, 50]) + replies)
-                self.assertEqual(state["model"]["eq_presets"], [])
-                self.assertNotIn("eq_preset", state)
-                self.assertNotIn("bass", state)
-                with patch.object(ctl, "connect") as connect:
-                    with self.assertRaises(ctl.CtlError):
-                        ctl.write_eq(ADDRESS, 0)
-                    connect.assert_not_called()
+    def test_headphones_read(self):
+        # Synthetic B175 packets from ear-web's layouts, not a capture.
+        state, sent = self.read(
+            self.HEADPHONES,
+            build(p.BATTERY_RESP, [1, 0x06, 0xD0]) + build(p.LISTENING_MODE_RESP, [3]) +
+            build(p.SPATIAL_RESP, [2, 0]) + build(p.CODEC_RESP, [2]),
+        )
+        self.assertEqual(state["model"]["base"], "B175")
+        self.assertEqual(state["battery"]["single"], {"level": 80, "charging": True})
+        self.assertIsNone(state["battery"]["left"])
+        self.assertEqual(state["eq_preset"], 3)
+        self.assertEqual(state["spatial"], "concert")
+        self.assertEqual(state["codec"], "ldac")
+        self.assertNotIn("bass", state)
+        for cmd in (p.LISTENING_MODE_READ, p.SPATIAL_READ, p.CODEC_READ):
+            self.assertIn(cmd, sent)
+        for cmd in (p.EQ_PRESET_READ, p.BASS_READ, p.PERSONAL_ANC_READ, p.SOUND_PROFILE_READ):
+            self.assertNotIn(cmd, sent)
+
+    def test_headphones_unknown_spatial_and_codec_are_hidden_and_recorded(self):
+        # Head tracking, a mode outside the model's list, a codec it lacks.
+        for spatial, codec in (([1, 1], [1]), ([4, 0], [9]), ([], [])):
+            with self.subTest(spatial=spatial, codec=codec):
+                state, _ = self.read(
+                    self.HEADPHONES,
+                    build(p.BATTERY_RESP, [1, 6, 50]) + build(p.SPATIAL_RESP, spatial) + build(p.CODEC_RESP, codec),
+                )
+                self.assertNotIn("spatial", state)
+                self.assertNotIn("codec", state)
+                self.assertEqual(set(state["unparsed"]), {"404f", "4029"})
+
+    def test_headphones_without_spatial_or_codec_reply_still_read(self):
+        state, _ = self.read(self.HEADPHONES, build(p.BATTERY_RESP, [1, 6, 50]))
+        self.assertTrue(state["connected"])
+        self.assertNotIn("spatial", state)
+        self.assertNotIn("unparsed", state)
 
     def test_headphone_controls_use_documented_wire_payloads(self):
-        self.read(build(p.MODEL_RESP, [0x75, 0xB1]) + build(p.SERIAL_RESP, []),
-                  build(p.BATTERY_RESP, [1, 6, 50]))
+        self.read(self.HEADPHONES, build(p.BATTERY_RESP, [1, 6, 50]))
         for action, args, command, payload in (
-            (ctl.write_bass, (5,), 0xF051, [1, 10]),
-            (ctl.write_bass, (0,), 0xF051, [0, 2]),
+            (ctl.write_eq, (3,), 0xF01D, [3, 0]),
+            (ctl.write_spatial, ("concert",), 0xF052, [2, 0]),
+            (ctl.write_spatial, ("cinema",), 0xF052, [3, 0]),
+            (ctl.write_spatial, ("off",), 0xF052, [0, 0]),
+            (ctl.write_codec, ("ldac",), 0xF01C, [2]),
+            (ctl.write_codec, ("aac",), 0xF01C, [0]),
             (ctl.write_latency, (True,), 0xF040, [1, 0]),
             (ctl.write_latency, (False,), 0xF040, [2, 0]),
             (ctl.write_anc, ("anc", "low"), 0xF00F, [1, 3, 0]),
@@ -219,12 +220,32 @@ class ReadStateTests(unittest.TestCase):
                     action(ADDRESS, *args)
                 self.assertEqual(sock.send.call_args_list[0].args[0], build(command, payload))
 
-    def test_headphone_malformed_bass_is_hidden_and_recorded(self):
-        state, _ = self.read(build(p.MODEL_RESP, [0x75, 0xB1]) + build(p.SERIAL_RESP, []),
-                             build(p.BATTERY_RESP, [1, 6, 50]) + build(p.BASS_RESP, [7, 255]))
-        self.assertNotIn("bass", state)
-        self.assertEqual(state["unparsed"]["404e"], "07 ff")
-        self.assertEqual(state["eq_probe"], {"401f": None, "4050": None})
+    def test_headphone_writes_outside_the_model_are_refused(self):
+        self.read(self.HEADPHONES, build(p.BATTERY_RESP, [1, 6, 50]))
+        for action, args in (
+            (ctl.write_bass, (3,)),
+            (ctl.write_eq, (0,)),
+            (ctl.write_spatial, ("game",)),
+            (ctl.write_codec, ("lhdc",)),
+        ):
+            with self.subTest(action=action.__name__), patch.object(ctl, "connect") as connect:
+                with self.assertRaises(ctl.CtlError):
+                    action(ADDRESS, *args)
+                connect.assert_not_called()
+
+    def test_codec_switch_reports_restart_without_reading_back(self):
+        self.read(self.HEADPHONES, build(p.BATTERY_RESP, [1, 6, 50]))
+        sock = Mock()
+        with patch.object(ctl, "connect", return_value=sock), patch.object(ctl, "gather", return_value={}):
+            self.assertEqual(ctl.write_codec(ADDRESS, "ldac"), {"ok": True, "restarting": True})
+        self.assertEqual(sock.send.call_count, 1)
+
+    def test_earbuds_have_no_spatial_or_codec(self):
+        _, sent = self.read(MODEL_B179, build(p.BATTERY_RESP, [1, 0x02, 0x50]))
+        self.assertNotIn(p.SPATIAL_READ, sent)
+        self.assertNotIn(p.CODEC_READ, sent)
+        with self.assertRaises(ctl.CtlError):
+            ctl.write_spatial(ADDRESS, "concert")
 
     def test_single_battery_push_and_unknown_ids(self):
         state, _ = self.read(build(p.MODEL_RESP, [0x75, 0xB1]) + build(p.SERIAL_RESP, []),
