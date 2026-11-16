@@ -1,6 +1,6 @@
 id = "raycursive/niri-displays"
 name = "Niri Displays"
-version = "0.5.1"
+version = "0.6.0"
 plugin_api = 43
 author = "raycursive"
 license = "MIT"
@@ -54,3 +54,10 @@ height = 600
 placement = "attached"
 position = "auto"
 open_near_click = true
+
+  [[panel.setting]]
+  key = "opaque_background"
+  type = "bool"
+  label_key = "settings.opaque_background.label"
+  description_key = "settings.opaque_background.description"
+  default = false

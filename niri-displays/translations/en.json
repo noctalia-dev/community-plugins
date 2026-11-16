@@ -35,6 +35,10 @@
     "glyph": {
       "label": "Bar glyph"
     },
+    "opaque_background": {
+      "description": "Draw the panel on a solid background instead of following the bar's background opacity.",
+      "label": "Opaque panel background"
+    },
     "refresh_interval": {
       "description": "Recovery polling interval. Output changes normally refresh immediately through Noctalia's output hook, and focused-display changes are tracked reactively.",
       "label": "Fallback refresh interval (seconds)"
