@@ -2765,8 +2765,8 @@ rev = "ccf105664ca887d51252abf17d7fe031867f13fe"
 [[plugin]]
 id = "osp54/oppo-pods"
 name = "OPPO Pods"
-version = "1.1.0"
-updated_at = 1794005513
+version = "1.1.1"
+updated_at = 1794928856
 added_at = 1788624565
 author = "osp54"
 license = "MIT"
