@@ -172,6 +172,7 @@ DEFAULT_CFG: dict[str, Any] = {
     "backend": "overlay",
     "position": "top_center",
     "show_next": True,
+    "romanization": "both",
     "animate_cues": True,
     "show_idle": True,
     "karaoke": True,
@@ -192,6 +193,34 @@ PLAIN_SCROLL_END_PCT = 0.06
 PLAIN_SCROLL_FALLBACK_MS_PER_LINE = 4000
 
 
+ROMANIZATION_MODES = ("both", "romaji", "original")
+ROMANIZATION_FONT_PX = 14
+ROMANIZATION_GAP_PX = 2
+ROMANIZATION_MAX_LINES = 2
+ROMANIZATION_PLAIN_ALPHA = 0.72
+
+
+def apply_romanization_mode(lines: list[Any], mode: Any) -> list[Any]:
+    """In romaji mode, swap each line's text and timings for its romanized form."""
+    if mode != "romaji":
+        return lines
+    swapped_lines: list[Any] = []
+    for line in lines:
+        romanized = line.get("romanization") if isinstance(line, dict) else None
+        if not romanized:
+            swapped_lines.append(line)
+            continue
+        swapped = {**line, "text": romanized}
+        swapped.pop("chars", None)
+        words = line.get("romanization_words")
+        if words:
+            swapped["words"] = words
+        else:
+            swapped.pop("words", None)
+        swapped_lines.append(swapped)
+    return swapped_lines
+
+
 def merge_cfg(raw: dict[str, Any] | None) -> dict[str, Any]:
     cfg = dict(DEFAULT_CFG)
     if not isinstance(raw, dict):
@@ -201,6 +230,8 @@ def merge_cfg(raw: dict[str, Any] | None) -> dict[str, Any]:
     cfg["backend"] = "overlay"
     position = str(raw.get("position") or cfg["position"])
     cfg["position"] = position
+    if raw.get("romanization") in ROMANIZATION_MODES:
+        cfg["romanization"] = raw["romanization"]
     opt_in = {"plain_scroll", "plain_scroll_silence", "show_untimed"}
     for key in (
         "show_next",

@@ -19,6 +19,7 @@ import sys
 import threading
 import time
 import tomllib
+import unicodedata
 import xml.etree.ElementTree as ET
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
@@ -1460,6 +1461,52 @@ def _span_timings(el: Any) -> tuple[list[dict[str, Any]], list[int]]:
     return words, chars
 
 
+_ROMANIZATION_QUERY = "?extend=ttmlLocalizations&l[script]=en-Latn"
+
+
+def _ttml_attribute(el: Any, name: str) -> str:
+    """Read a TTML attribute by name, ignoring its XML namespace."""
+    for attribute, value in el.attrib.items():
+        if attribute.rsplit("}", 1)[-1] == name:
+            return str(value)
+    return ""
+
+
+def _has_non_latin_letters(text: str) -> bool:
+    for char in text:
+        if char.isalpha() and "LATIN" not in unicodedata.name(char, ""):
+            return True
+    return False
+
+
+def _line_romanization(
+    romanizations: dict[str, dict[str, Any]], el: Any, text: str
+) -> dict[str, Any]:
+    # Apple returns Latin-script lines unchanged, so showing them would duplicate the line.
+    if not _has_non_latin_letters(text):
+        return {}
+    return romanizations.get(_ttml_attribute(el, "key"), {})
+
+
+def _ttml_romanizations(root: Any) -> dict[str, dict[str, Any]]:
+    """Map each lyric line key to its Latin transliteration from the TTML head."""
+    romanizations: dict[str, dict[str, Any]] = {}
+    for el in root.iter():
+        tag = el.tag.rsplit("}", 1)[-1]
+        if tag != "transliteration" or not _ttml_attribute(el, "lang").endswith("-Latn"):
+            continue
+        for line in el:
+            key = line.attrib.get("for")
+            text = "".join(line.itertext()).strip()
+            if not key or not text:
+                continue
+            words, _chars = _span_timings(line)
+            romanizations[key] = {"romanization": text}
+            if words:
+                romanizations[key]["romanization_words"] = restore_word_spacing(words, text)
+    return romanizations
+
+
 def ttml_to_lines(ttml: str) -> tuple[list[dict[str, Any]], str]:
     """Return (lines, lrc_or_plain) from Apple Music TTML.
 
@@ -1469,6 +1516,7 @@ def ttml_to_lines(ttml: str) -> tuple[list[dict[str, Any]], str]:
     title/album text instead of staying stuck on the previous track.
     """
     root = ET.fromstring(ttml)
+    romanizations = _ttml_romanizations(root)
     timing_attr = ""
     for key, value in root.attrib.items():
         if key.endswith("timing") or key == "timing":
@@ -1496,7 +1544,10 @@ def ttml_to_lines(ttml: str) -> tuple[list[dict[str, Any]], str]:
 
     # Untimed: plain lyrics (no fake 3s sync). Caller may still try LRCLIB synced.
     if timing_attr == "none" or timed == 0:
-        plain_lines = [{"time": -1, "text": text} for _, text in paragraphs]
+        plain_lines = [
+            {"time": -1, "text": text, **_line_romanization(romanizations, el, text)}
+            for el, text in paragraphs
+        ]
         plain = "\n".join(text for _, text in paragraphs)
         return plain_lines, plain
 
@@ -1538,6 +1589,7 @@ def ttml_to_lines(ttml: str) -> tuple[list[dict[str, Any]], str]:
             entry["words"] = restore_word_spacing(words, text)
         if chars:
             entry["chars"] = chars
+        entry.update(_line_romanization(romanizations, el, text))
         lines.append(entry)
 
     lines = finalize_synced_lines(lines)
@@ -1590,6 +1642,7 @@ class CiderBridge:
         self._snapshot_lock = threading.Lock()
         self._track_key = ""
         self._lyrics_key = ""
+        self._account_storefront_id = ""
         self._last: dict[str, Any] = {}
         self._api_fail_streak = 0
         self._provider_clock_active = False
@@ -2157,22 +2210,44 @@ class CiderBridge:
             )
         )
 
+    def _post_amapi(self, path: str) -> Any:
+        return self._session.post(f"{self.base_url}/api/v1/amapi/run-v3", json={"path": path}, timeout=12)
+
+    def _account_storefront(self) -> str:
+        """Some lyrics are only returned from the signed-in account's own storefront."""
+        if self._account_storefront_id:
+            return self._account_storefront_id
+        try:
+            resp = self._post_amapi("/v1/me/storefront")
+            body = resp.json() if resp.status_code == 200 else {}
+            data = body.get("data") or body
+            self._account_storefront_id = str(data["data"][0]["id"])
+        except Exception as exc:
+            log.debug("account storefront lookup failed: %s", exc)
+        return self._account_storefront_id
+
     def _lyrics_amapi(self, catalog_id: str) -> tuple[list[dict[str, Any]], str]:
         """Prefer syllable-lyrics (word pacing) then fall back to line lyrics."""
-        paths = (
-            f"/v1/catalog/{{sf}}/songs/{catalog_id}/syllable-lyrics",
-            f"/v1/catalog/{{sf}}/songs/{catalog_id}/lyrics",
+        syllable_path = f"/v1/catalog/{{sf}}/songs/{catalog_id}/syllable-lyrics"
+        line_path = f"/v1/catalog/{{sf}}/songs/{catalog_id}/lyrics"
+        plain_paths = (syllable_path, line_path)
+        romanized_paths = (
+            syllable_path + _ROMANIZATION_QUERY,
+            syllable_path,
+            line_path + _ROMANIZATION_QUERY,
+            line_path,
         )
         best_line_only: tuple[list[dict[str, Any]], str] | None = None
-        for storefront in ("us", "gb", "ca", "au", "de", "jp"):
+        account_storefront = self._account_storefront()
+        storefronts = ["us", "gb", "ca", "au", "de", "jp"]
+        if account_storefront:
+            storefronts = [account_storefront] + [s for s in storefronts if s != account_storefront]
+        for storefront in storefronts:
+            paths = romanized_paths if storefront == account_storefront else plain_paths
             for path_tmpl in paths:
                 path = path_tmpl.format(sf=storefront)
                 try:
-                    resp = self._session.post(
-                        f"{self.base_url}/api/v1/amapi/run-v3",
-                        json={"path": path},
-                        timeout=12,
-                    )
+                    resp = self._post_amapi(path)
                     if resp.status_code != 200:
                         continue
                     body = resp.json()
@@ -2181,7 +2256,7 @@ class CiderBridge:
                     if not items:
                         continue
                     attrs = items[0].get("attributes") or {}
-                    ttml = attrs.get("ttml") or attrs.get("ttmlLocalizations")
+                    ttml = attrs.get("ttmlLocalizations") or attrs.get("ttml")
                     if not ttml:
                         continue
                     lines, lrc = ttml_to_lines(ttml)
