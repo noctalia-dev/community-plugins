@@ -1,0 +1,72 @@
+{
+  "action": {
+    "try_again": "Try again"
+  },
+  "desktop": {
+    "day_total": "{date} · {count} contributions",
+    "preparing": "Preparing contribution calendar…",
+    "summary": "{login} · {count} in the last year · {streak} day streak",
+    "title": "GitHub Contributions",
+    "summary_year": "{login} · {count} contributions in {year}"
+  },
+  "plugin": {
+    "description": "A GitHub contribution calendar as a Noctalia desktop widget.",
+    "name": "GitHub Contributions"
+  },
+  "settings": {
+    "cell_size": {
+      "description": "Width in pixels of each contribution day cell. Smaller cells make the whole calendar narrower.",
+      "label": "Cell size"
+    },
+    "desktop_color": {
+      "description": "Accent color of the contribution heatmap. The four activity levels are derived from this color. The default follows the theme (primary color).",
+      "label": "Heatmap color"
+    },
+    "refresh_interval": {
+      "description": "How often GitHub contribution data refreshes automatically.",
+      "label": "Refresh interval",
+      "options": {
+        "fifteen": "Every 15 minutes",
+        "sixty": "Every 60 minutes",
+        "thirty": "Every 30 minutes"
+      }
+    },
+    "heatmap_only": {
+      "label": "Heatmap only",
+      "description": "Show only the contribution heatmap grid, without the header, footer, or month and weekday labels."
+    },
+    "wrap": {
+      "label": "Wrap into rows",
+      "description": "Split the year into stacked blocks so the widget is narrower and taller instead of one long strip. Off keeps a single row of weeks.",
+      "options": {
+        "off": "Off (one long strip)",
+        "two": "2 blocks",
+        "three": "3 blocks",
+        "four": "4 blocks"
+      }
+    },
+    "year": {
+      "label": "Year",
+      "description": "Which year the contribution calendar covers. Changing it refetches the data.",
+      "options": {
+        "last12": "Last 12 months",
+        "y2026": "2026",
+        "y2025": "2025",
+        "y2024": "2024",
+        "y2023": "2023",
+        "y2022": "2022",
+        "y2021": "2021"
+      }
+    }
+  },
+  "status": {
+    "auth_error": "GitHub CLI needs authentication: gh auth login -h github.com",
+    "invalid_response": "GitHub returned an unexpected contribution calendar.",
+    "loading": "Loading contribution data…",
+    "missing_gh": "GitHub CLI (gh) is required to load activity.",
+    "no_data": "No contribution data is available yet.",
+    "refreshing": "Refreshing contribution data…",
+    "request_error": "GitHub Contributions could not reach GitHub.",
+    "stale": "Showing cached contribution data."
+  }
+}

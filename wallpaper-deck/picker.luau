@@ -2739,6 +2739,19 @@ local function renderCard(item: any, index: number, distSigned: number, scale: n
 
   local itemKey = tostring(item.path or item.id or item.name or index)
 
+  local cardFolder = "Wallpapers"
+  if currentMode == "wallhaven" then
+    cardFolder = "Wallhaven"
+  elseif item.relDir and item.relDir ~= "" then
+    if string.find(item.relDir, "/", 1, true) then
+      cardFolder = string.match(item.relDir, "([^/]+)$") or item.relDir
+    else
+      cardFolder = item.relDir
+    end
+  elseif rootWpDir and rootWpDir ~= "" then
+    cardFolder = string.match(rootWpDir, "([^/]+)$") or "Wallpapers"
+  end
+
   return ui.column({
     key = "slot_wrap_" .. itemKey,
     width = cardW,
@@ -2791,7 +2804,7 @@ local function renderCard(item: any, index: number, distSigned: number, scale: n
             }),
           }) or ui.spacer({ width = 1 }),
           ui.label({
-            text = "// " .. ((item.relDir and item.relDir ~= "") and (item.relDir .. "/") or "") .. displayName,
+            text = "// " .. cardFolder,
             fontSize = (s < 0.7) and 6 or 7,
             fontFamily = "JetBrainsMono Nerd Font",
             color = isCenter and "primary" or "on_surface/0.5",
@@ -3457,6 +3470,10 @@ function render()
 
   local searchBoxW = clamp(math.floor(panelW * ((currentMode == "wallhaven") and 0.18 or 0.14)), 140, (currentMode == "wallhaven") and 340 or 240)
   local searchInputW = math.max(80, searchBoxW - 64)
+  local dismissSearch = (isSearchFocused or whQueryDirty or whResDirty) and function()
+    unfocusSearch()
+    render()
+  end or nil
 
   -- Fullscreen Immersive Overlay with Fullscreen Wallpaper Background
   panel.render(wrapFullBleed(ui.column({
@@ -3880,12 +3897,7 @@ function render()
           flexGrow = 1,
           fill = "#00000001",
           onHover = "onOutsideDeckHover",
-          onClick = function()
-            if isSearchFocused or whQueryDirty or whResDirty then
-              unfocusSearch()
-              render()
-            end
-          end,
+          onClick = dismissSearch,
         }),
 
         -- Bottom Section: Action Bar + Arched Deck docked cleanly together
@@ -3897,12 +3909,7 @@ function render()
           justify = "end",
           gap = 10,
           onHover = "onDeckHover",
-          onClick = function()
-            if isSearchFocused or whQueryDirty or whResDirty then
-              unfocusSearch()
-              render()
-            end
-          end,
+          onClick = dismissSearch,
         }, {
           -- Monitor Selection Dropdown Popover (floating directly above the action buttons)
           (activeItem and monitorDropdownOpen) and ui.row({
@@ -3998,12 +4005,7 @@ function render()
             radius = 0,
             fill = "#00000001",
             onHover = "onDeckContainerHover",
-            onClick = function()
-              if isSearchFocused or whQueryDirty or whResDirty then
-                unfocusSearch()
-                render()
-              end
-            end,
+            onClick = dismissSearch,
           }, {
             (leftSpacerWidth > 0) and ui.box({
               key = "deck_left_spacer",

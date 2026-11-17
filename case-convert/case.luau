@@ -91,10 +91,12 @@ local function emit(query: string, text: string, filter: string)
 	end
 
 	local results = cases.convertAll(text, boolConfig("preserve_casing", true))
+	local ranks = cases.categoryRanks(stringConfig("category_order", ""))
 	local rows = {}
 
 	for index, result in results do
-		if filter == "" or result.name:lower():find(filter, 1, true) then
+		local visible = boolConfig("show_" .. result.category:lower(), true) and boolConfig("show_" .. result.key, true)
+		if visible and (filter == "" or result.name:lower():find(filter, 1, true)) then
 			shown[result.key] = { name = result.name, value = result.value }
 			table.insert(rows, {
 				id = "c:" .. result.key,
@@ -102,8 +104,8 @@ local function emit(query: string, text: string, filter: string)
 				subtitle = result.name,
 				badge = BLANK_BADGE,
 				category = result.category,
-				-- Fixed declaration order; the host sorts on score, descending.
-				score = 100 - index,
+				-- Category order, then declaration order; the host sorts on score, descending.
+				score = 1000 - ranks[result.category] * 100 - index,
 			})
 		end
 	end

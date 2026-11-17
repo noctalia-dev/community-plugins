@@ -67,6 +67,14 @@
       "description": "Minutes between plan-limit and usage refreshes.",
       "label": "Plan limits refresh (minutes)"
     },
+    "new_session_in": {
+      "description": "Where New session starts Claude. The desktop app opens a Code session in the chosen folder and must be signed in; resumed sessions and shells still open in the terminal.",
+      "label": "Start new sessions in",
+      "options": {
+        "desktop": "Claude desktop app",
+        "terminal": "Terminal"
+      }
+    },
     "notify_finished": {
       "description": "Desktop notification when a session goes from working to idle.",
       "label": "Notify when a session finishes"

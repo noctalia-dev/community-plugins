@@ -11,8 +11,8 @@ A clean, minimalist layout switcher plugin for MangoWC. It provides a bar widget
 
 ## Requirements
 
-Install `jq` and `mmsg` (MangoWC CLI) on `PATH`.
-Requires MangoWC as the compositor.
+Install `mmsg` (MangoWC CLI) on `PATH`.
+Requires MangoWC as the compositor, with support for `mmsg get layouts`.
 
 ## Usage
 
@@ -54,4 +54,24 @@ Widget Specific Settings:
 
 ## Notes
 
-The plugin uses `mmsg` to communicate with MangoWC for reading the active monitor state and applying the selected layout. Make sure you don't use this plugin on compositors other than MangoWC.
+The plugin discovers available layouts, their symbols, and their order directly from `mmsg get layouts`. This includes Floating and any future layouts exposed by Mango. Existing visibility settings still apply; newly discovered layouts are visible by default and use a generic icon and readable name when no presentation metadata exists. The list represents Mango's supported layouts, not the `circle_layout` cycling configuration.
+
+The panel refreshes the list whenever it opens. The widget caches discovery for 30 seconds, with retries at most once every 5 seconds after failures or an unknown active symbol. Active monitor state is still polled at the configured update interval. Temporary discovery failures retain the last successful list; an initial failure shows an unavailable state rather than a hardcoded list.
+
+The plugin uses `mmsg` to read the active monitor state and apply selected layouts by name. Make sure you don't use this plugin on compositors other than MangoWC. No Mango configuration parsing or `jq` dependency is required.
+
+## Development
+
+Run the discovery regression tests with the Luau CLI:
+
+```sh
+luau mango_layouts/layouts.test.luau
+```
+
+To also exercise the widget and panel in a mocked Noctalia host, run from the repository root with `jq` and the Luau CLI installed (neither is an additional plugin runtime dependency):
+
+```sh
+printf 'require("./mango_layouts/layouts.test")({widget = %s, panel = %s})\n' \
+	"$(jq -Rs . mango_layouts/widget.luau)" \
+	"$(jq -Rs . mango_layouts/panel.luau)" | luau
+```

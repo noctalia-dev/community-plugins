@@ -511,8 +511,8 @@ rev = "378127963fc2febcaaa1f99b6e3672f10bc0e769"
 [[plugin]]
 id = "ycf/mawaqit"
 name = "Mawaqit"
-version = "1.3.8"
-updated_at = 1792983494
+version = "1.4.0"
+updated_at = 1794782513
 added_at = 1784594730
 author = "ycf-anon"
 license = "MIT"
@@ -530,15 +530,21 @@ rev = "5a5a0d171b87f8ceb18409a07a782b7c5874393c"
 [[plugin]]
 id = "dotnetrob/cat"
 name = "Cat"
-version = "1.3.0"
-updated_at = 1791604745
+version = "1.4.0"
+updated_at = 1794782627
 added_at = 1784595702
 author = "DotNetRob"
 license = "MIT"
 icon = "paw"
 description = "An animated running cat bar widget whose speed reflects CPU usage."
-plugin_api = 12
+plugin_api = 52
 tags = ["bar", "animation", "system", "fun"]
+
+[[plugin.release]]
+plugin_api = 12
+version = "1.3.0"
+updated_at = 1791604745
+rev = "01e79890da1c2f5fab194f3614dd2709afeeed7b"
 
 [[plugin.release]]
 plugin_api = 3
@@ -549,8 +555,8 @@ rev = "00da2cd2910b2c562ceebd9b3f72829884b16946"
 [[plugin]]
 id = "alexander/game-launcher"
 name = "Game Launcher"
-version = "1.7.0"
-updated_at = 1794098135
+version = "1.7.1"
+updated_at = 1794760579
 added_at = 1784595753
 author = "Alexander"
 license = "MIT"
@@ -1138,16 +1144,22 @@ tags = ["launcher", "development", "productivity"]
 [[plugin]]
 id = "yocraft/battery-widget"
 name = "Battery Widget"
-version = "2.1.0"
-updated_at = 1787087700
+version = "2.2.0"
+updated_at = 1794404562
 added_at = 1785554104
 author = "yocraft"
 license = "MIT"
 icon = "battery"
 description = "Desktop/Lockscreen widget that displays battery level, status, charging rate, and time remaining."
 deprecated = false
-plugin_api = 26
+plugin_api = 51
 tags = ["desktop", "hardware", "system", "utility"]
+
+[[plugin.release]]
+plugin_api = 26
+version = "2.1.0"
+updated_at = 1787087700
+rev = "e8262e84fe727cef00bf18d7fce4790498c1ac71"
 
 [[plugin.release]]
 plugin_api = 3
@@ -1257,16 +1269,22 @@ rev = "4d93677e6d7f080cffd86cb1cab969c1070d20f9"
 [[plugin]]
 id = "yocraft/qrcode"
 name = "QR Code Encoder"
-version = "1.1.0"
-updated_at = 1787488112
+version = "1.2.0"
+updated_at = 1794404666
 added_at = 1785759441
 author = "yocraft"
 license = "MIT"
 icon = "qrcode"
 description = "Transform any text or URL in a QR code"
 deprecated = false
-plugin_api = 15
+plugin_api = 26
 tags = ["panel", "fun", "network", "privacy", "productivity", "utility"]
+
+[[plugin.release]]
+plugin_api = 15
+version = "1.1.0"
+updated_at = 1787488112
+rev = "b78a83b2b9923be34f24cbc20a9a5531ebdf37c5"
 
 [[plugin]]
 id = "alexander/screen-toolkit"
@@ -1321,15 +1339,21 @@ rev = "8aa75342f304aac8b3b4fd43a71c029354a450c6"
 [[plugin]]
 id = "ezequiel/mango_layouts"
 name = "Mango Layouts"
-version = "1.0.1"
-updated_at = 1792682998
+version = "2.0.0"
+updated_at = 1794848066
 added_at = 1785788249
 author = "ezequiel"
 license = "MIT"
 icon = "layout-filled"
 description = "Layout switcher for MangoWC"
-plugin_api = 14
+plugin_api = 24
 tags = ["bar", "panel", "mangowc", "utility"]
+
+[[plugin.release]]
+plugin_api = 14
+version = "1.0.1"
+updated_at = 1792682998
+rev = "cdc24dae9661c0378615fdf31bc0cd6622cbfe95"
 
 [[plugin]]
 id = "maddingo/hypr-layout-switcher"
@@ -1379,8 +1403,8 @@ rev = "1a08a98c4e819a560232c1ae81e34a01aa4d2d88"
 [[plugin]]
 id = "aristides/udiskie"
 name = "Udiskie Manager"
-version = "0.1.1"
-updated_at = 1792983494
+version = "0.1.2"
+updated_at = 1794847692
 added_at = 1785967095
 author = "aristides"
 license = "MIT"
@@ -1424,15 +1448,21 @@ tags = ["utility"]
 [[plugin]]
 id = "nightwatch75/dns-switcher"
 name = "DNS Switcher"
-version = "0.3.0"
-updated_at = 1787609248
+version = "0.5.0"
+updated_at = 1794666652
 added_at = 1786200986
 author = "nightwatch75"
 license = "MIT"
 icon = "world"
 description = "Switch the system DNS between popular providers, custom servers, or the ISP default (NetworkManager)."
-plugin_api = 28
+plugin_api = 42
 tags = ["bar", "panel", "service", "network", "privacy"]
+
+[[plugin.release]]
+plugin_api = 28
+version = "0.3.0"
+updated_at = 1787609248
+rev = "9beb6bb222d1fde3be37198ba695525b2dddc1af"
 
 [[plugin.release]]
 plugin_api = 17
@@ -1462,15 +1492,21 @@ rev = "fe464e7301b2c14bba98b7460ae1710106985a07"
 [[plugin]]
 id = "weinguyen/shell-command"
 name = "Shell Command"
-version = "0.1.0"
-updated_at = 1786216031
+version = "0.2.0"
+updated_at = 1794622031
 added_at = 1786216031
 author = "weinguyen"
 license = "MIT"
 icon = "terminal"
-description = "Run a shell command from the launcher. Type /sh then command open it your default terminal."
-plugin_api = 3
+description = "Run shell commands from the launcher: /sh opens them in your terminal, /shb runs them in the background."
+plugin_api = 22
 tags = ["launcher", "productivity", "development"]
+
+[[plugin.release]]
+plugin_api = 3
+version = "0.1.1"
+updated_at = 1794621541
+rev = "aab5e34da74a70ce7d96c15ebbab7f99fe1680d8"
 
 [[plugin]]
 id = "weinguyen/9router-control"
@@ -1811,8 +1847,8 @@ rev = "8bf825d5dce2ba8548b36e597f5b450984c95452"
 [[plugin]]
 id = "felipeartur/ai-usagebar"
 name = "AI Usage"
-version = "2.13.1"
-updated_at = 1793926399
+version = "2.16.0"
+updated_at = 1794846414
 added_at = 1786903781
 author = "felipeartur"
 license = "MIT"
@@ -1899,8 +1935,8 @@ rev = "b2ee06f7a78dd6fa216e23b381b92132d3066585"
 [[plugin]]
 id = "tphilippot/git_companion"
 name = "Git Companion"
-version = "1.4.1"
-updated_at = 1792983494
+version = "2.1.0"
+updated_at = 1794846468
 added_at = 1786925440
 author = "thomas-philippot"
 license = "MIT"
@@ -1994,8 +2030,8 @@ rev = "45757b8932bfe2362aa818705d81d0e2e9c23f0b"
 [[plugin]]
 id = "dragged/cider"
 name = "Cider"
-version = "1.11.2"
-updated_at = 1792983494
+version = "1.11.3"
+updated_at = 1794868654
 added_at = 1787148354
 author = "dragged"
 license = "MIT"
@@ -2108,8 +2144,8 @@ tags = ["bar", "panel", "service", "ai", "indicator", "utility"]
 [[plugin]]
 id = "yocraft/custom-shortcut"
 name = "Custom Shortcut"
-version = "1.0.0"
-updated_at = 1787609905
+version = "1.0.1"
+updated_at = 1794331005
 added_at = 1787609905
 author = "yocraft"
 license = "MIT"
@@ -2122,8 +2158,8 @@ tags = ["shortcut", "utility"]
 [[plugin]]
 id = "tmelik/system-monitor"
 name = "System Monitor"
-version = "1.5.3"
-updated_at = 1792983494
+version = "1.5.4"
+updated_at = 1794847959
 added_at = 1787614505
 author = "TMelik"
 license = "GPL-3.0-only"
@@ -2313,8 +2349,8 @@ rev = "ec83ef27bac7e5bea8ee0853d98b612967013ce1"
 [[plugin]]
 id = "kjvdven/case-convert"
 name = "Case Convert"
-version = "1.0.0"
-updated_at = 1788114941
+version = "1.1.0"
+updated_at = 1794760935
 added_at = 1788114941
 author = "kjvdven"
 license = "MIT"
@@ -2403,8 +2439,8 @@ tags = ["panel", "utility"]
 [[plugin]]
 id = "linux-fertxo/hyprland-visual-editor"
 name = "Hyprland Visual Editor"
-version = "2.0.4"
-updated_at = 1793842599
+version = "2.0.5"
+updated_at = 1794867493
 added_at = 1788117624
 author = "XimoCP (v4 original) + Hermy & linux-fertxo (v5 Luau port)"
 license = "MIT"
@@ -2448,8 +2484,8 @@ rev = "e4c67712a28e754ed5d399aabd09438073bc2b1e"
 [[plugin]]
 id = "notfinaldev/web-search"
 name = "Web Search"
-version = "1.4.1"
-updated_at = 1791921263
+version = "1.4.2"
+updated_at = 1794782579
 added_at = 1788121066
 author = "notfinaldev"
 license = "MIT"
@@ -2533,8 +2569,8 @@ tags = ["desktop", "utility"]
 [[plugin]]
 id = "aabidk20/yt-music"
 name = "YouTube Music"
-version = "0.4.4"
-updated_at = 1793800177
+version = "0.4.5"
+updated_at = 1794868674
 added_at = 1788315521
 author = "Aabid"
 license = "MIT"
@@ -2564,8 +2600,8 @@ rev = "69edf25c45dc117d258a37106c2331787fac9a7a"
 [[plugin]]
 id = "0lucasmatheus/awwwall"
 name = "Awwwall"
-version = "0.1.0"
-updated_at = 1788316285
+version = "0.1.1"
+updated_at = 1794452788
 added_at = 1788316285
 author = "0lucasmatheus"
 license = "MIT"
@@ -2615,8 +2651,8 @@ rev = "c1e115ff7ea0cc0fbfee3a1161409bde004f6374"
 [[plugin]]
 id = "tranzem/media-lyrics"
 name = "Media Lyrics"
-version = "0.9.9"
-updated_at = 1792983494
+version = "1.0.1"
+updated_at = 1794404251
 added_at = 1788381228
 author = "tranzem"
 license = "MIT"
@@ -2678,8 +2714,8 @@ rev = "c9287119e8e129b38750c2e5cc459d85037add2f"
 [[plugin]]
 id = "liamwh/emoji-picker"
 name = "Emoji & Symbol Picker"
-version = "1.2.2"
-updated_at = 1792983494
+version = "1.3.0"
+updated_at = 1794760799
 added_at = 1788473658
 author = "liamwh"
 license = "MIT"
@@ -3059,15 +3095,21 @@ rev = "342d37313974ccd6afa86276e82c3c8d3ad32785"
 [[plugin]]
 id = "prponkshe/umbriel-displays"
 name = "Umbriel Displays"
-version = "1.0.5"
-updated_at = 1793455620
+version = "1.0.6"
+updated_at = 1794404618
 added_at = 1789086907
 author = "prponkshe"
 license = "MIT"
 icon = "device-desktop"
 description = "Set resolution, refresh rate, scale and arrangement per connected display."
-plugin_api = 43
+plugin_api = 48
 tags = ["bar", "panel", "service", "hardware", "utility", "umbriel"]
+
+[[plugin.release]]
+plugin_api = 43
+version = "1.0.5"
+updated_at = 1793455620
+rev = "f0287bea83e80f57bc9cffd57e28063fa4b58b86"
 
 [[plugin.release]]
 plugin_api = 22
@@ -3078,8 +3120,8 @@ rev = "7b1754a22ce76a92edb98fd498ad40aa4a0a3371"
 [[plugin]]
 id = "nightwatch75/claude-cockpit"
 name = "Claude Cockpit"
-version = "1.3.0"
-updated_at = 1793975929
+version = "1.4.0"
+updated_at = 1794845081
 added_at = 1789089483
 author = "nightwatch75"
 license = "MIT"
@@ -3160,8 +3202,8 @@ rev = "8291ec1fe6f35a4e2a37f6d88254b87800ede10f"
 [[plugin]]
 id = "samuelskovbakke/calculator-plus"
 name = "Calculator Plus"
-version = "1.0.2"
-updated_at = 1792983494
+version = "1.1.0"
+updated_at = 1794845775
 added_at = 1789149960
 author = "samuelskovbakke"
 license = "MIT"
@@ -3542,8 +3584,8 @@ rev = "a2a071ba481c14bd9a9d3fba664ee4cc9cb517e6"
 [[plugin]]
 id = "strob3/dnf-updater"
 name = "DNF Updater"
-version = "1.1.0"
-updated_at = 1793026477
+version = "1.2.0"
+updated_at = 1794499934
 added_at = 1789909893
 author = "strob3"
 license = "MIT"
@@ -3796,13 +3838,13 @@ rev = "a4e31fa3f3ac6817b448e725f8ee4bc3489fe2ff"
 [[plugin]]
 id = "cmoro-deusto/nan-usage"
 name = "NaN Usage"
-version = "1.0.1"
-updated_at = 1792983494
+version = "2.0.0"
+updated_at = 1794665446
 added_at = 1790201471
 author = "cmoro-deusto"
 license = "MIT"
 icon = "brain"
-description = "Your NaN (nan.builders) quota in the bar: usage per model, time to the reset, and a warning if the burn rate is risky."
+description = "Your NaN (nan.builders) credits in the bar: allowance used, cache share, where the credits went, and pace warnings."
 plugin_api = 43
 tags = ["bar", "panel", "ai", "indicator", "utility"]
 
@@ -3943,8 +3985,8 @@ tags = ["system", "utility"]
 [[plugin]]
 id = "gamaraan/mx-control"
 name = "MX Control"
-version = "0.2.3"
-updated_at = 1792499677
+version = "0.2.4"
+updated_at = 1794789667
 added_at = 1790468021
 author = "gamaraan"
 license = "GPL-2.0-or-later"
@@ -4289,13 +4331,13 @@ rev = "961cf85442258251a6f5d16933f2f07eda0ccdca"
 [[plugin]]
 id = "ayagmar/headroom"
 name = "Headroom"
-version = "0.2.2"
-updated_at = 1792983494
+version = "0.3.0"
+updated_at = 1794452731
 added_at = 1791375801
 author = "ayagmar"
 license = "MIT"
 icon = "gauge"
-description = "How much of your Claude, Codex and Antigravity plan limits is left, per account, with reset times and forecasts."
+description = "Claude, Codex and Antigravity plan limits left per account, with reset times, forecasts and reset credits."
 plugin_api = 43
 tags = ["bar", "panel", "service", "ai", "indicator", "productivity"]
 
@@ -4519,8 +4561,8 @@ rev = "0af629732caa1dd5d9654e40ff39fd255ccf3cb3"
 [[plugin]]
 id = "gcap0n1/f1"
 name = "Formula 1"
-version = "0.1.1"
-updated_at = 1791919185
+version = "0.1.2"
+updated_at = 1794445182
 added_at = 1791760792
 author = "gcap0n1"
 license = "MIT"
@@ -4724,15 +4766,21 @@ tags = ["music", "media", "bar", "panel"]
 [[plugin]]
 id = "dmopp/keychron-battery"
 name = "Keychron Battery"
-version = "1.0.0"
-updated_at = 1792243561
+version = "1.1.0"
+updated_at = 1794452907
 added_at = 1792243561
 author = "dMopp"
 license = "MIT"
 icon = "mouse"
 description = "Battery of Keychron mice in the bar, with low-battery notifications. Needs keychron-battery-dkms for receiver and cable."
-plugin_api = 24
+plugin_api = 42
 tags = ["bar", "panel", "service", "hardware", "indicator"]
+
+[[plugin.release]]
+plugin_api = 24
+version = "1.0.0"
+updated_at = 1792243561
+rev = "9d4fb0af4480d845623f8cb314a968a433e02148"
 
 [[plugin]]
 id = "teslaoruz/bloom"
@@ -4807,8 +4855,8 @@ rev = "1abd4500577ac9f20d888456d6b4139fb1d6d802"
 [[plugin]]
 id = "zyrex/nothing-ear"
 name = "Nothing Ear"
-version = "0.3.0"
-updated_at = 1794060152
+version = "0.4.0"
+updated_at = 1794790180
 added_at = 1792534252
 author = "zyrex"
 license = "MIT"
@@ -4909,8 +4957,8 @@ rev = "a8e7a7160126e75943bd63a225599a2a16715c6e"
 [[plugin]]
 id = "nightwatch75/keysmith"
 name = "keysmith"
-version = "0.1.1"
-updated_at = 1792983494
+version = "0.2.0"
+updated_at = 1794666754
 added_at = 1792694825
 author = "nightwatch75"
 license = "MIT"
@@ -4979,8 +5027,8 @@ rev = "bbd3837669f62c7fe4d1ed11b9e29eb4d3dc7122"
 [[plugin]]
 id = "soulmanyes/split-reset"
 name = "Split Reset"
-version = "1.0.0"
-updated_at = 1792784801
+version = "1.0.1"
+updated_at = 1794623444
 added_at = 1792784801
 author = "Soulmanyes"
 license = "CC0-1.0"
@@ -5177,8 +5225,8 @@ tags = ["desktop", "utility"]
 [[plugin]]
 id = "soulmanyes/workspace-restore"
 name = "Workspace Restore"
-version = "1.3.0"
-updated_at = 1793147587
+version = "1.3.1"
+updated_at = 1794405056
 added_at = 1793061365
 author = "Soulmanyes"
 license = "CC0-1.0"
@@ -5190,8 +5238,8 @@ tags = ["hyprland", "bar", "panel", "productivity"]
 [[plugin]]
 id = "ishan0121/wallpaper-deck"
 name = "Wallpaper Deck"
-version = "1.3.0"
-updated_at = 1793549015
+version = "1.3.1"
+updated_at = 1794622746
 added_at = 1793071179
 author = "Ishan0121"
 license = "GPL-3.0"
@@ -5203,8 +5251,8 @@ tags = ["wallpaper", "animation", "theming", "desktop"]
 [[plugin]]
 id = "dmopp/settings-to-nix"
 name = "Settings to Nix"
-version = "1.0.0"
-updated_at = 1793111197
+version = "1.0.1"
+updated_at = 1794523162
 added_at = 1793111197
 author = "dMopp"
 license = "MIT"
@@ -5216,8 +5264,8 @@ tags = ["shortcut", "service", "nixos", "utility"]
 [[plugin]]
 id = "edward/claude-operator"
 name = "Claude Operator"
-version = "0.7.5"
-updated_at = 1793735798
+version = "0.7.6"
+updated_at = 1794782866
 added_at = 1793111940
 author = "edward"
 license = "MIT"
@@ -5229,8 +5277,8 @@ tags = ["ai", "development", "bar", "desktop", "panel", "launcher", "service", "
 [[plugin]]
 id = "dmopp/opnsense-traffic"
 name = "OPNsense Traffic"
-version = "1.0.1"
-updated_at = 1794189524
+version = "1.1.0"
+updated_at = 1794869428
 added_at = 1793112472
 author = "dMopp"
 license = "MIT"
@@ -5508,15 +5556,15 @@ tags = ["hyprland", "indicator", "bar"]
 [[plugin]]
 id = "lowcache/dropkitty"
 name = "dropkitty"
-version = "0.1.0"
-updated_at = 1793800113
+version = "0.2.0"
+updated_at = 1794845923
 added_at = 1793800113
 author = "lowcache"
 license = "MIT"
 icon = "terminal-2"
-description = "Quake-style drop-down terminal on kitty, with a bar toggle and a finished-command badge."
+description = "Quake-style drop-down terminal on kitty: bar toggle, launcher command runner, finished-command notifications."
 plugin_api = 26
-tags = ["bar", "service", "productivity", "utility", "niri", "hyprland", "sway"]
+tags = ["bar", "service", "launcher", "productivity", "utility", "niri", "hyprland", "sway"]
 
 [[plugin]]
 id = "fr4j4/hyprland-minimize"
@@ -5625,8 +5673,8 @@ tags = ["hardware", "media", "network", "panel", "utility", "video"]
 [[plugin]]
 id = "3dprogramin/vscode"
 name = "VS Code"
-version = "0.1.1"
-updated_at = 1794252000
+version = "0.2.0"
+updated_at = 1794452859
 added_at = 1793977201
 author = "3dprogramin"
 license = "MIT"
@@ -5664,8 +5712,8 @@ tags = ["bar", "animation", "system", "hardware", "fun"]
 [[plugin]]
 id = "gitgxldf1sh/proton-wireguard"
 name = "Proton VPN + WireGuard"
-version = "0.1.0"
-updated_at = 1794146174
+version = "0.2.0"
+updated_at = 1794404702
 added_at = 1794146174
 author = "gitgxldf1sh"
 license = "MIT"
@@ -5677,8 +5725,8 @@ tags = ["bar", "panel", "service", "shortcut", "network", "privacy"]
 [[plugin]]
 id = "kaler/synced-lyrics"
 name = "Synced Lyrics"
-version = "1.0.2"
-updated_at = 1794318733
+version = "1.1.4"
+updated_at = 1794666792
 added_at = 1794237263
 author = "kaler"
 license = "MIT"
@@ -5712,3 +5760,394 @@ icon = "music"
 description = "Synced lyrics in a floating terminal window with karaoke and a large active line."
 plugin_api = 34
 tags = ["music", "system", "utility", "media"]
+
+[[plugin]]
+id = "rsmendes/wallpaper-brightness"
+name = "Wallpaper Brightness"
+version = "1.0.0"
+updated_at = 1794330957
+added_at = 1794330957
+author = "rsmendes"
+license = "MIT"
+icon = "sun"
+description = "Adjust wallpaper brightness with a slider in settings or quick panel, automatically adapting to wallpaper changes."
+plugin_api = 30
+tags = ["bar", "desktop", "panel", "service", "shortcut", "utility", "wallpaper"]
+
+[[plugin]]
+id = "omerfuyar/screen-time"
+name = "Screen Time"
+version = "1.0.1"
+updated_at = 1794403556
+added_at = 1794403556
+author = "omerfuyar"
+license = "MIT"
+icon = "hourglass"
+description = "Today's screen time in the bar, from Noctalia's own record, with your most used apps."
+plugin_api = 43
+tags = ["bar", "productivity", "time"]
+
+[[plugin]]
+id = "omerfuyar/process-manager"
+name = "Process Manager"
+version = "1.3.0"
+updated_at = 1794782461
+added_at = 1794404408
+author = "omerfuyar"
+license = "MIT"
+icon = "list-details"
+description = "Find a running app and end it, or force it to end. Grouped by app, with CPU and memory, and details for each process."
+plugin_api = 43
+tags = ["bar", "system", "utility"]
+
+[[plugin]]
+id = "omerfuyar/overview"
+name = "Overview"
+version = "1.6.0"
+updated_at = 1794782432
+added_at = 1794404457
+author = "omerfuyar"
+license = "MIT"
+icon = "layout-grid"
+description = "See every workspace and its windows at once. Click a window to go to it, drag it to move it."
+plugin_api = 43
+tags = ["bar", "hyprland", "utility"]
+
+[[plugin]]
+id = "omerfuyar/plugin-hub"
+name = "Plugin Hub"
+version = "1.3.0"
+updated_at = 1794846020
+added_at = 1794404478
+author = "omerfuyar"
+license = "MIT"
+icon = "apps"
+description = "Every plugin in one panel: enable it, change its settings, open its panels, run its commands and give any of them a key."
+plugin_api = 43
+tags = ["hyprland", "launcher", "shortcut", "utility"]
+
+[[plugin]]
+id = "naijnus/flatpak-bg"
+name = "Flatpak Background Apps"
+version = "1.1.0"
+updated_at = 1794404895
+added_at = 1794404895
+author = "Naijnus"
+license = "MIT"
+icon = "box-multiple"
+description = "See and stop Flatpak apps that keep running in the background without a window."
+plugin_api = 43
+tags = ["bar", "panel", "service", "indicator", "system", "utility", "niri"]
+
+[[plugin]]
+id = "yuta/meeting-bar"
+name = "Meeting Bar"
+version = "0.1.4"
+updated_at = 1794406805
+added_at = 1794406805
+author = "yuta"
+license = "MIT"
+icon = "calendar-event"
+description = "Your agenda, meeting links and full-screen reminders in the bar."
+plugin_api = 37
+tags = ["bar", "panel", "service", "productivity", "countdown"]
+
+[[plugin]]
+id = "adam-gassem/pomodoro-heatmap"
+name = "Pomodoro Heatmap"
+version = "0.3.0"
+updated_at = 1794410074
+added_at = 1794410074
+author = "Adam-Gassem"
+license = "MIT"
+icon = "brain"
+description = "Pomodoro timer for the bar with a focus heatmap, streaks and analytics."
+plugin_api = 43
+tags = ["bar", "panel", "service", "productivity", "time", "countdown"]
+
+[[plugin]]
+id = "miixz/reaction"
+name = "Reaction"
+version = "0.4.0"
+updated_at = 1794446314
+added_at = 1794446314
+author = "miixz"
+license = "MIT"
+icon = "photo"
+description = "Shows a sticker image or animated GIF with a sound as a heads-up overlay, then closes itself."
+plugin_api = 30
+tags = ["panel", "bar", "service", "animation", "audio", "fun"]
+
+[[plugin]]
+id = "amancode22/global-menu"
+name = "Global Menu"
+version = "1.0.0"
+updated_at = 1794452661
+added_at = 1794452661
+author = "amancode22"
+license = "GPL-3.0-or-later"
+icon = "menu-2"
+description = "macOS style menu bar: the focused application's menus move into the top bar."
+plugin_api = 24
+tags = ["bar", "panel", "system"]
+
+[[plugin]]
+id = "3dprogramin/logonbox"
+name = "LogonBox VPN"
+version = "0.1.0"
+updated_at = 1794453081
+added_at = 1794453081
+author = "3dprogramin"
+license = "MIT"
+icon = "lock"
+description = "Show LogonBox VPN status in the bar; connect and disconnect saved connections from a panel."
+plugin_api = 43
+tags = ["bar", "panel", "service", "network"]
+
+[[plugin]]
+id = "snowballons/grabit"
+name = "Grabit Launcher"
+version = "1.0.0"
+updated_at = 1794499967
+added_at = 1794499967
+author = "snowballons"
+license = "MIT"
+icon = "screenshot"
+description = "Launch grabit for screenshots, screen recording, OCR, and uploads."
+plugin_api = 42
+tags = ["bar", "panel", "shortcut", "service", "recording", "utility", "network", "language"]
+
+[[plugin]]
+id = "ooodnakov/handy"
+name = "Handy"
+version = "0.3.0"
+updated_at = 1794500325
+added_at = 1794500325
+author = "ooodnakov"
+license = "MIT"
+icon = "microphone"
+description = "Control Handy dictation and browse recent transcripts from Noctalia."
+plugin_api = 24
+tags = ["audio", "bar", "indicator", "panel", "productivity", "service", "utility"]
+
+[[plugin]]
+id = "nightwatch75/kuma-status"
+name = "Kuma Status"
+version = "0.18.2"
+updated_at = 1794501143
+added_at = 1794501143
+author = "nightwatch75"
+license = "MIT"
+icon = "heartbeat"
+description = "Uptime Kuma monitors on the bar: a glyph shows the overall state, a panel lists monitors and status pages."
+plugin_api = 43
+tags = ["bar", "panel", "network"]
+
+[[plugin]]
+id = "vasqs/habitica"
+name = "Habitica"
+version = "2.0.0"
+updated_at = 1794621749
+added_at = 1794621749
+author = "vasqs"
+license = "MIT"
+icon = "sword"
+description = "Habitica dashboard in the bar and a panel to score dailies, todos, habits and checklists."
+plugin_api = 43
+tags = ["bar", "panel", "service", "productivity", "network"]
+
+[[plugin]]
+id = "madmedicnl/niri-workspaces"
+name = "Niri Workspaces"
+version = "1.0.0"
+updated_at = 1794622154
+added_at = 1794622154
+author = "madmedicnl"
+license = "MIT"
+icon = "layout-grid"
+description = "Dots for the workspaces you are not on, with named workspaces you can leave out of the bar."
+deprecated = false
+plugin_api = 32
+tags = ["bar", "indicator", "niri"]
+
+[[plugin]]
+id = "bekiryildirimcode/prayer-times"
+name = "Prayer Times"
+version = "1.0.0"
+updated_at = 1794622266
+added_at = 1794622266
+author = "bekiryildirimcode"
+license = "MIT"
+icon = "building-mosque"
+description = "Shows the next prayer and a live countdown on the bar, with a panel of today's times based on your location."
+plugin_api = 43
+tags = ["bar", "panel", "service", "time", "countdown", "utility"]
+
+[[plugin]]
+id = "spont-427/alarm-clock"
+name = "Alarm Clock"
+version = "0.1.9"
+updated_at = 1794622585
+added_at = 1794622585
+author = "Spont-427"
+license = "MIT"
+icon = "bell"
+description = "A fixed-time alarm clock with weekday repeats, per-alarm snooze, custom audio, and optional opaque ringing window."
+plugin_api = 20
+tags = ["bar", "panel", "service", "clock", "time", "audio", "utility"]
+
+[[plugin]]
+id = "treeonlinux/social-block"
+name = "Social Block"
+version = "1.1.0"
+updated_at = 1794622638
+added_at = 1794622638
+author = "TreeOnLinux"
+license = "MIT"
+icon = "shield-lock"
+description = "One switch for focus: block social sites via /etc/hosts, with per-service toggles and app closing."
+plugin_api = 43
+tags = ["bar", "panel", "shortcut", "launcher", "service", "productivity", "privacy", "network", "hyprland"]
+
+[[plugin]]
+id = "iwasironman/tablet-display"
+name = "Tablet Display"
+version = "0.3.0"
+updated_at = 1794623137
+added_at = 1794623137
+author = "iwasironman"
+license = "MIT"
+icon = "device-tablet"
+description = "Use an Android tablet or iPad as an extended or mirrored display, streamed by Sunshine to Moonlight."
+plugin_api = 43
+tags = ["bar", "panel", "service", "shortcut", "hardware", "utility", "niri", "hyprland", "sway", "mangowc"]
+
+[[plugin]]
+id = "darulqutni-q/github-contributions-desktop"
+name = "GitHub Contributions"
+version = "1.0.0"
+updated_at = 1794666615
+added_at = 1794666615
+author = "DarulQutni-Q"
+license = "MIT"
+icon = "brand-github"
+description = "A GitHub contribution calendar as a Noctalia desktop widget."
+plugin_api = 43
+tags = ["desktop", "service", "development", "productivity", "utility", "network"]
+
+[[plugin]]
+id = "ylxc/easytier"
+name = "EasyTier Status"
+version = "1.0.0"
+updated_at = 1794667134
+added_at = 1794667134
+author = "ylxc"
+license = "MIT"
+icon = "network"
+description = "Shows EasyTier mesh VPN status in the bar, with per-peer latency, loss, traffic, routes and connectors in the panel."
+plugin_api = 43
+tags = ["network", "indicator", "bar", "panel"]
+
+[[plugin]]
+id = "fisherman/mathsym"
+name = "Mathsym"
+version = "0.1.0"
+updated_at = 1794783500
+added_at = 1794783500
+author = "fisherman"
+license = "MIT"
+icon = "math-symbols"
+description = "Find math symbols from the launcher by description, code point, LaTeX command or Lean 4 input name"
+plugin_api = 24
+tags = ["productivity", "launcher"]
+
+[[plugin]]
+id = "crsmthw/passwordless-sudo"
+name = "Passwordless Sudo"
+version = "1.0.0"
+updated_at = 1794783566
+added_at = 1794783566
+author = "CrsMthw"
+license = "MIT"
+icon = "shield-lock"
+description = "Temporarily allow sudo without a password, so AI agents can run privileged commands."
+plugin_api = 55
+tags = ["bar", "panel", "shortcut", "service", "ai", "system"]
+
+[[plugin]]
+id = "tylorismusic/gamepad-display"
+name = "Gamepad Display"
+version = "1.3.0"
+updated_at = 1794789855
+added_at = 1794789855
+author = "tylorismusic"
+license = "MIT"
+icon = "device-gamepad-2"
+description = "Live controller button, stick, trigger and D-pad display with battery level and artwork."
+plugin_api = 17
+tags = ["gaming", "hardware", "desktop", "indicator"]
+
+[[plugin]]
+id = "genuinemoron/rog-control"
+name = "ROG Control"
+version = "1.0.0"
+updated_at = 1794844331
+added_at = 1794844331
+author = "GenuineMoron"
+license = "MIT"
+icon = "gauge"
+description = "Performance modes, charge limit, graphics mode, overdrive, fans and lighting for ASUS ROG laptops, via asusd."
+plugin_api = 43
+tags = ["bar", "panel", "service", "shortcut", "hardware", "system"]
+
+[[plugin]]
+id = "faminec/cmf-buds"
+name = "CMF Buds"
+version = "1.1.0"
+updated_at = 1794867299
+added_at = 1794867299
+author = "faminec"
+license = "MIT"
+icon = "headphones"
+description = "Native control for Nothing CMF Buds Pro 2: ANC, EQ, Ultra Bass, case-dial gestures, spatial audio, and more."
+plugin_api = 43
+tags = ["audio", "utility", "bar", "panel", "hardware"]
+
+[[plugin]]
+id = "ishan0121/shipyard"
+name = "Docker & Podman Shipyard"
+version = "1.0.0"
+updated_at = 1794868602
+added_at = 1794868602
+author = "Ishan0121"
+license = "MIT"
+icon = "ship"
+description = "Unified Docker and Podman manager for Wayland: compose stacks, atomic containers, and asset pruning."
+plugin_api = 43
+tags = ["development", "system", "utility", "panel"]
+
+[[plugin]]
+id = "tadomika_ari/localcheck"
+name = "Localcheck"
+version = "0.1.0"
+updated_at = 1794868864
+added_at = 1794868864
+author = "TadomiKa-Ari"
+license = "MIT"
+icon = "file"
+description = "Localcheck"
+plugin_api = 43
+tags = ["network", "utility", "system"]
+
+[[plugin]]
+id = "kryzhh/spotify-ambient"
+name = "Spotify Ambient"
+version = "0.4.2"
+updated_at = 1794869374
+added_at = 1794869374
+author = "kryzhh"
+license = "MIT"
+icon = "brand-spotify"
+description = "Create ambient wallpapers from Spotify artwork and generate matching Noctalia palettes from the original cover art."
+plugin_api = 44
+tags = ["wallpaper", "music", "theming", "media"]

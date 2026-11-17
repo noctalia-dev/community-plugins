@@ -42,11 +42,11 @@ local fixedTs = {}                    -- session id -> start corrected by hand (
 local autoTs = {}                     -- session id -> start reported by the F1 timing feed
 local forceTabs = noctalia.getConfig("debug_force_tabs") == true
 
--- Next time (Unix seconds) each dataset is due, and in-flight guards.
+-- Next time (monotonic milliseconds) each dataset is due, and in-flight guards.
 local due = { schedule = 0, drivers = 0, constructors = 0, results = 0 }
 local busy = {}                       -- busy[name] = true while a request is out
 local gridRound = nil                 -- round the grid was last loaded for
-local gridRetryAt = 0                 -- earliest time the grid may be requested again
+local gridRetryAtMs = 0               -- earliest monotonic time the grid may be requested again
 local gridDebug = false
 local postRaceRound = nil             -- round whose post-race refresh already ran
 local lastLiveMs = 0
@@ -113,10 +113,12 @@ end
 -- outage or a rate limit is not hammered and recovers on its own.
 local attempts = {}
 
-local function retryDelay(name)
+-- Milliseconds: retry deadlines are monotonic, so a wall-clock correction
+-- (e.g. the RTC being fixed after boot) cannot postpone them for hours.
+local function retryDelayMs(name)
     local n = (attempts[name] or 0) + 1
     attempts[name] = n
-    return math.min(60 * 2 ^ (n - 1), 900)
+    return math.min(60 * 2 ^ (n - 1), 900) * 1000
 end
 
 local function succeeded(name)
@@ -187,7 +189,7 @@ end
 local function resetPerRaceData()
     generation += 1
     fixedTs, autoTs = {}, {}
-    gridRound, gridRetryAt = nil, 0
+    gridRound, gridRetryAtMs = nil, 0
     busy.grid, busy.ofDrivers, busy.ofPos, busy.ofFlag = nil, nil, nil, nil
     noctalia.state.set("grid", { loaded = false, rows = {} })
     liveRows, liveFlag, liveLatest, liveError = {}, "", 0, nil
@@ -200,7 +202,7 @@ local function loadSchedule()
     busy.schedule = true
     getJson(JOLPICA .. "current/next.json", function(data)
         busy.schedule = false
-        due.schedule = shared.nowSec() + SCHEDULE_EVERY
+        due.schedule = noctalia.nowMs() + SCHEDULE_EVERY * 1000
         local races = path(data, "MRData", "RaceTable", "Races")
         local r = type(races) == "table" and races[1] or nil
         if type(r) ~= "table" then
@@ -230,7 +232,7 @@ local function loadSchedule()
         setStatus(false, "")
     end, function(reason)
         busy.schedule = false
-        due.schedule = shared.nowSec() + retryDelay("schedule")
+        due.schedule = noctalia.nowMs() + retryDelayMs("schedule")
         setStatus(false, reason)
     end)
 end
@@ -245,7 +247,7 @@ local FEED_SESSIONS = {
 }
 local MAX_FEED_SHIFT = 12 * 3600          -- ignore a feed time further than this from the calendar
 local SESSION_INFO_EVERY = 60             -- seconds, inside the weekend window
-local sessionInfoAt = 0
+local sessionInfoAtMs = 0
 
 local function loadSessionInfo()
     if busy.sessionInfo or race == nil then return end
@@ -302,7 +304,7 @@ local function loadDrivers()
         noctalia.state.set("drivers", { loaded = true, failed = false, rows = shared.bounded(rows, 30) })
     end, function()
         busy.drivers = false
-        due.drivers = shared.nowSec() + retryDelay("drivers")
+        due.drivers = noctalia.nowMs() + retryDelayMs("drivers")
         noctalia.state.set("drivers", failedState("drivers"))
     end)
 end
@@ -332,7 +334,7 @@ local function loadConstructors()
         noctalia.state.set("constructors", { loaded = true, failed = false, rows = shared.bounded(rows, 15) })
     end, function()
         busy.constructors = false
-        due.constructors = shared.nowSec() + retryDelay("constructors")
+        due.constructors = noctalia.nowMs() + retryDelayMs("constructors")
         noctalia.state.set("constructors", failedState("constructors"))
     end)
 end
@@ -368,7 +370,7 @@ local function loadResults()
         })
     end, function()
         busy.results = false
-        due.results = shared.nowSec() + retryDelay("results")
+        due.results = noctalia.nowMs() + retryDelayMs("results")
         noctalia.state.set("results", failedState("results"))
     end)
 end
@@ -405,7 +407,7 @@ local function loadGrid()
     end, function()
         busy.grid = false
         gridRound = nil
-        gridRetryAt = shared.nowSec() + retryDelay("grid")
+        gridRetryAtMs = noctalia.nowMs() + retryDelayMs("grid")
         noctalia.state.set("grid", failedState("grid"))
     end, { scoped = true })
 end
@@ -680,25 +682,26 @@ end
 -- ── Scheduler ────────────────────────────────────────────────────────────────
 
 local function refreshAll()
-    local now = shared.nowSec()
-    due.schedule, due.drivers, due.constructors, due.results = now, now, now, now
-    gridRound, gridRetryAt = nil, 0
+    local ms = noctalia.nowMs()
+    due.schedule, due.drivers, due.constructors, due.results = ms, ms, ms, ms
+    gridRound, gridRetryAtMs = nil, 0
 end
 
 function update()
     local now = shared.nowSec()
+    local ms = noctalia.nowMs()
 
-    if now >= due.schedule then loadSchedule() end
-    if now >= due.drivers then
-        due.drivers = now + STANDINGS_EVERY
+    if ms >= due.schedule then loadSchedule() end
+    if ms >= due.drivers then
+        due.drivers = ms + STANDINGS_EVERY * 1000
         loadDrivers()
     end
-    if now >= due.constructors then
-        due.constructors = now + STANDINGS_EVERY
+    if ms >= due.constructors then
+        due.constructors = ms + STANDINGS_EVERY * 1000
         loadConstructors()
     end
-    if now >= due.results then
-        due.results = now + STANDINGS_EVERY
+    if ms >= due.results then
+        due.results = ms + STANDINGS_EVERY * 1000
         loadResults()
     end
 
@@ -707,26 +710,26 @@ function update()
     local raceTs = shared.sessionTs(sessions, "race")
     if raceTs ~= nil and race ~= nil and now > raceTs + 3 * 3600 + 900 and postRaceRound ~= race.round then
         postRaceRound = race.round
-        due.schedule, due.drivers, due.constructors, due.results = now, now, now, now
+        due.schedule, due.drivers, due.constructors, due.results = ms, ms, ms, ms
     end
 
     -- F1's timing feed: follow delays from a few hours before the first session
     -- until a few hours after the race, once a minute.
-    if race ~= nil and #rawSessions > 0 and now - sessionInfoAt >= SESSION_INFO_EVERY then
+    if race ~= nil and #rawSessions > 0 and ms - sessionInfoAtMs >= SESSION_INFO_EVERY * 1000 then
         local first, last = rawSessions[1].ts, rawSessions[#rawSessions].ts
         for _, base in ipairs(rawSessions) do
             if base.ts < first then first = base.ts end
             if base.ts > last then last = base.ts end
         end
         if now >= first - 3 * 3600 and now <= last + 4 * 3600 then
-            sessionInfoAt = now
+            sessionInfoAtMs = ms
             loadSessionInfo()
         end
     end
 
     -- Starting grid: needed once qualifying is over, or always in debug mode.
     if race ~= nil and (forceTabs or shared.gridApplicable(sessions, now)) then
-        if now >= gridRetryAt and (gridRound ~= race.round or gridDebug ~= forceTabs) then loadGrid() end
+        if ms >= gridRetryAtMs and (gridRound ~= race.round or gridDebug ~= forceTabs) then loadGrid() end
     end
 
     -- Live timing: only near a session.
@@ -801,7 +804,7 @@ function onIpc(event, payload)
     end
     if event == "delay_clear" then
         fixedTs = {}
-        sessionInfoAt = 0
+        sessionInfoAtMs = 0
         republishRace()
         return
     end
@@ -819,6 +822,9 @@ noctalia.state.watch("command", function(value)
 end)
 
 noctalia.setUpdateInterval(1000)
+-- Publish every key the panel mirrors, even before the first fetch, so a
+-- consumer that snapshots state at load time always registers its watches.
+noctalia.state.set("race", noctalia.state.get("race") or false)
 noctalia.state.set("drivers", noctalia.state.get("drivers") or { loaded = false, rows = {} })
 noctalia.state.set("constructors", noctalia.state.get("constructors") or { loaded = false, rows = {} })
 noctalia.state.set("results", noctalia.state.get("results") or { loaded = false, raceName = "", rows = {} })

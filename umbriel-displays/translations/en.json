@@ -34,8 +34,7 @@
     "workspaces_mode": "Workspace inventory"
   },
   "rescue": {
-    "blind": "No display was reported. Every output was re-enabled.",
-    "body": "{name} was re-enabled: it is the only display left.",
+    "body": "{name} was temporarily enabled because all connected displays were off.",
     "title": "Displays"
   },
   "settings": {

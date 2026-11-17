@@ -1,7 +1,6 @@
 --!nonstrict
 -- What the capsule and the panel both need, in one copy, so the parsing and the
--- severity tiers cannot drift between two entries that agree on screen. Needs
--- plugin_api 22, where require() arrived.
+-- severity tiers cannot drift between two entries that agree on screen.
 
 local M = {}
 
@@ -42,11 +41,13 @@ local PROVIDER_GLYPHS = {
     synthetic = "flask",
     droid = "robot",
     deeprelay = "route",
+    mistral = "wind",
 }
 
 local PROVIDER_DASHBOARDS = {
     droid = "https://app.factory.ai/",
     deeprelay = "https://deeprelay.ai/",
+    mistral = "https://console.mistral.ai/",
     anthropic = "https://claude.ai/settings/usage",
     anthropic_api = "https://console.anthropic.com/",
     openai = "https://chatgpt.com/codex/settings/usage",
@@ -122,6 +123,13 @@ local function terminalAuthText(value)
     return status and text:find("auth", 1, true) ~= nil and rejected
 end
 
+-- The CLI owns cache validity; a dated ready snapshot stays visible as stale.
+local function cachedReading(entry)
+    return type(entry) == "table" and entry.status == "ready" and entry.stale == true
+        and M.parseIso(entry.fetched_at) ~= nil
+        and ((type(entry.metrics) == "table" and #entry.metrics > 0) or M.balanceText(entry) ~= nil)
+end
+
 function M.terminalAuth(entry)
     if type(entry) ~= "table" then return false end
     if terminalAuthText(entry.error) then return true end
@@ -156,6 +164,7 @@ function M.warning(entry)
 end
 
 function M.unavailable(entry)
+    if cachedReading(entry) then return false end
     if type(entry) ~= "table" then return true end
     if entry.status == "error" or M.warning(entry) ~= "" then return true end
     if entry.stale ~= true then return false end
@@ -485,7 +494,6 @@ end
 function M.modelDisplayName(label)
     local lower = tostring(label or ""):lower()
     if lower:find("oss", 1, true) or lower:find("claude", 1, true) then return tostring(label or "") end
-    if lower:find("gemini", 1, true) then return tostring(label or "") end
     if lower:find("gpt", 1, true) or lower:find("openai", 1, true) then return "GPT" end
     return tostring(label or "")
 end
@@ -535,15 +543,9 @@ function M.dualMetrics(metrics)
     if #metrics == 0 then return nil, nil end
     if #metrics == 1 then
         local m = metrics[1]
-        local isWeekly = false
-        if type(m) == "table" then
-            local w = tonumber(m.window_secs)
-            local lbl = tostring(m.label or ""):lower()
-            if (w ~= nil and w > 86400) or lbl:find("week", 1, true) or lbl:find("7d", 1, true) then
-                isWeekly = true
-            end
-        end
-        if isWeekly then
+        local w = tonumber(m.window_secs)
+        local lbl = tostring(m.label or ""):lower()
+        if (w ~= nil and w > 86400) or lbl:find("week", 1, true) or lbl:find("7d", 1, true) then
             return nil, m
         end
         return m, nil
@@ -553,20 +555,18 @@ function M.dualMetrics(metrics)
     local weeklyMetric = nil
 
     for _, m in ipairs(metrics) do
-        if type(m) == "table" then
-            local w = tonumber(m.window_secs)
-            local lbl = tostring(m.label or ""):lower()
-            if w ~= nil then
-                if w <= 86400 and shortMetric == nil then
-                    shortMetric = m
-                elseif w > 86400 and weeklyMetric == nil then
-                    weeklyMetric = m
-                end
-            elseif lbl:find("5h", 1, true) or lbl:find("session", 1, true) or lbl:find("hour", 1, true) then
-                if shortMetric == nil then shortMetric = m end
-            elseif lbl:find("week", 1, true) or lbl:find("7d", 1, true) then
-                if weeklyMetric == nil then weeklyMetric = m end
+        local w = tonumber(m.window_secs)
+        local lbl = tostring(m.label or ""):lower()
+        if w ~= nil then
+            if w <= 86400 and shortMetric == nil then
+                shortMetric = m
+            elseif w > 86400 and weeklyMetric == nil then
+                weeklyMetric = m
             end
+        elseif lbl:find("5h", 1, true) or lbl:find("session", 1, true) or lbl:find("hour", 1, true) then
+            if shortMetric == nil then shortMetric = m end
+        elseif lbl:find("week", 1, true) or lbl:find("7d", 1, true) then
+            if weeklyMetric == nil then weeklyMetric = m end
         end
     end
 
@@ -593,7 +593,7 @@ function M.entries(report)
     if type(report) ~= "table" or type(report.entries) ~= "table" then return {} end
     local visible, positions = {}, {}
     for _, entry in ipairs(report.entries) do
-        if type(entry) == "table" and not M.terminalAuth(entry)
+        if type(entry) == "table" and (cachedReading(entry) or not M.terminalAuth(entry))
             and (not M.unavailable(entry) or M.readFailure(entry)) then
             visible[#visible + 1] = entry
             positions[entry] = #visible
@@ -657,11 +657,16 @@ function M.priorities(report)
             seen[id] = true
             local status = type(row.status) == "string" and statuses[row.status] and row.status or "unknown"
             local reset = type(row.reset_at) == "string" and #row.reset_at <= 64 and row.reset_at or nil
+            local parsedReset = nil
             if reset ~= nil then
                 local ok, parsed = pcall(M.parseIso, reset)
-                if not ok or parsed == nil then reset = nil end
+                if ok and parsed ~= nil then
+                    parsedReset = parsed
+                else
+                    reset = nil
+                end
             end
-            local expired = reset ~= nil and M.parseIso(reset) <= os.time()
+            local expired = parsedReset ~= nil and parsedReset <= os.time()
             local stale = entry.stale == true or row.stale == true or report.stale == true or expired
             rows[#rows + 1] = {
                 entry = entry, status = status, stale = stale, expired = expired,

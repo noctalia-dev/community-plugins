@@ -1,6 +1,6 @@
 id = "kaler/synced-lyrics"
 name = "Synced Lyrics"
-version = "1.0.2"
+version = "1.1.4"
 plugin_api = 43
 author = "kaler"
 license = "MIT"
@@ -10,7 +10,7 @@ icon = "music"
 
 dependencies = [
   "python3",
-  "playerctl"
+  "systemd"
 ]
 
 [[setting]]
@@ -115,7 +115,6 @@ options = [
   { value = "betterlyrics", label_key = "settings.preferred-source.options.betterlyrics" },
   { value = "unison", label_key = "settings.preferred-source.options.unison" },
   { value = "lrclib", label_key = "settings.preferred-source.options.lrclib" },
-  { value = "genius", label_key = "settings.preferred-source.options.genius" },
 ]
 
 [[setting]]

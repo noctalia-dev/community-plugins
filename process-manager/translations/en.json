@@ -1,0 +1,87 @@
+{
+  "action": {
+    "end": "End",
+    "end_admin": "End as admin",
+    "end_all": "End all",
+    "force": "Force end",
+    "force_admin": "Force end as admin"
+  },
+  "details": {
+    "back": "Back to the list",
+    "command": "Command line",
+    "cpu": "CPU",
+    "days": "{days} d {clock}",
+    "elapsed": "Running for",
+    "gone": "This process has ended.",
+    "io_hidden": "Only its owner or an administrator can see what it reads and writes.",
+    "memory": "Memory",
+    "parent": "Started by",
+    "parent_of": "{name} ({pid})",
+    "pid": "PID {pid}",
+    "rate": "{total} · {rate}/s",
+    "read": "Read",
+    "share": "{size} · {share}%",
+    "status": "Status",
+    "threads": "Threads",
+    "user": "User",
+    "written": "Written"
+  },
+  "group": {
+    "count": "{name} ({count})",
+    "more": "{count} more. Search by name or PID to find one."
+  },
+  "panel": {
+    "all_users": "All users",
+    "apps": {
+      "one": "1 app",
+      "other": "{count} apps"
+    },
+    "loading": "Loading…",
+    "no_ps": "Process Manager needs ps and kill.",
+    "none": "No process matches.",
+    "search": "Search by name, command, user or PID",
+    "title": "Processes"
+  },
+  "process": {
+    "detail": "PID {pid} · {user}"
+  },
+  "settings": {
+    "admin": {
+      "description": "How to end another user's process. pkexec asks for the password in a window and needs a polkit agent; a terminal asks with sudo.",
+      "label": "End as admin with",
+      "options": {
+        "pkexec": "pkexec",
+        "terminal": "sudo in a terminal"
+      }
+    },
+    "interval": {
+      "description": "How often the list updates while the panel is open, in milliseconds. Lower is more current and uses more CPU.",
+      "label": "Refresh every"
+    }
+  },
+  "sort": {
+    "cpu": "CPU",
+    "memory": "Memory",
+    "name": "Name"
+  },
+  "state": {
+    "denied": "Belongs to {user}: ending it needs an administrator.",
+    "ending": "Asked to end…",
+    "stuck": "Did not end. Force end stops it at once, without saving.",
+    "waiting": "Waiting on a disk or device. It ends only once that answers.",
+    "zombie": "Already ended, waiting for its parent to notice."
+  },
+  "status": {
+    "dead": "Dead",
+    "device": "Waiting on a device",
+    "idle": "Idle",
+    "running": "Running",
+    "sleeping": "Sleeping",
+    "stopped": "Stopped",
+    "traced": "Stopped by a debugger",
+    "zombie": "Zombie"
+  },
+  "widget": {
+    "tooltip": "Processes: find and end a running app"
+  }
+}

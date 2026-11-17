@@ -41,12 +41,16 @@ local LOCAL_AGY = "~/.local/bin/agy"
 
 -- Module state lives as long as the service.
 local renewSession = renew.new(600, 30000)
--- A failed lookup may mean a locked keyring, and asking again could raise an
--- unlock prompt on every refresh. So after a failure the keyring rests for
--- KEYRING_BACKOFF and only the token file is read.
-local KEYRING_BACKOFF = 30 * 60
-local keyringFailedAt = -math.huge
-local planCache: { value: string?, at: number } = { value = nil, at = -math.huge }
+-- A lookup that times out may be waiting on a locked keyring's unlock prompt,
+-- and one that fails may be a prompt the user dismissed; asking again would
+-- raise it on every refresh. So after either the keyring rests and only the
+-- token file is read: KEYRING_REST after a timeout, KEYRING_MISS_REST after a
+-- failure (which is also how "not signed in yet" looks, so not for long).
+local KEYRING_REST = 30 * 60
+local KEYRING_MISS_REST = 5 * 60
+local keyringRestUntil = -math.huge
+-- The plan name, for the token it was read with: another sign-in asks again.
+local planCache: { value: string?, at: number, auth: string? } = { value = nil, at = -math.huge, auth = nil }
 
 type Session = { accessToken: string, expiry: any }
 
@@ -86,7 +90,7 @@ local function readSession(ctx, done: (Session?) -> ())
     local raw = ctx.readFile(path)
     done(parseSession(raw, ctx))
   end
-  if not ctx.which("secret-tool") or ctx.now() - keyringFailedAt < KEYRING_BACKOFF then
+  if not ctx.which("secret-tool") or ctx.now() < keyringRestUntil then
     fromFile()
     return
   end
@@ -94,10 +98,10 @@ local function readSession(ctx, done: (Session?) -> ())
     local session = result and result.exitCode == 0 and parseSession(result.stdout, ctx) or nil
     if session then
       done(session)
-    else
-      keyringFailedAt = ctx.now()
-      fromFile()
+      return
     end
+    keyringRestUntil = ctx.now() + (if result == nil then KEYRING_REST else KEYRING_MISS_REST)
+    fromFile()
   end)
 end
 
@@ -183,15 +187,16 @@ end
 
 -- Best effort: a failure leaves the plan unknown and never fails the fetch.
 local function withPlan(ctx, headers, done: (string?) -> ())
-  if ctx.now() - planCache.at < PLAN_TTL then
+  local auth = headers["Authorization"]
+  if planCache.auth == auth and ctx.now() - planCache.at < PLAN_TTL then
     done(planCache.value)
     return
   end
   ctx.postJson(CODE_ASSIST_URL, headers, CLIENT_METADATA, function(data, err)
     if err == nil then
-      planCache = { value = planFrom(data), at = ctx.now() }
+      planCache = { value = planFrom(data), at = ctx.now(), auth = auth }
     end
-    done(planCache.value)
+    done(if planCache.auth == auth then planCache.value else nil)
   end)
 end
 
@@ -231,8 +236,6 @@ return provider.define({
   name = "Antigravity",
   brand = {
     logo = "providers/antigravity/logo.svg",
-    tint = "#4c8df6",
-    glyph = "rocket",
   },
 
   isConfigured = function(ctx)

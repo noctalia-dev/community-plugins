@@ -57,8 +57,13 @@ the daemon.
 
 Turning the bar widget on runs `awww query` to check whether `awww-daemon` is
 already running (a plain process-name match can false-positive on unrelated
-processes), starts it if not, and disables Noctalia's own wallpaper surface
-per output. From then on, the `mirror` service polls
+processes). If it is not running, the plugin starts it and polls `awww query`
+for up to about 5 seconds until the daemon answers and lists its outputs, so
+the first `awww img` never races a daemon that is still starting. A failed
+`awww img` is retried on the next tick; the error notification only appears
+after 3 consecutive failures, and each failure is logged with awww's error
+output. It then disables Noctalia's own
+wallpaper surface per output. From then on, the `mirror` service polls
 `noctalia.wallpaperPath(connector)` once a second and runs
 `awww img <path> -o <connector>` with the settings above whenever it changes.
 Turning the widget off restores Noctalia's surface on every output it had

@@ -5,6 +5,7 @@
 -- `index` and `pins`; refresh, pin and delete go back to the service as commands.
 -- After claude-cockpit's Sessions tab (nightwatch75, MIT).
 local shared = require("./shared.luau")
+local actions = require("./actions.luau")
 local kit = require("./kit.luau")
 local M = {}
 M.nav = kit.nav()
@@ -121,7 +122,7 @@ end
 
 local function resume(ctx, s)
   if s.empty then return end -- nothing to resume: claude would exit at once
-  shared.resume(s.account, s.cwd, s.id)
+  actions.resume(s.account, s.cwd, s.id)
   ctx.close()
 end
 
@@ -142,7 +143,7 @@ local function sessionRow(ctx, s, selected, isLive, hasMd)
       selected = selected, tooltip = s.empty and "Empty session: nothing to resume" or "Resume in a terminal",
       onClick = function() resume(ctx, s) end }),
     string.sub(s.cwd, 1, 1) == "/" and kit.iconButton("brain", hasMd and "Open CLAUDE.md" or "Create CLAUDE.md",
-      function() shared.openInEditor(md) end) or nil,
+      function() actions.openInEditor(md) end) or nil,
     kit.iconButton(preview == s.id and "eye-off" or "eye", "Preview", function()
       preview = preview ~= s.id and s.id or nil
       ctx.render()

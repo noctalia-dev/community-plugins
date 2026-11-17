@@ -1,14 +1,14 @@
 --!nonstrict
--- Bar widget: a shield for Proton VPN and a network glyph while any
--- WireGuard tunnel is up. Left click opens the panel; right click toggles
--- Proton (fastest server).
+-- Bar widget: a shield for Proton VPN (with a lock while the kill switch is
+-- armed, crossed out in red while it is blocking traffic) and a network glyph
+-- while any WireGuard tunnel is up. Left click opens the panel; right click
+-- toggles Proton, or cancels a connection attempt.
 
 local STATE_KEY = "pw.state"
 local CMD_KEY = "pw.cmd"
 local PANEL_ID = "gitgxldf1sh/proton-wireguard:panel"
 
 local s = noctalia.state.get(STATE_KEY) or {}
-local showServer = noctalia.getConfig("show_server") == true
 
 local function send(op, value)
 	noctalia.state.set(CMD_KEY, { op = op, value = value, n = noctalia.nowMs() })
@@ -17,13 +17,15 @@ end
 local function render()
 	local p = s.proton or {}
 	local conns = (s.wg and s.wg.connections) or {}
+	local showServer = noctalia.getConfig("show_server") == true
+	local ksArmed = ((s.config or {}).killSwitch or "off") ~= "off"
 
 	local active, busy = {}, false
 	for _, c in ipairs(conns) do
 		if c.state == "activated" then
 			table.insert(active, c.name)
 		end
-		if c.busy or c.state == "activating" then
+		if c.busy or c.state == "activating" or c.state == "deactivating" then
 			busy = true
 		end
 	end
@@ -32,7 +34,9 @@ local function render()
 	if p.busy then
 		color = "tertiary"
 	elseif p.up then
-		glyph, color = "shield-check", "primary"
+		glyph, color = if ksArmed then "shield-lock" else "shield-check", "primary"
+	elseif p.blocked then
+		glyph, color = "shield-x", "error"
 	end
 
 	local children = { ui.glyph({ name = glyph, size = 16, color = color }) }
@@ -50,7 +54,13 @@ local function render()
 	if p.installed and p.signedIn then
 		local value
 		if p.busy then
-			value = noctalia.tr(if p.action == "disconnecting" then "status.disconnecting" else "status.connecting")
+			if p.action == "disconnecting" then
+				value = noctalia.tr("status.disconnecting")
+			elseif p.action == "cancelling" then
+				value = noctalia.tr("status.cancelling")
+			else
+				value = noctalia.tr("status.connecting")
+			end
 		elseif p.up then
 			value = p.server or ""
 			if (p.location or "") ~= "" then
@@ -65,6 +75,11 @@ local function render()
 		table.insert(rows, { key = noctalia.tr("proton.title"), value = value })
 		if p.up and (p.ip or "") ~= "" then
 			table.insert(rows, { key = "IP", value = p.ip })
+		end
+		if p.blocked then
+			table.insert(rows, { key = noctalia.tr("protection.killswitch"), value = noctalia.tr("bar.blocking") })
+		elseif ksArmed and p.up then
+			table.insert(rows, { key = noctalia.tr("protection.killswitch"), value = noctalia.tr("bar.armed") })
 		end
 	end
 	if #conns > 0 then

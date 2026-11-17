@@ -12,10 +12,19 @@ M.DEVICES_KEY = "nothing_ear_devices"
 -- without a separate "enable polling" setting.
 M.DESKTOP_ACTIVE_KEY = "nothing_ear_desktop_active"
 
+-- `icon` names a pair of files in icons/ (dark and "-light" tint), drawn for
+-- this plugin.
 M.ANC_MODES = {
-	{ mode = "anc", glyph = "shield-check", labelKey = "panel.mode.anc" },
-	{ mode = "transparency", glyph = "ear", labelKey = "panel.mode.transparency" },
-	{ mode = "off", glyph = "volume-off", labelKey = "panel.mode.off" },
+	{ mode = "anc", icon = "mode-anc", labelKey = "panel.mode.anc" },
+	{ mode = "transparency", icon = "mode-transparency", labelKey = "panel.mode.transparency" },
+	{ mode = "off", icon = "mode-off", labelKey = "panel.mode.off" },
+}
+
+-- Spatial audio mode -> icon; a mode without one falls back to a text button.
+M.SPATIAL_ICONS = {
+	concert = "spatial-concert",
+	cinema = "spatial-cinema",
+	off = "mode-off",
 }
 
 -- Wire index -> preset, mapped against the Nothing X app on a Nothing Ear (2)

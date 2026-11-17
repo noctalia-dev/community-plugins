@@ -31,6 +31,7 @@
     "hold_unlimited": "Peaks are kept until reset",
     "interfaces": "Interfaces",
     "of_line": "line {line}",
+    "of_link": "link {line}",
     "peak": "Peak {peak} at {at} · measured since {since}",
     "reset_peaks": "Reset peaks",
     "show": "Show this interface again",
@@ -94,6 +95,10 @@
       "description": "Your line's bandwidth in Mbit/s, for example from your provider contract. Scales gauge and graph and turns on the highlight. 0 scales to the highest rate seen and never highlights.",
       "label": "Line speed up (Mbit/s)"
     },
+    "local_interface": {
+      "description": "Network interface of this PC, e.g. enp6s0. Empty: total of all physical interfaces, like the built-in network widget.",
+      "label": "PC interface"
+    },
     "peak_hold_hours": {
       "description": "How long a measured peak counts for the adaptive scale (no line speed set). 0 keeps it until you reset it in the panel. Stored on disk, survives restarts. Does not add API requests.",
       "label": "Keep peaks (hours)"
@@ -104,6 +109,10 @@
     },
     "show_glyph": {
       "label": "Show glyph"
+    },
+    "show_local": {
+      "description": "Adds this PC's own rate in parentheses next to the firewall value, with its own gauge or graph scaled to the link speed of the network card, e.g. 6.9M (9.6k). Also adds a This PC block to tooltip and panel. Read from Noctalia's system monitor.",
+      "label": "Show this PC's rate"
     },
     "show_units": {
       "label": "Show units"
@@ -140,8 +149,6 @@
     }
   },
   "tooltip": {
-    "download": "Download",
-    "interface": "Interface",
-    "upload": "Upload"
+    "this_pc": "This PC"
   }
 }

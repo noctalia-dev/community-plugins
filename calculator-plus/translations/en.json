@@ -5,11 +5,12 @@
     "close": "Close panel",
     "copied": "Copied {value} to clipboard",
     "copy_expr": "Copy expression",
+    "copy_result": "Copy result",
     "delete": "Delete",
     "empty": "No calculations yet, type an expression below",
     "error": "Could not evaluate expression",
     "evaluating": "Evaluating...",
-    "hint": "'clear' clears history - 'exit' closes",
+    "hint": "'clear' clears history - 'exit' closes\n'ans' will be replaced by the previous result",
     "placeholder": "Type an expression...",
     "rerun": "Re-run",
     "title": "Calculator"
@@ -19,9 +20,17 @@
       "description": "Icon glyph name.",
       "label": "Glyph"
     },
+    "preserve_history": {
+      "description": "Saves the history between restarts. Disabling this clears history whenever the plugin is restarted.",
+      "label": "Preserve History"
+    },
     "history_size": {
-      "description": "Size of the history stored.",
+      "description": "Size of the history stored. (Only applies when 'Preserve History' is enabled)",
       "label": "History size in MB"
+    },
+    "preserve_history": {
+      "description": "Saves the history between restarts. Disabling this clears history whenever the plugin is restarted.",
+      "label": "Preserve History"
     },
     "notify_on_copy": {
       "description": "Send a notification whenever an expression or result is copied to the clipboard.",

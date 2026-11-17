@@ -1,16 +1,15 @@
 -- Git Companion Service
--- Headless entry: fetches data from gh/glab/tea and stores it in noctalia.state.
+-- Headless entry: fetches data from gh/glab/gt and stores it in noctalia.state.
 
 local platform = noctalia.getConfig("platform") or "github"
 local repo = noctalia.getConfig("repo") or ""
 local group = noctalia.getConfig("group") or ""
-local giteaLogin = noctalia.getConfig("gitea_login") or ""
 local refreshInterval = noctalia.getConfig("refresh_interval") or 60
 
 local PLATFORM_BIN = {
   github = "gh",
   gitlab = "glab",
-  gitea = "tea",
+  gitea = "gt",
 }
 local PLATFORM_GROUP = {
   gitlab = "--group",
@@ -18,7 +17,10 @@ local PLATFORM_GROUP = {
   gitea = "--owner",
 }
 
-local gitlab = require("./gitlab.luau")
+local status = require("./status.luau")
+local github = require("./github.luau")
+local gitea = require("./gitea.luau")
+local deploys = require("./deploys.luau")
 
 local bin = PLATFORM_BIN[platform] or PLATFORM_BIN.github
 
@@ -34,82 +36,41 @@ local function scopeArgs()
   return {}
 end
 
--- ── Gitea context ────────────────────────────────────────────
--- tea resolves its context with `git rev-parse --show-toplevel` before it even
--- looks at --login/--repo, so every repo-scoped command fails when the cwd is
--- not a git repository - and a service runs from an arbitrary cwd. Any
--- repository satisfies it, so the plugin keeps an empty one of its own and runs
--- tea from there. Created once; the path is cached for the rest of the session.
-
-local teaContext = nil
-local teaUser = ""
-
-local function ensureTeaContext(cb)
-  if teaContext then return cb(teaContext) end
-
-  local dataDir = noctalia.pluginDataDir()
-  if not dataDir then return cb(nil) end
-
-  local dir = dataDir .. "/tea-ctx"
-  if noctalia.fileExists(dir .. "/.git") then
-    teaContext = dir
-    return cb(dir)
+-- gt's --review-requested only runs as an instance-wide search and refuses
+-- --repo, so with a repo set the review list searches the repo's owner and
+-- processList keeps that repo's pull requests only.
+local function giteaScopeArgs(kind)
+  if kind == "review" and group == "" and repo ~= "" then
+    local owner = repo:match("^([^/]+)/")
+    if owner then return {"--owner", owner} end
+    return {}
   end
-
-  if not noctalia.mkdirAll(dir) then
-    noctalia.log("[Git Companion] Could not create " .. dir)
-    return cb(nil)
-  end
-
-  noctalia.runAsync({"git", "-C", dir, "init", "--quiet"}, function(res)
-    if res.exitCode ~= 0 then
-      noctalia.log("[Git Companion] git init failed: " .. (res.stderr or ""))
-      return cb(nil)
-    end
-    teaContext = dir
-    cb(dir)
-  end)
-end
-
--- Run a tea invocation from the context repository. runAsync has no cwd
--- option, so a fixed shell snippet changes directory and execs the rest; the
--- directory and the tea argv ride along as positional parameters, never parsed
--- by the shell.
-local function teaCommand(parts)
-  local argv = {"sh", "-c", 'cd "$1" && shift && exec "$@"', "sh", teaContext}
-  for _, v in ipairs(parts) do table.insert(argv, v) end
-  return argv
+  return scopeArgs()
 end
 
 local function buildCommand(kind)
   local parts = {}
   if platform == "gitea" then
-    -- `tea pulls list` demands a repo scope, so pull requests go through
-    -- `tea issues list --kind pulls`, which tea documents as the way to apply
-    -- the search filters to PRs. Gitea's global search rejects --assignee, so
-    -- both lists are filtered by author. tea has no review-requested filter at
-    -- all, so "review" never reaches this branch (see fetchEnabledLists).
-    table.insert(parts, bin)
-    table.insert(parts, "issues")
-    table.insert(parts, "list")
-    if giteaLogin ~= "" then
-      table.insert(parts, "--login")
-      table.insert(parts, giteaLogin)
+    -- gt works from any directory and picks the instance itself, like glab:
+    -- the only one with an account, else its default_host.
+    local filter = "--assigned"
+    if kind == "pr" then
+      filter = "--authored"
+    elseif kind == "review" then
+      filter = "--review-requested"
     end
-    table.insert(parts, "--kind")
-    table.insert(parts, kind == "issue" and "issues" or "pulls")
+    table.insert(parts, bin)
+    table.insert(parts, "search")
+    table.insert(parts, kind == "issue" and "issue" or "pr")
+    table.insert(parts, filter)
     table.insert(parts, "--state")
     table.insert(parts, "open")
-    table.insert(parts, "--author")
-    table.insert(parts, teaUser)
-    table.insert(parts, "--fields")
-    table.insert(parts, "index,title,url,state,owner,repo")
-    table.insert(parts, "--output")
-    table.insert(parts, "json")
+    table.insert(parts, "--json")
+    table.insert(parts, "number,title,url,repository")
     table.insert(parts, "--limit")
     table.insert(parts, "15")
-    for _, v in ipairs(scopeArgs()) do table.insert(parts, v) end
-    return teaCommand(parts)
+    for _, v in ipairs(giteaScopeArgs(kind)) do table.insert(parts, v) end
+    return parts
   end
   if platform == "gitlab" then
     local sub = kind == "issue" and "issue" or "mr"
@@ -123,18 +84,15 @@ local function buildCommand(kind)
     table.insert(parts, "--output")
     table.insert(parts, "json")
   else
-    -- GitHub
-    local sub = kind == "issue" and "issues" or "prs"
-    local filter = "--assignee=@me"
-    if kind == "pr" then
-      filter = "--author=@me"
-    elseif kind == "review" then
-      filter = "--review-requested=@me"
+    -- GitHub: pull requests go through GraphQL to get their merge state (see
+    -- github.luau); issues need none, so they stay on `gh search`.
+    if kind ~= "issue" then
+      return github.command(kind, { repo = repo, group = group })
     end
     table.insert(parts, bin)
     table.insert(parts, "search")
-    table.insert(parts, sub)
-    table.insert(parts, filter)
+    table.insert(parts, "issues")
+    table.insert(parts, "--assignee=@me")
     table.insert(parts, "--state=open")
     table.insert(parts, "--json")
     table.insert(parts, "number,title,url,repository")
@@ -145,10 +103,10 @@ local function buildCommand(kind)
   return parts
 end
 
--- Every item carries `mergeStatus`. Only GitLab fills it so far, from the
--- detailed_merge_status that `glab mr list` already returns, so no extra call
--- is needed. gh and tea have no single equivalent; until one is mapped the
--- other platforms report an empty string.
+-- Every item carries `mergeStatus`, a status.luau key ("" for issues and when
+-- the platform cannot tell). GitLab returns it with every merge request;
+-- GitHub pull requests are normalized by github.luau, and Gitea ones get it
+-- from gitea.enrich after the search.
 local function normalizeItem(raw, kind)
   if platform == "gitlab" then
     local prefix = kind == "issue" and "#" or "!"
@@ -162,15 +120,21 @@ local function normalizeItem(raw, kind)
     }
   end
   if platform == "gitea" then
+    -- gt reports the repository as a plain "owner/repo" string. repository and
+    -- number stay on the item so gitea.enrich can find its merge state.
+    local repoName = tostring(raw.repository or "")
+    local number = tostring(raw.number or "")
     return {
       title = raw.title or "",
       url = raw.url or "",
-      ref = (raw.owner or "") .. "/" .. (raw.repo or "") .. "#" .. (raw.index or ""),
+      ref = repoName .. "#" .. number,
       targetBranch = "",
       mergeStatus = "",
+      repository = repoName,
+      number = number,
     }
   end
-  -- GitHub
+  -- GitHub issues (pull requests go through github.normalize)
   local repoName = (raw.repository and (raw.repository.nameWithOwner or raw.repository.name)) or ""
   return {
     title = raw.title or "",
@@ -186,9 +150,24 @@ local function processList(kind, output)
   local decoded = noctalia.json.decode(output)
   if type(decoded) ~= "table" then return {} end
 
+  if platform == "github" and kind ~= "issue" then
+    local list = {}
+    for _, node in ipairs(github.nodes(decoded) or {}) do
+      -- A search hit that is not a pull request comes back as an empty object.
+      if node.number then table.insert(list, github.normalize(node)) end
+    end
+    return list
+  end
+
+  -- The Gitea review search ran on the repo's owner (see giteaScopeArgs), so
+  -- it may bring pull requests of that owner's other repositories.
+  local onlyRepo = platform == "gitea" and kind == "review" and group == "" and repo ~= ""
+
   local list = {}
   for _, raw in ipairs(decoded) do
-    table.insert(list, normalizeItem(raw, kind))
+    if not onlyRepo or raw.repository == repo then
+      table.insert(list, normalizeItem(raw, kind))
+    end
   end
   return list
 end
@@ -197,15 +176,15 @@ end
 -- stale count the bar would still display.
 local function clearList(kind)
   -- Re-enabling the tab then starts from a fresh, silent baseline.
-  if kind == "pr" then gitlab.resetMergeStatus() end
+  if kind == "pr" then status.resetBaseline() end
   noctalia.state.set(kind .. "s", {})
   noctalia.state.set(kind .. "s_count", 0)
 end
 
 -- Reduce a CLI's stderr to the one line worth putting in front of the user.
--- The interesting line is rarely the first: tea prefixes a "NOTE: no gitea
--- login detected..." before the actual "Error: not found". So an explicit
--- Error line wins, otherwise the last line that is not a note or a warning.
+-- The interesting line is rarely the first: a CLI may print notes or warnings
+-- before the actual "Error: not found". So an explicit Error line wins,
+-- otherwise the last line that is not a note or a warning.
 -- glab draws a box instead, whose header is the bare word "ERROR" and whose
 -- message follows on the next line, wrapped. That header must not win, or the
 -- panel just says "ERROR"; the line after it is the message, and the first of
@@ -245,11 +224,19 @@ local function fetchList(kind)
       noctalia.state.set("error_detail", errorLine(stderr))
       return
     end
+    local function publish(list)
+      if kind == "pr" then status.notifyChanges(list) end
+      noctalia.state.set(kind .. "s", list) -- "prs", "issues" or "reviews"
+      noctalia.state.set(kind .. "s_count", #list)
+      noctalia.state.set("last_update", noctalia.formatTime("%H:%M:%S"))
+    end
+
     local list = processList(kind, res.stdout)
-    if platform == "gitlab" and kind == "pr" then gitlab.notifyMergeStatusChanges(list) end
-    noctalia.state.set(kind .. "s", list) -- "issues" or "prs"
-    noctalia.state.set(kind .. "s_count", #list)
-    noctalia.state.set("last_update", noctalia.formatTime("%H:%M:%S"))
+    if platform == "gitea" and kind ~= "issue" then
+      gitea.enrich(bin, list, publish)
+    else
+      publish(list)
+    end
   end)
 end
 
@@ -266,64 +253,25 @@ local function setAvatar(avatarUrl)
   end)
 end
 
-local function fetchUser()
+-- gh, glab and gt all answer `api user`; the account name is `username` on
+-- GitLab and `login` elsewhere, the bio is `description` on Gitea. The
+-- optional callback receives the exit code, which gt sets to 4 when it has no
+-- account or its credential was rejected.
+local function fetchUser(cb)
   noctalia.runAsync({bin, "api", "user"}, function(res)
     if res.exitCode ~= 0 then
       noctalia.log("[Git Companion] User fetch failed: " .. (res.stderr or ""))
+      if cb then cb(false, res.exitCode) end
       return
     end
     local decoded = noctalia.json.decode(res.stdout or "")
-    if type(decoded) ~= "table" then return end
-    noctalia.state.set("username", decoded.username or decoded.login or "")
-    noctalia.state.set("bio", decoded.bio or "")
-    setAvatar(decoded.avatar_url or "")
+    if type(decoded) == "table" then
+      noctalia.state.set("username", decoded.username or decoded.login or "")
+      noctalia.state.set("bio", decoded.bio or decoded.description or "")
+      setAvatar(decoded.avatar_url or "")
+    end
+    if cb then cb(true, 0) end
   end)
-end
-
--- Pick the login tea should use: the configured one, else tea's own default,
--- else the only sensible fallback - the first one it knows about.
-local function pickTeaLogin(logins)
-  if giteaLogin ~= "" then
-    for _, entry in ipairs(logins) do
-      if entry.name == giteaLogin then return entry end
-    end
-    return nil
-  end
-  for _, entry in ipairs(logins) do
-    if tostring(entry.default) == "true" then return entry end
-  end
-  return logins[1]
-end
-
--- tea has no `api user` equivalent, but `tea login list` already holds the
--- instance URL and the account name, and Gitea serves avatars publicly at
--- <instance>/<user>.png - so no token ever leaves tea's own config.
-local function fetchTeaLogin(cb)
-  noctalia.runAsync(teaCommand({bin, "login", "list", "--output", "json"}), function(res)
-    if res.exitCode ~= 0 then
-      noctalia.log("[Git Companion] tea login list failed: " .. (res.stderr or ""))
-      return cb(false)
-    end
-    local decoded = noctalia.json.decode(res.stdout or "")
-    if type(decoded) ~= "table" then return cb(false) end
-
-    local entry = pickTeaLogin(decoded)
-    if not entry or not entry.user or entry.user == "" then return cb(false) end
-
-    teaUser = entry.user
-    noctalia.state.set("username", teaUser)
-    noctalia.state.set("bio", "")
-    if entry.url and entry.url ~= "" then
-      setAvatar((entry.url:gsub("/+$", "")) .. "/" .. teaUser .. ".png")
-    end
-    cb(true)
-  end)
-end
-
--- tea exposes no review-requested filter, so Gitea cannot fill the Code Review
--- tab. The panel hides that tab on Gitea and the state is emptied to match.
-local function supportsKind(kind)
-  return not (platform == "gitea" and kind == "review")
 end
 
 -- The last precondition failure that was notified. refresh() runs every tick,
@@ -346,11 +294,26 @@ local function fetchEnabledLists()
     { kind = "issue", setting = "show_issues" },
     { kind = "review", setting = "show_reviews" },
   }) do
-    if supportsKind(entry.kind) and noctalia.getConfig(entry.setting) ~= false then
+    if noctalia.getConfig(entry.setting) ~= false then
       fetchList(entry.kind)
     else
       clearList(entry.kind)
     end
+  end
+
+  -- The Deploys tab exists only on GitLab and GitHub with a repository to
+  -- follow (see deploys.luau). A failed repository is reported like a failed
+  -- list, and the cards of the others are still shown.
+  if deploys.enabled(platform) then
+    deploys.fetch(platform, function(cards, err)
+      if err then
+        noctalia.log("[Git Companion] deploys fetch failed: " .. err)
+        noctalia.state.set("error_detail", err)
+      end
+      noctalia.state.set("deploys", cards)
+    end)
+  else
+    noctalia.state.set("deploys", {})
   end
 end
 
@@ -369,16 +332,14 @@ local function refresh()
     return fail("bin_missing", { bin = bin })
   end
 
-  -- Gitea needs two async steps first: a git context for tea to run in, and the
-  -- account name that --author filters on. Gitea's global search works without
-  -- a repo or owner scope, so it has no equivalent of the GitLab check below.
-  if platform == "gitea" then
-    ensureTeaContext(function(dir)
-      if not dir then return fail("gitea_ctx_failed") end
-      fetchTeaLogin(function(ok)
-        if not ok then return fail("gitea_login_missing") end
-        fetchEnabledLists()
-      end)
+  -- On GitHub and Gitea the user call doubles as the sign-in check: gh and gt
+  -- exit with 4 when they have no usable credential, and every search would
+  -- fail the same way. Their search works without a repo or owner scope, so
+  -- they have no equivalent of the GitLab check below.
+  if platform == "gitea" or platform == "github" then
+    fetchUser(function(_, exitCode)
+      if exitCode == 4 then return fail(platform == "github" and "gh_auth_missing" or "gitea_auth_missing") end
+      fetchEnabledLists()
     end)
     return
   end

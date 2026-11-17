@@ -1,0 +1,6 @@
+Monitoring signals from all objects owned by com.logonbox.vpn
+The name com.logonbox.vpn is owned by :1.22
+/com/logonbox/vpn: com.logonbox.vpn.VPN.ConnectionUpdating (int64 0,)
+/com/logonbox/vpn: com.logonbox.vpn.VPN.ConnectionUpdated (int64 0,)
+/com/logonbox/vpn/0: com.logonbox.vpn.Connection.Connecting ()
+/com/logonbox/vpn/0: com.logonbox.vpn.Connection.Connected ()

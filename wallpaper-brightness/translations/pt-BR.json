@@ -1,0 +1,22 @@
+{
+  "entries": {
+    "panel": "Brilho do Papel de Parede",
+    "shortcut": "Brilho do Papel de Parede",
+    "bar": "Brilho do Papel de Parede"
+  },
+  "settings": {
+    "brightness": {
+      "label": "Brilho do Papel de Parede (%)",
+      "description": "Ajusta o nível de brilho do papel de parede atual (100% mantém a imagem original)."
+    }
+  },
+  "panel": {
+    "title": "Brilho do Papel de Parede",
+    "subtitle": "Ajuste o nível de brilho do seu papel de parede ativo",
+    "reset": "Padrão (100%)",
+    "presets": "Ajustes Rápidos",
+    "open_settings": "Configurações",
+    "original_restored": "Brilho original (100%)",
+    "applying": "Aplicando alterações..."
+  }
+}

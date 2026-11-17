@@ -17,6 +17,17 @@
     },
     "case": "Case",
     "charging": "Charging",
+    "codec": {
+      "aac": "AAC",
+      "cancel": "Cancel",
+      "caption": "Switching restarts the device",
+      "confirm": "Restart now? Audio stops for about 10 seconds",
+      "ldac": "LDAC",
+      "lhdc": "LHDC",
+      "restart": "Restart",
+      "restarting": "Restarting…",
+      "title": "Bluetooth Codec"
+    },
     "copy_details": "Copy details",
     "devices": {
       "none": "No paired Bluetooth devices found. Make sure the earbuds are paired at the OS level, then scan again.",
@@ -73,11 +84,18 @@
     },
     "noise_control": "Noise Control",
     "personal_anc": {
+      "caption": "Noise cancellation tuned to your ears",
       "title": "Personalised ANC"
     },
     "right": "Right",
     "sound_profile": {
       "title": "Personal Sound Profile"
+    },
+    "spatial": {
+      "cinema": "Cinema",
+      "concert": "Concert",
+      "off": "Off",
+      "title": "Spatial Audio"
     },
     "status": {
       "connected": "Connected",

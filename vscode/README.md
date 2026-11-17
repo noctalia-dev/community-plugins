@@ -84,13 +84,21 @@ noctalia msg panel-toggle 3dprogramin/vscode:panel
 
 The panel has:
 
-- A header with the chosen editor's icon and name, and a gear that opens the plugin
-  settings.
-- A box that takes a **path** (also quoted, `~/...` and `file://` forms) or a
-  **git URL**. Its button reads **Open** for a path and **Clone** for a git URL.
-  A path that does not exist, or is neither a folder nor a `.code-workspace` file,
-  is refused with a message under the box.
-- **Open folder...**, a folder picker (needs `zenity`).
+- A header with the chosen editor's icon and name, a search icon, a **+** icon, and
+  a gear that opens the plugin settings. The panel opens with just the list; the
+  search icon and **+** each open their field under the header (one at a time;
+  click the icon again, or the field's **x**, to close it).
+- **Search** filters Pinned and Recent by project name as you type: plain text (no
+  patterns), any case, spaces at either end ignored. It looks through every recent
+  project, not only the ones shown, and lists as many matches as the full list shows
+  rows: the **Recent projects** setting plus 10 for each **Load more**
+  click, whether you clicked it before or while searching. Closing the field clears
+  the filter.
+- **+** opens a box that takes a **path** (also quoted, `~/...` and `file://` forms)
+  or a **git URL**. Press Enter to open the path or clone the URL; a git URL also
+  shows a **Clone** button. A path that does not exist, or is neither a folder nor a
+  `.code-workspace` file, is refused with a message under the box. The folder icon
+  next to it is **Open folder...**, a folder picker (needs `zenity`).
 - **Pinned** projects, then **Recent** projects. The panel shows the number set in
   **Recent projects** and **Load more** reveals 10 more each time.
 - Each project row: click it to open the project. The row shows the project name,
@@ -127,7 +135,7 @@ file manager** (local projects only; for a workspace file they use its folder),
 
 ### Cloning
 
-Paste a git URL into the path box and press **Clone**. The panel shows the folder
+Click **+**, paste a git URL and press Enter or **Clone**. The panel shows the folder
 it will clone into (`<Clone folder>/<repository name>`), with **Change** next to it
 to open the plugin settings where **Clone folder** is set, then the progress, with
 **Cancel**. When the clone ends it opens the project in the editor and shows a

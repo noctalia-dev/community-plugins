@@ -1,35 +1,83 @@
 {
   "panel": {
-    "bin_missing": "{bin} is not installed. Install it to use this plugin.",
-    "fetch_failed": "{bin} could not fetch your items:",
-    "gitea_ctx_failed": "Could not prepare tea's working directory. Is git installed?",
-    "gitea_login_missing": "No matching tea login. Run `tea login add` to sign in to your Gitea instance.",
-    "gitlab_scope_missing": "Set a Repository or Group in settings to view your items.",
-    "last_update": "Last update",
-    "last_update_placeholder": "...",
-    "merge_requests": "Merge Requests",
-    "no_items": "No items",
+    "bin_missing": "{bin} is not installed, or is not on the PATH Noctalia runs with. See the plugin README.",
+    "bin_missing_title": "{bin} not found",
+    "copy_command": "Copy command",
+    "empty_deploys_body": "None of the followed repositories has a successful deployment.",
+    "empty_deploys_title": "No deployment yet",
+    "empty_issues_body": "No open issue is assigned to you.",
+    "empty_issues_title": "No issues",
+    "empty_prs_body": "You have no open pull or merge request.",
+    "empty_prs_title": "Nothing open",
+    "empty_reviews_body": "No pull or merge request is waiting for your review.",
+    "empty_reviews_title": "Nothing to review",
+    "fetch_failed_title": "{bin} could not refresh your list",
+    "footer": "Updated {time}",
+    "footer_failed": "Last successful update {time}",
+    "footer_retrying": "Not updated yet",
+    "gh_auth_missing": "gh is installed but not signed in. Run `gh auth login` in a terminal, then refresh.",
+    "gh_auth_missing_title": "Sign in to GitHub",
+    "gitea_auth_missing": "gt has no account on your Gitea instance. Run `gt auth login` in a terminal, then refresh.",
+    "gitea_auth_missing_title": "Sign in to Gitea",
+    "gitlab_scope_missing": "GitLab needs a repository or a group to list your merge requests and issues.",
+    "group_needs_you": "Needs you",
+    "group_ready": "Ready to merge",
+    "group_waiting": "Waiting",
+    "merge_requests": "Merge requests",
+    "merge_status": {
+      "approvals_syncing": "Approvals syncing",
+      "ci_must_pass": "CI failed",
+      "ci_still_running": "CI running",
+      "commits_status": "Source branch missing",
+      "conflict": "Conflicts",
+      "discussions_not_resolved": "Unresolved threads",
+      "draft_status": "Draft",
+      "jira_association_missing": "Jira issue missing",
+      "locked_lfs_files": "LFS files locked",
+      "locked_paths": "Paths locked",
+      "merge_request_blocked": "Blocked",
+      "merge_time": "Waiting for merge time",
+      "mergeable": "Ready to merge",
+      "need_rebase": "Out of date",
+      "not_approved": "Review required",
+      "not_open": "Closed",
+      "requested_changes": "Changes requested",
+      "security_policy_pipeline_check": "Security pipeline pending",
+      "security_policy_violations": "Security policy violated",
+      "status_checks_must_pass": "Status checks pending",
+      "title_regex": "Title format invalid"
+    },
     "no_tabs": "Every tab is hidden. Enable one in the plugin settings.",
-    "pull_requests": "Pull Requests",
-    "tab_issues": "Issues ({count})",
-    "tab_prs": "{label} ({count})",
-    "tab_reviews": "Code Review ({count})",
-    "title": "Git Companion",
-    "untitled": "Untitled"
+    "no_tabs_title": "No tab to show",
+    "open_settings": "Open settings",
+    "pull_requests": "Pull requests",
+    "refresh": "Refresh",
+    "retry": "Retry",
+    "scope_missing_title": "Choose what to follow",
+    "settings": "Settings",
+    "showing_from": "Showing the list from {time}.",
+    "tab_deploys": "Deploys",
+    "tab_issues": "Issues {count}",
+    "tab_name_deploys": "Deploys",
+    "tab_name_issues": "Issues",
+    "tab_name_reviews": "Reviews",
+    "tab_prs": "{label} {count}",
+    "tab_reviews": "Reviews {count}",
+    "title": "Git Companion"
   },
   "service": {
     "bin_missing": "{bin} is not installed.",
-    "gitea_ctx_failed": "Could not prepare tea's working directory.",
-    "gitea_login_missing": "No matching tea login. Run `tea login add`.",
+    "gh_auth_missing": "gh is not signed in. Run `gh auth login`.",
+    "gitea_auth_missing": "gt is not signed in. Run `gt auth login`.",
     "gitlab_scope_missing": "GitLab requires a repo or group scope in settings.",
     "merge_status": {
-      "ci_must_pass": "Pipeline failed on {ref}",
+      "ci_must_pass": "CI failed on {ref}",
       "conflict": "{ref} has merge conflicts",
       "mergeable": "{ref} is ready to merge",
-      "need_rebase": "{ref} needs a rebase",
+      "need_rebase": "{ref} is out of date with its target branch",
       "requested_changes": "Changes requested on {ref}"
     },
-    "mr_status_many": "{count} merge requests changed status",
+    "mr_status_many": "{count} of your requests changed status",
     "title": "Git Companion"
   },
   "settings": {
@@ -44,7 +92,7 @@
       }
     },
     "branch_badge": {
-      "description": "Choose which target branch to display in a colored badge. (Github not supported)"
+      "description": "Choose which target branch to display in a colored badge."
     },
     "branch_badge_alert": {
       "label": "Badge — alert"
@@ -62,32 +110,36 @@
       "description": "Add reviews to the PR/MR count in the bar. The tooltip always lists both.",
       "label": "Count Code Reviews with PRs/MRs"
     },
-    "gitea_login": {
-      "description": "Name of the tea login to use, as shown by `tea login list`. Leave empty for tea's default login.",
-      "label": "Gitea Login"
+    "deploy_hidden_envs": {
+      "description": "Environments left out of the Deploys tab: one name per entry (prod), or a prefix ending in * (bot-*).",
+      "label": "Hidden Environments"
+    },
+    "deploy_repos": {
+      "description": "Repositories shown in the Deploys tab: owner/repo (GitHub) or project path (GitLab). Empty uses Repository; with neither, the tab is hidden.",
+      "label": "Deployment Repositories"
     },
     "group": {
-      "description": "Filter by group (GitLab) or owner (GitHub). Leave empty to use repo.",
+      "description": "Filter by group (GitLab) or owner (GitHub, Gitea). Leave empty to use repo.",
       "label": "Group / Owner"
     },
     "notify_mr_changes_requested": {
-      "description": "Notify when a reviewer requests changes on one of your merge requests.",
+      "description": "Notify when a reviewer requests changes on one of your pull/merge requests.",
       "label": "Notify: Changes Requested"
     },
     "notify_mr_conflict": {
-      "description": "Notify when one of your merge requests has conflicts or needs a rebase.",
-      "label": "Notify: Conflict or Rebase Needed"
+      "description": "Notify when one of your pull/merge requests has conflicts or falls behind its target branch.",
+      "label": "Notify: Conflict or Out of Date"
     },
     "notify_mr_mergeable": {
-      "description": "Notify when one of your merge requests can be merged.",
-      "label": "Notify: MR Ready to Merge"
+      "description": "Notify when one of your pull/merge requests can be merged.",
+      "label": "Notify: Ready to Merge"
     },
     "notify_mr_pipeline_failed": {
-      "description": "Notify when the pipeline of one of your merge requests fails.",
-      "label": "Notify: Pipeline Failed"
+      "description": "Notify when the CI of one of your pull/merge requests fails.",
+      "label": "Notify: CI Failed"
     },
     "platform": {
-      "description": "Choose between GitHub or GitLab.",
+      "description": "Choose GitHub, GitLab or Gitea.",
       "label": "Platform",
       "options": {
         "gitea": "Gitea",
@@ -100,8 +152,12 @@
       "label": "Refresh Interval (seconds)"
     },
     "repo": {
-      "description": "e.g. owner/repo (GitHub) or project path (GitLab). Leave empty to use group/owner.",
+      "description": "e.g. owner/repo (GitHub, Gitea) or project path (GitLab). Leave empty to use group/owner.",
       "label": "Repository"
+    },
+    "show_deploys": {
+      "description": "Show the tab listing the last successful deployment of each environment.",
+      "label": "Show Deploys tab"
     },
     "show_issues": {
       "description": "Show the tab listing the issues assigned to you.",
@@ -112,8 +168,17 @@
       "label": "Show PRs/MRs tab"
     },
     "show_reviews": {
-      "description": "Show the tab listing open pull/merge requests awaiting your review. Not available on Gitea.",
+      "description": "Show the tab listing open pull/merge requests awaiting your review.",
       "label": "Show Code Review tab"
+    },
+    "tab_style": {
+      "description": "Simple shows the tab names, Full adds their icons, Compact keeps the icons and counts only.",
+      "label": "Tab Style",
+      "options": {
+        "compact": "Compact",
+        "full": "Full",
+        "simple": "Simple"
+      }
     }
   },
   "widget": {

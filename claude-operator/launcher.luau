@@ -4,6 +4,7 @@
 -- you type, every saved session in the service's index is searched too (resume).
 -- Ported from claude-sessions (lfdominguez, MIT).
 local shared = require("./shared.luau")
+local actions = require("./actions.luau")
 local GLYPH = { waiting = "bell-ringing", busy = "loader-2", idle = "circle-check" }
 local byId = {}
 
@@ -62,7 +63,7 @@ end
 function onActivate(id)
   local e = byId[id]
   if not e then return end
-  if string.sub(id, 1, 7) == "remote:" then shared.open(e.url)
-  elseif string.sub(id, 1, 5) == "live:" then shared.focus(e)
-  else shared.resume(e.account, e.cwd, e.sessionId) end
+  if string.sub(id, 1, 7) == "remote:" then actions.open(e.url)
+  elseif string.sub(id, 1, 5) == "live:" then actions.focus(e)
+  else actions.resume(e.account, e.cwd, e.sessionId) end
 end
