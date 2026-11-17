@@ -1,7 +1,9 @@
 --!nonstrict
 -- To Do — a prioritised task list in an attached panel.
 --
--- A task is { id, text, priority, done }. The whole list is persisted to
+-- A task is { id, text, priority, done, due?, allDay? }; `due` is unix seconds
+-- (local time) and `allDay` marks a whole-day deadline — see dates.luau. The
+-- whole list is persisted to
 -- <todo_folder>/todo.json (noctalia.json) as an object
 -- { version, sort, hideCompleted, tasks }: `tasks` is the array — ALWAYS in
 -- manual order — `sort` records the chosen display mode and `hideCompleted`
@@ -35,7 +37,13 @@
 -- UI has no dialog primitive. No external commands are run.
 --
 -- The bar widget (todo.luau) lights its glyph while the panel is open via the
--- shared "todo_open" state; it reads todo.json itself for the pending count.
+-- shared "todo_open" state; it reads todo.json itself for the pending count
+-- and for the overdue blink.
+--
+-- Due dates: each row has a calendar glyph (alarm once overdue) that opens the
+-- date picker. The picker is a second VIEW of the same panel — while `pickerId`
+-- is set, render() draws pickerView() instead of the list; each view's root has
+-- its own key. update() re-renders when the overdue count changes.
 
 -- Row width budget. A Button constrains its label only when it has an explicit
 -- width (the host derives the label's max width from it); flexGrow alone lets a
@@ -56,17 +64,16 @@ local SCROLLBAR_GUTTER = 14 -- Style::scrollbarWidth (6) + Style::scrollbarGap (
 local ROW_GAP = 8 -- the task row's own gap
 local CHIP_W = 16 -- the priority chip
 local GRIP_W = 24 -- the ☰ drag grip, manual mode only
-local GLYPH_BTN_W = 30 -- ghost glyph button: 2 × Style::spaceSm + a 14px glyph
+local GLYPH_BTN_W = 32 -- a glyph-only button is a square of Style::controlHeightSm
 local ROW_CONTENT_W = PANEL_WIDTH - (2 * PANEL_PADDING) - SCROLLBAR_GUTTER
 
 -- Width left for the task text once the chip, the optional grip, the leading
--- ☐/☑ done toggle (sits right after the chip, before the text) and the
--- `trailing` glyph buttons (each preceded by a gap) have taken their share.
--- `trailing` is 2: the pencil (edit) and the trash (delete) buttons — kept on
--- the row alongside the right-click context menu, which offers the same
--- actions plus priority for anyone who prefers it.
-local function taskTextWidth(withGrip, trailing)
-    local width = ROW_CONTENT_W - CHIP_W - ROW_GAP - (GLYPH_BTN_W + ROW_GAP) - (trailing * (GLYPH_BTN_W + ROW_GAP))
+-- ☐/☑ done toggle (sits right after the chip) and the other glyph buttons (each
+-- followed by a gap) have taken their share. `glyphButtons` counts those other
+-- buttons: the calendar (left of the text, after the done toggle) and the
+-- pencil and trash (right of it), so 3.
+local function taskTextWidth(withGrip, glyphButtons)
+    local width = ROW_CONTENT_W - CHIP_W - ROW_GAP - (GLYPH_BTN_W + ROW_GAP) - (glyphButtons * (GLYPH_BTN_W + ROW_GAP))
     if withGrip then
         width -= GRIP_W + ROW_GAP
     end
@@ -74,6 +81,7 @@ local function taskTextWidth(withGrip, trailing)
 end
 
 local storage = require("./storage.luau")
+local dates = require("./dates.luau")
 
 -- Read out of the plugin's own manifest (readFile resolves a relative path
 -- against the plugin directory), so the header cannot drift from the version
@@ -93,6 +101,7 @@ local COLORS = { important = "#e06c75", medium = "#e5c07b", low = "#98c379" }
 local FILE_NAME = "todo.json"
 local AUTOSAVE_IDLE_TICKS = 2 -- 1s panel ticks with no edits before a flush
 local DRAG_TYPE = "todo-row" -- drag identifier matched by the row drop zones
+local DUE_LABEL_W = 96 -- width of the "20 Nov 18:30" label on a row that has a due date
 local COMPLETE_SOUND = "todo-complete" -- name registered with noctalia.sound.load
 
 local items = {} -- array, ALWAYS in manual order (priority mode sorts a copy for display)
@@ -108,6 +117,12 @@ local hideCompleted = false -- header eye toggle: hide done rows from the list
 local showCount = true -- header hash toggle: show the task count on the bar widget
 local confirmingClear = false -- header trash pressed, awaiting confirm/cancel
 local soundReady = false -- true once COMPLETE_SOUND has finished loading
+-- Date picker (a full-panel view that replaces the list while pickerId is set):
+local pickerId = nil -- id of the task being dated
+local pickY, pickM, pickD, pickH, pickMin = 0, 0, 0, 0, 0 -- the draft date/time
+local pickAllDay = false
+local pickError = nil -- text shown above the buttons, nil when fine
+local shownOverdue = 0 -- overdue rows in the last render; update() re-renders when it changes
 
 local render
 
@@ -179,6 +194,16 @@ local function findItem(id)
         end
     end
     return nil
+end
+
+local function overdueCount()
+    local count, now = 0, os.time()
+    for _, item in ipairs(items) do
+        if dates.isOverdue(item, now) then
+            count += 1
+        end
+    end
+    return count
 end
 
 local function removeItem(id)
@@ -433,8 +458,7 @@ end
 
 -- The row's right-click menu (plugin_api >= 28). Only a ui.button's
 -- onRightClick carries the pointer serial openContextMenu needs, so the row's
--- text button is the one node that can raise this — which is also why the row
--- keeps just the done toggle: edit, priority and delete all live in here.
+-- text button is the one node that can raise this.
 -- `onActivate` must NAME a global (openContextMenu is a raw binding, not a UI
 -- tree prop, so closures are not registered for it); the row id rides along in
 -- `context` and comes back as the callback's second argument.
@@ -445,6 +469,7 @@ local function openRowMenu(item)
     end
     table.insert(entries, { id = "edit", label = tr("menu_edit") })
     table.insert(entries, { id = "done", label = tr(item.done and "menu_undone" or "menu_done") })
+    table.insert(entries, { id = "due", label = tr("menu_due") })
     table.insert(entries, { kind = "separator" })
     table.insert(entries, { kind = "header", label = tr("menu_priority") })
     for _, priority in ipairs(PRIORITIES) do
@@ -461,9 +486,82 @@ local function openRowMenu(item)
     panel.openContextMenu({ onActivate = "onRowMenu", context = tostring(item.id), items = entries })
 end
 
+-- Opens the picker seeded from the task's due date, or 15 minutes from now.
+local function openPicker(id)
+    local item = findItem(id)
+    if item == nil then
+        return
+    end
+    local stamp = item.due or (os.time() + 900)
+    local y, m, d, h, mi = noctalia.formatTime("%Y %m %d %H %M", stamp):match("(%d+) (%d+) (%d+) (%d+) (%d+)")
+    pickY, pickM, pickD, pickH = tonumber(y), tonumber(m), tonumber(d), tonumber(h)
+    pickMin = tonumber(mi)
+    pickAllDay = item.allDay == true
+    pickError = nil
+    pickerId = id
+    render()
+end
+
+local function resetPicker()
+    pickerId = nil
+    pickError = nil
+end
+
+local function closePicker()
+    resetPicker()
+    render()
+end
+
+-- Any edit of the draft clears the error and redraws.
+local function pickerChanged()
+    pickError = nil
+    render()
+end
+
+local function pickerShift(delta)
+    pickY, pickM = dates.shiftMonth(pickY, pickM, delta)
+    pickD = math.min(pickD, dates.daysInMonth(pickY, pickM))
+    render()
+end
+
+-- Saves the draft; a deadline that has already passed is refused.
+local function pickerSave()
+    local item = findItem(pickerId)
+    if item == nil then
+        closePicker()
+        return
+    end
+    local due = dates.makeDue(pickY, pickM, pickD, pickH, pickMin, pickAllDay)
+    if dates.isOverdue({ due = due, allDay = pickAllDay }, os.time()) then
+        pickError = tr("picker_past")
+        render()
+        return
+    end
+    item.due = due
+    item.allDay = pickAllDay or nil
+    save()
+    closePicker()
+end
+
+local function pickerClear()
+    local item = findItem(pickerId)
+    if item ~= nil then
+        item.due = nil
+        item.allDay = nil
+        save()
+    end
+    closePicker()
+end
+
+-- "20 Nov 18:30", or "20 Nov" for an all-day task.
+local function dueText(item)
+    return noctalia.formatTime(item.allDay and "%d %b" or "%d %b %H:%M", item.due)
+end
+
 local function taskRow(item)
     local id = item.id
     local editing = editingId == id
+    local overdue = dates.isOverdue(item, os.time())
 
     -- Manual mode only: a ☰ grip that drags the whole row to a new position.
     -- The grip is a drag source holding the glyph, but previewAncestor = 1
@@ -543,6 +641,18 @@ local function taskRow(item)
             end,
         }))
     else
+        -- Due date: calendar when unset, calendar-event when set, a red alarm
+        -- once overdue. All three open the picker (set, change or postpone).
+        local dueState = overdue and "overdue" or (item.due ~= nil and "set" or "none")
+        table.insert(children, ui.button({
+            key = "due-" .. id .. "-" .. dueState,
+            glyph = overdue and "alarm" or (item.due ~= nil and "calendar-event" or "calendar"),
+            variant = overdue and "destructive" or "ghost",
+            tooltip = tr(overdue and "tip_overdue" or (item.due ~= nil and "tip_due_edit" or "tip_due_set")),
+            onClick = function()
+                openPicker(id)
+            end,
+        }))
         -- Static text; clicking it re-opens the editor ("press on the text"),
         -- right-clicking it raises the row menu. The explicit width is what
         -- makes a long task wrap onto another line instead of running under the
@@ -552,7 +662,7 @@ local function taskRow(item)
             text = item.done and strike(item.text) or item.text,
             variant = "ghost",
             contentAlign = "start",
-            width = taskTextWidth(grip ~= nil, 2),
+            width = taskTextWidth(grip ~= nil, 3) - (item.due ~= nil and DUE_LABEL_W + ROW_GAP or 0),
             onClick = function()
                 enterEdit(id)
             end,
@@ -560,6 +670,15 @@ local function taskRow(item)
                 openRowMenu(item)
             end,
         }))
+        if item.due ~= nil then
+            table.insert(children, ui.label({
+                key = "duetext-" .. id,
+                text = dueText(item),
+                fontSize = 11,
+                width = DUE_LABEL_W,
+                color = overdue and "error" or "on_surface_variant",
+            }))
+        end
         -- Explicit edit affordance next to the row, same action as clicking
         -- the text or picking "Edit task" from the row menu.
         table.insert(children, ui.button({
@@ -586,6 +705,7 @@ local function taskRow(item)
             .. id
             .. (editing and "-edit" or "-view")
             .. (item.done and "-done" or "")
+            .. (overdue and "-od" or "")
             .. (sortMode == "manual" and "-m" or ""),
         gap = 8,
         align = "center",
@@ -627,7 +747,148 @@ local function insertionZone(index)
     })
 end
 
+-- The picker view: title, month arrows, Monday-first day grid, all-day toggle,
+-- hour/minute selects (minute precision), then Save / Cancel / Remove date.
+local CELL_W, CELL_H = 44, 36
+local function pickerView(item)
+    local anchor = dates.makeDue(pickY, pickM, 1, 12, 0, false)
+    local weekdays = {}
+    for i = 1, 7 do
+        -- 1 Jan 2024 was a Monday, so days 1..7 of it are Monday..Sunday
+        weekdays[i] = ui.label({
+            text = noctalia.formatTime("%a", dates.makeDue(2024, 1, i, 12, 0, false)),
+            width = CELL_W,
+            textAlign = "center",
+            fontSize = 11,
+            color = "on_surface_variant",
+        })
+    end
+    local weeks = {}
+    for r, week in ipairs(dates.monthGrid(pickY, pickM)) do
+        local cells = {}
+        for c, day in ipairs(week) do
+            if day == 0 then
+                cells[c] = ui.box({ key = "blank-" .. r .. "-" .. c, width = CELL_W, height = CELL_H })
+            else
+                cells[c] = ui.button({
+                    key = "day-" .. day,
+                    text = tostring(day),
+                    width = CELL_W,
+                    height = CELL_H,
+                    variant = day == pickD and "primary" or "ghost",
+                    onClick = function()
+                        pickD = day
+                        pickerChanged()
+                    end,
+                })
+            end
+        end
+        weeks[r] = ui.row({ key = "week-" .. r, gap = 4, justify = "center" }, cells)
+    end
+
+    local hours, minutes = {}, {}
+    for h = 0, 23 do
+        hours[h + 1] = string.format("%02d", h)
+    end
+    for m = 0, 59 do
+        minutes[m + 1] = string.format("%02d", m)
+    end
+    local timeRow = { ui.toggle({
+        key = "pick-allday",
+        checked = pickAllDay,
+        onChange = function(value)
+            pickAllDay = value == "true"
+            pickerChanged()
+        end,
+    }), ui.label({ text = tr("picker_all_day"), color = "on_surface", flexGrow = 1 }) }
+    if not pickAllDay then
+        table.insert(timeRow, ui.select({
+            key = "pick-hour",
+            width = 84,
+            options = hours,
+            selectedIndex = pickH,
+            onChange = function(index)
+                pickH = tonumber(index) or 0
+                pickerChanged()
+            end,
+        }))
+        table.insert(timeRow, ui.label({ text = ":", color = "on_surface" }))
+        table.insert(timeRow, ui.select({
+            key = "pick-min",
+            width = 84,
+            options = minutes,
+            selectedIndex = pickMin,
+            onChange = function(index)
+                pickMin = tonumber(index) or 0
+                pickerChanged()
+            end,
+        }))
+    end
+
+    local buttons = {
+        ui.button({ key = "pick-save", text = tr("picker_save"), variant = "primary", onClick = pickerSave }),
+        ui.button({ key = "pick-cancel", text = tr("picker_cancel"), variant = "ghost", onClick = closePicker }),
+    }
+    if item.due ~= nil then
+        table.insert(buttons, ui.button({
+            key = "pick-clear",
+            text = tr("picker_clear"),
+            variant = "destructive",
+            onClick = pickerClear,
+        }))
+    end
+
+    local parts = {
+        ui.row({ gap = 8, align = "center" }, {
+            ui.button({ glyph = "arrow-left", variant = "ghost", tooltip = tr("tip_picker_back"), onClick = closePicker }),
+            ui.label({ text = menuHeader(item.text), color = "on_surface", flexGrow = 1 }),
+        }),
+        ui.row({ gap = 8, align = "center" }, {
+            ui.button({
+                glyph = "chevron-left",
+                variant = "ghost",
+                tooltip = tr("tip_picker_prev"),
+                onClick = function()
+                    pickerShift(-1)
+                end,
+            }),
+            ui.label({
+                text = noctalia.formatTime("%B %Y", anchor),
+                color = "on_surface",
+                flexGrow = 1,
+                textAlign = "center",
+            }),
+            ui.button({
+                glyph = "chevron-right",
+                variant = "ghost",
+                tooltip = tr("tip_picker_next"),
+                onClick = function()
+                    pickerShift(1)
+                end,
+            }),
+        }),
+        ui.row({ gap = 4, justify = "center" }, weekdays),
+        ui.column({ gap = 4, align = "center" }, weeks),
+        ui.row({ gap = 8, align = "center" }, timeRow),
+    }
+    if pickError ~= nil then
+        table.insert(parts, ui.label({ text = pickError, color = "error" }))
+    end
+    table.insert(parts, ui.row({ gap = 8, justify = "end" }, buttons))
+    return ui.column({ flexGrow = 1, gap = 12, align = "stretch" }, parts)
+end
+
 render = function()
+    shownOverdue = overdueCount()
+    -- The picker replaces the list; it closes when its task is gone.
+    if pickerId ~= nil then
+        local pickerItem = findItem(pickerId)
+        if pickerItem ~= nil then
+            panel.render(ui.column({ key = "view-picker", flexGrow = 1, gap = 12, align = "stretch" }, { pickerView(pickerItem) }))
+            return
+        end
+        resetPicker()
+    end
     -- Ordering toggle: shows the current mode and flips it. "menu-2" (the grip
     -- glyph) for manual, "palette" for the colour/priority sort.
     local sortToggle = ui.button({
@@ -751,7 +1012,8 @@ render = function()
 
     local body
     if #visible == 0 then
-        body = ui.column({ flexGrow = 1, align = "center", justify = "center" }, {
+        -- minimum height of the empty-state message
+        body = ui.column({ height = 120, flexGrow = 1, align = "center", justify = "center" }, {
             ui.label({ text = (#items == 0 and tr("empty")) or tr("all_hidden"), color = "on_surface_variant" }),
         })
     else
@@ -777,7 +1039,7 @@ render = function()
     end
     table.insert(parts, body)
     table.insert(parts, legend)
-    panel.render(ui.column({ flexGrow = 1, gap = 12, align = "stretch" }, parts))
+    panel.render(ui.column({ key = "view-list", flexGrow = 1, gap = 12, align = "stretch" }, parts))
 end
 
 function onOpen(_context)
@@ -789,6 +1051,7 @@ function onOpen(_context)
     end
     load()
     editingId = nil
+    resetPicker()
     confirmingClear = false
     dirty = false
     idleTicks = 0
@@ -799,6 +1062,7 @@ end
 
 function onClose()
     editingId = nil
+    resetPicker()
     confirmingClear = false
     if dirty then
         save()
@@ -822,12 +1086,16 @@ function onConfigChanged()
     filePath = folder .. "/" .. FILE_NAME
     noctalia.mkdirAll(folder)
     editingId = nil
+    resetPicker()
     confirmingClear = false
     load()
     render()
 end
 
 function update()
+    if loaded and overdueCount() ~= shownOverdue then
+        render() -- a deadline passed while the panel was open
+    end
     if dirty then
         idleTicks += 1
         if idleTicks >= AUTOSAVE_IDLE_TICKS then
@@ -859,7 +1127,7 @@ end
 -- Return/Escape are deliberately NOT bound: Return already reaches the
 -- editing input's onSubmit, and a panel can never capture Escape at all.
 function onKey(chord, pressed)
-    if not pressed or editingId ~= nil then
+    if not pressed or editingId ~= nil or pickerId ~= nil then
         return
     end
     if chord == "n" then
@@ -882,6 +1150,8 @@ function onRowMenu(action, context)
         enterEdit(id)
     elseif action == "done" then
         toggleDone(id)
+    elseif action == "due" then
+        openPicker(id)
     elseif action == "delete" then
         deleteItem(id)
     else

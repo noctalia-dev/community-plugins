@@ -9,19 +9,41 @@
 -- correct before the panel is ever opened and reflects edits made to the file
 -- outside noctalia.
 --
+-- Overdue: a task whose due date has passed (dates.isOverdue, the one shared
+-- rule) turns the glyph into an alarm that blinks error/normal each tick, with
+-- "N overdue" as the label. The widget derives this from the file and the
+-- clock alone and never writes to it.
+-- The optional overdue sound plays when the count rises (not for what was
+-- already overdue at load). With several bars every instance sees the same
+-- rise, so the first to chime stamps "todo_overdue_chime" in the shared plugin
+-- state and the others stay quiet for a few seconds.
+--
 -- Left click is NOT wired here: plugin.toml declares it as a [widget.actions]
 -- default (`left = "panel-toggle nightwatch75/todo:panel"`, plugin_api >= 14),
 -- which lets the user remap the gesture from the bar's own settings. A bound
 -- gesture is taken off this widget's own input area entirely, so an onClick()
 -- here would simply never run.
 
+local dates = require("./dates.luau")
+
 local FILE_NAME = "todo.json"
+local OVERDUE_SOUND = "todo-overdue" -- name registered with noctalia.sound.load
+local TICK_MS, BLINK_TICK_MS = 2000, 1000
+local CHIME_QUIET_S = 5 -- another instance's chime this recent silences ours
+local MAX_FAILED_READS = 3 -- consecutive nil reads before the file counts as gone
 
 local open = false
 local pending = 0
 local total = 0
 local showCount = true
 local reading = false -- a readFileAsync is in flight
+local overdue = 0 -- tasks past their due date
+local blinkOn = false -- current phase of the overdue blink
+local lastOverdue = nil -- overdue count of the previous read; nil until the first read
+local soundReady = false
+local tickMs = TICK_MS
+local failedReads = 0 -- consecutive reads that returned no data
+local watchedFile = nil -- the file lastOverdue refers to
 
 local function todoFile()
     local dir = noctalia.getConfig("todo_folder")
@@ -33,33 +55,38 @@ local function todoFile()
     return (dir:gsub("/+$", "")) .. "/" .. FILE_NAME
 end
 
--- Returns pending (not-done), total, showCount. Counts are 0 on a
+-- Returns pending (not-done), total, showCount, overdue. Counts are 0 on a
 -- missing/empty/malformed file; showCount defaults true (the panel header's
 -- hash toggle, off only when explicitly turned off).
 local function counts(raw)
     if raw == nil or raw == "" then
-        return 0, 0, true
+        return 0, 0, true, 0
     end
     local decoded = noctalia.json.decode(raw)
     if type(decoded) ~= "table" then
-        return 0, 0, true
+        return 0, 0, true, 0
     end
     -- Object form { version, sort, showCount, tasks }; a legacy plain array
     -- is read as-is, with showCount defaulting to true.
     local list = decoded.tasks ~= nil and decoded.tasks or decoded
     if type(list) ~= "table" then
-        return 0, 0, true
+        return 0, 0, true, 0
     end
-    local pendingN, totalN = 0, 0
+    local pendingN, totalN, overdueN = 0, 0, 0
+    local now = os.time()
     for _, entry in ipairs(list) do
         if type(entry) == "table" then
             totalN += 1
             if entry.done ~= true then
                 pendingN += 1
             end
+            local due, allDay = dates.normalizeDue(entry)
+            if dates.isOverdue({ done = entry.done == true, due = due, allDay = allDay }, now) then
+                overdueN += 1
+            end
         end
     end
-    return pendingN, totalN, decoded.showCount ~= false
+    return pendingN, totalN, decoded.showCount ~= false, overdueN
 end
 
 -- Renders the "· N todos" suffix per the count_mode widget setting: "total"
@@ -79,6 +106,14 @@ local function countSuffix()
 end
 
 local function render()
+    if overdue > 0 then
+        -- Overdue replaces the glyph and label, even with show_label off.
+        barWidget.setGlyph("alarm")
+        barWidget.setGlyphColor(blinkOn and "error" or "on_surface")
+        barWidget.setText(noctalia.tr("bar_overdue", { count = overdue }))
+        barWidget.setTooltip(noctalia.tr("tooltip_overdue", { count = overdue }))
+        return
+    end
     barWidget.setGlyph(noctalia.getConfig("glyph"))
     barWidget.setGlyphColor(open and "primary" or "on_surface")
     if noctalia.getConfig("show_label") == false then
@@ -110,20 +145,47 @@ local function refreshPending()
         return
     end
     reading = true
-    local ok = noctalia.readFileAsync(todoFile(), function(data, err)
+    local file = todoFile()
+    local ok = noctalia.readFileAsync(file, function(data, err)
         reading = false
         if data == nil then
-            -- No file yet is the normal state before the first task, so this
-            -- is not worth a log line; the count simply stays where it was.
+            -- A missing file keeps the last counts; MAX_FAILED_READS failures
+            -- in a row count it as empty.
             local _ = err
+            failedReads += 1
+            if failedReads == MAX_FAILED_READS and overdue > 0 then
+                pending, total, overdue = 0, 0, 0
+                render()
+            end
             return
         end
-        local pendingN, totalN, showCountN = counts(data)
-        if pendingN ~= pending or totalN ~= total or showCountN ~= showCount then
+        failedReads = 0
+        local pendingN, totalN, showCountN, overdueN = counts(data)
+        -- A different file resets the sound baseline.
+        if file ~= watchedFile then
+            watchedFile = file
+            lastOverdue = nil
+        end
+        if lastOverdue ~= nil and overdueN > lastOverdue and soundReady and noctalia.getConfig("sound_on_overdue") then
+            local last = noctalia.state.get("todo_overdue_chime")
+            if type(last) ~= "number" or os.time() - last >= CHIME_QUIET_S then
+                noctalia.state.set("todo_overdue_chime", os.time())
+                noctalia.sound.play(OVERDUE_SOUND)
+            end
+        end
+        lastOverdue = overdueN
+        if pendingN ~= pending or totalN ~= total or showCountN ~= showCount or overdueN ~= overdue then
             pending = pendingN
             total = totalN
             showCount = showCountN
+            overdue = overdueN
             render()
+        end
+        -- Blink needs a faster tick; drop back once nothing is overdue.
+        local want = overdue > 0 and BLINK_TICK_MS or TICK_MS
+        if want ~= tickMs then
+            tickMs = want
+            noctalia.setUpdateInterval(want)
         end
     end)
     if not ok then
@@ -140,9 +202,13 @@ end)
 -- setting changes.
 function update()
     refreshPending()
+    blinkOn = overdue > 0 and not blinkOn
     render()
 end
 
-noctalia.setUpdateInterval(2000)
+noctalia.sound.load(OVERDUE_SOUND, "sounds/task-complete.wav", function(ok)
+    soundReady = ok == true
+end)
+noctalia.setUpdateInterval(TICK_MS)
 refreshPending()
 render()
