@@ -9,9 +9,10 @@ set -u
 
 file=$1
 
-# The names of one list, on one line each.
+# The names of one list, on one line each. Only letters, digits and @ . _ + : -, not starting
+# with "-", so a name from another device is never read as an option.
 names() {
-  sed -n "s/^$1 //p" "$file"
+  sed -n "s/^$1 //p" "$file" | grep -E '^[[:alnum:]@_+][[:alnum:]@._+:-]*$'
 }
 
 if [ -n "$(names pacman)" ]; then
@@ -27,20 +28,20 @@ if [ -n "$(names aur)" ]; then
   fi
 fi
 if [ -n "$(names apt)" ]; then
-  names apt | xargs sudo apt-get install -y
+  names apt | xargs sudo apt-get install -y --
 fi
 if [ -n "$(names dnf)" ]; then
-  names dnf | xargs sudo dnf install -y
+  names dnf | xargs sudo dnf install -y --
 fi
 if [ -n "$(names flatpak)" ]; then
-  names flatpak | xargs flatpak install -y
+  names flatpak | xargs flatpak install -y --
 fi
 # One at a time, so a unit this system does not have does not stop the others.
 for unit in $(names system); do
-  sudo systemctl enable "$unit" || echo "skipped: $unit"
+  sudo systemctl enable -- "$unit" || echo "skipped: $unit"
 done
 for unit in $(names user); do
-  systemctl --user enable "$unit" || echo "skipped: $unit"
+  systemctl --user enable -- "$unit" || echo "skipped: $unit"
 done
 
 rm -f "$file"

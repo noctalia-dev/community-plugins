@@ -683,7 +683,7 @@ function Save.run(job, opt)
     local before = noctalia.readFile(settingsPath)
     if before then
       local ok, merged = pcall(Settings.merge, before, theirFile("shared/noctalia/settings.toml") or "",
-        noctalia.readFile(gitDir .. "/resurrect-settings") or "")
+        noctalia.readFile(gitDir .. "/resurrect-settings") or "", opt.settingsChoice == "mine")
       if not ok then
         job.emit(tostring(merged))
         job.emit("could not share Noctalia's settings")
@@ -693,16 +693,26 @@ function Save.run(job, opt)
         job.emit("could not share Noctalia's settings")
         job.stop(1)
       end
-      -- The agreed settings take their place once the save is committed. A setting of a save
-      -- that was not committed would otherwise read, on the next save, as removed by
-      -- another device, and be removed here too.
-      agreedSettings = merged.shared
       writeOrRemove(repo .. "/" .. dir .. "/settings.toml", merged.localText)
+      -- Settings another device changed wait until the owner takes them. Until then the
+      -- agreed settings stay as they were, so they still read as changed elsewhere, and the
+      -- new settings are kept for Review to show.
+      local incoming = opt.dataDir .. "/incoming-settings.toml"
       local applied = 0
-      -- Noctalia may have written the file meanwhile; then this waits for the next save.
-      if merged.settings and noctalia.readFile(settingsPath) == before then
-        if replace(settingsPath, merged.settings) then
-          applied = merged.taken
+      if merged.taken > 0 and opt.settingsChoice ~= "theirs" then
+        noctalia.writeFile(incoming, merged.settings or "")
+        job.emit("incoming-settings " .. merged.taken)
+      else
+        noctalia.removeFile(incoming)
+        -- The agreed settings take their place once the save is committed. A setting of a
+        -- save that was not committed would otherwise read, on the next save, as removed by
+        -- another device, and be removed here too.
+        agreedSettings = merged.shared
+        -- Noctalia may have written the file meanwhile; then this waits for the next save.
+        if merged.settings and noctalia.readFile(settingsPath) == before then
+          if replace(settingsPath, merged.settings) then
+            applied = merged.taken
+          end
         end
       end
       job.emit("settings applied " .. applied)
@@ -717,9 +727,10 @@ function Save.run(job, opt)
     -- Shares the dotfiles. shared/files/ holds every shared file at its place under the
     -- home folder. For each file there are three versions: this device's, the one in
     -- <theirs>, and the one this device last agreed on, kept in .git/resurrect-base. A file
-    -- only this device changed is saved. A file only another device changed is put in place
-    -- here, after a backup. A file both changed is left alone on both sides and reported,
-    -- until the owner chooses. When files put in place give Hyprland config errors, they go
+    -- only this device changed is saved. A file only another device changed waits, reported
+    -- as incoming, until the owner takes it; then it is put in place here, after a backup. A
+    -- file both changed is left alone on both sides and reported, until the owner chooses.
+    -- When files put in place give Hyprland config errors, they go
     -- back and stay held in .git/resurrect-held until another device changes them again.
     -- When another device removed more than half of the shared files at once, none is
     -- removed here; this device shares them again.
@@ -985,8 +996,19 @@ function Save.run(job, opt)
           keep(path)
           newBase[path] = m
         end
-      elseif (m == b and not isHeld) or choice == "theirs" then
-        -- Only another device changed it, or the owner took theirs: it is put in place here.
+      elseif m == b and not isHeld and choice == nil then
+        -- Only another device changed it: it waits until the owner takes it or keeps theirs
+        -- out. The shared copy stays theirs and the agreed version stays, so it still reads
+        -- as changed elsewhere on the next save.
+        if t then
+          keep(path, t, mode)
+        end
+        if b then
+          newBase[path] = b
+        end
+        job.emit("incoming " .. path)
+      elseif choice == "theirs" then
+        -- The owner took theirs: it is put in place here.
         if t == nil then
           drop(path)
           job.emit("removed " .. path)

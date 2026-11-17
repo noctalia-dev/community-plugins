@@ -18,7 +18,7 @@ your devices, and on a new install, bring it all back with one script.
 | Command                        | Needed                     | What for                                                                                                                                                                                   |
 | ------------------------------ | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `git`                          | Required                   | Keeps each save as a commit, and pushes it when a remote is set. Without it, the panel says so.                                                                                            |
-| `sh`                           | Required                   | Runs git's network commands in the background, as a push can take longer than a minute, and the restore, review and install scripts in a terminal.                                         |
+| `sh`                           | Required                   | Runs git's network commands in the background, as a push can take longer than a minute, and the restore, review, changes and install scripts in a terminal.                                |
 | `env`, `find`, `chmod`, `grep` | Required                   | Run your own save steps from the repository's folder, keep which saved files are executable, and leave out the packages `packages/exclude.txt` matches. They come with every Linux system. |
 | `sha256sum`                    | Required                   | Tells whether a save step changed since you approved it. It comes with every Linux system.                                                                                                 |
 | `systemctl`                    | Required                   | Lists and restores the services that start by themselves. Without it, services are not saved.                                                                                              |
@@ -79,17 +79,18 @@ noctalia msg panel-toggle omerfuyar/resurrect:panel
 ### Sharing between devices
 
 With **Share between devices** on, as it is by default, devices that push to the same
-repository share their setup. Each save, and each start of Noctalia, also takes in what the
-other devices changed:
+repository share their setup. Each save, and each start of Noctalia, also checks what the
+other devices changed. Nothing from them comes in until you take it:
 
-- A dotfile that only another device changed is put in place here, when it is in this
-  device's **Files**. The file it replaces
-  goes to `~/.local/state/resurrect/backup-<date>` first. When that copy fails, the save
-  stops before replacing the file, and the panel shows why.
-- A dotfile that only this device changed reaches the others on their next save. A file
-  deleted on one device is deleted on the others, into the same backup. When a device
-  deletes more than half of the shared files at once, the others keep theirs and share
-  them again.
+- A dotfile that only another device changed, or deleted, waits in the panel's
+  **Changes from your other devices** card, when it is in this device's **Files**. **Review**
+  opens a terminal that shows what changed. **Take theirs**, or **Take all**, puts it in
+  place with the next save; **Keep mine** shares this device's version instead. The file it
+  replaces goes to `~/.local/state/resurrect/backup-<date>` first. When that copy fails, the
+  save stops before replacing the file, and the panel shows why.
+- A dotfile that only this device changed reaches the others, where it waits the same way.
+  When a device deletes more than half of the shared files at once, the others keep theirs
+  and share them again.
 - A dotfile changed on two devices is left as it is on both. The panel lists it, with
   **Keep mine** and **Take theirs**.
 - When files that came in give Hyprland config errors, they go back, and the panel lists
@@ -100,12 +101,14 @@ GPU variables. They are saved, but not shared.
 
 Noctalia's config folder is shared like the dotfiles. All settings changed in its settings
 window are shared one setting at a time, such as the bar, the theme, the wallpaper and
-idle: a setting only another device changed is taken, and when two devices changed one,
-each keeps its own. A setting shared for the first time takes the value of the device that
-shared it first. Plugins turned on or off on one device are turned on or off on the others.
-Only settings tied to the hardware stay on each device: brightness, battery, widgets placed
-on a monitor, and Resurrect's own settings, so another device never changes which files are
-written here. Resurrect's data folder, with the steps you approved, is never shared, and a
+idle. Settings only another device changed wait in the same card, together: **Take theirs**
+puts them in place, **Keep mine** shares this device's instead. When two devices changed
+one, each keeps its own. A setting shared for the first time takes the value of the device
+that shared it first. Plugins turned on or off on one device are turned on or off on the
+others once you take the settings. Some settings stay on each device: brightness, battery,
+widgets placed on a monitor, the plugin sources, so another device never adds code to run
+here, and Resurrect's own settings, so another device never changes which files are written
+here. Resurrect's data folder, with the steps you approved, is never shared, and a
 save writes nothing into it, not even through a link.
 
 The devices also share one list of packages and one of services:

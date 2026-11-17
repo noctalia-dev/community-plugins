@@ -52,7 +52,8 @@
     "settings": {
       "one": "1 Noctalia setting came from your other devices",
       "other": "{count} Noctalia settings came from your other devices"
-    }
+    },
+    "incoming": "Changes from your other devices wait for you"
   },
   "panel": {
     "loading": "Loading…",
@@ -155,5 +156,18 @@
     "no_git": "Resurrect needs git",
     "saved": "Resurrect: saved {time}",
     "saving": "Resurrect: saving…"
+  },
+  "incoming": {
+    "body": "Changes from your other devices come in only when you take them. Review shows what changed.",
+    "review": "Review",
+    "settings": {
+      "one": "1 Noctalia setting",
+      "other": "{count} Noctalia settings"
+    },
+    "take_all": "Take all",
+    "title": {
+      "one": "1 change from your other devices",
+      "other": "{count} changes from your other devices"
+    }
   }
 }

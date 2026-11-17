@@ -40,13 +40,20 @@ local approvedFile = dataDir .. "/approved-steps"
 
 -- result: "saved", "unchanged" or "pushed"; counts: what the last save held, by kind.
 -- conflicts and held: shared files that wait for the owner, by path under the home folder.
+-- incoming: shared files only another device changed, which wait until the owner takes them;
+-- incomingSettings: how many Noctalia settings wait the same way.
 -- missing: packages and services other devices have, as { list = "pacman", name = "foo" };
 -- left: those another device removed and this one still has, the same way.
 local state = {
   lastMs = nil, result = nil, error = nil, counts = nil, conflicts = {}, held = {}, missing = {}, left = {},
+  incoming = {}, incomingSettings = 0,
 }
--- Choices not yet passed to a save: path -> "mine" or "theirs".
+-- Choices not yet passed to a save: path -> "mine" or "theirs", and the same for the
+-- settings that wait.
 local choices = {}
+local settingsChoice = nil
+-- The waiting files, one path per line, for changes.sh to show.
+local incomingFile = dataDir .. "/incoming.txt"
 -- Names to leave off this device, and { list, name } items to share again or keep only
 -- here, not yet passed to a save.
 local skips = {}
@@ -103,7 +110,10 @@ local function publish()
     deviceFiles = list("device_files"),
     conflicts = state.conflicts or {},
     held = state.held or {},
+    incoming = state.incoming or {},
+    incomingSettings = state.incomingSettings or 0,
     choices = choices,
+    settingsChoice = settingsChoice,
     missing = state.missing or {},
     left = state.left or {},
     canRestore = noctalia.fileExists(repo() .. "/restore.sh"),
@@ -288,11 +298,13 @@ snapshot = function()
     approved = approvedFile,
     dataDir = dataDir,
     resolve = choices,
+    settingsChoice = settingsChoice,
     exclude = skips,
     again = again,
     only = only,
   }
   choices, skips, again, only = {}, {}, {}, {}
+  settingsChoice = nil
   publish()
   startJob(function(api)
     Save.run(api, opt)
@@ -315,6 +327,7 @@ local function lastLine(text)
   for line in (text or ""):gmatch("[^\n]+") do
     if not line:match("^skipped") and not line:match("^applied ") and not line:match("^removed ")
       and not line:match("^conflict ") and not line:match("^held ") and not line:match("^settings ")
+      and not line:match("^incoming")
       and not line:match("^missing ") and not line:match("^left ") and not line:match("^kept ") then
       found = line
     end
@@ -340,7 +353,7 @@ finish = function(code, out)
   end
   -- What the save did with the other devices' files. A file held back was also applied
   -- first, then put back.
-  local applied, conflicts, held, heldSet = {}, {}, {}, {}
+  local applied, conflicts, held, heldSet, incoming = {}, {}, {}, {}, {}
   local lines = {}
   for line in (log or ""):gmatch("[^\n]+") do
     local word, path = line:match("^(%a+) (.+)$")
@@ -354,6 +367,8 @@ finish = function(code, out)
       table.insert(held, line.path)
     elseif line.word == "conflict" then
       table.insert(conflicts, line.path)
+    elseif line.word == "incoming" then
+      table.insert(incoming, line.path)
     end
   end
   for _, line in ipairs(lines) do
@@ -382,7 +397,11 @@ finish = function(code, out)
     end
   end
   local newlyHeld = #held > #(state.held or {})
+  local incomingSettings = tonumber((log or ""):match("incoming%-settings (%d+)") or "0") or 0
+  local newlyIncoming = #incoming > #(state.incoming or {}) or incomingSettings > (state.incomingSettings or 0)
   state.conflicts, state.held = conflicts, held
+  state.incoming, state.incomingSettings = incoming, incomingSettings
+  noctalia.writeFile(incomingFile, table.concat(incoming, "\n") .. "\n")
   if code == 0 then
     state.missing, state.left = missing, left
   end
@@ -392,6 +411,9 @@ finish = function(code, out)
   local settingsTaken = tonumber((log or ""):match("settings applied (%d+)") or "0") or 0
   if settingsTaken > 0 then
     noctalia.notify(noctalia.trp("notify.settings", settingsTaken))
+  end
+  if newlyIncoming then
+    noctalia.notify(noctalia.tr("notify.incoming"), table.concat(incoming, "\n"))
   end
   if newlyHeld then
     noctalia.notifyError(noctalia.tr("notify.held"), table.concat(held, "\n"))
@@ -445,6 +467,12 @@ local function restore()
   end
 end
 
+-- Opens a terminal that shows what changed in each file and setting that waits.
+local function changes()
+  noctalia.runInTerminal("sh " .. quoted((noctalia.pluginDir() or "") .. "/changes.sh") .. " " .. quoted(repo())
+    .. " " .. quoted(dataDir))
+end
+
 -- Opens a terminal that shows each save step waiting for approval and asks about it.
 local function review()
   noctalia.runInTerminal("sh " .. quoted((noctalia.pluginDir() or "") .. "/review.sh") .. " " .. quoted(repo())
@@ -462,6 +490,19 @@ noctalia.state.watch("resurrect.command", function(command)
     -- The choice goes with the next save, which starts now or after the one running.
     choices[command.path] = command.choice
     saveSoon()
+  elseif command.action == "settings" and (command.choice == "mine" or command.choice == "theirs") then
+    settingsChoice = command.choice
+    saveSoon()
+  elseif command.action == "take_all" then
+    for _, path in ipairs(state.incoming or {}) do
+      choices[path] = "theirs"
+    end
+    if (state.incomingSettings or 0) > 0 then
+      settingsChoice = "theirs"
+    end
+    saveSoon()
+  elseif command.action == "changes" then
+    changes()
   elseif command.action == "skip" and type(command.names) == "table" then
     -- Left off this device: gone from the list now, written to skip.txt with the next save.
     local leave = {}
@@ -549,6 +590,8 @@ noctalia.readFileAsync(stateFile, function(text)
   state.runMs = nil
   state.conflicts = state.conflicts or {}
   state.held = state.held or {}
+  state.incoming = state.incoming or {}
+  state.incomingSettings = state.incomingSettings or 0
   state.missing = state.missing or {}
   state.left = state.left or {}
   -- Files of versions that saved with shell scripts.

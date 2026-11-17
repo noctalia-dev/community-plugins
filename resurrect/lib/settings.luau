@@ -1,9 +1,9 @@
 --!nonstrict
 -- Shares Noctalia's settings.toml between devices, one setting at a time.
 --
--- Settings.merge(mine, theirs, base) compares each setting in three versions: this device's
--- settings.toml, the other devices' shared settings, and the shared settings this device last
--- agreed on. Any of them may be "". It returns:
+-- Settings.merge(mine, theirs, base, keepMine) compares each setting in three versions: this
+-- device's settings.toml, the other devices' shared settings, and the shared settings this
+-- device last agreed on. Any of them may be "". It returns:
 -- - shared: the new shared settings, as TOML text;
 -- - localText: the settings of <mine> that stay on this device;
 -- - settings: this device's new settings.toml, or nil when nothing was taken;
@@ -13,12 +13,13 @@
 --
 -- A setting is a leaf: its path, the keys joined by dots, and its value as TOML text on one
 -- line, written the same way whatever file it came from. A setting only another device
--- changed is taken; otherwise this device's value stays. The list of enabled plugins is
--- merged item by item. Settings tied to the hardware are never shared: brightness and
--- battery, any table named after a monitor or placed on one (except the wallpaper's), and
--- Resurrect's own settings, so another device never changes what this one writes. Plugin sources that are folders on this device stay
--- too. A setting shared for the first time takes the value already shared, so the device
--- that shared it first wins.
+-- changed is taken; otherwise this device's value stays. With <keepMine>, every setting is
+-- this device's. The list of enabled plugins is merged item by item. Never shared: settings
+-- tied to the hardware (brightness and battery, any table named after a monitor or placed on
+-- one, except the wallpaper's), Resurrect's own settings, so another device never changes
+-- what this one writes, and the plugin sources, so another device never adds code to run. A
+-- setting shared for the first time takes the value already shared, so the device that
+-- shared it first wins.
 --
 -- Settings.breathe is called between lines; the service sets it to pause the save when the
 -- callback's time is used up.
@@ -578,10 +579,6 @@ local function isLocal(file, tableName)
   return result
 end
 
-local function isFolderSource(item)
-  return item:match('^{ kind = "path"[,}%s]') ~= nil or item:find(', kind = "path"[,%s}]') ~= nil
-end
-
 -- Puts each leaf of <file> in file.shared or in file.localValues.
 local function classify(file)
   file.shared, file.localValues = {}, {}
@@ -589,18 +586,8 @@ local function classify(file)
     Settings.breathe()
     local value = file.values[path]
     local m = meta[path]
-    if isLocal(file, m.parent) or m.parent == RESURRECT then
+    if isLocal(file, m.parent) or m.parent == RESURRECT or path == "plugins.source" then
       file.localValues[path] = value
-    elseif path == "plugins.source" and value:sub(1, 1) == "[" then
-      -- Plugin sources that are folders on this device stay here.
-      local shared, kept = {}, {}
-      for _, item in ipairs(items(value)) do
-        table.insert(isFolderSource(item) and kept or shared, item)
-      end
-      file.shared[path] = join(shared)
-      if #kept > 0 then
-        file.localValues[path] = join(kept)
-      end
     else
       file.shared[path] = value
     end
@@ -719,7 +706,7 @@ local function written(values)
   return text
 end
 
-function Settings.merge(mineText, theirsText, baseText)
+function Settings.merge(mineText, theirsText, baseText, keepMine)
   local mine, theirs, base = parse(mineText), parse(theirsText), parse(baseText)
   classify(mine)
   classify(theirs)
@@ -732,7 +719,10 @@ function Settings.merge(mineText, theirsText, baseText)
         Settings.breathe()
         seen[path] = true
         local value
-        if path == "plugins.enabled" then
+        if keepMine then
+          -- The owner kept this device's settings: they are shared as they are here.
+          value = mine.shared[path]
+        elseif path == "plugins.enabled" then
           value = mergeList(mine, theirs, base, path)
           -- The same plugins in another order are not a change: this device's order stays.
           if mine.shared[path] ~= nil and sameItems(value, mine.shared[path]) then
@@ -765,11 +755,7 @@ function Settings.merge(mineText, theirsText, baseText)
     -- This device's new settings: the merged ones, and those that stay here.
     local result = table.clone(merged)
     for path, value in pairs(mine.localValues) do
-      if path == "plugins.source" and merged[path] ~= nil and merged[path] ~= "[]" then
-        result[path] = merged[path]:sub(1, -2) .. ", " .. value:sub(2)
-      else
-        result[path] = value
-      end
+      result[path] = value
     end
     if not sameLeaves(result, mine) then
       Settings.breathe()

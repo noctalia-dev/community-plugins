@@ -134,6 +134,65 @@ local function waiting()
   return card(rows, height)
 end
 
+-- Files and Noctalia settings only another device changed. Nothing from another device is put
+-- in place until the owner takes it: one by one, or all at once. Review shows what changed.
+local function incomingCard()
+  local files = model.incoming or {}
+  local settings = model.incomingSettings or 0
+  local total = #files + (settings > 0 and 1 or 0)
+  if total == 0 then
+    return nil
+  end
+  local body = noctalia.tr("incoming.body")
+  local rows = {
+    ui.row({ gap = 8, align = "center", height = TITLE_HEIGHT }, {
+      ui.glyph({ name = "download", size = 18, color = "primary" }),
+      ui.label({ text = noctalia.trp("incoming.title", total), fontWeight = "semibold", flexGrow = 1 }),
+    }),
+    ui.label({ text = body, color = "on_surface_variant", maxLines = 3 }),
+  }
+  local height = TITLE_HEIGHT + textHeight(body, 3)
+  if settings > 0 then
+    local children = {
+      ui.label({ text = noctalia.trp("incoming.settings", settings), maxLines = 2, flexGrow = 1 }),
+    }
+    if model.settingsChoice then
+      table.insert(children, ui.label({ text = noctalia.tr("waiting.chosen"), color = "on_surface_variant" }))
+    else
+      table.insert(children, ui.button({ text = noctalia.tr("waiting.mine"), variant = "ghost", controlSize = "sm",
+        onClick = function() send({ action = "settings", choice = "mine" }) end }))
+      table.insert(children, ui.button({ text = noctalia.tr("waiting.theirs"), variant = "ghost", controlSize = "sm",
+        onClick = function() send({ action = "settings", choice = "theirs" }) end }))
+    end
+    table.insert(rows, ui.row({ gap = 6, align = "center", height = 2 * LINE_HEIGHT }, children))
+    height += 2 * LINE_HEIGHT
+  end
+  local shown = 0
+  for _, path in ipairs(files) do
+    if shown < MAX_WAITING then
+      table.insert(rows, waitingRow(path, false))
+      height += 2 * LINE_HEIGHT
+      shown += 1
+    end
+  end
+  if #files > shown then
+    table.insert(rows, ui.label({ text = noctalia.tr("waiting.more", { count = #files - shown }),
+      color = "on_surface_variant", maxLines = 1 }))
+    height += LINE_HEIGHT
+  end
+  table.insert(rows, ui.row({ gap = 8, justify = "end", height = BUTTON_ROW_HEIGHT }, {
+    ui.button({ text = noctalia.tr("incoming.review"), glyph = "terminal-2", variant = "ghost", controlSize = "sm",
+      onClick = function()
+        send({ action = "changes" })
+        panel.close()
+      end }),
+    ui.button({ text = noctalia.tr("incoming.take_all"), glyph = "check", variant = "primary", controlSize = "sm",
+      onClick = function() send({ action = "take_all" }) end }),
+  }))
+  height += BUTTON_ROW_HEIGHT
+  return card(rows, height)
+end
+
 -- The list a package or service comes from, as the panel names it.
 local function listName(list)
   if list == "system" or list == "user" then
@@ -375,6 +434,7 @@ render = function()
   end
   add(statusCard())
   add(approvalCard())
+  add(incomingCard())
   add(waiting())
   add(missingCard())
   add(leftCard())

@@ -22,6 +22,12 @@ ask() {
   [ "$answer" = y ] || [ "$answer" = Y ]
 }
 
+# Only the lines that are a package or service name: letters, digits and @ . _ + : -, not
+# starting with "-", so a name from the repository is never read as an option.
+names_only() {
+  grep -E '^[[:alnum:]@_+][[:alnum:]@._+:-]*$'
+}
+
 # Lines of a list you keep by hand, without comments and blank lines.
 entries() {
   sed 's/#.*//; s/[[:space:]]*$//; /^$/d' "$1" 2>/dev/null
@@ -103,7 +109,7 @@ wanted() {
 }
 
 for list in pacman aur apt dnf flatpak; do
-  wanted packages "$list" >"$work/$list"
+  wanted packages "$list" | names_only >"$work/$list"
 done
 if [ -n "$(cat "$work"/pacman "$work"/aur "$work"/apt "$work"/dnf "$work"/flatpak)" ] &&
   ask "Install the saved packages?"; then
@@ -114,7 +120,7 @@ if [ -n "$(cat "$work"/pacman "$work"/aur "$work"/apt "$work"/dnf "$work"/flatpa
   # Packages kept by hand in the repository's packages/extra.txt, such as ones pacman
   # counts as dependencies and so leaves out of the saved lists.
   if [ -f "$repo/packages/extra.txt" ] && command -v pacman >/dev/null; then
-    entries "$repo/packages/extra.txt" | sudo pacman -S --needed -
+    entries "$repo/packages/extra.txt" | names_only | sudo pacman -S --needed -
   fi
   if [ -s "$work/aur" ]; then
     helper=$(command -v paru || command -v yay || true)
@@ -125,13 +131,13 @@ if [ -n "$(cat "$work"/pacman "$work"/aur "$work"/apt "$work"/dnf "$work"/flatpa
     fi
   fi
   if [ -s "$work/apt" ] && command -v apt-get >/dev/null; then
-    xargs -a "$work/apt" sudo apt-get install -y
+    xargs -a "$work/apt" sudo apt-get install -y --
   fi
   if [ -s "$work/dnf" ] && command -v dnf >/dev/null; then
-    xargs -a "$work/dnf" sudo dnf install -y
+    xargs -a "$work/dnf" sudo dnf install -y --
   fi
   if [ -s "$work/flatpak" ] && command -v flatpak >/dev/null; then
-    xargs -a "$work/flatpak" flatpak install -y
+    xargs -a "$work/flatpak" flatpak install -y --
   fi
 fi
 
@@ -147,7 +153,10 @@ fi
 # Noctalia runs with it on. The config folder comes with the dotfiles when it is shared.
 if [ -f "$repo/shared/noctalia/settings.toml" ]; then
   if ask "Put back Noctalia's settings?"; then
-    put_file "$repo/shared/noctalia/settings.toml" "$HOME/.local/state/noctalia/settings.toml"
+    # Plugin sources are never shared, so a "source = [...]" line there did not come from
+    # Resurrect and is left out: another device never adds code to run here.
+    sed '/^\[plugins\]$/,/^\[/{/^source *=/d}' "$repo/shared/noctalia/settings.toml" >"$work/settings.toml"
+    put_file "$work/settings.toml" "$HOME/.local/state/noctalia/settings.toml"
     if [ -f "$own/settings.toml" ]; then
       cp "$own/settings.toml" "$data/restore-device.toml"
     fi
@@ -173,15 +182,15 @@ if [ -s "$work/plugins" ] && command -v noctalia >/dev/null &&
   done <"$work/first"
 fi
 
-wanted services system >"$work/system"
-wanted services user >"$work/user"
+wanted services system | names_only >"$work/system"
+wanted services user | names_only >"$work/user"
 if [ -n "$(cat "$work/system" "$work/user")" ] && ask "Turn on the saved services?"; then
   # One at a time, so a unit this system does not have does not stop the others.
   while read -r unit; do
-    sudo systemctl enable "$unit" </dev/null 2>/dev/null || echo "skipped: $unit"
+    sudo systemctl enable -- "$unit" </dev/null 2>/dev/null || echo "skipped: $unit"
   done <"$work/system"
   while read -r unit; do
-    systemctl --user enable "$unit" </dev/null 2>/dev/null || echo "skipped: $unit"
+    systemctl --user enable -- "$unit" </dev/null 2>/dev/null || echo "skipped: $unit"
   done <"$work/user"
 fi
 
