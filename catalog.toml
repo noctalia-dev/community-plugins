@@ -6151,3 +6151,16 @@ icon = "brand-spotify"
 description = "Create ambient wallpapers from Spotify artwork and generate matching Noctalia palettes from the original cover art."
 plugin_api = 44
 tags = ["wallpaper", "music", "theming", "media"]
+
+[[plugin]]
+id = "omerfuyar/media-downloader"
+name = "Media Downloader"
+version = "2.1.1"
+updated_at = 1794922768
+added_at = 1794922768
+author = "omerfuyar"
+license = "MIT"
+icon = "download"
+description = "Download video or audio from a link with yt-dlp, and follow the queue and progress from the bar."
+plugin_api = 43
+tags = ["bar", "media", "video", "utility"]
