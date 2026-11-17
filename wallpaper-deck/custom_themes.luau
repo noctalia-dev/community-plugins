@@ -215,6 +215,12 @@ function M.save(name, darkColors, lightColors)
   local id = M.sanitizeName(name)
   if id == "" then return false, "Theme name cannot be empty." end
 
+  -- Reject duplicate names
+  local existingPath = PALETTES_DIR .. "/" .. id .. ".json"
+  if noctalia.fileExists(existingPath) then
+    return false, "A theme named \"" .. id .. "\" already exists. Choose a different name."
+  end
+
   local dk = buildScheme(darkColors,  DARK_DEFAULTS)
   local lk = buildScheme(lightColors, LIGHT_DEFAULTS)
   local payload = { version=2, dark=dk, light=lk }
