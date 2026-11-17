@@ -584,16 +584,47 @@ end
 
 -- ── Provider list ─────────────────────────────────────────────────────────────
 
-local function providerRow(entry, selected, compact)
+local MAX_VISIBLE_TABS = 10
+
+local function tabsFitWithNames(candidates)
+    if type(candidates) ~= "table" or #candidates <= 1 then return true end
+    if #candidates >= 3 then return false end
+    local estimated = 100 + (#candidates - 1) * 6 + 6
+    for _, candidate in ipairs(candidates) do
+        local name = tostring(candidate.display_name or candidate.name or candidate.id or "")
+        estimated = estimated + 32 + (#name * 6)
+    end
+    return estimated <= 350
+end
+
+local function tabSizing(count)
+    if count <= 4 then
+        return { glyphSize = 16, alertSize = 12, paddingH = 10, minHeight = 30, gap = 6 }
+    elseif count <= 6 then
+        return { glyphSize = 15, alertSize = 11, paddingH = 8, minHeight = 28, gap = 5 }
+    elseif count <= 8 then
+        return { glyphSize = 14, alertSize = 11, paddingH = 6, minHeight = 26, gap = 4 }
+    elseif count <= 10 then
+        return { glyphSize = 12, alertSize = 10, paddingH = 4, minHeight = 24, gap = 3 }
+    end
+    return { glyphSize = 11, alertSize = 10, paddingH = 3, minHeight = 22, gap = 2 }
+end
+
+local function providerRow(entry, selected, compact, sizing)
     local tabKey = "provider-" .. tostring(entry.id)
     local hovered = hoveredTab == tabKey
     local displayName = tostring(entry.display_name or entry.name or entry.id or "")
     local broken = entry.status == "error" or unavailable(entry)
+    local glyphSize = compact and sizing.glyphSize or 15
+    local alertSize = compact and sizing.alertSize or 12
+    local paddingH = compact and sizing.paddingH or 10
+    local minHeight = compact and sizing.minHeight or 30
+    local gap = compact and sizing.gap or 6
 
     local children = {
         ui.glyph({
             name = providerGlyph(entry.id, entry.brand),
-            size = compact and 16 or 15,
+            size = glyphSize,
             color = hovered and "on_hover" or selected and "primary" or "on_surface",
         }),
     }
@@ -611,19 +642,19 @@ local function providerRow(entry, selected, compact)
     if broken then
         children[#children + 1] = ui.glyph({
             name = "alert-circle",
-            size = 12,
+            size = alertSize,
             color = "error",
         })
     end
 
     return ui.row({
         key = tabKey,
-        gap = 6,
+        gap = gap,
         align = "center",
         justify = "center",
         tooltip = compact and displayName or nil,
-        paddingH = 10,
-        minHeight = 30,
+        paddingH = paddingH,
+        minHeight = minHeight,
         paddingV = 4,
         radius = 8,
         flexGrow = 1,
@@ -1206,10 +1237,8 @@ local function overviewCard(entry)
     local count = 0
     if isAntigravity then
         local order, byName = antigravityOverviewGroups(entry)
-        for index, family in ipairs(order) do
-            if index > 1 then
-                body[#body + 1] = ui.box({ height = 1, fill = "outline_variant/0.14" })
-            end
+        for _, family in ipairs(order) do
+            body[#body + 1] = ui.box({ height = 1, fill = "outline_variant/0.14" })
             if family ~= "" then
                 body[#body + 1] = ui.row({ gap = 6, align = "center" }, {
                     ui.glyph({ name = modelGlyph(family), size = 13, color = "on_surface/0.8" }),
@@ -1279,7 +1308,7 @@ local function renderOverview(candidates)
     end
     local first = math.floor((selectedIndex - 1) / 4) * 4 + 1
     local last = math.min(#candidates, first + 3)
-    local cards, height = {}, 140
+    local cards, height = {}, 148
     for index = first, last do
         local entry = candidates[index]
         cards[#cards + 1] = overviewCard(entry)
@@ -1289,8 +1318,12 @@ local function renderOverview(candidates)
         for _, metric in ipairs(type(entry.metrics) == "table" and entry.metrics or {}) do
             if type(metric) == "table" and (isAntigravity or metric.model_pool ~= true) then windows = windows + 1 end
         end
-        local familyOverhead = isAntigravity and 48 or 0
-        height = height + 70 + familyOverhead + math.min(windows, maxWindows) * 30 + (windows > maxWindows and 16 or 0)
+        local familyOverhead = 0
+        if isAntigravity then
+            local groups = antigravityOverviewGroups(entry)
+            familyOverhead = #groups * 28
+        end
+        height = height + 70 + familyOverhead + math.min(windows, maxWindows) * 34 + (windows > maxWindows and 16 or 0)
     end
     if #cards == 0 then
         cards[#cards + 1] = ui.label({ text = noctalia.tr("ui.no_usage"), fontSize = 12, color = "on_surface/0.8" })
@@ -1336,16 +1369,44 @@ end
 
 -- Calibrate the viewport to the data; scrolling remains the overflow safety net.
 local function detailHeight(entry)
-    local height = 220
-    for _, section in ipairs(type(entry) == "table" and type(entry.sections) == "table" and entry.sections or {}) do
-        if type(section) == "table" then
-            if section.type == "metric" then height = height + 66
-            elseif section.type == "block" then
-                height = height + 30 + math.min(type(section.body) == "table" and #section.body or 0, 8) * 16
-            elseif section.type == "text" and tostring(section.value or "") ~= "" then height = height + 28 end
+    local height = 195
+    local sections = type(entry) == "table" and type(entry.sections) == "table" and entry.sections or {}
+    local groups, seenGroups = 0, {}
+    local isAntigravity = entry ~= nil and shared.baseProvider(entry.id) == "antigravity"
+    local windowed = false
+    for _, section in ipairs(sections) do
+        if type(section) == "table" and section.type == "text"
+            and noctalia.string.trim(tostring(section.value or "")) == ""
+            and tostring(section.label or "") ~= "" then
+            windowed = true
+            break
         end
     end
-    return math.min(MAX_VIEWPORT_HEIGHT, height)
+    for _, section in ipairs(sections) do
+        if type(section) == "table" then
+            if section.type == "metric" then
+                height = height + 52
+                local label = tostring(section.label or "")
+                local group = (isAntigravity and windowed and isGeminiPool(section, label)) and "Gemini"
+                    or (windowed and label or "")
+                if not seenGroups[group] then
+                    seenGroups[group] = true
+                    groups = groups + 1
+                end
+            elseif section.type == "block" and not isEmptyCredits(section) then
+                height = height + 30 + math.min(type(section.body) == "table" and #section.body or 0, 8) * 16
+            elseif section.type == "text" then
+                local label = tostring(section.label or "")
+                local value = tostring(section.value or "")
+                if value ~= "" and label:lower() ~= "source"
+                    and not transportError(label) and not transportError(value) then
+                    height = height + 28
+                end
+            end
+        end
+    end
+    height = height + groups * 34
+    return math.max(220, math.min(MAX_VIEWPORT_HEIGHT, height))
 end
 
 function render()
@@ -1387,16 +1448,20 @@ function render()
     if showOverview and #candidates ~= 1 then renderOverview(candidates); return end
     if #candidates == 1 then showOverview = false end
 
-    local compactTabs = #candidates > 3
+    local compactTabs = not tabsFitWithNames(candidates)
+    local shownProviders = math.min(#candidates, MAX_VISIBLE_TABS)
+    local visibleTabs = (#candidates > 1 and 1 or 0) + shownProviders + (#candidates > MAX_VISIBLE_TABS and 2 or 0)
+    local sizing = tabSizing(visibleTabs)
     local selectedIndex = 1
     for index, candidate in ipairs(candidates) do
         if entry ~= nil and candidate.id == entry.id then selectedIndex = index end
     end
-    local start = math.max(1, math.min(selectedIndex - 2, #candidates - 4))
+    local start = math.max(1, math.min(selectedIndex - math.floor(MAX_VISIBLE_TABS / 2), #candidates - MAX_VISIBLE_TABS + 1))
     local tabs = {}
     if #candidates > 1 then
-        tabs[#tabs + 1] = ui.row({ key = "overview-tab", gap = 6, align = "center", justify = "center",
-            paddingH = 10, minHeight = 30, paddingV = 4, radius = 8, flexGrow = 1,
+        tabs[#tabs + 1] = ui.row({ key = "overview-tab", gap = compactTabs and sizing.gap or 6, align = "center", justify = "center",
+            paddingH = compactTabs and sizing.paddingH or 10, minHeight = compactTabs and sizing.minHeight or 30,
+            paddingV = 4, radius = 8, flexGrow = 1,
             fill = hoveredTab == "overview-tab" and "hover" or "surface_container/0.22",
             border = hoveredTab == "overview-tab" and "hover" or "outline_variant/0.08", borderWidth = 1,
             onHover = function(state)
@@ -1406,21 +1471,22 @@ function render()
             end,
             tooltip = compactTabs and noctalia.tr("ui.overview") or nil,
             onClick = function() hoveredAccount, overviewSelection, hoveredTab = nil, nil, nil; showOverview = true; render() end }, {
-            ui.glyph({ name = "layout-grid", size = compactTabs and 16 or 15, color = hoveredTab == "overview-tab" and "on_hover" or "on_surface" }),
+            ui.glyph({ name = "layout-grid", size = compactTabs and sizing.glyphSize or 15, color = hoveredTab == "overview-tab" and "on_hover" or "on_surface" }),
             not compactTabs and ui.label({ text = noctalia.tr("ui.overview"), fontSize = 12,
                 fontWeight = "medium", color = hoveredTab == "overview-tab" and "on_hover" or "on_surface", maxLines = 1 }) or nil,
         })
     end
-    if #candidates > 5 then
+    if #candidates > MAX_VISIBLE_TABS then
         tabs[#tabs + 1] = ui.button({ glyph = "chevron-left", variant = "ghost", controlSize = "sm",
             tooltip = noctalia.tr("ui.previous_account"),
             onClick = function() openAccount(candidates[(selectedIndex - 2 + #candidates) % #candidates + 1]) end })
     end
-    for index = start, math.min(#candidates, start + 4) do
+    for index = start, math.min(#candidates, start + MAX_VISIBLE_TABS - 1) do
         local candidate = candidates[index]
-        tabs[#tabs + 1] = providerRow(candidate, entry ~= nil and candidate.id == entry.id, compactTabs)
+        tabs[#tabs + 1] = providerRow(candidate, entry ~= nil and candidate.id == entry.id,
+            compactTabs, sizing)
     end
-    if #candidates > 5 then
+    if #candidates > MAX_VISIBLE_TABS then
         tabs[#tabs + 1] = ui.button({ glyph = "chevron-right", variant = "ghost", controlSize = "sm",
             tooltip = noctalia.tr("ui.next_account"),
             onClick = function() openAccount(candidates[selectedIndex % #candidates + 1]) end })
@@ -1481,16 +1547,28 @@ function render()
         }),
     }
 
-    if compactTabs and entry ~= nil then
-        topChildren[#topChildren + 1] = ui.label({
-            text = tostring(entry.display_name or entry.name or entry.id or ""),
-            fontSize = 12, fontWeight = "semibold", color = "on_surface", maxLines = 1,
-        })
+    if #tabs > 0 then
+        topChildren[#topChildren + 1] = ui.row({ key = "tabs-dock", gap = compactTabs and sizing.gap or 6, paddingV = 4,
+            align = "center", justify = "center" }, tabs)
     end
 
-    if #tabs > 0 then
-        topChildren[#topChildren + 1] = ui.row({ key = "tabs-dock", gap = 6, paddingV = 4,
-            align = "center", justify = "center" }, tabs)
+    if compactTabs and entry ~= nil then
+        local activeDisplayName = tostring(entry.display_name or entry.name or entry.id or "")
+        local plan = noctalia.string.trim(tostring(entry.plan or ""))
+        local showPlan = plan ~= "" and plan ~= activeDisplayName
+            and plan:lower() ~= tostring(entry.name or ""):lower()
+            and plan:lower() ~= shared.baseProvider(entry.id):lower()
+        local identityRow = {
+            ui.label({ text = activeDisplayName, fontSize = 12, fontWeight = "semibold",
+                color = "on_surface", maxLines = 1 }),
+        }
+        if showPlan then
+            identityRow[#identityRow + 1] = ui.spacer({ flexGrow = 1 })
+            identityRow[#identityRow + 1] = ui.label({ text = plan, fontSize = 11,
+                color = "on_surface/0.75", maxLines = 1 })
+        end
+        topChildren[#topChildren + 1] = ui.row({ key = "identity-row", gap = 6, paddingH = 2,
+            align = "center" }, identityRow)
     end
 
     local footer = nil

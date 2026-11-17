@@ -197,6 +197,13 @@ local function shortName(entry)
     return (name:gsub("%s*·.*$", ""))
 end
 
+local function pinnedAccountLabel(entry)
+    if vendor == "auto" or account == "" then return nil end
+    local raw = tostring(entry.display_name or entry.name or "")
+    local suffix = raw:match("·%s*(.+)$")
+    return noctalia.string.trim(suffix ~= nil and suffix ~= "" and suffix or account)
+end
+
 -- ── Rendering ─────────────────────────────────────────────────────────────────
 
 local function metricFill(metric)
@@ -418,7 +425,9 @@ local function chip(entry, flagged, isVert)
         return ui.column({ gap = 2, align = "center" }, vertNodes)
     end
 
-    local name = showName and not hasSubmodels and ui.label({ text = shortName(entry),
+    local accountTag = hasSubmodels and pinnedAccountLabel(entry) or nil
+    local nameText = hasSubmodels and accountTag or (not hasSubmodels and shortName(entry) or nil)
+    local name = showName and nameText ~= nil and nameText ~= "" and ui.label({ text = nameText,
                                          color = "on_surface_variant", maxLines = 1, maxWidth = 140 }) or nil
 
     local nodes = {}

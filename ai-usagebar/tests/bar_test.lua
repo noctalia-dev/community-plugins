@@ -1036,4 +1036,50 @@ local emptyDetail = loadBar({ vendor = "openai", account = "missing", panel_view
 emptyDetail.env.onClick()
 assert(emptyDetail.values.bar_detail ~= true, "an empty capsule must open the overview")
 
+-- Multi-account Antigravity: pinned account label, auto_providers filtering, and Cloud Code-only model list.
+do
+    local agyDefault = {
+        id = "antigravity",
+        display_name = "Antigravity",
+        brand = "antigravity",
+        status = "ready",
+        metrics = {
+            { label = "Gemini", percent = 70, window_secs = 18000, reset_at = resetSoon },
+            { label = "Claude & GPT OSS", percent = 15, window_secs = 18000, reset_at = resetSoon },
+        },
+    }
+    local agyT3One = {
+        id = "antigravity@t3-1",
+        display_name = "Antigravity · t3-1",
+        brand = "antigravity",
+        status = "ready",
+        metrics = {
+            { label = "Claude & GPT OSS", percent = 22, window_secs = 18000, reset_at = resetSoon },
+        },
+    }
+    local agyT3Two = {
+        id = "antigravity@t3-2",
+        display_name = "Antigravity · t3-2",
+        brand = "antigravity",
+        status = "ready",
+        metrics = {
+            { label = "Claude & GPT OSS", percent = 85, window_secs = 18000, reset_at = resetSoon },
+        },
+    }
+    local multiAgyReport = { entries = { agyDefault, agyT3One, agyT3Two } }
+
+    local pinnedAgy = loadBar({ vendor = "antigravity", account = "t3-1", show_name = true, panel_view = "provider" }, multiAgyReport)
+    assert(containsText(pinnedAgy.rendered(), "t3-1")
+        and containsText(pinnedAgy.rendered(), "Claude & GPT OSS")
+        and not containsText(pinnedAgy.rendered(), "Antigravity"),
+        "pinned named Antigravity capsule with show_name should display the account label alongside its models")
+    pinnedAgy.env.onClick()
+    assert(pinnedAgy.values.selected == "antigravity@t3-1" and pinnedAgy.values.bar_detail == true,
+        "pinned named Antigravity capsule must open its own account detail")
+
+    local filteredAgy = loadBar({ auto_providers = { "antigravity@t3-1" } }, multiAgyReport)
+    assert(containsText(filteredAgy.rendered(), "22%") and not containsText(filteredAgy.rendered(), "85%"),
+        "auto_providers should allow selecting a specific antigravity@account")
+end
+
 io.write("ok: account selection, unavailable providers, and a steady capsule\n")
