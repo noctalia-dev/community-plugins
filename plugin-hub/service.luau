@@ -45,11 +45,7 @@ local NOCTALIA = {
   { command = "notification-dnd-toggle", name = "noctalia.dnd" },
 }
 
--- A command that runs without a shell: words of letters, digits and - _ . / : + only, so
--- nothing from a README can run more than noctalia msg.
-local function safe(command)
-  return type(command) == "string" and command:match("^[%w][%w%-_%./:%+ ]*$") ~= nil
-end
+local safe = Binds.safe
 
 local dataDir = noctalia.pluginDataDir() or ""
 local dataFile = dataDir .. "/hub.json"
