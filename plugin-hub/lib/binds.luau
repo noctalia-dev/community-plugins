@@ -20,6 +20,13 @@ local function quoted(value)
   return string.format("%q", tostring(value))
 end
 
+-- A command for noctalia msg: words of letters, digits and - _ . / : + only. A key runs its
+-- command through Hyprland's shell, so nothing else, from a README or from hub.json, can run
+-- more than noctalia msg.
+function Binds.safe(command)
+  return type(command) == "string" and command:match("^[%w][%w%-_%./:%+ ]*$") ~= nil
+end
+
 -- "SUPER + SHIFT + K" -> modmask 65, key "K", and the older form "SUPER SHIFT,K". A letter or
 -- digit alone would take that key from typing, so it needs a modifier.
 function Binds.parse(text)
@@ -28,7 +35,7 @@ function Binds.parse(text)
     table.insert(parts, noctalia.string.trim(part))
   end
   local key = table.remove(parts)
-  if key == nil or key == "" then
+  if key == nil or not key:match("^[%w_:]+$") then
     return nil
   end
   local mask = 0
@@ -107,7 +114,7 @@ function Binds.sync()
     local missing = {}
     for key, command in pairs(wanted) do
       local mask, name = Binds.parse(key)
-      if mask == nil then
+      if mask == nil or not Binds.safe(command) then
         status[key] = "invalid"
       elseif present[tostring(mask) .. " " .. name:lower()] then
         status[key] = ours[key] == command and "bound" or "taken"
