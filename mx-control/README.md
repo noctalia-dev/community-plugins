@@ -6,7 +6,7 @@ the devices over HID++ through Solaar's libraries, so it works over Bluetooth, U
 and Unifying.
 
 A port of [omarchy-mxcontrol](https://github.com/zachwilke/omarchy-mxcontrol) by Zach
-Wilke: its Python helper ships unchanged in `backend/` (see [UPSTREAM.md](UPSTREAM.md)),
+Wilke: its Python helper ships in `backend/` with one local fix (see [UPSTREAM.md](UPSTREAM.md)),
 and the Noctalia widget, panel and service are new.
 
 ## Plugin
@@ -82,7 +82,10 @@ Reads the devices again, the same as right-clicking the capsule.
   `$XDG_RUNTIME_DIR/omarchy-mx/` (mode 0700), and profiles, pointer preferences and
   shortcuts in `~/.config/omarchy-mx/` (mode 0600). Profiles and shortcuts saved with the
   Omarchy plugin carry over. Through Solaar's libraries it also records the settings it
-  changes in `~/.config/solaar/config.yaml`, as the Solaar app does.
+  changes in `~/.config/solaar/config.yaml`, as the Solaar app does, and writes them back
+  within about 10 seconds when a device resets, so the Solaar app need not be running.
+  Another tool that writes device settings when a device connects, such as OpenLogi or
+  logiops, overrides them; configure the device in one tool only.
 - **Devices and compositor:** the helper opens Logitech `/dev/hidraw*` devices and reads
   sysfs. Shortcuts and pointer acceleration go through Hyprland's IPC socket. There is no
   network access.
@@ -91,6 +94,7 @@ Reads the devices again, the same as right-clicking the capsule.
 
 ```bash
 lua tests/shared_test.lua      # logic tests (plain Lua; shared.luau stays Lua-compatible)
+python3 tests/reapply_test.py  # re-applying saved settings after a reset (needs Solaar)
 noctalia plugins lint .        # settings declared vs. used
 ```
 
