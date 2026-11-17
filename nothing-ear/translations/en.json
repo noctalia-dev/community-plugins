@@ -29,6 +29,11 @@
       "title": "Bluetooth Codec"
     },
     "copy_details": "Copy details",
+    "custom_eq": {
+      "bass": "Bass",
+      "mid": "Mid",
+      "treble": "Treble"
+    },
     "devices": {
       "none": "No paired Bluetooth devices found. Make sure the earbuds are paired at the OS level, then scan again.",
       "scan": "Scan for devices",
@@ -107,7 +112,12 @@
       "low": "Low",
       "mid": "Mid"
     },
-    "title": "Nothing Ear"
+    "tab": {
+      "main": "Main",
+      "more": "More"
+    },
+    "title": "Nothing Ear",
+    "write_failed": "That change didn't go through. If it keeps happening, copy the details and report it."
   },
   "plugin": {
     "description": "Battery, ANC, EQ presets and low-latency mode for Nothing and CMF earbuds, controlled directly over Bluetooth.",
@@ -117,6 +127,10 @@
     "device_mac": {
       "description": "Leave empty to auto-detect or pick from the panel. Set it to pin one device.",
       "label": "Earbuds MAC Address"
+    },
+    "hide_when_disconnected": {
+      "description": "Keep the bar icon hidden until your earbuds or headphones connect.",
+      "label": "Hide when disconnected"
     },
     "mono_on_single_bud": {
       "description": "Switch to mono while one bud is in its closed case, so you hear everything in the other.",

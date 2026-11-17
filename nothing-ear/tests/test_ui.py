@@ -14,7 +14,7 @@ class UiTests(unittest.TestCase):
     def test_headphones_and_earbuds(self):
         root = pathlib.Path(__file__).resolve().parents[1]
         with tempfile.TemporaryDirectory() as directory:
-            for name in ("shared.luau", "panel.luau", "widget.luau", "desktop-widget.luau", "service.luau"):
+            for name in ("shared.luau", "bar-icon.luau", "panel.luau", "widget.luau", "desktop-widget.luau", "service.luau"):
                 source = (root / name).read_text()
                 source = re.sub(r"(\b\w+) \+= (.+)", r"\1 = \1 + \2", source)
                 pathlib.Path(directory, name).write_text(source)

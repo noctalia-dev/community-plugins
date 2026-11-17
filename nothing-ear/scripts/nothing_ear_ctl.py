@@ -306,6 +306,7 @@ _READS = {
     p.BASS_RESP: ("bass", p.parse_bass),
     p.SPATIAL_RESP: ("spatial", p.parse_spatial),
     p.CODEC_RESP: ("codec", p.parse_codec),
+    p.CUSTOM_EQ_RESP: ("custom_eq", p.parse_custom_eq),
 }
 # Pushes the buds send unprompted carry the same payload as the reply, so
 # one arriving during the read stands in for a reply that didn't.
@@ -362,6 +363,9 @@ def read_state(address: str, lock_wait: float = 0.0, identify: bool = False) -> 
             if model.get("codecs"):
                 reads.append(p.CODEC_READ)
                 optional.add(p.CODEC_RESP)
+            if model.get("custom_eq") is not None:
+                reads.append(p.CUSTOM_EQ_READ)
+                optional.add(p.CUSTOM_EQ_RESP)
             for seq, cmd in enumerate(reads, start=1):
                 sock.send(p.build_frame(cmd, seq=seq))
             frames = gather(sock, wanted, optional=optional, raw=raw)
@@ -430,28 +434,126 @@ def read_cached() -> dict:
         return {"connected": False}
 
 
+class Link:
+    """One RFCOMM session for a write: numbers frames like the companion
+    apps do (1, 2, 3... per connection) and keeps every frame sent and
+    received, so a write the earbuds ignore can be reported byte for byte."""
+
+    def __init__(self, sock: socket.socket) -> None:
+        self.sock = sock
+        self.seq = 0
+        self.log: list[str] = []
+
+    def send(self, cmd: int, payload: bytes = b"") -> None:
+        self.seq = self.seq % 250 + 1
+        frame = p.build_frame(cmd, payload, seq=self.seq)
+        self.log.append("tx " + frame.hex(" "))
+        self.sock.send(frame)
+
+    def gather(self, wait_cmds: set[int], timeout: float, optional: set[int] = frozenset()) -> dict[int, p.Frame]:
+        raw = bytearray()
+        frames = gather(self.sock, wait_cmds, timeout=timeout, optional=optional, raw=raw)
+        if raw:
+            self.log.append("rx " + raw.hex(" "))
+        return frames
+
+    def app_session(self, model: dict) -> None:
+        """What the companion apps send on connecting, before any setting
+        changes: reads of the current settings and the time, 100 ms apart,
+        replies not waited for. The CMF Headphone Pro ignores spatial audio
+        and codec writes sent straight after a bare connect."""
+        reads = [p.BATTERY_READ, p.LISTENING_MODE_READ if model.get("eq") == "listening" else p.EQ_PRESET_READ,
+                 p.FIRMWARE_READ, None, p.LATENCY_READ, p.GESTURE_READ, p.ANC_READ, p.ADVANCED_EQ_READ,
+                 p.DUAL_CONNECT_READ]
+        if model.get("codecs"):
+            reads.append(p.CODEC_READ)
+        if model.get("spatial"):
+            reads.append(p.SPATIAL_READ)
+        for cmd in reads:
+            if cmd is None:
+                self.send(p.TIME_WRITE, p.time_write_payload(time.time()))
+            else:
+                self.send(cmd)
+            time.sleep(0.1)
+        # Drain the replies so they don't mix with the write's.
+        self.gather(set(), timeout=0.5, optional={p.SPATIAL_RESP, p.CODEC_RESP})
+
+
+LAST_WRITE_FILE = os.path.join(CACHE_DIR, "nothing_ear_last_write.json")
+
+
+def record_write(command: str, link: Link | None, error: CtlError | None = None) -> None:
+    """The last write and its frames, for diag; a failed save never fails
+    the write."""
+    entry = {"command": command, "time": time.time(), "frames": link.log if link else []}
+    if error is not None:
+        entry["error"] = error.to_dict()
+    try:
+        with open(LAST_WRITE_FILE + ".tmp", "w") as f:
+            json.dump(entry, f)
+        os.replace(LAST_WRITE_FILE + ".tmp", LAST_WRITE_FILE)
+    except OSError:
+        pass
+
+
+@contextlib.contextmanager
+def write_session(address: str, command: str):
+    """A locked, connected Link for one write, recorded for diag whether it
+    succeeds or not."""
+    link = None
+    try:
+        with channel_lock(wait=WRITE_LOCK_WAIT):
+            sock = connect(address)
+            link = Link(sock)
+            try:
+                yield link
+            finally:
+                sock.close()
+    except CtlError as e:
+        record_write(command, link, e)
+        raise
+    except OSError as e:
+        err = os_error(e, command)
+        record_write(command, link, err)
+        raise err from e
+    record_write(command, link)
+
+
+def write_setting(address: str, command: str, write_cmd: int, payload: bytes,
+                  read_cmd: int | None = None, resp: int | None = None,
+                  model: dict | None = None, ack_timeout: float = 1.5) -> dict[int, p.Frame]:
+    """Sends one write and, given read_cmd, reads the setting back. With a
+    model, the companion apps' connect session goes first (Link.app_session).
+    Returns the frames the read-back gathered."""
+    frames: dict[int, p.Frame] = {}
+    with write_session(address, command) as link:
+        if model is not None:
+            link.app_session(model)
+        link.send(write_cmd, payload)
+        link.gather({write_cmd & 0x7FFF}, timeout=ack_timeout)
+        if read_cmd is not None:
+            link.send(read_cmd)
+            frames = link.gather({resp}, timeout=1.5)
+    return frames
+
+
 def write_anc(address: str, mode: str, strength: str | None) -> dict:
     # Validate before connecting; a missing anc strength is filled in below.
     p.anc_mode_to_byte(mode, strength or ("adaptive" if mode == "anc" else None))
-    with channel_lock(wait=WRITE_LOCK_WAIT):
-        sock = connect(address)
-        try:
-            if mode == "anc" and strength is None:
-                # Keep the buds' current strength if ANC is already on, else adaptive.
-                sock.send(p.build_frame(p.ANC_READ, seq=3))
-                current = gather(sock, {p.ANC_RESP}, timeout=1.5)
-                strength = "adaptive"
-                if p.ANC_RESP in current:
-                    now = p.parse_anc(current[p.ANC_RESP].payload) or {}
-                    if now.get("mode") == "anc" and now.get("strength"):
-                        strength = now["strength"]
-            mode_byte = p.anc_mode_to_byte(mode, strength)
-            sock.send(p.build_frame(p.ANC_WRITE, p.anc_write_payload(mode_byte), seq=1))
-            gather(sock, {p.ANC_WRITE & 0x7FFF}, timeout=1.5)
-            sock.send(p.build_frame(p.ANC_READ, seq=2))
-            frames = gather(sock, {p.ANC_RESP}, timeout=1.5)
-        finally:
-            sock.close()
+    with write_session(address, "set-anc") as link:
+        if mode == "anc" and strength is None:
+            # Keep the buds' current strength if ANC is already on, else adaptive.
+            link.send(p.ANC_READ)
+            current = link.gather({p.ANC_RESP}, timeout=1.5)
+            strength = "adaptive"
+            if p.ANC_RESP in current:
+                now = p.parse_anc(current[p.ANC_RESP].payload) or {}
+                if now.get("mode") == "anc" and now.get("strength"):
+                    strength = now["strength"]
+        link.send(p.ANC_WRITE, p.anc_write_payload(p.anc_mode_to_byte(mode, strength)))
+        link.gather({p.ANC_WRITE & 0x7FFF}, timeout=1.5)
+        link.send(p.ANC_READ)
+        frames = link.gather({p.ANC_RESP}, timeout=1.5)
     result = {"ok": True}
     if p.ANC_RESP in frames and p.parse_anc(frames[p.ANC_RESP].payload) is not None:
         result["anc"] = p.parse_anc(frames[p.ANC_RESP].payload)
@@ -466,18 +568,28 @@ def write_eq(address: str, preset: int) -> dict:
         write_cmd, read_cmd, resp = p.LISTENING_MODE_WRITE, p.LISTENING_MODE_READ, p.LISTENING_MODE_RESP
     else:
         write_cmd, read_cmd, resp = p.EQ_PRESET_WRITE, p.EQ_PRESET_READ, p.EQ_PRESET_RESP
-    with channel_lock(wait=WRITE_LOCK_WAIT):
-        sock = connect(address)
-        try:
-            sock.send(p.build_frame(write_cmd, p.eq_preset_write_payload(preset), seq=1))
-            gather(sock, {write_cmd & 0x7FFF}, timeout=1.5)
-            sock.send(p.build_frame(read_cmd, seq=2))
-            frames = gather(sock, {resp}, timeout=1.5)
-        finally:
-            sock.close()
+    frames = write_setting(address, "set-eq", write_cmd, p.eq_preset_write_payload(preset), read_cmd, resp)
     result = {"ok": True}
     if resp in frames and p.parse_eq_preset(frames[resp].payload) is not None:
         result["eq_preset"] = p.parse_eq_preset(frames[resp].payload)
+    return result
+
+
+def write_custom_eq(address: str, value: str) -> dict:
+    """value is "bass,mid,treble", each -6 to 6."""
+    model = cached_model(address) or {}
+    bands = m.CUSTOM_EQ_BANDS.get(model.get("base"))
+    if model.get("custom_eq") is None or bands is None:
+        raise CtlError("bad_value", "set-custom-eq", "this model has no custom EQ")
+    try:
+        bass, mid, treble = (int(v) for v in value.split(","))
+        payload = p.custom_eq_write_payload(bass, mid, treble, bands)
+    except (AttributeError, ValueError) as e:
+        raise CtlError("bad_value", "set-custom-eq", f"expected bass,mid,treble from -6 to 6, got {value!r}") from e
+    frames = write_setting(address, "set-custom-eq", p.CUSTOM_EQ_WRITE, payload, p.CUSTOM_EQ_READ, p.CUSTOM_EQ_RESP)
+    result = {"ok": True}
+    if p.CUSTOM_EQ_RESP in frames and p.parse_custom_eq(frames[p.CUSTOM_EQ_RESP].payload) is not None:
+        result["custom_eq"] = p.parse_custom_eq(frames[p.CUSTOM_EQ_RESP].payload)
     return result
 
 
@@ -490,15 +602,8 @@ def write_bass(address: str, level: int) -> dict:
     current = read_cached().get("bass") or {}
     enabled = level > 0
     wire_level = level if enabled else max(1, min(5, current.get("level") or 1))
-    with channel_lock(wait=WRITE_LOCK_WAIT):
-        sock = connect(address)
-        try:
-            sock.send(p.build_frame(p.BASS_WRITE, p.bass_write_payload(enabled, wire_level), seq=1))
-            gather(sock, {p.BASS_WRITE & 0x7FFF}, timeout=1.5)
-            sock.send(p.build_frame(p.BASS_READ, seq=2))
-            frames = gather(sock, {p.BASS_RESP}, timeout=1.5)
-        finally:
-            sock.close()
+    frames = write_setting(address, "set-bass", p.BASS_WRITE, p.bass_write_payload(enabled, wire_level),
+                           p.BASS_READ, p.BASS_RESP)
     result = {"ok": True}
     if p.BASS_RESP in frames and p.parse_bass(frames[p.BASS_RESP].payload) is not None:
         result["bass"] = p.parse_bass(frames[p.BASS_RESP].payload)
@@ -510,15 +615,8 @@ def write_spatial(address: str, name: str) -> dict:
     modes = dict(m.SPATIAL.get(model.get("base"), []))
     if name not in modes:
         raise CtlError("bad_value", "set-spatial", f"spatial audio mode {name!r} isn't one this model has")
-    with channel_lock(wait=WRITE_LOCK_WAIT):
-        sock = connect(address)
-        try:
-            sock.send(p.build_frame(p.SPATIAL_WRITE, p.spatial_write_payload(modes[name]), seq=1))
-            gather(sock, {p.SPATIAL_WRITE & 0x7FFF}, timeout=1.5)
-            sock.send(p.build_frame(p.SPATIAL_READ, seq=2))
-            frames = gather(sock, {p.SPATIAL_RESP}, timeout=1.5)
-        finally:
-            sock.close()
+    frames = write_setting(address, "set-spatial", p.SPATIAL_WRITE, p.spatial_write_payload(modes[name]),
+                           p.SPATIAL_READ, p.SPATIAL_RESP, model=model)
     result = {"ok": True}
     if p.SPATIAL_RESP in frames:
         now = spatial_name(model, p.parse_spatial(frames[p.SPATIAL_RESP].payload))
@@ -534,62 +632,34 @@ def write_codec(address: str, name: str) -> dict:
     if name not in (model.get("codecs") or []):
         raise CtlError("bad_value", "set-codec", f"codec {name!r} isn't one this model has")
     index = next(i for i, n in m.CODEC_NAMES.items() if n == name)
-    with channel_lock(wait=WRITE_LOCK_WAIT):
-        sock = connect(address)
-        try:
-            sock.send(p.build_frame(p.CODEC_WRITE, p.codec_write_payload(index), seq=1))
-            gather(sock, {p.CODEC_WRITE & 0x7FFF}, timeout=1.5)
-        finally:
-            sock.close()
+    write_setting(address, "set-codec", p.CODEC_WRITE, p.codec_write_payload(index), model=model, ack_timeout=1.0)
     return {"ok": True, "restarting": True}
 
 
-def write_latency(address: str, enabled: bool) -> dict:
-    with channel_lock(wait=WRITE_LOCK_WAIT):
-        sock = connect(address)
-        try:
-            sock.send(p.build_frame(p.LATENCY_WRITE, p.latency_write_payload(enabled), seq=1))
-            gather(sock, {p.LATENCY_WRITE & 0x7FFF}, timeout=1.5)
-            sock.send(p.build_frame(p.LATENCY_READ, seq=2))
-            frames = gather(sock, {p.LATENCY_RESP}, timeout=1.5)
-        finally:
-            sock.close()
+def _toggle(address: str, command: str, key: str, write_cmd: int, payload: bytes, read_cmd: int, resp: int,
+            parse) -> dict:
+    frames = write_setting(address, command, write_cmd, payload, read_cmd, resp)
     result = {"ok": True}
-    if p.LATENCY_RESP in frames and p.parse_latency(frames[p.LATENCY_RESP].payload) is not None:
-        result["latency_mode"] = p.parse_latency(frames[p.LATENCY_RESP].payload)
+    if resp in frames and parse(frames[resp].payload) is not None:
+        result[key] = parse(frames[resp].payload)
     return result
+
+
+def write_latency(address: str, enabled: bool) -> dict:
+    return _toggle(address, "set-latency", "latency_mode", p.LATENCY_WRITE, p.latency_write_payload(enabled),
+                   p.LATENCY_READ, p.LATENCY_RESP, p.parse_latency)
 
 
 def write_personal_anc(address: str, enabled: bool) -> dict:
-    with channel_lock(wait=WRITE_LOCK_WAIT):
-        sock = connect(address)
-        try:
-            sock.send(p.build_frame(p.PERSONAL_ANC_WRITE, p.personal_anc_write_payload(enabled), seq=1))
-            gather(sock, {p.PERSONAL_ANC_WRITE & 0x7FFF}, timeout=1.5)
-            sock.send(p.build_frame(p.PERSONAL_ANC_READ, seq=2))
-            frames = gather(sock, {p.PERSONAL_ANC_RESP}, timeout=1.5)
-        finally:
-            sock.close()
-    result = {"ok": True}
-    if p.PERSONAL_ANC_RESP in frames and p.parse_personal_anc(frames[p.PERSONAL_ANC_RESP].payload) is not None:
-        result["personal_anc"] = p.parse_personal_anc(frames[p.PERSONAL_ANC_RESP].payload)
-    return result
+    return _toggle(address, "set-personal-anc", "personal_anc", p.PERSONAL_ANC_WRITE,
+                   p.personal_anc_write_payload(enabled), p.PERSONAL_ANC_READ, p.PERSONAL_ANC_RESP,
+                   p.parse_personal_anc)
 
 
 def write_sound_profile(address: str, enabled: bool) -> dict:
-    with channel_lock(wait=WRITE_LOCK_WAIT):
-        sock = connect(address)
-        try:
-            sock.send(p.build_frame(p.SOUND_PROFILE_WRITE, p.sound_profile_write_payload(enabled), seq=1))
-            gather(sock, {p.SOUND_PROFILE_WRITE & 0x7FFF}, timeout=1.5)
-            sock.send(p.build_frame(p.SOUND_PROFILE_READ, seq=2))
-            frames = gather(sock, {p.SOUND_PROFILE_RESP}, timeout=1.5)
-        finally:
-            sock.close()
-    result = {"ok": True}
-    if p.SOUND_PROFILE_RESP in frames and p.parse_sound_profile(frames[p.SOUND_PROFILE_RESP].payload) is not None:
-        result["sound_profile"] = p.parse_sound_profile(frames[p.SOUND_PROFILE_RESP].payload)
-    return result
+    return _toggle(address, "set-sound-profile", "sound_profile", p.SOUND_PROFILE_WRITE,
+                   p.sound_profile_write_payload(enabled), p.SOUND_PROFILE_READ, p.SOUND_PROFILE_RESP,
+                   p.parse_sound_profile)
 
 
 def scan_devices() -> dict:
@@ -703,6 +773,22 @@ def refine(e: CtlError, address: str | None) -> CtlError:
     return e
 
 
+def last_write_rows() -> list[tuple[str, str]]:
+    """The most recent setting change and the raw frames it exchanged, so a
+    write the device ignored shows what was sent and what came back."""
+    try:
+        with open(LAST_WRITE_FILE) as f:
+            entry = json.load(f)
+    except (OSError, ValueError):
+        return []
+    age = int(time.time() - entry.get("time", 0))
+    rows = [("last write", f"{entry.get('command')} ({age} s ago)")]
+    if entry.get("error"):
+        rows += [("last write" + (" " + k if k else ""), v) for k, v in describe_error(entry["error"])]
+    rows += [("  frame", line) for line in entry.get("frames", [])]
+    return rows
+
+
 def diagnose(address: str | None, last_error: str | None) -> dict:
     """Everything useful for a bug report, as text ready to paste into an
     issue: environment, what BlueZ knows, the last poll's error and a fresh
@@ -770,7 +856,7 @@ def diagnose(address: str | None, last_error: str | None) -> dict:
             rows.append(("firmware", str(state.get("firmware"))))
             if model.get("battery_single"):
                 rows.append(("battery", json.dumps(state.get("battery"))))
-                for key in ("eq_preset", "spatial", "codec"):
+                for key in ("eq_preset", "custom_eq", "spatial", "codec"):
                     rows.append((key, json.dumps(state.get(key))))
             for cmd, payload in (state.get("unparsed") or {}).items():
                 rows.append(("unparsed " + cmd, payload or "(empty)"))
@@ -778,6 +864,8 @@ def diagnose(address: str | None, last_error: str | None) -> dict:
             rows += [("read" + (" " + k if k else ""), v) for k, v in describe_error(e.to_dict())]
         except Exception as e:  # noqa: BLE001 - a report should never fail to produce
             rows.append(("read", f"{type(e).__name__}: {e}"))
+
+    rows += last_write_rows()
 
     body = "\n".join(f"{k:<16}{v}" for k, v in rows)
     if address:
@@ -795,6 +883,7 @@ NEEDS_MAC = {
     "set-bass",
     "set-spatial",
     "set-codec",
+    "set-custom-eq",
     "cycle-anc",
 }
 
@@ -815,6 +904,7 @@ def main() -> None:
             "set-bass",
             "set-spatial",
             "set-codec",
+            "set-custom-eq",
             "cycle-anc",
             "diag",
         ],
@@ -850,6 +940,8 @@ def main() -> None:
             result = write_spatial(args.mac, args.value)
         elif args.command == "set-codec":
             result = write_codec(args.mac, args.value)
+        elif args.command == "set-custom-eq":
+            result = write_custom_eq(args.mac, args.value)
         elif args.command == "cycle-anc":
             result = cycle_anc(args.mac)
         elif args.command == "diag":
