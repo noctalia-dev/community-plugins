@@ -202,7 +202,7 @@ placement = "floating"
 position = "center"
 layer = "overlay"
 keyboard_focus = "exclusive"
-dismiss_on_outside_click = false
+dismiss_on_outside_click = true
 capture_keys = [
   "left", "right", "up", "down",
   "h", "l", "j", "k",

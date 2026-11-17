@@ -52,10 +52,16 @@ local function loadFavoritesDirect(): { [string]: boolean }
   return {}
 end
 
-local stateWps = noctalia.state.get("wallpapers")
-local allWallpapers = (type(stateWps) == "table" and #stateWps > 0) and stateWps or loadCacheDirect()
-local stateFavs = noctalia.state.get("favorites")
-local favorites = (type(stateFavs) == "table" and next(stateFavs) ~= nil) and stateFavs or loadFavoritesDirect()
+local allWallpapers: { any } = loadCacheDirect()
+do
+  local sw = noctalia.state.get("wallpapers")
+  if type(sw) == "table" and #sw > 0 then allWallpapers = sw end
+end
+local favorites: { [string]: boolean } = loadFavoritesDirect()
+do
+  local sf = noctalia.state.get("favorites")
+  if type(sf) == "table" and next(sf) ~= nil then favorites = sf end
+end
 local hasAnyFavorites = (type(favorites) == "table" and next(favorites) ~= nil)
 local activeWallpaper = noctalia.state.get("active_wallpaper") or ""
 local initialWallpaper = activeWallpaper
@@ -179,7 +185,6 @@ end
 local thumbQueue = {}
 local thumbPending = {}
 local thumbActive = 0
-local THUMB_MAX_CONCURRENT = 4
 
 local displayedItems = {}
 local selectedIdx = 1
@@ -292,7 +297,7 @@ local function isValidFile(path: string?): boolean
 end
 
 local function pumpThumbQueue()
-  while thumbActive < THUMB_MAX_CONCURRENT and #thumbQueue > 0 do
+  while thumbActive < 4 and #thumbQueue > 0 do
     local item = table.remove(thumbQueue, 1)
     local id = item.id
     if id and not thumbPending[id] then
@@ -604,11 +609,25 @@ local function onCardSettled()
   if not item then return end
 
   if currentMode ~= "wallhaven" then
-    local colors = item.colors
-    local hasRealColors = (colors and colors.primary and colors.primary ~= "#80a9ff")
-    if not hasRealColors and not item._paletteRequested and item.path then
-      item._paletteRequested = true
-      noctalia.state.set("deck_command", { action = "prioritize_palette", path = item.path })
+    if item._prefetchIdx ~= selectedIdx then
+      item._prefetchIdx = selectedIdx
+      local paths = {}
+      local minIdx = math.max(1, selectedIdx - 7)
+      local maxIdx = math.min(#displayedItems, selectedIdx + 7)
+      for i = minIdx, maxIdx do
+        local it = displayedItems[i]
+        if it and it.path then
+          local c = it.colors
+          local hasReal = (c and c.primary and c.primary ~= "#80a9ff")
+          if not hasReal and not it._paletteRequested then
+            it._paletteRequested = true
+            table.insert(paths, it.path)
+          end
+        end
+      end
+      if #paths > 0 then
+        noctalia.state.set("deck_command", { action = "prioritize_ribbon", paths = paths })
+      end
     end
     return
   end
@@ -2352,6 +2371,14 @@ local function selectCardIndex(newIdx: number)
   scheduleSettle()
   if not animateSelected then
     onCardSettled()
+    -- Force background refresh immediately when there is no animation
+    local si = displayedItems[selectedIdx]
+    if si and currentMode ~= "wallhaven" then
+      local bg = si._validPath or si.preview or si.thumb or si.path or ""
+      if bg ~= "" and bg ~= displayedBgPath then
+        setDisplayedBackground(bg)
+      end
+    end
   end
   if type(render) == "function" then
     render()
@@ -4119,6 +4146,32 @@ function onOpen(context: any?)
     updateThemeFromSystem()
     startWheelListener()
   end)
+
+  -- Prefetch palettes for all 32 ribbon segments on first open (local mode only)
+  if currentMode ~= "wallhaven" then
+    noctalia.runAsync({ "true" }, function()
+      if not isPickerOpen then return end
+      local count = #displayedItems
+      if count == 0 then return end
+      local segCount = math.min(count, 32)
+      local paths = {}
+      for i = 1, segCount do
+        local itemIndex = math.floor((i - 1) * (count / segCount)) + 1
+        local it = displayedItems[itemIndex]
+        if it and it.path then
+          local c = it.colors
+          local hasReal = (c and c.primary and c.primary ~= "#80a9ff")
+          if not hasReal and not it._paletteRequested then
+            it._paletteRequested = true
+            table.insert(paths, it.path)
+          end
+        end
+      end
+      if #paths > 0 then
+        noctalia.state.set("deck_command", { action = "prioritize_ribbon", paths = paths })
+      end
+    end)
+  end
 end
 
 function onFrameTick(deltaMs: any)
@@ -4149,6 +4202,14 @@ function onFrameTick(deltaMs: any)
         animVel = 0.0
         if wasMoving then
           onCardSettled()
+          -- Force background update immediately when spring settles
+          local si = displayedItems[selectedIdx]
+          if si and currentMode ~= "wallhaven" then
+            local bg = si._validPath or si.preview or si.thumb or si.path or ""
+            if bg ~= "" and bg ~= displayedBgPath then
+              setDisplayedBackground(bg)
+            end
+          end
         end
       else
         isSpringActive = true
@@ -4498,6 +4559,7 @@ noctalia.state.watch("palette_update", function(update)
           it._chipRows = nil
           it._chipStrip = nil
           it._renderedColors = nil
+          changed = true
           break
         end
       end
@@ -4507,7 +4569,15 @@ noctalia.state.watch("palette_update", function(update)
       sortedListCache["colour_1"] = nil
       sortedListCache["colour_0"] = nil
       if isPickerOpen then
+        -- Preserve hover state so background palette renders don't break scroll
+        local savedHover = isDeckAreaHovered
+        local savedKeys = {}
+        for k, v in pairs(hoveredDeckKeys) do savedKeys[k] = v end
         render()
+        if savedHover then
+          for k, v in pairs(savedKeys) do hoveredDeckKeys[k] = v end
+          isDeckAreaHovered = true
+        end
       end
     end
   end
@@ -4522,6 +4592,10 @@ noctalia.state.watch("thumb_update", function(update)
           it.thumb = update.thumb
           it.preview = update.thumb
           it._previewPath = update.thumb
+          it._validPath = nil  -- let renderBgLayer recompute on next render
+          if it.path == (displayedItems[selectedIdx] and displayedItems[selectedIdx].path) then
+            displayedBgPath = ""  -- unblock setDisplayedBackground for active card
+          end
           changed = true
           break
         end
@@ -4533,6 +4607,7 @@ noctalia.state.watch("thumb_update", function(update)
           it.thumb = update.thumb
           it.preview = update.thumb
           it._previewPath = update.thumb
+          it._validPath = nil
           break
         end
       end
