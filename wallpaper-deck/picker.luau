@@ -793,30 +793,33 @@ for _, s in ipairs(SCHEMES) do
   table.insert(SCHEME_OPTIONS, s.label)
 end
 
-local function loadCommunityPalettes(): {string}
-  local catPath = noctalia.expandPath("~/.local/state/noctalia/community-palettes/.catalog/palettes.json")
-  if noctalia.fileExists(catPath) then
-    local raw = noctalia.readFile(catPath)
-    if raw and raw ~= "" then
-      local ok, dec = pcall(noctalia.json.decode, raw)
-      if ok and type(dec) == "table" then
-        local names = {}
-        for _, p in ipairs(dec) do
-          if type(p) == "table" and type(p.name) == "string" and p.name ~= "" then
-            table.insert(names, p.name)
+local communityPalettes: {string}
+do
+  local function loadCommunityPalettes(): {string}
+    local catPath = noctalia.expandPath("~/.local/state/noctalia/community-palettes/.catalog/palettes.json")
+    if noctalia.fileExists(catPath) then
+      local raw = noctalia.readFile(catPath)
+      if raw and raw ~= "" then
+        local ok, dec = pcall(noctalia.json.decode, raw)
+        if ok and type(dec) == "table" then
+          local names = {}
+          for _, p in ipairs(dec) do
+            if type(p) == "table" and type(p.name) == "string" and p.name ~= "" then
+              table.insert(names, p.name)
+            end
           end
-        end
-        table.sort(names, function(a, b) return string.lower(a) < string.lower(b) end)
-        if #names > 0 then
-          return names
+          table.sort(names, function(a, b) return string.lower(a) < string.lower(b) end)
+          if #names > 0 then
+            return names
+          end
         end
       end
     end
+    return { "Osaka jade", "Oxide", "Oxocarbon", "Paradise", "Peche", "Rose Pine Moon", "Solarized", "Tokyo Night Moon", "Vesper", "Zenbones" }
   end
-  return { "Osaka jade", "Oxide", "Oxocarbon", "Paradise", "Peche", "Rose Pine Moon", "Solarized", "Tokyo Night Moon", "Vesper", "Zenbones" }
+  communityPalettes = loadCommunityPalettes()
 end
-
-local communityPalettes = loadCommunityPalettes()
+local CT = require("./custom_themes.luau")
 local selectedBuiltinIdx = 1
 local selectedSchemeIdx = 4 -- default m3-rainbow
 local selectedCommunityIdx = 1
@@ -1395,7 +1398,7 @@ local function updateThemeFromSystem()
       local src, scheme = string.match(res.stdout, "(%S+)%s+(.+)")
       if src and src ~= "" then
         src = string.lower(noctalia.string.trim(src))
-        if src == "builtin" or src == "wallpaper" or src == "community" then
+        if src == "builtin" or src == "wallpaper" or src == "community" or src == "custom" then
           currentPaletteSource = src
         end
       end
@@ -1412,6 +1415,14 @@ local function updateThemeFromSystem()
           for idx, name in ipairs(communityPalettes) do
             if string.lower(name) == string.lower(scheme) then
               selectedCommunityIdx = idx
+              break
+            end
+          end
+        elseif currentPaletteSource == "custom" then
+          local customList = CT.list()
+          for idx, id in ipairs(customList) do
+            if string.lower(id) == string.lower(scheme) then
+              CT.selectedIdx = idx
               break
             end
           end
@@ -2079,8 +2090,9 @@ local function buildStandardRow2(panelW: number?)
       align = "center",
       justify = "start",
       gap = isCompact and 6 or 10,
-    }, {
-      ui.row({
+    }, (function()
+      -- Source pills
+      local pillRow = ui.row({
         align = "center",
         gap = 2,
         fill = "surface/0.65",
@@ -2123,68 +2135,161 @@ local function buildStandardRow2(panelW: number?)
             render()
           end,
         }),
-      }),
-
-      (function()
-        local currentOptions = SCHEME_OPTIONS
-        local currentSelectedIdx = math.max(0, (selectedSchemeIdx or 1) - 1)
-        local selectWidth = isCompact and 120 or 140
-
-        if currentPaletteSource == "builtin" then
-          currentOptions = BUILTIN_PALETTES
-          currentSelectedIdx = math.max(0, (selectedBuiltinIdx or 1) - 1)
-          selectWidth = isCompact and 110 or 130
-        elseif currentPaletteSource == "community" then
-          currentOptions = communityPalettes
-          currentSelectedIdx = math.max(0, (selectedCommunityIdx or 1) - 1)
-          selectWidth = isCompact and 135 or 170
-        end
-
-        return ui.select({
-          key = "palette_select_" .. currentPaletteSource .. "_" .. tostring(currentSelectedIdx),
-          options = currentOptions,
-          selectedIndex = tonumber(currentSelectedIdx) or 0,
+        ui.button({
+          text = "Custom",
+          variant = (currentPaletteSource == "custom") and "primary" or "ghost",
           controlSize = "sm",
-          width = selectWidth,
+          onClick = function()
+            currentPaletteSource = "custom"
+            local customList = CT.list()
+            if #customList > 0 then
+              local id = customList[CT.selectedIdx] or customList[1]
+              CT.selectedIdx = 1
+              CT.apply(id)
+            end
+            render()
+          end,
+        }),
+      })
+
+      -- Dropdown: varies by source
+      local dropdownWidget
+      if currentPaletteSource == "builtin" then
+        local idx0 = math.max(0, (selectedBuiltinIdx or 1) - 1)
+        dropdownWidget = ui.select({
+          key = "palette_select_builtin_" .. tostring(idx0),
+          options = BUILTIN_PALETTES,
+          selectedIndex = idx0,
+          controlSize = "sm",
+          width = isCompact and 110 or 130,
           onChange = function(idx)
-            local num = tonumber(idx)
-            local chosenIdx = (num or 0) + 1
-            if currentPaletteSource == "builtin" then
-              selectedBuiltinIdx = chosenIdx
-              local name = BUILTIN_PALETTES[chosenIdx]
-              if name then
-                noctalia.runAsync({ "noctalia", "msg", "color-scheme-set", "builtin", name }, function() end)
-              end
-            elseif currentPaletteSource == "community" then
-              selectedCommunityIdx = chosenIdx
-              local name = communityPalettes[chosenIdx]
-              if name then
-                noctalia.runAsync({ "noctalia", "msg", "color-scheme-set", "community", name }, function() end)
-              end
-            else
-              selectedSchemeIdx = chosenIdx
-              local s = SCHEMES[chosenIdx]
-              if s then
-                noctalia.runAsync({ "noctalia", "msg", "color-scheme-set", "wallpaper", s.id }, function() end)
-              end
+            local chosenIdx = (tonumber(idx) or 0) + 1
+            selectedBuiltinIdx = chosenIdx
+            local name = BUILTIN_PALETTES[chosenIdx]
+            if name then
+              noctalia.runAsync({ "noctalia", "msg", "color-scheme-set", "builtin", name }, function() end)
             end
             render()
           end,
         })
-      end)(),
+      elseif currentPaletteSource == "community" then
+        local idx0 = math.max(0, (selectedCommunityIdx or 1) - 1)
+        dropdownWidget = ui.select({
+          key = "palette_select_community_" .. tostring(idx0),
+          options = communityPalettes,
+          selectedIndex = idx0,
+          controlSize = "sm",
+          width = isCompact and 135 or 170,
+          onChange = function(idx)
+            local chosenIdx = (tonumber(idx) or 0) + 1
+            selectedCommunityIdx = chosenIdx
+            local name = communityPalettes[chosenIdx]
+            if name then
+              noctalia.runAsync({ "noctalia", "msg", "color-scheme-set", "community", name }, function() end)
+            end
+            render()
+          end,
+        })
+      elseif currentPaletteSource == "custom" then
+        local customList = CT.list()
+        local hasCustom = #customList > 0
+        local safeIdx = CT.selectedIdx or 1
+        if safeIdx > #customList then safeIdx = math.max(1, #customList) end
+        local displayOptions = hasCustom and customList or { "(no themes yet)" }
+        local idx0 = hasCustom and math.max(0, safeIdx - 1) or 0
+        dropdownWidget = ui.select({
+          key = "palette_select_custom_" .. tostring(#customList) .. "_" .. tostring(idx0),
+          options = displayOptions,
+          selectedIndex = idx0,
+          controlSize = "sm",
+          width = isCompact and 130 or 160,
+          onChange = function(idx)
+            if not hasCustom then return end
+            local chosenIdx = (tonumber(idx) or 0) + 1
+            CT.selectedIdx = chosenIdx
+            local id = customList[chosenIdx]
+            if id then CT.apply(id) end
+            render()
+          end,
+        })
+      else
+        -- Wallpaper / scheme
+        local idx0 = math.max(0, (selectedSchemeIdx or 1) - 1)
+        dropdownWidget = ui.select({
+          key = "palette_select_wallpaper_" .. tostring(idx0),
+          options = SCHEME_OPTIONS,
+          selectedIndex = idx0,
+          controlSize = "sm",
+          width = isCompact and 120 or 140,
+          onChange = function(idx)
+            local chosenIdx = (tonumber(idx) or 0) + 1
+            selectedSchemeIdx = chosenIdx
+            local s = SCHEMES[chosenIdx]
+            if s then
+              noctalia.runAsync({ "noctalia", "msg", "color-scheme-set", "wallpaper", s.id }, function() end)
+            end
+            render()
+          end,
+        })
+      end
 
-      ui.button({
+      -- Build the left row items dynamically (no nil values)
+      local leftItems = { pillRow, dropdownWidget }
+
+      if currentPaletteSource == "custom" then
+        -- "+" button to open the create modal
+        table.insert(leftItems, ui.button({
+          glyph = "plus",
+          variant = "ghost",
+          controlSize = "sm",
+          tooltip = "Create new custom theme",
+          onClick = function()
+            CT.resetModal()
+            CT.isOpen = true
+            render()
+          end,
+        }))
+        -- Trash button to delete currently selected custom theme
+        local customListForTrash = CT.list()
+        if #customListForTrash > 0 then
+          local trashId = customListForTrash[CT.selectedIdx] or customListForTrash[1]
+          table.insert(leftItems, ui.button({
+            glyph = "trash",
+            variant = "ghost",
+            controlSize = "sm",
+            tooltip = "Delete theme \"" .. tostring(trashId) .. "\"",
+            onClick = function()
+              CT.delete(trashId)
+              CT.selectedIdx = 1
+              -- If still on custom source, re-apply first remaining or fall back
+              local remaining = CT.list()
+              if #remaining > 0 then
+                CT.apply(remaining[1])
+              else
+                -- Fall back to builtin if no themes left
+                currentPaletteSource = "builtin"
+                local name = BUILTIN_PALETTES[selectedBuiltinIdx or 1] or "Noctalia"
+                noctalia.runAsync({ "noctalia", "msg", "color-scheme-set", "builtin", name }, function() end)
+              end
+              render()
+            end,
+          }))
+        end
+      end
+
+      -- Favourite star button always at the end
+      table.insert(leftItems, ui.button({
         glyph = activeFav and "star-filled" or "star",
         variant = activeFav and "primary" or "ghost",
         controlSize = "sm",
         tooltip = activeFav and "Remove from Favourites (F)" or "Add to Favourites (F)",
         onClick = function()
-          if toggleCurrentFavorite then
-            toggleCurrentFavorite()
-          end
+          if toggleCurrentFavorite then toggleCurrentFavorite() end
         end,
-      }),
-    }),
+      }))
+
+      return leftItems
+    end)()),
 
     -- Center: Sort Pills
     ui.row({
@@ -4102,6 +4207,47 @@ function render()
       }),
     }),
   })))
+
+  -- Inject Custom Themes modal overlay on top if open
+  if CT.isOpen then
+    local modalNode = CT.renderModal(ui, panelW, panelH, R, render)
+    if modalNode then
+      panel.render(wrapFullBleed(ui.column({
+        key = "panel_root_modal",
+        width = panelW,
+        height = panelH,
+        flexGrow = 1,
+        gap = -panelH,
+        padding = 0,
+        align = "stretch",
+        justify = "start",
+      }, {
+        renderBgLayer(panelW, panelH, activeItem),
+        ui.column({
+          key = "deck_overlay_dim",
+          width = panelW,
+          height = panelH,
+          flexGrow = 1,
+          padding = 0,
+          gap = 0,
+          align = "stretch",
+          justify = "start",
+        }, {
+          ui.column({
+            key = "deck_header_modal",
+            width = panelW,
+            gap = 8,
+            paddingH = 32,
+            paddingV = 14,
+          }, {
+            buildStandardRow2(panelW),
+          }),
+        }),
+        modalNode,
+      })))
+      return
+    end
+  end
 end
 
 local nativeScrollActive = false
@@ -4112,6 +4258,9 @@ function onOpen(context: any?)
   isSearchBoxHovered = false
   nativeScrollActive = false
   hoveredDeckKeys = {}
+  CT.isOpen = false
+  CT.statusText = ""
+  CT.statusIsError = false
   noctalia.state.set("deck_command", { action = "panel_state", open = true })
   updatePanelGeometry()
   updateCornerRadiusScale()
@@ -4283,6 +4432,17 @@ function onKey(chord: string, pressed: boolean)
 
   local chordLower = string.lower(chord)
   local isReturn = (chordLower == "return" or chordLower == "enter" or chordLower == "kp_enter")
+
+  -- Custom Themes modal intercepts Escape and Enter first
+  if CT.isOpen then
+    if chordLower == "escape" then
+      CT.isOpen = false
+      CT.statusText = ""
+      CT.statusIsError = false
+      render()
+    end
+    return
+  end
 
   if isReturn then
     local nowMs = noctalia.nowMs()
