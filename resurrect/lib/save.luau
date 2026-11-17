@@ -794,7 +794,8 @@ function Save.run(job, opt)
       end
       for line in eachLine(listed.stdout) do
         local mode, blob, path = line:match("^(%d+) %a+ (%x+)\t(.+)$")
-        if path then
+        -- A save never shares a link, so a link there did not come from Resurrect.
+        if path and mode ~= "120000" then
           their[path:sub(#"shared/files/" + 1)] = { blob = blob, mode = mode }
         end
       end
@@ -880,18 +881,31 @@ function Save.run(job, opt)
       end
     end
 
+    -- Whether <target>, through a link on the way, is in Resurrect's data folder.
+    local function intoData(target)
+      local argv = { "find", "-L", opt.dataDir, "-samefile", parentOf(target) }
+      if noctalia.fileExists(target) then
+        table.move({ "-o", "-samefile", target }, 1, 3, #argv + 1, argv)
+      end
+      if trim(job.run(argv).stdout) ~= "" then
+        job.emit("left out ~/" .. target:sub(#home + 2) .. ": it leads into Resurrect's data folder")
+        return true
+      end
+      return false
+    end
+
     -- Puts blob <hash> with <mode> at <path> under the home folder, in one step.
     local function put(path, hash, mode)
       local target = home .. "/" .. path
       if isDir(target) then
         return false
       end
+      local content = blob(hash)
+      if content == nil or not noctalia.mkdirAll(parentOf(target)) or intoData(target) then
+        return false
+      end
       if noctalia.fileExists(target) then
         backUp(path)
-      end
-      local content = blob(hash)
-      if content == nil or not noctalia.mkdirAll(parentOf(target)) then
-        return false
       end
       local tmp = parentOf(target) .. "/." .. path:match("[^/]*$") .. ".resurrect-tmp"
       if not noctalia.writeFile(tmp, content) then
@@ -904,7 +918,7 @@ function Save.run(job, opt)
     -- Moves the file at <path> under the home folder into the backup.
     local function drop(path)
       local target = home .. "/" .. path
-      if not noctalia.fileExists(target) then
+      if not noctalia.fileExists(target) or intoData(target) then
         return
       end
       if not noctalia.mkdirAll(parentOf(backup .. "/" .. path)) or not noctalia.renameFile(target, backup .. "/" .. path) then

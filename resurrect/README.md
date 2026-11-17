@@ -67,7 +67,8 @@ it brings back what your devices share, with what this device keeps for itself w
 a folder there. Without sharing, it asks which device's save to use when there is no save
 of this device. It asks before each step, and copies any file it would replace to
 `~/.local/state/resurrect/backup-<date>` first. A file it cannot copy there is left as it
-is, and the script lists it at the end. Before each of your restore steps, it shows the
+is, and the script lists it at the end. It puts back files only, never links, and nothing
+that leads into Resurrect's data folder. Before each of your restore steps, it shows the
 step's code. Noctalia's settings this device kept for itself, such as its monitors, are
 added once Noctalia runs with Resurrect on.
 
@@ -104,7 +105,8 @@ each keeps its own. A setting shared for the first time takes the value of the d
 shared it first. Plugins turned on or off on one device are turned on or off on the others.
 Only settings tied to the hardware stay on each device: brightness, battery, widgets placed
 on a monitor, and Resurrect's own settings, so another device never changes which files are
-written here. Resurrect's data folder, with the steps you approved, is never shared.
+written here. Resurrect's data folder, with the steps you approved, is never shared, and a
+save writes nothing into it, not even through a link.
 
 The devices also share one list of packages and one of services:
 

@@ -11,6 +11,9 @@ cd "${1:-$(dirname "$0")}" || exit 1
 repo=$(pwd)
 backup=$HOME/.local/state/resurrect/backup-$(date '+%Y%m%d-%H%M%S')
 work=$(mktemp -d) || exit 1
+# Resurrect's data folder, with this device's approved steps. Nothing restored goes into it.
+data=$HOME/.local/state/noctalia/plugins/data/omerfuyar/resurrect
+mkdir -p "$data" && data=$(cd -P "$data" && pwd -P) || exit 1
 trap 'rm -rf "$work"' EXIT
 
 ask() {
@@ -26,7 +29,18 @@ entries() {
 
 # Copies file $1 to path $2 under the home folder. A file already there is first copied to
 # the same place under $backup; when that fails, it is left as it is and the failure noted.
+# The folder is resolved through its links first, and a path that leads into Resurrect's data
+# folder is left out. A link at $2 itself is replaced, not written through.
 put_file() {
+  folder=$(mkdir -p "$(dirname "$2")" && cd -P "$(dirname "$2")" && pwd -P) || {
+    echo "$2" >>"$work/failed"
+    return 1
+  }
+  case $folder/ in "$data"/*)
+    echo "Left out $2: it leads into Resurrect's data folder."
+    return 1
+    ;;
+  esac
   if [ -e "$2" ] || [ -L "$2" ]; then
     if ! { mkdir -p "$(dirname "$backup${2#"$HOME"}")" && cp -a "$2" "$backup${2#"$HOME"}"; }; then
       echo "Could not back up $2, so it was left as it is."
@@ -34,15 +48,15 @@ put_file() {
       return 1
     fi
   fi
-  mkdir -p "$(dirname "$2")" && cp -a "$1" "$2" || { echo "$2" >>"$work/failed"; return 1; }
+  rm -f "$2" && cp -p "$1" "$2" || { echo "$2" >>"$work/failed"; return 1; }
 }
 
-# Copies the content of folder $1 over folder $2, which is under the home folder. Resurrect's
-# data folder, where this device's approved steps are, is left as it is.
+# Copies the regular files of folder $1 over folder $2, which is under the home folder. A
+# save never writes links, so a link in the repository did not come from Resurrect and is
+# left out.
 put_back() {
-  (cd "$1" && find . -type f -o -type l) | while read -r file; do
+  (cd "$1" && find . -type f) | while read -r file; do
     file=${file#./}
-    case $2/$file in "$HOME/.local/state/noctalia/plugins/data/omerfuyar/resurrect/"*) continue ;; esac
     put_file "$1/$file" "$2/$file"
   done
 }
@@ -135,8 +149,7 @@ if [ -f "$repo/shared/noctalia/settings.toml" ]; then
   if ask "Put back Noctalia's settings?"; then
     put_file "$repo/shared/noctalia/settings.toml" "$HOME/.local/state/noctalia/settings.toml"
     if [ -f "$own/settings.toml" ]; then
-      data=$HOME/.local/state/noctalia/plugins/data/omerfuyar/resurrect
-      mkdir -p "$data" && cp "$own/settings.toml" "$data/restore-device.toml"
+      cp "$own/settings.toml" "$data/restore-device.toml"
     fi
   fi
   # The plugins that are on, from the line "enabled = [...]" in [plugins].
