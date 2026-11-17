@@ -273,10 +273,16 @@ local function read()
   end
 end
 
--- signal is "TERM" to ask a process to end, "KILL" to end it at once.
+-- signal is "TERM" to ask a process to end, "KILL" to end it at once. The process must still
+-- be the one the panel showed: the same start time, read again just before, so a pid that
+-- ended and was given to another process meanwhile gets nothing.
 local function signal(pid, name, elevate)
   local before = previous[pid]
-  ending[pid] = { sentMs = noctalia.nowMs(), start = before and before.start, force = name == "KILL" }
+  local now = parseStat(pid, (noctalia.readFile(`/proc/{pid}/stat`)))
+  if before == nil or now == nil or now.start ~= before.start then
+    return
+  end
+  ending[pid] = { sentMs = noctalia.nowMs(), start = before.start, force = name == "KILL" }
   if elevate and adminInTerminal() then
     -- The pid is a number, so the command needs no quoting.
     noctalia.runInTerminal(string.format("sudo kill -%s %d", name, pid))
