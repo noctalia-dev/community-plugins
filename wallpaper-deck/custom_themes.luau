@@ -16,6 +16,7 @@
 --   U.box({ width, height, radius, fill, border, borderWidth })
 --   U.row({ align, justify, gap, height, width?, flexGrow?, fill?, ... }, children)
 --   U.column({ key?, gap, padding?, align?, justify?, fill?, ... }, children)
+--   U.scroll({ key?, height?, flexGrow?, gap?, align?, justify? }, children)
 --   U.spacer({ width?, height? })
 --   U.select({ key, options, selectedIndex, controlSize, width, onChange })
 --
@@ -294,12 +295,17 @@ local function buildColorRow(U, label, roleKey, colorTable, modePrefix, R, rende
   local currentHex = colorTable[roleKey] or "#000000"
   local inputKey   = "ct_"..modePrefix.."_"..roleKey
 
-  return U.row({ align="center", gap=6, height=24 }, {
+  return U.row({ align="center", gap=8 }, {
     U.box({
-      width=18, height=18, radius=R(4),
+      width=20, height=20, radius=R(4),
       fill=currentHex, border="outline_variant/0.4", borderWidth=1,
     }),
-    U.label({ text=label, color="on_surface_variant", fontSize=10, width=125 }),
+    U.label({
+      text=label,
+      color="on_surface_variant",
+      fontSize=11,
+      flexGrow=1,
+    }),
     U.input({
       key=inputKey,
       value=currentHex,
@@ -343,8 +349,8 @@ function M.renderModal(U, panelW, panelH, R, renderFn)
 
   -- Dark column
   local darkRows = {
-    U.label({ text="Dark Mode", color="primary", fontSize=11, fontWeight="semibold" }),
-    U.spacer({ height=2 }),
+    U.label({ text="Dark Mode", color="primary", fontSize=12, fontWeight="semibold" }),
+    U.spacer({ height=4 }),
   }
   for _, key in ipairs(ROLE_KEYS) do
     table.insert(darkRows, buildColorRow(U, key, key, M.dark, "dark", R, renderFn))
@@ -352,8 +358,8 @@ function M.renderModal(U, panelW, panelH, R, renderFn)
 
   -- Light column
   local lightRows = {
-    U.label({ text="Light Mode", color="secondary", fontSize=11, fontWeight="semibold" }),
-    U.spacer({ height=2 }),
+    U.label({ text="Light Mode", color="secondary", fontSize=12, fontWeight="semibold" }),
+    U.spacer({ height=4 }),
   }
   for _, key in ipairs(ROLE_KEYS) do
     table.insert(lightRows, buildColorRow(U, key, key, M.light, "light", R, renderFn))
@@ -401,7 +407,8 @@ function M.renderModal(U, panelW, panelH, R, renderFn)
     }),
   }))
 
-  local divH = (24+2)*#ROLE_KEYS + 24
+  local scrollH = math.min(panelH - 240, 500)
+  if scrollH < 260 then scrollH = 260 end
 
   local modalCard = U.column({
     key="ct_modal_card",
@@ -409,13 +416,13 @@ function M.renderModal(U, panelW, panelH, R, renderFn)
     border="outline_variant/0.4",
     borderWidth=1,
     radius=R(16),
-    padding=14,
-    gap=6,
-    width=math.min(panelW-32, 840),
+    padding=16,
+    gap=8,
+    width=math.min(panelW-32, 860),
   }, {
     -- Header
     U.row({ align="center", justify="space_between" }, {
-      U.label({ text="New Custom Theme", color="on_surface", fontSize=13, fontWeight="bold" }),
+      U.label({ text="New Custom Theme", color="on_surface", fontSize=14, fontWeight="bold" }),
       U.button({
         glyph="x", variant="ghost", controlSize="sm",
         onClick=function()
@@ -427,25 +434,32 @@ function M.renderModal(U, panelW, panelH, R, renderFn)
     U.spacer({ height=2 }),
     -- Name input
     U.row({ align="center", gap=10 }, {
-      U.label({ text="Theme Name", color="on_surface_variant", fontSize=11, width=90 }),
+      U.label({ text="Theme Name", color="on_surface_variant", fontSize=12, width=90 }),
       U.input({
         key="ct_theme_name",
         value=M.themeName,
         placeholder="My Awesome Theme",
         controlSize="sm",
         frameVisible=true,
-        width=220,
+        width=240,
         onChange=function(val) M.themeName=val or "" end,
       }),
     }),
-    U.spacer({ height=2 }),
-    -- Two-column layout
-    U.row({ align="start", gap=16 }, {
-      U.column({ key="ct_dark_col",  gap=2, flexGrow=1 }, darkRows),
-      U.box({ width=1, height=divH, fill="outline_variant/0.4" }),
-      U.column({ key="ct_light_col", gap=2, flexGrow=1 }, lightRows),
+    U.spacer({ height=4 }),
+    -- Scrollable two-column role list
+    U.scroll({
+      key="ct_modal_scroll",
+      height=scrollH,
+      gap=0,
+      align="stretch",
+    }, {
+      U.row({ align="stretch", gap=20 }, {
+        U.column({ key="ct_dark_col",  gap=6, flexGrow=1 }, darkRows),
+        U.box({ width=1, fill="outline_variant/0.4" }),
+        U.column({ key="ct_light_col", gap=6, flexGrow=1 }, lightRows),
+      }),
     }),
-    U.spacer({ height=2 }),
+    U.spacer({ height=4 }),
     -- Footer
     U.column({ gap=4 }, footerRows),
   })
