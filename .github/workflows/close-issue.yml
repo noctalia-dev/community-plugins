@@ -9,7 +9,7 @@ permissions:
         write
 jobs:
     check_comment:
-        if: github.event.comment.user.type != 'Bot' && contains(github.event.comment.body, '/close-issue') && contains(github.event.issue.assignees.*.login, github.event.comment.user.login)
+        if: github.event.comment.user.type != 'Bot' && (github.event.comment.body == '/close-issue') && contains(github.event.issue.assignees.*.login, github.event.comment.user.login)
         runs-on: ubuntu-latest
         steps:
             - name: 👀 reaction
@@ -34,7 +34,7 @@ jobs:
               run: python .github/workflows/scripts/close-issue.py
 
     reject_comment:
-        if: github.event.comment.user.type != 'Bot' && contains(github.event.comment.body, '/close-issue') && !contains(github.event.issue.assignees.*.login, github.event.comment.user.login)
+        if: github.event.comment.user.type != 'Bot' && (github.event.comment.body == '/close-issue') && !contains(github.event.issue.assignees.*.login, github.event.comment.user.login)
         runs-on: ubuntu-latest
         steps:
             - name: 👀 reaction
