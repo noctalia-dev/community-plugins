@@ -1,11 +1,11 @@
 # MX Control for Noctalia: a port of the Omarchy plugin by Zach Wilke,
 #   https://github.com/zachwilke/omarchy-mxcontrol
-# backend/ is that plugin's Python helper, unchanged (see UPSTREAM.md); the Luau
-# UI is new. GPL-2.0-or-later like the original.
+# backend/ is that plugin's Python helper with one local fix (see UPSTREAM.md);
+# the Luau UI is new. GPL-2.0-or-later like the original.
 
 id = "gamaraan/mx-control"
 name = "MX Control"
-version = "0.2.4"
+version = "0.2.5"
 plugin_api = 24
 author = "gamaraan"
 license = "GPL-2.0-or-later"
