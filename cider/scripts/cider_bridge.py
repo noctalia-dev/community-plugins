@@ -2164,7 +2164,7 @@ class CiderBridge:
             f"/v1/catalog/{{sf}}/songs/{catalog_id}/lyrics",
         )
         best_line_only: tuple[list[dict[str, Any]], str] | None = None
-        for storefront in ("us", "gb", "ca", "au", "de", "jp"):
+        for storefront in ("cn", "tw", "hk", "us", "gb", "ca", "au", "de", "jp"):
             for path_tmpl in paths:
                 path = path_tmpl.format(sf=storefront)
                 try:
