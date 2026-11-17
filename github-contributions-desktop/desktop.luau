@@ -53,6 +53,7 @@ local gridReady = false
 local tr = noctalia.tr
 local accentColor = noctalia.getConfig("color") or "#39d353"
 local cellSize = Settings.cellSize(noctalia.getConfig("cell_size"))
+local cornerRadius = Settings.cornerRadius(noctalia.getConfig("corner_radius"))
 local calendarCellWidth = cellSize
 local calendarCellHeight = cellSize + 2
 local calendarColumnGap = 1
@@ -415,6 +416,7 @@ function render()
     desktopWidget.render(ui.column({
       gap = 0,
       fill = "surface",
+      radius = cornerRadius,
       flexGrow = 1,
       align = "center",
       justify = "center",
@@ -479,11 +481,12 @@ function render()
     paddingH = 16,
     paddingV = 12,
     fill = "surface",
+    radius = cornerRadius,
     flexGrow = 1,
     justify = "start",
   }, body))
 
-  desktopWidget.render(ui.column({ gap = 0, fill = "surface", flexGrow = 1, align = "stretch" }, root))
+  desktopWidget.render(ui.column({ gap = 0, fill = "surface", radius = cornerRadius, flexGrow = 1, align = "stretch" }, root))
 end
 
 function onDayHover(hovered, key)

@@ -1,6 +1,6 @@
 id = "darulqutni-q/github-contributions-desktop"
 name = "GitHub Contributions"
-version = "1.0.0"
+version = "1.1.0"
 plugin_api = 43
 author = "DarulQutni-Q"
 license = "MIT"
@@ -59,6 +59,15 @@ entry = "desktop.luau"
   description_key = "settings.cell_size.description"
   default = 10
   min = 6
+  max = 24
+
+  [[desktop_widget.setting]]
+  key = "corner_radius"
+  type = "int"
+  label_key = "settings.corner_radius.label"
+  description_key = "settings.corner_radius.description"
+  default = 0
+  min = 0
   max = 24
 
   [[desktop_widget.setting]]
