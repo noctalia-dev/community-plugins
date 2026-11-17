@@ -358,10 +358,9 @@ local function runCli(args, cb)
 	end)
 end
 
-local function fetchDeviceExtras(id)
+local function fetchBattery(id)
 	local d = devices[id]
-	if not d then return end
-	if not (d.isPaired and d.isReachable) then return end
+	if not d or not (d.isPaired and d.isReachable) then return end
 	local devPath = DAEMON_PATH .. "/devices/" .. id
 	noctalia.runAsync(gdbusGetAll(devPath .. "/battery", BATTERY_IFACE), function(res)
 		if res and res.exitCode == 0 then
@@ -375,6 +374,14 @@ local function fetchDeviceExtras(id)
 			end
 		end
 	end)
+end
+
+local function fetchDeviceExtras(id)
+	local d = devices[id]
+	if not d then return end
+	if not (d.isPaired and d.isReachable) then return end
+	local devPath = DAEMON_PATH .. "/devices/" .. id
+	fetchBattery(id)
 	noctalia.runAsync(gdbusGetAll(devPath .. "/connectivity_report", CONN_IFACE),
 		function(res)
 			if res and res.exitCode == 0 then
@@ -466,11 +473,13 @@ local function refreshDevices()
 		end)
 end
 
--- ── 实时媒体同步（gdbus monitor，best-effort） ────────────────────────────────
+-- ── 实时媒体与电池同步（gdbus monitor，best-effort） ─────────────────────────
 local monitors = {}
+local batteryMonitors = {}
 local daemonMonitorActive = false
 local lastDaemonEventAt = 0
 local lastMediaEventAt = {}
+local lastBatteryEventAt = {}
 
 ensureMonitors = function()
 	if not daemonMonitorActive then
@@ -505,9 +514,29 @@ ensureMonitors = function()
 				end)
 			if ok then monitors[id] = true end
 		end
+		if not batteryMonitors[id] and d and d.source ~= "adb" and d.isPaired and d.isReachable then
+			local ok = noctalia.runStream(
+				"gdbus monitor --session --dest " .. SVC
+					.. " --object-path " .. shellQuote(DAEMON_PATH .. "/devices/" .. id .. "/battery"),
+				function(line)
+					if line == nil or line == "" then return end
+					local l = line:lower()
+					if not (l:find("refreshed") or l:find("propertieschanged")) then return end
+					local now = os.clock()
+					local last = lastBatteryEventAt[id] or 0
+					if now - last > 1.0 then
+						lastBatteryEventAt[id] = now
+						fetchBattery(id)
+					end
+				end)
+			if ok then batteryMonitors[id] = true end
+		end
 	end
 	for id in pairs(monitors) do
 		if not devices[id] then monitors[id] = nil end
+	end
+	for id in pairs(batteryMonitors) do
+		if not devices[id] then batteryMonitors[id] = nil end
 	end
 end
 
@@ -516,10 +545,17 @@ local pendingPick = nil
 
 local function pollPendingPick()
 	if not pendingPick then return end
+	local statusRaw = noctalia.readFile(pendingPick.statusPath)
+	if not statusRaw or statusRaw == "" then
+		-- 选择器仍处于打开状态，继续等待
+		return
+	end
+
+	local exitCode = tonumber(statusRaw:match("%d+")) or 1
 	local raw = noctalia.readFile(pendingPick.path)
-	if raw and raw ~= "" then
+	if exitCode == 0 and raw and raw ~= "" then
 		local files = {}
-		for part in raw:gmatch("[^\r\n|]+") do
+		for part in raw:gmatch("[^\r\n]+") do
 			local f = part:gsub("^%s+", ""):gsub("%s+$", "")
 			if f ~= "" then
 				table.insert(files, f)
@@ -557,14 +593,11 @@ local function pollPendingPick()
 				noctalia.log("[phone-operate] picked image for " .. pendingPick.device .. ": " .. p)
 			end
 		end
-		noctalia.removeFile(pendingPick.path)
-		pendingPick = nil
-		noctalia.setUpdateInterval(combinedIntervalMs())
-	elseif os.time() - pendingPick.started > 120 then
-		noctalia.removeFile(pendingPick.path)
-		pendingPick = nil
-		noctalia.setUpdateInterval(combinedIntervalMs())
 	end
+	noctalia.removeFile(pendingPick.path)
+	noctalia.removeFile(pendingPick.statusPath)
+	pendingPick = nil
+	noctalia.setUpdateInterval(combinedIntervalMs())
 end
 
 
@@ -755,7 +788,7 @@ local function handleCommand(cmd)
 				if noctalia.commandExists("kdialog") then
 					picker = "kdialog --multiple --separate-output --getopenfilename ~ ''"
 				elseif noctalia.commandExists("zenity") then
-					picker = "zenity --file-selection --multiple"
+					picker = "zenity --file-selection --multiple --separator='\n'"
 				else
 					noctalia.notifyError(t("error.pick_failed"), "kdialog/zenity not found")
 					return
@@ -771,14 +804,18 @@ local function handleCommand(cmd)
 				end
 			end
 			local tmp = noctalia.pluginDataDir() .. "/pick-" .. tostring(dev) .. ".tmp"
+			local statusTmp = tmp .. ".status"
 			pendingPick = {
 				device = dev,
 				path = tmp,
+				statusPath = statusTmp,
 				started = os.time(),
 				purpose = (op == "pick_share") and "share" or "image",
 			}
 			noctalia.removeFile(tmp)
-			noctalia.runAsync(picker .. " > " .. shellQuote(tmp) .. " 2>/dev/null &")
+			noctalia.removeFile(statusTmp)
+			noctalia.runAsync("(" .. picker .. " > " .. shellQuote(tmp)
+				.. "; printf '%s' $? > " .. shellQuote(statusTmp) .. ") 2>/dev/null &")
 			noctalia.setUpdateInterval(combinedIntervalMs())
 		end
 	elseif op == "pair" then
