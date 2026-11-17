@@ -67,7 +67,8 @@ else:
 
 
 if author:
-    issue.create_comment(f"CC @{author}")
+    issue.add_to_assignees(author)
+    issue.create_comment(f"CC @{author}. You have been automatically assigned to this issue. You can close this issue if necessary using the command `/close-issue`")
 else:
     print("Could not get the author.")
     sys.exit(1)
