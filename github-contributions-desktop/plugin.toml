@@ -62,6 +62,15 @@ entry = "desktop.luau"
   max = 24
 
   [[desktop_widget.setting]]
+  key = "corner_radius"
+  type = "int"
+  label_key = "settings.corner_radius.label"
+  description_key = "settings.corner_radius.description"
+  default = 0
+  min = 0
+  max = 24
+
+  [[desktop_widget.setting]]
   key = "heatmap_only"
   type = "bool"
   label_key = "settings.heatmap_only.label"

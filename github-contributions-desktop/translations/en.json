@@ -18,6 +18,10 @@
       "description": "Width in pixels of each contribution day cell. Smaller cells make the whole calendar narrower.",
       "label": "Cell size"
     },
+    "corner_radius": {
+      "description": "Radius in pixels of the widget's rounded corners. 0 keeps the corners square.",
+      "label": "Corner radius"
+    },
     "desktop_color": {
       "description": "Accent color of the contribution heatmap. The four activity levels are derived from this color. The default follows the theme (primary color).",
       "label": "Heatmap color"

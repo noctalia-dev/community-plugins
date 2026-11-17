@@ -25,6 +25,13 @@ function Settings.cellSize(value)
   return math.clamp(math.floor(size), 6, 24)
 end
 
+-- Corner radius in pixels of the widget background: 0 (square corners, the
+-- default) to 24. Anything else falls back to 0.
+function Settings.cornerRadius(value)
+  local radius = tonumber(value) or 0
+  return math.clamp(math.floor(radius), 0, 24)
+end
+
 -- How many stacked blocks the year is split into: 1 (one long strip, the
 -- default), 2, 3, or 4. Anything else (including "off") falls back to 1.
 function Settings.wrapBlocks(value)
