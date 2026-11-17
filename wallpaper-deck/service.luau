@@ -1486,6 +1486,8 @@ local function downloadAndApplyWallhaven(item: any, outputTarget: string?, cache
 end
 
 -- Listen to picker commands
+local activeRibbonToken = 0
+
 noctalia.state.watch("deck_command", function(cmd)
   if type(cmd) ~= "table" then return end
   local action = cmd.action
@@ -1512,12 +1514,16 @@ noctalia.state.watch("deck_command", function(cmd)
   elseif action == "prioritize_palette" and cmd.path then
     prioritizePalette(cmd.path)
   elseif action == "prioritize_ribbon" and type(cmd.paths) == "table" then
+    activeRibbonToken = activeRibbonToken + 1
+    local myToken = activeRibbonToken
     local paths = cmd.paths
     local function processNext(idx)
+      if myToken ~= activeRibbonToken then return end
       if idx > #paths then return end
       local p = paths[idx]
       if p then
         noctalia.runAsync({ "true" }, function()
+          if myToken ~= activeRibbonToken then return end
           local cache = loadCache()
           if cache[p] and cache[p].colors and cache[p].colors.primary ~= "#80a9ff" then
             local entry = cache[p]
@@ -1539,6 +1545,7 @@ noctalia.state.watch("deck_command", function(cmd)
           local cardThumb = THUMB_DIR .. "/" .. key .. "_card.webp"
           local inputPath = noctalia.fileExists(cardThumb) and cardThumb or p
           noctalia.runAsync({ "matugen", "image", inputPath, "--source-color-index", "0", "--dry-run", "-j", "hex", "-q" }, function(res)
+            if myToken ~= activeRibbonToken then return end
             if res and res.exitCode == 0 and res.stdout and res.stdout ~= "" then
               local ok, data = pcall(noctalia.json.decode, res.stdout)
               if ok and type(data) == "table" and type(data.colors) == "table" then
@@ -1597,6 +1604,76 @@ noctalia.state.watch("deck_command", function(cmd)
       else
         processNext(idx + 1)
       end
+    end
+    processNext(1)
+  elseif action == "regenerate_palette" and type(cmd.paths) == "table" then
+    local paths = cmd.paths
+    local function processNext(idx)
+      if idx > #paths then return end
+      local p = paths[idx]
+      if not p or not noctalia.fileExists(p) then
+        processNext(idx + 1)
+        return
+      end
+      local cache = loadCache()
+      local key = hashKey(p)
+      local cardThumb = THUMB_DIR .. "/" .. key .. "_card.webp"
+      local inputPath = noctalia.fileExists(cardThumb) and cardThumb or p
+      noctalia.runAsync({ "matugen", "image", inputPath, "--source-color-index", "0", "--dry-run", "-j", "hex", "-q" }, function(res)
+        if res and res.exitCode == 0 and res.stdout and res.stdout ~= "" then
+          local ok, data = pcall(noctalia.json.decode, res.stdout)
+          if ok and type(data) == "table" and type(data.colors) == "table" then
+            local colors = data.colors
+            local function getCol(role)
+              local c = colors[role]
+              if type(c) == "table" then
+                local d = c["default"] or c["dark"]
+                if type(d) == "table" then return d.color end
+              end
+              return nil
+            end
+            local prim = getCol("primary")
+            local sec = getCol("secondary")
+            local tert = getCol("tertiary")
+            local pc2 = getCol("primary_container")
+            local sch = getCol("surface_container_highest") or getCol("surface_container") or getCol("surface")
+            local sc = getCol("source_color") or prim
+            if prim and sec then
+              local m3 = {
+                primary = prim,
+                secondary = sec,
+                tertiary = tert or sec,
+                primary_container = pc2 or prim,
+                surface_container_highest = sch or "#33353b",
+                source_color = sc or prim,
+              }
+              local hueKey = calcHueKey(sc or prim)
+              if not cache[p] then cache[p] = {} end
+              cache[p].colors = m3
+              cache[p].sourceColor = sc or prim
+              cache[p].hueKey = hueKey
+              cacheNeedsSave = true
+              noctalia.state.set("palette_update", {
+                path = p,
+                colors = m3,
+                sourceColor = sc or prim,
+                hueKey = hueKey,
+              })
+              if #activeDeckInMemory > 0 then
+                for _, it in ipairs(activeDeckInMemory) do
+                  if it.path == p then
+                    it.colors = m3
+                    it.sourceColor = sc or prim
+                    it.hueKey = hueKey
+                    break
+                  end
+                end
+              end
+            end
+          end
+        end
+        processNext(idx + 1)
+      end)
     end
     processNext(1)
   elseif action == "panel_state" then

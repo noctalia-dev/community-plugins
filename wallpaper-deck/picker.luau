@@ -612,21 +612,45 @@ local function onCardSettled()
     if item._prefetchIdx ~= selectedIdx then
       item._prefetchIdx = selectedIdx
       local paths = {}
-      local minIdx = math.max(1, selectedIdx - 7)
-      local maxIdx = math.min(#displayedItems, selectedIdx + 7)
-      for i = minIdx, maxIdx do
-        local it = displayedItems[i]
-        if it and it.path then
-          local c = it.colors
-          local hasReal = (c and c.primary and c.primary ~= "#80a9ff")
-          if not hasReal and not it._paletteRequested then
-            it._paletteRequested = true
-            table.insert(paths, it.path)
+
+      -- 1. Center card comes first
+      local c = item.colors
+      local hasReal = (c and c.primary and c.primary ~= "#80a9ff")
+      if not hasReal and not item._paletteRequested and item.path then
+        item._paletteRequested = true
+        table.insert(paths, item.path)
+      end
+
+      -- 2. Immediate neighbors in radiating order: ±1, ±2, ±3
+      for offset = 1, 3 do
+        local leftIdx = selectedIdx - offset
+        if leftIdx >= 1 then
+          local it = displayedItems[leftIdx]
+          if it and it.path then
+            local col = it.colors
+            local real = (col and col.primary and col.primary ~= "#80a9ff")
+            if not real and not it._paletteRequested then
+              it._paletteRequested = true
+              table.insert(paths, it.path)
+            end
+          end
+        end
+        local rightIdx = selectedIdx + offset
+        if rightIdx <= #displayedItems then
+          local it = displayedItems[rightIdx]
+          if it and it.path then
+            local col = it.colors
+            local real = (col and col.primary and col.primary ~= "#80a9ff")
+            if not real and not it._paletteRequested then
+              it._paletteRequested = true
+              table.insert(paths, it.path)
+            end
           end
         end
       end
+
       if #paths > 0 then
-        noctalia.state.set("deck_command", { action = "prioritize_ribbon", paths = paths })
+        noctalia.state.set("deck_command", { action = "prioritize_ribbon", paths = paths, nonce = noctalia.nowMs() })
       end
     end
     return
@@ -3988,6 +4012,27 @@ function render()
               onClick = toggleCurrentFavorite,
             }),
 
+            ui.button({
+              glyph = "refresh",
+              variant = "secondary",
+              controlSize = "sm",
+              tooltip = "Regenerate palette for current card (click) or all cards (right-click)",
+              onClick = function()
+                if activeItem and activeItem.path then
+                  noctalia.state.set("deck_command", { action = "regenerate_palette", paths = { activeItem.path }, nonce = noctalia.nowMs() })
+                end
+              end,
+              onRightClick = function()
+                local paths = {}
+                for _, it in ipairs(displayedItems) do
+                  if it and it.path then table.insert(paths, it.path) end
+                end
+                if #paths > 0 then
+                  noctalia.state.set("deck_command", { action = "regenerate_palette", paths = paths, nonce = noctalia.nowMs() })
+                end
+              end,
+            }),
+
             ui.row({
               align = "center",
               gap = 2,
@@ -4568,7 +4613,7 @@ noctalia.state.watch("palette_update", function(update)
       cachedRibbon = nil
       sortedListCache["colour_1"] = nil
       sortedListCache["colour_0"] = nil
-      if isPickerOpen then
+      if isPickerOpen and (not animateSelected or animatedPos == selectedIdx) then
         -- Preserve hover state so background palette renders don't break scroll
         local savedHover = isDeckAreaHovered
         local savedKeys = {}
