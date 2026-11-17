@@ -1553,7 +1553,7 @@ function render()
     end
 
     if compactTabs and entry ~= nil then
-        local activeDisplayName = tostring(entry.display_name or entry.name or entry.id or "")
+        local activeDisplayName = tostring(entry.display_name or entry.name or entry.id or ""):gsub("%s*·.*$", ""):gsub("@.*$", "")
         local plan = noctalia.string.trim(tostring(entry.plan or ""))
         local showPlan = plan ~= "" and plan ~= activeDisplayName
             and plan:lower() ~= tostring(entry.name or ""):lower()
