@@ -199,8 +199,11 @@ local function acceptLyrics(provider, synced, plain, key)
   local raw = synced ~= "" and synced or plain
   if trim(raw) == "" then return false end
   local offsetMs = tonumber(noctalia.getConfig("offset_ms")) or 0
-  local lines = parseLrc(raw, offsetMs)
-  if #lines == 0 then return false end
+  -- pcall: a parse failure must reject this candidate, not kill the async
+  -- callback — a dead callback unwinds past finishEmpty/finishError and the
+  -- panel sticks on "Loading lyrics..." (community-plugins issue #1494).
+  local ok, lines = pcall(parseLrc, raw, offsetMs)
+  if not ok or type(lines) ~= "table" or #lines == 0 then return false end
 
   local hasSynced = false
   for _, l in ipairs(lines) do
@@ -279,6 +282,17 @@ local function loadLyricsForTrack(artist, title, album, durationSec, key, embedd
   snapshot.lyricsStatus = "loading"
   publish()
 
+  -- Watchdog (community-plugins issue #1494): whatever stops an async callback
+  -- mid-flight — the host kills one that exceeds its 25 ms CPU budget — the
+  -- error unwinds past finishEmpty/finishError and the panel would stay on
+  -- "Loading lyrics..." until the track changes. A 45 s deadline settles THIS
+  -- load (gen-checked) with an explicit error instead.
+  noctalia.runAsync({ "sleep", "45" }, function()
+    if gen == fetchGeneration and snapshot.lyricsStatus == "loading" then
+      finishError(noctalia.tr("service.lyrics-unreachable"))
+    end
+  end)
+
   if trim(title) == "" then
     finishEmpty()
     return
@@ -286,8 +300,9 @@ local function loadLyricsForTrack(artist, title, album, durationSec, key, embedd
 
   -- 1) local directory (default ~/.local/share/media-lyrics)
   local localRaw = tryLocalLyrics(artist, title)
-  if localRaw then
-    acceptLyrics(noctalia.tr("provider.local"), localRaw, "", key)
+  -- an unusable local file must fall through to the next source instead of
+  -- returning with the load left unfinished (issue #1494)
+  if localRaw and acceptLyrics(noctalia.tr("provider.local"), localRaw, "", key) then
     return
   end
 

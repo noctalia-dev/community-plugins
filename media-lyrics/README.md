@@ -1,6 +1,6 @@
 # Media Lyrics
 
-A full-featured media player panel with **time-synced lyrics** for the Noctalia desktop shell. Karaoke-style lyric carousel (9/12/16 visible lines per size preset), album cover, transport controls, and a progress bar — all in one floating panel — or as a **desktop widget** pinned to the desktop and shown on the lockscreen. **Pure Luau implementation**: no playerctl, no python daemons, no GTK overlays — runtime needs `busctl` (MPRIS) and `curl` (LRCLIB HTTPS + NetEase fallback).
+A full-featured media player panel with **time-synced lyrics** for the Noctalia desktop shell. Karaoke-style lyric carousel (9/12/16 visible lines per size preset), album cover, transport controls, and a progress bar — all in one floating panel — or as a **desktop widget** pinned to the desktop and shown on the lockscreen. **Pure Luau implementation**: no playerctl, no python daemons, no GTK overlays — runtime needs `busctl` (MPRIS) and `curl` (lrcmux / LRCLIB / NetEase HTTPS).
 
 | Light theme | Dark theme |
 | --- | --- |
@@ -27,13 +27,14 @@ The audio-reactive chip, its spectrum driven by the host:
 
 ## Requirements
 
-- Noctalia v5 (plugin API 30+)
+- Noctalia 5.4.0+ (plugin API 43)
 - `busctl` (systemd, present on every Arch install)
-- `curl` — used for the HTTPS lyric fetches: LRCLIB primary + NetEase Cloud
-  Music fallback (spawned as `curl -sSf -m 8 -4 <url>`, argv-only, no shell;
-  LRCLIB resolves IPv4 faster than the built-in HTTP client on some setups)
-- Outbound HTTPS access to `https://lrclib.net` (primary) and
-  `https://music.163.com` (NetEase fallback) for lyrics
+- `curl` — used for the HTTPS lyric fetches: lrcmux (word-timed) first, then
+  LRCLIB, then NetEase Cloud Music (spawned as `curl -sSf -m 8 -4 <url>`,
+  argv-only, no shell; the CLIs resolve IPv4 faster than the built-in HTTP
+  client on some setups)
+- Outbound HTTPS access to `https://api.lrcmux.dev`, `https://lrclib.net` and
+  `https://music.163.com` (the order is configurable via `source_order`)
 
 No player-specific software. Any MPRIS-capable player works: Spotify, MPD, Cider, web players, VLC, and anything else that exposes MPRIS over D-Bus. `sleep` (coreutils) is used for a short refresh delay after transport commands.
 
@@ -133,6 +134,9 @@ The panel shows the active MPRIS player automatically; when nothing is playing i
 - **Centred karaoke** — the active line is pinned to the vertical centre of the lyrics area (symmetric window around the cursor or the playing line): the first line starts centred on load, the anchor holds the centre line through the track, and the last line returns to the centre at the end. A **3-2-1 countdown** fills the space this frees above the first line, shown only in the last three seconds before it starts. Compact/medium/large only — `panel-mini` is untouched.
 - **Clickable lyric lines** — click a synced line to seek the player to that timestamp.
 - **Manual lyric scroll** — Up/Down step a line (the host's chord validator accepts only basic key names; PageUp/PageDown/Home/End are rejected).
+- **Word-timed source (lrcmux)** — asked first by default: it answers with
+  per-word timestamps, which the karaoke sweep rides on; a wrong recording is
+  refused and the chain moves on.
 - **LRCLIB integration** — exact `/api/get` lookup first, `/api/search` fallback, LRC parsed in pure Luau.
 - **Lyrics variants picker** — the header "list" button (always visible while a track plays) fetches the full LRCLIB search result on demand and lists alternative lyric versions: pick one to switch instantly (the playing lyrics are never interrupted while the list loads), pick **Default** to restore the automatic chain, or switch again at any time — the candidate list stays in memory per track.
 - **NetEase Cloud Music fallback** — no-auth second source for LRCLIB misses (public endpoints, browser headers only): synced LRC wins, candidates ranked by title/artist + duration, metadata lines stripped; instrumental placeholders are filtered.
@@ -185,7 +189,7 @@ host's and is edited in Noctalia's desktop-widget editor.
 | `offset_ms` | `int` | `0` | Shift lyric timing in milliseconds, range **−2000…2000**: positive shows lines earlier, negative later. |
 | `use_cache` | `bool` | `true` | Cache fetched lyrics in the plugin data directory for offline reuse. |
 | `local_lyrics_dir` | `folder` | `~/.local/share/media-lyrics` | Folder with local `.lrc` files named `Artist - Title.lrc`; searched before LRCLIB. |
-| `source_order` | `string` | `lrclib, netease` | Which online provider is asked first — write `netease, lrclib` to prefer NetEase. An id left out keeps its default place at the end, so a partial list never drops a provider. |
+|| `source_order` | `string` | `lrcmux, lrclib, netease` | Which online provider is asked first — write `netease, lrclib` to prefer NetEase. Known ids: `lrcmux`, `lrclib`, `netease`. An id left out keeps its default place at the end, so a partial list never drops a provider. |
 | `player_allowlist` | `string` | *(empty)* | Comma-separated identity/bus-name substrings; when set, only matching players are shown (e.g. `spotify, mpd`). |
 | `player_blocklist` | `string` | *(empty)* | Comma-separated substrings of players to exclude (e.g. `firefox` to ignore a browser's MPRIS). |
 
@@ -208,7 +212,7 @@ noctalia msg config-reload
 ## To Do
 
 The authoritative, detailed list lives in
-[docs/ROADMAP.md](../docs/ROADMAP.md). Open items right now:
+[docs/ROADMAP.md](https://github.com/TraNzeM/media-lyrics/blob/main/docs/ROADMAP.md). Open items right now:
 
 - [ ] **Musixmatch / Spotify lyric sources** — the remaining network sources;
       both need API keys or OAuth tokens, so they can only ship as an opt-in
@@ -243,8 +247,8 @@ and audio chip (0.9.8).
   `local_lyrics_dir` is separate: that is the folder you fill yourself.
 
 - The service polls MPRIS via `busctl` (150 ms cadence) and publishes a snapshot to `noctalia.state`; the panel animates from those publishes.
-- Lyrics are fetched from public services with `curl` — LRCLIB API primary,
-  NetEase Cloud Music fallback on misses; nothing is uploaded. Cache and
+- Lyrics are fetched from public services with `curl` — lrcmux (word-timed)
+  first, then LRCLIB, then NetEase Cloud Music; nothing is uploaded. Cache and
   local lyrics live under the plugin data directory and `local_lyrics_dir`.
-- Spawned processes (all argv-form, no shell): `busctl` (MPRIS poll), `curl` (LRCLIB + NetEase lyric fetches, IPv4, 8 s timeout), `sleep` (coreutils, 0.35 s refresh delay after transport commands).
+- Spawned processes (all argv-form, no shell): `busctl` (MPRIS poll), `curl` (lrcmux + LRCLIB + NetEase lyric fetches, IPv4, 8 s timeout), `sleep` (coreutils: a 0.35 s refresh delay after transport commands, and a 45 s watchdog that settles a hung lyric load with an error).
 - Adapted from the Clavis shell media player text layer (karaoke render + LRCLIB provider), ported to pure Luau for Noctalia v5.

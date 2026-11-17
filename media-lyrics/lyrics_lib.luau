@@ -98,19 +98,20 @@ function lib.parseLrc(text, offsetMs)
     end
   end
 
-  -- stable sort: synced lines first (by time), unsynced after, preserving order
-  local function keyed(t)
-    for i, v in ipairs(result) do
-      if v == t then return i end
-    end
-    return 0
-  end
+  -- stable sort: synced lines first (by time), unsynced after, preserving order.
+  -- The order map is built ONCE: a tie-break lookup in it is O(1). The previous
+  -- comparator re-scanned the whole list on every tie (O(n^2) on lines sharing
+  -- a timestamp) and burned the host's 25 ms callback budget — the service
+  -- callback died mid-parse and the panel stuck on "Loading lyrics..."
+  -- (community-plugins issue #1494).
+  local ord = {}
+  for i, v in ipairs(result) do ord[v] = i end
   table.sort(result, function(a, b)
     local at, bt = a.time >= 0, b.time >= 0
     if at ~= bt then return at end
     if at and bt then
       if a.time ~= b.time then return a.time < b.time end
-      return keyed(a) < keyed(b) -- stability
+      return ord[a] < ord[b] -- stability
     end
     return false
   end)
