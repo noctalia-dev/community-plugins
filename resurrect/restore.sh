@@ -9,6 +9,15 @@ set -u
 
 cd "${1:-$(dirname "$0")}" || exit 1
 repo=$(pwd)
+# A save never writes a link, so a link here did not come from Resurrect, and a restore
+# could read or write through it. git makes none when cloning with core.symlinks=false.
+links=$(find . -path ./.git -prune -o -type l -print)
+if [ -n "$links" ]; then
+  echo "The repository holds links, which Resurrect never saves, so nothing was restored:"
+  echo "$links" | sed 's/^/  /'
+  echo "Clone it with: git clone -c core.symlinks=false <your repository>"
+  exit 1
+fi
 backup=$HOME/.local/state/resurrect/backup-$(date '+%Y%m%d-%H%M%S')
 work=$(mktemp -d) || exit 1
 # Resurrect's data folder, with this device's approved steps. Nothing restored goes into it.
@@ -20,6 +29,13 @@ ask() {
   printf '\n%s [y/N] ' "$1"
   read -r answer
   [ "$answer" = y ] || [ "$answer" = Y ]
+}
+
+# Shows list file $2 under the title $1, when it has names.
+show() {
+  [ -s "$2" ] || return 0
+  printf '\n%s:\n' "$1"
+  fmt -w 90 "$2" | sed 's/^/  /'
 }
 
 # Only the lines that are a package or service name: letters, digits and @ . _ + : -, not
@@ -111,16 +127,20 @@ wanted() {
 for list in pacman aur apt dnf flatpak; do
   wanted packages "$list" | names_only >"$work/$list"
 done
+# Packages kept by hand in the repository's packages/extra.txt, such as ones pacman counts as
+# dependencies and so leaves out of the saved lists.
+entries "$repo/packages/extra.txt" | names_only >>"$work/pacman"
+sort -u -o "$work/pacman" "$work/pacman"
+show "pacman" "$work/pacman"
+show "AUR" "$work/aur"
+show "apt" "$work/apt"
+show "dnf" "$work/dnf"
+show "Flatpak" "$work/flatpak"
 if [ -n "$(cat "$work"/pacman "$work"/aur "$work"/apt "$work"/dnf "$work"/flatpak)" ] &&
-  ask "Install the saved packages?"; then
+  ask "Install the packages listed above?"; then
   if [ -s "$work/pacman" ] && command -v pacman >/dev/null; then
     # shellcheck disable=SC2024 # the list is read by this user, not by root
     sudo pacman -S --needed - <"$work/pacman"
-  fi
-  # Packages kept by hand in the repository's packages/extra.txt, such as ones pacman
-  # counts as dependencies and so leaves out of the saved lists.
-  if [ -f "$repo/packages/extra.txt" ] && command -v pacman >/dev/null; then
-    entries "$repo/packages/extra.txt" | names_only | sudo pacman -S --needed -
   fi
   if [ -s "$work/aur" ]; then
     helper=$(command -v paru || command -v yay || true)
@@ -148,35 +168,41 @@ if { [ -d "$repo/shared/files" ] || [ -d "$own/files" ]; } &&
   [ -d "$own/files" ] && put_back "$own/files" "$HOME"
 fi
 
-# Noctalia's settings: the shared ones, or this device's saved copy. The settings this
-# device kept for itself, such as its monitors, go to Resurrect, which adds them when
-# Noctalia runs with it on. The config folder comes with the dotfiles when it is shared.
+# Noctalia's settings: the shared ones and those this device kept for itself, such as its
+# monitors, or this device's saved copy. Resurrect puts them in place, with its settings
+# reader, when Noctalia runs with it on, and keeps this device's plugin sources, so the
+# repository never adds code to run. The config folder comes with the dotfiles when it is
+# shared.
+# $1 is the shared settings, $2 those this device kept, each when there is one.
+leave_settings() {
+  [ -f "$2" ] && cp "$2" "$data/.restore-device.tmp" && mv -f "$data/.restore-device.tmp" "$data/restore-device.toml"
+  [ -f "$1" ] && cp "$1" "$data/.restore-settings.tmp" && mv -f "$data/.restore-settings.tmp" "$data/restore-settings.toml"
+  echo "Resurrect puts them in place once Noctalia runs with it on."
+}
 if [ -f "$repo/shared/noctalia/settings.toml" ]; then
   if ask "Put back Noctalia's settings?"; then
-    # Plugin sources are never shared, so a "source = [...]" line there did not come from
-    # Resurrect and is left out: another device never adds code to run here.
-    sed '/^\[plugins\]$/,/^\[/{/^source *=/d}' "$repo/shared/noctalia/settings.toml" >"$work/settings.toml"
-    put_file "$work/settings.toml" "$HOME/.local/state/noctalia/settings.toml"
-    if [ -f "$own/settings.toml" ]; then
-      cp "$own/settings.toml" "$data/restore-device.toml"
-    fi
+    leave_settings "$repo/shared/noctalia/settings.toml" "$own/settings.toml"
   fi
-  # The plugins that are on, from the line "enabled = [...]" in [plugins].
+  # The plugins that are on, from the line "enabled = [...]" in [plugins], as Resurrect
+  # writes it.
   sed -n '/^\[plugins\]$/,/^\[/s/^enabled = \[\(.*\)\]$/\1/p' "$repo/shared/noctalia/settings.toml" |
     tr ',' '\n' | sed 's/^ *"//; s/" *$//; /^$/d' >"$work/plugins"
 elif [ -d "$own/noctalia" ]; then
-  if ask "Put back Noctalia's settings?"; then
+  if ask "Put back Noctalia's config and settings?"; then
     [ -d "$own/noctalia/config" ] && put_back "$own/noctalia/config" "$HOME/.config/noctalia"
-    [ -d "$own/noctalia/state" ] && put_back "$own/noctalia/state" "$HOME/.local/state/noctalia"
+    leave_settings "$own/noctalia/state/settings.toml" "$own/noctalia/state/settings.toml"
   fi
   cp "$own/noctalia/plugins.txt" "$work/plugins" 2>/dev/null
 fi
+# Only plugin ids, <author>/<name>.
+grep -E '^[[:alnum:]_.-]+/[[:alnum:]_.-]+$' "$work/plugins" >"$work/ids" 2>/dev/null
 
-if [ -s "$work/plugins" ] && command -v noctalia >/dev/null &&
-  ask "Turn on the saved Noctalia plugins? Noctalia must be running."; then
+show "Noctalia plugins" "$work/ids"
+if [ -s "$work/ids" ] && command -v noctalia >/dev/null &&
+  ask "Turn on the Noctalia plugins listed above? Noctalia must be running, with their sources added."; then
   # Resurrect first, so it adds this device's own settings.
-  grep -x 'omerfuyar/resurrect' "$work/plugins" >"$work/first"
-  grep -v -x 'omerfuyar/resurrect' "$work/plugins" >>"$work/first"
+  grep -x 'omerfuyar/resurrect' "$work/ids" >"$work/first"
+  grep -v -x 'omerfuyar/resurrect' "$work/ids" >>"$work/first"
   while read -r plugin; do
     noctalia msg plugins enable "$plugin" </dev/null >/dev/null || echo "skipped: $plugin"
   done <"$work/first"
@@ -184,7 +210,9 @@ fi
 
 wanted services system | names_only >"$work/system"
 wanted services user | names_only >"$work/user"
-if [ -n "$(cat "$work/system" "$work/user")" ] && ask "Turn on the saved services?"; then
+show "System services" "$work/system"
+show "User services" "$work/user"
+if [ -n "$(cat "$work/system" "$work/user")" ] && ask "Turn on the services listed above?"; then
   # One at a time, so a unit this system does not have does not stop the others.
   while read -r unit; do
     sudo systemctl enable -- "$unit" </dev/null 2>/dev/null || echo "skipped: $unit"
@@ -200,7 +228,7 @@ cd "$repo" || exit 1
 run_steps() {
   [ -d "$1" ] || return 0
   for hook in "$1"/*; do
-    [ -f "$hook" ] && [ -x "$hook" ] || continue
+    [ -f "$hook" ] && [ -x "$hook" ] && [ ! -L "$hook" ] || continue
     printf '\n%s\n' "--- $hook ---"
     cat -v "$hook"
     if ask "Run your step $(basename "$hook"), shown above?"; then

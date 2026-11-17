@@ -87,6 +87,21 @@ local function linesText(list)
   return #list > 0 and table.concat(list, "\n") .. "\n" or ""
 end
 
+-- Whether <path>, as git ls-tree lists it, is a plain relative path: no control characters,
+-- no leading "/" or '"', which git puts around a path it had to quote, and no empty, ".",
+-- ".." or ".git" part. Any other path did not come from Resurrect.
+local function isPlain(path)
+  if path == "" or path:find("%c") or path:find('^[/"]') then
+    return false
+  end
+  for part in (path .. "/"):gmatch("([^/]*)/") do
+    if part == "" or part == "." or part == ".." or part:lower() == ".git" then
+      return false
+    end
+  end
+  return true
+end
+
 function Save.run(job, opt)
   local home = noctalia.expandPath("~")
   local repo = opt.repo
@@ -210,9 +225,9 @@ function Save.run(job, opt)
 
   if not noctalia.fileExists(repo .. "/.git") and remote ~= "" and #(noctalia.listDir(repo) or {}) == 0 then
     -- A new device starts from the remote's saves, so all devices share one history.
-    local listed = job.long({ "git", "ls-remote", remote })
+    local listed = job.long({ "git", "ls-remote", "--", remote })
     if listed.exitCode == 0 and trim(listed.output) ~= "" then
-      local cloned = job.long({ "git", "clone", "-q", remote, repo })
+      local cloned = job.long({ "git", "clone", "-q", "-c", "core.symlinks=false", "--", remote, repo })
       if cloned.exitCode ~= 0 then
         failed({ stdout = cloned.output }, 2)
       end
@@ -230,14 +245,23 @@ function Save.run(job, opt)
   end
   local gitDir = trim(git("rev-parse", "--absolute-git-dir").stdout)
 
+  -- A save never writes a link, so a link in the repository came from elsewhere, such as the
+  -- remote. git writes links as plain files here, and links already here are removed before
+  -- a save writes or removes anything, so nothing is written or removed through one.
+  git("config", "core.symlinks", "false")
+  local links = job.run({ "find", "-H", repo, "-mindepth", "1", "-path", repo .. "/.git", "-prune", "-o", "-type", "l", "-exec", "rm", "-f", "--", "{}", "+" })
+  if links.exitCode ~= 0 then
+    failed(links, 1, "could not remove the links in " .. repo)
+  end
+
   -- The other devices' latest saves: the remote's branch merged with this repository's own,
   -- the remote's side winning where both changed a file.
   local branch = ""
   if remote ~= "" then
     if git("remote", "get-url", "origin").exitCode == 0 then
-      git("remote", "set-url", "origin", remote)
+      git("remote", "set-url", "--", "origin", remote)
     else
-      git("remote", "add", "origin", remote)
+      git("remote", "add", "--", "origin", remote)
     end
     branch = trim(git("symbolic-ref", "--short", "HEAD").stdout)
     job.long({ "git", "-C", repo, "fetch", "-q", "origin", branch })
@@ -274,7 +298,7 @@ function Save.run(job, opt)
       return
     end
     for file in eachLine(git("-c", "core.quotePath=false", "ls-tree", "-r", "--name-only", theirs, "--", path).stdout) do
-      local text = theirFile(file)
+      local text = isPlain(file) and theirFile(file)
       if text then
         noctalia.mkdirAll(parentOf(repo .. "/" .. file))
         noctalia.writeFile(repo .. "/" .. file, text)
@@ -805,8 +829,9 @@ function Save.run(job, opt)
       end
       for line in eachLine(listed.stdout) do
         local mode, blob, path = line:match("^(%d+) %a+ (%x+)\t(.+)$")
-        -- A save never shares a link, so a link there did not come from Resurrect.
-        if path and mode ~= "120000" then
+        -- A save never shares a link, or a path that is not plain, so neither came from
+        -- Resurrect.
+        if path and mode ~= "120000" and isPlain(path) then
           their[path:sub(#"shared/files/" + 1)] = { blob = blob, mode = mode }
         end
       end
@@ -1187,15 +1212,20 @@ function Save.run(job, opt)
   ---------------------------------------------------------------------------------------
   -- Committing and pushing.
 
+  if opt.secretCheck then
+    noctalia.removeFile(repo .. "/.gitleaksignore")
+  end
   git("add", "-A")
 
   -- Nothing that looks like a password or key is committed, since saves may be pushed,
   -- except in Noctalia's config and settings, which are saved whole (gitleaks.toml). Known
-  -- findings can be allowed in .gitleaksignore.
+  -- findings can be allowed in .gitleaksignore in the data folder. gitleaks also reads one
+  -- in the repository, which the remote could fill, so the save removes that one.
   if opt.secretCheck and noctalia.commandExists("gitleaks") then
     local result = job.run({
       "gitleaks", "git", "--pre-commit", "--staged", "--redact", "--no-banner", "-v",
-      "--config", (noctalia.pluginDir() or "") .. "/gitleaks.toml", repo,
+      "--config", (noctalia.pluginDir() or "") .. "/gitleaks.toml",
+      "--gitleaks-ignore-path", opt.dataDir .. "/.gitleaksignore", repo,
     })
     if result.exitCode ~= 0 then
       git("reset", "-q")

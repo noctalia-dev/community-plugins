@@ -217,6 +217,11 @@ local function readKey(r)
   local name
   if c == '"' then
     name = readBasic(r)
+    -- An escape could spell a key, such as the plugin sources, so that it does not read as
+    -- that key here. Noctalia writes none in keys.
+    if name:find("\\", 1, true) then
+      fail("an escape in a key at " .. where(r))
+    end
   elseif c == "'" then
     name = readLiteral(r)
   else
@@ -763,6 +768,40 @@ function Settings.merge(mineText, theirsText, baseText, keepMine)
     end
   end
   return { shared = shared, localText = localText, settings = settings, taken = taken, count = count(merged) }
+end
+
+-- The settings restore.sh brings back, joined with <currentText>, the settings as they are
+-- now: the shared ones of <sharedText>, and the ones this device kept for itself from
+-- <deviceText>, over its current ones. The plugin sources stay as they are now, so a
+-- repository never adds code to run. Either text may be nil. Returns nil when nothing
+-- changes.
+function Settings.restore(sharedText, deviceText, currentText)
+  local current = parse(currentText)
+  classify(current)
+  local result = current.shared
+  if sharedText then
+    local shared = parse(sharedText)
+    classify(shared)
+    result = shared.shared
+  end
+  result = table.clone(result)
+  for path, value in pairs(current.localValues) do
+    result[path] = value
+  end
+  if deviceText then
+    local device = parse(deviceText)
+    classify(device)
+    for path, value in pairs(device.localValues) do
+      if path ~= "plugins.source" then
+        result[path] = value
+      end
+    end
+  end
+  if sameLeaves(result, current) then
+    return nil
+  end
+  Settings.breathe()
+  return written(result)
 end
 
 return Settings

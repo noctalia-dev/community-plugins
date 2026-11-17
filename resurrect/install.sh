@@ -3,8 +3,8 @@
 # opens:
 #   install.sh <file>
 # Each line of the file is "<list> <name>", where <list> is pacman, aur, apt, dnf or flatpak,
-# or system or user for a service. Services start from the next boot or login. Then it saves
-# again, so the panel shows what is still missing.
+# or system or user for a service. It shows the names and asks first. Services start from
+# the next boot or login. Then it saves again, so the panel shows what is still missing.
 set -u
 
 file=$1
@@ -14,6 +14,16 @@ file=$1
 names() {
   sed -n "s/^$1 //p" "$file" | grep -E '^[[:alnum:]@_+][[:alnum:]@._+:-]*$'
 }
+
+for list in pacman aur apt dnf flatpak system user; do
+  [ -n "$(names "$list")" ] && printf '%s: %s\n' "$list" "$(names "$list" | tr '\n' ' ')"
+done
+printf '\nInstall the packages and turn on the services listed above? [y/N] '
+read -r answer
+if [ "$answer" != y ] && [ "$answer" != Y ]; then
+  rm -f "$file"
+  exit 0
+fi
 
 if [ -n "$(names pacman)" ]; then
   # shellcheck disable=SC2024 # the list is read by this user, not by root

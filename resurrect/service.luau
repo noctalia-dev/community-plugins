@@ -32,8 +32,10 @@ local LONG = 'prefix=$1; shift; "$@" >"$prefix.log" 2>&1; echo $? >"$prefix.exit
 
 local dataDir = noctalia.pluginDataDir() or ""
 local stateFile = dataDir .. "/state.json"
--- The settings this device kept for itself, which restore.sh leaves for the service.
-local restoreFile = dataDir .. "/restore-device.toml"
+-- Noctalia's settings restore.sh leaves for the service: the shared ones, and the ones this
+-- device kept for itself.
+local restoreFile = dataDir .. "/restore-settings.toml"
+local restoreDeviceFile = dataDir .. "/restore-device.toml"
 local installFile = dataDir .. "/install.txt"
 -- The save steps this device approved, as "<checksum> <path>" lines; see review.sh.
 local approvedFile = dataDir .. "/approved-steps"
@@ -231,25 +233,28 @@ local function startJob(work, done)
   resume()
 end
 
--- Puts back the settings this device kept for itself, which restore.sh leaves in
--- restoreFile; the shared ones are already in place. They join the settings as they are now.
+local function restoring()
+  return noctalia.fileExists(restoreFile) or noctalia.fileExists(restoreDeviceFile)
+end
+
+-- Puts back the settings restore.sh left, joined with the settings as they are now.
 restoreSettings = function()
   running = true
   startJob(function(api)
     Settings.breathe = api.breathe
     local path = noctalia.expandPath("~/.local/state/noctalia/settings.toml")
     local before = noctalia.readFile(path) or ""
-    local ok, merged = pcall(Settings.merge, noctalia.readFile(restoreFile) or "", before, "")
+    local ok, settings = pcall(Settings.restore, noctalia.readFile(restoreFile), noctalia.readFile(restoreDeviceFile), before)
     if not ok then
-      api.emit(tostring(merged))
+      api.emit(tostring(settings))
       api.stop(1)
     end
-    if merged.settings then
+    if settings then
       local backup = noctalia.expandPath("~/.local/state/resurrect/backup-" .. os.date("%Y%m%d-%H%M%S")
         .. "/.local/state/noctalia")
       noctalia.mkdirAll(backup)
       local tmp = path .. ".resurrect-tmp"
-      if not (noctalia.writeFile(backup .. "/settings.toml", before) and noctalia.writeFile(tmp, merged.settings)
+      if not (noctalia.writeFile(backup .. "/settings.toml", before) and noctalia.writeFile(tmp, settings)
         and noctalia.renameFile(tmp, path)) then
         api.emit("could not write " .. path)
         api.stop(1)
@@ -261,6 +266,7 @@ restoreSettings = function()
     running = false
     noctalia.setUpdateInterval(IDLE_TICK_MS)
     noctalia.removeFile(restoreFile)
+    noctalia.removeFile(restoreDeviceFile)
     if code ~= 0 then
       noctalia.notifyError(noctalia.tr("notify.failed"), out[#out] or noctalia.tr("error.unknown"))
     end
@@ -570,7 +576,7 @@ function update()
     end
     return
   end
-  if noctalia.fileExists(restoreFile) then
+  if restoring() then
     restoreSettings()
   elseif loaded and noctalia.getConfig("daily") ~= false
     and (state.lastMs == nil or noctalia.nowMs() - state.lastMs >= DAY_MS) then
@@ -602,7 +608,7 @@ noctalia.readFileAsync(stateFile, function(text)
   publish()
   noctalia.setUpdateInterval(IDLE_TICK_MS)
   -- Settings restore.sh left come first, so the save does not drop them.
-  if noctalia.fileExists(restoreFile) then
+  if restoring() then
     restoreSettings()
   elseif sharing() then
     -- With sharing on, what other devices changed comes in as soon as Noctalia starts.

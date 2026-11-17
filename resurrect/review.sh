@@ -15,7 +15,7 @@ mkdir -p "$(dirname "$approved")" && touch "$approved" || exit 1
 
 found=0
 for hook in hooks/save/* "devices/$device/hooks/save/"*; do
-  [ -f "$hook" ] && [ -x "$hook" ] || continue
+  [ -f "$hook" ] && [ -x "$hook" ] && [ ! -L "$hook" ] || continue
   sum=$(sha256sum "$hook" | cut -d ' ' -f 1)
   grep -q -x -F "$sum $hook" "$approved" && continue
   found=$((found + 1))
