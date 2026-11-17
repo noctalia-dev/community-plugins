@@ -4012,26 +4012,26 @@ function render()
               onClick = toggleCurrentFavorite,
             }),
 
-            ui.button({
-              glyph = "refresh",
-              variant = "secondary",
-              controlSize = "sm",
-              tooltip = "Regenerate palette for current card (click) or all cards (right-click)",
-              onClick = function()
-                if activeItem and activeItem.path then
-                  noctalia.state.set("deck_command", { action = "regenerate_palette", paths = { activeItem.path }, nonce = noctalia.nowMs() })
-                end
-              end,
-              onRightClick = function()
-                local paths = {}
-                for _, it in ipairs(displayedItems) do
-                  if it and it.path then table.insert(paths, it.path) end
-                end
-                if #paths > 0 then
-                  noctalia.state.set("deck_command", { action = "regenerate_palette", paths = paths, nonce = noctalia.nowMs() })
-                end
-              end,
-            }),
+            -- ui.button({
+            --   glyph = "refresh",
+            --   variant = "secondary",
+            --   controlSize = "sm",
+            --   tooltip = "Regenerate palette for current card (click) or all cards (right-click)",
+            --   onClick = function()
+            --     if activeItem and activeItem.path then
+            --       noctalia.state.set("deck_command", { action = "regenerate_palette", paths = { activeItem.path }, nonce = noctalia.nowMs() })
+            --     end
+            --   end,
+            --   onRightClick = function()
+            --     local paths = {}
+            --     for _, it in ipairs(displayedItems) do
+            --       if it and it.path then table.insert(paths, it.path) end
+            --     end
+            --     if #paths > 0 then
+            --       noctalia.state.set("deck_command", { action = "regenerate_palette", paths = paths, nonce = noctalia.nowMs() })
+            --     end
+            --   end,
+            -- }),
 
             ui.row({
               align = "center",
