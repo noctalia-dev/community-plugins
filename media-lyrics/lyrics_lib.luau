@@ -98,21 +98,17 @@ function lib.parseLrc(text, offsetMs)
     end
   end
 
-  -- stable sort: synced lines first (by time), unsynced after, preserving order
-  local function keyed(t)
-    for i, v in ipairs(result) do
-      if v == t then return i end
-    end
-    return 0
-  end
+  -- stable sort: synced lines first (by time), unsynced after, preserving order.
+  -- Positions are recorded before sorting: looking them up inside the
+  -- comparator scanned the list on every comparison (quadratic) and read
+  -- positions that table.sort was already moving.
+  local position = {}
+  for i, line in ipairs(result) do position[line] = i end
   table.sort(result, function(a, b)
     local at, bt = a.time >= 0, b.time >= 0
     if at ~= bt then return at end
-    if at and bt then
-      if a.time ~= b.time then return a.time < b.time end
-      return keyed(a) < keyed(b) -- stability
-    end
-    return false
+    if at and a.time ~= b.time then return a.time < b.time end
+    return position[a] < position[b]
   end)
   return result
 end

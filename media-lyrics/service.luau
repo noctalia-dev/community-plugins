@@ -279,6 +279,16 @@ local function loadLyricsForTrack(artist, title, album, durationSec, key, embedd
   snapshot.lyricsStatus = "loading"
   publish()
 
+  -- A callback the host stops for exceeding its CPU budget unwinds without
+  -- reaching finishEmpty/finishError, which left the panel on "Loading
+  -- lyrics..." for the rest of the track. 45 s covers the slowest chain (five
+  -- curl calls at 8 s each) before settling it.
+  noctalia.runAsync({ "sleep", "45" }, function()
+    if gen == fetchGeneration and snapshot.lyricsStatus == "loading" then
+      finishError(noctalia.tr("service.lyrics-timeout"))
+    end
+  end, 50000)
+
   if trim(title) == "" then
     finishEmpty()
     return

@@ -23,7 +23,8 @@
     "local": "Local"
   },
   "service": {
-    "lyrics-unreachable": "LRCLIB unreachable (network error)"
+    "lyrics-unreachable": "LRCLIB unreachable (network error)",
+    "lyrics-timeout": "Lyrics took too long to load"
   },
   "settings": {
     "album_art_only": {
