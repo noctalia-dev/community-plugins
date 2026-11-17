@@ -2030,8 +2030,8 @@ rev = "45757b8932bfe2362aa818705d81d0e2e9c23f0b"
 [[plugin]]
 id = "dragged/cider"
 name = "Cider"
-version = "1.11.3"
-updated_at = 1794868654
+version = "1.12.0"
+updated_at = 1794928927
 added_at = 1787148354
 author = "dragged"
 license = "MIT"
