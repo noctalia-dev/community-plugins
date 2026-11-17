@@ -13,7 +13,9 @@ local DESKTOP_ACTIVE_KEY = shared.DESKTOP_ACTIVE_KEY
 local DEVICE_FILE_NAME = "device.json"
 
 local POLL_INTERVAL_MS = 4000
-local CLI_TIMEOUT_MS = 8000
+-- Spatial audio and codec writes replay the companion app's connect
+-- session first (about 1.5 s), on top of waiting for a poll in flight.
+local CLI_TIMEOUT_MS = 10000
 local SCAN_TIMEOUT_MS = 6000
 local MONO_DEBOUNCE_POLLS = 2
 
@@ -33,6 +35,19 @@ local DIAG_TIMEOUT_MS = 30000
 local RESTART_GRACE_MS = 30000
 local restartUntil = 0
 local restartSawFailure = false
+
+-- Code of the last setting change that failed, shown in the panel until
+-- the next one succeeds. Polls don't clear it: they say nothing about writes.
+local writeError = nil
+
+-- Dragging a custom EQ slider sends a value per step. Only one write runs at
+-- a time; whatever arrives meanwhile is kept, and only the latest is sent.
+local customEqBusy = false
+local customEqQueued = nil
+
+-- With "hide when disconnected" on and no earbuds picked yet, look for newly
+-- paired ones every this many update ticks.
+local SCAN_EVERY_N_TICKS = 5
 
 local function restarting()
 	return noctalia.nowMs() < restartUntil
@@ -134,6 +149,7 @@ local function publish(data)
 		data.mono_auto = monoAutoSetting() and not (data.model or {}).battery_single
 		data.mono_by_auto = monoActive and monoActivatedByAuto
 		data.restarting = restarting()
+		data.write_error = writeError
 		noctalia.state.set(STATUS_KEY, data)
 	end
 end
@@ -343,7 +359,16 @@ local function refreshFromCache()
 	end)
 end
 
+local function noteWrite(parsed)
+	if parsed ~= nil and parsed.ok then
+		writeError = nil
+	else
+		writeError = (parsed and parsed.error) or "helper_failed"
+	end
+end
+
 local function applyResultThenRefresh(parsed)
+	noteWrite(parsed)
 	if parsed ~= nil and parsed.ok then
 		-- merge whatever the write handler already learned (fast optimistic update)
 		local current = noctalia.state.get(STATUS_KEY) or {}
@@ -410,12 +435,36 @@ local function setCodec(codec)
 		return
 	end
 	runCtl({ "set-codec", codec }, function(parsed)
+		noteWrite(parsed)
 		if parsed ~= nil and parsed.ok then
 			restartUntil = noctalia.nowMs() + RESTART_GRACE_MS
 			restartSawFailure = false
 			republishMono()
 		end
 		pollStatus()
+	end)
+end
+
+-- curve is "bass,mid,treble", each -6 to 6.
+local function setCustomEq(curve)
+	if type(curve) ~= "string" or not curve:match("^%-?%d+,%-?%d+,%-?%d+$") then
+		return
+	end
+	if customEqBusy then
+		customEqQueued = curve
+		return
+	end
+	customEqBusy = true
+	runCtl({ "set-custom-eq", curve }, function(parsed)
+		customEqBusy = false
+		local nextCurve = customEqQueued
+		customEqQueued = nil
+		if nextCurve ~= nil and nextCurve ~= curve then
+			noteWrite(parsed)
+			setCustomEq(nextCurve)
+		else
+			applyResultThenRefresh(parsed)
+		end
 	end)
 end
 
@@ -548,6 +597,8 @@ local function executeCommand(cmdObj)
 		setSpatial(cmdObj.value)
 	elseif cmdObj.action == "set-codec" then
 		setCodec(cmdObj.value)
+	elseif cmdObj.action == "set-custom-eq" then
+		setCustomEq(cmdObj.value)
 	elseif cmdObj.action == "cycle-anc" then
 		cycleAnc()
 	elseif cmdObj.action == "refresh" then
@@ -585,6 +636,8 @@ end
 -- "0"/"1"/"true"/"false". `set-spatial` payload is a mode name from the
 -- model's list (concert/cinema/off on a CMF Headphone Pro). `set-codec`
 -- payload is aac or ldac; it restarts the headphones without asking.
+-- `set-custom-eq` payload is "bass,mid,treble" in dB, each -6 to 6; it
+-- edits the custom curve without selecting the custom preset.
 function onIpc(event, payload)
 	if event == "cycle-anc" then
 		cycleAnc()
@@ -623,6 +676,8 @@ function onIpc(event, payload)
 		setSpatial(payload)
 	elseif event == "set-codec" then
 		setCodec(type(payload) == "string" and payload:lower() or nil)
+	elseif event == "set-custom-eq" then
+		setCustomEq(payload)
 	elseif event == "scan-devices" then
 		scanDevices(false)
 	elseif event == "select-device" then
@@ -668,8 +723,18 @@ end
 
 noctalia.setUpdateInterval(POLL_INTERVAL_MS)
 
+local function hideWhenDisconnected()
+	return noctalia.getConfig("hide_when_disconnected") == true
+end
+
 function update()
 	tickCount += 1
+	-- The bar icon is hidden while nothing is picked, so nobody would open
+	-- the panel to scan; look for newly paired earbuds now and then.
+	if deviceMac() == "" and hideWhenDisconnected() and tickCount % SCAN_EVERY_N_TICKS == 0 then
+		scanDevices(true)
+		return
+	end
 	if panelOpen or showInBar() or desktopActive then
 		pollStatus()
 	elseif monoAutoSetting() and tickCount % MONO_ONLY_POLL_EVERY_N_TICKS == 0 then

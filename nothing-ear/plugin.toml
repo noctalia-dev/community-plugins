@@ -9,12 +9,12 @@
 
 id = "zyrex/nothing-ear"
 name = "Nothing Ear"
-version = "0.4.0"
+version = "0.5.0"
 plugin_api = 43
 author = "zyrex"
 license = "MIT"
 icon = "headphones"
-description = "Battery, ANC, EQ and mono audio for Nothing/CMF earbuds and CMF Headphone Pro, controlled over Bluetooth."
+description = "Battery, ANC, EQ and custom EQ, spatial audio and codec for Nothing/CMF earbuds and headphones."
 tags = ["audio", "bar", "panel", "desktop", "service", "hardware", "indicator"]
 dependencies = ["python3", "bluetoothctl", "pactl"]
 
@@ -38,6 +38,13 @@ type = "bool"
 label_key = "settings.show_percentage.label"
 description_key = "settings.show_percentage.description"
 default = true
+
+[[setting]]
+key = "hide_when_disconnected"
+type = "bool"
+label_key = "settings.hide_when_disconnected.label"
+description_key = "settings.hide_when_disconnected.description"
+default = false
 
 [[setting]]
 key = "mono_on_single_bud"

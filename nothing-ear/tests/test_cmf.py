@@ -118,6 +118,7 @@ class ReadStateTests(unittest.TestCase):
             ("CHANNEL_FILE", root / "channel"),
             ("STATE_FILE", root / "state.json"),
             ("LOCK_FILE", root / "lock"),
+            ("LAST_WRITE_FILE", root / "last_write.json"),
         ):
             patcher = patch.object(ctl, name, str(value))
             patcher.start()
@@ -213,12 +214,59 @@ class ReadStateTests(unittest.TestCase):
             (ctl.write_latency, (False,), 0xF040, [2, 0]),
             (ctl.write_anc, ("anc", "low"), 0xF00F, [1, 3, 0]),
             (ctl.write_anc, ("transparency", None), 0xF00F, [1, 7, 0]),
+            (ctl.write_custom_eq, ("3,0,-3",), 0xF041, bytes.fromhex(
+                "03000040c00100000000000075443333333f02000040c000c05a450000803f"
+                "000000404000000c43cdcc4c3f000000000000000000")),
         ):
             with self.subTest(action=action.__name__, args=args):
-                sock = Mock()
-                with patch.object(ctl, "connect", return_value=sock), patch.object(ctl, "gather", return_value={}):
-                    action(ADDRESS, *args)
-                self.assertEqual(sock.send.call_args_list[0].args[0], build(command, payload))
+                sent = self.write(action, *args)
+                writes = [frame for frame in sent if frame[3] | frame[4] << 8 == command]
+                self.assertEqual(len(writes), 1)
+                self.assertEqual(writes[0][5], len(payload))
+                self.assertEqual(writes[0][8:-2], bytes(payload))
+
+    def write(self, action, *args):
+        sock = Mock()
+        with patch.object(ctl, "connect", return_value=sock), patch.object(ctl, "gather", return_value={}), \
+                patch.object(ctl.time, "sleep"):
+            action(ADDRESS, *args)
+        return [b for (b,), _ in sock.send.call_args_list]
+
+    def test_spatial_and_codec_writes_follow_an_app_session(self):
+        # Time write before the setting, numbered frames, setting sent last
+        # among the writes.
+        self.read(self.HEADPHONES, build(p.BATTERY_RESP, [1, 6, 50]))
+        for action, value, command in ((ctl.write_spatial, "cinema", p.SPATIAL_WRITE),
+                                       (ctl.write_codec, "ldac", p.CODEC_WRITE)):
+            with self.subTest(action=action.__name__):
+                sent = self.write(action, value)
+                cmds = [b[3] | b[4] << 8 for b in sent]
+                self.assertEqual(cmds[0], p.BATTERY_READ)
+                self.assertLess(cmds.index(p.TIME_WRITE), cmds.index(command))
+                self.assertEqual([b[7] for b in sent], list(range(1, len(sent) + 1)))
+
+    def test_custom_eq_read_and_bad_values(self):
+        curve = p.custom_eq_write_payload(-2, 4, 6, m.CUSTOM_EQ_BANDS["B175"])
+        state, sent = self.read(self.HEADPHONES, build(p.BATTERY_RESP, [1, 6, 50]) + build(p.CUSTOM_EQ_RESP, curve))
+        self.assertIn(p.CUSTOM_EQ_READ, sent)
+        self.assertEqual(state["custom_eq"], {"bass": -2, "mid": 4, "treble": 6})
+        for value in ("7,0,0", "1,2", "a,b,c", None):
+            with self.subTest(value=value), patch.object(ctl, "connect") as connect:
+                with self.assertRaises(ctl.CtlError):
+                    ctl.write_custom_eq(ADDRESS, value)
+                connect.assert_not_called()
+
+    def test_failed_write_is_recorded_for_diag(self):
+        self.read(self.HEADPHONES, build(p.BATTERY_RESP, [1, 6, 50]))
+        sock = Mock()
+        sock.send.side_effect = [None, OSError(104, "Connection reset by peer")]
+        with patch.object(ctl, "connect", return_value=sock), patch.object(ctl, "gather", return_value={}), \
+                patch.object(ctl.time, "sleep"), self.assertRaises(ctl.CtlError):
+            ctl.write_spatial(ADDRESS, "concert")
+        text = "\n".join(f"{k} {v}" for k, v in ctl.last_write_rows())
+        self.assertIn("set-spatial", text)
+        self.assertIn("unreachable", text)
+        self.assertIn("tx 55 60 01 07 c0", text)
 
     def test_headphone_writes_outside_the_model_are_refused(self):
         self.read(self.HEADPHONES, build(p.BATTERY_RESP, [1, 6, 50]))
@@ -236,9 +284,11 @@ class ReadStateTests(unittest.TestCase):
     def test_codec_switch_reports_restart_without_reading_back(self):
         self.read(self.HEADPHONES, build(p.BATTERY_RESP, [1, 6, 50]))
         sock = Mock()
-        with patch.object(ctl, "connect", return_value=sock), patch.object(ctl, "gather", return_value={}):
+        with patch.object(ctl, "connect", return_value=sock), patch.object(ctl, "gather", return_value={}), \
+                patch.object(ctl.time, "sleep"):
             self.assertEqual(ctl.write_codec(ADDRESS, "ldac"), {"ok": True, "restarting": True})
-        self.assertEqual(sock.send.call_count, 1)
+        cmds = [b[3] | b[4] << 8 for (b,), _ in sock.send.call_args_list]
+        self.assertEqual(cmds[-1], p.CODEC_WRITE)
 
     def test_earbuds_have_no_spatial_or_codec(self):
         _, sent = self.read(MODEL_B179, build(p.BATTERY_RESP, [1, 0x02, 0x50]))

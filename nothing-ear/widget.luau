@@ -1,6 +1,8 @@
 --!nonstrict
 -- Bar widget for Nothing/CMF earbuds
 
+local barIcon = require("./bar-icon.luau")
+
 local STATUS_KEY = "nothing_ear_status"
 
 local status = noctalia.state.get(STATUS_KEY) or {}
@@ -15,12 +17,35 @@ end
 
 local ICON_SIZE = 18
 
+barIcon.reloadSettings()
+
 -- Icon shows what's connected (case > both buds > one bud) with a badge for
--- the noise mode. Images can't follow the theme color like glyphs do, so
--- each comes in a dark and a light tint.
+-- the noise mode, tinted to the bar's icon color (see bar-icon.luau). If that
+-- can't be worked out, the plain dark or light icon is used.
+local iconName = nil
+local iconColors = nil
+local iconPath = nil
+
+local function colorKey()
+	local line, knockout = barIcon.colors(barWidget.outputName and barWidget.outputName() or nil)
+	if line == nil then
+		return noctalia.isDarkMode() and "plain-dark" or "plain-light"
+	end
+	return line .. knockout, line, knockout
+end
+
 local function setIcon(name)
-	local file = "icons/bar-" .. name .. (noctalia.isDarkMode() and ".svg" or "-light.svg")
-	barWidget.setImage(noctalia.pluginDir() .. "/" .. file, false, ICON_SIZE)
+	local key, line, knockout = colorKey()
+	local path = line and barIcon.tinted(name, line, knockout) or nil
+	if path == nil then
+		local file = "icons/bar-" .. name .. (noctalia.isDarkMode() and ".svg" or "-light.svg")
+		path = noctalia.pluginDir() .. "/" .. file
+	end
+	iconName, iconColors = name, key
+	if path ~= iconPath then
+		iconPath = path
+		barWidget.setImage(path, false, ICON_SIZE)
+	end
 end
 
 local function ancName(anc)
@@ -51,8 +76,17 @@ local function clickRows()
 	}
 end
 
+-- Out of the bar while nothing is connected (or picked), if the user asked
+-- for that; a codec switch's restart doesn't count as disconnected.
+local function hidden()
+	if noctalia.getConfig("hide_when_disconnected") ~= true then
+		return false
+	end
+	return status.connected ~= true and status.restarting ~= true
+end
+
 local function render()
-	barWidget.setVisible(true)
+	barWidget.setVisible(not hidden())
 
 	if status.unconfigured then
 		setIcon("disconnected")
@@ -146,7 +180,17 @@ noctalia.state.watch(STATUS_KEY, function(value)
 end)
 
 function onConfigChanged()
+	barIcon.reloadSettings()
 	render()
+end
+
+-- Palette changes (wallpaper colors, light/dark) have no callback; check the
+-- resolved color now and then and redraw the icon only when it changed.
+noctalia.setUpdateInterval(2000)
+function update()
+	if iconName ~= nil and colorKey() ~= iconColors then
+		setIcon(iconName)
+	end
 end
 
 render()

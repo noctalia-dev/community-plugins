@@ -94,6 +94,21 @@ CODECS: dict[str, list[int]] = {
     "B172": [0, 2], "B187": [0, 2], "B184": [0, 2], "B175": [0, 2],
 }
 
+# Custom EQ bands as (centre frequency Hz, Q). Bass and mid are the same on
+# every model; the treble shelf sits at one of three frequencies. Models
+# not listed (Ear (1)) have no three-band custom curve.
+_TREBLE_3400 = {"bass": (140.0, 0.8), "mid": (980.0, 0.7), "treble": (3400.0, 1.0)}
+_TREBLE_3500 = {"bass": (140.0, 0.8), "mid": (980.0, 0.7), "treble": (3500.0, 1.0)}
+_TREBLE_6900 = {"bass": (140.0, 0.8), "mid": (980.0, 0.7), "treble": (6900.0, 1.0)}
+CUSTOM_EQ_BANDS: dict[str, dict] = {
+    "B155": _TREBLE_3400, "B162": _TREBLE_3400, "B163": _TREBLE_3400, "B171": _TREBLE_3400,
+    "B173": _TREBLE_3400, "B174": _TREBLE_3400, "B183": _TREBLE_3400, "B190": _TREBLE_3400,
+    "B157": {"bass": (140.0, 0.8), "mid": (980.0, 0.66), "treble": (3500.0, 1.0)},
+    "B175": _TREBLE_3500,
+    "B168": _TREBLE_6900, "B172": _TREBLE_6900, "B179": _TREBLE_6900, "B184": _TREBLE_6900,
+    "B185": _TREBLE_6900, "B187": _TREBLE_6900,
+}
+
 # SKU (as embedded in the device's serial number) -> base
 SKU_TO_BASE: dict[str, str] = {
     "01": "B181", "02": "B181", "03": "B181", "04": "B181",
@@ -145,8 +160,11 @@ def _presets(table: list[tuple[int, str]]) -> list[dict]:
 
 
 def describe(base: str | None) -> dict:
-    """Returns {"name", "base", "anc", "eq", "eq_presets", "bass", "spatial",
-    "codecs", "battery_single"}.
+    """Returns {"name", "base", "anc", "eq", "eq_presets", "custom_eq", "bass",
+    "spatial", "codecs", "battery_single"}.
+
+    `custom_eq` is the wire index of the custom preset when the model has
+    an editable three-band curve, else None.
 
     `eq` is "classic" (EQ_PRESET commands), "listening" (LISTENING_MODE
     commands) or None (no EQ shown). An unknown base gets a permissive
@@ -154,8 +172,8 @@ def describe(base: str | None) -> dict:
     like the Ear (2) this plugin was built on rather than losing controls.
     """
     if base not in BASES:
-        return {"name": None, "base": None, "anc": True, "eq": "classic", "eq_presets": _presets(CLASSIC_EQ), "bass": False,
-                "spatial": [], "codecs": []}
+        return {"name": None, "base": None, "anc": True, "eq": "classic", "eq_presets": _presets(CLASSIC_EQ),
+                "custom_eq": None, "bass": False, "spatial": [], "codecs": []}
     name, anc = BASES[base]
     if base in LISTENING_EQ:
         eq, presets = "listening", LISTENING_EQ[base]
@@ -163,12 +181,14 @@ def describe(base: str | None) -> dict:
         eq, presets = None, []
     else:
         eq, presets = "classic", CLASSIC_EQ
+    custom = next((index for index, preset in presets if preset == "custom"), None)
     return {
         "name": name,
         "base": base,
         "anc": anc,
         "eq": eq,
         "eq_presets": _presets(presets),
+        "custom_eq": custom if base in CUSTOM_EQ_BANDS else None,
         "bass": base in BASS_BOOST,
         "spatial": [name for name, _ in SPATIAL.get(base, [])],
         "codecs": [CODEC_NAMES[index] for index in CODECS.get(base, [])],
