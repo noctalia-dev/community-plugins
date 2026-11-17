@@ -20,7 +20,7 @@ except:
 
 issue = repo.get_issue(issue_number)
 
-if "/close" in comment_body:
+if comment_body == "/close-issue":
     g = Github(token)
     repo = g.get_repo(repo_name)
     issue = repo.get_issue(number=issue_number)
