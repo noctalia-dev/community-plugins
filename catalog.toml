@@ -169,15 +169,21 @@ rev = "90815dea99d51482d34c15dabc7c4f8f513be344"
 [[plugin]]
 id = "nightwatch75/todo"
 name = "To Do"
-version = "1.2.2"
-updated_at = 1790597329
+version = "1.3.0"
+updated_at = 1794963350
 added_at = 1784158920
 author = "nightwatch75"
 license = "MIT"
 icon = "checklist"
 description = "A prioritised task list with a bar widget and editable panel."
-plugin_api = 28
+plugin_api = 42
 tags = ["bar", "panel", "productivity"]
+
+[[plugin.release]]
+plugin_api = 28
+version = "1.2.2"
+updated_at = 1790597329
+rev = "eca890074383d5d71400ac45f3049c37bf28c59c"
 
 [[plugin.release]]
 plugin_api = 15
@@ -1847,8 +1853,8 @@ rev = "8bf825d5dce2ba8548b36e597f5b450984c95452"
 [[plugin]]
 id = "felipeartur/ai-usagebar"
 name = "AI Usage"
-version = "2.16.0"
-updated_at = 1794846414
+version = "2.16.1"
+updated_at = 1794963443
 added_at = 1786903781
 author = "felipeartur"
 license = "MIT"
@@ -2651,8 +2657,8 @@ rev = "c1e115ff7ea0cc0fbfee3a1161409bde004f6374"
 [[plugin]]
 id = "tranzem/media-lyrics"
 name = "Media Lyrics"
-version = "1.0.1"
-updated_at = 1794404251
+version = "1.0.2"
+updated_at = 1794963400
 added_at = 1788381228
 author = "tranzem"
 license = "MIT"
@@ -5199,8 +5205,8 @@ tags = ["bar", "panel", "service", "privacy", "utility"]
 [[plugin]]
 id = "0rgl/localsend-plus"
 name = "LocalSend Plus"
-version = "1.3.0"
-updated_at = 1793319669
+version = "1.4.0"
+updated_at = 1794963323
 added_at = 1793058341
 author = "0rgl"
 license = "MIT"
