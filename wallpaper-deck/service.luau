@@ -611,13 +611,10 @@ local matugenQueueHead = 1
 local matugenProcessedSinceSync = 0
 
 local function pumpMatugenQueue(token: number, cache: { [string]: any }, deck: { any })
-  if pickerPanelOpen then
-    return
-  end
   if not (type(noctalia.commandExists) == "function" and noctalia.commandExists("matugen")) then
     return
   end
-  local maxJobs = MAX_MATUGEN_JOBS
+  local maxJobs = pickerPanelOpen and 1 or MAX_MATUGEN_JOBS
   while matugenActive < maxJobs and matugenQueueHead <= #matugenQueue do
     if token ~= scanToken then return end
     local item = matugenQueue[matugenQueueHead]
@@ -1827,6 +1824,7 @@ noctalia.state.watch("deck_command", function(cmd)
         scheduleCacheAndStateSync(activeDeckInMemory, activeCacheInMemory, true)
       end
       pumpThumbQueue(scanToken, activeCacheInMemory, activeDeckInMemory)
+      pumpMatugenQueue(scanToken, activeCacheInMemory, activeDeckInMemory)
     end
   elseif action == "prune_cache" then
     noctalia.runAsync({ "true" }, prunePreviewCache)

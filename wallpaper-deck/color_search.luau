@@ -48,33 +48,34 @@ function M.colorToHueKey(hex)
   return (h + 0.035) % 1.0
 end
 
-local HUE_THRESHOLD = 0.08
+local HUE_THRESHOLD = 0.035
 
-local function hueClose(a, b)
-  if type(a) ~= "number" or type(b) ~= "number" then return false end
+local function hueDiff(a, b)
+  if type(a) ~= "number" or type(b) ~= "number" then return 999.0 end
   -- hueKey values in [1.0, 2.0] represent grayscale/desaturated colors (1.0 + lightness).
-  -- hueKey values in [0.0, 1.0) represent chromatic hues.
+  -- hueKey values in [0.0, 1.0) represent chromatic hues in [0.0, 1.0).
   -- A chromatic color and a grayscale color must never match.
   local aIsGray = (a >= 1.0)
   local bIsGray = (b >= 1.0)
   if aIsGray ~= bIsGray then
-    return false
+    return 999.0
   end
   if aIsGray then
-    return math.abs(a - b) <= HUE_THRESHOLD
+    return math.abs(a - b)
   end
   local diff = math.abs(a - b)
-  if diff > 0.5 then diff = 1 - diff end
-  return diff <= HUE_THRESHOLD
+  if diff > 0.5 then diff = 1.0 - diff end
+  return diff
 end
 
--- Returns priority 0=primary, 1=secondary, 2=tertiary, 3=container, 4=surface, or nil if no match.
+-- Returns priority (0=primary, 1=secondary, 2=tertiary, 3=container, 4=surface) and hue distance,
+-- or nil if no match within HUE_THRESHOLD.
 -- Memoizes computed hue keys back onto the item table so repeated calls are O(1).
 function M.matchPriority(item, targetHue)
-  if targetHue == nil or not item then return nil end
+  if targetHue == nil or not item then return nil, 999.0 end
   local c = item.colors
-  if type(c) ~= "table" then return nil end
-  if not c.primary or c.primary == "#80a9ff" then return nil end
+  if type(c) ~= "table" then return nil, 999.0 end
+  if not c.primary or c.primary == "#80a9ff" then return nil, 999.0 end
 
   -- NOTE: item.hueKey is derived from source_color (used by sort-by-colour), so
   -- it must NOT be used for matching the primary palette entry.
@@ -83,37 +84,42 @@ function M.matchPriority(item, targetHue)
     primaryHue = M.colorToHueKey(c.primary)
     if primaryHue then item.hueKeyPrimary = primaryHue end
   end
-  if hueClose(primaryHue, targetHue) then return 0 end
+  local d0 = hueDiff(primaryHue, targetHue)
+  if d0 <= HUE_THRESHOLD then return 0, d0 end
 
   local secHue = item.hueKeySecondary
   if type(secHue) ~= "number" then
     secHue = M.colorToHueKey(c.secondary)
     if secHue then item.hueKeySecondary = secHue end
   end
-  if hueClose(secHue, targetHue) then return 1 end
+  local d1 = hueDiff(secHue, targetHue)
+  if d1 <= HUE_THRESHOLD then return 1, d1 end
 
   local terHue = item.hueKeyTertiary
   if type(terHue) ~= "number" then
     terHue = M.colorToHueKey(c.tertiary or c.secondary)
     if terHue then item.hueKeyTertiary = terHue end
   end
-  if hueClose(terHue, targetHue) then return 2 end
+  local d2 = hueDiff(terHue, targetHue)
+  if d2 <= HUE_THRESHOLD then return 2, d2 end
 
   local contHue = item.hueKeyContainer
   if type(contHue) ~= "number" then
     contHue = M.colorToHueKey(c.primary_container or c.container)
     if contHue then item.hueKeyContainer = contHue end
   end
-  if hueClose(contHue, targetHue) then return 3 end
+  local d3 = hueDiff(contHue, targetHue)
+  if d3 <= HUE_THRESHOLD then return 3, d3 end
 
   local surfHue = item.hueKeySurface
   if type(surfHue) ~= "number" then
     surfHue = M.colorToHueKey(c.surface_container_highest or c.surface)
     if surfHue then item.hueKeySurface = surfHue end
   end
-  if hueClose(surfHue, targetHue) then return 4 end
+  local d4 = hueDiff(surfHue, targetHue)
+  if d4 <= HUE_THRESHOLD then return 4, d4 end
 
-  return nil
+  return nil, 999.0
 end
 
 -- Batched async color filter to avoid CPU budget overruns.
@@ -144,9 +150,10 @@ function M.runColorFilter(token, targetHue, nameQuery, source, isCancelled, onPr
           or string.find(item.lowerName or string.lower(item.name or ""), q, 1, true)
           or (item.relDir and string.find(string.lower(item.relDir), q, 1, true))
         if nameOk then
-          local p = M.matchPriority(item, targetHue)
+          local p, dist = M.matchPriority(item, targetHue)
           if p ~= nil then
             item._colorPriority = p
+            item._colorDist = dist
             item._colorOrder = i
             table.insert(filtered, item)
           end
@@ -163,6 +170,11 @@ function M.runColorFilter(token, targetHue, nameQuery, source, isCancelled, onPr
       local pb = b._colorPriority or 9
       if pa ~= pb then
         return pa < pb
+      end
+      local da = a._colorDist or 1.0
+      local db = b._colorDist or 1.0
+      if math.abs(da - db) > 0.002 then
+        return da < db
       end
       return (a._colorOrder or 0) < (b._colorOrder or 0)
     end)
