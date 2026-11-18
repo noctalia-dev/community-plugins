@@ -52,10 +52,16 @@ local function loadFavoritesDirect(): { [string]: boolean }
   return {}
 end
 
-local stateWps = noctalia.state.get("wallpapers")
-local allWallpapers = (type(stateWps) == "table" and #stateWps > 0) and stateWps or loadCacheDirect()
-local stateFavs = noctalia.state.get("favorites")
-local favorites = (type(stateFavs) == "table" and next(stateFavs) ~= nil) and stateFavs or loadFavoritesDirect()
+local allWallpapers: { any } = loadCacheDirect()
+do
+  local sw = noctalia.state.get("wallpapers")
+  if type(sw) == "table" and #sw > 0 then allWallpapers = sw end
+end
+local favorites: { [string]: boolean } = loadFavoritesDirect()
+do
+  local sf = noctalia.state.get("favorites")
+  if type(sf) == "table" and next(sf) ~= nil then favorites = sf end
+end
 local hasAnyFavorites = (type(favorites) == "table" and next(favorites) ~= nil)
 local activeWallpaper = noctalia.state.get("active_wallpaper") or ""
 local initialWallpaper = activeWallpaper
@@ -179,7 +185,6 @@ end
 local thumbQueue = {}
 local thumbPending = {}
 local thumbActive = 0
-local THUMB_MAX_CONCURRENT = 4
 
 local displayedItems = {}
 local selectedIdx = 1
@@ -190,6 +195,7 @@ local isSearchBoxHovered = false
 local currentMode = "local" -- "local" | "favorites" | "wallhaven"
 local pendingStepAfterAppend = false
 local render: () -> ()
+local triggerPreview -- forward declaration
 local toggleCurrentFavorite -- forward declaration
 local toggleFavoriteItem -- forward declaration
 local changeSort -- forward declaration
@@ -292,7 +298,7 @@ local function isValidFile(path: string?): boolean
 end
 
 local function pumpThumbQueue()
-  while thumbActive < THUMB_MAX_CONCURRENT and #thumbQueue > 0 do
+  while thumbActive < 4 and #thumbQueue > 0 do
     local item = table.remove(thumbQueue, 1)
     local id = item.id
     if id and not thumbPending[id] then
@@ -604,11 +610,49 @@ local function onCardSettled()
   if not item then return end
 
   if currentMode ~= "wallhaven" then
-    local colors = item.colors
-    local hasRealColors = (colors and colors.primary and colors.primary ~= "#80a9ff")
-    if not hasRealColors and not item._paletteRequested and item.path then
-      item._paletteRequested = true
-      noctalia.state.set("deck_command", { action = "prioritize_palette", path = item.path })
+    if item._prefetchIdx ~= selectedIdx then
+      item._prefetchIdx = selectedIdx
+      local paths = {}
+
+      -- 1. Center card comes first
+      local c = item.colors
+      local hasReal = (c and c.primary and c.primary ~= "#80a9ff")
+      if not hasReal and not item._paletteRequested and item.path then
+        item._paletteRequested = true
+        table.insert(paths, item.path)
+      end
+
+      -- 2. Immediate neighbors in radiating order: ±1, ±2, ±3
+      for offset = 1, 3 do
+        local leftIdx = selectedIdx - offset
+        if leftIdx >= 1 then
+          local it = displayedItems[leftIdx]
+          if it and it.path then
+            local col = it.colors
+            local real = (col and col.primary and col.primary ~= "#80a9ff")
+            if not real and not it._paletteRequested then
+              it._paletteRequested = true
+              table.insert(paths, it.path)
+            end
+          end
+        end
+        local rightIdx = selectedIdx + offset
+        if rightIdx <= #displayedItems then
+          local it = displayedItems[rightIdx]
+          if it and it.path then
+            local col = it.colors
+            local real = (col and col.primary and col.primary ~= "#80a9ff")
+            if not real and not it._paletteRequested then
+              it._paletteRequested = true
+              table.insert(paths, it.path)
+            end
+          end
+        end
+      end
+
+      if #paths > 0 then
+        noctalia.state.set("deck_command", { action = "prioritize_ribbon", paths = paths, nonce = noctalia.nowMs() })
+      end
     end
     return
   end
@@ -638,6 +682,8 @@ end
 
 local currentSort = "name_asc" -- "name_asc" | "name_desc" | "colour" | "newest" | "oldest"
 local searchQuery = ""
+-- Color-search state packed into one table to stay within Luau's 200-local limit
+CSF = { color = nil, hueKey = nil, searching = false, token = 0 }
 local isSearchFocused = false
 local whQueryDirty = false
 local whResDirty = false
@@ -750,30 +796,33 @@ for _, s in ipairs(SCHEMES) do
   table.insert(SCHEME_OPTIONS, s.label)
 end
 
-local function loadCommunityPalettes(): {string}
-  local catPath = noctalia.expandPath("~/.local/state/noctalia/community-palettes/.catalog/palettes.json")
-  if noctalia.fileExists(catPath) then
-    local raw = noctalia.readFile(catPath)
-    if raw and raw ~= "" then
-      local ok, dec = pcall(noctalia.json.decode, raw)
-      if ok and type(dec) == "table" then
-        local names = {}
-        for _, p in ipairs(dec) do
-          if type(p) == "table" and type(p.name) == "string" and p.name ~= "" then
-            table.insert(names, p.name)
+local communityPalettes: {string}
+do
+  local function loadCommunityPalettes(): {string}
+    local catPath = noctalia.expandPath("~/.local/state/noctalia/community-palettes/.catalog/palettes.json")
+    if noctalia.fileExists(catPath) then
+      local raw = noctalia.readFile(catPath)
+      if raw and raw ~= "" then
+        local ok, dec = pcall(noctalia.json.decode, raw)
+        if ok and type(dec) == "table" then
+          local names = {}
+          for _, p in ipairs(dec) do
+            if type(p) == "table" and type(p.name) == "string" and p.name ~= "" then
+              table.insert(names, p.name)
+            end
           end
-        end
-        table.sort(names, function(a, b) return string.lower(a) < string.lower(b) end)
-        if #names > 0 then
-          return names
+          table.sort(names, function(a, b) return string.lower(a) < string.lower(b) end)
+          if #names > 0 then
+            return names
+          end
         end
       end
     end
+    return { "Osaka jade", "Oxide", "Oxocarbon", "Paradise", "Peche", "Rose Pine Moon", "Solarized", "Tokyo Night Moon", "Vesper", "Zenbones" }
   end
-  return { "Osaka jade", "Oxide", "Oxocarbon", "Paradise", "Peche", "Rose Pine Moon", "Solarized", "Tokyo Night Moon", "Vesper", "Zenbones" }
+  communityPalettes = loadCommunityPalettes()
 end
-
-local communityPalettes = loadCommunityPalettes()
+local CT = require("./custom_themes.luau")
 local selectedBuiltinIdx = 1
 local selectedSchemeIdx = 4 -- default m3-rainbow
 local selectedCommunityIdx = 1
@@ -1348,11 +1397,12 @@ local function updateThemeFromSystem()
       local prevBuiltin = selectedBuiltinIdx
       local prevCommunity = selectedCommunityIdx
       local prevScheme = selectedSchemeIdx
+      local prevCustom = CT.selectedIdx
 
       local src, scheme = string.match(res.stdout, "(%S+)%s+(.+)")
       if src and src ~= "" then
         src = string.lower(noctalia.string.trim(src))
-        if src == "builtin" or src == "wallpaper" or src == "community" then
+        if src == "builtin" or src == "wallpaper" or src == "community" or src == "custom" then
           currentPaletteSource = src
         end
       end
@@ -1372,6 +1422,14 @@ local function updateThemeFromSystem()
               break
             end
           end
+        elseif currentPaletteSource == "custom" then
+          local customList = CT.list()
+          for idx, id in ipairs(customList) do
+            if string.lower(id) == string.lower(scheme) then
+              CT.selectedIdx = idx
+              break
+            end
+          end
         else
           for idx, s in ipairs(SCHEMES) do
             if s.id == scheme or string.lower(s.label) == string.lower(scheme) then
@@ -1385,6 +1443,7 @@ local function updateThemeFromSystem()
         or (prevBuiltin ~= selectedBuiltinIdx)
         or (prevCommunity ~= selectedCommunityIdx)
         or (prevScheme ~= selectedSchemeIdx)
+        or (prevCustom ~= CT.selectedIdx)
       if changed and isPickerOpen then render() end
     end
   end)
@@ -1447,7 +1506,6 @@ end
 local cachedRibbon = nil
 local cachedRibbonIdx = -1
 local cachedRibbonCount = -1
-local cachedRibbonW = -1
 
 local function getCachedLocalList(sortMode: string, flattened: boolean): { any }
   local cacheKey = sortMode .. "_" .. (flattened and "1" or "0")
@@ -1491,8 +1549,16 @@ local function getCachedLocalList(sortMode: string, flattened: boolean): { any }
   return base
 end
 
+local CS = require("./color_search.luau")
+-- CSF.token is used for color-filter cancellation (defined in CSF above)
+
 local function rebuildList()
+  -- Cancel any in-flight async color filter from a previous rebuild.
+  CSF.token = CSF.token + 1
+  local myToken = CSF.token
+
   if currentMode == "wallhaven" then
+    CSF.searching = false
     displayedItems = (wallhavenData and wallhavenData.items) or {}
     cachedRibbon = nil
     selectedIdx = clamp(selectedIdx, 1, math.max(1, #displayedItems))
@@ -1508,7 +1574,7 @@ local function rebuildList()
     return
   end
 
-  local hasSearch = (searchQuery ~= "")
+  local hasSearch = (searchQuery ~= "") or (CSF.hueKey ~= nil)
 
   local src = {}
   if currentMode == "favorites" then
@@ -1522,28 +1588,75 @@ local function rebuildList()
       end
       if hasSearch then
         local q = string.lower(searchQuery)
+        local colorMode = (CSF.hueKey ~= nil)
+        if colorMode then
+          -- Async batched: handled by CS.runColorFilter, return early
+          CSF.searching = true
+          CS.runColorFilter(myToken, CSF.hueKey, searchQuery, src, function()
+            return CSF.token ~= myToken
+          end, function(partial, done)
+            if CSF.token ~= myToken then return end
+            if done then
+              CSF.searching = false
+              triggerPreview()
+            end
+            displayedItems = partial
+            cachedRibbon = nil
+            selectedIdx = clamp(selectedIdx, 1, math.max(1, #displayedItems))
+            render()
+          end)
+          return
+        end
         local filtered = {}
         for _, item in ipairs(src) do
           local ln = item.lowerName or string.lower(item.name or "")
           local rel = item.relDir and string.lower(item.relDir) or ""
-          if string.find(ln, q, 1, true) or (rel ~= "" and string.find(rel, q, 1, true)) then
+          local nameOk = (q == "") or string.find(ln, q, 1, true) or (rel ~= "" and string.find(rel, q, 1, true))
+          if nameOk then
             table.insert(filtered, item)
           end
         end
         src = filtered
+        sortItemsInPlace(src, currentSort)
+      else
+        sortItemsInPlace(src, currentSort)
       end
-      sortItemsInPlace(src, currentSort)
     end
   else
     -- Local mode
     if hasSearch then
       local q = string.lower(searchQuery)
+      local colorMode = (CSF.hueKey ~= nil)
+      if colorMode then
+        local flatSrc = {}
+        for _, item in ipairs(allWallpapers) do
+          if isFlattened or not itemIsSubdir(item) then
+            table.insert(flatSrc, item)
+          end
+        end
+        CSF.searching = true
+        CS.runColorFilter(myToken, CSF.hueKey, searchQuery, flatSrc, function()
+          return CSF.token ~= myToken
+        end, function(partial, done)
+          if CSF.token ~= myToken then return end
+          if done then
+            CSF.searching = false
+            triggerPreview()
+          end
+          displayedItems = partial
+          cachedRibbon = nil
+          selectedIdx = clamp(selectedIdx, 1, math.max(1, #displayedItems))
+          render()
+        end)
+        return
+      end
       local filtered = {}
       for _, item in ipairs(allWallpapers) do
         if isFlattened or not itemIsSubdir(item) then
           local ln = item.lowerName or string.lower(item.name or "")
           local rel = item.relDir and string.lower(item.relDir) or ""
-          if string.find(ln, q, 1, true) or (rel ~= "" and string.find(rel, q, 1, true)) then
+          local nameOk = (q == "") or string.find(ln, q, 1, true) or (rel ~= "" and string.find(rel, q, 1, true))
+          if nameOk then
             table.insert(filtered, item)
           end
         end
@@ -2036,8 +2149,9 @@ local function buildStandardRow2(panelW: number?)
       align = "center",
       justify = "start",
       gap = isCompact and 6 or 10,
-    }, {
-      ui.row({
+    }, (function()
+      -- Source pills
+      local pillRow = ui.row({
         align = "center",
         gap = 2,
         fill = "surface/0.65",
@@ -2080,68 +2194,165 @@ local function buildStandardRow2(panelW: number?)
             render()
           end,
         }),
-      }),
-
-      (function()
-        local currentOptions = SCHEME_OPTIONS
-        local currentSelectedIdx = math.max(0, (selectedSchemeIdx or 1) - 1)
-        local selectWidth = isCompact and 120 or 140
-
-        if currentPaletteSource == "builtin" then
-          currentOptions = BUILTIN_PALETTES
-          currentSelectedIdx = math.max(0, (selectedBuiltinIdx or 1) - 1)
-          selectWidth = isCompact and 110 or 130
-        elseif currentPaletteSource == "community" then
-          currentOptions = communityPalettes
-          currentSelectedIdx = math.max(0, (selectedCommunityIdx or 1) - 1)
-          selectWidth = isCompact and 135 or 170
-        end
-
-        return ui.select({
-          key = "palette_select_" .. currentPaletteSource .. "_" .. tostring(currentSelectedIdx),
-          options = currentOptions,
-          selectedIndex = tonumber(currentSelectedIdx) or 0,
+        ui.button({
+          text = "Custom",
+          variant = (currentPaletteSource == "custom") and "primary" or "ghost",
           controlSize = "sm",
-          width = selectWidth,
+          onClick = function()
+            currentPaletteSource = "custom"
+            local customList = CT.list()
+            if #customList > 0 then
+              local safeIdx = CT.selectedIdx or 1
+              if safeIdx < 1 or safeIdx > #customList then
+                safeIdx = 1
+              end
+              CT.selectedIdx = safeIdx
+              local id = customList[safeIdx]
+              if id then CT.apply(id) end
+            end
+            render()
+          end,
+        }),
+      })
+
+      -- Dropdown: varies by source
+      local dropdownWidget
+      if currentPaletteSource == "builtin" then
+        local idx0 = math.max(0, (selectedBuiltinIdx or 1) - 1)
+        dropdownWidget = ui.select({
+          key = "palette_select_builtin_" .. tostring(idx0),
+          options = BUILTIN_PALETTES,
+          selectedIndex = idx0,
+          controlSize = "sm",
+          width = isCompact and 110 or 130,
           onChange = function(idx)
-            local num = tonumber(idx)
-            local chosenIdx = (num or 0) + 1
-            if currentPaletteSource == "builtin" then
-              selectedBuiltinIdx = chosenIdx
-              local name = BUILTIN_PALETTES[chosenIdx]
-              if name then
-                noctalia.runAsync({ "noctalia", "msg", "color-scheme-set", "builtin", name }, function() end)
-              end
-            elseif currentPaletteSource == "community" then
-              selectedCommunityIdx = chosenIdx
-              local name = communityPalettes[chosenIdx]
-              if name then
-                noctalia.runAsync({ "noctalia", "msg", "color-scheme-set", "community", name }, function() end)
-              end
-            else
-              selectedSchemeIdx = chosenIdx
-              local s = SCHEMES[chosenIdx]
-              if s then
-                noctalia.runAsync({ "noctalia", "msg", "color-scheme-set", "wallpaper", s.id }, function() end)
-              end
+            local chosenIdx = (tonumber(idx) or 0) + 1
+            selectedBuiltinIdx = chosenIdx
+            local name = BUILTIN_PALETTES[chosenIdx]
+            if name then
+              noctalia.runAsync({ "noctalia", "msg", "color-scheme-set", "builtin", name }, function() end)
             end
             render()
           end,
         })
-      end)(),
+      elseif currentPaletteSource == "community" then
+        local idx0 = math.max(0, (selectedCommunityIdx or 1) - 1)
+        dropdownWidget = ui.select({
+          key = "palette_select_community_" .. tostring(idx0),
+          options = communityPalettes,
+          selectedIndex = idx0,
+          controlSize = "sm",
+          width = isCompact and 135 or 170,
+          onChange = function(idx)
+            local chosenIdx = (tonumber(idx) or 0) + 1
+            selectedCommunityIdx = chosenIdx
+            local name = communityPalettes[chosenIdx]
+            if name then
+              noctalia.runAsync({ "noctalia", "msg", "color-scheme-set", "community", name }, function() end)
+            end
+            render()
+          end,
+        })
+      elseif currentPaletteSource == "custom" then
+        local customList = CT.list()
+        local hasCustom = #customList > 0
+        local safeIdx = CT.selectedIdx or 1
+        if safeIdx > #customList then safeIdx = math.max(1, #customList) end
+        local displayOptions = hasCustom and customList or { "(no themes yet)" }
+        local idx0 = hasCustom and math.max(0, safeIdx - 1) or 0
+        dropdownWidget = ui.select({
+          key = "palette_select_custom_" .. tostring(#customList) .. "_" .. tostring(idx0),
+          options = displayOptions,
+          selectedIndex = idx0,
+          controlSize = "sm",
+          width = isCompact and 130 or 160,
+          onChange = function(idx)
+            if not hasCustom then return end
+            local chosenIdx = (tonumber(idx) or 0) + 1
+            CT.selectedIdx = chosenIdx
+            local id = customList[chosenIdx]
+            if id then CT.apply(id) end
+            render()
+          end,
+        })
+      else
+        -- Wallpaper / scheme
+        local idx0 = math.max(0, (selectedSchemeIdx or 1) - 1)
+        dropdownWidget = ui.select({
+          key = "palette_select_wallpaper_" .. tostring(idx0),
+          options = SCHEME_OPTIONS,
+          selectedIndex = idx0,
+          controlSize = "sm",
+          width = isCompact and 120 or 140,
+          onChange = function(idx)
+            local chosenIdx = (tonumber(idx) or 0) + 1
+            selectedSchemeIdx = chosenIdx
+            local s = SCHEMES[chosenIdx]
+            if s then
+              noctalia.runAsync({ "noctalia", "msg", "color-scheme-set", "wallpaper", s.id }, function() end)
+            end
+            render()
+          end,
+        })
+      end
 
-      ui.button({
+      -- Build the left row items dynamically (no nil values)
+      local leftItems = { pillRow, dropdownWidget }
+
+      if currentPaletteSource == "custom" then
+        -- "+" button to open the create modal
+        table.insert(leftItems, ui.button({
+          glyph = "plus",
+          variant = "ghost",
+          controlSize = "sm",
+          tooltip = "Create new custom theme",
+          onClick = function()
+            CT.resetModal()
+            CT.isOpen = true
+            render()
+          end,
+        }))
+        -- Trash button to delete currently selected custom theme
+        local customListForTrash = CT.list()
+        if #customListForTrash > 0 then
+          local trashId = customListForTrash[CT.selectedIdx] or customListForTrash[1]
+          table.insert(leftItems, ui.button({
+            glyph = "trash",
+            variant = "ghost",
+            controlSize = "sm",
+            tooltip = "Delete theme \"" .. tostring(trashId) .. "\"",
+            onClick = function()
+              CT.delete(trashId)
+              CT.selectedIdx = 1
+              -- If still on custom source, re-apply first remaining or fall back
+              local remaining = CT.list()
+              if #remaining > 0 then
+                CT.apply(remaining[1])
+              else
+                -- Fall back to builtin if no themes left
+                currentPaletteSource = "builtin"
+                local name = BUILTIN_PALETTES[selectedBuiltinIdx or 1] or "Noctalia"
+                noctalia.runAsync({ "noctalia", "msg", "color-scheme-set", "builtin", name }, function() end)
+              end
+              render()
+            end,
+          }))
+        end
+      end
+
+      -- Favourite star button always at the end
+      table.insert(leftItems, ui.button({
         glyph = activeFav and "star-filled" or "star",
         variant = activeFav and "primary" or "ghost",
         controlSize = "sm",
         tooltip = activeFav and "Remove from Favourites (F)" or "Add to Favourites (F)",
         onClick = function()
-          if toggleCurrentFavorite then
-            toggleCurrentFavorite()
-          end
+          if toggleCurrentFavorite then toggleCurrentFavorite() end
         end,
-      }),
-    }),
+      }))
+
+      return leftItems
+    end)()),
 
     -- Center: Sort Pills
     ui.row({
@@ -2283,7 +2494,7 @@ local function checkWallhavenLazyLoad()
   end
 end
 
-local function triggerPreview()
+function triggerPreview()
   local item = displayedItems[selectedIdx]
   if not item or not (item.path or item.id) then return end
   if currentMode == "wallhaven" then
@@ -2352,6 +2563,14 @@ local function selectCardIndex(newIdx: number)
   scheduleSettle()
   if not animateSelected then
     onCardSettled()
+    -- Force background refresh immediately when there is no animation
+    local si = displayedItems[selectedIdx]
+    if si and currentMode ~= "wallhaven" then
+      local bg = si._validPath or si.preview or si.thumb or si.path or ""
+      if bg ~= "" and bg ~= displayedBgPath then
+        setDisplayedBackground(bg)
+      end
+    end
   end
   if type(render) == "function" then
     render()
@@ -2913,6 +3132,52 @@ local function renderScanningState(paletteColors: any)
   })
 end
 
+CSF.renderState = function(paletteColors: any, hexColor: string?)
+  local colorLabel = hexColor and ("Filtering by " .. string.upper(hexColor) .. "...") or "Filtering by color..."
+  return ui.column({
+    key = "deck_color_search_container",
+    align = "center",
+    justify = "center",
+    flexGrow = 1,
+    padding = 24,
+  }, {
+    ui.column({
+      key = "deck_color_search_card",
+      align = "center",
+      justify = "center",
+      padding = 36,
+      fill = "surface/0.85",
+      border = "outline_variant/0.25",
+      borderWidth = 1,
+      radius = R(24),
+      gap = 14,
+    }, {
+      hexColor and ui.row({ align = "center", gap = 10 }, {
+        ui.box({
+          width = 40,
+          height = 40,
+          fill = hexColor,
+          radius = R(10),
+          border = "outline_variant/0.3",
+          borderWidth = 1,
+        }),
+        ui.glyph({ name = "loader-2", size = 32, color = paletteColors.accent }),
+      }) or ui.glyph({ name = "loader-2", size = 48, color = paletteColors.accent }),
+      ui.label({
+        text = "Searching by Color",
+        fontSize = 20,
+        fontWeight = "heavy",
+        color = paletteColors.primaryText,
+      }),
+      ui.label({
+        text = colorLabel,
+        fontSize = 12,
+        color = paletteColors.muted,
+      }),
+    }),
+  })
+end
+
 local function renderWallhavenLoadingState(paletteColors: any)
   local queryText = (whQuery and whQuery ~= "") and string.format("Searching for \"%s\"...", whQuery) or "Fetching latest wallpapers from Wallhaven..."
   return ui.column({
@@ -2962,7 +3227,7 @@ local function renderEmptyState(paletteColors: any)
   local subtitle = string.format("Add your wallpapers in %s\nor select another directory in settings.", displayDir)
   local buttons = {}
 
-  if currentMode == "favorites" then
+  if currentMode == "favorites" and (not hasAnyFavorites or (searchQuery == "" and CSF.hueKey == nil)) then
     glyphName = "heart-off"
     title = "No Favourites Yet"
     subtitle = trText("ui.no_favorites", "Press F on any wallpaper in the deck to add it to your favourites.")
@@ -3089,6 +3354,30 @@ local function renderEmptyState(paletteColors: any)
         }
       end
     end
+  elseif (searchQuery ~= "") or (CSF.hueKey ~= nil) then
+    glyphName = "search"
+    title = "No Wallpapers Found"
+    subtitle = (CSF.color and ("No wallpapers match the color " .. CSF.color .. "."))
+      or string.format("No wallpapers match \"%s\".", searchQuery)
+    buttons = {
+      ui.button({
+        text = "Clear Filter",
+        glyph = "close",
+        variant = "primary",
+        controlSize = "md",
+        onClick = function()
+          searchQuery = ""
+          CSF.color = nil
+          CSF.hueKey = nil
+          CSF.searching = false
+          selectedIdx = 1
+          resetDeckAnimation(1.0)
+          rebuildList()
+          triggerPreview()
+          render()
+        end,
+      }),
+    }
   elseif not isFlattened and #allWallpapers > 0 then
     glyphName = "folder-tree"
     title = "Subdirectory wallpapers hidden"
@@ -3181,7 +3470,7 @@ local function renderEmptyState(paletteColors: any)
   })
 end
 
-local function renderBgLayer(panelW: number, panelH: number, activeItem: any)
+CSF.renderBg = function(panelW: number, panelH: number, activeItem: any)
   local bgFill = (#displayedItems > 0 and activeItem and activeItem.sourceColor) or "surface"
 
   if displayedBgPath ~= "" then
@@ -3421,7 +3710,7 @@ function render()
       justify = "start",
     }, {
       -- Slot 1: Fullscreen Wallpaper Background
-      renderBgLayer(panelW, panelH, activeItem),
+      CSF.renderBg(panelW, panelH, activeItem),
 
       -- Slot 2: Peek Bottom Pill Overlay
       ui.column({
@@ -3487,7 +3776,7 @@ function render()
     justify = "start",
   }, {
     -- Slot 1: Fullscreen Wallpaper Background Preview
-    renderBgLayer(panelW, panelH, activeItem),
+    CSF.renderBg(panelW, panelH, activeItem),
 
     -- Slot 2: Fullscreen UI Elements Overlaid on Top
     ui.column({
@@ -3521,12 +3810,13 @@ function render()
               ui.column({ gap = 1 }, {
                 ui.label({ text = trText("title", "Wallpapers"), fontSize = 16, fontWeight = "heavy", color = headerTextColor }),
                 ui.label({
-                  text = (#displayedItems == 0) and (
-                    (currentMode ~= "wallhaven" and currentMode ~= "favorites" and isScanning) and "scanning..."
-                      or (currentMode == "wallhaven" and wallhavenLoading) and "searching..."
-                      or (currentMode == "wallhaven" and wallhavenError ~= nil) and "offline"
-                      or "0 wallpapers"
-                  )
+                  text = CSF.searching and "filtering..."
+                    or (#displayedItems == 0) and (
+                      (currentMode ~= "wallhaven" and currentMode ~= "favorites" and (isScanning or #allWallpapers == 0)) and "loading..."
+                        or (currentMode == "wallhaven" and wallhavenLoading) and "searching..."
+                        or (currentMode == "wallhaven" and wallhavenError ~= nil) and "offline"
+                        or "0 wallpapers"
+                    )
                     or ((currentMode == "wallhaven" and wallhavenLoadingMore)
                       and string.format("%d of %d (loading...)", selectedIdx, math.max(1, #displayedItems))
                       or string.format("%d of %d", selectedIdx, math.max(1, #displayedItems))),
@@ -3630,6 +3920,54 @@ function render()
                   end,
                 }) or ui.spacer({ width = 1 }),
               }),
+
+              -- Search by color (local/favorites only)
+              (currentMode ~= "wallhaven") and ui.row({
+                align = "center",
+                gap = 4,
+              }, {
+                ui.button({
+                  glyph = "palette",
+                  text = (CSF.color and CSF.color ~= "") and "Color" or nil,
+                  variant = (CSF.color and CSF.color ~= "") and "secondary" or "ghost",
+                  controlSize = "sm",
+                  tooltip = (CSF.color and CSF.color ~= "") and ("Search by color: " .. CSF.color .. " (click to change)") or "Search by color",
+                  onClick = function()
+                    if type(noctalia.openColorPicker) == "function" then
+                      pcall(noctalia.openColorPicker, CSF.color or "#80a9ff", function(picked)
+                        if picked and picked ~= "" then
+                          CSF.color = picked
+                          CSF.hueKey = CS.colorToHueKey(picked)
+                          selectedIdx = 1
+                          resetDeckAnimation(1.0)
+                          -- Show loading state immediately, then rebuildList kicks off the
+                          -- batched async color filter (startColorFilter) and returns early.
+                          CSF.searching = true
+                          render()
+                          rebuildList()
+                          -- triggerPreview and final render happen inside startColorFilter when done
+                        end
+                      end)
+                    end
+                  end,
+                }),
+                (CSF.color and CSF.color ~= "") and ui.button({
+                  glyph = "close",
+                  variant = "ghost",
+                  controlSize = "sm",
+                  tooltip = "Clear color filter",
+                  onClick = function()
+                    CSF.color = nil
+                    CSF.hueKey = nil
+                    CSF.searching = false
+                    selectedIdx = 1
+                    resetDeckAnimation(1.0)
+                    rebuildList()
+                    triggerPreview()
+                    render()
+                  end,
+                }) or ui.spacer({ width = 1 }),
+              }) or ui.spacer({ width = 1 }),
               (currentMode == "wallhaven") and ui.button({
                 text = "Search",
                 variant = "primary",
@@ -3875,13 +4213,16 @@ function render()
         end)() or ui.spacer({ width = 1, height = 1 }),
       }),
 
-      -- Middle & Bottom: Scanning State, Empty State, or Arched Deck
-      (#displayedItems == 0) and (
-        (currentMode ~= "wallhaven" and currentMode ~= "favorites" and isScanning)
-          and renderScanningState(paletteColors)
-          or (currentMode == "wallhaven" and wallhavenLoading and not wallhavenError)
-            and renderWallhavenLoadingState(paletteColors)
-          or renderEmptyState(paletteColors)
+      -- Middle & Bottom: Scanning State, Color Searching State, Empty State, or Arched Deck
+      -- Also show scanning state when allWallpapers is empty in local mode (service still loading deck).
+      (CSF.searching or #displayedItems == 0) and (
+        CSF.searching
+          and CSF.renderState(paletteColors, CSF.color)
+          or (currentMode ~= "wallhaven" and currentMode ~= "favorites" and (isScanning or #allWallpapers == 0))
+            and renderScanningState(paletteColors)
+            or (currentMode == "wallhaven" and wallhavenLoading and not wallhavenError)
+              and renderWallhavenLoadingState(paletteColors)
+            or renderEmptyState(paletteColors)
       ) or ui.column({
         key = "deck_content_column",
         width = panelW,
@@ -3961,6 +4302,27 @@ function render()
               onClick = toggleCurrentFavorite,
             }),
 
+            -- ui.button({
+            --   glyph = "refresh",
+            --   variant = "secondary",
+            --   controlSize = "sm",
+            --   tooltip = "Regenerate palette for current card (click) or all cards (right-click)",
+            --   onClick = function()
+            --     if activeItem and activeItem.path then
+            --       noctalia.state.set("deck_command", { action = "regenerate_palette", paths = { activeItem.path }, nonce = noctalia.nowMs() })
+            --     end
+            --   end,
+            --   onRightClick = function()
+            --     local paths = {}
+            --     for _, it in ipairs(displayedItems) do
+            --       if it and it.path then table.insert(paths, it.path) end
+            --     end
+            --     if #paths > 0 then
+            --       noctalia.state.set("deck_command", { action = "regenerate_palette", paths = paths, nonce = noctalia.nowMs() })
+            --     end
+            --   end,
+            -- }),
+
             ui.row({
               align = "center",
               gap = 2,
@@ -4030,16 +4392,61 @@ function render()
       }),
     }),
   })))
+
+  -- Inject Custom Themes modal overlay on top if open
+  if CT.isOpen then
+    local modalNode = CT.renderModal(ui, panelW, panelH, R, render)
+    if modalNode then
+      panel.render(wrapFullBleed(ui.column({
+        key = "panel_root_modal",
+        width = panelW,
+        height = panelH,
+        flexGrow = 1,
+        gap = -panelH,
+        padding = 0,
+        align = "stretch",
+        justify = "start",
+      }, {
+        CSF.renderBg(panelW, panelH, activeItem),
+        ui.column({
+          key = "deck_overlay_dim",
+          width = panelW,
+          height = panelH,
+          flexGrow = 1,
+          padding = 0,
+          gap = 0,
+          align = "stretch",
+          justify = "start",
+        }, {
+          ui.column({
+            key = "deck_header_modal",
+            width = panelW,
+            gap = 8,
+            paddingH = 32,
+            paddingV = 14,
+          }, {
+            buildStandardRow2(panelW),
+          }),
+        }),
+        modalNode,
+      })))
+      return
+    end
+  end
 end
 
-local nativeScrollActive = false
+nativeScrollActive = false
 
 function onOpen(context: any?)
   isPickerOpen = true
   isDeckAreaHovered = false
   isSearchBoxHovered = false
   nativeScrollActive = false
+  scrollAccum = 0
   hoveredDeckKeys = {}
+  CT.isOpen = false
+  CT.statusText = ""
+  CT.statusIsError = false
   noctalia.state.set("deck_command", { action = "panel_state", open = true })
   updatePanelGeometry()
   updateCornerRadiusScale()
@@ -4071,6 +4478,9 @@ function onOpen(context: any?)
   isPeeking = false
   monitorDropdownOpen = false
   searchQuery = ""
+  CSF.color = nil
+  CSF.hueKey = nil
+  CSF.searching = false
   wallhavenLoadingMore = false
   wallhavenLoadingStartMs = 0
 
@@ -4119,6 +4529,32 @@ function onOpen(context: any?)
     updateThemeFromSystem()
     startWheelListener()
   end)
+
+  -- Prefetch palettes for all 32 ribbon segments on first open (local mode only)
+  if currentMode ~= "wallhaven" then
+    noctalia.runAsync({ "true" }, function()
+      if not isPickerOpen then return end
+      local count = #displayedItems
+      if count == 0 then return end
+      local segCount = math.min(count, 32)
+      local paths = {}
+      for i = 1, segCount do
+        local itemIndex = math.floor((i - 1) * (count / segCount)) + 1
+        local it = displayedItems[itemIndex]
+        if it and it.path then
+          local c = it.colors
+          local hasReal = (c and c.primary and c.primary ~= "#80a9ff")
+          if not hasReal and not it._paletteRequested then
+            it._paletteRequested = true
+            table.insert(paths, it.path)
+          end
+        end
+      end
+      if #paths > 0 then
+        noctalia.state.set("deck_command", { action = "prioritize_ribbon", paths = paths })
+      end
+    end)
+  end
 end
 
 function onFrameTick(deltaMs: any)
@@ -4149,6 +4585,14 @@ function onFrameTick(deltaMs: any)
         animVel = 0.0
         if wasMoving then
           onCardSettled()
+          -- Force background update immediately when spring settles
+          local si = displayedItems[selectedIdx]
+          if si and currentMode ~= "wallhaven" then
+            local bg = si._validPath or si.preview or si.thumb or si.path or ""
+            if bg ~= "" and bg ~= displayedBgPath then
+              setDisplayedBackground(bg)
+            end
+          end
         end
       else
         isSpringActive = true
@@ -4177,6 +4621,17 @@ function onKey(chord: string, pressed: boolean)
 
   local chordLower = string.lower(chord)
   local isReturn = (chordLower == "return" or chordLower == "enter" or chordLower == "kp_enter")
+
+  -- Custom Themes modal intercepts Escape and Enter first
+  if CT.isOpen then
+    if chordLower == "escape" then
+      CT.isOpen = false
+      CT.statusText = ""
+      CT.statusIsError = false
+      render()
+    end
+    return
+  end
 
   if isReturn then
     local nowMs = noctalia.nowMs()
@@ -4337,7 +4792,7 @@ function onKey(chord: string, pressed: boolean)
   end
 end
 
-local lastScrollMs = 0
+scrollAccum = 0
 
 function onScroll(_axis: any, steps: any, _startsGesture: any)
   if not isPickerOpen or #displayedItems == 0 then return end
@@ -4347,21 +4802,26 @@ function onScroll(_axis: any, steps: any, _startsGesture: any)
   end
   if not isDeckAreaHovered or isPeeking then return end
   unfocusSearch()
-  local nowMs = noctalia.nowMs()
-  if nowMs - lastScrollMs < 35 then return end
-  lastScrollMs = nowMs
 
   local stepVal = tonumber(steps) or 0
-  if stepVal < 0 then
+  scrollAccum = scrollAccum + stepVal
+
+  -- Move by whole accumulated steps instead of throttling by time.
+  while scrollAccum >= 1 do
+    scrollAccum = scrollAccum - 1
+    if selectedIdx > 1 then
+      selectCardIndex(selectedIdx - 1)
+    end
+  end
+  while scrollAccum <= -1 do
+    scrollAccum = scrollAccum + 1
     if selectedIdx < #displayedItems then
       selectCardIndex(selectedIdx + 1)
     else
       pendingStepAfterAppend = true
       checkWallhavenLazyLoad()
-    end
-  elseif stepVal > 0 then
-    if selectedIdx > 1 then
-      selectCardIndex(selectedIdx - 1)
+      scrollAccum = 0
+      break
     end
   end
 end
@@ -4369,18 +4829,12 @@ end
 function onIpc(event: string, _payload: string?)
   if event == "prev" or event == "step_left" or event == "left" then
     if not isPickerOpen or nativeScrollActive or not isDeckAreaHovered or isPeeking then return end
-    local nowMs = noctalia.nowMs()
-    if nowMs - lastScrollMs < 35 then return end
-    lastScrollMs = nowMs
     unfocusSearch()
     if selectedIdx > 1 then
       selectCardIndex(selectedIdx - 1)
     end
   elseif event == "next" or event == "step_right" or event == "right" then
     if not isPickerOpen or nativeScrollActive or not isDeckAreaHovered or isPeeking then return end
-    local nowMs = noctalia.nowMs()
-    if nowMs - lastScrollMs < 35 then return end
-    lastScrollMs = nowMs
     unfocusSearch()
     if selectedIdx < #displayedItems then
       selectCardIndex(selectedIdx + 1)
@@ -4481,6 +4935,11 @@ noctalia.state.watch("palette_update", function(update)
           it.colors = update.colors
           it.sourceColor = update.sourceColor
           it.hueKey = update.hueKey
+          it.hueKeyPrimary = update.hueKeyPrimary or CS.colorToHueKey(update.colors.primary)
+          it.hueKeySecondary = update.hueKeySecondary or CS.colorToHueKey(update.colors.secondary)
+          it.hueKeyTertiary = update.hueKeyTertiary or CS.colorToHueKey(update.colors.tertiary)
+          it.hueKeyContainer = update.hueKeyContainer or CS.colorToHueKey(update.colors.primary_container)
+          it.hueKeySurface = update.hueKeySurface or CS.colorToHueKey(update.colors.surface_container_highest)
           it._chipRows = nil
           it._chipStrip = nil
           it._renderedColors = nil
@@ -4495,9 +4954,15 @@ noctalia.state.watch("palette_update", function(update)
           it.colors = update.colors
           it.sourceColor = update.sourceColor
           it.hueKey = update.hueKey
+          it.hueKeyPrimary = update.hueKeyPrimary or CS.colorToHueKey(update.colors.primary)
+          it.hueKeySecondary = update.hueKeySecondary or CS.colorToHueKey(update.colors.secondary)
+          it.hueKeyTertiary = update.hueKeyTertiary or CS.colorToHueKey(update.colors.tertiary)
+          it.hueKeyContainer = update.hueKeyContainer or CS.colorToHueKey(update.colors.primary_container)
+          it.hueKeySurface = update.hueKeySurface or CS.colorToHueKey(update.colors.surface_container_highest)
           it._chipRows = nil
           it._chipStrip = nil
           it._renderedColors = nil
+          changed = true
           break
         end
       end
@@ -4506,8 +4971,16 @@ noctalia.state.watch("palette_update", function(update)
       cachedRibbon = nil
       sortedListCache["colour_1"] = nil
       sortedListCache["colour_0"] = nil
-      if isPickerOpen then
+      if isPickerOpen and (not animateSelected or animatedPos == selectedIdx) then
+        -- Preserve hover state so background palette renders don't break scroll
+        local savedHover = isDeckAreaHovered
+        local savedKeys = {}
+        for k, v in pairs(hoveredDeckKeys) do savedKeys[k] = v end
         render()
+        if savedHover then
+          for k, v in pairs(savedKeys) do hoveredDeckKeys[k] = v end
+          isDeckAreaHovered = true
+        end
       end
     end
   end
@@ -4522,6 +4995,10 @@ noctalia.state.watch("thumb_update", function(update)
           it.thumb = update.thumb
           it.preview = update.thumb
           it._previewPath = update.thumb
+          it._validPath = nil  -- let CSF.renderBg recompute on next render
+          if it.path == (displayedItems[selectedIdx] and displayedItems[selectedIdx].path) then
+            displayedBgPath = ""  -- unblock setDisplayedBackground for active card
+          end
           changed = true
           break
         end
@@ -4533,6 +5010,7 @@ noctalia.state.watch("thumb_update", function(update)
           it.thumb = update.thumb
           it.preview = update.thumb
           it._previewPath = update.thumb
+          it._validPath = nil
           break
         end
       end

@@ -53,10 +53,68 @@ local function calcHueKey(hexColor: string?): number
   r, g, b = r / 255, g / 255, b / 255
   local h, l, s = rgbToHls(r, g, b)
   local hexLower = string.lower(hexColor)
-  if s < 0.12 or hexLower == "#4285f4" or hexLower == "#000000" or hexLower == "#ffffff" then
+  if s < 0.12 or hexLower == "#000000" or hexLower == "#ffffff" then
     return 1.0 + l
   end
   return (h + 0.035) % 1.0
+end
+
+local function extractPaletteFromMatugen(data: any): (any?, string?)
+  if type(data) ~= "table" or type(data.colors) ~= "table" then return nil, nil end
+  local colors = data.colors
+  local function getCol(role)
+    local c = colors[role]
+    if type(c) == "table" then
+      local d = c["default"] or c["dark"]
+      if type(d) == "table" then return d.color end
+    end
+    return nil
+  end
+
+  local prim = getCol("primary")
+  local sec = getCol("secondary")
+  local tert = getCol("tertiary")
+  local pc = getCol("primary_container")
+  local sch = getCol("surface_container_highest") or getCol("surface_container") or getCol("surface")
+  local sc = getCol("source_color") or prim
+
+  -- Check for Material Color Utilities fallback to Google Blue #4285F4 on monochrome / zero-chroma images
+  local scLower = sc and string.lower(sc) or ""
+  local primLower = prim and string.lower(prim) or ""
+  if (scLower == "#4285f4" or primLower == "#adc6ff") and type(data.base16) == "table" then
+    local function getB16(role)
+      local b = data.base16[role]
+      if type(b) == "table" then
+        local d = b["default"] or b["dark"]
+        if type(d) == "table" then return d.color end
+      end
+      return nil
+    end
+    local b07 = getB16("base07")
+    local b05 = getB16("base05")
+    local b03 = getB16("base03")
+    local b01 = getB16("base01")
+    local b00 = getB16("base00")
+    if b07 and b00 then
+      prim = b07
+      sec  = b05 or b07
+      tert = b03 or sec
+      pc   = b01 or tert
+      sch  = b00
+      sc   = prim
+    end
+  end
+
+  if not prim or not sec then return nil, nil end
+  local m3 = {
+    primary = prim,
+    secondary = sec,
+    tertiary = tert or sec,
+    primary_container = pc or prim,
+    surface_container_highest = sch or "#33353b",
+    source_color = sc or prim,
+  }
+  return m3, sc
 end
 
 local hashKeyCache = {}
@@ -322,6 +380,19 @@ local activeDeckInMemory: { any } = {}
 local activeCacheInMemory: { [string]: any } = {}
 local scanSubdirs = true
 
+-- Path-keyed color lookup built from the deck on first load.
+-- Used in processBatch so we never need to decode cache.json at startup.
+local deckColorLookup: { [string]: any } = {}
+
+local function buildDeckColorLookup(deck: {any})
+  deckColorLookup = {}
+  for _, it in ipairs(deck) do
+    if it.path and it.colors and it.colors.primary and it.colors.primary ~= "#80a9ff" then
+      deckColorLookup[it.path] = it
+    end
+  end
+end
+
 local function loadDeckFromDisk(): {any}
   local targetFile = DECK_FILE
   if not noctalia.fileExists(targetFile) then
@@ -340,6 +411,7 @@ local function loadDeckFromDisk(): {any}
       local ok, dec = pcall(noctalia.json.decode, raw)
       if ok and type(dec) == "table" and #dec > 0 then
         activeDeckInMemory = dec
+        buildDeckColorLookup(dec)
         return dec
       end
     end
@@ -354,6 +426,8 @@ local MAX_MATUGEN_JOBS = 2
 local thumbQueue = {}
 local thumbActive = 0
 local MAX_THUMB_JOBS = 3
+
+local cacheLoadPending = false  -- true while async decode is in-flight
 
 local function loadCache(): { [string]: any }
   if next(activeCacheInMemory) ~= nil then
@@ -373,6 +447,46 @@ local function loadCache(): { [string]: any }
   return {}
 end
 
+-- Three-tick async cache loader to stay within per-callback CPU budget:
+--   tick-1: locate the file
+--   tick-2: readFile (I/O – mostly blocking, low CPU)
+--   tick-3: json.decode (CPU-heavy – gets its own fresh budget)
+-- Calls onDone(cache) when ready. All callers that need the cache must
+-- go through this function and never call loadCache() inside a callback.
+local function loadCacheAsync(onDone: (cache: {[string]: any}) -> ())
+  if next(activeCacheInMemory) ~= nil then
+    onDone(activeCacheInMemory)
+    return
+  end
+  if cacheLoadPending then
+    -- Another decode is in-flight; wait for it to finish
+    noctalia.runAsync({ "true" }, function()
+      loadCacheAsync(onDone)
+    end)
+    return
+  end
+  cacheLoadPending = true
+  -- Tick 1: locate file path (trivial)
+  noctalia.runAsync({ "true" }, function()
+    local targetFile = findCacheFile()
+    -- Tick 2: read file bytes (I/O-bound, low CPU)
+    noctalia.runAsync({ "true" }, function()
+      local raw = noctalia.fileExists(targetFile) and noctalia.readFile(targetFile) or nil
+      -- Tick 3: decode JSON (CPU-heavy — dedicated budget)
+      noctalia.runAsync({ "true" }, function()
+        if raw and raw ~= "" then
+          local ok, dec = pcall(noctalia.json.decode, raw)
+          if ok and type(dec) == "table" then
+            activeCacheInMemory = dec
+          end
+        end
+        cacheLoadPending = false
+        onDone(activeCacheInMemory)
+      end)
+    end)
+  end)
+end
+
 local function writeTextFile(path: string, content: string)
   pcall(noctalia.writeFile, path, content)
 end
@@ -385,8 +499,9 @@ local function pruneCacheToDeck(cache: { [string]: any }, deck: { any }?): { [st
   end
   local pruned = {}
   for p, entry in pairs(cache) do
-    local fname = string.match(p, "([^/]+)$") or p
-    if activePaths[p] or favorites[p] or favorites[fname] then
+    if activePaths[p] or favorites[p] then
+      pruned[p] = entry
+    elseif favorites[string.match(p, "([^/]+)$") or p] then
       pruned[p] = entry
     end
   end
@@ -453,8 +568,7 @@ local function prioritizePalette(p: string)
   end
   if not p or not noctalia.fileExists(p) then return end
 
-  noctalia.runAsync({ "true" }, function()
-    local cache = loadCache()
+  loadCacheAsync(function(cache)
     if cache[p] and cache[p].colors and cache[p].colors.primary ~= "#80a9ff" then
       local entry = cache[p]
       noctalia.state.set("palette_update", {
@@ -474,36 +588,29 @@ local function prioritizePalette(p: string)
       if res and res.exitCode == 0 and res.stdout and res.stdout ~= "" then
         local ok, data = pcall(noctalia.json.decode, res.stdout)
         if ok and type(data) == "table" and type(data.colors) == "table" then
-          local colors = data.colors
-          local function getCol(role)
-            local c = colors[role]
-            if type(c) == "table" then
-              local d = c["default"] or c["dark"]
-              if type(d) == "table" then return d.color end
-            end
-            return nil
-          end
-          local prim = getCol("primary")
-          local sec = getCol("secondary")
-          local tert = getCol("tertiary")
-          local pc = getCol("primary_container")
-          local sch = getCol("surface_container_highest") or getCol("surface_container") or getCol("surface")
-          local sc = getCol("source_color") or prim
-          if prim and sec then
-            local m3 = {
-              primary = prim,
-              secondary = sec,
-              tertiary = tert or sec,
-              primary_container = pc or prim,
-              surface_container_highest = sch or "#33353b",
-              source_color = sc or prim,
-            }
+          local m3, sc = extractPaletteFromMatugen(data)
+          if m3 then
+            local prim = m3.primary
+            local sec = m3.secondary
+            local tert = m3.tertiary
+            local pc = m3.primary_container
+            local sch = m3.surface_container_highest
             local hueKey = calcHueKey(sc or prim)
+            local hueKeyPrimary = calcHueKey(prim)
+            local hueKeySecondary = calcHueKey(sec)
+            local hueKeyTertiary = calcHueKey(tert or sec)
+            local hueKeyContainer = calcHueKey(pc or prim)
+            local hueKeySurface = calcHueKey(sch or "#33353b")
 
             if not cache[p] then cache[p] = {} end
             cache[p].colors = m3
             cache[p].sourceColor = sc or prim
             cache[p].hueKey = hueKey
+            cache[p].hueKeyPrimary = hueKeyPrimary
+            cache[p].hueKeySecondary = hueKeySecondary
+            cache[p].hueKeyTertiary = hueKeyTertiary
+            cache[p].hueKeyContainer = hueKeyContainer
+            cache[p].hueKeySurface = hueKeySurface
             cacheNeedsSave = true
 
             noctalia.state.set("palette_update", {
@@ -511,6 +618,11 @@ local function prioritizePalette(p: string)
               colors = m3,
               sourceColor = sc or prim,
               hueKey = hueKey,
+              hueKeyPrimary = hueKeyPrimary,
+              hueKeySecondary = hueKeySecondary,
+              hueKeyTertiary = hueKeyTertiary,
+              hueKeyContainer = hueKeyContainer,
+              hueKeySurface = hueKeySurface,
             })
 
             if #activeDeckInMemory > 0 then
@@ -519,6 +631,11 @@ local function prioritizePalette(p: string)
                   it.colors = m3
                   it.sourceColor = sc or prim
                   it.hueKey = hueKey
+                  it.hueKeyPrimary = hueKeyPrimary
+                  it.hueKeySecondary = hueKeySecondary
+                  it.hueKeyTertiary = hueKeyTertiary
+                  it.hueKeyContainer = hueKeyContainer
+                  it.hueKeySurface = hueKeySurface
                   break
                 end
               end
@@ -535,13 +652,10 @@ local matugenQueueHead = 1
 local matugenProcessedSinceSync = 0
 
 local function pumpMatugenQueue(token: number, cache: { [string]: any }, deck: { any })
-  if pickerPanelOpen then
-    return
-  end
   if not (type(noctalia.commandExists) == "function" and noctalia.commandExists("matugen")) then
     return
   end
-  local maxJobs = MAX_MATUGEN_JOBS
+  local maxJobs = pickerPanelOpen and 1 or MAX_MATUGEN_JOBS
   while matugenActive < maxJobs and matugenQueueHead <= #matugenQueue do
     if token ~= scanToken then return end
     local item = matugenQueue[matugenQueueHead]
@@ -563,38 +677,31 @@ local function pumpMatugenQueue(token: number, cache: { [string]: any }, deck: {
         if res and res.exitCode == 0 and res.stdout and res.stdout ~= "" then
           local ok, data = pcall(noctalia.json.decode, res.stdout)
           if ok and type(data) == "table" and type(data.colors) == "table" then
-            local colors = data.colors
-            local function getCol(role)
-              local c = colors[role]
-              if type(c) == "table" then
-                local d = c["default"] or c["dark"]
-                if type(d) == "table" then return d.color end
-              end
-              return nil
-            end
-            local prim = getCol("primary")
-            local sec = getCol("secondary")
-            local tert = getCol("tertiary")
-            local pc = getCol("primary_container")
-            local sch = getCol("surface_container_highest") or getCol("surface_container") or getCol("surface")
-            local sc = getCol("source_color") or prim
-            if prim and sec then
-              local m3 = {
-                primary = prim,
-                secondary = sec,
-                tertiary = tert or sec,
-                primary_container = pc or prim,
-                surface_container_highest = sch or "#33353b",
-                source_color = sc or prim,
-              }
+            local m3, sc = extractPaletteFromMatugen(data)
+            if m3 then
+              local prim = m3.primary
+              local sec = m3.secondary
+              local tert = m3.tertiary
+              local pc = m3.primary_container
+              local sch = m3.surface_container_highest
               item.colors = m3
               item.sourceColor = sc or prim
               item.hueKey = calcHueKey(sc or prim)
+              item.hueKeyPrimary = calcHueKey(prim)
+              item.hueKeySecondary = calcHueKey(sec)
+              item.hueKeyTertiary = calcHueKey(tert or sec)
+              item.hueKeyContainer = calcHueKey(pc or prim)
+              item.hueKeySurface = calcHueKey(sch or "#33353b")
 
               if not cache[p] then cache[p] = {} end
               cache[p].colors = m3
               cache[p].sourceColor = sc or prim
               cache[p].hueKey = item.hueKey
+              cache[p].hueKeyPrimary = item.hueKeyPrimary
+              cache[p].hueKeySecondary = item.hueKeySecondary
+              cache[p].hueKeyTertiary = item.hueKeyTertiary
+              cache[p].hueKeyContainer = item.hueKeyContainer
+              cache[p].hueKeySurface = item.hueKeySurface
               cache[p].mtime = item.mtime
               cache[p].size = item.size
               cacheNeedsSave = true
@@ -604,6 +711,11 @@ local function pumpMatugenQueue(token: number, cache: { [string]: any }, deck: {
                 colors = m3,
                 sourceColor = sc or prim,
                 hueKey = item.hueKey,
+                hueKeyPrimary = item.hueKeyPrimary,
+                hueKeySecondary = item.hueKeySecondary,
+                hueKeyTertiary = item.hueKeyTertiary,
+                hueKeyContainer = item.hueKeyContainer,
+                hueKeySurface = item.hueKeySurface,
               })
             end
           end
@@ -737,7 +849,7 @@ local function processScanOutput(stdout: string, dirs: {string}, primaryDir: str
   local cache: { [string]: any } = {}
   local cacheLoaded = false
   local lineIdx = 1
-  local BATCH_SIZE = 15
+  local BATCH_SIZE = 5
 
   local function fastFileName(p: string): string
     for j = #p, 1, -1 do
@@ -772,11 +884,12 @@ local function processScanOutput(stdout: string, dirs: {string}, primaryDir: str
 
   local function processBatch()
     if token ~= scanToken then return end
+    -- Skip loadCache entirely at startup — use deckColorLookup built from deck.json
+    -- (which is already decoded in memory). cache.json is only used for WRITING
+    -- new matugen results; we never need to read it here.
     if not cacheLoaded then
-      cache = loadCache()
+      cache = activeCacheInMemory  -- may be empty {} initially, that's fine
       cacheLoaded = true
-      noctalia.runAsync({ "true" }, processBatch)
-      return
     end
 
     local endIdx = math.min(#rawLines, lineIdx + BATCH_SIZE - 1)
@@ -847,6 +960,9 @@ local function processScanOutput(stdout: string, dirs: {string}, primaryDir: str
               end
 
               local cached = cache[filePath]
+              -- Fallback to deckColorLookup (built from deck.json at startup)
+              -- so we don't need cache.json decoded at startup for color data
+              local deckEntry = (not cached) and deckColorLookup[filePath] or nil
               local colors = nil
               local sourceColor = nil
               local hueKey = nil
@@ -865,8 +981,18 @@ local function processScanOutput(stdout: string, dirs: {string}, primaryDir: str
                 resStr = cached.res
                 topLum = cached.topLum
                 isLight = cached.isLight
+              elseif deckEntry then
+                -- Use colors + thumb from last deck scan (already in memory, no decode needed)
+                colors = deckEntry.colors
+                sourceColor = deckEntry.sourceColor
+                hueKey = deckEntry.hueKey
+                thumb = deckEntry.thumb
+                preview = deckEntry.preview
+                topLum = deckEntry.topLum
+                isLight = deckEntry.isLight
               end
 
+              -- Only do fileExists check if we have no thumb yet (avoids per-file syscall for known items)
               local effectiveThumb = (thumb and thumb ~= filePath and thumb) or nil
               if not effectiveThumb then
                 local key = hashKey(filePath)
@@ -890,6 +1016,11 @@ local function processScanOutput(stdout: string, dirs: {string}, primaryDir: str
                 item.colors = colors
                 item.sourceColor = sourceColor
                 item.hueKey = hueKey or calcHueKey(sourceColor or colors.primary)
+                item.hueKeyPrimary = calcHueKey(colors.primary)
+                item.hueKeySecondary = calcHueKey(colors.secondary)
+                item.hueKeyTertiary = calcHueKey(colors.tertiary or colors.secondary)
+                item.hueKeyContainer = calcHueKey(colors.primary_container)
+                item.hueKeySurface = calcHueKey(colors.surface_container_highest)
               end
               if topLum ~= nil then item.topLum = topLum end
               if isLight ~= nil then item.isLight = isLight end
@@ -930,29 +1061,35 @@ local function processScanOutput(stdout: string, dirs: {string}, primaryDir: str
       activeDeckInMemory = selectedDeck
       activeCacheInMemory = cache
 
+      -- Tick: push wallpapers state (2500+ items — may be large, needs own budget)
       noctalia.runAsync({ "true" }, function()
         if token ~= scanToken then return end
         noctalia.state.set("wallpapers", selectedDeck)
+      end)
+
+      -- Tick: update dir state + scanning flag (small, fast)
+      noctalia.runAsync({ "true" }, function()
+        if token ~= scanToken then return end
         noctalia.state.set("wallpaper_dir", primaryDir)
         noctalia.state.set("wallpaper_dirs", dirs)
-
         isScanning = false
         noctalia.state.set("is_scanning", false)
+      end)
 
-        noctalia.runAsync({ "true" }, function()
-          local ok, deckJson = pcall(noctalia.json.encode, selectedDeck)
-          if ok and deckJson then
-            noctalia.runAsync({ "true" }, function()
-              writeTextFile(DECK_FILE, deckJson)
-            end)
-          end
-        end)
+      -- Tick: encode + write deck.json
+      noctalia.runAsync({ "true" }, function()
+        local ok, deckJson = pcall(noctalia.json.encode, selectedDeck)
+        if ok and deckJson then
+          noctalia.runAsync({ "true" }, function()
+            writeTextFile(DECK_FILE, deckJson)
+          end)
+        end
+      end)
 
-        -- Start thumbnail generator (which chains into Matugen palette extraction)
-        noctalia.runAsync({ "true" }, function()
-          if token ~= scanToken then return end
-          pumpThumbQueue(token, cache, selectedDeck)
-        end)
+      -- Tick: Start thumbnail generator (which chains into Matugen palette extraction)
+      noctalia.runAsync({ "true" }, function()
+        if token ~= scanToken then return end
+        pumpThumbQueue(token, cache, selectedDeck)
       end)
     end)
   end
@@ -1054,12 +1191,22 @@ local function scanWallpapers(targetDir: any?)
           end
           return
         end
-        processScanOutput(fbRes.stdout, dirs, primaryDir, myToken, false)
+        local capturedFbStdout = fbRes.stdout
+        noctalia.runAsync({ "true" }, function()
+          if myToken ~= scanToken then return end
+          processScanOutput(capturedFbStdout, dirs, primaryDir, myToken, false)
+        end)
       end)
       return
     end
 
-    processScanOutput(res.stdout, dirs, primaryDir, myToken, true)
+    -- Defer the heavy string.split + processBatch loop to the next tick
+    -- so this runAsync callback (which also ran `find`) doesn't exceed budget.
+    local capturedStdout = res.stdout
+    noctalia.runAsync({ "true" }, function()
+      if myToken ~= scanToken then return end
+      processScanOutput(capturedStdout, dirs, primaryDir, myToken, true)
+    end)
   end)
 end
 
@@ -1485,6 +1632,8 @@ local function downloadAndApplyWallhaven(item: any, outputTarget: string?, cache
 end
 
 -- Listen to picker commands
+local activeRibbonToken = 0
+
 noctalia.state.watch("deck_command", function(cmd)
   if type(cmd) ~= "table" then return end
   local action = cmd.action
@@ -1510,6 +1659,171 @@ noctalia.state.watch("deck_command", function(cmd)
     prunePreviewCache()
   elseif action == "prioritize_palette" and cmd.path then
     prioritizePalette(cmd.path)
+  elseif action == "prioritize_ribbon" and type(cmd.paths) == "table" then
+    activeRibbonToken = activeRibbonToken + 1
+    local myToken = activeRibbonToken
+    local paths = cmd.paths
+    local function processNext(idx)
+      if myToken ~= activeRibbonToken then return end
+      if idx > #paths then return end
+      local p = paths[idx]
+      if p then
+        loadCacheAsync(function(cache)
+          if myToken ~= activeRibbonToken then return end
+          if cache[p] and cache[p].colors and cache[p].colors.primary ~= "#80a9ff" then
+            local entry = cache[p]
+            local sc = entry.sourceColor or (entry.colors and (entry.colors.source_color or entry.colors.primary))
+            noctalia.state.set("palette_update", {
+              path = p,
+              colors = entry.colors,
+              sourceColor = sc,
+              hueKey = entry.hueKey or calcHueKey(sc or entry.colors.primary),
+            })
+            processNext(idx + 1)
+            return
+          end
+          if not noctalia.fileExists(p) then
+            processNext(idx + 1)
+            return
+          end
+          local key = hashKey(p)
+          local cardThumb = THUMB_DIR .. "/" .. key .. "_card.webp"
+          local inputPath = noctalia.fileExists(cardThumb) and cardThumb or p
+          noctalia.runAsync({ "matugen", "image", inputPath, "--source-color-index", "0", "--dry-run", "-j", "hex", "-q" }, function(res)
+            if myToken ~= activeRibbonToken then return end
+            if res and res.exitCode == 0 and res.stdout and res.stdout ~= "" then
+              local ok, data = pcall(noctalia.json.decode, res.stdout)
+              if ok and type(data) == "table" and type(data.colors) == "table" then
+                local m3, sc = extractPaletteFromMatugen(data)
+                if m3 then
+                  local prim = m3.primary
+                  local sec = m3.secondary
+                  local tert = m3.tertiary
+                  local pc2 = m3.primary_container
+                  local sch = m3.surface_container_highest
+                  local hueKey = calcHueKey(sc or prim)
+                  local hueKeyPrimary = calcHueKey(prim)
+                  local hueKeySecondary = calcHueKey(sec)
+                  local hueKeyTertiary = calcHueKey(tert or sec)
+                  local hueKeyContainer = calcHueKey(pc2 or prim)
+                  local hueKeySurface = calcHueKey(sch or "#33353b")
+                  if not cache[p] then cache[p] = {} end
+                  cache[p].colors = m3
+                  cache[p].sourceColor = sc or prim
+                  cache[p].hueKey = hueKey
+                  cache[p].hueKeyPrimary = hueKeyPrimary
+                  cache[p].hueKeySecondary = hueKeySecondary
+                  cache[p].hueKeyTertiary = hueKeyTertiary
+                  cache[p].hueKeyContainer = hueKeyContainer
+                  cache[p].hueKeySurface = hueKeySurface
+                  cacheNeedsSave = true
+                  noctalia.state.set("palette_update", {
+                    path = p,
+                    colors = m3,
+                    sourceColor = sc or prim,
+                    hueKey = hueKey,
+                    hueKeyPrimary = hueKeyPrimary,
+                    hueKeySecondary = hueKeySecondary,
+                    hueKeyTertiary = hueKeyTertiary,
+                    hueKeyContainer = hueKeyContainer,
+                    hueKeySurface = hueKeySurface,
+                  })
+                  if #activeDeckInMemory > 0 then
+                    for _, it in ipairs(activeDeckInMemory) do
+                      if it.path == p then
+                        it.colors = m3
+                        it.sourceColor = sc or prim
+                        it.hueKey = hueKey
+                        it.hueKeyPrimary = hueKeyPrimary
+                        it.hueKeySecondary = hueKeySecondary
+                        it.hueKeyTertiary = hueKeyTertiary
+                        it.hueKeyContainer = hueKeyContainer
+                        it.hueKeySurface = hueKeySurface
+                        break
+                      end
+                    end
+                  end
+                end
+              end
+            end
+            processNext(idx + 1)
+          end)
+        end)
+      else
+        processNext(idx + 1)
+      end
+    end
+    processNext(1)
+  -- elseif action == "regenerate_palette" and type(cmd.paths) == "table" then
+  --   local paths = cmd.paths
+  --   local function processNext(idx)
+  --     if idx > #paths then return end
+  --     local p = paths[idx]
+  --     if not p or not noctalia.fileExists(p) then
+  --       processNext(idx + 1)
+  --       return
+  --     end
+  --     local cache = loadCache()
+  --     local key = hashKey(p)
+  --     local cardThumb = THUMB_DIR .. "/" .. key .. "_card.webp"
+  --     local inputPath = noctalia.fileExists(cardThumb) and cardThumb or p
+  --     noctalia.runAsync({ "matugen", "image", inputPath, "--source-color-index", "0", "--dry-run", "-j", "hex", "-q" }, function(res)
+  --       if res and res.exitCode == 0 and res.stdout and res.stdout ~= "" then
+  --         local ok, data = pcall(noctalia.json.decode, res.stdout)
+  --         if ok and type(data) == "table" and type(data.colors) == "table" then
+  --           local colors = data.colors
+  --           local function getCol(role)
+  --             local c = colors[role]
+  --             if type(c) == "table" then
+  --               local d = c["default"] or c["dark"]
+  --               if type(d) == "table" then return d.color end
+  --             end
+  --             return nil
+  --           end
+  --           local prim = getCol("primary")
+  --           local sec = getCol("secondary")
+  --           local tert = getCol("tertiary")
+  --           local pc2 = getCol("primary_container")
+  --           local sch = getCol("surface_container_highest") or getCol("surface_container") or getCol("surface")
+  --           local sc = getCol("source_color") or prim
+  --           if prim and sec then
+  --             local m3 = {
+  --               primary = prim,
+  --               secondary = sec,
+  --               tertiary = tert or sec,
+  --               primary_container = pc2 or prim,
+  --               surface_container_highest = sch or "#33353b",
+  --               source_color = sc or prim,
+  --             }
+  --             local hueKey = calcHueKey(sc or prim)
+  --             if not cache[p] then cache[p] = {} end
+  --             cache[p].colors = m3
+  --             cache[p].sourceColor = sc or prim
+  --             cache[p].hueKey = hueKey
+  --             cacheNeedsSave = true
+  --             noctalia.state.set("palette_update", {
+  --               path = p,
+  --               colors = m3,
+  --               sourceColor = sc or prim,
+  --               hueKey = hueKey,
+  --             })
+  --             if #activeDeckInMemory > 0 then
+  --               for _, it in ipairs(activeDeckInMemory) do
+  --                 if it.path == p then
+  --                   it.colors = m3
+  --                   it.sourceColor = sc or prim
+  --                   it.hueKey = hueKey
+  --                   break
+  --                 end
+  --               end
+  --             end
+  --           end
+  --         end
+  --       end
+  --       processNext(idx + 1)
+  --     end)
+  --   end
+  --   processNext(1)
   elseif action == "panel_state" then
     pickerPanelOpen = (cmd.open == true)
     if not pickerPanelOpen and #activeDeckInMemory > 0 then
@@ -1517,6 +1831,7 @@ noctalia.state.watch("deck_command", function(cmd)
         scheduleCacheAndStateSync(activeDeckInMemory, activeCacheInMemory, true)
       end
       pumpThumbQueue(scanToken, activeCacheInMemory, activeDeckInMemory)
+      pumpMatugenQueue(scanToken, activeCacheInMemory, activeDeckInMemory)
     end
   elseif action == "prune_cache" then
     noctalia.runAsync({ "true" }, prunePreviewCache)
@@ -1528,8 +1843,44 @@ end)
 function onEnable()
   loadFavorites()
   detectActiveWallpaper()
+  -- Load deck.json across 4 ticks to stay within CPU budget (1.8MB json.decode is heavy).
+  -- Tick A: locate file path (trivial)
   noctalia.runAsync({ "true" }, function()
-    scanWallpapers()
+    local targetFile = DECK_FILE
+    if not noctalia.fileExists(targetFile) then
+      local legacy = noctalia.expandPath("~/.local/state/noctalia/wallpaper-deck/deck.json")
+      if noctalia.fileExists(legacy) then targetFile = legacy end
+    end
+    -- Tick B: read file bytes (I/O-bound, low CPU)
+    noctalia.runAsync({ "true" }, function()
+      -- If already in memory from a prior load, skip file I/O entirely
+      if #activeDeckInMemory > 0 then
+        noctalia.state.set("wallpapers", activeDeckInMemory)
+        noctalia.runAsync({ "true" }, scanWallpapers)
+        return
+      end
+      local raw = noctalia.fileExists(targetFile) and noctalia.readFile(targetFile) or nil
+      -- Tick C: json.decode only (CPU-heavy — dedicated budget)
+      noctalia.runAsync({ "true" }, function()
+        local dec = nil
+        if raw and raw ~= "" then
+          local ok, result = pcall(noctalia.json.decode, raw)
+          if ok and type(result) == "table" and #result > 0 then
+            dec = result
+            activeDeckInMemory = dec
+          end
+        end
+        -- Tick D: post-decode work (buildDeckColorLookup + state.set) in a fresh budget
+        noctalia.runAsync({ "true" }, function()
+          if dec then
+            buildDeckColorLookup(dec)
+            noctalia.state.set("wallpapers", dec)
+          end
+          -- Tick E: now scan (deck is ready in memory and state)
+          noctalia.runAsync({ "true" }, scanWallpapers)
+        end)
+      end)
+    end)
   end)
   noctalia.runAsync({ "true" }, function()
     prunePreviewCache()
