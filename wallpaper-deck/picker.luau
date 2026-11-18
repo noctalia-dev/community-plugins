@@ -3221,7 +3221,7 @@ local function renderEmptyState(paletteColors: any)
   local subtitle = string.format("Add your wallpapers in %s\nor select another directory in settings.", displayDir)
   local buttons = {}
 
-  if currentMode == "favorites" then
+  if currentMode == "favorites" and (not hasAnyFavorites or (searchQuery == "" and CSF.hueKey == nil)) then
     glyphName = "heart-off"
     title = "No Favourites Yet"
     subtitle = trText("ui.no_favorites", "Press F on any wallpaper in the deck to add it to your favourites.")
@@ -3348,6 +3348,30 @@ local function renderEmptyState(paletteColors: any)
         }
       end
     end
+  elseif (searchQuery ~= "") or (CSF.hueKey ~= nil) then
+    glyphName = "search"
+    title = "No Wallpapers Found"
+    subtitle = (CSF.color and ("No wallpapers match the color " .. CSF.color .. "."))
+      or string.format("No wallpapers match \"%s\".", searchQuery)
+    buttons = {
+      ui.button({
+        text = "Clear Filter",
+        glyph = "close",
+        variant = "primary",
+        controlSize = "md",
+        onClick = function()
+          searchQuery = ""
+          CSF.color = nil
+          CSF.hueKey = nil
+          CSF.searching = false
+          selectedIdx = 1
+          resetDeckAnimation(1.0)
+          rebuildList()
+          triggerPreview()
+          render()
+        end,
+      }),
+    }
   elseif not isFlattened and #allWallpapers > 0 then
     glyphName = "folder-tree"
     title = "Subdirectory wallpapers hidden"

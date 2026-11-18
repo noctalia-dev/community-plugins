@@ -555,6 +555,7 @@ local function prioritizePalette(p: string)
               source_color = sc or prim,
             }
             local hueKey = calcHueKey(sc or prim)
+            local hueKeyPrimary = calcHueKey(prim)
             local hueKeySecondary = calcHueKey(sec)
             local hueKeyTertiary = calcHueKey(tert or sec)
             local hueKeyContainer = calcHueKey(pc or prim)
@@ -564,6 +565,7 @@ local function prioritizePalette(p: string)
             cache[p].colors = m3
             cache[p].sourceColor = sc or prim
             cache[p].hueKey = hueKey
+            cache[p].hueKeyPrimary = hueKeyPrimary
             cache[p].hueKeySecondary = hueKeySecondary
             cache[p].hueKeyTertiary = hueKeyTertiary
             cache[p].hueKeyContainer = hueKeyContainer
@@ -575,6 +577,7 @@ local function prioritizePalette(p: string)
               colors = m3,
               sourceColor = sc or prim,
               hueKey = hueKey,
+              hueKeyPrimary = hueKeyPrimary,
               hueKeySecondary = hueKeySecondary,
               hueKeyTertiary = hueKeyTertiary,
               hueKeyContainer = hueKeyContainer,
@@ -587,6 +590,7 @@ local function prioritizePalette(p: string)
                   it.colors = m3
                   it.sourceColor = sc or prim
                   it.hueKey = hueKey
+                  it.hueKeyPrimary = hueKeyPrimary
                   it.hueKeySecondary = hueKeySecondary
                   it.hueKeyTertiary = hueKeyTertiary
                   it.hueKeyContainer = hueKeyContainer
@@ -662,6 +666,7 @@ local function pumpMatugenQueue(token: number, cache: { [string]: any }, deck: {
               item.colors = m3
               item.sourceColor = sc or prim
               item.hueKey = calcHueKey(sc or prim)
+              item.hueKeyPrimary = calcHueKey(prim)
               item.hueKeySecondary = calcHueKey(sec)
               item.hueKeyTertiary = calcHueKey(tert or sec)
               item.hueKeyContainer = calcHueKey(pc or prim)
@@ -671,6 +676,7 @@ local function pumpMatugenQueue(token: number, cache: { [string]: any }, deck: {
               cache[p].colors = m3
               cache[p].sourceColor = sc or prim
               cache[p].hueKey = item.hueKey
+              cache[p].hueKeyPrimary = item.hueKeyPrimary
               cache[p].hueKeySecondary = item.hueKeySecondary
               cache[p].hueKeyTertiary = item.hueKeyTertiary
               cache[p].hueKeyContainer = item.hueKeyContainer
@@ -684,6 +690,7 @@ local function pumpMatugenQueue(token: number, cache: { [string]: any }, deck: {
                 colors = m3,
                 sourceColor = sc or prim,
                 hueKey = item.hueKey,
+                hueKeyPrimary = item.hueKeyPrimary,
                 hueKeySecondary = item.hueKeySecondary,
                 hueKeyTertiary = item.hueKeyTertiary,
                 hueKeyContainer = item.hueKeyContainer,
@@ -988,6 +995,7 @@ local function processScanOutput(stdout: string, dirs: {string}, primaryDir: str
                 item.colors = colors
                 item.sourceColor = sourceColor
                 item.hueKey = hueKey or calcHueKey(sourceColor or colors.primary)
+                item.hueKeyPrimary = calcHueKey(colors.primary)
                 item.hueKeySecondary = calcHueKey(colors.secondary)
                 item.hueKeyTertiary = calcHueKey(colors.tertiary or colors.secondary)
                 item.hueKeyContainer = calcHueKey(colors.primary_container)
@@ -1690,6 +1698,7 @@ noctalia.state.watch("deck_command", function(cmd)
                     source_color = sc or prim,
                   }
                   local hueKey = calcHueKey(sc or prim)
+                  local hueKeyPrimary = calcHueKey(prim)
                   local hueKeySecondary = calcHueKey(sec)
                   local hueKeyTertiary = calcHueKey(tert or sec)
                   local hueKeyContainer = calcHueKey(pc2 or prim)
@@ -1698,6 +1707,7 @@ noctalia.state.watch("deck_command", function(cmd)
                   cache[p].colors = m3
                   cache[p].sourceColor = sc or prim
                   cache[p].hueKey = hueKey
+                  cache[p].hueKeyPrimary = hueKeyPrimary
                   cache[p].hueKeySecondary = hueKeySecondary
                   cache[p].hueKeyTertiary = hueKeyTertiary
                   cache[p].hueKeyContainer = hueKeyContainer
@@ -1708,6 +1718,7 @@ noctalia.state.watch("deck_command", function(cmd)
                     colors = m3,
                     sourceColor = sc or prim,
                     hueKey = hueKey,
+                    hueKeyPrimary = hueKeyPrimary,
                     hueKeySecondary = hueKeySecondary,
                     hueKeyTertiary = hueKeyTertiary,
                     hueKeyContainer = hueKeyContainer,
@@ -1719,6 +1730,7 @@ noctalia.state.watch("deck_command", function(cmd)
                         it.colors = m3
                         it.sourceColor = sc or prim
                         it.hueKey = hueKey
+                        it.hueKeyPrimary = hueKeyPrimary
                         it.hueKeySecondary = hueKeySecondary
                         it.hueKeyTertiary = hueKeyTertiary
                         it.hueKeyContainer = hueKeyContainer
