@@ -151,6 +151,10 @@
       "description": "Adds \"Send with LocalSend Plus\" to Dolphin's menu for files and folders. Turning it off removes the entry again.",
       "label": "Dolphin context menu"
     },
+    "luciole_menu": {
+      "description": "Adds \"Send with LocalSend Plus\" to the Scripts submenu of Luciole for files and folders. Turning it off removes the entry again.",
+      "label": "Luciole context menu"
+    },
     "nautilus_menu": {
       "description": "Adds \"Send with LocalSend Plus\" to the Scripts submenu of Nautilus (Files) for files and folders. Turning it off removes the entry again.",
       "label": "Nautilus context menu"

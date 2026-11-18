@@ -151,6 +151,10 @@
       "description": "Dodaje „Send with LocalSend Plus” do menu Dolphina dla plików i folderów. Wyłączenie usuwa tę pozycję.",
       "label": "Menu kontekstowe Dolphina"
     },
+    "luciole_menu": {
+      "description": "Dodaje „Send with LocalSend Plus” do podmenu Skrypty w Luciole dla plików i folderów. Wyłączenie usuwa tę pozycję.",
+      "label": "Menu kontekstowe Luciole"
+    },
     "nautilus_menu": {
       "description": "Dodaje „Send with LocalSend Plus” do podmenu Skrypty w Nautilusie (Pliki) dla plików i folderów. Wyłączenie usuwa tę pozycję.",
       "label": "Menu kontekstowe Nautilusa"
