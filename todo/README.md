@@ -5,7 +5,9 @@ prioritised to-do list. Click the bar glyph to toggle a panel of task rows —
 add tasks with **+** or **N**, tick them off (the text is struck through), edit
 or delete with the row's own buttons, and set each task's priority one at a
 time or all at once. Right-click a task for the same actions in a context
-menu. The list is stored as a single JSON file; no external commands are run.
+menu. Give a task a due date with a built-in date picker; when it passes, the
+bar glyph blinks until you finish or postpone the task. The list is stored as a
+single JSON file; no external commands are run.
 
 ## Plugin
 
@@ -35,6 +37,8 @@ noctalia msg panel-toggle nightwatch75/todo:panel
 | **Enter**, or ✓ (row)             | Commit the edit — the row goes back to a static line  |
 | ☐ / ☑ button (row)                | Toggle done/to-do (done tasks are struck through)     |
 | ✏️ / 🗑 button (row)               | Edit / delete that task                               |
+| 📅 button (row, left of the text) | Open the date picker: set, change or remove the due date. A new date starts 15 minutes from now |
+| 🔔 button (overdue row)           | Open the date picker to postpone the task             |
 | Glyph next to a legend entry      | Set every task to that priority                       |
 | ✔️✔️ / ☐ button (panel footer)     | Mark every task done / undone                         |
 | 🗑 button (panel header)           | Delete every done task (asks first)                   |
@@ -107,12 +111,25 @@ un-tick it. The bar glyph's tooltip shows how many tasks are still to do.
 A task longer than the row wraps onto further lines and the row grows to fit,
 so the whole text stays readable.
 
+## Due dates
+
+The 📅 button on a row opens a full-panel date picker: month arrows, a day
+grid (Monday first), hour and minute selects (to the minute) and an **All day**
+switch. A date that has already passed is refused. **Remove date** clears it.
+
+A task is overdue once its due time has passed; an all-day task is overdue once
+that whole day is over. Done tasks are never overdue. While any task is overdue
+the bar glyph turns into an alarm that blinks and the label reads `N overdue`.
+It stops when the task is done, postponed (pick a later date) or deleted. The
+widget only reads the file, so it works with the panel closed.
+
 ## Storage
 
 Tasks live in one file, `todo.json`, inside the configured **To Do folder**
 (default `~/Documents/Todo`). It is a small JSON object,
 `{ "version": 2, "sort": "priority" | "manual", "tasks": [ … ] }`, where `tasks`
-is the array of `{ id, text, priority, done }` objects (in manual order) — easy
+is the array of `{ id, text, priority, done }` objects (in manual order), plus
+`due` (unix seconds) and `allDay` on tasks that have a due date — easy
 to read, hand-edit, sync, or back up. An older plain-array file is still read
 automatically.
 
@@ -121,7 +138,8 @@ automatically.
 | Setting            | What it does                                              |
 |---------------------|-------------------------------------------------------------|
 | To Do folder        | Where `todo.json` is stored (default `~/Documents/Todo`).   |
-| Sound on complete    | Play a short sound when a task is marked done.               |
+| Sound on complete    | Play a short sound when a task is marked done (on by default). |
+| Sound on overdue     | Play a short sound when a task becomes overdue (on by default; with several bars only one chimes). |
 | Bar glyph           | The glyph shown for the widget on the bar.                   |
 | Show label          | Show or hide all bar text beside the glyph (on by default). |
 | Label               | Text shown beside the glyph when Show label is on (`To Do` by default). |
@@ -147,8 +165,8 @@ noctalia msg plugins enable nightwatch75/todo
 
 ## Requirements
 
-- noctalia v5.0.0-beta.9 or newer (`plugin_api = 28`, for the row's
-  right-click menu)
+- noctalia v5.4.0 or newer (`plugin_api = 42`: the panel height follows its
+  content, and the row's right-click menu needs 28)
 - No external dependencies
 
 ## License

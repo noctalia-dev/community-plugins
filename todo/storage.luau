@@ -5,6 +5,7 @@
 -- and returns plain values, so panel.luau's rendering/editing state can never
 -- drift from what actually got written to disk.
 --
+-- A task may carry `due` (unix seconds) and `allDay` (bool); see dates.luau.
 -- File format is an object { version, sort, hideCompleted, showCount, tasks }:
 -- `tasks` is the array, ALWAYS in manual order, `sort` records the chosen
 -- display mode, `hideCompleted` the header toggle that hides done rows, and
@@ -12,6 +13,8 @@
 -- legacy plain-array file (no `tasks` key) is still read, treated as manual
 -- order with sort defaulting to "priority", hideCompleted to false and
 -- showCount to true.
+
+local dates = require("./dates.luau")
 
 local RANK = { important = 1, medium = 2, low = 3 }
 
@@ -54,11 +57,14 @@ function storage.load(filePath)
             for _, entry in ipairs(list) do
                 if type(entry) == "table" then
                     local id = tonumber(entry.id) or nextId
+                    local due, allDay = dates.normalizeDue(entry)
                     table.insert(items, {
                         id = id,
                         text = type(entry.text) == "string" and entry.text or "",
                         priority = normalizePriority(entry.priority),
                         done = entry.done == true,
+                        due = due,
+                        allDay = allDay or nil,
                     })
                     if id >= nextId then
                         nextId = id + 1

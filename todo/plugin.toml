@@ -6,18 +6,20 @@
 # priority pick, in a native context menu. The footer carries bulk actions
 # too: mark every task done/undone, and set every task to one priority. A
 # header toggle switches ordering between priority (auto-sorted) and manual,
-# where a ☰ grip on each row drags it to reorder.
+# where a ☰ grip on each row drags it to reorder. A row's calendar glyph opens
+# a date picker (day, time or all day) to set a due date; a task past its due
+# date is overdue and makes the bar glyph blink until it is done or postponed.
 # The whole list is a single JSON file in the configured folder; no external
 # commands are run.
 
 id = "nightwatch75/todo"
 name = "To Do"
-version = "1.2.2"
-# 28 for panel.openContextMenu: the row's right-click menu carries edit,
-# priority and delete, which is what let the row drop two glyph buttons. Also
-# 23 for noctalia.readFileAsync — the bar widget re-reads todo.json every 2
-# seconds and must not block the bar to do it.
-plugin_api = 28
+version = "1.3.0"
+# 42 for the panel's height = "content" (noctalia >= 5.4.0). 28 for
+# panel.openContextMenu: the row's right-click menu carries edit, priority,
+# due date and delete. 23 for noctalia.readFileAsync: the bar widget re-reads
+# todo.json every 2 seconds without blocking the bar.
+plugin_api = 42
 author = "nightwatch75"
 license = "MIT"
 dependencies = []
@@ -27,7 +29,7 @@ description = "A prioritised task list with a bar widget and editable panel."
 
 # Plugin-level settings, shared by the panel (reads/writes the task file,
 # plays the completion sound) and the bar widget (reads the folder for the
-# pending count).
+# pending/overdue counts, plays the overdue sound).
 [[setting]]
 key = "todo_folder"
 type = "folder"
@@ -39,13 +41,21 @@ key = "sound_on_complete"
 type = "bool"
 label_key = "settings.sound_on_complete.label"
 description_key = "settings.sound_on_complete.description"
-default = false
+default = true
+
+[[setting]]
+key = "sound_on_overdue"
+type = "bool"
+label_key = "settings.sound_on_overdue.label"
+description_key = "settings.sound_on_overdue.description"
+default = true
 
 [[panel]]
 id = "panel"
 entry = "panel.luau"
 width = 700
-height = 600
+height = "content"
+max_height = 600
 placement = "attached"
 open_near_click = true
 # "n"/"s" reach onKey only while no ui.input has focus (the host reserves
