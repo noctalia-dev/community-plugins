@@ -126,6 +126,35 @@ assert(values.report.entries[1].metrics[1].percent == 35
     and values.report.entries[1].stale ~= true,
     "the next healthy Antigravity reading should replace the cached one")
 
+-- Multi-account Antigravity: transient local-server fallback stays isolated per entry.id.
+decodedReport = { entries = {
+    { id = "antigravity", display_name = "Antigravity", status = "ready",
+      fetched_at = "2026-09-24T12:10:00Z", metrics = { { label = "Gemini", percent = 18 } } },
+    { id = "antigravity@t3-1", display_name = "Antigravity · t3-1", status = "ready",
+      fetched_at = "2026-09-24T12:10:00Z", metrics = { { label = "Claude & GPT OSS", percent = 7 } } },
+} }
+now = 21000
+env.onIpc("refresh")
+callbacks[9]({ exitCode = 0, stdout = "{}", stderr = "" })
+
+decodedReport = { entries = {
+    { id = "antigravity", display_name = "Antigravity", status = "error",
+      error = "credentials error: Antigravity: no local server found.", metrics = {} },
+    { id = "antigravity@t3-1", display_name = "Antigravity · t3-1", status = "ready",
+      fetched_at = "2026-09-24T12:15:00Z", metrics = { { label = "Claude & GPT OSS", percent = 12 } } },
+} }
+now = 23000
+env.onIpc("refresh")
+callbacks[10]({ exitCode = 0, stdout = "{}", stderr = "" })
+assert(values.report.entries[1].id == "antigravity"
+    and values.report.entries[1].stale == true
+    and values.report.entries[1].metrics[1].percent == 18,
+    "default Antigravity account should keep its own stale reading")
+assert(values.report.entries[2].id == "antigravity@t3-1"
+    and values.report.entries[2].stale ~= true
+    and values.report.entries[2].metrics[1].percent == 12,
+    "named Antigravity account should keep its fresh reading when default falls back")
+
 local sharedEnv = setmetatable({ noctalia = noctalia }, { __index = _G })
 local shared = assert(load(read("shared.luau"), "shared", "t", sharedEnv))()
 local incompleteFailure = shared.asFailure({})

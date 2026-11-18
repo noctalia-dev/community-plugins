@@ -1729,7 +1729,7 @@ for _, card in ipairs(collect(host.tree(), "column")) do
 end
 assert(opened and host.values.selected == "openai@work" and host.tree().props.key == "usage",
     "the account detail action must select its stable ID")
-assert(has(labels(host.tree()), "Codex · Work"), "detail must keep the selected account identity visible")
+assert(has(labels(host.tree()), "Codex"), "detail must show the provider name")
 local overviewTab
 for _, row in ipairs(collect(host.tree(), "row")) do
     if row.props.key == "overview-tab" then overviewTab = row end
@@ -1764,12 +1764,18 @@ local many = { entries = {} }
 for index = 1, 14 do many.entries[index] = provider("openai@" .. index, "Codex · " .. index, index) end
 local _, _, runtime, _, _, _, host = loadPanel(many)
 runtime.onOpen("openai@8")
-local count = 0
+local count, shrunk = 0, false
 for _, row in ipairs(collect(host.tree(), "row")) do
-    if tostring(row.props.key):match("^provider%-") then count = count + 1 end
+    if tostring(row.props.key):match("^provider%-") then
+        count = count + 1
+        for _, g in ipairs(collect(row, "glyph")) do
+            if (g.props.size or 16) < 15 then shrunk = true end
+        end
+    end
 end
-assert(count <= 5, "detail navigation must not overflow with many accounts")
-assert(has(labels(host.tree()), "Codex · 8"), "bounded tabs must preserve the selected account identity")
+assert(count <= 10, "detail navigation must not overflow with many accounts")
+assert(shrunk, "dense tab bars must shrink icon sizes to fit more accounts cleanly")
+assert(has(labels(host.tree()), "Codex"), "bounded tabs must show the selected provider")
 end
 
 do
@@ -1900,6 +1906,93 @@ local tree, _, _, _, _, _, host = loadPanel(failed)
 clickButton(tree, "ui.provider_setup")
 assert(has(labels(host.tree()), "ui.diagnostics_antigravity_auth"),
     "Antigravity auth guidance must distinguish local RPC access from the CLI session")
+end
+
+-- Multi-account Antigravity: overview cards and account detail stay isolated per entry.id,
+-- including named accounts reporting only Cloud Code models (without Gemini).
+do
+local defaultMetrics = {
+    { type = "metric", label = "Gemini", percent = 20, value = "20%", window_secs = 18000, reset_at = "2026-10-16T20:00:00Z" },
+    { type = "metric", label = "Claude & GPT OSS", percent = 5, value = "5%", window_secs = 18000, reset_at = "2026-10-16T21:00:00Z" },
+}
+local t3Metrics = {
+    { type = "metric", label = "Claude & GPT OSS", percent = 14, value = "14%", window_secs = 18000, reset_at = "2026-10-16T21:00:00Z" },
+}
+local report = {
+    entries = {
+        { id = "antigravity", display_name = "Antigravity", brand = "antigravity", status = "ready",
+          metrics = defaultMetrics, sections = defaultMetrics },
+        { id = "antigravity@t3-1", display_name = "Antigravity · t3-1", brand = "antigravity", status = "ready",
+          metrics = t3Metrics, sections = t3Metrics },
+    },
+}
+local _, _, runtime, _, _, _, host = loadPanel(report)
+runtime.onOpen()
+local tree = host.tree()
+assert(tree.props.key == "overview", "multi-account Antigravity opens in overview")
+assert(has(labels(tree), "Antigravity") and has(labels(tree), "Antigravity · t3-1"),
+    "overview must display both default and named Antigravity account cards")
+local t3Card
+for _, card in ipairs(collect(tree, "column")) do
+    if card.props.key == "overview-antigravity@t3-1" then t3Card = card end
+end
+assert(t3Card and type(t3Card.props.onClick) == "function", "named Antigravity overview card must be clickable")
+t3Card.props.onClick()
+assert(host.values.selected == "antigravity@t3-1" and host.tree().props.key == "usage",
+    "clicking named Antigravity card must open its detail view")
+assert(has(labels(host.tree()), "Antigravity") and has(labels(host.tree()), "Claude & GPT OSS"),
+    "named Antigravity detail view must render the provider and its Cloud Code metrics")
+end
+
+-- Three-account tabs suppress names across all tabs to keep icons clean without clipping,
+-- show the provider/plan header below tabs-dock, and calibrate detail height.
+do
+local conta2Sections = {
+    { type = "text", label = "Session", value = "" },
+    { type = "metric", label = "Claude & GPT OSS", percent = 12, value = "12%", window_secs = 18000 },
+    { type = "text", label = "Weekly", value = "" },
+    { type = "metric", label = "Claude & GPT OSS", percent = 4, value = "4%", window_secs = 604800 },
+    { type = "text", label = "Source", value = "Google API" },
+}
+local threeReport = {
+    entries = {
+        provider("openai", "Codex", 90),
+        provider("antigravity", "Antigravity", 51),
+        {
+            id = "antigravity@conta2",
+            display_name = "Antigravity · conta2",
+            brand = "antigravity",
+            plan = "Google AI Pro",
+            status = "ready",
+            metrics = { conta2Sections[2], conta2Sections[4] },
+            sections = conta2Sections,
+        },
+    },
+}
+local _, _, runtime, _, _, _, host = loadPanel(threeReport)
+runtime.onOpen("antigravity@conta2")
+local detailTree = host.tree()
+local overviewTab, codexTab, conta2Tab, agyTab, identityRow
+for _, row in ipairs(collect(detailTree, "row")) do
+    if row.props.key == "overview-tab" then overviewTab = row end
+    if row.props.key == "provider-openai" then codexTab = row end
+    if row.props.key == "provider-antigravity@conta2" then conta2Tab = row end
+    if row.props.key == "provider-antigravity" then agyTab = row end
+    if row.props.key == "identity-row" then identityRow = row end
+end
+assert(overviewTab and overviewTab.props.tooltip == "ui.overview"
+    and #labels(overviewTab) == 0,
+    "3+ accounts should suppress overview text label and show icon only")
+assert(codexTab and #labels(codexTab) == 0 and codexTab.props.tooltip == "Codex",
+    "all tabs should suppress text labels uniformly when names cannot fit")
+assert(agyTab and #labels(agyTab) == 0 and agyTab.props.tooltip == "Antigravity",
+    "default Antigravity tab should show icon only with full tooltip")
+assert(conta2Tab and #labels(conta2Tab) == 0 and conta2Tab.props.tooltip == "Antigravity · conta2",
+    "named Antigravity tab should show icon only with full tooltip")
+assert(identityRow and has(labels(identityRow), "Antigravity") and not has(labels(identityRow), "Antigravity · conta2") and has(labels(identityRow), "Google AI Pro"),
+    "identity row must show the provider and plan without the account label")
+assert(detailTree.props.height >= 320 and detailTree.props.height <= 345,
+    "detail height must fit two windowed metrics without dead space or clipping")
 end
 
 io.write("ok: panel degrades safely, sorts usage, and removes unavailable providers\n")
