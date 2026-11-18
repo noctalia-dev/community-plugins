@@ -152,6 +152,7 @@ body:
         - jetbrains-provider
         - k8s-status
         - keybind-cheatsheet
+        - keyboard
         - keyboard-state
         - keychron-battery
         - keymap
