@@ -195,6 +195,7 @@ local isSearchBoxHovered = false
 local currentMode = "local" -- "local" | "favorites" | "wallhaven"
 local pendingStepAfterAppend = false
 local render: () -> ()
+local triggerPreview -- forward declaration
 local toggleCurrentFavorite -- forward declaration
 local toggleFavoriteItem -- forward declaration
 local changeSort -- forward declaration
@@ -681,6 +682,8 @@ end
 
 local currentSort = "name_asc" -- "name_asc" | "name_desc" | "colour" | "newest" | "oldest"
 local searchQuery = ""
+-- Color-search state packed into one table to stay within Luau's 200-local limit
+CSF = { color = nil, hueKey = nil, searching = false, token = 0 }
 local isSearchFocused = false
 local whQueryDirty = false
 local whResDirty = false
@@ -1501,7 +1504,6 @@ end
 local cachedRibbon = nil
 local cachedRibbonIdx = -1
 local cachedRibbonCount = -1
-local cachedRibbonW = -1
 
 local function getCachedLocalList(sortMode: string, flattened: boolean): { any }
   local cacheKey = sortMode .. "_" .. (flattened and "1" or "0")
@@ -1545,8 +1547,16 @@ local function getCachedLocalList(sortMode: string, flattened: boolean): { any }
   return base
 end
 
+local CS = require("./color_search.luau")
+-- CSF.token is used for color-filter cancellation (defined in CSF above)
+
 local function rebuildList()
+  -- Cancel any in-flight async color filter from a previous rebuild.
+  CSF.token = CSF.token + 1
+  local myToken = CSF.token
+
   if currentMode == "wallhaven" then
+    CSF.searching = false
     displayedItems = (wallhavenData and wallhavenData.items) or {}
     cachedRibbon = nil
     selectedIdx = clamp(selectedIdx, 1, math.max(1, #displayedItems))
@@ -1562,7 +1572,7 @@ local function rebuildList()
     return
   end
 
-  local hasSearch = (searchQuery ~= "")
+  local hasSearch = (searchQuery ~= "") or (CSF.hueKey ~= nil)
 
   local src = {}
   if currentMode == "favorites" then
@@ -1576,28 +1586,75 @@ local function rebuildList()
       end
       if hasSearch then
         local q = string.lower(searchQuery)
+        local colorMode = (CSF.hueKey ~= nil)
+        if colorMode then
+          -- Async batched: handled by CS.runColorFilter, return early
+          CSF.searching = true
+          CS.runColorFilter(myToken, CSF.hueKey, searchQuery, src, function()
+            return CSF.token ~= myToken
+          end, function(partial, done)
+            if CSF.token ~= myToken then return end
+            if done then
+              CSF.searching = false
+              triggerPreview()
+            end
+            displayedItems = partial
+            cachedRibbon = nil
+            selectedIdx = clamp(selectedIdx, 1, math.max(1, #displayedItems))
+            render()
+          end)
+          return
+        end
         local filtered = {}
         for _, item in ipairs(src) do
           local ln = item.lowerName or string.lower(item.name or "")
           local rel = item.relDir and string.lower(item.relDir) or ""
-          if string.find(ln, q, 1, true) or (rel ~= "" and string.find(rel, q, 1, true)) then
+          local nameOk = (q == "") or string.find(ln, q, 1, true) or (rel ~= "" and string.find(rel, q, 1, true))
+          if nameOk then
             table.insert(filtered, item)
           end
         end
         src = filtered
+        sortItemsInPlace(src, currentSort)
+      else
+        sortItemsInPlace(src, currentSort)
       end
-      sortItemsInPlace(src, currentSort)
     end
   else
     -- Local mode
     if hasSearch then
       local q = string.lower(searchQuery)
+      local colorMode = (CSF.hueKey ~= nil)
+      if colorMode then
+        local flatSrc = {}
+        for _, item in ipairs(allWallpapers) do
+          if isFlattened or not itemIsSubdir(item) then
+            table.insert(flatSrc, item)
+          end
+        end
+        CSF.searching = true
+        CS.runColorFilter(myToken, CSF.hueKey, searchQuery, flatSrc, function()
+          return CSF.token ~= myToken
+        end, function(partial, done)
+          if CSF.token ~= myToken then return end
+          if done then
+            CSF.searching = false
+            triggerPreview()
+          end
+          displayedItems = partial
+          cachedRibbon = nil
+          selectedIdx = clamp(selectedIdx, 1, math.max(1, #displayedItems))
+          render()
+        end)
+        return
+      end
       local filtered = {}
       for _, item in ipairs(allWallpapers) do
         if isFlattened or not itemIsSubdir(item) then
           local ln = item.lowerName or string.lower(item.name or "")
           local rel = item.relDir and string.lower(item.relDir) or ""
-          if string.find(ln, q, 1, true) or (rel ~= "" and string.find(rel, q, 1, true)) then
+          local nameOk = (q == "") or string.find(ln, q, 1, true) or (rel ~= "" and string.find(rel, q, 1, true))
+          if nameOk then
             table.insert(filtered, item)
           end
         end
@@ -2431,7 +2488,7 @@ local function checkWallhavenLazyLoad()
   end
 end
 
-local function triggerPreview()
+function triggerPreview()
   local item = displayedItems[selectedIdx]
   if not item or not (item.path or item.id) then return end
   if currentMode == "wallhaven" then
@@ -3069,6 +3126,52 @@ local function renderScanningState(paletteColors: any)
   })
 end
 
+CSF.renderState = function(paletteColors: any, hexColor: string?)
+  local colorLabel = hexColor and ("Filtering by " .. string.upper(hexColor) .. "...") or "Filtering by color..."
+  return ui.column({
+    key = "deck_color_search_container",
+    align = "center",
+    justify = "center",
+    flexGrow = 1,
+    padding = 24,
+  }, {
+    ui.column({
+      key = "deck_color_search_card",
+      align = "center",
+      justify = "center",
+      padding = 36,
+      fill = "surface/0.85",
+      border = "outline_variant/0.25",
+      borderWidth = 1,
+      radius = R(24),
+      gap = 14,
+    }, {
+      hexColor and ui.row({ align = "center", gap = 10 }, {
+        ui.box({
+          width = 40,
+          height = 40,
+          fill = hexColor,
+          radius = R(10),
+          border = "outline_variant/0.3",
+          borderWidth = 1,
+        }),
+        ui.glyph({ name = "loader-2", size = 32, color = paletteColors.accent }),
+      }) or ui.glyph({ name = "loader-2", size = 48, color = paletteColors.accent }),
+      ui.label({
+        text = "Searching by Color",
+        fontSize = 20,
+        fontWeight = "heavy",
+        color = paletteColors.primaryText,
+      }),
+      ui.label({
+        text = colorLabel,
+        fontSize = 12,
+        color = paletteColors.muted,
+      }),
+    }),
+  })
+end
+
 local function renderWallhavenLoadingState(paletteColors: any)
   local queryText = (whQuery and whQuery ~= "") and string.format("Searching for \"%s\"...", whQuery) or "Fetching latest wallpapers from Wallhaven..."
   return ui.column({
@@ -3337,7 +3440,7 @@ local function renderEmptyState(paletteColors: any)
   })
 end
 
-local function renderBgLayer(panelW: number, panelH: number, activeItem: any)
+CSF.renderBg = function(panelW: number, panelH: number, activeItem: any)
   local bgFill = (#displayedItems > 0 and activeItem and activeItem.sourceColor) or "surface"
 
   if displayedBgPath ~= "" then
@@ -3577,7 +3680,7 @@ function render()
       justify = "start",
     }, {
       -- Slot 1: Fullscreen Wallpaper Background
-      renderBgLayer(panelW, panelH, activeItem),
+      CSF.renderBg(panelW, panelH, activeItem),
 
       -- Slot 2: Peek Bottom Pill Overlay
       ui.column({
@@ -3643,7 +3746,7 @@ function render()
     justify = "start",
   }, {
     -- Slot 1: Fullscreen Wallpaper Background Preview
-    renderBgLayer(panelW, panelH, activeItem),
+    CSF.renderBg(panelW, panelH, activeItem),
 
     -- Slot 2: Fullscreen UI Elements Overlaid on Top
     ui.column({
@@ -3677,12 +3780,13 @@ function render()
               ui.column({ gap = 1 }, {
                 ui.label({ text = trText("title", "Wallpapers"), fontSize = 16, fontWeight = "heavy", color = headerTextColor }),
                 ui.label({
-                  text = (#displayedItems == 0) and (
-                    (currentMode ~= "wallhaven" and currentMode ~= "favorites" and isScanning) and "scanning..."
-                      or (currentMode == "wallhaven" and wallhavenLoading) and "searching..."
-                      or (currentMode == "wallhaven" and wallhavenError ~= nil) and "offline"
-                      or "0 wallpapers"
-                  )
+                  text = CSF.searching and "filtering..."
+                    or (#displayedItems == 0) and (
+                      (currentMode ~= "wallhaven" and currentMode ~= "favorites" and (isScanning or #allWallpapers == 0)) and "loading..."
+                        or (currentMode == "wallhaven" and wallhavenLoading) and "searching..."
+                        or (currentMode == "wallhaven" and wallhavenError ~= nil) and "offline"
+                        or "0 wallpapers"
+                    )
                     or ((currentMode == "wallhaven" and wallhavenLoadingMore)
                       and string.format("%d of %d (loading...)", selectedIdx, math.max(1, #displayedItems))
                       or string.format("%d of %d", selectedIdx, math.max(1, #displayedItems))),
@@ -3786,6 +3890,54 @@ function render()
                   end,
                 }) or ui.spacer({ width = 1 }),
               }),
+
+              -- Search by color (local/favorites only)
+              (currentMode ~= "wallhaven") and ui.row({
+                align = "center",
+                gap = 4,
+              }, {
+                ui.button({
+                  glyph = "palette",
+                  text = (CSF.color and CSF.color ~= "") and "Color" or nil,
+                  variant = (CSF.color and CSF.color ~= "") and "secondary" or "ghost",
+                  controlSize = "sm",
+                  tooltip = (CSF.color and CSF.color ~= "") and ("Search by color: " .. CSF.color .. " (click to change)") or "Search by color",
+                  onClick = function()
+                    if type(noctalia.openColorPicker) == "function" then
+                      pcall(noctalia.openColorPicker, CSF.color or "#80a9ff", function(picked)
+                        if picked and picked ~= "" then
+                          CSF.color = picked
+                          CSF.hueKey = CS.colorToHueKey(picked)
+                          selectedIdx = 1
+                          resetDeckAnimation(1.0)
+                          -- Show loading state immediately, then rebuildList kicks off the
+                          -- batched async color filter (startColorFilter) and returns early.
+                          CSF.searching = true
+                          render()
+                          rebuildList()
+                          -- triggerPreview and final render happen inside startColorFilter when done
+                        end
+                      end)
+                    end
+                  end,
+                }),
+                (CSF.color and CSF.color ~= "") and ui.button({
+                  glyph = "close",
+                  variant = "ghost",
+                  controlSize = "sm",
+                  tooltip = "Clear color filter",
+                  onClick = function()
+                    CSF.color = nil
+                    CSF.hueKey = nil
+                    CSF.searching = false
+                    selectedIdx = 1
+                    resetDeckAnimation(1.0)
+                    rebuildList()
+                    triggerPreview()
+                    render()
+                  end,
+                }) or ui.spacer({ width = 1 }),
+              }) or ui.spacer({ width = 1 }),
               (currentMode == "wallhaven") and ui.button({
                 text = "Search",
                 variant = "primary",
@@ -4031,13 +4183,16 @@ function render()
         end)() or ui.spacer({ width = 1, height = 1 }),
       }),
 
-      -- Middle & Bottom: Scanning State, Empty State, or Arched Deck
-      (#displayedItems == 0) and (
-        (currentMode ~= "wallhaven" and currentMode ~= "favorites" and isScanning)
-          and renderScanningState(paletteColors)
-          or (currentMode == "wallhaven" and wallhavenLoading and not wallhavenError)
-            and renderWallhavenLoadingState(paletteColors)
-          or renderEmptyState(paletteColors)
+      -- Middle & Bottom: Scanning State, Color Searching State, Empty State, or Arched Deck
+      -- Also show scanning state when allWallpapers is empty in local mode (service still loading deck).
+      (CSF.searching or #displayedItems == 0) and (
+        CSF.searching
+          and CSF.renderState(paletteColors, CSF.color)
+          or (currentMode ~= "wallhaven" and currentMode ~= "favorites" and (isScanning or #allWallpapers == 0))
+            and renderScanningState(paletteColors)
+            or (currentMode == "wallhaven" and wallhavenLoading and not wallhavenError)
+              and renderWallhavenLoadingState(paletteColors)
+            or renderEmptyState(paletteColors)
       ) or ui.column({
         key = "deck_content_column",
         width = panelW,
@@ -4222,7 +4377,7 @@ function render()
         align = "stretch",
         justify = "start",
       }, {
-        renderBgLayer(panelW, panelH, activeItem),
+        CSF.renderBg(panelW, panelH, activeItem),
         ui.column({
           key = "deck_overlay_dim",
           width = panelW,
@@ -4250,7 +4405,7 @@ function render()
   end
 end
 
-local nativeScrollActive = false
+nativeScrollActive = false
 
 function onOpen(context: any?)
   isPickerOpen = true
@@ -4293,6 +4448,9 @@ function onOpen(context: any?)
   isPeeking = false
   monitorDropdownOpen = false
   searchQuery = ""
+  CSF.color = nil
+  CSF.hueKey = nil
+  CSF.searching = false
   wallhavenLoadingMore = false
   wallhavenLoadingStartMs = 0
 
@@ -4604,7 +4762,7 @@ function onKey(chord: string, pressed: boolean)
   end
 end
 
-local scrollAccum = 0
+scrollAccum = 0
 
 function onScroll(_axis: any, steps: any, _startsGesture: any)
   if not isPickerOpen or #displayedItems == 0 then return end
@@ -4747,6 +4905,11 @@ noctalia.state.watch("palette_update", function(update)
           it.colors = update.colors
           it.sourceColor = update.sourceColor
           it.hueKey = update.hueKey
+          it.hueKeyPrimary = update.hueKeyPrimary or CS.colorToHueKey(update.colors.primary)
+          it.hueKeySecondary = update.hueKeySecondary or CS.colorToHueKey(update.colors.secondary)
+          it.hueKeyTertiary = update.hueKeyTertiary or CS.colorToHueKey(update.colors.tertiary)
+          it.hueKeyContainer = update.hueKeyContainer or CS.colorToHueKey(update.colors.primary_container)
+          it.hueKeySurface = update.hueKeySurface or CS.colorToHueKey(update.colors.surface_container_highest)
           it._chipRows = nil
           it._chipStrip = nil
           it._renderedColors = nil
@@ -4761,6 +4924,11 @@ noctalia.state.watch("palette_update", function(update)
           it.colors = update.colors
           it.sourceColor = update.sourceColor
           it.hueKey = update.hueKey
+          it.hueKeyPrimary = update.hueKeyPrimary or CS.colorToHueKey(update.colors.primary)
+          it.hueKeySecondary = update.hueKeySecondary or CS.colorToHueKey(update.colors.secondary)
+          it.hueKeyTertiary = update.hueKeyTertiary or CS.colorToHueKey(update.colors.tertiary)
+          it.hueKeyContainer = update.hueKeyContainer or CS.colorToHueKey(update.colors.primary_container)
+          it.hueKeySurface = update.hueKeySurface or CS.colorToHueKey(update.colors.surface_container_highest)
           it._chipRows = nil
           it._chipStrip = nil
           it._renderedColors = nil
@@ -4797,7 +4965,7 @@ noctalia.state.watch("thumb_update", function(update)
           it.thumb = update.thumb
           it.preview = update.thumb
           it._previewPath = update.thumb
-          it._validPath = nil  -- let renderBgLayer recompute on next render
+          it._validPath = nil  -- let CSF.renderBg recompute on next render
           if it.path == (displayedItems[selectedIdx] and displayedItems[selectedIdx].path) then
             displayedBgPath = ""  -- unblock setDisplayedBackground for active card
           end
