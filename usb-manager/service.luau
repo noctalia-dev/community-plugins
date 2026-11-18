@@ -633,18 +633,40 @@ local function openFolder(path)
   end
 end
 
+-- mount(8) answers "wrong fs type, bad option, bad superblock" when the kernel
+-- refuses a read-write mount, e.g. ntfs3 on a volume Windows left dirty
+-- (hibernated, Fast Startup, NTFS errors). A read-only mount usually works.
+local function refusedReadWrite(stderr)
+  return (stderr or ""):find("wrong fs type", 1, true) ~= nil
+end
+
 local function mountVolume(dev, title)
   setPending(dev, "mount")
-  noctalia.runAsync({ "udisksctl", "mount", "-b", dev }, function(result)
-    if result.exitCode ~= 0 then
-      notifyError(tr("error.mount", { name = title, reason = cleanError(result.stderr, dev) }))
-    else
-      local path = (result.stdout or ""):match(" at (.-)%.?%s*$")
-      if path and noctalia.getConfig("open_after_mount") == true then
-        openFolder(path)
-      end
+  local function mounted(result)
+    local path = (result.stdout or ""):match(" at (.-)%.?%s*$")
+    if path and noctalia.getConfig("open_after_mount") == true then
+      openFolder(path)
     end
-    clearPending(dev)
+  end
+  noctalia.runAsync({ "udisksctl", "mount", "-b", dev }, function(result)
+    if result.exitCode == 0 then
+      mounted(result)
+      clearPending(dev)
+    elseif refusedReadWrite(result.stderr) then
+      noctalia.runAsync({ "udisksctl", "mount", "-b", dev, "-o", "ro" }, function(ro)
+        if ro.exitCode == 0 then
+          -- always shown: the user asked for a normal mount and got less
+          noctalia.notify(tr("title"), tr("notify.read-only", { name = title }))
+          mounted(ro)
+        else
+          notifyError(tr("error.mount", { name = title, reason = cleanError(result.stderr, dev) }))
+        end
+        clearPending(dev)
+      end)
+    else
+      notifyError(tr("error.mount", { name = title, reason = cleanError(result.stderr, dev) }))
+      clearPending(dev)
+    end
   end)
 end
 

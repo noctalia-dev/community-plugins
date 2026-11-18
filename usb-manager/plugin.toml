@@ -7,7 +7,7 @@
 
 id = "rylos/usb-manager"
 name = "USB Manager"
-version = "1.0.1"
+version = "1.0.2"
 plugin_api = 43
 author = "Marco Ziliani"
 license = "MIT"
