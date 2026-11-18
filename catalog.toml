@@ -6170,3 +6170,16 @@ icon = "download"
 description = "Download video or audio from a link with yt-dlp, and follow the queue and progress from the bar."
 plugin_api = 43
 tags = ["bar", "media", "video", "utility"]
+
+[[plugin]]
+id = "omerfuyar/keyboard"
+name = "Keyboard"
+version = "1.5.0"
+updated_at = 1795028188
+added_at = 1795028188
+author = "omerfuyar"
+license = "MIT"
+icon = "keyboard"
+description = "Switch between your keyboard layouts and fcitx5 input methods, such as Hangul, from one list."
+plugin_api = 43
+tags = ["bar", "hyprland", "language"]
