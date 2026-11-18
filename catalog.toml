@@ -5393,8 +5393,8 @@ tags = ["bar", "panel", "service", "media", "music"]
 [[plugin]]
 id = "faminec/terminal-widgets"
 name = "Terminal Widgets"
-version = "2.2.2"
-updated_at = 1793622740
+version = "2.3.0"
+updated_at = 1795032618
 added_at = 1793546917
 author = "faminec"
 license = "MIT"
