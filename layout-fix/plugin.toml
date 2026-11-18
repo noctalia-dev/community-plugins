@@ -1,0 +1,44 @@
+id = "umedbazarov/layout-fix"
+name = "Layout Fix"
+version = "1.0.1"
+plugin_api = 9
+author = "umedbazarov"
+license = "MIT"
+icon = "keyboard"
+description = "Fixes text typed in the wrong keyboard layout and switches the layout, Punto-style. Runs quietly in the background."
+dependencies = ["bash", "chmod", "cp", "hunspell", "niri", "pkill", "python3", "setsid", "wtype"]
+tags = ["system", "utility", "niri"]
+
+# ── Behaviour ────────────────────────────────────────────────────────────────
+
+[[setting]]
+key = "auto"
+type = "bool"
+label_key = "settings.auto.label"
+description_key = "settings.auto.description"
+default = true
+
+[[setting]]
+key = "hotkey_hint"
+type = "bool"
+label_key = "settings.hotkey_hint.label"
+description_key = "settings.hotkey_hint.description"
+default = true
+
+# ── Dictionaries ─────────────────────────────────────────────────────────────
+
+[[setting]]
+key = "dictionaries"
+type = "select"
+label_key = "settings.dictionaries.label"
+description_key = "settings.dictionaries.description"
+default = "notify"
+options = [
+  { value = "notify", label_key = "settings.dictionaries.options.notify" },
+  { value = "install", label_key = "settings.dictionaries.options.install" },
+  { value = "ignore", label_key = "settings.dictionaries.options.ignore" },
+]
+
+[[service]]
+id = "service"
+entry = "service.luau"

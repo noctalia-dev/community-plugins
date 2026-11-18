@@ -1,0 +1,42 @@
+id           = "salemsayed/niri-active-workspace"
+name         = "Niri Active Workspace"
+version      = "1.1.0"
+plugin_api   = 3
+author       = "salemsayed"
+license      = "MIT"
+dependencies = ["niri"]
+icon         = "layout-grid"
+deprecated   = false
+description  = "Shows only the focused niri workspace in the bar."
+tags         = ["bar", "indicator", "niri"]
+
+[[widget]]
+id    = "active-workspace"
+entry = "widget.luau"
+
+    [[widget.setting]]
+    key             = "label_mode"
+    type            = "select"
+    label_key       = "settings.label_mode.label"
+    description_key = "settings.label_mode.description"
+    default         = "name_or_index"
+    options         = [
+        { value = "name_or_index", label_key = "settings.label_mode.name_or_index" },
+        { value = "name",          label_key = "settings.label_mode.name" },
+        { value = "index",         label_key = "settings.label_mode.index" },
+        { value = "both",          label_key = "settings.label_mode.both" },
+    ]
+
+    [[widget.setting]]
+    key             = "show_position"
+    type            = "bool"
+    label_key       = "settings.show_position.label"
+    description_key = "settings.show_position.description"
+    default         = false
+
+    [[widget.setting]]
+    key             = "glyph"
+    type            = "glyph"
+    label_key       = "settings.glyph.label"
+    description_key = "settings.glyph.description"
+    default         = "layout-grid"

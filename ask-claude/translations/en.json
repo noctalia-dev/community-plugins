@@ -1,0 +1,93 @@
+{
+  "card": {
+    "continue": "Enter: continue in {target}",
+    "continue_manual": "Enter: continue in {target} (manual approvals)",
+    "done": "done",
+    "enter_copy": "Enter: copy answer",
+    "error": "error · edit the query and press Enter to retry",
+    "incognito": "incognito",
+    "model_default": "Claude",
+    "sources": "Sources:",
+    "streaming": "writing…",
+    "target": {
+      "herdr": "herdr",
+      "terminal": "a terminal",
+      "tmux": "tmux",
+      "tuios": "tuios",
+      "zellij": "zellij"
+    },
+    "thinking": "Thinking…",
+    "tool": "using {tool}…",
+    "truncated": "(truncated, the full answer is in the session)",
+    "web_used": "used the web"
+  },
+  "error": {
+    "auth": "Claude login expired. Run `claude` in a terminal once to refresh it, then ask again.",
+    "exit": "claude exited with code {code}",
+    "no_claude": "The claude command was not found. Install Claude Code and log in first.",
+    "no_output": "(no output)",
+    "no_terminal": "No terminal found. Set $TERMINAL or install a terminal emulator.",
+    "spawn": "Could not start the ask.",
+    "timeout": "No answer within {seconds} s (timeout).",
+    "too_long": "The question is too long (limit: {max} characters).",
+    "unknown": "Unknown error"
+  },
+  "launcher": {
+    "ask": "Ask AI",
+    "ask_incognito": "Ask AI incognito",
+    "copy": "Copy last answer",
+    "hint_sub": "Type a question and press Enter · start with ! for incognito",
+    "hint_title": "Ask Claude…",
+    "last": "Last answer"
+  },
+  "settings": {
+    "extra_prompt": {
+      "description": "Extra instructions appended to the system prompt of launcher asks",
+      "label": "Extra prompt"
+    },
+    "max_turns": {
+      "description": "Upper bound on agent turns (web searches) per ask",
+      "label": "Max turns"
+    },
+    "model": {
+      "description": "Model used for launcher asks",
+      "label": "Model",
+      "options": {
+        "default": "Claude Code default",
+        "haiku": "Haiku",
+        "opus": "Opus",
+        "sonnet": "Sonnet"
+      }
+    },
+    "open_target": {
+      "description": "Terminal or multiplexer where Enter on the answer continues the conversation",
+      "label": "Continue in",
+      "options": {
+        "herdr": "New herdr tab",
+        "terminal": "New terminal window",
+        "tmux": "New tmux window",
+        "tuios": "New tuios window",
+        "zellij": "New zellij tab"
+      }
+    },
+    "timeout_s": {
+      "description": "Kill the ask after this many seconds",
+      "label": "Timeout (s)"
+    },
+    "tools": {
+      "description": "Tools Claude may use while answering in the launcher",
+      "label": "Tools",
+      "options": {
+        "none": "None",
+        "web": "Web search and fetch"
+      }
+    },
+    "workdir": {
+      "description": "Working directory for asks and resumed sessions",
+      "label": "Working directory"
+    }
+  },
+  "warn": {
+    "workdir": "workdir missing, using ~"
+  }
+}

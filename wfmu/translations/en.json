@@ -1,0 +1,12 @@
+{
+  "settings": {
+    "refresh_cmd": {
+      "description": "Command that rebuilds the stream list. Leave empty to use the bundled fetcher.",
+      "label": "Refresh command"
+    },
+    "tsv_path": {
+      "description": "TSV file the plugin reads. Leave empty to keep it in the plugin's data directory.",
+      "label": "Stream list file"
+    }
+  }
+}

@@ -1,0 +1,149 @@
+id           = "gabedunn/voxtype"
+name         = "Voxtype"
+version      = "1.1.0"
+plugin_api   = 30
+author       = "Gabe Dunn"
+license      = "MIT"
+icon         = "microphone-2"
+description  = "Shows Voxtype status in the bar and an optional live audio overlay."
+dependencies = ["voxtype", "voxtype-audio-bridge", "noctalia"]
+tags         = ["audio", "bar", "indicator", "recording", "utility", "panel", "service"]
+
+# Disabled by default so existing bar-only installations keep their behavior.
+[[setting]]
+key = "osd_enabled"
+type = "bool"
+label_key = "settings.osd_enabled.label"
+description_key = "settings.osd_enabled.description"
+default = false
+
+[[service]]
+id = "osd-monitor"
+entry = "osd-service.luau"
+
+[[panel]]
+id = "osd"
+entry = "osd-panel.luau"
+width = 148
+height = 46
+position = "bottom_center"
+layer = "overlay"
+keyboard_focus = "none"
+dismiss_on_outside_click = false
+persistent = true
+
+[[widget]]
+id    = "status"
+entry = "widget.luau"
+
+  [widget.actions]
+  left  = "exec voxtype record toggle"
+  right = "exec voxtype record stop"
+
+  [[widget.setting]]
+  key             = "show_alt"
+  type            = "bool"
+  label_key       = "settings.show_alt.label"
+  description_key = "settings.show_alt.description"
+  default         = false
+
+  [[widget.setting]]
+  key             = "show_extended"
+  type            = "bool"
+  label_key       = "settings.show_extended.label"
+  description_key = "settings.show_extended.description"
+  default         = false
+
+  [[widget.setting]]
+  key             = "show_model"
+  type            = "bool"
+  label_key       = "settings.show_model.label"
+  description_key = "settings.show_model.description"
+  default         = true
+  visible_when    = { key = "show_extended", values = ["true"] }
+
+  [[widget.setting]]
+  key             = "show_device"
+  type            = "bool"
+  label_key       = "settings.show_device.label"
+  description_key = "settings.show_device.description"
+  default         = true
+  visible_when    = { key = "show_extended", values = ["true"] }
+
+  [[widget.setting]]
+  key             = "show_backend"
+  type            = "bool"
+  label_key       = "settings.show_backend.label"
+  description_key = "settings.show_backend.description"
+  default         = true
+  visible_when    = { key = "show_extended", values = ["true"] }
+
+  [[widget.setting]]
+  key             = "idle_glyph"
+  type            = "glyph"
+  label_key       = "settings.idle_glyph.label"
+  description_key = "settings.idle_glyph.description"
+  default         = "microphone-2-off"
+
+  [[widget.setting]]
+  key             = "idle_color"
+  type            = "color"
+  label_key       = "settings.idle_color.label"
+  description_key = "settings.idle_color.description"
+  default         = "on_surface"
+
+  [[widget.setting]]
+  key             = "streaming_glyph"
+  type            = "glyph"
+  label_key       = "settings.streaming_glyph.label"
+  description_key = "settings.streaming_glyph.description"
+  default         = "microphone-2"
+
+  [[widget.setting]]
+  key             = "streaming_color"
+  type            = "color"
+  label_key       = "settings.streaming_color.label"
+  description_key = "settings.streaming_color.description"
+  default         = "error"
+
+  [[widget.setting]]
+  key             = "recording_glyph"
+  type            = "glyph"
+  label_key       = "settings.recording_glyph.label"
+  description_key = "settings.recording_glyph.description"
+  default         = "microphone-2"
+
+  [[widget.setting]]
+  key             = "recording_color"
+  type            = "color"
+  label_key       = "settings.recording_color.label"
+  description_key = "settings.recording_color.description"
+  default         = "error"
+
+  [[widget.setting]]
+  key             = "transcribing_glyph"
+  type            = "glyph"
+  label_key       = "settings.transcribing_glyph.label"
+  description_key = "settings.transcribing_glyph.description"
+  default         = "loader"
+
+  [[widget.setting]]
+  key             = "transcribing_color"
+  type            = "color"
+  label_key       = "settings.transcribing_color.label"
+  description_key = "settings.transcribing_color.description"
+  default         = "primary"
+
+  [[widget.setting]]
+  key             = "stopped_glyph"
+  type            = "glyph"
+  label_key       = "settings.stopped_glyph.label"
+  description_key = "settings.stopped_glyph.description"
+  default         = "microphone-2-off"
+
+  [[widget.setting]]
+  key             = "stopped_color"
+  type            = "color"
+  label_key       = "settings.stopped_color.label"
+  description_key = "settings.stopped_color.description"
+  default         = "error"

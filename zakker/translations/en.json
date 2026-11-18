@@ -1,0 +1,44 @@
+{
+  "settings": {
+    "azkar_enabled": {
+      "description": "Include morning/evening azkar in the rotation.",
+      "label": "Azkar reminders"
+    },
+    "edition": {
+      "description": "Edition id for verse text, e.g. ar.abdulbasitmurattal.",
+      "label": "Quran edition"
+    },
+    "evening_count": {
+      "description": "How many evening azkar (18:00-04:00) each notification shows.",
+      "label": "Evening azkar per reminder"
+    },
+    "interval": {
+      "description": "Minutes between salawat / azkar notifications.",
+      "label": "Reminder interval"
+    },
+    "morning_count": {
+      "description": "How many morning azkar (04:00-18:00) each notification shows.",
+      "label": "Morning azkar per reminder"
+    },
+    "notify_on_start": {
+      "description": "Show time-aware azkar (morning/evening) when the shell starts.",
+      "label": "Greet on start"
+    },
+    "quran_enabled": {
+      "description": "Every Nth reminder is a random Quran verse from api.alquran.cloud.",
+      "label": "Quran verse reminders"
+    },
+    "quran_every": {
+      "description": "How often a Quran verse appears in the rotation.",
+      "label": "Quran every N reminders"
+    },
+    "salawat_enabled": {
+      "description": "Include salawat upon the Prophet ﷺ in the rotation.",
+      "label": "Salawat reminders"
+    },
+    "translation_edition": {
+      "description": "Extra edition appended to the verse, e.g. en.asad. Empty disables it.",
+      "label": "Translation edition"
+    }
+  }
+}

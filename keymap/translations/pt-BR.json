@@ -1,0 +1,9 @@
+{
+  "panel": {
+    "creator": {
+      "errors": {
+        "symlink_unsupported": "A configuração principal ou gerenciada é um link simbólico. O salvamento é bloqueado para preservar o link com segurança."
+      }
+    }
+  }
+}

@@ -1,0 +1,26 @@
+{
+    "version": "2.0.0",
+    "providers": {
+        "deepseek": {
+            "name": "DeepSeek",
+            "peakWindowsUtc": [["01:00", "04:00"], ["06:00", "10:00"]],
+            "weekendMode": "beijing-anchored",
+            "holidayOffPeak": true,
+            "sourceUrl": "https://api-docs.deepseek.com/quick_start/pricing/",
+            "fallbackUrls": ["https://api-docs.deepseek.com/quick_start/pricing/", "https://www.deepseek.com/en/pricing"]
+        },
+        "ollama": {
+            "name": "Ollama",
+            "peakWindowsUtc": [["12:00", "18:00"]],
+            "weekendMode": "utc",
+            "holidayOffPeak": false,
+            "sourceUrl": "https://ollama.com/pricing",
+            "fallbackUrls": ["https://ollama.com/pricing", "https://docs.ollama.com/cloud"]
+        }
+    },
+    "holidays": {
+        "2025": ["2025-01-01", "2025-01-28", "2025-01-29", "2025-01-30", "2025-01-31", "2025-02-01", "2025-02-02", "2025-02-03", "2025-02-04", "2025-04-04", "2025-04-05", "2025-04-06", "2025-05-01", "2025-05-02", "2025-05-03", "2025-05-04", "2025-05-05", "2025-05-31", "2025-06-01", "2025-06-02", "2025-10-01", "2025-10-02", "2025-10-03", "2025-10-04", "2025-10-05", "2025-10-06", "2025-10-07", "2025-10-08"],
+        "2026": ["2026-01-01", "2026-01-02", "2026-01-03", "2026-02-15", "2026-02-16", "2026-02-17", "2026-02-18", "2026-02-19", "2026-02-20", "2026-02-21", "2026-02-22", "2026-02-23", "2026-04-04", "2026-04-05", "2026-04-06", "2026-05-01", "2026-05-02", "2026-05-03", "2026-05-04", "2026-05-05", "2026-06-19", "2026-06-20", "2026-06-21", "2026-09-25", "2026-09-26", "2026-09-27", "2026-10-01", "2026-10-02", "2026-10-03", "2026-10-04", "2026-10-05", "2026-10-06", "2026-10-07"]
+    },
+    "holidaySource": "https://github.com/NateScarlet/holiday-cn (MIT) - isOffDay dates only, Beijing calendar"
+}

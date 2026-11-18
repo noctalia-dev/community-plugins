@@ -1,0 +1,6 @@
+Error: Management RPC server or client error
+
+Caused by:
+    0: transport error
+    1: error trying to connect: No such file or directory (os error 2)
+    2: No such file or directory (os error 2)

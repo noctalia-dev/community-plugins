@@ -1,0 +1,106 @@
+id = "mohammednaser28/zakker"
+name = "Zakker"
+version = "0.1.0"
+plugin_api = 22
+author = "MohammedNaser28"
+license = "MIT"
+dependencies = []
+icon = "moon"
+description = "Periodic salawat upon the Prophet and azkar reminders via shell notifications."
+tags = ["bar", "launcher", "service", "shortcut", "time"]
+
+[[setting]]
+key = "interval"
+type = "int"
+label_key = "settings.interval.label"
+description_key = "settings.interval.description"
+default = 30
+min = 1
+max = 180
+
+[[setting]]
+key = "salawat_enabled"
+type = "bool"
+label_key = "settings.salawat_enabled.label"
+description_key = "settings.salawat_enabled.description"
+default = true
+
+[[setting]]
+key = "azkar_enabled"
+type = "bool"
+label_key = "settings.azkar_enabled.label"
+description_key = "settings.azkar_enabled.description"
+default = true
+
+[[setting]]
+key = "notify_on_start"
+type = "bool"
+label_key = "settings.notify_on_start.label"
+description_key = "settings.notify_on_start.description"
+default = true
+
+[[setting]]
+key = "quran_enabled"
+type = "bool"
+label_key = "settings.quran_enabled.label"
+description_key = "settings.quran_enabled.description"
+default = true
+
+[[setting]]
+key = "quran_every"
+type = "int"
+label_key = "settings.quran_every.label"
+description_key = "settings.quran_every.description"
+default = 3
+min = 1
+max = 20
+
+[[setting]]
+key = "edition"
+type = "string"
+label_key = "settings.edition.label"
+description_key = "settings.edition.description"
+default = "ar.abdulbasitmurattal"
+
+[[setting]]
+key = "translation_edition"
+type = "string"
+label_key = "settings.translation_edition.label"
+description_key = "settings.translation_edition.description"
+default = ""
+
+[[setting]]
+key = "morning_count"
+type = "int"
+label_key = "settings.morning_count.label"
+description_key = "settings.morning_count.description"
+default = 3
+min = 1
+max = 10
+
+[[setting]]
+key = "evening_count"
+type = "int"
+label_key = "settings.evening_count.label"
+description_key = "settings.evening_count.description"
+default = 3
+min = 1
+max = 10
+
+[[service]]
+id = "remind"
+entry = "service.luau"
+
+[[widget]]
+id = "zakker"
+entry = "widget.luau"
+
+[[shortcut]]
+id = "toggle"
+entry = "shortcut.luau"
+
+[[launcher_provider]]
+id = "find"
+entry = "provider.luau"
+prefix = "zakker"
+glyph = "moon"

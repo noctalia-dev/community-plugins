@@ -1,0 +1,90 @@
+{
+  "action": {
+    "open_profile": "Open profile",
+    "refresh": "Refresh",
+    "try_again": "Try again"
+  },
+  "metric": {
+    "best_streak": "Best streak",
+    "current_streak": "Current streak",
+    "today": "Today"
+  },
+  "panel": {
+    "day_total": "{date} · {count} contributions",
+    "preparing": "Preparing interactive calendar…",
+    "title": "GitHub Activity",
+    "year_total": "{login} · {count} contributions in the last year"
+  },
+  "plugin": {
+    "description": "A native GitHub contribution calendar for your Noctalia bar.",
+    "name": "GitHub Activity"
+  },
+  "settings": {
+    "panel_content": {
+      "show_best_streak": {
+        "description": "Show the longest contribution streak below the calendar.",
+        "label": "Show best streak"
+      },
+      "show_current_streak": {
+        "description": "Show the current contribution streak below the calendar.",
+        "label": "Show current streak"
+      },
+      "show_profile_button": {
+        "description": "Show the button for opening the GitHub profile.",
+        "label": "Show profile button"
+      },
+      "show_today": {
+        "description": "Show the contribution count for today below the calendar.",
+        "label": "Show today's contributions"
+      },
+      "show_year_total": {
+        "description": "Show the annual contribution total when no calendar day is selected.",
+        "label": "Show annual total"
+      }
+    },
+    "refresh_interval": {
+      "description": "How often GitHub contribution data refreshes automatically.",
+      "label": "Refresh interval",
+      "options": {
+        "fifteen": "Every 15 minutes",
+        "sixty": "Every 60 minutes",
+        "thirty": "Every 30 minutes"
+      }
+    },
+    "widget_display_metric": {
+      "description": "Choose the contribution metric shown next to the GitHub icon.",
+      "label": "Widget metric",
+      "options": {
+        "current_streak": "Current streak",
+        "today": "Today's contributions",
+        "year_total": "Contributions in the last year"
+      }
+    },
+    "widget_display_mode": {
+      "description": "Choose whether this widget shows only the GitHub icon or also a numeric value.",
+      "label": "Widget display",
+      "options": {
+        "icon_and_value": "Icon and value",
+        "icon_only": "Icon only"
+      }
+    }
+  },
+  "status": {
+    "auth_error": "GitHub CLI needs authentication: gh auth login -h github.com",
+    "invalid_response": "GitHub returned an unexpected contribution calendar.",
+    "loading": "Loading contribution data…",
+    "missing_gh": "GitHub CLI (gh) is required to load activity.",
+    "missing_xdg_open": "xdg-open is required to open your profile.",
+    "no_data": "No contribution data is available yet.",
+    "refresh_schedule": "Last updated at {time} · Auto-refresh every {interval} min",
+    "refreshing": "Refreshing contribution data…",
+    "request_error": "GitHub Activity could not reach GitHub.",
+    "stale": "Showing cached contribution data.",
+    "unavailable": "GitHub activity is unavailable."
+  },
+  "widget": {
+    "cached": "Cached data",
+    "tooltip": "{login}\nToday: {today} contributions\nCurrent streak: {streak} days\nLast year: {total} contributions\n{freshness}\n{refresh}",
+    "up_to_date": "Up to date"
+  }
+}

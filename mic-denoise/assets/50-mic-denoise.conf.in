@@ -1,0 +1,47 @@
+# Mic Denoise - PipeWire filter-chain (RNNoise)
+#
+# Installed by the goldesquemoon/mic-denoise Noctalia plugin. Exposes the virtual
+# source @SOURCE@ that carries the denoised microphone. The capture side is pinned
+# to the physical microphone so switching the default source to @SOURCE@ cannot
+# create a feedback loop.
+#
+# Requires: pipewire >= 1.0 and noise-suppression-for-voice (LADSPA plugin).
+context.modules = [
+{   name = libpipewire-module-filter-chain
+    flags = [ nofail ]
+    args = {
+        node.description =  "Mic Denoise (RNNoise)"
+        media.name =  "Mic Denoise (RNNoise)"
+        filter.graph = {
+            nodes = [
+                {
+                    type   = ladspa
+                    name   = rnnoise
+                    plugin = librnnoise_ladspa
+                    label  = noise_suppressor_mono
+                    control = {
+                        "VAD Threshold (%)"     = 87.0
+                        "VAD Grace Period (ms)" = 200
+                        "Dry Mix"               = 0.0
+                    }
+                }
+            ]
+        }
+        capture.props = {
+            node.name    = "capture.rnnoise_source"
+            node.passive = true
+            node.target  = "@TARGET@"
+            audio.rate   = 48000
+            node.latency = 1024/48000
+        }
+        playback.props = {
+            node.name        = "@SOURCE@"
+            node.description = "Mic Denoise (RNNoise)"
+            media.class      = Audio/Source
+            audio.rate       = 48000
+            node.latency     = 1024/48000
+            priority.session = 2000
+        }
+    }
+}
+]

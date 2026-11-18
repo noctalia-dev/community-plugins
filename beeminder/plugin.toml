@@ -1,0 +1,93 @@
+id = "giodamelio/beeminder"
+name = "Beeminder"
+version = "1.0.0"
+plugin_api = 24
+author = "giodamelio"
+license = "MIT"
+icon = "hexagons"
+description = "Your Beeminder goals in the bar, with a bee that changes color as deadlines approach."
+tags = ["bar", "panel", "service", "productivity", "indicator"]
+dependencies = ["xdg-open"]
+
+[[setting]]
+key = "auth_token"
+type = "string"
+label_key = "settings.auth_token.label"
+description_key = "settings.auth_token.description"
+default = ""
+
+[[setting]]
+key = "refresh_minutes"
+type = "int"
+label_key = "settings.refresh_minutes.label"
+description_key = "settings.refresh_minutes.description"
+default = 5
+min = 1
+max = 120
+
+[[setting]]
+key = "ignored_goals"
+type = "string_list"
+label_key = "settings.ignored_goals.label"
+description_key = "settings.ignored_goals.description"
+default = []
+
+# One poller feeds every capsule and both panels, so extra bar instances cost no extra API calls.
+[[service]]
+id = "poller"
+entry = "service.luau"
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+[[widget.setting]]
+key = "bar_text"
+type = "select"
+label_key = "settings.bar_text.label"
+description_key = "settings.bar_text.description"
+default = "next_goal_countdown"
+options = [
+  { value = "next_goal_countdown", label_key = "settings.bar_text.option.next_goal_countdown" },
+  { value = "next_goal_requirement", label_key = "settings.bar_text.option.next_goal_requirement" },
+  { value = "countdown", label_key = "settings.bar_text.option.countdown" },
+  { value = "beemergencies", label_key = "settings.bar_text.option.beemergencies" },
+  { value = "at_risk", label_key = "settings.bar_text.option.at_risk" },
+  { value = "min_buffer", label_key = "settings.bar_text.option.min_buffer" },
+  { value = "none", label_key = "settings.bar_text.option.none" },
+]
+
+[[widget.setting]]
+key = "show_bee"
+type = "bool"
+label_key = "settings.show_bee.label"
+description_key = "settings.show_bee.description"
+default = true
+
+[[widget.setting]]
+key = "quiet_until_due"
+type = "bool"
+label_key = "settings.quiet_until_due.label"
+description_key = "settings.quiet_until_due.description"
+default = false
+
+[[panel]]
+id = "goals"
+entry = "goals.luau"
+width = 420
+# Header plus five goal rows; longer lists scroll.
+height = 320
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "menu"
+entry = "menu.luau"
+width = 220
+height = 150
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true

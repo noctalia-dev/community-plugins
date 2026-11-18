@@ -1,0 +1,11 @@
+#!/bin/sh
+# Nautilus script: sends the selected files and folders with LocalSend Plus.
+# Nautilus lists their local paths one per line, which is what `send` takes;
+# the list is empty when anything selected is not a local file. The number
+# of selected files goes first, counted in the URI list, where a line break
+# in a name is encoded, so the plugin can refuse a name that would otherwise
+# read as two paths.
+[ -n "$NAUTILUS_SCRIPT_SELECTED_FILE_PATHS" ] || exit 0
+count=$(printf '%s' "$NAUTILUS_SCRIPT_SELECTED_URIS" | wc -l)
+exec noctalia msg plugin 0rgl/localsend-plus:service all send "$count
+$NAUTILUS_SCRIPT_SELECTED_FILE_PATHS"

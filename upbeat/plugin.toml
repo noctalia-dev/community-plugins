@@ -1,0 +1,36 @@
+id = "neuro/upbeat"
+name = "Upbeat"
+version = "1.0.1"
+plugin_api = 3
+author = "neuro"
+license = "MIT"
+dependencies = []
+icon = "at"
+deprecated = false
+description = "A bar widget that displays Swatch Internet (.beat) Time"
+tags = ["fun", "clock", "utility", "time"]
+
+[[widget]]
+id = "upbeat"
+entry = "upbeat.luau"
+
+[[widget.setting]]
+key = "show_centibeats"
+type = "bool"
+label_key = "settings.show_centibeats.label"
+default = true
+description_key = "settings.show_centibeats.description"
+
+[[widget.setting]]
+key = "beat_display"
+type = "bool"
+label_key = "settings.beat_display.label"
+default = false
+description_key = "settings.beat_display.description"
+
+[[widget.setting]]
+key = "time_format_toggle"
+type = "bool"
+label_key = "settings.time_format_toggle.label"
+default = false
+description_key = "settings.time_format_toggle.description"

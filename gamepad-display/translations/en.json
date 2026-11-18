@@ -1,0 +1,132 @@
+{
+  "actions": {
+    "open_ds4u": "Open ds4u controller settings"
+  },
+  "inputs": {
+    "hint": "Plug in USB or pair over Bluetooth",
+    "waiting": "Waiting for controller"
+  },
+  "notification": {
+    "low": {
+      "body": "{pct}% left — plug it in",
+      "title": "DualSense battery low"
+    },
+    "python": {
+      "body": "Install python3 so the battery daemon can read the controller.",
+      "title": "DualSense widget needs Python 3"
+    }
+  },
+  "settings": {
+    "accent_color": {
+      "description": "Colour of the stick dots, trigger bars and pressed highlights.",
+      "label": "Accent colour"
+    },
+    "battery_color_mode": {
+      "description": "Use the active ds4u lightbar colour, the controller's connection colours, or a custom fill colour.",
+      "label": "Battery fill colour",
+      "option": {
+        "connection": "Connection colours",
+        "custom": "Custom colour",
+        "lightbar": "ds4u lightbar colour"
+      }
+    },
+    "battery_fill_color": {
+      "description": "Battery fill colour when 'Custom colour' is selected. Low battery still uses the low-battery colour.",
+      "label": "Custom fill colour"
+    },
+    "battery_fill_opacity": {
+      "description": "Battery fill opacity, from 0 (transparent) to 1 (solid). Applies in all colour modes.",
+      "label": "Battery fill opacity"
+    },
+    "battery_low_color": {
+      "description": "Battery fill, percentage and warning marker colour when the battery is low.",
+      "label": "Low battery colour"
+    },
+    "controller_body_color": {
+      "description": "Fill colour of the DualSense controller drawing's body.",
+      "label": "Controller body colour"
+    },
+    "controller_body_opacity": {
+      "description": "Opacity of the controller body fill, from 0 (transparent line art) to 1 (solid).",
+      "label": "Controller body opacity"
+    },
+    "controller_stroke_width": {
+      "description": "Thickness of the controller outline and touchpad/button edges (0.5–8).",
+      "label": "Controller outline thickness"
+    },
+    "illustration_color": {
+      "description": "Line-art colour for the DualSense controller drawing.",
+      "label": "Controller line colour"
+    },
+    "inputs_muted_text_color": {
+      "description": "Colour of the small labels, unpressed buttons and hints.",
+      "label": "Muted text colour"
+    },
+    "inputs_text_color": {
+      "description": "Colour of the card's title and labels.",
+      "label": "Text colour"
+    },
+    "low_threshold": {
+      "description": "Show the low-battery state and send the notification at or below this percentage.",
+      "label": "Low battery threshold"
+    },
+    "muted_text_color": {
+      "description": "Percentage sign, profile label, model badge and inactive player LEDs. Accepts a hex colour or palette role.",
+      "label": "Secondary text colour"
+    },
+    "notify_low": {
+      "description": "Send a desktop notification when the battery first drops to the threshold.",
+      "label": "Low battery notification"
+    },
+    "profile_settings_opacity": {
+      "description": "Opacity of the ds4u settings button background. The cog icon remains fully opaque.",
+      "label": "Profile settings background opacity"
+    },
+    "show_battery": {
+      "description": "Show the battery percentage and charging glyph in the header.",
+      "label": "Show battery in header"
+    },
+    "show_model_badge": {
+      "description": "Show a 'DualSense Edge' label when a DualSense Edge (054c:0df2) controller is connected.",
+      "label": "Show DualSense Edge badge"
+    },
+    "show_player_leds": {
+      "description": "Show the 5-segment DualSense player indicator LED bar under the controller.",
+      "label": "Show player indicator LEDs"
+    },
+    "show_profile": {
+      "description": "Show the active ds4u profile dropdown and lightbar swatch for direct profile selection.",
+      "label": "Show ds4u profile"
+    },
+    "text_color": {
+      "description": "Percentage, status text and active player LEDs. Accepts a hex colour or palette role.",
+      "label": "Text colour"
+    },
+    "vertical_layout": {
+      "label": "Vertical layout",
+      "description": "Stack the triggers above L1/R1 and the sticks below the face buttons instead of the wide side-by-side layout."
+    },
+    "display_mode": {
+      "label": "Display mode",
+      "description": "Battery only: header and artwork. Compact: lit buttons on the artwork. Full: complete input display.",
+      "option": {
+        "battery": "Battery only",
+        "compact": "Compact",
+        "full": "Full"
+      }
+    }
+  },
+  "status": {
+    "charging_cable": "Charging · cable",
+    "charging_usb": "Charging · USB-C",
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "full": "Full · plugged in",
+    "low": "Low — plug in",
+    "model_ds4": "DualShock 4",
+    "model_edge": "DualSense Edge",
+    "no_python": "Python 3 not found",
+    "waiting": "Waiting for controller"
+  },
+  "title": "DualSense"
+}

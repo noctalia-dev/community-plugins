@@ -1,0 +1,3 @@
+python-socketio[client]>=5
+websocket-client>=1.6
+requests>=2.31

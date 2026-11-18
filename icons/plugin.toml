@@ -1,0 +1,53 @@
+id = "vn1k/icons"
+name = "Icons"
+version = "1.0.0"
+# The highest level any entry uses: the surface_container/outline_variant
+# color roles are 43, require() of shared.luau 22, the
+# uninstall hook (service-lifecycle) 17.
+plugin_api = 43
+author = "Vn1k"
+license = "MIT"
+icon = "icons"
+description = "Pick, preview and install icon themes, browse gnome-look.org, and recolor Papirus folders."
+tags = ["panel", "shortcut", "theming", "utility"]
+
+# bin/iconmgr.py does every lookup, write and download, with the standard
+# library only: the host renders the SVG icons the panel shows, so no image
+# toolkit is needed. zenity is only for the two "Install from disk" pickers.
+dependencies = ["python3", "zenity"]
+
+# Searched on top of ~/.local/share/icons, ~/.icons and $XDG_DATA_DIRS/icons.
+[[setting]]
+key = "icon_dirs"
+type = "string_list"
+label_key = "settings.icon_dirs.label"
+description_key = "settings.icon_dirs.description"
+default = []
+
+[[panel]]
+id = "manager"
+entry = "panel.luau"
+width = 820
+height = 640
+placement = "attached"
+position = "auto"
+dismiss_on_outside_click = true
+# Opened from the bar widget, drop the panel under it; from the control-centre
+# tile it still follows `position`.
+open_near_click = true
+
+[[shortcut]]
+id = "shortcut"
+entry = "shortcut.luau"
+
+# Makes the plugin addable from the bar's widget picker, which lists only
+# [[widget]] entries.
+[[widget]]
+id = "widget"
+entry = "widget.luau"
+
+# Headless: resets the icon theme when the plugin is removed (onExit
+# "uninstall"). Runs nothing otherwise.
+[[service]]
+id = "lifecycle"
+entry = "service.luau"

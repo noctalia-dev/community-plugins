@@ -1,0 +1,8 @@
+{
+  "luau-lsp.platform.type": "standard",
+  "luau-lsp.sourcemap.enabled": false,
+  "luau-lsp.types.definitionFiles": {
+    "noctalia": "noctalia.d.luau"
+  },
+  "luau-lsp.ignoreGlobs": ["**/*.d.luau"]
+}

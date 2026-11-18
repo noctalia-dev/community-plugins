@@ -1,0 +1,53 @@
+id = "pk/geoip-monitor"
+name = "GeoIP Monitor"
+version = "1.2.4"
+plugin_api = 9
+author = "pk"
+license = "MIT"
+icon = "globe"
+tags = ["bar", "network", "utility"]
+dependencies = ["curl"]
+description = "Reports geographical location based on external ip in the bar"
+
+[[widget]]
+id = "status"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "show_ip"
+  type = "bool"
+  label_key = "settings.show_ip.label"
+  default = true
+
+  [[widget.setting]]
+  key = "show_city"
+  type = "bool"
+  label_key = "settings.show_city.label"
+  default = true
+
+  [[widget.setting]]
+  key = "show_state"
+  type = "bool"
+  label_key = "settings.show_state.label"
+  default = true
+
+  [[widget.setting]]
+  key = "show_icon"
+  type = "bool"
+  label_key = "settings.show_icon.label"
+  default = true
+
+  [[widget.setting]]
+  key = "separator"
+  type = "string"
+  label_key = "settings.separator.label"
+  default = " | "
+
+  [[widget.setting]]
+  key = "interval"
+  type = "int"
+  label_key = "settings.interval.label"
+  default = 5
+  min = 1
+  max = 3600
+  step = 1

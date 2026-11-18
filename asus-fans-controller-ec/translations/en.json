@@ -1,0 +1,78 @@
+{
+  "error": {
+    "command_start": "Noctalia could not start asus-fan-control-ec.",
+    "curve_apply": "The fan curve could not be applied.",
+    "curve_save": "The fan curve could not be saved.",
+    "missing_dependency": "asus-fan-control-ec was not found on PATH.",
+    "read_failed": "Fan speeds could not be read. Check privileges and hardware support.",
+    "write_failed": "Fan speed could not be changed. Check sudo privileges."
+  },
+  "panel": {
+    "all_fans": "All fans",
+    "close": "Close",
+    "curve": {
+      "add_point": "Add point",
+      "empty": "No curve points are available.",
+      "remove_point": "Remove point",
+      "selected": "Point {index}: {temp}°C → {percent}%",
+      "speed": "Fan speed",
+      "temperature": "From temperature"
+    },
+    "fan_label": "Fan {fan}",
+    "fan_speed": "Fan {fan}: {rpm}",
+    "fan_speed_temp": "Fan {fan}: {rpm} · {temp}",
+    "max_temp": "Peak temperature: {temp}°C",
+    "mode": {
+      "auto": "BIOS",
+      "auto_help": "The embedded controller manages fan speeds. No plugin writes are sent.",
+      "curve": "Curve",
+      "curve_help": "The saved curve is applied every few seconds while this mode is active.",
+      "manual": "Manual",
+      "manual_help": "Fixed duty with sliders. Per-fan sliders use --fan; EC manual mode stays global."
+    },
+    "refresh": "Refresh",
+    "release_bios": "Release to BIOS",
+    "status": {
+      "auto_message": "The embedded controller manages fan speeds automatically.",
+      "auto_title": "Automatic (BIOS)",
+      "busy_message": "Applying a fan speed change…",
+      "busy_title": "Working",
+      "curve_message": "The saved curve is driving fan duty from temperature.",
+      "curve_title": "Fan curve",
+      "manual_message": "Manual mode is active. Sliders control fan duty.",
+      "manual_title": "Manual control",
+      "unavailable_message": "Install asus-fan-control-ec and configure passwordless sudo.",
+      "unavailable_title": "Unavailable"
+    },
+    "sync_fans": "Synchronize fan speeds",
+    "temp_board": "Board {temp}°C",
+    "temp_cpu": "CPU {temp}°C"
+  },
+  "settings": {
+    "poll_interval": {
+      "description": "How often fan speeds are refreshed, in milliseconds.",
+      "label": "Poll interval"
+    },
+    "privilege_command": {
+      "description": "Prefix for asus-fan-control-ec commands. Use sudo -n with a NOPASSWD rule, or pkexec.",
+      "label": "Privilege command"
+    },
+    "show_label": {
+      "label": "Show label"
+    }
+  },
+  "title": "Asus Fans Controler EC",
+  "tooltip": {
+    "auto": "BIOS control · {rpm} RPM total{temp} · click for panel · right-click to refresh",
+    "busy": "Changing fan speed…",
+    "curve": "Fan curve · {rpm} RPM total{temp} · click for panel",
+    "manual": "Manual · {percent}% · {rpm} RPM total{temp} · click for panel",
+    "unavailable": "asus-fan-control-ec is not available"
+  },
+  "widget": {
+    "auto": "Auto",
+    "curve": "Curve",
+    "manual": "Manual",
+    "unavailable": "N/A"
+  }
+}

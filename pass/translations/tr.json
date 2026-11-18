@@ -1,0 +1,14 @@
+{
+  "notification": {
+    "copied": "Şifre kopyalandı.",
+    "copy_failed": "Şifre kopyalanamadı.",
+    "store_not_found": "Şifre deposu bulunamadı.",
+    "unlocking": "GPG anahtarı açılıyor…"
+  },
+  "settings": {
+    "refresh_interval": {
+      "description": "Saniye cinsinden ne aralıkla şifre deposunun taranacağı.",
+      "label": "Yenileme aralığı (saniye)"
+    }
+  }
+}

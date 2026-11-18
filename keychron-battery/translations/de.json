@@ -1,0 +1,50 @@
+{
+  "bar": {
+    "no_value": "Kein Akkustand",
+    "no_value_hint": "Die Maus ist aus oder schläft, oder der Empfänger gibt nichts weiter. Oft hilft es, den Empfänger neu einzustecken."
+  },
+  "connection": {
+    "bluetooth": "Bluetooth",
+    "receiver": "Empfänger / Kabel"
+  },
+  "errors": {
+    "upower": "UPower ist nicht erreichbar (upower --dump schlug fehl)"
+  },
+  "kind": {
+    "mouse": "Keychron-Maus"
+  },
+  "notify": {
+    "critical_body": "{name} hat nur noch {level} %. Bitte jetzt laden.",
+    "critical_title": "{name}: Akku fast leer",
+    "low_body": "{name} hat noch {level} %.",
+    "low_title": "{name}: Akku schwach"
+  },
+  "panel": {
+    "charging": "lädt",
+    "hint_mouse_off": "Kein aktueller Akkustand (Maus aus oder im Schlafmodus).",
+    "none": "Keine Keychron-Maus gefunden. Für Empfänger und Kabel muss das Kernelmodul keychron-battery geladen sein.",
+    "title": "Keychron-Maus"
+  },
+  "settings": {
+    "critical_threshold": {
+      "description": "Unter diesem Wert kommt eine zweite, dringende Benachrichtigung.",
+      "label": "Kritische Schwelle (%)"
+    },
+    "low_threshold": {
+      "description": "Ab diesem Akkustand meldet sich die Maus per Benachrichtigung und der Wert in der Leiste wird rot.",
+      "label": "Benachrichtigen ab (%)"
+    },
+    "mouse_name": {
+      "description": "Angezeigter Name. Leer lassen, um den Modellnamen aus UPower zu nehmen; der kann allgemein sein (zum Beispiel „Keychron Ultra-Link 8K“).",
+      "label": "Name der Maus"
+    },
+    "notify": {
+      "description": "Einmal pro Entladung bei schwachem und bei kritischem Akku.",
+      "label": "Benachrichtigungen"
+    },
+    "poll_interval": {
+      "description": "Wie oft UPower abgefragt wird. Das Kernelmodul selbst aktualisiert alle 5 Minuten.",
+      "label": "Abfrageintervall (Sekunden)"
+    }
+  }
+}

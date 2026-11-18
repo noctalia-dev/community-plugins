@@ -1,0 +1,180 @@
+{
+  "cause": {
+    "bright": "very bright",
+    "dynamic": "changing content",
+    "horizontal": "horizontal edge",
+    "outside": "outside the bar",
+    "static": "static detail",
+    "wide": "wide solid fill"
+  },
+  "hint": {
+    "bright": "Very bright pixels wear fastest. Dim this colour or use a thinner font weight.",
+    "dynamic": "This content changes often, so the estimate drops as sampling continues.",
+    "horizontal": "Horizontal shifting never blurs horizontal edges. Allow vertical shift, or soften the edge.",
+    "outside": "Not part of the bar, for example a window border. Pixel Shift cannot move it.",
+    "static": "Stays put even with shifting. A wider range for this group helps.",
+    "wide": "Shifting cannot blur a solid fill this wide. Lower its opacity or use an outline style."
+  },
+  "hotspot": {
+    "level": {
+      "high": "high",
+      "low": "low",
+      "medium": "medium"
+    },
+    "side": {
+      "center": "Center group",
+      "left": "Left group",
+      "right": "Right group"
+    }
+  },
+  "lab": {
+    "allow_vertical": "Allow vertical shift",
+    "allow_vertical_note": "Moves the bar 1–2 px up and down. It blinks briefly every 30 min; windows keep their size.",
+    "anchored": "The {widget} widget is anchored, so the center group cannot move. Set anchor = false on it to let Pixel Shift shift the center.",
+    "apply": "Apply to bar",
+    "approximate": "The measurement was noisy, so these results are approximate. Check the spacer placement, then measure again.",
+    "auto": "Auto",
+    "best_so_far": "best so far {score}",
+    "calm": "Calm",
+    "cancel": "Cancel",
+    "chip_px": "{slot} ≤ {px} px",
+    "chip_vertical": "Vertical ±{px} px",
+    "close": "Close",
+    "curve_h": "horizontal only",
+    "curve_title": "Risk for each amount of movement",
+    "curve_v": "with vertical shift",
+    "discard": "Discard",
+    "error": "Measuring failed: {message}",
+    "exposure": {
+      "count": {
+        "one": "{count} sample",
+        "other": "{count} samples"
+      },
+      "first": "1 sample so far",
+      "none": "no samples yet",
+      "span": {
+        "one": "{count} sample · {hours} h",
+        "other": "{count} samples · {hours} h"
+      }
+    },
+    "glow_legend": "glow = where a ghost would form",
+    "hint_vertical": "Allow vertical shift",
+    "hotspots": "Hotspots",
+    "inspect_center": "Bar centre",
+    "inspect_title": "Hotspot {n} · {side}",
+    "live": "Live on {output} since {time}",
+    "manual": "Manual",
+    "manual_vertical": "Vertical",
+    "max": "Max protection",
+    "measure_again": "Measure again",
+    "mode": {
+      "none": "No shift",
+      "strategy": "With strategy"
+    },
+    "movement": "Movement per spacer · 1 px every {minutes} min",
+    "moves_nothing": {
+      "one": "One spacer moves nothing. Spacers move widgets only from the outer edge of a section: first in the start section, first or last in the center, last in the end section.",
+      "other": "{count} spacers move nothing. Spacers move widgets only from the outer edge of a section: first in the start section, first or last in the center, last in the end section."
+    },
+    "no_grim": "grim is not installed. Pixel Shift needs it to measure the bar.",
+    "no_hotspots": "No hotspots left. The strongest remaining spot reaches {worst} of 100.",
+    "not_optimized": "Not optimized yet",
+    "onboarding": {
+      "body": "Spacers are invisible widgets. Pixel Shift changes their width over the day, which moves the widgets next to them by a few pixels.",
+      "open_settings": "Open bar settings",
+      "steps": "1. Open the bar settings and add the **Pixel Shift** spacer widget.\n2. Put one at the **start of the left section**, one at the **end of the right section**, and one on **each side of the center section**.\n3. Come back here: Pixel Shift measures the bar and finds the best strategy by itself.",
+      "title": "Add Pixel Shift spacers to your bar"
+    },
+    "optimized": "Optimized {time} · {count} strategies · {seconds} s",
+    "optimizing": "Optimizing… {percent}%",
+    "optimizing_note": "Runs in small slices between frames, so the shell stays responsive.",
+    "overview": "Whole bar",
+    "paused": "Paused: the bar is not shifting.",
+    "pick_names": {
+      "balanced": "Balanced",
+      "calm": "Calm",
+      "max": "Maximum",
+      "strong": "Strong"
+    },
+    "pick_note": "At {px} px the risk drops to {score} (no shift: {none}). {more} px more would save only {save}.",
+    "pick_note_flat": "At {px} px the risk drops to {score} (no shift: {none}); more movement would not lower it.",
+    "pick_note_last": "At {px} px, the most movement allowed, the risk drops to {score} (no shift: {none}).",
+    "pick_note_tail": "Re-optimizes when the bar changes and every night.",
+    "pick_title": "{name} protection · {px} px",
+    "pick_title_v": "{name} protection · {px} px · ±{v} px vertical",
+    "placement": {
+      "center": "Make {widget} the first or last item of the bar's center section.",
+      "end": "Make {widget} the last item of the bar's end section, or it cannot move anything.",
+      "start": "Make {widget} the first item of the bar's start section, or it cannot move anything."
+    },
+    "preview": "Preview · not applied",
+    "reoptimize": "Optimize again",
+    "rescan": "Measure the bar again",
+    "resume": "Resume",
+    "revert": "Undo last apply",
+    "revert_tip": "Back to the strategy that was live before",
+    "risk_title": "Visible burn-in risk",
+    "scale_end": "100 = a white line that never moves",
+    "scale_start": "0 · safe",
+    "scanning": "Measuring the bar. It twitches for a moment.",
+    "spot_change": "peak {a} → {b}",
+    "spot_meta": "{side} · {x0}–{x1} px · peak {peak} of 100",
+    "starting": "Starting…",
+    "strategy": "Strategy",
+    "strip_none": "No shift",
+    "strip_strategy": "With strategy",
+    "strongest_first": "strongest first",
+    "title": "Burn-in Lab",
+    "updating": "updating…",
+    "vertical_error": "Vertical shift had no effect (a GUI setting overrides it) and was turned off.",
+    "view": {
+      "bar": "Bar",
+      "ghost": "Ghost",
+      "risk": "Risk"
+    },
+    "view_note": {
+      "bar": "Your bar as captured",
+      "ghost": "What it would leave on a grey screen",
+      "risk": "Where the wear concentrates"
+    },
+    "waiting": "Waiting for the first measurement…",
+    "with_strategy": "with strategy",
+    "without_shift": "{value} without shifting",
+    "zoom": "{zoom}× zoom"
+  },
+  "settings": {
+    "max_shift": {
+      "description": "Upper limit for how far any group may move.",
+      "label": "Maximum shift (px)"
+    },
+    "panel_profile": {
+      "description": "Which OLED technology your screen uses. Changes how much each colour channel wears.",
+      "label": "Panel type",
+      "options": {
+        "generic": "Generic OLED (blue wears fastest)",
+        "qdoled": "QD-OLED (Samsung panels)",
+        "woled": "WOLED (LG panels)"
+      }
+    },
+    "sample_minutes": {
+      "description": "How often the bar is captured to learn what it shows over the day.",
+      "label": "Sampling interval (minutes)"
+    },
+    "step_minutes": {
+      "description": "Time between 1 px moves. Spacers use slightly different multiples so they never move in step.",
+      "label": "Step time (minutes)"
+    }
+  },
+  "slot": {
+    "center": "Center",
+    "center_l": "Center left",
+    "center_r": "Center right",
+    "left": "Left",
+    "right": "Right",
+    "unknown": "Spacer"
+  },
+  "toggle": {
+    "off": "Pixel Shift paused",
+    "on": "Pixel Shift"
+  }
+}

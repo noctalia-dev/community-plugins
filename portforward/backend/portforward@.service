@@ -1,0 +1,17 @@
+[Unit]
+Description=SSH forwarding profile %i
+StartLimitIntervalSec=0
+
+[Service]
+Type=notify
+NotifyAccess=main
+ExecStart=@LAUNCHER@ _run %i
+EnvironmentFile=-%t/portforward-manager/agent-%i.env
+Restart=always
+RestartSec=5
+RestartPreventExitStatus=78
+TimeoutStartSec=25
+TimeoutStopSec=10
+KillMode=control-group
+UMask=0077
+Environment=LC_ALL=C

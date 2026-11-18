@@ -1,0 +1,452 @@
+{
+  "actions": {
+    "close": "Close",
+    "less_details": "Show less",
+    "less_windows": "Show fewer windows",
+    "more_details": "Account details",
+    "more_windows": "Show all {count} windows",
+    "next": "Next",
+    "previous": "Previous",
+    "refresh": "Read the latest Hub snapshot (does not run provider collection)",
+    "settings": "Plugin settings"
+  },
+  "analytics": {
+    "active_time": "Active time",
+    "all_time_sessions": "The Hub HTTP API does not provide all-time sessions. Select today or this month.",
+    "archived": "Archived session",
+    "attribution_empty": "No attribution detail is available.",
+    "attribution_truncated": "Model attribution detail was limited locally; the model count includes additional records.",
+    "bucket_boundary": "Recorded aggregates. Missing dates are unknown, not zero usage.",
+    "bucket_details": "Model and client details",
+    "cache_read": "Cache read tokens",
+    "cache_write": "Cache write tokens",
+    "client_breakdown": "Client breakdown",
+    "client_session": "{client} session",
+    "context_tokens": "Context tokens",
+    "context_unavailable": "Context usage is unavailable.",
+    "context_window": "Context window",
+    "cost": "Cost (USD)",
+    "daily_heatmap_monthly_list": "The heatmap shows daily records; the list below shows monthly totals.",
+    "day_unavailable": "No record for this day. Usage is unknown.",
+    "details": "Session details",
+    "graph_range": "Latest {count} recorded points (up to 30): {first} – {last}. Values are scaled from zero to the peak.",
+    "history_cached": "Showing cached history.",
+    "history_empty": "No recorded history.",
+    "history_error": "History could not be refreshed.",
+    "history_heading": "Recorded history",
+    "input": "Input tokens",
+    "last_used": "Last used",
+    "less": "Less detail",
+    "local_truncated": "This list was limited locally; totals may include additional records.",
+    "messages": "Messages",
+    "model_breakdown": "Model breakdown",
+    "model_count": "Models",
+    "model_details": "Token components",
+    "models_empty": "No models in this period.",
+    "more_attribution": "{count} additional entries are not shown.",
+    "more_models": "{count} additional models are not shown.",
+    "output": "Output tokens",
+    "peak_cost": "Peak cost (USD)",
+    "peak_tokens": "Peak tokens",
+    "private_session": "Session {index}",
+    "project": "Project",
+    "reasoning": "Reasoning tokens",
+    "recorded_buckets": "Recorded points",
+    "recorded_days": "Recorded days in order; spacing does not represent elapsed time.",
+    "recorded_months": "Recorded months in order; spacing does not represent elapsed time.",
+    "selected_day": "Selected day",
+    "session_id": "Session ID",
+    "session_period": "Tokens and cost cover the selected period. Session timestamps do not split these counters.",
+    "sessions_empty": "No sessions in this period.",
+    "sessions_omitted": "The Hub omitted {count} session details.",
+    "sessions_unavailable": "Session detail is unavailable.",
+    "share_unavailable": "Share unavailable",
+    "single_point": "One recorded point; see its exact value below.",
+    "source_attribution_truncated": "The Hub attribution list was limited locally; aggregate totals include additional records.",
+    "started": "Started",
+    "stats_unavailable": "Usage detail is unavailable.",
+    "token_share": "of period tokens",
+    "tokens": "Tokens",
+    "turn_ended": "Last turn ended",
+    "unknown_client": "Unknown client",
+    "unpriced": "Cost excludes {count} unpriced tokens."
+  },
+  "app": {
+    "subtitle": "Quotas, usage and activity",
+    "title": "Token Monitor"
+  },
+  "balance": {
+    "all_time_spend": "All-time spend",
+    "amount": "Balance",
+    "cash_balance": "Cash balance",
+    "credits_expire": "Credits expire (local)",
+    "expires_at": "Expires (local)",
+    "gift_balance": "Gift balance",
+    "month_spend": "Month’s spend",
+    "partial_month": "This month covers tracked days only.",
+    "plan": "Plan",
+    "plan_limit": "Plan limit",
+    "plan_percent": "Plan usage",
+    "plan_status": "Plan status",
+    "plan_used": "Plan used",
+    "request_count": "Requests",
+    "today_spend": "Today’s spend",
+    "week_spend": "Week’s spend"
+  },
+  "bar": {
+    "actions": "Actions",
+    "gestures": "Left click: open panel · Right click: refresh",
+    "no_account": "Account {index} is unavailable for this provider",
+    "scope": "Selected provider, account and quota window. Percentages are labelled as remaining or used."
+  },
+  "common": {
+    "accounts": "Accounts for this provider",
+    "cache_warning": "The local cache could not be read or saved.",
+    "cached": "Cached data",
+    "collected": "Collected by provider",
+    "data": "Data",
+    "error": "Error",
+    "never": "Never",
+    "private_account": "Account {index}",
+    "received": "Last received from Hub",
+    "resets": "Resets",
+    "stale": "Stale data",
+    "status": "Status",
+    "unavailable": "—",
+    "unnamed_account": "Unnamed account",
+    "warning": "Warning"
+  },
+  "connection": {
+    "address": "Hub address",
+    "address_missing": "Set the Hub address in Connection settings.",
+    "back": "Open dashboard",
+    "check_credentials_invalid": "Invalid credentials",
+    "check_credentials_unreadable": "File unavailable",
+    "check_failed": "Needs attention",
+    "check_http": "HTTP error",
+    "check_invalid_response": "Unsupported data",
+    "check_invalid_url": "Invalid address",
+    "check_network": "Unreachable",
+    "check_ok": "Available",
+    "check_pending": "Checking",
+    "check_processing_error": "Processing interrupted",
+    "check_request_rejected": "Request rejected",
+    "check_too_large": "Response too large",
+    "check_unauthorized": "Authentication failed",
+    "checked": "Last check · {time}",
+    "discovery_disabled": "Automatic lookup is off. Choose a file if the Hub requires authentication.",
+    "discovery_invalid": "Local credentials contain no usable Hub secret. Start Host mode or choose a file.",
+    "discovery_not_found": "No local Hub credentials found. Start Host mode, then test again.",
+    "discovery_remote": "Remote Hub: choose its credentials file in Connection settings.",
+    "discovery_searching": "Looking for Token Monitor’s local credentials…",
+    "discovery_unreadable": "Local credentials could not be read. Choose an accessible credentials file.",
+    "hint_checking": "Reading fresh data from both Hub endpoints.",
+    "hint_empty": "Connected successfully. No quota accounts were returned; configure them in Token Monitor.",
+    "hint_invalid_credentials": "The selected file needs a Hub secret or Token Monitor’s credentials.json with a host secret.",
+    "hint_invalid_url": "Enter an HTTP or HTTPS Hub address without a path, query or embedded secret.",
+    "hint_missing_credentials": "This Hub requires authentication. Enable Host mode to create its credentials, or choose the correct file.",
+    "hint_network": "Cannot reach the Hub. Keep Token Monitor running in Host mode and check its address and port.",
+    "hint_partial": "One data endpoint is unavailable. Check the Hub version; available views remain usable.",
+    "hint_processing": "Local data processing was interrupted. Try again when the desktop is less busy.",
+    "hint_ready": "Both data endpoints are available. Provider collection runs in Token Monitor.",
+    "hint_response": "The Hub did not return supported data. Check its address and Token Monitor version.",
+    "hint_unauthorized": "The Hub rejected this file’s secret. Check the selected file and Hub address, then test again.",
+    "hint_unreadable": "The selected file cannot be read. Choose an existing file accessible to Noctalia.",
+    "history": "History · activity and trends",
+    "open": "Connection guide and test",
+    "settings": "Connection settings",
+    "source_automatic": "Credentials · found automatically",
+    "source_manual": "Credentials · selected file",
+    "source_none": "Credentials · no file selected",
+    "stats": "Stats · quotas and usage",
+    "status_checking": "Checking connection…",
+    "status_error": "Connection needs attention",
+    "status_partial": "Partly connected",
+    "status_ready": "Connected",
+    "step_connect": "Let the plugin find the credentials",
+    "step_connect_detail": "On this device, keep the default address and automatic lookup on. For a custom port, remote Hub or unusual install, use Connection settings.",
+    "step_host": "Enable the Hub in Token Monitor",
+    "step_host_detail": "Settings → Sync method → Host hub on this device. Keep Token Monitor running. Local only does not expose the data this plugin reads.",
+    "subtitle": "One local connection for quotas, usage and activity.",
+    "test": "Test connection",
+    "testing": "Testing…",
+    "title": "Connect Token Monitor"
+  },
+  "dashboard_status": {
+    "error": "Hub unavailable",
+    "loading": "Reading Hub…",
+    "ready": "Connected to Hub"
+  },
+  "error": {
+    "credentials_invalid": "The Hub credentials file is invalid.",
+    "credentials_unreadable": "The Hub credentials file could not be read.",
+    "http": "The Hub returned an unsuccessful HTTP response.",
+    "invalid_response": "The Hub returned an invalid stats response.",
+    "invalid_url": "Set a valid HTTP or HTTPS Hub URL in the plugin settings.",
+    "network": "Could not reach the Hub. Check its address and connection.",
+    "processing_error": "Local data processing was interrupted. Retry the connection test.",
+    "request_rejected": "Noctalia could not start the Hub request.",
+    "too_large": "The Hub response exceeds the supported size.",
+    "unauthorized": "Hub authentication failed. Check the credentials file."
+  },
+  "heatmap": {
+    "calendar_unavailable": "Calendar date unavailable",
+    "cost": "Cost",
+    "future": "Future date",
+    "high": "High",
+    "low": "Low",
+    "messages": "Messages",
+    "missing": "No record",
+    "missing_help": "No daily record was returned for this date.",
+    "month_1": "Jan",
+    "month_10": "Oct",
+    "month_11": "Nov",
+    "month_12": "Dec",
+    "month_2": "Feb",
+    "month_3": "Mar",
+    "month_4": "Apr",
+    "month_5": "May",
+    "month_6": "Jun",
+    "month_7": "Jul",
+    "month_8": "Aug",
+    "month_9": "Sep",
+    "outside": "Outside calendar range",
+    "range": "{first} – {last} · {weeks} weeks",
+    "scale_help": "Relative intensity: four equal bands up to the visible maximum ({peak}).",
+    "title": "Activity heatmap",
+    "tokens": "Tokens",
+    "unknown": "Unknown",
+    "unknown_help": "A daily record exists, but this metric is unavailable.",
+    "unknown_short": "Unknown",
+    "weekday_1": "Mon",
+    "weekday_3": "Wed",
+    "weekday_5": "Fri",
+    "weekday_7": "Sun",
+    "weeks_13": "13 weeks",
+    "weeks_26": "26 weeks",
+    "zero": "Zero",
+    "zero_help": "A daily record explicitly reports zero for this metric."
+  },
+  "panel": {
+    "accounts": "Accounts in view",
+    "all": "All",
+    "collected": "Collected {time}",
+    "compact_accounts": "{count} accounts",
+    "compact_low": "{count} low quotas",
+    "compact_stale": "{count} stale",
+    "empty": "No provider accounts reported",
+    "filtered_empty": "No accounts for this provider",
+    "low_windows": "Low quota windows",
+    "no_windows": "No quota or balance reported",
+    "page": "{page} / {pages}",
+    "read_only": "Read-only monitor",
+    "received": "Hub read · {time} · local time",
+    "resets": "Resets {time}",
+    "source_age": "{count} sources · {stale} stale · oldest collection {age}",
+    "stale_accounts": "Stale accounts",
+    "total": "{count} accounts",
+    "unavailable": "Hub data is unavailable",
+    "waiting": "Waiting for Hub data…"
+  },
+  "period": {
+    "all_time": "All time",
+    "cost": "Cost (USD)",
+    "daily": "By day",
+    "month": "This month",
+    "monthly": "By month",
+    "today": "Today",
+    "tokens": "Tokens"
+  },
+  "pin": {
+    "account": "Pinned account",
+    "clear": "Clear pinned account",
+    "missing": "The pinned account is unavailable. Select another account or clear the pin.",
+    "save_error": "The account selection could not be saved or restored.",
+    "toggle": "Pin this account to the bar and top of the list; click again to clear"
+  },
+  "provider_status": {
+    "disabled": "Disabled",
+    "error": "Provider error",
+    "not_configured": "Not configured",
+    "ok": "Available",
+    "rate_limited": "Rate limited",
+    "source_rate_limited": "Source rate limited",
+    "unauthorized": "Authentication required",
+    "unavailable": "Unavailable",
+    "unknown": "Unknown status"
+  },
+  "quota": {
+    "balance": "available balance",
+    "low": "Low quota · {value}% remaining",
+    "remaining": "remaining",
+    "remaining_short": "left",
+    "reset_credits": "Reset credits · {count}",
+    "unavailable": "unavailable",
+    "used": "used",
+    "used_of": "Used {used} / {limit}",
+    "used_short": "used"
+  },
+  "settings": {
+    "accounts_per_page": {
+      "description": "Limit the number of account cards rendered on each page.",
+      "label": "Accounts per page"
+    },
+    "auto_discover_credentials": {
+      "description": "For a local Hub, check standard Token Monitor config paths and up to 32 folders under ~/distrobox. Never sends discovered local credentials to a remote address. A selected file overrides lookup.",
+      "label": "Find local credentials automatically"
+    },
+    "auto_refresh": {
+      "description": "Poll the Hub at the refresh interval. When off, read once at startup; manual refresh remains available.",
+      "label": "Automatic refresh"
+    },
+    "bar_account_index": {
+      "description": "Used only when no account is pinned. Pin a named account in the Quotas tab to keep its identity stable across Hub reordering.",
+      "label": "Fallback bar account number"
+    },
+    "bar_provider": {
+      "description": "Fallback provider when no account is pinned. A pinned account keeps its own provider.",
+      "label": "Bar provider",
+      "options": {
+        "antigravity": "Antigravity",
+        "codex": "Codex",
+        "deepseek": "DeepSeek"
+      }
+    },
+    "bar_show_icon": {
+      "description": "Show a provider icon beside text. Icon-only style always keeps its icon.",
+      "label": "Show bar icon"
+    },
+    "bar_style": {
+      "description": "Choose the amount of information shown in the bar.",
+      "label": "Bar style",
+      "options": {
+        "full": "Provider and value",
+        "icon": "Icon only",
+        "value": "Value only"
+      }
+    },
+    "bar_window": {
+      "description": "Choose a quota window. Lowest compares only known remaining percentages; missing windows stay unavailable.",
+      "label": "Bar quota",
+      "options": {
+        "first": "First window",
+        "lowest": "Lowest remaining percentage",
+        "session": "Session quota",
+        "weekly": "Weekly quota"
+      }
+    },
+    "credentials_file": {
+      "description": "Leave empty for automatic local lookup. A selected file always takes priority: Token Monitor credentials.json or a plain Hub secret. Required for an authenticated remote Hub.",
+      "label": "Credentials file override"
+    },
+    "details_per_page": {
+      "description": "Rows per page in Models, Sessions, Activity and Trends.",
+      "label": "Details per page"
+    },
+    "heatmap_metric": {
+      "description": "Default daily activity measure. Switch it temporarily from the Activity tab.",
+      "label": "Heatmap metric"
+    },
+    "heatmap_weeks": {
+      "description": "Show 13 or 26 calendar weeks. Missing dates stay visibly separate from recorded zero usage.",
+      "label": "Heatmap range"
+    },
+    "history_granularity": {
+      "description": "Group activity and trends by the source’s daily or monthly records.",
+      "label": "Initial history grouping"
+    },
+    "hub_url": {
+      "description": "Usually leave the local default. In Token Monitor, select Settings → Sync method → Host hub on this device. Use the host’s address and port for a remote Hub.",
+      "label": "Hub URL"
+    },
+    "initial_view": {
+      "description": "View shown when the panel opens.",
+      "label": "Initial view"
+    },
+    "panel_density": {
+      "description": "Compact cards show two windows; comfortable cards show three. Expand an account to see every window.",
+      "label": "Card density",
+      "options": {
+        "comfortable": "Comfortable",
+        "compact": "Compact"
+      }
+    },
+    "panel_provider": {
+      "description": "Provider selected whenever the panel opens. Panel chips change the filter for the current visit.",
+      "label": "Initial provider filter",
+      "options": {
+        "all": "All providers",
+        "antigravity": "Antigravity",
+        "codex": "Codex",
+        "deepseek": "DeepSeek"
+      }
+    },
+    "percentage_mode": {
+      "description": "Display remaining or used quota. Warnings always use the remaining percentage.",
+      "label": "Percentage display",
+      "options": {
+        "remaining": "Remaining quota",
+        "used": "Used quota"
+      }
+    },
+    "refresh_interval": {
+      "description": "How often to read Hub snapshots. Used only when automatic refresh is enabled; 30–3600 seconds.",
+      "label": "Refresh interval"
+    },
+    "refresh_on_open": {
+      "description": "Read the latest Hub snapshot when opening the panel. This does not trigger provider collection.",
+      "label": "Refresh on open"
+    },
+    "show_account_names": {
+      "description": "Show account labels, session titles and project labels. Turn off to hide these names and session IDs in the UI; local display caches still contain them.",
+      "label": "Show account and session names"
+    },
+    "show_collection_time": {
+      "description": "Show account collection age. Stale accounts always show their age; hover for local time.",
+      "label": "Show collection times"
+    },
+    "show_progress": {
+      "description": "Display meters for known percentages only. Balances never use percentage meters.",
+      "label": "Show quota meters"
+    },
+    "show_reset_time": {
+      "description": "Show a reset countdown. Hover the row for the local timestamp; reaching it does not prove quota was refilled.",
+      "label": "Show reset times"
+    },
+    "usage_period": {
+      "description": "Uses the producer’s calendar periods. The Hub does not expose all-time sessions; choose today or this month to view sessions.",
+      "label": "Initial usage period"
+    },
+    "warning_threshold": {
+      "description": "Warn when a known remaining percentage is at or below this value. Balances and unknown values are excluded.",
+      "label": "Low quota threshold"
+    }
+  },
+  "tabs": {
+    "activity": "Activity",
+    "models": "Models",
+    "quotas": "Quotas",
+    "sessions": "Sessions",
+    "trends": "Trends"
+  },
+  "time": {
+    "days_ago": "{days} d {hours} hr ago",
+    "duration": "{hours} hr {minutes} min",
+    "future": "in the future (check source clock)",
+    "hours_ago": "{hours} hr {minutes} min ago",
+    "just_now": "just now",
+    "less_than_minute": "in less than a minute",
+    "minutes_ago": "{count} min ago",
+    "reset_due": "reset due · awaiting update",
+    "resets_days": "in {days} d {hours} hr",
+    "resets_hours": "in {hours} hr {minutes} min",
+    "resets_minutes": "in {count} min",
+    "unknown": "Unknown time"
+  },
+  "window": {
+    "billing": "Balance",
+    "other": "Quota",
+    "session": "Session quota",
+    "weekly": "Weekly quota"
+  }
+}

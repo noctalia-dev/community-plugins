@@ -1,0 +1,28 @@
+{
+  "settings": {
+    "default_volume": {
+      "description": "mpv volume 0-100 used until changed.",
+      "label": "Default volume"
+    },
+    "max_length": {
+      "description": "Max characters of the surah name.",
+      "label": "Max name length"
+    },
+    "mpv_bin": {
+      "description": "mpv executable for headless playback.",
+      "label": "mpv binary"
+    },
+    "show_latin": {
+      "description": "Show the Latin transliteration under each ayah in the Per Ayah tab.",
+      "label": "Show transliteration"
+    },
+    "show_name": {
+      "description": "Show current surah next to the icon.",
+      "label": "Show surah name"
+    },
+    "show_translation": {
+      "description": "Show the Indonesian translation under each ayah in the Per Ayah tab.",
+      "label": "Show translation"
+    }
+  }
+}

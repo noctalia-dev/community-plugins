@@ -1,0 +1,46 @@
+{
+  "panel": {
+    "all": "All",
+    "combos": "Combos",
+    "error": {
+      "hint": "Set the .vil file in Settings -> Plugins (right-click the bar icon).",
+      "title": "Could not load keymap"
+    },
+    "hint": {
+      "all": "all",
+      "close": "close",
+      "layer": "layer",
+      "switch": "switch"
+    },
+    "title": "Keymap"
+  },
+  "settings": {
+    "alt_layout": {
+      "description": "Leave empty to use the second layout from Hyprland's input:kb_layout. Otherwise an XKB layout name such as \"ru\", \"rumac\" or \"de(neo)\".",
+      "label": "Second layout (XKB name)"
+    },
+    "alt_layout_enabled": {
+      "description": "Draw the letter each key produces in your secondary OS keyboard layout (e.g. Russian) in the top corner of the cap.",
+      "label": "Show second layout"
+    },
+    "encoders": {
+      "both": "Both",
+      "description": "Which half's encoder bindings to draw. Vial exports a slot per half even if unused.",
+      "label": "Encoders",
+      "left": "Left only",
+      "none": "None",
+      "right": "Right only"
+    },
+    "layer_names": {
+      "description": "Comma-separated, in layer order, e.g. \"Base, Nav, Sym, Fn\". Replaces L1-style legends.",
+      "label": "Layer names"
+    },
+    "vil_path": {
+      "description": "Path to the .vil file exported from Vial. Re-read every time the overlay opens.",
+      "label": "Vial export (.vil)"
+    }
+  },
+  "widget": {
+    "tooltip": "Vial keymap - click to toggle, right-click for settings"
+  }
+}

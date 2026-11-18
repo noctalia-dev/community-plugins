@@ -1,0 +1,49 @@
+{
+  "pace": {
+    "idle": "asleep",
+    "run": "running",
+    "walk": "walking"
+  },
+  "panel": {
+    "cpu": "CPU {percent}%",
+    "cpu_unknown": "CPU —"
+  },
+  "settings": {
+    "bounce": {
+      "description": "Bob the cat up and down in step with its stride while it walks or runs.",
+      "label": "Bounce While Running"
+    },
+    "cat_color": {
+      "description": "Used when Cat Color is set to Custom.",
+      "label": "Custom Color"
+    },
+    "cat_color_mode": {
+      "description": "Use the current theme color, or pick a custom color below.",
+      "label": "Cat Color",
+      "option_custom": "Custom",
+      "option_theme": "Match Theme"
+    },
+    "cat_size": {
+      "description": "Sprite size in the bar, in pixels.",
+      "label": "Cat Size"
+    },
+    "poll_interval": {
+      "description": "How often to sample CPU usage, in seconds.",
+      "label": "CPU Poll Interval"
+    },
+    "run_threshold": {
+      "description": "CPU percentage at which the cat breaks into a run.",
+      "label": "Run Threshold"
+    },
+    "show_cpu_percent": {
+      "description": "Display the CPU percentage next to the cat.",
+      "label": "Show CPU Percentage"
+    },
+    "walk_threshold": {
+      "description": "CPU percentage at which the cat wakes up and starts walking.",
+      "label": "Walk Threshold"
+    }
+  },
+  "title": "Cat",
+  "tooltip": "Cat — CPU {percent}% ({pace})"
+}

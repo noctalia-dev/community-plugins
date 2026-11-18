@@ -1,0 +1,34 @@
+name: Validate Plugin Manifests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: validate-plugin-manifests-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Validate plugin manifests
+        uses: noctalia-dev/official-plugins/.github/actions/validate-plugins@99a892dc9cb3490634412701c45acd024fe0383b # main
+        with:
+          profile: community
+          root: ${{ github.workspace }}
+
+      - name: Install workflow test dependencies
+        run: python3 -m pip install -r .github/workflows/scripts/PyGithub-requirement.txt
+
+      - name: Test community workflow scripts
+        run: python3 -m unittest discover -s .github/workflows/scripts -p 'test_*.py'

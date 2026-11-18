@@ -1,0 +1,9 @@
+{
+    "name": "pipx",
+    "enabled": true,
+    "dependencies": ["pipx", "jq", "grep"],
+    "check_command": "pipx list --json --outdated | grep -v \"Error\" | jq '.data | {\"info\": \"\", \"updates\": .packages | map({\"id\": .environment, \"name\": .package, \"from_version\": .version, \"to_version\": .latest_version, \"description\": \"\", \"icon\": \"\", \"glyph\": \"brand-python\"})}'",
+    "update_package_command": "pipx upgrade \"{package_name}\"",
+    "update_all_command": "pipx upgrade-all",
+    "actions": {}
+}

@@ -1,0 +1,5 @@
+# Local review plans and reports; never ship with the plugin.
+/docs/
+
+# Local project instructions; upstream rules remain authoritative.
+/AGENTS.md

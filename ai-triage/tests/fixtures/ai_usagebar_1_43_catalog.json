@@ -1,0 +1,122 @@
+[
+  {
+    "id": "anthropic",
+    "name": "Claude"
+  },
+  {
+    "id": "anthropic_api",
+    "name": "Anthropic API"
+  },
+  {
+    "id": "openai",
+    "name": "Codex"
+  },
+  {
+    "id": "copilot",
+    "name": "GitHub Copilot"
+  },
+  {
+    "id": "zai",
+    "name": "Z.AI"
+  },
+  {
+    "id": "openrouter",
+    "name": "OpenRouter"
+  },
+  {
+    "id": "deepseek",
+    "name": "DeepSeek"
+  },
+  {
+    "id": "deepinfra",
+    "name": "DeepInfra"
+  },
+  {
+    "id": "kimi",
+    "name": "Kimi"
+  },
+  {
+    "id": "kilo",
+    "name": "Kilo"
+  },
+  {
+    "id": "novita",
+    "name": "Novita"
+  },
+  {
+    "id": "synthetic",
+    "name": "Synthetic"
+  },
+  {
+    "id": "moonshot",
+    "name": "Moonshot"
+  },
+  {
+    "id": "grok",
+    "name": "Grok"
+  },
+  {
+    "id": "supergrok",
+    "name": "SuperGrok"
+  },
+  {
+    "id": "grokbot",
+    "name": "Grok Bot"
+  },
+  {
+    "id": "antigravity",
+    "name": "Antigravity"
+  },
+  {
+    "id": "cursor",
+    "name": "Cursor"
+  },
+  {
+    "id": "minimax",
+    "name": "MiniMax"
+  },
+  {
+    "id": "kiro",
+    "name": "Kiro"
+  },
+  {
+    "id": "nous",
+    "name": "Nous Research"
+  },
+  {
+    "id": "opencode-go",
+    "name": "OpenCode Go"
+  },
+  {
+    "id": "commandcode",
+    "name": "Command Code"
+  },
+  {
+    "id": "ollama",
+    "name": "Ollama Cloud"
+  },
+  {
+    "id": "orcarouter",
+    "name": "OrcaRouter"
+  },
+  {
+    "id": "modelstudio",
+    "name": "Model Studio"
+  },
+  {
+    "id": "lyceum",
+    "name": "Lyceum"
+  },
+  {
+    "id": "devin",
+    "name": "Devin"
+  },
+  {
+    "id": "cline",
+    "name": "Cline"
+  },
+  {
+    "id": "muse-code",
+    "name": "Muse Code"
+  }
+]

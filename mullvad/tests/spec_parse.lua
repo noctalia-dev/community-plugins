@@ -1,0 +1,168 @@
+local parse = loadModule("parse.luau")
+
+local function status(name)
+  return parse.status(json.decode(fixture(name)))
+end
+
+local d = status("status-disconnected.json")
+eq("disconnected state", d.state, "disconnected")
+eq("disconnected not mullvad exit", d.mullvadExit, false)
+eq("disconnected country", d.country, "Romania")
+eq("disconnected not locked down", d.lockedDown, false)
+eq("disconnected has no country code", d.countryCode, nil)
+
+local c = status("status-connected.json")
+eq("connected state", c.state, "connected")
+eq("connected country code from hostname", c.countryCode, "se")
+eq("connected mullvad exit", c.mullvadExit, true)
+check("connected has coordinates", c.latitude ~= nil and c.longitude ~= nil)
+eq("connected no entry", c.entryCountryCode, nil)
+
+local nl = status("status-disconnected-nolocation.json")
+eq("nolocation state", nl.state, "disconnected")
+eq("nolocation country", nl.country, nil)
+eq("nolocation mullvadExit", nl.mullvadExit, false)
+eq("nolocation lockedDown", nl.lockedDown, false)
+
+eq("connecting state", status("synthetic-status-connecting.json").state, "connecting")
+
+local m = status("synthetic-status-multihop.json")
+check("multihop has entry code", m.entryCountryCode ~= nil)
+check("multihop entry differs from exit", m.entryCountryCode ~= m.countryCode)
+eq("multihop entry code value", m.entryCountryCode, "ro")
+eq("multihop ignores unknown fields", m.countryCode, "se")
+
+local e = status("synthetic-status-error-firewall.json")
+eq("error state", e.state, "error")
+eq("error reason", e.errorReason, "set_firewall_policy_error")
+eq("error detail", e.errorDetail, "generic")
+
+eq("error string detail", status("synthetic-status-error-auth_failed.json").errorDetail, "INVALID_ACCOUNT")
+eq("error without detail", status("synthetic-status-error-is_offline.json").errorDetail, nil)
+
+eq("blocked lockdown flag", status("synthetic-status-blocked-lockdown.json").lockedDown, true)
+
+eq("nil input", parse.status(nil), nil)
+eq("non-table input", parse.status("x"), nil)
+eq("unknown state", parse.status({ state = "weird" }), nil)
+
+eq("daemon down", parse.isDaemonDown({ exitCode = 1, stdout = "", stderr = fixture("synthetic-daemon-down.txt") }), true)
+eq("daemon down (connect msg)", parse.isDaemonDown({ exitCode = 1, stdout = "", stderr = "Failed to connect to mullvad-daemon" }), true)
+eq("daemon not down on exit 0", parse.isDaemonDown({ exitCode = 0, stdout = "", stderr = fixture("synthetic-daemon-down.txt") }), false)
+eq("daemon not down on other error", parse.isDaemonDown({ exitCode = 1, stdout = "", stderr = "boom" }), false)
+
+-- relay constraints (`mullvad relay get`)
+local rd = parse.relayConstraints(fixture("relay-get-disconnected.txt"))
+eq("relay: location kind", rd and rd.location.kind, "country")
+eq("relay: location country", rd and rd.location.country, "ro")
+eq("relay: providers any", rd and rd.providers, "any")
+eq("relay: ownership any", rd and rd.ownership, "any")
+eq("relay: ip version any", rd and rd.ipVersion, "any")
+eq("relay: multihop off", rd and rd.multihop, false)
+eq("relay: entry kind", rd and rd.entry.kind, "country")
+eq("relay: entry country", rd and rd.entry.country, "se")
+
+local rc = parse.relayConstraints(fixture("relay-get-connected.txt"))
+eq("relay connected: location se", rc and rc.location.country, "se")
+
+local rm = parse.relayConstraints(fixture("relay-get-multihop-on.txt"))
+eq("relay multihop-on: multihop", rm and rm.multihop, true)
+eq("relay multihop-on: entry se", rm and rm.entry.country, "se")
+
+-- Formats seen on mullvad 2026.5 for the other constraint kinds.
+local function relayText(location, extra)
+  return "Generic constraints\n    Location:               " .. location .. "\n" .. (extra or "")
+    .. "WireGuard constraints\n    Multihop state:         disabled\n    Multihop entry:         any\n"
+end
+local city = parse.relayConstraints(relayText("city got, se"))
+eq("relay: city kind", city and city.location.kind, "city")
+eq("relay: city country", city and city.location.country, "se")
+eq("relay: city code", city and city.location.city, "got")
+eq("relay: entry any", city and city.entry.kind, "any")
+local host = parse.relayConstraints(relayText("city got, se, hostname se-got-wg-001"))
+eq("relay: hostname kind", host and host.location.kind, "hostname")
+eq("relay: hostname value", host and host.location.hostname, "se-got-wg-001")
+eq("relay: hostname city", host and host.location.city, "got")
+eq("relay: hostname country", host and host.location.country, "se")
+local list = parse.relayConstraints(relayText("my servers"), { "other", "my servers" })
+eq("relay: custom list kind", list and list.location.kind, "custom_list")
+eq("relay: custom list name", list and list.location.list, "my servers")
+-- fail closed: text that is no known form and no known list name is unknown
+local unknown = parse.relayConstraints(relayText("my servers"))
+eq("relay: bare name without lists is unknown", unknown and unknown.location.kind, "unknown")
+eq("relay: unknown keeps the raw text", unknown and unknown.location.raw, "my servers")
+eq("relay: name not in the lists is unknown", parse.relayConstraints(relayText("my servers"), { "other" }).location.kind, "unknown")
+eq("relay: dangling list id is unknown",
+  parse.relayConstraints(relayText("invalid custom list"), {}).location.kind, "unknown")
+eq("relay: a future format is unknown", parse.relayConstraints(relayText("region nordics"), {}).location.kind, "unknown")
+local entryList = parse.relayConstraints("    Location:               any\n    Multihop entry:         my servers\n", { "my servers" })
+eq("relay: custom list entry", entryList and entryList.entry.kind .. ":" .. tostring(entryList.entry.list), "custom_list:my servers")
+eq("relay: missing entry line is unknown", parse.relayConstraints("    Location:               any\n").entry.kind, "unknown")
+
+-- custom list names (`mullvad custom-list list`: name lines, tab-indented locations)
+eq("custom lists: empty fixture", #parse.customListNames(fixture("custom-list-list-disconnected.txt")), 0)
+local names = parse.customListNames("my servers\n\tSweden (se)\n\tGothenburg, Sweden (got, se)\nwork\n")
+eq("custom lists: names only", names and table.concat(names, "|"), "my servers|work")
+eq("custom lists: nil text", parse.customListNames(nil), nil)
+eq("relay: any location", parse.relayConstraints(relayText("any")).location.kind, "any")
+local filters = parse.relayConstraints(relayText("any",
+  "    Provider(s):            provider(s) M247, 31173\n    Ownership:              Mullvad-owned servers\n"
+  .. "    IP protocol:            IPv6\n"))
+eq("relay: providers list", filters and table.concat(filters.providers, ","), "M247,31173")
+eq("relay: owned", filters and filters.ownership, "owned")
+eq("relay: ipv6", filters and filters.ipVersion, "v6")
+local rented = parse.relayConstraints(relayText("any", "    Ownership:              rented servers\n    IP protocol:            IPv4\n"))
+eq("relay: rented", rented and rented.ownership, "rented")
+eq("relay: ipv4", rented and rented.ipVersion, "v4")
+eq("relay: no Location line", parse.relayConstraints("Error: something"), nil)
+eq("relay: nil text", parse.relayConstraints(nil), nil)
+
+-- on/off values: the value after the last ':'
+eq("onOff: lockdown off", parse.onOff(fixture("lockdown-mode-get-disconnected.txt")), false)
+eq("onOff: lockdown on", parse.onOff(fixture("synthetic-lockdown-mode-get-on.txt")), true)
+eq("onOff: auto-connect off", parse.onOff(fixture("auto-connect-get-disconnected.txt")), false)
+eq("onOff: auto-connect on", parse.onOff("Autoconnect: on\n"), true)
+eq("onOff: multihop disabled", parse.onOff("    Multihop state:         disabled"), false)
+eq("onOff: multihop enabled", parse.onOff("    Multihop state:         enabled"), true)
+eq("onOff: true", parse.onOff("Block ads: true"), true)
+eq("onOff: false", parse.onOff("Block ads: false"), false)
+eq("onOff: allow", parse.onOff("Local network sharing setting: allow"), true)
+eq("onOff: block", parse.onOff("Local network sharing setting: block"), false)
+eq("onOff: unknown word", parse.onOff("Something: maybe"), nil)
+eq("onOff: no colon", parse.onOff("on"), nil)
+eq("onOff: nil", parse.onOff(nil), nil)
+
+-- account (Task 13): `mullvad account get` / `account list-devices`
+local acct = parse.account(fixture("account-get-connected.txt"))
+eq("account: logged in", acct and acct.loggedIn, true)
+eq("account: number parsed (for the mask only)", acct and acct.number, "0000000000000000")
+eq("account: expiry text", acct and acct.expiresAt, "2030-01-01 00:00:00 +00:00")
+eq("account: device name", acct and acct.deviceName, "Test Device")
+local out = parse.account(fixture("synthetic-account-logged-out.txt"))
+eq("account: logged out", out and out.loggedIn, false)
+eq("account: logged out has no number", out and out.number, nil)
+local revoked = parse.account(fixture("synthetic-account-revoked.txt"))
+eq("account: a revoked device is logged out", revoked and revoked.loggedIn, false)
+eq("account: revoked keeps no number", revoked and revoked.number, nil)
+eq("account: unrecognised text is nil", parse.account("something else\n"), nil)
+eq("account: non-string is nil", parse.account(nil), nil)
+
+local devices = parse.devices(fixture("account-list-devices-connected.txt"))
+eq("devices: count", devices and #devices, 4)
+eq("devices: first", devices and devices[1], "Test Device")
+eq("devices: last", devices and devices[4], "Other Device 3")
+eq("devices: empty account", parse.devices("Devices on the account:\n") and #parse.devices("Devices on the account:\n"), 0)
+eq("devices: unrecognised text is nil", parse.devices("Error: Log in or specify an account\n"), nil)
+
+-- known CLI errors map to their own keys (mullvad-management-interface Error)
+local function cliError(name)
+  return parse.commandError({ exitCode = 1, stdout = "", stderr = fixture(name) })
+end
+eq("commandError: unknown device (live capture)", cliError("synthetic-account-revoke-device-unknown.txt"), "error.unknown_device")
+eq("commandError: invalid voucher (live capture)", cliError("synthetic-account-redeem-invalid.txt"), "error.invalid_voucher")
+eq("commandError: used voucher", parse.commandError({ exitCode = 1, stderr = "Error: This voucher code has already been used\n" }), "error.used_voucher")
+eq("commandError: too many devices", parse.commandError({ exitCode = 1,
+  stderr = "Error: There are too many devices on the account. One must be revoked to log in\n" }), "error.too_many_devices")
+eq("commandError: account does not exist", parse.commandError({ exitCode = 1, stderr = "Error: The account does not exist\n" }), "error.account_not_found")
+eq("commandError: other errors unmapped", parse.commandError({ exitCode = 1, stderr = "Error: bad location\n" }), nil)
+eq("commandError: success is never an error", parse.commandError({ exitCode = 0, stderr = "There is no such device" }), nil)

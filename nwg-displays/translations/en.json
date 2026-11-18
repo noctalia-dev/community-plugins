@@ -1,0 +1,23 @@
+{
+  "launcher": {
+    "active": "Active profile",
+    "apply": "Apply profile",
+    "no_match": "No matching profile",
+    "no_profiles": "No nwg-displays profiles found"
+  },
+  "notify": {
+    "apply_failed": "Failed to apply profile \"{profile}\"",
+    "start_failed": "Could not start nwg-displays-apply."
+  },
+  "panel": {
+    "close": "Close",
+    "empty": "No profiles found in {path}. Create one with nwg-displays.",
+    "no_dir": "Profiles folder not found: {path}",
+    "refresh": "Refresh profiles",
+    "title": "Display Profiles"
+  },
+  "widget": {
+    "tooltip_active": "Active display profile",
+    "tooltip_none": "No active display profile"
+  }
+}

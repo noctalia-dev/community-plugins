@@ -1,0 +1,118 @@
+{
+  "add_model": {
+    "back": "Voltar ao combo",
+    "empty": "Nenhum modelo disponível.",
+    "no_match": "Nenhum modelo corresponde à sua pesquisa.",
+    "search": "Pesquisar modelos…",
+    "title": "Adicionar modelo"
+  },
+  "create": {
+    "back": "Voltar",
+    "cancel": "Cancelar",
+    "kind_label": "Tipo",
+    "models_hint": "Um modelo por linha, em ordem de fallback (por exemplo, cc/claude-opus-4-7).",
+    "models_label": "Modelos",
+    "name_label": "Nome",
+    "submit": "Criar",
+    "title": "Novo Combo"
+  },
+  "detail": {
+    "add_model": "Adicionar modelo",
+    "back": "De volta aos combos",
+    "delete": "Excluir combinação",
+    "delete_confirm": "Excluir esta combinação?",
+    "delete_no": "Cancelar",
+    "delete_yes": "Sim, excluir",
+    "drag_hint": "Arraste um modelo para reordenar",
+    "kind_label": "Tipo",
+    "models_count": "{count} modelo(s)",
+    "models_title": "Cadeia de Modelos",
+    "move_down": "Desça",
+    "move_up": "Subir",
+    "no_models": "Este combo ainda não possui modelos.",
+    "refresh": "Atualizar",
+    "remove_model": "Remover modelo",
+    "rename": "Renomear",
+    "rename_cancel": "Cancelar",
+    "rename_placeholder": "Novo nome…",
+    "rename_save": "Salvar"
+  },
+  "error": {
+    "add_model_failed": "Falha ao adicionar o modelo",
+    "auth_required": "Autenticação necessária",
+    "bad_response": "Resposta inesperada do 9Router",
+    "connection_failed": "Não foi possível conectar ao 9Router",
+    "create_failed": "Falha ao criar a combinação",
+    "delete_failed": "Falha ao excluir a combinação",
+    "dismiss": "Liberar",
+    "http_status": "HTTP {status}",
+    "invalid_name": "O nome só pode conter letras, números, -, _ e .",
+    "kind_failed": "Falha ao atualizar o tipo",
+    "login_failed": "falha no login",
+    "need_name_models": "Um nome e pelo menos um modelo são obrigatórios.",
+    "need_password": "Por favor, digite sua senha.",
+    "remove_model_failed": "Falha ao remover o modelo",
+    "rename_failed": "Falha ao renomear a combinação",
+    "reorder_failed": "Falha ao reordenar modelos"
+  },
+  "kind": {
+    "fallback": "Cair pra trás",
+    "fusion": "Fusão",
+    "none": "Nenhum",
+    "round_robin": "Rodízio"
+  },
+  "list": {
+    "delete": "Excluir combinação",
+    "delete_cancel": "Cancelar",
+    "delete_confirm": "Confirmar exclusão",
+    "empty": "Ainda não há combos. Crie um para começar.",
+    "kind": "Tipo: {kind}",
+    "new_combo": "Novo Combo",
+    "no_match": "Nenhum combo corresponde à sua busca.",
+    "open": "Combo aberto",
+    "refresh": "Atualizar",
+    "search": "Buscar combinações…",
+    "title": "9Router — Combinações"
+  },
+  "login": {
+    "hint": "O painel requer autenticação. Insira sua senha do 9Router para continuar.",
+    "password_placeholder": "Senha…",
+    "submit": "Conecte-se",
+    "title": "9Router – Login"
+  },
+  "settings": {
+    "data_dir": {
+      "description": "Diretório de dados do 9Router (usado para calcular o token da CLI quando o painel exige login). Padrão: ~/.9router.",
+      "label": "Diretório de Dados"
+    },
+    "debug_logging": {
+      "description": "Imprima mensagens de depuração no log do Noctalia.",
+      "label": "Registro de depuração"
+    },
+    "language": {
+      "description": "Idioma da interface deste plugin. 'Auto' segue o idioma do shell do Noctalia.",
+      "label": "Linguagem",
+      "options": {
+        "auto": "Automático (seguir shell)",
+        "en": "Inglês",
+        "vi": "vietnamita"
+      }
+    },
+    "server_host": {
+      "description": "Nome de host do painel do 9Router. Padrão: 127.0.0.1.",
+      "label": "Hospedeiro do Servidor"
+    },
+    "server_port": {
+      "description": "Porta do painel do 9Router. Padrão: 20128.",
+      "label": "Porta do servidor"
+    }
+  },
+  "state": {
+    "combos": "{count} combinação(ões)",
+    "tip": {
+      "auth_required": "9Router: login necessário",
+      "offline": "9Router: offline",
+      "online": "9Router: conectado"
+    }
+  }
+}

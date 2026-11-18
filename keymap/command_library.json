@@ -1,0 +1,2915 @@
+{
+  "schema": 1,
+  "sources": {
+    "noctalia": {
+      "revision": "noctalia-core d07ed348f4948a2afd093a6a1ad683ed81616436, runtime msg --help"
+    },
+    "hyprland": {
+      "revision": "v0.56.0, commit 36b2e0cfe0c6094dbc47bd42a437431315bb3087, LuaBindingsDispatchers.cpp"
+    },
+    "niri": {
+      "revision": "v26.04, commit 8ed0da44d974c32c6877d2f4630c314da0717ecb, niri-config/src/binds.rs"
+    },
+    "mangowc": {
+      "revision": "mangowm/mango commit b5efdd24e76c3c9aa2300e626fe013fcd3617cca, parse_config.h and docs/bindings/keys.md"
+    }
+  },
+  "entries": [
+    {
+      "id": "hyprland/exec_cmd",
+      "source": "hyprland",
+      "category": "applications",
+      "kind": "native",
+      "template": "hl.dsp.exec_cmd({{command}})",
+      "usage": "hl.dsp.exec_cmd(…)"
+    },
+    {
+      "id": "hyprland/exec_raw",
+      "source": "hyprland",
+      "category": "applications",
+      "kind": "native",
+      "template": "hl.dsp.exec_raw({{command}})",
+      "usage": "hl.dsp.exec_raw(…)"
+    },
+    {
+      "id": "hyprland/cursor.move",
+      "source": "hyprland",
+      "category": "cursor",
+      "kind": "native",
+      "template": "hl.dsp.cursor.move({ x = {{x}}, y = {{y}} })",
+      "usage": "hl.dsp.cursor.move(…)"
+    },
+    {
+      "id": "hyprland/cursor.move_to_corner",
+      "source": "hyprland",
+      "category": "cursor",
+      "kind": "native",
+      "template": "hl.dsp.cursor.move_to_corner({ corner = {{corner}} })",
+      "usage": "hl.dsp.cursor.move_to_corner(…)"
+    },
+    {
+      "id": "hyprland/dpms",
+      "source": "hyprland",
+      "category": "display",
+      "kind": "native",
+      "template": "hl.dsp.dpms()",
+      "usage": "hl.dsp.dpms()"
+    },
+    {
+      "id": "hyprland/force_renderer_reload",
+      "source": "hyprland",
+      "category": "display",
+      "kind": "native",
+      "template": "hl.dsp.force_renderer_reload()",
+      "usage": "hl.dsp.force_renderer_reload()"
+    },
+    {
+      "id": "hyprland/focus",
+      "source": "hyprland",
+      "category": "focus",
+      "kind": "native",
+      "template": "hl.dsp.focus({ direction = {{direction}} })",
+      "usage": "hl.dsp.focus(…)"
+    },
+    {
+      "id": "hyprland/group.active",
+      "source": "hyprland",
+      "category": "groups",
+      "kind": "native",
+      "template": "hl.dsp.group.active({ index = {{index}} })",
+      "usage": "hl.dsp.group.active(…)"
+    },
+    {
+      "id": "hyprland/group.lock",
+      "source": "hyprland",
+      "category": "groups",
+      "kind": "native",
+      "template": "hl.dsp.group.lock()",
+      "usage": "hl.dsp.group.lock()"
+    },
+    {
+      "id": "hyprland/group.lock_active",
+      "source": "hyprland",
+      "category": "groups",
+      "kind": "native",
+      "template": "hl.dsp.group.lock_active()",
+      "usage": "hl.dsp.group.lock_active()"
+    },
+    {
+      "id": "hyprland/group.move_window",
+      "source": "hyprland",
+      "category": "groups",
+      "kind": "native",
+      "template": "hl.dsp.group.move_window()",
+      "usage": "hl.dsp.group.move_window()"
+    },
+    {
+      "id": "hyprland/group.next",
+      "source": "hyprland",
+      "category": "groups",
+      "kind": "native",
+      "template": "hl.dsp.group.next()",
+      "usage": "hl.dsp.group.next()"
+    },
+    {
+      "id": "hyprland/group.prev",
+      "source": "hyprland",
+      "category": "groups",
+      "kind": "native",
+      "template": "hl.dsp.group.prev()",
+      "usage": "hl.dsp.group.prev()"
+    },
+    {
+      "id": "hyprland/group.toggle",
+      "source": "hyprland",
+      "category": "groups",
+      "kind": "native",
+      "template": "hl.dsp.group.toggle()",
+      "usage": "hl.dsp.group.toggle()"
+    },
+    {
+      "id": "hyprland/pass",
+      "source": "hyprland",
+      "category": "input",
+      "kind": "native",
+      "template": "hl.dsp.pass({ window = {{window-selector}} })",
+      "usage": "hl.dsp.pass(…)"
+    },
+    {
+      "id": "hyprland/release_input_capture",
+      "source": "hyprland",
+      "category": "input",
+      "kind": "native",
+      "template": "hl.dsp.release_input_capture()",
+      "usage": "hl.dsp.release_input_capture()"
+    },
+    {
+      "id": "hyprland/send_key_state",
+      "source": "hyprland",
+      "category": "input",
+      "kind": "native",
+      "template": "hl.dsp.send_key_state({ mods = {{modifiers}}, key = {{key}}, state = {{state}} })",
+      "usage": "hl.dsp.send_key_state(…)"
+    },
+    {
+      "id": "hyprland/send_shortcut",
+      "source": "hyprland",
+      "category": "input",
+      "kind": "native",
+      "template": "hl.dsp.send_shortcut({ mods = {{modifiers}}, key = {{key}} })",
+      "usage": "hl.dsp.send_shortcut(…)"
+    },
+    {
+      "id": "hyprland/layout",
+      "source": "hyprland",
+      "category": "layout",
+      "kind": "native",
+      "template": "hl.dsp.layout({{message}})",
+      "usage": "hl.dsp.layout(…)"
+    },
+    {
+      "id": "hyprland/event",
+      "source": "hyprland",
+      "category": "system",
+      "kind": "native",
+      "template": "hl.dsp.event({{event}})",
+      "usage": "hl.dsp.event(…)"
+    },
+    {
+      "id": "hyprland/exit",
+      "source": "hyprland",
+      "category": "system",
+      "kind": "native",
+      "template": "hl.dsp.exit()",
+      "usage": "hl.dsp.exit()"
+    },
+    {
+      "id": "hyprland/force_idle",
+      "source": "hyprland",
+      "category": "system",
+      "kind": "native",
+      "template": "hl.dsp.force_idle({{seconds}})",
+      "usage": "hl.dsp.force_idle(…)"
+    },
+    {
+      "id": "hyprland/global",
+      "source": "hyprland",
+      "category": "system",
+      "kind": "native",
+      "template": "hl.dsp.global({{global-shortcut}})",
+      "usage": "hl.dsp.global(…)"
+    },
+    {
+      "id": "hyprland/no_op",
+      "source": "hyprland",
+      "category": "system",
+      "kind": "native",
+      "template": "hl.dsp.no_op()",
+      "usage": "hl.dsp.no_op()"
+    },
+    {
+      "id": "hyprland/submap",
+      "source": "hyprland",
+      "category": "system",
+      "kind": "native",
+      "template": "hl.dsp.submap({{name}})",
+      "usage": "hl.dsp.submap(…)"
+    },
+    {
+      "id": "hyprland/window.alter_zorder",
+      "source": "hyprland",
+      "category": "windows",
+      "kind": "native",
+      "template": "hl.dsp.window.alter_zorder({ mode = {{mode}} })",
+      "usage": "hl.dsp.window.alter_zorder(…)"
+    },
+    {
+      "id": "hyprland/window.bring_to_top",
+      "source": "hyprland",
+      "category": "windows",
+      "kind": "native",
+      "template": "hl.dsp.window.bring_to_top()",
+      "usage": "hl.dsp.window.bring_to_top()"
+    },
+    {
+      "id": "hyprland/window.center",
+      "source": "hyprland",
+      "category": "windows",
+      "kind": "native",
+      "template": "hl.dsp.window.center()",
+      "usage": "hl.dsp.window.center()"
+    },
+    {
+      "id": "hyprland/window.clear_tags",
+      "source": "hyprland",
+      "category": "windows",
+      "kind": "native",
+      "template": "hl.dsp.window.clear_tags()",
+      "usage": "hl.dsp.window.clear_tags()"
+    },
+    {
+      "id": "hyprland/window.close",
+      "source": "hyprland",
+      "category": "windows",
+      "kind": "native",
+      "template": "hl.dsp.window.close()",
+      "usage": "hl.dsp.window.close()"
+    },
+    {
+      "id": "hyprland/window.cycle_next",
+      "source": "hyprland",
+      "category": "windows",
+      "kind": "native",
+      "template": "hl.dsp.window.cycle_next()",
+      "usage": "hl.dsp.window.cycle_next()"
+    },
+    {
+      "id": "hyprland/window.deny_from_group",
+      "source": "hyprland",
+      "category": "windows",
+      "kind": "native",
+      "template": "hl.dsp.window.deny_from_group()",
+      "usage": "hl.dsp.window.deny_from_group()"
+    },
+    {
+      "id": "hyprland/window.drag",
+      "source": "hyprland",
+      "category": "windows",
+      "kind": "native",
+      "template": "hl.dsp.window.drag()",
+      "usage": "hl.dsp.window.drag()"
+    },
+    {
+      "id": "hyprland/window.float",
+      "source": "hyprland",
+      "category": "windows",
+      "kind": "native",
+      "template": "hl.dsp.window.float()",
+      "usage": "hl.dsp.window.float()"
+    },
+    {
+      "id": "hyprland/window.fullscreen",
+      "source": "hyprland",
+      "category": "windows",
+      "kind": "native",
+      "template": "hl.dsp.window.fullscreen()",
+      "usage": "hl.dsp.window.fullscreen()"
+    },
+    {
+      "id": "hyprland/window.fullscreen_state",
+      "source": "hyprland",
+      "category": "windows",
+      "kind": "native",
+      "template": "hl.dsp.window.fullscreen_state({ internal = {{internal-state}}, client = {{client-state}} })",
+      "usage": "hl.dsp.window.fullscreen_state(…)"
+    },
+    {
+      "id": "hyprland/window.kill",
+      "source": "hyprland",
+      "category": "windows",
+      "kind": "native",
+      "template": "hl.dsp.window.kill()",
+      "usage": "hl.dsp.window.kill()"
+    },
+    {
+      "id": "hyprland/window.move",
+      "source": "hyprland",
+      "category": "windows",
+      "kind": "native",
+      "template": "hl.dsp.window.move({ direction = {{direction}} })",
+      "usage": "hl.dsp.window.move(…)"
+    },
+    {
+      "id": "hyprland/window.pin",
+      "source": "hyprland",
+      "category": "windows",
+      "kind": "native",
+      "template": "hl.dsp.window.pin()",
+      "usage": "hl.dsp.window.pin()"
+    },
+    {
+      "id": "hyprland/window.pseudo",
+      "source": "hyprland",
+      "category": "windows",
+      "kind": "native",
+      "template": "hl.dsp.window.pseudo()",
+      "usage": "hl.dsp.window.pseudo()"
+    },
+    {
+      "id": "hyprland/window.resize",
+      "source": "hyprland",
+      "category": "windows",
+      "kind": "native",
+      "template": "hl.dsp.window.resize()",
+      "usage": "hl.dsp.window.resize()"
+    },
+    {
+      "id": "hyprland/window.set_prop",
+      "source": "hyprland",
+      "category": "windows",
+      "kind": "native",
+      "template": "hl.dsp.window.set_prop({ prop = {{property}}, value = {{value}} })",
+      "usage": "hl.dsp.window.set_prop(…)"
+    },
+    {
+      "id": "hyprland/window.signal",
+      "source": "hyprland",
+      "category": "windows",
+      "kind": "native",
+      "template": "hl.dsp.window.signal({ signal = {{signal}} })",
+      "usage": "hl.dsp.window.signal(…)"
+    },
+    {
+      "id": "hyprland/window.swap",
+      "source": "hyprland",
+      "category": "windows",
+      "kind": "native",
+      "template": "hl.dsp.window.swap({ direction = {{direction}} })",
+      "usage": "hl.dsp.window.swap(…)"
+    },
+    {
+      "id": "hyprland/window.tag",
+      "source": "hyprland",
+      "category": "windows",
+      "kind": "native",
+      "template": "hl.dsp.window.tag({ tag = {{tag}} })",
+      "usage": "hl.dsp.window.tag(…)"
+    },
+    {
+      "id": "hyprland/window.toggle_swallow",
+      "source": "hyprland",
+      "category": "windows",
+      "kind": "native",
+      "template": "hl.dsp.window.toggle_swallow()",
+      "usage": "hl.dsp.window.toggle_swallow()"
+    },
+    {
+      "id": "hyprland/workspace.change_id",
+      "source": "hyprland",
+      "category": "workspaces",
+      "kind": "native",
+      "template": "hl.dsp.workspace.change_id({ workspace = {{workspace}}, id = {{id}} })",
+      "usage": "hl.dsp.workspace.change_id(…)"
+    },
+    {
+      "id": "hyprland/workspace.move",
+      "source": "hyprland",
+      "category": "workspaces",
+      "kind": "native",
+      "template": "hl.dsp.workspace.move({ workspace = {{workspace}}, monitor = {{monitor}} })",
+      "usage": "hl.dsp.workspace.move(…)"
+    },
+    {
+      "id": "hyprland/workspace.rename",
+      "source": "hyprland",
+      "category": "workspaces",
+      "kind": "native",
+      "template": "hl.dsp.workspace.rename({ workspace = {{workspace}}, name = {{name}} })",
+      "usage": "hl.dsp.workspace.rename(…)"
+    },
+    {
+      "id": "hyprland/workspace.swap_monitors",
+      "source": "hyprland",
+      "category": "workspaces",
+      "kind": "native",
+      "template": "hl.dsp.workspace.swap_monitors({ monitor1 = {{monitor-1}}, monitor2 = {{monitor-2}} })",
+      "usage": "hl.dsp.workspace.swap_monitors(…)"
+    },
+    {
+      "id": "hyprland/workspace.toggle_special",
+      "source": "hyprland",
+      "category": "workspaces",
+      "kind": "native",
+      "template": "hl.dsp.workspace.toggle_special({{name}})",
+      "usage": "hl.dsp.workspace.toggle_special(…)"
+    },
+    {
+      "id": "mangowc/spawn",
+      "source": "mangowc",
+      "category": "applications",
+      "kind": "native",
+      "template": "spawn,{{parameters}}",
+      "usage": "spawn cmd"
+    },
+    {
+      "id": "mangowc/spawn_on_empty",
+      "source": "mangowc",
+      "category": "applications",
+      "kind": "native",
+      "template": "spawn_on_empty,{{parameters}}",
+      "usage": "spawn_on_empty cmd,tagnumber"
+    },
+    {
+      "id": "mangowc/spawn_shell",
+      "source": "mangowc",
+      "category": "applications",
+      "kind": "native",
+      "template": "spawn_shell,{{parameters}}",
+      "usage": "spawn_shell cmd"
+    },
+    {
+      "id": "mangowc/dwindle_split_horizontal",
+      "source": "mangowc",
+      "category": "layout",
+      "kind": "native",
+      "template": "dwindle_split_horizontal",
+      "usage": "dwindle_split_horizontal"
+    },
+    {
+      "id": "mangowc/dwindle_split_vertical",
+      "source": "mangowc",
+      "category": "layout",
+      "kind": "native",
+      "template": "dwindle_split_vertical",
+      "usage": "dwindle_split_vertical"
+    },
+    {
+      "id": "mangowc/dwindle_toggle_split_direction",
+      "source": "mangowc",
+      "category": "layout",
+      "kind": "native",
+      "template": "dwindle_toggle_split_direction",
+      "usage": "dwindle_toggle_split_direction"
+    },
+    {
+      "id": "mangowc/incgaps",
+      "source": "mangowc",
+      "category": "layout",
+      "kind": "native",
+      "template": "incgaps,{{parameters}}",
+      "usage": "incgaps +/-value"
+    },
+    {
+      "id": "mangowc/incnmaster",
+      "source": "mangowc",
+      "category": "layout",
+      "kind": "native",
+      "template": "incnmaster,{{parameters}}",
+      "usage": "incnmaster +1/-1"
+    },
+    {
+      "id": "mangowc/scroller_stack",
+      "source": "mangowc",
+      "category": "layout",
+      "kind": "native",
+      "template": "scroller_stack,{{parameters}}",
+      "usage": "scroller_stack left/right/up/down"
+    },
+    {
+      "id": "mangowc/set_proportion",
+      "source": "mangowc",
+      "category": "layout",
+      "kind": "native",
+      "template": "set_proportion,{{parameters}}",
+      "usage": "set_proportion float"
+    },
+    {
+      "id": "mangowc/setlayout",
+      "source": "mangowc",
+      "category": "layout",
+      "kind": "native",
+      "template": "setlayout,{{parameters}}",
+      "usage": "setlayout name"
+    },
+    {
+      "id": "mangowc/setmfact",
+      "source": "mangowc",
+      "category": "layout",
+      "kind": "native",
+      "template": "setmfact,{{parameters}}",
+      "usage": "setmfact +0.05"
+    },
+    {
+      "id": "mangowc/switch_layout",
+      "source": "mangowc",
+      "category": "layout",
+      "kind": "native",
+      "template": "switch_layout",
+      "usage": "switch_layout"
+    },
+    {
+      "id": "mangowc/switch_proportion_preset",
+      "source": "mangowc",
+      "category": "layout",
+      "kind": "native",
+      "template": "switch_proportion_preset",
+      "usage": "switch_proportion_preset"
+    },
+    {
+      "id": "mangowc/togglegaps",
+      "source": "mangowc",
+      "category": "layout",
+      "kind": "native",
+      "template": "togglegaps",
+      "usage": "togglegaps"
+    },
+    {
+      "id": "mangowc/chvt",
+      "source": "mangowc",
+      "category": "system",
+      "kind": "native",
+      "template": "chvt",
+      "usage": "chvt"
+    },
+    {
+      "id": "mangowc/create_virtual_output",
+      "source": "mangowc",
+      "category": "system",
+      "kind": "native",
+      "template": "create_virtual_output",
+      "usage": "create_virtual_output"
+    },
+    {
+      "id": "mangowc/destroy_all_virtual_output",
+      "source": "mangowc",
+      "category": "system",
+      "kind": "native",
+      "template": "destroy_all_virtual_output",
+      "usage": "destroy_all_virtual_output"
+    },
+    {
+      "id": "mangowc/disable_monitor",
+      "source": "mangowc",
+      "category": "system",
+      "kind": "native",
+      "template": "disable_monitor,{{parameters}}",
+      "usage": "disable_monitor monitor_spec"
+    },
+    {
+      "id": "mangowc/enable_monitor",
+      "source": "mangowc",
+      "category": "system",
+      "kind": "native",
+      "template": "enable_monitor,{{parameters}}",
+      "usage": "enable_monitor monitor_spec"
+    },
+    {
+      "id": "mangowc/load_config_file",
+      "source": "mangowc",
+      "category": "system",
+      "kind": "native",
+      "template": "load_config_file,{{parameters}}",
+      "usage": "load_config_file file path"
+    },
+    {
+      "id": "mangowc/moveresize",
+      "source": "mangowc",
+      "category": "system",
+      "kind": "native",
+      "template": "moveresize",
+      "usage": "moveresize"
+    },
+    {
+      "id": "mangowc/quit",
+      "source": "mangowc",
+      "category": "system",
+      "kind": "native",
+      "template": "quit",
+      "usage": "quit"
+    },
+    {
+      "id": "mangowc/reload_config",
+      "source": "mangowc",
+      "category": "system",
+      "kind": "native",
+      "template": "reload_config",
+      "usage": "reload_config"
+    },
+    {
+      "id": "mangowc/setkeymode",
+      "source": "mangowc",
+      "category": "system",
+      "kind": "native",
+      "template": "setkeymode,{{parameters}}",
+      "usage": "setkeymode mode"
+    },
+    {
+      "id": "mangowc/setoption",
+      "source": "mangowc",
+      "category": "system",
+      "kind": "native",
+      "template": "setoption,{{parameters}}",
+      "usage": "setoption key,value"
+    },
+    {
+      "id": "mangowc/sleep_monitor",
+      "source": "mangowc",
+      "category": "system",
+      "kind": "native",
+      "template": "sleep_monitor,{{parameters}}",
+      "usage": "sleep_monitor monitor_spec"
+    },
+    {
+      "id": "mangowc/sleep_toggle_monitor",
+      "source": "mangowc",
+      "category": "system",
+      "kind": "native",
+      "template": "sleep_toggle_monitor,{{parameters}}",
+      "usage": "sleep_toggle_monitor monitor_spec"
+    },
+    {
+      "id": "mangowc/switch_keyboard_layout",
+      "source": "mangowc",
+      "category": "system",
+      "kind": "native",
+      "template": "switch_keyboard_layout",
+      "usage": "switch_keyboard_layout [index]"
+    },
+    {
+      "id": "mangowc/toggle_monitor",
+      "source": "mangowc",
+      "category": "system",
+      "kind": "native",
+      "template": "toggle_monitor,{{parameters}}",
+      "usage": "toggle_monitor monitor_spec"
+    },
+    {
+      "id": "mangowc/toggle_trackpad_enable",
+      "source": "mangowc",
+      "category": "system",
+      "kind": "native",
+      "template": "toggle_trackpad_enable",
+      "usage": "toggle_trackpad_enable"
+    },
+    {
+      "id": "mangowc/togglejump",
+      "source": "mangowc",
+      "category": "system",
+      "kind": "native",
+      "template": "togglejump",
+      "usage": "togglejump"
+    },
+    {
+      "id": "mangowc/toggleoverlay",
+      "source": "mangowc",
+      "category": "system",
+      "kind": "native",
+      "template": "toggleoverlay",
+      "usage": "toggleoverlay"
+    },
+    {
+      "id": "mangowc/toggleoverview",
+      "source": "mangowc",
+      "category": "system",
+      "kind": "native",
+      "template": "toggleoverview",
+      "usage": "toggleoverview"
+    },
+    {
+      "id": "mangowc/wakeup_monitor",
+      "source": "mangowc",
+      "category": "system",
+      "kind": "native",
+      "template": "wakeup_monitor,{{parameters}}",
+      "usage": "wakeup_monitor monitor_spec"
+    },
+    {
+      "id": "mangowc/centerwin",
+      "source": "mangowc",
+      "category": "windows",
+      "kind": "native",
+      "template": "centerwin",
+      "usage": "centerwin"
+    },
+    {
+      "id": "mangowc/exchange_client",
+      "source": "mangowc",
+      "category": "windows",
+      "kind": "native",
+      "template": "exchange_client,{{parameters}}",
+      "usage": "exchange_client left/right/up/down"
+    },
+    {
+      "id": "mangowc/exchange_stack_client",
+      "source": "mangowc",
+      "category": "windows",
+      "kind": "native",
+      "template": "exchange_stack_client,{{parameters}}",
+      "usage": "exchange_stack_client next/prev"
+    },
+    {
+      "id": "mangowc/focusdir",
+      "source": "mangowc",
+      "category": "windows",
+      "kind": "native",
+      "template": "focusdir,{{parameters}}",
+      "usage": "focusdir left/right/up/down"
+    },
+    {
+      "id": "mangowc/focusid",
+      "source": "mangowc",
+      "category": "windows",
+      "kind": "native",
+      "template": "focusid",
+      "usage": "focusid"
+    },
+    {
+      "id": "mangowc/focuslast",
+      "source": "mangowc",
+      "category": "windows",
+      "kind": "native",
+      "template": "focuslast",
+      "usage": "focuslast"
+    },
+    {
+      "id": "mangowc/focusstack",
+      "source": "mangowc",
+      "category": "windows",
+      "kind": "native",
+      "template": "focusstack,{{parameters}}",
+      "usage": "focusstack next/prev"
+    },
+    {
+      "id": "mangowc/groupfocus",
+      "source": "mangowc",
+      "category": "windows",
+      "kind": "native",
+      "template": "groupfocus,{{parameters}}",
+      "usage": "groupfocus prev/next"
+    },
+    {
+      "id": "mangowc/groupjoin",
+      "source": "mangowc",
+      "category": "windows",
+      "kind": "native",
+      "template": "groupjoin,{{parameters}}",
+      "usage": "groupjoin left/right/up/down"
+    },
+    {
+      "id": "mangowc/groupleave",
+      "source": "mangowc",
+      "category": "windows",
+      "kind": "native",
+      "template": "groupleave",
+      "usage": "groupleave"
+    },
+    {
+      "id": "mangowc/killclient",
+      "source": "mangowc",
+      "category": "windows",
+      "kind": "native",
+      "template": "killclient,{{parameters}}",
+      "usage": "killclient force"
+    },
+    {
+      "id": "mangowc/minimized",
+      "source": "mangowc",
+      "category": "windows",
+      "kind": "native",
+      "template": "minimized",
+      "usage": "minimized"
+    },
+    {
+      "id": "mangowc/movewin",
+      "source": "mangowc",
+      "category": "windows",
+      "kind": "native",
+      "template": "movewin,{{parameters}}",
+      "usage": "movewin (x,y)"
+    },
+    {
+      "id": "mangowc/resizewin",
+      "source": "mangowc",
+      "category": "windows",
+      "kind": "native",
+      "template": "resizewin,{{parameters}}",
+      "usage": "resizewin (width,height)"
+    },
+    {
+      "id": "mangowc/restore_minimized",
+      "source": "mangowc",
+      "category": "windows",
+      "kind": "native",
+      "template": "restore_minimized",
+      "usage": "restore_minimized"
+    },
+    {
+      "id": "mangowc/smartmovewin",
+      "source": "mangowc",
+      "category": "windows",
+      "kind": "native",
+      "template": "smartmovewin,{{parameters}}",
+      "usage": "smartmovewin left/right/up/down"
+    },
+    {
+      "id": "mangowc/smartresizewin",
+      "source": "mangowc",
+      "category": "windows",
+      "kind": "native",
+      "template": "smartresizewin,{{parameters}}",
+      "usage": "smartresizewin left/right/up/down"
+    },
+    {
+      "id": "mangowc/toggle_all_floating",
+      "source": "mangowc",
+      "category": "windows",
+      "kind": "native",
+      "template": "toggle_all_floating",
+      "usage": "toggle_all_floating"
+    },
+    {
+      "id": "mangowc/toggle_named_scratchpad",
+      "source": "mangowc",
+      "category": "windows",
+      "kind": "native",
+      "template": "toggle_named_scratchpad,{{parameters}}",
+      "usage": "toggle_named_scratchpad appid,title,cmd"
+    },
+    {
+      "id": "mangowc/toggle_render_border",
+      "source": "mangowc",
+      "category": "windows",
+      "kind": "native",
+      "template": "toggle_render_border",
+      "usage": "toggle_render_border"
+    },
+    {
+      "id": "mangowc/toggle_scratchpad",
+      "source": "mangowc",
+      "category": "windows",
+      "kind": "native",
+      "template": "toggle_scratchpad",
+      "usage": "toggle_scratchpad"
+    },
+    {
+      "id": "mangowc/togglefakefullscreen",
+      "source": "mangowc",
+      "category": "windows",
+      "kind": "native",
+      "template": "togglefakefullscreen",
+      "usage": "togglefakefullscreen"
+    },
+    {
+      "id": "mangowc/togglefloating",
+      "source": "mangowc",
+      "category": "windows",
+      "kind": "native",
+      "template": "togglefloating",
+      "usage": "togglefloating"
+    },
+    {
+      "id": "mangowc/togglefullscreen",
+      "source": "mangowc",
+      "category": "windows",
+      "kind": "native",
+      "template": "togglefullscreen",
+      "usage": "togglefullscreen"
+    },
+    {
+      "id": "mangowc/toggleglobal",
+      "source": "mangowc",
+      "category": "windows",
+      "kind": "native",
+      "template": "toggleglobal",
+      "usage": "toggleglobal"
+    },
+    {
+      "id": "mangowc/togglemaximizescreen",
+      "source": "mangowc",
+      "category": "windows",
+      "kind": "native",
+      "template": "togglemaximizescreen",
+      "usage": "togglemaximizescreen"
+    },
+    {
+      "id": "mangowc/zoom",
+      "source": "mangowc",
+      "category": "windows",
+      "kind": "native",
+      "template": "zoom",
+      "usage": "zoom"
+    },
+    {
+      "id": "mangowc/comboview",
+      "source": "mangowc",
+      "category": "workspaces",
+      "kind": "native",
+      "template": "comboview,{{parameters}}",
+      "usage": "comboview 1-9"
+    },
+    {
+      "id": "mangowc/focusmon",
+      "source": "mangowc",
+      "category": "workspaces",
+      "kind": "native",
+      "template": "focusmon,{{parameters}}",
+      "usage": "focusmon left/right/up/down/monitor_spec"
+    },
+    {
+      "id": "mangowc/tag",
+      "source": "mangowc",
+      "category": "workspaces",
+      "kind": "native",
+      "template": "tag,{{parameters}}",
+      "usage": "tag 1-9 [,synctag]"
+    },
+    {
+      "id": "mangowc/tagcrossmon",
+      "source": "mangowc",
+      "category": "workspaces",
+      "kind": "native",
+      "template": "tagcrossmon,{{parameters}}",
+      "usage": "tagcrossmon tag,monitor_spec"
+    },
+    {
+      "id": "mangowc/tagmon",
+      "source": "mangowc",
+      "category": "workspaces",
+      "kind": "native",
+      "template": "tagmon,{{parameters}}",
+      "usage": "tagmon left/right/up/down/monitor_spec,[keeptag]"
+    },
+    {
+      "id": "mangowc/tagsilent",
+      "source": "mangowc",
+      "category": "workspaces",
+      "kind": "native",
+      "template": "tagsilent,{{parameters}}",
+      "usage": "tagsilent 1-9"
+    },
+    {
+      "id": "mangowc/tagtoleft",
+      "source": "mangowc",
+      "category": "workspaces",
+      "kind": "native",
+      "template": "tagtoleft",
+      "usage": "tagtoleft [synctag]"
+    },
+    {
+      "id": "mangowc/tagtoright",
+      "source": "mangowc",
+      "category": "workspaces",
+      "kind": "native",
+      "template": "tagtoright",
+      "usage": "tagtoright [synctag]"
+    },
+    {
+      "id": "mangowc/toggletag",
+      "source": "mangowc",
+      "category": "workspaces",
+      "kind": "native",
+      "template": "toggletag,{{parameters}}",
+      "usage": "toggletag 0-9"
+    },
+    {
+      "id": "mangowc/toggleview",
+      "source": "mangowc",
+      "category": "workspaces",
+      "kind": "native",
+      "template": "toggleview,{{parameters}}",
+      "usage": "toggleview 1-9"
+    },
+    {
+      "id": "mangowc/view",
+      "source": "mangowc",
+      "category": "workspaces",
+      "kind": "native",
+      "template": "view,{{parameters}}",
+      "usage": "view -1/0/1-9` or `mask [,synctag]"
+    },
+    {
+      "id": "mangowc/viewcrossmon",
+      "source": "mangowc",
+      "category": "workspaces",
+      "kind": "native",
+      "template": "viewcrossmon,{{parameters}}",
+      "usage": "viewcrossmon tag,monitor_spec"
+    },
+    {
+      "id": "mangowc/viewtoleft",
+      "source": "mangowc",
+      "category": "workspaces",
+      "kind": "native",
+      "template": "viewtoleft",
+      "usage": "viewtoleft [synctag]"
+    },
+    {
+      "id": "mangowc/viewtoleft_have_client",
+      "source": "mangowc",
+      "category": "workspaces",
+      "kind": "native",
+      "template": "viewtoleft_have_client",
+      "usage": "viewtoleft_have_client [synctag]"
+    },
+    {
+      "id": "mangowc/viewtoright",
+      "source": "mangowc",
+      "category": "workspaces",
+      "kind": "native",
+      "template": "viewtoright",
+      "usage": "viewtoright [synctag]"
+    },
+    {
+      "id": "mangowc/viewtoright_have_client",
+      "source": "mangowc",
+      "category": "workspaces",
+      "kind": "native",
+      "template": "viewtoright_have_client",
+      "usage": "viewtoright_have_client [synctag]"
+    },
+    {
+      "id": "niri/spawn",
+      "source": "niri",
+      "category": "applications",
+      "kind": "native",
+      "template": "spawn {{arguments}}",
+      "usage": "spawn <arguments>"
+    },
+    {
+      "id": "niri/spawn-sh",
+      "source": "niri",
+      "category": "applications",
+      "kind": "native",
+      "template": "spawn-sh {{command}}",
+      "usage": "spawn-sh <arguments>"
+    },
+    {
+      "id": "niri/clear-dynamic-cast-target",
+      "source": "niri",
+      "category": "casting",
+      "kind": "native",
+      "template": "clear-dynamic-cast-target",
+      "usage": "clear-dynamic-cast-target"
+    },
+    {
+      "id": "niri/focus-column",
+      "source": "niri",
+      "category": "focus",
+      "kind": "native",
+      "template": "focus-column {{argument}}",
+      "usage": "focus-column <arguments>"
+    },
+    {
+      "id": "niri/focus-column-first",
+      "source": "niri",
+      "category": "focus",
+      "kind": "native",
+      "template": "focus-column-first",
+      "usage": "focus-column-first"
+    },
+    {
+      "id": "niri/focus-column-last",
+      "source": "niri",
+      "category": "focus",
+      "kind": "native",
+      "template": "focus-column-last",
+      "usage": "focus-column-last"
+    },
+    {
+      "id": "niri/focus-column-left",
+      "source": "niri",
+      "category": "focus",
+      "kind": "native",
+      "template": "focus-column-left",
+      "usage": "focus-column-left"
+    },
+    {
+      "id": "niri/focus-column-left-or-last",
+      "source": "niri",
+      "category": "focus",
+      "kind": "native",
+      "template": "focus-column-left-or-last",
+      "usage": "focus-column-left-or-last"
+    },
+    {
+      "id": "niri/focus-column-or-monitor-left",
+      "source": "niri",
+      "category": "focus",
+      "kind": "native",
+      "template": "focus-column-or-monitor-left",
+      "usage": "focus-column-or-monitor-left"
+    },
+    {
+      "id": "niri/focus-column-or-monitor-right",
+      "source": "niri",
+      "category": "focus",
+      "kind": "native",
+      "template": "focus-column-or-monitor-right",
+      "usage": "focus-column-or-monitor-right"
+    },
+    {
+      "id": "niri/focus-column-right",
+      "source": "niri",
+      "category": "focus",
+      "kind": "native",
+      "template": "focus-column-right",
+      "usage": "focus-column-right"
+    },
+    {
+      "id": "niri/focus-column-right-or-first",
+      "source": "niri",
+      "category": "focus",
+      "kind": "native",
+      "template": "focus-column-right-or-first",
+      "usage": "focus-column-right-or-first"
+    },
+    {
+      "id": "niri/focus-floating",
+      "source": "niri",
+      "category": "focus",
+      "kind": "native",
+      "template": "focus-floating",
+      "usage": "focus-floating"
+    },
+    {
+      "id": "niri/focus-monitor",
+      "source": "niri",
+      "category": "focus",
+      "kind": "native",
+      "template": "focus-monitor {{argument}}",
+      "usage": "focus-monitor <arguments>"
+    },
+    {
+      "id": "niri/focus-monitor-down",
+      "source": "niri",
+      "category": "focus",
+      "kind": "native",
+      "template": "focus-monitor-down",
+      "usage": "focus-monitor-down"
+    },
+    {
+      "id": "niri/focus-monitor-left",
+      "source": "niri",
+      "category": "focus",
+      "kind": "native",
+      "template": "focus-monitor-left",
+      "usage": "focus-monitor-left"
+    },
+    {
+      "id": "niri/focus-monitor-next",
+      "source": "niri",
+      "category": "focus",
+      "kind": "native",
+      "template": "focus-monitor-next",
+      "usage": "focus-monitor-next"
+    },
+    {
+      "id": "niri/focus-monitor-previous",
+      "source": "niri",
+      "category": "focus",
+      "kind": "native",
+      "template": "focus-monitor-previous",
+      "usage": "focus-monitor-previous"
+    },
+    {
+      "id": "niri/focus-monitor-right",
+      "source": "niri",
+      "category": "focus",
+      "kind": "native",
+      "template": "focus-monitor-right",
+      "usage": "focus-monitor-right"
+    },
+    {
+      "id": "niri/focus-monitor-up",
+      "source": "niri",
+      "category": "focus",
+      "kind": "native",
+      "template": "focus-monitor-up",
+      "usage": "focus-monitor-up"
+    },
+    {
+      "id": "niri/focus-tiling",
+      "source": "niri",
+      "category": "focus",
+      "kind": "native",
+      "template": "focus-tiling",
+      "usage": "focus-tiling"
+    },
+    {
+      "id": "niri/focus-window-bottom",
+      "source": "niri",
+      "category": "focus",
+      "kind": "native",
+      "template": "focus-window-bottom",
+      "usage": "focus-window-bottom"
+    },
+    {
+      "id": "niri/focus-window-down",
+      "source": "niri",
+      "category": "focus",
+      "kind": "native",
+      "template": "focus-window-down",
+      "usage": "focus-window-down"
+    },
+    {
+      "id": "niri/focus-window-down-or-column-left",
+      "source": "niri",
+      "category": "focus",
+      "kind": "native",
+      "template": "focus-window-down-or-column-left",
+      "usage": "focus-window-down-or-column-left"
+    },
+    {
+      "id": "niri/focus-window-down-or-column-right",
+      "source": "niri",
+      "category": "focus",
+      "kind": "native",
+      "template": "focus-window-down-or-column-right",
+      "usage": "focus-window-down-or-column-right"
+    },
+    {
+      "id": "niri/focus-window-down-or-top",
+      "source": "niri",
+      "category": "focus",
+      "kind": "native",
+      "template": "focus-window-down-or-top",
+      "usage": "focus-window-down-or-top"
+    },
+    {
+      "id": "niri/focus-window-in-column",
+      "source": "niri",
+      "category": "focus",
+      "kind": "native",
+      "template": "focus-window-in-column {{argument}}",
+      "usage": "focus-window-in-column <arguments>"
+    },
+    {
+      "id": "niri/focus-window-or-monitor-down",
+      "source": "niri",
+      "category": "focus",
+      "kind": "native",
+      "template": "focus-window-or-monitor-down",
+      "usage": "focus-window-or-monitor-down"
+    },
+    {
+      "id": "niri/focus-window-or-monitor-up",
+      "source": "niri",
+      "category": "focus",
+      "kind": "native",
+      "template": "focus-window-or-monitor-up",
+      "usage": "focus-window-or-monitor-up"
+    },
+    {
+      "id": "niri/focus-window-or-workspace-down",
+      "source": "niri",
+      "category": "focus",
+      "kind": "native",
+      "template": "focus-window-or-workspace-down",
+      "usage": "focus-window-or-workspace-down"
+    },
+    {
+      "id": "niri/focus-window-or-workspace-up",
+      "source": "niri",
+      "category": "focus",
+      "kind": "native",
+      "template": "focus-window-or-workspace-up",
+      "usage": "focus-window-or-workspace-up"
+    },
+    {
+      "id": "niri/focus-window-previous",
+      "source": "niri",
+      "category": "focus",
+      "kind": "native",
+      "template": "focus-window-previous",
+      "usage": "focus-window-previous"
+    },
+    {
+      "id": "niri/focus-window-top",
+      "source": "niri",
+      "category": "focus",
+      "kind": "native",
+      "template": "focus-window-top",
+      "usage": "focus-window-top"
+    },
+    {
+      "id": "niri/focus-window-up",
+      "source": "niri",
+      "category": "focus",
+      "kind": "native",
+      "template": "focus-window-up",
+      "usage": "focus-window-up"
+    },
+    {
+      "id": "niri/focus-window-up-or-bottom",
+      "source": "niri",
+      "category": "focus",
+      "kind": "native",
+      "template": "focus-window-up-or-bottom",
+      "usage": "focus-window-up-or-bottom"
+    },
+    {
+      "id": "niri/focus-window-up-or-column-left",
+      "source": "niri",
+      "category": "focus",
+      "kind": "native",
+      "template": "focus-window-up-or-column-left",
+      "usage": "focus-window-up-or-column-left"
+    },
+    {
+      "id": "niri/focus-window-up-or-column-right",
+      "source": "niri",
+      "category": "focus",
+      "kind": "native",
+      "template": "focus-window-up-or-column-right",
+      "usage": "focus-window-up-or-column-right"
+    },
+    {
+      "id": "niri/focus-workspace",
+      "source": "niri",
+      "category": "focus",
+      "kind": "native",
+      "template": "focus-workspace {{workspace}}",
+      "usage": "focus-workspace <arguments>"
+    },
+    {
+      "id": "niri/focus-workspace-down",
+      "source": "niri",
+      "category": "focus",
+      "kind": "native",
+      "template": "focus-workspace-down",
+      "usage": "focus-workspace-down"
+    },
+    {
+      "id": "niri/focus-workspace-previous",
+      "source": "niri",
+      "category": "focus",
+      "kind": "native",
+      "template": "focus-workspace-previous",
+      "usage": "focus-workspace-previous"
+    },
+    {
+      "id": "niri/focus-workspace-up",
+      "source": "niri",
+      "category": "focus",
+      "kind": "native",
+      "template": "focus-workspace-up",
+      "usage": "focus-workspace-up"
+    },
+    {
+      "id": "niri/toggle-keyboard-shortcuts-inhibit",
+      "source": "niri",
+      "category": "input",
+      "kind": "native",
+      "template": "toggle-keyboard-shortcuts-inhibit",
+      "usage": "toggle-keyboard-shortcuts-inhibit"
+    },
+    {
+      "id": "niri/close-overview",
+      "source": "niri",
+      "category": "layout",
+      "kind": "native",
+      "template": "close-overview",
+      "usage": "close-overview"
+    },
+    {
+      "id": "niri/open-overview",
+      "source": "niri",
+      "category": "layout",
+      "kind": "native",
+      "template": "open-overview",
+      "usage": "open-overview"
+    },
+    {
+      "id": "niri/switch-layout",
+      "source": "niri",
+      "category": "layout",
+      "kind": "native",
+      "template": "switch-layout {{layout}}",
+      "usage": "switch-layout <arguments>"
+    },
+    {
+      "id": "niri/toggle-overview",
+      "source": "niri",
+      "category": "layout",
+      "kind": "native",
+      "template": "toggle-overview",
+      "usage": "toggle-overview"
+    },
+    {
+      "id": "niri/power-off-monitors",
+      "source": "niri",
+      "category": "monitors",
+      "kind": "native",
+      "template": "power-off-monitors",
+      "usage": "power-off-monitors"
+    },
+    {
+      "id": "niri/power-on-monitors",
+      "source": "niri",
+      "category": "monitors",
+      "kind": "native",
+      "template": "power-on-monitors",
+      "usage": "power-on-monitors"
+    },
+    {
+      "id": "niri/set-dynamic-cast-monitor",
+      "source": "niri",
+      "category": "monitors",
+      "kind": "native",
+      "template": "set-dynamic-cast-monitor",
+      "usage": "set-dynamic-cast-monitor"
+    },
+    {
+      "id": "niri/quit",
+      "source": "niri",
+      "category": "power",
+      "kind": "native",
+      "template": "quit",
+      "usage": "quit"
+    },
+    {
+      "id": "niri/suspend",
+      "source": "niri",
+      "category": "power",
+      "kind": "native",
+      "template": "suspend",
+      "usage": "suspend"
+    },
+    {
+      "id": "niri/do-screen-transition",
+      "source": "niri",
+      "category": "screenshots",
+      "kind": "native",
+      "template": "do-screen-transition",
+      "usage": "do-screen-transition"
+    },
+    {
+      "id": "niri/screenshot",
+      "source": "niri",
+      "category": "screenshots",
+      "kind": "native",
+      "template": "screenshot",
+      "usage": "screenshot"
+    },
+    {
+      "id": "niri/screenshot-screen",
+      "source": "niri",
+      "category": "screenshots",
+      "kind": "native",
+      "template": "screenshot-screen",
+      "usage": "screenshot-screen"
+    },
+    {
+      "id": "niri/screenshot-window",
+      "source": "niri",
+      "category": "screenshots",
+      "kind": "native",
+      "template": "screenshot-window",
+      "usage": "screenshot-window"
+    },
+    {
+      "id": "niri/debug-toggle-damage",
+      "source": "niri",
+      "category": "system",
+      "kind": "native",
+      "template": "debug-toggle-damage",
+      "usage": "debug-toggle-damage"
+    },
+    {
+      "id": "niri/debug-toggle-opaque-regions",
+      "source": "niri",
+      "category": "system",
+      "kind": "native",
+      "template": "debug-toggle-opaque-regions",
+      "usage": "debug-toggle-opaque-regions"
+    },
+    {
+      "id": "niri/show-hotkey-overlay",
+      "source": "niri",
+      "category": "system",
+      "kind": "native",
+      "template": "show-hotkey-overlay",
+      "usage": "show-hotkey-overlay"
+    },
+    {
+      "id": "niri/toggle-debug-tint",
+      "source": "niri",
+      "category": "system",
+      "kind": "native",
+      "template": "toggle-debug-tint",
+      "usage": "toggle-debug-tint"
+    },
+    {
+      "id": "niri/center-column",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "center-column",
+      "usage": "center-column"
+    },
+    {
+      "id": "niri/center-visible-columns",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "center-visible-columns",
+      "usage": "center-visible-columns"
+    },
+    {
+      "id": "niri/center-window",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "center-window",
+      "usage": "center-window"
+    },
+    {
+      "id": "niri/close-window",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "close-window",
+      "usage": "close-window"
+    },
+    {
+      "id": "niri/consume-or-expel-window-left",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "consume-or-expel-window-left",
+      "usage": "consume-or-expel-window-left"
+    },
+    {
+      "id": "niri/consume-or-expel-window-right",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "consume-or-expel-window-right",
+      "usage": "consume-or-expel-window-right"
+    },
+    {
+      "id": "niri/consume-window-into-column",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "consume-window-into-column",
+      "usage": "consume-window-into-column"
+    },
+    {
+      "id": "niri/expand-column-to-available-width",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "expand-column-to-available-width",
+      "usage": "expand-column-to-available-width"
+    },
+    {
+      "id": "niri/expel-window-from-column",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "expel-window-from-column",
+      "usage": "expel-window-from-column"
+    },
+    {
+      "id": "niri/fullscreen-window",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "fullscreen-window",
+      "usage": "fullscreen-window"
+    },
+    {
+      "id": "niri/maximize-column",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "maximize-column",
+      "usage": "maximize-column"
+    },
+    {
+      "id": "niri/maximize-window-to-edges",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "maximize-window-to-edges",
+      "usage": "maximize-window-to-edges"
+    },
+    {
+      "id": "niri/move-column-left",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "move-column-left",
+      "usage": "move-column-left"
+    },
+    {
+      "id": "niri/move-column-left-or-to-monitor-left",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "move-column-left-or-to-monitor-left",
+      "usage": "move-column-left-or-to-monitor-left"
+    },
+    {
+      "id": "niri/move-column-right",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "move-column-right",
+      "usage": "move-column-right"
+    },
+    {
+      "id": "niri/move-column-right-or-to-monitor-right",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "move-column-right-or-to-monitor-right",
+      "usage": "move-column-right-or-to-monitor-right"
+    },
+    {
+      "id": "niri/move-column-to-first",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "move-column-to-first",
+      "usage": "move-column-to-first"
+    },
+    {
+      "id": "niri/move-column-to-index",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "move-column-to-index {{argument}}",
+      "usage": "move-column-to-index <arguments>"
+    },
+    {
+      "id": "niri/move-column-to-last",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "move-column-to-last",
+      "usage": "move-column-to-last"
+    },
+    {
+      "id": "niri/move-column-to-monitor",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "move-column-to-monitor {{argument}}",
+      "usage": "move-column-to-monitor <arguments>"
+    },
+    {
+      "id": "niri/move-column-to-monitor-down",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "move-column-to-monitor-down",
+      "usage": "move-column-to-monitor-down"
+    },
+    {
+      "id": "niri/move-column-to-monitor-left",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "move-column-to-monitor-left",
+      "usage": "move-column-to-monitor-left"
+    },
+    {
+      "id": "niri/move-column-to-monitor-next",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "move-column-to-monitor-next",
+      "usage": "move-column-to-monitor-next"
+    },
+    {
+      "id": "niri/move-column-to-monitor-previous",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "move-column-to-monitor-previous",
+      "usage": "move-column-to-monitor-previous"
+    },
+    {
+      "id": "niri/move-column-to-monitor-right",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "move-column-to-monitor-right",
+      "usage": "move-column-to-monitor-right"
+    },
+    {
+      "id": "niri/move-column-to-monitor-up",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "move-column-to-monitor-up",
+      "usage": "move-column-to-monitor-up"
+    },
+    {
+      "id": "niri/move-column-to-workspace",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "move-column-to-workspace {{workspace}}",
+      "usage": "move-column-to-workspace <arguments>"
+    },
+    {
+      "id": "niri/move-column-to-workspace-down",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "move-column-to-workspace-down",
+      "usage": "move-column-to-workspace-down"
+    },
+    {
+      "id": "niri/move-column-to-workspace-up",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "move-column-to-workspace-up",
+      "usage": "move-column-to-workspace-up"
+    },
+    {
+      "id": "niri/move-window-down",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "move-window-down",
+      "usage": "move-window-down"
+    },
+    {
+      "id": "niri/move-window-down-or-to-workspace-down",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "move-window-down-or-to-workspace-down",
+      "usage": "move-window-down-or-to-workspace-down"
+    },
+    {
+      "id": "niri/move-window-to-floating",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "move-window-to-floating",
+      "usage": "move-window-to-floating"
+    },
+    {
+      "id": "niri/move-window-to-monitor",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "move-window-to-monitor {{argument}}",
+      "usage": "move-window-to-monitor <arguments>"
+    },
+    {
+      "id": "niri/move-window-to-monitor-down",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "move-window-to-monitor-down",
+      "usage": "move-window-to-monitor-down"
+    },
+    {
+      "id": "niri/move-window-to-monitor-left",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "move-window-to-monitor-left",
+      "usage": "move-window-to-monitor-left"
+    },
+    {
+      "id": "niri/move-window-to-monitor-next",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "move-window-to-monitor-next",
+      "usage": "move-window-to-monitor-next"
+    },
+    {
+      "id": "niri/move-window-to-monitor-previous",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "move-window-to-monitor-previous",
+      "usage": "move-window-to-monitor-previous"
+    },
+    {
+      "id": "niri/move-window-to-monitor-right",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "move-window-to-monitor-right",
+      "usage": "move-window-to-monitor-right"
+    },
+    {
+      "id": "niri/move-window-to-monitor-up",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "move-window-to-monitor-up",
+      "usage": "move-window-to-monitor-up"
+    },
+    {
+      "id": "niri/move-window-to-tiling",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "move-window-to-tiling",
+      "usage": "move-window-to-tiling"
+    },
+    {
+      "id": "niri/move-window-to-workspace",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "move-window-to-workspace {{workspace}}",
+      "usage": "move-window-to-workspace <arguments>"
+    },
+    {
+      "id": "niri/move-window-to-workspace-down",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "move-window-to-workspace-down",
+      "usage": "move-window-to-workspace-down"
+    },
+    {
+      "id": "niri/move-window-to-workspace-up",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "move-window-to-workspace-up",
+      "usage": "move-window-to-workspace-up"
+    },
+    {
+      "id": "niri/move-window-up",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "move-window-up",
+      "usage": "move-window-up"
+    },
+    {
+      "id": "niri/move-window-up-or-to-workspace-up",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "move-window-up-or-to-workspace-up",
+      "usage": "move-window-up-or-to-workspace-up"
+    },
+    {
+      "id": "niri/reset-window-height",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "reset-window-height",
+      "usage": "reset-window-height"
+    },
+    {
+      "id": "niri/set-column-display",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "set-column-display {{argument}}",
+      "usage": "set-column-display <arguments>"
+    },
+    {
+      "id": "niri/set-column-width",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "set-column-width {{size}}",
+      "usage": "set-column-width <arguments>"
+    },
+    {
+      "id": "niri/set-dynamic-cast-window",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "set-dynamic-cast-window",
+      "usage": "set-dynamic-cast-window"
+    },
+    {
+      "id": "niri/set-window-height",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "set-window-height {{size}}",
+      "usage": "set-window-height <arguments>"
+    },
+    {
+      "id": "niri/set-window-width",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "set-window-width {{size}}",
+      "usage": "set-window-width <arguments>"
+    },
+    {
+      "id": "niri/swap-window-left",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "swap-window-left",
+      "usage": "swap-window-left"
+    },
+    {
+      "id": "niri/swap-window-right",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "swap-window-right",
+      "usage": "swap-window-right"
+    },
+    {
+      "id": "niri/switch-focus-between-floating-and-tiling",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "switch-focus-between-floating-and-tiling",
+      "usage": "switch-focus-between-floating-and-tiling"
+    },
+    {
+      "id": "niri/switch-preset-column-width",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "switch-preset-column-width",
+      "usage": "switch-preset-column-width"
+    },
+    {
+      "id": "niri/switch-preset-column-width-back",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "switch-preset-column-width-back",
+      "usage": "switch-preset-column-width-back"
+    },
+    {
+      "id": "niri/switch-preset-window-height",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "switch-preset-window-height",
+      "usage": "switch-preset-window-height"
+    },
+    {
+      "id": "niri/switch-preset-window-height-back",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "switch-preset-window-height-back",
+      "usage": "switch-preset-window-height-back"
+    },
+    {
+      "id": "niri/switch-preset-window-width",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "switch-preset-window-width",
+      "usage": "switch-preset-window-width"
+    },
+    {
+      "id": "niri/switch-preset-window-width-back",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "switch-preset-window-width-back",
+      "usage": "switch-preset-window-width-back"
+    },
+    {
+      "id": "niri/toggle-column-tabbed-display",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "toggle-column-tabbed-display",
+      "usage": "toggle-column-tabbed-display"
+    },
+    {
+      "id": "niri/toggle-window-floating",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "toggle-window-floating",
+      "usage": "toggle-window-floating"
+    },
+    {
+      "id": "niri/toggle-window-rule-opacity",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "toggle-window-rule-opacity",
+      "usage": "toggle-window-rule-opacity"
+    },
+    {
+      "id": "niri/toggle-windowed-fullscreen",
+      "source": "niri",
+      "category": "windows",
+      "kind": "native",
+      "template": "toggle-windowed-fullscreen",
+      "usage": "toggle-windowed-fullscreen"
+    },
+    {
+      "id": "niri/move-workspace-down",
+      "source": "niri",
+      "category": "workspaces",
+      "kind": "native",
+      "template": "move-workspace-down",
+      "usage": "move-workspace-down"
+    },
+    {
+      "id": "niri/move-workspace-to-index",
+      "source": "niri",
+      "category": "workspaces",
+      "kind": "native",
+      "template": "move-workspace-to-index {{argument}}",
+      "usage": "move-workspace-to-index <arguments>"
+    },
+    {
+      "id": "niri/move-workspace-to-monitor",
+      "source": "niri",
+      "category": "workspaces",
+      "kind": "native",
+      "template": "move-workspace-to-monitor {{argument}}",
+      "usage": "move-workspace-to-monitor <arguments>"
+    },
+    {
+      "id": "niri/move-workspace-to-monitor-down",
+      "source": "niri",
+      "category": "workspaces",
+      "kind": "native",
+      "template": "move-workspace-to-monitor-down",
+      "usage": "move-workspace-to-monitor-down"
+    },
+    {
+      "id": "niri/move-workspace-to-monitor-left",
+      "source": "niri",
+      "category": "workspaces",
+      "kind": "native",
+      "template": "move-workspace-to-monitor-left",
+      "usage": "move-workspace-to-monitor-left"
+    },
+    {
+      "id": "niri/move-workspace-to-monitor-next",
+      "source": "niri",
+      "category": "workspaces",
+      "kind": "native",
+      "template": "move-workspace-to-monitor-next",
+      "usage": "move-workspace-to-monitor-next"
+    },
+    {
+      "id": "niri/move-workspace-to-monitor-previous",
+      "source": "niri",
+      "category": "workspaces",
+      "kind": "native",
+      "template": "move-workspace-to-monitor-previous",
+      "usage": "move-workspace-to-monitor-previous"
+    },
+    {
+      "id": "niri/move-workspace-to-monitor-right",
+      "source": "niri",
+      "category": "workspaces",
+      "kind": "native",
+      "template": "move-workspace-to-monitor-right",
+      "usage": "move-workspace-to-monitor-right"
+    },
+    {
+      "id": "niri/move-workspace-to-monitor-up",
+      "source": "niri",
+      "category": "workspaces",
+      "kind": "native",
+      "template": "move-workspace-to-monitor-up",
+      "usage": "move-workspace-to-monitor-up"
+    },
+    {
+      "id": "niri/move-workspace-up",
+      "source": "niri",
+      "category": "workspaces",
+      "kind": "native",
+      "template": "move-workspace-up",
+      "usage": "move-workspace-up"
+    },
+    {
+      "id": "niri/set-workspace-name",
+      "source": "niri",
+      "category": "workspaces",
+      "kind": "native",
+      "template": "set-workspace-name {{argument}}",
+      "usage": "set-workspace-name <arguments>"
+    },
+    {
+      "id": "niri/unset-workspace-name",
+      "source": "niri",
+      "category": "workspaces",
+      "kind": "native",
+      "template": "unset-workspace-name",
+      "usage": "unset-workspace-name"
+    },
+    {
+      "id": "noctalia/color-scheme-get",
+      "source": "noctalia",
+      "category": "appearance",
+      "kind": "shell",
+      "template": "noctalia msg color-scheme-get",
+      "usage": "color-scheme-get"
+    },
+    {
+      "id": "noctalia/color-scheme-set",
+      "source": "noctalia",
+      "category": "appearance",
+      "kind": "shell",
+      "template": "noctalia msg color-scheme-set {{source}} {{name}}",
+      "usage": "color-scheme-set <source> <name>"
+    },
+    {
+      "id": "noctalia/templates-apply",
+      "source": "noctalia",
+      "category": "appearance",
+      "kind": "shell",
+      "template": "noctalia msg templates-apply",
+      "usage": "templates-apply"
+    },
+    {
+      "id": "noctalia/theme-mode-get",
+      "source": "noctalia",
+      "category": "appearance",
+      "kind": "shell",
+      "template": "noctalia msg theme-mode-get",
+      "usage": "theme-mode-get"
+    },
+    {
+      "id": "noctalia/theme-mode-set",
+      "source": "noctalia",
+      "category": "appearance",
+      "kind": "shell",
+      "template": "noctalia msg theme-mode-set {{dark-light-auto}}",
+      "usage": "theme-mode-set <dark|light|auto>"
+    },
+    {
+      "id": "noctalia/theme-mode-toggle",
+      "source": "noctalia",
+      "category": "appearance",
+      "kind": "shell",
+      "template": "noctalia msg theme-mode-toggle",
+      "usage": "theme-mode-toggle"
+    },
+    {
+      "id": "noctalia/wallpaper-get",
+      "source": "noctalia",
+      "category": "appearance",
+      "kind": "shell",
+      "template": "noctalia msg wallpaper-get {{connector}}",
+      "usage": "wallpaper-get [<connector>]"
+    },
+    {
+      "id": "noctalia/wallpaper-next",
+      "source": "noctalia",
+      "category": "appearance",
+      "kind": "shell",
+      "template": "noctalia msg wallpaper-next {{connector}}",
+      "usage": "wallpaper-next [<connector>]"
+    },
+    {
+      "id": "noctalia/wallpaper-previous",
+      "source": "noctalia",
+      "category": "appearance",
+      "kind": "shell",
+      "template": "noctalia msg wallpaper-previous {{connector}}",
+      "usage": "wallpaper-previous [<connector>]"
+    },
+    {
+      "id": "noctalia/wallpaper-random",
+      "source": "noctalia",
+      "category": "appearance",
+      "kind": "shell",
+      "template": "noctalia msg wallpaper-random {{connector}}",
+      "usage": "wallpaper-random [<connector>]"
+    },
+    {
+      "id": "noctalia/wallpaper-set",
+      "source": "noctalia",
+      "category": "appearance",
+      "kind": "shell",
+      "template": "noctalia msg wallpaper-set {{connector}} {{path}}",
+      "usage": "wallpaper-set [<connector>] <path>"
+    },
+    {
+      "id": "noctalia/effects-profile-set",
+      "source": "noctalia",
+      "category": "audio",
+      "kind": "shell",
+      "template": "noctalia msg effects-profile-set {{output-input}} {{profile}}",
+      "usage": "effects-profile-set <output|input> <profile>"
+    },
+    {
+      "id": "noctalia/mic-mute",
+      "source": "noctalia",
+      "category": "audio",
+      "kind": "shell",
+      "template": "noctalia msg mic-mute",
+      "usage": "mic-mute"
+    },
+    {
+      "id": "noctalia/mic-volume-down",
+      "source": "noctalia",
+      "category": "audio",
+      "kind": "shell",
+      "template": "noctalia msg mic-volume-down",
+      "usage": "mic-volume-down [step]"
+    },
+    {
+      "id": "noctalia/mic-volume-set",
+      "source": "noctalia",
+      "category": "audio",
+      "kind": "shell",
+      "template": "noctalia msg mic-volume-set {{value}}",
+      "usage": "mic-volume-set <value>"
+    },
+    {
+      "id": "noctalia/mic-volume-up",
+      "source": "noctalia",
+      "category": "audio",
+      "kind": "shell",
+      "template": "noctalia msg mic-volume-up",
+      "usage": "mic-volume-up [step]"
+    },
+    {
+      "id": "noctalia/volume-down",
+      "source": "noctalia",
+      "category": "audio",
+      "kind": "shell",
+      "template": "noctalia msg volume-down",
+      "usage": "volume-down [step]"
+    },
+    {
+      "id": "noctalia/volume-mute",
+      "source": "noctalia",
+      "category": "audio",
+      "kind": "shell",
+      "template": "noctalia msg volume-mute",
+      "usage": "volume-mute"
+    },
+    {
+      "id": "noctalia/volume-set",
+      "source": "noctalia",
+      "category": "audio",
+      "kind": "shell",
+      "template": "noctalia msg volume-set {{value}}",
+      "usage": "volume-set <value>"
+    },
+    {
+      "id": "noctalia/volume-up",
+      "source": "noctalia",
+      "category": "audio",
+      "kind": "shell",
+      "template": "noctalia msg volume-up",
+      "usage": "volume-up [step]"
+    },
+    {
+      "id": "noctalia/bar-auto-hide-set",
+      "source": "noctalia",
+      "category": "bars",
+      "kind": "shell",
+      "template": "noctalia msg bar-auto-hide-set {{on-off-true-false-1-0}}",
+      "usage": "bar-auto-hide-set <on|off|true|false|1|0> [bar-name] [monitor-selector]"
+    },
+    {
+      "id": "noctalia/bar-hide",
+      "source": "noctalia",
+      "category": "bars",
+      "kind": "shell",
+      "template": "noctalia msg bar-hide",
+      "usage": "bar-hide [bar-name] [monitor-selector]"
+    },
+    {
+      "id": "noctalia/bar-layer-set",
+      "source": "noctalia",
+      "category": "bars",
+      "kind": "shell",
+      "template": "noctalia msg bar-layer-set {{top-overlay}}",
+      "usage": "bar-layer-set <top|overlay> [bar-name] [monitor-selector]"
+    },
+    {
+      "id": "noctalia/bar-reserve-toggle",
+      "source": "noctalia",
+      "category": "bars",
+      "kind": "shell",
+      "template": "noctalia msg bar-reserve-toggle",
+      "usage": "bar-reserve-toggle [bar-name] [monitor-selector]"
+    },
+    {
+      "id": "noctalia/bar-show",
+      "source": "noctalia",
+      "category": "bars",
+      "kind": "shell",
+      "template": "noctalia msg bar-show",
+      "usage": "bar-show [bar-name] [monitor-selector]"
+    },
+    {
+      "id": "noctalia/bar-toggle",
+      "source": "noctalia",
+      "category": "bars",
+      "kind": "shell",
+      "template": "noctalia msg bar-toggle",
+      "usage": "bar-toggle [bar-name] [monitor-selector]"
+    },
+    {
+      "id": "noctalia/clipboard-clear",
+      "source": "noctalia",
+      "category": "clipboard",
+      "kind": "shell",
+      "template": "noctalia msg clipboard-clear",
+      "usage": "clipboard-clear"
+    },
+    {
+      "id": "noctalia/bluetooth-disable",
+      "source": "noctalia",
+      "category": "connectivity",
+      "kind": "shell",
+      "template": "noctalia msg bluetooth-disable",
+      "usage": "bluetooth-disable"
+    },
+    {
+      "id": "noctalia/bluetooth-enable",
+      "source": "noctalia",
+      "category": "connectivity",
+      "kind": "shell",
+      "template": "noctalia msg bluetooth-enable",
+      "usage": "bluetooth-enable"
+    },
+    {
+      "id": "noctalia/bluetooth-status",
+      "source": "noctalia",
+      "category": "connectivity",
+      "kind": "shell",
+      "template": "noctalia msg bluetooth-status",
+      "usage": "bluetooth-status"
+    },
+    {
+      "id": "noctalia/bluetooth-toggle",
+      "source": "noctalia",
+      "category": "connectivity",
+      "kind": "shell",
+      "template": "noctalia msg bluetooth-toggle",
+      "usage": "bluetooth-toggle"
+    },
+    {
+      "id": "noctalia/wifi-disable",
+      "source": "noctalia",
+      "category": "connectivity",
+      "kind": "shell",
+      "template": "noctalia msg wifi-disable",
+      "usage": "wifi-disable"
+    },
+    {
+      "id": "noctalia/wifi-enable",
+      "source": "noctalia",
+      "category": "connectivity",
+      "kind": "shell",
+      "template": "noctalia msg wifi-enable",
+      "usage": "wifi-enable"
+    },
+    {
+      "id": "noctalia/wifi-status",
+      "source": "noctalia",
+      "category": "connectivity",
+      "kind": "shell",
+      "template": "noctalia msg wifi-status",
+      "usage": "wifi-status"
+    },
+    {
+      "id": "noctalia/wifi-toggle",
+      "source": "noctalia",
+      "category": "connectivity",
+      "kind": "shell",
+      "template": "noctalia msg wifi-toggle",
+      "usage": "wifi-toggle"
+    },
+    {
+      "id": "noctalia/brightness-down",
+      "source": "noctalia",
+      "category": "display",
+      "kind": "shell",
+      "template": "noctalia msg brightness-down",
+      "usage": "brightness-down [current|*|all|monitor-selector] [step]"
+    },
+    {
+      "id": "noctalia/brightness-list-backlight-devices",
+      "source": "noctalia",
+      "category": "display",
+      "kind": "shell",
+      "template": "noctalia msg brightness-list-backlight-devices",
+      "usage": "brightness-list-backlight-devices"
+    },
+    {
+      "id": "noctalia/brightness-osd",
+      "source": "noctalia",
+      "category": "display",
+      "kind": "shell",
+      "template": "noctalia msg brightness-osd {{value}}",
+      "usage": "brightness-osd <value>"
+    },
+    {
+      "id": "noctalia/brightness-set",
+      "source": "noctalia",
+      "category": "display",
+      "kind": "shell",
+      "template": "noctalia msg brightness-set {{value}}",
+      "usage": "brightness-set <value> | brightness-set <current|*|all|monitor-selector> <value>"
+    },
+    {
+      "id": "noctalia/brightness-up",
+      "source": "noctalia",
+      "category": "display",
+      "kind": "shell",
+      "template": "noctalia msg brightness-up",
+      "usage": "brightness-up [current|*|all|monitor-selector] [step]"
+    },
+    {
+      "id": "noctalia/dpms-off",
+      "source": "noctalia",
+      "category": "display",
+      "kind": "shell",
+      "template": "noctalia msg dpms-off",
+      "usage": "dpms-off"
+    },
+    {
+      "id": "noctalia/dpms-on",
+      "source": "noctalia",
+      "category": "display",
+      "kind": "shell",
+      "template": "noctalia msg dpms-on",
+      "usage": "dpms-on"
+    },
+    {
+      "id": "noctalia/keyboard-backlight-down",
+      "source": "noctalia",
+      "category": "display",
+      "kind": "shell",
+      "template": "noctalia msg keyboard-backlight-down",
+      "usage": "keyboard-backlight-down"
+    },
+    {
+      "id": "noctalia/keyboard-backlight-osd",
+      "source": "noctalia",
+      "category": "display",
+      "kind": "shell",
+      "template": "noctalia msg keyboard-backlight-osd {{value}}",
+      "usage": "keyboard-backlight-osd <value>"
+    },
+    {
+      "id": "noctalia/keyboard-backlight-set",
+      "source": "noctalia",
+      "category": "display",
+      "kind": "shell",
+      "template": "noctalia msg keyboard-backlight-set {{value}}",
+      "usage": "keyboard-backlight-set <value>"
+    },
+    {
+      "id": "noctalia/keyboard-backlight-toggle",
+      "source": "noctalia",
+      "category": "display",
+      "kind": "shell",
+      "template": "noctalia msg keyboard-backlight-toggle",
+      "usage": "keyboard-backlight-toggle"
+    },
+    {
+      "id": "noctalia/keyboard-backlight-up",
+      "source": "noctalia",
+      "category": "display",
+      "kind": "shell",
+      "template": "noctalia msg keyboard-backlight-up",
+      "usage": "keyboard-backlight-up"
+    },
+    {
+      "id": "noctalia/media",
+      "source": "noctalia",
+      "category": "media",
+      "kind": "shell",
+      "template": "noctalia msg media {{next-previous-toggle-play-pause-stop-next-player-previous-player}}",
+      "usage": "media <next|previous|toggle|play|pause|stop|next-player|previous-player>"
+    },
+    {
+      "id": "noctalia/notification-clear-active",
+      "source": "noctalia",
+      "category": "notifications",
+      "kind": "shell",
+      "template": "noctalia msg notification-clear-active",
+      "usage": "notification-clear-active"
+    },
+    {
+      "id": "noctalia/notification-clear-history",
+      "source": "noctalia",
+      "category": "notifications",
+      "kind": "shell",
+      "template": "noctalia msg notification-clear-history",
+      "usage": "notification-clear-history"
+    },
+    {
+      "id": "noctalia/notification-dnd-set",
+      "source": "noctalia",
+      "category": "notifications",
+      "kind": "shell",
+      "template": "noctalia msg notification-dnd-set {{on-off-true-false-1-0}}",
+      "usage": "notification-dnd-set <on|off|true|false|1|0>"
+    },
+    {
+      "id": "noctalia/notification-dnd-status",
+      "source": "noctalia",
+      "category": "notifications",
+      "kind": "shell",
+      "template": "noctalia msg notification-dnd-status",
+      "usage": "notification-dnd-status"
+    },
+    {
+      "id": "noctalia/notification-dnd-toggle",
+      "source": "noctalia",
+      "category": "notifications",
+      "kind": "shell",
+      "template": "noctalia msg notification-dnd-toggle",
+      "usage": "notification-dnd-toggle"
+    },
+    {
+      "id": "noctalia/notification-invoke-latest",
+      "source": "noctalia",
+      "category": "notifications",
+      "kind": "shell",
+      "template": "noctalia msg notification-invoke-latest",
+      "usage": "notification-invoke-latest"
+    },
+    {
+      "id": "noctalia/notification-show",
+      "source": "noctalia",
+      "category": "notifications",
+      "kind": "shell",
+      "template": "noctalia msg notification-show {{summary-body-json}}",
+      "usage": "notification-show <summary [-- body]|json>"
+    },
+    {
+      "id": "noctalia/dock-hide",
+      "source": "noctalia",
+      "category": "panels",
+      "kind": "shell",
+      "template": "noctalia msg dock-hide",
+      "usage": "dock-hide"
+    },
+    {
+      "id": "noctalia/dock-reload",
+      "source": "noctalia",
+      "category": "panels",
+      "kind": "shell",
+      "template": "noctalia msg dock-reload",
+      "usage": "dock-reload"
+    },
+    {
+      "id": "noctalia/dock-show",
+      "source": "noctalia",
+      "category": "panels",
+      "kind": "shell",
+      "template": "noctalia msg dock-show",
+      "usage": "dock-show"
+    },
+    {
+      "id": "noctalia/dock-toggle",
+      "source": "noctalia",
+      "category": "panels",
+      "kind": "shell",
+      "template": "noctalia msg dock-toggle",
+      "usage": "dock-toggle"
+    },
+    {
+      "id": "noctalia/panel-close",
+      "source": "noctalia",
+      "category": "panels",
+      "kind": "shell",
+      "template": "noctalia msg panel-close",
+      "usage": "panel-close [id]"
+    },
+    {
+      "id": "noctalia/panel-open",
+      "source": "noctalia",
+      "category": "panels",
+      "kind": "shell",
+      "template": "noctalia msg panel-open {{id}}",
+      "usage": "panel-open <id> [context]"
+    },
+    {
+      "id": "noctalia/panel-toggle",
+      "source": "noctalia",
+      "category": "panels",
+      "kind": "shell",
+      "template": "noctalia msg panel-toggle {{id}}",
+      "usage": "panel-toggle <id> [context]"
+    },
+    {
+      "id": "noctalia/settings-close",
+      "source": "noctalia",
+      "category": "panels",
+      "kind": "shell",
+      "template": "noctalia msg settings-close",
+      "usage": "settings-close"
+    },
+    {
+      "id": "noctalia/settings-open",
+      "source": "noctalia",
+      "category": "panels",
+      "kind": "shell",
+      "template": "noctalia msg settings-open",
+      "usage": "settings-open [context]"
+    },
+    {
+      "id": "noctalia/settings-toggle",
+      "source": "noctalia",
+      "category": "panels",
+      "kind": "shell",
+      "template": "noctalia msg settings-toggle",
+      "usage": "settings-toggle [context]"
+    },
+    {
+      "id": "noctalia/window-switcher",
+      "source": "noctalia",
+      "category": "panels",
+      "kind": "shell",
+      "template": "noctalia msg window-switcher",
+      "usage": "window-switcher [close]"
+    },
+    {
+      "id": "noctalia/plugin",
+      "source": "noctalia",
+      "category": "plugins",
+      "kind": "shell",
+      "template": "noctalia msg plugin {{author-plugin-entry}} {{target-bar-name}} {{event}}",
+      "usage": "plugin <author/plugin:entry> <target[:bar-name]> <event> [payload]"
+    },
+    {
+      "id": "noctalia/plugins",
+      "source": "noctalia",
+      "category": "plugins",
+      "kind": "shell",
+      "template": "noctalia msg plugins {{list-enable-disable-update-source}}",
+      "usage": "plugins <list|enable|disable|update|source> ..."
+    },
+    {
+      "id": "noctalia/caffeine-disable",
+      "source": "noctalia",
+      "category": "power",
+      "kind": "shell",
+      "template": "noctalia msg caffeine-disable",
+      "usage": "caffeine-disable"
+    },
+    {
+      "id": "noctalia/caffeine-enable",
+      "source": "noctalia",
+      "category": "power",
+      "kind": "shell",
+      "template": "noctalia msg caffeine-enable",
+      "usage": "caffeine-enable"
+    },
+    {
+      "id": "noctalia/caffeine-toggle",
+      "source": "noctalia",
+      "category": "power",
+      "kind": "shell",
+      "template": "noctalia msg caffeine-toggle",
+      "usage": "caffeine-toggle"
+    },
+    {
+      "id": "noctalia/nightlight-disable",
+      "source": "noctalia",
+      "category": "power",
+      "kind": "shell",
+      "template": "noctalia msg nightlight-disable",
+      "usage": "nightlight-disable"
+    },
+    {
+      "id": "noctalia/nightlight-enable",
+      "source": "noctalia",
+      "category": "power",
+      "kind": "shell",
+      "template": "noctalia msg nightlight-enable",
+      "usage": "nightlight-enable"
+    },
+    {
+      "id": "noctalia/nightlight-force-toggle",
+      "source": "noctalia",
+      "category": "power",
+      "kind": "shell",
+      "template": "noctalia msg nightlight-force-toggle",
+      "usage": "nightlight-force-toggle"
+    },
+    {
+      "id": "noctalia/nightlight-toggle",
+      "source": "noctalia",
+      "category": "power",
+      "kind": "shell",
+      "template": "noctalia msg nightlight-toggle",
+      "usage": "nightlight-toggle"
+    },
+    {
+      "id": "noctalia/power-cycle",
+      "source": "noctalia",
+      "category": "power",
+      "kind": "shell",
+      "template": "noctalia msg power-cycle",
+      "usage": "power-cycle"
+    },
+    {
+      "id": "noctalia/power-set",
+      "source": "noctalia",
+      "category": "power",
+      "kind": "shell",
+      "template": "noctalia msg power-set {{profile}}",
+      "usage": "power-set <profile>"
+    },
+    {
+      "id": "noctalia/screenshot-fullscreen",
+      "source": "noctalia",
+      "category": "screenshots",
+      "kind": "shell",
+      "template": "noctalia msg screenshot-fullscreen",
+      "usage": "screenshot-fullscreen [pick|monitor|all]"
+    },
+    {
+      "id": "noctalia/screenshot-region",
+      "source": "noctalia",
+      "category": "screenshots",
+      "kind": "shell",
+      "template": "noctalia msg screenshot-region",
+      "usage": "screenshot-region"
+    },
+    {
+      "id": "noctalia/session",
+      "source": "noctalia",
+      "category": "session",
+      "kind": "shell",
+      "template": "noctalia msg session {{lock-suspend-lock-and-suspend-logout-reboot-shutdown}}",
+      "usage": "session <lock|suspend|lock-and-suspend|logout|reboot|shutdown>"
+    },
+    {
+      "id": "noctalia/config-reload",
+      "source": "noctalia",
+      "category": "system",
+      "kind": "shell",
+      "template": "noctalia msg config-reload",
+      "usage": "config-reload"
+    },
+    {
+      "id": "noctalia/log-level-set",
+      "source": "noctalia",
+      "category": "system",
+      "kind": "shell",
+      "template": "noctalia msg log-level-set {{debug-info-warn-error}}",
+      "usage": "log-level-set <debug|info|warn|error>"
+    },
+    {
+      "id": "noctalia/log-level-status",
+      "source": "noctalia",
+      "category": "system",
+      "kind": "shell",
+      "template": "noctalia msg log-level-status",
+      "usage": "log-level-status"
+    },
+    {
+      "id": "noctalia/status",
+      "source": "noctalia",
+      "category": "system",
+      "kind": "shell",
+      "template": "noctalia msg status",
+      "usage": "status"
+    },
+    {
+      "id": "noctalia/desktop-widgets-edit",
+      "source": "noctalia",
+      "category": "widgets",
+      "kind": "shell",
+      "template": "noctalia msg desktop-widgets-edit",
+      "usage": "desktop-widgets-edit"
+    },
+    {
+      "id": "noctalia/desktop-widgets-exit",
+      "source": "noctalia",
+      "category": "widgets",
+      "kind": "shell",
+      "template": "noctalia msg desktop-widgets-exit",
+      "usage": "desktop-widgets-exit"
+    },
+    {
+      "id": "noctalia/desktop-widgets-hide",
+      "source": "noctalia",
+      "category": "widgets",
+      "kind": "shell",
+      "template": "noctalia msg desktop-widgets-hide",
+      "usage": "desktop-widgets-hide"
+    },
+    {
+      "id": "noctalia/desktop-widgets-show",
+      "source": "noctalia",
+      "category": "widgets",
+      "kind": "shell",
+      "template": "noctalia msg desktop-widgets-show",
+      "usage": "desktop-widgets-show"
+    },
+    {
+      "id": "noctalia/desktop-widgets-toggle",
+      "source": "noctalia",
+      "category": "widgets",
+      "kind": "shell",
+      "template": "noctalia msg desktop-widgets-toggle",
+      "usage": "desktop-widgets-toggle"
+    },
+    {
+      "id": "noctalia/desktop-widgets-toggle-edit",
+      "source": "noctalia",
+      "category": "widgets",
+      "kind": "shell",
+      "template": "noctalia msg desktop-widgets-toggle-edit",
+      "usage": "desktop-widgets-toggle-edit"
+    },
+    {
+      "id": "noctalia/lockscreen-widgets-edit",
+      "source": "noctalia",
+      "category": "widgets",
+      "kind": "shell",
+      "template": "noctalia msg lockscreen-widgets-edit",
+      "usage": "lockscreen-widgets-edit"
+    },
+    {
+      "id": "noctalia/lockscreen-widgets-exit",
+      "source": "noctalia",
+      "category": "widgets",
+      "kind": "shell",
+      "template": "noctalia msg lockscreen-widgets-exit",
+      "usage": "lockscreen-widgets-exit"
+    },
+    {
+      "id": "noctalia/lockscreen-widgets-toggle-edit",
+      "source": "noctalia",
+      "category": "widgets",
+      "kind": "shell",
+      "template": "noctalia msg lockscreen-widgets-toggle-edit",
+      "usage": "lockscreen-widgets-toggle-edit"
+    },
+    {
+      "id": "noctalia/workspace-alert-add",
+      "source": "noctalia",
+      "category": "workspaces",
+      "kind": "shell",
+      "template": "noctalia msg workspace-alert-add {{workspace}}",
+      "usage": "workspace-alert-add <workspace>"
+    },
+    {
+      "id": "noctalia/workspace-alert-add-window",
+      "source": "noctalia",
+      "category": "workspaces",
+      "kind": "shell",
+      "template": "noctalia msg workspace-alert-add-window {{window-id}}",
+      "usage": "workspace-alert-add-window <window-id>"
+    },
+    {
+      "id": "noctalia/workspace-alert-clear",
+      "source": "noctalia",
+      "category": "workspaces",
+      "kind": "shell",
+      "template": "noctalia msg workspace-alert-clear {{workspace}}",
+      "usage": "workspace-alert-clear <workspace>"
+    },
+    {
+      "id": "noctalia/workspace-alert-clear-all",
+      "source": "noctalia",
+      "category": "workspaces",
+      "kind": "shell",
+      "template": "noctalia msg workspace-alert-clear-all",
+      "usage": "workspace-alert-clear-all"
+    },
+    {
+      "id": "noctalia/workspace-alert-status",
+      "source": "noctalia",
+      "category": "workspaces",
+      "kind": "shell",
+      "template": "noctalia msg workspace-alert-status",
+      "usage": "workspace-alert-status"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+# Private development overrides are excluded; oauth-client.shared.json is shipped.
+oauth-client.json
+scripts/__pycache__/
+
+# Runtime state and personal data must never be included in a plugin patch.
+oauth/
+oauth-session.json
+oauth-control.json
+cache.json
+calendar.json
+badge-baselines.json
+collection-layout.txt
+timeline-layout.txt
+covers/
+profiles/

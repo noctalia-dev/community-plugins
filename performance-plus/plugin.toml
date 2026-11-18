@@ -1,0 +1,132 @@
+id = "detluck/performance-plus"
+name = "Performance Plus"
+version = "0.2.2"
+plugin_api = 31
+author = "detluck"
+license = "MIT"
+icon = "rocket"
+description = "High-performance gaming and rendering profile suite for Noctalia."
+# External dependencies (conditional on active compositor and enabled features)
+dependencies = [
+    "hyprctl",
+    "niri",
+    "mmsg",
+    "swaymsg",
+    "qdbus6",
+    "qdbus",
+    "busctl",
+    "umbriel",
+    "powerprofilesctl",
+    "playerctl",
+]
+tags = ["gaming", "system", "utility"]
+
+[[setting]]
+key = "disable_wallpaper"
+type = "bool"
+label_key = "settings.disable_wallpaper.label"
+description_key = "settings.disable_wallpaper.description"
+default = true
+
+[[setting]]
+key = "disable_blur"
+type = "bool"
+label_key = "settings.disable_blur.label"
+description_key = "settings.disable_blur.description"
+default = true
+
+[[setting]]
+key = "disable_animations"
+type = "bool"
+label_key = "settings.disable_animations.label"
+description_key = "settings.disable_animations.description"
+default = true
+
+[[setting]]
+key = "disable_shadows"
+type = "bool"
+label_key = "settings.disable_shadows.label"
+description_key = "settings.disable_shadows.description"
+default = true
+
+[[setting]]
+key = "hide_widgets"
+type = "bool"
+label_key = "settings.hide_widgets.label"
+description_key = "settings.hide_widgets.description"
+default = true
+
+[[setting]]
+key = "enable_dnd"
+type = "bool"
+label_key = "settings.enable_dnd.label"
+description_key = "settings.enable_dnd.description"
+default = true
+
+[[setting]]
+key = "clear_notifications"
+type = "bool"
+label_key = "settings.clear_notifications.label"
+description_key = "settings.clear_notifications.description"
+default = true
+
+[[setting]]
+key = "set_power_profile"
+type = "bool"
+label_key = "settings.set_power_profile.label"
+description_key = "settings.set_power_profile.description"
+default = true
+
+[[setting]]
+key = "hide_bar"
+type = "bool"
+label_key = "settings.hide_bar.label"
+description_key = "settings.hide_bar.description"
+default = false
+
+[[setting]]
+key = "hide_dock"
+type = "bool"
+label_key = "settings.hide_dock.label"
+description_key = "settings.hide_dock.description"
+default = false
+
+[[setting]]
+key = "disable_osd"
+type = "bool"
+label_key = "settings.disable_osd.label"
+description_key = "settings.disable_osd.description"
+default = true
+
+[[setting]]
+key = "pause_media"
+type = "bool"
+label_key = "settings.pause_media.label"
+description_key = "settings.pause_media.description"
+default = false
+
+[[setting]]
+key = "hook_on_enter"
+type = "string"
+label_key = "settings.hook_on_enter.label"
+description_key = "settings.hook_on_enter.description"
+default = ""
+
+[[setting]]
+key = "hook_on_exit"
+type = "string"
+label_key = "settings.hook_on_exit.label"
+description_key = "settings.hook_on_exit.description"
+default = ""
+
+[[shortcut]]
+id = "shortcut"
+entry = "shortcut.luau"
+
+[[widget]]
+id = "indicator"
+entry = "widget.luau"
+
+[[service]]
+id = "service"
+entry = "service.luau"

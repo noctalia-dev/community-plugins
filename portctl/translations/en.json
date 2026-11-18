@@ -1,0 +1,54 @@
+{
+  "categories": {
+    "cloud": "Cloud",
+    "containers": "Containers",
+    "databases": "Databases",
+    "development": "Development",
+    "other": "Other",
+    "servers": "Servers"
+  },
+  "panel": {
+    "cancel": "Cancel",
+    "kill": "Kill",
+    "kill_confirm": "Kill {name}?",
+    "killing": "Killing {name}…",
+    "no_ports": "No listening ports",
+    "no_results": "No results for \"{query}\"",
+    "pid_copied": "Copied PID {pid}",
+    "search_placeholder": "Search port, process, PID…",
+    "tcp": "TCP",
+    "udp": "UDP"
+  },
+  "service": {
+    "kill_failed": "Failed to kill PID {pid}",
+    "ss_not_found": "ss (iproute2) not found — install the iproute2 package",
+    "terminated": "Process {pid} terminated"
+  },
+  "settings": {
+    "glyph": {
+      "description": "Icon shown in the bar.",
+      "label": "Glyph"
+    },
+    "hide_system_ports": {
+      "description": "Hide ports below 1024 (privileged/root ports)",
+      "label": "Hide system ports"
+    },
+    "hide_unknown_ports": {
+      "description": "Hide ports whose process info is not accessible (e.g. rootlessport, root-owned processes without sudo)",
+      "label": "Hide unknown ports"
+    },
+    "ignore_list": {
+      "description": "Comma-separated process name substrings to hide (e.g. discord,chrome,steam)",
+      "label": "Ignore processes"
+    },
+    "ignore_ports": {
+      "description": "Comma-separated port numbers to hide (e.g. 37700,6463)",
+      "label": "Ignore ports"
+    },
+    "refresh_interval": {
+      "description": "Seconds between port scans",
+      "label": "Refresh interval"
+    }
+  },
+  "title": "Portctl"
+}

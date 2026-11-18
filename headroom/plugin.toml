@@ -1,0 +1,201 @@
+# Headroom: how much of your AI plan limits you have left.
+#
+# Architecture: providers/<id>/ are adapters that turn one vendor's usage API
+# into the shared model (lib/model.luau). The [[service]] is the only entry that
+# fetches; it publishes one normalized report through noctalia.state, and the
+# bar [[widget]] and [[panel]] only draw it. Adding a provider never touches the
+# surfaces: see the README.
+#
+# plugin_api 43 is the newest level a released Noctalia (5.4.1) loads. Used:
+# argv runAsync (24), container tooltips (32), content-height panels (42) and
+# container color roles (43).
+
+id = "ayagmar/headroom"
+name = "Headroom"
+version = "0.3.0"
+plugin_api = 43
+author = "ayagmar"
+license = "MIT"
+icon = "gauge"
+description = "Claude, Codex and Antigravity plan limits left per account, with reset times, forecasts and reset credits."
+tags = ["bar", "panel", "service", "ai", "indicator", "productivity"]
+# All optional: each powers one feature listed in the README's Requirements,
+# and that feature is skipped when the tool is missing.
+dependencies = ["xdg-open", "secret-tool", "claude", "codex", "agy", "env", "rm"]
+
+# ── Settings ────────────────────────────────────────────────────────────────
+# Plugin settings (Settings → Plugins → Headroom) are what every entry reads:
+# where each provider appears, how amounts read, alerts, refresh. What the bar
+# capsule shows is a setting of the widget itself (below), so two capsules can
+# differ. The schema has no multi-select, so where each provider appears is one
+# provider_<id> select per provider: in the bar and panel, panel only, or off
+# (never fetched).
+
+[[setting]]
+key = "provider_claude"
+type = "select"
+label_key = "settings.provider_claude.label"
+description_key = "settings.provider.description"
+default = "bar"
+options = [
+  { value = "bar", label_key = "settings.provider.option.bar" },
+  { value = "panel", label_key = "settings.provider.option.panel" },
+  { value = "off", label_key = "settings.provider.option.off" },
+]
+
+[[setting]]
+key = "provider_codex"
+type = "select"
+label_key = "settings.provider_codex.label"
+description_key = "settings.provider.description"
+default = "bar"
+options = [
+  { value = "bar", label_key = "settings.provider.option.bar" },
+  { value = "panel", label_key = "settings.provider.option.panel" },
+  { value = "off", label_key = "settings.provider.option.off" },
+]
+
+[[setting]]
+key = "provider_antigravity"
+type = "select"
+label_key = "settings.provider_antigravity.label"
+description_key = "settings.provider.description"
+default = "bar"
+options = [
+  { value = "bar", label_key = "settings.provider.option.bar" },
+  { value = "panel", label_key = "settings.provider.option.panel" },
+  { value = "off", label_key = "settings.provider.option.off" },
+]
+
+[[setting]]
+key = "display"
+type = "select"
+label_key = "settings.display.label"
+description_key = "settings.display.description"
+default = "used"
+options = [
+  { value = "used", label_key = "settings.display.option.used" },
+  { value = "remaining", label_key = "settings.display.option.remaining" },
+]
+
+[[setting]]
+key = "notify"
+type = "bool"
+label_key = "settings.notify.label"
+description_key = "settings.notify.description"
+default = true
+
+[[setting]]
+key = "notify_reset_credits"
+type = "bool"
+label_key = "settings.notify_reset_credits.label"
+description_key = "settings.notify_reset_credits.description"
+default = true
+visible_when = { key = "notify", values = ["true"] }
+
+[[setting]]
+key = "warn_percent"
+type = "int"
+label_key = "settings.warn_percent.label"
+description_key = "settings.warn_percent.description"
+default = 70
+min = 5
+max = 100
+step = 5
+advanced = true
+
+[[setting]]
+key = "critical_percent"
+type = "int"
+label_key = "settings.critical_percent.label"
+description_key = "settings.critical_percent.description"
+default = 90
+min = 5
+max = 100
+step = 5
+advanced = true
+
+[[setting]]
+key = "refresh_minutes"
+type = "int"
+label_key = "settings.refresh_minutes.label"
+description_key = "settings.refresh_minutes.description"
+default = 5
+min = 1
+max = 120
+advanced = true
+
+
+# ── Entries ─────────────────────────────────────────────────────────────────
+
+# One poller for the whole shell, however many capsules and monitors.
+[[service]]
+id = "poller"
+entry = "service.luau"
+
+[[widget]]
+id = "usage"
+entry = "bar.luau"
+
+  # Right click refreshes. A binding rather than onRightClick, so it is listed
+  # in the widget's settings and users can rebind it. Middle click keeps the
+  # host's default: this widget's settings.
+  [widget.actions]
+  right = "plugin ayagmar/headroom:poller all refresh"
+
+  [[widget.setting]]
+  key = "window"
+  type = "select"
+  label_key = "settings.window.label"
+  description_key = "settings.window.description"
+  default = "tightest"
+  options = [
+    { value = "tightest", label_key = "settings.window.option.tightest" },
+    { value = "session", label_key = "settings.window.option.session" },
+    { value = "weekly", label_key = "settings.window.option.weekly" },
+  ]
+
+  [[widget.setting]]
+  key = "bar_style"
+  type = "select"
+  label_key = "settings.bar_style.label"
+  description_key = "settings.bar_style.description"
+  default = "full"
+  options = [
+    { value = "full", label_key = "settings.bar_style.option.full" },
+    { value = "value", label_key = "settings.bar_style.option.value" },
+    { value = "ring", label_key = "settings.bar_style.option.ring" },
+  ]
+
+  [[widget.setting]]
+  key = "bar_accounts"
+  type = "select"
+  label_key = "settings.bar_accounts.label"
+  description_key = "settings.bar_accounts.description"
+  default = "default"
+  options = [
+    { value = "default", label_key = "settings.bar_accounts.option.default" },
+    { value = "all", label_key = "settings.bar_accounts.option.all" },
+  ]
+
+  [[widget.setting]]
+  key = "max_items"
+  type = "int"
+  label_key = "settings.max_items.label"
+  description_key = "settings.max_items.description"
+  default = 3
+  min = 1
+  max = 8
+
+# Open with: noctalia msg panel-toggle ayagmar/headroom:panel
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 420
+height = "content"
+max_height = 640
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+capture_keys = ["r"]

@@ -1,0 +1,10 @@
+{
+  "settings": {
+    "links": {
+      "label": "Links"
+    },
+    "notify": {
+      "description": "Notificar ao abrir o link."
+    }
+  }
+}

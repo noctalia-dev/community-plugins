@@ -1,0 +1,173 @@
+{
+  "empty": {
+    "body": "arch-audit found no advisories affecting your installed packages.",
+    "title": "No known advisories"
+  },
+  "error": {
+    "action": "Try again",
+    "banner": "Last check failed",
+    "title": "Could not check for advisories"
+  },
+  "idle": {
+    "body": "Run the first check to see whether any installed package has a known advisory.",
+    "title": "Not checked yet"
+  },
+  "missing": {
+    "action": "Copy install command",
+    "body": "Arch Audit relies on the official arch-audit package to match the Arch Security Team advisories against your installed packages.",
+    "short": "Install it to run checks; cached results are still shown.",
+    "title": "arch-audit is not installed"
+  },
+  "notify": {
+    "body": {
+      "one": "1 new advisory affects {packages}.",
+      "other": "{count} new advisories affect {packages}."
+    },
+    "some_packages": "your installed packages",
+    "title": "Security advisories"
+  },
+  "panel": {
+    "advisory_count": {
+      "one": "1 advisory",
+      "other": "{count} advisories"
+    },
+    "affecting_packages": {
+      "one": "affecting 1 package",
+      "other": "affecting {count} packages"
+    },
+    "checked": "Checked {age}",
+    "checking": "Checking advisories…",
+    "checking_body": "arch-audit is matching the Arch Security Team advisories against your installed packages.",
+    "clean": "No known advisories",
+    "close": "Close",
+    "filter_empty": "No advisories match these filters.",
+    "fix_only": "With fix",
+    "fix_only_tip": "Show only advisories with a fixed version available.",
+    "ignored": {
+      "one": "1 ignored",
+      "other": "{count} ignored"
+    },
+    "never_checked": "Not checked yet",
+    "recheck": "Check now",
+    "settings": "Plugin settings",
+    "title": "Security audit",
+    "waiting": "Waiting for the service"
+  },
+  "row": {
+    "copy_upgrade": "Copy upgrade",
+    "copy_upgrade_tip": "Copy sudo pacman -Syu to the clipboard.",
+    "cves": "CVEs",
+    "fixed": "Fixed in {version}",
+    "no_cves": "none listed",
+    "no_fix": "No fixed version yet",
+    "open": "Open advisory"
+  },
+  "service": {
+    "error": {
+      "exit": "arch-audit failed: {detail}",
+      "json": "arch-audit returned invalid JSON.",
+      "launch": "Could not start arch-audit.",
+      "missing": "arch-audit is not installed.",
+      "no_detail": "no details",
+      "timeout": "arch-audit timed out."
+    }
+  },
+  "settings": {
+    "check_hours": {
+      "description": "Hours between automatic checks (1–168). A check also runs at startup when the cached result is older than this.",
+      "label": "Check interval"
+    },
+    "glyph": {
+      "description": "Glyph shown while advisories are present. Clean checks use shield-check and failures use shield-x.",
+      "label": "Widget glyph"
+    },
+    "hide_on_clean": {
+      "description": "Hide the widget while the last check found no advisories. Failures and missing dependencies stay visible.",
+      "label": "Hide when clean"
+    },
+    "ignore_packages": {
+      "description": "Package names to leave out of the widget and panel. An advisory stays visible while it still affects at least one non-ignored package.",
+      "label": "Ignored packages"
+    },
+    "notify_min_severity": {
+      "description": "Only notify for new advisories at or above this severity.",
+      "label": "Minimum notification severity",
+      "options": {
+        "critical": "Critical",
+        "high": "High",
+        "low": "Low",
+        "medium": "Medium"
+      }
+    },
+    "notify_new": {
+      "description": "Show a notification when a check finds advisories that were not present in the previous check. The first check never notifies.",
+      "label": "Notify about new advisories"
+    },
+    "show_count": {
+      "description": "Show the number of advisories next to the glyph.",
+      "label": "Show advisory count"
+    }
+  },
+  "severity": {
+    "all": "All severities",
+    "critical": "Critical",
+    "high": "High",
+    "low": "Low",
+    "medium": "Medium",
+    "unknown": "Unknown"
+  },
+  "status": {
+    "fixed": "Fixed",
+    "not_affected": "Not affected",
+    "unknown": "Unknown",
+    "vulnerable": "Vulnerable"
+  },
+  "time": {
+    "days_ago": {
+      "one": "{count} day ago",
+      "other": "{count} days ago"
+    },
+    "hours_ago": {
+      "one": "{count} hour ago",
+      "other": "{count} hours ago"
+    },
+    "just_now": "just now",
+    "minutes_ago": {
+      "one": "{count} minute ago",
+      "other": "{count} minutes ago"
+    },
+    "never": "never"
+  },
+  "toast": {
+    "copied": "Copied to clipboard"
+  },
+  "waiting": {
+    "body": "The Arch Audit service has not published a result yet. It starts automatically with the plugin.",
+    "title": "Waiting for the service"
+  },
+  "widget": {
+    "counts_none": "None",
+    "state": {
+      "checking": "Checking…",
+      "clean": "No known advisories",
+      "error": "Last check failed",
+      "idle": "Not checked yet",
+      "missing": "arch-audit is not installed",
+      "ready": {
+        "one": "1 advisory",
+        "other": "{count} advisories"
+      }
+    },
+    "tooltip": {
+      "checked": "Checked",
+      "hint": "Left click details · Right click check now",
+      "new": "New since last check",
+      "new_value": {
+        "one": "1 advisory",
+        "other": "{count} advisories"
+      },
+      "severities": "Severities",
+      "status": "Status"
+    }
+  }
+}

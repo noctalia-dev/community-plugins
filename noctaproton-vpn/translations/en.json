@@ -1,0 +1,60 @@
+{
+  "account": {
+    "not_signed_in": "Not Signed In",
+    "plan": "Plan",
+    "signin_hint": "Enter your Proton username or email below to sign in."
+  },
+  "actions": {
+    "connect": "Connect",
+    "copy_port": "Copy Port",
+    "disconnect": "Disconnect",
+    "fastest": "Fastest",
+    "quick_connect": "Quick Connect",
+    "signin": "Sign In",
+    "signout": "Sign Out"
+  },
+  "protection": {
+    "killswitch": "Kill Switch",
+    "killswitch_desc": "Block all internet traffic if the VPN connection drops unexpectedly.",
+    "netshield": "NetShield",
+    "netshield_all": "Malware, Ads & Trackers",
+    "netshield_desc": "DNS-level ad, malware, and tracker blocking.",
+    "netshield_malware": "Malware only",
+    "netshield_off": "Off",
+    "port_forwarding": "Port Forwarding",
+    "port_forwarding_desc": "Assign an inbound port for P2P and BitTorrent applications.",
+    "split_tunneling": "Split Tunneling",
+    "split_tunneling_desc": "Exclude selected applications from the VPN tunnel.",
+    "split_tunneling_warning": "Note: Split tunneling is ignored by Proton while Kill Switch is active."
+  },
+  "settings": {
+    "notify_on_connect": {
+      "description": "Show notifications when VPN connects or disconnects.",
+      "label": "Connection notifications"
+    },
+    "refresh_interval": {
+      "description": "How often to poll Proton VPN and NetworkManager for status.",
+      "label": "Status refresh interval (seconds)"
+    },
+    "traffic_monitoring": {
+      "description": "Measure tunnel upload and download speeds.",
+      "label": "Live traffic monitoring"
+    }
+  },
+  "status": {
+    "connected": "Connected",
+    "connecting": "Connecting...",
+    "disconnected": "Disconnected"
+  },
+  "tabs": {
+    "account": "Account",
+    "connections": "Connections",
+    "protection": "Protection"
+  },
+  "title": "Proton VPN",
+  "widget": {
+    "tooltip_connected": "Proton VPN: Connected to {server} ({country})\nIP: {ip}\n↓ {rxRate}  ↑ {txRate}",
+    "tooltip_connecting": "Proton VPN: Connecting...",
+    "tooltip_disconnected": "Proton VPN: Disconnected (Click to open)"
+  }
+}

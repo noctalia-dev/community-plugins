@@ -1,0 +1,282 @@
+{
+  "bar": {
+    "tooltip": {
+      "connect": "Click to connect to Sonolith",
+      "unavailable": "Sonolith isn't running"
+    }
+  },
+  "lib": {
+    "add_to_queue": "Add to queue",
+    "added_to_queue": "Added {name} to the queue",
+    "allow_library": "Allow library access",
+    "approve_in_sonolith": "Approve it in Sonolith",
+    "back": "Back",
+    "count_more": "{count}+",
+    "empty": {
+      "albums": "Albums you save show up here.",
+      "artists": "Artists you follow show up here.",
+      "detail": "Nothing here yet.",
+      "history": "Nothing played yet.",
+      "later": "Episodes you save for later show up here.",
+      "liked": "Songs you like show up here.",
+      "playlists": "No playlists in your library yet.",
+      "podcasts": "Podcasts you save show up here."
+    },
+    "filter": {
+      "albums": "Albums",
+      "all": "All",
+      "artists": "Artists",
+      "playlists": "Playlists",
+      "podcasts": "Podcasts",
+      "songs": "Songs"
+    },
+    "go_album": "Go to album",
+    "go_artist": "Go to artist",
+    "go_podcast": "Go to podcast",
+    "kind": {
+      "album": "Album",
+      "artist": "Artist",
+      "podcast": "Podcast",
+      "single": "Single"
+    },
+    "like": "Like",
+    "liked": "Liked",
+    "load_failed": "Couldn't load this.",
+    "load_more": "Load more",
+    "loading": "Loading…",
+    "no_library": {
+      "body": "The widget can't see your library yet.",
+      "denied": "Library access was denied. You can ask again in {time}."
+    },
+    "no_permission": "The widget isn't allowed to do this.",
+    "no_results": "Nothing found for “{query}”.",
+    "not_connected": "Not connected to Sonolith.",
+    "not_found": "This isn't available anymore.",
+    "play": "Play",
+    "play_failed": "Couldn't play this.",
+    "play_hint": "Play (right-click for more)",
+    "playing_next": "{name} plays next",
+    "privacy": {
+      "private": "Private",
+      "public": "Public",
+      "unlisted": "Unlisted"
+    },
+    "queue_failed": "Couldn't change the queue.",
+    "rate_failed": "Couldn't change the like.",
+    "remove_failed": "Couldn't remove the song.",
+    "remove_from_playlist": "Remove from playlist",
+    "request_failed": "Couldn't ask Sonolith.",
+    "results_for": "“{query}”",
+    "save_to_playlist": "Save to playlist",
+    "search": "Search",
+    "search_hint": "Search YouTube Music.",
+    "search_placeholder": "Search…",
+    "shuffle": "Shuffle",
+    "signed_out": "Sign in in Sonolith to see your library.",
+    "songs": {
+      "one": "{count} song",
+      "other": "{count} songs"
+    },
+    "suggestions": "Suggestions",
+    "tab": {
+      "albums": "Albums",
+      "artists": "Artists",
+      "history": "History",
+      "later": "For later",
+      "liked": "Liked songs",
+      "playlists": "Playlists",
+      "podcasts": "Podcasts"
+    },
+    "unlike": "Remove like",
+    "unliked": "Like removed"
+  },
+  "np": {
+    "autoplay": "Autoplay",
+    "back10": "Back 10 s",
+    "blocked": {
+      "body": "Unblock it in Sonolith's Settings → Connected apps.",
+      "title": "Blocked in Sonolith"
+    },
+    "cancel": "Cancel",
+    "connect": "Connect to Sonolith",
+    "denied": {
+      "ready": "You can try again now.",
+      "title": "Request denied",
+      "wait": "You can try again in {time}."
+    },
+    "disconnect": "Disconnect from Sonolith",
+    "disconnected": {
+      "body": "Connect again to see what's playing.",
+      "title": "Disconnected from Sonolith"
+    },
+    "dislike": "Dislike",
+    "error": {
+      "generic": "Sonolith said: {name}",
+      "title": "Something went wrong"
+    },
+    "expired": {
+      "title": "Nobody answered in time"
+    },
+    "forward30": "Forward 30 s",
+    "library": "Library",
+    "like": "Like",
+    "lyrics": {
+      "instrumental": "Instrumental"
+    },
+    "more": "More",
+    "mute": "Mute",
+    "no_python": {
+      "body": "Install python3 so the widget can talk to Sonolith.",
+      "title": "Python 3 is required"
+    },
+    "nothing_playing": {
+      "body": "Play something in Sonolith, or pick it from your library.",
+      "title": "Nothing playing"
+    },
+    "open_sonolith": "Open Sonolith",
+    "pending": {
+      "body": "Sonolith is showing what this widget wants to do. The request expires in 5 minutes.",
+      "identity": "The widget's helper moved, so Sonolith asks you to approve it again.",
+      "title": "Approve the request in Sonolith…"
+    },
+    "queue": {
+      "all": "Show all",
+      "empty": "Nothing else in the queue.",
+      "less": "Show less",
+      "play_next": "Play next",
+      "remove": "Remove",
+      "title": "Up next"
+    },
+    "repeat": {
+      "all": "Repeat: all",
+      "off": "Repeat: off",
+      "one": "Repeat: this song"
+    },
+    "save_to": "Save to playlist…",
+    "saved": {
+      "already": "Already in {playlist}",
+      "done": "Saved to {playlist}",
+      "failed": "Couldn't save the song"
+    },
+    "settings": "Plugin settings",
+    "shuffle": "Shuffle",
+    "starting": {
+      "title": "Connecting…"
+    },
+    "title": "Now playing",
+    "try_again": "Try again",
+    "unavailable": {
+      "body": "Start Sonolith and turn on Settings → Connected apps → Let other apps connect to Sonolith.",
+      "title": "Sonolith isn't running, or Connected apps are off."
+    },
+    "unregistered": {
+      "body": "See what's playing in your bar, control playback and browse your library. Sonolith will ask you to approve it.",
+      "title": "Connect to Sonolith"
+    },
+    "unsupported": {
+      "body": "Update Sonolith or this plugin.",
+      "title": "Sonolith is too old or too new"
+    },
+    "uses_sonolith": "Uses Sonolith"
+  },
+  "settings": {
+    "art_radius": {
+      "label": "Art corner radius (px)"
+    },
+    "art_size": {
+      "label": "Art size (px)"
+    },
+    "layout": {
+      "description": "One line, or title and artist on two lines.",
+      "inline": "One line",
+      "label": "Layout",
+      "stacked": "Two lines"
+    },
+    "library_default_tab": {
+      "label": "Library opens on",
+      "last": "The last tab"
+    },
+    "max_width": {
+      "description": "Longer text ends with …",
+      "label": "Maximum text width (px)"
+    },
+    "np_layout": {
+      "compact": "Compact",
+      "label": "Now Playing layout",
+      "large_art": "Large cover"
+    },
+    "np_queue_preview": {
+      "label": "Songs shown from the queue"
+    },
+    "np_show_lyrics": {
+      "label": "Show the current lyric line"
+    },
+    "np_show_queue": {
+      "label": "Show what's up next"
+    },
+    "order": {
+      "artist_first": "Artist first",
+      "label": "Order",
+      "title_first": "Title first"
+    },
+    "osd_on_track_change": {
+      "description": "Pops up the shell OSD with the new song's title and artist.",
+      "label": "Show the OSD on track change"
+    },
+    "scroll_action": {
+      "label": "Mouse wheel",
+      "none": "Nothing",
+      "track": "Next / previous song",
+      "volume": "Change volume"
+    },
+    "scroll_long_text": {
+      "description": "Long titles move along instead of being cut off.",
+      "label": "Scroll long text"
+    },
+    "show_art": {
+      "label": "Show album art"
+    },
+    "show_artist": {
+      "label": "Show artist"
+    },
+    "show_progress": {
+      "label": "Show a progress line"
+    },
+    "show_state_icon": {
+      "label": "Show play/pause icon"
+    },
+    "show_title": {
+      "label": "Show title"
+    },
+    "text_format": {
+      "description": "Placeholders: {title}, {artist}, {album}.",
+      "label": "Text format"
+    },
+    "volume_step": {
+      "description": "How much the volume changes per scroll step or keybind, in percent.",
+      "label": "Volume step"
+    },
+    "when": {
+      "hide": "Hide the widget"
+    },
+    "when_idle": {
+      "glyph": "Show a music icon",
+      "label": "When nothing is playing",
+      "last_track": "Keep the last song"
+    },
+    "when_unavailable": {
+      "glyph": "Show an icon",
+      "label": "When Sonolith isn't running"
+    }
+  },
+  "toast": {
+    "signed_out": {
+      "body": "This needs your YouTube account. Sign in in Sonolith first.",
+      "title": "Sign in in Sonolith"
+    },
+    "timeout": {
+      "body": "YouTube or Sonolith is slow right now. Try again in a moment.",
+      "title": "Sonolith didn't answer in time"
+    }
+  }
+}

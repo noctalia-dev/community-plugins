@@ -1,0 +1,637 @@
+# CuteMonitor — UPS Status
+#
+# Live UPS status on the Noctalia desktop, read from CyberPower's pwrstat or from
+# NUT. One headless [[service]] polls the chosen data source and publishes a
+# normalized snapshot, graph series and an event log through noctalia.state; the
+# desktop widget, bar item and panel are thin clients that only render that state.
+
+id = "cutecaption/cutemonitor-ups"
+name = "CuteMonitor — UPS Status"
+version = "0.1.1"
+# API 29 is for the panel graph's hover tracking; nothing else needs more
+# than 24.
+plugin_api = 43
+author = "cutecaption"
+license = "MIT"
+icon = "plug-connected"
+description = "Live UPS status from pwrstat or NUT on your desktop."
+tags = ["desktop", "bar", "panel", "service", "hardware", "system", "indicator"]
+
+# Commands the plugin runs. Only one data source is needed: pwrstat (CyberPower
+# PowerPanel) or upsc (NUT). upscmd runs NUT panel actions inside a terminal.
+dependencies = ["pwrstat", "upsc", "upscmd"]
+
+# Plugin-wide settings (Settings → Plugins → gear)
+
+[[setting]]
+key = "data_source"
+type = "select"
+label_key = "settings.data_source.label"
+description_key = "settings.data_source.description"
+default = "auto"
+options = [
+  { value = "auto", label_key = "settings.data_source.options.auto" },
+  { value = "pwrstat", label_key = "settings.data_source.options.pwrstat" },
+  { value = "nut", label_key = "settings.data_source.options.nut" },
+]
+
+[[setting]]
+key = "nut_ups"
+type = "string"
+label_key = "settings.nut_ups.label"
+description_key = "settings.nut_ups.description"
+default = ""
+visible_when = { key = "data_source", values = ["auto", "nut"] }
+
+[[setting]]
+key = "poll_interval"
+type = "select"
+label_key = "settings.poll_interval.label"
+description_key = "settings.poll_interval.description"
+default = "1"
+options = [
+  { value = "1", label_key = "settings.poll_interval.options.1" },
+  { value = "2", label_key = "settings.poll_interval.options.2" },
+  { value = "5", label_key = "settings.poll_interval.options.5" },
+  { value = "10", label_key = "settings.poll_interval.options.10" },
+  { value = "30", label_key = "settings.poll_interval.options.30" },
+  { value = "60", label_key = "settings.poll_interval.options.60" },
+]
+
+[[setting]]
+key = "high_load"
+type = "int"
+label_key = "settings.high_load.label"
+description_key = "settings.high_load.description"
+default = 80
+min = 10
+max = 100
+step = 5
+
+[[setting]]
+key = "date_style"
+type = "select"
+label_key = "settings.date_style.label"
+default = "short"
+options = [
+  { value = "short", label_key = "settings.date_style.options.short" },
+  { value = "pwrstat", label_key = "settings.date_style.options.pwrstat" },
+  { value = "relative", label_key = "settings.date_style.options.relative" },
+]
+
+# Event-log recording switches (the log keeps the newest 200 events).
+[[setting]]
+key = "log_outages"
+type = "bool"
+label_key = "settings.log_outages.label"
+description_key = "settings.log_outages.description"
+default = true
+
+[[setting]]
+key = "log_communication"
+type = "bool"
+label_key = "settings.log_communication.label"
+description_key = "settings.log_communication.description"
+default = false
+
+[[setting]]
+key = "log_self_test"
+type = "bool"
+label_key = "settings.log_self_test.label"
+default = false
+
+[[setting]]
+key = "log_voltage"
+type = "bool"
+label_key = "settings.log_voltage.label"
+description_key = "settings.log_voltage.description"
+default = true
+
+[[setting]]
+key = "log_line_events"
+type = "bool"
+label_key = "settings.log_line_events.label"
+description_key = "settings.log_line_events.description"
+default = true
+
+# Service: polls the data source, owns history, events and actions
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+# Desktop widget: Status | Graph | Gauges | Readout
+# Layout rows are gated on `display`, so the inspector only shows the rows of
+# the selected layout. Position, size and the Background block are host-owned.
+
+[[desktop_widget]]
+id = "desktop"
+entry = "desktop.luau"
+
+  [[desktop_widget.setting]]
+  key = "display"
+  type = "select"
+  label_key = "settings.display.label"
+  default = "status"
+  options = [
+    { value = "status", label_key = "settings.display.options.status" },
+    { value = "graph", label_key = "settings.display.options.graph" },
+    { value = "gauges", label_key = "settings.display.options.gauges" },
+    { value = "readout", label_key = "settings.display.options.readout" },
+  ]
+
+  # Status
+
+  [[desktop_widget.setting]]
+  key = "big1"
+  type = "select"
+  label_key = "settings.big1.label"
+  default = "battery_pct"
+  visible_when = { key = "display", values = ["status"] }
+  options = [
+    { value = "battery_pct", label_key = "stats.battery_pct" },
+    { value = "load_pct", label_key = "stats.load_pct" },
+    { value = "load_w", label_key = "stats.load_w" },
+    { value = "runtime", label_key = "stats.runtime" },
+    { value = "input_v", label_key = "stats.input_v" },
+    { value = "output_v", label_key = "stats.output_v" },
+    { value = "input_hz", label_key = "stats.input_hz" },
+    { value = "output_hz", label_key = "stats.output_hz" },
+  ]
+
+  [[desktop_widget.setting]]
+  key = "big2"
+  type = "select"
+  label_key = "settings.big2.label"
+  default = "load_pct"
+  visible_when = { key = "display", values = ["status"] }
+  options = [
+    { value = "none", label_key = "stats.none" },
+    { value = "battery_pct", label_key = "stats.battery_pct" },
+    { value = "load_pct", label_key = "stats.load_pct" },
+    { value = "load_w", label_key = "stats.load_w" },
+    { value = "runtime", label_key = "stats.runtime" },
+    { value = "input_v", label_key = "stats.input_v" },
+    { value = "output_v", label_key = "stats.output_v" },
+    { value = "input_hz", label_key = "stats.input_hz" },
+    { value = "output_hz", label_key = "stats.output_hz" },
+  ]
+
+  [[desktop_widget.setting]]
+  key = "number_style"
+  type = "select"
+  label_key = "settings.number_style.label"
+  default = "side_by_side"
+  visible_when = { key = "display", values = ["status"] }
+  options = [
+    { value = "side_by_side", label_key = "settings.number_style.options.side_by_side" },
+    { value = "main_secondary", label_key = "settings.number_style.options.main_secondary" },
+  ]
+
+  [[desktop_widget.setting]]
+  key = "detail1"
+  type = "select"
+  label_key = "settings.detail1.label"
+  default = "source"
+  visible_when = { key = "display", values = ["status"] }
+  options = [
+    { value = "none", label_key = "stats.none" },
+    { value = "source", label_key = "details.source" },
+    { value = "state", label_key = "details.state" },
+    { value = "battery_pct", label_key = "stats.battery_pct" },
+    { value = "load_pct", label_key = "stats.load_pct" },
+    { value = "load_w", label_key = "stats.load_w" },
+    { value = "runtime", label_key = "stats.runtime" },
+    { value = "input_v", label_key = "stats.input_v" },
+    { value = "output_v", label_key = "stats.output_v" },
+    { value = "input_hz", label_key = "stats.input_hz" },
+    { value = "output_hz", label_key = "stats.output_hz" },
+    { value = "line", label_key = "details.line" },
+    { value = "test", label_key = "details.test" },
+    { value = "last_event", label_key = "details.last_event" },
+  ]
+
+  [[desktop_widget.setting]]
+  key = "detail2"
+  type = "select"
+  label_key = "settings.detail2.label"
+  default = "runtime"
+  visible_when = { key = "display", values = ["status"] }
+  options = [
+    { value = "none", label_key = "stats.none" },
+    { value = "source", label_key = "details.source" },
+    { value = "state", label_key = "details.state" },
+    { value = "battery_pct", label_key = "stats.battery_pct" },
+    { value = "load_pct", label_key = "stats.load_pct" },
+    { value = "load_w", label_key = "stats.load_w" },
+    { value = "runtime", label_key = "stats.runtime" },
+    { value = "input_v", label_key = "stats.input_v" },
+    { value = "output_v", label_key = "stats.output_v" },
+    { value = "input_hz", label_key = "stats.input_hz" },
+    { value = "output_hz", label_key = "stats.output_hz" },
+    { value = "line", label_key = "details.line" },
+    { value = "test", label_key = "details.test" },
+    { value = "last_event", label_key = "details.last_event" },
+  ]
+
+  [[desktop_widget.setting]]
+  key = "detail3"
+  type = "select"
+  label_key = "settings.detail3.label"
+  default = "load_w"
+  visible_when = { key = "display", values = ["status"] }
+  options = [
+    { value = "none", label_key = "stats.none" },
+    { value = "source", label_key = "details.source" },
+    { value = "state", label_key = "details.state" },
+    { value = "battery_pct", label_key = "stats.battery_pct" },
+    { value = "load_pct", label_key = "stats.load_pct" },
+    { value = "load_w", label_key = "stats.load_w" },
+    { value = "runtime", label_key = "stats.runtime" },
+    { value = "input_v", label_key = "stats.input_v" },
+    { value = "output_v", label_key = "stats.output_v" },
+    { value = "input_hz", label_key = "stats.input_hz" },
+    { value = "output_hz", label_key = "stats.output_hz" },
+    { value = "line", label_key = "details.line" },
+    { value = "test", label_key = "details.test" },
+    { value = "last_event", label_key = "details.last_event" },
+  ]
+
+  # Graph
+
+  [[desktop_widget.setting]]
+  key = "line1"
+  type = "select"
+  label_key = "settings.line1.label"
+  default = "load_w"
+  visible_when = { key = "display", values = ["graph"] }
+  options = [
+    { value = "battery_pct", label_key = "stats.battery_pct" },
+    { value = "load_pct", label_key = "stats.load_pct" },
+    { value = "load_w", label_key = "stats.load_w" },
+    { value = "runtime", label_key = "stats.runtime" },
+    { value = "input_v", label_key = "stats.input_v" },
+    { value = "output_v", label_key = "stats.output_v" },
+    { value = "input_hz", label_key = "stats.input_hz" },
+    { value = "output_hz", label_key = "stats.output_hz" },
+  ]
+
+  [[desktop_widget.setting]]
+  key = "line2"
+  type = "select"
+  label_key = "settings.line2.label"
+  default = "input_v"
+  visible_when = { key = "display", values = ["graph"] }
+  options = [
+    { value = "none", label_key = "stats.none" },
+    { value = "battery_pct", label_key = "stats.battery_pct" },
+    { value = "load_pct", label_key = "stats.load_pct" },
+    { value = "load_w", label_key = "stats.load_w" },
+    { value = "runtime", label_key = "stats.runtime" },
+    { value = "input_v", label_key = "stats.input_v" },
+    { value = "output_v", label_key = "stats.output_v" },
+    { value = "input_hz", label_key = "stats.input_hz" },
+    { value = "output_hz", label_key = "stats.output_hz" },
+  ]
+
+  [[desktop_widget.setting]]
+  key = "time_span"
+  type = "select"
+  label_key = "settings.time_span.label"
+  default = "2m"
+  visible_when = { key = "display", values = ["graph"] }
+  options = [
+    { value = "2m", label_key = "settings.time_span.options.2m" },
+    { value = "10m", label_key = "settings.time_span.options.10m" },
+    { value = "1h", label_key = "settings.time_span.options.1h" },
+  ]
+
+  [[desktop_widget.setting]]
+  key = "show_label"
+  type = "bool"
+  label_key = "settings.show_label.label"
+  default = true
+  visible_when = { key = "display", values = ["graph"] }
+
+  # Gauges
+
+  [[desktop_widget.setting]]
+  key = "gauge_layout"
+  type = "select"
+  label_key = "settings.gauge_layout.label"
+  default = "rows"
+  visible_when = { key = "display", values = ["gauges"] }
+  options = [
+    { value = "rows", label_key = "settings.gauge_layout.options.rows" },
+    { value = "columns", label_key = "settings.gauge_layout.options.columns" },
+    { value = "pills", label_key = "settings.gauge_layout.options.pills" },
+  ]
+
+  [[desktop_widget.setting]]
+  key = "bar1"
+  type = "select"
+  label_key = "settings.bar1.label"
+  default = "battery_pct"
+  visible_when = { key = "display", values = ["gauges"] }
+  options = [
+    { value = "none", label_key = "stats.none" },
+    { value = "battery_pct", label_key = "stats.battery_pct" },
+    { value = "load_pct", label_key = "stats.load_pct" },
+    { value = "load_w", label_key = "stats.load_w" },
+    { value = "runtime", label_key = "stats.runtime" },
+    { value = "input_v", label_key = "stats.input_v" },
+    { value = "output_v", label_key = "stats.output_v" },
+    { value = "input_hz", label_key = "stats.input_hz" },
+    { value = "output_hz", label_key = "stats.output_hz" },
+  ]
+
+  [[desktop_widget.setting]]
+  key = "bar2"
+  type = "select"
+  label_key = "settings.bar2.label"
+  default = "load_w"
+  visible_when = { key = "display", values = ["gauges"] }
+  options = [
+    { value = "none", label_key = "stats.none" },
+    { value = "battery_pct", label_key = "stats.battery_pct" },
+    { value = "load_pct", label_key = "stats.load_pct" },
+    { value = "load_w", label_key = "stats.load_w" },
+    { value = "runtime", label_key = "stats.runtime" },
+    { value = "input_v", label_key = "stats.input_v" },
+    { value = "output_v", label_key = "stats.output_v" },
+    { value = "input_hz", label_key = "stats.input_hz" },
+    { value = "output_hz", label_key = "stats.output_hz" },
+  ]
+
+  [[desktop_widget.setting]]
+  key = "bar3"
+  type = "select"
+  label_key = "settings.bar3.label"
+  default = "runtime"
+  visible_when = { key = "display", values = ["gauges"] }
+  options = [
+    { value = "none", label_key = "stats.none" },
+    { value = "battery_pct", label_key = "stats.battery_pct" },
+    { value = "load_pct", label_key = "stats.load_pct" },
+    { value = "load_w", label_key = "stats.load_w" },
+    { value = "runtime", label_key = "stats.runtime" },
+    { value = "input_v", label_key = "stats.input_v" },
+    { value = "output_v", label_key = "stats.output_v" },
+    { value = "input_hz", label_key = "stats.input_hz" },
+    { value = "output_hz", label_key = "stats.output_hz" },
+  ]
+
+  [[desktop_widget.setting]]
+  key = "status_line"
+  type = "bool"
+  label_key = "settings.status_line.label"
+  default = true
+  visible_when = { key = "display", values = ["gauges"] }
+
+  # Readout rows, in pwrstat's order. Rows pwrstat lists together share a
+  # switch, which keeps the inspector short enough to fit (it can't scroll).
+  [[desktop_widget.setting]]
+  key = "row_model_firmware"
+  type = "bool"
+  label_key = "settings.row_model_firmware.label"
+  description_key = "settings.row_model_firmware.description"
+  default = false
+  visible_when = { key = "display", values = ["readout"] }
+
+  [[desktop_widget.setting]]
+  key = "row_ratings"
+  type = "bool"
+  label_key = "settings.row_ratings.label"
+  description_key = "settings.row_ratings.description"
+  default = false
+  visible_when = { key = "display", values = ["readout"] }
+
+  [[desktop_widget.setting]]
+  key = "row_state"
+  type = "bool"
+  label_key = "settings.row_state.label"
+  description_key = "settings.row_state.description"
+  default = true
+  visible_when = { key = "display", values = ["readout"] }
+
+  [[desktop_widget.setting]]
+  key = "row_voltages"
+  type = "bool"
+  label_key = "settings.row_voltages.label"
+  description_key = "settings.row_voltages.description"
+  default = true
+  visible_when = { key = "display", values = ["readout"] }
+
+  [[desktop_widget.setting]]
+  key = "row_frequencies"
+  type = "bool"
+  label_key = "settings.row_frequencies.label"
+  description_key = "settings.row_frequencies.description"
+  default = true
+  visible_when = { key = "display", values = ["readout"] }
+
+  [[desktop_widget.setting]]
+  key = "row_battery"
+  type = "bool"
+  label_key = "settings.row_battery.label"
+  description_key = "settings.row_battery.description"
+  default = true
+  visible_when = { key = "display", values = ["readout"] }
+
+  [[desktop_widget.setting]]
+  key = "row_load"
+  type = "bool"
+  label_key = "rows.load"
+  default = true
+  visible_when = { key = "display", values = ["readout"] }
+
+  [[desktop_widget.setting]]
+  key = "row_line"
+  type = "bool"
+  label_key = "rows.line"
+  default = true
+  visible_when = { key = "display", values = ["readout"] }
+
+  [[desktop_widget.setting]]
+  key = "row_test"
+  type = "bool"
+  label_key = "rows.test"
+  default = true
+  visible_when = { key = "display", values = ["readout"] }
+
+  [[desktop_widget.setting]]
+  key = "row_last_event"
+  type = "bool"
+  label_key = "rows.last_event"
+  default = true
+  visible_when = { key = "display", values = ["readout"] }
+
+  # NUT-only extras; rows without data are omitted, like pwrstat does.
+  [[desktop_widget.setting]]
+  key = "extra_nut"
+  type = "bool"
+  label_key = "settings.extra_nut.label"
+  description_key = "settings.extra_nut.description"
+  default = false
+  visible_when = { key = "display", values = ["readout"] }
+
+  # Colors
+
+  # Readout colors only its State row, with Color 2.
+  [[desktop_widget.setting]]
+  key = "color"
+  type = "color"
+  label_key = "settings.color.label"
+  default = "primary"
+  visible_when = { key = "display", values = ["status", "graph", "gauges"] }
+
+  [[desktop_widget.setting]]
+  key = "color2"
+  type = "color"
+  label_key = "settings.color2.label"
+  default = "secondary"
+
+  # Only Gauges draws a third series.
+  [[desktop_widget.setting]]
+  key = "color3"
+  type = "color"
+  label_key = "settings.color3.label"
+  default = "on_surface_variant"
+  visible_when = { key = "display", values = ["gauges"] }
+
+  [[desktop_widget.setting]]
+  key = "warning_color"
+  type = "color"
+  label_key = "settings.warning_color.label"
+  description_key = "settings.warning_color.description"
+  default = "tertiary"
+
+  [[desktop_widget.setting]]
+  key = "alert_color"
+  type = "color"
+  label_key = "settings.alert_color.label"
+  description_key = "settings.alert_color.description"
+  default = "error"
+
+# Bar item
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+  # Gesture defaults; users rebind them per instance. Middle click keeps
+  # Noctalia's default (open this widget's settings).
+  [widget.actions]
+  left = "panel-toggle cutecaption/cutemonitor-ups:details"
+  right = "none"
+
+  [[widget.setting]]
+  key = "display_mode"
+  type = "select"
+  label_key = "settings.display_mode.label"
+  default = "icon"
+  options = [
+    { value = "icon", label_key = "settings.display_mode.options.icon" },
+    { value = "battery", label_key = "settings.display_mode.options.battery" },
+    { value = "none", label_key = "settings.display_mode.options.none" },
+  ]
+
+  # The bar's text follows its foreground color by itself; the drawn battery is
+  # built from boxes, which need an explicit color.
+  [[widget.setting]]
+  key = "battery_color"
+  type = "color"
+  label_key = "settings.battery_color.label"
+  description_key = "settings.battery_color.description"
+  default = "on_surface"
+  visible_when = { key = "display_mode", values = ["battery"] }
+
+  [[widget.setting]]
+  key = "show_label"
+  type = "bool"
+  label_key = "settings.show_label.label"
+  default = true
+
+  [[widget.setting]]
+  key = "label_content"
+  type = "select"
+  label_key = "settings.label_content.label"
+  default = "battery_load"
+  visible_when = { key = "show_label", values = ["true"] }
+  options = [
+    { value = "battery_load", label_key = "settings.label_content.options.battery_load" },
+    { value = "battery", label_key = "stats.battery_pct" },
+    { value = "load", label_key = "stats.load_pct" },
+    { value = "load_w", label_key = "stats.load_w" },
+    { value = "runtime", label_key = "stats.runtime" },
+  ]
+
+  [[widget.setting]]
+  key = "only_on_battery"
+  type = "bool"
+  label_key = "settings.only_on_battery.label"
+  description_key = "settings.only_on_battery.description"
+  default = false
+
+  [[widget.setting]]
+  key = "warning_color"
+  type = "color"
+  label_key = "settings.warning_color.label"
+  description_key = "settings.warning_color.description"
+  default = "tertiary"
+
+  [[widget.setting]]
+  key = "alert_color"
+  type = "color"
+  label_key = "settings.alert_color.label"
+  description_key = "settings.alert_color.description"
+  default = "error"
+
+# Detail panel
+# Placement, position, layer and open-near-click are added by Noctalia itself
+# (labelled "details · …" in the gear settings); these are the defaults.
+
+[[panel]]
+id = "details"
+entry = "panel.luau"
+width = 380
+height = 600
+placement = "attached"
+position = "auto"
+open_near_click = true
+
+  [[panel.setting]]
+  key = "panel_hero"
+  type = "bool"
+  label_key = "settings.panel_hero.label"
+  default = true
+
+  [[panel.setting]]
+  key = "panel_graph"
+  type = "bool"
+  label_key = "settings.panel_graph.label"
+  default = true
+
+  [[panel.setting]]
+  key = "panel_readout"
+  type = "bool"
+  label_key = "settings.panel_readout.label"
+  default = true
+
+  [[panel.setting]]
+  key = "panel_protection"
+  type = "bool"
+  label_key = "settings.panel_protection.label"
+  default = false
+
+  [[panel.setting]]
+  key = "panel_events"
+  type = "bool"
+  label_key = "settings.panel_events.label"
+  default = false
+
+  [[panel.setting]]
+  key = "panel_actions"
+  type = "bool"
+  label_key = "settings.panel_actions.label"
+  default = true

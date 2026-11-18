@@ -1,0 +1,122 @@
+{
+  "bar": {
+    "empty": "—",
+    "remaining": "{kwh} left",
+    "title": "Neuralwatt",
+    "tooltip_text": "Neuralwatt — {text}",
+    "unavailable": "unavailable"
+  },
+  "colors": {
+    "error": "Red (error)",
+    "neutral": "Neutral (on surface)",
+    "primary": "Primary",
+    "secondary": "Amber (secondary)",
+    "tertiary": "Tertiary"
+  },
+  "countdown": {
+    "days_hours": "in {days}d {hours}h",
+    "hours_mins": "in {hours}h {mins}m",
+    "mins": "in {mins}m",
+    "now": "now"
+  },
+  "field": {
+    "accounting": "Accounting",
+    "allowance": "Allowance",
+    "auto_renew": "auto-renew",
+    "balance": "Balance",
+    "billing": "Billing",
+    "cost": "Cost",
+    "emissions": "Emissions",
+    "energy": "Energy",
+    "lifetime": "Lifetime",
+    "overage": "In overage",
+    "plan": "Plan",
+    "rate_tier": "Rate tier",
+    "remaining": "Remaining",
+    "renews": "Renews",
+    "requests": "Requests",
+    "status": "Status",
+    "tokens": "Tokens",
+    "total": "Total",
+    "used": "Used"
+  },
+  "interval": {
+    "month": "monthly",
+    "year": "yearly"
+  },
+  "models": {
+    "deprecated": "deprecated",
+    "empty": "No models match.",
+    "loading": "Loading models…",
+    "price_tbd": "pricing TBD",
+    "search": "Filter by name, id or provider…"
+  },
+  "panel": {
+    "account": "Account",
+    "allowance": "Energy allowance",
+    "carbon": "Carbon",
+    "key_hint": "Add your sk-... key under Settings → Plugins → gear icon.",
+    "no_plan": "none",
+    "refresh": "Refresh",
+    "subscription": "Subscription",
+    "this_month": "This month",
+    "title": "Neuralwatt",
+    "unavailable": "Usage unavailable",
+    "waiting": "Waiting for the usage service…"
+  },
+  "settings": {
+    "api_key": {
+      "description": "Your Neuralwatt API key (sk-...). Stored by Noctalia and sent only to api.neuralwatt.com.",
+      "label": "API key"
+    },
+    "bar_mode": {
+      "description": "Which reading the bar capsule prints. Choose icon only to hide the number.",
+      "label": "Show in bar",
+      "option": {
+        "none": "Icon only",
+        "percent": "Percent of allowance",
+        "remaining": "Remaining kWh",
+        "used": "Used / allowance kWh"
+      }
+    },
+    "critical_percent": {
+      "description": "Allowance usage at or above this percentage turns the capsule and the meter red.",
+      "label": "Critical at (%)"
+    },
+    "ok_color": {
+      "description": "Colour of the capsule and the meter while the allowance is healthy.",
+      "label": "Healthy colour"
+    },
+    "refresh_interval": {
+      "description": "How often to poll api.neuralwatt.com for usage, in seconds (60-86400).",
+      "label": "Refresh interval"
+    },
+    "warn_color": {
+      "description": "Colour of the capsule and the meter past the warning threshold.",
+      "label": "Warning colour"
+    },
+    "warn_percent": {
+      "description": "Allowance usage at or above this percentage switches the capsule and the meter to the warning colour.",
+      "label": "Warn at (%)"
+    }
+  },
+  "status": {
+    "bad_response": "Usage unavailable (unexpected response)",
+    "http_error": "Usage unavailable (HTTP {status}, check API key)",
+    "loading": "Loading…",
+    "need_key": "Set API key in settings",
+    "network": "Usage unavailable (network error)",
+    "refused": "Usage unavailable (request refused)"
+  },
+  "substatus": {
+    "active": "active",
+    "canceling": "canceling",
+    "past_due": "past due",
+    "paused": "paused",
+    "trialing": "trialing"
+  },
+  "tabs": {
+    "models": "Models",
+    "usage": "Usage"
+  }
+}

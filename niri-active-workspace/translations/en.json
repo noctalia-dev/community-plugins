@@ -1,0 +1,22 @@
+{
+  "plugin_description": "Shows only the focused niri workspace in the bar.",
+  "plugin_name": "Niri Active Workspace",
+  "settings": {
+    "glyph": {
+      "description": "Icon shown before the label.",
+      "label": "Icon"
+    },
+    "label_mode": {
+      "both": "Index and name",
+      "description": "What to show for the focused workspace.",
+      "index": "Index only",
+      "label": "Label",
+      "name": "Name only",
+      "name_or_index": "Name, or index when unnamed"
+    },
+    "show_position": {
+      "description": "Append the focused workspace's position, e.g. 3/5.",
+      "label": "Show position"
+    }
+  }
+}

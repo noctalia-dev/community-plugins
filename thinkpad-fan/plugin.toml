@@ -1,0 +1,48 @@
+id          = "piero-93/thinkpad-fan"
+name        = "ThinkPad Fan & Thermal Control"
+version     = "1.0.0"
+plugin_api  = 3
+author      = "piero-93"
+license     = "GPL-3.0"
+icon        = "car-fan"
+description = "ThinkPad fan speed monitor and manual level control with temperature readout — no root at runtime."
+tags        = ["bar", "panel", "system", "hardware", "indicator", "utility"]
+dependencies = ["sh", "cat", "sudo", "bash", "dirname", "getent", "groupadd", "usermod", "chgrp", "chmod", "rm", "udevadm"]
+
+[[setting]]
+key            = "colorize_by_status"
+type           = "bool"
+label_key      = "settings.colorize_by_status.label"
+description_key = "settings.colorize_by_status.description"
+default        = true
+
+[[setting]]
+key            = "allow_popup"
+type           = "bool"
+label_key      = "settings.allow_popup.label"
+description_key = "settings.allow_popup.description"
+default        = true
+
+[[setting]]
+key            = "thermal_zone"
+type           = "string"
+label_key      = "settings.thermal_zone.label"
+description_key = "settings.thermal_zone.description"
+default        = "thermal_zone0"
+
+[[widget]]
+id    = "widget"
+entry = "widget.luau"
+
+[[panel]]
+id              = "panel"
+entry           = "panel.luau"
+width           = 280
+height          = 200
+placement       = "attached"
+position        = "auto"
+open_near_click = true
+
+[[service]]
+id    = "service"
+entry = "service.luau"

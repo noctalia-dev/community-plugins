@@ -1,0 +1,9 @@
+{
+  "settings": {
+    "root": {
+      "description": "Verzeichnis, in dem hyprwhspr installiert ist. Behalte die Standardeinstellung bei, es sei denn, hyprwhspr befindet sich unter einem nicht standardmäßigen Präfix",
+      "label": "hyprwhspr Installationsverzeichnis"
+    }
+  },
+  "title": "noctwhspr"
+}

@@ -1,0 +1,52 @@
+id = "nuddel69/nightscout-monitor"
+name = "Nightscout Monitor"
+version = "1.0.0"
+plugin_api = 3
+author = "Nuddel69"
+license = "AGPL-3.0"
+tags = ["bar", "utility"]
+dependencies = []
+icon = "vaccine-bottle"
+description = "Widget icon for monitoring nightscout glucose information"
+
+[[widget]]
+id = "monitor"
+entry = "monitor.luau"
+
+[[service]]
+id = "ticker"
+entry = "ticker.luau"
+
+[[setting]]
+key = "api-secret"
+type = "string"
+label_key = "settings.secret.label"
+description_key = "settings.secret.description"
+default = ""
+
+[[setting]]
+key = "host"
+type = "string"
+label_key = "settings.host.label"
+description_key = "settings.host.description"
+default = ""
+
+[[setting]]
+key = "interval"
+type = "int"
+label_key = "settings.interval.label"
+description_key = "settings.interval.description"
+min = 10
+max = 1800
+default = 30
+
+[[setting]]
+key = "unit"
+type = "select"
+label_key = "settings.unit.label"
+description_key = "settings.unit.description"
+options = [
+  { value = "mmol/L", label_key = "settings.unit.mmol" },
+  { value = "mg/dL", label_key = "settings.unit.mg" },
+]
+default = "mmol/L"

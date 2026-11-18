@@ -1,0 +1,17 @@
+{
+  "lsp": {
+    "luau-lsp": {
+      "settings": {
+        "luau-lsp": {
+          "sourcemap": {
+            "enabled": false
+          },
+          "types": {
+            "definitionFiles": ["noctalia.d.luau"]
+          },
+          "ignoreGlobs": ["**/*.d.luau"]
+        }
+      }
+    }
+  }
+}

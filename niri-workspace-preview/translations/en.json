@@ -1,0 +1,111 @@
+{
+  "settings": {
+    "active_color": {
+      "description": "Color for the active window reported by each Niri workspace.",
+      "label": "Active window color"
+    },
+    "fixed_height": {
+      "description": "Height of each workspace frame in fixed mode, in logical pixels.",
+      "label": "Fixed height"
+    },
+    "fixed_width": {
+      "description": "Width of each workspace frame in fixed mode, in logical pixels.",
+      "label": "Fixed width"
+    },
+    "floating_color": {
+      "description": "Color used for floating windows in compact and exact-position modes.",
+      "label": "Floating window color"
+    },
+    "floating_mode": {
+      "description": "Show floating windows in a compact list or at their exact Niri viewport coordinates.",
+      "exact": "Exact position",
+      "label": "Floating window mode",
+      "strip": "Compact strip"
+    },
+    "focused_color": {
+      "description": "Color for the single window holding keyboard focus.",
+      "label": "Focused window color"
+    },
+    "highlight_focused": {
+      "description": "Use the configured focused color for the window holding keyboard focus.",
+      "label": "Highlight focused window"
+    },
+    "highlight_hovered": {
+      "description": "Outline the window miniature currently under the pointer.",
+      "label": "Highlight hovered window"
+    },
+    "hover_color": {
+      "description": "Border color used while hovering; focus and urgency colors take priority.",
+      "label": "Hover color"
+    },
+    "invert_scroll": {
+      "description": "Make scrolling down move left and scrolling up move right.",
+      "label": "Invert scroll direction"
+    },
+    "max_output_length": {
+      "description": "Maximum main-axis length of one workspace map in logical pixels.",
+      "label": "Maximum map length"
+    },
+    "normal_color": {
+      "description": "Fallback color for windows without a higher-priority state.",
+      "label": "Normal window color"
+    },
+    "output_gap": {
+      "description": "Space between output previews in logical pixels.",
+      "label": "Output gap"
+    },
+    "output_names": {
+      "description": "Comma-separated output names to show, for example: eDP-1, HDMI-A-1.",
+      "label": "Selected outputs"
+    },
+    "output_scope": {
+      "all": "All outputs",
+      "current": "This bar's output",
+      "custom": "Selected outputs",
+      "description": "Show every active output, only the monitor containing this bar, or a named selection.",
+      "label": "Output scope"
+    },
+    "preview_size": {
+      "description": "Cross-axis size of each output preview in logical pixels.",
+      "label": "Preview size"
+    },
+    "show_floating": {
+      "description": "Show floating windows beside the tiled layout.",
+      "label": "Show floating windows"
+    },
+    "show_icons": {
+      "description": "Show a locally resolved application icon when a miniature is large enough.",
+      "label": "Show application icons"
+    },
+    "size_mode": {
+      "auto": "Automatic",
+      "description": "Let window geometry size the map automatically, or use a frame with explicit dimensions.",
+      "fixed": "Fixed",
+      "label": "Size mode"
+    },
+    "urgent_color": {
+      "description": "Color for windows requesting attention.",
+      "label": "Urgent window color"
+    },
+    "viewport_border_width": {
+      "description": "Thickness of the visible viewport highlight in logical pixels.",
+      "label": "Viewport border width"
+    },
+    "viewport_color": {
+      "description": "Border color used for visible windows unless a window-state or hover color takes priority.",
+      "label": "Viewport color"
+    },
+    "viewport_mode": {
+      "both": "Highlight and separate map",
+      "description": "Highlight visible windows inside the full map, add a separate viewport map, or use both.",
+      "highlight": "Highlight in full map",
+      "label": "Visible viewport mode",
+      "off": "Off",
+      "separate": "Separate map"
+    },
+    "window_gap": {
+      "description": "Space between miniature windows in logical pixels.",
+      "label": "Window gap"
+    }
+  }
+}

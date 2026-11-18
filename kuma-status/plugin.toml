@@ -1,0 +1,179 @@
+id = "nightwatch75/kuma-status"
+name = "Kuma Status"
+version = "0.18.2"
+plugin_api = 43
+author = "nightwatch75"
+license = "MIT"
+dependencies = ["xdg-open", "stat"]
+tags = ["bar", "panel", "network"]
+icon = "heartbeat"
+description = "Uptime Kuma monitors on the bar: a glyph shows the overall state, a panel lists monitors and status pages."
+
+[[setting]]
+key = "kuma_url"
+type = "string"
+label_key = "settings.kuma_url.label"
+description_key = "settings.kuma_url.description"
+default = ""
+
+[[setting]]
+key = "api_key_file"
+type = "file"
+label_key = "settings.api_key_file.label"
+description_key = "settings.api_key_file.description"
+default = ""
+
+[[setting]]
+key = "proxy_user"
+type = "string"
+label_key = "settings.proxy_user.label"
+description_key = "settings.proxy_user.description"
+default = ""
+
+[[setting]]
+key = "proxy_password_file"
+type = "file"
+label_key = "settings.proxy_password_file.label"
+description_key = "settings.proxy_password_file.description"
+default = ""
+
+[[setting]]
+key = "proxy_hosts"
+type = "string_list"
+default = []
+label_key = "settings.proxy_hosts.label"
+description_key = "settings.proxy_hosts.description"
+
+[[setting]]
+key = "insecure_tls"
+type = "bool"
+label_key = "settings.insecure_tls.label"
+description_key = "settings.insecure_tls.description"
+default = false
+
+[[setting]]
+key = "kuma3_support"
+type = "bool"
+label_key = "settings.kuma3_support.label"
+description_key = "settings.kuma3_support.description"
+default = false
+
+[[setting]]
+key = "cert_red_days"
+type = "int"
+label_key = "settings.cert_red_days.label"
+description_key = "settings.cert_red_days.description"
+default = 7
+min = 1
+max = 365
+
+[[setting]]
+key = "cert_yellow_days"
+type = "int"
+label_key = "settings.cert_yellow_days.label"
+description_key = "settings.cert_yellow_days.description"
+default = 30
+min = 2
+max = 730
+
+[[setting]]
+key = "group_tags"
+type = "string_list"
+default = []
+label_key = "settings.group_tags.label"
+description_key = "settings.group_tags.description"
+
+[[setting]]
+key = "bar_display"
+type = "select"
+label_key = "settings.bar_display.label"
+description_key = "settings.bar_display.description"
+default = "counts"
+options = [
+  { value = "counts", label_key = "settings.bar_display.options.counts" },
+  { value = "color", label_key = "settings.bar_display.options.color" },
+]
+
+[[setting]]
+key = "notify_changes"
+type = "select"
+label_key = "settings.notify_changes.label"
+description_key = "settings.notify_changes.description"
+default = "toast_blink"
+options = [
+  { value = "off", label_key = "settings.notify_changes.options.off" },
+  { value = "toast", label_key = "settings.notify_changes.options.toast" },
+  { value = "toast_blink", label_key = "settings.notify_changes.options.toast_blink" },
+]
+
+[[setting]]
+key = "notify_certs"
+type = "bool"
+label_key = "settings.notify_certs.label"
+description_key = "settings.notify_certs.description"
+default = false
+
+[[setting]]
+key = "refresh_seconds"
+type = "int"
+label_key = "settings.refresh_seconds.label"
+description_key = "settings.refresh_seconds.description"
+default = 60
+min = 20
+max = 3600
+
+[[setting]]
+key = "groups_on_open"
+type = "select"
+label_key = "settings.groups_on_open.label"
+description_key = "settings.groups_on_open.description"
+default = "expanded"
+options = [
+  { value = "expanded", label_key = "settings.groups_on_open.options.expanded" },
+  { value = "collapsed", label_key = "settings.groups_on_open.options.collapsed" },
+  { value = "last", label_key = "settings.groups_on_open.options.last" },
+]
+
+[[setting]]
+key = "start_tab"
+type = "select"
+label_key = "settings.start_tab.label"
+description_key = "settings.start_tab.description"
+default = "dashboard"
+options = [
+  { value = "dashboard", label_key = "settings.start_tab.options.dashboard" },
+  { value = "pages", label_key = "settings.start_tab.options.pages" },
+  { value = "certs", label_key = "settings.start_tab.options.certs" },
+  { value = "last", label_key = "settings.start_tab.options.last" },
+]
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 640
+height = 640
+placement = "floating"
+position = "auto"
+open_near_click = true
+
+[[widget]]
+id = "kuma-status"
+entry = "kuma-status.luau"
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  label_key = "settings.glyph.label"
+  description_key = "settings.glyph.description"
+  default = "heartbeat"
+
+  [[widget.setting]]
+  key = "bar_label"
+  type = "string"
+  label_key = "settings.bar_label.label"
+  description_key = "settings.bar_label.description"
+  default = "Kuma"

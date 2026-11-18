@@ -1,0 +1,5 @@
+#!/bin/sh
+# localsend FILE... [DEVICE]: sends files and folders with LocalSend Plus.
+# Without a device, or when the name fits several, it asks which one.
+bin=$(command -v localsend-controller) || bin="$HOME/.cargo/bin/localsend-controller"
+exec "$bin" send "$@"

@@ -1,0 +1,72 @@
+id = "cleboost/librelinkup"
+name = "LibreLinkUp"
+version = "1.0.0"
+plugin_api = 9
+author = "Cleboost"
+license = "MIT"
+icon = "droplet"
+description = "Display your LibreLinkUp blood glucose on the bar with trend arrow."
+tags = ["bar", "service", "utility", "indicator"]
+dependencies = ["sha256sum"]
+
+[[setting]]
+key = "email"
+type = "string"
+label_key = "settings.email.label"
+description_key = "settings.email.description"
+default = ""
+
+[[setting]]
+key = "password"
+type = "string"
+label_key = "settings.password.label"
+description_key = "settings.password.description"
+default = ""
+
+[[setting]]
+key = "refresh_interval"
+type = "int"
+label_key = "settings.refresh_interval.label"
+description_key = "settings.refresh_interval.description"
+default = 300
+min = 60
+max = 900
+
+[[setting]]
+key = "low_threshold"
+type = "int"
+label_key = "settings.low_threshold.label"
+description_key = "settings.low_threshold.description"
+default = 70
+min = 40
+max = 100
+
+[[setting]]
+key = "high_threshold"
+type = "int"
+label_key = "settings.high_threshold.label"
+description_key = "settings.high_threshold.description"
+default = 180
+min = 120
+max = 300
+
+[[service]]
+id = "fetcher"
+entry = "service.luau"
+
+[[widget]]
+id = "glucose"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  label_key = "settings.glyph.label"
+  default = "droplet"
+
+  [[widget.setting]]
+  key = "show_unit"
+  type = "bool"
+  label_key = "settings.show_unit.label"
+  description_key = "settings.show_unit.description"
+  default = false

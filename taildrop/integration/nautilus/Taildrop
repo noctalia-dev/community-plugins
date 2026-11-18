@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Nautilus script — "Send via Taildrop".
+#
+# Install:
+#   mkdir -p ~/.local/share/nautilus/scripts
+#   cp Taildrop ~/.local/share/nautilus/scripts/Taildrop
+#   chmod +x ~/.local/share/nautilus/scripts/Taildrop
+#   # Then log out/in (or restart nautilus) so the script appears in
+#   #   right-click → Scripts → Taildrop.
+#
+# Nautilus sets $NAUTILUS_SCRIPT_SELECTED_FILE_PATHS to the selected paths,
+# one per line (newline-delimited, so paths with newlines are the one
+# unsupported edge). Pass them all — one dialog for the whole selection.
+set -euo pipefail
+
+if [ -n "${NAUTILUS_SCRIPT_SELECTED_FILE_PATHS:-}" ]; then
+  # Preserve paths with spaces/quotes by reading one per line into an array.
+  mapfile -t selected <<<"$NAUTILUS_SCRIPT_SELECTED_FILE_PATHS"
+  exec /home/you/.local/bin/noctalia-taildrop "${selected[@]}"
+fi

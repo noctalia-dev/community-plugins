@@ -1,0 +1,41 @@
+{
+  "settings": {
+    "display_mode": {
+      "description": "Activity shows the current tool or waiting reason; counts shows a compact active count; dots shows up to six dots, one per visible session.",
+      "label": "Bar display",
+      "options": {
+        "activity": "Activity",
+        "counts": "Counts",
+        "dots": "Dots"
+      }
+    },
+    "glyph": {
+      "description": "Tabler glyph used when OpenCode is idle.",
+      "label": "Icon"
+    },
+    "label_width": {
+      "description": "Maximum number of characters shown in the bar label.",
+      "label": "Label width"
+    },
+    "poll_interval": {
+      "description": "How often to ask the local OpenCode server for active sessions, permissions, and current activity.",
+      "label": "Poll interval"
+    },
+    "recent_count": {
+      "description": "Maximum number of recent sessions shown in the panel.",
+      "label": "Recent session limit"
+    },
+    "recent_minutes": {
+      "description": "Show sessions updated within this many minutes in the recent list.",
+      "label": "Recent session window"
+    },
+    "show_children": {
+      "description": "Include subagent and child sessions in the bar widget. The panel always shows them.",
+      "label": "Show child sessions"
+    },
+    "show_label": {
+      "description": "Show text next to the bar icon. Disable for an icon-and-dots only widget.",
+      "label": "Show label"
+    }
+  }
+}

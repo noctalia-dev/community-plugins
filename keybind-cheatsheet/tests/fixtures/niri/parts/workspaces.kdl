@@ -1,0 +1,5 @@
+binds {
+    // #"Workspaces"
+    Mod+1 hotkey-overlay-title="Workspace 1" { focus-workspace 1; }
+    Mod+WheelScrollDown cooldown-ms=150 { focus-workspace-down; }
+}

@@ -1,0 +1,96 @@
+{
+  "agenda": {
+    "add_btn": "Add",
+    "add_category_btn": "Add category",
+    "agenda_tab": "Agenda",
+    "all_day": "All day",
+    "categories_tab": "Categories",
+    "delete": "Delete",
+    "delete_cat_tooltip": "Delete category (events move to the first one)",
+    "errors": {
+      "create_cat_first": "Create a category first",
+      "duration_range": "Duration must be 1-1440 minutes",
+      "enter_name": "Enter an event name",
+      "time_format": "Start time must look like 09:30"
+    },
+    "event_name_placeholder": "Event name",
+    "manage_tooltip": "Add events & manage categories",
+    "new_cat_placeholder": "New category",
+    "new_event": "New event",
+    "no_events": "No events on this day",
+    "save_name": "Save name"
+  },
+  "months": {
+    "m1": "January",
+    "m10": "October",
+    "m11": "November",
+    "m12": "December",
+    "m2": "February",
+    "m3": "March",
+    "m4": "April",
+    "m5": "May",
+    "m6": "June",
+    "m7": "July",
+    "m8": "August",
+    "m9": "September"
+  },
+  "settings": {
+    "accent_weekends": {
+      "description": "Use the accent color for Saturday and Sunday.",
+      "label": "Accent Weekends"
+    },
+    "font_scale": {
+      "description": "Scale all calendar text (1.0 = original size, 1.2 = 20% larger).",
+      "label": "Text Size"
+    },
+    "max_events": {
+      "description": "How many upcoming events the desktop widget lists.",
+      "label": "Desktop Widget Events"
+    },
+    "show_can_chi": {
+      "description": "Show the traditional Can Chi year in the calendar footer.",
+      "label": "Show Can Chi Year"
+    },
+    "show_festivals": {
+      "description": "Highlight common Vietnamese traditional festivals in the calendar.",
+      "label": "Show Traditional Festivals"
+    },
+    "show_timezone": {
+      "description": "Show the UTC+7 calculation time zone below the month title.",
+      "label": "Show Time Zone"
+    }
+  },
+  "ui": {
+    "leap": "leap",
+    "lunar_date_suffix": "lunar",
+    "next_month": "Next month",
+    "prev_month": "Previous month",
+    "shortcut_label": "Lunar",
+    "timezone_label": "Vietnamese Lunar Calendar · UTC+7",
+    "timezone_label_short": "Vietnamese Lunar Calendar",
+    "today": "Today",
+    "year": "Year"
+  },
+  "upcoming": {
+    "all_day": "All day",
+    "calendar": "Calendar",
+    "no_events": "No upcoming events",
+    "tomorrow": "Tomorrow "
+  },
+  "weekdays": {
+    "cn": "Sun",
+    "fri": "Fri",
+    "mon": "Mon",
+    "sat": "Sat",
+    "sun": "Sun",
+    "t2": "Mon",
+    "t3": "Tue",
+    "t4": "Wed",
+    "t5": "Thu",
+    "t6": "Fri",
+    "t7": "Sat",
+    "thu": "Thu",
+    "tue": "Tue",
+    "wed": "Wed"
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "notify": {
+    "error": "Befehl '{name}' fehlgeschlagen (Exit Code {code}).",
+    "success": "Befehl '{name}' erfolgreich ausgeführt."
+  },
+  "panel": {
+    "add_button": "Neuer Befehl",
+    "cancel_button": "Abbrechen",
+    "cmd_label": "CLI Befehl",
+    "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "logs": "Log",
+    "name_label": "Befehlsname",
+    "no_commands": "Keine Befehle vorhanden.",
+    "run_button": "Ausführen",
+    "running": "Läuft...",
+    "save_button": "Speichern",
+    "subtitle": "Befehle per Knopfdruck lautlos im Hintergrund ausführen",
+    "sudo_label": "Sudo (root) erforderlich",
+    "sudo_pass_label": "Sudo-Passwort (einmalig)",
+    "title": "Command Runner"
+  },
+  "settings": {
+    "show_label": {
+      "description": "Blendet den Text 'Befehle' neben dem Icon in der Top-Bar ein",
+      "label": "Text-Label in der Bar anzeigen"
+    },
+    "show_toast": {
+      "description": "Zeigt eine Toast-Meldung bei Abschluss oder Fehler eines Befehls an",
+      "label": "Benachrichtigungen anzeigen"
+    }
+  },
+  "title": "Command Runner",
+  "widget": {
+    "label": "Befehle",
+    "tooltip": "Command Runner - CLI-Befehle im Hintergrund ausführen"
+  }
+}

@@ -1,0 +1,91 @@
+{
+  "settings": {
+    "category_order": {
+      "description": "Comma-separated, for example \"Text, Programming, Fun\". Categories left out follow in the default order.",
+      "label": "Category order"
+    },
+    "input_source": {
+      "description": "Where the text comes from when you type nothing after the prefix.",
+      "label": "Input source",
+      "options": {
+        "auto": "Selection, then clipboard",
+        "clipboard": "Clipboard only",
+        "selection": "Primary selection only"
+      }
+    },
+    "notify_on_copy": {
+      "description": "Show a notification after copying a conversion to the clipboard.",
+      "label": "Notify on copy"
+    },
+    "preserve_casing": {
+      "description": "Keep the original casing inside words, so acronyms and product names such as NASA or iPhone survive the conversion.",
+      "label": "Preserve casing"
+    },
+    "show_alternating": {
+      "label": "↳ AlTeRnAtInG cAsE"
+    },
+    "show_camel": {
+      "label": "↳ camelCase"
+    },
+    "show_capital": {
+      "label": "↳ Capital Case"
+    },
+    "show_constant": {
+      "label": "↳ CONSTANT_CASE"
+    },
+    "show_dot": {
+      "label": "↳ dot.case"
+    },
+    "show_fun": {
+      "description": "Show the Fun conversions.",
+      "label": "Fun"
+    },
+    "show_header": {
+      "label": "↳ Header-Case"
+    },
+    "show_kebab": {
+      "label": "↳ kebab-case"
+    },
+    "show_kebab_upper": {
+      "label": "↳ KEBAB-UPPER-CASE"
+    },
+    "show_lower": {
+      "label": "↳ lower case"
+    },
+    "show_no_case": {
+      "label": "↳ no case"
+    },
+    "show_pascal": {
+      "label": "↳ PascalCase"
+    },
+    "show_pascal_snake": {
+      "label": "↳ Pascal_Snake_Case"
+    },
+    "show_path": {
+      "label": "↳ path/case"
+    },
+    "show_programming": {
+      "description": "Show the Programming conversions.",
+      "label": "Programming"
+    },
+    "show_sentence": {
+      "label": "↳ Sentence case"
+    },
+    "show_snake": {
+      "label": "↳ snake_case"
+    },
+    "show_swap": {
+      "label": "↳ sWAP cASE"
+    },
+    "show_text": {
+      "description": "Show the Text conversions.",
+      "label": "Text"
+    },
+    "show_title": {
+      "label": "↳ Title Case"
+    },
+    "show_upper": {
+      "label": "↳ UPPER CASE"
+    }
+  }
+}

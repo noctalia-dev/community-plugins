@@ -1,0 +1,92 @@
+{
+  "bar": {
+    "drift-suffix": "policy may have changed",
+    "next-flip": "next flip in",
+    "off-peak": "OFF-PEAK",
+    "peak": "PEAK 2x",
+    "tooltip-off-peak": "OFF-PEAK",
+    "tooltip-peak": "PEAK (2x)"
+  },
+  "checked": {
+    "hours-ago": "{n}h ago",
+    "just-now": "just now",
+    "minutes-ago": "{n}m ago"
+  },
+  "menu": {
+    "refresh": "Refresh now",
+    "settings": "Widget settings",
+    "use-deep-seek": "Use DeepSeek",
+    "use-ollama": "Use Ollama"
+  },
+  "notice": {
+    "policy-changed": "DeepSeek pricing policy may have changed"
+  },
+  "panel": {
+    "beijing": "Beijing",
+    "checked": "Checked",
+    "drift": "Policy may have changed — see source",
+    "holiday-ends": "Holiday ends {date}",
+    "local": "Local",
+    "next-holiday": "Next holiday {range} · in {n}d",
+    "off-peak": "OFF-PEAK",
+    "off-peak-in": "Off-peak in",
+    "off-peak-line": "Off-peak: weekends (UTC)",
+    "off-peak-line-holidays": "Off-peak: weekends + Chinese holidays",
+    "peak": "PEAK (2x)",
+    "peak-in": "Peak in",
+    "provider": "Provider",
+    "schedule": "Peak",
+    "utc": "UTC",
+    "weekend-all-day": "off-peak all day"
+  },
+  "provider": {
+    "deepseek": "DeepSeek",
+    "ollama": "Ollama"
+  },
+  "settings": {
+    "auto-check": {
+      "description": "Periodically check the official pricing page for policy drift",
+      "label": "Auto Check"
+    },
+    "check-interval-h": {
+      "description": "Hours between policy-drift checks",
+      "label": "Check Interval (hours)"
+    },
+    "custom-source-url": {
+      "description": "Override for the official pricing page",
+      "label": "Custom Source URL",
+      "placeholder": "https://…"
+    },
+    "display-mode": {
+      "compact": "Compact (dot + countdown)",
+      "description": "How to show the widget",
+      "full": "Full (state + countdown)",
+      "icon": "Icon only",
+      "label": "Display Mode"
+    },
+    "drift-color": {
+      "description": "Widget color when policy drift is detected",
+      "label": "Drift Color"
+    },
+    "off-peak-color": {
+      "description": "Widget color during off-peak",
+      "label": "Off-peak Color"
+    },
+    "offline-only": {
+      "description": "Disable network checks",
+      "label": "Offline Only"
+    },
+    "peak-color": {
+      "description": "Widget color during peak",
+      "label": "Peak Color"
+    },
+    "provider": {
+      "description": "Which tariff schedule to follow",
+      "label": "Provider"
+    },
+    "show-tooltip": {
+      "description": "Show state tooltip on hover",
+      "label": "Show Tooltip"
+    }
+  }
+}

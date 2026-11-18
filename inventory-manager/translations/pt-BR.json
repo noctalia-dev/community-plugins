@@ -1,0 +1,108 @@
+{
+  "panel": {
+    "add_first": "Adicionar seu primeiro produto",
+    "add_product": "Adicionar produto",
+    "added": "Adicionado",
+    "all": "Todos",
+    "bucket": {
+      "available": "Disponível",
+      "defective": "Avaria",
+      "in_use": "Em uso",
+      "total": "Total"
+    },
+    "close": "Fechar",
+    "confirm": "Confirmar",
+    "confirm_delete": "Deseja realmente excluir?",
+    "delete": "Excluir produto",
+    "edit_product": "Editar produto",
+    "error_negative": "Não é possível reduzir abaixo de zero",
+    "export": "Exportar",
+    "export_error": "Erro ao exportar estoque",
+    "export_success": "Estoque exportado com sucesso!",
+    "form": {
+      "add_title": "Adicionar Produto",
+      "cancel": "Cancelar",
+      "category": "Categoria",
+      "category_mode_existing": "Categoria existente",
+      "category_mode_new": "Nova Categoria",
+      "category_placeholder": "Digite o nome da nova categoria",
+      "category_tooltip_existing": "Selecionar da lista de categorias",
+      "category_tooltip_new": "Digitar nova categoria",
+      "edit_title": "Editar Produto",
+      "name": "Nome",
+      "name_placeholder": "Nome do produto",
+      "name_required": "Nome do produto é obrigatório",
+      "quantity": "Quantidade",
+      "save": "Salvar",
+      "update": "Atualizar"
+    },
+    "import": "Importar",
+    "import_confirm_message": "Isso vai substituir todos os produtos atuais pelo conteúdo do arquivo importado. Deseja continuar?",
+    "import_error": "Erro ao importar estoque",
+    "import_no_files": "Nenhum arquivo de exportação encontrado.",
+    "import_success": "Estoque importado com sucesso!",
+    "low_stock_notification": "%s está com estoque baixo: %d disponível (limite: %d)",
+    "no_category": "Nenhum produto nesta categoria",
+    "no_products": "Nenhum produto cadastrado",
+    "refresh": "Atualizar",
+    "settings": "Configurações do plugin",
+    "stock_plural": "Estoque (%d produtos)",
+    "stock_singular": "Estoque (%d produto)",
+    "title": "Gerenciador de Estoque",
+    "tooltip_drag": "Arraste para reordenar",
+    "updated": "Atualizado",
+    "zerado": "Zerado"
+  },
+  "settings": {
+    "enable_low_stock_alerts": {
+      "description": "Mostrar notificações quando produtos estão com estoque baixo",
+      "label": "Alerta de estoque baixo"
+    },
+    "export_folder": {
+      "description": "Pasta onde os arquivos serão salvos. Aceita ~.",
+      "label": "Pasta de exportação"
+    },
+    "glyph": {
+      "description": "Ícone para o widget na barra",
+      "label": "Ícone"
+    },
+    "low_stock_threshold": {
+      "description": "Quantidade mínima para considerar estoque baixo",
+      "label": "Limite de estoque baixo"
+    },
+    "manual_sorting": {
+      "description": "Ativar drag-and-drop para reordenar listas",
+      "label": "Reordenação Manual"
+    },
+    "show_low_stock_badge": {
+      "description": "Mostrar badge vermelho com contagem de produtos com estoque baixo",
+      "label": "Mostrar badge de estoque baixo"
+    },
+    "show_total_quantity": {
+      "description": "Mostrar a cápsula Total (soma de todos os contadores) em cada card de produto",
+      "label": "Mostrar quantidade total"
+    },
+    "store_cnpj": {
+      "description": "CNPJ da loja",
+      "label": "CNPJ"
+    },
+    "store_name": {
+      "description": "Nome da loja para exibir no painel",
+      "label": "Nome da Loja"
+    },
+    "store_number": {
+      "description": "Número identificador da loja/filial",
+      "label": "Número da Loja/Filial"
+    },
+    "ti_name": {
+      "description": "Nome do Técnico de Informática responsável",
+      "label": "Nome do TI"
+    }
+  },
+  "widget": {
+    "refreshing": "Atualizando...",
+    "tooltip_empty": "Nenhum produto cadastrado",
+    "tooltip_low": "%d produto(s) com estoque baixo ⚠️",
+    "tooltip_ok": "Todos os produtos com estoque suficiente ✅"
+  }
+}

@@ -1,0 +1,19 @@
+#!/bin/sh
+set -eu
+
+case " $* " in
+  *" --nodeps "*)
+    printf '%s\n' "/dev/sda disk 1" "/dev/nvme0n1 disk 0" "/dev/zram0 disk 0"
+    ;;
+  *" --json "*)
+    printf '%s\n' '{"blockdevices":[' \
+      '{"name":"/dev/sda","kname":"/dev/sda","path":"/dev/sda","type":"disk","tran":"sata","rota":true,"size":1000000000,"model":"Fixture SATA","serial":"SATA1","mountpoints":[]},' \
+      '{"name":"/dev/nvme0n1","kname":"/dev/nvme0n1","path":"/dev/nvme0n1","type":"disk","tran":"nvme","rota":false,"size":2000000000,"model":"Fixture NVMe","serial":"NVME1","mountpoints":[]},' \
+      '{"name":"/dev/zram0","kname":"/dev/zram0","path":"/dev/zram0","type":"disk","rota":false,"size":4294967296,"mountpoints":[]}' \
+      ']}'
+    ;;
+  *)
+    echo "unexpected lsblk arguments: $*" >&2
+    exit 2
+    ;;
+esac

@@ -1,0 +1,61 @@
+{
+  "api": {
+    "connection": "Bağlantı kurulamadı veya kesildi. İnternet ve TLS bağlantını kontrol edip tekrar dene.",
+    "empty": "Hizmet boş yanıt döndürdü. Tekrar deneyebilirsin.",
+    "forbidden": "Erişim reddedildi (403). Hesap, model izni, bölge ve kullanım koşullarını kontrol et.",
+    "http-error": "API isteği reddetti (HTTP {status}). Modeli, hesabı ve hizmet durumunu kontrol et.",
+    "incomplete": "Yanıt tamamlanmadan bağlantı kapandı. Gelen metin korundu; tekrar deneyebilirsin.",
+    "rate-limited": "Kullanım sınırına ulaşıldı (429). Biraz bekleyip tekrar dene.",
+    "service-error": "Hizmet streaming hatası bildirdi. Gelen metin korundu; tekrar deneyebilirsin.",
+    "startup": "İstek başlatılamadı. Noctalia ağ erişimini ve çevrimdışı modunu kontrol et.",
+    "too-long": "Yanıt boyut sınırına ulaştı. Gelen metin korundu; daha kısa bir soru ile tekrar dene.",
+    "unauthorized": "API anahtarı kabul edilmedi (401). Secret Service kaydını kontrol et.",
+    "unavailable": "API hizmeti şu anda kullanılamıyor. Biraz bekleyip tekrar dene.",
+    "unreadable": "Yanıt akışı okunamadı. Tekrar deneyebilirsin."
+  },
+  "config": {
+    "endpoint-error": "Ayarlara /chat/completions ile biten tam bir HTTPS adresi yaz. Adreste kimlik bilgisi, sorgu ve parça desteklenmez.",
+    "model-error": "Ayarlara geçerli bir model kimliği yaz (1–256 karakter, kontrol karakteri olmadan).",
+    "provider-error": "Bilinmeyen API sağlayıcısı. Ayarlardan OpenCode Go veya OpenAI uyumlu seç.",
+    "required": "Ayarlardan sağlayıcı ve model seç.",
+    "summary": "{host} · {model}"
+  },
+  "credentials": {
+    "invalid": "Kayıtlı anahtarın biçimi geçersiz. Anahtarı Secret Service içine yeniden kaydet.",
+    "missing": "Seçilen sağlayıcı ve adres için anahtar bulunamadı. README adımlarını izleyerek anahtarı Secret Service içine kaydet.",
+    "missing-command": "secret-tool bulunamadı. libsecret paketini kur ve tekrar dene.",
+    "startup": "Anahtar sorgusu başlatılamadı. secret-tool ve Secret Service durumunu kontrol et.",
+    "unreadable": "Anahtar okunamadı. Secret Service anahtarlığını aç ve README içindeki secret-tool store komutuyla anahtarını kaydet."
+  },
+  "panel": {
+    "cancelled": "Durduruldu. Yeni bir soru için paneli kapatıp aç.",
+    "close": "Kapat (Escape)",
+    "copied": "Kopyalandı",
+    "copy": "Yanıtı kopyala",
+    "copy-error": "Yanıt panoya kopyalanamadı. Tekrar deneyebilirsin.",
+    "keyboard-help": "Enter: gönder · Shift+Enter: yeni satır\nEscape: kapat",
+    "loading": "Yanıt hazırlanıyor…",
+    "placeholder": "Bir şey sor…",
+    "retry": "Tekrar dene",
+    "send": "Gönder",
+    "settings": "Ayarlar",
+    "stop": "Durdur",
+    "timeout": "İşlem zaman aşımına uğradı. Anahtarlığı ve bağlantıyı kontrol edip tekrar dene."
+  },
+  "settings": {
+    "endpoint": {
+      "description": "/chat/completions ile biten tam HTTPS adresi. Adreste kimlik bilgisi veya sorgu bulunamaz. Adres değişirse tam bu adres için ayrı anahtar kaydı gerekir.",
+      "label": "Chat Completions adresi"
+    },
+    "model": {
+      "description": "Hizmetin desteklediği tam metin modeli kimliği. Model system/user iletilerini ve Chat Completions streaming biçimini desteklemelidir. Otomatik model seçilmez.",
+      "label": "Model kimliği"
+    },
+    "provider": {
+      "compatible": "OpenAI uyumlu",
+      "description": "Hizmeti kendin seç. QuickAsk sağlayıcıyı otomatik değiştirmez. OpenCode Go kullanımı sağlayıcı koşullarına uygun olmalıdır.",
+      "go": "OpenCode Go",
+      "label": "API sağlayıcısı"
+    }
+  }
+}

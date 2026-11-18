@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+# ai-kickstart - Send minimal 1-token prompt to start rolling session window
+set -uo pipefail
+
+export PATH="$HOME/.local/bin:$PATH"
+
+TARGET="${1:-}"
+
+notify() {
+  local title="$1"
+  local msg="$2"
+  if command -v notify-send >/dev/null 2>&1; then
+    notify-send -a "AI Kickstart" -t 3000 "$title" "$msg" || true
+  elif command -v noctalia >/dev/null 2>&1; then
+    noctalia msg notification-show "$title" "$msg" || true
+  fi
+}
+
+case "$TARGET" in
+  claude|anthropic)
+    CMD="$(command -v claude || echo "$HOME/.local/bin/claude")"
+    if ! command -v "$CMD" >/dev/null 2>&1 && [ ! -x "$CMD" ]; then
+      notify "Claude (Anthropic)" "⚠ claude CLI not found on PATH or ~/.local/bin/claude"
+      exit 1
+    fi
+    notify "Claude (Anthropic)" "Sending minimal ping to start 5h window..."
+    if OUT="$("$CMD" -p "1" --tools "" --strict-mcp-config 2>&1)"; then
+      command -v noctalia >/dev/null 2>&1 && noctalia msg plugin miguelfm/ai-triage:poller all kickstart "claude" >/dev/null 2>&1 || true
+      notify "Claude (Anthropic)" "✓ 5h window started! Quota resets in 5 hours."
+    else
+      ERR_LINE="$(echo "$OUT" | grep -iE "error|429|exhaust" | head -n 1)"
+      [ -z "$ERR_LINE" ] && ERR_LINE="$(echo "$OUT" | tail -n 2 | tr '\n' ' ')"
+      notify "Claude (Anthropic)" "⚠ Failed: ${ERR_LINE:-check claude CLI}"
+      echo "$OUT" >&2
+      exit 1
+    fi
+    ;;
+
+  codex|openai)
+    CMD="$(command -v codex || echo "$HOME/.local/bin/codex")"
+    if ! command -v "$CMD" >/dev/null 2>&1 && [ ! -x "$CMD" ]; then
+      notify "Codex (OpenAI)" "⚠ codex CLI not found on PATH or ~/.local/bin/codex"
+      exit 1
+    fi
+    notify "Codex (OpenAI)" "Sending minimal ping to start 5h window..."
+    if OUT="$("$CMD" exec -C /tmp --skip-git-repo-check --ephemeral -s read-only -m gpt-6.1-sol -c model_reasoning_effort="low" "1" </dev/null 2>&1)"; then
+      command -v noctalia >/dev/null 2>&1 && noctalia msg plugin miguelfm/ai-triage:poller all kickstart "codex" >/dev/null 2>&1 || true
+      notify "Codex (OpenAI)" "✓ 5h window started! Quota resets in 5 hours."
+    else
+      ERR_LINE="$(echo "$OUT" | grep -iE "error|429|exhaust" | head -n 1)"
+      [ -z "$ERR_LINE" ] && ERR_LINE="$(echo "$OUT" | tail -n 2 | tr '\n' ' ')"
+      notify "Codex (OpenAI)" "⚠ Failed: ${ERR_LINE:-check codex CLI}"
+      echo "$OUT" >&2
+      exit 1
+    fi
+    ;;
+
+  gemini|antigravity:gemini|agy-gemini)
+    CMD="$(command -v agy || echo "/usr/bin/agy")"
+    if ! command -v "$CMD" >/dev/null 2>&1 && [ ! -x "$CMD" ]; then
+      notify "Gemini (Antigravity)" "⚠ agy CLI not found on PATH"
+      exit 1
+    fi
+    notify "Gemini (Antigravity)" "Sending minimal ping to start 5h window..."
+    if OUT="$("$CMD" --dangerously-skip-permissions --model gemini-3.8-flash-low --disable-slash-commands -p "1" 2>&1)"; then
+      command -v noctalia >/dev/null 2>&1 && noctalia msg plugin miguelfm/ai-triage:poller all kickstart "gemini" >/dev/null 2>&1 || true
+      notify "Gemini (Antigravity)" "✓ 5h window started! Quota resets in 5 hours."
+    else
+      ERR_LINE="$(echo "$OUT" | grep -iE "error|429|exhaust" | head -n 1)"
+      [ -z "$ERR_LINE" ] && ERR_LINE="$(echo "$OUT" | tail -n 2 | tr '\n' ' ')"
+      notify "Gemini (Antigravity)" "⚠ Failed: ${ERR_LINE:-check agy CLI}"
+      echo "$OUT" >&2
+      exit 1
+    fi
+    ;;
+
+  claude-oss|"claude & gpt oss"|antigravity:claude|agy-claude)
+    CMD="$(command -v agy || echo "/usr/bin/agy")"
+    if ! command -v "$CMD" >/dev/null 2>&1 && [ ! -x "$CMD" ]; then
+      notify "Claude & GPT OSS (Antigravity)" "⚠ agy CLI not found on PATH"
+      exit 1
+    fi
+    notify "Claude & GPT OSS (Antigravity)" "Sending minimal ping to start 5h window..."
+    if OUT="$("$CMD" --dangerously-skip-permissions --model gpt-oss-120b-medium --disable-slash-commands -p "1" 2>&1 || \
+             "$CMD" --dangerously-skip-permissions --model claude-sonnet-4-6 --disable-slash-commands -p "1" 2>&1)"; then
+      command -v noctalia >/dev/null 2>&1 && noctalia msg plugin miguelfm/ai-triage:poller all kickstart "claude-oss" >/dev/null 2>&1 || true
+      notify "Claude & GPT OSS (Antigravity)" "✓ 5h window started! Quota resets in 5 hours."
+    else
+      ERR_LINE="$(echo "$OUT" | grep -iE "error|429|exhaust" | head -n 1)"
+      [ -z "$ERR_LINE" ] && ERR_LINE="$(echo "$OUT" | tail -n 2 | tr '\n' ' ')"
+      notify "Claude & GPT OSS (Antigravity)" "⚠ Failed: ${ERR_LINE:-check agy CLI}"
+      echo "$OUT" >&2
+      exit 1
+    fi
+    ;;
+
+  *)
+    echo "Usage: ai-kickstart <claude|codex|gemini|claude-oss>" >&2
+    exit 1
+    ;;
+esac

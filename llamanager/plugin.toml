@@ -1,0 +1,47 @@
+id = "marccvictoria/llamanager"
+name = "Llamanager"
+version = "1.0.0"
+plugin_api = 4
+author = "marccvictoria"
+license = "MIT"
+deprecated = false
+icon = "topology-star-3"
+description = "Launcher and Manager for Ollama."
+tags = ["ai", "productivity", "bar", "launcher", "panel"]
+dependencies = ["ollama"]
+
+[[setting]]
+key = "modelfile_path"
+type = "folder"
+default = ""
+label_key = "settings.modelfile_path.label"
+description_key = "settings.modelfile_path.description"
+
+[[setting]]
+key = "launcher"
+type = "string"
+default = ""
+label_key = "settings.launcher.label"
+description_key = "settings.launcher.description"
+
+[[widget]]
+id = "widget"
+entry = "widget.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+open_near_click = true
+placement = "floating"
+width = 400
+height = 350
+
+[[service]]
+id = "registry"
+entry = "registry.luau"
+
+[[launcher_provider]]
+id = "launcher"
+entry = "llamanager.luau"
+prefix = "ll"
+glyph = "robot"

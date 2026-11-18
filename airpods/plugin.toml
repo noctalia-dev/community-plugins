@@ -1,0 +1,54 @@
+# AirPods for Noctalia. A port of the Omarchy bar widget by GM (thisisgm):
+#   https://github.com/thisisgm/omarchy-pods
+# The Lua/UI layer here is MIT; the librepods daemon it drives is GPL-3.0 and is
+# NOT bundled with this plugin (see README).
+
+id = "harveywuk/airpods"
+name = "AirPods"
+version = "1.0.0"
+plugin_api = 24
+author = "harveywuk"
+license = "MIT"
+icon = "device-airpods"
+description = "AirPods battery, listening mode, adaptive noise, Conversation Awareness, One-Bud ANC and ear detection in the bar."
+tags = ["audio", "bar", "panel", "service", "hardware", "indicator"]
+dependencies = ["librepods-ctl"]
+
+# Plugin-level: shared by the service (and every entry). Edited in Settings -> Plugins.
+[[setting]]
+key = "ctl_path"
+type = "file"
+label_key = "settings.ctl_path.label"
+description_key = "settings.ctl_path.description"
+default = ""
+
+[[widget]]
+id = "airpods"
+entry = "widget.luau"
+
+  # Left opens the panel; right cycles the listening mode without opening anything,
+  # matching the original Omarchy widget.
+  [widget.actions]
+  left = "panel-toggle harveywuk/airpods:panel"
+  right = "plugin harveywuk/airpods:service all cycle-noise"
+
+  # Widget entry setting: this bar widget only.
+  [[widget.setting]]
+  key = "hide_when_disconnected"
+  type = "bool"
+  label_key = "settings.hide_when_disconnected.label"
+  description_key = "settings.hide_when_disconnected.description"
+  default = true
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 420
+height = 640
+placement = "attached"
+position = "top_right"
+open_near_click = true
+
+[[service]]
+id = "service"
+entry = "service.luau"

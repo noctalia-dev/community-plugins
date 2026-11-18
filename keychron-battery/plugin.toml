@@ -1,0 +1,76 @@
+# Keychron mouse battery for Noctalia. The service reads Keychron mice from
+# UPower (fed by the keychron-battery kernel module or Bluetooth) and owns the
+# low-battery notifications; widget and panel only render the published snapshot.
+
+id = "dmopp/keychron-battery"
+name = "Keychron Battery"
+version = "1.1.0"
+plugin_api = 42
+author = "dMopp"
+license = "MIT"
+icon = "mouse"
+description = "Battery of Keychron mice in the bar, with low-battery notifications. Needs keychron-battery-dkms for receiver and cable."
+tags = ["bar", "panel", "service", "hardware", "indicator"]
+dependencies = ["upower"]
+
+[[setting]]
+key = "poll_interval"
+type = "int"
+label_key = "settings.poll_interval.label"
+description_key = "settings.poll_interval.description"
+default = 60
+min = 10
+max = 900
+
+[[setting]]
+key = "low_threshold"
+type = "int"
+label_key = "settings.low_threshold.label"
+description_key = "settings.low_threshold.description"
+default = 20
+min = 5
+max = 50
+
+[[setting]]
+key = "critical_threshold"
+type = "int"
+label_key = "settings.critical_threshold.label"
+description_key = "settings.critical_threshold.description"
+default = 10
+min = 1
+max = 30
+
+[[setting]]
+key = "notify"
+type = "bool"
+label_key = "settings.notify.label"
+description_key = "settings.notify.description"
+default = true
+
+[[setting]]
+key = "mouse_name"
+type = "string"
+label_key = "settings.mouse_name.label"
+description_key = "settings.mouse_name.description"
+default = ""
+
+[[widget]]
+id = "keychron-battery"
+entry = "widget.luau"
+
+  [widget.actions]
+  left = "panel-toggle dmopp/keychron-battery:panel"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 380
+height = "content"
+max_height = 480
+placement = "attached"
+position = "top_right"
+open_near_click = true
+
+[[service]]
+id = "service"
+entry = "service.luau"

@@ -1,0 +1,22 @@
+{
+  "settings": {
+    "interval": {
+      "label": "Refresh interval (seconds)"
+    },
+    "separator": {
+      "label": "Separator"
+    },
+    "show_city": {
+      "label": "Show city"
+    },
+    "show_icon": {
+      "label": "Show icon"
+    },
+    "show_ip": {
+      "label": "Show IP address"
+    },
+    "show_state": {
+      "label": "Show state/region"
+    }
+  }
+}

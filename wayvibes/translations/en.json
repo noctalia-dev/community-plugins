@@ -1,0 +1,41 @@
+{
+  "active": "Active",
+  "btn_random": "Random Soundpack",
+  "btn_turn_off": "Turn Off",
+  "current_device": "Active Device",
+  "daemon_missing": "wayvibes executable not found. Please install wayvibes on your system.",
+  "device_saved": "Input device saved successfully.",
+  "no_device_warning": "No keyboard device configured. Select one in the Input Device tab.",
+  "no_packs_desc": "Place Mechvibes or Wayvibes soundpacks in ~/.local/share/soundpacks or ~/wayvibes.",
+  "no_packs_title": "No soundpacks found",
+  "refresh": "Refresh",
+  "search_placeholder": "Search soundpacks...",
+  "select_device": "Select Device",
+  "settings": {
+    "auto_start": {
+      "description": "Restore playback of the last active soundpack on login.",
+      "label": "Auto Start"
+    },
+    "default_volume": {
+      "description": "Default playback volume level (1-10).",
+      "label": "Default Volume"
+    },
+    "executable_path": {
+      "description": "Path or command name for the wayvibes binary.",
+      "label": "Executable Path"
+    },
+    "glyph": {
+      "description": "Icon glyph to display on the bar.",
+      "label": "Bar Icon"
+    },
+    "soundpacks_dir": {
+      "description": "Optional folder containing soundpacks (in addition to standard paths).",
+      "label": "Custom Soundpacks Folder"
+    }
+  },
+  "tab_devices": "Input Device",
+  "tab_packs": "Soundpacks",
+  "title": "WayVibes",
+  "tooltip": "Toggle WayVibes panel",
+  "tooltip_off": "Turned off"
+}

@@ -1,0 +1,61 @@
+# media-idle-bridge rules - video inhibits idle, music never does.
+#
+# Matching is case-insensitive SUBSTRING everywhere (a value matches when a rule entry occurs
+# inside it): `deny_binaries = ["pipewire"]` deliberately matches "pipewire-frontend", and
+# `video_roles` works the same way now (it used to be exact-match).  Values are validated when
+# loaded: a wrong-typed value falls back to that key's default with a warning, unknown keys are
+# dropped with a warning, and a bad or missing file yields the built-in defaults - a mis-edited
+# file must never crash-loop the daemon.  An empty list is valid and disables that rule.
+#
+# Per-player classification of a Playing MPRIS player (first match wins):
+#   1. Identity matches `music_players`  -> music (never inhibits)
+#   2. Identity matches `video_players`  -> video (inhibits)
+#   3. Identity or bus name matches `browser_players` -> decided by xesam:url: a `music_hosts`
+#      match is music, ANY other URL is video (code rule), and only a browser with no URL at
+#      all falls through to `browser_default`.  `browser_default` domain: "video", "music" or
+#      "unknown"; anything else warns and falls back to "video" (a missed video is worse than
+#      an extra stay-awake).
+#
+# Cross-player rule: ANY video inhibits - an MPRIS video OR a PipeWire backstop stream below.
+# Music never inhibits AND never masks the backstop (a music player plus an MPRIS-less ffplay
+# video must still keep the screen awake); when a music and a video player coexist, video wins.
+#
+# PipeWire backstop - the allow-list for players without MPRIS: a *running* Stream/Output node
+# whose application.process.binary / application.name / node.name matches `video_binaries`, or
+# whose media.role matches `video_roles`, and which does not match `deny_binaries` (deny
+# subtracts only - it never gates the MPRIS rules).
+#
+# Measured hazards this layout exists for (2026-09-21):
+#   * Noctalia's own `noctalia-sound` UI stream sits in state=running permanently, and the
+#     ALSA sink reads state=running even while muted - so the backstop must be allow-list
+#     first, never "any audio is playing".
+#   * Zen appears to PipeWire as "Nightly", so browsers are deliberately NOT in
+#     video_binaries: they are ambiguous (music *and* video) and belong to the MPRIS rules.
+
+# MPRIS Identity substrings (case-insensitive)
+video_players = ["mpv", "vlc", "celluloid", "haruna", "totem", "smplayer", "mplayer"]
+music_players = ["netease", "spotify", "cider", "feishin", "amberol", "gapless", "lollypop"]
+
+browser_players = ["firefox", "zen", "librewolf", "waterfox", "nightly", "chromium",
+                   "chrome", "brave", "vivaldi", "opera", "epiphany"]
+
+# Used only when a browser reports no xesam:url. "video" is the deliberate default because a
+# missed video is worse than an extra "keep awake"; switch to "unknown" to make browser
+# playback never inhibit on its own (Gecko/mpv-style apps keep their own inhibitor anyway).
+browser_default = "video"
+
+# xesam:url hosts treated as music inside a browser
+music_hosts = ["music.youtube.com", "open.spotify.com", "soundcloud.com", "bandcamp.com",
+               "music.163.com", "y.qq.com", "music.apple.com", "deezer.com", "tidal.com",
+               "music.amazon"]
+
+# PipeWire backstop allow-lists
+video_binaries = ["mpv", "vlc", "celluloid", "haruna", "totem", "smplayer", "ffplay",
+                  "mplayer", "gst-play-1.0"]
+# Measured 2026-09-21: VLC reports media.role="Movie" (not "video"), so an unlisted video player
+# is still caught by role as long as it follows this convention. Comparison is case-insensitive.
+video_roles = ["video", "movie"]
+
+# Never inhibit for these, whatever else matches (Noctalia UI sound, EasyEffects DSP, ...)
+deny_binaries = ["noctalia", "easyeffects", "speech-dispatcher", "sd_dummy", "pipewire",
+                 "wireplumber", "pw-cli", "pw-dump", "pw-mon", "wpctl", "systemd-inhibit"]

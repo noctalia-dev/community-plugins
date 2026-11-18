@@ -1,0 +1,57 @@
+{
+  "notify": {
+    "failed": "{command} failed",
+    "synced": "Vault synced"
+  },
+  "panel": {
+    "expired-hint": "The login expired and the agent can no longer sync. Log in again in a terminal (two factor code).",
+    "lock": "Lock",
+    "logged-out-hint": "rbw is not logged in. Log in in a terminal.",
+    "login": "Log in",
+    "never-synced": "Never synced",
+    "not-enhanced": "This rbw has no `rbw status --json`: the plugin needs rbw-enhanced.",
+    "not-installed": "rbw is not installed, or not on PATH. Set its path in the plugin settings.",
+    "open": "Open vault",
+    "settings": "Settings",
+    "sync": "Sync",
+    "sync-locked": "Unlock first",
+    "synced-days": "Synced {value} days ago",
+    "synced-hours": "Synced {value} h ago",
+    "synced-minutes": "Synced {value} min ago",
+    "synced-now": "Synced just now",
+    "tui-auth": "Opening the vault asks system authentication, once per login",
+    "tui-open": "Opening the vault asks nothing more",
+    "unlock": "Unlock",
+    "unlock-auto": "Unlocks by itself with the saved password",
+    "unlock-with-both": "Unlocks with system authentication or the PIN",
+    "unlock-with-password": "Unlocks with the master password",
+    "unlock-with-pin": "Unlocks with the PIN",
+    "unlock-with-system": "Unlocks with system authentication"
+  },
+  "settings": {
+    "hide_when_unlocked": {
+      "description": "Show the widget only while the vault is locked or needs attention.",
+      "label": "Hide when unlocked"
+    },
+    "poll_interval": {
+      "description": "Seconds between two `rbw status` checks.",
+      "label": "Check interval"
+    },
+    "rbw_bin": {
+      "description": "Path to the rbw executable, when it is not on PATH. Empty uses rbw from PATH.",
+      "label": "rbw path"
+    }
+  },
+  "state": {
+    "error": "Error",
+    "expired": "Login expired",
+    "locked": "Locked",
+    "logged-out": "Not logged in",
+    "not-installed": "rbw-enhanced not found",
+    "stopped": "Locked (agent not running)",
+    "unlocked": "Unlocked"
+  },
+  "tooltip": {
+    "synced": "Last sync"
+  }
+}

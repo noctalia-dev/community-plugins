@@ -1,0 +1,6 @@
+{
+  "no_vaults": "No vaults found",
+  "no_vaults_hint": "Open a vault in Obsidian first, or try another search.",
+  "open_failed": "Could not open vault",
+  "open_failed_hint": "Check that xdg-open is installed and Obsidian handles obsidian:// links."
+}

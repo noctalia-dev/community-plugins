@@ -1,0 +1,8 @@
+{
+  "settings": {
+    "debug_logging": {
+      "description": "Escriviu registres detallats al fitxer de registre del connector per ajudar a solucionar problemes.",
+      "label": "Registre de depuració"
+    }
+  }
+}

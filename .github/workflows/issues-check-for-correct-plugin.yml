@@ -1,0 +1,29 @@
+name: Check for the correct plugin format in issues
+
+on:
+  issues:
+    types: [opened]
+  workflow_dispatch:
+    inputs:
+      issue-number:
+        required: true
+        type: number
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check-for-correct-plugin:
+    runs-on: ubuntu-latest
+    if: github.repository == 'noctalia-dev/community-plugins'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: $/.github/workflows/setup/pygithub
+
+      - name: Notify Authors
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.issue-number || github.event.issue.number }}
+        run: python3 .github/workflows/scripts/issues-check-for-correct-plugin.py

@@ -1,0 +1,95 @@
+id = "nikolaj-zwergius/iio_lock"
+name = "iio-lock"
+version = "1.0.0"
+plugin_api = 3
+author = "nikolaj-zwergius"
+license = "MIT"
+dependencies = ["pgrep","pkill","iio-hyprland","iio-sway","hyprctl","swaymsg"]
+tags = ["hyprland","sway","desktop","utility"]
+icon = "lock"
+description = "Orientation lock for 2‑in‑1 devices using iio-hyprland and similar."
+
+
+[[setting]]
+key     = "iio"
+type = "select"
+label_key = "settings.iio.label"
+description_key = "settings.iio.description"
+default = "iio-hyprland"
+options = [
+  { value = "iio-hyprland", label_key = "settings.iio.options.hyprland" },
+  { value = "iio-sway", label_key = "settings.iio.options.sway" },
+]
+
+[[setting]]
+key     = "transform-order"
+type = "string"
+label_key = "settings.transform.label"
+description_key = "settings.transform.description"
+default = "0,1,2,3"
+
+[[setting]]
+key     = "vm"
+type = "select"
+label_key = "settings.wm.label"
+description_key = "settings.wm.description"
+default = "hyprland"
+options = [
+  { value = "hyprland", label_key = "settings.wm.options.hyprland" },
+  { value = "sway", label_key = "settings.wm.options.sway" },
+]
+
+[[setting]]
+key = "locked"
+type = "glyph"
+label_key = "settings.glyph.locked.label"
+description_key = "settings.glyph.locked.description"
+default = "lock"
+
+[[setting]]
+key = "unlocked"
+type = "glyph"
+label_key = "settings.glyph.unlocked.label"
+description_key = "settings.glyph.unlocked.description"
+default = "lock-open-2"
+
+
+[[service]]
+id = "iio-service"
+entry = "iio-service.luau"
+
+[[widget]]
+id = "iio-lock"
+entry = "iio-lock.luau"
+
+[[widget]]
+id = "lock-panel"
+entry = "iio-panel.luau"
+
+[[widget.setting]]
+key = "unlocked"
+type = "glyph"
+label_key = "settings.glyph.unlocked.label"
+description_key = "settings.glyph.unlocked.description"
+default = "rotate-rectangle"
+
+[[widget.setting]]
+key = "locked"
+type = "glyph"
+label_key = "settings.glyph.locked.label"
+description_key = "settings.glyph.locked.description"
+default = "rotate-rectangle"
+
+
+
+[[shortcut]]
+id = "toggle"
+entry = "cc-toggle.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 420
+height = 410
+placement = "floating"
+position = "center"

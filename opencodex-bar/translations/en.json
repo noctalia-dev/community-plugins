@@ -1,0 +1,163 @@
+{
+  "account": {
+    "active": "CURRENT",
+    "fallback": "Account",
+    "main": "Main Account",
+    "none": "No accounts",
+    "paused": "PAUSED",
+    "reauth": "REAUTH",
+    "warning": "WARNING"
+  },
+  "action": {
+    "cancel": "Cancel",
+    "confirm_reset": "Confirm",
+    "confirm_select": "Confirm",
+    "dashboard": "Open the OpenCodex dashboard",
+    "refresh": "Refresh quotas",
+    "resetting": "Resetting…",
+    "select": "Switch Account",
+    "selecting": "Switching…",
+    "use_reset": "Use Reset"
+  },
+  "action_result": {
+    "no_credit": "No reset credit is available for this account.",
+    "nothing_to_reset": "This account currently has no usage limits to reset.",
+    "reset": "Usage limits reset successfully.",
+    "reset_failed": "Could not use the reset credit.",
+    "reset_remaining": "Usage limits reset. {count} reset credits remain.",
+    "select_failed": "Could not change the active account.",
+    "selected": "Account selected for the next turn."
+  },
+  "bar": {
+    "no_quota": "No quota reported",
+    "used_tooltip": {
+      "one": "{used}% used on 1 account",
+      "other": "{used}% used across {count} accounts"
+    }
+  },
+  "confirm": {
+    "reset": "Use one reset credit for {account}? This immediately resets its current usage limits.",
+    "select": "Use {account} for the next turn?"
+  },
+  "empty": {
+    "auth_hint": "Set OPENCODEX_ADMIN_AUTH_TOKEN or select an admin token file in plugin settings.",
+    "no_providers": "No enabled providers",
+    "no_providers_hint": "OpenCodex is reachable but reports no enabled provider.",
+    "offline_hint": "Could not reach the local OpenCodex service."
+  },
+  "panel": {
+    "title": "OpenCodex"
+  },
+  "pool": {
+    "strategy": "Pool: {strategy}"
+  },
+  "quota": {
+    "reset_credits": {
+      "one": "1 reset credit available",
+      "other": "{count} reset credits available"
+    },
+    "stale": "Quota refresh unavailable; showing last good data",
+    "title": "Quota",
+    "unavailable": "Quota unavailable",
+    "used": "{percent}% used"
+  },
+  "reset": {
+    "days": "resets in {days}d {hours}h",
+    "hours": "resets in {hours}h {minutes}m",
+    "minutes": "resets in {minutes}m",
+    "pending": "reset pending"
+  },
+  "settings": {
+    "admin_token_file": {
+      "description": "Path to the OpenCodex admin token file. Defaults to OpenCodex's own ~/.opencodex/admin-api-token. Ignored when OPENCODEX_ADMIN_AUTH_TOKEN is set.",
+      "label": "Admin token file"
+    },
+    "base_url": {
+      "description": "Local OpenCodex Management API URL.",
+      "label": "OpenCodex base URL"
+    },
+    "force_refresh_minutes": {
+      "description": "How often to ask OpenCodex to refresh quota data, in minutes.",
+      "label": "Forced refresh interval"
+    },
+    "glyph": {
+      "description": "Glyph used when the bar icon is set to manual selection.",
+      "label": "Glyph"
+    },
+    "hidden_providers": {
+      "description": "Comma-separated provider ids to leave out of the bar and the panel entirely, e.g. \"anthropic, xai\". OpenCodex keeps using them.",
+      "label": "Hidden providers"
+    },
+    "icon_source": {
+      "active": "Glyph of the provider in use",
+      "bars": "Usage gauge",
+      "description": "What the bar shows.",
+      "fixed": "Manual glyph selection",
+      "label": "Bar icon"
+    },
+    "poll_seconds": {
+      "description": "How often to read cached OpenCodex data, in seconds.",
+      "label": "Polling interval"
+    },
+    "show_percentage": {
+      "description": "Show the percentage used next to the glyph. Turn off for a glyph-only widget.",
+      "label": "Show percentage used"
+    },
+    "theme_colors": {
+      "description": "Colour quotas with Noctalia's palette instead of the OpenCodex dashboard's green/amber/red.",
+      "label": "Use theme colours"
+    }
+  },
+  "status": {
+    "api_error": "OpenCodex API error",
+    "auth_error": "OpenCodex authentication failed",
+    "connected": "Connected",
+    "invalid_json": "Unexpected response from OpenCodex",
+    "loading": "Contacting OpenCodex…",
+    "never_updated": "Not updated yet",
+    "offline": "OpenCodex unavailable",
+    "partial_failure": "Some data could not be refreshed",
+    "stale_data": "Showing partially refreshed data",
+    "updated_minutes": "Updated {minutes}m ago",
+    "updated_seconds": "Updated {seconds}s ago"
+  },
+  "tab": {
+    "accounts": "Accounts",
+    "usage": "Usage"
+  },
+  "usage": {
+    "by_provider": "By provider",
+    "cached_label": "Cached input",
+    "cost_label": "Estimated cost",
+    "grid_caption": "{days} days · busiest {busiest} requests",
+    "grid_day": {
+      "one": "{date} · 1 request · {cost} estimated",
+      "other": "{date} · {count} requests · {cost} estimated"
+    },
+    "less": "Less",
+    "more": "More",
+    "reasoning_label": "Reasoning output",
+    "requests": "{count} requests",
+    "requests_label": "Requests",
+    "today": "Today",
+    "today_cost": "Today estimated cost",
+    "tokens": "{count} tokens",
+    "tokens_label": "Tokens",
+    "unavailable": "Usage unavailable",
+    "window": "Last {range}"
+  },
+  "weekday": {
+    "fri": "F",
+    "mon": "M",
+    "sat": "S",
+    "sun": "S",
+    "thu": "T",
+    "tue": "T",
+    "wed": "W"
+  },
+  "window": {
+    "five_hour": "5 hour",
+    "monthly": "Monthly",
+    "weekly": "Weekly"
+  }
+}

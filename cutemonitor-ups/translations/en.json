@@ -1,0 +1,426 @@
+{
+  "actions": {
+    "alarm_off": "Alarm off",
+    "alarm_off_tip": "Turn the UPS alarm off",
+    "alarm_on": "Alarm on",
+    "alarm_on_tip": "Turn the UPS alarm on",
+    "cancel": "Cancel",
+    "confirm_test": "Run a battery self-test? The UPS briefly switches to battery power.",
+    "mute": "Mute",
+    "mute_tip": "Silence the alarm for the current event",
+    "no_answer": "No answer from the UPS service. Try again.",
+    "run": "Run test",
+    "test": "Self-test",
+    "test_tip": "Run a quick battery self-test"
+  },
+  "beeper": {
+    "disabled": "Disabled",
+    "enabled": "Enabled",
+    "muted": "Muted"
+  },
+  "caption": {
+    "battery_pct": "Battery",
+    "input_hz": "Input",
+    "input_v": "Input",
+    "load_pct": "Load",
+    "load_w": "Load",
+    "output_hz": "Output",
+    "output_v": "Output",
+    "runtime": "Runtime"
+  },
+  "charging": {
+    "charging": "Charging",
+    "discharging": "Discharging",
+    "idle": "Not charging"
+  },
+  "detail": {
+    "runtime_left": "{time} left"
+  },
+  "details": {
+    "last_event": "Last Power Event",
+    "line": "Line Interaction",
+    "source": "Power Source",
+    "state": "State",
+    "test": "Test Result"
+  },
+  "event": {
+    "blackout": "Blackout",
+    "boost_off": "Boost off",
+    "boost_on": "Boost on",
+    "buck_off": "Buck off",
+    "buck_on": "Buck on",
+    "comm_lost": "Communication lost",
+    "comm_restored": "Communication restored",
+    "fault": "Fault",
+    "low_battery": "Low battery",
+    "over_voltage": "Over voltage",
+    "overload": "Overload",
+    "power_failure": "Power failure",
+    "power_restored": "Power restored",
+    "replace_battery": "Replace battery",
+    "test_aborted": "Self-test aborted",
+    "test_failed": "Self-test failed",
+    "test_in_progress": "Self-test started",
+    "test_interrupted": "Self-test interrupted",
+    "test_low_battery": "Self-test stopped: low battery",
+    "test_passed": "Self-test passed",
+    "test_unknown": "Self-test result unknown",
+    "test_warning": "Self-test warning",
+    "under_voltage": "Under voltage"
+  },
+  "gauges": {
+    "empty": "Choose at least one bar in this widget's settings"
+  },
+  "line": {
+    "boost": "Boost",
+    "buck": "Buck",
+    "none": "None"
+  },
+  "link": {
+    "lost": "Lost communication · last data {age} ago"
+  },
+  "panel": {
+    "events_empty": "No events recorded yet",
+    "events_kept": "{count} kept",
+    "hover": "{time} · {load} · {volts}",
+    "load_caption": "Load · {watts}",
+    "now": "Now",
+    "section": {
+      "events": "Power events",
+      "graph": "Load and input voltage",
+      "protection": "Protection",
+      "readout": "Status"
+    },
+    "settings": "Plugin settings",
+    "span": {
+      "10m": "10 min",
+      "1h": "1 h",
+      "2m": "2 min"
+    },
+    "title": "UPS",
+    "updated": "{source} · updated {age} ago",
+    "updated_now": "{source} · updated just now"
+  },
+  "protection": {
+    "alarm": "Alarm",
+    "low_battery": "Low battery at",
+    "low_value": "{pct}% or {time} left",
+    "no_shutdown": "Stays on",
+    "nut_upsmon": "Handled by NUT (upsmon)",
+    "off": "Off",
+    "on": "On",
+    "power_failure": "On power failure",
+    "shutdown_after": "Shut down after {time}",
+    "shuts_down": "shuts down",
+    "unknown": "No policy information from the data source"
+  },
+  "readout": {
+    "empty": "Turn on rows in this widget's settings"
+  },
+  "reason": {
+    "busy": "too many commands running; retrying",
+    "nut_invalid": "\"{ups}\" isn't a valid NUT UPS name",
+    "nut_missing": "NUT (upsc) isn't installed",
+    "nut_none": "no UPS configured",
+    "pwrstat_missing": "pwrstat isn't installed",
+    "pwrstat_permission": "pwrstat is installed but your user can't run it (on Arch, join the power group)",
+    "simulated": "Simulation",
+    "timeout": "the UPS didn't answer in time"
+  },
+  "reply": {
+    "busy": "Busy with other commands. Try again.",
+    "done": "Done",
+    "failed": "That didn't work",
+    "no_ups": "No UPS connected",
+    "terminal": "Opened a terminal for upscmd"
+  },
+  "rows": {
+    "battery": "Battery Capacity",
+    "battery_voltage": "Battery Voltage",
+    "beeper": "Beeper",
+    "charging": "Charging",
+    "firmware": "Firmware Number",
+    "last_event": "Last Power Event",
+    "line": "Line Interaction",
+    "load": "Load",
+    "model": "Model Name",
+    "output_frequency": "Output Frequency",
+    "output_voltage": "Output Voltage",
+    "rating_power": "Rating Power",
+    "rating_voltage": "Rating Voltage",
+    "runtime": "Remaining Runtime",
+    "state": "State",
+    "supply": "Power Supply by",
+    "test": "Test Result",
+    "transfer": "Transfer Range",
+    "utility_frequency": "Utility Frequency",
+    "utility_voltage": "Utility Voltage"
+  },
+  "settings": {
+    "alert_color": {
+      "description": "Low battery, overload, fault, and load above the High Load threshold.",
+      "label": "Alert Color"
+    },
+    "bar1": {
+      "label": "Bar 1"
+    },
+    "bar2": {
+      "label": "Bar 2"
+    },
+    "bar3": {
+      "label": "Bar 3"
+    },
+    "battery_color": {
+      "description": "Outline and charge of the drawn battery. Outages and alerts use the Warning and Alert colors.",
+      "label": "Battery Color"
+    },
+    "big1": {
+      "label": "Big Number"
+    },
+    "big2": {
+      "label": "Second Big Number"
+    },
+    "color": {
+      "label": "Color"
+    },
+    "color2": {
+      "label": "Color 2"
+    },
+    "color3": {
+      "label": "Color 3"
+    },
+    "data_source": {
+      "description": "Where readings come from. Auto tries pwrstat first, then NUT on this machine.",
+      "label": "Data Source",
+      "options": {
+        "auto": "Auto",
+        "nut": "NUT (Network UPS Tools)",
+        "pwrstat": "pwrstat (CyberPower PowerPanel)"
+      }
+    },
+    "date_style": {
+      "label": "Date Style",
+      "options": {
+        "pwrstat": "pwrstat (2026/10/05 08:22:32)",
+        "relative": "Relative (6 days ago)",
+        "short": "Short (Oct 5, 08:22)"
+      }
+    },
+    "detail1": {
+      "label": "Detail 1"
+    },
+    "detail2": {
+      "label": "Detail 2"
+    },
+    "detail3": {
+      "label": "Detail 3"
+    },
+    "display": {
+      "label": "Display",
+      "options": {
+        "gauges": "Gauges",
+        "graph": "Graph",
+        "readout": "Readout",
+        "status": "Status"
+      }
+    },
+    "display_mode": {
+      "label": "Display Mode",
+      "options": {
+        "battery": "Drawn Battery",
+        "icon": "Icon",
+        "none": "None"
+      }
+    },
+    "extra_nut": {
+      "description": "Battery Voltage, Charging, Beeper and Transfer Range. Only NUT reports these.",
+      "label": "NUT Extras"
+    },
+    "gauge_layout": {
+      "label": "Gauge Layout",
+      "options": {
+        "columns": "Columns",
+        "pills": "Pills",
+        "rows": "Rows"
+      }
+    },
+    "high_load": {
+      "description": "Load at or above this percentage uses the Alert color.",
+      "label": "High Load At (%)"
+    },
+    "label_content": {
+      "label": "Label Content",
+      "options": {
+        "battery_load": "Battery · Load"
+      }
+    },
+    "line1": {
+      "label": "Line 1"
+    },
+    "line2": {
+      "label": "Line 2"
+    },
+    "log_communication": {
+      "description": "Lost and restored contact with the UPS or NUT server.",
+      "label": "Log Communication"
+    },
+    "log_line_events": {
+      "description": "Over voltage, under voltage and blackouts, as pwrstat reports them.",
+      "label": "Log Line Events"
+    },
+    "log_outages": {
+      "description": "On battery, power restored, low battery, overload, and fault.",
+      "label": "Log Outages and Critical States"
+    },
+    "log_self_test": {
+      "label": "Log Self-Test Results"
+    },
+    "log_voltage": {
+      "description": "Boost and Buck switching on or off. Can be frequent on a noisy line.",
+      "label": "Log Voltage Correction"
+    },
+    "number_style": {
+      "label": "Number Style",
+      "options": {
+        "main_secondary": "Main + Secondary",
+        "side_by_side": "Side by Side"
+      }
+    },
+    "nut_ups": {
+      "description": "Leave empty to use the first UPS on this machine, or enter name@host to read one over the network.",
+      "label": "NUT UPS"
+    },
+    "only_on_battery": {
+      "description": "Hide this item while the UPS runs on utility power.",
+      "label": "Show Only on Battery"
+    },
+    "panel_actions": {
+      "label": "Show Actions"
+    },
+    "panel_events": {
+      "label": "Show Event Log"
+    },
+    "panel_graph": {
+      "label": "Show Live Graph"
+    },
+    "panel_hero": {
+      "label": "Show Big Numbers"
+    },
+    "panel_protection": {
+      "label": "Show Protection"
+    },
+    "panel_readout": {
+      "label": "Show Full Readout"
+    },
+    "poll_interval": {
+      "description": "How often the UPS is read. Polling faster than the data source refreshes adds no new information.",
+      "label": "Poll Interval",
+      "options": {
+        "1": "1 Second",
+        "2": "2 Seconds",
+        "5": "5 Seconds",
+        "10": "10 Seconds",
+        "30": "30 Seconds",
+        "60": "1 Minute"
+      }
+    },
+    "row_battery": {
+      "description": "Battery Capacity and Remaining Runtime.",
+      "label": "Battery & Runtime"
+    },
+    "row_frequencies": {
+      "description": "Utility Frequency and Output Frequency.",
+      "label": "Frequencies"
+    },
+    "row_model_firmware": {
+      "description": "Model Name and Firmware Number.",
+      "label": "Model & Firmware"
+    },
+    "row_ratings": {
+      "description": "Rating Voltage and Rating Power.",
+      "label": "Ratings"
+    },
+    "row_state": {
+      "description": "State and Power Supply by.",
+      "label": "State & Power Source"
+    },
+    "row_voltages": {
+      "description": "Utility Voltage and Output Voltage.",
+      "label": "Voltages"
+    },
+    "show_label": {
+      "label": "Show Label"
+    },
+    "status_line": {
+      "label": "Status Line"
+    },
+    "time_span": {
+      "label": "Time Span",
+      "options": {
+        "10m": "10 Minutes",
+        "1h": "1 Hour",
+        "2m": "2 Minutes"
+      }
+    },
+    "warning_color": {
+      "description": "Running on battery.",
+      "label": "Warning Color"
+    }
+  },
+  "source": {
+    "battery": "Battery power",
+    "utility": "Utility power"
+  },
+  "stats": {
+    "battery_pct": "Battery %",
+    "input_hz": "Input Frequency",
+    "input_v": "Input Voltage",
+    "load_pct": "Load %",
+    "load_w": "Load (W)",
+    "none": "None",
+    "output_hz": "Output Frequency",
+    "output_v": "Output Voltage",
+    "runtime": "Runtime"
+  },
+  "status": {
+    "bypass": "Bypass",
+    "calibrating": "Calibrating",
+    "fault": "Fault",
+    "lost_comm": "Lost communication",
+    "low_battery": "Low battery",
+    "none": "No UPS connected",
+    "normal": "Normal",
+    "off": "Off",
+    "on_battery": "Power failure",
+    "overload": "Overload",
+    "replace_battery": "Replace battery",
+    "shutdown": "Shutting down",
+    "starting": "Looking for a UPS…"
+  },
+  "test": {
+    "aborted": "Aborted",
+    "failed": "Failed",
+    "in_progress": "In progress",
+    "interrupted": "Interrupted",
+    "low_battery": "Low battery",
+    "none": "No test yet",
+    "passed": "Passed",
+    "unknown": "Unknown",
+    "warning": "Warning"
+  },
+  "time": {
+    "days_ago": {
+      "one": "{count} day ago",
+      "other": "{count} days ago"
+    },
+    "hours_ago": {
+      "one": "{count} h ago",
+      "other": "{count} h ago"
+    },
+    "just_now": "just now",
+    "minutes_ago": {
+      "one": "{count} min ago",
+      "other": "{count} min ago"
+    }
+  }
+}

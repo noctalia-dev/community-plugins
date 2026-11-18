@@ -1,0 +1,564 @@
+{
+  "action": {
+    "close": "关闭",
+    "mark_read": "标为已读",
+    "mark_visible_read": "将当前列表标为已读",
+    "marking_read": "正在标为已读…",
+    "open": "在 GitHub 上打开",
+    "refresh": "刷新"
+  },
+  "contributions": {
+    "best_streak": "最长连续贡献",
+    "current_streak": "当前连续贡献",
+    "last_year": {
+      "one": "过去一年共 {count} 次贡献",
+      "other": "过去一年共 {count} 次贡献"
+    },
+    "selected_day": {
+      "one": "{date} · {count} 次贡献",
+      "other": "{date} · {count} 次贡献"
+    },
+    "this_year": "今年",
+    "today": "今天"
+  },
+  "events": {
+    "activity": "动态",
+    "branch_created": "创建了分支",
+    "branch_deleted": "删除了分支",
+    "collaborators_updated": "更新了协作者",
+    "commit_comment": "评论了提交",
+    "created": "创建了内容",
+    "deleted": "删除了内容",
+    "forked": "Fork 了仓库",
+    "issue_comment": "评论了 Issue",
+    "issue_updated": "更新了 Issue",
+    "made_public": "设为了公开",
+    "pull_request_reviewed": "审查了 PR",
+    "pull_request_updated": "更新了 PR",
+    "pushed": "推送了更改",
+    "release": "发布版本",
+    "release_published": "发布了新版本",
+    "repository_created": "创建了仓库",
+    "review_comment": "发表了审查评论",
+    "starred": "已加星",
+    "summary": {
+      "created_branch": "创建了 {ref} 分支",
+      "created_reference": "创建了 {ref} 引用",
+      "created_repository": "创建了此仓库",
+      "created_tag": "创建了 {ref} 标签",
+      "deleted_branch": "删除了 {ref} 分支",
+      "deleted_reference": "删除了 {ref} 引用",
+      "deleted_repository": "删除了此仓库",
+      "deleted_tag": "删除了 {ref} 标签",
+      "pushed_commits": "推送了新提交",
+      "starred_repository": "为此仓库加了星标",
+      "updated_branch": "更新了 {ref} 分支"
+    },
+    "tag_created": "创建了标签",
+    "tag_deleted": "删除了标签",
+    "wiki_updated": "更新了 Wiki"
+  },
+  "fallback": {
+    "github": "GitHub",
+    "github_activity": "GitHub 动态",
+    "github_repository": "GitHub 仓库",
+    "github_user": "GitHub 用户",
+    "repository": "仓库",
+    "untitled": "无标题"
+  },
+  "filter": {
+    "all": "全部",
+    "assigned": "已指派",
+    "assigned_to_me": "指派给我",
+    "attention": "需要关注",
+    "closed": "已关闭",
+    "created_by_me": "由我创建",
+    "open": "未关闭",
+    "read": "已读",
+    "repositories": "仓库",
+    "review_requested": "请求我审查",
+    "unread": "未读",
+    "updates": "更新",
+    "users": "用户"
+  },
+  "github": {
+    "reason": {
+      "assign": "被指派",
+      "author": "作者",
+      "ci_activity": "CI 动态",
+      "comment": "评论",
+      "invitation": "邀请",
+      "manual": "手动订阅",
+      "mention": "被提及",
+      "review_requested": "收到审查请求",
+      "security_alert": "安全警报",
+      "state_change": "状态变更",
+      "subscribed": "已订阅",
+      "team_mention": "团队被提及"
+    },
+    "status": {
+      "action_required": "需要操作",
+      "cancelled": "已取消",
+      "closed": "已关闭",
+      "completed": "已完成",
+      "failure": "失败",
+      "in_progress": "进行中",
+      "neutral": "中立",
+      "open": "未关闭",
+      "pending": "待处理",
+      "queued": "排队中",
+      "skipped": "已跳过",
+      "stale": "已过时",
+      "success": "成功",
+      "timed_out": "已超时"
+    }
+  },
+  "heatmap": {
+    "less": "少",
+    "more": "多"
+  },
+  "panel": {
+    "actions": "Actions",
+    "activity": "动态",
+    "contributions": "贡献",
+    "feed": "关注",
+    "issues": "Issue",
+    "notifications": "通知",
+    "overview": "概览",
+    "profile": "个人资料",
+    "pull_requests": "PR",
+    "repositories": "仓库",
+    "reviews": "审查",
+    "show_more": {
+      "one": "再显示 {count} 项 · 剩余 {remaining} 项",
+      "other": "再显示 {count} 项 · 剩余 {remaining} 项"
+    },
+    "title": "GitHub Kanban"
+  },
+  "profile": {
+    "contributions": "贡献",
+    "followers": "关注者",
+    "following": "关注",
+    "repositories": "仓库"
+  },
+  "repository": {
+    "forks": "Fork {count}",
+    "stars": "★ {count}"
+  },
+  "settings": {
+    "activity": {
+      "history_days": {
+        "description": "仅显示最近指定天数内的 PR、审查、Issue 和 Actions。",
+        "label": "动态 · 历史范围（天）"
+      },
+      "issue_default_filter": {
+        "description": "打开动态面板时默认选择的 Issue 来源筛选条件。",
+        "label": "动态 · 默认 Issue 筛选"
+      },
+      "pr_default_filter": {
+        "description": "打开动态面板时默认选择的 PR 来源筛选条件。",
+        "label": "动态 · 默认 PR 筛选"
+      },
+      "show": {
+        "description": "显示动态面板标签页。",
+        "label": "动态 · 显示面板"
+      }
+    },
+    "appearance": {
+      "activity_repository_emphasis": {
+        "description": "在动态条目中突出显示仓库名称。",
+        "label": "外观 · 动态 · 突出仓库名称"
+      },
+      "activity_show_status_badges": {
+        "description": "在动态条目上显示状态徽标。",
+        "label": "外观 · 动态 · 状态徽标"
+      },
+      "activity_show_type_icons": {
+        "description": "显示代表动态条目类型的图标。",
+        "label": "外观 · 动态 · 类型图标"
+      },
+      "appearance_animations": {
+        "description": "在面板卡片上启用实时悬停反馈。",
+        "label": "外观 · 动画"
+      },
+      "appearance_avatar_shape": {
+        "description": "选择个人头像的形状。",
+        "label": "外观 · 头像形状",
+        "options": {
+          "circle": "圆形",
+          "rounded": "圆角"
+        }
+      },
+      "appearance_avatar_size": {
+        "description": "选择个人头像的大小。",
+        "label": "外观 · 头像大小",
+        "options": {
+          "large": "大",
+          "medium": "中",
+          "small": "小"
+        }
+      },
+      "appearance_card_background": {
+        "description": "选择透明、浅色调或较不透明的半透明主题背景。",
+        "label": "外观 · 卡片背景",
+        "options": {
+          "solid": "浓色",
+          "tinted": "浅色调",
+          "transparent": "透明"
+        }
+      },
+      "appearance_card_border": {
+        "description": "选择卡片边框的显示方式。",
+        "label": "外观 · 卡片边框",
+        "options": {
+          "accent": "强调色",
+          "none": "无",
+          "subtle": "淡色"
+        }
+      },
+      "appearance_card_radius": {
+        "description": "卡片的圆角程度。",
+        "label": "外观 · 卡片圆角半径"
+      },
+      "appearance_card_spacing": {
+        "description": "卡片之间的间距。",
+        "label": "外观 · 卡片间距"
+      },
+      "appearance_density": {
+        "description": "选择整体间距和信息密度。",
+        "label": "外观 · 内容密度",
+        "options": {
+          "comfortable": "宽松",
+          "compact": "紧凑",
+          "standard": "标准"
+        }
+      },
+      "appearance_font_scale": {
+        "description": "缩放整个面板的文字。",
+        "label": "外观 · 字体缩放"
+      },
+      "appearance_hover_effect": {
+        "description": "选择鼠标悬停在卡片上时的视觉效果。",
+        "label": "外观 · 悬停效果",
+        "options": {
+          "background": "背景",
+          "border": "边框",
+          "none": "无"
+        }
+      },
+      "appearance_icon_style": {
+        "description": "选择面板图标的外观。",
+        "label": "外观 · 图标样式",
+        "options": {
+          "color": "彩色",
+          "muted": "柔和色",
+          "theme": "主题色"
+        }
+      },
+      "appearance_secondary_text": {
+        "description": "选择次要文字的显示方式。",
+        "label": "外观 · 次要文字",
+        "options": {
+          "full": "完整显示",
+          "hidden": "隐藏",
+          "truncate": "截断"
+        }
+      },
+      "appearance_show_empty_illustration": {
+        "description": "分区没有条目时显示插图。",
+        "label": "外观 · 空状态插图"
+      },
+      "appearance_time_format": {
+        "description": "选择日期和时间的显示格式。",
+        "label": "外观 · 时间格式",
+        "options": {
+          "iso": "ISO 8601",
+          "local": "本地时间",
+          "relative": "相对时间"
+        }
+      },
+      "following_content_lines": {
+        "description": "关注事件最多显示的内容行数。",
+        "label": "外观 · 关注 · 内容行数"
+      },
+      "following_event_spacing": {
+        "description": "关注视图中事件之间的间距。",
+        "label": "外观 · 关注 · 事件间距"
+      },
+      "heatmap_cell_gap": {
+        "description": "贡献日历单元格之间的间距。",
+        "label": "外观 · 热力图 · 单元格间距"
+      },
+      "heatmap_cell_radius": {
+        "description": "贡献日历单元格的圆角程度。",
+        "label": "外观 · 热力图 · 单元格圆角半径"
+      },
+      "heatmap_cell_size": {
+        "description": "贡献日历中每个单元格的大小。",
+        "label": "外观 · 热力图 · 单元格大小"
+      },
+      "heatmap_color_mode": {
+        "description": "选择贡献热力图的颜色来源。",
+        "label": "外观 · 热力图 · 配色模式",
+        "options": {
+          "custom": "自定义",
+          "github": "GitHub",
+          "noctalia": "Noctalia 主题"
+        }
+      },
+      "heatmap_custom_level_0": {
+        "description": "使用 #RRGGBB 格式的十六进制颜色值。留空则跟随主题。",
+        "label": "外观 · 热力图 · 自定义等级 0"
+      },
+      "heatmap_custom_level_1": {
+        "description": "使用 #RRGGBB 格式的十六进制颜色值。留空则跟随主题。",
+        "label": "外观 · 热力图 · 自定义等级 1"
+      },
+      "heatmap_custom_level_2": {
+        "description": "使用 #RRGGBB 格式的十六进制颜色值。留空则跟随主题。",
+        "label": "外观 · 热力图 · 自定义等级 2"
+      },
+      "heatmap_custom_level_3": {
+        "description": "使用 #RRGGBB 格式的十六进制颜色值。留空则跟随主题。",
+        "label": "外观 · 热力图 · 自定义等级 3"
+      },
+      "heatmap_custom_level_4": {
+        "description": "使用 #RRGGBB 格式的十六进制颜色值。留空则跟随主题。",
+        "label": "外观 · 热力图 · 自定义等级 4"
+      },
+      "heatmap_empty_style": {
+        "description": "为没有贡献的日期使用标准淡边框，或更醒目的轮廓。",
+        "label": "外观 · 热力图 · 空单元格样式",
+        "options": {
+          "background": "背景",
+          "outline": "轮廓"
+        }
+      },
+      "heatmap_levels": {
+        "description": "选择贡献强度的等级数量。",
+        "label": "外观 · 热力图 · 活跃程度等级",
+        "options": {
+          "4": "4 级",
+          "5": "5 级",
+          "five": "5 级",
+          "four": "4 级"
+        }
+      },
+      "heatmap_show_legend": {
+        "description": "显示贡献强度图例。",
+        "label": "外观 · 热力图 · 显示强度图例"
+      },
+      "heatmap_show_months": {
+        "description": "在贡献日历上方显示月份标签。",
+        "label": "外观 · 热力图 · 显示月份标签"
+      },
+      "heatmap_show_total": {
+        "description": "显示年度贡献总数。",
+        "label": "外观 · 热力图 · 显示贡献总数"
+      },
+      "heatmap_show_weekdays": {
+        "description": "在贡献日历旁显示星期标签。",
+        "label": "外观 · 热力图 · 显示星期标签"
+      },
+      "notification_read_opacity": {
+        "description": "已读通知卡片使用的不透明度。",
+        "label": "外观 · 通知 · 已读卡片不透明度"
+      },
+      "notification_unread_border": {
+        "description": "以边框突出显示未读通知卡片。",
+        "label": "外观 · 通知 · 未读卡片边框"
+      },
+      "notification_unread_dot": {
+        "description": "在未读通知卡片上显示圆点。",
+        "label": "外观 · 通知 · 未读状态圆点"
+      },
+      "overview_stats_layout": {
+        "description": "选择概览统计数据的排列方式。",
+        "label": "外观 · 概览 · 统计布局",
+        "options": {
+          "columns4": "四列",
+          "compact": "紧凑",
+          "grid": "网格"
+        }
+      },
+      "repositories_layout": {
+        "description": "选择仓库卡片的排列方式。",
+        "label": "外观 · 仓库 · 仓库布局",
+        "options": {
+          "grid": "网格",
+          "list": "列表"
+        }
+      },
+      "repositories_show_language": {
+        "description": "显示每个仓库的主要编程语言。",
+        "label": "外观 · 仓库 · 显示仓库语言"
+      },
+      "repositories_show_stats": {
+        "description": "显示仓库的星标数和 fork 数。",
+        "label": "外观 · 仓库 · 显示仓库统计"
+      }
+    },
+    "following": {
+      "card_max_height": {
+        "description": "每张分组关注卡片的最大高度，单位为像素。",
+        "label": "关注 · 卡片最大高度"
+      },
+      "events_per_user": {
+        "description": "向 GitHub 请求的每人近期公开事件数量上限。",
+        "label": "关注 · 每人事件数"
+      },
+      "hide_bots": {
+        "description": "隐藏 GitHub 机器人账号的事件。",
+        "label": "关注 · 隐藏机器人"
+      },
+      "history_days": {
+        "description": "仅显示最近指定天数内的关注动态。",
+        "label": "关注 · 历史范围（天）"
+      },
+      "ignored_repositories": {
+        "description": "要排除的仓库，格式为 owner/name，匹配时不区分大小写。",
+        "label": "关注 · 忽略的仓库"
+      },
+      "ignored_users": {
+        "description": "要从关注中排除的 GitHub 登录名，匹配时不区分大小写。",
+        "label": "关注 · 忽略的用户"
+      },
+      "include_prereleases": {
+        "description": "包含 nightly 和候选发布版等预发布版本。",
+        "label": "关注 · 包含预发布版本"
+      },
+      "show": {
+        "description": "显示关注面板标签页。",
+        "label": "关注 · 显示面板"
+      },
+      "starred_repository_limit": {
+        "description": "检查发布版本的近期已加星仓库数量上限。",
+        "label": "关注 · 扫描的已加星仓库数"
+      },
+      "types": {
+        "forks": "关注 · 显示 fork",
+        "issues": "关注 · 显示 Issue 和评论",
+        "other": "关注 · 显示其他事件",
+        "pull_requests": "关注 · 显示 PR 和审查",
+        "pushes": "关注 · 显示推送",
+        "releases": "关注 · 显示发布版本",
+        "stars": "关注 · 显示星标"
+      },
+      "user_limit": {
+        "description": "获取公开事件的已关注用户人数上限。",
+        "label": "关注 · 获取动态的人数"
+      }
+    },
+    "general": {
+      "bar_display_mode": {
+        "description": "选择状态栏组件显示 GitHub 图标、未读数，或同时显示两者。",
+        "label": "常规 · 状态栏显示",
+        "options": {
+          "both": "图标和未读数",
+          "count": "未读数",
+          "icon": "图标"
+        }
+      },
+      "default_dashboard": {
+        "description": "打开 GitHub Kanban 时显示的面板。",
+        "label": "常规 · 默认面板"
+      }
+    },
+    "notifications": {
+      "default_filter": {
+        "description": "打开通知面板时默认选择的状态筛选条件。",
+        "label": "通知 · 默认状态筛选"
+      },
+      "history_days": {
+        "label": "通知 · 历史范围（天）"
+      },
+      "mark_read_on_open": {
+        "description": "在同步模式下，成功启动浏览器打开程序后，将该条未读通知在 GitHub 上标为已读。",
+        "label": "通知 · 打开通知时标为已读"
+      },
+      "refresh_interval": {
+        "description": "同步模式独立于面板刷新通知的时间间隔。",
+        "label": "通知 · 刷新间隔",
+        "options": {
+          "one_twenty": "每 120 秒",
+          "sixty": "每 60 秒",
+          "three_hundred": "每 300 秒"
+        }
+      },
+      "refresh_on_open": {
+        "description": "在同步模式下，打开面板时刷新通知。",
+        "label": "通知 · 打开面板时刷新"
+      },
+      "show": {
+        "description": "显示通知面板标签页。",
+        "label": "通知 · 显示面板"
+      },
+      "sync_mode": {
+        "description": "旧模式下通知为只读，刷新间隔与面板一致。同步模式独立刷新通知，并可在 GitHub 上将通知标为已读。",
+        "label": "通知 · 同步模式",
+        "options": {
+          "legacy": "旧模式（只读）",
+          "synced": "同步模式"
+        }
+      }
+    },
+    "overview": {
+      "show": {
+        "description": "显示概览面板标签页。",
+        "label": "概览 · 显示面板"
+      }
+    },
+    "refresh_interval": {
+      "description": "GitHub Kanban 刷新 GitHub 数据的时间间隔。",
+      "label": "刷新间隔",
+      "options": {
+        "fifteen": "每 15 分钟",
+        "five": "每 5 分钟",
+        "thirty": "每 30 分钟"
+      }
+    },
+    "repositories": {
+      "show": {
+        "description": "显示仓库面板标签页。",
+        "label": "仓库 · 显示面板"
+      }
+    }
+  },
+  "status": {
+    "auth_error": "GitHub CLI 需要登录认证：gh auth login -h github.com",
+    "cli_start_failed": "无法启动 GitHub CLI。",
+    "empty": "暂无内容。",
+    "gh_request_failed": "GitHub CLI 请求失败。",
+    "invalid_json": "GitHub 返回了无效的 JSON。",
+    "loading": "正在加载 GitHub 数据…",
+    "missing_gh": "需要安装 GitHub CLI（gh）。",
+    "missing_xdg_open": "需要 xdg-open 才能打开 GitHub。",
+    "notification_changed": "此通知有了更新。请刷新并阅读新内容后，再将其标为已读。",
+    "notifications_refreshing": "正在刷新通知…",
+    "preparing_contribution_calendar": "正在准备贡献日历…",
+    "request_error": "部分 GitHub 数据无法刷新。",
+    "stale": "正在显示最新的缓存数据。",
+    "unexpected_data": "GitHub 返回了异常数据。"
+  },
+  "time": {
+    "days_ago": {
+      "one": "{count} 天前",
+      "other": "{count} 天前"
+    },
+    "hours_ago": {
+      "one": "{count} 小时前",
+      "other": "{count} 小时前"
+    },
+    "just_now": "刚刚",
+    "minutes_ago": {
+      "one": "{count} 分钟前",
+      "other": "{count} 分钟前"
+    }
+  },
+  "widget": {
+    "tooltip": {
+      "one": "GitHub Kanban\n{count} 条未读通知",
+      "other": "GitHub Kanban\n{count} 条未读通知"
+    }
+  }
+}

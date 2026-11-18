@@ -1,0 +1,834 @@
+#!/usr/bin/env python3
+"""Manage noctes' desktop widgets inside Noctalia's settings.toml.
+
+Three fields a plugin cannot reach live in that file: a widget's `rotation`, the
+background panel Noctalia draws behind it, and the widget entry itself. So the
+plugin shells out here, and this is the only thing in noctes that writes outside
+its own data directory.
+
+Every write is staged beside the file, checked with `noctalia config validate`,
+and only then renamed over settings.toml, so the shell never loads a version it
+would reject. The shell watches that file and reloads by itself when the rename
+lands; asking it to reload as well would rebuild every widget twice.
+
+Commands run one at a time. Each holds a lock from its read of the file to its
+write, so two started together - a double click on New - cannot both edit the
+same original and have the second silently undo the first.
+
+  noctes-widget add --output DP-2 --screen 3440x1440 [--avoid a,b] [--key k]
+                    [--near other-key] [--geometry DP-1=3440x1440,DP-2=1920x1080]
+  noctes-widget remove --key shopping
+  noctes-widget tilt --random | --square
+  noctes-widget scatter [--avoid a,b] [--all] [--keep-tilt] [--dry-run]
+  noctes-widget gather --outputs DP-2,HDMI-A-1 --output DP-2 --screen 3440x1440
+                       [--homes FILE] [--dry-run]
+
+`add` prints `key=<key>` and then `output=<connector>`; the service reads both
+back to bind a note to the sheet it just created and to know where it went. `--help` exits 0 without touching
+settings.toml, which is how the service checks that the helper runs at all.
+"""
+
+import argparse
+import fcntl
+import json
+import os
+import random
+import re
+import shutil
+import subprocess
+import sys
+from contextlib import contextmanager
+from pathlib import Path
+
+SETTINGS = Path.home() / ".local/state/noctalia/settings.toml"
+MANIFEST = Path(__file__).resolve().parent.parent / "plugin.toml"
+PLUGIN_ID = "remo/noctes"
+WIDGET_TYPE = f"{PLUGIN_ID}:note"
+KEY_PREFIX = "nota"
+
+# Radians. Enough to read as hand-placed, not enough to look broken.
+MIN_TILT = 0.018
+MAX_TILT = 0.055
+
+# Where a new sheet lands: a cascade down and right from the top-left, wrapping
+# into a new column every few sheets.
+CASCADE_X, CASCADE_Y, PER_COLUMN, MARGIN = 250, 240, 4, 170
+
+WIDGET_HEADER = re.compile(r"^\s*\[desktop_widgets\.widget\.([^.\]]+)\]\s*$")
+SETTINGS_HEADER = re.compile(r"^\s*\[desktop_widgets\.widget\.([^.\]]+)\.settings\]\s*$")
+DESKTOP_HEADER = re.compile(r"^\s*\[desktop_widgets\]\s*$")
+TABLE_NAME = re.compile(r"^\s*\[\[?\s*([^\]]+?)\s*\]\]?\s*$")
+ORDER_KEY = re.compile(r"^(\s*)widget_order\s*=\s*\[")
+ANY_TABLE = re.compile(r"^\s*\[")
+TILT_SETTING = re.compile(r"^\s*tilt\s*=\s*(true|false)\s*$", re.M)
+# Backups older noctes versions left beside settings.toml: one fixed name from
+# 0.19, and one per day of use before that. Nothing else of that shape is ours.
+OLD_BACKUP = re.compile(r"^settings\.toml\.bak-noctes(-\d{4}-\d{2}-\d{2})?$")
+UNKNOWN_SETTING = re.compile(
+    r"desktop_widgets\.widget\.([^.\s]+)\.settings\.([A-Za-z0-9_]+): unknown setting"
+)
+
+
+# ── The settings file as lines and spans ────────────────────────────────────
+#
+# Not a TOML round-trip on purpose: re-emitting the whole file would reformat
+# settings this plugin has no business touching. Every edit is a line
+# replacement or an insertion at a known index.
+
+
+class Widget:
+    """One desktop widget: its own table, and its settings table if it has one.
+
+    Spans are half-open line ranges covering a table's key-value lines, not its
+    header.
+    """
+
+    def __init__(self, wid):
+        self.id = wid
+        self.body = None
+        self.settings = None
+
+
+def parse(lines):
+    """Every desktop widget in the file, in document order."""
+    widgets, order = {}, []
+    index = 0
+    while index < len(lines):
+        body = WIDGET_HEADER.match(lines[index])
+        settings = SETTINGS_HEADER.match(lines[index])
+        if not body and not settings:
+            index += 1
+            continue
+
+        start = index + 1
+        end = start
+        while end < len(lines) and not ANY_TABLE.match(lines[end]):
+            end += 1
+
+        wid = (body or settings).group(1)
+        if wid not in widgets:
+            widgets[wid] = Widget(wid)
+            order.append(wid)
+        if settings:
+            widgets[wid].settings = (start, end)
+        else:
+            widgets[wid].body = (start, end)
+        index = end
+
+    return [widgets[wid] for wid in order]
+
+
+def value(lines, span, key):
+    """(line index, raw value) for a key in a span, or None."""
+    if span is None:
+        return None
+    pattern = re.compile(rf"^\s*{re.escape(key)}\s*=\s*(.+?)\s*$")
+    for i in range(*span):
+        found = pattern.match(lines[i])
+        if found:
+            return i, found.group(1)
+    return None
+
+
+def text_of(lines, span, key):
+    """A quoted value with its quotes stripped, or ""."""
+    found = value(lines, span, key)
+    return found[1].strip('"') if found else ""
+
+
+def indent_of(lines, span, fallback):
+    if span is not None:
+        for i in range(*span):
+            if lines[i].strip():
+                return lines[i][: len(lines[i]) - len(lines[i].lstrip())]
+    return fallback
+
+
+def append_point(lines, span):
+    """Index just past a table's last non-blank line, so an inserted key lands
+    inside the table rather than after the blank line that follows it."""
+    if span is None:
+        return None
+    point = span[0]
+    for i in range(*span):
+        if lines[i].strip():
+            point = i + 1
+    return point
+
+
+def is_note(lines, widget):
+    return widget.body is not None and text_of(lines, widget.body, "type") == WIDGET_TYPE
+
+
+def notes_in(lines):
+    return [w for w in parse(lines) if is_note(lines, w)]
+
+
+def split_list(text):
+    return [part for part in (text or "").split(",") if part]
+
+
+def tilt_wanted(text):
+    """The plugin's own "crooked sheets" switch.
+
+    Without this the two fight: straightening every sheet sets rotation to zero,
+    zero reads as "never scattered", and the next settings write has `scatter`
+    tilting them all straight back.
+    """
+    block = text.split(f'[plugin_settings."{PLUGIN_ID}"]')
+    if len(block) < 2:
+        return True
+    found = TILT_SETTING.search(block[1].split("\n[")[0])
+    return found is None or found.group(1) == "true"
+
+
+def random_tilt():
+    return random.uniform(MIN_TILT, MAX_TILT) * random.choice((-1, 1))
+
+
+# ── widget_order ────────────────────────────────────────────────────────────
+#
+# Noctalia writes this array through toml++, which keeps an array on one line
+# up to 120 columns and wraps it past that. So both shapes are normal: two
+# widgets fit on one line, three do not. A fresh install has no
+# [desktop_widgets] table at all. And [lockscreen_widgets] has a widget_order
+# of its own, so the one edited here is the one under [desktop_widgets] and no
+# other.
+
+
+def desktop_table(lines):
+    """Span of [desktop_widgets]' own keys, or None when there is no table."""
+    for index, line in enumerate(lines):
+        if DESKTOP_HEADER.match(line):
+            end = index + 1
+            while end < len(lines) and not ANY_TABLE.match(lines[end]):
+                end += 1
+            return index + 1, end
+    return None
+
+
+def order_lines(indent, ids):
+    if not ids:
+        return [f"{indent}widget_order = []\n"]
+    entries = [f'{indent}    "{wid}",\n' for wid in ids]
+    entries[-1] = entries[-1].replace('",\n', '"\n')
+    return [f"{indent}widget_order = [\n", *entries, f"{indent}]\n"]
+
+
+def rewrite_order(lines, change):
+    """`lines` with [desktop_widgets] widget_order replaced by change(ids).
+
+    Read in whichever shape it comes, written back wrapped. The table and the
+    key are created when missing.
+    """
+    lines = list(lines)
+    if lines and not lines[-1].endswith("\n"):
+        lines[-1] += "\n"
+
+    span = desktop_table(lines)
+    if span is None:
+        created = ["\n", "[desktop_widgets]\n", "schema_version = 2\n"]
+        return lines + created + order_lines("", change([]))
+
+    start, end = span
+    for index in range(start, end):
+        found = ORDER_KEY.match(lines[index])
+        if not found:
+            continue
+        close = index
+        # Quoted ids first, so a bracket inside one could not end the array.
+        while close < end and "]" not in re.sub(r'"[^"]*"', "", lines[close]):
+            close += 1
+        if close == end:
+            sys.exit("widget_order under [desktop_widgets] never closes")
+        ids = re.findall(r'"([^"]*)"', "".join(lines[index:close + 1]))
+        return lines[:index] + order_lines(found.group(1), change(ids)) + lines[close + 1:]
+
+    point = append_point(lines, span)
+    return lines[:point] + order_lines("", change([])) + lines[point:]
+
+
+def widgets_end(lines):
+    """Where a new widget's tables go: after [desktop_widgets] and every table
+    under it, ahead of the blank lines that separate it from the next section."""
+    span = desktop_table(lines)
+    end = span[0]
+    while end < len(lines):
+        found = TABLE_NAME.match(lines[end])
+        if found:
+            name = found.group(1)
+            if name != "desktop_widgets" and not name.startswith("desktop_widgets."):
+                break
+        end += 1
+    while end > span[0] and not lines[end - 1].strip():
+        end -= 1
+    return end
+
+
+# ── Writing ─────────────────────────────────────────────────────────────────
+
+
+@contextmanager
+def settings_lock():
+    """Held from a command's read of settings.toml to its write.
+
+    On the directory rather than the file: the write replaces the file, so a
+    lock on it would be a lock on an inode about to stop being the settings.
+    Nothing is left behind, since the directory is there anyway.
+    """
+    fd = os.open(SETTINGS.resolve().parent, os.O_RDONLY)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        yield
+    finally:
+        os.close(fd)
+
+
+def commit(lines_or_text, note):
+    """Validate the new text on its own, then swap it in whole.
+
+    The candidate goes beside the file under a name the shell does not react
+    to: it reloads on `settings.toml` in this directory and on `*.toml` in its
+    config directory, and `.noctes-new` is neither. Rejected, it is deleted and
+    settings.toml is exactly as it was - there is nothing to restore and no
+    backup to leave behind. A symlinked settings.toml keeps its link; the file
+    it points at is the one replaced.
+    """
+    text = lines_or_text if isinstance(lines_or_text, str) else "".join(lines_or_text)
+    target = SETTINGS.resolve()
+    staged = target.with_name(target.name + ".noctes-new")
+    try:
+        staged.write_text(text)
+        shutil.copymode(target, staged)
+        check = subprocess.run(["noctalia", "config", "validate", str(staged)],
+                               capture_output=True, text=True)
+        if check.returncode != 0:
+            sys.exit(f"{note}: config rejected, {SETTINGS} left as it was:\n"
+                     f"{check.stdout}{check.stderr}")
+        os.replace(staged, target)
+    finally:
+        staged.unlink(missing_ok=True)
+
+
+def write_json(path, data):
+    """A small state file of our own, replaced whole like settings.toml is."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    staged = path.with_name(path.name + ".tmp")
+    staged.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n")
+    os.replace(staged, path)
+
+
+# ── Placing a new sheet ─────────────────────────────────────────────────────
+
+
+def next_widget_id(text):
+    used = [int(found, 16) for found in re.findall(r"desktop-widget-([0-9a-f]{16})", text)]
+    return f"desktop-widget-{(max(used) + 1 if used else 1):016x}"
+
+
+def next_free(prefix, taken):
+    index = 1
+    while f"{prefix}-{index}" in taken:
+        index += 1
+    return f"{prefix}-{index}"
+
+
+def free_key(lines, prefix, avoid):
+    """A key no widget holds. The caller knows which notes exist; only this file
+    knows which of them are already bound to a sheet."""
+    used = {text_of(lines, w.settings, "key") for w in notes_in(lines)}
+    return next_free(prefix, used | set(split_list(avoid)))
+
+
+def screen_size(text, what):
+    """WIDTHxHEIGHT as a pair of floats."""
+    try:
+        width, height = (float(part) for part in text.lower().split("x"))
+    except ValueError:
+        sys.exit(f"bad {what}: {text}")
+    return width, height
+
+
+def geometry_of(spec):
+    """{connector: (width, height)} out of "DP-1=3440x1440,DP-2=1920x1080".
+
+    A sheet's cx/cy are stored against the size of the screen it was placed on,
+    so placing one on a screen whose size the caller did not send would cascade
+    it against the wrong dimensions.
+    """
+    sizes = {}
+    for entry in split_list(spec):
+        entry = entry.strip()
+        name, _, size = entry.partition("=")
+        if not name or not size:
+            sys.exit(f"bad --geometry entry: {entry}")
+        sizes[name] = screen_size(size, "--geometry entry")
+    return sizes
+
+
+def output_of_key(lines, key):
+    """The output holding the sheet bound to `key`, or None.
+
+    Read here rather than passed in, because the file is the only thing that
+    knows where a sheet is right now: a sheet dragged to another screen changes
+    this file, and anything the caller cached says where it used to be.
+    """
+    if not key:
+        return None
+    for widget in notes_in(lines):
+        if text_of(lines, widget.settings, "key") == key:
+            return text_of(lines, widget.body, "output") or None
+    return None
+
+
+def free_spot(lines, output, width, height, skip=None):
+    taken = []
+    for widget in notes_in(lines):
+        if text_of(lines, widget.body, "output") != output or widget.id == skip:
+            continue
+        cx, cy = value(lines, widget.body, "cx"), value(lines, widget.body, "cy")
+        if cx and cy:
+            taken.append((float(cx[1]), float(cy[1])))
+
+    for index in range(64):
+        cx = MARGIN + (index // PER_COLUMN) * CASCADE_X
+        cy = MARGIN + (index % PER_COLUMN) * CASCADE_Y
+        if cx > width - MARGIN or cy > height - MARGIN:
+            break
+        if all(abs(cx - x) > 40 or abs(cy - y) > 40 for x, y in taken):
+            return float(cx), float(cy)
+
+    span_x, span_y = max(MARGIN + 1, int(width) - MARGIN), max(MARGIN + 1, int(height) - MARGIN)
+    return float(random.randint(MARGIN, span_x)), float(random.randint(MARGIN, span_y))
+
+
+# ── Settings an older noctes left behind ────────────────────────────────────
+
+
+def declared_sheet_settings():
+    """Keys the manifest declares for the note widget, or None if unreadable."""
+    try:
+        import tomllib
+
+        with MANIFEST.open("rb") as handle:
+            manifest = tomllib.load(handle)
+    except (ImportError, OSError, ValueError):
+        return None
+    declared = set()
+    for entry in manifest.get("desktop_widget", []):
+        declared.update(setting["key"] for setting in entry.get("setting", []))
+    return declared
+
+
+def stale_settings(lines, sheets):
+    """[(line index, sheet id, key)] for settings on noctes sheets that Noctalia
+    flags as unknown and the manifest no longer declares.
+
+    The host is asked rather than a list kept here, because it adds keys of its
+    own - `background` and friends - that the manifest never names. The manifest
+    is the second check: when the host flags a key the manifest does declare,
+    it has not loaded this plugin's schema, every key would look unknown, and
+    nothing is pruned.
+    """
+    declared = declared_sheet_settings()
+    if not declared:
+        return []
+
+    check = subprocess.run(["noctalia", "config", "validate", str(SETTINGS)],
+                           capture_output=True, text=True)
+    ours = {widget.id: widget for widget in sheets}
+    flagged = [(wid, key) for wid, key in UNKNOWN_SETTING.findall(check.stdout or "")
+               if wid in ours]
+    if any(key in declared for _, key in flagged):
+        return []
+
+    stale = []
+    for wid, key in flagged:
+        found = value(lines, ours[wid].settings, key)
+        if found is not None:
+            stale.append((found[0], wid, key))
+    return stale
+
+
+def old_backups():
+    """Backups an older noctes left in the settings directory. The write path
+    no longer makes any, so each of these is a stale copy of the user's
+    settings that nothing would ever remove."""
+    return sorted(path for path in SETTINGS.parent.iterdir()
+                  if OLD_BACKUP.match(path.name) and path.is_file())
+
+
+# ── Commands ────────────────────────────────────────────────────────────────
+
+
+def add(args):
+    width, height = screen_size(args.screen, "--screen")
+    sizes = geometry_of(args.geometry)
+
+    text = SETTINGS.read_text()
+    lines = text.splitlines(keepends=True)
+
+    # One sheet per key: a second would draw the same note twice, and only the
+    # widget editor could tell the two apart. Asking again for a key that is
+    # already on the desk - a double click - answers with the sheet it has.
+    placed = output_of_key(lines, args.key)
+    if placed is not None:
+        print(f"key={args.key}")
+        print(f"output={placed}")
+        print(f'"{args.key}" is already on {placed}')
+        return
+
+    # The sheet the caller was working on wins over the focused output: a click
+    # on a sheet or on the panel never moves compositor focus, so the focused
+    # output is the screen holding whatever window was open behind them, not
+    # the screen being looked at.
+    output = output_of_key(lines, args.near) or args.output
+    if output != args.output:
+        width, height = sizes.get(output, (width, height))
+
+    key = args.key or free_key(lines, KEY_PREFIX, args.avoid)
+    widget_id = next_widget_id(text)
+    cx, cy = free_spot(lines, output, width, height)
+    tilt = random_tilt() if tilt_wanted(text) else 0.0
+
+    block = [
+        "\n",
+        f"    [desktop_widgets.widget.{widget_id}]\n",
+        "    box_height = 0.0\n",
+        "    box_width = 0.0\n",
+        f"    cx = {cx}\n",
+        f"    cy = {cy}\n",
+        f'    output = "{output}"\n',
+        f"    placement_height = {height}\n",
+        f"    placement_width = {width}\n",
+        f"    rotation = {tilt:.6f}\n",
+        f'    type = "{WIDGET_TYPE}"\n',
+        "\n",
+        f"        [desktop_widgets.widget.{widget_id}.settings]\n",
+        "        background = false\n",
+        f'        key = "{key}"\n',
+    ]
+
+    lines = rewrite_order(lines, lambda ids: ids + [widget_id])
+    at = widgets_end(lines)
+    lines[at:at] = block
+
+    commit(lines, "add")
+    # The first two lines are machine-read by the service.
+    print(f"key={key}")
+    print(f"output={output}")
+    print(f"{widget_id} at {cx:.0f},{cy:.0f} on {output}, tilt {tilt:+.3f}")
+
+
+def remove(args):
+    lines = SETTINGS.read_text().splitlines(keepends=True)
+
+    target = None
+    for widget in notes_in(lines):
+        if text_of(lines, widget.settings, "key") == args.key:
+            target = widget.id
+            break
+    if target is None:
+        print(f'no sheet bound to "{args.key}"')
+        return
+
+    header = re.compile(rf"^\s*\[desktop_widgets\.widget\.{re.escape(target)}(\.settings)?\]\s*$")
+
+    out, dropping = [], False
+    for line in lines:
+        if header.match(line):
+            dropping = True
+            continue
+        if dropping and ANY_TABLE.match(line):
+            dropping = False
+        if not dropping:
+            out.append(line)
+
+    commit(rewrite_order(out, lambda ids: [wid for wid in ids if wid != target]), "remove")
+    print(f'{target} removed, key "{args.key}"')
+
+
+def tilt(args):
+    lines = SETTINGS.read_text().splitlines(keepends=True)
+    changed = 0
+
+    for widget in notes_in(lines):
+        found = value(lines, widget.body, "rotation")
+        if found is None:
+            continue
+        angle = random_tilt() if args.random else 0.0
+        lines[found[0]] = f"{indent_of(lines, widget.body, '    ')}rotation = {angle:.6f}\n"
+        changed += 1
+
+    if changed == 0:
+        print("no sheets to tilt")
+        return
+
+    commit(lines, "tilt")
+    print(f"{changed} sheet(s) set {'crooked' if args.random else 'square'}")
+
+
+def scatter(args):
+    """Adopt sheets added through Noctalia's widget editor, and clear away what
+    an older noctes left behind: settings on its sheets, backups beside the
+    file.
+
+    A sheet from the editor arrives keyless, square and framed, since those are
+    the fields a plugin cannot write. Only keyless sheets are adopted: a sheet
+    with a key was placed by `add` or adopted before, so if it is square or
+    framed now, its owner made it so in the editor. `--all` redoes every sheet.
+
+    Keys come from the same space as the notes' own: `--avoid` carries the keys
+    the service holds, so a new sheet cannot pick up the key of a note whose
+    sheet was deleted and start showing that old note.
+    """
+    text = SETTINGS.read_text()
+    lines = text.splitlines(keepends=True)
+    keep_tilt = args.keep_tilt or not tilt_wanted(text)
+
+    sheets = notes_in(lines)
+    taken = {text_of(lines, w.settings, "key") for w in sheets} | set(split_list(args.avoid))
+    replacements, insertions, report = {}, {}, []
+
+    for widget in sheets:
+        key = text_of(lines, widget.settings, "key")
+        if key and not args.all:
+            continue
+
+        background = value(lines, widget.settings, "background")
+        rotation = value(lines, widget.body, "rotation")
+        changes = []
+        body_indent = indent_of(lines, widget.body, "    ")
+        settings_indent = indent_of(lines, widget.settings, "        ")
+        settings_point = append_point(lines, widget.settings)
+
+        def place(line, span_point):
+            """Queue a key, creating the settings table when there is none."""
+            if span_point is not None:
+                insertions.setdefault(span_point, []).append(line)
+                return
+            queued = insertions.setdefault(append_point(lines, widget.body), [])
+            if not any(".settings]" in q for q in queued):
+                queued.append(f"\n{settings_indent}[desktop_widgets.widget.{widget.id}.settings]\n")
+            queued.append(line)
+
+        # A sheet the editor left at an angle was turned by hand; keep it.
+        square = not (rotation and float(rotation[1]) != 0.0)
+        if not keep_tilt and (square or args.all):
+            angle = random_tilt()
+            line = f"{body_indent}rotation = {angle:.6f}\n"
+            if rotation:
+                replacements[rotation[0]] = line
+            else:
+                insertions.setdefault(append_point(lines, widget.body), []).append(line)
+            changes.append(f"tilt {angle:+.3f} rad")
+
+        if not key:
+            key = next_free(KEY_PREFIX, taken)
+            taken.add(key)
+            place(f'{settings_indent}key = "{key}"\n', settings_point)
+            changes.append(f'key "{key}"')
+
+        if not (background and background[1] == "false"):
+            line = f"{settings_indent}background = false\n"
+            if background:
+                replacements[background[0]] = line
+            else:
+                place(line, settings_point)
+            changes.append("background off")
+
+        if changes:
+            report.append(f"  {widget.id}: {', '.join(changes)}")
+
+    dropped = set()
+    for index, wid, key in stale_settings(lines, sheets):
+        dropped.add(index)
+        report.append(f"  {wid}: drop {key}")
+
+    backups = old_backups()
+    report.extend(f"  remove old backup {path.name}" for path in backups)
+
+    if not report:
+        print("nothing to change")
+        return
+
+    print(f"{len(report)} change(s):")
+    print("\n".join(report))
+    if args.dry_run:
+        return
+
+    for path in backups:
+        path.unlink(missing_ok=True)
+    if len(report) == len(backups):
+        return
+
+    out = []
+    for i, line in enumerate(lines):
+        out.extend(insertions.get(i, []))
+        if i not in dropped:
+            out.append(replacements.get(i, line))
+    out.extend(insertions.get(len(lines), []))
+
+    commit(out, "scatter")
+
+
+PLACEMENT = ("cx", "cy", "placement_width", "placement_height")
+
+
+def gather(args):
+    """Bring sheets back from outputs that are not connected any more, and send
+    them home when their output comes back.
+
+    A widget bound to a connector the compositor no longer reports is drawn on
+    no screen at all: the note is there, the sheet is there, and nothing shows.
+    Only those sheets move - one on a connected output is where its owner put
+    it, and this must be safe to run on every output change.
+
+    A connector also disappears for reasons that are not an unplug: a monitor
+    switched off, a KVM switched away. So where a sheet was is kept in
+    `--homes`, a file in the plugin's own data directory, and the next gather
+    that sees that output connected again puts the sheet back where its owner
+    left it rather than leaving the whole wall cascaded on the other screen.
+    """
+    width, height = screen_size(args.screen, "--screen")
+
+    live = set(split_list(args.outputs))
+    if not live:
+        sys.exit("no --outputs to gather onto")
+    if args.output not in live:
+        sys.exit(f"--output {args.output} is not in --outputs")
+
+    homes_path = Path(args.homes).expanduser() if args.homes else None
+    homes = {}
+    if homes_path is not None and homes_path.exists():
+        try:
+            homes = json.loads(homes_path.read_text())
+        except (OSError, ValueError):
+            homes = {}
+    before = json.dumps(homes, sort_keys=True)
+
+    lines = SETTINGS.read_text().splitlines(keepends=True)
+    sheets = notes_in(lines)
+    present = {widget.id for widget in sheets}
+    homes = {wid: home for wid, home in homes.items() if wid in present}
+    report = []
+
+    def set_line(widget, key, new):
+        at = value(lines, widget.body, key)
+        if at is not None:
+            lines[at[0]] = f"{indent_of(lines, widget.body, '    ')}{key} = {new}\n"
+
+    # Home first, so a sheet coming back frees its spot on the screen it was
+    # parked on before anything else is placed there.
+    for widget in sheets:
+        home = homes.get(widget.id)
+        found = value(lines, widget.body, "output")
+        if home is None or found is None or home.get("output") not in live:
+            continue
+        del homes[widget.id]
+        if found[1].strip('"') == home["output"]:
+            continue  # moved back by hand already
+        set_line(widget, "output", f'"{home["output"]}"')
+        for key in PLACEMENT:
+            if key in home:
+                set_line(widget, key, float(home[key]))
+        report.append(f"  {widget.id}: back on {home['output']}")
+
+    for widget in sheets:
+        found = value(lines, widget.body, "output")
+        if found is None or found[1].strip('"') in live:
+            continue
+
+        was = found[1].strip('"')
+        if widget.id not in homes:
+            home = {"output": was}
+            for key in PLACEMENT:
+                at = value(lines, widget.body, key)
+                if at is not None:
+                    home[key] = float(at[1])
+            homes[widget.id] = home
+
+        # The sheet keeps its size and its angle; what it cannot keep is a
+        # position measured against a screen that is not there.
+        set_line(widget, "output", f'"{args.output}"')
+        cx, cy = free_spot(lines, args.output, width, height, skip=widget.id)
+        for key, new in zip(PLACEMENT, (cx, cy, width, height)):
+            set_line(widget, key, new)
+
+        key = text_of(lines, widget.settings, "key")
+        report.append(f"  {widget.id}: {was} -> {args.output} at {cx:.0f},{cy:.0f}"
+                      + (f', key "{key}"' if key else ""))
+
+    homes_changed = json.dumps(homes, sort_keys=True) != before
+    if not report and not homes_changed:
+        print("no sheets adrift")
+        return
+
+    if report:
+        print(f"{len(report)} sheet(s):")
+        print("\n".join(report))
+    if args.dry_run:
+        return
+
+    if report:
+        commit(lines, "gather")
+    if homes_path is not None and homes_changed:
+        if homes:
+            write_json(homes_path, homes)
+        else:
+            homes_path.unlink(missing_ok=True)
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    adder = sub.add_parser("add", help="append a sheet")
+    adder.add_argument("--key", help="bind to this key instead of generating one")
+    adder.add_argument("--avoid", default="", help="comma-separated keys the caller knows are taken")
+    adder.add_argument("--output", required=True, help="connector to place the sheet on")
+    adder.add_argument("--screen", required=True, help="WIDTHxHEIGHT of that output")
+    adder.add_argument("--geometry", default="",
+                       help="NAME=WIDTHxHEIGHT,... for every connected output")
+    adder.add_argument("--near", default="",
+                       help="place on the screen holding the sheet bound to this key")
+    adder.set_defaults(run=add)
+
+    dropper = sub.add_parser("remove", help="delete the sheet bound to a key")
+    dropper.add_argument("--key", required=True)
+    dropper.set_defaults(run=remove)
+
+    angler = sub.add_parser("tilt", help="set every sheet crooked or square")
+    angle = angler.add_mutually_exclusive_group(required=True)
+    angle.add_argument("--random", action="store_true", help="a fresh small angle each")
+    angle.add_argument("--square", action="store_true", help="rotation zero")
+    angler.set_defaults(run=tilt)
+
+    tidy = sub.add_parser("scatter", help="adopt sheets added in Noctalia's widget editor")
+    tidy.add_argument("--avoid", default="", help="comma-separated keys the caller knows are taken")
+    tidy.add_argument("--all", action="store_true", help="redo every sheet, not only keyless ones")
+    tidy.add_argument("--keep-tilt", action="store_true", help="never touch rotation")
+    tidy.add_argument("--dry-run", action="store_true", help="report without writing")
+    tidy.set_defaults(run=scatter)
+
+    rescue = sub.add_parser("gather", help="bring sheets back from disconnected outputs")
+    rescue.add_argument("--outputs", required=True,
+                        help="comma-separated connectors that are currently connected")
+    rescue.add_argument("--output", required=True, help="connector to move adrift sheets onto")
+    rescue.add_argument("--screen", required=True, help="WIDTHxHEIGHT of that output")
+    rescue.add_argument("--homes", default="",
+                        help="JSON file remembering where moved sheets came from")
+    rescue.add_argument("--dry-run", action="store_true", help="report without writing")
+    rescue.set_defaults(run=gather)
+
+    args = parser.parse_args()
+    if not SETTINGS.exists():
+        sys.exit(f"not found: {SETTINGS}")
+    with settings_lock():
+        args.run(args)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,49 @@
+id = "cleboost/ssh-launcher"
+name = "SSH Launcher"
+version = "1.0.0"
+plugin_api = 3
+author = "Cleboost"
+license = "MIT"
+icon = "terminal"
+description = "Connect to SSH hosts from ~/.ssh/config via /ssh."
+tags = ["launcher", "network", "utility", "development"]
+dependencies = ["ssh"]
+
+[[launcher_provider]]
+id = "launcher"
+entry = "launcher.luau"
+prefix = "ssh"
+glyph = "terminal"
+include_in_global_search = false
+debounce_ms = 0
+
+[[setting]]
+key = "config_path"
+type = "file"
+label_key = "settings.config_path.label"
+description_key = "settings.config_path.description"
+default = "~/.ssh/config"
+
+[[setting]]
+key = "max_results"
+type = "int"
+label_key = "settings.max_results.label"
+description_key = "settings.max_results.description"
+default = 30
+min = 1
+max = 100
+
+[[setting]]
+key = "extra_args"
+type = "string"
+label_key = "settings.extra_args.label"
+description_key = "settings.extra_args.description"
+default = ""
+
+[[setting]]
+key = "terminal"
+type = "string"
+label_key = "settings.terminal.label"
+description_key = "settings.terminal.description"
+default = ""
+advanced = true

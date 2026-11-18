@@ -1,0 +1,114 @@
+# Agent Glow — the wallpaper reacts when your coding agents are working.
+#
+# A headless service watches for agent processes (opencode, claude, …),
+# publishes working/idle to the plugin's shared state, and two UI entries
+# render it: a bar indicator and a breathing desktop glow widget that sits
+# on the wallpaper.
+
+id = "fel/agent-glow"
+name = "Agent Glow"
+version = "0.1.0"
+plugin_api = 26
+author = "Fel"
+license = "MIT"
+dependencies = ["python3"]
+tags = ["ai", "wallpaper", "desktop"]
+icon = "sparkles"
+description = "Make the desktop react while coding agents work: a pulsing wallpaper glow plus a bar indicator."
+
+[[setting]]
+key = "agents"
+type = "string"
+label_key = "settings.agents.label"
+description_key = "settings.agents.description"
+default = "opencode,claude,codex,gemini,aider,goose"
+
+[[setting]]
+key = "poll_interval"
+type = "int"
+label_key = "settings.poll_interval.label"
+description_key = "settings.poll_interval.description"
+default = 2
+min = 1
+max = 30
+step = 1
+
+[[setting]]
+key = "activity_threshold"
+type = "int"
+label_key = "settings.activity_threshold.label"
+description_key = "settings.activity_threshold.description"
+default = 15
+min = 1
+max = 200
+step = 1
+
+[[setting]]
+key = "session_timeout"
+type = "int"
+label_key = "settings.session_timeout.label"
+description_key = "settings.session_timeout.description"
+default = 120
+min = 15
+max = 900
+step = 15
+
+[[setting]]
+key = "heartbeat_timeout"
+type = "int"
+label_key = "settings.heartbeat_timeout.label"
+description_key = "settings.heartbeat_timeout.description"
+default = 45
+min = 5
+max = 300
+step = 5
+
+[[setting]]
+key = "pulse"
+type = "select"
+label_key = "settings.pulse.label"
+description_key = "settings.pulse.description"
+default = "normal"
+options = [
+  { value = "slow", label_key = "settings.pulse.options.slow" },
+  { value = "normal", label_key = "settings.pulse.options.normal" },
+  { value = "fast", label_key = "settings.pulse.options.fast" },
+]
+
+[[setting]]
+key = "notify"
+type = "bool"
+label_key = "settings.notify.label"
+description_key = "settings.notify.description"
+default = false
+
+# Headless watcher: polls process list, debounces, publishes "status".
+[[service]]
+id = "watcher"
+entry = "watcher.luau"
+
+# Bar tile: dim when idle, lit + count when agents work.
+[[widget]]
+id = "indicator"
+entry = "bar.luau"
+
+  [[widget.setting]]
+  key = "show_when_idle"
+  type = "bool"
+  label_key = "settings.show_when_idle.label"
+  description_key = "settings.show_when_idle.description"
+  default = true
+
+# Desktop glow: breathing pill that lives on the wallpaper.
+[[desktop_widget]]
+id = "glow"
+entry = "glow.luau"
+
+# Session panel: which agents work, in which directories. Click the bar tile.
+[[panel]]
+id = "status"
+entry = "panel.luau"
+width = 520
+height = 440
+placement = "floating"
+position = "center"

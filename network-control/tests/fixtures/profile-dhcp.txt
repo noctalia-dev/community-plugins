@@ -1,0 +1,10 @@
+ipv4.method:auto
+ipv4.addresses:
+ipv4.gateway:
+ipv4.dns:1.1.1.1,1.0.0.1
+ipv4.dns-search:
+ipv6.method:auto
+ipv6.addresses:
+ipv6.gateway:
+ipv6.dns:
+ipv6.dns-search:

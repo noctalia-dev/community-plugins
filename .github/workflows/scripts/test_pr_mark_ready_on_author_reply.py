@@ -1,0 +1,138 @@
+from __future__ import annotations
+
+import importlib.util
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+from unittest import mock
+
+SCRIPTS_DIR = Path(__file__).parent
+sys.path.insert(0, str(SCRIPTS_DIR))
+
+SPEC = importlib.util.spec_from_file_location(
+    "pr_mark_ready_on_author_reply", SCRIPTS_DIR / "pr-mark-ready-on-author-reply.py"
+)
+assert SPEC is not None and SPEC.loader is not None
+pr_mark_ready = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(pr_mark_ready)
+
+import plugin_author
+
+
+class FakeComment:
+    def __init__(self, body: str):
+        self.body = body
+
+
+class FakePullRequest:
+    def __init__(self, *, state: str = "open", draft: bool = True, comments: list[FakeComment] | None = None, number: int = 42):
+        self.state = state
+        self.draft = draft
+        self.number = number
+        self._comments = comments or []
+        self.mark_ready_for_review = mock.Mock()
+
+    def get_issue_comments(self) -> list[FakeComment]:
+        return self._comments
+
+
+def marker_comment() -> FakeComment:
+    return FakeComment(
+        f"<!-- {pr_mark_ready.NOTIFY_MARKER} -->\nCC @tordex: this pull request was automatically moved to draft..."
+    )
+
+
+class MarkReadyTests(unittest.TestCase):
+    def test_author_reply_marks_pr_ready(self) -> None:
+        pull_request = FakePullRequest(comments=[marker_comment()])
+        with mock.patch.object(plugin_author, "plugin_author", return_value=(1, "tordex")):
+            marked = pr_mark_ready.mark_ready(None, pull_request, "tordex")
+        self.assertTrue(marked)
+        pull_request.mark_ready_for_review.assert_called_once()
+
+    def test_notification_comment_does_not_mark_pr_ready(self) -> None:
+        pull_request = FakePullRequest(comments=[marker_comment()])
+        pr_mark_ready.mark_ready(
+            None,
+            pull_request,
+            "tordex",
+            f"<!-- {pr_mark_ready.NOTIFY_MARKER} -->",
+        )
+        pull_request.mark_ready_for_review.assert_not_called()
+
+    def test_enforcement_comment_does_not_mark_pr_ready(self) -> None:
+        pull_request = FakePullRequest(comments=[marker_comment()])
+        pr_mark_ready.mark_ready(
+            None,
+            pull_request,
+            "tordex",
+            pr_mark_ready.ENFORCEMENT_MARKER,
+        )
+        pull_request.mark_ready_for_review.assert_not_called()
+
+    def test_non_author_comment_does_nothing(self) -> None:
+        pull_request = FakePullRequest(comments=[marker_comment()])
+        with mock.patch.object(plugin_author, "plugin_author", return_value=(1, "tordex")):
+            marked = pr_mark_ready.mark_ready(None, pull_request, "someone-else")
+        self.assertFalse(marked)
+        pull_request.mark_ready_for_review.assert_not_called()
+
+    def test_without_notification_marker_does_nothing(self) -> None:
+        # Draft created by the contributor themselves, not by the notification workflow.
+        pull_request = FakePullRequest(comments=[FakeComment("regular comment")])
+        with mock.patch.object(plugin_author, "plugin_author", return_value=(1, "tordex")):
+            pr_mark_ready.mark_ready(None, pull_request, "tordex")
+        pull_request.mark_ready_for_review.assert_not_called()
+
+    def test_no_comments_at_all_does_nothing(self) -> None:
+        pull_request = FakePullRequest(comments=[])
+        with mock.patch.object(plugin_author, "plugin_author", return_value=(1, "tordex")):
+            pr_mark_ready.mark_ready(None, pull_request, "tordex")
+        pull_request.mark_ready_for_review.assert_not_called()
+
+    def test_ready_pr_is_left_alone(self) -> None:
+        pull_request = FakePullRequest(draft=False, comments=[marker_comment()])
+        with mock.patch.object(plugin_author, "plugin_author", return_value=(1, "tordex")):
+            pr_mark_ready.mark_ready(None, pull_request, "tordex")
+        pull_request.mark_ready_for_review.assert_not_called()
+
+    def test_closed_pr_is_left_alone(self) -> None:
+        pull_request = FakePullRequest(state="closed", comments=[marker_comment()])
+        with mock.patch.object(plugin_author, "plugin_author", return_value=(1, "tordex")):
+            pr_mark_ready.mark_ready(None, pull_request, "tordex")
+        pull_request.mark_ready_for_review.assert_not_called()
+
+    def run_main(self, pull_request: FakePullRequest) -> str:
+        env = {
+            "GITHUB_TOKEN": "token",
+            "REPOSITORY": "noctalia-dev/community-plugins",
+            "PULL_REQUEST_NUMBER": "42",
+            "COMMENT_AUTHOR": "tordex",
+            "COMMENT_BODY": "Looks good to me.",
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            output_path = Path(directory) / "output"
+            env["GITHUB_OUTPUT"] = str(output_path)
+            with (
+                mock.patch.dict("os.environ", env),
+                mock.patch.object(pr_mark_ready, "Github") as github,
+                mock.patch.object(plugin_author, "plugin_author", return_value=(1, "tordex")),
+            ):
+                github.return_value.get_repo.return_value.get_pull.return_value = pull_request
+                self.assertEqual(pr_mark_ready.main([]), 0)
+            return output_path.read_text()
+
+    def test_main_reports_marked_so_the_workflow_runs_the_template_check(self) -> None:
+        # Events from the built-in token trigger no workflows, so the ready_for_review
+        # event cannot re-run enforce-pr-template.yml on its own.
+        output = self.run_main(FakePullRequest(comments=[marker_comment()]))
+        self.assertEqual(output, "marked=true\n")
+
+    def test_main_reports_unmarked_when_nothing_changed(self) -> None:
+        output = self.run_main(FakePullRequest(draft=False, comments=[marker_comment()]))
+        self.assertEqual(output, "marked=false\n")
+
+
+if __name__ == "__main__":
+    unittest.main()

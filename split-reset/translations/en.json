@@ -1,0 +1,7 @@
+{
+  "ui": {
+    "not-run": "Couldn't run hyprctl.",
+    "title": "Split Reset",
+    "tooltip": "Split Reset\nClick: set every split on this monitor back to 50/50"
+  }
+}

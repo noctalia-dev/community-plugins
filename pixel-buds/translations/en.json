@@ -1,0 +1,87 @@
+{
+  "errors": {
+    "write_failed": "Could not change setting"
+  },
+  "panel": {
+    "anc": {
+      "active": "Noise Cancellation",
+      "adaptive": "Adaptive",
+      "aware": "Transparency",
+      "off": "Off",
+      "unknown": "Unknown"
+    },
+    "anc_unknown_hint": "Put a bud in your ear to read the current mode.",
+    "basic_hint": "These Pixel Buds do not offer the control protocol pbpctrl uses, so only the battery level BlueZ reports is shown.",
+    "basic_no_battery": "BlueZ reports no battery level. Enable Experimental = true in /etc/bluetooth/main.conf and restart bluetooth.",
+    "battery": "BATTERY",
+    "buds": "Buds",
+    "case": "Case",
+    "charging": "Charging",
+    "connected": "Connected",
+    "connected_basic": "Connected · battery only",
+    "eq": "Equalizer",
+    "eq_band": {
+      "bass": "Bass",
+      "low_bass": "Low bass",
+      "mid": "Mid",
+      "treble": "Treble",
+      "upper_treble": "Upper treble"
+    },
+    "eq_reset": "Reset",
+    "eq_title": "EQUALIZER",
+    "guidance": {
+      "not_connected": "Open the case or put in a bud to connect your Pixel Buds.",
+      "pbpctrl_missing": "Install pbpctrl or set its path in the plugin settings.",
+      "unreachable": "The buds are connected but not answering. Take a bud out of the case."
+    },
+    "in_case": "In case",
+    "left": "Left",
+    "model": {
+      "pro": "Pixel Buds Pro",
+      "pro2": "Pixel Buds Pro 2"
+    },
+    "multipoint": "Multipoint",
+    "multipoint_caption": "Stay connected to two devices at once",
+    "noise_control": "Noise control",
+    "noise_control_title": "NOISE CONTROL",
+    "not_connected": "Not connected",
+    "ohd": "In-ear detection",
+    "ohd_caption": "Pause playback when you take a bud out",
+    "out_of_case": "Out of case",
+    "pbpctrl_missing": "pbpctrl not found",
+    "right": "Right",
+    "settings_title": "SETTINGS",
+    "speech_detection": "Conversation Detection",
+    "speech_detection_caption": "Switch to Transparency when you start talking",
+    "title": "Pixel Buds",
+    "unreachable": "Not responding"
+  },
+  "settings": {
+    "device": {
+      "description": "Bluetooth address such as AA:BB:CC:DD:EE:FF. Leave empty to use the first paired Pixel Buds.",
+      "label": "Device address"
+    },
+    "hide_when_disconnected": {
+      "description": "Leaves the bar entirely rather than sitting there with nothing to say.",
+      "label": "Hide the icon when the buds are not connected"
+    },
+    "pbpctrl_path": {
+      "description": "Leave empty to find pbpctrl on PATH or in ~/.cargo/bin.",
+      "label": "Path to pbpctrl"
+    },
+    "poll_interval": {
+      "description": "Seconds between battery and status checks (minimum 2).",
+      "label": "Refresh interval"
+    },
+    "show_percentage": {
+      "description": "Show the lowest bud battery next to the icon.",
+      "label": "Show battery percentage"
+    }
+  },
+  "widget": {
+    "mode": "Mode",
+    "not_connected": "Pixel Buds not connected",
+    "pbpctrl_missing": "pbpctrl not found",
+    "unreachable": "Pixel Buds not responding"
+  }
+}

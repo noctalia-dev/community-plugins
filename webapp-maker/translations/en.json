@@ -1,0 +1,30 @@
+{
+  "btn_create": "Create",
+  "err_failed": "webapp-install failed, see the Noctalia log",
+  "err_remove_failed": "Removal failed, see the Noctalia log",
+  "err_required": "Name and URL are required",
+  "err_slash": "Name cannot contain \"/\"",
+  "err_timeout": "webapp-install timed out",
+  "field_flags": "Chromium launch flags (optional)",
+  "field_flags_ph": "--proxy-server=http://127.0.0.1:1080 --incognito …",
+  "field_icon": "Icon: URL or file path (empty = fetch from site)",
+  "field_icon_ph": "https://…/icon.png or /path/icon.png",
+  "field_name": "Name",
+  "field_name_ph": "My web app",
+  "field_url": "URL",
+  "field_url_ph": "example.com (https is added automatically)",
+  "installed_empty": "Nothing created yet",
+  "installed_title": "Installed",
+  "ok_created": "\"{name}\" created — it is in the launcher now",
+  "ok_removed": "\"{name}\" removed",
+  "settings": {
+    "env_file": {
+      "description": "Sourced before the install and launch commands — e.g. a file exporting HTTPS_PROXY so site icons download through a proxy. Empty = none.",
+      "label": "Environment file"
+    }
+  },
+  "status_busy": "Creating — fetching the icon…",
+  "tip_close": "Close",
+  "tip_remove": "Remove the launcher and icon",
+  "title": "New web app"
+}

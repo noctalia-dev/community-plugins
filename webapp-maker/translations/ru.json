@@ -1,0 +1,30 @@
+{
+  "btn_create": "Создать",
+  "err_failed": "webapp-install завершился с ошибкой, подробности в логе Noctalia",
+  "err_remove_failed": "Не удалось удалить, подробности в логе Noctalia",
+  "err_required": "Название и URL обязательны",
+  "err_slash": "В названии нельзя «/»",
+  "err_timeout": "webapp-install не уложился в таймаут",
+  "field_flags": "Параметры запуска chromium (опционально)",
+  "field_flags_ph": "--proxy-server=http://127.0.0.1:1080 --incognito …",
+  "field_icon": "Иконка: URL или путь (пусто = с сайта)",
+  "field_icon_ph": "https://…/icon.png или /путь/icon.png",
+  "field_name": "Название",
+  "field_name_ph": "Мой webapp",
+  "field_url": "URL",
+  "field_url_ph": "example.com (https допишется сам)",
+  "installed_empty": "Пока ничего не создано",
+  "installed_title": "Установленные",
+  "ok_created": "«{name}» создано — уже в лаунчере",
+  "ok_removed": "«{name}» удалено",
+  "settings": {
+    "env_file": {
+      "description": "Сорсится перед командами создания/запуска — например, файл с export HTTPS_PROXY, чтобы иконки сайтов качались через прокси. Пусто = не нужен.",
+      "label": "Файл окружения"
+    }
+  },
+  "status_busy": "Создание — скачивается иконка…",
+  "tip_close": "Закрыть",
+  "tip_remove": "Удалить ярлык и иконку",
+  "title": "Новое веб-приложение"
+}

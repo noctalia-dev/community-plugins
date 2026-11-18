@@ -1,0 +1,6 @@
+{
+  "panel": {
+    "info_how_to_submite_config_body": "Você pode contribuir para o Config Swap adicionando seus próprios arquivos de configuração e papel de parede à loja, para que outras pessoas possam utilizá-los.\n\nPara fazer isso:\n* Vá para a seção de Configurações e salve sua configuração. O plugin copiará o arquivo `settings.toml` e criará um arquivo `info.json`.\n* Obtenha uma imagem de pré-visualização e um papel de parede; em seguida, vá para `~/Config-Swap/{name}` e copie os arquivos `preview.png` e `wallpaper.png`. É necessário utilizar exatamente esses nomes.\n* Atualize o arquivo `info.json` com informações importantes, como o autor e a descrição.\n* Acesse a página do GitHub (linkada no painel de informações da seção Loja) e crie um *pull request*.\n* Aguarde a análise; após aprovada, sua configuração poderá ser compartilhada.",
+    "info_store_copy_link_success": "Link copiado com sucesso"
+  }
+}

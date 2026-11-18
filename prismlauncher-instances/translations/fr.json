@@ -1,0 +1,16 @@
+{
+  "no_instances": {
+    "subtitle": "Filtre:",
+    "title": "Aucune instance trouvée"
+  },
+  "settings": {
+    "launcher_exec_command": {
+      "description": "Lancer Prismlauncher ou une fork au choix",
+      "label": "Executable Prism"
+    },
+    "prismlauncher_path": {
+      "description": "Chemin de PrismLauncher",
+      "label": "Chemin de PrismLauncher"
+    }
+  }
+}

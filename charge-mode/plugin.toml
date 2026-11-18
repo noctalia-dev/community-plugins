@@ -1,0 +1,14 @@
+id          = "neoscaler/charge-mode"
+name        = "Charge Mode"
+version     = "1.0.6"
+plugin_api  = 43
+author      = "neoscaler"
+license     = "MIT"
+tags        = ["hardware", "shortcut", "system", "nixos"]
+icon        = "battery-charging"
+description = "Cycles the battery charge type: conservation, normal or fast charge."
+dependencies = ["pkexec", "sudo", "sh", "chown", "udevadm"]
+
+[[shortcut]]
+id    = "charge"
+entry = "charge.luau"

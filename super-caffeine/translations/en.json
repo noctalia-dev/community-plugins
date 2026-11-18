@@ -1,0 +1,12 @@
+{
+  "shortcut": {
+    "active": "Super Caffeine On",
+    "inactive": "Super Caffeine Off"
+  },
+  "title": "Super Caffeine",
+  "tooltip": {
+    "active": "Super Caffeine ON: no idle lock, lid close won't suspend",
+    "changing": "Super Caffeine: switching…",
+    "inactive": "Super Caffeine OFF"
+  }
+}

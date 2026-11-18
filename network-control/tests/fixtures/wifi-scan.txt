@@ -1,0 +1,16 @@
+ :Vodafone-B3A2:100:WPA2:11:260 Mbit/s:****
+ :Vodafone Homespot:100::11:260 Mbit/s:****
+ :Vodafone Hotspot:100::11:260 Mbit/s:****
+*:Vodafone-B3A2:100:WPA2:52:1170 Mbit/s:****
+ ::62:WPA2:100:1170 Mbit/s:*** 
+ :MagentaWLAN-RRW7:60:WPA2 WPA3:100:1170 Mbit/s:*** 
+ :FRITZ!Box 6690 UU:50:WPA2:11:1170 Mbit/s:**  
+ :FRITZ!Box 6591 Cable TM:40:WPA2:11:1170 Mbit/s:**  
+ :FRITZ!Box 6591 Cable TM:40:WPA2:36:1170 Mbit/s:**  
+ :FRITZ!Box 7590 RN:37:WPA2:1:270 Mbit/s:**  
+ :FRITZ!Box 6690 UU:34:WPA2:11:1170 Mbit/s:**  
+ :MagentaWLAN-RRW7:34:WPA2 WPA3:11:540 Mbit/s:**  
+ :FRITZ!Box 7530 AV:32:WPA2:1:195 Mbit/s:**  
+ :FRITZ!Box 6690 UU:29:WPA2:48:270 Mbit/s:*   
+ :FRITZ!Box 7590 RN:22:WPA2 WPA3:100:1170 Mbit/s:*   
+ :FRITZ!Box 6690 UU:19:WPA2:48:270 Mbit/s:*   

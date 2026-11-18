@@ -1,0 +1,74 @@
+id = "notoxus/media-island"
+name = "Media Island"
+version = "1.0.2"
+plugin_api = 43
+author = "notoxus"
+license = "MIT"
+dependencies = ["busctl"]
+tags = ["bar", "media", "panel", "service"]
+icon = "music"
+description = "Top-center now-playing island with artwork, transport controls, and automatic track-change previews."
+
+[[setting]]
+key = "auto_show"
+type = "bool"
+label_key = "settings.auto-show.label"
+description_key = "settings.auto-show.description"
+default = false
+
+[[setting]]
+key = "preview_seconds"
+type = "int"
+label_key = "settings.preview-seconds.label"
+description_key = "settings.preview-seconds.description"
+default = 2
+min = 1
+max = 10
+step = 1
+
+[[setting]]
+key = "show_hours"
+type = "bool"
+label_key = "settings.show-hours.label"
+description_key = "settings.show-hours.description"
+default = false
+
+[[setting]]
+key = "title_limit"
+type = "int"
+label_key = "settings.title-limit.label"
+description_key = "settings.title-limit.description"
+default = 30
+min = 10
+max = 60
+step = 5
+
+[[setting]]
+key = "click_action"
+type = "string"
+label_key = "settings.click-action.label"
+description_key = "settings.click-action.description"
+default = "island"
+
+[[setting]]
+key = "audio_visualizer"
+type = "bool"
+label_key = "settings.audio-visualizer.label"
+description_key = "settings.audio-visualizer.description"
+default = true
+
+[[service]]
+id = "media-state"
+entry = "service.luau"
+
+[[widget]]
+id = "now-playing"
+entry = "bar.luau"
+
+[[panel]]
+id = "island"
+entry = "panel.luau"
+width = 290
+height = 76
+placement = "attached"
+dismiss_on_outside_click = false

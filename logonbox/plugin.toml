@@ -1,0 +1,41 @@
+# LogonBox VPN - show and control the LogonBox VPN client from the Noctalia bar and a panel.
+#
+# One [[service]] owns every logonbox-vpn-cli / gdbus call and publishes the state on
+# `logonbox.state`; UI entries send `logonbox.request`.
+
+id = "3dprogramin/logonbox"
+name = "LogonBox VPN"
+version = "0.1.0"
+plugin_api = 43
+author = "3dprogramin"
+license = "MIT"
+dependencies = ["logonbox-vpn-cli", "logonbox-vpn-gui", "gdbus", "xdg-open", "noctalia"]
+tags = ["bar", "panel", "service", "network"]
+icon = "lock"
+description = "Show LogonBox VPN status in the bar; connect and disconnect saved connections from a panel."
+
+# Headless owner of all LogonBox I/O.
+[[service]]
+id = "service"
+entry = "service.luau"
+
+# Bar tile: lock glyph plus a short status label. Click opens the panel.
+[[widget]]
+id = "status"
+entry = "bar.luau"
+
+  [[widget.setting]]
+  key = "show_label"
+  type = "bool"
+  label_key = "settings.show_label.label"
+  description_key = "settings.show_label.description"
+  default = true
+
+# Panel: the connection list with Connect/Disconnect, and the plain-words problem states.
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 360
+height = "content"
+max_height = 560
+placement = "floating"

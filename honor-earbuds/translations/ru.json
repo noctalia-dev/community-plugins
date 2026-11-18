@@ -1,0 +1,52 @@
+{
+  "notify": {
+    "mode_changed": "Режим ANC: %s"
+  },
+  "panel": {
+    "case": "Кейс",
+    "charging": "Зарядка",
+    "left": "Левый",
+    "mode": {
+      "anc": "Шумоподавление",
+      "off": "Обычный (Выкл)",
+      "transparency": "Прозрачность"
+    },
+    "noise_control": "ШУМОПОДАВЛЕНИЕ",
+    "noise_requires_both": "Для управления шумоподавлением нужны оба наушника",
+    "refresh": "Обновить",
+    "right": "Правый",
+    "status": {
+      "connected": "Подключено",
+      "disconnected": "Отключено"
+    },
+    "title": "Honor Earbuds"
+  },
+  "settings": {
+    "device_mac": {
+      "description": "Переопределить Bluetooth MAC-адрес (опционально, определяется автоматически)",
+      "label": "MAC-адрес устройства"
+    },
+    "hide_when_disconnected": {
+      "description": "Скрывать виджет на панели, когда наушники отключены",
+      "label": "Скрывать при отключении"
+    },
+    "notify_on_connect": {
+      "description": "Показывать всплывающее уведомление с зарядом батареи при подключении наушников",
+      "label": "Уведомление при подключении"
+    },
+    "poll_interval": {
+      "description": "Как часто опрашивать статус наушников в миллисекундах (по умолчанию: 2500)",
+      "label": "Интервал опроса (мс)"
+    }
+  },
+  "widget": {
+    "action": {
+      "left_click": "Открыть панель",
+      "left_click_label": "ЛКМ",
+      "right_click": "Переключить ANC",
+      "right_click_label": "ПКМ"
+    },
+    "mode": "Режим",
+    "not_connected": "Наушники не подключены"
+  }
+}

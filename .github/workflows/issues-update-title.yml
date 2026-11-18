@@ -1,0 +1,30 @@
+name: Update title of issue to represent the plugin
+
+on:
+  issues:
+    types: [opened]
+  workflow_dispatch:
+    inputs:
+      issue-number:
+        required: true
+        type: number
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  update-issue-title:
+    runs-on: ubuntu-latest
+    if: github.repository == 'noctalia-dev/community-plugins'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: $/.github/workflows/setup/pygithub
+
+      - name: Update Issue Title
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.issue-number || github.event.issue.number }}
+        run: python3 .github/workflows/scripts/issues-update-title.py
+

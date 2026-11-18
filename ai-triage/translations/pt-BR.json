@@ -1,0 +1,227 @@
+{
+  "settings": {
+    "bar_font_scale": {
+      "description": "Ajusta os tamanhos de fonte e ícones para esta cápsula da barra.",
+      "label": "Tamanho da fonte da cápsula"
+    },
+    "color_by_usage": {
+      "description": "Confere uma tonalidade à leitura à medida que a cota se esgota. A opção \"Off\" mantém a cápsula na cor da própria barra.",
+      "label": "Cor por uso"
+    },
+    "extras": {
+      "description": "O tempo restante na janela, a distância do gasto em relação ao cronômetro, ambos ou nenhum dos dois.",
+      "label": "Leitura complementar",
+      "option": {
+        "both": "Ambas",
+        "countdown": "Tempo até a reinicialização",
+        "none": "Nenhum",
+        "pace": "Corra contra o relógio"
+      }
+    },
+    "font_scale": {
+      "description": "Ajusta os tamanhos de fonte e ícones proporcionalmente no painel e na barra.",
+      "label": "Tamanho da fonte",
+      "option": {
+        "compact": "Compacto (85%)",
+        "huge": "Muito grande (130%)",
+        "inherit": "Herdar (das configurações do plugin)",
+        "large": "Grande (115%)",
+        "normal": "Normal (100%)"
+      }
+    },
+    "gearing_anthropic": {
+      "description": "Estimativa de sessões completas de 5h por cota semanal para Claude Pro. O painel mostra números inteiros; os cálculos e a calibração automática mantêm a precisão decimal.",
+      "label": "Razão de escalonamento: Claude Pro (sessões/sem)"
+    },
+    "gearing_claude_oss": {
+      "description": "Estimativa de sessões completas de 5h por cota semanal para Claude & GPT OSS. O painel mostra números inteiros; os cálculos e a calibração automática mantêm a precisão decimal.",
+      "label": "Razão de escalonamento: Claude & GPT OSS (sessões/sem)"
+    },
+    "gearing_default": {
+      "description": "Estimativa de sessões completas de 5h por cota semanal para outros modelos. O painel mostra números inteiros; os cálculos e a calibração automática mantêm a precisão decimal.",
+      "label": "Razão de escalonamento: Padrão (sessões/sem)"
+    },
+    "gearing_gemini": {
+      "description": "Estimativa de sessões completas de 5h por cota semanal para Gemini. O painel mostra números inteiros; os cálculos e a calibração automática mantêm a precisão decimal.",
+      "label": "Razão de escalonamento: Gemini (sessões/sem)"
+    },
+    "gearing_openai": {
+      "description": "Estimativa de sessões completas de 5h por cota semanal para OpenAI / Codex. O painel mostra números inteiros; os cálculos e a calibração automática mantêm a precisão decimal.",
+      "label": "Razão de escalonamento: Codex / OpenAI (sessões/sem)"
+    },
+    "glyph_position": {
+      "description": "Em qual lado da leitura o ícone está posicionado.",
+      "label": "Posição do ícone",
+      "option": {
+        "after": "Depois",
+        "before": "Antes"
+      }
+    },
+    "hidden_services": {
+      "description": "Lista separada por vírgulas de IDs de provedores ou modelos para ocultar da barra e do painel.",
+      "label": "Serviços e modelos ocultos"
+    },
+    "hide_claude_oss": {
+      "description": "Oculta o nível Claude & GPT OSS do Antigravity na barra e no painel, mantendo o Gemini ativo.",
+      "label": "Ocultar Claude & GPT OSS"
+    },
+    "meal_pause_hours": {
+      "description": "Horas estimadas de pausa durante o dia para almoço, jantar ou descanso.",
+      "label": "Pausa diária para refeições (horas)"
+    },
+    "provider_limit": {
+      "description": "Define quantos provedores uma cápsula exibe, começando pelos mais movimentados e indicando o restante como \"+N\". Aplica-se apenas quando o provedor é definido como \"Automático\".",
+      "label": "Prestadores na cápsula"
+    },
+    "query_timeout_seconds": {
+      "description": "Tempo máximo de espera por todos os provedores. Aumente para muitas contas ou inicialização lenta do Antigravity.",
+      "label": "Tempo limite da consulta de cotas (segundos)"
+    },
+    "refresh_minutes": {
+      "description": "Com que frequência a CLI é solicitada para obter dados de uso atualizados. As contagens regressivas são processadas localmente entre as chamadas.",
+      "label": "Intervalo de atualização (minutos)"
+    },
+    "schedule_aware_triage": {
+      "description": "Desconta horas de sono, refeições e descanso para calcular a velocidade de consumo sobre horas ativas reais.",
+      "label": "Triagem ciente da rotina"
+    },
+    "show_glyph": {
+      "description": "O ícone do provedor. A opção \"Desligado\" deixa a leitura por conta própria.",
+      "label": "Mostrar ícone"
+    },
+    "show_name": {
+      "description": "Adiciona o nome do produto ao lado da porcentagem, para que duas cápsulas não pareçam iguais.",
+      "label": "Mostrar nome do provedor"
+    },
+    "show_value": {
+      "description": "A porcentagem como texto. A opção \"Off\" faz com que o indicador a exiba.",
+      "label": "Mostrar valor"
+    },
+    "sleep_end_hour": {
+      "description": "Hora em que a rotina ativa recomeça pela manhã em dias úteis (ex: 8 para 8h).",
+      "label": "Fim do repouso (dias úteis)"
+    },
+    "sleep_start_hour": {
+      "description": "Hora em que o sono ou período de descanso começa em dias úteis (ex: 0 para meia-noite, 23 para 23h).",
+      "label": "Início do repouso (dias úteis)"
+    },
+    "style": {
+      "description": "Como esta cápsula fica no bar.",
+      "label": "Estilo",
+      "option": {
+        "gauge": "Medida e porcentagem",
+        "label": "Nome, calibre e porcentagem",
+        "meter": "Segmentos",
+        "pill": "Percentagem"
+      }
+    },
+    "vendor": {
+      "description": "O plano que esta cápsula monitora. Adicione o widget duas vezes para acompanhar dois.",
+      "label": "Prestador de serviços",
+      "option": {
+        "anthropic": "Claude",
+        "anthropic_api": "API da Anthropic",
+        "antigravity": "Antigravity",
+        "auto": "Automático (primário)",
+        "claude_oss": "Claude & GPT OSS",
+        "cline": "Cline",
+        "commandcode": "Command Code",
+        "copilot": "GitHub Copilot",
+        "cursor": "Cursor",
+        "deepinfra": "DeepInfra",
+        "deepseek": "DeepSeek",
+        "devin": "Devin",
+        "droid": "Droid",
+        "gemini": "Gemini",
+        "grok": "Grok",
+        "grokbot": "Grok Bot",
+        "kilo": "Quilo",
+        "kimi": "Kimi",
+        "kiro": "Kiro",
+        "lyceum": "Lyceum",
+        "minimax": "MiniMax",
+        "modelstudio": "Model Studio",
+        "moonshot": "Moonshot",
+        "muse_code": "Muse Code",
+        "nous": "Nous Research",
+        "novita": "Novita",
+        "ollama": "Ollama Cloud",
+        "openai": "Codex",
+        "opencode_go": "OpenCode Go",
+        "openrouter": "OpenRouter",
+        "orcarouter": "OrcaRouter",
+        "supergrok": "SuperGrok",
+        "synthetic": "Synthetic",
+        "zai": "Z.AI"
+      }
+    },
+    "weekend_sleep_end_hour": {
+      "description": "Hora em que a rotina ativa recomeça aos fins de semana (ex: 9 para 9h).",
+      "label": "Fim do repouso (fins de semana)"
+    },
+    "weekend_sleep_start_hour": {
+      "description": "Hora em que o sono ou descanso começa aos fins de semana (ex: 1 para 1h).",
+      "label": "Início do repouso (fins de semana)"
+    }
+  },
+  "ui": {
+    "details": "Detalhes",
+    "diagnostic": {
+      "action": {
+        "credentials": "Verifique as credenciais salvas e as permissões dos arquivos no ai-usagebar e atualize.",
+        "local_server": "Abra o Antigravity ou uma sessão do agy, entre na conta se necessário e atualize.",
+        "login": "Entre na conta pelo terminal e atualize:",
+        "missing_key": "Verifique a chave de API deste provedor no ai-usagebar e atualize.",
+        "named_account": "Reconecte a conta {account} no ai-usagebar e atualize.",
+        "network": "Verifique a conexão com a internet, VPN ou proxy e atualize.",
+        "permission": "Verifique as permissões e a assinatura da conta e atualize.",
+        "rate_limited": "Aguarde o prazo de nova tentativa. A próxima atualização automática tentará novamente.",
+        "reconnect": "Entre novamente no aplicativo ou CLI do provedor e atualize.",
+        "schema": "Atualize o ai-usagebar e consulte novamente. Se persistir, reporte o erro no formato da resposta.",
+        "server": "Aguarde a recuperação do provedor e atualize.",
+        "timeout": "Verifique a conexão e a disponibilidade do provedor e atualize. Aumente o tempo limite se o problema persistir.",
+        "unknown": "Atualize e verifique o estado do provedor se o problema persistir."
+      },
+      "cause": {
+        "authentication": "Falha de autenticação",
+        "credentials": "Problema nas credenciais",
+        "local_server": "Sessão do Antigravity indisponível",
+        "missing_key": "Chave de API ausente",
+        "network": "Falha de conexão",
+        "permission": "Acesso negado",
+        "rate_limited": "Limite de consultas atingido",
+        "schema": "Resposta de uso não reconhecida",
+        "server": "Erro no servidor do provedor",
+        "signed_out": "Login necessário",
+        "timeout": "A consulta de cotas excedeu o tempo limite",
+        "unknown": "Uso indisponível"
+      },
+      "copy_command": "Copiar comando de login",
+      "recommended_action": "Ação recomendada"
+    },
+    "elapsed": "{percent}% da janela decorridos",
+    "error": {
+      "failed": "Não foi possível ler o uso",
+      "failed_hint": "O ai-usagebar foi encerrado com um erro.",
+      "no_data": "Nenhum uso registrado",
+      "no_data_hint": "O ai-usagebar foi executado, mas não relatou nenhum uso. Verifique os provedores em `~/.config/ai-usagebar/config.toml`.",
+      "not_installed": "ai-usagebar não está instalado",
+      "not_installed_hint": "A CLI não está no PATH. Instale-a e tente novamente.",
+      "spawn_failed": "Não foi possível iniciar o ai-usagebar",
+      "spawn_failed_hint": "O processo nunca foi iniciado. Tente novamente em instantes.",
+      "timed_out": "ai-usagebar não respondeu",
+      "timed_out_hint": "A leitura demorou muito. Um provedor pode estar respondendo lentamente."
+    },
+    "hidden_label": "Não exibido",
+    "hidden_value": "Mais {count}, clique para abrir o painel",
+    "loading": "Carregando…",
+    "no_providers": "Nenhum provedor configurado ou acessível",
+    "no_usage": "Nenhum uso registrado",
+    "not_configured": "`{vendor}` não está configurado no ai-usagebar",
+    "now": "agora",
+    "retry": "Tente novamente",
+    "stale_hint": "exibindo os últimos dados conhecidos",
+    "title": "AI Triage",
+    "unavailable": "Indisponível"
+  }
+}

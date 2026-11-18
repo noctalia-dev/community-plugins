@@ -1,0 +1,44 @@
+{
+  "due": {
+    "today": "Today",
+    "tomorrow": "Tomorrow"
+  },
+  "error": {
+    "http": "Todoist request failed (HTTP {status})",
+    "invalid_token_file": "Invalid token file. Use a raw token or one literal TODOIST_TOKEN assignment; shell expressions and duplicate assignments are not supported.",
+    "no_token": "No API token. Set the token file in the plugin settings.",
+    "parse": "Could not read Todoist's response"
+  },
+  "settings": {
+    "clear_color": {
+      "label": "All clear color"
+    },
+    "glyph": {
+      "label": "Icon"
+    },
+    "max_upcoming": {
+      "description": "How many upcoming tasks the tooltip lists after the overdue ones.",
+      "label": "Upcoming tasks in tooltip"
+    },
+    "overdue_color": {
+      "label": "Overdue color"
+    },
+    "refresh_minutes": {
+      "description": "How often tasks are fetched. Right-click the widget to refresh immediately.",
+      "label": "Refresh interval (minutes)"
+    },
+    "today_color": {
+      "label": "Due today color"
+    },
+    "token_file": {
+      "description": "File containing a raw Todoist API token or one literal TODOIST_TOKEN assignment (for example ~/.zshenv). Keep it chmod 600. The inherited TODOIST_TOKEN environment variable takes precedence.",
+      "label": "API token file"
+    }
+  },
+  "tooltip": {
+    "none": "No upcoming tasks",
+    "overdue": "Overdue ({count})",
+    "stale": "Showing cached tasks: {error}",
+    "upcoming": "Upcoming"
+  }
+}

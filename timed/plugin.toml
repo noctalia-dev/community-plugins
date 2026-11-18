@@ -1,0 +1,21 @@
+id = "dontblameme/timed"
+name = "Timed"
+version = "1.1.0"
+plugin_api = 48
+author = "DontBlameMe"
+license = "MIT"
+dependencies = ["libnotify"]
+tags = ["launcher", "service", "countdown", "time", "utility"]
+icon = "clock"
+description = "Start and stop countdown timers from the launcher."
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[launcher_provider]]
+id = "launcher"
+entry = "launcher.luau"
+prefix = "timer"
+glyph = "clock"
+include_in_global_search = false

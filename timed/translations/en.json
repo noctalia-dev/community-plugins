@@ -1,0 +1,17 @@
+{
+  "notify": {
+    "title": "Timed",
+    "body": "{duration} timer finished"
+  },
+  "launcher": {
+    "no_timers": "No timers running",
+    "hint": "Try 1h5, 1y, 4s10h3m, or 5 for 5 minutes",
+    "start": "Start timer {time}",
+    "message": "{duration} - {message}",
+    "stop": "Stop Timer",
+    "ends_at": "Ends at {time} - {duration}",
+    "stop_all": "Stop all timers",
+    "running": "{count} running",
+    "invalid": "Invalid duration"
+  }
+}

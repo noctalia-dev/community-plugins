@@ -1,0 +1,176 @@
+# NaN Usage — Noctalia v5+ plugin: a bar widget and the panel behind it.
+#
+# Self-contained: this plugin calls NaN's documented usage report itself, so it
+# needs nothing installed beyond Noctalia. `service.luau` is the only part that
+# touches the network, `shared.luau` holds the model, `prices.luau` is NaN's price
+# list as tools/prices-from-har.py read it, and the two surfaces paint what the
+# model says.
+#
+# The repository root is a plugin *source*: this directory is named after the part
+# of the id that follows the slash, which is the layout a source has to have. That
+# lets Noctalia own the plugin — update and remove it — rather than merely read a
+# directory it was handed.
+
+id = "cmoro-deusto/nan-usage"
+name = "NaN Usage"
+version = "2.0.0"
+# 43 is what the palette roles the panel draws its cards with (surface_container,
+# outline_variant) need; 22 of it is require(), for shared.luau and prices.luau,
+# and 15 is noctalia.openSettings(), behind the cog and the right-click.
+plugin_api = 43
+# The first half of every entry id ("cmoro-deusto/nan-usage:bar"), so it has to
+# stay put once someone has the widget on their bar.
+author = "cmoro-deusto"
+license = "MIT"
+# The API key is read by this plugin itself, so there is no CLI to depend on. The
+# one thing that leaves the process is the panel's link buttons: Noctalia has no API
+# to open a URL, so NaN's dashboard goes to whichever browser opener exists, `gio`
+# (glib2) or `xdg-open` (xdg-utils), and with neither installed the address is
+# copied to the clipboard instead. Noctalia shows this list as "requires …", so it
+# names the one opener most plugins declare, rather than two that read as both
+# being needed; the README's Requirements say either works.
+dependencies = ["xdg-open"]
+tags = ["bar", "panel", "ai", "indicator", "utility"]
+icon = "brain"
+description = "Your NaN (nan.builders) credits in the bar: allowance used, cache share, where the credits went, and pace warnings."
+
+# Settings are plugin-level, which is what puts them behind the cog: the panel's
+# header opens this page, and both surfaces read the same values.
+
+[[setting]]
+key = "api_key"
+type = "file"
+label_key = "settings.api_key.label"
+description_key = "settings.api_key.description"
+default = "~/.config/nan/api-key"
+
+[[setting]]
+key = "interval"
+type = "int"
+label_key = "settings.interval.label"
+description_key = "settings.interval.description"
+default = 300
+min = 15
+max = 1800
+
+[[setting]]
+key = "bar_value"
+type = "select"
+label_key = "settings.bar_value.label"
+description_key = "settings.bar_value.description"
+default = "percent"
+options = [
+  { value = "percent", label_key = "settings.bar_value.percent" },
+  { value = "used", label_key = "settings.bar_value.used" },
+  { value = "remaining", label_key = "settings.bar_value.remaining" },
+]
+
+[[setting]]
+key = "panel_gauge"
+type = "select"
+label_key = "settings.panel_gauge.label"
+description_key = "settings.panel_gauge.description"
+default = "bar"
+options = [
+  { value = "bar", label_key = "settings.panel_gauge.bar" },
+  { value = "battery", label_key = "settings.panel_gauge.battery" },
+  { value = "sparkline", label_key = "settings.panel_gauge.sparkline" },
+  { value = "none", label_key = "settings.panel_gauge.none" },
+]
+
+[[setting]]
+key = "show_reset"
+type = "bool"
+label_key = "settings.show_reset.label"
+description_key = "settings.show_reset.description"
+default = true
+
+[[setting]]
+key = "show_cache"
+type = "bool"
+label_key = "settings.show_cache.label"
+description_key = "settings.show_cache.description"
+default = false
+
+[[setting]]
+key = "show_icon"
+type = "bool"
+label_key = "settings.show_icon.label"
+description_key = "settings.show_icon.description"
+default = true
+
+[[setting]]
+key = "icon_style"
+type = "select"
+label_key = "settings.icon_style.label"
+description_key = "settings.icon_style.description"
+default = "ghost"
+options = [
+  { value = "ghost", label_key = "settings.icon_style.ghost" },
+  { value = "color", label_key = "settings.icon_style.color" },
+]
+
+[[setting]]
+key = "show_glyph"
+type = "bool"
+label_key = "settings.show_glyph.label"
+description_key = "settings.show_glyph.description"
+default = false
+
+[[setting]]
+key = "glyph"
+type = "glyph"
+label_key = "settings.glyph.label"
+description_key = "settings.glyph.description"
+default = "chart-pie"
+
+[[setting]]
+key = "show_tooltip"
+type = "bool"
+label_key = "settings.show_tooltip.label"
+description_key = "settings.show_tooltip.description"
+default = true
+
+[[setting]]
+key = "site_action"
+type = "select"
+label_key = "settings.site_action.label"
+description_key = "settings.site_action.description"
+default = "open"
+options = [
+  { value = "open", label_key = "settings.site_action.open" },
+  { value = "copy", label_key = "settings.site_action.copy" },
+]
+
+[[setting]]
+key = "left_click"
+type = "select"
+label_key = "settings.left_click.label"
+description_key = "settings.left_click.description"
+default = "panel"
+options = [
+  { value = "panel", label_key = "settings.left_click.panel" },
+  { value = "nothing", label_key = "settings.left_click.nothing" },
+]
+
+# The poller. It owns the API key and the one request; the widget and the panel
+# are subscribers of what it publishes.
+[[service]]
+id = "poller"
+entry = "service.luau"
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+# The detail view. Noctalia places it (attached to the bar, near whatever opened
+# it), so this needs no compositor configuration: open it from the bar widget,
+# from the cog, or with `noctalia msg panel-toggle cmoro-deusto/nan-usage:panel`.
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 820
+height = 520
+placement = "attached"
+position = "auto"
+open_near_click = true

@@ -1,0 +1,84 @@
+{
+  "bar": {
+    "click_handler": {
+      "error": {
+        "missing_cli": "Shelly CLI ist nicht installiert. Bitte installiere es, um diese Funktion nutzen zu können.",
+        "missing_gui": "Shelly GUI ist nicht installiert. Bitte installiere es, um diese Funktion nutzen zu können."
+      }
+    },
+    "text": {
+      "error": "?",
+      "updates": {
+        "one": "{count} Update",
+        "other": "{count} Updates"
+      }
+    },
+    "tooltip": {
+      "aur_title": "AUR",
+      "error": {
+        "decode_json": "Decodierung der Ausgabe von `shelly check-updates --json` fehlgeschlagen"
+      },
+      "flatpak_title": "Flatpak",
+      "no_updates": "System ist auf dem neuesten Stand",
+      "packages_title": "Pakete"
+    }
+  },
+  "notify": {
+    "new_updates": {
+      "description": "Für dein System sind {count} neue Updates verfügbar.",
+      "title": "Neue Updates verfügbar"
+    }
+  },
+  "settings": {
+    "bar_font_size": {
+      "description": "Die Schriftgröße des Leistentextes.",
+      "label": "Schriftgröße der Leiste"
+    },
+    "bar_label": {
+      "description": "Bezeichnung, die in der Leiste angezeigt werden soll.",
+      "label": "Leistenbezeichnung",
+      "options": {
+        "count_and_label": "Zählen und beschriften (z.B. 5 Aktualisierungen)",
+        "count_only": "Nur zählen (z.B. 5)"
+      }
+    },
+    "click_action": {
+      "description": "Was passiert, wenn man auf die Leiste klickt",
+      "label": "Klick Aktion",
+      "options": {
+        "none": "Nichts",
+        "open_gui": "Öffne Shelly GUI",
+        "open_updater": "Starte Update in Terminal"
+      }
+    },
+    "color": {
+      "description": "Die Farbe des Textes in der Leiste",
+      "label": "Farbe"
+    },
+    "glyph": {
+      "description": "Das von dem Label angezeigte Symbol",
+      "label": "Symbol"
+    },
+    "glyph_color": {
+      "description": "Die Farbe des Symbols",
+      "label": "Symbol Farbe"
+    },
+    "glyph_size": {
+      "description": "Die Größe des Symbols",
+      "label": "Symbol Größe"
+    },
+    "hide_when_up_to_date": {
+      "description": "Ob die Leiste ausgeblendet werden soll, wenn keine Aktualisierungen verfügbar sind",
+      "label": "Ausblenden wenn auf dem neuesten Stand"
+    },
+    "interval": {
+      "description": "Wie oft der Dienst im Hintergrund nach Updates sucht",
+      "label": "Aktualisierungsintervall in Sekunden"
+    },
+    "notify": {
+      "description": "Ob bei verfügbaren Updates eine Benachrichtigung angezeigt werden soll",
+      "label": "Benachrichtigen"
+    }
+  },
+  "title": "Shelly"
+}

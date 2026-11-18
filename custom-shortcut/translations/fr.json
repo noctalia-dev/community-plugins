@@ -1,0 +1,16 @@
+{
+  "settings": {
+    "icon": {
+      "description": "Icône du raccourci du centre de contrôle.",
+      "label": "Icône"
+    },
+    "label": {
+      "description": "Texte du raccourci du centre de contrôle.",
+      "label": "Libellé"
+    },
+    "onclick_cmd": {
+      "description": "Commande exécutée lorsque le raccourci est cliqué.",
+      "label": "Commande"
+    }
+  }
+}

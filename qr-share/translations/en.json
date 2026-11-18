@@ -1,0 +1,39 @@
+{
+  "clip": {
+    "chars_from_clipboard": "{count} characters (from clipboard)",
+    "chars_from_manual": "{count} characters (typed manually)",
+    "empty": "No QR code yet. Take from the clipboard or type something.",
+    "empty_clipboard": "Clipboard is empty (or not text).",
+    "empty_input": "The input box is still empty.",
+    "failed": "Failed to create the QR code.",
+    "generate": "Generate",
+    "placeholder": "Type text or a URL here, or press Take from Clipboard…",
+    "take": "Take from Clipboard",
+    "too_long": "Text is too long for a QR code (max {max} characters)."
+  },
+  "qr": {
+    "copied_body": "QR code copied as an image.",
+    "copied_title": "QR Share",
+    "copy": "Copy QR",
+    "copy_failed": "Failed to copy the QR code to the clipboard.",
+    "hint": "Click the QR code to copy the image",
+    "read_failed": "Failed to read the QR code file."
+  },
+  "status": {
+    "working": "Working…"
+  },
+  "tab": {
+    "clipboard": "Clipboard",
+    "wifi": "Wi-Fi"
+  },
+  "title": "QR Share",
+  "wifi": {
+    "empty": "No active Wi-Fi connection.",
+    "failed": "Failed to create the Wi-Fi QR code.",
+    "missing_nmcli": "nmcli not found.",
+    "open": "Open",
+    "reload": "Reload",
+    "security": "Security: {security}",
+    "ssid": "Network: {ssid}"
+  }
+}

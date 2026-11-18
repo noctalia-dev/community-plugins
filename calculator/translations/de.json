@@ -1,0 +1,38 @@
+{
+  "bar": {
+    "tooltip": "Rechner"
+  },
+  "panel": {
+    "copied": "Kopiert: {value}",
+    "copy": "Ergebnis kopieren",
+    "deg": "GRAD",
+    "placeholder": "Ausdruck eingeben, Enter drücken",
+    "rad": "RAD",
+    "title": "Rechner"
+  },
+  "settings": {
+    "angle_unit": {
+      "description": "Einheit, die die trigonometrischen Funktionen verwenden.",
+      "label": "Winkeleinheit",
+      "options": {
+        "deg": "Grad",
+        "rad": "Bogenmaß"
+      }
+    },
+    "max_bar_length": {
+      "description": "Längere Ergebnisse werden in der Leiste mit Auslassungspunkten gekürzt.",
+      "label": "Maximale Länge in der Leiste"
+    },
+    "precision": {
+      "description": "Maximale Anzahl Nachkommastellen bei der Ergebnisformatierung.",
+      "label": "Dezimalgenauigkeit"
+    },
+    "show_bar_value": {
+      "description": "Zeigt das letzte Ergebnis neben dem Rechner-Symbol an.",
+      "label": "Wert in der Leiste anzeigen"
+    }
+  },
+  "state": {
+    "error": "Fehler"
+  }
+}

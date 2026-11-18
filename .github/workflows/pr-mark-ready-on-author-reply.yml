@@ -1,0 +1,45 @@
+name: Mark Pull Request Ready After Plugin Author Reply
+
+on:
+  issue_comment:
+    types: [created]
+
+# The built-in token marks pull requests ready for review (the GraphQL mutation needs
+# contents: write) and, through the template check below, may convert them back to drafts
+# and post the explanation comment.
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  mark-ready-after-author-reply:
+    if: github.repository == 'noctalia-dev/community-plugins' && github.event.issue.pull_request != null
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: $/.github/workflows/setup/pygithub
+
+      - name: Mark Ready After Author Reply
+        id: mark-ready
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+          PULL_REQUEST_NUMBER: ${{ github.event.issue.number }}
+          COMMENT_AUTHOR: ${{ github.event.comment.user.login }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        run: python3 .github/workflows/scripts/pr-mark-ready-on-author-reply.py
+
+      # Events caused by the built-in token start no other workflow runs, so marking the
+      # pull request ready does not trigger enforce-pr-template.yml. Run the same check
+      # here, from the default branch checkout, against the now-ready pull request.
+      - name: Enforce pull request template
+        if: steps.mark-ready.outputs.marked == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PULL_REQUEST_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/pulls/$PULL_REQUEST_NUMBER" \
+            | jq '{pull_request: .}' > "$RUNNER_TEMP/ready-for-review-event.json"
+          python3 .github/workflows/scripts/enforce-pr-template.py "$RUNNER_TEMP/ready-for-review-event.json"

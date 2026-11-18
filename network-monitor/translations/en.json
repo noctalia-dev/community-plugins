@@ -1,0 +1,52 @@
+{
+  "context": {
+    "refresh": "Refresh",
+    "settings": "Settings"
+  },
+  "panel": {
+    "close": "Close",
+    "exposed": "exposed",
+    "listening_ports": "Listening ports",
+    "local": "local",
+    "no_ports": "No listening ports",
+    "open_in_browser": "Open in browser",
+    "pid": "pid {pid}",
+    "refresh": "Refresh",
+    "scan_error": "Could not scan listening ports",
+    "settings": "Settings",
+    "stop": "Stop",
+    "title": "Network",
+    "traffic": "Traffic",
+    "unknown_process": "Unknown process"
+  },
+  "settings": {
+    "hide_system_ports": {
+      "description": "Skip well-known service ports like DNS and CUPS",
+      "label": "Hide system ports (below 1024)"
+    },
+    "include_udp": {
+      "description": "Also list UDP sockets, not just TCP listeners",
+      "label": "Include UDP"
+    },
+    "only_own_processes": {
+      "description": "Only show listeners with a visible process ID",
+      "label": "Only known processes"
+    },
+    "refresh_interval": {
+      "description": "How often to scan for listening ports, in seconds",
+      "label": "Refresh interval"
+    },
+    "show_ports": {
+      "description": "Number of listening ports in the bar",
+      "label": "Show ports"
+    },
+    "show_speed": {
+      "description": "Download and upload rates in the bar",
+      "label": "Show speed"
+    }
+  },
+  "tooltip": {
+    "more": "+{count} more",
+    "speed": "↓ {rx}   ↑ {tx}"
+  }
+}

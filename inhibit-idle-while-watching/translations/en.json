@@ -1,0 +1,50 @@
+{
+  "settings": {
+    "camera_mode": {
+      "description": "Which sensor to check: visible light, infrared, an ambient-light decision per check (dark uses IR), or both sensors with a face on either keeping the session awake.",
+      "label": "Camera mode",
+      "options": {
+        "ir": "IR",
+        "rgb": "RGB",
+        "robust": "Robust",
+        "smart": "Smart"
+      }
+    },
+    "camera_path": {
+      "description": "Video device path such as /dev/video0. Leave empty to auto-detect. When set, it overrides Camera mode and this exact camera is checked.",
+      "label": "Camera device"
+    },
+    "capture_width": {
+      "description": "Frame width in pixels for each check; height follows 4:3. Detection runs on a 320 px-wide downscale regardless, so this mainly trades camera bandwidth.",
+      "label": "Capture width"
+    },
+    "cooldown_s": {
+      "description": "Minimum seconds between gate runs, bounding camera wake-ups if idle triggers stack up.",
+      "label": "Spawn cooldown"
+    },
+    "debug_log": {
+      "description": "Write the helper's activity log to the plugin data directory. Off by default; the log records verdicts and camera details, never images.",
+      "label": "Debug log"
+    },
+    "detector": {
+      "description": "haar is cheap and runs on a small grayscale frame; dnn is more accurate but needs assets/face-dnn.onnx and more CPU.",
+      "label": "Detector",
+      "options": {
+        "dnn": "DNN",
+        "haar": "Haar"
+      }
+    },
+    "enabled": {
+      "description": "Master switch. When off, the plugin never touches the camera and the idle chain runs unmodified.",
+      "label": "Enable face checks"
+    },
+    "ir_threshold_lux": {
+      "description": "Smart mode only: below this ambient light level the IR camera is used, at or above it the RGB camera. The ambient sensor is read once per check.",
+      "label": "IR switch threshold (lux)"
+    },
+    "sensitivity": {
+      "description": "1 is lenient (more false faces, session stays awake more easily), 10 is strict. Applies to both detectors.",
+      "label": "Sensitivity"
+    }
+  }
+}

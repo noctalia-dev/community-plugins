@@ -1,0 +1,54 @@
+id = "nickh/maildir"
+name = "Maildir"
+version = "0.0.7"
+plugin_api = 3
+author = "Nick Hastings"
+license = "MIT"
+icon = "mail"
+tags = ["bar"]
+description = "New mail widget"
+dependencies = ["find", "grep", "wc"]
+
+[[widget]]
+id = "maildir"
+entry = "maildir.luau"
+   [[widget.setting]]
+   key = "maildir"
+   type = "string"
+   label_key = "settings.maildir.label"
+   default = "~/Mail"
+
+   [[widget.setting]]
+   key = "inboxes"
+   type = "string_list"
+   label_key = "settings.inboxes.label"
+   description_key = "settings.inboxes.description"
+   default = ["INBOX:in"]
+
+    [[widget.setting]]
+    key = "count_cur"
+    type = "bool"
+    label_key = "settings.count_cur.label"
+    description_key = "settings.count_cur.description"
+    default = true
+
+    [[widget.setting]]
+    key = "nomail"
+   type = "string"
+   label_key = "settings.nomail.label"
+   description_key = "settings.nomail.description"
+   default = "M=0"
+
+   [[widget.setting]]
+   key = "update_interval"
+   type = "int"
+   label_key = "settings.update_interval.label"
+   description_key = "settings.update_interval.description"
+   default = 10
+
+   [[widget.setting]]
+   key = "click_command"
+   type = "string"
+   label_key = "settings.click_command.label"
+   description_key = "settings.click_command.description"
+   default = ""

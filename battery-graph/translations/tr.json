@@ -1,0 +1,19 @@
+{
+  "settings": {
+    "battery_path": {
+      "description": "upower pil cihazının Dbus yolu",
+      "label": "Pil yolu"
+    },
+    "graph_time": {
+      "description": "Grafiğin kaç saatlik bir zaman aralığını çizeceği",
+      "label": "Grafik zaman aralığı"
+    },
+    "interpol_time": {
+      "description": "Noktalar arasındaki sürenin kaç dakika olacağı",
+      "label": "Noktalar arası süre"
+    }
+  },
+  "text": {
+    "graph_name": "Pil"
+  }
+}

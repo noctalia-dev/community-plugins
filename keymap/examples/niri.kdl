@@ -1,0 +1,57 @@
+// Keymap example for Niri.
+// This file is documentation and test data; it is not loaded automatically.
+
+binds {
+    // #"Applications"
+    Mod+Return hotkey-overlay-title="Open terminal" { spawn-sh "foot"; }
+    Mod+B hotkey-overlay-title="Open browser" { spawn-sh "firefox"; }
+    Mod+E hotkey-overlay-title="Open files" { spawn-sh "xdg-open ."; }
+    Mod+Space hotkey-overlay-title="Open launcher" { spawn-sh "noctalia msg panel-toggle launcher"; }
+    Mod+M hotkey-overlay-title="Open mail" { spawn-sh "thunderbird"; }
+    Mod+A hotkey-overlay-title="Open calculator" { spawn-sh "gnome-calculator"; }
+
+    // #"Windows"
+    Mod+Q hotkey-overlay-title="Close window" { close-window; }
+    Mod+F hotkey-overlay-title="Toggle fullscreen" { fullscreen-window; }
+    Mod+Shift+F hotkey-overlay-title="Toggle floating" { toggle-window-floating; }
+    Mod+Left hotkey-overlay-title="Focus left" { focus-column-left; }
+    Mod+Right hotkey-overlay-title="Focus right" { focus-column-right; }
+    Mod+Up hotkey-overlay-title="Focus up" { focus-window-up; }
+    Mod+Down hotkey-overlay-title="Focus down" { focus-window-down; }
+    Mod+Shift+Left hotkey-overlay-title="Move window left" { move-column-left; }
+    Mod+Shift+Right hotkey-overlay-title="Move window right" { move-column-right; }
+    Mod+Tab hotkey-overlay-title="Focus next window" { focus-window-or-workspace-down; }
+
+    // #"Workspaces"
+    Mod+1 hotkey-overlay-title="Workspace 1" { focus-workspace 1; }
+    Mod+2 hotkey-overlay-title="Workspace 2" { focus-workspace 2; }
+    Mod+3 hotkey-overlay-title="Workspace 3" { focus-workspace 3; }
+    Mod+4 hotkey-overlay-title="Workspace 4" { focus-workspace 4; }
+    Mod+Shift+1 hotkey-overlay-title="Move to workspace 1" { move-column-to-workspace 1; }
+    Mod+Shift+2 hotkey-overlay-title="Move to workspace 2" { move-column-to-workspace 2; }
+    Mod+WheelScrollDown hotkey-overlay-title="Next workspace" { focus-workspace-down; }
+    Mod+WheelScrollUp hotkey-overlay-title="Previous workspace" { focus-workspace-up; }
+
+    // #"Screenshots"
+    Print hotkey-overlay-title="Capture monitor" { screenshot-screen; }
+    Shift+Print hotkey-overlay-title="Capture region" { screenshot; }
+    Ctrl+Print hotkey-overlay-title="Capture window" { screenshot-window; }
+
+    // #"Noctalia"
+    Mod+K hotkey-overlay-title="Open Keymap" { spawn-sh "noctalia msg panel-toggle blackbartblues/keymap:panel"; }
+    Mod+V hotkey-overlay-title="Clipboard history" { spawn-sh "noctalia msg panel-toggle clipboard"; }
+    Mod+N hotkey-overlay-title="Notifications" { spawn-sh "noctalia msg panel-toggle notifications"; }
+    Mod+P hotkey-overlay-title="Session menu" { spawn-sh "noctalia msg panel-toggle session-menu"; }
+
+    // #"Media"
+    XF86AudioPlay hotkey-overlay-title="Play or pause" { spawn-sh "playerctl play-pause"; }
+    XF86AudioNext hotkey-overlay-title="Next track" { spawn-sh "playerctl next"; }
+    XF86AudioPrev hotkey-overlay-title="Previous track" { spawn-sh "playerctl previous"; }
+    XF86AudioMute hotkey-overlay-title="Mute audio" { spawn-sh "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"; }
+    XF86AudioRaiseVolume hotkey-overlay-title="Volume up" { spawn-sh "wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+"; }
+    XF86AudioLowerVolume hotkey-overlay-title="Volume down" { spawn-sh "wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"; }
+
+    // #"Utilities"
+    Mod+Shift+C hotkey-overlay-title="Pick a color" { spawn-sh "hyprpicker -a"; }
+    Mod+L hotkey-overlay-title="Lock screen" { spawn-sh "noctalia msg session lock"; }
+}

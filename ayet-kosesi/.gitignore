@@ -1,0 +1,4 @@
+noctalia.d.luau
+*.bak
+*.tmp
+.DS_Store

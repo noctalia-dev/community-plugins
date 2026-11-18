@@ -1,0 +1,196 @@
+{
+  "name": "Docker & Podman Shipyard",
+  "description": "Unified Docker and Podman manager for Wayland: compose stacks, atomic containers, live event streaming, and asset pruning.",
+  "settings": {
+    "daemon_type": {
+      "label": "Container Daemon",
+      "description": "Default engine to manage and connect to.",
+      "docker": "Docker",
+      "podman": "Podman"
+    },
+    "compose_scan_dirs": {
+      "label": "Compose Scan Directories",
+      "description": "Directories to scan recursively for compose configuration files."
+    },
+    "refresh_interval": {
+      "label": "Stats Refresh Interval",
+      "description": "Interval in seconds to update active container CPU and memory stats while panel is viewed."
+    },
+    "confirm_destructive": {
+      "label": "Confirm Destructive Actions",
+      "description": "Ask for confirmation before deleting containers, volumes, networks, or pruning images."
+    },
+    "widget": {
+      "show_stats": {
+        "label": "Show CPU & RAM in Widget",
+        "description": "Display live daemon usage percentages directly in the status bar widget."
+      },
+      "glyph": {
+        "label": "Widget Icon",
+        "description": "Icon displayed in the bar widget."
+      }
+    }
+  },
+  "header": {
+    "title": "Docker & Podman Shipyard",
+    "switch_to_podman": "Switch to Podman",
+    "switch_to_docker": "Switch to Docker",
+    "daemon_inactive": "Daemon offline or unreachable",
+    "daemon_missing": "{daemon} not found — install it or switch engines",
+    "stats": "CPU: {cpu} | RAM: {ram}"
+  },
+  "tabs": {
+    "stacks": "Stacks",
+    "containers": "Containers",
+    "images": "Images",
+    "infrastructure": "Infrastructure",
+    "pods": "Pods",
+    "settings": "Settings"
+  },
+  "stacks": {
+    "empty": "No {daemon} Compose projects found in configured scan directories.",
+    "scan_hint": "Place compose.yaml or docker-compose.yml files in your scan directories.",
+    "scanning": "Scanning…",
+    "scanning_dirs": "Scanning configured directories for compose files…",
+    "scan_completed_found": "Scan completed: found {count} compose stack(s)",
+    "scan_completed_empty": "No compose files found in configured scan directories",
+    "scan_again": "Scan Again",
+    "configured_dirs": "Configured scan directories: {dirs}",
+    "up": "Up",
+    "down": "Down",
+    "deploy_eject": "Deploy & Eject",
+    "deploy_eject_tooltip": "Spins up compose stack and delegates container management to the Containers tab.",
+    "active": "Active",
+    "inactive": "Stopped"
+  },
+  "containers": {
+    "empty": "No containers found on {daemon}.",
+    "running": "Running",
+    "exited": "Exited",
+    "paused": "Paused",
+    "start": "Start",
+    "stop": "Stop",
+    "restart": "Restart",
+    "remove": "Remove",
+    "logs": "Logs",
+    "search_placeholder": "Search by name, image, or port…",
+    "browse_online_cta": "Browse & Run Images Online",
+    "rootless": "Rootless",
+    "rootful": "Rootful",
+    "open_port_tooltip": "Open {url} in default browser"
+  },
+  "images": {
+    "empty": "No downloaded images found.",
+    "prune_unused": "Prune Unused Images",
+    "in_use": "{count} using",
+    "tag": "Tag",
+    "size": "Size",
+    "created": "Created",
+    "remove": "Remove Image",
+    "search_placeholder": "Search by name or tag…",
+    "subview_local": "Local Images ({count})",
+    "subview_online": "Browse Online Registry",
+    "browse_online_cta": "Browse Online Registry",
+    "online_search_placeholder": "Search Docker Hub (e.g. nginx, redis, postgres, alpine)…",
+    "online_search_button": "Search",
+    "popular_label": "Popular:",
+    "official_badge": "Official",
+    "stars_count": "{count} stars",
+    "run": "Run",
+    "pull": "Pull",
+    "pull_tooltip": "Pull image layers to local storage",
+    "run_tooltip": "Configure and run as a container",
+    "searching": "Searching registry for \"{query}\"…",
+    "no_online_results": "No registry images found matching \"{query}\".",
+    "online_intro_title": "Search & Run Container Images",
+    "online_intro_subtitle": "Search Docker Hub or click a popular tag above to find images and run them instantly.",
+    "launch_modal_title": "Run Container: {image}",
+    "launch_name_label": "Container Name",
+    "launch_name_placeholder": "e.g. my-service (optional)",
+    "launch_port_label": "Port Mapping (Host:Container)",
+    "launch_port_placeholder": "e.g. 8080:80 or -P (optional)",
+    "publish_all_label": "Publish all ports (-P)",
+    "launch_env_label": "Environment Variables",
+    "launch_env_placeholder": "KEY=VALUE (comma-separated, optional)",
+    "launch_cmd_label": "Command (optional)",
+    "launch_cmd_placeholder": "e.g. sleep infinity (optional)",
+    "launch_button": "Launch Container",
+    "cancel_button": "Cancel"
+  },
+  "infrastructure": {
+    "volumes_title": "Volumes",
+    "networks_title": "Networks",
+    "empty_volumes": "No storage volumes found.",
+    "empty_networks": "No networks found.",
+    "orphan": "Unattached",
+    "in_use": "Attached",
+    "mountpoint": "Mount",
+    "driver": "Driver",
+    "remove": "Delete",
+    "volume_in_use_tooltip": "Cannot delete volume while attached to containers",
+    "network_in_use_tooltip": "Cannot delete network while attached to containers",
+    "network_system_tooltip": "System network cannot be removed"
+  },
+  "pods": {
+    "empty": "No Podman pods found.",
+    "containers": "{count} container(s)",
+    "start": "Start",
+    "stop": "Stop",
+    "remove": "Remove Pod",
+    "running": "Running",
+    "exited": "Exited",
+    "generate_systemd": "→ systemd",
+    "generate_systemd_tooltip": "Generate a systemd service unit for this pod via podman generate systemd",
+    "generate_kube": "→ Kube YAML",
+    "generate_kube_tooltip": "Generate a Kubernetes YAML manifest for this pod via podman kube generate",
+    "generate_title": "Generated Output",
+    "generate_copy": "Copy to Clipboard"
+  },
+  "logs": {
+    "title": "Logs: {name}",
+    "loading": "Fetching logs…",
+    "empty": "No log output returned.",
+    "close": "Close",
+    "tail_label": "Last {lines} lines",
+    "wrap_toggle": "Wrap lines"
+  },
+  "settings_panel": {
+    "title": "Shipyard Settings",
+    "scan_dirs_label": "Compose Scan Directories",
+    "scan_dirs_hint": "Directories scanned recursively for compose files.",
+    "add_dir": "Add Directory",
+    "add_dir_placeholder": "~/path/to/projects",
+    "remove_dir": "Remove",
+    "refresh_interval_label": "Stats Refresh Interval (seconds)",
+    "confirm_destructive_label": "Confirm Destructive Actions",
+    "save": "Save & Rescan",
+    "saved": "Saved!"
+  },
+  "confirm": {
+    "title": "Confirm Action",
+    "compose_down": "Stop and remove compose stack \"{name}\"? This cannot be undone.",
+    "container_remove": "Remove container \"{name}\"? This cannot be undone.",
+    "image_remove": "Remove image \"{name}\"? This cannot be undone.",
+    "images_prune": "Prune ALL unused images? This cannot be undone.",
+    "volume_remove": "Delete volume \"{name}\"? Data inside will be permanently lost.",
+    "network_remove": "Delete network \"{name}\"? This cannot be undone.",
+    "pod_remove": "Remove pod \"{name}\" and all its containers?",
+    "yes": "Yes, Delete",
+    "no": "Cancel"
+  },
+  "notifications": {
+    "action_success": "{action} completed successfully",
+    "action_failed": "{action} failed: {error}",
+    "daemon_switched": "Switched to {daemon}",
+    "daemon_not_installed": "{daemon} is not installed or not on PATH — install it first",
+    "scan_started": "Scanning directories for compose files…",
+    "scan_found": "Scan completed: found {count} compose stack(s)",
+    "scan_empty": "No compose stacks found in configured scan directories",
+    "scan_error": "Scan failed: {error}",
+    "refresh_complete": "Refreshed {stacks} stacks, {containers} containers, {images} images"
+  },
+  "tasks": {
+    "in_progress": "Operation in progress…",
+    "busy_tooltip": "Operation in progress: {task}"
+  }
+}

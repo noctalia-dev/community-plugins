@@ -1,0 +1,25 @@
+id           = "dunarand/tmux-provider"
+name         = "tmux Provider"
+version      = "0.1.0"
+plugin_api   = 3
+author       = "dunarand"
+license      = "MIT"
+icon         = "terminal"
+description  = "Find and attach tmux sessions from the launcher. Type /tm to list tmux sessions or tmuxp configurations."
+tags         = ["launcher", "productivity", "development"]
+dependencies = ["tmux", "tmuxp"]
+
+[[setting]]
+key             = "use_tmuxp"
+type            = "bool"
+label_key       = "settings.use_tmuxp.label"
+description_key = "settings.use_tmuxp.description"
+default         = false
+
+[[launcher_provider]]
+id                       = "provider"
+entry                    = "tmux_provider.luau"
+prefix                   = "tm"
+glyph                    = "terminal"
+include_in_global_search = false
+debounce_ms              = 0

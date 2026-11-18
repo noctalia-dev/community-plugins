@@ -1,0 +1,45 @@
+id           = "quaversa/wfmu"
+name         = "WFMU"
+version      = "1.0.1"
+plugin_api   = 32
+author       = "quaversa"
+license      = "MIT"
+icon         = "radio-2"
+description  = "Play WFMU live streams and the latest archived show of every WFMU show."
+tags         = ["music", "media", "bar", "panel"]
+dependencies = ["mpv", "python3", "xdg-open"]
+
+[[setting]]
+key             = "refresh_cmd"
+type            = "string"
+label_key       = "settings.refresh_cmd.label"
+description_key = "settings.refresh_cmd.description"
+default         = ""
+
+[[setting]]
+key             = "tsv_path"
+type            = "string"
+label_key       = "settings.tsv_path.label"
+description_key = "settings.tsv_path.description"
+default         = ""
+
+# Headless service: downloads the stream list on load and keeps it fresh, so the
+# panel is populated the first time it is opened instead of starting empty.
+[[service]]
+id    = "fetcher"
+entry = "service.luau"
+
+[[widget]]
+id    = "control"
+entry = "widget.luau"
+
+  [widget.actions]
+  middle = "none"
+
+[[panel]]
+id     = "browse"
+entry  = "panel.luau"
+width  = 480
+height = 560
+placement  = "attached"
+open_near_click = true

@@ -1,0 +1,115 @@
+id = "h-jangra/region-recorder"
+name = "Region Recorder"
+version = "0.1.0"
+plugin_api = 24
+author = "h-jangra"
+license = "MIT"
+dependencies = ["slurp", "gpu-screen-recorder", "wl-screenrec", "wf-recorder", "ffmpeg"]
+tags = ["recording", "video", "utility", "bar", "shortcut", "service"]
+icon = "crop"
+description = "Minimal region screen recorder for Noctalia."
+
+[[setting]]
+key = "video_source"
+type = "select"
+label_key = "settings.video_source.label"
+description_key = "settings.video_source.description"
+default = "region"
+options = [
+  { value = "region", label_key = "settings.video_source.options.region" },
+  { value = "focused", label_key = "settings.video_source.options.focused" },
+  { value = "portal", label_key = "settings.video_source.options.portal" },
+]
+
+[[setting]]
+key = "directory"
+type = "folder"
+label_key = "settings.directory.label"
+description_key = "settings.directory.description"
+default = "~/Videos/Recordings"
+
+[[setting]]
+key = "filename_pattern"
+type = "string"
+label_key = "settings.filename_pattern.label"
+description_key = "settings.filename_pattern.description"
+default = "recording_%Y%m%d_%H%M%S"
+
+[[setting]]
+key = "frame_rate"
+type = "int"
+label_key = "settings.frame_rate.label"
+description_key = "settings.frame_rate.description"
+default = 60
+min = 1
+max = 240
+
+[[setting]]
+key = "framerate_mode"
+type = "select"
+label_key = "settings.framerate_mode.label"
+description_key = "settings.framerate_mode.description"
+default = "cfr"
+options = [
+  { value = "cfr", label_key = "settings.framerate_mode.options.cfr" },
+  { value = "vfr", label_key = "settings.framerate_mode.options.vfr" },
+  { value = "content", label_key = "settings.framerate_mode.options.content" },
+]
+
+[[setting]]
+key = "video_codec"
+type = "select"
+label_key = "settings.video_codec.label"
+description_key = "settings.video_codec.description"
+default = "h264"
+options = [
+  { value = "h264", label_key = "settings.video_codec.options.h264" },
+  { value = "hevc", label_key = "settings.video_codec.options.hevc" },
+  { value = "av1", label_key = "settings.video_codec.options.av1" },
+]
+
+[[setting]]
+key = "audio_source"
+type = "select"
+label_key = "settings.audio_source.label"
+description_key = "settings.audio_source.description"
+default = "none"
+options = [
+  { value = "none", label_key = "settings.audio_source.options.none" },
+  { value = "default_output", label_key = "settings.audio_source.options.default_output" },
+  { value = "default_input", label_key = "settings.audio_source.options.default_input" },
+  { value = "both", label_key = "settings.audio_source.options.both" },
+]
+
+[[setting]]
+key = "show_cursor"
+type = "bool"
+label_key = "settings.show_cursor.label"
+description_key = "settings.show_cursor.description"
+default = true
+
+[[setting]]
+key = "copy_to_clipboard"
+type = "bool"
+label_key = "settings.copy_to_clipboard.label"
+description_key = "settings.copy_to_clipboard.description"
+default = false
+
+[[setting]]
+key = "hide_inactive"
+type = "bool"
+label_key = "settings.hide_inactive.label"
+description_key = "settings.hide_inactive.description"
+default = false
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[widget]]
+id = "widget"
+entry = "widget.luau"
+
+[[shortcut]]
+id = "toggle"
+entry = "shortcut.luau"

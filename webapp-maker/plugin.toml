@@ -1,0 +1,26 @@
+id = "umedbazarov/webapp-maker"
+name = "Webapp Maker"
+version = "1.0.0"
+plugin_api = 9
+author = "umedbazarov"
+license = "MIT"
+icon = "world-plus"
+description = "Turn websites into desktop apps: a launcher entry with the site's icon, opening in its own browser app window."
+dependencies = ["bash", "chmod", "cp", "curl", "file", "grep", "head", "mkdir", "rm", "sed", "setsid", "tr", "xdg-settings"]
+tags = ["panel", "utility"]
+
+[[setting]]
+key = "env_file"
+type = "string"
+label_key = "settings.env_file.label"
+description_key = "settings.env_file.description"
+default = ""
+advanced = true
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 440
+height = 560
+placement = "floating"
+position = "center"

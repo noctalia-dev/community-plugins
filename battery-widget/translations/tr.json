@@ -1,0 +1,63 @@
+{
+  "notify": {
+    "error": "Bir şeyler ters gitti. Ayrıntılar için Noctalia günlüğünü kontrol edin."
+  },
+  "settings": {
+    "battery": {
+      "auto": "Otomatik",
+      "bat0": "BAT0",
+      "custom": "Özel",
+      "description": "Pili otomatik olarak algılayın veya özel bir ad belirleyin.",
+      "label": "Pil"
+    },
+    "battery_name": {
+      "description": "Pilin adı.",
+      "label": "Pil Adı"
+    },
+    "charging_color": {
+      "description": "AC gücüne bağlıyken uygulanan renk.",
+      "label": "Şarj Rengi"
+    },
+    "color": {
+      "description": "Bu widget'ın simgesi ve etiketi için renk rolü; sabit onaltılık (hex) renkler de desteklenir.",
+      "label": "Renk"
+    },
+    "hide_full": {
+      "description": "Tam şarj olduğunda pil widget'ını gizle.",
+      "label": "Doluyken Gizle"
+    },
+    "hide_plugged": {
+      "description": "AC gücüne bağlıyken pil widget'ını gizle.",
+      "label": "Prize Takılıyken Gizle"
+    },
+    "label_content": {
+      "description": "Pil etiketinin ne göstereceği: şarj yüzdesi, kalan süre veya güç tüketimi.",
+      "label": "Etiket İçeriği",
+      "percent": "Yüzde",
+      "rate": "Tüketim Oranı",
+      "time": "Süre"
+    },
+    "layout": {
+      "description": "Widget düzeni.",
+      "horizontal": "Yatay",
+      "label": "Düzen",
+      "vertical": "Dikey"
+    },
+    "refresh_interval": {
+      "description": "Widget'ın içeriğini ne sıklıkla güncelleyeceğini kontrol eder. (saniye cinsinden)",
+      "label": "Yenileme Aralığı"
+    },
+    "show_glyph": {
+      "description": "Pil simgesini göster.",
+      "label": "Simgeyi Göster"
+    },
+    "show_label": {
+      "description": "Simgenin yanında metin göster.",
+      "label": "Etiketi Göster"
+    },
+    "warning_color": {
+      "description": "Şarj Noctalia'nın uyarı eşiğinde veya altındayken uygulanan renk.",
+      "label": "Uyarı Rengi"
+    }
+  }
+}

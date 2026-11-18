@@ -1,0 +1,309 @@
+{
+  "anim": {
+    "credit": "Presets from Hyprland Visual Editor (MIT) by XimoCP, Hermy and linux-fertxo.",
+    "futurista": "Futurista",
+    "none": "Not set by this plugin",
+    "preset": "Preset",
+    "preset_desc": "Curves and timings for windows, fades and workspaces.",
+    "section": "Style"
+  },
+  "banner": {
+    "adopt": "Take over the file (original is kept)",
+    "applying": "Saving and waiting for Hyprland to reload…",
+    "confirmed": "Saved.",
+    "conflict": "The file was changed elsewhere and left alone: {reason}",
+    "dismiss": "Dismiss",
+    "failed": "Not saved: {reason}",
+    "keep": "Keep",
+    "keeping": "Keeping…",
+    "not_effective": "Not in effect, probably overridden by a later file: {list}",
+    "not_ours": "The file was written by hand or edited since the last save.",
+    "pending": "Keep these changes? Reverting in {s} s.",
+    "revert": "Revert",
+    "revert_failed": "Could not revert, retrying: {reason}",
+    "reverted": "Reverted: {reason}",
+    "reverting": "Reverting…",
+    "verifying": "Waiting for Hyprland to load the file…"
+  },
+  "choice": {
+    "general": {
+      "layout": {
+        "dwindle": "Dwindle",
+        "master": "Master",
+        "monocle": "Monocle",
+        "scrolling": "Scrolling"
+      }
+    },
+    "input": {
+      "accel_profile": {
+        "adaptive": "Adaptive",
+        "default": "Device default",
+        "flat": "Flat"
+      }
+    }
+  },
+  "desc": {
+    "animations": {
+      "enabled": "Turn all animations on or off."
+    },
+    "binds": {
+      "workspace_back_and_forth": "Switching to the current workspace goes back to the previous one."
+    },
+    "cursor": {
+      "hide_on_key_press": "Hide the cursor on any key press.",
+      "inactive_timeout": "Seconds without movement before the cursor hides. 0 is never."
+    },
+    "decoration": {
+      "active_opacity": "Opacity of the focused window.",
+      "blur": {
+        "enabled": "Blur what is behind translucent windows.",
+        "passes": "More passes, smoother blur, more GPU time.",
+        "size": "Blur radius per pass. Costs GPU time.",
+        "vibrancy": "Saturation of blurred colors."
+      },
+      "dim_inactive": "Darken windows without focus.",
+      "dim_strength": "How much inactive windows are darkened.",
+      "inactive_opacity": "Opacity of all other windows.",
+      "rounding": "Rounded window corners, in layout px.",
+      "rounding_power": "2 is a circle, higher values give squircle corners.",
+      "shadow": {
+        "enabled": "Drop shadows under windows.",
+        "range": "Shadow range in layout px.",
+        "render_power": "Higher values make the shadow fade faster."
+      }
+    },
+    "general": {
+      "border_size": "Window border thickness. Colors come from your theme.",
+      "gaps_in": "Space between windows, in layout px.",
+      "gaps_out": "Space between windows and the screen edges.",
+      "layout": "How new windows are arranged.",
+      "resize_on_border": "Drag window borders and gaps to resize."
+    },
+    "input": {
+      "accel_profile": "How pointer speed grows with movement.",
+      "follow_mouse": "How moving the pointer changes focus.",
+      "kb_layout": "XKB layout, several separated by commas (e.g. de,us).",
+      "kb_options": "XKB options, e.g. caps:escape.",
+      "kb_variant": "XKB variant, e.g. nodeadkeys. Empty for the default.",
+      "natural_scroll": "Scroll the content, not the view.",
+      "numlock_by_default": "Turn Num Lock on at login.",
+      "repeat_delay": "Milliseconds before a held key repeats.",
+      "repeat_rate": "Repeats per second while a key is held.",
+      "sensitivity": "From -1 (slow) to 1 (fast).",
+      "touchpad": {
+        "clickfinger_behavior": "1, 2 or 3 fingers press left, right or middle button.",
+        "disable_while_typing": "Ignore the touchpad while you type.",
+        "natural_scroll": "Scroll the content with two fingers, like on a phone.",
+        "scroll_factor": "Multiplier for touchpad scrolling.",
+        "tap_to_click": "A light tap counts as a click."
+      }
+    },
+    "misc": {
+      "disable_hyprland_logo": "Hide the background logo.",
+      "disable_splash_rendering": "Hide the splash text under the logo.",
+      "focus_on_activate": "Focus apps that ask for attention.",
+      "key_press_enables_dpms": "A key press turns screens back on.",
+      "mouse_move_enables_dpms": "Moving the mouse turns screens back on.",
+      "vrr": "Adaptive sync (FreeSync / G-Sync)."
+    },
+    "xwayland": {
+      "enabled": "Run X11 apps. Off saves memory if every app is native Wayland.",
+      "force_zero_scaling": "X11 apps render at full resolution instead of being upscaled."
+    }
+  },
+  "disp": {
+    "enabled": "On",
+    "last": "At least one screen must stay on.",
+    "left": "Move left",
+    "live": "Hyprland default, no rule yet",
+    "mode": "Resolution and refresh rate",
+    "not_row": "Your screens are not in one row. The first change here lines them up left to right.",
+    "offline": "Saved, not connected",
+    "position": "Position {pos}",
+    "preferred": "Preferred",
+    "remove": "Remove rule",
+    "right": "Move right",
+    "rotation": "Rotation",
+    "row_hint": "Screens are placed left to right in this order, tops aligned.",
+    "saved": "Saved rule",
+    "scale": "Scale",
+    "t0": "Normal",
+    "t1": "90°",
+    "t2": "180°",
+    "t3": "270°",
+    "t4": "Flipped",
+    "t5": "Flipped 90°",
+    "t6": "Flipped 180°",
+    "t7": "Flipped 270°",
+    "why": "Why this setup?"
+  },
+  "enum": {
+    "input": {
+      "follow_mouse": {
+        "0": "Off",
+        "1": "Always",
+        "2": "Detached",
+        "3": "Separate"
+      }
+    },
+    "misc": {
+      "vrr": {
+        "0": "Off",
+        "1": "On",
+        "2": "Fullscreen only",
+        "3": "Fullscreen games"
+      }
+    }
+  },
+  "group": {
+    "animations": "Animations",
+    "blur": "Blur",
+    "corners": "Corners",
+    "cursor": "Cursor and screen wake",
+    "focus": "Focus",
+    "gaps": "Gaps and borders",
+    "keyboard": "Keyboard",
+    "layout": "Layout",
+    "mouse": "Mouse",
+    "opacity": "Opacity",
+    "shadow": "Shadow",
+    "startup": "Background",
+    "sync": "Display sync",
+    "touchpad": "Touchpad",
+    "xwayland": "X11 apps"
+  },
+  "launcher": {
+    "subtitle": "Displays, input, appearance, animations",
+    "title": "Hyprland Settings"
+  },
+  "opt": {
+    "animations": {
+      "enabled": "Animations"
+    },
+    "binds": {
+      "workspace_back_and_forth": "Workspace back and forth"
+    },
+    "cursor": {
+      "hide_on_key_press": "Hide cursor while typing",
+      "inactive_timeout": "Hide idle cursor"
+    },
+    "decoration": {
+      "active_opacity": "Active opacity",
+      "blur": {
+        "enabled": "Blur",
+        "passes": "Blur passes",
+        "size": "Blur size",
+        "vibrancy": "Blur vibrancy"
+      },
+      "dim_inactive": "Dim inactive windows",
+      "dim_strength": "Dim strength",
+      "inactive_opacity": "Inactive opacity",
+      "rounding": "Corner radius",
+      "rounding_power": "Corner shape",
+      "shadow": {
+        "enabled": "Shadows",
+        "range": "Shadow size",
+        "render_power": "Shadow falloff"
+      }
+    },
+    "general": {
+      "border_size": "Border width",
+      "gaps_in": "Inner gaps",
+      "gaps_out": "Outer gaps",
+      "layout": "Tiling layout",
+      "resize_on_border": "Resize on border"
+    },
+    "input": {
+      "accel_profile": "Acceleration",
+      "follow_mouse": "Focus follows mouse",
+      "kb_layout": "Keyboard layout",
+      "kb_options": "Keyboard options",
+      "kb_variant": "Layout variant",
+      "natural_scroll": "Natural scrolling (mouse)",
+      "numlock_by_default": "Num Lock on start",
+      "repeat_delay": "Repeat delay",
+      "repeat_rate": "Repeat rate",
+      "sensitivity": "Mouse sensitivity",
+      "touchpad": {
+        "clickfinger_behavior": "Click with fingers",
+        "disable_while_typing": "Off while typing",
+        "natural_scroll": "Natural scrolling",
+        "scroll_factor": "Scroll speed",
+        "tap_to_click": "Tap to click"
+      }
+    },
+    "misc": {
+      "disable_hyprland_logo": "No Hyprland logo",
+      "disable_splash_rendering": "No splash text",
+      "focus_on_activate": "Focus on activate",
+      "key_press_enables_dpms": "Wake screen on key",
+      "mouse_move_enables_dpms": "Wake screen on mouse",
+      "vrr": "Variable refresh rate"
+    },
+    "xwayland": {
+      "enabled": "XWayland",
+      "force_zero_scaling": "Sharp X11 apps"
+    }
+  },
+  "panel": {
+    "title": "Hyprland Settings"
+  },
+  "reason": {
+    "config_error": "Hyprland reported: {error}",
+    "not_loaded": "Hyprland did not load the file. Is it required in hyprland.lua?",
+    "outside": "the file was changed elsewhere",
+    "restarted": "the plugin restarted during the countdown",
+    "timeout": "the 15 seconds ran out",
+    "too_late": "too late to keep",
+    "user": "by you"
+  },
+  "settings": {
+    "config_path": {
+      "description": "The Lua file this plugin writes. Load it from hyprland.lua with require(\"hyprland-settings\"). A symlink is followed; the file it points to is replaced.",
+      "label": "Config file"
+    }
+  },
+  "setup": {
+    "ask": "Hyprland does not load the settings file yet. Add this line to the end of {conf}? A backup is kept, and the file is created if it is missing.",
+    "auto": "Set up automatically",
+    "check": "Check again",
+    "custom_path": "The settings file {file} is outside ~/.config/hypr, so it cannot be loaded by name. Move it there in the plugin settings, or load it yourself.",
+    "failed": "Setup failed: {reason}",
+    "manual": "Until Hyprland loads the file, Apply stays off. To connect it yourself:",
+    "no": "No, I'll do it myself",
+    "no_lua": "This system uses hyprland.conf. The plugin needs Hyprland 0.56 or newer with a Lua config.",
+    "not_loaded": "The line is in place, but Hyprland has not loaded the file. Check hyprctl configerrors.",
+    "step1": "1. Create the empty settings file:",
+    "step2": "2. Add this line to {conf}, after your own settings and before anything that must win over the panel:",
+    "step3": "3. Save. Hyprland reloads by itself, then press Check again.",
+    "title": "Connect Hyprland Settings to Hyprland",
+    "working": "Setting up and waiting for Hyprland to reload…",
+    "yes": "Set up"
+  },
+  "tab": {
+    "animations": "Animations",
+    "appearance": "Appearance",
+    "displays": "Displays",
+    "input": "Input",
+    "system": "System"
+  },
+  "ui": {
+    "apply": "Apply",
+    "discard": "Discard",
+    "gaps_sides": "Sides differ: {sides}. The slider sets all four.",
+    "legend": "Highlighted names are written to your settings file. A dot marks an unsaved change; ↶ undoes it, the eraser takes a value out of the file.",
+    "managed": "Written to the file",
+    "no_changes": "No unsaved changes",
+    "not_effective": "Saved {saved}, but Hyprland uses {live}. A later config file probably overrides it.",
+    "read_error": "Cannot read Hyprland: {error}",
+    "unavailable": "Not known to this Hyprland version",
+    "undo": "Undo this change",
+    "unmanage": "Remove from the file: Hyprland uses its default or your other config again",
+    "unsaved": "{n} unsaved changes",
+    "why": "Add a reason (written above the value)",
+    "why_placeholder": "Why this value?"
+  },
+  "widget": {
+    "tooltip": "Hyprland Settings"
+  }
+}

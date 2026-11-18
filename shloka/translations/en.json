@@ -1,0 +1,53 @@
+{
+  "copied": "Verse copied to clipboard",
+  "load_error": "Unable to load Bhagavad Gita data.",
+  "no_verses": "No verses match the current settings.",
+  "settings": {
+    "font_size": {
+      "description": "Base text size; transliteration, translation, and credits scale with it.",
+      "label": "Font size"
+    },
+    "language": {
+      "both": "English and Hindi",
+      "description": "Choose which translation text to display.",
+      "en": "English",
+      "hi": "Hindi",
+      "label": "Translation language",
+      "none": "No translation"
+    },
+    "mode": {
+      "daily": "Daily",
+      "description": "Choose a random verse or keep one verse per local day.",
+      "label": "Verse selection",
+      "random": "Random"
+    },
+    "refresh_minutes": {
+      "description": "Minutes between random verses; 0 disables automatic rotation.",
+      "label": "Random refresh interval"
+    },
+    "show_controls": {
+      "description": "Display previous, copy, and next buttons.",
+      "label": "Show controls"
+    },
+    "show_credit": {
+      "description": "Display the translator and grouped verse range when available.",
+      "label": "Show translation credits"
+    },
+    "show_reference": {
+      "description": "Display chapter, verse, and speaker.",
+      "label": "Show verse reference"
+    },
+    "show_sanskrit": {
+      "description": "Display the Sanskrit verse.",
+      "label": "Show Sanskrit"
+    },
+    "show_transliteration": {
+      "description": "Display the Roman transliteration.",
+      "label": "Show transliteration"
+    },
+    "teachings_only": {
+      "description": "Limit selection to verses spoken by Shri Krishna.",
+      "label": "Teachings only"
+    }
+  }
+}

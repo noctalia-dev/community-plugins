@@ -1,0 +1,28 @@
+{
+  "error": {
+    "msg": {
+      "busctl_fail": "'busctl' {exitCode} çıkış koduyla başarısız oldu",
+      "busctl_incorrect_ident": "'{expected}' bekleniyordu, '{recieved}' alındı",
+      "busctl_json_fail": "'busctl' JSON verisi ayrıştırılamadı",
+      "busctl_not_found": "'busctl' PATH içinde bulunamadı",
+      "busctl_not_found_body": "Lütfen 'busctl' paketinin kurulu olduğundan ve PATH üzerinde doğru şekilde tanımlandığından emin olun",
+      "malformed_value_retval": "Arama bozuk değer döndürdü - 'busctl' dönüş türü tanımlayıcısı hatalı"
+    },
+    "no_cmd_prov": "Hiçbir komut belirtilmedi",
+    "no_stage_prov": "Hiçbir işlev belirtilmedi",
+    "notify": {
+      "activate": {
+        "msg": "Seçilen Flatpak kimliği güvenlik kontrolünden geçemedi, başlatma komutu yok sayılıyor.",
+        "title": "Bazaar Arama Hatası"
+      },
+      "copy": {
+        "msg": "Hata mesajı panoya kopyalandı",
+        "title": "Bazaar Arama Hatası"
+      }
+    },
+    "report": {
+      "command": "Komut",
+      "error": "Hata"
+    }
+  }
+}

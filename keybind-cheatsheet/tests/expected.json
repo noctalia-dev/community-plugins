@@ -1,0 +1,55 @@
+{
+  "mango": {
+    "count": 9,
+    "descriptions": [
+      "Terminal",
+      "Close window",
+      "Workspace 1",
+      "Move window",
+      "Focus left",
+      "Lock on close"
+    ]
+  },
+  "hypr_conf": {
+    "count": 5,
+    "descriptions": [
+      "Terminal",
+      "Move window",
+      "Close window",
+      "Workspace 1"
+    ]
+  },
+  "hypr_lua": {
+    "count": 6,
+    "categories": [
+      "Applications",
+      "Workspaces",
+      "Media",
+      "Volume",
+      "Without Description"
+    ],
+    "keys": [
+      "1",
+      "2"
+    ]
+  },
+  "niri": {
+    "count": 5,
+    "descriptions": [
+      "Terminal",
+      "Close window",
+      "Workspace 1"
+    ]
+  },
+  "fcitx": {
+    "count": 3,
+    "descriptions": [
+      "Switch input method (Norwegian ↔ Pinyin)",
+      "Temporarily switch input method",
+      "Toggle Simplified/Traditional Chinese"
+    ],
+    "categories": [
+      "System"
+    ]
+  }
+}

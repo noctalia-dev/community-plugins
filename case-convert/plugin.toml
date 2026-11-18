@@ -1,0 +1,240 @@
+# Case Convert — convert text between naming conventions from the launcher.
+#
+# Type the provider prefix (default `/case`) followed by the text to convert, or
+# type nothing to convert the current selection / clipboard. Enter copies the
+# highlighted conversion.
+
+id = "kjvdven/case-convert"
+name = "Case Convert"
+version = "1.1.0"
+plugin_api = 3
+author = "kjvdven"
+license = "MIT"
+icon = "text-recognition"
+description = "Convert text between naming conventions (camelCase, kebab-case, snake_case, …) straight from the launcher."
+tags = ["launcher", "utility", "development"]
+# Optional: only used to read the primary selection when the query is empty.
+# Without it the plugin falls back to the clipboard.
+dependencies = ["wl-paste"]
+
+[[launcher_provider]]
+id = "case"
+entry = "case.luau"
+prefix = "case"
+glyph = "text-recognition"
+include_in_global_search = false
+debounce_ms = 60
+
+  # Filter bar. Labels must match the `category` field on the result rows.
+  [[launcher_provider.category]]
+  label = "Programming"
+  glyph = "code"
+
+  [[launcher_provider.category]]
+  label = "Text"
+  glyph = "text-caption"
+
+  [[launcher_provider.category]]
+  label = "Fun"
+  glyph = "mood-smile"
+
+# Plugin-level settings. Launcher providers cannot carry entry-level settings
+# (only widget, desktop_widget and panel entries can), so these live at the root
+# and are read with noctalia.getConfig() from case.luau.
+[[setting]]
+key = "input_source"
+type = "select"
+label_key = "settings.input_source.label"
+description_key = "settings.input_source.description"
+default = "auto"
+options = [
+  { value = "auto", label_key = "settings.input_source.options.auto" },
+  { value = "selection", label_key = "settings.input_source.options.selection" },
+  { value = "clipboard", label_key = "settings.input_source.options.clipboard" },
+]
+
+[[setting]]
+key = "preserve_casing"
+type = "bool"
+label_key = "settings.preserve_casing.label"
+description_key = "settings.preserve_casing.description"
+default = true
+
+[[setting]]
+key = "notify_on_copy"
+type = "bool"
+label_key = "settings.notify_on_copy.label"
+description_key = "settings.notify_on_copy.description"
+default = true
+
+[[setting]]
+key = "category_order"
+type = "string"
+label_key = "settings.category_order.label"
+description_key = "settings.category_order.description"
+default = "Programming, Text, Fun"
+
+[[setting]]
+key = "show_programming"
+type = "bool"
+label_key = "settings.show_programming.label"
+description_key = "settings.show_programming.description"
+default = true
+
+[[setting]]
+key = "show_camel"
+type = "bool"
+label_key = "settings.show_camel.label"
+default = true
+advanced = true
+visible_when = { key = "show_programming", values = ["true"] }
+
+[[setting]]
+key = "show_pascal"
+type = "bool"
+label_key = "settings.show_pascal.label"
+default = true
+advanced = true
+visible_when = { key = "show_programming", values = ["true"] }
+
+[[setting]]
+key = "show_kebab"
+type = "bool"
+label_key = "settings.show_kebab.label"
+default = true
+advanced = true
+visible_when = { key = "show_programming", values = ["true"] }
+
+[[setting]]
+key = "show_snake"
+type = "bool"
+label_key = "settings.show_snake.label"
+default = true
+advanced = true
+visible_when = { key = "show_programming", values = ["true"] }
+
+[[setting]]
+key = "show_constant"
+type = "bool"
+label_key = "settings.show_constant.label"
+default = true
+advanced = true
+visible_when = { key = "show_programming", values = ["true"] }
+
+[[setting]]
+key = "show_dot"
+type = "bool"
+label_key = "settings.show_dot.label"
+default = true
+advanced = true
+visible_when = { key = "show_programming", values = ["true"] }
+
+[[setting]]
+key = "show_path"
+type = "bool"
+label_key = "settings.show_path.label"
+default = true
+advanced = true
+visible_when = { key = "show_programming", values = ["true"] }
+
+[[setting]]
+key = "show_pascal_snake"
+type = "bool"
+label_key = "settings.show_pascal_snake.label"
+default = true
+advanced = true
+visible_when = { key = "show_programming", values = ["true"] }
+
+[[setting]]
+key = "show_kebab_upper"
+type = "bool"
+label_key = "settings.show_kebab_upper.label"
+default = true
+advanced = true
+visible_when = { key = "show_programming", values = ["true"] }
+
+[[setting]]
+key = "show_header"
+type = "bool"
+label_key = "settings.show_header.label"
+default = true
+advanced = true
+visible_when = { key = "show_programming", values = ["true"] }
+
+[[setting]]
+key = "show_text"
+type = "bool"
+label_key = "settings.show_text.label"
+description_key = "settings.show_text.description"
+default = true
+
+[[setting]]
+key = "show_title"
+type = "bool"
+label_key = "settings.show_title.label"
+default = true
+advanced = true
+visible_when = { key = "show_text", values = ["true"] }
+
+[[setting]]
+key = "show_capital"
+type = "bool"
+label_key = "settings.show_capital.label"
+default = true
+advanced = true
+visible_when = { key = "show_text", values = ["true"] }
+
+[[setting]]
+key = "show_sentence"
+type = "bool"
+label_key = "settings.show_sentence.label"
+default = true
+advanced = true
+visible_when = { key = "show_text", values = ["true"] }
+
+[[setting]]
+key = "show_no_case"
+type = "bool"
+label_key = "settings.show_no_case.label"
+default = true
+advanced = true
+visible_when = { key = "show_text", values = ["true"] }
+
+[[setting]]
+key = "show_lower"
+type = "bool"
+label_key = "settings.show_lower.label"
+default = true
+advanced = true
+visible_when = { key = "show_text", values = ["true"] }
+
+[[setting]]
+key = "show_upper"
+type = "bool"
+label_key = "settings.show_upper.label"
+default = true
+advanced = true
+visible_when = { key = "show_text", values = ["true"] }
+
+[[setting]]
+key = "show_fun"
+type = "bool"
+label_key = "settings.show_fun.label"
+description_key = "settings.show_fun.description"
+default = true
+
+[[setting]]
+key = "show_swap"
+type = "bool"
+label_key = "settings.show_swap.label"
+default = true
+advanced = true
+visible_when = { key = "show_fun", values = ["true"] }
+
+[[setting]]
+key = "show_alternating"
+type = "bool"
+label_key = "settings.show_alternating.label"
+default = true
+advanced = true
+visible_when = { key = "show_fun", values = ["true"] }

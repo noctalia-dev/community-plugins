@@ -1,0 +1,22 @@
+{
+  "settings": {
+    "display": {
+      "compact": "Rate only",
+      "full": "Pair and rate",
+      "icon": "Icon only",
+      "label": "Bar display"
+    },
+    "refresh": {
+      "description": "How often rates are fetched",
+      "label": "Refresh (minutes)"
+    },
+    "source": {
+      "description": "Three-letter code, e.g. USD",
+      "label": "Source currency"
+    },
+    "target": {
+      "description": "Three-letter code, e.g. BRL",
+      "label": "Target currency"
+    }
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "notify": {
+    "threshold_error_body": "Şarj sınırı yazılamadı. udev izinlerini kontrol edin (eklenti README dosyasına bakın).",
+    "threshold_error_title": "Pil şarj eşiği"
+  },
+  "panel": {
+    "charge_threshold": "Şarj sınırı",
+    "power_profile": "Güç profili",
+    "profile_balanced": "Dengeli",
+    "profile_performance": "Performans",
+    "profile_power-saver": "Güç tasarrufu",
+    "remaining": "{time} kaldı",
+    "time_to_full": "{time} içinde tam dolacak"
+  },
+  "settings": {
+    "battery_device": {
+      "description": "sysfs pil adı, örn. BAT0 veya BAT1",
+      "label": "Pil cihazı"
+    },
+    "color_performance": {
+      "description": "Performans profili etkinken kullanılan vurgu rengi",
+      "label": "Performans rengi"
+    },
+    "color_power_saver": {
+      "description": "Güç tasarrufu profili etkinken kullanılan vurgu rengi",
+      "label": "Güç tasarrufu rengi"
+    },
+    "colorize_by_profile": {
+      "description": "Widget'ı etkin güç profiline göre renklendir",
+      "label": "Profile göre renklendir"
+    },
+    "show_balanced_icon": {
+      "description": "Dengeli profilindeyken de profil simgesini göster (yalnızca Profil simgesini göster açıkken)",
+      "label": "Dengeli simgesini göster"
+    },
+    "show_profile": {
+      "description": "Etkin güç profili simgesini widget'ta göster",
+      "label": "Profil simgesini göster"
+    }
+  },
+  "status": {
+    "charging": "Şarj oluyor",
+    "discharging": "Boşalıyor",
+    "full": "Dolu",
+    "not_charging": "Şarj olmuyor",
+    "unknown": "Bilinmiyor"
+  },
+  "tooltip": {
+    "level": "Seviye",
+    "power": "Güç",
+    "profile": "Profil",
+    "remaining": "Kalan süre",
+    "status": "Durum",
+    "to_full": "Doluma kalan"
+  }
+}

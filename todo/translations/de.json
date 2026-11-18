@@ -1,0 +1,37 @@
+{
+  "clear_done_confirm": "Alle erledigten Einträge löschen?",
+  "clear_done_no": "Abbrechen",
+  "clear_done_yes": "Löschen",
+  "empty": "Noch keine Aufgaben – mit + hinzufügen",
+  "placeholder": "Neue Aufgabe…",
+  "prio_important": "Wichtig",
+  "prio_low": "Niedrig",
+  "prio_medium": "Mittel",
+  "save_failed": "Das Speichern der Aufgabenliste ist fehlgeschlagen",
+  "settings": {
+    "glyph": {
+      "description": "Das Symbol, das für das To Do Widget in der Leiste angezeigt wird.",
+      "label": "Leisten-Symbol"
+    },
+    "todo_folder": {
+      "description": "Ordner, in dem die Aufgabenliste (todo.json) gespeichert ist. Standardmäßig ist dies ~/Documents/Todo",
+      "label": "To Do Ordner"
+    }
+  },
+  "sort_manual": "Manuell",
+  "sort_priority": "Priorität",
+  "tip_add": "Aufgabe hinzufügen",
+  "tip_clear_done": "Alle erledigten Aufgaben löschen",
+  "tip_close": "Schließen",
+  "tip_commit": "Speichern (Enter)",
+  "tip_delete": "Aufgabe löschen",
+  "tip_done": "Als erledigt markieren",
+  "tip_edit": "Bearbeiten",
+  "tip_grip": "Zum Neuanordnen ziehen",
+  "tip_grip_drop": "Klicke einen anderen Griff an, um hier abzusetzen, oder diesen hier, um den Vorgang abzubrechen",
+  "tip_settings": "Plugin Einstellungen",
+  "tip_sort": "Modus wechseln",
+  "tip_undone": "Als Aufgabe markieren",
+  "title": "To Do",
+  "tooltip": "To Do — {count} zu erledigen"
+}

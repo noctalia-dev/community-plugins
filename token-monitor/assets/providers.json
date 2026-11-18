@@ -1,0 +1,207 @@
+{
+  "tokenMonitorVersion": "0.68.0",
+  "catalogSource": "https://github.com/Javis603/token-monitor/blob/v0.68.0/src/shared/limits/providers.js",
+  "providers": [
+    {
+      "id": "claude",
+      "name": "Claude",
+      "brand": "claude",
+      "initials": "CL"
+    },
+    {
+      "id": "codex",
+      "name": "Codex",
+      "brand": "openai",
+      "initials": "CX"
+    },
+    {
+      "id": "opencode",
+      "name": "OpenCode",
+      "brand": "opencode",
+      "initials": "OC"
+    },
+    {
+      "id": "cursor",
+      "name": "Cursor",
+      "brand": "cursor",
+      "initials": "CU"
+    },
+    {
+      "id": "antigravity",
+      "name": "Antigravity",
+      "brand": "antigravity",
+      "initials": "AG"
+    },
+    {
+      "id": "cline",
+      "name": "Cline",
+      "brand": "cline",
+      "initials": "CL"
+    },
+    {
+      "id": "factory",
+      "name": "Factory Droid",
+      "brand": "factory",
+      "initials": "FD"
+    },
+    {
+      "id": "kimi",
+      "name": "Kimi",
+      "brand": "kimi",
+      "initials": "KI"
+    },
+    {
+      "id": "grok",
+      "name": "Grok",
+      "brand": "grok",
+      "initials": "GR"
+    },
+    {
+      "id": "copilot",
+      "name": "GitHub Copilot",
+      "brand": "githubcopilot",
+      "initials": "GH"
+    },
+    {
+      "id": "zed",
+      "name": "Zed",
+      "brand": "zed",
+      "initials": "ZE"
+    },
+    {
+      "id": "commandcode",
+      "name": "Command Code",
+      "brand": "commandcode",
+      "initials": "CC"
+    },
+    {
+      "id": "mimo",
+      "name": "Xiaomi MiMo",
+      "brand": "xiaomi",
+      "initials": "MI"
+    },
+    {
+      "id": "zai",
+      "name": "GLM",
+      "brand": "zai",
+      "initials": "GL"
+    },
+    {
+      "id": "zaiteam",
+      "name": "GLM Team",
+      "brand": "zai",
+      "initials": "GL"
+    },
+    {
+      "id": "kiro",
+      "name": "Kiro",
+      "brand": "kiro",
+      "initials": "KR"
+    },
+    {
+      "id": "workbuddy",
+      "name": "WorkBuddy",
+      "brand": "workbuddy",
+      "initials": "WB"
+    },
+    {
+      "id": "qoder",
+      "name": "Qoder",
+      "brand": "qoder",
+      "initials": "QO"
+    },
+    {
+      "id": "deepseek",
+      "name": "DeepSeek",
+      "brand": "deepseek",
+      "initials": "DS"
+    },
+    {
+      "id": "devin",
+      "name": "Devin",
+      "brand": "devin",
+      "initials": "DE"
+    },
+    {
+      "id": "minimax",
+      "name": "Minimax",
+      "brand": "minimax",
+      "initials": "MM"
+    },
+    {
+      "id": "typesafe",
+      "name": "TypeSafe",
+      "brand": "typesafeai",
+      "initials": "TS"
+    },
+    {
+      "id": "openrouter",
+      "name": "OpenRouter",
+      "brand": "openrouter",
+      "initials": "OR"
+    },
+    {
+      "id": "volcengine",
+      "name": "Volcengine",
+      "brand": "volcengine",
+      "initials": "VE"
+    },
+    {
+      "id": "ollama",
+      "name": "Ollama",
+      "brand": "ollama",
+      "initials": "OL"
+    },
+    {
+      "id": "trae",
+      "name": "Trae CN",
+      "brand": "trae",
+      "initials": "TR"
+    },
+    {
+      "id": "alibaba",
+      "name": "Alibaba Cloud",
+      "brand": "alibabacloud",
+      "initials": "AC"
+    },
+    {
+      "id": "stepfun",
+      "name": "StepFun",
+      "brand": "stepfun",
+      "initials": "SF"
+    },
+    {
+      "id": "thirdparty",
+      "name": "Third-party APIs",
+      "brand": null,
+      "initials": "API"
+    }
+  ],
+  "aliases": {
+    "droid": "factory",
+    "zcode": "zai",
+    "qodercn": "qoder",
+    "dsh": "deepseek",
+    "mcode": "minimax"
+  },
+  "thirdPartyAdapters": [
+    {
+      "id": "newapi-account",
+      "name": "New API",
+      "brand": "newapi",
+      "initials": "NA"
+    },
+    {
+      "id": "newapi-token",
+      "name": "New API",
+      "brand": "newapi",
+      "initials": "NA"
+    },
+    {
+      "id": "sub2api",
+      "name": "Sub2API",
+      "brand": "sub2api",
+      "initials": "S2"
+    }
+  ]
+}

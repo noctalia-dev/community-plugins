@@ -1,0 +1,40 @@
+{
+  "settings": {
+    "low_battery_threshold": {
+      "description": "Battery percentage threshold to trigger warning notification",
+      "label": "Low Battery Warning (%)"
+    },
+    "show_percentage": {
+      "description": "Display percentage number next to device icon in the bar",
+      "label": "Show Battery Percentage"
+    },
+    "sync_theme_color": {
+      "description": "Automatically match Razer LED colors to Noctalia's active accent color",
+      "label": "Sync RGB with Theme"
+    }
+  },
+  "ui": {
+    "brightness": "LED Brightness",
+    "custom_color_placeholder": "Hex color (e.g. #FF0055)",
+    "custom_dpi_placeholder": "Custom DPI (e.g. 1500)",
+    "daemon_not_running": "OpenRazer Daemon Not Running",
+    "lighting_effect": "Lighting Effect",
+    "no_devices": "No Razer Devices Found",
+    "no_devices_hint": "Connect a supported Razer mouse, keyboard, or headset via USB / 2.4GHz dongle.",
+    "off": "Off",
+    "panel_title": "Razer Control Center",
+    "picker": "Picker",
+    "razer_green": "Razer Green",
+    "refresh": "Refresh",
+    "sensitivity": "Sensitivity (DPI)",
+    "set": "Set",
+    "spectrum": "Spectrum",
+    "start_daemon": "Start Daemon",
+    "start_daemon_hint": "Start the daemon with:\nsystemctl --user start openrazer-daemon",
+    "theme_fallback": "Theme color unavailable, defaulted to Razer Green",
+    "theme_role": "Palette Role",
+    "theme_sync": "Theme Sync",
+    "theme_synced": "Theme role set to: ",
+    "wired": "Wired"
+  }
+}

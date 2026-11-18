@@ -1,0 +1,60 @@
+{
+  "settings": {
+    "clear_notifications": {
+      "description": "Clear any currently visible notification toasts immediately",
+      "label": "Dismiss Active Notifications"
+    },
+    "disable_animations": {
+      "description": "Turn off window and shell transition animations",
+      "label": "Disable Animations"
+    },
+    "disable_blur": {
+      "description": "Turn off compositor background blur",
+      "label": "Disable Blur"
+    },
+    "disable_osd": {
+      "description": "Suppress volume and brightness popups to avoid game frame drops",
+      "label": "Disable OSD Popups"
+    },
+    "disable_shadows": {
+      "description": "Turn off compositor shadows",
+      "label": "Disable Shadows"
+    },
+    "disable_wallpaper": {
+      "description": "Tear down background surfaces to free GPU VRAM memory",
+      "label": "Disable Wallpapers"
+    },
+    "enable_dnd": {
+      "description": "Silence all notification toasts while active",
+      "label": "Do Not Disturb"
+    },
+    "hide_bar": {
+      "description": "Hide Noctalia status bar for full screen immersion",
+      "label": "Hide Status Bar"
+    },
+    "hide_dock": {
+      "description": "Hide Noctalia application dock while performance mode is active",
+      "label": "Hide Dock"
+    },
+    "hide_widgets": {
+      "description": "Pause and hide all active desktop widgets",
+      "label": "Hide Desktop Widgets"
+    },
+    "hook_on_enter": {
+      "description": "Custom shell command or script executed when performance mode is enabled",
+      "label": "Enter Hook Command"
+    },
+    "hook_on_exit": {
+      "description": "Custom shell command or script executed when performance mode is disabled",
+      "label": "Exit Hook Command"
+    },
+    "pause_media": {
+      "description": "Pause background media players when entering performance mode",
+      "label": "Pause Media Playback"
+    },
+    "set_power_profile": {
+      "description": "Set CPU and system governor to Performance mode",
+      "label": "Performance Power Profile"
+    }
+  }
+}

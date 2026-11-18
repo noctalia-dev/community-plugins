@@ -1,0 +1,26 @@
+id = "manishmodak/aocctl"
+name = "AOC monitor"
+version = "1.0.0"
+plugin_api = 43
+author = "manishmodak"
+license = "MIT"
+icon = "device-desktop-cog"
+description = "AOC monitor brightness on the bar; a panel for its settings (overdrive, Low Blue, ...) and presets, via aocctl."
+tags = ["bar", "panel", "hardware", "gaming"]
+dependencies = ["aocctl"]
+
+# The monitor's brightness; click opens the panel, scroll changes brightness.
+[[widget]]
+id = "brightness"
+entry = "widget.luau"
+
+# Every setting aocctl can read or write on the monitor, and the user's presets.
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 380
+height = "content"
+max_height = 900
+placement = "attached"
+position = "auto"
+open_near_click = true

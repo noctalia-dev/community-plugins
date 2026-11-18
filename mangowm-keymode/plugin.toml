@@ -1,0 +1,33 @@
+id           = "gambled23/mangowm-keymode"
+name         = "Mangowm Keymode"
+version      = "1.0.2"
+plugin_api = 3
+author       = "gambled23"
+license = "MIT"
+dependencies = ["mmsg"]
+icon = "keyboard"
+deprecated = false
+description = "Mangowm keymode notifier"
+tags = ["bar", "mangowc"]
+
+[[widget]]
+id    = "mangowm-keymode"
+entry = "keymode.luau"
+
+  [[widget.setting]]
+  key       = "hide_on_default"
+  type      = "bool"
+  label_key = "settings.hide_on_default.label"
+  default   = false
+
+  [[widget.setting]]
+  key       = "show_text"
+  type      = "bool"
+  label_key = "settings.show_text.label"
+  default   = true
+
+  [[widget.setting]]
+  key       = "notify_change"
+  type      = "bool"
+  label_key = "settings.notify_change.label"
+  default   = true

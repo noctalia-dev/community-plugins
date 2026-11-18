@@ -1,0 +1,83 @@
+{
+  "notify": {
+    "command_failed": "Thunderbird 操作失败",
+    "launch_failed": "无法启动 Thunderbird",
+    "new_mail": "新邮件",
+    "new_mail_body": "{sender}：{subject}",
+    "setup_failed": "无法启动桥接设置"
+  },
+  "panel": {
+    "archive": "归档",
+    "bridge_incompatible_body": "已安装的配套组件与此插件不兼容。请重新安装随附的桥接，然后安装准备好的 XPI。",
+    "bridge_incompatible_title": "更新 Thunderbird 配套组件",
+    "close": "关闭",
+    "compose": "撰写",
+    "copy_package_path": "复制扩展包路径",
+    "empty": "收件箱已清空",
+    "empty_body": "Thunderbird 未报告未读邮件。",
+    "last_sync": "上次同步 {time}",
+    "mark_all_read": "全部标为已读",
+    "mark_read": "标为已读",
+    "no_subject": "（无主题）",
+    "offline_body": "请打开 Thunderbird，并确认配套扩展已启用。下方仍会显示缓存的邮件。",
+    "open_addons": "打开附加组件",
+    "open_message": "打开邮件",
+    "open_package_folder": "打开扩展包文件夹",
+    "open_thunderbird": "打开 Thunderbird",
+    "refresh": "刷新",
+    "reply": "回复",
+    "retry_setup": "重试设置",
+    "setup_body": "安装随附的本地桥接并构建配套扩展。",
+    "setup_bridge": "设置桥接",
+    "setup_error_title": "桥接设置失败",
+    "setup_ready_body": "点击下方“打开扩展包文件夹”，然后将 thunderbird-companion.xpi 拖入 Thunderbird 附加组件页面并批准权限。",
+    "setup_ready_title": "配套扩展包已准备就绪",
+    "setup_running": "正在准备配套组件…",
+    "setup_running_body": "正在安装随附的本地主机并构建 Thunderbird 扩展包。",
+    "setup_title": "连接 Thunderbird",
+    "status_bridge_incompatible": "需要更新配套组件",
+    "status_offline": "Thunderbird 桥接已离线",
+    "status_online": "已连接",
+    "status_setup_required": "需要设置桥接",
+    "status_stale": "上次快照已过期",
+    "status_thunderbird_missing": "未找到 Thunderbird 命令",
+    "title": "Thunderbird",
+    "unknown_folder": "未知文件夹",
+    "unknown_sender": "未知发件人",
+    "unread": {
+      "one": "{count} 封未读邮件",
+      "other": "{count} 封未读邮件"
+    },
+    "update_bridge": "更新配套组件"
+  },
+  "settings": {
+    "glyph": {
+      "description": "栏中显示的图标。",
+      "label": "组件图标"
+    },
+    "max_messages": {
+      "description": "面板中显示的最近未读邮件数量上限。",
+      "label": "面板邮件数量"
+    },
+    "notify_new": {
+      "description": "出现新的未读邮件时显示 Noctalia 通知。默认关闭，以免与 Thunderbird 通知重复。",
+      "label": "新邮件通知"
+    },
+    "thunderbird_command": {
+      "description": "用于启动 Thunderbird 的命令。使用包装脚本或非标准安装时可在此修改。",
+      "label": "Thunderbird 命令"
+    }
+  },
+  "widget": {
+    "bridge_incompatible": "需要更新 Thunderbird 配套组件",
+    "compose": "撰写新邮件",
+    "no_unread": "没有未读邮件",
+    "offline": "Thunderbird 桥接已离线",
+    "setup_required": "需要设置 Thunderbird 桥接",
+    "thunderbird_missing": "未找到 Thunderbird 命令",
+    "unread": {
+      "one": "{count} 封未读邮件",
+      "other": "{count} 封未读邮件"
+    }
+  }
+}

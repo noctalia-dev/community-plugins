@@ -1,0 +1,29 @@
+# Editor type definitions, fetched per-plugin from official-plugins (see README).
+noctalia.d.luau
+
+# Local dev notes, never part of a PR.
+screen-toolkit/UPDATE_V2.md
+
+
+# Auto-committer ignored files
+*.tmp
+*.temp
+*.log
+*.cache
+__pycache__/
+*.py[co]
+*.dll
+*.exe
+*.env
+.vscode/**
+.idea/**
+.vs/**
+node_modules/**
+.git/**
+dist/**
+build/**
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+dev/

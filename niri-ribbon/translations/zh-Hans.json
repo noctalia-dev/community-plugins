@@ -1,0 +1,32 @@
+{
+  "settings": {
+    "bar_color": {
+      "description": "Ribbon 轨道 (非可视区域) 的颜色。",
+      "label": "背景色"
+    },
+    "gaps": {
+      "description": "niri 配置中 layout.gaps 的值 (逻辑像素), 用于精确推算画布总宽和内边距。",
+      "label": "布局间距"
+    },
+    "radius": {
+      "description": "视口高亮区的圆角半径 (逻辑像素)。",
+      "label": "圆角"
+    },
+    "thickness": {
+      "description": "Ribbon 的垂直厚度 (逻辑像素)。",
+      "label": "厚度"
+    },
+    "viewport_color": {
+      "description": "当前可视区域高亮的颜色。",
+      "label": "视口色"
+    },
+    "viewport_model": {
+      "description": "视口位置的推算方式, 应与 niri 的 center-focused-column 设置一致。Fit (默认) 对应 niri 默认的 never; Center 对应 always。",
+      "label": "视口推算模型",
+      "option": {
+        "center": "Center (niri: always)",
+        "fit": "Fit (niri: never)"
+      }
+    }
+  }
+}

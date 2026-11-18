@@ -1,0 +1,26 @@
+{
+  "actions": {
+    "widget-settings": "Widget Ayarları"
+  },
+  "notification": {
+    "error-msg": "Pil şarj eşiği {file} dosyasına yazılamadı",
+    "error-title": "Pil Şarj Eşiği Hatası",
+    "setup-fail": "İzinler yapılandırılamadı.",
+    "setup-success": "İzinler yapılandırıldı. Grup değişikliklerinin geçerli olması için lütfen oturumu kapatıp tekrar açın.",
+    "setup-title": "Pil Şarj Eşiği Kurulumu"
+  },
+  "panel": {
+    "adjust-limit": "Sınırı ayarlamak için kaydırıcıyı sürükleyin",
+    "button": "İzinleri Yapılandır",
+    "not-available": "Bu sistemde kullanılamıyor",
+    "read-only": "Salt okunur: Yazma erişimi için udev kuralını yükleyin",
+    "title": "Pil Şarj Eşiği"
+  },
+  "settings": {
+    "battery-device": "Pil Cihazı",
+    "battery-device-desc": "Eşiğin yapılandırılacağı pil",
+    "charge-threshold": "Şarj Eşiği",
+    "charge-threshold-desc": "Pilin şarj olmayı durdurması gereken yüzde",
+    "no-battery-device": "Bu sistemde yapılandırılabilir pil bulunmuyor"
+  }
+}

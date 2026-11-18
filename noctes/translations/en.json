@@ -1,0 +1,160 @@
+{
+  "bar": {
+    "tooltip": {
+      "one": "1 note",
+      "other": "{count} notes"
+    }
+  },
+  "board": {
+    "empty_note": "Empty note",
+    "untitled": "Untitled"
+  },
+  "color": {
+    "auto": "Dynamic (follows the theme)",
+    "black": "Black",
+    "blue": "Blue",
+    "glass": "Glass",
+    "gray": "Gray",
+    "green": "Green",
+    "orange": "Orange",
+    "pink": "Pink",
+    "purple": "Purple",
+    "red": "Red",
+    "yellow": "Yellow"
+  },
+  "fold": {
+    "auto": "Automatic",
+    "bottom_left": "Bottom left",
+    "bottom_right": "Bottom right",
+    "none": "None"
+  },
+  "note": {
+    "empty_hint": "Click to write",
+    "loading": "..."
+  },
+  "notify": {
+    "add_failed": {
+      "body": "Editing settings.toml failed. Close the desktop-widget editor and try again.",
+      "title": "Could not add the post-it"
+    },
+    "no_tool": {
+      "body": "tools/noctes-widget will not run, so nothing can put paper on the desktop. Notes still open, save and edit.",
+      "title": "Post-its need python3"
+    },
+    "unreadable": {
+      "moved": "It is kept, untouched, as {path}. Notes from now on save to a fresh notes.json.",
+      "stuck": "{path} could not be read or moved aside, so noctes will not save over it. Fix or move it, then reload.",
+      "title": "notes.json could not be read"
+    }
+  },
+  "panel": {
+    "color_dynamic_classic": "Dynamic: the paper is generated from this note's key. Turn on “Paper follows the theme” to make it track the wallpaper.",
+    "color_dynamic_theme": "Dynamic: the paper is generated from this note's key and follows the theme, so it recolors with the wallpaper.",
+    "color_fixed": "Fixed paper: stays this color whatever the theme does.",
+    "color_glass": "Glass: a translucent pane instead of paper, tinted by the shell's surface. Sharp, not blurred - a plugin gets no blur to work with.",
+    "content_placeholder": "Write your note",
+    "delete": "Delete",
+    "delete_confirm": "Click again to delete",
+    "empty": "No post-its yet",
+    "move": "Move post-its (widget editor)",
+    "new": "New",
+    "no_helper": "no paper (python3 missing)",
+    "not_on_screen": "not on screen",
+    "save": "Save",
+    "saved": "Saved",
+    "settings": "Plugin settings",
+    "stick": "Stick to the desktop",
+    "title": "Noctes",
+    "title_placeholder": "Title",
+    "unsaved": "Unsaved changes"
+  },
+  "settings": {
+    "color": {
+      "description": "Automatic derives a color from the key, and the note's own color wins when it has one.",
+      "label": "Paper color"
+    },
+    "default_color": {
+      "description": "Colour new notes get. Automatic leaves it to the sheet's key.",
+      "label": "Default color"
+    },
+    "fold": {
+      "description": "Off by default: a diagonal can only be drawn as a staircase here, and it shows.",
+      "label": "Folded corner"
+    },
+    "font_path": {
+      "description": "Bundled Patrick Hand by default. Give an absolute or ~ path for another .ttf/.otf, or empty for the shell font.",
+      "label": "Font file"
+    },
+    "font_size": {
+      "description": "Body size. A handwriting font needs a couple of points more than a UI font.",
+      "label": "Font size"
+    },
+    "key": {
+      "description": "Which note this post-it shows. Set the same key on a note in the panel.",
+      "label": "Note key"
+    },
+    "max_lines": {
+      "label": "Lines shown"
+    },
+    "opacity_override": {
+      "description": "0 follows the plugin-wide opacity. The text stays fully opaque either way.",
+      "label": "Paper opacity (this sheet)"
+    },
+    "paper_height": {
+      "label": "Paper height"
+    },
+    "paper_opacity_all": {
+      "description": "How solid every post-it is. The text stays fully opaque.",
+      "label": "Paper opacity"
+    },
+    "paper_size": {
+      "description": "Size of the paper itself, in px. Make the widget box a little larger."
+    },
+    "paper_width": {
+      "label": "Paper width"
+    },
+    "save_path": {
+      "description": "Folder for notes.json. Empty uses the plugin's own data directory.",
+      "label": "Save folder"
+    },
+    "shadow": {
+      "description": "Lifts the paper off the wallpaper",
+      "label": "Drop shadow"
+    },
+    "show_count": {
+      "label": "Show note count in the bar"
+    },
+    "show_title": {
+      "description": "Draw the note title above the body",
+      "label": "Show title"
+    },
+    "tape": {
+      "description": "Automatic decides from the key whether this post-it is taped, and where.",
+      "label": "Tape"
+    },
+    "theme_colors": {
+      "description": "Use the Noctalia palette instead of the classic paper colors. The palette tracks the wallpaper, so every post-it recolors with it.",
+      "label": "Paper follows the theme"
+    },
+    "tilt": {
+      "description": "Sheets sit at a small random angle. Turning this off squares every one of them; turning it back on gives each a new angle.",
+      "label": "Crooked sheets"
+    },
+    "use_theme_colors": {
+      "description": "Overrides the plugin-wide setting for this sheet only.",
+      "label": "Paper follows the theme"
+    }
+  },
+  "tape": {
+    "auto": "Automatic",
+    "center": "Center",
+    "left": "Left",
+    "none": "None",
+    "right": "Right"
+  },
+  "theme_colors": {
+    "inherit": "Follow the plugin setting",
+    "off": "Never",
+    "on": "Always"
+  }
+}

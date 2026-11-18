@@ -1,0 +1,115 @@
+id = "0rgl/ask-claude"
+name = "Ask Claude"
+version = "0.5.1"
+plugin_api = 24
+author = "0rgl"
+license = "MIT"
+icon = "sparkles"
+description = "Ask Claude from the launcher (plain text or /ai), read the answer in place, continue in a terminal or multiplexer."
+tags = ["ai", "launcher", "productivity"]
+dependencies = [
+  "claude",
+  "timeout",
+  "bash",
+  "grep",
+  "head",
+  "chmod",
+  "mkdir",
+  "rm",
+  "jq",
+  "pgrep",
+  "ps",
+  "tr",
+  "awk",
+  "sort",
+  "herdr",
+  "tmux",
+  "tuios",
+  "zellij",
+  "hyprctl",
+  "niri",
+  "swaymsg",
+  "umbriel",
+]
+
+[[launcher_provider]]
+id = "ai"
+entry = "launcher.luau"
+prefix = "ai"
+glyph = "sparkles"
+include_in_global_search = true
+debounce_ms = 0
+
+[[setting]]
+key = "model"
+type = "select"
+label_key = "settings.model.label"
+description_key = "settings.model.description"
+default = "sonnet"
+options = [
+  { value = "sonnet", label_key = "settings.model.options.sonnet" },
+  { value = "haiku", label_key = "settings.model.options.haiku" },
+  { value = "opus", label_key = "settings.model.options.opus" },
+  { value = "default", label_key = "settings.model.options.default" },
+]
+
+[[setting]]
+key = "tools"
+type = "select"
+label_key = "settings.tools.label"
+description_key = "settings.tools.description"
+default = "web"
+options = [
+  { value = "web", label_key = "settings.tools.options.web" },
+  { value = "none", label_key = "settings.tools.options.none" },
+]
+
+[[setting]]
+key = "open_target"
+type = "select"
+label_key = "settings.open_target.label"
+description_key = "settings.open_target.description"
+default = "terminal"
+options = [
+  { value = "terminal", label_key = "settings.open_target.options.terminal" },
+  { value = "herdr", label_key = "settings.open_target.options.herdr" },
+  { value = "tmux", label_key = "settings.open_target.options.tmux" },
+  { value = "tuios", label_key = "settings.open_target.options.tuios" },
+  { value = "zellij", label_key = "settings.open_target.options.zellij" },
+]
+
+[[setting]]
+key = "workdir"
+type = "folder"
+label_key = "settings.workdir.label"
+description_key = "settings.workdir.description"
+default = "~"
+
+[[setting]]
+key = "timeout_s"
+type = "int"
+label_key = "settings.timeout_s.label"
+description_key = "settings.timeout_s.description"
+default = 120
+min = 15
+max = 900
+step = 15
+
+[[setting]]
+key = "max_turns"
+type = "int"
+label_key = "settings.max_turns.label"
+description_key = "settings.max_turns.description"
+default = 8
+min = 1
+max = 30
+step = 1
+advanced = true
+
+[[setting]]
+key = "extra_prompt"
+type = "string"
+label_key = "settings.extra_prompt.label"
+description_key = "settings.extra_prompt.description"
+default = ""
+advanced = true

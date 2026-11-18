@@ -1,0 +1,78 @@
+{
+  "error": {
+    "command_start": "Noctalia n'a pas pu lancer asus-fan-control-ec.",
+    "curve_apply": "La courbe des ventilateurs n'a pas pu être appliquée.",
+    "curve_save": "La courbe des ventilateurs n'a pas pu être enregistrée.",
+    "missing_dependency": "asus-fan-control-ec est introuvable dans le PATH.",
+    "read_failed": "Impossible de lire les vitesses des ventilateurs. Vérifiez les privilèges et la prise en charge matérielle.",
+    "write_failed": "Impossible de modifier la vitesse des ventilateurs. Vérifiez les privilèges sudo."
+  },
+  "panel": {
+    "all_fans": "Tous les ventilateurs",
+    "close": "Fermer",
+    "curve": {
+      "add_point": "Ajouter un point",
+      "empty": "Aucun point de courbe disponible.",
+      "remove_point": "Supprimer le point",
+      "selected": "Point {index} : {temp}°C → {percent} %",
+      "speed": "Vitesse du ventilateur",
+      "temperature": "À partir de la température"
+    },
+    "fan_label": "Ventilateur {fan}",
+    "fan_speed": "Ventilateur {fan} : {rpm} tr/min",
+    "fan_speed_temp": "Ventilateur {fan} : {rpm} tr/min · {temp}",
+    "max_temp": "Température maximale : {temp}°C",
+    "mode": {
+      "auto": "BIOS",
+      "auto_help": "Le contrôleur embarqué gère les vitesses des ventilateurs. Aucune écriture n'est envoyée par le plugin.",
+      "curve": "Courbe",
+      "curve_help": "La courbe enregistrée est appliquée toutes les quelques secondes tant que ce mode est actif.",
+      "manual": "Manuel",
+      "manual_help": "Duty fixe via les curseurs. Les curseurs par ventilateur utilisent --fan ; le mode manuel EC reste global."
+    },
+    "refresh": "Actualiser",
+    "release_bios": "Rendre la main au BIOS",
+    "status": {
+      "auto_message": "Le contrôleur embarqué gère automatiquement les vitesses des ventilateurs.",
+      "auto_title": "Automatique (BIOS)",
+      "busy_message": "Application d'un changement de vitesse…",
+      "busy_title": "En cours",
+      "curve_message": "La courbe enregistrée pilote le duty des ventilateurs selon la température.",
+      "curve_title": "Courbe des ventilateurs",
+      "manual_message": "Le mode manuel est actif. Les curseurs contrôlent le duty des ventilateurs.",
+      "manual_title": "Contrôle manuel",
+      "unavailable_message": "Installez asus-fan-control-ec et configurez sudo sans mot de passe.",
+      "unavailable_title": "Indisponible"
+    },
+    "sync_fans": "Synchroniser les vitesses",
+    "temp_board": "Carte {temp}°C",
+    "temp_cpu": "CPU {temp}°C"
+  },
+  "settings": {
+    "poll_interval": {
+      "description": "Fréquence d'actualisation des vitesses des ventilateurs, en millisecondes.",
+      "label": "Intervalle d'actualisation"
+    },
+    "privilege_command": {
+      "description": "Préfixe des commandes asus-fan-control-ec. Utilisez sudo -n avec une règle NOPASSWD, ou pkexec.",
+      "label": "Commande de privilège"
+    },
+    "show_label": {
+      "label": "Afficher le libellé"
+    }
+  },
+  "title": "Contrôleur ventilateurs ASUS EC",
+  "tooltip": {
+    "auto": "Contrôle BIOS · {rpm} tr/min total{temp} · clic pour le panneau · clic droit pour actualiser",
+    "busy": "Changement de vitesse en cours…",
+    "curve": "Courbe · {rpm} tr/min total{temp} · clic pour le panneau",
+    "manual": "Manuel · {percent} % · {rpm} tr/min total{temp} · clic pour le panneau",
+    "unavailable": "asus-fan-control-ec n'est pas disponible"
+  },
+  "widget": {
+    "auto": "Auto",
+    "curve": "Courbe",
+    "manual": "Manuel",
+    "unavailable": "N/D"
+  }
+}

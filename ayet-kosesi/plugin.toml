@@ -1,0 +1,14 @@
+id = "alitura1/ayet-kosesi"
+name = "Ayet Köşesi"
+version = "1.5.2"
+plugin_api = 43
+author = "alitura1"
+icon = "book"
+license = "MIT"
+dependencies = ["curl"]
+tags = ["desktop", "time", "utility"]
+description = "Display the daily Quran verse and selected translation from Akıl Kuran's public API on the desktop."
+
+[[desktop_widget]]
+id = "ayet"
+entry = "ayet.luau"

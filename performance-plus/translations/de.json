@@ -1,0 +1,60 @@
+{
+  "settings": {
+    "clear_notifications": {
+      "description": "Alle aktuell sichtbaren Benachrichtigungen sofort entfernen",
+      "label": "Aktive Benachrichtigungen schließen"
+    },
+    "disable_animations": {
+      "description": "Fenster- und Shell-Übergangsanimationen ausschalten",
+      "label": "Animationen deaktivieren"
+    },
+    "disable_blur": {
+      "description": "Compositor-Hintergrundunschärfe ausschalten",
+      "label": "Weichzeichner deaktivieren"
+    },
+    "disable_osd": {
+      "description": "Lautstärke- und Helligkeits-Popups unterdrücken, um Frame-Drops in Spielen zu vermeiden",
+      "label": "OSD-Popups deaktivieren"
+    },
+    "disable_shadows": {
+      "description": "Compositor-Fensterschatten ausschalten",
+      "label": "Schatten deaktivieren"
+    },
+    "disable_wallpaper": {
+      "description": "Hintergrundoberflächen entfernen, um GPU-VRAM freizugeben",
+      "label": "Hintergrundbilder deaktivieren"
+    },
+    "enable_dnd": {
+      "description": "Alle Benachrichtigungs-Popups während der Aktivierung stummschalten",
+      "label": "Nicht stören"
+    },
+    "hide_bar": {
+      "description": "Noctalia-Statusleiste für vollständiges Eintauchen verbergen",
+      "label": "Statusleiste ausblenden"
+    },
+    "hide_dock": {
+      "description": "Noctalia-Anwendungsdock im Leistungsmodus verbergen",
+      "label": "Dock ausblenden"
+    },
+    "hide_widgets": {
+      "description": "Alle aktiven Desktop-Widgets pausieren und verbergen",
+      "label": "Desktop-Widgets ausblenden"
+    },
+    "hook_on_enter": {
+      "description": "Benutzerdefinierter Shell-Befehl oder Skript beim Aktivieren des Leistungsmodus",
+      "label": "Aktivierungs-Hook-Befehl"
+    },
+    "hook_on_exit": {
+      "description": "Benutzerdefinierter Shell-Befehl oder Skript beim Deaktivieren des Leistungsmodus",
+      "label": "Deaktivierungs-Hook-Befehl"
+    },
+    "pause_media": {
+      "description": "Hintergrund-Medienwiedergabe beim Aktivieren des Leistungsmodus pausieren",
+      "label": "Medienwiedergabe anhalten"
+    },
+    "set_power_profile": {
+      "description": "CPU- und System-Governor auf Leistungsprofil setzen",
+      "label": "Leistungs-Energieprofil"
+    }
+  }
+}

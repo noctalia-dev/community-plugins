@@ -1,0 +1,22 @@
+id = "abuamar142/qr-share"
+name = "QR Share"
+version = "1.0.1"
+plugin_api = 24
+author = "abuamar142"
+license = "MIT"
+icon = "qrcode"
+description = "Wi-Fi and clipboard QR codes in one panel, ready to scan from your phone."
+tags = [ "panel", "network", "privacy", "utility" ]
+dependencies = [ "qrencode", "nmcli" ]
+
+# Panel only - deliberately no [[service]]. A polling service hits Noctalia's
+# CPU-budget guard (noctalia-dev/noctalia#3893), which silently disables the
+# plugin runtime. All work here happens in runAsync callbacks on user action.
+
+[[panel]]
+id        = "panel"
+entry     = "panel.luau"
+width     = 520
+height    = 640
+placement = "floating"
+position  = "center"

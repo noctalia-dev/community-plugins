@@ -1,0 +1,83 @@
+# stdout - Show script output text on the bar widget..
+
+id = "tordex/stdout"
+name = "stdout"
+version = "1.1.0"
+plugin_api = 28
+author = "tordex"
+license = "MIT"
+dependencies = []
+tags = ["utility", "indicator", "bar", "system"]
+icon = "terminal"
+description = "Run a command periodically and display its output as bar widget text"
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+  [[widget.setting]]
+  key = "cmd"
+  type = "string"
+  label_key = "settings.cmd.label"
+  description_key = "settings.cmd.description"
+  default = ""
+
+  [[widget.setting]]
+  key = "interval"
+  type = "int"
+  label_key = "settings.interval.label"
+  description_key = "settings.interval.description"
+  default = 1
+  min = 1
+  max = 59
+
+  [[widget.setting]]
+  key = "interval_units"
+  type = "select"
+  label_key = "settings.interval_units.label"
+  description_key = "settings.interval_units.description"
+  default = "60"
+  options = [
+    { value = "1", label_key = "settings.interval_units.seconds" },
+    { value = "60", label_key = "settings.interval_units.minutes" },
+    { value = "3600", label_key = "settings.interval_units.hours" },
+  ]
+
+  [[widget.setting]]
+  key = "json"
+  type = "bool"
+  label_key = "settings.json.label"
+  description_key = "settings.json.description"
+  default = false
+
+  [[widget.setting]]
+  key = "hide_on_error"
+  type = "bool"
+  label_key = "settings.hide_on_error.label"
+  description_key = "settings.hide_on_error.description"
+  visible_when = { key = "json", values = [ "false" ] }
+  default = false
+
+  [[widget.setting]]
+  key = "show_glyph"
+  type = "bool"
+  label_key = "settings.show_glyph.label"
+  description_key = "settings.show_glyph.description"
+  visible_when = { key = "json", values = [ "false" ] }
+  default = true
+
+  [[widget.setting]]
+  key = "ok_glyph"
+  type = "glyph"
+  label_key = "settings.ok_glyph.label"
+  description_key = "settings.ok_glyph.description"
+  visible_when = { key = "json", values = [ "false" ] }
+  default = "circle-check"
+
+  [[widget.setting]]
+  key = "err_glyph"
+  type = "glyph"
+  label_key = "settings.err_glyph.label"
+  description_key = "settings.err_glyph.description"
+  visible_when = { key = "json", values = [ "false" ] }
+  default = "alert-triangle"

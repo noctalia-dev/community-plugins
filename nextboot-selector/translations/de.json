@@ -1,0 +1,32 @@
+{
+  "notification": {
+    "failed_to_set_next_boot": "Der nächste Systemstart konnte nicht festgelegt werden",
+    "timed_out": "Zeitüberschreitung"
+  },
+  "panel": {
+    "reset": "Zurücksetzen",
+    "title": "Auswahl für den nächsten Startvorgang"
+  },
+  "setting": {
+    "close_on_select": {
+      "description": "Ob das Fenster nach der Auswahl eines Eintrags geschlossen werden soll",
+      "label": "Schließen wenn  ausgewählt"
+    },
+    "excluded_keywords": {
+      "description": "Schlüsselwörter zum Ausschluss von Einträgen (Groß-/Kleinschreibung wird nicht berücksichtigt)",
+      "label": "Ausgeschlossene Schlüsselwörter"
+    },
+    "privilege_command": {
+      "description": "Befehl zum Erhöhen der Berechtigungen des efibootmgr Befehls",
+      "label": "Privilege-Befehl"
+    },
+    "reboot_command": {
+      "description": "Befehl, der ausgeführt werden soll, wenn „Neustart bei Auswahl“ aktiviert ist",
+      "label": "Befehl zum Neustart"
+    },
+    "reboot_on_select": {
+      "description": "Ob nach der Auswahl eines Eintrags automatisch ein Neustart erfolgen soll",
+      "label": "Neustart bei Auswahl"
+    }
+  }
+}

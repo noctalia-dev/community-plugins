@@ -1,0 +1,120 @@
+{
+  "settings": {
+    "api_key": {
+      "label": "API key file",
+      "description": "The file holding your NaN API key."
+    },
+    "interval": {
+      "label": "Poll interval (seconds)",
+      "description": "Seconds between requests to the NaN API."
+    },
+    "bar_value": {
+      "label": "What the bar shows",
+      "description": "The figure in the bar: the share of the period's allowance used, the credits used, or the credits left.",
+      "percent": "Percentage used",
+      "used": "Credits used",
+      "remaining": "Credits left"
+    },
+    "panel_gauge": {
+      "label": "Gauge",
+      "description": "What to draw beside the text to show how much of the allowance is used, or nothing at all.",
+      "bar": "A bar",
+      "battery": "A battery, draining as credits go",
+      "sparkline": "Credits per day, as a line",
+      "none": "No gauge, text only"
+    },
+    "show_reset": {
+      "label": "Show the countdown",
+      "description": "How long until the allowance renews, next to the figure."
+    },
+    "show_cache": {
+      "label": "Show the cache share",
+      "description": "Add how much of the period's input came from the cache, after the countdown."
+    },
+    "show_icon": {
+      "label": "Show the NaN logo",
+      "description": "Draw the NaN logo before the text."
+    },
+    "icon_style": {
+      "label": "Logo style",
+      "description": "Ghost draws the mark in the theme's own ink, white on a dark theme and black on a light one; color draws it as NaN does.",
+      "ghost": "Ghost (themed)",
+      "color": "Colour"
+    },
+    "show_glyph": {
+      "label": "Show a glyph",
+      "description": "Draw a glyph before the text."
+    },
+    "glyph": {
+      "label": "Glyph",
+      "description": "The glyph to draw when Show a glyph is on."
+    },
+    "show_tooltip": {
+      "label": "Details in the tooltip",
+      "description": "Show the period's credits, the cache and a line per model when you hover the widget."
+    },
+    "left_click": {
+      "label": "What a left click does",
+      "description": "Open the panel, or do nothing. A right click opens these settings.",
+      "panel": "Open the panel",
+      "nothing": "Nothing"
+    },
+    "site_action": {
+      "label": "What the link buttons do",
+      "description": "Open NaN's dashboard in your browser, through gio or xdg-open, or copy the address instead.",
+      "open": "Open in the browser",
+      "copy": "Copy the address"
+    }
+  },
+  "panel": {
+    "title": "NaN Usage",
+    "overall": "Overall",
+    "this_period": "This period",
+    "of": "of {total}",
+    "resets_in": "resets in {when}",
+    "resets_on": "Resets in {when}, on {at}",
+    "credits": "Credits",
+    "used": "Used",
+    "left": "Left",
+    "packs": "Packs",
+    "packs_expire": "Pack credits expire on {date}",
+    "using_packs": "USING PACKS",
+    "tokens": "Tokens",
+    "new_input": "New input",
+    "cached_input": "Cached input",
+    "output": "Output",
+    "cached_share": "{share} cached",
+    "cached_pill": "{share} CACHED",
+    "saved": "The cache saved {value} credits",
+    "requests": "{count} requests",
+    "split_title": "Credits by token type",
+    "no_usage": "No usage this period",
+    "prices": "Prices per 1M tokens",
+    "prices_note": "In credits, from NaN's price list of {date}.",
+    "split_note": "Estimated from NaN's prices of {date}.",
+    "total": "Total",
+    "total_since": "Total since {date}",
+    "per_day": "Daily credit usage",
+    "contributions": "Credit breakdown by model",
+    "share_of_credits": "{share} of credits",
+    "share_pill": "{share} OF CREDITS",
+    "share_of_period": "{share} of the {total} credits used this period",
+    "all_time": "All time: {value}",
+    "frozen": "Your subscription is paused, so NaN refuses credit-billed requests. Check billing on the dashboard.",
+    "out_of_credits": "You've used this period's credits and have no packs. NaN refuses credit-billed requests until the renewal on {date}.",
+    "not_billed": "This account isn't billed in credits, so there is nothing to count.",
+    "open_dashboard": "Open the dashboard",
+    "buy_credits": "Buy a credit pack",
+    "tooltip_refresh": "Refresh now",
+    "tooltip_settings": "Settings",
+    "tooltip_site": "Open NaN's dashboard (cloud.nan.builders)",
+    "no_data": "No data yet",
+    "waiting": "Waiting for the first poll…",
+    "waiting_hint": "The poller runs inside Noctalia. If this stays empty, check the API key path in the settings.",
+    "cached": "cached",
+    "copied": "The address is in your clipboard",
+    "copy_failed": "Could not copy the address",
+    "no_opener_copied": "No browser opener installed, so the address is in your clipboard",
+    "open_failed": "Could not open the NaN dashboard"
+  }
+}

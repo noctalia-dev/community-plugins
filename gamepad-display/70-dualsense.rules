@@ -1,0 +1,10 @@
+# Sony gamepad hidraw access for the Noctalia DualSense widget.
+#
+# DualSense (054c:0ce6), DualSense Edge (054c:0df2) and DualShock 4
+# (054c:05c4 v1, 054c:09cc v2). The live input widget reads the kernel evdev
+# node, which is already group "input"; these rules only cover hidraw, which
+# the battery service uses when ds4u is not running.
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="054c", ATTRS{idProduct}=="0ce6", MODE="0664", GROUP="input", TAG+="uaccess"
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="054c", ATTRS{idProduct}=="0df2", MODE="0664", GROUP="input", TAG+="uaccess"
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="054c", ATTRS{idProduct}=="05c4", MODE="0664", GROUP="input", TAG+="uaccess"
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="054c", ATTRS{idProduct}=="09cc", MODE="0664", GROUP="input", TAG+="uaccess"

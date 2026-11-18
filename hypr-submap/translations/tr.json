@@ -1,0 +1,16 @@
+{
+  "settings": {
+    "glyph": {
+      "description": "Bileşende gösterilen simgeyi belirler.",
+      "label": "Çubukta gösterilen "
+    },
+    "hide_when_default": {
+      "description": "Varsayılan submap'teyken çubuk bileşenini gizle.",
+      "label": "Varsayılan submap'teyken gizle"
+    },
+    "prefix": {
+      "description": "Bileşende sergilenen submap ismine ön ek metni ekle.",
+      "label": "Submap ismine bir önek ekle"
+    }
+  }
+}

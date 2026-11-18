@@ -1,0 +1,60 @@
+{
+  "add_model": {
+    "back": "Retour au combo",
+    "empty": "Aucun modèle disponible.",
+    "no_match": "Aucun modèle ne correspond à la recherche.",
+    "search": "Rechercher des modèles...",
+    "title": "Ajouter un modèle"
+  },
+  "create": {
+    "back": "Retour",
+    "cancel": "Annuler",
+    "kind_label": "Type",
+    "models_hint": "Un modèle par ligne, par ordre de priorité (ex. : cc/claude-opus-4-7).",
+    "models_label": "Modèles",
+    "models_placeholder": "cc/claude-opus-4-7\nglm/glm-5.1",
+    "name_label": "Nom",
+    "name_placeholder": "ex. : my-fallback",
+    "submit": "Créer",
+    "title": "Nouveau combo"
+  },
+  "detail": {
+    "add_model": "Ajouter un modèle",
+    "back": "Retour au combo",
+    "delete": "Supprimer le combo",
+    "delete_confirm": "Supprimer ce combo ?",
+    "delete_no": "Annuler",
+    "delete_yes": "Oui, supprimer",
+    "drag_hint": "Faites glisser les modèles pour les réorganiser",
+    "kind_label": "Type",
+    "models_count": "{count} modèle(s)",
+    "models_title": "Chaîne de modèles",
+    "move_down": "Descendre",
+    "move_up": "Monter",
+    "no_models": "Ce combo ne comporte encore aucun modèle.",
+    "refresh": "Rafraîchir",
+    "remove_model": "Supprimer le modèle",
+    "rename": "Renommer",
+    "rename_cancel": "Annuler",
+    "rename_placeholder": "Entrer un nouveau nom",
+    "rename_save": "Sauvegarder"
+  },
+  "error": {
+    "add_model_failed": "Échec de l'ajout du modèle",
+    "auth_required": "Authentification nécessaire",
+    "bad_response": "Réponse inattendu de 9Router",
+    "connection_failed": "Impossible de se connecter à 9Router",
+    "create_failed": "Échec lors de la création du combo",
+    "delete_failed": "Échec lors de la suppression du combo",
+    "dismiss": "Ignorer",
+    "http_status": "HTTP {status}",
+    "invalid_name": "Un nom ne peut contenir que des lettres, des chiffres, des tirets (-), des traits de soulignement (_) et des points (.)",
+    "kind_failed": "Échec lors de la mise à jour des types",
+    "login_failed": "Connexion échouée",
+    "need_name_models": "Un nom et au moins un modèle sont obligatoires.",
+    "need_password": "Veuillez saisir votre mot de passe",
+    "remove_model_failed": "Suppression du modèle échouée",
+    "rename_failed": "Échec de la modification du nom du combo",
+    "reorder_failed": "Échec de la réorganisation des modèles"
+  }
+}

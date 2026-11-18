@@ -1,0 +1,136 @@
+{
+  "settings": {
+    "bar_font_scale": {
+      "description": "Bu özel çubuk kapsülü için yazı tipi ve simge boyutlarını ayarlar.",
+      "label": "Kapsül yazı tipi boyutu"
+    },
+    "font_scale": {
+      "description": "Panel ve çubuk genelinde yazı tipi ve simge boyutlarını orantılı olarak ayarlar.",
+      "label": "Yazı tipi boyutu",
+      "option": {
+        "compact": "Kompakt (%85)",
+        "huge": "Çok büyük (%130)",
+        "inherit": "Devral (eklenti ayarlarından)",
+        "large": "Büyük (%115)",
+        "normal": "Normal (%100)"
+      }
+    },
+    "query_timeout_seconds": {
+      "description": "Tüm sağlayıcılar için en uzun bekleme süresi. Çok sayıda hesap veya yavaş Antigravity başlangıcı için artırın.",
+      "label": "Kota sorgusu zaman aşımı (saniye)"
+    },
+    "style": {
+      "description": "Bu kapsülün çubukta nasıl görüneceği.",
+      "label": "Stil",
+      "option": {
+        "gauge": "Gösterge ve yüzde",
+        "label": "İsim, gösterge ve yüzde",
+        "meter": "Segmentler",
+        "pill": "Yüzde"
+      }
+    },
+    "vendor": {
+      "description": "Bu kapsülün hangi planı takip edeceği. İkisini izlemek için widget'ı iki kez ekleyin.",
+      "label": "Sağlayıcı",
+      "option": {
+        "anthropic": "Claude",
+        "anthropic_api": "Anthropic API",
+        "antigravity": "Antigravity",
+        "auto": "Otomatik (birincil)",
+        "claude_oss": "Claude & GPT OSS",
+        "cline": "Cline",
+        "commandcode": "Command Code",
+        "copilot": "GitHub Copilot",
+        "cursor": "Cursor",
+        "deepinfra": "DeepInfra",
+        "deepseek": "DeepSeek",
+        "devin": "Devin",
+        "droid": "Droid",
+        "gemini": "Gemini",
+        "grok": "Grok",
+        "grokbot": "Grok Bot",
+        "kilo": "Kilo",
+        "kimi": "Kimi",
+        "kiro": "Kiro",
+        "lyceum": "Lyceum",
+        "minimax": "MiniMax",
+        "modelstudio": "Model Studio",
+        "moonshot": "Moonshot",
+        "muse_code": "Muse Code",
+        "nous": "Nous Research",
+        "novita": "Novita",
+        "ollama": "Ollama Cloud",
+        "openai": "Codex",
+        "opencode_go": "OpenCode Go",
+        "openrouter": "OpenRouter",
+        "orcarouter": "OrcaRouter",
+        "supergrok": "SuperGrok",
+        "synthetic": "Synthetic",
+        "zai": "Z.AI"
+      }
+    }
+  },
+  "ui": {
+    "details": "Ayrıntılar",
+    "diagnostic": {
+      "action": {
+        "credentials": "ai-usagebar içindeki kayıtlı kimlik bilgilerini ve dosya izinlerini kontrol edin ve yenileyin.",
+        "local_server": "Antigravity veya bir agy oturumu açın, gerekirse oturum açın ve yenileyin.",
+        "login": "Terminalden oturum açın, ardından yenileyin:",
+        "missing_key": "ai-usagebar içindeki sağlayıcı API anahtarını kontrol edin ve yenileyin.",
+        "named_account": "ai-usagebar içindeki {account} hesabını yeniden bağlayın, ardından yenileyin.",
+        "network": "İnternet bağlantısını, VPN veya proxy ayarlarını kontrol edin ve yenileyin.",
+        "permission": "Hesap izinlerini ve aboneliği kontrol edin, ardından yenileyin.",
+        "rate_limited": "Yeniden deneme süresini bekleyin. Sonraki otomatik yenileme tekrar deneyecek.",
+        "reconnect": "Sağlayıcının uygulamasında veya CLI aracında yeniden oturum açın ve yenileyin.",
+        "schema": "ai-usagebar uygulamasını güncelleyin ve yenileyin. Sorun sürerse yanıt biçimi hatasını bildirin.",
+        "server": "Sağlayıcının düzelmesini bekleyin, ardından yenileyin.",
+        "timeout": "Bağlantıyı ve sağlayıcının durumunu kontrol edin ve yenileyin. Sorun sürerse sorgu zaman aşımını artırın.",
+        "unknown": "Yenileyin; sorun sürerse sağlayıcının durumunu kontrol edin."
+      },
+      "cause": {
+        "authentication": "Kimlik doğrulama başarısız",
+        "credentials": "Kimlik bilgisi sorunu",
+        "local_server": "Antigravity oturumu kullanılamıyor",
+        "missing_key": "API anahtarı eksik",
+        "network": "Bağlantı başarısız",
+        "permission": "Erişim reddedildi",
+        "rate_limited": "İstek sınırına ulaşıldı",
+        "schema": "Kullanım yanıtı anlaşılamadı",
+        "server": "Sağlayıcı sunucusu hatası",
+        "signed_out": "Oturum açılması gerekiyor",
+        "timeout": "Kota sorgusu zaman aşımına uğradı",
+        "unknown": "Kullanım bilgisi alınamıyor"
+      },
+      "copy_command": "Oturum açma komutunu kopyala",
+      "recommended_action": "Önerilen işlem"
+    },
+    "elapsed": "Aralığın %{percent}'i geçti",
+    "error": {
+      "failed": "Kullanım bilgisi okunamadı",
+      "failed_hint": "Kullanım bilgisi okunamadı",
+      "no_data": "Kullanım bildirilmedi",
+      "no_data_hint": "Kullanım bildirilmedi",
+      "not_installed": "ai-usagebar yüklü değil",
+      "not_installed_hint": "ai-usagebar yüklü değil",
+      "spawn_failed": "ai-usagebar başlatılamadı",
+      "spawn_failed_hint": "ai-usagebar başlatılamadı",
+      "timed_out": "ai-usagebar yanıt vermedi",
+      "timed_out_hint": "ai-usagebar yanıt vermedi"
+    },
+    "hidden_label": "Gösterilmiyor",
+    "hidden_value": "{count} tane daha, paneli açmak için tıklayın",
+    "loading": "Yükleniyor…",
+    "no_providers": "Yapılandırılmış veya erişilebilir sağlayıcı yok",
+    "no_usage": "Kullanım bildirilmedi",
+    "not_configured": "`{vendor}` ai-usagebar içinde yapılandırılmamış",
+    "now": "şimdi",
+    "retry": "Tekrar dene",
+    "stale": "güncel değil",
+    "stale_hint": "en son bilinen veriyi gösteriyor",
+    "title": "Yapay Zeka Kullanımı",
+    "unavailable": "Kullanılamıyor",
+    "updated": "Güncellendi",
+    "updated_ago": "{minutes} dakika önce güncellendi\n"
+  }
+}

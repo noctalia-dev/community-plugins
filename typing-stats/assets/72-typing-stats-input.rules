@@ -1,0 +1,5 @@
+# Noctalia Typing Stats: let the active local session read keyboard event nodes
+# so the plugin can count typed characters. Installed by the
+# goldesquemoon/typing-stats plugin.
+# Remove this file and run `udevadm control --reload-rules` to revoke access.
+ACTION!="remove", SUBSYSTEM=="input", KERNEL=="event*", ENV{ID_INPUT_KEYBOARD}=="1", TAG+="uaccess"

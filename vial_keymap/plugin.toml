@@ -1,0 +1,70 @@
+id          = "egno/vial_keymap"
+name        = "Vial Keymap"
+version     = "0.2.0"
+plugin_api  = 24
+author      = "egno"
+license     = "MIT"
+icon        = "keyboard"
+description = "Keymap overlay for Vial split keyboards (Aurora Corne): all layers, mod/layer-taps, combos, from a .vil export."
+tags        = ["panel", "bar", "hardware", "utility", "hyprland"]
+dependencies = ["python3", "libxkbcommon", "hyprctl"]
+
+# Shared by the panel and the bar widget; edited under Settings -> Plugins.
+[[setting]]
+key        = "vil_path"
+type       = "file"
+extensions = [".vil"]
+label_key  = "settings.vil_path.label"
+description_key = "settings.vil_path.description"
+default    = "~/aurora.vil"
+
+[[setting]]
+key       = "layer_names"
+type      = "string"
+label_key = "settings.layer_names.label"
+description_key = "settings.layer_names.description"
+default   = ""
+
+[[setting]]
+key       = "encoders"
+type      = "select"
+label_key = "settings.encoders.label"
+description_key = "settings.encoders.description"
+default   = "both"
+options   = [
+  { value = "both",  label_key = "settings.encoders.both" },
+  { value = "left",  label_key = "settings.encoders.left" },
+  { value = "right", label_key = "settings.encoders.right" },
+  { value = "none",  label_key = "settings.encoders.none" },
+]
+
+[[setting]]
+key       = "alt_layout_enabled"
+type      = "bool"
+label_key = "settings.alt_layout_enabled.label"
+description_key = "settings.alt_layout_enabled.description"
+default   = true
+
+[[setting]]
+key       = "alt_layout"
+type      = "string"
+label_key = "settings.alt_layout.label"
+description_key = "settings.alt_layout.description"
+default   = ""
+
+[[panel]]
+id           = "keymap"
+entry        = "panel.luau"
+width        = 1320
+height       = 1000
+placement    = "floating"
+position     = "center"
+# Escape always closes; these are the extra keys the overlay handles itself.
+capture_keys = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "grave", "left", "right"]
+
+[[widget]]
+id    = "icon"
+entry = "widget.luau"
+
+  [widget.actions]
+  middle = "none"

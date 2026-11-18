@@ -1,0 +1,8 @@
+{
+  "settings": {
+    "debug_logging": {
+      "description": "Escribe registros detallados en el archivo de registro del plugin para ayudar a solucionar problemas.",
+      "label": "Registro de depuración"
+    }
+  }
+}

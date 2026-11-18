@@ -1,0 +1,50 @@
+{
+  "bar": {
+    "no_value": "No battery level",
+    "no_value_hint": "The mouse may be off or asleep, or the receiver passes nothing on. Replugging the receiver often helps."
+  },
+  "connection": {
+    "bluetooth": "Bluetooth",
+    "receiver": "Receiver / cable"
+  },
+  "errors": {
+    "upower": "UPower is not reachable (upower --dump failed)"
+  },
+  "kind": {
+    "mouse": "Keychron mouse"
+  },
+  "notify": {
+    "critical_body": "{name} is down to {level}%. Charge it now.",
+    "critical_title": "{name}: battery almost empty",
+    "low_body": "{name} has {level}% left.",
+    "low_title": "{name}: battery low"
+  },
+  "panel": {
+    "charging": "charging",
+    "hint_mouse_off": "No current battery level (mouse off or asleep).",
+    "none": "No Keychron mouse found. Receiver and cable need the keychron-battery kernel module.",
+    "title": "Keychron mouse"
+  },
+  "settings": {
+    "critical_threshold": {
+      "description": "Below this level a second, urgent notification is sent.",
+      "label": "Critical threshold (%)"
+    },
+    "low_threshold": {
+      "description": "At this level the mouse sends a notification and the value in the bar turns red.",
+      "label": "Notify at (%)"
+    },
+    "mouse_name": {
+      "description": "Name shown. Leave empty to use the model name from UPower, which can be generic (for example \"Keychron Ultra-Link 8K\").",
+      "label": "Mouse name"
+    },
+    "notify": {
+      "description": "Once per discharge for low and for critical battery.",
+      "label": "Notifications"
+    },
+    "poll_interval": {
+      "description": "How often UPower is read. The kernel module itself updates every 5 minutes.",
+      "label": "Poll interval (seconds)"
+    }
+  }
+}

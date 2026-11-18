@@ -1,0 +1,470 @@
+name: Feature Request
+description: Suggest an improvement to a community plugin
+title: "[FEATURE] "
+labels: ["feature"]
+type: "Feature"
+
+body:
+  - type: checkboxes
+    id: submission-checklist
+    attributes:
+      label: Submission checklist
+      description: Please confirm the following before submitting.
+      options:
+        - label: I have searched existing issues and confirmed this has not been requested before.
+          required: true
+        - label: I have checked existing pull requests for similar changes.
+          required: true
+        - label: This is about a community plugin, not about Noctalia itself (those belong in the noctalia repo).
+          required: true
+
+  - type: dropdown
+    id: plugin-id
+    attributes:
+      label: Plugin
+      description: The plugin id.
+      default: 0
+      options:
+        - --- SELECT ---
+        - 9router-control
+        - 9router-monitor
+        - agent-glow
+        - agentik
+        - agy
+        - ai-triage
+        - ai-usagebar
+        - airpods
+        - alarm-clock
+        - als-brightness
+        - ambient-sounds
+        - androidconnect
+        - anilist
+        - aocctl
+        - arch-audit
+        - arch-updater
+        - ask-claude
+        - asus-fan
+        - asus-fans-controller-ec
+        - asus-gpu-mode
+        - audio-sticker
+        - audio-switcher
+        - autoclicker
+        - awwwall
+        - ayet-kosesi
+        - bangumi-progress
+        - basecamp
+        - battery-graph
+        - battery-power-management
+        - battery-threshold
+        - battery-widget
+        - bazaarsearch
+        - beeminder
+        - better-clock
+        - binance
+        - bitdjinn
+        - bloom
+        - bookmarks
+        - calculator
+        - calculator-plus
+        - calibre
+        - case-convert
+        - cat
+        - cc-usage
+        - charge-mode
+        - cider
+        - claude-cockpit
+        - claude-companion
+        - claude-operator
+        - claude-sessions
+        - claudecode
+        - clearclock
+        - cmd-runner
+        - cmf-buds
+        - codexbar-meter
+        - color_picker
+        - competitive-programming-contest-tracker
+        - config-swap
+        - contact-sounds
+        - containers
+        - crashes
+        - currency-exchange
+        - cursor
+        - custom-shortcut
+        - cutemonitor-ups
+        - daily-wallpaper
+        - deepseek-peak
+        - deepseek_usage
+        - default-apps
+        - desktop-launcher
+        - discord-voice
+        - dnf-updater
+        - dns-switcher
+        - drive-health
+        - dropkitty
+        - dropwall
+        - ds4-color
+        - easytier
+        - emoji-picker
+        - eyecare
+        - f1
+        - file-search
+        - flatpak-bg
+        - game-launcher
+        - gamepad-display
+        - gamer-mode
+        - geoip-monitor
+        - git_companion
+        - github-activity
+        - github-contributions-desktop
+        - github-kanban
+        - github-notifications
+        - github-prs
+        - global-menu
+        - gocryptfs
+        - godot-provider
+        - grabit
+        - gslapper
+        - habitica
+        - handy
+        - hassio
+        - headroom
+        - headsetcontrol
+        - herdr
+        - honor-earbuds
+        - hotspot
+        - hover-widgets
+        - hypr-layout-switcher
+        - hypr-screen-mirror
+        - hypr-submap
+        - hyprland-minimize
+        - hyprland-settings
+        - hyprland-visual-editor
+        - icons
+        - ideapad-conservation-mode
+        - iio_lock
+        - imagemagick-clock
+        - inhibit-idle-while-watching
+        - input-echo-bar
+        - internal-keyboard
+        - inventory-manager
+        - ip-monitor
+        - jalali_calendar
+        - jetbrains-provider
+        - k8s-status
+        - keybind-cheatsheet
+        - keyboard
+        - keyboard-state
+        - keychron-battery
+        - keymap
+        - keysmith
+        - keyviz
+        - kineticwe-layouts
+        - kuma-status
+        - kumacat
+        - kwallet-secrets
+        - launcher-pass
+        - layout-fix
+        - librelinkup
+        - lid-guard
+        - link-ip-monitor
+        - llamanager
+        - localcheck
+        - localsend
+        - localsend-plus
+        - logonbox
+        - lrc
+        - lunar-calendar
+        - lunar-workspaces
+        - lyrics
+        - lyrics-carousel
+        - maildir
+        - mango-displays
+        - mango_layouts
+        - mangowm-keymode
+        - mathsym
+        - mawaqit
+        - media-downloader
+        - media-island
+        - media-lyrics
+        - media-player-icon
+        - meeting-bar
+        - mic-denoise
+        - mihomo-control
+        - mimir
+        - mini-docker
+        - misr-quran-radio
+        - modernclock
+        - mullvad
+        - murattal
+        - mx-control
+        - mxmouse
+        - nan-usage
+        - ncs-visualizer
+        - network-control
+        - network-monitor
+        - network-toolkit
+        - neuralwatt
+        - nextboot-selector
+        - nightscout-monitor
+        - niri-active-workspace
+        - niri-animations
+        - niri-displays
+        - niri-media-idle
+        - niri-ribbon
+        - niri-rules-studio
+        - niri-workspace-preview
+        - niri-workspace-stack
+        - niri-workspaces
+        - nix-monitor
+        - nix-search
+        - nix-status
+        - nixos-updates
+        - noctaproton-vpn
+        - noctes
+        - noctwhspr
+        - nothing-ear
+        - nvim-projects
+        - nvtop
+        - nwg-displays
+        - obs-control
+        - obs-integration
+        - obsidian
+        - obsidian-vault-switcher
+        - ocr
+        - omniroute-quota
+        - omp-launcher
+        - opencode-companion
+        - opencode-go-usage
+        - opencode-monitor
+        - opencodex-bar
+        - openvpn3
+        - opnsense
+        - opnsense-traffic
+        - oppo-pods
+        - overview
+        - owntone-control
+        - paged-todo
+        - palette-creator
+        - palettes
+        - pass
+        - passwordless-sudo
+        - performance-plus
+        - phone-connect
+        - phone-operate
+        - pixel-buds
+        - pixel-shift
+        - plugin-hub
+        - podcasts
+        - pomodoro
+        - pomodoro-heatmap
+        - portctl
+        - portforward
+        - prayer-times
+        - printers
+        - prismlauncher-instances
+        - process-manager
+        - process-monitor
+        - processes
+        - procmon
+        - profile-switcher
+        - proton-pass
+        - proton-wireguard
+        - pulsar-mouse
+        - qr-share
+        - qrcode
+        - quick-alarm
+        - quickask
+        - quill
+        - quranwidget
+        - radio
+        - razer
+        - rbw-enhanced
+        - reaction
+        - reading-list
+        - region-recorder
+        - remmina
+        - rog-control
+        - rss-feeds
+        - rss-notifier
+        - ruh-vpn
+        - rum-updates
+        - run-path
+        - saved-desktop-widgets
+        - screen-capture
+        - screen-mirror
+        - screen-time
+        - screen-toolkit
+        - scroll-indicator
+        - settings-to-nix
+        - share-wifi
+        - sharednd
+        - shelf
+        - shell-command
+        - shelly
+        - shift
+        - shipyard
+        - shloka
+        - sing-box-status
+        - social-block
+        - sonolith
+        - sony_headphones
+        - soundcore-buds
+        - special-workspaces
+        - speedtest-meter
+        - split-reset
+        - spotify
+        - spotify-ambient
+        - spotify-lyrics
+        - spotify-media
+        - ssh-launcher
+        - stdout
+        - sticky-notes
+        - super-caffeine
+        - super-productivity
+        - sway-mode
+        - sway-scratchpad
+        - synced-lyrics
+        - syncthing
+        - system-monitor
+        - system-updater
+        - systemd
+        - systempulse
+        - tablet-display
+        - taildrop
+        - tailnet
+        - tailscale
+        - task-warrior
+        - terminal-widgets
+        - theme-switcher
+        - thinkpad-fan
+        - thinkpad-led
+        - thunderbird-companion
+        - timezone-hub
+        - tmux-provider
+        - todo
+        - todoist
+        - todoist-manager
+        - token-monitor
+        - topgrade-wrapper
+        - typer
+        - typing-stats
+        - udiskie
+        - ufw
+        - um5606_fan_state
+        - umami
+        - umbriel-displays
+        - umbriel-monitor-control
+        - umbriel-submap
+        - undershell
+        - upbeat
+        - usb-manager
+        - usbeehive
+        - vial_keymap
+        - vidi
+        - vietnamese-lunar-calendar
+        - vikunja
+        - visualizerp
+        - vm-manager
+        - voxtype
+        - vpn-manager
+        - vrchat-status
+        - vscode
+        - w-engine
+        - wallpaper-brightness
+        - wallpaper-deck
+        - wallpaper-switcher
+        - wallpaper-widget
+        - warp
+        - wayvibes
+        - web-launcher
+        - web-search
+        - webapp-maker
+        - wfmu
+        - wireview-pro-ii
+        - wl-screen-mirror
+        - workspace-restore
+        - world-radio
+        - xwayland
+        - youtube-explorer
+        - youtube-search
+        - yt-music
+        - zakker
+        - zed-provider
+
+    validations:
+      required: true
+
+
+  - type: dropdown
+    id: feature-type
+    attributes:
+      label: Feature type
+      description: What kind of feature or improvement is this?
+      options:
+        - UI / visual improvement
+        - New functionality
+        - Performance improvement
+        - Configuration / customization
+        - Accessibility improvement
+        - Integration support
+        - Documentation improvement
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Feature summary
+      description: A concise description of the feature or enhancement.
+      placeholder: What would you like to see added or changed?
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation / use case
+      description: |
+        Why would this feature be useful?
+        What problem does it solve or improve?
+      placeholder: Explain the benefit or real-world use case...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: Proposed solution
+      description: |
+        Describe how you think this could work.
+
+        Mockups, examples, screenshots, or references are welcome.
+      placeholder: Describe your idea...
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: |
+        Have you considered any alternative solutions or workarounds?
+      placeholder: Optional...
+
+  - type: textarea
+    id: references
+    attributes:
+      label: References / related projects
+      description: |
+        Link any related projects, concepts, screenshots, issues, or examples here.
+      placeholder: |
+        https://github.com/...
+        https://example.com/...
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: |
+        Add any additional information, screenshots, mockups, or context here.

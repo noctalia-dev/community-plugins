@@ -1,0 +1,75 @@
+# Emoji & symbol picker — a Raycast-inspired floating panel for Noctalia.
+#
+# Three [[panel]] entries, one shared picker core (picker.luau). Each entry
+# is a thin shim (wide.luau / desktop.luau / compact.luau) that binds the
+# core to its manifest width — the entry is the only size signal available
+# (panel.* has no size query and onOpen's context is the user's string), so
+# the grid fills whatever panel it runs in:
+#   wide     (780)  9 columns, 34px glyphs
+#   desktop  (640)  8 columns, 30px glyphs
+#   compact  (480)  6 columns, 26px glyphs
+# A keybinding can pick the tier that suits the output it opens on.
+#
+# capture_keys: while the panel holds keyboard focus (exclusive), arrows and
+# Enter are delivered to onKey() instead of the host; Escape is NOT listed
+# because the host reserves Cancel for itself (a panel can never trap it) —
+# it closes the panel directly. Plain printable keys are routed to the
+# focused search input by the host before capture keys are consulted.
+#
+# The dataset (assets/emoji.json) is committed data generated from pinned
+# Unicode sources by tools/emoji-list-gen.py; see README.md for provenance
+# and the regeneration command.
+id = "liamwh/emoji-picker"
+name = "Emoji & Symbol Picker"
+version = "1.3.0"
+plugin_api = 43
+author = "liamwh"
+license = "MIT"
+dependencies = []
+tags = ["bar", "panel", "emoticon", "utility"]
+icon = "mood-smile"
+description = "Raycast-inspired emoji & Unicode symbol browser: instant search, categories, recents."
+
+[[setting]]
+key = "paste_command"
+type = "string"
+label_key = "settings.paste_command.label"
+description_key = "settings.paste_command.description"
+default = ""
+
+[[widget]]
+id = "widget"
+entry = "widget.luau"
+
+[[panel]]
+id = "wide"
+entry = "wide.luau"
+width = 780
+height = 640
+placement = "floating"
+position = "center"
+keyboard_focus = "exclusive"
+dismiss_on_outside_click = true
+capture_keys = ["up", "down", "left", "right", "enter"]
+
+[[panel]]
+id = "desktop"
+entry = "desktop.luau"
+width = 640
+height = 610
+placement = "floating"
+position = "center"
+keyboard_focus = "exclusive"
+dismiss_on_outside_click = true
+capture_keys = ["up", "down", "left", "right", "enter"]
+
+[[panel]]
+id = "compact"
+entry = "compact.luau"
+width = 480
+height = 580
+placement = "floating"
+position = "center"
+keyboard_focus = "exclusive"
+dismiss_on_outside_click = true
+capture_keys = ["up", "down", "left", "right", "enter"]

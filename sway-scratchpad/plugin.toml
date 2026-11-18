@@ -1,0 +1,62 @@
+id = "ismay/sway-scratchpad"
+name = "Sway Scratchpad"
+version = "1.0.0"
+plugin_api = 24
+author = "ismay"
+license = "MIT"
+icon = "archive"
+description = "Displays the number of windows in the Sway scratchpad."
+tags = ["bar", "sway", "indicator"]
+dependencies = ["sway", "swaymsg"]
+
+[[widget]]
+id = "sway-scratchpad"
+entry = "widget.luau"
+
+    [[widget.setting]]
+    key = "hide_count"
+    type = "bool"
+    label_key = "settings.hide_count.label"
+    description_key = "settings.hide_count.description"
+    default = false
+
+    [[widget.setting]]
+    key = "hide_empty"
+    type = "bool"
+    label_key = "settings.hide_empty.label"
+    description_key = "settings.hide_empty.description"
+    default = false
+
+    [[widget.setting]]
+    key = "empty_glyph"
+    type = "glyph"
+    label_key = "settings.empty_glyph.label"
+    description_key = "settings.empty_glyph.description"
+    default = "archive"
+    visible_when = { key = "hide_empty", values = ["false"] }
+
+    [[widget.setting]]
+    key = "empty_color"
+    type = "color"
+    label_key = "settings.empty_color.label"
+    description_key = "settings.empty_color.description"
+    visible_when = { key = "hide_empty", values = ["false"] }
+    default = "on_surface"
+
+    [[widget.setting]]
+    key = "populated_glyph"
+    type = "glyph"
+    label_key = "settings.populated_glyph.label"
+    description_key = "settings.populated_glyph.description"
+    default = "archive-filled"
+
+    [[widget.setting]]
+    key = "populated_color"
+    type = "color"
+    label_key = "settings.populated_color.label"
+    description_key = "settings.populated_color.description"
+    default = "primary"
+
+[[service]]
+id = "service"
+entry = "service.luau"

@@ -1,0 +1,230 @@
+-- Python inserts the plugin's service and widget entries before execution.
+local stateValues = {}
+local stateWatchers = {}
+local runActions = {}
+local unitState = "inactive"
+local protectionState = "unknown"
+local nextStatusState = nil
+local config = { auto_start = @@AUTO_START@@ }
+local configWrites = 0
+local deferNextStart = false
+local deferredStartCallback = nil
+local widgetOutput = {}
+
+@@TRANSLATIONS@@
+
+local function setState(key, value)
+  stateValues[key] = value
+  for _, callback in ipairs(stateWatchers[key] or {}) do
+    callback(value)
+  end
+end
+
+local function lastRunAction()
+  return runActions[#runActions]
+end
+
+noctalia = {
+  getConfig = function(key)
+    return config[key]
+  end,
+  setConfig = function(key, value)
+    configWrites += 1
+    config[key] = value
+  end,
+  pluginDir = function()
+    return "/fake-plugin"
+  end,
+  runAsync = function(argv, callback, _timeout)
+    local action = argv[3]
+    table.insert(runActions, action)
+    if action == "start" and deferNextStart then
+      deferNextStart = false
+      deferredStartCallback = callback
+      return true
+    end
+    if action == "start" then
+      unitState = "active"
+      protectionState = "normal"
+    elseif action == "stop" then
+      unitState = "inactive"
+      protectionState = "unknown"
+    elseif action == "status" then
+      protectionState = nextStatusState
+        or (unitState == "active" and "normal" or "unknown")
+      nextStatusState = nil
+    else
+      error("unexpected service action: " .. tostring(action))
+    end
+    callback({
+      exitCode = 0,
+      stdout = unitState .. " " .. protectionState,
+      stderr = "",
+    })
+    return true
+  end,
+  state = {
+    get = function(key)
+      return stateValues[key]
+    end,
+    set = setState,
+    watch = function(key, callback)
+      stateWatchers[key] = stateWatchers[key] or {}
+      table.insert(stateWatchers[key], callback)
+    end,
+  },
+  string = {
+    trim = function(value)
+      return (value:gsub("^%s+", ""):gsub("%s+$", ""))
+    end,
+  },
+  setUpdateInterval = function(_milliseconds) end,
+  tr = function(key)
+    return translations[key] or key
+  end,
+  notify = function(_title, _message) end,
+  notifyError = function(_title, _message) end,
+}
+
+local function completeDeferredStart()
+  assert(type(deferredStartCallback) == "function", "deferred start callback is missing")
+  unitState = "active"
+  protectionState = "normal"
+  local callback = deferredStartCallback
+  deferredStartCallback = nil
+  callback({
+    exitCode = 0,
+    stdout = unitState .. " " .. protectionState,
+    stderr = "",
+  })
+end
+
+barWidget = {
+  setGlyph = function(value)
+    widgetOutput.glyph = value
+  end,
+  setGlyphColor = function(value)
+    widgetOutput.color = value
+  end,
+  setTooltip = function(value)
+    widgetOutput.tooltip = value
+  end,
+}
+
+-- SERVICE ENTRY SOURCE
+-- WIDGET ENTRY SOURCE
+
+assert(runActions[1] == (config.auto_start == false and "status" or "start"),
+  "service startup must honor the auto-start preference")
+if config.auto_start == false then
+  assert(unitState == "inactive", "initial auto-start=false must not start the service")
+end
+assert(type(onConfigChanged) == "function", "service must react to plugin config changes")
+assert(type(onClick) == "function", "widget must expose its bar click")
+
+config.auto_start = true
+onConfigChanged()
+assert(lastRunAction() == "start", "enabling auto-start must start the service")
+
+config.auto_start = false
+onConfigChanged()
+assert(lastRunAction() == "stop", "disabling auto-start must stop the active service")
+assert(unitState == "inactive", "disabling auto-start must leave the service inactive")
+assert(config.auto_start == false, "config change must preserve the disabled preference")
+
+onClick()
+assert(lastRunAction() == "start", "bar click must allow a session-only start")
+assert(unitState == "active", "bar click must start the service while auto-start is disabled")
+assert(config.auto_start == false, "bar click must not change the configured preference")
+assert(configWrites == 0, "bar click must not write plugin config")
+onClick()
+assert(lastRunAction() == "stop", "bar click must still stop the session override")
+assert(config.auto_start == false, "bar stop must not change the configured preference")
+
+config.auto_start = true
+deferNextStart = true
+onConfigChanged()
+assert(lastRunAction() == "start", "enabling auto-start must start the service")
+assert(deferredStartCallback ~= nil, "the start callback must remain in flight")
+local actionCount = #runActions
+config.auto_start = false
+onConfigChanged()
+assert(#runActions == actionCount, "the pending stop must wait for the in-flight start")
+completeDeferredStart()
+assert(lastRunAction() == "stop", "the latest false preference must stop after the start")
+assert(unitState == "inactive", "latest config must be reconciled after start completes")
+assert(config.auto_start == false, "reconciliation must preserve the latest preference")
+
+onClick()
+assert(lastRunAction() == "start", "bar can still start after pending config reconciliation")
+assert(unitState == "active", "session override must remain active while preference is false")
+assert(config.auto_start == false, "session override must not change the preference")
+assert(configWrites == 0, "config reconciliation and bar overrides must not write plugin config")
+
+for _, state in ipairs({
+  "normal",
+  "music_sleep",
+  "music_sleep_incomplete",
+  "protected",
+  "incomplete",
+  "loading",
+  "unknown",
+}) do
+  nextStatusState = state
+  onIpc("status", nil)
+  assert(stateValues["niri_media_idle_status"].protectionState == state,
+    "service must publish status state " .. state)
+end
+
+local cases = {
+  { "active", "protected", false, "tooltip.protected" },
+  { "active", "normal", false, "tooltip.normal" },
+  { "active", "music_sleep", false, "tooltip.music_sleep" },
+  { "active", "music_sleep_incomplete", false, "tooltip.music_sleep_incomplete" },
+  { "active", "incomplete", false, "tooltip.incomplete" },
+  { "active", "loading", false, "tooltip.loading" },
+  { "active", "unknown", false, "tooltip.protection_unknown" },
+  { "failed", "unknown", false, "tooltip.failed" },
+  { "inactive", "unknown", false, "tooltip.inactive" },
+  { "unknown", "unknown", false, "tooltip.status_error", "PRIVATE-ERROR" },
+  { "unknown", "unknown", false, "tooltip.unknown", "" },
+  { "active", "normal", true, "tooltip.busy" },
+}
+local privateValues = {
+  "PRIVATE-PLAYER",
+  "PRIVATE-APP",
+  "PRIVATE-TITLE",
+  "PRIVATE-URL",
+  "PRIVATE-ERROR",
+}
+for _, case in ipairs(cases) do
+  setState("niri_media_idle_status", {
+    unitState = case[1],
+    protectionState = case[2],
+    busy = case[3],
+    error = case[5] or "",
+    media = "PRIVATE-PLAYER",
+    player = "PRIVATE-PLAYER",
+    app = "PRIVATE-APP",
+    title = "PRIVATE-TITLE",
+    url = "PRIVATE-URL",
+  })
+  assert(widgetOutput.tooltip == translations[case[4]], "widget must render " .. case[4])
+  assert(#widgetOutput.tooltip <= 80,
+    case[4] .. " tooltip must fit the concise 80-character budget")
+  for _, privateValue in ipairs(privateValues) do
+    assert(not string.find(widgetOutput.tooltip, privateValue, 1, true),
+      "widget tooltip leaked private media details")
+  end
+end
+
+setState("niri_media_idle_status", {
+  unitState = "active",
+  protectionState = "unknown",
+  busy = false,
+  error = "",
+})
+assert(widgetOutput.glyph == "player-stop",
+  "active bridge with unconfirmed protection should keep the active icon")
+assert(widgetOutput.color == "tertiary",
+  "active bridge with unconfirmed protection should keep the active color")

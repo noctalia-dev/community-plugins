@@ -1,0 +1,38 @@
+id           = "theblackdon/kineticwe-layouts"
+name         = "KineticWE Layouts"
+version      = "1.0.0"
+plugin_api   = 9
+author       = "theblackdon"
+license      = "MIT"
+icon         = "layout-grid"
+description  = "Shows the current KineticWE tiling layout on the bar and switches layouts from a dropdown."
+tags         = ["bar", "indicator", "service", "system"]
+dependencies = ["qdbus-qt6", "dbus-monitor"]
+
+# Headless bridge: watches the compositor's /Tiling DBus interface and
+# publishes the layout state for the widget and panel entries.
+[[service]]
+id    = "bridge"
+entry = "service.luau"
+
+# Bar indicator: glyph + current layout name; click opens the layouts panel.
+[[widget]]
+id    = "indicator"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key             = "show_text"
+  type            = "bool"
+  label_key       = "settings.show_text.label"
+  description_key = "settings.show_text.description"
+  default         = true
+
+# Dropdown listing the enabled layouts; attached so it opens from the bar
+# next to the widget that was clicked.
+[[panel]]
+id              = "layouts"
+entry           = "panel.luau"
+width           = 260
+height          = 340
+placement       = "attached"
+open_near_click = true

@@ -1,0 +1,12 @@
+{
+  "settings": {
+    "launcher": {
+      "description": "Preferred AI model when using /ll in the launcher.",
+      "label": "Launcher"
+    },
+    "modelfile_path": {
+      "description": "The directory where all your modelfiles are stored.",
+      "label": "Modelfile Path"
+    }
+  }
+}

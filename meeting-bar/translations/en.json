@@ -1,0 +1,24 @@
+{
+  "settings": {
+    "days": "Days in agenda",
+    "include_all_day": "Include all-day events",
+    "meetings_only": "Only show recognized online meetings",
+    "show_past": "Show today's finished events",
+    "calendars": "Calendar names (empty means all)",
+    "deduplicate": "Merge matching events across calendars",
+    "prefer_current": "Prefer the ongoing meeting over the next one",
+    "preview_minutes": "Preview window in minutes (0 means entire agenda)",
+    "hide_empty": "Hide the bar widget when no event is in the preview window",
+    "show_title": "Show event title in bar",
+    "show_time": "Show start time in bar",
+    "show_countdown": "Show countdown in bar",
+    "title_length": "Maximum title characters in bar",
+    "browser": "Browser executable (empty means system default)",
+    "service_commands": "Executables by service (meet, zoom, teams, webex, jitsi, \u2026)",
+    "new_meeting_url": "New meeting URL",
+    "fullscreen_reminders": "Full-screen meeting reminders",
+    "reminder_minutes": "Full-screen reminder lead time in minutes",
+    "snooze_minutes": "Snooze minutes",
+    "fullscreen_reminders_description": "Separate from native notifications. Do Not Disturb and event notification preferences do not suppress this overlay."
+  }
+}

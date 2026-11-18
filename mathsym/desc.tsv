@@ -1,0 +1,2835 @@
+exclamation mark	1
+number sign	2
+dollar sign	3
+percent sign	4
+ampersand	5
+left parenthesis	6
+right parenthesis	7
+plus sign	8
+comma	9
+full stop, period	10
+solidus	11
+colon	12
+semicolon	13
+less-than sign	14
+equals sign	15
+greater-than sign	16
+question mark	17
+commercial at	18
+left square bracket	19
+reverse solidus	20
+right square bracket	22
+left curly bracket	23
+vertical bar	24
+right curly bracket	25
+inverted exclamation mark	26
+cent sign	27
+pound sign	28
+currency sign	29
+yen sign	30
+broken bar	31
+section symbol	32
+copyright sign	33
+feminine ordinal indicator	34
+left-pointing double angle quotation mark	35
+not sign	36
+registered sign	37
+degree sign	38
+plus-or-minus sign	39
+superscript two	40
+superscript three	41
+micro sign	42
+paragraph symbol	43
+middle dot	44
+superscript one	45
+masculine ordinal indicator	46
+right-pointing double angle quotation mark	47
+vulgar fraction one quarter	48
+vulgar fraction one half	49
+vulgar fraction three quarters	50
+inverted question mark	51
+latin capital letter a with grave	52
+latin capital letter a with acute	53
+latin capital letter a with circumflex	54
+latin capital letter a with tilde	55
+latin capital letter a with diaeresis	56
+latin capital letter a with ring above	57
+latin capital letter ae	58
+latin capital letter c with cedilla	59
+latin capital letter e with grave	60
+latin capital letter e with acute	61
+latin capital letter e with circumflex	62
+latin capital letter e with diaeresis	63
+latin capital letter i with grave	64
+latin capital letter i with acute	65
+latin capital letter i with circumflex	66
+latin capital letter i with diaeresis	67
+latin capital letter eth	68
+latin capital letter n with tilde	69
+latin capital letter o with grave	70
+latin capital letter o with acute	71
+latin capital letter o with circumflex	72
+latin capital letter o with tilde	73
+latin capital letter o with diaeresis	74
+multiply sign	75
+latin capital letter o with stroke	78
+latin capital letter u with grave	79
+latin capital letter u with acute	80
+latin capital letter u with circumflex	81
+latin capital letter u with diaeresis	82
+latin capital letter y with acute	83
+latin capital letter thorn	84
+latin small letter a with grave	85
+latin small letter a with acute	86
+latin small letter a with circumflex	87
+latin small letter a with tilde	88
+latin small letter a with diaeresis	89
+latin small letter a with ring above	90
+latin small letter ae	91
+latin small letter c with cedilla	92
+latin small letter e with grave	93
+latin small letter e with acute	94
+latin small letter e with circumflex	95
+latin small letter e with diaeresis	96
+latin small letter i with grave	97
+latin small letter i with acute	98
+latin small letter i with circumflex	99
+latin small letter i with diaeresis	100
+eth	101
+latin small letter n with tilde	102
+latin small letter o with grave	103
+latin small letter o with acute	104
+latin small letter o with circumflex	105
+latin small letter o with tilde	106
+latin small letter o with diaeresis	107
+divide sign	108
+latin small letter o with stroke	109
+latin small letter u with grave	110
+latin small letter u with acute	111
+latin small letter u with circumflex	112
+latin small letter u with diaeresis	113
+latin small letter y with acute	114
+latin small letter y with diaeresis	115
+latin capital letter a with macron	116
+latin small letter a with macron	117
+latin capital letter c with caron	118
+latin small letter c with caron	119
+latin capital letter d with caron	120
+latin small letter d with caron	121
+latin capital letter e with macron	122
+latin small letter e with macron	123
+latin capital letter e with caron	124
+latin small letter e with caron	125
+latin capital letter i with macron	126
+latin small letter i with macron	127
+latin capital letter i with ogonek	128
+latin small letter i with ogonek	129
+latin small letter dotless i	130
+latin capital letter l with stroke	131
+latin capital letter o with macron	132
+latin small letter o with macron	133
+latin capital ligature oe	134
+latin small ligature oe	135
+latin capital letter u with macron	136
+latin small letter u with macron	137
+latin small letter lambda with stroke	138
+impedance (latin capital letter z with stroke)	139
+latin small letter e with cedilla	140
+modifier letter small h	141
+modifier letter small h with hook	142
+modifier letter small j	143
+modifier letter small r	144
+modifier letter small turned r	145
+modifier letter small turned r with hook	146
+modifier letter small capital inverted r	147
+modifier letter small w	148
+modifier letter small y	149
+modifier letter small gamma	150
+modifier letter small l	151
+modifier letter small s	152
+modifier letter small x	153
+modifier letter small reversed glottal stop	154
+grave accent	155
+acute accent	156
+circumflex accent	157
+tilde	158
+macron	159
+overbar embellishment	160
+breve	161
+dot above	162
+dieresis	163
+combining hook above	164
+ring	165
+caron	166
+candrabindu (non-spacing)	167
+combining turned comma above	168
+combining comma above right	169
+left angle above (non-spacing)	170
+under tilde accent (multiple characters and non-spacing)	171
+combining low line	172
+combining long solidus overlay	173
+underleftrightarrow accent	174
+greek capital letter heta	175
+greek small letter heta	176
+greek capital letter yot	177
+capital alpha, greek	178
+capital beta, greek	179
+capital gamma, greek	180
+capital delta, greek	181
+capital epsilon, greek	182
+capital zeta, greek	183
+capital eta, greek	184
+capital theta, greek	185
+capital iota, greek	186
+capital kappa, greek	187
+capital lambda, greek	188
+capital mu, greek	189
+capital nu, greek	190
+capital xi, greek	191
+capital omicron, greek	192
+capital pi, greek	193
+capital rho, greek	195
+capital sigma, greek	196
+capital tau, greek	197
+capital upsilon, greek	198
+capital phi, greek	199
+capital chi, greek	200
+capital psi, greek	201
+capital omega, greek	202
+small alpha, greek	203
+small beta, greek	204
+small gamma, greek	205
+small delta, greek	206
+rounded small varepsilon, greek	207
+small zeta, greek	208
+small eta, greek	209
+straight theta, small theta, greek	210
+small iota, greek	211
+small kappa, greek	212
+small lambda, greek	213
+small mu, greek	214
+small nu, greek	215
+small xi, greek	216
+small omicron, greek	217
+small pi, greek	218
+small rho, greek	219
+terminal sigma, greek	220
+small sigma, greek	221
+small tau, greek	222
+small upsilon, greek	223
+curly or open small phi, greek	224
+small chi, greek	225
+small psi, greek	226
+small omega, greek	227
+greek beta symbol	228
+curly or open theta	229
+small phi, greek	230
+rounded small pi (pomega), greek	231
+greek kai symbol	232
+greek letter stigma	233
+greek small letter stigma	234
+capital digamma	235
+old greek small letter digamma	236
+greek letter koppa	237
+greek small letter koppa	238
+greek letter sampi	239
+greek small letter sampi	240
+coptic capital letter shei	241
+coptic small letter shei	242
+coptic capital letter fei	243
+coptic small letter fei	244
+coptic capital letter khei	245
+coptic small letter khei	246
+coptic capital letter hori	247
+coptic small letter hori	248
+coptic capital letter gangia	249
+coptic small letter gangia	250
+coptic capital letter shima	251
+coptic small letter shima	252
+coptic capital letter dei	253
+coptic small letter dei	254
+rounded small kappa, greek	255
+rounded small rho, greek	256
+greek capital theta symbol	257
+greek lunate varepsilon symbol	258
+greek reversed lunate epsilon symbol	259
+greek capital letter sho	260
+greek small letter sho	261
+greek capital letter san	262
+greek small letter san	263
+thai currency symbol baht	264
+canadian syllabics carrier p	265
+modifier letter capital a	266
+modifier letter capital ae	267
+modifier letter capital b	268
+modifier letter capital barred b	269
+modifier letter capital d	270
+modifier letter capital e	271
+modifier letter capital reversed e	272
+modifier letter capital g	273
+modifier letter capital h	274
+modifier letter capital i	275
+modifier letter capital j	276
+modifier letter capital k	277
+modifier letter capital l	278
+modifier letter capital m	279
+modifier letter capital n	280
+modifier letter capital reversed n	281
+modifier letter capital o	282
+modifier letter capital ou	283
+modifier letter capital p	284
+modifier letter capital r	285
+modifier letter capital t	286
+modifier letter capital u	287
+modifier letter capital w	288
+modifier letter small a	289
+modifier letter small turned a	291
+modifier letter small alpha	292
+modifier letter small turned ae	293
+modifier letter small b	294
+modifier letter small d	295
+modifier letter small e	296
+modifier letter small schwa	297
+modifier letter small open e	298
+modifier letter small turned open e	299
+modifier letter small g	300
+modifier letter small turned i	301
+modifier letter small k	302
+modifier letter small m	303
+modifier letter small eng	305
+modifier letter small o	306
+modifier letter small open o	309
+modifier letter small top half o	310
+modifier letter small bottom half o	311
+modifier letter small p	312
+modifier letter small t	313
+modifier letter small u	314
+modifier letter small sideways u	315
+modifier letter small turned m	316
+modifier letter small v	317
+modifier letter small ain	318
+modifier letter small beta	319
+modifier letter small greek gamma	320
+modifier letter small greek phi	321
+modifier letter small chi	322
+latin subscript small letter i	323
+latin subscript small letter r	324
+latin subscript small letter u	325
+latin subscript small letter v	326
+modifier letter small turned alpha	327
+modifier letter small c	328
+modifier letter small c with curl	329
+modifier letter small eth	330
+modifier letter small reversed open e	331
+modifier letter small f	332
+modifier letter small script g	333
+modifier letter small turned h	334
+modifier letter small i with stroke	335
+modifier letter small iota	336
+modifier letter small capital i	337
+modifier letter small capital i with stroke	338
+modifier letter small j with crossed-tail	339
+modifier letter small l with retroflex hook	340
+modifier letter small l with palatal hook	341
+modifier letter small capital l	342
+modifier letter small m with hook	343
+modifier letter small turned m with long leg	344
+modifier letter small n with left hook	345
+modifier letter small n with retroflex hook	346
+modifier letter small capital n	347
+modifier letter small barred o	348
+modifier letter small phi	349
+modifier letter small s with hook	350
+modifier letter small esh	351
+modifier letter small t with palatal hook	352
+modifier letter small u bar	353
+modifier letter small upsilon	354
+modifier letter small capital u	355
+modifier letter small v with hook	356
+modifier letter small turned v	357
+modifier letter small z	358
+modifier letter small z with retroflex hook	359
+modifier letter small z with curl	360
+modifier letter small ezh	361
+modifier letter small theta	362
+hyphen	363
+en dash	364
+em dash	365
+horizontal bar	366
+double vertical bar	367
+double low line (spacing)	368
+left single quotation mark	369
+right single quotation mark	370
+single low-9 quotation mark	371
+left double quotation mark	372
+right double quotation mark	373
+double low-9 quotation mark	374
+dagger relation	375
+double dagger relation	376
+round bullet, filled	377
+triangular bullet	378
+double baseline dot (en leader)	379
+ellipsis (horizontal)	380
+per mille sign	381
+per ten thousand sign	382
+prime or minute, not superscripted	383
+double prime or second, not superscripted	384
+triple prime (not superscripted)	385
+reverse prime, not superscripted	386
+double reverse prime, not superscripted	387
+triple reverse prime, not superscripted	388
+caret (insertion mark)	389
+single left-pointing angle quotation mark	390
+single right-pointing angle quotation mark	391
+reference mark	392
+double exclamation mark	393
+interrobang	394
+undertie	395
+character tie, z notation sequence concatenation	396
+rectangle, filled (hyphen bullet)	397
+fraction slash	398
+left square bracket with quill	399
+right square bracket with quill	400
+double question mark	401
+exclamation question mark	402
+low asterisk	403
+close up	404
+commercial minus sign	405
+quadruple prime, not superscripted	406
+superscript zero	407
+superscript latin small letter i	408
+superscript four	409
+superscript five	410
+superscript six	411
+superscript seven	412
+superscript eight	413
+superscript nine	414
+superscript plus sign	415
+superscript minus	416
+superscript equals sign	421
+superscript left parenthesis	422
+superscript right parenthesis	423
+superscript latin small letter n	424
+subscript zero	425
+subscript one	426
+subscript two	427
+subscript three	428
+subscript four	429
+subscript five	430
+subscript six	431
+subscript seven	432
+subscript eight	433
+subscript nine	434
+subscript plus sign	435
+subscript minus	436
+subscript equals sign	437
+subscript left parenthesis	438
+subscript right parenthesis	439
+latin subscript small letter a	440
+latin subscript small letter e	441
+latin subscript small letter o	442
+latin subscript small letter x	443
+latin subscript small letter h	444
+latin subscript small letter k	445
+latin subscript small letter l	446
+latin subscript small letter m	447
+latin subscript small letter n	448
+latin subscript small letter p	449
+latin subscript small letter s	450
+latin subscript small letter t	451
+colon sign	455
+cruzeiro sign	456
+lira sign	457
+mill sign	458
+naira sign	459
+peseta sign	460
+rupee sign	461
+won sign	462
+dong sign	463
+euro sign	464
+kip sign	465
+tugrik sign	466
+drachma sign	467
+peso sign	468
+guarani sign	469
+austral sign	470
+hryvnia sign	471
+cedi sign	472
+spesmilo sign	473
+tenge sign	474
+manat sign	475
+ruble sign	476
+lari sign	477
+combining left harpoon above	478
+combining right harpoon above	479
+combining long vertical line overlay	480
+combining left arrow above	481
+combining left arrow above	482
+combining three dots above	483
+combining four dots above	484
+combining enclosing circle	485
+combining enclosing square	486
+combining enclosing diamond	487
+combining left right arrow above	488
+combining enclosing upward pointing triangle	489
+combining annuity symbol	490
+combining triple underdot	491
+combining wide bridge above	492
+combining rightwards harpoon with barb downwards	493
+combining leftwards harpoon with barb downwards	494
+combining left arrow below	495
+combining right arrow below	496
+combining asterisk above	497
+/bbb c, open face c	498
+degree celsius	499
+euler constant	500
+/scr g, script letter g	501
+hamiltonian (script capital h)	502
+/frak h, upper case h	503
+/bbb h, open face h	504
+planck constant	505
+variant planck's over 2pi	506
+/scr i, script letter i	507
+imaginary part	508
+lagrangian (script capital l)	509
+cursive small l	510
+/bbb n, open face n	511
+numero sign	513
+sound recording copyright	514
+weierstrass p	515
+/bbb p, open face p	516
+/bbb q, open face q	517
+/scr r, script letter r	518
+real part	519
+/bbb r, open face r	520
+prescription take	522
+service mark	523
+telephone sign	524
+trade mark sign	525
+/bbb z, open face z	526
+ounce sign	528
+ohm sign	529
+conductance	530
+/frak z, upper case z	531
+turned iota	532
+kelvin sign	533
+angstrom capital a, ring	534
+bernoulli function (script capital b)	535
+black-letter capital c	536
+estimated symbol	537
+/scr e, script letter e	538
+/scr e, script letter e	539
+/scr f, script letter f	540
+turned capital f	541
+physics m-matrix (script capital m)	542
+order of (script small o)	543
+aleph, hebrew	544
+beth, hebrew	546
+gimel, hebrew	547
+daleth, hebrew	548
+facsimile sign	549
+double-struck small pi	550
+double-struck small gamma	551
+double-struck capital gamma	552
+double-struck capital pi	553
+double-struck n-ary summation	554
+turned sans-serif capital g	555
+turned sans-serif capital l	556
+reversed sans-serif capital l	557
+turned sans-serif capital y	558
+double-struck italic capital d	559
+double-struck italic small d	560
+double-struck italic small e	561
+double-struck italic small i	562
+double-struck italic small j	563
+property line	564
+turned ampersand	565
+per sign	566
+vulgar fraction one third	567
+vulgar fraction two thirds	568
+vulgar fraction one fifth	569
+vulgar fraction two fifths	570
+vulgar fraction three fifths	571
+vulgar fraction four fifths	572
+vulgar fraction one sixth	573
+vulgar fraction five sixths	574
+vulgar fraction one eighth	575
+vulgar fraction three eighths	576
+vulgar fraction five eighths	577
+vulgar fraction seven eighths	578
+fraction numerator one	579
+leftward arrow	580
+upward arrow	581
+rightward arrow	582
+downward arrow	593
+left and right arrow	594
+up and down arrow	595
+nw pointing arrow	596
+ne pointing arrow	597
+se pointing arrow	598
+sw pointing arrow	599
+not left arrow	600
+not right arrow	601
+left arrow-wavy	602
+right arrow-wavy	603
+left two-headed arrow	604
+up two-headed arrow	605
+right two-headed arrow	606
+down two-headed arrow	607
+left arrow-tailed	608
+right arrow-tailed	609
+maps to, leftward	610
+maps to, upward	611
+maps to, rightward	612
+maps to, downward	613
+up down arrow with base (perpendicular)	614
+left arrow-hooked	615
+right arrow-hooked	616
+left arrow-looped	617
+right arrow-looped	618
+left and right arr-wavy	619
+not left and right arrow	620
+downwards zigzag arrow	621
+upwards arrow with tip leftwards	622
+upwards arrow with tip rightwards	623
+left down angled arrow	624
+right down angled arrow	625
+rightwards arrow with corner downwards	626
+downwards arrow with corner leftward = carriage return	627
+left curved arrow	628
+right curved arrow	629
+north west arrow to long bar	630
+leftwards arrow to bar over rightwards arrow to bar	631
+anticlockwise open circle arrow	632
+clockwise open circle arrow	633
+left harpoon-up	634
+left harpoon-down	635
+up harpoon-right	636
+up harpoon-left	637
+right harpoon-up	638
+right harpoon-down	639
+down harpoon-right	640
+down harpoon-left	641
+right arrow over left arrow	642
+up arrow, down arrow	643
+left arrow over right arrow	644
+two left arrows	645
+two up arrows	646
+two right arrows	647
+two down arrows	648
+left harpoon over right	649
+right harpoon over left	650
+not implied by	651
+not left and right double arrows	652
+not implies	653
+is implied by	654
+up double arrow	655
+implies	656
+down double arrow	657
+left and right double arrow	658
+up and down double arrow	659
+nw pointing double arrow	660
+ne pointing double arrow	661
+se pointing double arrow	662
+sw pointing double arrow	663
+left triple arrow	664
+right triple arrow	665
+leftwards squiggle arrow	666
+rightwards squiggle arrow	667
+upwards arrow with double stroke	668
+downwards arrow with double stroke	669
+leftwards dashed arrow	670
+upwards dashed arrow	671
+rightwards dashed arrow	672
+downwards dashed arrow	673
+leftwards arrow to bar	674
+rightwards arrow to bar	675
+leftwards white arrow	676
+upwards white arrow	677
+rightwards white arrow	678
+downwards white arrow	679
+upwards white arrow from bar	680
+rightwards white arrow from wall	681
+right arrow with small circle	682
+downwards arrow leftwards of upwards arrow	683
+three rightwards arrows	684
+leftwards arrow with vertical stroke	685
+rightwards arrow with vertical stroke	686
+left right arrow with vertical stroke	687
+leftwards arrow with double vertical stroke	688
+rightwards arrow with double vertical stroke	689
+left right arrow with double vertical stroke	690
+leftwards open-headed arrow	691
+rightwards open-headed arrow	692
+left right open-headed arrow	693
+for all	694
+complement sign	697
+partial differential	698
+at least one exists	699
+negated exists	701
+circle, slash	702
+laplacian (delta; nabla\string^2)	703
+nabla, del, hamilton operator	704
+set membership, variant	705
+negated set membership	706
+set membership (small set membership)	707
+contains, variant	708
+negated contains, variant	709
+contains (small contains as member)	710
+end of proof	711
+product operator	712
+coproduct operator	714
+summation operator	715
+minus sign	717
+minus-or-plus sign	718
+plus sign, dot above	719
+division slash	720
+set minus (cf. reverse solidus)	721
+centered asterisk	722
+composite function (small circle)	723
+bullet operator	725
+radical	726
+cube root	727
+fourth root	728
+is proportional to	729
+infinity	730
+right (90 degree) angle	731
+angle	732
+angle-measured	733
+angle-spherical	734
+divides	735
+negated mid	736
+parallel	737
+not parallel	738
+logical and	739
+logical or	740
+intersection	741
+union or logical sum	742
+integral operator	743
+double integral operator	744
+triple integral operator	745
+contour integral operator	746
+double contour integral operator	747
+triple contour integral operator	748
+clockwise integral	749
+contour integral, clockwise	750
+contour integral, anticlockwise	751
+therefore	752
+because	753
+ratio	754
+two colons	755
+minus sign, dot above	756
+)	757
+minus with four dots, geometric properties	758
+homothetic	759
+similar	760
+reverse similar	761
+most positive [inverted lazy s]	762
+sine wave	763
+wreath product	764
+not similar	765
+equals, similar	766
+similar, equals	767
+not similar, equals	768
+congruent with	769
+similar, not equals [vert only for 9573 entity]	770
+not congruent with	771
+approximate	772
+not approximate	773
+approximate, equals	774
+approximately identical to	775
+all equal to	776
+asymptotically equal to	777
+bumpy equals	778
+bumpy equals, equals	779
+equals, single dot above	780
+equals, even dots	781
+equals, falling dots	782
+equals, rising dots	783
+colon, equals	784
+equals, colon	785
+circle on equals sign	786
+circle, equals	787
+arc, equals; corresponds to	788
+corresponds to (wedge, equals)	789
+logical or, equals	790
+star equals	791
+triangle, equals	792
+equals by definition	793
+measured by (m over equals)	794
+equal with questionmark	795
+not equal	796
+identical with	797
+not identical with	798
+strict equivalence (4 lines)	799
+less-than-or-equal	800
+greater-than-or-equal	801
+less, double equals	802
+greater, double equals	803
+less, not double equals	804
+greater, not double equals	805
+much less than, type 2	806
+much greater than, type 2	807
+between	808
+not asymptotically equal to	809
+not less-than	810
+not greater-than	811
+not less-than-or-equal	812
+not greater-than-or-equal	813
+less, similar	814
+greater, similar	815
+not less, similar	816
+not greater, similar	817
+less, greater	818
+greater, less	819
+not less, greater	820
+not greater, less	821
+precedes	822
+succeeds	823
+precedes, curly equals	824
+succeeds, curly equals	825
+precedes, similar	826
+succeeds, similar	827
+not precedes	828
+not succeeds	829
+subset or is implied by	830
+superset or implies	831
+not subset, variant [slash negation]	832
+not superset, variant [slash negation]	833
+subset, equals	834
+superset, equals	835
+not subset, equals	836
+not superset, equals	837
+subset, not equals	838
+superset, not equals	839
+multiset	840
+union, with dot	841
+plus sign in union	842
+square subset	843
+square superset	844
+square subset, equals	845
+square superset, equals	846
+square intersection	847
+square union	848
+plus sign in circle	849
+minus sign in circle	850
+multiply sign in circle	851
+solidus in circle	852
+middle dot in circle	853
+small circle in circle	854
+asterisk in circle	855
+equal in circle	856
+hyphen in circle	857
+plus sign in box	858
+minus sign in box	859
+multiply sign in box	860
+small dot in box	861
+vertical, dash	862
+dash, vertical	863
+top	864
+bottom	865
+assertion (vertical, short dash)	866
+models (vertical, short double dash)	867
+vertical, double dash	868
+double vertical, dash	869
+triple vertical, dash	870
+double vert, double dash	871
+not vertical, dash	872
+not vertical, double dash	873
+not double vertical, dash	874
+not double vert, double dash	875
+element precedes under relation	876
+succeeds under relation	877
+left triangle, open, variant	878
+right triangle, open, variant	879
+left triangle, equals	880
+right triangle, equals	881
+original of	882
+image of	883
+multimap	884
+hermitian conjugate matrix	885
+intercal	886
+logical or, bar below (large vee); exclusive disjunction	887
+bar, wedge (large wedge)	888
+bar, vee (large vee)	889
+right angle-measured [with arc]	890
+right triangle	891
+logical and operator	892
+logical or operator	893
+intersection operator	894
+union operator	896
+white diamond	898
+small middle dot	899
+small star, filled, low	900
+division on times	901
+bowtie	902
+times sign, left closed	903
+times sign, right closed	904
+left semidirect product	905
+right semidirect product	906
+reverse similar, equals	907
+curly logical or	908
+curly logical and	909
+double subset	910
+double superset	911
+double intersection	912
+double union	913
+pitchfork	914
+parallel, equal; equal or parallel	915
+less than, with dot	916
+greater than, with dot	917
+triple less-than	918
+triple greater-than	919
+less, equals, greater	920
+greater, equals, less	921
+equal-or-less	922
+equal-or-greater	923
+curly equals, precedes	924
+curly equals, succeeds	925
+not precedes, curly equals	926
+not succeeds, curly equals	927
+not, square subset, equals	928
+not, square superset, equals	929
+square subset, not equals	930
+square superset, not equals	931
+less, not similar	932
+greater, not similar	933
+precedes, not similar	934
+succeeds, not similar	935
+not left triangle	936
+not right triangle	937
+not left triangle, equals	938
+not right triangle, equals	939
+vertical ellipsis	940
+three dots, centered	941
+three dots, ascending	942
+three dots, descending	943
+element of with long horizontal stroke	944
+element of with vertical bar at end of horizontal stroke	945
+small element of with vertical bar at end of horizontal stroke	946
+element of with dot above	947
+element of with overbar	948
+small element of with overbar	949
+element of with underbar	950
+element of with two horizontal strokes	951
+contains with long horizontal stroke	952
+contains with vertical bar at end of horizontal stroke	953
+small contains with vertical bar at end of horizontal stroke	954
+contains with overbar	955
+small contains with overbar	956
+z notation bag membership	957
+diameter sign	958
+house	959
+logical and, bar above [projective (bar over small wedge)]	960
+logical and, double bar above [perspective (double bar over small wedge)]	961
+left ceiling	962
+right ceiling	963
+left floor	964
+right floor	965
+reverse not	966
+square lozenge	967
+profile of a line	968
+profile of a surface	969
+viewdata square	970
+turned not sign	971
+upper left corner	972
+upper right corner	973
+lower left corner	974
+lower right corner	975
+top half integral	976
+bottom half integral	977
+down curve	978
+up curve	979
+six carbon ring, corner down, double bonds lower right etc	980
+conical taper	981
+top and bottom	982
+circle with vertical bar	983
+solidus, bar through (apl functional symbol slash bar)	984
+apl functional symbol backslash bar	985
+boxed up caret	986
+apl functional symbol circle star	987
+boxed question mark	988
+right angle with downwards zigzag arrow	989
+horizontal benzene ring [hexagon flat open]	990
+left parenthesis upper hook	991
+left parenthesis extension	992
+left parenthesis lower hook	993
+right parenthesis upper hook	994
+right parenthesis extension	995
+right parenthesis lower hook	996
+left square bracket upper corner	997
+left square bracket extension	998
+left square bracket lower corner	999
+right square bracket upper corner	1000
+right square bracket extension	1001
+right square bracket lower corner	1002
+left curly bracket upper hook	1003
+left curly bracket middle piece	1004
+left curly bracket lower hook	1005
+curly bracket extension	1006
+right curly bracket upper hook	1007
+right curly bracket middle piece	1008
+right curly bracket lower hook	1009
+integral extension	1010
+horizontal line extension (used to extend arrows)	1011
+upper left or lower right curly bracket section	1012
+upper right or lower left curly bracket section	1013
+summation top	1014
+summation bottom	1015
+top square bracket	1016
+bottom square bracket	1017
+bottom square bracket over top square bracket	1018
+radical symbol bottom	1019
+left vertical box line	1020
+right vertical box line	1021
+return symbol	1022
+top parenthesis (mathematical use)	1023
+bottom parenthesis (mathematical use)	1024
+top curly bracket (mathematical use)	1025
+bottom curly bracket (mathematical use)	1026
+top tortoise shell bracket (mathematical use)	1027
+bottom tortoise shell bracket (mathematical use)	1028
+white trapezium	1029
+benzene ring with circle	1030
+straightness	1031
+flatness	1032
+ac current	1033
+electrical intersection	1034
+blank symbol	1035
+open box	1036
+circled latin capital letter s	1037
+box drawings light horizontal	1038
+box drawings heavy horizontal	1039
+doubly broken vert	1040
+box drawings light double dash horizontal	1041
+box drawings double horizontal	1042
+upper half block	1043
+lower half block	1044
+full block	1045
+left half block	1046
+right half block	1047
+25\% shaded block	1048
+50\% shaded block	1049
+75\% shaded block	1050
+square, filled	1051
+square, open	1052
+white square with rounded corners	1053
+white square containing black small square	1054
+square, horizontal rule filled	1055
+square, vertical rule filled	1056
+square with orthogonal crosshatch fill	1057
+square, nw-to-se rule filled	1058
+square, ne-to-sw rule filled	1059
+square with diagonal crosshatch fill	1060
+sq bullet, filled	1061
+white small square	1062
+black rectangle	1063
+horizontal rectangle, open	1064
+black vertical rectangle	1065
+rectangle, white (vertical)	1066
+black parallelogram	1067
+parallelogram, open	1068
+black up-pointing triangle	1069
+big up triangle, open	1070
+up triangle, filled	1071
+up triangle, open	1072
+(large) right triangle, filled	1073
+(large) right triangle, open; z notation range restriction	1074
+right triangle, filled	1075
+right triangle, open	1076
+black right-pointing pointer	1077
+white right-pointing pointer	1078
+big down triangle, filled	1079
+big down triangle, open	1080
+down triangle, filled	1081
+down triangle, open	1082
+(large) left triangle, filled	1083
+(large) left triangle, open; z notation domain restriction	1084
+left triangle, filled	1085
+left triangle, open	1086
+black left-pointing pointer	1087
+white left-pointing pointer	1088
+black diamond	1089
+white diamond; diamond, open	1090
+white diamond containing black small diamond	1091
+fisheye	1092
+lozenge or total mark	1093
+medium large circle	1094
+dotted circle	1095
+circle with vertical fill	1096
+bullseye	1097
+circle, filled	1098
+circle, filled left half [harvey ball]	1099
+circle, filled right half	1100
+circle, filled bottom half	1101
+circle, filled top half	1102
+circle with upper right quadrant black	1103
+circle with all but upper left quadrant black	1104
+left half black circle	1105
+right half black circle	1106
+inverse bullet	1107
+inverse white circle	1108
+upper half inverse white circle	1109
+lower half inverse white circle	1110
+upper left quadrant circular arc	1111
+upper right quadrant circular arc	1112
+lower right quadrant circular arc	1113
+lower left quadrant circular arc	1114
+upper half circle	1115
+lower half circle	1116
+lower right triangle, filled	1117
+lower left triangle, filled	1118
+upper left triangle, filled	1119
+upper right triangle, filled	1120
+white bullet	1121
+square, filled left half	1122
+square, filled right half	1123
+square, filled top left corner	1124
+square, filled bottom right corner	1125
+vertical bar in box	1126
+triangle with centered dot	1127
+up-pointing triangle with left half black	1128
+up-pointing triangle with right half black	1129
+large circle	1130
+white square with upper left quadrant	1131
+white square with lower left quadrant	1132
+white square with lower right quadrant	1133
+white square with upper right quadrant	1134
+white circle with upper left quadrant	1135
+white circle with lower left quadrant	1136
+white circle with lower right quadrant	1137
+white circle with upper right quadrant	1138
+upper left triangle	1139
+upper right triangle	1140
+lower left triangle	1141
+white medium square	1142
+black medium square	1143
+white medium small square	1144
+black medium small square	1145
+lower right triangle	1146
+star, filled	1147
+star, open	1148
+sun	1149
+dangerous bend (caution sign)	1150
+radioactive sign	1151
+biohazard sign	1152
+white frowning face	1153
+white smiling face	1154
+black smiling face	1155
+white sun with rays	1156
+first quarter moon	1157
+last quarter moon	1158
+venus, female	1159
+mars, male	1160
+spades suit symbol	1161
+heart suit symbol	1162
+diamond suit symbol	1163
+club suit symbol	1164
+spade, white (card suit)	1165
+filled heart (card suit)	1166
+filled diamond (card suit)	1167
+club, white (card suit)	1168
+music note (sung text sign)	1169
+eighth note	1170
+beamed eighth notes	1171
+musical flat	1172
+music natural	1173
+musical sharp	1174
+permanent paper sign	1175
+die face-1	1176
+die face-2	1177
+die face-3	1178
+die face-4	1179
+die face-5	1180
+die face-6	1181
+white circle with dot right	1182
+white circle with two dots	1183
+black circle with white dot right	1184
+black circle with two white dots	1185
+warning sign	1186
+male and female sign	1187
+medium white circle	1188
+medium black circle	1189
+medium small white circle	1190
+neuter	1191
+black scissors	1192
+envelope	1193
+tick, check mark	1194
+latin cross	1195
+maltese cross	1196
+black four pointed star	1197
+white four pointed star	1198
+circled white star	1199
+eight pointed black star	1200
+six pointed black star	1201
+twelve pointed black star	1202
+heavy teardrop-spoked asterisk	1203
+heavy left-pointing angle bracket ornament	1204
+heavy right-pointing angle bracket ornament	1205
+light left tortoise shell bracket ornament	1206
+light right tortoise shell bracket ornament	1207
+right arrow with bold head (drafting)	1208
+three dimensional angle	1209
+white triangle containing small white triangle	1210
+perpendicular	1211
+open subset	1212
+open superset	1213
+left s-shaped bag delimiter	1214
+right s-shaped bag delimiter	1215
+or with dot inside	1216
+reverse solidus preceding subset	1217
+superset preceding solidus	1218
+mathematical rising diagonal	1219
+long division	1220
+mathematical falling diagonal	1221
+white diamond with centred dot	1222
+and with dot	1223
+element of opening upwards	1224
+lower right corner with dot	1225
+upper left corner with dot	1226
+left outer join	1227
+right outer join	1228
+full outer join	1229
+large up tack	1230
+large down tack	1231
+left and right double turnstile	1232
+left and right tack	1233
+left multimap	1234
+long left tack	1235
+long right tack	1236
+up tack with circle above	1237
+lozenge divided by horizontal rule	1238
+white concave-sided diamond	1239
+white concave-sided diamond with leftwards tick	1240
+white concave-sided diamond with rightwards tick	1241
+white square with leftwards tick	1242
+white square with rightwards tick	1243
+mathematical left white square bracket	1244
+mathematical right white square bracket	1245
+mathematical left angle bracket	1246
+mathematical right angle bracket	1247
+mathematical left double angle bracket	1248
+mathematical right double angle bracket	1249
+mathematical left white tortoise shell bracket	1250
+mathematical right white tortoise shell bracket	1251
+mathematical left flattened parenthesis	1252
+mathematical right flattened parenthesis	1253
+upwards quadruple arrow	1254
+downwards quadruple arrow	1255
+anticlockwise gapped circle arrow	1256
+clockwise gapped circle arrow	1257
+right arrow with circled plus	1258
+long leftwards arrow	1259
+long rightwards arrow	1260
+long left right arrow	1261
+long leftwards double arrow	1262
+long rightwards double arrow	1263
+long left right double arrow	1264
+long leftwards arrow from bar	1265
+long rightwards arrow from bar	1266
+long leftwards double arrow from bar	1267
+long rightwards double arrow from bar	1268
+long rightwards squiggle arrow	1269
+rightwards two-headed arrow with vertical stroke	1270
+rightwards two-headed arrow with double vertical stroke	1271
+leftwards double arrow with vertical stroke	1272
+rightwards double arrow with vertical stroke	1273
+left right double arrow with vertical stroke	1274
+rightwards two-headed arrow from bar	1275
+leftwards double arrow from bar	1276
+rightwards double arrow from bar	1277
+downwards arrow with horizontal stroke	1278
+upwards arrow with horizontal stroke	1279
+upwards triple arrow	1280
+downwards triple arrow	1281
+leftwards double dash arrow	1282
+rightwards double dash arrow	1283
+leftwards triple dash arrow	1284
+rightwards triple dash arrow	1285
+rightwards two-headed triple dash arrow	1286
+rightwards arrow with dotted stem	1287
+upwards arrow to bar	1288
+downwards arrow to bar	1289
+rightwards arrow with tail with vertical stroke	1290
+rightwards arrow with tail with double vertical stroke	1291
+rightwards two-headed arrow with tail	1292
+rightwards two-headed arrow with tail with vertical stroke	1293
+rightwards two-headed arrow with tail with double vertical stroke	1294
+leftwards arrow-tail	1295
+rightwards arrow-tail	1296
+leftwards double arrow-tail	1297
+rightwards double arrow-tail	1298
+leftwards arrow to black diamond	1299
+rightwards arrow to black diamond	1300
+leftwards arrow from bar to black diamond	1301
+rightwards arrow from bar to black diamond	1302
+north west and south east arrow	1303
+north east and south west arrow	1304
+north west arrow with hook	1305
+north east arrow with hook	1306
+south east arrow with hook	1307
+south west arrow with hook	1308
+north west arrow and north east arrow	1309
+north east arrow and south east arrow	1310
+south east arrow and south west arrow	1311
+south west arrow and north west arrow	1312
+rising diagonal crossing falling diagonal	1313
+falling diagonal crossing rising diagonal	1314
+south east arrow crossing north east arrow	1315
+north east arrow crossing south east arrow	1316
+falling diagonal crossing north east arrow	1317
+rising diagonal crossing south east arrow	1318
+north east arrow crossing north west arrow	1319
+north west arrow crossing north east arrow	1320
+wave arrow pointing directly right	1321
+arrow pointing rightwards then curving upwards	1322
+arrow pointing rightwards then curving downwards	1323
+arrow pointing downwards then curving leftwards	1324
+arrow pointing downwards then curving rightwards	1325
+right-side arc clockwise arrow	1326
+left-side arc anticlockwise arrow	1327
+top arc anticlockwise arrow	1328
+bottom arc anticlockwise arrow	1329
+top arc clockwise arrow with minus	1330
+top arc anticlockwise arrow with plus	1331
+lower right semicircular clockwise arrow	1332
+lower left semicircular anticlockwise arrow	1333
+anticlockwise closed circle arrow	1334
+clockwise closed circle arrow	1335
+rightwards arrow above short leftwards arrow	1336
+leftwards arrow above short rightwards arrow	1337
+short rightwards arrow above leftwards arrow	1338
+rightwards arrow with plus below	1339
+leftwards arrow with plus below	1340
+rightwards arrow through x	1341
+left right arrow through small circle	1342
+upwards two-headed arrow from small circle	1343
+left barb up right barb down harpoon	1344
+left barb down right barb up harpoon	1345
+up barb right down barb left harpoon	1346
+up barb left down barb right harpoon	1347
+left barb up right barb up harpoon	1348
+up barb right down barb right harpoon	1349
+left barb down right barb down harpoon	1350
+up barb left down barb left harpoon	1351
+leftwards harpoon with barb up to bar	1352
+rightwards harpoon with barb up to bar	1353
+upwards harpoon with barb right to bar	1354
+downwards harpoon with barb right to bar	1355
+leftwards harpoon with barb down to bar	1356
+rightwards harpoon with barb down to bar	1357
+upwards harpoon with barb left to bar	1358
+downwards harpoon with barb left to bar	1359
+leftwards harpoon with barb up from bar	1360
+rightwards harpoon with barb up from bar	1361
+upwards harpoon with barb right from bar	1362
+downwards harpoon with barb right from bar	1363
+leftwards harpoon with barb down from bar	1364
+rightwards harpoon with barb down from bar	1365
+upwards harpoon with barb left from bar	1366
+downwards harpoon with barb left from bar	1367
+leftwards harpoon with barb up above leftwards harpoon with barb down	1368
+upwards harpoon with barb left beside upwards harpoon with barb right	1369
+rightwards harpoon with barb up above rightwards harpoon with barb down	1370
+downwards harpoon with barb left beside downwards harpoon with barb right	1371
+leftwards harpoon with barb up above rightwards harpoon with barb up	1372
+leftwards harpoon with barb down above rightwards harpoon with barb down	1373
+rightwards harpoon with barb up above leftwards harpoon with barb up	1374
+rightwards harpoon with barb down above leftwards harpoon with barb down	1375
+leftwards harpoon with barb up above long dash	1376
+leftwards harpoon with barb down below long dash	1377
+rightwards harpoon with barb up above long dash	1378
+rightwards harpoon with barb down below long dash	1379
+upwards harpoon with barb left beside downwards harpoon with barb right	1380
+downwards harpoon with barb left beside upwards harpoon with barb right	1381
+right double arrow with rounded head	1382
+equals sign above rightwards arrow	1383
+tilde operator above rightwards arrow	1384
+leftwards arrow above tilde operator	1385
+rightwards arrow above tilde operator	1386
+rightwards arrow above almost equal to	1387
+less-than above leftwards arrow	1388
+leftwards arrow through less-than	1389
+greater-than above rightwards arrow	1390
+subset above rightwards arrow	1391
+leftwards arrow through subset	1392
+superset above leftwards arrow	1393
+left fish tail	1394
+right fish tail	1395
+up fish tail	1396
+down fish tail	1397
+triple vertical bar delimiter	1398
+z notation spot	1399
+z notation type colon	1400
+left white curly bracket	1401
+right white curly bracket	1402
+left white parenthesis	1403
+right white parenthesis	1404
+z notation left image bracket	1405
+z notation right image bracket	1406
+z notation left binding bracket	1407
+z notation right binding bracket	1408
+left square bracket with underbar	1409
+right square bracket with underbar	1410
+left square bracket with tick in top corner	1411
+right square bracket with tick in bottom corner	1412
+left square bracket with tick in bottom corner	1413
+right square bracket with tick in top corner	1414
+left angle bracket with dot	1415
+right angle bracket with dot	1416
+left arc less-than bracket	1417
+right arc greater-than bracket	1418
+double left arc greater-than bracket	1419
+double right arc less-than bracket	1420
+left black tortoise shell bracket	1421
+right black tortoise shell bracket	1422
+dotted fence	1423
+vertical zigzag line	1424
+measured angle opening left	1425
+right angle variant with square	1426
+measured right angle with dot	1427
+angle with s inside	1428
+acute angle	1429
+spherical angle opening left	1430
+spherical angle opening up	1431
+turned angle	1432
+reversed angle	1433
+angle with underbar	1434
+reversed angle with underbar	1435
+oblique angle opening up	1436
+oblique angle opening down	1437
+measured angle with open arm ending in arrow pointing up and right	1438
+measured angle with open arm ending in arrow pointing up and left	1439
+measured angle with open arm ending in arrow pointing down and right	1440
+measured angle with open arm ending in arrow pointing down and left	1441
+measured angle with open arm ending in arrow pointing right and up	1442
+measured angle with open arm ending in arrow pointing left and up	1443
+measured angle with open arm ending in arrow pointing right and down	1444
+measured angle with open arm ending in arrow pointing left and down	1445
+reversed empty set	1446
+empty set with overbar	1447
+empty set with small circle above	1448
+empty set with right arrow above	1449
+empty set with left arrow above	1450
+circle with horizontal bar	1451
+circled vertical bar	1452
+circled parallel	1453
+circled reverse solidus	1454
+circled perpendicular	1455
+circle divided by horizontal bar and top half divided by vertical bar	1456
+circle with superimposed x	1457
+circled anticlockwise-rotated division sign	1458
+up arrow through circle	1459
+circled white bullet	1460
+circled bullet	1461
+circled less-than	1462
+circled greater-than	1463
+circle with small circle to the right	1464
+circle with two horizontal strokes to the right	1465
+squared rising diagonal slash	1466
+squared falling diagonal slash	1467
+squared asterisk	1468
+squared small circle	1469
+squared square	1470
+two joined squares	1471
+triangle with dot above	1472
+triangle with underbar	1473
+s in triangle	1474
+triangle with serifs at bottom	1475
+right triangle above left triangle	1476
+left triangle beside vertical bar	1477
+vertical bar beside right triangle	1478
+left black bowtie	1479
+right black bowtie	1480
+black bowtie	1481
+left black times	1482
+right black times	1483
+white hourglass	1484
+black hourglass	1485
+left wiggly fence	1486
+right wiggly fence	1487
+left double wiggly fence	1488
+right double wiggly fence	1489
+incomplete infinity	1490
+tie over infinity	1491
+infinity negated with vertical bar	1492
+double-ended multimap	1493
+square with contoured outline	1494
+increases as	1495
+shuffle product	1496
+equals sign and slanted parallel	1497
+equals sign and slanted parallel with tilde above	1498
+identical to and slanted parallel	1499
+gleich stark	1500
+thermodynamic	1501
+down-pointing triangle with left half black	1502
+down-pointing triangle with right half black	1503
+black diamond with down arrow	1504
+black lozenge	1505
+white circle with down arrow	1506
+black circle with down arrow	1507
+error-barred white square	1508
+error-barred black square	1509
+error-barred white diamond	1510
+error-barred black diamond	1511
+error-barred white circle	1512
+error-barred black circle	1513
+rule-delayed	1514
+reverse solidus	1515
+solidus with overbar	1516
+reverse solidus with horizontal stroke	1517
+big solidus	1518
+big reverse solidus	1519
+double plus	1520
+triple plus	1521
+left pointing curved angle bracket	1522
+right pointing curved angle bracket	1523
+tiny	1524
+miny	1525
+n-ary circled dot operator	1526
+n-ary circled plus operator	1527
+n-ary circled times operator	1528
+n-ary union operator with dot	1529
+n-ary union operator with plus	1530
+n-ary square intersection operator	1531
+n-ary square union operator	1532
+two logical and operator	1533
+two logical or operator	1534
+n-ary times operator	1535
+modulo two sum	1536
+summation with integral	1537
+quadruple integral operator	1538
+finite part integral	1539
+integral with double stroke	1540
+integral average with slash	1541
+circulation function	1542
+anticlockwise integration	1543
+line integration with rectangular path around pole	1544
+line integration with semicircular path around pole	1545
+line integration not including the pole	1546
+integral around a point operator	1547
+quaternion integral operator	1548
+integral with leftwards arrow with hook	1549
+integral with times sign	1550
+integral with intersection	1551
+integral with union	1552
+integral with overbar	1553
+integral with underbar	1554
+join	1555
+large left triangle operator	1556
+z notation schema composition	1557
+z notation schema piping	1558
+z notation schema projection	1559
+plus sign with small circle above	1560
+plus sign with circumflex accent above	1561
+plus sign with tilde above	1562
+plus sign with dot below	1563
+plus sign with tilde below	1564
+plus sign with subscript two	1565
+plus sign with black triangle	1566
+minus sign with comma above	1567
+minus sign with dot below	1568
+minus sign with falling dots	1569
+minus sign with rising dots	1570
+plus sign in left half circle	1571
+plus sign in right half circle	1572
+vector or cross product	1573
+multiplication sign with dot above	1574
+multiplication sign with underbar	1575
+semidirect product with bottom closed	1576
+smash product	1577
+multiplication sign in left half circle	1578
+multiplication sign in right half circle	1579
+circled multiplication sign with circumflex accent	1580
+multiplication sign in double circle	1581
+circled division sign	1582
+plus sign in triangle	1583
+minus sign in triangle	1584
+multiplication sign in triangle	1585
+interior product	1586
+righthand interior product	1587
+z notation relational composition	1588
+amalgamation or coproduct	1589
+intersection with dot	1590
+union with minus sign	1591
+union with overbar	1592
+intersection with overbar	1593
+intersection with logical and	1594
+union with logical or	1595
+union above intersection	1596
+intersection above union	1597
+union above bar above intersection	1598
+intersection above bar above union	1599
+union beside and joined with union	1600
+intersection beside and joined with intersection	1601
+closed union with serifs	1602
+closed intersection with serifs	1603
+double square intersection	1604
+double square union	1605
+closed union with serifs and smash product	1606
+logical and with dot above	1607
+logical or with dot above	1608
+double logical and	1609
+double logical or	1610
+two intersecting logical and	1611
+two intersecting logical or	1612
+sloping large or	1613
+sloping large and	1614
+logical or overlapping logical and	1615
+logical and with middle stem	1616
+logical or with middle stem	1617
+ogical and with horizontal dash	1618
+logical or with horizontal dash	1619
+logical and with double overbar	1620
+logical and with underbar	1621
+logical and with double underbar	1622
+small vee with underbar	1623
+logical or with double overbar	1624
+logical or with double underbar	1625
+z notation domain antirestriction	1626
+z notation range antirestriction	1627
+equals sign with dot below	1628
+identical with dot above	1629
+triple horizontal bar with double vertical stroke	1630
+triple horizontal bar with triple vertical stroke	1631
+tilde operator with dot above	1632
+tilde operator with rising dots	1633
+similar minus similar	1634
+congruent with dot above	1635
+equals with asterisk	1636
+almost equal to with circumflex accent	1637
+approximately equal or equal to	1638
+equals sign above plus sign	1639
+plus sign above equals sign	1640
+equals sign above tilde operator	1641
+double colon equal	1642
+two consecutive equals signs	1643
+three consecutive equals signs	1644
+equals sign with two dots above and two dots below	1645
+equivalent with four dots above	1646
+less-than with circle inside	1647
+greater-than with circle inside	1648
+less-than with question mark above	1649
+greater-than with question mark above	1650
+less-than or slanted equal to	1651
+greater-than or slanted equal to	1652
+less-than or slanted equal to with dot inside	1653
+greater-than or slanted equal to with dot inside	1654
+less-than or slanted equal to with dot above	1655
+greater-than or slanted equal to with dot above	1656
+less-than or slanted equal to with dot above right	1657
+greater-than or slanted equal to with dot above left	1658
+less-than or approximate	1659
+greater-than or approximate	1660
+less-than and single-line not equal to	1661
+greater-than and single-line not equal to	1662
+less-than and not approximate	1663
+greater-than and not approximate	1664
+less-than above double-line equal above greater-than	1665
+greater-than above double-line equal above less-than	1666
+less-than above similar or equal	1667
+greater-than above similar or equal	1668
+less-than above similar above greater-than	1669
+greater-than above similar above less-than	1670
+less-than above greater-than above double-line equal	1671
+greater-than above less-than above double-line equal	1672
+less-than above slanted equal above greater-than above slanted equal	1673
+greater-than above slanted equal above less-than above slanted equal	1674
+slanted equal to or less-than	1675
+slanted equal to or greater-than	1676
+slanted equal to or less-than with dot inside	1677
+slanted equal to or greater-than with dot inside	1678
+double-line equal to or less-than	1679
+double-line equal to or greater-than	1680
+double-line slanted equal to or less-than	1681
+double-line slanted equal to or greater-than	1682
+similar or less-than	1683
+similar or greater-than	1684
+similar above less-than above equals sign	1685
+similar above greater-than above equals sign	1686
+double nested less-than	1687
+double nested greater-than	1688
+double less-than with underbar	1689
+greater-than overlapping less-than	1690
+greater-than beside less-than	1691
+less-than closed by curve	1692
+greater-than closed by curve	1693
+less-than closed by curve above slanted equal	1694
+greater-than closed by curve above slanted equal	1695
+smaller than	1696
+larger than	1697
+smaller than or equal to	1698
+larger than or equal to	1699
+equals sign with bumpy above	1700
+precedes above single-line equals sign	1701
+succeeds above single-line equals sign	1702
+precedes above single-line not equal to	1703
+succeeds above single-line not equal to	1704
+precedes above equals sign	1705
+succeeds above equals sign	1706
+precedes above not equal to	1707
+succeeds above not equal to	1708
+precedes above almost equal to	1709
+succeeds above almost equal to	1710
+precedes above not almost equal to	1711
+succeeds above not almost equal to	1712
+double precedes	1713
+double succeeds	1714
+subset with dot	1715
+superset with dot	1716
+subset with plus sign below	1717
+superset with plus sign below	1718
+subset with multiplication sign below	1719
+superset with multiplication sign below	1720
+subset of or equal to with dot above	1721
+superset of or equal to with dot above	1722
+subset of above equals sign	1723
+superset of above equals sign	1724
+subset of above tilde operator	1725
+superset of above tilde operator	1726
+subset of above almost equal to	1727
+superset of above almost equal to	1728
+subset of above not equal to	1729
+superset of above not equal to	1730
+square left open box operator	1731
+square right open box operator	1732
+closed subset	1733
+closed superset	1734
+closed subset or equal to	1735
+closed superset or equal to	1736
+subset above superset	1737
+superset above subset	1738
+subset above subset	1739
+superset above superset	1740
+superset beside subset	1741
+superset beside and joined by dash with subset	1742
+element of opening downwards	1743
+pitchfork with tee top	1744
+transversal intersection	1745
+forking	1746
+nonforking	1747
+short left tack	1748
+short down tack	1749
+short up tack	1750
+perpendicular with s	1751
+vertical bar triple right turnstile	1752
+double vertical bar left turnstile	1753
+vertical bar double left turnstile	1754
+double vertical bar double left turnstile	1755
+long dash from left member of double vertical	1756
+short down tack with overbar	1757
+short up tack with underbar	1758
+short up tack above short down tack	1759
+double down tack	1760
+double up tack	1761
+double stroke not sign	1762
+reversed double stroke not sign	1763
+does not divide with reversed negation slash	1764
+vertical line with circle above	1765
+vertical line with circle below	1766
+down tack with circle below	1767
+parallel with horizontal stroke	1768
+parallel with tilde operator	1769
+triple vertical bar binary relation	1770
+triple vertical bar with horizontal stroke	1771
+triple colon operator	1772
+stacked very much less-than	1773
+stacked very much greater-than	1774
+double-line slanted less-than or equal to	1775
+double-line slanted greater-than or equal to	1776
+triple solidus binary relation	1777
+large triple vertical bar operator	1778
+double solidus operator	1779
+white vertical bar	1780
+n-ary white vertical bar	1781
+square with top half black	1782
+square with bottom half black	1783
+square with upper right diagonal half black	1784
+square with lower left diagonal half black	1785
+diamond with left half black	1786
+diamond with right half black	1787
+diamond with top half black	1788
+diamond with bottom half black	1789
+dotted square	1790
+black large square	1791
+white large square	1792
+black very small square	1793
+white very small square	1794
+black pentagon	1795
+white pentagon	1796
+white hexagon	1797
+black hexagon	1798
+horizontal black hexagon	1799
+black large circle	1800
+black medium diamond	1801
+white medium diamond	1802
+black medium lozenge	1803
+white medium lozenge	1804
+black small diamond	1805
+black small lozenge	1806
+white small lozenge	1807
+black horizontal ellipse	1808
+white horizontal ellipse	1809
+black vertical ellipse	1810
+white vertical ellipse	1811
+left arrow with small circle	1812
+three leftwards arrows	1813
+left arrow with circled plus	1814
+long leftwards squiggle arrow	1815
+leftwards two-headed arrow with vertical stroke	1816
+leftwards two-headed arrow with double vertical stroke	1817
+leftwards two-headed arrow from bar	1818
+leftwards two-headed triple-dash arrow	1819
+leftwards arrow with dotted stem	1820
+leftwards arrow with tail with vertical stroke	1821
+leftwards arrow with tail with double vertical stroke	1822
+leftwards two-headed arrow with tail	1823
+leftwards two-headed arrow with tail with vertical stroke	1824
+leftwards two-headed arrow with tail with double vertical stroke	1825
+leftwards arrow through x	1826
+wave arrow pointing directly left	1827
+equals sign above leftwards arrow	1828
+reverse tilde operator above leftwards arrow	1829
+leftwards arrow above reverse almost equal to	1830
+rightwards arrow through greater-than	1831
+rightwards arrow through subset	1832
+leftwards quadruple arrow	1833
+rightwards quadruple arrow	1834
+reverse tilde operator above rightwards arrow	1835
+rightwards arrow above reverse almost equal to	1836
+tilde operator above leftwards arrow	1837
+leftwards arrow above almost equal to	1838
+leftwards arrow above reverse tilde operator	1839
+righttwards arrow above reverse tilde operator	1840
+white medium star	1841
+black medium star	1842
+white small star	1843
+black right-pointing pentagon	1844
+white right-pointing pentagon	1845
+uncertainty sign	1846
+latin subscript small letter j	1847
+modifier letter capital v	1848
+left double parenthesis	1849
+right double parenthesis	1850
+left double angle bracket	1851
+right double angle bracket	1852
+postal mark	1853
+left white square bracket	1854
+right white square bracket	1855
+zigzag	1856
+partnership sign	1857
+modifier letter capital s	1858
+modifier letter capital c	1859
+modifier letter capital f	1860
+modifier letter capital q	1861
+modifier letter capital h with stroke	1862
+modifier letter small ligature oe	1863
+modifier letter small heng	1864
+modifier letter small l with inverted lazy s	1865
+modifier letter small l with middle tilde	1866
+modifier letter small u with left hook	1867
+small reverse solidus	1868
+fullwidth not sign	1869
+nomisma sign	1870
+mathematical bold capital a	1871
+mathematical bold capital b	1872
+mathematical bold capital c	1873
+mathematical bold capital d	1874
+mathematical bold capital e	1875
+mathematical bold capital f	1876
+mathematical bold capital g	1877
+mathematical bold capital h	1878
+mathematical bold capital i	1879
+mathematical bold capital j	1880
+mathematical bold capital k	1881
+mathematical bold capital l	1882
+mathematical bold capital m	1883
+mathematical bold capital n	1884
+mathematical bold capital o	1885
+mathematical bold capital p	1886
+mathematical bold capital q	1887
+mathematical bold capital r	1888
+mathematical bold capital s	1889
+mathematical bold capital t	1890
+mathematical bold capital u	1891
+mathematical bold capital v	1892
+mathematical bold capital w	1893
+mathematical bold capital x	1894
+mathematical bold capital y	1895
+mathematical bold capital z	1896
+mathematical bold small a	1897
+mathematical bold small b	1898
+mathematical bold small c	1899
+mathematical bold small d	1900
+mathematical bold small e	1901
+mathematical bold small f	1902
+mathematical bold small g	1903
+mathematical bold small h	1904
+mathematical bold small i	1905
+mathematical bold small j	1906
+mathematical bold small k	1907
+mathematical bold small l	1908
+mathematical bold small m	1909
+mathematical bold small n	1910
+mathematical bold small o	1911
+mathematical bold small p	1912
+mathematical bold small q	1913
+mathematical bold small r	1914
+mathematical bold small s	1915
+mathematical bold small t	1916
+mathematical bold small u	1917
+mathematical bold small v	1918
+mathematical bold small w	1919
+mathematical bold small x	1920
+mathematical bold small y	1921
+mathematical bold small z	1922
+mathematical italic capital a	1923
+mathematical italic capital b	1924
+mathematical italic capital c	1925
+mathematical italic capital d	1926
+mathematical italic capital e	1927
+mathematical italic capital f	1928
+mathematical italic capital g	1929
+mathematical italic capital h	1930
+mathematical italic capital i	1931
+mathematical italic capital j	1932
+mathematical italic capital k	1933
+mathematical italic capital l	1934
+mathematical italic capital m	1935
+mathematical italic capital n	1936
+mathematical italic capital o	1937
+mathematical italic capital p	1938
+mathematical italic capital q	1939
+mathematical italic capital r	1940
+mathematical italic capital s	1941
+mathematical italic capital t	1942
+mathematical italic capital u	1943
+mathematical italic capital v	1944
+mathematical italic capital w	1945
+mathematical italic capital x	1946
+mathematical italic capital y	1947
+mathematical italic capital z	1948
+mathematical italic small a	1949
+mathematical italic small b	1950
+mathematical italic small c	1951
+mathematical italic small d	1952
+mathematical italic small e	1953
+mathematical italic small f	1954
+mathematical italic small g	1955
+mathematical italic small i	1956
+mathematical italic small j	1957
+mathematical italic small k	1958
+mathematical italic small l	1959
+mathematical italic small m	1960
+mathematical italic small n	1961
+mathematical italic small o	1962
+mathematical italic small p	1963
+mathematical italic small q	1964
+mathematical italic small r	1965
+mathematical italic small s	1966
+mathematical italic small t	1967
+mathematical italic small u	1968
+mathematical italic small v	1969
+mathematical italic small w	1970
+mathematical italic small x	1971
+mathematical italic small y	1972
+mathematical italic small z	1973
+mathematical bold italic capital a	1974
+mathematical bold italic capital b	1975
+mathematical bold italic capital c	1976
+mathematical bold italic capital d	1977
+mathematical bold italic capital e	1978
+mathematical bold italic capital f	1979
+mathematical bold italic capital g	1980
+mathematical bold italic capital h	1981
+mathematical bold italic capital i	1982
+mathematical bold italic capital j	1983
+mathematical bold italic capital k	1984
+mathematical bold italic capital l	1985
+mathematical bold italic capital m	1986
+mathematical bold italic capital n	1987
+mathematical bold italic capital o	1988
+mathematical bold italic capital p	1989
+mathematical bold italic capital q	1990
+mathematical bold italic capital r	1991
+mathematical bold italic capital s	1992
+mathematical bold italic capital t	1993
+mathematical bold italic capital u	1994
+mathematical bold italic capital v	1995
+mathematical bold italic capital w	1996
+mathematical bold italic capital x	1997
+mathematical bold italic capital y	1998
+mathematical bold italic capital z	1999
+mathematical bold italic small a	2000
+mathematical bold italic small b	2001
+mathematical bold italic small c	2002
+mathematical bold italic small d	2003
+mathematical bold italic small e	2004
+mathematical bold italic small f	2005
+mathematical bold italic small g	2006
+mathematical bold italic small h	2007
+mathematical bold italic small i	2008
+mathematical bold italic small j	2009
+mathematical bold italic small k	2010
+mathematical bold italic small l	2011
+mathematical bold italic small m	2012
+mathematical bold italic small n	2013
+mathematical bold italic small o	2014
+mathematical bold italic small p	2015
+mathematical bold italic small q	2016
+mathematical bold italic small r	2017
+mathematical bold italic small s	2018
+mathematical bold italic small t	2019
+mathematical bold italic small u	2020
+mathematical bold italic small v	2021
+mathematical bold italic small w	2022
+mathematical bold italic small x	2023
+mathematical bold italic small y	2024
+mathematical bold italic small z	2025
+mathematical script capital a	2026
+mathematical script capital c	2027
+mathematical script capital d	2028
+mathematical script capital g	2029
+mathematical script capital j	2030
+mathematical script capital k	2031
+mathematical script capital n	2032
+mathematical script capital o	2033
+mathematical script capital p	2034
+mathematical script capital q	2035
+mathematical script capital s	2036
+mathematical script capital t	2037
+mathematical script capital u	2038
+mathematical script capital v	2039
+mathematical script capital w	2040
+mathematical script capital x	2041
+mathematical script capital y	2042
+mathematical script capital z	2043
+mathematical script small a	2044
+mathematical script small b	2045
+mathematical script small c	2046
+mathematical script small d	2047
+mathematical script small f	2048
+mathematical script small h	2049
+mathematical script small i	2050
+mathematical script small j	2051
+mathematical script small k	2052
+mathematical script small l	2053
+mathematical script small m	2054
+mathematical script small n	2055
+mathematical script small p	2056
+mathematical script small q	2057
+mathematical script small r	2058
+mathematical script small s	2059
+mathematical script small t	2060
+mathematical script small u	2061
+mathematical script small v	2062
+mathematical script small w	2063
+mathematical script small x	2064
+mathematical script small y	2065
+mathematical script small z	2066
+mathematical bold script capital a	2067
+mathematical bold script capital b	2068
+mathematical bold script capital c	2069
+mathematical bold script capital d	2070
+mathematical bold script capital e	2071
+mathematical bold script capital f	2072
+mathematical bold script capital g	2073
+mathematical bold script capital h	2074
+mathematical bold script capital i	2075
+mathematical bold script capital j	2076
+mathematical bold script capital k	2077
+mathematical bold script capital l	2078
+mathematical bold script capital m	2079
+mathematical bold script capital n	2080
+mathematical bold script capital o	2081
+mathematical bold script capital p	2082
+mathematical bold script capital q	2083
+mathematical bold script capital r	2084
+mathematical bold script capital s	2085
+mathematical bold script capital t	2086
+mathematical bold script capital u	2087
+mathematical bold script capital v	2088
+mathematical bold script capital w	2089
+mathematical bold script capital x	2090
+mathematical bold script capital y	2091
+mathematical bold script capital z	2092
+mathematical bold script small a	2093
+mathematical bold script small b	2094
+mathematical bold script small c	2095
+mathematical bold script small d	2096
+mathematical bold script small e	2097
+mathematical bold script small f	2098
+mathematical bold script small g	2099
+mathematical bold script small h	2100
+mathematical bold script small i	2101
+mathematical bold script small j	2102
+mathematical bold script small k	2103
+mathematical bold script small l	2104
+mathematical bold script small m	2105
+mathematical bold script small n	2106
+mathematical bold script small o	2107
+mathematical bold script small p	2108
+mathematical bold script small q	2109
+mathematical bold script small r	2110
+mathematical bold script small s	2111
+mathematical bold script small t	2112
+mathematical bold script small u	2113
+mathematical bold script small v	2114
+mathematical bold script small w	2115
+mathematical bold script small x	2116
+mathematical bold script small y	2117
+mathematical bold script small z	2118
+mathematical fraktur capital a	2119
+mathematical fraktur capital b	2120
+mathematical fraktur capital d	2121
+mathematical fraktur capital e	2122
+mathematical fraktur capital f	2123
+mathematical fraktur capital g	2124
+mathematical fraktur capital j	2125
+mathematical fraktur capital k	2126
+mathematical fraktur capital l	2127
+mathematical fraktur capital m	2128
+mathematical fraktur capital n	2129
+mathematical fraktur capital o	2130
+mathematical fraktur capital p	2131
+mathematical fraktur capital q	2132
+mathematical fraktur capital s	2133
+mathematical fraktur capital t	2134
+mathematical fraktur capital u	2135
+mathematical fraktur capital v	2136
+mathematical fraktur capital w	2137
+mathematical fraktur capital x	2138
+mathematical fraktur capital y	2139
+mathematical fraktur small a	2140
+mathematical fraktur small b	2141
+mathematical fraktur small c	2142
+mathematical fraktur small d	2143
+mathematical fraktur small e	2144
+mathematical fraktur small f	2145
+mathematical fraktur small g	2146
+mathematical fraktur small h	2147
+mathematical fraktur small i	2148
+mathematical fraktur small j	2149
+mathematical fraktur small k	2150
+mathematical fraktur small l	2151
+mathematical fraktur small m	2152
+mathematical fraktur small n	2153
+mathematical fraktur small o	2154
+mathematical fraktur small p	2155
+mathematical fraktur small q	2156
+mathematical fraktur small r	2157
+mathematical fraktur small s	2158
+mathematical fraktur small t	2159
+mathematical fraktur small u	2160
+mathematical fraktur small v	2161
+mathematical fraktur small w	2162
+mathematical fraktur small x	2163
+mathematical fraktur small y	2164
+mathematical fraktur small z	2165
+mathematical double-struck capital a	2166
+mathematical double-struck capital b	2167
+mathematical double-struck capital d	2168
+mathematical double-struck capital e	2169
+mathematical double-struck capital f	2170
+mathematical double-struck capital g	2171
+mathematical double-struck capital i	2172
+mathematical double-struck capital j	2173
+mathematical double-struck capital k	2174
+mathematical double-struck capital l	2175
+mathematical double-struck capital m	2176
+mathematical double-struck capital o	2177
+mathematical double-struck capital s	2178
+mathematical double-struck capital t	2179
+mathematical double-struck capital u	2180
+mathematical double-struck capital v	2181
+mathematical double-struck capital w	2182
+mathematical double-struck capital x	2183
+mathematical double-struck capital y	2184
+mathematical double-struck small a	2185
+mathematical double-struck small b	2186
+mathematical double-struck small c	2187
+mathematical double-struck small d	2188
+mathematical double-struck small e	2189
+mathematical double-struck small f	2190
+mathematical double-struck small g	2191
+mathematical double-struck small h	2192
+mathematical double-struck small i	2193
+mathematical double-struck small j	2194
+mathematical double-struck small k	2195
+mathematical double-struck small l	2196
+mathematical double-struck small m	2197
+mathematical double-struck small n	2198
+mathematical double-struck small o	2199
+mathematical double-struck small p	2200
+mathematical double-struck small q	2201
+mathematical double-struck small r	2202
+mathematical double-struck small s	2203
+mathematical double-struck small t	2204
+mathematical double-struck small u	2205
+mathematical double-struck small v	2206
+mathematical double-struck small w	2207
+mathematical double-struck small x	2208
+mathematical double-struck small y	2209
+mathematical double-struck small z	2210
+mathematical bold fraktur capital a	2211
+mathematical bold fraktur capital b	2212
+mathematical bold fraktur capital c	2213
+mathematical bold fraktur capital d	2214
+mathematical bold fraktur capital e	2215
+mathematical bold fraktur capital f	2216
+mathematical bold fraktur capital g	2217
+mathematical bold fraktur capital h	2218
+mathematical bold fraktur capital i	2219
+mathematical bold fraktur capital j	2220
+mathematical bold fraktur capital k	2221
+mathematical bold fraktur capital l	2222
+mathematical bold fraktur capital m	2223
+mathematical bold fraktur capital n	2224
+mathematical bold fraktur capital o	2225
+mathematical bold fraktur capital p	2226
+mathematical bold fraktur capital q	2227
+mathematical bold fraktur capital r	2228
+mathematical bold fraktur capital s	2229
+mathematical bold fraktur capital t	2230
+mathematical bold fraktur capital u	2231
+mathematical bold fraktur capital v	2232
+mathematical bold fraktur capital w	2233
+mathematical bold fraktur capital x	2234
+mathematical bold fraktur capital y	2235
+mathematical bold fraktur capital z	2236
+mathematical bold fraktur small a	2237
+mathematical bold fraktur small b	2238
+mathematical bold fraktur small c	2239
+mathematical bold fraktur small d	2240
+mathematical bold fraktur small e	2241
+mathematical bold fraktur small f	2242
+mathematical bold fraktur small g	2243
+mathematical bold fraktur small h	2244
+mathematical bold fraktur small i	2245
+mathematical bold fraktur small j	2246
+mathematical bold fraktur small k	2247
+mathematical bold fraktur small l	2248
+mathematical bold fraktur small m	2249
+mathematical bold fraktur small n	2250
+mathematical bold fraktur small o	2251
+mathematical bold fraktur small p	2252
+mathematical bold fraktur small q	2253
+mathematical bold fraktur small r	2254
+mathematical bold fraktur small s	2255
+mathematical bold fraktur small t	2256
+mathematical bold fraktur small u	2257
+mathematical bold fraktur small v	2258
+mathematical bold fraktur small w	2259
+mathematical bold fraktur small x	2260
+mathematical bold fraktur small y	2261
+mathematical bold fraktur small z	2262
+mathematical sans-serif capital a	2263
+mathematical sans-serif capital b	2264
+mathematical sans-serif capital c	2265
+mathematical sans-serif capital d	2266
+mathematical sans-serif capital e	2267
+mathematical sans-serif capital f	2268
+mathematical sans-serif capital g	2269
+mathematical sans-serif capital h	2270
+mathematical sans-serif capital i	2271
+mathematical sans-serif capital j	2272
+mathematical sans-serif capital k	2273
+mathematical sans-serif capital l	2274
+mathematical sans-serif capital m	2275
+mathematical sans-serif capital n	2276
+mathematical sans-serif capital o	2277
+mathematical sans-serif capital p	2278
+mathematical sans-serif capital q	2279
+mathematical sans-serif capital r	2280
+mathematical sans-serif capital s	2281
+mathematical sans-serif capital t	2282
+mathematical sans-serif capital u	2283
+mathematical sans-serif capital v	2284
+mathematical sans-serif capital w	2285
+mathematical sans-serif capital x	2286
+mathematical sans-serif capital y	2287
+mathematical sans-serif capital z	2288
+mathematical sans-serif small a	2289
+mathematical sans-serif small b	2290
+mathematical sans-serif small c	2291
+mathematical sans-serif small d	2292
+mathematical sans-serif small e	2293
+mathematical sans-serif small f	2294
+mathematical sans-serif small g	2295
+mathematical sans-serif small h	2296
+mathematical sans-serif small i	2297
+mathematical sans-serif small j	2298
+mathematical sans-serif small k	2299
+mathematical sans-serif small l	2300
+mathematical sans-serif small m	2301
+mathematical sans-serif small n	2302
+mathematical sans-serif small o	2303
+mathematical sans-serif small p	2304
+mathematical sans-serif small q	2305
+mathematical sans-serif small r	2306
+mathematical sans-serif small s	2307
+mathematical sans-serif small t	2308
+mathematical sans-serif small u	2309
+mathematical sans-serif small v	2310
+mathematical sans-serif small w	2311
+mathematical sans-serif small x	2312
+mathematical sans-serif small y	2313
+mathematical sans-serif small z	2314
+mathematical sans-serif bold capital a	2315
+mathematical sans-serif bold capital b	2316
+mathematical sans-serif bold capital c	2317
+mathematical sans-serif bold capital d	2318
+mathematical sans-serif bold capital e	2319
+mathematical sans-serif bold capital f	2320
+mathematical sans-serif bold capital g	2321
+mathematical sans-serif bold capital h	2322
+mathematical sans-serif bold capital i	2323
+mathematical sans-serif bold capital j	2324
+mathematical sans-serif bold capital k	2325
+mathematical sans-serif bold capital l	2326
+mathematical sans-serif bold capital m	2327
+mathematical sans-serif bold capital n	2328
+mathematical sans-serif bold capital o	2329
+mathematical sans-serif bold capital p	2330
+mathematical sans-serif bold capital q	2331
+mathematical sans-serif bold capital r	2332
+mathematical sans-serif bold capital s	2333
+mathematical sans-serif bold capital t	2334
+mathematical sans-serif bold capital u	2335
+mathematical sans-serif bold capital v	2336
+mathematical sans-serif bold capital w	2337
+mathematical sans-serif bold capital x	2338
+mathematical sans-serif bold capital y	2339
+mathematical sans-serif bold capital z	2340
+mathematical sans-serif bold small a	2341
+mathematical sans-serif bold small b	2342
+mathematical sans-serif bold small c	2343
+mathematical sans-serif bold small d	2344
+mathematical sans-serif bold small e	2345
+mathematical sans-serif bold small f	2346
+mathematical sans-serif bold small g	2347
+mathematical sans-serif bold small h	2348
+mathematical sans-serif bold small i	2349
+mathematical sans-serif bold small j	2350
+mathematical sans-serif bold small k	2351
+mathematical sans-serif bold small l	2352
+mathematical sans-serif bold small m	2353
+mathematical sans-serif bold small n	2354
+mathematical sans-serif bold small o	2355
+mathematical sans-serif bold small p	2356
+mathematical sans-serif bold small q	2357
+mathematical sans-serif bold small r	2358
+mathematical sans-serif bold small s	2359
+mathematical sans-serif bold small t	2360
+mathematical sans-serif bold small u	2361
+mathematical sans-serif bold small v	2362
+mathematical sans-serif bold small w	2363
+mathematical sans-serif bold small x	2364
+mathematical sans-serif bold small y	2365
+mathematical sans-serif bold small z	2366
+mathematical sans-serif italic capital a	2367
+mathematical sans-serif italic capital b	2368
+mathematical sans-serif italic capital c	2369
+mathematical sans-serif italic capital d	2370
+mathematical sans-serif italic capital e	2371
+mathematical sans-serif italic capital f	2372
+mathematical sans-serif italic capital g	2373
+mathematical sans-serif italic capital h	2374
+mathematical sans-serif italic capital i	2375
+mathematical sans-serif italic capital j	2376
+mathematical sans-serif italic capital k	2377
+mathematical sans-serif italic capital l	2378
+mathematical sans-serif italic capital m	2379
+mathematical sans-serif italic capital n	2380
+mathematical sans-serif italic capital o	2381
+mathematical sans-serif italic capital p	2382
+mathematical sans-serif italic capital q	2383
+mathematical sans-serif italic capital r	2384
+mathematical sans-serif italic capital s	2385
+mathematical sans-serif italic capital t	2386
+mathematical sans-serif italic capital u	2387
+mathematical sans-serif italic capital v	2388
+mathematical sans-serif italic capital w	2389
+mathematical sans-serif italic capital x	2390
+mathematical sans-serif italic capital y	2391
+mathematical sans-serif italic capital z	2392
+mathematical sans-serif italic small a	2393
+mathematical sans-serif italic small b	2394
+mathematical sans-serif italic small c	2395
+mathematical sans-serif italic small d	2396
+mathematical sans-serif italic small e	2397
+mathematical sans-serif italic small f	2398
+mathematical sans-serif italic small g	2399
+mathematical sans-serif italic small h	2400
+mathematical sans-serif italic small i	2401
+mathematical sans-serif italic small j	2402
+mathematical sans-serif italic small k	2403
+mathematical sans-serif italic small l	2404
+mathematical sans-serif italic small m	2405
+mathematical sans-serif italic small n	2406
+mathematical sans-serif italic small o	2407
+mathematical sans-serif italic small p	2408
+mathematical sans-serif italic small q	2409
+mathematical sans-serif italic small r	2410
+mathematical sans-serif italic small s	2411
+mathematical sans-serif italic small t	2412
+mathematical sans-serif italic small u	2413
+mathematical sans-serif italic small v	2414
+mathematical sans-serif italic small w	2415
+mathematical sans-serif italic small x	2416
+mathematical sans-serif italic small y	2417
+mathematical sans-serif italic small z	2418
+mathematical sans-serif bold italic capital a	2419
+mathematical sans-serif bold italic capital b	2420
+mathematical sans-serif bold italic capital c	2421
+mathematical sans-serif bold italic capital d	2422
+mathematical sans-serif bold italic capital e	2423
+mathematical sans-serif bold italic capital f	2424
+mathematical sans-serif bold italic capital g	2425
+mathematical sans-serif bold italic capital h	2426
+mathematical sans-serif bold italic capital i	2427
+mathematical sans-serif bold italic capital j	2428
+mathematical sans-serif bold italic capital k	2429
+mathematical sans-serif bold italic capital l	2430
+mathematical sans-serif bold italic capital m	2431
+mathematical sans-serif bold italic capital n	2432
+mathematical sans-serif bold italic capital o	2433
+mathematical sans-serif bold italic capital p	2434
+mathematical sans-serif bold italic capital q	2435
+mathematical sans-serif bold italic capital r	2436
+mathematical sans-serif bold italic capital s	2437
+mathematical sans-serif bold italic capital t	2438
+mathematical sans-serif bold italic capital u	2439
+mathematical sans-serif bold italic capital v	2440
+mathematical sans-serif bold italic capital w	2441
+mathematical sans-serif bold italic capital x	2442
+mathematical sans-serif bold italic capital y	2443
+mathematical sans-serif bold italic capital z	2444
+mathematical sans-serif bold italic small a	2445
+mathematical sans-serif bold italic small b	2446
+mathematical sans-serif bold italic small c	2447
+mathematical sans-serif bold italic small d	2448
+mathematical sans-serif bold italic small e	2449
+mathematical sans-serif bold italic small f	2450
+mathematical sans-serif bold italic small g	2451
+mathematical sans-serif bold italic small h	2452
+mathematical sans-serif bold italic small i	2453
+mathematical sans-serif bold italic small j	2454
+mathematical sans-serif bold italic small k	2455
+mathematical sans-serif bold italic small l	2456
+mathematical sans-serif bold italic small m	2457
+mathematical sans-serif bold italic small n	2458
+mathematical sans-serif bold italic small o	2459
+mathematical sans-serif bold italic small p	2460
+mathematical sans-serif bold italic small q	2461
+mathematical sans-serif bold italic small r	2462
+mathematical sans-serif bold italic small s	2463
+mathematical sans-serif bold italic small t	2464
+mathematical sans-serif bold italic small u	2465
+mathematical sans-serif bold italic small v	2466
+mathematical sans-serif bold italic small w	2467
+mathematical sans-serif bold italic small x	2468
+mathematical sans-serif bold italic small y	2469
+mathematical sans-serif bold italic small z	2470
+mathematical monospace capital a	2471
+mathematical monospace capital b	2472
+mathematical monospace capital c	2473
+mathematical monospace capital d	2474
+mathematical monospace capital e	2475
+mathematical monospace capital f	2476
+mathematical monospace capital g	2477
+mathematical monospace capital h	2478
+mathematical monospace capital i	2479
+mathematical monospace capital j	2480
+mathematical monospace capital k	2481
+mathematical monospace capital l	2482
+mathematical monospace capital m	2483
+mathematical monospace capital n	2484
+mathematical monospace capital o	2485
+mathematical monospace capital p	2486
+mathematical monospace capital q	2487
+mathematical monospace capital r	2488
+mathematical monospace capital s	2489
+mathematical monospace capital t	2490
+mathematical monospace capital u	2491
+mathematical monospace capital v	2492
+mathematical monospace capital w	2493
+mathematical monospace capital x	2494
+mathematical monospace capital y	2495
+mathematical monospace capital z	2496
+mathematical monospace small a	2497
+mathematical monospace small b	2498
+mathematical monospace small c	2499
+mathematical monospace small d	2500
+mathematical monospace small e	2501
+mathematical monospace small f	2502
+mathematical monospace small g	2503
+mathematical monospace small h	2504
+mathematical monospace small i	2505
+mathematical monospace small j	2506
+mathematical monospace small k	2507
+mathematical monospace small l	2508
+mathematical monospace small m	2509
+mathematical monospace small n	2510
+mathematical monospace small o	2511
+mathematical monospace small p	2512
+mathematical monospace small q	2513
+mathematical monospace small r	2514
+mathematical monospace small s	2515
+mathematical monospace small t	2516
+mathematical monospace small u	2517
+mathematical monospace small v	2518
+mathematical monospace small w	2519
+mathematical monospace small x	2520
+mathematical monospace small y	2521
+mathematical monospace small z	2522
+mathematical italic small dotless i	2523
+mathematical italic small dotless j	2524
+mathematical bold capital alpha	2525
+mathematical bold capital beta	2526
+mathematical bold capital gamma	2527
+mathematical bold capital delta	2528
+mathematical bold capital epsilon	2529
+mathematical bold capital zeta	2530
+mathematical bold capital eta	2531
+mathematical bold capital theta	2532
+mathematical bold capital iota	2533
+mathematical bold capital kappa	2534
+mathematical bold capital lambda	2535
+mathematical bold capital mu	2536
+mathematical bold capital nu	2537
+mathematical bold capital xi	2538
+mathematical bold capital omicron	2539
+mathematical bold capital pi	2540
+mathematical bold capital rho	2541
+mathematical bold capital theta symbol	2542
+mathematical bold capital sigma	2543
+mathematical bold capital tau	2544
+mathematical bold capital upsilon	2545
+mathematical bold capital phi	2546
+mathematical bold capital chi	2547
+mathematical bold capital psi	2548
+mathematical bold capital omega	2549
+mathematical bold nabla	2550
+mathematical bold small alpha	2551
+mathematical bold small beta	2552
+mathematical bold small gamma	2553
+mathematical bold small delta	2554
+mathematical bold small varepsilon	2555
+mathematical bold small zeta	2556
+mathematical bold small eta	2557
+mathematical bold small theta	2558
+mathematical bold small iota	2559
+mathematical bold small kappa	2560
+mathematical bold small lambda	2561
+mathematical bold small mu	2562
+mathematical bold small nu	2563
+mathematical bold small xi	2564
+mathematical bold small omicron	2565
+mathematical bold small pi	2566
+mathematical bold small rho	2567
+mathematical bold small final sigma	2568
+mathematical bold small sigma	2569
+mathematical bold small tau	2570
+mathematical bold small upsilon	2571
+mathematical bold small phi	2572
+mathematical bold small chi	2573
+mathematical bold small psi	2574
+mathematical bold small omega	2575
+mathematical bold partial differential	2576
+mathematical bold varepsilon symbol	2577
+mathematical bold theta symbol	2578
+mathematical bold kappa symbol	2579
+mathematical bold phi symbol	2580
+mathematical bold rho symbol	2581
+mathematical bold pi symbol	2582
+mathematical italic capital alpha	2583
+mathematical italic capital beta	2584
+mathematical italic capital gamma	2585
+mathematical italic capital delta	2586
+mathematical italic capital epsilon	2587
+mathematical italic capital zeta	2588
+mathematical italic capital eta	2589
+mathematical italic capital theta	2590
+mathematical italic capital iota	2591
+mathematical italic capital kappa	2592
+mathematical italic capital lambda	2593
+mathematical italic capital mu	2594
+mathematical italic capital nu	2595
+mathematical italic capital xi	2596
+mathematical italic capital omicron	2597
+mathematical italic capital pi	2598
+mathematical italic capital rho	2599
+mathematical italic capital theta symbol	2600
+mathematical italic capital sigma	2601
+mathematical italic capital tau	2602
+mathematical italic capital upsilon	2603
+mathematical italic capital phi	2604
+mathematical italic capital chi	2605
+mathematical italic capital psi	2606
+mathematical italic capital omega	2607
+mathematical italic nabla	2608
+mathematical italic small alpha	2609
+mathematical italic small beta	2610
+mathematical italic small gamma	2611
+mathematical italic small delta	2612
+mathematical italic small varepsilon	2613
+mathematical italic small zeta	2614
+mathematical italic small eta	2615
+mathematical italic small theta	2616
+mathematical italic small iota	2617
+mathematical italic small kappa	2618
+mathematical italic small lambda	2619
+mathematical italic small mu	2620
+mathematical italic small nu	2621
+mathematical italic small xi	2622
+mathematical italic small omicron	2623
+mathematical italic small pi	2624
+mathematical italic small rho	2625
+mathematical italic small final sigma	2626
+mathematical italic small sigma	2627
+mathematical italic small tau	2628
+mathematical italic small upsilon	2629
+mathematical italic small phi	2630
+mathematical italic small chi	2631
+mathematical italic small psi	2632
+mathematical italic small omega	2633
+mathematical italic partial differential	2634
+mathematical italic varepsilon symbol	2635
+mathematical italic theta symbol	2636
+mathematical italic kappa symbol	2637
+mathematical italic phi symbol	2638
+mathematical italic rho symbol	2639
+mathematical italic pi symbol	2640
+mathematical bold italic capital alpha	2641
+mathematical bold italic capital beta	2642
+mathematical bold italic capital gamma	2643
+mathematical bold italic capital delta	2644
+mathematical bold italic capital epsilon	2645
+mathematical bold italic capital zeta	2646
+mathematical bold italic capital eta	2647
+mathematical bold italic capital theta	2648
+mathematical bold italic capital iota	2649
+mathematical bold italic capital kappa	2650
+mathematical bold italic capital lambda	2651
+mathematical bold italic capital mu	2652
+mathematical bold italic capital nu	2653
+mathematical bold italic capital xi	2654
+mathematical bold italic capital omicron	2655
+mathematical bold italic capital pi	2656
+mathematical bold italic capital rho	2657
+mathematical bold italic capital theta symbol	2658
+mathematical bold italic capital sigma	2659
+mathematical bold italic capital tau	2660
+mathematical bold italic capital upsilon	2661
+mathematical bold italic capital phi	2662
+mathematical bold italic capital chi	2663
+mathematical bold italic capital psi	2664
+mathematical bold italic capital omega	2665
+mathematical bold italic nabla	2666
+mathematical bold italic small alpha	2667
+mathematical bold italic small beta	2668
+mathematical bold italic small gamma	2669
+mathematical bold italic small delta	2670
+mathematical bold italic small varepsilon	2671
+mathematical bold italic small zeta	2672
+mathematical bold italic small eta	2673
+mathematical bold italic small theta	2674
+mathematical bold italic small iota	2675
+mathematical bold italic small kappa	2676
+mathematical bold italic small lambda	2677
+mathematical bold italic small mu	2678
+mathematical bold italic small nu	2679
+mathematical bold italic small xi	2680
+mathematical bold italic small omicron	2681
+mathematical bold italic small pi	2682
+mathematical bold italic small rho	2683
+mathematical bold italic small final sigma	2684
+mathematical bold italic small sigma	2685
+mathematical bold italic small tau	2686
+mathematical bold italic small upsilon	2687
+mathematical bold italic small phi	2688
+mathematical bold italic small chi	2689
+mathematical bold italic small psi	2690
+mathematical bold italic small omega	2691
+mathematical bold italic partial differential	2692
+mathematical bold italic varepsilon symbol	2693
+mathematical bold italic theta symbol	2694
+mathematical bold italic kappa symbol	2695
+mathematical bold italic phi symbol	2696
+mathematical bold italic rho symbol	2697
+mathematical bold italic pi symbol	2698
+mathematical sans-serif bold capital alpha	2699
+mathematical sans-serif bold capital beta	2700
+mathematical sans-serif bold capital gamma	2701
+mathematical sans-serif bold capital delta	2702
+mathematical sans-serif bold capital epsilon	2703
+mathematical sans-serif bold capital zeta	2704
+mathematical sans-serif bold capital eta	2705
+mathematical sans-serif bold capital theta	2706
+mathematical sans-serif bold capital iota	2707
+mathematical sans-serif bold capital kappa	2708
+mathematical sans-serif bold capital lambda	2709
+mathematical sans-serif bold capital mu	2710
+mathematical sans-serif bold capital nu	2711
+mathematical sans-serif bold capital xi	2712
+mathematical sans-serif bold capital omicron	2713
+mathematical sans-serif bold capital pi	2714
+mathematical sans-serif bold capital rho	2715
+mathematical sans-serif bold capital theta symbol	2716
+mathematical sans-serif bold capital sigma	2717
+mathematical sans-serif bold capital tau	2718
+mathematical sans-serif bold capital upsilon	2719
+mathematical sans-serif bold capital phi	2720
+mathematical sans-serif bold capital chi	2721
+mathematical sans-serif bold capital psi	2722
+mathematical sans-serif bold capital omega	2723
+mathematical sans-serif bold nabla	2724
+mathematical sans-serif bold small alpha	2725
+mathematical sans-serif bold small beta	2726
+mathematical sans-serif bold small gamma	2727
+mathematical sans-serif bold small delta	2728
+mathematical sans-serif bold small varepsilon	2729
+mathematical sans-serif bold small zeta	2730
+mathematical sans-serif bold small eta	2731
+mathematical sans-serif bold small theta	2732
+mathematical sans-serif bold small iota	2733
+mathematical sans-serif bold small kappa	2734
+mathematical sans-serif bold small lambda	2735
+mathematical sans-serif bold small mu	2736
+mathematical sans-serif bold small nu	2737
+mathematical sans-serif bold small xi	2738
+mathematical sans-serif bold small omicron	2739
+mathematical sans-serif bold small pi	2740
+mathematical sans-serif bold small rho	2741
+mathematical sans-serif bold small final sigma	2742
+mathematical sans-serif bold small sigma	2743
+mathematical sans-serif bold small tau	2744
+mathematical sans-serif bold small upsilon	2745
+mathematical sans-serif bold small phi	2746
+mathematical sans-serif bold small chi	2747
+mathematical sans-serif bold small psi	2748
+mathematical sans-serif bold small omega	2749
+mathematical sans-serif bold partial differential	2750
+mathematical sans-serif bold varepsilon symbol	2751
+mathematical sans-serif bold theta symbol	2752
+mathematical sans-serif bold kappa symbol	2753
+mathematical sans-serif bold phi symbol	2754
+mathematical sans-serif bold rho symbol	2755
+mathematical sans-serif bold pi symbol	2756
+mathematical sans-serif bold italic capital alpha	2757
+mathematical sans-serif bold italic capital beta	2758
+mathematical sans-serif bold italic capital gamma	2759
+mathematical sans-serif bold italic capital delta	2760
+mathematical sans-serif bold italic capital epsilon	2761
+mathematical sans-serif bold italic capital zeta	2762
+mathematical sans-serif bold italic capital eta	2763
+mathematical sans-serif bold italic capital theta	2764
+mathematical sans-serif bold italic capital iota	2765
+mathematical sans-serif bold italic capital kappa	2766
+mathematical sans-serif bold italic capital lambda	2767
+mathematical sans-serif bold italic capital mu	2768
+mathematical sans-serif bold italic capital nu	2769
+mathematical sans-serif bold italic capital xi	2770
+mathematical sans-serif bold italic capital omicron	2771
+mathematical sans-serif bold italic capital pi	2772
+mathematical sans-serif bold italic capital rho	2773
+mathematical sans-serif bold italic capital theta symbol	2774
+mathematical sans-serif bold italic capital sigma	2775
+mathematical sans-serif bold italic capital tau	2776
+mathematical sans-serif bold italic capital upsilon	2777
+mathematical sans-serif bold italic capital phi	2778
+mathematical sans-serif bold italic capital chi	2779
+mathematical sans-serif bold italic capital psi	2780
+mathematical sans-serif bold italic capital omega	2781
+mathematical sans-serif bold italic nabla	2782
+mathematical sans-serif bold italic small alpha	2783
+mathematical sans-serif bold italic small beta	2784
+mathematical sans-serif bold italic small gamma	2785
+mathematical sans-serif bold italic small delta	2786
+mathematical sans-serif bold italic small varepsilon	2787
+mathematical sans-serif bold italic small zeta	2788
+mathematical sans-serif bold italic small eta	2789
+mathematical sans-serif bold italic small theta	2790
+mathematical sans-serif bold italic small iota	2791
+mathematical sans-serif bold italic small kappa	2792
+mathematical sans-serif bold italic small lambda	2793
+mathematical sans-serif bold italic small mu	2794
+mathematical sans-serif bold italic small nu	2795
+mathematical sans-serif bold italic small xi	2796
+mathematical sans-serif bold italic small omicron	2797
+mathematical sans-serif bold italic small pi	2798
+mathematical sans-serif bold italic small rho	2799
+mathematical sans-serif bold italic small final sigma	2800
+mathematical sans-serif bold italic small sigma	2801
+mathematical sans-serif bold italic small tau	2802
+mathematical sans-serif bold italic small upsilon	2803
+mathematical sans-serif bold italic small phi	2804
+mathematical sans-serif bold italic small chi	2805
+mathematical sans-serif bold italic small psi	2806
+mathematical sans-serif bold italic small omega	2807
+mathematical sans-serif bold italic partial differential	2808
+mathematical sans-serif bold italic varepsilon symbol	2809
+mathematical sans-serif bold italic theta symbol	2810
+mathematical sans-serif bold italic kappa symbol	2811
+mathematical sans-serif bold italic phi symbol	2812
+mathematical sans-serif bold italic rho symbol	2813
+mathematical sans-serif bold italic pi symbol	2814
+mathematical bold capital digamma	2815
+mathematical bold small digamma	2816
+mathematical bold digit 0	2817
+mathematical bold digit 1	2818
+mathematical bold digit 2	2819
+mathematical bold digit 3	2820
+mathematical bold digit 4	2821
+mathematical bold digit 5	2822
+mathematical bold digit 6	2823
+mathematical bold digit 7	2824
+mathematical bold digit 8	2825
+mathematical bold digit 9	2826
+mathematical double-struck digit 0	2827
+mathematical double-struck digit 1	2828
+mathematical double-struck digit 2	2829
+mathematical double-struck digit 3	2830
+mathematical double-struck digit 4	2831
+mathematical double-struck digit 5	2832
+mathematical double-struck digit 6	2833
+mathematical double-struck digit 7	2834
+mathematical double-struck digit 8	2835
+mathematical double-struck digit 9	2836
+mathematical sans-serif digit 0	2837
+mathematical sans-serif digit 1	2838
+mathematical sans-serif digit 2	2839
+mathematical sans-serif digit 3	2840
+mathematical sans-serif digit 4	2841
+mathematical sans-serif digit 5	2842
+mathematical sans-serif digit 6	2843
+mathematical sans-serif digit 7	2844
+mathematical sans-serif digit 8	2845
+mathematical sans-serif digit 9	2846
+mathematical sans-serif bold digit 0	2847
+mathematical sans-serif bold digit 1	2848
+mathematical sans-serif bold digit 2	2849
+mathematical sans-serif bold digit 3	2850
+mathematical sans-serif bold digit 4	2851
+mathematical sans-serif bold digit 5	2852
+mathematical sans-serif bold digit 6	2853
+mathematical sans-serif bold digit 7	2854
+mathematical sans-serif bold digit 8	2855
+mathematical sans-serif bold digit 9	2856
+mathematical monospace digit 0	2857
+mathematical monospace digit 1	2858
+mathematical monospace digit 2	2859
+mathematical monospace digit 3	2860
+mathematical monospace digit 4	2861
+mathematical monospace digit 5	2862
+mathematical monospace digit 6	2863
+mathematical monospace digit 7	2864
+mathematical monospace digit 8	2865
+mathematical monospace digit 9	2866
+cyrillic subscript small letter es	2867
+arabic mathematical operator meem with hah with tatweel	2868
+arabic mathematical operator hah with dal	2869
+construction sign	2870
+prohibited sign	2871
+octagonal sign	2872

@@ -1,0 +1,84 @@
+# Grabit Launcher - launches grabit for screenshots, screen recording, OCR, and uploads.
+#
+# grabit handles the interactive UI (region selector, annotator, recording control bar);
+# this plugin provides a bar button, a mode menu, and recording-state mirroring.
+#
+# 42 is the floor: both panels use height = "content", which needs 42.
+# (Layer entries need 36; no other capability used here is newer than 42.)
+plugin_api = 42
+
+id = "snowballons/grabit"
+name = "Grabit Launcher"
+version = "1.0.0"
+author = "snowballons"
+license = "MIT"
+dependencies = ["grabit", "sleep", "xdg-open"]
+tags = ["bar", "panel", "shortcut", "service", "recording", "utility", "network", "language"]
+icon = "screenshot"
+description = "Launch grabit for screenshots, screen recording, OCR, and uploads."
+
+# ── Plugin settings ──────────────────────────────────────────────
+
+[[setting]]
+key = "record_upload"
+type = "bool"
+label_key = "settings.record_upload.label"
+description_key = "settings.record_upload.description"
+default = true
+
+[[setting]]
+key = "hide_inactive"
+type = "bool"
+label_key = "settings.hide_inactive.label"
+description_key = "settings.hide_inactive.description"
+default = false
+
+# ── Entries ──────────────────────────────────────────────────────
+
+[[widget]]
+id = "widget"
+entry = "widget.luau"
+
+  # Middle click is bound to "settings-open-widget" for every widget by the
+  # shell. Free it so the widget's own onMiddleClick (last region) can fire.
+  [widget.actions]
+  middle = "none"
+
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[shortcut]]
+id = "shortcut"
+entry = "shortcut.luau"
+
+[[panel]]
+id = "menu"
+entry = "menu.luau"
+width = 460
+height = "content"
+max_height = 500
+
+[[panel]]
+id = "settings"
+entry = "settings.luau"
+width = 420
+height = "content"
+max_height = 600
+
+# ── Recording indicator ─────────────────────────────────────────
+# The layer is lazy, so the indicator service shows it while recording or
+# paused and hides it again on stop.
+
+[[service]]
+id = "indicator"
+entry = "indicator.luau"
+
+[[layer]]
+id = "recording"
+entry = "recording_layer.luau"
+layer = "overlay"
+anchors = ["top", "bottom", "left", "right"]
+keyboard = "none"
+click_through = true
