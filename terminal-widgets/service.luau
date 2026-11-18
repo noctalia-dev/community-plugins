@@ -1,10 +1,10 @@
 --!nonstrict
--- Service headless: memoriza la geometría MANUAL de las ventanas del plugin.
--- Solo escribe `brainGeometry` en store.json; el interruptor lo escribe el panel.
+-- Headless service: remembers the MANUAL geometry of the plugin windows.
+-- It only writes `brainGeometry` to store.json; the toggle is written by the panel.
 --
--- La consulta a hyprctl sigue la misma convención que el resto del plugin
--- (`lib/windows.luau`): `noctalia.runAsync` entrega al callback un único
--- `result` con `{ exitCode, stdout, stderr }`.
+-- The hyprctl query follows the same convention as the rest of the plugin
+-- (`lib/windows.luau`): `noctalia.runAsync` passes the callback a single
+-- `result` with `{ exitCode, stdout, stderr }`.
 local storeLib = require("./lib/store.luau")
 local outputLib = require("./lib/output.luau")
 local brain = require("./lib/brain.luau")
@@ -12,10 +12,10 @@ local brain = require("./lib/brain.luau")
 local polling = false
 local pending = {}
 
--- Los dos ajustes que necesita el service, leídos por clave como hace el panel
--- (`noctalia.getConfig` no tiene forma sin clave): el margen y el output son la
--- misma fuente de verdad que usa panel.luau, así que un desplazamiento guardado
--- por el service se reconstruye igual que uno guardado por el panel.
+-- The two settings the service needs, read by key as the panel does
+-- (`noctalia.getConfig` has no form without a key): margin and output are the
+-- same source of truth used by panel.luau, so an offset saved by the service
+-- is reconstructed the same way as one saved by the panel.
 local function settings()
   return {
     margin = tonumber(noctalia.getConfig("margin")) or 0,
@@ -34,7 +34,7 @@ end
 function update()
   if polling then return end
   local stored = storeLib.loadBrain()
-  if stored.brain ~= true then return end   -- cerebro OFF: cero trabajo, cero hyprctl
+  if stored.brain ~= true then return end   -- brain OFF: zero work, zero hyprctl
   polling = true
   local started = noctalia.runAsync({ "hyprctl", "clients", "-j" }, function(result)
     polling = false

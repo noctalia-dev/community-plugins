@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
-"""Capturas de las ventanas flotantes para el panel de Noctalia.
+"""Screenshots of floating windows for the Noctalia panel.
 
-El plugin escribe un JSON con las ventanas que quiere capturar.
+The plugin writes a JSON file with the windows it wants to capture.
 
-MÉTODOS DE CAPTURA:
-1. SOLO VENTANA REAL (primario): grim -T <stableId>
-   Hyprland expone un identificador estable del toplevel (`stableId`). grim
-   puede capturar ese toplevel directamente, sin importar qué ventana, panel,
-   barra o notificación esté por encima. No toca el z-order ni mueve nada.
+CAPTURE METHODS:
+1. REAL WINDOW ONLY (primary): grim -T <stableId>
+   Hyprland exposes a stable toplevel identifier (`stableId`). grim can
+   capture that toplevel directly, regardless of which window, panel, bar or
+   notification is above it. It does not touch the z-order or move anything.
 
-2. Fallback antiguo: alterzorder top -> grim -g -> alterzorder bottom
-   Solo si el cliente no tiene stableId. Puede incluir capas por encima
-   (paneles layer-shell), por eso ya no es el método preferido.
+2. Legacy fallback: alterzorder top -> grim -g -> alterzorder bottom
+   Only when the client has no stableId. It may include layers above the
+   window (layer-shell panels), which is why it is no longer preferred.
 
-3. Último recurso: geometría exacta (grim -g "x,y WxH")
-   Puede incluir cualquier cosa que esté por encima de la ventana.
+3. Last resort: exact geometry (grim -g "x,y WxH")
+   It may include anything that is above the window.
 """
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ import time
 
 
 def _save_resized(raw: str, target_w: int, target_h: int, out: str) -> None:
-    """Convierte la captura temporal al tamaño de miniatura del panel."""
+    """Resize the temporary capture to the panel thumbnail size."""
     from PIL import Image
 
     os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
@@ -40,17 +40,17 @@ def _save_resized(raw: str, target_w: int, target_h: int, out: str) -> None:
 
 
 def capture_toplevel(stable_id: str, target_w: int, target_h: int, out: str) -> bool:
-    """Captura SOLO esa ventana con `grim -T <stableId>`.
+    """Capture ONLY that window with `grim -T <stableId>`.
 
-    Es una captura del buffer del toplevel: no importa si hay otras ventanas,
-    el panel de Noctalia, una barra o una notificación por encima. Tampoco
-    cambia el orden de las ventanas.
+    It captures the toplevel buffer: it does not matter if other windows, the
+    Noctalia panel, a bar or a notification are above it. It does not change
+    the window order either.
     """
     handle, raw = tempfile.mkstemp(prefix="fterm-", suffix=".png")
     os.close(handle)
     try:
-        # La ventana puede tardar un instante en estar mapeada tras abrirse:
-        # se reintenta un par de veces antes de darla por perdida.
+        # The window may take a moment to be mapped after opening: retry a
+        # couple of times before giving up.
         for attempt in range(3):
             try:
                 subprocess.run(
@@ -75,7 +75,7 @@ def capture_toplevel(stable_id: str, target_w: int, target_h: int, out: str) -> 
 
 
 def run_hyprctl(args: list[str], timeout: float = 3.0) -> subprocess.CompletedProcess:
-    """Ejecuta hyprctl con args y retorna CompletedProcess."""
+    """Run hyprctl with args and return CompletedProcess."""
     return subprocess.run(
         ["hyprctl"] + args,
         capture_output=True,
@@ -85,7 +85,7 @@ def run_hyprctl(args: list[str], timeout: float = 3.0) -> subprocess.CompletedPr
 
 
 def raise_window(address: str) -> bool:
-    """Sube la ventana al tope del stack (layer top). Retorna True si ok."""
+    """Raise the window to the top of the stack (layer top). Returns True on success."""
     try:
         result = run_hyprctl(["dispatch", "alterzorder", f"top,address:{address}"])
         return result.returncode == 0
@@ -94,7 +94,7 @@ def raise_window(address: str) -> bool:
 
 
 def lower_window(address: str) -> bool:
-    """Baja la ventana al bottom del stack. Retorna True si ok."""
+    """Lower the window to the bottom of the stack. Returns True on success."""
     try:
         result = run_hyprctl(["dispatch", "alterzorder", f"bottom,address:{address}"])
         return result.returncode == 0
@@ -104,15 +104,15 @@ def lower_window(address: str) -> bool:
 
 def capture_window_only(address: str, x: int, y: int, w: int, h: int,
                          target_w: int, target_h: int, out: str) -> bool:
-    """Captura SOLO la ventana: la sube al tope, captura geometría, la baja.
+    """Capture ONLY the window: raise it, capture its geometry, lower it.
 
-    Esto evita que se capturen ventanas/capas que estén por encima.
+    This prevents windows/layers above it from being captured.
     """
-    # 1. Subir ventana
+    # 1. Raise the window
     if not raise_window(address):
         return False
 
-    # Pequeña pausa para que el compositor procese el z-order change
+    # Brief pause so the compositor processes the z-order change
     time.sleep(0.05)
 
     try:
@@ -134,7 +134,7 @@ def capture_window_only(address: str, x: int, y: int, w: int, h: int,
     except Exception:
         return False
     finally:
-        # 2. Restaurar z-order (bajar ventana)
+        # 2. Restore z-order (lower the window)
         time.sleep(0.02)
         lower_window(address)
         try:
@@ -144,11 +144,11 @@ def capture_window_only(address: str, x: int, y: int, w: int, h: int,
 
 
 def capture_output_geometry(item: dict, scales: dict[str, float]) -> bool:
-    """Captura por geometría exacta de la ventana (grim -g).
+    """Capture by the window's exact geometry (grim -g).
 
-    Captura el rectángulo exacto de la ventana en coordenadas de pantalla.
-    Nota: puede incluir cosas que estén por encima (otras ventanas, capas).
-    El panel evita capturar cuando isCovered() detecta solapamiento.
+    Captures the exact window rectangle in screen coordinates.
+    Note: it may include things above it (other windows, layers).
+    The panel avoids capturing when isCovered() detects overlap.
     """
     out = str(item["out"])
     x = int(item["x"])
@@ -159,13 +159,13 @@ def capture_output_geometry(item: dict, scales: dict[str, float]) -> bool:
     target_h = max(16, int(item.get("height", 190)))
 
     if w <= 0 or h <= 0:
-        raise ValueError("ventana sin tamaño")
+        raise ValueError("window without size")
 
     os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
     handle, raw = tempfile.mkstemp(prefix="fterm-", suffix=".png")
     os.close(handle)
 
-    # Captura la geometría EXACTA de la ventana (sin output, solo geometría)
+    # Capture the EXACT window geometry (no output, geometry only)
     command = ["grim", "-g", f"{x},{y} {w}x{h}", raw]
 
     try:
@@ -185,7 +185,7 @@ def capture_output_geometry(item: dict, scales: dict[str, float]) -> bool:
 
 
 def output_scale(output: str, cache: dict[str, float]) -> float:
-    """Factor de escala de la salida (Hyprland), 1.0 si no se puede saber."""
+    """Output scale factor (Hyprland), 1.0 when it cannot be determined."""
     if output in cache:
         return cache[output]
     try:
@@ -196,7 +196,7 @@ def output_scale(output: str, cache: dict[str, float]) -> float:
             timeout=4.0,
         )
         monitors = json.loads(result.stdout)
-    except Exception:  # noqa: BLE001 - sin hyprctl se asume escala 1
+    except Exception:  # noqa: BLE001 - assume scale 1 without hyprctl
         cache[output] = 1.0
         return 1.0
     if not isinstance(monitors, list):
@@ -215,14 +215,14 @@ def output_scale(output: str, cache: dict[str, float]) -> float:
 
 
 def capture(item: dict, scales: dict[str, float]) -> None:
-    """Captura una ventana.
+    """Capture a window.
 
-    Prioridad:
-      1. `stable_id` -> grim -T (solo el contenido de esa ventana).
-      2. `address`   -> subir/capturar/bajar (fallback antiguo).
-      3. geometría   -> grim -g (último recurso).
+    Priority:
+      1. `stable_id` -> grim -T (only that window's contents).
+      2. `address`   -> raise/capture/lower (legacy fallback).
+      3. geometry    -> grim -g (last resort).
 
-    Si item tiene "current_out", también guarda una copia allí para el preview principal.
+    If item has "current_out", also save a copy there for the main preview.
     """
     out = str(item["out"])
     x = int(item["x"])
@@ -236,7 +236,7 @@ def capture(item: dict, scales: dict[str, float]) -> None:
     stable_id = item.get("stable_id") or item.get("stableId")
 
     if w <= 0 or h <= 0:
-        raise ValueError("ventana sin tamaño")
+        raise ValueError("window without size")
 
     def copy_current() -> None:
         if current_out:
@@ -245,25 +245,25 @@ def capture(item: dict, scales: dict[str, float]) -> None:
             except Exception:
                 pass
 
-    # MODO 1: captura directa del toplevel (solo la ventana, sin capas encima).
+    # MODE 1: direct toplevel capture (window only, no layers above).
     if stable_id:
         if capture_toplevel(str(stable_id), target_w, target_h, out):
             copy_current()
             return
-        # Si el toplevel aún no está listo, se omite esta ronda. Capturar por
-        # geometría guardaría el escritorio o lo que haya encima, que es
-        # justo lo que queremos evitar.
+        # If the toplevel is not ready yet, skip this round. Capturing by
+        # geometry would save the desktop or whatever is above, which is
+        # exactly what we want to avoid.
         return
 
-    # MODO 2: captura SOLO VENTANA por z-order (clientes sin stableId).
+    # MODE 2: WINDOW-ONLY capture via z-order (clients without stableId).
     if address:
         ok = capture_window_only(address, x, y, w, h, target_w, target_h, out)
         if ok:
             copy_current()
             return
-        # Si falla, cae al método fallback
+        # On failure, fall through to the fallback method
 
-    # MODO 3: Fallback - geometría exacta (puede incluir cosas por encima)
+    # MODE 3: Fallback - exact geometry (may include things above)
     capture_output_geometry(item, scales)
 
     copy_current()
@@ -271,7 +271,7 @@ def capture(item: dict, scales: dict[str, float]) -> None:
 
 def main() -> int:
     if len(sys.argv) != 2:
-        print("uso: snapshot.py <lote.json>", file=sys.stderr)
+        print("usage: snapshot.py <batch.json>", file=sys.stderr)
         return 2
 
     with open(sys.argv[1], "r", encoding="utf-8") as handle:
@@ -282,7 +282,7 @@ def main() -> int:
     for item in items:
         try:
             capture(item, scales)
-        except Exception as exc:  # noqa: BLE001 - un fallo no debe parar el lote
+        except Exception as exc:  # noqa: BLE001 - one failure must not stop the batch
             failures += 1
             print(f"snapshot: {item.get('out')}: {exc}", file=sys.stderr)
 

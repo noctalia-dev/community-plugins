@@ -1,12 +1,12 @@
 --!nonstrict
--- Panel de lanzamiento: una tarjeta por widget de terminal.
+-- Launcher panel: one card per terminal widget.
 --
--- Cada tarjeta abre (o enfoca) su terminal flotante. La cabecera trae las
--- acciones: abrir todo, rotar las ventanas, cerrarlas todas y editar la
--- lista de widgets.
+-- Each card opens (or focuses) its floating terminal. The header carries the
+-- actions: open all, rotate the windows, close them all and edit the widget
+-- list.
 --
--- La posición y el tamaño de cada ventana salen de `layouts`; el botón de
--- "abrir todo" además rota las ventanas ya abiertas entre sí.
+-- Each window's position and size come from `layouts`; the "open all" button
+-- also rotates the already-open windows among themselves.
 
 local util = require("./lib/util.luau")
 local defaults = require("./lib/defaults.luau")
@@ -18,30 +18,30 @@ local gifLib = require("./lib/gif.luau")
 local outputLib = require("./lib/output.luau")
 local brainLib = require("./lib/brain.luau")
 
--- Semilla aleatoria inicializada una vez al cargar el plugin.
+-- Random seed initialized once when the plugin loads.
 math.randomseed(noctalia.nowMs() + (os.time() or 0) * 1000)
 
 local DEBOUNCE_MS = 700
--- Ancho útil real del área de scroll (sin el canal de la barra lateral). El
--- panel mide 520 px lógicos; tras descontar el padding y el hueco que reserva
--- el scroll quedan ~465 px. Usar este valor evita que una sola columna se
--- desborde un poco del panel.
+-- Real usable width of the scroll area (without the sidebar gutter). The
+-- panel is 520 logical px; after subtracting the padding and the gap reserved
+-- by the scroll, about 465 px remain. Using this value prevents a single
+-- column from overflowing the panel a little.
 local SCROLL_CONTENT_WIDTH = 465
 local PANEL_PADDING = 8
 local CARD_GAP = 6
 local CARD_PADDING = 5
--- Ratio de la miniatura respecto al ancho de la tarjeta. Valor menor =
--- tarjetas más horizontales (más rectangulares).
+-- Thumbnail ratio relative to the card width. A smaller value = more
+-- horizontal (more rectangular) cards.
 local PREVIEW_RATIO = 0.5
 local MAX_PREVIEW_HEIGHT = 120
--- Margen de tolerancia: dos ventanas que se tocan (1-2 px) no cuentan como
--- solapadas, así una posición configurada no se mueve por un roce.
+-- Tolerance margin: two windows that touch (1-2 px) do not count as
+-- overlapping, so a configured position is not moved by a slight touch.
 local OVERLAP_TOLERANCE = 4
 
--- Generador de números aleatorios simple que no depende de math.random
--- (que puede no comportarse de forma determinista en el entorno Luau de
--- Noctalia). Usa ahoraMs + un contador para que cada llamada dé un valor
--- distinto.
+-- Simple random number generator that does not depend on math.random
+-- (which may not behave deterministically in Noctalia's Luau environment).
+-- It uses nowMs + a counter so each call gives a
+-- different value.
 local _randCounter = 0
 local function randomRange(minVal, maxVal)
   local range = maxVal - minVal + 1
@@ -84,13 +84,13 @@ local state = {
   frames = {},
   gifAnim = {},
   captureAnim = {},
-  -- Último tamaño real de cada ventana (para conservarlo cuando "Cambiar
-  -- tamaño también" está desactivado).
+  -- Last real size of each window (kept when "Change size too" is off).
+  -- The size is used when repositioning an open widget.
   lastSize = {},
-  -- Rutas de las capturas recientes de cada widget (animación tipo GIF).
+  -- Paths of each widget's recent captures (GIF-like animation).
   recentFrames = {},
-  -- Ficheros que se descartaron de la lista de capturas mientras el árbol de
-  -- UI todavía los usaba: no se pueden borrar hasta que el árbol los suelte.
+  -- Files dropped from the capture list while the UI tree still used them:
+  -- they cannot be deleted until the tree releases them.
   pendingDrop = {},
   capturing = false,
   lastCapture = 0,
@@ -103,17 +103,17 @@ local state = {
   launching = {},
   rotating = false,
   open = false,
-  -- Interruptor del cerebro y memoria releída del disco (la escribe el service).
+  -- Brain toggle and memory re-read from disk (written by the service).
   brain = false,
-  -- Rectángulo ABSOLUTO que el plugin impuso por última vez a cada ventana.
+  -- ABSOLUTE rectangle the plugin last imposed on each window.
   applied = {},
-  -- Widgets cuyo layout se acaba de escribir en el formulario (esta sesión de
-  -- edición): su layout manda y no se pisa con la geometría viva.
+  -- Widgets whose layout was just written in the form (this edit session):
+  -- their layout wins and is not overwritten by live geometry.
   formLayouts = {},
 }
 
--- Las funciones se referencian entre sí (una tarjeta llama a render() y
--- render() dibuja las tarjetas), así que se declaran antes de definirlas.
+-- The functions reference each other (a card calls render() and render()
+-- draws the cards), so they are declared before being defined.
 local render
 local card
 local header
@@ -140,11 +140,11 @@ local function append(list, node)
   return list
 end
 
--- ---------------------------------------------------------------- ajustes --
+-- ---------------------------------------------------------------- settings --
 
 local function loadConfig()
-  -- (Re)inicializar el generador aleatorio para que cada sesión del panel
-  -- produzca posiciones distintas en modo fallbackMode = "random".
+  -- (Re)initialize the random generator so each panel session produces
+  -- different positions in fallbackMode = "random".
   math.randomseed(noctalia.nowMs() + (os.time() or 0) * 1000)
   cfg.terminal = tostring(noctalia.getConfig("terminal") or "kitty")
   cfg.width = tonumber(noctalia.getConfig("width")) or 900
@@ -165,7 +165,7 @@ local function loadConfig()
   cfg.rotationSizes = noctalia.getConfig("rotation_sizes") == true
   cfg.columns = math.floor(util.clamp(tonumber(noctalia.getConfig("columns")) or 2, 1, 3))
   cfg.cardPreview = tostring(noctalia.getConfig("card_preview") or "auto")
-  -- preview_interval se guarda en milisegundos (el manifiesto lo declara así).
+  -- preview_interval is stored in milliseconds (the manifest declares it that way).
   cfg.previewInterval = math.floor(util.clamp(tonumber(noctalia.getConfig("preview_interval")) or 3000, 500, 60000))
   cfg.fallbackMode = tostring(noctalia.getConfig("fallback_mode") or "random")
   cfg.fallbackRandomResize = noctalia.getConfig("fallback_random_resize") == true
@@ -175,12 +175,12 @@ local function widgetNames()
   return util.sortedKeys(state.commands)
 end
 
--- Fusiona defaults + Ajustes + store propio y aplica los borrados.
+-- Merge defaults + Settings + own store and apply deletions.
 local function loadWidgets()
   local base = defaults.load()
   state.store = state.store or storeLib.load()
 
-  -- Combinar defaults + store (sin config de Ajustes)
+  -- Combine defaults + store (no Settings config)
   local combinedRemoved = {}
   local seen = {}
   for _, name in ipairs(state.store.removed or {}) do
@@ -192,22 +192,22 @@ local function loadWidgets()
 
   state.commands, state.thumbs = storeLib.merge(
     base.commands,
-    nil,  -- sin config de Ajustes
+    nil,  -- no Settings config
     state.store.commands,
     combinedRemoved,
     base.thumbs or {},
-    nil,  -- sin config thumbs
+    nil,  -- no config thumbs
     state.store.thumbs
   )
   state.layouts = storeLib.merge(
     base.layouts,
-    nil,  -- sin config
+    nil,  -- no config
     state.store.layouts,
     combinedRemoved
   )
 
-  -- Una miniatura personalizada solo cuenta si el archivo existe. Así una
-  -- ruta vieja o inventada no aparece en el editor ni se muestra por defecto.
+  -- A custom thumbnail only counts if the file exists. This way an old or
+  -- invented path does not appear in the editor or get shown by default.
   local validThumbs = {}
   for name, path in pairs(state.thumbs or {}) do
     if type(path) == "string" and util.trim(path) ~= "" then
@@ -222,8 +222,8 @@ local function loadWidgets()
   noctalia.log("terminal-widgets: widgets -> " .. table.concat(widgetNames(), ", "))
 end
 
--- El panel cachea el store al arrancar, pero la memoria del cerebro la escribe
--- el service en disco: se relee justo antes de usarla.
+-- The panel caches the store on startup, but brain memory is written to disk
+-- by the service: it is re-read right before use.
 local function refreshBrain()
   local data = storeLib.loadBrain()
   state.brain = data.brain == true
@@ -236,8 +236,8 @@ local function classMap()
   for _, name in ipairs(widgetNames()) do
     local class = util.classFor(name)
     if map[class] ~= nil then
-      -- Dos nombres que seormalizan igual comparten clase: sus ventanas se
-      -- confundirían. Se avisa en el log, pero se sigue funcionando.
+      -- Two names that normalize to the same class share a class: their
+      -- windows would be confused. It is logged, but operation continues.
       noctalia.log(
         string.format(
           "terminal-widgets: '%s' y '%s' comparten la clase %s",
@@ -252,9 +252,9 @@ local function classMap()
   return map
 end
 
--- --------------------------------------------------------------- geometría --
+-- --------------------------------------------------------------- geometry --
 
--- Caja del output donde se coloca el widget (una sola fuente: lib/output.luau).
+-- Output box where the widget is placed (single source: lib/output.luau).
 local function outputGeometry()
   local box = outputLib.outputBox(cfg)
   return box.width, box.height, box.name
@@ -279,15 +279,15 @@ local function resolveGeometry(name)
     anchor = spec.anchor
     auto = spec.auto == true
   else
-    -- Sin layout explícito: el widget entra en modo automático, por lo que
-    -- el fallbackMode "random" puede colocarlo en una posición libre.
+    -- Without an explicit layout: the widget enters automatic mode, so
+    -- fallbackMode "random" can place it in a free position.
     auto = true
   end
 
   local screenWidth, screenHeight, outputName = outputGeometry()
 
-  -- Un tamaño mayor que la pantalla (un descuido al escribir el layout)
-  -- dejaría la ventana fuera de la vista, así que se recorta.
+  -- A size larger than the screen (a mistake when writing the layout) would
+  -- leave the window out of view, so it is clipped.
   width = math.max(100, math.min(math.floor(width), screenWidth))
   height = math.max(50, math.min(math.floor(height), screenHeight))
 
@@ -320,9 +320,9 @@ local function resolveGeometry(name)
   }
 end
 
--- Geometría efectiva de un widget: con el cerebro encendido, la memoria de la
--- última posición manual manda sobre el layout oficial. Sin entrada (o con el
--- cerebro apagado) se comporta exactamente como `resolveGeometry`.
+-- Effective geometry of a widget: with the brain on, the memory of the last
+-- manual position wins over the official layout. Without an entry (or with
+-- the brain off) it behaves exactly like `resolveGeometry`.
 local function geometryFor(name)
   local geometry = resolveGeometry(name)
   if state.brain ~= true then
@@ -347,9 +347,9 @@ local function geometryFor(name)
   return geometry
 end
 
--- Publica el rectángulo que el plugin acaba de imponer (coordenadas
--- ABSOLUTAS: `hyprctl clients -j` devuelve `at`/`size` absolutos y el service
--- compara contra eso). Así el service no memoriza lo que movió el plugin.
+-- Publish the rectangle the plugin just imposed (ABSOLUTE coordinates:
+-- `hyprctl clients -j` returns absolute `at`/`size` and the service compares
+-- against that). This way the service does not memorize what the plugin moved.
 local function publishImposed(name, rect)
   state.applied[name] = { x = rect.x, y = rect.y, w = rect.w, h = rect.h }
   local shared = noctalia.state
@@ -376,8 +376,8 @@ local function publishImposed(name, rect)
   pcall(shared.set, "imposed", pruned)
 end
 
--- Igual que `publishImposed`, pero a partir de una geometría relativa a la
--- caja del output (el formato que maneja `resolveGeometry`).
+-- Same as `publishImposed`, but from a geometry relative to the output box
+-- (the format `resolveGeometry` handles).
 local function noteImposed(name, geometry)
   local box = outputLib.outputBox(cfg)
   publishImposed(name, {
@@ -418,7 +418,7 @@ local function layoutText(name)
   return string.format("%s · %d×%d", spec.anchor, width, height)
 end
 
--- ------------------------------------------------------------- ventanas --
+-- ------------------------------------------------------------- windows --
 
 local function findByClass(clients, class)
   for _, client in ipairs(clients or {}) do
@@ -429,9 +429,9 @@ local function findByClass(clients, class)
   return nil
 end
 
--- Busca una posición aleatoria libre en el monitor para una geometría dada.
--- Solo se usa en modo fallbackMode = "random".
--- Retorna x, y o nil, nil si no hay espacio libre.
+-- Find a random free position on the monitor for a given geometry.
+-- Only used in fallbackMode = "random".
+-- Returns x, y or nil, nil if there is no free space.
 local function findRandomFreePosition(geometry)
   local screenWidth, screenHeight = outputGeometry()
   local margin = math.max(0, math.floor(cfg.margin))
@@ -440,10 +440,10 @@ local function findRandomFreePosition(geometry)
   local maxY = screenHeight - geometry.height
 
   if maxX < margin or maxY < margin then
-    return nil, nil  -- Ventana más grande que la pantalla
+    return nil, nil  -- Window larger than the screen
   end
 
-  -- Obtener rectángulos ocupados por ventanas DEL PLUGIN (para no solapar)
+  -- Get rectangles occupied by PLUGIN windows (to avoid overlap)
   local occupied = {}
   for _, name in ipairs(widgetNames()) do
     local window = state.windows[name]
@@ -474,8 +474,8 @@ local function findRandomFreePosition(geometry)
     return true
   end
 
-  -- Posiciones completamente aleatorias distribuidas por toda la pantalla,
-  -- sin priorizar el centro ni seguir una grilla repetitiva.
+  -- Completely random positions distributed across the whole screen,
+  -- without prioritizing the center or following a repetitive grid.
   local maxAttempts = 120
   local minX = margin
   local maxX = math.max(minX, screenWidth - geometry.width - margin)
@@ -490,12 +490,12 @@ local function findRandomFreePosition(geometry)
     end
   end
 
-  return nil, nil  -- No hay espacio libre
+  return nil, nil  -- No free space
 end
 
--- Aplica el modo fallback "random" a una geometría: elige tamaño aleatorio
--- (si `fallback_random_resize` está activo) y luego una posición libre que
--- respete ese tamaño. Devuelve true si encontró sitio.
+-- Apply the "random" fallback mode to a geometry: pick a random size (if
+-- `fallback_random_resize` is active) and then a free position that respects
+-- that size. Returns true if it found room.
 local function applyRandomPlacement(geometry)
   local margin = math.max(0, math.floor(cfg.margin))
 
@@ -521,15 +521,14 @@ local function applyRandomPlacement(geometry)
   return true
 end
 
--- Reutiliza el último tamaño conocido de un widget (ventana abierta o la
--- última vez que estuvo abierta) cuando "Cambiar tamaño también" está
--- desactivado. Así, si el usuario ajusta el tamaño a mano y vuelve a pulsar la
--- miniatura para recolocarlo, se conserva ese tamaño en vez de volver al del
--- layout/configuración.
+-- Reuse a widget's last known size (open window or the last time it was
+-- open) when "Change size too" is off. This way, if the user resizes it by
+-- hand and clicks the thumbnail again to reposition it, that size is kept
+-- instead of returning to the layout/config size.
 --
--- `source` = la ventana ya abierta (si la hay). Sin ventana abierta solo se
--- aplica a widgets sin layout: si el widget tiene dirección y tamaño
--- definidos, al abrirse se respetan tal cual.
+-- `source` = the already-open window (if any). Without an open window it only
+-- applies to widgets without a layout: if the widget has a defined direction
+-- and size, they are respected as-is when opening.
 local function applyRememberedSize(geometry, name, source)
   if cfg.fallbackMode ~= "random" or cfg.fallbackRandomResize then
     return
@@ -538,7 +537,7 @@ local function applyRememberedSize(geometry, name, source)
   local size = source
   if type(size) ~= "table" then
     if not geometry.auto then
-      -- Tiene dirección y tamaño definidos: mandan sus valores.
+      -- It has a defined direction and size: its values win.
       return
     end
     size = state.lastSize[name]
@@ -555,13 +554,13 @@ local function applyRememberedSize(geometry, name, source)
   end
 end
 
--- Borra un fotograma que se queda fuera de la lista de los recientes.
+-- Delete a frame that falls outside the recent list.
 --
--- Si el árbol de UI todavía lo está usando no se borra: el host guarda el
--- último árbol y lo vuelve a aplicar al reabrir el panel, así que pediría esa
--- imagen otra vez y avisaría "image failed to load" si el fichero ya no
--- existiera. Esos ficheros se borran más tarde, cuando ninguna tarjeta los
--- usa (ver `cleanup`).
+-- If the UI tree is still using it, it is not deleted: the host saves the
+-- last tree and reapplies it when reopening the panel, so it would request
+-- that image again and warn "image failed to load" if the file no longer
+-- existed. Those files are deleted later, when no card uses them (see
+-- `cleanup`).
 local function dropFrame(path)
   if (state.thumbUsed or {})[path] then
     state.pendingDrop[path] = true
@@ -588,9 +587,9 @@ local function addRecentFrame(name, path)
   end
 end
 
--- Capturas recientes del widget, de la más nueva a la más antigua. Se usa
--- para animar tarjetas y para que la vista "en vivo" cambie de archivo (el
--- host no recarga una imagen si la ruta no cambia).
+-- Recent captures of the widget, newest to oldest. Used to animate cards and
+-- to make the "live" view change files (the host does not reload an image if
+-- the path does not change).
 local function captureFrames(name, limit)
   local list = state.recentFrames[name]
   local out = {}
@@ -621,9 +620,9 @@ captureThumbs = function(force)
     return
   end
 
-  -- Captura automática (sin force) para modos que deben capturar al abrir ventana:
-  -- live, auto, screenshot, gif. El modo mock no captura.
-  -- Con force=true (desde update() periódico o apertura manual), siempre captura.
+  -- Automatic capture (without force) for modes that must capture when a
+  -- window opens: live, auto, screenshot, gif. Mock mode does not capture.
+  -- With force=true (from periodic update() or manual open), it always captures.
   local shouldCapture = force
   if not shouldCapture then
     if cfg.cardPreview == "live"
@@ -649,10 +648,10 @@ captureThumbs = function(force)
       if name ~= nil and client.w > 0 and client.h > 0 then
         local window = state.windows[name]
         if window ~= nil then
-          -- Saltar widgets con thumbnail personalizada: no necesitan captura
+          -- Skip widgets with a custom thumbnail: they do not need a capture
           local customThumb = state.thumbs[name]
           if customThumb and customThumb ~= "" then
-            -- No capturar, ya tenemos la imagen del usuario
+            -- Do not capture, we already have the user's image
           else
             local seq = nil
             if cfg.cardPreview == "live" or cfg.cardPreview == "auto" or cfg.cardPreview == "gif" then
@@ -683,16 +682,16 @@ captureThumbs = function(force)
     noctalia.log(string.format("terminal-widgets: captureThumbs: %d entries, capturing=%s", #entries, tostring(state.capturing)))
 
     local function cleanup()
-      -- Rutas en uso: las de las ventanas abiertas y las que el árbol está
-      -- pintando ahora mismo (`state.thumbUsed`). La poda solo borra lo que
-      -- no está en uso y es antiguo.
+      -- Paths in use: those of the open windows and those the tree is drawing
+      -- right now (`state.thumbUsed`). Pruning only deletes what is not in
+      -- use and is old.
       local used = preview.currentPaths(state.windows)
       for path in pairs(state.thumbUsed or {}) do
         used[path] = true
       end
       preview.pruneUnused(used, 1800)
-      -- Los fotogramas que se descartaron de la lista mientras el árbol los
-      -- usaba ya se pueden borrar: el árbol ha dejado de pedirlos.
+      -- Frames dropped from the list while the tree used them can now be
+      -- deleted: the tree has stopped requesting them.
       for path in pairs(state.pendingDrop or {}) do
         if not used[path] then
           state.pendingDrop[path] = nil
@@ -708,17 +707,17 @@ captureThumbs = function(force)
     end
 
     preview.capture(entries, function()
-      -- Las capturas nuevas ya existen: guardarlas como frames recientes para
-      -- que la tarjeta pueda actualizarse/animate con una ruta distinta.
+      -- The new captures exist now: save them as recent frames so the card
+      -- can update/animate with a different path.
       for _, item in ipairs(pendingFrames) do
         if noctalia.fileExists(item.path) then
           addRecentFrame(item.name, item.path)
         end
       end
       cleanup()
-      -- Los frames se cargan perezosamente en cardPreview cuando se necesitan.
-      -- No los precargamos aquí para evitar exceder el CPU budget con
-      -- #entries * fileInfo llamadas.
+      -- Frames are loaded lazily in cardPreview when needed. They are not
+      -- preloaded here to avoid exceeding the CPU budget with
+      -- #entries * fileInfo calls.
       if state.open then
         render()
       end
@@ -726,7 +725,7 @@ captureThumbs = function(force)
   end)
 end
 
--- ------------------------------------------------------------- acciones --
+-- ------------------------------------------------------------- actions --
 
 local function refresh()
   refreshWindows(function()
@@ -772,14 +771,14 @@ refreshWindows = function(callback)
   end)
 end
 
--- Abre (o enfoca) un widget. El debounce evita que un doble clic rápido
--- abra dos ventanas iguales.
+-- Open (or focus) a widget. The debounce prevents a quick double click from
+-- opening two identical windows.
 launch = function(name, opts)
   opts = opts or {}
 
-  -- Si la acción es parte de una cadena (por ejemplo "abrir todo"), hay que
-  -- avisar igual de que este widget se salta, o la cadena se quedaría
-  -- colgada y los siguientes nunca se abrirían.
+  -- If the action is part of a chain (for example "open all"), it must still
+  -- report that this widget is skipped, or the chain would hang and the
+  -- following ones would never open.
   local function skip()
     if opts.onDone ~= nil then
       opts.onDone()
@@ -816,8 +815,8 @@ launch = function(name, opts)
       opts.onDone()
       return
     end
-    -- `close_on_launch` cierra el panel al abrir una terminal (salvo que la
-    -- acción sea por lotes, como "abrir todos").
+    -- `close_on_launch` closes the panel when opening a terminal (unless the
+    -- action is batched, like "open all").
     if cfg.closeOnLaunch and not opts.keepOpen then
       panel.close()
       return
@@ -832,9 +831,9 @@ launch = function(name, opts)
       local existing = findByClass(clients, class)
 
       if existing ~= nil and cfg.reuseExisting then
-        -- Con el cerebro encendido, pulsar la tarjeta de un widget abierto
-        -- solo lo enfoca: recolocarlo pisaría el ajuste manual que la memoria
-        -- tiene que conservar.
+        -- With the brain on, clicking an open widget's card only focuses it:
+        -- repositioning it would override the manual adjustment that memory
+        -- must preserve.
         if state.brain == true then
           win.focusOnly(class, function()
             finish(true)
@@ -842,13 +841,13 @@ launch = function(name, opts)
           return
         end
 
-        -- Si "Cambiar tamaño también" está desactivado, conservar el último
-        -- tamaño real del widget (el que el usuario dejó al ajustarlo a mano).
+        -- If "Change size too" is off, keep the widget's last real size (the
+        -- one the user left when resizing it by hand).
         applyRememberedSize(geometry, name, existing)
 
-        -- El widget ya está abierto: en modo random se mueve a un hueco
-        -- libre (el layout solo aporta el tamaño), en modo custom vuelve a
-        -- su posición configurada.
+        -- The widget is already open: in random mode it moves to a free slot
+        -- (the layout only contributes the size), in custom mode it returns
+        -- to its configured position.
         if cfg.fallbackMode == "random" then
           if not applyRandomPlacement(geometry) then
             noctalia.notifyError(tr("title"), tr("no_free_space"))
@@ -861,16 +860,16 @@ launch = function(name, opts)
           finish(true)
         end)
       else
-        -- Si "Cambiar tamaño también" está desactivado, conservar el último
-        -- tamaño real del widget (el que el usuario dejó al ajustarlo a mano).
+        -- If "Change size too" is off, keep the widget's last real size (the
+        -- one the user left when resizing it by hand).
         applyRememberedSize(geometry, name, existing)
 
-        -- Widget nuevo: si no tiene layout explícito (geometry.auto) se abre
-        -- en un hueco libre; si lo tiene, se respetan su dirección y su
-        -- tamaño tal y como están definidos.
+        -- New widget: if it has no explicit layout (geometry.auto) it opens
+        -- in a free slot; if it has one, its direction and size are respected
+        -- as defined.
         if cfg.fallbackMode == "random" and geometry.auto then
           if not applyRandomPlacement(geometry) then
-            -- No hay espacio libre
+            -- No free space
             noctalia.notifyError(tr("title"), tr("no_free_space"))
             finish(true)
             return
@@ -888,7 +887,7 @@ launch = function(name, opts)
             noctalia.notifyError(tr("title"), tr("launch_failed"))
           end,
         }, function()
-          -- La miniatura se toma cuando la ventana ya está mapeada.
+          -- The thumbnail is taken once the window is mapped.
           noctalia.runAsync({ "sleep", "1.2" }, function()
             refresh()
           end)
@@ -899,7 +898,7 @@ launch = function(name, opts)
   end)
 end
 
--- Rota las ventanas abiertas entre sí.
+-- Rotate the open windows among themselves.
 rotateWindows = function()
   if state.rotating or win.rotating then
     return
@@ -920,8 +919,8 @@ rotateWindows = function()
 
       local started = win.rotate(windows, cfg.rotation, cfg.rotationSizes, function(moves)
         state.rotating = false
-        -- La rotación también impone geometrías: se publican para que el
-        -- service no las confunda con movimientos manuales.
+        -- Rotation also imposes geometries: they are published so the
+        -- service does not mistake them for manual moves.
         if moves ~= nil then
           local byAddress = {}
           for _, window in ipairs(windows) do
@@ -949,9 +948,9 @@ rotateWindows = function()
   end)
 end
 
--- Abre los widgets que falten, uno detrás de otro (así cada uno ve las
--- ventanas que ya están abiertas y no se pisan). Si ya estaban todos
--- abiertos, los rota.
+-- Open the missing widgets one after another (so each one sees the windows
+-- already open and they do not overlap). If they were all open, rotate
+-- them.
 openAll = function()
   refreshBrain()
   win.list(function(clients)
@@ -994,12 +993,12 @@ openAll = function()
         return
       end
 
-      -- Lanzamiento paralelo: se calculan las geometrías de una sola vez (con
-      -- la lista de ocupadas compartida) y se despachan todos los spawns en un
-      -- único lote, en vez de abrirlos uno a uno.
+      -- Parallel launch: geometries are computed once (with the shared
+      -- occupied list) and all spawns are dispatched in a single batch,
+      -- instead of opening them one by one.
       local paramsList = {}
       local occupied = {}
-      -- Semilla las ventanas ya abiertas
+      -- Seed with the already-open windows
       for _, window in ipairs(windows) do
         table.insert(occupied, { x = window.x, y = window.y, w = window.w, h = window.h })
       end
@@ -1011,16 +1010,16 @@ openAll = function()
         else
           local geometry = geometryFor(name)
 
-          -- Conservar el último tamaño ajustado a mano si el resize aleatorio
-          -- está desactivado.
+          -- Keep the last manually adjusted size if random resize is off.
+          -- Otherwise the layout size wins.
           applyRememberedSize(geometry, name, nil)
 
-          -- Modo fallback random: buscar posición libre (y opcionalmente tamaño
-          -- aleatorio) solo si el widget no tiene dirección y tamaño
-          -- definidos en su layout.
+          -- Random fallback mode: look for a free position (and optionally a
+          -- random size) only if the widget has no direction and size defined
+          -- in its layout.
           if cfg.fallbackMode == "random" and geometry.auto then
             if not applyRandomPlacement(geometry) then
-              -- No hay espacio libre, saltar este widget
+              -- No free space, skip this widget
               noctalia.notifyError(tr("title"), tr("no_free_space", { name = name }))
             end
           end
@@ -1078,9 +1077,9 @@ closeAllWindows = function()
   end)
 end
 
--- ------------------------------------------------------------- edición --
+-- ------------------------------------------------------------- editing --
 
--- Aplica los cambios de un widget (los usa el formulario del panel y el IPC).
+-- Apply a widget's changes (used by the panel form and IPC).
 local function applyWidget(name, command, layout, thumb)
   name = util.trim(name)
   command = util.trim(command)
@@ -1095,17 +1094,17 @@ local function applyWidget(name, command, layout, thumb)
     loadWidgets()
   end
 
-  -- Un comando vacío en un widget que ya existe no lo deja sin comando (sería
-  -- un despiste al editar); en uno nuevo sí se guarda tal cual.
+  -- An empty command on an existing widget does not leave it without a
+  -- command (that would be an editing mistake); on a new one it is saved as-is.
   if command == "" and state.commands[name] ~= nil then
     command = nil
   end
 
-  -- `layout` y `thumb` vacíos SÍ se guardan: significan "quitar el valor"
-  -- (volver al layout por defecto / no usar miniatura personalizada).
+  -- Empty `layout` and `thumb` ARE saved: they mean "remove the value"
+  -- (return to the default layout / stop using a custom thumbnail).
   --
-  -- Un layout escrito por el usuario manda sobre la memoria del cerebro: se
-  -- descarta la entrada de ese widget para que las dos capas no se
+  -- A layout written by the user wins over brain memory: that widget's entry
+  -- is discarded so the two layers do not contradict each other.
   -- contradigan.
   if layout ~= "" then
     storeLib.saveBrainForget(util.classFor(name))
@@ -1115,14 +1114,14 @@ local function applyWidget(name, command, layout, thumb)
   if not saved then
     return false, tr("save_failed", { detail = tostring(err or "") })
   end
-  -- Este widget tiene un layout decidido en el formulario: al salir de
-  -- edición no se pisará con la geometría viva de la ventana.
+  -- This widget has a layout decided in the form: when leaving edit mode it
+  -- will not be overwritten with the window's live geometry.
   state.formLayouts[name] = true
 
   loadWidgets()
 
-  -- Si el widget está abierto y cambió su geometría, se reaplica en vez de
-  -- cerrar la ventana (así editar tamaño/posición no la mata).
+  -- If the widget is open and its geometry changed, it is reapplied instead of
+  -- closing the window (so editing size/position does not kill it).
   local window = state.windows[name]
   if window ~= nil then
     local geometry = resolveGeometry(name)
@@ -1134,7 +1133,7 @@ local function applyWidget(name, command, layout, thumb)
   return true, nil
 end
 
--- Borra un widget (los usa el panel y el IPC).
+-- Delete a widget (used by the panel and IPC).
 local function removeWidget(name)
   if state.store == nil then
     loadWidgets()
@@ -1145,11 +1144,11 @@ local function removeWidget(name)
   if not saved then
     return false, tr("save_failed", { detail = tostring(err or "") })
   end
-  -- Un widget borrado no debe dejar su memoria huérfana en el store.
+  -- A deleted widget must not leave orphaned memory in the store.
   storeLib.saveBrainForget(util.classFor(name))
-  -- La tarjeta ya no existe: su entrada en la tabla de animaciones es
-  -- basura, y si se queda el panel seguiría pidiendo ticks de frame para
-  -- algo que no está.
+  -- The card no longer exists: its entry in the animations table is garbage,
+  -- and if it stayed the panel would keep requesting frame ticks for
+  -- something that is not there.
   state.captureAnim[name] = nil
   loadWidgets()
   return true, nil
@@ -1159,8 +1158,8 @@ startEditing = function(name)
   state.editing = true
   state.editTarget = name
   state.editSession = state.editSession + 1
-  -- Cada sesión de edición empieza sin layouts "de formulario": así una
-  -- edición anterior no protege a un widget que ahora sí se movió a mano.
+  -- Each edit session starts without "form" layouts: this way a previous
+  -- edit does not protect a widget that has now been moved by hand.
   state.formLayouts = {}
   if name ~= nil then
     state.form = {
@@ -1186,10 +1185,9 @@ local function absoluteOf(geometry, box)
   }
 end
 
--- Al salir del modo edición, la geometría viva de cada ventana abierta se
--- compara con la última que impuso el plugin. Si difiere, la movió (o
--- redimensionó) el usuario y pasa a ser su layout permanente. Funciona con
--- el cerebro encendido o apagado.
+-- When leaving edit mode, each open window's live geometry is compared with
+-- the last one the plugin imposed. If it differs, the user moved (or resized)
+-- it and it becomes their permanent layout. Works with the brain on or off.
 local function saveEditedGeometry()
   local names = widgetNames()
   if #names == 0 then
@@ -1203,8 +1201,8 @@ local function saveEditedGeometry()
         local window = findByClass(clients, util.classFor(name))
         if window ~= nil and (window.w or 0) > 0 and (window.h or 0) > 0 then
           local live = { x = window.x, y = window.y, w = window.w, h = window.h }
-          -- Referencia: lo que impuso el plugin, o donde lo pondría si la
-          -- ventana ya estaba abierta antes de que arrancara este panel.
+          -- Reference: what the plugin imposed, or where it would put it if the
+          -- window was already open before this panel started.
           local reference = state.applied[name] or absoluteOf(resolveGeometry(name), box)
           local moved = math.abs(live.x - reference.x) > GEOMETRY_TOLERANCE
             or math.abs(live.y - reference.y) > GEOMETRY_TOLERANCE
@@ -1229,7 +1227,7 @@ local function saveEditedGeometry()
 end
 
 local cancelEditing = function()
-  -- Salir de edición consolida lo que el usuario haya movido a mano.
+  -- Leaving edit mode consolidates whatever the user moved by hand.
   saveEditedGeometry()
   state.editing = false
   state.editTarget = nil
@@ -1249,19 +1247,19 @@ saveForm = function()
     return
   end
 
-  -- Validar nombre único (se permite conservar el nombre del widget editado)
+  -- Validate a unique name (keeping the edited widget's name is allowed)
   if state.commands[name] ~= nil and name ~= state.editTarget then
     noctalia.notifyError(tr("title"), tr("name_exists"))
     return
   end
 
-  -- Validar comando no vacío
+  -- Validate a non-empty command
   if command == "" then
     noctalia.notifyError(tr("title"), tr("empty_command"))
     return
   end
 
-  -- Validar formato de layout si se proporciona
+  -- Validate the layout format if provided
   if layout ~= "" then
     local spec = layoutLib.parseLayout(layout)
     if spec == nil or spec.valid == false then
@@ -1270,7 +1268,7 @@ saveForm = function()
     end
   end
 
-  -- La miniatura es opcional; si se indica una ruta, debe existir.
+  -- The thumbnail is optional; if a path is given, it must exist.
   if thumb ~= "" then
     local info = noctalia.fileInfo(thumb)
     if type(info) ~= "table" or tonumber(info.size or 0) <= 0 then
@@ -1298,7 +1296,7 @@ saveForm = function()
   state.editTarget = nil
   state.editSession = state.editSession + 1
   state.form = { name = "", command = "", layout = "", thumb = "" }
-  -- Las demás ventanas abiertas también consolidan su geometría viva.
+  -- The other open windows also consolidate their live geometry.
   saveEditedGeometry()
   render()
 end
@@ -1310,7 +1308,7 @@ deleteWidget = function(name)
     return
   end
 
-  -- Si la ventana estaba abierta, se cierra para no dejarla huérfana.
+  -- If the window was open, close it so it is not left orphaned.
   local window = state.windows[name]
   if window ~= nil then
     win.closeWindow(window.address, function()
@@ -1321,23 +1319,23 @@ deleteWidget = function(name)
   render()
 end
 
--- ---------------------------------------------------------------- vista --
+-- ---------------------------------------------------------------- view --
 
 local function cardWidth()
   local columns = cfg.columns
-  -- El ancho de la tarjeta (border-box) ya incluye su padding. Repartir el
-  -- ancho útil real entre columnas evita el desborde con una sola columna.
+  -- The card width (border-box) already includes its padding. Splitting the
+  -- real usable width across columns prevents overflow with a single column.
   local usable = SCROLL_CONTENT_WIDTH - ((columns - 1) * CARD_GAP)
   return math.max(120, math.floor(usable / columns))
 end
 
 local function previewHeight()
-  -- En una sola columna la tarjeta es muy ancha: la miniatura se aplana para
-  -- que la tarjeta no quede disproportionate.
+  -- In a single column the card is very wide: the thumbnail is flattened so
+  -- the card does not look disproportionate.
   return math.min(math.floor(cardWidth() * PREVIEW_RATIO), MAX_PREVIEW_HEIGHT)
 end
 
--- Miniatura sintética: una terminal falsa con el nombre del widget.
+-- Synthetic thumbnail: a fake terminal with the widget name.
 local function mockPreview(name)
   local width = cardWidth() - 2 * CARD_PADDING - 12
   local height = previewHeight()
@@ -1359,7 +1357,7 @@ local function mockPreview(name)
     }),
   }))
 
-  -- Unas líneas de texto falsas para que la tarjeta parezca una terminal.
+  -- A few fake text lines so the card looks like a terminal.
   local ratios = { 0.62, 0.44, 0.78 }
   for _, ratio in ipairs(ratios) do
     append(children, ui.row({ paddingH = 12, paddingV = 3 }, {
@@ -1385,8 +1383,8 @@ local function mockPreview(name)
 end
 
 local function previewImage(path, width)
-  -- La ruta queda marcada como "en uso": la poda de miniaturas no puede
-  -- borrar un fichero que el host está pintando.
+  -- The path is marked as "in use": thumbnail pruning cannot delete a file
+  -- the host is drawing.
   if path ~= nil then
     state.thumbUsed[path] = true
   end
@@ -1401,8 +1399,8 @@ local function previewImage(path, width)
   })
 end
 
--- GIF animado: `ui.image` solo pinta el primer fotograma, así que se extraen
--- todos a PNG y se intercambian desde `onFrameTick`.
+-- Animated GIF: `ui.image` draws only the first frame, so all of them are
+-- extracted to PNG and swapped from `onFrameTick`.
 local function gifPreview(path, width)
   local anim = state.gifAnim[path]
   if anim == nil then
@@ -1429,12 +1427,12 @@ local function gifPreview(path, width)
     end)
   end
 
-  -- Mientras se extraen los fotogramas, el host pinta el primero del GIF.
+  -- While frames are being extracted, the host draws the first GIF frame.
   return previewImage(path, width)
 end
 
 local function cardPreview(name)
-  -- PRIORIDAD ABSOLUTA: miniatura personalizada SIEMPRE gana, sea cual sea el modo
+  -- ABSOLUTE PRIORITY: a custom thumbnail ALWAYS wins, whatever the mode
   local customThumb = state.thumbs[name]
   if customThumb and customThumb ~= "" then
     local info = noctalia.fileInfo(customThumb)
@@ -1445,7 +1443,7 @@ local function cardPreview(name)
       end
       return previewImage(customThumb, width)
     end
-    -- Si el archivo personalizado no existe o está vacío, ignorarlo
+    -- If the custom file does not exist or is empty, ignore it
   end
 
   if cfg.cardPreview == "mock" then
@@ -1454,14 +1452,14 @@ local function cardPreview(name)
 
   local window = state.windows[name]
 
-  -- Modo GIF (y Automático con la ventana cerrada): animar las capturas
-  -- recientes del widget como si fuese un GIF.
+  -- GIF mode (and Automatic with the window closed): animate the widget's
+  -- recent captures as if it were a GIF.
   if cfg.cardPreview == "gif" or (cfg.cardPreview == "auto" and window == nil) then
     local frames = captureFrames(name, 8)
     if #frames > 0 then
-      -- La animación va a recorrer todos estos fotogramas, no solo el que se
-      -- pinta ahora: se protegen todos para que la poda no borre el
-      -- siguiente fotograma de la animación.
+      -- The animation will go through all these frames, not only the one
+      -- drawn now: all of them are protected so pruning does not delete the
+      -- next animation frame.
       for _, framePath in ipairs(frames) do
         state.thumbUsed[framePath] = true
       end
@@ -1470,9 +1468,9 @@ local function cardPreview(name)
         anim = { index = 1, elapsed = 0 }
         state.captureAnim[name] = anim
       end
-      -- Con una sola captura no hay animación: no hay fotogramas que
-      -- alternar. Se marca aquí, que es donde se sabe cuántos hay, para que
-      -- no se pidan ticks de frame para una tarjeta que no puede moverse.
+      -- With a single capture there is no animation: there are no frames to
+      -- alternate. It is marked here, where the count is known, so frame
+      -- ticks are not requested for a card that cannot move.
       anim.animatable = #frames > 1
       local index = ((anim.index - 1) % #frames) + 1
       return previewImage(frames[index], cardWidth() - 2 * CARD_PADDING)
@@ -1480,9 +1478,9 @@ local function cardPreview(name)
   end
 
   if window ~= nil then
-    -- Vista en vivo: usar la captura más reciente por su ruta única. El host
-    -- no recarga una imagen cuando se sobrescribe el mismo archivo, así que
-    -- reutilizar `current` haría que el intervalo de vista previa no se viera.
+    -- Live view: use the most recent capture by its unique path. The host
+    -- does not reload an image when the same file is overwritten, so reusing
+    -- `current` would make the preview interval invisible.
     if cfg.cardPreview == "auto" or cfg.cardPreview == "live" then
       local frames = captureFrames(name, 1)
       if #frames > 0 then
@@ -1490,7 +1488,7 @@ local function cardPreview(name)
       end
     end
 
-    -- Captura "current" (*-current.png) para el resto de modos.
+    -- "current" capture (*-current.png) for the remaining modes.
     local capPath = preview.current(name)
     if capPath then
       local info = noctalia.fileInfo(capPath)
@@ -1518,7 +1516,7 @@ card = function(name)
   }))
   if running then
     append(titleRow, ui.glyph({ name = "circle-dot", size = 10, color = "primary" }))
-    -- Botón de cerrar visible cuando el widget está corriendo (click derecho no soportado en ui.image/column)
+    -- Close button visible while the widget is running (right click not supported in ui.image/column)
     append(titleRow, ui.button({
       key = "close-" .. name,
       glyph = "close",
@@ -1557,21 +1555,21 @@ card = function(name)
 
   local titleNode = ui.row({ gap = 6, align = "center" }, titleRow)
 
-  -- Crear el preview con handlers de click (en la miniatura)
+  -- Create the preview with click handlers (on the thumbnail)
   local previewNode
 
-  -- Ancho real del contenido (cardWidth - 2 * CARD_PADDING)
+  -- Real content width (cardWidth - 2 * CARD_PADDING)
   local contentWidth = cardWidth() - 2 * CARD_PADDING
-  -- Miniaturas más estrechas que el contenido para que no toquen los bordes
+  -- Thumbnails narrower than the content so they do not touch the edges
   local thumbWidth = contentWidth - 20
 
-  -- Usar cardPreview que maneja custom thumbs y capturas de ventana
+  -- Use cardPreview, which handles custom thumbs and window captures
   previewNode = cardPreview(name)
   if not previewNode then
     previewNode = mockPreview(name)
   end
 
-  -- Contenedor principal: column con onClick para lanzar
+  -- Main container: column with onClick to launch
   local cardProps = {
     key = "card-" .. name,
     width = cardWidth(),
@@ -1586,12 +1584,12 @@ card = function(name)
       or tr("missing_command", { name = name }),
   }
 
-  -- En modo edición, no agregar handlers de click en el preview (los botones de editar/borrar están en el titleRow)
+  -- In edit mode, do not add click handlers on the preview (the edit/delete buttons are in the titleRow)
   if state.editing then
     return ui.column(cardProps, { previewNode, titleNode })
   end
 
-  -- En modo normal: onClick en el column para lanzar
+  -- In normal mode: onClick on the column to launch
   cardProps.onClick = function()
     launch(name)
   end
@@ -1633,8 +1631,8 @@ editorCard = function(target)
   }))
   append(children, ui.row({ gap = 4, align = "center" }, titleRow))
 
-  -- Nombre y comando en la misma fila para que el formulario quepa dentro de
-  -- la tarjeta sin estirar demasiado las tarjetas vecinas.
+  -- Name and command in the same row so the form fits inside the card without
+  -- stretching the neighboring cards too much.
   append(children, ui.row({ gap = 4, align = "center" }, {
     ui.input({
       key = "form-name-" .. session,
@@ -1691,7 +1689,7 @@ editorCard = function(target)
         tooltip = tr("clear_thumb"),
         onClick = function()
           state.form.thumb = ""
-          -- Se cambia la sesión para que el input se reconstruya vacío.
+          -- The session is changed so the input is rebuilt empty.
           state.editSession = state.editSession + 1
           render()
         end,
@@ -1823,21 +1821,21 @@ render = function()
     return
   end
 
-  -- Las rutas de las miniaturas del árbol se recalculan en cada render: solo
-  -- se pueden borrar los ficheros que ninguna tarjeta está usando. Antes se
-  -- estimaban a partir de las ventanas abiertas, y eso dejaba fuera a los
-  -- widgets cerrados, cuya miniatura ("current" o la animación) seguía
-  -- pintándose: la poda la borraba y el host avisaba "image failed to load".
+  -- Tree thumbnail paths are recomputed on every render: only files no card
+  -- is using can be deleted. Previously they were estimated from the open
+  -- windows, and that left out the closed widgets, whose thumbnail ("current"
+  -- or the animation) was still being drawn: pruning deleted it and the host
+  -- warned "image failed to load".
   --
-  -- El conjunto se conserva después del render para que la poda no borre un
-  -- fichero que el host pueda volver a aplicar al reabrir el panel.
+  -- The set is kept after render so pruning does not delete a file the host
+  -- may reapply when reopening the panel.
   state.thumbUsed = {}
 
   local cards = {}
   local names = widgetNames()
 
-  -- Al editar uno existente, el formulario ocupa el sitio de SU tarjeta (así
-  -- los campos aparecen junto al widget que se está editando).
+  -- When editing an existing one, the form takes the place of ITS card (so
+  -- the fields appear next to the widget being edited).
   for _, name in ipairs(names) do
     if state.editing and state.editTarget == name then
       table.insert(cards, editorCard(name))
@@ -1846,8 +1844,8 @@ render = function()
     end
   end
 
-  -- El formulario de "nuevo widget" va al final, para no desplazar las
-  -- miniaturas al entrar en modo edición.
+  -- The "new widget" form goes last, so it does not displace the thumbnails
+  -- when entering edit mode.
   if state.editing and state.editTarget == nil then
     table.insert(cards, editorCard(nil))
   end
@@ -1861,9 +1859,9 @@ render = function()
     }))
   end
 
-  -- Filas de `columns` tarjetas. align="stretch" para que todas las tarjetas
-  -- de la fila tengan la misma altura (tamaño uniforme). justify="center" para
-  -- centrar las tarjetas horizontalmente cuando el panel es más ancho que la fila.
+  -- Rows of `columns` cards. align="stretch" so all cards in the row have the
+  -- same height (uniform size). justify="center" to center the cards
+  -- horizontally when the panel is wider than the row.
   local rows = {}
   local row = {}
   local count = 0
@@ -1890,18 +1888,18 @@ render = function()
     ui.scroll({ flexGrow = 1, gap = CARD_GAP, justify = "center" }, rows),
   }))
 
-  -- Las rutas en uso las ha ido rellenando `previewImage` al construir las
-  -- tarjetas: son las que el árbol acaba de referenciar.
+  -- The in-use paths have been filled in by `previewImage` while building the
+  -- cards: they are the ones the tree just referenced.
 
-  -- Ahora se sabe si hay algo que animar (una tarjeta cerrada con capturas en
-  -- modo Automático, un GIF): se pide o se quita el tick de frame.
+  -- Now it is known whether there is anything to animate (a closed card with
+  -- captures in Automatic mode, a GIF): the frame tick is requested or removed.
   syncFrameTicks()
 end
 
--- ------------------------------------------------------------- ciclo de vida --
+-- ------------------------------------------------------------- lifecycle --
 
--- ¿Hay algo que animar con ticks de frame? (GIF personalizado, modo GIF o las
--- capturas de una tarjeta cerrada en modo Automático).
+-- Is there anything to animate with frame ticks? (A custom GIF, GIF mode or
+-- the captures of a closed card in Automatic mode.)
 local function needsFrameTicks()
   if cfg.cardPreview == "gif" then
     return true
@@ -1911,13 +1909,13 @@ local function needsFrameTicks()
       return true
     end
   end
-  -- Modo Automático: una tarjeta cuya ventana está cerrada muestra sus
-  -- capturas como una animación, y esa animación solo avanza con ticks de
-  -- frame (los pide `render()`, que es quien sabe si hay capturas).
+  -- Automatic mode: a card whose window is closed shows its captures as an
+  -- animation, and that animation only advances with frame ticks (`render()`
+  -- requests them, since it knows whether there are captures).
   --
-  -- Solo cuentan las tarjetas que siguen existiendo y que tienen más de un
-  -- fotograma: una tarjeta borrada deja su entrada en `captureAnim` (que es
-  -- basura) y una tarjeta con una sola captura no tiene nada que animar.
+  -- Only cards that still exist and have more than one frame count: a deleted
+  -- card leaves its entry in `captureAnim` (which is garbage) and a card with
+  -- a single capture has nothing to animate.
   if cfg.cardPreview == "auto" then
     for name, anim in pairs(state.captureAnim or {}) do
       if anim ~= nil and anim.animatable
@@ -1937,8 +1935,8 @@ end
 function onOpen(_context)
   state.open = true
   panel.setWantsSecondTicks(true)
-  -- El manifiesto se cachea para no analizarlo en cada callback; al abrir el
-  -- panel se relee, por si el plugin se actualizó sin reiniciar Noctalia.
+  -- The manifest is cached so it is not parsed on every callback; it is
+  -- re-read on open in case the plugin was updated without restarting Noctalia.
   defaults.reset()
   loadConfig()
   loadWidgets()
@@ -1950,8 +1948,8 @@ function onOpen(_context)
   state.captureAnim = {}
   state.recentFrames = {}
   syncFrameTicks()
-  -- NO cargar frames aquí (CPU budget); se cargan perezosamente en render/update
-  -- Diferir el primer render para evitar CPU budget en onOpen
+  -- Do NOT load frames here (CPU budget); they are loaded lazily in render/update
+  -- Defer the first render to avoid CPU budget in onOpen
   local function delayedOpen()
     if state.open then
       render()
@@ -1979,9 +1977,9 @@ function onConfigChanged()
   syncFrameTicks()
   if state.open then
     render()
-    -- Los indicadores de "abierta" y las miniaturas se refrescan también, y
-    -- si cambió una posición/tamaño en Ajustes se reaplica a la ventana
-    -- abierta en vez de dejarla donde estaba.
+    -- The "open" indicators and thumbnails are refreshed too, and if a
+    -- position/size changed in Settings it is reapplied to the open window
+    -- instead of leaving it where it was.
     refreshWindows(function()
       if state.open then
         for _, name in ipairs(widgetNames()) do
@@ -1998,8 +1996,8 @@ function onConfigChanged()
   end
 end
 
--- Ticks de frame: avanzan los GIF (personalizados y capturas en modo GIF)
--- solo cuando cambia el fotograma visible, para no re-renderizar de más.
+-- Frame ticks: advance the GIFs (custom and captures in GIF mode) only when
+-- the visible frame changes, to avoid over-rendering.
 function onFrameTick(deltaMs)
   if not state.open then
     return
@@ -2027,16 +2025,16 @@ function onFrameTick(deltaMs)
 
   local captureInterval = 250
   for name, anim in pairs(state.captureAnim) do
-    -- Una tarjeta con una sola captura no tiene nada que animar: se salta
-    -- para no releer su lista de fotogramas del disco sin motivo.
+    -- A card with a single capture has nothing to animate: it is skipped so
+    -- its frame list is not re-read from disk for no reason.
     local showFrames = anim.animatable ~= false
       and (cfg.cardPreview == "gif"
         or (cfg.cardPreview == "auto" and state.windows[name] == nil))
     if showFrames then
       anim.elapsed = anim.elapsed + deltaMs
-      -- La lista de fotogramas se relee solo cuando toca avanzar la animación:
-      -- `captureFrames` consulta el disco, y leerla en cada frame gastaría CPU
-      -- sin que cambiara nada.
+      -- The frame list is re-read only when it is time to advance the
+      -- animation: `captureFrames` queries the disk, and reading it every
+      -- frame would waste CPU without anything changing.
       if anim.elapsed >= captureInterval then
         local frames = captureFrames(name, 8)
         if #frames > 1 then
@@ -2062,8 +2060,8 @@ function update()
     return
   end
   state.tick = state.tick + 1
-  -- Captura periódica para modos live y auto (y gif para mantener frames actualizados)
-  -- previewInterval ya está en milisegundos.
+  -- Periodic capture for live and auto modes (and gif to keep frames fresh)
+  -- previewInterval is already in milliseconds.
   if (cfg.cardPreview == "live" or cfg.cardPreview == "auto" or cfg.cardPreview == "gif") and not state.capturing then
     if (noctalia.nowMs() - (state.lastCapture or 0)) >= cfg.previewInterval then
       captureThumbs(true)
@@ -2088,7 +2086,7 @@ function onIpc(event, payload)
   elseif event == "close-all" then
     closeAllWindows()
   elseif event == "add" then
-    -- "nombre|comando|posición|thumb" (thumb opcional)
+    -- "name|command|position|thumb" (thumb optional)
     loadConfig()
     loadWidgets()
     local parts = {}

@@ -1,20 +1,20 @@
 --!nonstrict
--- Almacén propio del plugin.
+-- Plugin's own store.
 --
--- La lista de widgets (nombre, comando, layout y miniatura) vive en
--- `store.json`, dentro del directorio de datos del plugin. Al cargar se
--- fusionan los defaults integrados y los borrados se recuerdan en `removed`:
+-- The widget list (name, command, layout and thumbnail) lives in
+-- `store.json`, inside the plugin data directory. On load, built-in defaults
+-- are merged and deletions are remembered in `removed`:
 --
 --   defaults  ⊕  store  −  removed
 --
--- Así se puede añadir un widget sin perder los que ya estaban y también borrar
--- los que vienen por defecto. Ajustes de Noctalia no participa.
+-- This way a widget can be added without losing the existing ones, and the
+-- built-in ones can also be deleted. Noctalia settings are not involved.
 --
--- El mismo fichero guarda la memoria del cerebro: el interruptor (`brain`) y
--- las geometrías recordadas por clase de ventana (`brainGeometry`). Como se
--- escriben desde sitios distintos (la lista de widgets, el interruptor, la
--- geometría al salir de editar), cada escritura lee el disco y pisa solo sus
--- claves: nadie pierde lo que otro guardó.
+-- The same file stores the brain memory: the toggle (`brain`) and the
+-- geometries remembered per window class (`brainGeometry`). Since they are
+-- written from different places (the widget list, the toggle, the geometry
+-- when leaving edit mode), every write reads the disk and overwrites only its
+-- own keys: nobody loses what another one saved.
 
 local util = require("./util.luau")
 
@@ -39,18 +39,18 @@ function M.path()
   return dir .. "/store.json"
 end
 
--- Escritura atómica: ningún lector puede ver el fichero a medias.
+-- Atomic write: no reader can see a half-written file.
 local function writeStore(store)
   local path = M.path()
-  if path == nil then return false, "sin directorio de datos" end
+  if path == nil then return false, "no data directory" end
   local ok, encoded = pcall(noctalia.json.encode, store, true)
-  if not ok or type(encoded) ~= "string" then return false, "no se pudo codificar el store" end
+  if not ok or type(encoded) ~= "string" then return false, "could not encode the store" end
   local tmp = path .. ".tmp"
   local wrote = noctalia.writeFile(tmp, encoded)
-  if wrote ~= true then return false, "no se pudo escribir " .. tmp end
+  if wrote ~= true then return false, "could not write " .. tmp end
   if noctalia.renameFile ~= nil then
     local renamed = noctalia.renameFile(tmp, path)
-    if renamed ~= true then return false, "no se pudo renombrar " .. path end
+    if renamed ~= true then return false, "could not rename " .. path end
   end
   return true
 end
@@ -69,7 +69,7 @@ function M.load()
 
   local ok, decoded = pcall(noctalia.json.decode, raw)
   if not ok or type(decoded) ~= "table" then
-    noctalia.log("terminal-widgets: store.json ilegible, se empieza de cero")
+    noctalia.log("terminal-widgets: store.json unreadable, starting from scratch")
     return store
   end
 
@@ -117,10 +117,10 @@ function M.save(store)
   return writeStore(store)
 end
 
--- Fusiona las tres capas y aplica los borrados.
--- Los valores vacíos de los defaults y de Ajustes se ignoran, pero los del
--- store se respetan: un comando vacío es una decisión explícita del usuario
--- (un widget sin comando sigue apareciendo en la lista).
+-- Merge the three layers and apply deletions.
+-- Empty values from defaults and Settings are ignored, but store values are
+-- respected: an empty command is an explicit user decision (a widget without a
+-- command still appears in the list).
 function M.merge(base, configMap, storeMap, removed, baseThumbs, configThumbs, storeThumbs)
   local out = {}
 
@@ -167,7 +167,7 @@ function M.merge(base, configMap, storeMap, removed, baseThumbs, configThumbs, s
   return out, thumbsOut
 end
 
--- Marca un widget como borrado (tombstone) y lo quita del store.
+-- Mark a widget as deleted (tombstone) and remove it from the store.
 function M.remove(store, name)
   if not util.contains(store.removed, name) then
     table.insert(store.removed, name)
@@ -179,9 +179,9 @@ function M.remove(store, name)
   end
 end
 
--- Añade o actualiza un widget.
--- `nil` no toca lo que hubiera; `""` en `layout` o `thumb` borra el valor
--- (para volver al layout por defecto o quitar la miniatura personalizada).
+-- Add or update a widget.
+-- `nil` leaves the existing value alone; `""` in `layout` or `thumb` clears
+-- the value (to return to the default layout or remove the custom thumbnail).
 function M.upsert(store, name, command, layout, thumb)
   local index = nil
   for position, value in ipairs(store.removed) do
@@ -213,8 +213,8 @@ function M.upsert(store, name, command, layout, thumb)
   end
 end
 
--- Las cuatro claves de la lista de widgets. La memoria del cerebro no está:
--- se escribe desde sus propias funciones para no pisarla por accidente.
+-- The four widget-list keys. Brain memory is not here: it is written from
+-- its own functions so it is not overwritten by accident.
 local WIDGET_KEYS = { "commands", "layouts", "thumbs", "removed" }
 
 function M.saveWidgets(store)

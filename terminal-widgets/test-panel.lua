@@ -1,27 +1,27 @@
--- Banco de pruebas del plugin `faminec/terminal-widgets`.
+-- Test suite for the `faminec/terminal-widgets` plugin.
 --
---   lua5.4 test-panel.lua                       # prueba la copia de este repo
---   lua5.4 test-panel.lua /ruta/otras          # prueba otra copia (la instalada)
+--   lua5.4 test-panel.lua                       # tests the copy in this repo
+--   lua5.4 test-panel.lua /path/to/other        # tests another copy (the installed one)
 --
--- Dos partes:
+-- Two parts:
 --
---   1. Módulos de `lib/`: con un API de Noctalia simulado se comprueban la
---      fusión de la lista de widgets, los tombstones, el parser del manifiesto,
---      el parser de posiciones, las zonas ocupadas, la limpieza de miniaturas y
---      las cinco permutaciones de la rotación.
+--   1. `lib/` modules: with a simulated Noctalia API, checks the widget-list
+--      merge, tombstones, manifest parser, position parser, occupied areas,
+--      thumbnail cleanup and the five rotation permutations.
 --
---   2. Panel (`panel.luau`): se carga con la UI simulada y se comprueba que
---      las tarjetas, la rejilla, el modo edición y los handlers del IPC hacen
---      lo que deben. Esta parte es la que atrapa los "attempt to call a nil
---      value" (en Luau un `local` solo existe desde su declaración).
+--   2. Panel (`panel.luau`): loaded with the simulated UI, checks that cards,
+--      grid, edit mode and IPC handlers do what they should. This is the part
+--      that catches "attempt to call a nil value" (in Luau a `local` only
+--      exists from its declaration onward).
 --
--- Sale con código distinto de 0 si algún caso falla.
+-- Exits with a non-zero code if any case fails.
 
--- El runtime real es Luau, que sí trae `math.atan2`; Lua 5.4 no lo trae (solo
--- desde 5.4.9). `math.atan(y, x)` de Lua 5.4 es atan2, así que se usa como
--- sustituto cuando falta, para que el comando documentado funcione en
--- cualquier Lua 5.4 (5.4.4 de Ubuntu, 5.4.8 de otros sistemas) sin tocar el
--- runtime del plugin.
+
+-- The real runtime is Luau, which does include `math.atan2`; Lua 5.4 does not
+-- (only since 5.4.9). Lua 5.4's `math.atan(y, x)` is atan2, so it is used as a
+-- fallback when missing, so the documented command works on any Lua 5.4
+-- (Ubuntu's 5.4.4, other systems' 5.4.8) without touching the plugin runtime.
+
 if type(math.atan2) ~= "function" then
   math.atan2 = math.atan
 end
@@ -45,17 +45,17 @@ local function check(name, expected, got)
     print(string.format("  ok   %-58s %s", name, tostring(got)))
   else
     FAILED = FAILED + 1
-    print(string.format("  FALLA %-58s esperado=%s obtenido=%s", name, tostring(expected), tostring(got)))
+    print(string.format("  FAIL %-58s expected=%s got=%s", name, tostring(expected), tostring(got)))
   end
 end
 
--- Una comprobación que no aplica en esta ejecución (no cuenta ni como
--- fallo ni como buena): se informa, pero no se puntúa.
+-- A check that does not apply in this run (neither a failure nor a pass):
+-- it is reported, but not scored.
 local function skip(name, reason)
-  print(string.format("  --   %-58s %s", name, tostring(reason or "omitida")))
+  print(string.format("  --   %-58s %s", name, tostring(reason or "skipped")))
 end
 
--- --------------------------------------------------------------- simulador --
+-- --------------------------------------------------------------- simulator --
 
 local files = {}
 local TESTDATA = os.tmpname()
@@ -87,8 +87,8 @@ local function jsonQuote(value)
   return '"' .. tostring(value):gsub('\\', '\\\\'):gsub('"', '\\"') .. '"'
 end
 
--- Codificador recursivo (objetos, arrays, booleanos y números) para que el
--- store pueda guardar mapas dentro del mapa raíz y el interruptor del cerebro.
+-- Recursive encoder (objects, arrays, booleans and numbers) so the store can
+-- save maps inside the root map and the brain toggle.
 local function jsonEncode(value)
   if type(value) == "string" then
     return jsonQuote(value)
@@ -110,11 +110,11 @@ local function jsonEncode(value)
   return "{" .. table.concat(parts, ",") .. "}"
 end
 
--- JSON de `hyprctl clients -j` a partir de la tabla `clients`. Acepta las dos
--- formas que usan las secciones: la cruda de hyprctl (`at` y `size` como
--- arrays posicionales, lo que llega de verdad del compositor) y la normalizada
--- (`x`, `y`, `w`, `h`). El callback recibe el `CommandResult` real del host:
--- una sola tabla `{ exitCode, stdout, stderr }`.
+-- `hyprctl clients -j` JSON from the `clients` table. Accepts both forms used
+-- by the sections: the raw hyprctl one (`at` and `size` as positional arrays,
+-- what actually comes from the compositor) and the normalized one (`x`, `y`,
+-- `w`, `h`). The callback receives the host's real `CommandResult`: a single
+-- table `{ exitCode, stdout, stderr }`.
 local function clientsJson()
   local parts = {}
   for _, client in ipairs(clients) do
@@ -143,7 +143,7 @@ local mock = {
     return DIR
   end,
   pluginDataDir = function()
-    -- Ruta temporal: el simulador no escribe nada de verdad en disco.
+    -- Temporary path: the simulator does not actually write to disk.
     return TESTDATA
   end,
   readFile = function(path)
@@ -176,16 +176,16 @@ local mock = {
   json = {
     encode = jsonEncode,
     decode = function(text)
-      -- Solo hace falta el formato que produce el simulador: una lista de
-      -- objetos con cadenas y números, y el mapa plano del store.
+      -- Only the format produced by the simulator is needed: a list of
+      -- objects with strings and numbers, and the store's flat map.
       local trimmed = text:match("^%s*(.-)%s*$")
       if trimmed:sub(1, 1) == "[" then
         local out = {}
         for object in trimmed:gmatch("{(.-)}") do
           local item = {}
-          -- En los patrones de Lua la alternancia "|" solo existe al nivel
-          -- superior: dentro de un grupo no funciona. Por eso se hace una
-          -- pasada para los textos y otra para los números.
+          -- In Lua patterns, alternation "|" only exists at the top level:
+          -- inside a group it does not work. That is why there is one pass for
+          -- texts and another for numbers.
           for key, value in object:gmatch('"([^"]+)":"([^"]*)"') do
             item[key] = value
           end
@@ -194,8 +194,8 @@ local mock = {
               item[key] = tonumber(value)
             end
           end
-          -- Arrays numéricos ("at":[x,y], "size":[w,h]): sin esto el
-          -- simulador no vería la geometría de las ventanas.
+          -- Numeric arrays ("at":[x,y], "size":[w,h]): without this the
+          -- simulator would not see the window geometry.
           for key, array in object:gmatch('"([^"]+)":%[([^%]]*)%]') do
             local numbers = {}
             for number in array:gmatch("-?%d+") do
@@ -207,8 +207,8 @@ local mock = {
         end
         return out
       end
-      -- Objetos: con valores anidados (el store guarda mapas dentro del
-      -- mapa raíz) y booleanos. Parser recursivo mínimo.
+      -- Objects: with nested values (the store saves maps inside the root
+      -- map) and booleans. Minimal recursive parser.
       local src = trimmed
       local pos = 1
 
@@ -359,7 +359,7 @@ local mock = {
   notifyError = function(title, body)
     notifications[#notifications + 1] = { title = title, body = body, error = true }
   end,
-  -- Reloj controlado por el test: el debounce de 700 ms depende de él.
+  -- Clock controlled by the test: the 700 ms debounce depends on it.
   nowMs = function()
     return clock
   end,
@@ -397,9 +397,9 @@ local mock = {
   end,
 }
 
--- Estado compartido en memoria (`noctalia.state`), renombrado atómico y tick
--- del service. `serviceUpdatedMs` es un global del fichero de pruebas: lo lee
--- la sección del service.
+-- In-memory shared state (`noctalia.state`), atomic rename and service tick.
+-- `serviceUpdatedMs` is a test-file global: the service section reads it.
+
 local sharedState = {}
 mock.state = {
   get = function(key) return sharedState[key] end,
@@ -450,11 +450,11 @@ local panelMock = {
   setWantsSecondTicks = function() end,
 }
 
--- Las expresiones despachadas se recogen aquí (la comparten la sección de
--- rotación y la del panel).
+-- Dispatched expressions are collected here (shared by the rotation and panel
+-- sections).
 local dispatched = {}
 
--- ----------------------------------------------------------------- entorno --
+-- ----------------------------------------------------------------- environment --
 
 local env = setmetatable({
   noctalia = mock,
@@ -480,35 +480,35 @@ local defaults = loadModule("defaults.luau")
 local win = loadModule("windows.luau")
 local preview = loadModule("preview.luau")
 
--- --------------------------------------------------------------- utilidades --
+-- --------------------------------------------------------------- utilities --
 
-print("== utilidades ==")
+print("== utilities ==")
 check("slug", util.slug("Mi Widget!"), "mi-widget")
-check("slug vacío", util.slug("!!!"), "app")
+check("empty slug", util.slug("!!!"), "app")
 check("clase", util.classFor("Cava"), "noctalia-term-cava")
 check("trim", util.trim("  hola  "), "hola")
 
--- ------------------------------------------------------------ fusión de widgets --
+-- ------------------------------------------------------------ widget merge --
 
-print("\n== fusión de widgets ==")
+print("\n== widget merge ==")
 local base = { a = "a-cmd", b = "b-cmd" }
 local configMap = { b = "b-cmd-editado", c = "c-cmd" }
 local storeMap = { d = "d-cmd" }
 local removed = { "a" }
 
 local merged = store.merge(base, configMap, storeMap, removed)
-check("la config pisa al default", merged.b, "b-cmd-editado")
-check("entrada nueva de la config", merged.c, "c-cmd")
-check("entrada nueva del store", merged.d, "d-cmd")
-check("el tombstone borra el default", merged.a, nil)
-check("sin tombstone se conserva el default", store.merge({ a = "x" }, {}, {}, {}).a, "x")
-check("valor vacío de Ajustes se ignora", store.merge({ a = "x" }, { a = "" }, {}, {}).a, "x")
-check("valor vacío del store se respeta", store.merge({ a = "x" }, {}, { a = "" }, {}).a, "")
-check("el store pisa al default", store.merge({ a = "x" }, {}, { a = "y" }, {}).a, "y")
+check("config overrides the default", merged.b, "b-cmd-editado")
+check("new config entry", merged.c, "c-cmd")
+check("new store entry", merged.d, "d-cmd")
+check("tombstone deletes the default", merged.a, nil)
+check("without a tombstone the default is kept", store.merge({ a = "x" }, {}, {}, {}).a, "x")
+check("empty Settings value is ignored", store.merge({ a = "x" }, { a = "" }, {}, {}).a, "x")
+check("empty store value is respected", store.merge({ a = "x" }, {}, { a = "" }, {}).a, "")
+check("store overrides the default", store.merge({ a = "x" }, {}, { a = "y" }, {}).a, "y")
 
--- Claves de los nodos del árbol en pre-orden (sirve para comprobar el orden
--- relativo de las tarjetas al renderizar). Es un global a propósito: la usan
--- las secciones de más abajo.
+-- Tree node keys in pre-order (used to check the relative order of cards when
+-- rendering). It is a global on purpose: the sections below use it.
+
 function nodeKeys(tree, out)
   out = out or {}
   if type(tree) ~= "table" then return out end
@@ -517,17 +517,17 @@ function nodeKeys(tree, out)
   return out
 end
 
--- --- arnés: estado compartido, renombrado atómico y tick del service ---
+-- --- harness: shared state, atomic rename and service tick ---
 check("noctalia.state escribe y lee", "hola", (function()
   mock.state.set("k", "hola")
   return mock.state.get("k")
 end)())
-check("noctalia.state ausente es nil", nil, mock.state.get("no-existe"))
+check("missing noctalia.state is nil", nil, mock.state.get("no-existe"))
 files["/tmp/a.tmp"] = "contenido"
 check("renameFile devuelve true", true, mock.renameFile("/tmp/a.tmp", "/tmp/a.json"))
-check("renameFile mueve el contenido", "contenido", files["/tmp/a.json"])
-check("renameFile borra el origen", nil, files["/tmp/a.tmp"])
-check("renameFile sin origen devuelve false", false, mock.renameFile("/tmp/nada", "/tmp/otro"))
+check("renameFile moves the contents", "contenido", files["/tmp/a.json"])
+check("renameFile deletes the source", nil, files["/tmp/a.tmp"])
+check("renameFile without a source returns false", false, mock.renameFile("/tmp/nada", "/tmp/otro"))
 check("setUpdateInterval existe", "function", type(mock.setUpdateInterval))
 check("nodeKeys recorre en pre-orden", "raiz/hijo1/hijo2", (function()
   local tree = { key = "raiz", children = { { key = "hijo1" }, { key = "hijo2" } } }
@@ -536,36 +536,36 @@ end)())
 
 -- -------------------------------------------------------------- store --
 
-print("\n== store: añadir y borrar ==")
+print("\n== store: add and delete ==")
 local st = { commands = {}, layouts = {}, removed = {} }
 store.upsert(st, "nuevo", "echo hola", "center, 800x400")
-check("widget añadido", st.commands.nuevo, "echo hola")
-check("posición añadida", st.layouts.nuevo, "center, 800x400")
+check("widget added", st.commands.nuevo, "echo hola")
+check("position added", st.layouts.nuevo, "center, 800x400")
 store.remove(st, "nuevo")
 check("widget borrado", st.commands.nuevo, nil)
 check("tombstone creado", st.removed[1], "nuevo")
 store.upsert(st, "nuevo", "echo hola")
-check("tombstone limpiado al volver a añadir", #st.removed, 0)
+check("tombstone cleared when adding again", #st.removed, 0)
 
 local stClear = { commands = {}, layouts = {}, thumbs = {}, removed = {} }
 store.upsert(stClear, "x", "cmd", "center, 800x400", "/tmp/miniatura.png")
 store.upsert(stClear, "x", nil, "", "")
-check("layout vacío quita la posición", stClear.layouts.x, nil)
-check("thumb vacío quita la miniatura", stClear.thumbs.x, nil)
+check("empty layout removes the position", stClear.layouts.x, nil)
+check("empty thumb removes the thumbnail", stClear.thumbs.x, nil)
 
--- La memoria del cerebro (interruptor y geometrías recordadas) vive en el
--- mismo store.json: un store antiguo no la tiene y cada escritura parcial
--- debe conservar la que hay en disco.
+-- Brain memory (toggle and remembered geometries) lives in the same
+-- store.json: an old store does not have it, and every partial write must
+-- keep what is on disk.
 local storeLib = store
 local storePath = storeLib.path()
 
--- campos nuevos con valor por defecto en un store antiguo
+-- new fields with default values in an old store
 files[storePath] = '{"commands":{"a":"uno"},"layouts":{"a":"center, 100x100"}}'
 local legacy = storeLib.load()
-check("store: brain por defecto false", false, legacy.brain)
-check("store: brainGeometry por defecto vacío", 0, (function() local n = 0 for _ in pairs(legacy.brainGeometry) do n = n + 1 end return n end)())
+check("store: brain defaults to false", false, legacy.brain)
+check("store: brainGeometry defaults to empty", 0, (function() local n = 0 for _ in pairs(legacy.brainGeometry) do n = n + 1 end return n end)())
 
--- saveWidgets preserva la memoria del disco
+-- saveWidgets preserves the memory on disk
 files[storePath] = '{"commands":{},"layouts":{},"thumbs":{},"removed":{},"brain":true,"brainGeometry":{"noctalia-term-a":"center, 100x100"}}'
 storeLib.saveWidgets({ commands = { a = "uno" }, layouts = {}, thumbs = {}, removed = {} })
 local afterWidgets = storeLib.load()
@@ -574,42 +574,42 @@ check("saveWidgets: preserva brain", true, afterWidgets.brain)
 check("saveWidgets: preserva brainGeometry", "center, 100x100", afterWidgets.brainGeometry["noctalia-term-a"])
 check("saveWidgets: fichero temporal borrado", nil, files[storePath .. ".tmp"])
 
--- saveBrainToggle preserve los widgets
+-- saveBrainToggle preserves the widgets
 storeLib.saveBrainToggle(false)
 local afterToggle = storeLib.load()
 check("saveBrainToggle: apaga", false, afterToggle.brain)
 check("saveBrainToggle: preserva commands", "uno", afterToggle.commands.a)
 
--- saveBrainGeometry cambia solo lo que recibe
+-- saveBrainGeometry changes only what it receives
 storeLib.saveBrainGeometry({ ["noctalia-term-b"] = "top-right, 200x200" })
 local afterGeometry = storeLib.load()
-check("saveBrainGeometry: añade", "top-right, 200x200", afterGeometry.brainGeometry["noctalia-term-b"])
-check("saveBrainGeometry: conserva las demás", "center, 100x100", afterGeometry.brainGeometry["noctalia-term-a"])
+check("saveBrainGeometry: adds", "top-right, 200x200", afterGeometry.brainGeometry["noctalia-term-b"])
+check("saveBrainGeometry: keeps the others", "center, 100x100", afterGeometry.brainGeometry["noctalia-term-a"])
 check("saveBrainGeometry: conserva brain", false, afterGeometry.brain)
 
--- saveBrainForget borra una sola
+-- saveBrainForget deletes only one
 storeLib.saveBrainForget("noctalia-term-a")
 local afterForget = storeLib.load()
-check("saveBrainForget: borra la pedida", nil, afterForget.brainGeometry["noctalia-term-a"])
-check("saveBrainForget: deja las demás", "top-right, 200x200", afterForget.brainGeometry["noctalia-term-b"])
+check("saveBrainForget: deletes the requested one", nil, afterForget.brainGeometry["noctalia-term-a"])
+check("saveBrainForget: leaves the others", "top-right, 200x200", afterForget.brainGeometry["noctalia-term-b"])
 
--- loadBrain relee el disco aunque el state en memoria sea viejo
+-- loadBrain re-reads the disk even if the in-memory state is old
 files[storePath] = '{"commands":{},"brain":true,"brainGeometry":{"noctalia-term-c":"center, 50x50"}}'
 local fresh = storeLib.loadBrain()
-check("loadBrain: brain del disco", true, fresh.brain)
-check("loadBrain: memoria del disco", "center, 50x50", fresh.brainGeometry["noctalia-term-c"])
+check("loadBrain: brain from disk", true, fresh.brain)
+check("loadBrain: memory from disk", "center, 50x50", fresh.brainGeometry["noctalia-term-c"])
 
--- -------------------------------------------------------------- posiciones --
+-- -------------------------------------------------------------- positions --
 
-print("\n== posiciones ==")
+print("\n== positions ==")
 local spec = layout.parseLayout("bottom-center, 1610x584")
 check("ancla", spec.anchor, "bottom-center")
 check("ancho", spec.width, 1610)
 check("alto", spec.height, 584)
 
 spec = layout.parseLayout("right-center 869x1424")
-check("ancla sin coma", spec.anchor, "right-center")
-check("ancho sin coma", spec.width, 869)
+check("anchor without comma", spec.anchor, "right-center")
+check("width without comma", spec.width, 869)
 
 spec = layout.parseLayout("bottom-left, 802x582, 0, -24")
 check("desplazamiento x", spec.dx, 0)
@@ -626,24 +626,24 @@ check("clave=valor ancho", spec.width, 900)
 
 spec = layout.parseLayout("auto, 900x520")
 check("auto", spec.auto, true)
-check("ancla en español", layout.parseLayout("abajo-izquierda, 100x100").anchor, "bottom-left")
-check("inválido", layout.parseLayout("no es una posición").valid, false)
-check("vacío", layout.parseLayout(""), nil)
-check("solo ancla", layout.parseLayout("center").anchor, "center")
-check("espacios de más", layout.parseLayout("bottom-center , 1610x584").anchor, "bottom-center")
-check("tamaño con espacios", layout.parseLayout("bottom-center , 1610x584").width, 1610)
-check("custom sin coordenadas", layout.parseLayout("custom, 900x520").valid, false)
-check("auto sin tamaño", layout.parseLayout("auto").auto, true)
-check("ancla con guion bajo", layout.parseLayout("bottom_center").anchor, "bottom-center")
-check("tamaño negativo", layout.parseLayout("bottom-center, -10x-10").width, nil)
+check("Spanish anchor", layout.parseLayout("abajo-izquierda, 100x100").anchor, "bottom-left")
+check("invalid", layout.parseLayout("not a position").valid, false)
+check("empty", layout.parseLayout(""), nil)
+check("anchor only", layout.parseLayout("center").anchor, "center")
+check("extra spaces", layout.parseLayout("bottom-center , 1610x584").anchor, "bottom-center")
+check("size with spaces", layout.parseLayout("bottom-center , 1610x584").width, 1610)
+check("custom without coordinates", layout.parseLayout("custom, 900x520").valid, false)
+check("auto without size", layout.parseLayout("auto").auto, true)
+check("anchor with underscore", layout.parseLayout("bottom_center").anchor, "bottom-center")
+check("negative size", layout.parseLayout("bottom-center, -10x-10").width, nil)
 
 local ax, ay = layout.anchorPosition("bottom-right", 900, 520, 3440, 1440, 16)
 check("ancla abajo-derecha x", ax, 3440 - 900 - 16)
 check("ancla abajo-derecha y", ay, 1440 - 520 - 16)
 
--- -------------------------------------------------------------- manifiesto --
+-- -------------------------------------------------------------- manifest --
 
-print("\n== manifiesto ==")
+print("\n== manifest ==")
 files[DIR .. "plugin.toml"] = [==[
 [[setting]]
 key = "commands"
@@ -661,27 +661,27 @@ default = { cava = "bottom-center, 1610x584", cbonsai = "top-center, 801x582" }
 ]==]
 defaults.reset()
 local base2 = defaults.load()
-check("comandos del manifiesto", base2.commands.cava, "cava")
-check("comando con espacios", base2.commands.cbonsai, "cbonsai -l -i")
-check("comando con guiones", base2.commands.unimatrix, "unimatrix -s 96 -l o")
-check("posición del manifiesto", base2.layouts.cava, "bottom-center, 1610x584")
-check("posición con comas", base2.layouts.cbonsai, "top-center, 801x582")
+check("manifest commands", base2.commands.cava, "cava")
+check("command with spaces", base2.commands.cbonsai, "cbonsai -l -i")
+check("command with hyphens", base2.commands.unimatrix, "unimatrix -s 96 -l o")
+check("manifest position", base2.layouts.cava, "bottom-center, 1610x584")
+check("position with commas", base2.layouts.cbonsai, "top-center, 801x582")
 
 files[DIR .. "plugin.toml"] = "[[setting]]\nkey = \"commands\"\ndefault = { a = \"x\" }\n"
 defaults.reset()
 local base3 = defaults.load()
-check("manifiesto mínimo", base3.commands.a, "x")
-check("respaldo de posiciones", base3.layouts.cava, "bottom-center, 1610x584")
+check("minimal manifest", base3.commands.a, "x")
+check("fallback positions", base3.layouts.cava, "bottom-center, 1610x584")
 
 files[DIR .. "plugin.toml"] = nil
 defaults.reset()
 local base4 = defaults.load()
-check("sin manifiesto: respaldo", base4.commands.cava, "cava")
-check("sin manifiesto: respaldo de posiciones", base4.layouts.unimatrix, "right-center, 869x1424")
+check("no manifest: fallback", base4.commands.cava, "cava")
+check("no manifest: fallback positions", base4.layouts.unimatrix, "right-center, 869x1424")
 
--- El manifiesto tiene que declarar todo lo que el plugin lanza: el revisor del
--- upstream lo comprueba contra `dependencies` y contra el README. Se lee el
--- `plugin.toml` real del disco (el simulador solo intercepta `noctalia.readFile`).
+-- The manifest must declare everything the plugin launches: the upstream
+-- reviewer checks it against `dependencies` and the README. The real
+-- `plugin.toml` is read from disk (the simulator only intercepts `noctalia.readFile`).
 local function readRealFile(path)
   local handle = io.open(path, "r")
   if handle == nil then
@@ -694,11 +694,11 @@ end
 
 local manifestText = readRealFile(DIR .. "plugin.toml")
 if manifestText == nil then
-  -- El README documenta ejecutar el arnés contra otra copia
-  -- (`lua5.4 test-panel.lua /ruta/otra`), y esa copia puede no traer
-  -- `plugin.toml`: entonces no hay manifiesto que validar y las
-  -- comprobaciones se omiten en vez de fallar.
-  skip("las dependencias declaradas", "esta copia no tiene plugin.toml")
+  -- The README documents running the harness against another copy
+  -- (`lua5.4 test-panel.lua /path/to/other`), and that copy may not include
+  -- `plugin.toml`: then there is no manifest to validate and the checks are
+  -- skipped instead of failing.
+  skip("the declared dependencies", "this copy has no plugin.toml")
 else
   local declared = {}
   local block = manifestText:match("dependencies%s*=%s*%[(.-)%]")
@@ -708,27 +708,27 @@ else
     end
   end
 
-  check("el manifiesto declara dependencias", true, next(declared) ~= nil)
+  check("the manifest declares dependencies", true, next(declared) ~= nil)
   check("declara hyprctl", true, declared["hyprctl"] == true)
 
-  -- Cada comando de las tarjetas por defecto tiene que estar declarado: el
-  -- ejecutable es la primera palabra del comando. La lista es la de los
-  -- valores de fábrica de `lib/defaults.luau` (`base4`, el respaldo que se
-  -- usa cuando no hay manifiesto): el manifiesto no define comandos, así que
-  -- es la lista de las tarjetas que se instalan de serie.
+  -- Every command of the default cards must be declared: the executable is
+  -- the first word of the command. The list is the factory values from
+  -- `lib/defaults.luau` (`base4`, the fallback used when there is no
+  -- manifest): the manifest does not define commands, so it is the list of
+  -- cards installed out of the box.
   for name, command in pairs(base4.commands) do
     local executable = tostring(command):match("^(%S+)")
     check(
-      "el comando por defecto '" .. name .. "' está declarado en dependencies",
+      "the default command '" .. name .. "' is declared in dependencies",
       true,
       executable ~= nil and declared[executable] == true
     )
   end
 end
 
--- ------------------------------------------------------------ zonas ocupadas --
+-- ------------------------------------------------------------ occupied areas --
 
-print("\n== zonas ocupadas ==")
+print("\n== occupied areas ==")
 local clientList = {
   { address = "0xa", class = "noctalia-term-cava", x = 915, y = 840, w = 1610, h = 584, monitor = "1" },
   { address = "0xb", class = "noctalia-term-btop", x = 16, y = 16, w = 928, h = 800, monitor = "1" },
@@ -738,16 +738,16 @@ local monitors = {
   ["1"] = { id = "1", name = "DP-1", x = 0, y = 0, width = 3440, height = 1440 },
 }
 local occupied = win.occupiedRects(clientList, monitors, "DP-1", nil)
-check("solo cuenta las ventanas del plugin", #occupied, 2)
-check("la primera zona", occupied[1].x, 915)
-check("la segunda zona", occupied[2].y, 16)
+check("counts only plugin windows", #occupied, 2)
+check("the first area", occupied[1].x, 915)
+check("the second area", occupied[2].y, 16)
 local without = win.occupiedRects(clientList, monitors, "DP-1", "0xa")
-check("excluye la ventana que se recoloca", #without, 1)
-check("la que queda es la otra", without[1].x, 16)
+check("excludes the window being repositioned", #without, 1)
+check("the remaining one is the other", without[1].x, 16)
 
--- --------------------------------------------------------------- miniaturas --
+-- --------------------------------------------------------------- thumbnails --
 
-print("\n== miniaturas ==")
+print("\n== thumbnails ==")
 local fs = {
   ["btop-aaa.png"] = true,
   ["btop-bbb.png"] = true,
@@ -777,7 +777,7 @@ local usedCount = 0
 for _ in pairs(used) do
   usedCount = usedCount + 1
 end
-check("currentPaths devuelve dos rutas por ventana (frame + current)", usedCount, 2)
+check("currentPaths returns two paths per window (frame + current)", usedCount, 2)
 local framePath = nil
 for path in pairs(used) do
   if path:match("btop%-v2%-[0-9a-f]+%.png$") then
@@ -785,20 +785,20 @@ for path in pairs(used) do
     break
   end
 end
-check("una ruta lleva el nombre y la firma (frame)", framePath ~= nil, true)
+check("one path carries the name and signature (frame)", framePath ~= nil, true)
 
 local fromMap = preview.currentPaths({ btop = { name = "btop", x = 10, y = 20, w = 300, h = 200 } })
 local mapCount = 0
 for _ in pairs(fromMap) do
   mapCount = mapCount + 1
 end
-check("currentPaths acepta un mapa", mapCount, 2)
+check("currentPaths accepts a map", mapCount, 2)
 
 preview.pruneUnused({ [TESTDATA .. "/thumbs/btop-aaa.png"] = true })
-check("conserva la miniatura en uso", fs["btop-aaa.png"], true)
-check("borra la que no se usa", fs["btop-bbb.png"], nil)
-check("borra la de otro widget", fs["cava-ccc.png"], nil)
-check("borra los lotes viejos", fs["batch-1.json"], nil)
+check("keeps the thumbnail in use", fs["btop-aaa.png"], true)
+check("deletes the unused one", fs["btop-bbb.png"], nil)
+check("deletes the other widget's one", fs["cava-ccc.png"], nil)
+check("deletes old batches", fs["batch-1.json"], nil)
 
 fs["btop-bbb.png"] = true
 fs["btop-ccc.png"] = true
@@ -810,13 +810,13 @@ mock.fileInfo = function(path)
   return { size = 10, mtime = os.time(), isDir = false }
 end
 preview.pruneUnused({ [TESTDATA .. "/thumbs/btop-bbb.png"] = true }, 1800)
-check("conserva la miniatura en uso", fs["btop-aaa.png"], true)
-check("conserva la reciente aunque no se use", fs["btop-bbb.png"], true)
-check("borra la antigua que no se usa", fs["btop-ccc.png"], nil)
+check("keeps the thumbnail in use", fs["btop-aaa.png"], true)
+check("keeps the recent one even if unused", fs["btop-bbb.png"], true)
+check("deletes the old unused one", fs["btop-ccc.png"], nil)
 
--- ----------------------------------------------------------------- rotación --
+-- ----------------------------------------------------------------- rotation --
 
-print("\n== rotación: permutaciones ==")
+print("\n== rotation: permutations ==")
 local function fakeWindow(name, x, y, w, h)
   return {
     address = "0x" .. name,
@@ -837,8 +837,8 @@ local group = {
   fakeWindow("abajo-der", 2524, 624, 900, 800),
 }
 
--- El simulador de procesos: devuelve la lista de ventanas cuando la piden,
--- registra las expresiones despachadas y completa las llamadas de inmediato.
+-- Process simulator: returns the window list when asked, records dispatched
+-- expressions and completes calls immediately.
 mock.runAsync = function(argv, callback)
   local command = table.concat(argv, " ")
   if command:find("hyprctl dispatch", 1, true) then
@@ -902,8 +902,8 @@ mx, my = movedTo("0xarriba-izq")
 check("opuesto: arriba-izq toma abajo-der", mx, 2524)
 check("opuesto: arriba-izq toma abajo-der (y)", my, 624)
 
--- Rotación "opposite" geométricamente correcta en cualquier disposición:
--- un cuadrado formado en una sola esquina debe girar por diagonales.
+-- "opposite" rotation geometrically correct in any arrangement: a square
+-- built in a single corner must rotate along diagonals.
 local corner = {
   fakeWindow("c1", 10, 10, 100, 100),
   fakeWindow("c2", 10, 200, 100, 100),
@@ -934,7 +934,7 @@ for _, count in pairs(targets) do
     unique = unique + 1
   end
 end
-check("aleatorio: cada destino se usa una vez", unique, #group)
+check("random: each destination is used once", unique, #group)
 
 local odd = {
   fakeWindow("arriba-izq", 16, 16, 900, 800),
@@ -946,12 +946,12 @@ win.rotate(odd, "pairs", false, function() end)
 mx, my = movedTo("0xarriba-izq")
 check("parejas impar: arriba-izq toma arriba-der", mx, 2524)
 mx, my = movedTo("0xabajo-izq")
-check("parejas impar: el que sobra se queda", mx, 16)
-check("parejas impar: el que sobra no se mueve (y)", my, 624)
+check("odd pairs: the extra one stays", mx, 16)
+check("odd pairs: the extra one does not move (y)", my, 624)
 
 dispatched = {}
 win.rotate({ fakeWindow("solo", 16, 16, 900, 800) }, "clockwise", false, function() end)
-check("una ventana no se mueve", #dispatched, 0)
+check("a single window does not move", #dispatched, 0)
 
 dispatched = {}
 win.rotate(group, "clockwise", true, function() end)
@@ -961,7 +961,7 @@ for _, expression in ipairs(dispatched) do
     resized = true
   end
 end
-check("con tamaños se redimensiona", resized, true)
+check("with sizes it resizes", resized, true)
 
 dispatched = {}
 win.rotate(group, "clockwise", false, function() end)
@@ -971,21 +971,21 @@ for _, expression in ipairs(dispatched) do
     resized = true
   end
 end
-check("sin tamaños no se redimensiona", resized, false)
+check("without sizes it does not resize", resized, false)
 
--- Bloqueo atómico de la rotación.
+-- Atomic rotation lock.
 win.rotating = true
 local locked = win.rotate(group, "clockwise", false, function() end)
-check("rotación bloqueada mientras gira", false, locked)
+check("rotation locked while rotating", false, locked)
 win.rotating = false
 
--- Enfocar sin recolocar: un solo dispatch de foco, ni resize ni move.
+-- Focus without repositioning: a single focus dispatch, no resize or move.
 dispatched = {}
 win.focusOnly("noctalia-term-lavat", function() end)
-check("focusOnly: un solo dispatch", 1, #dispatched)
-check("focusOnly: es un foco", true, dispatched[1]:find("hl.dsp.focus") ~= nil)
-check("focusOnly: no redimensiona", nil, dispatched[1]:find("resize"))
-check("focusOnly: no mueve", nil, dispatched[1]:find("move"))
+check("focusOnly: a single dispatch", 1, #dispatched)
+check("focusOnly: it is a focus", true, dispatched[1]:find("hl.dsp.focus") ~= nil)
+check("focusOnly: does not resize", nil, dispatched[1]:find("resize"))
+check("focusOnly: does not move", nil, dispatched[1]:find("move"))
 
 -- ------------------------------------------------------------- lib/output.luau --
 
@@ -993,14 +993,14 @@ print("\n== lib/output.luau ==")
 
 local outputLib = loadModule("output.luau")
 local box = outputLib.outputBox({ output = "" })
-check("outputBox: caja del output enfocado", 3440, box.width)
+check("outputBox: focused output box", 3440, box.width)
 check("outputBox: alto", 1440, box.height)
 check("outputBox: nombre", "DP-1", box.name)
 check("outputBox: origen", 0, box.x)
 check("outputBox: origen y", 0, box.y)
 check("outputBox: cfg.output manda", "DP-1", outputLib.outputBox({ output = "DP-1" }).name)
-check("outputBox: cfg.output inexistente cae al enfocado", "DP-1", outputLib.outputBox({ output = "HDMI-9" }).name)
--- caja demasiado pequeña -> respaldo
+check("outputBox: missing cfg.output falls back to focused", "DP-1", outputLib.outputBox({ output = "HDMI-9" }).name)
+-- box too small -> fallback
 local savedOutputs = mock.outputs
 mock.outputs = function() return { { name = "X", width = 100, height = 80, x = 0, y = 0, scale = 1, focused = true } } end
 local tiny = outputLib.outputBox({ output = "" })
@@ -1025,11 +1025,11 @@ check("ancla: banda izquierda, fila central", "left-center", anchorOf(10, 429, 8
 check("ancla: banda derecha, fila central", "right-center", anchorOf(2600, 429, 802, 582))
 check("ancla: banda central, fila superior", "top-center", anchorOf(1319, 10, 802, 582))
 check("ancla: banda central, fila inferior", "bottom-center", anchorOf(1319, 800, 802, 582))
--- esquinas restantes
+-- remaining corners
 check("ancla: superior izquierda", "top-left", anchorOf(0, 0, 802, 582))
 check("ancla: inferior derecha", "bottom-right", anchorOf(2600, 800, 802, 582))
 
--- ida y vuelta: reconstruir devuelve la posición exacta (relativa a la caja)
+-- round trip: rebuilding returns the exact position (relative to the box)
 local function roundTrip(rect, screen, margin)
   local memory = brain.anchorFromRect(rect, screen, margin)
   local baseX, baseY = layoutLib.anchorPosition(memory.anchor, memory.width, memory.height, screen.width, screen.height, margin)
@@ -1037,96 +1037,96 @@ local function roundTrip(rect, screen, margin)
 end
 check("ida y vuelta: bottom-left", "0,800", roundTrip({ x = 0, y = 800, w = 802, h = 582 }, SCREEN, 0))
 check("ida y vuelta: centro", "1319,429", roundTrip({ x = 1319, y = 429, w = 802, h = 582 }, SCREEN, 0))
-check("ida y vuelta: con margen 24", "24,24", roundTrip({ x = 24, y = 24, w = 802, h = 582 }, SCREEN, 24))
--- caja con origen desplazado (segundo monitor): el desfase es relativo a la caja
+check("round trip: with margin 24", "24,24", roundTrip({ x = 24, y = 24, w = 802, h = 582 }, SCREEN, 24))
+-- box with a shifted origin (second monitor): the offset is relative to the box
 local OFFSET = { x = 1920, y = 0, width = 1920, height = 1080, name = "DP-2" }
 check("ida y vuelta: caja desplazada", "0,0", roundTrip({ x = 1920, y = 0, w = 600, h = 400 }, OFFSET, 0))
 
 check("layoutString: formato exacto", "bottom-left, 802x582, 0, -58", brain.layoutString({ x = 0, y = 800, w = 802, h = 582 }, SCREEN, 0))
--- desfase positivo: ventana a 100 px del borde izquierdo y a la altura de la base inferior
+-- positive offset: window 100 px from the left edge and level with the bottom base
 local shifted = brain.anchorFromRect({ x = 100, y = 800, w = 802, h = 582 }, SCREEN, 0)
 check("layoutString: desfase en x", 100, shifted.dx)
 check("layoutString: desfase en y", -58, shifted.dy)
-check("layoutString: string con desfase", "bottom-left, 802x582, 100, -58", brain.layoutString({ x = 100, y = 800, w = 802, h = 582 }, SCREEN, 0))
+check("layoutString: string with offset", "bottom-left, 802x582, 100, -58", brain.layoutString({ x = 100, y = 800, w = 802, h = 582 }, SCREEN, 0))
 check("geometryFromMemory: reconstruye", 800, (brain.geometryFromMemory("bottom-left, 802x582, 0, -58", 3440, 1440, 0) or {}).y)
 check("geometryFromMemory: ancho", 802, (brain.geometryFromMemory("bottom-left, 802x582, 0, -58", 3440, 1440, 0) or {}).width)
-check("geometryFromMemory: string inválido", nil, brain.geometryFromMemory("no es un layout", 3440, 1440, 0))
+check("geometryFromMemory: invalid string", nil, brain.geometryFromMemory("not a layout", 3440, 1440, 0))
 check("geometryFromMemory: nil", nil, brain.geometryFromMemory(nil, 3440, 1440, 0))
 
--- Cliente crudo de `hyprctl clients -j`: `at` y `size` son arrays posicionales.
+-- Raw `hyprctl clients -j` client: `at` and `size` are positional arrays.
 local function clientAt(class, x, y, w, h)
   return { class = class, at = { x, y }, size = { w, h }, address = "0x" .. x, monitor = 0 }
 end
 
--- sondeo 1: nada memorizado, pendiente creado
+-- poll 1: nothing memorized, pending entry created
 local rect = { x = 0, y = 800, w = 802, h = 582 }
 local r1 = brain.capture({ clientAt("noctalia-term-lavat", 0, 800, 802, 582) }, SCREEN, 0, {}, {}, {})
-check("captura: primer sondeo no memoriza", nil, r1.memory["noctalia-term-lavat"])
+check("capture: first poll does not memorize", nil, r1.memory["noctalia-term-lavat"])
 check("captura: primer sondeo deja pendiente", 800, (r1.pending["noctalia-term-lavat"] or {}).y)
-check("captura: primer sondeo sin cambios", false, r1.changed)
+check("capture: first poll without changes", false, r1.changed)
 
--- sondeo 2 idéntico: memoriza
+-- identical poll 2: memorizes
 local r2 = brain.capture({ clientAt("noctalia-term-lavat", 0, 800, 802, 582) }, SCREEN, 0, {}, {}, r1.pending)
 check("captura: segundo sondeo memoriza", "bottom-left, 802x582, 0, -58", r2.memory["noctalia-term-lavat"])
 check("captura: segundo sondeo marca cambio", true, r2.changed)
 
--- rect distinto: reinicia el pendiente y no memoriza
+-- different rect: resets the pending entry and does not memorize
 local r3 = brain.capture({ clientAt("noctalia-term-lavat", 0, 700, 802, 582) }, SCREEN, 0, {}, {}, r2.pending)
-check("captura: rect distinto no memoriza", nil, r3.memory["noctalia-term-lavat"])
+check("capture: different rect does not memorize", nil, r3.memory["noctalia-term-lavat"])
 check("captura: rect distinto reinicia pendiente", 700, (r3.pending["noctalia-term-lavat"] or {}).y)
 
--- imposición reciente y coincidente: suprime y cancela el pendiente
+-- recent matching imposition: suppresses and cancels the pending entry
 clock = 10000
 local imposed = { ["noctalia-term-lavat"] = { x = 0, y = 800, w = 802, h = 582, at = 9000 } }
 local r4 = brain.capture({ clientAt("noctalia-term-lavat", 0, 800, 802, 582) }, SCREEN, 0, {}, imposed, r1.pending)
-check("captura: imposición reciente no memoriza", nil, r4.memory["noctalia-term-lavat"])
-check("captura: imposición cancela pendiente", nil, r4.pending["noctalia-term-lavat"])
-check("captura: imposición no marca cambio", false, r4.changed)
+check("capture: recent imposition does not memorize", nil, r4.memory["noctalia-term-lavat"])
+check("capture: imposition cancels pending", nil, r4.pending["noctalia-term-lavat"])
+check("capture: imposition does not mark a change", false, r4.changed)
 
--- imposición caducada: ya cuenta como manual
+-- expired imposition: now counts as manual
 local old = { ["noctalia-term-lavat"] = { x = 0, y = 800, w = 802, h = 582, at = 1000 } }
 local r5 = brain.capture({ clientAt("noctalia-term-lavat", 0, 800, 802, 582) }, SCREEN, 0, {}, old, r1.pending)
-check("captura: imposición caducada memoriza", "bottom-left, 802x582, 0, -58", r5.memory["noctalia-term-lavat"])
+check("capture: expired imposition memorizes", "bottom-left, 802x582, 0, -58", r5.memory["noctalia-term-lavat"])
 
--- ventanas ajenas al plugin
+-- windows not belonging to the plugin
 local r6 = brain.capture({ clientAt("kitty", 0, 0, 100, 100) }, SCREEN, 0, {}, {}, {})
 local foreign = 0
 for _ in pairs(r6.pending) do foreign = foreign + 1 end
 check("captura: ignora ventanas ajenas", 0, foreign)
 
--- ventana cerrada: su pendiente desaparece
+-- closed window: its pending entry disappears
 local r7 = brain.capture({}, SCREEN, 0, {}, {}, r1.pending)
 check("captura: ventana cerrada borra pendiente", nil, r7.pending["noctalia-term-lavat"])
 
--- sin cambios respecto a la memoria previa: no marca cambio
+-- no change from previous memory: does not mark a change
 local prev = { ["noctalia-term-lavat"] = "bottom-left, 802x582, 0, -58" }
 local r8 = brain.capture({ clientAt("noctalia-term-lavat", 0, 800, 802, 582) }, SCREEN, 0, prev, {}, r1.pending)
-check("captura: memoria igual no marca cambio", false, r8.changed)
+check("capture: same memory does not mark a change", false, r8.changed)
 
 -- -------------------------------------------------------------------- panel --
 
 print("\n== panel ==")
 
--- Se carga el panel con la UI simulada. Si usa un global que no existe
--- (un `local` declarado más abajo, por ejemplo), aquí se rompe.
+-- The panel is loaded with the simulated UI. If it uses a global that does
+-- not exist (a `local` declared further down, for example), it breaks here.
 --
--- El panel cachea el store en memoria desde su primera apertura: se deja en
--- disco un store conocido (cerebro apagado y sin memoria) para que la sección
--- arranque siempre en el mismo estado.
+-- The panel caches the store in memory from its first open: a known store
+-- (brain off and no memory) is left on disk so the section always starts in
+-- the same state.
 files[storePath] = '{"commands":{},"layouts":{},"thumbs":{},"removed":{},"brain":false,"brainGeometry":{}}'
 local panelChunk, panelErr = loadfile(DIR .. "panel.luau", "t", env)
 if not panelChunk then
-  print("  FALLA no se pudo cargar panel.luau: " .. tostring(panelErr))
+  print("  FAIL could not load panel.luau: " .. tostring(panelErr))
   os.exit(1)
 end
 local loaded, loadErr = pcall(panelChunk)
-check("el panel se carga sin errores", true, loaded == true)
+check("panel loads without errors", true, loaded == true)
 if not loaded then
   print("  " .. tostring(loadErr))
   os.exit(1)
 end
 
--- Contar nodos del árbol renderizado.
+-- Count nodes in the rendered tree.
 local function countKeys(tree, prefix)
   local total = 0
   local function walk(node)
@@ -1183,7 +1183,7 @@ local function findByPrefix(tree, prefix)
   return found
 end
 
--- Widgets de prueba: los del manifiesto del propio plugin.
+-- Test widgets: those from the plugin's own manifest.
 config.commands = {}
 config.layouts = {}
 local manifestDefaults = defaults.load()
@@ -1198,14 +1198,14 @@ for _ in pairs(config.commands) do
   widgetCount = widgetCount + 1
 end
 
--- Para que el simulador pueda ejecutar la ruta de captura (y con ella la
--- poda de miniaturas) hace falta que las herramientas estén disponibles:
--- `preview.toolsAvailable()` comprueba el script de captura.
+-- For the simulator to run the capture path (and with it thumbnail pruning),
+-- the tools must be available: `preview.toolsAvailable()` checks the capture
+-- script.
 files[(DIR:gsub("/+$", "")) .. "/bin/snapshot.py"] = "#!/usr/bin/env python3\n"
 
--- Regresión: la poda no puede borrar el fichero que una tarjeta está
--- pintando. Con el widget cerrado la tarjeta muestra su miniatura "current",
--- y si la poda la borra el host avisa "image failed to load" y sale en negro.
+-- Regression: pruning must not delete the file a card is drawing. With the
+-- widget closed the card shows its "current" thumbnail, and if pruning
+-- deletes it the host warns "image failed to load" and it goes black.
 fs["cava-v2-current.png"] = true
 mock.fileInfo = function(path)
   local name = path:match("([^/]+)$")
@@ -1216,26 +1216,26 @@ mock.fileInfo = function(path)
 end
 
 env.onOpen("")
-check("el panel abre y renderiza", true, rendered > 0)
-check("hay una tarjeta por widget", widgetCount, countKeys(lastTree, "card-"))
-check("la poda no borra la miniatura que se está pintando", true, fs["cava-v2-current.png"])
+check("panel opens and renders", true, rendered > 0)
+check("one card per widget", widgetCount, countKeys(lastTree, "card-"))
+check("pruning does not delete the thumbnail being drawn", true, fs["cava-v2-current.png"])
 
--- El manifiesto se analiza una vez, pero al abrir el panel se relee: si el
--- .toml cambia en caliente y no hay config de usuario, se usan los nuevos defaults.
+-- The manifest is parsed once, but it is re-read when the panel opens: if the
+-- .toml changes at runtime and there is no user config, the new defaults are used.
 local manifestFixture = files[DIR .. "plugin.toml"]
 files[DIR .. "plugin.toml"] = [==[
 [[setting]]
 key = "commands"
 default = { nuevo = "un-comando --nuevo" }
 ]==]
--- Simular que el usuario no tiene config en Settings (config vacío)
+-- Simulate the user having no config in Settings (empty config)
 local oldConfig = config
 config = {}
 defaults.reset()
 env.onOpen("")
 local freshCard = findNode(lastTree, "card-nuevo")
 check(
-  "al abrir se relee el manifiesto (sin config usuario)",
+  "opening re-reads the manifest (no user config)",
   true,
   freshCard ~= nil and tostring(freshCard.props.tooltip):find("un-comando --nuevo", 1, true) ~= nil
 )
@@ -1243,16 +1243,16 @@ files[DIR .. "plugin.toml"] = manifestFixture
 config = oldConfig
 defaults.reset()
 env.onOpen("")
-check("la cabecera tiene el botón de abrir todo", true, findNode(lastTree, "open-all") ~= nil)
-check("la cabecera tiene el botón de rotar", true, findNode(lastTree, "rotate") ~= nil)
-check("la cabecera tiene el botón de cerrar todo", true, findNode(lastTree, "close-all") ~= nil)
-check("la cabecera tiene el botón de editar", true, findNode(lastTree, "edit") ~= nil)
-check("la cabecera tiene el botón de ajustes", true, findNode(lastTree, "open-settings") ~= nil)
-check("la cabecera tiene el botón de cerrar", true, findNode(lastTree, "close-panel") ~= nil)
+check("header has the open-all button", true, findNode(lastTree, "open-all") ~= nil)
+check("header has the rotate button", true, findNode(lastTree, "rotate") ~= nil)
+check("header has the close-all button", true, findNode(lastTree, "close-all") ~= nil)
+check("header has the edit button", true, findNode(lastTree, "edit") ~= nil)
+check("header has the settings button", true, findNode(lastTree, "open-settings") ~= nil)
+check("header has the close button", true, findNode(lastTree, "close-panel") ~= nil)
 
 local cardNode = findNode(lastTree, "card-" .. (config.commands and "btop" or "btop"))
 if cardNode == nil then
-  -- Se busca la primera tarjeta por el orden alfabético.
+  -- The first card is found by alphabetical order.
   local names = {}
   for name in pairs(config.commands) do
     names[#names + 1] = name
@@ -1260,20 +1260,20 @@ if cardNode == nil then
   table.sort(names)
   cardNode = findNode(lastTree, "card-" .. names[1])
 end
-check("la tarjeta lleva el comando en el tooltip", true, cardNode ~= nil and cardNode.props.tooltip ~= nil and cardNode.props.tooltip:len() > 0)
-check("la tarjeta se puede pulsar", true, cardNode ~= nil and cardNode.props.onClick ~= nil)
-check("la tarjeta tiene ancho fijo (tamaño uniforme)", true, cardNode ~= nil and cardNode.props.width ~= nil)
-check("la tarjeta no crece en filas parciales", nil, cardNode ~= nil and cardNode.props.flexGrow)
+check("card has the command in the tooltip", true, cardNode ~= nil and cardNode.props.tooltip ~= nil and cardNode.props.tooltip:len() > 0)
+check("card is clickable", true, cardNode ~= nil and cardNode.props.onClick ~= nil)
+check("card has fixed width (uniform size)", true, cardNode ~= nil and cardNode.props.width ~= nil)
+check("card does not grow in partial rows", nil, cardNode ~= nil and cardNode.props.flexGrow)
 
--- Modo edición: aparecen el formulario y los botones de borrar.
+-- Edit mode: the form and delete buttons appear.
 local editButton = findNode(lastTree, "edit")
-check("el botón de editar tiene manejador", true, editButton ~= nil and editButton.props.onClick ~= nil)
+check("edit button has a handler", true, editButton ~= nil and editButton.props.onClick ~= nil)
 if editButton ~= nil and editButton.props.onClick ~= nil then
   editButton.props.onClick()
-  check("en modo edición aparece el formulario", true, findNode(lastTree, "editor") ~= nil)
-  check("en modo edición hay un botón de borrar", true, countKeys(lastTree, "delete-") > 0)
+  check("form appears in edit mode", true, findNode(lastTree, "editor") ~= nil)
+  check("there is a delete button in edit mode", true, countKeys(lastTree, "delete-") > 0)
 
-  -- El editor de un widget existente se coloca en el sitio de su tarjeta.
+  -- An existing widget's editor is placed where its card is.
   local firstName = nil
   do
     local names = {}
@@ -1284,14 +1284,14 @@ if editButton ~= nil and editButton.props.onClick ~= nil then
     firstName = names[1]
   end
   local editWidget = findByPrefix(lastTree, "edit-" .. firstName)
-  check("la tarjeta tiene botón de editar", true, editWidget ~= nil)
+  check("card has an edit button", true, editWidget ~= nil)
   if editWidget ~= nil and editWidget.props.onClick ~= nil then
     editWidget.props.onClick()
-    check("el editor sustituye a la tarjeta editada", nil, findNode(lastTree, "card-" .. firstName))
-    check("el editor sigue visible al editar", true, findNode(lastTree, "editor") ~= nil)
+    check("editor replaces the edited card", nil, findNode(lastTree, "card-" .. firstName))
+    check("editor stays visible while editing", true, findNode(lastTree, "editor") ~= nil)
     local thumbField = findByPrefix(lastTree, "form-thumb-")
     check(
-      "el campo de miniatura empieza vacío",
+      "thumbnail field starts empty",
       "",
       thumbField ~= nil and thumbField.props.value or "sin campo"
     )
@@ -1299,9 +1299,9 @@ if editButton ~= nil and editButton.props.onClick ~= nil then
     if headerEdit ~= nil and headerEdit.props.onClick ~= nil then
       headerEdit.props.onClick()
     end
-    check("al cancelar vuelve la tarjeta", true, findNode(lastTree, "card-" .. firstName) ~= nil)
+    check("canceling restores the card", true, findNode(lastTree, "card-" .. firstName) ~= nil)
 
-    -- Renombrar a otro widget existente se rechaza (no se pisa el otro).
+    -- Renaming to another existing widget is rejected (the other one is not overwritten).
     local names = {}
     for name in pairs(config.commands) do
       names[#names + 1] = name
@@ -1315,7 +1315,7 @@ if editButton ~= nil and editButton.props.onClick ~= nil then
         nameField.props.onChange(names[2])
         saveButton.props.onClick()
         check(
-          "renombrar a un widget existente se rechaza",
+          "renaming to an existing widget is rejected",
           "name_exists",
           notifications[#notifications] ~= nil and notifications[#notifications].body or "sin aviso"
         )
@@ -1327,26 +1327,26 @@ if editButton ~= nil and editButton.props.onClick ~= nil then
   end
 end
 
--- Los handlers del IPC no deben romperse.
+-- IPC handlers must not break.
 local before = rendered
 env.onIpc("refresh", "")
-check("el IPC refresh no falla", true, rendered >= before)
+check("IPC refresh does not fail", true, rendered >= before)
 env.onIpc("rotate", "")
-check("el IPC rotate no falla", true, true)
+check("IPC rotate does not fail", true, true)
 env.onIpc("open-all", "")
-check("el IPC open-all no falla", true, true)
+check("IPC open-all does not fail", true, true)
 env.onIpc("close-all", "")
-check("el IPC close-all no falla", true, true)
+check("IPC close-all does not fail", true, true)
 env.onIpc("add", "prueba|echo hola|center, 500x300")
-check("el IPC add no falla", true, true)
+check("IPC add does not fail", true, true)
 env.onIpc("remove", "prueba")
-check("el IPC remove no falla", true, true)
+check("IPC remove does not fail", true, true)
 env.onIpc("launch", "cava")
-check("el IPC launch no falla", true, true)
+check("IPC launch does not fail", true, true)
 
--- ------------------------------------------------------------- la rejilla --
+-- ------------------------------------------------------------- the grid --
 
--- Cuenta las filas de tarjetas del árbol renderizado.
+-- Count the card rows in the rendered tree.
 local function cardRows(tree)
   local rows = 0
   local function walk(node)
@@ -1374,17 +1374,17 @@ end
 env.onOpen("")
 config.columns = 2
 env.onIpc("refresh", "")
-check("rejilla de 2 columnas: 6 widgets = 3 filas", 3, cardRows(lastTree))
+check("2-column grid: 6 widgets = 3 rows", 3, cardRows(lastTree))
 config.columns = 3
 env.onIpc("refresh", "")
-check("rejilla de 3 columnas: 6 widgets = 2 filas", 2, cardRows(lastTree))
+check("3-column grid: 6 widgets = 2 rows", 2, cardRows(lastTree))
 config.columns = 1
 env.onIpc("refresh", "")
-check("rejilla de 1 columna: 6 widgets = 6 filas", 6, cardRows(lastTree))
+check("1-column grid: 6 widgets = 6 rows", 6, cardRows(lastTree))
 config.columns = 2
 env.onIpc("refresh", "")
 
--- ------------------------------------------------- lanzar y recolocar --
+-- ------------------------------------------------- launch and reposition --
 
 local function dispatchText()
   return table.concat(dispatched, "\n")
@@ -1397,25 +1397,25 @@ local function clickCard(name)
   end
 end
 
--- El debounce ignora un segundo clic seguido.
+-- The debounce ignores a second click right after.
 clock = clock + 5000
 dispatched = {}
 clickCard("btop")
 local firstLaunch = dispatchText():find("noctalia%-term%-btop") ~= nil
 dispatched = {}
 clickCard("btop")
-check("pulsar una tarjeta lanza su widget", true, firstLaunch)
-check("un segundo clic seguido no lanza otra ventana", false, dispatchText():find("exec_cmd") ~= nil)
+check("clicking a card launches its widget", true, firstLaunch)
+check("a second click right after does not launch another window", false, dispatchText():find("exec_cmd") ~= nil)
 
 clock = clock + 5000
 dispatched = {}
 clickCard("btop")
-check("pasado el debounce se vuelve a lanzar", true, dispatchText():find("exec_cmd") ~= nil)
-check("la ventana se coloca en su posición configurada", true, dispatchText():find("move%({ x = 16, y = 16") ~= nil)
+check("after the debounce it launches again", true, dispatchText():find("exec_cmd") ~= nil)
+check("the window is placed at its configured position", true, dispatchText():find("move%({ x = 16, y = 16") ~= nil)
 
--- Si el widget ya está abierto, al volver a pulsarlo tiene que volver a su
--- sitio (no a un hueco cualquiera): la evitación de colisiones no puede
--- contarse a sí misma. En modo "custom" debe volver a su posición configurada.
+-- If the widget is already open, clicking it again must return it to its
+-- place (not a random slot): collision avoidance must not count itself.
+-- In "custom" mode it must return to its configured position.
 config.fallback_mode = "custom"
 clients = {
   { address = "0x1", class = "noctalia-term-btop", x = 2000, y = 900, w = 928, h = 800, monitor = "1" },
@@ -1424,34 +1424,34 @@ env.onOpen("")
 clock = clock + 5000
 dispatched = {}
 clickCard("btop")
-check("un widget ya abierto vuelve a su posición", true, dispatchText():find("move%({ x = 16, y = 16") ~= nil)
-check("y no se lanza una segunda ventana", true, dispatchText():find("exec_cmd") == nil)
-check("botón de cerrar en widget abierto", true, (function()
+check("an already-open widget returns to its position", true, dispatchText():find("move%({ x = 16, y = 16") ~= nil)
+check("and no second window is launched", true, dispatchText():find("exec_cmd") == nil)
+check("close button on an open widget", true, (function()
     local closeBtn = findNode(lastTree, "close-btop")
     return closeBtn ~= nil and closeBtn.props and closeBtn.props.onClick ~= nil
   end)())
 clients = {}
 
--- ---------------------------------------------- cerebro y geometría --
+-- ---------------------------------------------- brain and geometry --
 
-print("\n== cerebro ==")
+print("\n== brain ==")
 
--- El margen se fija a 0 para que las posiciones esperadas sean exactas (el
--- margen por defecto, 16 px, desplaza la base de cada ancla).
+-- Margin is set to 0 so the expected positions are exact (the default
+-- margin, 16 px, shifts each anchor's base).
 local savedMarginPanel = config.margin
 config.margin = 0
 env.onOpen("")
 
--- El botón va primero de su fila: a la izquierda de "abrir todo".
+-- The button is first in its row: left of "open all".
 local brainButton = findNode(lastTree, "brain")
-check("panel: el botón del cerebro existe", true, brainButton ~= nil)
+check("panel: the brain button exists", true, brainButton ~= nil)
 check("panel: glifo brain", "brain", brainButton ~= nil and brainButton.props.glyph or nil)
 check("panel: variante ghost", "ghost", brainButton ~= nil and brainButton.props.variant or nil)
 check("panel: arranca apagado", false, brainButton ~= nil and brainButton.props.selected == true)
-check("panel: tooltip de apagado", "brain_off", brainButton ~= nil and brainButton.props.tooltip or nil)
+check("panel: off tooltip", "brain_off", brainButton ~= nil and brainButton.props.tooltip or nil)
 
--- Orden de las claves del árbol renderizado (las claves viven en
--- `props.key`; `nodeKeys` de arriba sirve para árboles crudos).
+-- Order of the rendered tree keys (keys live in `props.key`; `nodeKeys`
+-- above is for raw trees).
 local function keyOrder(tree, out)
   out = out or {}
   if type(tree) ~= "table" then return out end
@@ -1468,44 +1468,44 @@ for index, key in ipairs(brainKeys) do
   if key == "brain" then brainIndex = index end
   if key == "open-all" then openAllIndex = index end
 end
-check("panel: cerebro a la izquierda de abrir todo", true,
+check("panel: brain is left of open-all", true,
   brainIndex ~= nil and openAllIndex ~= nil and brainIndex < openAllIndex)
 
--- Pulsarlo enciende, repinta y persiste.
+-- Clicking it turns it on, repaints and persists.
 if brainButton ~= nil and brainButton.props.onClick ~= nil then
   brainButton.props.onClick()
 end
-check("panel: enciende el cerebro", true, storeLib.loadBrain().brain == true)
+check("panel: turns the brain on", true, storeLib.loadBrain().brain == true)
 local brainOn = findNode(lastTree, "brain")
-check("panel: marcado al encender", true, brainOn ~= nil and brainOn.props.selected == true)
-check("panel: tooltip de encendido", "brain_on", brainOn ~= nil and brainOn.props.tooltip or nil)
+check("panel: marked when turned on", true, brainOn ~= nil and brainOn.props.selected == true)
+check("panel: on tooltip", "brain_on", brainOn ~= nil and brainOn.props.tooltip or nil)
 
--- Apagarlo no borra la memoria.
+-- Turning it off does not erase the memory.
 storeLib.saveBrainGeometry({ ["noctalia-term-cerebro"] = "center, 10x10" })
 env.onOpen("")
 local brainOffButton = findNode(lastTree, "brain")
 if brainOffButton ~= nil and brainOffButton.props.onClick ~= nil then
   brainOffButton.props.onClick()
 end
-check("panel: apaga el cerebro", false, storeLib.loadBrain().brain)
-check("panel: apagar no borra la memoria", "center, 10x10",
+check("panel: turns the brain off", false, storeLib.loadBrain().brain)
+check("panel: turning it off does not erase memory", "center, 10x10",
   storeLib.loadBrain().brainGeometry["noctalia-term-cerebro"])
 
--- Las dos claves existen en los dos idiomas.
+-- Both keys exist in both languages.
 for _, lang in ipairs({ "en", "es" }) do
   local raw = readRealFile(DIR .. "translations/" .. lang .. ".json")
   check("traducciones " .. lang .. ": brain_on", true, raw ~= nil and raw:find('"brain_on"') ~= nil)
   check("traducciones " .. lang .. ": brain_off", true, raw ~= nil and raw:find('"brain_off"') ~= nil)
 end
 
--- Widget de prueba con layout oficial y memoria distinta.
+-- Test widget with an official layout and different memory.
 env.onIpc("remove", "cerebro")
 env.onIpc("add", "cerebro|cerebro --demo|bottom-left, 802x582")
 storeLib.saveBrainToggle(false)
 storeLib.saveBrainGeometry({ ["noctalia-term-cerebro"] = "top-right, 400x300, -10, 10" })
 env.onOpen("")
 
--- Cerebro OFF: manda el layout oficial (comportamiento de siempre).
+-- Brain OFF: the official layout wins (the usual behavior).
 clients = {
   { class = "noctalia-term-cerebro", at = { 100, 100 }, size = { 600, 400 }, address = "0x77", monitor = 0 },
 }
@@ -1513,25 +1513,25 @@ clock = clock + 5000
 dispatched = {}
 clickCard("cerebro")
 local offText = dispatchText()
-check("sin cerebro: resize al tamaño del layout", true, offText:find("resize%({ x = 802, y = 582") ~= nil)
-check("sin cerebro: vuelve a su ancla", true, offText:find("move%({ x = 0, y = 858") ~= nil)
+check("without brain: resize to the layout size", true, offText:find("resize%({ x = 802, y = 582") ~= nil)
+check("without brain: returns to its anchor", true, offText:find("move%({ x = 0, y = 858") ~= nil)
 
--- Lo que impone el plugin se publica para que el service no lo memorice.
+-- What the plugin imposes is published so the service does not memorize it.
 local published = mock.state.get("imposed") or {}
 local imposedEntry = published["noctalia-term-cerebro"]
-check("imposed: publica la clase", true, imposedEntry ~= nil)
-check("imposed: ancho del layout", 802, imposedEntry ~= nil and imposedEntry.w or nil)
-check("imposed: posición absoluta", 858, imposedEntry ~= nil and imposedEntry.y or nil)
+check("imposed: publishes the class", true, imposedEntry ~= nil)
+check("imposed: layout width", 802, imposedEntry ~= nil and imposedEntry.w or nil)
+check("imposed: absolute position", 858, imposedEntry ~= nil and imposedEntry.y or nil)
 check("imposed: lleva sello temporal", true,
   imposedEntry ~= nil and (imposedEntry.at or 0) > 0)
 
--- Las entradas caducadas se podan al publicar la siguiente geometría.
+-- Expired entries are pruned when publishing the next geometry.
 mock.state.set("imposed", { ["noctalia-term-vieja"] = { x = 0, y = 0, w = 10, h = 10, at = 1 } })
 clock = clock + 5000
 clickCard("cerebro")
-check("imposed: poda las caducadas", nil, (mock.state.get("imposed") or {})["noctalia-term-vieja"])
+check("imposed: prunes expired ones", nil, (mock.state.get("imposed") or {})["noctalia-term-vieja"])
 
--- Cerebro ON y ya abierto: solo foco, sin recolocar.
+-- Brain ON and already open: focus only, no repositioning.
 storeLib.saveBrainToggle(true)
 env.onOpen("")
 clients = {
@@ -1540,28 +1540,28 @@ clients = {
 clock = clock + 5000
 dispatched = {}
 clickCard("cerebro")
-check("con cerebro y abierto: un solo dispatch", 1, #dispatched)
-check("con cerebro y abierto: es un foco", true,
+check("with brain and open: a single dispatch", 1, #dispatched)
+check("with brain and open: it is a focus", true,
   dispatched[1] ~= nil and dispatched[1]:find("hl.dsp.focus") ~= nil)
-check("con cerebro y abierto: no redimensiona", nil,
+check("with brain and open: does not resize", nil,
   dispatched[1] ~= nil and dispatched[1]:find("resize") or nil)
 
--- Cerebro ON y cerrado: la apertura usa la memoria.
+-- Brain ON and closed: opening uses the memory.
 clients = {}
 clock = clock + 5000
 dispatched = {}
 clickCard("cerebro")
 local onText = dispatched[1] or ""
-check("con cerebro: abre con el tamaño recordado", true, onText:find("size = { 400, 300") ~= nil)
-check("con cerebro: abre en la posición recordada", true, onText:find("move = { 3030, 10") ~= nil)
+check("with brain: opens with the remembered size", true, onText:find("size = { 400, 300") ~= nil)
+check("with brain: opens at the remembered position", true, onText:find("move = { 3030, 10") ~= nil)
 
--- Guardar un layout en el formulario borra la memoria del widget.
+-- Saving a layout in the form clears the widget memory.
 storeLib.saveBrainGeometry({ ["noctalia-term-cerebro"] = "top-right, 400x300, -10, 10" })
 env.onIpc("add", "cerebro|cerebro --demo|center, 500x400")
-check("formulario: borra la memoria del widget", nil,
+check("form: clears the widget memory", nil,
   storeLib.loadBrain().brainGeometry["noctalia-term-cerebro"])
 
--- O5: al salir de edición se guarda la geometría que movió el usuario.
+-- O5: leaving edit mode saves the geometry the user moved.
 local function enterEditMode()
   local node = findNode(lastTree, "edit")
   if node ~= nil and node.props.onClick ~= nil then node.props.onClick() end
@@ -1572,25 +1572,25 @@ env.onIpc("add", "cerebro|cerebro --demo|bottom-left, 802x582")
 env.onOpen("")
 clients = {}
 clock = clock + 5000
-clickCard("cerebro")  -- coloca la ventana y registra lo que impone el plugin
+clickCard("cerebro")  -- places the window and records what the plugin imposes
 
--- Una ventana que sigue donde el plugin la puso no toca el layout.
+-- A window that stays where the plugin put it does not touch the layout.
 clients = {
   { class = "noctalia-term-cerebro", at = { 0, 858 }, size = { 802, 582 }, address = "0x77", monitor = 0 },
 }
 enterEditMode()
 enterEditMode()
-check("O5: no toca una ventana quieta", "bottom-left, 802x582", storeLib.load().layouts.cerebro)
+check("O5: does not touch a still window", "bottom-left, 802x582", storeLib.load().layouts.cerebro)
 
--- Una ventana movida a mano se guarda como layout permanente.
+-- A window moved by hand is saved as a permanent layout.
 clients = {
   { class = "noctalia-term-cerebro", at = { 0, 0 }, size = { 700, 400 }, address = "0x77", monitor = 0 },
 }
 enterEditMode()
 enterEditMode()
-check("O5: guarda la geometría movida", "top-left, 700x400, 0, 0", storeLib.load().layouts.cerebro)
+check("O5: saves the moved geometry", "top-left, 700x400, 0, 0", storeLib.load().layouts.cerebro)
 
--- Y funciona igual con el cerebro ON.
+-- And it works the same with brain ON.
 storeLib.saveBrainToggle(true)
 env.onOpen("")
 clients = {}
@@ -1602,9 +1602,9 @@ clients = {
 }
 enterEditMode()
 enterEditMode()
-check("O5: también guarda con cerebro ON", "top-left, 700x400, 0, 0", storeLib.load().layouts.cerebro)
+check("O5: also saves with brain ON", "top-left, 700x400, 0, 0", storeLib.load().layouts.cerebro)
 
--- Un layout escrito en el formulario manda sobre la geometría viva.
+-- A layout written in the form wins over live geometry.
 storeLib.saveBrainToggle(false)
 env.onOpen("")
 clients = {}
@@ -1617,9 +1617,9 @@ clients = {
 enterEditMode()
 env.onIpc("add", "cerebro|cerebro --demo|bottom-center, 600x300")
 enterEditMode()
-check("O5: el formulario manda", "bottom-center, 600x300", storeLib.load().layouts.cerebro)
+check("O5: the form wins", "bottom-center, 600x300", storeLib.load().layouts.cerebro)
 
--- O4: el editor de alta va después de la última tarjeta.
+-- O4: the add editor goes after the last card.
 clients = {}
 env.onOpen("")
 enterEditMode()
@@ -1629,14 +1629,14 @@ for index, key in ipairs(editOrder) do
   if key:sub(1, 5) == "card-" then lastCardIndex = index end
   if key == "editor" then addEditorIndex = index end
 end
-check("edición: hay más de una tarjeta", true, countKeys(lastTree, "card-") > 1)
-check("edición: el editor de alta va al final", true,
+check("edit: there is more than one card", true, countKeys(lastTree, "card-") > 1)
+check("edit: the add editor goes last", true,
   addEditorIndex ~= nil and lastCardIndex ~= nil and addEditorIndex > lastCardIndex)
-enterEditMode()  -- salir del modo edición
+enterEditMode()  -- leave edit mode
 
 config.margin = savedMarginPanel
 
--- ------------------------------------------------- borrar desde el panel --
+-- ------------------------------------------------- delete from the panel --
 
 env.onOpen("")
 local editButton2 = findNode(lastTree, "edit")
@@ -1644,18 +1644,18 @@ if editButton2 ~= nil and editButton2.props.onClick ~= nil then
   editButton2.props.onClick()
 end
 local deleteButton = findNode(lastTree, "delete-btop")
-check("hay un botón de borrar por tarjeta", true, deleteButton ~= nil)
+check("there is a delete button per card", true, deleteButton ~= nil)
 if deleteButton ~= nil and deleteButton.props.onClick ~= nil then
   deleteButton.props.onClick()
 end
-check("al borrar, la tarjeta desaparece", false, findNode(lastTree, "card-btop") ~= nil)
-check("y el widget ya no está en la lista", false, (lastTree ~= nil) and findNode(lastTree, "card-btop") ~= nil)
+check("after deleting, the card disappears", false, findNode(lastTree, "card-btop") ~= nil)
+check("and the widget is no longer in the list", false, (lastTree ~= nil) and findNode(lastTree, "card-btop") ~= nil)
 
--- ------------------------------------------- fallback: layout y aleatorio --
+-- ------------------------------------------- fallback: layout and random --
 
--- El layout de un widget se respeta al abrirlo (dirección y tamaño), pero
--- cuando ya está abierto y se pulsa su miniatura en modo "random", se mueve a
--- un hueco libre conservando el tamaño que tiene.
+-- A widget's layout is respected when opening it (direction and size), but
+-- when it is already open and its thumbnail is clicked in "random" mode, it
+-- moves to a free slot keeping its current size.
 config.fallback_mode = "random"
 config.fallback_random_resize = false
 clients = {}
@@ -1663,26 +1663,26 @@ env.onIpc("add", "suelto|echo hola|")
 env.onIpc("add", "anclado|echo hola|top-left, 928x800")
 env.onOpen("")
 
--- "suelto" no tiene layout: se abre en un hueco libre con el tamaño de
+-- "suelto" has no layout: it opens in a free slot with the fallback size.
 -- respaldo.
 clock = clock + 5000
 dispatched = {}
 clickCard("suelto")
 local spawnText = dispatchText()
 local openedSize = spawnText:match("size = { (%d+, %d+) }")
-check("un widget sin layout se abre con el tamaño de respaldo", "900, 520", openedSize)
-check("y en una posición libre (no la de respaldo)", false, spawnText:find("move = { 120, 140") ~= nil)
+check("a widget without layout opens with the fallback size", "900, 520", openedSize)
+check("and at a free position (not the fallback one)", false, spawnText:find("move = { 120, 140") ~= nil)
 
--- "anclado" tiene layout: al abrirlo se respetan su dirección y su tamaño.
+-- "anclado" has a layout: its direction and size are respected when opening.
 clock = clock + 5000
 dispatched = {}
 clickCard("anclado")
 local anchoredText = dispatchText()
-check("un widget con layout se abre en su posición", true, anchoredText:find("move = { 16, 16") ~= nil)
-check("con su tamaño definido", true, anchoredText:find("size = { 928, 800") ~= nil)
+check("a widget with layout opens at its position", true, anchoredText:find("move = { 16, 16") ~= nil)
+check("with its defined size", true, anchoredText:find("size = { 928, 800") ~= nil)
 
--- Si ya está abierto y se vuelve a pulsar, en modo random se recoloca a un
--- hueco libre, pero conserva el tamaño que tiene ahora (no el del layout).
+-- If it is already open and clicked again, random mode repositions it to a
+-- free slot, but keeps its current size (not the layout size).
 clients = {
   { address = "0x1", class = "noctalia-term-anclado", x = 2000, y = 900, w = 600, h = 400, monitor = "1" },
 }
@@ -1691,10 +1691,10 @@ clock = clock + 5000
 dispatched = {}
 clickCard("anclado")
 local movedText = dispatchText()
-check("un widget abierto se recoloca en modo random", false, movedText:find("move = { 16, 16") ~= nil)
-check("y conserva su tamaño actual", true, movedText:find("resize%({ x = 600, y = 400") ~= nil)
+check("an open widget is repositioned in random mode", false, movedText:find("move = { 16, 16") ~= nil)
+check("and keeps its current size", true, movedText:find("resize%({ x = 600, y = 400") ~= nil)
 
--- Con "cambiar tamaño también" activo, el tamaño también se sortea.
+-- With "change size too" active, the size is also randomized.
 config.fallback_random_resize = true
 env.onOpen("")
 clock = clock + 5000
@@ -1703,45 +1703,44 @@ clickCard("anclado")
 local resizedText = dispatchText()
 local randomSize = resizedText:match("resize%({ x = (%d+), y = (%d+)")
 local sameSize = resizedText:find("resize%({ x = 600, y = 400") ~= nil
-check("con resize activo el tamaño se vuelve a sortear", false, sameSize)
-check("y el tamaño aleatorio está dentro del rango", true, randomSize ~= nil)
+check("with resize active the size is randomized again", false, sameSize)
+check("and the random size is within range", true, randomSize ~= nil)
 
 config.fallback_random_resize = false
 config.fallback_mode = "custom"
 clients = {}
 
 
--- ------------------------------------------------------------- ticks de frame --
+-- ------------------------------------------------------------- frame ticks --
 
-print("\n== ticks de frame ==")
+print("\n== frame ticks ==")
 
--- El host solo entrega `onFrameTick` cuando se le pide con
--- `panel.setNeedsFrameTick(true)`. En modo automático las tarjetas cerradas
--- animan sus capturas, así que tienen que pedir ticks: sin ellos la
--- animación se queda congelada en el primer fotograma.
+-- The host only delivers `onFrameTick` when requested with
+-- `panel.setNeedsFrameTick(true)`. In automatic mode closed cards animate
+-- their captures, so they must request ticks: without them the animation
+-- freezes on the first frame.
 local frameTicks = {}
 panelMock.setNeedsFrameTick = function(value)
   frameTicks[#frameTicks + 1] = value
 end
 
--- Un widget con dos capturas y sin ventana abierta. La lista de widgets vive
--- en el store, así que se añade por el IPC (el camino real del plugin).
--- Las capturas se.existían antes: la lista de fotogramas se cachea, y el
--- reloj del simulador no avanza.
+-- A widget with two captures and no open window. The widget list lives in
+-- the store, so it is added through IPC (the plugin's real path). The
+-- captures existed before: the frame list is cached, and the simulator clock
+-- does not advance.
 fs["anim-1.png"] = true
 fs["anim-2.png"] = true
 local frameReads = 0
 local previousFileInfo = mock.fileInfo
 mock.fileInfo = function(path)
   local name = path:match("([^/]+)$")
-  -- Cada relectura de la lista de fotogramas llama a `fileInfo` una vez por
-  -- fotograma: contando estas llamadas se sabe cuántas veces se ha releído
-  -- el disco para este widget.
+  -- Each re-read of the frame list calls `fileInfo` once per frame: counting
+  -- these calls shows how many times the disk was re-read for this widget.
   if name:match("^anim%-") then
     frameReads = frameReads + 1
   end
-  -- Mtimes distintos: el orden de los fotogramas no depende del desempate
-  -- del `table.sort` (que no es estable).
+  -- Different mtimes: frame order does not depend on the `table.sort`
+  -- tie-break (which is not stable).
   if name == "anim-1.png" then
     return { size = 10, mtime = os.time() - 10, isDir = false }
   end
@@ -1751,8 +1750,8 @@ mock.fileInfo = function(path)
   return previousFileInfo(path)
 end
 
--- Los casos de los ticks necesitan saber exactamente qué widgets hay: se
--- vacían los que dejaron las secciones anteriores.
+-- The tick cases need to know exactly which widgets exist: those left by
+-- previous sections are cleared.
 local function cardNames()
   local names = {}
   local function walk(node)
@@ -1776,22 +1775,22 @@ end
 
 frameTicks = {}
 env.onOpen("")
-check("sin tarjetas no se piden ticks de frame", false, frameTicks[#frameTicks])
+check("without cards no frame ticks are requested", false, frameTicks[#frameTicks])
 
--- Una tarjeta con una sola captura no tiene nada que animar: no hay
--- fotogramas que alternar, así que pedir ticks sería un bucle vacío.
+-- A card with a single capture has nothing to animate: there are no frames
+-- to alternate, so requesting ticks would be an empty loop.
 fs["uno-1.png"] = true
 env.onIpc("add", "uno|uno|center, 500x300")
-check("una tarjeta con una sola captura no pide ticks de frame", false, frameTicks[#frameTicks])
+check("a card with a single capture does not request frame ticks", false, frameTicks[#frameTicks])
 
 env.onIpc("add", "anim|anim|center, 500x300")
 
 frameTicks = {}
 env.onOpen("")
 local lastTick = frameTicks[#frameTicks]
-check("en modo auto con capturas se piden ticks de frame", true, lastTick == true)
+check("in auto mode with captures, frame ticks are requested", true, lastTick == true)
 
--- La imagen que pinta una tarjeta (para ver qué fotograma se muestra).
+-- The image a card draws (to see which frame is shown).
 local function cardImage(name)
   local card = findNode(lastTree, "card-" .. name)
   if card == nil then
@@ -1815,67 +1814,66 @@ local function cardImage(name)
 end
 
 local frameBefore = cardImage("anim")
-check("la tarjeta con capturas pinta un fotograma", true, frameBefore ~= nil)
+check("the card with captures draws a frame", true, frameBefore ~= nil)
 env.onFrameTick(300)
 local frameAfter = cardImage("anim")
 check(
-  "la animación de la tarjeta cerrada avanza",
+  "the closed card animation advances",
   true,
   frameAfter ~= nil and frameBefore ~= nil and frameAfter ~= frameBefore
 )
 
--- Los ticks no pueden releer el disco en cada frame: la lista de fotogramas
--- se relee solo cuando toca avanzar (cada 250 ms). Con 60 ticks de 16 ms
--- (casi un segundo) hay como mucho cuatro ventanas de 250 ms, así que las
--- lecturas del disco tienen a ser unas pocas, no una por tick.
+-- Ticks must not re-read the disk every frame: the frame list is re-read
+-- only when it is time to advance (every 250 ms). With 60 ticks of 16 ms
+-- (almost a second) there are at most four 250 ms windows, so disk reads
+-- tend to be a few, not one per tick.
 --
--- El reloj del simulador avanza con cada tick a propósito: si no, la caché
--- de un segundo de `preview.frames` taparía las lecturas que se cuentan.
+-- The simulator clock advances on each tick on purpose: otherwise the
+-- one-second cache in `preview.frames` would hide the reads being counted.
 frameReads = 0
 for _ = 1, 60 do
   clock = clock + 1000
   env.onFrameTick(16)
 end
 check(
-  "los ticks no releen el disco en cada frame",
+  "ticks do not re-read the disk every frame",
   true,
   frameReads <= 24
 )
 
--- Al borrar una tarjeta su entrada en la tabla de animaciones es basura:
--- si se queda, el panel seguiría pidiendo ticks para algo que ya no existe.
+-- When a card is deleted its entry in the animations table is garbage: if
+-- it stays, the panel would keep requesting ticks for something that no longer exists.
 env.onIpc("remove", "anim")
-check("al borrar una tarjeta animada se apagan los ticks de frame", false, frameTicks[#frameTicks])
+check("deleting an animated card turns off frame ticks", false, frameTicks[#frameTicks])
 env.onIpc("remove", "uno")
-check("al borrar la última tarjeta se apagan los ticks de frame", false, frameTicks[#frameTicks])
+check("deleting the last card turns off frame ticks", false, frameTicks[#frameTicks])
 
--- En modo mock no hay nada que animar: los ticks se apagan.
+-- In mock mode there is nothing to animate: ticks are turned off.
 config.card_preview = "mock"
 frameTicks = {}
 env.onOpen("")
-check("en modo mock no se piden ticks de frame", false, frameTicks[#frameTicks])
+check("in mock mode no frame ticks are requested", false, frameTicks[#frameTicks])
 config.card_preview = "auto"
 mock.fileInfo = previousFileInfo
 
--- ------------------------------------------------------- fotogramas recientes --
+-- ------------------------------------------------------- recent frames --
 
-print("\n== fotogramas recientes ==")
+print("\n== recent frames ==")
 
--- El panel guarda ocho capturas por widget y las usa para animar la tarjeta
--- cuando su ventana está cerrada. Al llegar a nueve descarta la más antigua y
--- borra su fichero. Si el árbol de UI todavía apunta a ese fichero, el host lo
--- vuelve a pedir al reabrir el panel y avisa "image failed to load" porque el
--- fichero ya no existe: un fichero en uso no se puede borrar hasta que el
--- árbol deje de usarlo.
+-- The panel stores eight captures per widget and uses them to animate the
+-- card when its window is closed. On the ninth it discards the oldest and
+-- deletes its file. If the UI tree still points to that file, the host
+-- requests it again when reopening the panel and warns "image failed to load"
+-- because the file no longer exists: a file in use cannot be deleted until
+-- the tree stops using it.
 
--- `snapshot.py` no se ejecuta en el simulador, así que el mock crea los
--- ficheros de las miniaturas. La captura se deja *pendiente* para poder
--- simular una que llega con la ventana ya cerrada: es justo cuando el árbol
--- se queda apuntando a un fichero que el plugin va a borrar.
+-- `snapshot.py` does not run in the simulator, so the mock creates the
+-- thumbnail files. The capture is left *pending* so a capture arriving with
+-- the window already closed can be simulated: that is exactly when the tree
+-- stays pointing to a file the plugin is going to delete.
 --
--- El `removeFile` del simulador borra de la tabla de la sección de
--- miniaturas; aquí interesa el mismo disco que se usa para crear los
--- ficheros de las capturas.
+-- The simulator's `removeFile` deletes from the thumbnail section table;
+-- here the same disk used to create the capture files matters.
 local previousRemoveFile = mock.removeFile
 mock.removeFile = function(path)
   files[path] = nil
@@ -1893,8 +1891,8 @@ mock.runAsync = function(argv, callback)
       pendingCapture = nil
       local raw = files[batchPath]
       if raw ~= nil then
-        -- Las rutas se leen del texto del lote: basta con el texto, no
-        -- hace falta decodificar el JSON del batch.
+        -- Paths are read from the batch text: the text is enough, there is
+        -- no need to decode the batch JSON.
         for out in raw:gmatch('"out":"([^"]*)"') do
           files[out] = true
           capturedFrames[#capturedFrames + 1] = out
@@ -1920,8 +1918,8 @@ local function finishCapture()
   end
 end
 
--- Las secciones anteriores dejan tarjetas sueltas: se borran para que la
--- cuenta de capturas sea solo del widget de esta sección.
+-- Previous sections leave stray cards: they are deleted so the capture
+-- count belongs only to this section's widget.
 for _, name in ipairs(cardNames()) do
   env.onIpc("remove", name)
 end
@@ -1932,37 +1930,37 @@ clients = {
 }
 env.onOpen("")
 
--- Ocho capturas: la lista de fotogramas llega al tope.
+-- Eight captures: the frame list reaches the cap.
 for _ = 1, 8 do
   finishCapture()
   clock = clock + 4000
   env.update()
 end
-check("el widget guarda ocho capturas", 8, #capturedFrames)
+check("the widget stores eight captures", 8, #capturedFrames)
 
--- La ventana se cierra con la novena captura en marcha: la tarjeta pasa a
--- animar los fotogramas guardados y el árbol los marca como en uso.
+-- The window closes with the ninth capture in progress: the card starts
+-- animating the saved frames and the tree marks them as in use.
 clients = {}
 env.onIpc("refresh", "")
 
--- Llega la novena captura: la lista se pasa de ocho y se descarta la más
--- antigua, que el árbol está usando.
+-- The ninth capture arrives: the list goes over eight and the oldest one is
+-- discarded, which the tree is using.
 finishCapture()
-check("el widget guarda nueve capturas", 9, #capturedFrames)
+check("the widget stores nine captures", 9, #capturedFrames)
 local oldestFrame = capturedFrames[1]
 check(
-  "el fotograma que el árbol usa no se borra al descartarlo",
+  "the frame the tree uses is not deleted when discarded",
   true,
   files[oldestFrame] ~= nil
 )
 
--- Cuando el árbol deja de usarlo, el fichero descartado sí se borra.
+-- When the tree stops using it, the discarded file is deleted.
 clock = clock + 4000
 env.update()
 clock = clock + 4000
 env.update()
 check(
-  "el fotograma descartado se borra cuando el árbol deja de usarlo",
+  "the discarded frame is deleted when the tree stops using it",
   true,
   files[oldestFrame] == nil
 )
@@ -1975,27 +1973,27 @@ clients = {}
 
 print("\n== service.luau ==")
 
--- El service usa su propio entorno (globals propios) con el mismo `noctalia`.
+-- The service uses its own environment (own globals) with the same `noctalia`.
 local service = {}
 setmetatable(service, { __index = env })
 local chunk = assert(loadfile(DIR .. "service.luau", "t", service))
 chunk()
 check("service: exporta update", "function", type(service.update))
--- el mock de getConfig debe devolver margin = 0 para que los esperados sean exactos
-check("service: intervalo de sondeo 1 s", true, serviceUpdatedMs == 1000)
+-- the getConfig mock must return margin = 0 so the expectations are exact
+check("service: 1 s poll interval", true, serviceUpdatedMs == 1000)
 
--- El string memorizado depende del margen configurado: se fija a 0 para que
--- los valores esperados de abajo sean exactos (se restaura al salir).
+-- The memorized string depends on the configured margin: it is set to 0 so
+-- the expected values below are exact (restored on exit).
 local savedMargin = config.margin
 config.margin = 0
 
 local callsBefore = #dispatched
 files[storePath] = '{"commands":{},"brain":false,"brainGeometry":{}}'
 service.update()
-check("service: cerebro OFF no consulta hyprctl", callsBefore, #dispatched)
-check("service: cerebro OFF no escribe memoria", nil, storeLib.load().brainGeometry["noctalia-term-lavat"])
+check("service: brain OFF does not query hyprctl", callsBefore, #dispatched)
+check("service: brain OFF does not write memory", nil, storeLib.load().brainGeometry["noctalia-term-lavat"])
 
--- cerebro ON: dos ticks con la misma ventana memorizan
+-- brain ON: two ticks with the same window memorize
 files[storePath] = '{"commands":{},"brain":true,"brainGeometry":{}}'
 clients = { { class = "noctalia-term-lavat", at = { 0, 800 }, size = { 802, 582 }, address = "0x1", monitor = 0 } }
 service.update()
@@ -2003,17 +2001,17 @@ service.update()
 check("service: cerebro ON memoriza tras dos ticks", "bottom-left, 802x582, 0, -58", storeLib.load().brainGeometry["noctalia-term-lavat"])
 clients = {}
 
--- cerebro ON y rectángulo impuesto reciente: no memoriza
+-- brain ON and recent imposed rect: does not memorize
 files[storePath] = '{"commands":{},"brain":true,"brainGeometry":{}}'
 mock.state.set("imposed", { ["noctalia-term-lavat"] = { x = 0, y = 800, w = 802, h = 582, at = clock } })
 clients = { { class = "noctalia-term-lavat", at = { 0, 800 }, size = { 802, 582 }, address = "0x1", monitor = 0 } }
 service.update()
 service.update()
-check("service: respeta la supresión de impuestos", nil, storeLib.load().brainGeometry["noctalia-term-lavat"])
+check("service: respects imposed suppression", nil, storeLib.load().brainGeometry["noctalia-term-lavat"])
 mock.state.set("imposed", {})
 clients = {}
 
--- si runAsync no arranca, el sondeo no debe quedar bloqueado
+-- if runAsync does not start, polling must not stay blocked
 files[storePath] = '{"commands":{},"brain":true,"brainGeometry":{}}'
 local realRunAsync = mock.runAsync
 mock.runAsync = function() return false end
@@ -2022,10 +2020,10 @@ mock.runAsync = realRunAsync
 clients = { { class = "noctalia-term-lavat", at = { 0, 800 }, size = { 802, 582 }, address = "0x1", monitor = 0 } }
 service.update()
 service.update()
-check("service: runAsync fallido no bloquea el sondeo", "bottom-left, 802x582, 0, -58", storeLib.load().brainGeometry["noctalia-term-lavat"])
+check("service: failed runAsync does not block polling", "bottom-left, 802x582, 0, -58", storeLib.load().brainGeometry["noctalia-term-lavat"])
 clients = {}
 
 config.margin = savedMargin
 
-print(string.format("\n%d comprobaciones, %d fallos", PASSED + FAILED, FAILED))
+print(string.format("\n%d checks, %d failures", PASSED + FAILED, FAILED))
 os.exit(FAILED == 0 and 0 or 1)

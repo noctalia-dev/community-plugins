@@ -1,13 +1,13 @@
 --!nonstrict
--- Caja (x, y, ancho, alto) del output donde vive el widget.
+-- Box (x, y, width, height) of the output where the widget lives.
 --
--- Una sola fuente de selección para el panel y el servicio: si cada uno
--- calculara la pantalla por su cuenta, un desplazamiento guardado por uno no
--- se reconstruiría igual en el otro.
+-- A single selection source for the panel and the service: if each one
+-- computed the screen on its own, an offset saved by one would not be
+-- reconstructed the same way by the other.
 --
--- Regla: `config.output` (si existe), si no el output enfocado, si no el
--- primero. Si no hay ningún output utilizable o la caja es diminuta
--- (< 320x240), se devuelve un respaldo de 1920x1080 en el origen.
+-- Rule: `config.output` (if present), otherwise the focused output, otherwise
+-- the first one. If there is no usable output or the box is tiny
+-- (< 320x240), a 1920x1080 fallback at the origin is returned.
 
 local M = {}
 
@@ -25,7 +25,7 @@ local function fallbackBox()
   }
 end
 
--- Devuelve la caja del output elegido (tabla nueva, nunca la del mock).
+-- Return the chosen output's box (new table, never the mock's).
 function M.outputBox(config)
   local outputs = noctalia.outputs() or {}
   local wanted = tostring(config and config.output or "")

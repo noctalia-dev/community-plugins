@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Extrae los fotogramas de un GIF a PNG para poder animarlo en el panel.
+"""Extract GIF frames to PNG so the panel can animate them.
 
-`ui.image` de Noctalia pinta solo el primer fotograma de un GIF animado, así
-que el plugin extrae cada fotograma a un PNG y los intercambia con un tick de
-frames. Este script deja los PNG y un `manifest.json` con las duraciones en el
-directorio que le pasa el plugin.
+Noctalia's `ui.image` draws only the first frame of an animated GIF, so the
+plugin extracts every frame to a PNG and swaps them on a frame tick. This
+script writes the PNGs and a `manifest.json` with the durations into the
+directory passed by the plugin.
 
-Uso:
-    gif-frames.py <archivo.gif> <directorio_salida>
+Usage:
+    gif-frames.py <file.gif> <output_dir>
 """
 from __future__ import annotations
 
@@ -18,28 +18,28 @@ import sys
 try:
     from PIL import Image, ImageSequence
 except Exception as exc:  # pragma: no cover - depende del sistema
-    print(f"Pillow no disponible: {exc}", file=sys.stderr)
+    print(f"Pillow not available: {exc}", file=sys.stderr)
     raise SystemExit(2)
 
-# Los GIF muy largos se recortan para no llenar el disco ni el presupuesto de
-# CPU del panel; con 120 fotogramas hay de sobra para una miniatura.
+# Very long GIFs are trimmed to avoid filling the disk or the panel's CPU
+# budget; 120 frames is more than enough for a thumbnail.
 MAX_FRAMES = 120
 MAX_WIDTH = 320
 
 
 def main() -> int:
     if len(sys.argv) != 3:
-        print("uso: gif-frames.py <archivo.gif> <directorio_salida>", file=sys.stderr)
+        print("usage: gif-frames.py <file.gif> <output_dir>", file=sys.stderr)
         return 1
 
     source, outdir = sys.argv[1], sys.argv[2]
     if not os.path.isfile(source):
-        print(f"no existe: {source}", file=sys.stderr)
+        print(f"does not exist: {source}", file=sys.stderr)
         return 1
 
     os.makedirs(outdir, exist_ok=True)
 
-    # Limpiar fotogramas de una extracción anterior para no mezclar versiones.
+    # Clear frames from a previous extraction to avoid mixing versions.
     for name in os.listdir(outdir):
         if name.startswith("frame-") and name.endswith(".png"):
             try:
@@ -62,13 +62,13 @@ def main() -> int:
             name = f"frame-{index:03d}.png"
             rgba.save(os.path.join(outdir, name), "PNG", optimize=True)
             frames.append(name)
-            # Pillow expone la duración en milisegundos; algunos GIF usan 0
-            # para "lo antes posible", que interpretamos como 100 ms.
+            # Pillow exposes the duration in milliseconds; some GIFs use 0
+            # for "as soon as possible", which we interpret as 100 ms.
             duration = int(frame.info.get("duration", 100) or 100)
             durations.append(max(20, duration))
 
     if not frames:
-        print("el GIF no produjo fotogramas", file=sys.stderr)
+        print("the GIF produced no frames", file=sys.stderr)
         return 1
 
     manifest = {

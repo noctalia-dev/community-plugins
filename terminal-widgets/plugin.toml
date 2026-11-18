@@ -1,11 +1,11 @@
-# Lanzador de widgets de terminal en ventanas flotantes de Hyprland.
+# Terminal widget launcher in floating Hyprland windows.
 #
-# Cada widget (nombre + comando) se convierte en una tarjeta del panel; al
-# pulsarla se abre kitty con clase/título propios y su geometría.
+# Each widget (name + command) becomes a card in the panel; clicking it opens
+# kitty with its own class/title and geometry.
 #
-# La lista vive en el `store.json` del plugin y se edita desde el propio panel.
-# Los defaults integrados (lib/defaults.luau) solo rellenan la lista inicial;
-# Ajustes de Noctalia ya no es una segunda fuente de verdad.
+# The list lives in the plugin's `store.json` and is edited from the panel
+# itself. The built-in defaults (lib/defaults.luau) only fill the initial list;
+# Noctalia Settings is no longer a second source of truth.
 
 id = "faminec/terminal-widgets"
 name = "Terminal Widgets"
@@ -185,11 +185,11 @@ entry = "widget.luau"
 [[panel]]
 id = "panel"
 entry = "panel.luau"
-# El tamaño del panel se mide en píxeles lógicos: Noctalia lo multiplica por
-# `accessibility.ui_scale` y le suma el sangrado de la sombra. Con ui_scale =
-# 1.2, 520x750 se ven como ~652x916 px, el alto justo para cuatro renglones de
-# tarjetas abiertas (la miniatura más alta es la de una columna) sin barra de
-# scroll. Con más renglones, la lista se desplaza.
+# The panel size is measured in logical pixels: Noctalia multiplies it by
+# `accessibility.ui_scale` and adds the shadow bleed. With ui_scale = 1.2,
+# 520x750 is shown as ~652x916 px, just tall enough for four rows of open
+# cards (the tallest thumbnail is the single-column one) without a scrollbar.
+# With more rows, the list scrolls.
 width = 520
 height = 750
 placement = "attached"

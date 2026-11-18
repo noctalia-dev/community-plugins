@@ -1,5 +1,5 @@
 --!nonstrict
--- Icono de barra: abre/cierra el panel de lanzamiento.
+-- Bar icon: opens/closes the launcher panel.
 
 local glyph = noctalia.getConfig("glyph") or "terminal-2"
 

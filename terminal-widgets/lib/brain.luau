@@ -3,14 +3,14 @@ local layoutLib = require("./layout.luau")
 local win = require("./windows.luau")
 local M = {}
 
--- Edad máxima (ms) de un rectángulo impuesto para seguir suprimiéndolo.
+-- Maximum age (ms) of an imposed rect before it stops being suppressed.
 M.IMPOSED_TTL_MS = 5000
 
 local function thirdMargin(size)
   return size / 3
 end
 
--- Ancla deducida del cuadrante del CENTRO de la ventana.
+-- Anchor inferred from the quadrant of the window CENTER.
 function M.anchorFromRect(rect, screen, margin)
   local centerX = rect.x + rect.w / 2
   local centerY = rect.y + rect.h / 2
@@ -39,7 +39,7 @@ function M.anchorFromRect(rect, screen, margin)
     anchor = row .. "-" .. column
   end
   local baseX, baseY = layoutLib.anchorPosition(anchor, rect.w, rect.h, screen.width, screen.height, margin)
-  -- x/y relativos a la caja del output, igual que resolveGeometry().
+  -- x/y relative to the output box, same as resolveGeometry().
   return {
     anchor = anchor,
     dx = math.floor((rect.x - screen.x) - baseX),
@@ -75,8 +75,8 @@ local function sameRect(a, b)
     and a.x == b.x and a.y == b.y and a.w == b.w and a.h == b.h
 end
 
--- Captura SOLO geometría manual (ver §5.4 del diseño): descarta lo que el
--- plugin impuso y exige dos sondeos consecutivos iguales.
+-- Capture ONLY manual geometry (see §5.4 of the design): discard what the
+-- plugin imposed and require two consecutive identical polls.
 function M.capture(clients, screen, margin, previous, imposed, pending)
   previous = previous or {}
   imposed = imposed or {}
@@ -93,7 +93,7 @@ function M.capture(clients, screen, margin, previous, imposed, pending)
         and (now - (stamp.at or 0)) <= M.IMPOSED_TTL_MS
         and stamp.x == rect.x and stamp.y == rect.y and stamp.w == rect.w and stamp.h == rect.h
       if suppressed then
-        -- La puso el plugin: no hay nada que memorizar y el pendiente se cancela.
+        -- The plugin placed it: nothing to memorize and the pending entry is cleared.
         nextPending[client.class] = nil
       else
         if sameRect(pending[client.class], rect) then
