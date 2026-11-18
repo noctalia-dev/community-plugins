@@ -399,6 +399,14 @@ function M.renderModal(U, panelW, panelH, R, renderFn)
         local ok, err = M.save(cleanName, dk, lk)
         if ok then
           M.isOpen=false; M.statusText=""; M.statusIsError=false
+          local list = M.list()
+          for idx, id in ipairs(list) do
+            if id == cleanName then
+              M.selectedIdx = idx
+              M.apply(id)
+              break
+            end
+          end
         else
           M.statusText=err or "Save failed."; M.statusIsError=true
         end

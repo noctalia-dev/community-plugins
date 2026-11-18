@@ -1397,6 +1397,7 @@ local function updateThemeFromSystem()
       local prevBuiltin = selectedBuiltinIdx
       local prevCommunity = selectedCommunityIdx
       local prevScheme = selectedSchemeIdx
+      local prevCustom = CT.selectedIdx
 
       local src, scheme = string.match(res.stdout, "(%S+)%s+(.+)")
       if src and src ~= "" then
@@ -1442,6 +1443,7 @@ local function updateThemeFromSystem()
         or (prevBuiltin ~= selectedBuiltinIdx)
         or (prevCommunity ~= selectedCommunityIdx)
         or (prevScheme ~= selectedSchemeIdx)
+        or (prevCustom ~= CT.selectedIdx)
       if changed and isPickerOpen then render() end
     end
   end)
@@ -2200,9 +2202,13 @@ local function buildStandardRow2(panelW: number?)
             currentPaletteSource = "custom"
             local customList = CT.list()
             if #customList > 0 then
-              local id = customList[CT.selectedIdx] or customList[1]
-              CT.selectedIdx = 1
-              CT.apply(id)
+              local safeIdx = CT.selectedIdx or 1
+              if safeIdx < 1 or safeIdx > #customList then
+                safeIdx = 1
+              end
+              CT.selectedIdx = safeIdx
+              local id = customList[safeIdx]
+              if id then CT.apply(id) end
             end
             render()
           end,
