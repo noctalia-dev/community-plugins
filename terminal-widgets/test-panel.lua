@@ -485,8 +485,8 @@ local preview = loadModule("preview.luau")
 print("== utilities ==")
 check("slug", util.slug("Mi Widget!"), "mi-widget")
 check("empty slug", util.slug("!!!"), "app")
-check("clase", util.classFor("Cava"), "noctalia-term-cava")
-check("trim", util.trim("  hola  "), "hola")
+check("class", util.classFor("Cava"), "noctalia-term-cava")
+check("trim", util.trim("  hello  "), "hello")
 
 -- ------------------------------------------------------------ widget merge --
 
@@ -518,19 +518,19 @@ function nodeKeys(tree, out)
 end
 
 -- --- harness: shared state, atomic rename and service tick ---
-check("noctalia.state escribe y lee", "hola", (function()
-  mock.state.set("k", "hola")
+check("noctalia.state reads and writes", "hello", (function()
+  mock.state.set("k", "hello")
   return mock.state.get("k")
 end)())
-check("missing noctalia.state is nil", nil, mock.state.get("no-existe"))
+check("missing noctalia.state is nil", nil, mock.state.get("does-not-exist"))
 files["/tmp/a.tmp"] = "contenido"
-check("renameFile devuelve true", true, mock.renameFile("/tmp/a.tmp", "/tmp/a.json"))
+check("renameFile returns true", true, mock.renameFile("/tmp/a.tmp", "/tmp/a.json"))
 check("renameFile moves the contents", "contenido", files["/tmp/a.json"])
 check("renameFile deletes the source", nil, files["/tmp/a.tmp"])
 check("renameFile without a source returns false", false, mock.renameFile("/tmp/nada", "/tmp/otro"))
-check("setUpdateInterval existe", "function", type(mock.setUpdateInterval))
-check("nodeKeys recorre en pre-orden", "raiz/hijo1/hijo2", (function()
-  local tree = { key = "raiz", children = { { key = "hijo1" }, { key = "hijo2" } } }
+check("setUpdateInterval exists", "function", type(mock.setUpdateInterval))
+check("nodeKeys traverses in pre-order", "root/child1/child2", (function()
+  local tree = { key = "root", children = { { key = "child1" }, { key = "child2" } } }
   return table.concat(nodeKeys(tree), "/")
 end)())
 
@@ -538,17 +538,17 @@ end)())
 
 print("\n== store: add and delete ==")
 local st = { commands = {}, layouts = {}, removed = {} }
-store.upsert(st, "nuevo", "echo hola", "center, 800x400")
-check("widget added", st.commands.nuevo, "echo hola")
-check("position added", st.layouts.nuevo, "center, 800x400")
-store.remove(st, "nuevo")
-check("widget borrado", st.commands.nuevo, nil)
-check("tombstone creado", st.removed[1], "nuevo")
-store.upsert(st, "nuevo", "echo hola")
+store.upsert(st, "new", "echo hello", "center, 800x400")
+check("widget added", st.commands.new, "echo hello")
+check("position added", st.layouts.new, "center, 800x400")
+store.remove(st, "new")
+check("widget deleted", st.commands.new, nil)
+check("tombstone created", st.removed[1], "new")
+store.upsert(st, "new", "echo hello")
 check("tombstone cleared when adding again", #st.removed, 0)
 
 local stClear = { commands = {}, layouts = {}, thumbs = {}, removed = {} }
-store.upsert(stClear, "x", "cmd", "center, 800x400", "/tmp/miniatura.png")
+store.upsert(stClear, "x", "cmd", "center, 800x400", "/tmp/thumbnail.png")
 store.upsert(stClear, "x", nil, "", "")
 check("empty layout removes the position", stClear.layouts.x, nil)
 check("empty thumb removes the thumbnail", stClear.thumbs.x, nil)
@@ -560,32 +560,32 @@ local storeLib = store
 local storePath = storeLib.path()
 
 -- new fields with default values in an old store
-files[storePath] = '{"commands":{"a":"uno"},"layouts":{"a":"center, 100x100"}}'
+files[storePath] = '{"commands":{"a":"one"},"layouts":{"a":"center, 100x100"}}'
 local legacy = storeLib.load()
 check("store: brain defaults to false", false, legacy.brain)
 check("store: brainGeometry defaults to empty", 0, (function() local n = 0 for _ in pairs(legacy.brainGeometry) do n = n + 1 end return n end)())
 
 -- saveWidgets preserves the memory on disk
 files[storePath] = '{"commands":{},"layouts":{},"thumbs":{},"removed":{},"brain":true,"brainGeometry":{"noctalia-term-a":"center, 100x100"}}'
-storeLib.saveWidgets({ commands = { a = "uno" }, layouts = {}, thumbs = {}, removed = {} })
+storeLib.saveWidgets({ commands = { a = "one" }, layouts = {}, thumbs = {}, removed = {} })
 local afterWidgets = storeLib.load()
-check("saveWidgets: escribe commands", "uno", afterWidgets.commands.a)
-check("saveWidgets: preserva brain", true, afterWidgets.brain)
-check("saveWidgets: preserva brainGeometry", "center, 100x100", afterWidgets.brainGeometry["noctalia-term-a"])
-check("saveWidgets: fichero temporal borrado", nil, files[storePath .. ".tmp"])
+check("saveWidgets: writes commands", "one", afterWidgets.commands.a)
+check("saveWidgets: preserves brain", true, afterWidgets.brain)
+check("saveWidgets: preserves brainGeometry", "center, 100x100", afterWidgets.brainGeometry["noctalia-term-a"])
+check("saveWidgets: temporary file deleted", nil, files[storePath .. ".tmp"])
 
 -- saveBrainToggle preserves the widgets
 storeLib.saveBrainToggle(false)
 local afterToggle = storeLib.load()
-check("saveBrainToggle: apaga", false, afterToggle.brain)
-check("saveBrainToggle: preserva commands", "uno", afterToggle.commands.a)
+check("saveBrainToggle: turns off", false, afterToggle.brain)
+check("saveBrainToggle: preserves commands", "one", afterToggle.commands.a)
 
 -- saveBrainGeometry changes only what it receives
 storeLib.saveBrainGeometry({ ["noctalia-term-b"] = "top-right, 200x200" })
 local afterGeometry = storeLib.load()
 check("saveBrainGeometry: adds", "top-right, 200x200", afterGeometry.brainGeometry["noctalia-term-b"])
 check("saveBrainGeometry: keeps the others", "center, 100x100", afterGeometry.brainGeometry["noctalia-term-a"])
-check("saveBrainGeometry: conserva brain", false, afterGeometry.brain)
+check("saveBrainGeometry: preserves brain", false, afterGeometry.brain)
 
 -- saveBrainForget deletes only one
 storeLib.saveBrainForget("noctalia-term-a")
@@ -603,26 +603,26 @@ check("loadBrain: memory from disk", "center, 50x50", fresh.brainGeometry["nocta
 
 print("\n== positions ==")
 local spec = layout.parseLayout("bottom-center, 1610x584")
-check("ancla", spec.anchor, "bottom-center")
-check("ancho", spec.width, 1610)
-check("alto", spec.height, 584)
+check("anchor", spec.anchor, "bottom-center")
+check("width", spec.width, 1610)
+check("height", spec.height, 584)
 
 spec = layout.parseLayout("right-center 869x1424")
 check("anchor without comma", spec.anchor, "right-center")
 check("width without comma", spec.width, 869)
 
 spec = layout.parseLayout("bottom-left, 802x582, 0, -24")
-check("desplazamiento x", spec.dx, 0)
-check("desplazamiento y", spec.dy, -24)
+check("offset x", spec.dx, 0)
+check("offset y", spec.dy, -24)
 
 spec = layout.parseLayout("custom, 900x520, 120, 140")
-check("absoluta", spec.custom, true)
-check("absoluta x", spec.dx, 120)
-check("absoluta y", spec.dy, 140)
+check("absolute", spec.custom, true)
+check("absolute x", spec.dx, 120)
+check("absolute y", spec.dy, 140)
 
 spec = layout.parseLayout("x=120 y=140 w=900 h=520")
-check("clave=valor x", spec.dx, 120)
-check("clave=valor ancho", spec.width, 900)
+check("key=value x", spec.dx, 120)
+check("key=value width", spec.width, 900)
 
 spec = layout.parseLayout("auto, 900x520")
 check("auto", spec.auto, true)
@@ -638,8 +638,8 @@ check("anchor with underscore", layout.parseLayout("bottom_center").anchor, "bot
 check("negative size", layout.parseLayout("bottom-center, -10x-10").width, nil)
 
 local ax, ay = layout.anchorPosition("bottom-right", 900, 520, 3440, 1440, 16)
-check("ancla abajo-derecha x", ax, 3440 - 900 - 16)
-check("ancla abajo-derecha y", ay, 1440 - 520 - 16)
+check("anchor bottom-right x", ax, 3440 - 900 - 16)
+check("anchor bottom-right y", ay, 1440 - 520 - 16)
 
 -- -------------------------------------------------------------- manifest --
 
@@ -709,7 +709,7 @@ else
   end
 
   check("the manifest declares dependencies", true, next(declared) ~= nil)
-  check("declara hyprctl", true, declared["hyprctl"] == true)
+  check("declares hyprctl", true, declared["hyprctl"] == true)
 
   -- Every command of the default cards must be declared: the executable is
   -- the first word of the command. The list is the factory values from
@@ -831,10 +831,10 @@ local function fakeWindow(name, x, y, w, h)
 end
 
 local group = {
-  fakeWindow("arriba-izq", 16, 16, 900, 800),
-  fakeWindow("arriba-der", 2524, 16, 900, 800),
-  fakeWindow("abajo-izq", 16, 624, 900, 800),
-  fakeWindow("abajo-der", 2524, 624, 900, 800),
+  fakeWindow("top-left", 16, 16, 900, 800),
+  fakeWindow("top-right", 2524, 16, 900, 800),
+  fakeWindow("bottom-left", 16, 624, 900, 800),
+  fakeWindow("bottom-right", 2524, 624, 900, 800),
 }
 
 -- Process simulator: returns the window list when asked, records dispatched
@@ -877,30 +877,30 @@ local function movedTo(address)
 end
 
 win.rotate(group, "clockwise", false, function() end)
-local mx, my = movedTo("0xarriba-izq")
-check("horario: arriba-izq toma arriba-der", mx, 2524)
-check("horario: arriba-izq toma arriba-der (y)", my, 16)
-mx, my = movedTo("0xabajo-der")
-check("horario: abajo-der toma abajo-izq", mx, 16)
-check("horario: abajo-der toma abajo-izq (y)", my, 624)
+local mx, my = movedTo("0xtop-left")
+check("clockwise: top-left takes top-right", mx, 2524)
+check("clockwise: top-left takes top-right (y)", my, 16)
+mx, my = movedTo("0xbottom-right")
+check("clockwise: bottom-right takes bottom-left", mx, 16)
+check("clockwise: bottom-right takes bottom-left (y)", my, 624)
 
 dispatched = {}
 win.rotate(group, "counterclockwise", false, function() end)
-mx, my = movedTo("0xarriba-izq")
-check("antihorario: arriba-izq toma abajo-izq", mx, 16)
-check("antihorario: arriba-izq toma abajo-izq (y)", my, 624)
+mx, my = movedTo("0xtop-left")
+check("counterclockwise: top-left takes bottom-left", mx, 16)
+check("counterclockwise: top-left takes bottom-left (y)", my, 624)
 
 dispatched = {}
 win.rotate(group, "pairs", false, function() end)
-mx, my = movedTo("0xarriba-izq")
-check("parejas: arriba-izq toma arriba-der", mx, 2524)
-check("parejas: arriba-izq toma arriba-der (y)", my, 16)
+mx, my = movedTo("0xtop-left")
+check("pairs: top-left takes top-right", mx, 2524)
+check("pairs: top-left takes top-right (y)", my, 16)
 
 dispatched = {}
 win.rotate(group, "opposite", false, function() end)
-mx, my = movedTo("0xarriba-izq")
-check("opuesto: arriba-izq toma abajo-der", mx, 2524)
-check("opuesto: arriba-izq toma abajo-der (y)", my, 624)
+mx, my = movedTo("0xtop-left")
+check("opposite: top-left takes bottom-right", mx, 2524)
+check("opposite: top-left takes bottom-right (y)", my, 624)
 
 -- "opposite" rotation geometrically correct in any arrangement: a square
 -- built in a single corner must rotate along diagonals.
@@ -913,11 +913,11 @@ local corner = {
 dispatched = {}
 win.rotate(corner, "opposite", false, function() end)
 mx, my = movedTo("0xc1")
-check("opuesto en esquina: c1 toma c4 (x)", mx, 200)
-check("opuesto en esquina: c1 toma c4 (y)", my, 200)
+check("opposite in corner: c1 takes c4 (x)", mx, 200)
+check("opposite in corner: c1 takes c4 (y)", my, 200)
 mx, my = movedTo("0xc2")
-check("opuesto en esquina: c2 toma c3 (x)", mx, 200)
-check("opuesto en esquina: c2 toma c3 (y)", my, 10)
+check("opposite in corner: c2 takes c3 (x)", mx, 200)
+check("opposite in corner: c2 takes c3 (y)", my, 10)
 
 dispatched = {}
 win.rotate(group, "shuffle", false, function() end)
@@ -937,15 +937,15 @@ end
 check("random: each destination is used once", unique, #group)
 
 local odd = {
-  fakeWindow("arriba-izq", 16, 16, 900, 800),
-  fakeWindow("arriba-der", 2524, 16, 900, 800),
-  fakeWindow("abajo-izq", 16, 624, 900, 800),
+  fakeWindow("top-left", 16, 16, 900, 800),
+  fakeWindow("top-right", 2524, 16, 900, 800),
+  fakeWindow("bottom-left", 16, 624, 900, 800),
 }
 dispatched = {}
 win.rotate(odd, "pairs", false, function() end)
-mx, my = movedTo("0xarriba-izq")
-check("parejas impar: arriba-izq toma arriba-der", mx, 2524)
-mx, my = movedTo("0xabajo-izq")
+mx, my = movedTo("0xtop-left")
+check("odd pairs: top-left takes top-right", mx, 2524)
+mx, my = movedTo("0xbottom-left")
 check("odd pairs: the extra one stays", mx, 16)
 check("odd pairs: the extra one does not move (y)", my, 624)
 
@@ -994,17 +994,17 @@ print("\n== lib/output.luau ==")
 local outputLib = loadModule("output.luau")
 local box = outputLib.outputBox({ output = "" })
 check("outputBox: focused output box", 3440, box.width)
-check("outputBox: alto", 1440, box.height)
-check("outputBox: nombre", "DP-1", box.name)
-check("outputBox: origen", 0, box.x)
-check("outputBox: origen y", 0, box.y)
-check("outputBox: cfg.output manda", "DP-1", outputLib.outputBox({ output = "DP-1" }).name)
+check("outputBox: height", 1440, box.height)
+check("outputBox: name", "DP-1", box.name)
+check("outputBox: origin", 0, box.x)
+check("outputBox: origin y", 0, box.y)
+check("outputBox: cfg.output wins", "DP-1", outputLib.outputBox({ output = "DP-1" }).name)
 check("outputBox: missing cfg.output falls back to focused", "DP-1", outputLib.outputBox({ output = "HDMI-9" }).name)
 -- box too small -> fallback
 local savedOutputs = mock.outputs
 mock.outputs = function() return { { name = "X", width = 100, height = 80, x = 0, y = 0, scale = 1, focused = true } } end
 local tiny = outputLib.outputBox({ output = "" })
-check("outputBox: caja diminuta -> 1920x1080", "1920x1080", tiny.width .. "x" .. tiny.height)
+check("outputBox: tiny box -> 1920x1080", "1920x1080", tiny.width .. "x" .. tiny.height)
 mock.outputs = savedOutputs
 
 -- --------------------------------------------------------------- lib/brain.luau --
@@ -1018,16 +1018,16 @@ local SCREEN = { x = 0, y = 0, width = 3440, height = 1440, name = "DP-1" }
 local function anchorOf(x, y, w, h)
   return brain.anchorFromRect({ x = x, y = y, w = w, h = h }, SCREEN, 0).anchor
 end
-check("ancla: esquina inferior izquierda", "bottom-left", anchorOf(0, 800, 802, 582))
-check("ancla: esquina superior derecha", "top-right", anchorOf(2400, 0, 802, 582))
-check("ancla: centro exacto", "center", anchorOf(1319, 429, 802, 582))
-check("ancla: banda izquierda, fila central", "left-center", anchorOf(10, 429, 802, 582))
-check("ancla: banda derecha, fila central", "right-center", anchorOf(2600, 429, 802, 582))
-check("ancla: banda central, fila superior", "top-center", anchorOf(1319, 10, 802, 582))
-check("ancla: banda central, fila inferior", "bottom-center", anchorOf(1319, 800, 802, 582))
+check("anchor: bottom-left corner", "bottom-left", anchorOf(0, 800, 802, 582))
+check("anchor: top-right corner", "top-right", anchorOf(2400, 0, 802, 582))
+check("anchor: exact center", "center", anchorOf(1319, 429, 802, 582))
+check("anchor: left band, center row", "left-center", anchorOf(10, 429, 802, 582))
+check("anchor: right band, center row", "right-center", anchorOf(2600, 429, 802, 582))
+check("anchor: center band, top row", "top-center", anchorOf(1319, 10, 802, 582))
+check("anchor: center band, bottom row", "bottom-center", anchorOf(1319, 800, 802, 582))
 -- remaining corners
-check("ancla: superior izquierda", "top-left", anchorOf(0, 0, 802, 582))
-check("ancla: inferior derecha", "bottom-right", anchorOf(2600, 800, 802, 582))
+check("anchor: top-left", "top-left", anchorOf(0, 0, 802, 582))
+check("anchor: bottom-right", "bottom-right", anchorOf(2600, 800, 802, 582))
 
 -- round trip: rebuilding returns the exact position (relative to the box)
 local function roundTrip(rect, screen, margin)
@@ -1035,21 +1035,21 @@ local function roundTrip(rect, screen, margin)
   local baseX, baseY = layoutLib.anchorPosition(memory.anchor, memory.width, memory.height, screen.width, screen.height, margin)
   return (baseX + memory.dx) .. "," .. (baseY + memory.dy)
 end
-check("ida y vuelta: bottom-left", "0,800", roundTrip({ x = 0, y = 800, w = 802, h = 582 }, SCREEN, 0))
-check("ida y vuelta: centro", "1319,429", roundTrip({ x = 1319, y = 429, w = 802, h = 582 }, SCREEN, 0))
+check("round trip: bottom-left", "0,800", roundTrip({ x = 0, y = 800, w = 802, h = 582 }, SCREEN, 0))
+check("round trip: center", "1319,429", roundTrip({ x = 1319, y = 429, w = 802, h = 582 }, SCREEN, 0))
 check("round trip: with margin 24", "24,24", roundTrip({ x = 24, y = 24, w = 802, h = 582 }, SCREEN, 24))
 -- box with a shifted origin (second monitor): the offset is relative to the box
 local OFFSET = { x = 1920, y = 0, width = 1920, height = 1080, name = "DP-2" }
-check("ida y vuelta: caja desplazada", "0,0", roundTrip({ x = 1920, y = 0, w = 600, h = 400 }, OFFSET, 0))
+check("round trip: shifted box", "0,0", roundTrip({ x = 1920, y = 0, w = 600, h = 400 }, OFFSET, 0))
 
-check("layoutString: formato exacto", "bottom-left, 802x582, 0, -58", brain.layoutString({ x = 0, y = 800, w = 802, h = 582 }, SCREEN, 0))
+check("layoutString: exact format", "bottom-left, 802x582, 0, -58", brain.layoutString({ x = 0, y = 800, w = 802, h = 582 }, SCREEN, 0))
 -- positive offset: window 100 px from the left edge and level with the bottom base
 local shifted = brain.anchorFromRect({ x = 100, y = 800, w = 802, h = 582 }, SCREEN, 0)
-check("layoutString: desfase en x", 100, shifted.dx)
-check("layoutString: desfase en y", -58, shifted.dy)
+check("layoutString: offset in x", 100, shifted.dx)
+check("layoutString: offset in y", -58, shifted.dy)
 check("layoutString: string with offset", "bottom-left, 802x582, 100, -58", brain.layoutString({ x = 100, y = 800, w = 802, h = 582 }, SCREEN, 0))
-check("geometryFromMemory: reconstruye", 800, (brain.geometryFromMemory("bottom-left, 802x582, 0, -58", 3440, 1440, 0) or {}).y)
-check("geometryFromMemory: ancho", 802, (brain.geometryFromMemory("bottom-left, 802x582, 0, -58", 3440, 1440, 0) or {}).width)
+check("geometryFromMemory: rebuilds", 800, (brain.geometryFromMemory("bottom-left, 802x582, 0, -58", 3440, 1440, 0) or {}).y)
+check("geometryFromMemory: width", 802, (brain.geometryFromMemory("bottom-left, 802x582, 0, -58", 3440, 1440, 0) or {}).width)
 check("geometryFromMemory: invalid string", nil, brain.geometryFromMemory("not a layout", 3440, 1440, 0))
 check("geometryFromMemory: nil", nil, brain.geometryFromMemory(nil, 3440, 1440, 0))
 
@@ -1062,18 +1062,18 @@ end
 local rect = { x = 0, y = 800, w = 802, h = 582 }
 local r1 = brain.capture({ clientAt("noctalia-term-lavat", 0, 800, 802, 582) }, SCREEN, 0, {}, {}, {})
 check("capture: first poll does not memorize", nil, r1.memory["noctalia-term-lavat"])
-check("captura: primer sondeo deja pendiente", 800, (r1.pending["noctalia-term-lavat"] or {}).y)
+check("capture: first poll leaves pending", 800, (r1.pending["noctalia-term-lavat"] or {}).y)
 check("capture: first poll without changes", false, r1.changed)
 
 -- identical poll 2: memorizes
 local r2 = brain.capture({ clientAt("noctalia-term-lavat", 0, 800, 802, 582) }, SCREEN, 0, {}, {}, r1.pending)
-check("captura: segundo sondeo memoriza", "bottom-left, 802x582, 0, -58", r2.memory["noctalia-term-lavat"])
-check("captura: segundo sondeo marca cambio", true, r2.changed)
+check("capture: second poll memorizes", "bottom-left, 802x582, 0, -58", r2.memory["noctalia-term-lavat"])
+check("capture: second poll marks a change", true, r2.changed)
 
 -- different rect: resets the pending entry and does not memorize
 local r3 = brain.capture({ clientAt("noctalia-term-lavat", 0, 700, 802, 582) }, SCREEN, 0, {}, {}, r2.pending)
 check("capture: different rect does not memorize", nil, r3.memory["noctalia-term-lavat"])
-check("captura: rect distinto reinicia pendiente", 700, (r3.pending["noctalia-term-lavat"] or {}).y)
+check("capture: different rect resets pending", 700, (r3.pending["noctalia-term-lavat"] or {}).y)
 
 -- recent matching imposition: suppresses and cancels the pending entry
 clock = 10000
@@ -1092,11 +1092,11 @@ check("capture: expired imposition memorizes", "bottom-left, 802x582, 0, -58", r
 local r6 = brain.capture({ clientAt("kitty", 0, 0, 100, 100) }, SCREEN, 0, {}, {}, {})
 local foreign = 0
 for _ in pairs(r6.pending) do foreign = foreign + 1 end
-check("captura: ignora ventanas ajenas", 0, foreign)
+check("capture: ignores foreign windows", 0, foreign)
 
 -- closed window: its pending entry disappears
 local r7 = brain.capture({}, SCREEN, 0, {}, {}, r1.pending)
-check("captura: ventana cerrada borra pendiente", nil, r7.pending["noctalia-term-lavat"])
+check("capture: closed window clears pending", nil, r7.pending["noctalia-term-lavat"])
 
 -- no change from previous memory: does not mark a change
 local prev = { ["noctalia-term-lavat"] = "bottom-left, 802x582, 0, -58" }
@@ -1226,18 +1226,18 @@ local manifestFixture = files[DIR .. "plugin.toml"]
 files[DIR .. "plugin.toml"] = [==[
 [[setting]]
 key = "commands"
-default = { nuevo = "un-comando --nuevo" }
+default = { new = "a-command --new" }
 ]==]
 -- Simulate the user having no config in Settings (empty config)
 local oldConfig = config
 config = {}
 defaults.reset()
 env.onOpen("")
-local freshCard = findNode(lastTree, "card-nuevo")
+local freshCard = findNode(lastTree, "card-new")
 check(
   "opening re-reads the manifest (no user config)",
   true,
-  freshCard ~= nil and tostring(freshCard.props.tooltip):find("un-comando --nuevo", 1, true) ~= nil
+  freshCard ~= nil and tostring(freshCard.props.tooltip):find("a-command --new", 1, true) ~= nil
 )
 files[DIR .. "plugin.toml"] = manifestFixture
 config = oldConfig
@@ -1337,9 +1337,9 @@ env.onIpc("open-all", "")
 check("IPC open-all does not fail", true, true)
 env.onIpc("close-all", "")
 check("IPC close-all does not fail", true, true)
-env.onIpc("add", "prueba|echo hola|center, 500x300")
+env.onIpc("add", "test|echo hello|center, 500x300")
 check("IPC add does not fail", true, true)
-env.onIpc("remove", "prueba")
+env.onIpc("remove", "test")
 check("IPC remove does not fail", true, true)
 env.onIpc("launch", "cava")
 check("IPC launch does not fail", true, true)
@@ -1445,9 +1445,9 @@ env.onOpen("")
 -- The button is first in its row: left of "open all".
 local brainButton = findNode(lastTree, "brain")
 check("panel: the brain button exists", true, brainButton ~= nil)
-check("panel: glifo brain", "brain", brainButton ~= nil and brainButton.props.glyph or nil)
-check("panel: variante ghost", "ghost", brainButton ~= nil and brainButton.props.variant or nil)
-check("panel: arranca apagado", false, brainButton ~= nil and brainButton.props.selected == true)
+check("panel: brain glyph", "brain", brainButton ~= nil and brainButton.props.glyph or nil)
+check("panel: ghost variant", "ghost", brainButton ~= nil and brainButton.props.variant or nil)
+check("panel: starts off", false, brainButton ~= nil and brainButton.props.selected == true)
 check("panel: off tooltip", "brain_off", brainButton ~= nil and brainButton.props.tooltip or nil)
 
 -- Order of the rendered tree keys (keys live in `props.key`; `nodeKeys`
@@ -1481,7 +1481,7 @@ check("panel: marked when turned on", true, brainOn ~= nil and brainOn.props.sel
 check("panel: on tooltip", "brain_on", brainOn ~= nil and brainOn.props.tooltip or nil)
 
 -- Turning it off does not erase the memory.
-storeLib.saveBrainGeometry({ ["noctalia-term-cerebro"] = "center, 10x10" })
+storeLib.saveBrainGeometry({ ["noctalia-term-brain"] = "center, 10x10" })
 env.onOpen("")
 local brainOffButton = findNode(lastTree, "brain")
 if brainOffButton ~= nil and brainOffButton.props.onClick ~= nil then
@@ -1489,57 +1489,57 @@ if brainOffButton ~= nil and brainOffButton.props.onClick ~= nil then
 end
 check("panel: turns the brain off", false, storeLib.loadBrain().brain)
 check("panel: turning it off does not erase memory", "center, 10x10",
-  storeLib.loadBrain().brainGeometry["noctalia-term-cerebro"])
+  storeLib.loadBrain().brainGeometry["noctalia-term-brain"])
 
 -- Both keys exist in both languages.
 for _, lang in ipairs({ "en", "es" }) do
   local raw = readRealFile(DIR .. "translations/" .. lang .. ".json")
-  check("traducciones " .. lang .. ": brain_on", true, raw ~= nil and raw:find('"brain_on"') ~= nil)
-  check("traducciones " .. lang .. ": brain_off", true, raw ~= nil and raw:find('"brain_off"') ~= nil)
+  check("translations " .. lang .. ": brain_on", true, raw ~= nil and raw:find('"brain_on"') ~= nil)
+  check("translations " .. lang .. ": brain_off", true, raw ~= nil and raw:find('"brain_off"') ~= nil)
 end
 
 -- Test widget with an official layout and different memory.
-env.onIpc("remove", "cerebro")
-env.onIpc("add", "cerebro|cerebro --demo|bottom-left, 802x582")
+env.onIpc("remove", "brain")
+env.onIpc("add", "brain|brain --demo|bottom-left, 802x582")
 storeLib.saveBrainToggle(false)
-storeLib.saveBrainGeometry({ ["noctalia-term-cerebro"] = "top-right, 400x300, -10, 10" })
+storeLib.saveBrainGeometry({ ["noctalia-term-brain"] = "top-right, 400x300, -10, 10" })
 env.onOpen("")
 
 -- Brain OFF: the official layout wins (the usual behavior).
 clients = {
-  { class = "noctalia-term-cerebro", at = { 100, 100 }, size = { 600, 400 }, address = "0x77", monitor = 0 },
+  { class = "noctalia-term-brain", at = { 100, 100 }, size = { 600, 400 }, address = "0x77", monitor = 0 },
 }
 clock = clock + 5000
 dispatched = {}
-clickCard("cerebro")
+clickCard("brain")
 local offText = dispatchText()
 check("without brain: resize to the layout size", true, offText:find("resize%({ x = 802, y = 582") ~= nil)
 check("without brain: returns to its anchor", true, offText:find("move%({ x = 0, y = 858") ~= nil)
 
 -- What the plugin imposes is published so the service does not memorize it.
 local published = mock.state.get("imposed") or {}
-local imposedEntry = published["noctalia-term-cerebro"]
+local imposedEntry = published["noctalia-term-brain"]
 check("imposed: publishes the class", true, imposedEntry ~= nil)
 check("imposed: layout width", 802, imposedEntry ~= nil and imposedEntry.w or nil)
 check("imposed: absolute position", 858, imposedEntry ~= nil and imposedEntry.y or nil)
-check("imposed: lleva sello temporal", true,
+check("imposed: carries a timestamp", true,
   imposedEntry ~= nil and (imposedEntry.at or 0) > 0)
 
 -- Expired entries are pruned when publishing the next geometry.
 mock.state.set("imposed", { ["noctalia-term-vieja"] = { x = 0, y = 0, w = 10, h = 10, at = 1 } })
 clock = clock + 5000
-clickCard("cerebro")
+clickCard("brain")
 check("imposed: prunes expired ones", nil, (mock.state.get("imposed") or {})["noctalia-term-vieja"])
 
 -- Brain ON and already open: focus only, no repositioning.
 storeLib.saveBrainToggle(true)
 env.onOpen("")
 clients = {
-  { class = "noctalia-term-cerebro", at = { 100, 100 }, size = { 600, 400 }, address = "0x77", monitor = 0 },
+  { class = "noctalia-term-brain", at = { 100, 100 }, size = { 600, 400 }, address = "0x77", monitor = 0 },
 }
 clock = clock + 5000
 dispatched = {}
-clickCard("cerebro")
+clickCard("brain")
 check("with brain and open: a single dispatch", 1, #dispatched)
 check("with brain and open: it is a focus", true,
   dispatched[1] ~= nil and dispatched[1]:find("hl.dsp.focus") ~= nil)
@@ -1550,16 +1550,16 @@ check("with brain and open: does not resize", nil,
 clients = {}
 clock = clock + 5000
 dispatched = {}
-clickCard("cerebro")
+clickCard("brain")
 local onText = dispatched[1] or ""
 check("with brain: opens with the remembered size", true, onText:find("size = { 400, 300") ~= nil)
 check("with brain: opens at the remembered position", true, onText:find("move = { 3030, 10") ~= nil)
 
 -- Saving a layout in the form clears the widget memory.
-storeLib.saveBrainGeometry({ ["noctalia-term-cerebro"] = "top-right, 400x300, -10, 10" })
-env.onIpc("add", "cerebro|cerebro --demo|center, 500x400")
+storeLib.saveBrainGeometry({ ["noctalia-term-brain"] = "top-right, 400x300, -10, 10" })
+env.onIpc("add", "brain|brain --demo|center, 500x400")
 check("form: clears the widget memory", nil,
-  storeLib.loadBrain().brainGeometry["noctalia-term-cerebro"])
+  storeLib.loadBrain().brainGeometry["noctalia-term-brain"])
 
 -- O5: leaving edit mode saves the geometry the user moved.
 local function enterEditMode()
@@ -1568,56 +1568,56 @@ local function enterEditMode()
 end
 
 storeLib.saveBrainToggle(false)
-env.onIpc("add", "cerebro|cerebro --demo|bottom-left, 802x582")
+env.onIpc("add", "brain|brain --demo|bottom-left, 802x582")
 env.onOpen("")
 clients = {}
 clock = clock + 5000
-clickCard("cerebro")  -- places the window and records what the plugin imposes
+clickCard("brain")  -- places the window and records what the plugin imposes
 
 -- A window that stays where the plugin put it does not touch the layout.
 clients = {
-  { class = "noctalia-term-cerebro", at = { 0, 858 }, size = { 802, 582 }, address = "0x77", monitor = 0 },
+  { class = "noctalia-term-brain", at = { 0, 858 }, size = { 802, 582 }, address = "0x77", monitor = 0 },
 }
 enterEditMode()
 enterEditMode()
-check("O5: does not touch a still window", "bottom-left, 802x582", storeLib.load().layouts.cerebro)
+check("O5: does not touch a still window", "bottom-left, 802x582", storeLib.load().layouts.brain)
 
 -- A window moved by hand is saved as a permanent layout.
 clients = {
-  { class = "noctalia-term-cerebro", at = { 0, 0 }, size = { 700, 400 }, address = "0x77", monitor = 0 },
+  { class = "noctalia-term-brain", at = { 0, 0 }, size = { 700, 400 }, address = "0x77", monitor = 0 },
 }
 enterEditMode()
 enterEditMode()
-check("O5: saves the moved geometry", "top-left, 700x400, 0, 0", storeLib.load().layouts.cerebro)
+check("O5: saves the moved geometry", "top-left, 700x400, 0, 0", storeLib.load().layouts.brain)
 
 -- And it works the same with brain ON.
 storeLib.saveBrainToggle(true)
 env.onOpen("")
 clients = {}
-env.onIpc("add", "cerebro|cerebro --demo|bottom-left, 802x582")
+env.onIpc("add", "brain|brain --demo|bottom-left, 802x582")
 clock = clock + 5000
-clickCard("cerebro")
+clickCard("brain")
 clients = {
-  { class = "noctalia-term-cerebro", at = { 0, 0 }, size = { 700, 400 }, address = "0x77", monitor = 0 },
+  { class = "noctalia-term-brain", at = { 0, 0 }, size = { 700, 400 }, address = "0x77", monitor = 0 },
 }
 enterEditMode()
 enterEditMode()
-check("O5: also saves with brain ON", "top-left, 700x400, 0, 0", storeLib.load().layouts.cerebro)
+check("O5: also saves with brain ON", "top-left, 700x400, 0, 0", storeLib.load().layouts.brain)
 
 -- A layout written in the form wins over live geometry.
 storeLib.saveBrainToggle(false)
 env.onOpen("")
 clients = {}
-env.onIpc("add", "cerebro|cerebro --demo|bottom-left, 802x582")
+env.onIpc("add", "brain|brain --demo|bottom-left, 802x582")
 clock = clock + 5000
-clickCard("cerebro")
+clickCard("brain")
 clients = {
-  { class = "noctalia-term-cerebro", at = { 0, 0 }, size = { 700, 400 }, address = "0x77", monitor = 0 },
+  { class = "noctalia-term-brain", at = { 0, 0 }, size = { 700, 400 }, address = "0x77", monitor = 0 },
 }
 enterEditMode()
-env.onIpc("add", "cerebro|cerebro --demo|bottom-center, 600x300")
+env.onIpc("add", "brain|brain --demo|bottom-center, 600x300")
 enterEditMode()
-check("O5: the form wins", "bottom-center, 600x300", storeLib.load().layouts.cerebro)
+check("O5: the form wins", "bottom-center, 600x300", storeLib.load().layouts.brain)
 
 -- O4: the add editor goes after the last card.
 clients = {}
@@ -1659,24 +1659,24 @@ check("and the widget is no longer in the list", false, (lastTree ~= nil) and fi
 config.fallback_mode = "random"
 config.fallback_random_resize = false
 clients = {}
-env.onIpc("add", "suelto|echo hola|")
-env.onIpc("add", "anclado|echo hola|top-left, 928x800")
+env.onIpc("add", "loose|echo hello|")
+env.onIpc("add", "anchored|echo hello|top-left, 928x800")
 env.onOpen("")
 
--- "suelto" has no layout: it opens in a free slot with the fallback size.
+-- "loose" has no layout: it opens in a free slot with the fallback size.
 -- respaldo.
 clock = clock + 5000
 dispatched = {}
-clickCard("suelto")
+clickCard("loose")
 local spawnText = dispatchText()
 local openedSize = spawnText:match("size = { (%d+, %d+) }")
 check("a widget without layout opens with the fallback size", "900, 520", openedSize)
 check("and at a free position (not the fallback one)", false, spawnText:find("move = { 120, 140") ~= nil)
 
--- "anclado" has a layout: its direction and size are respected when opening.
+-- "anchored" has a layout: its direction and size are respected when opening.
 clock = clock + 5000
 dispatched = {}
-clickCard("anclado")
+clickCard("anchored")
 local anchoredText = dispatchText()
 check("a widget with layout opens at its position", true, anchoredText:find("move = { 16, 16") ~= nil)
 check("with its defined size", true, anchoredText:find("size = { 928, 800") ~= nil)
@@ -1684,12 +1684,12 @@ check("with its defined size", true, anchoredText:find("size = { 928, 800") ~= n
 -- If it is already open and clicked again, random mode repositions it to a
 -- free slot, but keeps its current size (not the layout size).
 clients = {
-  { address = "0x1", class = "noctalia-term-anclado", x = 2000, y = 900, w = 600, h = 400, monitor = "1" },
+  { address = "0x1", class = "noctalia-term-anchored", x = 2000, y = 900, w = 600, h = 400, monitor = "1" },
 }
 env.onOpen("")
 clock = clock + 5000
 dispatched = {}
-clickCard("anclado")
+clickCard("anchored")
 local movedText = dispatchText()
 check("an open widget is repositioned in random mode", false, movedText:find("move = { 16, 16") ~= nil)
 check("and keeps its current size", true, movedText:find("resize%({ x = 600, y = 400") ~= nil)
@@ -1699,7 +1699,7 @@ config.fallback_random_resize = true
 env.onOpen("")
 clock = clock + 5000
 dispatched = {}
-clickCard("anclado")
+clickCard("anchored")
 local resizedText = dispatchText()
 local randomSize = resizedText:match("resize%({ x = (%d+), y = (%d+)")
 local sameSize = resizedText:find("resize%({ x = 600, y = 400") ~= nil
@@ -1845,7 +1845,7 @@ check(
 -- it stays, the panel would keep requesting ticks for something that no longer exists.
 env.onIpc("remove", "anim")
 check("deleting an animated card turns off frame ticks", false, frameTicks[#frameTicks])
-env.onIpc("remove", "uno")
+env.onIpc("remove", "one")
 check("deleting the last card turns off frame ticks", false, frameTicks[#frameTicks])
 
 -- In mock mode there is nothing to animate: ticks are turned off.
@@ -1923,7 +1923,7 @@ end
 for _, name in ipairs(cardNames()) do
   env.onIpc("remove", name)
 end
-env.onIpc("add", "marco|echo hola|")
+env.onIpc("add", "marco|echo hello|")
 
 clients = {
   { address = "0x1", class = "noctalia-term-marco", x = 100, y = 100, w = 600, h = 400, monitor = "1" },
@@ -1978,7 +1978,7 @@ local service = {}
 setmetatable(service, { __index = env })
 local chunk = assert(loadfile(DIR .. "service.luau", "t", service))
 chunk()
-check("service: exporta update", "function", type(service.update))
+check("service: exports update", "function", type(service.update))
 -- the getConfig mock must return margin = 0 so the expectations are exact
 check("service: 1 s poll interval", true, serviceUpdatedMs == 1000)
 
@@ -1998,7 +1998,7 @@ files[storePath] = '{"commands":{},"brain":true,"brainGeometry":{}}'
 clients = { { class = "noctalia-term-lavat", at = { 0, 800 }, size = { 802, 582 }, address = "0x1", monitor = 0 } }
 service.update()
 service.update()
-check("service: cerebro ON memoriza tras dos ticks", "bottom-left, 802x582, 0, -58", storeLib.load().brainGeometry["noctalia-term-lavat"])
+check("service: brain ON memorizes after two ticks", "bottom-left, 802x582, 0, -58", storeLib.load().brainGeometry["noctalia-term-lavat"])
 clients = {}
 
 -- brain ON and recent imposed rect: does not memorize
