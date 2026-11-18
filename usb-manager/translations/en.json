@@ -18,6 +18,7 @@
     "unmount": "Could not unmount {name}: {reason}"
   },
   "notify": {
+    "read-only": "{name} has filesystem errors and was mounted read-only: repair it with chkdsk on Windows to write to it",
     "safe": "{name} can be removed safely",
     "unsafe": "{name} was unplugged while still mounted: files being written may be lost"
   },

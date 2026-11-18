@@ -61,7 +61,9 @@ Under each drive, one row per volume shows its label, filesystem, mount point
 and a usage bar, with these actions:
 
 - **Open** the folder in the file manager, **copy** the mount path;
-- **Mount** / **Unmount**;
+- **Mount** / **Unmount**. When the kernel refuses a read-write mount, for
+  example an NTFS volume that Windows left dirty, the volume is mounted
+  read-only and a notification says so;
 - for LUKS volumes, **Unlock**, which asks for the passphrase inline and mounts
   the volume, and **Lock**, which unmounts it and closes the container.
 
