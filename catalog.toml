@@ -5244,8 +5244,8 @@ tags = ["hyprland", "bar", "panel", "productivity"]
 [[plugin]]
 id = "ishan0121/wallpaper-deck"
 name = "Wallpaper Deck"
-version = "1.3.1"
-updated_at = 1794622746
+version = "1.5.0"
+updated_at = 1795038764
 added_at = 1793071179
 author = "Ishan0121"
 license = "GPL-3.0"
