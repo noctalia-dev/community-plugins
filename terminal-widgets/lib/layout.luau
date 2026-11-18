@@ -1,18 +1,18 @@
 --!nonstrict
--- Positions y tamaños de las ventanas flotantes.
+-- Positions and sizes of the floating windows.
 --
--- Cada widget puede tener su propia entrada en el ajuste `layouts`:
+-- Each widget can have its own entry in the `layouts` setting:
 --   cava      = bottom-center, 1610x584
 --   unimatrix = right-center, 869x1424
---   lavat     = bottom-left, 802x582, 0, -24   (desplazamiento desde el ancla)
---   pipes     = custom, 900x520, 120, 140      (coordenadas absolutas)
+--   lavat     = bottom-left, 802x582, 0, -24   (offset from the anchor)
+--   pipes     = custom, 900x520, 120, 140      (absolute coordinates)
 --   btop      = x=120 y=140 w=900 h=520
 
 local util = require("./util.luau")
 
 local M = {}
 
--- Anclas aceptadas. Se normalizan espacios, guiones y guiones bajos.
+-- Accepted anchors. Spaces, hyphens and underscores are normalized.
 M.ANCHORS = {
   ["top-left"] = true,
   ["top-center"] = true,
@@ -66,12 +66,12 @@ function M.normalizeAnchor(token)
   return M.ANCHOR_ALIASES[key]
 end
 
--- Formatos admitidos:
+-- Accepted formats:
 --   bottom-center
 --   bottom-center, 1610x584
 --   right-center 869x1424
---   bottom-left, 802x582, 0, -24      (desplazamiento desde el ancla)
---   custom, 900x520, 120, 140         (coordenadas absolutas del monitor)
+--   bottom-left, 802x582, 0, -24      (offset from the anchor)
+--   custom, 900x520, 120, 140         (absolute monitor coordinates)
 --   x=120 y=140 w=900 h=520
 --   120,140 900x520
 function M.parseLayout(value)
@@ -86,7 +86,7 @@ function M.parseLayout(value)
 
   local spec = { dx = 0, dy = 0, valid = true }
 
-  -- Formato explícito con clave=valor.
+  -- Explicit key=value format.
   local kv = {}
   for key, number in raw:gmatch("([%a_]+)%s*=%s*(-?%d+)") do
     kv[key:lower()] = tonumber(number)
@@ -109,7 +109,7 @@ function M.parseLayout(value)
     spec.height = tonumber(height)
   end
 
-  -- Quita el tamaño para quedarnos con ancla y desplazamientos.
+  -- Remove the size to keep the anchor and offsets.
   local cleaned = raw:gsub("%d+%s*[xX]%s*%d+", " ")
   local numbers = {}
 
@@ -135,7 +135,7 @@ function M.parseLayout(value)
   end
 
   if spec.auto then
-    -- "auto" busca un hueco libre; opcionalmente "auto, 900x520".
+    -- "auto" looks for a free slot; optionally "auto, 900x520".
     spec.anchor = "center"
   elseif spec.custom then
     if #numbers < 2 then
@@ -151,7 +151,7 @@ function M.parseLayout(value)
       spec.dx = numbers[1]
     end
   elseif #numbers >= 2 then
-    -- "120, 140" sin ancla: coordenadas absolutas.
+    -- "120, 140" without an anchor: absolute coordinates.
     spec.custom = true
     spec.dx = numbers[1]
     spec.dy = numbers[2]
@@ -164,10 +164,10 @@ function M.parseLayout(value)
   return spec
 end
 
--- Permutación para la rotación "opposite": cada ventana va al sitio de la
--- que está en el lado opuesto del grupo, midiendo la oposición por la posición
--- real de los centros (no por un centro global de monitor). Así funciona para
--- cualquier disposición, incluso si las cuatro ventanas están en una sola zona.
+-- Permutation for the "opposite" rotation: each window goes to the place
+-- of the one on the opposite side of the group, measuring opposition by the
+-- actual position of the centers (not by a global monitor center). This works
+-- for any arrangement, even if the four windows are in a single area.
 function M.oppositePairs(windows)
   local count = #windows
   local result = {}
@@ -178,7 +178,7 @@ function M.oppositePairs(windows)
     return result
   end
 
-  -- Centro del grupo.
+  -- Group center.
   local cx = 0
   local cy = 0
   local centers = {}
@@ -192,7 +192,7 @@ function M.oppositePairs(windows)
   cx = cx / count
   cy = cy / count
 
-  -- Extensión del grupo (para normalizar).
+  -- Group extent (for normalization).
   local extentX = 0
   local extentY = 0
   for index = 1, count do
@@ -206,8 +206,8 @@ function M.oppositePairs(windows)
     extentY = 1
   end
 
-  -- Candidatos de emparejamiento ordenados por cuán opuestos son sus
-  -- vectores desde el centro del grupo (suma cercana a cero en ambos ejes).
+  -- Pairing candidates sorted by how opposite their vectors from the group
+  -- center are (sum close to zero on both axes).
   local pairsList = {}
   for i = 1, count do
     for j = i + 1, count do
