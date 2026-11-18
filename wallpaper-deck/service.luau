@@ -53,10 +53,68 @@ local function calcHueKey(hexColor: string?): number
   r, g, b = r / 255, g / 255, b / 255
   local h, l, s = rgbToHls(r, g, b)
   local hexLower = string.lower(hexColor)
-  if s < 0.12 or hexLower == "#4285f4" or hexLower == "#000000" or hexLower == "#ffffff" then
+  if s < 0.12 or hexLower == "#000000" or hexLower == "#ffffff" then
     return 1.0 + l
   end
   return (h + 0.035) % 1.0
+end
+
+local function extractPaletteFromMatugen(data: any): (any?, string?)
+  if type(data) ~= "table" or type(data.colors) ~= "table" then return nil, nil end
+  local colors = data.colors
+  local function getCol(role)
+    local c = colors[role]
+    if type(c) == "table" then
+      local d = c["default"] or c["dark"]
+      if type(d) == "table" then return d.color end
+    end
+    return nil
+  end
+
+  local prim = getCol("primary")
+  local sec = getCol("secondary")
+  local tert = getCol("tertiary")
+  local pc = getCol("primary_container")
+  local sch = getCol("surface_container_highest") or getCol("surface_container") or getCol("surface")
+  local sc = getCol("source_color") or prim
+
+  -- Check for Material Color Utilities fallback to Google Blue #4285F4 on monochrome / zero-chroma images
+  local scLower = sc and string.lower(sc) or ""
+  local primLower = prim and string.lower(prim) or ""
+  if (scLower == "#4285f4" or primLower == "#adc6ff") and type(data.base16) == "table" then
+    local function getB16(role)
+      local b = data.base16[role]
+      if type(b) == "table" then
+        local d = b["default"] or b["dark"]
+        if type(d) == "table" then return d.color end
+      end
+      return nil
+    end
+    local b07 = getB16("base07")
+    local b05 = getB16("base05")
+    local b03 = getB16("base03")
+    local b01 = getB16("base01")
+    local b00 = getB16("base00")
+    if b07 and b00 then
+      prim = b07
+      sec  = b05 or b07
+      tert = b03 or sec
+      pc   = b01 or tert
+      sch  = b00
+      sc   = prim
+    end
+  end
+
+  if not prim or not sec then return nil, nil end
+  local m3 = {
+    primary = prim,
+    secondary = sec,
+    tertiary = tert or sec,
+    primary_container = pc or prim,
+    surface_container_highest = sch or "#33353b",
+    source_color = sc or prim,
+  }
+  return m3, sc
 end
 
 local hashKeyCache = {}
@@ -530,30 +588,13 @@ local function prioritizePalette(p: string)
       if res and res.exitCode == 0 and res.stdout and res.stdout ~= "" then
         local ok, data = pcall(noctalia.json.decode, res.stdout)
         if ok and type(data) == "table" and type(data.colors) == "table" then
-          local colors = data.colors
-          local function getCol(role)
-            local c = colors[role]
-            if type(c) == "table" then
-              local d = c["default"] or c["dark"]
-              if type(d) == "table" then return d.color end
-            end
-            return nil
-          end
-          local prim = getCol("primary")
-          local sec = getCol("secondary")
-          local tert = getCol("tertiary")
-          local pc = getCol("primary_container")
-          local sch = getCol("surface_container_highest") or getCol("surface_container") or getCol("surface")
-          local sc = getCol("source_color") or prim
-          if prim and sec then
-            local m3 = {
-              primary = prim,
-              secondary = sec,
-              tertiary = tert or sec,
-              primary_container = pc or prim,
-              surface_container_highest = sch or "#33353b",
-              source_color = sc or prim,
-            }
+          local m3, sc = extractPaletteFromMatugen(data)
+          if m3 then
+            local prim = m3.primary
+            local sec = m3.secondary
+            local tert = m3.tertiary
+            local pc = m3.primary_container
+            local sch = m3.surface_container_highest
             local hueKey = calcHueKey(sc or prim)
             local hueKeyPrimary = calcHueKey(prim)
             local hueKeySecondary = calcHueKey(sec)
@@ -636,30 +677,13 @@ local function pumpMatugenQueue(token: number, cache: { [string]: any }, deck: {
         if res and res.exitCode == 0 and res.stdout and res.stdout ~= "" then
           local ok, data = pcall(noctalia.json.decode, res.stdout)
           if ok and type(data) == "table" and type(data.colors) == "table" then
-            local colors = data.colors
-            local function getCol(role)
-              local c = colors[role]
-              if type(c) == "table" then
-                local d = c["default"] or c["dark"]
-                if type(d) == "table" then return d.color end
-              end
-              return nil
-            end
-            local prim = getCol("primary")
-            local sec = getCol("secondary")
-            local tert = getCol("tertiary")
-            local pc = getCol("primary_container")
-            local sch = getCol("surface_container_highest") or getCol("surface_container") or getCol("surface")
-            local sc = getCol("source_color") or prim
-            if prim and sec then
-              local m3 = {
-                primary = prim,
-                secondary = sec,
-                tertiary = tert or sec,
-                primary_container = pc or prim,
-                surface_container_highest = sch or "#33353b",
-                source_color = sc or prim,
-              }
+            local m3, sc = extractPaletteFromMatugen(data)
+            if m3 then
+              local prim = m3.primary
+              local sec = m3.secondary
+              local tert = m3.tertiary
+              local pc = m3.primary_container
+              local sch = m3.surface_container_highest
               item.colors = m3
               item.sourceColor = sc or prim
               item.hueKey = calcHueKey(sc or prim)
@@ -1670,30 +1694,13 @@ noctalia.state.watch("deck_command", function(cmd)
             if res and res.exitCode == 0 and res.stdout and res.stdout ~= "" then
               local ok, data = pcall(noctalia.json.decode, res.stdout)
               if ok and type(data) == "table" and type(data.colors) == "table" then
-                local colors = data.colors
-                local function getCol(role)
-                  local c = colors[role]
-                  if type(c) == "table" then
-                    local d = c["default"] or c["dark"]
-                    if type(d) == "table" then return d.color end
-                  end
-                  return nil
-                end
-                local prim = getCol("primary")
-                local sec = getCol("secondary")
-                local tert = getCol("tertiary")
-                local pc2 = getCol("primary_container")
-                local sch = getCol("surface_container_highest") or getCol("surface_container") or getCol("surface")
-                local sc = getCol("source_color") or prim
-                if prim and sec then
-                  local m3 = {
-                    primary = prim,
-                    secondary = sec,
-                    tertiary = tert or sec,
-                    primary_container = pc2 or prim,
-                    surface_container_highest = sch or "#33353b",
-                    source_color = sc or prim,
-                  }
+                local m3, sc = extractPaletteFromMatugen(data)
+                if m3 then
+                  local prim = m3.primary
+                  local sec = m3.secondary
+                  local tert = m3.tertiary
+                  local pc2 = m3.primary_container
+                  local sch = m3.surface_container_highest
                   local hueKey = calcHueKey(sc or prim)
                   local hueKeyPrimary = calcHueKey(prim)
                   local hueKeySecondary = calcHueKey(sec)

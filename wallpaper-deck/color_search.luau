@@ -42,13 +42,14 @@ function M.colorToHueKey(hex)
   r, g, b = r / 255, g / 255, b / 255
   local h, l, s = rgbToHls(r, g, b)
   local hexLower = string.lower(hex or "")
-  if s < 0.12 or hexLower == "#4285f4" or hexLower == "#000000" or hexLower == "#ffffff" then
+  if s < 0.12 or hexLower == "#000000" or hexLower == "#ffffff" then
     return 1.0 + l
   end
   return (h + 0.035) % 1.0
 end
 
 local HUE_THRESHOLD = 0.035
+local GRAY_THRESHOLD = 0.20
 
 local function hueDiff(a, b)
   if type(a) ~= "number" or type(b) ~= "number" then return 999.0 end
@@ -77,6 +78,8 @@ function M.matchPriority(item, targetHue)
   if type(c) ~= "table" then return nil, 999.0 end
   if not c.primary or c.primary == "#80a9ff" then return nil, 999.0 end
 
+  local thresh = (targetHue >= 1.0) and GRAY_THRESHOLD or HUE_THRESHOLD
+
   -- NOTE: item.hueKey is derived from source_color (used by sort-by-colour), so
   -- it must NOT be used for matching the primary palette entry.
   local primaryHue = item.hueKeyPrimary
@@ -85,7 +88,7 @@ function M.matchPriority(item, targetHue)
     if primaryHue then item.hueKeyPrimary = primaryHue end
   end
   local d0 = hueDiff(primaryHue, targetHue)
-  if d0 <= HUE_THRESHOLD then return 0, d0 end
+  if d0 <= thresh then return 0, d0 end
 
   local secHue = item.hueKeySecondary
   if type(secHue) ~= "number" then
@@ -93,7 +96,7 @@ function M.matchPriority(item, targetHue)
     if secHue then item.hueKeySecondary = secHue end
   end
   local d1 = hueDiff(secHue, targetHue)
-  if d1 <= HUE_THRESHOLD then return 1, d1 end
+  if d1 <= thresh then return 1, d1 end
 
   local terHue = item.hueKeyTertiary
   if type(terHue) ~= "number" then
@@ -101,7 +104,7 @@ function M.matchPriority(item, targetHue)
     if terHue then item.hueKeyTertiary = terHue end
   end
   local d2 = hueDiff(terHue, targetHue)
-  if d2 <= HUE_THRESHOLD then return 2, d2 end
+  if d2 <= thresh then return 2, d2 end
 
   local contHue = item.hueKeyContainer
   if type(contHue) ~= "number" then
@@ -109,7 +112,7 @@ function M.matchPriority(item, targetHue)
     if contHue then item.hueKeyContainer = contHue end
   end
   local d3 = hueDiff(contHue, targetHue)
-  if d3 <= HUE_THRESHOLD then return 3, d3 end
+  if d3 <= thresh then return 3, d3 end
 
   local surfHue = item.hueKeySurface
   if type(surfHue) ~= "number" then
@@ -117,7 +120,7 @@ function M.matchPriority(item, targetHue)
     if surfHue then item.hueKeySurface = surfHue end
   end
   local d4 = hueDiff(surfHue, targetHue)
-  if d4 <= HUE_THRESHOLD then return 4, d4 end
+  if d4 <= thresh then return 4, d4 end
 
   return nil, 999.0
 end
