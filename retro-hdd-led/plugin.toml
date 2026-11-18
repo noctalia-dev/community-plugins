@@ -10,6 +10,7 @@ license = "MIT"
 icon = "server"
 description = "A small bar LED that blinks while your disks read or write, like the HDD light on old PC cases."
 tags = ["bar", "indicator", "hardware", "system", "fun"]
+dependencies = []
 
 [[widget]]
 id = "led"
@@ -38,16 +39,23 @@ entry = "widget.luau"
   type = "color"
   label_key = "settings.read_color.label"
   description_key = "settings.read_color.description"
-  default = ""
+  default = "primary"
+
+  [[widget.setting]]
+  key = "auto_write_color"
+  type = "bool"
+  label_key = "settings.auto_write_color.label"
+  description_key = "settings.auto_write_color.description"
+  default = true
+  visible_when = { key = "mode", values = ["split"] }
 
   [[widget.setting]]
   key = "write_color"
   type = "color"
   label_key = "settings.write_color.label"
   description_key = "settings.write_color.description"
-  default = ""
-  advanced = true
-  visible_when = { key = "mode", values = ["split"] }
+  default = "primary"
+  visible_when = { key = "auto_write_color", values = ["false"] }
 
   [[widget.setting]]
   key = "disk_colors"

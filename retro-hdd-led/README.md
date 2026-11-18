@@ -38,8 +38,9 @@ All settings belong to the widget instance.
 | --- | --- | --- | --- |
 | `mode` | `select` | `combined` | `combined`: one shared LED for reading and writing. `split`: a read LED and a write LED. |
 | `per_disk` | `bool` | `false` | One LED (or read/write pair) for every watched disk instead of one for all of them, in the order of `disks`, or sorted by name. |
-| `read_color` | `color` | empty | Color of the shared LED, or of the read LED. A palette role or a `#RRGGBB` value. Empty uses the theme's primary color. |
-| `write_color` | `color` | empty | Write LED color in `split` mode (advanced). Empty uses a variant of the LED color, mixed toward `on_surface`: lighter on dark themes, darker on light ones. |
+| `read_color` | `color` | `primary` | Color of the shared LED, or of the read LED. A palette role or a `#RRGGBB` value. |
+| `auto_write_color` | `bool` | `true` | In `split` mode, color the write LED with a variant of the LED color, mixed toward `on_surface`: lighter on dark themes, darker on light ones. |
+| `write_color` | `color` | `primary` | Write LED color when `auto_write_color` is off. |
 | `disk_colors` | `string_map` | `{}` | Colors per disk with `per_disk`: the disk name maps to one color (read or shared LED) or `read,write`, for example `primary,#FF8800`. A disk with only its own read color gets the variant of it as write color. |
 | `size` | `int` | `8` | LED diameter in pixels (4-24). |
 | `off_brightness` | `int` | `20` | Brightness of an idle LED in percent. `0` hides it until there is activity; its space stays reserved. |

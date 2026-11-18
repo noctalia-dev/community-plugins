@@ -1,29 +1,57 @@
 {
-  "settings.mode.label": "Read and write",
-  "settings.mode.description": "One LED for any disk activity, or separate LEDs for reading and writing.",
-  "settings.mode.combined": "Shared LED",
-  "settings.mode.split": "Separate LEDs",
-  "settings.per_disk.label": "One LED per disk",
-  "settings.per_disk.description": "Show separate LEDs for every watched disk instead of one for all of them.",
-  "settings.read_color.label": "LED color",
-  "settings.read_color.description": "Color of the shared LED, or of the read LED. Default: the primary color.",
-  "settings.write_color.label": "Write LED color",
-  "settings.write_color.description": "Default: a lighter or darker variant of the LED color.",
-  "settings.disk_colors.label": "Colors per disk",
-  "settings.disk_colors.description": "Disk name, then a color or \"read,write\" colors, for example primary,#FF8800. Overrides the colors above for that disk.",
-  "settings.size.label": "LED size",
-  "settings.size.description": "Diameter of each LED in pixels.",
-  "settings.off_brightness.label": "Idle brightness (%)",
-  "settings.off_brightness.description": "How bright an LED stays while the disks are idle. 0 hides it until there is activity.",
-  "settings.glow.label": "Glow",
-  "settings.glow.description": "Soft edge on a lit LED.",
-  "settings.disks.label": "Disks",
-  "settings.disks.description": "Device names from /proc/diskstats, for example nvme0n1 or sda. Empty watches every physical disk.",
-  "settings.poll_ms.label": "Poll interval (ms)",
-  "settings.poll_ms.description": "How often disk activity is checked. Lower values catch shorter bursts.",
-  "tooltip.title": "Disk activity",
-  "tooltip.read": "Read {rate}",
-  "tooltip.write": "Write {rate}",
-  "tooltip.not_found": "not found",
-  "tooltip.no_disks": "No physical disks found"
+  "settings": {
+    "mode": {
+      "label": "Read and write",
+      "description": "One LED for any disk activity, or separate LEDs for reading and writing.",
+      "combined": "Shared LED",
+      "split": "Separate LEDs"
+    },
+    "per_disk": {
+      "label": "One LED per disk",
+      "description": "Show separate LEDs for every watched disk instead of one for all of them."
+    },
+    "read_color": {
+      "label": "LED color",
+      "description": "Color of the shared LED, or of the read LED."
+    },
+    "auto_write_color": {
+      "label": "Automatic write color",
+      "description": "Use a lighter or darker variant of the LED color for the write LED."
+    },
+    "write_color": {
+      "label": "Write LED color",
+      "description": "Used with separate LEDs."
+    },
+    "disk_colors": {
+      "label": "Colors per disk",
+      "description": "Disk name, then a color or \"read,write\" colors, for example primary,#FF8800. Overrides the colors above for that disk."
+    },
+    "size": {
+      "label": "LED size",
+      "description": "Diameter of each LED in pixels."
+    },
+    "off_brightness": {
+      "label": "Idle brightness (%)",
+      "description": "How bright an LED stays while the disks are idle. 0 hides it until there is activity."
+    },
+    "glow": {
+      "label": "Glow",
+      "description": "Soft edge on a lit LED."
+    },
+    "disks": {
+      "label": "Disks",
+      "description": "Device names from /proc/diskstats, for example nvme0n1 or sda. Empty watches every physical disk."
+    },
+    "poll_ms": {
+      "label": "Poll interval (ms)",
+      "description": "How often disk activity is checked. Lower values catch shorter bursts."
+    }
+  },
+  "tooltip": {
+    "title": "Disk activity",
+    "read": "Read {rate}",
+    "write": "Write {rate}",
+    "not_found": "not found",
+    "no_disks": "No physical disks found"
+  }
 }

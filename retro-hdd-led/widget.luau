@@ -100,7 +100,13 @@ local function colorsFor(name)
 			entry = map[name]
 		end
 	end
-	return colors.forDisk(entry, config("read_color", ""), config("write_color", ""), lookupColor)
+	-- With the automatic write color on, an empty global write color makes
+	-- forDisk derive it from the read color.
+	local writeColor = ""
+	if config("auto_write_color", true) == false then
+		writeColor = config("write_color", "primary")
+	end
+	return colors.forDisk(entry, config("read_color", "primary"), writeColor, lookupColor)
 end
 
 -- The LEDs for one activity state: one shared LED in the read color, or a
