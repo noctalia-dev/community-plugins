@@ -4257,6 +4257,7 @@ function onOpen(context: any?)
   isDeckAreaHovered = false
   isSearchBoxHovered = false
   nativeScrollActive = false
+  scrollAccum = 0
   hoveredDeckKeys = {}
   CT.isOpen = false
   CT.statusText = ""
@@ -4603,7 +4604,7 @@ function onKey(chord: string, pressed: boolean)
   end
 end
 
-local lastScrollMs = 0
+local scrollAccum = 0
 
 function onScroll(_axis: any, steps: any, _startsGesture: any)
   if not isPickerOpen or #displayedItems == 0 then return end
@@ -4613,21 +4614,26 @@ function onScroll(_axis: any, steps: any, _startsGesture: any)
   end
   if not isDeckAreaHovered or isPeeking then return end
   unfocusSearch()
-  local nowMs = noctalia.nowMs()
-  if nowMs - lastScrollMs < 35 then return end
-  lastScrollMs = nowMs
 
   local stepVal = tonumber(steps) or 0
-  if stepVal < 0 then
+  scrollAccum = scrollAccum + stepVal
+
+  -- Move by whole accumulated steps instead of throttling by time.
+  while scrollAccum >= 1 do
+    scrollAccum = scrollAccum - 1
+    if selectedIdx > 1 then
+      selectCardIndex(selectedIdx - 1)
+    end
+  end
+  while scrollAccum <= -1 do
+    scrollAccum = scrollAccum + 1
     if selectedIdx < #displayedItems then
       selectCardIndex(selectedIdx + 1)
     else
       pendingStepAfterAppend = true
       checkWallhavenLazyLoad()
-    end
-  elseif stepVal > 0 then
-    if selectedIdx > 1 then
-      selectCardIndex(selectedIdx - 1)
+      scrollAccum = 0
+      break
     end
   end
 end
@@ -4635,18 +4641,12 @@ end
 function onIpc(event: string, _payload: string?)
   if event == "prev" or event == "step_left" or event == "left" then
     if not isPickerOpen or nativeScrollActive or not isDeckAreaHovered or isPeeking then return end
-    local nowMs = noctalia.nowMs()
-    if nowMs - lastScrollMs < 35 then return end
-    lastScrollMs = nowMs
     unfocusSearch()
     if selectedIdx > 1 then
       selectCardIndex(selectedIdx - 1)
     end
   elseif event == "next" or event == "step_right" or event == "right" then
     if not isPickerOpen or nativeScrollActive or not isDeckAreaHovered or isPeeking then return end
-    local nowMs = noctalia.nowMs()
-    if nowMs - lastScrollMs < 35 then return end
-    lastScrollMs = nowMs
     unfocusSearch()
     if selectedIdx < #displayedItems then
       selectCardIndex(selectedIdx + 1)
