@@ -1,12 +1,12 @@
 id = "nemanja/peripheral-battery"
 name = "Peripheral Battery"
 version = "0.1.0"
-plugin_api = 9
+plugin_api = 43
 author = "nemanja"
 license = "MIT"
 icon = "mouse"
 description = "Monitor battery levels of wireless peripherals (mice, keyboards, headsets, controllers, and other devices) via UPower."
-tags = ["battery", "hardware", "peripheral", "utility", "system"]
+tags = ["bar", "hardware", "panel", "system", "utility"]
 dependencies = ["upower"]
 
 [[setting]]
