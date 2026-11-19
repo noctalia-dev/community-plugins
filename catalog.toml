@@ -6183,3 +6183,16 @@ icon = "keyboard"
 description = "Switch between your keyboard layouts and fcitx5 input methods, such as Hangul, from one list."
 plugin_api = 43
 tags = ["bar", "hyprland", "language"]
+
+[[plugin]]
+id = "dmopp/retro-hdd-led"
+name = "Retro HDD LED"
+version = "1.0.0"
+updated_at = 1795096952
+added_at = 1795096952
+author = "dMopp"
+license = "MIT"
+icon = "server"
+description = "A small bar LED that blinks while your disks read or write, like the HDD light on old PC cases."
+plugin_api = 31
+tags = ["bar", "indicator", "hardware", "system", "fun"]
