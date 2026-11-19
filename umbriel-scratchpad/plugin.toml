@@ -9,8 +9,8 @@
 
 id = "samxu29/umbriel-scratchpad"
 name = "Umbriel Scratchpad"
-version = "0.4.5"
-plugin_api = 32
+version = "0.4.6"
+plugin_api = 43
 author = "samxu29"
 license = "MIT"
 dependencies = ["umbriel"]
