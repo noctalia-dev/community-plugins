@@ -828,7 +828,8 @@ local function fetchLyricsNetEase(track, embeddedLyrics, requestedCandidateId, r
       elseif fallback then
         fallback()
       else
-        finishLookup(response.ok and "not_found" or "error")
+        local status = tonumber(response.status) or 0
+        finishLookup((status >= 200 and status < 300 or status == 404) and "not_found" or "error")
       end
     end)
   end
