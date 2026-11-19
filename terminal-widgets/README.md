@@ -7,10 +7,16 @@ card, its own size and anchor, and the whole set can be re-arranged with one cli
 
 ## Install
 
-Add this repository as a plugin source and enable the plugin:
+The plugin is part of Noctalia's community catalog:
 
 ```sh
-noctalia msg plugins source add dev path https://github.com/F4M1N3C/noctalia-plugins
+noctalia msg plugins enable faminec/terminal-widgets
+```
+
+For a local checkout under development, add it as a path source first:
+
+```sh
+noctalia msg plugins source add dev path ~/noctalia-plugins
 noctalia msg plugins enable faminec/terminal-widgets
 ```
 
@@ -33,13 +39,25 @@ The following executables must be installed and available on `PATH`:
 
 | Executable | Package | What it is used for |
 | --- | --- | --- |
-| `kitty` | `kitty` | The terminal the plugin launches (any other terminal can be set instead). |
+| `kitty` | `kitty` | The default terminal. A replacement must accept the Kitty-style flags described below. |
 | `hyprctl` | `hyprland` | Lists, moves, resizes, focuses and closes the windows. |
 | `grim` | `grim` | Takes the preview screenshot of an open window. Only needed for the card previews; without it the cards fall back to a static or mock preview. |
 | `python3` | `python` | Crops those screenshots and extracts the frames of an animated preview. Also only needed for the card previews. |
 
 `python3` needs Pillow (`python-pillow`) for that work. The plugin never installs
 anything: every dependency has to be there before the plugin is enabled.
+
+### Terminal compatibility
+
+`terminal` defaults to `kitty`. The plugin builds the command as
+
+```sh
+<terminal> --class noctalia-term-<name> --title <name> -e sh -lc <command>
+```
+
+and adds `-o confirm_os_window_close=0` when the terminal name contains `kitty`.
+A replacement terminal must accept those flags; terminals with different flags
+(for example `foot`, which uses `--app-id`) are not drop-in compatible.
 
 ### The bundled cards
 
@@ -239,6 +257,19 @@ runtime is created on demand.
 
 ## Changelog
 
+### 2.3.1
+
+- Preview captures use only `grim -T <stableId>`. Windows without a stable ID keep the
+  static or mock preview instead of saving a desktop rectangle that could include other
+  windows or layer-shell panels. The preview cache is invalidated so old captures are
+  not reused.
+- The brain no longer forgets an imposed rectangle after five seconds: suppression lasts
+  until the window moves or closes. Rotating from "open all" now publishes the imposed
+  geometry like the header button does.
+- Finished translating the remaining comments, log messages and test fixtures to English.
+- The README explains the terminal flags a Kitty replacement must accept and installs
+  from the community catalog.
+
 ### 2.3.0
 
 - New **brain button** in the panel header: when on, each window reopens at the position
@@ -387,7 +418,8 @@ works on Hyprland 0.56+, and that has to be visible before installing it.
 - The card previews capture the window's toplevel with `grim -T <stableId>`. That
   grabs only that window, even when the Noctalia panel or another window is above
   it, and it does not change the window order. The capture is resized with Pillow.
-  If a client has no `stableId`, the old `alterzorder` fallback is used.
+  If a client has no `stableId`, no capture is taken and the card keeps its static or
+  mock preview: a geometry capture could include anything above the window.
 - Clicking a card twice in a row does not open two windows: a short debounce (and the
   `reuse_existing` behaviour) keeps a single window per command.
 - A widget without a command stays in the list (so it is visible and can be fixed)

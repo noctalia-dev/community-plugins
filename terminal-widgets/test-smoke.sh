@@ -182,7 +182,7 @@ while [ "$stable" -lt 50 ] && [ "$iters" -lt 300 ]; do
 done
 echo "host idle; starting the test."
 
-tmp=$(mktemp -d /tmp/opencode/terminal-widgets-smoke.XXXXXX) || {
+tmp=$(mktemp -d "${TMPDIR:-/tmp}/terminal-widgets-smoke.XXXXXX") || {
   echo "could not create the temporary directory" >&2
   exit 2
 }
@@ -333,8 +333,7 @@ flush_log() {
   # The host may take several seconds to process the queue: retry and wait for
   # any native line to reach the copy. Since they come after the plugin lines,
   # seeing one implies those were flushed too.
-  # volcaron.
-  while [ "$SECONDS" -lt "$deadline" ]; do
+    while [ "$SECONDS" -lt "$deadline" ]; do
     noctalia msg log-level-set "$level" >/dev/null 2>&1 || return 1
     if wait_log_line "log level set to $level" 2 "$tmp/run.log" "$mark"; then
       return 0

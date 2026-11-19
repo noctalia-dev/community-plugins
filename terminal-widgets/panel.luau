@@ -240,7 +240,7 @@ local function classMap()
       -- windows would be confused. It is logged, but operation continues.
       noctalia.log(
         string.format(
-          "terminal-widgets: '%s' y '%s' comparten la clase %s",
+          "terminal-widgets: '%s' and '%s' share the class %s",
           map[class],
           name,
           class
@@ -357,23 +357,23 @@ local function publishImposed(name, rect)
     return
   end
   local now = noctalia.nowMs()
-  local pruned = {}
+  local nextImposed = {}
   local ok, current = pcall(shared.get, "imposed")
   if ok and type(current) == "table" then
     for class, entry in pairs(current) do
-      if type(entry) == "table" and (now - (entry.at or 0)) <= brainLib.IMPOSED_TTL_MS then
-        pruned[class] = entry
+      if type(entry) == "table" then
+        nextImposed[class] = entry
       end
     end
   end
-  pruned[util.classFor(name)] = {
+  nextImposed[util.classFor(name)] = {
     x = math.floor(rect.x),
     y = math.floor(rect.y),
     w = math.floor(rect.w),
     h = math.floor(rect.h),
     at = now,
   }
-  pcall(shared.set, "imposed", pruned)
+  pcall(shared.set, "imposed", nextImposed)
 end
 
 -- Same as `publishImposed`, but from a geometry relative to the output box
@@ -386,6 +386,30 @@ local function noteImposed(name, geometry)
     w = geometry.width,
     h = geometry.height,
   })
+end
+
+-- Publish the rectangles a rotation applied to already-open windows. Both
+-- rotation paths (the header button and "open all") use this, so the service
+-- never mistakes an imposed rotation for a manual move.
+local function publishRotation(windows, moves)
+  if moves == nil then
+    return
+  end
+  local byAddress = {}
+  for _, window in ipairs(windows) do
+    byAddress[window.address] = window
+  end
+  for _, move in ipairs(moves) do
+    local window = byAddress[move.address]
+    if window ~= nil and window.name ~= nil then
+      publishImposed(window.name, {
+        x = (window.monitor.x or 0) + move.x,
+        y = (window.monitor.y or 0) + move.y,
+        w = move.w,
+        h = move.h,
+      })
+    end
+  end
 end
 
 local function layoutText(name)
@@ -921,23 +945,7 @@ rotateWindows = function()
         state.rotating = false
         -- Rotation also imposes geometries: they are published so the
         -- service does not mistake them for manual moves.
-        if moves ~= nil then
-          local byAddress = {}
-          for _, window in ipairs(windows) do
-            byAddress[window.address] = window
-          end
-          for _, move in ipairs(moves) do
-            local window = byAddress[move.address]
-            if window ~= nil and window.name ~= nil then
-              publishImposed(window.name, {
-                x = (window.monitor.x or 0) + move.x,
-                y = (window.monitor.y or 0) + move.y,
-                w = move.w,
-                h = move.h,
-              })
-            end
-          end
-        end
+        publishRotation(windows, moves)
         refresh()
       end)
       if started == false then
@@ -980,8 +988,9 @@ openAll = function()
             return
           end
           state.rotating = true
-          local started = win.rotate(windows, cfg.rotation, cfg.rotationSizes, function()
+          local started = win.rotate(windows, cfg.rotation, cfg.rotationSizes, function(moves)
             state.rotating = false
+            publishRotation(windows, moves)
             refresh()
           end)
           if started == false then
@@ -1105,7 +1114,6 @@ local function applyWidget(name, command, layout, thumb)
   --
   -- A layout written by the user wins over brain memory: that widget's entry
   -- is discarded so the two layers do not contradict each other.
-  -- contradigan.
   if layout ~= "" then
     storeLib.saveBrainForget(util.classFor(name))
   end

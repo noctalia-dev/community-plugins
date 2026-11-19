@@ -31,6 +31,37 @@ local function imposedMap()
   return {}
 end
 
+local function sameRect(a, b)
+  return a ~= nil and b ~= nil
+    and a.x == b.x and a.y == b.y and a.w == b.w and a.h == b.h
+end
+
+-- Persist the refreshed/dropped stamps without clobbering a rectangle the
+-- panel published while the hyprctl query was in flight. Only entries that
+-- are still the ones we read are updated; newer panel entries are kept.
+local function storeImposed(before, after)
+  local state = noctalia.state
+  if state == nil or after == nil then return end
+  local current = imposedMap()
+  local changed = false
+  for class, old in pairs(before) do
+    local entry = current[class]
+    if entry ~= nil
+      and sameRect(entry, old)
+      and (entry.at or 0) <= (old.at or 0) then
+      if after[class] ~= nil then
+        current[class] = after[class]
+      else
+        current[class] = nil
+      end
+      changed = true
+    end
+  end
+  if changed then
+    pcall(state.set, "imposed", current)
+  end
+end
+
 function update()
   if polling then return end
   local stored = storeLib.loadBrain()
@@ -45,8 +76,10 @@ function update()
     if not decoded or type(clients) ~= "table" then return end
     local cfg = settings()
     local box = outputLib.outputBox(cfg)
-    local capture = brain.capture(clients, box, cfg.margin, stored.brainGeometry, imposedMap(), pending)
+    local before = imposedMap()
+    local capture = brain.capture(clients, box, cfg.margin, stored.brainGeometry, before, pending)
     pending = capture.pending
+    storeImposed(before, capture.imposed)
     if capture.changed then
       storeLib.saveBrainGeometry(capture.memory)
     end

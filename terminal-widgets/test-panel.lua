@@ -121,7 +121,7 @@ local function clientsJson()
     local at = client.at or { client.x or 0, client.y or 0 }
     local size = client.size or { client.w or 0, client.h or 0 }
     parts[#parts + 1] = string.format(
-      '{"address":"%s","class":"%s","title":"%s","at":[%d,%d],"size":[%d,%d],"monitor":"%s"}',
+      '{"address":"%s","class":"%s","title":"%s","at":[%d,%d],"size":[%d,%d],"monitor":"%s","stableId":"%s"}',
       client.address or "0x0",
       client.class or "",
       client.title or "",
@@ -129,7 +129,8 @@ local function clientsJson()
       math.floor(tonumber(at[2]) or 0),
       math.floor(tonumber(size[1]) or 0),
       math.floor(tonumber(size[2]) or 0),
-      client.monitor or "1"
+      client.monitor or "1",
+      client.stableId or ""
     )
   end
   return "[" .. table.concat(parts, ",") .. "]"
@@ -483,7 +484,7 @@ local preview = loadModule("preview.luau")
 -- --------------------------------------------------------------- utilities --
 
 print("== utilities ==")
-check("slug", util.slug("Mi Widget!"), "mi-widget")
+check("slug", util.slug("My Widget!"), "my-widget")
 check("empty slug", util.slug("!!!"), "app")
 check("class", util.classFor("Cava"), "noctalia-term-cava")
 check("trim", util.trim("  hello  "), "hello")
@@ -492,12 +493,12 @@ check("trim", util.trim("  hello  "), "hello")
 
 print("\n== widget merge ==")
 local base = { a = "a-cmd", b = "b-cmd" }
-local configMap = { b = "b-cmd-editado", c = "c-cmd" }
+local configMap = { b = "b-cmd-edited", c = "c-cmd" }
 local storeMap = { d = "d-cmd" }
 local removed = { "a" }
 
 local merged = store.merge(base, configMap, storeMap, removed)
-check("config overrides the default", merged.b, "b-cmd-editado")
+check("config overrides the default", merged.b, "b-cmd-edited")
 check("new config entry", merged.c, "c-cmd")
 check("new store entry", merged.d, "d-cmd")
 check("tombstone deletes the default", merged.a, nil)
@@ -523,11 +524,11 @@ check("noctalia.state reads and writes", "hello", (function()
   return mock.state.get("k")
 end)())
 check("missing noctalia.state is nil", nil, mock.state.get("does-not-exist"))
-files["/tmp/a.tmp"] = "contenido"
+files["/tmp/a.tmp"] = "content"
 check("renameFile returns true", true, mock.renameFile("/tmp/a.tmp", "/tmp/a.json"))
-check("renameFile moves the contents", "contenido", files["/tmp/a.json"])
+check("renameFile moves the contents", "content", files["/tmp/a.json"])
 check("renameFile deletes the source", nil, files["/tmp/a.tmp"])
-check("renameFile without a source returns false", false, mock.renameFile("/tmp/nada", "/tmp/otro"))
+check("renameFile without a source returns false", false, mock.renameFile("/tmp/nothing", "/tmp/other"))
 check("setUpdateInterval exists", "function", type(mock.setUpdateInterval))
 check("nodeKeys traverses in pre-order", "root/child1/child2", (function()
   local tree = { key = "root", children = { { key = "child1" }, { key = "child2" } } }
@@ -780,7 +781,7 @@ end
 check("currentPaths returns two paths per window (frame + current)", usedCount, 2)
 local framePath = nil
 for path in pairs(used) do
-  if path:match("btop%-v2%-[0-9a-f]+%.png$") then
+  if path:match("btop%-v3%-[0-9a-f]+%.png$") then
     framePath = path
     break
   end
@@ -793,6 +794,25 @@ for _ in pairs(fromMap) do
   mapCount = mapCount + 1
 end
 check("currentPaths accepts a map", mapCount, 2)
+
+-- A window without a stable toplevel ID cannot be captured in isolation: the
+-- preview must skip it and let the card fall back to its static/mock image.
+local function countBatches()
+  local count = 0
+  for path in pairs(files) do
+    if path:find("/batch%-%d+%-%d+%.json$") ~= nil then
+      count = count + 1
+    end
+  end
+  return count
+end
+local batchesBefore = countBatches()
+local noStableDone = false
+preview.capture({ { name = "no-stable", address = "0x1", x = 0, y = 0, w = 10, h = 10 } }, function()
+  noStableDone = true
+end)
+check("capture without stable_id still calls back", true, noStableDone)
+check("capture without stable_id writes no batch", batchesBefore, countBatches())
 
 preview.pruneUnused({ [TESTDATA .. "/thumbs/btop-aaa.png"] = true })
 check("keeps the thumbnail in use", fs["btop-aaa.png"], true)
@@ -1083,10 +1103,24 @@ check("capture: recent imposition does not memorize", nil, r4.memory["noctalia-t
 check("capture: imposition cancels pending", nil, r4.pending["noctalia-term-lavat"])
 check("capture: imposition does not mark a change", false, r4.changed)
 
--- expired imposition: now counts as manual
+-- an old stamp still suppresses while the rectangle is unchanged
 local old = { ["noctalia-term-lavat"] = { x = 0, y = 800, w = 802, h = 582, at = 1000 } }
 local r5 = brain.capture({ clientAt("noctalia-term-lavat", 0, 800, 802, 582) }, SCREEN, 0, {}, old, r1.pending)
-check("capture: expired imposition memorizes", "bottom-left, 802x582, 0, -58", r5.memory["noctalia-term-lavat"])
+check("capture: unchanged imposition never expires", nil, r5.memory["noctalia-term-lavat"])
+check("capture: unchanged imposition clears pending", nil, r5.pending["noctalia-term-lavat"])
+check("capture: unchanged imposition refreshes the stamp", 10000, (r5.imposed["noctalia-term-lavat"] or {}).at)
+check("capture: unchanged imposition keeps the class", 800, (r5.imposed["noctalia-term-lavat"] or {}).y)
+
+-- a moved window ends the imposition and is memorized after two polls
+local moved = brain.capture({ clientAt("noctalia-term-lavat", 0, 700, 802, 582) }, SCREEN, 0, {}, old, r1.pending)
+check("capture: moving ends the imposition", nil, moved.imposed["noctalia-term-lavat"])
+check("capture: moved window starts pending", 700, (moved.pending["noctalia-term-lavat"] or {}).y)
+local moved2 = brain.capture({ clientAt("noctalia-term-lavat", 0, 700, 802, 582) }, SCREEN, 0, {}, {}, moved.pending)
+check("capture: moved window memorizes after two polls", "bottom-left, 802x582, 0, -158", moved2.memory["noctalia-term-lavat"])
+
+-- a closed window drops its imposition stamp
+local closed = brain.capture({}, SCREEN, 0, {}, old, {})
+check("capture: closed window drops the imposition", nil, closed.imposed["noctalia-term-lavat"])
 
 -- windows not belonging to the plugin
 local r6 = brain.capture({ clientAt("kitty", 0, 0, 100, 100) }, SCREEN, 0, {}, {}, {})
@@ -1206,10 +1240,10 @@ files[(DIR:gsub("/+$", "")) .. "/bin/snapshot.py"] = "#!/usr/bin/env python3\n"
 -- Regression: pruning must not delete the file a card is drawing. With the
 -- widget closed the card shows its "current" thumbnail, and if pruning
 -- deletes it the host warns "image failed to load" and it goes black.
-fs["cava-v2-current.png"] = true
+fs["cava-v3-current.png"] = true
 mock.fileInfo = function(path)
   local name = path:match("([^/]+)$")
-  if name == "cava-v2-current.png" or name == "btop-ccc.png" then
+  if name == "cava-v3-current.png" or name == "btop-ccc.png" then
     return { size = 10, mtime = os.time() - 7200, isDir = false }
   end
   return { size = 10, mtime = os.time(), isDir = false }
@@ -1218,7 +1252,7 @@ end
 env.onOpen("")
 check("panel opens and renders", true, rendered > 0)
 check("one card per widget", widgetCount, countKeys(lastTree, "card-"))
-check("pruning does not delete the thumbnail being drawn", true, fs["cava-v2-current.png"])
+check("pruning does not delete the thumbnail being drawn", true, fs["cava-v3-current.png"])
 
 -- The manifest is parsed once, but it is re-read when the panel opens: if the
 -- .toml changes at runtime and there is no user config, the new defaults are used.
@@ -1249,6 +1283,41 @@ check("header has the close-all button", true, findNode(lastTree, "close-all") ~
 check("header has the edit button", true, findNode(lastTree, "edit") ~= nil)
 check("header has the settings button", true, findNode(lastTree, "open-settings") ~= nil)
 check("header has the close button", true, findNode(lastTree, "close-panel") ~= nil)
+
+-- "Open all" also rotates when every widget is already open. That rotation
+-- must publish its imposed rectangles, exactly like the header rotate button.
+clients = {}
+local openNames = {}
+for name in pairs(config.commands) do
+  openNames[#openNames + 1] = name
+end
+for index, name in ipairs(openNames) do
+  clients[#clients + 1] = {
+    address = "0x" .. index,
+    class = util.classFor(name),
+    stableId = "0xstable" .. index,
+    at = { 100 * index, 100 },
+    size = { 400, 300 },
+    monitor = 0,
+  }
+end
+mock.state.set("imposed", {})
+env.onOpen("")
+env.onIpc("open-all", "")
+local openAllPublished = mock.state.get("imposed") or {}
+local openAllCount = 0
+for _ in pairs(openAllPublished) do
+  openAllCount = openAllCount + 1
+end
+check("open-all rotation publishes every imposed window", widgetCount, openAllCount)
+check(
+  "open-all publishes a concrete window",
+  true,
+  openAllPublished["noctalia-term-btop"] ~= nil
+)
+mock.state.set("imposed", {})
+clients = {}
+env.onOpen("")
 
 local cardNode = findNode(lastTree, "card-" .. (config.commands and "btop" or "btop"))
 if cardNode == nil then
@@ -1293,7 +1362,7 @@ if editButton ~= nil and editButton.props.onClick ~= nil then
     check(
       "thumbnail field starts empty",
       "",
-      thumbField ~= nil and thumbField.props.value or "sin campo"
+      thumbField ~= nil and thumbField.props.value or "no field"
     )
     local headerEdit = findNode(lastTree, "edit")
     if headerEdit ~= nil and headerEdit.props.onClick ~= nil then
@@ -1317,7 +1386,7 @@ if editButton ~= nil and editButton.props.onClick ~= nil then
         check(
           "renaming to an existing widget is rejected",
           "name_exists",
-          notifications[#notifications] ~= nil and notifications[#notifications].body or "sin aviso"
+          notifications[#notifications] ~= nil and notifications[#notifications].body or "no notification"
         )
         if headerEdit ~= nil and headerEdit.props.onClick ~= nil then
           headerEdit.props.onClick()
@@ -1525,11 +1594,12 @@ check("imposed: absolute position", 858, imposedEntry ~= nil and imposedEntry.y 
 check("imposed: carries a timestamp", true,
   imposedEntry ~= nil and (imposedEntry.at or 0) > 0)
 
--- Expired entries are pruned when publishing the next geometry.
-mock.state.set("imposed", { ["noctalia-term-vieja"] = { x = 0, y = 0, w = 10, h = 10, at = 1 } })
+-- Publishing a new geometry preserves the other classes. The stamps are
+-- removed by the service when the window moves or closes, not by age.
+mock.state.set("imposed", { ["noctalia-term-old"] = { x = 0, y = 0, w = 10, h = 10, at = 1 } })
 clock = clock + 5000
 clickCard("brain")
-check("imposed: prunes expired ones", nil, (mock.state.get("imposed") or {})["noctalia-term-vieja"])
+check("imposed: keeps the other classes", true, (mock.state.get("imposed") or {})["noctalia-term-old"] ~= nil)
 
 -- Brain ON and already open: focus only, no repositioning.
 storeLib.saveBrainToggle(true)
@@ -1664,7 +1734,6 @@ env.onIpc("add", "anchored|echo hello|top-left, 928x800")
 env.onOpen("")
 
 -- "loose" has no layout: it opens in a free slot with the fallback size.
--- respaldo.
 clock = clock + 5000
 dispatched = {}
 clickCard("loose")
@@ -1926,7 +1995,7 @@ end
 env.onIpc("add", "marco|echo hello|")
 
 clients = {
-  { address = "0x1", class = "noctalia-term-marco", x = 100, y = 100, w = 600, h = 400, monitor = "1" },
+  { address = "0x1", class = "noctalia-term-marco", stableId = "0xmarco", x = 100, y = 100, w = 600, h = 400, monitor = "1" },
 }
 env.onOpen("")
 
@@ -2008,6 +2077,35 @@ clients = { { class = "noctalia-term-lavat", at = { 0, 800 }, size = { 802, 582 
 service.update()
 service.update()
 check("service: respects imposed suppression", nil, storeLib.load().brainGeometry["noctalia-term-lavat"])
+
+-- The old five-second expiry must not turn an unchanged imposition into a
+-- manual rectangle, no matter how many polls happen.
+for _ = 1, 7 do
+  clock = clock + 1000
+  service.update()
+end
+check(
+  "service: unchanged imposition stays suppressed past the TTL",
+  nil,
+  storeLib.load().brainGeometry["noctalia-term-lavat"]
+)
+local refreshed = (mock.state.get("imposed") or {})["noctalia-term-lavat"] or {}
+check("service: refreshes the imposed stamp", true, (refreshed.at or 0) >= clock)
+
+-- A real move ends the suppression and is remembered after two polls.
+clients = { { class = "noctalia-term-lavat", at = { 0, 700 }, size = { 802, 582 }, address = "0x1", monitor = 0 } }
+service.update()
+service.update()
+check(
+  "service: a moved window is remembered after two polls",
+  "bottom-left, 802x582, 0, -158",
+  storeLib.load().brainGeometry["noctalia-term-lavat"]
+)
+check(
+  "service: a moved window drops the stale stamp",
+  nil,
+  (mock.state.get("imposed") or {})["noctalia-term-lavat"]
+)
 mock.state.set("imposed", {})
 clients = {}
 

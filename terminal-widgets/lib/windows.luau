@@ -133,8 +133,8 @@ function M.pluginWindows(clients, monitors, nameForClass)
         name = nameForClass(client.class),
         x = client.x - monitor.x,
         y = client.y - monitor.y,
-        -- Global coordinates (grim -g works in desktop coordinates, not
-        -- monitor coordinates).
+        -- Global coordinates: the capture payload and the preview signature
+        -- use desktop coordinates, not monitor-relative ones.
         screenX = client.x,
         screenY = client.y,
         w = client.w,

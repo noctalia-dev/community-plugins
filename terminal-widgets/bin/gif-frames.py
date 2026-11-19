@@ -17,7 +17,7 @@ import sys
 
 try:
     from PIL import Image, ImageSequence
-except Exception as exc:  # pragma: no cover - depende del sistema
+except Exception as exc:  # pragma: no cover - depends on the system
     print(f"Pillow not available: {exc}", file=sys.stderr)
     raise SystemExit(2)
 
