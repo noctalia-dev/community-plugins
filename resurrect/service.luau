@@ -43,19 +43,24 @@ local approvedFile = dataDir .. "/approved-steps"
 -- result: "saved", "unchanged" or "pushed"; counts: what the last save held, by kind.
 -- conflicts and held: shared files that wait for the owner, by path under the home folder.
 -- incoming: shared files only another device changed, which wait until the owner takes them;
--- incomingSettings: how many Noctalia settings wait the same way.
+-- incomingSettings: how many Noctalia settings wait the same way. blobs: the other devices'
+-- version of each waiting file, as git names it, "-" for a removal.
 -- missing: packages and services other devices have, as { list = "pacman", name = "foo" };
 -- left: those another device removed and this one still has, the same way.
 local state = {
   lastMs = nil, result = nil, error = nil, counts = nil, conflicts = {}, held = {}, missing = {}, left = {},
-  incoming = {}, incomingSettings = 0,
+  incoming = {}, incomingSettings = 0, blobs = {},
 }
--- Choices not yet passed to a save: path -> "mine" or "theirs", and the same for the
--- settings that wait.
+-- Choices not yet passed to a save: path -> "mine", or "theirs <blob>" with the version the
+-- owner was shown, so a version that came in after it waits again. The same for the settings
+-- that wait, with the settings text shown.
 local choices = {}
 local settingsChoice = nil
--- The waiting files, one path per line, for changes.sh to show.
+local settingsShown = nil
+-- The waiting files, as "<blob> <path>" lines, for changes.sh to show.
 local incomingFile = dataDir .. "/incoming.txt"
+-- The settings that wait, as they would be after taking them, written by the save.
+local incomingSettingsFile = dataDir .. "/incoming-settings.toml"
 -- Names to leave off this device, and { list, name } items to share again or keep only
 -- here, not yet passed to a save.
 local skips = {}
@@ -116,9 +121,10 @@ local function publish()
     incomingSettings = state.incomingSettings or 0,
     choices = choices,
     settingsChoice = settingsChoice,
+    preview = preview,
     missing = state.missing or {},
     left = state.left or {},
-    canRestore = noctalia.fileExists(repo() .. "/restore.sh"),
+    canRestore = noctalia.fileExists(repo() .. "/shared") or noctalia.fileExists(repo() .. "/devices"),
     counts = state.counts or {},
     hooks = repo() .. "/hooks",
     canOpen = noctalia.commandExists("xdg-open"),
@@ -305,12 +311,13 @@ snapshot = function()
     dataDir = dataDir,
     resolve = choices,
     settingsChoice = settingsChoice,
+    settingsShown = settingsShown,
     exclude = skips,
     again = again,
     only = only,
   }
   choices, skips, again, only = {}, {}, {}, {}
-  settingsChoice = nil
+  settingsChoice, settingsShown = nil, nil
   publish()
   startJob(function(api)
     Save.run(api, opt)
@@ -359,7 +366,7 @@ finish = function(code, out)
   end
   -- What the save did with the other devices' files. A file held back was also applied
   -- first, then put back.
-  local applied, conflicts, held, heldSet, incoming = {}, {}, {}, {}, {}
+  local applied, conflicts, held, heldSet, incoming, blobs = {}, {}, {}, {}, {}, {}
   local lines = {}
   for line in (log or ""):gmatch("[^\n]+") do
     local word, path = line:match("^(%a+) (.+)$")
@@ -367,14 +374,20 @@ finish = function(code, out)
       table.insert(lines, { word = word, path = path })
     end
   end
+  local incomingLines = {}
   for _, line in ipairs(lines) do
-    if line.word == "held" then
-      heldSet[line.path] = true
-      table.insert(held, line.path)
-    elseif line.word == "conflict" then
-      table.insert(conflicts, line.path)
-    elseif line.word == "incoming" then
-      table.insert(incoming, line.path)
+    local blob, path = line.path:match("^([%x-]+) (.+)$")
+    if blob and (line.word == "held" or line.word == "conflict" or line.word == "incoming") then
+      blobs[path] = blob
+      if line.word == "held" then
+        heldSet[path] = true
+        table.insert(held, path)
+      elseif line.word == "conflict" then
+        table.insert(conflicts, path)
+      else
+        table.insert(incoming, path)
+        table.insert(incomingLines, line.path)
+      end
     end
   end
   for _, line in ipairs(lines) do
@@ -404,10 +417,16 @@ finish = function(code, out)
   end
   local newlyHeld = #held > #(state.held or {})
   local incomingSettings = tonumber((log or ""):match("incoming%-settings (%d+)") or "0") or 0
-  local newlyIncoming = #incoming > #(state.incoming or {}) or incomingSettings > (state.incomingSettings or 0)
+  -- A file is newly incoming when it waits with a version it did not wait with before.
+  local newlyIncoming = incomingSettings > (state.incomingSettings or 0)
+  for _, path in ipairs(incoming) do
+    if (state.blobs or {})[path] ~= blobs[path] then
+      newlyIncoming = true
+    end
+  end
   state.conflicts, state.held = conflicts, held
-  state.incoming, state.incomingSettings = incoming, incomingSettings
-  noctalia.writeFile(incomingFile, table.concat(incoming, "\n") .. "\n")
+  state.incoming, state.incomingSettings, state.blobs = incoming, incomingSettings, blobs
+  noctalia.writeFile(incomingFile, table.concat(incomingLines, "\n") .. "\n")
   if code == 0 then
     state.missing, state.left = missing, left
   end
@@ -465,18 +484,34 @@ local function quoted(path)
   return "'" .. path:gsub("'", "'\\''") .. "'"
 end
 
--- Restores with the plugin's own restore.sh, not the repository's copy, which the remote
--- could have changed.
+-- Restores with the plugin's own restore.sh. The repository holds no script: the remote
+-- could have changed it.
 local function restore()
-  if noctalia.fileExists(repo() .. "/restore.sh") then
+  if noctalia.fileExists(repo() .. "/shared") or noctalia.fileExists(repo() .. "/devices") then
     noctalia.runInTerminal("sh " .. quoted((noctalia.pluginDir() or "") .. "/restore.sh") .. " " .. quoted(repo()))
   end
 end
 
--- Opens a terminal that shows what changed in each file and setting that waits.
+-- What changed in each file and setting that waits, as changes.sh prints it, for the panel's
+-- Review; nil while it is read.
+local preview = nil
+local PREVIEW_CHARS = 20000
+
 local function changes()
-  noctalia.runInTerminal("sh " .. quoted((noctalia.pluginDir() or "") .. "/changes.sh") .. " " .. quoted(repo())
-    .. " " .. quoted(dataDir))
+  preview = nil
+  publish()
+  local started = noctalia.runAsync({ "sh", (noctalia.pluginDir() or "") .. "/changes.sh", repo(), dataDir }, function(result)
+    local text = result.stdout or ""
+    if #text > PREVIEW_CHARS or result.stdoutTruncated then
+      text = text:sub(1, PREVIEW_CHARS) .. "\n\n" .. noctalia.tr("changes.cut")
+    end
+    preview = text
+    publish()
+  end, 60000)
+  if not started then
+    preview = noctalia.tr("error.unknown")
+    publish()
+  end
 end
 
 -- Opens a terminal that shows each save step waiting for approval and asks about it.
@@ -494,17 +529,26 @@ noctalia.state.watch("resurrect.command", function(command)
   elseif command.action == "resolve" and type(command.path) == "string"
     and (command.choice == "mine" or command.choice == "theirs") then
     -- The choice goes with the next save, which starts now or after the one running.
-    choices[command.path] = command.choice
+    local blob = (state.blobs or {})[command.path]
+    if command.choice == "mine" then
+      choices[command.path] = "mine"
+    elseif blob then
+      choices[command.path] = "theirs " .. blob
+    end
     saveSoon()
   elseif command.action == "settings" and (command.choice == "mine" or command.choice == "theirs") then
     settingsChoice = command.choice
+    settingsShown = noctalia.readFile(incomingSettingsFile) or ""
     saveSoon()
   elseif command.action == "take_all" then
     for _, path in ipairs(state.incoming or {}) do
-      choices[path] = "theirs"
+      if (state.blobs or {})[path] then
+        choices[path] = "theirs " .. state.blobs[path]
+      end
     end
     if (state.incomingSettings or 0) > 0 then
       settingsChoice = "theirs"
+      settingsShown = noctalia.readFile(incomingSettingsFile) or ""
     end
     saveSoon()
   elseif command.action == "changes" then
@@ -598,6 +642,7 @@ noctalia.readFileAsync(stateFile, function(text)
   state.held = state.held or {}
   state.incoming = state.incoming or {}
   state.incomingSettings = state.incomingSettings or 0
+  state.blobs = state.blobs or {}
   state.missing = state.missing or {}
   state.left = state.left or {}
   -- Files of versions that saved with shell scripts.

@@ -18,8 +18,9 @@
 -- lists. The save brings in what other devices changed, and this device's folder keeps only
 -- what differs. Then the owner's own steps run, and the save is committed and pushed.
 --
--- Emits "count <what> <number>" lines; "applied", "removed", "conflict", "held" and "kept"
--- lines for shared files; "missing" and "left" lines for shared packages and services;
+-- Emits "count <what> <number>" lines; "applied", "removed" and "kept" lines for shared
+-- files, and "incoming <blob> <path>", "conflict <blob> <path>" and "held <blob> <path>" with
+-- the other devices' version, "-" for a removal; "incoming-settings <number>"; "missing" and "left" lines for shared packages and services;
 -- "settings applied <number>"; "unapproved <path>" for each step that waits; then "saved" or
 -- "unchanged", and "pushed".
 
@@ -245,13 +246,34 @@ function Save.run(job, opt)
   end
   local gitDir = trim(git("rev-parse", "--absolute-git-dir").stdout)
 
-  -- A save never writes a link, so a link in the repository came from elsewhere, such as the
-  -- remote. git writes links as plain files here, and links already here are removed before
-  -- a save writes or removes anything, so nothing is written or removed through one.
+  -- A save never writes a link, so a link where it reads, writes or runs anything came from
+  -- elsewhere, such as the remote. git writes links as plain files here, and links already
+  -- in those places are removed before a save writes or removes anything, so nothing goes
+  -- through one. The rest of the folder is the owner's, and stays as it is.
   git("config", "core.symlinks", "false")
-  local links = job.run({ "find", "-H", repo, "-mindepth", "1", "-path", repo .. "/.git", "-prune", "-o", "-type", "l", "-exec", "rm", "-f", "--", "{}", "+" })
+  local tops = { "shared", "devices", "hooks", "packages", "restore.sh", "settings.awk", ".gitleaksignore" }
+  local argv = { "find", repo, "-mindepth", "1", "-maxdepth", "1", "(" }
+  for i, name in ipairs(tops) do
+    table.move(i == 1 and { "-name", name } or { "-o", "-name", name }, 1, i == 1 and 2 or 3, #argv + 1, argv)
+  end
+  table.move({ ")", "-type", "l", "-delete" }, 1, 4, #argv + 1, argv)
+  local links = job.run(argv)
+  argv = { "find" }
+  for _, name in ipairs(tops) do
+    if isDir(repo .. "/" .. name) then
+      table.insert(argv, repo .. "/" .. name)
+    end
+  end
+  if links.exitCode == 0 and #argv > 1 then
+    table.move({ "-type", "l", "-delete" }, 1, 3, #argv + 1, argv)
+    links = job.run(argv)
+  end
   if links.exitCode ~= 0 then
     failed(links, 1, "could not remove the links in " .. repo)
+  end
+  -- The owner's .gitleaksignore, put aside by a secret check that did not end.
+  if noctalia.fileExists(gitDir .. "/resurrect-gitleaksignore") and not noctalia.fileExists(repo .. "/.gitleaksignore") then
+    noctalia.renameFile(gitDir .. "/resurrect-gitleaksignore", repo .. "/.gitleaksignore")
   end
 
   -- The other devices' latest saves: the remote's branch merged with this repository's own,
@@ -723,7 +745,9 @@ function Save.run(job, opt)
       -- new settings are kept for Review to show.
       local incoming = opt.dataDir .. "/incoming-settings.toml"
       local applied = 0
-      if merged.taken > 0 and opt.settingsChoice ~= "theirs" then
+      -- Taking them takes the settings the owner was shown: when they changed since, they
+      -- wait again.
+      if merged.taken > 0 and not (opt.settingsChoice == "theirs" and (merged.settings or "") == opt.settingsShown) then
         noctalia.writeFile(incoming, merged.settings or "")
         job.emit("incoming-settings " .. merged.taken)
       else
@@ -1003,7 +1027,13 @@ function Save.run(job, opt)
       local m = hashes[path]
       -- Theirs is held when it is the version that broke Hyprland here.
       local isHeld = held[path] ~= nil and held[path] == t
+      -- "theirs <blob>" takes the version the owner was shown, <blob>, or "-" for a removal.
+      -- When another device changed the file again since, the choice is dropped and the file
+      -- waits again, with its new version.
       local choice = resolve[path]
+      if choice ~= nil and choice ~= "mine" then
+        choice = choice == "theirs " .. (t or "-") and "theirs" or nil
+      end
 
       if isKept(path) then
         -- Kept on this device, or not listed here: the shared copy stays as the other devices
@@ -1031,7 +1061,7 @@ function Save.run(job, opt)
         if b then
           newBase[path] = b
         end
-        job.emit("incoming " .. path)
+        job.emit("incoming " .. (t or "-") .. " " .. path)
       elseif choice == "theirs" then
         -- The owner took theirs: it is put in place here.
         if t == nil then
@@ -1047,7 +1077,7 @@ function Save.run(job, opt)
           if b then
             newBase[path] = b
           end
-          job.emit("conflict " .. path)
+          job.emit("conflict " .. (t or "-") .. " " .. path)
         end
       else
         -- Changed on both sides, or held back: nothing moves until the owner chooses.
@@ -1059,9 +1089,9 @@ function Save.run(job, opt)
         end
         if isHeld then
           newHeld[path] = t
-          job.emit("held " .. path)
+          job.emit("held " .. t .. " " .. path)
         else
-          job.emit("conflict " .. path)
+          job.emit("conflict " .. (t or "-") .. " " .. path)
         end
       end
     end
@@ -1094,7 +1124,7 @@ function Save.run(job, opt)
           -- The agreed version goes back to what it was, so the file stays a difference.
           newBase[path] = base[path]
           newHeld[path] = their[path].blob
-          job.emit("held " .. path)
+          job.emit("held " .. their[path].blob .. " " .. path)
         end
         job.run({ "hyprctl", "reload" })
       end
@@ -1144,12 +1174,9 @@ function Save.run(job, opt)
   ---------------------------------------------------------------------------------------
   -- The restore script, and the owner's own steps.
 
-  local restore = noctalia.readFile((noctalia.pluginDir() or "") .. "/restore.sh")
-  if restore then
-    noctalia.writeFile(repo .. "/restore.sh", restore)
-    job.run({ "chmod", "755", "--", repo .. "/restore.sh" })
-  end
-  -- Older versions read the settings with it; restore.sh no longer does.
+  -- Older versions put restore.sh, and settings.awk for it, in the repository. A restore runs
+  -- the plugin's own copy, as the remote could change the repository's, so neither stays.
+  noctalia.removeFile(repo .. "/restore.sh")
   noctalia.removeFile(repo .. "/settings.awk")
 
   -- Each executable file in hooks/save/ runs, in name order, and in
@@ -1212,23 +1239,48 @@ function Save.run(job, opt)
   ---------------------------------------------------------------------------------------
   -- Committing and pushing.
 
-  if opt.secretCheck then
-    noctalia.removeFile(repo .. "/.gitleaksignore")
+  -- A save commits only the paths it writes, never anything else in the folder, staged or
+  -- not: shared/, this device's folder, and the files older versions wrote at the top.
+  local ours = {}
+  for _, path in ipairs({ "shared", dir, "restore.sh", "settings.awk" }) do
+    if noctalia.fileExists(repo .. "/" .. path) or trim(git("ls-files", "--", path).stdout) ~= "" then
+      table.insert(ours, path)
+    end
   end
-  git("add", "-A")
+  local function gitPaths(...)
+    local argv = { ... }
+    table.insert(argv, "--")
+    table.move(ours, 1, #ours, #argv + 1, argv)
+    return git(table.unpack(argv))
+  end
+  local function commitPaths()
+    local argv = { "commit", "-q", "-m", "Snapshot of " .. device .. " on " .. os.date("%Y-%m-%d %H:%M"), "--" }
+    table.move(ours, 1, #ours, #argv + 1, argv)
+    return gitAs(table.unpack(argv))
+  end
+  gitPaths("add", "-A")
 
   -- Nothing that looks like a password or key is committed, since saves may be pushed,
   -- except in Noctalia's config and settings, which are saved whole (gitleaks.toml). Known
   -- findings can be allowed in .gitleaksignore in the data folder. gitleaks also reads one
-  -- in the repository, which the remote could fill, so the save removes that one.
+  -- in the repository, which the remote could fill, so that one is moved aside meanwhile.
   if opt.secretCheck and noctalia.commandExists("gitleaks") then
+    local ignore, aside = repo .. "/.gitleaksignore", gitDir .. "/resurrect-gitleaksignore"
+    local moved = noctalia.fileExists(ignore) and noctalia.renameFile(ignore, aside)
+    if noctalia.fileExists(ignore) then
+      job.emit("could not move " .. ignore .. " aside for the secret check")
+      job.stop(1)
+    end
     local result = job.run({
       "gitleaks", "git", "--pre-commit", "--staged", "--redact", "--no-banner", "-v",
       "--config", (noctalia.pluginDir() or "") .. "/gitleaks.toml",
       "--gitleaks-ignore-path", opt.dataDir .. "/.gitleaksignore", repo,
     })
+    if moved then
+      noctalia.renameFile(aside, ignore)
+    end
     if result.exitCode ~= 0 then
-      git("reset", "-q")
+      gitPaths("reset", "-q")
       local found = {}
       for line in eachLine((result.stdout .. "\n" .. result.stderr):gsub("\27%[[%d;]*m", "")) do
         local file = line:match("^File:%s*(.+)$")
@@ -1243,11 +1295,10 @@ function Save.run(job, opt)
     end
   end
 
-  local message = "Snapshot of " .. device .. " on " .. os.date("%Y-%m-%d %H:%M")
-  if git("diff", "--cached", "--quiet").exitCode == 0 then
+  if gitPaths("diff", "--cached", "--quiet").exitCode == 0 then
     job.emit("unchanged")
   else
-    local committed = gitAs("commit", "-q", "-m", message)
+    local committed = commitPaths()
     if committed.exitCode ~= 0 then
       failed(committed, 1)
     end
@@ -1260,11 +1311,12 @@ function Save.run(job, opt)
   if remote ~= "" then
     -- Other devices push to the same repository. Their saves are in their own folders, and
     -- their shared files are already taken in, so this save goes on top of theirs; a file
-    -- both changed keeps this device's version.
+    -- both changed keeps this device's version. Changes of the owner's own that are not
+    -- committed are put aside meanwhile and put back.
     branch = trim(git("symbolic-ref", "--short", "HEAD").stdout)
     local saved = trim(git("rev-parse", "HEAD").stdout)
     if job.long({ "git", "-C", repo, "fetch", "-q", "origin", branch }).exitCode == 0 then
-      if gitAs("rebase", "-q", "-X", "theirs", "origin/" .. branch).exitCode ~= 0 then
+      if gitAs("rebase", "-q", "--autostash", "-X", "theirs", "origin/" .. branch).exitCode ~= 0 then
         git("rebase", "--abort")
         job.emit("could not combine this save with the other devices' saves; see git status in " .. repo)
         job.stop(2)
@@ -1274,8 +1326,9 @@ function Save.run(job, opt)
       -- save is newer: the next save merges it.
       if share and verify("origin/" .. branch) == fetched then
         git("restore", "-q", "--source=" .. saved, "--staged", "--worktree", "--", "shared")
-        if git("diff", "--cached", "--quiet").exitCode ~= 0 then
-          local committed = gitAs("commit", "-q", "-m", message)
+        if git("diff", "--cached", "--quiet", "--", "shared").exitCode ~= 0 then
+          local committed = gitAs("commit", "-q", "-m", "Snapshot of " .. device .. " on " .. os.date("%Y-%m-%d %H:%M"),
+            "--", "shared")
           if committed.exitCode ~= 0 then
             failed(committed, 1)
           end

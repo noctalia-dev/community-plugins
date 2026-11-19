@@ -1,17 +1,28 @@
 #!/bin/sh
-# Brings back a setup saved by Resurrect, on this device. Run it from the saved
-# repository, ./restore.sh, or give it the repository: restore.sh <repo>
+# Brings back a setup saved by Resurrect, on this device, from a clone of its repository:
+#   restore.sh <repo>
+# It is the plugin's own copy, which the panel's Restore... runs; the repository holds none.
 # With sharing on, it brings back what the devices share, and this device's own folder when
 # there is one. Without, it uses this device's save, or asks which device's save to use. It
 # asks before each step. Files it would replace are first copied to a backup folder. Last, it
 # offers each of the owner's restore steps.
 set -u
 
-cd "${1:-$(dirname "$0")}" || exit 1
+if [ $# -ne 1 ]; then
+  echo "usage: restore.sh <repository>" >&2
+  exit 2
+fi
+cd "$1" || exit 1
 repo=$(pwd)
-# A save never writes a link, so a link here did not come from Resurrect, and a restore
-# could read or write through it. git makes none when cloning with core.symlinks=false.
-links=$(find . -path ./.git -prune -o -type l -print)
+# A save never writes a link, so a link where a restore reads did not come from Resurrect,
+# and the restore could read or write through it. git makes none when cloning with
+# core.symlinks=false.
+links=$(
+  find . -mindepth 1 -maxdepth 1 \( -name shared -o -name devices -o -name hooks -o -name packages \) -type l
+  for folder in shared devices hooks packages; do
+    [ -d "$folder" ] && [ ! -L "$folder" ] && find "$folder" -type l
+  done
+)
 if [ -n "$links" ]; then
   echo "The repository holds links, which Resurrect never saves, so nothing was restored:"
   echo "$links" | sed 's/^/  /'
@@ -39,9 +50,10 @@ show() {
 }
 
 # Only the lines that are a package or service name: letters, digits and @ . _ + : -, not
-# starting with "-", so a name from the repository is never read as an option.
+# starting with "-", so a name from the repository is never read as an option, and not
+# ending with "-", which tells apt to remove the package.
 names_only() {
-  grep -E '^[[:alnum:]@_+][[:alnum:]@._+:-]*$'
+  grep -E '^[[:alnum:]@_+]([[:alnum:]@._+:-]*[[:alnum:]@._+:])?$'
 }
 
 # Lines of a list you keep by hand, without comments and blank lines.
@@ -50,7 +62,8 @@ entries() {
 }
 
 # Copies file $1 to path $2 under the home folder. A file already there is first copied to
-# the same place under $backup; when that fails, it is left as it is and the failure noted.
+# the same place under $backup, once, so the backup keeps the file as it was before the
+# restore; when that fails, it is left as it is and the failure noted.
 # The folder is resolved through its links first, and a path that leads into Resurrect's data
 # folder is left out. A link at $2 itself is replaced, not written through.
 put_file() {
@@ -63,7 +76,7 @@ put_file() {
     return 1
     ;;
   esac
-  if [ -e "$2" ] || [ -L "$2" ]; then
+  if { [ -e "$2" ] || [ -L "$2" ]; } && [ ! -e "$backup${2#"$HOME"}" ] && [ ! -L "$backup${2#"$HOME"}" ]; then
     if ! { mkdir -p "$(dirname "$backup${2#"$HOME"}")" && cp -a "$2" "$backup${2#"$HOME"}"; }; then
       echo "Could not back up $2, so it was left as it is."
       echo "$2" >>"$work/failed"
@@ -73,12 +86,12 @@ put_file() {
   rm -f "$2" && cp -p "$1" "$2" || { echo "$2" >>"$work/failed"; return 1; }
 }
 
-# Copies the regular files of folder $1 over folder $2, which is under the home folder. A
-# save never writes links, so a link in the repository did not come from Resurrect and is
-# left out.
+# Copies the regular files of folder $1 over folder $2, which is under the home folder,
+# except those folder $3, when given, also holds: they win, and are put back from there.
 put_back() {
   (cd "$1" && find . -type f) | while read -r file; do
     file=${file#./}
+    [ -n "${3:-}" ] && [ -f "$3/$file" ] && continue
     put_file "$1/$file" "$2/$file"
   done
 }
@@ -151,7 +164,7 @@ if [ -n "$(cat "$work"/pacman "$work"/aur "$work"/apt "$work"/dnf "$work"/flatpa
     fi
   fi
   if [ -s "$work/apt" ] && command -v apt-get >/dev/null; then
-    xargs -a "$work/apt" sudo apt-get install -y --
+    xargs -a "$work/apt" sudo apt-get install -y --no-remove --
   fi
   if [ -s "$work/dnf" ] && command -v dnf >/dev/null; then
     xargs -a "$work/dnf" sudo dnf install -y --
@@ -164,7 +177,7 @@ fi
 # Files shared between devices first, then this device's own, which win.
 if { [ -d "$repo/shared/files" ] || [ -d "$own/files" ]; } &&
   ask "Put back the saved dotfiles? Replaced files go to $backup"; then
-  [ -d "$repo/shared/files" ] && put_back "$repo/shared/files" "$HOME"
+  [ -d "$repo/shared/files" ] && put_back "$repo/shared/files" "$HOME" "$own/files"
   [ -d "$own/files" ] && put_back "$own/files" "$HOME"
 fi
 

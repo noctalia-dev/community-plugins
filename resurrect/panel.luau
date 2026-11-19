@@ -5,6 +5,8 @@
 
 local model = nil
 local confirming = false
+-- Whether Review shows what changed, in place of the cards.
+local reviewing = false
 
 -- The cards scroll inside a column of their height, up to what fits in the panel
 -- (DESIGN.md, section 6.3). Rows have fixed heights; labels that wrap are estimated, and
@@ -181,10 +183,11 @@ local function incomingCard()
     height += LINE_HEIGHT
   end
   table.insert(rows, ui.row({ gap = 8, justify = "end", height = BUTTON_ROW_HEIGHT }, {
-    ui.button({ text = noctalia.tr("incoming.review"), glyph = "terminal-2", variant = "ghost", controlSize = "sm",
+    ui.button({ text = noctalia.tr("incoming.review"), glyph = "eye", variant = "ghost", controlSize = "sm",
       onClick = function()
+        reviewing = true
         send({ action = "changes" })
-        panel.close()
+        render()
       end }),
     ui.button({ text = noctalia.tr("incoming.take_all"), glyph = "check", variant = "primary", controlSize = "sm",
       onClick = function() send({ action = "take_all" }) end }),
@@ -424,6 +427,24 @@ render = function()
     }))
     return
   end
+  if reviewing then
+    panel.render(ui.column({ gap = 14, padding = 16 }, {
+      header,
+      ui.column({ height = LIST_MAX }, {
+        ui.scroll({ key = "review", flexGrow = 1 }, {
+          ui.label({ text = model.preview or noctalia.tr("panel.loading"), color = model.preview and "on_surface" or "on_surface_variant" }),
+        }),
+      }),
+      ui.separator({}),
+      ui.row({ gap = 8, justify = "end" }, {
+        ui.button({ text = noctalia.tr("changes.back"), variant = "primary", onClick = function()
+          reviewing = false
+          render()
+        end }),
+      }),
+    }))
+    return
+  end
   -- The cards scroll between the fixed header and buttons when they do not fit.
   local cards, height = {}, -CARD_GAP
   local function add(item, itemHeight)
@@ -456,6 +477,7 @@ end)
 
 function onOpen(_context)
   confirming = false
+  reviewing = false
   model = noctalia.state.get("resurrect.model") or model
   render()
 end

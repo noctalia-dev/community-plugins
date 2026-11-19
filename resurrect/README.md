@@ -18,7 +18,7 @@ your devices, and on a new install, bring it all back with one script.
 | Command                                                     | Needed                     | What for                                                                                                                                                                                                                                                                                                                                                    |
 | ----------------------------------------------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `git`                                                       | Required                   | Keeps each save as a commit, and pushes it when a remote is set. Without it, the panel says so.                                                                                                                                                                                                                                                             |
-| `sh`                                                        | Required                   | Runs git's network commands in the background, as a push can take longer than a minute, and the restore, review, changes and install scripts in a terminal.                                                                                                                                                                                                 |
+| `sh`                                                        | Required                   | Runs git's network commands in the background, as a push can take longer than a minute, and the restore, review and install scripts in a terminal, and the script that lists what changed for Review.                                                                                                                                                                                                 |
 | `env`, `find`, `chmod`, `grep`, `sed`, `xargs`, `sha256sum` | Required                   | Run your own save steps, keep which saved files are executable, remove links from the repository, leave out the packages `packages/exclude.txt` matches, read the lists in the scripts, and tell whether a save step changed since you approved it. They come with every Linux system, as do the coreutils the scripts use, such as `cp`, `sort` and `fmt`. |
 | `noctalia`                                                  | Required                   | Lists the Noctalia plugins that are on, reloads the settings after taking them, and turns the plugins on when restoring.                                                                                                                                                                                                                                    |
 | `systemctl`                                                 | Required                   | Lists and restores the services that start by themselves. Without it, services are not saved.                                                                                                                                                                                                                                                               |
@@ -53,27 +53,30 @@ press **Save now** in the panel.
   saved, and the panel names the folder.
 - To keep a copy off this device, set **Push to** to a private git repository.
 - **Restore…** opens a terminal that asks before each step. It runs the plugin's own
-  restore script, not the repository's copy.
+  restore script. The repository holds no script, as its remote could change it.
 
-On a new install, before anything else:
+On a new install, first install Noctalia and Resurrect, from Noctalia's plugin list. Then
+clone the repository into Resurrect's **Folder**, `~/resurrect` by default, and press
+**Restore…** in the panel:
 
 ```sh
 git clone -c core.symlinks=false <your repository> ~/resurrect
-~/resurrect/restore.sh
 ```
 
 The script installs the saved packages, puts back the dotfiles and Noctalia's settings,
 turns on the saved Noctalia plugins and services, and runs your own steps. Before each
-question, it lists the packages, plugins or services it would install or turn on. With sharing on,
-it brings back what your devices share, with what this device keeps for itself when it has
+question, it lists the packages, plugins or services it would install or turn on. With
+sharing on, it brings back what your devices share, with what this device keeps for itself when it has
 a folder there. Without sharing, it asks which device's save to use when there is no save
 of this device. It asks before each step, and copies any file it would replace to
 `~/.local/state/resurrect/backup-<date>` first. A file it cannot copy there is left as it
 is, and the script lists it at the end. It puts back files only, never links, and nothing
-that leads into Resurrect's data folder. A repository that holds a link is not restored at
-all, as Resurrect never saves one. Before each of your restore steps, it shows the step's
-code. Noctalia's settings are put in place once Noctalia runs with Resurrect on, and your
-plugin sources stay as they are, so the repository never adds code to run.
+that leads into Resurrect's data folder. A repository with a link where Resurrect saves is
+not restored at all, as Resurrect never saves one. A file this device keeps for itself
+replaces the shared one, and the backup keeps the file as it was before the restore. Before
+each of your restore steps, it shows the step's code. Noctalia's settings are put in place
+once Noctalia runs with Resurrect on. The settings each device keeps as its own, listed in
+the next section, stay as they are on this device: set them again there.
 
 ```sh
 noctalia msg panel-toggle omerfuyar/resurrect:panel
@@ -87,8 +90,9 @@ other devices changed. Nothing from them comes in until you take it:
 
 - A dotfile that only another device changed, or deleted, waits in the panel's
   **Changes from your other devices** card, when it is in this device's **Files**. **Review**
-  opens a terminal that shows what changed. **Take theirs**, or **Take all**, puts it in
-  place with the next save; **Keep mine** shares this device's version instead. The file it
+  shows what changed, in the panel. **Take theirs**, or **Take all**, puts in place
+  the version the panel lists, with the next save; when another device changes the file
+  again first, it waits again. **Keep mine** shares this device's version instead. The file it
   replaces goes to `~/.local/state/resurrect/backup-<date>` first. When that copy fails, the
   save stops before replacing the file, and the panel shows why.
 - A dotfile that only this device changed reaches the others, where it waits the same way.
@@ -105,16 +109,19 @@ GPU variables. They are saved, but not shared.
 Noctalia's config folder is shared like the dotfiles. All settings changed in its settings
 window are shared one setting at a time, such as the bar, the theme, the wallpaper and
 idle. Settings only another device changed wait in the same card, together: **Take theirs**
-puts them in place, **Keep mine** shares this device's instead. When two devices changed
+puts in place the settings **Review** shows, unless they changed again since, **Keep mine**
+shares this device's instead. When two devices changed
 one, each keeps its own. A setting shared for the first time takes the value of the device
 that shared it first. Plugins turned on or off on one device are turned on or off on the
-others once you take the settings. Some settings stay on each device: brightness, battery,
-widgets placed on a monitor, the plugin sources, so another device never adds code to run
-here, and Resurrect's own settings, so another device never changes which files are written
-here. Resurrect's data folder, with the steps you approved, is never shared, and a
-save writes nothing into it, not even through a link. A save never writes a link into the
-repository either: one that comes from the remote is removed before the save writes
-anything, and a file whose path holds `..` or `.git` is left out.
+others once you take the settings. Some settings stay on each device: brightness, battery
+and widgets placed on a monitor. Each device also keeps these as its own, never taken from
+another device or restored from the repository: the plugin sources and any setting that
+holds a command, such as a hook or a button's command, so neither adds code to run here,
+and Resurrect's own settings, so neither changes where saves go or what they hold. Resurrect's data folder, with the steps you approved, is never shared, and a
+save writes nothing into it, not even through a link. Nor does a save write through a link
+in the repository: git writes the remote's links as plain files, a link already in
+`shared/`, `devices/`, `hooks/` or `packages/` is removed before the save writes anything,
+and a file whose path holds `..` or `.git` is left out.
 
 The devices also share one list of packages and one of services:
 
@@ -154,12 +161,11 @@ Either way:
 | `packages/exclude.txt` | Optional, yours. Package names left out of every save: one regular expression per line, for the whole name, such as `linux.*` or `.*nvidia.*`. |
 | `packages/extra.txt`   | Optional, yours. Packages installed on restore besides the saved ones, one per line, such as ones pacman counts as dependencies.               |
 | `hooks/`               | Yours. The steps every device runs, in `save/` and `restore/`.                                                                                 |
-| `restore.sh`           | The restore script, updated on each save.                                                                                                      |
 
-Anything else in the repository is yours too: Resurrect only writes `shared/`, the files it
-names in `devices/<name>/` of the device it runs on, and `restore.sh`. It also removes links
-and `.gitleaksignore`. A repository from an older version moves to this layout on each
-device's next save.
+Anything else in the repository is yours too. A save writes, and commits, only `shared/` and
+the files it names in `devices/<name>/` of the device it runs on; changes you make
+elsewhere, such as in `hooks/`, are yours to commit. It removes the `restore.sh` that older
+versions wrote, and moves to this layout a repository from an older version.
 
 ### Secrets
 
@@ -170,8 +176,8 @@ When `gitleaks` is installed, the rest of each save is checked before it is comm
 something looks like a password, token or key, nothing is committed, and the panel names the
 file. Take the file out of the dotfiles, or allow the finding in a `.gitleaksignore` file in
 Resurrect's data folder, `~/.local/state/noctalia/plugins/data/omerfuyar/resurrect/`, which
-stays on this device. A `.gitleaksignore` in the repository is removed on each save, as the
-remote could fill it. Turn off **Check saves for secrets** in the advanced settings to commit
+stays on this device. A `.gitleaksignore` in the repository is not read, as the remote could
+fill it: it is moved aside during the check. Turn off **Check saves for secrets** in the advanced settings to commit
 saves without the check.
 
 ### Your own steps
@@ -192,7 +198,7 @@ so a step that came from the remote never runs unseen. The panel shows how many 
 **Review** opens a terminal that shows each one's code and asks. Approvals are kept in the
 plugin's data folder, outside the repository, so each device approves for itself.
 
-Whatever a save step writes into the repository is committed with the save. A save step
+Whatever a save step writes into `RESURRECT_DIR` is committed with the save. A save step
 that fails stops the save, and the panel shows it. For example, to also save a database:
 
 ```sh

@@ -10,9 +10,10 @@ set -u
 file=$1
 
 # The names of one list, on one line each. Only letters, digits and @ . _ + : -, not starting
-# with "-", so a name from another device is never read as an option.
+# with "-", so a name from another device is never read as an option, and not ending with
+# "-", which tells apt to remove the package.
 names() {
-  sed -n "s/^$1 //p" "$file" | grep -E '^[[:alnum:]@_+][[:alnum:]@._+:-]*$'
+  sed -n "s/^$1 //p" "$file" | grep -E '^[[:alnum:]@_+]([[:alnum:]@._+:-]*[[:alnum:]@._+:])?$'
 }
 
 for list in pacman aur apt dnf flatpak system user; do
@@ -38,7 +39,7 @@ if [ -n "$(names aur)" ]; then
   fi
 fi
 if [ -n "$(names apt)" ]; then
-  names apt | xargs sudo apt-get install -y --
+  names apt | xargs sudo apt-get install -y --no-remove --
 fi
 if [ -n "$(names dnf)" ]; then
   names dnf | xargs sudo dnf install -y --

@@ -16,10 +16,12 @@
 -- changed is taken; otherwise this device's value stays. With <keepMine>, every setting is
 -- this device's. The list of enabled plugins is merged item by item. Never shared: settings
 -- tied to the hardware (brightness and battery, any table named after a monitor or placed on
--- one, except the wallpaper's), Resurrect's own settings, so another device never changes
--- what this one writes, and the plugin sources, so another device never adds code to run. A
+-- one, except the wallpaper's), and the settings each device keeps as its own (isOwn). A
 -- setting shared for the first time takes the value already shared, so the device that
 -- shared it first wins.
+--
+-- Settings.restore(shared, device, current) joins the settings restore.sh brings back with
+-- the current ones, without taking any setting a device keeps as its own.
 --
 -- Settings.breathe is called between lines; the service sets it to pause the save when the
 -- callback's time is used up.
@@ -584,6 +586,33 @@ local function isLocal(file, tableName)
   return result
 end
 
+-- Whether a key holds or names commands: command, commands, <x>_command, a hook, exec or a
+-- script.
+local function isCommandKey(name)
+  name = name:lower()
+  return name:match("^commands?$") or name:match("_commands?$") or name:match("^hooks?$") or name:match("_hooks?$")
+    or name == "exec" or name:match("^scripts?$") or name:match("_scripts?$")
+end
+
+-- Whether the setting at <path> is one each device keeps as its own, never taken from
+-- another device or from the repository: the plugin sources and the settings that hold
+-- commands, so neither adds code to run, and Resurrect's own settings, so neither changes
+-- where saves go or what they hold.
+local function isOwn(path)
+  if path == "plugins.source" or path:sub(1, #RESURRECT + 1) == RESURRECT .. "." then
+    return true
+  end
+  local at = path
+  while at ~= "" do
+    local m = meta[at]
+    if isCommandKey(m.name) then
+      return true
+    end
+    at = m.parent
+  end
+  return false
+end
+
 -- Puts each leaf of <file> in file.shared or in file.localValues.
 local function classify(file)
   file.shared, file.localValues = {}, {}
@@ -591,7 +620,7 @@ local function classify(file)
     Settings.breathe()
     local value = file.values[path]
     local m = meta[path]
-    if isLocal(file, m.parent) or m.parent == RESURRECT or path == "plugins.source" then
+    if isLocal(file, m.parent) or isOwn(path) then
       file.localValues[path] = value
     else
       file.shared[path] = value
@@ -772,9 +801,8 @@ end
 
 -- The settings restore.sh brings back, joined with <currentText>, the settings as they are
 -- now: the shared ones of <sharedText>, and the ones this device kept for itself from
--- <deviceText>, over its current ones. The plugin sources stay as they are now, so a
--- repository never adds code to run. Either text may be nil. Returns nil when nothing
--- changes.
+-- <deviceText>, over its current ones. The settings a device keeps as its own (isOwn) stay
+-- as they are now. Either text may be nil. Returns nil when nothing changes.
 function Settings.restore(sharedText, deviceText, currentText)
   local current = parse(currentText)
   classify(current)
@@ -792,7 +820,7 @@ function Settings.restore(sharedText, deviceText, currentText)
     local device = parse(deviceText)
     classify(device)
     for path, value in pairs(device.localValues) do
-      if path ~= "plugins.source" then
+      if not isOwn(path) then
         result[path] = value
       end
     end
