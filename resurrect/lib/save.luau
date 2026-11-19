@@ -1311,12 +1311,17 @@ function Save.run(job, opt)
   if remote ~= "" then
     -- Other devices push to the same repository. Their saves are in their own folders, and
     -- their shared files are already taken in, so this save goes on top of theirs; a file
-    -- both changed keeps this device's version. Changes of the owner's own that are not
-    -- committed are put aside meanwhile and put back.
+    -- both changed keeps this device's version. The rebase never runs over changes of the
+    -- owner's own that are not committed, so their files and what they staged stay as they
+    -- are: the save is kept here and pushed once they are committed or undone.
+    if trim(git("status", "--porcelain", "--untracked-files=no").stdout) ~= "" then
+      job.emit("not pushed: commit or undo your own changes in " .. repo .. " first; see git status there")
+      job.stop(2)
+    end
     branch = trim(git("symbolic-ref", "--short", "HEAD").stdout)
     local saved = trim(git("rev-parse", "HEAD").stdout)
     if job.long({ "git", "-C", repo, "fetch", "-q", "origin", branch }).exitCode == 0 then
-      if gitAs("rebase", "-q", "--autostash", "-X", "theirs", "origin/" .. branch).exitCode ~= 0 then
+      if gitAs("rebase", "-q", "-X", "theirs", "origin/" .. branch).exitCode ~= 0 then
         git("rebase", "--abort")
         job.emit("could not combine this save with the other devices' saves; see git status in " .. repo)
         job.stop(2)

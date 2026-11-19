@@ -158,7 +158,7 @@
     "saving": "Resurrect: saving…"
   },
   "incoming": {
-    "body": "Changes from your other devices come in only when you take them. Review shows what changed.",
+    "body": "Changes from your other devices come in only when you take them in Review, which shows what changed.",
     "review": "Review",
     "settings": {
       "one": "1 Noctalia setting",
@@ -172,6 +172,8 @@
   },
   "changes": {
     "back": "Back",
-    "cut": "The rest is left out, as it is too long to show."
+    "cut": "The rest is left out, as it is too long to show.",
+    "conflict": "Changed on this device too. Keep mine shares this device's version; Take theirs puts the other devices' version here.",
+    "take_all": "Takes every change from your other devices shown here, not the files changed on both"
   }
 }

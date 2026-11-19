@@ -89,35 +89,43 @@ repository share their setup. Each save, and each start of Noctalia, also checks
 other devices changed. Nothing from them comes in until you take it:
 
 - A dotfile that only another device changed, or deleted, waits in the panel's
-  **Changes from your other devices** card, when it is in this device's **Files**. **Review**
-  shows what changed, in the panel. **Take theirs**, or **Take all**, puts in place
-  the version the panel lists, with the next save; when another device changes the file
-  again first, it waits again. **Keep mine** shares this device's version instead. The file it
-  replaces goes to `~/.local/state/resurrect/backup-<date>` first. When that copy fails, the
-  save stops before replacing the file, and the panel shows why.
+  **Changes from your other devices** card, when it is in this device's **Files**. You take
+  it in **Review**, which shows, in the panel, what changed in each waiting file and in the
+  settings. **Take theirs**, or **Take all**, puts in place the version Review shows, with
+  the next save. When another device changes it again while Review is open, Review shows the
+  new version instead, and a choice made on the old one is dropped. **Keep mine** shares this
+  device's version instead. The file it replaces goes to
+  `~/.local/state/resurrect/backup-<date>` first. When that copy fails, the save stops
+  before replacing the file, and the panel shows why.
 - A dotfile that only this device changed reaches the others, where it waits the same way.
   When a device deletes more than half of the shared files at once, the others keep theirs
   and share them again.
-- A dotfile changed on two devices is left as it is on both. The panel lists it, with
-  **Keep mine** and **Take theirs**.
+- A dotfile changed on two devices is left as it is on both. The panel lists it, and Review
+  shows it with **Keep mine** and **Take theirs**; **Take all** leaves it out.
 - When files that came in give Hyprland config errors, they go back, and the panel lists
   them as held back until another device changes them again.
 
 List the files that differ by hardware in **Only this device**, such as a monitor layout or
 GPU variables. They are saved, but not shared.
 
-Noctalia's config folder is shared like the dotfiles. All settings changed in its settings
-window are shared one setting at a time, such as the bar, the theme, the wallpaper and
-idle. Settings only another device changed wait in the same card, together: **Take theirs**
-puts in place the settings **Review** shows, unless they changed again since, **Keep mine**
-shares this device's instead. When two devices changed
-one, each keeps its own. A setting shared for the first time takes the value of the device
-that shared it first. Plugins turned on or off on one device are turned on or off on the
-others once you take the settings. Some settings stay on each device: brightness, battery
-and widgets placed on a monitor. Each device also keeps these as its own, never taken from
-another device or restored from the repository: the plugin sources and any setting that
-holds a command, such as a hook or a button's command, so neither adds code to run here,
-and Resurrect's own settings, so neither changes where saves go or what they hold. Resurrect's data folder, with the steps you approved, is never shared, and a
+Noctalia's config folder is shared like the dotfiles. Settings changed in Noctalia's settings
+window are shared one setting at a time, but only those of the look and the layout:
+accessibility, audio, backdrop, bar, calendar, control center, desktop and lock screen
+widgets, dock, lock screen, night light, notifications, on-screen display, the enabled
+plugins, shell, theme, wallpaper, weather and widgets. Settings only another device changed
+wait in the same card, together, and are taken the same way: **Take theirs** puts in place
+the settings **Review** shows, **Keep mine** shares this device's instead. When
+two devices changed one, each keeps its own. A setting shared for the first time takes the
+value of the device that shared it first. Plugins turned on or off on one device are turned
+on or off on the others once you take the settings. Brightness, battery and widgets placed
+on a monitor stay on each device. Each device also keeps these as its own, never taken from
+another device or restored from the repository, so none of them adds code to run here:
+every other setting, such as hooks, keybinds, idle, hot corners, other plugins' settings
+and the plugin sources; and, inside the shared ones, the session actions and power
+commands, the screenshot command, the launcher's commands, the greeter sync, theme
+templates, calendar accounts, the avatar, and each bar, widget or desktop button action or
+command. Resurrect's own settings stay too, so none changes where saves go or what they
+hold. Resurrect's data folder, with the steps you approved, is never shared, and a
 save writes nothing into it, not even through a link. Nor does a save write through a link
 in the repository: git writes the remote's links as plain files, a link already in
 `shared/`, `devices/`, `hooks/` or `packages/` is removed before the save writes anything,
@@ -164,7 +172,9 @@ Either way:
 
 Anything else in the repository is yours too. A save writes, and commits, only `shared/` and
 the files it names in `devices/<name>/` of the device it runs on; changes you make
-elsewhere, such as in `hooks/`, are yours to commit. It removes the `restore.sh` that older
+elsewhere, such as in `hooks/`, are yours to commit. While a file git tracks has changes
+that are not committed, saves are kept on this device and not pushed, and the panel says so;
+Resurrect never stashes or rebases over them. It removes the `restore.sh` that older
 versions wrote, and moves to this layout a repository from an older version.
 
 ### Secrets

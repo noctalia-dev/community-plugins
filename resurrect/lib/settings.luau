@@ -29,7 +29,6 @@
 local Settings = {}
 Settings.breathe = function() end
 
-local RESURRECT = 'plugin_settings."omerfuyar/resurrect"'
 local MONITOR_NAMES = { "eDP", "DP", "HDMI", "DVI", "VGA", "LVDS", "DSI" }
 local MONITOR_VALUES = { "eDP", "DP", "HDMI", "DVI", "VGA", "LVDS", "DSI", "Virtual", "HEADLESS", "USB" }
 local ESCAPE = { b = "\\u0008", t = "\\u0009", n = "\\u000a", f = "\\u000c", r = "\\u000d" }
@@ -586,29 +585,58 @@ local function isLocal(file, tableName)
   return result
 end
 
--- Whether a key holds or names commands: command, commands, <x>_command, a hook, exec or a
--- script.
-local function isCommandKey(name)
-  name = name:lower()
-  return name:match("^commands?$") or name:match("_commands?$") or name:match("^hooks?$") or name:match("_hooks?$")
-    or name == "exec" or name:match("^scripts?$") or name:match("_scripts?$")
+-- The settings that are shared, by their first key. Each of these tables was checked against
+-- Noctalia's settings schema; any other table, such as hooks, keybinds, idle, hot_corners or
+-- another plugin's settings, stays on each device.
+local SHARED = {
+  accessibility = true, audio = true, backdrop = true, bar = true, calendar = true, control_center = true,
+  desktop_widgets = true, dock = true, lockscreen = true, lockscreen_widgets = true, nightlight = true,
+  notification = true, osd = true, plugins = true, shell = true, theme = true, wallpaper = true, weather = true,
+  widget = true,
+}
+-- Inside those tables, what runs commands or actions, writes files or names secrets, by the
+-- keys from the first. It stays on each device too.
+local KEPT = {
+  "calendar.account", "plugins.source", "shell.avatar_path", "shell.clipboard_image_action_command",
+  "shell.greeter_sync", "shell.launch_apps_custom_command", "shell.launcher.dmenu", "shell.screenshot",
+  "shell.session", "theme.templates",
+}
+-- Keys that run something wherever they are: a bar's or widget's actions, a desktop button's
+-- command, and the older widget keys Noctalia turns into actions.
+local KEPT_KEYS = {
+  actions = true, command = true, middle_command = true, right_command = true, scroll_down_command = true,
+  scroll_up_command = true,
+}
+
+-- The names of the keys of <path>, from the first.
+local function names(path)
+  local list = {}
+  local at = path
+  while at ~= "" do
+    table.insert(list, 1, meta[at].name)
+    at = meta[at].parent
+  end
+  return list
 end
 
 -- Whether the setting at <path> is one each device keeps as its own, never taken from
--- another device or from the repository: the plugin sources and the settings that hold
--- commands, so neither adds code to run, and Resurrect's own settings, so neither changes
--- where saves go or what they hold.
+-- another device or from the repository: any setting not allowed above, so none adds code to
+-- run, and Resurrect's own settings, so none changes where saves go or what they hold.
 local function isOwn(path)
-  if path == "plugins.source" or path:sub(1, #RESURRECT + 1) == RESURRECT .. "." then
+  local list = names(path)
+  if not SHARED[list[1]] or (list[1] == "plugins" and list[2] ~= "enabled") then
     return true
   end
-  local at = path
-  while at ~= "" do
-    local m = meta[at]
-    if isCommandKey(m.name) then
+  for _, name in ipairs(list) do
+    if KEPT_KEYS[name] then
       return true
     end
-    at = m.parent
+  end
+  local dotted = table.concat(list, ".")
+  for _, prefix in ipairs(KEPT) do
+    if dotted == prefix or dotted:sub(1, #prefix + 1) == prefix .. "." then
+      return true
+    end
   end
   return false
 end

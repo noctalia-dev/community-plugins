@@ -57,14 +57,18 @@ local state = {
 local choices = {}
 local settingsChoice = nil
 local settingsShown = nil
--- What changed in each file and setting that waits, as changes.sh prints it, for the panel's
--- Review; nil while it is read.
-local preview = nil
-local PREVIEW_CHARS = 20000
--- The waiting files, as "<blob> <path>" lines, for changes.sh to show.
-local incomingFile = dataDir .. "/incoming.txt"
+-- The panel's Review: what waited when it opened, which nothing changes afterwards, and what
+-- changed in each, as changes.sh prints it. Take theirs and Take all take only what a review
+-- showed, named by its id. When what waits changes, the review is made again with a new id,
+-- so a choice made on the old one is dropped.
+-- { id, items = { { path, blob, kind } }, settings = text or nil, key, sections = { text } or nil }
+local review = nil
+local SECTION_CHARS = 8000
 -- The settings that wait, as they would be after taking them, written by the save.
 local incomingSettingsFile = dataDir .. "/incoming-settings.toml"
+-- What the review shows, for changes.sh.
+local reviewFile = dataDir .. "/review.txt"
+local reviewSettingsFile = dataDir .. "/review-settings.toml"
 -- Names to leave off this device, and { list, name } items to share again or keep only
 -- here, not yet passed to a save.
 local skips = {}
@@ -125,7 +129,12 @@ local function publish()
     incomingSettings = state.incomingSettings or 0,
     choices = choices,
     settingsChoice = settingsChoice,
-    preview = preview,
+    review = review and {
+      id = review.id,
+      items = review.items,
+      settings = review.settings ~= nil,
+      sections = review.sections,
+    },
     missing = state.missing or {},
     left = state.left or {},
     canRestore = noctalia.fileExists(repo() .. "/shared") or noctalia.fileExists(repo() .. "/devices"),
@@ -140,6 +149,7 @@ local function lists()
 end
 
 local finish
+local reviewAgain
 local snapshot
 local restoreSettings
 
@@ -378,7 +388,6 @@ finish = function(code, out)
       table.insert(lines, { word = word, path = path })
     end
   end
-  local incomingLines = {}
   for _, line in ipairs(lines) do
     local blob, path = line.path:match("^([%x-]+) (.+)$")
     if blob and (line.word == "held" or line.word == "conflict" or line.word == "incoming") then
@@ -390,7 +399,6 @@ finish = function(code, out)
         table.insert(conflicts, path)
       else
         table.insert(incoming, path)
-        table.insert(incomingLines, line.path)
       end
     end
   end
@@ -430,7 +438,6 @@ finish = function(code, out)
   end
   state.conflicts, state.held = conflicts, held
   state.incoming, state.incomingSettings, state.blobs = incoming, incomingSettings, blobs
-  noctalia.writeFile(incomingFile, table.concat(incomingLines, "\n") .. "\n")
   if code == 0 then
     state.missing, state.left = missing, left
   end
@@ -458,6 +465,7 @@ finish = function(code, out)
     noctalia.notifyError(noctalia.tr("notify.failed"), state.error)
   end
   save()
+  reviewAgain()
   publish()
   if settingsTaken > 0 and lists() ~= runLists then
     saveAgain = true
@@ -496,25 +504,96 @@ local function restore()
   end
 end
 
-local function changes()
-  preview = nil
-  publish()
-  local started = noctalia.runAsync({ "sh", (noctalia.pluginDir() or "") .. "/changes.sh", repo(), dataDir }, function(result)
-    local text = result.stdout or ""
-    if #text > PREVIEW_CHARS or result.stdoutTruncated then
-      text = text:sub(1, PREVIEW_CHARS) .. "\n\n" .. noctalia.tr("changes.cut")
+-- What waits now: the files, each with the version that came in, and the settings text.
+local function waitingNow()
+  local items = {}
+  local function add(paths, kind)
+    for _, path in ipairs(paths or {}) do
+      local blob = (state.blobs or {})[path]
+      if blob then
+        table.insert(items, { path = path, blob = blob, kind = kind })
+      end
     end
-    preview = text
+  end
+  add(state.conflicts, "conflict")
+  add(state.held, "held")
+  add(state.incoming, "incoming")
+  local settings = (state.incomingSettings or 0) > 0 and noctalia.readFile(incomingSettingsFile) or nil
+  local lines = {}
+  for _, item in ipairs(items) do
+    table.insert(lines, item.kind .. " " .. item.blob .. " " .. item.path)
+  end
+  return items, settings, table.concat(lines, "\n") .. "\n" .. (settings or "")
+end
+
+-- Opens a review of what waits now and reads what changed in each.
+local function changes()
+  local items, settings, key = waitingNow()
+  if #items == 0 and not settings then
+    review = nil
+    publish()
+    return
+  end
+  local current = { id = noctalia.nowMs(), items = items, settings = settings, key = key }
+  review = current
+  publish()
+  local lines = {}
+  for _, item in ipairs(items) do
+    table.insert(lines, item.blob .. " " .. item.path)
+  end
+  noctalia.mkdirAll(dataDir)
+  noctalia.writeFile(reviewFile, table.concat(lines, "\n") .. "\n")
+  if settings then
+    noctalia.writeFile(reviewSettingsFile, settings)
+  else
+    noctalia.removeFile(reviewSettingsFile)
+  end
+  local started = noctalia.runAsync({ "sh", (noctalia.pluginDir() or "") .. "/changes.sh", repo(), dataDir }, function(result)
+    if review ~= current then
+      return
+    end
+    local sections = {}
+    for text in ((result.stdout or "") .. (result.stdoutTruncated and "\30" or "")):gmatch("([^\30]*)\30\n?") do
+      text = noctalia.string.trim(text)
+      if #text > SECTION_CHARS then
+        text = text:sub(1, SECTION_CHARS) .. "\n\n" .. noctalia.tr("changes.cut")
+      end
+      table.insert(sections, text)
+    end
+    current.sections = sections
     publish()
   end, 60000)
   if not started then
-    preview = noctalia.tr("error.unknown")
+    current.sections = {}
     publish()
   end
 end
 
+-- After a save, a review open on what waited is made again when that changed.
+reviewAgain = function()
+  if review then
+    local _, _, key = waitingNow()
+    if key ~= review.key then
+      changes()
+    end
+  end
+end
+
+-- The item the review <id> showed for <path>, or nil when that review is gone.
+local function reviewed(id, path)
+  if review == nil or id ~= review.id then
+    return nil
+  end
+  for _, item in ipairs(review.items) do
+    if item.path == path then
+      return item
+    end
+  end
+  return nil
+end
+
 -- Opens a terminal that shows each save step waiting for approval and asks about it.
-local function review()
+local function reviewSteps()
   noctalia.runInTerminal("sh " .. quoted((noctalia.pluginDir() or "") .. "/review.sh") .. " " .. quoted(repo())
     .. " " .. quoted(approvedFile))
 end
@@ -525,29 +604,33 @@ noctalia.state.watch("resurrect.command", function(command)
   end
   if command.action == "save" then
     snapshot()
-  elseif command.action == "resolve" and type(command.path) == "string"
-    and (command.choice == "mine" or command.choice == "theirs") then
-    -- The choice goes with the next save, which starts now or after the one running.
-    local blob = (state.blobs or {})[command.path]
+  elseif command.action == "resolve" and type(command.path) == "string" then
+    -- The choice goes with the next save, which starts now or after the one running. Theirs
+    -- is the version the review showed.
+    local item = reviewed(command.review, command.path)
     if command.choice == "mine" then
       choices[command.path] = "mine"
-    elseif blob then
-      choices[command.path] = "theirs " .. blob
+      saveSoon()
+    elseif command.choice == "theirs" and item then
+      choices[command.path] = "theirs " .. item.blob
+      saveSoon()
     end
-    saveSoon()
-  elseif command.action == "settings" and (command.choice == "mine" or command.choice == "theirs") then
-    settingsChoice = command.choice
-    settingsShown = noctalia.readFile(incomingSettingsFile) or ""
-    saveSoon()
-  elseif command.action == "take_all" then
-    for _, path in ipairs(state.incoming or {}) do
-      if (state.blobs or {})[path] then
-        choices[path] = "theirs " .. state.blobs[path]
+  elseif command.action == "settings" then
+    if command.choice == "mine" then
+      settingsChoice, settingsShown = "mine", nil
+      saveSoon()
+    elseif command.choice == "theirs" and review and command.review == review.id and review.settings then
+      settingsChoice, settingsShown = "theirs", review.settings
+      saveSoon()
+    end
+  elseif command.action == "take_all" and review and command.review == review.id then
+    for _, item in ipairs(review.items) do
+      if item.kind == "incoming" and not choices[item.path] then
+        choices[item.path] = "theirs " .. item.blob
       end
     end
-    if (state.incomingSettings or 0) > 0 then
-      settingsChoice = "theirs"
-      settingsShown = noctalia.readFile(incomingSettingsFile) or ""
+    if review.settings and not settingsChoice then
+      settingsChoice, settingsShown = "theirs", review.settings
     end
     saveSoon()
   elseif command.action == "changes" then
@@ -591,7 +674,7 @@ noctalia.state.watch("resurrect.command", function(command)
   elseif command.action == "install" then
     install()
   elseif command.action == "review" then
-    review()
+    reviewSteps()
   elseif command.action == "restore" then
     restore()
   elseif command.action == "open" and noctalia.commandExists("xdg-open") then
@@ -645,7 +728,7 @@ noctalia.readFileAsync(stateFile, function(text)
   state.missing = state.missing or {}
   state.left = state.left or {}
   -- Files of versions that saved with shell scripts.
-  for _, name in ipairs({ "snapshot.log", "snapshot.exit", "resolve", "exclude", "again", "only" }) do
+  for _, name in ipairs({ "snapshot.log", "snapshot.exit", "resolve", "exclude", "again", "only", "incoming.txt" }) do
     noctalia.removeFile(dataDir .. "/" .. name)
   end
   loaded = true

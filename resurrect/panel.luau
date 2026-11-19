@@ -5,7 +5,8 @@
 
 local model = nil
 local confirming = false
--- Whether Review shows what changed, in place of the cards.
+-- Whether Review shows what changed, in place of the cards: false, "asked" until the
+-- service opens the review, then true.
 local reviewing = false
 
 -- The cards scroll inside a column of their height, up to what fits in the panel
@@ -77,25 +78,30 @@ end
 -- At most this many waiting files are listed; the rest are counted.
 local MAX_WAITING = 5
 
--- One shared file that waits for the owner: changed on two devices, or held back because it
--- gave Hyprland config errors here.
-local function waitingRow(path, isHeld)
-  local choice = model.choices and model.choices[path]
-  local children = {
-    ui.label({ text = path, maxLines = 2, flexGrow = 1 }),
-  }
-  if choice then
+local function openReview()
+  reviewing = "asked"
+  send({ action = "changes" })
+  render()
+end
+
+local function reviewRow()
+  return ui.row({ gap = 8, justify = "end", height = BUTTON_ROW_HEIGHT }, {
+    ui.button({ text = noctalia.tr("incoming.review"), glyph = "eye", variant = "primary", controlSize = "sm",
+      onClick = openReview }),
+  })
+end
+
+-- One file or the settings, listed in a card; the choices are made in Review.
+local function listedRow(text, chosen)
+  local children = { ui.label({ text = text, maxLines = 2, flexGrow = 1 }) }
+  if chosen then
     table.insert(children, ui.label({ text = noctalia.tr("waiting.chosen"), color = "on_surface_variant" }))
-  else
-    table.insert(children, ui.button({ text = noctalia.tr("waiting.mine"), variant = "ghost", controlSize = "sm",
-      onClick = function() send({ action = "resolve", path = path, choice = "mine" }) end }))
-    table.insert(children, ui.button({ text = noctalia.tr("waiting.theirs"), variant = "ghost", controlSize = "sm",
-      tooltip = isHeld and noctalia.tr("waiting.theirs_held") or nil,
-      onClick = function() send({ action = "resolve", path = path, choice = "theirs" }) end }))
   end
   return ui.row({ gap = 6, align = "center", height = 2 * LINE_HEIGHT }, children)
 end
 
+-- Shared files that wait for the owner: changed on two devices, or held back because they
+-- gave Hyprland config errors here.
 local function waiting()
   local total = #model.conflicts + #model.held
   if total == 0 then
@@ -111,7 +117,7 @@ local function waiting()
   local shown = 0
   for _, path in ipairs(model.conflicts) do
     if shown < MAX_WAITING then
-      table.insert(rows, waitingRow(path, false))
+      table.insert(rows, listedRow(path, model.choices[path]))
       height += 2 * LINE_HEIGHT
       shown += 1
     end
@@ -122,7 +128,7 @@ local function waiting()
     height += textHeight(note, 2)
     for _, path in ipairs(model.held) do
       if shown < MAX_WAITING then
-        table.insert(rows, waitingRow(path, true))
+        table.insert(rows, listedRow(path, model.choices[path]))
         height += 2 * LINE_HEIGHT
         shown += 1
       end
@@ -133,11 +139,13 @@ local function waiting()
       maxLines = 1 }))
     height += LINE_HEIGHT
   end
+  table.insert(rows, reviewRow())
+  height += BUTTON_ROW_HEIGHT
   return card(rows, height)
 end
 
 -- Files and Noctalia settings only another device changed. Nothing from another device is put
--- in place until the owner takes it: one by one, or all at once. Review shows what changed.
+-- in place until the owner takes it in Review, which shows what changed.
 local function incomingCard()
   local files = model.incoming or {}
   local settings = model.incomingSettings or 0
@@ -155,24 +163,13 @@ local function incomingCard()
   }
   local height = TITLE_HEIGHT + textHeight(body, 3)
   if settings > 0 then
-    local children = {
-      ui.label({ text = noctalia.trp("incoming.settings", settings), maxLines = 2, flexGrow = 1 }),
-    }
-    if model.settingsChoice then
-      table.insert(children, ui.label({ text = noctalia.tr("waiting.chosen"), color = "on_surface_variant" }))
-    else
-      table.insert(children, ui.button({ text = noctalia.tr("waiting.mine"), variant = "ghost", controlSize = "sm",
-        onClick = function() send({ action = "settings", choice = "mine" }) end }))
-      table.insert(children, ui.button({ text = noctalia.tr("waiting.theirs"), variant = "ghost", controlSize = "sm",
-        onClick = function() send({ action = "settings", choice = "theirs" }) end }))
-    end
-    table.insert(rows, ui.row({ gap = 6, align = "center", height = 2 * LINE_HEIGHT }, children))
+    table.insert(rows, listedRow(noctalia.trp("incoming.settings", settings), model.settingsChoice))
     height += 2 * LINE_HEIGHT
   end
   local shown = 0
   for _, path in ipairs(files) do
     if shown < MAX_WAITING then
-      table.insert(rows, waitingRow(path, false))
+      table.insert(rows, listedRow(path, model.choices[path]))
       height += 2 * LINE_HEIGHT
       shown += 1
     end
@@ -182,18 +179,78 @@ local function incomingCard()
       color = "on_surface_variant", maxLines = 1 }))
     height += LINE_HEIGHT
   end
-  table.insert(rows, ui.row({ gap = 8, justify = "end", height = BUTTON_ROW_HEIGHT }, {
-    ui.button({ text = noctalia.tr("incoming.review"), glyph = "eye", variant = "ghost", controlSize = "sm",
-      onClick = function()
-        reviewing = true
-        send({ action = "changes" })
-        render()
-      end }),
-    ui.button({ text = noctalia.tr("incoming.take_all"), glyph = "check", variant = "primary", controlSize = "sm",
-      onClick = function() send({ action = "take_all" }) end }),
-  }))
+  table.insert(rows, reviewRow())
   height += BUTTON_ROW_HEIGHT
   return card(rows, height)
+end
+
+-- Review: each waiting file and the settings, with what changed and the choice. Each choice
+-- names the review, so it takes only what was shown here.
+local function reviewView(header)
+  local view = model.review
+  local id = view.id
+  local entries = {}
+  local anyIncoming = false
+  local function entry(title, note, chosen, onMine, onTheirs, theirsTip, section)
+    local children = { ui.label({ text = title, fontWeight = "semibold", maxLines = 3, flexGrow = 1 }) }
+    if chosen then
+      table.insert(children, ui.label({ text = noctalia.tr("waiting.chosen"), color = "on_surface_variant" }))
+    elseif view.sections then
+      table.insert(children, ui.button({ text = noctalia.tr("waiting.mine"), variant = "ghost", controlSize = "sm",
+        onClick = onMine }))
+      table.insert(children, ui.button({ text = noctalia.tr("waiting.theirs"), variant = "ghost", controlSize = "sm",
+        tooltip = theirsTip, onClick = onTheirs }))
+    end
+    local rows = { ui.row({ gap = 6, align = "center" }, children) }
+    if note then
+      table.insert(rows, ui.label({ text = note, color = "on_surface_variant" }))
+    end
+    table.insert(rows, ui.label({ text = section or noctalia.tr("panel.loading"),
+      color = section and "on_surface" or "on_surface_variant" }))
+    table.insert(entries, ui.column({ gap = ROW_GAP, padding = CARD_PADDING, radius = 12,
+      fill = "surface_container_high" }, rows))
+  end
+  for index, item in ipairs(view.items) do
+    local path = item.path
+    local note = item.kind == "conflict" and noctalia.tr("changes.conflict")
+      or item.kind == "held" and noctalia.tr("waiting.held") or nil
+    if item.kind == "incoming" and not model.choices[path] then
+      anyIncoming = true
+    end
+    entry("~/" .. path, note, model.choices[path],
+      function() send({ action = "resolve", path = path, choice = "mine" }) end,
+      function() send({ action = "resolve", path = path, choice = "theirs", review = id }) end,
+      item.kind == "held" and noctalia.tr("waiting.theirs_held") or nil,
+      view.sections and (view.sections[index] or ""))
+  end
+  if view.settings then
+    if not model.settingsChoice then
+      anyIncoming = true
+    end
+    entry(noctalia.trp("incoming.settings", model.incomingSettings or 0), nil, model.settingsChoice,
+      function() send({ action = "settings", choice = "mine" }) end,
+      function() send({ action = "settings", choice = "theirs", review = id }) end,
+      nil, view.sections and (view.sections[#view.items + 1] or ""))
+  end
+  local buttons = {
+    ui.button({ text = noctalia.tr("changes.back"), variant = "ghost", onClick = function()
+      reviewing = false
+      render()
+    end }),
+  }
+  if anyIncoming and view.sections then
+    table.insert(buttons, ui.button({ text = noctalia.tr("incoming.take_all"), glyph = "check", variant = "primary",
+      tooltip = noctalia.tr("changes.take_all"),
+      onClick = function() send({ action = "take_all", review = id }) end }))
+  end
+  return ui.column({ gap = 14, padding = 16 }, {
+    header,
+    ui.column({ height = LIST_MAX }, {
+      ui.scroll({ key = "review", gap = CARD_GAP, flexGrow = 1 }, entries),
+    }),
+    ui.separator({}),
+    ui.row({ gap = 8, justify = "end" }, buttons),
+  })
 end
 
 -- The list a package or service comes from, as the panel names it.
@@ -427,17 +484,16 @@ render = function()
     }))
     return
   end
-  if reviewing then
+  if reviewing and model.review then
+    reviewing = true
+    panel.render(reviewView(header))
+    return
+  elseif reviewing == "asked" then
     panel.render(ui.column({ gap = 14, padding = 16 }, {
       header,
-      ui.column({ height = LIST_MAX }, {
-        ui.scroll({ key = "review", flexGrow = 1 }, {
-          ui.label({ text = model.preview or noctalia.tr("panel.loading"), color = model.preview and "on_surface" or "on_surface_variant" }),
-        }),
-      }),
-      ui.separator({}),
+      ui.label({ text = noctalia.tr("panel.loading"), color = "on_surface_variant" }),
       ui.row({ gap = 8, justify = "end" }, {
-        ui.button({ text = noctalia.tr("changes.back"), variant = "primary", onClick = function()
+        ui.button({ text = noctalia.tr("changes.back"), variant = "ghost", onClick = function()
           reviewing = false
           render()
         end }),
@@ -445,6 +501,8 @@ render = function()
     }))
     return
   end
+  -- Nothing waits any more.
+  reviewing = false
   -- The cards scroll between the fixed header and buttons when they do not fit.
   local cards, height = {}, -CARD_GAP
   local function add(item, itemHeight)
