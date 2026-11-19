@@ -344,8 +344,8 @@ rev = "203aaef232cb47ba37c9b32af82f27225ea1916e"
 [[plugin]]
 id = "h465855hgg/lyrics"
 name = "Lyrics"
-version = "1.7.1"
-updated_at = 1794318042
+version = "1.8.0"
+updated_at = 1795127583
 added_at = 1784238037
 author = "h465855hgg"
 license = "MIT"
@@ -2949,8 +2949,8 @@ rev = "3c34ca17b964f1fcd25b1b0cf964968c31c6a69d"
 [[plugin]]
 id = "andrewdems/vpn-manager"
 name = "VPN Manager"
-version = "1.0.1"
-updated_at = 1792983494
+version = "1.1.0"
+updated_at = 1795127541
 added_at = 1788789884
 author = "andrewdems"
 license = "MIT"
@@ -5393,8 +5393,8 @@ tags = ["bar", "panel", "service", "media", "music"]
 [[plugin]]
 id = "faminec/terminal-widgets"
 name = "Terminal Widgets"
-version = "2.3.0"
-updated_at = 1795032618
+version = "2.3.1"
+updated_at = 1795127612
 added_at = 1793546917
 author = "faminec"
 license = "MIT"
