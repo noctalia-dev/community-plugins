@@ -1,0 +1,248 @@
+# Umbriel Scratchpad - Umbriel scratchpads in the bar, styled like the native taskbar.
+#
+# bar     -> one pill per scratchpad: name badge plus an icon per window
+# service -> the only entry that shells out to `umbriel`
+#
+# Settings follow the native taskbar's sections, in order: windows, grouping, then
+# scratchpad labels (the native "workspace labels"). Plugin settings have no
+# section headers, so the order is the only grouping.
+
+id = "samxu29/umbriel-scratchpad"
+name = "Umbriel Scratchpad"
+version = "0.4.4"
+plugin_api = 32
+author = "samxu29"
+license = "MIT"
+dependencies = ["umbriel"]
+tags = ["umbriel", "bar", "indicator", "service"]
+icon = "box-multiple"
+description = "Shows Umbriel scratchpads and their windows like the native taskbar; click to toggle or reveal."
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+  [widget.actions]
+  middle = "none"
+
+  # --- Windows ---
+
+  [[widget.setting]]
+  key = "show_all_monitors"
+  type = "bool"
+  label_key = "settings.show_all_monitors.label"
+  description_key = "settings.show_all_monitors.description"
+  default = true
+
+  [[widget.setting]]
+  key = "active_indicator"
+  type = "bool"
+  label_key = "settings.active_indicator.label"
+  description_key = "settings.active_indicator.description"
+  default = true
+
+  [[widget.setting]]
+  key = "indicator_color"
+  type = "color"
+  label_key = "settings.indicator_color.label"
+  description_key = "settings.indicator_color.description"
+  default = "primary"
+  visible_when = { key = "active_indicator", values = ["true"] }
+
+  [[widget.setting]]
+  key = "active_opacity"
+  type = "double"
+  label_key = "settings.active_opacity.label"
+  description_key = "settings.active_opacity.description"
+  default = 1.0
+  min = 0.1
+  max = 1.0
+  step = 0.05
+
+  [[widget.setting]]
+  key = "dim_unfocused"
+  type = "bool"
+  label_key = "settings.dim_unfocused.label"
+  description_key = "settings.dim_unfocused.description"
+  default = true
+
+  [[widget.setting]]
+  key = "unfocused_opacity"
+  type = "double"
+  label_key = "settings.unfocused_opacity.label"
+  description_key = "settings.unfocused_opacity.description"
+  default = 0.5
+  min = 0.1
+  max = 1.0
+  step = 0.05
+  visible_when = { key = "dim_unfocused", values = ["true"] }
+
+  [[widget.setting]]
+  key = "hidden_opacity"
+  type = "double"
+  label_key = "settings.hidden_opacity.label"
+  description_key = "settings.hidden_opacity.description"
+  default = 0.5
+  min = 0.1
+  max = 1.0
+  step = 0.05
+
+  [[widget.setting]]
+  key = "icon_size"
+  type = "double"
+  label_key = "settings.icon_size.label"
+  description_key = "settings.icon_size.description"
+  default = 16.0
+  min = 10.0
+  max = 32.0
+  step = 1.0
+
+  # --- Grouping ---
+
+  [[widget.setting]]
+  key = "only_shown"
+  type = "bool"
+  label_key = "settings.only_shown.label"
+  description_key = "settings.only_shown.description"
+  default = false
+
+  [[widget.setting]]
+  key = "group_by_scratchpad"
+  type = "bool"
+  label_key = "settings.group_by_scratchpad.label"
+  description_key = "settings.group_by_scratchpad.description"
+  default = true
+
+  [[widget.setting]]
+  key = "hide_empty"
+  type = "bool"
+  label_key = "settings.hide_empty.label"
+  description_key = "settings.hide_empty.description"
+  default = true
+  visible_when = { key = "group_by_scratchpad", values = ["true"] }
+
+  [[widget.setting]]
+  key = "known_scratchpads"
+  type = "string_list"
+  label_key = "settings.known_scratchpads.label"
+  description_key = "settings.known_scratchpads.description"
+  default = []
+
+  [[widget.setting]]
+  key = "hidden_scratchpads"
+  type = "string_list"
+  label_key = "settings.hidden_scratchpads.label"
+  description_key = "settings.hidden_scratchpads.description"
+  default = []
+
+  [[widget.setting]]
+  key = "group_content"
+  type = "select"
+  label_key = "settings.group_content.label"
+  description_key = "settings.group_content.description"
+  default = "icons"
+  options = [
+    { value = "icons", label_key = "settings.group_content.options.icons" },
+    { value = "count", label_key = "settings.group_content.options.count" },
+    { value = "dots", label_key = "settings.group_content.options.dots" },
+  ]
+  visible_when = { key = "group_by_scratchpad", values = ["true"] }
+
+  [[widget.setting]]
+  key = "single_icon_per_app"
+  type = "bool"
+  label_key = "settings.single_icon_per_app.label"
+  description_key = "settings.single_icon_per_app.description"
+  default = false
+
+  [[widget.setting]]
+  key = "group_capsule"
+  type = "bool"
+  label_key = "settings.group_capsule.label"
+  description_key = "settings.group_capsule.description"
+  default = true
+  visible_when = { key = "group_by_scratchpad", values = ["true"] }
+
+  [[widget.setting]]
+  key = "hide_when_empty"
+  type = "bool"
+  label_key = "settings.hide_when_empty.label"
+  description_key = "settings.hide_when_empty.description"
+  default = true
+
+  # --- Scratchpad labels ---
+
+  [[widget.setting]]
+  key = "show_label"
+  type = "bool"
+  label_key = "settings.show_label.label"
+  description_key = "settings.show_label.description"
+  default = true
+  visible_when = { key = "group_by_scratchpad", values = ["true"] }
+
+  [[widget.setting]]
+  key = "label_placement"
+  type = "select"
+  label_key = "settings.label_placement.label"
+  description_key = "settings.label_placement.description"
+  default = "corner"
+  options = [
+    { value = "corner", label_key = "settings.label_placement.options.corner" },
+    { value = "edge", label_key = "settings.label_placement.options.edge" },
+    { value = "inside", label_key = "settings.label_placement.options.inside" },
+  ]
+  visible_when = { key = "show_label", values = ["true"] }
+
+  [[widget.setting]]
+  key = "minimal_style"
+  type = "bool"
+  label_key = "settings.minimal_style.label"
+  description_key = "settings.minimal_style.description"
+  default = false
+  visible_when = { key = "show_label", values = ["true"] }
+
+  [[widget.setting]]
+  key = "highlight_focused_monitor_only"
+  type = "bool"
+  label_key = "settings.highlight_focused_monitor_only.label"
+  description_key = "settings.highlight_focused_monitor_only.description"
+  default = false
+
+  [[widget.setting]]
+  key = "shown_color"
+  type = "color"
+  label_key = "settings.shown_color.label"
+  description_key = "settings.shown_color.description"
+  default = "primary"
+
+  [[widget.setting]]
+  key = "hidden_color"
+  type = "color"
+  label_key = "settings.hidden_color.label"
+  description_key = "settings.hidden_color.description"
+  default = "secondary"
+
+  [[widget.setting]]
+  key = "empty_color"
+  type = "color"
+  label_key = "settings.empty_color.label"
+  description_key = "settings.empty_color.description"
+  default = "secondary"
+
+  [[widget.setting]]
+  key = "urgent_color"
+  type = "color"
+  label_key = "settings.urgent_color.label"
+  description_key = "settings.urgent_color.description"
+  default = "error"
+
+  [[widget.setting]]
+  key = "urgent_outline"
+  type = "bool"
+  label_key = "settings.urgent_outline.label"
+  description_key = "settings.urgent_outline.description"
+  default = false
+
+[[service]]
+id = "service"
+entry = "service.luau"

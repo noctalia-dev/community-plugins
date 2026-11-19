@@ -1,0 +1,130 @@
+{
+  "error": {
+    "stream_failed": "Could not start `umbriel subscribe windows`."
+  },
+  "notify": {
+    "action_failed": "Umbriel action failed: {action}"
+  },
+  "tooltip": {
+    "empty": "No scratchpad windows",
+    "toggle": "Show or hide scratchpad {name}",
+    "scratchpad": "scratchpad {name}",
+    "windows": "{count} windows"
+  },
+  "settings": {
+    "show_all_monitors": {
+      "label": "Show all monitors",
+      "description": "Include scratchpad windows from every monitor on this widget. Recommended with several monitors: a hidden scratchpad has no real monitor, so with this off its icons jump between bars as it is shown on different outputs."
+    },
+    "active_indicator": {
+      "label": "Active window indicator",
+      "description": "Show a small dot below the focused window's icon."
+    },
+    "indicator_color": {
+      "label": "Active indicator color",
+      "description": "Color of the dot below the focused window's icon."
+    },
+    "active_opacity": {
+      "label": "Active icon opacity",
+      "description": "Opacity of the focused window's icon."
+    },
+    "dim_unfocused": {
+      "label": "Dim unfocused windows",
+      "description": "While a scratchpad window has focus, dim the other icons in its scratchpad."
+    },
+    "unfocused_opacity": {
+      "label": "Inactive icon opacity",
+      "description": "Opacity of the other icons while a scratchpad window has focus."
+    },
+    "hidden_opacity": {
+      "label": "Hidden icon opacity",
+      "description": "Opacity of icons while their scratchpad is hidden."
+    },
+    "icon_size": {
+      "label": "Icon size",
+      "description": "Size of the app icons, in pixels."
+    },
+    "only_shown": {
+      "label": "Only shown scratchpads",
+      "description": "Hide scratchpads that are currently hidden."
+    },
+    "group_by_scratchpad": {
+      "label": "Group by scratchpad",
+      "description": "Group icons into scratchpad capsules. Turn off for one flat row of icons."
+    },
+    "hide_empty": {
+      "label": "Hide empty scratchpads",
+      "description": "Omit known scratchpads that have no windows."
+    },
+    "known_scratchpads": {
+      "label": "Known scratchpads",
+      "description": "Scratchpad names listed first, in this order; shown even when empty if empty scratchpads are not hidden."
+    },
+    "hidden_scratchpads": {
+      "label": "Hidden scratchpads",
+      "description": "Scratchpad names left out of the bar unless that scratchpad is shown."
+    },
+    "group_content": {
+      "label": "Group content",
+      "description": "What each scratchpad group shows: app icons, a window count, or dots (up to five, then +N for the rest).",
+      "options": {
+        "icons": "Icons",
+        "count": "Count",
+        "dots": "Dots"
+      }
+    },
+    "single_icon_per_app": {
+      "label": "Single icon per app",
+      "description": "Collapse multiple windows from the same app into one icon with a count badge; clicking cycles through them."
+    },
+    "group_capsule": {
+      "label": "Scratchpad group capsule",
+      "description": "Draw the border around each scratchpad group. Turn off to keep grouping and labels only."
+    },
+    "hide_when_empty": {
+      "label": "Hide when empty",
+      "description": "Take no bar space when there is nothing to show."
+    },
+    "show_label": {
+      "label": "Scratchpad capsule label",
+      "description": "Show the small scratchpad name tag on each group; turn off for icon-only groups."
+    },
+    "label_placement": {
+      "label": "Label placement",
+      "description": "Top corner, vertically centered on the edge, or inside the pill.",
+      "options": {
+        "corner": "Corner",
+        "edge": "Edge",
+        "inside": "Inside"
+      }
+    },
+    "minimal_style": {
+      "label": "Minimal style",
+      "description": "Text-only scratchpad labels without colored disc backgrounds."
+    },
+    "highlight_focused_monitor_only": {
+      "label": "Highlight focused monitor only",
+      "description": "Only use the shown color when the scratchpad is shown on the monitor that has keyboard focus."
+    },
+    "shown_color": {
+      "label": "Shown color",
+      "description": "Color role for shown scratchpads; fixed hex colors are also supported."
+    },
+    "hidden_color": {
+      "label": "Hidden color",
+      "description": "Color role for hidden scratchpads that hold windows; fixed hex colors are also supported."
+    },
+    "empty_color": {
+      "label": "Empty color",
+      "description": "Color role for empty known scratchpads; fixed hex colors are also supported."
+    },
+    "urgent_outline": {
+      "label": "Outline urgent icons",
+      "description": "Draw a box in the urgent color around icons of windows that request attention. Many apps do this right after launching."
+    },
+    "urgent_color": {
+      "label": "Urgent color",
+      "description": "Color role for scratchpads with an urgent window; fixed hex colors are also supported."
+    }
+  }
+}
