@@ -347,7 +347,7 @@ local function countBadge(count)
     minWidth = COUNT_BADGE_SIZE,
     paddingH = 2,
     radius = COUNT_BADGE_SIZE / 2,
-    fill = "surface_variant",
+    fill = "surface_container",
     align = "center",
     justify = "center",
   }, {
@@ -487,7 +487,7 @@ local function pill(group, vertical, cfg)
     radius = cfg.pillHeight / 2,
   }
   if cfg.capsule then
-    props.border = group.highlighted and cfg.shownColor or "outline/0.5"
+    props.border = group.highlighted and cfg.shownColor or "outline_variant"
     props.borderWidth = 1
   end
   if vertical then
