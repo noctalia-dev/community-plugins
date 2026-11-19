@@ -57,6 +57,10 @@ local state = {
 local choices = {}
 local settingsChoice = nil
 local settingsShown = nil
+-- What changed in each file and setting that waits, as changes.sh prints it, for the panel's
+-- Review; nil while it is read.
+local preview = nil
+local PREVIEW_CHARS = 20000
 -- The waiting files, as "<blob> <path>" lines, for changes.sh to show.
 local incomingFile = dataDir .. "/incoming.txt"
 -- The settings that wait, as they would be after taking them, written by the save.
@@ -491,11 +495,6 @@ local function restore()
     noctalia.runInTerminal("sh " .. quoted((noctalia.pluginDir() or "") .. "/restore.sh") .. " " .. quoted(repo()))
   end
 end
-
--- What changed in each file and setting that waits, as changes.sh prints it, for the panel's
--- Review; nil while it is read.
-local preview = nil
-local PREVIEW_CHARS = 20000
 
 local function changes()
   preview = nil

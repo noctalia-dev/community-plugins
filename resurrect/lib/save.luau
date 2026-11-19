@@ -252,21 +252,21 @@ function Save.run(job, opt)
   -- through one. The rest of the folder is the owner's, and stays as it is.
   git("config", "core.symlinks", "false")
   local tops = { "shared", "devices", "hooks", "packages", "restore.sh", "settings.awk", ".gitleaksignore" }
-  local argv = { "find", repo, "-mindepth", "1", "-maxdepth", "1", "(" }
+  local atTop = { "find", repo, "-mindepth", "1", "-maxdepth", "1", "(" }
   for i, name in ipairs(tops) do
-    table.move(i == 1 and { "-name", name } or { "-o", "-name", name }, 1, i == 1 and 2 or 3, #argv + 1, argv)
+    table.move(i == 1 and { "-name", name } or { "-o", "-name", name }, 1, i == 1 and 2 or 3, #atTop + 1, atTop)
   end
-  table.move({ ")", "-type", "l", "-delete" }, 1, 4, #argv + 1, argv)
-  local links = job.run(argv)
-  argv = { "find" }
+  table.move({ ")", "-type", "l", "-delete" }, 1, 4, #atTop + 1, atTop)
+  local links = job.run(atTop)
+  local inside = { "find" }
   for _, name in ipairs(tops) do
     if isDir(repo .. "/" .. name) then
-      table.insert(argv, repo .. "/" .. name)
+      table.insert(inside, repo .. "/" .. name)
     end
   end
-  if links.exitCode == 0 and #argv > 1 then
-    table.move({ "-type", "l", "-delete" }, 1, 3, #argv + 1, argv)
-    links = job.run(argv)
+  if links.exitCode == 0 and #inside > 1 then
+    table.move({ "-type", "l", "-delete" }, 1, 3, #inside + 1, inside)
+    links = job.run(inside)
   end
   if links.exitCode ~= 0 then
     failed(links, 1, "could not remove the links in " .. repo)
@@ -846,12 +846,12 @@ function Save.run(job, opt)
     -- { blob, mode } for each shared file in <theirs>.
     local their = {}
     if theirs then
-      local listed = git("-c", "core.quotePath=false", "ls-tree", "-r", theirs, "--", "shared/files")
-      if listed.stdoutTruncated then
+      local tree = git("-c", "core.quotePath=false", "ls-tree", "-r", theirs, "--", "shared/files")
+      if tree.stdoutTruncated then
         job.emit("could not list the shared files")
         job.stop(1)
       end
-      for line in eachLine(listed.stdout) do
+      for line in eachLine(tree.stdout) do
         local mode, blob, path = line:match("^(%d+) %a+ (%x+)\t(.+)$")
         -- A save never shares a link, or a path that is not plain, so neither came from
         -- Resurrect.
