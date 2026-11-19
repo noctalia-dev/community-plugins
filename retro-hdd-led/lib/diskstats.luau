@@ -33,26 +33,52 @@ local function trim(s)
 	return (tostring(s):gsub("^%s+", ""):gsub("%s+$", ""))
 end
 
--- The disks to watch: the configured names, or every physical disk when the
--- list is empty. Partitions, loop, zram and device-mapper devices are not
--- physical disks, so the default never counts the same I/O twice.
-function M.select(configured, physical)
+-- Trimmed, non-empty, de-duplicated names in their given order.
+local function cleanList(list)
 	local names = {}
 	local seen = {}
-	for _, name in ipairs(configured or {}) do
+	for _, name in ipairs(list or {}) do
 		local clean = trim(name)
 		if clean ~= "" and not seen[clean] then
 			seen[clean] = true
 			names[#names + 1] = clean
 		end
 	end
+	return names
+end
+
+-- The disks to watch: the configured names in their order, or every physical
+-- disk when the list is empty. Partitions, loop, zram and device-mapper
+-- devices are not physical disks, so the default never counts the same I/O
+-- twice. For the physical disks, names in `order` come first in that order
+-- (names that are not present are skipped), the rest follow sorted by name,
+-- so drives plugged in later still show up.
+function M.select(configured, physical, order)
+	local names = cleanList(configured)
 	if #names > 0 then
 		return names
 	end
+	local present = {}
 	for _, name in ipairs(physical or {}) do
+		present[name] = true
+	end
+	local placed = {}
+	for _, name in ipairs(cleanList(order)) do
+		if present[name] then
+			placed[name] = true
+			names[#names + 1] = name
+		end
+	end
+	local rest = {}
+	for name in pairs(present) do
+		if not placed[name] then
+			rest[#rest + 1] = name
+		end
+	end
+	table.sort(rest)
+	for _, name in ipairs(rest) do
 		names[#names + 1] = name
 	end
-	table.sort(names)
 	return names
 end
 

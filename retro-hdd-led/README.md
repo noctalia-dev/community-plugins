@@ -37,7 +37,9 @@ All settings belong to the widget instance.
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
 | `mode` | `select` | `combined` | `combined`: one shared LED for reading and writing. `split`: a read LED and a write LED. |
-| `per_disk` | `bool` | `false` | One LED (or read/write pair) for every watched disk instead of one for all of them, in the order of `disks`, or sorted by name. |
+| `per_disk` | `bool` | `false` | One LED (or read/write pair) for every watched disk instead of one for all of them, in the order of `disks`, or of `disk_order` followed by the other disks sorted by name. |
+| `disks` | `string_list` | `[]` | Device names as listed in `/proc/diskstats`, for example `nvme0n1`, `sda` or a partition such as `sda1`. Empty watches every physical disk. |
+| `disk_order` | `string_list` | `[]` | Disks to show first, in this order, for example `nvme1n1` to put that disk before `nvme0n1`. All other physical disks follow sorted by name, including drives plugged in later. Not used when `disks` is set. |
 | `read_color` | `color` | `primary` | Color of the shared LED, or of the read LED. A palette role or a `#RRGGBB` value. |
 | `auto_write_color` | `bool` | `true` | In `split` mode, color the write LED with a variant of the LED color, mixed toward `on_surface`: lighter on dark themes, darker on light ones. |
 | `write_color` | `color` | `primary` | Write LED color when `auto_write_color` is off. |
@@ -45,7 +47,6 @@ All settings belong to the widget instance.
 | `size` | `int` | `8` | LED diameter in pixels (4-24). |
 | `off_brightness` | `int` | `20` | Brightness of an idle LED in percent. `0` hides it until there is activity; its space stays reserved. |
 | `glow` | `bool` | `true` | Soft edge on a lit LED. |
-| `disks` | `string_list` | `[]` | Device names as listed in `/proc/diskstats`, for example `nvme0n1`, `sda` or a partition such as `sda1`. Empty watches every physical disk. |
 | `poll_ms` | `int` | `100` | How often activity is checked, in milliseconds (30-1000, advanced). Lower values catch shorter bursts. |
 
 ## Notes
@@ -63,5 +64,8 @@ All settings belong to the widget instance.
   the widget than without it (about 0.2% of one core); parsing takes about
   30 µs per poll.
 - Derived colors follow theme changes on the next poll.
+- Kernel names such as `nvme0n1` are not guaranteed to stay the same across
+  reboots, so `disks`, `disk_order` and `disk_colors` can point at another
+  drive after a restart. Check the hover tooltip if the LEDs look swapped.
 - The kernel only updates the counters when a request completes, so very short
   bursts between two polls show as one blink.

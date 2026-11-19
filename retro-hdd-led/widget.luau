@@ -215,7 +215,7 @@ local function onStats(text, err)
 		scanDisks(now)
 	end
 	local current = diskstats.parse(text)
-	local watched = diskstats.select(config("disks", {}), physical)
+	local watched = diskstats.select(config("disks", {}), physical, config("disk_order", {}))
 	if table.concat(watched, ",") ~= table.concat(names, ",") then
 		-- Disks came or went: the rate window has to start over.
 		names = watched

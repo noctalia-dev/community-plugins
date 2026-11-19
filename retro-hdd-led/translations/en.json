@@ -42,6 +42,10 @@
       "label": "Disks",
       "description": "Device names from /proc/diskstats, for example nvme0n1 or sda. Empty watches every physical disk."
     },
+    "disk_order": {
+      "label": "Order",
+      "description": "Disks listed here come first, in this order. All other physical disks follow sorted by name, including drives plugged in later. Not used when Disks is set."
+    },
     "poll_ms": {
       "label": "Poll interval (ms)",
       "description": "How often disk activity is checked. Lower values catch shorter bursts."

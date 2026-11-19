@@ -35,6 +35,20 @@ entry = "widget.luau"
   default = false
 
   [[widget.setting]]
+  key = "disks"
+  type = "string_list"
+  label_key = "settings.disks.label"
+  description_key = "settings.disks.description"
+  default = []
+
+  [[widget.setting]]
+  key = "disk_order"
+  type = "string_list"
+  label_key = "settings.disk_order.label"
+  description_key = "settings.disk_order.description"
+  default = []
+
+  [[widget.setting]]
   key = "read_color"
   type = "color"
   label_key = "settings.read_color.label"
@@ -90,13 +104,6 @@ entry = "widget.luau"
   label_key = "settings.glow.label"
   description_key = "settings.glow.description"
   default = true
-
-  [[widget.setting]]
-  key = "disks"
-  type = "string_list"
-  label_key = "settings.disks.label"
-  description_key = "settings.disks.description"
-  default = []
 
   [[widget.setting]]
   key = "poll_ms"
