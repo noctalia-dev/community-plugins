@@ -96,7 +96,8 @@ local function publish()
   })
 end
 
-local function apply(screens)
+-- Applies <screens>; <onApplied>, when given, runs once Hyprland took them.
+local function apply(screens, onApplied)
   applying = true
   Hyprland.apply(screens, data.ruled, function(ok, message, ruled)
     applying = false
@@ -104,6 +105,9 @@ local function apply(screens)
     if ok then
       data.ruled = ruled
       save()
+      if onApplied then
+        onApplied()
+      end
     end
     settleAtMs = noctalia.nowMs() + SETTLE_MS
     publish()
@@ -129,6 +133,20 @@ local function settled()
   end
 end
 
+-- Puts back <screens>, the layout before a change that was not kept. The layout is kept in
+-- the data file until Hyprland took it, so when it fails, or Noctalia stops first, the next
+-- start puts it back again.
+local function restore(screens)
+  pending = nil
+  layout = screens
+  apply(layout, function()
+    if not pending and data.unkept then
+      data.unkept = nil
+      save()
+    end
+  end)
+end
+
 local function onRead(screens, settling)
   live = screens
   local newKey = Layout.key(screens)
@@ -140,9 +158,7 @@ local function onRead(screens, settling)
     seen = nil
     if data.unkept and data.unkept.key == key then
       -- A change was not kept before Noctalia stopped: the layout before it comes back.
-      layout = merged(data.unkept.screens)
-      settled()
-      apply(layout)
+      restore(merged(data.unkept.screens))
     elseif profile then
       apply(layout)
     else
@@ -216,9 +232,7 @@ end
 
 local function undo()
   if pending then
-    layout = pending.previous
-    settled()
-    apply(layout)
+    restore(pending.previous)
     publish()
   end
 end

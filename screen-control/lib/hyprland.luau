@@ -210,9 +210,11 @@ local function vrrRules(layout)
 end
 
 -- The requests for <layout> on the older config, each its own hyprctl argv, so nothing in a
--- value can start another request. Returns nil when a value is not one a rule can hold.
-local function keywordRequests(layout)
-  local requests = {}
+-- value can start another request: the monitor rules, then every workspace rule, then a move
+-- for each workspace in <open>, the ones that exist, since Hyprland refuses to move any
+-- other. Returns nil when a value is not one a rule can hold.
+local function keywordRequests(layout, open)
+  local requests, rules, moves = {}, {}, {}
   for _, screen in ipairs(layout) do
     local mirror = screen.mirror ~= "" and connector(layout, screen.mirror) or nil
     local scale, sdr = tonumber(screen.scale), tonumber(screen.sdrBrightness) or 1
@@ -231,13 +233,22 @@ local function keywordRequests(layout)
       end
       table.insert(requests, { "hyprctl", "keyword", "monitor", rule })
       for _, id in ipairs(Hyprland.workspaceIds(screen.workspaces) or {}) do
-        table.insert(requests, { "hyprctl", "keyword", "workspace", `{id},monitor:{screen.name}` })
-        table.insert(requests, { "hyprctl", "dispatch", "moveworkspacetomonitor", tostring(id), screen.name })
+        table.insert(rules, { "hyprctl", "keyword", "workspace", `{id},monitor:{screen.name}` })
+        if open[tostring(id)] then
+          table.insert(moves, { "hyprctl", "dispatch", "moveworkspacetomonitor", tostring(id), screen.name })
+        end
       end
     end
   end
+  table.move(rules, 1, #rules, #requests + 1, requests)
+  table.move(moves, 1, #moves, #requests + 1, requests)
   return requests
 end
+
+-- Send each of their arguments to Hyprland, one after another: as Lua, or as a monitor rule
+-- of the older config.
+local EVAL_ALL = 'for text; do [ -n "$text" ] && hyprctl eval "$text"; done'
+local MONITOR_ALL = 'for rule; do hyprctl keyword monitor "$rule"; done'
 
 -- Runs <requests> one after another; calls back with whether each answered "ok", and the
 -- first other answer.
@@ -285,14 +296,23 @@ end
 function Hyprland.apply(layout, ruled, callback)
   layout = ordered(layout)
   local function older()
-    local requests = keywordRequests(layout)
-    if requests == nil then
-      callback(false, nil, ruled)
-      return
-    end
-    runRequests(requests, function(ok, answer)
-      callback(ok, answer, ruled)
-    end)
+    noctalia.runAsync({ "hyprctl", "workspaces", "-j" }, function(result)
+      local open = {}
+      for _, workspace in ipairs(result.exitCode == 0 and noctalia.json.decode(result.stdout) or {}) do
+        if type(workspace) == "table" and workspace.id ~= nil then
+          open[tostring(workspace.id)] = true
+          open[tostring(workspace.name)] = true
+        end
+      end
+      local requests = keywordRequests(layout, open)
+      if requests == nil then
+        callback(false, nil, ruled)
+        return
+      end
+      runRequests(requests, function(ok, answer)
+        callback(ok, answer, ruled)
+      end)
+    end, 5000)
   end
   if lua == false then
     older()
@@ -330,22 +350,22 @@ function Hyprland.apply(layout, ruled, callback)
   end, 5000)
 end
 
--- Applies <layout> and gives every workspace in <ruled> its rule back, without waiting, as
--- the plugin is turned off.
+-- Applies <layout> and gives every workspace in <ruled> its rule back, as the plugin stops.
+-- One detached shell sends the requests in order, as no callback runs after the plugin stops.
 function Hyprland.applyNow(layout, ruled)
   layout = ordered(layout)
   for _, screen in ipairs(layout) do
     screen.workspaces = ""
   end
   if lua == false then
-    runRequests(keywordRequests(layout) or {}, nil)
+    local argv = { "sh", "-c", MONITOR_ALL, "screen-control" }
+    for _, request in ipairs(keywordRequests(layout, {}) or {}) do
+      table.insert(argv, request[4])
+    end
+    noctalia.runAsync(argv)
     return
   end
-  local first = vrrRules(layout)
-  if first ~= "" then
-    noctalia.runAsync({ "hyprctl", "eval", first })
-  end
-  noctalia.runAsync({ "hyprctl", "eval", (luaRules(layout, ruled, {})) })
+  noctalia.runAsync({ "sh", "-c", EVAL_ALL, "screen-control", vrrRules(layout), (luaRules(layout, ruled, {})) })
 end
 
 return Hyprland

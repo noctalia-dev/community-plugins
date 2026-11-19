@@ -95,7 +95,9 @@ local function send(key, argv, onDone)
   end, 10000)
 end
 
--- Starts hyprsunset when it is not running, with no color change and the wanted gamma.
+-- Starts hyprsunset when it is not running, with no color change and the wanted gamma. A
+-- request that fails is sent again on the next update tick; when hyprsunset still does not
+-- answer 3 seconds after it was started, the layer takes over.
 local function setGamma(percent)
   if percent == gamma then
     return
@@ -105,19 +107,34 @@ local function setGamma(percent)
     if result.exitCode == 0 or percent >= 100 then
       return
     end
-    if gammaStartedMs > 0 and noctalia.nowMs() - gammaStartedMs > 3000 then
-      -- Started before and still not answering: the layer takes over.
-      gammaFailed = true
+    if gamma == percent then
       gamma = nil
+    end
+    if gammaStartedMs > 0 and noctalia.nowMs() - gammaStartedMs > 3000 then
+      gammaFailed = true
       publish()
     elseif gammaStartedMs <= 0 then
       gammaStartedMs = noctalia.nowMs()
       noctalia.runAsync({ "hyprsunset", "--identity", "--gamma", tostring(percent) })
-    else
-      -- It is still starting; update() tries again.
-      gamma = nil
     end
   end)
+end
+
+local save
+
+-- Without gamma, each monitor has its own level: the one level gamma kept for all monitors
+-- goes to each one that has none, so the dimming stays as it was.
+local function shareOut()
+  local all = dims["all"]
+  if all == nil or #monitors == 0 then
+    return
+  end
+  dims["all"] = nil
+  for _, monitor in ipairs(monitors) do
+    local key = "output:" .. monitor.name
+    dims[key] = dims[key] or all
+  end
+  save()
 end
 
 local function nightMode()
@@ -160,6 +177,7 @@ publish = function()
     return
   end
   -- Switched to the layer: gamma goes back to full first.
+  shareOut()
   if gamma and gamma < 100 then
     setGamma(100)
   end
@@ -170,7 +188,7 @@ publish = function()
   end
 end
 
-local function save()
+save = function()
   local text = noctalia.json.encode({ dims = dims })
   if text then
     noctalia.writeFile(dataFile, text)

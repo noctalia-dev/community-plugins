@@ -25,6 +25,7 @@ connected screens remembers its own layout.
 | `hyprctl`         | Required on Hyprland | Talks to hyprsunset, finds the workspace on each monitor, and reads and applies the screens' layout. Without it, a black layer dims, each workspace cannot keep its own dimming, and the **Layout** view shows nothing. |
 | `ddcutil`         | Optional             | Reads the brightness of external monitors; Noctalia uses it too, when **Brightness → ddcutil** is on. Without it, external monitors can still be dimmed.                                                                |
 | `systemd-inhibit` | Required             | Reads whether Noctalia's caffeine is on, so the panel matches Noctalia's own menu. Without it, the panel shows caffeine as it last set it.                                                                              |
+| `sh`              | Required on Hyprland | Puts the screens back in order as the plugin stops, when **Keep this layout?** still waits. Without it, a layout that was not kept is put back on the next start.                                                       |
 
 ## Usage
 
@@ -130,7 +131,7 @@ noctalia msg plugin omerfuyar/screen-control:layout all undo
 ## Notes
 
 - Gamma dimming works in a Hyprland session. Elsewhere, or when hyprsunset does not
-  answer, the black layer dims instead.
+  answer, the black layer dims instead, each screen as dark as gamma had it.
 - Gamma dimming is one level for all screens, since hyprsunset sets every screen alike.
   It does not show in screenshots or recordings. When the plugin stops, gamma goes back
   to full.

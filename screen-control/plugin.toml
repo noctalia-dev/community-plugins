@@ -1,12 +1,12 @@
 id = "omerfuyar/screen-control"
 name = "Screen Control"
-version = "1.6.1"
+version = "1.6.2"
 plugin_api = 43
 author = "omerfuyar"
 license = "MIT"
 icon = "sun"
 description = "Your screens in one place: brightness, extra dim, night light, caffeine, and the layout, modes, scale, VRR and HDR."
-dependencies = ["noctalia", "hyprsunset", "hyprctl", "ddcutil", "systemd-inhibit"]
+dependencies = ["noctalia", "hyprsunset", "hyprctl", "ddcutil", "systemd-inhibit", "sh"]
 tags = ["bar", "hyprland", "hardware", "system", "utility"]
 
 [[setting]]
