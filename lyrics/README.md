@@ -134,6 +134,8 @@ Lyrics are translated in English and Simplified Chinese; other catalogs fall bac
 
 ## Screenshots
 
+![Welcome panel showing dependency status](screenshots/welcome-1.8.0.webp)
+
 ![Lyrics on the bar with album art](<screenshots/lyrics - 1.7.1.png>)
 
 ![Selector with source, format, and duration offsets](<screenshots/selector - 1.7.1.png>)
