@@ -6,6 +6,8 @@
 
 local candidateState = noctalia.state.get("lyrics_candidate_state") or {}
 local track = noctalia.state.get("track")
+local lyricsStatus = noctalia.state.get("lyrics_status")
+local trackOffset = tonumber(noctalia.state.get("lyrics_offset_ms")) or 0
 local requestCounter = 0
 local dirty = true
 
@@ -161,6 +163,19 @@ local function candidateRow(candidate, index, selected)
   local fill = active and "primary_container" or (hoveredIndex == index and "surface_container_high" or "surface_container")
   local titleColor = active and "on_primary_container" or "on_surface"
   local metaColor = active and "on_primary_container" or (mismatch and "error" or "on_surface_variant")
+  local details = {
+    ui.label({ text = candidateTitle(candidate), fontSize = 13,
+      fontWeight = active and "bold" or "normal", color = titleColor, maxLines = 1 }),
+    ui.label({ text = candidateMeta(candidate), fontSize = 11, color = metaColor, maxLines = 1 }),
+  }
+  if type(candidate.preview) == "table" then
+    for i = 1, math.min(#candidate.preview, 3) do
+      local text = candidate.preview[i]
+      if type(text) == "string" and text ~= "" then
+        details[#details + 1] = ui.label({ text = text, fontSize = 11, color = titleColor, maxLines = 1 })
+      end
+    end
+  end
   return ui.row({
     key = "candidate-" .. candidateSource .. "-" .. candidateId,
     fill = fill,
@@ -172,16 +187,7 @@ local function candidateRow(candidate, index, selected)
     onClick = function() applyCandidate(index) end,
     onHover = function(value) onRowHover(index, value) end,
   }, {
-    ui.column({ gap = 2, flexGrow = 1 }, {
-      ui.label({
-        text = candidateTitle(candidate),
-        fontSize = 13,
-        fontWeight = active and "bold" or "normal",
-        color = titleColor,
-        maxLines = 1,
-      }),
-      ui.label({ text = candidateMeta(candidate), fontSize = 11, color = metaColor, maxLines = 1 }),
-    }),
+    ui.column({ gap = 2, flexGrow = 1 }, details),
     ui.label({
       text = selected and "✓" or (pending and "…" or ""),
       fontSize = 13,
@@ -196,7 +202,7 @@ function render()
   local state = stateForTrack()
   local candidates = type(state.candidates) == "table" and state.candidates or {}
   local selectedCandidateId = tostring(state.selected_id or "")
-  local loading = state.loading == true
+  local loading = state.loading == true or lyricsStatus == "loading"
   local selectionError = tostring(state.error or "")
   local body = {}
   if not track then
@@ -204,12 +210,12 @@ function render()
       ui.glyph({ name = "music-off", size = 28, color = "on_surface_variant" }),
       ui.label({ text = noctalia.tr("panel.no_track"), color = "on_surface_variant" }),
     })
-  elseif #candidates == 0 then
+  elseif not loading and #candidates == 0 and lyricsStatus == "ready" then
     body[#body + 1] = ui.column({ align = "center", justify = "center", gap = 8, flexGrow = 1 }, {
       ui.glyph({ name = "list-search", size = 28, color = "on_surface_variant" }),
       ui.label({ text = noctalia.tr("panel.no_candidates"), color = "on_surface_variant" }),
     })
-  else
+  elseif #candidates > 0 then
     body[#body + 1] = ui.row({ align = "center", gap = 8 }, {
       ui.label({
         text = string.format(noctalia.tr("panel.candidates_count"), #candidates),
@@ -231,7 +237,7 @@ function render()
       flexGrow = 1,
       gap = 6,
       align = "stretch",
-      opacity = loading and not pendingId ~= "" and 0.6 or 1,
+      opacity = loading and pendingId == "" and 0.6 or 1,
     }, rows)
   end
 
@@ -242,9 +248,30 @@ function render()
   elseif selectionError ~= "" then
     body[#body + 1] = ui.label({ text = noctalia.tr("panel.selection_failed"), color = "error", fontSize = 11 })
   end
+  local statusKeys = {
+    error = "panel.lookup_error", dependency_missing = "panel.dependency_missing",
+    not_found = "no_lyrics", offline = "panel.offline", waiting = "panel.waiting",
+  }
+  local statusKey = statusKeys[lyricsStatus]
+  if statusKey and (track or lyricsStatus == "dependency_missing") then
+    body[#body + 1] = ui.row({ gap = 8, align = "center" }, {
+      ui.label({ text = noctalia.tr(statusKey), flexGrow = 1, maxLines = 2 }),
+      (track and lyricsStatus ~= "offline" and lyricsStatus ~= "waiting")
+        and ui.button({ text = noctalia.tr("panel.retry"), onClick = "onRetry", controlSize = "sm" }) or nil,
+    })
+  end
   local applied = appliedFormatLabel(state)
   if applied ~= "" then
     body[#body + 1] = ui.label({ text = applied, color = "on_surface_variant", fontSize = 10 })
+  end
+
+  if track then
+    body[#body + 1] = ui.row({ gap = 6, align = "center" }, {
+      ui.label({ text = string.format(noctalia.tr("panel.track_offset"), trackOffset), flexGrow = 1 }),
+      ui.button({ text = "−100 ms", tooltip = noctalia.tr("panel.later"), controlSize = "sm", onClick = "onLater" }),
+      ui.button({ text = "+100 ms", tooltip = noctalia.tr("panel.earlier"), controlSize = "sm", onClick = "onEarlier" }),
+      ui.button({ text = noctalia.tr("panel.reset_offset"), controlSize = "sm", onClick = "onResetOffset" }),
+    })
   end
 
   panel.render(ui.column({ flexGrow = 1, gap = 12, align = "stretch", onHover = "onPanelHover" }, {
@@ -259,14 +286,14 @@ function render()
           maxLines = 1,
         }),
       }),
-      ui.button({
+      ui.button({ glyph = "close", variant = "ghost", tooltip = noctalia.tr("panel.close"), onClick = "onCloseClicked" }),
+      #candidates > 0 and ui.button({
         text = noctalia.tr("panel.use_best"),
         variant = "ghost",
         controlSize = "sm",
         tooltip = noctalia.tr("panel.use_best_tooltip"),
         onClick = "onUseBest",
-      }),
-      ui.button({ glyph = "close", variant = "ghost", tooltip = noctalia.tr("panel.close"), onClick = "onCloseClicked" }),
+      }) or nil,
     }),
     ui.column({ flexGrow = 1, gap = 8, align = "stretch" }, body),
   }))
@@ -293,6 +320,8 @@ local function watch(key, transform)
   end)
 end
 
+watch("lyrics_status", function(value) lyricsStatus = value end)
+watch("lyrics_offset_ms", function(value) trackOffset = tonumber(value) or 0 end)
 watch("lyrics_candidate_state", function(value) handleCandidateState(value) end)
 watch("track", function(value)
   local previousKey = trackKey(track)
@@ -310,10 +339,6 @@ function onPanelHover(value, _key)
 end
 
 function onOpen(_context)
-  if noctalia.getConfig("candidate_mode") == "best" then
-    panel.close()
-    return
-  end
   noctalia.state.set("lyrics_selector_open", true)
   local origin = tostring(noctalia.state.get("lyrics_selector_origin") or "")
   noctalia.state.set("lyrics_selector_origin", "")
@@ -323,6 +348,8 @@ function onOpen(_context)
   -- previous song's results.
   track = noctalia.state.get("track")
   candidateState = noctalia.state.get("lyrics_candidate_state") or {}
+  lyricsStatus = noctalia.state.get("lyrics_status")
+  trackOffset = tonumber(noctalia.state.get("lyrics_offset_ms")) or 0
   openedTrackKey = trackKey(track)
   pendingId = ""
   pendingSource = ""
@@ -371,5 +398,20 @@ function onUseBest()
   })
   render()
 end
+
+local function requestControl(key, action)
+  if not track then return end
+  requestCounter = requestCounter + 1
+  noctalia.state.set(key, {
+    request_id = tostring(os.clock()) .. "-" .. tostring(requestCounter),
+    track_key = trackKey(track),
+    action = action,
+  })
+end
+
+function onLater() requestControl("lyrics_offset_request", "-100") end
+function onEarlier() requestControl("lyrics_offset_request", "+100") end
+function onResetOffset() requestControl("lyrics_offset_request", "reset") end
+function onRetry() requestControl("lyrics_retry_request") end
 
 render()

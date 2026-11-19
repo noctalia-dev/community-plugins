@@ -19,7 +19,7 @@ try:
 except ImportError:
     SSL_AVAILABLE = False
 
-from music_sources import CatalogueClient, decode_lyric, direct_song
+from music_sources import CatalogueClient, artist_matches, decode_lyric, direct_song, versions
 
 
 USER_AGENT = "Noctalia-Lyrics/1.0"
@@ -100,9 +100,9 @@ META_CJK_PATTERN = _label_pattern(META_LABELS)
 META_LATIN_PATTERN = _label_pattern(META_LABELS_LATIN)
 METADATA_LINE = re.compile(
     r"^\s*(?:"
-    r"(?:" + META_CJK_PATTERN + r")\s*(?:[:：]|\s+by\s+|$)"
+    r"(?:" + META_CJK_PATTERN + r")\s*(?:[:：]|\s+by\s+)"
     r"|(?:" + META_CJK_PATTERN + r")(?:工程师|工程師|工程|编写|編寫|助理|老师|老師|团队|團隊|公司|工作室|厂牌|廠牌|制作|製作)\s*[:：]"
-    r"|(?:" + META_LATIN_PATTERN + r")\b\s*(?:[:：]|\s+by\s+|$)"
+    r"|(?:" + META_LATIN_PATTERN + r")\b\s*(?:[:：]|\s+by\s+)"
     r"|(?:词|曲|歌)\s*[:：]"
     r"|(?:©|℗|\(c\)|\(p\))\s*\d{0,4}"
     r"|(?:courtesy of|under license(?: from)?|all rights reserved)\b"
@@ -787,8 +787,14 @@ def best_match(items, track, title_key, artist_key, album_key=None):
     ))
     best, best_score = None, -1
     for item in items:
-        title = normalize(title_key(item))
-        artist = normalize(artist_key(item))
+        raw_title = title_key(item)
+        raw_artist = artist_key(item)
+        title = normalize(raw_title)
+        artist = normalize(raw_artist)
+        if wanted_title and (not title or versions(track.get("title")) != versions(raw_title)):
+            continue
+        if wanted_artist and not artist_matches(track.get("artist"), raw_artist):
+            continue
         album = normalize(album_key(item)) if album_key else ""
         score = 0
         if wanted_title and title:
@@ -826,7 +832,9 @@ def lrclib_candidates(items, track):
         title = normalize(item.get("trackName"))
         artist = normalize(item.get("artistName"))
         album = normalize(item.get("albumName"))
-        if wanted_title and not title:
+        if wanted_title and (not title or versions(track.get("title")) != versions(item.get("trackName"))):
+            continue
+        if wanted_artist and not artist_matches(track.get("artist"), item.get("artistName")):
             continue
         identity_score = 0
         if wanted_title and title:
@@ -835,9 +843,7 @@ def lrclib_candidates(items, track):
                 continue
             identity_score += title_score
         if wanted_artist and artist:
-            artist_score = 4 if artist == wanted_artist else 2 if wanted_artist in artist or artist in wanted_artist else 0
-            if artist_score == 0:
-                continue
+            artist_score = 4 if artist == wanted_artist else 2
             identity_score += artist_score
         if wanted_album and album:
             identity_score += 2 if album == wanted_album else 1 if wanted_album in album or album in wanted_album else 0
@@ -847,6 +853,8 @@ def lrclib_candidates(items, track):
         duration_difference = float("inf")
         if wanted_duration > 0 and candidate_duration > 0:
             duration_difference = abs(wanted_duration - candidate_duration)
+            if duration_difference > 30:
+                continue
             if duration_difference <= 2:
                 duration_bucket = 0
             elif duration_difference <= 5:
@@ -864,8 +872,8 @@ def lrclib_candidates(items, track):
             # several seconds longer than the playing track will not stay in
             # sync even when its album name matches exactly.
             ranked.append((
-                duration_bucket,
                 -int(synced),
+                duration_bucket,
                 -identity_score,
                 duration_difference,
                 index,
@@ -876,15 +884,27 @@ def lrclib_candidates(items, track):
     return [entry[-1] for entry in ranked]
 
 
-def lrclib_candidate_metadata(item):
+def lyric_preview(lines):
+    return [item["text"] for item in lines[:3]]
+
+
+def add_selected_preview(candidates, selected_id, lines, format_name):
+    for candidate in candidates:
+        if candidate["id"] == selected_id:
+            candidate.update(preview=lyric_preview(lines), synced=format_name != "plain", format=format_name)
+            break
+
+
+def lrclib_candidate_metadata(item, lines, format_name):
     return {
         "id": clean_text(item.get("id")),
         "track_name": clean_text(item.get("trackName")),
         "artist_name": clean_text(item.get("artistName")),
         "album_name": clean_text(item.get("albumName")),
         "duration": max(0, number(item.get("duration"), 0)),
-        "synced": bool(clean_text(item.get("syncedLyrics"))),
-        "format": "lrc" if clean_text(item.get("syncedLyrics")) else "plain",
+        "synced": format_name != "plain",
+        "format": format_name,
+        "preview": lyric_preview(lines),
         "source": "lrclib",
     }
 
@@ -971,23 +991,27 @@ def adapter_lrclib(track, credentials, options):
     data = request_json(query_url("https://lrclib.net/api/search", params))
     matches = lrclib_candidates(data, track)
     requested_id = clean_text(options.get("lyrics_candidate_id"))
-    best = next((item for item in matches if clean_text(item.get("id")) == requested_id), None)
-    if requested_id and best is None:
-        return empty(source, "lrclib: requested match unavailable")
-    if best is None and matches:
-        best = matches[0]
-    if not best:
-        return empty(source, "lrclib: no match")
-    lyrics = best.get("syncedLyrics") or best.get("plainLyrics") or ""
-    lines, format_name = parse_lyric_text(lyrics)
-    response = success(
-        source, lines, ["lrclib: match"],
-        duration_ms(track.get("duration")), itunes_cover(track), format_name,
-    )
+    collect = options.get("collect_candidates", True)
+    parsed = []
+    for item in matches:
+        if requested_id and not collect and clean_text(item.get("id")) != requested_id:
+            continue
+        lines, format_name = parse_lyric_text(item.get("syncedLyrics") or "")
+        if not lines:
+            lines, format_name = parse_lyric_text(item.get("plainLyrics") or "")
+        if lines:
+            parsed.append((item, lines, format_name))
+    # Ranking uses successfully parsed timing, not the presence of a provider field.
+    parsed.sort(key=lambda candidate: candidate[2] == "plain")
+    selected = next((entry for entry in parsed if not requested_id or clean_text(entry[0].get("id")) == requested_id), None)
+    if selected is None:
+        return empty(source, "lrclib: requested match unavailable" if requested_id else "lrclib: no match")
+    item, lines, format_name = selected
+    response = success(source, lines, ["lrclib: match"], duration_ms(track.get("duration")), itunes_cover(track), format_name)
     if response.get("type") == "lyrics":
-        if options.get("collect_candidates", True):
-            response["candidates"] = [lrclib_candidate_metadata(item) for item in matches]
-        response["selected_candidate_id"] = clean_text(best.get("id"))
+        if collect:
+            response["candidates"] = [lrclib_candidate_metadata(*entry) for entry in parsed[:20]]
+        response["selected_candidate_id"] = clean_text(item.get("id"))
     return response
 
 
@@ -1064,8 +1088,7 @@ def catalogue_candidate_metadata(song, source, track):
     duration = number(song.get("duration"), 0)
     if duration <= 0:
         duration = duration_ms(track.get("duration"))
-    elif duration > 1000:
-        duration = int(duration / 1000)
+    duration /= 1000
     return {
         "id": identity,
         "track_name": clean_text(song.get("title")) or clean_text(track.get("title")),
@@ -1128,6 +1151,7 @@ def adapter_catalogue(track, source, options=None):
                                    [source + ": match " + candidate_identity(song)],
                                    duration_ms(track.get("duration")), song.get("cover", ""), format_name)
                 if collect:
+                    add_selected_preview(candidates, candidate_identity(song), lines, format_name)
                     response["candidates"] = candidates
                 response["selected_candidate_id"] = candidate_identity(song)
                 return response
@@ -1384,6 +1408,7 @@ def adapter_kugou(track, credentials, options):
             response = success(source, lines, ["kugou: match " + selected_id],
                                duration_ms(track.get("duration")), cover, format_name)
             if options.get("collect_candidates", True):
+                add_selected_preview(candidates, selected_id, lines, format_name)
                 response["candidates"] = candidates
             response["selected_candidate_id"] = selected_id
             return response

@@ -88,6 +88,8 @@ local rendered = false
 local hovered = false
 local sourceUsed = ""
 local lyricsLoading = false
+local lyricsStatus = nil
+local trackOffset = 0
 
 local baselinePosition = 0
 local baselineClock = os.clock()
@@ -374,8 +376,13 @@ local function getTrackLabel()
 end
 
 local function getFallbackLabel()
+  if lyricsStatus == "dependency_missing" then return noctalia.tr("panel.dependency_missing_short") end
   if not track then return "--" end
   if displayMode ~= "track" and showMode ~= "track" then
+    if lyricsLoading then return noctalia.tr("panel.loading") end
+    if lyricsStatus == "error" then return noctalia.tr("panel.lookup_error_short") end
+    if lyricsStatus == "offline" then return noctalia.tr("panel.offline") end
+    if lyricsStatus == "waiting" then return noctalia.tr("panel.waiting") end
     return noctalia.tr("no_lyrics")
   end
   if track.artist and track.artist ~= "" then
@@ -704,8 +711,9 @@ end
 
 local function render()
   local showingTrack = displayMode == "track" or showMode == "track"
-  if hideWhenPaused and not playing
-    or hideWhenNoLyrics and not showingTrack and not hasLyrics() and not lyricsLoading then
+  local showDiagnostic = lyricsStatus == "dependency_missing" or (track ~= nil and lyricsStatus == "error")
+  if not showDiagnostic and (hideWhenPaused and not playing
+    or hideWhenNoLyrics and not showingTrack and not hasLyrics() and not lyricsLoading) then
     barWidget.setVisible(false)
     return
   end
@@ -911,6 +919,8 @@ local function render()
   local sourceLabel = noctalia.tr("source_label")
   local tooltip = getTrackLabel()
   if sourceUsed ~= "" then tooltip = tooltip .. "\n" .. sourceLabel .. ": " .. (sourceNames[sourceUsed] or sourceUsed) end
+  if trackOffset ~= 0 then tooltip = tooltip .. "\n" .. string.format(noctalia.tr("panel.track_offset"), trackOffset) end
+  if showDiagnostic then tooltip = tooltip .. "\n" .. getFallbackLabel() end
   barWidget.setTooltip(tooltip)
   rendered = true
 end
@@ -949,6 +959,8 @@ function update()
   playing = noctalia.state.get("playing") == true
   sourceUsed = noctalia.state.get("lyrics_source_used") or ""
   lyricsLoading = noctalia.state.get("lyrics_loading") == true
+  lyricsStatus = noctalia.state.get("lyrics_status")
+  trackOffset = tonumber(noctalia.state.get("lyrics_offset_ms")) or 0
 
   local candidateState = noctalia.state.get("lyrics_candidate_state")
   lyricsCandidates = type(candidateState) == "table" and candidateState.track_key == trackKey(track)
