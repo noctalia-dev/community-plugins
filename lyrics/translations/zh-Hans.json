@@ -1,4 +1,29 @@
 {
+  "open_welcome": {
+    "label": "Lyrics 使用引导"
+  },
+  "welcome": {
+    "title": "欢迎使用 Lyrics",
+    "setup": "使用引导",
+    "overview_hint": "依赖总览",
+    "ready": "可用",
+    "missing": "缺失",
+    "checking": "正在检查…",
+    "unavailable": "未检查",
+    "install": "用发行版的包管理器安装缺少的工具。选择发行版可查看安装命令。",
+    "arch": "Arch",
+    "debian": "Debian / Ubuntu",
+    "fedora": "Fedora",
+    "nixos": "NixOS",
+    "other": "其他",
+    "copy": "复制",
+    "copied": "已复制",
+    "apply_nixos": "把这段配置加入 NixOS 配置并重新构建。如果 Noctalia 还没读到新的 PATH，请重启 Noctalia。",
+    "recheck_hint": "安装后点击「重新检查」。如果仍显示缺失，请重启 Noctalia，让它读取新的 PATH。",
+    "next_steps": "用支持 MPRIS 的播放器播放歌曲。如果状态栏还没有歌词组件，请在状态栏设置中添加 Lyrics。打开「选择歌词」即可切换版本和调整时间。",
+    "recheck": "重新检查",
+    "click": "点击打开使用引导。"
+  },
   "instrumental": "间奏",
   "intro": "前奏",
   "no_lyrics": "暂无可用歌词",

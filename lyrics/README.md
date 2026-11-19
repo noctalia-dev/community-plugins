@@ -7,7 +7,7 @@ Synchronized lyrics for the Noctalia bar: word-level karaoke highlighting, anima
 | Field | Value |
 | --- | --- |
 | ID | `h465855hgg/lyrics` |
-| Entries | Bar widget: `lyrics`; panel: `selector`; shortcut: `open_selector`; service: `service` |
+| Entries | Bar widget: `lyrics`; panels: `selector`, `welcome`; shortcuts: `open_selector`, `open_welcome`; service: `service` |
 
 The line-slide animation requires Noctalia with plugin API 52. Older shells are held back to the 1.6.x release from the plugin source and use fade transitions.
 
@@ -60,6 +60,14 @@ Enable `h465855hgg/lyrics`, start its `service` entry, and add the `lyrics` bar 
 | Scroll down | `plugin h465855hgg/lyrics:service all previous` | Previous track. |
 
 The left-click binding is broadcast to every lyrics widget; only the instance under the pointer changes its view.
+
+### Welcome and dependency check
+
+Open **Lyrics setup guide** from the control center or bind the `open_welcome` shortcut. The welcome panel and the lyrics selector are also available when no track is playing. It checks all five commands and Python SSL using Noctalia’s environment. If a dependency is missing, click the bar warning to open the guide. Choose a distribution to see and copy its installation instructions, then use **Check again**. The **Setup** button in the selector opens the guide, and **Open lyrics selector** in the guide switches back.
+
+```sh
+noctalia msg panel-toggle h465855hgg/lyrics:welcome
+```
 
 ### Choosing a lyric version
 

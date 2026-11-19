@@ -286,14 +286,15 @@ function render()
           maxLines = 1,
         }),
       }),
-      ui.button({ glyph = "close", variant = "ghost", tooltip = noctalia.tr("panel.close"), onClick = "onCloseClicked" }),
+      ui.button({ text = noctalia.tr("welcome.setup"), variant = "ghost", controlSize = "sm", onClick = "onWelcomeOpen" }),
       #candidates > 0 and ui.button({
         text = noctalia.tr("panel.use_best"),
         variant = "ghost",
         controlSize = "sm",
         tooltip = noctalia.tr("panel.use_best_tooltip"),
         onClick = "onUseBest",
-      }) or nil,
+      }) or ui.spacer({ width = 0 }),
+      ui.button({ glyph = "close", variant = "ghost", tooltip = noctalia.tr("panel.close"), onClick = "onCloseClicked" }),
     }),
     ui.column({ flexGrow = 1, gap = 8, align = "stretch" }, body),
   }))
@@ -413,5 +414,9 @@ function onLater() requestControl("lyrics_offset_request", "-100") end
 function onEarlier() requestControl("lyrics_offset_request", "+100") end
 function onResetOffset() requestControl("lyrics_offset_request", "reset") end
 function onRetry() requestControl("lyrics_retry_request") end
+
+function onWelcomeOpen()
+  noctalia.togglePanel("h465855hgg/lyrics:welcome")
+end
 
 render()

@@ -89,6 +89,19 @@ local hovered = false
 local sourceUsed = ""
 local lyricsLoading = false
 local lyricsStatus = nil
+local missingCommand = false
+local dependencyCheckAt = nil
+local function checkCommands(now)
+  if dependencyCheckAt and now - dependencyCheckAt < 3 then return end
+  dependencyCheckAt = now
+  missingCommand = false
+  for _, name in ipairs({ "playerctl", "python3", "cp", "chmod", "timeout" }) do
+    if not noctalia.commandExists(name) then
+      missingCommand = true
+      break
+    end
+  end
+end
 local trackOffset = 0
 
 local baselinePosition = 0
@@ -375,8 +388,12 @@ local function getTrackLabel()
   return track.title
 end
 
+local function dependencyWarning()
+  return missingCommand or lyricsStatus == "dependency_missing"
+end
+
 local function getFallbackLabel()
-  if lyricsStatus == "dependency_missing" then return noctalia.tr("panel.dependency_missing_short") end
+  if dependencyWarning() then return noctalia.tr("panel.dependency_missing_short") end
   if not track then return "--" end
   if displayMode ~= "track" and showMode ~= "track" then
     if lyricsLoading then return noctalia.tr("panel.loading") end
@@ -711,7 +728,7 @@ end
 
 local function render()
   local showingTrack = displayMode == "track" or showMode == "track"
-  local showDiagnostic = lyricsStatus == "dependency_missing" or (track ~= nil and lyricsStatus == "error")
+  local showDiagnostic = dependencyWarning() or (track ~= nil and lyricsStatus == "error")
   if not showDiagnostic and (hideWhenPaused and not playing
     or hideWhenNoLyrics and not showingTrack and not hasLyrics() and not lyricsLoading) then
     barWidget.setVisible(false)
@@ -740,7 +757,9 @@ local function render()
   local lineNodes = {}
   local renderLineGap = lineGap
   local renderTextHeight = 0
-  if displayMode == "track" or showMode == "track" then
+  if dependencyWarning() then
+    lineNodes[1] = buildLineRow(getFallbackLabel(), { key = "dependency-warning", solid = true })
+  elseif displayMode == "track" or showMode == "track" then
     local label = getTrackLabel()
     lineNodes[1] = buildLineRow(label, {
       key = "track",
@@ -921,6 +940,7 @@ local function render()
   if sourceUsed ~= "" then tooltip = tooltip .. "\n" .. sourceLabel .. ": " .. (sourceNames[sourceUsed] or sourceUsed) end
   if trackOffset ~= 0 then tooltip = tooltip .. "\n" .. string.format(noctalia.tr("panel.track_offset"), trackOffset) end
   if showDiagnostic then tooltip = tooltip .. "\n" .. getFallbackLabel() end
+  if dependencyWarning() then tooltip = tooltip .. "\n" .. noctalia.tr("welcome.click") end
   barWidget.setTooltip(tooltip)
   rendered = true
 end
@@ -933,7 +953,11 @@ local function toggleView()
 end
 
 function onClick()
-  toggleView()
+  if dependencyWarning() then
+    noctalia.togglePanel("h465855hgg/lyrics:welcome")
+  else
+    toggleView()
+  end
 end
 
 function onHover(entered)
@@ -945,11 +969,12 @@ function onHover(entered)
 end
 
 function onIpc(event, _payload)
-  if event == "toggle-view" and hovered then toggleView() end
+  if event == "toggle-view" and hovered then onClick() end
 end
 
 function update()
   local now = os.clock()
+  checkCommands(os.time())
   local delta = lastClock > 0 and now - lastClock or 0
   lastClock = now
 
