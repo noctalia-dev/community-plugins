@@ -704,16 +704,42 @@ end
 local cfgScanSub = noctalia.getConfig("scan_subdirectories")
 local isFlattened = if cfgScanSub ~= nil then (cfgScanSub == true or cfgScanSub == "true" or cfgScanSub == 1) else true
 
-local WH_SORT_LABELS = { "Date Added", "Toplist", "Hot", "Views", "Favorites", "Relevance", "Random" }
-local WH_SORT_VALUES = { "date_added", "toplist", "hot", "views", "favorites", "relevance", "random" }
-local WH_RATIO_LABELS = { "Any", "Landscape", "Portrait", "16:9", "16:10", "21:9", "32:9", "48:9", "9:16", "10:16", "9:18", "1:1", "3:2", "4:3", "5:4" }
-local WH_RATIO_VALUES = { "", "landscape", "portrait", "16x9", "16x10", "21x9", "32x9", "48x9", "9x16", "10x16", "9x18", "1x1", "3x2", "4x3", "5x4" }
-local WH_RES_MODE_LABELS = { "At Least", "Exact" }
-local WH_RES_MODE_VALUES = { "atleast", "exact" }
+WH = {
+  sortLabels = { "Date Added", "Toplist", "Hot", "Views", "Favorites", "Relevance", "Random" },
+  sortValues = { "date_added", "toplist", "hot", "views", "favorites", "relevance", "random" },
+  ratioLabels = { "Any", "Landscape", "Portrait", "16:9", "16:10", "21:9", "32:9", "48:9", "9:16", "10:16", "9:18", "1:1", "3:2", "4:3", "5:4" },
+  ratioValues = { "", "landscape", "portrait", "16x9", "16x10", "21x9", "32x9", "48x9", "9x16", "10x16", "9x18", "1x1", "3x2", "4x3", "5x4" },
+  resModeLabels = { "At Least", "Exact" },
+  resModeValues = { "atleast", "exact" },
+  catModalOpen = false,
+  tempCatGeneral = true,
+  tempCatAnime = true,
+  tempCatPeople = true,
+  resModalOpen = false,
+  paletteSourceOptions = { "Wallpaper", "Built-In", "Community", "Custom" },
+  paletteSourceKeys = { "wallpaper", "builtin", "community", "custom" },
+}
 
 local whCatGeneral = true
 local whCatAnime = true
 local whCatPeople = true
+
+function WH.getCategorySummaryText(): string
+  local parts = {}
+  if whCatGeneral then table.insert(parts, "General") end
+  if whCatAnime then table.insert(parts, "Anime") end
+  if whCatPeople then table.insert(parts, "People") end
+  if #parts == 3 then return "Categories: All" end
+  if #parts == 0 then return "Categories: None" end
+  if #parts == 1 then return parts[1] end
+  local short = {}
+  for _, p in ipairs(parts) do
+    if p == "General" then table.insert(short, "Gen")
+    elseif p == "Anime" then table.insert(short, "Anime")
+    elseif p == "People" then table.insert(short, "People") end
+  end
+  return table.concat(short, " + ")
+end
 
 local whPuritySfw = true
 local whPuritySketchy = false
@@ -722,7 +748,7 @@ local whPurityNsfw = false
 local function getSortIndexFromValue(val: string?): number
   if not val or val == "" then return 0 end
   local clean = string.lower(noctalia.string.trim(val))
-  for i, v in ipairs(WH_SORT_VALUES) do
+  for i, v in ipairs(WH.sortValues) do
     if v == clean then return i - 1 end
   end
   return 0
@@ -1703,7 +1729,7 @@ local function buildPurity(): string
 end
 
 local function getRatioParam(): string?
-  local val = WH_RATIO_VALUES[whRatioIdx + 1]
+  local val = WH.ratioValues[whRatioIdx + 1]
   if val and val ~= "" then
     return val
   end
@@ -1733,7 +1759,7 @@ local function getResolutionParam(): (string?, string?)
 end
 
 local function getSortingParam(): (string, string)
-  local sortVal = WH_SORT_VALUES[whSortIdx + 1] or "date_added"
+  local sortVal = WH.sortValues[whSortIdx + 1] or "date_added"
   return sortVal, whOrder
 end
 
@@ -1781,24 +1807,6 @@ local function doWallhavenSearch(resetPage: boolean?, skipRender: boolean?)
   end
 end
 
-local function toggleCategoryGeneral()
-  if whCatGeneral and not whCatAnime and not whCatPeople then return end
-  whCatGeneral = not whCatGeneral
-  doWallhavenSearch(true)
-end
-
-local function toggleCategoryAnime()
-  if whCatAnime and not whCatGeneral and not whCatPeople then return end
-  whCatAnime = not whCatAnime
-  doWallhavenSearch(true)
-end
-
-local function toggleCategoryPeople()
-  if whCatPeople and not whCatGeneral and not whCatAnime then return end
-  whCatPeople = not whCatPeople
-  doWallhavenSearch(true)
-end
-
 local function togglePuritySfw()
   if whPuritySfw and not whPuritySketchy and not whPurityNsfw then return end
   whPuritySfw = not whPuritySfw
@@ -1820,13 +1828,8 @@ end
 
 local function buildWallhavenRow2(paletteColors: any?, panelW: number?)
   local pW = panelW or cachedPanelW
-  local isCompact = (pW < 1560)
-  local isUltraCompact = (pW < 1260)
-  local pColors = paletteColors or {
-    primaryText = "on_surface",
-    accent = "primary",
-    muted = "on_surface/0.7",
-  }
+  local isCompact = (pW < 1360)
+  local isUltraCompact = (pW < 1100)
 
   return ui.row({
     align = "center",
@@ -1834,100 +1837,92 @@ local function buildWallhavenRow2(paletteColors: any?, panelW: number?)
     height = 36,
     width = pW - 64,
   }, {
+    -- Left: Content Filters (Categories + Purity Pills)
+    ui.row({
+      flexGrow = 1,
+      align = "center",
+      justify = "start",
+      gap = isCompact and 6 or 8,
+    }, {
+      -- 1. Category Popover Trigger Button
+      (function()
+        local isAll = whCatGeneral and whCatAnime and whCatPeople
+        local summary = WH.getCategorySummaryText()
+        return ui.button({
+          text = isUltraCompact and "Categories" or summary,
+          glyph = "tag",
+          variant = isAll and "secondary" or "primary",
+          controlSize = "sm",
+          tooltip = "Filter Categories: " .. summary .. " (Click to customize)",
+          onClick = function()
+            WH.tempCatGeneral = whCatGeneral
+            WH.tempCatAnime = whCatAnime
+            WH.tempCatPeople = whCatPeople
+            WH.catModalOpen = not WH.catModalOpen
+            WH.resModalOpen = false
+            render()
+          end,
+        })
+      end)(),
+
+      -- 2. Purity Pills [SFW] [Sketchy] [NSFW]
+      ui.row({
+        align = "center",
+        gap = 2,
+        fill = "surface/0.65",
+        border = "outline_variant/0.2",
+        borderWidth = 1,
+        radius = R(16),
+        padding = 2,
+      }, {
+        ui.button({
+          text = "SFW",
+          variant = whPuritySfw and "primary" or "ghost",
+          controlSize = "sm",
+          tooltip = "Safe for work",
+          onClick = togglePuritySfw,
+        }),
+        ui.button({
+          text = isUltraCompact and "Sk" or "Sketchy",
+          variant = whPuritySketchy and "primary" or "ghost",
+          controlSize = "sm",
+          tooltip = "Sketchy / suggestive",
+          onClick = togglePuritySketchy,
+        }),
+        ui.button({
+          text = "NSFW",
+          variant = whPurityNsfw and "primary" or "ghost",
+          controlSize = "sm",
+          enabled = isNsfwAllowed(),
+          tooltip = not isNsfwAllowed() and "Requires Wallhaven API Key in Settings" or "Not safe for work (NSFW)",
+          onClick = togglePurityNsfw,
+        }),
+      }),
+    }),
+
+    -- Center: Query Filters & Sorting (Sort + Order, Aspect Ratio, Resolution)
     ui.row({
       align = "center",
-      gap = isCompact and 6 or 12,
-      flexGrow = 1,
+      justify = "center",
+      gap = isCompact and 6 or 8,
     }, {
-      -- 1. Categories
-      ui.row({ align = "center", gap = 4 }, {
-        not isCompact and ui.label({ text = "Categories", fontSize = 11, fontWeight = "bold", color = pColors.muted }) or ui.spacer({ width = 1 }),
-        ui.row({
-          align = "center",
-          gap = 2,
-          fill = "surface/0.65",
-          border = "outline_variant/0.2",
-          borderWidth = 1,
-          radius = R(16),
-          padding = 2,
-        }, {
-          ui.button({
-            text = isUltraCompact and "Gen" or "General",
-            variant = whCatGeneral and "primary" or "ghost",
-            controlSize = "sm",
-            onClick = toggleCategoryGeneral,
-          }),
-          ui.button({
-            text = "Anime",
-            variant = whCatAnime and "primary" or "ghost",
-            controlSize = "sm",
-            onClick = toggleCategoryAnime,
-          }),
-          ui.button({
-            text = isUltraCompact and "Ppl" or "People",
-            variant = whCatPeople and "primary" or "ghost",
-            controlSize = "sm",
-            onClick = toggleCategoryPeople,
-          }),
-        }),
-      }),
-
-      -- 2. Purity
-      ui.row({ align = "center", gap = 4 }, {
-        not isCompact and ui.label({ text = "Purity", fontSize = 11, fontWeight = "bold", color = pColors.muted }) or ui.spacer({ width = 1 }),
-        ui.row({
-          align = "center",
-          gap = 2,
-          fill = "surface/0.65",
-          border = "outline_variant/0.2",
-          borderWidth = 1,
-          radius = R(16),
-          padding = 2,
-        }, {
-          ui.button({
-            text = "SFW",
-            variant = whPuritySfw and "primary" or "ghost",
-            controlSize = "sm",
-            onClick = togglePuritySfw,
-          }),
-          ui.button({
-            text = isUltraCompact and "Sk" or "Sketchy",
-            variant = whPuritySketchy and "primary" or "ghost",
-            controlSize = "sm",
-            onClick = togglePuritySketchy,
-          }),
-          ui.button({
-            text = "NSFW",
-            variant = whPurityNsfw and "primary" or "ghost",
-            controlSize = "sm",
-            enabled = isNsfwAllowed(),
-            tooltip = not isNsfwAllowed() and "Requires Wallhaven API Key" or nil,
-            onClick = togglePurityNsfw,
-          }),
-        }),
-      }),
-
-      -- 3. Sort & Order
-      ui.row({ align = "center", gap = 4 }, {
-        not isCompact and ui.label({ text = "Sort", fontSize = 11, fontWeight = "bold", color = pColors.muted }) or ui.spacer({ width = 1 }),
+      -- 3. Sort Dropdown + Order Toggle
+      ui.row({ align = "center", gap = 2 }, {
         ui.select({
           key = "wh_sort_select_" .. tostring(whSortIdx),
-          options = WH_SORT_LABELS,
+          options = WH.sortLabels,
           selectedIndex = tonumber(whSortIdx) or 0,
           controlSize = "sm",
-          width = isCompact and 94 or 110,
+          width = isCompact and 95 or 110,
           onChange = function(idx, text)
             local num = tonumber(idx)
             if not num and text then
-              for i, lbl in ipairs(WH_SORT_LABELS) do
-                if lbl == text then
-                  num = i - 1
-                  break
-                end
+              for i, lbl in ipairs(WH.sortLabels) do
+                if lbl == text then num = i - 1; break end
               end
             end
             whSortIdx = num or 0
-            local sortVal = WH_SORT_VALUES[whSortIdx + 1] or "date_added"
+            local sortVal = WH.sortValues[whSortIdx + 1] or "date_added"
             noctalia.state.set("wallhaven_sort", sortVal)
             doWallhavenSearch(true)
           end,
@@ -1936,7 +1931,7 @@ local function buildWallhavenRow2(paletteColors: any?, panelW: number?)
           glyph = (whOrder == "desc") and "arrow-down" or "arrow-up",
           variant = "secondary",
           controlSize = "sm",
-          tooltip = (whOrder == "desc") and "Descending" or "Ascending",
+          tooltip = (whOrder == "desc") and "Order: Descending (Click for Ascending)" or "Order: Ascending (Click for Descending)",
           onClick = function()
             whOrder = (whOrder == "desc") and "asc" or "desc"
             noctalia.state.set("wallhaven_order", whOrder)
@@ -1945,189 +1940,92 @@ local function buildWallhavenRow2(paletteColors: any?, panelW: number?)
         }),
       }),
 
-      -- 4. Aspect Ratio
-      ui.row({ align = "center", gap = 4 }, {
-        not isCompact and ui.label({ text = "Ratio", fontSize = 11, fontWeight = "bold", color = pColors.muted }) or ui.spacer({ width = 1 }),
-        ui.select({
-          key = "wh_ratio_select_" .. tostring(whRatioIdx),
-          options = WH_RATIO_LABELS,
-          selectedIndex = tonumber(whRatioIdx) or 0,
-          controlSize = "sm",
-          width = isCompact and 80 or 95,
-          onChange = function(idx, text)
-            local num = tonumber(idx)
-            if not num and text then
-              for i, lbl in ipairs(WH_RATIO_LABELS) do
-                if lbl == text then
-                  num = i - 1
-                  break
-                end
-              end
+      -- 4. Aspect Ratio Dropdown
+      ui.select({
+        key = "wh_ratio_select_" .. tostring(whRatioIdx),
+        options = WH.ratioLabels,
+        selectedIndex = tonumber(whRatioIdx) or 0,
+        controlSize = "sm",
+        width = isCompact and 78 or 92,
+        onChange = function(idx, text)
+          local num = tonumber(idx)
+          if not num and text then
+            for i, lbl in ipairs(WH.ratioLabels) do
+              if lbl == text then num = i - 1; break end
             end
-            whRatioIdx = num or 0
-            doWallhavenSearch(true)
-          end,
-        }),
+          end
+          whRatioIdx = num or 0
+          doWallhavenSearch(true)
+        end,
       }),
 
-      -- 5. Resolution & Clear
-      ui.row({ key = "wh_res_row", align = "center", gap = 4, onHover = "onSearchBoxHover" }, {
-        not isCompact and ui.label({ text = "Res", fontSize = 11, fontWeight = "bold", color = pColors.muted }) or ui.spacer({ width = 1 }),
-        ui.select({
-          key = "wh_res_mode_select_" .. tostring(whResModeIdx),
-          options = WH_RES_MODE_LABELS,
-          selectedIndex = tonumber(whResModeIdx) or 0,
+      -- 5. Compact Resolution Popover Button
+      (function()
+        local resParam, resMode = getResolutionParam()
+        local hasRes = (resParam ~= nil and resParam ~= "")
+        local btnText = hasRes and (resParam .. ((resMode == "exact") and " (exact)" or "+")) or "Resolution"
+        return ui.button({
+          text = isUltraCompact and (hasRes and resParam or nil) or btnText,
+          glyph = "aspect-ratio",
+          variant = hasRes and "primary" or (WH.resModalOpen and "secondary" or "ghost"),
           controlSize = "sm",
-          width = isCompact and 76 or 90,
-          onChange = function(idx, text)
-            local num = tonumber(idx)
-            if not num and text then
-              for i, lbl in ipairs(WH_RES_MODE_LABELS) do
-                if lbl == text then
-                  num = i - 1
-                  break
-                end
-              end
-            end
-            whResModeIdx = num or 0
-            local res, _ = getResolutionParam()
-            if res then
-              doWallhavenSearch(true)
-            else
-              render()
-            end
-          end,
-        }),
-        ui.input({
-          key = "wh_res_w_" .. whClearCounter,
-          placeholder = isCompact and "W" or "Width",
-          value = whResWidth,
-          controlSize = "sm",
-          width = isCompact and 58 or 76,
-          onChange = function(val)
-            isSearchFocused = true
-            whResDirty = true
-            whResWidth = noctalia.string.trim(val or "")
-            local mw, mh = string.match(whResWidth, "(%d+)[xX%*×%s]+(%d+)")
-            if mw and mh then
-              whResWidth = mw
-              whResHeight = mh
-              whClearCounter = whClearCounter + 1
-              doWallhavenSearch(true)
-            end
-          end,
-          onSubmit = function(val)
-            whResWidth = noctalia.string.trim(val or "")
-            unfocusSearch()
-            lastSearchSubmitMs = noctalia.nowMs()
-            local res, _ = getResolutionParam()
-            if res then
-              doWallhavenSearch(true)
-            end
-          end,
-        }),
-        ui.label({ text = "×", fontSize = 12, color = pColors.muted }),
-        ui.input({
-          key = "wh_res_h_" .. whClearCounter,
-          placeholder = isCompact and "H" or "Height",
-          value = whResHeight,
-          controlSize = "sm",
-          width = isCompact and 58 or 76,
-          onChange = function(val)
-            isSearchFocused = true
-            whResDirty = true
-            whResHeight = noctalia.string.trim(val or "")
-            local mw, mh = string.match(whResHeight, "(%d+)[xX%*×%s]+(%d+)")
-            if mw and mh then
-              whResWidth = mw
-              whResHeight = mh
-              whClearCounter = whClearCounter + 1
-              doWallhavenSearch(true)
-            end
-          end,
-          onSubmit = function(val)
-            whResHeight = noctalia.string.trim(val or "")
-            unfocusSearch()
-            lastSearchSubmitMs = noctalia.nowMs()
-            local res, _ = getResolutionParam()
-            if res then
-              doWallhavenSearch(true)
-            end
-          end,
-        }),
-        ui.button({
-          text = "Set",
-          variant = (getResolutionParam() ~= nil) and "primary" or "ghost",
-          controlSize = "sm",
-          tooltip = "Apply Resolution",
+          tooltip = hasRes and ("Resolution filter: " .. btnText .. " (Click to change)") or "Filter by resolution (Click to set)",
           onClick = function()
-            local res, _ = getResolutionParam()
-            if res then
-              doWallhavenSearch(true)
-            end
+            WH.resModalOpen = not WH.resModalOpen
+            render()
           end,
-        }),
-        ui.button({
-          text = isUltraCompact and "×" or "Clear",
-          variant = "destructive",
-          controlSize = "sm",
-          tooltip = "Clear Resolution Filter",
-          onClick = function()
-            whResWidth = ""
-            whResHeight = ""
-            whResModeIdx = 0
-            whClearCounter = whClearCounter + 1
-            doWallhavenSearch(true)
-          end,
-        }),
-      }),
+        })
+      end)(),
     }),
 
-    -- Right: Theme Mode Pills [Dark] [Light] [Auto]
+    -- Right: Theme Mode Icon Pills [Moon] [Sun] [Auto]
     ui.row({
+      flexGrow = 1,
       align = "center",
-      gap = 2,
-      fill = "surface/0.65",
-      border = "outline_variant/0.2",
-      borderWidth = 1,
-      radius = R(16),
-      padding = 2,
+      justify = "end",
     }, {
-      ui.button({
-        text = isCompact and nil or "Dark",
-        glyph = "moon",
-        variant = currentThemeMode == "dark" and "primary" or "ghost",
-        controlSize = "sm",
-        tooltip = "Dark Theme",
-        onClick = function()
-          currentThemeMode = "dark"
-          noctalia.runAsync({ "noctalia", "msg", "theme-mode-set", "dark" }, function() end)
-          render()
-        end,
-      }),
-      ui.button({
-        text = isCompact and nil or "Light",
-        glyph = "sun",
-        variant = currentThemeMode == "light" and "primary" or "ghost",
-        controlSize = "sm",
-        tooltip = "Light Theme",
-        onClick = function()
-          currentThemeMode = "light"
-          noctalia.runAsync({ "noctalia", "msg", "theme-mode-set", "light" }, function() end)
-          render()
-        end,
-      }),
-      ui.button({
-        text = isCompact and nil or "Auto",
-        glyph = "brightness-auto",
-        variant = currentThemeMode == "auto" and "primary" or "ghost",
-        controlSize = "sm",
-        tooltip = "Auto Theme",
-        onClick = function()
-          currentThemeMode = "auto"
-          noctalia.runAsync({ "noctalia", "msg", "theme-mode-set", "auto" }, function() end)
-          render()
-        end,
+      ui.row({
+        align = "center",
+        gap = 2,
+        fill = "surface/0.65",
+        border = "outline_variant/0.2",
+        borderWidth = 1,
+        radius = R(16),
+        padding = 2,
+      }, {
+        ui.button({
+          glyph = "moon",
+          variant = currentThemeMode == "dark" and "primary" or "ghost",
+          controlSize = "sm",
+          tooltip = "Dark Theme",
+          onClick = function()
+            currentThemeMode = "dark"
+            noctalia.runAsync({ "noctalia", "msg", "theme-mode-set", "dark" }, function() end)
+            render()
+          end,
+        }),
+        ui.button({
+          glyph = "sun",
+          variant = currentThemeMode == "light" and "primary" or "ghost",
+          controlSize = "sm",
+          tooltip = "Light Theme",
+          onClick = function()
+            currentThemeMode = "light"
+            noctalia.runAsync({ "noctalia", "msg", "theme-mode-set", "light" }, function() end)
+            render()
+          end,
+        }),
+        ui.button({
+          glyph = "brightness-auto",
+          variant = currentThemeMode == "auto" and "primary" or "ghost",
+          controlSize = "sm",
+          tooltip = "Auto Theme (follow system)",
+          onClick = function()
+            currentThemeMode = "auto"
+            noctalia.runAsync({ "noctalia", "msg", "theme-mode-set", "auto" }, function() end)
+            render()
+          end,
+        }),
       }),
     }),
   })
@@ -2150,58 +2048,38 @@ local function buildStandardRow2(panelW: number?)
       flexGrow = 1,
       align = "center",
       justify = "start",
-      gap = isCompact and 6 or 10,
+      gap = isCompact and 6 or 8,
     }, (function()
-      -- Source pills
-      local pillRow = ui.row({
-        align = "center",
-        gap = 2,
-        fill = "surface/0.65",
-        border = "outline_variant/0.2",
-        borderWidth = 1,
-        radius = R(16),
-        padding = 2,
-      }, {
-        ui.button({
-          text = "Built-In",
-          variant = (currentPaletteSource == "builtin") and "primary" or "ghost",
-          controlSize = "sm",
-          onClick = function()
-            currentPaletteSource = "builtin"
+      -- Palette Source dropdown (Wallpaper, Built-In, Community, Custom)
+      local srcIdx = 0
+      for i, k in ipairs(WH.paletteSourceKeys) do
+        if k == currentPaletteSource then
+          srcIdx = i - 1
+          break
+        end
+      end
+
+      local sourceSelect = ui.select({
+        key = "palette_source_select_" .. tostring(srcIdx),
+        options = WH.paletteSourceOptions,
+        selectedIndex = srcIdx,
+        controlSize = "sm",
+        width = isCompact and 95 or 110,
+        onChange = function(idx)
+          local chosen = (tonumber(idx) or 0) + 1
+          local sourceKey = WH.paletteSourceKeys[chosen] or "wallpaper"
+          currentPaletteSource = sourceKey
+          if sourceKey == "builtin" then
             local name = BUILTIN_PALETTES[selectedBuiltinIdx or 1] or "Noctalia"
             noctalia.runAsync({ "noctalia", "msg", "color-scheme-set", "builtin", name }, function() end)
-            render()
-          end,
-        }),
-        ui.button({
-          text = "Wallpaper",
-          variant = (currentPaletteSource == "wallpaper") and "primary" or "ghost",
-          controlSize = "sm",
-          onClick = function()
-            currentPaletteSource = "wallpaper"
+          elseif sourceKey == "wallpaper" then
             local s = SCHEMES[selectedSchemeIdx or 1]
             local schemeId = s and s.id or "m3-rainbow"
             noctalia.runAsync({ "noctalia", "msg", "color-scheme-set", "wallpaper", schemeId }, function() end)
-            render()
-          end,
-        }),
-        ui.button({
-          text = "Community",
-          variant = (currentPaletteSource == "community") and "primary" or "ghost",
-          controlSize = "sm",
-          onClick = function()
-            currentPaletteSource = "community"
+          elseif sourceKey == "community" then
             local name = communityPalettes[selectedCommunityIdx or 1] or "Oxocarbon"
             noctalia.runAsync({ "noctalia", "msg", "color-scheme-set", "community", name }, function() end)
-            render()
-          end,
-        }),
-        ui.button({
-          text = "Custom",
-          variant = (currentPaletteSource == "custom") and "primary" or "ghost",
-          controlSize = "sm",
-          onClick = function()
-            currentPaletteSource = "custom"
+          elseif sourceKey == "custom" then
             local customList = CT.list()
             if #customList > 0 then
               local safeIdx = CT.selectedIdx or 1
@@ -2212,9 +2090,9 @@ local function buildStandardRow2(panelW: number?)
               local id = customList[safeIdx]
               if id then CT.apply(id) end
             end
-            render()
-          end,
-        }),
+          end
+          render()
+        end,
       })
 
       -- Dropdown: varies by source
@@ -2299,7 +2177,7 @@ local function buildStandardRow2(panelW: number?)
       end
 
       -- Build the left row items dynamically (no nil values)
-      local leftItems = { pillRow, dropdownWidget }
+      local leftItems = { sourceSelect, dropdownWidget }
 
       if currentPaletteSource == "custom" then
         -- "+" button to open the create modal
@@ -2421,7 +2299,6 @@ local function buildStandardRow2(panelW: number?)
         padding = 2,
       }, {
         ui.button({
-          text = isCompact and nil or "Dark",
           glyph = "moon",
           variant = currentThemeMode == "dark" and "primary" or "ghost",
           controlSize = "sm",
@@ -2433,7 +2310,6 @@ local function buildStandardRow2(panelW: number?)
           end,
         }),
         ui.button({
-          text = isCompact and nil or "Light",
           glyph = "sun",
           variant = currentThemeMode == "light" and "primary" or "ghost",
           controlSize = "sm",
@@ -2445,11 +2321,10 @@ local function buildStandardRow2(panelW: number?)
           end,
         }),
         ui.button({
-          text = isCompact and nil or "Auto",
           glyph = "brightness-auto",
           variant = currentThemeMode == "auto" and "primary" or "ghost",
           controlSize = "sm",
-          tooltip = "Auto Theme",
+          tooltip = "Auto Theme (follow system)",
           onClick = function()
             currentThemeMode = "auto"
             noctalia.runAsync({ "noctalia", "msg", "theme-mode-set", "auto" }, function() end)
@@ -3577,6 +3452,406 @@ CSF.renderBg = function(panelW: number, panelH: number, activeItem: any)
   })
 end
 
+function WH.renderCategoriesModal(panelW: number, panelH: number): any
+  local modalW = math.min(panelW - 64, 380)
+
+  local function buildCategoryItem(id: string, name: string, desc: string, isChecked: boolean, onToggle: () -> ())
+    return ui.row({
+      key = "wh_cat_item_" .. id,
+      align = "center",
+      justify = "space_between",
+      fill = isChecked and "primary/0.12" or "surface_container/0.5",
+      border = isChecked and "primary/0.6" or "outline_variant/0.25",
+      borderWidth = 1,
+      radius = R(10),
+      paddingH = 14,
+      paddingV = 10,
+      gap = 12,
+      onClick = onToggle,
+    }, {
+      ui.row({ align = "center", gap = 10, flexGrow = 1 }, {
+        ui.glyph({
+          name = isChecked and "check" or "circle",
+          size = 18,
+          color = isChecked and "primary" or "on_surface/0.4",
+        }),
+        ui.column({ gap = 2, flexGrow = 1 }, {
+          ui.label({
+            text = name,
+            fontSize = 13,
+            fontWeight = "bold",
+            color = isChecked and "on_surface" or "on_surface/0.8",
+          }),
+          ui.label({
+            text = desc,
+            fontSize = 11,
+            color = "on_surface/0.6",
+          }),
+        }),
+      }),
+    })
+  end
+
+  return ui.column({
+    key = "wh_cat_modal_backdrop",
+    width = panelW,
+    height = panelH,
+    align = "center",
+    justify = "center",
+    fill = "surface/0.65",
+    padding = 0,
+    gap = 0,
+    onClick = function()
+      WH.catModalOpen = false
+      render()
+    end,
+  }, {
+    ui.column({
+      key = "wh_cat_modal_card",
+      width = modalW,
+      fill = "surface",
+      border = "outline_variant/0.3",
+      borderWidth = 1,
+      radius = R(16),
+      padding = 18,
+      gap = 14,
+      align = "stretch",
+      justify = "start",
+      onClick = function() end,
+    }, {
+      -- Header
+      ui.row({
+        align = "center",
+        justify = "space_between",
+      }, {
+        ui.row({ align = "center", gap = 8 }, {
+          ui.glyph({ name = "tag", size = 18, color = "primary" }),
+          ui.label({ text = "Filter Categories", fontSize = 14, fontWeight = "bold", color = "on_surface" }),
+        }),
+        ui.button({
+          glyph = "close",
+          variant = "ghost",
+          controlSize = "sm",
+          tooltip = "Close (Esc)",
+          onClick = function()
+            WH.catModalOpen = false
+            render()
+          end,
+        }),
+      }),
+
+      -- 3 Category Options
+      ui.column({ gap = 8 }, {
+        buildCategoryItem("general", "General", "Photography, landscape, nature & abstract", WH.tempCatGeneral, function()
+          WH.tempCatGeneral = not WH.tempCatGeneral
+          render()
+        end),
+        buildCategoryItem("anime", "Anime", "Anime, manga & stylized digital art", WH.tempCatAnime, function()
+          WH.tempCatAnime = not WH.tempCatAnime
+          render()
+        end),
+        buildCategoryItem("people", "People", "Portraits, real models & people", WH.tempCatPeople, function()
+          WH.tempCatPeople = not WH.tempCatPeople
+          render()
+        end),
+      }),
+
+      -- Footer Actions
+      ui.row({
+        align = "center",
+        justify = "space_between",
+        paddingV = 4,
+      }, {
+        ui.button({
+          text = "Select All",
+          variant = "ghost",
+          controlSize = "sm",
+          onClick = function()
+            WH.tempCatGeneral = true
+            WH.tempCatAnime = true
+            WH.tempCatPeople = true
+            render()
+          end,
+        }),
+
+        ui.row({ align = "center", gap = 8 }, {
+          ui.button({
+            text = "Cancel",
+            variant = "ghost",
+            controlSize = "sm",
+            onClick = function()
+              WH.catModalOpen = false
+              render()
+            end,
+          }),
+          ui.button({
+            text = "Apply",
+            glyph = "check",
+            variant = "primary",
+            controlSize = "sm",
+            onClick = function()
+              if not WH.tempCatGeneral and not WH.tempCatAnime and not WH.tempCatPeople then
+                WH.tempCatGeneral = true
+              end
+              whCatGeneral = WH.tempCatGeneral
+              whCatAnime = WH.tempCatAnime
+              whCatPeople = WH.tempCatPeople
+              WH.catModalOpen = false
+              doWallhavenSearch(true)
+            end,
+          }),
+        }),
+      }),
+    }),
+  })
+end
+
+function WH.renderResolutionModal(panelW: number, panelH: number): any
+  local modalW = math.min(panelW - 64, 460)
+  local currentRes, _ = getResolutionParam()
+  local hasCurrentRes = (currentRes ~= nil)
+
+  return ui.column({
+    key = "wh_res_modal_backdrop",
+    width = panelW,
+    height = panelH,
+    align = "center",
+    justify = "center",
+    fill = "surface/0.65",
+    padding = 0,
+    gap = 0,
+    onClick = function()
+      WH.resModalOpen = false
+      render()
+    end,
+  }, {
+    ui.column({
+      key = "wh_res_modal_card",
+      width = modalW,
+      fill = "surface",
+      border = "outline_variant/0.3",
+      borderWidth = 1,
+      radius = R(16),
+      padding = 18,
+      gap = 14,
+      align = "stretch",
+      justify = "start",
+      onClick = function() end,
+    }, {
+      -- Header
+      ui.row({
+        align = "center",
+        justify = "space_between",
+      }, {
+        ui.row({ align = "center", gap = 8 }, {
+          ui.glyph({ name = "aspect-ratio", size = 18, color = "primary" }),
+          ui.label({ text = "Filter by Resolution", fontSize = 14, fontWeight = "bold", color = "on_surface" }),
+        }),
+        ui.button({
+          glyph = "close",
+          variant = "ghost",
+          controlSize = "sm",
+          tooltip = "Close (Esc)",
+          onClick = function()
+            WH.resModalOpen = false
+            render()
+          end,
+        }),
+      }),
+
+      -- Quick Presets (2 rows of 2 buttons so they fit comfortably inside the modal)
+      ui.column({ gap = 6 }, {
+        ui.label({ text = "POPULAR PRESETS", fontSize = 9, fontWeight = "bold", color = "on_surface/0.6" }),
+        ui.row({
+          align = "center",
+          gap = 8,
+        }, {
+          ui.button({
+            text = "1080p (1920×1080)",
+            variant = (whResWidth == "1920" and whResHeight == "1080") and "primary" or "secondary",
+            controlSize = "sm",
+            flexGrow = 1,
+            onClick = function()
+              whResWidth = "1920"
+              whResHeight = "1080"
+              whClearCounter = whClearCounter + 1
+              render()
+            end,
+          }),
+          ui.button({
+            text = "1440p (2560×1440)",
+            variant = (whResWidth == "2560" and whResHeight == "1440") and "primary" or "secondary",
+            controlSize = "sm",
+            flexGrow = 1,
+            onClick = function()
+              whResWidth = "2560"
+              whResHeight = "1440"
+              whClearCounter = whClearCounter + 1
+              render()
+            end,
+          }),
+        }),
+        ui.row({
+          align = "center",
+          gap = 8,
+        }, {
+          ui.button({
+            text = "4K (3840×2160)",
+            variant = (whResWidth == "3840" and whResHeight == "2160") and "primary" or "secondary",
+            controlSize = "sm",
+            flexGrow = 1,
+            onClick = function()
+              whResWidth = "3840"
+              whResHeight = "2160"
+              whClearCounter = whClearCounter + 1
+              render()
+            end,
+          }),
+          ui.button({
+            text = "Ultrawide (3440×1440)",
+            variant = (whResWidth == "3440" and whResHeight == "1440") and "primary" or "secondary",
+            controlSize = "sm",
+            flexGrow = 1,
+            onClick = function()
+              whResWidth = "3440"
+              whResHeight = "1440"
+              whClearCounter = whClearCounter + 1
+              render()
+            end,
+          }),
+        }),
+      }),
+
+      -- Custom Width & Height Inputs
+      ui.column({ gap = 6 }, {
+        ui.label({ text = "CUSTOM RESOLUTION", fontSize = 9, fontWeight = "bold", color = "on_surface/0.6" }),
+        ui.row({
+          align = "center",
+          gap = 8,
+        }, {
+          ui.select({
+            key = "wh_res_modal_mode_select_" .. tostring(whResModeIdx),
+            options = WH.resModeLabels,
+            selectedIndex = tonumber(whResModeIdx) or 0,
+            controlSize = "sm",
+            width = 96,
+            onChange = function(idx, text)
+              local num = tonumber(idx)
+              if not num and text then
+                for i, lbl in ipairs(WH.resModeLabels) do
+                  if lbl == text then num = i - 1; break end
+                end
+              end
+              whResModeIdx = num or 0
+              render()
+            end,
+          }),
+          ui.input({
+            key = "wh_res_w_" .. whClearCounter,
+            placeholder = "Width (px)",
+            value = whResWidth,
+            controlSize = "sm",
+            flexGrow = 1,
+            onChange = function(val)
+              isSearchFocused = true
+              whResDirty = true
+              whResWidth = noctalia.string.trim(val or "")
+              local mw, mh = string.match(whResWidth, "(%d+)[xX%*×%s]+(%d+)")
+              if mw and mh then
+                whResWidth = mw
+                whResHeight = mh
+                whClearCounter = whClearCounter + 1
+                render()
+              end
+            end,
+            onSubmit = function(val)
+              whResWidth = noctalia.string.trim(val or "")
+              unfocusSearch()
+              WH.resModalOpen = false
+              doWallhavenSearch(true)
+            end,
+          }),
+          ui.label({ text = "×", fontSize = 14, color = "on_surface/0.6" }),
+          ui.input({
+            key = "wh_res_h_" .. whClearCounter,
+            placeholder = "Height (px)",
+            value = whResHeight,
+            controlSize = "sm",
+            flexGrow = 1,
+            onChange = function(val)
+              isSearchFocused = true
+              whResDirty = true
+              whResHeight = noctalia.string.trim(val or "")
+              local mw, mh = string.match(whResHeight, "(%d+)[xX%*×%s]+(%d+)")
+              if mw and mh then
+                whResWidth = mw
+                whResHeight = mh
+                whClearCounter = whClearCounter + 1
+                render()
+              end
+            end,
+            onSubmit = function(val)
+              whResHeight = noctalia.string.trim(val or "")
+              unfocusSearch()
+              WH.resModalOpen = false
+              doWallhavenSearch(true)
+            end,
+          }),
+        }),
+      }),
+
+      -- Footer Actions
+      ui.row({
+        align = "center",
+        justify = "space_between",
+        paddingV = 4,
+      }, {
+        hasCurrentRes and ui.button({
+          text = "Clear Filter",
+          glyph = "trash",
+          variant = "destructive",
+          controlSize = "sm",
+          onClick = function()
+            whResWidth = ""
+            whResHeight = ""
+            whResModeIdx = 0
+            whClearCounter = whClearCounter + 1
+            WH.resModalOpen = false
+            doWallhavenSearch(true)
+          end,
+        }) or ui.spacer({ width = 1 }),
+
+        ui.row({ align = "center", gap = 8 }, {
+          ui.button({
+            text = "Cancel",
+            variant = "ghost",
+            controlSize = "sm",
+            onClick = function()
+              WH.resModalOpen = false
+              render()
+            end,
+          }),
+          ui.button({
+            text = "Apply",
+            glyph = "check",
+            variant = "primary",
+            controlSize = "sm",
+            onClick = function()
+              WH.resModalOpen = false
+              local res, _ = getResolutionParam()
+              if res then
+                doWallhavenSearch(true)
+              else
+                render()
+              end
+            end,
+          }),
+        }),
+      }),
+    }),
+  })
+end
+
 function render()
   local panelW, panelH = getPanelGeometry()
   local centerIdx = clamp(math.floor(animatedPos + 0.5), 1, math.max(1, #displayedItems))
@@ -4622,6 +4897,48 @@ function render()
       return
     end
   end
+
+  -- Inject Wallhaven Categories Modal on top if open
+  if currentMode == "wallhaven" and WH.catModalOpen then
+    local catModalNode = WH.renderCategoriesModal(panelW, panelH)
+    if catModalNode then
+      panel.render(wrapFullBleed(ui.column({
+        key = "panel_root_cat_modal",
+        width = panelW,
+        height = panelH,
+        flexGrow = 1,
+        gap = -panelH,
+        padding = 0,
+        align = "stretch",
+        justify = "start",
+      }, {
+        CSF.renderBg(panelW, panelH, activeItem),
+        catModalNode,
+      })))
+      return
+    end
+  end
+
+  -- Inject Wallhaven Resolution Modal on top if open
+  if currentMode == "wallhaven" and WH.resModalOpen then
+    local resModalNode = WH.renderResolutionModal(panelW, panelH)
+    if resModalNode then
+      panel.render(wrapFullBleed(ui.column({
+        key = "panel_root_res_modal",
+        width = panelW,
+        height = panelH,
+        flexGrow = 1,
+        gap = -panelH,
+        padding = 0,
+        align = "stretch",
+        justify = "start",
+      }, {
+        CSF.renderBg(panelW, panelH, activeItem),
+        resModalNode,
+      })))
+      return
+    end
+  end
 end
 
 nativeScrollActive = false
@@ -4641,6 +4958,8 @@ function onOpen(context: any?)
   Profiles.isQuickPickOpen = false
   Profiles.statusText = ""
   Profiles.statusIsError = false
+  WH.resModalOpen = false
+  WH.catModalOpen = false
   noctalia.state.set("deck_command", { action = "panel_state", open = true })
   updatePanelGeometry()
   updateCornerRadiusScale()
@@ -4874,7 +5193,13 @@ function onKey(chord: string, pressed: boolean)
   end
 
   if chordLower == "escape" then
-    if monitorDropdownOpen then
+    if WH.catModalOpen then
+      WH.catModalOpen = false
+      render()
+    elseif WH.resModalOpen then
+      WH.resModalOpen = false
+      render()
+    elseif monitorDropdownOpen then
       monitorDropdownOpen = false
       render()
     elseif isPeeking then
