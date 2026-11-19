@@ -3,9 +3,6 @@ local layoutLib = require("./layout.luau")
 local win = require("./windows.luau")
 local M = {}
 
--- Maximum age (ms) of an imposed rect before it stops being suppressed.
-M.IMPOSED_TTL_MS = 5000
-
 local function thirdMargin(size)
   return size / 3
 end
@@ -84,17 +81,26 @@ function M.capture(clients, screen, margin, previous, imposed, pending)
   local now = noctalia.nowMs()
   local memory = {}
   local nextPending = {}
+  local nextImposed = {}
   local changed = false
   for _, client in ipairs(clients or {}) do
     if win.isPluginClass(client.class) and type(client.at) == "table" and type(client.size) == "table" then
       local rect = { x = client.at[1], y = client.at[2], w = client.size[1], h = client.size[2] }
       local stamp = imposed[client.class]
-      local suppressed = stamp ~= nil
-        and (now - (stamp.at or 0)) <= M.IMPOSED_TTL_MS
-        and stamp.x == rect.x and stamp.y == rect.y and stamp.w == rect.w and stamp.h == rect.h
+      local suppressed = stamp ~= nil and sameRect(stamp, rect)
       if suppressed then
-        -- The plugin placed it: nothing to memorize and the pending entry is cleared.
+        -- The plugin placed it: nothing to memorize and the pending entry is
+        -- cleared. The stamp is refreshed and kept until the rectangle
+        -- changes or the window closes, so a long-lived imposition is never
+        -- mistaken for a manual move.
         nextPending[client.class] = nil
+        nextImposed[client.class] = {
+          x = rect.x,
+          y = rect.y,
+          w = rect.w,
+          h = rect.h,
+          at = now,
+        }
       else
         if sameRect(pending[client.class], rect) then
           local value = M.layoutString(rect, screen, margin)
@@ -107,7 +113,12 @@ function M.capture(clients, screen, margin, previous, imposed, pending)
       end
     end
   end
-  return { memory = memory, pending = nextPending, changed = changed }
+  return {
+    memory = memory,
+    pending = nextPending,
+    changed = changed,
+    imposed = nextImposed,
+  }
 end
 
 return M

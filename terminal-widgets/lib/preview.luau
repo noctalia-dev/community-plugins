@@ -1,7 +1,7 @@
 -- Thumbnail captures for the Terminal Widgets panel.
 --
 -- Handles window captures, thumbnail cache, homemade GIF animation, cleanup
--- of old files and "window only" capture via grim -g.
+-- of old files and "window only" capture via grim -T.
 
 local util = require("./util.luau")
 
@@ -11,7 +11,7 @@ local CAPTURE_WIDTH = 320
 local CAPTURE_HEIGHT = 190
 -- Changing the version invalidates old captures (for example, ones that
 -- included the panel or other windows above).
-local CAPTURE_VERSION = "v2"
+local CAPTURE_VERSION = "v3"
 
 local batchCounter = 0
 
@@ -198,7 +198,9 @@ function M.frames(name, limit)
   return out
 end
 
--- Capture the given windows. `entries` = { {name, address, width, height} }
+-- Capture the given windows. `entries` must carry a non-empty `stable_id`:
+-- without it there is no isolated toplevel capture, and the card keeps its
+-- static or mock preview.
 function M.capture(entries, callback)
   if #entries == 0 then
     if callback ~= nil then
@@ -224,11 +226,13 @@ function M.capture(entries, callback)
     -- Current thumbnail (without seq, for the main preview)
     local currentPath = M.currentThumbPath(entry.name)
     
-    if path ~= nil and not noctalia.fileExists(path) then
+    local stableId = entry.stable_id
+    if type(stableId) == "string" and stableId ~= ""
+      and path ~= nil and not noctalia.fileExists(path) then
       table.insert(items, {
         name = entry.name,
         address = entry.address,
-        stable_id = entry.stable_id,
+        stable_id = stableId,
         x = entry.x,
         y = entry.y,
         w = entry.w,
