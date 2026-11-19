@@ -1,13 +1,13 @@
 # Wallpaper Deck
 
-A native Noctalia v5 wallpaper picker inspired by Magic: The Gathering cards, featuring Material 3 dynamic color extraction, tiered coverflow navigation, multi-monitor targeting, and Wallhaven search integration.
+A native Noctalia v5 wallpaper picker inspired by Magic: The Gathering cards, featuring Material 3 dynamic color extraction, tiered coverflow navigation, multi-monitor targeting, auto-apply desktop widget profiles, and Wallhaven search integration.
 
 ## Plugin
 
 | Field | Value |
 | --- | --- |
 | ID | `ishan0121/wallpaper-deck` |
-| Version | `1.3.1` |
+| Version | `1.6.0` |
 | Entries | Bar widget: `bar`; panel: `picker`; shortcut: `toggle`; service: `service` |
 
 ## Requirements
@@ -36,6 +36,12 @@ Enable the `toggle` shortcut in Noctalia Settings or bind `noctalia msg panel-to
 * **Hyprland**: `bind = $mainMod, W, exec, noctalia msg panel-toggle ishan0121/wallpaper-deck:picker`
 * **Niri**: `Mod+W { spawn "noctalia" "msg" "panel-toggle" "ishan0121/wallpaper-deck:picker"; }`
 * **Sway**: `bindsym $mod+w exec noctalia msg panel-toggle ishan0121/wallpaper-deck:picker`
+
+### Desktop Widget Profiles
+
+Wallpaper Deck allows you to snapshot your live Noctalia desktop widget layout and bind it to specific wallpapers and monitors:
+- **Profiles (`[Profiles]`)**: Open the profiles management modal from the top bar to save new profiles, update widget layouts, delete profiles, or revert to the previous layout using the automatic safety backup.
+- **Include Widgets (`[Widgets]`)**: When turned ON, applying a wallpaper automatically applies its linked desktop widget layout (scoped to your target monitor without affecting other displays).
 
 ### Controls & Keybindings
 
