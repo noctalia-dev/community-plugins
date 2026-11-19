@@ -1,0 +1,83 @@
+{
+  "picker": {
+    "title": "Theme Picker",
+    "empty": "No themes yet",
+    "empty_hint": "Create your first theme in the Manager.",
+    "open_wallpapers": "Wallpapers",
+    "open_manager": "Manager",
+    "hint": "↑ ↓ to browse · Enter to apply · Esc to close",
+    "applied": "Theme applied"
+  },
+  "wallpapers": {
+    "title": "Wallpapers",
+    "back": "Themes",
+    "no_theme": "No theme selected",
+    "no_theme_hint": "Pick a theme first in the Theme Picker.",
+    "empty": "This theme has no wallpapers",
+    "empty_hint": "Add wallpapers to this theme in the Manager.",
+    "hint": "← → to browse · Enter to apply · Space for random · Esc to close",
+    "switched": "Wallpaper switched"
+  },
+  "manager": {
+    "title": "Theme Manager",
+    "themes": "Themes",
+    "new_theme": "New theme",
+    "default_name": "New theme",
+    "name": "Name",
+    "name_placeholder": "Theme name",
+    "scheme": "Color scheme",
+    "source_builtin": "Builtin",
+    "source_community": "Community",
+    "source_custom": "Custom",
+    "no_schemes": "No color schemes found.",
+    "always_first": "Always use first wallpaper",
+    "wallpapers": "Wallpapers",
+    "add_wallpapers": "Add wallpapers",
+    "done_adding": "Done",
+    "add": "Add",
+    "loading": "Loading…",
+    "no_wallpapers": "No wallpapers yet.",
+    "no_selection": "Select a theme to edit it.",
+    "toggle_hint": "Click to add / remove",
+    "delete": "Delete theme"
+  },
+  "nav": {
+    "themes": "Themes",
+    "wallpapers": "Wallpapers",
+    "manager": "Manager"
+  },
+  "settings": {
+    "notify_on_change": {
+      "label": "Notify on change",
+      "description": "Show a desktop notification when a theme or wallpaper is applied."
+    },
+    "close_on_apply": {
+      "label": "Close on apply (Wallpapers)",
+      "description": "Close the Wallpapers panel after applying a wallpaper."
+    },
+    "show_nav_picker": {
+      "label": "Theme Picker: navigation buttons",
+      "description": "Show buttons in the Theme Picker that link to the other panels."
+    },
+    "show_nav_wallpapers": {
+      "label": "Wallpapers: navigation buttons",
+      "description": "Show buttons in the Wallpapers panel that link to the other panels."
+    },
+    "show_nav_manager": {
+      "label": "Manager: navigation buttons",
+      "description": "Show buttons in the Manager that link to the other panels."
+    },
+    "show_title_picker": {
+      "label": "Theme Picker: title bar",
+      "description": "Show the title bar in the Theme Picker."
+    },
+    "show_title_wallpapers": {
+      "label": "Wallpapers: title bar",
+      "description": "Show the title bar in the Wallpapers panel."
+    },
+    "show_title_manager": {
+      "label": "Manager: title bar",
+      "description": "Show the title bar in the Manager."
+    }
+  }
+}
