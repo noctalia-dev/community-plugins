@@ -50,6 +50,7 @@ local snapshot = {
 
 local currentActiveTask        = nil
 local activeTaskPid            = nil
+local activeTaskIsGroup        = false
 local activeTaskCancelling     = false
 local eventListenerRunning     = false
 local tickCounter              = 0
@@ -394,17 +395,19 @@ end
 local function runStreamingTask(opts, onComplete)
   local taskPidMarker = "__SHIPYARD_TASK_PID__"
   local taskEndMarker = "__SHIPYARD_TASK_DONE__"
-  -- Execute command in a dedicated process group via job control (set -m).
-  -- $PID is the process group leader (PGID).
-  -- On exit or cancellation, terminate and account for any remaining descendants in -$PID
-  -- before emitting the completion marker. The mutation lock is held until the entire process group exits.
+  -- Execute command in a dedicated process group without relying on shell job control (set -m).
+  -- Use setsid when available and verify process group creation so cancellation and watchdog
+  -- operations can reliably target the process group (-$PID) or fall back to the process PID ($PID).
+  -- On exit or cancellation, terminate any remaining descendants before emitting the completion marker.
+  local quotedCmd = shellQuote(opts.command)
   local cmd = string.format(
-    "set -m; (%s) & PID=$!; echo \"%s:$PID\"; wait $PID; CODE=$?; if kill -0 -$PID 2>/dev/null; then kill -TERM -$PID 2>/dev/null; for _i in 1 2 3 4 5; do kill -0 -$PID 2>/dev/null || break; sleep 0.1; done; if kill -0 -$PID 2>/dev/null; then kill -KILL -$PID 2>/dev/null; while kill -0 -$PID 2>/dev/null; do sleep 0.05; done; fi; fi; echo \"%s:$CODE\"",
-    opts.command, taskPidMarker, taskEndMarker
+    "CMD=%s; if command -v setsid >/dev/null 2>&1; then setsid sh -c \"$CMD\" & else sh -c \"$CMD\" & fi; PID=$!; IS_GRP=0; for _i in 1 2 3 4 5; do if kill -0 -$PID 2>/dev/null; then IS_GRP=1; break; fi; kill -0 $PID 2>/dev/null || break; sleep 0.02; done; echo \"%s:$PID:$IS_GRP\"; wait $PID; CODE=$?; if [ \"$IS_GRP\" = \"1\" ] && kill -0 -$PID 2>/dev/null; then kill -TERM -$PID 2>/dev/null; for _i in 1 2 3 4 5; do kill -0 -$PID 2>/dev/null || break; sleep 0.1; done; if kill -0 -$PID 2>/dev/null; then kill -KILL -$PID 2>/dev/null; while kill -0 -$PID 2>/dev/null; do sleep 0.05; done; fi; elif kill -0 $PID 2>/dev/null; then kill -TERM $PID 2>/dev/null; for _i in 1 2 3 4 5; do kill -0 $PID 2>/dev/null || break; sleep 0.1; done; if kill -0 $PID 2>/dev/null; then kill -KILL $PID 2>/dev/null; while kill -0 $PID 2>/dev/null; do sleep 0.05; done; fi; fi; echo \"%s:$CODE\"",
+    quotedCmd, taskPidMarker, taskEndMarker
   )
 
   isBusy = true
   activeTaskPid = nil
+  activeTaskIsGroup = false
   activeTaskCancelling = false
   currentActiveTask = {
     id         = opts.id or opts.name or "task",
@@ -430,6 +433,7 @@ local function runStreamingTask(opts, onComplete)
     isBusy = false
     local wasCancelling = activeTaskCancelling
     activeTaskPid = nil
+    activeTaskIsGroup = false
     activeTaskCancelling = false
     currentActiveTask = nil
     publishSnapshot()
@@ -446,9 +450,10 @@ local function runStreamingTask(opts, onComplete)
       line = line:gsub("\27%[[0-9;]*[a-zA-Z]", "")
       line = trim(line)
       if line ~= "" then
-        local pidStr = line:match("^" .. taskPidMarker .. ":(%d+)")
+        local pidStr, isGrpStr = line:match("^" .. taskPidMarker .. ":(%d+):?(%d*)")
         if pidStr then
           activeTaskPid = tonumber(pidStr)
+          activeTaskIsGroup = (isGrpStr == "1")
         else
           local endCode = line:match("^" .. taskEndMarker .. ":(%d+)")
           if endCode then
@@ -1483,10 +1488,11 @@ local function onCommandReceived(cmd)
         publishSnapshot()
       end
       local pid = activeTaskPid
-      -- Terminate the entire process group (-$pid). The wrapper ensures all descendants exit before emitting DONE.
+      local target = activeTaskIsGroup and string.format("-%d", pid) or tostring(pid)
+      -- Terminate the entire process group (-$pid) if verified, or the process itself ($pid) with fallback.
       noctalia.runAsync(string.format(
-        "kill -TERM -%d 2>/dev/null; for i in 1 2 3 4 5; do kill -0 -%d 2>/dev/null || break; sleep 0.1; done; if kill -0 -%d 2>/dev/null; then kill -KILL -%d 2>/dev/null; while kill -0 -%d 2>/dev/null; do sleep 0.05; done; fi",
-        pid, pid, pid, pid, pid
+        "kill -TERM %s 2>/dev/null || kill -TERM %d 2>/dev/null; for i in 1 2 3 4 5; do (kill -0 %s 2>/dev/null || kill -0 %d 2>/dev/null) || break; sleep 0.1; done; if kill -0 %s 2>/dev/null || kill -0 %d 2>/dev/null; then (kill -KILL %s 2>/dev/null || kill -KILL %d 2>/dev/null); while kill -0 %s 2>/dev/null || kill -0 %d 2>/dev/null; do sleep 0.05; done; fi",
+        target, pid, target, pid, target, pid, target, pid, target, pid
       ))
     end
     return
@@ -2118,10 +2124,12 @@ function update()
   if isBusy and activeTaskPid and not activeTaskCancelling then
     if tickCounter % 5 == 0 then
       local pidToCheck = activeTaskPid
-      noctalia.runAsync(string.format("kill -0 -%d 2>/dev/null", pidToCheck), function(res)
+      local checkCmd = string.format("kill -0 -%d 2>/dev/null || kill -0 %d 2>/dev/null", pidToCheck, pidToCheck)
+      noctalia.runAsync(checkCmd, function(res)
         if res and res.exitCode ~= 0 and isBusy and activeTaskPid == pidToCheck and not activeTaskCancelling then
           isBusy = false
           activeTaskPid = nil
+          activeTaskIsGroup = false
           currentActiveTask = nil
           publishSnapshot()
         end

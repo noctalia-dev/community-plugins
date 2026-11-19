@@ -1,13 +1,13 @@
 id = "ishan0121/shipyard"
 name = "Docker & Podman Shipyard"
-version = "1.0.0"
+version = "1.1.0"
 plugin_api = 43
 author = "Ishan0121"
 license = "MIT"
 icon = "ship"
 description = "Unified Docker and Podman manager for Wayland: compose stacks, atomic containers, and asset pruning."
 tags = ["development", "system", "utility", "panel"]
-dependencies = ["docker"]
+dependencies = ["docker", "setsid"]
 
 # --- Plugin Settings ---
 [[setting]]

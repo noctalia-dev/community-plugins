@@ -61,7 +61,9 @@
     "deploy_eject": "Deploy & Eject",
     "deploy_eject_tooltip": "Spins up compose stack and delegates container management to the Containers tab.",
     "active": "Active",
-    "inactive": "Stopped"
+    "inactive": "Stopped",
+    "search_placeholder": "Search stacks by name or path…",
+    "no_search_results": "No stacks matching \"{query}\"."
   },
   "containers": {
     "empty": "No containers found on {daemon}.",

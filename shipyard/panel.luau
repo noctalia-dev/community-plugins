@@ -9,6 +9,7 @@ local KEY_PANEL_OPEN = "shipyard_panel_open"
 -- Panel-local state
 local currentTab            = "stacks"
 local showCloseButton       = true
+local stackSearch           = ""
 local containerSearch       = ""
 local imageSearch           = ""
 local imageSubView          = "local"
@@ -423,8 +424,25 @@ local function renderStacksTab(snapshot)
 
   local busyTooltip = snapshot.busy and (snapshot.activeTask and snapshot.activeTask.title or tr("tasks.in_progress")) or nil
 
-  local toolbar = ui.row({ key = "stacks-toolbar", align = "center", justify = "space_between", paddingV = 4, flexGrow = 0 }, {
-    ui.label({ text = `{#stacks} Stacks detected`, color = "on_surface_variant", fontSize = 12 }),
+  local visible = {}
+  local q = stackSearch:lower()
+  for _, s in ipairs(stacks) do
+    local match = q == ""
+      or s.name:lower():find(q, 1, true)
+      or (s.path and s.path:lower():find(q, 1, true))
+    if match then table.insert(visible, s) end
+  end
+
+  local toolbar = ui.row({ key = "stacks-toolbar", align = "center", gap = 8, paddingV = 4, flexGrow = 0 }, {
+    ui.input({
+      key         = "stack_search",
+      placeholder = tr("stacks.search_placeholder"),
+      value       = stackSearch,
+      glyph       = "search",
+      flexGrow    = 1,
+      onChange    = "onStackSearch",
+    }),
+    ui.label({ text = `{#stacks} stacks`, color = "on_surface_variant", fontSize = 11 }),
     ui.button({
       text        = snapshot.scanningStacks and "Scanning…" or "Scan Directories",
       glyph       = snapshot.scanningStacks and "loader" or "refresh",
@@ -528,8 +546,28 @@ local function renderStacksTab(snapshot)
     return ui.column({ key = "tab-stacks-empty", flexGrow = 1, gap = 8, justify = "start", align = "stretch" }, emptyChildren)
   end
 
+  if #visible == 0 then
+    local emptySearchChildren = { toolbar }
+    if scanFeedback then table.insert(emptySearchChildren, scanFeedback) end
+    table.insert(emptySearchChildren, ui.column({ align = "center", justify = "center", gap = 12, padding = 32 }, {
+      ui.glyph({ name = "search", size = 40, color = "on_surface_variant" }),
+      ui.label({ text = tr("stacks.no_search_results", { query = stackSearch }), color = "on_surface_variant", textAlign = "center" }),
+      ui.button({
+        text        = "Clear Search",
+        glyph       = "x",
+        variant     = "ghost",
+        controlSize = "sm",
+        onClick     = function()
+          stackSearch = ""
+          render()
+        end,
+      }),
+    }))
+    return ui.column({ key = "tab-stacks-search-empty", flexGrow = 1, gap = 8, justify = "start", align = "stretch" }, emptySearchChildren)
+  end
+
   local rows = {}
-  for _, s in ipairs(stacks) do
+  for _, s in ipairs(visible) do
     local isThisStackActive = snapshot.activeTask ~= nil
       and (snapshot.activeTask.id == s.path or snapshot.activeTask.name == s.name)
 
@@ -1690,6 +1728,11 @@ end
 -- ---------------------------------------------------------------------------
 -- Callbacks
 -- ---------------------------------------------------------------------------
+
+function onStackSearch(value)
+  stackSearch = tostring(value or "")
+  render()
+end
 
 function onContainerSearch(value)
   containerSearch = tostring(value or "")

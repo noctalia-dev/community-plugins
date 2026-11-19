@@ -11,7 +11,7 @@ A unified, zero-clutter Docker and Podman manager for Wayland. It bridges the ga
 
 ## Requirements
 
-Install `docker` or `podman` on `PATH`. For compose stack discovery and control, ensure `docker compose` or `podman compose` is installed.
+Install `docker` or `podman` on `PATH`. For compose stack discovery and control, ensure `docker compose` or `podman compose` is installed. `setsid` (from `util-linux`) is used for process group management during long-running tasks.
 
 ## Usage
 
