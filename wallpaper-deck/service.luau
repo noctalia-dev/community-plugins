@@ -12,6 +12,8 @@ local DECK_FILE = STATE_DIR .. "/deck.json"
 local THUMB_DIR = STATE_DIR .. "/thumbs"
 local FAVORITES_FILE = STATE_DIR .. "/favorites.json"
 
+local Profiles = require("./profiles.luau")
+
 local FALLBACK_M3 = {
   primary = "#80a9ff",
   secondary = "#bfc6dc",
@@ -1643,6 +1645,19 @@ noctalia.state.watch("deck_command", function(cmd)
     revertPreview()
   elseif action == "apply" and cmd.path then
     applyWallpaper(cmd.path, cmd.output)
+    if cmd.skipWidgets ~= true and Profiles.includeWidgets then
+      local matches = Profiles.getProfilesForWallpaper(cmd.path, cmd.output)
+      if #matches == 1 then
+        Profiles.applyProfile(matches[1], nil)
+      end
+    end
+  elseif action == "apply_profile" and cmd.profileId then
+    local p = Profiles.getProfileById(cmd.profileId)
+    if p then
+      Profiles.applyProfile(p, function(wpPath, mon)
+        applyWallpaper(wpPath, mon)
+      end)
+    end
   elseif action == "rescan" then
     isScanning = false
     scanWallpapers(cmd.dir)

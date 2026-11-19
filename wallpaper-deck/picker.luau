@@ -52,16 +52,17 @@ local function loadFavoritesDirect(): { [string]: boolean }
   return {}
 end
 
-local allWallpapers: { any } = loadCacheDirect()
-do
+local allWallpapers: { any } = (function()
   local sw = noctalia.state.get("wallpapers")
-  if type(sw) == "table" and #sw > 0 then allWallpapers = sw end
-end
-local favorites: { [string]: boolean } = loadFavoritesDirect()
-do
+  if type(sw) == "table" and #sw > 0 then return sw end
+  return {}
+end)()
+
+local favorites: { [string]: boolean } = (function()
   local sf = noctalia.state.get("favorites")
-  if type(sf) == "table" and next(sf) ~= nil then favorites = sf end
-end
+  if type(sf) == "table" and next(sf) ~= nil then return sf end
+  return {}
+end)()
 local hasAnyFavorites = (type(favorites) == "table" and next(favorites) ~= nil)
 local activeWallpaper = noctalia.state.get("active_wallpaper") or ""
 local initialWallpaper = activeWallpaper
@@ -823,6 +824,7 @@ do
   communityPalettes = loadCommunityPalettes()
 end
 local CT = require("./custom_themes.luau")
+local Profiles = require("./profiles.luau")
 local selectedBuiltinIdx = 1
 local selectedSchemeIdx = 4 -- default m3-rainbow
 local selectedCommunityIdx = 1
@@ -2577,11 +2579,8 @@ local function selectCardIndex(newIdx: number)
   end
 end
 
-local function applyCurrent()
-  local item = displayedItems[selectedIdx]
+local function doApplyWallpaperOnly(item: any, targetOut: string?)
   if not item then return end
-
-  local targetOut = (selectedOutput == "ALL") and nil or selectedOutput
 
   if currentMode == "wallhaven" then
     local urlExt = string.match(item.fullUrl or item.path or "", "%.([^%.]+)$") or item.ext or "jpg"
@@ -2591,7 +2590,7 @@ local function applyCurrent()
     if not (cached and noctalia.fileExists(cached)) then
       cached = nil
     end
-    noctalia.state.set("deck_command", { action = "wallhaven_apply", item = item, cachedPath = cached, output = targetOut, nonce = noctalia.nowMs() })
+    noctalia.state.set("deck_command", { action = "wallhaven_apply", item = item, cachedPath = cached, output = targetOut, skipWidgets = true, nonce = noctalia.nowMs() })
   else
     local mode = noctalia.getConfig("backend_mode") or "native"
     if mode ~= "custom" and type(noctalia.setWallpaper) == "function" then
@@ -2604,10 +2603,36 @@ local function applyCurrent()
     activeWallpaper = item.path
     initialWallpaper = item.path
     lastPreviewed = item.path
-    noctalia.state.set("deck_command", { action = "apply", path = item.path, output = targetOut, nonce = noctalia.nowMs() })
+    noctalia.state.set("deck_command", { action = "apply", path = item.path, output = targetOut, skipWidgets = true, nonce = noctalia.nowMs() })
   end
   stopWheelListener()
   panel.close()
+end
+
+local function applyCurrent()
+  local item = displayedItems[selectedIdx]
+  if not item then return end
+
+  local targetOut = (selectedOutput == "ALL") and nil or selectedOutput
+
+  if Profiles.includeWidgets and item.path and item.path ~= "" then
+    local matches = Profiles.getProfilesForWallpaper(item.path, targetOut)
+    if #matches == 1 then
+      -- 1 match: Apply wallpaper + linked widget profile immediately (1-click flow) and update lastUsedAt
+      Profiles.applyProfile(matches[1], function(wpPath, mon)
+        doApplyWallpaperOnly(item, mon or targetOut)
+      end)
+      return
+    elseif #matches >= 2 then
+      -- 2+ matches: Open compact inline Quick-Pick Popover sorted by lastUsedAt descending
+      Profiles.openQuickPick(matches, item, targetOut)
+      render()
+      return
+    end
+  end
+
+  -- 0 matches or toggle OFF: Apply wallpaper normally; leave widgets untouched
+  doApplyWallpaperOnly(item, targetOut)
 end
 
 local function cancelAndClose()
@@ -3007,21 +3032,51 @@ local function renderCard(item: any, index: number, distSigned: number, scale: n
         padding = math.max(3, math.floor(6 * s)),
         gap = math.max(2, math.floor(3 * s)),
       }, {
-        -- Header row on card (✓ current badge and // name tag)
+        -- Header row on card (✓ current badge, profile badge, and // name tag)
         ui.row({ align = "center", justify = "space_between", paddingH = 2, height = math.floor(14 * math.max(0.75, s)) }, {
-          isCurrent and ui.row({
-            fill = "primary",
-            radius = R(4),
-            paddingH = math.max(2, math.floor(4 * s)),
-            paddingV = 1,
-          }, {
-            ui.label({
-              text = "✓ " .. trText("ui.current", "current"),
-              fontSize = (s < 0.7) and 6 or 7,
-              fontWeight = "bold",
-              color = "on_primary",
-            }),
-          }) or ui.spacer({ width = 1 }),
+          ui.row({ align = "center", gap = 3 }, (function()
+            local badges = {}
+            if isCurrent then
+              table.insert(badges, ui.row({
+                fill = "primary",
+                radius = R(4),
+                paddingH = math.max(2, math.floor(4 * s)),
+                paddingV = 1,
+              }, {
+                ui.label({
+                  text = "✓ " .. trText("ui.current", "current"),
+                  fontSize = (s < 0.7) and 6 or 7,
+                  fontWeight = "bold",
+                  color = "on_primary",
+                }),
+              }))
+            end
+            if Profiles.hasProfileForWallpaper(item.path) then
+              local badgeChildren = {
+                ui.glyph({ name = "layout-grid", size = (s < 0.7) and 7 or 8, color = "secondary" }),
+              }
+              if s >= 0.75 then
+                table.insert(badgeChildren, ui.label({
+                  text = "profile",
+                  fontSize = 6,
+                  fontWeight = "bold",
+                  color = "secondary",
+                }))
+              end
+              table.insert(badges, ui.row({
+                fill = "secondary/0.25",
+                radius = R(4),
+                paddingH = math.max(2, math.floor(3 * s)),
+                paddingV = 1,
+                gap = 2,
+                align = "center",
+              }, badgeChildren))
+            end
+            if #badges == 0 then
+              table.insert(badges, ui.spacer({ width = 1 }))
+            end
+            return badges
+          end)()),
           ui.label({
             text = "// " .. cardFolder,
             fontSize = (s < 0.7) and 6 or 7,
@@ -3650,10 +3705,21 @@ function render()
         activeBg = requestWallhavenThumb(activeItem, true) or ""
       end
     else
-      if activeItem._validPath == nil then
-        activeItem._validPath = (activeItem.path and activeItem.path ~= "" and noctalia.fileExists(activeItem.path)) and activeItem.path or (activeItem.preview or activeItem.thumb or "")
+      if isPeeking and activeItem.path and activeItem.path ~= "" and noctalia.fileExists(activeItem.path) then
+        activeBg = activeItem.path
+      else
+        if activeItem._validPath == nil then
+          local p = activeItem.thumb or activeItem.preview
+          if p and p ~= "" and noctalia.fileExists(p) then
+            activeItem._validPath = p
+          elseif activeItem.path and activeItem.path ~= "" and noctalia.fileExists(activeItem.path) then
+            activeItem._validPath = activeItem.path
+          else
+            activeItem._validPath = ""
+          end
+        end
+        activeBg = activeItem._validPath
       end
-      activeBg = activeItem._validPath
     end
   end
 
@@ -4082,6 +4148,43 @@ function render()
 
             ui.spacer({ flexGrow = 1 }),
 
+            -- Profiles Management Button & Include Widgets Toggle Pill
+            ui.row({
+              align = "center",
+              gap = 2,
+              fill = "surface/0.65",
+              border = "outline_variant/0.2",
+              borderWidth = 1,
+              radius = R(16),
+              padding = 2,
+            }, {
+              ui.button({
+                text = "Profiles",
+                glyph = "layout-grid",
+                variant = (Profiles.isOpen or Profiles.isAddModalOpen) and "primary" or "ghost",
+                controlSize = "sm",
+                tooltip = "Manage Desktop Widget Profiles",
+                onClick = function()
+                  refreshConnectedOutputs()
+                  Profiles.loadProfiles()
+                  Profiles.isOpen = true
+                  Profiles.isAddModalOpen = false
+                  render()
+                end,
+              }),
+              ui.button({
+                text = "Widgets",
+                glyph = Profiles.includeWidgets and "check" or "x",
+                variant = Profiles.includeWidgets and "primary" or "ghost",
+                controlSize = "sm",
+                tooltip = Profiles.includeWidgets and "Include Widgets: ON (Click to toggle)" or "Include Widgets: OFF (Click to toggle)",
+                onClick = function()
+                  Profiles.toggleIncludeWidgets()
+                  render()
+                end,
+              }),
+            }),
+
             -- Flatten Toggle (Local)
             (currentMode ~= "wallhaven" and ui.row({ align = "center", gap = 6 }, {
               ui.label({ text = "Flatten", fontSize = 12, color = isFlattened and paletteColors.accent or paletteColors.primaryText }),
@@ -4433,6 +4536,92 @@ function render()
       return
     end
   end
+
+  -- Inject Profiles modal overlay on top if open
+  if Profiles.isOpen or Profiles.isAddModalOpen then
+    local centerWp = activeItem and activeItem.path or ""
+    local modalNode = Profiles.renderProfilesModal(
+      ui, panelW, panelH, R, render,
+      function(wpPath, mon)
+        local targetOut = (mon == "ALL" or mon == "all") and nil or mon
+        local it = { path = wpPath }
+        doApplyWallpaperOnly(it, targetOut)
+      end,
+      activeWallpaper,
+      centerWp,
+      connectedOutputs,
+      selectedOutput
+    )
+    if modalNode then
+      panel.render(wrapFullBleed(ui.column({
+        key = "panel_root_profiles_modal",
+        width = panelW,
+        height = panelH,
+        flexGrow = 1,
+        gap = -panelH,
+        padding = 0,
+        align = "stretch",
+        justify = "start",
+      }, {
+        CSF.renderBg(panelW, panelH, activeItem),
+        ui.column({
+          key = "deck_overlay_dim",
+          width = panelW,
+          height = panelH,
+          flexGrow = 1,
+          padding = 0,
+          gap = 0,
+          align = "stretch",
+          justify = "start",
+        }, {
+          ui.column({
+            key = "deck_header_modal",
+            width = panelW,
+            gap = 8,
+            paddingH = 32,
+            paddingV = 14,
+          }, {
+            buildStandardRow2(panelW),
+          }),
+        }),
+        modalNode,
+      })))
+      return
+    end
+  end
+
+  -- Inject Quick-Pick Popover on top if open
+  if Profiles.isQuickPickOpen then
+    local popoverNode = Profiles.renderQuickPickPopover(
+      ui, panelW, panelH, R, render,
+      function(profile)
+        Profiles.applyProfile(profile, function(wpPath, mon)
+          local targetOut = (mon == "ALL" or mon == "all") and nil or mon
+          local it = { path = wpPath }
+          doApplyWallpaperOnly(it, targetOut)
+        end)
+      end,
+      function(wpItem, targetMon)
+        doApplyWallpaperOnly(wpItem, targetMon)
+      end
+    )
+    if popoverNode then
+      panel.render(wrapFullBleed(ui.column({
+        key = "panel_root_quick_pick",
+        width = panelW,
+        height = panelH,
+        flexGrow = 1,
+        gap = -panelH,
+        padding = 0,
+        align = "stretch",
+        justify = "start",
+      }, {
+        CSF.renderBg(panelW, panelH, activeItem),
+        popoverNode,
+      })))
+      return
+    end
+  end
 end
 
 nativeScrollActive = false
@@ -4447,6 +4636,11 @@ function onOpen(context: any?)
   CT.isOpen = false
   CT.statusText = ""
   CT.statusIsError = false
+  Profiles.isOpen = false
+  Profiles.isAddModalOpen = false
+  Profiles.isQuickPickOpen = false
+  Profiles.statusText = ""
+  Profiles.statusIsError = false
   noctalia.state.set("deck_command", { action = "panel_state", open = true })
   updatePanelGeometry()
   updateCornerRadiusScale()
@@ -4630,6 +4824,26 @@ function onKey(chord: string, pressed: boolean)
       CT.statusIsError = false
       render()
     end
+    return
+  end
+
+  -- Profiles modals & quick-pick popover intercept keys
+  local profilesHandled = Profiles.onKey(
+    chord,
+    pressed,
+    render,
+    function(profile)
+      Profiles.applyProfile(profile, function(wpPath, mon)
+        local targetOut = (mon == "ALL" or mon == "all") and nil or mon
+        local it = { path = wpPath }
+        doApplyWallpaperOnly(it, targetOut)
+      end)
+    end,
+    function(wpItem, targetMon)
+      doApplyWallpaperOnly(wpItem, targetMon)
+    end
+  )
+  if profilesHandled then
     return
   end
 
