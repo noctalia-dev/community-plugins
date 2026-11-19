@@ -2443,7 +2443,7 @@ local function selectCardIndex(newIdx: number)
     -- Force background refresh immediately when there is no animation
     local si = displayedItems[selectedIdx]
     if si and currentMode ~= "wallhaven" then
-      local bg = si._validPath or si.preview or si.thumb or si.path or ""
+      local bg = (si.path and si.path ~= "" and noctalia.fileExists(si.path)) and si.path or (si.preview or si.thumb or "")
       if bg ~= "" and bg ~= displayedBgPath then
         setDisplayedBackground(bg)
       end
@@ -3980,20 +3980,17 @@ function render()
         activeBg = requestWallhavenThumb(activeItem, true) or ""
       end
     else
-      if isPeeking and activeItem.path and activeItem.path ~= "" and noctalia.fileExists(activeItem.path) then
-        activeBg = activeItem.path
+      local isSettled = (not animateSelected) or (animatedPos == selectedIdx)
+      local fullPath = (activeItem.path and activeItem.path ~= "" and noctalia.fileExists(activeItem.path)) and activeItem.path or nil
+      local thumbPath = (activeItem.thumb and activeItem.thumb ~= "" and noctalia.fileExists(activeItem.thumb)) and activeItem.thumb
+        or (activeItem.preview and activeItem.preview ~= "" and noctalia.fileExists(activeItem.preview)) and activeItem.preview
+        or fullPath
+        or ""
+
+      if isSettled or isPeeking then
+        activeBg = fullPath or thumbPath
       else
-        if activeItem._validPath == nil then
-          local p = activeItem.thumb or activeItem.preview
-          if p and p ~= "" and noctalia.fileExists(p) then
-            activeItem._validPath = p
-          elseif activeItem.path and activeItem.path ~= "" and noctalia.fileExists(activeItem.path) then
-            activeItem._validPath = activeItem.path
-          else
-            activeItem._validPath = ""
-          end
-        end
-        activeBg = activeItem._validPath
+        activeBg = thumbPath
       end
     end
   end
@@ -4001,9 +3998,7 @@ function render()
   if #displayedItems == 0 then
     displayedBgPath = ""
   else
-    -- Only update the full-screen background when the card has settled at its target index so card movement is 60fps smooth
-    local isSettled = (not animateSelected) or (animatedPos == selectedIdx)
-    if (isSettled or displayedBgPath == "") and activeBg ~= "" then
+    if activeBg ~= "" then
       setDisplayedBackground(activeBg)
     end
   end
@@ -5101,7 +5096,7 @@ function onFrameTick(deltaMs: any)
           -- Force background update immediately when spring settles
           local si = displayedItems[selectedIdx]
           if si and currentMode ~= "wallhaven" then
-            local bg = si._validPath or si.preview or si.thumb or si.path or ""
+            local bg = (si.path and si.path ~= "" and noctalia.fileExists(si.path)) and si.path or (si.preview or si.thumb or "")
             if bg ~= "" and bg ~= displayedBgPath then
               setDisplayedBackground(bg)
             end
