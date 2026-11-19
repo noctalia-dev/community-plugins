@@ -234,6 +234,11 @@ function M.launch(options)
   end)
 
   local function continue()
+    -- The saved settings are read asynchronously: a newer launch may have
+    -- started (or the watchdog may have given up) before this callback runs.
+    if token ~= launchToken then
+      return
+    end
     settings.refresh()
     local valueOf = options.valueOf or settings.value
     local started = start(options, valueOf, token)

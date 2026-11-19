@@ -207,7 +207,8 @@ noctalia msg plugin faminec/lyrics-carousel:widget all refresh
 | `refresh` | Re-reads the settings and the track, and redraws the panel. | Redraws the bar icon. |
 
 `toggle` only works with the switches — `marker`, `karaoke`, `karaoke_brain`, `footer`, `hints`,
-`header` and `ghost` — because flipping a number makes no sense.
+`header`, `ghost`, `instrumental_marks`, `instrumental_custom` and `pin` — because flipping a
+number makes no sense. The old alias `instrumental` still reaches `instrumental_marks`.
 
 The value of `set` can also be written as `key=value`. Its type (`bool`, `int`,
 `float` or `string`) is optional: without it, the type is deduced from the setting,
@@ -218,9 +219,10 @@ noctalia msg plugin faminec/lyrics-carousel:widget all set font_size 26 int
 noctalia msg plugin faminec/lyrics-carousel:widget all set font_family="Departure Mono"
 ```
 
-`set` and `toggle` write to the same overrides file the panel uses, so the change is
-poured into `settings.toml` when the panel is closed and is visible in the settings
-page afterwards.
+`set` and `toggle` write to the same overrides file the panel uses, so the window
+picks the change up at once and the panel flushes it into `settings.toml` when it
+closes. Open and close the panel once (or change the same value there) if the
+settings page has to show it immediately.
 
 The `service` entry is not meant to be driven by hand: it listens for the
 `colors-changed` and `theme-applied` events and sends `SIGUSR2` to the running
