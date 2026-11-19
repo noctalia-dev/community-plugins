@@ -5244,13 +5244,13 @@ tags = ["hyprland", "bar", "panel", "productivity"]
 [[plugin]]
 id = "ishan0121/wallpaper-deck"
 name = "Wallpaper Deck"
-version = "1.5.0"
-updated_at = 1795038764
+version = "1.6.0"
+updated_at = 1795127460
 added_at = 1793071179
 author = "Ishan0121"
 license = "GPL-3.0"
 icon = "cards"
-description = "Wallpaper picker with Wallhaven built-in, MTG-style animated card-deck."
+description = "Wallpaper picker with Wallhaven built-in, MTG-style card-deck, widget profiles, color search, custom themes & more."
 plugin_api = 43
 tags = ["wallpaper", "animation", "theming", "desktop"]
 
@@ -5757,8 +5757,8 @@ tags = ["clock", "desktop", "time", "theming"]
 [[plugin]]
 id = "faminec/lyrics-carousel"
 name = "Lyrics Carousel"
-version = "2.7.1"
-updated_at = 1794317591
+version = "2.8.0"
+updated_at = 1794404756
 added_at = 1794317591
 author = "faminec"
 license = "MIT"
