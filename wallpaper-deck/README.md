@@ -59,7 +59,7 @@ If `backend_mode` is set to `custom`, install your preferred wallpaper daemon:
 
 ---
 
-## Usage Guide
+## Usage
 
 ### Opening the Wallpaper Picker
 
