@@ -6122,8 +6122,8 @@ tags = ["audio", "utility", "bar", "panel", "hardware"]
 [[plugin]]
 id = "ishan0121/shipyard"
 name = "Docker & Podman Shipyard"
-version = "1.0.0"
-updated_at = 1794868602
+version = "1.1.0"
+updated_at = 1795127375
 added_at = 1794868602
 author = "Ishan0121"
 license = "MIT"
