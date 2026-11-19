@@ -4,7 +4,7 @@ A Noctalia plugin for picking and managing color theme + wallpaper category comb
 
 <div align="center">
 <pre>
-<a href="#plugin">Plugin</a> · <a href="#panels">Panels</a> · <a href="#bar-widgets">Bar Widgets</a> · <a href="#settings">Settings</a> · <a href="#screenshots">Screenshots</a>
+<a href="#plugin">Plugin</a> · <a href="#requirements">Requirements</a> · <a href="#usage">Usage</a> · <a href="#settings">Settings</a> · <a href="#notes">Notes (preview images)</a>
 </pre>
 </div>
 
@@ -15,23 +15,37 @@ A Noctalia plugin for picking and managing color theme + wallpaper category comb
 | ID | `SirQuacksALot/theme-picker` |
 | Entries | Panels: `picker`, `wallpapers`, `manager` · Bar widgets: `widget-picker`, `widget-wallpapers`, `widget-manager` |
 
-## Panels
+## Requirements
+
+No additional dependencies are required for theme management.
+
+Wallpaper thumbnails require ImageMagick (`magick` or `convert`) or `ffmpeg`.
+
+## Usage
+
+### Panels
 
 - **Theme Picker** (`picker`) — a vertical list of themes. Each row shows the theme's color scheme as color dots on the left and the first wallpaper of its category as a preview on the right. Click a row to apply the whole combo (color scheme + wallpaper).
 - **Wallpapers** (`wallpapers`) — a horizontal carousel scoped to the active theme's wallpapers (same behaviour as `wallpaper-widget`). Browse with arrow keys, apply with Enter, pick a random one with Space.
 - **Manager** (`manager`) — create, edit and delete themes: name, color scheme (source + scheme), wallpaper set, and an "always use first wallpaper" toggle.
 
-Open via a bar widget, a keybind, or:
+Open them via a bar widget, a keybind configured in Noctalia's Settings, or IPC.
 
-```sh
-noctalia msg panel-toggle SirQuacksALot/theme-picker:picker
-```
+### Bar widgets
 
-## Bar widgets
+Add the widgets through Noctalia's bar settings:
 
 - `SirQuacksALot/theme-picker:widget-picker` — opens the Theme Picker
 - `SirQuacksALot/theme-picker:widget-wallpapers` — opens the Wallpapers panel
 - `SirQuacksALot/theme-picker:widget-manager` — opens the Manager
+
+### Opening panels via IPC
+
+```sh
+noctalia msg panel-toggle SirQuacksALot/theme-picker:picker
+noctalia msg panel-toggle SirQuacksALot/theme-picker:manager
+noctalia msg panel-toggle SirQuacksALot/theme-picker:wallpapers
+```
 
 ## Settings
 
@@ -46,17 +60,24 @@ noctalia msg panel-toggle SirQuacksALot/theme-picker:picker
 | `show_nav_wallpapers` | bool | `true` | Show cross-panel navigation buttons in the Wallpapers panel. |
 | `show_nav_manager` | bool | `true` | Show cross-panel navigation buttons in the Manager. |
 
-## Screenshots
+## Notes
 
-### Theme Picker
+- Themes are saved automatically in Noctalia's plugin data directory.
+- Wallpaper thumbnails are generated asynchronously and cached under $XDG_CACHE_HOME/noctalia/theme-picker/thumbnails/ (defaults to ~/.cache/noctalia/theme-picker/thumbnails/).
+- Wallpaper scanning supports PNG, JPG, JPEG, and WebP files, including subdirectories up to three levels deep.
+- Thumbnail generation requires ImageMagick (magick or convert) or ffmpeg. Without either, wallpaper previews may be unavailable.
+
+### Screenshots
+
+#### Theme Picker
 ![Theme Picker](screenshots/picker.png)
 
-### Wallpapers
+#### Wallpapers
 ![Wallpapers](screenshots/wallpapers.png)
 
-### Manager
+#### Manager
 ![Manager](screenshots/manager.png)
 
-## License
+#### License
 
-MIT
+[MIT](LICENSE)
