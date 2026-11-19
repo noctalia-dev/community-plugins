@@ -2,17 +2,19 @@
 # of any protocol NM supports (whichever nm-*-service VPN plugins are
 # installed: OpenVPN, WireGuard, IPsec/IKEv2, L2TP, PPTP, SSTP, Cisco
 # AnyConnect, vpnc...), plus automatic connect/disconnect based on whether the
-# current Wi-Fi/Ethernet network is on a trusted (e.g. home) list.
+# current Wi-Fi, Ethernet or cellular network is on a trusted (e.g. home) list.
 
 id           = "andrewdems/vpn-manager"
 name         = "VPN Manager"
-version      = "1.0.1"
+version      = "1.1.0"
 plugin_api   = 43
 author       = "andrewdems"
 license      = "MIT"
 icon         = "shield-lock"
 description  = "Connect, disconnect and import NetworkManager VPNs of any protocol, with auto-connect off trusted networks."
 tags         = ["bar", "launcher", "panel", "service", "shortcut", "network", "privacy", "indicator"]
+# nmcli is required; nm-connection-editor/nmtui-edit (Edit connection) and kdialog/zenity
+# (Add VPN's file picker) are optional fallbacks documented in the README - see Requirements there.
 dependencies = ["nmcli", "nm-connection-editor", "nmtui-edit", "kdialog", "zenity"]
 
 [[setting]]
@@ -60,6 +62,13 @@ description_key = "settings.stable_checks.description"
 default = 3
 min = 1
 max = 20
+
+[[setting]]
+key = "bar_click_toggles"
+type = "bool"
+label_key = "settings.bar_click_toggles.label"
+description_key = "settings.bar_click_toggles.description"
+default = false
 
 [[service]]
 id = "service"
