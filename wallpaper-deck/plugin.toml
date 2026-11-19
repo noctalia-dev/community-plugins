@@ -5,7 +5,7 @@ plugin_api = 43
 author = "Ishan0121"
 license = "GPL-3.0"
 icon = "cards"
-description = "Wallpaper picker with Wallhaven built-in, MTG-style deck, widget profiles, color search & custom themes."
+description = "Wallpaper picker with Wallhaven built-in, MTG-style card-deck, widget profiles, color search, custom themes & more."
 tags = ["wallpaper", "animation", "theming", "desktop"]
 dependencies = ["ffmpeg", "matugen"]
 
