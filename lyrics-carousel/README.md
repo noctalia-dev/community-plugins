@@ -111,8 +111,8 @@ by then, the lookup is retried a minute later. The result is cached in
 | `-` / `_` | Shrink the lyrics one pixel |
 | `r` | Look the lyrics up again |
 
-The hints row at the bottom shows every shortcut that fits in the window (the
-longest list first, then shorter ones). `d`, `k`, `h`, `m`, `g`, `f`, `t`, `c`
+The hints row at the bottom wraps the full shortcut list so every key stays
+visible, however narrow the window is. `d`, `k`, `h`, `m`, `g`, `f`, `t`, `c`
 and the font size write their value to `settings.toml`, so the change survives a
 restart and shows up in the settings page. Writing that file makes Noctalia reload
 the configuration, so a panel that happened to be open at that moment is closed.
@@ -259,8 +259,8 @@ enabled costs nothing.
   `service` entry, which sends `SIGUSR2` to the running window; it reloads the
   generated Kitty theme and repaints at once. The blind 15 s reload is gone. See
   [Live colors](#live-colors).
-- **Every shortcut is in the hints**: the hints row lists the 13 implemented keys,
-  falling back to a shorter list when the window is narrow, and the README table
+- **Every shortcut is in the hints**: the hints row wraps the 13 implemented keys
+  so all of them stay visible even in a narrow window, and the README table
   matches the real key map.
 - **Marker styles and header position**: `marker_style` (six vector shapes, so the
   marker does not depend on the font) and `header_pos` (left, centered, right,
@@ -317,7 +317,7 @@ enabled costs nothing.
   opacity of its distance to the centre, so it does not lose it in one
   frame at the hand-off.
 - **Native resolution**: the lyrics are drawn at the window's own size
-  (1200×820 by default) with no upscaling.
+  (1200×880 by default) with no upscaling.
 
 ### 2.6.0
 

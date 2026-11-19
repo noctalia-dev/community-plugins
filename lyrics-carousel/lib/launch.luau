@@ -11,6 +11,7 @@ local settings = require("./settings.luau")
 local M = {}
 
 local launching = false
+local launchToken = 0
 
 local ANCHORS = {
   ["top-left"] = true,
@@ -135,7 +136,7 @@ local function loadSaved(callback)
   )
 end
 
-local function start(options, valueOf)
+local function start(options, valueOf, token)
   local family = tostring(valueOf("font_family") or settings.DEFAULTS.font_family)
   local size = math.floor(tonumber(valueOf("font_size")) or settings.DEFAULTS.font_size)
   local screenWidth, screenHeight = outputGeometry()
@@ -181,6 +182,11 @@ local function start(options, valueOf)
   local expression = string.format("hl.dsp.exec_cmd(%s, %s)", luaQuote(command), rules)
 
   local function finish(success)
+    -- A newer launch may have started while this one was dispatching: do
+    -- not clear its state or report an error that belongs to the old one.
+    if token ~= launchToken then
+      return
+    end
     launching = false
     if options.onState ~= nil then
       options.onState(false)
@@ -214,13 +220,15 @@ function M.launch(options)
     return false
   end
   launching = true
+  launchToken = launchToken + 1
+  local token = launchToken
   if options.onState ~= nil then
     options.onState(true)
   end
   -- Watchdog: if the dispatch callback never fires, the launcher would stay
   -- busy and the next click would do nothing.
   noctalia.runAsync({ "sleep", "6" }, function()
-    if launching then
+    if token == launchToken and launching then
       launching = false
     end
   end)
@@ -228,7 +236,7 @@ function M.launch(options)
   local function continue()
     settings.refresh()
     local valueOf = options.valueOf or settings.value
-    local started = start(options, valueOf)
+    local started = start(options, valueOf, token)
     if not started then
       launching = false
       if options.onState ~= nil then

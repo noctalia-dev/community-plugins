@@ -135,13 +135,13 @@ def read_settings(file_path: str) -> dict:
     return section if isinstance(section, dict) else {}
 
 
-def wait_for_setting(file_path: str, setting_key: str, setting_value, segundos: float = 10.0) -> bool:
+def wait_for_setting(file_path: str, setting_key: str, setting_value, seconds: float = 10.0) -> bool:
     """Waits for the script to store a setting in settings.toml.
 
     The script writes in the background (the helper runs in a separate
     process), so the value does not appear right away: wait a little.
     """
-    deadline = time.monotonic() + segundos
+    deadline = time.monotonic() + seconds
     while time.monotonic() < deadline:
         if read_settings(file_path).get(setting_key) == setting_value:
             return True
@@ -277,10 +277,10 @@ def check_shortcuts():
                 with open(log, encoding="utf-8", errors="replace") as handle:
                     written = handle.read()
                 requests = [
-                    lyric_line
-                    for lyric_line in written.split("\n")
+                    line_text
+                    for line_text in written.split("\n")
                     if any(
-                        marker in lyric_line.lower()
+                        marker in line_text.lower()
                         for marker in ("http", "kugou", "splayer", "netease", "lrclib")
                     )
                 ]
@@ -440,26 +440,26 @@ def check_lyrics_retry():
             )
 
 
-def osc66_blocks(lyric_line):
+def osc66_blocks(line_text):
     """Extracts the OSC 66 blocks from a row: (metadata, text)."""
     pattern = re.compile("\x1b\\]66;([^;]*);([^\x07]*)\x07")
-    return pattern.findall(lyric_line)
+    return pattern.findall(line_text)
 
 
-def visible_text(lyric_line):
+def visible_text(line_text):
     """Strips the control sequences from a row and leaves the text.
 
     The text of the OSC 66 blocks travels inside the sequence, so only the
     payload is recovered from them.
     """
-    lyric_line = re.sub("\x1b\\]66;[^;]*;([^\x07]*)\x07", r"\1", lyric_line)
-    return re.sub("\x1b\\][^\x07]*\x07|\x1b\\[[0-9;]*m", "", lyric_line)
+    line_text = re.sub("\x1b\\]66;[^;]*;([^\x07]*)\x07", r"\1", line_text)
+    return re.sub("\x1b\\][^\x07]*\x07|\x1b\\[[0-9;]*m", "", line_text)
 
 
-def osc66_metadata(metadatos):
+def osc66_metadata(metadata):
     """Converts 's=2:n=6:d=10:w=7' into a dictionary."""
     data = {}
-    for part in metadatos.split(":"):
+    for part in metadata.split(":"):
         if "=" in part:
             setting_key, setting_value = part.split("=", 1)
             data[setting_key] = setting_value
@@ -1294,6 +1294,7 @@ def check_first_window_fps():
     """
     mod = script_module()
     app = mod.LyricsCarousel.__new__(mod.LyricsCarousel)
+    app.args = types.SimpleNamespace(debug=True)
     lyric_lines = []
     app.warn = lambda message: lyric_lines.append(message)
     # A minimal but measurable draw: if the clock did not advance, the frame
@@ -2412,6 +2413,10 @@ def check_normalize_text():
         ("\uff3btag\uff3d", "[tag]"),
         ("\uff5bkey\uff5d", "{key}"),
         ("a\u3000b", "a b"),
+        ("\uff1a\uff0c\u3002\uff01\uff1f", ":,.!?"),
+        # ZWJ is part of Arabic/Indic shaping and emoji sequences: removing
+        # every C* category used to break those scripts.
+        ("a\u200db", "a\u200db"),
     ]
     for source, expected in cases:
         out = mod.normalize_text(source)
@@ -2452,11 +2457,11 @@ def check_readme():
 
     # Every dependency of the manifest, with its exact name.
     dependencies = manifest.get("dependencies") or []
-    for dependencia in dependencies:
+    for dependency in dependencies:
         check(
-            f"the README mentions the dependency `{dependencia}`",
-            f"`{dependencia}`" in readme,
-            dependencia,
+            f"the README mentions the dependency `{dependency}`",
+            f"`{dependency}`" in readme,
+            dependency,
         )
 
     # Every entry (widget, panel) with its id.
@@ -2740,18 +2745,18 @@ def check_fetch_prefers_the_word_timing():
             saved_values = []
             mod.save_cache = lambda *args: saved_values.append(args)
 
-            def lyric_line(text, with_chars=False):
+            def make_line(text, with_chars=False):
                 line = mod.LyricLine(1.0, 2.0, text)
                 if with_chars:
                     line.chars = [1.0 + index * 0.1 for index in range(len(text))]
                 return line
 
             def lrclib(track, log):
-                return [lyric_line("line lyric")], None
+                return [make_line("line lyric")], None
 
             def adapter(source, track, settings, log):
                 time.sleep(0.35)
-                return [lyric_line("word lyric", True)], None
+                return [make_line("word lyric", True)], None
 
             mod.fetch_lrclib = lrclib
             mod.run_adapter = adapter
@@ -3687,7 +3692,7 @@ def check_window_size_via_hyprctl():
         mod.subprocess.run = lambda args, **kwargs: types.SimpleNamespace(
             returncode=0,
             stdout=json.dumps([
-                {"class": "otra-ventana", "size": [800, 600]},
+                {"class": "another-window", "size": [800, 600]},
                 {"class": "noctalia-lyrics-carousel", "size": [1300, 900]},
             ]),
             stderr="",
@@ -3709,7 +3714,7 @@ def check_window_size_via_hyprctl():
         mod.subprocess.run = original
 
 
-def check_redimensionado_manual_se_guarda():
+def check_manual_resize_is_saved():
     """The size the user picks by hand is stored in pixels.
 
     Resizing the window with the mouse does not go through the panel, so the
@@ -3839,26 +3844,48 @@ def check_text_between_angle_brackets():
 
 
 def check_cache_json_is_not_an_object():
-    """A cache with a JSON that is not an object does not raise."""
-    with tempfile.TemporaryDirectory(prefix="lyrics-carousel-cache-") as cache:
-        with temporary_env({"XDG_CACHE_HOME": cache}):
-            mod = script_module()
-            mod.CACHE_DIR = cache
-            track = mod.Track("song", "artist", duration=100.0)
-            path = os.path.join(cache, mod.cache_key(track) + ".json")
-            with open(path, "w", encoding="utf-8") as handle:
-                handle.write("[]")
-            try:
-                outcome = mod.load_cache(track)
-            except Exception as error:  # noqa: BLE001
-                outcome = error
-            check(
-                "a cache that is not an object does not throw",
-                outcome is None,
-                repr(outcome)[:120],
-            )
+    """A damaged cache does not take the window down."""
+    payloads = (
+        "[]",
+        '{"lines": null}',
+        '{"lines": [[null, 1, "x"], [0, 1, "ok"]]}',
+        '{"lines": [[0, 1, "ok", ["a", "b"]]]}',
+    )
+    for payload in payloads:
+        with tempfile.TemporaryDirectory(prefix="lyrics-carousel-cache-") as cache:
+            with temporary_env({"XDG_CACHE_HOME": cache}):
+                mod = script_module()
+                mod.CACHE_DIR = cache
+                track = mod.Track("song", "artist", duration=100.0)
+                path = os.path.join(cache, mod.cache_key(track) + ".json")
+                with open(path, "w", encoding="utf-8") as handle:
+                    handle.write(payload)
+                try:
+                    outcome = mod.load_cache(track)
+                except Exception as error:  # noqa: BLE001
+                    outcome = error
+                check(
+                    "a damaged cache does not throw: " + payload,
+                    not isinstance(outcome, Exception),
+                    repr(outcome)[:120],
+                )
 
 
+def check_duplicate_timestamps():
+    """Bilingual LRC files repeat the timestamp: no line is dropped."""
+    mod = script_module()
+    lines = mod.parse_lrc("[00:10.00]first\n[00:10.00]second\n[00:14.00]third\n")
+    texts = [line.text for line in lines]
+    check(
+        "duplicate timestamps keep every line",
+        texts == ["first", "second", "third"],
+        repr(texts),
+    )
+    check(
+        "duplicate lines share the next boundary",
+        len(lines) == 3 and lines[0].duration == lines[1].duration,
+        repr([line.duration for line in lines]),
+    )
 def check_pause_key_survives_playerctl_failure():
     """If playerctl fails, the pause key does not kill the window."""
     with tempfile.TemporaryDirectory(prefix="lyrics-carousel-cache-") as cache:
@@ -3893,7 +3920,7 @@ def check_shortcut_is_not_reverted():
             mod = script_module()
             app = _config_app(mod)
             app._save_override = lambda key, value, kind="string": app.pending_overrides.__setitem__(
-                key, value
+                key, (value, time.monotonic())
             )
             app.handle_key("d")
             original = mod.load_settings
@@ -3999,13 +4026,22 @@ def check_centered_hints():
 
 
 
-def check_translate_lyrics_false_default():
-    """translate_lyrics default false."""
+def check_version_matches_manifest():
+    """The script reports the same version the manifest ships."""
     mod = script_module()
+    try:
+        import tomllib
+
+        with open(os.path.join(PLUGIN_DIR, "plugin.toml"), "rb") as handle:
+            manifest = tomllib.load(handle)
+    except Exception as error:  # noqa: BLE001
+        check("the manifest can be read for the version", False, repr(error)[:120])
+        return
+    expected = str(manifest.get("version", ""))
     check(
-        "translate_lyrics default false",
-        mod.DEFAULTS.get("translate_lyrics") == False,
-        mod.DEFAULTS.get("translate_lyrics"),
+        "the script version matches the manifest",
+        mod.VERSION == expected,
+        f"script={mod.VERSION!r} manifest={expected!r}",
     )
 
 
@@ -4339,10 +4375,10 @@ def check_limits_of_panel_and_script():
         return
     block = re.search(r"local LIMITS = \{(.*?)\n\}", text, re.S)
     if block:
-        for lyric_line in block.group(1).splitlines():
+        for line_text in block.group(1).splitlines():
             found = re.match(
                 r"\s*(\w+)\s*=\s*\{\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*\}",
-                lyric_line,
+                line_text,
             )
             if found:
                 copy[found.group(1)] = (
@@ -4360,19 +4396,19 @@ def check_limits_of_panel_and_script():
     except OSError as error:
         check("the script can be read", False, repr(error)[:120])
         return
-    crops = {}
+    ranges = {}
     for found in re.finditer(
         r'cfg\["(\w+)"\]\s*=\s*max\(\s*(-?[\d.]+)\s*,\s*min\(\s*(-?[\d.]+)\s*,',
         script_source,
     ):
-        crops[found.group(1)] = (
+        ranges[found.group(1)] = (
             float(found.group(2)),
             float(found.group(3)),
         )
     check(
         "the script clips with the panel ranges",
-        crops == copy,
-        f"script={sorted(crops.items())} panel={sorted(copy.items())}",
+        ranges == copy,
+        f"script={sorted(ranges.items())} panel={sorted(copy.items())}",
     )
 
     # The helper no longer clips ranges: the manifest does not declare them.
@@ -4381,7 +4417,7 @@ def check_limits_of_panel_and_script():
     # the limits back in the manifest, the helper would silently lose values.
     import importlib.util
 
-    spec = importlib.util.spec_from_file_location("set_setting_sin_tomllib", HELPER)
+    spec = importlib.util.spec_from_file_location("set_setting_without_tomllib", HELPER)
     helper = importlib.util.module_from_spec(spec)
     try:
         spec.loader.exec_module(helper)
@@ -4526,13 +4562,13 @@ def check_helper_formats():
         ("glyph", "Music!", "string", False),
         ("custom_color", "#12ab34", "string", True),
         ("custom_color", "#fff", "string", False),
-        ("custom_color", "rojo", "string", False),
+        ("custom_color", "not-a-color", "string", False),
         ("font_family", "Iosevka", "string", True),
         ("font_family", "", "string", False),
         ("font_family", "Iosevka\nMono", "string", False),
     )
-    for setting_key, setting_value, tipo, valido in cases:
-        with tempfile.TemporaryDirectory(prefix="lyrics-carousel-formatos-") as temporary:
+    for setting_key, setting_value, kind, valid in cases:
+        with tempfile.TemporaryDirectory(prefix="lyrics-carousel-formats-") as temporary:
             env = test_environment(temporary)
             state_value = os.path.join(temporary, ".local", "state", "noctalia")
             os.makedirs(state_value, exist_ok=True)
@@ -4540,7 +4576,7 @@ def check_helper_formats():
             with open(settings_path, "w", encoding="utf-8") as handle:
                 handle.write("")
             process = subprocess.run(
-                [sys.executable, HELPER, "persist", setting_key, setting_value, tipo],
+                [sys.executable, HELPER, "persist", setting_key, setting_value, kind],
                 capture_output=True,
                 text=True,
                 timeout=15,
@@ -4560,7 +4596,7 @@ def check_helper_formats():
             except (OSError, ValueError):
                 overrides = {}
             settings_file = read_settings(settings_path)
-            if valido:
+            if valid:
                 check(
                     f"the helper saves {setting_key}={setting_value!r}",
                     process.returncode == 0
@@ -4577,49 +4613,45 @@ def check_helper_formats():
                 )
 
 
-def check_helper_accepts_the_new_keys():
-    """The helper knows every key the panel and the script use.
+def check_helper_tolerates_layout():
+    """Hand-formatted settings.toml is updated, not duplicated."""
+    import importlib.util
 
-    The helper is another write path (the one of the panel and the one of
-    the window shortcuts). If a key is missing from its list, it answers
-    that the key is unknown and the setting is silently lost: that is why
-    the visualizer switch was not being saved.
-    """
-    cases = (
-        ("visualizer", "false", "bool", False),
-        ("translate_lyrics", "true", "bool", True),
-        ("visualizer_position", "left", "string", "left"),
-        ("visualizer_position", "arriba", "string", None),
-        ("visualizer_coverage", "40", "int", 40),
+    spec = importlib.util.spec_from_file_location("set_setting_layout", HELPER)
+    helper = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(helper)
+    source = (
+        '[plugin_settings."faminec/lyrics-carousel"] # hand edited\n'
+        "font_size=22\n"
+        "karaoke = true\n"
     )
-    for setting_key, setting_value, tipo, expected in cases:
-        with tempfile.TemporaryDirectory(prefix="lyrics-carousel-claves-") as temporary:
-            env = test_environment(temporary)
-            state_value = os.path.join(temporary, ".local", "state", "noctalia")
-            os.makedirs(state_value, exist_ok=True)
-            settings_path = os.path.join(state_value, "settings.toml")
-            with open(settings_path, "w", encoding="utf-8") as handle:
-                handle.write("")
-            process = subprocess.run(
-                [sys.executable, HELPER, "persist", setting_key, setting_value, tipo],
-                capture_output=True,
-                text=True,
-                timeout=15,
-                env=env,
-            )
-            settings_file = read_settings(settings_path)
-            if expected is None:
-                check(
-                    f"the helper rejects {setting_key}={setting_value!r}",
-                    process.returncode != 0 and setting_key not in settings_file,
-                    f"code={process.returncode} settings={settings_file.get(setting_key)!r}",
-                )
-            else:
-                check(
-                    f"the helper saves {setting_key}={setting_value!r}",
-                    process.returncode == 0 and settings_file.get(setting_key) == expected,
-                    f"code={process.returncode} settings={settings_file.get(setting_key)!r}",
-                )
+    updated = helper.patch(source, "font_size", "26")
+    check(
+        "the helper replaces a key written without spaces",
+        updated.count("font_size") == 1 and "font_size = 26" in updated,
+        updated,
+    )
+    check(
+        "the helper keeps one section header",
+        updated.count('[plugin_settings."faminec/lyrics-carousel"]') == 1,
+        updated,
+    )
+    added = helper.patch(source, "width", "1200")
+    check(
+        "the helper appends inside the existing section",
+        added.count('[plugin_settings."faminec/lyrics-carousel"]') == 1
+        and "width = 1200" in added,
+        added,
+    )
+    raw = helper.format_value("line1\nline2\x01", "string")
+    import tomllib
+
+    try:
+        tomllib.loads("x = " + raw)
+        safe = True
+    except tomllib.TOMLDecodeError:
+        safe = False
+    check("the helper escapes control characters", safe, repr(raw))
 
 
 def main(argv):
@@ -4667,8 +4699,8 @@ def main(argv):
     # 2) the data directory can be created and written to. It is done in a
     #    temporary one: the self-test cannot create or write in the real data
     #    directory of the user.
-    with tempfile.TemporaryDirectory(prefix="lyrics-carousel-datos-") as temporary:
-        test_data = os.path.join(temporary, "datos")
+    with tempfile.TemporaryDirectory(prefix="lyrics-carousel-data-") as temporary:
+        test_data = os.path.join(temporary, "data")
         try:
             os.makedirs(test_data, exist_ok=True)
             created = os.path.isdir(test_data)
@@ -4776,6 +4808,7 @@ def main(argv):
     check_settings_limits()
     check_limits_of_panel_and_script()
     check_helper_formats()
+    check_helper_tolerates_layout()
     check_empty_title_does_not_search_again()
     check_adapter_timeout()
     check_real_times_do_not_overlap()
@@ -4799,16 +4832,17 @@ def main(argv):
     check_estimated_times_stay_inside_the_song()
     check_geometry_is_clipped_to_the_screen()
     check_window_size_via_hyprctl()
-    check_redimensionado_manual_se_guarda()
+    check_manual_resize_is_saved()
     check_text_between_angle_brackets()
     check_enhanced_lrc_to_characters()
     check_lrclib_prefers_the_enhanced_lyrics()
     check_cache_json_is_not_an_object()
+    check_duplicate_timestamps()
     check_pause_key_survives_playerctl_failure()
     check_shortcut_is_not_reverted()
+    check_version_matches_manifest()
     check_panel_covers_the_manifest()
     check_centered_hints()
-    check_translate_lyrics_false_default()
     check_settings_are_split()
     check_panel_attached()
 

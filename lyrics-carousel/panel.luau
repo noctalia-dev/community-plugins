@@ -1215,9 +1215,10 @@ function onIpc(event, payload)
   if event == "launch" then
     launch()
   elseif event == "toggle" then
-    -- Toggles a boolean setting: toggle marker
-    if type(payload) == "string" and settingsLib.BOOL_KEYS[payload] then
-      toggleKey(payload)
+    -- Toggles a boolean setting: toggle marker (or its old alias).
+    local key = settingsLib.normalizeKey(payload)
+    if type(payload) == "string" and settingsLib.BOOL_KEYS[key] then
+      toggleKey(key)
     end
   elseif event == "set" then
     -- Sets a setting: "set font_size=26 int" or "set font_size 26 int"

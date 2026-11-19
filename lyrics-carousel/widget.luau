@@ -60,8 +60,9 @@ function onIpc(event, payload)
       settings.apply(key, value)
     end
   elseif event == "toggle" then
-    if type(payload) == "string" and settings.BOOL_KEYS[payload] then
-      settings.apply(payload, nil)
+    local key = settings.normalizeKey(payload)
+    if type(payload) == "string" and settings.BOOL_KEYS[key] then
+      settings.apply(key, nil)
     end
   elseif event == "refresh" then
     render()

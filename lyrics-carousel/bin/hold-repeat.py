@@ -115,6 +115,16 @@ def main() -> int:
                 try:
                     data = os.read(fd, _EVENT.size * 64)
                 except OSError:
+                    data = b""
+                if not data:
+                    # The device disappeared (unplugged, receiver asleep):
+                    # select() reports it readable forever, so keeping the fd
+                    # would spin the loop at 100% CPU.
+                    try:
+                        os.close(fd)
+                    except OSError:
+                        pass
+                    devices.pop(fd, None)
                     continue
                 for offset in range(0, len(data) - _EVENT.size + 1, _EVENT.size):
                     _sec, _usec, event_type, code, value = _EVENT.unpack_from(
@@ -126,6 +136,12 @@ def main() -> int:
                         print(line, flush=True)
             for line in state.due(time.monotonic()):
                 print(line, flush=True)
+            if not devices:
+                print(
+                    "hold-repeat: every pointing device disappeared",
+                    file=sys.stderr,
+                )
+                return 1
     except KeyboardInterrupt:
         return 0
     finally:

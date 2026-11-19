@@ -43,7 +43,6 @@ local DEFAULTS = {
   visible_above = 6,
   visible_below = 6,
   glyph = "music",
-  translate_lyrics = false,
 }
 
 local BOOL_KEYS = {
@@ -70,10 +69,21 @@ M.DEFAULTS = DEFAULTS
 --- external command line keeps working after a setting was renamed.
 local ALIASES = {
   instrumental = "instrumental_marks",
-  visualizer_position = "position",
 }
 
 M.ALIASES = ALIASES
+
+--- Resolves an old setting name to the current one.
+---
+--- The IPC handlers use it before checking a key: an alias such as
+--- `instrumental` must reach the same switch as `instrumental_marks`, or the
+--- command is accepted by one entry point and silently ignored by the other.
+function M.normalizeKey(key)
+  if type(key) ~= "string" then
+    return key
+  end
+  return ALIASES[key] or key
+end
 
 --- Ranges (min, max) for the numeric settings.
 ---
@@ -408,6 +418,7 @@ function M.parse(payload)
     rest = table.concat(pieces, " ")
   end
   key = key:gsub("^-+", "")
+  key = M.normalizeKey(key)
   if DEFAULTS[key] == nil then
     return nil
   end

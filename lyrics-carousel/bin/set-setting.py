@@ -32,7 +32,6 @@ import fcntl
 import json
 import os
 import re
-import sys
 import tempfile
 
 try:
@@ -81,19 +80,23 @@ PATTERNS = {
     "instrumental_text": r"^[^\r\n]{0,24}$",
 }
 
-# The limits (min/max) are not hardcoded here: they are read from the
-# manifest, which is the source of truth. If they were hardcoded, a change
-# in plugin.toml would leave the plugin writing values that its own
-# settings page does not allow.
+# The manifest no longer declares ranges (only the bar icon): the script
+# clips the values when it reads them. The helper still reads any range the
+# manifest declares, so a future setting with min/max is applied without
+# duplicating the numbers here.
 _MANIFEST_LIMITS = None
 
 
 def manifest_limits() -> dict:
-    """The ranges (min, max) declared by the plugin manifest.
+    """The ranges (min, max) declared by the plugin manifest, if any.
+
+    The manifest currently declares only the bar icon, so this is normally
+    empty and values are clipped by the script when it reads them. Keeping
+    the resolver means a setting that declares min/max later is clamped by
+    the helper too, without a second hand-written copy of the numbers.
 
     Without tomllib (Python < 3.11) the manifest is read with a regular
-    expression: otherwise the clamping would silently disappear and the
-    helper would write values that the settings page does not allow.
+    expression, so the clamp does not silently disappear on old Pythons.
     """
     global _MANIFEST_LIMITS
     if _MANIFEST_LIMITS is not None:
@@ -197,11 +200,6 @@ def clamp_value(key: str, value):
 def prepare(key: str, value, kind: str):
     """Converts the value to its type, clamps it and validates its format."""
     prepared = clamp_value(key, parse_value(value, kind))
-    # visualizer_position: manual validation (no alternation | in the regex)
-    if key == "visualizer_position":
-        if not isinstance(prepared, str) or prepared not in ("top", "bottom", "left", "right"):
-            raise ValueError(f"invalid format for {key}: {value!r}")
-        return prepared
     pattern = PATTERNS.get(key)
     if pattern is not None and (
         not isinstance(prepared, str) or re.fullmatch(pattern, prepared) is None
@@ -218,20 +216,43 @@ def format_value(value: str, kind: str) -> str:
     if kind == "float":
         return str(float(value))
     escaped = str(value).replace("\\", "\\\\").replace('"', '\\"')
+    escaped = escaped.replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t")
+    escaped = "".join(
+        ch if 0x20 <= ord(ch) != 0x7F else f"\\u{ord(ch):04X}"
+        for ch in escaped
+    )
     return f'"{escaped}"'
 
 
+SECTION_RE = re.compile(
+    r'^\s*\[\s*plugin_settings\s*\.\s*["\']'
+    + re.escape(PLUGIN_ID)
+    + r'["\']\s*\]\s*(?:#.*)?$'
+)
+
+
+def _key_matcher(key: str):
+    """Matches an assignment to `key`, with or without spaces around `=`."""
+    return re.compile(r"^\s*" + re.escape(key) + r"\s*=")
+
+
 def patch(text: str, key: str, raw_value: str) -> str:
-    """Inserts or replaces a key inside the plugin section."""
+    """Inserts or replaces a key inside the plugin section.
+
+    The section header and the keys are matched with a regular expression:
+    Noctalia writes them in one format, but a hand-edited file (a trailing
+    comment, `font_size=22` without spaces) must not make the helper append
+    a second table or a duplicate key. That would turn the whole file into
+    invalid TOML and Noctalia would discard the plugin configuration.
+    """
     lines = text.split("\n")
     start = None
     end = len(lines)
     for index, line in enumerate(lines):
-        stripped = line.strip()
-        if stripped == SECTION:
+        if start is None and SECTION_RE.match(line):
             start = index
             continue
-        if start is not None and stripped.startswith("[") and stripped.endswith("]"):
+        if start is not None and re.match(r"^\s*\[", line):
             end = index
             break
     if start is None:
@@ -255,9 +276,10 @@ def patch(text: str, key: str, raw_value: str) -> str:
             seen.add(name)
         clean.append(line)
     body = clean
+    matcher = _key_matcher(key)
     replaced = False
     for index, line in enumerate(body):
-        if line.strip().startswith(key + " "):
+        if matcher.match(line):
             if not replaced:
                 body[index] = f"{key} = {raw_value}"
                 replaced = True
@@ -277,7 +299,6 @@ def patch(text: str, key: str, raw_value: str) -> str:
                 break
         body.insert(insert_at, f"{key} = {raw_value}")
     return "\n".join(lines[: start + 1] + body + lines[end:])
-
 
 def parse_args(argv):
     pairs = []
@@ -652,6 +673,20 @@ def _write(text, pairs):
     if updated == text:
         return 0
 
+    # Validate before writing: a duplicate table/key or an unescaped control
+    # character must fail here, never after settings.toml has been replaced.
+    if tomllib is not None:
+        try:
+            check = tomllib.loads(updated)
+        except tomllib.TOMLDecodeError as error:
+            print(f"refusing to write invalid TOML: {error}", file=sys.stderr)
+            return 1
+        section = (check.get("plugin_settings") or {}).get(PLUGIN_ID) or {}
+        for key, _value, _kind in pairs:
+            if key not in section:
+                print(f"could not save {key}", file=sys.stderr)
+                return 1
+
     settings = settings_path()
     if not ensure_dir(settings):
         return 1
@@ -676,22 +711,6 @@ def _write(text, pairs):
                 pass
         print(f"could not write: {error}", file=sys.stderr)
         return 1
-
-    # Check: the file must still be valid TOML and hold the written values.
-    # If anything fails, it is reported with an error code.
-    if tomllib is None:
-        return 0
-    try:
-        with open(settings, "rb") as handle:
-            check = tomllib.load(handle)
-    except (OSError, tomllib.TOMLDecodeError) as error:
-        print(f"the file became unreadable: {error}", file=sys.stderr)
-        return 1
-    section = (check.get("plugin_settings") or {}).get(PLUGIN_ID) or {}
-    for key, value, _ in pairs:
-        if key not in section:
-            print(f"could not save {key}", file=sys.stderr)
-            return 1
     return 0
 
 

@@ -205,8 +205,8 @@ class ImageRenderer:
         whole image is needed to crop and paste the sung portion, so the
         real one is looked up first.
         """
-        for atributo in ("_image", "image", "im"):
-            candidate_image = getattr(draw, atributo, None)
+        for attribute in ("_image", "image", "im"):
+            candidate_image = getattr(draw, attribute, None)
             if candidate_image is not None and hasattr(candidate_image, "crop"):
                 return candidate_image
         return None
