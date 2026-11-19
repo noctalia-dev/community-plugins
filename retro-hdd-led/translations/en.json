@@ -1,0 +1,61 @@
+{
+  "settings": {
+    "mode": {
+      "label": "Read and write",
+      "description": "One LED for any disk activity, or separate LEDs for reading and writing.",
+      "combined": "Shared LED",
+      "split": "Separate LEDs"
+    },
+    "per_disk": {
+      "label": "One LED per disk",
+      "description": "Show separate LEDs for every watched disk instead of one for all of them."
+    },
+    "read_color": {
+      "label": "LED color",
+      "description": "Color of the shared LED, or of the read LED."
+    },
+    "auto_write_color": {
+      "label": "Automatic write color",
+      "description": "Use a lighter or darker variant of the LED color for the write LED."
+    },
+    "write_color": {
+      "label": "Write LED color",
+      "description": "Used with separate LEDs."
+    },
+    "disk_colors": {
+      "label": "Colors per disk",
+      "description": "Disk name, then a color or \"read,write\" colors, for example primary,#FF8800. Overrides the colors above for that disk."
+    },
+    "size": {
+      "label": "LED size",
+      "description": "Diameter of each LED in pixels."
+    },
+    "off_brightness": {
+      "label": "Idle brightness (%)",
+      "description": "How bright an LED stays while the disks are idle. 0 hides it until there is activity."
+    },
+    "glow": {
+      "label": "Glow",
+      "description": "Soft edge on a lit LED."
+    },
+    "disks": {
+      "label": "Disks",
+      "description": "Device names from /proc/diskstats, for example nvme0n1 or sda. Empty watches every physical disk."
+    },
+    "disk_order": {
+      "label": "Order",
+      "description": "Disks listed here come first, in this order. All other physical disks follow sorted by name, including drives plugged in later. Not used when Disks is set."
+    },
+    "poll_ms": {
+      "label": "Poll interval (ms)",
+      "description": "How often disk activity is checked. Lower values catch shorter bursts."
+    }
+  },
+  "tooltip": {
+    "title": "Disk activity",
+    "read": "Read {rate}",
+    "write": "Write {rate}",
+    "not_found": "not found",
+    "no_disks": "No physical disks found"
+  }
+}

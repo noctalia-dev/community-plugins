@@ -1,0 +1,117 @@
+# Retro HDD LED for Noctalia: a bar widget that blinks while the disks
+# read or write, like the HDD LED on the front of old PC cases.
+
+id = "dmopp/retro-hdd-led"
+name = "Retro HDD LED"
+version = "1.0.0"
+plugin_api = 31
+author = "dMopp"
+license = "MIT"
+icon = "server"
+description = "A small bar LED that blinks while your disks read or write, like the HDD light on old PC cases."
+tags = ["bar", "indicator", "hardware", "system", "fun"]
+dependencies = []
+
+[[widget]]
+id = "led"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "mode"
+  type = "select"
+  label_key = "settings.mode.label"
+  description_key = "settings.mode.description"
+  default = "combined"
+  options = [
+    { value = "combined", label_key = "settings.mode.combined" },
+    { value = "split", label_key = "settings.mode.split" },
+  ]
+
+  [[widget.setting]]
+  key = "per_disk"
+  type = "bool"
+  label_key = "settings.per_disk.label"
+  description_key = "settings.per_disk.description"
+  default = false
+
+  [[widget.setting]]
+  key = "disks"
+  type = "string_list"
+  label_key = "settings.disks.label"
+  description_key = "settings.disks.description"
+  default = []
+
+  [[widget.setting]]
+  key = "disk_order"
+  type = "string_list"
+  label_key = "settings.disk_order.label"
+  description_key = "settings.disk_order.description"
+  default = []
+
+  [[widget.setting]]
+  key = "read_color"
+  type = "color"
+  label_key = "settings.read_color.label"
+  description_key = "settings.read_color.description"
+  default = "primary"
+
+  [[widget.setting]]
+  key = "auto_write_color"
+  type = "bool"
+  label_key = "settings.auto_write_color.label"
+  description_key = "settings.auto_write_color.description"
+  default = true
+  visible_when = { key = "mode", values = ["split"] }
+
+  [[widget.setting]]
+  key = "write_color"
+  type = "color"
+  label_key = "settings.write_color.label"
+  description_key = "settings.write_color.description"
+  default = "primary"
+  visible_when = { key = "auto_write_color", values = ["false"] }
+
+  [[widget.setting]]
+  key = "disk_colors"
+  type = "string_map"
+  label_key = "settings.disk_colors.label"
+  description_key = "settings.disk_colors.description"
+  default = {}
+  visible_when = { key = "per_disk", values = ["true"] }
+
+  [[widget.setting]]
+  key = "size"
+  type = "int"
+  label_key = "settings.size.label"
+  description_key = "settings.size.description"
+  default = 8
+  min = 4
+  max = 24
+
+  [[widget.setting]]
+  key = "off_brightness"
+  type = "int"
+  label_key = "settings.off_brightness.label"
+  description_key = "settings.off_brightness.description"
+  default = 20
+  min = 0
+  max = 100
+  step = 5
+
+  [[widget.setting]]
+  key = "glow"
+  type = "bool"
+  label_key = "settings.glow.label"
+  description_key = "settings.glow.description"
+  default = true
+
+  [[widget.setting]]
+  key = "poll_ms"
+  type = "int"
+  label_key = "settings.poll_ms.label"
+  description_key = "settings.poll_ms.description"
+  default = 100
+  min = 30
+  max = 1000
+  step = 10
+  advanced = true
