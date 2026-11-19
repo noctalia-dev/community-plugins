@@ -91,7 +91,7 @@ class LrclibAdapterTest(unittest.TestCase):
 
         self.assertEqual([item["id"] for item in ranked], [10])
 
-    def test_prefers_duration_bucket_before_sync_status(self):
+    def test_rejects_large_duration_mismatch_even_when_synced(self):
         results = [
             {
                 "id": 30,
@@ -106,7 +106,7 @@ class LrclibAdapterTest(unittest.TestCase):
 
         ranked = lyric_sources.lrclib_candidates(results, self.track)
 
-        self.assertEqual([item["id"] for item in ranked], [10, 30])
+        self.assertEqual([item["id"] for item in ranked], [10])
 
     def test_prefers_duration_match_over_album_identity(self):
         results = [
@@ -115,7 +115,7 @@ class LrclibAdapterTest(unittest.TestCase):
                 "trackName": "Can't Stop",
                 "artistName": "Red Hot Chili Peppers",
                 "albumName": "By the Way",
-                "duration": 300,
+                "duration": 290,
                 "syncedLyrics": "[00:01.00]Long album version",
             },
             {
@@ -131,6 +131,36 @@ class LrclibAdapterTest(unittest.TestCase):
         ranked = lyric_sources.lrclib_candidates(results, self.track)
 
         self.assertEqual([item["id"] for item in ranked], [40, 30])
+
+    def test_prefers_usable_synced_lyrics_over_closer_plain_text(self):
+        self.results[1]["duration"] = 272
+        self.assertEqual([item["id"] for item in lyric_sources.lrclib_candidates(self.results, self.track)], [20, 10])
+
+    def test_rejects_alternate_recording_and_missing_artist(self):
+        alternate = dict(self.results[1], trackName="Can't Stop (Live)")
+        missing_artist = dict(self.results[1], artistName="")
+        self.assertEqual(lyric_sources.lrclib_candidates([alternate, missing_artist], self.track), [])
+
+    @mock.patch("lyric_sources.itunes_cover", return_value="")
+    @mock.patch("lyric_sources.request_json")
+    def test_skips_unparseable_candidate_and_previews_next(self, request_json, _itunes_cover):
+        broken = dict(self.results[1], id=5, syncedLyrics="[ar:Someone]", plainLyrics="")
+        request_json.return_value = [broken, self.results[1]]
+        result = lyric_sources.adapter_lrclib(self.track, {}, {})
+        self.assertEqual(result["selected_candidate_id"], "20")
+        self.assertEqual(result["candidates"][0]["preview"], ["Synced line"])
+
+    def test_generic_matcher_rejects_same_title_for_wrong_artist(self):
+        rows = [{"title": self.track["title"], "artist": "Unrelated Artist"}]
+        self.assertIsNone(lyric_sources.best_match(rows, self.track, lambda x: x["title"], lambda x: x["artist"]))
+
+    def test_single_word_lyric_is_not_a_credit(self):
+        lines = lyric_sources.parse_lrc("[00:01]Music\n[00:02]Words\n[00:03]Chorus\n[00:04]Composer: Jane")
+        self.assertEqual([line["text"] for line in lines], ["Music", "Words", "Chorus"])
+
+    def test_missing_catalogue_duration_is_converted_to_seconds(self):
+        result = lyric_sources.catalogue_candidate_metadata({"id": "77"}, "netease", self.track)
+        self.assertEqual(result["duration"], 269)
 
     def test_filters_missing_and_duplicate_candidate_ids(self):
         duplicate = dict(self.results[1])

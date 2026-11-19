@@ -1,4 +1,4 @@
-# Noctalia Lyrics 1.7.1
+# Noctalia Lyrics 1.8.0
 
 Synchronized lyrics for the Noctalia bar: word-level karaoke highlighting, animated line transitions, translations and romanization, multiple lyric sources, and a hover picker for choosing between alternative matches.
 
@@ -7,7 +7,7 @@ Synchronized lyrics for the Noctalia bar: word-level karaoke highlighting, anima
 | Field | Value |
 | --- | --- |
 | ID | `h465855hgg/lyrics` |
-| Entries | Bar widget: `lyrics`; panel: `selector`; shortcut: `open_selector`; service: `service` |
+| Entries | Bar widget: `lyrics`; panels: `selector`, `welcome`; shortcuts: `open_selector`, `open_welcome`; service: `service` |
 
 The line-slide animation requires Noctalia with plugin API 52. Older shells are held back to the 1.6.x release from the plugin source and use fade transitions.
 
@@ -61,9 +61,17 @@ Enable `h465855hgg/lyrics`, start its `service` entry, and add the `lyrics` bar 
 
 The left-click binding is broadcast to every lyrics widget; only the instance under the pointer changes its view.
 
+### Welcome and dependency check
+
+Open **Lyrics setup guide** from the control center or bind the `open_welcome` shortcut. The welcome panel and the lyrics selector are also available when no track is playing. It checks all five commands and Python SSL using Noctalia’s environment. If a dependency is missing, click the bar warning to open the guide. Choose a distribution to see and copy its installation instructions, then use **Check again**. The **Setup** button in the selector opens the guide, and **Open lyrics selector** in the guide switches back.
+
+```sh
+noctalia msg panel-toggle h465855hgg/lyrics:welcome
+```
+
 ### Choosing a lyric version
 
-When a source returns several matches, the `selector` panel lists them with source, duration, a `Δ` offset when the duration differs from the playing track, and the known format (`LRC` / `PLAIN`). The footer shows the applied format, for example `Applied: YRC · word`. The automatically chosen result prefers the closest duration.
+When a source returns several matches, the `selector` panel lists them with source, duration, a `Δ` offset when the duration differs from the playing track, and the known format (`LRC` / `PLAIN`). The footer shows the applied format, for example `Applied: YRC · word`. LRCLIB candidates include up to three preview lines. Other candidates show a preview when their lyrics have already been fetched. The automatic picker rejects incompatible recordings and prefers usable synced lyrics.
 
 Open the picker by hovering the widget for about half a second (the `selector_enabled` widget setting), from the `open_selector` shortcut in Settings → Keybinds, or directly:
 
@@ -71,7 +79,9 @@ Open the picker by hovering the widget for about half a second (the `selector_en
 noctalia msg panel-toggle h465855hgg/lyrics:selector
 ```
 
-`candidate_mode` selects **Choose** (show the picker) or **Best match** (always use the best-ranked result and disable the picker). A failed manual pick falls back to the best match, and the picker's **Best match** button discards the manual pick.
+`candidate_mode` selects **Choose** (show the picker) or **Best match** (always use the best-ranked result and hide alternative versions). A failed manual pick falls back to the best match, and the picker's **Best match** button discards the manual pick.
+
+The panel also shows lookup status, offers a retry when available, and adjusts timing for the current recording in 100 ms increments. Positive values show lyrics earlier. The per-track adjustment is saved and added to the global offset.
 
 ## Settings
 
@@ -81,7 +91,7 @@ Plugin-level settings are on the Lyrics page under Settings → Plugins:
 | --- | --- | --- | --- |
 | `lyrics_source` | select | `auto` | Fixed source, `auto` fallback mode, `mpris`, `external`, or `custom`. |
 | `lyrics_sources` | list | built-in order | Source order used by `auto`. |
-| `auto_source_routing` | bool | `true` | Try the source matching the player or media URL first. |
+| `auto_source_routing` | bool | `true` | Try the matching source first when it is in the configured source list. |
 | `candidate_mode` | select | `choose` | Show the picker or always use the best match. |
 | `translation_language` | select | `zh-Hans` | Preferred translation language. |
 | `lyrics_offset_ms` | int | `0` | Shift lyric timing (−10000…10000 ms). |
@@ -102,6 +112,9 @@ noctalia msg plugin h465855hgg/lyrics:service all toggle-playback
 noctalia msg plugin h465855hgg/lyrics:service all next
 noctalia msg plugin h465855hgg/lyrics:service all previous
 noctalia msg plugin h465855hgg/lyrics:service all clear
+noctalia msg plugin h465855hgg/lyrics:service all retry
+noctalia msg plugin h465855hgg/lyrics:service all offset +100
+noctalia msg plugin h465855hgg/lyrics:service all offset reset
 noctalia msg plugin h465855hgg/lyrics:service all push-lrc '<lrc text>'
 noctalia msg plugin h465855hgg/lyrics:service all push-json '<json>'
 noctalia msg plugin h465855hgg/lyrics:service all push-state '<json>'
@@ -113,11 +126,15 @@ Widget event: `noctalia msg plugin h465855hgg/lyrics:lyrics all toggle-view`.
 
 ## Notes
 
-Supported sources: LRCLIB, NetEase, QQ Music, Kugou, SPlayer, SPlayer Next, Qishui, Apple Music, Spotify, Musixmatch, a custom HTTP endpoint, MPRIS metadata, and an external push protocol. Network requests go to the selected sources; cached files live in Noctalia's plugin state directory.
+Automatic mode first checks for a same-name `.lrc` beside a local audio file. Noctalia’s `shell.offline_mode` blocks online lyric lookups. Local files, embedded MPRIS lyrics (when configured), and external pushes still work.
+
+Supported sources: LRCLIB, NetEase, QQ Music, Kugou, SPlayer, SPlayer Next, Qishui, Apple Music, Spotify, Musixmatch, a custom HTTP endpoint, MPRIS metadata, and an external push protocol. Network requests go to the selected sources; cached files and the per-track timing adjustments live in Noctalia's plugin state directory.
 
 Lyrics are translated in English and Simplified Chinese; other catalogs fall back to English for new keys.
 
 ## Screenshots
+
+![Welcome panel showing dependency status](screenshots/welcome-1.8.0.webp)
 
 ![Lyrics on the bar with album art](<screenshots/lyrics - 1.7.1.png>)
 

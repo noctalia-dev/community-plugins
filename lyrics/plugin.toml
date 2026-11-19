@@ -1,6 +1,6 @@
 id = "h465855hgg/lyrics"
 name = "Lyrics"
-version = "1.7.1"
+version = "1.8.0"
 plugin_api = 52
 author = "h465855hgg"
 license = "MIT"
@@ -238,6 +238,10 @@ advanced = true
 id = "open_selector"
 entry = "lyrics_shortcut.luau"
 
+[[shortcut]]
+id = "open_welcome"
+entry = "lyrics_welcome_shortcut.luau"
+
 # Headless background service: polls MPRIS metadata, fetches lyrics, publishes state.
 [[service]]
 id = "service"
@@ -249,6 +253,14 @@ id = "selector"
 entry = "lyrics_selector.luau"
 width = 520
 height = 380
+placement = "attached"
+open_near_click = true
+
+[[panel]]
+id = "welcome"
+entry = "lyrics_welcome_panel.luau"
+width = 540
+height = 390
 placement = "attached"
 open_near_click = true
 
