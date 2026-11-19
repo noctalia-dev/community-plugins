@@ -107,9 +107,11 @@ end
 local function trackOffsetKey(track)
   if type(track) ~= "table" then return "" end
   local durationSeconds = math.floor((tonumber(track.duration) or 0) / 1000000)
-  return tostring(track.trackId or "") .. "|" .. tostring(track.title or "") .. "|"
-    .. tostring(track.artist or "") .. "|" .. tostring(track.album or "")
-    .. "|" .. tostring(durationSeconds)
+  local url = tostring(track.mediaUrl or "")
+  if url ~= "" then return "url|" .. url end
+  -- Some MPRIS players assign a new track ID for every playback.
+  return noctalia.json.encode({ tostring(track.title or ""), tostring(track.artist or ""),
+    tostring(track.album or ""), durationSeconds }) or ""
 end
 
 local function setLyricsStatus(status)
