@@ -85,7 +85,7 @@ function M.rankColor(rank)
   elseif rank == "C" then
     return "secondary"
   end
-  return "outline"
+  return "on_surface_variant"
 end
 
 function M.openUrl(url)

@@ -77,9 +77,9 @@ local function itemRow(item, now)
     rankBadge(`CCF {item.ccf}`, Common.rankColor(item.ccf), noctalia.tr(`badge.ccf.{string.lower(ccfKey)}`)),
   }
   if item.core ~= nil and item.core ~= "N" then
-    table.insert(badges, rankBadge(`CORE {item.core}`, "outline", noctalia.tr("badge.core", { rank = item.core })))
+    table.insert(badges, rankBadge(`CORE {item.core}`, "on_surface_variant", noctalia.tr("badge.core", { rank = item.core })))
   end
-  table.insert(badges, rankBadge(item.sub, "outline", noctalia.tr("badge.area", {
+  table.insert(badges, rankBadge(item.sub, "on_surface_variant", noctalia.tr("badge.area", {
     code = item.sub,
     name = Common.CATEGORIES[item.sub] or item.sub,
   })))
@@ -316,12 +316,12 @@ local function detailView(item, now)
   local ccfKey = if item.ccf == "A" or item.ccf == "B" or item.ccf == "C" then item.ccf else "N"
   table.insert(badges, rankBadge(`CCF {item.ccf}`, Common.rankColor(item.ccf), noctalia.tr(`badge.ccf.{string.lower(ccfKey)}`)))
   if item.core ~= nil and item.core ~= "N" then
-    table.insert(badges, rankBadge(`CORE {item.core}`, "outline", noctalia.tr("badge.core", { rank = item.core })))
+    table.insert(badges, rankBadge(`CORE {item.core}`, "on_surface_variant", noctalia.tr("badge.core", { rank = item.core })))
   end
   if item.thcpl ~= nil and item.thcpl ~= "N" then
-    table.insert(badges, rankBadge(`THCPL {item.thcpl}`, "outline", noctalia.tr("badge.thcpl", { rank = item.thcpl })))
+    table.insert(badges, rankBadge(`THCPL {item.thcpl}`, "on_surface_variant", noctalia.tr("badge.thcpl", { rank = item.thcpl })))
   end
-  table.insert(badges, rankBadge(Common.CATEGORIES[item.sub] or item.sub, "outline", noctalia.tr("badge.area", {
+  table.insert(badges, rankBadge(Common.CATEGORIES[item.sub] or item.sub, "on_surface_variant", noctalia.tr("badge.area", {
     code = item.sub,
     name = Common.CATEGORIES[item.sub] or item.sub,
   })))
