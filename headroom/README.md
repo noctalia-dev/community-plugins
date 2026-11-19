@@ -136,6 +136,7 @@ is a setting of the widget, so two capsules can show different things; middle-cl
 | --- | --- | --- | --- |
 | `provider_claude`, `provider_codex`, `provider_antigravity` | `select` | `bar` | Where each provider appears: `bar` (bar and panel), `panel` (panel only) or `off` (never fetched or shown). |
 | `display` | `select` | `used` | Whether numbers, rings and meters show what you've `used` or what's `remaining`. Colors always follow usage. |
+| `default_ring_style` | `select` | `filled` | **Ring style** on the bar: **Modern (filled circle)** or **Classic (hollow ring)**. |
 | `notify` | `bool` | `true` | Notifies once when a window crosses `critical_percent`, and again when it resets. |
 | `notify_reset_credits` | `bool` | `true` | Notifies once when a reset credit has two days left. Shown when `notify` is on. |
 | `warn_percent` | `int` | `70` | Advanced. Usage at or above this turns amber. So does a window you'd be locked out of for at least a tenth of its length. |
@@ -148,6 +149,7 @@ is a setting of the widget, so two capsules can show different things; middle-cl
 | --- | --- | --- | --- |
 | `window` | `select` | `tightest` | The window each item shows: `tightest` (closest to its limit), the 5-hour `session`, or `weekly`. |
 | `bar_style` | `select` | `full` | Next to the logo: `full` (ring and percentage), `value` (percentage only) or `ring` (ring only). |
+| `ring_style` | `select` | `inherit` | Use the plugin setting, or choose `filled` or `hollow` for this widget. Applies when the widget shows a gauge. |
 | `bar_accounts` | `select` | `default` | With several accounts: only the `default` one (or the first signed-in one), or `all`. The panel always shows them all. |
 | `max_items` | `int` | `3` | The most items the capsule shows (1–8). If more qualify, it keeps the ones closest to their limits, forecast included. |
 

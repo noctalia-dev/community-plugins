@@ -1,5 +1,5 @@
 --!nonstrict
--- Pure modules with state over time: the scheduler and the notification latches.
+-- Tests for shared plugin modules.
 
 local t = require("./support/t")
 local env = require("./support/env")
@@ -9,6 +9,47 @@ local mods = env.modules(host)
 local scheduler = mods.require("lib/scheduler.luau")
 local notify = mods.require("lib/notify.luau")
 local model = mods.require("lib/model.luau")
+
+t.group("theme", function()
+  t.test("creates a hollow ring on first render", function()
+    local gaugeHost = env.host()
+    local theme = env.modules(gaugeHost).require("lib/theme.luau")
+    local path = theme.hollowRing(42, "primary", "#303030")
+
+    t.eq(path, "/data/rings/ring-42-88aaff-303030.svg")
+    local svg = gaugeHost.files[path]
+    t.ok(svg and svg:find('fill="none"', 1, true), "ring has a transparent center")
+    t.ok(svg and svg:find('stroke-dasharray="42 100"', 1, true), "arc shows the requested percentage")
+  end)
+end)
+
+t.group("bar", function()
+  t.test("follows the plugin ring style until the widget overrides it", function()
+    local host = env.host()
+    env.claudeCreds(host, "tok-a")
+    env.serveClaude(host, { ["tok-a"] = "a" })
+    env.start(host, "service.luau")
+    local bar = env.start(host, "bar.luau")
+
+    local function filled(node)
+      return node.type == "glyph" and node.props.name:match("^percentage%-")
+    end
+    local function hollow(node)
+      return node.type == "image" and node.props.path:match("/rings/ring%-")
+    end
+
+    t.eq(#env.find(host.barTree, filled), 1, "modern by default")
+    host.config.default_ring_style = "hollow"
+    bar.call("update")
+    t.eq(#env.find(host.barTree, hollow), 1, "classic from plugin settings")
+    host.config.ring_style = "filled"
+    bar.call("update")
+    t.eq(#env.find(host.barTree, filled), 1, "explicit widget style wins")
+    host.config.ring_style = "inherit"
+    bar.call("update")
+    t.eq(#env.find(host.barTree, hollow), 1, "widget follows the plugin again")
+  end)
+end)
 
 t.group("scheduler", function()
   -- Random runs of every event the service sends it. Invariants:

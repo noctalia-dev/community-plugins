@@ -164,6 +164,16 @@
         "default": "Default account only"
       }
     },
+    "ring_style": {
+      "label": "Ring style",
+      "default_description": "Default appearance of the usage indicator on the bar.",
+      "description": "Use the plugin setting or choose a style for this widget.",
+      "option": {
+        "inherit": "Use plugin setting",
+        "filled": "Modern (filled circle)",
+        "hollow": "Classic (hollow ring)"
+      }
+    },
     "bar_style": {
       "description": "What each item shows next to its logo.",
       "label": "Style",
