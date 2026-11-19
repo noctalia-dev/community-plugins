@@ -6,9 +6,9 @@
 -- light is read back from Noctalia's settings. Noctalia has no way to read brightness, so
 -- the built-in display's is read from sysfs, and an external monitor's with ddcutil.
 --
--- Dimming lowers hyprsunset's gamma when hyprsunset is installed: real dimming, which
--- screenshots do not show, but one level for all monitors. Elsewhere it draws the black
--- "dim" layer over each monitor.
+-- Dimming lowers hyprsunset's gamma in a Hyprland session with hyprsunset installed: real
+-- dimming, which screenshots do not show, but one level for all monitors. Elsewhere, and when
+-- hyprsunset does not answer, it draws the black "dim" layer over each monitor.
 --
 -- Publishes "screen-control.model" and takes commands on "screen-control.command".
 
@@ -27,6 +27,8 @@ local workspaces = {} -- active workspace name by output name
 local focused = nil -- focused output name, from hyprctl
 local gamma = nil -- the gamma last sent to hyprsunset, in percent
 local gammaStartedMs = -10000
+-- Set when hyprsunset did not answer after it was started: the layer dims from then on.
+local gammaFailed = false
 -- Noctalia's caffeine. Noctalia does not report it to plugins, but while it is on, Noctalia
 -- holds a logind idle inhibitor named "Caffeine", which systemd-inhibit lists.
 local caffeine = false
@@ -40,11 +42,15 @@ local function perWorkspace()
   return noctalia.getConfig("per_workspace") and noctalia.commandExists("hyprctl")
 end
 
--- Gamma when chosen and hyprsunset is there; the black layer otherwise.
+-- Gamma when chosen, in a Hyprland session, with hyprsunset there and answering; the black
+-- layer otherwise.
 local function useGamma()
-  return noctalia.getConfig("dim_method") ~= "overlay"
+  return noctalia.getConfig("dim_method") ~= "overlay" and not gammaFailed
+    and (noctalia.getenv("HYPRLAND_INSTANCE_SIGNATURE") or "") ~= ""
     and noctalia.commandExists("hyprsunset") and noctalia.commandExists("hyprctl")
 end
+
+local publish
 
 -- With gamma, one level covers all monitors; per workspace, it is the focused one's.
 local function dimKey(name)
@@ -99,7 +105,12 @@ local function setGamma(percent)
     if result.exitCode == 0 or percent >= 100 then
       return
     end
-    if noctalia.nowMs() - gammaStartedMs > 3000 then
+    if gammaStartedMs > 0 and noctalia.nowMs() - gammaStartedMs > 3000 then
+      -- Started before and still not answering: the layer takes over.
+      gammaFailed = true
+      gamma = nil
+      publish()
+    elseif gammaStartedMs <= 0 then
       gammaStartedMs = noctalia.nowMs()
       noctalia.runAsync({ "hyprsunset", "--identity", "--gamma", tostring(percent) })
     else
@@ -116,7 +127,7 @@ local function nightMode()
   return noctalia.getSetting("nightlight.force") and "on" or "scheduled"
 end
 
-local function publish()
+publish = function()
   local model = { monitors = {}, perWorkspace = perWorkspace() and true or false }
   local anyDim = false
   for _, monitor in ipairs(monitors) do

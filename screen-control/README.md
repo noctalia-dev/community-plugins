@@ -72,12 +72,14 @@ Pick **Layout** at the top of the panel. It works on Hyprland.
 - Changes apply at once. A change that can leave a screen dark, a new resolution or
   refresh rate, VRR, HDR, mirroring or turning a screen off, asks **Keep this layout?**
   for 15 seconds, and the widget shows a clock. **Keep** keeps it; **Undo**, or doing
-  nothing, puts the screens back as they were.
+  nothing, puts the screens back as they were. So does Noctalia stopping first, and the
+  next start too, if the screens did not go back.
 - **Reset** forgets the layout of the screens connected now and puts them back as they
   were before your first change, so Hyprland's own settings apply again.
 
 Screen Control knows a screen by its make, model and serial, never by the port it is
-plugged into. Each set of connected screens, such as the laptop alone or the laptop with a
+plugged into. Two screens that report the same, such as two monitors of one model without
+serials, are told apart by their port. Each set of connected screens, such as the laptop alone or the laptop with a
 monitor, keeps its own layout. A set of screens it has not seen keeps Hyprland's own
 layout until you change it.
 
@@ -127,6 +129,8 @@ noctalia msg plugin omerfuyar/screen-control:layout all undo
 
 ## Notes
 
+- Gamma dimming works in a Hyprland session. Elsewhere, or when hyprsunset does not
+  answer, the black layer dims instead.
 - Gamma dimming is one level for all screens, since hyprsunset sets every screen alike.
   It does not show in screenshots or recordings. When the plugin stops, gamma goes back
   to full.

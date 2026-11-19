@@ -11,7 +11,10 @@ local Layout = require("./lib/layout.luau")
 local POLL_MS = 3000
 local SETTLE_MS = 1500
 
-local data = { profiles = {}, ruled = {} } -- ruled: workspace id -> its rule before this plugin moved it, or false
+-- ruled: workspace id -> its rule before this plugin moved it, or false. unkept: while "Keep
+-- this layout?" waits, { key, screens } with the layout before the change, so a restart that
+-- comes before an answer, even after a crash, puts the screens back.
+local data = { profiles = {}, ruled = {}, unkept = nil }
 local dataPath = nil
 local live = nil -- the screens as Hyprland reports them
 local key = nil -- the set of connected screens
@@ -72,6 +75,9 @@ local function load()
     data.profiles = type(decoded.profiles) == "table" and decoded.profiles or {}
     -- An empty object reads back as a list.
     data.ruled = type(decoded.ruled) == "table" and #decoded.ruled == 0 and decoded.ruled or {}
+    local unkept = decoded.unkept
+    data.unkept = type(unkept) == "table" and type(unkept.key) == "string" and type(unkept.screens) == "table"
+      and unkept or nil
   end
 end
 
@@ -109,8 +115,18 @@ local function saveProfile()
   profile.original = profile.original or original
   profile.screens = fieldsOf(layout)
   data.profiles[key] = profile
+  data.unkept = nil
   original = nil
   save()
+end
+
+-- No change waits any more.
+local function settled()
+  pending = nil
+  if data.unkept then
+    data.unkept = nil
+    save()
+  end
 end
 
 local function onRead(screens, settling)
@@ -122,7 +138,12 @@ local function onRead(screens, settling)
     local profile = data.profiles[key]
     layout = merged(profile and profile.screens)
     seen = nil
-    if profile then
+    if data.unkept and data.unkept.key == key then
+      -- A change was not kept before Noctalia stopped: the layout before it comes back.
+      layout = merged(data.unkept.screens)
+      settled()
+      apply(layout)
+    elseif profile then
       apply(layout)
     else
       seen = Layout.signature(live)
@@ -170,7 +191,11 @@ local function change(screens, risky)
     original = fieldsOf(layout)
   end
   if risky then
-    pending = pending or { previous = Layout.copy(layout) }
+    if not pending then
+      pending = { previous = Layout.copy(layout) }
+      data.unkept = { key = key, screens = fieldsOf(pending.previous) }
+      save()
+    end
     pending.untilMs = noctalia.nowMs() + keepSeconds() * 1000
   end
   layout = screens
@@ -192,7 +217,7 @@ end
 local function undo()
   if pending then
     layout = pending.previous
-    pending = nil
+    settled()
     apply(layout)
     publish()
   end
@@ -200,7 +225,7 @@ end
 
 local function reset()
   local profile = data.profiles[key]
-  pending = nil
+  settled()
   if profile then
     data.profiles[key] = nil
     save()
@@ -293,13 +318,21 @@ function onOutputsChanged()
 end
 
 -- Turned off or removed, the plugin puts the screens back as they were before its first
--- change, and takes out its workspace rules, so Hyprland's own settings apply again.
+-- change, and takes out its workspace rules, so Hyprland's own settings apply again. On any
+-- other exit, a change that waits to be kept is undone; data.unkept stays, in case the undo
+-- does not reach Hyprland, so the next start undoes it too.
 function onExit(_, reason)
-  if reason ~= "disable" and reason ~= "uninstall" or not live then
+  if not live then
     return
   end
-  local profile = key and data.profiles[key]
-  Hyprland.applyNow(merged(profile and profile.original or fieldsOf(live)), data.ruled)
+  if reason == "disable" or reason == "uninstall" then
+    local profile = key and data.profiles[key]
+    Hyprland.applyNow(merged(profile and profile.original or (pending and fieldsOf(pending.previous)) or fieldsOf(live)),
+      data.ruled)
+    settled()
+  elseif pending then
+    Hyprland.applyNow(Layout.copy(pending.previous), data.ruled)
+  end
 end
 
 -- noctalia msg plugin omerfuyar/screen-control:layout all apply|keep|undo

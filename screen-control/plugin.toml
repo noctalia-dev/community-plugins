@@ -1,6 +1,6 @@
 id = "omerfuyar/screen-control"
 name = "Screen Control"
-version = "1.6.0"
+version = "1.6.1"
 plugin_api = 43
 author = "omerfuyar"
 license = "MIT"
