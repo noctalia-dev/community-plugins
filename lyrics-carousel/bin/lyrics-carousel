@@ -39,7 +39,7 @@ import urllib.parse
 import urllib.request
 
 APP = "lyrics-carousel"
-VERSION = "2.5.0"
+VERSION = "2.8.0"
 
 # Timeout of the lyrics lookup (seconds). The providers are slow: with 4 s a
 # lyrics file that takes 6 s was thrown away.
@@ -52,6 +52,23 @@ WORD_GRACE = 3.0
 # How long a song without a word-timed version is remembered, so the lookup
 # is not repeated on every playback (hours).
 WORD_CHECK_HOURS = 24 * 7
+
+# Window class of the floating lyrics window (set by lib/launch.luau). It is
+# what lets the script find its own window to pin it or to read its size.
+WINDOW_CLASS = "noctalia-lyrics-carousel"
+# The pin is a desired state, not an action: when the dispatch does not stick
+# (the window may still be appearing, or it is not floating yet) it is
+# retried every PIN_CHECK_STEP seconds for PIN_RETRY_SECONDS.
+PIN_CHECK_STEP = 0.5
+PIN_RETRY_SECONDS = 5.0
+# A shortcut change is stored through a background helper. The local value is
+# kept while settings.toml catches up; if the write failed, the value is
+# dropped after this many seconds instead of masking later panel changes.
+PENDING_SECONDS = 10.0
+
+# The deployed plugin directory has to stay clean: without this, importing the
+# sibling modules leaves a bin/__pycache__ inside it.
+sys.dont_write_bytecode = True
 
 # realpath: the script is launched through the symlink in ~/.local/bin. With
 # abspath the directory would be ~/.local/bin and the sibling modules
@@ -119,11 +136,11 @@ TEXTS = {
         "no_graphics": "the terminal does not support the graphics protocol",
         "unknown_reason": "unknown reason",
         "hints": [
+            "[q] quit  [space] pause  [d] direction  [k] karaoke  "
+            "[h] header  [m] marker  [g] ghost  [f] footer  [t] hints  "
+            "[c] accent  [+]/[-] size  [r] reload",
             "[q] quit  [space] pause  [d] direction  [k] karaoke  [r] reload",
-            "[q] quit  [space] pause  [d] dir  [r] reload",
             "[q] quit  [space] pause  [r] reload",
-            "[q] quit  [space] pause",
-            "[q] quit",
         ],
     },
     "es": {
@@ -144,11 +161,11 @@ TEXTS = {
         "no_graphics": "el terminal no admite el protocolo de gráficos",
         "unknown_reason": "motivo desconocido",
         "hints": [
+            "[q] salir  [espacio] pausa  [d] dirección  [k] karaoke  "
+            "[h] cabecera  [m] marca  [g] transición  [f] pie  [t] atajos  "
+            "[c] acento  [+]/[-] tamaño  [r] recargar",
             "[q] salir  [espacio] pausa  [d] dirección  [k] karaoke  [r] recargar",
-            "[q] salir  [espacio] pausa  [d] dir  [r] recargar",
             "[q] salir  [espacio] pausa  [r] recargar",
-            "[q] salir  [espacio] pausa",
-            "[q] salir",
         ],
     },
 }
@@ -177,10 +194,50 @@ def detect_language(choice: str = "auto") -> str:
 # --------------------------------------------------------------------------
 
 
+# Fullwidth punctuation that some lyrics sources emit (e.g. NetEase) but that
+# the configured display fonts often lack. Map to ASCII equivalents so they
+# render instead of showing as missing-glyph boxes.
+FULLWIDTH_PUNCTUATION = str.maketrans({
+    "\uff08": "(",  # fullwidth left parenthesis
+    "\uff09": ")",  # fullwidth right parenthesis
+    "\uff3b": "[",  # fullwidth left square bracket
+    "\uff3d": "]",  # fullwidth right square bracket
+    "\uff5b": "{",  # fullwidth left curly bracket
+    "\uff5d": "}",  # fullwidth right curly bracket
+    "\u3000": " ",  # ideographic space
+    "\uff01": "!",  # fullwidth exclamation mark
+    "\uff0c": ",",  # fullwidth comma
+    "\uff0e": ".",  # fullwidth full stop
+    "\uff0f": "/",  # fullwidth solidus
+    "\uff1a": ":",  # fullwidth colon
+    "\uff1b": ";",  # fullwidth semicolon
+    "\uff1f": "?",  # fullwidth question mark
+    "\uff3c": "\\",  # fullwidth reverse solidus
+    "\uff5e": "~",  # fullwidth tilde
+    "\u3001": ",",  # ideographic comma
+    "\u3002": ".",  # ideographic full stop
+})
+
+
+def _is_control(ch: str) -> bool:
+    """True for characters that must not reach the renderer.
+
+    Cc (C0/C1 controls) and Cs (lone surrogates) are removed, and so are the
+    bidi overrides that can reorder a whole line. Cf is kept: ZWJ/ZWNJ are
+    part of Arabic/Indic text and of emoji sequences, and a soft hyphen is
+    harmless. Stripping every C* category used to break those scripts.
+    """
+    category = unicodedata.category(ch)
+    if category in ("Cc", "Cs"):
+        return True
+    return "\u202a" <= ch <= "\u202e" or "\u2066" <= ch <= "\u2069"
+
+
 def normalize_text(value: str) -> str:
     value = unicodedata.normalize("NFC", value or "")
+    value = value.translate(FULLWIDTH_PUNCTUATION)
     value = value.replace("\t", " ").replace("\r", " ").replace("\n", " ")
-    value = "".join(ch for ch in value if ch == " " or unicodedata.category(ch)[0] != "C")
+    value = "".join(ch for ch in value if ch == " " or not _is_control(ch))
     return re.sub(r"\s+", " ", value).strip()
 
 
@@ -231,7 +288,7 @@ def ease_in_out(progress: float) -> float:
     return value**3 * (value * (value * 6.0 - 15.0) + 10.0)
 
 
-def remainder_for_next_frame(start_time: float, ahora: float, interval: float) -> float:
+def remainder_for_next_frame(start_time: float, now: float, interval: float) -> float:
     """How long until the next frame with a fixed step rate.
 
     The deadline is counted from the START of the frame: if the frame took
@@ -240,18 +297,18 @@ def remainder_for_next_frame(start_time: float, ahora: float, interval: float) -
     `work + interval`: 36 fps instead of 60, and the carousel looked
     choppy.
     """
-    return max(0.0, start_time + interval - ahora)
+    return max(0.0, start_time + interval - now)
 
 
-def real_fps(frames: int, segundos: float) -> float:
+def real_fps(frames: int, seconds: float) -> float:
     """Real frames per second: frames over the elapsed time.
 
     The draw time alone says nothing: what is seen is the distance between
     one frame and the next.
     """
-    if segundos <= 0:
+    if seconds <= 0:
         return 0.0
-    return frames / segundos
+    return frames / seconds
 
 
 def blend(a, b, t: float):
@@ -424,6 +481,7 @@ class Theme:
 # player
 # --------------------------------------------------------------------------
 
+
 class Track:
     __slots__ = ("title", "artist", "album", "duration", "player", "status", "position", "stamp")
 
@@ -592,11 +650,23 @@ class LyricLine:
     def from_json(cls, value):
         if not isinstance(value, list) or len(value) < 3:
             return None
-        chars = value[3] if len(value) > 3 and isinstance(value[3], list) else []
+        try:
+            start = float(value[0])
+            duration = float(value[1])
+        except (TypeError, ValueError):
+            return None
+        chars = []
+        if len(value) > 3 and isinstance(value[3], list):
+            try:
+                chars = [float(char) for char in value[3]]
+            except (TypeError, ValueError):
+                # A damaged timing must not take the whole window down: the
+                # line is kept and the karaoke falls back to the line timing.
+                chars = []
         text = normalize_text(str(value[2]))
         if not text:
             return None
-        return cls(float(value[0]), float(value[1]), text, chars)
+        return cls(start, duration, text, chars)
 
 
 def lines_have_chars(lines):
@@ -693,7 +763,7 @@ def parse_lrc(text: str):
         except ValueError:
             offset = 0.0
 
-    found = {}
+    found = []
     for raw in text.splitlines():
         raw = raw.strip()
         if not raw:
@@ -718,13 +788,20 @@ def parse_lrc(text: str):
             start = hours * 3600 + minutes * 60 + seconds + fraction_value + offset
             if start < 0:
                 continue
-            found[round(start, 3)] = (body, pieces)
+            # A list, not a dict: bilingual LRC files repeat the timestamp
+            # for two lines, and a dict silently kept only the last one.
+            found.append((start, len(found), body, pieces))
 
+    found.sort(key=lambda item: (item[0], item[1]))
     lines = []
-    times = sorted(found)
-    for index, start in enumerate(times):
-        body, pieces = found[start]
-        end = times[index + 1] if index + 1 < len(times) else start + 6.0
+    for index, (start, _order, body, pieces) in enumerate(found):
+        # Duplicated timestamps share the next distinct boundary, so both
+        # lines survive and keep a real duration.
+        end = start + 6.0
+        for next_start, _next_order, _next_body, _next_pieces in found[index + 1 :]:
+            if next_start > start:
+                end = next_start
+                break
         duration = clamp(end - start, 0.0, 10.0)
         chars = enhanced_chars(normalize_text(body), pieces, start, end, offset)
         lines.append(LyricLine(start, duration, body, chars))
@@ -1195,11 +1272,14 @@ def load_cache(track: Track):
             data = json.load(handle)
         if not isinstance(data, dict):
             return None
-        lines = [LyricLine.from_json(value) for value in data.get("lines", [])]
+        raw_lines = data.get("lines") or []
+        if not isinstance(raw_lines, list):
+            return None
+        lines = [LyricLine.from_json(value) for value in raw_lines]
         lines = [line for line in lines if line and line.text]
         if lines:
             return lines, data.get("source", "cache"), bool(data.get("synced", True))
-    except (OSError, ValueError):
+    except (OSError, ValueError, TypeError):
         pass
     return None
 
@@ -1322,17 +1402,17 @@ def estimate_times(lines, duration: float):
     # Every line without timing is assigned to the gap that surrounds it
     # (the previous timed line and the next timed line).
     groups = []
-    for indice, lyric_line in without_timing:
+    for line_index, lyric_line in without_timing:
         before = None
         after = None
         for pos, start_time in anchors:
-            if pos < indice and (before is None or pos > before[0]):
+            if pos < line_index and (before is None or pos > before[0]):
                 before = (pos, start_time)
-            if pos > indice and (after is None or pos < after[0]):
+            if pos > line_index and (after is None or pos < after[0]):
                 after = (pos, start_time)
-        for grupo in groups:
-            if grupo["before"] == before and grupo["after"] == after:
-                grupo["lines"].append(lyric_line)
+        for group in groups:
+            if group["before"] == before and group["after"] == after:
+                group["lines"].append(lyric_line)
                 break
         else:
             groups.append(
@@ -1343,10 +1423,10 @@ def estimate_times(lines, duration: float):
     # last useful instant is the end.
     limit = duration if duration and duration > 0 else None
 
-    for grupo in groups:
-        members = grupo["lines"]
-        before = grupo["before"]
-        after = grupo["after"]
+    for group in groups:
+        members = group["lines"]
+        before = group["before"]
+        after = group["after"]
         total = len(members)
         if before and after:
             # Between two timed lines: they share the gap in between.
@@ -1375,9 +1455,9 @@ def estimate_times(lines, duration: float):
                 # leave it after the next line of the list, and the
                 # highlight would go backwards.
                 time_step = 0.0
-            for indice, lyric_line in enumerate(members):
+            for line_index, lyric_line in enumerate(members):
                 if time_step > 0:
-                    lyric_line.start = before[1] + (indice + 1) * time_step
+                    lyric_line.start = before[1] + (line_index + 1) * time_step
                 else:
                     lyric_line.start = (
                         min(before[1], limit)
@@ -1400,9 +1480,9 @@ def estimate_times(lines, duration: float):
                 # The last real one is already at the end (or beyond):
                 # there is no room behind it without leaving the song.
                 time_step = 0.0
-            for indice, lyric_line in enumerate(members):
+            for line_index, lyric_line in enumerate(members):
                 if time_step > 0:
-                    lyric_line.start = before[1] + (indice + 1) * time_step
+                    lyric_line.start = before[1] + (line_index + 1) * time_step
                 else:
                     lyric_line.start = (
                         min(before[1], limit)
@@ -1427,8 +1507,8 @@ def estimate_times(lines, duration: float):
                 # The real line arrives at second 0 (or the song is so
                 # short that there is no gap): they stay at the origin.
                 time_step = 0.0
-            for indice, lyric_line in enumerate(members):
-                lyric_line.start = start_time + indice * time_step
+            for line_index, lyric_line in enumerate(members):
+                lyric_line.start = start_time + line_index * time_step
                 if lyric_line.duration <= 0:
                     lyric_line.duration = max(0.1, time_step * 0.92) if time_step > 0 else 0.1
         else:
@@ -1446,8 +1526,8 @@ def estimate_times(lines, duration: float):
             else:
                 start_time = 1.0
                 time_step = 4.0
-            for indice, lyric_line in enumerate(members):
-                lyric_line.start = start_time + indice * time_step
+            for line_index, lyric_line in enumerate(members):
+                lyric_line.start = start_time + line_index * time_step
                 if limit is not None:
                     lyric_line.start = min(lyric_line.start, limit)
                 if lyric_line.duration <= 0:
@@ -1504,7 +1584,7 @@ def fetch_lyrics(
         "source": "",
         "synced": False,
         "word": False,
-        "sin_acentos": False,
+        "without_accents": False,
     }
     result_lock = threading.Lock()
 
@@ -1520,7 +1600,7 @@ def fetch_lyrics(
         with result_lock:
             current_word = result["word"]
             if result["lines"] is not None:
-                current_without_accents = result["sin_acentos"]
+                current_without_accents = result["without_accents"]
                 if without_accents and not current_without_accents:
                     # Lyrics without accents do not replace the ones that
                     # are already spelled correctly, even with char timings.
@@ -1536,7 +1616,7 @@ def fetch_lyrics(
             result["source"] = source
             result["synced"] = synced
             result["word"] = word
-            result["sin_acentos"] = without_accents
+            result["without_accents"] = without_accents
             # Only the winner writes the cache: if they all wrote, the last
             # one to arrive could leave the losing lyrics behind. An
             # improvement without word timings does not rewrite a valid cache.
@@ -1603,7 +1683,7 @@ def fetch_lyrics(
         with result_lock:
             lines_now = result["lines"]
             word_now = result["word"]
-            without_accents_now = result["sin_acentos"]
+            without_accents_now = result["without_accents"]
         if word_now and not without_accents_now:
             # The best possible is already there: no need to wait for the rest.
             break
@@ -1712,21 +1792,33 @@ PLUGIN_ID = "faminec/lyrics-carousel"
 # is active. It is clipped to 80 % of the gap if the next line arrives
 # sooner, so that two movements never overlap.
 GHOST_SECONDS = 0.9
+# A gap shorter than this is a normal breath between lines, not an
+# instrumental section worth replacing with the notes row.
+INSTRUMENTAL_GAP_SECONDS = 4.0
 
 DEFAULTS = {
     "font_family": "Departure Mono",
     "font_size": 22,
     "direction": "down",
     "marker": False,
+    "marker_style": 0,
     "karaoke": True,
+    "karaoke_brain": True,
     "footer": False,
     "hints": False,
+    "instrumental_marks": True,
+    "instrumental_icon": 0,
+    "silence_threshold": 4,
+    "instrumental_text": "",
+    "instrumental_custom": False,
     "header": False,
+    "header_pos": 0,
     "spacing": 2,
     "ghost": True,
+    "pin": False,
     "offset_ms": 0,
     "width": 1200,
-    "height": 820,
+    "height": 880,
     "anchor": "center",
     "custom_x": 100,
     "custom_y": 100,
@@ -1735,13 +1827,17 @@ DEFAULTS = {
     "active_scale": 1.35,
     "visible_above": 6,
     "visible_below": 6,
-    "translate_lyrics": False,
 }
 
-BOOL_KEYS = ("marker", "karaoke", "footer", "hints", "header", "ghost")
+BOOL_KEYS = (
+    "marker", "karaoke", "karaoke_brain", "footer", "hints",
+    "instrumental_marks", "instrumental_custom", "header", "ghost", "pin",
+)
 INT_KEYS = (
     "font_size", "spacing", "offset_ms", "width", "height",
     "custom_x", "custom_y", "visible_above", "visible_below",
+    "instrumental_icon",
+    "silence_threshold", "marker_style", "header_pos",
 )
 FLOAT_KEYS = ("active_scale",)
 
@@ -1802,8 +1898,15 @@ def load_settings() -> dict:
     cfg["offset_ms"] = max(-3000, min(3000, cfg["offset_ms"]))
     cfg["width"] = max(400, min(3840, cfg["width"]))
     cfg["height"] = max(200, min(2160, cfg["height"]))
+    # Legacy default: floating window height increased by 60 px (820 -> 880).
+    if cfg["height"] == 820:
+        cfg["height"] = 880
     cfg["visible_above"] = max(0, min(20, cfg["visible_above"]))
     cfg["visible_below"] = max(0, min(20, cfg["visible_below"]))
+    cfg["instrumental_icon"] = max(0, min(3, cfg["instrumental_icon"]))
+    cfg["silence_threshold"] = max(1, min(15, cfg["silence_threshold"]))
+    cfg["marker_style"] = max(0, min(5, cfg["marker_style"]))
+    cfg["header_pos"] = max(0, min(2, cfg["header_pos"]))
     try:
         cfg["custom_x"] = max(0, min(10000, int(cfg["custom_x"])))
     except (TypeError, ValueError):
@@ -1819,6 +1922,9 @@ def load_settings() -> dict:
         cfg["accent"] = DEFAULTS["accent"]
     cfg["font_family"] = str(cfg["font_family"] or DEFAULTS["font_family"])
     cfg["custom_color"] = str(cfg["custom_color"] or DEFAULTS["custom_color"])
+    cfg["instrumental_text"] = (
+        str(cfg.get("instrumental_text") or "").replace("\r", "").replace("\n", "")[:24]
+    )
     return cfg
 
 
@@ -1847,13 +1953,16 @@ def normalize_anchor(value) -> str:
     return ANCHOR_ALIASES.get(key, "center")
 
 
-def window_size_px():
-    """Size in pixels of the carousel window, according to Hyprland.
+def window_info():
+    """Size and pin state of the carousel window, according to Hyprland.
 
     The width/height setting is the size of the window in pixels (what the
     panel uses to create it), not the number of cells nor the kitty drawing
     area. Asking Hyprland avoids mixing the three measures: the script
     used to store the terminal cells and the window came out tiny.
+
+    Returns `(width, height, pinned)` or None when the window does not
+    exist (it is still being created, or it was already closed).
     """
     try:
         result = subprocess.run(
@@ -1867,16 +1976,22 @@ def window_size_px():
     for client in clients:
         if not isinstance(client, dict):
             continue
-        if client.get("class") != "noctalia-lyrics-carousel":
+        if client.get("class") != WINDOW_CLASS:
             continue
         size = client.get("size") or []
         if len(size) < 2:
             return None
         try:
-            return int(size[0]), int(size[1])
+            return int(size[0]), int(size[1]), bool(client.get("pinned"))
         except (TypeError, ValueError):
             return None
     return None
+
+
+def window_size_px():
+    """Size in pixels of the carousel window (None if it is not there)."""
+    info = window_info()
+    return None if info is None else (info[0], info[1])
 
 
 class LyricsCarousel:
@@ -1896,6 +2011,7 @@ class LyricsCarousel:
         self._set_language(getattr(args, "lang", None) or "auto")
         self.direction = 1 if self.cfg["direction"] == "down" else -1
         self.karaoke = bool(self.cfg["karaoke"])
+        self.karaoke_brain = bool(self.cfg.get("karaoke_brain", True))
         self.spacing = int(self.cfg["spacing"])
         self.last_cfg = 0.0
         self.track = Track()
@@ -1916,7 +2032,6 @@ class LyricsCarousel:
         self.active_index = 0
         self.last_active = -1
         self.moving = False
-        self.last_reload = 0.0
         self.last_fetch = 0.0
         # Last check of the window size (manual resize).
         self._last_size_check = 0.0
@@ -1926,6 +2041,9 @@ class LyricsCarousel:
         # SIGUSR1: the panel warns that the cache has been emptied and the
         # open window has to look up the current song again.
         self.reload_requested = False
+        # SIGUSR2: Noctalia has regenerated the Kitty theme. The signal only
+        # raises this flag; the theme is read in the frame loop.
+        self.theme_reload_requested = False
         self.last_counters = 0.0
         self._player = PlayerWatcher(args.player) if not self.demo else None
         self.image = None
@@ -1981,7 +2099,10 @@ class LyricsCarousel:
         return text
 
     def log(self, message: str):
-        if not self.args.debug:
+        # Some tests build the object without parsing arguments: a missing
+        # `args` means "not in debug mode", not a crash in the draw loop.
+        args = getattr(self, "args", None)
+        if args is None or not getattr(args, "debug", False):
             return
         self.warn(message)
 
@@ -2005,10 +2126,76 @@ class LyricsCarousel:
             self.width = width
             self.height = height
 
+    def _sync_pin(self, now):
+        """Applies the `pin` setting (a desired state, not an action).
+
+        `hl.dsp.window.pin` accepts an explicit action in Hyprland 0.57, so
+        the desired state is dispatched instead of toggling: a blind toggle
+        would flip the window on every check. A dispatch that does not
+        stick (the window is still appearing, it is not floating yet) is
+        retried for a few seconds; after that only a change of the setting
+        (or of the window state) triggers another one. Failures are silent
+        on purpose: the window must not draw an error because of this.
+        """
+        if now - getattr(self, "_last_pin_check", 0.0) < PIN_CHECK_STEP:
+            return
+        desired = bool(self.cfg.get("pin", False))
+        if desired != getattr(self, "_pin_setting", None):
+            # The user changed the toggle: apply it now, without waiting for
+            # the next steady-state check.
+            self._pin_setting = desired
+            self._pin_attempts = 0
+            self._pin_giveup = False
+            self._pin_verified_at = 0.0
+        if getattr(self, "_pin_giveup", False):
+            return
+        # In the steady state (nothing pending) Hyprland is asked every two
+        # seconds, not twice a second: it is only to notice a manual unpin.
+        settled = getattr(self, "_pin_attempts", 0) == 0
+        if settled and now - getattr(self, "_pin_verified_at", 0.0) < PIN_CHECK_STEP * 4:
+            return
+        self._last_pin_check = now
+        attempts = getattr(self, "_pin_attempts", 0)
+        info = window_info()
+        if info is None:
+            # The window has not appeared yet (or Hyprland cannot find it):
+            # this attempt counts too, or the retry never gives up and
+            # spawns hyprctl every PIN_CHECK_STEP forever.
+            if attempts * PIN_CHECK_STEP >= PIN_RETRY_SECONDS:
+                self._pin_giveup = True
+                return
+            self._pin_attempts = attempts + 1
+            return
+        if info[2] == desired:
+            self._pin_attempts = 0
+            self._pin_verified_at = now
+            return
+        if attempts * PIN_CHECK_STEP >= PIN_RETRY_SECONDS:
+            self._pin_giveup = True
+            return
+        self._pin_attempts = attempts + 1
+        self._dispatch_pin(desired)
+
+    def _dispatch_pin(self, pinned):
+        """Sends the pin action to Hyprland, ignoring any failure."""
+        action = "on" if pinned else "off"
+        expression = (
+            'hl.dsp.window.pin({action="%s", window="class:^%s$"})'
+            % (action, WINDOW_CLASS)
+        )
+        try:
+            subprocess.run(
+                ["hyprctl", "dispatch", expression],
+                capture_output=True,
+                text=True,
+                timeout=3,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError):
+            pass
+
     def check_manual_resize(self):
         """Stores the size if the user resized the window by hand.
-
-        The width/height settings are in window pixels, not terminal cells:
         resizing with the mouse does not go through the panel, so the
         script stores it in the overrides layer (which Noctalia does not
         watch: writing settings.toml would close an open panel).
@@ -2183,8 +2370,18 @@ class LyricsCarousel:
         # the local change is kept so the reload does not revert it.
         pending = getattr(self, "pending_overrides", None)
         if pending:
-            for key, value in list(pending.items()):
+            for key, entry in list(pending.items()):
+                # Older entries may be plain values (nothing pending set
+                # them in this process); treat them as expired.
+                if isinstance(entry, tuple) and len(entry) == 2:
+                    value, saved_at = entry
+                else:
+                    value, saved_at = entry, 0.0
                 if cfg.get(key) == value:
+                    del pending[key]
+                elif time.monotonic() - saved_at > PENDING_SECONDS:
+                    # The helper rejected the write: stop masking later
+                    # panel changes with a value that was never saved.
                     del pending[key]
                 else:
                     cfg[key] = value
@@ -2216,6 +2413,7 @@ class LyricsCarousel:
         self.cfg = cfg
         self.direction = 1 if cfg["direction"] == "down" else -1
         self.karaoke = bool(cfg["karaoke"])
+        self.karaoke_brain = bool(cfg.get("karaoke_brain", True))
         self.spacing = int(cfg["spacing"])
         self.log("settings: " + json.dumps(cfg, ensure_ascii=False))
         # The window geometry is applied by the panel (it has the Noctalia
@@ -2227,6 +2425,9 @@ class LyricsCarousel:
         if time.monotonic() - self.last_cfg > 0.5:
             self.last_cfg = time.monotonic()
             self._reload_config()
+            # The pin is a desired state: applying it after the reload
+            # means a change in the panel reaches an open window.
+            self._sync_pin(self.last_cfg)
 
         if self.demo:
             position, duration = self._demo_position()
@@ -2261,10 +2462,6 @@ class LyricsCarousel:
 
         # (the settings reload already happened above, it covers demo and real)
 
-        if time.monotonic() - self.last_reload > 15:
-            self.last_reload = time.monotonic()
-            self.theme.reload()
-
     # ---- active line calculation ----------------------------------
 
     def _position(self):
@@ -2293,6 +2490,43 @@ class LyricsCarousel:
         ]
         pairs.sort(key=lambda pair: pair[0])
         return pairs
+
+    def instrumental_gap(self, position) -> bool:
+        """True when playback is inside a real instrumental/silent section.
+
+        Only synced lyrics can prove a gap. The line duration is the sung
+        part; the raw next timestamp is what marks the end of the gap.
+        Intro and outro count too, as long as they exceed the threshold.
+        """
+        if not self.cfg.get("instrumental_marks", True):
+            return False
+        if not self.synced or self.state != "lyrics" or not self.lines:
+            return False
+        timed = sorted(
+            (line.start, index)
+            for index, line in enumerate(self.lines)
+            if line.start >= 0 and line.text
+        )
+        if not timed:
+            return False
+        threshold = float(
+            self.cfg.get("silence_threshold", INSTRUMENTAL_GAP_SECONDS)
+        )
+        first_start = timed[0][0]
+        if position < first_start:
+            return first_start >= threshold
+        times = [start for start, _ in timed]
+        slot = bisect.bisect_right(times, position) - 1
+        slot = max(0, min(slot, len(timed) - 1))
+        start, index = timed[slot]
+        line_end = start + max(0.0, float(self.lines[index].duration or 0.0))
+        if position < line_end:
+            return False
+        if slot + 1 < len(timed):
+            next_start = timed[slot + 1][0]
+            return next_start - line_end >= threshold and position < next_start
+        duration = float(self.track.duration or 0.0) if self.track else 0.0
+        return duration > 0 and duration - line_end >= threshold and position <= duration
 
     def next_timed_start(self, index):
         """Start of the next line with a real timing (or None).
@@ -2471,7 +2705,7 @@ class LyricsCarousel:
                 # 180 frames are 179 intervals: the intervals are counted,
                 # not the frames, or the fps comes out 0.6 % too high.
                 fps = real_fps(max(0, self._draw_frames - 1), now - since)
-                self.warn(f"draw avg: {avg:.1f}ms | {fps:.0f} real fps")
+                self.log(f"draw avg: {avg:.1f}ms | {fps:.0f} real fps")
                 self._draw_accum = 0
                 self._draw_frames = 0
                 self._draw_from = now
@@ -2505,7 +2739,7 @@ class LyricsCarousel:
         if pending is None:
             pending = {}
             self.pending_overrides = pending
-        pending[key] = value
+        pending[key] = (value, time.monotonic())
         try:
             subprocess.Popen(
                 [
@@ -2527,6 +2761,22 @@ class LyricsCarousel:
         """Flags the reload; the loop handles it on the next frame."""
         self.reload_requested = True
 
+    def _on_theme_signal(self, _signum, _frame):
+        """Flags a theme refresh; file reads stay out of signal context."""
+        self.theme_reload_requested = True
+
+    def _consume_theme_reload(self) -> bool:
+        """Reloads the generated Kitty colors after a Noctalia event."""
+        if not getattr(self, "theme_reload_requested", False):
+            return False
+        self.theme_reload_requested = False
+        self.theme.reload()
+        image = getattr(self, "image", None)
+        if image is not None and hasattr(image, "invalidate_frame"):
+            image.invalidate_frame()
+        self.log("theme: reloaded after a Noctalia color event")
+        return True
+
     def _consume_reload(self) -> bool:
         """Handles a reload requested by SIGUSR1 (only once)."""
         if not getattr(self, "reload_requested", False):
@@ -2536,6 +2786,40 @@ class LyricsCarousel:
             self._load_demo()
         elif self.track.title or self.track.artist:
             self.reload_lyrics(force=True)
+        return True
+
+    def _toggle_bool_setting(self, key: str) -> bool:
+        value = not bool(self.cfg.get(key))
+        self.cfg[key] = value
+        if key == "karaoke":
+            self.karaoke = value
+        if key == "karaoke_brain":
+            self.karaoke_brain = value
+        self._save_override(key, value, "bool")
+        return True
+
+    def _cycle_accent(self) -> bool:
+        accents = ["primary", "green", "yellow", "blue", "magenta", "cyan", "red"]
+        current = str(self.cfg.get("accent") or "primary")
+        try:
+            index = accents.index(current)
+        except ValueError:
+            index = -1
+        self.cfg["accent"] = accents[(index + 1) % len(accents)]
+        self._save_override("accent", self.cfg["accent"], "string")
+        return True
+
+    def _adjust_font_size(self, delta: int) -> bool:
+        try:
+            size = int(self.cfg.get("font_size", DEFAULTS["font_size"]))
+        except (TypeError, ValueError):
+            size = int(DEFAULTS["font_size"])
+        size = max(6, min(96, size + delta))
+        self.cfg["font_size"] = size
+        self._save_override("font_size", size, "int")
+        image = getattr(self, "image", None)
+        if image is not None and hasattr(image, "invalidate_fonts"):
+            image.invalidate_fonts()
         return True
 
     def handle_key(self, key: str) -> bool:
@@ -2564,10 +2848,23 @@ class LyricsCarousel:
             self._save_override("direction", self.cfg["direction"], "string")
             return True
         if key in ("k", "K"):
-            self.karaoke = not self.karaoke
-            self.cfg["karaoke"] = self.karaoke
-            self._save_override("karaoke", self.karaoke, "bool")
-            return True
+            return self._toggle_bool_setting("karaoke")
+        if key in ("h", "H"):
+            return self._toggle_bool_setting("header")
+        if key in ("m", "M"):
+            return self._toggle_bool_setting("marker")
+        if key in ("g", "G"):
+            return self._toggle_bool_setting("ghost")
+        if key in ("f", "F"):
+            return self._toggle_bool_setting("footer")
+        if key in ("t", "T"):
+            return self._toggle_bool_setting("hints")
+        if key in ("c", "C"):
+            return self._cycle_accent()
+        if key in ("+", "="):
+            return self._adjust_font_size(1)
+        if key in ("-", "_"):
+            return self._adjust_font_size(-1)
         if key in ("r", "R"):
             if self.demo:
                 # In demo mode there is no lookup on the internet: the
@@ -2593,6 +2890,7 @@ class LyricsCarousel:
                 self._poll_data()
                 self.check_manual_resize()
                 self._consume_reload()
+                self._consume_theme_reload()
                 # With the offset: if the scroll used the raw position, the
                 # highlighted line (which does use the offset) would not be
                 # the one in the center.
@@ -2628,13 +2926,31 @@ class LyricsCarousel:
         """
         try:
             os.makedirs(data_dir(), exist_ok=True)
-            with open(pid_path(), "w", encoding="utf-8") as handle:
+            # Atomic: the panel may read the file between the open and the
+            # write and find it empty.
+            temporary = pid_path() + ".tmp"
+            with open(temporary, "w", encoding="utf-8") as handle:
                 handle.write(str(os.getpid()))
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temporary, pid_path())
         except OSError as error:
             self.log(f"could not save the PID: {error!r}")
 
     def _forget_pid(self):
-        """Deletes the PID: the window is gone, signalling it makes no sense."""
+        """Deletes the PID only if it is still ours.
+
+        A restart can leave the old process alive for a moment (it may block
+        inside hyprctl). If it unlinked unconditionally, it would delete the
+        new window's PID and the theme/reload signals would be lost.
+        """
+        try:
+            with open(pid_path(), encoding="utf-8") as handle:
+                owner = handle.read().strip()
+        except OSError:
+            return
+        if owner != str(os.getpid()):
+            return
         try:
             os.unlink(pid_path())
         except OSError:
@@ -2782,6 +3098,10 @@ def main():
             pass
     try:
         signal.signal(signal.SIGUSR1, app._on_reload_signal)
+    except (ValueError, OSError, AttributeError):
+        pass
+    try:
+        signal.signal(signal.SIGUSR2, app._on_theme_signal)
     except (ValueError, OSError, AttributeError):
         pass
 

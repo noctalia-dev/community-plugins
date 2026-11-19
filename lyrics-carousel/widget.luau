@@ -1,17 +1,12 @@
 --!nonstrict
 -- Bar widget of the lyrics carousel.
 --
--- Besides opening the panel, it accepts IPC to change settings without
--- opening it (useful for keyboard shortcuts):
---   noctalia msg plugin faminec/lyrics-carousel:widget all set visible_above 4 int
---   noctalia msg plugin faminec/lyrics-carousel:widget all toggle karaoke
+-- Left click: open the settings panel. Right click: open the lyrics window.
+-- Also accepts IPC for settings refresh/toggle without opening the panel.
 
 local settings = require("./lib/settings.luau")
+local launch = require("./lib/launch.luau")
 
--- The glyph is read from the overrides layer and not only from the
--- configuration: the panel writes there and flushes it when it closes, so
--- if the widget only looked at the configuration, the bar icon would not
--- change until the panel was closed.
 local function currentGlyph()
   local value = settings.value("glyph")
   if type(value) == "string" and value ~= "" then
@@ -20,20 +15,36 @@ local function currentGlyph()
   return "music"
 end
 
-local glyph = currentGlyph()
+local function tooltip()
+  local text = "Lyrics Carousel"
+  pcall(function()
+    if noctalia and noctalia.tr then
+      text = noctalia.tr("bar_tooltip") or text
+    end
+  end)
+  if text == "Lyrics Carousel" then
+    text = "Lyrics Carousel · left click: panel · right click: open window"
+  end
+  return text
+end
 
 local function render()
-  barWidget.setGlyph(glyph)
-  barWidget.setTooltip(noctalia.tr("tooltip"))
+  barWidget.render(ui.row({ key = "lyrics-carousel", gap = 0, align = "center" }, {
+    ui.glyph({ name = currentGlyph(), size = 14 }),
+  }))
+  barWidget.setTooltip(tooltip())
 end
 
 function update()
-  glyph = currentGlyph()
   render()
 end
 
 function onClick()
   noctalia.togglePanel("faminec/lyrics-carousel:panel")
+end
+
+function onRightClick()
+  launch.launch()
 end
 
 function onConfigChanged()
@@ -42,16 +53,16 @@ end
 
 function onIpc(event, payload)
   if event == "launch" then
-    noctalia.togglePanel("faminec/lyrics-carousel:panel")
+    launch.launch()
   elseif event == "set" then
     local key, value = settings.parse(payload)
     if key ~= nil then
       settings.apply(key, value)
     end
   elseif event == "toggle" then
-    -- Only toggles are toggled: toggling a number makes no sense.
-    if type(payload) == "string" and settings.BOOL_KEYS[payload] then
-      settings.apply(payload, nil)
+    local key = settings.normalizeKey(payload)
+    if type(payload) == "string" and settings.BOOL_KEYS[key] then
+      settings.apply(key, nil)
     end
   elseif event == "refresh" then
     render()
