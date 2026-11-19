@@ -48,9 +48,9 @@
       "label": "Minimum CCF rank",
       "description": "Show conferences at or above this CCF rank. Starred and always-shown conferences ignore this.",
       "options": {
-        "A": "A only",
-        "B": "A and B",
-        "C": "A, B and C",
+        "a": "A only",
+        "b": "A and B",
+        "c": "A, B and C",
         "all": "All (including unranked)"
       }
     },
@@ -114,10 +114,10 @@
   },
   "badge": {
     "ccf": {
-      "A": "CCF A: top tier in the China Computer Federation's recommended venue list",
-      "B": "CCF B: second tier in the China Computer Federation's recommended venue list",
-      "C": "CCF C: third tier in the China Computer Federation's recommended venue list",
-      "N": "Not ranked in the China Computer Federation's recommended venue list"
+      "a": "CCF A: top tier in the China Computer Federation's recommended venue list",
+      "b": "CCF B: second tier in the China Computer Federation's recommended venue list",
+      "c": "CCF C: third tier in the China Computer Federation's recommended venue list",
+      "n": "Not ranked in the China Computer Federation's recommended venue list"
     },
     "core": "CORE {rank}: rank in the Australasian CORE conference ranking (A* is the top tier, then A, B, C)",
     "area": "Area {code}: {name}",

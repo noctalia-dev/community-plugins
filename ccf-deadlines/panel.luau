@@ -74,7 +74,7 @@ local function itemRow(item, now)
 
   local ccfKey = if item.ccf == "A" or item.ccf == "B" or item.ccf == "C" then item.ccf else "N"
   local badges = {
-    rankBadge(`CCF {item.ccf}`, Common.rankColor(item.ccf), noctalia.tr(`badge.ccf.{ccfKey}`)),
+    rankBadge(`CCF {item.ccf}`, Common.rankColor(item.ccf), noctalia.tr(`badge.ccf.{string.lower(ccfKey)}`)),
   }
   if item.core ~= nil and item.core ~= "N" then
     table.insert(badges, rankBadge(`CORE {item.core}`, "outline", noctalia.tr("badge.core", { rank = item.core })))
@@ -314,7 +314,7 @@ local function detailView(item, now)
 
   local badges = {}
   local ccfKey = if item.ccf == "A" or item.ccf == "B" or item.ccf == "C" then item.ccf else "N"
-  table.insert(badges, rankBadge(`CCF {item.ccf}`, Common.rankColor(item.ccf), noctalia.tr(`badge.ccf.{ccfKey}`)))
+  table.insert(badges, rankBadge(`CCF {item.ccf}`, Common.rankColor(item.ccf), noctalia.tr(`badge.ccf.{string.lower(ccfKey)}`)))
   if item.core ~= nil and item.core ~= "N" then
     table.insert(badges, rankBadge(`CORE {item.core}`, "outline", noctalia.tr("badge.core", { rank = item.core })))
   end

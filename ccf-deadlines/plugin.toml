@@ -8,7 +8,7 @@
 
 id = "samxu29/ccf-deadlines"
 name = "CCF Deadlines"
-version = "0.4.3"
+version = "0.4.4"
 plugin_api = 43
 author = "samxu29"
 license = "MIT"
@@ -26,9 +26,9 @@ label_key = "settings.min_rank.label"
 description_key = "settings.min_rank.description"
 default = "C"
 options = [
-  { value = "A", label_key = "settings.min_rank.options.A" },
-  { value = "B", label_key = "settings.min_rank.options.B" },
-  { value = "C", label_key = "settings.min_rank.options.C" },
+  { value = "A", label_key = "settings.min_rank.options.a" },
+  { value = "B", label_key = "settings.min_rank.options.b" },
+  { value = "C", label_key = "settings.min_rank.options.c" },
   { value = "all", label_key = "settings.min_rank.options.all" },
 ]
 
