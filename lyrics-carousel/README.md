@@ -107,8 +107,10 @@ by then, the lookup is retried a minute later. The result is cached in
 | `f` | Show / hide the footer (time and progress bar) |
 | `t` | Keyboard hints on / off |
 | `c` | Cycle the accent colour |
-| `+` / `=` | Grow the lyrics one pixel |
-| `-` / `_` | Shrink the lyrics one pixel |
+| `=` | Increase the font size |
+| `-` | Decrease the font size |
+| `Shift` + `+` | Show more context lines above and below |
+| `Shift` + `-` | Show fewer context lines above and below |
 | `r` | Look the lyrics up again |
 
 The hints row at the bottom wraps the full shortcut list so every key stays
@@ -258,6 +260,11 @@ enabled costs nothing.
   placeholder, so the space before the keyboard hints matches every other row.
 - **Instrumental text editor toggles**: a second right click on the custom text
   button closes the inline editor again.
+- **Footer and hints no longer overlap**: the time bar moves above the keyboard
+  hints block and the lyrics area is reduced so both can be shown together.
+- **Visible context lines shortcut**: `Shift` + `+` and `Shift` + `-` change how
+  many lines are shown above and below the active line. Font size now uses
+  `=` and `-`.
 
 ### 2.8.0
 

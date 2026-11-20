@@ -2119,8 +2119,14 @@ def check_hints_list_every_shortcut():
         with temporary_env({"XDG_CACHE_HOME": cache}):
             mod = script_module()
             expected_by_language = {
-                "en": ("q", "space", "d", "k", "h", "m", "g", "f", "t", "c", "+", "-", "r"),
-                "es": ("q", "espacio", "d", "k", "h", "m", "g", "f", "t", "c", "+", "-", "r"),
+                "en": (
+                    "q", "space", "d", "k", "h", "m", "g", "f", "t", "c",
+                    "=", "-", "Shift +", "Shift -", "r",
+                ),
+                "es": (
+                    "q", "espacio", "d", "k", "h", "m", "g", "f", "t", "c",
+                    "=", "-", "Mayús +", "Mayús -", "r",
+                ),
             }
             for language in ("en", "es"):
                 hints = mod.TEXTS[language]["hints"]
