@@ -73,7 +73,7 @@ case "$ACTION" in
     [ -f "$INPUT"  ] || { echo "ERROR: convert-mp4: file not found: $INPUT"   >&2; exit 2; }
     _require ffmpeg
     if [ "$RECODE" = "--recode" ]; then
-        ffmpeg -y -i "$INPUT" \
+        ffmpeg -nostdin -y -i "$INPUT" \
             -c:v copy -c:a aac -b:a 128k -movflags +faststart \
             "$OUTPUT" 2>/dev/null \
         || { echo "ERROR: convert-mp4: ffmpeg recode failed" >&2; exit 4; }
