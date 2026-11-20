@@ -243,13 +243,50 @@ end
 function Activity.todayCount(counts, lastTimestamp, now)
   local stamp = now or os.time()
   local todayTimestamp = stamp - stamp % SECONDS_PER_DAY
-  local offset = (todayTimestamp - lastTimestamp) / SECONDS_PER_DAY
-  local index = #counts + offset
-  if index < 1 or index > #counts then
+  local index = Activity.todayIndex(counts, lastTimestamp, now)
+  if index == nil then
     return 0, Activity.utcDate(todayTimestamp)
   end
 
   return counts[index] or 0, Activity.utcDate(todayTimestamp)
+end
+
+-- Position of the current UTC day inside the window, or nil when the window
+-- does not reach it (a stale cache keeps its own last day).
+function Activity.todayIndex(counts, lastTimestamp, now)
+  local stamp = now or os.time()
+  local todayTimestamp = stamp - stamp % SECONDS_PER_DAY
+  local offset = (todayTimestamp - lastTimestamp) / SECONDS_PER_DAY
+  local index = #counts + offset
+  if index < 1 or index > #counts then
+    return nil
+  end
+  return index
+end
+
+-- Two figures the metric bars need, both bounded whatever the account size:
+-- how many of the last 365 days have at least one test, and the average of the
+-- seven days before today (a "typical day" to compare today against).
+function Activity.recencyFigures(counts, todayIndex)
+  local activeDays = 0
+  local first = math.max(1, #counts - 364)
+  local last = todayIndex or #counts
+  for index = first, last do
+    if (counts[index] or 0) > 0 then
+      activeDays = activeDays + 1
+    end
+  end
+
+  local sum, days = 0, 0
+  local windowEnd = (todayIndex or #counts) - 1
+  for index = windowEnd - 6, windowEnd do
+    if index >= 1 and counts[index] ~= nil then
+      sum = sum + counts[index]
+      days = days + 1
+    end
+  end
+
+  return activeDays, days > 0 and math.floor(sum / days + 0.5) or 0
 end
 
 local function positiveInteger(value)
@@ -326,6 +363,8 @@ function Activity.normalize(parts)
   local lastTimestamp = lastSeconds - lastSeconds % SECONDS_PER_DAY
   local built = Activity.build(counts, lastTimestamp)
   local today, todayDate = Activity.todayCount(counts, lastTimestamp, parts.now)
+  local todayIndex = Activity.todayIndex(counts, lastTimestamp, parts.now)
+  local activeDays, recentAverage = Activity.recencyFigures(counts, todayIndex)
   local streak = type(parts.streak) == "table" and parts.streak or {}
   local previous = type(parts.previous) == "table" and parts.previous or {}
   local localStreak, localBest = Activity.streaks(counts)
@@ -350,6 +389,8 @@ function Activity.normalize(parts)
     lastDate = built.lastDate,
     today = today,
     todayDate = todayDate,
+    activeDays = activeDays,
+    recentAverage = recentAverage,
     currentStreak = positiveInteger(currentStreak) or 0,
     bestStreak = positiveInteger(bestStreak) or 0,
     lastResultTimestamp = Activity.toSeconds(streak.lastResultTimestamp),
@@ -384,6 +425,8 @@ function Activity.isValidCache(data)
     and type(data.bestStreak) == "number"
     and type(data.columns) == "number"
     and type(data.fetchedAt) == "number"
+    and type(data.activeDays) == "number"
+    and type(data.recentAverage) == "number"
 end
 
 return Activity

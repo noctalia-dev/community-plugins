@@ -220,7 +220,7 @@ local function prepareGridColumns()
   end
 
   if gridWeek > gridWeekCount then
-    cachedHeatmap = ui.row({ gap = calendarColumnGap, align = "start" }, gridColumns)
+    cachedHeatmap = ui.row({ gap = calendarColumnGap, align = "center" }, gridColumns)
     cachedCalendar = ui.row({ gap = 10, align = "end", justify = "center" }, {
       buildWeekdayLabels(),
       ui.column({ gap = 6, align = "start" }, {
@@ -413,7 +413,7 @@ function render()
       ui.row({ gap = 10, align = "center", justify = "center" }, actions),
     }))
   else
-    table.insert(body, cachedCalendar)
+    table.insert(body, ui.row({ justify = "center", align = "center" }, { cachedCalendar }))
 
     local selectedText = showYearTotal
         and (username ~= nil
@@ -430,25 +430,73 @@ function render()
       end
     end
 
+    local function progressBlocks(filled, total, blockWidth)
+      local blocks = {}
+      local w = blockWidth or 14
+      for i = 1, total do
+        table.insert(blocks, ui.box({
+          width = w,
+          height = 6,
+          radius = 3,
+          fill = i <= filled and "primary" or "surface_container",
+        }))
+      end
+      return ui.row({ gap = 4, align = "center", justify = "center" }, blocks)
+    end
+
+    local function streakMilestoneVisual(best)
+      local milestones = { 7, 14, 21, 30, 50, 75, 100, 150, 200, 365, 500, 1000 }
+      local goal = best + 1
+      for _, m in ipairs(milestones) do
+        if m > best then goal = m; break end
+      end
+      if goal <= best then goal = math.ceil((best + 1) / 500) * 500 end
+      local filled = math.min(5, math.max(0, math.floor((best / goal) * 5 + 0.5)))
+      if best >= goal then filled = 5 end
+      return ui.column({ gap = 4, align = "center" }, {
+        progressBlocks(filled, 5, 12),
+        ui.label({ text = "→ " .. tostring(goal) .. "d", fontSize = 10, color = "on_surface_variant" }),
+      })
+    end
+
+    local function yearVisual(total, activeDays)
+      -- Show consistency: active days out of the last 365 as a compact bar.
+      local active = activeDays or 0
+      local filled = math.min(5, math.max(0, math.floor((active / 365) * 5 + 0.5)))
+      local label = tostring(active) .. "/365 days"
+      return ui.column({ gap = 4, align = "center" }, {
+        progressBlocks(filled, 5, 12),
+        ui.label({ text = label, fontSize = 10, color = "on_surface_variant" }),
+      })
+    end
+
     local metrics = {}
     if showToday then
-      table.insert(metrics, metric(tr("metric.today"), data.today, activityBlocks(data.today > 0 and 1 or 0, 1)))
+      table.insert(metrics, metric(tr("metric.today"), data.today, progressBlocks(data.today > 0 and 1 or 0, 1, 18)))
     end
     if showCurrentStreak then
+      local s = data.currentStreak or 0
+      local filled = math.min(5, math.max(0, s > 0 and math.min(5, math.floor((s / 7) * 5 + 0.5)) or 0))
+      if s > 0 and filled == 0 then filled = 1 end
+      if s >= 7 then filled = 5 end
+      local sub = s >= 7 and "7+ day streak" or (s > 0 and tostring(s) .. " day" .. (s == 1 and "" or "s") or "no streak")
       table.insert(metrics, metric(
         tr("metric.current_streak"),
-        data.currentStreak,
-        activityBlocks(math.min(data.currentStreak, 12), math.max(1, math.min(data.currentStreak, 12)))
+        s,
+        ui.column({ gap = 4, align = "center" }, {
+          progressBlocks(filled, 5, 12),
+          ui.label({ text = sub, fontSize = 10, color = "on_surface_variant" }),
+        })
       ))
     end
     if showBestStreak then
-      table.insert(metrics, metric(tr("metric.best_streak"), data.bestStreak, activityBlocks(math.min(data.bestStreak, 12), 12)))
+      table.insert(metrics, metric(tr("metric.best_streak"), data.bestStreak, streakMilestoneVisual(data.bestStreak or 0)))
     end
     if showYearTotal then
       table.insert(metrics, metric(
         tr("metric.last_year"),
         data.windowTotal,
-        activityBlocks(math.min(math.floor(data.windowTotal / 100), 12), 12)
+        yearVisual(data.windowTotal or 0, data.activeDays or 0)
       ))
     end
 
@@ -472,6 +520,7 @@ function render()
     paddingV = 14,
     fill = "surface",
     flexGrow = 1,
+    align = "stretch",
     -- An empty panel reads better centered than pinned to the top edge.
     justify = (centerReadyContent or data == nil) and "center" or "start",
   }, body))
