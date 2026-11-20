@@ -170,11 +170,15 @@ local function fetchSummary()
     
     local balanceInfos = parsed.balance_infos
     if balanceInfos and #balanceInfos > 0 then
-      local primaryWallet = balanceInfos[1]
-      state.currency = primaryWallet.currency or "USD"
-      state.balance = tonumber(primaryWallet.total_balance) or 0.0
-      state.errorMsg = nil
-      state.lastUpdated = noctalia.formatTime("%H:%M:%S", os.time())
+      for _, wallet in ipairs(balanceInfos) do
+        state.currency = wallet.currency or "USD"
+        state.balance = tonumber(wallet.total_balance) or 0.0
+        state.errorMsg = nil
+        state.lastUpdated = noctalia.formatTime("%H:%M:%S", os.time())
+        if state.balance ~= 0 then
+          break
+        end
+      end
       
       recordBalanceSample(state.balance)
       
