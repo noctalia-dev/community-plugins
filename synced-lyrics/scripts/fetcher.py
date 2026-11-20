@@ -1299,6 +1299,11 @@ def fetch_unison(title, artist, album="", duration_seconds=0):
             parsed = parse_lrc(lyrics, "Unison")
         if parsed and parsed.get("lines"):
             parsed["name"] = "Unison"
+            # Capture contributor/transcriber info from Unison response
+            # Unison API may return: contributor, transcriber, source, etc.
+            contributor = data.get("contributor") or data.get("transcriber") or data.get("source") or data.get("syncedBy")
+            if contributor:
+                parsed["contributor"] = str(contributor)
             if str(data.get("syncType", "")).lower() in ("linesync", "line"):
                 parsed["type"] = "line"
                 parsed["badge"] = "Line-synced"
@@ -1405,12 +1410,16 @@ def get_lyrics(title, artist, album="", preferred_source="auto",
     sources = dict(cached_payload.get("sources", {})) if isinstance(cached_payload, dict) else {}
     checked_sources = set(cached_payload.get("checked_sources", [])) if isinstance(cached_payload, dict) else set()
     cache_time = cached_payload.get("cached_at", 0) if isinstance(cached_payload, dict) else 0
+
+    # Check if cache has any high-quality sources (syllable/word) - that's what matters for freshness
+    has_quality_source = any(
+        src.get("type") in ("syllable", "word") for src in sources.values()
+    )
+
     cache_is_fresh = (
         not force_refresh
         and sources
-        and checked_sources.issuperset({
-            "amll_ttml", "kugou_krc", "parsenix", "spicylyrics", "binimum", "betterlyrics", "lyricsplus", "unison", "lrclib",
-        })
+        and has_quality_source
         and isinstance(cache_time, (int, float))
         and time.time() - cache_time < 3 * 24 * 60 * 60
     )

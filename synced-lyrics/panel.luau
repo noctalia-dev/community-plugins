@@ -92,6 +92,7 @@ local function render()
         badge = src.badge or (src.type == "syllable" and "Karaoke (Syllable)" or (src.type == "word" and "Karaoke (Word)" or "Line-synced")),
         preview = src.preview or {},
         linesCount = #src.lines,
+        contributor = src.contributor or "",
       })
     end
   end
@@ -178,12 +179,19 @@ local function render()
           size = 16,
           color = isSelected and "primary" or "on_surface_container",
         }),
-        ui.label({
-          text = item.name,
-          fontSize = 13,
-          fontWeight = "bold",
-          color = isSelected and "primary" or "on_surface",
-          flexGrow = 1,
+        ui.column({ flexGrow = 1, gap = 1 }, {
+          ui.label({
+            text = item.name,
+            fontSize = 13,
+            fontWeight = "bold",
+            color = isSelected and "primary" or "on_surface",
+          }),
+          -- Show contributor for Unison (or any source that has it)
+          (item.contributor ~= "" and item.key == "unison") and ui.label({
+            text = "by " .. item.contributor,
+            fontSize = 10,
+            color = isSelected and "on_surface/0.7" or "on_surface_container",
+          }) or nil,
         }),
         badgeWidget,
         ui.glyph({
