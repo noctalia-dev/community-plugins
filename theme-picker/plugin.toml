@@ -1,0 +1,112 @@
+id = "SirQuacksALot/theme-picker"
+name = "Theme Picker"
+version = "1.0.0"
+plugin_api = 43
+author = "SirQuacksALot"
+license = "MIT"
+icon = "palette"
+description = "Pick and manage color theme + wallpaper category combinations."
+tags = ["panel", "theme", "wallpaper", "palette"]
+dependencies = []
+
+[[setting]]
+key = "notify_on_change"
+type = "bool"
+label_key = "settings.notify_on_change.label"
+description_key = "settings.notify_on_change.description"
+default = true
+
+[[setting]]
+key = "close_on_apply"
+type = "bool"
+label_key = "settings.close_on_apply.label"
+description_key = "settings.close_on_apply.description"
+default = false
+
+[[setting]]
+key = "show_nav_picker"
+type = "bool"
+label_key = "settings.show_nav_picker.label"
+description_key = "settings.show_nav_picker.description"
+default = true
+
+[[setting]]
+key = "show_nav_wallpapers"
+type = "bool"
+label_key = "settings.show_nav_wallpapers.label"
+description_key = "settings.show_nav_wallpapers.description"
+default = true
+
+[[setting]]
+key = "show_nav_manager"
+type = "bool"
+label_key = "settings.show_nav_manager.label"
+description_key = "settings.show_nav_manager.description"
+default = true
+
+[[setting]]
+key = "show_title_picker"
+type = "bool"
+label_key = "settings.show_title_picker.label"
+description_key = "settings.show_title_picker.description"
+default = true
+
+[[setting]]
+key = "show_title_wallpapers"
+type = "bool"
+label_key = "settings.show_title_wallpapers.label"
+description_key = "settings.show_title_wallpapers.description"
+default = true
+
+[[setting]]
+key = "show_title_manager"
+type = "bool"
+label_key = "settings.show_title_manager.label"
+description_key = "settings.show_title_manager.description"
+default = true
+
+[[panel]]
+id = "picker"
+entry = "picker.luau"
+width = 620
+height = 560
+placement = "floating"
+position = "center"
+dismiss_on_outside_click = true
+keyboard_focus = "exclusive"
+capture_keys = ["Up", "Down", "Return", "Enter", "Escape"]
+
+[[panel]]
+id = "wallpapers"
+entry = "wallpapers.luau"
+width = 1160
+height = "content"
+max_height = 500
+placement = "floating"
+position = "center"
+dismiss_on_outside_click = true
+keyboard_focus = "exclusive"
+capture_keys = ["Left", "Right", "Up", "Down", "Return", "Enter", "Space", "Escape"]
+
+[[panel]]
+id = "manager"
+entry = "manager.luau"
+width = 840
+height = 640
+placement = "floating"
+position = "center"
+dismiss_on_outside_click = true
+keyboard_focus = "on_demand"
+capture_keys = ["Escape"]
+
+[[widget]]
+id = "widget-picker"
+entry = "widget_picker.luau"
+
+[[widget]]
+id = "widget-wallpapers"
+entry = "widget_wallpapers.luau"
+
+[[widget]]
+id = "widget-manager"
+entry = "widget_manager.luau"
