@@ -39,7 +39,7 @@ import urllib.parse
 import urllib.request
 
 APP = "lyrics-carousel"
-VERSION = "2.8.0"
+VERSION = "2.8.1"
 
 # Timeout of the lyrics lookup (seconds). The providers are slow: with 4 s a
 # lyrics file that takes 6 s was thrown away.
