@@ -252,6 +252,13 @@ enabled costs nothing.
 
 ## Changelog
 
+### 2.8.1
+
+- **Uniform panel spacing**: optional rows no longer leave an empty
+  placeholder, so the space before the keyboard hints matches every other row.
+- **Instrumental text editor toggles**: a second right click on the custom text
+  button closes the inline editor again.
+
 ### 2.8.0
 
 - **Right click opens the window**: the bar widget opens the lyrics window with a
