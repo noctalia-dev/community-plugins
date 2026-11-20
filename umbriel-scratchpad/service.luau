@@ -101,11 +101,37 @@ local function verifyStream()
   end
 end
 
+-- Bars request "<action>:<argument>" (e.g. "scratchpad-toggle:M"). Current
+-- Umbriel takes the argument as a separate word (`umbriel msg scratchpad-toggle M`);
+-- older builds only knew the joined "action:argument" form, so fall back to it
+-- when Umbriel reports an unknown action.
+local function notifyFailure(action, result)
+  noctalia.notifyError(noctalia.tr("notify.action_failed", { action = action }), noctalia.string.trim(result.stderr or ""))
+end
+
 local function runAction(action)
-  noctalia.runAsync({ "umbriel", "msg", action }, function(result)
-    if result.exitCode ~= 0 or result.timedOut then
-      noctalia.notifyError(noctalia.tr("notify.action_failed", { action = action }), noctalia.string.trim(result.stderr))
+  local name, argument = action:match("^([%w%-]+):(.+)$")
+  if name == nil then
+    noctalia.runAsync({ "umbriel", "msg", action }, function(result)
+      if result.exitCode ~= 0 or result.timedOut then
+        notifyFailure(action, result)
+      end
+    end, COMMAND_TIMEOUT_MS)
+    return
+  end
+  noctalia.runAsync({ "umbriel", "msg", name, argument }, function(result)
+    if result.exitCode == 0 and not result.timedOut then
+      return
     end
+    if not string.find(string.lower(result.stderr or ""), "unknown action", 1, true) then
+      notifyFailure(action, result)
+      return
+    end
+    noctalia.runAsync({ "umbriel", "msg", action }, function(legacy)
+      if legacy.exitCode ~= 0 or legacy.timedOut then
+        notifyFailure(action, legacy)
+      end
+    end, COMMAND_TIMEOUT_MS)
   end, COMMAND_TIMEOUT_MS)
 end
 

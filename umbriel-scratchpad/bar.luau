@@ -28,7 +28,7 @@ local iconCache = {}
 -- render can exceed the script CPU budget right after startup. Resolve at most
 -- this many new icons per render; the rest show a placeholder until a later
 -- update() tick fills them in.
-local MAX_ICON_LOOKUPS_PER_RENDER = 2
+local MAX_ICON_LOOKUPS_PER_RENDER = 1
 local lookupsLeft = MAX_ICON_LOOKUPS_PER_RENDER
 local requestSeq = 0
 

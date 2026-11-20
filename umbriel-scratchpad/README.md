@@ -14,7 +14,7 @@ scratchpad windows belong to no workspace, so this widget is the only place they
 ## Requirements
 
 - An Umbriel session, with `umbriel` on `PATH`. On any other compositor the widget hides itself.
-- Umbriel scratchpads, for example a `scratchpad-toggle:<name>` keybind and a `window-move-to-scratchpad:<name>`
+- Umbriel scratchpads, for example a `scratchpad-toggle <name>` keybind and a `window-move-to-scratchpad <name>`
   binding to fill it.
 
 ## Usage
@@ -22,7 +22,7 @@ scratchpad windows belong to no workspace, so this widget is the only place they
 Add the **Umbriel Scratchpad** widget to a bar from Settings → Bar. It fits naturally next to the native
 **Taskbar** widget.
 
-- **Click a scratchpad's badge** to show or hide that scratchpad (`scratchpad-toggle:<name>`).
+- **Click a scratchpad's badge** to show or hide that scratchpad (`scratchpad-toggle <name>`).
 - **Click a window's icon** to reveal and focus that window. Clicking the icon of the window that already has focus
   hides its scratchpad again.
 - With **Single icon per app**, an app's windows share one icon with a count badge, and clicking it cycles through
@@ -71,7 +71,9 @@ The settings follow the native taskbar's order: windows, then grouping, then lab
 
 - The `service` entry keeps one `umbriel subscribe windows` process running and shares its window list with every
   bar, so several bars on several monitors cost one subscription. It restarts the stream if it finds it has exited.
-- Clicks run `umbriel msg` with one of `scratchpad-toggle:<name>` or `window-focus:<window-id>`. The plugin starts no
+- Clicks run `umbriel msg scratchpad-toggle <name>` or `umbriel msg window-focus <window-id>`. Umbriel builds older than
+  November 2026 only accept the joined `scratchpad-toggle:<name>` form; the plugin retries with it when Umbriel reports
+  an unknown action. The plugin starts no
   other processes, makes no network requests, and writes no files.
 - Plugin UI has no overlay layer, so the corner badge sits just inside the group's top-left corner rather than
   straddling the border as the native taskbar's does, and the `edge` placement is flush with the left border.

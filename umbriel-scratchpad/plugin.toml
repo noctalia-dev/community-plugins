@@ -9,7 +9,7 @@
 
 id = "samxu29/umbriel-scratchpad"
 name = "Umbriel Scratchpad"
-version = "0.4.6"
+version = "0.4.7"
 plugin_api = 43
 author = "samxu29"
 license = "MIT"
