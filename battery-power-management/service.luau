@@ -8,6 +8,9 @@ local PROBE_EVERY = 3 -- powerprofilesctl+upower round every Nth tick (~15s)
 local READ_TIMEOUT_MS = 4000
 local PROBE_TIMEOUT_MS = 5000
 local SEP = "__NBPM_SEP__" -- separates command outputs in one shell run
+-- Gap kept between the start and end thresholds when the start has to be lowered.
+-- Mirrored in panel.luau for the preview.
+local START_GAP = 5
 
 local HAS_PPD = noctalia.commandExists("powerprofilesctl")
 local HAS_UPOWER = noctalia.commandExists("upower")
@@ -20,11 +23,13 @@ local snapshot = {
   profile = "balanced",
   threshold = 80,
   hasThreshold = false,
+  startThreshold = nil, -- charge_control_start_threshold; nil when the battery has none
   hasProfile = HAS_PPD,
 }
 
 local tick = 0
 local reading = false -- sysfs read in flight
+local rereadPending = false -- a write finished while a read was in flight
 local probing = false -- profile/eta round in flight
 
 local function shellQuote(s)
@@ -55,6 +60,7 @@ local function publish()
     profile = snapshot.profile,
     threshold = snapshot.threshold,
     hasThreshold = snapshot.hasThreshold,
+    startThreshold = snapshot.startThreshold,
     hasProfile = snapshot.hasProfile,
   })
 end
@@ -120,17 +126,26 @@ local function parseBattery(content)
   snapshot.watt = watt
 end
 
-local function parseThreshold(content)
+local function parsePercent(content)
   local v = content and tonumber(noctalia.string.trim(content))
-  if v and v >= 50 and v <= 100 then
+  if v and v >= 0 and v <= 100 then
+    return v
+  end
+  return nil
+end
+
+local function parseThresholds(endContent, startContent)
+  local v = parsePercent(endContent)
+  if v then
     snapshot.threshold = v
     snapshot.hasThreshold = true
   else
     snapshot.hasThreshold = false
   end
+  snapshot.startThreshold = parsePercent(startContent)
 end
 
--- Read battery uevent + charge threshold asynchronously so update() never blocks
+-- Read battery uevent + charge thresholds asynchronously so update() never blocks
 -- on a slow sysfs/EC access.
 local function readSysfs()
   if reading then
@@ -140,17 +155,76 @@ local function readSysfs()
   local base = sysfsBase()
   local cmd = "cat " .. shellQuote(base .. "/uevent") .. "; echo " .. SEP
     .. "; cat " .. shellQuote(base .. "/charge_control_end_threshold") .. " 2>/dev/null"
+    .. "; echo " .. SEP
+    .. "; cat " .. shellQuote(base .. "/charge_control_start_threshold") .. " 2>/dev/null"
   local launched = noctalia.runAsync(cmd, function(res)
     reading = false
-    local out = res.stdout or ""
-    local sepAt = out:find(SEP, 1, true)
-    parseBattery(sepAt and out:sub(1, sepAt - 1) or out)
-    parseThreshold(sepAt and out:sub(sepAt + #SEP) or "")
+    local parts = string.split(res.stdout or "", SEP)
+    parseBattery(parts[1])
+    parseThresholds(parts[2], parts[3])
     publish()
+    -- This read may predate a write that has just completed: read again.
+    if rereadPending then
+      rereadPending = false
+      readSysfs()
+    end
   end, READ_TIMEOUT_MS)
   if not launched then
     reading = false
   end
+end
+
+local function rereadSysfs()
+  if reading then
+    rereadPending = true
+  else
+    readSysfs()
+  end
+end
+
+-- Exit codes of the threshold write script.
+local WRITE_END_DENIED = 10
+local WRITE_START_DENIED = 11
+local WRITE_REJECTED = 12
+
+-- Sets the end threshold to v. Batteries with a start threshold reject an end
+-- below it (EINVAL), so the start is lowered first to v - START_GAP. Doing it in
+-- this order is always valid: the new start is below the current start, hence
+-- below the current end.
+local function writeThreshold(v)
+  local base = sysfsBase()
+  local endPath = shellQuote(base .. "/charge_control_end_threshold")
+  local start = snapshot.startThreshold
+  local newStart = nil
+  if start and v < start then
+    newStart = math.max(0, v - START_GAP)
+  end
+
+  local cmd = "[ -w " .. endPath .. " ] || exit " .. WRITE_END_DENIED .. "; "
+  if newStart then
+    local startPath = shellQuote(base .. "/charge_control_start_threshold")
+    cmd ..= "[ -w " .. startPath .. " ] || exit " .. WRITE_START_DENIED .. "; "
+      .. "echo " .. newStart .. " > " .. startPath .. " || exit " .. WRITE_REJECTED .. "; "
+  end
+  cmd ..= "echo " .. v .. " > " .. endPath .. " || exit " .. WRITE_REJECTED
+
+  noctalia.runAsync(cmd, function(res)
+    if res.exitCode ~= 0 then
+      local body
+      if res.exitCode == WRITE_END_DENIED then
+        body = noctalia.tr("notify.threshold_error_body")
+      elseif res.exitCode == WRITE_START_DENIED then
+        body = noctalia.tr("notify.threshold_start_denied_body", { value = tostring(v), start = tostring(start) })
+      elseif res.exitCode == WRITE_REJECTED then
+        body = noctalia.tr("notify.threshold_rejected_body", { value = tostring(v) })
+      else
+        body = noctalia.tr("notify.threshold_failed_body")
+      end
+      noctalia.notifyError(noctalia.tr("notify.threshold_error_title"), body)
+      noctalia.log("threshold write failed (exit " .. tostring(res.exitCode) .. "): " .. (res.stderr or ""))
+    end
+    rereadSysfs()
+  end, PROBE_TIMEOUT_MS)
 end
 
 local function probeProfileAndEta()
@@ -226,19 +300,9 @@ noctalia.state.watch(COMMAND, function(cmd)
       return
     end
     v = math.max(50, math.min(100, math.floor(v + 0.5)))
-    snapshot.threshold = v -- optimistic; confirmed by the next read
+    snapshot.threshold = v -- optimistic; confirmed (or reverted) by the read after the write
     publish()
-    local path = sysfsBase() .. "/charge_control_end_threshold"
-    noctalia.runAsync("echo " .. v .. " > " .. shellQuote(path), function(res)
-      if res.exitCode ~= 0 then
-        noctalia.notifyError(
-          noctalia.tr("notify.threshold_error_title"),
-          noctalia.tr("notify.threshold_error_body")
-        )
-        noctalia.log("threshold write failed: " .. (res.stderr or ""))
-      end
-      readSysfs()
-    end, PROBE_TIMEOUT_MS)
+    writeThreshold(v)
   end
 end)
 
@@ -254,6 +318,7 @@ function onConfigChanged()
   -- battery_device may have changed; re-read now.
   tick = 0
   reading = false
+  rereadPending = false
   probing = false
   readSysfs()
   probeProfileAndEta()
