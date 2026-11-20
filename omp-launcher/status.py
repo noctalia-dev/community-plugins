@@ -39,6 +39,50 @@ def format_ago(mtime):
         return f"{diff // 3600}h ago"
     return f"{diff // 86400}d ago"
 
+def session_slug(path, home):
+    """Session directory name for a project dir: home-relative, "/" -> "-"."""
+    if path == home:
+        return "-"
+    if path.startswith(home + "/"):
+        return "-" + path[len(home) + 1:].replace("/", "-")
+    return path.replace("/", "-")
+
+def latest_jsonl(session_dir):
+    files = glob.glob(os.path.join(session_dir, "*.jsonl"))
+    if not files:
+        return None, 0.0
+    files.sort(key=os.path.getmtime, reverse=True)
+    try:
+        return files[0], os.path.getmtime(files[0])
+    except OSError:
+        return None, 0.0
+
+def session_needs_input(path, home, sessions_dir):
+    """True when the project's newest session is idle-waiting for the user."""
+    if not os.path.isdir(sessions_dir):
+        return False
+    session_dir = os.path.join(sessions_dir, session_slug(path, home))
+    if not os.path.isdir(session_dir):
+        for child in os.scandir(sessions_dir):
+            if child.is_dir() and resolve_slug(child.name, home) == path:
+                session_dir = child.path
+                break
+        else:
+            return False
+    latest, mtime = latest_jsonl(session_dir)
+    if latest is None:
+        return False
+    # Fresh writes mean the agent is still working.
+    if time.time() - mtime < 6.0:
+        return False
+    entry = get_last_jsonl_entry(latest)
+    if not entry:
+        return True
+    custom_type = entry.get("customType")
+    message = entry.get("message")
+    role = entry.get("role") or (message.get("role") if isinstance(message, dict) else None)
+    return not (custom_type == "tool_execution_start" or role == "toolResult")
+
 def get_last_jsonl_entry(filepath):
     try:
         with open(filepath, 'rb') as f:
@@ -47,6 +91,7 @@ def get_last_jsonl_entry(filepath):
             if size == 0:
                 return None
             f.seek(max(0, size - 8192), 0)
+            chunk = f.read().decode('utf-8', 'replace')
             lines = [l for l in chunk.strip().split('\n') if l.strip()]
             for l in reversed(lines):
                 try:
@@ -83,7 +128,8 @@ def get_omp_status():
                             "pid": pid,
                             "path": pdir,
                             "display": display_p,
-                            "short": short
+                            "short": short,
+                            "needs_input": session_needs_input(pdir, home, sessions_dir)
                         })
                     except OSError:
                         pass
@@ -101,56 +147,13 @@ def get_omp_status():
                             "pid": int(line.strip()),
                             "path": home,
                             "display": "~",
-                            "short": "omp"
+                            "short": "omp",
+                            "needs_input": session_needs_input(home, home, sessions_dir)
                         })
         except Exception:
             pass
 
-    running_count = len(active_sessions)
-
-    # 2. Find All Recent Session Files & Match Exact File mtimes
-    all_jsonls = glob.glob(os.path.join(sessions_dir, '*', '*.jsonl'))
-    latest_jsonl_file = None
-    latest_file_mtime = 0
-
-    if all_jsonls:
-        all_jsonls.sort(key=os.path.getmtime, reverse=True)
-        latest_jsonl_file = all_jsonls[0]
-        try:
-            latest_file_mtime = os.path.getmtime(latest_jsonl_file)
-        except OSError:
-            pass
-
-    # 3. Dynamic Pulse State Detection (Thinking = Sky Blue, Prompting = Clean White, Idle = Muted)
-    pulse = "idle"
-    pulse_color = "#94A3B8"
-    pulse_label = "Idle"
-
-    if running_count > 0:
-        time_since_write = time.time() - latest_file_mtime if latest_file_mtime > 0 else 999
-        last_entry = get_last_jsonl_entry(latest_jsonl_file) if latest_jsonl_file else None
-
-        if time_since_write < 6.0:
-            pulse = "thinking"
-            pulse_color = "#38BDF8"
-            pulse_label = "Thinking..."
-        elif last_entry:
-            custom_type = last_entry.get("customType")
-            role = last_entry.get("role") or (last_entry.get("message", {}).get("role") if isinstance(last_entry.get("message"), dict) else None)
-            if custom_type == "tool_execution_start" or role == "toolResult":
-                pulse = "thinking"
-                pulse_color = "#38BDF8"
-                pulse_label = "Thinking..."
-            else:
-                pulse = "prompting"
-                pulse_color = "#FFFFFF"
-                pulse_label = "Ready for input"
-        else:
-            pulse = "prompting"
-            pulse_color = "#FFFFFF"
-            pulse_label = "Ready for input"
-
-    # 4. Recent Workspaces Discovery
+    # 2. Recent Workspaces Discovery
     recent_projects = []
     seen_paths = set()
     
@@ -191,32 +194,10 @@ def get_omp_status():
             if len(recent_projects) >= 8:
                 break
 
-    latest_project = recent_projects[0]["display"] if recent_projects else "~"
-    latest_short = recent_projects[0]["short"] if recent_projects else "root"
-    latest_ago = recent_projects[0]["ago"] if recent_projects else "never"
-    
-    tooltip_lines = [
-        "Oh My Pi (omp) Launcher",
-        f"• Status: {running_count} active ({pulse_label})",
-        f"• Latest: {latest_project} ({latest_ago})",
-        "",
-        "Left-click: Open session panel & project picker",
-        f"Middle-click: Resume latest ({latest_short})",
-        "Right-click: Launch in $HOME"
-    ]
-
     return {
-        "running": running_count > 0,
-        "running_count": running_count,
-        "pulse": pulse,
-        "pulse_color": pulse_color,
-        "pulse_label": pulse_label,
+        "needs_input": any(s["needs_input"] for s in active_sessions),
         "active_sessions": active_sessions,
         "recent_projects": recent_projects,
-        "latest_project": latest_project,
-        "latest_short": latest_short,
-        "latest_ago": latest_ago,
-        "tooltip": "\n".join(tooltip_lines)
     }
 
 if __name__ == '__main__':
