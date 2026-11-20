@@ -4278,15 +4278,21 @@ rev = "c522eaa54be5282bea38ae9d9932e1d8c25e68ca"
 [[plugin]]
 id = "pulser/hover-widgets"
 name = "Hover Widgets"
-version = "1.13.0"
-updated_at = 1791205936
+version = "1.13.1"
+updated_at = 1795209452
 added_at = 1791205936
 author = "pulser"
 license = "MIT"
 icon = "layout-navbar"
 description = "Nine compact bar widgets with hover expansion: clock, volume, media, active window and system monitors."
-plugin_api = 32
+plugin_api = 46
 tags = ["bar", "clock", "audio", "media", "system", "network", "utility"]
+
+[[plugin.release]]
+plugin_api = 32
+version = "1.13.0"
+updated_at = 1791205936
+rev = "bc8342269405bef8f67d083e42b2868296bf04dd"
 
 [[plugin]]
 id = "tausif/ncs-visualizer"
