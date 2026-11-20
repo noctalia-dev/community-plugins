@@ -4,7 +4,7 @@
 
 A compact application dock inside the Noctalia bar: grouped windows, focused-app switching, optional hover enlargement, and a clipped icon strip that stays within its width budget.
 
-**Requires plugin API 52+.** Version 2.0.0 release candidate supports Umbriel, niri, Hyprland, Mango and Sway through public compositor protocols. Umbriel and niri prefer native subscriptions on API 54+. Native desktop acceptance and real screenshots remain pending. The images below are labeled offline fixture previews.
+**Requires plugin API 52+.** Version 2.0.1 release candidate supports Umbriel, niri, Hyprland, Mango and Sway through public compositor protocols. Umbriel and niri use native `noctalia.compositor` subscriptions when the host exposes them (feature-detected) and fall back to their public CLI event streams otherwise. Native desktop acceptance and real screenshots remain pending. The images below are labeled offline fixture previews.
 
 ## Plugin
 
@@ -18,8 +18,8 @@ A compact application dock inside the Noctalia bar: grouped windows, focused-app
 ## Requirements
 
 - Noctalia with API 52 or newer. Use the host's reported API range rather than the version label alone.
-- Umbriel: `umbriel` and `sleep` on PATH on API 52/53. API 54+ native events need neither helper.
-- niri: `niri` for explicit focus/close actions; `niri` and `sleep` for the event stream on API 52/53.
+- Umbriel: `umbriel` and `sleep` on PATH when the host lacks native compositor events; native events need neither helper.
+- niri: `niri` for explicit focus/close actions; `niri` and `sleep` for the event stream when native events are unavailable.
 - Hyprland: Python 3.9+ (`python3`) for public local socket events/snapshots; `hyprctl` for explicit focus/close actions.
 - Mango: Python 3.9+ (`python3`) and public `watch all-clients` / `watch all-monitors` support; `mmsg` for explicit focus/close/minimize actions.
 - Sway: Python 3.9+ (`python3`) for public i3 IPC; `swaymsg` for explicit focus/close actions.
@@ -169,16 +169,24 @@ Offline fixture renders use the actual Luau UI trees with an illustrative palett
 ![Grouped numeric badge offline preview](screenshots/grouped.png)
 ![Overflow offline preview](screenshots/overflow.png)
 
+## Troubleshooting
+
+- **Widget is hidden.** It hides itself when no windows match the current filters (display mode, workspace/output filter, exclusions). Relax the filters, or enable **Diagnostic logging** to see compositor connection messages.
+- **Nothing appears at all.** Check that the compositor's CLI is on `PATH` (`umbriel`, `niri`, `hyprctl`, `mmsg` or `swaymsg`) and that `sleep` and `python3` exist where listed in Requirements. The tooltip reads "Waiting for compositor windows" while disconnected.
+- **Icons too small or large.** Use Sizing → Manual, or set **Sizing bar name** in Auto mode.
+- **Pinning.** The plugin API settings are read-only and context menus are panel-only, so pin and exclude lists are edited in Widget settings, not from the taskbar.
+- **Which event source is used?** Native `noctalia.compositor` events when the host exposes them; otherwise the CLI stream. The host's reported API range is authoritative; there is no plugin API above what your host reports.
+
 ## Notes
 
 Umbriel window/workspace snapshots normalize stable IDs, identity, output, focus and minimized state. Focus, close and minimize use `noctalia.umbriel.action`; restore uses focus. Scratchpads without a workspace are excluded. Urgency appears only if supplied by the compositor.
 
-niri uses native events on API 54+ or its JSON CLI event stream on API 52/53. Hyprland, Mango and Sway use one host-owned Python standard-library helper per widget, reading public local UNIX sockets. Hyprland and Sway reconcile snapshots after relevant events, coalescing bursts; Mango merges its two watched snapshot streams. No polling or query subprocesses run while idle. Mango multi-tag windows remain visible on any active matching tag and count once. Focus and close use validated argument-array CLI commands with a five-second timeout. Minimize is available only on Umbriel and Mango; focus restores supported minimized windows. No scratchpad workaround is used for other compositors.
+niri uses native events when `noctalia.compositor` is present, otherwise its JSON CLI event stream. Hyprland, Mango and Sway use one host-owned Python standard-library helper per widget, reading public local UNIX sockets. Hyprland and Sway reconcile snapshots after relevant events, coalescing bursts; Mango merges its two watched snapshot streams. No polling or query subprocesses run while idle. Mango multi-tag windows remain visible on any active matching tag and count once. Focus and close use validated argument-array CLI commands with a five-second timeout. Minimize is available only on Umbriel and Mango; focus restores supported minimized windows. No scratchpad workaround is used for other compositors.
 
 Disconnection clears stale state and reconnects automatically. Subscription replay reuses the existing helper. Compatibility is protocol-tested, with live desktop acceptance pending; see the source repository's `docs/COMPATIBILITY.md`.
 Application grouping uses exact normalized IDs without fuzzy-merging distinct applications. Missing IDs stay separate. Cached `noctalia.appIconPath` handles desktop-entry, StartupWMClass and fuzzy icon matching; a theme glyph replaces missing icons. Use `app_aliases` for unusual IDs. Settings are read-only from plugins, so pin lists are edited through the normal settings GUI. Native context menus are public only for panels; this single-widget plugin offers settings on right click.
 
-The plugin makes **no network calls or filesystem writes**. Native Umbriel/niri subscriptions need no helper. API 52/53 starts one host-managed reconnecting shell/CLI stream. Hyprland/Mango/Sway start one Python helper, blocked on local socket events while idle. Noctalia owns process-group cleanup on reload/disable. Compatibility toggles pause delivery and replay cached snapshots without duplicating streams. Explicit pin launches and window actions also spawn processes; nothing starts per icon or animation frame. Snapshot framing stays below the host stream-line limit, and complete snapshots are applied atomically. Geometry-only updates do not rebuild the widget.
+The plugin makes **no network calls or filesystem writes**. Native Umbriel/niri subscriptions need no helper. Without native events the plugin starts one host-managed reconnecting shell/CLI stream. Hyprland/Mango/Sway start one Python helper, blocked on local socket events while idle. Noctalia owns process-group cleanup on reload/disable. Compatibility toggles pause delivery and replay cached snapshots without duplicating streams. Explicit pin launches and window actions also spawn processes; nothing starts per icon or animation frame. Snapshot framing stays below the host stream-line limit, and complete snapshots are applied atomically. Geometry-only updates do not rebuild the widget.
 
 Animations run briefly at about 30 Hz while changing. No render loop runs while idle or hidden, and hover animation does not resolve icons repeatedly. Theme colors are host palette roles. Badges are paint-transformed over fixed icon cells using public API 52 controls.
 
