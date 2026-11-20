@@ -168,7 +168,7 @@
   "shortcut": {
     "add": "Add rule",
     "command_label": "Command",
-    "command_placeholder": "hyprctl dispatch workspace next",
+    "command_placeholder": "Type a command here…",
     "delete": "Delete rule",
     "gesture": {
       "dial_down": "Dial wheel down",
@@ -193,7 +193,8 @@
     "mods_label": "Modifiers",
     "mods_unavailable": "No access to /dev/input",
     "none": "—",
-    "note": "For the signal to reach the PC, the gesture must be mapped to a volume action (e.g. triple press of the case button → Volume up). Note: if a gesture has a rule with a number of presses (2, 3...), the 'Any' rule for that same gesture is ignored; the N-press rule wins.",
+    "no_command": "This rule has no command yet: the gesture is detected but nothing runs. Type a command above.",
+    "note": "For the signal to reach the PC, the gesture must be mapped to a volume action (e.g. triple press of the case button → Volume up). Note: if a gesture has a rule with a number of presses (2, 3...), the 'Any' rule for that same gesture waits for the window to end and then runs, so a single press still works.",
     "notify": "Notify",
     "presses": {
       "any": "Any"
@@ -201,7 +202,12 @@
     "presses_label": "Repeats",
     "restore": "Restore volume",
     "rule_title": "{trigger} · {modifier}",
+    "rule_title_presses": "{trigger} ×{presses} · {modifier}",
     "test": "Test",
+    "test_empty": "Write a command first: there is nothing to test yet.",
+    "test_failed": "The command could not be tested.",
+    "test_ok": "The command ran successfully.",
+    "test_running": "Running the command…",
     "title": "Local shortcuts"
   },
   "status": {
@@ -251,6 +257,7 @@
     "mute": "Mute",
     "system": "System volume · {sink}",
     "title": "Volume",
-    "unmute": "Unmute"
+    "unmute": "Unmute",
+    "other_sink": "Audio is going to {sink}. The dial shortcuts only work while the earbuds are the audio output."
   }
 }

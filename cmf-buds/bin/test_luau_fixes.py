@@ -476,6 +476,27 @@ class LuauContractTests(unittest.TestCase):
         self.assertEqual(set(english["error"]["code"]), set(spanish["error"]["code"]))
         self.assertIn("command_failed", english["error"]["code"])
 
+    def test_the_wheel_starts_from_the_value_it_asked_for(self):
+        # Each notch used to start from the published volume. The file lags
+        # behind the wheel (one request at a time), so a second notch undid
+        # the first one: the bar went back a step and the volume dropped.
+        self.assertIn(
+            "optimisticVolume",
+            self.widget,
+            "the wheel has no memory of the value it asked for",
+        )
+        self.assertLess(
+            self.widget.index("local optimisticVolume = nil"),
+            self.widget.index("if optimisticVolume ~= nil then"),
+            "the optimistic value is used before it is declared (it would be a global)",
+        )
+        scroll = self.widget[self.widget.index("function onScroll(") :]
+        scroll = scroll[: scroll.index("\nend\n")]
+        self.assertTrue(
+            "optimisticVolume" in scroll,
+            "onScroll starts from the published value instead of the last target",
+        )
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

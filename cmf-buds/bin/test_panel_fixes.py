@@ -361,6 +361,114 @@ class PanelContractTests(unittest.TestCase):
         )
         self.assertTrue("table.insert" in body)
 
+    def test_a_typed_command_survives_a_state_refresh(self):
+        # The panel re-seeds the rules from the daemon every 500 ms: the
+        # daemon has the last saved value, so the text of the field has to
+        # come from the panel's own draft or the user's text is replaced (and
+        # a Test or a toggle then saves the old value over it).
+        body = function_body(self.panel, "ruleCard")
+        self.assertTrue(
+            "ruleCommand(rule)" in body,
+            "the command field shows the saved value instead of what was typed",
+        )
+        self.assertTrue(
+            "ruleDrafts[ruleId] = value" in body,
+            "the typed text is not kept: the next state refresh loses it",
+        )
+        save = function_body(self.panel, "saveRule")
+        self.assertTrue(
+            "ruleCommand(rule)" in save,
+            "saving a rule sends the old command over the typed one",
+        )
+
+    def test_the_test_button_shows_its_result(self):
+        # The result of a test went to the connection card of the System tab
+        # (and only when it failed): pressing Test looked like nothing
+        # happened at all.
+        body = function_body(self.panel, "ruleCard")
+        for marker in (
+            "ruleTests[ruleId]",
+            "shortcut.test_ok",
+            "shortcut.test_empty",
+            "C.error_text(data.error, data.error_detail)",
+        ):
+            self.assertTrue(
+                marker in body,
+                "the test button does not report its result (%s)" % marker,
+            )
+
+    def test_a_rule_without_a_command_is_flagged(self):
+        body = function_body(self.panel, "ruleCard")
+        self.assertTrue(
+            'tr("shortcut.no_command")' in body,
+            "a rule with no command looks exactly like a working one",
+        )
+
+    def test_the_header_does_not_say_connected_on_a_link_error(self):
+        # A half-open RFCOMM socket keeps 'connected' true while every
+        # command times out: the header has to show the error.
+        body = function_body(self.panel, "header")
+        self.assertTrue(
+            "link_lost" in body,
+            "the header shows a green Connected while the link is dead",
+        )
+        self.assertTrue("status.error" in body)
+
+
+    def test_the_rule_list_is_not_reseeded_while_a_write_is_in_flight(self):
+        # The state file can still hold the previous version of a rule for a
+        # moment: re-seeding the list from it puts the old value back into the
+        # toggle, and the next change saves that old value.
+        sync = function_body(self.panel, "syncLocal")
+        self.assertTrue(
+            "rulesInFlight" in sync,
+            "the rule list is re-seeded from the file while a rule is being saved",
+        )
+        save = function_body(self.panel, "saveRule")
+        self.assertTrue(
+            "rulesInFlight = rulesInFlight + 1" in save,
+            "saving a rule does not mark the write as in flight",
+        )
+        self.assertTrue(
+            "rulesInFlight = math.max(0, rulesInFlight - 1)" in save,
+            "the write is never released",
+        )
+
+    def test_the_header_controls_have_a_fixed_size(self):
+        # A row whose children take their natural width re-flows when the
+        # switch changes size: the trash button grew and the toggle moved.
+        body = function_body(self.panel, "ruleCard")
+        self.assertTrue(
+            'justify = "end"' in body,
+            "the toggle and the delete button are loose in the header row",
+        )
+        self.assertTrue(
+            "width = 30" in body,
+            "the delete button has no fixed width",
+        )
+
+    def test_the_slider_value_is_written_on_the_next_tick(self):
+        # Waiting for a second without movement made the wheel and the drag
+        # of the panel feel one second behind.
+        body = function_body(self.panel, "tickRefresh")
+        send = body.find("pendingVolume")
+        gate = body.find("dragUntil")
+        self.assertNotEqual(send, -1, "the tick does not send the slider value")
+        self.assertNotEqual(gate, -1)
+        self.assertTrue(
+            send < gate,
+            "the slider value is only sent after the drag window",
+        )
+
+    def test_the_other_sink_warning_compares_the_real_sink_name(self):
+        # The text shown to the user is the description ("CMF Buds Pro 2");
+        # the comparison has to use the technical sink name or the warning
+        # appears even when the earbuds are the output.
+        body = function_body(self.panel, "volumeCard")
+        self.assertIn("sinkName", body, "the warning compares the display text")
+        self.assertIn('v.sink or ""', body)
+        self.assertIn("bluez_output.", body)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
