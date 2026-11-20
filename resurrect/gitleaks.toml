@@ -1,0 +1,12 @@
+# The secret check of each save: gitleaks' own rules, except in Noctalia's config and
+# settings, which Resurrect saves whole, with any tokens they hold.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Noctalia's config and settings"
+paths = [
+  '''^shared/noctalia/''',
+  '''^devices/[^/]+/noctalia/''',
+  '''^devices/[^/]+/settings\.toml$''',
+]
