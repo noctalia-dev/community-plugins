@@ -7,7 +7,7 @@ A feature-packed native Noctalia wallpaper manager inspired by Magic: The Gather
 | Field | Value |
 | --- | --- |
 | ID | `ishan0121/wallpaper-deck` |
-| Version | `1.6.0` |
+| Version | `1.6.3` |
 | License | `GPL-3.0` |
 | Author | `Ishan0121` |
 | Entries | Bar widget: `bar`; panel: `picker`; shortcut: `toggle`; service: `service` |
