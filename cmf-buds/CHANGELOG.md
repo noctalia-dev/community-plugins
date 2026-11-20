@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.1.1 — 2026-11-20
+
+### Fixes
+- **Rule toggles reverted:** `local_rule_set` and `local_rule_delete` changed the rules file but did not write `state.json`, which is the copy the panel reads twice a second. The panel re-seeded its list from the stale copy, the toggle jumped back half a second after the click, and the next change saved the stale value again (the cause of the "it restarts to its previous status" behaviour). The state file is written in the same request now, and the panel does not re-seed its list while a rule write is in flight.
+- **Volume slider and wheel:** the slider value is written on the next tick instead of waiting for a second without movement (the panel felt one second behind), and the bar widget starts each step from the value it last asked for instead of the published one. The file lags behind the wheel (one request at a time), so the second notch used to undo the first and the volume went back down.
+- **Shortcuts tab:** the Test button reports its result (success, exit status or error) inside the rule card; it used to fail silently because the error went to the connection card of another tab. A rule without a command is flagged in its card and reported once in the log (it used to look like a working rule and do nothing), the typed command survives the state refresh that re-seeds the rules twice a second, the command field placeholder no longer looks like a real command, the note about "Any" rules was wrong (they wait for the gesture window and then run, they are not ignored), and the rule title shows the press count so two rules of the same gesture can be told apart.
+- **Modifier state:** the shortcut engine reconciles the held modifiers with the kernel key bitmap (`EVIOCGKEY`) before deciding on a gesture. A key-up the reader thread missed (a recreated device, a key released while another client grabs the keyboard) left a modifier held forever, and every rule that required it stopped matching without an error.
+- **Volume card:** when the audio output is not the earbuds (multipoint with the phone, speakers...), the card says where the audio is going and that the dial shortcuts need the earbuds as the output. A shortcut that "does nothing" had no explanation at all in that case.
+- **Half-open link:** the header shows the link error instead of a green "Connected" when the RFCOMM socket is up but the earbuds stopped answering.
+
 ## 1.1.0 — 2026-11-10
 
 ### Fixes

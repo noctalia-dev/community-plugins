@@ -13,6 +13,11 @@ local logPath = nil
 local pluginPath = noctalia.pluginDir() or ""
 local lastRaw = nil
 local lastState = nil
+-- Volume the wheel asked for last. It is declared here because readState()
+-- clears it: the declared-later local would be a different variable.
+local optimisticVolume = nil
+local optimisticAt = 0
+local OPTIMISTIC_TTL = 3
 
 local render
 
@@ -42,6 +47,16 @@ local function readState()
   end
   lastRaw = raw
   lastState = data
+  if optimisticVolume ~= nil then
+    local real = data.volume and tonumber(data.volume.percent)
+    if real == nil or math.abs(real - optimisticVolume) <= 1 then
+      -- The daemon already has it: from here on the file wins.
+      optimisticVolume = nil
+    elseif os.time() - optimisticAt > OPTIMISTIC_TTL then
+      -- It did not confirm (an error, the sink changed...): release it.
+      optimisticVolume = nil
+    end
+  end
   return data, true
 end
 
@@ -243,12 +258,19 @@ function onScroll(axis, steps)
     return
   end
   local st = lastState
-  local current = st and st.volume and st.volume.percent
+  -- The value the last notch asked for wins over the one in the file: while
+  -- a request is on its way the file still has the previous step.
+  local current = optimisticVolume
+  if current == nil then
+    current = st and st.volume and st.volume.percent
+  end
   if current == nil then
     current = 50
   end
   local delta = -steps * volumeStep
   local target = math.max(0, math.min(100, current + delta))
+  optimisticVolume = target
+  optimisticAt = os.time()
   if st ~= nil then
     st.volume = st.volume or {}
     st.volume.percent = target

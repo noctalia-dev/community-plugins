@@ -21,6 +21,7 @@ from __future__ import annotations
 import os
 import re
 import sys
+import threading
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -1779,6 +1780,88 @@ def test_dead_link():
     return r.failures
 
 
+def test_the_kernel_bitmap_clears_a_phantom_modifier():
+    print('49) a modifier whose key-up was missed does not stay held')
+    import local_actions
+
+    tracker = local_actions.ModifierTracker()
+    tracker._fds = {1234567: "/dev/input/event0"}
+    tracker._by_path = {"/dev/input/event0": 1234567}
+    tracker.held = {"ctrl", "super"}
+    tracker._thread = threading.Thread(target=lambda: time.sleep(0.3), daemon=True)
+    tracker._thread.start()
+    original = local_actions._pressed_modifiers
+    try:
+        # The kernel says only SUPER is down: CTRL was released without the
+        # reader seeing it.
+        local_actions._pressed_modifiers = lambda fd: {"super"}
+        tracker.refresh()
+        r = Runner([])
+        r.check(
+            "the phantom modifier is cleared",
+            tracker.modifiers() == ["super"],
+            tracker.modifiers(),
+        )
+        # A device that cannot answer keeps what the events said (it is not
+        # evidence that nothing is held).
+        local_actions._pressed_modifiers = lambda fd: None
+        tracker.held = {"super"}
+        tracker.refresh()
+        r.check(
+            "a device that cannot tell does not wipe the state",
+            tracker.modifiers() == ["super"],
+            tracker.modifiers(),
+        )
+    finally:
+        local_actions._pressed_modifiers = original
+        tracker._thread = None
+    r.settle()
+    return r.failures
+
+
+def test_a_rule_without_command_is_reported_once():
+    print('50) a rule without a command is reported once, and again after a fix')
+    import tempfile
+
+    tmp = tempfile.mkdtemp(prefix="cmf-buds-empty-")
+    path = os.path.join(tmp, "local_actions.json")
+    logs = []
+    r = Runner([rule("empty", "volume_up", 0, "super", "")])
+    r.engine.log = logs.append
+    r.engine.data_dir = tmp
+    r.engine.rules_path = path
+    try:
+        r.engine._run_rule(r.engine.rules[0], "volume_up", 1, ["super"], None)
+        r.engine._run_rule(r.engine.rules[0], "volume_up", 1, ["super"], None)
+        said = [line for line in logs if "has no command" in line]
+        r.check("the empty rule is reported exactly once", len(said) == 1, said)
+        r.check(
+            "the message names the rule and the gesture",
+            bool(said) and "empty" in said[0] and "volume_up" in said[0],
+            said,
+        )
+        fixed = dict(r.engine.rules[0], command="UNO")
+        r.engine.upsert(fixed)
+        r.engine._run_rule(fixed, "volume_up", 1, ["super"], None)
+        after_fix = [line for line in logs if "has no command" in line]
+        r.check("a command silences the warning", len(after_fix) == 1, after_fix)
+        empty_again = dict(fixed, command="")
+        r.engine.upsert(empty_again)
+        r.engine._run_rule(empty_again, "volume_up", 1, ["super"], None)
+        rearmed = [line for line in logs if "has no command" in line]
+        r.check(
+            "the rule is reported again when the command is removed",
+            len(rearmed) == 2,
+            rearmed,
+        )
+    finally:
+        for name in os.listdir(tmp):
+            os.unlink(os.path.join(tmp, name))
+        os.rmdir(tmp)
+    r.settle()
+    return r.failures
+
+
 def main():
     print('Local shortcut engine tests\n')
     total = 0
@@ -1832,6 +1915,8 @@ def main():
         test_daemon_reflects_the_drop,
         test_daemon_configuration,
         test_expected_rpc_error,
+        test_the_kernel_bitmap_clears_a_phantom_modifier,
+        test_a_rule_without_command_is_reported_once,
     ):
         total += test()
     print("")

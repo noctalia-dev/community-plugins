@@ -168,7 +168,7 @@
   "shortcut": {
     "add": "Añadir regla",
     "command_label": "Comando",
-    "command_placeholder": "hyprctl dispatch workspace next",
+    "command_placeholder": "Escribe un comando aquí…",
     "delete": "Eliminar regla",
     "gesture": {
       "dial_down": "Rueda del dial ↓",
@@ -193,7 +193,8 @@
     "mods_label": "Modificadores",
     "mods_unavailable": "Sin acceso a /dev/input",
     "none": "—",
-    "note": "Para que la señal llegue al PC, el gesto debe tener asignada una acción de volumen (p. ej. triple pulsación del botón del estuche → Subir volumen). Ojo: si un gesto tiene una regla con un número de pulsaciones (2, 3...), la regla 'Cualquiera' de ese mismo gesto se ignora; la de N pulsaciones manda.",
+    "no_command": "Esta regla todavía no tiene comando: el gesto se detecta pero no se ejecuta nada. Escribe un comando arriba.",
+    "note": "Para que la señal llegue al PC, el gesto debe tener asignada una acción de volumen (p. ej. triple pulsación del botón del estuche → Subir volumen). Ojo: si un gesto tiene una regla con un número de pulsaciones (2, 3...), la regla 'Cualquiera' de ese mismo gesto espera a que acabe la ventana y luego se ejecuta, así que una pulsación simple sigue funcionando.",
     "notify": "Notificar",
     "presses": {
       "any": "Cualquiera"
@@ -201,7 +202,12 @@
     "presses_label": "Repeticiones",
     "restore": "Restaurar volumen",
     "rule_title": "{trigger} · {modifier}",
+    "rule_title_presses": "{trigger} ×{presses} · {modifier}",
     "test": "Probar",
+    "test_empty": "Escribe antes un comando: todavía no hay nada que probar.",
+    "test_failed": "No se pudo probar el comando.",
+    "test_ok": "El comando se ejecutó correctamente.",
+    "test_running": "Ejecutando el comando…",
     "title": "Atajos locales"
   },
   "status": {
@@ -251,6 +257,7 @@
     "mute": "Silenciar",
     "system": "Volumen del sistema · {sink}",
     "title": "Volumen",
-    "unmute": "Quitar silencio"
+    "unmute": "Quitar silencio",
+    "other_sink": "El audio va a {sink}. Los atajos del dial solo funcionan mientras los auriculares sean la salida de audio."
   }
 }

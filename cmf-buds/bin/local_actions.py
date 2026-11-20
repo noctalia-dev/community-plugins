@@ -20,6 +20,7 @@ That is why the macros are built on the PC:
 from __future__ import annotations
 
 import copy
+import fcntl
 import json
 import os
 import re
@@ -89,16 +90,34 @@ MODIFIER_LABELS = {
     "shift": "SHIFT",
 }
 
+# Human names for the notifications (the log keeps the internal names, which
+# are the ones the rules and the panel use).
+TRIGGER_LABELS = {
+    "volume_up": "Dial wheel up",
+    "volume_down": "Dial wheel down",
+    "knob_press": "Knob press",
+}
+
 # Layout of struct input_event: timeval(16) + u16 + u16 + s32 on 64-bit.
 # The size is computed from the format so it also fits the 32-bit layout
 # (timeval(8)), where a hardcoded size would misparse every event.
 INPUT_EVENT_FORMAT = "llHHi"
 
+# ioctl that returns the keys the kernel sees pressed right now. The reader
+# thread can miss a key-up (the device is recreated, an event is dropped,
+# the key is released while the keyboard is grabbed by another client), and
+# a modifier that stays 'held' forever makes every rule that requires it
+# stop matching, without a single error. The bitmap is the authority: it is
+# asked before deciding on a gesture, so a missed event cannot leave a
+# phantom modifier behind.
+KEY_MAX = 0x2FF
+KEY_BITMAP_BYTES = (KEY_MAX + 8) // 8
+EVIOCGKEY = (2 << 30) | (KEY_BITMAP_BYTES << 16) | (0x45 << 8) | 0x18
+
 
 def _input_event_size(fmt=INPUT_EVENT_FORMAT):
     """Size of an input_event record for the given struct format."""
     return struct.calcsize(fmt)
-
 
 INPUT_EVENT_SIZE = _input_event_size()
 
@@ -162,6 +181,24 @@ def _modifier_from_event(etype, code):
     if etype != 1:  # EV_KEY
         return None
     return MODIFIER_CODES.get(code)
+
+
+def _pressed_modifiers(fd):
+    """Modifiers the kernel reports as held on a device, or None.
+
+    None means "this device cannot tell" (the ioctl is not supported or the
+    descriptor is gone): the caller keeps the events it has seen instead of
+    clearing the state.
+    """
+    try:
+        bitmap = fcntl.ioctl(fd, EVIOCGKEY, bytes(KEY_BITMAP_BYTES))
+    except Exception:
+        return None
+    held = set()
+    for code, name in MODIFIER_CODES.items():
+        if bitmap[code // 8] & (1 << (code % 8)):
+            held.add(name)
+    return held
 
 
 def _list_event_devices():
@@ -239,6 +276,39 @@ class ModifierTracker:
     def modifiers(self):
         with self._lock:
             return sorted(self.held)
+
+    def refresh(self):
+        """Reconciles the held modifiers with the kernel state.
+
+        The reader thread only sees the events that reach it: a key-up can be
+        missed (a device that is recreated, a key released while another
+        client grabs the keyboard...). A modifier that stays held forever
+        makes every rule that requires it stop matching, silently, and a
+        modifier pressed before the tracker started was never seen at all.
+
+        The kernel keeps the authoritative bitmap, so it is asked before a
+        gesture is decided. Devices that do not answer keep the state the
+        events gave.
+        """
+        if not self.running:
+            return
+        with self._fd_lock:
+            fds = list(self._fds.keys())
+        if not fds:
+            return
+        held = set()
+        answered = False
+        for fd in fds:
+            current = _pressed_modifiers(fd)
+            if current is None:
+                continue
+            answered = True
+            held |= current
+        if not answered:
+            return
+        with self._lock:
+            if held != self.held:
+                self.held = held
 
     def _open_devices(self):
         for path in sorted(_list_event_devices()):
@@ -332,6 +402,11 @@ class ModifierTracker:
                 if now - last_refresh > 2.0:
                     last_refresh = now
                     self._refresh_devices()
+                    # The keys held before the reader started (or whose
+                    # event was missed) are not in the event stream: the
+                    # kernel bitmap is the authority, also when a gesture
+                    # is decided from another thread.
+                    self.refresh()
                 if not self._fds:
                     self._stop.wait(0.5)
                     continue
@@ -687,6 +762,8 @@ class LocalActionEngine:
         # Triggers already reported (once per trigger, not once overall).
         self._no_rule_logged = {}
         self._shadow_logged = {}
+        # Rules already reported as having no command (once per rule).
+        self._empty_rule_logged = {}
         self.modifiers = ModifierTracker(self.log)
         self.media = MediaKeyWatcher(self._on_media_press, self.log)
         self.watcher = None
@@ -785,6 +862,9 @@ class LocalActionEngine:
                     break
             if not found:
                 self.rules.append(rule)
+            # A rule that was reported as empty stops being reported once it
+            # has a command (the next empty one is worth a new line).
+            self._empty_rule_logged.pop(rid, None)
             self.save()
             self._sync_modifier_tracker()
         return rule
@@ -986,6 +1066,10 @@ class LocalActionEngine:
     # -- press grouping ------------------------------------------------------
     def _register(self, trigger, sink=None, previous_volume=None):
         now = time.time()
+        # The kernel bitmap is asked before the gesture is decided: a key-up
+        # the reader thread missed would leave a modifier held forever, and
+        # every rule that requires it would stop matching without an error.
+        self.modifiers.refresh()
         with self._lock:
             # A single key can generate several events: ignore repeats.
             if now - self._last_trigger_at.get(trigger, 0.0) < EVENT_GAP:
@@ -1244,6 +1328,18 @@ class LocalActionEngine:
 
     def _run_rule(self, rule, trigger, count, modifiers, previous_volume):
         command = (rule.get("command") or "").strip()
+        if not command:
+            # The gesture was detected and the rule fired, but there is
+            # nothing to run. That is the most common reason for a shortcut
+            # that "does nothing", and it used to leave only a quiet
+            # "(no command)" in the log.
+            rid = str(rule.get("id") or "")
+            if rid and not self._empty_rule_logged.get(rid):
+                self._empty_rule_logged[rid] = True
+                self.log(
+                    "The rule %s has no command: the %s gesture does nothing"
+                    % (rid, trigger)
+                )
         info = {
             "trigger": trigger,
             "presses": count,
@@ -1451,7 +1547,10 @@ class LocalActionEngine:
 
     def _notify(self, info, command):
         mods = " + ".join(MODIFIER_LABELS.get(m, m.upper()) for m in info["modifiers"])
-        body = "%s x%d" % (info["trigger"], info["presses"])
+        body = "%s x%d" % (
+            TRIGGER_LABELS.get(info["trigger"], info["trigger"]),
+            info["presses"],
+        )
         if mods:
             body += " with " + mods
         body += " -> " + command
@@ -1479,6 +1578,8 @@ class LocalActionEngine:
 
     # -- state ---------------------------------------------------------------
     def snapshot(self):
+        # The panel shows these as "held": they have to be the real ones.
+        self.modifiers.refresh()
         # The panel has to see the file as it is: if the rules were edited by
         # hand (or from another session), the in-memory view can be stale.
         # Copies are returned: the daemon serializes them while the engine

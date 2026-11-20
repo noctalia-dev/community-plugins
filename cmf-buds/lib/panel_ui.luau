@@ -31,6 +31,32 @@ local localDevices = {}
 -- The rules whose command was typed but not saved yet. They are saved
 -- when the panel is closed: the text is not stored anywhere else.
 local pendingCommands = {}
+-- Rule writes in flight (a toggle, a select, a deletion). See syncLocal.
+local rulesInFlight = 0
+-- Text of the command field per rule. The rules are re-seeded from the
+-- daemon state every 500 ms and the daemon has the last saved value: without
+-- this draft, the text the user typed would be replaced by the old one (and
+-- a Test or a toggle would save the old value over it).
+local ruleDrafts = {}
+-- Result of the last test of each rule: {pending = true} or
+-- {ok = true|false, message = "..."}. It is shown inside the rule card:
+-- the error of a test used to go to the connection card of the System tab,
+-- so the Test button looked dead.
+local ruleTests = {}
+-- Incremented on every open. The input of a command keeps the text the host
+-- has in its node (the reconciler only writes it when the 'value' prop
+-- changes between two trees), so a node reused from a previous open would
+-- show a text that is not the saved one. Changing the key builds the node
+-- again from the state on every open.
+local panelGeneration = 0
+
+local function ruleCommand(rule)
+  local draft = ruleDrafts[tostring(rule.id)]
+  if draft ~= nil then
+    return draft
+  end
+  return tostring(rule.command or "")
+end
 -- The panel is closed: the answers that arrive afterwards must not
 -- touch the UI anymore.
 local closed = false
@@ -131,7 +157,11 @@ local function syncLocal()
   if actions == nil then
     return
   end
-  if actions.rules ~= nil then
+  -- While a rule is being written, the file can still hold the previous
+  -- version (the daemon publishes it after saving): re-seeding the list from
+  -- it would put the old value back into the toggle, and the next change
+  -- would save that old value. The answer of the request brings the new one.
+  if actions.rules ~= nil and rulesInFlight == 0 then
     localRules = actions.rules
   end
   if actions.last_event ~= nil then
@@ -470,8 +500,25 @@ local function header()
   local dev = st and st.device or {}
   local connected = st ~= nil and st.connected == true
   local name = (dev.name ~= nil and dev.name ~= "") and dev.name or "CMF Buds Pro 2"
-  local statusText = connected and tr("status.connected") or ((connecting or loading) and tr("status.connecting") or tr("status.disconnected"))
-  local statusColor = connected and "primary" or ((connecting or loading) and "on_surface_variant" or "error")
+  -- The RFCOMM socket can stay open while the earbuds stop answering (the
+  -- link is half-open): the state then carries an error, and a green
+  -- "Connected" would be lying to the user.
+  local linkError = st ~= nil and (st.error == "link_lost" or st.error == "not_connected")
+  local statusText
+  local statusColor
+  if linkError then
+    statusText = tr("status.error")
+    statusColor = "error"
+  elseif connected then
+    statusText = tr("status.connected")
+    statusColor = "primary"
+  elseif connecting or loading then
+    statusText = tr("status.connecting")
+    statusColor = "on_surface_variant"
+  else
+    statusText = tr("status.disconnected")
+    statusColor = "error"
+  end
 
   local titleRow = ui.row({ align = "center", gap = 10 }, {
     ui.row({
@@ -682,7 +729,7 @@ local function volumeCard()
   -- The value we just pushed into the tree: used to recognize the echo.
   pushedVolume = percent
 
-  return card({
+  local children = {
     top,
     slider,
     ui.label({
@@ -691,7 +738,38 @@ local function volumeCard()
       color = "on_surface_variant",
       maxLines = 1,
     }),
-  })
+  }
+
+  -- The shortcuts of the dial are inferred from the volume changes of the
+  -- earbuds' own sink: when the audio goes to another device (the phone with
+  -- multipoint, the speakers...) no gesture ever reaches the engine, and the
+  -- rule looks broken. Saying where the audio is going explains it.
+  local mac = st and st.device and st.device.mac or ""
+  -- 'sink' above is the text for the user (the description when there is
+  -- one): the comparison needs the technical sink name.
+  local sinkName = tostring(v.sink or "")
+  local budsSink = mac ~= ""
+    and sinkName:find("bluez_output." .. (mac:gsub(":", "_")), 1, true) ~= nil
+  if st ~= nil and st.connected == true and not budsSink then
+    table.insert(children, ui.row({
+      gap = 6,
+      padding = 8,
+      radius = 8,
+      fill = "warning/0.12",
+      align = "center",
+    }, {
+      ui.glyph({ name = "alert-triangle", size = 12, color = "warning" }),
+      ui.label({
+        text = tr("volume.other_sink", { sink = sink }),
+        fontSize = 9,
+        color = "warning",
+        flexGrow = 1,
+        maxLines = 3,
+      }),
+    }))
+  end
+
+  return card(children)
 end
 
 local function presetRow(names)
@@ -968,6 +1046,9 @@ end
 local ruleCounter = 0
 
 local function saveRule(rule)
+  -- The text of the field is the one the user sees, not necessarily the one
+  -- the daemon has: it is copied before the rule is sent.
+  rule.command = ruleCommand(rule)
   -- The constraints of a rule are the authoritative ones: the engine only
   -- looks at 'require' and 'forbid'. They are not rebuilt here, because a
   -- rule written by hand can require a combination of modifiers that the
@@ -984,7 +1065,10 @@ local function saveRule(rule)
     rule.forbid = nil
   end
   pendingCommands[tostring(rule.id)] = nil
-  rpc({ cmd = "local_rule_set", rule = rule })
+  rulesInFlight = rulesInFlight + 1
+  rpc({ cmd = "local_rule_set", rule = rule }, function()
+    rulesInFlight = math.max(0, rulesInFlight - 1)
+  end)
 end
 
 -- Save the commands that were typed but not submitted: the text is not
@@ -1005,7 +1089,12 @@ local function removeRule(id)
   -- The rule is gone: it must not be saved again when the panel is closed
   -- (the pending command of a deleted rule would come back).
   pendingCommands[tostring(id)] = nil
-  rpc({ cmd = "local_rule_delete", id = id })
+  ruleDrafts[tostring(id)] = nil
+  ruleTests[tostring(id)] = nil
+  rulesInFlight = rulesInFlight + 1
+  rpc({ cmd = "local_rule_delete", id = id }, function()
+    rulesInFlight = math.max(0, rulesInFlight - 1)
+  end)
 end
 
 local function newRule()
@@ -1040,6 +1129,8 @@ local function selectRow(label, options, selected, onChange)
 end
 
 local function ruleCard(rule)
+  local ruleId = tostring(rule.id)
+  local command = ruleCommand(rule)
   -- ui.select is 0-based: the first option is the index 0. A trigger or a
   -- modifier that is not in the lists (a hand written rule, or one added by
   -- a newer daemon) must show the first option, not the second one.
@@ -1079,7 +1170,11 @@ local function ruleCard(rule)
   local header = ui.row({ gap = 8, align = "center" }, {
     ui.glyph({ name = "command", size = 15, color = "primary" }),
     ui.label({
-      text = tr("shortcut.rule_title", {
+      text = pressCount > 0 and tr("shortcut.rule_title_presses", {
+        trigger = C.trOr("shortcut.gesture." .. triggerName(rule.trigger), triggerName(rule.trigger)),
+        presses = tostring(pressCount),
+        modifier = C.trOr("shortcut.modifier." .. tostring(rule.modifier or "none"), tostring(rule.modifier or "none")),
+      }) or tr("shortcut.rule_title", {
         trigger = C.trOr("shortcut.gesture." .. triggerName(rule.trigger), triggerName(rule.trigger)),
         modifier = C.trOr("shortcut.modifier." .. tostring(rule.modifier or "none"), tostring(rule.modifier or "none")),
       }),
@@ -1087,22 +1182,29 @@ local function ruleCard(rule)
       color = "on_surface",
       flexGrow = 1,
     }),
-    ui.toggle({
-      checked = rule.enabled ~= false,
-      onChange = function(value)
-        rule.enabled = truthy(value)
-        saveRule(rule)
-      end,
-    }),
-    ui.button({
-      glyph = "trash",
-      variant = "ghost",
-      controlSize = "sm",
-      glyphSize = 15,
-      tooltip = tr("shortcut.delete"),
-      onClick = function()
-        removeRule(rule.id)
-      end,
+    -- The toggle and the delete button travel together on the right: a row
+    -- whose children take their natural width re-flows when the switch
+    -- changes size, and the delete button grew while the toggle moved.
+    ui.row({ gap = 6, align = "center", justify = "end" }, {
+      ui.toggle({
+        checked = rule.enabled ~= false,
+        onChange = function(value)
+          rule.enabled = truthy(value)
+          saveRule(rule)
+        end,
+      }),
+      ui.button({
+        glyph = "trash",
+        variant = "ghost",
+        controlSize = "sm",
+        glyphSize = 15,
+        width = 30,
+        height = 30,
+        tooltip = tr("shortcut.delete"),
+        onClick = function()
+          removeRule(rule.id)
+        end,
+      }),
     }),
   })
 
@@ -1136,18 +1238,23 @@ local function ruleCard(rule)
     ui.row({ gap = 8, align = "center" }, {
       ui.label({ text = tr("shortcut.command_label"), width = 92, fontSize = 11, color = "on_surface_variant" }),
       ui.input({
-        key = "cmd-" .. tostring(rule.id),
-        value = rule.command or "",
+        key = "cmd-" .. ruleId .. "-" .. tostring(panelGeneration),
+        value = command,
         placeholder = tr("shortcut.command_placeholder"),
         flexGrow = 1,
         onChange = function(value)
           rule.command = value
+          ruleDrafts[ruleId] = value
+          -- A new text is a new test: the result of the previous one would
+          -- say something about a command that is no longer there.
+          ruleTests[ruleId] = nil
           -- The text is not saved yet: it is saved when the panel is
           -- closed (or when the rule is saved for another reason).
-          pendingCommands[tostring(rule.id)] = rule
+          pendingCommands[ruleId] = rule
         end,
         onSubmit = function(value)
           rule.command = value
+          ruleDrafts[ruleId] = value
           saveRule(rule)
         end,
       }),
@@ -1176,17 +1283,72 @@ local function ruleCard(rule)
         controlSize = "sm",
         flexGrow = 1,
         onClick = function()
+          rule.command = ruleCommand(rule)
+          if rule.command == "" then
+            -- Without a command there is nothing to run: telling it here
+            -- is better than a button that looks dead.
+            ruleTests[ruleId] = { ok = false, message = tr("shortcut.test_empty") }
+            render()
+            return
+          end
           -- The rule is saved before it is tested: the text the user
           -- just typed is not stored anywhere else and it would be lost
           -- when the panel is closed.
+          ruleTests[ruleId] = { pending = true }
           saveRule(rule)
-          if (rule.command or "") ~= "" then
-            rpc({ cmd = "local_test", command = rule.command })
-          end
+          rpc({ cmd = "local_test", command = rule.command }, function(data)
+            if data == nil then
+              ruleTests[ruleId] = { ok = false, message = tr("shortcut.test_failed") }
+            elseif data.ok == true then
+              ruleTests[ruleId] = { ok = true, message = tr("shortcut.test_ok") }
+            else
+              -- The daemon sends a code and the technical detail apart:
+              -- the text is resolved here, in the language of the user.
+              ruleTests[ruleId] = {
+                ok = false,
+                message = C.error_text(data.error, data.error_detail),
+              }
+            end
+            render()
+          end)
         end,
       }),
     }),
   }
+
+  -- A rule without a command is the most common reason for a shortcut that
+  -- "does nothing": the gesture is detected and the rule fires, but there is
+  -- nothing to run. It is said here, not only in the log.
+  if command == "" then
+    table.insert(children, ui.row({
+      gap = 6,
+      padding = 8,
+      radius = 8,
+      fill = "warning/0.12",
+      align = "center",
+    }, {
+      ui.glyph({ name = "alert-triangle", size = 12, color = "warning" }),
+      ui.label({ text = tr("shortcut.no_command"), fontSize = 9, color = "warning", flexGrow = 1, maxLines = 2 }),
+    }))
+  end
+
+  local test = ruleTests[ruleId]
+  if test ~= nil then
+    local text = test.pending and tr("shortcut.test_running") or tostring(test.message or "")
+    local color = test.pending and "on_surface_variant" or (test.ok and "primary" or "error")
+    local glyphName = test.pending and "loader" or (test.ok and "check" or "alert-triangle")
+    table.insert(children, ui.row({
+      gap = 6,
+      padding = 8,
+      radius = 8,
+      fill = test.pending and "surface_container/0.4" or (test.ok and "primary/0.10" or "error/0.12"),
+      align = "center",
+    }, {
+      ui.glyph({ name = glyphName, size = 12, color = color }),
+      ui.label({ text = text, fontSize = 9, color = color, flexGrow = 1, maxLines = 3 }),
+    }))
+  end
+
   return card(children)
 end
 
@@ -1628,6 +1790,7 @@ end
 
 function M.onOpen(_context)
   closed = false
+  panelGeneration = panelGeneration + 1
   M.setup(tab, panelId, panelHeight)
   ensurePaths()
   loadFonts()
@@ -1664,9 +1827,10 @@ end
 
 local function tickRefresh()
   local now = nowSec()
-  if now < dragUntil then
-    return
-  end
+  -- The value of a slider is written on the next tick, also while the user
+  -- keeps moving it: waiting for a second without movement (the old
+  -- behaviour) made the wheel and the drag feel one second behind. The tick
+  -- runs twice a second and only sends when there is something pending.
   if pendingVolume ~= nil then
     local target = pendingVolume
     pendingVolume = nil
@@ -1676,6 +1840,9 @@ local function tickRefresh()
     local c = pendingEq
     pendingEq = nil
     rpc({ cmd = "custom_eq", bass = c.bass, mid = c.mid, treble = c.treble })
+  end
+  if now < dragUntil then
+    return
   end
   -- The state that comes from the file: a change is redrawn, and a tick that
   -- finds the same file does not touch the tree at all.

@@ -5,7 +5,7 @@
 
 id = "faminec/cmf-buds"
 name = "CMF Buds"
-version = "1.1.0"
+version = "1.1.1"
 plugin_api = 43
 author = "faminec"
 license = "MIT"

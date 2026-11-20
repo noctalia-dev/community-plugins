@@ -2120,6 +2120,13 @@ class BudsDaemon:
                 saved = self.local.upsert(dict(rule))
             except ValueError as exc:
                 raise UserError(str(exc), code="invalid_rule") from exc
+            # The state file is the copy the panel reads every 500 ms: if it
+            # is not written here, it keeps the rule as it was before the
+            # change, the panel re-seeds its list from it and the toggle
+            # jumps back (and the stale value is saved again on the next
+            # change). The engine already wrote local_actions.json; this
+            # publishes the same rules in state.json.
+            self.save()
             return {"ok": True, "state": self.snapshot(), "local_actions": self._local_snapshot(), "rule": saved}
         if cmd == "local_rule_delete":
             if self.local is None:
@@ -2128,6 +2135,9 @@ class BudsDaemon:
                     code="engine_unavailable",
                 )
             self.local.delete(req.get("id", ""))
+            # Same as above: a deleted rule must disappear from state.json
+            # too, or the panel brings it back from the stale copy.
+            self.save()
             return {"ok": True, "state": self.snapshot(), "local_actions": self._local_snapshot()}
         if cmd == "local_test":
             if self.local is None:
