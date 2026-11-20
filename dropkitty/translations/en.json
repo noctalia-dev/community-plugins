@@ -1,4 +1,13 @@
 {
+  "launcher": {
+    "hint": "Type a command to run it in a new tab",
+    "run": "Run in the drop-down terminal",
+    "toggle": "Toggle the drop-down terminal"
+  },
+  "notify": {
+    "finished": "{cmd} finished (exit {code}) after {duration}.",
+    "finished_unnamed": "A command finished (exit {code}) after {duration}."
+  },
   "settings": {
     "bar_aware": {
       "description": "Subtract space reserved by Noctalia bars when sizing the terminal, so it never runs under a bar.",
@@ -29,7 +38,7 @@
       }
     },
     "hide_on_focus_loss": {
-      "description": "Hide the terminal when you click elsewhere. Applies on next launch.",
+      "description": "Hide the terminal when you click elsewhere.",
       "label": "Hide on focus loss"
     },
     "kitty_conf": {
@@ -43,6 +52,10 @@
     "normal_width": {
       "description": "Width of the normal-size portrait terminal, as a percent of the usable screen width.",
       "label": "Normal width (%)"
+    },
+    "notify_after": {
+      "description": "Notify when a command that ran at least this long finishes while the terminal is hidden. 0 turns notifications off.",
+      "label": "Notify after (seconds)"
     },
     "opacity": {
       "description": "Background opacity. Applies on next launch.",
@@ -68,6 +81,7 @@
   "widget": {
     "error": "dropkitty: {message}",
     "finished": "A command finished while hidden (exit {code}). Click to show.",
+    "finished_cmd": "{cmd} finished while hidden (exit {code}, {duration}). Click to show.",
     "hidden": "Drop-down terminal (hidden). Click to show.",
     "launch_failed": "Could not run the dropkitty helper.",
     "open": "Drop-down terminal (open). Click to hide.",

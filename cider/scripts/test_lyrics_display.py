@@ -364,6 +364,98 @@ class WordSpacingTests(unittest.TestCase):
         self.assertAlmostEqual(a, 1.0)
 
 
+class RomanizationTests(unittest.TestCase):
+    TTML = """<tt xmlns="http://www.w3.org/ns/ttml"
+        xmlns:itunes="http://music.apple.com/lyric-ttml-internal" itunes:timing="Word" xml:lang="ko">
+      <head><metadata><iTunesMetadata xmlns="http://music.apple.com/lyric-ttml-internal">
+        <transliterations><transliteration xml:lang="ko-Latn">
+          <text for="L1"><span begin="1.000" end="2.000" xmlns="http://www.w3.org/ns/ttml">anyeong</span></text>
+          <text for="L3"><span begin="5.000" end="6.000" xmlns="http://www.w3.org/ns/ttml">Love</span></text>
+          <text for="L4"><span begin="7.000" end="8.000" xmlns="http://www.w3.org/ns/ttml">Love sesang</span></text>
+        </transliteration></transliterations>
+      </iTunesMetadata></metadata></head>
+      <body><div>
+        <p begin="1.000" end="2.000" itunes:key="L1"><span begin="1.000" end="2.000">안녕</span></p>
+        <p begin="3.000" end="4.000" itunes:key="L2"><span begin="3.000" end="4.000">세상</span></p>
+        <p begin="5.000" end="6.000" itunes:key="L3"><span begin="5.000" end="6.000">Love</span></p>
+        <p begin="7.000" end="8.000" itunes:key="L4"><span begin="7.000" end="8.000">Love 세상</span></p>
+      </div></body>
+    </tt>"""
+
+    def sung_lines(self) -> list[dict]:
+        import cider_bridge as bridge
+
+        lines, _lrc = bridge.ttml_to_lines(self.TTML)
+        return [line for line in lines if not line.get("cue")]
+
+    def client_with_lyrics(self, lyric_items: list[dict]):
+        import cider_bridge as bridge
+
+        def post(_url: str, json: dict, timeout: int) -> SimpleNamespace:
+            items = [{"id": "id"}] if json["path"] == "/v1/me/storefront" else lyric_items
+            return SimpleNamespace(status_code=200, json=lambda: {"data": {"data": items}})
+
+        client = bridge.CiderBridge.__new__(bridge.CiderBridge)
+        client.base_url = "http://cider"
+        client._account_storefront_id = ""
+        client._session = SimpleNamespace(post=mock.Mock(side_effect=post))
+        return client
+
+    @staticmethod
+    def requested_paths(client) -> list[str]:
+        return [call.kwargs["json"]["path"] for call in client._session.post.call_args_list]
+
+    def test_line_keeps_original_text_and_gains_timed_romanization(self) -> None:
+        first = self.sung_lines()[0]
+        self.assertEqual(first["text"], "안녕")
+        self.assertEqual(first["romanization"], "anyeong")
+        self.assertEqual(first["romanization_words"][0]["start"], 1000)
+
+    def test_line_without_transliteration_has_no_romanization(self) -> None:
+        self.assertNotIn("romanization", self.sung_lines()[1])
+
+    def test_latin_line_returned_unchanged_by_apple_has_no_romanization(self) -> None:
+        self.assertNotIn("romanization", self.sung_lines()[2])
+
+    def test_mixed_script_line_keeps_romanization(self) -> None:
+        self.assertEqual(self.sung_lines()[3]["romanization"], "Love sesang")
+
+    def test_romaji_mode_swaps_text_and_timings(self) -> None:
+        lines = self.sung_lines()
+        swapped = cfg.apply_romanization_mode(lines, "romaji")
+        self.assertEqual(swapped[0]["text"], "anyeong")
+        self.assertEqual(swapped[0]["words"][0]["text"], "anyeong")
+        self.assertNotIn("chars", swapped[0])
+        self.assertEqual(swapped[1]["text"], "세상")
+        self.assertEqual(lines[0]["text"], "안녕")
+
+    def test_other_modes_leave_lines_alone(self) -> None:
+        lines = self.sung_lines()
+        self.assertIs(cfg.apply_romanization_mode(lines, "both"), lines)
+        self.assertIs(cfg.apply_romanization_mode(lines, "original"), lines)
+
+    def test_merge_cfg_defaults_to_both_and_rejects_unknown_modes(self) -> None:
+        self.assertEqual(cfg.merge_cfg(None)["romanization"], "both")
+        self.assertEqual(cfg.merge_cfg({"romanization": "romaji"})["romanization"], "romaji")
+        self.assertEqual(cfg.merge_cfg({"romanization": "nope"})["romanization"], "both")
+
+    def test_lyrics_request_tries_account_storefront_first(self) -> None:
+        client = self.client_with_lyrics([{"attributes": {"ttmlLocalizations": self.TTML}}])
+        lines, _lrc = client._lyrics_amapi("123")
+        paths = self.requested_paths(client)
+        self.assertEqual(paths[0], "/v1/me/storefront")
+        self.assertTrue(paths[1].startswith("/v1/catalog/id/songs/123/syllable-lyrics?"))
+        self.assertTrue(any(line.get("romanization") == "anyeong" for line in lines))
+
+    def test_romanization_is_only_requested_from_account_storefront(self) -> None:
+        client = self.client_with_lyrics([])
+        client._lyrics_amapi("123")
+        lyric_paths = self.requested_paths(client)[1:]
+        self.assertEqual(len(lyric_paths), 16)
+        other_stores = [path for path in lyric_paths if "/catalog/id/" not in path]
+        self.assertFalse(any("?" in path for path in other_stores))
+
+
 class WordPulseTests(unittest.TestCase):
     def test_char_timings_keep_zero_start_and_do_not_invent_last_word_end(self) -> None:
         from lyrics_overlay import _real_words

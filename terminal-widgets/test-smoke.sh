@@ -1,20 +1,20 @@
 #!/usr/bin/env bash
-# Prueba de humo del plugin `faminec/terminal-widgets` sobre el escritorio.
+# Smoke test for the `faminec/terminal-widgets` plugin on the desktop.
 #
-# Necesita Hyprland con Noctalia y el plugin activados. Abre el panel, lanza
-# todos los widgets, comprueba que están todos, los rota, comprueba que las
-# posiciones se permutan, los cierra y cierra el panel. Al final revisa
-# **todas** las líneas nuevas del log desde el primer al último paso, también
-# si la prueba falla antes, y falla si hay cualquier [WRN] o [ERR], sea del
-# plugin o no.
+# Requires Hyprland with Noctalia and the plugin enabled. Opens the panel, launches
+# every widget, checks they are all there, rotates them, checks that positions
+# are permuted, closes them and closes the panel. At the end it reviews
+# **all** new log lines from the first to the last step, even if the test fails
+# earlier, and fails on any [WRN] or [ERR], whether from the plugin or not.
 #
-#   ./test-smoke.sh                  # usa el plugin instalado
-#   ./test-smoke.sh /ruta/otra       # usa el manifiesto de otra copia
 #
-# Sale con código distinto de 0 si algo falla.
+#   ./test-smoke.sh                  # uses the installed plugin
+#   ./test-smoke.sh /path/to/other   # uses the manifest of another copy
 #
-# Variables: NOCTALIA_LOG (ruta del log), OPEN_TIMEOUT, ROTATE_TIMEOUT,
-# CLOSE_TIMEOUT (segundos de espera máxima de cada paso).
+# Exits with a non-zero code if anything fails.
+#
+# Variables: NOCTALIA_LOG (log path), OPEN_TIMEOUT, ROTATE_TIMEOUT,
+# CLOSE_TIMEOUT (max wait in seconds for each step).
 
 set -u
 
@@ -28,8 +28,8 @@ STORE="$STATE_DIR/plugins/data/$PLUGIN_ID/store.json"
 OPEN_TIMEOUT="${OPEN_TIMEOUT:-45}"
 ROTATE_TIMEOUT="${ROTATE_TIMEOUT:-15}"
 CLOSE_TIMEOUT="${CLOSE_TIMEOUT:-20}"
-# Margen tras abrir para que se note un comando que termina solo y se lleva su
-# ventana por delante (`cbonsai -l -p` tardaba ~7 s en imprimir y salir).
+# Settle margin after opening so a command that ends on its own and takes its
+# window with it is noticed (`cbonsai -l -p` took ~7 s to print and exit).
 SETTLE="${SETTLE:-8}"
 
 LOG_READY=0
@@ -54,43 +54,43 @@ cleanup() {
 trap cleanup EXIT
 
 fail() {
-  echo "FALLA: $*" >&2
-  # Aunque la prueba se corte a medias, las líneas nuevas del log se revisan
-  # igualmente: un fallo no puede ocultar avisos o errores.
+  echo "FAIL: $*" >&2
+  # Even if the test is cut short, the new log lines are still reviewed: a
+  # failure cannot hide warnings or errors.
   if [ "$LOG_READY" -eq 1 ] && [ "$LOG_CHECKED" -eq 0 ]; then
-    # Volcar antes de revisar: si no, las últimas líneas del plugin pueden
-    # seguir en el búfer del host y el fallo quedaría sin contexto.
+    # Flush before reviewing: otherwise the plugin's last lines may still be
+    # in the host buffer and the failure would lack context.
     if [ -n "$FOLLOWER_PID" ]; then
       flush_log >/dev/null 2>&1 || true
       stop_follower
     fi
-    echo "--- [WRN]/[ERR] nuevas en el log hasta el fallo ---" >&2
+    echo "--- new [WRN]/[ERR] in the log up to the failure ---" >&2
     review_log >&2 || true
   fi
   exit 1
 }
 
 if ! command -v noctalia >/dev/null 2>&1; then
-  echo "noctalia no está en el PATH; esta prueba necesita el escritorio" >&2
+  echo "noctalia is not on PATH; this test needs the desktop" >&2
   exit 2
 fi
 
 if ! command -v hyprctl >/dev/null 2>&1; then
-  echo "hyprctl no está en el PATH; esta prueba necesita Hyprland" >&2
+  echo "hyprctl is not on PATH; this test needs Hyprland" >&2
   exit 2
 fi
 
 if ! command -v python3 >/dev/null 2>&1; then
-  echo "python3 no está en el PATH; hace falta para leer la configuración" >&2
+  echo "python3 is not on PATH; it is needed to read the configuration" >&2
   exit 2
 fi
 
-[ -f "$PLUGIN_DIR/plugin.toml" ] || fail "no encuentro el manifiesto en $PLUGIN_DIR/plugin.toml"
+[ -f "$PLUGIN_DIR/plugin.toml" ] || fail "cannot find the manifest at $PLUGIN_DIR/plugin.toml"
 
-# Número de widgets que deben acabar abiertos: los comandos no vacíos que
-# resultan de fusionar los defaults (manifiesto o respaldo de lib/defaults.luau)
-# y el store del panel, menos los borrados. Es la misma precedencia que usa
-# `lib/store.luau`; los Ajustes de Noctalia ya no participan.
+# Number of widgets that should end up open: the non-empty commands resulting
+# from merging the defaults (manifest or lib/defaults.luau fallback) and the
+# panel store, minus deletions. It is the same precedence used by
+# `lib/store.luau`; Noctalia Settings no longer participates.
 expected_line=$(python3 - "$PLUGIN_DIR/plugin.toml" "$STORE" <<'PY'
 import json
 import os
@@ -108,8 +108,8 @@ for setting in manifest.get("setting", []):
     if setting.get("key") == "commands" and isinstance(setting.get("default"), dict):
         base = setting["default"]
 
-# Si el manifiesto ya no lleva los comandos, el plugin usa la tabla de respaldo
-# de lib/defaults.luau. Se lee aquí para que la prueba calcule lo mismo.
+# If the manifest no longer carries the commands, the plugin uses the fallback
+# table from lib/defaults.luau. It is read here so the test computes the same.
 if not base:
     defaults_path = os.path.join(plugin_dir, "lib", "defaults.luau")
     try:
@@ -136,19 +136,19 @@ for name in store.get("removed") or []:
 names = sorted(name for name, value in commands.items() if value)
 print(len(names), " ".join(names))
 PY
-) || fail "no se pudo leer la configuración de widgets"
+) || fail "could not read the widget configuration"
 read -r expected names <<<"$expected_line"
-[ "$expected" -ge 1 ] || fail "no hay ningún widget configurado"
-echo "widgets esperados: $expected ($names)"
+[ "$expected" -ge 1 ] || fail "no widgets are configured"
+echo "expected widgets: $expected ($names)"
 
-# El host rota/trunca `noctalia.log` y sus líneas del script-runtime pueden
-# tardar en volcarse. `tail -F` sigue el fichero (aunque lo renombren o lo
-# vacíen) y deja una copia privada con todas las líneas nuevas; el smoke
-# revisa esa copia, no el fichero volátil.
+# The host rotates/truncates `noctalia.log` and its script-runtime lines may
+# take a while to flush. `tail -F` follows the file (even if it is renamed or
+# truncated) and leaves a private copy with all the new lines; the smoke test
+# reviews that copy, not the volatile file.
 #
-# Cerrar paneles de otras sesiones para reducir la carga del host durante la
-# prueba (acción de runtime, no toca código de otros plugins; sus timers los
-# reabren). Se puede desactivar con CLOSE_FOREIGN_PANELS=0.
+# Close panels from other sessions to reduce host load during the test
+# (runtime action, it does not touch other plugins' code; their timers reopen
+# them). Can be disabled with CLOSE_FOREIGN_PANELS=0.
 if [ "${CLOSE_FOREIGN_PANELS:-1}" != "0" ]; then
   for p in faminec/wallpaper-carousel:panel faminec/lyrics-carousel:panel \
            faminec/notes:panel faminec/notes-sync:panel \
@@ -157,10 +157,10 @@ if [ "${CLOSE_FOREIGN_PANELS:-1}" != "0" ]; then
   done
 fi
 
-# Antes de capturar nada se espera a que el host esté inactivo (10 s sin
-# crecimiento del log): si no, la prueba arrastra ruido de otras sesiones y
-# puede provocar avisos de rendimiento del propio host.
-echo "esperando a que el host esté inactivo (hasta 60 s)..."
+# Before capturing anything, wait for the host to be idle (10 s without log
+# growth): otherwise the test drags in noise from other sessions and may
+# trigger the host's own performance warnings.
+echo "waiting for the host to be idle (up to 60 s)..."
 last=0; stable=0; iters=0
 if [ -f "$LOG" ]; then
   last=$(wc -l <"$LOG")
@@ -180,14 +180,14 @@ while [ "$stable" -lt 50 ] && [ "$iters" -lt 300 ]; do
     last=$cur
   fi
 done
-echo "host inactivo; iniciando la prueba."
+echo "host idle; starting the test."
 
-tmp=$(mktemp -d /tmp/opencode/terminal-widgets-smoke.XXXXXX) || {
-  echo "no se pudo crear el directorio temporal" >&2
+tmp=$(mktemp -d "${TMPDIR:-/tmp}/terminal-widgets-smoke.XXXXXX") || {
+  echo "could not create the temporary directory" >&2
   exit 2
 }
-# Seguidor robusto: drena el fichero viejo hasta el final antes de cambiar al
-# nuevo cuando el host rota/trunca el log (tail -F puede perder líneas).
+# Robust follower: drains the old file to the end before switching to the new
+# one when the host rotates/truncates the log (tail -F may lose lines).
 python3 - "$LOG" "$tmp/run.log" <<'PY' &
 import os
 import sys
@@ -213,9 +213,9 @@ while True:
         continue
     if fh is None or st.st_ino != inode:
         if fh is not None:
-            # Drenar el fichero viejo hasta el final; el host puede escribir
-            # la línea de cierre justo después de rotar, así que se relee una
-            # vez más tras una espera corta.
+            # Drain the old file to the end; the host may write the closing
+            # line right after rotating, so it is re-read once more after a
+            # short wait.
             for _ in range(2):
                 try:
                     data = fh.read()
@@ -253,9 +253,9 @@ PY
 FOLLOWER_PID=$!
 sleep 0.2
 
-# Espera hasta $2 s a que $tmp/run.log deje de crecer $1 s seguidos (sin
-# actividad nueva). Devuelve 0 siempre: es una espera de estabilidad, no un
-# criterio de éxito.
+# Wait up to $2 s for $tmp/run.log to stop growing for $1 s in a row (no new
+# activity). Always returns 0: it is a stability wait, not a success
+# criterion.
 wait_log_quiet() {
   local quiet="${1:-1}"
   local max="${2:-5}"
@@ -277,38 +277,38 @@ wait_log_quiet() {
   return 0
 }
 
-# Punto de partida estable: se espera a que el log deje de crecer un segundo,
-# para que la revisión no arrastre ruido de la pasada anterior ni del arranque.
+# Stable starting point: wait for the log to stop growing for one second, so
+# the review does not drag in noise from the previous run or from startup.
 wait_log_quiet 5 25
 LOG_READY=1
 
-# Revisa todas las líneas nuevas del log (la copia), sin excluir ningún
-# patrón: cualquier [WRN] o [ERR] hace fallar la prueba, sea del plugin o no.
+# Review all new log lines (the copy), without excluding any pattern: any
+# [WRN] or [ERR] fails the test, whether from the plugin or not.
 review_log() {
   local total plugin_lines problems
   if [ ! -f "$tmp/run.log" ]; then
-    echo "   (no hay copia del log; no se puede comprobar)" >&2
+    echo "   (no log copy; cannot check)" >&2
     return 1
   fi
   total=$(wc -l <"$tmp/run.log")
-  # El conteo estable es el del plugin (líneas propias + panel + recarga +
-  # hot-reload); el host añade ruido ajeno que varía entre pasadas. La
-  # revisión de [WRN]/[ERR] se hace sobre TODAS las líneas, sin filtrar.
+  # The stable count is the plugin's (own lines + panel + reload + hot-reload);
+  # the host adds unrelated noise that varies between runs. The [WRN]/[ERR]
+  # review is done over ALL lines, without filtering.
   plugin_lines=$(grep -c -E "terminal-widgets|panel\.luau'" "$tmp/run.log" 2>/dev/null || true)
   [ -n "$plugin_lines" ] || plugin_lines=0
   problems=$(grep -E "\[WRN\]|\[ERR\]" "$tmp/run.log" || true)
   if [ -n "$problems" ]; then
-    echo "   $total líneas del host ($plugin_lines del plugin); avisos/errores encontrados:" >&2
+    echo "   $total host lines ($plugin_lines from the plugin); warnings/errors found:" >&2
     printf '%s\n' "$problems" >&2
     return 1
   fi
-  echo "   $total líneas del host revisadas ($plugin_lines del plugin); ningún [WRN]/[ERR] ✔"
+  echo "   $total host lines reviewed ($plugin_lines from the plugin); no [WRN]/[ERR] ✔"
   return 0
 }
 
-# Espera hasta $2 segundos a que aparezca $1 en las líneas nuevas de $3
-# (la copia del log) desde la marca $4. Las líneas nativas del host se
-# escriben al momento; las del script-runtime pueden seguir en el búfer.
+# Wait up to $2 seconds for $1 to appear in the new lines of $3 (the log copy)
+# from mark $4. The host's native lines are written immediately; script-runtime
+# lines may still be in the buffer.
 wait_log_line() {
   local pattern="$1" deadline=$((SECONDS + ${2:-2})) file="${3:-$tmp/run.log}" mark="${4:-0}"
   while [ "$SECONDS" -lt "$deadline" ]; do
@@ -320,21 +320,20 @@ wait_log_line() {
   return 1
 }
 
-# El host escribe los logs del script-runtime en un búfer y puede tardar
-# decenas de segundos en volcarlos al fichero. `log-level-set` con el nivel
-# actual es un no-op que escribe una línea nativa y vacía ese búfer; se espera
-# a ver esa línea en la copia para no revisar un log incompleto.
+# The host writes script-runtime logs to a buffer and may take tens of seconds
+# to flush them to the file. `log-level-set` with the current level is a no-op
+# that writes a native line and drains that buffer; wait for that line to
+# appear in the copy so an incomplete log is not reviewed.
 flush_log() {
   local level mark deadline
   level=$(noctalia msg log-level-status 2>/dev/null) || return 1
   [ -n "$level" ] || return 1
   mark=$(wc -l <"$tmp/run.log" 2>/dev/null || echo 0)
   deadline=$((SECONDS + 12))
-  # El host puede tardar varios segundos en procesar la cola: se reintenta y
-  # se espera a que cualquiera de las líneas nativas llegue a la copia. Como
-  # van detrás de las del plugin, ver una implica que esas también se
-  # volcaron.
-  while [ "$SECONDS" -lt "$deadline" ]; do
+  # The host may take several seconds to process the queue: retry and wait for
+  # any native line to reach the copy. Since they come after the plugin lines,
+  # seeing one implies those were flushed too.
+    while [ "$SECONDS" -lt "$deadline" ]; do
     noctalia msg log-level-set "$level" >/dev/null 2>&1 || return 1
     if wait_log_line "log level set to $level" 2 "$tmp/run.log" "$mark"; then
       return 0
@@ -367,7 +366,7 @@ plugin_count() {
   plugin_geometry | grep -c . || true
 }
 
-# Espera a que haya exactamente $1 ventanas del plugin, hasta $2 segundos.
+# Wait until there are exactly $1 plugin windows, up to $2 seconds.
 wait_count() {
   local target="$1" deadline=$((SECONDS + $2))
   while :; do
@@ -377,10 +376,10 @@ wait_count() {
   done
 }
 
-# Espera a que la geometría deje de cambiar durante ~1 s. El contador llega a
-# su número en cuanto la ventana existe, pero el plugin coloca y redimensiona
-# un instante después: sin esto, el "antes" de la rotación sería una foto a
-# medio colocar y la permutación no cuadraría.
+# Wait for the geometry to stop changing for ~1 s. The counter reaches its
+# number as soon as the window exists, but the plugin places and resizes it a
+# moment later: without this, the rotation "before" would be a snapshot
+# mid-placement and the permutation would not match.
 wait_stable() {
   local deadline=$((SECONDS + 10)) previous current stable=0
   previous=$(plugin_geometry)
@@ -398,8 +397,8 @@ wait_stable() {
   return 1
 }
 
-# Panel activo según el host. Es la única fuente fiable: otro plugin puede
-# robar el foco y el log puede tardar segundos en volcarse.
+# Active panel according to the host. It is the only reliable source: another
+# plugin can steal focus and the log may take seconds to flush.
 active_panel() {
   noctalia msg status 2>/dev/null | python3 -c '
 import json
@@ -412,16 +411,16 @@ except Exception:
 '
 }
 
-# El panel solo atiende el IPC cuando está abierto y activo. `panel-open` es
-# idempotente: si ya está abierto lo reactiva. Se comprueba en el estado real
-# del host, no en el log.
+# The panel only handles IPC while it is open and active. `panel-open` is
+# idempotent: if it is already open it reactivates it. It is checked against
+# the host's real state, not the log.
 ensure_panel() {
   local active deadline
   active=$(active_panel)
   if [ "$active" = "$PANEL" ]; then
     return 0
   fi
-  noctalia msg panel-open "$PANEL" >/dev/null 2>&1 || fail "el panel no se pudo abrir"
+  noctalia msg panel-open "$PANEL" >/dev/null 2>&1 || fail "the panel could not be opened"
   deadline=$((SECONDS + 5))
   while [ "$SECONDS" -lt "$deadline" ]; do
     active=$(active_panel)
@@ -430,11 +429,11 @@ ensure_panel() {
     fi
     sleep 0.15
   done
-  fail "el panel no quedó activo (activo: ${active:-ninguno})"
+  fail "the panel did not become active (active: ${active:-none})"
 }
 
-# Envía un evento al panel y reintenta si otro panel le robó el foco justo
-# antes: `ensure_panel` lo reactiva y se vuelve a enviar.
+# Send an event to the panel and retry if another panel stole focus just
+# before: `ensure_panel` reactivates it and it is sent again.
 plugin_ipc() {
   local event="$1" tries=3
   while [ "$tries" -gt 0 ]; do
@@ -448,44 +447,44 @@ plugin_ipc() {
   return 1
 }
 
-# El plugin analiza `plugin.toml` una vez y lo guarda en memoria; el host solo
-# recarga el script cuando cambia un `.luau`, no cuando cambia el manifiesto.
-# Se toca el mtime del panel instalado (sin cambiar su contenido) para que la
-# prueba arranque con los comandos que hay ahora mismo en disco.
+# The plugin parses `plugin.toml` once and keeps it in memory; the host only
+# reloads the script when a `.luau` changes, not when the manifest changes.
+# The installed panel's mtime is touched (without changing its content) so the
+# test starts with the commands currently on disk.
 INSTALLED_PANEL="$HOME/.local/share/noctalia/plugins/terminal-widgets/panel.luau"
 if [ -f "$INSTALLED_PANEL" ]; then
   touch "$INSTALLED_PANEL"
   sleep 1.5
 fi
 
-echo "0) partir de cero"
-plugin_ipc close-all || fail "el IPC close-all no respondió"
-wait_count 0 "$CLOSE_TIMEOUT" || fail "quedaron ventanas abiertas al empezar: $(plugin_geometry)"
+echo "0) start from scratch"
+plugin_ipc close-all || fail "the close-all IPC did not respond"
+wait_count 0 "$CLOSE_TIMEOUT" || fail "windows were left open at startup: $(plugin_geometry)"
 
-echo "1) abrir todos los widgets"
+echo "1) open all widgets"
 opened=0
 for attempt in 1 2 3; do
-  plugin_ipc open-all || fail "el IPC open-all no respondió"
+  plugin_ipc open-all || fail "the open-all IPC did not respond"
   if wait_count "$expected" 15; then
     opened=1
     break
   fi
-  echo "   intento $attempt: $(plugin_count) de $expected ventanas" >&2
+  echo "   attempt $attempt: $(plugin_count) of $expected windows" >&2
   sleep 2
 done
 if [ "$opened" -ne 1 ]; then
-  echo "   abiertas: $(plugin_geometry | tr '\n' ' ')" >&2
-  fail "se esperaban $expected ventanas y hay $(plugin_count)"
+  echo "   open: $(plugin_geometry | tr '\n' ' ')" >&2
+  fail "expected $expected windows but there are $(plugin_count)"
 fi
-wait_stable || fail "las ventanas no terminaron de colocarse"
+wait_stable || fail "the windows did not finish being placed"
 sleep "$SETTLE"
 if [ "$(plugin_count)" -ne "$expected" ]; then
-  echo "   abiertas tras ${SETTLE}s: $(plugin_geometry | tr '\n' ' ')" >&2
-  fail "algún widget se cerró solo (quedan $(plugin_count) de $expected)"
+  echo "   open after ${SETTLE}s: $(plugin_geometry | tr '\n' ' ')" >&2
+  fail "a widget closed itself (remaining $(plugin_count) of $expected)"
 fi
-echo "   ventanas abiertas: $(plugin_count) ✔"
+echo "   open windows: $(plugin_count) ✔"
 
-echo "2) rotar"
+echo "2) rotate"
 cat >"$tmp/check_rotation.py" <<'PY'
 import sys
 
@@ -503,16 +502,16 @@ def load(path):
 before = load(sys.argv[1])
 after = load(sys.argv[2])
 if set(before) != set(after):
-    print("las ventanas abiertas cambiaron al rotar", file=sys.stderr)
+    print("the open windows changed on rotation", file=sys.stderr)
     sys.exit(1)
 if sorted(before.values()) != sorted(after.values()):
-    print("la rotación no fue una permutación de posiciones", file=sys.stderr)
+    print("the rotation was not a permutation of positions", file=sys.stderr)
     sys.exit(1)
 if before == after:
-    print("ninguna ventana cambió de posición", file=sys.stderr)
+    print("no window changed position", file=sys.stderr)
     sys.exit(1)
 print(
-    "permutación: "
+    "permutation: "
     + ", ".join(
         f"{name}: {before[name]} -> {after[name]}"
         for name in sorted(before)
@@ -522,7 +521,7 @@ print(
 PY
 ensure_panel
 plugin_geometry >"$tmp/before"
-plugin_ipc rotate || fail "el IPC rotate no respondió"
+plugin_ipc rotate || fail "the rotate IPC did not respond"
 deadline=$((SECONDS + ROTATE_TIMEOUT))
 rotated=0
 while [ "$SECONDS" -lt "$deadline" ]; do
@@ -535,29 +534,29 @@ while [ "$SECONDS" -lt "$deadline" ]; do
 done
 if [ "$rotated" -ne 1 ]; then
   cat "$tmp/check" >&2
-  echo "   antes:" >&2
+  echo "   before:" >&2
   sed 's/^/     /' "$tmp/before" >&2
-  echo "   después:" >&2
+  echo "   after:" >&2
   sed 's/^/     /' "$tmp/after" >&2
-  fail "la rotación no permutó las posiciones de las ventanas"
+  fail "the rotation did not permute the window positions"
 fi
 cat "$tmp/check"
 
-echo "3) cerrar todas"
-plugin_ipc close-all || fail "el IPC close-all no respondió"
+echo "3) close all"
+plugin_ipc close-all || fail "the close-all IPC did not respond"
 if ! wait_count 0 "$CLOSE_TIMEOUT"; then
-  echo "   restantes: $(plugin_geometry | tr '\n' ' ')" >&2
-  fail "quedaron $(plugin_count) ventanas abiertas"
+  echo "   remaining: $(plugin_geometry | tr '\n' ' ')" >&2
+  fail "$(plugin_count) windows were left open"
 fi
-echo "   ventanas restantes: 0 ✔"
+echo "   remaining windows: 0 ✔"
 
-echo "4) cerrar el panel de la prueba"
+echo "4) close the test panel"
 ensure_panel
-# Dar tiempo a que el panel termine de abrirse antes de cerrarlo.
+# Give the panel time to finish opening before closing it.
 sleep 0.5
-# El cierre se confirma en el estado del host. Se reintenta porque otro panel
-# puede robar el foco justo antes o el host puede ignorar un cierre durante
-# la animación de apertura.
+# Closing is confirmed by the host state. It is retried because another panel
+# may steal focus just before, or the host may ignore a close during the
+# opening animation.
 deadline=$((SECONDS + 8))
 while [ "$SECONDS" -lt "$deadline" ]; do
   [ "$(active_panel)" != "$PANEL" ] && break
@@ -565,26 +564,26 @@ while [ "$SECONDS" -lt "$deadline" ]; do
   sleep 0.3
 done
 if [ "$(active_panel)" = "$PANEL" ]; then
-  fail "el panel no se cerró (sigue activo)"
+  fail "the panel did not close (still active)"
 fi
-# onClose se ejecuta con el cierre; se fuerza el volcado antes de revisar.
+# onClose runs on close; the flush is forced before reviewing.
 if ! flush_log; then
-  fail "no se pudo forzar el volcado del log; la revisión no sería completa"
+  fail "could not force the log flush; the review would not be complete"
 fi
-# Capturar las líneas que lleguen tarde (ruido ajeno o volcado diferido) antes
-# de congelar la copia.
+# Capture lines that arrive late (unrelated noise or deferred flush) before
+# freezing the copy.
 wait_log_quiet 3 15
 stop_follower
-# Con la copia volcada se comprueba que el cierre quedó registrado. El seguidor
-# drena el fichero viejo antes de cambiar, así que la línea debe estar.
-# El cierre debe haber quedado registrado en la copia (el seguidor drena el
-# fichero viejo antes de cambiar, así que una rotación no lo oculta).
+# With the copy flushed, check that the close was logged. The follower drains
+# the old file before switching, so the line must be there.
+# Closing must have been logged in the copy (the follower drains the old file
+# before switching, so a rotation does not hide it).
 if ! grep -q "closing \"$PANEL\"" "$tmp/run.log"; then
-  fail "el panel no se cerró (no aparece 'closing' en la copia del log)"
+  fail "the panel did not close ('closing' does not appear in the log copy)"
 fi
 
-echo "5) avisos y errores nuevos en el log durante toda la prueba"
+echo "5) new warnings and errors in the log during the whole test"
 LOG_CHECKED=1
-review_log || fail "el log recibió avisos o errores durante la prueba"
+review_log || fail "the log received warnings or errors during the test"
 
-echo "OK: la prueba de humo pasó"
+echo "OK: the smoke test passed"

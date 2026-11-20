@@ -91,6 +91,15 @@
       "description": "Dim preview of the upcoming lyric under the current line.",
       "label": "Show next line"
     },
+    "lyrics_romanization": {
+      "description": "How to show romanized lyrics on songs where Apple Music provides them, such as Korean or Japanese.",
+      "label": "Romanized lyrics",
+      "options": {
+        "both": "Original and romanized",
+        "original": "Original only",
+        "romaji": "Romanized only"
+      }
+    },
     "lyrics_plain_scroll": {
       "description": "Advance plain lyrics over the song length instead of freezing on the first line. Drift vs vocals is expected.",
       "label": "Scroll untimed lyrics"

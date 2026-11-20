@@ -16,8 +16,8 @@ MODEL_READ), falling back to the serial number and then the Bluetooth name.
 Model IDs, names, EQ preset tables and which models have bass boost are
 normally included where ear-web and BudsLink (GPL-3.0,
 https://github.com/maniacx/BudsLink, not vendored) agree.
-B175 is an exception: EQ is probed read-only because they disagree on its
-command family; bass is based on BudsLink and shown only after a reply.
+B175 (CMF Headphone Pro) follows ear-web alone, which an owner confirmed
+on hardware: listening-mode EQ, spatial audio, AAC/LDAC and no bass boost.
 
 Hardware-verified by this plugin only for the Nothing Ear (2) (base B155,
 SKUs 17/18/19/27/28/29). Every other entry is best-effort: untested by this
@@ -58,14 +58,11 @@ BASES: dict[str, tuple[str, bool]] = {
 CLASSIC_EQ = [(0, "balanced"), (3, "more_bass"), (2, "more_treble"), (1, "voice"), (5, "custom")]
 _CMF_EQ = [(3, "pop"), (1, "rock"), (2, "electronic"), (4, "enhance_vocals"), (5, "classical"), (6, "custom")]
 
-# B175 references disagree on both the command family and preset labels.
-# The listening family uses the six presets on ear-web's Forretress page;
-# the classic family uses BudsLink's five presets. Selected by read replies.
-HEADPHONE_EQ = {"classic": CLASSIC_EQ, "listening": _CMF_EQ}
-
 # Models that pick their preset with the LISTENING_MODE commands. The CMF
 # Buds 2 Plus has no Dirac preset, and the 2a puts it at index 7.
+# B175's six are what the Nothing X app and ear-web both show for it.
 LISTENING_EQ: dict[str, list[tuple[int, str]]] = {
+    "B175": _CMF_EQ,
     "B179": [(0, "dirac")] + _CMF_EQ,
     "B184": _CMF_EQ,
     "B185": [(7, "dirac")] + _CMF_EQ,
@@ -75,8 +72,42 @@ LISTENING_EQ: dict[str, list[tuple[int, str]]] = {
 # indexes that mean something else on these models.
 LISTENING_EQ_UNKNOWN = {"B168", "B172", "B187"}
 
-# Bass boost with five levels.
-BASS_BOOST = {"B175", "B168", "B171", "B162", "B172", "B179", "B184"}
+# Bass boost with five levels. Not B175: it has a physical bass slider and
+# its firmware ignores the command.
+BASS_BOOST = {"B168", "B171", "B162", "B172", "B179", "B184"}
+
+# Spatial audio modes as (name, wire mode), in display order. Only modes
+# without head tracking; the second wire byte is always 0 for these.
+SPATIAL: dict[str, list[tuple[str, int]]] = {
+    "B175": [("concert", 2), ("cinema", 3), ("off", 0)],
+}
+
+# Bluetooth codecs the buds can be told to offer, by wire index. Switching
+# makes them restart.
+CODEC_NAMES = {0: "aac", 1: "lhdc", 2: "ldac"}
+# From ear-web's device table (LHDC and LDAC capability bits). The read and
+# the indexes are confirmed on an Ear (2), which answers 1 while on LHDC.
+CODECS: dict[str, list[int]] = {
+    "B155": [0, 1],
+    "B171": [0, 1, 2],
+    "B162": [0, 2], "B183": [0, 2], "B173": [0, 2], "B190": [0, 2],
+    "B172": [0, 2], "B187": [0, 2], "B184": [0, 2], "B175": [0, 2],
+}
+
+# Custom EQ bands as (centre frequency Hz, Q). Bass and mid are the same on
+# every model; the treble shelf sits at one of three frequencies. Models
+# not listed (Ear (1)) have no three-band custom curve.
+_TREBLE_3400 = {"bass": (140.0, 0.8), "mid": (980.0, 0.7), "treble": (3400.0, 1.0)}
+_TREBLE_3500 = {"bass": (140.0, 0.8), "mid": (980.0, 0.7), "treble": (3500.0, 1.0)}
+_TREBLE_6900 = {"bass": (140.0, 0.8), "mid": (980.0, 0.7), "treble": (6900.0, 1.0)}
+CUSTOM_EQ_BANDS: dict[str, dict] = {
+    "B155": _TREBLE_3400, "B162": _TREBLE_3400, "B163": _TREBLE_3400, "B171": _TREBLE_3400,
+    "B173": _TREBLE_3400, "B174": _TREBLE_3400, "B183": _TREBLE_3400, "B190": _TREBLE_3400,
+    "B157": {"bass": (140.0, 0.8), "mid": (980.0, 0.66), "treble": (3500.0, 1.0)},
+    "B175": _TREBLE_3500,
+    "B168": _TREBLE_6900, "B172": _TREBLE_6900, "B179": _TREBLE_6900, "B184": _TREBLE_6900,
+    "B185": _TREBLE_6900, "B187": _TREBLE_6900,
+}
 
 # SKU (as embedded in the device's serial number) -> base
 SKU_TO_BASE: dict[str, str] = {
@@ -129,7 +160,11 @@ def _presets(table: list[tuple[int, str]]) -> list[dict]:
 
 
 def describe(base: str | None) -> dict:
-    """Returns {"name", "base", "anc", "eq", "eq_presets", "bass"}.
+    """Returns {"name", "base", "anc", "eq", "eq_presets", "custom_eq", "bass",
+    "spatial", "codecs", "battery_single"}.
+
+    `custom_eq` is the wire index of the custom preset when the model has
+    an editable three-band curve, else None.
 
     `eq` is "classic" (EQ_PRESET commands), "listening" (LISTENING_MODE
     commands) or None (no EQ shown). An unknown base gets a permissive
@@ -137,23 +172,26 @@ def describe(base: str | None) -> dict:
     like the Ear (2) this plugin was built on rather than losing controls.
     """
     if base not in BASES:
-        return {"name": None, "base": None, "anc": True, "eq": "classic", "eq_presets": _presets(CLASSIC_EQ), "bass": False}
+        return {"name": None, "base": None, "anc": True, "eq": "classic", "eq_presets": _presets(CLASSIC_EQ),
+                "custom_eq": None, "bass": False, "spatial": [], "codecs": []}
     name, anc = BASES[base]
-    if base == "B175":
-        eq, presets = "probe", []
-    elif base in LISTENING_EQ:
+    if base in LISTENING_EQ:
         eq, presets = "listening", LISTENING_EQ[base]
     elif base in LISTENING_EQ_UNKNOWN:
         eq, presets = None, []
     else:
         eq, presets = "classic", CLASSIC_EQ
+    custom = next((index for index, preset in presets if preset == "custom"), None)
     return {
         "name": name,
         "base": base,
         "anc": anc,
         "eq": eq,
         "eq_presets": _presets(presets),
+        "custom_eq": custom if base in CUSTOM_EQ_BANDS else None,
         "bass": base in BASS_BOOST,
+        "spatial": [name for name, _ in SPATIAL.get(base, [])],
+        "codecs": [CODEC_NAMES[index] for index in CODECS.get(base, [])],
         "battery_single": base == "B175",
     }
 

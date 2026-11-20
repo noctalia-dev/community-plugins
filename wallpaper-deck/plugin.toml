@@ -1,11 +1,11 @@
 id = "ishan0121/wallpaper-deck"
 name = "Wallpaper Deck"
-version = "1.3.1"
+version = "1.6.0"
 plugin_api = 43
 author = "Ishan0121"
 license = "GPL-3.0"
 icon = "cards"
-description = "Wallpaper picker with Wallhaven built-in, MTG-style animated card-deck."
+description = "Wallpaper picker with Wallhaven built-in, MTG-style card-deck, widget profiles, color search, custom themes & more."
 tags = ["wallpaper", "animation", "theming", "desktop"]
 dependencies = ["ffmpeg", "matugen"]
 
@@ -202,7 +202,7 @@ placement = "floating"
 position = "center"
 layer = "overlay"
 keyboard_focus = "exclusive"
-dismiss_on_outside_click = false
+dismiss_on_outside_click = true
 capture_keys = [
   "left", "right", "up", "down",
   "h", "l", "j", "k",

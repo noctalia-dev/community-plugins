@@ -31,9 +31,8 @@ local function tileContent(window, width, height)
     return { ui.image({ path = window.preview, width = width - 4, height = height - 4, fit = "cover", radius = 4 }) }
   end
   local iconSize = math.max(math.min(32, width - 12, height - 12), 12)
-  local icon = window.class ~= "" and noctalia.appIconPath(window.class, iconSize) or nil
   local children = {
-    icon and ui.image({ path = icon, width = iconSize, height = iconSize })
+    window.icon and ui.image({ path = window.icon, width = iconSize, height = iconSize })
       or ui.glyph({ name = "app-window", size = iconSize, color = "on_surface_variant" }),
   }
   if height >= 56 and width >= 72 then
@@ -179,6 +178,13 @@ local function render()
   if not model.hyprland then
     panel.render(ui.column({ padding = 20, gap = 8 }, {
       ui.label({ text = noctalia.tr("panel.not_hyprland"), color = "on_surface_variant" }),
+    }))
+    return
+  end
+  if model.error then
+    panel.render(ui.column({ padding = 20, gap = 8, width = 420 }, {
+      ui.label({ text = noctalia.tr("panel.error"), fontWeight = "semibold" }),
+      ui.label({ text = model.error, color = "on_surface_variant", maxLines = 6 }),
     }))
     return
   end

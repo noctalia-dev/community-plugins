@@ -29,8 +29,23 @@ local coverInFlight = nil
 local coverFetchGeneration = 0
 local maxCoverFiles = 80
 local pluginDir = noctalia.pluginDir() or "/tmp"
-local cacheDir = assert(noctalia.pluginDataDir()) .. "/cache"
+local dataDir = assert(noctalia.pluginDataDir())
+local cacheDir = dataDir .. "/cache"
 noctalia.mkdirAll(cacheDir)
+local offsetPath = dataDir .. "/lyrics-offsets.json"
+local trackOffsets = {}
+local savedOffsets = noctalia.readFile(offsetPath)
+if savedOffsets then
+  local decodedOffsets = noctalia.json.decode(savedOffsets)
+  if type(decodedOffsets) == "table" then
+    for key, value in pairs(decodedOffsets) do
+      local offset = tonumber(value)
+      if type(key) == "string" and offset and offset == offset and math.abs(offset) <= 2147483647 then
+        trackOffsets[key] = math.floor(offset)
+      end
+    end
+  end
+end
 local requestDir = cacheDir .. "/requests"
 noctalia.mkdirAll(requestDir)
 local krcTmp = cacheDir .. "/krc.tmp"
@@ -47,7 +62,12 @@ local customUrl = noctalia.getConfig("custom_url") or ""
 local customJsonField = noctalia.getConfig("custom_json_field") or "syncedLyrics"
 local pollIntervalMs = tonumber(noctalia.getConfig("poll_interval_ms")) or 500
 local lyricsOffsetMs = tonumber(noctalia.getConfig("lyrics_offset_ms")) or 0
+local currentLyricsOffsetMs = 0
+local lyricsStatus = "idle"
+noctalia.state.set("lyrics_status", lyricsStatus)
+noctalia.state.set("lyrics_offset_ms", currentLyricsOffsetMs)
 local credentialSignature = ""
+local offlineMode = noctalia.getSetting("shell.offline_mode") == true
 local currentTrack = nil
 local currentEmbeddedLyrics = ""
 local currentPlayerInstance = ""
@@ -84,6 +104,58 @@ local function trackKey(track)
     .. "|" .. tostring(durationSeconds)
 end
 
+local function trackOffsetKey(track)
+  if type(track) ~= "table" then return "" end
+  local durationSeconds = math.floor((tonumber(track.duration) or 0) / 1000000)
+  local url = tostring(track.mediaUrl or "")
+  if url ~= "" then return "url|" .. url end
+  -- Some MPRIS players assign a new track ID for every playback.
+  return noctalia.json.encode({ tostring(track.title or ""), tostring(track.artist or ""),
+    tostring(track.album or ""), durationSeconds }) or ""
+end
+
+local function setLyricsStatus(status)
+  if status ~= "ready" and status ~= "loading" and status ~= "not_found"
+    and status ~= "error" and status ~= "dependency_missing" and status ~= "waiting" and status ~= "offline" then
+    status = "idle"
+  end
+  if lyricsStatus ~= status then
+    lyricsStatus = status
+    noctalia.state.set("lyrics_status", status)
+  end
+end
+
+local function publishLyrics(lines)
+  noctalia.state.set("lyrics", lines)
+  if type(lines) == "table" and #lines > 0 then setLyricsStatus("ready") end
+end
+
+local function persistTrackOffsets()
+  local encoded = noctalia.json.encode(trackOffsets)
+  if encoded then noctalia.writeFile(offsetPath, encoded) end
+end
+
+local function setCurrentTrackOffset(track)
+  currentLyricsOffsetMs = trackOffsets[trackOffsetKey(track)] or 0
+  noctalia.state.set("lyrics_offset_ms", currentLyricsOffsetMs)
+end
+
+local function saveTrackOffset(tk, offset)
+  if not tk or tk == "" or not currentTrack then return false end
+  offset = math.floor(tonumber(offset) or 0)
+  offset = math.max(-600000, math.min(600000, offset))
+  local key = trackOffsetKey(currentTrack)
+  if offset == 0 then trackOffsets[key] = nil else trackOffsets[key] = offset end
+  persistTrackOffsets()
+  if tk == lastTrackKey then
+    currentLyricsOffsetMs = offset
+    noctalia.state.set("lyrics_offset_ms", currentLyricsOffsetMs)
+    noctalia.state.set("position", (tonumber(currentTrack.position) or 0)
+      + (lyricsOffsetMs + currentLyricsOffsetMs) * 1000)
+  end
+  return true
+end
+
 local function publishCandidates(tk, loading, selectionError, pendingCandidateId)
   noctalia.state.set("lyrics_candidate_state", {
     track_key = tk or "",
@@ -99,9 +171,13 @@ local function publishCandidates(tk, loading, selectionError, pendingCandidateId
 end
 
 local function setLyricsLoading(value)
-  if lyricsLoading == value then return end
+  if lyricsLoading == value then
+    if value then setLyricsStatus("loading") end
+    return
+  end
   lyricsLoading = value
   noctalia.state.set("lyrics_loading", value)
+  if value then setLyricsStatus("loading") end
 end
 
 local function patternMatches(value, pattern)
@@ -154,6 +230,8 @@ local function clearPlayerState()
   emptyPollCount = 0
   emptyTrackCount = 0
   setLyricsLoading(false)
+  setLyricsStatus("idle")
+  setCurrentTrackOffset(nil)
   coverInFlight = nil
   noctalia.state.set("player_instance", nil)
   noctalia.state.set("player_name", nil)
@@ -333,23 +411,7 @@ local function canonicalSource(source)
   return source
 end
 
--- Existing installations keep their saved `lyrics_sources` order, which may
--- predate SPlayer Next. Keep it in the automatic fallback chain anyway.
-local function ensureFallbackSources(sources)
-  for _, source in ipairs(sources) do
-    if source == "splayer_next" then return sources end
-  end
-  local insertAt = #sources + 1
-  for index, source in ipairs(sources) do
-    if source == "splayer" then
-      insertAt = index + 1
-      break
-    end
-  end
-  table.insert(sources, insertAt, "splayer_next")
-  return sources
-end
-
+-- Explicitly saved source lists are authoritative; routing may only reorder them.
 local function normalizedSources()
   if lyricsSource ~= "auto" then return { canonicalSource(lyricsSource) } end
   local result = {}
@@ -363,8 +425,7 @@ local function normalizedSources()
       end
     end
   end
-  if #result == 0 then result = { "lrclib", "netease" } end
-  return ensureFallbackSources(result)
+  return result
 end
 
 local function needsEmbeddedLyrics()
@@ -454,6 +515,11 @@ local function routedSources(track)
   local sources = normalizedSources()
   local preferred = preferredSource(track)
   if not preferred or #sources == 0 then return sources end
+  local hasPreferred = false
+  for _, source in ipairs(sources) do
+    if source == preferred then hasPreferred = true; break end
+  end
+  if not hasPreferred then return sources end
   local result = { preferred }
   for _, source in ipairs(sources) do
     if source ~= preferred then result[#result + 1] = source end
@@ -497,13 +563,14 @@ local function evictCache()
   if #keys > 30 then
     table.sort(keys)
     for i = 1, #keys - 30 do
-      cache[keys[i]] = nil
-      sourceCoverCache[keys[i]] = nil
-      candidateCache[keys[i]] = nil
-      selectedCandidateCache[keys[i]] = nil
-      selectedCandidateSourceCache[keys[i]] = nil
-      appliedFormatCache[keys[i]] = nil
-      appliedSyncCache[keys[i]] = nil
+      local evicted = keys[i]
+      cache[evicted] = nil
+      sourceCoverCache[evicted] = nil
+      candidateCache[evicted] = nil
+      selectedCandidateCache[evicted] = nil
+      selectedCandidateSourceCache[evicted] = nil
+      appliedFormatCache[evicted] = nil
+      appliedSyncCache[evicted] = nil
     end
   end
 end
@@ -601,7 +668,7 @@ local function fetchLyricsNetEase(track, embeddedLyrics, requestedCandidateId, r
             inFlight = nil
             retryFailures = 0
             retryRemainingMs = 0
-            noctalia.state.set("lyrics", parsed.lines)
+            publishLyrics(parsed.lines)
             noctalia.state.set("lyrics_source_used", "netease")
             return
           end
@@ -614,7 +681,7 @@ local function fetchLyricsNetEase(track, embeddedLyrics, requestedCandidateId, r
             inFlight = nil
             retryFailures = 0
             retryRemainingMs = 0
-            noctalia.state.set("lyrics", lyr)
+            publishLyrics(lyr)
             noctalia.state.set("lyrics_source_used", "netease")
           elseif fallback then
             fallback()
@@ -639,7 +706,7 @@ local function fetchLyricsNetEase(track, embeddedLyrics, requestedCandidateId, r
       inFlight = nil
       retryFailures = 0
       retryRemainingMs = 0
-      noctalia.state.set("lyrics", lyrics)
+      publishLyrics(lyrics)
       noctalia.state.set("lyrics_source_used", "netease")
     elseif fallback then
       fallback()
@@ -660,7 +727,7 @@ local function fetchLyricsNetEase(track, embeddedLyrics, requestedCandidateId, r
     if parsed and parsed.type == "krc" and parsed.lines then
       cache[tk] = parsed.lines
       evictCache()
-      noctalia.state.set("lyrics", parsed.lines)
+      publishLyrics(parsed.lines)
       return true
     end
     if parsed and parsed.type == "lrc" and parsed.lrc and parsed.lrc ~= "" then
@@ -669,7 +736,7 @@ local function fetchLyricsNetEase(track, embeddedLyrics, requestedCandidateId, r
       if lyr then
         cache[tk] = lyr
         evictCache()
-        noctalia.state.set("lyrics", lyr)
+        publishLyrics(lyr)
         return true
       end
     end
@@ -693,13 +760,36 @@ local function fetchLyricsNetEase(track, embeddedLyrics, requestedCandidateId, r
     if not parsed then return false end
     cache[tk] = parsed
     evictCache()
-    noctalia.state.set("lyrics", parsed)
+    publishLyrics(parsed)
     return true
+  end
+
+  local function finishLookup(status)
+    inFlight = nil
+    setLyricsLoading(false)
+    setLyricsStatus(status)
+  end
+
+  if not manualSelection and lyricsSource == "auto" then
+    local url = tostring(track.mediaUrl or "")
+    local path = url:match("^file://(/.*)$") or url:match("^file://localhost(/.*)$")
+    if path then
+      path = path:gsub("%%(%x%x)", function(hex) return string.char(tonumber(hex, 16)) end)
+      local stem = path:match("^(.*/[^/]+)%.[^/%.]+$")
+      local sidecar = not path:find("\0", 1, true) and (stem or path) .. ".lrc" or nil
+      local info = sidecar and noctalia.fileInfo(sidecar)
+      if info and not info.isDir and info.size > 0 and info.size <= 262144
+        and applyText(noctalia.readFile(sidecar)) then
+        noctalia.state.set("lyrics_source_used", "sidecar")
+        finishLookup("ready")
+        return
+      end
+    end
   end
 
   local function fetchCustom(fallback)
     if customUrl == "" then
-      if fallback then fallback() else inFlight = nil; noctalia.state.set("lyrics", nil) end
+      if fallback then fallback() else finishLookup("error") end
       return
     end
 
@@ -722,10 +812,10 @@ local function fetchLyricsNetEase(track, embeddedLyrics, requestedCandidateId, r
         for part in customJsonField:gmatch("[^.]+") do
           decoded = type(decoded) == "table" and decoded[part] or nil
         end
-      if type(decoded) == "table" then
+        if type(decoded) == "table" and #decoded > 0 then
           cache[tk] = decoded
           evictCache()
-          noctalia.state.set("lyrics", decoded)
+          publishLyrics(decoded)
           noctalia.state.set("lyrics_source_used", "custom")
           inFlight = nil
           return
@@ -738,8 +828,8 @@ local function fetchLyricsNetEase(track, embeddedLyrics, requestedCandidateId, r
       elseif fallback then
         fallback()
       else
-        inFlight = nil
-        noctalia.state.set("lyrics", nil)
+        local status = tonumber(response.status) or 0
+        finishLookup((status >= 200 and status < 300 or status == 404) and "not_found" or "error")
       end
     end)
   end
@@ -747,13 +837,17 @@ local function fetchLyricsNetEase(track, embeddedLyrics, requestedCandidateId, r
   if not manualSelection then
     if lyricsSource == "external" then
       inFlight = nil
+      setLyricsLoading(false)
+      setLyricsStatus("waiting")
       return
     elseif lyricsSource == "mpris" then
-      if applyText(embeddedLyrics) then noctalia.state.set("lyrics_source_used", "mpris") end
+      if applyText(embeddedLyrics) then noctalia.state.set("lyrics_source_used", "mpris")
+      else setLyricsStatus("not_found") end
       inFlight = nil
       return
     elseif lyricsSource == "custom" then
-      fetchCustom(nil)
+      if noctalia.getSetting("shell.offline_mode") == true then finishLookup("offline")
+      else fetchCustom(nil) end
       return
     end
   end
@@ -772,6 +866,9 @@ local function fetchLyricsNetEase(track, embeddedLyrics, requestedCandidateId, r
   }
 
   local plainFallback = nil
+  local offlineSkipped = false
+  local dependencyMissing = false
+  local lookupError = false
 
   local function applyResult(parsed, sourceName)
     cache[tk] = parsed.lines
@@ -793,7 +890,7 @@ local function fetchLyricsNetEase(track, embeddedLyrics, requestedCandidateId, r
     local formatName = type(parsed.format) == "string" and parsed.format or "lrc"
     appliedFormatCache[tk] = formatName
     appliedSyncCache[tk] = sync
-    noctalia.state.set("lyrics", parsed.lines)
+    publishLyrics(parsed.lines)
     noctalia.state.set("lyrics_source_used", parsed.source or sourceName)
     publishCandidates(tk)
     local coverage = tonumber(parsed.coverage) or 0
@@ -818,16 +915,15 @@ local function fetchLyricsNetEase(track, embeddedLyrics, requestedCandidateId, r
       elseif plainFallback then
         applyResult(plainFallback, plainFallback.source or "")
       else
-        noctalia.state.set("lyrics", nil)
-        noctalia.state.set("lyrics_source_used", nil)
-        candidateCache[tk] = nil
-        selectedCandidateCache[tk] = nil
-        selectedCandidateSourceCache[tk] = nil
-        appliedFormatCache[tk] = nil
-        appliedSyncCache[tk] = nil
+        if not noctalia.state.get("lyrics") then noctalia.state.set("lyrics_source_used", nil) end
+        setLyricsLoading(false)
+        setLyricsStatus(dependencyMissing and "dependency_missing"
+          or (lookupError and "error" or (offlineSkipped and "offline" or "not_found")))
+        -- Preserve candidate state while the next lookup is pending so the
+        -- selector never loses its last actionable list.
         publishCandidates(tk)
         retryFailures = retryFailures + 1
-        retryRemainingMs = math.min(60000, 2000 * 2 ^ math.min(retryFailures - 1, 5))
+        retryRemainingMs = offlineSkipped and 0 or math.min(60000, 2000 * 2 ^ math.min(retryFailures - 1, 5))
         noctalia.log("lyrics unavailable for " .. tostring(track.title) .. "; retrying in "
           .. tostring(math.floor(retryRemainingMs / 1000)) .. "s")
       end
@@ -842,8 +938,18 @@ local function fetchLyricsNetEase(track, embeddedLyrics, requestedCandidateId, r
       end
       return
     end
+    if noctalia.getSetting("shell.offline_mode") == true then
+      offlineSkipped = true
+      trySource(index + 1)
+      return
+    end
     if source == "custom" then
       fetchCustom(function() trySource(index + 1) end)
+      return
+    end
+    if not noctalia.commandExists("python3") or not noctalia.commandExists("chmod") then
+      dependencyMissing = true
+      trySource(index + 1)
       return
     end
     request.source = source
@@ -858,6 +964,7 @@ local function fetchLyricsNetEase(track, embeddedLyrics, requestedCandidateId, r
     local secured = noctalia.runAsync("chmod 700 " .. shellQuote(requestDir), function(chmodResult)
       if inFlight ~= flight or tk ~= lastTrackKey then return end
       if chmodResult.exitCode ~= 0 or not noctalia.writeFile(requestPath, encoded) then
+        lookupError = true
         trySource(index + 1)
         return
       end
@@ -868,6 +975,8 @@ local function fetchLyricsNetEase(track, embeddedLyrics, requestedCandidateId, r
         noctalia.removeFile(requestPath)
         if inFlight ~= flight or tk ~= lastTrackKey then return end
         if result.exitCode ~= 0 then
+          lookupError = true
+          if tostring(result.stderr or ""):find("not found", 1, true) then dependencyMissing = true end
           noctalia.log("lyrics source " .. source .. " process failed (exit "
             .. tostring(result.exitCode) .. "); is python3 on PATH?")
         end
@@ -885,6 +994,13 @@ local function fetchLyricsNetEase(track, embeddedLyrics, requestedCandidateId, r
         else
           local diag = type(parsed) == "table" and type(parsed.diag) == "table"
             and table.concat(parsed.diag, "; ") or ""
+          if diag:find("missing ssl module", 1, true) or diag:find("python3 on PATH", 1, true) then
+            dependencyMissing = true
+          elseif diag ~= "" and not diag:find("no match", 1, true)
+            and not diag:find("lyrics unavailable", 1, true)
+            and not diag:find("requested match unavailable", 1, true) then
+            lookupError = true
+          end
           noctalia.log("lyrics source " .. source .. " unavailable"
             .. (diag ~= "" and (": " .. diag) or ""))
           trySource(index + 1)
@@ -1026,7 +1142,12 @@ maybeApplyCover = function(track, artUrl)
 end
 
 local function poll()
-  if pollInFlight then return end
+  if pollInFlight or lyricsSource == "external" then return end
+  if not noctalia.commandExists("playerctl") or not noctalia.commandExists("timeout") then
+    clearPlayerState()
+    setLyricsStatus("dependency_missing")
+    return
+  end
   pollInFlight = true
   -- xesam:asText can contain an entire lyric file. Only request it when it
   -- is configured as a lyric source; otherwise it needlessly inflates every
@@ -1042,6 +1163,7 @@ local function poll()
 
   local started = noctalia.runAsync(cmd, function(r)
     pollInFlight = false
+    if lyricsSource == "external" then return end
     if r.exitCode ~= 0 or not r.stdout or r.stdout == "" then
       handleEmptyPoll()
       return
@@ -1102,6 +1224,8 @@ local function poll()
         currentEmbeddedLyrics = ""
         lastTrackKey = ""
         setLyricsLoading(false)
+        setLyricsStatus("idle")
+        setCurrentTrackOffset(nil)
         noctalia.state.set("track", nil)
         noctalia.state.set("lyrics", nil)
         noctalia.state.set("lyrics_source_used", nil)
@@ -1130,10 +1254,14 @@ local function poll()
     local previousArtUrl = currentArtUrl
     currentArtUrl = selected.artUrl
 
-    noctalia.state.set("position", t.position + lyricsOffsetMs * 1000)
-
-    if tk ~= lastTrackKey then
+    local trackChanged = tk ~= lastTrackKey
+    if trackChanged then
       lastTrackKey = tk
+      setCurrentTrackOffset(t)
+    end
+    noctalia.state.set("position", t.position + (lyricsOffsetMs + currentLyricsOffsetMs) * 1000)
+
+    if trackChanged then
       currentCoverUrl = ""
       pendingSourceCoverUrl = ""
       mprisCoverFailed = false
@@ -1144,7 +1272,9 @@ local function poll()
 
       local cached = cache[tk]
       if cached then
-        noctalia.state.set("lyrics", cached)
+        inFlight = nil
+        setLyricsLoading(false)
+        publishLyrics(cached)
         noctalia.state.set("lyrics_source_used", "cache")
         publishCandidates(tk)
       else
@@ -1227,12 +1357,14 @@ function onConfigChanged()
     or mapSignature(nextSourceFormatPriority) ~= mapSignature(sourceFormatPriority)
     or nextAutoSourceRouting ~= autoSourceRouting
   local candidateModeChanged = nextCandidateMode ~= candidateMode
-  local sourceChanged = nextSource ~= lyricsSource or nextUrl ~= customUrl or nextField ~= customJsonField
+  local nextOffline = noctalia.getSetting("shell.offline_mode") == true
+  local sourceChanged = nextOffline ~= offlineMode or nextSource ~= lyricsSource or nextUrl ~= customUrl or nextField ~= customJsonField
     or table.concat(nextSources, "\n") ~= table.concat(lyricsSources, "\n")
     or nextCredentialSignature ~= credentialSignature
     or priorityChanged or candidateModeChanged
   local playersChanged = table.concat(nextAllowlist, "\n") ~= table.concat(playerAllowlist, "\n")
     or table.concat(nextBlocklist, "\n") ~= table.concat(playerBlocklist, "\n")
+  offlineMode = nextOffline
   lyricsSource = nextSource
   candidateMode = nextCandidateMode
   customUrl = nextUrl
@@ -1246,13 +1378,7 @@ function onConfigChanged()
   credentialSignature = nextCredentialSignature
   playerAllowlist = nextAllowlist
   playerBlocklist = nextBlocklist
-  if playersChanged then
-    currentPlayerInstance = ""
-    fetchGeneration = fetchGeneration + 1
-    inFlight = nil
-    poll()
-  end
-  if sourceChanged and currentTrack and not playersChanged then
+  if sourceChanged then
     fetchGeneration = fetchGeneration + 1
     inFlight = nil
     cache = {}
@@ -1262,16 +1388,57 @@ function onConfigChanged()
     selectedCandidateSourceCache = {}
     appliedFormatCache = {}
     appliedSyncCache = {}
-    setLyricsLoading(true)
+    retryRemainingMs = 0
+    retryFailures = 0
     noctalia.state.set("lyrics", nil)
-    publishCandidates(trackKey(currentTrack))
-    fetchLyricsNetEase(currentTrack, currentEmbeddedLyrics)
+    noctalia.state.set("lyrics_source_used", nil)
+    publishCandidates(lastTrackKey)
+  end
+  if playersChanged then
+    fetchGeneration = fetchGeneration + 1
+    inFlight = nil
+  end
+  if lyricsSource ~= "external" and (playersChanged or sourceChanged) then
+    -- Let the next completed poll choose a player and re-fetch with the new settings.
+    lastTrackKey = ""
+    poll()
+  elseif sourceChanged then
+    setLyricsLoading(false)
+    setLyricsStatus("waiting")
   end
 end
 
+local function retryLyrics()
+  if not currentTrack or inFlight or lyricsSource == "external" then return end
+  fetchLyricsNetEase(currentTrack, currentEmbeddedLyrics)
+end
+
+local function changeOffset(action)
+  action = tostring(action or "")
+  if action == "reset" then
+    saveTrackOffset(lastTrackKey, 0)
+  elseif action:match("^[+-]%d+$") then
+    saveTrackOffset(lastTrackKey, currentLyricsOffsetMs + tonumber(action))
+  end
+end
+
+local function watchTrackRequest(key, handler)
+  local lastRequest = ""
+  noctalia.state.watch(key, function(request)
+    if type(request) ~= "table" or not currentTrack or request.track_key ~= lastTrackKey then return end
+    local id = tostring(request.request_id or "")
+    if id == "" or id == lastRequest then return end
+    lastRequest = id
+    handler(request.action)
+  end)
+end
+
+watchTrackRequest("lyrics_offset_request", changeOffset)
+watchTrackRequest("lyrics_retry_request", retryLyrics)
+
 local lastCandidateRequest = ""
 noctalia.state.watch("lyrics_candidate_request", function(request)
-  if type(request) ~= "table" or not currentTrack then return end
+  if type(request) ~= "table" or not currentTrack or candidateMode == "best" or inFlight then return end
   local requestId = tostring(request.request_id or "")
   if requestId == "" or requestId == lastCandidateRequest then return end
   lastCandidateRequest = requestId
@@ -1306,6 +1473,7 @@ local function applyPushedLyrics(payload)
     if decoded.track then
       currentTrack = decoded.track
       lastTrackKey = trackKey(decoded.track)
+      setCurrentTrackOffset(currentTrack)
       noctalia.state.set("track", decoded.track)
     end
     local tk = currentTrack and trackKey(currentTrack) or ""
@@ -1315,13 +1483,16 @@ local function applyPushedLyrics(payload)
     appliedFormatCache[tk] = nil
     appliedSyncCache[tk] = nil
     publishCandidates(tk)
-    if decoded.lines then noctalia.state.set("lyrics", decoded.lines) end
+    if decoded.lines then publishLyrics(decoded.lines) end
     if decoded.lyrics then
       local parsed = parseLRC(decoded.lyrics) or parsePlain(decoded.lyrics)
-      noctalia.state.set("lyrics", parsed)
+      publishLyrics(parsed)
     end
     setLyricsLoading(false)
-    if decoded.position ~= nil then noctalia.state.set("position", decoded.position + lyricsOffsetMs * 1000) end
+    if decoded.position ~= nil and currentTrack then currentTrack.position = tonumber(decoded.position) or 0 end
+    if decoded.position ~= nil then
+      noctalia.state.set("position", (tonumber(decoded.position) or 0) + (lyricsOffsetMs + currentLyricsOffsetMs) * 1000)
+    end
     if decoded.playing ~= nil then noctalia.state.set("playing", decoded.playing == true) end
     if type(decoded.cover) == "string" and decoded.cover ~= "" then
       if decoded.cover:sub(1, 1) == "/" or decoded.cover:sub(1, 7) == "file://" then
@@ -1346,7 +1517,11 @@ local function controlPlayer(action, onSuccess)
 end
 
 function onIpc(event, payload)
-  if event == "toggle-playback" then
+  if event == "offset" then
+    changeOffset(payload)
+  elseif event == "retry" then
+    retryLyrics()
+  elseif event == "toggle-playback" then
     local wasPlaying = noctalia.state.get("playing") == true
     controlPlayer("play-pause", function()
       noctalia.state.set("playing", not wasPlaying)
@@ -1363,7 +1538,7 @@ function onIpc(event, payload)
     appliedFormatCache[tk] = nil
     appliedSyncCache[tk] = nil
     publishCandidates(tk)
-    noctalia.state.set("lyrics", parseLRC(payload or "") or parsePlain(payload or ""))
+    publishLyrics(parseLRC(payload or "") or parsePlain(payload or ""))
     setLyricsLoading(false)
   elseif event == "push-json" or event == "push-state" then
     applyPushedLyrics(payload)
@@ -1375,7 +1550,8 @@ function onIpc(event, payload)
     publishCandidates(tk)
     noctalia.state.set("lyrics", nil)
     setLyricsLoading(false)
+    setLyricsStatus(lyricsSource == "external" and "waiting" or "not_found")
   end
 end
 
-if lyricsSource ~= "external" then poll() end
+if lyricsSource ~= "external" then poll() else setLyricsStatus("waiting") end

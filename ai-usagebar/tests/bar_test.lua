@@ -53,7 +53,6 @@ local function loadBar(config, report, err)
         tr = function(key, args)
             if key == "ui.regenerates_in" and args then return "Regenerates " .. args.amount .. " in " .. args.time end
             if key == "ui.regenerates_at" and args then return "Regenerates " .. args.amount .. " at " .. args.time end
-            if key == "ui.reset" then return "Reset" end
             if key == "ui.hidden_value" then return tostring(args.count) .. " provider(s)" end
             if key == "ui.not_configured" then
                 return tostring(args.vendor) .. " not configured"
@@ -146,6 +145,14 @@ assert(named.tooltip()[1].key == "Codex · work", "account should select the mat
 assert(containsText(named.rendered(), "Codex · work"), "show_name should distinguish a named account")
 named.env.onClick()
 assert(named.values.selected == "openai@work", "panel should open on the named account")
+
+local function clickProvider(node)
+    if node.props and node.props.key == "provider-click-openai@work" then node.props.onClick(); return true end
+    for _, child in ipairs(node.children or {}) do if clickProvider(child) then return true end end
+    return false
+end
+assert(clickProvider(named.rendered()) and named.values.selected == "openai@work" and named.values.bar_detail == false,
+    "overview setting must apply when clicking the provider")
 
 local default = loadBar({
     vendor = "openai", account = "", extras = "none", visualization = "none",
@@ -337,7 +344,7 @@ assert(#bottleneckRows == 3
        "the tooltip shows each quota window with its own percentage and reset countdown")
 
 local agyBar = loadBar({
-    vendor = "antigravity", account = "", extras = "countdown", visualization = "none",
+    vendor = "antigravity", account = "", extras = "countdown", visualization = "none", panel_view = "provider",
 }, {
     entries = {
         {
@@ -358,9 +365,10 @@ assert(containsGlyph(agyBar.rendered(), "brand-google"), "capsule should show Ge
 assert(containsGlyph(agyBar.rendered(), "robot"), "capsule should show robot glyph for Claude & GPT OSS")
 assert(glyphColor(agyBar.rendered(), "robot") == "on_surface", "model glyph should remain neutral on_surface")
 assert(containsText(agyBar.rendered(), "11%"), "available model should keep its active session percentage")
-assert(containsText(agyBar.rendered(), "100%"), "blocked model should show its exhausted long-window percentage")
+assert(not containsText(agyBar.rendered(), "100%"), "blocked model should show its reset without the exhausted percentage")
 assert(not containsText(agyBar.rendered(), "0%"), "blocked model should hide its irrelevant active session percentage")
 assert(containsText(agyBar.rendered(), "6d 20h"), "blocked model should show its long-window unlock time")
+assert(containsGlyph(agyBar.rendered(), "clock", "error"), "exhausted reset should use the alert color")
 local agyTooltip = agyBar.tooltip()
 assert(#agyTooltip == 5, "each dual-window model gets 5h and 7d rows plus the mode row")
 assert(agyTooltip[1].key == "Gemini 5h" and agyTooltip[1].value == "11% · 2h 00m"
@@ -410,7 +418,7 @@ local malformedGauge = loadBar({ vendor = "openai", visualization = "gauge" }, {
 assert(malformedGauge.rendered() ~= nil, "gauge should survive a non-table metric")
 
 local countdownBar = loadBar({
-    vendor = "antigravity", account = "", extras = "countdown", visualization = "none",
+    vendor = "antigravity", account = "", extras = "countdown", visualization = "none", panel_view = "provider",
 }, {
     entries = {
         {
@@ -419,20 +427,82 @@ local countdownBar = loadBar({
             plan = "Google AI Pro",
             status = "ready",
             metrics = {
-                { label = "Gemini", percent = 64, reset_at = os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() + 3240), severity = "low", value = "64%" },
-                { label = "Claude & GPT OSS", percent = 69, reset_at = os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() + 83100), severity = "low", value = "69%" },
+                { label = "Gemini", percent = 94, reset_at = os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() + 3240), severity = "high", value = "94%" },
+                { label = "Claude & GPT OSS", percent = 96, reset_at = os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() + 83100), severity = "critical", value = "96%" },
             },
         },
     },
 })
-assert(containsText(countdownBar.rendered(), "0h 54m"), "capsule should retain hours below one hour")
-assert(containsText(countdownBar.rendered(), "23h 05m"), "capsule should show hours and minutes below 24 hours")
-assert(containsText(countdownBar.rendered(), "·"), "capsule should show dot separator between submodels")
-local countdownTooltip = countdownBar.tooltip()
-assert(countdownTooltip[1].value == "64% · 0h 54m", "reset stays with the corresponding model")
-assert(countdownTooltip[2].value == "69% · 23h 05m", "fixed hours and minutes stay visible")
+assert(containsText(countdownBar.rendered(), "0h 54m"), "capsule should retain hours below one hour when near limit")
+assert(containsText(countdownBar.rendered(), "23h 05m"), "capsule should show hours and minutes below 24 hours when near limit")
+local function separatorCount(node, width, height)
+    local count = node.kind == "box" and node.props.width == width and node.props.height == height
+        and node.props.fill == "on_surface_variant" and node.props.opacity == 0.3 and 1 or 0
+    for _, child in ipairs(node.children or {}) do count = count + separatorCount(child, width, height) end
+    return count
+end
+assert(separatorCount(countdownBar.rendered(), 1, 14) == 1, "models use the same divider as providers")
+local modelTargets = {}
+local function findModelTargets(node)
+    if node.props and node.props.key and tostring(node.props.key):match("^model%-click%-") then
+        modelTargets[#modelTargets + 1] = node
+    end
+    for _, child in ipairs(node.children or {}) do findModelTargets(child) end
+end
+findModelTargets(countdownBar.rendered())
+assert(#modelTargets == 2, "each model has its own click target")
+local overviewModels = loadBar({ vendor = "antigravity", panel_view = "overview" }, { entries = {
+    { id = "antigravity", status = "ready", metrics = { { label = "Gemini", percent = 30 } } },
+} })
+local overviewTargets = {}
+local function collectTargets(node)
+    if node.props and node.props.key == "model-click-Gemini" then overviewTargets[#overviewTargets + 1] = node end
+    for _, child in ipairs(node.children or {}) do collectTargets(child) end
+end
+collectTargets(overviewModels.rendered())
+overviewTargets[1].props.onClick()
+assert(overviewModels.values.bar_detail == false and overviewModels.values.bar_model == nil,
+    "overview mode must apply to clicks on individual models")
+modelTargets[2].props.onClick()
+assert(countdownBar.values.selected == "antigravity" and countdownBar.values.bar_model == "Claude & GPT OSS"
+    and countdownBar.values.bar_detail == true, "model click selects its provider and model detail")
+-- Mixed providers and several model families retain distinct click targets.
+do
+local families = { "Gemini", "Claude & GPT OSS", "GPT", "Other" }
+local metrics = {}
+for index, family in ipairs(families) do
+    metrics[#metrics + 1] = { label = family, percent = index * 10, window_secs = 18000 }
+    metrics[#metrics + 1] = { label = family, percent = index * 15, window_secs = 604800 }
+end
+local report = { entries = {
+    { id = "antigravity@work", status = "ready", metrics = metrics },
+    entry("openai", "Codex", 95), entry("anthropic", "Claude", 80),
+} }
+for _, vertical in ipairs({ false, true }) do
+    local mixed = loadBar({ provider_limit = 3, vertical = vertical, visualization = "none", panel_view = "provider" }, report)
+    local targets = {}
+    local function walk(node)
+        if node.props and node.props.key and tostring(node.props.key):match("^model%-click%-") then
+            targets[node.props.key] = node
+        end
+        for _, child in ipairs(node.children or {}) do walk(child) end
+    end
+    walk(mixed.rendered())
+    for _, family in ipairs(families) do
+        local target = assert(targets["model-click-" .. family], "each family must have one target")
+        target.props.onClick()
+        assert(mixed.values.selected == "antigravity@work" and mixed.values.bar_model == family,
+            "each target must select its own family and named account")
+    end
+    assert(separatorCount(mixed.rendered(), vertical and 12 or 1, vertical and 1 or 14) == 5,
+        "all three model and two provider dividers must match")
+end
+end
 
-io.write("ok: account selection, unavailable providers, and a steady capsule\n")
+local countdownTooltip = countdownBar.tooltip()
+assert(countdownTooltip[1].value == "94% · 0h 54m", "reset stays with the corresponding model")
+assert(countdownTooltip[2].value == "96% · 23h 05m", "fixed hours and minutes stay visible")
+
 local parserFailure = loadBar({ vendor = "openai", extras = "countdown" }, { entries = {
     { id = "openai", display_name = "Codex", status = "error", metrics = {}, sections = {},
       error = "schema mismatch: openai usage response: invalid type: null" },
@@ -442,12 +512,32 @@ assert(containsText(parserFailure.rendered(), "—"), "a parser failure must sho
 
 local resetSoon = os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() + 7200)
 local resetLater = os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() + 590400)
+local sessionBlocked = loadBar({ vendor = "openai", extras = "countdown", visualization = "none" }, { entries = {
+    { id = "openai", status = "ready", metrics = {
+        { label = "Session", percent = 100, window_secs = 18000, reset_at = resetSoon },
+        { label = "Weekly", percent = 25, window_secs = 604800, reset_at = resetLater },
+    } },
+} })
+assert(not containsText(sessionBlocked.rendered(), "100%") and containsText(sessionBlocked.rendered(), "2h 00m")
+    and containsGlyph(sessionBlocked.rendered(), "clock", "error"),
+    "an exhausted five-hour quota shows its reset in the alert color")
+local verticalBlocked = loadBar({ vendor = "openai", vertical = true, visualization = "none" }, { entries = {
+    { id = "openai", status = "ready", metrics = {
+        { label = "Session", percent = 100, window_secs = 18000, reset_at = resetSoon },
+    } },
+} })
+assert(not containsText(verticalBlocked.rendered(), "100%") and containsText(verticalBlocked.rendered(), "2h 00m"),
+    "vertical bars show reset instead of exhausted percentage")
 local quotaEntry = entry("openai", "Codex", 100)
 quotaEntry.metrics = {
     { label = "Gemini", percent = 100, severity = "critical", reset_at = resetSoon },
     { label = "Gemini", percent = 100, severity = "critical", reset_at = resetLater },
 }
+local showExhausted = loadBar({ vendor = "openai", show_exhausted_value = true }, { entries = { quotaEntry } })
+assert(containsText(showExhausted.rendered(), "100%") and containsText(showExhausted.rendered(), "6d 20h"),
+    "the widget can keep the exhausted percentage alongside its reset")
 local bothBlocked = loadBar({ vendor = "openai", extras = "countdown" }, { entries = { quotaEntry } })
+assert(not containsText(bothBlocked.rendered(), "100%"), "exhausted providers hide the percentage when showing reset")
 assert(containsText(bothBlocked.rendered(), "6d 20h"), "two exhausted quotas must display the later reset")
 assert(bothBlocked.tooltip()[1].value == "100% · 2h 00m"
     and bothBlocked.tooltip()[2].value == "100% · 6d 20h",
@@ -455,7 +545,7 @@ assert(bothBlocked.tooltip()[1].value == "100% · 2h 00m"
 quotaEntry.id = "antigravity"
 quotaEntry.metrics[1].percent = 0
 local singleModel = loadBar({ vendor = "antigravity" }, { entries = { quotaEntry } })
-assert(containsText(singleModel.rendered(), "100%"), "a single Antigravity model must show weekly exhaustion")
+assert(not containsText(singleModel.rendered(), "100%") and containsText(singleModel.rendered(), "6d 20h"), "a single exhausted model shows its reset without 100%")
 quotaEntry.metrics[#quotaEntry.metrics + 1] = { label = "Claude & GPT OSS", percent = 95, severity = "critical" }
 local hiddenGlyphs = loadBar({ vendor = "antigravity", show_glyph = false }, { entries = { quotaEntry } })
 assert(not containsGlyph(hiddenGlyphs.rendered(), "brand-google") and not containsGlyph(hiddenGlyphs.rendered(), "robot"),
@@ -467,7 +557,7 @@ local function findNode(node, predicate)
         if found then return found end
     end
 end
-local uncolored = loadBar({ vendor = "antigravity", color_by_usage = false }, { entries = { quotaEntry } })
+local uncolored = loadBar({ vendor = "antigravity", color_by_usage = false, extras = "none" }, { entries = { quotaEntry } })
 assert(findNode(uncolored.rendered(), function(n) return n.props.text == "100%" end).props.color == "on_surface",
        "color_by_usage=false must suppress exhausted model tint")
 local after = loadBar({ vendor = "antigravity", glyph_position = "after", extras = "none", visualization = "none" }, { entries = { quotaEntry } })
@@ -507,12 +597,13 @@ poolEntry.metrics[2].severity = "critical"
 poolEntry.metrics[2].reset_at = resetLater
 poolEntry.metrics[1].reset_at = resetSoon
 local blockedPool = loadBar({ vendor = "antigravity", extras = "countdown" }, poolReport)
-assert(containsText(blockedPool.rendered(), "10%") and containsText(blockedPool.rendered(), "2h 00m"),
-       "an exhausted model pool must not replace the Gemini quota or reset")
+assert(containsText(blockedPool.rendered(), "10%") and not containsText(blockedPool.rendered(), "2h 00m"),
+       "an exhausted model pool must not replace the Gemini quota or force a low-usage reset onto the bar")
 assert(not containsText(blockedPool.rendered(), "100%") and not containsText(blockedPool.rendered(), "6d 20h"),
        "model pool exhaustion must not add a bar reading")
-assert(blockedPool.tooltip()[2].key == "Gemini 4 Argon" and blockedPool.tooltip()[2].value == "100% · 6d 20h",
-       "an exhausted pool remains available in the tooltip")
+assert(blockedPool.tooltip()[1].value == "10% · 2h 00m"
+       and blockedPool.tooltip()[2].key == "Gemini 4 Argon" and blockedPool.tooltip()[2].value == "100% · 6d 20h",
+       "both the shared window reset and exhausted pool remain available in the tooltip")
 local poolWindow = loadBar({ vendor = "antigravity", quota_window = "weekly" }, poolReport)
 assert(containsText(poolWindow.rendered(), "—") and not containsText(poolWindow.rendered(), "100%"),
        "a pool cannot substitute for a missing shared quota window")
@@ -730,7 +821,7 @@ local blockedPinEntry = { id = "openai", status = "ready", metrics = {
     { label = "Monthly", percent = 100, severity = "critical", window_secs = 2592000, reset_at = "2026-10-26T12:00:00Z" },
 } }
 local blockedPin = loadBar({ vendor = "openai", quota_window = "session", usage_display = "remaining" }, { entries = { blockedPinEntry } })
-assert(containsText(blockedPin.rendered(), "0%"), "pinned session cannot hide exhausted long quota")
+assert(not containsText(blockedPin.rendered(), "0%") and containsGlyph(blockedPin.rendered(), "clock"), "remaining mode shows the exhausted window reset")
 assert(blockedPin.tooltip()[1].value:find("Monthly: 0% · ", 1, true) == 1, "latest exhausted window overrides pin in tooltip")
 local blockedBars = findAllNodes(blockedPin.rendered(), function(n) return n.kind == "progress" end)
 assert(#blockedBars == 1 and blockedBars[1].props.progress == 0 and blockedBars[1].props.fill == "error", "zero remaining keeps exhausted consumption severity")
@@ -900,3 +991,95 @@ for _, mode in ipairs({ "used", "remaining" }) do
     end
     assert(described, "the tooltip names the partial refill instead of a full reset")
 end
+
+
+-- Main provider marks use a consistent readable slot, and reset clock appears only near/at limit.
+do
+local lowItem = entry("openai", "Codex", 70)
+lowItem.metrics[1].reset_at = "2026-10-16T20:00:00Z"
+local lowCapsule = loadBar({ vendor = "openai", extras = "countdown", visualization = "none" }, { entries = { lowItem } })
+assert(not containsGlyph(lowCapsule.rendered(), "clock"),
+    "the reset clock must stay hidden below 90% when the window is not critical")
+local item = entry("openai", "Codex", 95)
+item.metrics[1].reset_at = "2026-10-16T20:00:00Z"
+local capsule = loadBar({ vendor = "openai", extras = "countdown", visualization = "none" }, { entries = { item } })
+local function find(node, predicate)
+    if type(node) ~= "table" then return nil end
+    if predicate(node) then return node end
+    for _, child in ipairs(node.children or {}) do
+        local result = find(child, predicate)
+        if result then return result end
+    end
+end
+local mark = find(capsule.rendered(), function(n) return n.kind == "glyph" and n.props.name == "brand-openai" end)
+assert(mark and mark.props.size == 16 and mark.props.width == 18 and mark.props.height == 18,
+    "provider marks need a consistent 18px slot and readable 16px glyph")
+assert(containsGlyph(capsule.rendered(), "clock", "on_surface/0.8"),
+    "reset metadata needs the same clock cue and contrast as the panel when near or at the limit")
+local noReset = loadBar({ vendor = "openai", extras = "countdown" }, { entries = { entry("openai", "Codex", 95) } })
+assert(not containsGlyph(noReset.rendered(), "clock"), "missing reset must not reserve a clock or empty gap")
+end
+
+named.env.onClick()
+assert(named.values.selected == "openai@work" and named.values.panel_context == nil,
+    "bar clicks must highlight the account in the overview without bypassing it")
+
+local detail = loadBar({ vendor = "openai", account = "work", panel_view = "provider" }, namedReport)
+detail.env.onClick()
+assert(detail.values.selected == "openai@work" and detail.values.bar_detail == true,
+    "detail preference must target the account shown by this capsule")
+local autoDetail = loadBar({ panel_view = "provider", provider_limit = 2 }, namedReport)
+autoDetail.env.onClick()
+assert(autoDetail.values.selected == "openai" and autoDetail.values.bar_detail == true,
+    "automatic capsules must open the first visible provider")
+local emptyDetail = loadBar({ vendor = "openai", account = "missing", panel_view = "provider" }, namedReport)
+emptyDetail.env.onClick()
+assert(emptyDetail.values.bar_detail ~= true, "an empty capsule must open the overview")
+
+-- Multi-account Antigravity: pinned account label, auto_providers filtering, and Cloud Code-only model list.
+do
+    local agyDefault = {
+        id = "antigravity",
+        display_name = "Antigravity",
+        brand = "antigravity",
+        status = "ready",
+        metrics = {
+            { label = "Gemini", percent = 70, window_secs = 18000, reset_at = resetSoon },
+            { label = "Claude & GPT OSS", percent = 15, window_secs = 18000, reset_at = resetSoon },
+        },
+    }
+    local agyT3One = {
+        id = "antigravity@t3-1",
+        display_name = "Antigravity · t3-1",
+        brand = "antigravity",
+        status = "ready",
+        metrics = {
+            { label = "Claude & GPT OSS", percent = 22, window_secs = 18000, reset_at = resetSoon },
+        },
+    }
+    local agyT3Two = {
+        id = "antigravity@t3-2",
+        display_name = "Antigravity · t3-2",
+        brand = "antigravity",
+        status = "ready",
+        metrics = {
+            { label = "Claude & GPT OSS", percent = 85, window_secs = 18000, reset_at = resetSoon },
+        },
+    }
+    local multiAgyReport = { entries = { agyDefault, agyT3One, agyT3Two } }
+
+    local pinnedAgy = loadBar({ vendor = "antigravity", account = "t3-1", show_name = true, panel_view = "provider" }, multiAgyReport)
+    assert(containsText(pinnedAgy.rendered(), "t3-1")
+        and containsText(pinnedAgy.rendered(), "Claude & GPT OSS")
+        and not containsText(pinnedAgy.rendered(), "Antigravity"),
+        "pinned named Antigravity capsule with show_name should display the account label alongside its models")
+    pinnedAgy.env.onClick()
+    assert(pinnedAgy.values.selected == "antigravity@t3-1" and pinnedAgy.values.bar_detail == true,
+        "pinned named Antigravity capsule must open its own account detail")
+
+    local filteredAgy = loadBar({ auto_providers = { "antigravity@t3-1" } }, multiAgyReport)
+    assert(containsText(filteredAgy.rendered(), "22%") and not containsText(filteredAgy.rendered(), "85%"),
+        "auto_providers should allow selecting a specific antigravity@account")
+end
+
+io.write("ok: account selection, unavailable providers, and a steady capsule\n")

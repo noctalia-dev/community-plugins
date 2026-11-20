@@ -1,7 +1,7 @@
--- Capturas de miniaturas para el panel de Terminal Widgets.
+-- Thumbnail captures for the Terminal Widgets panel.
 --
--- Gestiona capturas de ventanas, cache de miniaturas, animación GIF casera,
--- limpieza de archivos antiguos y captura "solo ventana" via grim -g.
+-- Handles window captures, thumbnail cache, homemade GIF animation, cleanup
+-- of old files and "window only" capture via grim -T.
 
 local util = require("./util.luau")
 
@@ -9,13 +9,13 @@ local M = {}
 
 local CAPTURE_WIDTH = 320
 local CAPTURE_HEIGHT = 190
--- Cambiar la versión invalida las capturas antiguas (por ejemplo, las que
--- incluían el panel u otras ventanas por encima).
-local CAPTURE_VERSION = "v2"
+-- Changing the version invalidates old captures (for example, ones that
+-- included the panel or other windows above).
+local CAPTURE_VERSION = "v3"
 
 local batchCounter = 0
 
--- Directorio de cache para miniaturas.
+-- Cache directory for thumbnails.
 local cachedDir = nil
 function M.cacheDir()
   if cachedDir ~= nil then
@@ -32,11 +32,11 @@ function M.cacheDir()
   end
 
   local path = base .. "/thumbs"
-  -- Se crea una sola vez por runtime (mkdirAll es idempotente); así las
-  -- capturas funcionan también en una instalación nueva.
+  -- Created once per runtime (mkdirAll is idempotent); this way captures also
+  -- work on a fresh installation.
   local called, created = pcall(noctalia.mkdirAll, path)
   if not called or created == false then
-    noctalia.log("terminal-widgets: no se pudo crear " .. path)
+    noctalia.log("terminal-widgets: could not create " .. path)
     cachedDir = false
     return nil
   end
@@ -44,7 +44,7 @@ function M.cacheDir()
   return path
 end
 
--- Verifica si las herramientas necesarias (grim, python3) están disponibles.
+-- Check whether the required tools (grim, python3) are available.
 function M.toolsAvailable()
   local ok1 = pcall(function() return noctalia.commandExists("grim") end)
   local ok2 = pcall(function() return noctalia.commandExists("python3") end)
@@ -55,7 +55,7 @@ function M.toolsAvailable()
   return script ~= nil and noctalia.fileExists(script)
 end
 
--- Genera un hash simple para usar en nombres de archivo.
+-- Generate a simple hash for use in file names.
 local function hashText(text)
   local hash = 0
   for i = 1, #text do
@@ -64,9 +64,9 @@ local function hashText(text)
   return string.format("%06x", hash)
 end
 
--- Firma de geometría de una ventana (para detectar cambios).
+-- Window geometry signature (to detect changes).
 function M.signature(window, seq)
-  -- Soporta tanto formato nuevo (entry con x,y,w,h) como antiguo (window object)
+  -- Supports both the new format (entry with x,y,w,h) and the old one (window object)
   local x = window.x or 0
   local y = window.y or 0
   local w = window.w or 0
@@ -86,7 +86,7 @@ function M.thumbPath(name, signature)
   return string.format("%s/%s-%s-%s.png", dir, util.slug(name), CAPTURE_VERSION, hashText(signature))
 end
 
--- Ruta de la miniatura "actual" (sin seq) para el preview principal
+-- Path of the "current" thumbnail (without seq) for the main preview
 function M.currentThumbPath(name)
   local dir = M.cacheDir()
   if dir == nil then
@@ -104,7 +104,7 @@ function M.cached(name, signature)
   if noctalia.fileExists(path) then
     return path
   end
-  -- Fallback a la miniatura actual
+  -- Fallback to the current thumbnail
   local currentPath = M.currentThumbPath(name)
   if currentPath and noctalia.fileExists(currentPath) then
     return currentPath
@@ -120,9 +120,9 @@ function M.current(name)
   return nil
 end
 
--- Rutas de las miniaturas que las tarjetas están usando ahora mismo.
--- `windows` acepta una lista o un mapa de ventanas abiertas (con `name`, `x`,
--- `y`, `w` y `h`).
+-- Thumbnail paths the cards are using right now.
+-- `windows` accepts a list or a map of open windows (with `name`, `x`, `y`,
+-- `w` and `h`).
 function M.currentPaths(windows)
   local paths = {}
   for _, window in pairs(windows or {}) do
@@ -131,7 +131,7 @@ function M.currentPaths(windows)
       if path ~= nil then
         paths[path] = true
       end
-      -- También incluir la miniatura actual
+      -- Also include the current thumbnail
       local currentPath = M.currentThumbPath(window.name)
       if currentPath ~= nil then
         paths[currentPath] = true
@@ -141,18 +141,18 @@ function M.currentPaths(windows)
   return paths
 end
 
--- Cache simple para frames (evita listDir/fileInfo frecuentes)
+-- Simple cache for frames (avoids frequent listDir/fileInfo calls)
 local framesCache = {}
 local framesCacheTime = 0
-local FRAMES_CACHE_TTL = 1000  -- 1 segundo
+local FRAMES_CACHE_TTL = 1000  -- 1 second
 
--- Devuelve las miniaturas recientes de un widget (más nuevas primeras), para
--- poder animarlas como un GIF casero cuando el widget está cerrado.
+-- Return the widget's recent thumbnails (newest first), so they can be
+-- animated like a homemade GIF when the widget is closed.
 function M.frames(name, limit)
   local now = noctalia.nowMs()
   local cacheKey = name .. ":" .. (limit or 8)
   
-  -- Verificar cache
+  -- Check cache
   if framesCache[cacheKey] and (now - framesCacheTime) < FRAMES_CACHE_TTL then
     return framesCache[cacheKey]
   end
@@ -171,7 +171,7 @@ function M.frames(name, limit)
   local suffix = ".png"
   local matches = {}
   local checked = 0
-  local maxChecks = 24  -- acotado para no exceder el CPU budget
+  local maxChecks = 24  -- bounded to stay within the CPU budget
   for _, file in ipairs(files) do
     if checked >= maxChecks then
       break
@@ -192,13 +192,15 @@ function M.frames(name, limit)
     table.insert(out, matches[index].path)
   end
   
-  -- Guardar en cache
+  -- Save to cache
   framesCache[cacheKey] = out
   framesCacheTime = now
   return out
 end
 
--- Captura las ventanas indicadas. `entries` = { {name, address, width, height} }
+-- Capture the given windows. `entries` must carry a non-empty `stable_id`:
+-- without it there is no isolated toplevel capture, and the card keeps its
+-- static or mock preview.
 function M.capture(entries, callback)
   if #entries == 0 then
     if callback ~= nil then
@@ -218,17 +220,19 @@ function M.capture(entries, callback)
 
   local items = {}
   for _, entry in ipairs(entries) do
-    -- Thumbnail con seq (para frames/animación)
+    -- Thumbnail with seq (for frames/animation)
     local signature = M.signature(entry, entry.seq)
     local path = M.thumbPath(entry.name, signature)
-    -- Thumbnail actual (sin seq, para preview principal)
+    -- Current thumbnail (without seq, for the main preview)
     local currentPath = M.currentThumbPath(entry.name)
     
-    if path ~= nil and not noctalia.fileExists(path) then
+    local stableId = entry.stable_id
+    if type(stableId) == "string" and stableId ~= ""
+      and path ~= nil and not noctalia.fileExists(path) then
       table.insert(items, {
         name = entry.name,
         address = entry.address,
-        stable_id = entry.stable_id,
+        stable_id = stableId,
         x = entry.x,
         y = entry.y,
         w = entry.w,
@@ -274,7 +278,7 @@ function M.capture(entries, callback)
     pcall(noctalia.removeFile, batchPath)
     if result.exitCode ~= 0 then
       local detail = util.trim(result.stderr or "")
-      noctalia.log("terminal-widgets: captura: " .. detail)
+      noctalia.log("terminal-widgets: capture: " .. detail)
     end
     if callback ~= nil then
       callback()
@@ -288,18 +292,16 @@ function M.capture(entries, callback)
   end
 end
 
--- Borra las miniaturas que ya no usa ninguna tarjeta y los archivos de lote
--- que se hayan quedado por el camino.
+-- Delete thumbnails no card uses anymore and batch files left behind.
 --
--- Se borra por *uso* y no por widget, y solo si además son antiguas: el host
--- puede volver a aplicar un árbol guardado (por ejemplo, al reabrir el panel)
--- y pedir una imagen que se borró hace un momento. Con la antigüedad mínima
--- ese fichero sigue ahí durante un rato y el aviso "image failed to load" no
--- aparece; los ficheros viejos se van yendo solos.
+-- Deletion is by *usage*, not by widget, and only if the file is also old: the
+-- host may reapply a saved tree (for example, when reopening the panel) and
+-- request an image deleted a moment ago. With the minimum age that file stays
+-- around for a while and the "image failed to load" warning does not appear;
+-- old files disappear on their own.
 --
--- `currentPaths` = rutas que usan las tarjetas ahora mismo.
--- `maxAgeSeconds` = antigüedad a partir de la cual un fichero no usado se
--- considera caducable.
+-- `currentPaths` = paths the cards are using right now.
+-- `maxAgeSeconds` = age after which an unused file is considered prunable.
 function M.pruneUnused(currentPaths, maxAgeSeconds)
   local dir = M.cacheDir()
   if dir == nil then
@@ -333,7 +335,7 @@ function M.pruneUnused(currentPaths, maxAgeSeconds)
   end
 end
 
--- Última miniatura disponible para un widget (la más reciente).
+-- Latest available thumbnail for a widget (the most recent one).
 function M.latest(name)
   local frames = M.frames(name, 1)
   if #frames > 0 then

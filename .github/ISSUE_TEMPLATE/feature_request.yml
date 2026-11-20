@@ -79,6 +79,7 @@ body:
         - claudecode
         - clearclock
         - cmd-runner
+        - cmf-buds
         - codexbar-meter
         - color_picker
         - competitive-programming-contest-tracker
@@ -102,16 +103,19 @@ body:
         - dropkitty
         - dropwall
         - ds4-color
+        - easytier
         - emoji-picker
         - eyecare
         - f1
         - file-search
         - flatpak-bg
         - game-launcher
+        - gamepad-display
         - gamer-mode
         - geoip-monitor
         - git_companion
         - github-activity
+        - github-contributions-desktop
         - github-kanban
         - github-notifications
         - github-prs
@@ -148,6 +152,7 @@ body:
         - jetbrains-provider
         - k8s-status
         - keybind-cheatsheet
+        - keyboard
         - keyboard-state
         - keychron-battery
         - keymap
@@ -163,6 +168,7 @@ body:
         - lid-guard
         - link-ip-monitor
         - llamanager
+        - localcheck
         - localsend
         - localsend-plus
         - logonbox
@@ -175,7 +181,9 @@ body:
         - mango-displays
         - mango_layouts
         - mangowm-keymode
+        - mathsym
         - mawaqit
+        - media-downloader
         - media-island
         - media-lyrics
         - media-player-icon
@@ -239,6 +247,7 @@ body:
         - palette-creator
         - palettes
         - pass
+        - passwordless-sudo
         - performance-plus
         - phone-connect
         - phone-operate
@@ -274,6 +283,8 @@ body:
         - reading-list
         - region-recorder
         - remmina
+        - retro-hdd-led
+        - rog-control
         - rss-feeds
         - rss-notifier
         - ruh-vpn
@@ -292,6 +303,7 @@ body:
         - shell-command
         - shelly
         - shift
+        - shipyard
         - shloka
         - sing-box-status
         - social-block
@@ -302,6 +314,7 @@ body:
         - speedtest-meter
         - split-reset
         - spotify
+        - spotify-ambient
         - spotify-lyrics
         - spotify-media
         - ssh-launcher

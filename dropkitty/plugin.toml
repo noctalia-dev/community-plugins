@@ -4,15 +4,15 @@
 
 id = "lowcache/dropkitty"
 name = "dropkitty"
-version = "0.1.0"
+version = "0.2.0"
 # 26: noctalia.getSetting (bar reserves). Also uses runAsync argv (24) and openSettings (15).
 plugin_api = 26
 author = "lowcache"
 license = "MIT"
 icon = "terminal-2"
-description = "Quake-style drop-down terminal on kitty, with a bar toggle and a finished-command badge."
+description = "Quake-style drop-down terminal on kitty: bar toggle, launcher command runner, finished-command notifications."
 dependencies = ["kitty", "jq", "flock", "setsid", "timeout"]
-tags = ["bar", "service", "productivity", "utility", "niri", "hyprland", "sway"]
+tags = ["bar", "service", "launcher", "productivity", "utility", "niri", "hyprland", "sway"]
 
 # ── Opening geometry (live toggles from the helper override these until changed) ──
 [[setting]]
@@ -86,6 +86,24 @@ label_key = "settings.bar_aware.label"
 description_key = "settings.bar_aware.description"
 default = true
 
+# ── Applied live ──
+[[setting]]
+key = "hide_on_focus_loss"
+type = "bool"
+label_key = "settings.hide_on_focus_loss.label"
+description_key = "settings.hide_on_focus_loss.description"
+default = false
+
+# ── Notifications (read when a command finishes) ──
+[[setting]]
+key = "notify_after"
+type = "int"
+label_key = "settings.notify_after.label"
+description_key = "settings.notify_after.description"
+default = 10
+min = 0
+max = 3600
+
 # ── Applied at launch (helper `restart` to apply to a running terminal) ──
 [[setting]]
 key = "opacity"
@@ -109,13 +127,6 @@ options = [
 ]
 
 [[setting]]
-key = "hide_on_focus_loss"
-type = "bool"
-label_key = "settings.hide_on_focus_loss.label"
-description_key = "settings.hide_on_focus_loss.description"
-default = false
-
-[[setting]]
 key = "kitty_conf"
 type = "file"
 label_key = "settings.kitty_conf.label"
@@ -129,3 +140,13 @@ entry = "service.luau"
 [[widget]]
 id = "toggle"
 entry = "widget.luau"
+
+# Middle click flips position; free it from the built-in "open settings" binding.
+[widget.actions]
+middle = "none"
+
+[[launcher_provider]]
+id = "run"
+entry = "launcher.luau"
+prefix = "dk"
+glyph = "terminal-2"

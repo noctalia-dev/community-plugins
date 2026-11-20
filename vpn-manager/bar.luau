@@ -1,9 +1,11 @@
 --!nonstrict
--- VPN Manager bar widget: shield glyph that reflects connection state, click
--- opens the panel.
+-- VPN Manager bar widget: shield glyph that reflects connection state. Click
+-- opens the panel, or toggles the default VPN when bar_click_toggles is on.
 
 local connected = false
 local activeNames = {}
+local connections = {}
+local defaultUuid = ""
 
 local function render()
   barWidget.setGlyph(connected and "shield-lock-filled" or "shield-lock")
@@ -30,8 +32,43 @@ noctalia.state.watch("vpn.status", function(status)
   render()
 end)
 
-function onClick()
+noctalia.state.watch("vpn.connections", function(rows)
+  connections = type(rows) == "table" and rows or {}
+end)
+
+noctalia.state.watch("vpn.defaultVpnUuid", function(uuid)
+  defaultUuid = type(uuid) == "string" and uuid or ""
+end)
+
+local function openPanel()
   noctalia.togglePanel("andrewdems/vpn-manager:panel")
+end
+
+local function toggleDefault()
+  if defaultUuid == "" then
+    noctalia.notifyError(noctalia.tr("title"), noctalia.tr("notifications.no_default"))
+    openPanel()
+    return
+  end
+  local active = false
+  for _, row in ipairs(connections) do
+    if row.uuid == defaultUuid then
+      active = row.active == true
+    end
+  end
+  noctalia.state.set("vpn.cmd", { op = active and "disconnect" or "connect", uuid = defaultUuid })
+end
+
+function onClick()
+  if noctalia.getConfig("bar_click_toggles") == true then
+    toggleDefault()
+  else
+    openPanel()
+  end
+end
+
+function onRightClick()
+  openPanel()
 end
 
 render()

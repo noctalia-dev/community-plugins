@@ -10,6 +10,9 @@ local status = noctalia.state.get(STATUS_KEY) or {}
 local devicesState = noctalia.state.get(DEVICES_KEY) or { ok = false, devices = {} }
 local sendCommand = shared.sendCommand
 
+-- "main" or "more"; see tabBar.
+local activeTab = "main"
+
 local function levelFraction(level)
 	local n = tonumber(level)
 	if n == nil or n < 0 then
@@ -56,6 +59,7 @@ local function batteryColumn(label, entry, icon)
 end
 
 local ANC_STRENGTHS = { "high", "mid", "low", "adaptive" }
+local render
 
 local function sectionHeader(key)
 	return ui.label({ text = noctalia.tr(key), fontSize = 11, fontWeight = "bold", color = "on_surface_variant" })
@@ -81,42 +85,61 @@ local function toggleRow(labelKey, enabled, action, caption)
 	})
 end
 
+-- A round icon button with its label underneath, for a pick-one row.
+local function roundChoice(key, icon, label, selected, onClick)
+	return ui.column({ align = "center", gap = 4, flexGrow = 1 }, {
+		ui.column({
+			key = key,
+			align = "center",
+			justify = "center",
+			width = 56,
+			height = 56,
+			radius = 28,
+			fill = selected and "primary/0.18" or "on_surface/0.06",
+			-- always reserve the border's stroke width so selecting doesn't
+			-- resize the circle and shove its neighbors around; hide it via alpha instead
+			border = selected and "outline_variant/0" or "outline_variant",
+			onClick = onClick,
+		}, {
+			-- an image can't take the theme's accent colour, so the filled
+			-- circle marks the selection and the icon only dims
+			ui.image({
+				path = iconPath(icon),
+				width = 26,
+				height = 26,
+				fit = "contain",
+				opacity = selected and 1 or 0.6,
+			}),
+		}),
+		-- Room for two lines whether or not the label wraps, so a re-render
+		-- that wraps it differently can't push it into the row below.
+		ui.column({ height = 30, align = "center" }, {
+			ui.label({
+				text = label,
+				fontSize = 11,
+				maxLines = 2,
+				textAlign = "center",
+				color = selected and "on_surface" or "on_surface_variant",
+			}),
+		}),
+	})
+end
+
 local function ancControls(anc, personalAnc)
 	local currentMode = anc.mode or "off"
 	local currentStrength = anc.strength
 
 	local modeButtons = {}
 	for _, spec in ipairs(shared.ANC_MODES) do
-		local selected = currentMode == spec.mode
-		table.insert(modeButtons, ui.column({ align = "center", gap = 4, flexGrow = 1 }, {
-			ui.column({
-				key = "mode-" .. spec.mode,
-				align = "center",
-				justify = "center",
-				width = 56,
-				height = 56,
-				radius = 28,
-				fill = selected and "primary/0.18" or "on_surface/0.06",
-				-- always reserve the border's stroke width so selecting a mode doesn't
-				-- resize the circle and shove its neighbors around; hide it via alpha instead
-				border = selected and "outline_variant/0" or "outline_variant",
-				onClick = function()
-					sendCommand("set-anc", spec.mode, spec.mode == "anc" and "high" or nil)
-				end,
-			}, {
-				ui.glyph({
-					name = spec.glyph,
-					size = 22,
-					color = selected and "primary" or "on_surface_variant",
-				}),
-			}),
-			ui.label({
-				text = noctalia.tr(spec.labelKey),
-				fontSize = 11,
-				textAlign = "center",
-				color = selected and "on_surface" or "on_surface_variant",
-			}),
-		}))
+		table.insert(modeButtons, roundChoice(
+			"mode-" .. spec.mode,
+			spec.icon,
+			noctalia.tr(spec.labelKey),
+			currentMode == spec.mode,
+			function()
+				sendCommand("set-anc", spec.mode, spec.mode == "anc" and "high" or nil)
+			end
+		))
 	end
 
 	local rows = {
@@ -142,24 +165,45 @@ local function ancControls(anc, personalAnc)
 	end
 	-- Only present when the earbuds answered the read.
 	if personalAnc ~= nil then
-		table.insert(rows, toggleRow("panel.personal_anc.title", personalAnc, "set-personal-anc"))
+		-- spacers: the toggle otherwise crowds the mode labels above it and
+		-- the section separator below
+		table.insert(rows, ui.column({ height = 4 }, {}))
+		table.insert(rows, toggleRow(
+			"panel.personal_anc.title",
+			personalAnc,
+			"set-personal-anc",
+			noctalia.tr("panel.personal_anc.caption")
+		))
+		table.insert(rows, ui.column({ height = 2 }, {}))
 	end
 
 	return ui.column({ gap = 8 }, rows)
 end
 
+-- Pill-shaped like the presets in the Nothing X app; ui.button has its own
+-- corner radius, so this is a plain row with a fill.
 local function eqButton(preset, currentPreset)
 	local i = preset.index
 	local selected = currentPreset == i
-	return ui.button({
+	return ui.row({
 		key = "eq-" .. tostring(i),
-		text = noctalia.tr("panel.eq." .. preset.name),
-		variant = selected and "secondary" or "ghost",
-		selected = selected,
+		align = "center",
+		justify = "center",
 		flexGrow = 1,
+		height = 38,
+		radius = 19,
+		fill = selected and "primary" or "on_surface/0.06",
 		onClick = function()
 			sendCommand("set-eq", i)
 		end,
+	}, {
+		ui.label({
+			text = noctalia.tr("panel.eq." .. preset.name),
+			fontSize = 13,
+			fontWeight = selected and "bold" or "medium",
+			color = selected and "on_primary" or "on_surface_variant",
+			textAlign = "center",
+		}),
 	})
 end
 
@@ -187,9 +231,63 @@ local function bassControls(bass)
 	return rows
 end
 
+-- The custom curve being dragged, shown instead of the last read until the
+-- earbuds report it back, so a slider doesn't jump back mid-drag.
+local customDraft = nil
+local CUSTOM_BANDS = { "bass", "mid", "treble" }
+
+local function signed(n)
+	return n > 0 and ("+" .. tostring(n)) or tostring(n)
+end
+
+local function customEqControls(curve)
+	if customDraft ~= nil then
+		local caughtUp = true
+		for _, band in ipairs(CUSTOM_BANDS) do
+			caughtUp = caughtUp and customDraft[band] == curve[band]
+		end
+		if caughtUp then
+			customDraft = nil
+		end
+	end
+	local shown = customDraft or curve
+	local rows = {}
+	for _, band in ipairs(CUSTOM_BANDS) do
+		local value = tonumber(shown[band]) or 0
+		table.insert(rows, ui.row({ align = "center", gap = 8 }, {
+			ui.column({ width = 48 }, {
+				ui.label({ text = noctalia.tr("panel.custom_eq." .. band), fontSize = 12, color = "on_surface_variant" }),
+			}),
+			ui.slider({
+				key = "custom-" .. band,
+				min = -6,
+				max = 6,
+				step = 1,
+				value = value,
+				flexGrow = 1,
+				onChange = function(v)
+					local n = math.floor((tonumber(v) or 0) + 0.5)
+					local draft = { bass = shown.bass or 0, mid = shown.mid or 0, treble = shown.treble or 0 }
+					if draft[band] == n then
+						return
+					end
+					draft[band] = n
+					customDraft = draft
+					sendCommand("set-custom-eq", string.format("%d,%d,%d", draft.bass, draft.mid, draft.treble))
+					render()
+				end,
+			}),
+			ui.column({ width = 48, align = "end" }, {
+				ui.label({ text = signed(value) .. " dB", fontSize = 12, color = "on_surface" }),
+			}),
+		}))
+	end
+	return ui.column({ gap = 2, padding = 4 }, rows)
+end
+
 -- The preset list comes from the model (CMF models have their own); a
 -- model with none we can trust gets no preset buttons.
-local function eqControls(presets, currentPreset, soundProfile, bass)
+local function eqControls(presets, currentPreset, soundProfile, bass, custom)
 	local rows = {}
 	if #presets > 0 then
 		table.insert(rows, sectionHeader("panel.eq.title"))
@@ -197,17 +295,18 @@ local function eqControls(presets, currentPreset, soundProfile, bass)
 	local row = {}
 	for _, preset in ipairs(presets) do
 		table.insert(row, eqButton(preset, currentPreset))
-		if #row == 3 then
-			table.insert(rows, ui.row({ gap = 4 }, row))
+		if #row == 2 then
+			table.insert(rows, ui.row({ gap = 6 }, row))
 			row = {}
 		end
 	end
 	if #row > 0 then
-		-- pad the short row so its buttons line up under the three above
-		while #row < 3 do
-			table.insert(row, ui.column({ flexGrow = 1 }, {}))
-		end
-		table.insert(rows, ui.row({ gap = 4 }, row))
+		-- pad the short row so its pill lines up under the ones above
+		table.insert(row, ui.column({ flexGrow = 1 }, {}))
+		table.insert(rows, ui.row({ gap = 6 }, row))
+	end
+	if custom ~= nil then
+		table.insert(rows, customEqControls(custom))
 	end
 	-- Only present when a hearing test has been saved from the Nothing X app.
 	if soundProfile ~= nil then
@@ -220,6 +319,149 @@ local function eqControls(presets, currentPreset, soundProfile, bass)
 		end
 	end
 	return ui.column({ gap = 6 }, rows)
+end
+
+-- Only on models with spatial audio that answered the read.
+local function spatialControls(modes, current)
+	local buttons = {}
+	for _, mode in ipairs(modes) do
+		local selected = current == mode
+		local label = noctalia.tr("panel.spatial." .. mode)
+		local function pick()
+			sendCommand("set-spatial", mode)
+		end
+		local icon = shared.SPATIAL_ICONS[mode]
+		if icon ~= nil then
+			table.insert(buttons, roundChoice("spatial-" .. mode, icon, label, selected, pick))
+		else
+			table.insert(buttons, ui.button({
+				key = "spatial-" .. mode,
+				text = label,
+				variant = selected and "secondary" or "ghost",
+				selected = selected,
+				flexGrow = 1,
+				onClick = pick,
+			}))
+		end
+	end
+	return ui.column({ gap = 8 }, {
+		sectionHeader("panel.spatial.title"),
+		ui.row({ gap = 6 }, buttons),
+	})
+end
+
+-- Switching codec restarts the headphones, so a click only arms the choice
+-- and a second one confirms it.
+local pendingCodec = nil
+
+local function codecControls(codecs, current, restarting)
+	local caption = "panel.codec.caption"
+	if restarting then
+		caption = "panel.codec.restarting"
+	elseif pendingCodec ~= nil then
+		caption = "panel.codec.confirm"
+	end
+	local buttons = {}
+	if restarting then
+		-- nothing to click until the headphones are back
+	elseif pendingCodec ~= nil then
+		local target = pendingCodec
+		buttons = {
+			ui.button({
+				key = "codec-confirm",
+				text = noctalia.tr("panel.codec.restart"),
+				variant = "secondary",
+				onClick = function()
+					pendingCodec = nil
+					sendCommand("set-codec", target)
+				end,
+			}),
+			ui.button({
+				key = "codec-cancel",
+				text = noctalia.tr("panel.codec.cancel"),
+				variant = "ghost",
+				onClick = function()
+					pendingCodec = nil
+					render()
+				end,
+			}),
+		}
+	else
+		for _, codec in ipairs(codecs) do
+			local selected = current == codec
+			table.insert(buttons, ui.button({
+				key = "codec-" .. codec,
+				text = noctalia.tr("panel.codec." .. codec),
+				variant = selected and "secondary" or "ghost",
+				selected = selected,
+				onClick = function()
+					if not selected then
+						pendingCodec = codec
+						render()
+					end
+				end,
+			}))
+		end
+	end
+	return ui.row({ align = "center", gap = 12 }, {
+		ui.column({ flexGrow = 1, gap = 1 }, {
+			ui.label({ text = noctalia.tr("panel.codec.title"), fontSize = 13, color = "on_surface" }),
+			ui.label({ text = noctalia.tr(caption), fontSize = 11, color = "on_surface_variant" }),
+		}),
+		ui.row({ align = "center", gap = 4 }, buttons),
+	})
+end
+
+-- A change the earbuds didn't take (or that never reached them). The
+-- details hold the frames that went back and forth, for a bug report.
+local function writeFailed()
+	return ui.row({ align = "center", gap = 8, padding = 4 }, {
+		ui.glyph({ name = "alert-triangle", size = 14, color = "error" }),
+		ui.label({ text = noctalia.tr("panel.write_failed"), fontSize = 12, color = "on_surface_variant", flexGrow = 1 }),
+		ui.button({
+			text = noctalia.tr("panel.copy_details"),
+			glyph = "copy",
+			variant = "ghost",
+			onClick = function()
+				sendCommand("copy-details", nil)
+			end,
+		}),
+	})
+end
+
+local TABS = { "main", "more" }
+
+-- Outside the scroll area, so it stays put while the content scrolls. Text
+-- tabs with an accent underline on the active one, over a hairline.
+local function tabBar()
+	local tabs = {}
+	for _, tab in ipairs(TABS) do
+		local selected = activeTab == tab
+		table.insert(tabs, ui.column({
+			key = "tab-" .. tab,
+			align = "center",
+			gap = 6,
+			flexGrow = 1,
+			onClick = function()
+				if activeTab ~= tab then
+					activeTab = tab
+					render()
+				end
+			end,
+		}, {
+			ui.label({
+				text = noctalia.tr("panel.tab." .. tab),
+				fontSize = 13,
+				fontWeight = selected and "bold" or "medium",
+				color = selected and "primary" or "on_surface_variant",
+			}),
+			ui.box({ width = 56, height = 3, radius = 2, fill = selected and "primary" or "on_surface/0" }),
+		}))
+	end
+	return ui.column({ gap = 0 }, {
+		ui.row({ gap = 6 }, tabs),
+		ui.separator({ thickness = 1, color = "on_surface/0.12" }),
+	})
 end
 
 local function devicePicker(devices)
@@ -280,11 +522,17 @@ local function monoCaption(s)
 end
 
 local function audioControls(s)
-	return ui.column({ gap = 8 }, {
+	local rows = {
 		sectionHeader("panel.audio.title"),
 		toggleRow("panel.latency.title", s.latency_mode, "set-latency", noctalia.tr("panel.latency.caption")),
 		toggleRow("panel.mono.title", s.mono_active, "set-mono", monoCaption(s)),
-	})
+	}
+	-- Only on models that can switch codec and answered the read.
+	local codecs = (s.model or {}).codecs or {}
+	if #codecs > 1 and (s.codec ~= nil or s.restarting) then
+		table.insert(rows, codecControls(codecs, s.codec, s.restarting == true))
+	end
+	return ui.column({ gap = 8 }, rows)
 end
 
 -- A short hint of what to try; the specifics (errno, step, raw replies) go
@@ -314,7 +562,7 @@ local function notConnected(code)
 	return ui.column({ align = "center", gap = 8, padding = 24 }, rows)
 end
 
-local function render()
+function render()
 	local body = {}
 
 	if status.unconfigured then
@@ -335,18 +583,34 @@ local function render()
 					batteryColumn(noctalia.tr("panel.right"), battery.right, "bud-right"),
 				}
 			end
-			table.insert(body, ui.row({ align = "center", justify = "space_between", gap = 12, padding = 4 }, batteries))
-			if model.anc ~= false then
-				table.insert(body, sectionSeparator())
-				table.insert(body, ancControls(status.anc or {}, status.personal_anc))
+			-- Main holds what gets used every day; the rest is one tap away on More.
+			if activeTab == "more" then
+				local spatialModes = model.spatial or {}
+				if #spatialModes > 0 and status.spatial ~= nil then
+					table.insert(body, spatialControls(spatialModes, status.spatial))
+					table.insert(body, sectionSeparator())
+				end
+				table.insert(body, audioControls(status))
+			else
+				table.insert(body, ui.row({ align = "center", justify = "space_between", gap = 12, padding = 4 }, batteries))
+				if model.anc ~= false then
+					table.insert(body, sectionSeparator())
+					table.insert(body, ancControls(status.anc or {}, status.personal_anc))
+				end
+				local presets = model.eq_presets or shared.EQ_PRESETS
+				if #presets > 0 or status.bass ~= nil then
+					table.insert(body, sectionSeparator())
+					-- The curve's sliders sit right under the presets, while Custom is the one selected.
+					local custom = nil
+					if model.custom_eq ~= nil and status.eq_preset == model.custom_eq and type(status.custom_eq) == "table" then
+						custom = status.custom_eq
+					end
+					table.insert(body, eqControls(presets, status.eq_preset, status.sound_profile, status.bass, custom))
+				end
 			end
-			local presets = model.eq_presets or shared.EQ_PRESETS
-			if #presets > 0 or status.bass ~= nil then
-				table.insert(body, sectionSeparator())
-				table.insert(body, eqControls(presets, status.eq_preset, status.sound_profile, status.bass))
+			if status.write_error ~= nil then
+				table.insert(body, writeFailed())
 			end
-			table.insert(body, sectionSeparator())
-			table.insert(body, audioControls(status))
 		end
 	end
 
@@ -365,11 +629,18 @@ local function render()
 	end
 	table.insert(headerActions, ui.button({ glyph = "close", variant = "ghost", onClick = "onCloseClicked" }))
 
-	panel.render(ui.column({ flexGrow = 1, gap = 8, padding = 10 }, {
+	local header = {
 		ui.row({ align = "center", justify = "space_between", gap = 8 }, {
 			ui.label({ text = titleText, fontSize = 15, fontWeight = "bold", color = "on_surface" }),
 			ui.row({ align = "center", gap = 2 }, headerActions),
 		}),
+	}
+	if status.connected == true and not status.unconfigured then
+		table.insert(header, tabBar())
+	end
+
+	panel.render(ui.column({ flexGrow = 1, gap = 8, padding = 10 }, {
+		ui.column({ gap = 8 }, header),
 		ui.scroll({ flexGrow = 1, gap = 8 }, body),
 	}))
 end
@@ -389,6 +660,9 @@ noctalia.state.watch(DEVICES_KEY, function(value)
 end)
 
 function onOpen(_context)
+	pendingCodec = nil
+	customDraft = nil
+	activeTab = "main"
 	sendCommand("panel_open", nil)
 	render()
 end

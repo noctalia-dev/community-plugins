@@ -152,6 +152,10 @@
     "usage_refresh_interval": {
       "description": "How often to fetch usage data (minutes).",
       "label": "Usage refresh interval"
+    },
+    "waiting_badge": {
+      "description": "Show a red overlay badge with the number of sessions waiting for you, above fullscreen windows. Keeps polling live sessions every 2 seconds while on.",
+      "label": "Needs-you badge"
     }
   },
   "settings_tooltip": "Plugin settings",

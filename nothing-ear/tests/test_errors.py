@@ -43,6 +43,7 @@ class ErrorCodeTests(unittest.TestCase):
             ("CHANNEL_FILE", root / "channel"),
             ("STATE_FILE", root / "state.json"),
             ("LOCK_FILE", root / "lock"),
+            ("LAST_WRITE_FILE", root / "last_write.json"),
         ):
             patcher = patch.object(ctl, name, str(value))
             patcher.start()

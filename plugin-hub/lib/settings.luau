@@ -10,68 +10,15 @@ local Toml = require("./toml.luau")
 
 local Settings = {}
 
--- For "<source> <directory> <language>": the plugin's translations, English then the
--- language, and each setting field of its manifest as
--- "@@f <scope> <entry> <n> <field> <value>", and each option of a select as
--- "@@o <n> <option> <field> <value>". <scope> is setting, panel, widget or desktop_widget.
-local READ = [=[
-plugins=${XDG_STATE_HOME:-$HOME/.local/state}/noctalia/plugins
-source=$1 dir=$2 lang=$3
-here=$plugins/materialized/$source/$dir
-repo=$plugins/sources/$source/repo
-show() {
-  if [ -f "$here/plugin.toml" ]; then cat "$here/$1" 2>/dev/null
-  else git -C "$repo" show "HEAD:$dir/$1" 2>/dev/null; fi
-}
-read=""
-for file in en "${lang%%-*}" "$lang"; do
-  case " $read " in *" $file "*) continue ;; esac
-  read="$read $file"
-  text=$(show "translations/$file.json") && [ -n "$text" ] && printf '@@tr\t%s\n' "$(printf '%s' "$text" | tr '\n' ' ')"
-done
-show plugin.toml | awk -v sq="'" '
-  # The line up to a comment that is not in a string, and how many brackets it leaves open.
-  function clean(s,   i, c, q, out) {
-    q = ""; out = ""
-    for (i = 1; i <= length(s); i++) {
-      c = substr(s, i, 1)
-      if (q != "") {
-        if (c == "\\" && q == "\"") { out = out c substr(s, i + 1, 1); i++; continue }
-        if (c == q) q = ""
-      } else if (c == "\"" || c == sq) q = c
-      else if (c == "#") break
-      else if (c == "[" || c == "{") open++
-      else if (c == "]" || c == "}") open--
-      out = out c
-    }
-    return out
-  }
-  function emit(name, value) {
-    if (mode == "field") print "@@f\t" scope "\t" entry "\t" n "\t" name "\t" value
-    else if (mode == "option") print "@@o\t" n "\t" o "\t" name "\t" value
-  }
-  pending != "" {
-    open = depth; line = clean($0); depth = open; value = value " " line
-    if (depth <= 0) { emit(pending, value); pending = "" }
-    next
-  }
-  { sub(/^[ \t]+/, "") }
-  /^\[\[setting\]\]/ { mode = "field"; scope = "setting"; entry = ""; n++; next }
-  /^\[\[(widget|desktop_widget|panel)\]\]/ { kind = $0; gsub(/[\[\] \t]/, "", kind); mode = "entry"; next }
-  /^\[\[(widget|desktop_widget|panel)\.setting\]\]/ {
-    scope = $0; gsub(/[\[\] \t]/, "", scope); sub(/\.setting$/, "", scope)
-    mode = "field"; entry = id[scope]; n++; next
-  }
-  /^\[\[[a-z_.]*setting\.options\]\]/ { mode = "option"; o++; next }
-  /^\[/ { mode = ""; next }
-  match($0, /^[A-Za-z0-9_-]+[ \t]*=/) {
-    name = $0; sub(/[ \t]*=.*/, "", name)
-    rest = substr($0, RLENGTH + 1)
-    open = 0; value = clean(rest)
-    if (mode == "entry" && name == "id") { v = value; gsub(/^[ \t]*"|"[ \t]*$/, "", v); id[kind] = v }
-    if (open > 0) { pending = name; depth = open } else emit(name, value)
-  }'
-]=]
+-- Where Noctalia keeps its copy of a plugin of a git source: it is there while the plugin
+-- is installed, on or off, and goes when the plugin is removed.
+function Settings.pluginDir(source, id)
+  local state = noctalia.getenv("XDG_STATE_HOME")
+  if state == nil or state == "" then
+    state = noctalia.expandPath("~/.local/state")
+  end
+  return `{state}/noctalia/plugins/materialized/{source}/{id:match("/(.+)$") or id}`
+end
 
 local FIELD_NAMES = {
   key = true,
@@ -145,53 +92,35 @@ local function barsOfInstances()
   return where
 end
 
--- Turns the manifest's lines into fields, grouped by scope and entry.
-local function fieldsOf(stdout)
-  local translations = {}
-  local fields, order, options = {}, {}, {}
-  for line in stdout:gmatch("[^\n]+") do
-    local kind, rest = line:match("^@@(%a+)\t(.*)$")
-    if kind == "tr" then
-      local decoded = noctalia.json.decode(rest)
-      if type(decoded) == "table" then
-        flatten(decoded, nil, translations)
-      end
-    elseif kind == "f" then
-      local scope, entry, n, name, value = rest:match("^([^\t]*)\t([^\t]*)\t([^\t]*)\t([^\t]*)\t(.*)$")
-      if n and FIELD_NAMES[name] then
-        local field = fields[n]
-        if field == nil then
-          field = { scope = scope, entry = entry, n = tonumber(n) }
-          fields[n] = field
-          table.insert(order, field)
+-- The setting fields of a manifest, each with its scope ("setting", "panel", "widget" or
+-- "desktop_widget"), the id of its entry, and its texts from <translations>.
+local function fieldsOf(manifest, translations)
+  local fields = {}
+  local entryIds = {} -- the id of the last [[widget]], [[panel]] or [[desktop_widget]]
+  local last = nil -- the last field, which a [[...setting.options]] table adds to
+  for _, section in ipairs(Toml.manifest(manifest)) do
+    local header = section.header or ""
+    local scope = header == "setting" and "setting" or header:match("^(%a[%w_]*)%.setting$")
+    if header == "widget" or header == "panel" or header == "desktop_widget" then
+      entryIds[header] = section.values.id
+    elseif scope then
+      last = { scope = scope, entry = scope ~= "setting" and entryIds[scope] or "" }
+      for name, value in pairs(section.values) do
+        if FIELD_NAMES[name] then
+          last[name] = value
         end
-        field[name] = Toml.parse(value)
       end
-    elseif kind == "o" then
-      local n, o, name, value = rest:match("^([^\t]*)\t([^\t]*)\t([^\t]*)\t(.*)$")
-      if n then
-        options[n] = options[n] or {}
-        options[n][o] = options[n][o] or {}
-        options[n][o][name] = Toml.parse(value)
-      end
+      table.insert(fields, last)
+    elseif header:match("setting%.options$") and last then
+      last.listed = last.listed or {}
+      table.insert(last.listed, section.values)
     end
   end
   local result = {}
-  for n, field in pairs(fields) do
-    if options[n] and field.options == nil then
-      local list = {}
-      for o, option in pairs(options[n]) do
-        option.o = tonumber(o)
-        table.insert(list, option)
-      end
-      table.sort(list, function(a, b) return a.o < b.o end)
-      field.options = list
-    end
-  end
-  for _, field in ipairs(order) do
+  for _, field in ipairs(fields) do
     if type(field.key) == "string" and type(field.type) == "string" then
       local choices = {}
-      for _, option in ipairs(type(field.options) == "table" and field.options or {}) do
+      for _, option in ipairs(type(field.options) == "table" and field.options or field.listed or {}) do
         if type(option) == "table" and option.value ~= nil then
           table.insert(choices, {
             value = tostring(option.value),
@@ -304,16 +233,37 @@ local function sectionsOf(id, fields)
 end
 
 -- Reads the settings of <plugin> ({ id, source }) and calls <done>(sections) or
--- <done>(nil, error).
+-- <done>(nil, error). The translations are English, then the shell's language.
 function Settings.load(plugin, done)
-  local dir = plugin.id:match("/(.+)$") or plugin.id
-  noctalia.runAsync({ "sh", "-c", READ, "plugin-hub", plugin.source, dir, language() }, function(result)
-    if result.exitCode ~= 0 and (result.stdout or "") == "" then
-      done(nil, noctalia.string.trim(result.stderr or ""))
+  local dir = Settings.pluginDir(plugin.source, plugin.id)
+  local lang = language()
+  local files = { "en" }
+  for _, name in ipairs({ lang:match("^[^-]+"), lang }) do
+    if not table.find(files, name) then
+      table.insert(files, name)
+    end
+  end
+  local translations = {}
+  local function readTranslation(index)
+    if index > #files then
+      noctalia.readFileAsync(dir .. "/plugin.toml", function(manifest, err)
+        if manifest == nil then
+          done(nil, err or dir)
+          return
+        end
+        done(sectionsOf(plugin.id, fieldsOf(manifest, translations)))
+      end)
       return
     end
-    done(sectionsOf(plugin.id, fieldsOf(result.stdout or "")))
-  end, 10000)
+    noctalia.readFileAsync(`{dir}/translations/{files[index]}.json`, function(text)
+      local decoded = text and noctalia.json.decode(text)
+      if type(decoded) == "table" then
+        flatten(decoded, nil, translations)
+      end
+      readTranslation(index + 1)
+    end)
+  end
+  readTranslation(1)
 end
 
 -- The `config-set` arguments that save <value> for <field> of the plugin <id> in <section>.

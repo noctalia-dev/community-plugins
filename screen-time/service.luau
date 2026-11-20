@@ -39,7 +39,9 @@ local function read()
   end
   reading = true
   lastReadMs = noctalia.nowMs()
-  noctalia.readFileAsync(dataFile(), function(text)
+  -- Noctalia refuses a read while too many are in flight, and then never calls back; the
+  -- next update tries again instead of waiting for a callback that never comes.
+  local started = noctalia.readFileAsync(dataFile(), function(text)
     reading = false
     local data = text and noctalia.json.decode(text)
     local day = type(data) == "table" and data[noctalia.formatTime("%Y-%m-%d")] or nil
@@ -66,6 +68,10 @@ local function read()
       apps = top,
     })
   end)
+  if not started then
+    reading = false
+    lastReadMs = nil
+  end
 end
 
 function update()

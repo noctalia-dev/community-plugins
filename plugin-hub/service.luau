@@ -7,8 +7,8 @@
 --
 -- The plugins are the enabled ones, read from `noctalia msg plugins list`, and the ones the
 -- hub saw enabled before, so a plugin switched off here can be switched on again. Manifests
--- and READMEs are read from Noctalia's copy of each plugin, or from its source when it is
--- off.
+-- and READMEs are read from Noctalia's copy of each plugin, which it keeps while the plugin
+-- is off and deletes when the plugin is removed; a removed plugin is forgotten.
 --
 -- Keys, own commands and the plugins seen are kept in hub.json in the data folder.
 --
@@ -18,6 +18,7 @@
 
 local Binds = require("./lib/binds.luau")
 local Settings = require("./lib/settings.luau")
+local Toml = require("./lib/toml.luau")
 
 local SYNC_MS = 30000
 
@@ -44,46 +45,7 @@ local NOCTALIA = {
   { command = "notification-dnd-toggle", name = "noctalia.dnd" },
 }
 
--- For each "<source> <directory> <id>" argument: the plugin's name, its panels, whether it
--- has settings, and the noctalia msg lines of its README, from Noctalia's copy when the
--- plugin is on, or from its source's git repository when it is off.
-local DISCOVER = [=[
-plugins=${XDG_STATE_HOME:-$HOME/.local/state}/noctalia/plugins
-while [ $# -ge 3 ]; do
-  source=$1 dir=$2 id=$3
-  shift 3
-  here=$plugins/materialized/$source/$dir
-  if [ -f "$here/plugin.toml" ]; then
-    manifest=$(cat "$here/plugin.toml")
-    readme=$(cat "$here/README.md" 2>/dev/null)
-  else
-    repo=$plugins/sources/$source/repo
-    manifest=$(git -C "$repo" show "HEAD:$dir/plugin.toml" 2>/dev/null) || continue
-    readme=$(git -C "$repo" show "HEAD:$dir/README.md" 2>/dev/null)
-  fi
-  printf '%s\n' "$manifest" | awk -v id="$id" '
-    /^\[\[panel\]\]/ { section = "panel"; next }
-    /^[[:space:]]*\[\[([a-z_]+\.)?setting\]\]/ { print "@@settings " id; section = "other"; next }
-    /^\[/ { section = "other"; next }
-    /^[[:space:]]*(name|id)[[:space:]]*=/ {
-      value = $0; sub(/^[^=]*=[[:space:]]*"/, "", value); sub(/".*$/, "", value)
-      if (section == "" && $1 == "name") print "@@plugin " id "\t" value
-      if (section == "panel" && $1 == "id") print "@@panel " id "\t" value
-    }'
-  printf '%s\n' "$readme" | awk -v id="$id" '
-    sub(/^[[:space:]]*noctalia msg /, "") {
-      note = ""
-      if (match($0, /[[:space:]]+#[[:space:]]*/)) { note = substr($0, RSTART + RLENGTH); $0 = substr($0, 1, RSTART - 1) }
-      print "@@cmd " id "\t" $0 "\t" note
-    }'
-done
-]=]
-
--- A command that runs without a shell: words of letters, digits and - _ . / : + only, so
--- nothing from a README can run more than noctalia msg.
-local function safe(command)
-  return type(command) == "string" and command:match("^[%w][%w%-_%./:%+ ]*$") ~= nil
-end
+local safe = Binds.safe
 
 local dataDir = noctalia.pluginDataDir() or ""
 local dataFile = dataDir .. "/hub.json"
@@ -164,46 +126,87 @@ Binds.watch(function(value)
   publish()
 end)
 
--- Reads each plugin's manifest and README.
-local function discover(list)
-  local argv = { "sh", "-c", DISCOVER, "plugin-hub" }
-  for _, plugin in ipairs(list) do
-    table.insert(argv, plugin.source)
-    table.insert(argv, plugin.id:match("/(.+)$") or plugin.id)
-    table.insert(argv, plugin.id)
-  end
-  noctalia.runAsync(argv, function(result)
-    discovering = false
-    local byId = {}
-    for _, plugin in ipairs(list) do
-      byId[plugin.id] = plugin
+-- What one plugin is called, its panels, whether it has settings, and the `noctalia msg`
+-- lines of its README, from Noctalia's copy of it.
+local function readPlugin(plugin, manifest, readme)
+  for _, section in ipairs(Toml.manifest(manifest, { name = true, id = true })) do
+    if section.header == nil and type(section.values.name) == "string" then
+      plugin.name = section.values.name
+    elseif section.header == "panel" and type(section.values.id) == "string" then
+      table.insert(plugin.panels, section.values.id)
+    elseif section.header and (section.header == "setting" or section.header:match("%.setting$")) then
+      plugin.settings = true
     end
-    for line in (result.stdout or ""):gmatch("[^\n]+") do
-      local kind, id, value = line:match("^@@(%a+) (%S+)\t?(.*)$")
-      local plugin = id and byId[id]
-      if plugin then
-        if kind == "plugin" then
-          plugin.name = value
-        elseif kind == "panel" then
-          table.insert(plugin.panels, value)
-        elseif kind == "settings" then
-          plugin.settings = true
-        elseif kind == "cmd" then
-          local command, note = value:match("^([^\t]*)\t?(.*)$")
-          command = noctalia.string.trim(command or "")
-          if safe(command) and not plugin.seen[command] then
-            plugin.seen[command] = true
-            table.insert(plugin.commands, { command = command, note = noctalia.string.trim(note or "") })
-          end
-        end
+  end
+  for line in (readme or ""):gmatch("[^\n]+") do
+    local rest = line:match("^%s*noctalia msg (.+)$")
+    if rest then
+      -- A note after "#" names the command.
+      local command, note = rest:match("^(.-)%s+#%s*(.*)$")
+      command = noctalia.string.trim(command or rest)
+      if safe(command) and not plugin.seen[command] then
+        plugin.seen[command] = true
+        table.insert(plugin.commands, { command = command, note = noctalia.string.trim(note or "") })
       end
     end
+  end
+end
+
+-- The plugins whose files are still to read, and how far the reading is. One plugin is read
+-- per update tick, quickly while there are any: reading them all in one callback can go over
+-- its CPU time.
+local pending = nil
+local reading = false
+local FAST_TICK_MS, TICK_MS = 50, 1000
+
+-- Reads each plugin's manifest and README. A plugin that is off and whose copy is gone was
+-- removed in Noctalia, so the hub forgets it.
+local function discover(list)
+  local kept, forgot = {}, false
+  for _, plugin in ipairs(list) do
+    if plugin.enabled or noctalia.fileExists(Settings.pluginDir(plugin.source, plugin.id) .. "/plugin.toml") then
+      table.insert(kept, plugin)
+    else
+      saved.known[plugin.id] = nil
+      forgot = true
+    end
+  end
+  if forgot then
+    save()
+  end
+  pending = { list = kept, next = 1 }
+  noctalia.setUpdateInterval(FAST_TICK_MS)
+end
+
+-- Reads the next plugin's files, or publishes the list once all are read.
+local function readNext()
+  if pending == nil or reading then
+    return
+  end
+  local plugin = pending.list[pending.next]
+  if plugin == nil then
+    local list = pending.list
+    pending = nil
+    discovering = false
+    noctalia.setUpdateInterval(TICK_MS)
     table.sort(list, function(a, b)
       return (a.name or a.id):lower() < (b.name or b.id):lower()
     end)
     plugins = list
     publish()
-  end, 20000)
+    return
+  end
+  pending.next += 1
+  reading = true
+  local dir = Settings.pluginDir(plugin.source, plugin.id)
+  noctalia.readFileAsync(dir .. "/plugin.toml", function(manifest)
+    noctalia.readFileAsync(dir .. "/README.md", function(readme)
+      reading = false
+      if manifest then
+        readPlugin(plugin, manifest, readme)
+      end
+    end)
+  end)
 end
 
 -- The enabled plugins and the ones seen before, then what each can do.
@@ -442,6 +445,7 @@ function onConfigChanged()
 end
 
 function update()
+  readNext()
   if loaded and noctalia.nowMs() - lastSyncMs >= SYNC_MS then
     lastSyncMs = noctalia.nowMs()
     Binds.sync()
@@ -453,7 +457,7 @@ function onExit()
   Binds.release()
 end
 
-noctalia.setUpdateInterval(1000)
+noctalia.setUpdateInterval(TICK_MS)
 noctalia.readFileAsync(dataFile, function(text)
   local value = text and noctalia.json.decode(text)
   if type(value) == "table" then

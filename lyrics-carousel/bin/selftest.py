@@ -135,13 +135,13 @@ def read_settings(file_path: str) -> dict:
     return section if isinstance(section, dict) else {}
 
 
-def wait_for_setting(file_path: str, setting_key: str, setting_value, segundos: float = 10.0) -> bool:
+def wait_for_setting(file_path: str, setting_key: str, setting_value, seconds: float = 10.0) -> bool:
     """Waits for the script to store a setting in settings.toml.
 
     The script writes in the background (the helper runs in a separate
     process), so the value does not appear right away: wait a little.
     """
-    deadline = time.monotonic() + segundos
+    deadline = time.monotonic() + seconds
     while time.monotonic() < deadline:
         if read_settings(file_path).get(setting_key) == setting_value:
             return True
@@ -277,10 +277,10 @@ def check_shortcuts():
                 with open(log, encoding="utf-8", errors="replace") as handle:
                     written = handle.read()
                 requests = [
-                    lyric_line
-                    for lyric_line in written.split("\n")
+                    line_text
+                    for line_text in written.split("\n")
                     if any(
-                        marker in lyric_line.lower()
+                        marker in line_text.lower()
                         for marker in ("http", "kugou", "splayer", "netease", "lrclib")
                     )
                 ]
@@ -325,7 +325,7 @@ def check_scroll_offset():
             app.cfg = dict(mod.DEFAULTS)
             app.cfg["offset_ms"] = 500
             app.demo = False
-            app.track = mod.Track("cancion", "artista", duration=300.0, status="Playing")
+            app.track = mod.Track("song", "artist", duration=300.0, status="Playing")
             app.track.position = 10.0
             app.track.stamp = time.monotonic()
             app.stop_requested = False
@@ -362,7 +362,7 @@ def check_lyrics_search():
             mod.load_lyrics_settings = lambda: {"sources": ["lrclib"]}
             marked_tracks = []
             mod.mark_missing = lambda track: marked_tracks.append(track)
-            track = mod.Track("cancion", "artista", duration=120.0)
+            track = mod.Track("song", "artist", duration=120.0)
 
             # A provider that does not answer: the deadline expires and the
             # negative cache is NOT marked (the lyrics may arrive later).
@@ -409,7 +409,7 @@ def check_lyrics_retry():
             app.demo = False
             app._player = None
             app.state = "empty"
-            app.track = mod.Track("cancion", "artista")
+            app.track = mod.Track("song", "artist")
             app.last_cfg = time.monotonic()
             app.last_reload = time.monotonic()
             app.theme = mod.Theme()
@@ -440,26 +440,26 @@ def check_lyrics_retry():
             )
 
 
-def osc66_blocks(lyric_line):
+def osc66_blocks(line_text):
     """Extracts the OSC 66 blocks from a row: (metadata, text)."""
     pattern = re.compile("\x1b\\]66;([^;]*);([^\x07]*)\x07")
-    return pattern.findall(lyric_line)
+    return pattern.findall(line_text)
 
 
-def visible_text(lyric_line):
+def visible_text(line_text):
     """Strips the control sequences from a row and leaves the text.
 
     The text of the OSC 66 blocks travels inside the sequence, so only the
     payload is recovered from them.
     """
-    lyric_line = re.sub("\x1b\\]66;[^;]*;([^\x07]*)\x07", r"\1", lyric_line)
-    return re.sub("\x1b\\][^\x07]*\x07|\x1b\\[[0-9;]*m", "", lyric_line)
+    line_text = re.sub("\x1b\\]66;[^;]*;([^\x07]*)\x07", r"\1", line_text)
+    return re.sub("\x1b\\][^\x07]*\x07|\x1b\\[[0-9;]*m", "", line_text)
 
 
-def osc66_metadata(metadatos):
+def osc66_metadata(metadata):
     """Converts 's=2:n=6:d=10:w=7' into a dictionary."""
     data = {}
-    for part in metadatos.split(":"):
+    for part in metadata.split(":"):
         if "=" in part:
             setting_key, setting_value = part.split("=", 1)
             data[setting_key] = setting_value
@@ -568,7 +568,7 @@ def check_karaoke_image_pixel_by_pixel():
         check("the image karaoke can be measured (Pillow)", False, "without Pillow")
         return
 
-    text = "cantando suave la linea"
+    text = "singing softly along the line"
     sung = (0, 200, 0)
     pending = (0, 90, 0)
 
@@ -812,7 +812,10 @@ class _SceneLine:
         self.text = text
         self.start = 0.0
         self.duration = 4.0
-        self.chars = []
+        # Valid per-character timings so progressive karaoke applies in
+        # intelligent (brain-on) mode, matching the lyrics plugin behavior for
+        # word-synced lines.
+        self.chars = [round(index * 0.2, 3) for index in range(len(text))] if text else []
 
 
 def render_handover(
@@ -845,7 +848,7 @@ def render_handover(
     }
     app.lines = [_SceneLine(text) for text in texts]
     app.karaoke = karaoke
-    app.next_timed_start = lambda indice: None
+    app.next_timed_start = lambda idx: None
     app.karaoke_amount = lambda *args: amount if karaoke else 0.0
     app.scroll_state = lambda scroll_position: state_value or (1, 2, progress)
     renderer = mod.ImageRenderer.__new__(mod.ImageRenderer)
@@ -884,7 +887,7 @@ def opaque_color(image):
     colors = region.getcolors(maxcolors=200000) or []
     if not colors:
         return (0, 0, 0)
-    cuenta, pixel = max(colors, key=lambda par: par[1][3])
+    count, pixel = max(colors, key=lambda pair: pair[1][3])
     return pixel[:3]
 
 
@@ -1180,11 +1183,11 @@ def check_karaoke_without_glow():
     # Outside the text box (with 2 px of tolerance for the antialiasing
     # of the glyph itself) not a single pixel may remain: that is where the halo used to live.
     outside = 0
-    for indice, px in enumerate(pixels(image)):
+    for idx, px in enumerate(pixels(image)):
         if px[3] == 0:
             continue
-        px_x = indice % image.size[0]
-        px_y = indice // image.size[0]
+        px_x = idx % image.size[0]
+        px_y = idx // image.size[0]
         if (
             px_x < box[0] - 2
             or px_x > box[2] + 2
@@ -1291,6 +1294,7 @@ def check_first_window_fps():
     """
     mod = script_module()
     app = mod.LyricsCarousel.__new__(mod.LyricsCarousel)
+    app.args = types.SimpleNamespace(debug=True)
     lyric_lines = []
     app.warn = lambda message: lyric_lines.append(message)
     # A minimal but measurable draw: if the clock did not advance, the frame
@@ -1344,14 +1348,14 @@ def check_karaoke_smooth_edge():
 
     # Per column, the further from the pending tone, the more sung it is.
     saturation = {}
-    for indice, px in enumerate(pixels(image)):
+    for idx, px in enumerate(pixels(image)):
         if px[3] != 255:
             continue
         color = px[:3]
         if color == BACKGROUND:
             continue
         setting_value = distance(color, PENDING) - distance(color, SUNG)
-        x = indice % image.size[0]
+        x = idx % image.size[0]
         saturation[x] = max(saturation.get(x, 0), setting_value)
 
     sung_lines = {x: v for x, v in saturation.items() if v > 0}
@@ -1436,11 +1440,11 @@ def check_sung_text_is_crisp():
     x = (image.size[0] - brush.textlength(text, font=font)) / 2
     box = brush.textbbox((x, 40), text, font=font, anchor="lm")
     outside_box = 0
-    for indice, px in enumerate(pixels(image)):
+    for idx, px in enumerate(pixels(image)):
         if px[3] == 0:
             continue
-        px_x = indice % image.size[0]
-        px_y = indice // image.size[0]
+        px_x = idx % image.size[0]
+        px_y = idx // image.size[0]
         if (
             px_x < box[0] - 2
             or px_x > box[2] + 2
@@ -1458,12 +1462,12 @@ def check_sung_text_is_crisp():
     # color: what remains is the edge of the fill (tones between sung and
     # pending), not a shadow spilled to the side.
     last = 0
-    for indice, px in enumerate(pixels(image)):
+    for idx, px in enumerate(pixels(image)):
         if px[3] > 0 and px[:3] == sung:
-            last = max(last, indice % image.size[0])
+            last = max(last, idx % image.size[0])
     beyond = 0
-    for indice, px in enumerate(pixels(image)):
-        x = indice % image.size[0]
+    for idx, px in enumerate(pixels(image)):
+        x = idx % image.size[0]
         if x <= last or px[3] == 0:
             continue
         red, green, blue = px[:3]
@@ -1518,6 +1522,699 @@ def check_sung_text_is_crisp():
 
 
 
+def check_hold_repeat_helper():
+    """The pointer helper turns a held left button into repeat events."""
+    path = os.path.join(HERE, "hold-repeat.py")
+    if not os.path.isfile(path):
+        check("the hold-repeat helper exists", False, path)
+        return
+    loader = importlib.machinery.SourceFileLoader("hold_repeat_helper", path)
+    spec = importlib.util.spec_from_loader(loader.name, loader)
+    helper = importlib.util.module_from_spec(spec)
+    try:
+        loader.exec_module(helper)
+    except Exception as error:  # noqa: BLE001
+        check("the hold-repeat helper loads", False, repr(error)[:160])
+        return
+    state = helper.HoldState()
+    check(
+        "pressing the left button emits down",
+        state.feed("mouse", helper.EV_KEY, helper.BTN_LEFT, 1, now=0.0)
+        == ["down mouse"],
+        "feed did not emit down",
+    )
+    check(
+        "no repeat before the initial delay",
+        state.due(0.44) == [],
+        repr(state.due(0.44)),
+    )
+    check(
+        "the first repeat arrives after 450 ms",
+        state.due(0.45) == ["repeat mouse"],
+        repr(state.due(0.45)),
+    )
+    check(
+        "repeats continue every 90 ms",
+        state.due(0.54) == ["repeat mouse"],
+        repr(state.due(0.54)),
+    )
+    check(
+        "releasing the left button emits up",
+        state.feed("mouse", helper.EV_KEY, helper.BTN_LEFT, 0, now=0.7)
+        == ["up mouse"],
+        "feed did not emit up",
+    )
+    check(
+        "repeats stop after release",
+        state.due(2.0) == [],
+        repr(state.due(2.0)),
+    )
+
+
+def check_instrumental_gap_detection():
+    """Instrumental spans are detected only for synced lyrics and when enabled."""
+    with tempfile.TemporaryDirectory(prefix="lyrics-carousel-cache-") as cache:
+        with temporary_env({"XDG_CACHE_HOME": cache}):
+            mod = script_module()
+            app = object.__new__(mod.LyricsCarousel)
+            app.cfg = dict(mod.DEFAULTS)
+            app.demo = False
+            app.state = "lyrics"
+            app.synced = True
+            app.track = mod.Track("Song", "Artist", duration=40.0)
+            app.lines = [
+                mod.LyricLine(6.0, 2.0, "primera"),
+                mod.LyricLine(14.0, 2.0, "segunda"),
+            ]
+            cases = (
+                ("before the first lyric", 1.0, True),
+                ("while a line is sung", 6.5, False),
+                ("between two separated lines", 10.0, True),
+                ("at the start of the next line", 14.0, False),
+                ("after the last line", 20.0, True),
+            )
+            for label, position, expected in cases:
+                value = app.instrumental_gap(position)
+                check(
+                    f"instrumental gap: {label}",
+                    value is expected,
+                    f"position={position} got={value!r}",
+                )
+
+            app.cfg["instrumental_marks"] = False
+            check(
+                "instrumental gaps respect the general toggle",
+                app.instrumental_gap(10.0) is False,
+                repr(app.instrumental_gap(10.0)),
+            )
+            app.cfg["instrumental_marks"] = True
+            app.synced = False
+            check(
+                "unsynced lyrics never become instrumental",
+                app.instrumental_gap(10.0) is False,
+                repr(app.instrumental_gap(10.0)),
+            )
+
+            app.synced = True
+            app.cfg["silence_threshold"] = 7
+            check(
+                "a threshold above the gap hides the notes",
+                app.instrumental_gap(10.0) is False,
+                repr(app.instrumental_gap(10.0)),
+            )
+            app.cfg["silence_threshold"] = 6
+            check(
+                "a threshold equal to the gap shows the notes",
+                app.instrumental_gap(10.0) is True,
+                repr(app.instrumental_gap(10.0)),
+            )
+            app.cfg["silence_threshold"] = 1
+            check(
+                "a threshold below the gap shows the notes",
+                app.instrumental_gap(10.0) is True,
+                repr(app.instrumental_gap(10.0)),
+            )
+
+            app.cfg["silence_threshold"] = 5
+            check(
+                "the intro uses the threshold",
+                app.instrumental_gap(2.0) is True,
+                repr(app.instrumental_gap(2.0)),
+            )
+            app.cfg["silence_threshold"] = 7
+            check(
+                "a title card longer than the intro is not a gap",
+                app.instrumental_gap(2.0) is False,
+                repr(app.instrumental_gap(2.0)),
+            )
+
+
+def instrumental_row_image(mod, variant=0, custom="", custom_on=False, size=26.0):
+    """Draws only the instrumental row on a blank canvas."""
+
+    class App:
+        pass
+
+    app = App()
+    app.theme = _HeaderTheme()
+    app.cfg = {
+        "instrumental_icon": variant,
+        "instrumental_custom": custom_on,
+        "instrumental_text": custom,
+    }
+    renderer = mod.ImageRenderer.__new__(mod.ImageRenderer)
+    renderer.app = app
+    renderer.fonts = {}
+    renderer.font_files = {"prueba": mod.FALLBACK_FONT}
+    image = mod.Image.new("RGBA", (600, 160), (0, 0, 0, 0))
+    draw = mod.ImageDraw.Draw(image)
+    renderer._measure_draw = draw
+    renderer._draw_instrumental(draw, 80.0, size, "prueba", (220, 60, 60))
+    return image
+
+
+def check_instrumental_variants():
+    """The notes row is vectorial, rotates variants and accepts custom text.
+
+    The glyphs cannot come from the font: with a typeface without `♪` the
+    row came out as empty boxes, which is exactly what the user saw with
+    NType 82 Mono. The four variants are drawn with Pillow primitives.
+    """
+    mod = image_module()
+    shots = []
+    for variant in range(4):
+        image = instrumental_row_image(mod, variant)
+        box = image.getbbox()
+        check(f"the instrumental variant {variant} draws something", box is not None, str(box))
+        if box is not None:
+            center = (box[0] + box[2]) / 2.0
+            check(
+                f"the instrumental variant {variant} is centered",
+                abs(center - 300.0) < 30.0,
+                "center=%.1f" % center,
+            )
+        shots.append(image.tobytes())
+    check(
+        "the four instrumental variants look different",
+        len(set(shots)) == 4,
+        "%d distinct" % len(set(shots)),
+    )
+    wrapped = instrumental_row_image(mod, 9)
+    check("an out-of-range icon rotates inside the variants", wrapped.tobytes() == shots[1])
+    custom = instrumental_row_image(mod, 0, custom="air", custom_on=True)
+    check("the custom text replaces the notes", custom.tobytes() != shots[0])
+    check(
+        "the custom text is centered",
+        custom.getbbox() is not None
+        and abs((custom.getbbox()[0] + custom.getbbox()[2]) / 2.0 - 300.0) < 30.0,
+        str(custom.getbbox()),
+    )
+    empty = instrumental_row_image(mod, 0, custom="  ", custom_on=True)
+    check("an empty custom text falls back to the notes", empty.tobytes() == shots[0])
+    unused = instrumental_row_image(mod, 0, custom="air", custom_on=False)
+    check("the saved text is ignored while the custom switch is off", unused.tobytes() == shots[0])
+
+
+# --- marker styles and header alignment (U6) -----------------------------
+
+MARKER_STYLE_COUNT = 6
+
+
+def marker_image(mod, style, text="hello", size=24.0):
+    """Draws only the active-line marker on a blank canvas."""
+    renderer = mod.ImageRenderer.__new__(mod.ImageRenderer)
+    renderer.fonts = {}
+    renderer.font_files = {"prueba": mod.FALLBACK_FONT}
+    image = mod.Image.new("RGBA", (420, 140), (0, 0, 0, 0))
+    draw = mod.ImageDraw.Draw(image)
+    renderer._measure_draw = draw
+    renderer._draw_marker(draw, text, 70.0, size, style, "prueba", (230, 60, 60, 255))
+    return image
+
+
+def check_marker_styles():
+    """The six marker styles are vectorial and each one looks different.
+
+    The marker cannot be a font glyph: `♪` is missing in many typefaces
+    and the marker would silently disappear. The drawing also has to stay
+    on the left of the active line and an out-of-range value has to wrap
+    instead of drawing nothing.
+    """
+    mod = image_module()
+    renderer = mod.ImageRenderer.__new__(mod.ImageRenderer)
+    renderer.fonts = {}
+    renderer.font_files = {"prueba": mod.FALLBACK_FONT}
+    reference = mod.Image.new("RGBA", (420, 140), (0, 0, 0, 0))
+    brush = mod.ImageDraw.Draw(reference)
+    renderer._measure_draw = brush
+    renderer._draw_centered(brush, "hello", 70.0, 24.0, (230, 60, 60, 255), "prueba")
+    text_box = reference.getbbox()
+    check("the marker test draws the active line", text_box is not None, str(text_box))
+
+    shots = []
+    for style in range(MARKER_STYLE_COUNT):
+        image = marker_image(mod, style)
+        box = image.getbbox()
+        check(f"the marker style {style} draws something", box is not None, str(box))
+        if box is not None and text_box is not None:
+            check(
+                f"the marker style {style} stays left of the text",
+                box[2] <= text_box[0] + 1,
+                "marker=%r text=%r" % (box, text_box),
+            )
+        shots.append(image.tobytes())
+    check(
+        "the six marker styles look different",
+        len(set(shots)) == MARKER_STYLE_COUNT,
+        "%d distinct of %d" % (len(set(shots)), MARKER_STYLE_COUNT),
+    )
+    wrapped = marker_image(mod, MARKER_STYLE_COUNT + 3)
+    check(
+        "an out-of-range marker style wraps",
+        wrapped.tobytes() == shots[3],
+        "style %d must equal style 3" % (MARKER_STYLE_COUNT + 3),
+    )
+
+
+class _HeaderTheme:
+    background = (12, 12, 18)
+    foreground = (240, 240, 245)
+    past = (110, 110, 120)
+    bright = (240, 240, 245)
+    faint = (150, 150, 160)
+
+
+def header_image(mod, header_pos, size=20.0):
+    """Draws only the header block on a blank canvas."""
+
+    class App:
+        pass
+
+    app = App()
+    app.theme = _HeaderTheme()
+    app.track = types.SimpleNamespace(title="Hello there", artist="The Artist")
+    app.tr = lambda key: key
+    app.cfg = {"header_pos": header_pos}
+    renderer = mod.ImageRenderer.__new__(mod.ImageRenderer)
+    renderer.app = app
+    renderer.fonts = {}
+    renderer.font_files = {"prueba": mod.FALLBACK_FONT}
+    image = mod.Image.new("RGBA", (900, 240), (0, 0, 0, 0))
+    draw = mod.ImageDraw.Draw(image)
+    renderer._measure_draw = draw
+    renderer._draw_header(draw, 900, 40.0, size, "prueba", (12, 12, 18))
+    return image
+
+
+def check_header_alignment():
+    """The header follows `header_pos` and the separator stays full width."""
+    mod = image_module()
+    size = 20.0
+    rule_y = int(40.0 + size * 2.0)
+    boxes = {}
+    for position, name in ((0, "left"), (1, "center"), (2, "right")):
+        image = header_image(mod, position)
+        text_area = image.crop((0, 0, 900, rule_y))
+        box = text_area.getbbox()
+        check(f"the {name} header draws the title", box is not None, str(box))
+        if box is None:
+            continue
+        boxes[position] = box
+        if position == 0:
+            check(
+                "the left header starts at the left margin",
+                box[0] < 90,
+                str(box),
+            )
+        elif position == 1:
+            center = (box[0] + box[2]) / 2.0
+            check(
+                "the centered header is centered",
+                abs(center - 450.0) < 40.0,
+                "center=%.1f" % center,
+            )
+        else:
+            check(
+                "the right header ends at the right margin",
+                box[2] > 810,
+                str(box),
+            )
+        rule = image.crop((0, rule_y, 900, rule_y + 3))
+        rule_box = rule.getbbox()
+        check(
+            f"the {name} header keeps the full-width rule",
+            rule_box is not None and rule_box[0] < 60 and rule_box[2] > 840,
+            str(rule_box),
+        )
+    check(
+        "the three header positions align differently",
+        len({tuple(box) for box in boxes.values()}) == 3,
+        str(boxes),
+    )
+
+
+def check_frame_signature_includes_visual_settings():
+    """The cached frame is dropped when a visual setting changes."""
+    mod = image_module()
+
+    def signature(**overrides):
+        class App:
+            pass
+
+        app = App()
+        app.theme = _SceneTheme()
+        app.track = types.SimpleNamespace(title="Song", artist="Artist", duration=180.0)
+        app.state = "lyrics"
+        app.lines = [_SceneLine("one"), _SceneLine("two")]
+        app.karaoke = True
+        app.karaoke_brain = True
+        app.position = lambda: 5.0
+        app.scroll_state = lambda scroll_position: (0, 1, 0.0)
+        app.cfg = {
+            "visible_above": 1,
+            "visible_below": 1,
+            "direction": "down",
+            "spacing": 2,
+            "marker": True,
+            "karaoke": True,
+            "footer": False,
+            "font_family": "Departure Mono",
+            "font_size": 22,
+            "active_scale": 1.35,
+            "header": True,
+            "hints": False,
+            "ghost": True,
+            "instrumental_marks": False,
+            "instrumental_icon": 0,
+            "instrumental_custom": False,
+            "instrumental_text": "",
+            "marker_style": 0,
+            "header_pos": 0,
+            "pin": False,
+        }
+        app.cfg.update(overrides)
+        renderer = mod.ImageRenderer.__new__(mod.ImageRenderer)
+        renderer.app = app
+        return renderer._frame_signature((200, 50, 60))
+
+    base = signature()
+    check("the frame signature is stable when nothing changes", signature() == base)
+    check(
+        "the frame signature changes with the marker style",
+        signature(marker_style=2) != base,
+        "marker_style is not part of the signature",
+    )
+    check(
+        "the frame signature changes with the header position",
+        signature(header_pos=2) != base,
+        "header_pos is not part of the signature",
+    )
+    check(
+        "the frame signature changes with the pin state",
+        signature(pin=True) != base,
+        "pin is not part of the signature",
+    )
+
+
+def _lua_block(text, header):
+    """Body of a top-level Lua table declared as `<header> = { ... }`."""
+    found = re.search(re.escape(header) + r"\s*=\s*\{(.*?)\n\}", text, re.S)
+    return found.group(1) if found else ""
+
+
+def check_visual_settings_allowlists():
+    """`marker_style`, `header_pos` and `pin` are registered on all sides.
+
+    A setting missing from one of the allowlists is a dead control: the
+    panel writes it and the window or the helper silently ignores it.
+    """
+    lib_path = os.path.join(os.path.dirname(HERE), "lib", "settings.luau")
+    with open(lib_path, encoding="utf-8") as handle:
+        lib = handle.read()
+    defaults = _lua_block(lib, "local DEFAULTS")
+    bools = _lua_block(lib, "local BOOL_KEYS")
+    ints = _lua_block(lib, "local INT_KEYS")
+    limits = _lua_block(lib, "local LIMITS")
+    for key, default in (("marker_style", "0"), ("header_pos", "0"), ("pin", "false")):
+        check(
+            f"lib/settings.luau defaults `{key}`",
+            re.search(rf"\b{key}\s*=\s*{default}\b", defaults) is not None,
+            defaults[:160],
+        )
+    check(
+        "lib/settings.luau declares `pin` as a bool",
+        re.search(r"\bpin\s*=\s*true", bools) is not None,
+        bools[:160],
+    )
+    for key in ("marker_style", "header_pos"):
+        check(
+            f"lib/settings.luau declares `{key}` as an int",
+            re.search(rf"\b{key}\s*=\s*true", ints) is not None,
+            ints[:160],
+        )
+    for key, low, high in (("marker_style", 0, 5), ("header_pos", 0, 2)):
+        check(
+            f"lib/settings.luau limits `{key}`",
+            re.search(rf"\b{key}\s*=\s*\{{\s*{low}\s*,\s*{high}\s*\}}", limits) is not None,
+            limits[:200],
+        )
+
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("set_setting_visual", HELPER)
+    helper = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(helper)
+    for key in ("marker_style", "header_pos", "pin"):
+        check(f"set-setting.py allows `{key}`", key in helper.ALLOWED, str(sorted(helper.ALLOWED)))
+    check("set-setting.py treats `marker_style` as an int", "marker_style" in helper.INT_KEYS)
+    check("set-setting.py treats `header_pos` as an int", "header_pos" in helper.INT_KEYS)
+    check("set-setting.py treats `pin` as a bool", "pin" in helper.BOOL_KEYS)
+
+    mod = script_module()
+    with tempfile.TemporaryDirectory(prefix="lyrics-carousel-visual-") as temporary:
+        with temporary_env(
+            {"XDG_CACHE_HOME": os.path.join(temporary, "cache")}
+        ), temporary_state(temporary) as destination:
+            os.makedirs(os.path.join(destination, "plugins", "data"), exist_ok=True)
+            with open(
+                os.path.join(destination, "settings.toml"), "w", encoding="utf-8"
+            ) as handle:
+                handle.write(
+                    '[plugin_settings."faminec/lyrics-carousel"]\n'
+                    "marker_style = 9\n"
+                    "header_pos = 7\n"
+                    'pin = "true"\n'
+                )
+            cfg = mod.load_settings()
+        check(
+            "the engine clamps marker_style like the panel",
+            cfg.get("marker_style") == 5,
+            str(cfg.get("marker_style")),
+        )
+        check(
+            "the engine clamps header_pos like the panel",
+            cfg.get("header_pos") == 2,
+            str(cfg.get("header_pos")),
+        )
+        check(
+            "the engine reads pin as a boolean",
+            cfg.get("pin") is True,
+            str(cfg.get("pin")),
+        )
+
+
+def check_pin_follows_the_setting():
+    """`pin` is the desired state: it is dispatched, not toggled blind.
+
+    The window may not exist yet when the settings are read, so a failed
+    attempt is retried for a few seconds; once it sticks, only a setting
+    change (or a manual unpin) triggers a new dispatch.
+    """
+    mod = script_module()
+    calls = []
+
+    class Result:
+        returncode = 0
+        stdout = ""
+        stderr = ""
+
+    original_run = mod.subprocess.run
+    original_info = mod.window_info
+    try:
+        mod.subprocess.run = lambda args, **kwargs: calls.append(list(args)) or Result()
+        app = object.__new__(mod.LyricsCarousel)
+        app.demo = False
+        app.cfg = {"pin": True}
+        app.log = lambda message: None
+        app._last_pin_check = 0.0
+
+        mod.window_info = lambda: None
+        app._sync_pin(10.0)
+        check("without a window nothing is dispatched", not calls, str(calls))
+
+        mod.window_info = lambda: (1200, 880, True)
+        app._sync_pin(10.5)
+        check("an already pinned window is not touched again", not calls, str(calls))
+
+        # The steady state re-checks every two seconds (not twice a second):
+        # it is only to notice a manual unpin, not to chase the window.
+        mod.window_info = lambda: (1200, 880, False)
+        app._sync_pin(12.6)
+        check(
+            "the pin is applied when the window is not pinned",
+            len(calls) == 1,
+            str(calls),
+        )
+        expression = calls[0][-1] if calls else ""
+        check(
+            "the pin uses an explicit action and the window class",
+            'action="on"' in expression and "noctalia-lyrics-carousel" in expression,
+            expression,
+        )
+        check(
+            "the pin is dispatched with hyprctl",
+            bool(calls) and calls[0][:2] == ["hyprctl", "dispatch"],
+            str(calls[:1]),
+        )
+
+        # The window still reports the old state: the dispatch is retried.
+        app._last_pin_check = 0.0
+        app._sync_pin(13.2)
+        check("a pin that does not stick is retried", len(calls) == 2, str(calls))
+
+        # The retries stop after a few seconds instead of hammering hyprctl.
+        calls.clear()
+        app._pin_attempts = 0
+        app._pin_target = None
+        for step in range(20):
+            app._last_pin_check = 0.0
+            app._sync_pin(100.0 + step)
+        check(
+            "the pin retries stop after a few seconds",
+            0 < len(calls) <= 10,
+            "%d dispatches" % len(calls),
+        )
+
+        calls.clear()
+        mod.window_info = lambda: (1200, 880, True)
+        app._last_pin_check = 0.0
+        app._pin_giveup = False
+        app._pin_attempts = 0
+        app._pin_verified_at = 0.0
+        app._sync_pin(200.0)
+        check("a pinned window stops the retries", not calls, str(calls))
+
+        app.cfg["pin"] = False
+        mod.window_info = lambda: (1200, 880, True)
+        app._last_pin_check = 0.0
+        app._sync_pin(201.0)
+        check(
+            "disabling pin unpins the window",
+            len(calls) == 1 and 'action="off"' in calls[0][-1],
+            str(calls),
+        )
+
+        def broken(args, **kwargs):
+            raise OSError("hyprctl missing")
+
+        mod.subprocess.run = broken
+        app.cfg["pin"] = True
+        app._last_pin_check = 0.0
+        app._pin_attempts = 0
+        app._pin_target = None
+        try:
+            app._sync_pin(202.0)
+            survived = True
+        except OSError:
+            survived = False
+        check("a broken dispatch does not raise", survived)
+    finally:
+        mod.subprocess.run = original_run
+        mod.window_info = original_info
+
+
+def check_hints_list_every_shortcut():
+    """The hints row includes every key handled by the window."""
+    with tempfile.TemporaryDirectory(prefix="lyrics-carousel-cache-") as cache:
+        with temporary_env({"XDG_CACHE_HOME": cache}):
+            mod = script_module()
+            expected_by_language = {
+                "en": ("q", "space", "d", "k", "h", "m", "g", "f", "t", "c", "+", "-", "r"),
+                "es": ("q", "espacio", "d", "k", "h", "m", "g", "f", "t", "c", "+", "-", "r"),
+            }
+            for language in ("en", "es"):
+                hints = mod.TEXTS[language]["hints"]
+                full = hints[0] if hints else ""
+                missing = [
+                    key for key in expected_by_language[language]
+                    if f"[{key}]" not in full
+                ]
+                check(
+                    f"the {language} hints list every shortcut",
+                    not missing,
+                    "missing=%s hints=%r" % (missing, full),
+                )
+                check(
+                    f"the {language} hints do not advertise arrow keys",
+                    "←" not in full and "→" not in full,
+                    full,
+                )
+                check(
+                    f"the {language} hints label h as the header",
+                    "header" in full.lower() or "cabecera" in full.lower(),
+                    full,
+                )
+
+
+def check_theme_reload_by_signal():
+    """SIGUSR2 reloads the Kitty theme and invalidates the cached frame."""
+    with tempfile.TemporaryDirectory(prefix="lyrics-carousel-cache-") as cache:
+        with temporary_env({"XDG_CACHE_HOME": cache}):
+            mod = script_module()
+            app = object.__new__(mod.LyricsCarousel)
+            app.args = types.SimpleNamespace(debug=False)
+            app.theme_reload_requested = False
+            theme_calls = []
+            app.theme = types.SimpleNamespace(
+                reload=lambda: theme_calls.append(True),
+            )
+            invalidated = []
+            app.image = types.SimpleNamespace(
+                invalidate_frame=lambda: invalidated.append(True),
+            )
+
+            app._on_theme_signal(signal.SIGUSR2, None)
+            check(
+                "the theme signal leaves the reload pending",
+                app.theme_reload_requested is True,
+                repr(app.theme_reload_requested),
+            )
+            check(
+                "the signal handler does not read the theme in the signal context",
+                theme_calls == [],
+                "calls=%s" % (theme_calls,),
+            )
+            check(
+                "the requested theme reload is handled once",
+                app._consume_theme_reload() is True
+                and theme_calls == [True]
+                and invalidated == [True]
+                and app.theme_reload_requested is False,
+                "calls=%s invalidated=%s flag=%s"
+                % (theme_calls, invalidated, app.theme_reload_requested),
+            )
+            check(
+                "without a theme signal nothing is reloaded",
+                app._consume_theme_reload() is False
+                and theme_calls == [True]
+                and invalidated == [True],
+                "calls=%s invalidated=%s" % (theme_calls, invalidated),
+            )
+
+
+def check_theme_refresh_is_event_driven():
+    """The backend never polls the Kitty theme files."""
+    try:
+        with open(SCRIPT, encoding="utf-8") as handle:
+            source = handle.read()
+    except OSError as error:
+        check("the backend source can be read", False, repr(error))
+        return
+    check(
+        "the backend has no periodic theme reload",
+        "self.last_reload > 15" not in source
+        and "self.theme.reload()" not in source.split("def _poll_data", 1)[1].split(
+            "def _position", 1
+        )[0],
+        "the old 15-second theme polling is still present",
+    )
+    check(
+        "the backend handles SIGUSR2 as a theme refresh event",
+        "SIGUSR2" in source and "_on_theme_signal" in source,
+        "SIGUSR2 bridge is missing",
+    )
+
+
 def check_reload_by_signal():
     """SIGUSR1 reloads the lyrics in the open window after clearing the cache."""
     with tempfile.TemporaryDirectory(prefix="lyrics-carousel-cache-") as cache:
@@ -1526,7 +2223,7 @@ def check_reload_by_signal():
             app = object.__new__(mod.LyricsCarousel)
             app.cfg = dict(mod.DEFAULTS)
             app.demo = False
-            app.track = mod.Track("Tema", "Artista")
+            app.track = mod.Track("Song", "Artist")
             app.reload_requested = False
             calls = []
             app.reload_lyrics = lambda force=False: calls.append(force)
@@ -1708,6 +2405,28 @@ def check_settings_limits():
         )
 
 
+def check_normalize_text():
+    """Text normalization keeps lyrics renderable across fonts."""
+    mod = script_module()
+    cases = [
+        ("make up\uff08make up\uff09", "make up(make up)"),
+        ("\uff3btag\uff3d", "[tag]"),
+        ("\uff5bkey\uff5d", "{key}"),
+        ("a\u3000b", "a b"),
+        ("\uff1a\uff0c\u3002\uff01\uff1f", ":,.!?"),
+        # ZWJ is part of Arabic/Indic shaping and emoji sequences: removing
+        # every C* category used to break those scripts.
+        ("a\u200db", "a\u200db"),
+    ]
+    for source, expected in cases:
+        out = mod.normalize_text(source)
+        check(
+            "normalize_text maps fullwidth punctuation: %r" % (source,),
+            out == expected,
+            repr(out),
+        )
+
+
 def check_readme():
     """The README documents what the manifest declares.
 
@@ -1738,11 +2457,11 @@ def check_readme():
 
     # Every dependency of the manifest, with its exact name.
     dependencies = manifest.get("dependencies") or []
-    for dependencia in dependencies:
+    for dependency in dependencies:
         check(
-            f"the README mentions the dependency `{dependencia}`",
-            f"`{dependencia}`" in readme,
-            dependencia,
+            f"the README mentions the dependency `{dependency}`",
+            f"`{dependency}`" in readme,
+            dependency,
         )
 
     # Every entry (widget, panel) with its id.
@@ -1820,7 +2539,7 @@ def check_empty_title_does_not_search_again():
                     start_calls.append(track.key)
 
             app.fetcher = FakeFetcher()
-            song = mod.Track("", "Artista", "Album", 100.0)
+            song = mod.Track("", "Artist", "Album", 100.0)
             for _ in range(5):
                 app._apply_track(song)
             check(
@@ -1854,7 +2573,7 @@ def check_adapter_timeout():
             try:
                 lines, source = mod.run_adapter(
                     "splayer",
-                    mod.Track("cancion", "artista", duration=200.0),
+                    mod.Track("song", "artist", duration=200.0),
                     {},
                     lambda message: None,
                 )
@@ -1894,9 +2613,9 @@ def check_lines_are_sorted():
             app = object.__new__(mod.LyricsCarousel)
             app.cfg = dict(mod.DEFAULTS)
             app.lines = [
-                mod.LyricLine(-1.0, 0.0, "sin tiempo"),
+                mod.LyricLine(-1.0, 0.0, "no timing"),
                 mod.LyricLine(10.0, 0.0, "suena"),
-                mod.LyricLine(-1.0, 0.0, "sin tiempo 2"),
+                mod.LyricLine(-1.0, 0.0, "no timing 2"),
                 mod.LyricLine(20.0, 0.0, "final"),
             ]
             index, _, _ = app.scroll_state(15.0)
@@ -1960,7 +2679,7 @@ def check_only_the_winner_writes_the_cache():
 
             mod.fetch_lrclib = lrclib
             mod.run_adapter = adapter
-            mod.fetch_lyrics(mod.Track("cancion", "artista", duration=100.0), True, lambda m: None)
+            mod.fetch_lyrics(mod.Track("song", "artist", duration=100.0), True, lambda m: None)
             # The losing thread stays alive for a moment: the cache can only
             # have been written once, with the winner.
             time.sleep(0.6)
@@ -2026,24 +2745,24 @@ def check_fetch_prefers_the_word_timing():
             saved_values = []
             mod.save_cache = lambda *args: saved_values.append(args)
 
-            def lyric_line(text, with_chars=False):
+            def make_line(text, with_chars=False):
                 line = mod.LyricLine(1.0, 2.0, text)
                 if with_chars:
                     line.chars = [1.0 + index * 0.1 for index in range(len(text))]
                 return line
 
             def lrclib(track, log):
-                return [lyric_line("letra por linea")], None
+                return [make_line("line lyric")], None
 
             def adapter(source, track, settings, log):
                 time.sleep(0.35)
-                return [lyric_line("letra por palabra", True)], None
+                return [make_line("word lyric", True)], None
 
             mod.fetch_lrclib = lrclib
             mod.run_adapter = adapter
             updates = []
             lines, source, synced = mod.fetch_lyrics(
-                mod.Track("cancion", "artista", duration=100.0),
+                mod.Track("song", "artist", duration=100.0),
                 True,
                 lambda message: None,
                 on_update=lambda *args: updates.append(args),
@@ -2092,7 +2811,7 @@ def check_word_fetch_does_not_wait():
             mod.WORD_GRACE = 3.0
             mod.save_cache = lambda *args: None
 
-            text = "letra por palabra"
+            text = "word lyric"
             line = mod.LyricLine(1.0, 2.0, text)
             line.chars = [1.0 + index * 0.1 for index in range(len(text))]
 
@@ -2107,7 +2826,7 @@ def check_word_fetch_does_not_wait():
             mod.run_adapter = adapter
             start_value = time.monotonic()
             lines, source, synced = mod.fetch_lyrics(
-                mod.Track("cancion", "artista", duration=100.0),
+                mod.Track("song", "artist", duration=100.0),
                 True,
                 lambda message: None,
             )
@@ -2182,11 +2901,11 @@ def check_lyrics_without_accents():
 
             def lyric_lines(texts, with_chars=False):
                 output = []
-                for indice, text in enumerate(texts):
-                    line = mod.LyricLine(1.0 + indice * 4.0, 3.0, text)
+                for idx, text in enumerate(texts):
+                    line = mod.LyricLine(1.0 + idx * 4.0, 3.0, text)
                     if with_chars:
                         line.chars = [
-                            1.0 + indice * 4.0 + time_step * 0.05
+                            1.0 + idx * 4.0 + time_step * 0.05
                             for time_step in range(len(text))
                         ]
                     output.append(line)
@@ -2303,14 +3022,14 @@ def check_improvement_does_not_overwrite_the_cache():
             mod.WORD_GRACE = 0.2
             mod.save_cache = lambda *args: None
             mod.fetch_lrclib = lambda track, log: (
-                [mod.LyricLine(1.0, 2.0, "letra por linea")],
+                [mod.LyricLine(1.0, 2.0, "line lyric")],
                 None,
             )
             mod.run_adapter = lambda source, track, settings, log: ([], None)
             saved_values = []
             mod.save_cache = lambda *args: saved_values.append(args)
             mod.fetch_lyrics(
-                mod.Track("cancion", "artista", duration=100.0),
+                mod.Track("song", "artist", duration=100.0),
                 True,
                 lambda message: None,
                 upgrade=True,
@@ -2327,7 +3046,7 @@ def check_cache_is_upgraded_in_the_background():
     with tempfile.TemporaryDirectory(prefix="lyrics-carousel-cache-") as cache:
         with temporary_env({"XDG_CACHE_HOME": cache}):
             mod = script_module()
-            line = mod.LyricLine(1.0, 2.0, "letra por linea")
+            line = mod.LyricLine(1.0, 2.0, "line lyric")
             original_cache = mod.load_cache
             original_recent = getattr(mod, "word_checked_recent", None)
             mod.load_cache = lambda track: ([line], "lrclib", True)
@@ -2345,7 +3064,7 @@ def check_cache_is_upgraded_in_the_background():
 
             try:
                 app = _config_app(mod)
-                app.track = mod.Track("cancion", "artista", duration=100.0)
+                app.track = mod.Track("song", "artist", duration=100.0)
                 app.lines = []
                 app.source = ""
                 app.synced = False
@@ -2368,7 +3087,7 @@ def check_cache_is_upgraded_in_the_background():
                 # repeated on every start of the song.
                 mod.word_checked_recent = lambda track: True
                 app = _config_app(mod)
-                app.track = mod.Track("cancion", "artista", duration=100.0)
+                app.track = mod.Track("song", "artist", duration=100.0)
                 app.lines = []
                 app.source = ""
                 app.synced = False
@@ -2398,8 +3117,8 @@ def check_result_does_not_overwrite_the_same_lyrics():
             mod.mark_word_checked = lambda track: None
             try:
                 app = object.__new__(mod.LyricsCarousel)
-                app.track = mod.Track("cancion", "artista", duration=100.0)
-                current = mod.LyricLine(1.0, 2.0, "letra por linea")
+                app.track = mod.Track("song", "artist", duration=100.0)
+                current = mod.LyricLine(1.0, 2.0, "line lyric")
                 app.lines = [current]
                 app.source = "lrclib"
                 app.synced = True
@@ -2409,7 +3128,7 @@ def check_result_does_not_overwrite_the_same_lyrics():
                 if apply is None:
                     check("applying a result does not overwrite the current lyrics", False, "_apply_fetched is missing")
                     return
-                another = mod.LyricLine(1.0, 2.0, "otra letra por linea")
+                another = mod.LyricLine(1.0, 2.0, "another line lyric")
                 check(
                     "lyrics of the same quality are not applied again",
                     apply([another], "netease", True) is False
@@ -2417,7 +3136,7 @@ def check_result_does_not_overwrite_the_same_lyrics():
                     and app.lines == [current],
                     "source=%s" % (app.source,),
                 )
-                word = mod.LyricLine(1.0, 2.0, "letra por palabra")
+                word = mod.LyricLine(1.0, 2.0, "word lyric")
                 word.chars = [1.0 + index * 0.1 for index in range(len(word.text))]
                 check(
                     "lyrics with word timings do replace",
@@ -2492,14 +3211,14 @@ def check_lrclib_prefers_the_enhanced_lyrics():
             original = mod._http_json
             candidates = [
                 {
-                    "trackName": "cancion",
-                    "artistName": "artista",
+                    "trackName": "song",
+                    "artistName": "artist",
                     "duration": 100,
                     "syncedLyrics": "[00:01.00]hola\n[00:05.00]mundo",
                 },
                 {
-                    "trackName": "cancion",
-                    "artistName": "artista",
+                    "trackName": "song",
+                    "artistName": "artist",
                     "duration": 100,
                     "syncedLyrics": "[00:01.00]<00:01.00>hola <00:01.50>mundo",
                 },
@@ -2507,7 +3226,7 @@ def check_lrclib_prefers_the_enhanced_lyrics():
             mod._http_json = lambda *args, **kwargs: candidates
             try:
                 lines, error = mod.fetch_lrclib(
-                    mod.Track("cancion", "artista", duration=100.0),
+                    mod.Track("song", "artist", duration=100.0),
                     lambda message: None,
                 )
             finally:
@@ -2537,6 +3256,65 @@ def check_lyrics_settings_state_dir():
         )
 
 
+def check_helper_accepts_karaoke_brain():
+    """The helper knows the `karaoke_brain` key.
+
+    The brain button writes the setting with `set-setting.py override`. If
+    the helper does not know the key it rejects it ("unknown key"), the
+    write never happens and the button does nothing at all.
+    """
+    base = tempfile.mkdtemp(prefix="lyrics-carousel-selftest-")
+    try:
+        with temporary_state(base):
+            result = subprocess.run(
+                [sys.executable, HELPER, "override", "karaoke_brain", "false", "bool"],
+                capture_output=True,
+                text=True,
+                timeout=20,
+            )
+            check(
+                "the helper accepts the karaoke_brain key",
+                result.returncode == 0,
+                (result.stderr or result.stdout or "").strip()[:120],
+            )
+            overrides = os.path.join(
+                os.environ["LYRICS_CAROUSEL_OVERRIDES"]
+            )
+            stored = {}
+            try:
+                with open(overrides, encoding="utf-8") as handle:
+                    stored = json.load(handle)
+            except (OSError, ValueError):
+                stored = {}
+            check(
+                "the helper stores the brain as off",
+                stored.get("karaoke_brain") is False,
+                repr(stored.get("karaoke_brain")),
+            )
+            mod = script_module()
+            cfg = mod.load_settings()
+            check(
+                "the script reads the brain as off",
+                cfg.get("karaoke_brain") is False,
+                repr(cfg.get("karaoke_brain")),
+            )
+            # And the other way round: the value has to be able to go back on.
+            result = subprocess.run(
+                [sys.executable, HELPER, "override", "karaoke_brain", "true", "bool"],
+                capture_output=True,
+                text=True,
+                timeout=20,
+            )
+            check(
+                "the helper stores the brain as on",
+                result.returncode == 0
+                and mod.load_settings().get("karaoke_brain") is True,
+                (result.stderr or result.stdout or "").strip()[:120],
+            )
+    finally:
+        shutil.rmtree(base, ignore_errors=True)
+
+
 def check_karaoke_uses_real_times():
     """The karaoke uses the next real time, not the one of the next line.
 
@@ -2550,7 +3328,7 @@ def check_karaoke_uses_real_times():
             app = object.__new__(mod.LyricsCarousel)
             app.lines = [
                 mod.LyricLine(10.0, 0, "primera"),
-                mod.LyricLine(-1, 0, "sin tiempo"),
+                mod.LyricLine(-1, 0, "no timing"),
                 mod.LyricLine(20.0, 0, "tercera"),
             ]
             next_timed_start_fn = getattr(app, "next_timed_start", None)
@@ -2562,6 +3340,116 @@ def check_karaoke_uses_real_times():
                     next_timed_start_fn(2) is None,
                     str(next_timed_start_fn(2)),
                 )
+
+
+def check_brain_intelligent_per_line_karaoke():
+    """Brain active => intelligent per-line karaoke like the lyrics plugin.
+
+    With brain on, only lines with usable word timings get progressive
+    per-character karaoke; lines without them are highlighted at once (line
+    mode, no progressive glow sweep). With brain off, karaoke glow uses the
+    classic "boring" progressive behavior for all lines.
+    """
+    with tempfile.TemporaryDirectory(prefix="lyrics-carousel-cache-") as cache:
+        with temporary_env({"XDG_CACHE_HOME": cache}):
+            mod = script_module()
+            image = image_module()
+
+            class FakeTheme:
+                background = (10, 10, 10)
+                foreground = (200, 200, 200)
+                past = (120, 120, 120)
+                faint = (80, 80, 80)
+                bright = (220, 220, 220)
+
+                def accent_color(self, cfg):
+                    return (0, 200, 0)
+
+            class FakeBrush:
+                im = types.SimpleNamespace(size=(1500, 900))
+
+                def textlength(self, text, font=None):
+                    return len(text) * 12.0
+
+            def render_line(line, brain_on, pos=0.5):
+                app = types.SimpleNamespace()
+                app.cfg = {
+                    "karaoke": True,
+                    "marker": False,
+                    "ghost": False,
+                    "direction": "down",
+                    "spacing": 3,
+                    "visible_above": 2,
+                    "visible_below": 2,
+                    "header": False,
+                    "footer": False,
+                    "hints": False,
+                }
+                app.state = "lyrics"
+                app.lines = [line]
+                app.track = mod.Track()
+                app.theme = FakeTheme()
+                app.karaoke = True
+                app.karaoke_brain = brain_on
+                app.demo = False
+                app.position = lambda: pos
+                app.next_timed_start = lambda index: None
+                app.scroll_state = types.MethodType(mod.LyricsCarousel.scroll_state, app)
+                app._timed_lines = types.MethodType(mod.LyricsCarousel._timed_lines, app)
+                app.karaoke_amount = types.MethodType(mod.LyricsCarousel.karaoke_amount, app)
+                app.tr = lambda key, **kw: key
+
+                renderer = image.ImageRenderer.__new__(image.ImageRenderer)
+                renderer.app = app
+                renderer.fonts = {}
+                renderer.font_files = {"prueba": image.FALLBACK_FONT}
+                renderer._measure_draw = FakeBrush()
+                views = []
+                renderer._draw_karaoke = lambda *args: views.append(args)
+                renderer.fit_text = lambda text, limit, size, family: text
+                renderer._draw_centered = lambda *args, **kwargs: None
+                renderer._draw_marker = lambda *args, **kwargs: None
+                renderer._draw_lyrics(FakeBrush(), 450.0, 20.0, 1.2, "prueba", (0, 200, 0), pos, 0, 900)
+                return views
+
+            # Word-synced line (valid per-char timings)
+            synced = mod.LyricLine(0.0, 6.0, "hola mundo feliz")
+            synced.chars = [round(i * 0.2, 3) for i in range(len(synced.text))]
+
+            # Line without usable word timings
+            unsynced = mod.LyricLine(0.0, 6.0, "hola mundo feliz")
+            unsynced.chars = []
+
+            views = render_line(synced, brain_on=True, pos=0.5)
+            check("brain on: word-synced line uses progressive karaoke", len(views) == 1, "calls=%s" % len(views))
+            if views:
+                amount = views[0][6]
+                check(
+                    "brain on: word-synced line amount is progressive",
+                    0.0 < amount < len(synced.text),
+                    "amount=%r" % (amount,),
+                )
+
+            views = render_line(unsynced, brain_on=True, pos=0.5)
+            check(
+                "brain on: line without word timing has no progressive karaoke fill",
+                len(views) == 0 or (len(views) == 1 and views[0][6] >= len(unsynced.text) - 0.01),
+                "calls=%s amount=%r" % (len(views), views[0][6] if views else None),
+            )
+
+            views = render_line(synced, brain_on=False, pos=0.5)
+            check(
+                "brain off: classic progressive karaoke even with word timings",
+                len(views) == 1 and 0.0 < views[0][6] < len(synced.text),
+                "calls=%s amount=%r" % (len(views), views[0][6] if views else None),
+            )
+
+            views = render_line(unsynced, brain_on=False, pos=1.5)
+            check(
+                "brain off: classic progressive karaoke even without word timings",
+                len(views) == 1 and 0.0 < views[0][6] < len(unsynced.text),
+                "calls=%s amount=%r" % (len(views), views[0][6] if views else None),
+            )
 
 
 def check_estimated_times_do_not_advance_untimed_lines():
@@ -2578,9 +3466,9 @@ def check_estimated_times_do_not_advance_untimed_lines():
 
             # Reviewer case: the line without a time goes last.
             lines = [
-                mod.LyricLine(30.0, 0, "con tiempo"),
-                mod.LyricLine(60.0, 0, "con tiempo"),
-                mod.LyricLine(-1, 0, "sin tiempo"),
+                mod.LyricLine(30.0, 0, "with timing"),
+                mod.LyricLine(60.0, 0, "with timing"),
+                mod.LyricLine(-1, 0, "no timing"),
             ]
             mod.estimate_times(lines, 200.0)
             check(
@@ -2597,7 +3485,7 @@ def check_estimated_times_do_not_advance_untimed_lines():
             # A line without a time in the middle stays between its neighbours.
             lines = [
                 mod.LyricLine(10.0, 0, "primera"),
-                mod.LyricLine(-1, 0, "sin tiempo"),
+                mod.LyricLine(-1, 0, "no timing"),
                 mod.LyricLine(20.0, 0, "tercera"),
             ]
             mod.estimate_times(lines, 200.0)
@@ -2647,8 +3535,8 @@ def check_estimated_times_stay_inside_the_song():
             # A line without a time at the end: it stays four seconds after
             # the last real one, inside the song.
             lines = [
-                mod.LyricLine(30.0, 0, "con tiempo"),
-                mod.LyricLine(-1, 0, "sin tiempo"),
+                mod.LyricLine(30.0, 0, "with timing"),
+                mod.LyricLine(-1, 0, "no timing"),
             ]
             mod.estimate_times(lines, 200.0)
             check(
@@ -2666,9 +3554,9 @@ def check_estimated_times_stay_inside_the_song():
             # next real one comes earlier in time, so the intermediate gap
             # is useless).
             lines = [
-                mod.LyricLine(30.0, 0, "con tiempo"),
-                mod.LyricLine(-1, 0, "sin tiempo"),
-                mod.LyricLine(10.0, 0, "con tiempo"),
+                mod.LyricLine(30.0, 0, "with timing"),
+                mod.LyricLine(-1, 0, "no timing"),
+                mod.LyricLine(10.0, 0, "with timing"),
             ]
             mod.estimate_times(lines, 200.0)
             check(
@@ -2680,7 +3568,7 @@ def check_estimated_times_stay_inside_the_song():
             # Several lines without a time at the end: all of them inside the
             # song and without overlapping.
             lines = [
-                mod.LyricLine(180.0, 0, "con tiempo"),
+                mod.LyricLine(180.0, 0, "with timing"),
                 mod.LyricLine(-1, 0, "a"),
                 mod.LyricLine(-1, 0, "b"),
                 mod.LyricLine(-1, 0, "c"),
@@ -2704,9 +3592,9 @@ def check_estimated_times_stay_inside_the_song():
             # estimated ones cannot end at second 104 of a
             # 100 s song.
             lines = [
-                mod.LyricLine(100.0, 0, "con tiempo"),
-                mod.LyricLine(-1, 0, "sin tiempo"),
-                mod.LyricLine(-1, 0, "sin tiempo 2"),
+                mod.LyricLine(100.0, 0, "with timing"),
+                mod.LyricLine(-1, 0, "no timing"),
+                mod.LyricLine(-1, 0, "no timing 2"),
             ]
             mod.estimate_times(lines, 100.0)
             starts = [line.start for line in lines]
@@ -2719,9 +3607,9 @@ def check_estimated_times_stay_inside_the_song():
             # Between two real ones, the next may be beyond the end of the
             # song: the gap is clipped to the duration.
             lines = [
-                mod.LyricLine(10.0, 0, "con tiempo"),
-                mod.LyricLine(-1, 0, "sin tiempo"),
-                mod.LyricLine(200.0, 0, "con tiempo"),
+                mod.LyricLine(10.0, 0, "with timing"),
+                mod.LyricLine(-1, 0, "no timing"),
+                mod.LyricLine(200.0, 0, "with timing"),
             ]
             mod.estimate_times(lines, 100.0)
             check(
@@ -2733,9 +3621,9 @@ def check_estimated_times_stay_inside_the_song():
             # The first real line at second 0 leaves no gap before it: the
             # estimated ones stay at the origin, they do not jump past it.
             lines = [
-                mod.LyricLine(-1, 0, "sin tiempo"),
-                mod.LyricLine(-1, 0, "sin tiempo 2"),
-                mod.LyricLine(0.0, 0, "con tiempo"),
+                mod.LyricLine(-1, 0, "no timing"),
+                mod.LyricLine(-1, 0, "no timing 2"),
+                mod.LyricLine(0.0, 0, "with timing"),
             ]
             mod.estimate_times(lines, 100.0)
             starts = [line.start for line in lines]
@@ -2751,7 +3639,7 @@ def check_estimated_times_stay_inside_the_song():
             # would already have been sung).
             lines = [
                 mod.LyricLine(10.0, 0, "primera"),
-                mod.LyricLine(-1, 0, "sin tiempo"),
+                mod.LyricLine(-1, 0, "no timing"),
                 mod.LyricLine(10.0, 0, "segunda"),
             ]
             mod.estimate_times(lines, 200.0)
@@ -2763,7 +3651,7 @@ def check_estimated_times_stay_inside_the_song():
 
             # Without any anchor the duration also rules: a short song
             # cannot leave lines at second 13.
-            lines = [mod.LyricLine(-1, 0, "línea %d" % indice) for indice in range(10)]
+            lines = [mod.LyricLine(-1, 0, "line %d" % idx) for idx in range(10)]
             mod.estimate_times(lines, 10.0)
             starts = [line.start for line in lines]
             check(
@@ -2804,7 +3692,7 @@ def check_window_size_via_hyprctl():
         mod.subprocess.run = lambda args, **kwargs: types.SimpleNamespace(
             returncode=0,
             stdout=json.dumps([
-                {"class": "otra-ventana", "size": [800, 600]},
+                {"class": "another-window", "size": [800, 600]},
                 {"class": "noctalia-lyrics-carousel", "size": [1300, 900]},
             ]),
             stderr="",
@@ -2826,7 +3714,7 @@ def check_window_size_via_hyprctl():
         mod.subprocess.run = original
 
 
-def check_redimensionado_manual_se_guarda():
+def check_manual_resize_is_saved():
     """The size the user picks by hand is stored in pixels.
 
     Resizing the window with the mouse does not go through the panel, so the
@@ -2956,33 +3844,55 @@ def check_text_between_angle_brackets():
 
 
 def check_cache_json_is_not_an_object():
-    """A cache with a JSON that is not an object does not raise."""
-    with tempfile.TemporaryDirectory(prefix="lyrics-carousel-cache-") as cache:
-        with temporary_env({"XDG_CACHE_HOME": cache}):
-            mod = script_module()
-            mod.CACHE_DIR = cache
-            track = mod.Track("cancion", "artista", duration=100.0)
-            path = os.path.join(cache, mod.cache_key(track) + ".json")
-            with open(path, "w", encoding="utf-8") as handle:
-                handle.write("[]")
-            try:
-                outcome = mod.load_cache(track)
-            except Exception as error:  # noqa: BLE001
-                outcome = error
-            check(
-                "a cache that is not an object does not throw",
-                outcome is None,
-                repr(outcome)[:120],
-            )
+    """A damaged cache does not take the window down."""
+    payloads = (
+        "[]",
+        '{"lines": null}',
+        '{"lines": [[null, 1, "x"], [0, 1, "ok"]]}',
+        '{"lines": [[0, 1, "ok", ["a", "b"]]]}',
+    )
+    for payload in payloads:
+        with tempfile.TemporaryDirectory(prefix="lyrics-carousel-cache-") as cache:
+            with temporary_env({"XDG_CACHE_HOME": cache}):
+                mod = script_module()
+                mod.CACHE_DIR = cache
+                track = mod.Track("song", "artist", duration=100.0)
+                path = os.path.join(cache, mod.cache_key(track) + ".json")
+                with open(path, "w", encoding="utf-8") as handle:
+                    handle.write(payload)
+                try:
+                    outcome = mod.load_cache(track)
+                except Exception as error:  # noqa: BLE001
+                    outcome = error
+                check(
+                    "a damaged cache does not throw: " + payload,
+                    not isinstance(outcome, Exception),
+                    repr(outcome)[:120],
+                )
 
 
+def check_duplicate_timestamps():
+    """Bilingual LRC files repeat the timestamp: no line is dropped."""
+    mod = script_module()
+    lines = mod.parse_lrc("[00:10.00]first\n[00:10.00]second\n[00:14.00]third\n")
+    texts = [line.text for line in lines]
+    check(
+        "duplicate timestamps keep every line",
+        texts == ["first", "second", "third"],
+        repr(texts),
+    )
+    check(
+        "duplicate lines share the next boundary",
+        len(lines) == 3 and lines[0].duration == lines[1].duration,
+        repr([line.duration for line in lines]),
+    )
 def check_pause_key_survives_playerctl_failure():
     """If playerctl fails, the pause key does not kill the window."""
     with tempfile.TemporaryDirectory(prefix="lyrics-carousel-cache-") as cache:
         with temporary_env({"XDG_CACHE_HOME": cache}):
             mod = script_module()
             app = object.__new__(mod.LyricsCarousel)
-            app.track = mod.Track("cancion", "artista", player="mpv")
+            app.track = mod.Track("song", "artist", player="mpv")
             app._player = None
             original = mod.subprocess.run
 
@@ -3010,7 +3920,7 @@ def check_shortcut_is_not_reverted():
             mod = script_module()
             app = _config_app(mod)
             app._save_override = lambda key, value, kind="string": app.pending_overrides.__setitem__(
-                key, value
+                key, (value, time.monotonic())
             )
             app.handle_key("d")
             original = mod.load_settings
@@ -3116,13 +4026,22 @@ def check_centered_hints():
 
 
 
-def check_translate_lyrics_false_default():
-    """translate_lyrics default false."""
+def check_version_matches_manifest():
+    """The script reports the same version the manifest ships."""
     mod = script_module()
+    try:
+        import tomllib
+
+        with open(os.path.join(PLUGIN_DIR, "plugin.toml"), "rb") as handle:
+            manifest = tomllib.load(handle)
+    except Exception as error:  # noqa: BLE001
+        check("the manifest can be read for the version", False, repr(error)[:120])
+        return
+    expected = str(manifest.get("version", ""))
     check(
-        "translate_lyrics default false",
-        mod.DEFAULTS.get("translate_lyrics") == False,
-        mod.DEFAULTS.get("translate_lyrics"),
+        "the script version matches the manifest",
+        mod.VERSION == expected,
+        f"script={mod.VERSION!r} manifest={expected!r}",
     )
 
 
@@ -3456,10 +4375,10 @@ def check_limits_of_panel_and_script():
         return
     block = re.search(r"local LIMITS = \{(.*?)\n\}", text, re.S)
     if block:
-        for lyric_line in block.group(1).splitlines():
+        for line_text in block.group(1).splitlines():
             found = re.match(
                 r"\s*(\w+)\s*=\s*\{\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*\}",
-                lyric_line,
+                line_text,
             )
             if found:
                 copy[found.group(1)] = (
@@ -3477,19 +4396,19 @@ def check_limits_of_panel_and_script():
     except OSError as error:
         check("the script can be read", False, repr(error)[:120])
         return
-    crops = {}
+    ranges = {}
     for found in re.finditer(
         r'cfg\["(\w+)"\]\s*=\s*max\(\s*(-?[\d.]+)\s*,\s*min\(\s*(-?[\d.]+)\s*,',
         script_source,
     ):
-        crops[found.group(1)] = (
+        ranges[found.group(1)] = (
             float(found.group(2)),
             float(found.group(3)),
         )
     check(
         "the script clips with the panel ranges",
-        crops == copy,
-        f"script={sorted(crops.items())} panel={sorted(copy.items())}",
+        ranges == copy,
+        f"script={sorted(ranges.items())} panel={sorted(copy.items())}",
     )
 
     # The helper no longer clips ranges: the manifest does not declare them.
@@ -3498,7 +4417,7 @@ def check_limits_of_panel_and_script():
     # the limits back in the manifest, the helper would silently lose values.
     import importlib.util
 
-    spec = importlib.util.spec_from_file_location("set_setting_sin_tomllib", HELPER)
+    spec = importlib.util.spec_from_file_location("set_setting_without_tomllib", HELPER)
     helper = importlib.util.module_from_spec(spec)
     try:
         spec.loader.exec_module(helper)
@@ -3643,13 +4562,13 @@ def check_helper_formats():
         ("glyph", "Music!", "string", False),
         ("custom_color", "#12ab34", "string", True),
         ("custom_color", "#fff", "string", False),
-        ("custom_color", "rojo", "string", False),
+        ("custom_color", "not-a-color", "string", False),
         ("font_family", "Iosevka", "string", True),
         ("font_family", "", "string", False),
         ("font_family", "Iosevka\nMono", "string", False),
     )
-    for setting_key, setting_value, tipo, valido in cases:
-        with tempfile.TemporaryDirectory(prefix="lyrics-carousel-formatos-") as temporary:
+    for setting_key, setting_value, kind, valid in cases:
+        with tempfile.TemporaryDirectory(prefix="lyrics-carousel-formats-") as temporary:
             env = test_environment(temporary)
             state_value = os.path.join(temporary, ".local", "state", "noctalia")
             os.makedirs(state_value, exist_ok=True)
@@ -3657,7 +4576,7 @@ def check_helper_formats():
             with open(settings_path, "w", encoding="utf-8") as handle:
                 handle.write("")
             process = subprocess.run(
-                [sys.executable, HELPER, "persist", setting_key, setting_value, tipo],
+                [sys.executable, HELPER, "persist", setting_key, setting_value, kind],
                 capture_output=True,
                 text=True,
                 timeout=15,
@@ -3677,7 +4596,7 @@ def check_helper_formats():
             except (OSError, ValueError):
                 overrides = {}
             settings_file = read_settings(settings_path)
-            if valido:
+            if valid:
                 check(
                     f"the helper saves {setting_key}={setting_value!r}",
                     process.returncode == 0
@@ -3694,49 +4613,45 @@ def check_helper_formats():
                 )
 
 
-def check_helper_accepts_the_new_keys():
-    """The helper knows every key the panel and the script use.
+def check_helper_tolerates_layout():
+    """Hand-formatted settings.toml is updated, not duplicated."""
+    import importlib.util
 
-    The helper is another write path (the one of the panel and the one of
-    the window shortcuts). If a key is missing from its list, it answers
-    that the key is unknown and the setting is silently lost: that is why
-    the visualizer switch was not being saved.
-    """
-    cases = (
-        ("visualizer", "false", "bool", False),
-        ("translate_lyrics", "true", "bool", True),
-        ("visualizer_position", "left", "string", "left"),
-        ("visualizer_position", "arriba", "string", None),
-        ("visualizer_coverage", "40", "int", 40),
+    spec = importlib.util.spec_from_file_location("set_setting_layout", HELPER)
+    helper = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(helper)
+    source = (
+        '[plugin_settings."faminec/lyrics-carousel"] # hand edited\n'
+        "font_size=22\n"
+        "karaoke = true\n"
     )
-    for setting_key, setting_value, tipo, expected in cases:
-        with tempfile.TemporaryDirectory(prefix="lyrics-carousel-claves-") as temporary:
-            env = test_environment(temporary)
-            state_value = os.path.join(temporary, ".local", "state", "noctalia")
-            os.makedirs(state_value, exist_ok=True)
-            settings_path = os.path.join(state_value, "settings.toml")
-            with open(settings_path, "w", encoding="utf-8") as handle:
-                handle.write("")
-            process = subprocess.run(
-                [sys.executable, HELPER, "persist", setting_key, setting_value, tipo],
-                capture_output=True,
-                text=True,
-                timeout=15,
-                env=env,
-            )
-            settings_file = read_settings(settings_path)
-            if expected is None:
-                check(
-                    f"the helper rejects {setting_key}={setting_value!r}",
-                    process.returncode != 0 and setting_key not in settings_file,
-                    f"code={process.returncode} settings={settings_file.get(setting_key)!r}",
-                )
-            else:
-                check(
-                    f"the helper saves {setting_key}={setting_value!r}",
-                    process.returncode == 0 and settings_file.get(setting_key) == expected,
-                    f"code={process.returncode} settings={settings_file.get(setting_key)!r}",
-                )
+    updated = helper.patch(source, "font_size", "26")
+    check(
+        "the helper replaces a key written without spaces",
+        updated.count("font_size") == 1 and "font_size = 26" in updated,
+        updated,
+    )
+    check(
+        "the helper keeps one section header",
+        updated.count('[plugin_settings."faminec/lyrics-carousel"]') == 1,
+        updated,
+    )
+    added = helper.patch(source, "width", "1200")
+    check(
+        "the helper appends inside the existing section",
+        added.count('[plugin_settings."faminec/lyrics-carousel"]') == 1
+        and "width = 1200" in added,
+        added,
+    )
+    raw = helper.format_value("line1\nline2\x01", "string")
+    import tomllib
+
+    try:
+        tomllib.loads("x = " + raw)
+        safe = True
+    except tomllib.TOMLDecodeError:
+        safe = False
+    check("the helper escapes control characters", safe, repr(raw))
 
 
 def main(argv):
@@ -3784,8 +4699,8 @@ def main(argv):
     # 2) the data directory can be created and written to. It is done in a
     #    temporary one: the self-test cannot create or write in the real data
     #    directory of the user.
-    with tempfile.TemporaryDirectory(prefix="lyrics-carousel-datos-") as temporary:
-        test_data = os.path.join(temporary, "datos")
+    with tempfile.TemporaryDirectory(prefix="lyrics-carousel-data-") as temporary:
+        test_data = os.path.join(temporary, "data")
         try:
             os.makedirs(test_data, exist_ok=True)
             created = os.path.isdir(test_data)
@@ -3876,12 +4791,24 @@ def main(argv):
     check_smooth_curve()
     check_sung_text_is_crisp()
     check_reload_by_signal()
+    check_theme_reload_by_signal()
+    check_theme_refresh_is_event_driven()
+    check_hints_list_every_shortcut()
+    check_instrumental_gap_detection()
+    check_instrumental_variants()
+    check_marker_styles()
+    check_header_alignment()
+    check_frame_signature_includes_visual_settings()
+    check_visual_settings_allowlists()
+    check_pin_follows_the_setting()
+    check_hold_repeat_helper()
     check_real_terminal_size()
     check_state_paths()
     check_without_text_mode()
     check_settings_limits()
     check_limits_of_panel_and_script()
     check_helper_formats()
+    check_helper_tolerates_layout()
     check_empty_title_does_not_search_again()
     check_adapter_timeout()
     check_real_times_do_not_overlap()
@@ -3899,26 +4826,30 @@ def main(argv):
     check_lrc_minutes()
     check_lrc_decimals()
     check_karaoke_uses_real_times()
+    check_helper_accepts_karaoke_brain()
+    check_brain_intelligent_per_line_karaoke()
     check_estimated_times_do_not_advance_untimed_lines()
     check_estimated_times_stay_inside_the_song()
     check_geometry_is_clipped_to_the_screen()
     check_window_size_via_hyprctl()
-    check_redimensionado_manual_se_guarda()
+    check_manual_resize_is_saved()
     check_text_between_angle_brackets()
     check_enhanced_lrc_to_characters()
     check_lrclib_prefers_the_enhanced_lyrics()
     check_cache_json_is_not_an_object()
+    check_duplicate_timestamps()
     check_pause_key_survives_playerctl_failure()
     check_shortcut_is_not_reverted()
+    check_version_matches_manifest()
     check_panel_covers_the_manifest()
     check_centered_hints()
-    check_translate_lyrics_false_default()
     check_settings_are_split()
     check_panel_attached()
 
     # 4e) the README documents what the manifest declares: if the manifest
     #     changes and the README does not, the store rejects the plugin.
     check_readme()
+    check_normalize_text()
 
     # 5) external tools.
     for tool in ("kitty", "fc-match", "playerctl", "hyprctl"):

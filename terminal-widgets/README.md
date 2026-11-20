@@ -7,10 +7,16 @@ card, its own size and anchor, and the whole set can be re-arranged with one cli
 
 ## Install
 
-Add this repository as a plugin source and enable the plugin:
+The plugin is part of Noctalia's community catalog:
 
 ```sh
-noctalia msg plugins source add dev path https://github.com/F4M1N3C/noctalia-plugins
+noctalia msg plugins enable faminec/terminal-widgets
+```
+
+For a local checkout under development, add it as a path source first:
+
+```sh
+noctalia msg plugins source add dev path ~/noctalia-plugins
 noctalia msg plugins enable faminec/terminal-widgets
 ```
 
@@ -21,7 +27,7 @@ Then add the **launcher** widget from Noctalia's widget picker.
 | Field | Value |
 | --- | --- |
 | ID | `faminec/terminal-widgets` |
-| Entries | Bar widget: `launcher`; panel: `panel` |
+| Entries | Bar widget: `launcher`; panel: `panel`; service: `service` |
 
 ## Requirements
 
@@ -33,13 +39,25 @@ The following executables must be installed and available on `PATH`:
 
 | Executable | Package | What it is used for |
 | --- | --- | --- |
-| `kitty` | `kitty` | The terminal the plugin launches (any other terminal can be set instead). |
+| `kitty` | `kitty` | The default terminal. A replacement must accept the Kitty-style flags described below. |
 | `hyprctl` | `hyprland` | Lists, moves, resizes, focuses and closes the windows. |
 | `grim` | `grim` | Takes the preview screenshot of an open window. Only needed for the card previews; without it the cards fall back to a static or mock preview. |
 | `python3` | `python` | Crops those screenshots and extracts the frames of an animated preview. Also only needed for the card previews. |
 
 `python3` needs Pillow (`python-pillow`) for that work. The plugin never installs
 anything: every dependency has to be there before the plugin is enabled.
+
+### Terminal compatibility
+
+`terminal` defaults to `kitty`. The plugin builds the command as
+
+```sh
+<terminal> --class noctalia-term-<name> --title <name> -e sh -lc <command>
+```
+
+and adds `-o confirm_os_window_close=0` when the terminal name contains `kitty`.
+A replacement terminal must accept those flags; terminals with different flags
+(for example `foot`, which uses `--app-id`) are not drop-in compatible.
 
 ### The bundled cards
 
@@ -91,12 +109,52 @@ If a command is already open, the plugin focuses it and re-applies its geometry 
 of opening a second window. When two windows would land on the same area, the plugin
 moves the new one to the closest free slot.
 
+### Remembering where windows go (the brain button)
+
+The **brain button** sits first in the panel header, to the left of the grid button.
+It is a per-plugin switch, stored in the plugin's own `store.json`, and it only changes
+what happens when a widget is opened:
+
+| Brain | Opening a widget | Clicking a widget that is already open |
+| --- | --- | --- |
+| **On** | Restores the last position and size you left that window at. | Only focuses it; it does not move or resize it. |
+| **Off** | Uses the widget's configured layout, exactly as before. | Focuses it and re-applies its layout, exactly as before. |
+
+While the brain is on, a background service polls `hyprctl clients -j` once per second and
+remembers the manual geometry of each window. "Manual" means the same rectangle seen in two
+consecutive polls, and never a rectangle the plugin itself just imposed (opening, focusing,
+rotating or re-applying a layout), so the memory only contains moves and resizes you made.
+The memory is keyed by window class and saved as an anchor plus offset
+(`bottom-left, 802x582, 0, -24`), the same format the layout field uses. Never mix it up with
+the official layout: both live in `store.json` as separate fields (`brainGeometry` and
+`layouts`).
+
+The brain does **not**:
+
+- change the configured layout, or write into it;
+- restore windows on a different monitor (restoration uses the configured or focused output);
+- remember a move that lasts less than about a second (the two-poll filter);
+- do any work when it is off: the service reads the switch and exits without calling
+  `hyprctl`.
+
+Turning the brain off does not delete what it remembered. Writing a layout in the widget
+form always wins: saving it discards that widget's brain entry.
+
+### Saving geometry when leaving edit mode
+
+This one is independent of the brain. Whenever edit mode ends —the pencil button, the
+card's X, or saving the form— the live geometry of every open window is compared with the
+last rectangle the plugin imposed on it. If the window moved or was resized by hand, that
+geometry is written to the widget's layout permanently, and is used the next time the
+widget opens. A layout typed into the form during that edit session always wins over the
+live window.
+
 ### Editing the widget list
 
 The **pencil button** in the panel header switches to edit mode. Editing an existing
 widget replaces its card with the editor, so the fields appear where that widget is;
-the "add widget" editor is the first card. The editor has save, cancel and delete
-buttons, plus a button to clear a custom thumbnail.
+the "add widget" editor is the last card of the list. The editor has save, cancel and
+delete buttons, plus a button to clear a custom thumbnail.
 
 The list is stored in the plugin's own data directory
 (`noctalia.pluginDataDir()/store.json`), which is the only source of truth. The
@@ -199,6 +257,34 @@ runtime is created on demand.
 
 ## Changelog
 
+### 2.3.1
+
+- Preview captures use only `grim -T <stableId>`. Windows without a stable ID keep the
+  static or mock preview instead of saving a desktop rectangle that could include other
+  windows or layer-shell panels. The preview cache is invalidated so old captures are
+  not reused.
+- The brain no longer forgets an imposed rectangle after five seconds: suppression lasts
+  until the window moves or closes. Rotating from "open all" now publishes the imposed
+  geometry like the header button does.
+- Finished translating the remaining comments, log messages and test fixtures to English.
+- The README explains the terminal flags a Kitty replacement must accept and installs
+  from the community catalog.
+
+### 2.3.0
+
+- New **brain button** in the panel header: when on, each window reopens at the position
+  and size you last left it at, and clicking a card of an already open window only
+  focuses it. When off, the plugin behaves exactly as before. The switch and the memory
+  live in the plugin's own `store.json` (never in Noctalia's settings), and the memory is
+  captured by a headless service that does nothing while the switch is off.
+- Leaving edit mode now saves the live geometry of every open window as that widget's
+  layout, with or without the brain. A layout typed into the form still wins.
+- The "add widget" editor is now the last card of the list, so entering edit mode no
+  longer pushes the thumbnails down.
+- The panel is a little taller (520×750 logical px): four rows of open cards fit
+  without the right scrollbar, and longer lists scroll. The old size clipped the
+  fourth row when every widget was open.
+
 ### 2.2.2
 
 - A thumbnail that the panel still shows is no longer deleted while the card animates its
@@ -290,9 +376,10 @@ lines are still reviewed before exiting.
 
 - **Network:** none. The plugin makes no network requests.
 - **Files written:** only inside the plugin's own data directory
-  (`noctalia.pluginDataDir()`): `store.json` (the widget list, their layouts and their
-  custom thumbnails) and `thumbs/` (the captured previews and the frames extracted from
-  an animated one). Nothing is written anywhere else.
+  (`noctalia.pluginDataDir()`): `store.json` (the widget list, their layouts, their
+  custom thumbnails, the brain switch and the remembered geometries) and `thumbs/` (the
+  captured previews and the frames extracted from an animated one). Nothing is written
+  anywhere else.
 - **Processes spawned:** `kitty` (the terminal set in `terminal`), `hyprctl` (to list,
   move, resize, focus and close windows), `grim` (to capture a window for its card
   preview) and `python3` (with Pillow: to crop the captures and to extract the frames of
@@ -331,7 +418,8 @@ works on Hyprland 0.56+, and that has to be visible before installing it.
 - The card previews capture the window's toplevel with `grim -T <stableId>`. That
   grabs only that window, even when the Noctalia panel or another window is above
   it, and it does not change the window order. The capture is resized with Pillow.
-  If a client has no `stableId`, the old `alterzorder` fallback is used.
+  If a client has no `stableId`, no capture is taken and the card keeps its static or
+  mock preview: a geometry capture could include anything above the window.
 - Clicking a card twice in a row does not open two windows: a short debounce (and the
   `reuse_existing` behaviour) keeps a single window per command.
 - A widget without a command stays in the list (so it is visible and can be fixed)

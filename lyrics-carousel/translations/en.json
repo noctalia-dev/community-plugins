@@ -36,6 +36,7 @@
   "height": "Height",
   "hints": "Keyboard hints",
   "karaoke": "Karaoke glow",
+  "karaoke_brain": "Intelligent karaoke (on): per-word glow only when word timing is available. Off: classic progressive karaoke",
   "launch": "Open the carousel",
   "launch_failed": "Could not open the terminal.",
   "marker": "Active line marker",
@@ -149,7 +150,6 @@
   },
   "subtitle": "Nothing is playing",
   "title": "Lyrics Carousel",
-  "tooltip": "Lyrics carousel",
   "up": "up",
   "visible_above": "Lines above",
   "visible_below": "Lines below",
@@ -159,5 +159,15 @@
   "custom_color": "Custom colour",
   "color_placeholder": "#rrggbb",
   "glyph_placeholder": "music",
-  "write_failed": "Could not save the setting."
+  "write_failed": "Could not save the setting.",
+  "instrumental_marks": "Instrumental marks",
+  "instrumental_marks_desc": "Show musical notes during instrumental pauses.",
+  "instrumental_icon_tooltip": "Rotate the instrumental icon",
+  "instrumental_custom_tooltip": "Custom instrumental text · click to toggle · right click to edit",
+  "instrumental_text_placeholder": "Custom text (max 24 characters)",
+  "silence_threshold": "Silence threshold (s)",
+  "marker_style_tooltip": "Rotate the active line marker style",
+  "header_pos_tooltip": "Rotate the header alignment",
+  "pin": "Always on top",
+  "bar_tooltip": "Lyrics Carousel · left click: panel · right click: open window"
 }

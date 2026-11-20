@@ -43,6 +43,17 @@ local EXTRAS = {
     },
   },
   {
+    setting = "luciole_menu",
+    files = {
+      -- The file name is the label in Luciole's Scripts submenu. Luciole
+      -- skips scripts that are not executable.
+      ["extras/file-managers/luciole-script"] = {
+        path = "~/.local/share/luciole/scripts/Send with LocalSend Plus",
+        executable = true,
+      },
+    },
+  },
+  {
     setting = "terminal_command",
     files = {
       ["extras/terminal/localsend"] = { path = "~/.local/bin/localsend", executable = true },

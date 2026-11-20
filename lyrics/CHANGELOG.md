@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.8.0
+
+- Reject catalogue matches from different artists or incompatible recordings. Prefer valid timed lyrics and continue through LRCLIB candidates if a result cannot be parsed.
+- Preserve standalone sung words and fix candidate duration conversion.
+- Respect configured source lists and invalidate stale lyrics after lookup settings change.
+- Preview available lyric text, surface lookup failures, and adjust timing per track from the selector.
+
 ## 1.7.1
 
 - Add `candidate_mode`: **Choose** shows the picker when several results exist,

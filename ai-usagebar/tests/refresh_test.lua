@@ -8,7 +8,7 @@ local function read(path)
 end
 
 local values, watchers = {}, {}
-local commands, callbacks = {}, {}
+local commands, callbacks, timeouts = {}, {}, {}
 local notifications = {}
 local decodedReport = { entries = {} }
 local now = 5000
@@ -28,9 +28,10 @@ local noctalia = {
     nowMs = function() return now end,
     getConfig = function(key) return key == "refresh_minutes" and 5 or nil end,
     setUpdateInterval = function(ms) intervals[#intervals + 1] = ms end,
-    runAsync = function(command, callback)
+    runAsync = function(command, callback, timeout)
         commands[#commands + 1] = command
         callbacks[#callbacks + 1] = callback
+        timeouts[#timeouts + 1] = timeout
         return true
     end,
     json = { decode = function() return decodedReport end },
@@ -50,6 +51,7 @@ local service = assert(load(read("service.luau"), "service", "t", env))
 service()
 
 assert(#callbacks == 1, "service should start one initial refresh")
+assert(timeouts[1] == 60000, "usage polling should allow 60s for slower provider and agy reads")
 env.onIpc("refresh")
 assert(#callbacks == 1, "refresh while busy should be coalesced")
 assert(values.refresh_queued == true, "coalesced refresh should be visible as queued")
@@ -124,6 +126,35 @@ assert(values.report.entries[1].metrics[1].percent == 35
     and values.report.entries[1].stale ~= true,
     "the next healthy Antigravity reading should replace the cached one")
 
+-- Multi-account Antigravity: transient local-server fallback stays isolated per entry.id.
+decodedReport = { entries = {
+    { id = "antigravity", display_name = "Antigravity", status = "ready",
+      fetched_at = "2026-09-24T12:10:00Z", metrics = { { label = "Gemini", percent = 18 } } },
+    { id = "antigravity@t3-1", display_name = "Antigravity · t3-1", status = "ready",
+      fetched_at = "2026-09-24T12:10:00Z", metrics = { { label = "Claude & GPT OSS", percent = 7 } } },
+} }
+now = 21000
+env.onIpc("refresh")
+callbacks[9]({ exitCode = 0, stdout = "{}", stderr = "" })
+
+decodedReport = { entries = {
+    { id = "antigravity", display_name = "Antigravity", status = "error",
+      error = "credentials error: Antigravity: no local server found.", metrics = {} },
+    { id = "antigravity@t3-1", display_name = "Antigravity · t3-1", status = "ready",
+      fetched_at = "2026-09-24T12:15:00Z", metrics = { { label = "Claude & GPT OSS", percent = 12 } } },
+} }
+now = 23000
+env.onIpc("refresh")
+callbacks[10]({ exitCode = 0, stdout = "{}", stderr = "" })
+assert(values.report.entries[1].id == "antigravity"
+    and values.report.entries[1].stale == true
+    and values.report.entries[1].metrics[1].percent == 18,
+    "default Antigravity account should keep its own stale reading")
+assert(values.report.entries[2].id == "antigravity@t3-1"
+    and values.report.entries[2].stale ~= true
+    and values.report.entries[2].metrics[1].percent == 12,
+    "named Antigravity account should keep its fresh reading when default falls back")
+
 local sharedEnv = setmetatable({ noctalia = noctalia }, { __index = _G })
 local shared = assert(load(read("shared.luau"), "shared", "t", sharedEnv))()
 local incompleteFailure = shared.asFailure({})
@@ -152,7 +183,6 @@ assert(shared.providerGlyph("anthropic@gmail") == shared.providerGlyph("anthropi
     "an account should inherit the provider's glyph")
 assert(shared.providerGlyph("unknown") == "brain", "an unknown provider falls back")
 
-io.write("ok: refresh queue coalesced, timeouts rejected, provider visuals complete\n")
 
 local intervalBody = assert(read("service.luau"):match("local function intervalMs%(%)\n(.-)\nend"))
 for _, case in ipairs({
@@ -193,3 +223,44 @@ do
     configured=true; clock=11000; runtime.onConfigChanged()
     assert(reads[4].command=="ai-usagebar usage --json --priorities", "config changes allow a CLI upgrade to be retried")
 end
+
+-- Excessive CLI documents must leave the last reading intact and allow retries.
+do
+    local deep = {}
+    local leaf = deep
+    for _ = 1, 40 do leaf.child = {}; leaf = leaf.child end
+    local wide = {}
+    for i = 1, 20001 do wide[i] = i end
+    local accounts = {}
+    for index = 1, 129 do accounts[index] = { id = "openai@" .. index } end
+    for _, case in ipairs({
+        { stdout = "{}", document = { entries = accounts } },
+        { stdout = string.rep(" ", 1024 * 1024 + 1), document = { entries = {} }, noDecode = true },
+        { stdout = "{}", document = { entries = {}, metadata = deep } },
+        { stdout = "{}", document = { entries = {}, metadata = wide } },
+    }) do
+        local previous = values.report
+        decodedReport = case.document
+        noctalia.json.decode = function()
+            assert(not case.noDecode, "oversized stdout must not reach json.decode")
+            return decodedReport
+        end
+        now = now + 3000
+        env.onIpc("refresh")
+        callbacks[#callbacks]({ exitCode = 0, stdout = case.stdout })
+        assert(values.report == previous, "excessive documents must preserve cached report")
+        assert(values.error.code == "too_large" and values.polling == false,
+            "excessive documents must report too_large and release the poller")
+        decodedReport = { entries = {}, optional = { old_cli = true } }
+        noctalia.json.decode = function() return decodedReport end
+        now = now + 3000
+        local before = #callbacks
+        env.onIpc("refresh")
+        assert(#callbacks == before + 1, "rejected report must not leave refresh in flight")
+        callbacks[#callbacks]({ exitCode = 0, stdout = "{}" })
+        assert(values.report == decodedReport and values.error.code == "",
+            "a small legacy report must recover after rejection")
+    end
+end
+
+io.write("ok: refresh queue coalesced, timeouts rejected, provider visuals complete\n")

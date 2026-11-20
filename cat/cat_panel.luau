@@ -4,7 +4,8 @@
 --
 -- The panel runs in its own Luau runtime, so it can't share locals with
 -- cat.luau. Instead the bar widget publishes { glyph, cpu, color, pace } to
--- the plugin's shared state store under "cat" whenever any of them change,
+-- the plugin's shared state store under "cat" (plus `lift`, the bounce
+-- offset as a fraction of cat size) whenever any of them change,
 -- and this script re-renders on every update — which is also what keeps the
 -- big cat's run cycle in step with the bar cat, frame for frame. No ticks of
 -- its own: with no widget publishing (state.get returns nil) it just shows
@@ -19,7 +20,10 @@ local snapshot = nil
 local function render()
   local glyph = snapshot and snapshot.glyph or "a"
   local color = snapshot and snapshot.color or "secondary"
-  local cpuText = snapshot and `CPU {snapshot.cpu}%` or "CPU —"
+  local cpuText = snapshot and noctalia.tr("panel.cpu", { percent = tostring(snapshot.cpu) })
+    or noctalia.tr("panel.cpu_unknown")
+  -- Same bounce as the bar cat (cat.luau's bounceLift), scaled to this size.
+  local lift = snapshot and snapshot.lift or 0
 
   panel.render(ui.column({ gap = 12, align = "center", padding = 24 }, {
     ui.label({
@@ -28,6 +32,7 @@ local function render()
       baseline = "inkCentered",
       fontSize = PANEL_CAT_SIZE,
       color = color,
+      translateY = -lift * PANEL_CAT_SIZE,
     }),
     ui.label({ text = cpuText, fontSize = 20, color = color }),
   }))

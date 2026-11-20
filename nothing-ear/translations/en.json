@@ -17,7 +17,23 @@
     },
     "case": "Case",
     "charging": "Charging",
+    "codec": {
+      "aac": "AAC",
+      "cancel": "Cancel",
+      "caption": "Switching restarts the device",
+      "confirm": "Restart now? Audio stops for about 10 seconds",
+      "ldac": "LDAC",
+      "lhdc": "LHDC",
+      "restart": "Restart",
+      "restarting": "Restarting…",
+      "title": "Bluetooth Codec"
+    },
     "copy_details": "Copy details",
+    "custom_eq": {
+      "bass": "Bass",
+      "mid": "Mid",
+      "treble": "Treble"
+    },
     "devices": {
       "none": "No paired Bluetooth devices found. Make sure the earbuds are paired at the OS level, then scan again.",
       "scan": "Scan for devices",
@@ -73,11 +89,18 @@
     },
     "noise_control": "Noise Control",
     "personal_anc": {
+      "caption": "Noise cancellation tuned to your ears",
       "title": "Personalised ANC"
     },
     "right": "Right",
     "sound_profile": {
       "title": "Personal Sound Profile"
+    },
+    "spatial": {
+      "cinema": "Cinema",
+      "concert": "Concert",
+      "off": "Off",
+      "title": "Spatial Audio"
     },
     "status": {
       "connected": "Connected",
@@ -89,7 +112,12 @@
       "low": "Low",
       "mid": "Mid"
     },
-    "title": "Nothing Ear"
+    "tab": {
+      "main": "Main",
+      "more": "More"
+    },
+    "title": "Nothing Ear",
+    "write_failed": "That change didn't go through. If it keeps happening, copy the details and report it."
   },
   "plugin": {
     "description": "Battery, ANC, EQ presets and low-latency mode for Nothing and CMF earbuds, controlled directly over Bluetooth.",
@@ -99,6 +127,10 @@
     "device_mac": {
       "description": "Leave empty to auto-detect or pick from the panel. Set it to pin one device.",
       "label": "Earbuds MAC Address"
+    },
+    "hide_when_disconnected": {
+      "description": "Keep the bar icon hidden until your earbuds or headphones connect.",
+      "label": "Hide when disconnected"
     },
     "mono_on_single_bud": {
       "description": "Switch to mono while one bud is in its closed case, so you hear everything in the other.",

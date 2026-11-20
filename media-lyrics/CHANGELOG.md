@@ -6,6 +6,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.2] — 2026-11-17
+
+### Fixed
+
+- **The panel no longer hangs on "Loading lyrics...".** An `.lrc` with hundreds of
+  lines sharing one timestamp could exhaust the host's script-callback CPU budget
+  mid-parse: the loader died and the loading state never settled. The parse is
+  linearithmic now, and a load that still fails to finish settles with an error
+  after 45 s instead of hanging until the track changes.
+- **An unusable local `.lrc` no longer blocks the lookup chain.** A broken file in
+  the local lyrics folder is skipped and the other sources are asked.
+- **`plugin_api` is declared as 43** — the colour roles need Noctalia 5.4.0.
+
 ## [1.0.1] — 2026-11-10
 
 ### Added

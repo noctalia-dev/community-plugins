@@ -56,5 +56,5 @@ noctalia msg panel-toggle omerfuyar/overview:panel
 
 ## Notes
 
-- Pictures are taken when the overview opens and when windows move, so they show each window as it was then. While the overview is open, it follows workspaces and windows as they change. Pictures are kept in the plugin's data folder.
+- Pictures are taken each time the overview opens and when windows move, so they show each window as it was then. While the overview is open, it follows workspaces and windows as they change. Pictures are kept in the plugin's data folder, and those of an earlier run are removed when Noctalia starts.
 - Works with both Hyprland config formats, Lua and the older one.

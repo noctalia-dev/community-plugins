@@ -2,7 +2,7 @@
 #
 # Pure-Luau media panel: polls Noctalia's own D-Bus MPRIS aggregator
 # (dev.noctalia.Mpris) from a [[service]], fetches synced lyrics from
-# LRCLIB (exact /api/get first, then /api/search fallback), parses LRC in
+# lrcmux / LRCLIB / NetEase (configurable order), parses LRC in
 # pure Luau, caches locally, and exposes everything to the [[panel]] over
 # noctalia.state. Runtime needs busctl (MPRIS poll) and curl (LRCLIB HTTPS).
 #
@@ -10,7 +10,7 @@
 
 id = "tranzem/media-lyrics"
 name = "Media Lyrics"
-version = "1.0.1"
+version = "1.0.2"
 plugin_api = 43
 author = "tranzem"
 license = "MIT"

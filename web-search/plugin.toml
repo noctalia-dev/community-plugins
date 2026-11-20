@@ -1,6 +1,6 @@
 id = "notfinaldev/web-search"
 name = "Web Search"
-version = "1.4.1"
+version = "1.4.2"
 plugin_api = 18
 author = "notfinaldev"
 license = "MIT"
@@ -45,4 +45,15 @@ default = [
     "Reddit|https://reddit.com",
     "YouTube|https://youtube.com",
     "Gmail|https://mail.google.com",
+]
+
+[[setting]]
+key = "search_priority"
+type = "select"
+label_key = "settings.search_priority.label"
+description_key = "settings.search_priority.description"
+default = "top"
+options = [
+	{ value = "top", label_key = "settings.search_priority.options.top" },
+	{ value = "relevance", label_key = "settings.search_priority.options.relevance" }
 ]

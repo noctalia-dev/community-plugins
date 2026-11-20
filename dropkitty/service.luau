@@ -1,16 +1,25 @@
 -- dropkitty service: mirrors settings to the helper and turns helper events into the
--- bar state at noctalia.state["dropkitty"] = { alive, open, badge, error }.
+-- bar state at noctalia.state["dropkitty"] = { alive, open, badge, cmd, duration, error }.
+-- Commands that finish while hidden notify once they ran at least `notify_after` seconds.
 -- The helper (bin/dropkitty) owns kitty; this entry only observes and configures it.
 
 local KEY = "dropkitty"
 local DEFAULT_THICKNESS = 34 -- Style::barThicknessDefault
 local BAR_POLL_MS = 10000 -- bar edits do not fire onConfigChanged; re-check reserves this often
+local CMD_MAX = 80 -- characters of a finished command shown in tooltip and notification
 
-local snap = { alive = false, open = false, badge = nil, error = nil }
+local snap = { alive = false, open = false, badge = nil, cmd = nil, duration = nil, error = nil }
 local last_reserves = nil
 
 local function publish()
-  noctalia.state.set(KEY, { alive = snap.alive, open = snap.open, badge = snap.badge, error = snap.error })
+  noctalia.state.set(KEY, {
+    alive = snap.alive,
+    open = snap.open,
+    badge = snap.badge,
+    cmd = snap.cmd,
+    duration = snap.duration,
+    error = snap.error,
+  })
 end
 
 local function helper()
@@ -116,18 +125,58 @@ local function refresh_status()
   end)
 end
 
+local function duration(secs)
+  if secs < 60 then
+    return secs .. "s"
+  elseif secs < 3600 then
+    return math.floor(secs / 60) .. "m " .. secs % 60 .. "s"
+  end
+  return math.floor(secs / 3600) .. "h " .. math.floor(secs % 3600 / 60) .. "m"
+end
+
+local function uri_decode(s)
+  return (s:gsub("%%(%x%x)", function(h)
+    return string.char(tonumber(h, 16))
+  end))
+end
+
+-- payload: code,secs,uri(cmdline) from the helper; a bare code from helpers before 0.2.0.
+local function finished(payload)
+  local code, secs, line = tostring(payload or ""):match("^(-?%d+),(%d+),(.*)$")
+  if not code then
+    snap.badge, snap.cmd, snap.duration = math.floor(num(payload, 0)), nil, nil
+    return
+  end
+  local cmd = uri_decode(line):gsub("%s+", " "):gsub("^ ", ""):gsub(" $", "")
+  if (utf8.len(cmd) or #cmd) > CMD_MAX then
+    cmd = cmd:sub(1, (utf8.offset(cmd, CMD_MAX + 1) or CMD_MAX + 1) - 1) .. "…"
+  end
+  snap.badge, snap.cmd, snap.duration = tonumber(code), cmd ~= "" and cmd or nil, duration(tonumber(secs))
+  local after = math.floor(num(setting("notify_after", 10), 10))
+  if after <= 0 or tonumber(secs) < after then
+    return
+  end
+  local args = { cmd = snap.cmd, code = code, duration = snap.duration }
+  local body = noctalia.tr(snap.cmd and "notify.finished" or "notify.finished_unnamed", args)
+  if snap.badge == 0 then
+    noctalia.notify(noctalia.tr("widget.title"), body)
+  else
+    noctalia.notifyError(noctalia.tr("widget.title"), body)
+  end
+end
+
 function onIpc(event, payload)
   if event == "shown" then
-    snap.alive, snap.open, snap.badge = true, true, nil
+    snap.alive, snap.open, snap.badge, snap.cmd, snap.duration = true, true, nil, nil, nil
   elseif event == "hidden" then
     snap.alive, snap.open = true, false
   elseif event == "exited" then
-    snap.alive, snap.open, snap.badge = false, false, nil
+    snap.alive, snap.open, snap.badge, snap.cmd, snap.duration = false, false, nil, nil, nil
   elseif event == "cmd-finished" then
     if not snap.alive then
       return -- kitty can report the shell's `exit` after the last window closed
     end
-    snap.badge = math.floor(num(payload, 0))
+    finished(payload)
   else
     return
   end
