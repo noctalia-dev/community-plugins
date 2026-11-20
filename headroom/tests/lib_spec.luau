@@ -24,7 +24,7 @@ t.group("theme", function()
 end)
 
 t.group("bar", function()
-  t.test("follows the plugin ring style until the widget overrides it", function()
+  t.test("draws the gauge in the widget's ring style", function()
     local host = env.host()
     env.claudeCreds(host, "tok-a")
     env.serveClaude(host, { ["tok-a"] = "a" })
@@ -38,16 +38,14 @@ t.group("bar", function()
       return node.type == "image" and node.props.path:match("/rings/ring%-")
     end
 
-    t.eq(#env.find(host.barTree, filled), 1, "modern by default")
-    host.config.default_ring_style = "hollow"
+    t.eq(#env.find(host.barTree, filled), 1, "filled by default")
+    host.config.ring_style = "hollow"
     bar.call("update")
-    t.eq(#env.find(host.barTree, hollow), 1, "classic from plugin settings")
+    t.eq(#env.find(host.barTree, hollow), 1, "hollow when chosen")
+    t.eq(#env.find(host.barTree, filled), 0, "no filled glyph alongside it")
     host.config.ring_style = "filled"
     bar.call("update")
-    t.eq(#env.find(host.barTree, filled), 1, "explicit widget style wins")
-    host.config.ring_style = "inherit"
-    bar.call("update")
-    t.eq(#env.find(host.barTree, hollow), 1, "widget follows the plugin again")
+    t.eq(#env.find(host.barTree, filled), 1, "filled again")
   end)
 end)
 

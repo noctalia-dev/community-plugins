@@ -131,10 +131,7 @@ local function render()
   end
 
   local style = state.config("bar_style", "full")
-  local ringStyle = state.config("ring_style", "inherit")
-  if ringStyle == "inherit" then
-    ringStyle = state.config("default_ring_style", "filled")
-  end
+  local ringStyle = state.config("ring_style", "filled")
   local container = if vertical then ui.column else ui.row
   local groups = {}
   for _, item in items do
