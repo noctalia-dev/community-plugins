@@ -152,7 +152,7 @@ Wallpaper Deck allows you to snapshot your live Noctalia desktop widget layout a
 
 | Key / Gesture | Action |
 | --- | --- |
-| `←` / `→` or `h` / `l` | Browse cards left / right |
+| `←` / `→` or `h` / `l` | Browse cards left / right (hold to keep moving) |
 | `Mouse Wheel` | Smoothly scroll through the card deck (hover over cards or deck container) |
 | `↑` / `↓` or `j` / `k` or `u` / `d` | Jump 5 cards backward / forward |
 | `Page_Up` / `Page_Down` | Jump 5 cards backward / forward |
