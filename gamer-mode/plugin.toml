@@ -1,7 +1,7 @@
 id = "nomadcxx/gamer-mode"
 name = "Gamer Mode"
 version = "0.7.2"
-plugin_api = 43
+plugin_api = 46
 author = "Nomadcxx"
 license = "MIT"
 dependencies = ["pgrep", "pkill", "powerprofilesctl", "systemctl"]
