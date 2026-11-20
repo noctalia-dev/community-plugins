@@ -138,7 +138,7 @@ TEXTS = {
         "hints": [
             "[q] quit  [space] pause  [d] direction  [k] karaoke  "
             "[h] header  [m] marker  [g] ghost  [f] footer  [t] hints  "
-            "[c] accent  [+]/[-] size  [r] reload",
+            "[c] accent  [=]/[-] size  [Shift +]/[Shift -] lines  [r] reload",
             "[q] quit  [space] pause  [d] direction  [k] karaoke  [r] reload",
             "[q] quit  [space] pause  [r] reload",
         ],
@@ -163,7 +163,7 @@ TEXTS = {
         "hints": [
             "[q] salir  [espacio] pausa  [d] dirección  [k] karaoke  "
             "[h] cabecera  [m] marca  [g] transición  [f] pie  [t] atajos  "
-            "[c] acento  [+]/[-] tamaño  [r] recargar",
+            "[c] acento  [=]/[-] tamaño  [Mayús +]/[Mayús -] líneas  [r] recargar",
             "[q] salir  [espacio] pausa  [d] dirección  [k] karaoke  [r] recargar",
             "[q] salir  [espacio] pausa  [r] recargar",
         ],
@@ -2822,6 +2822,18 @@ class LyricsCarousel:
             image.invalidate_fonts()
         return True
 
+    def _adjust_visible_lines(self, delta: int) -> bool:
+        """Change how many context lines are shown above and below together."""
+        for key in ("visible_above", "visible_below"):
+            try:
+                value = int(self.cfg.get(key, DEFAULTS[key]))
+            except (TypeError, ValueError):
+                value = int(DEFAULTS[key])
+            value = max(0, min(20, value + delta))
+            self.cfg[key] = value
+            self._save_override(key, value, "int")
+        return True
+
     def handle_key(self, key: str) -> bool:
         if key in ("q", "Q", "\x03"):
             return False
@@ -2861,10 +2873,14 @@ class LyricsCarousel:
             return self._toggle_bool_setting("hints")
         if key in ("c", "C"):
             return self._cycle_accent()
-        if key in ("+", "="):
+        if key == "=":
             return self._adjust_font_size(1)
-        if key in ("-", "_"):
+        if key == "-":
             return self._adjust_font_size(-1)
+        if key == "+":
+            return self._adjust_visible_lines(1)
+        if key == "_":
+            return self._adjust_visible_lines(-1)
         if key in ("r", "R"):
             if self.demo:
                 # In demo mode there is no lookup on the internet: the
