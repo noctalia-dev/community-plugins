@@ -68,8 +68,8 @@ options = [
 [[panel]]
 id = "calendar"
 entry = "panel.luau"
-width = 680
-height = 430
+width = 820
+height = 520
 placement = "attached"
 position = "auto"
 open_near_click = true

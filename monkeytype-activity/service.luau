@@ -128,7 +128,7 @@ end
 local function fullRefresh(key, streak)
   local collected = { streak = streak }
   local activityError = nil
-  local pending = 2
+  local pending = 3
 
   local function step()
     pending = pending - 1
@@ -149,6 +149,7 @@ local function fullRefresh(key, streak)
       lastDay = collected.activity.lastDay,
       streak = collected.streak,
       lastResult = collected.lastResult,
+      username = collected.username,
       previous = data,
       now = os.time(),
     })
@@ -178,6 +179,21 @@ local function fullRefresh(key, streak)
     local lastResult = Monkeytype.payload(response, noctalia.json.decode)
     if lastResult ~= nil then
       collected.lastResult = lastResult
+    end
+    step()
+  end)
+
+  -- Best-effort username: avoids asking the user to type it in settings.
+  request("/users/profile", key, function(response)
+    local profile = Monkeytype.payload(response, noctalia.json.decode)
+    if profile ~= nil then
+      local name = profile.name
+      if type(name) ~= "string" or name == "" then
+        name = profile.username
+      end
+      if type(name) == "string" and name ~= "" then
+        collected.username = name
+      end
     end
     step()
   end)

@@ -284,9 +284,10 @@ local coldMockInstance = coldMock()
 local coldService = loadService(coldMockInstance)
 do
   local mock = coldMockInstance
-  check("three requests", 3, #mock.requests)
+  check("four requests", 4, #mock.requests)
   check("streak first", "/users/streak", mock.requests[1])
   check("activity second", "/users/currentTestActivity", mock.requests[2])
+  check("profile requested", true, countRequests(mock, "/users/profile") == 1)
   check("status", "ready", mock.state.status)
   check("no error", false, (mock.state.error or "") ~= "")
 
@@ -312,8 +313,8 @@ do
   local before = mock.state.data.fetchedAt
   mock.clock = mock.clock + 60000
   coldService.update()
-  check("one request", 4, #mock.requests)
-  check("last request is the streak", "/users/streak", mock.requests[4])
+  check("one request", 5, #mock.requests)
+  check("last request is the streak", "/users/streak", mock.requests[5])
   check("status", "ready", mock.state.status)
   check("fetchedAt refreshed", true, mock.state.data.fetchedAt >= before)
   check("calendar kept", true, #mock.state.data.rows[1] > 0)
@@ -329,7 +330,7 @@ do
     hourOffset = 2,
   })
   coldService.update()
-  check("three more requests", 7, #mock.requests)
+  check("four more requests", 9, #mock.requests)
   check("current streak", 4, mock.state.data.currentStreak)
   check("best streak", 8, mock.state.data.bestStreak)
 end
@@ -338,14 +339,14 @@ section("manual refreshes are debounced")
 do
   local mock = coldMockInstance
   local before = #mock.requests
-  -- A manual refresh always refetches everything, so it costs three requests.
+  -- A manual refresh always refetches everything, so it costs four requests.
   mock.noctalia.state.set("refresh_request", 1)
-  check("first click refreshes", before + 3, #mock.requests)
+  check("first click refreshes", before + 4, #mock.requests)
   coldService.onIpc("refresh")
-  check("second click is dropped", before + 3, #mock.requests)
+  check("second click is dropped", before + 4, #mock.requests)
   mock.clock = mock.clock + 11000
   coldService.onIpc("refresh")
-  check("later click refreshes again", before + 6, #mock.requests)
+  check("later click refreshes again", before + 8, #mock.requests)
 end
 
 section("a disabled Ape Key is named, not called invalid")
@@ -428,7 +429,7 @@ do
   local before = #mock.requests
   mock.config.ape_key = "ANOTHERKEY"
   service.onConfigChanged()
-  check("full refresh", before + 3, #mock.requests)
+  check("full refresh", before + 4, #mock.requests)
   check("status", "ready", mock.state.status)
 end
 

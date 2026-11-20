@@ -272,5 +272,98 @@ check("expanded calendar", true, Settings.calendarExpanded(false, false, false))
 check("username trimmed", "faminec", Settings.username(" faminec "))
 check("username unset", nil, Settings.username(""))
 
+
+section("activity: availableYears")
+local yearCounts = {}
+for i = 1, 372 do yearCounts[i] = 0 end
+local yearsDec2026 = Activity.availableYears(yearCounts, os.time({year=2026, month=12, day=15, hour=12}))
+check("years include 2026", true, yearsDec2026[1] == "2026" or yearsDec2026[2] == "2026")
+check("years is a table", "table", type(yearsDec2026))
+check("years empty for nil", 0, #Activity.availableYears(nil, TODAY))
+check("years empty for bad timestamp", 0, #Activity.availableYears(yearCounts, nil))
+check("years empty for empty counts", 0, #Activity.availableYears({}, TODAY))
+
+section("activity: buildYear")
+local y2026Counts = {}
+for i = 1, 372 do y2026Counts[i] = (i == 200) and 5 or 0 end
+local anchor2026 = os.time({year=2026, month=6, day=15, hour=12})
+local built2026 = Activity.buildYear("2026", y2026Counts, anchor2026)
+check("buildYear returns table", "table", type(built2026))
+check("buildYear has year field", "2026", built2026.year)
+check("buildYear has rows", "table", type(built2026.rows))
+check("buildYear has 7 rows", 7, #built2026.rows)
+check("buildYear has columns", "number", type(built2026.columns))
+check("buildYear windowTotal is number", "number", type(built2026.windowTotal))
+check("buildYear activeDays is number", "number", type(built2026.activeDays))
+check("buildYear out of range returns nil", nil, Activity.buildYear("1999", y2026Counts, anchor2026))
+check("buildYear nil year returns nil", nil, Activity.buildYear(nil, y2026Counts, anchor2026))
+check("buildYear nil counts returns nil", nil, Activity.buildYear("2026", nil, anchor2026))
+
+section("activity: buildView")
+local viewData = {
+  rows = built.rows,
+  details = built.details,
+  columns = built.columns,
+  thresholds = built.thresholds,
+  windowTotal = built.windowTotal,
+  firstDate = built.firstDate,
+  lastDate = built.lastDate,
+  activeDays = 1,
+  counts = counts,
+  lastTimestamp = TODAY,
+}
+local rollingView = Activity.buildView(viewData, "rolling")
+check("rolling view type", "rolling", rollingView.view)
+check("rolling view windowTotal", built.windowTotal, rollingView.windowTotal)
+check("rolling view rows preserved", built.rows, rollingView.rows)
+local defaultView = Activity.buildView(viewData, nil)
+check("default view is rolling", "rolling", defaultView.view)
+check("nil data returns nil", nil, Activity.buildView(nil, "rolling"))
+local yearView = Activity.buildView(viewData, "2026")
+check("year view type is string", "string", type(yearView.view))
+local oldCacheData = {
+  rows = built.rows,
+  details = built.details,
+  columns = built.columns,
+  thresholds = built.thresholds,
+  windowTotal = built.windowTotal,
+  firstDate = built.firstDate,
+  lastDate = built.lastDate,
+  activeDays = 1,
+}
+local fallbackView = Activity.buildView(oldCacheData, "2026")
+check("fallback view is rolling", "rolling", fallbackView.view)
+check("fallback preserves windowTotal", built.windowTotal, fallbackView.windowTotal)
+
+section("activity: normalize preserves username and raw series")
+local withUsername = Activity.normalize({
+  days = { 1, 2, 3 },
+  dayCount = 3,
+  lastDay = TODAY,
+  username = "testuser",
+  now = NOW,
+})
+check("username stored", "testuser", withUsername.username)
+check("counts stored", "table", type(withUsername.counts))
+check("lastTimestamp stored", "number", type(withUsername.lastTimestamp))
+check("counts length", 3, #withUsername.counts)
+local preserved = Activity.normalize({
+  days = { 1, 2, 3 },
+  dayCount = 3,
+  lastDay = TODAY,
+  previous = withUsername,
+  now = NOW + 100,
+})
+check("username preserved from previous", "testuser", preserved.username)
+local overridden = Activity.normalize({
+  days = { 1, 2, 3 },
+  dayCount = 3,
+  lastDay = TODAY,
+  username = "newuser",
+  previous = withUsername,
+  now = NOW + 200,
+})
+check("username overridden when provided", "newuser", overridden.username)
+
 print(string.format("\n%d passed, %d failed", PASSED, FAILED))
 os.exit(FAILED == 0 and 0 or 1)

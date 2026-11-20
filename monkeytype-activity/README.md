@@ -25,8 +25,8 @@ Create the key in MonkeyType under **Account settings**, then the **ape keys**
 tab, and paste it into this plugin's settings. New keys start **disabled**: the
 `active` column of that table has to be switched on, or every request answers
 `471 ApeKey is inactive` and the panel offers a shortcut back to that page. The
-key is only used for the four read endpoints listed under [Notes](#notes) and is
-sent in an `Authorization` header by the native HTTP client, so it never appears
+key is only used for the read endpoints listed under [Notes](#notes) and is sent
+in an `Authorization` header by the native HTTP client, so it never appears
 in a process command line.
 
 ## Usage
@@ -66,7 +66,7 @@ noctalia msg plugin faminec/monkeytype-activity:sync all refresh
 | `show_today` (panel) | bool | `true` | Show today's test count below the calendar. |
 | `show_current_streak` (panel) | bool | `true` | Show the current streak below the calendar. |
 | `show_best_streak` (panel) | bool | `true` | Show the longest streak below the calendar. |
-| `show_year_total` (panel) | bool | `true` | Show the number of tests in the calendar window. |
+| `show_year_total` (panel) | bool | `true` | Show the total number of tests for the selected view above the calendar. |
 | `show_last_test` (panel) | bool | `true` | Show the WPM and accuracy of the last saved test. |
 | `show_profile_button` (panel) | bool | `true` | Show the button that opens your MonkeyType profile. |
 
@@ -78,13 +78,12 @@ clock.
 
 ## Notes
 
-- **Network.** Three HTTPS requests to `api.monkeytype.com`, each with the
+- **Network.** Four HTTPS requests to `api.monkeytype.com`, each with the
   header `Authorization: ApeKey <key>`: `GET /users/streak`, `GET
-  /users/currentTestActivity` and `GET /results/last`. `/results` is never
-  requested because an Ape Key only allows 30 calls per day for it. Every tick
-  asks `/users/streak` first; the other two run only when a new result or a new
-  UTC day can change the answer, so an idle bar costs one request per interval
-  instead of three. Nothing is sent anywhere else.
+  /users/currentTestActivity`, `GET /users/profile` (best-effort username
+  auto-detection) and `GET /results/last`. The profile request only runs during
+  a full refresh, not during idle ticks; the other three are paced by the
+  refresh interval and rate-limit backoff. Nothing is sent anywhere else.
 - **Files.** The last payload is written to `activity.json` in this plugin's
   data directory (`<Noctalia data dir>/plugins/data/faminec/monkeytype-activity/`)
   and read back at start, so the panel and the widget render before the first
@@ -105,6 +104,15 @@ clock.
 - **Troubleshooting.** `471` means the key exists but the `active` toggle is off.
   `470`/`472` mean the key is unknown or malformed. The panel names the case and
   keeps rendering cached data when it has any.
+
+- **View selector.** The panel offers a view switcher: `rolling` (last 12 months)
+  or a full calendar year from your data. When a year is selected, the view
+  total and streak metrics use that year's data. If the year view cannot be
+  built from old cached data, it silently falls back to the rolling 12-month view.
+- **Auto-detected username.** If `profile_username` is left empty, the panel
+  attempts to fetch the username from the `/users/profile` endpoint on full
+  refresh. This is best-effort: if the API returns a name, it is used; otherwise
+  the empty setting is kept and the button uses the site URL.
 
 ## Development
 

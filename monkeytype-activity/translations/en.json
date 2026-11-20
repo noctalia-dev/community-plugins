@@ -30,7 +30,12 @@
     "preparing": "Preparing interactive calendar…",
     "title": "MonkeyType Activity",
     "window_total": "{count} tests in the last year",
-    "window_total_named": "{username} · {count} tests in the last year"
+    "window_total_named": "{username} · {count} tests in the last year",
+    "less": "Less",
+    "more": "More",
+    "last_12_months": "last 12 months",
+    "range_last_12_months": "the last 12 months",
+    "view_total": "{count} tests in {range}"
   },
   "plugin": {
     "description": "A native MonkeyType practice calendar for your Noctalia bar.",
@@ -63,8 +68,8 @@
         "label": "Show today's tests"
       },
       "show_year_total": {
-        "description": "Show the number of tests in the calendar window when no day is selected.",
-        "label": "Show yearly total"
+        "description": "Show the total number of tests for the selected view above the calendar.",
+        "label": "Show view total"
       }
     },
     "profile_username": {

@@ -7,8 +7,15 @@ local Settings = require("./lib/settings.luau")
 local data = noctalia.state.get("data")
 local status = noctalia.state.get("status") or "loading"
 local stale = noctalia.state.get("stale") == true
+local open = false
+local selectedView = "rolling"
+local hoveredKey = nil
+local dayInfoByKey = {}
+local keyToPos = {}
+
 local cachedHeatmap = nil
 local cachedCalendar = nil
+local cachedViewKey = nil
 local gridColumns = {}
 local gridLevels = {}
 local gridDetails = {}
@@ -16,9 +23,11 @@ local gridWeek = 1
 local gridWeekCount = 0
 local gridPreparingDay = 1
 local gridReady = false
-local open = false
+local activeViewData = nil
+
 local tr = noctalia.tr
 local trp = noctalia.trp
+
 local showToday = Settings.panelElementVisible(noctalia.getConfig("show_today"))
 local showCurrentStreak = Settings.panelElementVisible(noctalia.getConfig("show_current_streak"))
 local showBestStreak = Settings.panelElementVisible(noctalia.getConfig("show_best_streak"))
@@ -26,16 +35,28 @@ local showYearTotal = Settings.panelElementVisible(noctalia.getConfig("show_year
 local showLastTest = Settings.panelElementVisible(noctalia.getConfig("show_last_test"))
 local showProfileButton = Settings.panelElementVisible(noctalia.getConfig("show_profile_button"))
 local calendarExpanded = Settings.calendarExpanded(showToday, showCurrentStreak, showBestStreak)
-local calendarCellWidth = 10
-local calendarCellHeight = 12
-local calendarColumnGap = 1
-local calendarRowGap = calendarExpanded and 4 or 3
-local calendarHeaderHeight = calendarExpanded and 14 or 12
-local weekdayLabelFontSize = calendarExpanded and 12 or 11
+
+-- Slightly larger cells, and one minimalist weekday label so the grid breathes.
+local calendarCellWidth = 11
+local calendarCellHeight = 13
+local calendarColumnGap = 2
+local calendarRowGap = 3
+local calendarHeaderHeight = 14
+local weekdayLabelFontSize = 11
+local weekdayLabelWidth = 28
 local weeksPerTick = 2
 local siteUrl = "https://monkeytype.com"
-local username = Settings.username(noctalia.getConfig("profile_username"))
-local profileUrl = Monkeytype.profileUrl(username)
+
+local function effectiveUsername()
+  if data ~= nil and type(data.username) == "string" and data.username ~= "" then
+    return data.username
+  end
+  return Settings.username(noctalia.getConfig("profile_username"))
+end
+
+local function profileUrl()
+  return Monkeytype.profileUrl(effectiveUsername())
+end
 
 local function hasApeKey()
   return Settings.hasApeKey(noctalia.getConfig("ape_key"))
@@ -53,16 +74,31 @@ local function splitTabs(value)
   return fields
 end
 
-local function resetGrid(source)
+local function resetGrid()
   cachedHeatmap = nil
   cachedCalendar = nil
+  cachedViewKey = nil
   gridColumns = {}
   gridLevels = {}
   gridDetails = {}
+  dayInfoByKey = {}
+  keyToPos = {}
   gridWeek = 1
   gridPreparingDay = 1
-  gridReady = source ~= nil and type(source.rows) == "table"
   gridWeekCount = 0
+  gridReady = activeViewData ~= nil and type(activeViewData.rows) == "table"
+end
+
+local function resolveView()
+  if data == nil then
+    activeViewData = nil
+    return
+  end
+  activeViewData = Activity.buildView(data, selectedView)
+  if activeViewData ~= nil and activeViewData.view ~= nil then
+    -- If a year view could not be built (old cache), fall back gracefully.
+    selectedView = activeViewData.view
+  end
 end
 
 local function detailDate(day, week)
@@ -75,8 +111,6 @@ local function formatDate(pattern, date)
   if timestamp == nil then
     return ""
   end
-  -- The timestamp is a UTC noon, so it has to be read back in UTC: formatting
-  -- it in local time prints the next day's name past UTC+12.
   return noctalia.formatTime(pattern, timestamp, "UTC")
 end
 
@@ -139,47 +173,140 @@ local function buildMonthHeader()
   end
   appendSegment()
 
-  return ui.row({ gap = calendarColumnGap, align = "center" }, segments)
+  return ui.row({ gap = calendarColumnGap, align = "start" }, segments)
 end
 
 local function buildWeekdayLabels()
+  local labeled = { [2] = true, [4] = true, [6] = true }
   local labels = {}
   for day = 1, 7 do
-    local date = (day == 2 or day == 4 or day == 6) and representativeDateForDay(day) or nil
+    local date = labeled[day] and representativeDateForDay(day) or nil
     table.insert(labels, ui.column({
-      width = 30,
+      width = weekdayLabelWidth,
       height = calendarCellHeight,
-      align = "end",
+      align = "center",
       justify = "center",
     }, {
       ui.label({
         text = date ~= nil and formatDate("%a", date) or "",
         fontSize = weekdayLabelFontSize,
         color = "on_surface_variant",
-        textAlign = "end",
+        textAlign = "center",
       }),
     }))
   end
-  return ui.column({ gap = calendarRowGap, align = "end" }, labels)
+  return ui.column({ gap = calendarRowGap, align = "center" }, labels)
 end
 
--- The seven rows are parsed in one tick (cheap string work), then the week
--- columns are built a few at a time: every callback stays small while a cached
--- calendar is still on screen within about half a second.
 local function prepareGridRows()
-  if not gridReady or data == nil or gridPreparingDay > 7 then
+  if not gridReady or activeViewData == nil or gridPreparingDay > 7 then
     return
   end
 
   while gridPreparingDay <= 7 do
     local day = gridPreparingDay
-    gridLevels[day] = Activity.rowLevels(data.rows[day])
-    gridDetails[day] = splitTabs((data.details or {})[day])
+    gridLevels[day] = Activity.rowLevels(activeViewData.rows[day])
+    gridDetails[day] = splitTabs((activeViewData.details or {})[day])
     if #gridLevels[day] > gridWeekCount then
       gridWeekCount = #gridLevels[day]
     end
     gridPreparingDay = gridPreparingDay + 1
   end
+end
+
+local function buildLegend()
+  local swatches = {}
+  for level = 0, 4 do
+    table.insert(swatches, ui.box({
+      width = calendarCellWidth,
+      height = calendarCellHeight,
+      radius = 2,
+      fill = Activity.color(level),
+    }))
+  end
+  return ui.row({ gap = 6, align = "center" }, {
+    ui.label({ text = tr("panel.less"), fontSize = 10, color = "on_surface_variant" }),
+    ui.row({ gap = 3, align = "center" }, swatches),
+    ui.label({ text = tr("panel.more"), fontSize = 10, color = "on_surface_variant" }),
+  })
+end
+
+local function buildWeekColumn(week)
+  local cells = {}
+  for day = 1, 7 do
+    local rawDetail = (gridDetails[day] or {})[week] or ""
+    local date, countText = string.match(rawDetail, "^([^|]+)|(%d+)$")
+    if date ~= nil then
+      local count = tonumber(countText) or 0
+      local key = "day-" .. date
+      dayInfoByKey[key] = { date = date, count = count }
+      keyToPos[key] = { week = week, day = day }
+      local hovered = hoveredKey == key
+      table.insert(cells, ui.box({
+        key = key,
+        fill = Activity.color((gridLevels[day] or {})[week] or 0),
+        radius = 2,
+        width = calendarCellWidth,
+        height = calendarCellHeight,
+        borderWidth = 1,
+        border = hovered and "on_surface_variant" or "on_surface/0",
+        onHover = "onDayHover",
+        tooltip = trp("panel.day_total", count, { date = formatDate("%Y-%m-%d", date), count = count }),
+      }))
+    else
+      table.insert(cells, ui.box({
+        width = calendarCellWidth,
+        height = calendarCellHeight,
+        fill = "on_surface/0",
+        borderWidth = 1,
+        border = "on_surface/0",
+      }))
+    end
+  end
+  return ui.column({ key = "week-" .. tostring(week), gap = calendarRowGap, align = "start" }, cells)
+end
+
+local function assembleCalendar()
+  cachedHeatmap = ui.row({ gap = calendarColumnGap, align = "start" }, gridColumns)
+  local gridBlock = ui.column({ gap = 6, align = "start" }, {
+    buildMonthHeader(),
+    cachedHeatmap,
+  })
+  local rightEdge = gridWeekCount * (calendarCellWidth + calendarColumnGap) - calendarColumnGap
+  cachedCalendar = ui.column({ gap = 8, align = "start" }, {
+    ui.row({ gap = 8, align = "end" }, {
+      buildWeekdayLabels(),
+      gridBlock,
+    }),
+    ui.row({ width = weekdayLabelWidth + 8 + rightEdge, justify = "end" }, {
+      buildLegend(),
+    }),
+  })
+  cachedViewKey = selectedView
+end
+
+local function buildGridImmediate()
+  resolveView()
+  resetGrid()
+  if not gridReady then
+    return
+  end
+  while gridPreparingDay <= 7 do
+    local day = gridPreparingDay
+    gridLevels[day] = Activity.rowLevels(activeViewData.rows[day])
+    gridDetails[day] = splitTabs((activeViewData.details or {})[day])
+    if #gridLevels[day] > gridWeekCount then
+      gridWeekCount = #gridLevels[day]
+    end
+    gridPreparingDay = gridPreparingDay + 1
+  end
+  gridWeek = 1
+  gridColumns = {}
+  while gridWeek <= gridWeekCount do
+    table.insert(gridColumns, buildWeekColumn(gridWeek))
+    gridWeek = gridWeek + 1
+  end
+  assembleCalendar()
 end
 
 local function prepareGridColumns()
@@ -189,77 +316,81 @@ local function prepareGridColumns()
 
   local lastWeek = math.min(gridWeek + weeksPerTick - 1, gridWeekCount)
   while gridWeek <= lastWeek do
-    local cells = {}
-    for day = 1, 7 do
-      local rawDetail = gridDetails[day][gridWeek] or ""
-      local date, countText = string.match(rawDetail, "^([^|]+)|(%d+)$")
-      if date ~= nil then
-        local count = tonumber(countText) or 0
-        table.insert(cells, ui.box({
-          key = "day-" .. date,
-          fill = Activity.color(gridLevels[day][gridWeek]),
-          radius = 2,
-          width = calendarCellWidth,
-          height = calendarCellHeight,
-          -- A native tooltip per day: re-rendering the tree from a hover
-          -- callback replaces the node under the pointer and kills the hover.
-          tooltip = trp("panel.day_total", count, { date = formatDate("%Y-%m-%d", date), count = count }),
-        }))
-      else
-        -- A column starts on Sunday, so the leading week is short: an empty
-        -- slot keeps every later cell on its weekday row.
-        table.insert(cells, ui.box({
-          width = calendarCellWidth,
-          height = calendarCellHeight,
-          fill = "on_surface/0",
-        }))
-      end
-    end
-    table.insert(gridColumns, ui.column({ key = "week-" .. tostring(gridWeek), gap = calendarRowGap, align = "center" }, cells))
+    table.insert(gridColumns, buildWeekColumn(gridWeek))
     gridWeek = gridWeek + 1
   end
 
   if gridWeek > gridWeekCount then
-    cachedHeatmap = ui.row({ gap = calendarColumnGap, align = "center" }, gridColumns)
-    cachedCalendar = ui.row({ gap = 10, align = "end", justify = "center" }, {
-      buildWeekdayLabels(),
-      ui.column({ gap = 6, align = "start" }, {
-        buildMonthHeader(),
-        cachedHeatmap,
-      }),
-    })
+    assembleCalendar()
   end
 end
 
-resetGrid(data)
-
-local function activityBlocks(filled, total)
-  local blocks = {}
-  for index = 1, total do
-    table.insert(blocks, ui.box({
-      width = 9,
-      height = 9,
-      radius = 2,
-      fill = index <= filled and "primary" or "surface_container",
-    }))
+local function viewTotalText()
+  if not showYearTotal or activeViewData == nil then
+    return ""
   end
-  return ui.row({ gap = 3, align = "center", justify = "center" }, blocks)
+  local label
+  if selectedView == "rolling" then
+    label = tr("panel.range_last_12_months")
+  else
+    label = selectedView
+  end
+  return tr("panel.view_total", { count = activeViewData.windowTotal, range = label })
 end
+
+local function buildViewSelector()
+  local years = Activity.availableYears(data and data.counts, data and data.lastTimestamp)
+  local options = { "rolling" }
+  for _, y in ipairs(years) do
+    table.insert(options, y)
+  end
+
+  local total = viewTotalText()
+  local children = {}
+
+  if #options > 1 then
+    local buttons = {}
+    for _, opt in ipairs(options) do
+      local value = opt
+      local isSelected = selectedView == value
+      local text = value == "rolling" and tr("panel.last_12_months") or value
+      table.insert(buttons, ui.button({
+        key = "view-" .. value,
+        text = text,
+        variant = isSelected and "primary" or "ghost",
+        controlSize = "sm",
+        onClick = function()
+          onViewClicked(value)
+        end,
+      }))
+    end
+    table.insert(children, ui.row({ gap = 4, align = "center" }, buttons))
+  else
+    -- Single view: keep the row compact when there is nothing to switch.
+    table.insert(children, ui.spacer({ width = 0 }))
+  end
+
+  if total ~= "" then
+    table.insert(children, ui.spacer({ flexGrow = 1 }))
+    table.insert(children, ui.label({ text = total, fontSize = 11, color = "on_surface_variant", textAlign = "end" }))
+  end
+
+  return ui.row({ gap = 6, align = "center" }, children)
+end
+
+resolveView()
+resetGrid()
 
 local function metric(label, value, visual)
-  return ui.column({ gap = 6, align = "center", flexGrow = 1 }, {
+  return ui.column({ gap = 8, align = "center", flexGrow = 1 }, {
     ui.label({ text = label, fontSize = 12, color = "on_surface_variant" }),
     ui.label({ text = tostring(value), fontSize = 25, fontWeight = "bold" }),
     visual,
   })
 end
 
--- Second line above the calendar: only meaningful once there is data, since
--- the empty state already names the problem.
 local function statusText()
   if data == nil then
-    -- The empty state already names the problem; a second identical line above
-    -- it only adds noise.
     return ""
   end
 
@@ -288,7 +419,6 @@ local function statusText()
   return stale and tr("status.stale") or ""
 end
 
--- Headline of the empty state, matching why there is nothing to draw.
 local function emptyStateText()
   if data ~= nil then
     return tr("panel.preparing")
@@ -413,15 +543,19 @@ function render()
       ui.row({ gap = 10, align = "center", justify = "center" }, actions),
     }))
   else
-    table.insert(body, ui.row({ justify = "center", align = "center" }, { cachedCalendar }))
+    table.insert(body, buildViewSelector())
+    -- Keep the calendar slightly off the right edge instead of flush-centered.
+    table.insert(body, ui.row({ justify = "start", align = "start" }, {
+      cachedCalendar,
+      ui.spacer({ width = 8 }),
+    }))
 
-    local selectedText = showYearTotal
-        and (username ~= nil
-          and tr("panel.window_total_named", { username = username, count = data.windowTotal })
-          or tr("panel.window_total", { count = data.windowTotal }))
-      or ""
-    table.insert(body, ui.label({ text = selectedText, height = 14, fontSize = 11, color = "on_surface_variant", textAlign = "center" }))
-    table.insert(body, ui.label({ text = refreshSchedule(), height = 12, fontSize = 10, color = "on_surface_variant", textAlign = "center" }))
+    local infoLine = refreshSchedule()
+    if hoveredKey ~= nil and dayInfoByKey[hoveredKey] ~= nil then
+      local d = dayInfoByKey[hoveredKey]
+      infoLine = trp("panel.day_total", d.count, { date = formatDate("%Y-%m-%d", d.date), count = d.count })
+    end
+    table.insert(body, ui.label({ text = infoLine, height = 12, fontSize = 10, color = hoveredKey ~= nil and "on_surface" or "on_surface_variant", textAlign = "center" }))
 
     if showLastTest then
       local lastTest = lastTestText()
@@ -430,74 +564,36 @@ function render()
       end
     end
 
-    local function progressBlocks(filled, total, blockWidth)
+    local function activityBlocks(filled, total)
       local blocks = {}
-      local w = blockWidth or 14
       for i = 1, total do
         table.insert(blocks, ui.box({
-          width = w,
-          height = 6,
-          radius = 3,
+          width = 9,
+          height = 9,
+          radius = 2,
           fill = i <= filled and "primary" or "surface_container",
         }))
       end
-      return ui.row({ gap = 4, align = "center", justify = "center" }, blocks)
+      return ui.row({ gap = 3, align = "center", justify = "center" }, blocks)
     end
 
-    local function streakMilestoneVisual(best)
-      local milestones = { 7, 14, 21, 30, 50, 75, 100, 150, 200, 365, 500, 1000 }
-      local goal = best + 1
-      for _, m in ipairs(milestones) do
-        if m > best then goal = m; break end
-      end
-      if goal <= best then goal = math.ceil((best + 1) / 500) * 500 end
-      local filled = math.min(5, math.max(0, math.floor((best / goal) * 5 + 0.5)))
-      if best >= goal then filled = 5 end
-      return ui.column({ gap = 4, align = "center" }, {
-        progressBlocks(filled, 5, 12),
-        ui.label({ text = "→ " .. tostring(goal) .. "d", fontSize = 10, color = "on_surface_variant" }),
-      })
-    end
-
-    local function yearVisual(total, activeDays)
-      -- Show consistency: active days out of the last 365 as a compact bar.
-      local active = activeDays or 0
-      local filled = math.min(5, math.max(0, math.floor((active / 365) * 5 + 0.5)))
-      local label = tostring(active) .. "/365 days"
-      return ui.column({ gap = 4, align = "center" }, {
-        progressBlocks(filled, 5, 12),
-        ui.label({ text = label, fontSize = 10, color = "on_surface_variant" }),
-      })
-    end
-
+    -- Bottom row keeps three core metrics; the view total lives above the grid.
     local metrics = {}
     if showToday then
-      table.insert(metrics, metric(tr("metric.today"), data.today, progressBlocks(data.today > 0 and 1 or 0, 1, 18)))
+      table.insert(metrics, metric(tr("metric.today"), data.today, activityBlocks(data.today > 0 and 1 or 0, 1)))
     end
     if showCurrentStreak then
       local s = data.currentStreak or 0
-      local filled = math.min(5, math.max(0, s > 0 and math.min(5, math.floor((s / 7) * 5 + 0.5)) or 0))
-      if s > 0 and filled == 0 then filled = 1 end
-      if s >= 7 then filled = 5 end
-      local sub = s >= 7 and "7+ day streak" or (s > 0 and tostring(s) .. " day" .. (s == 1 and "" or "s") or "no streak")
+      local shown = math.min(s, 12)
       table.insert(metrics, metric(
         tr("metric.current_streak"),
         s,
-        ui.column({ gap = 4, align = "center" }, {
-          progressBlocks(filled, 5, 12),
-          ui.label({ text = sub, fontSize = 10, color = "on_surface_variant" }),
-        })
+        activityBlocks(shown, math.max(1, shown))
       ))
     end
     if showBestStreak then
-      table.insert(metrics, metric(tr("metric.best_streak"), data.bestStreak, streakMilestoneVisual(data.bestStreak or 0)))
-    end
-    if showYearTotal then
-      table.insert(metrics, metric(
-        tr("metric.last_year"),
-        data.windowTotal,
-        yearVisual(data.windowTotal or 0, data.activeDays or 0)
-      ))
+      local b = data.bestStreak or 0
+      table.insert(metrics, metric(tr("metric.best_streak"), b, activityBlocks(math.min(b, 12), 12)))
     end
 
     if #metrics > 0 then
@@ -508,29 +604,30 @@ function render()
         end
         table.insert(metricChildren, item)
       end
+      table.insert(body, ui.spacer({ height = 4 }))
       table.insert(body, ui.separator({ thickness = 1, color = "outline_variant/0.35" }))
-      table.insert(body, ui.row({ gap = 14, align = "stretch" }, metricChildren))
+      table.insert(body, ui.spacer({ height = 2 }))
+      table.insert(body, ui.row({ gap = 14, align = "stretch", paddingV = 4 }, metricChildren))
     end
   end
 
   local centerReadyContent = calendarExpanded and data ~= nil and cachedCalendar ~= nil
   table.insert(root, ui.column({
-    gap = centerReadyContent and 8 or 12,
+    gap = centerReadyContent and 10 or 12,
     paddingH = 18,
-    paddingV = 14,
-    fill = "surface",
+    paddingV = 16,
     flexGrow = 1,
     align = "stretch",
-    -- An empty panel reads better centered than pinned to the top edge.
-    justify = (centerReadyContent or data == nil) and "center" or "start",
+    justify = "start",
   }, body))
 
+  local pUrl = profileUrl()
   if showProfileButton and hasApeKey()
     and status ~= "invalid_key" and status ~= "inactive_key" and status ~= "auth_error" then
     table.insert(root, ui.separator({ thickness = 1, color = "outline_variant/0.35" }))
-    table.insert(root, ui.row({ justify = "end", paddingH = 14, paddingV = 10 }, {
+    table.insert(root, ui.row({ justify = "end", paddingH = 14, paddingV = 8 }, {
       ui.button({
-        text = profileUrl ~= nil and tr("action.open_profile") or tr("action.open_site"),
+        text = pUrl ~= nil and tr("action.open_profile") or tr("action.open_site"),
         glyph = "external-link",
         variant = "outline",
         onClick = "onOpenProfile",
@@ -538,15 +635,82 @@ function render()
     }))
   end
 
-  panel.render(ui.column({ gap = 0, fill = "surface", flexGrow = 1, align = "stretch" }, root))
+  -- Transparent panel background so the shell's border/context shows through.
+  panel.render(ui.column({ gap = 0, flexGrow = 1, align = "stretch" }, root))
 end
 
+local function refreshHoveredColumns(oldKey, newKey)
+  if cachedHeatmap == nil or gridWeekCount == 0 then
+    return false
+  end
+
+  local weeks = {}
+  local function mark(k)
+    local pos = keyToPos[k]
+    if pos ~= nil and pos.week ~= nil then
+      weeks[pos.week] = true
+    end
+  end
+  mark(oldKey)
+  mark(newKey)
+
+  local changed = false
+  for week in pairs(weeks) do
+    if week >= 1 and week <= #gridColumns then
+      gridColumns[week] = buildWeekColumn(week)
+      changed = true
+    end
+  end
+
+  if changed then
+    assembleCalendar()
+  end
+  return changed
+end
+
+function onDayHover(hovered, key)
+  if hovered == "true" then
+    if hoveredKey ~= key then
+      local oldKey = hoveredKey
+      hoveredKey = key
+      if open and data ~= nil then
+        if not refreshHoveredColumns(oldKey, key) then
+          buildGridImmediate()
+        end
+        render()
+      end
+    end
+  elseif hoveredKey == key then
+    local oldKey = hoveredKey
+    hoveredKey = nil
+    if open and data ~= nil then
+      if not refreshHoveredColumns(oldKey, nil) then
+        buildGridImmediate()
+      end
+      render()
+    end
+  end
+end
+
+function onViewClicked(view)
+  if view == selectedView then
+    return
+  end
+  selectedView = view
+  hoveredKey = nil
+  if open and data ~= nil then
+    buildGridImmediate()
+    render()
+  else
+    resolveView()
+    resetGrid()
+  end
+end
 
 function onOpen(_context)
   open = true
+  resolveView()
   if data ~= nil and cachedHeatmap == nil then
-    -- Panels only receive fast ticks after explicitly opting into frame ticks.
-    -- This lets us build the native, hoverable cell tree in small steps.
     panel.setWantsSecondTicks(true)
     panel.setNeedsFrameTick(true)
   end
@@ -566,7 +730,7 @@ function onOpenSettings()
 end
 
 function onOpenProfile()
-  openUrl(profileUrl or siteUrl)
+  openUrl(profileUrl() or siteUrl)
 end
 
 function onOpenApeKeys()
@@ -576,7 +740,9 @@ end
 local function rerender(valueName, value)
   if valueName == "data" then
     data = value
-    resetGrid(data)
+    hoveredKey = nil
+    resolveView()
+    resetGrid()
     if open and data ~= nil then
       panel.setWantsSecondTicks(true)
       panel.setNeedsFrameTick(true)
@@ -616,8 +782,6 @@ function onFrameTick(_deltaMs)
 end
 
 function update()
-  -- Fallback for a compositor that coalesces frame callbacks while a panel is
-  -- attached. Frame ticks normally finish the grid in about half a second.
   advanceGrid()
 end
 

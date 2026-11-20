@@ -237,6 +237,194 @@ function Activity.build(counts, lastTimestamp)
   }
 end
 
+-- Years present in the rolling window (descending, newest first). A year counts
+-- as available when at least one day in that calendar year falls inside the
+-- window, so the selector only offers views the data can actually render.
+function Activity.availableYears(counts, lastTimestamp)
+  if type(counts) ~= "table" or type(lastTimestamp) ~= "number" or #counts == 0 then
+    return {}
+  end
+
+  local firstTimestamp = lastTimestamp - (#counts - 1) * SECONDS_PER_DAY
+  local firstYear = tonumber(os.date("!%Y", firstTimestamp))
+  local lastYear = tonumber(os.date("!%Y", lastTimestamp))
+  local years = {}
+  if firstYear == nil or lastYear == nil then
+    return years
+  end
+  for year = lastYear, firstYear, -1 do
+    table.insert(years, tostring(year))
+  end
+  return years
+end
+
+-- Build a heatmap for one full calendar year. Days outside the supplied rolling
+-- window render as empty (future days, or days before the account's history),
+-- so the grid keeps the familiar Jan-Dec shape while counts stay correct where
+-- data exists.
+function Activity.buildYear(year, counts, lastTimestamp)
+  local y = tonumber(year)
+  if y == nil or type(counts) ~= "table" or type(lastTimestamp) ~= "number" or #counts == 0 then
+    return nil
+  end
+
+  local yearStr = tostring(y)
+  local firstData = lastTimestamp - (#counts - 1) * SECONDS_PER_DAY
+
+  -- Collect the year days in order by walking the UTC calendar, staying on the
+  -- same midnight grid as the rolling window so indexes line up exactly.
+  local yearDays = {}
+  local yearDayTimestamps = {}
+  local todayStamp = os.time()
+  todayStamp = todayStamp - todayStamp % SECONDS_PER_DAY
+
+  -- Find the first day of this year that is on or after Jan 1 by scanning from
+  -- the earlier of firstData and a conservative anchor: step day by day through
+  -- the year range using the data grid.
+  local startSearch = firstData
+  -- Jan 1 of y is at most ~366 days before Dec 31 of y; but easier: find index
+  -- of any day in year y within our data, then walk back to Jan 1 equivalent.
+  -- Simpler: iterate every day in the data window and bucket by year.
+  local byYear = {}
+  for i = 1, #counts do
+    local ts = firstData + (i - 1) * SECONDS_PER_DAY
+    local d = os.date("!%Y-%m-%d", ts)
+    local dy = string.sub(d, 1, 4)
+    if byYear[dy] == nil then
+      byYear[dy] = {}
+    end
+    table.insert(byYear[dy], { ts = ts, count = counts[i] or 0, date = d })
+  end
+
+  if byYear[yearStr] == nil then
+    -- Year has no overlap with the data window; still build an empty year grid
+    -- so the selector can show it if requested, unless it's completely out of range.
+    -- Determine if this year is adjacent/reasonable: only build if within the
+    -- overall span covered by availableYears.
+    local firstYear = tonumber(os.date("!%Y", firstData))
+    local lastYear = tonumber(os.date("!%Y", lastTimestamp))
+    if firstYear == nil or lastYear == nil or y < firstYear or y > lastYear then
+      return nil
+    end
+  end
+
+  -- Build the full year by generating each calendar day Jan 1..Dec 31 in order.
+  -- Use known data where available; future days and days outside the window are 0.
+  local dataByDate = {}
+  local yearEntries = byYear[yearStr] or {}
+  for _, entry in ipairs(yearEntries) do
+    dataByDate[entry.date] = entry.count
+  end
+
+  local function dayOfYear(dateStr)
+    local yy, mm, dd = string.match(dateStr, "^(%d%d%d%d)%-(%d%d)%-(%d%d)$")
+    yy, mm, dd = tonumber(yy), tonumber(mm), tonumber(dd)
+    local months = { 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334 }
+    local doy = months[mm] + dd
+    local leap = (yy % 4 == 0 and (yy % 100 ~= 0 or yy % 400 == 0))
+    if leap and mm > 2 then
+      doy = doy + 1
+    end
+    return doy
+  end
+
+  local function daysInYearNum(yy)
+    local leap = (yy % 4 == 0 and (yy % 100 ~= 0 or yy % 400 == 0))
+    return leap and 366 or 365
+  end
+
+  -- Derive Jan 1 UTC midnight on the same grid as firstData.
+  local jan1Ts = nil
+  if #yearEntries > 0 then
+    local sample = yearEntries[1]
+    jan1Ts = sample.ts - (dayOfYear(sample.date) - 1) * SECONDS_PER_DAY
+  else
+    -- No data in this year; approximate Jan 1 on grid from firstData.
+    local fdDate = os.date("!%Y-%m-%d", firstData)
+    local fy = tonumber(string.sub(fdDate, 1, 4))
+    local fdJan1 = firstData - (dayOfYear(fdDate) - 1) * SECONDS_PER_DAY
+    jan1Ts = fdJan1
+    local cy = fy
+    while cy < y do
+      jan1Ts = jan1Ts + daysInYearNum(cy) * SECONDS_PER_DAY
+      cy = cy + 1
+    end
+    while cy > y do
+      cy = cy - 1
+      jan1Ts = jan1Ts - daysInYearNum(cy) * SECONDS_PER_DAY
+    end
+  end
+
+  local daysCount = daysInYearNum(y)
+  local dec31Ts = jan1Ts + (daysCount - 1) * SECONDS_PER_DAY
+
+  local yearCounts = {}
+  local yearTotal = 0
+  local activeDays = 0
+  for i = 1, daysCount do
+    local ts = jan1Ts + (i - 1) * SECONDS_PER_DAY
+    local dateStr = os.date("!%Y-%m-%d", ts)
+    local c = 0
+    if ts >= firstData and ts <= lastTimestamp and ts <= todayStamp then
+      c = dataByDate[dateStr] or 0
+    end
+    yearCounts[i] = c
+    yearTotal = yearTotal + c
+    if c > 0 then
+      activeDays = activeDays + 1
+    end
+  end
+
+  local built = Activity.build(yearCounts, dec31Ts)
+  built.windowTotal = yearTotal
+  built.activeDays = activeDays
+  built.year = yearStr
+  return built
+end
+
+-- Resolve the heatmap for the selected view. "rolling" is the default 12-month
+-- window; a numeric year string produces that calendar year from the same data.
+function Activity.buildView(data, view)
+  if type(data) ~= "table" then
+    return nil
+  end
+
+  local v = (type(view) == "string" and view ~= "") and view or "rolling"
+  if v == "rolling" then
+    return {
+      rows = data.rows,
+      details = data.details,
+      columns = data.columns,
+      thresholds = data.thresholds,
+      windowTotal = data.windowTotal,
+      firstDate = data.firstDate,
+      lastDate = data.lastDate,
+      activeDays = data.activeDays,
+      view = "rolling",
+    }
+  end
+
+  -- A year view needs the raw daily series, which newer caches carry.
+  local yearBuilt = Activity.buildYear(v, data.counts, data.lastTimestamp)
+  if yearBuilt ~= nil then
+    yearBuilt.view = v
+    return yearBuilt
+  end
+
+  -- Fallback for an old cache without raw counts: show the rolling window.
+  return {
+    rows = data.rows,
+    details = data.details,
+    columns = data.columns,
+    thresholds = data.thresholds,
+    windowTotal = data.windowTotal,
+    firstDate = data.firstDate,
+    lastDate = data.lastDate,
+    activeDays = data.activeDays,
+    view = "rolling",
+  }
+end
+
 -- Tests recorded on the current UTC day, mapped back through the window's last
 -- day. MonkeyType ends the window on today (UTC), so the last entry is normally
 -- the count for today; the offset still handles a payload from an earlier day.
@@ -379,6 +567,12 @@ function Activity.normalize(parts)
     bestStreak = localBest
   end
 
+  -- Preserve an auto-detected username when the refresh did not supply one.
+  local username = parts.username
+  if type(username) ~= "string" or username == "" then
+    username = previous.username
+  end
+
   return {
     rows = built.rows,
     details = built.details,
@@ -400,6 +594,11 @@ function Activity.normalize(parts)
     lastMode2 = lastResult.lastMode2,
     lastTestAt = lastResult.lastTestAt,
     fetchedAt = parts.now or os.time(),
+    -- Raw series and anchor: let the panel rebuild year/rolling views without
+    -- another API call. Stored as-is (a few hundred numbers).
+    counts = counts,
+    lastTimestamp = lastTimestamp,
+    username = username,
   }
 end
 
