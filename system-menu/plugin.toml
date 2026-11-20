@@ -1,0 +1,132 @@
+id = "ajsem1337/system-menu"
+name = "System Menu"
+version = "2.0.1"
+plugin_api = 43
+author = "ajsem1337"
+license = "MIT"
+description = "Launch your choice of package manager, system monitor and terminal, with native system information."
+icon = "device-desktop"
+tags = ["bar", "panel", "system", "utility", "launcher"]
+dependencies = ["python3", "fastfetch"]
+
+[[setting]]
+key = "terminal"
+type = "string"
+label_key = "settings.terminal.label"
+description_key = "settings.terminal.description"
+default = "kitty"
+
+[[setting]]
+key = "show_terminal_arguments"
+type = "bool"
+label_key = "settings.show_terminal_arguments.label"
+description_key = "settings.show_terminal_arguments.description"
+default = false
+
+[[setting]]
+key = "terminal_args"
+type = "string_list"
+label_key = "settings.terminal_args.label"
+description_key = "settings.terminal_args.description"
+default = []
+visible_when = { key = "show_terminal_arguments", values = ["true"] }
+
+[[setting]]
+key = "terminal_exec_args"
+type = "string_list"
+label_key = "settings.terminal_exec_args.label"
+description_key = "settings.terminal_exec_args.description"
+default = ["-e"]
+visible_when = { key = "show_terminal_arguments", values = ["true"] }
+
+[[setting]]
+key = "terminal_command_format"
+type = "select"
+label_key = "settings.terminal_command_format.label"
+description_key = "settings.terminal_command_format.description"
+default = "argv"
+options = [
+  { value = "argv", label_key = "command_formats.argv" },
+  { value = "quoted", label_key = "command_formats.quoted" },
+]
+visible_when = { key = "show_terminal_arguments", values = ["true"] }
+
+[[setting]]
+key = "packages_mode"
+type = "select"
+label_key = "settings.packages_mode.label"
+description_key = "settings.packages_mode.description"
+default = "desktop"
+options = [
+  { value = "direct", label_key = "launch_modes.direct" },
+  { value = "terminal", label_key = "launch_modes.terminal" },
+  { value = "desktop", label_key = "launch_modes.desktop" },
+]
+
+[[setting]]
+key = "packages_command"
+type = "string"
+label_key = "settings.packages_command.label"
+description_key = "settings.packages_command.description"
+default = ""
+
+[[setting]]
+key = "packages_args"
+type = "string_list"
+label_key = "settings.packages_args.label"
+description_key = "settings.packages_args.description"
+default = []
+visible_when = { key = "packages_mode", values = ["direct", "terminal"] }
+
+[[setting]]
+key = "monitor_mode"
+type = "select"
+label_key = "settings.monitor_mode.label"
+description_key = "settings.monitor_mode.description"
+default = "desktop"
+options = [
+  { value = "direct", label_key = "launch_modes.direct" },
+  { value = "terminal", label_key = "launch_modes.terminal" },
+  { value = "desktop", label_key = "launch_modes.desktop" },
+]
+
+[[setting]]
+key = "monitor_command"
+type = "string"
+label_key = "settings.monitor_command.label"
+description_key = "settings.monitor_command.description"
+default = ""
+
+[[setting]]
+key = "monitor_args"
+type = "string_list"
+label_key = "settings.monitor_args.label"
+description_key = "settings.monitor_args.description"
+default = []
+visible_when = { key = "monitor_mode", values = ["direct", "terminal"] }
+
+[[widget]]
+id = "button"
+entry = "widget.luau"
+
+[[panel]]
+id = "menu"
+entry = "menu.luau"
+width = 300
+height = "content"
+max_height = 340
+placement = "attached"
+position = "auto"
+open_near_click = true
+
+[[panel]]
+id = "about"
+entry = "about.luau"
+width = 640
+height = 740
+placement = "floating"
+position = "center"
+open_near_click = false
+persistent = true
+dismiss_on_outside_click = false
+keyboard_focus = "on_demand"
