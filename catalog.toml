@@ -1966,8 +1966,8 @@ rev = "2ca4148d6365b2f1226917407d1c6db26c3f469a"
 [[plugin]]
 id = "piero-93/battery-power-management"
 name = "Battery & Power Management"
-version = "1.0.1"
-updated_at = 1792983494
+version = "1.1.0"
+updated_at = 1795207982
 added_at = 1786969595
 author = "piero-93"
 license = "GPL-3.0"
