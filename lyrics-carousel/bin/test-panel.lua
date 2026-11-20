@@ -1445,6 +1445,20 @@ if pinToggle ~= nil then
   pinToggle.props.onChange(false)
 end
 
+-- 31. Optional rows do not leave empty placeholder columns -------------------
+--
+-- An empty column is still laid out: the parent adds its gap before and after
+-- it, which made the space before the hints row visibly larger.
+
+onOpen()
+local emptyColumns = 0
+for _, node in ipairs(collect(tree, "column")) do
+  if #(node.children or {}) == 0 then
+    emptyColumns = emptyColumns + 1
+  end
+end
+eq(emptyColumns, 0, "no empty placeholder columns between the rows")
+
 -- Result ------------------------------------------------------------------
 
 if failures > 0 then
