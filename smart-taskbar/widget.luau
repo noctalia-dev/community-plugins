@@ -16,6 +16,16 @@ local scheduledInterval,reportedProblem = nil,nil
 local cachedLayout, layoutConfig, layoutGroups, layoutOffset, layoutVertical
 local render, refresh, subscribe, handleHover
 local zoomFrom, zoomStart = {}, nil
+local lastSignature = nil
+-- Compact visible-state fingerprint; identical event snapshots then skip a rebuild.
+local function signature()
+  local parts = { tostring(offset), expanded and "1" or "0", backend.connected and "1" or "0" }
+  for i, group in ipairs(groups) do
+    parts[#parts + 1] = table.concat({ group.key, #group.windows, group.focused and 1 or 0,
+      group.urgent and 1 or 0, group.minimized and 1 or 0, group.title or "", group.iconId or "" }, "\1")
+  end
+  return table.concat(parts, "\2")
+end
 
 local function sameValue(a, b)
   if type(a) ~= type(b) then return false end
@@ -255,7 +265,9 @@ refresh = function(reveal)
     end
   end
   lastFocus = state.lastFocus
-  dirty = true
+  local current = signature()
+  if reveal or current ~= lastSignature then dirty = true end
+  lastSignature = current
 end
 local function navigate(delta)
   local layout = getLayout()
