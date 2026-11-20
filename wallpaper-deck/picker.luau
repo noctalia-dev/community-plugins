@@ -195,6 +195,10 @@ local hoveredDeckKeys: { [string]: boolean } = {}
 local isSearchBoxHovered = false
 local currentMode = "local" -- "local" | "favorites" | "wallhaven"
 local pendingStepAfterAppend = false
+-- Held-key navigation. The shell swallows the compositor's auto-repeat and
+-- delivers exactly one press per physical press, so holding Left/Right (or
+-- h/l) has to be turned into repeated steps here, from the frame tick.
+local navRepeat = { dir = 0, elapsedMs = 0, repeatMs = 0, delayMs = 400, intervalMs = 120 }
 local render: () -> ()
 local triggerPreview -- forward declaration
 local toggleCurrentFavorite -- forward declaration
@@ -681,7 +685,9 @@ local function scheduleSettle()
   -- Handled deterministically when spring animation completes in onFrameTick
 end
 
-local currentSort = "name_asc" -- "name_asc" | "name_desc" | "colour" | "newest" | "oldest"
+local defaultSortMode = noctalia.getConfig("default_sort_mode") or "name"
+local sortMap = { name = "name_asc", colour = "colour", newest = "newest" }
+local currentSort = sortMap[defaultSortMode] or "name_asc" -- "name_asc" | "name_desc" | "colour" | "newest" | "oldest"
 local searchQuery = ""
 -- Color-search state packed into one table to stay within Luau's 200-local limit
 CSF = { color = nil, hueKey = nil, searching = false, token = 0 }
@@ -2454,6 +2460,27 @@ local function selectCardIndex(newIdx: number)
   end
 end
 
+-- One step of the ribbon: dir < 0 goes left, dir > 0 goes right. In
+-- Wallhaven mode a step past the last card asks for the next page, so holding
+-- the key at the end of the list keeps pulling pages in.
+local function stepDeck(dir: number): boolean
+  if #displayedItems == 0 then return false end
+  if dir < 0 then
+    if selectedIdx > 1 then
+      selectCardIndex(selectedIdx - 1)
+      return true
+    end
+    return false
+  end
+  if selectedIdx < #displayedItems then
+    selectCardIndex(selectedIdx + 1)
+    return true
+  end
+  pendingStepAfterAppend = true
+  checkWallhavenLazyLoad()
+  return false
+end
+
 local function doApplyWallpaperOnly(item: any, targetOut: string?)
   if not item then return end
 
@@ -2660,9 +2687,37 @@ local function cycleMode()
 end
 
 local function pickRandom()
-  if #displayedItems > 0 then
-    selectCardIndex(math.random(1, #displayedItems))
+  local count = #displayedItems
+  if count == 0 then return end
+
+  local idx = math.random(1, count)
+  if count > 1 and idx == selectedIdx then
+    idx = (idx % count) + 1
   end
+
+  if isPeeking then
+    -- In peek mode the deck is hidden: jump straight to the chosen wallpaper
+    -- without animating through intermediate cards.
+    selectedIdx = idx
+    pendingStepAfterAppend = false
+    hiResQueue = {}
+    resetDeckAnimation(idx)
+    triggerPreview()
+    if currentMode ~= "wallhaven" then
+      onCardSettled()
+      local si = displayedItems[selectedIdx]
+      if si then
+        local bg = (si.path and si.path ~= "" and noctalia.fileExists(si.path)) and si.path or (si.preview or si.thumb or "")
+        if bg ~= "" and bg ~= displayedBgPath then
+          setDisplayedBackground(bg)
+        end
+      end
+    end
+    render()
+    return
+  end
+
+  selectCardIndex(idx)
 end
 
 -- Renders the full-screen width Spectrum Ribbon below the header
@@ -3968,6 +4023,7 @@ function render()
 
   local activeBg = ""
   if activeItem then
+    local isSettled = (not animateSelected) or (animatedPos == selectedIdx)
     if currentMode == "wallhaven" then
       if hiResPreview then
         local hiRes = getWallhavenHiResCached(activeItem)
@@ -3980,17 +4036,38 @@ function render()
         activeBg = requestWallhavenThumb(activeItem, true) or ""
       end
     else
-      local isSettled = (not animateSelected) or (animatedPos == selectedIdx)
-      local fullPath = (activeItem.path and activeItem.path ~= "" and noctalia.fileExists(activeItem.path)) and activeItem.path or nil
-      local thumbPath = (activeItem.thumb and activeItem.thumb ~= "" and noctalia.fileExists(activeItem.thumb)) and activeItem.thumb
-        or (activeItem.preview and activeItem.preview ~= "" and noctalia.fileExists(activeItem.preview)) and activeItem.preview
-        or fullPath
-        or ""
+      local isSettled = (not animateSelected) or (math.abs(animatedPos - selectedIdx) < 0.01)
 
-      if isSettled or isPeeking then
-        activeBg = fullPath or thumbPath
+      if activeItem._bgFullPath == nil then
+        activeItem._bgFullPath = (activeItem.path and activeItem.path ~= "" and noctalia.fileExists(activeItem.path)) and activeItem.path or false
+      end
+      if activeItem._bgBlurPath == nil then
+        activeItem._bgBlurPath = (activeItem.blur and activeItem.blur ~= "" and noctalia.fileExists(activeItem.blur)) and activeItem.blur or false
+      end
+      if activeItem._bgThumbPath == nil then
+        local tp = nil
+        if activeItem.thumb and activeItem.thumb ~= "" and noctalia.fileExists(activeItem.thumb) then
+          tp = activeItem.thumb
+        elseif activeItem.preview and activeItem.preview ~= "" and noctalia.fileExists(activeItem.preview) then
+          tp = activeItem.preview
+        end
+        activeItem._bgThumbPath = tp or false
+      end
+
+      local fullPath = activeItem._bgFullPath or nil
+      local blurPath = activeItem._bgBlurPath or nil
+      local thumbPath = activeItem._bgThumbPath or nil
+
+      local navHeld = (navRepeat and navRepeat.dir ~= 0)
+      if isPeeking or (isSettled and not navHeld) then
+        -- Show the full-resolution wallpaper when idle/peeking. Keep the blurred
+        -- preview while a nav key is held so a briefly-settled frame between
+        -- repeats doesn't flash the sharp next wallpaper.
+        activeBg = fullPath or blurPath or thumbPath or ""
       else
-        activeBg = thumbPath
+        -- While the deck is moving (or key-held between repeats), use the
+        -- pre-blurred preview: small and fast to decode, no pixelation.
+        activeBg = blurPath or thumbPath or fullPath or ""
       end
     end
   end
@@ -4727,12 +4804,12 @@ function render()
             }),
           }) or ui.spacer({ width = 1, height = 1 }),
 
-          -- Bottom: Arched Coverflow Card Deck Row (outer gap=0 wrapper eliminates spacer gap jump)
+          -- Bottom: Arched Coverflow Card Deck Row (centered in panel)
           ui.row({
             key = "deck_cards_outer_row",
             width = panelW,
             align = "end",
-            justify = "start",
+            justify = "center",
             gap = 0,
             height = maxDeckH,
             paddingV = 0,
@@ -4742,15 +4819,10 @@ function render()
             onHover = "onDeckContainerHover",
             onClick = dismissSearch,
           }, {
-            (leftSpacerWidth > 0) and ui.box({
-              key = "deck_left_spacer",
-              width = leftSpacerWidth,
-              height = 1,
-            }) or nil,
             ui.row({
               key = "deck_cards_row",
               align = "end",
-              justify = "start",
+              justify = "center",
               gap = gap,
               height = maxDeckH,
               paddingV = 0,
@@ -5080,6 +5152,22 @@ function onFrameTick(deltaMs: any)
     end
     lastFrameMs = nowMs
 
+    -- Held Left/Right: replay the auto-repeat the shell never delivers.
+    if navRepeat.dir ~= 0 then
+      navRepeat.elapsedMs = navRepeat.elapsedMs + dt * 1000.0
+      local guard = 0
+      while navRepeat.elapsedMs >= navRepeat.delayMs + navRepeat.repeatMs and guard < 4 do
+        navRepeat.repeatMs = navRepeat.repeatMs + navRepeat.intervalMs
+        -- A finite deck stops at its ends; Wallhaven keeps asking for the next
+        -- page. Disarming here also bounds a release the shell never delivers.
+        if not stepDeck(navRepeat.dir) and currentMode ~= "wallhaven" then
+          navRepeat.dir = 0
+          break
+        end
+        guard = guard + 1
+      end
+    end
+
     local isSpringActive = false
     if not animateSelected then
       animatedPos = selectedIdx
@@ -5112,7 +5200,7 @@ function onFrameTick(deltaMs: any)
       end
     end
 
-    panel.setNeedsFrameTick(isSpringActive)
+    panel.setNeedsFrameTick(isSpringActive or navRepeat.dir ~= 0)
     render()
   end)
 
@@ -5125,10 +5213,23 @@ function onFrameTick(deltaMs: any)
 end
 
 function onKey(chord: string, pressed: boolean)
-  if not pressed then return end
-
   local chordLower = string.lower(chord)
   local isReturn = (chordLower == "return" or chordLower == "enter" or chordLower == "kp_enter")
+
+  -- Release of a navigation key: stop repeating. Checked before the press-only
+  -- early return, otherwise a held key would keep stepping forever.
+  local navDir = 0
+  if chordLower == "left" or chordLower == "h" then
+    navDir = -1
+  elseif chordLower == "right" or chordLower == "l" then
+    navDir = 1
+  end
+  if not pressed then
+    if navDir ~= 0 and navRepeat.dir == navDir then
+      navRepeat.dir = 0
+    end
+    return
+  end
 
   -- Custom Themes modal intercepts Escape and Enter first
   if CT.isOpen then
@@ -5187,7 +5288,7 @@ function onKey(chord: string, pressed: boolean)
     end
   end
 
-  if chordLower == "escape" then
+  if chordLower == "escape" or chordLower == "esc" then
     if WH.catModalOpen then
       WH.catModalOpen = false
       render()
@@ -5214,7 +5315,7 @@ function onKey(chord: string, pressed: boolean)
       nativeScrollActive = true
       stopWheelListener()
     end
-    if not isDeckAreaHovered or isPeeking then return end
+    if isPeeking then return end
     unfocusSearch()
     if selectedIdx > 1 then
       selectCardIndex(selectedIdx - 1)
@@ -5225,7 +5326,7 @@ function onKey(chord: string, pressed: boolean)
       nativeScrollActive = true
       stopWheelListener()
     end
-    if not isDeckAreaHovered or isPeeking then return end
+    if isPeeking then return end
     unfocusSearch()
     if selectedIdx < #displayedItems then
       selectCardIndex(selectedIdx + 1)
@@ -5247,19 +5348,14 @@ function onKey(chord: string, pressed: boolean)
     return
   end
 
-  if chordLower == "left" or chordLower == "h" then
+  if navDir ~= 0 then
     unfocusSearch()
-    if selectedIdx > 1 then
-      selectCardIndex(selectedIdx - 1)
-    end
-  elseif chordLower == "right" or chordLower == "l" then
-    unfocusSearch()
-    if selectedIdx < #displayedItems then
-      selectCardIndex(selectedIdx + 1)
-    else
-      pendingStepAfterAppend = true
-      checkWallhavenLazyLoad()
-    end
+    -- Step once immediately, then let the frame tick repeat it while held.
+    navRepeat.dir = navDir
+    navRepeat.elapsedMs = 0
+    navRepeat.repeatMs = 0
+    stepDeck(navDir)
+    panel.setNeedsFrameTick(true)
   elseif chordLower == "up" or chordLower == "k" or chordLower == "u" then
     unfocusSearch()
     local newIdx = math.max(1, selectedIdx - 5)
@@ -5334,7 +5430,7 @@ function onScroll(_axis: any, steps: any, _startsGesture: any)
     nativeScrollActive = true
     stopWheelListener()
   end
-  if not isDeckAreaHovered or isPeeking then return end
+  if isPeeking then return end
   unfocusSearch()
 
   local stepVal = tonumber(steps) or 0
@@ -5362,13 +5458,13 @@ end
 
 function onIpc(event: string, _payload: string?)
   if event == "prev" or event == "step_left" or event == "left" then
-    if not isPickerOpen or nativeScrollActive or not isDeckAreaHovered or isPeeking then return end
+    if not isPickerOpen or nativeScrollActive or isPeeking then return end
     unfocusSearch()
     if selectedIdx > 1 then
       selectCardIndex(selectedIdx - 1)
     end
   elseif event == "next" or event == "step_right" or event == "right" then
-    if not isPickerOpen or nativeScrollActive or not isDeckAreaHovered or isPeeking then return end
+    if not isPickerOpen or nativeScrollActive or isPeeking then return end
     unfocusSearch()
     if selectedIdx < #displayedItems then
       selectCardIndex(selectedIdx + 1)
@@ -5529,6 +5625,9 @@ noctalia.state.watch("thumb_update", function(update)
           it.thumb = update.thumb
           it.preview = update.thumb
           it._previewPath = update.thumb
+          if update.blur and update.blur ~= "" then
+            it.blur = update.blur
+          end
           it._validPath = nil  -- let CSF.renderBg recompute on next render
           if it.path == (displayedItems[selectedIdx] and displayedItems[selectedIdx].path) then
             displayedBgPath = ""  -- unblock setDisplayedBackground for active card
@@ -5544,6 +5643,9 @@ noctalia.state.watch("thumb_update", function(update)
           it.thumb = update.thumb
           it.preview = update.thumb
           it._previewPath = update.thumb
+          if update.blur and update.blur ~= "" then
+            it.blur = update.blur
+          end
           it._validPath = nil
           break
         end
@@ -5710,6 +5812,8 @@ function onClose()
   isDeckAreaHovered = false
   isSearchBoxHovered = false
   hoveredDeckKeys = {}
+  -- A key can still be down when the panel closes: never leave a repeat armed.
+  navRepeat.dir = 0
   stopWheelListener()
   if isPeeking then
     isPeeking = false

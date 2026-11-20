@@ -770,8 +770,19 @@ local function pumpThumbQueue(token: number, cache: { [string]: any }, deck: { a
     local p = item.path
     local key = hashKey(p)
     local cardThumb = THUMB_DIR .. "/" .. key .. "_card.webp"
+    local blurThumb = THUMB_DIR .. "/" .. key .. "_blur.webp"
 
     checkedInTick = checkedInTick + 1
+
+    local function publishThumbUpdate(includeCard: boolean)
+      cacheNeedsSave = true
+      noctalia.state.set("thumb_update", {
+        path = p,
+        thumb = cardThumb,
+        blur = noctalia.fileExists(blurThumb) and blurThumb or nil,
+        nonce = noctalia.nowMs(),
+      })
+    end
 
     if noctalia.fileExists(cardThumb) then
       item.thumb = cardThumb
@@ -779,22 +790,42 @@ local function pumpThumbQueue(token: number, cache: { [string]: any }, deck: { a
       if not cache[p] then cache[p] = {} end
       cache[p].thumb = cardThumb
       cache[p].preview = cardThumb
-      if checkedInTick >= MAX_CHECK_PER_TICK then
-        noctalia.runAsync({ "true" }, function()
+      if noctalia.fileExists(blurThumb) then
+        item.blur = blurThumb
+        cache[p].blur = blurThumb
+        if checkedInTick >= MAX_CHECK_PER_TICK then
+          noctalia.runAsync({ "true" }, function()
+            pumpThumbQueue(token, cache, deck)
+          end)
+          return
+        end
+      else
+        -- Migration: card exists but its blurred preview does not yet. Generate
+        -- it from the small card thumb (cheap) so the picker can crossfade to a
+        -- soft image instead of upscaling the sharp card.
+        thumbActive = thumbActive + 1
+        local blurArgv
+        if tool == "ffmpeg" then
+          blurArgv = { "ffmpeg", "-y", "-loglevel", "error", "-i", cardThumb, "-vf", "boxblur=24:3", "-q:v", "55", blurThumb }
+        else
+          blurArgv = { "magick", cardThumb, "-blur", "0x24", "-quality", "55", blurThumb }
+        end
+        noctalia.runAsync(blurArgv, function(res)
+          thumbActive = math.max(0, thumbActive - 1)
+          if token ~= scanToken then return end
+          if res and res.exitCode == 0 and noctalia.fileExists(blurThumb) then
+            item.blur = blurThumb
+            if not cache[p] then cache[p] = {} end
+            cache[p].blur = blurThumb
+            publishThumbUpdate(false)
+          end
           pumpThumbQueue(token, cache, deck)
         end)
-        return
       end
     else
       thumbActive = thumbActive + 1
-      local argv
-      if tool == "ffmpeg" then
-        argv = { "ffmpeg", "-y", "-loglevel", "error", "-i", p, "-vf", "scale=420:280:force_original_aspect_ratio=decrease", "-q:v", "78", cardThumb }
-      else
-        argv = { "magick", p, "-thumbnail", "420x280^", "-gravity", "center", "-extent", "420x280", "-quality", "78", cardThumb }
-      end
 
-      noctalia.runAsync(argv, function(res)
+      local function onThumbsDone(res: any)
         thumbActive = math.max(0, thumbActive - 1)
         if token ~= scanToken then return end
         if res and res.exitCode == 0 and noctalia.fileExists(cardThumb) then
@@ -805,15 +836,39 @@ local function pumpThumbQueue(token: number, cache: { [string]: any }, deck: { a
           cache[p].preview = cardThumb
           cache[p].mtime = item.mtime
           cache[p].size = item.size
-          cacheNeedsSave = true
-          noctalia.state.set("thumb_update", {
-            path = p,
-            thumb = cardThumb,
-            nonce = noctalia.nowMs(),
-          })
+          if noctalia.fileExists(blurThumb) then
+            item.blur = blurThumb
+            cache[p].blur = blurThumb
+          end
+          publishThumbUpdate(true)
         end
         pumpThumbQueue(token, cache, deck)
-      end)
+      end
+
+      if tool == "ffmpeg" then
+        -- One pass: sharp card for the deck + a blurred copy for the fullscreen
+        -- preview while the selection is moving.
+        local argv = {
+          "ffmpeg", "-y", "-loglevel", "error", "-i", p,
+          "-filter_complex",
+          "[0:v]scale=420:280:force_original_aspect_ratio=decrease,split=2[s][b];[b]boxblur=24:3[bl]",
+          "-map", "[s]", "-q:v", "78", cardThumb,
+          "-map", "[bl]", "-q:v", "55", blurThumb,
+        }
+        noctalia.runAsync(argv, onThumbsDone)
+      else
+        -- magick: generate the sharp card first, then blur it (small source).
+        local argv = { "magick", p, "-thumbnail", "420x280^", "-gravity", "center", "-extent", "420x280", "-quality", "78", cardThumb }
+        noctalia.runAsync(argv, function(res)
+          if res and res.exitCode == 0 and noctalia.fileExists(cardThumb) then
+            noctalia.runAsync({ "magick", cardThumb, "-blur", "0x24", "-quality", "55", blurThumb }, function()
+              onThumbsDone(res)
+            end)
+          else
+            onThumbsDone(res)
+          end
+        end)
+      end
     end
   end
 
@@ -970,6 +1025,7 @@ local function processScanOutput(stdout: string, dirs: {string}, primaryDir: str
               local hueKey = nil
               local thumb = nil
               local preview = nil
+              local blur = nil
               local resStr = nil
               local topLum = nil
               local isLight = nil
@@ -980,6 +1036,7 @@ local function processScanOutput(stdout: string, dirs: {string}, primaryDir: str
                 hueKey = cached.hueKey
                 thumb = cached.thumb
                 preview = cached.preview
+                blur = cached.blur
                 resStr = cached.res
                 topLum = cached.topLum
                 isLight = cached.isLight
@@ -990,17 +1047,25 @@ local function processScanOutput(stdout: string, dirs: {string}, primaryDir: str
                 hueKey = deckEntry.hueKey
                 thumb = deckEntry.thumb
                 preview = deckEntry.preview
+                blur = deckEntry.blur
                 topLum = deckEntry.topLum
                 isLight = deckEntry.isLight
               end
 
               -- Only do fileExists check if we have no thumb yet (avoids per-file syscall for known items)
               local effectiveThumb = (thumb and thumb ~= filePath and thumb) or nil
+              local effectiveBlur = (blur and blur ~= filePath and blur) or nil
+              local key = hashKey(filePath)
               if not effectiveThumb then
-                local key = hashKey(filePath)
                 local cardThumb = THUMB_DIR .. "/" .. key .. "_card.webp"
                 if noctalia.fileExists(cardThumb) then
                   effectiveThumb = cardThumb
+                end
+              end
+              if effectiveThumb and not effectiveBlur then
+                local blurThumb = THUMB_DIR .. "/" .. key .. "_blur.webp"
+                if noctalia.fileExists(blurThumb) then
+                  effectiveBlur = blurThumb
                 end
               end
 
@@ -1030,6 +1095,9 @@ local function processScanOutput(stdout: string, dirs: {string}, primaryDir: str
                 item.thumb = effectiveThumb
                 item.preview = effectiveThumb
               end
+              if effectiveBlur then
+                item.blur = effectiveBlur
+              end
               if resStr and resStr ~= "" then item.res = resStr end
               if isSubdir then
                 item.isSubdir = true
@@ -1037,7 +1105,7 @@ local function processScanOutput(stdout: string, dirs: {string}, primaryDir: str
               end
               table.insert(results, item)
 
-              if not effectiveThumb then
+              if not effectiveThumb or not effectiveBlur then
                 table.insert(thumbQueue, item)
               end
               if not hasRealColors then
