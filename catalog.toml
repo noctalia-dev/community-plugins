@@ -5731,8 +5731,8 @@ tags = ["bar", "panel", "service", "shortcut", "network", "privacy"]
 [[plugin]]
 id = "kaler/synced-lyrics"
 name = "Synced Lyrics"
-version = "1.1.4"
-updated_at = 1794666792
+version = "1.1.5"
+updated_at = 1795208034
 added_at = 1794237263
 author = "kaler"
 license = "MIT"
