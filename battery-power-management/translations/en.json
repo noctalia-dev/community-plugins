@@ -1,9 +1,13 @@
 {
   "notify": {
     "threshold_error_body": "Could not write the charge limit. Check the udev permissions (see the plugin README).",
-    "threshold_error_title": "Battery threshold"
+    "threshold_error_title": "Battery threshold",
+    "threshold_failed_body": "Could not write the charge limit.",
+    "threshold_rejected_body": "The battery rejected a charge limit of {value}%.",
+    "threshold_start_denied_body": "{value}% is below the charge start threshold ({start}%), which the plugin cannot lower. Re-run the setup script (see the plugin README)."
   },
   "panel": {
+    "charge_start": "Charging resumes below {start}%",
     "charge_threshold": "Charge limit",
     "power_profile": "Power profile",
     "profile_balanced": "Balanced",

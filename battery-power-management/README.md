@@ -33,7 +33,10 @@ share one state snapshot (no Lua memory is shared between them):
 - **Power profiles** — one-tap switch between Power-saver / Balanced / Performance
   via `powerprofilesctl`.
 - **Charge threshold** — a slider to cap charging (50–100%) on hardware that
-  exposes `charge_control_end_threshold` (ThinkPad, ASUS, and others).
+  exposes `charge_control_end_threshold` (ThinkPad, ASUS, and others). Where the
+  battery also has a start threshold (`charge_control_start_threshold`), the
+  panel shows it, and the plugin lowers it to 5% below the new limit when the
+  limit would go under it: the driver rejects a limit below the start threshold.
 - **Time remaining** — time-to-empty / time-to-full via `upower`.
 
 ## Requirements
@@ -56,7 +59,8 @@ systemd/udev.
 
 The charge-threshold slider additionally needs the sysfs attribute
 `charge_control_end_threshold` to be present **and writable by your user** — see
-Setup.
+Setup. On batteries that also expose `charge_control_start_threshold`, that one
+must be writable too, or limits below the current start threshold fail.
 
 ## Usage
 
@@ -90,7 +94,7 @@ makes these changes to your system:
 | Change | Detail |
 |--------|--------|
 | Creates a group | `battery_ctl`, and adds you to it with `usermod -aG` |
-| Installs a udev rule | `/etc/udev/rules.d/99-noctalia-battery-power-management.rules` — `chgrp battery_ctl` + `chmod 0664` on `charge_control_end_threshold` |
+| Installs udev rules | `/etc/udev/rules.d/99-noctalia-battery-power-management.rules` — `chgrp battery_ctl` + `chmod 0664` on `charge_control_end_threshold`, and on `charge_control_start_threshold` where the battery has one |
 
 The group is shared with the separate `battery-threshold` plugin on purpose (same
 capability, same semantics), but the rule filename is plugin-specific so the two
@@ -99,6 +103,10 @@ never overwrite each other.
 Then **log out and back in**. If you skip this setup, everything else still
 works; only the threshold slider is affected (it shows a notification on write
 failure).
+
+Upgrading from 1.0.x: re-run the script. Older versions of the rule only cover
+`charge_control_end_threshold`, so limits below the start threshold fail with a
+notification that says so.
 
 ### NixOS
 
@@ -110,6 +118,7 @@ users.groups.battery_ctl = { };
 users.users.<you>.extraGroups = [ "battery_ctl" ];
 services.udev.extraRules = ''
   ACTION=="add|change", SUBSYSTEM=="power_supply", KERNEL=="BAT*", RUN+="${pkgs.coreutils}/bin/chgrp battery_ctl /sys$devpath/charge_control_end_threshold", RUN+="${pkgs.coreutils}/bin/chmod 0664 /sys$devpath/charge_control_end_threshold"
+  ACTION=="add|change", SUBSYSTEM=="power_supply", KERNEL=="BAT*", TEST=="charge_control_start_threshold", RUN+="${pkgs.coreutils}/bin/chgrp battery_ctl /sys$devpath/charge_control_start_threshold", RUN+="${pkgs.coreutils}/bin/chmod 0664 /sys$devpath/charge_control_start_threshold"
 '';
 ```
 
@@ -128,15 +137,17 @@ services.udev.extraRules = ''
 
 For review transparency (this plugin is trusted, unsandboxed Luau):
 
-- **Reads** `/sys/class/power_supply/<device>/uevent` and
-  `/sys/class/power_supply/<device>/charge_control_end_threshold` every 5 s.
+- **Reads** `/sys/class/power_supply/<device>/uevent`,
+  `/sys/class/power_supply/<device>/charge_control_end_threshold` and, if
+  present, `charge_control_start_threshold` every 5 s.
 - **Runs** `powerprofilesctl get` and
   `upower -i /org/freedesktop/UPower/devices/battery_<device>` on every third
   poll (~15 s), each guarded by `commandExists`, plus
   `powerprofilesctl set <profile>` when you pick a profile.
 - **Writes** the threshold to
   `/sys/class/power_supply/<device>/charge_control_end_threshold` only when you
-  move the slider.
+  move the slider. If the new limit is below the current start threshold, it
+  first writes `charge_control_start_threshold` (5% below the new limit).
 - All of the above go through `noctalia.runAsync`, which executes via
   `/bin/sh -c`, so each poll spawns a shell (and a `cat` for the sysfs read).
   The configurable device name is reduced to a single path segment and

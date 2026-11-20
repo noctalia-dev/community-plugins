@@ -2,6 +2,8 @@
 
 local SNAPSHOT = "battery.snapshot"
 local COMMAND = "battery.command"
+-- Same gap the service keeps when it lowers the start threshold.
+local START_GAP = 5
 
 local snap = noctalia.state.get(SNAPSHOT) or {
   percent = 0,
@@ -11,6 +13,7 @@ local snap = noctalia.state.get(SNAPSHOT) or {
   profile = "balanced",
   threshold = 80,
   hasThreshold = false,
+  startThreshold = nil,
   hasProfile = false,
 }
 
@@ -72,6 +75,16 @@ local function profileButton(profile, glyph, handler)
   })
 end
 
+-- Start threshold that applies with the given end threshold: the service lowers
+-- the start when the end goes below it.
+local function startFor(threshold)
+  local start = snap.startThreshold
+  if start and threshold < start then
+    return math.max(0, threshold - START_GAP)
+  end
+  return start
+end
+
 local function render()
   local status = STATUS_KEY[snap.status] or "status.unknown"
   local threshold = thresholdDraft or snap.threshold or 80
@@ -115,13 +128,22 @@ local function render()
         min = 50,
         max = 100,
         step = 5,
-        value = threshold,
+        value = math.max(50, math.min(100, threshold)),
         flexGrow = 1,
         onChange = "onThresholdChange",
         onDragEnd = "onThresholdCommit",
       }),
       ui.label({ text = threshold .. "%", fontWeight = "bold" }),
     }))
+    local start = startFor(threshold)
+    -- A start of 0, or at or above the end, means the firmware does not hold charging back.
+    if start and start > 0 and start < threshold then
+      table.insert(sections, ui.label({
+        text = noctalia.tr("panel.charge_start", { start = tostring(start) }),
+        fontSize = 12,
+        color = "on_surface_variant",
+      }))
+    end
   end
 
   panel.render(ui.column({ gap = 6, padding = 10 }, sections))

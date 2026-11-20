@@ -1,6 +1,6 @@
 id          = "piero-93/battery-power-management"
 name        = "Battery & Power Management"
-version     = "1.0.1"
+version     = "1.1.0"
 plugin_api  = 43
 author      = "piero-93"
 license     = "GPL-3.0"
@@ -60,7 +60,7 @@ entry = "widget.luau"
 id              = "panel"
 entry           = "panel.luau"
 width           = 270
-height          = 220
+height          = 240
 placement       = "attached"
 position        = "auto"
 open_near_click = true
