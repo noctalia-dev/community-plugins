@@ -147,6 +147,12 @@ function onIpc(event, _payload)
     noctalia.runAsync("python3 " .. bridgeScript .. " command refresh")
   elseif event == "hangup" then
     noctalia.runAsync("python3 " .. bridgeScript .. " command hang-up")
+  elseif event == "toggle-mute" then 
+    local snapshot = noctalia.state.get(BRIDGE_STATE_KEY)
+    noctalia.runAsync("python3 " .. bridgeScript .. " command set-mute " .. (snapshot.voice.mute and "false" or "true"))
+  elseif event == "toggle-deafen" then 
+    local snapshot = noctalia.state.get(BRIDGE_STATE_KEY)
+    noctalia.runAsync("python3 " .. bridgeScript .. " command set-deaf " .. (snapshot.voice.deaf and "false" or "true"))
   elseif event == "dump" then
     local snapshot = noctalia.state.get(BRIDGE_STATE_KEY)
     local safe = {

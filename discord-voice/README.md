@@ -52,6 +52,12 @@ noctalia msg plugin raycursive/discord-voice:bridge all authorize
 # Refresh current voice and channel state.
 noctalia msg plugin raycursive/discord-voice:bridge all refresh
 
+# Mute yourself.
+noctalia msg plugin raycursive/discord-voice:bridge all toggle-mute
+
+# Deafen yourself.
+noctalia msg plugin raycursive/discord-voice:bridge all toggle-deafen
+
 # Leave the current voice channel.
 noctalia msg plugin raycursive/discord-voice:bridge all hangup
 
