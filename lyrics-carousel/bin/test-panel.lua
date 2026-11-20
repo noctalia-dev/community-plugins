@@ -1322,6 +1322,17 @@ if customButton ~= nil then
     editor.props.onChange(string.rep("x", 30))
     eq(#overrides.instrumental_text, 24, "the editor limits the custom text to 24 characters")
   end
+  -- The right click is a toggle: a second one closes the editor.
+  customButton.props.onRightClick()
+  check(
+    findByKey("input", "instrumental-text-editor") == nil,
+    "right click again hides the custom text editor"
+  )
+  customButton.props.onRightClick()
+  check(
+    findByKey("input", "instrumental-text-editor") ~= nil,
+    "a third right click opens the editor again"
+  )
   customButton = findByKey("button", "btn-instrumental-custom")
   if customButton ~= nil then
     customButton.props.onClick()

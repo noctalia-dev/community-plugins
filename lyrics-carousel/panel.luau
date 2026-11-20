@@ -538,7 +538,8 @@ local function instrumentalRow()
         setSetting("instrumental_custom", not boolOf("instrumental_custom"))
       end,
       onRightClick = function()
-        instrumentalEditing = true
+        -- A second right click closes the editor again.
+        instrumentalEditing = not instrumentalEditing
         render()
       end,
     }))
