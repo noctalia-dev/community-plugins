@@ -1085,15 +1085,21 @@ tags = ["bar", "music"]
 [[plugin]]
 id = "nomadcxx/gamer-mode"
 name = "Gamer Mode"
-version = "0.7.1"
-updated_at = 1792983494
+version = "0.7.2"
+updated_at = 1795209385
 added_at = 1785465141
 author = "Nomadcxx"
 license = "MIT"
 icon = "device-gamepad-2"
 description = "Live CPU/RAM/GPU metrics and a one-click gamer mode that suspends and restores background resource hogs."
-plugin_api = 43
+plugin_api = 46
 tags = ["bar", "panel", "service", "gaming", "system", "hardware"]
+
+[[plugin.release]]
+plugin_api = 43
+version = "0.7.1"
+updated_at = 1792983494
+rev = "bbf33787769a5c93ba02a8d17bd5faac43c4f9ba"
 
 [[plugin.release]]
 plugin_api = 19
