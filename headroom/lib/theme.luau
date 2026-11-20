@@ -1,5 +1,7 @@
 --!nonstrict
--- Severity colors, and the ring gauge as a glyph.
+-- Severity colors and bar gauges.
+
+local fs = require("./fs.luau")
 
 local M = {}
 
@@ -45,6 +47,75 @@ function M.ring(percent: number): string
     best = 90
   end
   return `percentage-{best}`
+end
+
+local function hex(colorOrRole: string): string
+  if colorOrRole:sub(1, 1) == "#" then
+    return colorOrRole:lower()
+  end
+  colorOrRole = colorOrRole:gsub("/.*$", "") -- "primary/0.6" -> "primary" (SVG gets the solid color)
+  return (noctalia.getColor(colorOrRole) or "#888888"):lower()
+end
+
+local dirs: { [string]: string } = {}
+
+local function dataDir(sub: string): string?
+  if dirs[sub] then
+    return dirs[sub]
+  end
+  local base = noctalia.pluginDataDir()
+  if base == nil then
+    return nil
+  end
+  local dir = `{base}/{sub}`
+  if not noctalia.mkdirAll(dir) then
+    return nil
+  end
+  dirs[sub] = dir
+  return dir
+end
+
+-- File names are content-addressed, so once a path exists it is final:
+-- remember it instead of asking the filesystem on every render.
+local known: { [string]: boolean } = {}
+
+local function ensureFile(path: string, build: () -> string?): string?
+  if known[path] or noctalia.fileExists(path) then
+    known[path] = true
+    return path
+  end
+  local content = build()
+  if content == nil or not fs.writeAtomic(path, content) then
+    return nil
+  end
+  known[path] = true
+  return path
+end
+
+-- A circular gauge: track ring plus an arc for `percent`. pathLength-free
+-- geometry: r = 100 / 2π gives a circumference of 100, so the dash length is
+-- the percentage itself.
+function M.hollowRing(percent: number, fill: string, track: string): string?
+  local dir = dataDir("rings")
+  if dir == nil then
+    return nil
+  end
+  -- Same rule as view.roundPercent: a real difference never rounds to an
+  -- empty or a full ring.
+  local pct = math.clamp(math.floor(percent + 0.5), if percent > 0 then 1 else 0, if percent < 100 then 99 else 100)
+  local fillHex, trackHex = hex(fill), hex(track)
+  local path = `{dir}/ring-{pct}-{fillHex:sub(2)}-{trackHex:sub(2)}.svg`
+  return ensureFile(path, function()
+    local arc = if pct > 0
+      then `<circle cx="18" cy="18" r="15.9155" fill="none" stroke="{fillHex}" stroke-width="4.2" stroke-linecap="round" stroke-dasharray="{pct} 100" transform="rotate(-90 18 18)"/>`
+      else ""
+    return table.concat({
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36" width="36" height="36">`,
+      `<circle cx="18" cy="18" r="15.9155" fill="none" stroke="{trackHex}" stroke-width="4.2"/>`,
+      arc,
+      `</svg>`,
+    })
+  end)
 end
 
 return M

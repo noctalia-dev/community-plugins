@@ -164,6 +164,14 @@
         "default": "Default account only"
       }
     },
+    "ring_style": {
+      "label": "Ring style",
+      "description": "How the usage gauge looks next to the logo.",
+      "option": {
+        "filled": "Modern (filled circle)",
+        "hollow": "Classic (hollow ring)"
+      }
+    },
     "bar_style": {
       "description": "What each item shows next to its logo.",
       "label": "Style",

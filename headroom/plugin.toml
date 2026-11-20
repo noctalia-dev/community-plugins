@@ -12,7 +12,7 @@
 
 id = "ayagmar/headroom"
 name = "Headroom"
-version = "0.3.0"
+version = "0.3.1"
 plugin_api = 43
 author = "ayagmar"
 license = "MIT"
@@ -165,6 +165,17 @@ entry = "bar.luau"
     { value = "full", label_key = "settings.bar_style.option.full" },
     { value = "value", label_key = "settings.bar_style.option.value" },
     { value = "ring", label_key = "settings.bar_style.option.ring" },
+  ]
+
+  [[widget.setting]]
+  key = "ring_style"
+  type = "select"
+  label_key = "settings.ring_style.label"
+  description_key = "settings.ring_style.description"
+  default = "filled"
+  options = [
+    { value = "filled", label_key = "settings.ring_style.option.filled" },
+    { value = "hollow", label_key = "settings.ring_style.option.hollow" },
   ]
 
   [[widget.setting]]

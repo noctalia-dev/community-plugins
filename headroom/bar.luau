@@ -20,7 +20,7 @@ local function interval(): number
   return if type(report) == "table" and report.interval then report.interval else 300
 end
 
-local function itemNodes(item, vertical: boolean, style: string, now: number)
+local function itemNodes(item, vertical: boolean, style: string, ringStyle: string, now: number)
   local account, window = item.account, item.window
   local stale = view.isStale(account, interval(), now)
   local nodes = { cards.logo(item.provider, ICON_SIZE, if stale and window == nil then 0.55 else nil) }
@@ -37,13 +37,22 @@ local function itemNodes(item, vertical: boolean, style: string, now: number)
 
   local severity = view.severity(window, now)
   if style ~= "value" then
-    -- A fetch in flight (a right-click refresh, say) shows as it happens.
-    table.insert(nodes, ui.glyph({
-      name = if account.busy then "refresh" else theme.ring(view.shownPercent(window)),
-      size = ICON_SIZE,
-      color = theme.meterColor(severity),
-      opacity = if stale then 0.6 else 1,
-    }))
+    local percent = view.shownPercent(window)
+    local color = theme.meterColor(severity)
+    local opacity = if stale then 0.6 else 1
+    local ring = if ringStyle == "hollow" and not account.busy
+      then theme.hollowRing(percent, color, "surface_container")
+      else nil
+    if ring then
+      table.insert(nodes, ui.image({ path = ring, width = ICON_SIZE, height = ICON_SIZE, opacity = opacity }))
+    else
+      table.insert(nodes, ui.glyph({
+        name = if account.busy then "refresh" else theme.ring(percent),
+        size = ICON_SIZE,
+        color = color,
+        opacity = opacity,
+      }))
+    end
   end
   if style ~= "ring" then
     -- At the limit the percentage says nothing new; when you get it back does.
@@ -122,10 +131,11 @@ local function render()
   end
 
   local style = state.config("bar_style", "full")
+  local ringStyle = state.config("ring_style", "filled")
   local container = if vertical then ui.column else ui.row
   local groups = {}
   for _, item in items do
-    table.insert(groups, container({ gap = 4, align = "center", key = item.account.key }, itemNodes(item, vertical, style, now)))
+    table.insert(groups, container({ gap = 4, align = "center", key = item.account.key }, itemNodes(item, vertical, style, ringStyle, now)))
   end
   barWidget.render(container({ gap = if vertical then 8 else 10, align = "center" }, groups))
   barWidget.setTooltip(tooltipRows(items, now))

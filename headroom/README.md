@@ -148,6 +148,7 @@ is a setting of the widget, so two capsules can show different things; middle-cl
 | --- | --- | --- | --- |
 | `window` | `select` | `tightest` | The window each item shows: `tightest` (closest to its limit), the 5-hour `session`, or `weekly`. |
 | `bar_style` | `select` | `full` | Next to the logo: `full` (ring and percentage), `value` (percentage only) or `ring` (ring only). |
+| `ring_style` | `select` | `filled` | The gauge: `filled` (modern filled circle) or `hollow` (classic ring). Applies when `bar_style` shows a ring. |
 | `bar_accounts` | `select` | `default` | With several accounts: only the `default` one (or the first signed-in one), or `all`. The panel always shows them all. |
 | `max_items` | `int` | `3` | The most items the capsule shows (1–8). If more qualify, it keeps the ones closest to their limits, forecast included. |
 
