@@ -103,19 +103,75 @@ def phrase_check(watcher, tables, languages, phrase, home, wrong_layout):
         nonlocal typed_in
         typed_in = index
 
-    def fake_target(_watcher):
+    def fake_target(_watcher, *args):
         return (typed_in, home if typed_in != home else other,
                 tables[typed_in], tables[home if typed_in != home else other],
                 languages[typed_in], languages[home if typed_in != home else other])
 
+    orig_target = globals().get("target_layout")
     globals()["retype"], globals()["switch_layout"] = fake_retype, fake_switch
     globals()["target_layout"] = fake_target
-    for code, shift in keys:
-        screen.append(render([(code, shift)], tables[typed_in]))
-        finished = watcher.feed(code, shift)
-        if finished:
-            autofix(watcher, finished, None if code in RESET_KEYS else code, shift)
-    return "".join(screen)
+    try:
+        for code, shift in keys:
+            screen.append(render([(code, shift)], tables[typed_in]))
+            finished = watcher.feed(code, shift)
+            if finished:
+                autofix(watcher, finished, None if code in RESET_KEYS else code, shift)
+        return "".join(screen)
+    finally:
+        globals()["target_layout"] = orig_target
+
+
+def run_extended_tests(tables, languages):
+    """Test undo invalidation, navigation reset, multi-layout matching, and fix-word."""
+    watcher = Watcher(tables)
+    # 1. Test NAV_KEYS reset buffer
+    watcher.feed(35, False)  # 'g'
+    assert len(watcher.snapshot()) == 1, "Buffer should have 1 key"
+    watcher.feed(105, False)  # KEY_LEFT
+    assert len(watcher.snapshot()) == 0, "Buffer should be cleared on KEY_LEFT"
+    assert watcher.undo is None, "Undo should be None after NAV_KEYS"
+
+    # 2. Test undo invalidation on typing
+    watcher.undo = ("test", "тест", 0)
+    watcher.feed(35, False)  # 'g'
+    assert watcher.undo is None, "Undo must be invalidated on new keypress"
+
+    # 3. Test multi-layout target selection
+    if len(tables) >= 2:
+        mock_tables = {0: tables[0], 1: tables[0], 2: tables[1]}
+        mock_watcher = Watcher(mock_tables)
+        ru_keys = keystrokes("привет", tables[1])
+        if ru_keys:
+            orig_niri = globals()["niri_layouts"]
+            orig_codes = globals()["LAYOUT_CODES"]
+            globals()["niri_layouts"] = lambda: ({0: "us", 1: "de", 2: "ru"}, 0)
+            globals()["LAYOUT_CODES"] = {0: "us", 1: "de", 2: "ru"}
+            try:
+                res = target_layout(mock_watcher, ru_keys)
+                assert res is not None, "target_layout should resolve with multi-layout"
+                assert res[1] == 2, f"Should pick layout 2 for Russian word, got {res[1]}"
+            finally:
+                globals()["niri_layouts"] = orig_niri
+                globals()["LAYOUT_CODES"] = orig_codes
+
+    # 4. Test do_fix word vs all
+    fixed_screen = []
+    def fake_retype(count, text):
+        fixed_screen.append((count, text))
+        return True
+    globals()["retype"] = fake_retype
+    globals()["switch_layout"] = lambda idx: None
+    test_w = Watcher(tables)
+    test_w.feed(57, False)  # Space
+    test_w.feed(35, False)  # 'g'
+    test_w.feed(36, False)  # 'h'
+    do_fix(test_w, scope="word")
+    assert fixed_screen, "retype should be called"
+    assert fixed_screen[-1][0] == 2, f"Expected 2 chars erased for word, got {fixed_screen[-1][0]}"
+
+    print("extended regression tests: all passed")
+    return True
 
 
 def main():
@@ -183,6 +239,8 @@ def main():
     print(f"missed (should have corrected): {missed}")
     if skipped:
         print(f"skipped (word not typable in these layouts): {skipped}")
+
+    run_extended_tests(tables, languages)
     return 1 if wrong or phrases_bad else 0
 
 

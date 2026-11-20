@@ -203,17 +203,21 @@ local function packageFor(language)
 end
 
 local function installDictionaries(missing)
+    if not noctalia.commandExists("pacman") then
+        noctalia.notifyError(tr("title"), tr("err_dicts_install"))
+        return
+    end
     -- One pkexec call, and only when the user asked for it in settings.
     local packages = {}
     for _, language in ipairs(missing) do
-        table.insert(packages, packageFor(language))
+        table.insert(packages, shellQuote(packageFor(language)))
     end
-    local cmd = "pkexec pacman -S --needed --noconfirm " .. table.concat(packages, " ")
+    local cmd = "pkexec pacman -S --needed --noconfirm -- " .. table.concat(packages, " ")
     noctalia.runAsync(cmd, function(result)
         if (result.exitCode or 1) == 0 then
             noctalia.notify(tr("title"), tr("notify_dicts_installed"))
             if daemonPath ~= nil then
-                -- The daemon opens hunspell once at startup.
+                -- The daemon reloads hunspell on reset.
                 noctalia.runAsync(shellQuote(daemonPath) .. " reset >/dev/null 2>&1", function() end)
             end
         elseif (result.exitCode or 1) ~= 126 then -- 126 = password dialog dismissed
@@ -258,12 +262,23 @@ end
 
 -- ── Lifecycle ────────────────────────────────────────────────────────────────
 
-function onIpc(event, _payload)
+function onIpc(event, payload)
     if daemonPath == nil then
         return
     end
-    if event == "fix" or event == "undo" or event == "status" or event == "reset" then
-        noctalia.runAsync(shellQuote(daemonPath) .. " " .. event, function(result)
+    if event == "fix" or event == "fix-word" or event == "undo" or event == "status" or event == "reset" then
+        local cmd = event
+        if event == "fix-word" then
+            cmd = "fix word"
+        elseif event == "fix" then
+            local scope = trim(payload or "")
+            if scope == "word" or scope == "all" then
+                cmd = "fix " .. scope
+            else
+                cmd = "fix"
+            end
+        end
+        noctalia.runAsync(shellQuote(daemonPath) .. " " .. cmd, function(result)
             lastStatus = (result.stdout or ""):gsub("%s+$", "")
             if event == "status" then
                 noctalia.log("layout-fix: " .. lastStatus)
