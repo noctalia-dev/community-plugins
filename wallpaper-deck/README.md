@@ -7,7 +7,7 @@ A feature-packed native Noctalia wallpaper manager inspired by Magic: The Gather
 | Field | Value |
 | --- | --- |
 | ID | `ishan0121/wallpaper-deck` |
-| Version | `1.6.0` |
+| Version | `1.6.1` |
 | License | `GPL-3.0` |
 | Author | `Ishan0121` |
 | Entries | Bar widget: `bar`; panel: `picker`; shortcut: `toggle`; service: `service` |
@@ -37,7 +37,7 @@ A feature-packed native Noctalia wallpaper manager inspired by Magic: The Gather
   - Use Noctalia's native wallpaper surface or custom wallpaper daemons (`swww`, `awww`, etc.) with `{path}` and `{output}` template substitution.
   - Execute optional post-apply shell hooks (e.g. `matugen image "{path}"`).
 - **Live Preview & Inspection**:
-  - Fullscreen live preview behind the cards that promotes to high-res on card settle.
+  - Fullscreen live preview behind the cards with seamless zero-flicker double buffering and instant high-res rendering.
   - Cycle background fit modes (**Cover**, **Contain**, **Stretch**).
   - Peek mode (`Space`) to hide all UI elements and inspect the full wallpaper.
   - Favourites management (`F`) and random shuffle (`R`).

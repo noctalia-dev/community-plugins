@@ -80,6 +80,9 @@ local STATE_DIR = (type(noctalia.pluginDataDir) == "function" and noctalia.plugi
   or noctalia.expandPath("~/.local/state/noctalia/plugins/data/ishan0121/wallpaper-deck")
 
 local displayedBgPath = ""
+local bgSlots = { [0] = "", [1] = "", retireToken = 0 }
+local bgActiveSlot = 0
+local animateSelected = noctalia.getConfig("animate_selected_card") ~= false
 local previewFit = noctalia.getConfig("preview_fit") or "cover"
 if previewFit ~= "cover" and previewFit ~= "contain" and previewFit ~= "stretch" then
   previewFit = "cover"
@@ -91,9 +94,50 @@ local function clampVal(val: number, minVal: number, maxVal: number): number
   return val
 end
 
+function bgSlots.scheduleRetirement()
+  bgSlots.retireToken = (bgSlots.retireToken or 0) + 1
+  local token = bgSlots.retireToken
+  local delay = (animateSelected ~= false) and 350 or 250
+
+  if type(noctalia.setTimeout) == "function" then
+    noctalia.setTimeout(function()
+      if bgSlots.retireToken == token then
+        local inactiveSlot = 1 - bgActiveSlot
+        if bgSlots[inactiveSlot] ~= "" then
+          bgSlots[inactiveSlot] = ""
+          if type(render) == "function" then
+            render()
+          end
+        end
+      end
+    end, delay)
+  end
+end
+
+function bgSlots.retireNow()
+  bgSlots.retireToken = (bgSlots.retireToken or 0) + 1
+  local inactiveSlot = 1 - bgActiveSlot
+  if bgSlots[inactiveSlot] ~= "" then
+    bgSlots[inactiveSlot] = ""
+    if type(render) == "function" then
+      render()
+    end
+  end
+end
+
 local function setDisplayedBackground(newPath: string)
   if not newPath or newPath == "" or displayedBgPath == newPath then return end
+  local oldPath = displayedBgPath
   displayedBgPath = newPath
+
+  if oldPath == "" then
+    bgSlots[bgActiveSlot] = newPath
+  else
+    local nextSlot = 1 - bgActiveSlot
+    bgSlots[nextSlot] = newPath
+    bgActiveSlot = nextSlot
+  end
+  bgSlots.scheduleRetirement()
 end
 
 local WHEEL_PID_FILE = STATE_DIR .. "/wheel_listener.pid"
@@ -575,6 +619,33 @@ local function getWallhavenHiResCached(item: any): string?
   return nil
 end
 
+function bgSlots.getActiveBackground(item: any): string
+  if not item then return "" end
+  if currentMode == "wallhaven" then
+    if hiResPreview then
+      local hiRes = getWallhavenHiResCached(item)
+      if hiRes and hiRes ~= "" then
+        return hiRes
+      end
+    end
+    return requestWallhavenThumb(item, true) or ""
+  else
+    if item._validPath == nil then
+      if item.path and item.path ~= "" and noctalia.fileExists(item.path) then
+        item._validPath = item.path
+      else
+        item._validPath = false
+      end
+    end
+    local fullPath = (item._validPath ~= false) and item._validPath or nil
+    local thumbPath = (item.thumb and item.thumb ~= "" and noctalia.fileExists(item.thumb)) and item.thumb
+      or (item.preview and item.preview ~= "" and noctalia.fileExists(item.preview)) and item.preview
+      or fullPath
+      or ""
+    return fullPath or thumbPath
+  end
+end
+
 local function requestWallhavenHiRes(item: any, priority: boolean?): string?
   if not item or not item.id or not item.fullUrl then return nil end
   local cached = getWallhavenHiResCached(item)
@@ -609,6 +680,10 @@ end
 local function onCardSettled()
   local item = displayedItems[selectedIdx]
   if not item then return end
+
+  if not animateSelected then
+    bgSlots.scheduleRetirement()
+  end
 
   if currentMode ~= "wallhaven" then
     if item._prefetchIdx ~= selectedIdx then
@@ -870,7 +945,7 @@ local function resetDeckAnimation(pos: number?)
   panel.setNeedsFrameTick(false)
 end
 
-local animateSelected = noctalia.getConfig("animate_selected_card") ~= false
+animateSelected = noctalia.getConfig("animate_selected_card") ~= false
 
 local function lerp(a: number, b: number, t: number): number
   return a + (b - a) * t
@@ -2438,16 +2513,15 @@ local function selectCardIndex(newIdx: number)
   startDeckAnimation(clamped)
   triggerPreview()
   scheduleSettle()
+  local si = displayedItems[selectedIdx]
+  if si then
+    local bg = bgSlots.getActiveBackground(si)
+    if bg ~= "" and bg ~= displayedBgPath then
+      setDisplayedBackground(bg)
+    end
+  end
   if not animateSelected then
     onCardSettled()
-    -- Force background refresh immediately when there is no animation
-    local si = displayedItems[selectedIdx]
-    if si and currentMode ~= "wallhaven" then
-      local bg = (si.path and si.path ~= "" and noctalia.fileExists(si.path)) and si.path or (si.preview or si.thumb or "")
-      if bg ~= "" and bg ~= displayedBgPath then
-        setDisplayedBackground(bg)
-      end
-    end
   end
   if type(render) == "function" then
     render()
@@ -3403,53 +3477,76 @@ end
 CSF.renderBg = function(panelW: number, panelH: number, activeItem: any)
   local bgFill = (#displayedItems > 0 and activeItem and activeItem.sourceColor) or "surface"
 
-  if displayedBgPath ~= "" then
+  local activePath = bgSlots[bgActiveSlot]
+  local inactiveSlot = 1 - bgActiveSlot
+  local inactivePath = bgSlots[inactiveSlot]
+
+  if (not activePath or activePath == "") and (not inactivePath or inactivePath == "") then
     return ui.column({
       key = "bg_layer",
       width = panelW,
       height = panelH,
-      padding = 0,
-      fill = (previewFit == "contain") and bgFill or nil,
-      align = "stretch",
-      justify = "start",
+      radius = R(12),
+      fill = bgFill,
+      align = "center",
+      justify = "center",
       onHover = "onOutsideDeckHover",
     }, {
-      ui.image({
-        key = "deck_bg_curr_img_" .. displayedBgPath,
-        path = displayedBgPath,
-        width = panelW,
-        height = panelH,
-        radius = R(12),
-        fit = previewFit,
-      }),
+      (#displayedItems > 0 and currentMode == "wallhaven") and ui.row({
+        align = "center",
+        justify = "center",
+        paddingH = 18,
+        paddingV = 9,
+        radius = R(20),
+        fill = "surface/0.8",
+        border = "outline_variant/0.3",
+        borderWidth = 1,
+        gap = 8,
+      }, {
+        ui.glyph({ name = "loader-2", size = 16, color = "primary" }),
+        ui.label({ text = trText("ui.loading", "Loading preview..."), fontSize = 11, fontWeight = "bold", color = "on_surface" }),
+      }) or ui.spacer({ width = 1, height = 1 }),
     })
+  end
+
+  local bgChildren = {}
+
+  -- Render inactive slot underneath so old wallpaper remains visible during async decoding
+  if inactivePath and inactivePath ~= "" and inactivePath ~= activePath then
+    table.insert(bgChildren, ui.image({
+      key = "deck_bg_slot_" .. inactiveSlot,
+      path = inactivePath,
+      width = panelW,
+      height = panelH,
+      radius = R(12),
+      fit = previewFit,
+    }))
+  end
+
+  -- Render active slot on top
+  if activePath and activePath ~= "" then
+    table.insert(bgChildren, ui.image({
+      key = "deck_bg_slot_" .. bgActiveSlot,
+      path = activePath,
+      width = panelW,
+      height = panelH,
+      radius = R(12),
+      fit = previewFit,
+    }))
   end
 
   return ui.column({
     key = "bg_layer",
     width = panelW,
     height = panelH,
+    padding = 0,
     radius = R(12),
     fill = bgFill,
-    align = "center",
-    justify = "center",
+    gap = -panelH,
+    align = "stretch",
+    justify = "start",
     onHover = "onOutsideDeckHover",
-  }, {
-    (#displayedItems > 0 and currentMode == "wallhaven") and ui.row({
-      align = "center",
-      justify = "center",
-      paddingH = 18,
-      paddingV = 9,
-      radius = R(20),
-      fill = "surface/0.8",
-      border = "outline_variant/0.3",
-      borderWidth = 1,
-      gap = 8,
-    }, {
-      ui.glyph({ name = "loader-2", size = 16, color = "primary" }),
-      ui.label({ text = trText("ui.loading", "Loading preview..."), fontSize = 11, fontWeight = "bold", color = "on_surface" }),
-    }) or ui.spacer({ width = 1, height = 1 }),
-  })
+  }, bgChildren)
 end
 
 function WH.renderCategoriesModal(panelW: number, panelH: number): any
@@ -3966,37 +4063,12 @@ function render()
 
   local favCount = getFavCount()
 
-  local activeBg = ""
-  if activeItem then
-    if currentMode == "wallhaven" then
-      if hiResPreview then
-        local hiRes = getWallhavenHiResCached(activeItem)
-        if hiRes and hiRes ~= "" then
-          activeBg = hiRes
-        else
-          activeBg = requestWallhavenThumb(activeItem, true) or ""
-        end
-      else
-        activeBg = requestWallhavenThumb(activeItem, true) or ""
-      end
-    else
-      local isSettled = (not animateSelected) or (animatedPos == selectedIdx)
-      local fullPath = (activeItem.path and activeItem.path ~= "" and noctalia.fileExists(activeItem.path)) and activeItem.path or nil
-      local thumbPath = (activeItem.thumb and activeItem.thumb ~= "" and noctalia.fileExists(activeItem.thumb)) and activeItem.thumb
-        or (activeItem.preview and activeItem.preview ~= "" and noctalia.fileExists(activeItem.preview)) and activeItem.preview
-        or fullPath
-        or ""
-
-      if isSettled or isPeeking then
-        activeBg = fullPath or thumbPath
-      else
-        activeBg = thumbPath
-      end
-    end
-  end
+  local activeBg = bgSlots.getActiveBackground(activeItem)
 
   if #displayedItems == 0 then
     displayedBgPath = ""
+    bgSlots[0] = ""
+    bgSlots[1] = ""
   else
     if activeBg ~= "" then
       setDisplayedBackground(activeBg)
@@ -4406,7 +4478,6 @@ function render()
                     if not hiResPreview then
                       hiResQueue = {}
                     else
-                      displayedBgPath = "" 
                       onCardSettled()
                     end
                     triggerPreview()
@@ -4965,6 +5036,10 @@ function onOpen(context: any?)
     previewFit = cfgFit
   end
   displayedBgPath = ""
+  bgSlots[0] = ""
+  bgSlots[1] = ""
+  bgActiveSlot = 0
+  bgSlots.retireToken = (bgSlots.retireToken or 0) + 1
   cachedRibbon = nil
 
   if context == "wallhaven" then
@@ -5093,10 +5168,11 @@ function onFrameTick(deltaMs: any)
         animVel = 0.0
         if wasMoving then
           onCardSettled()
+          bgSlots.retireNow()
           -- Force background update immediately when spring settles
           local si = displayedItems[selectedIdx]
-          if si and currentMode ~= "wallhaven" then
-            local bg = (si.path and si.path ~= "" and noctalia.fileExists(si.path)) and si.path or (si.preview or si.thumb or "")
+          if si then
+            local bg = bgSlots.getActiveBackground(si)
             if bg ~= "" and bg ~= displayedBgPath then
               setDisplayedBackground(bg)
             end
@@ -5294,7 +5370,6 @@ function onKey(chord: string, pressed: boolean)
       if not hiResPreview then
         hiResQueue = {}
       else
-        displayedBgPath = "" 
         onCardSettled()
       end
       triggerPreview()
@@ -5394,7 +5469,6 @@ function onIpc(event: string, _payload: string?)
       if not hiResPreview then
         hiResQueue = {}
       else
-        displayedBgPath = "" 
         onCardSettled()
       end
       triggerPreview()
@@ -5531,7 +5605,9 @@ noctalia.state.watch("thumb_update", function(update)
           it._previewPath = update.thumb
           it._validPath = nil  -- let CSF.renderBg recompute on next render
           if it.path == (displayedItems[selectedIdx] and displayedItems[selectedIdx].path) then
-            displayedBgPath = ""  -- unblock setDisplayedBackground for active card
+            if not (it.path and it.path ~= "" and noctalia.fileExists(it.path)) then
+              setDisplayedBackground(update.thumb)
+            end
           end
           changed = true
           break
