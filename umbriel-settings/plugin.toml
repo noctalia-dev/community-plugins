@@ -1,0 +1,58 @@
+id = "0rz0rz0rz/umbriel-settings"
+name = "Umbriel Settings"
+version = "0.2.0"
+plugin_api = 43
+author = "0rz0rz0rz"
+license = "MIT"
+icon = "settings"
+description = "Edit every Umbriel setting, rule and keybind, plus XDG user folders and default apps, with review and backups."
+# Every command the plugin runs (community rule); gio, xdg-open and notify-send are optional (README Requirements).
+dependencies = ["python3", "python-tomlkit", "umbriel", "gio", "xdg-open", "notify-send"]
+tags = ["umbriel", "panel", "bar", "system", "utility"]
+
+[[widget]]
+id = "settings"
+entry = "bar.luau"
+
+  [[widget.setting]]
+  key = "display"
+  type = "select"
+  label_key = "settings.display.label"
+  description_key = "settings.display.description"
+  default = "icon"
+  options = [
+    { value = "icon", label_key = "settings.display.options.icon" },
+    { value = "icon_text", label_key = "settings.display.options.icon_text" },
+    { value = "text", label_key = "settings.display.options.text" },
+  ]
+
+  [[widget.setting]]
+  key = "icon"
+  type = "select"
+  label_key = "settings.icon.label"
+  description_key = "settings.icon.description"
+  default = "moon-stars"
+  options = [
+    { value = "settings", label_key = "settings.icon.options.settings" },
+    { value = "settings-2", label_key = "settings.icon.options.settings-2" },
+    { value = "settings-cog", label_key = "settings.icon.options.settings-cog" },
+    { value = "adjustments-horizontal", label_key = "settings.icon.options.adjustments-horizontal" },
+    { value = "adjustments-cog", label_key = "settings.icon.options.adjustments-cog" },
+    { value = "tool", label_key = "settings.icon.options.tool" },
+    { value = "tools", label_key = "settings.icon.options.tools" },
+    { value = "moon", label_key = "settings.icon.options.moon" },
+    { value = "moon-stars", label_key = "settings.icon.options.moon-stars" },
+    { value = "moon-2", label_key = "settings.icon.options.moon-2" },
+    { value = "home-cog", label_key = "settings.icon.options.home-cog" },
+  ]
+
+[[panel]]
+id = "main"
+entry = "panel.luau"
+width = 980
+height = 760
+placement = "floating"
+position = "center"
+keyboard_focus = "exclusive"
+dismiss_on_outside_click = false
+capture_keys = ["ctrl+f", "ctrl+s", "alt+Left", "ctrl+z", "ctrl+y"]
