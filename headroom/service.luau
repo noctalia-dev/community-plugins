@@ -722,7 +722,7 @@ function onConfigChanged()
     lastAntigravityModels = nextModels
     for _, key in listed["antigravity"] or {} do
       if runtimes[key] then
-        scheduler.force(runtimes[key].schedule, now)
+        scheduler.abandon(runtimes[key].schedule, now)
       end
     end
   end

@@ -26,9 +26,11 @@ local function itemNodes(item, vertical: boolean, style: string, ringStyle: stri
   local nodes = { cards.logo(item.provider, ICON_SIZE, if stale and window == nil then 0.55 else nil) }
 
   if window == nil then
-    -- Signed in but no numbers yet (first fetch running), or a failure.
+    -- Signed in but no numbers yet (first fetch running), filtered empty, or a failure.
     if account.phase == "failing" then
       table.insert(nodes, ui.glyph({ name = "alert-triangle", size = ICON_SIZE - 2, color = "error" }))
+    elseif account.phase == "ready" then
+      table.insert(nodes, ui.label({ text = "—", color = "on_surface_variant" }))
     else
       table.insert(nodes, ui.label({ text = "…", color = "on_surface_variant" }))
     end
@@ -101,6 +103,7 @@ local function tooltipRows(items, now: number)
     else
       local value = if account.phase == "failing"
         then noctalia.tr(`error.{account.error.code}.title`)
+        elseif account.phase == "ready" then noctalia.tr("panel.no_matching_models")
         else noctalia.tr("status.fetching")
       table.insert(rows, { key = item.name, value = value })
     end

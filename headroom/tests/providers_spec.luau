@@ -164,6 +164,17 @@ t.group("antigravity", function()
     t.ok(tw["3p-weekly"] ~= nil, "keeps Claude & GPT")
     t.eq(tw["gemini-weekly"], nil, "drops Gemini Models")
     t.eq(tw["gemini-argon-wtu-weekly"], nil, "drops Gemini 4 Argon")
+
+    -- Valid buckets filtered out completely return an empty snapshot rather than a parse error.
+    local claudeOnly = { groups = { payload.groups[2] } }
+    host.config.antigravity_models = "gemini"
+    local emptySnap, err3 = p.parse(claudeOnly, ctx)
+    t.eq(err3, nil)
+    t.eq(#emptySnap.windows, 0)
+
+    -- A payload with no valid buckets at all is still a parse error.
+    local _, parseErr = p.parse({ groups = {} }, ctx)
+    t.eq(parseErr.code, "parse")
   end)
 
   t.test("fetches live quota from daily-cloudcode-pa with a versioned hub User-Agent", function()

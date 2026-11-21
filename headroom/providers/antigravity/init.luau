@@ -170,10 +170,9 @@ local function parse(data, ctx): (model.Snapshot?, model.ProviderError?)
   end
   local filter = if ctx and ctx.config then ctx.config("antigravity_models", "all") else "all"
   local windows = {}
+  local validBuckets = 0
   for _, group in groups do
-    if not groupMatchesFilter(group.displayName, filter) then
-      continue
-    end
+    local matches = groupMatchesFilter(group.displayName, filter)
     local label = groupLabel(group.displayName)
     for _, bucket in (if type(group.buckets) == "table" then group.buckets else {}) do
       local remaining = tonumber(bucket.remainingFraction)
@@ -183,6 +182,10 @@ local function parse(data, ctx): (model.Snapshot?, model.ProviderError?)
       local session = cadence == "5h" or id:sub(-2) == "5h"
       -- A missing fraction is unknown usage, not 0%: skip it rather than reassure.
       if remaining == nil or remaining ~= remaining or remaining < 0 or remaining > 1 or not (weekly or session) then
+        continue
+      end
+      validBuckets += 1
+      if not matches then
         continue
       end
       local kind = if weekly then "weekly" else "session"
@@ -196,7 +199,7 @@ local function parse(data, ctx): (model.Snapshot?, model.ProviderError?)
       }))
     end
   end
-  if #windows == 0 then
+  if validBuckets == 0 then
     return nil, model.err(E.Parse, "no usable quota buckets")
   end
   return model.snapshot({ plan = nil, windows = windows, notes = {}, fetchedAt = ctx.now() }), nil
