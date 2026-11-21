@@ -56,7 +56,7 @@ local time.
 | `include_abstract` | `bool` | `true` | Count down to a round's abstract deadline while it is ahead. When off, rows always count down to the paper deadline. |
 | `horizon_days` | `int` | `180` | Only list rounds whose next deadline is within this many days (7 to 730). |
 | `notify_days` | `int` | `7` | Days before a starred deadline to send a reminder; a second one follows in the last 24 hours. `0` turns reminders off. |
-| `notify_all` | `bool` | `false` | Send reminders for every listed round, not only starred conferences. |
+| `notify_all` | `bool` | `false` | Send reminders for every listed round, not only starred conferences. At most five go out at once; the rest follow on later checks, about ten minutes apart. |
 | `refresh_days` | `int` | `7` | Days between data checks (1 to 30). |
 | `data_url` | `string` | `https://ccfddl.com/conference/allconf.json` | Advanced. HTTPS source of the deadline data; acceptance rates are read from `allacc.json` next to it (skipped if the URL does not end in `allconf.json`). Other schemes are refused. |
 

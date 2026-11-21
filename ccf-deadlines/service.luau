@@ -380,20 +380,19 @@ local function notifyDue(items)
         end
         if stage ~= nil then
           local key = `{item.id}:{target.kind}:{stage}`
-          if notified[key] == nil then
+          -- Only reminders actually sent are recorded; the rest go out on a later pass.
+          if notified[key] == nil and sent < MAX_NOTIFY_PER_PASS then
             notified[key] = target.due
             dirty = true
-            if sent < MAX_NOTIFY_PER_PASS then
-              sent += 1
-              noctalia.notify(
-                noctalia.tr("notify.title", { name = Common.itemTitle(item) }),
-                noctalia.tr("notify.body", {
-                  kind = noctalia.tr(`milestone.{target.kind}`),
-                  left = Common.countdown(remaining),
-                  time = noctalia.formatTime("%a %Y-%m-%d %H:%M", target.due),
-                })
-              )
-            end
+            sent += 1
+            noctalia.notify(
+              noctalia.tr("notify.title", { name = Common.itemTitle(item) }),
+              noctalia.tr("notify.body", {
+                kind = noctalia.tr(`milestone.{target.kind}`),
+                left = Common.countdown(remaining),
+                time = noctalia.formatTime("%a %Y-%m-%d %H:%M", target.due),
+              })
+            )
           end
         end
       end
@@ -489,7 +488,8 @@ get() {
   local name=$1 url=$2 filter=$3 out=$4
   local stamp="$out.v$fv.stamp" dl="$out.download" res code size status cond=()
   [ -s "$out" ] || rm -f "$stamp"
-  [ -e "$stamp" ] && cond=(-z "$stamp")
+  # The stamp holds the URL it was made for: a different source is fetched in full.
+  [ -e "$stamp" ] && [ "$(< "$stamp")" = "$url" ] && cond=(-z "$stamp")
   [ -n "$url" ] || return 2
   res=$(curl -sS --fail --max-time 60 --max-filesize 20000000 --proto =https -R "${cond[@]}" \
     -H "Accept-Encoding: $enc" --compressed \
@@ -500,7 +500,7 @@ get() {
     echo "$name unchanged 0"
     return 0
   fi
-  jq -c --arg cut "$cut" "$filter" "$dl" > "$out.tmp" && mv -f "$out.tmp" "$out" && touch -r "$dl" "$stamp"
+  jq -c --arg cut "$cut" "$filter" "$dl" > "$out.tmp" && mv -f "$out.tmp" "$out" && printf '%s' "$url" > "$stamp" && touch -r "$dl" "$stamp"
   status=$?
   rm -f "$dl" "$out.tmp"
   [ $status = 0 ] && echo "$name updated $size"

@@ -8,7 +8,7 @@
 
 id = "samxu29/ccf-deadlines"
 name = "CCF Deadlines"
-version = "0.4.5"
+version = "0.4.6"
 plugin_api = 43
 author = "samxu29"
 license = "MIT"
