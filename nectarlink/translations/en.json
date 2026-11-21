@@ -1,0 +1,359 @@
+{
+  "setup": {
+    "title": "Connect NectarLink",
+    "intro": "The plugin is installed. Phone features need the separate NectarLink application with this integration's extended API.",
+    "install": "1. Install and start the extended-API NectarLink fork.",
+    "copy": "Copy install command",
+    "copied": "Copied",
+    "copy_failed": "Could not copy the command",
+    "api": "2. In the application's settings, enable Local automation API.",
+    "pair": "3. Add your phone in NectarLink and confirm pairing on both devices.",
+    "instructions": "How to install",
+    "open": "Open application",
+    "check": "Check connection",
+    "source_note": "How to install opens the guide for NectarLink for Noctalia.",
+    "credentials_missing": "Connection is not configured yet. Start the application and enable its API. If already enabled, check the user profile and file permissions.",
+    "credentials_invalid": "Connection settings could not be read correctly. Check the application and profile; do not delete your profile or copy someone else's token.",
+    "api_unavailable": "Cannot reach the application. Check that it is running, then check the connection again.",
+    "unauthorized": "The application rejected authorization. Make sure both programs run as the same user with the same profile, then check again.",
+    "auth_changed": "Connection settings changed. Checking the new connection; check the phone before retrying any previously pending action.",
+    "no_devices": "Application connected, but no phones were returned. Add or check your phone in NectarLink.",
+    "unsupported": "This API route is unavailable. Check that the extended-API fork is running, not an ordinary upstream build.",
+    "invalid_response": "The application returned an incompatible response. Check the application build using the installation help.",
+    "permission": "The application denied access. Check feature permissions and settings; this response alone does not identify the cause.",
+    "timeout": "Connection check timed out. Check that the application is running, then try checking again."
+  },
+  "settings": {
+    "apps_display": "Apps: grid display",
+    "apps_icons": "Icons only",
+    "apps_icons_text": "Icons with names",
+    "panel_controls": "Popup: phone controls",
+    "panel_notifications": "Popup: phone notifications",
+    "panel_timeline": "Popup: phone timeline",
+    "panel_navigation": "Popup: left navigation",
+    "show_percentage": "Bar: show battery percentage",
+    "show_charging": "Bar: show charging indicator",
+    "show_name": "Bar: show phone name",
+    "hide_offline": "Bar: hide widget when disconnected",
+    "panel_battery": "Popup: battery card",
+    "panel_actions": "Popup: action cards",
+    "executable": "NectarLink executable (empty: search PATH)"
+  },
+  "common": {
+    "disconnected": "Phone disconnected",
+    "phone_offline": "Phone is offline",
+    "no_connection": "No connection to NectarLink",
+    "connect_phone": "Connect a phone first",
+    "phone": "Phone",
+    "settings": "Plugin settings",
+    "open_app": "Open NectarLink",
+    "fork_help": "Install NectarLink for Noctalia",
+    "refresh": "Refresh",
+    "refresh_page": "Refresh section",
+    "previous_page": "Previous page",
+    "next_page": "Next page",
+    "back": "← Back",
+    "back_to_list": "Back to list",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "send": "Send",
+    "sending": "Sending…",
+    "starting": "Starting…",
+    "clear": "Clear",
+    "search": "Search",
+    "silent": "Silent",
+    "all": "All",
+    "show_all": "Show all",
+    "last_known": "Last known",
+    "no_items": "No items",
+    "kib": "{size} KiB"
+  },
+  "battery": {
+    "power": "Power",
+    "charging": "Charging",
+    "discharging": "On battery",
+    "last_known": "Last known battery",
+    "unknown": "Battery unknown",
+    "phone": "Phone battery"
+  },
+  "connection": {
+    "lan": "Local network",
+    "relay": "Relay",
+    "connected": "Connected",
+    "offline": "Offline"
+  },
+  "pages": {
+    "home": "Home",
+    "messages": "Messages",
+    "calls": "Calls",
+    "photos": "Photos",
+    "apps": "Apps",
+    "deck": "Deck",
+    "guide": "Guide",
+    "no_phone": "No phone selected",
+    "failed": "Could not load this section",
+    "loading": "Loading from phone…",
+    "retry_hint": "Check the connection and Android permissions. Use Refresh at the top right to read again.",
+    "loading_hint": "The first read may take a few seconds. Other sections are available on the left."
+  },
+  "calls": {
+    "incoming": "Incoming",
+    "outgoing": "Outgoing",
+    "missed": "Missed",
+    "rejected": "Rejected",
+    "ringing": "Incoming call",
+    "active": "In call",
+    "call": "Call",
+    "number": "Phone number",
+    "dial": "Call",
+    "new_call": "Dial a number",
+    "answer": "Answer",
+    "end": "End call",
+    "duration": "{minutes} min {seconds} s"
+  },
+  "messages": {
+    "message": "Message",
+    "recipient": "Recipient number",
+    "draft": "Message (draft retained)",
+    "back_to_threads": "Back to conversations",
+    "new_sms": "New SMS",
+    "sms_preview": "SMS · {text}",
+    "chat_preview": "Chat · {text}"
+  },
+  "photos": {
+    "no_thumbnail": "No thumbnail received. You can download the original.",
+    "all_albums": "All albums",
+    "download": "Download original"
+  },
+  "apps": {
+    "search": "Search apps",
+    "open_window": "Open app in a separate window"
+  },
+  "deck": {
+    "play_pause": "Play / pause",
+    "previous": "Previous track",
+    "next": "Next track",
+    "volume_up": "Volume up",
+    "volume_down": "Volume down",
+    "main": "Main"
+  },
+  "confirm": {
+    "title": "Confirm: {action}",
+    "target": "This action runs on the selected phone or PC.",
+    "message": "send a message to “{title}”",
+    "dial": "dial {number}",
+    "download": "download {title}"
+  },
+  "cache": {
+    "refreshing": "Refreshing in the background",
+    "refresh_failed": "Refresh failed; showing saved data",
+    "saved": "Saved data; use the button on the right to refresh"
+  },
+  "home": {
+    "timeline": "Timeline",
+    "open_timeline": "Open timeline in NectarLink",
+    "event": "Event",
+    "received": "Received from phone",
+    "sent": "Sent to phone",
+    "no_events": "No recent events",
+    "events_failed": "Could not load events",
+    "events_loading": "Loading events…",
+    "select_recipient": "With multiple phones, select the recipient in the app",
+    "stop_screen": "Stop screen",
+    "screen": "Phone screen",
+    "screen_hint": "Open or close the separate phone-screen window",
+    "files": "Files",
+    "files_hint": "Choose files to send",
+    "clipboard": "Clipboard",
+    "clipboard_hint": "Send clipboard text to the phone",
+    "stop_ring": "Stop ringing",
+    "find_phone": "Find phone",
+    "waiting": "Waiting for the phone",
+    "update_app": "Update NectarLink",
+    "type_placeholder": "Text for the phone",
+    "stop_typing": "Stop typing",
+    "transport_only": "Sent. Draft retained — check text entry on the phone.",
+    "camera": "Camera",
+    "camera_hint": "Start the camera through NectarLink",
+    "stop_webcam": "Stop camera",
+    "webcam": "Webcam",
+    "webcam_hint": "Start or stop the virtual camera; drivers are not installed by the plugin",
+    "typing": "Type on phone",
+    "typing_hint": "Enable text entry on the selected phone",
+    "notifications": "Notifications · {count}",
+    "notifications_hint": "Show all notifications in the app",
+    "notification": "Notification"
+  },
+  "controls": {
+    "title": "Phone controls",
+    "dnd": "DND",
+    "flashlight": "Torch",
+    "wifi": "Wi-Fi",
+    "bluetooth": "BT",
+    "hotspot": "Hotspot",
+    "update_required": "An updated NectarLink build is required",
+    "permission": "Unavailable with current Android permissions",
+    "hotspot_hint": "Choose on or off; the phone does not report its state",
+    "unknown": "State not received yet",
+    "wifi_confirmation": "Turn off Wi-Fi? Connection may be lost.",
+    "turn_off": "Turn off",
+    "on": "On",
+    "off": "Off",
+    "ring": "Ring",
+    "vibrate": "Vibrate"
+  },
+  "sessions": {
+    "preparing": "Preparing…",
+    "asking": "Allow on the phone",
+    "watching": "Watching on phone",
+    "playing": "Audio playing",
+    "enabled": "Enabled",
+    "pc_audio": "Phone as speaker",
+    "watch": "Watch on phone",
+    "phone_audio": "Phone audio on this PC",
+    "unavailable": "Currently unavailable",
+    "watch_hint": "Play a video on the PC first; the phone may ask for confirmation",
+    "control_hint": "Control a NectarLink session"
+  },
+  "errors": {
+    "auth_changed": {
+      "title": "API settings changed",
+      "body": "Checking the new connection. Old replies were discarded; an action may have arrived. Check the phone before retrying."
+    },
+    "credentials_missing": {
+      "title": "API file unavailable",
+      "body": "Start the extended-API NectarLink build and enable its API. If already enabled, check the profile and file permissions."
+    },
+    "credentials_invalid": {
+      "title": "Invalid API settings",
+      "body": "The API file failed validation. Check the app and profile; do not delete the profile or use someone else's token."
+    },
+    "api_unavailable": {
+      "title": "Cannot reach the app",
+      "body": "Check that NectarLink is running and its local API is enabled, then refresh."
+    },
+    "unauthorized": {
+      "title": "Authorization rejected",
+      "body": "Check that the app runs as the same user with the same profile. Refresh rereads the token."
+    },
+    "unsupported": {
+      "title": "API feature unavailable",
+      "body": "Route not found. The extended-API fork is required. The help button opens its installation guide."
+    },
+    "invalid_response": {
+      "title": "Unexpected API response",
+      "body": "The response format is incompatible. Check the app build; invalid responses do not replace saved data."
+    },
+    "permission": {
+      "title": "Feature access denied",
+      "body": "Check feature settings and permissions in NectarLink and Android. HTTP 403 alone does not identify the cause."
+    },
+    "phone_offline": {
+      "title": "Phone is offline",
+      "body": "Check the phone connection in NectarLink and its Android permissions. Saved data may be out of date."
+    },
+    "timeout": {
+      "title": "Response timed out",
+      "body": "Check the connection and refresh. If an action was pending, check its result on the phone first; it is not retried automatically."
+    },
+    "request_failed": {
+      "title": "Request failed",
+      "body": "Check the connection and feature settings. Refresh rereads data; actions are never retried automatically."
+    }
+  },
+  "notifications": {
+    "auth_changed": "API settings changed during an action. Its result is unknown; check the phone/PC before retrying.",
+    "absolute_path": "Set an absolute executable path or leave the field empty",
+    "launch_failed": "Could not start NectarLink. Check the path and execute permission; run it in a terminal to diagnose missing libraries.",
+    "browser_failed": "Could not open the browser. Fork address: {url}",
+    "action_timeout": "No confirmation. Check the phone/PC before retrying; there is no automatic retry.",
+    "session_timeout": "No reply to session control. Checking its state.",
+    "type_timeout": "No confirmation of delivery. Text remains in the field; there is no automatic retry.",
+    "toggle_timeout": "No reply to the toggle request. Checking its state.",
+    "camera_timeout": "No reply to the camera request",
+    "ring_timeout": "No reply. Checking the phone state.",
+    "action_failed": "Action unconfirmed. Check the phone/PC before retrying.",
+    "action_limit": "Action not sent. Restart the NectarLink app to reset its action limit.",
+    "action_busy": "Action not sent. NectarLink is still handling another action.",
+    "another_device": "Another phone is using this session",
+    "nothing_playing": "Play a video on the computer first",
+    "unavailable": "Feature unavailable with current permissions",
+    "invalid_json": "Request format error between the plugin and API",
+    "invalid_session": "The API did not recognize the session type",
+    "no_device": "The phone is unavailable to the API",
+    "session_failed": "The app could not start the session",
+    "api_unavailable": "Cannot reach the local NectarLink API",
+    "session_http": "Could not change the session (HTTP {status})",
+    "type_failed": "Delivery unconfirmed. Text retained; check the phone before retrying — some text may have arrived.",
+    "toggle_failed": "Toggle request unconfirmed. Checking the phone state.",
+    "camera_failed": "Could not start the camera",
+    "ring_failed": "The phone did not accept the request"
+  },
+  "guide": {
+    "panel": "Panel",
+    "sections": "Sections",
+    "help": "Help",
+    "cache": "Cache",
+    "compatibility": "Compatibility",
+    "widget": {
+      "title": "Bar widget",
+      "body": "Click NectarLink in the Noctalia bar to open this panel. Icons on the left switch sections."
+    },
+    "home": {
+      "title": "Home — quick actions",
+      "body": "The top card shows the phone and battery. Below are screen, files, clipboard, ring and camera actions; controls and timeline are on the right."
+    },
+    "settings": {
+      "title": "Make it yours",
+      "body": "The bottom-left gear opens plugin settings: battery, device name, offline visibility and Home sections."
+    },
+    "messages": {
+      "title": "Messages and calls",
+      "body": "Select a conversation; the plus-message icon creates an SMS. Sending and dialing require confirmation. Drafts remain until cleared or the plugin reloads."
+    },
+    "photos": {
+      "title": "Photos and apps",
+      "body": "Choose an album, open a thumbnail and download the original. Apps launch on click; choose the grid layout in plugin settings."
+    },
+    "deck": {
+      "title": "Deck and pages",
+      "body": "Deck runs a configured tile immediately on click. Bottom arrows turn pages; Refresh at the top rereads the current section."
+    },
+    "connection": {
+      "title": "No connection or disabled action",
+      "body": "Start NectarLink and enable its local API. Check the network, Android permissions and device feature switches, then refresh."
+    },
+    "history": {
+      "title": "Missing chat history",
+      "body": "Chats show saved notifications, not full messenger archives. Replies require an active notification; SMS needs a separate phone permission."
+    },
+    "unconfirmed": {
+      "title": "Action unconfirmed",
+      "body": "Check the phone/PC first: the request may have arrived. The plugin never resends automatically or clears an unconfirmed draft. Screen and webcam need Android permissions."
+    },
+    "navigation": {
+      "title": "Returning to a section",
+      "body": "Search, page, conversation and album are remembered per phone. Saved content appears immediately while its cache entry remains available."
+    },
+    "refresh": {
+      "title": "Refresh without a blank view",
+      "body": "A refresh icon means a background read; a clock means saved data. Failed refreshes keep it visible. The right-hand button forces a read when connected."
+    },
+    "reload": {
+      "title": "When data loads again",
+      "body": "The bounded cache lives in memory only. Restarting, changing authorization or evicting an entry requires another read. Confirmations and actions are never restored."
+    },
+    "fork": {
+      "title": "Extended-API build required",
+      "body": "The upstream build cannot replace the fork's page/control API. The book icon opens the NectarLink for Noctalia installation guide."
+    },
+    "niri": {
+      "title": "Niri: Island intercepts clicks",
+      "body": "The Noctalia build retains the original Island. The separate NectarLink for Niri project documents the workaround; no compositor replacement is needed."
+    },
+    "checks": {
+      "title": "Where to start",
+      "body": "Check the app is running, API enabled, phone connected and permissions granted. Set an absolute executable path if needed. Keep your profile and token private."
+    }
+  }
+}
