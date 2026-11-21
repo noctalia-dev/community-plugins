@@ -159,7 +159,7 @@ in the save bar), Alt+Left back, Esc close.
     switch), the editor command (**About**), `write.lock` (one writer at a time: panel, app, Try watcher and
     title-bar script) and the `.migrated-v1` / `.private-v1` markers of one-time migrations;
   - in Noctalia's plugin data directory: drafts (`draft.json`, `draft-other-config.json`), the helper's
-    request/response files (`run/`), its bytecode cache (`pycache/`) and the field catalog (`cache/`);
+    request/response files (`run/`; pairs left by a plugin unload are removed after 10 minutes), its bytecode cache (`pycache/`) and the field catalog (`cache/`);
   - title bars that follow Noctalia, see below.
 - **Title bars that follow Noctalia**, only when a save starts following (**KDE** / **KDE header**): the user
   template `~/.config/noctalia/templates/umbriel-titlebar.toml`, its `umbriel_titlebar` entry in

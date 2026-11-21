@@ -18,6 +18,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import time
 import traceback
 
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -766,12 +767,33 @@ def run(argv):
                            "code": "internal"})
 
 
+RUN_FILE = re.compile(r"^[a-z-]+-\d+-\d+\.(req|res)\.json$")
+STALE_RUN_FILE = 600  # seconds: far past the longest helper timeout (60 s)
+
+
+def sweep_run_files(request_file):
+    """Remove request/response pairs that the panel never cleaned up: Noctalia drops the callbacks of helpers still
+    running when it unloads the plugin (disable, reload), and only those callbacks remove the files."""
+    if not request_file:
+        return
+    folder = os.path.dirname(os.path.abspath(request_file))
+    cutoff = time.time() - STALE_RUN_FILE
+    with contextlib.suppress(OSError):
+        for entry in os.scandir(folder):
+            with contextlib.suppress(OSError):
+                if RUN_FILE.match(entry.name) and entry.is_file(follow_symlinks=False) \
+                        and entry.stat(follow_symlinks=False).st_mtime < cutoff:
+                    os.unlink(entry.path)
+
+
 def main(argv):
     # Noctalia ends a helper that runs past its timeout with SIGTERM; exiting through SystemExit runs the
     # `finally` blocks that remove temporary files (the app calls run() in-process and keeps its handlers).
     import signal
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(143))
     print(run(argv))
+    with contextlib.suppress(HelperError):
+        sweep_run_files(parse_args(argv)[1])
     return 0
 
 
