@@ -3053,8 +3053,10 @@ renderMiniPlayer = function()
     width   = "100%",
   }, { leftGroup, controlCol })
 
-  return ui.column({
-    gap         = 2,
+  -- Keep a row as the outer box: as a direct child of the root column, a
+  -- column would be stretched to fill spare panel height in short views.
+  return ui.row({
+    align       = "center",
     paddingH    = 8,
     paddingV    = 6,
     radius      = 8,
@@ -3062,7 +3064,9 @@ renderMiniPlayer = function()
     border      = "primary/0.25",
     borderWidth = 1,
     width       = "100%",
-  }, { topRow, volumeRow })
+  }, {
+    ui.column({ gap = 2, flexGrow = 1, minWidth = 0 }, { topRow, volumeRow }),
+  })
 end
 
 render = function()
