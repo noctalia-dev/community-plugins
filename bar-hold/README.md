@@ -1,18 +1,18 @@
-# Dock Pin
+# Bar Hold
 
 A bar widget that pins a bar in place. While the target bar uses smart
 auto-hide, the pin glyph is dim; clicking it turns smart auto-hide off so the
 bar stays always visible, and the pin lights up. Clicking again re-enables
 smart auto-hide.
 
-Useful for a bottom dock-style bar that should usually get out of the way but
-sometimes needs to stay put while you arrange windows.
+Useful for a bottom bar that should usually get out of the way but sometimes
+needs to stay put while you arrange windows.
 
 ## Plugin
 
 | Field | Value |
 | --- | --- |
-| ID | `tomaswade/dock-pin` |
+| ID | `tomaswade/bar-hold` |
 | Entries | Bar widget: `pin`; service: `watcher` |
 
 ## Requirements
@@ -26,12 +26,12 @@ Reference the widget by its full name in any regular bar's widget list:
 
 ```toml
 [bar.default]
-start = [ "launcher", "workspaces", "tomaswade/dock-pin:pin" ]
+start = [ "launcher", "workspaces", "tomaswade/bar-hold:pin" ]
 ```
 
 The pin usually lives on a regular bar (for example the top bar) and controls
-another bar — by default `bar.dock.smart_auto_hide` — so you can pin your
-bottom dock from wherever the pin sits. See Settings to point it at a
+another bar — by default `bar.dock.smart_auto_hide` — so you can hold a
+lower bar in place from wherever the pin sits. See Settings to point it at a
 different bar or key.
 
 - Dim pin: the target bar is in smart auto-hide mode.

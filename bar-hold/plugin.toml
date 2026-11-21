@@ -1,5 +1,5 @@
-id = "tomaswade/dock-pin"
-name = "Dock Pin"
+id = "tomaswade/bar-hold"
+name = "Bar Hold"
 version = "1.0.0"
 plugin_api = 43
 author = "tomaswade"
