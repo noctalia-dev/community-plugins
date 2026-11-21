@@ -35,8 +35,8 @@ mpv-mpris.
   station's thumbnail in the list and as its logo in the media widget. Each
   one can be edited later (name, URL or cover), played, favorited, or
   removed; they persist across restarts in a separate file.
-- **Playback via mpv** - stations are played through `mpv` at 85% volume
-  (falls back to `ffplay` when mpv is missing; station switching needs mpv).
+- **Playback via mpv** - stations are played through `mpv` (85% volume by
+  default; falls back to `ffplay` when mpv is missing; station switching needs mpv).
   Starting a station gives mpv the whole source list as a playlist, so the
   panel's mini player and Noctalia's native media controls can move between
   stations with Next/Previous. The mini player shows a pulsing green live icon
@@ -122,7 +122,9 @@ floating window centered on the screen by default.
    logo, and the bar for the now-playing name. Scroll up/down over the bar
    widget to move to the next/previous station, or press Next/Previous in the
    media widget; both work with the panel closed. The panel's mini player has
-   its own previous/next buttons as well.
+   its own previous/next buttons as well, plus a volume slider and a mute
+   button that change the playing stream instantly (the level is remembered
+   for the next station and across restarts).
 
 ## Settings
 
@@ -177,7 +179,8 @@ turns each new id into an MPRIS Next (`dir = 1`) or Previous (`dir = -1`).
   reloads: `countries.json` and `stats.json` (4h cache), `favorites.json`,
   `custom-stations.json`, `playing.json` (mini player state + session),
   `queue.m3u` / `covers.txt` (mpv playlist and per-entry logos), `now.json`
-  (current playlist position written by the mpv helper), `thumbs/` (downloaded
+  (current playlist position written by the mpv helper), `volume.txt`
+  (mini player volume and mute, picked up live by the mpv helper), `thumbs/` (downloaded
   favicons) and `player.pid`. All of them can be safely deleted to force a
   refresh. Favicon file names derive from a sanitised station id (non
   `[A-Za-z0-9_-]` characters are stripped) and downloads only accept

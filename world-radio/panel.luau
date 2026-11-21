@@ -324,7 +324,33 @@ local function newSession()
 end
 
 local playerName = noctalia.commandExists("mpv") and "mpv" or "ffplay"
-local playerArgs = playerName == "mpv" and "--no-video --no-terminal --volume=85" or "-nodisp -loglevel quiet -autoexit -volume 85"
+local playerArgs = playerName == "mpv" and "--no-video --no-terminal" or "-nodisp -loglevel quiet -autoexit"
+
+-- Playback volume (0-100) and mute, shared with the bundled mpv helper through
+-- volume.txt ("<volume> <muted 0|1>"). radio.lua polls that file, so the mini
+-- player's slider changes the running stream without restarting it.
+local DEFAULT_VOLUME = 85
+local playerVolume = DEFAULT_VOLUME
+local playerMuted = false
+
+local function volumePath()
+  return getDataDir() .. "/volume.txt"
+end
+
+local function loadVolume()
+  local raw = noctalia.readFile(volumePath())
+  if raw == nil then
+    return
+  end
+  local vol, muted = tostring(raw):match("^%s*(%d+)%s*(%d?)")
+  vol = tonumber(vol)
+  if vol ~= nil then
+    playerVolume = math.max(0, math.min(100, math.floor(vol)))
+  end
+  playerMuted = muted == "1"
+end
+
+loadVolume()
 
 -- Noctalia's media panel only reads MPRIS. mpv needs the mpv-mpris plugin to
 -- register itself there; without it the panel reports "nothing playing".
@@ -1094,6 +1120,42 @@ local function writeAtomic(path, content)
   noctalia.writeFile(path, content)
 end
 
+local function saveVolume()
+  writeAtomic(volumePath(), string.format("%d %d\n", playerVolume, playerMuted and 1 or 0))
+end
+
+local function setVolume(value)
+  value = tonumber(value)
+  if value == nil then
+    return
+  end
+  value = math.max(0, math.min(100, math.floor(value + 0.5)))
+  -- Moving the slider is an explicit request to hear the radio again.
+  local unmute = playerMuted and value > 0
+  if value == playerVolume and not unmute then
+    return
+  end
+  playerVolume = value
+  if unmute then
+    playerMuted = false
+  end
+  saveVolume()
+  render()
+end
+
+local function toggleMute()
+  if playerMuted or playerVolume == 0 then
+    playerMuted = false
+    if playerVolume == 0 then
+      playerVolume = DEFAULT_VOLUME
+    end
+  else
+    playerMuted = true
+  end
+  saveVolume()
+  render()
+end
+
 writePlaylist = function()
   local queue = playQueue or {}
   local lines = { "#EXTM3U" }
@@ -1391,6 +1453,9 @@ startPlayerProcess = function(station, queueIndex, session)
   local args = playerArgs
   local env = ""
   if playerName == "mpv" then
+    args = args
+      .. " --volume=" .. tostring(playerVolume)
+      .. " --mute=" .. (playerMuted and "yes" or "no")
     local mprisScript, mprisFound = mprisScriptPath()
     if not mprisFound and not mprisMissingWarned then
       mprisMissingWarned = true
@@ -1419,7 +1484,10 @@ startPlayerProcess = function(station, queueIndex, session)
     env = "WORLD_RADIO_SESSION=" .. shellQuote(session or "")
       .. " WORLD_RADIO_DATA=" .. shellQuote(getDataDir()) .. " "
   else
-    args = args .. " " .. shellQuote(station.url)
+    -- ffplay cannot be adjusted while playing; the volume applies on the next start.
+    args = args
+      .. " -volume " .. tostring(playerMuted and 0 or playerVolume)
+      .. " " .. shellQuote(station.url)
   end
   local cmd = string.format(
     "kill $(cat %s 2>/dev/null) 2>/dev/null; %s%s %s >/dev/null 2>&1 & echo $! > %s",
@@ -2798,7 +2866,6 @@ renderMiniPlayer = function()
   panel.setNeedsFrameTick(true)
   local thumb = artwork.thumbFor(playingUuid)
   local parts = {}
-  table.insert(parts, ui.glyph({ name = "volume-2", size = 11, color = "primary" }))
   table.insert(parts, stationArt(thumb, 22, "radio"))
   local now = noctalia.nowMs() / 1000
   local wave = (math.sin(now / 0.8 * math.pi) + 1) / 2
@@ -2941,10 +3008,53 @@ renderMiniPlayer = function()
     marginLeft = "auto",
   }, controls)
 
-  return ui.row({
-    gap         = 6,
-    align       = "center",
-    justify     = "space_between",
+  local silent = playerMuted or playerVolume == 0
+  local volumeGlyph = "volume"
+  if silent then
+    volumeGlyph = "volume-off"
+  elseif playerVolume < 50 then
+    volumeGlyph = "volume-2"
+  end
+  local volumeRow = ui.row({
+    gap   = 6,
+    align = "center",
+    width = "100%",
+  }, {
+    ui.button({
+      glyph       = volumeGlyph,
+      variant     = "ghost",
+      controlSize = "sm",
+      tooltip     = silent and tr("panel.unmute_tooltip") or tr("panel.mute_tooltip"),
+      onClick     = toggleMute,
+    }),
+    ui.slider({
+      key         = "wr-volume",
+      min         = 0,
+      max         = 100,
+      step        = 1,
+      value       = playerMuted and 0 or playerVolume,
+      controlSize = "sm",
+      flexGrow    = 1,
+      onChange    = setVolume,
+    }),
+    ui.label({
+      text      = silent and tr("panel.muted") or (tostring(playerVolume) .. "%"),
+      fontSize  = 10,
+      color     = silent and "on_surface/0.5" or "primary",
+      width     = 40,
+      textAlign = "end",
+    }),
+  })
+
+  local topRow = ui.row({
+    gap     = 6,
+    align   = "center",
+    justify = "space_between",
+    width   = "100%",
+  }, { leftGroup, controlCol })
+
+  return ui.column({
+    gap         = 2,
     paddingH    = 8,
     paddingV    = 6,
     radius      = 8,
@@ -2952,7 +3062,7 @@ renderMiniPlayer = function()
     border      = "primary/0.25",
     borderWidth = 1,
     width       = "100%",
-  }, { leftGroup, controlCol })
+  }, { topRow, volumeRow })
 end
 
 render = function()
