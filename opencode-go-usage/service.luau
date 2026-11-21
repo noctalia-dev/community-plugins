@@ -9,7 +9,11 @@
 --
 -- The bar and panel are thin clients: they only read the "usage" state key.
 
-local API_URL = "https://opencode.ai/console/api/go/status"
+-- The usage route an API key may read. The console's own document endpoint
+-- (/console/api/go/status) is session-authenticated: it expects a
+-- __Host-console_session cookie plus an x-org-id header and answers any API key
+-- with 403 {"_tag":"Forbidden"}, whatever its permissions.
+local API_URL = "https://opencode.ai/zen/go/v1/usage"
 local REFRESH_CMD = "usage.cmd"
 
 -- ── ISO-8601 -> epoch seconds ────────────────────────────────────────────────
@@ -49,18 +53,6 @@ local function isoToEpoch(ts)
 end
 
 -- ── formatting ───────────────────────────────────────────────────────────────
-
-local function meterFraction(meter)
-	if type(meter) ~= "table" then
-		return -1
-	end
-	local limit = tonumber(meter.limitMicroCents)
-	local used = tonumber(meter.usedMicroCents)
-	if not limit or limit <= 0 or not used then
-		return -1
-	end
-	return math.max(0, used / limit)
-end
 
 local function formatResetLine(ts)
 	local epoch = isoToEpoch(ts)
@@ -122,27 +114,46 @@ local function failState(code, message)
 	})
 end
 
-local function limitCard(name, meter, endsAt)
-	local fraction = meterFraction(meter)
+-- One card per window. The endpoint reports a percentage of the limit, not
+-- used/limit micro-cents, so `percent` is all it takes to fill a meter.
+local function limitCard(name, meter)
+	if type(meter) ~= "table" then
+		return nil
+	end
+	local pct = tonumber(meter.percent)
+	if not pct then
+		return nil
+	end
+	local fraction = math.max(0, pct / 100)
 	return {
 		name = name,
 		percent = fraction,
-		reset = formatResetLine(endsAt),
-		daily = dailyRemaining(fraction, endsAt),
+		reset = formatResetLine(meter.resetsAt),
+		daily = dailyRemaining(fraction, meter.resetsAt),
 	}
 end
 
 local function parseUsage(body)
 	local data = noctalia.json.decode(body)
-	local access = data and data.access
-	local meters = access and access.meters
-	if type(meters) ~= "table" then
+	-- GET /zen/go/v1/usage answers
+	--   { "usage": { "rolling": { "status", "percent", "resetsAt" },
+	--                "weekly":  { ... }, "monthly": { ... } } }
+	-- "rolling" is the 5-hour window. `status` is "ok" for a live subscription;
+	-- the meters are rendered from `percent` alone, so an unfamiliar status can
+	-- never blank them.
+	local usage = data and data.usage
+	if type(usage) ~= "table" then
 		failState("no_meter", noctalia.tr("status.no_meter"))
 		return
 	end
 
-	local fiveHour, week, month = meters.fiveHour, meters.week, meters.month
-	local endsAt = access.endsAt
+	local fiveHour = limitCard(noctalia.tr("meter.five_hour"), usage.rolling)
+	local week = limitCard(noctalia.tr("meter.week"), usage.weekly)
+	local month = limitCard(noctalia.tr("meter.month"), usage.monthly)
+	if not (fiveHour or week or month) then
+		failState("no_meter", noctalia.tr("status.no_meter"))
+		return
+	end
 
 	local parts = {}
 	for _, entry in {
@@ -151,7 +162,7 @@ local function parseUsage(body)
 		{ month, "meter.short_month" },
 	} do
 		if entry[1] then
-			table.insert(parts, noctalia.tr(entry[2]) .. " " .. pctInt(meterFraction(entry[1])))
+			table.insert(parts, noctalia.tr(entry[2]) .. " " .. pctInt(entry[1].percent))
 		end
 	end
 
@@ -160,11 +171,12 @@ local function parseUsage(body)
 		ok = true,
 		code = nil,
 		message = table.concat(parts, " \u{b7} "),
-		-- Machine value; the panel and bar translate it for display.
-		tier = access.cancelAtPeriodEnd and "cancelling" or "active",
-		fiveHour = limitCard(noctalia.tr("meter.five_hour"), fiveHour, fiveHour and fiveHour.resetsAt),
-		week = limitCard(noctalia.tr("meter.week"), week, week and week.resetsAt),
-		month = limitCard(noctalia.tr("meter.month"), month, endsAt),
+		-- This route reports meters, not billing state, so the panel shows no
+		-- tier chip instead of guessing "active" or "cancelling".
+		tier = nil,
+		fiveHour = fiveHour,
+		week = week,
+		month = month,
 	})
 end
 

@@ -13,8 +13,10 @@ monthly meters down with progress bars, reset countdowns and daily headroom.
 
 ## Requirements
 
-An active Opencode Go subscription and its API key. The plugin makes no external
-command calls, so `plugin.toml` declares no `dependencies`.
+An active Opencode Go subscription and its API key. The plugin reads the meters
+from `GET https://opencode.ai/zen/go/v1/usage` with that key, using Noctalia's
+built-in HTTP client; it makes no external command calls, so `plugin.toml`
+declares no `dependencies`.
 
 ## Usage
 
@@ -44,15 +46,17 @@ per-widget, so you can show a different limit on each monitor.
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
-| `api_key` | `string` | `""` | Your Opencode Go key (`oc_sk_...`). Required; the capsule stays empty without it. |
+| `api_key` | `string` | `""` | Your Opencode Go key (`oc_sk_...`). Required; the capsule stays empty without it. It is only ever sent to `opencode.ai`. |
 | `refresh_interval_sec` | `int` | `1800` | Seconds between polls. Clamped to 60–86400. A shorter interval means more requests against a rate-limited endpoint. |
 | `bar_limit` | `select` | `5h` | Which meter the capsule reports: `5h`, `week`, `month`, or `none` to show the icon alone with the percentage hidden. The tooltip still reports the usage. |
 
 ## Notes
 
 **Network access.** A single background service polls
-`https://opencode.ai/console/api/go/status` on the interval above and is the only
-thing that touches the network. The bar widget and the panel only read the result
+`https://opencode.ai/zen/go/v1/usage` on the interval above and is the only
+thing that touches the network. That route is the one an API key may read; the
+console's own `/console/api/go/status` document is session-authenticated and
+rejects API keys with `403`. The bar widget and the panel only read the result
 from shared state, so N capsules on M monitors still cost one request per cycle.
 Refresh is guarded against overlapping requests.
 
