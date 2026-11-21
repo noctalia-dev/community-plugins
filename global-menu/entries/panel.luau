@@ -98,17 +98,6 @@ local function appIcon(sizePx)
     return cached ~= false and cached or nil
 end
 
-local function formatAccel(raw)
-    if raw == nil or raw == "" then return nil end
-    local out = tostring(raw):gsub("<([^<>]*)>", function(part)
-        return part .. "+"
-    end)
-    out = out:gsub("+$", "")
-    out = out:gsub("_", " ")
-    if out == "" then return nil end
-    return out
-end
-
 local function childItems(node)
     local items = {}
     if node == nil or node.children == nil then return items end
@@ -326,7 +315,9 @@ local function renderRow(item, index, items)
     local enabled = item.enabled ~= false
     local selected = index == selIndex
     local hovered = index == hoverIndex
-    local accel = formatAccel(item.accel)
+    -- formatted by the daemon (accelLabel), shared with the HUD
+    local accel = item.accelLabel
+    if accel == "" then accel = nil end
     local navigable = hasRealChildren(item)
 
     -- quiet pill by default, tinted under the pointer or the keyboard

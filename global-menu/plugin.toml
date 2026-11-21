@@ -1,6 +1,6 @@
 id           = "amancode22/global-menu"
 name         = "Global Menu"
-version      = "1.0.0"
+version      = "1.5.0"
 plugin_api   = 24
 author       = "amancode22"
 license      = "GPL-3.0-or-later"
@@ -61,6 +61,20 @@ placement   = "attached"
 open_near_click = true
 keyboard_focus = "exclusive"
 capture_keys = ["Up", "Down", "Return", "Left", "Right"]
+
+[[launcher_provider]]
+id     = "hud"
+entry  = "entries/hud.luau"
+prefix = "hud"
+glyph  = "list-search"
+include_in_global_search = false
+
+[[launcher_provider]]
+id     = "menu-hud"
+entry  = "entries/menu-hud.luau"
+prefix = "menu-hud"
+glyph  = "list-tree"
+include_in_global_search = false
 
 [[service]]
 id    = "service"

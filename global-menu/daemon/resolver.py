@@ -37,6 +37,10 @@ REGISTRAR_NAME = 'com.canonical.AppMenu.Registrar'
 REGISTRAR_PATH = '/com/canonical/AppMenu/Registrar'
 
 NEG_TTL = 30.0               # seconds a failed probe stays cached
+DISCOVERED_TTL = 10.0        # seconds a found unregistered menubar is reused
+# last reverse-DNS segments too generic to identify an application
+_GENERIC_SEGMENTS = {'app', 'application', 'client', 'desktop', 'gui',
+                     'launcher', 'main'}
 
 _POLL_EXTERNAL_MS = 2000
 
@@ -78,6 +82,8 @@ class Registrar(object):
         self.external = False
         self.registrations = {}      # window_id -> Registration
         self._pid_cache = {}         # sender -> pid
+        self._no_menubar = {}        # sender -> time its probe failed
+        self._discovered = {}        # app id -> (time, (sender, path))
         self._objects = []
 
         self._observe_name_owner()
@@ -173,7 +179,13 @@ class Registrar(object):
             self.on_change()
 
     def registrations_died(self, sender):
-        # a bus name vanished; drop its registrations
+        # a bus name vanished; drop its registrations and everything
+        # cached about it, so the per-sender caches stay bounded
+        self._pid_cache.pop(sender, None)
+        self._no_menubar.pop(sender, None)
+        for app_id in [a for a, (_t, hit) in self._discovered.items()
+                       if hit[0] == sender]:
+            del self._discovered[app_id]
         dead = [w for w, r in self.registrations.items() if r.sender == sender]
         for window_id in dead:
             del self.registrations[window_id]
@@ -205,6 +217,10 @@ class Registrar(object):
         if registration.identities:
             return registration.identities
         pid = registration.pid = self._sender_pid(registration.sender)
+        registration.identities = self._identity_for_pid(pid)
+        return registration.identities
+
+    def _identity_for_pid(self, pid):
         tokens = set()
         if pid:
             for path in self._proc_paths(pid):
@@ -220,7 +236,6 @@ class Registrar(object):
             except OSError:
                 pass
         tokens.discard('')
-        registration.identities = tokens
         return tokens
 
     @staticmethod
@@ -238,16 +253,22 @@ class Registrar(object):
         if not self.registrations:
             return None
 
-        wanted = {normalize(app_id)}
-        wanted.discard('')
+        exact, loose = self._wanted(app_id)
         # a window title sometimes carries the binary name; weak signal,
         # used only if identity matching fails below
 
+        # the whole app id first; the last reverse-DNS segment only when
+        # nothing matches exactly, so two apps sharing a last segment
+        # cannot take each other's menus when one of them matches exactly
         best = None
-        for registration in self.registrations.values():
-            identities = self._identity_for(registration)
-            if identities & wanted:
-                best = registration
+        for wanted in (exact, loose):
+            if not wanted:
+                continue
+            for registration in self.registrations.values():
+                if self._identity_for(registration) & wanted:
+                    best = registration
+                    break
+            if best is not None:
                 break
 
         if best is None and len(self.registrations) == 1 and \
@@ -257,6 +278,108 @@ class Registrar(object):
             best = next(iter(self.registrations.values()))
 
         return (best.sender, best.menu_path) if best else None
+
+    @staticmethod
+    def _wanted(app_id):
+        """(exact, loose) identity tokens for an app id.
+
+        exact is the whole normalised id. loose is the last segment of a
+        reverse-DNS id, so 'org.kde.dolphin' or a flatpak's
+        'org.mozilla.firefox' can match its 'dolphin' / 'firefox' binary;
+        it stays empty when that segment is too generic to identify an
+        app ('org.example.App' must not match every 'app' binary)."""
+        exact = {normalize(app_id)} - {''}
+        loose = set()
+        if app_id and '.' in str(app_id):
+            last = normalize(str(app_id).rsplit('.', 1)[-1])
+            if len(last) >= 3 and last not in _GENERIC_SEGMENTS:
+                loose = {last} - exact
+        return exact, loose
+
+    # ------------------------------------------------ unregistered menus
+
+    def discover_unregistered(self, app_id):
+        """Qt applications on compositors without KDE's appmenu Wayland
+        protocol hide their menubar and export it at /MenuBar/<n>, but
+        never call RegisterWindow, so the registrar never hears of them.
+        Look for those objects on the bus connections of processes whose
+        identity matches the focused app, and pick the menubar with the
+        most top-level menus (the main window rather than a tool window).
+
+        A hit is cached per app id for DISCOVERED_TTL seconds and dropped
+        as soon as its bus name vanishes (registrations_died), so refocusing
+        the app does not repeat the ListNames/Introspect/GetLayout round."""
+        now = time.monotonic()
+        cached = self._discovered.get(app_id)
+        if cached is not None:
+            if now - cached[0] < DISCOVERED_TTL:
+                return cached[1]
+            del self._discovered[app_id]
+
+        exact, loose = self._wanted(app_id)
+        if not exact and not loose:
+            return None
+        try:
+            obj = self.session.get_object('org.freedesktop.DBus',
+                                          '/org/freedesktop/DBus')
+            names = obj.ListNames(dbus_interface='org.freedesktop.DBus',
+                                  timeout=2)
+        except dbus.exceptions.DBusException:
+            return None
+        # rank: an exact identity match beats a last-segment one, then
+        # the menubar with more top-level menus wins
+        best, rank = None, (0, 0)
+        for name in names:
+            name = str(name)
+            if not name.startswith(':'):
+                continue
+            if now - self._no_menubar.get(name, -NEG_TTL) < NEG_TTL:
+                continue
+            pid = self._sender_pid(name)
+            if not pid:
+                continue
+            identity = self._identity_for_pid(pid)
+            tier = 2 if identity & exact else 1 if identity & loose else 0
+            if not tier:
+                continue
+            found = False
+            for path in self._menubar_paths(name):
+                count = self._top_level_count(name, path)
+                if count is None:
+                    continue
+                found = True
+                if (tier, count) > rank:
+                    best, rank = (name, path), (tier, count)
+            if not found:
+                # a hung or menu-less process: do not ask it again soon
+                self._no_menubar[name] = now
+        if best:
+            self._discovered[app_id] = (now, best)
+            self._log('unregistered menubar %s %s for %s'
+                      % (best[0], best[1], app_id))
+        return best
+
+    def _menubar_paths(self, name):
+        try:
+            obj = self.session.get_object(name, '/MenuBar',
+                                          introspect=False)
+            xml = str(obj.Introspect(
+                    dbus_interface='org.freedesktop.DBus.Introspectable',
+                    timeout=1))
+        except dbus.exceptions.DBusException:
+            return []
+        return ['/MenuBar/' + node
+                for node in re.findall(r'<node name="(\d+)"', xml)]
+
+    def _top_level_count(self, name, path):
+        try:
+            obj = self.session.get_object(name, path, introspect=False)
+            layout = obj.GetLayout(0, 1, dbus.Array([], signature='s'),
+                                   dbus_interface='com.canonical.dbusmenu',
+                                   timeout=1)
+            return len(layout[1][2])
+        except (dbus.exceptions.DBusException, IndexError, TypeError):
+            return None
 
 
 class _RegistrarService(dbus.service.Object):

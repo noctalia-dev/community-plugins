@@ -20,6 +20,14 @@ local port = nil
 local token = nil
 local killed = false
 
+-- a daemon that exits before its hello (a missing python module, a
+-- missing python3) only leaves text on stderr, which the stream now
+-- carries (2>&1). Count such starts and give up after a few, saying why.
+local MAX_FAILED_STARTS = 3
+local failedStarts = 0
+local lastErrorLine = nil
+local gaveUp = false
+
 -- ---------------------------------------------------------------- helpers
 
 local function shq(path)
@@ -53,12 +61,17 @@ local function onLine(line)
     if line == nil or line == "" then return end
     local ok, msg = pcall(function() return noctalia.json.decode(line) end)
     if not ok or type(msg) ~= "table" then
+        -- stderr arrives here too: keep the last line, the one a Python
+        -- traceback ends with ("ModuleNotFoundError: No module named ...")
         log("unparseable daemon line: " .. tostring(line):sub(1, 120))
+        lastErrorLine = tostring(line):sub(1, 200)
         return
     end
 
     local kind = msg.type
     if kind == "hello" then
+        failedStarts = 0
+        lastErrorLine = nil
         port = tonumber(msg.port)
         token = tostring(msg.token or "")
         features = msg.features or {}
@@ -130,14 +143,14 @@ end
 -- ----------------------------------------------------------------- daemon
 
 local function spawnDaemon()
-    if killed then return end
+    if killed or gaveUp then return end
     local nowMs = noctalia.nowMs()
     if nowMs - lastSpawnMs < 10000 then return end
     lastSpawnMs = nowMs
 
     local script = pluginDir .. "/daemon/globalmenu_daemon.py"
     local cmd = string.format(
-        "python3 %s --data %s --shortcuts %s --plugin %s",
+        "python3 %s --data %s --shortcuts %s --plugin %s 2>&1",
         shq(script), shq(dataDir),
         shq(pluginDir .. "/daemon/shortcuts/apps"),
         shq("amancode22/global-menu"))
@@ -187,7 +200,20 @@ function update()
     local nowMs = noctalia.nowMs()
     if lastPingMs == 0 then
         -- hello not arrived yet; give the first spawn a generous window
-        if nowMs - lastSpawnMs > 20000 then spawnDaemon() end
+        if gaveUp or nowMs - lastSpawnMs <= 20000 then return end
+        failedStarts = failedStarts + 1
+        if failedStarts >= MAX_FAILED_STARTS then
+            gaveUp = true
+            local reason = lastErrorLine or "no output"
+            log(("daemon failed to start %d times; giving up: %s")
+                :format(failedStarts, reason))
+            noctalia.notifyError("Global Menu",
+                "The menu daemon does not start (needs python3, " ..
+                "python3-dbus, python3-gi): " .. reason ..
+                ". Reload the plugin after fixing it.")
+            return
+        end
+        spawnDaemon()
         return
     end
     if nowMs - lastPingMs > 15000 then
