@@ -33,6 +33,8 @@
     "loading": "Loading...",
     "mpris_missing_body": "Install the mpv-mpris package so the station name and logo appear in Noctalia's media panel.",
     "mpris_missing_title": "Media panel integration needs mpv-mpris",
+    "mute_tooltip": "Mute",
+    "muted": "Muted",
     "next_tooltip": "Next station",
     "play_tooltip": "Play",
     "prev_tooltip": "Previous station",
@@ -54,7 +56,8 @@
     "top_countries": "Top countries",
     "total_countries": "Countries",
     "total_stations": "Total stations",
-    "unfavorite_tooltip": "Unfavorite"
+    "unfavorite_tooltip": "Unfavorite",
+    "unmute_tooltip": "Unmute"
   },
   "settings": {
     "glyph": {
