@@ -3,6 +3,7 @@ local lastQuery = ""
 local cmdById = {}
 
 local recent = require("./recent.luau")
+local sort = require("./sort.luau")
 
 local function isRunnerEnabled(runner)
   local ok, val = pcall(noctalia.getConfig, runner .. "_enabled")
@@ -57,16 +58,17 @@ end
 
 -- Browse mode (empty query, like web-launcher): list every enabled game.
 local function allRows()
-  local results = {}
+  local pool = {}
   for _, g in ipairs(games) do
     if g.name and g.runner and isRunnerEnabled(g.runner) then
-      table.insert(results, makeRow(g))
+      table.insert(pool, g)
     end
   end
-  table.sort(results, function(a, b)
-    return a.title:lower() < b.title:lower()
-  end)
-  recent.sortByRecent(results)
+  sort.apply(pool)
+  local results = {}
+  for _, g in ipairs(pool) do
+    table.insert(results, makeRow(g))
+  end
   return results
 end
 

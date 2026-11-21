@@ -14,6 +14,7 @@
 #define MAX_STR 1024
 #define MAX_PATH 8192
 #define MAX_RUN_CMD 4096
+#define CACHE_VERSION 2
 
 typedef struct {
     char id[MAX_STR];
@@ -23,6 +24,7 @@ typedef struct {
     char cover_url[MAX_PATH];
     char run_command[MAX_RUN_CMD];
     char slug[MAX_STR];
+    long long last_played;
 } Game;
 
 typedef struct {
@@ -53,8 +55,53 @@ int game_exists(const char *name) {
     return 0;
 }
 
+/* Timestamps outside 2000-01-01 .. tomorrow are junk (Steam stores 86400 in
+ * some legacy entries), so they are treated as "never played". */
+static long long sane_timestamp(long long ts) {
+    long long now = (long long)time(NULL);
+    if (ts < 946684800LL || ts > now + 86400) return 0;
+    return ts;
+}
+
+/* Steam app id -> last played, merged from every user's localconfig.vdf on
+ * this machine. */
+#define MAX_STEAM_TIMES 8192
+typedef struct {
+    char appid[32];
+    long long ts;
+} SteamTime;
+
+static SteamTime steam_times[MAX_STEAM_TIMES];
+static int steam_times_count = 0;
+
+static void steam_time_add(const char *appid, long long ts) {
+    if (!appid || !appid[0]) return;
+    ts = sane_timestamp(ts);
+    if (ts == 0) return;
+    for (int i = 0; i < steam_times_count; i++) {
+        if (strcmp(steam_times[i].appid, appid) == 0) {
+            if (ts > steam_times[i].ts) steam_times[i].ts = ts;
+            return;
+        }
+    }
+    if (steam_times_count >= MAX_STEAM_TIMES) return;
+    snprintf(steam_times[steam_times_count].appid,
+             sizeof(steam_times[0].appid), "%s", appid);
+    steam_times[steam_times_count].ts = ts;
+    steam_times_count++;
+}
+
+static long long steam_time_get(const char *appid) {
+    if (!appid) return 0;
+    for (int i = 0; i < steam_times_count; i++) {
+        if (strcmp(steam_times[i].appid, appid) == 0) return steam_times[i].ts;
+    }
+    return 0;
+}
+
 void add_game(const char *id, const char *name, const char *runner,
-              const char *cover, const char *cover_url, const char *run_command, const char *slug) {
+              const char *cover, const char *cover_url, const char *run_command, const char *slug,
+              long long last_played) {
     if (ga.count >= ga.capacity) return;
     Game *g = &ga.games[ga.count++];
     strncpy(g->id, id, MAX_STR - 1);
@@ -64,6 +111,7 @@ void add_game(const char *id, const char *name, const char *runner,
     strncpy(g->cover_url, cover_url ? cover_url : "", MAX_PATH - 1);
     strncpy(g->run_command, run_command ? run_command : "", MAX_RUN_CMD - 1);
     strncpy(g->slug, slug ? slug : "", MAX_STR - 1);
+    g->last_played = sane_timestamp(last_played);
 }
 
 void print_json_escaped(const char *s) {
@@ -98,7 +146,8 @@ void print_json() {
         printf("\",\n");
         printf("    \"slug\": \"");
         print_json_escaped(g->slug);
-        printf("\"\n");
+        printf("\",\n");
+        printf("    \"last_played\": %lld\n", g->last_played);
         printf("  }%s\n", i < ga.count - 1 ? "," : "");
     }
     printf("]\n");
@@ -138,91 +187,108 @@ int file_exists(const char *path) {
     return stat(path, &st) == 0;
 }
 
-void scan_steam_shortcuts() {
-    char base[MAX_PATH];
+/* Steam keeps the per-user play history next to the client, not inside the
+ * library folders, and the path differs between native, ~/.steam symlinked and
+ * Flatpak installs. */
+static int steam_userdata_roots(char roots[][MAX_PATH], int max) {
+    int count = 0;
+    const char *home = get_home();
     const char *data_home = get_xdg_data_home();
 
-    const char *steam_bases[] = {
-        "/Steam/userdata",
-        "/.steam/root/userdata",
-        "/.var/app/com.valvesoftware.Steam/.local/share/Steam/userdata",
-        NULL
-    };
+    if (home[0] && count + 2 < max) {
+        snprintf(roots[count++], MAX_PATH, "%s/.local/share/Steam/userdata", home);
+        snprintf(roots[count++], MAX_PATH, "%s/.steam/root/userdata", home);
+        snprintf(roots[count++], MAX_PATH, "%s/.var/app/com.valvesoftware.Steam/.local/share/Steam/userdata", home);
+    }
+    if (data_home[0] && count < max) {
+        snprintf(roots[count++], MAX_PATH, "%s/Steam/userdata", data_home);
+    }
+    return count;
+}
 
-    for (int b = 0; steam_bases[b]; b++) {
-        snprintf(base, sizeof(base), "%s%s", data_home, steam_bases[b]);
+/* localconfig.vdf is a text VDF: walk it line by line, remember the key of every
+ * open object and pick up "LastPlayed" entries whose parent object is an appid. */
+static void steam_parse_localconfig(const char *path) {
+    FILE *f = fopen(path, "r");
+    if (!f) return;
 
-        DIR *ud = opendir(base);
+    char line[4096];
+    char stack[64][64];
+    int depth = 0;
+    char pending[256] = "";
+
+    while (fgets(line, sizeof(line), f)) {
+        char *s = line;
+        while (*s == ' ' || *s == '\t') s++;
+        size_t l = strlen(s);
+        while (l > 0 && (s[l - 1] == ' ' || s[l - 1] == '\t' ||
+                         s[l - 1] == '\n' || s[l - 1] == '\r')) s[--l] = '\0';
+        if (l == 0) continue;
+
+        if (strcmp(s, "{") == 0) {
+            if (depth < 64) snprintf(stack[depth], sizeof(stack[0]), "%s", pending);
+            depth++;
+            pending[0] = '\0';
+            continue;
+        }
+        if (strcmp(s, "}") == 0) {
+            if (depth > 0) depth--;
+            pending[0] = '\0';
+            continue;
+        }
+        if (s[0] != '"') continue;
+
+        char key[256];
+        char *p = s + 1;
+        char *e = strchr(p, '"');
+        if (!e) continue;
+        size_t kl = (size_t)(e - p);
+        if (kl >= sizeof(key)) kl = sizeof(key) - 1;
+        memcpy(key, p, kl);
+        key[kl] = '\0';
+
+        p = e + 1;
+        while (*p == ' ' || *p == '\t') p++;
+        if (*p != '"') {
+            snprintf(pending, sizeof(pending), "%s", key);
+            continue;
+        }
+        p++;
+        e = strchr(p, '"');
+        if (!e) continue;
+
+        if (strcmp(key, "LastPlayed") == 0 && depth > 0 && depth <= 64) {
+            const char *parent = stack[depth - 1];
+            int numeric = parent[0] != '\0';
+            for (const char *q = parent; *q; q++) {
+                if (!isdigit((unsigned char)*q)) { numeric = 0; break; }
+            }
+            if (numeric) steam_time_add(parent, atoll(p));
+        }
+    }
+    fclose(f);
+}
+
+static void scan_steam_times() {
+    char roots[8][MAX_PATH];
+    int count = steam_userdata_roots(roots, 8);
+
+    for (int r = 0; r < count; r++) {
+        int duplicate = 0;
+        for (int j = 0; j < r; j++) {
+            if (strcmp(roots[j], roots[r]) == 0) { duplicate = 1; break; }
+        }
+        if (duplicate) continue;
+
+        DIR *ud = opendir(roots[r]);
         if (!ud) continue;
-
         struct dirent *entry;
         while ((entry = readdir(ud))) {
             if (entry->d_name[0] == '.') continue;
-
             char config_path[MAX_PATH];
-            snprintf(config_path, sizeof(config_path), "%s/%s/config/shortcuts.vdf",
-                     base, entry->d_name);
-
-            FILE *f = fopen(config_path, "rb");
-            if (!f) continue;
-
-            fseek(f, 0, SEEK_END);
-            long fsize = ftell(f);
-            rewind(f);
-
-            char *buf = malloc(fsize + 1);
-            if (!buf) { fclose(f); continue; }
-            size_t nread = fread(buf, 1, fsize, f);
-            buf[nread] = '\0';
-            fclose(f);
-
-            char *p = buf;
-            while ((p = strstr(p, "\"AppName\""))) {
-                char *vstart = p + 9;
-                while (*vstart && *vstart != '"') vstart++;
-                if (*vstart != '"') { p++; continue; }
-                vstart++;
-                char *vend = strchr(vstart, '"');
-                if (!vend) { p++; continue; }
-
-                char appname[MAX_STR];
-                size_t nlen = vend - vstart;
-                if (nlen >= MAX_STR) nlen = MAX_STR - 1;
-                strncpy(appname, vstart, nlen);
-                appname[nlen] = '\0';
-
-                if (game_exists(appname)) { p = vend; continue; }
-
-                char *appid_p = strstr(vend, "\"appid\"");
-                if (!appid_p) { p = vend; continue; }
-
-                appid_p += 7;
-                while (*appid_p && *appid_p != '"') appid_p++;
-                if (*appid_p == '"') {
-                    appid_p++;
-                    char *appid_end = strchr(appid_p, '"');
-                    if (appid_end) {
-                        char appid_str[32];
-                        size_t idlen = appid_end - appid_p;
-                        if (idlen >= sizeof(appid_str)) idlen = sizeof(appid_str) - 1;
-                        strncpy(appid_str, appid_p, idlen);
-                        appid_str[idlen] = '\0';
-
-                        unsigned long long appid = strtoull(appid_str, NULL, 10);
-                        unsigned long long short_appid = appid & 0xFFFFFFFFULL;
-                        unsigned long long long_id = (short_appid << 32) | 0x02000000ULL;
-
-        char run_command[MAX_RUN_CMD];
-                         snprintf(run_command, sizeof(run_command),
-                                  "steam://rungameid/%llu", long_id);
-
-                        add_game(appid_str, appname, "steam", "", "", run_command, "");
-                    }
-                }
-                p = appid_p;
-            }
-
-            free(buf);
+            snprintf(config_path, sizeof(config_path), "%s/%s/config/localconfig.vdf",
+                     roots[r], entry->d_name);
+            steam_parse_localconfig(config_path);
         }
         closedir(ud);
     }
@@ -386,7 +452,8 @@ void scan_steam() {
             char run_command[MAX_RUN_CMD];
             snprintf(run_command, sizeof(run_command), "steam://rungameid/%s", appid_str);
 
-            add_game(appid_str, name, "steam", header, "", run_command, "");
+            add_game(appid_str, name, "steam", header, "", run_command, "",
+                     steam_time_get(appid_str));
         }
         closedir(dir);
     }
@@ -400,6 +467,7 @@ typedef struct {
     int col_slug;
     int col_runner;
     int col_installed;
+    int col_lastplayed;
 } LutrisCtx;
 
 void trim_quotes(char *s);
@@ -433,6 +501,10 @@ static int lutris_row_cb(void *ctxp, long long rowid, const unsigned char *rec, 
 
     if (c->col_installed >= 0 && sq_col_int(&h, rec, reclen, c->col_installed) == 0) return 0;
 
+    long long last_played = 0;
+    if (c->col_lastplayed >= 0)
+        last_played = sane_timestamp(sq_col_int(&h, rec, reclen, c->col_lastplayed));
+
     char cover[MAX_PATH] = "";
     const char *cover_dirs[] = {
         "/.local/share/lutris/coverart",
@@ -460,7 +532,7 @@ static int lutris_row_cb(void *ctxp, long long rowid, const unsigned char *rec, 
     char run_command[MAX_RUN_CMD];
     snprintf(run_command, sizeof(run_command), "lutris:rungame/%s", slug);
 
-    add_game(id, name, "lutris", cover, "", run_command, slug);
+    add_game(id, name, "lutris", cover, "", run_command, slug, last_played);
     return 0;
 }
 
@@ -581,6 +653,7 @@ void scan_lutris() {
         ctx.col_slug = col_slug;
         ctx.col_runner = col_runner;
         ctx.col_installed = cands[i].filter_installed ? col_installed : -1;
+        ctx.col_lastplayed = sq_column_index(&t, "lastplayed");
 
         sq_walk_table(&db, t.rootpage, lutris_row_cb, &ctx);
         break;
@@ -671,7 +744,7 @@ void scan_lutris_manual_files() {
         char run_command[MAX_RUN_CMD];
         snprintf(run_command, sizeof(run_command), "lutris:rungame/%s", slug);
 
-        add_game("0", name, "lutris", "", "", run_command, slug);
+        add_game("0", name, "lutris", "", "", run_command, slug, 0);
     }
     closedir(dir);
 }
@@ -763,7 +836,86 @@ int json_extract_bool(const char *json, const char *key) {
     return (strncmp(p, "true", 4) == 0);
 }
 
-void heroic_scan_sideloaded(const char *config_home) {
+static long long parse_iso8601_utc(const char *s) {
+    int y = 0, mo = 0, d = 0, h = 0, mi = 0, se = 0;
+    if (!s || sscanf(s, "%d-%d-%dT%d:%d:%d", &y, &mo, &d, &h, &mi, &se) != 6) return 0;
+    struct tm tmv;
+    memset(&tmv, 0, sizeof(tmv));
+    tmv.tm_year = y - 1900;
+    tmv.tm_mon = mo - 1;
+    tmv.tm_mday = d;
+    tmv.tm_hour = h;
+    tmv.tm_min = mi;
+    tmv.tm_sec = se;
+    return sane_timestamp((long long)timegm(&tmv));
+}
+
+/* Heroic keeps per-app play history in store/timestamp.json:
+ * { "<app_id>": { "firstPlayed": "...", "lastPlayed": "<ISO>", "totalPlayed": n } } */
+static void heroic_load_play_times(const char *config_home, KVMap *times) {
+    char path[MAX_PATH];
+    snprintf(path, sizeof(path), "%s/heroic/store/timestamp.json", config_home);
+    if (!file_exists(path)) return;
+    FILE *f = fopen(path, "r");
+    if (!f) return;
+    fseek(f, 0, SEEK_END);
+    long len = ftell(f);
+    rewind(f);
+    if (len <= 0) { fclose(f); return; }
+    char *content = malloc((size_t)len + 1);
+    if (!content) { fclose(f); return; }
+    size_t n = fread(content, 1, (size_t)len, f);
+    content[n] = '\0';
+    fclose(f);
+
+    const char *p = content;
+    while ((p = strstr(p, "\"lastPlayed\""))) {
+        const char *brace = p;
+        while (brace > content && *brace != '{') brace--;
+        if (*brace != '{') { p++; continue; }
+
+        const char *q = brace - 1;
+        while (q > content && *q != '"') q--;
+        if (*q != '"') { p++; continue; }
+        const char *key_end = q;
+        q--;
+        while (q > content && *q != '"') q--;
+        if (*q != '"') { p++; continue; }
+
+        char key[128];
+        size_t kl = (size_t)(key_end - (q + 1));
+        if (kl >= sizeof(key)) kl = sizeof(key) - 1;
+        memcpy(key, q + 1, kl);
+        key[kl] = '\0';
+
+        const char *v = p + 12;
+        while (*v && *v != ':') v++;
+        if (*v != ':') { p++; continue; }
+        v++;
+        while (*v == ' ' || *v == '\t') v++;
+        if (*v != '"') { p++; continue; }
+        v++;
+        const char *ve = strchr(v, '"');
+        if (!ve) break;
+
+        char iso[64];
+        size_t il = (size_t)(ve - v);
+        if (il >= sizeof(iso)) il = sizeof(iso) - 1;
+        memcpy(iso, v, il);
+        iso[il] = '\0';
+
+        long long ts = parse_iso8601_utc(iso);
+        if (ts > 0) {
+            char buf[32];
+            snprintf(buf, sizeof(buf), "%lld", ts);
+            kv_add(times, key, buf);
+        }
+        p = ve;
+    }
+    free(content);
+}
+
+void heroic_scan_sideloaded(const char *config_home, KVMap *times) {
     char path[MAX_PATH];
     snprintf(path, sizeof(path), "%s/heroic/sideload_apps/library.json", config_home);
     if (!file_exists(path)) return;
@@ -816,8 +968,10 @@ void heroic_scan_sideloaded(const char *config_home) {
                         char run_command[MAX_RUN_CMD];
                         snprintf(run_command, sizeof(run_command),
                                  "heroic://launch/sideload/%s", app_name ? app_name : "");
+                        char *lp = app_name ? kv_get(times, app_name) : NULL;
                         add_game(app_name ? app_name : "", title, "heroic",
-                                 cover_path, cover_url, run_command, "");
+                                 cover_path, cover_url, run_command, "",
+                                 lp ? atoll(lp) : 0);
                     }
                     free(app_name); free(title); free(art_square); free(art_cover); free(obj);
                     obj_start = NULL;
@@ -982,11 +1136,14 @@ void heroic_purge_stale_covers() {
 void scan_heroic() {
     const char *config_home = get_xdg_config_home();
     heroic_purge_stale_covers();
-    heroic_scan_sideloaded(config_home);
+    KVMap times;
+    kv_init(&times);
+    heroic_load_play_times(config_home, &times);
+    heroic_scan_sideloaded(config_home, &times);
     char installed_ids[MAX_GAMES][64];
     int num_installed = 0;
     heroic_load_installed_ids(config_home, installed_ids, &num_installed);
-    if (num_installed == 0) return;
+    if (num_installed == 0) { kv_free(&times); return; }
     KVMap titles, covers;
     kv_init(&titles);
     kv_init(&covers);
@@ -999,7 +1156,7 @@ void scan_heroic() {
     char games_config[MAX_PATH];
     snprintf(games_config, sizeof(games_config), "%s/heroic/GamesConfig", config_home);
     DIR *dir = opendir(games_config);
-    if (!dir) { kv_free(&titles); kv_free(&covers); return; }
+    if (!dir) { kv_free(&titles); kv_free(&covers); kv_free(&times); return; }
     struct dirent *entry;
     while ((entry = readdir(dir))) {
         char *dot = strrchr(entry->d_name, '.');
@@ -1069,10 +1226,12 @@ void scan_heroic() {
         }
         char run_command[MAX_RUN_CMD];
         snprintf(run_command, sizeof(run_command), "heroic://launch/%s", app_id);
-        add_game(app_id, title, "heroic", cover, cover_url, run_command, "");
+        char *lp = kv_get(&times, app_id);
+        add_game(app_id, title, "heroic", cover, cover_url, run_command, "",
+                 lp ? atoll(lp) : 0);
     }
     closedir(dir);
-    kv_free(&titles); kv_free(&covers);
+    kv_free(&titles); kv_free(&covers); kv_free(&times);
 }
 
 int cache_valid() {
@@ -1088,6 +1247,17 @@ int cache_valid() {
     snprintf(games_path, sizeof(games_path), "%s/gamelauncher/games.json", get_xdg_cache_home());
     struct stat gs;
     if (stat(games_path, &gs) != 0) return 0;
+
+    char ver_path[MAX_PATH];
+    snprintf(ver_path, sizeof(ver_path), "%s/gamelauncher/cache_version", get_xdg_cache_home());
+    FILE *vf = fopen(ver_path, "r");
+    if (!vf) return 0;
+    int cached_version = 0;
+    if (fscanf(vf, "%d", &cached_version) != 1 || cached_version != CACHE_VERSION) {
+        fclose(vf);
+        return 0;
+    }
+    fclose(vf);
 
     struct stat st;
     const char *data_home = get_xdg_data_home();
@@ -1121,6 +1291,24 @@ int cache_valid() {
     if (stat(hp, &st) == 0 && st.st_mtime > cached_ts) return 0;
     snprintf(hp, sizeof(hp), "%s/heroic/sideload_apps/library.json", config_home);
     if (stat(hp, &st) == 0 && st.st_mtime > cached_ts) return 0;
+    snprintf(hp, sizeof(hp), "%s/heroic/store/timestamp.json", config_home);
+    if (stat(hp, &st) == 0 && st.st_mtime > cached_ts) return 0;
+
+    /* Last-played timestamps live in the Steam user config files. */
+    char roots[8][MAX_PATH];
+    int num_roots = steam_userdata_roots(roots, 8);
+    for (int r = 0; r < num_roots; r++) {
+        DIR *d = opendir(roots[r]);
+        if (!d) continue;
+        struct dirent *e;
+        while ((e = readdir(d))) {
+            if (e->d_name[0] == '.') continue;
+            char cfg[MAX_PATH];
+            snprintf(cfg, sizeof(cfg), "%s/%s/config/localconfig.vdf", roots[r], e->d_name);
+            if (stat(cfg, &st) == 0 && st.st_mtime > cached_ts) { closedir(d); return 0; }
+        }
+        closedir(d);
+    }
 
     for (int r = 0; steam_roots[r]; r++) {
         char vdf_path[MAX_PATH];
@@ -1164,12 +1352,14 @@ int load_cached_games() {
     FILE *f = fopen(path, "r");
     if (!f) return 0;
     char buf[65536];
-    size_t n = fread(buf, 1, sizeof(buf) - 1, f);
+    size_t n;
+    int wrote = 0;
+    while ((n = fread(buf, 1, sizeof(buf), f)) > 0) {
+        if (fwrite(buf, 1, n, stdout) != n) break;
+        wrote = 1;
+    }
     fclose(f);
-    if (n <= 0) return 0;
-    buf[n] = '\0';
-    fwrite(buf, 1, n, stdout);
-    return 1;
+    return wrote;
 }
 
 void write_cache() {
@@ -1187,6 +1377,11 @@ void write_cache() {
     snprintf(ts_path, sizeof(ts_path), "%s/cache_ts", dir);
     FILE *f = fopen(ts_path, "w");
     if (f) { fprintf(f, "%ld\n", (long)time(NULL)); fclose(f); }
+
+    char ver_path[MAX_PATH];
+    snprintf(ver_path, sizeof(ver_path), "%s/cache_version", dir);
+    f = fopen(ver_path, "w");
+    if (f) { fprintf(f, "%d\n", CACHE_VERSION); fclose(f); }
 
     char games_path[MAX_PATH];
     snprintf(games_path, sizeof(games_path), "%s/games.json", dir);
@@ -1237,7 +1432,8 @@ void write_cache() {
             if (*s == '"' || *s == '\\') putc('\\', f);
             putc(*s, f);
         }
-        fprintf(f, "\"\n");
+        fprintf(f, "\",\n");
+        fprintf(f, "    \"last_played\": %lld\n", g->last_played);
         fprintf(f, "  }%s\n", i < ga.count - 1 ? "," : "");
     }
     fprintf(f, "]\n");
@@ -1264,7 +1460,7 @@ int main(int argc, char *argv[]) {
 
     init_games();
     if (use_lutris) { scan_lutris(); scan_lutris_manual_files(); }
-    if (use_steam) { scan_steam(); scan_steam_shortcuts(); }
+    if (use_steam) { scan_steam_times(); scan_steam(); }
     if (use_heroic) { scan_heroic(); }
     qsort(ga.games, ga.count, sizeof(Game), compare_names);
     print_json();
