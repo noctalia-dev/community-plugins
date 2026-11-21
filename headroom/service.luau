@@ -710,11 +710,22 @@ function onIpc(event, _payload)
   end
 end
 
+local lastAntigravityModels = state.config("antigravity_models", "all")
+
 function onConfigChanged()
   -- A provider may have been turned on or off, or the interval changed.
   local now = base.now()
   syncAccounts(now)
   resolveDuplicates(now)
+  local nextModels = state.config("antigravity_models", "all")
+  if nextModels ~= lastAntigravityModels then
+    lastAntigravityModels = nextModels
+    for _, key in listed["antigravity"] or {} do
+      if runtimes[key] then
+        scheduler.force(runtimes[key].schedule, now)
+      end
+    end
+  end
   for _, rt in listedRuntimes() do
     scheduler.cap(rt.schedule, now, intervalSeconds())
   end

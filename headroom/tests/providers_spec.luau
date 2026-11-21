@@ -110,11 +110,77 @@ t.group("codex", function()
 end)
 
 t.group("antigravity", function()
-  t.test("parses the quota summary", function()
+  t.test("parses the quota summary and keeps distinct Gemini subgroup labels", function()
     local host, p, ctx = env.provider("antigravity")
-    local snapshot, err = p.parse(env.decode(host, env.fixture("antigravity_quota.json")), ctx)
+    local payload = env.decode(host, env.fixture("antigravity_quota.json"))
+    table.insert(payload.groups, {
+      displayName = "Gemini 4 Argon",
+      buckets = {
+        {
+          bucketId = "gemini-argon-wtu-weekly",
+          window = "weekly",
+          resetTime = "2026-10-11T01:11:18Z",
+          remainingFraction = 1,
+        },
+      },
+    })
+    local snapshot, err = p.parse(payload, ctx)
     t.eq(err, nil)
-    t.ok(#snapshot.windows > 0, "windows")
+    local w = ids(snapshot.windows)
+    t.eq(w["gemini-weekly"].label, "Gemini · Weekly")
+    t.eq(w["gemini-5h"].label, "Gemini · Session")
+    t.eq(w["3p-weekly"].label, "Claude & GPT · Weekly")
+    t.eq(w["gemini-argon-wtu-weekly"].label, "Gemini 4 Argon · Weekly")
+  end)
+
+  t.test("filters model groups according to antigravity_models", function()
+    local host, p, ctx = env.provider("antigravity")
+    local payload = env.decode(host, env.fixture("antigravity_quota.json"))
+    table.insert(payload.groups, {
+      displayName = "Gemini 4 Argon",
+      buckets = {
+        {
+          bucketId = "gemini-argon-wtu-weekly",
+          window = "weekly",
+          resetTime = "2026-10-11T01:11:18Z",
+          remainingFraction = 1,
+        },
+      },
+    })
+
+    host.config.antigravity_models = "gemini"
+    local geminiOnly, err1 = p.parse(payload, ctx)
+    t.eq(err1, nil)
+    local gw = ids(geminiOnly.windows)
+    t.ok(gw["gemini-weekly"] ~= nil, "keeps Gemini Models")
+    t.ok(gw["gemini-argon-wtu-weekly"] ~= nil, "keeps Gemini 4 Argon")
+    t.eq(gw["3p-weekly"], nil, "drops Claude & GPT weekly")
+    t.eq(gw["3p-5h"], nil, "drops Claude & GPT 5h")
+
+    host.config.antigravity_models = "claude_gpt"
+    local thirdPartyOnly, err2 = p.parse(payload, ctx)
+    t.eq(err2, nil)
+    local tw = ids(thirdPartyOnly.windows)
+    t.ok(tw["3p-weekly"] ~= nil, "keeps Claude & GPT")
+    t.eq(tw["gemini-weekly"], nil, "drops Gemini Models")
+    t.eq(tw["gemini-argon-wtu-weekly"], nil, "drops Gemini 4 Argon")
+  end)
+
+  t.test("fetches live quota from daily-cloudcode-pa with a versioned hub User-Agent", function()
+    local host, p, ctx = env.provider("antigravity")
+    env.write(host, "/home/test/.gemini/antigravity-cli/antigravity-oauth-token", {
+      access_token = "tok",
+      expires_at = host.clock + 3600,
+    })
+    env.serve(host, {
+      ["daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary"] = env.fixture("antigravity_quota.json"),
+      ["cloudcode-pa.googleapis.com/v1internal:loadCodeAssist"] = '{"paidTier":{"name":"Google AI Pro"}}',
+    })
+    local snapshot, err = env.fetch(p, ctx)
+    t.eq(err, nil)
+    t.eq(snapshot.plan, "Google AI Pro")
+    t.eq(env.requestsTo(host, "daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary"), 1)
+    t.ok(env.headerOf(host.requests[1], "User-Agent"):match("^antigravity/hub/%d+%.%d+%.%d+"), "versioned hub UA")
   end)
 end)
 

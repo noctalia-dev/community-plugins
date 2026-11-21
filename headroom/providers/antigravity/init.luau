@@ -12,11 +12,14 @@
 -- its own keyring entry, then read it again (lib/renew: at most once per 10
 -- minutes, so a dead session does not spawn agy on every refresh).
 --
--- Endpoints: POST https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary,
--- and :loadCodeAssist for the plan name (at most every 6 hours). Undocumented. It only answers clients that
--- identify as Antigravity, so this adapter's User-Agent is "antigravity"
--- rather than Headroom's own. Plans without Antigravity quota get 403
--- SUBSCRIPTION_REQUIRED, reported as no_plan rather than as a sign-in problem.
+-- Endpoints: POST https://daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary
+-- (cloudcode-pa returns untouched 100% buckets for consumer accounts), and
+-- https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist for the plan
+-- name (at most every 6 hours). Undocumented. The quota endpoint gates Gemini
+-- model groups on a versioned Antigravity Hub User-Agent (bare "antigravity"
+-- only returns 3p Claude & GPT buckets). Plans without Antigravity quota get
+-- 403 SUBSCRIPTION_REQUIRED, reported as no_plan rather than as a sign-in
+-- problem.
 
 local provider = require("../../lib/provider.luau")
 local model = require("../../lib/model.luau")
@@ -30,7 +33,12 @@ local CODE_ASSIST_URL = "https://cloudcode-pa.googleapis.com/v1internal:loadCode
 local CLIENT_METADATA = '{"metadata":{"ideType":"ANTIGRAVITY","platform":"PLATFORM_UNSPECIFIED","pluginType":"GEMINI"}}'
 -- The plan changes rarely; ask for it at most this often.
 local PLAN_TTL = 6 * 3600
-local QUOTA_URL = "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary"
+-- Antigravity's live consumer quota lives on daily-cloudcode-pa; cloudcode-pa
+-- returns untouched 100% buckets for consumer accounts.
+local QUOTA_URL = "https://daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary"
+-- A versioned Antigravity Hub UA is required; bare "antigravity" omits Gemini
+-- groups and only returns 3p (Claude & GPT) buckets.
+local QUOTA_USER_AGENT = "antigravity/hub/2.24.0 (aidev_client; os_type=linux; arch=amd64; cl=1000335682)"
 local SESSION_SECONDS = model.SESSION_SECONDS
 local WEEK_SECONDS = model.WEEK_SECONDS
 
@@ -125,11 +133,28 @@ local function renewWithAgy(ctx, done: (boolean) -> ())
   renewSession(ctx, { "env", "AGY_CLI_DISABLE_AUTO_UPDATE=true", agy, "models" }, done)
 end
 
+local function isThirdPartyGroup(name: string): boolean
+  return name:find("Claude", 1, true) ~= nil or name:find("GPT", 1, true) ~= nil
+end
+
+local function groupMatchesFilter(name: any, filter: string): boolean
+  if filter == "all" then
+    return true
+  end
+  local s = if type(name) == "string" then name else ""
+  if filter == "gemini" then
+    return s:find("Gemini", 1, true) ~= nil and not isThirdPartyGroup(s)
+  elseif filter == "claude_gpt" then
+    return isThirdPartyGroup(s)
+  end
+  return true
+end
+
 local function groupLabel(name: any): string
   name = if type(name) == "string" then name else ""
-  if name:find("Gemini", 1, true) then
+  if name:lower() == "gemini models" then
     return "Gemini"
-  elseif name:find("Claude", 1, true) or name:find("GPT", 1, true) then
+  elseif isThirdPartyGroup(name) then
     return "Claude & GPT"
   end
   return name
@@ -143,8 +168,12 @@ local function parse(data, ctx): (model.Snapshot?, model.ProviderError?)
   if type(groups) ~= "table" then
     return nil, model.err(E.Parse, "no quota groups")
   end
+  local filter = if ctx and ctx.config then ctx.config("antigravity_models", "all") else "all"
   local windows = {}
   for _, group in groups do
+    if not groupMatchesFilter(group.displayName, filter) then
+      continue
+    end
     local label = groupLabel(group.displayName)
     for _, bucket in (if type(group.buckets) == "table" then group.buckets else {}) do
       local remaining = tonumber(bucket.remainingFraction)
@@ -212,7 +241,7 @@ end
 local function query(ctx, session: Session, done)
   local headers = {
     ["Authorization"] = `Bearer {session.accessToken}`,
-    ["User-Agent"] = "antigravity", -- required by the endpoint; see header comment
+    ["User-Agent"] = QUOTA_USER_AGENT,
   }
   ctx.postJson(QUOTA_URL, headers, "{}", function(data, err)
     if err then

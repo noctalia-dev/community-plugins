@@ -135,6 +135,7 @@ is a setting of the widget, so two capsules can show different things; middle-cl
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
 | `provider_claude`, `provider_codex`, `provider_antigravity` | `select` | `bar` | Where each provider appears: `bar` (bar and panel), `panel` (panel only) or `off` (never fetched or shown). |
+| `antigravity_models` | `select` | `all` | Which Antigravity model quota groups to track: `all`, `gemini` (Gemini only) or `claude_gpt` (Claude & GPT only). Shown when Antigravity is enabled. |
 | `display` | `select` | `used` | Whether numbers, rings and meters show what you've `used` or what's `remaining`. Colors always follow usage. |
 | `notify` | `bool` | `true` | Notifies once when a window crosses `critical_percent`, and again when it resets. |
 | `notify_reset_credits` | `bool` | `true` | Notifies once when a reset credit has two days left. Shown when `notify` is on. |
@@ -184,13 +185,13 @@ noctalia msg plugin ayagmar/headroom:poller all refresh
     grants, and `GET .../api/oauth/profile` once per new token, to learn whose sign-in it is and the plan name.
   - Codex: `GET https://chatgpt.com/backend-api/wham/usage`, and `GET .../wham/rate-limit-reset-credits` only when it
     reports reset credits, for their expiry dates: again when the count changes, otherwise at most hourly.
-  - Antigravity: `POST https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary`, and
-    `:loadCodeAssist` for the plan name at most every 6 hours.
+  - Antigravity: `POST https://daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary`, and
+    `https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist` for the plan name at most every 6 hours.
 
   These are the endpoints each vendor's own tools use. Codex requests carry `headroom-noctalia/<version>` as their
   User-Agent. Claude's carry Claude Code's (`claude-cli/<version> (external, cli)`, the installed version), because
-  Anthropic only lists the reset grants for Claude Code; Antigravity's carry `antigravity`, the only one its endpoint
-  answers.
+  Anthropic only lists the reset grants for Claude Code; Antigravity's carry a versioned Antigravity Hub User-Agent so
+  the endpoint returns all model groups, including Gemini.
 - **Credentials are read-only.** Headroom never refreshes, rewrites or copies a token. Refresh tokens rotate, so using
   one here could sign your CLI out. When a session expires, Headroom asks the vendor's CLI to renew it instead
   (`claude`, `agy`; see *Processes*). If that CLI isn't installed or the renewal fails, the card asks you to sign in

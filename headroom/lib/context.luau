@@ -43,6 +43,16 @@ function M.new(host, userAgent: string)
       end
     end,
     which = host.commandExists,
+    config = function(key: string, fallback: any): any
+      if not host.getConfig then
+        return fallback
+      end
+      local value = host.getConfig(key)
+      if value == nil or type(value) ~= type(fallback) then
+        return fallback
+      end
+      return value
+    end,
     duration = time.duration,
     tr = host.tr,
     userAgent = userAgent,

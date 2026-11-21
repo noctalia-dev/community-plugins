@@ -156,6 +156,15 @@
     }
   },
   "settings": {
+    "antigravity_models": {
+      "description": "Which Antigravity model quota groups to track.",
+      "label": "Antigravity models",
+      "option": {
+        "all": "All models",
+        "claude_gpt": "Claude & GPT only",
+        "gemini": "Gemini only"
+      }
+    },
     "bar_accounts": {
       "description": "Which accounts the bar shows when a provider has several. The panel always shows them all.",
       "label": "Accounts",
