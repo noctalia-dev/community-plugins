@@ -1,15 +1,16 @@
 --!nonstrict
 -- Scratchpad service - the only entry that talks to the compositor.
 --
--- `umbriel subscribe windows` pushes the full window list, one JSON object per
--- line. The service republishes it on "scratchpad.state" for every bar
--- instance, and runs the actions bars request on "scratchpad.request".
+-- noctalia.compositor.subscribe opens this service's own connection to Umbriel's
+-- IPC event stream; Umbriel answers with the full window list and sends it again
+-- on every change. The service republishes the scratchpad windows on
+-- "scratchpad.state" for every bar instance, and runs the actions bars request on
+-- "scratchpad.request" as typed IPC requests.
+--
+--   noctalia.compositor.subscribe(options, onEvent)    the event stream, no child
+--   noctalia.umbriel.action(request, cb)               one typed action, no child
 
-local COMMAND_TIMEOUT_MS = 2000
-
-local available = noctalia.getenv("UMBRIEL_SOCKET") ~= nil and noctalia.commandExists("umbriel")
-
-local streaming = false
+local available = false
 local windows = {}
 local focusedOutput = nil
 local streamError = nil
@@ -28,29 +29,17 @@ local function publish()
   })
 end
 
-local function onLine(line)
-  local decoded = noctalia.json.decode(line)
-  if type(decoded) ~= "table" then
-    return
-  end
-  if type(decoded.err) == "string" then
-    streamError = decoded.err
-    publish()
-    return
-  end
-  if decoded.event ~= "windows" or type(decoded.data) ~= "table" then
-    return
-  end
+local function onWindows(data)
   -- Bars only care about scratchpad windows; keep the shared snapshot small.
   local list = {}
   local present = {}
   focusedOutput = nil
-  for _, window in ipairs(decoded.data) do
+  for _, window in ipairs(data) do
     -- The output holding keyboard focus, for "highlight focused monitor only".
     if window.active == true then
       focusedOutput = window.output
     end
-    if type(window.scratchpad) == "string" and window.scratchpad ~= "" then
+    if type(window.scratchpad) == "string" and window.scratchpad ~= "" and window.id ~= nil then
       if firstSeen[window.id] == nil then
         nextSeen += 1
         firstSeen[window.id] = nextSeen
@@ -69,82 +58,66 @@ local function onLine(line)
     return firstSeen[a.id] < firstSeen[b.id]
   end)
   windows = list
+end
+
+local function onEvent(event, data)
+  -- The connection dropped: forget every window so bars stop showing (and
+  -- clicking) stale ones. The shell reconnects on its own and Umbriel sends a
+  -- fresh snapshot once the stream is back.
+  if event == "reset" then
+    available = false
+    windows = {}
+    focusedOutput = nil
+    firstSeen = {}
+    nextSeen = 0
+    if streamError == nil then
+      streamError = noctalia.tr("error.stream_closed")
+    end
+    publish()
+    return
+  end
+  -- Umbriel rejected the subscription; a "reset" follows and the retry sends the
+  -- same request.
+  if event == "error" then
+    streamError = if type(data) == "string" and data ~= "" then data else noctalia.tr("error.stream_closed")
+    publish()
+    return
+  end
+  if event ~= "windows" or type(data) ~= "table" then
+    return
+  end
+  onWindows(data)
+  available = true
   streamError = nil
   publish()
 end
 
-local function startStream()
-  if not available or streaming then
-    return
-  end
-  streaming = noctalia.runStream("umbriel subscribe windows", onLine)
-  if not streaming then
-    streamError = noctalia.tr("error.stream_failed")
-    publish()
-  end
-end
-
--- runStream never reports its child exiting, so re-check when a bar asks.
-local function verifyStream()
-  if not available then
-    return
-  end
-  local started = noctalia.processMatches(function(matched)
-    if not matched then
-      streaming = false
-      startStream()
+-- `request` is Umbriel's typed action request without `cmd`, for example
+-- { action = "scratchpad-toggle", scratchpad = "M" }. Nothing to refresh on
+-- success: the resulting window changes arrive on the stream by themselves.
+local function runAction(request)
+  local accepted = noctalia.umbriel.action(request, function(ok, err)
+    if not ok then
+      noctalia.notifyError(noctalia.tr("notify.action_failed", { action = request.action }), err)
     end
-  end, "umbriel", "subscribe", "windows")
-  if not started then
-    streaming = false
-    startStream()
+  end)
+  if not accepted then
+    noctalia.notifyError(noctalia.tr("notify.action_failed", { action = request.action }))
   end
-end
-
--- Bars request "<action>:<argument>" (e.g. "scratchpad-toggle:M"). Current
--- Umbriel takes the argument as a separate word (`umbriel msg scratchpad-toggle M`);
--- older builds only knew the joined "action:argument" form, so fall back to it
--- when Umbriel reports an unknown action.
-local function notifyFailure(action, result)
-  noctalia.notifyError(noctalia.tr("notify.action_failed", { action = action }), noctalia.string.trim(result.stderr or ""))
-end
-
-local function runAction(action)
-  local name, argument = action:match("^([%w%-]+):(.+)$")
-  if name == nil then
-    noctalia.runAsync({ "umbriel", "msg", action }, function(result)
-      if result.exitCode ~= 0 or result.timedOut then
-        notifyFailure(action, result)
-      end
-    end, COMMAND_TIMEOUT_MS)
-    return
-  end
-  noctalia.runAsync({ "umbriel", "msg", name, argument }, function(result)
-    if result.exitCode == 0 and not result.timedOut then
-      return
-    end
-    if not string.find(string.lower(result.stderr or ""), "unknown action", 1, true) then
-      notifyFailure(action, result)
-      return
-    end
-    noctalia.runAsync({ "umbriel", "msg", action }, function(legacy)
-      if legacy.exitCode ~= 0 or legacy.timedOut then
-        notifyFailure(action, legacy)
-      end
-    end, COMMAND_TIMEOUT_MS)
-  end, COMMAND_TIMEOUT_MS)
 end
 
 noctalia.state.watch("scratchpad.request", function(value)
-  if not available or type(value) ~= "table" then
+  if type(value) ~= "table" then
     return
   end
-  if type(value.action) == "string" and value.action ~= "" then
-    runAction(value.action)
-  else
-    verifyStream()
+  if available and type(value.request) == "table" and type(value.request.action) == "string" then
+    runAction(value.request)
   end
 end)
 
 publish()
-startStream()
+-- Other compositors have event streams too, with their own event names, so only
+-- Umbriel's is read.
+if noctalia.compositor.name() == "umbriel" then
+  noctalia.compositor.subscribe({ events = { "windows" } }, onEvent)
+end

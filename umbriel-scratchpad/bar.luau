@@ -30,12 +30,22 @@ local iconCache = {}
 -- update() tick fills them in.
 local MAX_ICON_LOOKUPS_PER_RENDER = 1
 local lookupsLeft = MAX_ICON_LOOKUPS_PER_RENDER
+-- Set when a render left icons unresolved; update() renders again to fill them.
+local iconsPending = false
+-- Output, orientation and scale the last render used; update() re-renders only
+-- when one of them changes.
+local lastHost = nil
 local requestSeq = 0
 
+-- `action` is Umbriel's typed request, e.g. { action = "scratchpad-toggle", scratchpad = "M" }.
 local function request(action)
   -- The sequence number makes repeated identical requests still count as a change.
   requestSeq += 1
-  noctalia.state.set("scratchpad.request", { action = action, seq = `{os.clock()}:{requestSeq}` })
+  noctalia.state.set("scratchpad.request", { request = action, seq = `{os.clock()}:{requestSeq}` })
+end
+
+local function toggle(name)
+  request({ action = "scratchpad-toggle", scratchpad = name })
 end
 
 local function outputScale()
@@ -53,6 +63,7 @@ local function appIcon(appId, px)
   local cached = iconCache[key]
   if cached == nil then
     if lookupsLeft <= 0 then
+      iconsPending = true
       return nil
     end
     lookupsLeft -= 1
@@ -87,7 +98,7 @@ local function listSetting(key)
   return list
 end
 
-local function readSettings()
+local function readSettings(scale)
   local iconSize = math.floor((tonumber(noctalia.getConfig("icon_size")) or 16) + 0.5)
   local function enabled(key)
     return noctalia.getConfig(key) ~= false
@@ -104,7 +115,7 @@ local function readSettings()
     unfocusedOpacity = enabled("dim_unfocused") and opacitySetting("unfocused_opacity", 0.5) or nil,
     hiddenOpacity = opacitySetting("hidden_opacity", 0.5),
     iconSize = iconSize,
-    iconLookupSize = math.max(MIN_ICON_LOOKUP_SIZE, math.ceil(iconSize * outputScale())),
+    iconLookupSize = math.max(MIN_ICON_LOOKUP_SIZE, math.ceil(iconSize * scale)),
     pillHeight = math.max(MIN_PILL_HEIGHT, iconSize + 4),
     -- Grouping
     onlyShown = on("only_shown"),
@@ -285,7 +296,7 @@ end
 local function entryClick(group, entry)
   local windows = entry.windows
   if entry.active and #windows == 1 then
-    request(`scratchpad-toggle:{group.name}`)
+    toggle(group.name)
     return
   end
   local target = windows[1]
@@ -295,7 +306,7 @@ local function entryClick(group, entry)
       break
     end
   end
-  request(`window-focus:{target.id}`)
+  request({ action = "window-focus", window = target.id })
 end
 
 local function entryTooltip(group, entry)
@@ -382,7 +393,7 @@ local function badge(group, cfg)
     justify = "center",
     tooltip = noctalia.tr("tooltip.toggle", { name = group.name }),
     onClick = function()
-      request(`scratchpad-toggle:{group.name}`)
+      toggle(group.name)
     end,
   }
   if cfg.minimal then
@@ -448,7 +459,7 @@ local function summaryNode(group, cfg)
     height = cfg.iconSize,
     tooltip = noctalia.tr("tooltip.toggle", { name = group.name }),
     onClick = function()
-      request(`scratchpad-toggle:{group.name}`)
+      toggle(group.name)
     end,
   }, children)
 end
@@ -483,7 +494,7 @@ local function pill(group, vertical, cfg)
     gap = 4,
     align = "center",
     width = vertical and cfg.pillHeight or nil,
-    height = vertical and nil or cfg.pillHeight,
+    height = if vertical then nil else cfg.pillHeight,
     radius = cfg.pillHeight / 2,
   }
   if cfg.capsule then
@@ -507,14 +518,21 @@ local function flatItems(list, cfg)
   return items
 end
 
+local function hostKey(scale)
+  return `{barWidget.outputName() or ""}|{barWidget.isVertical()}|{scale}`
+end
+
 local function render()
   lookupsLeft = MAX_ICON_LOOKUPS_PER_RENDER
+  iconsPending = false
+  local scale = outputScale()
+  lastHost = hostKey(scale)
   if snapshot.available ~= true then
     barWidget.setVisible(false)
     return
   end
 
-  local cfg = readSettings()
+  local cfg = readSettings(scale)
   local list = groups(cfg)
   local vertical = barWidget.isVertical()
 
@@ -549,7 +567,15 @@ local function render()
   end
 end
 
+-- Snapshots and settings changes render straight away; the tick only finishes
+-- icons a render had to defer and follows output, orientation or scale changes.
 function update()
+  if iconsPending or hostKey(outputScale()) ~= lastHost then
+    render()
+  end
+end
+
+function onConfigChanged()
   render()
 end
 
@@ -561,6 +587,4 @@ noctalia.state.watch("scratchpad.state", function(value)
 end)
 
 snapshot = noctalia.state.get("scratchpad.state") or snapshot
--- Ask the service to make sure its stream is alive.
-request("")
 render()

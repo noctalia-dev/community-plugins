@@ -1,6 +1,6 @@
 {
   "error": {
-    "stream_failed": "Could not start `umbriel subscribe windows`."
+    "stream_closed": "Lost the connection to Umbriel; reconnecting."
   },
   "notify": {
     "action_failed": "Umbriel action failed: {action}"

@@ -13,7 +13,8 @@ scratchpad windows belong to no workspace, so this widget is the only place they
 
 ## Requirements
 
-- An Umbriel session, with `umbriel` on `PATH`. On any other compositor the widget hides itself.
+- An Umbriel session. The plugin talks to Umbriel through Noctalia's built-in IPC connection (plugin API 54), so the
+  `umbriel` command does not need to be on `PATH`. On any other compositor the widget hides itself.
 - Umbriel scratchpads, for example a `scratchpad-toggle <name>` keybind and a `window-move-to-scratchpad <name>`
   binding to fill it.
 
@@ -69,11 +70,10 @@ The settings follow the native taskbar's order: windows, then grouping, then lab
 
 ## Notes
 
-- The `service` entry keeps one `umbriel subscribe windows` process running and shares its window list with every
-  bar, so several bars on several monitors cost one subscription. It restarts the stream if it finds it has exited.
-- Clicks run `umbriel msg scratchpad-toggle <name>` or `umbriel msg window-focus <window-id>`. Umbriel builds older than
-  November 2026 only accept the joined `scratchpad-toggle:<name>` form; the plugin retries with it when Umbriel reports
-  an unknown action. The plugin starts no
-  other processes, makes no network requests, and writes no files.
+- The `service` entry subscribes once to Umbriel's window events and shares the window list with every bar, so
+  several bars on several monitors cost one subscription. If the connection drops, the bars hide their windows until
+  Noctalia reconnects and Umbriel sends a fresh list.
+- Clicks send Umbriel's `scratchpad-toggle` and `window-focus` actions as typed IPC requests. The plugin starts no
+  processes, makes no network requests, and writes no files.
 - Plugin UI has no overlay layer, so the corner badge sits just inside the group's top-left corner rather than
   straddling the border as the native taskbar's does, and the `edge` placement is flush with the left border.

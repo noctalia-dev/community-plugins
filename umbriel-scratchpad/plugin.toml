@@ -1,7 +1,8 @@
 # Umbriel Scratchpad - Umbriel scratchpads in the bar, styled like the native taskbar.
 #
 # bar     -> one pill per scratchpad: name badge plus an icon per window
-# service -> the only entry that shells out to `umbriel`
+# service -> the only entry that talks to Umbriel: noctalia.compositor.subscribe
+#            for windows, typed IPC requests for actions
 #
 # Settings follow the native taskbar's sections, in order: windows, grouping, then
 # scratchpad labels (the native "workspace labels"). Plugin settings have no
@@ -9,8 +10,8 @@
 
 id = "samxu29/umbriel-scratchpad"
 name = "Umbriel Scratchpad"
-version = "0.4.7"
-plugin_api = 43
+version = "0.5.0"
+plugin_api = 54
 author = "samxu29"
 license = "MIT"
 dependencies = ["umbriel"]
