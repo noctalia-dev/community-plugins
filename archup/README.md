@@ -25,19 +25,11 @@ Install the tools:
 sudo pacman -S pacman-contrib yay
 ```
 
-## Setup
+## Usage
 
-Clone into your Noctalia plugins directory:
+Add `7sarus/archup:updates-desktop` to your desktop from the Noctalia desktop widget picker.
 
-```sh
-git clone https://github.com/7sarus/archup.git ~/.local/share/noctalia/plugins/7sarus/archup
-```
-
-Enable `7sarus/archup` in Noctalia settings, then place `7sarus/archup:updates-desktop` on your desktop.
-
-## IPC
-
-Force an update check from the terminal:
+Click the widget header or icon to check for updates, or send an IPC message:
 
 ```sh
 noctalia msg plugin 7sarus/archup:updates-desktop all refresh
