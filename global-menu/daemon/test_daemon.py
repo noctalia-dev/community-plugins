@@ -126,6 +126,29 @@ assert kids[-1]['label'] == 'Quit'
 assert kids[-1]['key'].startswith('File'), kids[-1]
 print('tree payload OK:', json.dumps(payload)[:120], '...')
 
+# mnemonic markers are stripped from labels; keys stay raw for activation
+t = Tree()
+t.create_node('', 'rootnode', data=DbusAppMenuItem([0, {}, []], []))
+edit_item = DbusAppMenuItem([1, {'label': '_Edit'}, []], [])
+t.create_node('_Edit', 1, 'rootnode', data=edit_item)
+amp_item = DbusAppMenuItem([2, {'label': 'Save & Close',
+                                'shortcut': [['Control', 'Shift', 's']]}, []],
+                           ['_Edit'])
+t.create_node('Save & Close', 2, 1, data=amp_item)
+under_item = DbusAppMenuItem([3, {'label': 'snake__case'}, []], ['_Edit'])
+t.create_node('snake__case', 3, 1, data=under_item)
+payload = gmd.GlobalMenuDaemon.tree_payload(types.SimpleNamespace(tree=t))
+assert payload[0]['label'] == 'Edit', payload
+assert payload[0]['key'] == '_Edit', 'activation key must stay raw'
+kids = payload[0]['children']
+assert kids[0]['label'] == 'Save & Close', 'a literal & must survive'
+assert kids[1]['label'] == 'snake_case', kids[1]
+gmd._add_accel_labels(payload)
+assert kids[0]['accelLabel'] == 'Control+Shift+s', kids[0]
+assert 'accelLabel' not in kids[1]
+assert gmd.accel_label('<Primary>Page_Up') == 'Primary+Page Up'
+print('label cleanup + accelLabel OK')
+
 # --- wayland self-pipe drain must never block ------------------------------
 from waybridge import WaylandBridge, Toplevel
 
@@ -179,6 +202,65 @@ finally:
 assert registrar.owned is False and registrar.external is True, \
     'must adopt an external registrar instead of aborting setup'
 print('registrar adoption OK')
+
+# --- identity matching: whole app id first, last segment as fallback -------
+assert resolver.Registrar._wanted('org.kde.dolphin') == \
+    ({'orgkdedolphin'}, {'dolphin'})
+assert resolver.Registrar._wanted('foot') == ({'foot'}, set())
+assert resolver.Registrar._wanted('org.example.App') == \
+    ({'orgexampleapp'}, set()), 'generic last segments must not match'
+
+
+def _reg(window_id, sender, identities):
+    reg = resolver.Registration(window_id, sender, '/MenuBar/1')
+    reg.identities = set(identities)
+    return reg
+
+
+registrar.registrations = {
+    1: _reg(1, ':1.1', {'firefox'}),              # last-segment match
+    2: _reg(2, ':1.2', {'orgmozillafirefox'}),    # exact match
+}
+assert registrar.match('org.mozilla.firefox', '', True) == \
+    (':1.2', '/MenuBar/1'), 'an exact match must win over the last segment'
+registrar.registrations = {1: _reg(1, ':1.1', {'firefox'})}
+assert registrar.match('org.mozilla.firefox', '', True) == \
+    (':1.1', '/MenuBar/1'), 'the last segment must still match alone'
+registrar.registrations = {1: _reg(1, ':1.1', {'app'})}
+assert registrar.match('org.example.App', '', True) is None
+registrar.registrations = {}
+print('identity matching order OK')
+
+# --- unregistered menubars: tiering, positive cache, pruning ---------------
+list_calls = []
+
+
+class ListSession(object):
+    def get_object(self, *args, **kwargs):
+        return types.SimpleNamespace(
+            ListNames=lambda **kw: list_calls.append(1) or
+            [':1.7', ':1.8', 'org.example.Name'])
+
+
+registrar.session = ListSession()
+registrar._sender_pid = lambda name: {':1.7': 70, ':1.8': 80}.get(name)
+registrar._identity_for_pid = lambda pid: {70: {'hydrogen'},
+                                           80: {'orghydrogenmusichydrogen'}}[pid]
+registrar._menubar_paths = lambda name: ['/MenuBar/4']
+registrar._top_level_count = lambda name, path: {':1.7': 9, ':1.8': 2}[name]
+registrar._pid_cache[':1.8'] = 80
+
+hit = registrar.discover_unregistered('org.hydrogenmusic.Hydrogen')
+assert hit == (':1.8', '/MenuBar/4'), \
+    'an exact identity must win even with fewer menus: %r' % (hit,)
+assert registrar.discover_unregistered('org.hydrogenmusic.Hydrogen') == hit
+assert len(list_calls) == 1, 'a refocus must reuse the cached hit'
+registrar.registrations_died(':1.8')
+assert 'org.hydrogenmusic.Hydrogen' not in registrar._discovered
+assert ':1.8' not in registrar._pid_cache, 'caches must be pruned'
+registrar.discover_unregistered('org.hydrogenmusic.Hydrogen')
+assert len(list_calls) == 2, 'a vanished sender must force a new probe'
+print('unregistered menubar discovery OK: tiering, cache, pruning')
 
 # --- friendly application names -------------------------------------------
 daemon = object.__new__(gmd.GlobalMenuDaemon)

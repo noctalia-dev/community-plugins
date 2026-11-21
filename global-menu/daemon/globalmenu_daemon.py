@@ -424,6 +424,8 @@ class GlobalMenuDaemon(object):
 
         match = self.registrar.match(app_id, title, toplevels_available) \
                 if self.registrar else None
+        if match is None and self.registrar and app_id:
+            match = self.registrar.discover_unregistered(app_id)
 
         source = None
         reader = None
@@ -627,6 +629,7 @@ class GlobalMenuDaemon(object):
         app = self.app_id or ''
         title = self.app_title or ''
         source = self.source_name if self.last_tree else 'none'
+        _add_accel_labels(self.last_tree)
         self.out.emit_menu(app, title, source, self.last_tree,
                            self.app_name or '')
 
@@ -691,6 +694,38 @@ def main():
     return 0
 
 
+def strip_mnemonics(label):
+    """'_File' -> 'File', '__' -> '_'.
+
+    dbusmenu and GTK menus mark mnemonics with '_'. Qt converts its own
+    '&' markers to '_' when it exports a menu over dbusmenu (and '&&' to
+    a plain '&'), so a '&' that reaches us is a literal ampersand and is
+    left alone."""
+    return label.replace('__', '\0').replace('_', '').replace('\0', '_')
+
+
+def accel_label(raw):
+    """'<Ctrl><Shift>c' -> 'Ctrl+Shift+c': the accelerator as the panel
+    and the HUD display it."""
+    out = re.sub(r'<([^<>]*)>', lambda m: m.group(1) + '+', str(raw or ''))
+    if out.endswith('+'):
+        out = out[:-1]
+    return out.replace('_', ' ')
+
+
+def _add_accel_labels(nodes):
+    """Give every item that has an accelerator a display-ready
+    'accelLabel', whatever source built the tree."""
+    for node in nodes or []:
+        if not isinstance(node, dict):
+            continue
+        if node.get('accel'):
+            label = accel_label(node['accel'])
+            if label:
+                node['accelLabel'] = label
+        _add_accel_labels(node.get('children'))
+
+
 def _node_to_dict_children(tree, node):
     out = []
     current_section = None
@@ -716,7 +751,10 @@ def _node_to_dict_children(tree, node):
 def _node_to_dict(tree, node):
     data = node.data
     d = {
-        'label': str(getattr(data, 'label', '') or node.tag or ''),
+        # display text without mnemonic markers; 'key' keeps the raw
+        # path because activation looks items up by it
+        'label': strip_mnemonics(str(getattr(data, 'label', '') or
+                                     node.tag or '')),
         'key': str(getattr(data, 'text', '') or node.tag or ''),
         'enabled': bool(getattr(data, 'enabled', True)),
         'toggleType': str(getattr(data, 'toggle_type', '') or ''),

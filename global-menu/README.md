@@ -13,7 +13,8 @@ under a » button instead of being cut off.
 | Field | Value |
 | --- | --- |
 | ID | `amancode22/global-menu` |
-| Entries | Bar widget: `menubar`; panel: `menu`; service: `service` |
+| Entries | Bar widget: `menubar`; panel: `menu`; launcher providers: `hud`, `menu-hud`; service: `service` |
+| Launcher Prefix | `/hud`, `/menu-hud` |
 
 ## Requirements
 
@@ -29,8 +30,10 @@ under a » button instead of being cut off.
   No compositor-specific IPC (`hyprctl`, `niri msg`, `swaymsg`, ...) is used.
 - For native menus, the application must either register with the AppMenu
   registrar (most Qt, Electron, Chromium and Firefox apps) or export a
-  GTK menubar (GTK 3/4 apps). Applications that do neither fall back to
-  curated shortcut menus or window/session actions.
+  GTK menubar (GTK 3/4 apps). Qt applications that export a menubar but
+  never register it (common on compositors without KDE's appmenu protocol)
+  are found on their own D-Bus connection. Applications that do none of
+  this fall back to curated shortcut menus or window/session actions.
 
 ## Usage
 
@@ -56,6 +59,32 @@ widget to your bar. The widget appears only when a window is focused.
 
 ```sh
 noctalia msg panel-toggle amancode22/global-menu:menu
+```
+
+### Menu search (HUD)
+
+Search every item of the focused application's menus by typing, like the
+Unity HUD: type `/hud` in the launcher followed by a few letters of the
+item ("export png", "new tab", "zoom"). Each result shows the item's label,
+its menu path (e.g. *File › Export*) and its accelerator; a checkmark marks
+toggles that are on. Every word you type must appear in the label or the
+path. Activating a result runs the item in the application, exactly like
+clicking it in the popup.
+
+It works without the bar widget, so it is also handy on bars with no room
+for a menu strip. Bind it to a key in your compositor to open it directly:
+
+```sh
+noctalia msg panel-toggle launcher /hud
+```
+
+To browse the menus instead, type `/menu-hud`. With nothing typed it lists
+the top-level menus (*File ›*, *Edit ›*, ...); choosing one (Enter or click)
+opens it, and *‹ Back* goes up a level. Typing searches like `/hud`: at the
+top level across every menu, inside a menu only within that menu.
+
+```sh
+noctalia msg panel-toggle launcher /menu-hud
 ```
 
 ### Custom shortcut menus
@@ -132,9 +161,13 @@ estimates.
 
 ## Troubleshooting
 
-- **Widget never appears.** Check that `python3-dbus` and `python3-gi` are
-  installed; on failure the plugin raises a notification saying exactly that.
-  Plugin log lines carry the `[global-menu]` prefix.
+- **Widget never appears.** Check that `python3`, `python3-dbus` and
+  `python3-gi` are installed and visible to the `python3` on Noctalia's
+  `PATH`. If the daemon cannot start three times in a row, the plugin stops
+  retrying and raises a notification with the daemon's last error line (for
+  example `ModuleNotFoundError: No module named 'dbus'`); reload the plugin
+  after fixing it. Plugin log lines, including the daemon's error output,
+  carry the `[global-menu]` prefix.
 - **"No menu for this window" in the popup.** The focused app exposes neither
   a D-Bus menu nor a GTK menubar and shortcut/fallback menus are disabled (or
   the app has no curated mapping). Try enabling *Shortcut menus* and
