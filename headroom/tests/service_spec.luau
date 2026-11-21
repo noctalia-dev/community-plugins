@@ -175,6 +175,49 @@ t.group("service", function()
     host.globals.noctalia.state.set("command", { action = "rename", key = "claude", label = name })
     t.eq(utf8.len(env.account(host, "claude").name), 32)
   end)
+
+  t.test("switching antigravity_models to a filter with no matching quotas clears old windows and shows No matching models", function()
+    local host = env.host()
+    host.config.provider_claude = "off"
+    host.config.provider_codex = "off"
+    env.write(host, "/home/test/.gemini/antigravity-cli/antigravity-oauth-token", {
+      access_token = "tok",
+      expires_at = host.clock + 3600,
+    })
+    local quota = env.decode(host, env.fixture("antigravity_quota.json"))
+    local claudeOnlyQuota = host.globals.noctalia.json.encode({ groups = { quota.groups[2] } })
+    env.serve(host, {
+      ["daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary"] = claudeOnlyQuota,
+      ["cloudcode-pa.googleapis.com/v1internal:loadCodeAssist"] = '{"paidTier":{"name":"Google AI Pro"}}',
+    })
+
+    local svc = env.start(host, "service.luau")
+    local pnl = env.start(host, "panel.luau")
+    env.start(host, "bar.luau")
+    pnl.call("onOpen")
+
+    local before = env.account(host, "antigravity")
+    t.eq(before.phase, "ready")
+    t.eq(#before.snapshot.windows, 2)
+
+    local function hasLabel(tree, text: string): boolean
+      return #env.find(tree, function(node)
+        return node.type == "label" and node.props.text == text
+      end) > 0
+    end
+    t.ok(hasLabel(host.panelTree, "Claude & GPT · Weekly"), "shows Claude & GPT before switch")
+
+    host.config.antigravity_models = "gemini"
+    svc.call("onConfigChanged")
+
+    local after = env.account(host, "antigravity")
+    t.eq(after.phase, "ready", "stays ready instead of parse error")
+    t.eq(after.error, nil)
+    t.eq(#after.snapshot.windows, 0, "clears previous quotas")
+    t.ok(hasLabel(host.panelTree, "No matching models"), "panel shows No matching models")
+    t.eq(hasLabel(host.panelTree, "Claude & GPT · Weekly"), false, "old quotas are gone from panel")
+    t.eq(host.tooltip[1].value, "No matching models", "bar tooltip shows No matching models")
+  end)
 end)
 
 return nil
