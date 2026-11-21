@@ -40,11 +40,11 @@
     },
     "disks": {
       "label": "Disks",
-      "description": "Device names from /proc/diskstats, for example nvme0n1 or sda. Empty watches every physical disk."
+      "description": "Device names from /proc/diskstats such as sda1, or a disk's serial number, WWID or model, which stay the same across reboots. Empty watches every physical disk."
     },
     "disk_order": {
       "label": "Order",
-      "description": "Disks listed here come first, in this order. All other physical disks follow sorted by name, including drives plugged in later. Not used when Disks is set."
+      "description": "Disks listed here come first, in this order. Use the serial number, WWID or model: names like nvme0n1 can swap after a reboot. All other physical disks follow sorted by serial number, including drives plugged in later. Not used when Disks is set."
     },
     "poll_ms": {
       "label": "Poll interval (ms)",
@@ -56,6 +56,21 @@
     "read": "Read {rate}",
     "write": "Write {rate}",
     "not_found": "not found",
+    "no_disks": "No physical disks found"
+  },
+  "panel": {
+    "title": "Disks",
+    "hint": "Kernel names such as nvme0n1 can swap after a reboot. Copy a disk's ID and paste it into Disks, Order or Colors per disk. Middle-click the LED to open its settings.",
+    "name": "Now {value}",
+    "serial": "Serial {value}",
+    "wwid": "WWID {value}",
+    "copy": "Copy ID",
+    "copied": "Copied",
+    "copy_tooltip": {
+      "serial": "Copy the serial number",
+      "wwid": "Copy the WWID",
+      "name": "Copy the device name (this disk reports no serial number or WWID)"
+    },
     "no_disks": "No physical disks found"
   }
 }

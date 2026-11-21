@@ -11,6 +11,7 @@ local colors = require("./lib/colors.luau")
 
 local DISKSTATS = "/proc/diskstats"
 local SYS_BLOCK = "/sys/block"
+local PANEL_ID = "dmopp/retro-hdd-led:disks"
 -- How often the list of physical disks is refreshed, for hot-plugged drives.
 local RESCAN_MS = 10000
 -- Window for the tooltip rates; shorter would make them jump around.
@@ -36,6 +37,8 @@ local function clampInt(value, low, high, fallback)
 end
 
 local physical = {}
+-- Stable IDs per physical disk, from the last scan.
+local diskIds = {}
 local lastScanMs = nil
 local previous = nil
 local rateBase = nil
@@ -47,18 +50,9 @@ local names = {}
 local states = {}
 local shownKey = nil
 
--- Whole disks with a backing device: /sys/block lists every block device
--- without its partitions, and only real hardware has a `device` link there.
 local function scanDisks(now)
 	lastScanMs = now
-	local found = {}
-	local entries = noctalia.listDir(SYS_BLOCK) or {}
-	for _, name in ipairs(entries) do
-		if noctalia.fileExists(SYS_BLOCK .. "/" .. name .. "/device") then
-			found[#found + 1] = name
-		end
-	end
-	physical = found
+	physical, diskIds = diskstats.scan(noctalia, SYS_BLOCK)
 end
 
 local function isSplit()
@@ -95,10 +89,7 @@ end
 local function colorsFor(name)
 	local entry = nil
 	if name ~= nil then
-		local map = config("disk_colors", {})
-		if type(map) == "table" then
-			entry = map[name]
-		end
+		entry = diskstats.lookup(config("disk_colors", {}), name, diskIds[name])
 	end
 	-- With the automatic write color on, an empty global write color makes
 	-- forDisk derive it from the read color.
@@ -215,7 +206,7 @@ local function onStats(text, err)
 		scanDisks(now)
 	end
 	local current = diskstats.parse(text)
-	local watched = diskstats.select(config("disks", {}), physical, config("disk_order", {}))
+	local watched = diskstats.select(config("disks", {}), physical, config("disk_order", {}), diskIds)
 	if table.concat(watched, ",") ~= table.concat(names, ",") then
 		-- Disks came or went: the rate window has to start over.
 		names = watched
@@ -246,6 +237,11 @@ function update()
 		return
 	end
 	pending = noctalia.readFileAsync(DISKSTATS, onStats)
+end
+
+-- A click opens the panel that lists the disks with their stable IDs.
+function onClick()
+	noctalia.togglePanel(PANEL_ID)
 end
 
 function onConfigChanged()
