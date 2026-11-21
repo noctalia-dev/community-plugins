@@ -32,7 +32,7 @@ The scanner binary (`gamelauncher`) is compiled automatically on first use — t
 
 Add the bar widget `alexander/game-launcher:launcher` to your bar. The widget shows a gamepad icon — click it to open it (look follows Panel style).
 
-In the panel, use the search bar to filter by name or runner. Click **Launch** on any game to start it. The last game you launched always moves to the top of the list with a Last played badge, and stays there across restarts.
+In the panel, use the search bar to filter by name or runner. Click **Launch** on any game to start it. By default the list is ordered like Steam's **Last played** view: games you actually played come first, newest first, using Steam's, Lutris' and Heroic's own play history, and never-played games follow alphabetically. A game launched from the panel jumps to the top immediately. The button next to **Rescan** toggles between **Last played** and **Name (A–Z)**; the default comes from the `sort_mode` setting.
 
 To open the panel via IPC:
 
@@ -50,6 +50,7 @@ In the panel: Up/Down moves the highlight and keeps it in view, the mouse wheel 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
 | `glyph` | `glyph` | `device-gamepad-2` | Bar widget icon |
+| `sort_mode` | `select` | `last_played` | `last_played` (Steam-like recent order) or `name` (A–Z) |
 | `steampoacher_enabled` | `bool` | `false` | Enable steampoacher proxy for Steam cover art |
 | `steam_enabled` | `bool` | `true` | Show Steam games |
 | `heroic_enabled` | `bool` | `true` | Show Heroic games |
@@ -74,5 +75,5 @@ The plugin addresses all findings from Noctalia's security audit:
 
 - Scans all detected Steam library folders, Lutris SQLite databases, and Heroic store caches (Legendary, GOG, Nile).
 - Results are cached in `~/.cache/gamelauncher/games.json` and rescanned on click if sources changed.
-- Last-played launches are stored in the plugin data dir (`recent.json`, newest 30) and shared live between the panels and the `/g` provider, so the last game stays on top everywhere.
+- Last-played timestamps come from the launchers themselves: Steam's `localconfig.vdf`, Lutris' `pga.db` and Heroic's `store/timestamp.json`. Launches through the plugin are also recorded in the plugin data dir (`recent.json`, newest 30) and shared live between the panels and the `/g` provider, so a freshly started game stays on top everywhere.
 - No external CLI tools (curl, wget, python3, grep) are invoked anywhere in the plugin.

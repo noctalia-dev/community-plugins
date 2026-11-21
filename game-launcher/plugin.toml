@@ -1,6 +1,6 @@
 id = "alexander/game-launcher"
 name = "Game Launcher"
-version = "1.7.1"
+version = "1.8.0"
 plugin_api = 43
 author = "Alexander"
 license = "MIT"
@@ -18,6 +18,17 @@ default = "original"
 options = [
   { value = "side", label_key = "settings.panel_mode.side" },
   { value = "original", label_key = "settings.panel_mode.original" },
+]
+
+[[setting]]
+key = "sort_mode"
+type = "select"
+label_key = "settings.sort_mode.label"
+description_key = "settings.sort_mode.description"
+default = "last_played"
+options = [
+  { value = "last_played", label_key = "settings.sort_mode.last_played" },
+  { value = "name", label_key = "settings.sort_mode.name" },
 ]
 
 [[setting]]

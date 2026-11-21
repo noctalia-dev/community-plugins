@@ -15,6 +15,12 @@
       "original": "Original",
       "side": "Side panel"
     },
+    "sort_mode": {
+      "description": "Order of the game list. Last played uses the play history of Steam, Lutris and Heroic, newest first; never played games follow alphabetically.",
+      "label": "Sort order",
+      "last_played": "Last played",
+      "name": "Name (A–Z)"
+    },
     "steam_enabled": {
       "label": "Show Steam games"
     },
