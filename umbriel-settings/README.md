@@ -28,7 +28,8 @@ The same interface also runs as a standalone app: see the
   and **Run now**.
   Without it settings can still be edited, but aren't checked before writing.
 - Optional: `gio` (open the standalone app), `xdg-open` or an
-  editor command set under **About** (**Edit file**). Buttons explain what's missing.
+  editor command set under **About** (**Edit file**), and `notify-send` (the message when a display **Try**
+  went back on its own while the panel was closed). Buttons explain what's missing.
 
 ## Usage
 
@@ -73,9 +74,12 @@ noctalia msg panel-toggle 0rz0rz0rz/umbriel-settings:main
   monitors that report the same name are told apart by connector. Entries for outputs that aren't connected
   are listed under **Not connected**. Moving displays or picking the default changes nothing on disk until you
   save; then each display's `position` (and `focus_at_startup`) is written to its `[output."…"]` entry.
-  **Try** saves display changes right away and asks to keep them; without an answer within 15 seconds the
-  previous file comes back (also when the panel was closed) and the changes are unsaved again. The tiles
-  follow monitors being plugged in or out.
+  **Try** saves display changes right away and asks to keep them (the question stays on top of every page);
+  without an answer within 15 seconds the previous file comes back and the changes are unsaved again, also
+  when the panel was closed meanwhile. Before anything is written, the helper starts a small watcher (system
+  `python3`) that restores the previous file 30 seconds after the save unless you pressed Keep or Go back,
+  so the file comes back even if Noctalia stops; if the config was edited meanwhile it is left alone and you
+  are told. Saving waits until the Try is answered. The tiles follow monitors being plugged in or out.
 
   ![The Outputs page: three displays drawn to scale, the default one starred](screenshot-outputs.png)
 - **Curve, effect and output settings** offer your own named curves, effect presets and pools (also from
@@ -87,14 +91,17 @@ noctalia msg panel-toggle 0rz0rz0rz/umbriel-settings:main
 - **Keybinds** are grouped (shortcuts used twice show **conflict**): build shortcuts from modifier chips (the
   standalone app can also **Record…** a key press), pick actions from a searchable catalog,
   lock shortcuts against accidental changes. **Run now** (click twice) sends the action to Umbriel once;
-  session, close/kill, screen-off and submap actions are refused. Window actions act on the window behind
+  it refuses `session-quit`, closing or killing the focused window, screens off, disabling outputs, the
+  shortcut inhibitor, entering a submap and `spawn noctalia msg session …` (other commands you spawn run as
+  written). Window actions act on the window behind
   the panel. Drag groups and shortcuts by their grip to reorder them or
   move a shortcut into another group (↑/↓ buttons on the group list and a shortcut's page do the same);
   the `[keybinds]` table is saved in that order.
 - **User folders** and **Default apps** edit `user-dirs.dirs` and `mimeapps.list`.
 - **Title-bar colors**: on Colors → Title bar, **KDE** / **KDE header** make a background follow Noctalia's
-  palette at the chosen opacity; after one save, palette changes update it even with the panel closed. A
-  fixed color stops following. Each config follows on its own.
+  palette at the chosen opacity. Like any edit this is queued: Review lists it, Discard and Undo drop it,
+  and only the save starts following; afterwards palette changes update it even with the panel closed. A
+  fixed color or **Stop following** stops it, also with the next save. Each config follows on its own.
 - **About** shows the version, the Umbriel and Noctalia versions it is made for (and notes when your Umbriel
   differs), options your Umbriel has that aren't covered yet, and the editor command.
 
@@ -140,27 +147,48 @@ in the save bar), Alt+Left back, Esc close.
   `noctalia-config.toml` and the palette file (title bars that follow Noctalia), XKB's
   `rules/evdev.lst` (keyboard layout picker; `$XKB_CONFIG_ROOT` or `/usr/share/X11/xkb`) and the files your
   config includes (`[include]`, for the effect presets, pools and curves they define).
-- **Files written**, only when you save, restore or delete backups: the Umbriel config (validated, written
-  atomically, symlinks refused), `$XDG_CONFIG_HOME/user-dirs.dirs` and `$XDG_CONFIG_HOME/mimeapps.list` (other
-  entries and MIME fallbacks kept). Each write is preceded by a timestamped backup (newest 10 per file) in
-  `$XDG_DATA_HOME/umbriel-settings/`, which also holds the chosen config path, rule and display names
-  (`gui-labels.json`), keybind locks and the editor command, and `write.lock`, which lets one writer (panel or
-  app) save at a time. Drafts, the helper's request/response files and its bytecode cache (`pycache/`) live in
-  Noctalia's plugin data directory.
-- **Title bars that follow Noctalia**, only after pressing **KDE** / **KDE header**: the user template
-  `~/.config/noctalia/templates/umbriel-titlebar.toml`, its `umbriel_titlebar` entry in `noctalia-config.toml`
-  (backed up first) and `~/.config/umbriel-settings/titlebar_apply.py`. On palette changes Noctalia renders
+- **Files written** (all atomically, symlinked user files refused):
+  - on **Save**, **Try**, **Restore** and the Try's own rollback: the Umbriel config (validated),
+    `$XDG_CONFIG_HOME/user-dirs.dirs` and `$XDG_CONFIG_HOME/mimeapps.list` (other entries and MIME fallbacks
+    kept), each after a timestamped backup;
+  - in `$XDG_DATA_HOME/umbriel-settings/` (owner-only, 0700; files 0600): those backups (`configs/<id>/backups/`
+    per config, `backups/` for the desktop files, `noctalia-backups/` for Noctalia's config; newest 10 per file,
+    the Try watcher may add one until the next save prunes), rule and display names (`gui-labels.json`) and
+    keybind locks per config, `configs/<id>/trial.json` while a **Try** waits for an answer and
+    `trial.result.json` (what its watcher did), the last chosen config (`gui-config-path`, written when you
+    switch), the editor command (**About**), `write.lock` (one writer at a time: panel, app, Try watcher and
+    title-bar script) and the `.migrated-v1` / `.private-v1` markers of one-time migrations;
+  - in Noctalia's plugin data directory: drafts (`draft.json`, `draft-other-config.json`), the helper's
+    request/response files (`run/`), its bytecode cache (`pycache/`) and the field catalog (`cache/`);
+  - title bars that follow Noctalia, see below.
+- **Title bars that follow Noctalia**, only when a save starts following (**KDE** / **KDE header**): the user
+  template `~/.config/noctalia/templates/umbriel-titlebar.toml`, its `umbriel_titlebar` entry in
+  `noctalia-config.toml` (backed up first; refused when Noctalia saved it meanwhile) and
+  `~/.config/umbriel-settings/titlebar_apply.py` (replaced by a newer one on a later save). On palette changes Noctalia renders
   `~/.config/umbriel-settings/titlebar-colors.toml` and runs the script, which sets only `background` /
   `background_unfocused` in `[colors.title_bar]` of each following config (an include can't, because
-  Noctalia's umbriel template always loads `noctalia.toml` last).
+  Noctalia's umbriel template always loads `noctalia.toml` last). It writes while holding the same
+  `write.lock`, starts over when the config changed meanwhile, and keeps the config's previous version as an
+  owner-only `*.titlebar.bak` next to itself.
+  **To stop**, set a fixed color (or press **Stop following**) on every field that follows and save: once no
+  config follows any more, the entry, the template, the rendered file, the script and its `*.titlebar.bak`
+  copies are removed (the configs keep their last colors). **Disabling or uninstalling the plugin** does the
+  same for every config (`onExit`, helper `titlebar-cleanup`); this also stops following set up in the
+  standalone app. If that couldn't run (for example python3 was gone), delete
+  `[theme.templates.user.umbriel_titlebar]` from `noctalia-config.toml`,
+  `~/.config/noctalia/templates/umbriel-titlebar.toml`, `titlebar-colors.toml`, `titlebar_apply.py` and
+  `*.titlebar.bak` in `~/.config/umbriel-settings/` by hand.
 - **Processes**: `python3 umbriel_settings.py <command>` (JSON request/response files and the helper's
   bytecode cache in the plugin data directory); `umbriel config validate` (on a temporary `.umbriel-settings-*.toml` next to the config,
   removed afterwards), `umbriel config schema --json`, `umbriel outputs --json`, `umbriel windows --json`, `umbriel layers --json`,
-  `umbriel keyboard-layouts --json`, `umbriel subscribe <events>` (live refresh, ends after 25 s or the first
-  change, while a page that shows live state is open); on button press only: `umbriel focused-window --json`
+  `umbriel keyboard-layouts --json`, `umbriel subscribe <events>` (live refresh, ends after at most 30 s or the
+  first change, while a page that shows live state is open); on button press only: `umbriel focused-window --json`
   (**Use the focused window**), `umbriel msg <action>` (**Run now**),
-  `gio launch`, `xdg-open` or your editor. Noctalia runs `python3 titlebar_apply.py`
-  after palette changes while a title-bar color follows it.
+  `gio launch`, `xdg-open` or your editor. **Try** starts a detached watcher, the system's
+  `python3 -I -c <umbriel_core/trial.py>`, that ends once the Try is answered or about 30 s after it started
+  (longer only while another save holds `write.lock`, at most 5 minutes), and `notify-send` when it went back
+  or couldn't. Noctalia runs `python3 titlebar_apply.py` after palette changes while a title-bar color follows
+  it, and the plugin runs helper `titlebar-cleanup` when it is disabled or uninstalled.
 - **Network**: none.
 - `umbriel_core/` is the config library shared with the standalone app, bundled so the plugin works alone.
   `app.luau` is the app's layout; it isn't in `plugin.toml`, so Noctalia never loads it.

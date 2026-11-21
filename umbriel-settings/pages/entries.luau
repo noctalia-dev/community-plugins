@@ -128,11 +128,14 @@ end
 local FOCUS_DELAY = 3
 local function focusedWindowButton(ctx, eid, index)
   local store, view = ctx.store, ctx.view
+  local asked = store.entryItems(eid)[index]  -- the rule the button belongs to; the wait may outlast a move
   local function ask()
     ctx.helper.call("focused-window", {}, function(err, data)
       view.focusBusy = false
       local window = not err and data.window or nil
-      if err then
+      if store.entryItems(eid)[index] ~= asked then
+        ctx.flash("The rules changed while waiting; press the button again.", "warning")
+      elseif err then
         ctx.flash(err.error, "error")
       elseif type(window) ~= "table" then
         ctx.flash("No window has the focus.", "warning")

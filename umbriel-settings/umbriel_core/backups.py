@@ -6,10 +6,9 @@ Used for the Umbriel config (per-config directory) and for the desktop files and
 import datetime
 import hashlib
 import os
-import shutil
 import stat
 
-from .paths import atomic_write, read_document
+from .paths import atomic_write, private_dir, read_document
 
 MAX_BACKUPS = 10
 STAMP = "%Y%m%d-%H%M%S-%f"
@@ -27,10 +26,12 @@ def create_backup_snapshot(path, config_dir, protect=None):
 
 
 def snapshot_file(path, directory, protect=None):
-    """Copy `path` into `directory` as `<name>.<timestamp>.bak` and keep the newest MAX_BACKUPS (and `protect`)."""
-    os.makedirs(directory, exist_ok=True)
+    """Copy `path` into `directory` as `<name>.<timestamp>.bak` and keep the newest MAX_BACKUPS (and `protect`).
+    Snapshots are owner-only (0600, in a 0700 directory) whatever the original's mode: they may hold secrets."""
+    private_dir(directory)
     snapshot = os.path.join(directory, f"{os.path.basename(path)}.{datetime.datetime.now().strftime(STAMP)}.bak")
-    shutil.copy2(path, snapshot)
+    with open(path, "rb") as handle:
+        atomic_write(snapshot, handle.read(), 0o600)
     prune_backup_snapshots(directory, path, protect=protect)
     return snapshot
 

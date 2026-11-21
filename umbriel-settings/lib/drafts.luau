@@ -42,8 +42,9 @@ function M.save()
     draft.entryOps, draft.mapOps = store.entryOps, store.mapOps
     draft.keybinds = store.keybindsDirty and store.keybinds or nil
   end
-  local encoded = noctalia.json.encode(draft)
-  if encoded then noctalia.writeFile(path, encoded) end
+  local encoded, encodeError = noctalia.json.encode(draft)
+  if not encoded then return false, encodeError end
+  return noctalia.writeFile(path, encoded)  -- ok, error: the caller decides whether to tell
 end
 
 -- Config edits of a draft, applied through the setters; returns how many survived.
@@ -52,7 +53,11 @@ local function applyConfigDraft(draft)
   for fid, change in pairs(draft.fields or {}) do
     if store.meta.fields[fid] and type(change) == "table" then
       -- Through the setters: an edit that was saved after the draft was written is no change any more.
-      if change.unset then store.unsetField(fid) else store.setField(fid, change.value) end
+      if change.unset then
+        store.unsetField(fid, change.follow)
+      else
+        store.setField(fid, change.value, change.follow)
+      end
       if store.fieldChanges[fid] then restored = restored + 1 end
     end
   end
@@ -80,21 +85,29 @@ function M.restore()
   local path = draftPath()
   if not path or not noctalia.fileExists(path) or not store.state then return nil end
   local draft = readJson(path)
-  noctalia.removeFile(path)
-  if type(draft) ~= "table" then return nil end
+  if type(draft) ~= "table" then noctalia.removeFile(path) return nil end
   local desktopNote = nil
   if type(draft.desktop) == "table" then
     if store.desktop then desktopNote = store.applyDesktopDraft(draft.desktop) else store.desktopDraft = draft.desktop end
   end
   if draft.path ~= store.state.path then
     local parked = parkedPath()
-    if type(draft.path) ~= "string" or not parked or not hasConfigEdits(draft) then return desktopNote end
+    if type(draft.path) ~= "string" or not parked or not hasConfigEdits(draft) then
+      noctalia.removeFile(path)
+      return desktopNote
+    end
     draft.desktop = nil
     local encoded = noctalia.json.encode(draft)
-    if encoded then noctalia.writeFile(parked, encoded) end
+    local written, writeError = false, "could not encode them"
+    if encoded then written, writeError = noctalia.writeFile(parked, encoded) end
+    if not written then  -- draft.json stays, so nothing is lost; it is tried again next time
+      return "Unsaved edits for " .. draft.path .. " could not be set aside (" .. tostring(writeError) .. ")."
+    end
+    noctalia.removeFile(path)
     local note = "Unsaved edits for " .. draft.path .. " were kept; open that config to get them back."
     return desktopNote and (note .. " " .. desktopNote) or note
   end
+  noctalia.removeFile(path)
   local restored = applyConfigDraft(draft)
   if restored == 0 then return desktopNote end
   local note = restoredNote(restored)

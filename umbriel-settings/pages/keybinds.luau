@@ -322,7 +322,10 @@ local function detailPage(ctx, route)
       ui.select({ options = OPTION_CHOICES, selectedIndex = value == nil and 0 or (value and 1 or 2), width = 160,
                   controlSize = "sm", enabled = not locked, onChange = function(i)
                     i = tonumber(i) or 0
-                    row.opts[name] = i == 1 and true or i == 2 and false or nil
+                    -- (not `i == 2 and false or nil`: that is always nil, so "off" could never be chosen)
+                    local chosen = nil
+                    if i == 1 then chosen = true elseif i == 2 then chosen = false end
+                    row.opts[name] = chosen
                     edit(); ctx.render()
                   end })))
   end

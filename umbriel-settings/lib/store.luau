@@ -112,20 +112,22 @@ local function rememberField(fid)
   remember({ kind = "field", id = fid, previous = deepCopy(M.fieldChanges[fid]) })
 end
 
-function M.setField(fid, value)
+-- `follow` (title-bar backgrounds only, lib/titlebar.luau): { source, alpha } starts following Noctalia once
+-- saved, false stops; such a change stays even when the value equals the saved one.
+function M.setField(fid, value, follow)
   rememberField(fid)
   local base = M.state and M.state.fields[fid]
-  if base ~= nil and equal(base, value) then
+  if follow == nil and base ~= nil and equal(base, value) then
     M.fieldChanges[fid] = nil
   else
-    M.fieldChanges[fid] = { value = value }
+    M.fieldChanges[fid] = { value = value, follow = follow }
   end
 end
 
-function M.unsetField(fid)
+function M.unsetField(fid, follow)
   rememberField(fid)
   local base = M.state and M.state.fields[fid]
-  M.fieldChanges[fid] = base ~= nil and { unset = true } or nil
+  M.fieldChanges[fid] = (base ~= nil or follow ~= nil) and { unset = true, follow = follow } or nil
 end
 
 function M.revertField(fid)
@@ -489,11 +491,13 @@ function M.changeSet()
   return changes
 end
 
--- Field changes that the snapshot already holds are no longer changes.
-local function dropSavedFieldChanges(state)
+-- Field changes that the snapshot already holds are no longer changes; a follow intent only goes with the save
+-- that applied it (`saved`), not with a reload.
+local function dropSavedFieldChanges(state, saved)
   for fid, change in pairs(M.fieldChanges) do
     local base = state.fields[fid]
-    if (change.unset and base == nil) or (not change.unset and equal(change.value, base)) then
+    local held = (change.unset and base == nil) or (not change.unset and equal(change.value, base))
+    if held and (change.follow == nil or saved) then
       M.fieldChanges[fid] = nil
     end
   end
@@ -545,7 +549,7 @@ function M.markSaved(state, mark)
   local entryOps, mapOps = rest(M.entryOps, mark.entries), rest(M.mapOps, mark.maps)
   local keepKeybinds = newer and M.keybindsDirty and keybindsSerial > mark.serial
   M.state = state
-  dropSavedFieldChanges(state)
+  dropSavedFieldChanges(state, true)
   M.entryOps, M.mapOps = entryOps, mapOps
   M.entries = replayAll(state.editors, entryOps, applyEntryOp)
   M.maps = replayAll(state.maps, mapOps, applyMapOp)
@@ -619,13 +623,19 @@ function M.loadDesktop(data)
 end
 
 -- One desktop part was written (the other may have failed): its values become the saved state.
-function M.desktopSaved(part, revision)
+-- One desktop part was written: what `sent` (that part of the desktopChanges() the save sent) changed is now
+-- the original; edits made while the save ran stay pending.
+function M.desktopSaved(part, revision, sent)
   local d = M.desktop
-  if not d or type(revision) ~= "string" then return end
+  if not d or type(revision) ~= "string" or type(sent) ~= "table" then return end
   if part == "userdirs" then
-    d.userdirs.original, d.userdirs.revision = deepCopy(d.userdirs.values), revision
+    for key, value in pairs(sent.changes or {}) do d.userdirs.original[key] = value ~= "" and value or nil end
+    d.userdirs.revision = revision
   else
-    d.apps.originalRoles, d.apps.originalMimes = deepCopy(d.apps.roles), deepCopy(d.apps.mimes)
+    for _, change in ipairs(sent.changes or {}) do
+      local original = change.kind == "role" and d.apps.originalRoles or d.apps.originalMimes
+      original[change.key] = change.value
+    end
     d.apps.revision = revision
   end
 end

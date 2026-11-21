@@ -19,6 +19,8 @@ local review = require("../pages/review.luau")
 local about = require("../pages/about.luau")
 local xkb = require("../pages/xkb.luau")
 local files = require("../pages/files.luau")
+local trymode = require("../pages/trymode.luau")
+local teardown = require("./teardown.luau")
 
 local M = {}
 
@@ -33,6 +35,26 @@ function M.create(layout, options)
   local ctx = { view = view, store = store, helper = helper, loading = loading, options = options,
                 isApp = options.isApp == true }
   local epoch = 0
+  local open = false  -- between onOpen and onClose: answers that arrive while closed notify instead
+
+  function ctx.isOpen() return open end
+
+  -- An answer for the user: a flash while the panel is open, else a notification (requests made with `always`).
+  function ctx.tell(text, kind)
+    if open then
+      ctx.flash(text, kind)
+      ctx.render()
+    else
+      noctalia.notify("Umbriel Settings", text)
+    end
+  end
+
+  -- What the bar widget (Noctalia) and the window title and close prompt (app) show; also set by answers that
+  -- arrive while the panel is closed, since only rendering publishes it otherwise.
+  function ctx.publishPending()
+    noctalia.state.set("umbriel.pending", store.pendingCount())
+    noctalia.state.set("umbriel.trying", view.tryState and 1 or 0)
+  end
 
   -- Input keys carry view.gen[key]. Keys that were never bumped read the epoch, so raising it replaces the
   -- text of every input, also of those still at their first generation.
@@ -168,10 +190,12 @@ function M.create(layout, options)
     local page = {}
     for _, child in ipairs(parts.header or {}) do table.insert(page, child) end
     for _, child in ipairs(noticeNodes) do table.insert(page, child) end
+    local tryCard = store.meta and trymode.card(ctx)  -- Keep / Go back stay reachable from every page
+    if tryCard then table.insert(page, tryCard) end
     table.insert(page, content)
     if saveBar then table.insert(page, saveBar) end
     panel.render(layout(ctx, { page = page, route = current }))
-    noctalia.state.set("umbriel.pending", pending)
+    ctx.publishPending()
     noctalia.state.set("umbriel.config", store.state and store.state.path or "")
   end
 
@@ -299,8 +323,13 @@ function M.create(layout, options)
     ctx.render()
     local request = {}
     if path then request.config = path elseif store.state then request.config = store.state.path end
-    helper.call((path and remember ~= false) and "set-config" or "read", request, function(err, state)
+    local remembers = path and remember ~= false  -- set-config writes the choice: its answer must not get lost
+    helper.call(remembers and "set-config" or "read", request, function(err, state)
       loading.config = false
+      if not open then  -- answered after the panel closed: the next open reads the chosen config again
+        if not err then store.load(state) end
+        return
+      end
       if ctx.changedDuringLoad then  -- the file changed while it was read (maybe half-written): read it again
         ctx.changedDuringLoad = false
         ctx.reload()
@@ -322,7 +351,7 @@ function M.create(layout, options)
       local parked = drafts.restoreParked()
       if parked then table.insert(notices, { text = parked, kind = "info" }) end
       ctx.render()
-    end)
+    end, { always = remembers })
   end
 
   function ctx.switchConfig()
@@ -459,7 +488,6 @@ function M.create(layout, options)
 
   -- ---------------------------------------------------------------- entry points
   local handlers = {}
-  local open = false
 
   function handlers.onOpen()
     open = true
@@ -467,15 +495,21 @@ function M.create(layout, options)
     loading.meta, loading.config, loading.desktop, loading.search = false, false, false, false
     -- Answers to requests from before the panel closed are dropped, so their busy flags would stay set.
     view.titlebarLoading = false
-    view.titlebarBusy, view.titlebarQueued = {}, {}
+    view.titlebar = nil  -- read again: it may have changed while the panel was closed
     ctx.clearPickerBusy()
     ctx.forgetLiveOutputs()  -- monitors may have changed while the panel was closed
+    if ctx.kde == false and not kdeFailedAt then ctx.kde = nil end  -- its answer was dropped: ask again
+    leave(true)  -- no "click again" confirmation survives a close
+    view.sliding = {}
     for _, entry in ipairs(stack) do
-      if entry.state then entry.state.loading, entry.state.saving = false, false end
+      -- a save still running answers anyway (always) and clears its own flag
+      if entry.state then entry.state.loading, entry.state.saving = false, ctx.saving and entry.state.saving end
     end
     notices = {}
     if not store.meta then
       loadMeta()
+    elseif ctx.saving then
+      ctx.changedDuringSave = true  -- read the file once that save is done (ctx.savingDone), not while it writes
     else
       ctx.reload()
       if not store.desktopChanges() then ctx.loadDesktop(true) end
@@ -488,6 +522,16 @@ function M.create(layout, options)
     dropProvisional()
     drafts.save()
     helper.generation = helper.generation + 1
+  end
+
+  -- Noctalia tears the panel down (reload, disable, uninstall, shutdown): keep the edits as a draft, and stop
+  -- title bars following Noctalia when the plugin itself goes away.
+  function handlers.onExit(_, reason)
+    if open then
+      dropProvisional()
+      drafts.save()
+    end
+    teardown.onExit(reason)
   end
 
   -- Noctalia: a shell setting read with getSetting changed (corner roundness); onOpen renders anyway.

@@ -294,8 +294,10 @@ function M.row(ctx, spec)
 
   local labelRow = { ui.label({ text = field.label, fontSize = kit.FONT.body, maxLines = 2 }) }
   if field.restart then
-    table.insert(labelRow, ui.glyph({ name = "refresh-alert", size = kit.GLYPH.small, color = "tertiary",
-                                      tooltip = "Takes effect after restarting Umbriel" }))
+    -- glyphs take no tooltip in Noctalia: the row around it does
+    table.insert(labelRow, ui.row({ tooltip = "Takes effect after restarting Umbriel" }, {
+      ui.glyph({ name = "refresh-alert", size = kit.GLYPH.small, color = "tertiary" }),
+    }))
   end
   -- One quiet line: a hint, then "Default 2"; an overridden key gets the Override badge instead of a color.
   local defaultText = hasDefault(field) and format.value(field, field.default) or nil

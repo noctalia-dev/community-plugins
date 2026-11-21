@@ -63,6 +63,7 @@ local function sentences(first, second) return first ~= "" and (first .. " " .. 
 
 local function finishSave(ctx, state, message)
   stopSaving(ctx, state)
+  ctx.view.titlebar = nil  -- read again: the save may have started or stopped title bars following Noctalia
   ctx.diagnostics = nil
   ctx.resetInputs()
   drafts.save()  -- drops a draft from an earlier close that held what was just saved
@@ -74,15 +75,26 @@ local function saveDesktop(ctx, state, message)
   local store = ctx.store
   local desktop = store.desktopChanges()
   if not desktop then finishSave(ctx, state, message); return end
+  -- answered also after the panel closed (always): the files are written either way, so the store must learn it
   ctx.helper.call("desktop-save", desktop, function(err, result)
     local failed = err and err.error or nil
-    if not err and result.errors then  -- one part was written: keep only the other one pending
+    if not err then  -- each part that was written: only what this save sent is no longer pending
       for _, part in ipairs({ "userdirs", "apps" }) do
-        if result[part] then store.desktopSaved(part, result[part].revision) end
+        if result[part] then store.desktopSaved(part, result[part].revision, desktop[part]) end
       end
+    end
+    if not err and result.errors then
       local texts = {}
       for _, text in pairs(result.errors) do table.insert(texts, text) end
       failed = table.concat(texts, " ")
+    end
+    drafts.save()
+    ctx.publishPending()
+    if not ctx.isOpen() then
+      stopSaving(ctx, state)
+      noctalia.notify("Umbriel Settings", failed and sentences(message, "Desktop settings were not saved: " .. failed)
+        or sentences(message, "Desktop settings saved after the panel closed; restart apps to use them."))
+      return
     end
     if failed then
       stopSaving(ctx, state)
@@ -90,10 +102,12 @@ local function saveDesktop(ctx, state, message)
       ctx.render()
       return
     end
-    store.desktopSavedAll()
-    ctx.loadDesktop(true)
+    if not store.desktopChanges() then  -- nothing was edited meanwhile: read both files again
+      store.desktopSavedAll()
+      ctx.loadDesktop(true)
+    end
     finishSave(ctx, state, sentences(message, "Desktop settings saved; restart apps to use them."))
-  end)
+  end, { always = true })
 end
 
 local function save(ctx, state)
@@ -127,6 +141,8 @@ local function save(ctx, state)
           note = note .. extra(report, saved(report))
         end
         if store.desktopChanges() then note = note .. " Folder and app changes are still unsaved." end
+        ctx.view.titlebar = nil
+        ctx.publishPending()  -- the bar widget would keep showing the old count
         noctalia.notify("Umbriel Settings", err and ("Saving failed: " .. err.error)
           or (report.saved and note or "Not saved: Umbriel rejected the config."))
         return
@@ -276,7 +292,9 @@ local function reviewPage(ctx, route)
       requestPreview(ctx, state)
       ctx.render()
     end }), "Regroup the file in canonical order with section banners. Settings never change; comments may move."))
+  -- not while a display Try runs: its rollback restores the file it wrote, and a save would make it fail
   local canSave = not state.saving and not state.loading and store.pendingCount() > 0 and not blocked
+    and ctx.view.tryState == nil and not ctx.saving
   -- Ctrl+S on this page saves (shell.onKey); the header repeats Save so it never scrolls away.
   route.saveNow = function() if canSave then save(ctx, state) end end
   local function saveButton(key)
@@ -353,11 +371,17 @@ local function backupsPage(ctx, route)
         local paths = {}
         for snapshot in pairs(state.marked) do table.insert(paths, snapshot) end
         ctx.helper.call("delete-backups", { config = path, snapshots = paths }, function(err, data)
-          if err then ctx.flash(err.error, "error") return end
+          if err then ctx.tell(err.error, "error") return end
           state.marked = {}
           state.list = data.backups.backups
-          if #data.errors > 0 then ctx.flash(table.concat(data.errors, "\n"), "warning") else ctx.render() end
-        end)
+          if #data.errors > 0 then
+            ctx.tell(table.concat(data.errors, "\n"), "warning")
+          elseif ctx.isOpen() then
+            ctx.render()
+          else
+            ctx.tell("Deleted " .. kit.plural(#data.deleted, "backup") .. ".", "info")
+          end
+        end, { always = true })
       end }))
     end
     table.insert(content, ui.row({ key = "bk-tools", gap = 8, align = "center" }, tools))
@@ -388,12 +412,12 @@ local function backupsPage(ctx, route)
                                end }, function()
         ctx.helper.call("restore", { config = path, snapshot = item.path, revision = store.state.revision },
           function(err, data)
-            if err then ctx.flash(err.error, "error") return end
-            if data.state then store.load(data.state) else ctx.reload() end
+            if err then ctx.tell(err.error, "error") return end
+            if data.state then store.load(data.state) elseif ctx.isOpen() then ctx.reload() end
             state.list = data.backups.backups
-            ctx.flash("Backup restored. The previous file was backed up first."
+            ctx.tell("Backup restored. The previous file was backed up first."
               .. (data.warnings and (" " .. table.concat(data.warnings, " ")) or ""), data.warnings and "warning" or "info")
-          end)
+          end, { always = true })
       end),
     }))
     if state.diff and state.diff.path == item.path then

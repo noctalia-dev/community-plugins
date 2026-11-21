@@ -250,9 +250,16 @@ class ConfigSession:
                 new = values.from_ui(field, change.get("value"), option)
             old = getp(doc, field.path)
             values.apply_value(doc, field, new, default)
+            shown = describe(getp(doc, field.path))
+            follow = change.get("follow")  # title bars: applied by the helper's save after the write
+            if follow is False:
+                shown = f"{shown or 'unset'} · stops following Noctalia"
+            elif isinstance(follow, dict):
+                source = "KDE header" if follow.get("source") == "kde_header" else "KDE"
+                shown = f"{shown} · follows Noctalia ({source})"
             summary.append({
                 "page": page, "group": group, "label": field.label, "id": fid,
-                "old": describe(old), "new": describe(getp(doc, field.path)),
+                "old": describe(old), "new": shown,
             })
 
     def _apply_entries(self, doc, ops, labels_all, summary):
@@ -437,7 +444,7 @@ class ConfigSession:
         try:
             if labels_all is not None:
                 kept = {key: labels for key, labels in labels_all.items() if any(labels)}
-                write_text_file(labels_file(self.config_dir), json.dumps(kept, indent=2))
+                write_text_file(labels_file(self.config_dir), json.dumps(kept, indent=2), 0o600)
         except OSError as error:
             warnings.append(f"Rule names could not be saved: {error}.")
         try:

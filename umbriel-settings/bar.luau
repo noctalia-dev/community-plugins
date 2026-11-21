@@ -1,4 +1,6 @@
 --!nonstrict
+local teardown = require("./lib/teardown.luau")
+
 local pending = 0
 
 local function display()
@@ -45,6 +47,11 @@ end
 
 function update()
   refresh()
+end
+
+-- The plugin is disabled or uninstalled: title bars stop following Noctalia (lib/teardown.luau).
+function onExit(_, reason)
+  teardown.onExit(reason)
 end
 
 function onClick()

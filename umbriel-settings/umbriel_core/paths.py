@@ -29,8 +29,26 @@ def xdg_data_dirs():
     return [d for d in (os.environ.get("XDG_DATA_DIRS") or "/usr/local/share:/usr/share").split(":") if d]
 
 
+def tighten_dir(path):
+    """Make an existing directory of ours owner-only (0700); symlinks and other users' directories stay as they are."""
+    try:
+        info = os.lstat(path)
+        if stat.S_ISDIR(info.st_mode) and info.st_uid == os.getuid() and info.st_mode & 0o077:
+            os.chmod(path, 0o700)
+    except OSError:
+        pass
+
+
+def private_dir(path):
+    """Create `path` (0700) or tighten it; for directories that hold copies of the user's files."""
+    os.makedirs(path, mode=0o700, exist_ok=True)
+    tighten_dir(path)
+    return path
+
+
 def default_gui_data_dir():
-    """Return `$XDG_DATA_HOME/umbriel-settings`, the data directory shared by the app and the plugin.
+    """Return `$XDG_DATA_HOME/umbriel-settings`, the data directory shared by the app and the plugin (kept 0700:
+    it holds config backups).
 
     The pre-rename `umbriel-config-gui` directory (backups, labels, locks, last config) is moved there once;
     if that move fails the old directory keeps being used so nothing appears lost.
@@ -42,7 +60,9 @@ def default_gui_data_dir():
         try:
             os.rename(legacy, path)
         except OSError:
-            return legacy
+            if not os.path.isdir(path):  # another process may have moved it meanwhile
+                path = legacy
+    tighten_dir(path)
     return path
 
 
@@ -84,7 +104,7 @@ def atomic_write(path, data, mode=None):
     """
     path = os.fspath(path)
     directory = os.path.dirname(path) or "."
-    os.makedirs(directory, exist_ok=True)
+    os.makedirs(directory, mode=0o700, exist_ok=True)  # only directories it creates
     if isinstance(data, str):
         data = data.encode("utf-8")
     if mode is None:
@@ -179,9 +199,10 @@ def file_revision(path):
         return "missing"
 
 
-def write_text_file(path, text):
-    """Write text atomically; a symlinked GUI file is written through to its target."""
-    atomic_write(os.path.realpath(path), text)
+def write_text_file(path, text, mode=None):
+    """Write text atomically; a symlinked GUI file is written through to its target. `mode` as in atomic_write
+    (0o600 for the GUI's own sidecars)."""
+    atomic_write(os.path.realpath(path), text, mode)
 
 
 def labels_file(config_dir):

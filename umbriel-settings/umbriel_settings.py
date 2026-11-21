@@ -8,10 +8,12 @@ the response file is written and stdout is {"ok": true}; on a handled error stdo
 result is printed to stdout instead (useful for tests).
 """
 
+import contextlib
 import datetime
 import fnmatch
 import json
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -119,16 +121,54 @@ def cmd_preview(request):
                                     bool(request.get("check")))
 
 
+def trial_seconds(request):
+    seconds = request.get("trial")
+    if seconds is None:
+        return None
+    if not isinstance(seconds, int) or isinstance(seconds, bool) or not 1 <= seconds <= 120:
+        raise HelperError("trial must be a number of seconds from 1 to 120.")
+    return seconds
+
+
 def cmd_save(request):
+    """With `trial` (seconds), a watcher that restores the backup unless the trial is ended is started before
+    the config is written (Try on the Outputs page); the report then has the trial's id as `trial`."""
+    from umbriel_core import backups as backup_files
+    from umbriel_core import titlebar_theme, trial
     current = session(request)
-    report = current.save(request.get("changes"), bool(request.get("validate", True)))
+    seconds = trial_seconds(request)
+    intents = follow_intents(request.get("changes"))
+    titlebar_theme.refresh_script()  # under the write lock: an installed hook from an earlier version is replaced
+    try:
+        token = trial.arm(current.path, current.config_dir, data_dir(), seconds,
+                          backup_files.MAX_BACKUPS) if seconds else None
+    except trial.Busy as error:
+        raise HelperError(str(error), "busy") from error
+    try:
+        report = current.save(request.get("changes"), bool(request.get("validate", True)))
+    except BaseException:
+        if token:
+            with contextlib.suppress(OSError):  # keep the save's own error
+                trial.claim(current.config_dir, token["id"])
+        raise
+    if token and not (report.get("saved") and report.get("backup")):
+        trial.claim(current.config_dir, token["id"])
+        token = None
     if not report.get("saved"):
         return report
     # the config is written: from here on a failure is a warning, or the UI would offer to save it again
     warnings = report.setdefault("warnings", [])
+    apply_follow_intents(current.path, intents, warnings)
+    if token:
+        try:
+            trial.confirm(current.config_dir, token, report["backup"], paths.file_revision(current.path))
+            report["trial"] = token["id"]
+        except OSError as error:
+            trial.claim(current.config_dir, token["id"])
+            warnings.append(f"The automatic rollback could not be set up: {error}.")
     if request.get("remember_path"):
         try:
-            paths.write_text_file(saved_config_file(), current.path)
+            paths.write_text_file(saved_config_file(), current.path, 0o600)
         except OSError as error:
             warnings.append(f"The config path could not be remembered: {error}.")
     report["state"] = read_after_write(current, warnings)
@@ -150,7 +190,7 @@ def cmd_set_config(request):
     """Check that a config can be read, remember it for the app and the plugin, and return it."""
     current = session(request)
     state = current.read()
-    paths.write_text_file(saved_config_file(), current.path)
+    paths.write_text_file(saved_config_file(), current.path, 0o600)
     return state
 
 
@@ -199,7 +239,14 @@ def checked_snapshot(path, snapshot):
 def cmd_restore(request):
     need_tomlkit()
     import tomlkit
+
+    from umbriel_core import trial
     current = session(request)
+    trial_id = request.get("trial")  # Go back (or the panel's countdown) on a Try: only while it is pending
+    if trial_id is not None:
+        token = trial.read_token(trial.token_file(current.config_dir))
+        if token is None or token["id"] != trial_id:  # checked first: the watcher's restore changed the revision
+            raise HelperError(trial.describe(trial.outcome(current.config_dir, trial_id)), "trial_over")
     snapshot = checked_snapshot(current.path, request.get("snapshot"))
     if current.revision() != request.get("revision"):
         raise HelperError("The config changed since it was loaded. Reload before restoring.", "conflict")
@@ -212,8 +259,16 @@ def cmd_restore(request):
     if os.path.islink(current.path):
         raise HelperError("The config is a symlink; edit its target directly.")
     validation = current.validate(text) if request.get("validate", True) else {"ran": False}
-    backups.create_backup_snapshot(current.path, current.config_dir, protect=snapshot)
-    paths.write_text_file(current.path, text)
+    if current.revision() != request.get("revision"):  # again: validation takes a while
+        raise HelperError("The config changed since it was loaded. Reload before restoring.", "conflict")
+    claimed = trial.claim(current.config_dir, trial_id) if trial_id is not None else None
+    try:
+        backups.create_backup_snapshot(current.path, current.config_dir, protect=snapshot)
+        paths.write_text_file(current.path, text)
+    except BaseException:
+        if claimed:
+            trial.unclaim(current.config_dir, claimed)  # the watcher still goes back
+        raise
     warnings = []
     if validation.get("ran") and not validation.get("valid"):
         problems = [item["message"] for item in validation.get("diagnostics", []) if item.get("severity") == "error"]
@@ -222,6 +277,18 @@ def cmd_restore(request):
     if warnings:
         result["warnings"] = warnings
     return result
+
+
+def cmd_trial_end(request):
+    """Keep the settings of a Try: stop its watcher. `ended` is false (with `message`) when it already ended."""
+    from umbriel_core import trial
+    trial_id = request.get("trial")
+    if not isinstance(trial_id, str) or not trial_id:
+        raise HelperError("trial must name the Try to keep.")
+    config_dir = paths.config_gui_data_dir(config_path(request), data_dir())
+    if trial.claim(config_dir, trial_id) is not None:
+        return {"ended": True}
+    return {"ended": False, "message": trial.describe(trial.outcome(config_dir, trial_id))}
 
 
 def cmd_delete_backups(request):
@@ -540,8 +607,11 @@ def cmd_open_config(request):
         if not shutil.which("xdg-open"):
             raise HelperError("xdg-open was not found. Set an editor command under About.", "missing_editor")
         argv = ["xdg-open"]
-    subprocess.Popen(argv + [path], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                     stderr=subprocess.DEVNULL, start_new_session=True, env=child_env())
+    process = subprocess.Popen(argv + [path], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                               stderr=subprocess.DEVNULL, start_new_session=True, env=child_env())
+    # The app runs this in-process and keeps running: collect the exit status so no zombie stays behind.
+    import threading
+    threading.Thread(target=process.wait, daemon=True).start()
     return {}
 
 
@@ -576,40 +646,71 @@ def cmd_titlebar(request):
     return titlebar_theme.status(config_path(request))
 
 
-def cmd_titlebar_follow(request):
-    """Let a title-bar background follow Noctalia's palette (source kde/kde_header, opacity 0-1); source null stops."""
+def noctalia_backups():
+    return os.path.join(data_dir(), "noctalia-backups")
+
+
+def follow_intents(changes):
+    """[(field, source or None, alpha 0-255)] from title-bar field changes that carry `follow` ({source, alpha
+    "XX"} starts following Noctalia, false stops); the panel queues them like any other edit."""
+    from umbriel_core import titlebar_theme
+    intents = []
+    fields = changes.get("fields") if isinstance(changes, dict) else None
+    for fid, change in (fields or {}).items():
+        if not isinstance(change, dict) or "follow" not in change:
+            continue
+        field = fid.removeprefix("colors.title_bar.")
+        follow = change["follow"]
+        if field == fid or field not in titlebar_theme.FIELDS:
+            raise HelperError(f"{fid} can't follow Noctalia.")
+        if follow is False:
+            intents.append((field, None, 0))
+            continue
+        alpha = follow.get("alpha") if isinstance(follow, dict) else None
+        source = follow.get("source") if isinstance(follow, dict) else None
+        if source not in titlebar_theme.ROLES[field] or not isinstance(alpha, str) \
+                or not re.fullmatch(r"[0-9A-Fa-f]{2}", alpha):
+            raise HelperError(f"{fid}: follow needs a source (kde, kde_header) and an alpha byte.")
+        intents.append((field, source, int(alpha, 16)))
+    return intents
+
+
+def apply_follow_intents(config, intents, warnings):
+    """After the config is written (under the write lock): start or stop following; failures are warnings."""
+    from umbriel_core import titlebar_theme
+    for field, source, alpha in intents:
+        try:
+            titlebar_theme.follow(config, field, source, alpha, noctalia_backups())
+        except (OSError, ValueError) as error:
+            verb = "follow" if source else "stop following"
+            warnings.append(f"The title bar {field.replace('_', ' ')} could not {verb} Noctalia: {error}")
+
+
+def cmd_titlebar_cleanup(request):
+    """Stop following Noctalia for every config and remove the hook's files (the plugin was disabled or
+    uninstalled); the configs keep their last colors."""
     need_tomlkit()
     from umbriel_core import titlebar_theme
-    source, opacity = request.get("source"), request.get("opacity", 1)
-    if source is not None and not isinstance(source, str):
-        raise HelperError("The color source must be text.")
-    if isinstance(opacity, bool) or not isinstance(opacity, (int, float)) or not 0 <= opacity <= 1:
-        raise HelperError("Opacity must be between 0 and 1.")
-    field = request.get("field")
-    if not isinstance(field, str):
-        raise HelperError("Choose a title bar field.")
-    # Rounded half up like the panel's preview (round() would round 0.3 * 255 = 76.5 down to 76).
-    return titlebar_theme.follow(config_path(request), field, source, int(opacity * 255 + 0.5),
-                                 os.path.join(data_dir(), "noctalia-backups"))
+    return {"followed": titlebar_theme.cleanup(noctalia_backups())}
 
 
 COMMANDS = {
     "meta": cmd_meta, "read": cmd_read, "preview": cmd_preview, "save": cmd_save, "set-config": cmd_set_config,
-    "backups": cmd_backups, "backup-diff": cmd_backup_diff, "restore": cmd_restore,
+    "backups": cmd_backups, "backup-diff": cmd_backup_diff, "restore": cmd_restore, "trial-end": cmd_trial_end,
     "delete-backups": cmd_delete_backups, "desktop": cmd_desktop, "desktop-save": cmd_desktop_save,
     "extension": cmd_extension, "outputs": cmd_outputs, "kde-colors": cmd_kde_colors,
     "pick-folder": cmd_pick_folder, "pick-file": cmd_pick_file, "list-dir": cmd_list_dir,
     "app-command": cmd_app_command, "launch-app": cmd_launch_app, "open-config": cmd_open_config,
     "set-editor": cmd_set_editor, "about": cmd_about, "palette-template": cmd_palette_template,
-    "titlebar": cmd_titlebar, "titlebar-follow": cmd_titlebar_follow, "windows": cmd_windows,
+    "titlebar": cmd_titlebar, "titlebar-cleanup": cmd_titlebar_cleanup, "windows": cmd_windows,
     "layers": cmd_layers, "xkb": cmd_xkb, "run-action": cmd_run_action, "focused-window": cmd_focused_window,
     "wait-live": cmd_wait_live, "wait": cmd_wait,
 }
 
 # Commands that write the config, its sidecars, backups or desktop files; they run one at a time across the
 # plugin, the app and other windows, so a revision check and the write that follows can't interleave.
-WRITE_COMMANDS = {"save", "set-config", "restore", "delete-backups", "desktop-save", "set-editor",
-                  "palette-template", "titlebar-follow"}
+WRITE_COMMANDS = {"save", "set-config", "restore", "trial-end", "delete-backups", "desktop-save", "set-editor",
+                  "palette-template", "titlebar-cleanup"}
 
 
 def atomic_write_text(path, text):

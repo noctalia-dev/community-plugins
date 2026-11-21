@@ -6,7 +6,8 @@ author = "0rz0rz0rz"
 license = "MIT"
 icon = "settings"
 description = "Edit every Umbriel setting, rule and keybind, plus XDG user folders and default apps, with review and backups."
-dependencies = ["python3", "python-tomlkit", "umbriel"]  # shown as "Requires"; the optional tools are in README.md
+# Every command the plugin runs (community rule); gio, xdg-open and notify-send are optional (README Requirements).
+dependencies = ["python3", "python-tomlkit", "umbriel", "gio", "xdg-open", "notify-send"]
 tags = ["umbriel", "panel", "bar", "system", "utility"]
 
 [[widget]]

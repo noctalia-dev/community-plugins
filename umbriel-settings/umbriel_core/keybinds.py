@@ -33,7 +33,7 @@ def load_locked(config_dir):
 
 def save_locked(keys, config_dir):
     """Write locked keybind keys to GUI data without touching the Umbriel config; raises OSError."""
-    write_text_file(lock_file(config_dir), json.dumps(sorted(keys), indent=1))
+    write_text_file(lock_file(config_dir), json.dumps(sorted(keys), indent=1), 0o600)
 
 
 def parse_keybind_groups(text):

@@ -18,14 +18,22 @@ end
 -- Calls cb(err, data); err is { error = text, code = text } or nil. Callbacks from a previous panel
 -- session are dropped unless opts.always is set (used to report saves that finish after closing).
 -- Writers may wait up to 20 s for the write lock (another window saving), longer than runAsync's 5 s default.
-local WRITE_COMMANDS = { save = true, ["set-config"] = true, restore = true, ["delete-backups"] = true,
-                         ["desktop-save"] = true, ["set-editor"] = true, ["palette-template"] = true,
-                         ["titlebar-follow"] = true }
+local WRITE_COMMANDS = { save = true, ["set-config"] = true, restore = true, ["trial-end"] = true,
+                         ["delete-backups"] = true, ["desktop-save"] = true, ["set-editor"] = true,
+                         ["palette-template"] = true, ["titlebar-cleanup"] = true }
 local WRITE_TIMEOUT = 60000
+-- Reads that parse the whole config or ask Umbriel for its schema: more than runAsync's 5 s default on a slow disk.
+local READ_COMMANDS = { meta = true, read = true, preview = true, desktop = true, backups = true,
+                        ["backup-diff"] = true, titlebar = true }
+local READ_TIMEOUT = 20000
+-- Request files carry the start time too: after a script reload the counter starts again while a helper of the
+-- previous run may still be using its files.
+local runId = string.format("%d", math.floor(noctalia.nowMs and noctalia.nowMs() or os.time()))
 
 function M.call(command, request, cb, opts)
   opts = opts or {}
   if opts.timeout == nil and WRITE_COMMANDS[command] then opts.timeout = WRITE_TIMEOUT end
+  if opts.timeout == nil and READ_COMMANDS[command] then opts.timeout = READ_TIMEOUT end
   local pluginDir = noctalia.pluginDir()
   local dataDir, dirError = noctalia.pluginDataDir()
   if not pluginDir or not dataDir then
@@ -39,7 +47,7 @@ function M.call(command, request, cb, opts)
     return false
   end
   counter = counter + 1
-  local base = runDir .. "/" .. command .. "-" .. tostring(counter)
+  local base = runDir .. "/" .. command .. "-" .. runId .. "-" .. tostring(counter)
   local requestPath, responsePath = base .. ".req.json", base .. ".res.json"
   local encoded, encodeError = noctalia.json.encode(request or {})
   if not encoded then

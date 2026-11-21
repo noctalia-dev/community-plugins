@@ -38,8 +38,8 @@ function M.run(store, query)
   end
   for _, item in ipairs(store.searchIndex or {}) do
     local fid, text = item[1], item[2]
-    if matches(text, terms) then
-      local field = meta.fields[fid]
+    local field = meta.fields[fid]  -- an index from another meta may name fields this one lacks
+    if field and matches(text, terms) then
       table.insert(results, { kind = "field", id = fid, score = score(query, field.label) })
     end
   end
@@ -72,7 +72,7 @@ end
 local places = { meta = nil, fields = {} }  -- field id -> { page, group }, built once per meta
 function M.locate(meta, fid)
   local eid = string.match(fid, "^([%w_]+):")
-  if eid then return { editor = eid, page = meta.editors[eid].page } end
+  if eid then return meta.editors[eid] and { editor = eid, page = meta.editors[eid].page } or nil end
   if places.meta ~= meta then
     places = { meta = meta, fields = {} }
     for page, info in pairs(meta.pages) do

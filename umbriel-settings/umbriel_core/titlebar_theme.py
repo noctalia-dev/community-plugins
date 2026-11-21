@@ -44,14 +44,42 @@ def script_file():
     return os.path.join(xdg_config_home(), DATA_DIR_NAME, "titlebar_apply.py")
 
 
+SCRIPT_VERSION = re.compile(rb"^SCRIPT_VERSION = (\d+)$", re.M)
+
+
+def _bundled_script():
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "titlebar_apply.py"), "rb") as source:
+        return source.read()
+
+
+def _script_version(data):
+    match = SCRIPT_VERSION.search(data)
+    return int(match.group(1)) if match else 0
+
+
 def _install_script():
     """Copy the standard-library applier to a stable place (the app may run from a temporary AppImage mount)."""
     target = script_file()
     if os.path.islink(target):
         raise ValueError(f"{target} is a symlink; remove it first.")
-    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "titlebar_apply.py"), "rb") as source:
-        atomic_write(target, source.read(), 0o644)
+    atomic_write(target, _bundled_script(), 0o644)
     return target
+
+
+def refresh_script():
+    """Replace an installed applier from an earlier version (a lower SCRIPT_VERSION), so fixes reach configs that
+    already follow; a newer one stays. Call under the write lock (helper `save`)."""
+    target = script_file()
+    if not os.path.isfile(target) or os.path.islink(target):
+        return
+    try:
+        bundled = _bundled_script()
+        with open(target, "rb") as handle:
+            if _script_version(handle.read()) >= _script_version(bundled):
+                return
+        atomic_write(target, bundled, 0o644)
+    except OSError:
+        pass  # the old copy keeps working; the next save tries again
 
 
 def _noctalia_path(path):
@@ -124,16 +152,52 @@ def render(text, roles):
 
 
 def status(config):
-    """What the Colors page needs for `config`: followed fields with their current colors, and whether Noctalia
-    is there."""
+    """What the Colors page needs for `config` (reads only): followed fields with their current colors, the
+    palette color behind each source (`sources[field][source]`, #RRGGBB, for following a field once saved), and
+    whether Noctalia is there."""
     follow = read_follow(config)
     roles, source = noctalia_theme.load_roles()
-    fields = {}
+    palette = source == "noctalia"
+    fields, sources = {}, {}
     for field, item in follow.items():
-        color = roles.get(item["role"]) if source == "noctalia" else None
+        color = roles.get(item["role"]) if palette else None
         fields[field] = {**item, "color": (color.upper() + item["alpha"]) if color else None}
+    for field, by_source in ROLES.items():
+        sources[field] = {name: roles[role].upper() for name, role in by_source.items() if palette and role in roles}
     return {"noctalia": os.path.isfile(noctalia_theme.noctalia_config_file()), "fields": fields,
-            "old_include": OLD_INCLUDE, "palette": source == "noctalia"}
+            "sources": sources, "old_include": OLD_INCLUDE, "palette": palette}
+
+
+def _remove_files(*paths):
+    for path in paths:
+        if os.path.isfile(path) and not os.path.islink(path):
+            os.remove(path)
+
+
+def _remove_hook(backup_dir):
+    """Drop the user template entry, the template, the rendered colors, the script and the script's backups of
+    configs; remove `~/.config/umbriel-settings/` when nothing else is left in it."""
+    noctalia_theme.remove_user_template(TEMPLATE_KEY, template_file(), backup_dir)
+    folder = os.path.dirname(script_file())
+    backups = [os.path.join(folder, name) for name in _list(folder) if name.endswith(".titlebar.bak")]
+    _remove_files(output_file(), script_file(), *backups)
+    if os.path.isdir(folder) and not os.path.islink(folder) and not _list(folder):
+        os.rmdir(folder)
+
+
+def _list(folder):
+    try:
+        return os.listdir(folder)
+    except OSError:
+        return []
+
+
+def cleanup(backup_dir):
+    """Stop following for every config and remove everything the hook installed (plugin disabled or
+    uninstalled). The configs keep their last colors. Returns whether anything followed."""
+    followed = bool(read_all()) or os.path.exists(template_file()) or os.path.exists(script_file())
+    _remove_hook(backup_dir)
+    return followed
 
 
 def follow(config_path, field, source, alpha, backup_dir):
@@ -156,21 +220,23 @@ def follow(config_path, field, source, alpha, backup_dir):
                              "or a line break.")
         current[field] = {"role": ROLES[field][source], "alpha": f"{alpha:02X}", "source": source}
     everything = {path: fields for path, fields in everything.items() if fields}
-    if not everything:  # nothing follows any more: stop the hook; the configs keep their last colors
-        noctalia_theme.remove_user_template(TEMPLATE_KEY, template_file(), backup_dir)
-        if os.path.isfile(output_file()) and not os.path.islink(output_file()):
-            os.remove(output_file())
+    if not everything:  # nothing follows any more: remove the hook; the configs keep their last colors
+        _remove_hook(backup_dir)
         return status(config)
     text = template_text(everything)
-    output = output_file()
-    if os.path.islink(output):  # checked before anything is written
-        raise ValueError(f"{output} is a symlink; edit its target directly.")
-    script = _install_script()
+    output, script = output_file(), script_file()
+    # everything that can refuse is checked before anything is written
+    for path in (output, script, noctalia_theme.noctalia_config_file(), template_file()):
+        if os.path.islink(path):
+            raise ValueError(f"{path} is a symlink; edit its target directly.")
+    if not os.path.isfile(noctalia_theme.noctalia_config_file()):
+        raise ValueError(f"Noctalia's config was not found: {noctalia_theme.noctalia_config_file()}")
     if any("'" in path for path in (output, script)):
         raise ValueError("Paths with ' cannot be used in Noctalia's post_hook.")
     entry = {"input_path": _noctalia_path(template_file()), "output_path": output,
              "post_hook": f"python3 '{script}' '{output}'"}
     noctalia_theme.write_user_template(TEMPLATE_KEY, template_file(), text, entry, backup_dir)
+    _install_script()  # last: Noctalia only runs it once the entry is there
     roles, palette = noctalia_theme.load_roles()
     rendered = render(text, roles) if palette == "noctalia" else None
     if rendered is not None:  # the UI queues these colors for review; Noctalia refreshes the file later

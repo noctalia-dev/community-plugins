@@ -14,3 +14,4 @@ function onFrameTick() handlers.onFrameTick() end
 function onConfigChanged() handlers.onConfigChanged() end
 function onKey(chord, pressed) handlers.onKey(chord, pressed) end
 function onDrop(payload, value) handlers.onDrop(payload, value) end
+function onExit(signal, reason) handlers.onExit(signal, reason) end

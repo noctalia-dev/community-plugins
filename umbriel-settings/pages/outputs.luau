@@ -370,8 +370,8 @@ function M.content(ctx)
     -- the panel's fixed height, less the scrolling rows under the drawing
     area = { w = PANEL_AREA.w, h = PANEL_AREA.h - (extraHeight > 0 and extraHeight + 8 or 0) }
   end
-  local tryCard = trymode.card(ctx)
-  if tryCard and not ctx.isApp then area.h = area.h - TRY_CARD end
+  -- the shell shows the Try card above the page; in the panel it takes its height from the drawing
+  if trymode.running(ctx) and not ctx.isApp then area.h = area.h - TRY_CARD end
   local rows = {
     ui.row({ key = "display-tools", gap = 8, align = "center" }, {
       kit.muted("Drag a display by its number onto an edge or corner of another to place it there; click it to edit it.",
@@ -392,7 +392,6 @@ function M.content(ctx)
     }),
     canvas(ctx, shown, rects, default, area),
   }
-  if tryCard then table.insert(rows, 2, tryCard) end
   ctx.dropHandler = function(payload, value)
     local side, target = string.match(value, "^([%a%-]+)|(.+)$")
     if target and payload ~= target then place(ctx, payload, target, side) end

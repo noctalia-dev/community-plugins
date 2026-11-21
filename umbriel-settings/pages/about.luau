@@ -118,7 +118,8 @@ function M.render(ctx, route)
     "",
     schemaText(meta.schema or {}, targets),
     "",
-    "**Keys:** Ctrl+F search · Ctrl+S review and save · Ctrl+Z undo · Alt+Left back · "
+    "**Keys:** Ctrl+F search · Ctrl+S review and save · Ctrl+Z undo · Ctrl+Y redo"
+      .. (ctx.isApp and " (also Ctrl+Shift+Z)" or "") .. " · Alt+Left back · "
       .. (ctx.isApp and "Esc clears the search or goes back." or "Esc closes the panel (edits are kept)."),
     "",
     "Edits stay unsaved until you review them. Before writing, the new file is checked with "

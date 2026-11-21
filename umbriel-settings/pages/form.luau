@@ -34,11 +34,13 @@ local function pageFieldSpec(ctx, fid)
   local follows = field.opacity and field.kind == "color"  -- title-bar backgrounds can follow Noctalia
   return {
     key = fields.rowKey(fid), field = field, value = value, set = set, changed = changed,
+    -- a fixed color (or none) stops following once saved
     onSet = function(v)
-      store.setField(fid, v)
-      if follows and titlebar.following(ctx, fid) then titlebar.follow(ctx, fid, nil) end  -- a fixed color stops following
+      if follows then titlebar.setFixed(ctx, fid, v) else store.setField(fid, v) end
     end,
-    onUnset = field.opt and function() store.unsetField(fid) end or nil,
+    onUnset = field.opt and function()
+      if follows then titlebar.setFixed(ctx, fid, nil) else store.unsetField(fid) end
+    end or nil,
     onRevert = changed and function() store.revertField(fid) end or nil,
     diagnostic = ctx.diagnostics and ctx.diagnostics[fid] or nil,
     kdeColors = kdeSources(ctx, field.path, follows),
@@ -66,8 +68,8 @@ function M.groups(ctx, pageKey, groups, spec, counts)
     end
     if not onlyCustomized or customized > 0 or changed > 0 then
       if group.restart then
-        table.insert(badges, 1, ui.glyph({ key = "gr-" .. group.title, name = "refresh-alert", size = kit.GLYPH.small,
-                                           color = "tertiary", tooltip = "Takes effect after restarting Umbriel" }))
+        table.insert(badges, 1, ui.row({ key = "gr-" .. group.title, tooltip = "Takes effect after restarting Umbriel" },
+          { ui.glyph({ name = "refresh-alert", size = kit.GLYPH.small, color = "tertiary" }) }))
       end
       table.insert(content, kit.navRow({
         key = "group-" .. group.title, title = group.title, subtitle = group.help,

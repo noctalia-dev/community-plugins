@@ -226,9 +226,13 @@ def template_status():
     }
 
 
-def _write_config(config, updated, backup_dir):
-    """Replace Noctalia's config with `updated` once it parses, keeping a backup of the old file."""
+def _write_config(config, original, updated, backup_dir):
+    """Replace Noctalia's config with `updated` once it parses and the file still holds `original` (Noctalia's
+    settings window may have saved meanwhile), keeping a backup of the old file."""
     tomllib.loads(updated)
+    with open(config, encoding="utf-8") as handle:
+        if handle.read() != original:
+            raise ValueError("Noctalia's config changed meanwhile; try again.")
     snapshot_file(config, backup_dir)
     atomic_write(config, updated)
 
@@ -265,7 +269,7 @@ def write_user_template(key, template, text, entry, backup_dir):
             table = tomlkit.table()
             table.update(entry)
             node[key] = table
-        _write_config(config, tomlkit.dumps(document), backup_dir)
+        _write_config(config, original, tomlkit.dumps(document), backup_dir)
 
 
 def remove_user_template(key, template, backup_dir):
@@ -273,7 +277,10 @@ def remove_user_template(key, template, backup_dir):
     import tomlkit
 
     config = noctalia_config_file()
-    if os.path.isfile(config) and not os.path.islink(config):
+    for path in (config, template):
+        if os.path.islink(path):  # before anything is removed: a hook without its files would fail every time
+            raise ValueError(f"{path} is a symlink; edit its target directly.")
+    if os.path.isfile(config):
         with open(config, encoding="utf-8") as handle:
             original = handle.read()
         document = tomlkit.parse(original)
@@ -282,7 +289,7 @@ def remove_user_template(key, template, backup_dir):
             user = user.get(part) if isinstance(user, dict) else None
         if isinstance(user, dict) and key in user:
             del user[key]
-            _write_config(config, tomlkit.dumps(document), backup_dir)
+            _write_config(config, original, tomlkit.dumps(document), backup_dir)
     if os.path.isfile(template) and not os.path.islink(template):
         os.remove(template)
 

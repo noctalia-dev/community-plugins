@@ -252,9 +252,10 @@ local function opacityRow(ctx, spec, effective)
                     or string.format("%.2f · ", shown) .. format.alphaByte(shown)
   return ui.row({ key = key .. ":opacity", gap = 12, align = "center" }, {
     ui.column({ flexGrow = 1 }, { kit.muted("Opacity") }),
-    ui.row({ width = EDITOR_WIDTH, gap = 6, align = "center", opacity = (spec.set or follow) and 1 or 0.75 }, {
+    ui.row({ width = EDITOR_WIDTH, gap = 6, align = "center", opacity = (spec.set or follow) and 1 or 0.75,
+             tooltip = "Opacity (alpha of the color)" }, {  -- sliders take no tooltip in Noctalia
       slider(ctx, { key = key .. ":opacity-slider", min = 0, max = 1, step = 0.01, value = alpha,
-                    flexGrow = 1, controlSize = "sm", tooltip = "Opacity (alpha of the color)" }, nil,
+                    flexGrow = 1, controlSize = "sm" }, nil,
         function(number)
           number = math.max(0, math.min(1, number))
           if follow then
