@@ -7,7 +7,7 @@ A feature-packed native Noctalia wallpaper manager inspired by Magic: The Gather
 | Field | Value |
 | --- | --- |
 | ID | `ishan0121/wallpaper-deck` |
-| Version | `1.6.1` |
+| Version | `1.6.3` |
 | License | `GPL-3.0` |
 | Author | `Ishan0121` |
 | Entries | Bar widget: `bar`; panel: `picker`; shortcut: `toggle`; service: `service` |
@@ -188,6 +188,7 @@ Configure under Noctalia Settings (**Settings** -> **Plugins** -> **Wallpaper De
 | `custom_command` | `string` | `swww img "{path}" --transition-type grow --transition-fps 60` | Shell command executed when `backend_mode` is set to `custom`. Supports `{path}` and `{output}` placeholders. |
 | `post_hook_command` | `string` | `""` | Optional shell hook executed after applying a wallpaper (e.g. `matugen image "{path}"`). |
 | `animate_selected_card` | `bool` | `true` | Enables subtle floating bobbing animation on the active center card. |
+| `remember_last_tab` | `bool` | `false` | Remember the active tab (Local, Favourites, Wallhaven) and filters across sessions. When disabled, always opens in Local mode with default filters. |
 | `preview_fit` | `select` | `cover` | How fullscreen background preview fits the panel (`cover`, `contain`, `stretch`). |
 | `scale_compensation` | `select` | `auto` | Controls how monitor HiDPI scaling is applied to preview dimensions (`auto`, `scaled`, `unscaled`). |
 | `panel_padding_offset` | `int` | `0` | Total horizontal/vertical inset subtracted for panel chrome and borders. |

@@ -1100,7 +1100,7 @@ local function processScanOutput(stdout: string, dirs: {string}, primaryDir: str
 end
 
 local function scanWallpapers(targetDir: any?)
-  local overrideStr = (type(targetDir) == "string") and targetDir or nil
+  local overrideStr = (type(targetDir) == "string" and string.match(targetDir, "%S") ~= nil) and targetDir or nil
   local dirs = resolveDirs(overrideStr)
   local primaryDir = dirs[1] or resolveDir()
   customWallpaperDir = primaryDir
@@ -1351,10 +1351,17 @@ local function searchWallhaven(query: string, pageNum: number, append: boolean?,
 
   local apiKey = noctalia.getConfig("wallhaven_api_key") or "" 
 
-  local categories = filters.categories or noctalia.getConfig("wallhaven_categories") or "111"
-  local purity = filters.purity or noctalia.getConfig("wallhaven_purity") or "100"
-  local sorting = filters.sorting or noctalia.getConfig("wallhaven_sorting") or "date_added"
-  local order = filters.order or noctalia.getConfig("wallhaven_order") or "desc"
+  local categories = filters.categories or noctalia.state.get("wallhaven_categories") or noctalia.getConfig("wallhaven_categories") or "111"
+  local purity = filters.purity or noctalia.state.get("wallhaven_purity") or noctalia.getConfig("wallhaven_purity") or "100"
+  local sorting = filters.sorting or noctalia.state.get("wallhaven_sort") or noctalia.getConfig("wallhaven_sorting") or "date_added"
+  local order = filters.order or noctalia.state.get("wallhaven_order") or noctalia.getConfig("wallhaven_order") or "desc"
+
+  if (apiKey == nil or apiKey == "") and string.sub(purity, 3, 3) == "1" then
+    local s1 = string.sub(purity, 1, 1)
+    local s2 = string.sub(purity, 2, 2)
+    if s1 ~= "1" and s2 ~= "1" then s1 = "1" end
+    purity = s1 .. s2 .. "0"
+  end
 
   if sorting == "relevance" and (query == nil or query == "") then
     sorting = "date_added"
@@ -1432,6 +1439,11 @@ local function searchWallhaven(query: string, pageNum: number, append: boolean?,
         total = 0,
         items = {},
         isAppend = false,
+        filters = filters,
+        purity = purity,
+        categories = categories,
+        sorting = sorting,
+        order = order,
         nonce = noctalia.nowMs(),
       })
     end
@@ -1461,6 +1473,11 @@ local function searchWallhaven(query: string, pageNum: number, append: boolean?,
           total = 0,
           items = {},
           isAppend = false,
+          filters = filters,
+          purity = purity,
+          categories = categories,
+          sorting = sorting,
+          order = order,
           nonce = noctalia.nowMs(),
         })
       end
@@ -1536,6 +1553,11 @@ local function searchWallhaven(query: string, pageNum: number, append: boolean?,
       items = currentWallhavenItems,
       newBatch = results,
       isAppend = (append == true),
+      filters = filters,
+      purity = purity,
+      categories = categories,
+      sorting = sorting,
+      order = order,
       nonce = noctalia.nowMs(),
     })
   end)

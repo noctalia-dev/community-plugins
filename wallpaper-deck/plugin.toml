@@ -1,6 +1,6 @@
 id = "ishan0121/wallpaper-deck"
 name = "Wallpaper Deck"
-version = "1.6.1"
+version = "1.6.3"
 plugin_api = 43
 author = "Ishan0121"
 license = "GPL-3.0"
@@ -77,6 +77,13 @@ type = "bool"
 label_key = "settings.animate_selected_card.label"
 description_key = "settings.animate_selected_card.description"
 default = true
+
+[[setting]]
+key = "remember_last_tab"
+type = "bool"
+label_key = "settings.remember_last_tab.label"
+description_key = "settings.remember_last_tab.description"
+default = false
 
 [[setting]]
 key = "preview_fit"

@@ -37,6 +37,10 @@
       "description": "Optional command run after applying a wallpaper (e.g. matugen image \"{path}\").",
       "label": "Post-Apply Hook"
     },
+    "remember_last_tab": {
+      "description": "Remember the last active tab (Local, Favourites, Wallhaven) and filters across sessions. If disabled, always opens in Local mode with default filters.",
+      "label": "Remember Last Tab"
+    },
     "preview_fit": {
       "contain": "Contain (Show Full Image)",
       "cover": "Cover (Fill Panel)",
