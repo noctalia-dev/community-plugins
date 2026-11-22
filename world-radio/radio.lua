@@ -221,6 +221,50 @@ mp.register_event("file-loaded", function()
   writeSong(currentSong())
 end)
 
+-- The panel's mini player writes "<volume> <muted 0|1>" to volume.txt. Only a
+-- change in that file is applied, so a volume set elsewhere (e.g. through
+-- MPRIS) is kept until the slider is moved again. The file is a few bytes, so
+-- polling it often keeps the slider responsive at negligible cost.
+local volumePath = dataDir ~= "" and (dataDir .. "/volume.txt") or ""
+local appliedVolume = nil
+
+local function applyVolume()
+  if volumePath == "" then
+    return
+  end
+  local f = io.open(volumePath, "r")
+  if f == nil then
+    return
+  end
+  local raw = f:read("*l") or ""
+  f:close()
+  if raw == appliedVolume then
+    return
+  end
+  local vol, muted = raw:match("^%s*(%d+)%s*(%d?)")
+  vol = tonumber(vol)
+  if vol == nil then
+    return
+  end
+  appliedVolume = raw
+  pcall(function()
+    mp.set_property_number("volume", math.max(0, math.min(100, vol)))
+    mp.set_property_bool("mute", muted == "1")
+  end)
+end
+
+-- The launch arguments already carry the saved volume; remember it as applied
+-- so a volume changed through MPRIS before the first slider move is kept.
+do
+  local f = volumePath ~= "" and io.open(volumePath, "r") or nil
+  if f ~= nil then
+    appliedVolume = f:read("*l") or ""
+    f:close()
+  end
+end
+
+mp.add_periodic_timer(0.1, applyVolume)
+
 -- Covers.txt is rewritten when a cover changes. Picking it up here also keeps
 -- the next station correct even if mpv-mpris cached the old artwork.
 mp.add_periodic_timer(1, function()
