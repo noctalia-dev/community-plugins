@@ -4,5 +4,6 @@
   "refresh_tooltip": "Check for updates",
   "pending": "pending",
   "last_update": "last update",
-  "checked": "checked"
+  "checked": "checked",
+  "error": "error"
 }

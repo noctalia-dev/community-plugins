@@ -1,40 +1,41 @@
 --!nonstrict
--- Shared update-check logic for the archup desktop widget. Each check runs in
--- a detached shell chain. shortcut: each widget instance runs its own check
--- per cycle, move to a [[service]] entry if a second consumer appears.
+-- Shared update-check logic for the archup desktop widget. Each check queries
+-- checkupdates and yay -Qua asynchronously with callbacks.
+-- shortcut: each widget instance runs its own check per cycle, move to a
+-- [[service]] entry if a second consumer appears.
 
 local M = {}
 
 local AUTO_CHECK_SECONDS = 30 * 60
 local CHECK_STALL_SECONDS = 120
+local COMMAND_TIMEOUT_MS = 60000
 
-M.repoPending = nil -- official repo updates
-M.aurPending = nil  -- AUR updates
-M.repoList = nil    -- five most recent pending repo packages { name }
-M.aurList = nil     -- five most recent pending AUR packages { name, age }
+M.repoPending = nil -- official repo updates count
+M.aurPending = nil  -- AUR updates count
+M.repoList = nil    -- pending repo packages { name }
+M.aurList = nil     -- pending AUR packages { name, age, secs }
+M.repoError = false
+M.aurError = false
 M.lastCheckAt = nil
 M.lastUpdatedAt = nil
 M.checking = false
 
 local checkStartedAt = nil
-local resultFile = nil -- set per check(), unique per launch
 local dataDir = nil
 local entryTag = nil
 local statePath = nil
+
+local rawRepos = nil
+local rawAurs = nil
 
 function M.init(entryName)
 	dataDir = noctalia.pluginDataDir()
 	entryTag = entryName
 	statePath = dataDir .. "/state.json"
-	-- Remove files left behind by a runtime that died mid-check. Files younger
-	-- than 10 minutes are kept, so a chain still running is never cut off.
-	local cutoff = noctalia.nowMs() / 1000 - 600
+	-- Clean up any legacy check files left by previous versions
 	for _, name in ipairs(noctalia.listDir(dataDir) or {}) do
 		if string.match(name, "^check%.") then
-			local info = noctalia.fileInfo(dataDir .. "/" .. name)
-			if info and info.mtime < cutoff then
-				noctalia.removeFile(dataDir .. "/" .. name)
-			end
+			noctalia.removeFile(dataDir .. "/" .. name)
 		end
 	end
 end
@@ -47,6 +48,8 @@ function M.loadState()
 		M.repoList = t.repoList
 		M.aurList = t.aurList
 		M.lastCheckAt = tonumber(t.lastCheckAt)
+		rawRepos = t.repoList
+		rawAurs = t.aurList
 	end
 end
 
@@ -151,83 +154,125 @@ function M.check(render)
 	M.checking = true
 	checkStartedAt = os.time()
 	noctalia.setUpdateInterval(5000)
-	-- Unique name per launch: enable cascades can start several runtimes at
-	-- once, and shared file names would let one runtime read another's output.
-	resultFile = dataDir .. "/check." .. entryTag .. "." .. tostring(noctalia.nowMs()) .. ".out"
-	-- Detached: checkupdates syncs to a temp db without sudo; yay -Qua
-	-- lists AUR-only. The mv is the completion marker. Exit codes unused
-	-- (checkupdates exits 2 = no updates). Failed run keeps last good state.
-	local launched = noctalia.runAsync(string.format(
-		"checkupdates >'%s.repo' 2>'%s.err'; yay -Qua >'%s.all' 2>>'%s.err'; [ -s '%s.err' ] || mv '%s.all' '%s'",
-		resultFile, resultFile, resultFile, resultFile, resultFile, resultFile, resultFile
-	))
-	if not launched then
-		M.checking = false
-	end
 	render()
-end
 
-local function finishCheck(render)
-	-- .repo = checkupdates output: "name old -> new" (no age bracket)
-	local repos = {}
-	for line in string.gmatch(noctalia.readFile(resultFile .. ".repo") or "", "[^\n]+") do
-		local name = string.match(line, "^(%S+)")
-		if name then
-			table.insert(repos, { name = name })
+	local repoDone = false
+	local aurDone = false
+
+	local function finalizeCheck()
+		M.checking = false
+		M.lastCheckAt = os.time()
+
+		-- Show up to 10 packages total across both lists
+		local repos = rawRepos or {}
+		local aurs = rawAurs or {}
+		local maxRepo = math.min(#repos, 5)
+		local maxAur = math.min(#aurs, 5)
+		if #repos < 5 then
+			maxAur = math.min(#aurs, 10 - #repos)
+		elseif #aurs < 5 then
+			maxRepo = math.min(#repos, 10 - #aurs)
+		end
+
+		local trimmedRepos = {}
+		for i = 1, maxRepo do
+			table.insert(trimmedRepos, repos[i])
+		end
+		local trimmedAurs = {}
+		for i = 1, maxAur do
+			table.insert(trimmedAurs, aurs[i])
+		end
+
+		if not M.repoError then
+			M.repoList = trimmedRepos
+		end
+		if not M.aurError then
+			M.aurList = trimmedAurs
+		end
+
+		saveState()
+		M.refreshLastUpdated(render)
+		render()
+	end
+
+	local function onRepoResult(res)
+		repoDone = true
+		if type(res) == "table" and not res.timedOut and (res.exitCode == 0 or res.exitCode == 2) then
+			M.repoError = false
+			local repos = {}
+			if res.exitCode == 0 and res.stdout then
+				for line in string.gmatch(res.stdout, "[^\r\n]+") do
+					local name = string.match(line, "^(%S+)")
+					if name then
+						table.insert(repos, { name = name })
+					end
+				end
+			end
+			rawRepos = repos
+			M.repoPending = #repos
+		else
+			M.repoError = true
+		end
+
+		if aurDone then
+			finalizeCheck()
+		else
+			render()
 		end
 	end
 
-	-- marker = yay -Qua output: "name old -> new [age]" (AUR only)
-	local aurs = {}
-	for line in string.gmatch(noctalia.readFile(resultFile) or "", "[^\n]+") do
-		local name = string.match(line, "^(%S+)")
-		local age = string.match(line, "%[([^%]]+)%]")
-		table.insert(aurs, { name = name, age = age, secs = parseAge(age) })
+	local function onAurResult(res)
+		aurDone = true
+		if type(res) == "table" and not res.timedOut then
+			local aurs = {}
+			if res.stdout and #res.stdout > 0 then
+				for line in string.gmatch(res.stdout, "[^\r\n]+") do
+					local name = string.match(line, "^(%S+)")
+					local age = string.match(line, "%[([^%]]+)%]")
+					if name then
+						table.insert(aurs, { name = name, age = age, secs = parseAge(age) })
+					end
+				end
+			end
+
+			-- yay exits 0 on updates, or 1 when no updates are available
+			if res.exitCode == 0 or (res.exitCode == 1 and #aurs == 0) then
+				M.aurError = false
+				table.sort(aurs, function(a, b)
+					return (a.secs or math.huge) < (b.secs or math.huge)
+				end)
+				rawAurs = aurs
+				M.aurPending = #aurs
+			else
+				M.aurError = true
+			end
+		else
+			M.aurError = true
+		end
+
+		if repoDone then
+			finalizeCheck()
+		else
+			render()
+		end
 	end
 
-	M.repoPending = #repos
-	M.aurPending = #aurs
-
-	table.sort(aurs, function(a, b)
-		return (a.secs or math.huge) < (b.secs or math.huge)
-	end)
-
-	-- Show up to 10 packages total across both lists
-	local maxRepo = math.min(#repos, 5)
-	local maxAur = math.min(#aurs, 5)
-	if #repos < 5 then
-		maxAur = math.min(#aurs, 10 - #repos)
-	elseif #aurs < 5 then
-		maxRepo = math.min(#repos, 10 - #aurs)
+	local repoStarted = noctalia.runAsync("checkupdates", onRepoResult, COMMAND_TIMEOUT_MS)
+	if not repoStarted then
+		onRepoResult({ exitCode = 1 })
 	end
 
-	local trimmedRepos = {}
-	for i = 1, maxRepo do
-		table.insert(trimmedRepos, repos[i])
+	local aurStarted = noctalia.runAsync("yay -Qua", onAurResult, COMMAND_TIMEOUT_MS)
+	if not aurStarted then
+		onAurResult({ exitCode = 1 })
 	end
-	local trimmedAurs = {}
-	for i = 1, maxAur do
-		table.insert(trimmedAurs, aurs[i])
-	end
-
-	M.repoList = trimmedRepos
-	M.aurList = trimmedAurs
-	M.lastCheckAt = os.time()
-	M.checking = false
-	for _, suffix in ipairs({ "", ".repo", ".err" }) do
-		noctalia.removeFile(resultFile .. suffix)
-	end
-	saveState()
-	M.refreshLastUpdated(render)
 end
 
--- Body of the entry's update(): poll the check, auto-refresh, re-render.
+-- Body of the entry's update(): poll stall timeout, auto-refresh, re-render.
 function M.tick(render)
 	if M.checking then
-		if noctalia.fileExists(resultFile) then
-			finishCheck(render)
-		elseif os.time() - checkStartedAt > CHECK_STALL_SECONDS then
-			M.checking = false -- check died without writing; retry on next tick
+		if checkStartedAt and os.time() - checkStartedAt > CHECK_STALL_SECONDS then
+			M.checking = false
 		end
 	elseif M.lastCheckAt == nil or os.time() - M.lastCheckAt >= AUTO_CHECK_SECONDS then
 		M.check(render)
@@ -235,8 +280,7 @@ function M.tick(render)
 	render()
 end
 
--- Self-checks, run at load. Luau has no test runner here, so a failed assert
--- surfaces in the shell log on the next reload.
+-- Self-checks, run at load.
 assert(parseLogStamp("[1970-01-01T01:00:00+0100]") == 0)
 assert(parseAge("1d2h") == 93600 and parseAge("45s") == 45)
 assert(M.humanize(3600) == "1h 0m")

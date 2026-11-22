@@ -19,17 +19,25 @@ Noctalia desktop widget that shows pending Arch Linux repo and AUR updates in a 
 - `pacman-contrib` for `checkupdates`
 - `yay` for AUR queries
 
-Install the tools:
+Install `pacman-contrib` from the official Arch repositories:
 
 ```sh
-sudo pacman -S pacman-contrib yay
+sudo pacman -S pacman-contrib
+```
+
+Install `yay` from the AUR if not already installed:
+
+```sh
+git clone https://aur.archlinux.org/yay-bin.git
+cd yay-bin
+makepkg -si
 ```
 
 ## Usage
 
 Add `7sarus/archup:updates-desktop` to your desktop from the Noctalia desktop widget picker.
 
-Click the widget header or icon to check for updates, or send an IPC message:
+Click the refresh button on the widget to check for updates, or send an IPC message:
 
 ```sh
 noctalia msg plugin 7sarus/archup:updates-desktop all refresh
