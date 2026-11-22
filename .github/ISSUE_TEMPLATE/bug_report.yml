@@ -355,6 +355,7 @@ body:
         - umami
         - umbriel-displays
         - umbriel-monitor-control
+        - umbriel-scratchpad
         - umbriel-submap
         - undershell
         - upbeat
