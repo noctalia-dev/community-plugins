@@ -103,7 +103,7 @@ function onClick()
       return
     end
 
-    noctalia.runAsync(cmd)
+    noctalia.runAsync({ cmd, "--tray-updates" })
   elseif click_action == "open_updater" then
     local cmd = "shelly"
 

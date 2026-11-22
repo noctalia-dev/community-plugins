@@ -22,8 +22,9 @@ Test that it works by running `shelly list updates all` in a terminal. If it ret
 
 Add the `shelly` widget from Noctalia's widget picker. It periodically checks
 for available Arch package updates and shows their count and names in the bar
-tooltip. Click behavior is configurable: open Shelly's graphical interface,
-run `shelly upgrade all` in a terminal, or do nothing.
+tooltip. Click behavior is configurable: open Shelly's graphical interface on
+its Updates page (Shelly >= 3.1.0; older versions open the home page), run
+`shelly upgrade all` in a terminal, or do nothing.
 
 The `update_poller` service owns the periodic checks and can notify you when
 new updates become available.
