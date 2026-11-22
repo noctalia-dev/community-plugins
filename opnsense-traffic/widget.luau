@@ -4,6 +4,7 @@
 -- widgets - glyph, gauge or graph, value - with the same sizes, units and
 -- highlight gradient. Left-click opens the panel through the manifest action.
 
+local checks = require("./lib/checks.luau")
 local format = require("./lib/format.luau")
 
 local SNAPSHOT_KEY = "opnsense_snapshot"
@@ -27,6 +28,19 @@ local function config(key, fallback)
 		return fallback
 	end
 	return value
+end
+
+local function isStale()
+	return checks.isStale(snapshot.updatedAt, noctalia.nowMs(), config("poll_interval", 2))
+end
+
+-- The error to show, "" when the snapshot is current and fine.
+local function currentError()
+	local err = tostring(snapshot.error or "")
+	if err == "" and isStale() then
+		return noctalia.tr("errors.stale")
+	end
+	return err
 end
 
 local function isUpload()
@@ -157,12 +171,9 @@ local function gauge(progress, color, vertical)
 	}, children)
 end
 
-local function graph(color, vertical)
-	local history = snapshot.history or {}
-	local series = (isUpload() and history.tx or history.rx) or {}
-	local max = scaleMax()
+local function graphOf(series, max, color, vertical)
 	local values = {}
-	for i, v in ipairs(series) do
+	for i, v in ipairs(series or {}) do
 		values[i] = max > 0 and math.max(0, math.min(1, v / max)) or 0
 	end
 	return ui.graph({
@@ -175,10 +186,12 @@ local function graph(color, vertical)
 	})
 end
 
-local function valueText(value)
-	if snapshot.error ~= nil and snapshot.error ~= "" then
-		return "--"
-	end
+local function graph(color, vertical)
+	local history = snapshot.history or {}
+	return graphOf(isUpload() and history.tx or history.rx, scaleMax(), color, vertical)
+end
+
+local function formatRate(value)
 	local text = format.rate(value, config("speed_unit", "auto"), config("speed_compact", false) == true)
 	if config("show_units", true) == false then
 		text = format.stripUnit(text)
@@ -186,8 +199,43 @@ local function valueText(value)
 	return text
 end
 
+local function valueText(value)
+	if currentError() ~= "" then
+		return "--"
+	end
+	return formatRate(value)
+end
+
+-- This PC's own rate (show_local), measured by the service from Noctalia's
+-- system monitor together with its history and link speed. nil while off.
+local function pcSnapshot()
+	if config("show_local", false) ~= true or type(snapshot.pc) ~= "table" then
+		return nil
+	end
+	return snapshot.pc
+end
+
+local function pcValue(pc)
+	return tonumber(isUpload() and pc.tx or pc.rx) or 0
+end
+
+-- The PC scales to the link speed of its network card: it can exceed the
+-- internet line on LAN transfers. Without a link speed (wireless, card down)
+-- the highest value in the visible history stands in.
+local function pcMax(pc)
+	local linkSpeed = tonumber(pc.link) or 0
+	if linkSpeed > 0 then
+		return linkSpeed
+	end
+	local max = 0
+	for _, v in ipairs((isUpload() and pc.txHistory or pc.rxHistory) or {}) do
+		max = math.max(max, tonumber(v) or 0)
+	end
+	return max
+end
+
 local function tooltip()
-	local err = tostring(snapshot.error or "")
+	local err = currentError()
 	if err ~= "" then
 		return { { key = "OPNsense", value = err } }
 	end
@@ -196,16 +244,32 @@ local function tooltip()
 	if snapshot.selectedDevice ~= nil and snapshot.selectedDevice ~= "" then
 		name = name .. " (" .. snapshot.selectedDevice .. ")"
 	end
-	return {
-		{ key = noctalia.tr("tooltip.interface"), value = name },
-		{ key = noctalia.tr("tooltip.download"), value = format.rate(snapshot.rx, unit, false) },
-		{ key = noctalia.tr("tooltip.upload"), value = format.rate(snapshot.tx, unit, false) },
-	}
+	-- One block per source: its name in the first row, the directions marked
+	-- with arrows like the bar glyphs. The tooltip has no headings or
+	-- separators, so short blocks are what keeps it readable.
+	local rows = {}
+	local function block(label, rx, tx)
+		table.insert(rows, { key = label, value = "↓ " .. format.rate(tonumber(rx) or 0, unit, false) })
+		table.insert(rows, { key = "", value = "↑ " .. format.rate(tonumber(tx) or 0, unit, false) })
+	end
+	block(name, snapshot.rx, snapshot.tx)
+	local pc = pcSnapshot()
+	if pc ~= nil then
+		local pcName = noctalia.tr("tooltip.this_pc")
+		if pc.name ~= nil and pc.name ~= "" then
+			pcName = pcName .. " (" .. pc.name .. ")"
+		end
+		block(pcName, pc.rx, pc.tx)
+	end
+	return rows
 end
+
+local shownStale = false
 
 local function render()
 	local vertical = barWidget.isVertical()
-	local value = tonumber(isUpload() and snapshot.tx or snapshot.rx) or 0
+	shownStale = isStale()
+	local value = shownStale and 0 or tonumber(isUpload() and snapshot.tx or snapshot.rx) or 0
 	local color = valueColor(value)
 
 	local identity = nil
@@ -229,8 +293,9 @@ local function render()
 		visualization = graph(color, vertical)
 	end
 
+	local showValue = config("show_value", true) ~= false
 	local label = nil
-	if config("show_value", true) ~= false then
+	if showValue then
 		local props = { text = valueText(value), color = color, textAlign = vertical and "center" or "end" }
 		if vertical then
 			props.fontSize = 13
@@ -243,9 +308,10 @@ local function render()
 		end
 	end
 
+	local glyphAfter = config("glyph_position", "before") == "after"
 	local parts = {}
 	local ordered = { identity, visualization, label }
-	if config("glyph_position", "before") == "after" then
+	if glyphAfter then
 		ordered = { label, visualization, identity }
 	end
 	for i = 1, 3 do
@@ -253,6 +319,52 @@ local function render()
 			table.insert(parts, ordered[i])
 		end
 	end
+
+	-- This PC in parentheses, drawn like the firewall value: the same gauge or
+	-- graph (scaled to the link speed) and value, in the bar's own color.
+	local pc = pcSnapshot()
+	if pc ~= nil then
+		local pcVal = shownStale and 0 or pcValue(pc)
+		local max = pcMax(pc)
+		local pcVisualization = nil
+		if mode == "gauge" then
+			pcVisualization = gauge(max > 0 and math.max(0, math.min(1, pcVal / max)) or 0, nil, vertical)
+		elseif mode == "graph" then
+			pcVisualization = graphOf(isUpload() and pc.txHistory or pc.rxHistory, max, nil, vertical)
+		end
+		local pcText = showValue and formatRate(pcVal) or nil
+		if vertical then
+			-- A side bar is too narrow for both values on one line.
+			local items = {}
+			if pcVisualization ~= nil then
+				table.insert(items, pcVisualization)
+			end
+			if pcText ~= nil then
+				table.insert(items, ui.label({ text = "(" .. pcText .. ")", textAlign = "center", fontSize = 11 }))
+			end
+			if #items > 0 then
+				table.insert(parts, ui.column({ gap = GAP, align = "center" }, items))
+			end
+		elseif pcVisualization ~= nil or pcText ~= nil then
+			local inner = { pcVisualization, pcText ~= nil and ui.label({ text = pcText }) or nil }
+			if glyphAfter then
+				inner = { inner[2], inner[1] }
+			end
+			local content = {}
+			for i = 1, 2 do
+				if inner[i] ~= nil then
+					table.insert(content, inner[i])
+				end
+			end
+			-- The parentheses sit right against the content, like text.
+			table.insert(parts, ui.row({ gap = 0, align = "center" }, {
+				ui.label({ text = "(" }),
+				ui.row({ gap = GAP, align = "center" }, content),
+				ui.label({ text = ")" }),
+			}))
+		end
+	end
+
 	if #parts == 0 then
 		parts[1] = ui.glyph({ name = isUpload() and "upload" or "download" })
 	end
@@ -268,5 +380,14 @@ noctalia.state.watch(SNAPSHOT_KEY, function(value)
 		render()
 	end
 end)
+
+-- A dead service publishes nothing, so the age has to be checked from here.
+noctalia.setUpdateInterval(5000)
+
+function update()
+	if isStale() ~= shownStale then
+		render()
+	end
+end
 
 render()

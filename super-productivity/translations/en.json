@@ -156,9 +156,9 @@
   "settings": {
     "additional_info_mode": {
       "description": "Select what additional information to display in the bar widget.",
+      "due": "Due",
       "label": "Additional info mode",
       "none": "None",
-      "due": "Due",
       "spent": "Spent"
     },
     "auto_start": {
@@ -220,6 +220,10 @@
     "rest_token_file": {
       "description": "Optional path to Super Productivity's local REST API token file. An empty value enables native and Flatpak discovery.",
       "label": "REST token file override"
+    },
+    "show_due_text": {
+      "description": "Shows the relative due time in the bar widget.",
+      "label": "Show due text"
     },
     "show_timer_controls": {
       "description": "Shows start and stop tracking controls in the expanded details panel.",

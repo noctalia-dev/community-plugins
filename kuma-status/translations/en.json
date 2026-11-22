@@ -1,0 +1,186 @@
+{
+  "tooltip": "Kuma Status",
+  "settings": {
+    "glyph": {
+      "label": "Bar icon",
+      "description": "Glyph shown on the bar."
+    },
+    "kuma_url": {
+      "label": "Kuma URL",
+      "description": "Base URL of Uptime Kuma. With http:// the key travels in clear text."
+    },
+    "proxy_user": {
+      "label": "Status page user",
+      "description": "Basic auth user in front of the status pages. Empty if they are public."
+    },
+    "kuma3_support": {
+      "label": "Kuma 3 support (beta)",
+      "description": "Show the real groups from /api/monitors. Leave off on Kuma 2."
+    },
+    "cert_red_days": {
+      "label": "Certificate red limit (days)",
+      "description": "Red up to this many days left. Expired is always red."
+    },
+    "cert_yellow_days": {
+      "label": "Certificate yellow limit (days)",
+      "description": "Yellow up to this many days left, green beyond. Kept above the red limit."
+    },
+    "notify_changes": {
+      "label": "State change alerts",
+      "description": "Toast when a monitor goes down (2 cycles in a row) and when it recovers.",
+      "options": {
+        "off": "Off",
+        "toast": "Toast",
+        "toast_blink": "Toast and blinking bar"
+      }
+    },
+    "notify_certs": {
+      "label": "Certificate expiry toast",
+      "description": "Daily toast for red and expired certificates, whatever Kuma sends."
+    },
+    "bar_display": {
+      "label": "Bar display",
+      "description": "What the bar widget shows next to the icon.",
+      "options": {
+        "counts": "Color and counts (up and down)",
+        "color": "Color only"
+      }
+    },
+    "refresh_seconds": {
+      "label": "Refresh interval",
+      "description": "Seconds between updates (20 to 3600)."
+    },
+    "bar_label": {
+      "label": "Bar text",
+      "description": "Text shown to the left of the heart icon. Leave empty to hide it."
+    },
+    "start_tab": {
+      "label": "Opens on",
+      "description": "Tab shown when the panel opens.",
+      "options": {
+        "dashboard": "Dashboard",
+        "pages": "Status pages",
+        "last": "Last used",
+        "certs": "Certificates"
+      }
+    },
+    "groups_on_open": {
+      "label": "Groups on open",
+      "description": "How the Dashboard groups look when the panel opens.",
+      "options": {
+        "expanded": "Expanded",
+        "collapsed": "Collapsed",
+        "last": "Last state (remembers the groups you closed)"
+      }
+    },
+    "api_key_file": {
+      "label": "API key file",
+      "description": "Path of a file holding the Kuma API key (chmod 600)."
+    },
+    "proxy_password_file": {
+      "label": "Status page password file",
+      "description": "Path of a file holding the status page password."
+    },
+    "proxy_hosts": {
+      "label": "Hosts that get the status page password",
+      "description": "Extra hosts that get the password, one per line. The Kuma host is included."
+    },
+    "insecure_tls": {
+      "label": "Accept untrusted HTTPS certificates",
+      "description": "Skips certificate checks on every request. Keys and passwords can be intercepted."
+    },
+    "group_tags": {
+      "label": "Group by these tags",
+      "description": "Kuma 2 only. Tags that make the groups, in priority order, one per line."
+    }
+  },
+  "error": {
+    "no_url": "Set the Kuma URL in the plugin settings.",
+    "no_key": "Set the API key file in the plugin settings.",
+    "unauthorized": "Access denied (401/403). Check the credentials.",
+    "unauthorized_host": "Access denied (401/403). The proxy password is not sent to this host: add it to the proxy hosts setting.",
+    "too_large": "The answer is too large to read.",
+    "not_found": "Not found (404).",
+    "offline": "Server not reachable.",
+    "busy": "The host refused the request (too many pending requests).",
+    "http": "Unexpected answer: HTTP {status}.",
+    "v3_api_off": "The Kuma 3 API is not enabled on this server.",
+    "bad_json": "Unreadable answer.",
+    "bad_url": "Not a valid status page URL.",
+    "bad_metrics": "The server did not answer with Kuma metrics. Check the URL and that /metrics is enabled.",
+    "cred_path": "A credentials file must be an absolute path.",
+    "cred_unreadable": "Cannot read the credentials file.",
+    "cred_invalid": "The credentials file is empty, larger than 64 KiB or not text."
+  },
+  "panel": {
+    "tab_dashboard": "Dashboard",
+    "tab_pages": "Status pages",
+    "tip_refresh": "Refresh now",
+    "tip_stale": "Outdated values: {reason}. Click to refresh.",
+    "updated": "Updated {time}",
+    "empty": "No data yet.",
+    "mode_hierarchy": "Groups as in Kuma",
+    "group_none": "No group",
+    "warn_insecure_tls": "Certificate checks are off: the API key and passwords can be read by anyone who can intercept the connection.",
+    "warn_http": "This server is reached over plain http: the API key and passwords travel in clear text.",
+    "tip_bar": "{up} of {total} checks up",
+    "no_xdg_open": "xdg-open is not installed.",
+    "pages_empty": "No status pages yet. Add a URL above.",
+    "page_no_data": "No data.",
+    "tip_open_page": "Open the status page",
+    "tip_copy_url": "Copy the URL",
+    "empty_groups": "No monitors to show.",
+    "tip_settings": "Plugin settings",
+    "tip_close": "Close",
+    "add_placeholder": "https://host/status/<slug>",
+    "add_bad_url": "Not a valid status page URL (https://host/status/<slug>).",
+    "tip_add": "Add status page",
+    "tip_remove_page": "Remove this page (added from here)",
+    "menu_open": "Open monitored URL",
+    "menu_copy": "Copy monitored URL",
+    "cert_days": "Certificate expires in {days}d",
+    "cert_expired": "Certificate expired",
+    "menu_kuma": "Open monitor in Kuma",
+    "tag_first": "First tag only",
+    "tag_all": "All tags (duplicates)",
+    "tag_flat": "All monitors, no groups",
+    "tip_hide_certs": "Hide the certificate lines and make the rows compact",
+    "tip_show_certs": "Show the certificate lines",
+    "tip_tag_flat": "One list with every monitor, without groups. Click to go back to the groups.",
+    "tip_mode_hierarchy": "Groups as in Kuma. Click to show one list without groups.",
+    "tip_tag_first": "Each monitor appears once, under its first tag. Click to show it under every tag.",
+    "tip_tag_all": "A monitor with several tags appears under each. Click to show one list without groups.",
+    "tip_filter_all": "Show all monitors",
+    "tip_filter_notok": "Show only monitors that are down or pending",
+    "tip_filter_down": "Show only monitors that are down",
+    "tip_mute": "Mute this monitor on the widget (counts, toasts and alerts ignore it)",
+    "tip_prune_muted": "Forget muted monitors that Kuma no longer reports (a paused monitor may be missing too)",
+    "tip_unmute": "Unmute this monitor",
+    "tip_expand_all": "Expand all groups",
+    "tip_collapse_all": "Collapse all groups",
+    "warn_cred_perms": "A credentials file can be read by other users. Run chmod 600 on it.",
+    "tab_certs": "Certificates",
+    "certs_expired": "Expired",
+    "certs_red": "Expiring now (up to {days} days)",
+    "certs_yellow": "Expiring soon ({from} to {to} days)",
+    "certs_green": "Healthy (over {days} days)",
+    "certs_empty": "No certificates reported. Kuma exports the expiry only for monitors that check one.",
+    "tip_sort_asc": "Shortest first. Click to show the longest first.",
+    "tip_sort_desc": "Longest first. Click to show the shortest first.",
+    "cert_days_short": "{days} days",
+    "cert_expired_short": "Expired",
+    "certs_hint_asc": "Sorted by expiry: shortest first",
+    "certs_hint_desc": "Sorted by expiry: longest first"
+  },
+  "tooltip_down": "DOWN",
+  "notify": {
+    "down": "{count} monitor(s) down",
+    "restored": "{count} monitor(s) back up",
+    "certs": "{count} certificate(s) expiring",
+    "pruned": "{count} muted entr(ies) removed"
+  },
+  "tooltip_more": "+{count} more",
+  "tooltip_warn_http": "Plain http: credentials in clear text",
+  "tooltip_warn_tls": "TLS checks off",
+  "title": "Kuma Status"
+}

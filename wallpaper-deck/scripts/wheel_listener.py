@@ -70,7 +70,7 @@ def main():
         return
 
     last_trigger = 0.0
-    COOLDOWN = 0.055
+    COOLDOWN = 0
     hi_res_accum = 0
     active_proc = None
 

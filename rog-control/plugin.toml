@@ -1,0 +1,73 @@
+# ROG Control - performance modes, charge limit, graphics, display and lighting
+# for ASUS ROG laptops, on top of asusd (asusctl) and, if present, supergfxd.
+#
+# service  -> the only entry that talks to the daemons. One `gdbus monitor` stream
+#             per daemon; a snapshot read only when a property changes; writes are
+#             direct D-Bus property sets made when the user acts. Nothing polls.
+#             UPower owns the battery charge limit (shared with Noctalia's own
+#             battery controls); asusd follows it.
+# bar      -> the performance mode as one glyph; click opens the panel, a scroll
+#             flick steps the mode
+# panel    -> every control; live fan/temperature/GPU readings only while open
+# mode     -> Control Center tile: click steps the mode, right-click opens the panel
+
+id = "genuinemoron/rog-control"
+name = "ROG Control"
+version = "1.0.0"
+plugin_api = 43
+author = "GenuineMoron"
+license = "MIT"
+icon = "gauge"
+description = "Performance modes, charge limit, graphics mode, overdrive, fans and lighting for ASUS ROG laptops, via asusd."
+tags = ["bar", "panel", "service", "shortcut", "hardware", "system"]
+dependencies = ["asusctl", "busctl", "gdbus"]
+
+[[setting]]
+key = "show_osd"
+type = "bool"
+label_key = "settings.show_osd.label"
+description_key = "settings.show_osd.description"
+default = true
+
+[[setting]]
+key = "rgb_keyboard"
+type = "bool"
+label_key = "settings.rgb_keyboard.label"
+description_key = "settings.rgb_keyboard.description"
+default = true
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+  [[widget.setting]]
+  key = "show_label"
+  type = "bool"
+  label_key = "settings.show_label.label"
+  description_key = "settings.show_label.description"
+  default = false
+
+  [[widget.setting]]
+  key = "scroll_changes_mode"
+  type = "bool"
+  label_key = "settings.scroll_changes_mode.label"
+  description_key = "settings.scroll_changes_mode.description"
+  default = true
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 420
+height = "content"
+max_height = 860
+placement = "attached"
+position = "auto"
+open_near_click = true
+
+[[shortcut]]
+id = "mode"
+entry = "shortcut.luau"
+
+[[service]]
+id = "service"
+entry = "service.luau"

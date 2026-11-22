@@ -54,7 +54,8 @@ WireGuard needs nothing extra; NetworkManager 1.16+ supports it natively.
 Add the **VPN Manager** widget under Settings → Bar (or add
 `andrewdems/vpn-manager:bar` to a bar's widget list in `config.toml`), and/or
 add the `toggle` shortcut to the control center. Click the bar widget to
-open the panel.
+open the panel, or turn on `bar_click_toggles` to have a left-click toggle the
+starred default VPN (right-click then opens the panel).
 
 In the panel:
 
@@ -78,9 +79,9 @@ In the panel:
   the panel. If the import fails, the panel reopens on this form with the
   reason and the file that failed, so you can pick a protocol explicitly and
   retry.
-- **Trusted networks** - list of Wi-Fi SSIDs / Ethernet connection names
-  where the VPN should stay off. One-click `Trust '<name>'` buttons appear
-  for whatever network you're currently on.
+- **Trusted networks** - list of Wi-Fi SSIDs / Ethernet or cellular connection
+  names where the VPN should stay off. One-click `Trust '<name>'` buttons
+  appear for whatever network you're currently on.
 
 Open or close the panel with:
 
@@ -95,11 +96,15 @@ connect/disconnect entry for every configured connection.
 
 Turn on **Auto-connect on untrusted networks** in the plugin's settings
 (gear icon in the panel, or Settings → Plugins → VPN Manager) and star a
-connection to make it the default. Whenever the active Wi-Fi/Ethernet
-network isn't on your trusted list for `stable_checks` consecutive polls,
+connection to make it the default. Whenever the active Wi-Fi, Ethernet or
+cellular network isn't on your trusted list for `stable_checks` consecutive polls,
 that VPN is connected automatically; when you're back on a trusted network,
 it's disconnected automatically (only if this plugin was the one that
 started it - a VPN you connected by hand is left alone).
+
+Turning the default VPN off yourself while auto-connect is on pauses
+auto-connect until your network changes (a different Wi-Fi, a cable
+plugged in, and so on). Otherwise it would reconnect a few seconds later.
 
 Wired Ethernet is trusted by default (**Treat any wired connection as
 trusted**); turn that off if you plug into untrusted wired networks too.
@@ -114,6 +119,7 @@ trusted**); turn that off if you plug into untrusted wired networks too.
 | `notify_on_autoswitch` | `bool` | `true` | Notify on automatic connect/disconnect. |
 | `poll_interval_seconds` | `int` | `5` | How often to check VPN/network status. |
 | `stable_checks` | `int` | `3` | Consecutive checks required before switching (debounce). |
+| `bar_click_toggles` | `bool` | `false` | Left-click on the bar widget toggles the default VPN, and right-click opens the panel. |
 
 ## IPC
 

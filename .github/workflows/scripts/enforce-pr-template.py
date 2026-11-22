@@ -49,6 +49,7 @@ MANDATORY_READY_ITEMS = (
     "I did not edit `catalog.toml`; CI generates it.",
     "This PR touches exactly one plugin directory.",
     "The code is readable and not obfuscated, minified, or generated.",
+    "Code identifiers and code comments are in English.",
     "It does not download and execute remote code.",
     "Every network call, filesystem write, and spawned process is something the description above accounts for.",
     "I have the right to publish this code under the `license` declared in `plugin.toml`.",

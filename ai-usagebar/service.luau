@@ -6,10 +6,12 @@
 -- `ai-usagebar` is a declared dependency, so it is expected on PATH.
 local COMMAND = "ai-usagebar usage --json"
 local shared = require("./shared.luau")
+local prioritiesUnsupported = false
 
 local function intervalMs()
     local minutes = tonumber(noctalia.getConfig("refresh_minutes")) or 5
-    if minutes < 1 then minutes = 1 end
+    if minutes ~= minutes or minutes == math.huge or minutes == -math.huge then minutes = 5 end
+    minutes = math.max(1, math.min(120, minutes))
     return math.floor(minutes * 60 * 1000)
 end
 
@@ -68,7 +70,13 @@ local function safeText(value)
 
     -- Capped before the redaction: the patterns are the expensive part, and a
     -- callback that overruns its CPU budget loses the whole report.
-    if #text > 200 then text = string.sub(text, 1, 200) .. "..." end
+    if #text > 200 then
+        local boundary = 200
+        while boundary > 0 and text:byte(boundary + 1) >= 128 and text:byte(boundary + 1) < 192 do
+            boundary = boundary - 1
+        end
+        text = string.sub(text, 1, boundary) .. "..."
+    end
 
     -- A literal search gates each keyword's patterns. Gating on the separator
     -- does not work: `=` and `:` turn up in ratios, clock times and URLs.
@@ -157,6 +165,33 @@ local function classify(result)
     return failure("no_data", stderr)
 end
 
+-- Bound decoder input and the work done by scrubbing/publication, including
+-- optional fields unknown to this plugin. Root counts as depth 1 and one node.
+local MAX_JSON_BYTES = 1024 * 1024
+local MAX_DOCUMENT_DEPTH = 32
+local MAX_DOCUMENT_NODES = 20000
+local MAX_REPORT_ACCOUNTS = 128
+
+local function documentBudget(value, depth, remaining)
+    if depth > MAX_DOCUMENT_DEPTH or remaining < 1 then return nil end
+    remaining = remaining - 1
+    if type(value) == "table" then
+        for _, inner in pairs(value) do
+            remaining = documentBudget(inner, depth + 1, remaining)
+            if remaining == nil then return nil end
+        end
+    end
+    return remaining
+end
+
+local function decodeDocument(stdout)
+    if #stdout > MAX_JSON_BYTES then return nil, true end
+    local ok, decoded = pcall(noctalia.json.decode, stdout)
+    if not ok or decoded == nil then return nil, false end
+    if documentBudget(decoded, 1, MAX_DOCUMENT_NODES) == nil then return nil, true end
+    return decoded, false
+end
+
 -- The setup view asks for this local catalog; quota ticks never collect it.
 local catalogInFlight = false
 local lastCatalogStart = nil
@@ -195,8 +230,10 @@ local function loadCatalog()
     lastCatalogStart = now
     noctalia.state.set("catalog_loading", true)
     local started = noctalia.runAsync("ai-usagebar vendors --json", function(result)
-        local decoded = result ~= nil and not result.timedOut and result.exitCode == 0
-            and noctalia.json.decode(result.stdout or "") or nil
+        local decoded
+        if result ~= nil and not result.timedOut and result.exitCode == 0 then
+            decoded = decodeDocument(result.stdout or "")
+        end
         local catalog = publicCatalog(decoded)
         if catalog ~= nil then noctalia.state.set("catalog", catalog) end
         noctalia.state.set("catalog_error", catalog == nil)
@@ -262,12 +299,29 @@ local function refresh()
     noctalia.state.set("refresh_queued", false)
     noctalia.state.set("polling", true)
 
-    local started = noctalia.runAsync(COMMAND, function(result)
+    local priorities = noctalia.getConfig("show_priorities") == true and not prioritiesUnsupported
+    local command = priorities and (COMMAND .. " --priorities") or COMMAND
+    local started = noctalia.runAsync(command, function(result)
         inFlight = false
         noctalia.state.set("polling", false)
 
-        local decoded = result ~= nil and not result.timedOut
-            and noctalia.json.decode(result.stdout or "") or nil
+        local stderr = tostring(result and result.stderr or ""):lower()
+        if priorities and result ~= nil and not result.timedOut and result.exitCode ~= 0
+            and stderr:find("--priorities", 1, true)
+            and (stderr:find("unexpected argument", 1, true)
+                or stderr:find("unrecognized option", 1, true) or stderr:find("unknown option", 1, true)) then
+            prioritiesUnsupported = true
+            noctalia.state.set("priorities_supported", false)
+            queueRefresh()
+            return
+        end
+
+        local decoded, tooLarge
+        if result ~= nil and not result.timedOut then
+            decoded, tooLarge = decodeDocument(result.stdout or "")
+        end
+        if type(decoded) == "table" and type(decoded.entries) == "table"
+            and #decoded.entries > MAX_REPORT_ACCOUNTS then decoded, tooLarge = nil, true end
         if type(decoded) == "table" and type(decoded.entries) == "table" then
             -- A failed vendor still comes back as an entry with `status = "error"`,
             -- so a non-zero exit is no reason to drop the report.
@@ -276,11 +330,11 @@ local function refresh()
             noctalia.state.set("report", safeReport)
             noctalia.state.set("error", failure(""))
         else
-            noctalia.state.set("error", classify(result))
+            noctalia.state.set("error", tooLarge and failure("too_large") or classify(result))
         end
 
         if pendingRefresh then refresh() end
-    end, 30000)
+    end, 60000)
 
     -- A refusal to spawn never calls back, and the poller would sit in flight
     -- forever.
@@ -296,6 +350,7 @@ end
 noctalia.state.watch("command", function(value)
     if type(value) == "table" and value.action == "refresh" then refresh() end
     if type(value) == "table" and value.action == "catalog" then loadCatalog() end
+    if type(value) == "table" and value.action == "diagnostics" then loadCatalog(); refresh() end
 end)
 
 function update()
@@ -305,6 +360,8 @@ function update()
 end
 
 function onConfigChanged()
+    prioritiesUnsupported = false
+    noctalia.state.set("priorities_supported", nil)
     noctalia.setUpdateInterval(intervalMs())
     refresh()
 end

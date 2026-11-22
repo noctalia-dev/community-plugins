@@ -1,5 +1,7 @@
 {
   "add_widget": "Add widget",
+  "brain_on": "Brain on: each window reopens where you left it",
+  "brain_off": "Brain off: windows use their configured layout",
   "cancel": "Cancel",
   "clear_thumb": "Remove custom thumbnail",
   "close": "Close",

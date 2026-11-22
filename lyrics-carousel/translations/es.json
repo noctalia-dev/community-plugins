@@ -1,0 +1,173 @@
+{
+  "accent": "Color de la línea activa",
+  "accent_blue": "azul",
+  "accent_custom": "custom",
+  "accent_cyan": "cian",
+  "accent_green": "verde",
+  "accent_magenta": "magenta",
+  "accent_primary": "primario",
+  "accent_red": "rojo",
+  "accent_yellow": "amarillo",
+  "active_scale": "Tamaño de la línea activa",
+  "anchor": "Posición de la ventana",
+  "anchor_bottom_center": "inf centro",
+  "anchor_bottom_left": "inf izq",
+  "anchor_bottom_right": "inf der",
+  "anchor_center": "centro",
+  "anchor_left_center": "izq centro",
+  "anchor_right_center": "der centro",
+  "anchor_top_center": "sup centro",
+  "anchor_top_left": "sup izq",
+  "anchor_top_right": "sup der",
+  "anchor_custom": "Personalizada…",
+  "close": "Cerrar",
+  "direction": "Sentido",
+  "down": "abajo",
+  "font_family": "Fuente",
+  "font_custom": "Otra fuente…",
+  "font_custom_name": "Nombre de la fuente",
+  "font_hint": "Cualquier fuente instalada vale: se aplica al vuelo.",
+  "font_placeholder": "Departure Mono",
+  "font_size": "Tamaño",
+  "footer": "Barra de tiempo",
+  "ghost": "Transición suave entre líneas",
+  "glyph": "Icono de la barra",
+  "header": "Cabecera (título / artista)",
+  "height": "Alto",
+  "hints": "Atajos de teclado",
+  "karaoke": "Efecto karaoke",
+  "launch": "Abrir el carrusel",
+  "launch_failed": "No se pudo abrir la terminal.",
+  "marker": "Marca de la línea activa",
+  "offset_ms": "Desfase de la letra (ms)",
+  "open_settings": "Abrir ajustes",
+  "section_color": "Color",
+  "section_display": "Presentación",
+  "section_font": "Tipografía",
+  "section_lyrics": "Letra",
+  "section_window": "Ventana",
+  "spacing": "Espaciado entre líneas",
+  "settings": {
+    "accent": {
+      "description": "El color primario sigue al fondo de pantalla; el resto son colores ANSI del tema.",
+      "label": "Color de la línea activa",
+      "primary": "Primario",
+      "green": "Verde",
+      "yellow": "Amarillo",
+      "blue": "Azul",
+      "magenta": "Magenta",
+      "cyan": "Cian",
+      "red": "Rojo",
+      "custom": "Personalizado"
+    },
+    "active_scale": {
+      "description": "Multiplicador de tamaño de la línea que se está cantando.",
+      "label": "Tamaño de la línea activa"
+    },
+    "anchor": {
+      "description": "Dónde se abre la ventana: center, top-left, bottom-right...",
+      "label": "Posición de la ventana"
+    },
+    "custom_x": {
+      "description": "Posición horizontal personalizada (solo con posición personalizada)",
+      "label": "X"
+    },
+    "custom_y": {
+      "description": "Posición vertical personalizada (solo con posición personalizada)",
+      "label": "Y"
+    },
+    "custom_color": {
+      "description": "Color hexadecimal (#rrggbb) cuando el acento es «custom».",
+      "label": "Color personalizado"
+    },
+    "direction": {
+      "description": "Abajo: las letras entran por arriba. Arriba: las letras entran por abajo.",
+      "down": "Abajo",
+      "label": "Sentido del carrusel",
+      "up": "Arriba"
+    },
+    "font_family": {
+      "description": "Fuente de la letra. Se admite cualquier fuente instalada.",
+      "label": "Tipografía"
+    },
+    "font_size": {
+      "description": "Tamaño en píxeles de la letra.",
+      "label": "Tamaño de letra"
+    },
+    "footer": {
+      "description": "Muestra el tiempo transcurrido y la barra de progreso.",
+      "label": "Barra de tiempo"
+    },
+    "ghost": {
+      "description": "Desplazamiento suave (~0.9 s) al cambiar de línea. Desactivado, el cambio es instantáneo.",
+      "label": "Transición suave entre líneas"
+    },
+    "glyph": {
+      "description": "Icono que se muestra en la barra.",
+      "label": "Icono de la barra"
+    },
+    "header": {
+      "description": "Muestra el título, el artista y las etiquetas de estado.",
+      "label": "Cabecera"
+    },
+    "height": {
+      "description": "Alto de la ventana de terminal en píxeles.",
+      "label": "Alto de la ventana"
+    },
+    "hints": {
+      "description": "Muestra los atajos de teclado abajo.",
+      "label": "Atajos de teclado"
+    },
+    "karaoke": {
+      "description": "Ilumina la línea activa carácter a carácter según avanza la canción.",
+      "label": "Efecto karaoke"
+    },
+    "marker": {
+      "description": "Muestra un marcador junto a la línea que se está cantando.",
+      "label": "Marca de la línea activa"
+    },
+    "offset_ms": {
+      "description": "Desplaza la letra en milisegundos para afinar la sincronía.",
+      "label": "Desfase de la letra"
+    },
+    "spacing": {
+      "description": "Separación entre líneas del carrusel.",
+      "label": "Separación entre líneas"
+    },
+    "visible_above": {
+      "description": "Cuántos renglones se muestran por encima de la línea activa.",
+      "label": "Renglones visibles arriba"
+    },
+    "visible_below": {
+      "description": "Cuántos renglones se muestran por debajo de la línea activa.",
+      "label": "Renglones visibles abajo"
+    },
+    "width": {
+      "description": "Ancho de la ventana de terminal en píxeles.",
+      "label": "Ancho de la ventana"
+    }
+  },
+  "subtitle": "No está sonando nada",
+  "title": "Carrusel de letras",
+  "up": "arriba",
+  "visible_above": "Renglones arriba",
+  "visible_below": "Renglones abajo",
+  "width": "Ancho",
+  "custom_x": "X",
+  "custom_y": "Y",
+  "custom_color": "Color personalizado",
+  "color_placeholder": "#rrggbb",
+  "glyph_placeholder": "music",
+  "write_failed": "No se pudo guardar el ajuste.",
+  "instrumental_marks": "Marcas instrumentales",
+  "instrumental_marks_desc": "Muestra notas musicales durante las pausas instrumentales.",
+  "instrumental_icon_tooltip": "Cambiar el icono instrumental",
+  "instrumental_custom_tooltip": "Texto instrumental propio · clic para activar · clic derecho para editar",
+  "instrumental_text_placeholder": "Texto propio (máx. 24 caracteres)",
+  "silence_threshold": "Umbral de silencio (s)",
+  "marker_style_tooltip": "Cambiar el estilo del marcador de la línea activa",
+  "header_pos_tooltip": "Cambiar la alineación de la cabecera",
+  "pin": "Siempre encima",
+  "bar_tooltip": "Lyrics Carousel · clic izquierdo: panel · clic derecho: abrir ventana",
+  "karaoke_brain": "Cerebro de karaoke"
+}

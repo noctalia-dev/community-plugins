@@ -1,15 +1,16 @@
 --!nonstrict
--- Defaults integrados.
+-- Built-in defaults.
 --
--- La lista de widgets vive en el `store.json` del plugin y se edita desde el
--- panel. Estas tablas solo rellenan la lista inicial y sirven de respaldo si
--- el manifiesto no declara `commands`/`layouts`.
+-- The widget list lives in the plugin's `store.json` and is edited from the
+-- panel. These tables only fill the initial list and act as a fallback when
+-- the manifest does not declare `commands`/`layouts`.
 --
--- El manifiesto se analiza una sola vez y se guarda en memoria: el parser es
--- relativamente caro y Noctalia da a cada callback solo 25 ms de CPU.
+-- The manifest is parsed once and kept in memory: the parser is relatively
+-- expensive and Noctalia gives each callback only 25 ms of CPU.
 --
--- Si el manifiesto no se puede leer (formato inesperado, plugin copiado sin
--- el .toml) se usa la tabla de respaldo para no dejar al usuario sin widgets.
+-- If the manifest cannot be read (unexpected format, plugin copied without
+-- the .toml), the fallback table is used so the user is not left without
+-- widgets.
 
 local util = require("./util.luau")
 
@@ -37,8 +38,8 @@ local FALLBACK_THUMBS = {}
 
 local cached = nil
 
--- Extrae una tabla inline de TOML: { a = "b", c = "d" }
--- Respeta las comillas (un valor puede llevar comas o llaves dentro).
+-- Extract an inline TOML table: { a = "b", c = "d" }
+-- Respects quotes (a value may contain commas or braces).
 local function parseInlineTable(text)
   local result = {}
   local index = 1
@@ -144,8 +145,7 @@ local function parseInlineTable(text)
   end
 end
 
--- Variación del número de llaves de una línea, ignorando el texto entre
--- comillas.
+-- Variation in the number of braces on a line, ignoring quoted text.
 local function braceDelta(text)
   local delta = 0
   local quote = nil
@@ -171,7 +171,7 @@ local function braceDelta(text)
   return delta
 end
 
--- Corta el texto en líneas (más rápido que gmatch con un patrón perezoso).
+-- Split the text into lines (faster than gmatch with a lazy pattern).
 local function splitLines(text)
   local lines = {}
   local position = 1
@@ -188,7 +188,7 @@ local function splitLines(text)
   return lines
 end
 
--- Lee los `default = { ... }` de los ajustes `commands` y `layouts`.
+-- Read the `default = { ... }` entries of the `commands` and `layouts` settings.
 local function parseManifest(text)
   local result = {}
   local currentKey = nil
@@ -225,8 +225,8 @@ local function parseManifest(text)
   return result
 end
 
--- Olvida el manifiesto cacheado (solo para pruebas o si el manifiesto cambia
--- en caliente).
+-- Forget the cached manifest (only for tests or if the manifest changes at
+-- runtime).
 function M.reset()
   cached = nil
 end
@@ -248,9 +248,9 @@ function M.load()
     raw = noctalia.readFile(manifestPath)
   end
   noctalia.log(string.format(
-    "terminal-widgets: manifiesto %s (%s bytes)",
+    "terminal-widgets: manifest %s (%s bytes)",
     tostring(manifestPath),
-    raw ~= nil and tostring(#raw) or "ilegible"
+    raw ~= nil and tostring(#raw) or "unreadable"
   ))
 
   if raw ~= nil and raw ~= "" then

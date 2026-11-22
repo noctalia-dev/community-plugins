@@ -1,0 +1,56 @@
+# Mullvad VPN - control the Mullvad CLI from the Noctalia bar and a panel.
+#
+# One [[service]] owns every `mullvad` call and publishes the daemon state on
+# `mullvad.state`; the bar widget and the panel are thin clients that send
+# `mullvad.request`.
+#
+# Requires the Mullvad CLI and daemon (`mullvad`), the Mullvad app
+# (`mullvad-vpn`, optional: the Advanced tab opens it), `pkexec` for daemon
+# control, `systemctl` for the daemon service, `uname` for platform checks and
+# `xdg-open` for the mullvad.net account page.
+
+id = "3dprogramin/mullvad"
+name = "Mullvad VPN"
+version = "0.1.1"
+plugin_api = 43
+author = "3dprogramin"
+license = "MIT"
+dependencies = ["mullvad", "mullvad-vpn", "noctalia", "pkexec", "systemctl", "uname", "xdg-open"]
+tags = ["bar", "panel", "service", "network", "privacy"]
+icon = "shield-lock"
+description = "Connect to Mullvad VPN from the bar: country, my country or random, plus lockdown, multihop and auto-connect."
+
+# Headless owner of all mullvad I/O.
+[[service]]
+id = "service"
+entry = "service.luau"
+
+# Bar tile: shield glyph plus the exit country code. Click opens the panel.
+[[widget]]
+id = "status"
+entry = "bar.luau"
+
+  [[widget.setting]]
+  key = "show_label"
+  type = "bool"
+  label_key = "settings.show_label.label"
+  description_key = "settings.show_label.description"
+  default = true
+
+# Flags in the country lists, header and bar tooltip (not the bar label).
+[[setting]]
+key = "show_flags"
+type = "bool"
+label_key = "settings.show_flags.label"
+description_key = "settings.show_flags.description"
+default = true
+
+# Header, Connect / Advanced / Account tabs. Open with:
+#   noctalia msg panel-toggle 3dprogramin/mullvad:panel
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 420
+height = "content"
+max_height = 720
+placement = "floating"

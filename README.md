@@ -50,6 +50,8 @@ talk to the network as the user.
 That is a deliberate design choice, and it puts the burden on review. So:
 
 - **No obfuscated, minified, or generated code.** A reviewer must be able to read every line you ship.
+- **Write code identifiers, code comments, manifest descriptions, and README prose in English.** Do not ship
+  translated README sections or localized README copies. Localize user-facing text through translation files.
 - **No downloading and executing remote code.** Ship your logic in the repo, at a version people reviewed.
 - **Declare what you shell out to.** External commands go in `dependencies` in `plugin.toml` and get a mention in your
   README.
@@ -130,6 +132,55 @@ official plugins:
 
 CI derives ids, panel commands, launcher prefixes, dependencies, and whether settings exist from `plugin.toml`. Its
 error messages show the exact missing value, while maintainers review the usefulness and accuracy of the prose.
+
+CI also rejects confidently detected non-English manifest descriptions and README prose, including nested READMEs,
+and localized README filenames such as `README.ru.md` and `README-ja.md`. Proper names, quoted third-party output,
+and intentional language-specific examples/data are allowed; translation files are unaffected.
+The language screen skips code and URLs and uses conservative length/confidence thresholds, so a passing check is
+not proof of English. Reviewers also check short labels, ASCII-only foreign prose, and text embedded in examples.
+
+### Manifest validation
+
+The canonical validator, its dependencies, and tests for both `official` and `community` profiles live in
+[`official-plugins/.github/actions/validate-plugins`](https://github.com/noctalia-dev/official-plugins/tree/main/.github/actions/validate-plugins).
+This repository calls that action at an exact commit with the `community` profile; it does not maintain a copy.
+The community profile additionally enforces English descriptions/READMEs, file-count limits, and rejection of
+gitlinks and committed `.gitmodules`. Both profiles share manifest schemas, including layer entries for plugin API 36+.
+
+To run exactly the version pinned in this repository's workflow, start at the community-plugins repository root
+with Git and Python 3.11 or newer installed. This creates an isolated temporary checkout and virtual environment; no sibling
+checkout is needed:
+
+```sh
+validator_ref="$(python3 - <<'PY'
+from pathlib import Path
+action = "noctalia-dev/official-plugins/.github/actions/validate-plugins@"
+workflow = Path(".github/workflows/validate-plugins.yml").read_text()
+print(next(line.split(action, 1)[1].split()[0] for line in workflow.splitlines() if action in line))
+PY
+)"
+validator_checkout="$(mktemp -d)"
+git -C "$validator_checkout" init -q
+git -C "$validator_checkout" fetch --depth 1 https://github.com/noctalia-dev/official-plugins.git "$validator_ref"
+git -C "$validator_checkout" checkout --detach FETCH_HEAD
+validator="$validator_checkout/.github/actions/validate-plugins"
+python3 -m venv "$validator_checkout/.venv"
+. "$validator_checkout/.venv/bin/activate"
+python3 -m pip install -r "$validator/requirements.txt"
+python3 -m unittest discover -s "$validator" -p 'test_validate_plugins.py'
+python3 "$validator/validate-plugins.py" --profile community --root "$PWD"
+```
+
+For `udiskie`'s Makefile, pass the downloaded source explicitly:
+`make -C udiskie lint VALIDATOR="$validator/validate-plugins.py"`.
+When finished, run `deactivate` and remove the temporary directory stored in `validator_checkout`.
+
+Validator changes land and are tested for both profiles in official-plugins first. Once that commit is available on
+GitHub, update this repository's action SHA; the local setup above reads that same pin from the workflow. Weekly Dependabot
+GitHub Actions updates propose new pins; review the policy changes and run community validation before merging.
+The official repository must be accessible to this repository's Actions runners, and repository/organization
+Actions policy must allow the shared action and its setup-python dependency. A local-only official commit cannot
+be used by GitHub Actions until it is published.
 
 > [!WARNING]
 > **Editing existing translations must be done on [Noctalia Translate](https://i18n.noctalia.dev)**, the single

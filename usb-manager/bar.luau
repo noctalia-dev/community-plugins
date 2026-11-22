@@ -52,7 +52,7 @@ local function render()
     glyph = shared.driveGlyph(list[1])
   end
   local children = { ui.glyph({ name = glyph, color = color }) }
-  if count > 0 and noctalia.getConfig("show_count") ~= false then
+  if count > 1 and noctalia.getConfig("show_count") ~= false then
     table.insert(children, ui.label({ text = tostring(count), fontWeight = "bold", color = color }))
   end
   local container = barWidget.isVertical() and ui.column or ui.row

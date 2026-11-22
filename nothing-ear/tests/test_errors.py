@@ -43,6 +43,7 @@ class ErrorCodeTests(unittest.TestCase):
             ("CHANNEL_FILE", root / "channel"),
             ("STATE_FILE", root / "state.json"),
             ("LOCK_FILE", root / "lock"),
+            ("LAST_WRITE_FILE", root / "last_write.json"),
         ):
             patcher = patch.object(ctl, name, str(value))
             patcher.start()
@@ -125,6 +126,15 @@ class ErrorCodeTests(unittest.TestCase):
         self.assertEqual(result["error"], "not_connected")
         resolve.assert_not_called()
         sock.assert_not_called()
+
+    def test_bearer_lines_do_not_mean_disconnected(self):
+        # BlueZ 5.88: dual-mode headphones on classic Bluetooth (issue #1195).
+        info = "Name: CMF Headphone Pro\n\tConnected: yes\n\tBREDR.Connected: yes\n\tLE.Connected: no\n"
+        with patch.object(ctl, "_run", return_value=info):
+            self.assertFalse(ctl.bluez_disconnected(ADDRESS))
+            ctl.require_link(ADDRESS)
+            err = ctl.refine(ctl.CtlError("unreachable", "connect", "down"), ADDRESS)
+        self.assertEqual(err.code, "unreachable")
 
     def test_unreachable_is_not_retried(self):
         sock = Mock()

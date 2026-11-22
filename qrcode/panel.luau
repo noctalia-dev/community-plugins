@@ -6,250 +6,258 @@ local status = "idle"
 
 local imageSize = 400
 
-local generateButton = noctalia.getConfig("generate_button")
-local keepOnClose = noctalia.getConfig("keep_on_close")
-local notifyConf = noctalia.getConfig("notify")
-local corner_radius_scale = 1.0
+local config = {
+  generateButton = noctalia.getConfig("generate_button"),
+  keepOnClose = noctalia.getConfig("keep_on_close"),
+  notify = noctalia.getConfig("notify"),
+  radiusScale = noctalia.getSetting("shell.corner_radius_scale") or 1.0,
+  closeButton = noctalia.getSetting("shell.show_close_buttons") ~= false,
+}
 
 -- when toggling off keep_on_close, the image will not be deleted, so this runs every config change
-if not keepOnClose then
-    local dir = noctalia.pluginDir()
-    local files = noctalia.listDir(dir)
+if not config.keepOnClose then
+  local dir = noctalia.pluginDir()
+  local files = noctalia.listDir(dir)
 
-    if files then
-        for _, name in ipairs(files) do
-            if name:match("^qr-") then
-                noctalia.removeFile(dir .. "/" .. name)
-            end
-        end
+  if files then
+    for _, name in ipairs(files) do
+      if name:match("^qr-") then
+        noctalia.removeFile(dir .. "/" .. name)
+      end
     end
+  end
 end
 
 local function notify(text, error)
-    local cmd = error and noctalia.notifyError or noctalia.notify
-    cmd("QR Code encoder", text)
+  local cmd = error and noctalia.notifyError or noctalia.notify
+  cmd("QR Code encoder", text)
 end
 
 local function statusText()
-    if status == "generating" then 
-        return noctalia.tr("panel.status.generating")
-    elseif status == "error" then 
-        return noctalia.tr("panel.status.error", { message = errorMessage })
-    elseif status == "ready" then 
-        return noctalia.tr("panel.status.ready")
-    elseif status == "copied" then 
-        return noctalia.tr("panel.status.copied")
-    else
-        return noctalia.tr(generateButton and "panel.status.idle" or "panel.status.idlebis")
-    end
+  if status == "generating" then
+    return noctalia.tr("panel.status.generating")
+  elseif status == "error" then
+    return noctalia.tr("panel.status.error", { message = errorMessage })
+  elseif status == "ready" then
+    return noctalia.tr("panel.status.ready")
+  elseif status == "copied" then
+    return noctalia.tr("panel.status.copied")
+  else
+    return noctalia.tr(config.generateButton and "panel.status.idle" or "panel.status.idlebis")
+  end
 end
 
 local function render()
-    local rowContent = {
-        ui.input({
-            flexGrow = 1,
-            focus = true,
-            placeholder = noctalia.tr("panel.placeholder"),
-            onChange = "onTextChange",
-            onSubmit = "onTextSubmit",
-            value = currentText
+  local rowContent = {
+    ui.input({
+      flexGrow = 1,
+      focus = true,
+      placeholder = noctalia.tr("panel.placeholder"),
+      onChange = "onTextChange",
+      onSubmit = "onTextSubmit",
+      value = currentText
+    })
+  }
+
+  if config.generateButton then
+    table.insert(
+      rowContent,
+      ui.button({
+        text = "Generate",
+        variant = "primary",
+        enabled = status ~= "generating",
+        onClick = "onGenerateClick",
+      })
+    )
+  end
+
+  local content = {
+    ui.row({ gap = 8 }, rowContent),
+    ui.label({
+      flexGrow = 1,
+      textAlign = "center",
+      text = statusText(),
+      color = status == "error" and "error" or "on_surface/0.75",
+    })
+  }
+
+  if (status == "ready"
+    or status == "copied"
+    or (status == "error" and errorMessage == noctalia.tr("panel.error.copy_failed")))
+    and imagePath ~= nil then
+    table.insert(
+      content,
+      ui.row({ justify = "center" }, {
+        ui.image({
+          path = imagePath,
+          width = imageSize,
+          height = imageSize,
+          radius = 24 * config.radiusScale,
+          onClick = "onImageClick",
         })
+      })
+    )
+  end
+
+  if noctalia.getConfig("titlebar") then
+    imageSize = 350
+
+    local header = {
+      ui.label({ text = "QR Code Encoder", fontSize = 16, fontWeight = "bold", flexGrow = 1 }),
+      ui.button({ glyph = "settings", onClick = noctalia.openSettings }),
     }
-
-    if generateButton then
-        table.insert(
-            rowContent,
-            ui.button({
-                text = "Generate",
-                variant = "primary",
-                enabled = status ~= "generating",
-                onClick = "onGenerateClick",
-            })
-        )
+    if config.closeButton then
+      table.insert(
+        header,
+        ui.button({ glyph = "close", onClick = "onCloseClicked" })
+      )
     end
 
-    local content = {
-        ui.row({ gap = 8 }, rowContent),
-        ui.label({
-            flexGrow = 1,
-            textAlign = "center",
-            text = statusText(),
-            color = status == "error" and "error" or "on_surface/0.75",
-        })
-    }
+    table.insert(
+      content, 1,
+      ui.row({ align = "center", justify = "space_between", gap = 8 }, header)
+    )
+  end
 
-    if (status == "ready" 
-        or status == "copied"
-        or (status == "error" and errorMessage == noctalia.tr("panel.error.copy_failed")))
-        and imagePath ~= nil then
-        table.insert(
-            content,
-            ui.row({ justify = "center" }, {
-                ui.image({
-                    path = imagePath,
-                    width = imageSize,
-                    height = imageSize,
-                    radius = 24 * corner_radius_scale,
-                    onClick = "onImageClick",
-                })
-            })
-        )
-    end
-
-    if noctalia.getConfig("titlebar") then
-        imageSize = 350
-        table.insert(
-            content, 1,
-            ui.row({ align = "center", justify = "space_between", gap = 8 }, {
-                ui.label({ text = "QR Code Encoder", fontSize = 16, fontWeight = "bold", flexGrow = 1 }),
-                ui.button({ glyph = "settings", onClick = noctalia.openSettings }),
-                ui.button({ glyph = "close", onClick = "onCloseClicked" }),
-            })
-        )
-    end
-
-    panel.render(ui.column({ flexGrow = 1, gap = 16 }, content))
+  panel.render(ui.column({ flexGrow = 1, gap = 16 }, content))
 end
 
 local function shellEscape(raw)
-    return "'" .. raw:gsub("'", "'\\''") .. "'"
+  return "'" .. raw:gsub("'", "'\\''") .. "'"
 end
 
 local function generate(text)
-    if status == "generating" then
-        return
+  if status == "generating" then
+    return
+  end
+
+  text = noctalia.string.trim(text or "")
+
+  if text == "" then
+    if imagePath ~= nil then
+      noctalia.removeFile(imagePath)
     end
-
-    text = noctalia.string.trim(text or "")
-
-    if text == "" then
-        if imagePath ~= nil then
-            noctalia.removeFile(imagePath)
-        end
-        status = "idle"
-        errorMessage = nil
-        imagePath = nil
-        render()
-        return
-    end
-
-    if not noctalia.commandExists("qrencode") then
-        status = "error"
-        errorMessage = noctalia.tr("panel.error.missing_qrencode")
-
-        if notifyConf == "all" then
-            notify(statusText(), status == "error")
-        end
-
-        render()
-        return
-    end
-
-    status = "generating"
+    status = "idle"
+    errorMessage = nil
+    imagePath = nil
     render()
+    return
+  end
 
-    local dir = noctalia.pluginDir()
-    local outputPath = string.format("%s/qr-%s.png", dir, genCount)
-    local previousPath = imagePath
-    genCount += 1
+  if not noctalia.commandExists("qrencode") then
+    status = "error"
+    errorMessage = noctalia.tr("panel.error.missing_qrencode")
 
-    local size = noctalia.getConfig("size") or 8
-    local correctionLevel = noctalia.getConfig("correction_level") or "M"
+    if config.notify == "all" then
+      notify(statusText(), status == "error")
+    end
 
-    local cmd = string.format(
-        'qrencode %s -o %s -s %s -l %s',
-        shellEscape(text),
-        outputPath,
-        size,
-        correctionLevel
-    )
+    render()
+    return
+  end
 
-    noctalia.runAsync(
-        cmd,
-        function(result)
-            if result.exitCode == 0 and noctalia.fileExists(outputPath) then
-                imagePath = outputPath
-                status = "ready"
-                if previousPath ~= nil then
-                    noctalia.removeFile(previousPath)
-                end
-            else
-                status = "error"
-                errorMessage = noctalia.tr("panel.error.generate_failed")
-            end
+  status = "generating"
+  render()
 
-            if notifyConf == "all" then
-                notify(statusText(), status == "error")
-            end
+  local dir = noctalia.pluginDir()
+  local outputPath = string.format("%s/qr-%s.png", dir, genCount)
+  local previousPath = imagePath
+  genCount += 1
 
-            render()
+  local size = noctalia.getConfig("size") or 8
+  local correctionLevel = noctalia.getConfig("correction_level") or "M"
+
+  local cmd = string.format(
+    'qrencode %s -o %s -s %s -l %s',
+    shellEscape(text),
+    outputPath,
+    size,
+    correctionLevel
+  )
+
+  noctalia.runAsync(
+    cmd,
+    function(result)
+      if result.exitCode == 0 and noctalia.fileExists(outputPath) then
+        imagePath = outputPath
+        status = "ready"
+        if previousPath ~= nil then
+          noctalia.removeFile(previousPath)
         end
-    )
+      else
+        status = "error"
+        errorMessage = noctalia.tr("panel.error.generate_failed")
+      end
+
+      if config.notify == "all" then
+        notify(statusText(), status == "error")
+      end
+
+      render()
+    end
+  )
 end
 
 function onOpen(_context)
-    -- here because it needs to be reloaded when the setting is changed
-    corner_radius_scale = noctalia.getSetting("shell.corner_radius_scale") or 1.0
+  if not config.keepOnClose then
+    status = "idle"
+  end
 
-    if not keepOnClose then
-        status = "idle"
-    end
-
-    render()
+  render()
 end
 
 function onTextChange(value)
-    currentText = value
+  currentText = value
 end
 
 function onTextSubmit(value)
-    currentText = value
-    generate(currentText)
+  currentText = value
+  generate(currentText)
 end
 
 function onGenerateClick()
-    generate(currentText)
+  generate(currentText)
 end
 
 function onImageClick()
-    local bytes, err = noctalia.readFile(imagePath)
-    errorMessage = noctalia.tr("panel.error.copy_failed")
+  local bytes, err = noctalia.readFile(imagePath)
+  errorMessage = noctalia.tr("panel.error.copy_failed")
 
-    if bytes == nil then
-        status = "error"
-    else
-        local ok = noctalia.copyToClipboard(bytes, "image/png")
+  if bytes == nil then
+    status = "error"
+  else
+    local ok = noctalia.copyToClipboard(bytes, "image/png")
 
-        status = ok and "copied" or "error"
+    status = ok and "copied" or "error"
+  end
+
+  if config.notify == "all" then
+    notify(statusText(), status == "error")
+  end
+
+  if noctalia.getConfig("close_on_copy") then
+    if config.notify == "minimal" then
+      notify(statusText(), status == "error")
     end
 
-    if notifyConf == "all" then
-        notify(statusText(), status == "error")
-    end
+    panel.close()
+    return
+  end
 
-    if noctalia.getConfig("close_on_copy") then
-        if notifyConf == "minimal" then
-            notify(statusText(), status == "error")
-        end
-
-        panel.close()
-        return
-    end
-
-    render()
+  render()
 end
 
 function onCloseClicked()
-    panel.close()
+  panel.close()
 end
 
 function onClose()
-    if not keepOnClose and imagePath ~= nil then
-        noctalia.removeFile(imagePath)
-        imagePath = nil
-        errorMessage = nil
-        currentText = ""
-        render()
-        -- calling render() here so it doesn't try to render the image when opening the panel
-    end
+  if not config.keepOnClose and imagePath ~= nil then
+    noctalia.removeFile(imagePath)
+    imagePath = nil
+    errorMessage = nil
+    currentText = ""
+    render()
+    -- calling render() here so it doesn't try to render the image when opening the panel
+  end
 end

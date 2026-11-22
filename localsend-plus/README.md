@@ -98,23 +98,26 @@ subnet still sees your name in favorites mode; hidden mode keeps you invisible.
 ## File manager integration
 
 Every file manager can send through the panel: copy files or folders (Ctrl+C), open the panel and press the
-clipboard button of a device. For a context menu entry, the plugin can install one for Dolphin, Nautilus and Nemo,
-each behind its own setting, all off by default. Thunar and Yazi keep custom actions in their own configuration
-files, which the plugin never edits, so for them you add one entry by hand (see below). Every entry opens the panel
-with the selected files, where you pick a device. [Files outside the plugin folder](#files-outside-the-plugin-folder)
-explains how the plugin handles the files it writes.
+clipboard button of a device. For a context menu entry, the plugin can install one for Dolphin, Nautilus, Nemo and
+Luciole, each behind its own setting, all off by default. Thunar, Nordend and Yazi keep custom actions in their own
+configuration files, which the plugin never edits, so for them you add one entry by hand (see below). Every entry
+opens the panel with the selected files, where you pick a device.
+[Files outside the plugin folder](#files-outside-the-plugin-folder) explains how the plugin handles the files it writes.
 
 | Setting | File manager | Files the plugin writes | Where the entry shows up |
 | --- | --- | --- | --- |
 | `dolphin_menu` | Dolphin | `~/.local/share/kio/servicemenus/localsend-plus.desktop` | right-click on files or folders, sometimes in the Actions submenu |
 | `nautilus_menu` | Nautilus (Files) | `~/.local/share/nautilus/scripts/Send with LocalSend Plus` | right-click, Scripts submenu |
 | `nemo_menu` | Nemo | `localsend-plus.nemo_action` and `localsend-plus-send.sh` in `~/.local/share/nemo/actions/` | right-click on files or folders |
+| `luciole_menu` | Luciole | `~/.local/share/luciole/scripts/Send with LocalSend Plus` | right-click on files or folders, Scripts submenu |
 
 Reopen Dolphin after turning `dolphin_menu` on. KDE only reads service menus in your home folder that are
-executable, so the plugin marks the file executable. Nautilus and Nemo pick up their entries by themselves.
+executable, so the plugin marks the file executable. Nautilus and Nemo pick up their entries by themselves, and
+Luciole shows its entry the next time you open the Scripts submenu. Luciole ignores the script when
+`~/.local/share/luciole` or its `scripts` folder can be written by your group or by others.
 
 To install one of these entries by hand instead, copy its file from `extras/` (`extras/localsend-plus.desktop`, or
-`extras/file-managers/` for Nautilus and Nemo) to the path in the table and make scripts and the Dolphin entry
+`extras/file-managers/` for Nautilus, Nemo and Luciole) to the path in the table and make scripts and the Dolphin entry
 executable. For example, for Dolphin:
 
 ```sh
@@ -132,12 +135,27 @@ away.
 Open Edit, then Configure custom actions, add an action, and set:
 
 - Name: `Send with LocalSend Plus`
-- Command: `noctalia msg plugin 0rgl/localsend-plus:service all send "$(printf '%%s\n' %F)"`
+- Command: `set -- %F; noctalia msg plugin 0rgl/localsend-plus:service all send "$(printf '%%s\n' "$#" "$@")"`
 - Icon: `document-send`
 - Appearance conditions: file pattern `*`, with every file type and directories checked
 
-Thunar puts each selected path in quotes for `%F` and turns `%%` into `%`, so this command sends paths with spaces
-correctly.
+Thunar puts each selected path in quotes for `%F` and turns `%%` into `%`. `set --` makes the paths the command's
+arguments, so names with spaces arrive whole, and their number goes first, as in the other entries.
+
+### Nordend
+
+Add this to `~/.config/nordend/config.toml`. Nordend reloads the file by itself, and `nordend --check-config`
+reports an action it could not use:
+
+```toml
+[[action]]
+name = "Send with LocalSend Plus"
+kinds = ["file", "folder"]
+exec = ["sh", "-c", '''noctalia msg plugin 0rgl/localsend-plus:service all send "$(printf '%s\n' "$#" "$@")"''', "sh", "%F"]
+```
+
+Written as a list, the command passes the selected paths to `sh` as separate arguments and never puts them inside
+the shell text.
 
 ### Yazi
 
@@ -211,6 +229,7 @@ install them yourself.
 | `dolphin_menu` | `bool` | `false` | Adds "Send with LocalSend Plus" to Dolphin's context menu (see above). |
 | `nautilus_menu` | `bool` | `false` | Adds "Send with LocalSend Plus" to the Scripts submenu of Nautilus (see above). |
 | `nemo_menu` | `bool` | `false` | Adds "Send with LocalSend Plus" to Nemo's context menu (see above). |
+| `luciole_menu` | `bool` | `false` | Adds "Send with LocalSend Plus" to the Scripts submenu of Luciole (see above). |
 | `terminal_command` | `bool` | `false` | Adds the `localsend` command with Tab completion for fish, bash and zsh (see above). |
 | `port` | `int` | `53317` | LocalSend port (advanced). |
 | `device_model` | `string` | distribution name | Model shown under your name. When empty it comes from `/etc/os-release` (advanced). |

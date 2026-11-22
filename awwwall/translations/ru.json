@@ -1,0 +1,55 @@
+{
+  "notify": {
+    "apply_failed": "Не удалось загрузить изображение через awww для {connector}\n",
+    "awww_missing": "Команда awww не найдена. Установите awww и awww-daemon."
+  },
+  "settings": {
+    "filter": {
+      "label": "Фильтр масштабирования",
+      "options": {
+        "bilinear": "Билинейный",
+        "catmullrom": "CatmullRom",
+        "lanczos3": "Lanczos3",
+        "mitchell": "Mitchell",
+        "nearest": "Ближайший"
+      }
+    },
+    "resize": {
+      "description": "Способ подгонки изображения под экран в awww",
+      "label": "Режим изменения размера",
+      "options": {
+        "crop": "Обрезать",
+        "fit": "Вписать",
+        "no": "Ничего",
+        "stretch": "Растянуть"
+      }
+    },
+    "transition_duration": {
+      "description": "Длительность перехода в секундах (не применяется к простому переходу)",
+      "label": "Длительность перехода"
+    },
+    "transition_type": {
+      "label": "Тип перехода",
+      "options": {
+        "bottom": "Снизу",
+        "center": "По центру",
+        "fade": "Затухание",
+        "grow": "Затухание",
+        "left": "Слева",
+        "none": "Нет",
+        "outer": "Из центра",
+        "random": "Случайный",
+        "right": "Справа",
+        "simple": "Простой",
+        "top": "Сверху",
+        "wave": "Волна",
+        "wipe": "Стирание"
+      }
+    }
+  },
+  "tooltip": {
+    "not_installed": "Awwwall: команда awww не найдена",
+    "off": "Awwwall: выключен (нажмите, чтобы запустить awww и синхронизировать с ним выбор обоев)",
+    "on": "Awwwall: синхронизация выбора обоев с awww"
+  }
+}

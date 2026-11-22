@@ -116,6 +116,7 @@ local function connectionRow(row)
         glyph = "x",
         variant = "ghost",
         controlSize = "sm",
+        tooltip = noctalia.tr("panel.keep"),
         onClick = function()
           pendingDeleteVpn = nil
           render()

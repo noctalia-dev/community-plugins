@@ -1,13 +1,13 @@
 id = "lfdominguez/claude-sessions"
 name = "Claude Sessions"
-version = "1.6.5"
+version = "1.7.0"
 plugin_api = 43
 author = "lfdominguez"
 icon = "brain"
 license = "MIT"
 description = "Live Claude Code sessions: what each is doing, which need you, plan limits, and jump to its terminal."
 tags = ["bar", "panel", "launcher", "service", "ai", "development", "productivity", "hyprland", "niri", "sway"]
-dependencies = ["jq", "curl", "kitty", "hyprctl", "niri", "swaymsg", "xdg-open"]
+dependencies = ["jq", "curl", "kitty", "tmux", "hyprctl", "niri", "swaymsg", "umbriel", "xdg-open"]
 
 [[setting]]
 key = "notify_waiting"

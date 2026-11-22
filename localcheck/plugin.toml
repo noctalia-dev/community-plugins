@@ -1,0 +1,20 @@
+id = "tadomika_ari/localcheck"
+name = "Localcheck"
+version = "0.1.0"
+plugin_api = 43
+author = "TadomiKa-Ari"
+license = "MIT"
+dependencies = []
+icon = "file"
+description = "Localcheck"
+tags = ["network", "utility", "system"]
+
+[[widget]]
+id = "localcheck-widget"
+entry = "localcheck.luau"
+
+[[panel]]
+id = "localcheck-panel"
+entry = "localcheck-panel.luau"
+width = 800
+height = 400

@@ -1,0 +1,129 @@
+{
+  "add_widget": "Añadir widget",
+  "brain_on": "Cerebro encendido: cada ventana se reabre donde la dejaste",
+  "brain_off": "Cerebro apagado: las ventanas usan su layout configurado",
+  "cancel": "Cancelar",
+  "clear_thumb": "Quitar miniatura personalizada",
+  "close": "Cerrar",
+  "close_all": "Cerrar todas las ventanas",
+  "close_widget": "Cerrar este widget",
+  "delete_widget": "Eliminar widget",
+  "edit_mode": "Editar widgets",
+  "edit_widget": "Editar widget",
+  "editor_hint": "Deja un campo vacío para usar el valor por defecto.",
+  "empty": "No hay widgets configurados. Añade algunos en Ajustes → Plugins o con el botón del lápiz.",
+  "field_command": "Comando (ej. cava)",
+  "field_layout": "Posición (ej. bottom-center, 1610x584)",
+  "field_name": "Nombre",
+  "field_thumb": "Miniatura/GIF personalizada (vacío = sin imagen)",
+  "focused_output": "monitor enfocado",
+  "launch_failed": "No se pudo lanzar la terminal.",
+  "layout_auto": "auto",
+  "layout_custom": "absoluto",
+  "layout_global": "global · {width}×{height}",
+  "layout_invalid": "posición inválida",
+  "missing_command": "Sin comando configurado para {name}.",
+  "need_name": "El widget necesita un nombre.",
+  "name_exists": "Ya existe un widget con ese nombre",
+  "empty_command": "El comando no puede estar vacío",
+  "invalid_layout": "Formato de posición inválido. Ej: bottom-center, 1610x584",
+  "nothing_to_rotate": "No hay suficientes ventanas abiertas para rotar.",
+  "no_free_space": "No hay espacio libre disponible para mover la ventana.",
+  "open_all": "Abrir todo (rota si ya están abiertas)",
+  "open_settings": "Abrir ajustes",
+  "rotate": "Rotar ventanas",
+  "save": "Guardar",
+  "save_failed": "No se pudo guardar la lista de widgets: {detail}",
+  "thumb_not_found": "La ruta de la miniatura no existe o el archivo está vacío.",
+  "settings": {
+    "fallback_mode": {
+      "description": "Cómo se colocan las ventanas. Aleatorio = un widget sin layout se abre en un hueco libre y, al pulsar uno ya abierto, se mueve a otro hueco libre (conservando su tamaño actual salvo que Cambiar tamaño también esté activo); Personalizado = usa X/Y/ancho/alto manuales.",
+      "label": "Modo fallback",
+      "options": {
+        "random": "Aleatorio (hueco libre al clic)",
+        "custom": "Personalizado (usa X/Y/ancho/alto manuales)"
+      }
+    },
+    "card_preview": {
+      "description": "Miniatura de cada widget: captura de la ventana cuando está abierta, capturas actualizadas automáticamente, GIF animado de capturas recientes, o tarjeta sintética.",
+      "label": "Vista previa de tarjeta",
+      "options": {
+        "auto": "Automático (captura si abierto, GIF si cerrado)",
+        "screenshot": "Captura (una sola vez al abrir)",
+        "live": "En vivo (capturas auto-actualizadas)",
+        "gif": "GIF animado (de capturas recientes)",
+        "mock": "Simulado (vista previa sintética)"
+      }
+    },
+    "close_on_launch": {
+      "description": "Cierra el panel al lanzar una terminal.",
+      "label": "Cerrar panel tras lanzar"
+    },
+    "columns": {
+      "description": "Número de tarjetas por fila en el panel.",
+      "label": "Columnas"
+    },
+    "glyph": {
+      "description": "Icono mostrado en la barra.",
+      "label": "Icono de barra"
+    },
+    "margin": {
+      "description": "Margen en píxeles desde los bordes del monitor para layouts anclados.",
+      "label": "Margen"
+    },
+    "output": {
+      "description": "Conector del monitor donde abrir (ej. DP-1). Vacío = monitor enfocado.",
+      "label": "Monitor"
+    },
+    "reuse_existing": {
+      "description": "Si la ventana del comando ya está abierta, enfócala y reaplica su geometría en vez de abrir otra.",
+      "label": "Reutilizar ventana abierta"
+    },
+    "rotation": {
+      "description": "Cómo intercambian posición las ventanas al pulsar rotar.",
+      "label": "Rotación",
+      "options": {
+        "clockwise": "Horario",
+        "counterclockwise": "Antihorario",
+        "opposite": "Esquina opuesta",
+        "pairs": "Por parejas",
+        "shuffle": "Aleatorio"
+      }
+    },
+    "rotation_sizes": {
+      "description": "También intercambiar los tamaños al rotar.",
+      "label": "Intercambiar tamaños"
+    },
+    "terminal": {
+      "description": "Prefijo de terminal (flags estilo kitty: --class, --title, -e).",
+      "label": "Comando terminal"
+    },
+    "width": {
+      "description": "Ancho usado cuando Modo fallback = Personalizado.",
+      "label": "Ancho (custom)"
+    },
+    "height": {
+      "description": "Alto usado cuando Modo fallback = Personalizado.",
+      "label": "Alto (custom)"
+    },
+    "x": {
+      "description": "Posición horizontal usada cuando Modo fallback = Personalizado.",
+      "label": "Posición X (custom)"
+    },
+    "y": {
+      "description": "Posición vertical usada cuando Modo fallback = Personalizado.",
+      "label": "Posición Y (custom)"
+    },
+    "preview_interval": {
+      "description": "Cada cuántos milisegundos se actualiza la captura de una tarjeta en vivo.",
+      "label": "Intervalo de vista previa (ms)"
+    },
+    "fallback_random_resize": {
+      "description": "En modo Aleatorio, también cambiar el tamaño de la ventana además de su posición.",
+      "label": "Cambiar tamaño también"
+    }
+  },
+  "subtitle": "{terminal} · {margin} px margen · {output}",
+  "title": "Terminal Widgets",
+  "tooltip": "Widgets de terminal flotantes"
+}

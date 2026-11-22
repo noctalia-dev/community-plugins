@@ -5,6 +5,7 @@
 -- state only; no keyboard and no scrolling on a desktop widget, so it shows the first
 -- five lines.
 local shared = require("./shared.luau")
+local actions = require("./actions.luau")
 local kit = require("./kit.luau")
 local gauge = require("./gauge.luau")
 
@@ -46,7 +47,7 @@ local function lines()
     end
     local d = s.d or {}
     rows[#rows + 1] = ui.row({ key = "line-" .. s.pid, gap = 8, align = "center", paddingV = 2,
-      onClick = function() shared.focus(s) end }, {
+      onClick = function() actions.focus(s) end }, {
       ui.column({ width = 20 }, { ui.label({ text = `L{i}`, fontSize = 10, fontWeight = "bold", color = "on_surface_variant" }) }),
       ui.box({ width = 8, height = 8, radius = 2, fill = LAMP[s.status] or LAMP.idle,
         opacity = s.status == "waiting" and blinkOff and 0.25 or 1 }),

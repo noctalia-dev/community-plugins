@@ -1,11 +1,5 @@
 --!nonstrict
--- Colors and generated images.
---
--- ui.* accepts palette roles directly, but SVG files need literal hex, so the
--- logo tints and ring gauges resolve roles through noctalia.getColor and are
--- cached as small SVGs in the plugin data dir, keyed by their content
--- (provider + color, percent + colors). A theme switch simply produces new
--- file names; nothing has to be invalidated.
+-- Severity colors and bar gauges.
 
 local fs = require("./fs.luau")
 
@@ -28,14 +22,6 @@ function M.severityColor(severity: string): string?
   return nil
 end
 
-function M.hex(colorOrRole: string): string
-  if colorOrRole:sub(1, 1) == "#" then
-    return colorOrRole:lower()
-  end
-  colorOrRole = colorOrRole:gsub("/.*$", "") -- "primary/0.6" -> "primary" (SVG gets the solid color)
-  return (noctalia.getColor(colorOrRole) or "#888888"):lower()
-end
-
 -- Meter color at a severity. Healthy meters use the theme's primary, not a
 -- vendor color: brand oranges and greens sit too close to warning amber and
 -- error red, and the logo already says whose meter it is.
@@ -43,7 +29,35 @@ function M.meterColor(severity: string): string
   return M.severityColor(severity) or "primary"
 end
 
-local dirs = {}
+-- The steps Tabler's percentage-N glyphs come in.
+local RING_STEPS = { 0, 10, 20, 25, 30, 33, 40, 50, 60, 66, 70, 75, 80, 90, 100 }
+
+-- The glyph closest to `percent`. As with view.roundPercent, a real
+-- difference never rounds to an empty or a full ring.
+function M.ring(percent: number): string
+  local best = 0
+  for _, step in RING_STEPS do
+    if math.abs(step - percent) < math.abs(best - percent) then
+      best = step
+    end
+  end
+  if percent > 0 and best == 0 then
+    best = 10
+  elseif percent < 100 and best == 100 then
+    best = 90
+  end
+  return `percentage-{best}`
+end
+
+local function hex(colorOrRole: string): string
+  if colorOrRole:sub(1, 1) == "#" then
+    return colorOrRole:lower()
+  end
+  colorOrRole = colorOrRole:gsub("/.*$", "") -- "primary/0.6" -> "primary" (SVG gets the solid color)
+  return (noctalia.getColor(colorOrRole) or "#888888"):lower()
+end
+
+local dirs: { [string]: string } = {}
 
 local function dataDir(sub: string): string?
   if dirs[sub] then
@@ -78,29 +92,10 @@ local function ensureFile(path: string, build: () -> string?): string?
   return path
 end
 
--- Path to the provider's logo tinted for the current palette, or nil when the
--- data dir is unavailable (callers fall back to the provider's glyph).
-function M.logo(provider): string?
-  local dir = dataDir("icons")
-  if dir == nil then
-    return nil
-  end
-  local hex = M.hex(provider.brand.tint)
-  local path = `{dir}/{provider.id}-{hex:sub(2)}.svg`
-  return ensureFile(path, function()
-    local template = noctalia.readFile(provider.brand.logo)
-    if template == nil then
-      return nil
-    end
-    -- Monochrome icons inherit fill from the root element.
-    return (template:gsub("<svg ", `<svg fill="{hex}" `, 1))
-  end)
-end
-
 -- A circular gauge: track ring plus an arc for `percent`. pathLength-free
 -- geometry: r = 100 / 2π gives a circumference of 100, so the dash length is
 -- the percentage itself.
-function M.ring(percent: number, fill: string, track: string): string?
+function M.hollowRing(percent: number, fill: string, track: string): string?
   local dir = dataDir("rings")
   if dir == nil then
     return nil
@@ -108,7 +103,7 @@ function M.ring(percent: number, fill: string, track: string): string?
   -- Same rule as view.roundPercent: a real difference never rounds to an
   -- empty or a full ring.
   local pct = math.clamp(math.floor(percent + 0.5), if percent > 0 then 1 else 0, if percent < 100 then 99 else 100)
-  local fillHex, trackHex = M.hex(fill), M.hex(track)
+  local fillHex, trackHex = hex(fill), hex(track)
   local path = `{dir}/ring-{pct}-{fillHex:sub(2)}-{trackHex:sub(2)}.svg`
   return ensureFile(path, function()
     local arc = if pct > 0

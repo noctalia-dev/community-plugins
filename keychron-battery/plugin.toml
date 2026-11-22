@@ -4,8 +4,8 @@
 
 id = "dmopp/keychron-battery"
 name = "Keychron Battery"
-version = "1.0.0"
-plugin_api = 24
+version = "1.1.0"
+plugin_api = 42
 author = "dMopp"
 license = "MIT"
 icon = "mouse"
@@ -65,7 +65,8 @@ entry = "widget.luau"
 id = "panel"
 entry = "panel.luau"
 width = 380
-height = 300
+height = "content"
+max_height = 480
 placement = "attached"
 position = "top_right"
 open_near_click = true

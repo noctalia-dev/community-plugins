@@ -1,0 +1,211 @@
+{
+  "settings": {
+    "account": {
+      "description": "Etichetta facoltativa di un account con nome di ai-usagebar. Vuota per l'account predefinito. Ignorata quando il provider è Automatico.",
+      "label": "Etichetta dell'account"
+    },
+    "auto_providers": {
+      "description": "ID dei provider o provider@account. Vuoto li include tutti. Solo con Automatico.",
+      "label": "Filtro automatico"
+    },
+    "color_by_usage": {
+      "description": "Colora la lettura quando la quota si avvicina al limite. Disattivato, la capsula resta del colore della barra.",
+      "label": "Colore in base all'uso"
+    },
+    "extras": {
+      "description": "Il tempo rimasto nella finestra, quanto il consumo è avanti o indietro rispetto al tempo, entrambi o nessuno.",
+      "label": "Lettura aggiuntiva",
+      "option": {
+        "both": "Entrambi",
+        "countdown": "Tempo al rinnovo",
+        "none": "Nessuno",
+        "pace": "Ritmo rispetto al tempo"
+      }
+    },
+    "glyph_position": {
+      "description": "Da quale lato della lettura sta l'icona.",
+      "label": "Posizione dell'icona",
+      "option": {
+        "after": "Dopo",
+        "before": "Prima"
+      }
+    },
+    "provider_limit": {
+      "description": "Quanti provider mostra una capsula, dal più usato, con +N per gli altri. Vale solo quando il provider è Automatico.",
+      "label": "Provider nella capsula"
+    },
+    "quota_window": {
+      "description": "Le finestre esaurite hanno la precedenza. Nessuna percentuale se non disponibile.",
+      "label": "Finestra della quota",
+      "option": {
+        "auto": "Automatica",
+        "monthly": "Mensile",
+        "session": "Sessione",
+        "weekly": "Settimanale"
+      }
+    },
+    "refresh_minutes": {
+      "description": "Ogni quanto si chiede alla CLI l'uso aggiornato. I conti alla rovescia avanzano in locale tra una chiamata e l'altra.",
+      "label": "Intervallo di aggiornamento (minuti)"
+    },
+    "show_glyph": {
+      "description": "L'icona del provider. Disattivata, resta solo la lettura.",
+      "label": "Mostra l'icona"
+    },
+    "show_name": {
+      "description": "Aggiunge il nome del prodotto accanto alla percentuale, così due capsule non si confondono.",
+      "label": "Mostra il nome del provider"
+    },
+    "show_value": {
+      "description": "La percentuale come testo. Disattivata, la indica solo l'indicatore.",
+      "label": "Mostra il valore"
+    },
+    "style": {
+      "description": "Come appare questa capsula nella barra.",
+      "label": "Stile",
+      "option": {
+        "gauge": "Indicatore e percentuale",
+        "label": "Nome, indicatore e percentuale",
+        "meter": "Segmenti",
+        "pill": "Percentuale"
+      }
+    },
+    "usage_display": {
+      "description": "Quota usata o rimanente. Colori e priorità seguono l'uso.",
+      "label": "Mostra la quota come",
+      "option": {
+        "remaining": "Rimanente",
+        "used": "Usata"
+      }
+    },
+    "vendor": {
+      "description": "Quale piano segue questa capsula. Aggiungi il widget due volte per seguirne due.",
+      "label": "Provider",
+      "option": {
+        "anthropic": "Claude",
+        "anthropic_api": "Anthropic API",
+        "antigravity": "Antigravity",
+        "auto": "Automatico (principale)",
+        "cline": "Cline",
+        "commandcode": "Command Code",
+        "copilot": "GitHub Copilot",
+        "cursor": "Cursor",
+        "deepinfra": "DeepInfra",
+        "deepseek": "DeepSeek",
+        "devin": "Devin",
+        "grok": "Grok",
+        "grokbot": "Grok Bot",
+        "kilo": "Kilo",
+        "kimi": "Kimi",
+        "kiro": "Kiro",
+        "lyceum": "Lyceum",
+        "minimax": "MiniMax",
+        "modelstudio": "Model Studio",
+        "moonshot": "Moonshot",
+        "muse_code": "Muse Code",
+        "nous": "Nous Research",
+        "novita": "Novita",
+        "ollama": "Ollama Cloud",
+        "openai": "Codex",
+        "opencode_go": "OpenCode Go",
+        "openrouter": "OpenRouter",
+        "orcarouter": "OrcaRouter",
+        "supergrok": "SuperGrok",
+        "synthetic": "Synthetic",
+        "zai": "Z.AI"
+      }
+    },
+    "visualization": {
+      "description": "Un indicatore accanto alla lettura, o niente.",
+      "label": "Visualizzazione",
+      "option": {
+        "gauge": "Barra della quota",
+        "none": "Niente"
+      }
+    }
+  },
+  "ui": {
+    "back_to_usage": "Torna all'uso",
+    "close": "Chiudi",
+    "copy_summary": "Copia il riepilogo dell'uso",
+    "details": "Dettagli",
+    "diagnostics_check_cli": "Controlla questo provider e account in ai-usagebar per altri dettagli, poi aggiorna l'uso.",
+    "diagnostics_configure": "Configura le credenziali di questo provider per ai-usagebar, poi aggiorna stato e uso.",
+    "diagnostics_disabled": "Provider disattivati ({count})",
+    "diagnostics_enabled": "Altri provider attivi ({count})",
+    "diagnostics_local_app": "Se Antigravity è chiuso, aprilo perché il suo server locale possa girare, poi aggiorna l'uso. Non serve una chiave API.",
+    "diagnostics_login": "Controlla con il provider le credenziali e l'accesso di questo account, poi aggiorna l'uso.",
+    "diagnostics_no_problems": "Nessun problema nei report disponibili. La presenza delle credenziali non garantisce che la connessione funzioni.",
+    "diagnostics_no_usage": "L'uso attuale non è disponibile.",
+    "diagnostics_old_usage": "L'uso mostrato è una lettura vecchia.",
+    "diagnostics_recheck": "Aggiorna l'uso per vedere se il problema precedente persiste.",
+    "diagnostics_refresh_status": "Aggiorna lo stato",
+    "diagnostics_refresh_usage": "Aggiorna l'uso",
+    "diagnostics_retry": "Attendi un momento, poi aggiorna l'uso.",
+    "diagnostics_update_cli": "Aggiorna ai-usagebar, poi aggiorna l'uso per riprovare a leggere questo report.",
+    "diagnostics_usage_status": "Report dell'uso non disponibile",
+    "elapsed": "{percent}% della finestra trascorso",
+    "error": {
+      "failed": "Impossibile leggere l'uso",
+      "failed_hint": "ai-usagebar è terminato con un errore.",
+      "no_data": "Nessun uso segnalato",
+      "no_data_hint": "ai-usagebar è stato eseguito ma non ha segnalato alcun uso. Controlla i provider in `~/.config/ai-usagebar/config.toml`.",
+      "not_installed": "ai-usagebar non è installato",
+      "not_installed_hint": "La CLI non è nel PATH. Installala e riprova.",
+      "spawn_failed": "Impossibile avviare ai-usagebar",
+      "spawn_failed_hint": "Il processo non è partito. Riprova tra un momento.",
+      "timed_out": "ai-usagebar non ha risposto",
+      "timed_out_hint": "La lettura ha richiesto troppo tempo. Un provider potrebbe rispondere lentamente."
+    },
+    "hidden_label": "Non mostrati",
+    "hidden_value": "Altri {count}, clic per aprire il pannello",
+    "install": "Pagina di installazione",
+    "last_reading": "Ultima lettura, {minutes} min fa",
+    "last_reading_now": "Ultima lettura, pochi istanti fa",
+    "loading": "Caricamento…",
+    "more_actions": "Altre azioni",
+    "no_matching_providers": "Nessun provider corrispondente",
+    "no_usage": "Nessun uso segnalato",
+    "not_configured": "`{vendor}` non è configurato in ai-usagebar",
+    "now": "ora",
+    "open_dashboard": "Apri la dashboard",
+    "plan_changed": "Il piano è cambiato; le letture fatte con il precedente sono state scartate.",
+    "provider_setup": "Diagnostica",
+    "quota_exhausted": "Quota esaurita",
+    "quota_reset": "Si rinnova tra {time}",
+    "refresh": "Aggiorna ora",
+    "refresh_queued": "Aggiornamento in coda",
+    "refreshing": "Aggiornamento dell'uso",
+    "remaining": "Rimanente",
+    "reset": "Rinnovo",
+    "retry": "Riprova",
+    "session": "Sessione",
+    "settings": "Impostazioni del plugin",
+    "setup_credentials_found": "Credenziali trovate",
+    "setup_disabled": "Disattivato in ai-usagebar",
+    "setup_empty": "Nessun provider segnalato",
+    "setup_hint": "Controlla gli errori segnalati e la configurazione locale dei provider.",
+    "setup_loading": "Lettura dei provider…",
+    "setup_no_credential": "Nessuna credenziale richiesta",
+    "setup_notifications": "Gli avvisi li gestisce la CLI. Per disattivarli, imposta enabled = false sotto [notifications] nel suo config.toml.",
+    "setup_required": "Configurazione richiesta",
+    "setup_unavailable": "Stato del provider non disponibile",
+    "severity": {
+      "critical": "critico",
+      "high": "alto"
+    },
+    "stale": "non aggiornato",
+    "stale_hint": "mostra gli ultimi dati noti",
+    "time_remaining": "{percent}% della finestra rimanente",
+    "title": "Uso AI",
+    "tooltip_more": "Clic sul widget per i dettagli.",
+    "unavailable": "Non disponibile",
+    "updated": "Aggiornato",
+    "updated_ago": "Aggiornato {minutes} min fa",
+    "updated_now": "Aggiornato ora",
+    "used": "Usata",
+    "waiting": "In attesa dei dati sull'uso",
+    "weekly": "Settimanale",
+    "window_unavailable": "Questa finestra non è segnalata"
+  }
+}

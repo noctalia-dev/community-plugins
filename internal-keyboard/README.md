@@ -19,15 +19,42 @@ disabled keyboard can always be re-enabled without unplugging anything or reboot
 
 ![plugin settings](https://raw.githubusercontent.com/Goldppx/noctalia-internal-keyboard/main/docs/screenshots/settings.png)
 
+## Install
+
+**From the plugin store (recommended)**
+
+1. Settings -> Plugins -> Store, search **Internal Keyboard**, install and enable it.
+2. Add the tile once: Settings -> Control center -> Shortcuts -> *Internal Keyboard*.
+3. The tile reads **Set up** until the system side exists. Click it: your desktop's
+   authentication dialog (polkit) opens and `setup.sh` runs for you. It asks for nothing else.
+
+`setup.sh` is idempotent, so the same click also repairs a lost udev rule after a kernel or
+udev update. If no polkit agent is running, the notification that follows prints the exact
+`sudo <path>/setup.sh` command to run in a terminal.
+
+**From a checkout**
+
+```sh
+sudo ./setup.sh                                          # backend + sudoers + udev rule
+noctalia msg plugins enable goldesquemoon/internal-keyboard   # when copying by hand
+```
+
 ## Requirements
 
 | Requirement | Why |
 | --- | --- |
 | `sudo` | The service calls the backend without a password prompt. |
+| `pkexec` | Raises the polkit dialog for the one-time setup/repair from the tile, so the install does not need a terminal. |
 | `udevadm` | Re-announces the keyboard so libinput re-reads the ignore property. |
 | `sh` | The backend and the setup script are POSIX shell. |
 | A libinput-based compositor | Niri, Hyprland, Sway and friends. The switch happens on the libinput layer, so Xorg sessions are not supported. |
-| One-time root setup | `sudo ./setup.sh` inside this plugin's directory. |
+| One-time root setup | Click the tile once (it runs `pkexec sh setup.sh`), or run `sudo ./setup.sh` in the plugin directory. |
+| A polkit agent | `pkexec` hands the request to it; without a running agent, run `setup.sh` in a terminal instead. |
+
+The tile and the bar widget read `installed` from the backend: when the system side is missing
+(first install, or a udev rule that went away) they show a setup state and the click runs the same
+`setup.sh` through `pkexec`, instead of pretending the keyboard switch is ready. `setup.sh` is
+idempotent, so it doubles as the repair action.
 
 `setup.sh` installs two files and can be re-run at any time:
 
@@ -119,6 +146,7 @@ noctalia msg plugin goldesquemoon/internal-keyboard:service all toggle
 noctalia msg plugin goldesquemoon/internal-keyboard:service all on
 noctalia msg plugin goldesquemoon/internal-keyboard:service all off
 noctalia msg plugin goldesquemoon/internal-keyboard:service all refresh
+noctalia msg plugin goldesquemoon/internal-keyboard:service all setup   # install/repair the system side
 ```
 
 ## Notes

@@ -1,12 +1,12 @@
 # Honor Choice Earbuds X5 / X5 Pro plugin for Noctalia Shell v5
 id = "nezerkill/honor-earbuds"
 name = "Honor Earbuds"
-version = "1.1.0"
+version = "1.1.1"
 plugin_api = 43
 author = "nezerkill"
 license = "MIT"
 icon = "headphones"
-description = "Управление шумоподавлением и батареей для наушников серии HONOR CHOICE (X5, X5 Pro, X3, X3 Lite, X2, Moecen)"
+description = "Noise cancellation and battery monitoring for HONOR CHOICE earbuds (X5, X5 Pro, X3, X3 Lite, X2, Moecen)."
 tags = ["audio", "bar", "panel", "service", "hardware", "indicator"]
 dependencies = ["python3", "bluetoothctl"]
 

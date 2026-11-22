@@ -73,8 +73,21 @@ local function updatePct()
   prevTotal = total
 end
 
+-- Since plugin API 46 the host refreshes systemStats().gpu only while an entry
+-- requests GPU sampling. Older hosts have no setGpuMonitoring and sample on
+-- every systemStats() read, so the call is skipped there.
+local function setGpuMonitoring(enabled: boolean)
+  if noctalia.setGpuMonitoring ~= nil then
+    noctalia.setGpuMonitoring(enabled)
+  end
+end
+
 local function updateGpu()
-  if noctalia.getConfig("show_gpu") == false then gpuPct = nil; return end
+  -- Requested on every tick: repeated calls don't stack, and this retries a
+  -- request the host refused because its monitor service wasn't up yet.
+  local showGpu = noctalia.getConfig("show_gpu") ~= false
+  setGpuMonitoring(showGpu)
+  if not showGpu then gpuPct = nil; return end
   local stats = noctalia.systemStats()
   local value = stats and stats.gpu and stats.gpu.usagePercent
   gpuPct = type(value) == "number" and math.max(0, math.min(100, value)) or nil

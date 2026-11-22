@@ -22,7 +22,7 @@ input, and hovering a day shows its count.
 | Field | Value |
 | --- | --- |
 | ID | `goldesquemoon/typing-stats` |
-| Entries | Service: `counter`; bar widget: `capsule`; panel: `calendar`; shortcuts: `reset`, `heatmap` |
+| Entries | Service: `counter`; bar widget: `capsule`; panel: `calendar`; shortcuts: `reset`, `heatmap`, `setup` |
 
 The bar widget lives in the bar's normal widget capsule. It stores a total and a per-day history
 in the plugin data dir, so both survive restarts and updates. The heatmap panel is a month
@@ -40,7 +40,8 @@ calendar in the style of the control-center calendar.
 | --- | --- |
 | `python3` | Runs the small evdev reader that counts printable keys. |
 | `udevadm` | Applies the one udev rule that grants read access to keyboard event nodes. |
-| One-time root setup | `sudo ./setup.sh` inside this plugin's directory. |
+| One-time root setup | Click the **Grant input access** tile once (polkit), or `sudo ./setup.sh`. |
+| A polkit agent (optional) | Makes that click open the authentication dialog; without one, run `setup.sh` in a terminal. |
 | `niri (focused-window filter)` | Tracks the focused window for the optional whitelist/blacklist filter. |
 
 Wayland has no protocol for observing global key presses, so the plugin reads the kernel input
@@ -50,11 +51,24 @@ an ACL (no group membership, no re-login).
 
 ## Install
 
-From a checkout of the plugin source:
+**From the plugin store (recommended)**
+
+1. Settings -> Plugins -> Store, search **Typing Stats**, install and enable it.
+2. Add the capsule: Settings -> Bar -> Add widget -> *Typing Stats*.
+3. Grant input access once: Settings -> Control center -> Shortcuts -> *Grant input access*,
+   then click that tile. Your desktop's authentication dialog (polkit) opens and `setup.sh`
+   installs the udev rule. The capsule starts counting within a few seconds - no reload, no
+   re-login. The tile then reads **Input access granted** and greys out.
+
+If no polkit agent is running, the notification that follows prints the exact
+`sudo <path>/setup.sh` command, and `python3 scripts/typelisten.py --test-devices` tells you
+whether the rule works.
+
+**From a checkout**
 
 ```sh
-sudo ./typing-stats/setup.sh    # udev rule (once)
-./typing-stats/install.sh       # register source + enable plugin (no root)
+sudo ./setup.sh        # udev rule (once; or click the tile)
+./install.sh           # register the source (only in a source root) + enable the plugin
 ```
 
 Then add the capsule once:
@@ -71,8 +85,10 @@ Then add the capsule once:
   capsule = true
   ```
 
-Add the two optional control-center tiles under Settings → Control Center → Shortcuts:
+Add the optional control-center tiles under Settings → Control Center → Shortcuts:
 
+- **Grant input access** (`setup`) - installs the udev rule without a terminal; greys out once
+  the listener reports `READY`
 - **Reset typing stats** (`reset`)
 - **Typing heatmap** (`heatmap`, opens the calendar panel)
 
@@ -248,90 +264,6 @@ typelisten.py ── "C" ──► service.luau ── state "stats" ──► w
 - Turning the **Count typing** setting off stops counting immediately, but the reader process
   keeps running until the plugin is unloaded (the runtime gives a service no way to stop a
   stream), so unload or disable the plugin if you want the device handles closed.
-
-## 中文说明
-
-状态栏胶囊里是"进度条 + 数字"：每输入 100 个字符数字加一，进度条显示距离下一格还有多远。
-插件同时保存：
-
-- **历史总计数**
-- **每天的单独计数**（按本地日期分桶，跨天自动切换）
-
-胶囊左侧的小图标表示当前显示模式：☀ 今天，∞ 历史总计。**左键点击胶囊**在两者之间切换，
-模式会记住。**右键胶囊**打开热力图日历；中键打开插件设置。悬停提示里同时显示今天、历史总计
-和当前格的进度。
-
-### 热力图日历
-
-**右键点击状态栏胶囊** 打开面板：面板贴在任务栏下方，并从胶囊下方展开。控制中心的
-**输入热力图** 磁贴也能打开同一个面板，但它没有胶囊锚点，会按任务栏默认位置展开。
-面板照搬系统控制中心日历的样式：
-
-- 周一起始，7 列 × 6 行；顶部 `<` / `>` 切换月份
-- 每天按当天的输入量填充主题主色的不同深浅
-- 今天有描边；相邻月份的日子数字变淡
-- **鼠标悬停任意一天**显示 `YYYY-MM-DD · N 字符`
-- 底部显示本月总计、今天计数，以及 **保存图片** 按钮
-
-颜色不是按当月最大值算的，而是**固定阈值、逐层加深**（默认）：
-
-| 等级 | 每日字符数 |
-| --- | --- |
-| 0 | 0–499 |
-| 1 | 500–999 |
-| 2 | 1000–1999 |
-| 3 | 2000–4999 |
-| 4 | 5000+ |
-
-可以在插件设置 **热力图色阶阈值** 里改成 `300,800,1500,3000` 这样的四个数字。开启
-**达到新等级时通知** 后，今天达到 500 / 1000 / 2000 / 5000（默认）时会弹出通知，显示字符数
-和等级。
-
-### 重置
-
-**重置输入统计** 磁贴会清空历史总计和全部每日记录：
-
-```sh
-noctalia msg plugin goldesquemoon/typing-stats:counter all reset
-```
-
-### 窗口过滤
-
-可按当前焦点窗口过滤：
-
-- **关闭**：统计所有可打印按键（默认）
-- **白名单**：只统计列表里的窗口；空白名单不统计任何窗口
-- **黑名单**：统计除列表外的所有窗口；空黑名单统计所有窗口
-
-匹配使用 niri 的 `app_id`，不区分大小写。查看当前窗口的 app_id：
-
-```sh
-niri msg --json focused-window | grep -o '"app_id":"[^"]*"'
-```
-
-然后在 **设置 → 插件 → Typing Stats → 过滤应用 ID** 里每行填一个，例如 `Alacritty`、
-`wechat`、`firefox`。过滤对总计数、每日计数和热力图都生效；等级通知只对计入的按键触发。
-
-过滤依赖 niri：它会读取 niri 的窗口焦点事件流，并每 5 秒用 `focused-window` 兜底。其他
-合成器上没有焦点窗口信息，白名单会什么都不统计，黑名单会统计全部，此时请用「关闭」。
-
-统计规则：字母、数字、标点、空格、小键盘都算；**长按重复不算**（每次按下只计一次，防止
-按住按键刷数）；按住 Ctrl/Alt/Super 的快捷键不算；退格、回车、Tab、方向键、功能键不算。
-中文输入法拼音阶段的按键按实际按键计数，最终上屏的汉字不会重复计数。
-
-界面文案（胶囊提示、日历面板、控制中心磁贴、通知、设置项）都跟随系统语言，提供中文和英文。
-所有数据只保存在本机的 `stats.json` 里，不外发；把 **统计输入** 设置关掉会立刻停止计数，
-但读取进程要等插件卸载才会退出。
-
-安装：
-
-```sh
-sudo ./typing-stats/setup.sh    # 只安装 uaccess udev 规则，让当前会话可读键盘事件
-./typing-stats/install.sh       # 注册插件源并启用插件
-```
-
-然后到 **设置 → 状态栏 → 添加挂件 → Typing Stats** 添加一次胶囊。可选磁贴：**Reset typing
-stats**（重置）、**Typing heatmap**（打开日历面板）。
 
 ## License
 

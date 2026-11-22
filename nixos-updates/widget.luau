@@ -5,7 +5,10 @@
 
 local RESULT_KEY = "nixos_updates"
 
+local SYSTEM_KEY = "nixos_updates_system"
+
 local result = noctalia.state.get(RESULT_KEY) or {}
+local system = noctalia.state.get(SYSTEM_KEY) or {}
 
 local function config(key, fallback)
 	local value = noctalia.getConfig(key)
@@ -29,6 +32,9 @@ local function tooltip()
 		end
 		return rows
 	end
+	if type(system.reboot) == "table" then
+		table.insert(rows, { key = noctalia.tr("widget.reboot"), value = noctalia.tr("widget.reboot_value") })
+	end
 	if type(result.packages) == "table" then
 		table.insert(rows, { key = noctalia.tr("widget.packages"), value = tostring(#result.packages) })
 	end
@@ -48,7 +54,8 @@ end
 local function render()
 	local n = tonumber(result.count) or 0
 	local hasErrors = #(result.errors or {}) > 0
-	barWidget.setVisible(n > 0 or hasErrors or result.running or config("hide_when_up_to_date", false) ~= true)
+	local reboot = type(system.reboot) == "table"
+	barWidget.setVisible(n > 0 or hasErrors or reboot or result.running or config("hide_when_up_to_date", false) ~= true)
 
 	local name = tostring(config("glyph", "package"))
 	if name == "" then
@@ -64,7 +71,7 @@ local function render()
 	local fill = nil
 	if hasErrors then
 		fill = "error"
-	elseif n > 0 then
+	elseif n > 0 or reboot then
 		fill = config("highlight_color", "tertiary")
 	end
 	local foreground = fill ~= nil and "surface" or nil
@@ -72,6 +79,9 @@ local function render()
 	-- an error also changes the glyph. A custom glyph has no crossed-out form.
 	if hasErrors then
 		name = name == "package" and "package-off" or "alert-triangle"
+	elseif reboot and n == 0 then
+		-- Nothing to update, but the last one needs a restart to take effect.
+		name = "refresh-alert"
 	end
 
 	-- Separate keys: a dropped prop does not reset on a retained node, so badge
@@ -97,6 +107,13 @@ end
 noctalia.state.watch(RESULT_KEY, function(value)
 	if type(value) == "table" then
 		result = value
+		render()
+	end
+end)
+
+noctalia.state.watch(SYSTEM_KEY, function(value)
+	if type(value) == "table" then
+		system = value
 		render()
 	end
 end)

@@ -251,3 +251,9 @@ end
 
 io.write("ok: ", #SECRETS, " secrets redacted, ", #BENIGN, " readings untouched, length capped, ",
     calls, " gsub calls over ", bytes, " bytes per report\n")
+
+-- Capping display text must not split a multibyte character.
+local cappedUnicode=safeText(string.rep('á',110))
+assert(cappedUnicode==string.rep('á',100)..'...', 'two-byte text remains intact at the cap')
+local cappedFourBytes=safeText('a'..string.rep('🦈',60))
+assert(cappedFourBytes=='a'..string.rep('🦈',49)..'...', 'four-byte text is capped before the next codepoint')

@@ -1,0 +1,92 @@
+{
+  "settings": {
+    "adaptive_colors": {
+      "label": "Adaptive colors",
+      "description": "Follow the active Noctalia palette. Wallpaper colors follow when using a wallpaper-generated theme. Turn off to use custom colors."
+    },
+    "adaptive_gradients": {
+      "label": "Wallpaper gradient",
+      "description": "A smooth gradient sampled from the wallpaper beneath the saved clock position. Updates when the wallpaper or placement changes."
+    },
+    "frosted_glass": {
+      "label": "Frosted background",
+      "description": "Blur the wallpaper beneath the clock into a translucent rounded card."
+    },
+    "glass_strength": {
+      "label": "Glass frosting strength"
+    },
+    "frosted_font": {
+      "label": "Frosted glass font",
+      "description": "Translucent clock digits with a frosted wallpaper fill and polished glass edges. The surrounding desktop stays transparent."
+    },
+    "font_glass_strength": {
+      "label": "Font frosting strength"
+    },
+    "render_instance": {
+      "label": "Wallpaper rendering instance"
+    },
+    "clock_use_24h_format": {
+      "label": "Use 24-hour time"
+    },
+    "clock_show_seconds": {
+      "label": "Show seconds"
+    },
+    "clock_separator": {
+      "label": "Time separator"
+    },
+    "timezone": {
+      "label": "Time zone (empty = system local)"
+    },
+    "clock_font_color": {
+      "label": "Clock color"
+    },
+    "clock_font_family": {
+      "label": "Clock font (ccdefault = Outfit)"
+    },
+    "clock_bold_text": {
+      "label": "Bold clock"
+    },
+    "clock_font_size": {
+      "label": "Clock font size"
+    },
+    "show_day_display": {
+      "label": "Show weekday overlay"
+    },
+    "day_font_color": {
+      "label": "Weekday color"
+    },
+    "day_font_family": {
+      "label": "Weekday font (ccdefault = Smooch)"
+    },
+    "day_bold_text": {
+      "label": "Bold weekday"
+    },
+    "day_font_size": {
+      "label": "Weekday font size"
+    },
+    "show_date_display": {
+      "label": "Show date"
+    },
+    "date_custom_date_format": {
+      "label": "Date format (strftime tokens)"
+    },
+    "date_font_color": {
+      "label": "Date color"
+    },
+    "date_font_family": {
+      "label": "Date font (ccdefault = Outfit)"
+    },
+    "date_bold_text": {
+      "label": "Bold date"
+    },
+    "date_font_size": {
+      "label": "Date font size"
+    },
+    "date_letter_spacing": {
+      "label": "Date letter spacing"
+    },
+    "date_gap": {
+      "label": "Gap below clock"
+    }
+  }
+}

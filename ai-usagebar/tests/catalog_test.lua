@@ -86,6 +86,29 @@ request({ exitCode = 0 }, { vendors = {
     [3] = { id = "cursor", name = "Cursor", enabled = true, configured = true, needs_credential = true },
     [4] = { id = "kimi", name = "Kimi", enabled = true, configured = true, needs_credential = true },
 } })
+local deep, wide = {}, {}
+local leaf = deep
+for _ = 1, 40 do leaf.child = {}; leaf = leaf.child end
+for i = 1, 20001 do wide[i] = i end
+for _, case in ipairs({
+    { stdout = string.rep(" ", 1024 * 1024 + 1), document = { vendors = {} }, noDecode = true },
+    { stdout = "{}", document = { vendors = {}, metadata = deep } },
+    { stdout = "{}", document = { vendors = {}, metadata = wide } },
+}) do
+    env.noctalia.json.decode = function()
+        assert(not case.noDecode, "oversized catalog must not reach json.decode")
+        return decoded
+    end
+    request({ exitCode = 0, stdout = case.stdout }, case.document)
+    env.noctalia.json.decode = function() return decoded end
+    now = now + 3000
+    decoded = { vendors = {} }
+    env.onIpc("catalog")
+    calls[#calls].callback({ exitCode = 0, stdout = "{}" })
+    assert(values.catalog_error == false and values.catalog_loading == false,
+        "a small catalog must recover after rejection")
+    catalog = values.catalog
+end
 now = now + 3000
 spawn, decoded = true, { vendors = {} }
 env.onIpc("catalog")
@@ -98,4 +121,9 @@ local beforeTick = #calls
 env.update()
 assert(#calls == beforeTick + 1 and calls[#calls].command == "ai-usagebar usage --json",
        "periodic polling never requests the catalog")
+now = now + 3000
+local beforeCombined = #calls
+watchers.command({ action = "diagnostics" })
+assert(#calls == beforeCombined + 1 and calls[#calls].command == "ai-usagebar vendors --json"
+    and values.refresh_queued == true, "diagnostics refresh starts catalog and queues an in-flight usage read")
 io.write("ok: on-demand catalog, public whitelist, isolated failures, no retry loops\n")

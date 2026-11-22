@@ -1,0 +1,156 @@
+{
+  "title": "CCF Deadlines",
+  "countdown": {
+    "passed": "passed"
+  },
+  "kind": {
+    "paper": "Paper deadline",
+    "abstract": "Abstract deadline",
+    "abstract_short": "abs"
+  },
+  "status": {
+    "loading": "Loading deadlines…",
+    "refreshing": "Refreshing…",
+    "error": "Could not load deadlines",
+    "none": "No upcoming deadlines match your filters",
+    "updated": "Data from ccfddl · {count} conferences · updated {time}"
+  },
+  "error": {
+    "fetch": "Download failed ({detail}); showing cached data if any",
+    "parse": "Downloaded data could not be parsed",
+    "missing_tools": "curl and jq are required to download deadlines",
+    "no_xdg_open": "xdg-open is not installed",
+    "bad_url": "The data URL must start with https://"
+  },
+  "notify": {
+    "title": "{name} deadline approaching",
+    "body": "{kind} in {left} ({time})"
+  },
+  "tooltip": {
+    "hints": "Click: open panel · Right click: refresh"
+  },
+  "panel": {
+    "subtitle": "{count} upcoming",
+    "tab_all": "All",
+    "tab_starred": "Starred",
+    "filter": "Filter by name, area, place…",
+    "star": "Star this conference",
+    "unstar": "Unstar this conference",
+    "no_starred": "Star a conference to follow it here",
+    "open_site": "Open ccfddl.com",
+    "refresh": "Refresh now",
+    "show_more": "Show {count} more",
+    "paper_on": "Paper {time}",
+    "row_hint": "Click for timeline, venue and acceptance rates"
+  },
+  "settings": {
+    "min_rank": {
+      "label": "Minimum CCF rank",
+      "description": "Show conferences at or above this CCF rank. Starred and always-shown conferences ignore this.",
+      "options": {
+        "a": "A only",
+        "b": "A and B",
+        "c": "A, B and C",
+        "all": "All (including unranked)"
+      }
+    },
+    "categories": {
+      "label": "Categories",
+      "description": "ccfddl area codes to include, e.g. AI, DB, SE, SC, NW, DS, CT, CG, HI, MX. Empty means all."
+    },
+    "always_show": {
+      "label": "Always show",
+      "description": "Conference names (e.g. NeurIPS) shown regardless of rank and category filters."
+    },
+    "include_abstract": {
+      "label": "Count down to abstract deadlines",
+      "description": "While a round's abstract registration is still ahead, count down to it; otherwise count down to the paper deadline. The detail view always shows both."
+    },
+    "horizon_days": {
+      "label": "Look-ahead (days)",
+      "description": "Only list deadlines within this many days."
+    },
+    "notify_days": {
+      "label": "Remind before (days)",
+      "description": "Send a notification this many days before a starred deadline, and again in the last 24 hours. 0 turns reminders off."
+    },
+    "notify_all": {
+      "label": "Remind for all listed",
+      "description": "Send reminders for every listed deadline, not only starred ones."
+    },
+    "data_url": {
+      "label": "Data URL",
+      "description": "HTTPS URL of ccfddl's aggregated allconf.json. Acceptance rates are read from allacc.json next to it."
+    },
+    "glyph": {
+      "label": "Icon",
+      "description": "Icon shown in the bar."
+    },
+    "show_text": {
+      "label": "Show text",
+      "description": "Show the next deadline's name and countdown next to the icon. Turn off for an icon-only widget; the tooltip still lists upcoming deadlines."
+    },
+    "display": {
+      "label": "Display",
+      "description": "What the bar widget shows next to the icon.",
+      "options": {
+        "name_countdown": "Name and countdown",
+        "countdown": "Countdown only",
+        "icon": "Icon only"
+      }
+    },
+    "prefer_starred": {
+      "label": "Prefer starred",
+      "description": "Show the next starred deadline in the bar; fall back to the next deadline overall."
+    },
+    "urgent_days": {
+      "label": "Urgent threshold (days)",
+      "description": "The icon turns to the error color when the deadline is this close."
+    },
+    "refresh_days": {
+      "label": "Refresh interval (days)",
+      "description": "How often to check ccfddl for new data. Unchanged data costs almost nothing to check; changed data is about 115 KB compressed."
+    }
+  },
+  "badge": {
+    "ccf": {
+      "a": "CCF A: top tier in the China Computer Federation's recommended venue list",
+      "b": "CCF B: second tier in the China Computer Federation's recommended venue list",
+      "c": "CCF C: third tier in the China Computer Federation's recommended venue list",
+      "n": "Not ranked in the China Computer Federation's recommended venue list"
+    },
+    "core": "CORE {rank}: rank in the Australasian CORE conference ranking (A* is the top tier, then A, B, C)",
+    "area": "Area {code}: {name}",
+    "abstract": "Counting down to the abstract registration; the full paper is due {paper}",
+    "thcpl": "THCPL {rank}: rank in Tsinghua University's computer science venue list (A, then B)"
+  },
+  "milestone": {
+    "abstract": "Abstract submission",
+    "paper": "Paper submission",
+    "rebuttal": "Rebuttal",
+    "decision": "Notification",
+    "opening": "Conference opening"
+  },
+  "milestone_short": {
+    "abstract": "Abstract",
+    "paper": "Paper",
+    "rebuttal": "Rebuttal",
+    "decision": "Notification",
+    "opening": "Opening"
+  },
+  "detail": {
+    "back": "Back to list",
+    "open_site": "Open the conference website",
+    "acc": "Acc. rate: {rates}",
+    "dates": "Dates",
+    "venue": "Venue",
+    "round": "Round",
+    "next_in": "Next: {kind} in",
+    "timeline": "Important deadlines",
+    "next": "NEXT",
+    "passed": "passed",
+    "day": "{count} day",
+    "days": "{count} days",
+    "source_tz": "Times in your local timezone; the conference lists them in {tz}."
+  }
+}

@@ -1,0 +1,14 @@
+id = "kryzhh/spotify-ambient"
+name = "Spotify Ambient"
+version = "0.4.2"
+plugin_api = 44
+author = "kryzhh"
+license = "MIT"
+dependencies = ["playerctl", "python3", "Pillow", "noctalia", "sh", "rm", "flock"]
+tags = ["wallpaper", "music", "theming", "media"]
+icon = "brand-spotify"
+description = "Create ambient wallpapers from Spotify artwork and generate matching Noctalia palettes from the original cover art."
+
+[[service]]
+id = "ambient"
+entry = "service.luau"

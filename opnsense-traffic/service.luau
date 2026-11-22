@@ -10,12 +10,17 @@
 -- key=/secret= file (the format OPNsense offers for download), so it does not
 -- end up in settings.toml or anything mirrored from it.
 
+local checks = require("./lib/checks.luau")
 local peaks = require("./lib/peaks.luau")
+local storage = require("./lib/storage.luau")
 
 local SNAPSHOT_KEY = "opnsense_snapshot"
 local COMMAND_KEY = "opnsense_command"
 local HISTORY = 40
 local DETECT_EVERY_MS = 10 * 60 * 1000
+-- A refresh right after a poll gives a tiny interval, in which the slightly
+-- different read times of counters and timestamp would dominate the rate.
+local MIN_SAMPLE_S = 0.5
 
 local running = false
 local lastRun = 0
@@ -54,7 +59,7 @@ local function saveHidden()
 		table.insert(ids, id)
 	end
 	table.sort(ids)
-	noctalia.writeFile(p, noctalia.json.encode(ids))
+	storage.writeJson(p, ids)
 end
 
 -- nil when visible, else "panel" or "settings" (where it was hidden).
@@ -73,6 +78,16 @@ local function hiddenBy(id, name, device)
 end
 
 peaks.load()
+
+-- This PC's own rate from Noctalia's system monitor (show_local), with a
+-- history for the graph. Its scale is the link speed of the network card,
+-- not a measured peak. nil while turned off or the source is unavailable.
+local pc = nil
+local pcHistory = { id = "", rx = {}, tx = {}, sampledAt = nil }
+-- Read once, then again only while unknown (a card that has no link yet at
+-- start), after waking up (renegotiation) or when the interface setting changes.
+local LINK_RETRY_MS = 30 * 1000
+local link = { name = nil, bytesPerSec = 0, at = 0, stale = true }
 loadHidden()
 -- From /api/interfaces/overview: the first interface with a default route
 -- (auto-detect) and every one that has one (WAN side, see isWanSide).
@@ -101,12 +116,11 @@ local function readCredentials()
 	if raw == nil then
 		return nil, noctalia.tr("errors.no_credentials", { path = path })
 	end
-	local key = raw:match("key%s*=%s*([^%s]+)")
-	local secret = raw:match("secret%s*=%s*([^%s]+)")
-	if key == nil or secret == nil then
+	local creds = checks.parseCredentials(raw)
+	if creds == nil then
 		return nil, noctalia.tr("errors.bad_credentials", { path = path })
 	end
-	return { key = key, secret = secret }
+	return creds
 end
 
 -- Noctalia's HTTP client keeps one HTTP/2 connection per host and reuses it.
@@ -129,11 +143,16 @@ local function startFallback()
 end
 
 -- The key never reaches a command line: the shell reads it from the key file
--- and hands it to curl as a config on stdin (printf is a shell builtin).
-local CURL_SCRIPT = [[
-k=$(sed -n 's/^key=//p' "$1"); s=$(sed -n 's/^secret=//p' "$1")
-printf 'user = "%s:%s"\n' "$k" "$s" | curl -sS -K - ${3:+-k} --max-time 10 -H 'Accept: application/json' -w '\n%{http_code}' "$2"
-]]
+-- and hands it to curl as a config on stdin (printf is a shell builtin). cred
+-- accepts the same lines as checks.parseCredentials and takes only the first of
+-- each, so a value is one line and cannot add options to that config; quotes and
+-- backslashes are escaped for it. -q keeps ~/.curlrc out, --proto enforces https.
+local CURL_SCRIPT = [=[
+cred() {
+  sed -n -E '/^[[:space:]]*'"$1"'[[:space:]]*=[[:space:]]*[^[:space:]]+[[:space:]]*$/{s/^[^=]*=[[:space:]]*([^[:space:]]+).*/\1/;s/["\\]/\\&/g;p;q;}' "$2"
+}
+printf 'user = "%s:%s"\n' "$(cred key "$1")" "$(cred secret "$1")" | curl -q -sS -K - --proto =https ${3:+-k} --max-time 10 -H 'Accept: application/json' -w '\n%{http_code}' "$2"
+]=]
 
 local function curlRequest(path, cb)
 	local keyFile = noctalia.expandPath(tostring(config("credentials_file", "")))
@@ -185,11 +204,29 @@ end
 
 local function publish(snapshot)
 	snapshot.updatedAt = noctalia.nowMs()
+	snapshot.pc = pc
 	noctalia.state.set(SNAPSHOT_KEY, snapshot)
 end
 
-local function publishError(err)
-	publish({ error = err, interfaces = {}, selected = "", rx = 0, tx = 0, history = history })
+-- The last snapshot with rates. A failed request keeps its rows in the panel
+-- below the error instead of emptying it; any other error clears them.
+local lastGood = {}
+
+local function publishError(err, keepRows)
+	if not keepRows then
+		lastGood = {}
+	end
+	publish({
+		error = err,
+		interfaces = lastGood.interfaces or {},
+		hidden = lastGood.hidden,
+		selected = lastGood.selected or "",
+		selectedName = lastGood.selectedName,
+		selectedDevice = lastGood.selectedDevice,
+		rx = 0,
+		tx = 0,
+		history = history,
+	})
 end
 
 local function detect(creds)
@@ -203,8 +240,9 @@ local function detect(creds)
 		local data = noctalia.json.decode(response.body or "")
 		detected.id = ""
 		detected.upstream = {}
-		for _, row in ipairs(type(data) == "table" and data.rows or {}) do
-			local id = tostring(row.identifier or "")
+		local rows = type(data) == "table" and data.rows or nil
+		for _, row in ipairs(type(rows) == "table" and rows or {}) do
+			local id = type(row) == "table" and tostring(row.identifier or "") or ""
 			if id ~= "" and type(row.routes) == "table" then
 				for _, route in ipairs(row.routes) do
 					if route == "default" then
@@ -277,7 +315,7 @@ end
 local function handleTraffic(response)
 	local err = responseError(response, "Reporting: Traffic")
 	if err ~= nil then
-		publishError(err)
+		publishError(err, (response.status or 0) == 0)
 		return
 	end
 	local data = noctalia.json.decode(response.body or "")
@@ -290,7 +328,9 @@ local function handleTraffic(response)
 	-- dropped; hidden ones get no rate, no counter state and no panel row.
 	local all = {}
 	for id, info in pairs(data.interfaces) do
-		table.insert(all, { id = id, name = tostring(info.name or id), device = tostring(info.device or "") })
+		if type(id) == "string" and type(info) == "table" then
+			table.insert(all, { id = id, name = tostring(info.name or id), device = tostring(info.device or "") })
+		end
 	end
 	local iface, resolveErr = resolve(all)
 	local selectedId = iface ~= nil and iface.id or ""
@@ -315,18 +355,22 @@ local function handleTraffic(response)
 			table.insert(hidden, { id = id, name = base.name, device = base.device, by = by })
 		elseif rx ~= nil and tx ~= nil then
 			local prev = counters[id]
-			if prev ~= nil and now > prev.t then
-				local dt = now - prev.t
-				-- Skip a sample whose counters went backwards (firewall reboot,
-				-- interface reattach) or lie too far apart (missed polls): an
-				-- average over such a gap is no current rate.
-				if rx >= prev.rx and tx >= prev.tx and dt <= maxGap then
-					rates[id] = { rx = (rx - prev.rx) / dt, tx = (tx - prev.tx) / dt }
-				else
-					rates[id] = nil
+			-- Too soon: keep the old counters, the next poll measures the whole span.
+			local fresh = prev == nil or now < prev.t or now - prev.t >= MIN_SAMPLE_S
+			if fresh then
+				if prev ~= nil and now > prev.t then
+					local dt = now - prev.t
+					-- Skip a sample whose counters went backwards (firewall reboot,
+					-- interface reattach) or lie too far apart (missed polls): an
+					-- average over such a gap is no current rate.
+					if rx >= prev.rx and tx >= prev.tx and dt <= maxGap then
+						rates[id] = { rx = (rx - prev.rx) / dt, tx = (tx - prev.tx) / dt }
+					else
+						rates[id] = nil
+					end
 				end
+				counters[id] = { rx = rx, tx = tx, t = now }
 			end
-			counters[id] = { rx = rx, tx = tx, t = now }
 			local rate = rates[id] or { rx = 0, tx = 0 }
 			local wanSide = isWanSide(id, base.name, base.device)
 			if not wanSide then
@@ -340,6 +384,7 @@ local function handleTraffic(response)
 				tx = rate.tx,
 				wanSide = wanSide,
 				ready = rates[id] ~= nil,
+				fresh = fresh,
 			})
 		end
 	end
@@ -350,6 +395,7 @@ local function handleTraffic(response)
 	table.sort(hidden, byName)
 
 	if iface == nil then
+		lastGood = { interfaces = interfaces, hidden = hidden }
 		publish({ error = resolveErr, interfaces = interfaces, hidden = hidden, selected = "", rx = 0, tx = 0, history = history })
 		return
 	end
@@ -362,7 +408,7 @@ local function handleTraffic(response)
 		history = { id = iface.id, rx = {}, tx = {} }
 	end
 	local nowSec = os.time()
-	if iface.ready then
+	if iface.ready and iface.fresh then
 		push(history.rx, iface.rx)
 		push(history.tx, iface.tx)
 		peaks.record(iface.id, iface.rx, iface.tx, nowSec)
@@ -378,6 +424,13 @@ local function handleTraffic(response)
 	history.peakTxAt = peak.txAt
 	history.since = peak.since
 	history.hold = hold
+	lastGood = {
+		interfaces = interfaces,
+		hidden = hidden,
+		selected = iface.id,
+		selectedName = iface.name,
+		selectedDevice = iface.device,
+	}
 	publish({
 		error = "",
 		interfaces = interfaces,
@@ -392,13 +445,106 @@ local function handleTraffic(response)
 	})
 end
 
+-- Link speed in bytes/s from sysfs: the named interface, or the sum over the
+-- physical interfaces that report one (a card that is down or wireless has
+-- none). 0 when unknown.
+local function refreshLink(name)
+	link.name = name
+	link.at = noctalia.nowMs()
+	link.stale = false
+	local candidates = {}
+	if name ~= "" then
+		candidates = { name }
+	else
+		for _, entry in ipairs(noctalia.listDir("/sys/class/net") or {}) do
+			if noctalia.fileExists("/sys/class/net/" .. entry .. "/device") then
+				table.insert(candidates, entry)
+			end
+		end
+	end
+	local pending = #candidates
+	local mbit = 0
+	if pending == 0 then
+		link.bytesPerSec = 0
+		return
+	end
+	local function done()
+		pending -= 1
+		if pending == 0 and link.name == name then
+			link.bytesPerSec = mbit * 125000
+		end
+	end
+	for _, entry in ipairs(candidates) do
+		local accepted = noctalia.readFileAsync("/sys/class/net/" .. entry .. "/speed", function(contents)
+			local value = tonumber(noctalia.string.trim(tostring(contents or "")))
+			if value ~= nil and value > 0 then
+				mbit += value
+			end
+			done()
+		end)
+		if not accepted then
+			done()
+		end
+	end
+end
+
+local function samplePc()
+	if config("show_local", false) ~= true or noctalia.systemStats == nil then
+		pc = nil
+		return
+	end
+	local stats = noctalia.systemStats()
+	if type(stats) ~= "table" or type(stats.net) ~= "table" then
+		pc = nil
+		return
+	end
+	local name = noctalia.string.trim(tostring(config("local_interface", "")))
+	local rates = stats.net
+	if name ~= "" then
+		rates = type(stats.net.interfaces) == "table" and stats.net.interfaces[name] or nil
+	end
+	local rx = type(rates) == "table" and tonumber(rates.rxBytesPerSec) or nil
+	local tx = type(rates) == "table" and tonumber(rates.txBytesPerSec) or nil
+	if rx == nil or tx == nil then
+		pc = nil
+		return
+	end
+	local unknownForAWhile = link.bytesPerSec <= 0 and noctalia.nowMs() - link.at >= LINK_RETRY_MS
+	if link.stale or link.name ~= name or unknownForAWhile then
+		refreshLink(name)
+	end
+	if pcHistory.id ~= name then
+		pcHistory = { id = name, rx = {}, tx = {}, sampledAt = nil }
+	end
+	-- The monitor samples on its own interval; count each sample once.
+	local sampledAt = tonumber(stats.sampledAtMs)
+	if sampledAt == nil or sampledAt ~= pcHistory.sampledAt then
+		pcHistory.sampledAt = sampledAt
+		push(pcHistory.rx, rx)
+		push(pcHistory.tx, tx)
+	end
+	pc = {
+		name = name,
+		rx = rx,
+		tx = tx,
+		rxHistory = pcHistory.rx,
+		txHistory = pcHistory.tx,
+		link = link.bytesPerSec,
+	}
+end
+
 local function poll()
 	if running then
 		return
 	end
 	lastRun = noctalia.nowMs()
+	samplePc()
 	if baseUrl() == "" then
 		publishError(noctalia.tr("errors.no_url"))
+		return
+	end
+	if not checks.isSecureUrl(baseUrl()) then
+		publishError(noctalia.tr("errors.insecure_url"))
 		return
 	end
 	local creds, err = readCredentials()
@@ -425,7 +571,7 @@ local function poll()
 	end)
 	if not accepted then
 		running = false
-		publishError(noctalia.tr("errors.unreachable", { url = baseUrl() }))
+		publishError(noctalia.tr("errors.unreachable", { url = baseUrl() }), true)
 	end
 end
 
@@ -476,8 +622,10 @@ function update()
 	-- it just woke up, so skip the dead connection right away.
 	local nowSec = os.time()
 	if nowSec - lastTickSec > SLEEP_GAP_S then
+		link.stale = true
 		startFallback()
 		counters = {}
+		rates = {}
 		lastRun = 0
 	end
 	lastTickSec = nowSec

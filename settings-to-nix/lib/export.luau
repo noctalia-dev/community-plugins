@@ -14,6 +14,8 @@ local M = {}
 local MARKER = "dmopp/settings-to-nix"
 -- Name part of the private temp directories next to the target.
 local MARKER_DIR = "settings-to-nix"
+-- Noctalia's default of 5 s is short when the system is busy (a rebuild, plugin reloads).
+local COMMAND_TIMEOUT_MS = 30000
 
 -- Left out of the export: the wallpaper paths Noctalia rewrites on every wallpaper
 -- change. Dotted paths; `*` matches exactly one level.
@@ -82,9 +84,12 @@ local function countValues(node)
 end
 
 -- Removes excluded paths and values Nix cannot express (inf/nan); prunes tables left empty.
-local function filter(node, path, patterns, stats)
+local function filter(node, path, patterns, stats, checkpoint)
 	local kept = {}
 	for _, k in node.keys do
+		if checkpoint then
+			checkpoint()
+		end
 		local child = node.map[k]
 		local childPath = table.clone(path)
 		table.insert(childPath, k)
@@ -96,7 +101,7 @@ local function filter(node, path, patterns, stats)
 			node.map[k] = nil
 		elseif child.t == "table" then
 			local before = #child.keys
-			filter(child, childPath, patterns, stats)
+			filter(child, childPath, patterns, stats, checkpoint)
 			if before > 0 and #child.keys == 0 then
 				node.map[k] = nil
 			else
@@ -207,8 +212,9 @@ function M.inspectTarget(target)
 end
 
 -- Builds the file content from the current settings.toml.
--- Returns { content, current, target, stats } or nil, err.
-function M.plan(cfg)
+-- Returns { content, current, target, stats } or nil, err. `checkpoint`, when given, is
+-- called regularly while parsing and rendering (see toml.parse).
+function M.plan(cfg, checkpoint)
 	local target = M.targetPath(cfg.target)
 	if not target then
 		return nil, noctalia.tr("errors.no_target")
@@ -226,7 +232,7 @@ function M.plan(cfg)
 		if not text then
 			return nil, noctalia.tr("errors.read", { path = source, error = tostring(readErr) })
 		end
-		local parsed, parseErr = toml.parse(text)
+		local parsed, parseErr = toml.parse(text, checkpoint)
 		if not parsed then
 			return nil, noctalia.tr("errors.parse", { path = source, error = parseErr })
 		end
@@ -234,10 +240,10 @@ function M.plan(cfg)
 	end
 
 	local stats = { values = 0, excluded = 0, skipped = 0 }
-	filter(root, {}, M.compilePatterns(EXCLUDE), stats)
+	filter(root, {}, M.compilePatterns(EXCLUDE), stats, checkpoint)
 
 	return {
-		content = header(source, string.match(target, "[^/]*$")) .. script(nix.render(root, "  ")),
+		content = header(source, string.match(target, "[^/]*$")) .. script(nix.render(root, "  ", checkpoint)),
 		current = current,
 		target = target,
 		stats = stats,
@@ -261,7 +267,7 @@ function M.write(plan, done)
 	local started = noctalia.runAsync({ "mktemp", "-d", prefix .. "XXXXXX" }, function(made)
 		local tmpDir = noctalia.string.trim(made.stdout or "")
 		if made.exitCode ~= 0 or string.sub(tmpDir, 1, #prefix) ~= prefix or string.find(tmpDir, "/", #prefix + 1, true) then
-			local reason = noctalia.string.trim(made.stderr or "")
+			local reason = made.timedOut and "mktemp timed out" or noctalia.string.trim(made.stderr or "")
 			return done(false, noctalia.tr("errors.write", { path = dir, error = reason ~= "" and reason or "mktemp failed" }))
 		end
 		local tmp = tmpDir .. "/" .. name
@@ -295,15 +301,18 @@ function M.write(plan, done)
 			return commit()
 		end
 		local checking = noctalia.runAsync({ "nix-instantiate", "--parse", tmp }, function(result)
+			if result.timedOut then
+				return finish(false, noctalia.tr("errors.timeout", { command = "nix-instantiate --parse" }))
+			end
 			if result.exitCode ~= 0 then
 				return finish(false, noctalia.tr("errors.invalid", { error = noctalia.string.trim(result.stderr or "") }))
 			end
 			commit()
-		end)
+		end, COMMAND_TIMEOUT_MS)
 		if not checking then
 			commit()
 		end
-	end)
+	end, COMMAND_TIMEOUT_MS)
 	if not started then
 		done(false, noctalia.tr("errors.write", { path = dir, error = "could not start mktemp" }))
 	end

@@ -1,7 +1,5 @@
 # Honor Earbuds
 
-[🇬🇧 English](README.md) | [🇷🇺 Русский](README.ru.md)
-
 Active Noise Cancellation (ANC) control and real-time battery monitoring for HONOR CHOICE series TWS earbuds in Noctalia Shell v5.
 
 ## Plugin

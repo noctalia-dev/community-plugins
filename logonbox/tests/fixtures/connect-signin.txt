@@ -1,0 +1,4 @@
+Connecting to https://user%40example.com@vpn.example.com:8443/app
+Open the URL below in a browser to sign in.
+https://vpn.example.com/device
+User Code: ABCD-1234

@@ -18,6 +18,7 @@
     "unmount": "Could not unmount {name}: {reason}"
   },
   "notify": {
+    "read-only": "{name} has filesystem errors and was mounted read-only: repair it with chkdsk on Windows to write to it",
     "safe": "{name} can be removed safely",
     "unsafe": "{name} was unplugged while still mounted: files being written may be lost"
   },
@@ -38,6 +39,7 @@
     "mount": "Mount",
     "mount-all": "Mount all",
     "mounted-count": "{count} mounted",
+    "mounted-count-one": "1 mounted",
     "no-media": "No medium",
     "not-mounted": "Not mounted",
     "open": "Open in the file manager",
@@ -85,7 +87,7 @@
       "label": "Scan interval"
     },
     "show_count": {
-      "description": "Show the number of drives next to the icon.",
+      "description": "Show the number of drives next to the icon when there are two or more.",
       "label": "Show the count"
     }
   },

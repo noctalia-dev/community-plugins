@@ -514,8 +514,8 @@ local function scan(force)
   local mountinfo = noctalia.readFile("/proc/self/mountinfo") or ""
   local sig = signature(names, mountinfo)
   if force or sig ~= lastSignature then
-    lastSignature = sig
     fullScan(candidates, mountinfo)
+    lastSignature = sig -- only now: a scan cut short is retried on the next tick
   end
   refreshLive()
   publish()
@@ -576,6 +576,7 @@ end
 
 local function clearPending(dev)
   pending[dev] = nil
+  publish() -- before the scan: if it overruns the CPU budget, the action must not look stuck
   scan(true)
 end
 
@@ -632,18 +633,40 @@ local function openFolder(path)
   end
 end
 
+-- mount(8) answers "wrong fs type, bad option, bad superblock" when the kernel
+-- refuses a read-write mount, e.g. ntfs3 on a volume Windows left dirty
+-- (hibernated, Fast Startup, NTFS errors). A read-only mount usually works.
+local function refusedReadWrite(stderr)
+  return (stderr or ""):find("wrong fs type", 1, true) ~= nil
+end
+
 local function mountVolume(dev, title)
   setPending(dev, "mount")
-  noctalia.runAsync({ "udisksctl", "mount", "-b", dev }, function(result)
-    if result.exitCode ~= 0 then
-      notifyError(tr("error.mount", { name = title, reason = cleanError(result.stderr, dev) }))
-    else
-      local path = (result.stdout or ""):match(" at (.-)%.?%s*$")
-      if path and noctalia.getConfig("open_after_mount") == true then
-        openFolder(path)
-      end
+  local function mounted(result)
+    local path = (result.stdout or ""):match(" at (.-)%.?%s*$")
+    if path and noctalia.getConfig("open_after_mount") == true then
+      openFolder(path)
     end
-    clearPending(dev)
+  end
+  noctalia.runAsync({ "udisksctl", "mount", "-b", dev }, function(result)
+    if result.exitCode == 0 then
+      mounted(result)
+      clearPending(dev)
+    elseif refusedReadWrite(result.stderr) then
+      noctalia.runAsync({ "udisksctl", "mount", "-b", dev, "-o", "ro" }, function(ro)
+        if ro.exitCode == 0 then
+          -- always shown: the user asked for a normal mount and got less
+          noctalia.notify(tr("title"), tr("notify.read-only", { name = title }))
+          mounted(ro)
+        else
+          notifyError(tr("error.mount", { name = title, reason = cleanError(result.stderr, dev) }))
+        end
+        clearPending(dev)
+      end)
+    else
+      notifyError(tr("error.mount", { name = title, reason = cleanError(result.stderr, dev) }))
+      clearPending(dev)
+    end
   end)
 end
 
@@ -848,6 +871,9 @@ end)
 function update()
   local seconds = math.clamp(tonumber(noctalia.getConfig("scan_interval")) or 2, 1, 30)
   noctalia.setUpdateInterval(seconds * 1000)
+  -- A scan aborted by the host's CPU budget never reaches its own reset, and
+  -- no scan can be running at the start of a tick.
+  scanning = false
   scan()
 end
 

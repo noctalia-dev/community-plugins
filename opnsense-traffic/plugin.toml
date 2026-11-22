@@ -5,7 +5,7 @@
 
 id = "dmopp/opnsense-traffic"
 name = "OPNsense Traffic"
-version = "1.0.0"
+version = "1.1.0"
 plugin_api = 42
 author = "dMopp"
 license = "MIT"
@@ -83,6 +83,21 @@ description_key = "settings.line_up_mbit.description"
 default = 0
 min = 0
 max = 100000
+
+[[setting]]
+key = "show_local"
+type = "bool"
+label_key = "settings.show_local.label"
+description_key = "settings.show_local.description"
+default = false
+
+[[setting]]
+key = "local_interface"
+type = "string"
+label_key = "settings.local_interface.label"
+description_key = "settings.local_interface.description"
+default = ""
+visible_when = { key = "show_local", values = ["true"] }
 
 [[setting]]
 key = "peak_hold_hours"

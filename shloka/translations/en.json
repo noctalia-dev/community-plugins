@@ -1,53 +1,53 @@
 {
+  "copied": "Verse copied to clipboard",
+  "load_error": "Unable to load Bhagavad Gita data.",
+  "no_verses": "No verses match the current settings.",
   "settings": {
-    "mode": {
-      "label": "Verse selection",
-      "description": "Choose a random verse or keep one verse per local day.",
-      "random": "Random",
-      "daily": "Daily"
-    },
-    "refresh_minutes": {
-      "label": "Random refresh interval",
-      "description": "Minutes between random verses; 0 disables automatic rotation."
+    "font_size": {
+      "description": "Base text size; transliteration, translation, and credits scale with it.",
+      "label": "Font size"
     },
     "language": {
-      "label": "Translation language",
+      "both": "English and Hindi",
       "description": "Choose which translation text to display.",
       "en": "English",
       "hi": "Hindi",
-      "both": "English and Hindi",
+      "label": "Translation language",
       "none": "No translation"
     },
-    "show_sanskrit": {
-      "label": "Show Sanskrit",
-      "description": "Display the Sanskrit verse."
+    "mode": {
+      "daily": "Daily",
+      "description": "Choose a random verse or keep one verse per local day.",
+      "label": "Verse selection",
+      "random": "Random"
     },
-    "show_transliteration": {
-      "label": "Show transliteration",
-      "description": "Display the Roman transliteration."
-    },
-    "show_reference": {
-      "label": "Show verse reference",
-      "description": "Display chapter, verse, and speaker."
-    },
-    "show_credit": {
-      "label": "Show translation credits",
-      "description": "Display the translator and grouped verse range when available."
+    "refresh_minutes": {
+      "description": "Minutes between random verses; 0 disables automatic rotation.",
+      "label": "Random refresh interval"
     },
     "show_controls": {
-      "label": "Show controls",
-      "description": "Display previous, copy, and next buttons."
+      "description": "Display previous, copy, and next buttons.",
+      "label": "Show controls"
+    },
+    "show_credit": {
+      "description": "Display the translator and grouped verse range when available.",
+      "label": "Show translation credits"
+    },
+    "show_reference": {
+      "description": "Display chapter, verse, and speaker.",
+      "label": "Show verse reference"
+    },
+    "show_sanskrit": {
+      "description": "Display the Sanskrit verse.",
+      "label": "Show Sanskrit"
+    },
+    "show_transliteration": {
+      "description": "Display the Roman transliteration.",
+      "label": "Show transliteration"
     },
     "teachings_only": {
-      "label": "Teachings only",
-      "description": "Limit selection to verses spoken by Shri Krishna."
-    },
-    "font_size": {
-      "label": "Font size",
-      "description": "Base text size; transliteration, translation, and credits scale with it."
+      "description": "Limit selection to verses spoken by Shri Krishna.",
+      "label": "Teachings only"
     }
-  },
-  "no_verses": "No verses match the current settings.",
-  "load_error": "Unable to load Bhagavad Gita data.",
-  "copied": "Verse copied to clipboard"
+  }
 }

@@ -1,5 +1,5 @@
 --!nonstrict
--- Utilidades compartidas por los módulos del plugin.
+-- Utilities shared by the plugin modules.
 
 local M = {}
 
@@ -10,7 +10,7 @@ function M.trim(value)
   return (tostring(value):gsub("^%s+", ""):gsub("%s+$", ""))
 end
 
--- "My Widget!" -> "my-widget". Es la base de la clase de la ventana.
+-- "My Widget!" -> "my-widget". It is the basis of the window class.
 function M.slug(name)
   local result = tostring(name):lower():gsub("[^%w]+", "-")
   result = result:gsub("^%-+", ""):gsub("%-+$", "")
@@ -24,8 +24,7 @@ function M.classFor(name)
   return "noctalia-term-" .. M.slug(name)
 end
 
--- Ruta de un archivo del plugin, tolerando que el directorio venga con
--- barra final.
+-- Path to a plugin file, tolerating a trailing slash in the directory.
 function M.pluginPath(name)
   local dir = noctalia.pluginDir()
   if dir == nil then
@@ -39,8 +38,8 @@ function M.shellQuote(value)
   return "'" .. tostring(value):gsub("'", "'\\''") .. "'"
 end
 
--- Cadena Lua entre comillas dobles, para incrustarla en la expresión que
--- recibe `hyprctl dispatch`.
+-- Lua string in double quotes, to embed it in the expression that
+-- `hyprctl dispatch` receives.
 function M.luaQuote(value)
   local escaped = tostring(value)
   escaped = escaped:gsub("\\", "\\\\")

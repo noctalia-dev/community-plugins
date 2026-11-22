@@ -52,6 +52,10 @@ TOPOLOGY_FALLBACK_SEC = 2.0
 # While idle, re-read battery and stamp a fresh ts so the UI can tell a live
 # snapshot from a stale cache. Settings are not re-read on this heartbeat.
 HEARTBEAT_SEC = 60.0
+# How often to look for devices that reset and lost their saved settings.
+RESET_CHECK_SEC = 10.0
+# Written to HID++ ConfigChange after applying; a device reset clears it.
+RESET_COOKIE = b"MX"
 EXIT_PEER_SERVING = 3
 IN_CREATE = 0x00000100
 IN_MODIFY = 0x00000002
@@ -803,6 +807,47 @@ def device_is_online(dev) -> bool:
         return bool(dev.ping())
     except Exception:
         return bool(getattr(dev, "online", False))
+
+
+def reapply_saved(devices, configured: set) -> bool:
+    """Write saved settings back to devices that reset, as the Solaar app does
+    on activation. Devices without ConfigChange are re-applied after being
+    offline; `configured` holds their ids. Returns True if anything was applied."""
+    try:
+        from logitech_receiver.hidpp20_constants import SupportedFeature
+    except ImportError:
+        return False
+
+    applied = False
+    for dev in devices:
+        try:
+            if not is_mx_name(str(getattr(dev, "name", "") or getattr(dev, "codename", "") or "")):
+                continue
+            did = device_id(dev)
+            if not dev.ping():
+                configured.discard(did)
+                continue
+            cookie = bool(dev.features) and SupportedFeature.CONFIG_CHANGE in dev.features
+            if cookie:
+                reply = dev.feature_request(SupportedFeature.CONFIG_CHANGE, 0x00)
+                if reply and reply[:2] == RESET_COOKIE:
+                    continue
+            elif did in configured:
+                continue
+            ignored = (dev.persister or {}).get("_sensitive", {})
+            for setting in dev.settings:
+                if setting is None or ignored.get(setting.name) == "ignore":
+                    continue
+                if KIND_NAMES.get(int(getattr(setting, "kind", 0) or 0)) in SKIP_WRITE_KINDS:
+                    continue
+                setting.apply()  # writes the saved value; logs and skips a failed write
+            if cookie:
+                dev.feature_request(SupportedFeature.CONFIG_CHANGE, 0x10, *RESET_COOKIE)
+            configured.add(did)
+            applied = True
+        except Exception:
+            continue
+    return applied
 
 
 def load_settings(mods, dev, live: bool = False, on_setting=None) -> list[dict]:
@@ -2023,6 +2068,9 @@ def serve_command() -> int:
             full=True,
             on_partial=publish,
         )
+        configured: set[str] = set()
+        reapply_saved(list(iter_devices(opened)), configured)
+        last_reset_check = time.monotonic()
         try:
             actions.sync(list(iter_devices(opened)), load_actions())
         except Exception as exc:
@@ -2037,7 +2085,7 @@ def serve_command() -> int:
                 event_fd = pointer.event_fd()
                 wait_for_event(
                     [runtime_fd, hid_fd, actions.wakeup.reader, event_fd],
-                    actions.wait_timeout(idle_timeout),
+                    actions.wait_timeout(min(idle_timeout, RESET_CHECK_SEC)),
                     keep=(event_fd,) if event_fd is not None else (),
                 )
                 cmds = _read_cmds(paths)
@@ -2046,6 +2094,11 @@ def serve_command() -> int:
             next_topology = hidraw_topology()
             topology_changed = next_topology != topology
             if not cmds and not topology_changed:
+                if time.monotonic() - last_reset_check >= RESET_CHECK_SEC:
+                    last_reset_check = time.monotonic()
+                    if reapply_saved(list(iter_devices(opened)), configured):
+                        # A reset also drops the diversions button actions use.
+                        actions.check(list(iter_devices(opened)))
                 # Worker failures restore input on the command-handle owner
                 # immediately; only failed sessions retry, with backoff.
                 actions.sync(list(iter_devices(opened)), actions.bindings)

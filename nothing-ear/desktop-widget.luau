@@ -75,7 +75,7 @@ local function ancRow(anc)
 				shared.sendCommand("set-anc", spec.mode, spec.mode == "anc" and "high" or nil)
 			end,
 		}, {
-			ui.glyph({ name = spec.glyph, size = 18, color = selected and "primary" or "on_surface_variant" }),
+			ui.image({ path = iconPath(spec.icon), width = 18, height = 18, fit = "contain", opacity = selected and 1 or 0.6 }),
 		}))
 	end
 	return ui.row({ gap = 8, justify = "center" }, buttons)
@@ -108,6 +108,16 @@ local function render()
 
 	local battery = status.battery or {}
 	local anc = status.anc or {}
+	local batteries
+	if (status.model or {}).battery_single or type(battery.single) == "table" then
+		batteries = { budBattery(battery.single, "headphones") }
+	else
+		batteries = {
+			budBattery(battery.left, "bud-left"),
+			budBattery(battery.case, "case"),
+			budBattery(battery.right, "bud-right"),
+		}
+	end
 
 	desktopWidget.render(ui.column({
 		gap = 10,
@@ -116,11 +126,7 @@ local function render()
 		fill = "surface_container",
 		width = CARD_WIDTH,
 	}, {
-		ui.row({ justify = "space_between", gap = 6 }, {
-			budBattery(battery.left, "bud-left"),
-			budBattery(battery.case, "case"),
-			budBattery(battery.right, "bud-right"),
-		}),
+		ui.row({ justify = "space_between", gap = 6 }, batteries),
 		ui.separator({ thickness = 1, color = "on_surface/0.1" }),
 		ancRow(anc),
 	}))

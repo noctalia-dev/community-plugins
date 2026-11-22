@@ -3,6 +3,7 @@
 -- then every OPNsense interface with its live rates so the right name for the
 -- "interface" setting is easy to find (click a row to copy its identifier).
 
+local checks = require("./lib/checks.luau")
 local format = require("./lib/format.luau")
 
 local SNAPSHOT_KEY = "opnsense_snapshot"
@@ -10,12 +11,21 @@ local COMMAND_KEY = "opnsense_command"
 
 local snapshot = noctalia.state.get(SNAPSHOT_KEY) or {}
 local showHidden = false
+local shownStale = false
+
+local function isStale()
+	return checks.isStale(snapshot.updatedAt, noctalia.nowMs(), noctalia.getConfig("poll_interval"))
+end
 
 local function sendRefresh()
 	noctalia.state.set(COMMAND_KEY, { action = "refresh", nonce = tostring(noctalia.nowMs()) })
 end
 
+-- A line speed setting key, or bytes/s directly (this PC's link speed).
 local function lineBytes(key)
+	if type(key) == "number" then
+		return key
+	end
 	return (tonumber(noctalia.getConfig(key)) or 0) * 125000
 end
 
@@ -35,13 +45,13 @@ local function peakText(peak, peakAt, since)
 	return noctalia.tr("panel.peak", { peak = format.mbit(peak), at = clock(peakAt), since = clock(since) })
 end
 
-local function directionRow(glyph, labelKey, value, lineKey, peak, peakAt, since)
+local function directionRow(glyph, labelKey, value, lineKey, peak, peakAt, since, lineTextKey)
 	local line = lineBytes(lineKey)
 	local max = line > 0 and line or (tonumber(peak) or 0)
 	local progress = max > 0 and math.max(0, math.min(1, value / max)) or 0
 	local meta = format.mbit(value)
 	if line > 0 then
-		meta = meta .. " · " .. noctalia.tr("panel.of_line", { line = format.mbit(line) })
+		meta = meta .. " · " .. noctalia.tr(lineTextKey or "panel.of_line", { line = format.mbit(line) })
 	end
 	local lines = {
 		ui.label({ text = noctalia.tr(labelKey), fontSize = 13, fontWeight = "medium", color = "on_surface" }),
@@ -138,6 +148,10 @@ end
 local function render()
 	local body = {}
 	local err = tostring(snapshot.error or "")
+	shownStale = isStale()
+	if err == "" and shownStale then
+		err = noctalia.tr("errors.stale")
+	end
 	if err ~= "" then
 		table.insert(body, ui.label({ text = err, fontSize = 12, color = "error" }))
 	end
@@ -150,6 +164,18 @@ local function render()
 		table.insert(body, ui.label({ text = title, fontSize = 12, color = "on_surface_variant" }))
 		table.insert(body, directionRow("download", "panel.download", tonumber(snapshot.rx) or 0, "line_down_mbit", history.peakRx, history.peakRxAt, history.since))
 		table.insert(body, directionRow("upload", "panel.upload", tonumber(snapshot.tx) or 0, "line_up_mbit", history.peakTx, history.peakTxAt, history.since))
+		-- This PC (show_local): same rows, scaled to the link speed of its card.
+		local pc = noctalia.getConfig("show_local") == true and type(snapshot.pc) == "table" and snapshot.pc or nil
+		if pc ~= nil then
+			local pcTitle = noctalia.tr("tooltip.this_pc")
+			if pc.name ~= nil and pc.name ~= "" then
+				pcTitle = pcTitle .. " (" .. pc.name .. ")"
+			end
+			table.insert(body, ui.label({ text = pcTitle, fontSize = 12, color = "on_surface_variant" }))
+			local linkSpeed = tonumber(pc.link) or 0
+			table.insert(body, directionRow("download", "panel.download", tonumber(pc.rx) or 0, linkSpeed, nil, nil, nil, "panel.of_link"))
+			table.insert(body, directionRow("upload", "panel.upload", tonumber(pc.tx) or 0, linkSpeed, nil, nil, nil, "panel.of_link"))
+		end
 		local hold = tonumber(history.hold) or 0
 		local holdText = hold > 0 and noctalia.trp("panel.hold_hours", hold) or noctalia.tr("panel.hold_unlimited")
 		table.insert(body, ui.row({ align = "center", gap = 8 }, {
@@ -218,6 +244,15 @@ noctalia.state.watch(SNAPSHOT_KEY, function(value)
 		render()
 	end
 end)
+
+-- A dead service publishes nothing, so the age has to be checked from here.
+noctalia.setUpdateInterval(5000)
+
+function update()
+	if isStale() ~= shownStale then
+		render()
+	end
+end
 
 function onOpen(_context)
 	render()

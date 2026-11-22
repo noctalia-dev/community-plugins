@@ -103,6 +103,14 @@ local function getPackageDownloadBytes(pkg)
   return 0
 end
 
+local function getDnfKey(pkg)
+  if not pkg then return "" end
+  if pkg.name and pkg.arch and pkg.arch ~= "" then
+    return pkg.name .. "." .. pkg.arch
+  end
+  return pkg.name or ""
+end
+
 local function getFlatpakKey(pkg)
   if not pkg then return "" end
   if pkg.ref and pkg.ref ~= "" then return pkg.ref end
@@ -110,11 +118,43 @@ local function getFlatpakKey(pkg)
   return pkg.name or ""
 end
 
-local function toggleExcludeDnf(name)
-  if excludedDnf[name] then
-    excludedDnf[name] = nil
+local function pruneExclusions(state)
+  if not state then return end
+
+  if state.dnf and state.dnf.packages then
+    local currentDnfKeys = {}
+    for _, pkg in ipairs(state.dnf.packages) do
+      currentDnfKeys[getDnfKey(pkg)] = true
+    end
+    for k in pairs(excludedDnf) do
+      if not currentDnfKeys[k] then
+        excludedDnf[k] = nil
+      end
+    end
   else
-    excludedDnf[name] = true
+    excludedDnf = {}
+  end
+
+  if state.flatpak and state.flatpak.packages then
+    local currentFpKeys = {}
+    for _, pkg in ipairs(state.flatpak.packages) do
+      currentFpKeys[getFlatpakKey(pkg)] = true
+    end
+    for k in pairs(excludedFlatpak) do
+      if not currentFpKeys[k] then
+        excludedFlatpak[k] = nil
+      end
+    end
+  else
+    excludedFlatpak = {}
+  end
+end
+
+local function toggleExcludeDnf(key)
+  if excludedDnf[key] then
+    excludedDnf[key] = nil
+  else
+    excludedDnf[key] = true
   end
   if render then
     render()
@@ -135,18 +175,19 @@ end
 local function toggleAllDnf(packages)
   local anyExcluded = false
   for _, pkg in ipairs(packages) do
-    if excludedDnf[pkg.name] then
+    local k = getDnfKey(pkg)
+    if excludedDnf[k] then
       anyExcluded = true
       break
     end
   end
   if anyExcluded then
     for _, pkg in ipairs(packages) do
-      excludedDnf[pkg.name] = nil
+      excludedDnf[getDnfKey(pkg)] = nil
     end
   else
     for _, pkg in ipairs(packages) do
-      excludedDnf[pkg.name] = true
+      excludedDnf[getDnfKey(pkg)] = true
     end
   end
   if render then
@@ -185,25 +226,6 @@ local function tr(key, params)
     end
   end
   return text
-end
-
-local function formatAgo(timestamp)
-  local minutes = math.floor((os.time() - timestamp) / 60)
-  if minutes < 1 then
-    return tr("ago.now")
-  elseif minutes < 60 then
-    return tr("ago.minutes", { n = minutes })
-  elseif minutes < 1440 then
-    return tr("ago.hours", { n = math.floor(minutes / 60) })
-  end
-  return tr("ago.days", { n = math.floor(minutes / 1440) })
-end
-
-local function formatLastChecked(state)
-  if state and (state.last_check_timestamp or 0) > 0 then
-    return tr("status.last_checked", { time = formatAgo(state.last_check_timestamp) })
-  end
-  return tr("status.never_checked")
 end
 
 local function statusCard(state)
@@ -369,7 +391,8 @@ local function renderDnfSection(state)
   local selectedCount = 0
   local selectedBytes = 0
   for _, pkg in ipairs(packages) do
-    if not excludedDnf[pkg.name] then
+    local k = getDnfKey(pkg)
+    if not excludedDnf[k] then
       selectedCount += 1
       selectedBytes += getPackageDownloadBytes(pkg)
     end
@@ -440,7 +463,8 @@ local function renderDnfSection(state)
 
     if isMatch then
       visibleCount += 1
-      local isExcluded = excludedDnf[pkg.name] == true
+      local pkgKey = getDnfKey(pkg)
+      local isExcluded = excludedDnf[pkgKey] == true
       local arch = (pkg.arch ~= machineArch) and (pkg.arch or "") or ""
       local repo = ""
       if pkg.repo and pkg.repo ~= "" and not officialRepos[pkg.repo] then
@@ -487,7 +511,7 @@ local function renderDnfSection(state)
       end
 
       table.insert(items, ui.row({
-        key = "dnf-pkg-" .. tostring(idx) .. "-" .. (pkg.name or "pkg"),
+        key = "dnf-pkg-" .. tostring(idx) .. "-" .. pkgKey,
         padding = 8,
         paddingH = 12,
         fill = isExcluded and "surface_container" or "surface",
@@ -496,7 +520,7 @@ local function renderDnfSection(state)
         gap = 8,
         onClick = function()
           if not isBusy then
-            toggleExcludeDnf(pkg.name)
+            toggleExcludeDnf(pkgKey)
           end
         end,
       }, {
@@ -724,28 +748,18 @@ render = function()
 
   local header = ui.row({ align = "center", gap = 8 }, {
     ui.glyph({ name = "package", size = 16, color = "primary" }),
-    ui.column({ key = "panel-title-block", gap = 0 }, {
-      ui.row({ align = "center", gap = 6 }, {
-        ui.label({
-          key = "panel-title",
-          text = tr("title"),
-          fontSize = 15,
-          fontWeight = "bold",
-          color = "on_surface",
-        }),
-        ui.label({
-          key = "panel-version",
-          text = pluginVersion ~= "" and ("v" .. pluginVersion) or "",
-          fontSize = 11,
-          color = "on_surface_variant",
-        }),
+    ui.row({ key = "panel-title-block", align = "center", gap = 6 }, {
+      ui.label({
+        key = "panel-title",
+        text = tr("title"),
+        fontSize = 15,
+        fontWeight = "bold",
+        color = "on_surface",
       }),
       ui.label({
-        key = "panel-last-checked",
-        text = (state and (state.last_update_timestamp or 0) > 0)
-            and (formatLastChecked(state) .. " · " .. tr("status.last_update", { time = formatAgo(state.last_update_timestamp) }))
-          or formatLastChecked(state),
-        fontSize = 10,
+        key = "panel-version",
+        text = pluginVersion ~= "" and ("v" .. pluginVersion) or "",
+        fontSize = 11,
         color = "on_surface_variant",
       }),
     }),
@@ -907,6 +921,7 @@ end
 
 function onOpen(_context)
   updateState = noctalia.state.get("update_state")
+  pruneExclusions(updateState)
   searchQuery = ""
   render()
 end
@@ -928,10 +943,13 @@ end
 
 function onUpdateAll()
   local excludedDnfList = {}
+  local seenDnf = {}
   if updateState and updateState.dnf and updateState.dnf.packages then
     for _, pkg in ipairs(updateState.dnf.packages) do
-      if excludedDnf[pkg.name] then
-        table.insert(excludedDnfList, pkg.name)
+      local k = getDnfKey(pkg)
+      if excludedDnf[k] and not seenDnf[k] then
+        seenDnf[k] = true
+        table.insert(excludedDnfList, k)
       end
     end
   end
@@ -957,10 +975,13 @@ end
 
 function onUpdateDnf()
   local excludedDnfList = {}
+  local seenDnf = {}
   if updateState and updateState.dnf and updateState.dnf.packages then
     for _, pkg in ipairs(updateState.dnf.packages) do
-      if excludedDnf[pkg.name] then
-        table.insert(excludedDnfList, pkg.name)
+      local k = getDnfKey(pkg)
+      if excludedDnf[k] and not seenDnf[k] then
+        seenDnf[k] = true
+        table.insert(excludedDnfList, k)
       end
     end
   end
@@ -1003,6 +1024,7 @@ end
 -- Subscribe to state changes from background service
 noctalia.state.watch("update_state", function(newState)
   updateState = newState
+  pruneExclusions(newState)
   render()
 end)
 

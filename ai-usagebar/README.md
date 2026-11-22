@@ -6,9 +6,9 @@ The numbers come from [ai-usagebar](https://github.com/akitaonrails/ai-usagebar)
 a Rust CLI that reads Claude, Codex, GitHub Copilot, Cursor, Antigravity, Kiro,
 Z.AI, Nous Research, OpenCode Go, Command Code, OpenRouter, DeepSeek, Kimi and Grok, among
 others. The selector also includes DeepInfra, Grok Bot, Ollama Cloud, OrcaRouter,
-Model Studio, Lyceum, Devin, Cline, Muse Code and Synthetic. The plugin runs
+Model Studio, Lyceum, Devin, Cline, Muse Code, Synthetic, Droid, DeepRelay and Mistral. The plugin runs
 `ai-usagebar usage --json` and displays the report.
-The provider catalog is read separately with `ai-usagebar vendors --json` when requested.
+Diagnostics reads the provider catalog with `ai-usagebar vendors --json` on demand.
 It does not call provider APIs or read credential files.
 
 ## Plugin
@@ -26,13 +26,16 @@ tarballs on the project's GitHub Releases page. Configure your providers once in
 `~/.config/ai-usagebar/config.toml`; the CLI manages credentials and provider
 connections.
 
-The plugin accepts the optional fields in ai-usagebar 1.40.1, including
-Antigravity model pools and Synthetic. Older CLI reports remain supported; a
-provider appears only when the installed CLI can report it. Since 1.40.1, the CLI
+The plugin accepts the optional fields through ai-usagebar 1.52.0, including
+Antigravity model pools and Synthetic refill metadata. Older CLI reports remain supported; a
+provider appears only when the installed CLI can report it. Mistral budgets and
+Kimi monthly-only plans use only the windows supplied by the CLI; calendar
+budgets without a fixed duration do not get an elapsed-time gauge. Since 1.40.1, the CLI
 may run `agy -p "/quota" --output-format json` when `agy` is installed to read
 Antigravity quotas. The plugin does not start or configure `agy` itself.
 
-The CLI can send its own quota notifications when this plugin polls it. To
+The CLI sends quota notifications according to its own settings. The plugin
+adds no alerts or extra thresholds. To
 disable them, add this to `~/.config/ai-usagebar/config.toml`:
 
 ```toml
@@ -44,12 +47,15 @@ When the CLI is missing, the panel displays its project address and can open it
 with `xdg-open`. The same command opens provider dashboards from the panel.
 Install `xdg-open` alongside `ai-usagebar`.
 
-The plugin requires plugin API 32 for container tooltips and shared modules.
+The plugin requires plugin API 43 for the current Noctalia palette roles,
+container tooltips and shared modules.
 It will not install on an older shell. Plugin version 1.1.0 remains available for API 9.
 
 The main readings and provider icons follow the shell's typography and bar scale.
 Text also follows the configured font family, weight and font scale. Countdown and
-pace remain smaller secondary readings.
+pace remain smaller secondary readings. Provider and model marks use a consistent
+16px glyph in an 18px slot. On the bar, the reset clock and countdown appear only
+when a window is near 100% (`>= 90%`) or at its limit, keeping normal usage compact.
 
 ## Usage
 
@@ -77,11 +83,12 @@ Settings use the same names as the core `sysmon` widget. Set `visualization` to
 `gauge` for short-window usage above a thinner long-window usage bar, or
 `none` to hide the bars. A provider with one available window shows one bar. `show_value`,
 `show_glyph` and `glyph_position` control the percentage and icon placement,
-including Antigravity's individual model readings. Provider groups use a subtle
-divider; models within one provider use dots. Enable `show_name` to distinguish
-the shared model groups. Names remain bounded so they do not take over the bar.
+including Antigravity's individual model readings. A divider separates providers
+and models. Enable `show_name` to distinguish shared model groups. Names remain
+bounded so they do not take over the bar.
 
-`extras` adds the reset countdown (`3h 51m`), consumption pace (`↑3` means three
+`extras` adds the reset countdown (`3h 51m`, shown on the bar when usage reaches
+`90%` or is critical, and always shown in the tooltip), consumption pace (`↑3` means three
 percentage points ahead of elapsed time; `↓3` means three behind), both, or
 neither. Countdowns show days and hours from 24 hours onward, and hours and
 minutes below that.
@@ -103,47 +110,79 @@ start = [ "clock", "ai_usage" ]
 
 - Hover shows a compact summary of at most ten rows, with each quota window and
   its reset countdown on its own line. Open the panel for all windows, models and diagnostics.
-- When a long window is exhausted, the capsule replaces the short-window value
-  with `100%` and counts down to the blocking window's reset. If several windows
-  are exhausted, it uses the latest reset. A critical warning below 100% does
-  not count as exhaustion.
-- Left click opens the `AI Usage` panel for the provider that capsule
-  tracks.
+- When a window is exhausted, the capsule shows its reset countdown without a
+  redundant percentage. If the countdown is unavailable or disabled, the
+  percentage remains visible. If several windows are exhausted, it uses the
+  latest reset. A critical warning below 100% does not count as exhaustion.
+- Click a provider or model to select its account. **Open panel in** chooses
+  whether the click opens All accounts or the selected provider's details. In
+  provider detail mode, clicking a model also highlights its card. All accounts
+  is available when more than one account is configured.
 - Right click requests a refresh. One poller serves every capsule and keeps at
   most one pending refresh when requests arrive during a read.
 - Middle click opens the widget's settings, as everywhere else in the shell.
 
-The script handles left and middle clicks. Right click is a gesture binding in
-the widget settings, where you can assign another action or choose `none`.
+Scroll over an automatic capsule to cycle through providers in its filter.
+A pinned provider does not cycle.
 
-The panel shows provider tabs at the top and the selected provider's limits
-below. With more than three providers, tabs show icons only and reveal names on
-hover. Session and weekly limits share a card; Antigravity has a separate card
-for each model. Each window shows its quota bar, a short reset countdown and reported consumption pace.
+The script handles left click; the shell opens settings on middle click.
+Right click is a gesture binding in the widget settings, where you can assign
+another action or choose `none`.
+
+With multiple accounts, a direct panel open starts with **All accounts**: a scrolling overview
+with up to four named account cards per page. Previous/next controls and the
+visible range keep every account reachable. Each card previews up to three
+reported quota windows (or all reported windows and model pools for Antigravity),
+or its balance, and shows reading age and stale status.
+Extra windows are identified rather than silently dropped.
+
+Click a card to see its windows, models, credits and optional priorities.
+**All accounts** returns to the overview without changing the CLI's active
+account. With one account, the panel opens directly in its details.
+
+The detail tabs identify the selected account. Up to five account tabs remain
+visible; previous/next controls handle longer lists. Compact tabs
+reveal full names on hover. Session and weekly limits share a card; Antigravity
+has a separate card for each model. Each window shows its quota bar, a short
+reset countdown and consumption pace. For Antigravity, pace is estimated from
+usage, window duration and reset time; it is hidden if those values are unavailable
+or the reset has passed.
 Hover the countdown for the local reset time. A thinner bar compares quota with
 reported window time: elapsed in used mode, time left in remaining mode.
 Hover the window label for its time percentage. The thin bar stays hidden when
 the CLI supplies no window time.
 The shared `Claude & GPT OSS` quota keeps the name supplied by the CLI.
 
-The footer shows the update time and quota warnings above 50% usage, with one
-compact pill per model showing its most restrictive window. Hover a pill for
-its full status. Exhausted quotas also show their reset countdown.
+The footer shows the update time and up to two quota warnings above 50% usage,
+with the most restrictive window per model. A `+N` indicates additional warnings.
+Hover a pill for its full status. Exhausted quotas also show their reset countdown.
 Read failures show the last known state. The panel displays quota readings,
 not agent process health.
 
-The header stays fixed while longer reports scroll. Every provider reserves the
-same space beside its cards, so the scrollbar does not change their width.
+The header stays fixed while reports scroll. The reading viewport adapts to the
+amount of data within a 640px panel maximum; scrolling keeps long reports
+accessible. Cards reserve space for the scrollbar so their width stays the same
+between providers.
 
 Opening the panel requests fresh data. The header keeps refresh and close within
-reach. Open the **⋯** actions for diagnostics, copying a summary, the selected
-quota service and plugin settings. Both Antigravity model groups share the same
-service link. Click outside or click the widget again to close the panel.
+reach, alongside diagnostics and settings. The account footer offers Copy summary
+and the provider dashboard. Both Antigravity model groups share the same service link. Click outside, click the widget again or press Escape to close
+the panel. Press R to refresh usage, or both usage and the catalog while Diagnostics is open.
+Arrow keys select accounts outside Diagnostics. In the overview they reveal the
+selected card; Enter opens its detail. Press O to return to All accounts.
 
-The list contains only providers with a usable reading. A provider the CLI
-reports no API key for never appears, because it was never set up. A configured
+The list contains providers with usable readings and parser failures. A default
+provider reporting no API key is hidden because the CLI does not distinguish
+a missing credential from a provider that was never configured. A configured
 provider with its own refresh failure also leaves the bar and panel, then
-returns automatically after a healthy read. Model-specific Gemini pools, such as
+returns automatically after a healthy read. If the CLI instead supplies a dated,
+ready cache, its last quota or balance stays visible as stale, including after
+a rejected API-key request. Diagnostics retains the reported failure and recovery guidance.
+
+An empty report shows a message and a direct Diagnostics action. A failed refresh
+without a visible reading shows the error and retry action instead of a stale-data notice.
+
+Model-specific Gemini pools, such as
 Gemini 4 Argon, appear inside the Gemini card with their own name, reset and usage. They do not add a separate bar reading.
 A full Gemini 4 Argon pool does not mark Antigravity as
 exhausted while its shared windows remain available. The panel sorts providers by headline
@@ -158,8 +197,7 @@ Parser errors are an exception: the provider remains visible with missing usage
 and the CLI error, because a response-format failure does not establish that the
 account is unavailable.
 
-Details include the plan and account name, reading age, stale status, window
-labels, percentages, elapsed time, reset countdowns and local reset times, pace,
+Details include the account name, reading age, stale status, window labels, percentages, elapsed time, reset countdowns and local reset times, pace,
 and high or critical severity labels. Raw values appear when they add information
 to the percentage. Credit blocks and free text are also shown; zero credit
 balances are hidden. Codex reset credits show the reset type and expiry on
@@ -168,7 +206,14 @@ separate lines, with wrapping for longer descriptions.
 Cursor On-Demand spending has its own meter when the CLI reports a positive cap
 and percentage. Its currency amount stays visible; used/remaining does not invert
 spending. An uncapped amount stays text. Synthetic shows the subscription quota
-and request count supplied by the CLI, without assuming a reset window.
+and request count supplied by the CLI, without assuming a reset window. A metric
+with `reading = "left"` always shows its remaining quota, even in used mode.
+Printed figures honor `percent_precise` (up to two decimal places); meters and
+severity retain the integer `percent`. When `regen` is present, the panel and
+bar tooltip describe the next partial refill, such as "Regenerates 2% in 2h",
+instead of a full reset. Countdown values tick locally from `reset_at`.
+Droid and DeepRelay use the same report contract; selecting them does not enable
+or authenticate them in the CLI.
 
 A whole-report failure is different: it cannot identify one broken provider,
 so it keeps the last list and marks those readings as old instead of blanking
@@ -180,16 +225,45 @@ To open the panel from a terminal:
 noctalia msg panel-toggle felipeartur/ai-usagebar:panel
 ```
 
+## Priorities
+
+![Model quota card with account priorities, using example data](images/priorities.png)
+
+Turn on **Show priorities** in the plugin settings to show the estimates inside
+each existing model card, alongside its quota windows. The service then runs
+`ai-usagebar usage --json --priorities`. This requires ai-usagebar 1.46 or newer
+and is off by default.
+
+The details follow the selected account: reported status, projected unused
+quota, remaining quota and reset countdown when available. The CLI's suggestion
+is marked separately. For providers that group several models in one account,
+the section is labelled **Account priorities** because the CLI supplies an
+account estimate. It does not calculate a separate projection for each model.
+
+The ordinary provider tabs, refresh action and keyboard navigation remain in
+place. Old or expired suggestions are labelled and need a fresh report before
+an account can be suggested again. The bar keeps its selection by severity and
+usage.
+
+While enabled, the CLI records a small local history of quota percentages and
+timestamps. Turning the option off hides the embedded details and stops
+requesting this mode. Existing CLI history stays in place. The plugin keeps no
+separate history. If the CLI rejects the flag, polling falls back to the ordinary
+command and the embedded section explains the missing support.
+
 ## Settings
 
 Plugin-level, shared by the poller, every capsule and the panel:
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
+| `show_priorities` | `bool` | `false` | Show priority estimates inside the model cards. Records quota history locally while enabled. |
 | `refresh_minutes` | `int` | `5` | Minutes between quota calls, from 1 to 120. Countdowns tick locally in between. |
 | `usage_display` | `select` | `used` | Show `used` or `remaining` quota in every capsule and the panel. Numbers and gauges change together; colors and priority still follow consumption. Balances are unchanged. |
 
-Per widget instance, so two capsules can follow two providers:
+Per widget instance, so two capsules can follow two providers. Turn on the native
+settings editor's **Advanced** switch to edit `account`, `auto_providers`,
+`glyph_position` and `color_by_usage`; existing values remain active either way.
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
@@ -198,9 +272,11 @@ Per widget instance, so two capsules can follow two providers:
 | `quota_window` | `select` | `auto` | Keep the default windows, or choose `session`, `weekly` or `monthly`. An exhausted window takes priority. A window the provider does not report shows no percentage. |
 | `auto_providers` | `string_list` | `[]` | Limit automatic selection, scroll and `+N` to these provider or account IDs. A provider ID includes all its accounts; `provider@account` selects that account. Empty includes all. Ignored for a pinned provider. |
 | `visualization` | `select` | `gauge` | `gauge` or `none`, as described above. |
+| `show_exhausted_value` | `bool` | `false` | Keep the exhausted percentage visible alongside the reset countdown when `show_value` is enabled. |
 | `show_value` | `bool` | `true` | Show the reported percentage or amount as text. |
 | `show_glyph` | `bool` | `true` | Show the provider's icon. |
 | `glyph_position` | `select` | `before` | `before` or `after` the reading. |
+| `panel_view` | `select` | `overview` | Open All accounts or the selected provider's details. An empty capsule opens All accounts. |
 | `provider_limit` | `int` | `1` | How many providers one capsule carries, busiest first, from 1 to 4. Only applies on `auto`. |
 | `extras` | `select` | `countdown` | Information beside the percentage: `countdown`, `pace`, `both` or `none`. |
 | `show_name` | `bool` | `false` | Show the provider name, or each model name for Antigravity. Long names are shortened; tooltips keep the full label. |
@@ -208,21 +284,16 @@ Per widget instance, so two capsules can follow two providers:
 
 ## Diagnostics
 
-Open **⋯ → Diagnostics** to find out why a configured provider is missing or
-showing an old reading. Problems appear first, with the reported problem, its
-impact on the widget and a suggested next step. Named account failures retain
-the account label. Technical causes expand with **Details** inside the scrolling
-view, one problem at a time. They do not open a popup over the card. Other enabled
-providers and disabled providers stay collapsed
-until requested. Finding credentials does not establish that an account can
-authenticate; Antigravity needs no separate API key.
+Open Diagnostics from the panel header when a configured provider is missing or
+shows an old reading. Each problem shows a status and a suggested next step. Named
+account failures retain the account label. Open **Details** to see a technical
+cause. Provider lists are omitted from this view.
 
-Opening this view reads the local provider catalog. Its refresh control updates
-that catalog; **Refresh usage** explicitly requests a quota read through the
-shared poller. The view never signs in, changes configuration or executes commands
-from the response. If the CLI does not support `vendors --json` (available since
-1.13.0), the catalog remains unavailable; known failures from the usage report
-can still appear.
+Opening Diagnostics reads the local provider catalog. **Refresh** requests both
+the catalog and usage through the shared poller. The view never signs in, changes
+configuration or executes commands from the response. If the CLI does not support
+`vendors --json` (available since 1.13.0), the catalog remains unavailable; known
+failures from the usage report can still appear.
 
 The existing IPC context opens Diagnostics directly:
 
@@ -230,11 +301,27 @@ The existing IPC context opens Diagnostics directly:
 noctalia msg panel-open felipeartur/ai-usagebar:panel setup
 ```
 
-The CLI also owns quota alerts. Configure them in its `config.toml`; setting
-`[notifications] enabled = false` disables them. The plugin adds no notification
-system or second set of alert thresholds.
+### Antigravity disappears with HTTP 401/403
+
+First check the official CLI with `agy -p /quota`. A rejected local Antigravity
+RPC does not establish that the Google login or quota is unavailable. For example,
+AGY 1.5.7 can answer its quota command successfully while its local RPC answers
+plain-text `401 Unauthorized`; ai-usagebar 1.51.0 recognizes a narrower JSON
+missing-CSRF response before using its fallback.
+
+If the quota command works, investigate the collector's local-server integration.
+If it also fails, check the Antigravity login. The plugin does not rewrite
+credentials or turn a rejected report into a zero or a fresh cached quota.
+An unavailable provider remains documented in Diagnostics.
 
 ## IPC
+
+Open the multi-account overview explicitly. With only one available account,
+the panel opens its details instead:
+
+```sh
+noctalia msg panel-open felipeartur/ai-usagebar:panel overview
+```
 
 Force a refresh without waiting for the interval:
 
@@ -264,7 +351,7 @@ labels; long technical details require an explicit click inside Diagnostics.
   on the configured interval, plus on demand from a right click, from opening
   the panel, or from the IPC event above. Capsules and the panel are subscribers
   of plugin state, so a second monitor or a second capsule costs no extra
-  process.
+  process. Enabling priorities adds `--priorities` to that same process.
 - Diagnostics adds a separate `ai-usagebar vendors --json` process on demand,
   with a five-second timeout and one query in flight. It contacts no provider
   endpoint. The CLI may enforce restrictive permissions on its own configuration
@@ -274,13 +361,14 @@ labels; long technical details require an explicit click inside Diagnostics.
 - The plugin makes no network calls and writes no files of its own. Everything
   it knows arrives on those commands' stdout. Catalog state retains only provider
   names, IDs and configuration flags, without login commands or environment fields.
-- A provider whose service is down leaves the bar and panel on the first report
-  that says so, except for Antigravity's temporary local-server loss described
-  above. It is not counted behind the `+n`, and returns when a report carries a
-  healthy reading for it again.
 - A failed whole-report read keeps the previous report and marks it as stale.
   Without a previous report, the panel shows the failure and its scrubbed
   diagnostic. Raw HTTP details stay out of the reading cards.
+- CLI documents are limited to 1 MiB, 32 structural levels and 20,000 value nodes
+  before scrubbing or publication. Usage reports support up to 128 accounts. The byte limit applies before JSON decoding;
+  structural limits apply after decoding. Rejected reports retain the previous
+  reading and allow another refresh. Diagnostics applies the same limits to its
+  catalog and retains the previous catalog on failure.
 - Report text is scrubbed for common credential patterns before publication to
   plugin state. This is a precaution, not a guarantee that arbitrary CLI output
   contains no sensitive data. Review account labels and diagnostics before
@@ -299,17 +387,9 @@ TZ=America/New_York lua tests/shared_test.lua
 lua tests/catalog_test.lua
 ```
 
-The first test reads `safeText` and `scrub` out of `service.luau` rather than
-copying them, then checks that real credential shapes never survive, that ordinary
-readings pass through unchanged, and that scrubbing a four-vendor report stays
-inside the CPU budget the poller's async callback is given. The second exercises
-the coalesced refresh state, rejects output from a timed-out process, checks
-quiet quota changes, and checks that every provider has a glyph of its own.
-The third drives the real bar script through default, named, missing and automatic
-account selection, plus malformed metrics. The fourth checks that malformed panel
-sections degrade safely, temporal bars follow used/remaining mode, and secondary
-actions stay collapsed until requested. The fifth verifies UTC parsing through a daylight-saving
-transition. An overrun in the first test loses the whole reading, not just time.
-
-The catalog test checks on-demand collection, a whitelist of public fields,
-older CLI failures, timeout handling and isolation from quota polling.
+The suites cover secret redaction and its callback CPU budget, refresh scheduling,
+account selection, bar and panel rendering, optional priorities, timestamps and
+on-demand diagnostics, multi-account overview navigation and excessive reports.
+They use synthetic reports; they do not read credentials
+or call provider APIs. UI trees are checked in a test host, without rendering the
+native shell.

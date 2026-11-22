@@ -21,20 +21,8 @@
 
   Index build: jqProgram(6, 10, 1048576, 0.0005) = depth 6, top 10 files per
   category, a folder is folded when under 1 MiB or under 0.05% of its parent.
-  The user sees these folders in "(files and small folders)". Measured on a
-  real disk (ncdu 2.9.2, jq 1.8.2; `/` scan 128 MB, home scan 79 MB):
-      root  relMin  jq time  jq peak RSS  index    lines
-      /     0       33.3 s   1494 MB      4.4 MB   4087
-      /     0.002   33.6 s   1472 MB      3.7 MB   3303
-      /     0.0005  26.4 s   1491 MB      4.3 MB   3867
-      home  0       21.1 s   1004 MB      4.8 MB   4737
-      home  0.002   21.3 s    992 MB      4.1 MB   3975
-      home  0.0005  16.2 s   1004 MB      4.7 MB   4594
-  The relative fold costs no jq time; at 0.002 the index is 14-16% smaller than at 0, at 0.0005 about 3% smaller (the shipped value). Top 10
-  files per category was chosen earlier as the largest N under ~5 MB. A
-  stock JSON decode of a whole index takes ~50 ms and of its biggest line
-  0.03 ms, so the sliced load stays within budget. Fewer than N files in a
-  list means the list is complete.
+  The user sees these folders in "(files and small folders)". Fewer than N
+  files in a list means the list is complete.
   Tested by tests/space_jq_test.sh on tests/fixtures/small.ncdu.json.
 
   Slice colour index: in folders mode it is the rank of the folder among the
@@ -134,7 +122,7 @@ function idx.sort(entries, key, descending)
             return x < y
         end
         if a.name ~= b.name then return a.name < b.name end
-        return pos[a] < pos[b] -- table.sort is not stable: original order breaks full ties
+        return pos[a] < pos[b]
     end)
     return out
 end
@@ -143,10 +131,9 @@ end
 -- `{"v":4,"root":<name>}`, then one record per kept folder in pre-order,
 -- `{"id":"0/2/1",n,s,f,u,nf,c,t,leaf?}`. id is the child-index path from the root
 -- ("0"), so a record's parent is its id minus the last segment and no d is
--- written; children follow in node.d order. One record per line lets the
--- panel decode the index a slice at a time.
+-- written; children follow in node.d order.
 -- ncdu: a folder is an array whose first item is its info object, a file is
--- an object; "excluded" entries carry no size and are skipped. c and t cover
+-- an object; "excluded" entries are skipped. c and t cover
 -- the whole subtree (t names are paths relative to the node, top topN per
 -- category, ties by name). A folder's own dsize counts as a loose "other" byte.
 -- Folders deeper than depth, under minBytes, or under relMin (a fraction) of
@@ -154,8 +141,7 @@ end
 -- u counts folders ncdu could not read ("read_error") in the whole subtree.
 -- nf counts the files of the whole subtree, folded folders included: one per
 -- name (a hard link or symlink counts each time), 0 for an unreadable folder.
--- shortcut: a hard link counts dsize/nlink per name (exact when every link is
--- inside the scan); dedupe by dev+ino if links outside the scan matter.
+-- A hard link counts dsize/nlink per name.
 function idx.jqProgram(depth, topN, minBytes, relMin)
     local ext = {}
     for cat, list in ipairs(idx.EXT) do
@@ -203,7 +189,7 @@ local function sliceRows(node, mode)
     return idx.entries(node, "folders")
 end
 
--- Top maxSlices-1 rows plus one "other" holding the rest, so the bytes sum to node.s.
+-- Top maxSlices-1 rows plus one "other" holding the rest (bytes sum to node.s).
 function idx.slices(node, mode, maxSlices)
     local out = {}
     if (node.s or 0) <= 0 then return out end
@@ -213,7 +199,7 @@ function idx.slices(node, mode, maxSlices)
     for i = 1, kept do
         local e = list[i]
         sum += e.bytes
-        local index = e.index or (e.kind == "dir" and i or nil) -- i <= maxSlices <= 8
+        local index = e.index or (e.kind == "dir" and i or nil)
         table.insert(out, {
             label = e.name, bytes = e.bytes, kind = e.kind, index = index, node = e.node,
             color = index and idx.COLORS_DARK[(index - 1) % 8 + 1] or nil,

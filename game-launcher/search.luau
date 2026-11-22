@@ -2,6 +2,8 @@ local games = {}
 local lastQuery = ""
 local cmdById = {}
 
+local recent = require("./recent.luau")
+
 local function isRunnerEnabled(runner)
   local ok, val = pcall(noctalia.getConfig, runner .. "_enabled")
   if ok and val ~= nil then return val == true or val == "true" end
@@ -64,6 +66,7 @@ local function allRows()
   table.sort(results, function(a, b)
     return a.title:lower() < b.title:lower()
   end)
+  recent.sortByRecent(results)
   return results
 end
 
@@ -143,6 +146,7 @@ function onActivate(id)
     end
   end
   if cmd and isValidProtocol(cmd) then
+    recent.record(id)
     noctalia.runAsync('xdg-open "' .. cmd .. '"')
   else
     noctalia.log("game-launcher: cannot launch id " .. tostring(id))

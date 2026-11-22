@@ -68,19 +68,23 @@
     "refresh": "Refresh now",
     "trust_add": "Add this network to the trusted list",
     "trust_current": "+ Trust '{name}'",
-    "trust_placeholder": "SSID or Ethernet connection name",
+    "trust_placeholder": "SSID, Ethernet or cellular connection name",
     "trusted_networks": "Trusted networks",
     "trusted_none": "None yet. VPN auto-connect (if enabled in Settings) treats every network as untrusted until you add one.",
     "use_as_default": "Use as auto-connect default"
   },
   "settings": {
     "auto_connect_enabled": {
-      "description": "When enabled, connects your default VPN whenever you join a Wi-Fi or Ethernet network that isn't in your trusted list.",
+      "description": "When enabled, connects your default VPN whenever you join a Wi-Fi, Ethernet or cellular network that isn't in your trusted list.",
       "label": "Auto-connect on untrusted networks"
     },
     "auto_disconnect_on_trusted": {
       "description": "When enabled, disconnects a VPN this plugin auto-started once you're back on a trusted network. Never touches a VPN you started manually.",
       "label": "Auto-disconnect on trusted networks"
+    },
+    "bar_click_toggles": {
+      "description": "Left-click the bar icon to connect or disconnect the starred default VPN. Right-click opens the panel.",
+      "label": "Bar click toggles the default VPN"
     },
     "notify_on_autoswitch": {
       "description": "Show a notification whenever the VPN is automatically connected or disconnected.",

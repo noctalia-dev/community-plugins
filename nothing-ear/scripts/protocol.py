@@ -10,6 +10,7 @@ plugin on other hardware. Not transliterated from any reference source.
 """
 from __future__ import annotations
 
+import struct
 from dataclasses import dataclass
 
 MAGIC = bytes([0x55, 0x60])
@@ -77,6 +78,33 @@ LISTENING_MODE_WRITE = 0xF01D
 BASS_READ = 0xC04E
 BASS_RESP = 0x404E
 BASS_WRITE = 0xF051
+
+# Both from ear-web only, confirmed working by a CMF Headphone Pro owner
+# through ear-web itself. Spatial payload [mode, head tracking]; codec
+# payload [index] (see models.CODEC_NAMES), and the buds restart on a write.
+SPATIAL_READ = 0xC04F
+SPATIAL_RESP = 0x404F
+SPATIAL_WRITE = 0xF052
+
+CODEC_READ = 0xC029
+CODEC_RESP = 0x4029
+CODEC_WRITE = 0xF01C
+
+# The user's three-band custom EQ curve (bass, mid, treble, -6 to +6 dB),
+# applied when the custom preset is selected. Payload layout in
+# custom_eq_write_payload; each model has its own band frequencies (models.py).
+CUSTOM_EQ_READ = 0xC044
+CUSTOM_EQ_RESP = 0x4044
+CUSTOM_EQ_WRITE = 0xF041
+
+# Unix time in seconds, big-endian. The companion apps send it right after
+# connecting, before any other write.
+TIME_WRITE = 0xF00A
+
+# Session reads the companion apps send on connect; only used to mirror
+# that session before spatial audio and codec writes.
+ADVANCED_EQ_READ = 0xC04C
+DUAL_CONNECT_READ = 0xC027
 
 SERIAL_READ = 0xC006
 SERIAL_RESP = 0x4006
@@ -205,7 +233,7 @@ class FrameParser:
 def parse_battery(payload: bytes) -> dict | None:
     if not payload:
         return None
-    device_names = {0x02: "left", 0x03: "right", 0x04: "case"}
+    device_names = {0x02: "left", 0x03: "right", 0x04: "case", 0x06: "single"}
     status: dict[str, dict | None] = {"left": None, "right": None, "case": None}
     count = min(payload[0], (len(payload) - 1) // 2)
     for i in range(count):
@@ -335,6 +363,76 @@ def parse_bass(payload: bytes) -> dict | None:
 
 def bass_write_payload(enabled: bool, level: int) -> bytes:
     return bytes([0x01 if enabled else 0x00, level * 2])
+
+
+def parse_spatial(payload: bytes) -> tuple[int, int] | None:
+    """(mode, head tracking); models answer with one or two bytes."""
+    if not payload:
+        return None
+    return payload[0], payload[1] if len(payload) > 1 else 0
+
+
+def spatial_write_payload(mode: int) -> bytes:
+    return bytes([mode, 0x00])
+
+
+def parse_codec(payload: bytes) -> int | None:
+    return payload[0] if payload else None
+
+
+def codec_write_payload(index: int) -> bytes:
+    return bytes([index])
+
+
+CUSTOM_EQ_MIN = -6
+CUSTOM_EQ_MAX = 6
+# Filter types, in the order the bands go on the wire: mid, treble, bass.
+_PEAK, _HIGH_SHELF, _LOW_SHELF = 1, 2, 0
+_BAND_LEN = 13
+
+
+def custom_eq_write_payload(bass: int, mid: int, treble: int, bands: dict) -> bytes:
+    """`bands` holds the model's centre frequencies and Q factors (models.py).
+
+    Layout: band count, an overall gain that pulls the loudest band back to
+    0 dB (minus the largest boost, -0.0 when nothing is boosted), then three
+    13-byte bands [type, gain, frequency, Q] as little-endian float32s, then
+    three zero bytes per band.
+    """
+    gains = (bass, mid, treble)
+    if any(not CUSTOM_EQ_MIN <= g <= CUSTOM_EQ_MAX for g in gains):
+        raise ValueError(f"custom EQ gains must be {CUSTOM_EQ_MIN} to {CUSTOM_EQ_MAX}")
+    out = bytearray([3])
+    out += struct.pack("<f", -float(max(0, *gains)))
+    for kind, gain, freq, q in (
+        (_PEAK, mid, bands["mid"][0], bands["mid"][1]),
+        (_HIGH_SHELF, treble, bands["treble"][0], bands["treble"][1]),
+        (_LOW_SHELF, bass, bands["bass"][0], bands["bass"][1]),
+    ):
+        out.append(kind)
+        out += struct.pack("<fff", float(gain), float(freq), float(q))
+    out += bytes(3 * 3)
+    return bytes(out)
+
+
+def parse_custom_eq(payload: bytes) -> dict | None:
+    """{"bass", "mid", "treble"} in whole dB, from the same layout the write
+    uses (mid, treble, bass on the wire)."""
+    if len(payload) < 1 + 4 + 3 * _BAND_LEN:
+        return None
+    gains = []
+    for i in range(3):
+        offset = 5 + i * _BAND_LEN + 1
+        (gain,) = struct.unpack_from("<f", payload, offset)
+        if gain != gain:  # NaN: not a curve we can show
+            return None
+        gains.append(max(CUSTOM_EQ_MIN, min(CUSTOM_EQ_MAX, round(gain))))
+    mid, treble, bass = gains
+    return {"bass": bass, "mid": mid, "treble": treble}
+
+
+def time_write_payload(now: float) -> bytes:
+    return struct.pack(">I", int(now) & 0xFFFFFFFF)
 
 
 def parse_gestures(payload: bytes) -> list[dict]:

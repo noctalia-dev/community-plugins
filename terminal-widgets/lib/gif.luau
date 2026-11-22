@@ -1,18 +1,18 @@
 --!nonstrict
--- Fotogramas de miniaturas GIF para el panel.
+-- GIF thumbnail frames for the panel.
 --
--- `ui.image` solo pinta el primer fotograma de un GIF, así que aquí se extraen
--- todos a PNG (con `bin/gif-frames.py`) y se guardan en el directorio de caché
--- del plugin. El panel los intercambia desde `onFrameTick`, respetando la
--- duración de cada fotograma.
+-- `ui.image` draws only the first frame of a GIF, so here all of them are
+-- extracted to PNG (with `bin/gif-frames.py`) and stored in the plugin cache
+-- directory. The panel swaps them from `onFrameTick`, honoring each frame's
+-- duration.
 
 local util = require("./util.luau")
 
 local M = {}
 
--- path -> { frames = { rutas }, durations = { ms }, dir }
+-- path -> { frames = { paths }, durations = { ms }, dir }
 local cache = {}
--- path -> true mientras se ejecuta la extracción
+-- path -> true while extraction is running
 local preparing = {}
 
 local function hashText(text)
@@ -34,7 +34,7 @@ local function frameDir(path, cacheDir, mtime)
   return string.format("%s/gif-%s", cacheDir, hashText(path .. ":" .. tostring(mtime or 0)))
 end
 
--- Devuelve los fotogramas ya extraídos, o nil si todavía no existen.
+-- Return the already-extracted frames, or nil if they do not exist yet.
 function M.frames(path, cacheDir)
   if not M.isGif(path) or cacheDir == nil then
     return nil
@@ -79,7 +79,7 @@ function M.frames(path, cacheDir)
   return result
 end
 
--- Extrae los fotogramas si hace falta. `callback` recibe los fotogramas o nil.
+-- Extract the frames if needed. `callback` receives the frames or nil.
 function M.prepare(path, cacheDir, callback)
   if not M.isGif(path) or cacheDir == nil then
     if callback ~= nil then
@@ -126,7 +126,7 @@ function M.prepare(path, cacheDir, callback)
         detail = util.trim(result.stderr or "")
         code = tostring(result.exitCode)
       end
-      noctalia.log("terminal-widgets: no se pudo extraer el GIF (exit " .. code .. "): " .. detail)
+      noctalia.log("terminal-widgets: could not extract the GIF (exit " .. code .. "): " .. detail)
     end
     if callback ~= nil then
       callback(frames)
@@ -141,7 +141,7 @@ function M.prepare(path, cacheDir, callback)
   end
 end
 
--- Olvida lo extraído (útil si cambia la lista de miniaturas en caliente).
+-- Forget the extracted data (useful if the thumbnail list changes at runtime).
 function M.reset()
   cache = {}
   preparing = {}

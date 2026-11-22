@@ -18,12 +18,30 @@ local vramTotalBytes = nil
 local encodePercent = nil
 local decodePercent = nil
 local hasNvtop = false
+local wantsGpuStats = false
 local refresh = nil
 local M = {}
+
+-- Since plugin API 46 the host samples the GPU for systemStats() only while
+-- a plugin requests it. Older hosts have no setGpuMonitoring and sample on
+-- every systemStats() read, so the call is skipped there.
+local function setGpuMonitoring(enabled)
+  if noctalia.setGpuMonitoring ~= nil then
+    noctalia.setGpuMonitoring(enabled)
+  end
+end
 
 function M.attach(fn)
   refresh = fn
   hasNvtop = noctalia.commandExists("nvtop")
+  wantsGpuStats = true
+  setGpuMonitoring(true)
+end
+
+-- Releases the GPU sampling request; the panel calls this when it closes.
+function M.detach()
+  wantsGpuStats = false
+  setGpuMonitoring(false)
 end
 
 function M.getPreview()
@@ -42,6 +60,11 @@ function M.getSubtitle()
   return ""
 end
 
+-- Current utilization as a number; used by the bar widget.
+function M.getUsagePercent()
+  return usagePercent
+end
+
 local function parsePercent(s)
   if s == nil then return nil end
   return tonumber(s:match("(%d+)"))
@@ -57,7 +80,16 @@ local function parseBytes(s)
   return tonumber(s)
 end
 
-local pendingNvtop = nil
+-- Every runtime that ticks this module (the panel, and the bar widget on each
+-- output) shares one nvtop sample through noctalia.state, so nvtop runs at
+-- most once per NVTOP_INTERVAL_MS however many of them are ticking. The
+-- latest sample is used until it is NVTOP_MAX_AGE_MS old, then systemStats.
+local NVTOP_INTERVAL_MS = 900
+local NVTOP_MAX_AGE_MS = 5000
+local latestNvtop = nil -- { gpu = first nvtop entry, atMs = sample time }
+noctalia.state.watch("gpu_nvtop", function(sample)
+  latestNvtop = sample
+end)
 
 -- Orders GPUs so the integrated GPU comes first (GPU 0 = iGPU, GPU 1 = dGPU).
 -- iGPU signals are checked first because some iGPUs are branded "Arc Graphics".
@@ -85,17 +117,27 @@ local function onNvtopResult(result)
   local ok, data = pcall(noctalia.json.decode, stdout)
   if not ok or type(data) ~= "table" or data[1] == nil then return end
   sortGpusIntegratedFirst(data)
-  pendingNvtop = data[1]
+  -- atMs also makes every sample a change, so watchers fire even when
+  -- nvtop's output repeats.
+  latestNvtop = { gpu = data[1], atMs = noctalia.nowMs() }
+  noctalia.state.set("gpu_nvtop", latestNvtop)
 end
 
 function M.tick()
-  if hasNvtop then
+  -- Repeated requests do not accumulate; this retries one the host refused
+  -- because its monitor service was not yet available.
+  if wantsGpuStats then
+    setGpuMonitoring(true)
+  end
+
+  local now = noctalia.nowMs()
+  if hasNvtop and now - (noctalia.state.get("gpu_nvtop_started_ms") or 0) >= NVTOP_INTERVAL_MS then
+    noctalia.state.set("gpu_nvtop_started_ms", now)
     noctalia.runAsync("nvtop -s", onNvtopResult, 5000)
   end
 
-  if pendingNvtop ~= nil then
-    local gpu = pendingNvtop
-    pendingNvtop = nil
+  if latestNvtop ~= nil and now - latestNvtop.atMs < NVTOP_MAX_AGE_MS then
+    local gpu = latestNvtop.gpu
     deviceName = gpu.device_name or deviceName
     usagePercent = parsePercent(gpu.gpu_util) or 0
     tempC = parsePercent(gpu.temp)

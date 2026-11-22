@@ -28,9 +28,13 @@ plugin for Noctalia v5.
 2. Click the bar widget to open the panel. Pick a preset (Animations, Borders or
    Effects) and press **Apply** — HVE applies it and reloads Hyprland instantly.
 
-On first enable, HVE appends the overlay loader to the end of your
+HVE keeps the overlay loader as the **last** lines of your
 `~/.config/hypr/hyprland.lua` (idempotent, marked with a
-`HYPRLAND VISUAL EDITOR` comment). If you prefer to do it manually, the line is:
+`HYPRLAND VISUAL EDITOR` comment). It must come after
+`require("noctalia").apply_theme()`, which writes `general:col.active_border`
+and would otherwise override the border presets. The service re-appends the
+block at the end if it finds it anywhere else. If you prefer to do it manually,
+the line is:
 
 ```lua
 pcall(function() dofile(os.getenv("HOME") .. "/.cache/noctalia/HVE/overlay.lua") end)
@@ -65,6 +69,10 @@ noctalia msg panel-toggle linux-fertxo/hyprland-visual-editor:hve-panel
 - Ships 18 animation presets, 13 border presets and 9 GLSL shaders. Add your own
   by dropping a `.conf`/`.frag` into the matching `assets/` folder with the
   `@Title` / `@Desc` / `@Icon` / `@Color` / `@Tag` metadata header.
+- Border presets resolve their colours **at load time** from the live Noctalia
+  palette, so changing the colour scheme repaints the border on the next
+  `hyprctl reload` without re-applying the preset. Roles the Lua template does
+  not export (`tertiary`, `surface_lowest`) fall back to `secondary` / `surface`.
 - Shaders are applied as absolute-path `screen_shader` entries; re-apply the
   shader after moving the plugin directory.
 - UI is localized: English (`en`), Spanish (`es`) and Catalan (`ca`).

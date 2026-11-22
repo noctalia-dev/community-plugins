@@ -3,7 +3,7 @@
 -- Everything resolves by stable id against the *latest* model at the moment of the
 -- action; render-time indices are never trusted.
 
-local niri = require("./niri.luau")
+local ipc = require("./backend.luau")
 
 local A = {}
 
@@ -12,7 +12,7 @@ function A.focusWorkspace(model, id)
   if ws == nil or ws.isFocused then
     return false
   end
-  niri.focusWorkspace(ws, model:focusedOutput())
+  ipc.focusWorkspace(ws, model:focusedOutput())
   return true
 end
 
@@ -20,7 +20,7 @@ function A.focusWindow(model, id)
   if model.windows[id] == nil or model:isWindowFocused(id) then
     return false
   end
-  niri.focusWindow(id)
+  ipc.focusWindow(id)
   return true
 end
 
@@ -36,7 +36,7 @@ function A.step(model, view, delta)
     return false
   end
   -- Stepping an unfocused output must land on that output, not the focused one.
-  niri.focusWorkspace(ws, model:focusedOutput())
+  ipc.focusWorkspace(ws, model:focusedOutput())
   return true
 end
 

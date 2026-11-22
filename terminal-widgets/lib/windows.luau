@@ -1,8 +1,8 @@
 --!nonstrict
--- Puente con Hyprland: listar ventanas, abrirlas, moverlas, rotarlas y
--- cerrarlas.
+-- Bridge to Hyprland: list windows, open them, move them, rotate them and
+-- close them.
 --
--- Todo pasa por `hyprctl dispatch` con la API Lua de Hyprland 0.56:
+-- Everything goes through `hyprctl dispatch` with the Hyprland 0.56 Lua API:
 --   hl.dsp.window.move({ x = 120, y = 140, window = "class:^noctalia-term-cava$" })
 --   hl.dsp.window.resize({ x = 900, y = 520, window = "..." })
 --   hl.dsp.window.close({ window = "address:0x55d1..." })
@@ -33,7 +33,9 @@ function M.dispatch(expression, callback)
   end
 end
 
-function M.selectorFor(class)
+-- Window-class selector: shared by everything that dispatches (focus, move,
+-- resize, close) so the pattern is not duplicated.
+local function selectorFor(class)
   return "class:^" .. class .. "$"
 end
 
@@ -41,7 +43,7 @@ function M.addressSelector(address)
   return "address:" .. tostring(address)
 end
 
--- Ventanas abiertas con su geometría en coordenadas globales.
+-- Open windows with their geometry in global coordinates.
 function M.list(callback)
   local started = noctalia.runAsync({ "hyprctl", "clients", "-j" }, function(result)
     local clients = {}
@@ -60,8 +62,8 @@ function M.list(callback)
           end
           table.insert(clients, {
             address = tostring(client.address or ""),
-            -- Hyprland >= 0.5x: identificador estable del toplevel. grim -T lo
-            -- usa para capturar SOLO esa ventana, aunque haya capas encima.
+            -- Hyprland >= 0.5x: stable toplevel identifier. grim -T uses it
+            -- to capture ONLY that window, even if there are layers above.
             stableId = tostring(client.stableId or ""),
             class = tostring(client.class or ""),
             title = tostring(client.title or ""),
@@ -84,7 +86,7 @@ function M.list(callback)
   end
 end
 
--- Monitores por id, con su origen para traducir a coordenadas locales.
+-- Monitors by id, with their origin to translate to local coordinates.
 function M.monitors(callback)
   local started = noctalia.runAsync({ "hyprctl", "monitors", "-j" }, function(result)
     local map = {}
@@ -114,8 +116,8 @@ function M.isPluginClass(class)
   return class:sub(1, #M.CLASS_PREFIX) == M.CLASS_PREFIX
 end
 
--- Ventanas del plugin que están abiertas, con su nombre (deducido de la
--- clase) y su posición relativa al monitor.
+-- Open plugin windows, with their name (inferred from the class) and their
+-- position relative to the monitor.
 function M.pluginWindows(clients, monitors, nameForClass)
   local windows = {}
   for _, client in ipairs(clients or {}) do
@@ -131,8 +133,8 @@ function M.pluginWindows(clients, monitors, nameForClass)
         name = nameForClass(client.class),
         x = client.x - monitor.x,
         y = client.y - monitor.y,
-        -- Coordenadas globales (grim -g trabaja en coordenadas de escritorio,
-        -- no del monitor).
+        -- Global coordinates: the capture payload and the preview signature
+        -- use desktop coordinates, not monitor-relative ones.
         screenX = client.x,
         screenY = client.y,
         w = client.w,
@@ -144,9 +146,9 @@ function M.pluginWindows(clients, monitors, nameForClass)
   return windows
 end
 
--- Zonas ocupadas por las ventanas del plugin en el monitor de destino.
--- `excludeAddress` deja fuera una ventana (la que se va a recolocar: si no,
--- se taparía a sí misma y acabaría en un hueco cualquiera).
+-- Areas occupied by plugin windows on the target monitor.
+-- `excludeAddress` leaves one window out (the one being repositioned:
+-- otherwise it would cover itself and end up in a random slot).
 function M.occupiedRects(clients, monitors, targetOutput, excludeAddress)
   local occupied = {}
   for _, client in ipairs(clients or {}) do
@@ -191,7 +193,7 @@ local function closeExpression(selector)
   return string.format("hl.dsp.window.close({ window = %s })", util.luaQuote(selector))
 end
 
--- Aplica una lista de movimientos: { address, selector, x, y, w, h, resize }
+-- Apply a list of moves: { address, selector, x, y, w, h, resize }
 function M.applyGeometry(entries, callback)
   local index = 0
   local total = #entries
@@ -235,9 +237,9 @@ function M.applyGeometry(entries, callback)
   step()
 end
 
--- Enfoca (y recoloca) una ventana que ya existe.
+-- Focus (and reposition) a window that already exists.
 function M.focusExisting(class, geometry, callback)
-  local selector = M.selectorFor(class)
+  local selector = selectorFor(class)
   M.dispatch(resizeExpression(selector, geometry.width, geometry.height), function()
     M.dispatch(moveExpression(selector, geometry.x, geometry.y), function()
       M.dispatch(focusExpression(selector), function()
@@ -249,8 +251,18 @@ function M.focusExisting(class, geometry, callback)
   end)
 end
 
--- Crea la ventana. `persistent_size` de Hyprland puede pisar el tamaño al
--- mapear, así que la geometría se reaplica un instante después.
+-- Focus only: does not reposition or resize (brain ON must not override what
+-- the user moved by hand).
+function M.focusOnly(class, callback)
+  local expression = focusExpression(selectorFor(class))
+  -- same dispatch path as M.focusExisting; a single dispatch
+  M.dispatch(expression, function()
+    if callback ~= nil then callback(true) end
+  end)
+end
+
+-- Create the window. Hyprland's `persistent_size` may override the size when
+-- mapping, so the geometry is reapplied a moment later.
 function M.spawn(params, callback)
   local expression = spawnExpression(params)
   M.dispatch(expression, function(success)
@@ -270,7 +282,7 @@ function M.spawn(params, callback)
   end)
 end
 
--- Expresión de lanzamiento reutilizable por `spawn` y `spawnMany`.
+-- Launch expression reusable by `spawn` and `spawnMany`.
 spawnExpression = function(params)
   local terminal = params.terminal or "kitty"
   local closeOpt = ""
@@ -303,7 +315,7 @@ spawnExpression = function(params)
   )
 end
 
--- Lanza una lista de ventanas en paralelo (una sola espera de 0.6 s).
+-- Launch a list of windows in parallel (a single 0.6 s wait).
 function M.spawnMany(paramsList, callback)
   if #paramsList == 0 then
     if callback ~= nil then
@@ -420,9 +432,8 @@ function M.closeAll(windows, callback)
   step()
 end
 
--- Orden circular de las ventanas alrededor del centro del monitor.
--- En pantalla `y` crece hacia abajo, así que ordenar por ángulo ascendente es
--- el sentido horario.
+-- Circular order of the windows around the monitor center.
+-- On screen `y` grows downward, so sorting by ascending angle is clockwise.
 local function sortByAngle(windows)
   local sorted = {}
   for _, window in ipairs(windows) do
@@ -441,7 +452,7 @@ local function sortByAngle(windows)
   return sorted
 end
 
--- Devuelve, para cada índice, el índice de la ventana que le cede el sitio.
+-- Return, for each index, the index of the window that yields its place.
 local function permutation(sorted, mode)
   local count = #sorted
   local result = {}
@@ -486,7 +497,7 @@ local function permutation(sorted, mode)
       result[index] = pool[index]
     end
   else
-    -- clockwise (por defecto)
+    -- clockwise (default)
     for index = 1, count do
       result[index] = (index % count) + 1
     end
@@ -495,10 +506,10 @@ local function permutation(sorted, mode)
   return result
 end
 
--- Bloqueo de rotación para evitar pisadas por pulsaciones rápidas.
+-- Rotation lock to avoid collisions from rapid presses.
 M.rotating = false
 
--- Rota las ventanas del plugin: cada una se va al sitio de otra.
+-- Rotate the plugin windows: each one goes to another one's place.
 function M.rotate(windows, mode, swapSizes, callback)
   if M.rotating then
     return false
@@ -517,7 +528,7 @@ function M.rotate(windows, mode, swapSizes, callback)
   local moves = {}
   for _, key in ipairs(order) do
     local group = sortByAngle(groups[key])
-    -- Un grupo de una sola ventana no tiene con quién rotar.
+    -- A group with a single window has nothing to rotate with.
     if #group > 1 then
       local mapping = permutation(group, mode)
       for index = 1, #group do
@@ -547,7 +558,9 @@ function M.rotate(windows, mode, swapSizes, callback)
   M.applyGeometry(moves, function()
     M.rotating = false
     if callback ~= nil then
-      callback()
+      -- Rotations are handed to the caller so it can publish them as
+      -- imposed geometries (the service must not memorize them).
+      callback(moves)
     end
   end)
   return true

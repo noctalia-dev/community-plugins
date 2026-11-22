@@ -532,6 +532,15 @@ function update()
   }
   if settings.diskPath == "" then settings.diskPath = "/" end
 
+  -- Since plugin API 46 the host refreshes systemStats().gpu only while an entry
+  -- requests it. Syncing every update follows setting changes and retries a
+  -- refused request; same-value calls do not stack. Older hosts lack the call
+  -- and sample on every systemStats() read.
+  if noctalia.setGpuMonitoring ~= nil then
+    noctalia.setGpuMonitoring(settings.showGpuUsageMode ~= "off" or settings.showGpuTemperatureMode ~= "off"
+      or settings.showGpuVramMode ~= "off")
+  end
+
   local thresholds = {}
   for name, _defaults in pairs(THRESHOLD_DEFAULTS) do
     local activity, critical = thresholdPair(name)

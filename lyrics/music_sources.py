@@ -2,6 +2,7 @@
 
 import base64
 import binascii
+import html
 import json
 import re
 import time
@@ -14,6 +15,8 @@ BROWSER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/130.0
 QQ_RPC = "https://u.y.qq.com/cgi-bin/musicu.fcg"
 QQ_SEARCH = "music.search.SearchCgiService"
 VERSION = re.compile(r"(?<![a-z])(?:live|remix|instrumental|karaoke|cover|acoustic)(?![a-z])|现场|伴奏|翻唱", re.I)
+ARTIST_SEPARATOR = re.compile(r"\s*[/;&、]\s*|\s+feat\.?\s+", re.I)
+ARTIST_ALIAS = re.compile(r"\s*\(([^()]+)\)")
 
 
 def text(value):
@@ -26,6 +29,16 @@ def mapping(value):
 
 def normalized(value):
     return "".join(c for c in unicodedata.normalize("NFKC", text(value)).casefold() if c.isalnum())
+
+
+def artist_matches(wanted, actual):
+    def names(value):
+        value = html.unescape(text(value))
+        aliases = ARTIST_ALIAS.findall(value)
+        primary = ARTIST_ALIAS.sub("", value)
+        return {normalized(name) for name in [value, primary, *aliases, *ARTIST_SEPARATOR.split(primary)]} - {""}
+
+    return bool(names(wanted) & names(actual))
 
 
 def track_duration(track):
@@ -92,11 +105,8 @@ def ranked_songs(songs, track, source):
         title_score = 6 if title == wanted_title else 3 if wanted_title in title or title in wanted_title else 0
         if not title_score:
             continue
-        if wanted_artist and artist and wanted_artist not in artist and artist not in wanted_artist:
-            # Multi-artist MPRIS metadata may use different separators from the catalogue.
-            names = [normalized(part) for part in re.split(r"\s*[/;&、]\s*|\s+feat\.?\s+", text(track.get("artist")), flags=re.I)]
-            if not any(name and name in artist for name in names):
-                continue
+        if wanted_artist and not artist_matches(track.get("artist"), song["artist"]):
+            continue
         version = versions(text(song["title"]) + " " + text(song.get("subtitle")))
         if version != wanted_version:
             continue

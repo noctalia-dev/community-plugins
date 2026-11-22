@@ -6,6 +6,7 @@ local SNAPSHOT_KEY = "oppo_pods_snapshot"
 local COMMAND_KEY = "oppo_pods_command"
 
 local snapshot = noctalia.state.get(SNAPSHOT_KEY) or {}
+local hoveredControl = nil
 
 local commandSeq = 0
 local function sendCommand(action, value)
@@ -103,11 +104,117 @@ local function headerIconPath()
 	return "icons/" .. (noctalia.isDarkMode() and "oppo-pods.svg" or "oppo-pods-light.svg")
 end
 
-local function deviceImagePath()
+-- Official render when downloaded; a neutral glyph otherwise, so other models never show an Enco Air4 Pro.
+local function deviceVisual(height, opacity)
 	if snapshot.device_image and snapshot.device_image ~= "" then
-		return snapshot.device_image
+		return ui.image({ path = snapshot.device_image, width = 180, height = height, fit = "contain", opacity = opacity })
 	end
-	return "icons/enco-air4-pro.webp"
+	return ui.column({ align = "center", justify = "center", height = height }, {
+		ui.glyph({ name = "headphones", size = 72, color = "on_surface_variant" }),
+	})
+end
+
+local NOISE_MODES = {
+	{ mode = "anc", glyph = "shield-check" },
+	{ mode = "transparency", glyph = "ear" },
+	{ mode = "off", glyph = "volume-off" },
+}
+
+local function noiseControls()
+	local currentMode = snapshot.noise_mode or "off"
+
+	local modeTiles = {}
+	for _, spec in ipairs(NOISE_MODES) do
+		local key = "mode-" .. spec.mode
+		local selected = currentMode == spec.mode
+		local hovered = not selected and hoveredControl == key
+		table.insert(modeTiles, ui.column({ align = "center", gap = 6, flexGrow = 1 }, {
+			ui.column({
+				key = key,
+				align = "center",
+				justify = "center",
+				width = 52,
+				height = 52,
+				radius = 26,
+				fill = selected and "primary/0.18" or (hovered and "primary/0.08" or "on_surface/0.06"),
+				border = selected and "primary/0.45" or (hovered and "primary/0.25" or "outline_variant/0.4"),
+				borderWidth = 1,
+				onClick = function()
+					sendCommand("set-noise", spec.mode)
+				end,
+				onHover = "onControlHover",
+			}, {
+				ui.glyph({ name = spec.glyph, size = 22, color = (selected or hovered) and "primary" or "on_surface_variant" }),
+			}),
+			ui.label({
+				text = noctalia.tr("panel.mode." .. spec.mode),
+				fontSize = 11,
+				textAlign = "center",
+				color = selected and "on_surface" or "on_surface_variant",
+			}),
+		}))
+	end
+
+	local rows = {
+		ui.label({
+			text = noctalia.tr("panel.noise_control"),
+			fontSize = 11,
+			fontWeight = "bold",
+			color = "on_surface_variant",
+		}),
+		ui.row({ gap = 6 }, modeTiles),
+	}
+
+	local levels = snapshot.anc_levels or {}
+	if currentMode == "anc" and #levels > 0 then
+		local levelButtons = {}
+		for _, level in ipairs(levels) do
+			local selected = snapshot.noise_level == level
+			table.insert(levelButtons, ui.button({
+				key = "level-" .. level,
+				text = noctalia.tr("panel.level." .. level),
+				fontSize = 11,
+				height = 28,
+				width = 0,
+				flexGrow = 1,
+				variant = selected and "secondary" or "ghost",
+				selected = selected,
+				onClick = function()
+					sendCommand("set-noise", level)
+				end,
+			}))
+		end
+		table.insert(rows, ui.row({ gap = 2, padding = 3, radius = 17, fill = "on_surface/0.06" }, levelButtons))
+	end
+
+	return ui.column({ gap = 10 }, rows)
+end
+
+-- Game mode has no query on these earbuds: the switch shows the last state set here or pushed by the earbuds.
+local function gameModeRow()
+	return ui.row({ align = "center", gap = 12 }, {
+		ui.column({
+			align = "center",
+			justify = "center",
+			width = 34,
+			height = 34,
+			radius = 17,
+			fill = snapshot.game_mode and "primary/0.18" or "on_surface/0.06",
+		}, {
+			ui.glyph({ name = "device-gamepad", size = 18, color = snapshot.game_mode and "primary" or "on_surface_variant" }),
+		}),
+		ui.column({ flexGrow = 1, gap = 1 }, {
+			ui.label({ text = noctalia.tr("panel.game_mode"), fontSize = 13, color = "on_surface" }),
+			ui.label({ text = noctalia.tr("panel.game_mode_caption"), fontSize = 11, color = "on_surface_variant" }),
+		}),
+		ui.toggle({
+			key = "game-mode",
+			checked = snapshot.game_mode == true,
+			onChange = function(value)
+				sendCommand("set-game", value == "true")
+			end,
+		}),
+	})
 end
 
 local function render()
@@ -121,12 +228,7 @@ local function render()
 			justify = "center",
 			padding = 2,
 		}, {
-			ui.image({
-				path = deviceImagePath(),
-				width = 180,
-				height = 138,
-				fit = "contain",
-			}),
+			deviceVisual(138, 1),
 		}))
 
 		-- 2. Symmetrical 3-Column Battery Section (Always Left, Case, Right)
@@ -144,62 +246,16 @@ local function render()
 		table.insert(body, ui.separator({ thickness = 1, color = "on_surface/0.12" }))
 
 		-- 3. Noise Cancellation Mode Selection
-		local currentMode = snapshot.noise_mode or "off"
-		local modeButtons = {
-			ui.button({
-				key = "mode-anc",
-				text = noctalia.tr("panel.mode.anc"),
-				glyph = "shield-check",
-				variant = (currentMode == "anc") and "tonal" or "ghost",
-				selected = (currentMode == "anc"),
-				contentAlign = "start",
-				onClick = function()
-					sendCommand("set-noise", "anc")
-				end,
-			}),
-			ui.button({
-				key = "mode-transparency",
-				text = noctalia.tr("panel.mode.transparency"),
-				glyph = "ear",
-				variant = (currentMode == "transparency") and "tonal" or "ghost",
-				selected = (currentMode == "transparency"),
-				contentAlign = "start",
-				onClick = function()
-					sendCommand("set-noise", "transparency")
-				end,
-			}),
-			ui.button({
-				key = "mode-off",
-				text = noctalia.tr("panel.mode.off"),
-				glyph = "volume-off",
-				variant = (currentMode == "off") and "tonal" or "ghost",
-				selected = (currentMode == "off"),
-				contentAlign = "start",
-				onClick = function()
-					sendCommand("set-noise", "off")
-				end,
-			}),
-		}
+		table.insert(body, noiseControls())
 
-		table.insert(body, ui.column({ gap = 4 }, {
-			ui.label({
-				text = noctalia.tr("panel.noise_control"),
-				fontSize = 11,
-				fontWeight = "bold",
-				color = "on_surface_variant",
-			}),
-			ui.column({ gap = 3 }, modeButtons),
-		}))
+		if snapshot.game_mode_supported then
+			table.insert(body, ui.separator({ thickness = 1, color = "on_surface/0.12" }))
+			table.insert(body, gameModeRow())
+		end
 	else
 		-- Not connected state
 		table.insert(body, ui.column({ align = "center", gap = 12, padding = 24 }, {
-			ui.image({
-				path = deviceImagePath(),
-				width = 180,
-				height = 140,
-				fit = "contain",
-				opacity = 0.35,
-			}),
+			deviceVisual(140, 0.35),
 			ui.label({
 				text = noctalia.tr("widget.not_connected"),
 				fontSize = 15,
@@ -218,9 +274,6 @@ local function render()
 
 	local titleText = snapshot.model_name or snapshot.device_name or noctalia.tr("panel.title")
 	local statusText = connected and noctalia.tr("panel.status.connected") or noctalia.tr("panel.status.disconnected")
-	if connected and snapshot.mac then
-		statusText = statusText .. " • " .. snapshot.mac
-	end
 
 	panel.render(ui.column({ flexGrow = 1, gap = 8, padding = 10 }, {
 		ui.row({ align = "center", justify = "space_between", gap = 8 }, {
@@ -266,6 +319,15 @@ end)
 
 function onOpen(_context)
 	sendCommand("refresh", nil)
+	render()
+end
+
+function onControlHover(entered, key)
+	if entered == "true" then
+		hoveredControl = key
+	elseif hoveredControl == key then
+		hoveredControl = nil
+	end
 	render()
 end
 

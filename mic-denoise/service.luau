@@ -16,6 +16,10 @@
 
 local SOURCE = tostring(noctalia.getConfig("source") or "rnnoise_source")
 local MIC = tostring(noctalia.getConfig("hardware_source") or "")
+-- First run writes the filter-chain snippet; PipeWire only reads conf.d at
+-- startup, so applying it needs one restart. On by default (it happens once),
+-- off for users who would rather pick the moment themselves.
+local AUTO_RELOAD = noctalia.getConfig("auto_reload") ~= false
 local INTERVAL = tonumber(noctalia.getConfig("poll_interval")) or 5000
 if INTERVAL < 500 then
     INTERVAL = 500
@@ -62,7 +66,7 @@ local function clearError()
 end
 
 local function parseStatus(out)
-    local st = { enabled = false, available = false, default = "", raw = "", hint = "" }
+    local st = { enabled = false, available = false, default = "", raw = "", hint = "", install = "" }
     for line in (out or ""):gmatch("[^\r\n]+") do
         local key, value = line:match("^([%w_]+)=(.*)$")
         if key == "enabled" then
@@ -75,6 +79,8 @@ local function parseStatus(out)
             st.raw = value
         elseif key == "hint" then
             st.hint = value
+        elseif key == "install" then
+            st.install = value
         end
     end
     return st
@@ -89,6 +95,7 @@ local function publish(st)
         and prev.available == st.available
         and prev.default == st.default
         and prev.raw == st.raw
+        and prev.install == st.install
     then
         return
     end
@@ -108,7 +115,7 @@ local function notifyHint(st)
     end
     lastHint = st.hint
     if st.hint == "ladspa-missing" then
-        noctalia.notify(noctalia.tr("notify.ladspa.title"), noctalia.tr("notify.ladspa.body"))
+        noctalia.notify(noctalia.tr("notify.ladspa.title"), noctalia.tr("notify.ladspa.body", { cmd = st.install }))
     else
         noctalia.notify(noctalia.tr("notify.not-ready.title"), noctalia.tr("notify.not-ready.body"))
     end
@@ -159,7 +166,30 @@ local function ensurePipewireConfig(st)
     end
 
     configState = "written"
-    noctalia.notify(noctalia.tr("notify.config-installed.title"), noctalia.tr("notify.config-installed.body"))
+    -- The snippet is inert until PipeWire re-reads conf.d. The source can only
+    -- be missing here, so the restart is what makes the tile work right away.
+    if not AUTO_RELOAD or st.available then
+        noctalia.notify(noctalia.tr("notify.config-installed.title"), noctalia.tr("notify.config-installed.body"))
+        return
+    end
+    local reloaded = noctalia.runAsync(
+        { "systemctl", "--user", "restart", "pipewire", "pipewire-pulse", "wireplumber" },
+        function(result)
+            if result.exitCode == 0 then
+                noctalia.notify(noctalia.tr("notify.config-installed.title"), noctalia.tr("notify.config-installed.reloaded"))
+            else
+                noctalia.notify(noctalia.tr("notify.config-installed.title"), noctalia.tr("notify.config-installed.body"))
+            end
+            if pending == nil then
+                pending = { kind = "status" }
+            end
+            dispatch()
+        end,
+        30000
+    )
+    if not reloaded then
+        noctalia.notify(noctalia.tr("notify.config-installed.title"), noctalia.tr("notify.config-installed.body"))
+    end
 end
 
 function dispatch()

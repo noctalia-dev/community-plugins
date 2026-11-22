@@ -1,0 +1,8 @@
+#!/bin/sh
+# Luciole script: sends the selected files and folders with LocalSend Plus.
+# Luciole passes the selected paths as arguments and runs no shell on them.
+# The number of paths goes first, so the plugin can refuse a name with a line
+# break instead of reading it as two paths. Run from the empty space of a
+# folder, the script gets no paths and does nothing.
+[ "$#" -gt 0 ] || exit 0
+exec noctalia msg plugin 0rgl/localsend-plus:service all send "$(printf '%s\n' "$#" "$@")"

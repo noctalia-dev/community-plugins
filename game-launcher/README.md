@@ -32,7 +32,7 @@ The scanner binary (`gamelauncher`) is compiled automatically on first use — t
 
 Add the bar widget `alexander/game-launcher:launcher` to your bar. The widget shows a gamepad icon — click it to open it (look follows Panel style).
 
-In the panel, use the search bar to filter by name or runner. Click **Launch** on any game to start it.
+In the panel, use the search bar to filter by name or runner. Click **Launch** on any game to start it. The last game you launched always moves to the top of the list with a Last played badge, and stays there across restarts.
 
 To open the panel via IPC:
 
@@ -65,7 +65,7 @@ The plugin addresses all findings from Noctalia's security audit:
 
 **3. xdg-utils declared** — `xdg-utils` is listed in `plugin.toml` dependencies.
 
-**4. Steampoacher opt-in & disclosure** — By default, Steam cover art is fetched directly from `store.steampowered.com/api/appdetails`. The API only provides small `header_image` art (460×215). For high-resolution library capsule covers, enable the **steampoacher** Cloudflare Worker by setting `steampoacher_enabled` to `true` in `~/.config/noctalia/plugins/game-launcher.json`. When enabled, Steam app IDs from your installed library are sent to the proxy at `steam-asset-proxy.steampoacher.workers.dev`, which returns a CDN capsule URL on `shared.steamstatic.com` with full-size 1200×450 art. Cover art for Heroic games uses the art URL from Heroic launcher metadata.
+**4. Steampoacher opt-in & disclosure** — By default, Steam cover art is fetched directly from `store.steampowered.com/api/appdetails`. The API only provides small `header_image` art (460×215). For high-resolution library capsule covers, enable the **steampoacher** Cloudflare Worker by setting `steampoacher_enabled` to `true` in `~/.config/noctalia/plugins/game-launcher.json`. When enabled, Steam app IDs from your installed library are sent to the proxy at `steam-asset-proxy.steampoacher.workers.dev`, which returns a CDN capsule URL on `shared.steamstatic.com` with full-size 1200×450 art. Cover art for Heroic games uses the tall `art_square` cover from Heroic launcher metadata (not the wide `art_cover` banner), matching the portrait card. Stale wide-banner cache files are purged automatically on the next scan.
 
 > [!NOTE]
 > Without steampoacher enabled, Steam covers will be bad (600×900 instead of high resolution).
@@ -74,4 +74,5 @@ The plugin addresses all findings from Noctalia's security audit:
 
 - Scans all detected Steam library folders, Lutris SQLite databases, and Heroic store caches (Legendary, GOG, Nile).
 - Results are cached in `~/.cache/gamelauncher/games.json` and rescanned on click if sources changed.
+- Last-played launches are stored in the plugin data dir (`recent.json`, newest 30) and shared live between the panels and the `/g` provider, so the last game stays on top everywhere.
 - No external CLI tools (curl, wget, python3, grep) are invoked anywhere in the plugin.
