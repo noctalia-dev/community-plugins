@@ -37,17 +37,28 @@ def icon_path(icon_name, size=48):
     #return get_icon_path(default_icon_name, size)
     return None  # Return None if no icon is found
 
+def _format_proc_error(proc):
+    stderr = proc.stderr.decode(errors="replace").strip()
+    stdout = proc.stdout.decode(errors="replace").strip()
+    if stderr and stdout:
+        return f"{stderr}\n{stdout}"
+    return stderr or stdout
+
 def refresh_updates():
     proc = subprocess.run(["pkgcli", "refresh", "force"], capture_output=True)
     if proc.returncode != 0:
-        print(proc.stderr.decode(), file=sys.stderr)
-        exit(1)
+        msg = _format_proc_error(proc)
+        if msg:
+            print(msg, file=sys.stderr)
+        sys.exit(1)
 
 def get_updates_list():
     proc = subprocess.run(["pkgcli", "list-updates", "--json"], capture_output=True)
     if proc.returncode != 0:
-        print(proc.stderr.decode(), file=sys.stderr)
-        exit(1)
+        msg = _format_proc_error(proc)
+        if msg:
+            print(msg, file=sys.stderr)
+        sys.exit(1)
     return [json.loads(line) for line in proc.stdout.decode().splitlines() if line.strip()]
 
 def get_package_info(package_name):
@@ -80,16 +91,31 @@ def get_package_info(package_name):
 
 def check_offline_update_status():
     proc = subprocess.run(["pkgcli", "-q", "offline-update", "status", "--json"], capture_output=True)
-    if proc.returncode != 0:
-        print(proc.stderr.decode(), file=sys.stderr)
-        exit(1)
-    stdout = proc.stdout.decode().strip()
-    lines = stdout.splitlines()
-    if len(lines) >= 1:
-        data = json.loads(lines[0])  # Validate JSON
-        if data.get("info", "").find("reboot") != -1:
-            return data.get("info", "")
-    return ""
+    stdout = proc.stdout.decode(errors="replace")
+    stderr = proc.stderr.decode(errors="replace").strip()
+
+    reboot_info = ""
+    for raw_line in stdout.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        try:
+            data = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(data, dict):
+            continue
+        info = data.get("info")
+        if isinstance(info, str) and "reboot" in info.lower() and not reboot_info:
+            reboot_info = info
+        error = data.get("error")
+        if isinstance(error, str) and error:
+            print(error, file=sys.stderr)
+
+    if proc.returncode != 0 and stderr:
+        print(stderr, file=sys.stderr)
+
+    return reboot_info
 
 
 def package_kit_updates():
