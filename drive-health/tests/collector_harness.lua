@@ -15,7 +15,7 @@ local probeCalls = 0
 local probeAction = nil
 local failNextLaunch = false
 local nextAsyncResult = nil
-local collectorEnabled = mode == "raw-cache" or mode == "outdated-raw-cache" or mode == "nixos"
+local collectorEnabled = mode == "raw-cache" or mode == "outdated-raw-cache" or mode == "nixos" or mode == "scaled-cache-interval" or mode == "unapplied-cache-interval" or mode == "superseded-cache-interval" or mode == "nixos-oncalendar"
 
 local available = {
   lsblk = mode ~= "missing-lsblk",
@@ -35,8 +35,23 @@ local rawFixture = {
   smart = {},
 }
 
-if mode == "raw-cache" or mode == "outdated-raw-cache" then
+if mode == "raw-cache" or mode == "outdated-raw-cache" or mode == "scaled-cache-interval" or mode == "unapplied-cache-interval" or mode == "superseded-cache-interval" or mode == "nixos-oncalendar" then
   files["/usr/local/libexec/noctalia-drive-health/manage-collector.sh"] = "installed"
+  files["/usr/local/libexec/noctalia-drive-health/collect_raw.sh"] = "installed"
+end
+
+if mode == "scaled-cache-interval" then
+  directories["/etc/systemd/system/noctalia-drive-health.timer.d"] = { "interval.conf" }
+  files["/etc/systemd/system/noctalia-drive-health.timer.d/interval.conf"] = "[Timer]\nOnUnitActiveSec=\nOnBootSec=20s\nOnUnitActiveSec=1440min\n"
+elseif mode == "superseded-cache-interval" then
+  directories["/etc/systemd/system/noctalia-drive-health.timer.d"] = { "interval.conf", "override.conf" }
+  files["/etc/systemd/system/noctalia-drive-health.timer.d/interval.conf"] = "[Timer]\nOnUnitActiveSec=\nOnBootSec=20s\nOnUnitActiveSec=1440min\n"
+  files["/etc/systemd/system/noctalia-drive-health.timer.d/override.conf"] = "[Timer]\nOnUnitActiveSec=\nOnUnitActiveSec=15min\n"
+elseif mode == "nixos-oncalendar" then
+  files["/etc/NIXOS"] = ""
+  files["/etc/systemd/system/noctalia-drive-health.timer"] = "[Timer]\nOnCalendar=*:0/15\n"
+elseif mode == "unapplied-cache-interval" then
+  files["/etc/systemd/system/noctalia-drive-health.timer"] = "[Timer]\nOnBootSec=20s\nOnUnitActiveSec=15min\n"
 end
 
 if mode == "nixos" then
@@ -57,7 +72,9 @@ noctalia = {
     if key == "system_collector_enabled" then
       return collectorEnabled
     end
-    if key == "full_smart_refresh_minutes" then return 15 end
+    if key == "full_smart_refresh_minutes" then
+      return (mode == "scaled-cache-interval" or mode == "unapplied-cache-interval" or mode == "superseded-cache-interval" or mode == "nixos-oncalendar") and 1440 or 15
+    end
     return nil
   end,
   pluginDir = function() return "/mock/plugin" end,
@@ -67,12 +84,15 @@ noctalia = {
         and path:match("raw%.json$") then
       return { isDir = false, mtime = os.time() }
     end
+    if (mode == "scaled-cache-interval" or mode == "unapplied-cache-interval" or mode == "superseded-cache-interval" or mode == "nixos-oncalendar") and path:match("raw%.json$") then
+      return { isDir = false, mtime = os.time() - 3600 }
+    end
     return nil
   end,
   fileExists = function(path) return files[path] ~= nil end,
   listDir = function(path) return directories[path] or {} end,
   readFile = function(path)
-    if (mode == "raw-cache" or mode == "outdated-raw-cache" or mode == "collector-disabled" or mode == "nixos")
+    if (mode == "raw-cache" or mode == "outdated-raw-cache" or mode == "collector-disabled" or mode == "nixos" or mode == "scaled-cache-interval" or mode == "unapplied-cache-interval" or mode == "superseded-cache-interval" or mode == "nixos-oncalendar")
         and path:match("raw%.json$") then
       return "raw-cache"
     end
@@ -262,6 +282,38 @@ elseif mode == "raw-cache" then
   assert(snapshot.system_collector.is_nixos == false and snapshot.system_collector.install_command ~= nil,
     "non-NixOS system lost its install command")
   assert(not (launchedCommand or ""):match("collect_raw%.sh"), "collector launched despite a fresh raw cache")
+  print("collector initialization test passed: " .. mode)
+  return
+elseif mode == "scaled-cache-interval" then
+  assert(snapshot.source == "system-cache", "scaled cache was not accepted")
+  assert(snapshot.system_collector.status == "healthy", "scaled cache was not reported healthy")
+  assert(snapshot.system_collector.smart_refresh_minutes == 1440, "wrong refresh minutes reported")
+  assert(snapshot.system_collector.applied_smart_refresh_minutes == 1440, "wrong applied refresh minutes reported")
+  assert(not (launchedCommand or ""):match("collect_raw%.sh"), "collector launched despite a valid scaled cache")
+  print("collector initialization test passed: " .. mode)
+  return
+elseif mode == "unapplied-cache-interval" then
+  assert(snapshot.source == "direct", "stale cache was accepted when interval was not applied")
+  assert(snapshot.system_collector.status == "stale", "collector was not reported stale")
+  assert(snapshot.system_collector.smart_refresh_minutes == 1440, "wrong requested refresh minutes")
+  assert(snapshot.system_collector.applied_smart_refresh_minutes == 15, "wrong applied refresh minutes")
+  assert(launchedCommand and launchedCommand:match("collect_raw%.sh"), "fallback collector was not launched when applied cache was stale")
+  print("collector initialization test passed: " .. mode)
+  return
+elseif mode == "superseded-cache-interval" then
+  assert(snapshot.source == "direct", "stale cache was accepted when drop-in was superseded")
+  assert(snapshot.system_collector.status == "stale", "collector was not reported stale")
+  assert(snapshot.system_collector.smart_refresh_minutes == 1440, "wrong requested refresh minutes")
+  assert(snapshot.system_collector.applied_smart_refresh_minutes == 15, "wrong applied refresh minutes")
+  assert(launchedCommand and launchedCommand:match("collect_raw%.sh"), "fallback collector was not launched when drop-in was superseded")
+  print("collector initialization test passed: " .. mode)
+  return
+elseif mode == "nixos-oncalendar" then
+  assert(snapshot.source == "direct", "stale cache was accepted when schedule was unknown")
+  assert(snapshot.system_collector.status == "stale", "collector was not reported stale")
+  assert(snapshot.system_collector.smart_refresh_minutes == 1440, "wrong requested refresh minutes")
+  assert(snapshot.system_collector.applied_smart_refresh_minutes == 15, "wrong applied refresh minutes")
+  assert(launchedCommand and launchedCommand:match("collect_raw%.sh"), "fallback collector was not launched on calendar schedule")
   print("collector initialization test passed: " .. mode)
   return
 elseif mode == "nixos" then
