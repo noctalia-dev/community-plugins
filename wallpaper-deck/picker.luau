@@ -55,12 +55,16 @@ end
 local allWallpapers: { any } = (function()
   local sw = noctalia.state.get("wallpapers")
   if type(sw) == "table" and #sw > 0 then return sw end
+  local disk = loadCacheDirect()
+  if #disk > 0 then return disk end
   return {}
 end)()
 
 local favorites: { [string]: boolean } = (function()
   local sf = noctalia.state.get("favorites")
   if type(sf) == "table" and next(sf) ~= nil then return sf end
+  local disk = loadFavoritesDirect()
+  if next(disk) ~= nil then return disk end
   return {}
 end)()
 local hasAnyFavorites = (type(favorites) == "table" and next(favorites) ~= nil)
@@ -80,6 +84,9 @@ local STATE_DIR = (type(noctalia.pluginDataDir) == "function" and noctalia.plugi
   or noctalia.expandPath("~/.local/state/noctalia/plugins/data/ishan0121/wallpaper-deck")
 
 local displayedBgPath = ""
+local bgSlots = { [0] = "", [1] = "", retireToken = 0 }
+local bgActiveSlot = 0
+local animateSelected = noctalia.getConfig("animate_selected_card") ~= false
 local previewFit = noctalia.getConfig("preview_fit") or "cover"
 if previewFit ~= "cover" and previewFit ~= "contain" and previewFit ~= "stretch" then
   previewFit = "cover"
@@ -91,9 +98,50 @@ local function clampVal(val: number, minVal: number, maxVal: number): number
   return val
 end
 
+function bgSlots.scheduleRetirement()
+  bgSlots.retireToken = (bgSlots.retireToken or 0) + 1
+  local token = bgSlots.retireToken
+  local delay = (animateSelected ~= false) and 350 or 250
+
+  if type(noctalia.setTimeout) == "function" then
+    noctalia.setTimeout(function()
+      if bgSlots.retireToken == token then
+        local inactiveSlot = 1 - bgActiveSlot
+        if bgSlots[inactiveSlot] ~= "" then
+          bgSlots[inactiveSlot] = ""
+          if type(render) == "function" then
+            render()
+          end
+        end
+      end
+    end, delay)
+  end
+end
+
+function bgSlots.retireNow()
+  bgSlots.retireToken = (bgSlots.retireToken or 0) + 1
+  local inactiveSlot = 1 - bgActiveSlot
+  if bgSlots[inactiveSlot] ~= "" then
+    bgSlots[inactiveSlot] = ""
+    if type(render) == "function" then
+      render()
+    end
+  end
+end
+
 local function setDisplayedBackground(newPath: string)
   if not newPath or newPath == "" or displayedBgPath == newPath then return end
+  local oldPath = displayedBgPath
   displayedBgPath = newPath
+
+  if oldPath == "" then
+    bgSlots[bgActiveSlot] = newPath
+  else
+    local nextSlot = 1 - bgActiveSlot
+    bgSlots[nextSlot] = newPath
+    bgActiveSlot = nextSlot
+  end
+  bgSlots.scheduleRetirement()
 end
 
 local WHEEL_PID_FILE = STATE_DIR .. "/wheel_listener.pid"
@@ -193,7 +241,15 @@ local isPickerOpen = false
 local isDeckAreaHovered = false
 local hoveredDeckKeys: { [string]: boolean } = {}
 local isSearchBoxHovered = false
-local currentMode = "local" -- "local" | "favorites" | "wallhaven"
+local currentMode = (function()
+  if noctalia.getConfig("remember_last_tab") == true then
+    local sm = noctalia.state.get("deck_mode")
+    if sm == "wallhaven" or sm == "favorites" or sm == "local" then
+      return sm
+    end
+  end
+  return "local"
+end)()
 local pendingStepAfterAppend = false
 local render: () -> ()
 local triggerPreview -- forward declaration
@@ -430,7 +486,11 @@ local PERMANENT_WH_DIRS = {
   noctalia.expandPath("~/Pictures/wallpapers"),
 }
 
-local hiResPreview = noctalia.getConfig("wallhaven_hires_preview") == true
+local hiResPreview = (function()
+  local sh = noctalia.state.get("wallhaven_hires_preview")
+  if sh ~= nil then return sh == true end
+  return noctalia.getConfig("wallhaven_hires_preview") == true
+end)()
 local hiResQueue = {}
 local hiResPending = {}
 local hiResActive = 0
@@ -575,6 +635,33 @@ local function getWallhavenHiResCached(item: any): string?
   return nil
 end
 
+function bgSlots.getActiveBackground(item: any): string
+  if not item then return "" end
+  if currentMode == "wallhaven" then
+    if hiResPreview then
+      local hiRes = getWallhavenHiResCached(item)
+      if hiRes and hiRes ~= "" then
+        return hiRes
+      end
+    end
+    return requestWallhavenThumb(item, true) or ""
+  else
+    if item._validPath == nil then
+      if item.path and item.path ~= "" and noctalia.fileExists(item.path) then
+        item._validPath = item.path
+      else
+        item._validPath = false
+      end
+    end
+    local fullPath = (item._validPath ~= false) and item._validPath or nil
+    local thumbPath = (item.thumb and item.thumb ~= "" and noctalia.fileExists(item.thumb)) and item.thumb
+      or (item.preview and item.preview ~= "" and noctalia.fileExists(item.preview)) and item.preview
+      or fullPath
+      or ""
+    return fullPath or thumbPath
+  end
+end
+
 local function requestWallhavenHiRes(item: any, priority: boolean?): string?
   if not item or not item.id or not item.fullUrl then return nil end
   local cached = getWallhavenHiResCached(item)
@@ -609,6 +696,10 @@ end
 local function onCardSettled()
   local item = displayedItems[selectedIdx]
   if not item then return end
+
+  if not animateSelected then
+    bgSlots.scheduleRetirement()
+  end
 
   if currentMode ~= "wallhaven" then
     if item._prefetchIdx ~= selectedIdx then
@@ -681,7 +772,11 @@ local function scheduleSettle()
   -- Handled deterministically when spring animation completes in onFrameTick
 end
 
-local currentSort = "name_asc" -- "name_asc" | "name_desc" | "colour" | "newest" | "oldest"
+local currentSort = (function()
+  local s = noctalia.state.get("deck_sort")
+  if type(s) == "string" and s ~= "" then return s end
+  return "name_asc"
+end)()
 local searchQuery = ""
 -- Color-search state packed into one table to stay within Luau's 200-local limit
 CSF = { color = nil, hueKey = nil, searching = false, token = 0 }
@@ -702,7 +797,14 @@ local function unfocusSearch()
   end
 end
 local cfgScanSub = noctalia.getConfig("scan_subdirectories")
-local isFlattened = if cfgScanSub ~= nil then (cfgScanSub == true or cfgScanSub == "true" or cfgScanSub == 1) else true
+local isFlattened = (function()
+  local sf = noctalia.state.get("deck_flattened")
+  if sf ~= nil then return sf == true end
+  if cfgScanSub ~= nil then
+    return (cfgScanSub == true or cfgScanSub == "true" or cfgScanSub == 1)
+  end
+  return true
+end)()
 
 WH = {
   sortLabels = { "Date Added", "Toplist", "Hot", "Views", "Favorites", "Relevance", "Random" },
@@ -720,9 +822,42 @@ WH = {
   paletteSourceKeys = { "wallpaper", "builtin", "community", "custom" },
 }
 
-local whCatGeneral = true
-local whCatAnime = true
-local whCatPeople = true
+local cachedApiKey = noctalia.getConfig("wallhaven_api_key") or ""
+local function getApiKey(): string
+  return cachedApiKey
+end
+
+local function isNsfwAllowed(): boolean
+  return getApiKey() ~= ""
+end
+
+local function parseCategories(catStr: string?): (boolean, boolean, boolean)
+  local s = catStr or "111"
+  local g = string.sub(s, 1, 1) == "1"
+  local a = string.sub(s, 2, 2) == "1"
+  local p = string.sub(s, 3, 3) == "1"
+  if not g and not a and not p then
+    g, a, p = true, true, true
+  end
+  return g, a, p
+end
+
+local function parsePurity(purStr: string?): (boolean, boolean, boolean)
+  local s = purStr or "100"
+  local sfw = string.sub(s, 1, 1) == "1"
+  local sketchy = string.sub(s, 2, 2) == "1"
+  local nsfw = string.sub(s, 3, 3) == "1"
+  if not sfw and not sketchy and not nsfw then
+    sfw = true
+  end
+  return sfw, sketchy, nsfw
+end
+
+local initialCats = noctalia.state.get("wallhaven_categories")
+  or (wallhavenData and (wallhavenData.categories or (wallhavenData.filters and wallhavenData.filters.categories)))
+  or noctalia.getConfig("wallhaven_categories")
+  or "111"
+local whCatGeneral, whCatAnime, whCatPeople = parseCategories(initialCats)
 
 function WH.getCategorySummaryText(): string
   local parts = {}
@@ -741,9 +876,17 @@ function WH.getCategorySummaryText(): string
   return table.concat(short, " + ")
 end
 
-local whPuritySfw = true
-local whPuritySketchy = false
-local whPurityNsfw = false
+local initialPurity = noctalia.state.get("wallhaven_purity")
+  or (wallhavenData and (wallhavenData.purity or (wallhavenData.filters and wallhavenData.filters.purity)))
+  or noctalia.getConfig("wallhaven_purity")
+  or "100"
+local whPuritySfw, whPuritySketchy, whPurityNsfw = parsePurity(initialPurity)
+if not isNsfwAllowed() then
+  whPurityNsfw = false
+  if not whPuritySfw and not whPuritySketchy then
+    whPuritySfw = true
+  end
+end
 
 local function getSortIndexFromValue(val: string?): number
   if not val or val == "" then return 0 end
@@ -759,15 +902,19 @@ local whSortIdx = getSortIndexFromValue(savedSort)
 local savedOrder = noctalia.state.get("wallhaven_order") or noctalia.getConfig("wallhaven_order") or "desc"
 local whOrder = (savedOrder == "asc") and "asc" or "desc"
 
-local whRatioIdx = 0 -- "Any"
-local whResModeIdx = 0 -- "At Least"
-local whResWidth = ""
-local whResHeight = ""
+local whRatioIdx = tonumber(noctalia.state.get("wallhaven_ratio_idx")) or 0 -- "Any"
+local whResModeIdx = tonumber(noctalia.state.get("wallhaven_res_mode_idx")) or 0 -- "At Least"
+local whResWidth = noctalia.state.get("wallhaven_res_width") or ""
+local whResHeight = noctalia.state.get("wallhaven_res_height") or ""
 local whClearCounter = 0
-local whQuery = ""
+local whQuery = (wallhavenData and wallhavenData.query) or ""
 
 local connectedOutputs = { "ALL" }
-local selectedOutput = "ALL"
+local selectedOutput = (function()
+  local so = noctalia.state.get("deck_output")
+  if type(so) == "string" and so ~= "" then return so end
+  return "ALL"
+end)()
 local selectedOutputIdx = 1
 local monitorDropdownOpen = false
 
@@ -870,7 +1017,7 @@ local function resetDeckAnimation(pos: number?)
   panel.setNeedsFrameTick(false)
 end
 
-local animateSelected = noctalia.getConfig("animate_selected_card") ~= false
+animateSelected = noctalia.getConfig("animate_selected_card") ~= false
 
 local function lerp(a: number, b: number, t: number): number
   return a + (b - a) * t
@@ -1701,21 +1848,12 @@ local function rebuildList()
   selectedIdx = clamp(selectedIdx, 1, math.max(1, #displayedItems))
 end
 
-local cachedApiKey = noctalia.getConfig("wallhaven_api_key") or ""
-local function getApiKey(): string
-  return cachedApiKey
-end
-
-local function isNsfwAllowed(): boolean
-  return getApiKey() ~= ""
-end
-
 local function buildCategories(): string
   local g = whCatGeneral and "1" or "0"
   local a = whCatAnime and "1" or "0"
   local p = whCatPeople and "1" or "0"
   local cat = g .. a .. p
-  if cat == "000" then return "100" end
+  if cat == "000" then return "111" end
   return cat
 end
 
@@ -1782,6 +1920,53 @@ local function getActiveFilters(): any
   }
 end
 
+function WH.resetFiltersToDefaults()
+  local defPurity = noctalia.getConfig("wallhaven_purity") or "100"
+  local s, sk, n = parsePurity(defPurity)
+  if not isNsfwAllowed() then
+    n = false
+    if not s and not sk then s = true end
+  end
+  local changed = (whPuritySfw ~= s) or (whPuritySketchy ~= sk) or (whPurityNsfw ~= n)
+  whPuritySfw, whPuritySketchy, whPurityNsfw = s, sk, n
+
+  local defCats = noctalia.getConfig("wallhaven_categories") or "111"
+  local g, a, p = parseCategories(defCats)
+  if (whCatGeneral ~= g) or (whCatAnime ~= a) or (whCatPeople ~= p) then changed = true end
+  whCatGeneral, whCatAnime, whCatPeople = g, a, p
+
+  local defSort = noctalia.getConfig("wallhaven_sorting") or "date_added"
+  local sIdx = getSortIndexFromValue(defSort)
+  if whSortIdx ~= sIdx then changed = true end
+  whSortIdx = sIdx
+
+  local defOrder = noctalia.getConfig("wallhaven_order") or "desc"
+  local ord = (defOrder == "asc") and "asc" or "desc"
+  if whOrder ~= ord then changed = true end
+  whOrder = ord
+
+  whRatioIdx = 0
+  whResModeIdx = 0
+  whResWidth = ""
+  whResHeight = ""
+  whQuery = ""
+  whQueryDirty = false
+  whResDirty = false
+
+  noctalia.state.set("wallhaven_purity", buildPurity())
+  noctalia.state.set("wallhaven_categories", buildCategories())
+  noctalia.state.set("wallhaven_sort", WH.sortValues[whSortIdx + 1] or "date_added")
+  noctalia.state.set("wallhaven_order", whOrder)
+  noctalia.state.set("wallhaven_ratio_idx", 0)
+  noctalia.state.set("wallhaven_res_mode_idx", 0)
+  noctalia.state.set("wallhaven_res_width", "")
+  noctalia.state.set("wallhaven_res_height", "")
+
+  if changed then
+    wallhavenData = nil
+  end
+end
+
 local function doWallhavenSearch(resetPage: boolean?, skipRender: boolean?)
   local targetPage = resetPage and 1 or (wallhavenData.page or 1)
   wallhavenLoadingMore = false
@@ -1810,12 +1995,14 @@ end
 local function togglePuritySfw()
   if whPuritySfw and not whPuritySketchy and not whPurityNsfw then return end
   whPuritySfw = not whPuritySfw
+  noctalia.state.set("wallhaven_purity", buildPurity())
   doWallhavenSearch(true)
 end
 
 local function togglePuritySketchy()
   if whPuritySketchy and not whPuritySfw and not whPurityNsfw then return end
   whPuritySketchy = not whPuritySketchy
+  noctalia.state.set("wallhaven_purity", buildPurity())
   doWallhavenSearch(true)
 end
 
@@ -1823,6 +2010,7 @@ local function togglePurityNsfw()
   if not isNsfwAllowed() then return end
   if whPurityNsfw and not whPuritySfw and not whPuritySketchy then return end
   whPurityNsfw = not whPurityNsfw
+  noctalia.state.set("wallhaven_purity", buildPurity())
   doWallhavenSearch(true)
 end
 
@@ -1955,6 +2143,7 @@ local function buildWallhavenRow2(paletteColors: any?, panelW: number?)
             end
           end
           whRatioIdx = num or 0
+          noctalia.state.set("wallhaven_ratio_idx", whRatioIdx)
           doWallhavenSearch(true)
         end,
       }),
@@ -2438,16 +2627,15 @@ local function selectCardIndex(newIdx: number)
   startDeckAnimation(clamped)
   triggerPreview()
   scheduleSettle()
+  local si = displayedItems[selectedIdx]
+  if si then
+    local bg = bgSlots.getActiveBackground(si)
+    if bg ~= "" and bg ~= displayedBgPath then
+      setDisplayedBackground(bg)
+    end
+  end
   if not animateSelected then
     onCardSettled()
-    -- Force background refresh immediately when there is no animation
-    local si = displayedItems[selectedIdx]
-    if si and currentMode ~= "wallhaven" then
-      local bg = (si.path and si.path ~= "" and noctalia.fileExists(si.path)) and si.path or (si.preview or si.thumb or "")
-      if bg ~= "" and bg ~= displayedBgPath then
-        setDisplayedBackground(bg)
-      end
-    end
   end
   if type(render) == "function" then
     render()
@@ -2530,6 +2718,7 @@ local function cycleOutput()
   refreshConnectedOutputs()
   selectedOutputIdx = (selectedOutputIdx % #connectedOutputs) + 1
   selectedOutput = connectedOutputs[selectedOutputIdx] or "ALL"
+  noctalia.state.set("deck_output", selectedOutput)
   render()
 end
 
@@ -2539,6 +2728,7 @@ function onSelectMonitorOutput(outName)
     if name == outName then
       selectedOutputIdx = idx
       selectedOutput = name
+      noctalia.state.set("deck_output", selectedOutput)
       render()
       break
     end
@@ -2610,6 +2800,7 @@ changeSort = function(newSort: string)
   local currentItem = displayedItems[selectedIdx]
   local currentPath = currentItem and (currentItem.path or currentItem.id)
   currentSort = newSort
+  noctalia.state.set("deck_sort", newSort)
   rebuildList()
   if currentPath and #displayedItems > 0 then
     for i, it in ipairs(displayedItems) do
@@ -2643,12 +2834,16 @@ local function cycleMode()
     currentMode = "favorites"
   elseif currentMode == "favorites" then
     currentMode = "wallhaven"
+    if noctalia.getConfig("remember_last_tab") ~= true then
+      WH.resetFiltersToDefaults()
+    end
     if #((wallhavenData and wallhavenData.items) or {}) == 0 then
       doWallhavenSearch(true, true)
     end
   else
     currentMode = "local"
   end
+  noctalia.state.set("deck_mode", currentMode)
   selectedIdx = 1
   resetDeckAnimation(1.0)
   rebuildList()
@@ -3158,6 +3353,9 @@ local function renderEmptyState(paletteColors: any)
   local buttons = {}
 
   if currentMode == "favorites" and (not hasAnyFavorites or (searchQuery == "" and CSF.hueKey == nil)) then
+    if #allWallpapers == 0 and (isScanning or noctalia.state.get("is_scanning") == true) then
+      return renderScanningState(paletteColors)
+    end
     glyphName = "heart-off"
     title = "No Favourites Yet"
     subtitle = trText("ui.no_favorites", "Press F on any wallpaper in the deck to add it to your favourites.")
@@ -3168,7 +3366,9 @@ local function renderEmptyState(paletteColors: any)
         variant = "primary",
         controlSize = "md",
         onClick = function()
+          unfocusSearch()
           currentMode = "local"
+          noctalia.state.set("deck_mode", "local")
           selectedIdx = 1
           resetDeckAnimation(1.0)
           rebuildList()
@@ -3403,53 +3603,76 @@ end
 CSF.renderBg = function(panelW: number, panelH: number, activeItem: any)
   local bgFill = (#displayedItems > 0 and activeItem and activeItem.sourceColor) or "surface"
 
-  if displayedBgPath ~= "" then
+  local activePath = bgSlots[bgActiveSlot]
+  local inactiveSlot = 1 - bgActiveSlot
+  local inactivePath = bgSlots[inactiveSlot]
+
+  if (not activePath or activePath == "") and (not inactivePath or inactivePath == "") then
     return ui.column({
       key = "bg_layer",
       width = panelW,
       height = panelH,
-      padding = 0,
-      fill = (previewFit == "contain") and bgFill or nil,
-      align = "stretch",
-      justify = "start",
+      radius = R(12),
+      fill = bgFill,
+      align = "center",
+      justify = "center",
       onHover = "onOutsideDeckHover",
     }, {
-      ui.image({
-        key = "deck_bg_curr_img_" .. displayedBgPath,
-        path = displayedBgPath,
-        width = panelW,
-        height = panelH,
-        radius = R(12),
-        fit = previewFit,
-      }),
+      (#displayedItems > 0 and currentMode == "wallhaven") and ui.row({
+        align = "center",
+        justify = "center",
+        paddingH = 18,
+        paddingV = 9,
+        radius = R(20),
+        fill = "surface/0.8",
+        border = "outline_variant/0.3",
+        borderWidth = 1,
+        gap = 8,
+      }, {
+        ui.glyph({ name = "loader-2", size = 16, color = "primary" }),
+        ui.label({ text = trText("ui.loading", "Loading preview..."), fontSize = 11, fontWeight = "bold", color = "on_surface" }),
+      }) or ui.spacer({ width = 1, height = 1 }),
     })
+  end
+
+  local bgChildren = {}
+
+  -- Render inactive slot underneath so old wallpaper remains visible during async decoding
+  if inactivePath and inactivePath ~= "" and inactivePath ~= activePath then
+    table.insert(bgChildren, ui.image({
+      key = "deck_bg_slot_" .. inactiveSlot,
+      path = inactivePath,
+      width = panelW,
+      height = panelH,
+      radius = R(12),
+      fit = previewFit,
+    }))
+  end
+
+  -- Render active slot on top
+  if activePath and activePath ~= "" then
+    table.insert(bgChildren, ui.image({
+      key = "deck_bg_slot_" .. bgActiveSlot,
+      path = activePath,
+      width = panelW,
+      height = panelH,
+      radius = R(12),
+      fit = previewFit,
+    }))
   end
 
   return ui.column({
     key = "bg_layer",
     width = panelW,
     height = panelH,
+    padding = 0,
     radius = R(12),
     fill = bgFill,
-    align = "center",
-    justify = "center",
+    gap = -panelH,
+    align = "stretch",
+    justify = "start",
     onHover = "onOutsideDeckHover",
-  }, {
-    (#displayedItems > 0 and currentMode == "wallhaven") and ui.row({
-      align = "center",
-      justify = "center",
-      paddingH = 18,
-      paddingV = 9,
-      radius = R(20),
-      fill = "surface/0.8",
-      border = "outline_variant/0.3",
-      borderWidth = 1,
-      gap = 8,
-    }, {
-      ui.glyph({ name = "loader-2", size = 16, color = "primary" }),
-      ui.label({ text = trText("ui.loading", "Loading preview..."), fontSize = 11, fontWeight = "bold", color = "on_surface" }),
-    }) or ui.spacer({ width = 1, height = 1 }),
-  })
+  }, bgChildren)
 end
 
 function WH.renderCategoriesModal(panelW: number, panelH: number): any
@@ -3597,6 +3820,7 @@ function WH.renderCategoriesModal(panelW: number, panelH: number): any
               whCatAnime = WH.tempCatAnime
               whCatPeople = WH.tempCatPeople
               WH.catModalOpen = false
+              noctalia.state.set("wallhaven_categories", buildCategories())
               doWallhavenSearch(true)
             end,
           }),
@@ -3766,6 +3990,8 @@ function WH.renderResolutionModal(panelW: number, panelH: number): any
             end,
             onSubmit = function(val)
               whResWidth = noctalia.string.trim(val or "")
+              noctalia.state.set("wallhaven_res_width", whResWidth)
+              noctalia.state.set("wallhaven_res_mode_idx", whResModeIdx)
               unfocusSearch()
               WH.resModalOpen = false
               doWallhavenSearch(true)
@@ -3792,6 +4018,8 @@ function WH.renderResolutionModal(panelW: number, panelH: number): any
             end,
             onSubmit = function(val)
               whResHeight = noctalia.string.trim(val or "")
+              noctalia.state.set("wallhaven_res_height", whResHeight)
+              noctalia.state.set("wallhaven_res_mode_idx", whResModeIdx)
               unfocusSearch()
               WH.resModalOpen = false
               doWallhavenSearch(true)
@@ -3815,6 +4043,9 @@ function WH.renderResolutionModal(panelW: number, panelH: number): any
             whResWidth = ""
             whResHeight = ""
             whResModeIdx = 0
+            noctalia.state.set("wallhaven_res_width", "")
+            noctalia.state.set("wallhaven_res_height", "")
+            noctalia.state.set("wallhaven_res_mode_idx", 0)
             whClearCounter = whClearCounter + 1
             WH.resModalOpen = false
             doWallhavenSearch(true)
@@ -3838,6 +4069,9 @@ function WH.renderResolutionModal(panelW: number, panelH: number): any
             controlSize = "sm",
             onClick = function()
               WH.resModalOpen = false
+              noctalia.state.set("wallhaven_res_width", whResWidth)
+              noctalia.state.set("wallhaven_res_height", whResHeight)
+              noctalia.state.set("wallhaven_res_mode_idx", whResModeIdx)
               local res, _ = getResolutionParam()
               if res then
                 doWallhavenSearch(true)
@@ -3966,37 +4200,12 @@ function render()
 
   local favCount = getFavCount()
 
-  local activeBg = ""
-  if activeItem then
-    if currentMode == "wallhaven" then
-      if hiResPreview then
-        local hiRes = getWallhavenHiResCached(activeItem)
-        if hiRes and hiRes ~= "" then
-          activeBg = hiRes
-        else
-          activeBg = requestWallhavenThumb(activeItem, true) or ""
-        end
-      else
-        activeBg = requestWallhavenThumb(activeItem, true) or ""
-      end
-    else
-      local isSettled = (not animateSelected) or (animatedPos == selectedIdx)
-      local fullPath = (activeItem.path and activeItem.path ~= "" and noctalia.fileExists(activeItem.path)) and activeItem.path or nil
-      local thumbPath = (activeItem.thumb and activeItem.thumb ~= "" and noctalia.fileExists(activeItem.thumb)) and activeItem.thumb
-        or (activeItem.preview and activeItem.preview ~= "" and noctalia.fileExists(activeItem.preview)) and activeItem.preview
-        or fullPath
-        or ""
-
-      if isSettled or isPeeking then
-        activeBg = fullPath or thumbPath
-      else
-        activeBg = thumbPath
-      end
-    end
-  end
+  local activeBg = bgSlots.getActiveBackground(activeItem)
 
   if #displayedItems == 0 then
     displayedBgPath = ""
+    bgSlots[0] = ""
+    bgSlots[1] = ""
   else
     if activeBg ~= "" then
       setDisplayedBackground(activeBg)
@@ -4148,7 +4357,7 @@ function render()
                 ui.label({
                   text = CSF.searching and "filtering..."
                     or (#displayedItems == 0) and (
-                      (currentMode ~= "wallhaven" and currentMode ~= "favorites" and (isScanning or #allWallpapers == 0)) and "loading..."
+                      (currentMode ~= "wallhaven" and (isScanning or (#allWallpapers == 0 and noctalia.state.get("is_scanning") == true))) and "loading..."
                         or (currentMode == "wallhaven" and wallhavenLoading) and "searching..."
                         or (currentMode == "wallhaven" and wallhavenError ~= nil) and "offline"
                         or "0 wallpapers"
@@ -4333,6 +4542,7 @@ function render()
               onClick = function()
                 unfocusSearch()
                 currentMode = "local"
+                noctalia.state.set("deck_mode", "local")
                 selectedIdx = 1
                 resetDeckAnimation(1.0)
                 rebuildList()
@@ -4348,6 +4558,7 @@ function render()
               onClick = function()
                 unfocusSearch()
                 currentMode = "favorites"
+                noctalia.state.set("deck_mode", "favorites")
                 selectedIdx = 1
                 resetDeckAnimation(1.0)
                 rebuildList()
@@ -4363,8 +4574,12 @@ function render()
               onClick = function()
                 unfocusSearch()
                 currentMode = "wallhaven"
+                noctalia.state.set("deck_mode", "wallhaven")
                 selectedIdx = 1
                 resetDeckAnimation(1.0)
+                if noctalia.getConfig("remember_last_tab") ~= true then
+                  WH.resetFiltersToDefaults()
+                end
                 if #((wallhavenData and wallhavenData.items) or {}) == 0 then
                   doWallhavenSearch(true)
                 end
@@ -4403,10 +4618,10 @@ function render()
                   tooltip = hiResPreview and "Hi-Res Preview is ON (caching full HD for preview) [Press P]" or "Enable Hi-Res Preview (downloads full HD to cache) [Press P]",
                   onClick = function()
                     hiResPreview = not hiResPreview
+                    noctalia.state.set("wallhaven_hires_preview", hiResPreview)
                     if not hiResPreview then
                       hiResQueue = {}
                     else
-                      displayedBgPath = "" 
                       onCardSettled()
                     end
                     triggerPreview()
@@ -4462,6 +4677,7 @@ function render()
                 checked = isFlattened,
                 onChange = function(checked)
                   isFlattened = (checked == "true" or checked == true)
+                  noctalia.state.set("deck_flattened", isFlattened)
                   invalidateSortCache()
                   selectedIdx = 1
                   resetDeckAnimation(1.0)
@@ -4591,7 +4807,7 @@ function render()
       (CSF.searching or #displayedItems == 0) and (
         CSF.searching
           and CSF.renderState(paletteColors, CSF.color)
-          or (currentMode ~= "wallhaven" and currentMode ~= "favorites" and (isScanning or #allWallpapers == 0))
+          or (currentMode ~= "wallhaven" and (isScanning or (#allWallpapers == 0 and noctalia.state.get("is_scanning") == true)))
             and renderScanningState(paletteColors)
             or (currentMode == "wallhaven" and wallhavenLoading and not wallhavenError)
               and renderWallhavenLoadingState(paletteColors)
@@ -4650,6 +4866,7 @@ function render()
                 onClick = function()
                   selectedOutputIdx = idx
                   selectedOutput = outName
+                  noctalia.state.set("deck_output", selectedOutput)
                   monitorDropdownOpen = false
                   render()
                 end,
@@ -4965,19 +5182,145 @@ function onOpen(context: any?)
     previewFit = cfgFit
   end
   displayedBgPath = ""
+  bgSlots[0] = ""
+  bgSlots[1] = ""
+  bgActiveSlot = 0
+  bgSlots.retireToken = (bgSlots.retireToken or 0) + 1
   cachedRibbon = nil
 
-  if context == "wallhaven" then
-    currentMode = "wallhaven"
+  isScanning = (noctalia.state.get("is_scanning") == true)
+
+  local requestedMode: string? = nil
+  if type(context) == "string" and context ~= "" then
+    requestedMode = string.lower(context)
+  elseif type(context) == "table" then
+    local m = context.mode or context.tab or context.view
+    if type(m) == "string" and m ~= "" then
+      requestedMode = string.lower(m)
+    end
+  end
+
+  local rememberLastTab = noctalia.getConfig("remember_last_tab") == true
+
+  if requestedMode == "wallhaven" or requestedMode == "favorites" or requestedMode == "local" then
+    currentMode = requestedMode
+  elseif rememberLastTab then
+    local savedMode = noctalia.state.get("deck_mode")
+    if savedMode == "wallhaven" or savedMode == "favorites" or savedMode == "local" then
+      currentMode = savedMode
+    else
+      currentMode = "local"
+    end
+  else
+    currentMode = "local"
+  end
+  noctalia.state.set("deck_mode", currentMode)
+
+  if rememberLastTab then
     local stateWallhaven = noctalia.state.get("wallhaven_results")
     if type(stateWallhaven) == "table" then
       wallhavenData = stateWallhaven
     end
+
+    local savedPurity = noctalia.state.get("wallhaven_purity")
+      or (wallhavenData and (wallhavenData.purity or (wallhavenData.filters and wallhavenData.filters.purity)))
+      or noctalia.getConfig("wallhaven_purity")
+      or "100"
+    whPuritySfw, whPuritySketchy, whPurityNsfw = parsePurity(savedPurity)
+    if not isNsfwAllowed() then
+      whPurityNsfw = false
+      if not whPuritySfw and not whPuritySketchy then
+        whPuritySfw = true
+      end
+    end
+
+    local savedCats = noctalia.state.get("wallhaven_categories")
+      or (wallhavenData and (wallhavenData.categories or (wallhavenData.filters and wallhavenData.filters.categories)))
+      or noctalia.getConfig("wallhaven_categories")
+      or "111"
+    whCatGeneral, whCatAnime, whCatPeople = parseCategories(savedCats)
+
+    local savedSort = noctalia.state.get("wallhaven_sort")
+      or (wallhavenData and (wallhavenData.sorting or (wallhavenData.filters and wallhavenData.filters.sorting)))
+      or noctalia.getConfig("wallhaven_sorting")
+      or "date_added"
+    whSortIdx = getSortIndexFromValue(savedSort)
+
+    local savedOrder = noctalia.state.get("wallhaven_order")
+      or (wallhavenData and (wallhavenData.order or (wallhavenData.filters and wallhavenData.filters.order)))
+      or noctalia.getConfig("wallhaven_order")
+      or "desc"
+    whOrder = (savedOrder == "asc") and "asc" or "desc"
+
+    local savedRatio = tonumber(noctalia.state.get("wallhaven_ratio_idx"))
+    if savedRatio then whRatioIdx = savedRatio end
+
+    local savedResMode = tonumber(noctalia.state.get("wallhaven_res_mode_idx"))
+    if savedResMode then whResModeIdx = savedResMode end
+
+    local savedResW = noctalia.state.get("wallhaven_res_width")
+    if type(savedResW) == "string" then whResWidth = savedResW end
+
+    local savedResH = noctalia.state.get("wallhaven_res_height")
+    if type(savedResH) == "string" then whResHeight = savedResH end
+
+    whQuery = (wallhavenData and wallhavenData.query) or whQuery or ""
+  else
+    WH.resetFiltersToDefaults()
+    wallhavenData = nil
+    whQuery = ""
+  end
+
+  local savedHiRes = noctalia.state.get("wallhaven_hires_preview")
+  if savedHiRes ~= nil then
+    hiResPreview = (savedHiRes == true)
+  end
+
+  local savedLocalSort = noctalia.state.get("deck_sort")
+  if type(savedLocalSort) == "string" and savedLocalSort ~= "" then
+    currentSort = savedLocalSort
+  end
+
+  local savedFlattened = noctalia.state.get("deck_flattened")
+  if savedFlattened ~= nil then
+    isFlattened = (savedFlattened == true)
+  else
+    local cfgScanSub = noctalia.getConfig("scan_subdirectories")
+    if cfgScanSub ~= nil then
+      isFlattened = (cfgScanSub == true or cfgScanSub == "true" or cfgScanSub == 1)
+    end
+  end
+
+  local savedOut = noctalia.state.get("deck_output")
+  if type(savedOut) == "string" and savedOut ~= "" then
+    selectedOutput = savedOut
+  end
+
+  local stateWallDir = noctalia.state.get("wallpaper_dir") or noctalia.getConfig("wallpaper_dir")
+  if stateWallDir and stateWallDir ~= "" and stateWallDir ~= currentWallDir then
+    currentWallDir = stateWallDir
+    updateRootWpDir(stateWallDir)
+    invalidateSortCache()
+  end
+
+  if not hasAnyFavorites or next(favorites) == nil then
+    local stateFavs = noctalia.state.get("favorites")
+    if type(stateFavs) == "table" and next(stateFavs) ~= nil then
+      favorites = stateFavs
+      hasAnyFavorites = true
+    else
+      local diskFavs = loadFavoritesDirect()
+      if next(diskFavs) ~= nil then
+        favorites = diskFavs
+        hasAnyFavorites = true
+      end
+    end
+  end
+
+  if currentMode == "wallhaven" then
     if #((wallhavenData and wallhavenData.items) or {}) == 0 then
       doWallhavenSearch(true, true)
     end
-  else
-    currentMode = "local"
   end
   isSearchFocused = false
   whQueryDirty = false
@@ -4998,7 +5341,15 @@ function onOpen(context: any?)
       allWallpapers = stateWps
       invalidateSortCache()
     else
-      noctalia.state.set("deck_command", { action = "rescan", dir = currentWallDir, nonce = noctalia.nowMs() })
+      local diskWps = loadCacheDirect()
+      if #diskWps > 0 then
+        allWallpapers = diskWps
+        invalidateSortCache()
+      elseif not isScanning and noctalia.state.get("is_scanning") ~= true then
+        isScanning = true
+        noctalia.state.set("is_scanning", true)
+        noctalia.state.set("deck_command", { action = "rescan", nonce = noctalia.nowMs() })
+      end
     end
   end
 
@@ -5093,10 +5444,11 @@ function onFrameTick(deltaMs: any)
         animVel = 0.0
         if wasMoving then
           onCardSettled()
+          bgSlots.retireNow()
           -- Force background update immediately when spring settles
           local si = displayedItems[selectedIdx]
-          if si and currentMode ~= "wallhaven" then
-            local bg = (si.path and si.path ~= "" and noctalia.fileExists(si.path)) and si.path or (si.preview or si.thumb or "")
+          if si then
+            local bg = bgSlots.getActiveBackground(si)
             if bg ~= "" and bg ~= displayedBgPath then
               setDisplayedBackground(bg)
             end
@@ -5294,7 +5646,6 @@ function onKey(chord: string, pressed: boolean)
       if not hiResPreview then
         hiResQueue = {}
       else
-        displayedBgPath = "" 
         onCardSettled()
       end
       triggerPreview()
@@ -5391,10 +5742,10 @@ function onIpc(event: string, _payload: string?)
   elseif event == "toggle_hires" or event == "hires" then
     if currentMode == "wallhaven" then
       hiResPreview = not hiResPreview
+      noctalia.state.set("wallhaven_hires_preview", hiResPreview)
       if not hiResPreview then
         hiResQueue = {}
       else
-        displayedBgPath = "" 
         onCardSettled()
       end
       triggerPreview()
@@ -5404,8 +5755,12 @@ function onIpc(event: string, _payload: string?)
     cycleMode()
   elseif event == "mode_wallhaven" or event == "wallhaven" then
     currentMode = "wallhaven"
+    noctalia.state.set("deck_mode", "wallhaven")
     selectedIdx = 1
     resetDeckAnimation(1.0)
+    if noctalia.getConfig("remember_last_tab") ~= true then
+      WH.resetFiltersToDefaults()
+    end
     if #((wallhavenData and wallhavenData.items) or {}) == 0 then
       doWallhavenSearch(true, true)
     end
@@ -5413,8 +5768,17 @@ function onIpc(event: string, _payload: string?)
     triggerPreview()
     onCardSettled()
     render()
+  elseif event == "mode_favorites" or event == "favorites" then
+    currentMode = "favorites"
+    noctalia.state.set("deck_mode", "favorites")
+    selectedIdx = 1
+    resetDeckAnimation(1.0)
+    rebuildList()
+    triggerPreview()
+    render()
   elseif event == "mode_local" or event == "local" then
     currentMode = "local"
+    noctalia.state.set("deck_mode", "local")
     selectedIdx = 1
     resetDeckAnimation(1.0)
     rebuildList()
@@ -5531,7 +5895,9 @@ noctalia.state.watch("thumb_update", function(update)
           it._previewPath = update.thumb
           it._validPath = nil  -- let CSF.renderBg recompute on next render
           if it.path == (displayedItems[selectedIdx] and displayedItems[selectedIdx].path) then
-            displayedBgPath = ""  -- unblock setDisplayedBackground for active card
+            if not (it.path and it.path ~= "" and noctalia.fileExists(it.path)) then
+              setDisplayedBackground(update.thumb)
+            end
           end
           changed = true
           break
@@ -5619,6 +5985,28 @@ noctalia.state.watch("wallhaven_results", function(value)
     wallhavenError = nil
   end
 
+  if type(value.purity) == "string" and value.purity ~= "" then
+    noctalia.state.set("wallhaven_purity", value.purity)
+    local s, sk, n = parsePurity(value.purity)
+    if not isNsfwAllowed() then
+      n = false
+      if not s and not sk then s = true end
+    end
+    whPuritySfw, whPuritySketchy, whPurityNsfw = s, sk, n
+  end
+  if type(value.categories) == "string" and value.categories ~= "" then
+    noctalia.state.set("wallhaven_categories", value.categories)
+    whCatGeneral, whCatAnime, whCatPeople = parseCategories(value.categories)
+  end
+  if type(value.sorting) == "string" and value.sorting ~= "" then
+    noctalia.state.set("wallhaven_sort", value.sorting)
+    whSortIdx = getSortIndexFromValue(value.sorting)
+  end
+  if type(value.order) == "string" and value.order ~= "" then
+    noctalia.state.set("wallhaven_order", value.order)
+    whOrder = (value.order == "asc") and "asc" or "desc"
+  end
+
   if currentMode == "wallhaven" then
     rebuildList()
     if wasAppend then
@@ -5691,10 +6079,35 @@ function onConfigChanged()
     local exp = noctalia.expandPath(cfgDir)
     currentWallDir = exp
     updateRootWpDir(exp)
+    invalidateSortCache()
   end
   local cfgScanSub = noctalia.getConfig("scan_subdirectories")
   if cfgScanSub ~= nil then
     isFlattened = (cfgScanSub == true or cfgScanSub == "true" or cfgScanSub == 1)
+  end
+  local cfgPurity = noctalia.getConfig("wallhaven_purity")
+  if cfgPurity and cfgPurity ~= "" then
+    whPuritySfw, whPuritySketchy, whPurityNsfw = parsePurity(cfgPurity)
+    if not isNsfwAllowed() then
+      whPurityNsfw = false
+      if not whPuritySfw and not whPuritySketchy then whPuritySfw = true end
+    end
+    noctalia.state.set("wallhaven_purity", buildPurity())
+  end
+  local cfgCats = noctalia.getConfig("wallhaven_categories")
+  if cfgCats and cfgCats ~= "" then
+    whCatGeneral, whCatAnime, whCatPeople = parseCategories(cfgCats)
+    noctalia.state.set("wallhaven_categories", buildCategories())
+  end
+  local cfgSort = noctalia.getConfig("wallhaven_sorting")
+  if cfgSort and cfgSort ~= "" then
+    whSortIdx = getSortIndexFromValue(cfgSort)
+    noctalia.state.set("wallhaven_sort", cfgSort)
+  end
+  local cfgOrder = noctalia.getConfig("wallhaven_order")
+  if cfgOrder and cfgOrder ~= "" then
+    whOrder = (cfgOrder == "asc") and "asc" or "desc"
+    noctalia.state.set("wallhaven_order", whOrder)
   end
   selectedIdx = 1
   resetDeckAnimation(1.0)
@@ -5702,7 +6115,6 @@ function onConfigChanged()
   if isPickerOpen then
     render()
   end
-  noctalia.state.set("deck_command", { action = "rescan", nonce = noctalia.nowMs() })
 end
 
 function onClose()
