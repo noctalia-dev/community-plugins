@@ -618,8 +618,8 @@ rev = "7cc2a499e6d90b4f756a606bfaf38f014a465956"
 [[plugin]]
 id = "gustav0ar/drive-health"
 name = "Drive Health"
-version = "1.2.9"
-updated_at = 1792983494
+version = "1.2.10"
+updated_at = 1795308552
 added_at = 1784646878
 author = "Drive Health contributors"
 license = "MIT"
@@ -3462,8 +3462,8 @@ tags = ["ai", "wallpaper", "desktop"]
 [[plugin]]
 id = "nilsonlinux/world-radio"
 name = "World Radio"
-version = "1.2.3"
-updated_at = 1794264677
+version = "1.3.0"
+updated_at = 1795308583
 added_at = 1789561212
 author = "Nilsonlinux"
 license = "MIT"
@@ -4349,8 +4349,8 @@ rev = "961cf85442258251a6f5d16933f2f07eda0ccdca"
 [[plugin]]
 id = "ayagmar/headroom"
 name = "Headroom"
-version = "0.3.1"
-updated_at = 1795208860
+version = "0.3.2"
+updated_at = 1795308607
 added_at = 1791375801
 author = "ayagmar"
 license = "MIT"
