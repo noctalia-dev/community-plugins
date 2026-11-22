@@ -1,0 +1,167 @@
+# CCF Deadlines - upcoming CS conference deadlines from ccfddl/ccf-deadlines.
+#
+# service  -> the only entry that touches the network; fetches allconf.json,
+#             caches it, and publishes the filtered, sorted deadline list
+# widget   -> next deadline + countdown in the bar; click opens the panel
+# panel    -> full list with search, starring, and countdowns
+# launcher -> `/ddl <query>` to find a conference and open its site
+
+id = "samxu29/ccf-deadlines"
+name = "CCF Deadlines"
+version = "0.4.6"
+plugin_api = 43
+author = "samxu29"
+license = "MIT"
+dependencies = ["bash", "curl", "grep", "jq", "mv", "rm", "touch", "xdg-open"]
+icon = "calendar-due"
+description = "Countdowns to upcoming CS conference deadlines from ccfddl (CCF / CORE / THCPL ranks), with starring and reminders."
+tags = ["bar", "panel", "launcher", "service", "countdown", "productivity"]
+
+# --- Filters ---
+
+[[setting]]
+key = "min_rank"
+type = "select"
+label_key = "settings.min_rank.label"
+description_key = "settings.min_rank.description"
+default = "C"
+options = [
+  { value = "A", label_key = "settings.min_rank.options.a" },
+  { value = "B", label_key = "settings.min_rank.options.b" },
+  { value = "C", label_key = "settings.min_rank.options.c" },
+  { value = "all", label_key = "settings.min_rank.options.all" },
+]
+
+[[setting]]
+key = "categories"
+type = "string_list"
+label_key = "settings.categories.label"
+description_key = "settings.categories.description"
+default = []
+
+[[setting]]
+key = "always_show"
+type = "string_list"
+label_key = "settings.always_show.label"
+description_key = "settings.always_show.description"
+default = []
+
+[[setting]]
+key = "include_abstract"
+type = "bool"
+label_key = "settings.include_abstract.label"
+description_key = "settings.include_abstract.description"
+default = true
+
+[[setting]]
+key = "horizon_days"
+type = "int"
+label_key = "settings.horizon_days.label"
+description_key = "settings.horizon_days.description"
+default = 180
+min = 7
+max = 730
+
+# --- Reminders ---
+
+[[setting]]
+key = "notify_days"
+type = "int"
+label_key = "settings.notify_days.label"
+description_key = "settings.notify_days.description"
+default = 7
+min = 0
+max = 60
+
+[[setting]]
+key = "notify_all"
+type = "bool"
+label_key = "settings.notify_all.label"
+description_key = "settings.notify_all.description"
+default = false
+
+# --- Data ---
+
+[[setting]]
+key = "refresh_days"
+type = "int"
+label_key = "settings.refresh_days.label"
+description_key = "settings.refresh_days.description"
+default = 7
+min = 1
+max = 30
+
+[[setting]]
+key = "data_url"
+type = "string"
+label_key = "settings.data_url.label"
+description_key = "settings.data_url.description"
+default = "https://ccfddl.com/conference/allconf.json"
+advanced = true
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 460
+height = 600
+placement = "attached"
+position = "auto"
+open_near_click = true
+
+[[widget]]
+id = "widget"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  label_key = "settings.glyph.label"
+  description_key = "settings.glyph.description"
+  default = "calendar-due"
+
+  [[widget.setting]]
+  key = "show_text"
+  type = "bool"
+  label_key = "settings.show_text.label"
+  description_key = "settings.show_text.description"
+  default = true
+
+  [[widget.setting]]
+  key = "display"
+  type = "select"
+  label_key = "settings.display.label"
+  description_key = "settings.display.description"
+  default = "name_countdown"
+  options = [
+    { value = "name_countdown", label_key = "settings.display.options.name_countdown" },
+    { value = "countdown", label_key = "settings.display.options.countdown" },
+    { value = "icon", label_key = "settings.display.options.icon" },
+  ]
+  visible_when = { key = "show_text", values = ["true"] }
+
+  [[widget.setting]]
+  key = "prefer_starred"
+  type = "bool"
+  label_key = "settings.prefer_starred.label"
+  description_key = "settings.prefer_starred.description"
+  default = true
+
+  [[widget.setting]]
+  key = "urgent_days"
+  type = "int"
+  label_key = "settings.urgent_days.label"
+  description_key = "settings.urgent_days.description"
+  default = 3
+  min = 0
+  max = 30
+
+[[launcher_provider]]
+id = "launcher"
+entry = "launcher.luau"
+prefix = "ddl"
+glyph = "calendar-due"
+include_in_global_search = false
