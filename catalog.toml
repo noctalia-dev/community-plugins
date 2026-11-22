@@ -6208,3 +6208,16 @@ icon = "server"
 description = "A small bar LED that blinks while your disks read or write, like the HDD light on old PC cases."
 plugin_api = 31
 tags = ["bar", "indicator", "hardware", "system", "fun"]
+
+[[plugin]]
+id = "samxu29/umbriel-scratchpad"
+name = "Umbriel Scratchpad"
+version = "0.5.0"
+updated_at = 1795309127
+added_at = 1795309127
+author = "samxu29"
+license = "MIT"
+icon = "box-multiple"
+description = "Shows Umbriel scratchpads and their windows like the native taskbar; click to toggle or reveal."
+plugin_api = 54
+tags = ["umbriel", "bar", "indicator", "service"]
