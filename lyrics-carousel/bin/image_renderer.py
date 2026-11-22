@@ -464,6 +464,19 @@ class ImageRenderer:
         if cfg["header"]:
             top = self._draw_header(draw, xpix, top, size, family, background)
 
+        # Reserve bottom space so hints and the time bar never overlap.
+        hints_lines = []
+        hints_height = 0.0
+        if cfg["hints"]:
+            hints_lines = self._hint_lines(draw, xpix, size, family)
+            hints_height = len(hints_lines) * size * 0.95 + size * 0.45
+        footer_y = None
+        if cfg["footer"]:
+            footer_y = ypix - hints_height - size * 1.15
+            bottom = min(bottom, footer_y - size * 1.1)
+        elif cfg["hints"]:
+            bottom = min(bottom, ypix - hints_height - size * 0.7)
+
         # -- lyrics
         center_y = (top + bottom) / 2
         instrumental = self._instrumental_enabled(app, position)
@@ -484,9 +497,13 @@ class ImageRenderer:
 
         # -- footer
         if cfg["footer"]:
-            self._draw_footer(draw, xpix, ypix, size, family, accent, position, duration)
+            self._draw_footer(
+                draw, xpix, ypix, size, family, accent, position, duration, y=footer_y,
+            )
         if cfg["hints"]:
-            self._draw_hints(draw, size, family)
+            self._draw_hints(
+                draw, size, family, xpix=xpix, ypix=ypix, lines=hints_lines,
+            )
 
         self.sends += 1
         return self.gfx.present(image, cols, rows)
@@ -895,10 +912,11 @@ class ImageRenderer:
         self._draw_centered(draw, message, center_y, size, theme.faint, family)
         self._draw_centered(draw, detail, center_y + size * 1.6, size * 0.9, theme.bright, family)
 
-    def _draw_footer(self, draw, xpix, ypix, size, family, accent, position, duration):
+    def _draw_footer(self, draw, xpix, ypix, size, family, accent, position, duration, y=None):
         app = self.app
         theme = app.theme
-        y = ypix - size * 1.6
+        if y is None:
+            y = ypix - size * 1.6
         left = mmss(position)
         right = mmss(duration) if duration > 0 else "--:--"
         ratio = max(0.0, min(1.0, position / duration)) if duration > 0 else 0.0
@@ -916,7 +934,6 @@ class ImageRenderer:
                 [bar_x0, y - size * 0.18, bar_x0 + filled, y + size * 0.18], fill=accent
             )
 
-
     def _wrap_hints(self, text, font, limit):
         """Splits the shortcut list into as many lines as it needs."""
         lines = []
@@ -932,21 +949,32 @@ class ImageRenderer:
             lines.append(current)
         return lines
 
-    def _draw_hints(self, draw, size, family):
+    def _hint_lines(self, draw, xpix, size, family):
         app = self.app
-        theme = app.theme
-        xpix, ypix = app.terminal_pixels()
         candidates = app.texts.get("hints") or [""]
         self._measure_draw = draw
         limit = max(1.0, xpix - size * 3.2)
         font_size = size * 0.8
         font = self.font(family, font_size)
         text = candidates[0]
-        lines = [text]
-        if font is not None:
-            lines = self._wrap_hints(text, font, limit)
+        if font is None:
+            return [text]
+        return self._wrap_hints(text, font, limit)
+
+    def _draw_hints(self, draw, size, family, xpix=None, ypix=None, lines=None):
+        app = self.app
+        theme = app.theme
+        if xpix is None or ypix is None:
+            px, py = app.terminal_pixels()
+            if xpix is None:
+                xpix = px
+            if ypix is None:
+                ypix = py
+        if lines is None:
+            lines = self._hint_lines(draw, xpix, size, family)
         # The full list is wrapped instead of replaced by a shorter subset:
         # every shortcut stays visible, and every row is centered.
+        font_size = size * 0.8
         color = self._mix(theme.faint, theme.background, 0.7)
         y = ypix - size * 0.5
         for row in reversed(lines):
