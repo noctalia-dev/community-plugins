@@ -70,6 +70,7 @@ body:
         - case-convert
         - cat
         - cc-usage
+        - ccf-deadlines
         - charge-mode
         - cider
         - claude-cockpit
