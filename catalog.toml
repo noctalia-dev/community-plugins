@@ -6221,3 +6221,16 @@ icon = "box-multiple"
 description = "Shows Umbriel scratchpads and their windows like the native taskbar; click to toggle or reveal."
 plugin_api = 54
 tags = ["umbriel", "bar", "indicator", "service"]
+
+[[plugin]]
+id = "samxu29/ccf-deadlines"
+name = "CCF Deadlines"
+version = "0.4.6"
+updated_at = 1795309991
+added_at = 1795309991
+author = "samxu29"
+license = "MIT"
+icon = "calendar-due"
+description = "Countdowns to upcoming CS conference deadlines from ccfddl (CCF / CORE / THCPL ranks), with starring and reminders."
+plugin_api = 43
+tags = ["bar", "panel", "launcher", "service", "countdown", "productivity"]
