@@ -112,6 +112,7 @@
     "elapsed_tooltip": "{percent}% of this window has elapsed",
     "empty_body": "Headroom reads the sign-ins your AI coding tools have already saved. Sign in to one and it appears here.",
     "empty_title": "No signed-in providers",
+    "no_matching_models": "No matching models",
     "not_connected": "{provider} · not connected",
     "not_refreshed": "Not refreshed yet",
     "open_dashboard": "Open {provider} usage page",
@@ -156,6 +157,15 @@
     }
   },
   "settings": {
+    "antigravity_models": {
+      "description": "Which Antigravity model quota groups to track.",
+      "label": "Antigravity models",
+      "option": {
+        "all": "All models",
+        "claude_gpt": "Claude & GPT only",
+        "gemini": "Gemini only"
+      }
+    },
     "bar_accounts": {
       "description": "Which accounts the bar shows when a provider has several. The panel always shows them all.",
       "label": "Accounts",

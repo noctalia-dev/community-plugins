@@ -12,7 +12,7 @@
 
 id = "ayagmar/headroom"
 name = "Headroom"
-version = "0.3.1"
+version = "0.3.2"
 plugin_api = 43
 author = "ayagmar"
 license = "MIT"
@@ -65,6 +65,19 @@ options = [
   { value = "bar", label_key = "settings.provider.option.bar" },
   { value = "panel", label_key = "settings.provider.option.panel" },
   { value = "off", label_key = "settings.provider.option.off" },
+]
+
+[[setting]]
+key = "antigravity_models"
+type = "select"
+label_key = "settings.antigravity_models.label"
+description_key = "settings.antigravity_models.description"
+default = "all"
+visible_when = { key = "provider_antigravity", values = ["bar", "panel"] }
+options = [
+  { value = "all", label_key = "settings.antigravity_models.option.all" },
+  { value = "gemini", label_key = "settings.antigravity_models.option.gemini" },
+  { value = "claude_gpt", label_key = "settings.antigravity_models.option.claude_gpt" },
 ]
 
 [[setting]]

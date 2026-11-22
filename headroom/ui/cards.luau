@@ -222,6 +222,8 @@ local function accountBody(provider, account, options): { any }
       table.insert(body, ui.separator({ color = DIVIDER }))
       table.insert(body, ui.column({ gap = 4 }, facts))
     end
+  elseif snapshot and #snapshot.windows == 0 then
+    table.insert(body, M.caption(noctalia.tr("panel.no_matching_models")))
   elseif account.phase == "loading" then
     table.insert(body, M.caption(noctalia.tr("status.fetching")))
   end
