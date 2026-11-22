@@ -117,7 +117,12 @@ local function start(ctx)
     end
     if not report.state or not report.backup then
       if ctx.isOpen() then ctx.reload() end
-      stop("Saved, but the file could not be read back, so they can't be undone here. Use Backups.", "warning")
+      if report.trial then  -- the helper's watcher still goes back; Keep can't be offered without the revision
+        stop("Tried, but the file could not be read back, so Keep isn't possible: the previous display settings "
+             .. "come back in about 30 seconds.", "warning")
+      else
+        stop("Saved, but the file could not be read back, so they can't be undone here. Use Backups.", "warning")
+      end
       return
     end
     store.markSaved(report.state, mark)

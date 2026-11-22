@@ -420,11 +420,13 @@ class ConfigSession:
                                 "message": result.stderr.strip() or "Umbriel rejected the config."})
         return {"ran": True, "valid": valid, "diagnostics": diagnostics}
 
-    def save(self, changes, validate=True, backup=None):
+    def save(self, changes, validate=True, backup=None, before_write=None):
         """Apply, validate (refusing invalid configs), back up and write atomically; return the report.
 
-        Once the config is written, failures of the GUI's own sidecars (labels, keybind locks) no longer fail
-        the save; they are listed in report["warnings"].
+        `before_write(backup, revision)` runs after the backup, right before the config is replaced, with the
+        SHA-256 the new file will have; when it raises, nothing is written. Once the config is written,
+        failures of the GUI's own sidecars (labels, keybind locks) no longer fail the save; they are listed in
+        report["warnings"].
         """
         remove_stale_temp_files(os.path.dirname(self.path), os.path.basename(self.path))
         old, new, labels_all, locks, summary = self.apply(changes)
@@ -439,6 +441,8 @@ class ConfigSession:
             report["backup"] = snapshot
             if os.path.islink(self.path) or self.revision() != changes.get("revision"):
                 raise ValueError("The config changed while saving. Reload before retrying.")
+            if before_write is not None:
+                before_write(snapshot, hashlib.sha256(new.encode("utf-8")).hexdigest())
             write_text_file(self.path, new)
         warnings = []
         try:

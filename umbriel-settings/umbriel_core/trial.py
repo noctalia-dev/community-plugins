@@ -2,11 +2,12 @@
 
 `arm` runs before the trial settings are written: it writes a token next to the config's backups and starts a
 detached watcher (this file's source, run by the system's `python3 -I -c`, so it keeps working after an AppImage
-that started it is gone). `confirm` records the backup and the tried file once they are written, and starts the
-countdown. At the deadline the watcher takes the shared write lock and, if the token is still there, puts the
-backup back, unless the config changed since the try; what happened goes to `trial.result.json` and a
-notification. Keep and Go back `claim` the token first, so only one of them and the watcher acts.
-Everything at module level is standard library only.
+that started it is gone). `confirm` records the backup and the SHA-256 the tried file will have, and starts the
+countdown; it runs after the backup and before the config is replaced, so a failure there writes nothing.
+At the deadline the watcher takes the shared write lock and, if the token is still there, puts the backup
+back, unless the config changed since the try; what happened goes to `trial.result.json` and a notification.
+Keep and Go back `claim` the token first, so only one of them and the watcher acts. Everything at module level
+is standard library only.
 """
 
 import datetime
@@ -131,9 +132,12 @@ def arm(config, config_dir, lock_dir, seconds, keep=10):
 
 def confirm(config_dir, token, backup, revision):
     """Record what the watcher restores (the backup the save took, the SHA-256 of the tried file) and start the
-    countdown now that the file is written."""
+    countdown; called right before the tried file is written (`Session.save(before_write=...)`)."""
     deadline = time.time() + float(token.get("seconds", 0)) + GRACE
-    _write_json(token_file(config_dir), {**token, "backup": backup, "revision": revision, "deadline": deadline})
+    try:
+        _write_json(token_file(config_dir), {**token, "backup": backup, "revision": revision, "deadline": deadline})
+    except OSError as error:
+        raise OSError(f"The automatic rollback could not be set up ({error}), so nothing was tried.") from error
 
 
 def claim(config_dir, trial_id):
@@ -146,10 +150,23 @@ def claim(config_dir, trial_id):
     return token
 
 
-def unclaim(config_dir, token):
-    """Put a claimed token back (the restore that claimed it failed), so the watcher still acts."""
-    if read_token(token_file(config_dir)) is None:
-        _write_json(token_file(config_dir), token)
+def pending_backup(config_dir):
+    """The snapshot a pending Try goes back to, or None. A token past its deadline plus GIVE_UP is left over from
+    a watcher that died with the session (logout, reboot): it protects nothing any more."""
+    token = read_token(token_file(config_dir))
+    if token is None or time.time() >= float(token.get("deadline", 0)) + GIVE_UP:
+        return None
+    backup = token.get("backup")
+    return backup if isinstance(backup, str) else None
+
+
+def protect_pending(config_dir, marked):
+    """Split Backups' marked snapshots into (deletable, errors): the pending Try's backup is kept."""
+    protected = pending_backup(config_dir)
+    protected = os.path.abspath(protected) if protected else None
+    kept = [item for item in marked if isinstance(item, str) and os.path.abspath(item) == protected]
+    return ([item for item in marked if item not in kept],
+            [f"{os.path.basename(item)}: kept until the running Try ends (it is its rollback)" for item in kept])
 
 
 def outcome(config_dir, trial_id):
@@ -181,6 +198,15 @@ def _prune(directory, config, keep, protect):
         _remove(path)
 
 
+def _unwritten(tried, backup):
+    """Whether the config still is the backup (the save was confirmed but stopped before writing)."""
+    try:
+        with open(backup, "rb") as handle:
+            return handle.read() == tried
+    except OSError:
+        return False
+
+
 def restore(token):
     """Put the backup back unless the config changed since the try; return (restored, reason)."""
     config, backup, revision = token.get("config"), token.get("backup"), token.get("revision")
@@ -192,7 +218,7 @@ def restore(token):
         with open(config, "rb") as handle:
             tried = handle.read()
         if hashlib.sha256(tried).hexdigest() != revision:
-            return False, CHANGED
+            return (True, RESTORED) if _unwritten(tried, backup) else (False, CHANGED)
         with open(backup, "rb") as handle:
             previous = handle.read()
         mode = os.stat(config).st_mode & 0o7777

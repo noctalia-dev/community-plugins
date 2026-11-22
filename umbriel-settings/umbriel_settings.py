@@ -132,8 +132,8 @@ def trial_seconds(request):
 
 
 def cmd_save(request):
-    """With `trial` (seconds), a watcher that restores the backup unless the trial is ended is started before
-    the config is written (Try on the Outputs page); the report then has the trial's id as `trial`."""
+    """With `trial` (seconds, Try): a watcher restores the backup unless the trial is ended (`trial.py`); the
+    report then has the trial's id as `trial`."""
     from umbriel_core import backups as backup_files
     from umbriel_core import titlebar_theme, trial
     current = session(request)
@@ -146,27 +146,23 @@ def cmd_save(request):
     except trial.Busy as error:
         raise HelperError(str(error), "busy") from error
     try:
-        report = current.save(request.get("changes"), bool(request.get("validate", True)))
+        report = current.save(request.get("changes"), bool(request.get("validate", True)), before_write=(
+            lambda backup, revision: trial.confirm(current.config_dir, token, backup, revision)) if token else None)
     except BaseException:
         if token:
             with contextlib.suppress(OSError):  # keep the save's own error
                 trial.claim(current.config_dir, token["id"])
         raise
     if token and not (report.get("saved") and report.get("backup")):
-        trial.claim(current.config_dir, token["id"])
+        trial.claim(current.config_dir, token["id"])  # nothing changed, so nothing to try
         token = None
     if not report.get("saved"):
         return report
+    if token:
+        report["trial"] = token["id"]
     # the config is written: from here on a failure is a warning, or the UI would offer to save it again
     warnings = report.setdefault("warnings", [])
     apply_follow_intents(current.path, intents, warnings)
-    if token:
-        try:
-            trial.confirm(current.config_dir, token, report["backup"], paths.file_revision(current.path))
-            report["trial"] = token["id"]
-        except OSError as error:
-            trial.claim(current.config_dir, token["id"])
-            warnings.append(f"The automatic rollback could not be set up: {error}.")
     if request.get("remember_path"):
         try:
             paths.write_text_file(saved_config_file(), current.path, 0o600)
@@ -262,14 +258,11 @@ def cmd_restore(request):
     validation = current.validate(text) if request.get("validate", True) else {"ran": False}
     if current.revision() != request.get("revision"):  # again: validation takes a while
         raise HelperError("The config changed since it was loaded. Reload before restoring.", "conflict")
-    claimed = trial.claim(current.config_dir, trial_id) if trial_id is not None else None
-    try:
-        backups.create_backup_snapshot(current.path, current.config_dir, protect=snapshot)
-        paths.write_text_file(current.path, text)
-    except BaseException:
-        if claimed:
-            trial.unclaim(current.config_dir, claimed)  # the watcher still goes back
-        raise
+    backups.create_backup_snapshot(current.path, current.config_dir, protect=snapshot)
+    paths.write_text_file(current.path, text)
+    if trial_id is not None:  # only now: until the write the watcher still goes back; killed after it, a no-op
+        with contextlib.suppress(OSError):
+            trial.claim(current.config_dir, trial_id)
     warnings = []
     if validation.get("ran") and not validation.get("valid"):
         problems = [item["message"] for item in validation.get("diagnostics", []) if item.get("severity") == "error"]
@@ -293,12 +286,15 @@ def cmd_trial_end(request):
 
 
 def cmd_delete_backups(request):
+    from umbriel_core import trial
     path = config_path(request)
     listing = backup_listing(path)
     marked = request.get("snapshots")
     if not isinstance(marked, list):
         raise HelperError("Choose backups to delete.")
+    marked, kept = trial.protect_pending(paths.config_gui_data_dir(path, data_dir()), marked)
     deleted, errors = backups.delete_backup_snapshots(listing["directory"], path, marked)
+    errors += kept
     return {"deleted": deleted, "errors": errors, "backups": backup_listing(path)}
 
 
