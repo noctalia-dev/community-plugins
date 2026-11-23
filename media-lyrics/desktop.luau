@@ -1,4 +1,12 @@
 --!nonstrict
+-- Every entry render is wrapped: one rejected ui node (or one bad string)
+-- must NOT kill the state callback the render runs in - the host would stop
+-- updating that surface until a plugin reload. The implementation is a
+-- forward-declared local bound below (no globals).
+local renderImpl
+local function render()
+  if renderImpl then pcall(renderImpl) end
+end
 -- Desktop widget: now-playing + synced lyrics as a background layer-shell tile.
 --
 -- Why this exists (ROADMAP "pinned to desktop"): a persistent *panel* still goes
@@ -16,6 +24,9 @@
 -- desktop widget drives the very same service.
 
 local snap = nil
+-- Published position used for LINE SELECTION (matches the panel/state publish cadence).
+local lineClockPos = 0
+
 -- Last visibility pushed to desktopWidget.setVisible; only send on change.
 local shown = true
 
@@ -44,8 +55,14 @@ end
 
 -- Far rows sit back at reduced strength. Theme roles take an alpha suffix;
 -- a hex value cannot be dimmed safely, so it passes through unchanged.
+-- A role that already carries an alpha ("primary/0.9") has it scaled instead
+-- of being skipped (the old check left such rows at full strength).
 local function dim(c)
-  if c:sub(1, 1) == "#" or c:find("/", 1, true) then return c end
+  if c:sub(1, 1) == "#" then return c end
+  local base, a = c:match("^(.-)/([%d%.]+)$")
+  if base then
+    return base .. "/" .. (math.floor((tonumber(a) or 1) * 0.55 * 100 + 0.5) / 100)
+  end
   return c .. "/0.55"
 end
 
@@ -84,64 +101,34 @@ end
 -- embedded newline; the same approach is used here. Widths are measured in em with
 -- a per-character advance table rather than in character counts, because "i" and
 -- "m" are nowhere near the same width.
-local function toChars(text)
-  local chars, i = {}, 1
-  while i <= #text do
-    local b = string.byte(text, i) or 0
-    local step = 1
-    if b >= 0xF0 then step = 4 elseif b >= 0xE0 then step = 3 elseif b >= 0xC0 then step = 2 end
-    chars[#chars + 1] = string.sub(text, i, i + step - 1)
-    i = i + step
-  end
-  return chars
-end
+local toChars = lyrics_lib.toChars
+local charAdv = lyrics_lib.charAdv
+local unitEm = lyrics_lib.unitEm
+local truncEm = lyrics_lib.truncEm
 
-local function charAdv(c)
-  local o = string.byte(c) or 32
-  if o >= 0x80 then return 1.0 end                      -- CJK / emoji: full width
-  if c == " " then return 0.28 end
-  if c == "i" or c == "l" or c == "I" then return 0.27 end
-  if c == "m" then return 0.92 end
-  if c == "w" or c == "M" or c == "W" then return 0.80 end
-  if c == "." or c == "," or c == ":" or c == ";" or c == "'" or c == "!"
-     or c == "|" or c == "`" then return 0.28 end
-  if c == "(" or c == ")" or c == "[" or c == "]" or c == "{" or c == "}" then return 0.35 end
-  if c == "j" or c == "t" or c == "f" or c == "r" then return 0.39 end
-  if string.find("ABCDGHNOQRUVXY", c, 1, true) then return 0.64 end
-  return 0.56
-end
-
-local function unitEm(text)
-  local u = 0
-  for _, ch in ipairs(toChars(text)) do u = u + charAdv(ch) end
-  return u
-end
-
-local ADV_SPACE = 0.28
-
--- Hard-cut to a whole number of em, never splitting a UTF-8 sequence.
-local function truncEm(text, capEm)
-  local out, used = {}, 0
-  for _, ch in ipairs(toChars(text)) do
-    local a = charAdv(ch)
-    if used + a > capEm then return table.concat(out) .. "…" end
-    out[#out + 1] = ch
-    used = used + a
-  end
-  return table.concat(out)
-end
 
 -- Single-line text that fits a fixed pixel width, cut with an ellipsis.
+-- SAFETY = 1.12: the charAdv table under-measures the live font just enough
+-- that an "it fits" verdict could still overflow and the label word-wrapped
+-- early ("Party Rock / Anthem" while "Anthem" still had room - owner). The
+-- margin makes the ellipsis engage before the real edge.
+local ADV_SAFETY = 1.12
 local function fit(text, widthPx, fontSize)
   if not widthPx or widthPx <= 0 then return text end
-  return truncEm(text, widthPx / (fontSize or 12))
+  return truncEm(text, (widthPx / (fontSize or 12)) / ADV_SAFETY)
 end
 
 -- Break a line into AT MOST two display lines that fit `maxW` px at `fontSize`.
 -- A line needing exactly two sub-lines breaks near the middle so the halves look
 -- balanced; anything longer fills the first line and is then ellipsized, because
 -- the row only reserves room for two. Returns the input unchanged when it fits.
-local function wrapLyric(text, fontSize, maxW)
+-- Memoised wrapper below: the tick must not re-wrap (host CPU budget is 25 ms).
+-- Space advance shared with the wrap math, derived from the measured width
+-- table so it can never drift from it (the wave-2 unification dropped the old
+-- local and left ADV_SPACE a nil global -> arithmetic crash in render()).
+local ADV_SPACE = lyrics_lib.charAdv(" ")
+
+local function _wrapLyricImpl(text, fontSize, maxW)
   local capEm = (maxW or 0) / (fontSize or 12)
   if capEm <= 0 then return text end
   -- EVERY row is returned as exactly two display lines, a short one padded with a
@@ -194,40 +181,30 @@ local function wrapLyric(text, fontSize, maxW)
   return table.concat(cur, " ")
 end
 
--- Position now, interpolated from the last published sample (the service only
--- publishes every 150 ms; the desktop widget ticks on second boundaries, so a
--- naive read would step visibly).
-local function interpPos(s)
-  if type(s) ~= "table" then return 0 end
-  local base = tonumber(s.posSec) or 0
-  if not s.playing then return base end
-  local at = tonumber(s.posAtMs) or 0
-  if at <= 0 then return base end
-  local nowMs = 0
-  pcall(function() nowMs = noctalia.nowMs() end)
-  if nowMs <= 0 or nowMs < at then return base end
-  local pos = base + (nowMs - at) / 1000
-  local len = tonumber(s.lengthSec) or 0
-  if len > 0 and pos > len then pos = len end
-  return pos
-end
-
--- Live playback position straight from MPRIS (plugin_api 51) — the same source
--- the official lyrics widget reads, so the sweep tracks the voice instead of a
--- 150 ms-old service sample. Older shells fall back to the interpolation above.
-local function posNow(s)
-  local ok, p = pcall(function() return noctalia.mediaPlayer() end)
-  if ok and type(p) == "table" then
-    local ms = tonumber(p.positionMs)
-    if ms and ms >= 0 then return ms / 1000 end
+local _wrapCache = {}
+local _wrapCacheN = 0
+local WRAP_CACHE_MAX = 512 -- bounded: a long session must not grow it forever
+local function wrapLyric(text, fontSize, maxW)
+  if text == nil or text == "" then return text end
+  local key = (text or "") .. "\x1f" .. tostring(fontSize) .. "\x1f" .. tostring(maxW)
+  local c = _wrapCache[key]
+  if c ~= nil then return c end
+  local r = _wrapLyricImpl(text, fontSize, maxW)
+  if _wrapCacheN >= WRAP_CACHE_MAX then
+    _wrapCache = {}
+    _wrapCacheN = 0
   end
-  return interpPos(s)
+  _wrapCache[key] = r
+  _wrapCacheN = _wrapCacheN + 1
+  return r
 end
 
 -- Which lyric line is current: the last line whose timestamp has passed.
-local function activeLine(s)
+-- posOverride: a position already sampled this render (interpPos stays stable
+-- within a render; sweep/time label share ONE sample per render).
+local function activeLine(s, posOverride)
   if type(s) ~= "table" or type(s.lyrics) ~= "table" then return 0 end
-  local pos = posNow(s)
+  local pos = posOverride or lyrics_lib.interpPos(s)
   local idx = 0
   for i = 1, #s.lyrics do
     local t = tonumber(s.lyrics[i].time) or -1
@@ -271,7 +248,7 @@ local function idleSnapshot()
   }
 end
 
-local function render()
+renderImpl = function()
   local showArtist = cfgBool("show_artist", true)
   local showCover = cfgBool("show_cover", true)
   local wantLines = cfgInt("lines", 3, 1, 15)
@@ -288,6 +265,14 @@ local function render()
 
   local live = (type(snap) == "table" and snap.hasPlayer == true)
   local s = live and snap or idleSnapshot()
+  -- ONE position sample per render shared by the active line, the karaoke sweep
+  -- and the time label.
+  local posLive = lyrics_lib.interpPos(s)
+  -- Line selection uses the PUBLISHED position (lineClockPos) so the desktop
+  -- widget switches lines together with the panel/mini/bar; posLive survives
+  -- only for the smooth per-frame word sweep (fillProgress). Frame ticks advance
+  -- only fillProgress; line selection is tied to state publishing, not per-frame.
+  local linePos = lineClockPos
 
   -- Hide as a whole (card included) while there is nothing to show. Same rules
   -- as the official lyrics widget: no player -> hide_when_no_media decides,
@@ -316,9 +301,9 @@ local function render()
       headKids[#headKids + 1] = ui.image({ key = "cover", path = s.artUrl,
         width = 56, height = 56, radius = 14, fit = "cover" })
     else
-      headKids[#headKids + 1] = ui.box({ key = "coverph", width = 56, height = 56,
-        radius = 14, fill = "surface_container/0.6", border = "outline_variant/0.5", borderWidth = 1,
-        align = "center" }, {
+      headKids[#headKids + 1] = ui.column({ key = "coverph", width = 56, height = 56,
+        align = "center", justify = "center", radius = 14,
+        fill = "surface_container/0.6", border = "outline_variant/0.5", borderWidth = 1 }, {
         ui.glyph({ name = live and "disc" or "music-off", size = 30, color = "on_surface_variant" }),
       })
     end
@@ -329,12 +314,21 @@ local function render()
   local artist = singleLine(s.artist ~= "" and s.artist or s.album)
   if artist == "" then artist = noctalia.tr("common.unknown-artist") end
 
+  -- ONE line, guaranteed: maxLines = 1 (the label must never fold onto two -
+  -- it shifted the lyric window down: "то названия в две строки, то артисты").
+  -- The box is an EXPLICIT width= like the panel's textLine pattern - do NOT
+  -- use maxWidth here: the host's maxWidth units are not label pixels and it
+  -- ellipsised "Swedish House Mafia" at ~16 chars while free space remained
+  -- (owner: "место ещё очень много, а название сокращается"). fit() above only
+  -- adds the ellipsis on genuine overflow.
+  local infoW = textW - (showCover and 66 or 0)  -- header column: minus cover+gap
   local infoKids = {
-    ui.label({ key = "title", text = fit(title, textW, 15), fontSize = 15, color = "on_surface" }),
+    ui.label({ key = "title", text = fit(title, infoW, 15), fontSize = 15,
+      color = "on_surface", maxLines = 1, width = infoW }),
   }
   if showArtist then
-    infoKids[#infoKids + 1] = ui.label({ key = "artist", text = fit(artist, textW, 12),
-      fontSize = 12, color = "on_surface_variant" })
+    infoKids[#infoKids + 1] = ui.label({ key = "artist", text = fit(artist, infoW, 12),
+      fontSize = 12, color = "on_surface_variant", maxLines = 1, width = infoW })
   end
   headKids[#headKids + 1] = ui.column({ key = "info", gap = 2, align = "start", flexGrow = 1 }, infoKids)
   local header = ui.row({ key = "header", gap = 10, align = "center" }, headKids)
@@ -356,8 +350,14 @@ local function render()
   local lines = (type(s.lyrics) == "table" and #s.lyrics > 0) and s.lyrics or nil
   if lines then
     local n = #lines
-    -- activeLine returns 0 until the playhead passes the first timestamp
-    local active = math.min(math.max(activeLine(s), 1), n)
+    -- activeLine returns 0 until the playhead passes the first timestamp.
+    -- The WINDOW anchor clamps to 1 (so the list is anchored during the intro),
+    -- but the STYLED line must stay "none": the first line may not glow before
+    -- it is actually sung (owner: "светится с самого начала, а текст ещё не
+    -- начался"). curIdx 0 = nothing is current.
+    local rawActive = activeLine(s, linePos)
+    local active = math.min(math.max(rawActive, 1), n)
+    local curIdx = (rawActive >= 1) and rawActive or 0
     local function pieces(i)
       local w = wrapLyric(singleLine(lines[i].text), fontSz, textW) .. "\n"
       local out = {}
@@ -392,13 +392,20 @@ local function render()
     local totalWords = 0
     for _ in singleLine(cur.text):gmatch("%S+") do totalWords = totalWords + 1 end
     local swept = (wordSweep and totalWords > 0) and
-      lyrics_lib.fillProgress(cur.words, (posNow(s) or 0), lineStart, lineEnd, totalWords) or 0
+      lyrics_lib.fillProgress(cur.words, posLive, lineStart, lineEnd, totalWords) or 0
 
     local wordsBefore = 0
     for i = lo, hi do
-      local kind = (i == active) and "cur"
-        or (((i == active + 1) or (i == active - 1)) and "near" or "far")
-      if i ~= active then wordsBefore = 0 end
+      -- Style ladder: "cur" ONLY for the real current line (never during the
+      -- intro); the anchor line of the intro reads as "near" at most.
+      local kind
+      if curIdx > 0 and i == curIdx then
+        kind = "cur"
+      else
+        local ref = (curIdx > 0) and curIdx or active
+        kind = (math.abs(i - ref) <= 1) and "near" or "far"
+      end
+      if i ~= curIdx then wordsBefore = 0 end
       for _, piece in ipairs(pieces(i)) do
         slotText[#slotText + 1] = piece
         slotKind[#slotKind + 1] = kind
@@ -471,7 +478,7 @@ local function render()
       enabled = s.canGoNext == true, onClick = function() sendCmd("next") end,
       tooltip = "Next track" }),
     ui.box({ key = "transportSlack", flexGrow = 1 }),
-    ui.label({ key = "time", text = fmtTime(posNow(s)) .. " / " .. fmtTime(s.lengthSec),
+    ui.label({ key = "time", text = fmtTime(linePos) .. " / " .. fmtTime(s.lengthSec),
       fontSize = 11, color = "on_surface_variant" }),
   })
 
@@ -492,12 +499,13 @@ end
 -- ── lifecycle ───────────────────────────────────────────────────────────────
 
 local okState, initial = pcall(function() return noctalia.state.get("media") end)
-if okState and type(initial) == "table" then snap = initial end
+if okState and type(initial) == "table" then snap = initial; lineClockPos = lyrics_lib.interpPos(initial) end
 
 pcall(function()
   noctalia.state.watch("media", function(value)
     if type(value) == "table" then
       snap = value
+      lineClockPos = lyrics_lib.interpPos(value)
       render()
     end
   end)
@@ -522,8 +530,5 @@ function onFrameTick(_deltaMs)
   render()
 end
 
-function onOpen() -- not a panel, but harmless if the host ever calls it
-  render()
-end
-
+-- initial paint (impl is bound by now)
 render()

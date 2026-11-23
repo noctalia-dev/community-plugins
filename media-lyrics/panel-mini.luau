@@ -1,4 +1,13 @@
 --!nonstrict
+-- Every entry render is wrapped: one rejected ui node (or one bad string)
+-- must NOT kill the state callback the render runs in - the host would stop
+-- updating that surface until a plugin reload. The implementation is a
+-- forward-declared local bound below (no globals).
+local renderImpl
+local function render()
+  if renderImpl then pcall(renderImpl) end
+end
+local lyrics_lib = require("./lyrics_lib.luau")
 -- media-lyrics compact mini panel: cover + current lyric line only.
 -- A lightweight always-on karaoke line (pinnable to the desktop) without the
 -- full transport/header chrome of the main panel. Reads the same "media"
@@ -46,23 +55,12 @@ end
 
 local function interpPos(s)
   if not s then return 0 end
-  if not s.playing then return s.posSec or 0 end
-  local elapsed = (lastSnapMs > 0) and ((nowMs() - lastSnapMs) / 1000) or 0
-  local p = (s.posSec or 0) + elapsed
-  if s.lengthSec and s.lengthSec > 0 and p > s.lengthSec then p = s.lengthSec end
-  return p
+  return lyrics_lib.interpPos(s)
 end
 
--- 1-based index of the active lyric line at the interpolated position.
 local function activeIndex(s)
-  local pos = interpPos(s)
-  local active = -1
-  local n = #(s.lyrics or {})
-  for i = 1, n do
-    if (s.lyrics[i].time >= 0) and (s.lyrics[i].time <= pos) then active = i end
-    if (s.lyrics[i].time >= 0) and (s.lyrics[i].time > pos) then break end
-  end
-  return active
+  if not s then return -1 end
+  return lyrics_lib.activeIndex(s.lyrics or {}, interpPos(s))
 end
 
 local function buildCover(s)
@@ -71,7 +69,8 @@ local function buildCover(s)
     return ui.image({ key = "cover", path = art, width = T.cover, height = T.cover,
       fit = "cover", radius = T.coverRadius })
   end
-  return ui.box({ key = "coverbox", width = T.cover, height = T.cover,
+  return ui.column({ key = "coverbox", width = T.cover, height = T.cover,
+    align = "center", justify = "center",
     fill = "surface_container/0.6", radius = T.coverRadius }, {
       ui.glyph({ name = "disc", size = 40, color = "on_surface_variant" }),
     })
@@ -106,7 +105,7 @@ end
 -- so the vertical centering never moves. Extra space sits under the lyric.
 local LYRIC_ROW_H = 2 * lineH(T.fsLyric)
 
-local function render()
+renderImpl = function()
   local s = snap
   if not s or not s.hasPlayer then
     panel.render(ui.column({ padding = PANEL_PAD, gap = T.gap, align = "center", justify = "center" }, {
@@ -148,3 +147,4 @@ end)
 
 function update()
 end
+

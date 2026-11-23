@@ -1,4 +1,13 @@
 --!nonstrict
+-- Every entry render is wrapped: one rejected ui node (or one bad string)
+-- must NOT kill the state callback the render runs in - the host would stop
+-- updating that surface until a plugin reload. The implementation is a
+-- forward-declared local bound below (no globals).
+local renderImpl
+local function render()
+  if renderImpl then pcall(renderImpl) end
+end
+local lyrics_lib = require("./lyrics_lib.luau")
 -- media-lyrics panel: cover art with progress line, track info + transport,
 -- karaoke lyric layer. Redesign v0.2 ("quiet premium"): one hero (the cover),
 -- minimal chrome, type-driven hierarchy. Layout (2 bands):
@@ -79,12 +88,13 @@ local hoveredLine = 0  -- pointer hovered lyric line (0 = none); applied on the 
 local SEEK_HOLD_MS = 15000
 local seekPending = -1        -- seconds queued for seek, -1 = none
 local seekQueuedAt = 0        -- ms of the request (0 = nothing pending)
+local lastSeekSentMs = 0      -- drag throttle: one SetPosition per 150 ms max
 
 local showCandidates = false -- "choose lyrics" selector open (toggled by the header button)
 local marqueePaused = false -- pointer over the title/artist block pauses marquees
 local lastTrackKey = "" -- track identity for cursor reset on track change
 local lastSnapMs = 0
-tickMarquee = nil      -- set by buildInfoRow; advances marquee clocks
+local tickMarquee = nil   -- set by buildInfoRow; advances marquee clocks
 
 local function nowMs()
   local ok, v = pcall(function() return noctalia.nowMs() end)
@@ -93,13 +103,8 @@ local function nowMs()
 end
 
 local function interpPos(s)
-  -- interpolate position between service polls for smooth lyrics
   if not s then return 0 end
-  if not s.playing then return s.posSec or 0 end
-  local elapsed = (lastSnapMs > 0) and ((nowMs() - lastSnapMs) / 1000) or 0
-  local p = (s.posSec or 0) + elapsed
-  if s.lengthSec and s.lengthSec > 0 and p > s.lengthSec then p = s.lengthSec end
-  return p
+  return lyrics_lib.interpPos(s)
 end
 
 local function fmtTime(sec)
@@ -130,12 +135,21 @@ end
 -- capture them as nil globals and every seek would fail with
 -- "attempt to call a nil value". The host is NOT guaranteed to re-run the
 -- slider's onChange, so the caller must not rely on that callback to set the hold.
-local function queueSeek(sec)
+local function queueSeek(sec, throttle)
   sec = tonumber(sec)
   if not sec then return end
   seekPending = sec
   seekQueuedAt = nowMs()
+  -- Drag throttle: onChange fires on EVERY pixel of a scrub and each send
+  -- spawned a busctl SetPosition + a sleep-refresh (process storm). During a
+  -- drag at most one seek per 150 ms leaves the plugin; the final target is
+  -- always sent from onDragEnd.
+  if throttle and (nowMs() - lastSeekSentMs) < 150 then return end
+  lastSeekSentMs = nowMs()
   sendCmd("seekTo", { sec = sec })
+  -- No OSD popup here: the seek slider already shows the target position and
+  -- the overlay ("icon + seconds" over the screen) read as a surprise on every
+  -- scrub (owner: "что это сверху всплывает с приведением и цифрами").
 end
 
 -- marquee phase state lives at module scope: buildInfoRow runs on EVERY
@@ -212,47 +226,15 @@ end
 -- budget (42 chars for an active fs17 line) rejected a 51-char line that
 -- actually renders at ~333 px inside the 474 px content width, so lines that
 -- fit were wrapped as soon as they became active. Bold runs ~5% wider.
-local function toChars(text)
-  local chars = {}
-  local i = 1
-  while i <= #text do
-    local byte = text:byte(i)
-    local len = 1
-    if byte >= 0xF0 then len = 4 elseif byte >= 0xE0 then len = 3
-    elseif byte >= 0xC0 then len = 2 end
-    chars[#chars + 1] = text:sub(i, i + len - 1)
-    i = i + len
-  end
-  return chars
-end
-local function charAdv(c)
-  local o = string.byte(c) or 32
-  if o >= 0x80 then return 1.0 end                      -- CJK / emoji: full width
-  if c == " " then return 0.28 end
-  if c == "i" or c == "l" or c == "I" then return 0.27 end
-  if c == "m" then return 0.92 end
-  if c == "w" or c == "M" or c == "W" then return 0.80 end
-  if c == "." or c == "," or c == ":" or c == ";" or c == "'" or c == "!"
-     or c == "|" or c == "`" then return 0.28 end
-  if c == "(" or c == ")" or c == "[" or c == "]" or c == "{" or c == "}" then return 0.35 end
-  if c == "j" or c == "t" or c == "f" or c == "r" then return 0.39 end
-  if string.find("ABCDGHNOQRUVXY", c, 1, true) then return 0.64 end
-  return 0.56
-end
-local function unitEm(text)
-  local u = 0
-  for _, ch in ipairs(toChars(text)) do u = u + charAdv(ch) end
-  return u
-end
+local toChars = lyrics_lib.toChars
+local charAdv = lyrics_lib.charAdv
+local unitEm = lyrics_lib.unitEm
 local ADV_SPACE = 0.28
 
 -- Split a lyric line into display sub-lines that fit the panel width, measured
 -- in em (unitEm) against the per-size capacity, NOT in character counts.
 -- Word-aware and BALANCED: a line needing exactly two sub-lines breaks near the
--- middle; longer lines fill whole chunks. A single word wider than the whole
--- line is hard-sliced (never splitting a UTF-8 sequence). Returns the original
--- string when it already fits. `reserved` shrinks the budget (cursor chevron).
-local function wrapLyric(text, fontSize, fontWeight, reserved)
+local function _wrapLyricImpl(text, fontSize, fontWeight, reserved)
   if text == nil or text == "" then return text end
   local sz = noctalia.getConfig("panel_size") or "medium"
   local maxW = (LYR_WIDTH[sz] or LYR_WIDTH.medium) - WRAP_GUTTER - (reserved or 0)
@@ -315,6 +297,25 @@ local function wrapLyric(text, fontSize, fontWeight, reserved)
   end
   if cur ~= "" then out[#out + 1] = cur end
   return table.concat(out, "\n")
+end
+
+local _wrapCache = {}
+local _wrapCacheN = 0
+local WRAP_CACHE_MAX = 512 -- bounded: a long session must not grow it forever
+local function wrapLyric(text, fontSize, fontWeight, reserved)
+  if text == nil or text == "" then return text end
+  local sz = noctalia.getConfig("panel_size") or "medium"
+  local key = (text or "") .. "\x1f" .. tostring(fontSize) .. "\x1f" .. tostring(fontWeight) .. "\x1f" .. tostring(reserved) .. "\x1f" .. sz
+  local c = _wrapCache[key]
+  if c ~= nil then return c end
+  local r = _wrapLyricImpl(text, fontSize, fontWeight, reserved)
+  if _wrapCacheN >= WRAP_CACHE_MAX then
+    _wrapCache = {}
+    _wrapCacheN = 0
+  end
+  _wrapCache[key] = r
+  _wrapCacheN = _wrapCacheN + 1
+  return r
 end
 
 -- Countdown state for the karaoke lead-in: a 3-2-1 shown ONLY in the last three
@@ -424,10 +425,12 @@ local function buildLyricsBody(s)
     return { ui.label({ text = noctalia.tr("panel.lyrics-error") .. (s.lyricsError or ""),
       color = "error", fontSize = T.fsFarLyric, textAlign = "center" }) }
   end
-  if (s.lyricsStatus == "choose" or s.lyricsStatus == "ready") and #(s.lyrics or {}) > 0 then
+  if lyrics_lib.isLyricsShown(s.lyricsStatus) and #(s.lyrics or {}) > 0 then
     -- ready, or "choose" with the picker closed (or a picked variant live):
     -- render the karaoke/plain lyrics that are actually loaded.
-    if not s.synced then
+    local pos = interpPos(s)
+  local active = lyrics_lib.activeIndex(s.lyrics, pos)
+  if not s.synced then
       -- unsynced: static list inside a clipping scroll (a bare column does not
       -- clip its children), dimmed, centered, generous line spacing. The
       -- keyboard cursor still highlights a line (no seek — no timestamps).
@@ -464,17 +467,10 @@ local function buildLyricsBody(s)
       -- karaoke block, and with a third flexGrow on the scroll the free height
       -- split three ways - the list ended up a third of the area with big gaps
       -- above and below it. The second return value tells render not to centre.
-      return { ui.scroll({ flexGrow = 1, align = "stretch" }, rows) }, true
+      return { ui.scroll({ flexGrow = 1, align = "stretch", revealKey = "lyr" .. ((cursorLine > 0 and cursorLine) or (active > 0 and active) or 1) }, rows) }, true
     end
 
     -- synchronized: carousel around the playback line (karaoke fade ladder)
-  local pos = interpPos(s)
-  local active = -1
-  for i = 1, n do
-    if (s.lyrics[i].time >= 0) and (s.lyrics[i].time <= pos) then active = i end
-    if (s.lyrics[i].time >= 0) and (s.lyrics[i].time > pos) then break end
-  end
-
   -- Lyric class per line: font size / weight from the karaoke distance
   -- ladder, precomputed ONCE so the window budget and the render loop share
   -- the same values (they must never drift apart).
@@ -482,7 +478,9 @@ local function buildLyricsBody(s)
   for i = 1, n do
     local isA = (i == active)
     local isC = (i == cursorLine)
-    local d = math.abs(i - active)
+    -- Before the first timestamp (active == -1) the ladder measures from the
+    -- anchor line (the upcoming line) so nothing bold/glows early.
+    local d = math.abs(i - (active >= 1 and active or 1))
     fsArr[i] = isA and T.fsActiveLyric or (d <= 2 and T.fsNearLyric or T.fsFarLyric)
     wArr[i] = (isA or isC) and "bold" or (d <= 2 and "medium" or "normal")
   end
@@ -561,32 +559,59 @@ local function buildLyricsBody(s)
           color = T.lyricActive,
         })
       end
-      children[#children + 1] = ui.label({
-        key = "lbl" .. idx,
-        text = wrapLyric(s.lyrics[idx].text, fontSize, fontWeight, isCursor and 16 or 0),
-        fontSize = fontSize,
-        fontWeight = fontWeight,
-        color = color,
-        opacity = opacity,
-        textAlign = "center",
-      })
+      local labelText = wrapLyric(s.lyrics[idx].text, fontSize, fontWeight, isCursor and 16 or 0)
+      local hasFill = false
+      pcall(function() if type(ui.fillLabel) == "function" then hasFill = true end end)
+      if isActive and hasFill then
+        local lineStart = s.lyrics[idx].time or 0
+        local nextLine = (idx < n) and s.lyrics[idx + 1] or nil
+        local lineEnd = (nextLine and nextLine.time) or (s.lengthSec or (lineStart + 3))
+        local totalWords = 0
+        for _ in (s.lyrics[idx].text or ""):gmatch("%S+") do totalWords = totalWords + 1 end
+        local swept = (totalWords > 0) and (lyrics_lib.fillProgress(s.lyrics[idx].words, pos, lineStart, lineEnd, totalWords) or 0) or 0
+        local rowWords, ranges = 0, {}
+        for first, last in labelText:gmatch("()%S+()") do
+          rowWords = rowWords + 1
+          ranges[#ranges + 1] = first
+          ranges[#ranges + 1] = last - 1
+        end
+        local fill = (rowWords > 0) and { ranges = ranges, progress = math.max(0, math.min(rowWords, swept)) } or nil
+        if fill then
+          children[#children + 1] = ui.fillLabel({
+            key = "lbl" .. idx, text = labelText, fontSize = fontSize,
+            fontWeight = fontWeight, color = color, opacity = opacity,
+            textAlign = "center", fillColor = T.lyricActive,
+            fillRanges = fill.ranges, fillProgress = fill.progress,
+          })
+        else
+          children[#children + 1] = ui.label({
+            key = "lbl" .. idx, text = labelText, fontSize = fontSize,
+            fontWeight = fontWeight, color = color, opacity = opacity,
+            textAlign = "center",
+          })
+        end
+      else
+        children[#children + 1] = ui.label({
+          key = "lbl" .. idx, text = labelText, fontSize = fontSize,
+          fontWeight = fontWeight, color = color, opacity = opacity,
+          textAlign = "center",
+        })
+      end
       local rowProps = {
         key = "lyr" .. idx,
         align = "center", justify = "center",
         onClick = (lineTime >= 0) and function() queueSeek(lineTime) end or nil,
-        -- Tooltip (plugin API 32): says the row is a seek target and where it
-        -- lands. On a host below 5.2 the prop is logged and ignored, so this is
-        -- a pure enhancement and does not justify raising plugin_api.
-        tooltip = (lineTime >= 0)
-          and (noctalia.tr("panel.seek-to") .. " " .. fmtTime(lineTime)) or nil,
       }
-      -- Hover highlight without a crash: NEVER call render() inside onHover —
-      -- re-creating the tree mid-event-dispatch kills the host (plugin got
-      -- disabled). The panel already re-renders ~6x/s on the media watch, so
-      -- hovering only sets a flag and the next watch tick repaints it.
+      -- Hover highlight без rebuild'а дерева: НЕ вызывать render() внутри
+      -- onHover — пересоздание дерева в pointer-dispatch отключает плагин.
+      -- Запрашиваем публикацию у сервиса: он publish'ит на своём тике 150 мс,
+      -- панель перерисует строку по watch("media").
       rowProps.onHover = function(state)
         local want = (state == "true") and idx or 0
-        if want ~= hoveredLine then hoveredLine = want end
+        if want ~= hoveredLine then
+          hoveredLine = want
+          noctalia.state.set("panel_req", { action = "repaint" })
+        end
       end
       rows[si] = ui.row(rowProps, children)
     elseif countdown > 0 and k >= -half and k <= -1 then
@@ -641,8 +666,9 @@ local function buildCover(s, coverSize)
       onClick = function() sendCmd("toggle") end,
     })
   else
-    -- no art: show a fallback disc glyph
-    return ui.box({ key = "coverbox", width = COVER, height = COVER,
+    -- no art: show a fallback disc glyph (box cannot host children -> use column)
+    return ui.column({ key = "coverbox", width = COVER, height = COVER,
+      align = "center", justify = "center",
       fill = "surface_container/0.6", border = "outline_variant/0.5", borderWidth = 1,
       radius = T.coverRadius }, {
         ui.glyph({ name = "disc", size = math.max(28, COVER - 8), color = "on_surface_variant" }),
@@ -707,8 +733,8 @@ local function buildProgressBar(s)
     local sec = tonumber(v)
     if not sec then return end
     if math.abs(sec - painted) < 0.5 then return end   -- echo of our own value
-    queueSeek(sec)                 -- hold + send in one place (the host may not
-  end                              -- re-fire onChange, so never rely on it here)
+    queueSeek(sec, true)               -- throttled during the drag; hold + send
+  end                              -- in one place (the host may not re-fire)
 
   return ui.slider({
     key = "seek",
@@ -723,9 +749,15 @@ local function buildProgressBar(s)
     enabled = (s.hasPlayer == true) and (total > 0),
     controlSize = "sm",
     onChange = onScrub,
-    -- the host calls onDragEnd with no value; the last onChange already
-    -- queued the target, so this only marks the interaction as finished.
-    onDragEnd = function() seekQueuedAt = nowMs() end,
+    -- the host calls onDragEnd with no value; flush the final target (the
+    -- drag throttle may have suppressed the last sends) and mark it live.
+    onDragEnd = function()
+      seekQueuedAt = nowMs()
+      if seekPending >= 0 then
+        lastSeekSentMs = 0
+        queueSeek(seekPending)
+      end
+    end,
   })
 end
 
@@ -771,8 +803,10 @@ local function buildInfoRow(s)
       }),
       ctl(glyphFor.next, "next", s.canGoNext ~= false, L.ctl, "Next track"),
     }),
-    ui.label({ key = "time", text = fmtTime(cur) .. " / " .. fmtTime(total),
-      fontSize = T.fsTime, color = T.colTime }),
+    ui.column({ key = "timeCol", gap = 2, align = "center" }, {
+      ui.label({ key = "time", text = fmtTime(cur) .. " / " .. fmtTime(total),
+        fontSize = T.fsTime, color = T.colTime }),
+    }),
   })
 
   -- middle block: title + artist - album (no wrap, marquee for overflow).
@@ -797,7 +831,7 @@ local function buildInfoRow(s)
     return text
   end
   local artistLine = singleLine(s.artist ~= "" and s.artist or noctalia.tr("common.unknown-artist"))
-  if s.album ~= "" then artistLine = artistLine .. " - " .. s.album end
+  if s.album ~= "" then artistLine = artistLine .. " - " .. singleLine(s.album) end
 
   -- UTF-8 aware char split + per-char width units (community/lyrics scheme)
   local function toChars(text)
@@ -815,10 +849,12 @@ local function buildInfoRow(s)
   end
   local function charUnits(char)
     -- Exact per-glyph advance in em - the same measured table wrapLyric uses
-    -- (charAdv). The previous flat 0.72 em/char over-estimated mixed-case
-    -- titles by ~30%, so the marquee window came out far narrower than the
-    -- slot and the title ended in open space (owner: "окно для текста обрезано").
-    return charAdv(char)
+    -- (charAdv) - times a 1.12 SAFETY margin: the table under-measures the live
+    -- font slightly, and the title/artist BUTTONS word-wrap when the real text
+    -- exceeds the slot (owner: "то названия пишутся в две строки, то артисты,
+    -- хотя места хватает"). The margin engages the marquee a touch early so the
+    -- visible window always fits for real.
+    return charAdv(char) * 1.12
   end
   local function textUnits(text)
     local u = 0
@@ -942,7 +978,7 @@ local function buildInfoRow(s)
   }, {
     textLine("ttl", singleLine(s.title ~= "" and s.title or noctalia.tr("common.no-title")),
       T.fsTitle, "semibold", T.colTitle),
-    textLine("art", artistLine, T.fsMeta, "regular", T.colMeta),
+    textLine("art", artistLine, T.fsMeta, nil, T.colMeta),
   })
 
   -- single band, everything centered on the art's vertical axis.
@@ -965,7 +1001,7 @@ end
 
 -- ============================= render =============================
 
-local function render()
+renderImpl = function()
   local s = snap or {
     hasPlayer = false, title = "", artist = "", album = "", artUrl = "",
     playing = false, lengthSec = 0, posSec = 0, lyrics = {},
@@ -975,7 +1011,7 @@ local function render()
 
   -- footer: provider + mode in one quiet label (empty string hides itself)
   local footerTxt = ""
-  if s.lyricsStatus == "ready" or ((s.lyricsStatus == "choose") and #(s.lyrics or {}) > 0) then
+  if lyrics_lib.isLyricsShown(s.lyricsStatus) and #(s.lyrics or {}) > 0 then
     footerTxt = (s.lyricsProvider ~= "" and s.lyricsProvider or "")
       .. (s.synced and (" - " .. noctalia.tr("panel.synced"))
         or (" - " .. noctalia.tr("panel.unsynced")))
@@ -1031,9 +1067,38 @@ local function render()
       if not fills then kids[#kids + 1] = ui.spacer({ key = "lyricsBotFlex", flexGrow = 1 }) end
       return ui.column({ key = "lyrics", flexGrow = 1, gap = T.gapMicro }, kids)
     end)(),
-    -- D. footer: provider - mode
-    ui.label({ key = "footer", text = footerTxt, fontSize = T.fsOverline,
-      color = T.footer, visible = footerTxt ~= "" }),
+    -- D. footer: provider - mode + offset controls
+    ui.row({ key = "footerRow", align = "center", justify = "space_between" }, {
+      -- Keep the label in the layout even when there is no provider text:
+      -- with justify=space_between the offset buttons must stay pinned to the
+      -- bottom-right even on a track without lyrics (a hidden child can be
+      -- dropped from layout). An empty label draws nothing but holds the slot.
+      ui.label({ key = "footer", text = footerTxt, fontSize = T.fsOverline,
+        color = T.footer }),
+      ui.row({ key = "offsetRow", gap = T.gapMicro, align = "center",
+        tooltip = noctalia.tr("panel.offset-hint") }, {
+        -- current effective offset, e.g. "Offset +300 ms"; no maxWidth so
+        -- the short text stays on one line.
+        (function()
+          local off = math.floor(tonumber(s.offsetMs) or 0)
+          local prefix = noctalia.tr("panel.offset")
+          local sign = ""
+          if off > 0 then sign = "+" end
+          return ui.label({ key = "offsetValue",
+            text = prefix .. " " .. sign .. tostring(off) .. " ms",
+            fontSize = T.fsOverline, color = T.footer, fontWeight = "semibold" })
+        end)(),
+        ui.button({ key = "offDown (-100)", text = "-", fontSize = 11, variant = "ghost",
+          controlSize = "sm", onClick = function()
+            noctalia.state.set("panel_req", { action = "adjustOffset", delta = -100 }) end }),
+        ui.button({ key = "offUp (+100)", text = "+", fontSize = 11, variant = "ghost",
+          controlSize = "sm", onClick = function()
+            noctalia.state.set("panel_req", { action = "adjustOffset", delta = 100 }) end }),
+        ui.button({ key = "offReset (reset)", text = "reset", fontSize = 11, variant = "ghost",
+          controlSize = "sm", onClick = function()
+            noctalia.state.set("panel_req", { action = "adjustOffset", reset = true }) end }),
+      }),
+    }),
   }))
 end
 
@@ -1082,14 +1147,8 @@ end
 -- before the first timestamp — fixes the frozen window until the first
 -- words), steps by delta and re-centers the window on the cursor.
 local function activeIndex(s)
-  local pos = interpPos(s)
-  local active = -1
-  local n = #(s.lyrics or {})
-  for i = 1, n do
-    if (s.lyrics[i].time >= 0) and (s.lyrics[i].time <= pos) then active = i end
-    if (s.lyrics[i].time >= 0) and (s.lyrics[i].time > pos) then break end
-  end
-  return active
+  if not s then return -1 end
+  return lyrics_lib.activeIndex(s.lyrics or {}, interpPos(s))
 end
 
 local function moveCursor(delta)
@@ -1143,8 +1202,9 @@ end
 -- Manual lyric scroll. The host's chord validator accepts only a small set
 -- of key names (Up/Down/Left/Right/Return/Space/Escape/Tab — used by
 -- community plugins); PageUp/PageDown/Home/End are REJECTED by the catalog
--- scan and drop the plugin from the store, so only Up/Down/Return/Space are
--- declared. Up/Down step the cursor, Return/Space seek to the cursor line.
+-- scan and drop the plugin from the store, so only Up/Down/Left/Right/
+-- Return/Space/Tab are declared. Up/Down step the cursor, Return/Space seek
+-- to the cursor line, Left/Right nudge the per-track offset, Tab resets it.
 -- The window never leaves [1..n] (clamped in buildLyricsBody).
 function onKey(chord, pressed)
   if not pressed then return end
@@ -1154,14 +1214,16 @@ function onKey(chord, pressed)
     moveCursor(1)
   elseif chord == "Return" or chord == "Space" then
     seekCursor()
+  elseif chord == "Right" or chord == "Left" or chord == "Tab" then
+    -- Per-track timing offset without touching the mouse: Right = +100 ms,
+    -- Left = -100 ms, Tab = reset to the global offset. Same request the
+    -- +/-/reset buttons send, so one handler serves both.
+    if chord == "Tab" then
+      noctalia.state.set("panel_req", { action = "adjustOffset", reset = true })
+    else
+      noctalia.state.set("panel_req",
+        { action = "adjustOffset", delta = (chord == "Right") and 100 or -100 })
+    end
   end
 end
 
--- Docs say onScroll is a bar-widget callback, but declare it anyway: if the
--- host delivers wheel events to panels, this makes wheel scrolling step the
--- lyric cursor. Harmless no-op otherwise.
-function onScroll(axis, steps, startsGesture)
-  if axis ~= "vertical" or startsGesture then return end
-  local dir = (steps or 0) > 0 and 1 or -1
-  moveCursor(dir)
-end

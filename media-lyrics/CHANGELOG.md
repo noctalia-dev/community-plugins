@@ -6,6 +6,84 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-11-23
+
+### Added
+
+- **The active line fills word by word (karaoke) in the panel.** The fill follows the
+  real word onsets on word-timed lyrics and sweeps evenly on plain lines. Shells
+  without `ui.fillLabel` keep the current line highlight.
+- **A `.lrc` next to the audio file is picked up automatically.** For local files the
+  sidecar is asked first — before the configured folder and the cache — so the folder
+  layout everyone already uses just works.
+- **The position moves smoothly.** The progress bar and the karaoke fill glide instead
+  of stepping on the 150 ms polling grid.
+- **The lyrics list follows the song** — it scrolls to the active line on its own.
+- **Per-track timing offset.** `-`/`+` (100 ms) and `reset` live in the footer
+  (bottom-right). The footer shows the current effective offset in ms (for example
+  `Offset +300 ms`) and a hover tooltip explains the block. The override is stored
+  in `offsets.json` and survives a plugin restart. `reset` restores the global
+  `offset_ms`. Keyboard: `Right` = +100 ms, `Left` = -100 ms, `Tab` = reset.
+  A `+` value shows lines earlier, a `-` value later.
+
+### Changed
+
+- **The active player comes from the shell itself** (`noctalia.mediaPlayer()`) instead
+  of polling `busctl` twice a second: less CPU, less D-Bus traffic, easier on the
+  battery. Shells without the API keep the poll.
+- Background polling pauses while the system is suspended.
+- The bar widget no longer lights up entirely on hover.
+- **One playback position for every surface.** The panel, mini panel, bar chip and
+  desktop widget all project from the service snapshot's `posAtMs`.
+- **Lyric rows no longer show a "Seek to" tooltip.** Click-to-seek and hover
+  highlight are unchanged. The offset block keeps its own hover tooltip.
+- **Manifest targets plugin API 51** with `layer = "follow"` and
+  `Left`/`Right`/`Tab` key capture declared.
+
+### Fixed
+
+- **Cyrillic weighs about half an em per glyph instead of a full em.** `charAdv` now
+  returns 1.0 only for CJK/emoji (3+ byte sequences) and ~0.58 for other non-ASCII,
+  so Russian lyrics stop being truncated roughly twice too early.
+- **«Loading lyrics...» no longer sticks.** The 40 s watchdog now arms at every
+  point `lyricsStatus` becomes `loading`, and MPRIS metadata drift (title suffix /
+  length fill-in) is treated as the same track via `lyrics_lib.sameClaim`.
+  - **The bar widget no longer splits the title mid-word.** Width is measured with the
+  real per-glyph advance table (shared via lyrics_lib) instead of a flat 0.62 em
+  estimate, and the title label carries a maxWidth with a small slop. Single line,
+  smart truncation with ellipsis, never a wrap.
+- **The panel no longer freezes on one track.** A lost async poll — a burst of track
+  flips could exhaust the host's spawn slots — used to freeze the metadata, lyrics and
+  cover on the walked-past track while the clock kept running past its end. The poll
+  now re-arms itself after 5 s, and a late lyrics callback from an older track can no
+  longer glue the panel to that track.
+- **Cover fallback no longer renders as an empty square.** The fallback box used to
+  carry a `disc` glyph as a child and an `align` prop, which the host does not
+  support on `ui.box` (it dropped the child every tick and spam-logged `box`
+  warnings). The fallback is now a centered `ui.column` container, so the disc glyph
+  shows again and the log stays clean. Applied to panel, panel-mini and desktop entries.
+
+- **Album names with line breaks no longer split the header into stray rows.**
+  The album text is collapsed to one line when the header is drawn, so an album
+  like `A\nlive` cannot push the artist onto a second row.
+- **A player that leaves `xesam:artist` empty no longer loses its lyrics.** Some players
+  `xesam:title` as `Title - Artist`; the title is now split on the last ` - ` when the
+  artist is empty, so the track identifies correctly. Fixes the case reported against
+  yt-music in community-plugins#1510.
+- **The render path no longer burns the host's CPU budget on long lyrics.** Wrapping a
+  lyric line is memoised by text + font size + panel size (and width, for the desktop
+  widget), so the position tick only recomputes fill progress; it no longer re-wraps
+  every line each tick. Fixes the frozen widget / dropped frames seen with 200+ line
+  tracks (regression inherited from 1.0.x).
+- **Large cached lyrics no longer kill the service callback.**
+  `isPlaceholderLyrics` returns early on payloads over 4 KB instead of running
+  expensive full-string sanitise passes inside the host's 25 ms CPU budget; a killed
+  callback used to leave "Loading lyrics..." stuck until the watchdog.
+- **Faster, shorter network failures.** `curl` uses `-m 4 --connect-timeout 2`;
+  two transport failures settle the load with an error instead of walking the
+  whole provider chain. The error text is provider-neutral: "Lyrics services
+  unreachable (network error)".
+
 ## [1.0.2] — 2026-11-17
 
 ### Fixed

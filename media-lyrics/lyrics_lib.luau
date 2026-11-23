@@ -15,23 +15,82 @@ local function trim(s)
 end
 lib.trim = trim
 
+-- ── text measurement (shared with panel.luau / desktop.luau / widget.luau) ──
+local function toChars(text)
+  local chars = {}
+  local i = 1
+  while i <= #text do
+    local byte = text:byte(i)
+    local len = 1
+    if byte >= 0xF0 then len = 4
+    elseif byte >= 0xE0 then len = 3
+    elseif byte >= 0xC0 then len = 2 end
+    chars[#chars + 1] = text:sub(i, i + len - 1)
+    i = i + len
+  end
+  return chars
+end
+
+local function charAdv(c)
+  local o = string.byte(c) or 32
+  if o >= 0x80 then
+    if #c >= 3 then return 1.0 end                     -- CJK / emoji: full width
+    return 0.58                                          -- other non-ASCII (Cyrillic etc)
+  end
+  if c == " " then return 0.28 end
+  if c == "i" or c == "l" or c == "I" then return 0.27 end
+  if c == "m" then return 0.92 end
+  if c == "w" or c == "M" or c == "W" then return 0.80 end
+  if c == "." or c == "," or c == ":" or c == ";" or c == "'" or c == "!"
+     or c == "|" or c == "`" then return 0.28 end
+  if c == "(" or c == ")" or c == "[" or c == "]" or c == "{" or c == "}" then return 0.35 end
+  if c == "j" or c == "t" or c == "f" or c == "r" then return 0.39 end
+  if string.find("ABCDGHNOQRUVXY", c, 1, true) then return 0.64 end
+  return 0.56
+end
+
+local function unitEm(text)
+  local u = 0
+  for _, ch in ipairs(toChars(text)) do u = u + charAdv(ch) end
+  return u
+end
+
+lib.toChars = toChars
+lib.charAdv = charAdv
+lib.unitEm = unitEm
+
+-- Hard-cut to a whole glyph boundary, appending an ellipsis when truncated.
+function lib.truncEm(text, capEm)
+  local out, used = {}, 0
+  for _, ch in ipairs(toChars(text)) do
+    local a = charAdv(ch)
+    if used + a > capEm then
+      return table.concat(out) .. "…"
+    end
+    out[#out + 1] = ch
+    used = used + a
+  end
+  return table.concat(out)
+end
+
 -- ── LRC parsing ─────────────────────────────────────────────────────────────
 
 function lib.fractionalSeconds(frac)
   if not frac or frac == "" then return 0.0 end
   local v = tonumber(frac) or 0
-  local n = #frac
-  if n == 1 then return v / 10.0 end
-  if n == 2 then return v / 100.0 end
-  return v / 1000.0
+  -- Scale by the ACTUAL digit count: "[00:01.0025]" is 25 ms, not 2.5 ms
+  -- (the old /1000 cap silently misread 4+ digit fractions).
+  return v / (10 ^ #frac)
 end
 
 function lib.isMetadataLine(line)
-  local l = line:lower()
-  return l:match("^%[ar%s*:") ~= nil or l:match("^%[ti%s*:") ~= nil
+  local l = (line or ""):lower()
+  local basic = l:match("^%[ar%s*:") ~= nil or l:match("^%[ti%s*:") ~= nil
     or l:match("^%[al%s*:") ~= nil or l:match("^%[by%s*:") ~= nil
     or l:match("^%[re%s*:") ~= nil or l:match("^%[ve%s*:") ~= nil
-    or l:match("^%[offset%s*:") ~= nil
+    or l:match("^%[offset%s*:") ~= nil or l:match("^%[length%s*:") ~= nil
+  if basic then return true end
+  return lib.isNetEaseMetaLine(line)
 end
 
 function lib.looksLikeMalformedTimestamp(line)
@@ -109,22 +168,44 @@ function lib.parseLrc(text, offsetMs)
   table.sort(result, function(a, b)
     local at, bt = a.time >= 0, b.time >= 0
     if at ~= bt then return at end
+    -- Equal timestamps (including \"no timestamp\" / unsynced lines) tie-break
+    -- on the original file order, so plain lyrics never get reshuffled.
     if at and bt then
       if a.time ~= b.time then return a.time < b.time end
       return ord[a] < ord[b] -- stability
     end
-    return false
+    -- at != bt: synced lines always sort before unsynced ones.
+    if at ~= bt then return at end
+    return ord[a] < ord[b] -- unsynced / equal plain lines keep file order
   end)
   return result
 end
 
 -- ── NetEase placeholder detection ──────────────────────────────────────────
 
+local PLACEHOLDER_MAX_BYTES = 4096
+lib.PLACEHOLDER_MAX_BYTES = PLACEHOLDER_MAX_BYTES
+
 local NETEASE_PLACEHOLDERS = { "纯音乐请欣赏", "纯音乐版", "暂无歌词",
   "此歌曲为没有填词的纯音乐", "此歌曲为纯音乐请欣赏", "纯音乐" }
 lib.NETEASE_PLACEHOLDERS = NETEASE_PLACEHOLDERS
 
 function lib.isPlaceholderLyrics(raw)
+  raw = raw or ""
+  -- Плейсхолдеры — короткие фразы/несколько credit-строк; настоящий LRC на порядок больше.
+  -- Полнострочные gsub выполняются в C и убивали 25-мс бюджет колбэка (log lyrics_lib.luau:208/209).
+  if #raw > PLACEHOLDER_MAX_BYTES then return false end
+  -- A payload made ENTIRELY of metadata/credit rows (raw word-timing JSON,
+  -- 作曲-style credit tags) is not lyrics: drop it and keep the lookup chain
+  -- hunting. Mixed payloads fall through and are filtered per line in parseLrc.
+  local nonEmpty, allMeta = 0, true
+  for line in raw:gmatch("[^\n]+") do
+    if line:match("%S") then
+      nonEmpty = nonEmpty + 1
+      if not lib.isNetEaseMetaLine(line) then allMeta = false break end
+    end
+  end
+  if nonEmpty > 0 and allMeta then return true end
   -- Byte-safe sanitize: multibyte chars must NOT live inside a Lua character
   -- class together with ASCII punctuation — it corrupts UTF-8 bytes. Strip
   -- timestamps + ASCII punctuation first, then full-width chars literally.
@@ -155,6 +236,22 @@ local NETEASE_META = {
 }
 lib.NETEASE_META = NETEASE_META
 
+function lib.isNetEaseMetaLine(line)
+  local text = trim(line or "")
+  if text == "" then return false end
+  if text:match("^%s*{") then return true end
+  local body = text:gsub("^%[%d+:%d+%.?%d*%]%s*", "")
+  for _, pp in ipairs(NETEASE_META) do
+    if body:match(pp) then return true end
+  end
+  -- Credit tags like "[4F5C][66F2]: ..." (作曲:) come as bracketed CJK code
+  -- points. Match the OBSERVED shapes (two tags in a row, or one tag followed
+  -- by a colon) - a lone "[Beef]" in a lyric must NOT be eaten.
+  if body:match("^%[%x%x%x%x%]%[%x%x%x%x%]") then return true end
+  if body:match("^%[%x%x%x%x%]:") then return true end
+  return false
+end
+
 function lib.stripNetEaseMeta(raw)
   local out = {}
   for line in (raw .. "\n"):gmatch("(.-)\n") do
@@ -165,6 +262,7 @@ function lib.stripNetEaseMeta(raw)
       for _, p in ipairs(NETEASE_META) do
         if body:match(p) then isMeta = true break end
       end
+      if not isMeta and lib.isNetEaseMetaLine(text) then isMeta = true end
       if not isMeta then out[#out + 1] = text end
     end
   end
@@ -228,21 +326,17 @@ end
 -- ── sanitizers ─────────────────────────────────────────────────────────────
 
 function lib.sanitizePart(s)
-  return trim((s or ""):gsub('[%c/\\]', "_"))
-end
-
--- UTF-8 aware glyph count (never splits a sequence).
-function lib.charCount(s)
-  local i, n = 1, 0
-  while i <= #s do
-    local b = s:byte(i)
-    if b >= 0xF0 then i = i + 4
-    elseif b >= 0xE0 then i = i + 3
-    elseif b >= 0xC0 then i = i + 2
-    else i = i + 1 end
-    n = n + 1
+  local out = trim((s or ""):gsub('[%c/\\]', "_"))
+  -- Bound the filename piece: a 300-character title broke cache writes on
+  -- long-path filesystems. Cut at 80 bytes and drop a trailing partial
+  -- UTF-8 sequence so the name stays valid.
+  if #out > 80 then
+    out = out:sub(1, 80)
+    while #out > 0 and out:byte(#out) >= 0x80 do
+      out = out:sub(1, #out - 1)
+    end
   end
-  return n
+  return out
 end
 
 -- ── word timing (enhanced LRC) ─────────────────────────────────────────────
@@ -394,7 +488,7 @@ function lib.trackMatches(want, got)
   if wd > 0 and gd > 0 and math.abs(wd - gd) > 5 then return false end
   local wa, ga = norm(want.artist), norm(got.artist)
   if wa == "" or ga == "" then return true end
-  return wa == ga or ga:find(wa, 1, true) ~= nil or wa: find(ga, 1, true) ~= nil
+  return wa == ga or ga:find(wa, 1, true) ~= nil or wa:find(ga, 1, true) ~= nil
 end
 
 -- Do two lyric bodies say the same words? The comparison is a word bag —
@@ -432,6 +526,47 @@ end
 -- The cache lives in a `lyrics/` subfolder of the plugin data dir. The host
 -- does not create parent folders on write, so every writer must ask for the
 -- directory explicitly before writing a file into it.
+-- Decode a file:// URI into a local path; non-file schemes (and garbage) are
+-- ignored. Percent-escapes (%XX) are decoded.
+function lib.fileUriToPath(uri)
+  if type(uri) ~= "string" or uri == "" then return nil end
+  local low = uri:lower()
+  if low:sub(1, 7) ~= "file://" then return nil end
+  -- keep the original casing of the path; only the scheme is case-insensitive
+  local path = uri:sub(8)
+  -- a third slash (file:///) is part of the empty authority; collapse it
+  if path:sub(1, 1) == "/" then
+    -- already an absolute path, nothing to do
+  else
+    path = "/" .. path
+  end
+  path = path:gsub("%%(%x%x)", function(h) return string.char(tonumber(h, 16)) end)
+  if path == "" or path == "/" then return nil end
+  return path
+end
+
+-- Candidate sidecar .lrc path next to an audio file given by a file:// URI.
+-- Returns "<dir>/<basename>.lrc" with the audio extension stripped, or nil
+-- for non-file URIs. Read-only: callers must never write to this location.
+function lib.sidecarLyricPath(uri)
+  local path = lib.fileUriToPath(uri)
+  if not path then return nil end
+  local dir = path:match("^(.*)/[^/]+$")
+  local base = path:match("([^/]+)$")
+  if not base then return nil end
+  -- strip the audio extension
+  base = base:gsub("%.[^%.]+$", "")
+  if base == "" then return nil end
+  if dir and dir ~= "" then
+    return dir .. "/" .. base .. ".lrc"
+  end
+  return base .. ".lrc"
+end
+
+-- aliases (various names callers/tests may use)
+-- aliases removed
+
+
 function lib.cachePaths(dataDir, artist, title)
   if not dataDir or dataDir == "" then return nil end
   local dir = dataDir .. "/lyrics"
@@ -462,6 +597,250 @@ function lib.sourceOrder(cfg)
     if not seen[id] then out[#out + 1] = id end
   end
   return out
+end
+
+-- Fallback: some players (yt-music via mpv --force-media-title="Title - Artist") leave
+-- xesam:artist empty and embed the artist at the end of xesam:title. Split only
+-- when artist is empty/whitespace, on the LAST " - ". Empty parts => no split.
+function lib.splitTitleArtist(title, artist)
+    title = title or ""
+    artist = artist or ""
+    if trim(artist) ~= "" then
+        return title, artist
+    end
+    local lastPos = nil
+    local start = 1
+    while true do
+        local i = title:find(" - ", start, true)
+        if not i then break end
+        lastPos = i
+        start = i + 3
+    end
+    if lastPos then
+        local t = title:sub(1, lastPos - 1)
+        local a = title:sub(lastPos + 3)
+        if trim(t) ~= "" and trim(a) ~= "" then
+            return trim(t), trim(a)
+        end
+    end
+    return title, artist
+end
+
+-- split aliases removed
+
+-- Плавная проекция позиции: последнее известное положение + wall clock.
+-- nowMs / sampleMs в миллисекундах, lastPosSec — секунды; playing — bool;
+-- lengthSec — опциональный верхний предел (cap).
+function lib.projectPosition(lastPosSec, sampleMs, nowMsV, playing, lengthSec)
+  lastPosSec = tonumber(lastPosSec) or 0
+  sampleMs = tonumber(sampleMs) or nowMsV or 0
+  nowMsV = tonumber(nowMsV) or sampleMs
+  local len = tonumber(lengthSec) or 0
+  local pos = lastPosSec
+  if playing then
+    local delta = (nowMsV - sampleMs) / 1000.0
+    if delta < 0 then delta = 0 end
+    pos = lastPosSec + delta
+  end
+  -- The display must NEVER exceed the duration (the 3:18 / 3:16 class) -
+  -- clamped on every path, including a stale base while paused.
+  if len > 0 and pos > len then pos = len end
+  return pos
+end
+
+-- Унифицированный интерполятор позиции для всех entry (panel/panel-mini/desktop).
+-- Принимает либо таблицу состояния s, либо позиционные аргументы
+-- (lastPosSec, sampleMs, nowMs, playing, lengthSec) как projectPosition.
+function lib.interpPos(...)
+  local args = {...}
+  if type(args[1]) == "table" then
+    local s = args[1]
+    local nowOverride = args[2]
+    local nowMsV = nowOverride
+    if type(nowMsV) ~= "number" then
+      nowMsV = 0
+      pcall(function() nowMsV = noctalia.nowMs() end)
+      if type(nowMsV) ~= "number" or nowMsV <= 0 then nowMsV = os.time() * 1000 end
+    end
+    local sampleMs = s.sampleMs or s.posAtMs or s.lastSnapMs or 0
+    if not sampleMs or sampleMs == 0 then sampleMs = nowMsV end
+    return lib.projectPosition(s.posSec or s.position or s.pos or 0, sampleMs, nowMsV, s.playing, s.lengthSec or s.length or s.duration or s.durationSec)
+  end
+  return lib.projectPosition(args[1], args[2], args[3], args[4], args[5])
+end
+
+-- Разбор ответа noctalia.mediaPlayer() (plugin_api 51): tolerant, не ломается
+-- на отличиях схемы. Возвращает нормализованную таблицу или nil.
+function lib.parseMediaPlayerResponse(resp)
+  if type(resp) ~= "table" then return nil end
+  --(resp may be wrapped as { data = {...} } or bare)
+  local f = resp
+  if type(resp.data) == "table" and type(resp.data.title) ~= nil then f = resp.data end
+  local function g(key, ...)
+    -- try a list of candidate keys
+    for _, k in ipairs({...}) do
+      local v = f[k]
+      if v ~= nil then return v end
+    end
+    return f[key]
+  end
+  local title = g("title", "Title") or ""
+  local artist = g("artist", "Artist", "artists") or ""
+  -- artist may be a list
+  if type(artist) == "table" then
+    local parts = {}
+    for _, a in ipairs(artist) do
+      if type(a) == "string" then parts[#parts+1] = a
+      elseif type(a) == "table" then parts[#parts+1] = a.name or a.text or "" end
+    end
+    artist = table.concat(parts, ", ")
+  end
+  local album = g("album", "Album") or ""
+  -- Units differ across shell versions: lengthSec/durationSec (seconds),
+  -- lengthMs/durationMs (milliseconds), lengthUs/length_us/mpris:length
+  -- (microseconds), or a bare length/duration in ANY of them. Normalize per
+  -- known key first; only the bare fallback uses a magnitude heuristic.
+  -- (A parsed length of 0 showed live as "1:25 / 0:00" on the sync path.)
+  local lengthSec = tonumber(g("lengthSec", "durationSec")) or 0
+  if lengthSec == 0 then
+    lengthSec = (tonumber(g("lengthMs", "durationMs")) or 0) / 1000
+  end
+  if lengthSec == 0 then
+    lengthSec = (tonumber(g("lengthUs", "length_us")) or 0) / 1e6
+  end
+  if lengthSec == 0 then
+    local raw = tonumber(g("length", "Length", "duration", "durationSec"))
+    if raw then
+      if raw > 1e6 then raw = raw / 1e6
+      elseif raw > 1e4 then raw = raw / 1000 end
+      lengthSec = raw
+    end
+  end
+  local posSec = tonumber(g("posSec", "positionSec")) or 0
+  if posSec == 0 then posSec = (tonumber(g("positionMs", "posMs")) or 0) / 1000 end
+  if posSec == 0 then posSec = (tonumber(g("positionUs", "position_us")) or 0) / 1e6 end
+  if posSec == 0 then
+    local raw = tonumber(g("position", "Position"))
+    if raw then
+      if raw > 1e6 then raw = raw / 1e6
+      elseif raw > 1e4 then raw = raw / 1000 end
+      posSec = raw
+    end
+  end
+  local status = g("playback_status", "playbackStatus", "status", "Status") or ""
+  local playing = (tostring(status):lower() == "playing") or (g("playing", "isPlaying") == true)
+  local busName = g("bus_name", "busName", "playerBusName") or ""
+  local ident = g("identity", "playerName", "name") or ""
+  local canSeek = (g("canSeek", "can_seek") == nil) and true or (g("canSeek", "can_seek") == true)
+  -- Transport caps are OPTIONAL in MPRIS and several hosts omit them. Unknown
+  -- means ENABLED (optimistic): Next/Previous are near-universal and the
+  -- command path refreshes the caps after the call. Treating "unknown" as "no"
+  -- silently disabled both buttons on every sync-path player (owner report).
+  local canGoNext = (g("canGoNext", "can_go_next") == nil) and true or (g("canGoNext", "can_go_next") == true)
+  local canGoPrev = (g("canGoPrev", "can_go_previous") == nil) and true or (g("canGoPrev", "can_go_previous") == true)
+  local artUrl = g("artUrl", "art_url", "art", "mpris:artUrl", "artUrlMs") or ""
+  return {
+    title = tostring(title),
+    artist = tostring(artist),
+    album = tostring(album),
+    artUrl = tostring(artUrl),
+    lengthSec = lengthSec,
+    posSec = posSec,
+    playing = playing,
+    status = tostring(status),
+    busName = tostring(busName),
+    identity = tostring(ident),
+    canSeek = canSeek,
+    canGoNext = canGoNext,
+    canGoPrev = canGoPrev,
+  }
+end
+
+-- Index of the active lyric line for a given playback position: the last
+-- line whose timestamp <= pos. Returns -1 when no line has started yet
+-- (intro / before first timestamp). Plain/unsynced lines (time < 0) never
+-- become active here: callers treat -1 as "highlight nothing".
+function lib.activeIndex(lines, pos)
+  local active = -1
+  lines = lines or {}
+  for i = 1, #lines do
+    local t = lines[i] and lines[i].time
+    if type(t) == "number" and t >= 0 then
+      if t <= pos then
+        active = i
+      else
+        break
+      end
+    end
+  end
+  return active
+end
+
+-- Should the lyrics area show loaded lyrics for this status? Single source of
+-- truth for the "ready or choose-with-lyrics" rule every surface re-implemented
+-- (the audits counted three different spellings).
+function lib.isLyricsShown(status)
+  return status == "ready" or status == "choose"
+end
+
+-- Do two track *claims* refer to the same real track despite MPRIS
+-- metadata drift (title "Big Dawgs" -> "Big Dawgs (feat. Kalmi)", length 0 -> 190s)?
+-- Returns true only for the drift we want to collapse, NOT for distinct
+-- remixes: artist change or a non-prefix title change is a different track,
+-- and a suffix added after a known (non-zero) duration is also a different
+-- track.
+function lib.sameClaim(a, b)
+  if type(a) ~= "table" or type(b) ~= "table" then return false end
+  local function field(t, k)
+    local v = t[k]
+    if v == nil then return "" end
+    return tostring(v)
+  end
+  local function dur(t)
+    local d = t.durationSec or t.lengthSec
+    if d == nil and t.lengthUs ~= nil then d = (tonumber(t.lengthUs) or 0) / 1000000 end
+    local n = tonumber(d)
+    if not n or n < 0 then return 0 end
+    return n
+  end
+  local function norm(s) return trim(tostring(s or ""):lower()) end
+  local ta, tb = norm(field(a, "title")), norm(field(b, "title"))
+  local aa, ab = norm(field(a, "artist")), norm(field(b, "artist"))
+  if aa ~= "" and ab ~= "" and aa ~= ab then return false end
+  if ta == "" or tb == "" then return false end
+  if ta == tb then return true end
+  local prefix = (tb:sub(1, #ta) == ta) or (ta:sub(1, #tb) == tb)
+  if not prefix then return false end
+  local da, db = dur(a), dur(b)
+  -- at least one side must have unknown (zero) duration to collapse drift
+  if da ~= 0 and db ~= 0 then return false end
+  return true
+end
+
+-- (lib.normalizePlayer deleted: dead since the service reads the host
+--  response through parseMediaPlayerResponse + the variant shim; both
+--  re-audits flagged the ~80-line duplicate.)
+
+function lib.trackKey(ident, title, artist, lengthUs)
+  return tostring(ident or "") .. "|" .. tostring(title or "") .. "|"
+    .. tostring(artist or "") .. "|"
+    .. tostring(math.floor((tonumber(lengthUs) or 0) + 0.5))
+end
+
+-- Combine the global offset setting with a per-track override. An empty/nil
+-- override means "global only"; a numeric override adds to the global value.
+function lib.effectiveOffsetMs(globalMs, overrideMs)
+  local g = tonumber(globalMs) or 0
+  if type(overrideMs) == "number" then return g + overrideMs end
+  return g
+end
+
+-- Mutate a per-track offsets map (pure; the service owns the IO): a numeric
+-- value sets/replaces the override, nil removes it. Bad values coerce to 0.
+function lib.updateOffsetMap(t, key, value)
+  if type(t) ~= "table" or not key or key == "" then return t end
+  if value == nil then t[key] = nil else t[key] = tonumber(value) or 0 end
+  return t
 end
 
 return lib

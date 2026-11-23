@@ -11,8 +11,9 @@
     "no-media-player": "No media player",
     "no-variants": "No alternative lyrics found",
     "now-playing": "NOW PLAYING",
+    "offset": "Offset",
+    "offset-hint": "Lyric timing offset. -/+ shift by 100 ms, reset restores the global setting.",
     "reload-lyrics": "Reload lyrics",
-    "seek-to": "Seek to",
     "synced": "synced",
     "unsynced": "unsynced",
     "variant-default": "Default"
@@ -23,7 +24,7 @@
     "local": "Local"
   },
   "service": {
-    "lyrics-unreachable": "LRCLIB unreachable (network error)"
+    "lyrics-unreachable": "Lyrics services unreachable (network error)"
   },
   "settings": {
     "album_art_only": {

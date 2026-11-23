@@ -27,10 +27,10 @@ The audio-reactive chip, its spectrum driven by the host:
 
 ## Requirements
 
-- Noctalia 5.4.0+ (plugin API 43)
+- plugin API 51
 - `busctl` (systemd, present on every Arch install)
 - `curl` — used for the HTTPS lyric fetches: lrcmux (word-timed) first, then
-  LRCLIB, then NetEase Cloud Music (spawned as `curl -sSf -m 8 -4 <url>`,
+  LRCLIB, then NetEase Cloud Music (spawned as `curl -sSf -m 4 --connect-timeout 2 -4 <url>`,
   argv-only, no shell; the CLIs resolve IPv4 faster than the built-in HTTP
   client on some setups)
 - Outbound HTTPS access to `https://api.lrcmux.dev`, `https://lrclib.net` and
@@ -133,6 +133,7 @@ The panel shows the active MPRIS player automatically; when nothing is playing i
 - **Karaoke lyric carousel** — 9/12/16 lines visible at once (compact/medium/large presets); the active line is bright, neighbours fade by distance (Clavis-style). Works with synced (LRC) and plain lyrics.
 - **Centred karaoke** — the active line is pinned to the vertical centre of the lyrics area (symmetric window around the cursor or the playing line): the first line starts centred on load, the anchor holds the centre line through the track, and the last line returns to the centre at the end. A **3-2-1 countdown** fills the space this frees above the first line, shown only in the last three seconds before it starts. Compact/medium/large only — `panel-mini` is untouched.
 - **Clickable lyric lines** — click a synced line to seek the player to that timestamp.
+- **Per-track timing offset** — `+`/`-` buttons (100 ms) and `reset` in the footer (bottom-right); footer shows the current offset in ms (e.g. `Offset +300 ms`), hover over the block shows a tooltip. `reset` (or `Tab`) returns to the global `offset_ms`, `Right`/`Left` keys do the same. Overrides persist in `offsets.json`.
 - **Manual lyric scroll** — Up/Down step a line (the host's chord validator accepts only basic key names; PageUp/PageDown/Home/End are rejected).
 - **Word-timed source (lrcmux)** — asked first by default: it answers with
   per-word timestamps, which the karaoke sweep rides on; a wrong recording is
@@ -140,13 +141,13 @@ The panel shows the active MPRIS player automatically; when nothing is playing i
 - **LRCLIB integration** — exact `/api/get` lookup first, `/api/search` fallback, LRC parsed in pure Luau.
 - **Lyrics variants picker** — the header "list" button (always visible while a track plays) fetches the full LRCLIB search result on demand and lists alternative lyric versions: pick one to switch instantly (the playing lyrics are never interrupted while the list loads), pick **Default** to restore the automatic chain, or switch again at any time — the candidate list stays in memory per track.
 - **NetEase Cloud Music fallback** — no-auth second source for LRCLIB misses (public endpoints, browser headers only): synced LRC wins, candidates ranked by title/artist + duration, metadata lines stripped; instrumental placeholders are filtered.
-- **Local `.lrc` files** — drop `Artist - Title.lrc` into the local lyrics folder; they take priority over the network.
+- **Local `.lrc` files** — a `.lrc` next to the audio file is picked up first; `Artist - Title.lrc` in the local lyrics folder takes priority over the network.
 - **Marquee titles** — long track/artist names hold for 2 s, then scroll slowly instead of wrapping or clipping. Overlap-free (per-slice node recreation).
 - **Album cover + seekable progress bar** — click to jump, drag to scrub (a real `ui.slider`), interpolated between polls; transport controls (prev / play-pause / next), shuffle and repeat state.
 - **Live lyric line in the chip** — optional `show_lyric_line` widget setting: while synced lyrics are ready the chip shows `Title · current line` instead of the artist (steps with playback, marquee for long lines).
 - **Desktop widget** — the same now-playing / lyrics view as a background layer-shell tile, pinned to the desktop and visible on the lockscreen, with no panel open. Long lyric lines wrap (measured in em and broken at the word nearest the middle), the band keeps a constant height so the widget never jumps as the lyrics arrive, and the tile uses the host's widget surface (background, opacity, radius, padding — edited in the desktop-widget editor).
 - **Audio-reactive chip** — optional `audio_spectrum` setting: the bar chip draws a live band meter driven by the host's PipeWire monitor.
-- **Tooltips** — transport buttons and lyric rows explain themselves on hover; a lyric row shows the timestamp it seeks to.
+- **Tooltips** — transport buttons and the offset block explain themselves on hover. Lyric rows show no tooltip; clicking a row still seeks to that line.
 - **Settings** — lyric timing offset in ms, on-disk cache, local lyrics folder. Translatable UI: strings go through Noctalia's i18n (`noctalia.tr`, English ships in the plugin; other locales via Noctalia Translate).
 
 ## Advantages over alternative lyric plugins
@@ -212,7 +213,7 @@ noctalia msg config-reload
 ## To Do
 
 The authoritative, detailed list lives in
-[docs/ROADMAP.md](https://github.com/TraNzeM/media-lyrics/blob/main/docs/ROADMAP.md). Open items right now:
+[docs/ROADMAP.md](../docs/ROADMAP.md). Open items right now:
 
 - [ ] **Musixmatch / Spotify lyric sources** — the remaining network sources;
       both need API keys or OAuth tokens, so they can only ship as an opt-in
@@ -250,5 +251,5 @@ and audio chip (0.9.8).
 - Lyrics are fetched from public services with `curl` — lrcmux (word-timed)
   first, then LRCLIB, then NetEase Cloud Music; nothing is uploaded. Cache and
   local lyrics live under the plugin data directory and `local_lyrics_dir`.
-- Spawned processes (all argv-form, no shell): `busctl` (MPRIS poll), `curl` (lrcmux + LRCLIB + NetEase lyric fetches, IPv4, 8 s timeout), `sleep` (coreutils: a 0.35 s refresh delay after transport commands, and a 45 s watchdog that settles a hung lyric load with an error).
+- Spawned processes (all argv-form, no shell): `busctl` (MPRIS poll), `curl` (lrcmux + LRCLIB + NetEase lyric fetches, IPv4, 4 s timeout with a 2 s connect timeout), `sleep` (coreutils: a 0.35 s refresh delay after transport commands, and a 40 s watchdog that settles a hung lyric load with an error).
 - Adapted from the Clavis shell media player text layer (karaoke render + LRCLIB provider), ported to pure Luau for Noctalia v5.
