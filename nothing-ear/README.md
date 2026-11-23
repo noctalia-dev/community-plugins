@@ -58,8 +58,8 @@ Enable `zyrex/nothing-ear` in **Settings → Plugins**, then add the `nothing-ea
 **Settings → Bar → Widgets**.
 
 - If exactly one Nothing/CMF device is paired, it's picked automatically. Otherwise open the panel
-  and choose one. The Bluetooth button (**Switch earbuds**) in the panel header brings the picker
-  back.
+  and choose one; if it isn't connected, the plugin asks Bluetooth to connect it. The Bluetooth
+  button (**Switch earbuds**) in the panel header brings the picker back.
 - The panel has two tabs: **Main** (battery, noise control, EQ presets and custom EQ) and **More**
   (spatial audio, low latency, mono, codec).
 - Left-click the bar widget for the panel; right-click cycles noise control
@@ -142,11 +142,12 @@ Current state is published as `nothing_ear_status` in shared plugin state
 
 ## Troubleshooting
 
-When the earbuds can't be reached, the panel says why and what to try. **Copy details** puts a
-report on the clipboard for a bug report: plugin and Python versions, what BlueZ knows about the
-earbuds, the last error, a fresh connection attempt step by step, and the last setting change
-with the raw Bluetooth frames it sent and received. If a change doesn't take, the panel says so
-under the controls. The second half of the MAC
+When the earbuds can't be reached, the panel says why and what to try. **Copy details** (also at
+the bottom of the **More** tab while connected) puts a report on the clipboard for a bug report:
+plugin and Python versions, what BlueZ knows about the earbuds, the last error, a fresh
+connection attempt step by step, and the last five setting changes with the raw Bluetooth frames
+each sent and received. If a change doesn't take (the device acknowledges it but still reports
+the old value), the panel says so under the controls. The second half of the MAC
 address is masked. The same report from a terminal:
 
 ```sh
@@ -157,10 +158,11 @@ python3 ~/.local/state/noctalia/plugins/materialized/community/nothing-ear/scrip
 
 - Processes: the service runs `scripts/nothing_ear_ctl.py` once per poll or command over a raw
   RFCOMM socket, `bluetoothctl devices Paired` to list devices, `bluetoothctl info`/`show` to
-  check the earbuds are connected and explain failures (all read-only), and
+  check the earbuds are connected and explain failures (all read-only), `bluetoothctl connect`
+  when a disconnected device is picked in the panel, and
   `scripts/mono_switch.py`, which calls `pactl` to load or unload a `module-remap-sink` named
   `nothing_ear_mono` and move streams onto it.
-- Files: the RFCOMM channel, last-known state, the last setting change
+- Files: the RFCOMM channel, last-known state, the last five setting changes
   (`nothing_ear_last_write.json`), a lock file and the mono state
   (`nothing_ear_mono_state.json`) live in `$XDG_RUNTIME_DIR`. The chosen device is saved in
   `pluginDataDir()/device.json`, and the bar icon, recolored to the bar's icon color, in
@@ -168,7 +170,9 @@ python3 ~/.local/state/noctalia/plugins/materialized/community/nothing-ear/scrip
 - Spatial audio and codec changes first send the same reads (and the current time) the
   companion app sends when it connects, then the change.
 - Polling only runs while the bar number, panel or desktop widget is showing, or auto mono is on
-  (slower). Mono is always turned off when the plugin loads.
+  (slower), and pauses while a setting change is being sent. Otherwise the service only asks
+  `bluetoothctl info` every 4 seconds (no Bluetooth traffic), so the bar icon still follows
+  connects and disconnects. Mono is always turned off when the plugin loads.
 - The noise-mode icons were drawn for this plugin; no Nothing artwork is included.
 - EQ preset indexes were mapped on an Ear (2); the CMF tables come from the projects below.
 - One device at a time.
