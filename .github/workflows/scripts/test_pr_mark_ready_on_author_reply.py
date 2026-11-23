@@ -5,6 +5,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 SCRIPTS_DIR = Path(__file__).parent
@@ -32,6 +33,13 @@ class FakePullRequest:
         self.number = number
         self._comments = comments or []
         self.mark_ready_for_review = mock.Mock()
+        self.labels = set()
+
+    def get_labels(self):
+        return [SimpleNamespace(name=name) for name in self.labels]
+
+    def remove_from_labels(self, name):
+        self.labels.remove(name)
 
     def get_issue_comments(self) -> list[FakeComment]:
         return self._comments
@@ -73,10 +81,12 @@ class MarkReadyTests(unittest.TestCase):
 
     def test_non_author_comment_does_nothing(self) -> None:
         pull_request = FakePullRequest(comments=[marker_comment()])
+        pull_request.labels.add("waiting-for-plugin-author")
         with mock.patch.object(plugin_author, "plugin_author", return_value=(1, "tordex")):
             marked = pr_mark_ready.mark_ready(None, pull_request, "someone-else")
         self.assertFalse(marked)
         pull_request.mark_ready_for_review.assert_not_called()
+        self.assertEqual(pull_request.labels, {"waiting-for-plugin-author"})
 
     def test_without_notification_marker_does_nothing(self) -> None:
         # Draft created by the contributor themselves, not by the notification workflow.
@@ -126,11 +136,18 @@ class MarkReadyTests(unittest.TestCase):
     def test_main_reports_marked_so_the_workflow_runs_the_template_check(self) -> None:
         # Events from the built-in token trigger no workflows, so the ready_for_review
         # event cannot re-run enforce-pr-template.yml on its own.
-        output = self.run_main(FakePullRequest(comments=[marker_comment()]))
+        pull_request = FakePullRequest(comments=[marker_comment()])
+        pull_request.labels.update(("waiting-for-plugin-author", "stale"))
+        output = self.run_main(pull_request)
+        self.assertEqual(pull_request.labels, set())
         self.assertEqual(output, "marked=true\n")
 
-    def test_main_reports_unmarked_when_nothing_changed(self) -> None:
-        output = self.run_main(FakePullRequest(draft=False, comments=[marker_comment()]))
+    def test_main_clears_wait_on_already_ready_pr_without_reporting_marked(self) -> None:
+        pull_request = FakePullRequest(draft=False, comments=[marker_comment()])
+        pull_request.labels.update(("waiting-for-plugin-author", "stale"))
+        output = self.run_main(pull_request)
+        self.assertEqual(pull_request.labels, set())
+        pull_request.mark_ready_for_review.assert_not_called()
         self.assertEqual(output, "marked=false\n")
 
 

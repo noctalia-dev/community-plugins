@@ -239,6 +239,10 @@ The plugin directory is yours. Someone else's PR changing your plugin is not mer
 fixes something that is broken or is a mechanical change applied across the whole repo. Maintainers will @-mention you
 on PRs and issues that touch it.
 
+If a PR is labeled `waiting-for-plugin-author`, the bot warns after seven days without activity and closes it
+after seven more. Reply on the PR to take it out of that queue. If it has already closed, reply there so a
+maintainer can reopen it.
+
 If you stop maintaining a plugin, set `deprecated = true` in its `plugin.toml` rather than deleting the directory. The
 store keeps working for people who already installed it, but it stops being offered to new users. Plugins that are
 broken and unmaintained across a Noctalia release may be deprecated by maintainers.

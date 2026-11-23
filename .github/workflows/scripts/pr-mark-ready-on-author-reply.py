@@ -1,7 +1,7 @@
 import os
 import sys
 
-from github import Auth, Github
+from github import Auth, Github, GithubException
 
 import plugin_author
 
@@ -34,8 +34,10 @@ def mark_ready(repo, pull_request, comment_author, comment_body: str = "") -> bo
     if is_automation_comment(comment_body):
         print("Automation comment cannot mark a pull request ready, returning!")
         return False
-    if pull_request.state != "open" or not pull_request.draft:
-        print("Pull request is not an open draft, returning!")
+    if pull_request.state != "open":
+        return False
+    labels = {label.name for label in pull_request.get_labels()}
+    if not pull_request.draft and "waiting-for-plugin-author" not in labels:
         return False
 
     if not has_notification_marker(pull_request):
@@ -50,6 +52,18 @@ def mark_ready(repo, pull_request, comment_author, comment_body: str = "") -> bo
 
     if comment_author != author:
         print("Comment author is not the plugin author, returning!")
+        return False
+
+    if "waiting-for-plugin-author" in labels:
+        for name in ("waiting-for-plugin-author", "stale"):
+            if name not in labels:
+                continue
+            try:
+                pull_request.remove_from_labels(name)
+            except GithubException as error:
+                if error.status != 404:
+                    raise
+    if not pull_request.draft:
         return False
 
     pull_request.mark_ready_for_review()

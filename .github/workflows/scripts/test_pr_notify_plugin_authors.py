@@ -32,6 +32,9 @@ class FakePullRequest:
         self.comments = []
         self.edits = []
         self.convert_to_draft = mock.Mock()
+        self.actions = mock.Mock()
+        self.actions.attach_mock(self.convert_to_draft, "convert_to_draft")
+        self.add_to_labels = self.actions.add_to_labels
 
     def create_issue_comment(self, body: str) -> None:
         self.comments.append(body)
@@ -49,6 +52,7 @@ class NotifyTests(unittest.TestCase):
         self.assertEqual(pull_request.comments, [])
         self.assertEqual(pull_request.edits, [])
         pull_request.convert_to_draft.assert_not_called()
+        pull_request.add_to_labels.assert_not_called()
 
     def test_other_author_is_notified_and_pr_drafted(self) -> None:
         pull_request = FakePullRequest(login="contributor")
@@ -59,6 +63,10 @@ class NotifyTests(unittest.TestCase):
         self.assertIn("@tordex", pull_request.comments[0])
         self.assertIn(pr_notify.NOTIFY_MARKER, pull_request.comments[0])
         pull_request.convert_to_draft.assert_called_once()
+        self.assertEqual(
+            pull_request.actions.mock_calls,
+            [mock.call.convert_to_draft(), mock.call.add_to_labels("waiting-for-plugin-author")],
+        )
 
     def test_already_draft_pr_is_not_converted_again(self) -> None:
         pull_request = FakePullRequest(login="contributor", draft=True)
@@ -66,6 +74,7 @@ class NotifyTests(unittest.TestCase):
             pr_notify.notify(None, pull_request)
         self.assertEqual(len(pull_request.comments), 1)
         pull_request.convert_to_draft.assert_not_called()
+        pull_request.add_to_labels.assert_called_once_with("waiting-for-plugin-author")
 
     def test_closed_pr_is_not_converted(self) -> None:
         pull_request = FakePullRequest(login="contributor", state="closed")
@@ -73,6 +82,7 @@ class NotifyTests(unittest.TestCase):
             pr_notify.notify(None, pull_request)
         self.assertEqual(len(pull_request.comments), 1)
         pull_request.convert_to_draft.assert_not_called()
+        pull_request.add_to_labels.assert_not_called()
 
     def test_multi_plugin_pr_is_closed(self) -> None:
         pull_request = FakePullRequest(login="contributor")

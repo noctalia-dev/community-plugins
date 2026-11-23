@@ -1,0 +1,47 @@
+name: Close Unanswered Pull Requests
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+    inputs:
+      debug-only:
+        description: Log what would happen without changing any pull request
+        type: boolean
+        default: true
+
+permissions:
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: stale-community-prs
+  cancel-in-progress: false
+
+jobs:
+  stale:
+    if: ${{ github.repository == 'noctalia-dev/community-plugins' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@4391f3da665fdf50b6810c1a66712fb9ba21aa93 # v11.0.0
+        with:
+          only-pr-labels: waiting-for-plugin-author
+          days-before-issue-stale: -1
+          days-before-issue-close: -1
+          days-before-pr-stale: 7
+          days-before-pr-close: 7
+          stale-pr-label: stale
+          operations-per-run: 200
+          exempt-draft-pr: false
+          remove-pr-stale-when-updated: true
+          ignore-pr-updates: false
+          delete-branch: false
+          debug-only: ${{ github.event_name == 'workflow_dispatch' && inputs.debug-only }}
+          stale-pr-message: >-
+            This pull request is waiting for the original plugin author and has had no activity for 7 days.
+            It will be closed after 7 more days without activity. The plugin author can reply here, or a
+            maintainer can remove the waiting-for-plugin-author label to stop automatic closure.
+          close-pr-message: >-
+            Closing this pull request because it is still waiting for the original plugin author.
+            If the plugin author replies here, a maintainer can remove the waiting-for-plugin-author
+            and stale labels and reopen it.

@@ -47,6 +47,8 @@ def notify(repo, pull_request) -> int:
 
     if pull_request.state == "open" and not pull_request.draft:
         pull_request.convert_to_draft()
+    if pull_request.state == "open":
+        pull_request.add_to_labels("waiting-for-plugin-author")
 
     return 0
 
