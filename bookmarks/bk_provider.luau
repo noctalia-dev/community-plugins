@@ -1,8 +1,8 @@
--- Launcher provider: "/bk" fuzzy-searches bookmark labels and descriptions
--- (root + one level of folders, bookmarks only - same scope as the panel's
--- own search) and runs the selected one on activation. Reads the same
--- data.json the panel writes, resolved via shared.luau, so no state is
--- shared beyond the file on disk.
+-- Launcher provider: "/bk" fuzzy-searches bookmark labels, descriptions,
+-- and folder names (root + one level of folders, bookmarks only - same scope
+-- as the panel's own search) and runs the selected one on activation. Reads
+-- the same data.json the panel writes, resolved via shared.luau, so no
+-- state is shared beyond the file on disk.
 
 local shared = require("./shared.luau")
 

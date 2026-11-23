@@ -76,10 +76,11 @@ local function activeList()
 	return folder.items
 end
 
--- Fuzzy-searches bookmark labels and descriptions (not commands, not folder
--- names) across root and every folder's contents, using shared.searchBookmarks.
--- Returns results sorted best-match-first, each as { entry, path, score },
--- where path is the containing folder's label (nil for root entries).
+-- Fuzzy-searches bookmark labels, descriptions, and folder names (not
+-- commands) across root and every folder's contents, using
+-- shared.searchBookmarks. Returns results sorted best-match-first, each as
+-- { entry, path, score }, where path is the containing folder's label (nil
+-- for root entries).
 local function searchBookmarks(query)
 	if noctalia.string.trim(query) == "" then
 		return {}

@@ -230,5 +230,5 @@ The plugin itself has the following settings:
 
 ### v1.4.2
 
-- `/bk` launcher provider and panel search now fuzzy-search bookmark descriptions in addition to labels (with label matches prioritized over description-only matches)
+- `/bk` launcher provider and panel search now fuzzy-search bookmark descriptions and folder names in addition to labels (with label matches prioritized)
 - `/bk` launcher results now display `Folder · Description` (or whichever is present) as the subtitle below the bookmark title

@@ -91,11 +91,12 @@ function M.flatten(bookmarks)
 	return flat
 end
 
--- Fuzzy-searches bookmark labels and descriptions across root and one level
--- of folders, using Noctalia's native matcher. Returns results sorted
--- best-match-first, each as { entry, path, score }.
--- Description-only matches are weighted below label matches. When query is
--- empty, returns all flattened bookmarks with score = 0.
+-- Fuzzy-searches bookmark labels, descriptions, and folder names across root
+-- and one level of folders, using Noctalia's native matcher. Returns results
+-- sorted best-match-first, each as { entry, path, score }.
+-- Description-only (0.7) and folder-only (0.5) matches are weighted below
+-- label matches. When query is empty, returns all flattened bookmarks with
+-- score = 0.
 function M.searchBookmarks(bookmarks, query)
 	local trimmed = noctalia.string.trim(query or "")
 	local flat = M.flatten(bookmarks)
@@ -108,16 +109,21 @@ function M.searchBookmarks(bookmarks, query)
 			local labelScore = noctalia.fuzzyScore(trimmed, item.entry.label or "")
 			local desc = noctalia.string.trim(item.entry.description or "")
 			local descScore = (desc ~= "") and noctalia.fuzzyScore(trimmed, desc) or nil
+			local folder = noctalia.string.trim(item.path or "")
+			local folderScore = (folder ~= "") and noctalia.fuzzyScore(trimmed, folder) or nil
 
-			if labelScore ~= nil or descScore ~= nil then
-				local weightedDesc = descScore ~= nil and (descScore * 0.7) or nil
-				local score
-				if labelScore ~= nil and weightedDesc ~= nil then
-					score = math.max(labelScore, weightedDesc)
-				else
-					score = labelScore or weightedDesc
-				end
-				table.insert(results, { entry = item.entry, path = item.path, score = score })
+			local best = labelScore
+			if descScore ~= nil then
+				local weighted = descScore * 0.7
+				best = (best == nil) and weighted or math.max(best, weighted)
+			end
+			if folderScore ~= nil then
+				local weighted = folderScore * 0.5
+				best = (best == nil) and weighted or math.max(best, weighted)
+			end
+
+			if best ~= nil then
+				table.insert(results, { entry = item.entry, path = item.path, score = best })
 			end
 		end
 	end
