@@ -8,6 +8,9 @@ local gaugeStyle = noctalia.getConfig("bar_limits_style") or "bar" -- "bar" | "r
 local SHOWN = { ["5h"] = { ["5h"] = true }, ["7d"] = { ["7d"] = true }, ["5h_7d"] = { ["5h"] = true, ["7d"] = true } }
 local COLOR = { waiting = "error", busy = "primary", idle = "on_surface_variant/0.45" }
 local MAX_DOTS = 8
+-- Read once at load: inside state.watch callbacks barWidget.isVertical() is always false (empty host
+-- snapshot), which turned the dots into a row on a vertical bar whenever the sessions changed.
+local VERTICAL = barWidget.isVertical()
 
 local function resetsIn(ms)
   local left = ms and ms > noctalia.nowMs() and math.floor((ms - noctalia.nowMs()) / 60000) or nil
@@ -83,7 +86,7 @@ local function render()
     rows[#rows + 1] = { (multi and `[{labels[r.account] or "?"}] ` or "") .. r.title .. " (elsewhere)", what }
   end
 
-  local vertical = barWidget.isVertical()
+  local vertical = VERTICAL
   local children = {
     ui.glyph({ name = waiting > 0 and "bell-ringing" or "brain", size = 15,
       color = waiting > 0 and "error" or busy > 0 and "primary" or "on_surface_variant" }),
@@ -137,7 +140,14 @@ local function render()
       local nodes = limitNodes(account, vertical)
       if #dots > 0 or #nodes > 0 then
         accountTag(account)
-        for _, d in ipairs(dots) do children[#children + 1] = d end
+        if vertical then
+          -- Pairs side by side: a new row starts only once the current one holds two dots.
+          for i = 1, #dots, 2 do
+            children[#children + 1] = ui.row({ gap = 4, align = "center" }, { dots[i], dots[i + 1] })
+          end
+        else
+          for _, d in ipairs(dots) do children[#children + 1] = d end
+        end
         if #dots > 0 and #nodes > 0 then divider() end
         for _, n in ipairs(nodes) do children[#children + 1] = n end
       end

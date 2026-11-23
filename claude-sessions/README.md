@@ -79,6 +79,8 @@ It shows one dot per session, sorted by status:
 | Accent color | Working |
 | Grey | Idle |
 
+On a left or right bar, the dots sit two per row under the icon.
+
 After the dots it shows your plan usage, colored by how close it is to the limit. By default that's the 5-hour window,
 as in the image above. Choose which windows with **Bar limits**, and a linear bar or a ring with **Bar limits style**.
 Here it shows the 5-hour and 7-day windows as rings, for two accounts:
