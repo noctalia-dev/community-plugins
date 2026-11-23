@@ -22,6 +22,7 @@ process runs in the background.
 | `udisks2` | Mount, unmount, unlock, lock and power off, through its `udisksctl` command. The udisks daemon also decides, through polkit, what your user may do without a password. |
 | `gdbus` | Ejecting a card or a disc (`Drive.Eject` over the system bus, which `udisksctl` has no command for). It ships with `glib2`. |
 | `xdg-open` | Opening a mounted folder when `file_manager` is empty (`xdg-utils`). |
+| `find` | Optional: naming the processes that keep a busy drive in use (`findutils`, part of every base install). Without it the notification only says the drive is in use. |
 
 Nothing else is needed to show the drives: they come from sysfs, procfs and
 `/run/udev/data`.
@@ -116,9 +117,11 @@ so that a passphrase never ends up in a command line or in shell history.
   changed.
 - **Processes spawned**: `udisksctl` (`mount`, `unmount`, `unlock`, `lock`,
   `power-off`, `info`), `gdbus` for ejecting, and the file manager or
-  `xdg-open`. All of them get their arguments as an argument array, never
-  through a shell, except a custom `file_manager` command, which runs through
-  `/bin/sh` with the folder shell-quoted.
+  `xdg-open`, plus `sh` and `find` to look up who holds a busy drive (only
+  after an unmount fails). All of them get their arguments as an argument
+  array: the busy lookup runs a fixed `sh -c` script and passes the mount
+  points as positional parameters, never inside the script text. A custom
+  `file_manager` command runs through `/bin/sh` with the folder shell-quoted.
 - **Passphrases**: the passphrase typed in the panel is written to an
   owner-only file in `$XDG_RUNTIME_DIR` (a tmpfs), passed to `udisksctl unlock
   --key-file`, and deleted as soon as `udisksctl` returns, so it never shows up
@@ -131,5 +134,9 @@ so that a passphrase never ends up in a command line or in shell history.
   `notifications`), when an action fails, and when a drive is pulled while a
   volume is still mounted.
 - **Busy drives**: when a volume is in use, unmounting fails and the
-  notification says so; close the files and terminals that use the drive and
-  try again.
+  notification names the processes that hold it (for example
+  `zsh (PID 4242)`, a terminal still sitting in a folder of the drive); close
+  them and try again. They are found with one `find` over `/proc/<pid>`,
+  looking for a working directory, root, executable or open file on the
+  drive; only your own processes are readable, so a system process holding
+  the drive falls back to the generic message.

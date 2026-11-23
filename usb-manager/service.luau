@@ -569,6 +569,89 @@ local function cleanError(stderr, fallback)
   return reason ~= "" and reason or fallback
 end
 
+local function isBusy(stderr)
+  local text = stderr or ""
+  return text:find("DeviceBusy", 1, true) ~= nil or text:find("target is busy", 1, true) ~= nil
+end
+
+-- Escapes the glob characters of a mount point for `find -lname`.
+local function globEscape(path)
+  return (path:gsub("[%*%?%[%]\\]", "\\%0"))
+end
+
+local MAX_HOLDERS = 3
+
+-- Which processes keep the given mount points busy: their working directory,
+-- root, executable or an open file is on one of them. One `find` over
+-- /proc/<pid> (only the user's own processes are readable, which is where a
+-- forgotten terminal or player lives). Calls done with a list of
+-- "name (PID n)" strings, empty when nothing could be found.
+local function findHolders(mountPoints, done)
+  if #mountPoints == 0 then
+    done({})
+    return
+  end
+  local script = 'find /proc/[0-9]* -maxdepth 2 \\( -name cwd -o -name root -o -name exe -o -path "/proc/*/fd/*" \\) \\('
+  local argv = { "sh", "-c", "", "sh" }
+  for i, mountPoint in mountPoints do
+    local pattern = globEscape(mountPoint)
+    table.insert(argv, pattern)
+    table.insert(argv, pattern .. "/*")
+    local a, b = 2 * i - 1, 2 * i
+    script ..= (i > 1 and " -o" or "") .. ' -lname "${' .. a .. '}" -o -lname "${' .. b .. '}"'
+  end
+  argv[3] = script .. " \\) -print 2>/dev/null"
+  local launched = noctalia.runAsync(argv, function(result)
+    -- find exits non-zero on the processes it may not read: use what it printed
+    local seen, holders, extra = {}, {}, 0
+    for pid in (result.stdout or ""):gmatch("/proc/(%d+)/") do
+      if not seen[pid] then
+        seen[pid] = true
+        local name = read(`/proc/{pid}/comm`)
+        if name and name ~= "" then
+          if #holders < MAX_HOLDERS then
+            table.insert(holders, `{name} (PID {pid})`)
+          else
+            extra += 1
+          end
+        end
+      end
+    end
+    if extra > 0 then
+      table.insert(holders, tr("error.busy-more", { count = extra }))
+    end
+    done(holders)
+  end)
+  if not launched then
+    done({})
+  end
+end
+
+-- Like cleanError, but a busy volume names the processes that hold it.
+local function explainError(stderr, fallback, mountPoints, done)
+  if not isBusy(stderr) then
+    done(cleanError(stderr, fallback))
+    return
+  end
+  findHolders(mountPoints, function(holders)
+    if #holders == 0 then
+      done(tr("error.busy"))
+    else
+      done(tr("error.busy-by", { holders = table.concat(holders, ", ") }))
+    end
+  end)
+end
+
+local function driveMountPoints(drive)
+  local list = {}
+  for _, volume in drive.volumes do
+    if volume.mountPoint then
+      table.insert(list, volume.mountPoint)
+    end
+  end
+  return list
+end
+
 local function setPending(dev, action)
   pending[dev] = action
   publish()
@@ -723,14 +806,17 @@ local function safeRemove(drive, done)
   -- Power-off makes the drive vanish before the next full scan sees it
   -- unmounted: remember the release so it is not reported as unsafe.
   released[drive.name] = true
+  local mountPoints = driveMountPoints(drive)
   runSteps(steps, function(ok, err)
     if not ok then
       released[drive.name] = nil
-      notifyError(tr("error.remove", { name = drive.title, reason = cleanError(err, drive.dev) }))
-      clearPending(drive.dev)
-      if done then
-        done(false)
-      end
+      explainError(err, drive.dev, mountPoints, function(reason)
+        notifyError(tr("error.remove", { name = drive.title, reason = reason }))
+        clearPending(drive.dev)
+        if done then
+          done(false)
+        end
+      end)
       return
     end
     local function finish(success, reason)
@@ -823,10 +909,14 @@ function runAction(cmd)
   elseif action == "unmount" then
     setPending(cmd.dev, "unmount")
     noctalia.runAsync({ "udisksctl", "unmount", "-b", cmd.dev }, function(result)
-      if result.exitCode ~= 0 then
-        notifyError(tr("error.unmount", { name = drive.title, reason = cleanError(result.stderr, cmd.dev) }))
+      if result.exitCode == 0 then
+        clearPending(cmd.dev)
+        return
       end
-      clearPending(cmd.dev)
+      explainError(result.stderr, cmd.dev, { volume.mountPoint }, function(reason)
+        notifyError(tr("error.unmount", { name = drive.title, reason = reason }))
+        clearPending(cmd.dev)
+      end)
     end)
   elseif action == "unlock" then
     unlockVolume(cmd.dev, cmd.passphrase, drive.title)
@@ -838,10 +928,14 @@ function runAction(cmd)
     table.insert(steps, { "udisksctl", "lock", "-b", volume.dev })
     setPending(cmd.dev, "lock")
     runSteps(steps, function(ok, err)
-      if not ok then
-        notifyError(tr("error.lock", { name = drive.title, reason = cleanError(err, cmd.dev) }))
+      if ok then
+        clearPending(cmd.dev)
+        return
       end
-      clearPending(cmd.dev)
+      explainError(err, cmd.dev, { volume.mountPoint }, function(reason)
+        notifyError(tr("error.lock", { name = drive.title, reason = reason }))
+        clearPending(cmd.dev)
+      end)
     end)
   elseif action == "open" then
     if volume.mountPoint then
