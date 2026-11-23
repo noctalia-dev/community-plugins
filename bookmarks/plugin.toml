@@ -1,6 +1,6 @@
 id           = "dunarand/bookmarks"
 name         = "Bookmarks"
-version      = "1.4.1"
+version      = "1.4.2"
 plugin_api   = 43
 author       = "dunarand"
 license      = "MIT"

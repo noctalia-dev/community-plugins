@@ -91,6 +91,46 @@ function M.flatten(bookmarks)
 	return flat
 end
 
+-- Fuzzy-searches bookmark labels and descriptions across root and one level
+-- of folders, using Noctalia's native matcher. Returns results sorted
+-- best-match-first, each as { entry, path, score }.
+-- Description-only matches are weighted below label matches. When query is
+-- empty, returns all flattened bookmarks with score = 0.
+function M.searchBookmarks(bookmarks, query)
+	local trimmed = noctalia.string.trim(query or "")
+	local flat = M.flatten(bookmarks)
+	local results = {}
+
+	for _, item in ipairs(flat) do
+		if trimmed == "" then
+			table.insert(results, { entry = item.entry, path = item.path, score = 0 })
+		else
+			local labelScore = noctalia.fuzzyScore(trimmed, item.entry.label or "")
+			local desc = noctalia.string.trim(item.entry.description or "")
+			local descScore = (desc ~= "") and noctalia.fuzzyScore(trimmed, desc) or nil
+
+			if labelScore ~= nil or descScore ~= nil then
+				local weightedDesc = descScore ~= nil and (descScore * 0.7) or nil
+				local score
+				if labelScore ~= nil and weightedDesc ~= nil then
+					score = math.max(labelScore, weightedDesc)
+				else
+					score = labelScore or weightedDesc
+				end
+				table.insert(results, { entry = item.entry, path = item.path, score = score })
+			end
+		end
+	end
+
+	if trimmed ~= "" then
+		table.sort(results, function(a, b)
+			return a.score > b.score
+		end)
+	end
+
+	return results
+end
+
 -- Executes a bookmark command respecting runInTerminal and runInBackground.
 function M.runBookmark(entry)
 	if type(entry) ~= "table" then
