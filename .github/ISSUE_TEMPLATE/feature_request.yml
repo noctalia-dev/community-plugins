@@ -357,6 +357,7 @@ body:
         - umbriel-displays
         - umbriel-monitor-control
         - umbriel-scratchpad
+        - umbriel-settings
         - umbriel-submap
         - undershell
         - upbeat
