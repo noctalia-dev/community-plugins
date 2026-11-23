@@ -47,7 +47,9 @@ CONNECT_TIMEOUT = 5.0
 ANC_CYCLE = ["off", "transparency", "anc"]
 
 
-# Shorter than the service's CLI timeout (8 s), with room for the write itself.
+# A write waits this long for a poll in flight. The service also stops
+# polling while a write runs and gives the slow ones (spatial audio, codec)
+# 20 s, so lock, connect, the app session and the read-back all fit.
 WRITE_LOCK_WAIT = 4.0
 
 # How much of an unparsed reply to keep for a bug report.
@@ -480,17 +482,35 @@ class Link:
 
 
 LAST_WRITE_FILE = os.path.join(CACHE_DIR, "nothing_ear_last_write.json")
+# Several, so a failed spatial or codec change isn't pushed out of the report
+# by the next preset click.
+WRITES_KEPT = 5
 
 
-def record_write(command: str, link: Link | None, error: CtlError | None = None) -> None:
-    """The last write and its frames, for diag; a failed save never fails
-    the write."""
-    entry = {"command": command, "time": time.time(), "frames": link.log if link else []}
+def read_writes() -> list[dict]:
+    try:
+        with open(LAST_WRITE_FILE) as f:
+            entries = json.load(f)
+    except (OSError, ValueError):
+        return []
+    if isinstance(entries, dict):  # one entry, from 0.5.0
+        entries = [entries]
+    return [e for e in entries if isinstance(e, dict)] if isinstance(entries, list) else []
+
+
+def record_write(command: str, link: Link | None, error: CtlError | None = None, started: float | None = None) -> None:
+    """The recent writes and their frames, for diag; a failed save never
+    fails the write."""
+    now = time.time()
+    entry = {"command": command, "time": now, "frames": link.log if link else []}
+    if started is not None:
+        entry["ms"] = int((now - started) * 1000)
     if error is not None:
         entry["error"] = error.to_dict()
     try:
+        entries = (read_writes() + [entry])[-WRITES_KEPT:]
         with open(LAST_WRITE_FILE + ".tmp", "w") as f:
-            json.dump(entry, f)
+            json.dump(entries, f)
         os.replace(LAST_WRITE_FILE + ".tmp", LAST_WRITE_FILE)
     except OSError:
         pass
@@ -501,6 +521,7 @@ def write_session(address: str, command: str):
     """A locked, connected Link for one write, recorded for diag whether it
     succeeds or not."""
     link = None
+    started = time.time()
     try:
         with channel_lock(wait=WRITE_LOCK_WAIT):
             sock = connect(address)
@@ -510,21 +531,30 @@ def write_session(address: str, command: str):
             finally:
                 sock.close()
     except CtlError as e:
-        record_write(command, link, e)
+        record_write(command, link, e, started)
         raise
     except OSError as e:
         err = os_error(e, command)
-        record_write(command, link, err)
+        record_write(command, link, err, started)
         raise err from e
-    record_write(command, link)
+    record_write(command, link, started=started)
+
+
+# How long a setting gets to show up in the read-back before the write
+# counts as not applied: one read straight after the ack, one this much later.
+REREAD_DELAY = 1.0
 
 
 def write_setting(address: str, command: str, write_cmd: int, payload: bytes,
                   read_cmd: int | None = None, resp: int | None = None,
-                  model: dict | None = None, ack_timeout: float = 1.5) -> dict[int, p.Frame]:
+                  model: dict | None = None, ack_timeout: float = 1.5,
+                  expect=None) -> dict[int, p.Frame]:
     """Sends one write and, given read_cmd, reads the setting back. With a
     model, the companion apps' connect session goes first (Link.app_session).
-    Returns the frames the read-back gathered."""
+    `expect(payload)` says whether a read-back shows the new value; if a
+    second read a moment later still doesn't, the write fails as
+    not_applied, with every frame kept for diag. A missing read-back isn't
+    judged. Returns the frames the read-back gathered."""
     frames: dict[int, p.Frame] = {}
     with write_session(address, command) as link:
         if model is not None:
@@ -534,6 +564,13 @@ def write_setting(address: str, command: str, write_cmd: int, payload: bytes,
         if read_cmd is not None:
             link.send(read_cmd)
             frames = link.gather({resp}, timeout=1.5)
+            if expect is not None and resp in frames and not expect(frames[resp].payload):
+                time.sleep(REREAD_DELAY)
+                link.send(read_cmd)
+                frames = link.gather({resp}, timeout=1.5)
+                if resp in frames and not expect(frames[resp].payload):
+                    raise CtlError("not_applied", command, "acknowledged, but the read-back still shows the old value",
+                                   reply=frames[resp].payload.hex(" "))
     return frames
 
 
@@ -568,7 +605,8 @@ def write_eq(address: str, preset: int) -> dict:
         write_cmd, read_cmd, resp = p.LISTENING_MODE_WRITE, p.LISTENING_MODE_READ, p.LISTENING_MODE_RESP
     else:
         write_cmd, read_cmd, resp = p.EQ_PRESET_WRITE, p.EQ_PRESET_READ, p.EQ_PRESET_RESP
-    frames = write_setting(address, "set-eq", write_cmd, p.eq_preset_write_payload(preset), read_cmd, resp)
+    frames = write_setting(address, "set-eq", write_cmd, p.eq_preset_write_payload(preset), read_cmd, resp,
+                           expect=lambda payload: p.parse_eq_preset(payload) == preset)
     result = {"ok": True}
     if resp in frames and p.parse_eq_preset(frames[resp].payload) is not None:
         result["eq_preset"] = p.parse_eq_preset(frames[resp].payload)
@@ -586,7 +624,9 @@ def write_custom_eq(address: str, value: str) -> dict:
         payload = p.custom_eq_write_payload(bass, mid, treble, bands)
     except (AttributeError, ValueError) as e:
         raise CtlError("bad_value", "set-custom-eq", f"expected bass,mid,treble from -6 to 6, got {value!r}") from e
-    frames = write_setting(address, "set-custom-eq", p.CUSTOM_EQ_WRITE, payload, p.CUSTOM_EQ_READ, p.CUSTOM_EQ_RESP)
+    wanted = {"bass": bass, "mid": mid, "treble": treble}
+    frames = write_setting(address, "set-custom-eq", p.CUSTOM_EQ_WRITE, payload, p.CUSTOM_EQ_READ, p.CUSTOM_EQ_RESP,
+                           expect=lambda reply: p.parse_custom_eq(reply) == wanted)
     result = {"ok": True}
     if p.CUSTOM_EQ_RESP in frames and p.parse_custom_eq(frames[p.CUSTOM_EQ_RESP].payload) is not None:
         result["custom_eq"] = p.parse_custom_eq(frames[p.CUSTOM_EQ_RESP].payload)
@@ -616,7 +656,8 @@ def write_spatial(address: str, name: str) -> dict:
     if name not in modes:
         raise CtlError("bad_value", "set-spatial", f"spatial audio mode {name!r} isn't one this model has")
     frames = write_setting(address, "set-spatial", p.SPATIAL_WRITE, p.spatial_write_payload(modes[name]),
-                           p.SPATIAL_READ, p.SPATIAL_RESP, model=model)
+                           p.SPATIAL_READ, p.SPATIAL_RESP, model=model,
+                           expect=lambda payload: spatial_name(model, p.parse_spatial(payload)) == name)
     result = {"ok": True}
     if p.SPATIAL_RESP in frames:
         now = spatial_name(model, p.parse_spatial(frames[p.SPATIAL_RESP].payload))
@@ -774,18 +815,17 @@ def refine(e: CtlError, address: str | None) -> CtlError:
 
 
 def last_write_rows() -> list[tuple[str, str]]:
-    """The most recent setting change and the raw frames it exchanged, so a
-    write the device ignored shows what was sent and what came back."""
-    try:
-        with open(LAST_WRITE_FILE) as f:
-            entry = json.load(f)
-    except (OSError, ValueError):
-        return []
-    age = int(time.time() - entry.get("time", 0))
-    rows = [("last write", f"{entry.get('command')} ({age} s ago)")]
-    if entry.get("error"):
-        rows += [("last write" + (" " + k if k else ""), v) for k, v in describe_error(entry["error"])]
-    rows += [("  frame", line) for line in entry.get("frames", [])]
+    """The recent setting changes, newest first, with the raw frames each
+    exchanged, so a write the device ignored shows what was sent and what
+    came back."""
+    rows: list[tuple[str, str]] = []
+    for entry in reversed(read_writes()):
+        age = int(time.time() - entry.get("time", 0))
+        took = f", took {entry['ms']} ms" if "ms" in entry else ""
+        rows.append(("write", f"{entry.get('command')} ({age} s ago{took})"))
+        if entry.get("error"):
+            rows += [("write" + (" " + k if k else ""), v) for k, v in describe_error(entry["error"])]
+        rows += [("  frame", line) for line in entry.get("frames", [])]
     return rows
 
 

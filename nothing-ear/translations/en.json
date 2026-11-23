@@ -9,6 +9,7 @@
     "mono_on_title": "Mono audio on"
   },
   "panel": {
+    "applying": "Applying…",
     "audio": {
       "title": "Audio"
     },
@@ -26,8 +27,10 @@
       "lhdc": "LHDC",
       "restart": "Restart",
       "restarting": "Restarting…",
+      "switching": "Switching… audio stops for about 10 seconds",
       "title": "Bluetooth Codec"
     },
+    "connecting": "Connecting…",
     "copy_details": "Copy details",
     "custom_eq": {
       "bass": "Bass",
@@ -35,7 +38,7 @@
       "treble": "Treble"
     },
     "devices": {
-      "none": "No paired Bluetooth devices found. Make sure the earbuds are paired at the OS level, then scan again.",
+      "none": "No paired Bluetooth devices found. Pair your earbuds or headphones in your system's Bluetooth settings, then scan again.",
       "scan": "Scan for devices",
       "switch": "Switch earbuds",
       "title": "Paired Bluetooth Devices"
@@ -60,7 +63,7 @@
       "no_bt_support": "Your Python can't talk to Bluetooth. Install python3 from your distro's packages.",
       "no_response": "Connected, but the earbuds didn't answer. This model may not be supported yet.",
       "no_service": "These earbuds don't offer the controls this plugin uses, so they may not be supported yet.",
-      "not_connected": "The earbuds aren't connected to this computer. Take them out of the case or connect them in your Bluetooth settings.",
+      "not_connected": "Your earbuds or headphones aren't connected to this computer. Turn them on or take them out of the case, then connect them in your Bluetooth settings.",
       "permission": "This user isn't allowed to use Bluetooth.",
       "refused": "The earbuds turned the connection down. If the Nothing X app is open on your phone, close it and try again.",
       "sdp_failed": "The earbuds gave an unexpected answer when asked for their controls.",
@@ -68,7 +71,7 @@
       "unknown": "Something unexpected went wrong.",
       "unreachable": "Can't reach the earbuds. Make sure they're out of the case and close by."
     },
-    "guidance": "Pick your earbuds below, or set the Bluetooth MAC address manually in this plugin's settings.",
+    "guidance": "Pick your earbuds or headphones below. If they aren't connected yet, they will be. You can also set the Bluetooth MAC address in this plugin's settings.",
     "headphones": "Headphones",
     "latency": {
       "caption": "Less delay for games and video",
@@ -117,7 +120,8 @@
       "more": "More"
     },
     "title": "Nothing Ear",
-    "write_failed": "That change didn't go through. If it keeps happening, copy the details and report it."
+    "write_failed": "That change didn't go through. If it keeps happening, copy the details and report it.",
+    "write_not_applied": "The device didn't take that change. Copy the details and add them to the GitHub issue."
   },
   "plugin": {
     "description": "Battery, ANC, EQ presets and low-latency mode for Nothing and CMF earbuds, controlled directly over Bluetooth.",
@@ -126,7 +130,7 @@
   "settings": {
     "device_mac": {
       "description": "Leave empty to auto-detect or pick from the panel. Set it to pin one device.",
-      "label": "Earbuds MAC Address"
+      "label": "Device MAC Address"
     },
     "hide_when_disconnected": {
       "description": "Keep the bar icon hidden until your earbuds or headphones connect.",
@@ -157,8 +161,8 @@
       "left": "Left click",
       "right": "Right click"
     },
-    "not_configured": "No earbuds configured",
-    "not_connected": "Earbuds not connected",
+    "not_configured": "No earbuds or headphones picked",
+    "not_connected": "Not connected",
     "on": "On"
   }
 }

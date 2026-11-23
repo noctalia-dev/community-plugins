@@ -268,6 +268,46 @@ class ReadStateTests(unittest.TestCase):
         self.assertIn("unreachable", text)
         self.assertIn("tx 55 60 01 07 c0", text)
 
+    def readback(self, action, value, replies):
+        """Runs a write whose read-backs answer `replies` in turn."""
+        sock = Mock()
+        answers = iter(replies)
+
+        def gather(_sock, wait_cmds, **_kw):
+            if p.SPATIAL_RESP in wait_cmds:
+                reply = next(answers)
+                return {p.SPATIAL_RESP: p.Frame(p.SPATIAL_RESP, 1, bytes(reply))} if reply is not None else {}
+            return {}
+
+        with patch.object(ctl, "connect", return_value=sock), patch.object(ctl, "gather", side_effect=gather), \
+                patch.object(ctl.time, "sleep"):
+            return action(ADDRESS, value)
+
+    def test_write_the_headphones_ignore_fails_as_not_applied(self):
+        self.read(self.HEADPHONES, build(p.BATTERY_RESP, [1, 6, 50]))
+        with self.assertRaises(ctl.CtlError) as caught:
+            self.readback(ctl.write_spatial, "cinema", [[2, 0], [2, 0]])
+        self.assertEqual(caught.exception.code, "not_applied")
+        text = "\n".join(f"{k} {v}" for k, v in ctl.last_write_rows())
+        self.assertIn("not_applied", text)
+        self.assertIn("tx 55 60 01 52 f0", text)
+
+    def test_write_applied_late_or_unread_still_succeeds(self):
+        self.read(self.HEADPHONES, build(p.BATTERY_RESP, [1, 6, 50]))
+        self.assertEqual(self.readback(ctl.write_spatial, "cinema", [[2, 0], [3, 0]]),
+                         {"ok": True, "spatial": "cinema"})
+        self.assertEqual(self.readback(ctl.write_spatial, "cinema", [None]), {"ok": True})
+
+    def test_recent_writes_are_kept_newest_first(self):
+        self.read(self.HEADPHONES, build(p.BATTERY_RESP, [1, 6, 50]))
+        for preset in (3, 1, 2, 4, 5, 6, 3):
+            self.write(ctl.write_eq, preset)
+        self.write(ctl.write_spatial, "off")
+        heads = [v for k, v in ctl.last_write_rows() if k == "write"]
+        self.assertEqual(len(heads), ctl.WRITES_KEPT)
+        self.assertTrue(heads[0].startswith("set-spatial"))
+        self.assertIn("ms)", heads[0])
+
     def test_headphone_writes_outside_the_model_are_refused(self):
         self.read(self.HEADPHONES, build(p.BATTERY_RESP, [1, 6, 50]))
         for action, args in (

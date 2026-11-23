@@ -16,6 +16,11 @@ local POLL_INTERVAL_MS = 4000
 -- Spatial audio and codec writes replay the companion app's connect
 -- session first (about 1.5 s), on top of waiting for a poll in flight.
 local CLI_TIMEOUT_MS = 10000
+-- Those two can also wait up to 4 s for a poll in flight and read the
+-- setting back twice; 10 s could kill the helper before it saved its frames.
+local SLOW_WRITE_TIMEOUT_MS = 20000
+-- `bluetoothctl connect` for a device picked in the panel.
+local CONNECT_TIMEOUT_MS = 20000
 local SCAN_TIMEOUT_MS = 6000
 local MONO_DEBOUNCE_POLLS = 2
 
@@ -44,6 +49,19 @@ local writeError = nil
 -- a time; whatever arrives meanwhile is kept, and only the latest is sent.
 local customEqBusy = false
 local customEqQueued = nil
+
+-- Writes still running. Polls wait for them rather than make them queue
+-- for the Bluetooth lock. `writing` holds the value being written per
+-- setting (spatial, codec), so the panel can show it straight away.
+local writesInFlight = 0
+local writing = {}
+
+-- The codec asked for, checked against what the headphones report once
+-- they're back from the restart (or the restart window ran out without one).
+local codecWanted = nil
+
+-- A device picked in the panel that BlueZ is being asked to connect.
+local connecting = false
 
 -- With "hide when disconnected" on and no earbuds picked yet, look for newly
 -- paired ones every this many update ticks.
@@ -150,6 +168,12 @@ local function publish(data)
 		data.mono_by_auto = monoActive and monoActivatedByAuto
 		data.restarting = restarting()
 		data.write_error = writeError
+		data.connecting = connecting or nil
+		local inFlight = {}
+		for k, v in pairs(writing) do
+			inFlight[k] = v
+		end
+		data.writing = inFlight
 		noctalia.state.set(STATUS_KEY, data)
 	end
 end
@@ -177,7 +201,7 @@ local function helperFailure(result)
 	}
 end
 
-local function runCtl(args, callback)
+local function runCtl(args, callback, timeoutMs)
 	local mac = deviceMac()
 	if mac == "" then
 		callback(nil)
@@ -202,7 +226,23 @@ local function runCtl(args, callback)
 		else
 			callback(helperFailure(result))
 		end
-	end, CLI_TIMEOUT_MS)
+	end, timeoutMs or CLI_TIMEOUT_MS)
+end
+
+-- BlueZ's own idea of whether the device is connected: true, false, or nil
+-- when bluetoothctl can't say. Only the device-level "Connected:" line
+-- counts (BlueZ 5.88 also lists BREDR./LE.Connected).
+local function linkConnected(mac, callback)
+	noctalia.runAsync({ "bluetoothctl", "info", mac }, function(result)
+		local state = nil
+		for line in ((result and result.stdout) or ""):gmatch("[^\n]+") do
+			local value = line:match("^%s*Connected:%s*(%a+)%s*$")
+			if value ~= nil then
+				state = value == "yes"
+			end
+		end
+		callback(state)
+	end, 5000)
 end
 
 -- mono_switch.py never touches Bluetooth (it only shells out to `pactl`),
@@ -292,6 +332,12 @@ local function pollStatus()
 		if parsed ~= nil and parsed.connected == true then
 			pollFailures = 0
 			lastError = nil
+			if codecWanted ~= nil and (restartSawFailure or not restarting()) then
+				if parsed.codec ~= nil and parsed.codec ~= codecWanted then
+					writeError = "not_applied"
+				end
+				codecWanted = nil
+			end
 			if restartSawFailure then
 				-- back from the restart
 				restartUntil = 0
@@ -328,6 +374,9 @@ local function pollStatus()
 		-- The advisory BT lock held by a command still in flight (e.g. right
 		-- after set-anc) isn't a disconnect, and mustn't replace a real error.
 		if parsed ~= nil and parsed.error == "busy" then
+			return
+		end
+		if connecting then
 			return
 		end
 		if restarting() then
@@ -378,8 +427,27 @@ local function applyResultThenRefresh(parsed)
 			end
 		end
 		publish(current)
+	else
+		republishMono()
 	end
 	pollStatus()
+end
+
+-- A setting change: counted so polls hold off meanwhile; with `key`, the
+-- value being written is published so the panel shows it at once.
+local function runWrite(args, callback, key, value, timeoutMs)
+	writesInFlight += 1
+	if key ~= nil then
+		writing[key] = value
+		republishMono()
+	end
+	runCtl(args, function(parsed)
+		writesInFlight = writesInFlight - 1
+		if key ~= nil then
+			writing[key] = nil
+		end
+		callback(parsed)
+	end, timeoutMs)
 end
 
 local function setAnc(mode, strength)
@@ -388,16 +456,16 @@ local function setAnc(mode, strength)
 		table.insert(args, "--strength")
 		table.insert(args, strength)
 	end
-	runCtl(args, applyResultThenRefresh)
+	runWrite(args, applyResultThenRefresh)
 end
 
 local function setEq(preset)
-	runCtl({ "set-eq", tostring(preset) }, applyResultThenRefresh)
+	runWrite({ "set-eq", tostring(preset) }, applyResultThenRefresh)
 end
 
 -- level 0 is off; the buds keep the last level for when it's turned back on.
 local function setBass(level)
-	runCtl({ "set-bass", tostring(level) }, applyResultThenRefresh)
+	runWrite({ "set-bass", tostring(level) }, applyResultThenRefresh)
 end
 
 local function setBassEnabled(enabled)
@@ -411,20 +479,20 @@ local function modelPresets()
 end
 
 local function setLatency(enabled)
-	runCtl({ "set-latency", enabled and "1" or "0" }, applyResultThenRefresh)
+	runWrite({ "set-latency", enabled and "1" or "0" }, applyResultThenRefresh)
 end
 
 local function setPersonalAnc(enabled)
-	runCtl({ "set-personal-anc", enabled and "1" or "0" }, applyResultThenRefresh)
+	runWrite({ "set-personal-anc", enabled and "1" or "0" }, applyResultThenRefresh)
 end
 
 local function setSoundProfile(enabled)
-	runCtl({ "set-sound-profile", enabled and "1" or "0" }, applyResultThenRefresh)
+	runWrite({ "set-sound-profile", enabled and "1" or "0" }, applyResultThenRefresh)
 end
 
 local function setSpatial(mode)
 	if type(mode) == "string" and mode ~= "" then
-		runCtl({ "set-spatial", mode }, applyResultThenRefresh)
+		runWrite({ "set-spatial", mode }, applyResultThenRefresh, "spatial", mode, SLOW_WRITE_TIMEOUT_MS)
 	end
 end
 
@@ -434,15 +502,16 @@ local function setCodec(codec)
 	if type(codec) ~= "string" or codec == "" then
 		return
 	end
-	runCtl({ "set-codec", codec }, function(parsed)
+	runWrite({ "set-codec", codec }, function(parsed)
 		noteWrite(parsed)
 		if parsed ~= nil and parsed.ok then
 			restartUntil = noctalia.nowMs() + RESTART_GRACE_MS
 			restartSawFailure = false
-			republishMono()
+			codecWanted = codec
 		end
+		republishMono()
 		pollStatus()
-	end)
+	end, "codec", codec, SLOW_WRITE_TIMEOUT_MS)
 end
 
 -- curve is "bass,mid,treble", each -6 to 6.
@@ -455,7 +524,7 @@ local function setCustomEq(curve)
 		return
 	end
 	customEqBusy = true
-	runCtl({ "set-custom-eq", curve }, function(parsed)
+	runWrite({ "set-custom-eq", curve }, function(parsed)
 		customEqBusy = false
 		local nextCurve = customEqQueued
 		customEqQueued = nil
@@ -469,16 +538,36 @@ local function setCustomEq(curve)
 end
 
 local function cycleAnc()
-	runCtl({ "cycle-anc" }, applyResultThenRefresh)
+	runWrite({ "cycle-anc" }, applyResultThenRefresh)
 end
 
-local function selectDevice(mac)
+-- With `connectNow` (a pick in the panel), a device BlueZ reports as
+-- disconnected is also connected, as people expect from clicking it.
+local function selectDevice(mac, connectNow)
 	if type(mac) ~= "string" or mac == "" then
 		return
 	end
 	overrideMac = mac
 	saveOverrideMac(mac)
-	pollStatus()
+	if not connectNow then
+		pollStatus()
+		return
+	end
+	linkConnected(mac, function(isConnected)
+		if isConnected ~= false or deviceMac() ~= mac then
+			pollStatus()
+			return
+		end
+		connecting = true
+		publish({ connected = false })
+		noctalia.runAsync({ "bluetoothctl", "connect", mac }, function()
+			connecting = false
+			republishMono()
+			-- one failed read is enough to say it didn't work
+			pollFailures = POLL_FAILURE_THRESHOLD - 1
+			pollStatus()
+		end, CONNECT_TIMEOUT_MS)
+	end)
 end
 
 -- Lists already-paired Bluetooth devices (no pairing/connecting happens here)
@@ -606,7 +695,7 @@ local function executeCommand(cmdObj)
 	elseif cmdObj.action == "scan-devices" then
 		scanDevices(false)
 	elseif cmdObj.action == "select-device" then
-		selectDevice(cmdObj.value)
+		selectDevice(cmdObj.value, true)
 	elseif cmdObj.action == "forget-device" then
 		forgetDevice()
 	elseif cmdObj.action == "copy-details" then
@@ -727,6 +816,25 @@ local function hideWhenDisconnected()
 	return noctalia.getConfig("hide_when_disconnected") == true
 end
 
+-- With nothing showing live status, the bar icon still has to follow
+-- connects and disconnects: ask BlueZ (no Bluetooth traffic), and only read
+-- the device when that changed.
+local linkBusy = false
+local function checkLink()
+	local mac = deviceMac()
+	if linkBusy or mac == "" then
+		return
+	end
+	linkBusy = true
+	linkConnected(mac, function(isConnected)
+		linkBusy = false
+		local current = noctalia.state.get(STATUS_KEY) or {}
+		if isConnected ~= nil and isConnected ~= (current.connected == true) then
+			pollStatus()
+		end
+	end)
+end
+
 function update()
 	tickCount += 1
 	-- The bar icon is hidden while nothing is picked, so nobody would open
@@ -735,10 +843,15 @@ function update()
 		scanDevices(true)
 		return
 	end
+	if writesInFlight > 0 or connecting then
+		return
+	end
 	if panelOpen or showInBar() or desktopActive then
 		pollStatus()
 	elseif monoAutoSetting() and tickCount % MONO_ONLY_POLL_EVERY_N_TICKS == 0 then
 		pollStatus()
+	else
+		checkLink()
 	end
 end
 

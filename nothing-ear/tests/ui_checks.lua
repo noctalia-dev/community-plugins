@@ -132,7 +132,24 @@ assert(not panelText(hp):find('panel.custom_eq',1,true), 'unread curve hides sli
 hp.write_error='busy'
 assert(panelText(hp):find('panel.write_failed',1,true), 'failed write is shown')
 hp.write_error=nil
+hp.write_error='not_applied'
+shown=panelText(hp)
+assert(shown:find('panel.write_not_applied',1,true) and not shown:find('panel.write_failed',1,true), 'ignored write named')
+hp.write_error=nil
 print('Custom EQ: sliders under the presets while Custom is selected; failed writes shown')
+
+-- Writes in flight show at once; Copy details is reachable while connected.
+hp.writing={spatial='cinema'}
+shown=panelText(hp, 'more')
+assert(shown:find('panel.applying',1,true), 'spatial write in progress')
+assert(findKey(rendered,'spatial-cinema').props.fill=='primary/0.18', 'pending mode shown as picked')
+assert(shown:find('panel.copy_details',1,true), 'copy details on the more tab')
+hp.writing={codec='ldac'}
+shown=panelText(hp, 'more')
+assert(shown:find('panel.codec.switching',1,true) and findKey(rendered,'codec-ldac')==nil, 'codec switch in progress')
+hp.writing=nil
+assert(panelText({connected=false, connecting=true, error='not_connected'}):find('panel.connecting',1,true), 'connecting shown')
+print('Writes in flight shown straight away; copy details on More; connecting state')
 
 -- Hide when disconnected: only with the setting on, and not during a restart.
 local visible
@@ -235,7 +252,7 @@ local to = assert(svc:find('local function cycleAnc', from, true))
 local runs, finish = {}, nil
 local senv = setmetatable({
  customEqBusy=false, customEqQueued=nil,
- runCtl=function(args, cb) table.insert(runs, args[2]) finish=cb end,
+ runWrite=function(args, cb) table.insert(runs, args[2]) finish=cb end,
  noteWrite=function() end, applyResultThenRefresh=function() end,
 }, {__index=_G})
 local setCustomEq = assert(load(svc:sub(from, to - 1) .. '\nreturn setCustomEq', 'eq', 't', senv))()
@@ -246,3 +263,64 @@ assert(#runs==2 and runs[2]=='3,0,0', 'only the latest queued curve follows')
 finish({ok=true})
 assert(#runs==2 and not senv.customEqBusy, 'idle once caught up')
 print('Custom EQ writes coalesce while one is in flight')
+
+-- Service: the bar icon follows connects without live status; polls wait
+-- for writes; a pick in the panel connects a disconnected device.
+do
+ local runs, state, watchers, config = {}, {}, {}, {device_mac='AA:BB', show_in_bar=false}
+ local decoded = {}
+ noctalia = {
+  state = {get=function(k) return state[k] end, set=function(k, v) state[k]=v end,
+   watch=function(k, fn) watchers[k]=fn end},
+  getConfig=function(k) return config[k] end, tr=function(k) return k end,
+  pluginDir=function() return '.' end, pluginDataDir=function() return nil end,
+  nowMs=function() return 1 end, setUpdateInterval=function() end,
+  notify=function() end, readFile=function() return nil end, writeFile=function() end,
+  json={decode=function(s) return decoded[s] end, encode=function() return '{}' end},
+  runAsync=function(argv, cb) table.insert(runs, {argv=argv, cb=cb}) end,
+ }
+ dofile(root..'service.luau')
+ local function find(word)
+  for i = #runs, 1, -1 do
+   for _, a in ipairs(runs[i].argv) do if a==word then return runs[i], i end end
+  end
+ end
+ local function count(word)
+  local n = 0
+  for _, r in ipairs(runs) do for _, a in ipairs(r.argv) do if a==word then n = n + 1 end end end
+  return n
+ end
+ state.nothing_ear_status = {connected=false}
+ update()
+ local info = assert(find('info'), 'link checked with bluetoothctl')
+ local polls = count('status')
+ info.cb({stdout='Device AA:BB\n\tBREDR.Connected: yes\n\tConnected: yes\n'})
+ assert(count('status')==polls+1, 'a new connection triggers one read')
+ update()
+ find('info').cb({stdout='\tConnected: no\n'})
+ assert(count('status')==polls+1, 'no read while BlueZ agrees with the status')
+ -- a write holds the polls back until it returns
+ config.show_in_bar = true
+ decoded.ok = {ok=true, spatial='cinema'}
+ watchers.nothing_ear_command({action='set-spatial', value='cinema', nonce='1'})
+ assert(state.nothing_ear_status.writing.spatial=='cinema', 'spatial write published as in flight')
+ local before = count('status')
+ update()
+ assert(count('status')==before, 'no poll while a write runs')
+ find('set-spatial').cb({stdout='ok'})
+ assert(state.nothing_ear_status.writing.spatial==nil, 'write cleared once done')
+ update()
+ assert(count('status')>before, 'polls resume after the write')
+ -- picking a disconnected device connects it (no MAC pinned in settings)
+ config.device_mac = nil
+ watchers.nothing_ear_command({action='select-device', value='CC:DD', nonce='2'})
+ find('info').cb({stdout='\tConnected: no\n'})
+ local connect = assert(find('connect'), 'bluetoothctl connect for a disconnected pick')
+ assert(connect.argv[3]=='CC:DD' and state.nothing_ear_status.connecting, 'connecting shown')
+ before = count('status')
+ update()
+ assert(count('status')==before, 'no polls while connecting')
+ connect.cb({})
+ assert(count('status')==before+1 and not state.nothing_ear_status.connecting, 'read once connect returns')
+ print('Service: link check drives the bar icon, writes pause polling, picks connect')
+end

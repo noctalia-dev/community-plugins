@@ -177,7 +177,7 @@ local function ancControls(anc, personalAnc)
 		table.insert(rows, ui.column({ height = 2 }, {}))
 	end
 
-	return ui.column({ gap = 8 }, rows)
+	return ui.column({ gap = 8, align = "stretch" }, rows)
 end
 
 -- Pill-shaped like the presets in the Nothing X app; ui.button has its own
@@ -318,14 +318,15 @@ local function eqControls(presets, currentPreset, soundProfile, bass, custom)
 			table.insert(rows, r)
 		end
 	end
-	return ui.column({ gap = 6 }, rows)
+	return ui.column({ gap = 6, align = "stretch" }, rows)
 end
 
--- Only on models with spatial audio that answered the read.
-local function spatialControls(modes, current)
+-- Only on models with spatial audio that answered the read. `pending` is
+-- the mode being written: shown as picked until the headphones answer.
+local function spatialControls(modes, current, pending)
 	local buttons = {}
 	for _, mode in ipairs(modes) do
-		local selected = current == mode
+		local selected = (pending or current) == mode
 		local label = noctalia.tr("panel.spatial." .. mode)
 		local function pick()
 			sendCommand("set-spatial", mode)
@@ -344,8 +345,15 @@ local function spatialControls(modes, current)
 			}))
 		end
 	end
-	return ui.column({ gap = 8 }, {
-		sectionHeader("panel.spatial.title"),
+	local header = sectionHeader("panel.spatial.title")
+	if pending ~= nil then
+		header = ui.row({ align = "center", gap = 8 }, {
+			header,
+			ui.label({ text = noctalia.tr("panel.applying"), fontSize = 11, color = "on_surface_variant" }),
+		})
+	end
+	return ui.column({ gap = 8, align = "stretch" }, {
+		header,
 		ui.row({ gap = 6 }, buttons),
 	})
 end
@@ -354,15 +362,18 @@ end
 -- and a second one confirms it.
 local pendingCodec = nil
 
-local function codecControls(codecs, current, restarting)
+-- `switching` is the codec being written, before the restart starts.
+local function codecControls(codecs, current, restarting, switching)
 	local caption = "panel.codec.caption"
 	if restarting then
 		caption = "panel.codec.restarting"
+	elseif switching ~= nil then
+		caption = "panel.codec.switching"
 	elseif pendingCodec ~= nil then
 		caption = "panel.codec.confirm"
 	end
 	local buttons = {}
-	if restarting then
+	if restarting or switching ~= nil then
 		-- nothing to click until the headphones are back
 	elseif pendingCodec ~= nil then
 		local target = pendingCodec
@@ -412,20 +423,25 @@ local function codecControls(codecs, current, restarting)
 	})
 end
 
+local function copyDetailsButton()
+	return ui.button({
+		text = noctalia.tr("panel.copy_details"),
+		glyph = "copy",
+		variant = "ghost",
+		onClick = function()
+			sendCommand("copy-details", nil)
+		end,
+	})
+end
+
 -- A change the earbuds didn't take (or that never reached them). The
 -- details hold the frames that went back and forth, for a bug report.
-local function writeFailed()
+local function writeFailed(code)
+	local key = code == "not_applied" and "panel.write_not_applied" or "panel.write_failed"
 	return ui.row({ align = "center", gap = 8, padding = 4 }, {
 		ui.glyph({ name = "alert-triangle", size = 14, color = "error" }),
-		ui.label({ text = noctalia.tr("panel.write_failed"), fontSize = 12, color = "on_surface_variant", flexGrow = 1 }),
-		ui.button({
-			text = noctalia.tr("panel.copy_details"),
-			glyph = "copy",
-			variant = "ghost",
-			onClick = function()
-				sendCommand("copy-details", nil)
-			end,
-		}),
+		ui.label({ text = noctalia.tr(key), fontSize = 12, color = "on_surface_variant", flexGrow = 1 }),
+		copyDetailsButton(),
 	})
 end
 
@@ -467,7 +483,7 @@ end
 local function devicePicker(devices)
 	local list = (devices and devices.devices) or {}
 	local sections = {
-		ui.column({ align = "center", gap = 6, padding = 12 }, {
+		ui.column({ align = "stretch", gap = 6, padding = 12 }, {
 			ui.label({ text = noctalia.tr("widget.not_configured"), fontSize = 14, textAlign = "center", color = "on_surface" }),
 			ui.label({ text = noctalia.tr("panel.guidance"), fontSize = 12, color = "on_surface_variant", textAlign = "center" }),
 		}),
@@ -502,7 +518,7 @@ local function devicePicker(devices)
 		end,
 	}))
 
-	return ui.column({ gap = 8 }, sections)
+	return ui.column({ gap = 8, align = "stretch" }, sections)
 end
 
 -- Manual override alongside the auto-mono setting: works whether or not
@@ -529,20 +545,26 @@ local function audioControls(s)
 	}
 	-- Only on models that can switch codec and answered the read.
 	local codecs = (s.model or {}).codecs or {}
-	if #codecs > 1 and (s.codec ~= nil or s.restarting) then
-		table.insert(rows, codecControls(codecs, s.codec, s.restarting == true))
+	local switching = (s.writing or {}).codec
+	if #codecs > 1 and (s.codec ~= nil or s.restarting or switching ~= nil) then
+		table.insert(rows, codecControls(codecs, s.codec, s.restarting == true, switching))
 	end
-	return ui.column({ gap = 8 }, rows)
+	return ui.column({ gap = 8, align = "stretch" }, rows)
 end
 
 -- A short hint of what to try; the specifics (errno, step, raw replies) go
 -- into Copy details instead, for a bug report. Both only once a poll has
 -- actually failed, not while the first one is still running.
-local function notConnected(code)
+local function notConnected(code, connecting)
 	local rows = {
-		ui.label({ text = noctalia.tr("widget.not_connected"), fontSize = 14, textAlign = "center", color = "on_surface" }),
+		ui.label({
+			text = noctalia.tr(connecting and "panel.connecting" or "widget.not_connected"),
+			fontSize = 14,
+			textAlign = "center",
+			color = "on_surface",
+		}),
 	}
-	if code ~= nil then
+	if code ~= nil and not connecting then
 		local key = shared.ERROR_HINTS[code] and code or "unknown"
 		table.insert(rows, ui.label({
 			text = noctalia.tr("panel.error." .. key),
@@ -550,16 +572,9 @@ local function notConnected(code)
 			color = "on_surface_variant",
 			textAlign = "center",
 		}))
-		table.insert(rows, ui.button({
-			text = noctalia.tr("panel.copy_details"),
-			glyph = "copy",
-			variant = "ghost",
-			onClick = function()
-				sendCommand("copy-details", nil)
-			end,
-		}))
+		table.insert(rows, ui.row({ justify = "center" }, { copyDetailsButton() }))
 	end
-	return ui.column({ align = "center", gap = 8, padding = 24 }, rows)
+	return ui.column({ align = "stretch", gap = 8, padding = 24 }, rows)
 end
 
 function render()
@@ -569,7 +584,7 @@ function render()
 		table.insert(body, devicePicker(devicesState))
 	else
 		if status.connected ~= true then
-			table.insert(body, notConnected(status.error))
+			table.insert(body, notConnected(status.error, status.connecting == true))
 		else
 			local battery = status.battery or {}
 			local model = status.model or {}
@@ -586,11 +601,16 @@ function render()
 			-- Main holds what gets used every day; the rest is one tap away on More.
 			if activeTab == "more" then
 				local spatialModes = model.spatial or {}
-				if #spatialModes > 0 and status.spatial ~= nil then
-					table.insert(body, spatialControls(spatialModes, status.spatial))
+				local pendingSpatial = (status.writing or {}).spatial
+				if #spatialModes > 0 and (status.spatial ~= nil or pendingSpatial ~= nil) then
+					table.insert(body, spatialControls(spatialModes, status.spatial, pendingSpatial))
 					table.insert(body, sectionSeparator())
 				end
 				table.insert(body, audioControls(status))
+				-- For a bug report while connected; the error row has its own.
+				if status.write_error == nil then
+					table.insert(body, ui.row({ justify = "center" }, { copyDetailsButton() }))
+				end
 			else
 				table.insert(body, ui.row({ align = "center", justify = "space_between", gap = 12, padding = 4 }, batteries))
 				if model.anc ~= false then
@@ -609,7 +629,7 @@ function render()
 				end
 			end
 			if status.write_error ~= nil then
-				table.insert(body, writeFailed())
+				table.insert(body, writeFailed(status.write_error))
 			end
 		end
 	end
@@ -641,12 +661,18 @@ function render()
 
 	panel.render(ui.column({ flexGrow = 1, gap = 8, padding = 10 }, {
 		ui.column({ gap = 8 }, header),
-		ui.scroll({ flexGrow = 1, gap = 8 }, body),
+		-- stretch: sections get the full width on the first layout too, so
+		-- their rows don't bunch up in the middle or overlap wrapped text
+		ui.scroll({ flexGrow = 1, gap = 8, align = "stretch" }, body),
 	}))
 end
 
 noctalia.state.watch(STATUS_KEY, function(value)
 	if type(value) == "table" then
+		-- A curve the headphones turned down: show what they really have.
+		if value.write_error ~= nil and status.write_error == nil then
+			customDraft = nil
+		end
 		status = value
 		render()
 	end
