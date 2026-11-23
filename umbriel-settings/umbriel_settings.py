@@ -148,10 +148,10 @@ def cmd_save(request):
     try:
         report = current.save(request.get("changes"), bool(request.get("validate", True)), before_write=(
             lambda backup, revision: trial.confirm(current.config_dir, token, backup, revision)) if token else None)
-    except BaseException:
+    except BaseException:  # incl. SIGTERM (SystemExit): a tried file already written stays the watcher's to undo
         if token:
             with contextlib.suppress(OSError):  # keep the save's own error
-                trial.claim(current.config_dir, token["id"])
+                trial.abandon(current.config_dir, token["id"])
         raise
     if token and not (report.get("saved") and report.get("backup")):
         trial.claim(current.config_dir, token["id"])  # nothing changed, so nothing to try

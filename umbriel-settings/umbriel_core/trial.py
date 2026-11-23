@@ -6,8 +6,9 @@ that started it is gone). `confirm` records the backup and the SHA-256 the tried
 countdown; it runs after the backup and before the config is replaced, so a failure there writes nothing.
 At the deadline the watcher takes the shared write lock and, if the token is still there, puts the backup
 back, unless the config changed since the try; what happened goes to `trial.result.json` and a notification.
-Keep and Go back `claim` the token first, so only one of them and the watcher acts. Everything at module level
-is standard library only.
+Keep and Go back `claim` the token, so only one of them and the watcher acts. A save that fails or is
+interrupted (SIGTERM) after `confirm` only `abandon`s it: once the tried file may be written, the watcher decides.
+Everything at module level is standard library only.
 """
 
 import datetime
@@ -148,6 +149,24 @@ def claim(config_dir, trial_id):
         return None
     _remove(path)
     return token
+
+
+def abandon(config_dir, trial_id):
+    """After a failed or interrupted save (call under the write lock): end this trial only if the tried file is
+    surely not in place; a config that may hold it keeps the token, and the watcher puts the backup back."""
+    path = token_file(config_dir)
+    token = read_token(path)
+    if token is None or token["id"] != trial_id:
+        return
+    revision = token.get("revision")
+    if isinstance(revision, str):
+        try:
+            with open(token["config"], "rb") as handle:
+                if hashlib.sha256(handle.read()).hexdigest() == revision:
+                    return
+        except (OSError, KeyError, TypeError):
+            return
+    _remove(path)
 
 
 def pending_backup(config_dir):
