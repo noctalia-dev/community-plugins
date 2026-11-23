@@ -2,7 +2,6 @@
 -- VPN Manager control-center shortcut: toggles the default VPN connection.
 
 local connected = false
-local defaultUuid = ""
 
 local function render()
   shortcut.setLabel(noctalia.tr("title"))
@@ -11,16 +10,19 @@ local function render()
   shortcut.setEnabled(true)
 end
 
-noctalia.state.watch("vpn.status", function(status)
+local function applyStatus(status)
   connected = type(status) == "table" and status.anyActive == true
   render()
-end)
+end
 
-noctalia.state.watch("vpn.defaultVpnUuid", function(uuid)
-  defaultUuid = type(uuid) == "string" and uuid or ""
-end)
+noctalia.state.watch("vpn.status", applyStatus)
 
+-- state.watch only fires on later changes, never with the current value, and
+-- the service publishes vpn.defaultVpnUuid once at startup. Read it at click
+-- time so a shortcut created after that still sees the starred VPN.
 function onClick()
+  local stored = noctalia.state.get("vpn.defaultVpnUuid")
+  local defaultUuid = type(stored) == "string" and stored or ""
   if defaultUuid == "" then
     noctalia.notifyError(noctalia.tr("title"), noctalia.tr("notifications.no_default"))
     noctalia.togglePanel("andrewdems/vpn-manager:panel")
@@ -33,4 +35,4 @@ function onClick()
   end
 end
 
-render()
+applyStatus(noctalia.state.get("vpn.status"))
