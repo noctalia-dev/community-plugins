@@ -662,7 +662,7 @@ def main():
             if player is None and action == "play":
                 path.unlink(missing_ok=True)
                 process = subprocess.Popen(
-                    ["mpv", *options, "--idle=yes", "--keep-open=no", "--force-window=yes",
+                    ["mpv", *options, "--idle=yes", "--keep-open=no",
                      "--input-ipc-server=" + str(path)],
                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                     start_new_session=True,

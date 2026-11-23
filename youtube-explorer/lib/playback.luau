@@ -75,8 +75,6 @@ function Module.new(dataDir, onChanged)
         if QUALITY == "audio" then
             table.insert(args, "--ytdl-format=ba[protocol^=m3u8]/ba/b")
             table.insert(args, "--vid=no")
-            -- Audio playback needs an explicit window when launched outside a terminal.
-            table.insert(args, "--force-window=yes")
         elseif QUALITY ~= "auto" then
             -- Keep the profile's HLS preference while enforcing the height cap on every fallback.
             local cap = "[height<=" .. QUALITY .. "]"
@@ -102,6 +100,8 @@ function Module.new(dataDir, onChanged)
             if startPosition then table.insert(args, "--queue-start-time=" .. tostring(startPosition)) end
             local options = playbackArgs()
             for i = 2, #options do table.insert(args, options[i]) end
+            -- Keep a window for audio controls. For video, let mpv create it when the video loads.
+            table.insert(args, QUALITY == "audio" and "--force-window=yes" or "--force-window=no")
             table.insert(args, "--script-opts-append=youtube-resume-record_dir=" .. resumeDir)
             table.insert(args, "--script-opts-append=youtube-resume-queue_events=" .. dataDir .. "/queue-events")
         end
