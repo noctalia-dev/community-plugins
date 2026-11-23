@@ -1,0 +1,30 @@
+{
+  "settings": {
+    "display": {
+      "label": "Show",
+      "description": "What the bar widget shows. A vertical bar always shows only the icon.",
+      "options": {
+        "icon_text": "Icon and text",
+        "icon": "Icon only",
+        "text": "Text only"
+      }
+    },
+    "icon": {
+      "label": "Icon",
+      "description": "The icon shown in the bar widget.",
+      "options": {
+        "settings": "Gear",
+        "settings-2": "Gear (alternative)",
+        "settings-cog": "Gear with cog",
+        "adjustments-horizontal": "Sliders",
+        "adjustments-cog": "Sliders with cog",
+        "tool": "Wrench",
+        "tools": "Wrench and screwdriver",
+        "moon": "Moon",
+        "moon-stars": "Moon and stars",
+        "moon-2": "Full moon",
+        "home-cog": "House with cog"
+      }
+    }
+  }
+}
