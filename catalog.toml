@@ -5619,8 +5619,8 @@ tags = ["bar", "panel", "hardware", "gaming"]
 [[plugin]]
 id = "nullflake/youtube-explorer"
 name = "YouTube Explorer"
-version = "1.0.0"
-updated_at = 1793882824
+version = "1.0.1"
+updated_at = 1795441074
 added_at = 1793882824
 author = "nullflake"
 license = "GPL-3.0-only"
