@@ -10,8 +10,9 @@
 
 id = "tranzem/media-lyrics"
 name = "Media Lyrics"
-version = "1.0.2"
-plugin_api = 43
+version = "1.1.0"
+# plugin_api = 51: enables follow-layer panels and newer UI.
+plugin_api = 51
 author = "tranzem"
 license = "MIT"
 tags = ["media", "music", "panel", "service", "desktop"]
@@ -60,7 +61,7 @@ default = "~/.local/share/media-lyrics"
 
 # Order of the online lyric providers, comma separated: the first one is asked
 # first. A plain (untimed) hit is kept as a fallback and used only when nothing
-# synced turns up anywhere. Ids: lrclib, netease. Unknown ids are ignored and
+# synced turns up anywhere. Ids: lrcmux, lrclib, netease. Unknown ids are ignored and
 # omitted ones keep their default place at the end, so a partial list never
 # drops a provider.
 [[setting]]
@@ -91,6 +92,7 @@ default = ""
 [[widget]]
 id = "now-playing"
 entry = "widget.luau"
+hover_highlight = false
 
   # Gestures mirror the shell's built-in media widget (noctalia-dev/noctalia
   # src/shell/bar/widget_gesture_defaults.cpp): right toggles playback, thumb
@@ -356,27 +358,27 @@ position = "center"
 # Overlay layer keeps the lyrics above fullscreen windows (karaoke over
 # video). Per-entry Layer dropdown in Settings -> Plugins can switch any
 # preset back to "top" without editing the manifest.
-layer = "overlay"
+layer = "follow"
 keyboard_focus = "exclusive"
-capture_keys = ["Up", "Down", "Return", "Space"]
+capture_keys = ["Up", "Down", "Left", "Right", "Return", "Space", "Tab"]
 
 [[panel]]
 id = "panel-compact"
 entry = "panel.luau"
 width = 440
 height = 440
-layer = "overlay"
+layer = "follow"
 keyboard_focus = "exclusive"
-capture_keys = ["Up", "Down", "Return", "Space"]
+capture_keys = ["Up", "Down", "Left", "Right", "Return", "Space", "Tab"]
 
 [[panel]]
 id = "panel-large"
 entry = "panel.luau"
 width = 640
 height = 640
-layer = "overlay"
+layer = "follow"
 keyboard_focus = "exclusive"
-capture_keys = ["Up", "Down", "Return", "Space"]
+capture_keys = ["Up", "Down", "Left", "Right", "Return", "Space", "Tab"]
 
 # Compact mini panel: cover + current lyric line only, PINNED to the desktop
 # (placement = "floating", position = "center"). A lightweight always-on
@@ -400,7 +402,7 @@ width = 360
 height = 120
 placement = "floating"
 position = "center"
-layer = "overlay"
+layer = "follow"
 keyboard_focus = "none"
 dismiss_on_outside_click = false
 persistent = true

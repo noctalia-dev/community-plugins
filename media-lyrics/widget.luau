@@ -21,12 +21,12 @@
 --   * Text width budget is estimated (no measure API): ~0.62 em per char at
 --     fontSize 12 -> ~7.5 px/char, calibrated against the built-in widget.
 
+local lyrics_lib = require("./lyrics_lib.luau")
 local glyphPlay = "player-play"
 local glyphPause = "player-pause"
 
 local GAP = 6
 local FONT_PX = 12
-local CHAR_PX = FONT_PX * 0.62     -- ~7.4 px per char (est., see above)
 local SCROLL_TICKS = 2             -- advance one char every N update ticks
 
 -- Which panel preset to open (panel_size plugin setting).
@@ -73,76 +73,30 @@ local function widgetOptions()
   }
 end
 
--- ── utf-8 helpers (char boundaries, never split a sequence) ─────────────────
-
-local function charCount(s)
-  local i, n = 1, 0
-  while i <= #s do
-    local b = s:byte(i)
-    if b >= 0xF0 then i = i + 4
-    elseif b >= 0xE0 then i = i + 3
-    elseif b >= 0xC0 then i = i + 2
-    else i = i + 1 end
-    n = n + 1
-  end
-  return n
-end
-
-local function toChars(s)
-  local out = {}
-  local i = 1
-  while i <= #s do
-    local b = s:byte(i)
-    local len = 1
-    if b >= 0xF0 then len = 4
-    elseif b >= 0xE0 then len = 3
-    elseif b >= 0xC0 then len = 2 end
-    out[#out + 1] = s:sub(i, i + len - 1)
-    i = i + len
-  end
-  return out
-end
-
--- First maxChars characters (UTF-8 safe).
-local function charPrefix(s, maxChars)
-  local i, n = 1, 0
-  while i <= #s and n < maxChars do
-    local b = s:byte(i)
-    if b >= 0xF0 then i = i + 4
-    elseif b >= 0xE0 then i = i + 3
-    elseif b >= 0xC0 then i = i + 2
-    else i = i + 1 end
-    n = n + 1
-  end
-  return s:sub(1, i - 1)
-end
+local toChars = lyrics_lib.toChars
 
 -- ── text (build + scroll) ───────────────────────────────────────────────────
 
 local scrollOffset = 0
 local scrollTick = 0
 local hovered = false
+local hoverDirty = false  -- set by onHover; the update() tick repaints
 local lastFull = ""
 
 local function activeLyricLine(m)
   -- Current synced line for the chip (show_lyric_line): last line whose
-  -- timestamp <= posSec. Falls back to the first line before the first
-  -- timestamp (karaoke convention). posSec in the snapshot is ≤150 ms stale
-  -- (service polls), fine for a subtitle.
+  -- timestamp <= projected position. The position is projected from posAtMs via
+  -- lyrics_lib.interpPos, so even the 150 ms-polling snapshot stays on time.
   -- lyricsStatus "choose" = the variant picker published a list; lyrics may
   -- still be live (a picked variant or default kept), so accept it too.
   if m == nil then return nil end
-  if m.lyricsStatus ~= "ready" and m.lyricsStatus ~= "choose" then return nil end
+  if not lyrics_lib.isLyricsShown(m.lyricsStatus) then return nil end
   if not m.synced then return nil end
   local lines = m.lyrics
   if type(lines) ~= "table" or #lines == 0 then return nil end
-  local pos = tonumber(m.posSec) or 0
-  local idx = nil
-  for i, l in ipairs(lines) do
-    local t = tonumber(l.time) or -1
-    if t >= 0 and t <= pos then idx = i end
-  end
-  if idx == nil then idx = 1 end
+  local pos = lyrics_lib.interpPos(m)
+  local idx = lyrics_lib.activeIndex(lines, pos)
+  if idx < 1 then return nil end
   local text = lines[idx] and lines[idx].text or ""
   text = text:gsub("^%s+", ""):gsub("%s+$", "")
   if text == "" then return nil end
@@ -168,14 +122,22 @@ local function buildFull(m, o)
 end
 
 -- Rolling window of `budget` chars over padded text; wraps forever.
-local function rolling(text, budget, offset)
+local function rolling(text, budgetEm, offset)
   local chars = toChars(text .. "   ")
   local n = #chars
+  if n == 0 then return "" end
   local start = (offset % n) + 1
   local out = {}
-  for k = 0, budget - 1 do
-    local idx = ((start + k - 1) % n) + 1
-    out[#out + 1] = chars[idx]
+  local used = 0
+  local idx = start
+  while used < budgetEm do
+    local ch = chars[idx]
+    local a = lyrics_lib.charAdv(ch)
+    if used + a > budgetEm and #out > 0 then break end
+    out[#out + 1] = ch
+    used = used + a
+    idx = (idx % n) + 1
+    if idx == start then break end
   end
   return table.concat(out)
 end
@@ -290,7 +252,7 @@ local function renderKey(m, o, shown)
   }, "|")
 end
 
-local function renderFrom(m, force)
+local function renderFromImpl(m, force)
   if not m then m = media() end
   if not m then return end
   local o = widgetOptions()
@@ -366,18 +328,19 @@ local function renderFrom(m, force)
   -- Text area = max_length minus the icon slot (art or fallback glyph both
   -- occupy artSize + gap).
   local iconW = (not o.hideArt) and (o.artSize + GAP) or 0
-  local budget = math.max(8, math.floor((o.maxLength - iconW) / CHAR_PX))
+  local budgetEm = (o.maxLength - iconW) / FONT_PX
+  if budgetEm < 1 then budgetEm = 1 end
 
-  local overBudget = charCount(full) > budget
+  local overBudget = lyrics_lib.unitEm(full) > budgetEm
   local scrolling = overBudget and
     (o.scroll == "always" or (o.scroll == "on_hover" and hovered))
 
   local shown
   if overBudget then
     if o.scroll == "none" then
-      shown = charPrefix(full, budget - 1) .. "…"
+      shown = lyrics_lib.truncEm(full, budgetEm)
     else
-      shown = rolling(full, budget, scrollOffset)
+      shown = rolling(full, budgetEm, scrollOffset)
     end
   else
     shown = full
@@ -399,6 +362,7 @@ local function renderFrom(m, force)
     fontSize = FONT_PX,
     opacity = dim,
     maxLines = 1,
+    maxWidth = math.floor(budgetEm * FONT_PX) + 4,
   })
 
   local textNode = ui.row({
@@ -408,7 +372,10 @@ local function renderFrom(m, force)
       local h = (state == "true")
       if h ~= hovered then
         hovered = h
-        renderFrom(media(), true)
+        -- NEVER call render() inside onHover: re-creating the tree mid-event
+        -- dispatch kills the host (documented in panel.luau). The update() tick
+        -- repaints with the new hover state within 120 ms.
+        hoverDirty = true
       end
     end,
   }, { label })
@@ -419,6 +386,10 @@ local function renderFrom(m, force)
   if spec then children[#children + 1] = spec end
 
   barWidget.render(ui.row({ gap = GAP, align = "center" }, children))
+end
+
+local function renderFrom(m, force)
+  pcall(renderFromImpl, m, force)
 end
 
 -- ── audio spectrum entry point ──────────────────────────────────────────────
@@ -449,6 +420,11 @@ end
 function update()
   local m = media()
   if not m then return end
+  if hoverDirty then
+    hoverDirty = false
+    renderFrom(m, true)
+    return
+  end
   if not m.hasPlayer then
     renderFrom(m, false)
     return
@@ -462,8 +438,9 @@ function update()
   -- advance the rolling text
   local full = buildFull(m, o)
   local iconW = (not o.hideArt) and (o.artSize + GAP) or 0
-  local budget = math.max(8, math.floor((o.maxLength - iconW) / CHAR_PX))
-  local active = charCount(full) > budget and
+  local budgetEm = (o.maxLength - iconW) / FONT_PX
+  if budgetEm < 1 then budgetEm = 1 end
+  local active = lyrics_lib.unitEm(full) > budgetEm and
     (o.scroll == "always" or (o.scroll == "on_hover" and hovered))
   if not active then
     renderFrom(m, false)
