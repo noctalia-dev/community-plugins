@@ -7,6 +7,8 @@
   },
   "error": {
     "busy": "it is in use: close the files and windows that use it",
+    "busy-by": "it is in use by {holders}: close them and try again",
+    "busy-more": "{count} more",
     "lock": "Could not lock {name}: {reason}",
     "mount": "Could not mount {name}: {reason}",
     "no-udisks": "udisksctl is not available: install udisks2",
