@@ -29,7 +29,7 @@ Configure BitDjinn under **Settings → Plugins → BitDjinn** or in `~/.config/
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
 | `currency` | `select` | `usd` | Display fiat/stablecoin valuation currency (`usd`, `cny`, `eur`, `usdt`, `usdc`). |
-| `interval` | `int` | `30` | Market prices and trend sparklines refresh cadence (10–600 seconds). |
+| `interval` | `int` | `60` | Market prices and trend sparklines refresh cadence (30–600 seconds). |
 | `wallet_interval` | `int` | `60` | On-chain address balance and transaction check cadence (15–1800 seconds). |
 | `notify_tx` | `bool` | `true` | Send desktop notifications when a balance or transaction count change is detected. |
 | `widget_coin` | `string` | `BTC` | Default cryptocurrency symbol displayed on the status bar widget. |
@@ -59,4 +59,4 @@ noctalia msg plugin nirvam/bitdjinn:bar focused refresh
 
 - **Network Access**: BitDjinn queries public CoinGecko market endpoints for live exchange rates and sparkline trend history, Mempool.space for Bitcoin addresses, and public JSON-RPC nodes for Ethereum and Solana balances.
 - **Privacy & Security**: All address lookups and API requests are read-only. No private keys, seed phrases, or credentials are ever required or stored.
-- **Local Persistence**: User watchlists, transaction notification states, and cached exchange rate matrices are saved in `$XDG_DATA_HOME/noctalia/bitdjinn_state.json`.
+- **Local Persistence**: User watchlists, transaction notification states, and cached exchange rate matrices are saved via `noctalia.pluginDataDir()` in `$XDG_STATE_HOME/noctalia/plugins/data/nirvam/bitdjinn/bitdjinn_state.json` (defaulting to `~/.local/state/noctalia/plugins/data/nirvam/bitdjinn/bitdjinn_state.json`, or `$NOCTALIA_STATE_HOME/noctalia/plugins/data/nirvam/bitdjinn/bitdjinn_state.json` when `NOCTALIA_STATE_HOME` is set).

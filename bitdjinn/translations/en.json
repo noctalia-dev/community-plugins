@@ -1,11 +1,7 @@
 {
   "market": {
-    "high24h": "24h High: %s",
     "last_updated": "Updated: %s",
-    "low24h": "24h Low: %s",
-    "search_placeholder": "Filter coin symbol or name...",
-    "trend": "Trend",
-    "vol24h": "24h Vol: %s"
+    "search_placeholder": "Filter coin symbol or name..."
   },
   "notify": {
     "balance_decrease": "Sent -%s %s on %s",
@@ -51,8 +47,6 @@
   "tagline": "Crypto Market & Blockchain Watcher",
   "title": "BitDjinn",
   "ui": {
-    "close": "Close",
-    "error_network": "Network error, retrying...",
     "loading": "Fetching latest data...",
     "refresh": "Refresh",
     "settings": "Plugin Settings"

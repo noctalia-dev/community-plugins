@@ -20,12 +20,17 @@ local COIN_DEFS = {
 }
 
 local MAX_HISTORY_POINTS = 36
+local DEFAULT_MARKET_INTERVAL = 60
+local MIN_MARKET_INTERVAL = 30
+local DEFAULT_WALLET_INTERVAL = 60
+local MIN_WALLET_INTERVAL = 15
+local EXCHANGE_RATE_REFRESH_INTERVAL = 1800 -- 30 minutes
+local MAX_BACKOFF_SECONDS = 600             -- 10 minutes cap on consecutive failures
 
 -- ── Internal State ─────────────────────────────────────────────────────────
 
-local tickCount = 0
-local marketPollInterval = 30
-local walletPollInterval = 60
+local marketPollInterval = DEFAULT_MARKET_INTERVAL
+local walletPollInterval = DEFAULT_WALLET_INTERVAL
 local notifyEnabled = true
 local currentCurrency = "usd"
 local widgetCoin = "BTC"
@@ -42,9 +47,14 @@ local exchangeRates = {
 local priceHistory = {}   -- coin_id -> { number }
 local marketData = {}     -- array of coin tables
 local watchedWallets = {} -- array of wallet objects
-local isUpdating = false
-local lastMarketFetchTime = 0
-local lastWalletFetchTime = 0
+
+local isMarketFetching = false
+local isWalletFetching = false
+local lastExchangeRateFetchTime = 0
+local nextMarketFetchAt = 0
+local nextWalletFetchAt = 0
+local marketConsecutiveFailures = 0
+local lastUpdatedText = "--"
 
 -- ── Persistence ────────────────────────────────────────────────────────────
 
@@ -175,13 +185,27 @@ local function publishState()
     widgetCoin = widgetCoin,
     widgetPrice = topCoinPrice,
     widgetChange = topCoinChange,
-    isUpdating = isUpdating,
-    lastUpdated = os.date("%H:%M:%S"),
+    isUpdating = isMarketFetching,
+    lastUpdated = lastUpdatedText,
     notifyEnabled = notifyEnabled,
   })
 end
 
-local function updateExchangeRates(onDone: () -> ())
+local function scheduleMarketBackoff(reason: string)
+  marketConsecutiveFailures = marketConsecutiveFailures + 1
+  local exponent = math.min(marketConsecutiveFailures, 4)
+  local delay = math.max(marketPollInterval, math.min(marketPollInterval * (2 ^ exponent), MAX_BACKOFF_SECONDS))
+  nextMarketFetchAt = os.time() + delay
+  noctalia.log(string.format("BitDjinn: %s; backing off %ds (failure #%d)", reason, delay, marketConsecutiveFailures))
+end
+
+local function updateExchangeRates(onDone: (boolean, string?) -> ())
+  local now = os.time()
+  if lastExchangeRateFetchTime > 0 and (now - lastExchangeRateFetchTime) < EXCHANGE_RATE_REFRESH_INTERVAL then
+    onDone(false, nil)
+    return
+  end
+
   local rateUrl = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd,cny,eur"
   noctalia.http({
     url = rateUrl,
@@ -189,8 +213,8 @@ local function updateExchangeRates(onDone: () -> ())
     headers = { "Accept: application/json", "User-Agent: Mozilla/5.0 (Noctalia-BitDjinn)" },
   }, function(res)
     if res.ok and res.status == 200 then
-      local data = noctalia.json.decode(res.body)
-      if type(data) == "table" and type(data.bitcoin) == "table" then
+      local data, err = noctalia.json.decode(res.body)
+      if err == nil and type(data) == "table" and type(data.bitcoin) == "table" then
         local bUsd = tonumber(data.bitcoin.usd) or 0
         local bCny = tonumber(data.bitcoin.cny) or 0
         local bEur = tonumber(data.bitcoin.eur) or 0
@@ -200,19 +224,40 @@ local function updateExchangeRates(onDone: () -> ())
           exchangeRates.usd = 1.0
           exchangeRates.usdt = 1.0
           exchangeRates.usdc = 1.0
+          lastExchangeRateFetchTime = os.time()
         end
       end
+      onDone(false, nil)
+      return
     end
-    onDone()
+
+    if not res.ok or res.status == 429 then
+      onDone(true, string.format("exchange rate fetch failed (ok=%s, status=%d)", tostring(res.ok), res.status or 0))
+      return
+    end
+
+    noctalia.log(string.format("BitDjinn: exchange rate fetch failed (status=%d), keeping cached rates", res.status or 0))
+    onDone(false, nil)
   end)
 end
 
 local function fetchMarketPrices()
-  isUpdating = true
+  if isMarketFetching then
+    return
+  end
+
+  isMarketFetching = true
   publishState()
 
-  -- Fetch fresh exchange rates and market data in parallel
-  updateExchangeRates(function()
+  -- Refresh cached fiat exchange rates when stale, then fetch market data
+  updateExchangeRates(function(shouldAbort: boolean, abortReason: string?)
+    if shouldAbort then
+      isMarketFetching = false
+      scheduleMarketBackoff(abortReason or "exchange rate fetch aborted")
+      publishState()
+      return
+    end
+
     local ids = "bitcoin,ethereum,solana,binancecoin,ripple,dogecoin,tether,usd-coin"
     local url = string.format(
       "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=%s&sparkline=true&price_change_percentage=24h",
@@ -224,16 +269,16 @@ local function fetchMarketPrices()
       method = "GET",
       headers = { "Accept: application/json", "User-Agent: Mozilla/5.0 (Noctalia-BitDjinn)" },
     }, function(res)
-      isUpdating = false
+      isMarketFetching = false
       if not res.ok or res.status ~= 200 then
-        noctalia.log(string.format("BitDjinn: market fetch error status %d, using cached prices", res.status))
+        scheduleMarketBackoff(string.format("market fetch failed (ok=%s, status=%d)", tostring(res.ok), res.status or 0))
         publishState()
         return
       end
 
       local data, err = noctalia.json.decode(res.body)
       if err ~= nil or type(data) ~= "table" then
-        noctalia.log("BitDjinn: json decode error for market data")
+        scheduleMarketBackoff("json decode error for market data")
         publishState()
         return
       end
@@ -305,8 +350,11 @@ local function fetchMarketPrices()
         })
       end
 
+      local now = os.time()
       marketData = updatedMarket
-      lastMarketFetchTime = os.time()
+      marketConsecutiveFailures = 0
+      nextMarketFetchAt = now + marketPollInterval
+      lastUpdatedText = os.date("%H:%M:%S")
       saveState()
       publishState()
     end)
@@ -352,13 +400,18 @@ local function checkBtcAddress(wallet: any, onDone: () -> ())
       if type(data) == "table" and type(data.chain_stats) == "table" then
         local funded = tonumber(data.chain_stats.funded_txo_sum) or 0
         local spent = tonumber(data.chain_stats.spent_txo_sum) or 0
-        local txCount = (tonumber(data.chain_stats.tx_count) or 0)
+        local txCount = tonumber(data.chain_stats.tx_count) or 0
         local mempoolTxs = 0
+        local mempoolFunded = 0
+        local mempoolSpent = 0
         if type(data.mempool_stats) == "table" then
           mempoolTxs = tonumber(data.mempool_stats.tx_count) or 0
+          mempoolFunded = tonumber(data.mempool_stats.funded_txo_sum) or 0
+          mempoolSpent = tonumber(data.mempool_stats.spent_txo_sum) or 0
         end
         local totalTx = txCount + mempoolTxs
-        local newBalance = (funded - spent) / 100000000.0
+        local netSats = (funded - spent) + (mempoolFunded - mempoolSpent)
+        local newBalance = math.max(0, netSats) / 100000000.0
 
         if wallet.initialized then
           local delta = newBalance - (wallet.balance or 0)
@@ -478,22 +531,34 @@ local function checkSolAddress(wallet: any, onDone: () -> ())
 end
 
 local function fetchWalletBalances()
-  if #watchedWallets == 0 then
-    publishState()
+  if isWalletFetching then
     return
   end
 
-  local remaining = #watchedWallets
+  local now = os.time()
+  if #watchedWallets == 0 then
+    nextWalletFetchAt = now + walletPollInterval
+    return
+  end
+
+  local targets = {}
+  for _, w in ipairs(watchedWallets) do
+    table.insert(targets, w)
+  end
+
+  isWalletFetching = true
+  local remaining = #targets
   local function onDoneOne()
     remaining = remaining - 1
     if remaining <= 0 then
-      lastWalletFetchTime = os.time()
+      isWalletFetching = false
+      nextWalletFetchAt = os.time() + walletPollInterval
       saveState()
       publishState()
     end
   end
 
-  for _, w in ipairs(watchedWallets) do
+  for _, w in ipairs(targets) do
     if w.chain == "BTC" then
       checkBtcAddress(w, onDoneOne)
     elseif w.chain == "ETH" then
@@ -607,18 +672,18 @@ noctalia.state.watch("bitdjinn.cmd", function(cmd)
   noctalia.state.set("bitdjinn.cmd", nil)
 end)
 
-function onConfigChanged()
+local function applyConfig()
   local confCur = noctalia.getConfig("currency")
   if confCur ~= nil and confCur ~= "" then
     currentCurrency = string.lower(confCur)
   end
   local confInt = tonumber(noctalia.getConfig("interval"))
-  if confInt ~= nil and confInt >= 10 then
-    marketPollInterval = confInt
+  if confInt ~= nil then
+    marketPollInterval = math.max(MIN_MARKET_INTERVAL, math.floor(confInt))
   end
   local confWallInt = tonumber(noctalia.getConfig("wallet_interval"))
-  if confWallInt ~= nil and confWallInt >= 15 then
-    walletPollInterval = confWallInt
+  if confWallInt ~= nil then
+    walletPollInterval = math.max(MIN_WALLET_INTERVAL, math.floor(confWallInt))
   end
   local confNotify = noctalia.getConfig("notify_tx")
   if type(confNotify) == "boolean" then
@@ -628,10 +693,22 @@ function onConfigChanged()
   if confCoin ~= nil and confCoin ~= "" then
     widgetCoin = string.upper(confCoin)
   end
+end
+
+function onConfigChanged()
+  local prevMarketInterval = marketPollInterval
+  local prevWalletInterval = walletPollInterval
+  applyConfig()
+
+  local now = os.time()
+  if marketPollInterval ~= prevMarketInterval and not isMarketFetching then
+    nextMarketFetchAt = math.min(nextMarketFetchAt, now + marketPollInterval)
+  end
+  if walletPollInterval ~= prevWalletInterval and not isWalletFetching then
+    nextWalletFetchAt = math.min(nextWalletFetchAt, now + walletPollInterval)
+  end
 
   publishState()
-  fetchMarketPrices()
-  fetchWalletBalances()
 end
 
 function onIpc(event, payload)
@@ -664,13 +741,22 @@ end
 -- ── Main Loop ──────────────────────────────────────────────────────────────
 
 function update()
-  tickCount = tickCount + 1
+  local now = os.time()
 
-  if tickCount % marketPollInterval == 0 or os.time() - lastMarketFetchTime > marketPollInterval then
+  -- Guard against backwards wall-clock jumps (e.g., NTP step)
+  local maxMarketWait = math.max(marketPollInterval, MAX_BACKOFF_SECONDS)
+  if nextMarketFetchAt > now + maxMarketWait then
+    nextMarketFetchAt = now + marketPollInterval
+  end
+  if nextWalletFetchAt > now + walletPollInterval then
+    nextWalletFetchAt = now + walletPollInterval
+  end
+
+  if not isMarketFetching and now >= nextMarketFetchAt then
     fetchMarketPrices()
   end
 
-  if tickCount % walletPollInterval == 0 or os.time() - lastWalletFetchTime > walletPollInterval then
+  if not isWalletFetching and now >= nextWalletFetchAt then
     fetchWalletBalances()
   end
 end
@@ -678,6 +764,7 @@ end
 -- ── Boot Initialization ────────────────────────────────────────────────────
 
 loadState()
-onConfigChanged()
+applyConfig()
+publishState()
 fetchMarketPrices()
 fetchWalletBalances()
