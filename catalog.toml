@@ -51,8 +51,8 @@ tags = ["wallpaper", "desktop", "bar", "panel", "service"]
 [[plugin]]
 id = "joshuaslate/shelly"
 name = "Shelly"
-version = "2.0.0"
-updated_at = 1785532712
+version = "2.0.1"
+updated_at = 1795439305
 added_at = 1784084148
 author = "joshuaslate"
 license = "MIT"
@@ -2663,15 +2663,21 @@ rev = "c1e115ff7ea0cc0fbfee3a1161409bde004f6374"
 [[plugin]]
 id = "tranzem/media-lyrics"
 name = "Media Lyrics"
-version = "1.0.2"
-updated_at = 1794963400
+version = "1.1.0"
+updated_at = 1795439277
 added_at = 1788381228
 author = "tranzem"
 license = "MIT"
 icon = "music"
 description = "Synced lyrics panel and desktop widget: karaoke carousel, seekable progress, audio-reactive chip. Needs busctl + curl."
-plugin_api = 43
+plugin_api = 51
 tags = ["media", "music", "panel", "service", "desktop"]
+
+[[plugin.release]]
+plugin_api = 43
+version = "1.0.2"
+updated_at = 1794963400
+rev = "ff5f224685a5d94202d861f60a1a112308188a02"
 
 [[plugin.release]]
 plugin_api = 30
