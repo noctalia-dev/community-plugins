@@ -1,7 +1,7 @@
 # Noctalia keys saved GUI selections and the thumbnail cache by this ID.
 id = "nullflake/youtube-explorer"
 name = "YouTube Explorer"
-version = "1.0.0"
+version = "1.0.1"
 plugin_api = 43
 author = "nullflake"
 license = "GPL-3.0-only"
