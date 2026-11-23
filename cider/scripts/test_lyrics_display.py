@@ -451,7 +451,14 @@ class RomanizationTests(unittest.TestCase):
         client = self.client_with_lyrics([])
         client._lyrics_amapi("123")
         lyric_paths = self.requested_paths(client)[1:]
-        self.assertEqual(len(lyric_paths), 16)
+        self.assertEqual(
+            [path.split("/")[3] for path in lyric_paths],
+            ["id"] * 4 + [
+                storefront
+                for storefront in ("cn", "tw", "hk", "us", "gb", "ca", "au", "de", "jp")
+                for _ in range(2)
+            ],
+        )
         other_stores = [path for path in lyric_paths if "/catalog/id/" not in path]
         self.assertFalse(any("?" in path for path in other_stores))
 

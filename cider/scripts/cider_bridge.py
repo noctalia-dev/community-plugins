@@ -2239,7 +2239,7 @@ class CiderBridge:
         )
         best_line_only: tuple[list[dict[str, Any]], str] | None = None
         account_storefront = self._account_storefront()
-        storefronts = ["us", "gb", "ca", "au", "de", "jp"]
+        storefronts = ["cn", "tw", "hk", "us", "gb", "ca", "au", "de", "jp"]
         if account_storefront:
             storefronts = [account_storefront] + [s for s in storefronts if s != account_storefront]
         for storefront in storefronts:
