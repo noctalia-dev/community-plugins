@@ -6240,3 +6240,16 @@ icon = "calendar-due"
 description = "Countdowns to upcoming CS conference deadlines from ccfddl (CCF / CORE / THCPL ranks), with starring and reminders."
 plugin_api = 43
 tags = ["bar", "panel", "launcher", "service", "countdown", "productivity"]
+
+[[plugin]]
+id = "0rz0rz0rz/umbriel-settings"
+name = "Umbriel Settings"
+version = "0.2.1"
+updated_at = 1795454781
+added_at = 1795454781
+author = "0rz0rz0rz"
+license = "MIT"
+icon = "settings"
+description = "Edit every Umbriel setting, rule and keybind, plus XDG user folders and default apps, with review and backups."
+plugin_api = 43
+tags = ["umbriel", "panel", "bar", "system", "utility"]
