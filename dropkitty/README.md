@@ -2,7 +2,7 @@
 
 A Quake-style drop-down terminal for Noctalia, built on kitty's `quick-access-terminal` kitten. One key drops it down and hides it again with your shell session intact. A bar widget toggles it (scroll to resize, middle-click to flip position), shows whether it's open and lights up when a command finishes while it's hidden; a long-running one also sends a notification. `/dk <command>` in the launcher drops the terminal down and runs the command in a new tab.
 
-The terminal is a layer-shell panel that kitty draws itself, so it works the same on niri, Hyprland and sway. It doesn't depend on compositor scratchpads, which niri doesn't have.
+The terminal is a layer-shell panel that kitty draws itself, so it works the same on niri, Hyprland, sway, Mango and Umbriel. It doesn't depend on compositor scratchpads, which niri doesn't have.
 
 ## Plugin
 
@@ -19,7 +19,7 @@ The terminal is a layer-shell panel that kitty draws itself, so it works the sam
 ## Requirements
 
 - `kitty` 0.42 or newer, which provides `kitten quick-access-terminal`
-- niri, Hyprland or sway. The helper asks `niri`, `hyprctl` or `swaymsg` for the focused output's size.
+- niri, Hyprland, sway, Mango or Umbriel. The helper asks `niri`, `hyprctl`, `swaymsg`, `mmsg` or `umbriel` for the focused output's size.
 - `jq`, `flock`, `setsid` and `timeout` on `PATH`
 - kitty shell integration, for the finished-command badge. It's on by default for bash, zsh and fish.
 
@@ -57,6 +57,19 @@ bind = SUPER SHIFT, Return, exec, $dropkitty position
 set $dropkitty ~/.local/state/noctalia/plugins/materialized/community/dropkitty/bin/dropkitty
 bindsym $mod+Return exec $dropkitty toggle
 bindsym $mod+Shift+Return exec $dropkitty position
+```
+
+**Mango** (`config.conf`):
+```
+bind=SUPER,Return,spawn_shell,~/.local/state/noctalia/plugins/materialized/community/dropkitty/bin/dropkitty toggle
+bind=SUPER+SHIFT,Return,spawn_shell,~/.local/state/noctalia/plugins/materialized/community/dropkitty/bin/dropkitty position
+```
+
+**Umbriel** (`config.toml`):
+```toml
+[keybinds]
+"Mod+Return" = { action = "spawn ~/.local/state/noctalia/plugins/materialized/community/dropkitty/bin/dropkitty toggle", repeat = false }
+"Mod+Shift+Return" = { action = "spawn ~/.local/state/noctalia/plugins/materialized/community/dropkitty/bin/dropkitty position", repeat = false }
 ```
 
 The helper takes one command:
@@ -123,6 +136,7 @@ To control the terminal itself, call the helper (see Usage).
 - **No badge or notification inside tmux or zellij.** kitty can't see commands run inside a multiplexer.
 - **`run` needs shell integration to wait for the prompt.** Without it, `run` waits 3 s and types the command anyway.
 - **One monitor at a time.** The terminal opens on the focused output. Moving it to another monitor needs `restart`, which ends the session.
+- **Mango and Umbriel are covered by tests only.** Their output-size lookups are checked against each compositor's IPC source, but not yet run on a live session.
 - **Bar sizing is approximate.** It doesn't account for per-monitor bar layouts or the shadow bleed adjustment, so it can leave a few pixels too much room.
 
 Issues: <https://github.com/lowcache/noctalia-dropkitty-plugin/issues>

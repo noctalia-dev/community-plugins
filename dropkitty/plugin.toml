@@ -4,7 +4,7 @@
 
 id = "lowcache/dropkitty"
 name = "dropkitty"
-version = "0.2.0"
+version = "0.2.1"
 # 26: noctalia.getSetting (bar reserves). Also uses runAsync argv (24) and openSettings (15).
 plugin_api = 26
 author = "lowcache"
@@ -12,7 +12,7 @@ license = "MIT"
 icon = "terminal-2"
 description = "Quake-style drop-down terminal on kitty: bar toggle, launcher command runner, finished-command notifications."
 dependencies = ["kitty", "jq", "flock", "setsid", "timeout"]
-tags = ["bar", "service", "launcher", "productivity", "utility", "niri", "hyprland", "sway"]
+tags = ["bar", "service", "launcher", "productivity", "utility", "niri", "hyprland", "sway", "mangowc", "umbriel"]
 
 # ── Opening geometry (live toggles from the helper override these until changed) ──
 [[setting]]

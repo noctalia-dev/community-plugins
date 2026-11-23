@@ -97,6 +97,11 @@ out_dim() {
             | if $t % 2 == 1 then reverse else . end | "\(.[0]) \(.[1])"'
     elif [ -n "${SWAYSOCK:-}" ]; then
         swaymsg -t get_outputs -r | jq -r '.[] | select(.focused) | .rect | "\(.width) \(.height)"'
+    elif [ -n "${MANGO_INSTANCE_SIGNATURE:-}" ]; then
+        # active = Mango's selected monitor, where an output-less layer surface opens.
+        mmsg get all-monitors | jq -r 'first(.monitors[] | select(.active)) | "\(.width) \(.height)"'
+    elif [ -n "${UMBRIEL_SOCKET:-}" ]; then
+        umbriel outputs --json | jq -r 'first(.[] | select(.focused)) | .logical_size | "\(.width) \(.height)"'
     else
         return 1
     fi
@@ -106,7 +111,7 @@ out_dim() {
 # space on the size axis are subtracted (the compositor already offsets the panel).
 geometry() {
     local w h dims
-    dims=$(out_dim) || die "unsupported compositor (need niri, Hyprland or sway)"
+    dims=$(out_dim) || die "unsupported compositor (need niri, Hyprland, sway, Mango or Umbriel)"
     read -r w h <<<"$dims"
     [[ $w =~ ^[0-9]+$ && $h =~ ^[0-9]+$ ]] || die "could not read the focused output size"
     local usable pct dim edge
