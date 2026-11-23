@@ -66,7 +66,7 @@ function M.start(question, key, session, connection, callbacks, history)
     "Authorization: Bearer " .. key,
     "Content-Type: application/json",
     "Accept: text/event-stream",
-    "User-Agent: quickask/0.3.0",
+    "User-Agent: quickask/0.3.1",
   }
   if connection.provider == "opencode-go" then
     payload.thinking = { type = "disabled" }

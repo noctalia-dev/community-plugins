@@ -52,6 +52,10 @@
       "description": "Show a follow-up box after each completed answer so you can continue the conversation without reopening the panel.",
       "label": "Follow-up questions"
     },
+    "latex": {
+      "label": "Render math",
+      "description": "Rewrite LaTeX math in answers as Unicode characters. Delimiters $...$, $$...$$, \\(...\\) and \\[...\\] are recognised; code blocks are left untouched. Disable to show the raw LaTeX."
+    },
     "model": {
       "description": "Exact text model ID supported by your endpoint. It must accept system/user messages and streaming Chat Completions. No model is selected automatically.",
       "label": "Model ID"

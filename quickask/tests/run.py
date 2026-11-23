@@ -33,7 +33,7 @@ def main():
     assert panel["keyboard_focus"] == "exclusive"
     assert panel["dismiss_on_outside_click"] is True
     settings = {item["key"]: item["default"] for item in manifest["setting"]}
-    assert settings == {"provider": "opencode-go", "endpoint": "https://api.openai.com/v1/chat/completions", "model": "", "follow_up": True}
+    assert settings == {"provider": "opencode-go", "endpoint": "https://api.openai.com/v1/chat/completions", "model": "", "follow_up": True, "latex": True}
     assert set(manifest["dependencies"]) == {"secret-tool"}
 
     def catalog_leaves(value, prefix=""):
@@ -59,6 +59,8 @@ def main():
     for module in ("api", "credentials", "config"):
         parts += [f'modules["./lib/{module}.luau"] = (function()\n',
                   (ROOT / f"lib/{module}.luau").read_text(), "\nend)()\n"]
+    parts += ['modules["./mathLib.luau"] = (function()\n',
+              (ROOT / "mathLib.luau").read_text(), "\nend)()\n"]
     parts.append('local function require(path) assert(modules[path], "Unexpected require"); return modules[path] end\n')
     parts.append((ROOT / "panel.luau").read_text())
     parts.append((ROOT / "tests/spec.luau").read_text())

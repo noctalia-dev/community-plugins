@@ -2,6 +2,7 @@
 local api = require("./lib/api.luau")
 local credentials = require("./lib/credentials.luau")
 local config = require("./lib/config.luau")
+local mathLib = require("./mathLib.luau")
 
 local state = "idle"
 local opened = false
@@ -9,6 +10,8 @@ local generation = 0
 local sessionNumber = 0
 local MAX_HISTORY_MESSAGES = 20
 local draft, question, answer, errorText = "", "", "", ""
+local displayAnswer = "" -- formatted copy of a completed answer
+local latexEnabled = true
 local followUpDraft = ""
 local history = {}
 local turn = 0
@@ -53,6 +56,19 @@ local function fail(message, discard)
   render()
 end
 
+local function convertLaTeX(markdown)
+    -- Convert math notation once a response is complete. Wrapped so a bad
+    -- expression degrades to the raw markdown instead of failing the panel.
+    if not latexEnabled or type(markdown) ~= "string" or markdown == "" then
+        return markdown
+    end
+    local ok, converted = pcall(mathLib.render, markdown)
+    if ok and type(converted) == "string" and converted ~= "" then
+        return converted
+    end
+    return markdown
+end
+
 render = function()
   if not opened then return end
   dirty = false
@@ -76,7 +92,10 @@ render = function()
   else
     table.insert(body, ui.label({ text = question, color = "on_surface_variant", fontSize = 13, maxLines = 3 }))
     if answer ~= "" then
-      table.insert(body, ui.markdown({ key = "answer", text = answer }))
+      -- Stream the raw text; swap in the formatted copy once complete so a
+      -- half-written expression is never parsed.
+      local shownAnswer = (state == "complete" and displayAnswer ~= "") and displayAnswer or answer
+      table.insert(body, ui.markdown({ key = "answer", text = shownAnswer }))
     elseif busy() then
       table.insert(body, ui.label({ text = noctalia.tr("panel.loading"), color = "on_surface_variant" }))
     end
@@ -141,6 +160,7 @@ local function send()
   stopStream()
   local current = generation
   state, answer, errorText, copied, copyError = "loading", "", "", false, false
+  displayAnswer = ""
   startedAt = noctalia.nowMs()
   lastActivity = startedAt
   render() -- first paint precedes credential lookup and HTTP
@@ -164,6 +184,7 @@ local function send()
         if not opened or generation ~= current then return end
         stream = nil
         state = "complete"
+        displayAnswer = convertLaTeX(answer)
         table.insert(history, { role = "user", content = question })
         table.insert(history, { role = "assistant", content = answer })
         while #history > MAX_HISTORY_MESSAGES do
@@ -188,9 +209,11 @@ function onOpen(_context)
   opened = true
   sessionNumber = sessionNumber + 1
   state, draft, question, answer, errorText = "idle", "", "", "", ""
+  displayAnswer = ""
   sessionId, copied, copyError = nil, false, false
   history, followUpDraft, turn = {}, "", 0
   followUp = noctalia.getConfig("follow_up") ~= false
+  latexEnabled = noctalia.getConfig("latex") ~= false
   connection, configError = config.read()
   render()
 end
@@ -255,6 +278,7 @@ function onClose()
   opened = false -- every host close path invalidates callbacks before cancellation
   stopStream()
   state, draft, question, answer, errorText = "idle", "", "", "", ""
+  displayAnswer = ""
   sessionId, copied, copyError = nil, false, false
   history, followUpDraft, turn = {}, "", 0
   connection, configError = nil, nil

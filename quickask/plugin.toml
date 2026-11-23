@@ -1,6 +1,6 @@
 id = "yusuferdemyamali/quickask"
 name = "QuickAsk"
-version = "0.3.0"
+version = "0.3.1"
 plugin_api = 24
 author = "yusuferdemyamali"
 license = "MIT"
@@ -51,4 +51,11 @@ key = "follow_up"
 type = "bool"
 label_key = "settings.follow_up.label"
 description_key = "settings.follow_up.description"
+default = true
+
+[[setting]]
+key = "latex"
+type = "bool"
+label_key = "settings.latex.label"
+description_key = "settings.latex.description"
 default = true
