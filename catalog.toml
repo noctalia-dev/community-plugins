@@ -4879,8 +4879,8 @@ rev = "1abd4500577ac9f20d888456d6b4139fb1d6d802"
 [[plugin]]
 id = "zyrex/nothing-ear"
 name = "Nothing Ear"
-version = "0.5.0"
-updated_at = 1794954485
+version = "0.6.0"
+updated_at = 1795454621
 added_at = 1792534252
 author = "zyrex"
 license = "MIT"
@@ -5489,8 +5489,8 @@ tags = ["audio", "bar", "panel", "utility"]
 [[plugin]]
 id = "rylos/usb-manager"
 name = "USB Manager"
-version = "1.0.2"
-updated_at = 1795038532
+version = "1.1.0"
+updated_at = 1795454596
 added_at = 1793635887
 author = "Marco Ziliani"
 license = "MIT"
