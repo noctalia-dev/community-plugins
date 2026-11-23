@@ -4,8 +4,6 @@
 
 local connected = false
 local activeNames = {}
-local connections = {}
-local defaultUuid = ""
 
 local function render()
   barWidget.setGlyph(connected and "shield-lock-filled" or "shield-lock")
@@ -21,7 +19,7 @@ local function render()
   end
 end
 
-noctalia.state.watch("vpn.status", function(status)
+local function applyStatus(status)
   if type(status) == "table" then
     connected = status.anyActive == true
     activeNames = type(status.activeNames) == "table" and status.activeNames or {}
@@ -30,28 +28,28 @@ noctalia.state.watch("vpn.status", function(status)
     activeNames = {}
   end
   render()
-end)
+end
 
-noctalia.state.watch("vpn.connections", function(rows)
-  connections = type(rows) == "table" and rows or {}
-end)
-
-noctalia.state.watch("vpn.defaultVpnUuid", function(uuid)
-  defaultUuid = type(uuid) == "string" and uuid or ""
-end)
+noctalia.state.watch("vpn.status", applyStatus)
 
 local function openPanel()
   noctalia.togglePanel("andrewdems/vpn-manager:panel")
 end
 
+-- state.watch only fires on later changes, never with the current value, and
+-- the service publishes vpn.defaultVpnUuid once at startup. Read it at click
+-- time so a widget created after that still sees the starred VPN.
 local function toggleDefault()
+  local stored = noctalia.state.get("vpn.defaultVpnUuid")
+  local defaultUuid = type(stored) == "string" and stored or ""
   if defaultUuid == "" then
     noctalia.notifyError(noctalia.tr("title"), noctalia.tr("notifications.no_default"))
     openPanel()
     return
   end
+  local rows = noctalia.state.get("vpn.connections")
   local active = false
-  for _, row in ipairs(connections) do
+  for _, row in ipairs(type(rows) == "table" and rows or {}) do
     if row.uuid == defaultUuid then
       active = row.active == true
     end
@@ -71,4 +69,4 @@ function onRightClick()
   openPanel()
 end
 
-render()
+applyStatus(noctalia.state.get("vpn.status"))
