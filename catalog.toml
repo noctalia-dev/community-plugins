@@ -2042,8 +2042,8 @@ rev = "45757b8932bfe2362aa818705d81d0e2e9c23f0b"
 [[plugin]]
 id = "dragged/cider"
 name = "Cider"
-version = "1.12.0"
-updated_at = 1794928927
+version = "1.12.1"
+updated_at = 1795439419
 added_at = 1787148354
 author = "dragged"
 license = "MIT"
@@ -2961,8 +2961,8 @@ rev = "3c34ca17b964f1fcd25b1b0cf964968c31c6a69d"
 [[plugin]]
 id = "andrewdems/vpn-manager"
 name = "VPN Manager"
-version = "1.1.0"
-updated_at = 1795127541
+version = "1.1.1"
+updated_at = 1795439383
 added_at = 1788789884
 author = "andrewdems"
 license = "MIT"
@@ -5019,8 +5019,8 @@ rev = "10d1b045312061c69118ace4891559982a72f634"
 [[plugin]]
 id = "yusuferdemyamali/quickask"
 name = "QuickAsk"
-version = "0.3.0"
-updated_at = 1793189053
+version = "0.3.1"
+updated_at = 1795439520
 added_at = 1792773244
 author = "yusuferdemyamali"
 license = "MIT"
@@ -5580,15 +5580,15 @@ tags = ["hyprland", "indicator", "bar"]
 [[plugin]]
 id = "lowcache/dropkitty"
 name = "dropkitty"
-version = "0.2.0"
-updated_at = 1794845923
+version = "0.2.1"
+updated_at = 1795439473
 added_at = 1793800113
 author = "lowcache"
 license = "MIT"
 icon = "terminal-2"
 description = "Quake-style drop-down terminal on kitty: bar toggle, launcher command runner, finished-command notifications."
 plugin_api = 26
-tags = ["bar", "service", "launcher", "productivity", "utility", "niri", "hyprland", "sway"]
+tags = ["bar", "service", "launcher", "productivity", "utility", "niri", "hyprland", "sway", "mangowc", "umbriel"]
 
 [[plugin]]
 id = "fr4j4/hyprland-minimize"
