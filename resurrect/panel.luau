@@ -12,15 +12,17 @@ local reviewing = false
 -- The cards scroll inside a column of their height, up to what fits in the panel
 -- (DESIGN.md, section 6.3). Rows have fixed heights; labels that wrap are estimated, and
 -- cards keep their own height, so a label that wraps more than estimated scrolls instead
--- of being cut off.
-local LIST_MAX = 560
+-- of being cut off. The scroll pads the cards by SCROLL_PAD_V above and below, and its sides
+-- and scrollbar leave a label about CHARS_PER_LINE characters a line.
+local LIST_MAX = 576
+local SCROLL_PAD_V = 8
 local CARD_GAP = 14
 local CARD_PADDING = 12
 local ROW_GAP = 8
 local TITLE_HEIGHT = 24
 local LINE_HEIGHT = 20
 local BUTTON_ROW_HEIGHT = 28
-local CHARS_PER_LINE = 34
+local CHARS_PER_LINE = 32
 
 -- About how tall a label of <text> is, wrapped to at most <maxLines>.
 local function textHeight(text, maxLines)
@@ -518,7 +520,7 @@ render = function()
   -- Nothing waits any more.
   reviewing = false
   -- The cards scroll between the fixed header and buttons when they do not fit.
-  local cards, height = {}, -CARD_GAP
+  local cards, height = {}, 2 * SCROLL_PAD_V - CARD_GAP
   local function add(item, itemHeight)
     if item then
       table.insert(cards, item)
