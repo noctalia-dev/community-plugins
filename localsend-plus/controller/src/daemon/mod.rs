@@ -903,14 +903,14 @@ impl Controller {
                 session_id,
                 ip,
                 info,
-                cert_fingerprint,
+                sender_fingerprint,
                 files,
                 decision_tx,
             } => self.receive_offer(
                 session_id,
                 ip.to_string(),
                 info,
-                cert_fingerprint,
+                sender_fingerprint,
                 files,
                 decision_tx,
             ),
@@ -1036,9 +1036,13 @@ impl Controller {
             }),
             download: info.download,
         };
+        // A request from the device does not show whether this device can
+        // reach it, so `observe_inbound` makes the core send one register
+        // request back, pinned to `fingerprint`. Only peers accepted by the
+        // visibility mode get here.
         let discovery = self.discovery.clone();
         tokio::spawn(async move {
-            discovery.add_device(device).await;
+            discovery.observe_inbound(device).await;
         });
     }
 
@@ -1176,6 +1180,7 @@ impl Controller {
             identity: self.identity.clone(),
             device,
             channel: http.clone(),
+            discovery: self.discovery.clone(),
             items,
             pin,
             progress: progress.clone(),

@@ -14,7 +14,7 @@ auto-accept. Transfers always use HTTPS with the other device's certificate pinn
 
 ## Requirements
 
-- Noctalia 5.4.0 or newer (plugin API 43).
+- Noctalia 5.6.0 or newer (plugin API 56). On older versions the plugin store offers LocalSend Plus 1.4.0.
 - `localsend-controller`, the helper that speaks the LocalSend protocol. Its Rust sources ship with this plugin in
   `controller/`; build it once as shown below.
 - `zenity` for the file and folder pickers.
@@ -65,7 +65,10 @@ confirm. The pin button keeps a device in the list as a favorite. With the defau
 favorites arrive without asking, and the pin's tooltip says so. The plus button next to "Nearby devices" adds a
 device by address when discovery cannot reach it (`192.168.1.20` or `phone.lan:53317`).
 
-An incoming request opens the panel with Accept and Decline. Accepting a text message copies it to the clipboard.
+An incoming request opens the panel with Accept and Decline, and its notification has the same two buttons. When a
+device uses the name of one of your favorites, the notification has only Decline; to accept it, use the panel, which
+shows a warning. Accepting a text message copies it to the clipboard. The notification about received files has Open
+folder and Show file buttons.
 A favorite shows up under the name it had when you pinned it. Any other device can call itself anything, so its
 name comes with the start of its fingerprint, and the panel warns when it uses the name of one of your favorites.
 Requests from devices that are not favorites open the panel and notify at most three times a minute; any beyond
@@ -287,6 +290,11 @@ more.
 The clipboard button never reads or shows text that a password manager marked as a secret, and the controller sends
 nothing if the clipboard changed after the preview. A received text message lands on the clipboard, so a clipboard
 history tool will keep it like anything else you copy.
+
+When a device sends a request to this one, the controller sends one register request back over HTTPS, pinned to the
+device's certificate, to check that the device can be reached at that address. In favorites mode this happens only
+for pinned devices. After the system wakes up from sleep, the plugin refreshes the device list at once and again
+10 s later.
 
 After a declined, withdrawn or expired request, the controller declines further requests from the same certificate
 or the same address silently for 60 s. It

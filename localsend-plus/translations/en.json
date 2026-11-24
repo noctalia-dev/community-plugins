@@ -59,6 +59,7 @@
     "pin_required": "{name} asks for a PIN. Enter it in the panel to send again.",
     "received": "Received {count} file(s) from {name}",
     "sent": "Sent {count} file(s) to {name}",
+    "show_file": "Show file",
     "temp_ended": "Temporary visibility ended. Now: {mode}",
     "text_copied": "Message from {name} copied to the clipboard",
     "title": "LocalSend Plus"

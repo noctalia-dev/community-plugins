@@ -1,6 +1,6 @@
 [package]
 name = "localsend-controller"
-version = "2.4.0"
+version = "2.5.0"
 description = "LocalSend receiver and sender for the LocalSend Plus Noctalia plugin"
 license = "MIT"
 rust-version = "1.97"
@@ -12,7 +12,7 @@ bytes = "1.11"
 clap = { version = "4.5", features = ["derive"] }
 futures-util = "0.3"
 libc = "0.2"
-localsend = { git = "https://github.com/localsend/localsend.git", rev = "82abda323d7c87e0f6dc09d8fd6a55d64c70d443", default-features = false, features = ["discovery"] }
+localsend = { git = "https://github.com/localsend/localsend.git", rev = "44f48f18a5503c43873570ff489d27ff1983e198", default-features = false, features = ["discovery"] }
 mime_guess = "2.0"
 pem = "4.0"
 rcgen = "0.14"

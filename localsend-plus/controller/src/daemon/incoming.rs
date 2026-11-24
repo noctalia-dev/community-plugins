@@ -56,11 +56,14 @@ impl Controller {
         session_id: String,
         host: String,
         info: RegisterDtoV2,
-        cert_fingerprint: Option<String>,
+        sender_fingerprint: Option<String>,
         files: HashMap<String, FileDto>,
         decision_tx: oneshot::Sender<PrepareUploadDecisionV2>,
     ) {
-        let Some(fingerprint) = cert_fingerprint else {
+        // The receiver always uses TLS and web sharing is off, so the core
+        // requires a client certificate and passes its fingerprint here.
+        // `None` means the sender had no certificate and is rejected.
+        let Some(fingerprint) = sender_fingerprint else {
             let _ = decision_tx.send(PrepareUploadDecisionV2::Decline);
             self.set_error(
                 "unverified_sender",
