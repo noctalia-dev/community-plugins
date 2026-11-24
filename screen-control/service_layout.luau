@@ -333,8 +333,9 @@ end
 
 -- Turned off or removed, the plugin puts the screens back as they were before its first
 -- change, and takes out its workspace rules, so Hyprland's own settings apply again. On any
--- other exit, a change that waits to be kept is undone; data.unkept stays, in case the undo
--- does not reach Hyprland, so the next start undoes it too.
+-- other exit, a change that waits to be kept is undone. Either way data.unkept stays, as
+-- nothing can confirm the requests reached Hyprland after the plugin stops: the next start
+-- puts that layout back and clears it once Hyprland took it.
 function onExit(_, reason)
   if not live then
     return
@@ -343,7 +344,6 @@ function onExit(_, reason)
     local profile = key and data.profiles[key]
     Hyprland.applyNow(merged(profile and profile.original or (pending and fieldsOf(pending.previous)) or fieldsOf(live)),
       data.ruled)
-    settled()
   elseif pending then
     Hyprland.applyNow(Layout.copy(pending.previous), data.ruled)
   end

@@ -147,6 +147,10 @@ end
 publish = function()
   local model = { monitors = {}, perWorkspace = perWorkspace() and true or false }
   local anyDim = false
+  -- The layer dims with each monitor's own level, so the level gamma had comes first.
+  if not useGamma() then
+    shareOut()
+  end
   for _, monitor in ipairs(monitors) do
     local dim = dims[dimKey(monitor.name)] or 0
     anyDim = anyDim or dim > 0
@@ -177,7 +181,6 @@ publish = function()
     return
   end
   -- Switched to the layer: gamma goes back to full first.
-  shareOut()
   if gamma and gamma < 100 then
     setGamma(100)
   end
