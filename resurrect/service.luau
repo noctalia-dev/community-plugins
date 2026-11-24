@@ -44,14 +44,14 @@ local approvedFile = dataDir .. "/approved-steps"
 -- conflicts and held: shared files that wait for the owner, by path under the home folder.
 -- incoming: shared files only another device changed, which wait until the owner takes them;
 -- incomingSettings: how many Noctalia settings wait the same way. blobs: the other devices'
--- version of each waiting file, as git names it, "-" for a removal.
+-- version of each waiting file, as "<blob>:<mode>" as git names them, "-" for a removal.
 -- missing: packages and services other devices have, as { list = "pacman", name = "foo" };
 -- left: those another device removed and this one still has, the same way.
 local state = {
   lastMs = nil, result = nil, error = nil, counts = nil, conflicts = {}, held = {}, missing = {}, left = {},
   incoming = {}, incomingSettings = 0, blobs = {},
 }
--- Choices not yet passed to a save: path -> "mine", or "theirs <blob>" with the version the
+-- Choices not yet passed to a save: path -> "mine", or "theirs <blob>:<mode>" with the version the
 -- owner was shown, so a version that came in after it waits again. The same for the settings
 -- that wait, with the settings text shown.
 local choices = {}
@@ -61,9 +61,12 @@ local settingsShown = nil
 -- changed in each, as changes.sh prints it. Take theirs and Take all take only what a review
 -- showed, named by its id. When what waits changes, the review is made again with a new id,
 -- so a choice made on the old one is dropped.
--- { id, items = { { path, blob, kind } }, settings = text or nil, key, sections = { text } or nil }
+-- An item or the settings can be taken only when its change was shown in full: complete
+-- holds which were, in the order of sections, the settings last.
+-- { id, items = { { path, blob, kind } }, settings = text or nil, key, sections = { text } or nil,
+--   complete = { boolean } }
 local review = nil
-local SECTION_CHARS = 8000
+local SECTION_CHARS = 20000
 -- The settings that wait, as they would be after taking them, written by the save.
 local incomingSettingsFile = dataDir .. "/incoming-settings.toml"
 -- What the review shows, for changes.sh.
@@ -134,6 +137,7 @@ local function publish()
       items = review.items,
       settings = review.settings ~= nil,
       sections = review.sections,
+      complete = review.complete,
     },
     missing = state.missing or {},
     left = state.left or {},
@@ -389,7 +393,7 @@ finish = function(code, out)
     end
   end
   for _, line in ipairs(lines) do
-    local blob, path = line.path:match("^([%x-]+) (.+)$")
+    local blob, path = line.path:match("^([%x:-]+) (.+)$")
     if blob and (line.word == "held" or line.word == "conflict" or line.word == "incoming") then
       blobs[path] = blob
       if line.word == "held" then
@@ -552,19 +556,26 @@ local function changes()
     if review ~= current then
       return
     end
-    local sections = {}
-    for text in ((result.stdout or "") .. (result.stdoutTruncated and "\30" or "")):gmatch("([^\30]*)\30\n?") do
-      text = noctalia.string.trim(text)
-      if #text > SECTION_CHARS then
-        text = text:sub(1, SECTION_CHARS) .. "\n\n" .. noctalia.tr("changes.cut")
+    -- Each section ends with 0x1e when changes.sh showed it in full, 0x1f when it did not.
+    -- When the output was cut or the script failed, no section counts as shown in full.
+    local sections, complete = {}, {}
+    local whole = result.exitCode == 0 and not result.stdoutTruncated
+    local text = (result.stdout or "") .. (whole and "" or "\31")
+    for body, mark in text:gmatch("([^\30\31]*)([\30\31])\n?") do
+      body = noctalia.string.trim(body)
+      local full = mark == "\30" and whole
+      if #body > SECTION_CHARS then
+        body = body:sub(1, SECTION_CHARS) .. "\n\n" .. noctalia.tr("changes.cut")
+        full = false
       end
-      table.insert(sections, text)
+      table.insert(sections, body)
+      table.insert(complete, full)
     end
-    current.sections = sections
+    current.sections, current.complete = sections, complete
     publish()
   end, 60000)
   if not started then
-    current.sections = {}
+    current.sections, current.complete = {}, {}
     publish()
   end
 end
@@ -579,17 +590,24 @@ reviewAgain = function()
   end
 end
 
--- The item the review <id> showed for <path>, or nil when that review is gone.
+-- The item the review <id> showed in full for <path>, or nil when that review is gone or did
+-- not show it in full.
 local function reviewed(id, path)
-  if review == nil or id ~= review.id then
+  if review == nil or id ~= review.id or review.complete == nil then
     return nil
   end
-  for _, item in ipairs(review.items) do
+  for index, item in ipairs(review.items) do
     if item.path == path then
-      return item
+      return review.complete[index] == true and item or nil
     end
   end
   return nil
+end
+
+-- Whether the review <id> showed the settings in full.
+local function settingsReviewed(id)
+  return review ~= nil and id == review.id and review.settings ~= nil and review.complete ~= nil
+    and review.complete[#review.items + 1] == true
 end
 
 -- Opens a terminal that shows each save step waiting for approval and asks about it.
@@ -619,20 +637,29 @@ noctalia.state.watch("resurrect.command", function(command)
     if command.choice == "mine" then
       settingsChoice, settingsShown = "mine", nil
       saveSoon()
-    elseif command.choice == "theirs" and review and command.review == review.id and review.settings then
+    elseif command.choice == "theirs" and settingsReviewed(command.review) then
       settingsChoice, settingsShown = "theirs", review.settings
       saveSoon()
     end
   elseif command.action == "take_all" and review and command.review == review.id then
+    -- Takes everything only another device changed, and only when each was shown in full.
+    local take, allShown = {}, true
     for _, item in ipairs(review.items) do
       if item.kind == "incoming" and not choices[item.path] then
-        choices[item.path] = "theirs " .. item.blob
+        allShown = allShown and reviewed(command.review, item.path) ~= nil
+        table.insert(take, item)
       end
     end
-    if review.settings and not settingsChoice then
-      settingsChoice, settingsShown = "theirs", review.settings
+    local settings = review.settings ~= nil and not settingsChoice
+    if allShown and (not settings or settingsReviewed(command.review)) then
+      for _, item in ipairs(take) do
+        choices[item.path] = "theirs " .. item.blob
+      end
+      if settings then
+        settingsChoice, settingsShown = "theirs", review.settings
+      end
+      saveSoon()
     end
-    saveSoon()
   elseif command.action == "changes" then
     changes()
   elseif command.action == "skip" and type(command.names) == "table" then

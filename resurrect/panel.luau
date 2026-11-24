@@ -190,20 +190,31 @@ local function reviewView(header)
   local view = model.review
   local id = view.id
   local entries = {}
-  local anyIncoming = false
-  local function entry(title, note, chosen, onMine, onTheirs, theirsTip, section)
+  -- Take all shows when something only another device changed waits, and each such change
+  -- was shown in full.
+  local anyIncoming, allShown = false, view.sections ~= nil
+  -- Whether section <index> was shown in full; only then can it be taken.
+  local function shown(index)
+    return view.complete ~= nil and view.complete[index] == true
+  end
+  local function entry(title, note, chosen, onMine, onTheirs, theirsTip, section, full)
     local children = { ui.label({ text = title, fontWeight = "semibold", maxLines = 3, flexGrow = 1 }) }
     if chosen then
       table.insert(children, ui.label({ text = noctalia.tr("waiting.chosen"), color = "on_surface_variant" }))
     elseif view.sections then
       table.insert(children, ui.button({ text = noctalia.tr("waiting.mine"), variant = "ghost", controlSize = "sm",
         onClick = onMine }))
-      table.insert(children, ui.button({ text = noctalia.tr("waiting.theirs"), variant = "ghost", controlSize = "sm",
-        tooltip = theirsTip, onClick = onTheirs }))
+      if full then
+        table.insert(children, ui.button({ text = noctalia.tr("waiting.theirs"), variant = "ghost", controlSize = "sm",
+          tooltip = theirsTip, onClick = onTheirs }))
+      end
     end
     local rows = { ui.row({ gap = 6, align = "center" }, children) }
     if note then
       table.insert(rows, ui.label({ text = note, color = "on_surface_variant" }))
+    end
+    if view.sections and not full and not chosen then
+      table.insert(rows, ui.label({ text = noctalia.tr("changes.incomplete"), color = "error" }))
     end
     table.insert(rows, ui.label({ text = section or noctalia.tr("panel.loading"),
       color = section and "on_surface" or "on_surface_variant" }))
@@ -216,21 +227,24 @@ local function reviewView(header)
       or item.kind == "held" and noctalia.tr("waiting.held") or nil
     if item.kind == "incoming" and not model.choices[path] then
       anyIncoming = true
+      allShown = allShown and shown(index)
     end
     entry("~/" .. path, note, model.choices[path],
       function() send({ action = "resolve", path = path, choice = "mine" }) end,
       function() send({ action = "resolve", path = path, choice = "theirs", review = id }) end,
       item.kind == "held" and noctalia.tr("waiting.theirs_held") or nil,
-      view.sections and (view.sections[index] or ""))
+      view.sections and (view.sections[index] or ""), shown(index))
   end
   if view.settings then
+    local index = #view.items + 1
     if not model.settingsChoice then
       anyIncoming = true
+      allShown = allShown and shown(index)
     end
     entry(noctalia.trp("incoming.settings", model.incomingSettings or 0), nil, model.settingsChoice,
       function() send({ action = "settings", choice = "mine" }) end,
       function() send({ action = "settings", choice = "theirs", review = id }) end,
-      nil, view.sections and (view.sections[#view.items + 1] or ""))
+      nil, view.sections and (view.sections[index] or ""), shown(index))
   end
   local buttons = {
     ui.button({ text = noctalia.tr("changes.back"), variant = "ghost", onClick = function()
@@ -238,7 +252,7 @@ local function reviewView(header)
       render()
     end }),
   }
-  if anyIncoming and view.sections then
+  if anyIncoming and allShown then
     table.insert(buttons, ui.button({ text = noctalia.tr("incoming.take_all"), glyph = "check", variant = "primary",
       tooltip = noctalia.tr("changes.take_all"),
       onClick = function() send({ action = "take_all", review = id }) end }))

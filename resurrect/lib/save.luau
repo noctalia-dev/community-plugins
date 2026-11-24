@@ -19,8 +19,9 @@
 -- what differs. Then the owner's own steps run, and the save is committed and pushed.
 --
 -- Emits "count <what> <number>" lines; "applied", "removed" and "kept" lines for shared
--- files, and "incoming <blob> <path>", "conflict <blob> <path>" and "held <blob> <path>" with
--- the other devices' version, "-" for a removal; "incoming-settings <number>"; "missing" and "left" lines for shared packages and services;
+-- files, and "incoming <version> <path>", "conflict <version> <path>" and "held <version>
+-- <path>" with the other devices' version as "<blob>:<mode>", as git names them, or "-" for a
+-- removal; "incoming-settings <number>"; "missing" and "left" lines for shared packages and services;
 -- "settings applied <number>"; "unapproved <path>" for each step that waits; then "saved" or
 -- "unchanged", and "pushed".
 
@@ -531,7 +532,8 @@ function Save.run(job, opt)
   -- { relative path -> content } and the sorted relative paths. A file named itself is always
   -- taken. Inside a folder, these are left out: nested git folders; caches, logs and crash
   -- reports; the data of browsers and Electron apps, which is a folder with a "Local State"
-  -- or "profiles.ini" file; binary files; and files over 1 MB. Every path in <leaveOut> is
+  -- or "profiles.ini" file; binary files; files over 1 MB; and sockets, pipes and devices,
+  -- which hold nothing to save and which reading could block on. Every path in <leaveOut> is
   -- left out with all it holds. Links are followed. A file or folder it cannot read stops the
   -- save, so it never reads as removed; so does a total over 50 MB.
   local function pick(roots, leaveOut)
@@ -555,6 +557,23 @@ function Save.run(job, opt)
         total += #content
       end
     end
+    -- Reads the file at <path>, of <size> bytes, into the save; a binary one only when it is
+    -- <named>. Sockets, pipes and devices have no size, so a file of none is read only when
+    -- find says it is a regular file.
+    local function read(path, size, named)
+      if size == 0 then
+        if trim(job.run({ "find", "-L", path, "-maxdepth", "0", "-type", "f" }).stdout) == path then
+          take(path, "")
+        end
+        return
+      end
+      local content = noctalia.readFile(path)
+      if content == nil then
+        table.insert(errors, path)
+      elseif named or not content:find("\0", 1, true) then
+        take(path, content)
+      end
+    end
     local function walk(folder, depth)
       breathe()
       local names = noctalia.listDir(folder)
@@ -574,12 +593,7 @@ function Save.run(job, opt)
             walk(full, depth + 1)
           end
         elseif info.size <= FILE_LIMIT then
-          local content = noctalia.readFile(full)
-          if content == nil then
-            table.insert(errors, full)
-          elseif not content:find("\0", 1, true) then
-            take(full, content)
-          end
+          read(full, info.size)
         end
       end
     end
@@ -588,12 +602,10 @@ function Save.run(job, opt)
       if root:sub(1, #home + 1) == home .. "/" and not leftOut(root) then
         if isDir(root) then
           walk(root, 0)
-        elseif noctalia.fileExists(root) then
-          local content = noctalia.readFile(root)
-          if content == nil then
-            table.insert(errors, root)
-          else
-            take(root, content)
+        else
+          local info = noctalia.fileInfo(root)
+          if info then
+            read(root, info.size, true)
           end
         end
       end
@@ -1023,16 +1035,18 @@ function Save.run(job, opt)
       breathe()
       local t = their[path] and their[path].blob
       local mode = their[path] and their[path].mode
+      -- What the owner is shown and takes: the content and whether it is executable.
+      local version = t and t .. ":" .. mode or "-"
       local b = base[path]
       local m = hashes[path]
       -- Theirs is held when it is the version that broke Hyprland here.
       local isHeld = held[path] ~= nil and held[path] == t
-      -- "theirs <blob>" takes the version the owner was shown, <blob>, or "-" for a removal.
-      -- When another device changed the file again since, the choice is dropped and the file
-      -- waits again, with its new version.
+      -- "theirs <version>" takes the version the owner was shown. When another device changed
+      -- the file again since, its content or its mode, the choice is dropped and the file waits
+      -- again, with its new version.
       local choice = resolve[path]
       if choice ~= nil and choice ~= "mine" then
-        choice = choice == "theirs " .. (t or "-") and "theirs" or nil
+        choice = choice == "theirs " .. version and "theirs" or nil
       end
 
       if isKept(path) then
@@ -1061,7 +1075,7 @@ function Save.run(job, opt)
         if b then
           newBase[path] = b
         end
-        job.emit("incoming " .. (t or "-") .. " " .. path)
+        job.emit("incoming " .. version .. " " .. path)
       elseif choice == "theirs" then
         -- The owner took theirs: it is put in place here.
         if t == nil then
@@ -1077,7 +1091,7 @@ function Save.run(job, opt)
           if b then
             newBase[path] = b
           end
-          job.emit("conflict " .. (t or "-") .. " " .. path)
+          job.emit("conflict " .. version .. " " .. path)
         end
       else
         -- Changed on both sides, or held back: nothing moves until the owner chooses.
@@ -1089,9 +1103,9 @@ function Save.run(job, opt)
         end
         if isHeld then
           newHeld[path] = t
-          job.emit("held " .. t .. " " .. path)
+          job.emit("held " .. version .. " " .. path)
         else
-          job.emit("conflict " .. (t or "-") .. " " .. path)
+          job.emit("conflict " .. version .. " " .. path)
         end
       end
     end
@@ -1124,7 +1138,7 @@ function Save.run(job, opt)
           -- The agreed version goes back to what it was, so the file stays a difference.
           newBase[path] = base[path]
           newHeld[path] = their[path].blob
-          job.emit("held " .. their[path].blob .. " " .. path)
+          job.emit("held " .. their[path].blob .. ":" .. their[path].mode .. " " .. path)
         end
         job.run({ "hyprctl", "reload" })
       end

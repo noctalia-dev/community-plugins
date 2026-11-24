@@ -91,9 +91,12 @@ other devices changed. Nothing from them comes in until you take it:
 - A dotfile that only another device changed, or deleted, waits in the panel's
   **Changes from your other devices** card, when it is in this device's **Files**. You take
   it in **Review**, which shows, in the panel, what changed in each waiting file and in the
-  settings. **Take theirs**, or **Take all**, puts in place the version Review shows, with
-  the next save. When another device changes it again while Review is open, Review shows the
-  new version instead, and a choice made on the old one is dropped. **Keep mine** shares this
+  settings, and when a file becomes executable or stops being so. **Take theirs**, or
+  **Take all**, puts in place the version Review shows, with the next save. When another
+  device changes it again while Review is open, its content or whether it is executable,
+  Review shows the new version instead, and a choice made on the old one is dropped. A
+  change Review cannot show in full, such as a very long one, cannot be taken in the panel:
+  **Keep mine**, or copy it by hand from `shared/files/` in the repository. **Keep mine** shares this
   device's version instead. The file it replaces goes to
   `~/.local/state/resurrect/backup-<date>` first. When that copy fails, the save stops
   before replacing the file, and the panel shows why.

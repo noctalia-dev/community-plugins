@@ -174,6 +174,7 @@
     "back": "Back",
     "cut": "The rest is left out, as it is too long to show.",
     "conflict": "Changed on this device too. Keep mine shares this device's version; Take theirs puts the other devices' version here.",
-    "take_all": "Takes every change from your other devices shown here, not the files changed on both"
+    "take_all": "Takes every change from your other devices shown here, not the files changed on both. It shows only when each change was shown in full.",
+    "incomplete": "This change could not be shown in full, so it cannot be taken here. Keep mine, or copy it by hand from shared/files/ in the repository."
   }
 }
