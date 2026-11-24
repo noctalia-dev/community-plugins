@@ -1,0 +1,34 @@
+id = "nofiltera1/nvibrant"
+name = "NVibrant"
+version = "1.0.0"
+plugin_api = 43
+author = "NoFilterA1"
+license = "MIT"
+dependencies = ["bash", "awk", "niri", "nvibrant"]
+tags = ["bar", "panel", "system", "gaming", "hardware", "niri"]
+icon = "contrast"
+description = "Screen saturation: nvibrant on NVIDIA, niri color-matrix on other GPUs. Bar button with a slider panel."
+
+[[setting]]
+key = "display_index"
+type = "int"
+label_key = "settings.display_index.label"
+description_key = "settings.display_index.description"
+default = 0
+min = 0
+max = 16
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 340
+height = "content"
+max_height = 200
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true

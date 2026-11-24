@@ -1,0 +1,26 @@
+{
+  "title": "NVibrant",
+  "panel": {
+    "title": "Saturation"
+  },
+  "settings": {
+    "display_index": {
+      "label": "Display port",
+      "description": "0 = all ports (recommended). Otherwise the nvibrant port number, 1 = first."
+    }
+  },
+  "toast": {
+    "no_display": {
+      "title": "NVibrant: no display",
+      "body": "No connected display found."
+    },
+    "no_ctm": {
+      "title": "NVibrant: niri has no color-matrix",
+      "body": "Saturation on non-NVIDIA outputs needs a niri build with the `output color-matrix` action. See the plugin README (Requirements)."
+    },
+    "failed": {
+      "title": "NVibrant failed",
+      "body": "nvibrant returned an error. Check the display port in plugin settings."
+    }
+  }
+}
