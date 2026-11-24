@@ -1,6 +1,6 @@
 id = "omerfuyar/overview"
 name = "Overview"
-version = "1.6.0"
+version = "1.7.0"
 plugin_api = 43
 author = "omerfuyar"
 license = "MIT"
@@ -15,6 +15,24 @@ type = "string"
 label_key = "settings.keybind.label"
 description_key = "settings.keybind.description"
 default = ""
+
+[[setting]]
+key = "per_row"
+type = "int"
+label_key = "settings.per_row.label"
+description_key = "settings.per_row.description"
+default = 4
+min = 1
+max = 8
+
+[[setting]]
+key = "max_rows"
+type = "int"
+label_key = "settings.max_rows.label"
+description_key = "settings.max_rows.description"
+default = 3
+min = 1
+max = 10
 
 [[setting]]
 key = "previews"
@@ -35,9 +53,9 @@ entry = "widget.luau"
 [[panel]]
 id = "panel"
 entry = "panel.luau"
-width = 872
+width = 1120
 height = "content"
-max_height = 900
+max_height = 2160
 placement = "attached"
 position = "auto"
 open_near_click = true
@@ -47,9 +65,9 @@ keyboard_focus = "exclusive"
 [[panel]]
 id = "center"
 entry = "panel.luau"
-width = 872
+width = 1120
 height = "content"
-max_height = 900
+max_height = 2160
 placement = "floating"
 position = "center"
 keyboard_focus = "exclusive"

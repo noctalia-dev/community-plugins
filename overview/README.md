@@ -26,9 +26,12 @@ Add the **Overview** widget to the bar and click it.
 
 ![Overview in the bar](screenshots/bar.webp)
 
-- Each workspace in use shows its tiled windows in their places, as pictures of their content.
-  Floating windows are small tiles under them. Workspaces sit three to a row, and the
-  overview is only as tall as the rows in use.
+- Each workspace shows its tiled windows in their places, as pictures of their content.
+  Floating windows are small tiles under them. Empty workspaces show too, as Hyprland keeps
+  them: the one on screen, and those its config keeps.
+- Workspaces sit four to a row, or as many as **Workspaces in a row** says, and the cards
+  fill the row. The overview grows with each row, on every monitor, up to three rows, or
+  **Rows before it scrolls**, and never taller than the screen; then it scrolls.
 - The active workspace and the focused window have an accent border.
 - Click a window to focus it, or a workspace's title to switch to it. The overview closes.
 - Drag a window onto another workspace to move it there without leaving the overview.
@@ -52,6 +55,8 @@ noctalia msg panel-toggle omerfuyar/overview:panel
 | Setting    | Type     | Default | Description                                                                                              |
 | ---------- | -------- | ------- | -------------------------------------------------------------------------------------------------------- |
 | `keybind`  | `string` | `""`    | A key that opens Overview, such as `SUPER + Tab`. Empty adds no key binding.                             |
+| `per_row`  | `int`    | `4`     | Workspaces side by side in a row, from 1 to 8. The cards grow or shrink to fill the row.                 |
+| `max_rows` | `int`    | `3`     | Rows of workspaces, on all monitors, before the overview scrolls, from 1 to 10.                          |
 | `previews` | `bool`   | `true`  | Advanced. A small picture of each window, taken with grim. Off, windows show their app's icon and title. |
 
 ## Notes

@@ -9,7 +9,6 @@
     "error": "Overview could not read Hyprland's workspaces and windows:",
     "hint": "Click a window to go to it. Drag it onto a workspace to move it.",
     "loading": "Loading…",
-    "no_windows": "No windows open.",
     "not_hyprland": "Overview works on Hyprland.",
     "title": "Overview"
   },
@@ -21,6 +20,14 @@
     "previews": {
       "description": "Show a small picture of each window, taken with grim. Off, each window shows its app's icon and title, for systems where grim fails or is slow.",
       "label": "Window previews"
+    },
+    "per_row": {
+      "label": "Workspaces in a row",
+      "description": "How many workspaces sit side by side. The cards grow or shrink to fill the row."
+    },
+    "max_rows": {
+      "label": "Rows before it scrolls",
+      "description": "The overview grows with each row of workspaces, across all monitors, up to this many rows or the height of the screen; then it scrolls."
     }
   },
   "widget": {
@@ -31,6 +38,7 @@
     "windows": {
       "one": "1 window",
       "other": "{count} windows"
-    }
+    },
+    "empty": "Empty"
   }
 }

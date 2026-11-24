@@ -5,13 +5,28 @@
 
 local Layout = require("./lib/layout.luau")
 
-local CARD_WIDTH = 256
-local PER_ROW = 3
 local GAP = 4
 local DRAG_TYPE = "omerfuyar/overview:window"
 -- A card's title line and the gap below it.
 local CARD_HEADER = 26
-local MAX_LIST_HEIGHT = 760
+local CARD_GAP = 16 -- between cards in a row
+local ROW_GAP = 14 -- between rows, and below a monitor's name
+local SECTION_GAP = 20 -- between monitors
+local NAME_HEIGHT = 20
+local PADDING = 20
+local TITLE_HEIGHT = 24
+-- The panel's width in plugin.toml. Noctalia keeps it 8 from each screen edge, and pads its
+-- content by 14 on each side.
+local PANEL_WIDTH = 1120
+local SCREEN_EDGE = 8
+local PANEL_PADDING = 14
+-- A scroll pads its content by 4 on each side and 8 above and below, and its scrollbar takes
+-- 11 beside the content.
+local SCROLL_PAD_H = 4
+local SCROLL_PAD_V = 8
+local SCROLLBAR = 11
+-- Room the bar and the panel's own margins take from the screen's height.
+local SCREEN_RESERVE = 120
 
 local model = nil
 
@@ -97,9 +112,13 @@ local function preview(workspace, width, height)
   return children
 end
 
-local function card(workspace, monitor, active)
-  local width = CARD_WIDTH
-  local height = math.floor(width * monitor.height / monitor.width)
+-- A workspace's card, <width> wide and as tall as its monitor's shape.
+local function cardHeight(monitor, width)
+  return math.floor(width * monitor.height / monitor.width)
+end
+
+local function card(workspace, monitor, active, width)
+  local height = cardHeight(monitor, width)
   local inner = height - 2 * 6
   local zone = ui.dropZone({
     accepts = { DRAG_TYPE },
@@ -117,7 +136,8 @@ local function card(workspace, monitor, active)
     fill = active and "primary/0.12" or "surface_container",
     border = active and "primary" or "outline_variant",
     borderWidth = active and 2 or 1,
-  }, preview(workspace, width - 12, inner))
+  }, #workspace.windows > 0 and preview(workspace, width - 12, inner)
+    or { ui.label({ text = noctalia.tr("workspace.empty"), color = "on_surface_variant" }) })
   local count = #workspace.windows
   return ui.column({
     key = "ws" .. workspace.id,
@@ -137,35 +157,33 @@ local function card(workspace, monitor, active)
   })
 end
 
-local function monitorSection(monitor, showName)
+local function setting(key, low, high, default)
+  return math.clamp(math.floor(tonumber(noctalia.getConfig(key)) or default), low, high)
+end
+
+-- A monitor's workspaces, <perRow> to a row of cards <width> wide. Returns the section and
+-- the height of each of its parts: its name, then each row.
+local function monitorSection(monitor, showName, perRow, width)
   local cards = {}
   for _, workspace in ipairs(model.workspaces) do
-    -- Only workspaces in use: empty ones are left out.
-    if workspace.monitor == monitor.name and #workspace.windows > 0 then
-      table.insert(cards, card(workspace, monitor, workspace.id == monitor.active))
+    if workspace.monitor == monitor.name then
+      table.insert(cards, card(workspace, monitor, workspace.id == monitor.active, width))
     end
   end
-
-  local rows = {}
-  if #cards == 0 then
-    table.insert(rows, ui.label({ text = noctalia.tr("panel.no_windows"), color = "on_surface_variant" }))
-  end
-  for start = 1, #cards, PER_ROW do
-    table.insert(rows, ui.row({ gap = 16 }, table.move(cards, start, math.min(start + PER_ROW - 1, #cards), 1, {})))
-  end
-  -- Each row is a title line and a card; rows and the monitor name are 14 apart.
-  local cardHeight = math.floor(CARD_WIDTH * monitor.height / monitor.width)
-  local height = #cards == 0 and 24 or #rows * (CARD_HEADER + cardHeight) + (#rows - 1) * 14
-  local children = {}
+  local children, heights = {}, {}
   if showName then
-    height += 20 + 14
-    table.insert(children, ui.row({ gap = 6, align = "center", height = 20 }, {
+    table.insert(children, ui.row({ gap = 6, align = "center", height = NAME_HEIGHT }, {
       ui.glyph({ name = "device-desktop", size = 16, color = "on_surface_variant" }),
       ui.label({ text = monitor.name, color = "on_surface_variant" }),
     }))
+    table.insert(heights, NAME_HEIGHT)
   end
-  table.move(rows, 1, #rows, #children + 1, children)
-  return ui.column({ key = "mon" .. monitor.name, gap = 14 }, children), height
+  for start = 1, #cards, perRow do
+    table.insert(children, ui.row({ gap = CARD_GAP },
+      table.move(cards, start, math.min(start + perRow - 1, #cards), 1, {})))
+    table.insert(heights, CARD_HEADER + cardHeight(monitor, width))
+  end
+  return ui.column({ key = "mon" .. monitor.name, gap = ROW_GAP }, children), heights
 end
 
 local function render()
@@ -189,23 +207,51 @@ local function render()
     return
   end
 
-  -- A scroll keeps the height of its first content, so it fills a column of the list's
-  -- height (DESIGN.md, section 6.3).
-  local sections, contentHeight = {}, 0
-  for index, monitor in ipairs(model.monitors) do
-    local section, height = monitorSection(monitor, #model.monitors > 1)
-    table.insert(sections, section)
-    contentHeight += height + (index > 1 and 20 or 0)
+  -- The panel opens on the focused monitor, which may be narrower or shorter than the panel.
+  local screen = model.monitors[1]
+  for _, monitor in ipairs(model.monitors) do
+    if monitor.focused then
+      screen = monitor
+    end
   end
+  local panelWidth = math.min(PANEL_WIDTH, screen and screen.width - 2 * SCREEN_EDGE or PANEL_WIDTH)
+  local listWidth = panelWidth - 2 * (PANEL_PADDING + PADDING + SCROLL_PAD_H) - SCROLLBAR
+  -- Cards fill a row of perRow cards.
+  local perRow = setting("per_row", 1, 8, 4)
+  local width = math.max(math.floor((listWidth - CARD_GAP * (perRow - 1)) / perRow), 80)
 
-  panel.render(ui.column({ gap = 16, padding = 20 }, {
-    ui.row({ gap = 8, align = "center" }, {
+  -- The list is as tall as its rows, up to max_rows rows and what fits on the screen; then it
+  -- scrolls. A scroll keeps the height of its first content, so it fills a column of the
+  -- list's height (DESIGN.md, section 6.3).
+  local maxRows = setting("max_rows", 1, 10, 3)
+  local fits = (screen and screen.height or 1080) - SCREEN_RESERVE
+    - 2 * (PANEL_PADDING + PADDING) - TITLE_HEIGHT - 16
+  local sections, height, cap, rows = {}, 2 * SCROLL_PAD_V, nil, 0
+  for index, monitor in ipairs(model.monitors) do
+    local section, heights = monitorSection(monitor, #model.monitors > 1, perRow, width)
+    table.insert(sections, section)
+    local named = #model.monitors > 1
+    for part, partHeight in ipairs(heights) do
+      height += partHeight + (part > 1 and ROW_GAP or (index > 1 and SECTION_GAP or 0))
+      -- Rows of cards count toward max_rows; a monitor's name does not.
+      if not (named and part == 1) then
+        rows += 1
+        if rows == maxRows then
+          cap = height
+        end
+      end
+    end
+  end
+  local listHeight = math.min(height, cap or height, fits)
+
+  panel.render(ui.column({ gap = 16, padding = PADDING }, {
+    ui.row({ gap = 8, align = "center", height = TITLE_HEIGHT }, {
       ui.glyph({ name = "layout-grid", size = 20, color = "primary" }),
       ui.label({ text = noctalia.tr("panel.title"), fontWeight = "semibold", flexGrow = 1 }),
       ui.label({ text = noctalia.tr("panel.hint"), color = "on_surface_variant" }),
     }),
-    ui.column({ height = math.min(contentHeight, MAX_LIST_HEIGHT) }, {
-      ui.scroll({ key = "list", flexGrow = 1, gap = 20 }, sections),
+    ui.column({ height = listHeight }, {
+      ui.scroll({ key = "list", flexGrow = 1, gap = SECTION_GAP }, sections),
     }),
   }))
 end
