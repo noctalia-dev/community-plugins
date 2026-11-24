@@ -3,7 +3,7 @@
   "applied": "Cursor applied",
   "applied_partly": "Applied, but not to:",
   "apply": "Apply",
-  "applying": "Applying…",
+  "applying": "Applying… a new size takes longer the first time",
   "build": "Build",
   "build_again": "Build again",
   "build_hint": "A folder of PNGs. It is read and shown below before anything is written. Add spec.json to set hotspots, animation frames and delays.",
@@ -15,11 +15,11 @@
   "convert": "Convert",
   "convert_again": "Convert again",
   "converting": "Converting…",
-  "drift": "Layers disagree — apply a theme to bring your compositor, GTK and Qt back in sync.",
+  "drift": "Not every app uses the same cursor. Apply a theme to bring them back in line.",
   "engine_missing": "The cursor engine did not run. Check that python3 is installed.",
   "engine_timeout": "The cursor engine took longer than a minute and was stopped. Try fewer sizes in the plugin settings, then run it again.",
   "error": "Something went wrong",
-  "hide_after_ms": "Hide after ms",
+  "hide_after_ms": "Hide after (ms)",
   "hide_when_typing": "Hide when typing",
   "import_hint": "A Windows cursor pack folder. It is read and shown below before anything is written. An Install.inf is used when present.",
   "import_path": "Cursor pack folder",
@@ -100,7 +100,7 @@
       "label": "Engine path"
     },
     "hyprland_config": {
-      "description": "Leave empty for ~/.config/hypr/hyprland.conf. cursor.conf is written beside it.",
+      "description": "Leave empty for ~/.config/hypr/hyprland.lua, or hyprland.conf when there is no .lua. cursor.lua / cursor.conf is written beside it.",
       "label": "Hyprland config"
     },
     "icon_dirs": {
