@@ -1,6 +1,6 @@
 id = "omerfuyar/media-downloader"
 name = "Media Downloader"
-version = "2.1.1"
+version = "2.1.2"
 plugin_api = 43
 author = "omerfuyar"
 license = "MIT"
