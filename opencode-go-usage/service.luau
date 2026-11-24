@@ -10,8 +10,8 @@
 -- The bar and panel are thin clients: they only read the "usage" state key.
 
 -- The usage route a usage-scoped API key may read. The console's own endpoint
--- (/console/api/go/status) only answers a key created with Permissions: All and
--- returns 403 {"_tag":"Forbidden"} to a key that only has usage access.
+-- (/console/api/go/status) answers a key created with Permissions: All; a key with
+-- usage access only gets 403 {"_tag":"Forbidden"}.
 local API_URL = "https://opencode.ai/zen/go/v1/usage"
 local REFRESH_CMD = "usage.cmd"
 

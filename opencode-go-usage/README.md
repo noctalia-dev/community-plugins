@@ -55,10 +55,15 @@ per-widget, so you can show a different limit on each monitor.
 **Network access.** A single background service polls
 `https://opencode.ai/zen/go/v1/usage` on the interval above and is the only
 thing that touches the network. That route is readable with a usage-scoped
-API key; the console's own `/console/api/go/status` only answers a key created with
-`Permissions: All` and returns `403` to a key that only has usage access. The bar widget and the panel only read the result
-from shared state, so N capsules on M monitors still cost one request per cycle.
-Refresh is guarded against overlapping requests.
+API key. The console's own `/console/api/go/status` answers a key created with
+`Permissions: All`; a key with usage access only gets `403`. The bar widget and the
+panel only read the result from shared state, so N capsules on M monitors still cost
+one request per cycle. Refresh is guarded against overlapping requests.
+
+**Changed in 1.2.2.** Earlier versions polled `/console/api/go/status`, which only
+works with a `Permissions: All` key. The meters now come from `/zen/go/v1/usage`, so a
+usage-scoped key works. That route reports a percentage per window and no billing
+state, so the `Active` / `Cancelling` chip and the exact cents are no longer shown.
 
 **Credential handling.** The key is stored by Noctalia in its own plugin settings
 and is sent only to `opencode.ai`, in an `Authorization: Bearer` header. The
