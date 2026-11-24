@@ -1,0 +1,88 @@
+# Caffeinate Plus: keep the session awake until you turn it off, lock the
+# screen, or a timer runs out. A port of the Caffeine Spoon for Hammerspoon
+# (github.com/jonfriesen/caffeine-spoon).
+#
+# service  -> owns all state and drives noctalia's built-in caffeine through
+#             `noctalia msg caffeine-enable|disable`
+# widget   -> bar icon: left click toggles, right click opens the panel,
+#             scroll adds or removes time
+# panel    -> presets, remaining time, lid option
+# shortcut -> Control Center tile
+#
+# IPC: noctalia msg plugin jonfriesen/caffeinate-plus:service all <event> [payload]
+#   toggle | enable | disable | for <minutes> | add <±minutes> | cancel-timer
+#   lid [on|off] | status
+
+id = "jonfriesen/caffeinate-plus"
+name = "Caffeinate Plus"
+version = "0.1.0"
+plugin_api = 43
+author = "jonfriesen"
+license = "Apache-2.0"
+icon = "coffee"
+description = "Caffeine with timed presets, a countdown, auto-off on screen lock, and an optional lid-close inhibit."
+tags = ["bar", "indicator", "productivity", "service", "shortcut", "system", "utility"]
+dependencies = ["noctalia", "systemd-inhibit", "systemd-run", "systemctl", "grep", "sleep"]
+
+[[setting]]
+key = "presets_minutes"
+type = "string_list"
+label_key = "settings.presets_minutes.label"
+description_key = "settings.presets_minutes.description"
+default = ["5", "15", "30", "60", "240", "480"]
+
+[[setting]]
+key = "scroll_step_minutes"
+type = "int"
+label_key = "settings.scroll_step_minutes.label"
+description_key = "settings.scroll_step_minutes.description"
+default = 15
+min = 1
+max = 120
+step = 1
+
+[[setting]]
+key = "cancel_on_lock"
+type = "bool"
+label_key = "settings.cancel_on_lock.label"
+description_key = "settings.cancel_on_lock.description"
+default = true
+
+[[setting]]
+key = "lid_inhibit"
+type = "bool"
+label_key = "settings.lid_inhibit.label"
+description_key = "settings.lid_inhibit.description"
+default = false
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[widget]]
+id = "caffeine"
+entry = "widget.luau"
+
+  # Left click (toggle) and scroll (± time) are the widget's own callbacks.
+  [widget.actions]
+  right = "panel-toggle jonfriesen/caffeinate-plus:panel"
+
+  [[widget.setting]]
+  key = "show_remaining"
+  type = "bool"
+  label_key = "settings.show_remaining.label"
+  description_key = "settings.show_remaining.description"
+  default = true
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 300
+height = 360
+placement = "attached"
+position = "auto"
+open_near_click = true
+
+[[shortcut]]
+id = "toggle"
+entry = "shortcut.luau"
