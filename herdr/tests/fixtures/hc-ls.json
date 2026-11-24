@@ -1,0 +1,12 @@
+{
+  "hidden_finished": 2,
+  "machines": [],
+  "terminals": [
+    {"address": "t1", "agent": "claude-code", "cwd": "/home/me/src/api", "state": "live", "status": "working", "turn": 4, "where": "api / server"},
+    {"address": "t2", "agent": "claude-code", "cwd": "/home/me/src/api/client", "state": "live", "status": "blocked", "turn": 9, "where": "api / client"},
+    {"address": "t3", "cwd": "/home/me/src/api", "state": "live", "status": "idle", "turn": 0, "where": "api / shell"},
+    {"address": "t4", "agent": "codex", "cwd": "/home/me/docs", "state": "live", "status": "idle", "turn": 2, "where": "docs / notes"},
+    {"address": "t5", "agent": "claude-code", "cwd": "/home/me/src/api", "state": "parked", "status": "blocked", "turn": 1, "where": "api / sub-agent"},
+    {"address": "t6", "cwd": "/home/me", "state": "live", "status": "idle", "turn": 0, "where": "scratch / shell"}
+  ]
+}

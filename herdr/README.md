@@ -124,6 +124,21 @@ Herdr exposes no event stream over its socket API, so the widget cannot be pushe
 
 A refresh is `herdr session list --json` plus one `herdr api snapshot` per running session, both local socket calls, so a fast cadence stays cheap. Refreshes never stack: a tick that lands while one is in flight is collapsed into a single follow-up read. The cadence slows on its own as soon as nothing needs attention.
 
+## Herdr desktop app
+
+When `herdr` is not on `PATH` but `hc` is, the plugin reads the Herdr desktop app
+(`herdr-app`, whose terminals run in `herdr-core`) instead:
+
+- `hc ls --json` lists this machine's live terminals; each space is a workspace. A
+  space with one agent terminal is a single row with its tab underneath; in a space
+  with several, each agent terminal is a row named by its tab, with its folder underneath;
+- clicking a row runs `herdr-app do pane.focus --terminal <address>`, then raises the
+  app window (`app_id` `herdr-app`) through Niri, Sway or Hyprland. When the window is
+  closed, the app is opened first and the focus retried;
+- clicking the card raises the window, or opens the app with `setsid -f herdr-app`;
+- the app has no named sessions, so Stop and Delete are not shown, and
+  `show_other_machines` does not apply.
+
 ## Hyprland integration
 
 When `hyprctl` and `ps` are available, the service maps Herdr client processes to `hyprctl clients -j` results. Opening a mapped session focuses its existing window. Focusing an agent first runs Herdr's `agent focus` command, then brings that session window forward.

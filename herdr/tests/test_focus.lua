@@ -13,8 +13,18 @@ local function fixture(options)
     string = { trim = function(s) return (s:gsub("^%s+", ""):gsub("%s+$", "")) end },
     state = { get = function() return false end, set = function() end,
       watch = function(key, callback) watches[key] = callback end },
-    commandExists = function(command) return command ~= "herdr" or loaded end,
-    getenv = function(name) return name == "NIRI_SOCKET" and (options.hyprland and "" or "/mock/niri.sock") or "" end,
+    commandExists = function(command)
+      -- Herdr app mode: hc is installed and herdr is not.
+      if command == "hc" then return options.app == true end
+      if command == "herdr" and options.app then return false end
+      if command == "herdr-app" then return options.noApp ~= true end
+      if command == "setsid" then return options.noSetsid ~= true end
+      return command ~= "herdr" or loaded
+    end,
+    getenv = function(name)
+      if name == "SWAYSOCK" then return options.sway and "/mock/sway.sock" or "" end
+      return name == "NIRI_SOCKET" and ((options.hyprland or options.sway) and "" or "/mock/niri.sock") or ""
+    end,
     readFile = function(path)
       if path == "/proc/sys/kernel/hostname" then return options.hostname end
       local pid = tonumber(path:match("/proc/(%d+)/stat"))
@@ -54,6 +64,22 @@ local function fixture(options)
     elseif command:match("^herdr .*agent focus ") or command:match("^herdr agent focus ") then
       if options.deferAgent then options.resolveAgent = callback
       else callback({ exitCode = options.agentExit or 0, stdout = "" }) end
+    elseif command == "herdr session list --json" and options.sessionListRaw then
+      callback({ exitCode = 0, stdout = options.sessionListRaw })
+    elseif command:match(" api snapshot$") and options.snapshotRaw then
+      callback({ exitCode = 0, stdout = options.snapshotRaw })
+    elseif command == "hyprctl clients -j" then
+      callback({ exitCode = 0, stdout = options.clientsRaw or "[]" })
+    elseif command == "hc ls --json" then
+      callback({ exitCode = options.hcExit or 0, stdout = options.terminalsRaw or "" })
+    elseif command:match("^herdr%-app do pane%.focus ") then
+      callback({ exitCode = options.appFocusExit or 0, stdout = "" })
+    elseif command:match("^swaymsg ") then
+      callback({ exitCode = options.focusExit or 0, stdout = "" })
+    elseif command:find("sh -c setsid -f herdr-app", 1, true) == 1 then
+      -- The plain launch, or the launch that retries pane.focus while the app starts.
+      local retry = command:find("pane.focus", 1, true) ~= nil
+      callback({ exitCode = retry and (options.retryExit or 0) or 0, stdout = "" })
     elseif command:match("^herdr session stop ") or command:match("^herdr session delete ") then
       if options.deferLifecycle then options.resolveLifecycle = callback
       else callback({ exitCode = options.lifecycleExit or 0, stdout = "" }) end
@@ -694,6 +720,152 @@ test("Refresh keeps its identity through polling and ignores clicks while busy",
     ready.onClick()
     assert(#commands == cycle and commands[cycle].action == "refresh")
   end
+end)
+
+local LAUNCH = "sh -c setsid -f herdr-app </dev/null >/dev/null 2>&1"
+local function retried(calls, address)
+  for _, command in ipairs(calls) do
+    if command:find(LAUNCH .. " && ", 1, true) == 1 and command:sub(-#address - 4) == " sh " .. address then
+      return true
+    end
+  end
+  return false
+end
+
+local function appFixture(options)
+  options.app = true
+  options.decode = decodeJson
+  options.terminalsRaw = options.terminalsRaw or readFixture("hc-ls.json")
+  return fixture(options)
+end
+
+test("Herdr app terminals are listed by space, without session actions", function()
+  local svc, calls = appFixture({ sway = true })
+  assert(calls[1] == "hc ls --json")
+  local session = svc.state.sessions[1]
+  assert(#svc.state.sessions == 1 and session.name == "herdr-app" and session.app == true)
+  assert(svc.state.agents == 3 and svc.state.blocked == 1 and svc.state.working == 1 and svc.state.idle == 1)
+  assert(session.workspaces == #session.workspace_list and session.workspaces == 2) -- No shell-only space.
+  local api, docs = session.workspace_list[1], session.workspace_list[2]
+  assert(api.label == "api" and api.status == "blocked" and #api.children == 2) -- The shell is hidden.
+  assert(api.children[1].pane == "t2" and api.children[1].title == "client" and api.children[1].tab == "client")
+  assert(docs.label == "docs" and docs.children[1].title == "notes")
+  svc.command({ action = "stop_session", session = "herdr-app" })
+  svc.command({ action = "delete_session", session = "herdr-app" })
+  for _, command in ipairs(calls) do assert(not command:match("^herdr "), command) end
+end)
+
+test("Herdr app agent click shows its pane, then raises the app window", function()
+  local svc, calls, opened, errors = appFixture({ sway = true })
+  svc.command({ action = "focus_agent", session = "herdr-app", pane = "t2" })
+  assert(includes(calls, "herdr-app do pane.focus --terminal t2"))
+  assert(includes(calls, 'swaymsg [app_id="herdr-app"] focus'))
+  assert(not includes(calls, LAUNCH) and #opened == 0 and #errors == 0)
+
+  svc, calls = appFixture({ windowsRaw = '[{"id":7,"pid":5,"app_id":"herdr-app"}]' })
+  svc.command({ action = "focus_agent", session = "herdr-app", pane = "t2" })
+  assert(includes(calls, "niri msg action focus-window --id 7"))
+end)
+
+test("Herdr app opens its window when there is none to raise", function()
+  local svc, calls, opened = appFixture({ sway = true, focusExit = 2 })
+  svc.command({ action = "open_session", session = "herdr-app" })
+  assert(includes(calls, LAUNCH) and #opened == 0)
+  -- Sway cannot tell a missing window from a refused raise.
+  assert(svc.state.action.status == "success" and svc.state.action.message == "action.app_shown")
+
+  svc, calls = appFixture({ windowsRaw = "[]" })
+  svc.command({ action = "open_session", session = "herdr-app" })
+  assert(includes(calls, LAUNCH) and svc.state.action.message == "action.opened")
+end)
+
+test("Herdr app rejects bad targets and reports a failed pane focus", function()
+  local svc, calls, _, errors = appFixture({ sway = true, appFocusExit = 1, retryExit = 1 })
+  svc.command({ action = "focus_agent", session = "herdr-app", pane = "t2; rm" })
+  assert(svc.state.action.message == "error.invalid_target" and #errors == 0)
+  svc.command({ action = "focus_agent", session = "herdr-app", pane = "t2" })
+  assert(retried(calls, "t2"), "a failed focus opens the app and retries")
+  assert(#errors == 1 and errors[1] == "error.app_focus_failed" and svc.state.action.status == "error")
+  assert(not includes(calls, 'swaymsg [app_id="herdr-app"] focus'))
+end)
+
+test("Herdr app agent click opens a closed app window, then focuses the agent", function()
+  local svc, calls, _, errors = appFixture({ sway = true, appFocusExit = 1 })
+  svc.command({ action = "focus_agent", session = "herdr-app", pane = "t2" })
+  assert(retried(calls, "t2") and #errors == 0)
+  assert(includes(calls, 'swaymsg [app_id="herdr-app"] focus') and svc.state.action.message == "action.focused")
+end)
+
+test("Herdr app on Hyprland raises its window by address, or opens the app", function()
+  local svc, calls = appFixture({ hyprland = true,
+    clientsRaw = '[{"class":"kitty","address":"0x1"},{"class":"herdr-app","address":"0xab"}]' })
+  svc.command({ action = "open_session", session = "herdr-app" })
+  assert(includes(calls, 'hyprctl dispatch hl.dsp.focus({ window = "address:0xab" })'))
+  assert(not includes(calls, LAUNCH) and svc.state.action.message == "action.focused")
+
+  svc, calls = appFixture({ hyprland = true })
+  svc.command({ action = "open_session", session = "herdr-app" })
+  assert(includes(calls, LAUNCH) and svc.state.action.message == "action.opened")
+end)
+
+test("Herdr app reports a missing setsid", function()
+  local svc, calls, _, errors = appFixture({ windowsRaw = "[]", noSetsid = true })
+  svc.command({ action = "open_session", session = "herdr-app" })
+  assert(not includes(calls, LAUNCH) and errors[1] == "error.setsid_missing")
+end)
+
+test("Herdr app keeps a space named like an address apart from a space-less terminal", function()
+  local svc = appFixture({ sway = true, terminalsRaw = [[{"terminals": [
+    {"address": "t1", "agent": "claude-code", "cwd": "/a", "state": "live", "status": "idle", "where": "t2 / main"},
+    {"address": "t2", "agent": "codex", "cwd": "/b", "state": "live", "status": "idle", "where": ""}
+  ]}]] })
+  assert(#svc.state.sessions[1].workspace_list == 2)
+end)
+
+test("Herdr app stale row never reuses a TUI session named herdr-app", function()
+  local options = { decode = decodeJson,
+    sessionListRaw = '{"sessions": [{"name": "herdr-app", "running": true}]}',
+    snapshotRaw = [[{"result": {"snapshot": {
+      "workspaces": [{"workspace_id": "w1", "label": "old"}],
+      "panes": [{"pane_id": "w1:p2", "workspace_id": "w1", "tab_id": "x"}],
+      "agents": [{"pane_id": "w1:p2", "workspace_id": "w1", "agent_status": "idle", "agent": "claude"}]
+    }}}]] }
+  local svc = fixture(options)
+  svc.command({ action = "refresh" })
+  assert(svc.state.agents == 1, "the TUI session is listed first")
+  options.app, options.hcExit = true, 1
+  svc.command({ action = "refresh" })
+  local session = svc.state.sessions[1]
+  assert(session.app == true and session.stale == true and svc.state.agents == 0)
+end)
+
+test("Herdr app reports a missing herdr-app binary", function()
+  local svc, calls, _, errors = appFixture({ sway = true, focusExit = 2, noApp = true })
+  svc.command({ action = "open_session", session = "herdr-app" })
+  assert(not includes(calls, LAUNCH) and errors[1] == "error.app_missing")
+  svc.command({ action = "focus_agent", session = "herdr-app", pane = "t2" })
+  assert(not includes(calls, "herdr-app do pane.focus --terminal t2") and errors[2] == "error.app_missing")
+end)
+
+test("open_session for an unknown session does not crash", function()
+  local svc, calls = fixture({})
+  svc.state.sessions = {}
+  svc.command({ action = "open_session", session = "brandnew" })
+  for _, command in ipairs(calls) do assert(not command:match("herdr%-app"), command) end
+
+  svc, calls = appFixture({ sway = true })
+  svc.state.sessions = {}
+  svc.command({ action = "open_session", session = "herdr-app" })
+  assert(includes(calls, 'swaymsg [app_id="herdr-app"] focus'))
+end)
+
+test("Herdr app failures keep the last list as stale", function()
+  local options = { sway = true }
+  local svc = appFixture(options)
+  options.hcExit = 1
+  svc.command({ action = "refresh" })
+  local session = svc.state.sessions[1]
+  assert(session.stale == true and session.app == true and svc.state.agents == 3)
 end)
 
 print(count .. " tests passed")

@@ -396,8 +396,9 @@ function M.build(snapshot, options)
       }),
     }
 
-    -- Another machine's session cannot be stopped or deleted from here.
-    if not isRemote then
+    -- Another machine's session cannot be stopped or deleted from here, and the Herdr
+    -- app has no session to stop or delete.
+    if not isRemote and session.app ~= true then
       table.insert(headerChildren, ui.row({ gap = 5, align = "center" }, sessionActions(session)))
     end
 
