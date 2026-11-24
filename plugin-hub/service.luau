@@ -69,7 +69,8 @@ local function publish()
   for _, item in ipairs(NOCTALIA) do
     table.insert(noctaliaActions, { command = item.command, title = noctalia.tr(item.name), kind = "panel" })
   end
-  table.insert(groups, { id = "noctalia", title = noctalia.tr("group.noctalia"), actions = noctaliaActions })
+  table.insert(groups, { id = "noctalia", title = noctalia.tr("group.noctalia"), glyph = "moon-stars",
+    actions = noctaliaActions })
   for _, plugin in ipairs(plugins) do
     local actions = {}
     for _, panel in ipairs(plugin.panels) do
@@ -93,6 +94,7 @@ local function publish()
     table.insert(groups, {
       id = plugin.id,
       title = plugin.name or plugin.id,
+      glyph = plugin.icon or "puzzle",
       plugin = true,
       enabled = plugin.enabled,
       settings = plugin.settings,
@@ -103,7 +105,8 @@ local function publish()
   for _, command in ipairs(saved.custom) do
     table.insert(custom, { command = command, title = command, kind = "command", custom = true })
   end
-  table.insert(groups, { id = "custom", title = noctalia.tr("group.custom"), actions = custom, custom = true })
+  table.insert(groups, { id = "custom", title = noctalia.tr("group.custom"), glyph = "terminal-2", actions = custom,
+    custom = true })
   noctalia.state.set("hub.model", {
     ready = loaded,
     groups = groups,
@@ -126,12 +129,14 @@ Binds.watch(function(value)
   publish()
 end)
 
--- What one plugin is called, its panels, whether it has settings, and the `noctalia msg`
--- lines of its README, from Noctalia's copy of it.
+-- What one plugin is called, its icon, its panels, whether it has settings, and the
+-- `noctalia msg` lines of its README, from Noctalia's copy of it.
 local function readPlugin(plugin, manifest, readme)
-  for _, section in ipairs(Toml.manifest(manifest, { name = true, id = true })) do
-    if section.header == nil and type(section.values.name) == "string" then
-      plugin.name = section.values.name
+  for _, section in ipairs(Toml.manifest(manifest, { name = true, id = true, icon = true })) do
+    if section.header == nil then
+      plugin.name = type(section.values.name) == "string" and section.values.name or nil
+      local icon = section.values.icon
+      plugin.icon = type(icon) == "string" and icon ~= "" and icon or nil
     elseif section.header == "panel" and type(section.values.id) == "string" then
       table.insert(plugin.panels, section.values.id)
     elseif section.header and (section.header == "setting" or section.header:match("%.setting$")) then
