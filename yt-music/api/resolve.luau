@@ -19,8 +19,8 @@ local network = require("../utils/network.luau")
 local function build_resolve_argv(safe_id: string): { string }
 	local argv = {
 		"yt-dlp",
-		"--extractor-args",
-		"youtube:player_client=mweb,web",
+		-- yt-dlp's default clients: forcing mweb,web now yields only format 18
+		-- (a 360p video with AAC audio), never the opus audio-only formats.
 		"-f",
 		"bestaudio/best",
 		"-g",
@@ -95,7 +95,7 @@ function EXPO.cache_audio(video_id, callback)
 	end
 
 	noctalia.mkdirAll(AUDIO_DIR)
-	local argv = { "yt-dlp", "--extractor-args", "youtube:player_client=mweb,web", "-f", "bestaudio/best", "-o", path }
+	local argv = { "yt-dlp", "-f", "bestaudio/best", "-o", path }
 	if noctalia.fileExists(COOKIE_PATH) then
 		table.insert(argv, "--cookies")
 		table.insert(argv, COOKIE_PATH)

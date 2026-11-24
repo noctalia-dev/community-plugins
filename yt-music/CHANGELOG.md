@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.4.6] - 2026-11-24
+
+### Fixed
+- **Audio-only Opus streams**: the resolver and the offline downloader no longer force `yt-dlp`'s `mweb,web` clients. Those clients now return no audio-only formats, so `bestaudio/best` fell back to format 18, a 360p video with AAC-LC 128 kbps audio (offline downloads saved that MP4 video under an `.opus` name). With `yt-dlp`'s default clients the same request returns Opus format 251 (~120-160 kbps, 48 kHz, audio only).
+
 ## [0.4.4] - 2026-11-04
 
 ### Added
