@@ -38,7 +38,8 @@
     "token_in_flake": "The token file is inside the flake directory, from where Nix could copy it to the world-readable store. Not used: {path}",
     "token_missing": "Token file not found: {path}. Checking without a token.",
     "token_mode": "Other users could read the token file. Not used until you run chmod 600 on it: {path}",
-    "token_owner": "The token file belongs to another user. Not used: {path}"
+    "token_owner": "The token file belongs to another user. Not used: {path}",
+    "untracked": "{file} is not tracked by Git, and Nix reads a Git repository with tracked files only. If you build with path: (nixos-rebuild --flake path:{dir}), turn on \"Evaluate as path: flake\" in the settings; otherwise add the file to Git."
   },
   "notify": {
     "body": {
@@ -110,6 +111,10 @@
     "cleanup_button": {
       "description": "Shows a Clean up button in the panel. It runs the system's own Nix cleanup (nix-gc.service and nix-optimise.service where NixOS has them, else only unused store paths, no generations) and removes unused Flatpak runtimes, in a terminal.",
       "label": "Clean up button"
+    },
+    "flake_as_path": {
+      "description": "Evaluate path:<flake directory> instead of the Git repository, like nixos-rebuild --flake path:…. Only if your configuration imports files Git does not track and you build it that way anyway: Nix then copies every file of the directory, untracked ones included, to the world-readable Nix store.",
+      "label": "Evaluate as path: flake"
     },
     "flake_dir": {
       "description": "Directory with flake.nix and flake.lock, as an absolute path. Not written to; the updated lock goes to the plugin's data directory. Empty: only Flatpaks.",

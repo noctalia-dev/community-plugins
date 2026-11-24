@@ -5,7 +5,7 @@
 
 id = "dmopp/nixos-updates"
 name = "NixOS Updates"
-version = "1.2.0"
+version = "1.2.3"
 plugin_api = 43
 author = "dMopp"
 license = "MIT"
@@ -34,6 +34,14 @@ type = "bool"
 label_key = "settings.check_packages.label"
 description_key = "settings.check_packages.description"
 default = true
+
+[[setting]]
+key = "flake_as_path"
+type = "bool"
+label_key = "settings.flake_as_path.label"
+description_key = "settings.flake_as_path.description"
+default = false
+advanced = true
 
 [[setting]]
 key = "home_configuration"
