@@ -100,7 +100,7 @@ draw = function()
         end,
       }),
     }),
-    ui.scroll({ gap = 8, maxHeight = 380 }, cards),
+    ui.scroll(#cards > 2 and { gap = 8, height = 380 } or { gap = 8 }, cards),
     ui.separator({}),
     ui.label({ text = noctalia.tr("panel.add"), color = "on_surface_variant", fontSize = 12 }),
     ui.row({ gap = 8, align = "center" }, {
