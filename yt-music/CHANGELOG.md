@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.4.6] - 2026-11-24
+
+### Fixed
+- **Fresh stream URLs no longer stop playback**: a googlevideo URL answers 403 for its first ~2 s after `yt-dlp` returns it, so a track that was not prefetched usually failed with "Playlist failed to start". mpv now loads `scripts/stream-retry.lua`, which holds the failed open and retries the same URL once it is ~3 s old; a URL that still fails ends the track exactly as before.
+- **No second `yt-dlp` run inside mpv**: mpv is started with `--ytdl=no`. The plugin already passes resolved URLs, and mpv's ytdl hook re-ran `yt-dlp` on the googlevideo URL whenever an open failed.
+
 ## [0.4.4] - 2026-11-04
 
 ### Added
