@@ -1931,6 +1931,7 @@ local QUICK_ACTIONS = {
     quickResolve(p, s, "notification.type-failed", function(d) typeValue(d.password, s) end)
   end,
   ["autotype"] = function(p, _) autotypeEntry(p) end,
+  ["reopen"] = function(p, _) reopenLauncherPanel(":" .. p .. " ") end,
 }
 
 function onIpc(event, payload)
@@ -1945,6 +1946,11 @@ function onIpc(event, payload)
     entryPath = trim(noctalia.state.get(STATE_CURRENT_ENTRY) or "")
   end
   if entryPath == "" then
+    if event == "reopen" then
+      -- On first reopen fall back to "<leader>pass"
+      reopenLauncherPanel("")
+      return
+    end
     noctalia.log("launcher-pass: IPC '" .. event .. "' has no target (no path given, no entry used yet)")
     noctalia.notifyError(tr("notification.quick-action-failed"), tr("notification.no-current-entry"))
     return
