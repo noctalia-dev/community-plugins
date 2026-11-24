@@ -52,9 +52,10 @@ function update()
   local lines = {}
   for _, dev in ipairs(devices) do
     local status = "connected"
+    local t = (dev.deviceType or ""):lower()
     if dev.hasBattery then
       status = string.format("%d%%%s", dev.battery, dev.isCharging and " (charging)" or "")
-    elseif dev.dpi and dev.dpi > 0 then
+    elseif dev.dpi and dev.dpi > 0 and t:find("mouse") then
       status = string.format("%d DPI", dev.dpi)
     end
     table.insert(lines, string.format("%s: %s", dev.name, status))

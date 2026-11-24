@@ -5,6 +5,18 @@ local lastAppliedColorMap: { [string]: string } = {}
 local lastDpiMap: { [string]: number } = {}
 local lastBrightnessMap: { [string]: number } = {}
 local lowBatteryWarned: { [string]: boolean } = {}
+local lowBatteryStreak: { [string]: number } = {}
+local lastBatteryMap: { [string]: number } = {}
+local batteryDropStreak: { [string]: number } = {}
+
+local CONFIRM_STREAK = 3
+local MAX_SINGLE_POLL_DROP = 25
+
+local function resetBatteryTracking()
+  lowBatteryStreak = {}
+  lastBatteryMap = {}
+  batteryDropStreak = {}
+end
 
 function update()
   noctalia.setUpdateInterval(1000)
@@ -13,12 +25,14 @@ function update()
     noctalia.state.set("razer_daemon_active", daemonRunning)
 
     if not daemonRunning then
+      resetBatteryTracking()
       noctalia.state.set("razer_devices", {})
       return
     end
 
     Razer.getDevices(function(serials)
       if #serials == 0 then
+        resetBatteryTracking()
         noctalia.state.set("razer_devices", {})
         return
       end
@@ -30,17 +44,41 @@ function update()
         Razer.getDeviceInfo(serial, function(info)
           completed = completed + 1
           if info then
+            -- Stabilize transient bogus battery drops (e.g. OpenRazer re-init glitches)
+            if info.hasBattery then
+              local prevBattery = lastBatteryMap[serial]
+              if prevBattery ~= nil and (prevBattery - info.battery) >= MAX_SINGLE_POLL_DROP then
+                batteryDropStreak[serial] = (batteryDropStreak[serial] or 0) + 1
+                if batteryDropStreak[serial] < CONFIRM_STREAK then
+                  info.battery = prevBattery
+                else
+                  lastBatteryMap[serial] = info.battery
+                  batteryDropStreak[serial] = 0
+                end
+              else
+                lastBatteryMap[serial] = info.battery
+                batteryDropStreak[serial] = 0
+              end
+            else
+              lastBatteryMap[serial] = nil
+              batteryDropStreak[serial] = nil
+            end
+
             table.insert(devices, info)
 
-            -- Check low battery alert
+            -- Check low battery alert (debounced across consecutive polls)
             local threshold = noctalia.getConfig("low_battery_threshold") or 20
             if info.hasBattery and info.battery <= threshold and not info.isCharging then
-              if not lowBatteryWarned[serial] then
+              lowBatteryStreak[serial] = (lowBatteryStreak[serial] or 0) + 1
+              if lowBatteryStreak[serial] >= CONFIRM_STREAK and not lowBatteryWarned[serial] then
                 noctalia.notifyError("Razer Battery Low", string.format("%s is at %d%%", info.name, info.battery))
                 lowBatteryWarned[serial] = true
               end
-            elseif info.hasBattery and info.battery > threshold then
-              lowBatteryWarned[serial] = false
+            else
+              lowBatteryStreak[serial] = 0
+              if info.hasBattery and info.battery > threshold then
+                lowBatteryWarned[serial] = false
+              end
             end
           end
 
@@ -69,7 +107,7 @@ function update()
                 stateChanged = true
                 lastDpiMap[dev.serial] = dev.dpi
                 lastBrightnessMap[dev.serial] = dev.brightness
-                dev.customDpiInput = tostring(dev.dpi)
+                dev.customDpiInput = dev.dpi > 0 and tostring(dev.dpi) or ""
               end
             end
 
