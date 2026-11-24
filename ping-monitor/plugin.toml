@@ -1,0 +1,50 @@
+id = "nofiltera1/ping-monitor"
+name = "Ping Monitor"
+version = "1.0.0"
+plugin_api = 43
+author = "NoFilterA1"
+license = "MIT"
+dependencies = ["ping"]
+tags = ["bar", "panel", "service", "network", "indicator"]
+icon = "server"
+description = "Ping LAN devices with per-device interval and sound; sound and notification when one comes online."
+
+[[setting]]
+key = "sound_enabled"
+type = "bool"
+label_key = "settings.sound_enabled.label"
+default = true
+
+[[setting]]
+key = "sound_file"
+type = "file"
+label_key = "settings.sound_file.label"
+default = "/usr/share/sounds/Oxygen-Sys-App-Positive.ogg"
+extensions = [".ogg", ".wav", ".oga"]
+
+[[setting]]
+key = "history_days"
+type = "int"
+label_key = "settings.history_days.label"
+default = 14
+min = 3
+max = 30
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 460
+height = "content"
+max_height = 640
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true

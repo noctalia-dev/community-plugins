@@ -1,0 +1,43 @@
+{
+  "title": "Ping Monitor",
+  "online": "Device is online",
+  "status": {
+    "up": "online",
+    "down": "offline",
+    "checking": "checking…"
+  },
+  "panel": {
+    "status": "Status:",
+    "last_ping": "Last ping:",
+    "up_since": "Online since:",
+    "down_since": "Offline since:",
+    "activity": "Activity for",
+    "days": "days",
+    "sound": "Sound",
+    "muted": "muted",
+    "device_sound": "Sound for this device",
+    "remove": "Remove",
+    "interval": "Poll interval",
+    "sec": "s",
+    "add": "Add device",
+    "name": "Name",
+    "add_button": "Add"
+  },
+  "ago": {
+    "s": " s ago",
+    "m": " min ago",
+    "h": " h ago",
+    "d": " d ago"
+  },
+  "settings": {
+    "sound_enabled": {
+      "label": "Sound when online"
+    },
+    "sound_file": {
+      "label": "Sound file"
+    },
+    "history_days": {
+      "label": "Days in the graph"
+    }
+  }
+}
