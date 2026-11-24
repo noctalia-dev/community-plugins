@@ -54,9 +54,9 @@ per-widget, so you can show a different limit on each monitor.
 
 **Network access.** A single background service polls
 `https://opencode.ai/zen/go/v1/usage` on the interval above and is the only
-thing that touches the network. That route is the one an API key may read; the
-console's own `/console/api/go/status` document is session-authenticated and
-rejects API keys with `403`. The bar widget and the panel only read the result
+thing that touches the network. That route is readable with a usage-scoped
+API key; the console's own `/console/api/go/status` only answers a key created with
+`Permissions: All` and returns `403` to a key that only has usage access. The bar widget and the panel only read the result
 from shared state, so N capsules on M monitors still cost one request per cycle.
 Refresh is guarded against overlapping requests.
 
