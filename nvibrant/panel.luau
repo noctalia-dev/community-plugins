@@ -12,7 +12,7 @@ local function draw()
       ui.toggle({
         checked = state.enabled,
         onChange = function(on)
-          state.enabled = on == true
+          state.enabled = (on == true or on == "true")
           core.save(state)
           core.apply(state.enabled and state.level or 0)
           draw()
