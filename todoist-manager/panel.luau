@@ -5,37 +5,36 @@
 -- while clicking the task body toggles its description inline (if any).
 local state = require("./lib/state.luau")
 local dates = require("./lib/dates.luau")
+local theme = require("./lib/theme.luau")
+local uiOnboarding = require("./lib/ui_onboarding.luau")
+local uiHelp = require("./lib/ui_help.luau")
+local uiNav = require("./lib/ui_nav.luau")
 
 noctalia.setUpdateInterval(1000)
 
-local PCOLOR = {
-	[1] = "#e5484d", -- p1 / very urgent
-	[2] = "#f5a524", -- p2
-	[3] = "#3b82f6", -- p3
-	[4] = "#8b8d98", -- p4 / natural
-}
-local MUTED = "#8b8d98"
-local DANGER = "#e5484d"
+local PCOLOR = theme.PCOLOR
+local MUTED = theme.MUTED
+local DANGER = theme.DANGER
+local ACTION_OPEN = theme.ACTION_OPEN
+local ACTION_DO = theme.ACTION_DO
+local ACTION_DISMISS = theme.ACTION_DISMISS
 
 local client = state.new("panel")
 
 local snap = {}
 local open = false
-local mode = "list" -- "list" | "projects" | "edit"
+local mode = "list" -- "list" | "projects" | "edit" | "help"
 local highlightId = nil
 local confirmDeleteId = nil -- task id awaiting a delete confirmation
 local actionId = nil -- task id whose complete/reopen pair is expanded
 local actionHover = nil -- nil | "do" | "dismiss"
 local expandedDescId = nil -- task id whose description is expanded inline
 
--- Row outline while the action pair is open, then the hovered action's tint.
-local ACTION_OPEN = "outline_variant/0.7"
-local ACTION_DO = "#16A34A"
-local ACTION_DISMISS = "#6B7280"
-
 local statusText = nil
 local statusKind = nil -- nil | "ok" | "err" | "warn"
 local quickText = ""
+local quickDesc = ""
+local showQuickDesc = nil
 local quickKey = 0
 
 -- Undo state for task.complete. Captured before the row is removed so the
@@ -138,13 +137,25 @@ local function openProject(id)
 	end
 end
 
+local function isQuickDescVisible()
+	if showQuickDesc ~= nil then
+		return showQuickDesc
+	end
+	return noctalia.getConfig("quick_add_description") == true
+end
+
 local function submitQuick()
 	local text = noctalia.string.trim(quickText)
 	if text == "" or client.busy() then
 		return
 	end
-	if client.send("task.create", { text = text }) then
+	local note = nil
+	if isQuickDescVisible() and noctalia.string.trim(quickDesc) ~= "" then
+		note = noctalia.string.trim(quickDesc)
+	end
+	if client.send("task.create", { text = text, note = note }) then
 		quickText = ""
+		quickDesc = ""
 		quickKey = quickKey + 1
 		render()
 	end
@@ -152,107 +163,56 @@ end
 
 -- ── pieces ──────────────────────────────────────────────────────
 local function header()
-	return ui.row({ align = "center", gap = 6 }, {
-		ui.label({
-			text = noctalia.tr("ui.panel.title"),
-			fontSize = 16,
-			fontWeight = "bold",
-			color = "primary",
-			flexGrow = 1,
-		}),
-		ui.button({
-			glyph = "refresh",
-			variant = "ghost",
-			controlSize = "sm",
-			tooltip = noctalia.tr("ui.panel.refresh"),
-			enabled = not client.busy(),
-			onClick = function()
-				if client.send("tasks.refresh", {}) then
-					render()
+	return uiNav.header({
+		busy = client.busy(),
+		mode = mode,
+		onRefresh = function()
+			if client.send("tasks.refresh", {}) then
+				render()
+			end
+		end,
+		onToggleHelp = function()
+			if mode == "help" then
+				mode = "list"
+			else
+				if mode == "edit" then
+					editId = nil
+					edit = nil
+					editErr = nil
 				end
-			end,
-		}),
-		ui.button({
-			glyph = "settings",
-			variant = "ghost",
-			controlSize = "sm",
-			tooltip = noctalia.tr("ui.panel.settings"),
-			onClick = function()
-				noctalia.openSettings()
-			end,
-		}),
-		ui.button({
-			glyph = "x",
-			variant = "ghost",
-			controlSize = "sm",
-			tooltip = noctalia.tr("ui.panel.close"),
-			onClick = function()
-				panel.close()
-			end,
-		}),
+				mode = "help"
+			end
+			render()
+		end,
+		onOpenSettings = function()
+			noctalia.openSettings()
+		end,
+		onClose = function()
+			panel.close()
+		end,
 	})
 end
 
 local function tiles()
-	local counts = snap.counts or {}
-	local function tile(key, labelKey)
-		local c = tonumber(counts[key]) or 0
-		return ui.button({
-			text = noctalia.tr(labelKey) .. (c > 0 and ("  " .. tostring(c)) or ""),
-			variant = (mode == "list" and view() == key) and "primary" or "ghost",
-			controlSize = "sm",
-			onClick = function()
-				goView(key)
-			end,
-		})
-	end
-	return ui.row({ gap = 6 }, {
-		tile("overdue", "ui.panel.filter.overdue"),
-		tile("today", "ui.panel.filter.today"),
-		tile("p1", "ui.panel.filter.p1"),
+	return uiNav.tiles({
+		counts = snap.counts,
+		mode = mode,
+		activeView = view(),
+		onSelectView = goView,
 	})
 end
 
 local function nav()
-	local activeProjectId = nil
-	local v = view()
-	if mode == "list" and type(v) == "string" and v:match("^project:") then
-		activeProjectId = v:sub(9)
-	end
-	local function tab(key, labelKey, active)
-		return ui.button({
-			text = noctalia.tr(labelKey),
-			variant = active and "secondary" or "ghost",
-			controlSize = "sm",
-			onClick = function()
-				if key == "__projects" then
-					mode = "projects"
-					render()
-				else
-					goView(key)
-				end
-			end,
-		})
-	end
-	local items = {
-		tab("today", "ui.panel.nav.today", mode == "list" and v == "today"),
-		tab("inbox", "ui.panel.nav.inbox", mode == "list" and v == "inbox"),
-		tab("__projects", "ui.panel.nav.projects", mode == "projects" or activeProjectId ~= nil),
-		tab("completed", "ui.panel.nav.completed", mode == "list" and v == "completed"),
-	}
-	if activeProjectId then
-		local name = projectName(activeProjectId)
-		if name then
-			items[#items + 1] = ui.label({
-				text = "·  " .. name,
-				fontSize = 12,
-				color = MUTED,
-				flexGrow = 1,
-				maxLines = 1,
-			})
-		end
-	end
-	return ui.row({ gap = 6, align = "center" }, items)
+	return uiNav.nav({
+		mode = mode,
+		activeView = view(),
+		projectName = projectName,
+		onSelectView = goView,
+		onSelectProjects = function()
+			mode = "projects"
+			render()
+		end,
+	})
 end
 
 -- ── undo ────────────────────────────────────────────────────────
@@ -459,13 +419,16 @@ local function descriptionBlock(t)
 	return ui.row({
 		key = "desc" .. id,
 		paddingH = 32,
-		paddingV = 2,
+		paddingV = 4,
+		fill = true,
 	}, {
 		ui.label({
 			text = t.description or "",
 			color = MUTED,
 			fontSize = 12,
-			maxLines = 10,
+			flexGrow = 1,
+			wrap = true,
+			maxLines = 50,
 		}),
 	})
 end
@@ -629,6 +592,90 @@ local function undoRow()
 	})
 end
 
+local function quickAddBlock()
+	local descOpen = isQuickDescVisible()
+	local inputs = {
+		ui.input({
+			key = "quick" .. tostring(quickKey),
+			value = "",
+			multiline = true,
+			placeholder = noctalia.tr("ui.panel.quick.placeholder"),
+			flexGrow = 1,
+			controlSize = "md",
+			enabled = not client.busy(),
+			onChange = function(text)
+				quickText = text or ""
+			end,
+			onSubmit = function()
+				submitQuick()
+			end,
+		}),
+	}
+	if descOpen then
+		inputs[#inputs + 1] = ui.input({
+			key = "quickdesc" .. tostring(quickKey),
+			value = quickDesc,
+			multiline = true,
+			placeholder = noctalia.tr("ui.panel.quick.description_ph"),
+			flexGrow = 1,
+			controlSize = "md",
+			enabled = not client.busy(),
+			onChange = function(text)
+				quickDesc = text or ""
+			end,
+		})
+	end
+
+	local items = {
+		ui.separator({ key = "qa-sep" }),
+		ui.row({ key = "qa-row", gap = 6, align = "center" }, {
+			ui.column({ gap = 4, flexGrow = 1 }, inputs),
+			ui.button({
+				glyph = "align-left",
+				variant = descOpen and "secondary" or "ghost",
+				controlSize = "md",
+				tooltip = noctalia.tr("ui.panel.quick.toggle_desc"),
+				enabled = not client.busy(),
+				onClick = function()
+					showQuickDesc = not descOpen
+					render()
+				end,
+			}),
+			ui.button({
+				glyph = "plus",
+				text = noctalia.tr("ui.panel.quick.add"),
+				variant = "primary",
+				controlSize = "md",
+				tooltip = noctalia.tr("ui.panel.quick.add_tooltip"),
+				-- Text inputs are uncontrolled and do not re-render on keystroke,
+				-- so diff-driven enabled stays false while typing. Gate on busy only.
+				enabled = not client.busy(),
+				onClick = function()
+					submitQuick()
+				end,
+			}),
+		}),
+		ui.label({
+			key = "qa-hint",
+			text = noctalia.tr("ui.panel.quick.hint"),
+			fontSize = 11,
+			color = MUTED,
+			maxLines = 2,
+		}),
+	}
+	local summary = defaultsSummary()
+	if summary then
+		items[#items + 1] = ui.label({
+			key = "qa-defaults",
+			text = noctalia.tr("ui.panel.quick.defaults", { summary = summary }),
+			fontSize = 11,
+			color = MUTED,
+			maxLines = 1,
+		})
+	end
+	return ui.column({ key = "qa-block", gap = 6 }, items)
+end
+
 local function taskList()
 	local tasks = snap.tasks or {}
 	local rows = {}
@@ -652,53 +699,6 @@ local function taskList()
 				rows[#rows + 1] = taskItem(t)
 			end
 		end
-	end
-
-	-- Quick-add lives below the tasks inside the scroll so it floats down
-	-- naturally as tasks are added and only scrolls away when the list is long.
-	rows[#rows + 1] = ui.separator({ key = "qa-sep" })
-	rows[#rows + 1] = ui.row({ key = "qa-row", gap = 6, align = "center" }, {
-		ui.input({
-			key = "quick" .. tostring(quickKey),
-			value = "",
-			placeholder = noctalia.tr("ui.panel.quick.placeholder"),
-			flexGrow = 1,
-			controlSize = "md",
-			enabled = not client.busy(),
-			onChange = function(text)
-				quickText = text or ""
-			end,
-			onSubmit = function()
-				submitQuick()
-			end,
-		}),
-		ui.button({
-			glyph = "plus",
-			text = noctalia.tr("ui.panel.quick.add"),
-			variant = "primary",
-			controlSize = "md",
-			enabled = (not client.busy()) and noctalia.string.trim(quickText) ~= "",
-			onClick = function()
-				submitQuick()
-			end,
-		}),
-	})
-	rows[#rows + 1] = ui.label({
-		key = "qa-hint",
-		text = noctalia.tr("ui.panel.quick.hint"),
-		fontSize = 11,
-		color = MUTED,
-		maxLines = 2,
-	})
-	local summary = defaultsSummary()
-	if summary then
-		rows[#rows + 1] = ui.label({
-			key = "qa-defaults",
-			text = noctalia.tr("ui.panel.quick.defaults", { summary = summary }),
-			fontSize = 11,
-			color = MUTED,
-			maxLines = 1,
-		})
 	end
 
 	return ui.scroll({
@@ -1211,9 +1211,22 @@ local function editForm()
 	})
 end
 
+local function onboardingCard()
+	return uiOnboarding.card({
+		openUrl = openUrl,
+	})
+end
+
+local function helpView()
+	return uiHelp.view()
+end
+
 local function body()
+	if mode == "help" then
+		return helpView()
+	end
 	if snap.token_configured == false then
-		return ui.label({ text = noctalia.tr("ui.panel.not_configured"), color = DANGER, maxLines = 3 })
+		return onboardingCard()
 	end
 	if mode == "edit" then
 		return editForm()
@@ -1244,20 +1257,31 @@ local function footer()
 		})
 	end
 
-	-- In edit mode there is no quick-add and no separator: the edit scroll
+	-- In edit mode or help mode there is no quick-add and no separator: the scroll
 	-- needs every pixel. Only the banner (if any) is shown.
-	if mode == "edit" then
+	if mode == "edit" or mode == "help" then
 		if banner then
 			return banner
 		end
 		return nil
 	end
 
-	-- List / projects mode: separator + optional banner. Quick-add now lives
-	-- inside the taskList() scroll so it is not duplicated here.
-	local items = { ui.separator({}) }
+	-- Pinned quick-add lives in the footer so it is always visible and never
+	-- pushed away by a long list of tasks.
+	local items = {}
+	if snap.token_configured ~= false and mode == "list" and view() ~= "completed" then
+		items[#items + 1] = quickAddBlock()
+	end
+
 	if banner then
+		if #items == 0 then
+			items[#items + 1] = ui.separator({})
+		end
 		items[#items + 1] = banner
+	end
+
+	if #items == 0 then
+		return nil
 	end
 	return ui.column({ gap = 8 }, items)
 end
@@ -1286,12 +1310,27 @@ end
 
 render = function()
 	local items = { header() }
-	-- The form takes the whole body: navigation and the quick-add footer would
-	-- only compete with it for space.
-	if mode ~= "edit" then
-		items[#items + 1] = tiles()
-		items[#items + 1] = nav()
-	else
+	if mode == "help" then
+		items[#items + 1] = ui.row({ align = "center", gap = 8 }, {
+			ui.button({
+				glyph = "arrow-left",
+				variant = "ghost",
+				controlSize = "sm",
+				onClick = function()
+					mode = "list"
+					render()
+				end,
+			}),
+			ui.label({
+				text = noctalia.tr("ui.panel.help_view.title"),
+				fontSize = 14,
+				fontWeight = "bold",
+				maxLines = 1,
+			}),
+		})
+	elseif snap.token_configured == false then
+		-- Onboarding takes the full body below the header
+	elseif mode == "edit" then
 		-- Pin the heading above the scroll so it stays visible while the user
 		-- scrolls through all the edit fields.
 		items[#items + 1] = ui.label({
@@ -1300,6 +1339,9 @@ render = function()
 			fontWeight = "bold",
 			maxLines = 1,
 		})
+	else
+		items[#items + 1] = tiles()
+		items[#items + 1] = nav()
 	end
 	items[#items + 1] = body()
 	local f = footer()
@@ -1426,6 +1468,23 @@ function onOpen(_context)
 		snap = current
 	end
 
+	-- Restore previous session state so the user can continue where they left off (Issue #2)
+	local session = noctalia.state.get("panel_session")
+	if type(session) == "table" then
+		if session.mode and session.mode ~= "edit" and session.mode ~= "help" then
+			mode = session.mode
+		end
+		if type(session.quickText) == "string" and session.quickText ~= "" then
+			quickText = session.quickText
+		end
+		if type(session.quickDesc) == "string" and session.quickDesc ~= "" then
+			quickDesc = session.quickDesc
+		end
+		if session.showQuickDesc ~= nil then
+			showQuickDesc = session.showQuickDesc
+		end
+	end
+
 	-- Deep link from the launcher: switch to the task's project and reveal it.
 	local focus = noctalia.state.get("open_task")
 	if type(focus) == "table" and focus.id ~= nil then
@@ -1448,6 +1507,15 @@ function onClose()
 	expandedDescId = nil
 	undoTask = nil
 	undoExpiry = nil
+
+	-- Maintain session state across dismissals (Issue #2)
+	noctalia.state.set("panel_session", {
+		mode = (mode ~= "help") and mode or "list",
+		view = snap.view,
+		quickText = quickText,
+		quickDesc = quickDesc,
+		showQuickDesc = showQuickDesc,
+	})
 end
 
 function update()
