@@ -97,7 +97,7 @@
       "label": "Data file"
     },
     "enable_bk_provider": {
-      "description": "Adds a \"/bk\" launcher command to fuzzy-search and run your bookmarks.",
+      "description": "Adds a \"/bk\" launcher command to fuzzy-search and run your bookmarks by label, description, or folder.",
       "label": "Enable /bk launcher provider"
     },
     "glyph": {

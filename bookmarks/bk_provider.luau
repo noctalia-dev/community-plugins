@@ -1,7 +1,8 @@
--- Launcher provider: "/bk" fuzzy-searches bookmark labels (root + one level
--- of folders, bookmarks only - same scope as the panel's own search) and
--- runs the selected one on activation. Reads the same data.json the panel
--- writes, resolved via shared.luau, so no state is shared beyond the file on disk.
+-- Launcher provider: "/bk" fuzzy-searches bookmark labels, descriptions,
+-- and folder names (root + one level of folders, bookmarks only - same scope
+-- as the panel's own search) and runs the selected one on activation. Reads
+-- the same data.json the panel writes, resolved via shared.luau, so no
+-- state is shared beyond the file on disk.
 
 local shared = require("./shared.luau")
 
@@ -12,32 +13,33 @@ local function resultId(item)
 	return (item.path or "") .. "\30" .. (item.entry.label or "")
 end
 
+local function formatSubtitle(path, description)
+	local folder = noctalia.string.trim(path or "")
+	local desc = noctalia.string.trim(description or "")
+	if folder ~= "" and desc ~= "" then
+		return folder .. " · " .. desc
+	elseif desc ~= "" then
+		return desc
+	elseif folder ~= "" then
+		return folder
+	end
+	return nil
+end
+
 local function buildResults(query)
 	local bookmarks = shared.loadBookmarks()
-	local flat = shared.flatten(bookmarks)
+	local matches = shared.searchBookmarks(bookmarks, query)
 
 	local results = {}
-	for _, item in ipairs(flat) do
-		local score
-		if query == "" then
-			score = 0
-		else
-			score = noctalia.fuzzyScore(query, item.entry.label or "")
-		end
-		if score ~= nil then
-			table.insert(results, {
-				id = resultId(item),
-				title = item.entry.label or "",
-				subtitle = item.path,
-				glyph = item.entry.glyph or "bookmark",
-				score = score,
-			})
-		end
+	for _, item in ipairs(matches) do
+		table.insert(results, {
+			id = resultId(item),
+			title = item.entry.label or "",
+			subtitle = formatSubtitle(item.path, item.entry.description),
+			glyph = item.entry.glyph or "bookmark",
+			score = item.score,
+		})
 	end
-
-	table.sort(results, function(a, b)
-		return (a.score or 0) > (b.score or 0)
-	end)
 	return results
 end
 

@@ -15,7 +15,7 @@ and a shell command to execute. You can backup your bookmarks as well!
 
 ## Requirements
 
-- Noctalia v5.3.0 or higher
+- Noctalia v5.4.0 or higher
 
 ## IPC & Keybinds
 
@@ -136,7 +136,7 @@ Two types of entries exist: `bookmark` and `folder`.
 | `glyph`           | string  | falls back to `"bookmark"` if empty/missing |                                                                                              |
 | `label`           | string  | required, enforced at save time             | `""` fails validation                                                                        |
 | `cmd`             | string  | required for bookmarks                      | shell command to execute, enforced at save time                                              |
-| `description`     | string  | optional, defaults to `""`                  | shown in the hover tooltip                                                                   |
+| `description`     | string  | optional, defaults to `""`                  | shown in the hover tooltip and `/bk` subtitle; also searchable in `/bk` and panel search     |
 | `runInBackground` | boolean | optional, defaults to `false`               | mutually exclusive with `runInTerminal` in the UI but the schema itself doesn't enforce that |
 | `runInTerminal`   | boolean | optional, defaults to `false`               |
 
@@ -223,3 +223,12 @@ The plugin itself has the following settings:
 - Added a direct settings shortcut button to the panel header
 - Fixed a UI glitch where ghost boxes or action buttons would bleed over when switching views
 - Fixed an `unknown fontWeight 'regular'` warning in the console
+
+### v1.4.1
+
+- Updated palette color roles from `surface_variant` to `surface_container` and bumped required plugin API to `43` (Noctalia v5.4.0 or higher)
+
+### v1.4.2
+
+- `/bk` launcher provider and panel search now fuzzy-search bookmark descriptions and folder names in addition to labels (with label matches prioritized)
+- `/bk` launcher results now display `Folder · Description` (or whichever is present) as the subtitle below the bookmark title

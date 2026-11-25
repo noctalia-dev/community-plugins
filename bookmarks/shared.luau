@@ -91,6 +91,76 @@ function M.flatten(bookmarks)
 	return flat
 end
 
+local function scoreField(token, text, weight)
+	if text == "" then
+		return nil
+	end
+	local s = noctalia.fuzzyScore(token, text)
+	return s ~= nil and (s * weight) or nil
+end
+
+local function scoreItem(tokens, item)
+	local label = item.entry.label or ""
+	local desc = noctalia.string.trim(item.entry.description or "")
+	local folder = noctalia.string.trim(item.path or "")
+
+	local total = 0
+	for _, token in ipairs(tokens) do
+		local best = scoreField(token, label, 1.0)
+		local descScore = scoreField(token, desc, 0.7)
+		if descScore ~= nil then
+			best = (best == nil) and descScore or math.max(best, descScore)
+		end
+		local folderScore = scoreField(token, folder, 0.5)
+		if folderScore ~= nil then
+			best = (best == nil) and folderScore or math.max(best, folderScore)
+		end
+		if best == nil then
+			return nil
+		end
+		total = total + best
+	end
+	return total / #tokens
+end
+
+-- Fuzzy-searches bookmark labels, descriptions, and folder names across root
+-- and one level of folders, using Noctalia's native matcher. Space-separated
+-- tokens are matched independently (AND semantics, order-independent, and
+-- able to span fields). Description-only (0.7) and folder-only (0.5) matches
+-- are weighted below label matches. When query is empty, returns all
+-- flattened bookmarks with score = 0.
+function M.searchBookmarks(bookmarks, query)
+	local trimmed = noctalia.string.trim(query or "")
+	local flat = M.flatten(bookmarks)
+	local results = {}
+
+	local tokens = {}
+	if trimmed ~= "" then
+		for token in trimmed:gmatch("%S+") do
+			table.insert(tokens, token)
+		end
+	end
+
+	for _, item in ipairs(flat) do
+		if #tokens == 0 then
+			table.insert(results, { entry = item.entry, path = item.path, score = 0 })
+		else
+			local score = scoreItem(tokens, item)
+			if score ~= nil then
+				table.insert(results, { entry = item.entry, path = item.path, score = score })
+			end
+		end
+	end
+
+	if #tokens > 0 then
+		table.sort(results, function(a, b)
+			return a.score > b.score
+		end)
+	end
+
+	return results
+end
+
 -- Executes a bookmark command respecting runInTerminal and runInBackground.
 function M.runBookmark(entry)
 	if type(entry) ~= "table" then

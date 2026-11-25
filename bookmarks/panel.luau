@@ -76,30 +76,16 @@ local function activeList()
 	return folder.items
 end
 
--- Fuzzy-searches bookmark labels only (not commands, not folder names)
--- across root and every folder's contents, using Noctalia's native
--- matcher. Returns results sorted best-match-first, each as
--- { entry, path }, where path is the containing folder's label (nil for
--- root entries). Search results are only ever run, never edited in place,
--- so no index back into `bookmarks` is kept.
+-- Fuzzy-searches bookmark labels, descriptions, and folder names (not
+-- commands) across root and every folder's contents, using
+-- shared.searchBookmarks. Returns results sorted best-match-first, each as
+-- { entry, path, score }, where path is the containing folder's label (nil
+-- for root entries).
 local function searchBookmarks(query)
-	local trimmed = noctalia.string.trim(query)
-	if trimmed == "" then
+	if noctalia.string.trim(query) == "" then
 		return {}
 	end
-
-	local results = {}
-	for _, item in ipairs(shared.flatten(bookmarks)) do
-		local score = noctalia.fuzzyScore(trimmed, item.entry.label or "")
-		if score ~= nil then
-			table.insert(results, { entry = item.entry, path = item.path, score = score })
-		end
-	end
-
-	table.sort(results, function(a, b)
-		return a.score > b.score
-	end)
-	return results
+	return shared.searchBookmarks(bookmarks, query)
 end
 
 local function loadBookmarks()
