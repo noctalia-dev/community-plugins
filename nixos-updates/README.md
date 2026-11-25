@@ -127,9 +127,10 @@ Plugin settings:
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
-| `flake_dir` | `folder` | `/etc/nixos` | Directory with `flake.nix` and `flake.lock`, as an absolute path without `?` or `#`. Not written to. Empty: only Flatpaks. |
+| `flake_dir` | `folder` | `/etc/nixos` | Directory with `flake.nix` and `flake.lock`, as an absolute path without `?` or `#`. Not written to. A symlink (`/etc/nixos` pointing at the repository elsewhere, say) is resolved first. Empty: only Flatpaks. |
 | `nixos_configuration` | `string` | `""` | Attribute under `nixosConfigurations` to evaluate. Empty: the hostname. |
 | `check_packages` | `bool` | `true` | Evaluate the configuration with the current and the updated lock and compare package versions; needed for the download estimate. |
+| `flake_as_path` | `bool` | `false` | Advanced. Evaluate `path:<flake_dir>` instead of the Git repository, like `nixos-rebuild --flake path:…`. Only for a configuration that imports files Git does not track (a `hardware-configuration.nix` in `.gitignore`, for instance) and is built that way anyway: Nix then copies every file of the directory, untracked ones included, to the world-readable Nix store. |
 | `home_configuration` | `string` | `""` | Advanced. Name under `homeConfigurations` of a standalone Home Manager configuration in the same flake, compared too. Not needed for Home Manager as a NixOS module. |
 | `check_flatpak` | `bool` | `true` | List pending Flatpak updates of the system and user installations. |
 | `check_interval_hours` | `int` | `6` | Hours between two checks (1-168). After a failed check at most 15 minutes. |

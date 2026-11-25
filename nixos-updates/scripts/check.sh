@@ -3,7 +3,7 @@
 # the updated lock file goes to the plugin data directory, flake.lock and the
 # installed Flatpaks stay as they are.
 #
-#   check.sh <out_dir> <flake_dir> <nixos_configuration> <packages 0|1> <flatpak 0|1> [<token_file> [<home_configuration>]]
+#   check.sh <out_dir> <flake_dir> <nixos_configuration> <packages 0|1> <flatpak 0|1> [<token_file> [<home_configuration> [git|path]]]
 #
 # Prints one line per event for the service (runStream has no exit callback):
 #   step <name>             a step starts
@@ -26,6 +26,7 @@ packages=$4
 flatpak=$5
 tokenfile=${6:-}
 home=${7:-}
+refmode=${8:-git}
 token=""
 
 err="$out/stderr"
@@ -36,6 +37,7 @@ rc=0
 # ignores the TERM: 63 minutes; the service waits longer before it gives a run
 # up.
 . "$(dirname "$0")/lib.sh"
+resolve_dir
 
 # Reads the optional GitHub token, refusing anything that could leak it or
 # smuggle in settings: it must be the user's own file, readable by nobody else,
@@ -92,7 +94,7 @@ update_lock() {
 }extra-access-tokens = github.com=$token"
 			export NIX_CONFIG
 		fi
-		run_nix 10 flake update --flake "$dir" --output-lock-file "$out/new.lock" >/dev/null 2>"$err"
+		run_nix 10 flake update --flake "$(flake_ref)" --output-lock-file "$out/new.lock" >/dev/null 2>"$err"
 	)
 	rc=$?
 	return "$rc"
@@ -156,7 +158,7 @@ evaluate() {
 		expr=$apply
 	fi
 	if run_nix 10 eval --json --no-write-lock-file --reference-lock-file "$lock" \
-		"$dir#$attr" --apply "$expr" >"$result.tmp" 2>"$err"; then
+		"$(flake_ref)#$attr" --apply "$expr" >"$result.tmp" 2>"$err"; then
 		mv "$result.tmp" "$result"
 		return 0
 	fi

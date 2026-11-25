@@ -66,6 +66,12 @@ local function flakeDir()
 	return (noctalia.expandPath(dir):gsub("/+$", ""))
 end
 
+-- "path" only when the user asked for it: path:<dir> copies the whole
+-- directory, untracked files included, to the world-readable Nix store.
+local function refMode()
+	return config("flake_as_path", false) == true and "path" or "git"
+end
+
 local function homeConfiguration()
 	return noctalia.string.trim(tostring(config("home_configuration", "")))
 end
@@ -161,6 +167,8 @@ local function stepError(name, message)
 		return noctalia.tr("errors.lock_" .. message:gsub("%-", "_"))
 	elseif name == "size" and message == "no-lock" then
 		return noctalia.tr("errors.estimate_no_lock")
+	elseif message:match("^untracked ") ~= nil then
+		return noctalia.tr("errors.untracked", { file = message:match("^untracked (.*)$"), dir = flakeDir() })
 	elseif name == "token" then
 		return noctalia.tr("errors.token_" .. message:gsub("%-", "_"), { path = tokenFile() })
 	end
@@ -291,6 +299,7 @@ local function check()
 		config("check_flatpak", true) == true and "1" or "0",
 		quote(tokenFile()),
 		quote(homeConfiguration()),
+		refMode(),
 	}, " ")
 
 	running = true
@@ -349,6 +358,7 @@ local function estimate()
 		quote(dir),
 		quote(flake),
 		quote(noctalia.string.trim(tostring(config("nixos_configuration", "")))),
+		refMode(),
 	}, " ")
 	local accepted = noctalia.runStream(command, function(line)
 		if id ~= estimateId or not estimating then
