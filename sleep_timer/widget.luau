@@ -1,7 +1,7 @@
 --!nonstrict
--- Left click: `shutdown -h +N`, right click: `shutdown -c`, wheel: N +/- 15 minutes,
+-- Left click: start the timer, right click: cancel it, wheel: N +/- 15 minutes,
 -- middle click: the panel with the big dial.
--- While a shutdown is scheduled the dial counts down and the wheel and left click do nothing.
+-- While the timer runs the dial counts down and the wheel and left click do nothing.
 
 local timer = require("./timer.luau")
 
@@ -19,7 +19,7 @@ local function dialSize()
 end
 
 -- The script re-runs whenever the bar rebuilds its widgets, so nothing can live only in
--- variables: the schedule is read from logind and the chosen minutes from timer.luau.
+-- variables: the timer and the chosen minutes are read through timer.luau.
 local dataDir = timer.dataDir
 local minutes = timer.loadMinutes()
 local lastTooltip = nil
@@ -87,7 +87,16 @@ local function render()
   end
 end
 
+-- Checks every this many seconds that the timer unit still exists
+local VERIFY_EVERY = 30
+local ticks = 0
+
 function update()
+  ticks += 1
+  if ticks >= VERIFY_EVERY then
+    ticks = 0
+    timer.verify(render)
+  end
   render()
 end
 
@@ -137,4 +146,5 @@ if dataDir then
 end
 
 noctalia.setUpdateInterval(1000)
+timer.verify(render)
 render()

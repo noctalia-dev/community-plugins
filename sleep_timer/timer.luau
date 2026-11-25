@@ -3,8 +3,13 @@
 --
 -- Every entry runs in its own VM, so the timer lives outside of them:
 --   * the chosen minutes: a file in the plugin data dir + noctalia.state "minutes"
---   * a running timer: logind's shutdown schedule, which `shutdown -h +N` writes.
+--   * a running timer: a transient systemd user timer owned by the plugin, plus a
+--     "deadline" file in the plugin data dir with its end time and the boot it belongs to.
 -- noctalia.state "scheduled" is bumped after start/cancel so the other entries redraw at once.
+--
+-- The plugin never reads or changes logind's shutdown schedule (`shutdown -h`/`-c`): it
+-- only starts and stops its own timer unit, so a shutdown or reboot scheduled by anything
+-- else is never replaced or cancelled.
 
 local M = {}
 
@@ -14,11 +19,14 @@ M.MINUTES_PER_LAP = 60
 M.MAX_MINUTES = 24 * 60 - 1
 M.PANEL_ID = "nid25/sleep_timer:panel"
 
--- Written by logind while a shutdown is scheduled, also when set from a terminal
-local SCHEDULED_FILE = "/run/systemd/shutdown/scheduled"
+-- The plugin's own systemd user timer; systemd refuses a second unit with this name,
+-- so a timer can never be started twice
+local UNIT = "noctalia-sleep-timer"
+local BOOT_ID_FILE = "/proc/sys/kernel/random/boot_id"
 
 M.dataDir = noctalia.pluginDataDir()
 local minutesFile = M.dataDir and (M.dataDir .. "/minutes")
+local deadlineFile = M.dataDir and (M.dataDir .. "/deadline")
 
 function M.loadMinutes()
   local shared = noctalia.state.get("minutes")
@@ -43,21 +51,32 @@ function M.setMinutes(value)
   return value
 end
 
--- Schedule modes that count as this timer; a scheduled reboot is left alone
-local SHUTDOWN_MODES = { poweroff = true, halt = true }
+local function bootId()
+  local raw = noctalia.readFile(BOOT_ID_FILE)
+  return raw and raw:match("[%x%-]+") or ""
+end
 
--- Shutdown time in unix seconds, or nil when nothing is scheduled
+local function clearDeadline()
+  if deadlineFile and noctalia.fileExists(deadlineFile) then
+    noctalia.removeFile(deadlineFile)
+  end
+end
+
+-- Shutdown time in unix seconds while the plugin's timer runs, or nil
 function M.scheduledAt()
-  local raw = noctalia.readFile(SCHEDULED_FILE)
-  if not raw then
+  local raw = deadlineFile and noctalia.readFile(deadlineFile)
+  local at, boot = (raw or ""):match("^(%d+)%s*([%x%-]*)")
+  at = tonumber(at)
+  if not at then
     return nil
   end
-  local mode = raw:match("MODE=([%w%-]+)")
-  if mode and not SHUTDOWN_MODES[mode] then
+  -- Left from an earlier boot (user timers do not survive a reboot), or the deadline
+  -- passed and the system is still up because the power-off was refused
+  if (boot ~= "" and boot ~= bootId()) or at < os.time() - 5 then
+    clearDeadline()
     return nil
   end
-  local usec = raw:match("USEC=(%d+)")
-  return usec and math.floor(tonumber(usec) / 1000000)
+  return at
 end
 
 function M.remainingMinutes(at)
@@ -127,48 +146,71 @@ function M.imageTracker()
 end
 
 local function announce()
-  -- Any changing value works; the watchers only re-read the logind schedule
+  -- Any changing value works; the watchers only re-read the deadline file
   noctalia.state.set("scheduled", noctalia.nowMs())
 end
 
-local function runShutdown(args, onSuccess, onDone)
-  noctalia.runAsync(args, function(result)
-    if result.exitCode ~= 0 then
-      noctalia.notifyError(noctalia.tr("notify.title"), result.stderr)
-    else
-      onSuccess()
-    end
-    announce()
-    if onDone then
-      onDone()
-    end
-  end)
+local function finish(onDone)
+  announce()
+  if onDone then
+    onDone()
+  end
 end
 
 function M.start(value, onDone)
-  if M.scheduledAt() then
+  if not deadlineFile or M.scheduledAt() then
     return
   end
-  if noctalia.fileExists(SCHEDULED_FILE) then
-    -- Something else (a reboot) is scheduled; `shutdown -h` would silently replace it
-    noctalia.notifyError(noctalia.tr("notify.title"), noctalia.tr("notify.other_scheduled"))
-    return
-  end
-  runShutdown({ "shutdown", "-h", "+" .. value }, function()
-    noctalia.notify(noctalia.tr("notify.started_title"), noctalia.tr("notify.started_body", {
-      time = M.formatLong(value),
-      clock = os.date("%H:%M", os.time() + value * 60),
-    }))
-  end, onDone)
+  local at = os.time() + value * 60
+  noctalia.runAsync({
+    "systemd-run", "--user", "--unit=" .. UNIT, "--collect",
+    "--description=Sleep Timer: power off",
+    "--on-active=" .. (value * 60) .. "s", "--timer-property=AccuracySec=1s",
+    "systemctl", "poweroff",
+  }, function(result)
+    if result.exitCode ~= 0 then
+      noctalia.notifyError(noctalia.tr("notify.title"), result.stderr)
+    else
+      noctalia.writeFile(deadlineFile, string.format("%d %s", at, bootId()))
+      noctalia.notify(noctalia.tr("notify.started_title"), noctalia.tr("notify.started_body", {
+        time = M.formatLong(value),
+        clock = os.date("%H:%M", at),
+      }))
+    end
+    finish(onDone)
+  end)
 end
+
+-- systemctl's exit code when the unit is not loaded: the timer is already gone
+local NOT_LOADED = 5
 
 function M.cancel(onDone)
   if not M.scheduledAt() then
     return
   end
-  runShutdown({ "shutdown", "-c" }, function()
-    noctalia.notify(noctalia.tr("notify.cancelled_title"), noctalia.tr("notify.cancelled_body"))
-  end, onDone)
+  noctalia.runAsync({ "systemctl", "--user", "stop", UNIT .. ".timer" }, function(result)
+    if result.exitCode ~= 0 and result.exitCode ~= NOT_LOADED then
+      noctalia.notifyError(noctalia.tr("notify.title"), result.stderr)
+    else
+      clearDeadline()
+      noctalia.notify(noctalia.tr("notify.cancelled_title"), noctalia.tr("notify.cancelled_body"))
+    end
+    finish(onDone)
+  end)
+end
+
+-- Drops the deadline when the timer unit is gone (stopped from a terminal, or the user
+-- manager restarted). Cheap to call: it runs nothing while no timer is set.
+function M.verify(onDone)
+  if not M.scheduledAt() then
+    return
+  end
+  noctalia.runAsync({ "systemctl", "--user", "is-active", "--quiet", UNIT .. ".timer" }, function(result)
+    if result.exitCode ~= 0 and M.scheduledAt() then
+      clearDeadline()
+      finish(onDone)
+    end
+  end)
 end
 
 return M

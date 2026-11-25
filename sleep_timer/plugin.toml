@@ -1,6 +1,6 @@
 id           = "nid25/sleep_timer"
 name         = "Sleep Timer"
-version      = "2.2.0"
+version      = "2.3.0"
 # 52: translateY (layers over the dial); also pixel streams, module require, gesture defaults
 plugin_api   = 52
 author       = "nid25"
@@ -8,9 +8,9 @@ license      = "MIT"
 icon         = "moon"
 description  = "Shut down the computer after a set time, from a bar dial, a draggable dial panel or a Control Center tile."
 tags         = ["bar", "panel", "shortcut", "countdown", "system", "utility"]
-# shutdown: schedules and cancels the shutdown (systemd)
+# systemd-run, systemctl: the plugin's own systemd user timer that runs `systemctl poweroff`
 # python3: companion.py, the pointer layer that lets the dial knob be dragged
-dependencies = ["shutdown", "python3"]
+dependencies = ["systemd-run", "systemctl", "python3"]
 
 [[setting]]
 key             = "font_family"

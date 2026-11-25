@@ -39,8 +39,11 @@ local dragAngle = 0
 local inputRev = 0
 local hoursText = ""
 local minutesText = ""
+-- Set when Start or Enter found the fields invalid; shown in place of the hint
+local invalidInput = false
 
 local function resetInputs()
+  invalidInput = false
   inputRev += 1
   hoursText = tostring(minutes // 60)
   minutesText = string.format("%02d", minutes % 60)
@@ -171,14 +174,33 @@ local function pick(value)
   render()
 end
 
+-- Total minutes typed in the fields, or nil when they hold anything but digits or add up
+-- to zero. An empty field counts as 0.
+local function typedMinutes()
+  local function part(text)
+    text = text:match("^%s*(.-)%s*$")
+    if text == "" then
+      return 0
+    end
+    return text:match("^%d+$") and tonumber(text) or nil
+  end
+  local h, m = part(hoursText), part(minutesText)
+  if not h or not m or h * 60 + m < 1 then
+    return nil
+  end
+  return h * 60 + m
+end
+
 local function applyTyped()
-  local h = tonumber(hoursText ~= "" and hoursText or "0")
-  local m = tonumber(minutesText ~= "" and minutesText or "0")
-  if not h or not m or h < 0 or m < 0 or h % 1 ~= 0 or m % 1 ~= 0 then
+  local total = typedMinutes()
+  if not total then
     return
   end
-  local total = h * 60 + m
-  if total >= 1 and total ~= minutes then
+  if invalidInput then
+    invalidInput = false
+    render()
+  end
+  if total ~= minutes then
     minutes = timer.setMinutes(total)
     if minutes ~= total then
       -- Clamped to 23:59: show the stored time instead of what was typed
@@ -186,6 +208,24 @@ local function applyTyped()
     end
     render()
   end
+end
+
+-- Start and Enter use what the fields show, never an older value: invalid or zero input
+-- starts nothing
+local function startTyped()
+  local total = typedMinutes()
+  if not total then
+    invalidInput = true
+    render()
+    return
+  end
+  if total ~= minutes then
+    minutes = timer.setMinutes(total)
+    if minutes ~= total then
+      resetInputs()
+    end
+  end
+  timer.start(minutes, render)
 end
 
 local function centerRow()
@@ -201,9 +241,7 @@ local function centerRow()
       key = key .. "-" .. inputRev, value = text, placeholder = placeholder,
       width = 56, controlSize = "lg", fontSize = 20,
       onChange = onChange,
-      onSubmit = function()
-        timer.start(minutes, render)
-      end,
+      onSubmit = startTyped,
     })
   end
   -- Hours : minutes, narrow enough to stay clear of the 15 and 45 labels
@@ -254,8 +292,8 @@ render = function()
     ui.column({ gap = 2, align = "center" }, {
       ui.label({ text = timer.formatLong(value), fontSize = 22, fontWeight = "bold", color = "on_surface" }),
       ui.label({
-        text = noctalia.tr(at and "panel.hint_active" or "panel.hint_idle"),
-        fontSize = 12, color = "on_surface_variant",
+        text = noctalia.tr(at and "panel.hint_active" or (invalidInput and "panel.hint_invalid" or "panel.hint_idle")),
+        fontSize = 12, color = (invalidInput and not at) and "error" or "on_surface_variant",
       }),
     }),
 
@@ -266,9 +304,7 @@ render = function()
       end,
     }) or ui.button({
       text = noctalia.tr("panel.start"), glyph = "player-play", variant = "primary", controlSize = "lg",
-      onClick = function()
-        timer.start(minutes, render)
-      end,
+      onClick = startTyped,
     }),
   }))
 end
@@ -360,6 +396,7 @@ end
 
 function onOpen(_context)
   startCompanion()
+  timer.verify(refresh)
   minutes = timer.loadMinutes()
   resetInputs()
   panel.setWantsSecondTicks(true)

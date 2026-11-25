@@ -14,9 +14,10 @@ show the same timer.
 
 ## Requirements
 
-- `shutdown` from systemd. The timer is a regular `shutdown -h +N`, so the system must
-  let your user schedule a shutdown without a password, which is the default on most
-  desktop setups with logind and polkit.
+- `systemd-run` and `systemctl` from systemd, with a systemd user manager running. The
+  timer is a transient user timer that runs `systemctl poweroff`, so the system must let
+  your user power off without a password, which is the default on most desktop setups
+  with logind and polkit while no other user is logged in.
 - `python3` (3.9 or newer, standard library only) on Noctalia's `PATH`. It runs
   `companion.py`, which lets the panel's dial knob be dragged. Without it the panel still
   works through the hour and minute fields.
@@ -33,10 +34,10 @@ contain them, especially when it runs as a systemd user service.
   programs.noctalia.extraPackages = [ pkgs.python3 ];
   ```
 
-- **`shutdown` not found** (starting the timer shows an error): `shutdown` comes from the
-  system's systemd in `/run/current-system/sw/bin`, which must be on Noctalia's `PATH`.
-  Do not add `pkgs.systemd` to `extraPackages`: its `shutdown` may not match the running
-  systemd.
+- **`systemd-run` or `systemctl` not found** (starting the timer shows an error): they
+  come from the system's systemd in `/run/current-system/sw/bin`, which must be on
+  Noctalia's `PATH`. Do not add `pkgs.systemd` to `extraPackages`: its tools may not
+  match the running systemd.
 - **Plugin missing after a rebuild:** if `programs.noctalia.settings.plugins.source` is
   set, it replaces the default sources. Add the source of this plugin to that list and
   `nid25/sleep_timer` to `plugins.enabled`.
@@ -46,9 +47,13 @@ contain them, especially when it runs as a systemd user service.
 - **Plugin does not load:** it needs plugin API 52, Noctalia 5.5.0 or newer. If nixpkgs
   ships an older version, use the `github:noctalia-dev/noctalia` flake.
 
-Check that your user can schedule a shutdown with
-`shutdown -h +600 && shutdown -c`, and look for errors in
-`~/.cache/noctalia/noctalia.log`.
+To check that your user may power off without a password, without changing anything:
+
+```sh
+busctl call org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager CanPowerOff
+```
+
+It should print `s "yes"`. Errors from the plugin are in `~/.cache/noctalia/noctalia.log`.
 
 ## Usage
 
@@ -77,6 +82,8 @@ noctalia msg panel-toggle nid25/sleep_timer:panel
 - **Press anywhere on the ring** to move the knob there and keep dragging.
 - **Scroll over the dial** to change the time in 15-minute steps.
 - **Type hours and minutes** in the fields inside the dial, then press Enter or **Start**.
+  Start always uses what the fields show: if they hold anything but digits or add up to
+  zero, nothing starts and the hint under the dial turns red.
 - **Cancel shutdown** stops a running timer.
 
 The top row shows the current time and the time the computer will shut down.
@@ -102,12 +109,17 @@ the neutral color again, and so on. 2 h 30 min is two full laps plus half of a t
 
 ## Notes
 
-- **Commands:** `shutdown -h +N` to start and `shutdown -c` to cancel. A shutdown
-  scheduled from a terminal shows up in the plugin too: it reads logind's schedule from
-  `/run/systemd/shutdown/scheduled`. A scheduled reboot is not shown and is never
-  replaced or cancelled by the plugin.
-- **Files:** the chosen minutes and the generated dial images (SVG) are written to the
-  plugin's data directory. Each entry keeps only its last two dial images and removes
+- **Commands:** starting runs
+  `systemd-run --user --unit=noctalia-sleep-timer --collect --on-active=<N>s --timer-property=AccuracySec=1s systemctl poweroff`,
+  cancelling runs `systemctl --user stop noctalia-sleep-timer.timer`, and while a timer
+  runs the plugin checks every 30 seconds with
+  `systemctl --user is-active noctalia-sleep-timer.timer` that it still exists.
+- **Other schedules:** the plugin only starts and stops its own `noctalia-sleep-timer`
+  unit. It never reads, replaces or cancels a shutdown or reboot scheduled with
+  `shutdown` or by any other program, and such a schedule is not shown in the plugin.
+- **Files:** the chosen minutes, the running timer's end time (`deadline`, with the boot
+  it belongs to) and the generated dial images (SVG) are written to the plugin's data
+  directory. Each entry keeps only its last two dial images and removes
   older ones, and all are removed when the widget or panel loads. The companion also
   creates `dial.sock` and `dial.sock.lock` there.
 - **Process:** opening the panel starts `python3 companion.py <data dir>/dial.sock`. It

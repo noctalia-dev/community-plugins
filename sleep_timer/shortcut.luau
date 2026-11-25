@@ -1,7 +1,7 @@
 --!nonstrict
 -- Control Center tile. Click: open the dial panel.
 -- Right click: start the timer with the chosen time, or cancel a running one.
--- The tile is highlighted and counts down while a shutdown is scheduled.
+-- The tile is highlighted and counts down while the timer runs.
 
 local timer = require("./timer.luau")
 
