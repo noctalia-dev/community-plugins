@@ -3,10 +3,12 @@
 -- Caffeine Spoon's init.lua. noctalia's built-in caffeine does the actual
 -- inhibiting; this service decides when it should be on.
 --
--- Ownership follows the Spoon: caffeine that was already on before we were
--- asked is left alone by timer expiry, screen lock and plugin disable. Only an
--- explicit "disable" turns it off regardless. The built-in caffeine holds a
--- logind idle inhibitor (who=noctalia, why=Caffeine), which is how we read it.
+-- Ownership: caffeine that was already on before we were asked is left alone
+-- by screen lock and plugin disable. Starting a timer is different: it takes
+-- over caffeine, so when the timer ends (or the screen locks) caffeine turns
+-- off, whoever turned it on. Cancelling the timer hands caffeine back. An
+-- explicit "disable" always turns it off. The built-in caffeine holds a logind
+-- idle inhibitor (who=noctalia, why=Caffeine), which is how we read it.
 --
 -- Derived from the Caffeine Spoon by Chris Jones and Caffeine contributors
 -- (MIT); the timer and session logic are Jon Friesen's. See LICENSE.
@@ -52,7 +54,8 @@ local LOCK_POLL_S = 2
 local ENABLE_GRACE_S = 4
 
 local active = false -- built-in caffeine is on (last observed)
-local owned = false -- we turned it on (the Spoon's ownsDisplayIdle)
+local owned = false -- we turned it on, or a timer took it over
+local timerClaimed = false -- the timer took over caffeine that was already on
 local session = false -- a keep-awake session we started (toggle on or timer)
 local endsAt = nil -- unix seconds, when a timer is running
 local lidEnabled = noctalia.getConfig("lid_inhibit") == true
@@ -94,6 +97,7 @@ local function save()
   end
   local body = noctalia.json.encode({
     owned = owned,
+    timerClaimed = timerClaimed,
     session = session,
     endsAt = endsAt,
     lidEnabled = lidEnabled,
@@ -113,6 +117,7 @@ local function load()
     return
   end
   owned = data.owned == true
+  timerClaimed = data.timerClaimed == true
   session = data.session == true
   endsAt = if type(data.endsAt) == "number" then data.endsAt else nil
   if type(data.lidEnabled) == "boolean" then
@@ -186,6 +191,7 @@ end
 local function forgetSession()
   endsAt = nil
   owned = false
+  timerClaimed = false
   session = false
   syncLid()
   changed()
@@ -210,15 +216,24 @@ local function refresh(callback)
   end)
 end
 
----- Spoon semantics
+---- Session semantics
 
+-- Drops the timer without changing caffeine. If the timer had taken over
+-- caffeine that was already on, hand it back: a later lock or disable leaves
+-- it alone again.
 local function cancelTimer()
   endsAt = nil
+  if timerClaimed then
+    owned = false
+    timerClaimed = false
+  end
 end
 
--- Clears the timer and releases caffeine only if we turned it on.
+-- Timer expiry, screen lock, plugin disable: clears the timer and releases
+-- caffeine if we own it (we turned it on, or a timer took it over).
 local function endSession()
-  cancelTimer()
+  endsAt = nil
+  timerClaimed = false
   if owned then
     caffeine(false)
   end
@@ -249,8 +264,16 @@ local function setState(on)
   changed()
 end
 
+-- Starting a timer takes over caffeine: when it ends, caffeine turns off even
+-- if it was on before. Replacing a running timer keeps an earlier takeover.
 local function enableForDuration(seconds)
-  setState(true)
+  local claimed = timerClaimed
+  setState(true) -- hands back any takeover; claimed restores it below
+  if not owned then
+    owned = true
+    claimed = true
+  end
+  timerClaimed = claimed
   endsAt = os.time() + seconds
   changed()
 end
@@ -316,7 +339,7 @@ local function handle(action, arg)
     changed()
   elseif action == "status" then
     noctalia.log(
-      `caffeinate-plus: active={active} owned={owned} session={session} remaining={remaining()} lid={lidEnabled}/{lidHeld}`
+      `caffeinate-plus: active={active} owned={owned} claimed={timerClaimed} session={session} remaining={remaining()} lid={lidEnabled}/{lidHeld}`
     )
   elseif action ~= nil then
     noctalia.log(`caffeinate-plus: unknown command {action}`)

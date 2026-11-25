@@ -15,7 +15,7 @@
 
 id = "jonfriesen/caffeinate-plus"
 name = "Caffeinate Plus"
-version = "0.1.1"
+version = "0.1.2"
 plugin_api = 43
 author = "jonfriesen"
 license = "MIT"

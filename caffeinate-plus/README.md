@@ -45,7 +45,9 @@ To get the Control Center tile (`toggle`), add **Caffeinate Plus** in Settings â
 How a session behaves:
 - **Choosing a preset** replaces any running timer, and toggling by hand cancels it.
 - **A session ends** when the timer runs out, when you lock the screen, or when the plugin is disabled.
-- **Caffeine is turned off only if this plugin turned it on.** If it was already on, for example from the built-in caffeine tile, it stays on.
+- **A timer takes over caffeine.** When it runs out, or the screen locks first, caffeine turns off, even if it was already on before the timer started (for example from the built-in caffeine tile).
+- **Without a timer, caffeine is turned off only if this plugin turned it on.** Caffeine that was already on stays on when you lock the screen or disable the plugin.
+- **Cancel timer (stay on)** keeps caffeine on and hands it back: if it was on before the timer, the plugin leaves it alone again.
 
 While it's on, caffeine holds off the whole idle chain: screen-off, lock and suspend.
 
