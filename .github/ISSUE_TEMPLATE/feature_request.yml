@@ -252,6 +252,7 @@ body:
         - performance-plus
         - phone-connect
         - phone-operate
+        - ping-monitor
         - pixel-buds
         - pixel-shift
         - plugin-hub
