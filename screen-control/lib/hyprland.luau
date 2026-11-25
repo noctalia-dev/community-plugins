@@ -1,0 +1,371 @@
+--!nonstrict
+-- The screens' layout on Hyprland (DESIGN.md, sections 10.3 and 10.9). Reads the screens with
+-- `hyprctl monitors all -j` and applies a layout with `hyprctl eval 'hl.monitor({…})'`
+-- while Noctalia runs, never in Hyprland's config. A Hyprland with the older config takes one
+-- `hyprctl keyword monitor` request per screen instead. Rules name a screen by its connector,
+-- never by its description, which comes from the screen itself.
+
+local Hyprland = {}
+
+local lua = nil -- whether Hyprland takes Lua; nil until the first apply tells
+local vrrNow = {} -- screen id -> the VRR Hyprland reported last
+
+local function quoted(value)
+  return string.format("%q", tostring(value))
+end
+
+-- "1920x1080@279.99Hz" -> "1920x1080@279.99"
+local function modeOf(text)
+  return (text:gsub("Hz$", ""))
+end
+
+-- One screen as Hyprland reports it, in the plugin's own terms.
+local function screenOf(monitor)
+  local hardware = monitor.hardwareDetails or {}
+  local modes = {}
+  for _, mode in ipairs(monitor.availableModes or {}) do
+    table.insert(modes, modeOf(mode))
+  end
+  return {
+    id = monitor.description,
+    name = monitor.name,
+    model = monitor.model ~= "" and monitor.model or monitor.name,
+    pixelWidth = monitor.width,
+    pixelHeight = monitor.height,
+    mode = string.format("%dx%d@%.2f", monitor.width, monitor.height, monitor.refreshRate),
+    modes = modes,
+    x = monitor.x,
+    y = monitor.y,
+    scale = monitor.scale,
+    transform = monitor.transform % 4,
+    enabled = not monitor.disabled,
+    vrrCapable = hardware.vrrCapable == true,
+    vrr = monitor.vrr and 1 or 0,
+    hdrCapable = hardware.hdr == true,
+    hdr = monitor.colorManagementPreset == "hdr" or monitor.colorManagementPreset == "hdredid",
+    sdrBrightness = monitor.sdrBrightness or 1,
+    tenBit = (monitor.currentFormat or ""):find("2101010", 1, true) ~= nil,
+    mirrorOf = monitor.mirrorOf ~= "none" and monitor.mirrorOf or nil,
+    workspaces = "",
+  }
+end
+
+-- A connector name as Hyprland gives it, such as "DP-1" or "HDMI-A-1". Others are left out,
+-- so a rule never holds anything else.
+local function isConnector(name)
+  return type(name) == "string" and name:match("^[%w][%w%-_]*$") ~= nil
+end
+
+-- A mode as the layout keeps it, such as "1920x1080@60.00".
+local function isMode(mode)
+  return type(mode) == "string" and mode:match("^%d+x%d+@%d+%.?%d*$") ~= nil
+end
+
+-- Calls back with the screens, in Hyprland's order, or nil and an error. A screen's id is its
+-- description: make, model and serial. When two screens report the same one, such as two
+-- monitors of one model without serials, each id also names its connector.
+function Hyprland.read(callback)
+  noctalia.runAsync({ "hyprctl", "monitors", "all", "-j" }, function(result)
+    if result.exitCode ~= 0 then
+      callback(nil, result.stderr ~= "" and result.stderr or result.stdout)
+      return
+    end
+    local monitors = noctalia.json.decode(result.stdout)
+    if type(monitors) ~= "table" then
+      callback(nil, "hyprctl monitors: no JSON")
+      return
+    end
+    local screens, count = {}, {}
+    for _, monitor in ipairs(monitors) do
+      if type(monitor) == "table" and isConnector(monitor.name) then
+        local screen = screenOf(monitor)
+        if type(screen.id) ~= "string" or screen.id == "" then
+          screen.id = screen.name
+        end
+        count[screen.id] = (count[screen.id] or 0) + 1
+        table.insert(screens, screen)
+      end
+    end
+    for _, screen in ipairs(screens) do
+      if count[screen.id] > 1 then
+        screen.id = screen.id .. " (" .. screen.name .. ")"
+      end
+      vrrNow[screen.id] = screen.vrr
+    end
+    -- A mirror names its source by connector; the layout names it by screen.
+    local byName = {}
+    for _, screen in ipairs(screens) do
+      byName[screen.name] = screen.id
+    end
+    for _, screen in ipairs(screens) do
+      screen.mirror = screen.mirrorOf and byName[screen.mirrorOf] or ""
+      screen.mirrorOf = nil
+    end
+    callback(screens)
+  end, 5000)
+end
+
+-- "1-3, 5" -> { 1, 2, 3, 5 }; nil when the text is not a list of workspaces.
+function Hyprland.workspaceIds(text)
+  local ids = {}
+  for part in (text or ""):gmatch("[^,%s]+") do
+    local from, to = part:match("^(%d+)%-(%d+)$")
+    from = tonumber(from or part:match("^(%d+)$"))
+    to = tonumber(to) or from
+    if not from or to < from or to - from > 99 then
+      return nil
+    end
+    for id = from, to do
+      table.insert(ids, id)
+    end
+  end
+  return ids
+end
+
+local function connector(screens, id)
+  for _, screen in ipairs(screens) do
+    if screen.id == id then
+      return screen.name
+    end
+  end
+  return nil
+end
+
+-- A workspace rule as Lua, from its JSON in `hyprctl workspacerules -j`, on <monitor> when
+-- given. The fields a rule keeps while this plugin moves it to another screen.
+local RULE_FIELDS = { default = "default", persistent = "persistent", layout = "layout",
+  defaultName = "default_name", borderSize = "border_size" }
+
+local function workspaceRule(id, rule, monitor)
+  local fields = { "workspace = " .. quoted(id) }
+  monitor = monitor or (rule and rule.monitor)
+  if monitor and monitor ~= "" then
+    table.insert(fields, "monitor = " .. quoted(monitor))
+  end
+  for json, field in pairs(RULE_FIELDS) do
+    local value = rule and rule[json]
+    if type(value) == "boolean" or type(value) == "number" then
+      table.insert(fields, `{field} = {tostring(value)}`)
+    elseif type(value) == "string" and value ~= "" then
+      table.insert(fields, `{field} = {quoted(value)}`)
+    end
+  end
+  return "hl.workspace_rule({ " .. table.concat(fields, ", ") .. " })"
+end
+
+-- The Lua for <layout>. <ruled> maps each workspace id this plugin moved to the rule it had
+-- before, or false; <current> maps ids to their rules now. A workspace that no screen asks
+-- for any more gets its rule back. Returns the Lua and the new <ruled>.
+local function luaRules(layout, ruled, current)
+  local lines, kept = {}, {}
+  for _, screen in ipairs(layout) do
+    local output = quoted(screen.name)
+    if not screen.enabled then
+      table.insert(lines, string.format("hl.monitor({ output = %s, disabled = true })", output))
+    else
+      local mirror = screen.mirror ~= "" and connector(layout, screen.mirror) or ""
+      table.insert(lines, string.format(
+        "hl.monitor({ output = %s, disabled = false, mode = %s, position = %s, scale = %s, transform = %d,"
+          .. " vrr = %d, mirror = %s, bitdepth = %d, cm = %s, sdrbrightness = %s })",
+        output, quoted(screen.mode), quoted(`{screen.x}x{screen.y}`), quoted(screen.scale), screen.transform,
+        screen.vrr, quoted(mirror), (screen.hdr or screen.tenBit) and 10 or 8,
+        quoted(screen.hdr and "hdr" or "srgb"), quoted(screen.sdrBrightness)))
+      for _, number in ipairs(Hyprland.workspaceIds(screen.workspaces) or {}) do
+        local id = tostring(number)
+        if ruled[id] == nil then
+          kept[id] = current[id] or false
+        else
+          kept[id] = ruled[id]
+        end
+        table.insert(lines, workspaceRule(id, kept[id] or nil, screen.name))
+        table.insert(lines, string.format(
+          "pcall(function() hl.dispatch(hl.dsp.workspace.move({ workspace = %s, monitor = %s })) end)",
+          quoted(id), quoted(screen.name)))
+      end
+    end
+  end
+  -- Hyprland merges a rule into the one it has and cannot remove one while it runs, so a
+  -- workspace gets back the fields its rule had, and keeps the screen until Hyprland
+  -- reloads its config when its rule named none.
+  for id, rule in pairs(ruled) do
+    if kept[id] == nil and rule then
+      table.insert(lines, workspaceRule(id, rule))
+    end
+  end
+  return table.concat(lines, "\n"), kept
+end
+
+-- Hyprland leaves VRR out when it compares a monitor rule with the one in use, so a rule
+-- that changes only VRR does not apply. A rule that also changes another value, the
+-- brightness of normal content here, comes first; the real rule then applies VRR.
+local function vrrRules(layout)
+  local lines = {}
+  for _, screen in ipairs(layout) do
+    if screen.enabled and vrrNow[screen.id] ~= nil and screen.vrr ~= vrrNow[screen.id] then
+      table.insert(lines, string.format("hl.monitor({ output = %s, vrr = %d, sdrbrightness = %s })",
+        quoted(screen.name), screen.vrr, quoted((tonumber(screen.sdrBrightness) or 1) + 0.01)))
+    end
+  end
+  return table.concat(lines, "\n")
+end
+
+-- The requests for <layout> on the older config, each its own hyprctl argv, so nothing in a
+-- value can start another request: the monitor rules, then every workspace rule, then a move
+-- for each workspace in <open>, the ones that exist, since Hyprland refuses to move any
+-- other. Returns nil when a value is not one a rule can hold.
+local function keywordRequests(layout, open)
+  local requests, rules, moves = {}, {}, {}
+  for _, screen in ipairs(layout) do
+    local mirror = screen.mirror ~= "" and connector(layout, screen.mirror) or nil
+    local scale, sdr = tonumber(screen.scale), tonumber(screen.sdrBrightness) or 1
+    if not isConnector(screen.name) or (mirror and not isConnector(mirror))
+      or (screen.enabled and (not isMode(screen.mode) or not scale)) then
+      return nil
+    end
+    if not screen.enabled then
+      table.insert(requests, { "hyprctl", "keyword", "monitor", screen.name .. ",disable" })
+    else
+      local rule = string.format("%s,%s,%dx%d,%s,transform,%d,vrr,%d,bitdepth,%d,cm,%s,sdrbrightness,%s",
+        screen.name, screen.mode, screen.x, screen.y, tostring(scale), screen.transform, screen.vrr,
+        (screen.hdr or screen.tenBit) and 10 or 8, screen.hdr and "hdr" or "srgb", tostring(sdr))
+      if mirror then
+        rule ..= ",mirror," .. mirror
+      end
+      table.insert(requests, { "hyprctl", "keyword", "monitor", rule })
+      for _, id in ipairs(Hyprland.workspaceIds(screen.workspaces) or {}) do
+        table.insert(rules, { "hyprctl", "keyword", "workspace", `{id},monitor:{screen.name}` })
+        if open[tostring(id)] then
+          table.insert(moves, { "hyprctl", "dispatch", "moveworkspacetomonitor", tostring(id), screen.name })
+        end
+      end
+    end
+  end
+  table.move(rules, 1, #rules, #requests + 1, requests)
+  table.move(moves, 1, #moves, #requests + 1, requests)
+  return requests
+end
+
+-- Send each of their arguments to Hyprland, one after another: as Lua, or as a monitor rule
+-- of the older config.
+local EVAL_ALL = 'for text; do [ -n "$text" ] && hyprctl eval "$text"; done'
+local MONITOR_ALL = 'for rule; do hyprctl keyword monitor "$rule"; done'
+
+-- Runs <requests> one after another; calls back with whether each answered "ok", and the
+-- first other answer.
+local function runRequests(requests, callback)
+  local function step(i)
+    local argv = requests[i]
+    if argv == nil then
+      if callback then
+        callback(true, nil)
+      end
+      return
+    end
+    noctalia.runAsync(argv, function(result)
+      local answer = noctalia.string.trim((result.stdout or "") .. (result.stderr or ""))
+      if result.exitCode ~= 0 or answer ~= "ok" then
+        if callback then
+          callback(false, answer)
+        end
+        return
+      end
+      step(i + 1)
+    end, 5000)
+  end
+  step(1)
+end
+
+local function ordered(layout)
+  local list = {}
+  for _, screen in ipairs(layout) do
+    if screen.enabled then
+      table.insert(list, screen)
+    end
+  end
+  for _, screen in ipairs(layout) do
+    if not screen.enabled then
+      table.insert(list, screen)
+    end
+  end
+  return list
+end
+
+-- Applies <layout>, a list of screens. <ruled> is what luaRules takes. Screens that stay on
+-- come first, so the last screen is never turned off before another one is on. Calls back
+-- with whether Hyprland took it, its message, and the new <ruled>.
+function Hyprland.apply(layout, ruled, callback)
+  layout = ordered(layout)
+  local function older()
+    noctalia.runAsync({ "hyprctl", "workspaces", "-j" }, function(result)
+      local open = {}
+      for _, workspace in ipairs(result.exitCode == 0 and noctalia.json.decode(result.stdout) or {}) do
+        if type(workspace) == "table" and workspace.id ~= nil then
+          open[tostring(workspace.id)] = true
+          open[tostring(workspace.name)] = true
+        end
+      end
+      local requests = keywordRequests(layout, open)
+      if requests == nil then
+        callback(false, nil, ruled)
+        return
+      end
+      runRequests(requests, function(ok, answer)
+        callback(ok, answer, ruled)
+      end)
+    end, 5000)
+  end
+  if lua == false then
+    older()
+    return
+  end
+  noctalia.runAsync({ "hyprctl", "workspacerules", "-j" }, function(rules)
+    local current = {}
+    for _, rule in ipairs(rules.exitCode == 0 and noctalia.json.decode(rules.stdout) or {}) do
+      if type(rule) == "table" and rule.workspaceString then
+        current[rule.workspaceString] = rule
+      end
+    end
+    local text, kept = luaRules(layout, ruled, current)
+    local function run()
+      -- A Hyprland without Lua answers "unknown request". A Lua error exits with an error; a
+      -- warning, such as a workspace that does not exist yet, does not.
+      noctalia.runAsync({ "hyprctl", "eval", text }, function(result)
+        if result.exitCode == 0 and not result.stdout:find("unknown request", 1, true) then
+          lua = true
+          callback(true, nil, kept)
+        elseif lua == nil and result.exitCode == 0 then
+          lua = false
+          older()
+        else
+          callback(false, noctalia.string.trim(result.stdout .. result.stderr), ruled)
+        end
+      end, 10000)
+    end
+    local first = lua ~= false and vrrRules(layout) or ""
+    if first == "" then
+      run()
+    else
+      noctalia.runAsync({ "hyprctl", "eval", first }, run, 10000)
+    end
+  end, 5000)
+end
+
+-- Applies <layout> and gives every workspace in <ruled> its rule back, as the plugin stops.
+-- One detached shell sends the requests in order, as no callback runs after the plugin stops.
+function Hyprland.applyNow(layout, ruled)
+  layout = ordered(layout)
+  for _, screen in ipairs(layout) do
+    screen.workspaces = ""
+  end
+  if lua == false then
+    local argv = { "sh", "-c", MONITOR_ALL, "screen-control" }
+    for _, request in ipairs(keywordRequests(layout, {}) or {}) do
+      table.insert(argv, request[4])
+    end
+    noctalia.runAsync(argv)
+    return
+  end
+  noctalia.runAsync({ "sh", "-c", EVAL_ALL, "screen-control", vrrRules(layout), (luaRules(layout, ruled, {})) })
+end
+
+return Hyprland

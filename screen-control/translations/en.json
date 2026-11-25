@@ -1,0 +1,101 @@
+{
+  "caffeine": {
+    "hint": "Keeps the screen on and unlocked.",
+    "title": "Caffeine"
+  },
+  "layout": {
+    "apply_failed": "Hyprland did not take the layout.",
+    "hint": "Drag a screen onto an edge of another to put it there.",
+    "keep": "Keep",
+    "keep_countdown": {
+      "one": "Undone in 1 second",
+      "other": "Undone in {count} seconds"
+    },
+    "keep_question": "Keep this layout?",
+    "remembered": "These screens keep this layout.",
+    "reset": "Reset",
+    "reset_tooltip": "Forget the layout of these screens; Hyprland's own settings apply again",
+    "undo": "Undo",
+    "workspaces_invalid": "Write workspaces as 1-5, or 1, 3, 5."
+  },
+  "level": {
+    "dim": "Dim {percent}%"
+  },
+  "monitor": {
+    "builtin": "Built-in display",
+    "dim": "Extra dim",
+    "workspace": "Workspace {name}"
+  },
+  "night": {
+    "custom": "Set the times myself",
+    "dark_mode_note": "Noctalia's automatic dark mode follows these times too.",
+    "from": "From",
+    "no_place": "From sunset to sunrise. Set your location in Noctalia's settings, under Location.",
+    "off": "Off",
+    "on": "On",
+    "scheduled": "Scheduled",
+    "sunset_to_sunrise": "From sunset to sunrise, {place}",
+    "title": "Night light",
+    "until": "until",
+    "warmth": "Warmth"
+  },
+  "panel": {
+    "brightness": "Brightness",
+    "layout": "Layout",
+    "loading": "Loading…",
+    "shared_dim": "Dimming below the lowest brightness applies to all screens at once.",
+    "title": "Screen Control"
+  },
+  "screen": {
+    "hdr": "HDR",
+    "mirror": "Mirror",
+    "mirror_none": "None",
+    "mirrors": "{name} mirrors {source}",
+    "mode": "Resolution",
+    "off": "{name} is off",
+    "on": "On",
+    "rotation": "Rotation",
+    "rotation_0": "None",
+    "rotation_1": "90°",
+    "rotation_2": "180°",
+    "rotation_3": "270°",
+    "scale": "Scale",
+    "sdr_brightness": "Brightness of normal content",
+    "vrr": "VRR",
+    "vrr_0": "Off",
+    "vrr_1": "On",
+    "vrr_2": "Full-screen apps only",
+    "workspaces": "Workspaces",
+    "workspaces_placeholder": "Such as 1-5"
+  },
+  "settings": {
+    "dim_method": {
+      "description": "How the screens get darker below their lowest brightness. Gamma needs hyprsunset on Hyprland; elsewhere a black layer is used.",
+      "label": "Dimming method",
+      "options": {
+        "gamma": "Gamma",
+        "overlay": "Black layer"
+      }
+    },
+    "keep_seconds": {
+      "description": "How long Keep this layout? waits before it puts the screens back, in seconds.",
+      "label": "Time to keep a layout"
+    },
+    "max_dim": {
+      "description": "How dark the screens can get below their lowest brightness, in percent.",
+      "label": "Darkest dimming"
+    },
+    "per_workspace": {
+      "description": "Each workspace keeps its own dimming. Needs Hyprland.",
+      "label": "Dim each workspace on its own"
+    },
+    "skip_monitors": {
+      "description": "Monitors to leave out, by connector, such as HDMI-A-1, or part of their name, such as Legion. Use it for a monitor whose brightness control misbehaves.",
+      "label": "Leave out monitors"
+    },
+    "step_dims": {
+      "description": "Scrolling on the widget and the brightness keys go on past the lowest brightness into extra dim. Off, they stop there, and extra dim has its own slider in the panel.",
+      "label": "Scroll into extra dim"
+    }
+  }
+}

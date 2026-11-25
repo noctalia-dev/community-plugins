@@ -1,0 +1,94 @@
+id = "omerfuyar/screen-control"
+name = "Screen Control"
+version = "1.6.3"
+plugin_api = 43
+author = "omerfuyar"
+license = "MIT"
+icon = "sun"
+description = "Your screens in one place: brightness, extra dim, night light, caffeine, and the layout, modes, scale, VRR and HDR."
+dependencies = ["noctalia", "hyprsunset", "hyprctl", "ddcutil", "systemd-inhibit", "sh"]
+tags = ["bar", "hyprland", "hardware", "system", "utility"]
+
+[[setting]]
+key = "max_dim"
+type = "int"
+label_key = "settings.max_dim.label"
+description_key = "settings.max_dim.description"
+default = 75
+min = 10
+max = 99
+
+[[setting]]
+key = "dim_method"
+type = "select"
+label_key = "settings.dim_method.label"
+description_key = "settings.dim_method.description"
+default = "gamma"
+options = [
+  { value = "gamma", label_key = "settings.dim_method.options.gamma" },
+  { value = "overlay", label_key = "settings.dim_method.options.overlay" },
+]
+
+[[setting]]
+key = "per_workspace"
+type = "bool"
+label_key = "settings.per_workspace.label"
+description_key = "settings.per_workspace.description"
+default = false
+
+[[setting]]
+key = "step_dims"
+type = "bool"
+label_key = "settings.step_dims.label"
+description_key = "settings.step_dims.description"
+default = false
+advanced = true
+
+[[setting]]
+key = "skip_monitors"
+type = "string_list"
+label_key = "settings.skip_monitors.label"
+description_key = "settings.skip_monitors.description"
+default = []
+advanced = true
+
+[[setting]]
+key = "keep_seconds"
+type = "int"
+label_key = "settings.keep_seconds.label"
+description_key = "settings.keep_seconds.description"
+default = 15
+min = 5
+max = 60
+step = 5
+advanced = true
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[service]]
+id = "layout"
+entry = "service_layout.luau"
+
+[[widget]]
+id = "widget"
+entry = "widget.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 460
+height = "content"
+max_height = 720
+placement = "attached"
+position = "auto"
+open_near_click = true
+
+[[layer]]
+id = "dim"
+entry = "layer.luau"
+layer = "overlay"
+anchors = ["top", "bottom", "left", "right"]
+exclusive_zone = -1
+click_through = true
