@@ -33,7 +33,7 @@
     },
     "cancel_on_lock": {
       "label": "Turn off when the screen locks",
-      "description": "Locking ends the session and releases caffeine, if this plugin turned it on"
+      "description": "Locking ends the session. Caffeine turns off if a timer was running or this plugin turned it on"
     },
     "lid_inhibit": {
       "label": "Ignore lid close by default",

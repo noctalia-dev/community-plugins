@@ -48,6 +48,7 @@ local LID_STOP = `systemctl --user stop {LID_UNIT} >/dev/null 2>&1 || true`
 local LID_CHECK = `systemctl --user is-active --quiet {LID_UNIT}`
 
 local CAFFEINE_POLL_S = 5
+local LID_POLL_S = 5
 local LOCK_POLL_S = 2
 -- After we enable caffeine, its logind inhibitor can lag the IPC reply. Don't
 -- read "not listed yet" as "turned off elsewhere" during this window.
@@ -68,6 +69,7 @@ local lastLockPoll = 0
 local lockPollPending = false
 local caffeinePollPending = false
 local lastHeartbeat = 0
+local lastLidPoll = 0
 
 ---- Publishing and persistence
 
@@ -161,6 +163,24 @@ local function syncLid()
       publish()
       syncLid() -- catch a change made while we were busy
     end)
+  end)
+end
+
+-- The unit is the source of truth, as in super-caffeine: poll it, and if it
+-- went away on its own (a stale heartbeat after a suspend, an OOM kill, a
+-- manual stop), syncLid() starts it again while a session still wants it.
+local function refreshLid()
+  lastLidPoll = os.time()
+  noctalia.runAsync(LID_CHECK, function(r)
+    if lidBusy then
+      return -- syncLid() is mid-change and checks the unit itself
+    end
+    local held = r.exitCode == 0
+    if held ~= lidHeld then
+      lidHeld = held
+      publish()
+      syncLid()
+    end
   end)
 end
 
@@ -316,7 +336,8 @@ local function handle(action, arg)
     if mins and mins == mins and math.abs(mins) < math.huge then
       if endsAt == nil and mins > 0 then
         -- Starting a timer turns caffeine on: read its current state first, as
-        -- `for` does, so caffeine that was already on stays someone else's.
+        -- `for` does, so the timer records whether it took over caffeine that was
+        -- already on, and Cancel timer can hand it back.
         refresh(function()
           addMinutes(mins)
         end)
@@ -409,6 +430,9 @@ function update()
   end
   if lidEnabled and session and (lidHeld or lidBusy) and now - lastHeartbeat >= HEARTBEAT_EVERY_S then
     heartbeat()
+  end
+  if not lidBusy and (lidHeld or (lidEnabled and session)) and now - lastLidPoll >= LID_POLL_S then
+    refreshLid()
   end
 end
 
