@@ -38,8 +38,29 @@ function Activity.color(level)
   return LEVEL_COLORS[clampLevel(level) + 1]
 end
 
-function Activity.symbol(level)
-  return LEVEL_SYMBOLS[clampLevel(level) + 1]
+function Activity.levelForCount(count, thresholds)
+  if type(count) ~= "number" or count <= 0 then
+    return 0
+  end
+  thresholds = thresholds or {}
+  local q1 = thresholds[1] or 1
+  local q2 = thresholds[2] or q1
+  local q3 = thresholds[3] or q2
+  if count <= q1 then
+    return 1
+  elseif count <= q2 then
+    return 2
+  elseif count <= q3 then
+    return 3
+  end
+  return 4
+end
+
+function Activity.symbol(levelOrCount, thresholds)
+  if type(thresholds) == "table" then
+    return LEVEL_SYMBOLS[Activity.levelForCount(levelOrCount, thresholds) + 1]
+  end
+  return LEVEL_SYMBOLS[clampLevel(levelOrCount) + 1]
 end
 
 -- Levels of one stored heatmap row. The panel keeps the grid as seven short
@@ -113,7 +134,7 @@ end
 function Activity.quartiles(counts)
   local values = {}
   for _, count in ipairs(counts or {}) do
-    if count > 0 then
+    if type(count) == "number" and count > 0 then
       table.insert(values, count)
     end
   end
@@ -129,36 +150,27 @@ function Activity.quartiles(counts)
     local index = math.ceil(#values * fraction)
     if index < 1 then
       index = 1
-    end
-    if index > #values then
+    elseif index > #values then
       index = #values
     end
     return values[index]
   end
 
-  return { at(0.25), at(0.5), at(0.75) }
+  local low = at(0.25)
+  local mid = at(0.50)
+  local high = at(0.75)
+  if mid < low then
+    mid = low
+  end
+  if high < mid then
+    high = mid
+  end
+  return { low, mid, high }
 end
 
-function Activity.levelForCount(count, thresholds)
-  if type(count) ~= "number" or count <= 0 then
-    return 0
-  end
-
-  local limits = thresholds or { 1, 1, 1 }
-  if count <= limits[1] then
-    return 1
-  end
-  if count <= limits[2] then
-    return 2
-  end
-  if count <= limits[3] then
-    return 3
-  end
-  return 4
-end
-
--- Current and best run of consecutive active days inside the window. Only a
--- fallback: the streak endpoint reports the authoritative numbers.
+-- Current and longest streak, computed from the counts that span the rolling
+-- window. Only a fallback: the streak endpoint reports the authoritative
+-- numbers.
 function Activity.streaks(counts)
   local best = 0
   local running = 0
@@ -168,7 +180,7 @@ function Activity.streaks(counts)
   end
 
   for _, count in ipairs(counts) do
-    if count > 0 then
+    if type(count) == "number" and count > 0 then
       running = running + 1
       if running > best then
         best = running
@@ -180,7 +192,8 @@ function Activity.streaks(counts)
 
   local current = 0
   for index = #counts, 1, -1 do
-    if counts[index] == 0 then
+    local count = counts[index]
+    if type(count) ~= "number" or count <= 0 then
       break
     end
     current = current + 1
@@ -189,22 +202,34 @@ function Activity.streaks(counts)
   return current, best
 end
 
+local function isAvailableCount(count)
+  return type(count) == "number" and count >= 0
+end
+
 -- Lay `counts` out as seven weekday rows of week columns, ending on
--- `lastTimestamp` (a UTC midnight). The window usually starts mid-week, so the
--- leading cells of the first column are padded to keep rows and details
--- column aligned; the panel renders no cell for a padded position.
+-- `lastTimestamp`. The leading and trailing cells outside the window are padded
+-- to keep rows and details aligned to columns. Returns the grid plus the
+-- covered range (first/last dates with actual data available).
 function Activity.build(counts, lastTimestamp)
+  counts = counts or {}
   local count = #counts
   local total = 0
   for index = 1, count do
-    total = total + counts[index]
+    local value = counts[index]
+    if isAvailableCount(value) then
+      total = total + value
+    end
   end
 
   local thresholds = Activity.quartiles(counts)
+
   local firstTimestamp = lastTimestamp - (count - 1) * SECONDS_PER_DAY
-  local firstWeekday = os.date("!*t", firstTimestamp).wday
-  local columns = math.ceil((firstWeekday - 1 + count) / 7)
-  local pad = firstWeekday - 1
+  local firstWeekday = tonumber(os.date("!%w", firstTimestamp)) or 0
+  local columns = math.ceil((count + firstWeekday) / 7)
+  if columns < 1 then
+    columns = 1
+  end
+
   local rows = {}
   local details = {}
 
@@ -212,18 +237,38 @@ function Activity.build(counts, lastTimestamp)
     local symbols = {}
     local fields = {}
     for column = 1, columns do
-      local index = (column - 1) * 7 + weekday - pad
-      if index < 1 or index > count then
-        table.insert(symbols, Activity.symbol(0))
-        table.insert(fields, "")
-      else
+      local index = (column - 1) * 7 + (weekday - 1 - firstWeekday) + 1
+      if index >= 1 and index <= count then
         local timestamp = firstTimestamp + (index - 1) * SECONDS_PER_DAY
-        table.insert(symbols, Activity.symbol(Activity.levelForCount(counts[index], thresholds)))
-        table.insert(fields, Activity.utcDate(timestamp) .. "|" .. tostring(counts[index]))
+        local dateStr = Activity.utcDate(timestamp)
+        local value = counts[index]
+        if isAvailableCount(value) then
+          table.insert(symbols, Activity.symbol(value, thresholds))
+          table.insert(fields, dateStr .. "|" .. tostring(value))
+        else
+          table.insert(symbols, " ")
+          table.insert(fields, dateStr .. "|-1")
+        end
+      else
+        table.insert(symbols, " ")
+        table.insert(fields, "")
       end
     end
     rows[weekday] = table.concat(symbols)
     details[weekday] = table.concat(fields, "\t")
+  end
+
+  local coveredFirstDate = nil
+  local coveredLastDate = nil
+  for index = 1, count do
+    if isAvailableCount(counts[index]) then
+      local timestamp = firstTimestamp + (index - 1) * SECONDS_PER_DAY
+      local dateStr = Activity.utcDate(timestamp)
+      if coveredFirstDate == nil then
+        coveredFirstDate = dateStr
+      end
+      coveredLastDate = dateStr
+    end
   end
 
   return {
@@ -234,6 +279,8 @@ function Activity.build(counts, lastTimestamp)
     windowTotal = total,
     firstDate = Activity.utcDate(firstTimestamp),
     lastDate = Activity.utcDate(lastTimestamp),
+    coveredFirstDate = coveredFirstDate,
+    coveredLastDate = coveredLastDate,
   }
 end
 
@@ -241,11 +288,12 @@ end
 -- as available when at least one day in that calendar year falls inside the
 -- window, so the selector only offers views the data can actually render.
 function Activity.availableYears(counts, lastTimestamp)
-  if type(counts) ~= "table" or type(lastTimestamp) ~= "number" or #counts == 0 then
+  if type(counts) ~= "table" or #counts == 0 or Activity.toSeconds(lastTimestamp) == nil then
     return {}
   end
 
-  local firstTimestamp = lastTimestamp - (#counts - 1) * SECONDS_PER_DAY
+  local count = #counts
+  local firstTimestamp = lastTimestamp - (count - 1) * SECONDS_PER_DAY
   local firstYear = tonumber(os.date("!%Y", firstTimestamp))
   local lastYear = tonumber(os.date("!%Y", lastTimestamp))
   local years = {}
@@ -258,139 +306,69 @@ function Activity.availableYears(counts, lastTimestamp)
   return years
 end
 
--- Build a heatmap for one full calendar year. Days outside the supplied rolling
--- window render as empty (future days, or days before the account's history),
--- so the grid keeps the familiar Jan-Dec shape while counts stay correct where
--- data exists.
-function Activity.buildYear(year, counts, lastTimestamp)
-  local y = tonumber(year)
-  if y == nil or type(counts) ~= "table" or type(lastTimestamp) ~= "number" or #counts == 0 then
+-- Build the compact grid for a single calendar year. Days outside the
+-- available data window are marked unavailable so the panel can distinguish
+-- them from days with zero tests.
+function Activity.buildYear(counts, lastTimestamp, yearStr)
+  if type(counts) ~= "table" or #counts == 0 or Activity.toSeconds(lastTimestamp) == nil then
     return nil
   end
 
-  local yearStr = tostring(y)
-  local firstData = lastTimestamp - (#counts - 1) * SECONDS_PER_DAY
-
-  -- Collect the year days in order by walking the UTC calendar, staying on the
-  -- same midnight grid as the rolling window so indexes line up exactly.
-  local yearDays = {}
-  local yearDayTimestamps = {}
-  local todayStamp = os.time()
-  todayStamp = todayStamp - todayStamp % SECONDS_PER_DAY
-
-  -- Find the first day of this year that is on or after Jan 1 by scanning from
-  -- the earlier of firstData and a conservative anchor: step day by day through
-  -- the year range using the data grid.
-  local startSearch = firstData
-  -- Jan 1 of y is at most ~366 days before Dec 31 of y; but easier: find index
-  -- of any day in year y within our data, then walk back to Jan 1 equivalent.
-  -- Simpler: iterate every day in the data window and bucket by year.
-  local byYear = {}
-  for i = 1, #counts do
-    local ts = firstData + (i - 1) * SECONDS_PER_DAY
-    local d = os.date("!%Y-%m-%d", ts)
-    local dy = string.sub(d, 1, 4)
-    if byYear[dy] == nil then
-      byYear[dy] = {}
-    end
-    table.insert(byYear[dy], { ts = ts, count = counts[i] or 0, date = d })
+  local y = tonumber(yearStr)
+  if y == nil then
+    return nil
   end
 
-  if byYear[yearStr] == nil then
-    -- Year has no overlap with the data window; still build an empty year grid
-    -- so the selector can show it if requested, unless it's completely out of range.
-    -- Determine if this year is adjacent/reasonable: only build if within the
-    -- overall span covered by availableYears.
-    local firstYear = tonumber(os.date("!%Y", firstData))
-    local lastYear = tonumber(os.date("!%Y", lastTimestamp))
-    if firstYear == nil or lastYear == nil or y < firstYear or y > lastYear then
-      return nil
-    end
+  local count = #counts
+  local firstData = lastTimestamp - (count - 1) * SECONDS_PER_DAY
+  local jan1 = os.time({ year = y, month = 1, day = 1, hour = 12 })
+  local dec31 = os.time({ year = y, month = 12, day = 31, hour = 12 })
+  if jan1 == nil or dec31 == nil then
+    return nil
   end
+  jan1 = jan1 - jan1 % SECONDS_PER_DAY
+  dec31 = dec31 - dec31 % SECONDS_PER_DAY
 
-  -- Build the full year by generating each calendar day Jan 1..Dec 31 in order.
-  -- Use known data where available; future days and days outside the window are 0.
-  local dataByDate = {}
-  local yearEntries = byYear[yearStr] or {}
-  for _, entry in ipairs(yearEntries) do
-    dataByDate[entry.date] = entry.count
-  end
-
-  local function dayOfYear(dateStr)
-    local yy, mm, dd = string.match(dateStr, "^(%d%d%d%d)%-(%d%d)%-(%d%d)$")
-    yy, mm, dd = tonumber(yy), tonumber(mm), tonumber(dd)
-    local months = { 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334 }
-    local doy = months[mm] + dd
-    local leap = (yy % 4 == 0 and (yy % 100 ~= 0 or yy % 400 == 0))
-    if leap and mm > 2 then
-      doy = doy + 1
-    end
-    return doy
-  end
-
-  local function daysInYearNum(yy)
-    local leap = (yy % 4 == 0 and (yy % 100 ~= 0 or yy % 400 == 0))
-    return leap and 366 or 365
-  end
-
-  -- Derive Jan 1 UTC midnight on the same grid as firstData.
-  local jan1Ts = nil
-  if #yearEntries > 0 then
-    local sample = yearEntries[1]
-    jan1Ts = sample.ts - (dayOfYear(sample.date) - 1) * SECONDS_PER_DAY
-  else
-    -- No data in this year; approximate Jan 1 on grid from firstData.
-    local fdDate = os.date("!%Y-%m-%d", firstData)
-    local fy = tonumber(string.sub(fdDate, 1, 4))
-    local fdJan1 = firstData - (dayOfYear(fdDate) - 1) * SECONDS_PER_DAY
-    jan1Ts = fdJan1
-    local cy = fy
-    while cy < y do
-      jan1Ts = jan1Ts + daysInYearNum(cy) * SECONDS_PER_DAY
-      cy = cy + 1
-    end
-    while cy > y do
-      cy = cy - 1
-      jan1Ts = jan1Ts - daysInYearNum(cy) * SECONDS_PER_DAY
-    end
-  end
-
-  local daysCount = daysInYearNum(y)
-  local dec31Ts = jan1Ts + (daysCount - 1) * SECONDS_PER_DAY
-
+  local daysInYear = math.floor((dec31 - jan1) / SECONDS_PER_DAY) + 1
   local yearCounts = {}
   local yearTotal = 0
   local activeDays = 0
-  for i = 1, daysCount do
-    local ts = jan1Ts + (i - 1) * SECONDS_PER_DAY
-    local dateStr = os.date("!%Y-%m-%d", ts)
-    local c = 0
-    if ts >= firstData and ts <= lastTimestamp and ts <= todayStamp then
-      c = dataByDate[dateStr] or 0
-    end
-    yearCounts[i] = c
-    yearTotal = yearTotal + c
-    if c > 0 then
-      activeDays = activeDays + 1
+  for i = 1, daysInYear do
+    local ts = jan1 + (i - 1) * SECONDS_PER_DAY
+    if ts >= firstData and ts <= lastTimestamp then
+      local index = math.floor((ts - firstData) / SECONDS_PER_DAY) + 1
+      local c = counts[index]
+      if type(c) ~= "number" or c < 0 then
+        c = 0
+      end
+      c = math.floor(c)
+      yearCounts[i] = c
+      yearTotal = yearTotal + c
+      if c > 0 then
+        activeDays = activeDays + 1
+      end
+    else
+      yearCounts[i] = -1
     end
   end
 
-  local built = Activity.build(yearCounts, dec31Ts)
+  local built = Activity.build(yearCounts, dec31)
   built.windowTotal = yearTotal
   built.activeDays = activeDays
+  built.view = "year"
   built.year = yearStr
   return built
 end
 
--- Resolve the heatmap for the selected view. "rolling" is the default 12-month
--- window; a numeric year string produces that calendar year from the same data.
+-- Return a view descriptor: rolling (default, the cached grid) or a specific
+-- calendar year. Year views are derived from the raw counts stored in the
+-- cache so no extra API call is needed.
 function Activity.buildView(data, view)
   if type(data) ~= "table" then
     return nil
   end
 
-  local v = (type(view) == "string" and view ~= "") and view or "rolling"
-  if v == "rolling" then
+  if view == nil or view == "rolling" then
     return {
       rows = data.rows,
       details = data.details,
@@ -399,19 +377,20 @@ function Activity.buildView(data, view)
       windowTotal = data.windowTotal,
       firstDate = data.firstDate,
       lastDate = data.lastDate,
+      coveredFirstDate = data.firstDate,
+      coveredLastDate = data.lastDate,
       activeDays = data.activeDays,
       view = "rolling",
     }
   end
 
-  -- A year view needs the raw daily series, which newer caches carry.
-  local yearBuilt = Activity.buildYear(v, data.counts, data.lastTimestamp)
-  if yearBuilt ~= nil then
-    yearBuilt.view = v
-    return yearBuilt
+  if type(data.counts) == "table" and data.lastTimestamp ~= nil then
+    local yearBuilt = Activity.buildYear(data.counts, data.lastTimestamp, view)
+    if yearBuilt ~= nil then
+      return yearBuilt
+    end
   end
 
-  -- Fallback for an old cache without raw counts: show the rolling window.
   return {
     rows = data.rows,
     details = data.details,
@@ -420,10 +399,13 @@ function Activity.buildView(data, view)
     windowTotal = data.windowTotal,
     firstDate = data.firstDate,
     lastDate = data.lastDate,
+    coveredFirstDate = data.firstDate,
+    coveredLastDate = data.lastDate,
     activeDays = data.activeDays,
     view = "rolling",
   }
 end
+
 
 -- Tests recorded on the current UTC day, mapped back through the window's last
 -- day. MonkeyType ends the window on today (UTC), so the last entry is normally
@@ -477,13 +459,6 @@ function Activity.recencyFigures(counts, todayIndex)
   return activeDays, days > 0 and math.floor(sum / days + 0.5) or 0
 end
 
-local function positiveInteger(value)
-  if type(value) ~= "number" or value < 0 then
-    return nil
-  end
-  return math.floor(value)
-end
-
 local function numberOr(value, fallback)
   if type(value) ~= "number" then
     return fallback
@@ -491,34 +466,55 @@ local function numberOr(value, fallback)
   return value
 end
 
-local function lastResultFields(result, previous)
-  if type(result) ~= "table" then
-    return previous
+local function positiveInteger(value)
+  if type(value) ~= "number" or value < 0 then
+    return nil
+  end
+  return math.floor(value)
+end
+
+local function extractLastResult(source, previous)
+  source = type(source) == "table" and source or {}
+  previous = type(previous) == "table" and previous or {}
+
+  local wpm = source.wpm
+  if type(wpm) ~= "number" then wpm = previous.lastWpm or previous.wpm end
+  if type(wpm) == "number" then wpm = math.floor(wpm + 0.5) else wpm = nil end
+
+  local acc = source.acc
+  if type(acc) ~= "number" then acc = previous.lastAcc or previous.acc end
+  if type(acc) == "number" then acc = math.floor(acc + 0.5) else acc = nil end
+
+  local mode = source.mode
+  if type(mode) ~= "string" then mode = previous.lastMode or previous.mode end
+
+  local mode2 = source.mode2
+  if mode2 == nil then mode2 = previous.lastMode2 or previous.mode2 end
+  if type(mode2) == "string" or type(mode2) == "number" then
+    mode2 = tostring(mode2)
+  else
+    mode2 = nil
   end
 
-  local wpm = type(result.wpm) == "number" and math.floor(result.wpm + 0.5) or nil
-  local accuracy = type(result.acc) == "number" and math.floor(result.acc + 0.5) or nil
-  local mode = type(result.mode) == "string" and result.mode or nil
-  local mode2 = nil
-  if type(result.mode2) == "string" or type(result.mode2) == "number" then
-    mode2 = tostring(result.mode2)
-  end
+  local timestamp = Activity.toSeconds(source.timestamp or source.lastResultTimestamp or previous.lastResultTimestamp or previous.lastTestAt)
 
   return {
     lastWpm = wpm,
-    lastAcc = accuracy,
+    lastAcc = acc,
     lastMode = mode,
     lastMode2 = mode2,
-    lastTestAt = Activity.toSeconds(result.timestamp),
+    lastResultTimestamp = timestamp,
   }
 end
 
--- Normalise the four API payloads into the cached shape shared with the widget
--- and the panel. `previous` keeps the optional values alive when one of the
--- secondary requests failed on this refresh.
+-- Normalise a full fetch (activity window, streak, latest result) into the
+-- compact payload cached on disk and published to the UI. Accepts both
+-- old-style (days/dayCount/lastDay/now) and new-style
+-- (counts/lastTimestamp/fetchedAt) argument names.
 function Activity.normalize(parts)
-  local days = parts and parts.days
-  local lastDay = parts and parts.lastDay
+  parts = parts or {}
+  local days = parts.counts or parts.days
+  local lastDay = parts.lastTimestamp or parts.lastDay
   if type(days) ~= "table" then
     return nil, "missing test activity"
   end
@@ -527,16 +523,16 @@ function Activity.normalize(parts)
   end
 
   local dayCount = parts.dayCount
-  if type(dayCount) ~= "number" or dayCount < 1 or dayCount > 1000 then
+  if type(dayCount) ~= "number" or dayCount < 1 then
     dayCount = #days
   end
   if dayCount < 1 then
-    return nil, "empty test activity"
+    return nil, "empty activity window"
+  end
+  if dayCount > 1000 then
+    dayCount = 1000
   end
 
-  -- A JSON null decodes to nil, which truncates the array in Luau, so the
-  -- caller passes the real length read from the response body. Missing and
-  -- trailing days become zero-test days.
   local counts = {}
   for index = 1, dayCount do
     local value = days[index]
@@ -549,28 +545,50 @@ function Activity.normalize(parts)
 
   local lastSeconds = Activity.toSeconds(lastDay)
   local lastTimestamp = lastSeconds - lastSeconds % SECONDS_PER_DAY
+  local now = parts.now or parts.fetchedAt or os.time()
   local built = Activity.build(counts, lastTimestamp)
-  local today, todayDate = Activity.todayCount(counts, lastTimestamp, parts.now)
-  local todayIndex = Activity.todayIndex(counts, lastTimestamp, parts.now)
+  local todayIndex = Activity.todayIndex(counts, lastTimestamp, now)
+  local today = 0
+  local todayDate = Activity.utcDate(now)
+  if todayIndex ~= nil then
+    today = counts[todayIndex] or 0
+    todayDate = Activity.utcDate(lastTimestamp + (todayIndex - #counts) * SECONDS_PER_DAY)
+  end
+
   local activeDays, recentAverage = Activity.recencyFigures(counts, todayIndex)
+  local localCurrent, localBest = Activity.streaks(counts)
   local streak = type(parts.streak) == "table" and parts.streak or {}
-  local previous = type(parts.previous) == "table" and parts.previous or {}
-  local localStreak, localBest = Activity.streaks(counts)
-  local lastResult = lastResultFields(parts.lastResult, previous)
+  local previous = type(parts.previous) == "table" and parts.previous or parts or {}
 
   local currentStreak = numberOr(streak.length, previous.currentStreak)
   if currentStreak == nil then
-    currentStreak = localStreak
+    currentStreak = localCurrent
+  else
+    currentStreak = math.max(0, math.floor(currentStreak))
   end
+
   local bestStreak = numberOr(streak.maxLength, previous.bestStreak)
   if bestStreak == nil then
     bestStreak = localBest
+  else
+    bestStreak = math.max(0, math.floor(bestStreak))
   end
 
-  -- Preserve an auto-detected username when the refresh did not supply one.
-  local username = parts.username
-  if type(username) ~= "string" or username == "" then
-    username = previous.username
+  local lastResult = extractLastResult(parts.lastResult, previous)
+  local lastResultTimestamp = Activity.toSeconds(streak.lastResultTimestamp)
+    or lastResult.lastResultTimestamp
+    or Activity.toSeconds(parts.lastResultTimestamp)
+    or Activity.toSeconds(parts.lastTestAt)
+    or lastTimestamp
+
+  -- keep lastResultTimestamp consistent with the best-known result time
+  if lastResult.lastResultTimestamp == nil then
+    lastResult.lastResultTimestamp = lastResultTimestamp
+  end
+
+  local accountKey = parts.accountKey
+  if accountKey == nil and type(previous.accountKey) == "string" then
+    accountKey = previous.accountKey
   end
 
   return {
@@ -581,26 +599,35 @@ function Activity.normalize(parts)
     windowTotal = built.windowTotal,
     firstDate = built.firstDate,
     lastDate = built.lastDate,
+    coveredFirstDate = built.coveredFirstDate,
+    coveredLastDate = built.coveredLastDate,
     today = today,
     todayDate = todayDate,
     activeDays = activeDays,
     recentAverage = recentAverage,
-    currentStreak = positiveInteger(currentStreak) or 0,
-    bestStreak = positiveInteger(bestStreak) or 0,
-    lastResultTimestamp = Activity.toSeconds(streak.lastResultTimestamp),
+    currentStreak = currentStreak,
+    bestStreak = bestStreak,
     lastWpm = lastResult.lastWpm,
     lastAcc = lastResult.lastAcc,
     lastMode = lastResult.lastMode,
     lastMode2 = lastResult.lastMode2,
-    lastTestAt = lastResult.lastTestAt,
-    fetchedAt = parts.now or os.time(),
-    -- Raw series and anchor: let the panel rebuild year/rolling views without
-    -- another API call. Stored as-is (a few hundred numbers).
+    lastResultTimestamp = lastResultTimestamp,
+    fetchedAt = parts.now or parts.fetchedAt or os.time(),
+    -- Raw series and anchor: let the service do light refreshes and the panel
+    -- rebuild year/rolling views without another API call.
     counts = counts,
     lastTimestamp = lastTimestamp,
-    username = username,
+    lastResult = {
+      wpm = lastResult.lastWpm,
+      acc = lastResult.lastAcc,
+      mode = lastResult.lastMode,
+      mode2 = lastResult.lastMode2,
+      timestamp = lastResult.lastResultTimestamp,
+    },
+    accountKey = accountKey,
   }
 end
+
 
 function Activity.isValidCache(data)
   if type(data) ~= "table" then

@@ -4,118 +4,91 @@
 -- publishes one compact payload for the widget and the panel.
 --
 -- Requests are adaptive. `/users/streak` is cheap and tells us whether
--- anything happened since the last fetch (a new result or a new UTC day), so
--- the two heavier calls only run when they can return something new. The
--- results endpoint is never polled: it is limited to 30 requests per day with
--- an Ape Key.
+-- anything happened since the previous poll; the heavier endpoints run only
+-- after a new test or a manual refresh. Callbacks from stale refresh
+-- generations are ignored so account/key switches cannot be polluted by
+-- in-flight responses from the previous account.
 
-local Activity = require("./lib/activity.luau")
 local Monkeytype = require("./lib/monkeytype.luau")
+local Activity = require("./lib/activity.luau")
 local Settings = require("./lib/settings.luau")
 
--- Manual refreshes are debounced so repeated clicks cannot burn the shared
--- 30 requests-per-minute budget.
-local MANUAL_REFRESH_DEBOUNCE_MS = 10 * 1000
-local MAX_BACKOFF_MS = 60 * 60 * 1000
+local MAX_BACKOFF_MS = 3600000
+local MANUAL_REFRESH_DEBOUNCE_MS = 10000
 
-local cachePath = nil
-local inFlight = false
+local data = nil
+local lastManualMs = 0
 local failures = 0
 local retryAtMs = 0
-local lastManualMs = 0
-local activeKey = nil
-local data = nil
+local inFlight = false
+local activeKey = ""
+local generation = 0
 
-local function publish(status)
-  noctalia.state.set("status", status)
-end
-
-local function publishData(payload, stale)
-  noctalia.state.set("data", payload)
-  noctalia.state.set("stale", stale)
-  publish(stale and "stale" or "ready")
-end
-
-local function initialiseCache()
-  -- `noctalia.state` outlives a service restart, so a payload published by a
-  -- previous run must not survive as if it were the current cache.
-  noctalia.state.set("data", nil)
-  noctalia.state.set("stale", false)
-
-  local dataDir = noctalia.pluginDataDir()
-  if dataDir == nil then
-    noctalia.log("MonkeyType Activity could not create its data directory")
-    return
-  end
-
-  cachePath = dataDir .. "/activity.json"
-  -- A missing file on the first run is not an error worth a log line.
-  if not noctalia.fileExists(cachePath) then
-    return
-  end
-
-  local contents, readError = noctalia.readFile(cachePath)
-  if contents == nil then
-    noctalia.log("MonkeyType Activity cache is unreadable: " .. tostring(readError))
-    return
-  end
-
-  local cached, decodeError = noctalia.json.decode(contents)
-  if not Activity.isValidCache(cached) then
-    noctalia.log("MonkeyType Activity ignored an invalid cache: " .. tostring(decodeError or "unexpected data"))
-    return
-  end
-
-  -- The cached calendar is rendered immediately, before any request finishes.
-  data = cached
-  noctalia.state.set("data", cached)
-  noctalia.state.set("stale", true)
-  publish("stale")
+local function refreshIntervalMs()
+  return Settings.refreshIntervalMs(noctalia.getConfig("refresh_interval_minutes"))
 end
 
 local function persist(payload)
-  if cachePath == nil then
+  local dir = noctalia.pluginDataDir()
+  local path = dir .. "/activity.json"
+
+  local ok, encoded = pcall(noctalia.json.encode, payload)
+  if not ok or type(encoded) ~= "string" then
     return
   end
 
-  local encoded, encodeError = noctalia.json.encode(payload)
-  if encoded == nil then
-    noctalia.log("MonkeyType Activity could not encode its cache: " .. tostring(encodeError))
-    return
-  end
+  noctalia.writeFile(path, encoded)
+end
 
-  local ok, writeError = noctalia.writeFile(cachePath, encoded)
-  if not ok then
-    noctalia.log("MonkeyType Activity could not write its cache: " .. tostring(writeError))
+local function publish(status)
+  noctalia.state.set("status", status)
+  noctalia.state.set("data", data)
+  noctalia.state.set("fetched_at", data and data.fetchedAt or 0)
+end
+
+local function invalidate(clearData)
+  generation = generation + 1
+  inFlight = false
+  failures = 0
+  retryAtMs = 0
+  if clearData then
+    data = nil
+    noctalia.state.set("stale", false)
   end
 end
 
-local function succeed(payload)
+local function succeed(payload, gen)
+  if gen ~= generation then
+    return
+  end
+
   inFlight = false
   failures = 0
   retryAtMs = 0
   data = payload
-  publishData(payload, false)
   persist(payload)
+  noctalia.state.set("stale", false)
+  publish("ready")
 end
 
-local function failure(status)
+local function failure(status, gen)
+  if gen ~= generation then
+    return
+  end
+
   inFlight = false
   failures = failures + 1
+
+  local interval = refreshIntervalMs()
+  local factor = 2 ^ math.min(failures, 4)
+  local wait = interval * factor
+  if wait > MAX_BACKOFF_MS then
+    wait = MAX_BACKOFF_MS
+  end
+  retryAtMs = noctalia.nowMs() + wait
+
   noctalia.state.set("stale", data ~= nil)
   publish(status)
-
-  -- Back off only when the server asked us to: retrying a rate limit at the
-  -- normal cadence would keep the key blocked.
-  if status == Monkeytype.STATUS.RATE_LIMITED then
-    local interval = Settings.refreshIntervalMs(noctalia.getConfig("refresh_interval_minutes"))
-    local factor = 2 ^ math.min(failures, 4)
-    local wait = interval * factor
-    if wait > MAX_BACKOFF_MS then
-      wait = MAX_BACKOFF_MS
-    end
-    retryAtMs = noctalia.nowMs() + wait
-  end
 end
 
 local function request(path, key, onDone)
@@ -125,75 +98,125 @@ local function request(path, key, onDone)
   end
 end
 
-local function fullRefresh(key, streak)
+local function canReuseForLightRefresh(streak)
+  if data == nil or data.accountKey ~= activeKey then
+    return false
+  end
+  if data.todayDate ~= Activity.utcDate(os.time()) then
+    return false
+  end
+  local lastSeen = Activity.toSeconds(streak.lastResultTimestamp) or 0
+  return data.lastResultTimestamp == lastSeen
+end
+
+local function lightRefresh(key, streak, gen)
+  -- Nothing new since the last fetch: rebuild the payload from the stored
+  -- series so `fetchedAt` (and the UI's freshness) moves forward.
+  local payload = Activity.normalize({
+    counts = data.counts,
+    lastTimestamp = data.lastTimestamp,
+    streak = streak,
+    lastResult = data.lastResult,
+    accountKey = key,
+    now = os.time(),
+  })
+
+  if Activity.isValidCache(payload) then
+    succeed(payload, gen)
+  else
+    failure(Monkeytype.STATUS.RESPONSE, gen)
+  end
+end
+
+local function fullRefresh(key, streak, gen)
   local collected = { streak = streak }
-  local activityError = nil
-  local pending = 3
+  local pending = 2
+  local failed = false
 
   local function step()
+    if failed or gen ~= generation then
+      return
+    end
+
     pending = pending - 1
     if pending > 0 then
       return
     end
 
-    if collected.activity == nil then
-      -- `activityError` is the status of the failed call (`no_activity` for an
-      -- empty account, `invalid_response` for a malformed payload).
-      failure(activityError or Monkeytype.STATUS.RESPONSE)
+    if collected.counts == nil or collected.lastDay == nil then
+      failure(Monkeytype.STATUS.RESPONSE, gen)
       return
     end
 
     local payload = Activity.normalize({
-      days = collected.activity.testsByDays,
-      dayCount = collected.dayCount,
-      lastDay = collected.activity.lastDay,
-      streak = collected.streak,
+      counts = collected.counts,
+      lastTimestamp = collected.lastDay,
+      streak = streak,
       lastResult = collected.lastResult,
-      username = collected.username,
-      previous = data,
+      accountKey = key,
       now = os.time(),
     })
 
-    if payload == nil then
-      failure(Monkeytype.STATUS.RESPONSE)
+    if Activity.isValidCache(payload) then
+      succeed(payload, gen)
+    else
+      failure(Monkeytype.STATUS.RESPONSE, gen)
+    end
+  end
+
+  local function fail(status)
+    if failed or gen ~= generation then
       return
     end
-
-    succeed(payload)
+    failed = true
+    failure(status, gen)
   end
 
   request("/users/currentTestActivity", key, function(response)
-    local activity, parseError = Monkeytype.payload(response, noctalia.json.decode)
-    if activity == nil then
-      activityError = parseError
-    else
-      collected.activity = activity
-      collected.dayCount = Monkeytype.arrayLength(response and response.body or "", "testsByDays")
+    local payload, status = Monkeytype.payload(response, noctalia.json.decode)
+    if status ~= nil then
+      fail(status)
+      return
     end
+
+    local days = payload and payload.testsByDays
+    local lastDay = payload and payload.lastDay
+    if type(days) ~= "table" or Activity.toSeconds(lastDay) == nil then
+      fail(Monkeytype.STATUS.RESPONSE)
+      return
+    end
+
+    local count = Monkeytype.arrayLength(response.body or "", "testsByDays")
+    local counts = {}
+    local any = false
+    for index = 1, count do
+      local value = days[index]
+      if type(value) == "number" and value >= 0 then
+        counts[index] = math.floor(value)
+        any = true
+      else
+        counts[index] = 0
+      end
+    end
+    if count == 0 and next(days) ~= nil then
+      fail(Monkeytype.STATUS.RESPONSE)
+      return
+    end
+
+    collected.counts = counts
+    collected.lastDay = lastDay
+    collected.hasAny = any
     step()
   end)
 
-  -- The last result is an extra: a failure keeps the previous values instead of
-  -- discarding the whole refresh.
   request("/results/last", key, function(response)
-    local lastResult = Monkeytype.payload(response, noctalia.json.decode)
-    if lastResult ~= nil then
-      collected.lastResult = lastResult
+    local lastResult, status = Monkeytype.payload(response, noctalia.json.decode)
+    if status ~= nil and status ~= "no_activity" then
+      fail(status)
+      return
     end
-    step()
-  end)
-
-  -- Best-effort username: avoids asking the user to type it in settings.
-  request("/users/profile", key, function(response)
-    local profile = Monkeytype.payload(response, noctalia.json.decode)
-    if profile ~= nil then
-      local name = profile.name
-      if type(name) ~= "string" or name == "" then
-        name = profile.username
-      end
-      if type(name) == "string" and name ~= "" then
-        collected.username = name
-      end
+    if type(lastResult) == "table" then
+      collected.lastResult = lastResult
     end
     step()
   end)
@@ -204,97 +227,123 @@ local function refresh(force)
     return
   end
 
+  local now = noctalia.nowMs()
+  if not force and now < retryAtMs then
+    return
+  end
+
   local key = Settings.apeKey(noctalia.getConfig("ape_key"))
   if key == "" then
+    invalidate(false)
+    activeKey = ""
     noctalia.state.set("stale", data ~= nil)
     publish("no_key")
     return
   end
 
   if not Monkeytype.isValidKey(key) then
+    invalidate(false)
+    activeKey = key
     noctalia.state.set("stale", data ~= nil)
     publish(Monkeytype.STATUS.INVALID_KEY)
     return
   end
 
   activeKey = key
-  -- A manual refresh never talks past a rate-limit backoff: that is exactly the
-  -- click loop that would keep the key blocked.
-  if noctalia.nowMs() < retryAtMs then
-    return
-  end
-
   inFlight = true
-  publish("loading")
+  local gen = generation
+  publish(data == nil and "loading" or "refreshing")
 
   request("/users/streak", key, function(response)
-    local streak, parseError = Monkeytype.payload(response, noctalia.json.decode)
-    if streak == nil then
-      noctalia.log("MonkeyType Activity could not read the streak: " .. tostring(parseError))
-      failure(parseError)
+    local streak, status = Monkeytype.payload(response, noctalia.json.decode)
+    if gen ~= generation then
+      return
+    end
+    if status ~= nil then
+      failure(status, gen)
+      return
+    end
+    if type(streak) ~= "table" then
+      failure(Monkeytype.STATUS.RESPONSE, gen)
       return
     end
 
-    -- A new result changes `lastResultTimestamp`; a new UTC day changes the
-    -- day the heatmap ends on. Anything else can reuse the cached calendar.
-    -- The payload stores it in seconds, the API answers in milliseconds.
-    local today = os.date("!%Y-%m-%d")
-    local lastSeen = Activity.toSeconds(streak.lastResultTimestamp) or 0
-
-    local needsFull = force
-      or data == nil
-      or data.todayDate ~= today
-      or data.lastResultTimestamp ~= lastSeen
-
-    if not needsFull then
-      local refreshed = {}
-      for field, value in pairs(data) do
-        refreshed[field] = value
-      end
-      refreshed.fetchedAt = os.time()
-      succeed(refreshed)
+    if not force and canReuseForLightRefresh(streak) then
+      lightRefresh(key, streak, gen)
       return
     end
 
-    fullRefresh(key, streak)
+    fullRefresh(key, streak, gen)
   end)
 end
 
-local function manualRefresh()
-  local now = noctalia.nowMs()
-  if now - lastManualMs < MANUAL_REFRESH_DEBOUNCE_MS then
+local function initialiseCache()
+  local key = Settings.apeKey(noctalia.getConfig("ape_key"))
+  local dir = noctalia.pluginDataDir()
+  local path = dir .. "/activity.json"
+
+  if not noctalia.fileExists(path) then
     return
   end
-  lastManualMs = now
+
+  local raw = noctalia.readFile(path)
+  if type(raw) ~= "string" or raw == "" then
+    return
+  end
+
+  local ok, decoded = pcall(noctalia.json.decode, raw)
+  if not ok or not Activity.isValidCache(decoded) then
+    return
+  end
+
+  if decoded.accountKey ~= key then
+    return
+  end
+
+  data = decoded
+  -- The cache predates this run: show it, but mark it stale until the first
+  -- refresh confirms it is still current.
+  noctalia.state.set("stale", true)
+  publish("stale")
+end
+
+function onLoad()
+  noctalia.setUpdateInterval(refreshIntervalMs())
+  initialiseCache()
   refresh(true)
 end
-
-local function configureInterval()
-  noctalia.setUpdateInterval(Settings.refreshIntervalMs(noctalia.getConfig("refresh_interval_minutes")))
-end
-
-configureInterval()
-initialiseCache()
-refresh(false)
-
-noctalia.state.watch("refresh_request", function()
-  manualRefresh()
-end)
 
 function update()
   refresh(false)
 end
 
-function onEnable()
+function manualRefresh()
+  if inFlight then
+    return
+  end
+
+  -- Debounce repeated clicks so they cannot burn the request budget.
+  local now = noctalia.nowMs()
+  if now - lastManualMs < MANUAL_REFRESH_DEBOUNCE_MS then
+    return
+  end
+  lastManualMs = now
+
+  failures = 0
+  retryAtMs = 0
   refresh(true)
 end
 
 function onConfigChanged()
-  configureInterval()
+  noctalia.setUpdateInterval(refreshIntervalMs())
 
   local key = Settings.apeKey(noctalia.getConfig("ape_key"))
   if key ~= activeKey then
-    -- A different key belongs to a different account: refetch everything.
+    -- A different key belongs to a different account: drop any in-flight
+    -- responses and cached state so the new account starts clean.
+    invalidate(true)
+    activeKey = key
+    publish(key == "" and "no_key" or "loading")
     refresh(true)
     return
   end
@@ -302,8 +351,17 @@ function onConfigChanged()
   refresh(false)
 end
 
+noctalia.state.watch("refresh_request", function()
+  manualRefresh()
+end)
+
 function onIpc(event, _payload)
   if event == "refresh" then
     manualRefresh()
   end
 end
+
+-- Top-level initialization (mirrors HEAD behaviour)
+noctalia.setUpdateInterval(refreshIntervalMs())
+initialiseCache()
+refresh(false)

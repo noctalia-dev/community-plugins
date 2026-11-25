@@ -80,6 +80,8 @@ local function newMock()
     encoded = {},
     encodedCount = 0,
     requests = {},
+    pendingHttp = {},
+    deferHttp = false,
     state = {},
     watchers = {},
     statusHistory = {},
@@ -180,6 +182,10 @@ local function newMock()
   noctalia.http = function(request, callback)
     local path = string.gsub(request.url, "https://api.monkeytype.com", "")
     table.insert(mock.requests, path)
+    if mock.deferHttp then
+      table.insert(mock.pendingHttp, { path = path, callback = callback })
+      return true
+    end
     local response = mock.responses[path]
     if response == nil then
       response = { ok = false, status = 0, body = "" }
@@ -226,7 +232,33 @@ local function routeActivity(mock, lastDay, counts)
 end
 
 local function loadService(mock)
-  local env = setmetatable({ noctalia = mock.noctalia, require = pluginRequire }, { __index = _G })
+  local env
+  local function envRequire(name)
+    if name == "noctalia" then
+      return env.noctalia
+    end
+    local loaded = package.loaded[name]
+    if loaded ~= nil then
+      return loaded
+    end
+    local path = name
+    if not string.match(path, "%.luau$") and not string.match(path, "%.lua$") then
+      path = string.gsub(path, "%.", "/") .. ".luau"
+    end
+    local chunk = assert(loadfile(DIR .. "/" .. path, "t", env))
+    local result = chunk()
+    package.loaded[name] = result
+    return result
+  end
+
+  env = setmetatable({ noctalia = deepCopy(mock.noctalia), require = envRequire }, { __index = _G })
+  env._G = env
+  -- reset module cache for service deps so each load is isolated where needed
+  for name in pairs(package.loaded) do
+    if string.match(name, "^lib%.") or name == "lib" then
+      package.loaded[name] = nil
+    end
+  end
   local chunk = assert(loadfile(DIR .. "/service.luau", "t", env))
   chunk()
   return env
@@ -284,10 +316,11 @@ local coldMockInstance = coldMock()
 local coldService = loadService(coldMockInstance)
 do
   local mock = coldMockInstance
-  check("four requests", 4, #mock.requests)
+  check("three requests", 3, #mock.requests)
   check("streak first", "/users/streak", mock.requests[1])
   check("activity second", "/users/currentTestActivity", mock.requests[2])
-  check("profile requested", true, countRequests(mock, "/users/profile") == 1)
+  check("last result third", "/results/last", mock.requests[3])
+  check("no profile request", 0, countRequests(mock, "/users/profile"))
   check("status", "ready", mock.state.status)
   check("no error", false, (mock.state.error or "") ~= "")
 
@@ -313,8 +346,8 @@ do
   local before = mock.state.data.fetchedAt
   mock.clock = mock.clock + 60000
   coldService.update()
-  check("one request", 5, #mock.requests)
-  check("last request is the streak", "/users/streak", mock.requests[5])
+  check("one more request", 4, #mock.requests)
+  check("last request is the streak", "/users/streak", mock.requests[4])
   check("status", "ready", mock.state.status)
   check("fetchedAt refreshed", true, mock.state.data.fetchedAt >= before)
   check("calendar kept", true, #mock.state.data.rows[1] > 0)
@@ -330,7 +363,7 @@ do
     hourOffset = 2,
   })
   coldService.update()
-  check("four more requests", 9, #mock.requests)
+  check("three more requests", 7, #mock.requests)
   check("current streak", 4, mock.state.data.currentStreak)
   check("best streak", 8, mock.state.data.bestStreak)
 end
@@ -339,14 +372,14 @@ section("manual refreshes are debounced")
 do
   local mock = coldMockInstance
   local before = #mock.requests
-  -- A manual refresh always refetches everything, so it costs four requests.
+  -- A manual refresh always refetches everything, so it costs three requests.
   mock.noctalia.state.set("refresh_request", 1)
-  check("first click refreshes", before + 4, #mock.requests)
+  check("first click refreshes", before + 3, #mock.requests)
   coldService.onIpc("refresh")
-  check("second click is dropped", before + 4, #mock.requests)
+  check("second click is dropped", before + 3, #mock.requests)
   mock.clock = mock.clock + 11000
   coldService.onIpc("refresh")
-  check("later click refreshes again", before + 8, #mock.requests)
+  check("later click refreshes again", before + 6, #mock.requests)
 end
 
 section("a disabled Ape Key is named, not called invalid")
@@ -429,8 +462,77 @@ do
   local before = #mock.requests
   mock.config.ape_key = "ANOTHERKEY"
   service.onConfigChanged()
-  check("full refresh", before + 4, #mock.requests)
+  check("full refresh", before + 3, #mock.requests)
   check("status", "ready", mock.state.status)
+end
+
+section("changing the ape key during an in-flight refresh ignores stale callbacks")
+do
+  local function flushAll(mock)
+    local index = 1
+    while index <= #mock.pendingHttp do
+      local item = mock.pendingHttp[index]
+      index = index + 1
+      local response = mock.responses[item.path]
+      if response == nil then
+        response = { ok = false, status = 0, body = "" }
+      end
+      item.callback(deepCopy(response))
+    end
+    mock.pendingHttp = {}
+  end
+
+  local mock = newMock()
+  mock.deferHttp = true
+  route(mock, "/users/streak", {
+    lastResultTimestamp = (NOW - 30) * 1000,
+    length = 1,
+    maxLength = 1,
+  })
+  local countsA = {}
+  for i = 1, 372 do countsA[i] = 0 end
+  countsA[372] = 5
+  routeActivity(mock, TODAY, countsA)
+  route(mock, "/results/last", {
+    wpm = 50,
+    acc = 90,
+    mode = "time",
+    mode2 = "15",
+    timestamp = NOW * 1000,
+  })
+
+  local service = loadService(mock)
+  check("initial refresh is in flight", 1, #mock.requests)
+  check("no data published yet", nil, mock.state.data)
+
+  mock.config.ape_key = "ANOTHERKEY"
+  route(mock, "/users/streak", {
+    lastResultTimestamp = (NOW - 30) * 1000,
+    length = 2,
+    maxLength = 3,
+  })
+  local countsB = {}
+  for i = 1, 372 do countsB[i] = 0 end
+  countsB[372] = 1
+  routeActivity(mock, TODAY, countsB)
+  route(mock, "/results/last", {
+    wpm = 99,
+    acc = 99,
+    mode = "words",
+    mode2 = "25",
+    timestamp = NOW * 1000,
+  })
+  service.onConfigChanged()
+  check("new key triggers its own streak request", "/users/streak", mock.requests[#mock.requests])
+
+  flushAll(mock)
+
+  local data = mock.state.data
+  check("status ready after key switch", "ready", mock.state.status)
+  check("data belongs to new account", 1, data.today)
+  check("new account last wpm", 99, data.lastWpm)
+  check("new account streak", 2, data.currentStreak)
+  check("new account key stored in cache", "ANOTHERKEY", data.accountKey)
 end
 
 print(string.format("\n%d passed, %d failed", PASSED, FAILED))

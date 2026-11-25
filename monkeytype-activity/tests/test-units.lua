@@ -285,85 +285,134 @@ check("years empty for empty counts", 0, #Activity.availableYears({}, TODAY))
 
 section("activity: buildYear")
 local y2026Counts = {}
-for i = 1, 372 do y2026Counts[i] = (i == 200) and 5 or 0 end
+for k = 1, 372 do y2026Counts[k] = (k == 200) and 5 or 0 end
 local anchor2026 = os.time({year=2026, month=6, day=15, hour=12})
-local built2026 = Activity.buildYear("2026", y2026Counts, anchor2026)
+anchor2026 = anchor2026 - anchor2026 % 86400
+
+local built2026 = Activity.buildYear(y2026Counts, anchor2026, "2026")
 check("buildYear returns table", "table", type(built2026))
 check("buildYear has year field", "2026", built2026.year)
 check("buildYear has rows", "table", type(built2026.rows))
 check("buildYear has 7 rows", 7, #built2026.rows)
 check("buildYear has columns", "number", type(built2026.columns))
-check("buildYear windowTotal is number", "number", type(built2026.windowTotal))
-check("buildYear activeDays is number", "number", type(built2026.activeDays))
-check("buildYear out of range returns nil", nil, Activity.buildYear("1999", y2026Counts, anchor2026))
-check("buildYear nil year returns nil", nil, Activity.buildYear(nil, y2026Counts, anchor2026))
-check("buildYear nil counts returns nil", nil, Activity.buildYear("2026", nil, anchor2026))
+check("buildYear view is year", "year", built2026.view)
+check("2026 year windowTotal only counts available days", 0, built2026.windowTotal)
+check("2026 year activeDays", 0, built2026.activeDays)
+check("2026 covered start", "2026-01-01", built2026.coveredFirstDate)
+check("2026 covered end", "2026-06-15", built2026.coveredLastDate)
+
+local b2025 = Activity.buildYear(y2026Counts, anchor2026, "2025")
+check("2025 year windowTotal", 5, b2025.windowTotal)
+check("2025 year activeDays", 1, b2025.activeDays)
+check("2025 covered start", "2025-06-09", b2025.coveredFirstDate)
+check("2025 covered end", "2025-12-31", b2025.coveredLastDate)
+
+local b1999 = Activity.buildYear(y2026Counts, anchor2026, "1999")
+check("buildYear for year outside window returns table", "table", type(b1999))
+check("outside year windowTotal", 0, b1999.windowTotal)
+check("outside year covered start nil", nil, b1999.coveredFirstDate)
+check("buildYear nil year returns nil", nil, Activity.buildYear(y2026Counts, anchor2026, nil))
+check("buildYear nil counts returns nil", nil, Activity.buildYear(nil, anchor2026, "2026"))
+
+section("activity: unavailable days are not zero-test days")
+do
+  local counts = {}
+  for k = 1, 372 do counts[k] = 0 end
+  counts[372] = 3 -- last day (2026-06-15) has tests
+  local yearBuilt = Activity.buildYear(counts, anchor2026, "2026")
+  -- 2026-06-16 is after anchor and must be unavailable, not a zero-test day.
+  local rows = yearBuilt.rows
+  local details = yearBuilt.details
+  local foundZero = false
+  local foundUnavailable = false
+  for weekday = 1, 7 do
+    for field in string.gmatch(details[weekday] or "", "([^;]*)") do
+      if field == "2026-06-15|3" then
+        foundZero = foundZero -- keep
+      elseif field == "2026-06-16|0" then
+        foundZero = true
+      end
+    end
+  end
+  -- Ensure 2026-06-15 is present as available data (3 tests).
+  local hasLast = false
+  for weekday = 1, 7 do
+    if string.find(details[weekday] or "", "2026-06-15|3", 1, true) then
+      hasLast = true
+    end
+  end
+  check("available day in window is present", true, hasLast)
+  check("day after window not reported as zero", false, foundZero)
+  check("year windowTotal excludes unavailable days", 3, yearBuilt.windowTotal)
+end
+
+section("activity: availableYears")
+local years = Activity.availableYears(y2026Counts, anchor2026)
+check("availableYears returns table", "table", type(years))
+check("availableYears has 2 years", 2, #years)
+check("first year is 2026", "2026", years[1])
+check("second year is 2025", "2025", years[2])
+check("empty counts returns empty", 0, #Activity.availableYears({}, anchor2026))
+local shortYears = Activity.availableYears({1, 2, 3}, os.time({year=1990, month=1, day=1, hour=12}))
+check("short window spanning year boundary returns 2 years", 2, #shortYears)
 
 section("activity: buildView")
 local viewData = {
-  rows = built.rows,
-  details = built.details,
-  columns = built.columns,
-  thresholds = built.thresholds,
-  windowTotal = built.windowTotal,
-  firstDate = built.firstDate,
-  lastDate = built.lastDate,
+  rows = {"......."},
+  details = {""},
+  columns = 1,
+  thresholds = {1,1,1},
+  windowTotal = 5,
+  firstDate = "2025-06-09",
+  lastDate = "2026-06-15",
   activeDays = 1,
-  counts = counts,
-  lastTimestamp = TODAY,
+  counts = y2026Counts,
+  lastTimestamp = anchor2026,
 }
 local rollingView = Activity.buildView(viewData, "rolling")
 check("rolling view type", "rolling", rollingView.view)
-check("rolling view windowTotal", built.windowTotal, rollingView.windowTotal)
-check("rolling view rows preserved", built.rows, rollingView.rows)
+check("rolling view windowTotal", 5, rollingView.windowTotal)
 local defaultView = Activity.buildView(viewData, nil)
 check("default view is rolling", "rolling", defaultView.view)
 check("nil data returns nil", nil, Activity.buildView(nil, "rolling"))
 local yearView = Activity.buildView(viewData, "2026")
-check("year view type is string", "string", type(yearView.view))
-local oldCacheData = {
-  rows = built.rows,
-  details = built.details,
-  columns = built.columns,
-  thresholds = built.thresholds,
-  windowTotal = built.windowTotal,
-  firstDate = built.firstDate,
-  lastDate = built.lastDate,
-  activeDays = 1,
-}
-local fallbackView = Activity.buildView(oldCacheData, "2026")
-check("fallback view is rolling", "rolling", fallbackView.view)
-check("fallback preserves windowTotal", built.windowTotal, fallbackView.windowTotal)
+check("year view type is year", "year", yearView.view)
+check("year view year field", "2026", yearView.year)
+check("year view windowTotal", 0, yearView.windowTotal)
+check("year view covered range shown", "2026-01-01", yearView.coveredFirstDate)
+local fallbackData = {rows={"."}, details={""}, columns=1, thresholds={1,1,1}, windowTotal=99, firstDate="x", lastDate="y", activeDays=7}
+local fallbackView = Activity.buildView(fallbackData, "2026")
+check("fallback view is rolling without counts", "rolling", fallbackView.view)
+check("fallback preserves windowTotal", 99, fallbackView.windowTotal)
 
-section("activity: normalize preserves username and raw series")
-local withUsername = Activity.normalize({
+section("activity: normalize preserves account key and raw series")
+local withAccount = Activity.normalize({
   days = { 1, 2, 3 },
   dayCount = 3,
   lastDay = TODAY,
-  username = "testuser",
+  accountKey = "testkey",
   now = NOW,
 })
-check("username stored", "testuser", withUsername.username)
-check("counts stored", "table", type(withUsername.counts))
-check("lastTimestamp stored", "number", type(withUsername.lastTimestamp))
-check("counts length", 3, #withUsername.counts)
+check("accountKey stored", "testkey", withAccount.accountKey)
+check("counts stored", "table", type(withAccount.counts))
+check("lastTimestamp stored", "number", type(withAccount.lastTimestamp))
 local preserved = Activity.normalize({
   days = { 1, 2, 3 },
   dayCount = 3,
   lastDay = TODAY,
-  previous = withUsername,
+  previous = withAccount,
   now = NOW + 100,
 })
-check("username preserved from previous", "testuser", preserved.username)
+check("accountKey preserved from previous", "testkey", preserved.accountKey)
 local overridden = Activity.normalize({
   days = { 1, 2, 3 },
   dayCount = 3,
   lastDay = TODAY,
-  username = "newuser",
-  previous = withUsername,
+  accountKey = "newkey",
+  previous = withAccount,
   now = NOW + 200,
 })
-check("username overridden when provided", "newuser", overridden.username)
+check("accountKey overridden when provided", "newkey", overridden.accountKey)
 
 print(string.format("\n%d passed, %d failed", PASSED, FAILED))
 os.exit(FAILED == 0 and 0 or 1)

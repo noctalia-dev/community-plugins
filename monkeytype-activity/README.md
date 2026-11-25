@@ -78,26 +78,12 @@ clock.
 
 ## Notes
 
-- **Network.** Four HTTPS requests to `api.monkeytype.com`, each with the
+- **Network.** Three HTTPS requests to `api.monkeytype.com`, each with the
   header `Authorization: ApeKey <key>`: `GET /users/streak`, `GET
-  /users/currentTestActivity`, `GET /users/profile` (best-effort username
-  auto-detection) and `GET /results/last`. The profile request only runs during
-  a full refresh, not during idle ticks; the other three are paced by the
-  refresh interval and rate-limit backoff. Nothing is sent anywhere else.
-- **Files.** The last payload is written to `activity.json` in this plugin's
-  data directory (`<Noctalia data dir>/plugins/data/faminec/monkeytype-activity/`)
-  and read back at start, so the panel and the widget render before the first
-  request of the session finishes. Nothing else on disk is touched.
-- **Processes.** `xdg-open <url>` is the only process this plugin spawns, as an
-  argument array, to open your profile or the Ape Keys page. No shell is
-  involved.
-- **Rate limits.** A rate-limit answer (`429`/`479`) backs off exponentially for
-  up to an hour; that backoff also covers manual refreshes, which are debounced
-  on top of it.
-- **UTC day buckets.** MonkeyType counts daily activity in UTC, so the calendar
-  matches the heatmap on monkeytype.com/profile.
-- **Timestamps.** MonkeyType reports `lastDay` and `lastResultTimestamp` in
-  milliseconds; both are normalised before bucketing.
+  /users/currentTestActivity` and `GET /results/last`. `/users/streak` is
+  checked on every refresh to detect whether anything changed; the other two
+  are fetched only when a full activity refresh is needed. The API's published
+  global limit is 30 requests per minute across all Ape Keys on the account.
 - **Storage.** The Ape Key is a normal string setting, so Noctalia keeps it in
   plain text in its own configuration file, and the cached `activity.json` holds
   only counts, dates and your last result.
@@ -106,13 +92,16 @@ clock.
   keeps rendering cached data when it has any.
 
 - **View selector.** The panel offers a view switcher: `rolling` (last 12 months)
-  or a full calendar year from your data. When a year is selected, the view
-  total and streak metrics use that year's data. If the year view cannot be
-  built from old cached data, it silently falls back to the rolling 12-month view.
-- **Auto-detected username.** If `profile_username` is left empty, the panel
-  attempts to fetch the username from the `/users/profile` endpoint on full
-  refresh. This is best-effort: if the API returns a name, it is used; otherwise
-  the empty setting is kept and the button uses the site URL.
+  or a full calendar year built from the same cached data. The API only returns
+  a rolling window of recent days, so in a year view the days outside that
+  window render as empty cells (they are unavailable, not zero-test days), the
+  total counts only the covered days, and the caption shows the covered date
+  range. Streak metrics always come from MonkeyType's streak endpoint, not from
+  the selected view. If a year view cannot be built from old cached data, the
+  panel silently falls back to the rolling 12-month view.
+- **Manual profile username.** Set `profile_username` in settings if you want
+  the panel caption and profile button to point at a specific MonkeyType profile.
+  The Ape Key already identifies the account.
 
 ## Development
 

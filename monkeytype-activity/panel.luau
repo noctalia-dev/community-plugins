@@ -48,9 +48,6 @@ local weeksPerTick = 2
 local siteUrl = "https://monkeytype.com"
 
 local function effectiveUsername()
-  if data ~= nil and type(data.username) == "string" and data.username ~= "" then
-    return data.username
-  end
   return Settings.username(noctalia.getConfig("profile_username"))
 end
 
@@ -333,7 +330,13 @@ local function viewTotalText()
   if selectedView == "rolling" then
     label = tr("panel.range_last_12_months")
   else
-    label = selectedView
+    local first = activeViewData.coveredFirstDate
+    local last = activeViewData.coveredLastDate
+    if type(first) == "string" and type(last) == "string" then
+      label = first .. " – " .. last
+    else
+      label = selectedView
+    end
   end
   return tr("panel.view_total", { count = activeViewData.windowTotal, range = label })
 end
