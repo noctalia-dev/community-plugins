@@ -1928,8 +1928,8 @@ rev = "ea9e1016be3348d6b8517ad164ed6b334f200bdc"
 [[plugin]]
 id = "tordex/system-updater"
 name = "System Updates Manager"
-version = "2.1.1"
-updated_at = 1792983494
+version = "2.1.2"
+updated_at = 1795567487
 added_at = 1786923801
 author = "tordex"
 license = "MIT"
@@ -5372,8 +5372,8 @@ tags = ["hardware", "shortcut", "system", "nixos"]
 [[plugin]]
 id = "dmopp/nixos-updates"
 name = "NixOS Updates"
-version = "1.2.0"
-updated_at = 1794238115
+version = "1.2.3"
+updated_at = 1795567462
 added_at = 1793405161
 author = "dMopp"
 license = "MIT"
@@ -5840,8 +5840,8 @@ tags = ["bar", "hyprland", "utility"]
 [[plugin]]
 id = "omerfuyar/plugin-hub"
 name = "Plugin Hub"
-version = "1.3.1"
-updated_at = 1794925090
+version = "1.4.0"
+updated_at = 1795567414
 added_at = 1794404478
 author = "omerfuyar"
 license = "MIT"
