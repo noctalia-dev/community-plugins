@@ -293,6 +293,7 @@ body:
         - run-path
         - saved-desktop-widgets
         - screen-capture
+        - screen-control
         - screen-mirror
         - screen-time
         - screen-toolkit
