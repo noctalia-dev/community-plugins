@@ -334,6 +334,21 @@ def _render_hyprland(theme: str, size: int, hide_typing: bool, hide_ms: int, con
     ]) + "\n"
 
 
+def _render_hyprland_lua(theme: str, size: int, hide_typing: bool, hide_ms: int, config_text: str) -> str:
+    # The same settings as _render_hyprland, in the Lua config Hyprland 0.57
+    # switched to. Lua's double-quoted strings take the same \\ and \" escapes.
+    return "\n".join([
+        f'hl.env("XCURSOR_THEME", {_quoted(theme)})',
+        f'hl.env("XCURSOR_SIZE", "{size}")',
+        "hl.config({",
+        "    cursor = {",
+        f"        hide_on_key_press = {'true' if hide_typing else 'false'},",
+        f"        inactive_timeout = {min(20, _ms_to_s(hide_ms))},",
+        "    },",
+        "})",
+    ]) + "\n"
+
+
 def _render_sway(theme: str, size: int, hide_typing: bool, hide_ms: int, config_text: str) -> str:
     # sway's hide_cursor takes milliseconds like niri, but rejects anything
     # between 1 and 99; 0 is the documented "never hide".
@@ -446,7 +461,11 @@ def _render_umbriel(theme: str, size: int, hide_typing: bool, hide_ms: int, conf
 
 
 NIRI_CONFIG = _env_path("CURMGR_NIRI_CONFIG", CONFIG / "niri" / "config.kdl")
-HYPRLAND_CONFIG = _env_path("CURMGR_HYPRLAND_CONFIG", CONFIG / "hypr" / "hyprland.conf")
+# Hyprland 0.57 moved to hyprland.lua and ignores hyprland.conf once the .lua
+# exists, so the .lua is the config whenever it is there.
+_HYPRLAND_LUA = CONFIG / "hypr" / "hyprland.lua"
+HYPRLAND_CONFIG = _env_path("CURMGR_HYPRLAND_CONFIG", _HYPRLAND_LUA if _HYPRLAND_LUA.is_file()
+                            else CONFIG / "hypr" / "hyprland.conf")
 SWAY_CONFIG = _env_path("CURMGR_SWAY_CONFIG", CONFIG / "sway" / "config")
 MANGO_CONFIG = _env_path("CURMGR_MANGO_CONFIG", CONFIG / "mango" / "config.conf")
 UMBRIEL_CONFIG = _env_path("CURMGR_UMBRIEL_CONFIG", CONFIG / "umbriel" / "config.toml")
@@ -555,6 +574,20 @@ COMPOSITORS = {
         "ms_scale": 1,
     },
 }
+
+# A Lua config takes a Lua include; the rest of the hyprland row is shared.
+# dofile, not require: no package.path to depend on, and it re-runs on every
+# `hyprctl reload` (checked on 0.57.2, as is require).
+if HYPRLAND_CONFIG.suffix == ".lua":
+    COMPOSITORS["hyprland"].update({
+        "include_file": HYPRLAND_CONFIG.parent / "cursor.lua",
+        "include_line": 'dofile("{file}")',
+        "comment": "--",
+        "render": _render_hyprland_lua,
+        "theme_re": r'^hl\.env\(\s*"XCURSOR_THEME"\s*,\s*("(?:[^"\\]|\\.)*")',
+        "decode": _unquote,
+        "size_re": r'^hl\.env\(\s*"XCURSOR_SIZE"\s*,\s*"(\d+)"',
+    })
 
 
 def detected_compositors() -> dict:

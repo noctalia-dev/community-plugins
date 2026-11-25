@@ -144,7 +144,7 @@ systemd user session keeps it until that session ends.
 | `scale_filter` | `select` | `lanczos` | Resampling filter used when cursor art is scaled to those sizes. `point` keeps hard pixel edges crisp on 32×32 Windows art; `lanczos` suits anti-aliased modern packs; `mitchell` sits between them. |
 | `icon_dirs` | `string_list` | empty | Extra folders to search for cursor themes, on top of the ones above. |
 | `install_dir` | `folder` | `~/.local/share/icons` | Where imported, built and installed themes go, and the only folder **Remove** deletes from. Refused unless it is inside `$HOME`. Anywhere but the default it is put on `XCURSOR_PATH` (via `environment.d`, so after the next login) and mounted read-only for Flatpak. |
-| `niri_config`, `hyprland_config`, `sway_config`, `mango_config`, `umbriel_config` | `file` | `~/.config/…` | The compositor's main config, if yours lives elsewhere. The managed `cursor.kdl` / `cursor.conf` / `cursor.toml` is written next to it. |
+| `niri_config`, `hyprland_config`, `sway_config`, `mango_config`, `umbriel_config` | `file` | `~/.config/…` | The compositor's main config, if yours lives elsewhere. The managed `cursor.kdl` / `cursor.conf` / `cursor.lua` / `cursor.toml` is written next to it. |
 
 The path settings reach the engine as the env vars `CURMGR_ICON_DIRS` (`:`-joined),
 `CURMGR_INSTALL_DIR` and `CURMGR_{NIRI,HYPRLAND,SWAY,MANGO,UMBRIEL}_CONFIG`, so a keybind or script
@@ -163,12 +163,12 @@ each compositor whose config file exists:
 | Env | `~/.config/environment.d/90-xcursor.conf` | new processes, next login |
 | Flatpak | `flatpak override --user` (`XCURSOR_PATH`/`THEME`/`SIZE`, `~/.icons:ro`) | Flatpak apps, on restart |
 | niri | `~/.config/niri/cursor.kdl` | niri, instantly |
-| Hyprland | `~/.config/hypr/cursor.conf` | Hyprland, via `hyprctl reload` + `hyprctl setcursor` |
+| Hyprland | `~/.config/hypr/cursor.lua` (0.57+), or `cursor.conf` beside a `hyprland.conf` | Hyprland, via `hyprctl reload` + `hyprctl setcursor` |
 | Sway | `~/.config/sway/cursor.conf` | Sway, via `swaymsg reload` |
 | MangoWC | `~/.config/mango/cursor.conf` | MangoWC, via `mmsg dispatch reload_config` |
 | Umbriel | `~/.config/umbriel/cursor.toml` | Umbriel, instantly (it watches its config) |
 
-The compositor's main config (`config.kdl`, `hyprland.conf`, sway's `config`, mango's
+The compositor's main config (`config.kdl`, `hyprland.lua` or `hyprland.conf`, sway's `config`, mango's
 `config.conf`, umbriel's `config.toml`) is the only file the plugin edits that it does not own. It is edited **once**:
 
 - It is backed up to `<config>.bak-cursor-<timestamp>`.
