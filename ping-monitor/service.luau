@@ -1,5 +1,5 @@
 --!nonstrict
--- Ping Monitor service: polls every device (own interval and sound per device), keeps history, publishes a snapshot.
+-- Ping Monitor service: polls every device (own interval and sound each), keeps history, publishes a snapshot.
 local store = require("./store.luau")
 
 local cfg = store.loadConfig()
@@ -37,13 +37,13 @@ local function publish()
   for _, d in cfg.devices do
     local r = rt(d.ip)
     table.insert(list, {
-      name = d.name, ip = d.ip, interval = d.interval, sound = d.sound,
-      status = r.status, lastPing = r.lastPing, lastCheck = r.lastCheck, since = r.since,
+      name = d.name, ip = d.ip, group = d.group, interval = d.interval, sound = d.sound,
+      status = r.status, lastPing = r.lastPing, lastCheck = r.lastCheck, since = r.since, latency = r.latency,
       history = history[d.ip] or {},
     })
   end
   noctalia.state.set("snap", noctalia.json.encode({
-    devices = list, muted = cfg.muted, days = tonumber(noctalia.getConfig("history_days")) or 14,
+    devices = list, groups = cfg.groups or {}, muted = cfg.muted, days = tonumber(noctalia.getConfig("history_days")) or 14,
   }))
 end
 
@@ -56,27 +56,48 @@ local function playSound()
   end)
 end
 
+-- A device counts as down only after `fail_threshold` failed checks in a row. One check sends three pings
+-- (any reply is enough), and a failed check is repeated after a few seconds instead of waiting for the full interval.
+-- A single lost packet (Wi-Fi power saving, a sleeping laptop waking up) no longer shows up as "offline".
 local function check(d)
   local r = rt(d.ip)
   if r.pinging then return end
   r.pinging = true
-  noctalia.runAsync({ "ping", "-c", "1", "-W", "2", d.ip }, function(result)
+  local timeout = tonumber(noctalia.getConfig("timeout_seconds")) or 2
+  local threshold = math.max(1, tonumber(noctalia.getConfig("fail_threshold")) or 2)
+  noctalia.runAsync({ "ping", "-c", "3", "-i", "0.3", "-W", tostring(timeout), d.ip }, function(result)
     r.pinging = false
     local now = math.floor(noctalia.nowMs() / 1000)
     r.lastCheck = now
     local up = result.exitCode == 0
+    r.latency = up and tonumber(string.match(result.stdout or "", "time=([%d%.]+)")) or nil
     if up then
+      r.fails = 0
       r.lastPing = now
       markToday(d.ip)
+    else
+      r.fails = (r.fails or 0) + 1
+      -- evidence for the "false offline" reports: why the check failed
+      noctalia.log(string.format("ping-grid: %s check failed (%d/%d) exit=%s timedOut=%s stderr=%s",
+        d.ip, r.fails, threshold, tostring(result.exitCode), tostring(result.timedOut), string.sub(result.stderr or "", 1, 120)))
+      if r.fails < threshold then
+        -- not confirmed yet: keep the shown state and look again soon
+        r.nextCheck = now + 3
+        r.checkedOnce = true
+        publish()
+        return
+      end
     end
     local new = up and "up" or "down"
     if new ~= r.status then
       r.status = new
       r.since = now
-      if up and r.checkedOnce then
+      local label = (d.name and d.name ~= "") and (d.name .. " (" .. d.ip .. ")") or d.ip
+      if up and r.checkedOnce and noctalia.getConfig("notify_on_recovery") ~= false then
         if d.sound ~= false and not cfg.muted then playSound() end
-        local label = (d.name and d.name ~= "") and (d.name .. " (" .. d.ip .. ")") or d.ip
         noctalia.notify(noctalia.tr("title"), noctalia.tr("online") .. ": " .. label)
+      elseif not up and r.checkedOnce and noctalia.getConfig("notify_on_down") ~= false then
+        noctalia.notifyError(noctalia.tr("title"), noctalia.tr("offline") .. ": " .. label)
       end
     end
     r.checkedOnce = true
@@ -96,6 +117,12 @@ local function reload()
 end
 
 noctalia.state.watch("cfg_rev", function() reload() end)
+
+-- Right click on the bar icon: check every device now instead of waiting for its interval.
+noctalia.state.watch("refresh_rev", function()
+  for _, r in runtime do r.nextCheck = 0 end
+  for _, d in cfg.devices do rt(d.ip).nextCheck = 0 end
+end)
 
 publish()
 

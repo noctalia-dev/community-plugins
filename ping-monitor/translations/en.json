@@ -21,7 +21,26 @@
     "sec": "s",
     "add": "Add device",
     "name": "Name",
-    "add_button": "Add"
+    "add_button": "Add",
+    "address": "IP, host or link",
+    "edit": "Edit",
+    "up": "Move up",
+    "down": "Move down",
+    "confirm_remove": "Sure?",
+    "save": "Save",
+    "cancel": "Cancel",
+    "bad_host": "Enter an IP, a host name or a link",
+    "duplicate": "This address is already in the list",
+    "no_group": "No group",
+    "empty": "No devices yet. Press + to add one.",
+    "settings": "Plugin settings",
+    "add_device": "Device",
+    "add_group": "Group",
+    "group_name": "Group name",
+    "group_empty": "Drop devices here",
+    "rename": "Rename",
+    "remove_group": "Delete group",
+    "bad_group": "Enter a group name that is not used yet"
   },
   "ago": {
     "s": " s ago",
@@ -38,6 +57,38 @@
     },
     "history_days": {
       "label": "Days in the graph"
+    },
+    "timeout_seconds": {
+      "label": "Ping timeout, s",
+      "description": "How long to wait for a reply before a device counts as offline."
+    },
+    "notify_on_down": {
+      "label": "Notify when a device goes offline",
+      "description": "Show an error notification when a device stops answering."
+    },
+    "notify_on_recovery": {
+      "label": "Notify when a device comes back",
+      "description": "Show a notification (and play the sound) when an offline device answers again."
+    },
+    "colorize_latency": {
+      "label": "Colour the latency",
+      "description": "Green under 100 ms, yellow up to 300 ms, red above. Off: neutral colour."
+    },
+    "glyph": {
+      "label": "Bar icon",
+      "description": "Icon shown in the bar when every device is online."
+    },
+    "columns": {
+      "label": "Cards per row",
+      "description": "How many device cards sit side by side in the panel.",
+      "one": "1",
+      "two": "2",
+      "three": "3"
+    },
+    "fail_threshold": {
+      "label": "Failed checks before offline",
+      "description": "A device is shown as offline only after this many failed checks in a row. One check sends three pings."
     }
-  }
+  },
+  "offline": "Device is offline"
 }
