@@ -513,18 +513,6 @@ COMPOSITORS = {
         "typing_re": r"hide_on_key_press\s*=\s*true",
         "ms_re": r"inactive_timeout\s*=\s*(\d+)",
         "ms_scale": 1000,
-        # A Lua config takes a Lua include; the rest of the row is shared.
-        # dofile, not require: no package.path to depend on, and it re-runs on
-        # every `hyprctl reload` (checked on 0.57.2, as is require).
-        **({
-            "include_file": HYPRLAND_CONFIG.parent / "cursor.lua",
-            "include_line": 'dofile("{file}")',
-            "comment": "--",
-            "render": _render_hyprland_lua,
-            "theme_re": r'^hl\.env\(\s*"XCURSOR_THEME"\s*,\s*("(?:[^"\\]|\\.)*")',
-            "decode": _unquote,
-            "size_re": r'^hl\.env\(\s*"XCURSOR_SIZE"\s*,\s*"(\d+)"',
-        } if HYPRLAND_CONFIG.suffix == ".lua" else {}),
     },
     "sway": {
         "config": SWAY_CONFIG,
@@ -586,6 +574,20 @@ COMPOSITORS = {
         "ms_scale": 1,
     },
 }
+
+# A Lua config takes a Lua include; the rest of the hyprland row is shared.
+# dofile, not require: no package.path to depend on, and it re-runs on every
+# `hyprctl reload` (checked on 0.57.2, as is require).
+if HYPRLAND_CONFIG.suffix == ".lua":
+    COMPOSITORS["hyprland"].update({
+        "include_file": HYPRLAND_CONFIG.parent / "cursor.lua",
+        "include_line": 'dofile("{file}")',
+        "comment": "--",
+        "render": _render_hyprland_lua,
+        "theme_re": r'^hl\.env\(\s*"XCURSOR_THEME"\s*,\s*("(?:[^"\\]|\\.)*")',
+        "decode": _unquote,
+        "size_re": r'^hl\.env\(\s*"XCURSOR_SIZE"\s*,\s*"(\d+)"',
+    })
 
 
 def detected_compositors() -> dict:
