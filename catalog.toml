@@ -4719,8 +4719,8 @@ tags = ["bar"]
 [[plugin]]
 id = "finoo125/pixel-buds"
 name = "Pixel Buds"
-version = "1.0.0"
-updated_at = 1792017197
+version = "1.0.1"
+updated_at = 1795569701
 added_at = 1792017197
 author = "finoo125"
 license = "MIT"
