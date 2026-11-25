@@ -6278,3 +6278,16 @@ icon = "sun"
 description = "Your screens in one place: brightness, extra dim, night light, caffeine, and the layout, modes, scale, VRR and HDR."
 plugin_api = 43
 tags = ["bar", "hyprland", "hardware", "system", "utility"]
+
+[[plugin]]
+id = "nofiltera1/ping-monitor"
+name = "Ping Monitor"
+version = "1.0.0"
+updated_at = 1795622729
+added_at = 1795622729
+author = "NoFilterA1"
+license = "MIT"
+icon = "server"
+description = "Ping LAN devices in a grid, with groups, drag reordering, per-device interval and sound, and latency."
+plugin_api = 43
+tags = ["bar", "panel", "service", "network"]
