@@ -60,6 +60,10 @@
       "description": "How many times a failed read is retried. Creating a task is never retried.",
       "label": "Automatic retries"
     },
+    "quick_add_description": {
+      "description": "Show a description input field when creating tasks in the panel.",
+      "label": "Description in Quick Add"
+    },
     "token": {
       "description": "Stored as plain text in Noctalia's settings. Prefer a token file or the TODOIST_API_TOKEN environment variable.",
       "label": "API token"
@@ -113,6 +117,22 @@
         "p1": "Priority 1",
         "today": "Due today"
       },
+      "help": "Help & Shortcuts",
+      "help_view": {
+        "launcher_desc": "Open the Noctalia launcher and type /td to capture tasks from anywhere (e.g. /td buy milk tomorrow p1).",
+        "launcher_title": "Launcher Quick Capture (/td)",
+        "shortcut_ctrl_enter_desc": "Submit task in Quick Add",
+        "shortcut_enter_desc": "New line in multiline description",
+        "shortcut_esc_desc": "Close Todoist panel",
+        "shortcuts_title": "Keyboard Shortcuts",
+        "syntax_dates_desc": "Natural language due dates",
+        "syntax_desc_desc": "Inline description (or use description toggle)",
+        "syntax_label_desc": "Assign label",
+        "syntax_priority_desc": "Priority level (p1 is highest)",
+        "syntax_project_desc": "Assign to project",
+        "syntax_title": "Quick Add Syntax (Todoist NLP)",
+        "title": "Help & Quick Guide"
+      },
       "link_copied": "Link copied.",
       "loading": "Loading...",
       "more": "and {count} more",
@@ -124,6 +144,16 @@
         "today": "Today"
       },
       "not_configured": "Add a Todoist API token in Settings.",
+      "onboarding": {
+        "step1_btn": "Get API Token",
+        "step1_desc": "Log into Todoist and copy your personal API token from Developer settings.",
+        "step1_title": "1. Get your Todoist API token",
+        "step2_btn": "Open Noctalia Settings",
+        "step2_desc": "Paste your API token into Todoist Manager settings in Noctalia.",
+        "step2_title": "2. Configure the plugin",
+        "welcome_desc": "Connect your Todoist account to manage tasks, filter priorities, and quick-add tasks without leaving the shell.",
+        "welcome_title": "Welcome to Todoist Manager"
+      },
       "open_in_todoist": "Open in Todoist",
       "ping": "Check connection",
       "projects": {
@@ -132,10 +162,13 @@
       },
       "quick": {
         "add": "Add",
+        "add_tooltip": "Add task (Ctrl+Enter)",
         "defaults": "Defaults: {summary}",
+        "description_ph": "Description (optional)...",
         "hint": "Todoist parses dates, projects, labels and priorities.",
         "placeholder": "Add a task... (#project, @label, tomorrow p1)",
-        "sent": "Sent. Refreshing..."
+        "sent": "Sent. Refreshing...",
+        "toggle_desc": "Toggle description field"
       },
       "refresh": "Refresh",
       "reopen": "Reopen",

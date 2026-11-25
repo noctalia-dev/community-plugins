@@ -2064,5 +2064,51 @@ end) == 1)
 check("create stays an unknown outcome", ev ~= nil and ev.seq == 406 and ev.ok == false and ev.unknown_outcome == true, ev and ev.err and ev.err.kind)
 fault.quick = false
 
+-- ── T18: onboarding & help view (Issue #8 & Help) ────────────
+print("\n== T18 onboarding & help view ==")
+-- 1. Onboarding when token is not configured
+state_store["todoist"] = {
+	schema = 1,
+	token_configured = false,
+	view = "today",
+	views = {},
+	tasks = {},
+	projects = {},
+	counts = {},
+	defaults = {},
+}
+onOpen({})
+settlePanel()
+check("onboarding card rendered", hasLabelText("ui.panel.onboarding.welcome_title"))
+check("onboarding step1 button present", findButton(function(p) return p.text == "ui.panel.onboarding.step1_btn" end) ~= nil)
+check("onboarding step2 button present", findButton(function(p) return p.text == "ui.panel.onboarding.step2_btn" end) ~= nil)
+
+-- 2. Help button & Help view
+state_store["todoist"] = editSnapshot()
+onOpen({})
+settlePanel()
+local helpBtn = findButton(function(p) return p.glyph == "help-circle" end)
+check("help button present in header", helpBtn ~= nil)
+if helpBtn then
+	helpBtn.props.onClick()
+end
+settlePanel()
+check("help view opened", hasLabelText("ui.panel.help_view.title"))
+check("keyboard shortcuts shown", hasLabelText("ui.panel.help_view.shortcuts_title"))
+check("quick add syntax shown", hasLabelText("ui.panel.help_view.syntax_title"))
+check("launcher quick capture shown", hasLabelText("ui.panel.help_view.launcher_title"))
+
+local backBtn = findButton(function(p) return p.glyph == "arrow-left" end)
+check("help view back button present", backBtn ~= nil)
+if backBtn then
+	backBtn.props.onClick()
+end
+settlePanel()
+check("back returns to list view", not hasLabelText("ui.panel.help_view.title"))
+
+-- 3. Quick add button shortcut tooltip
+local plusBtn = findButton(function(p) return p.glyph == "plus" end)
+check("add button has shortcut tooltip", plusBtn ~= nil and plusBtn.props.tooltip == "ui.panel.quick.add_tooltip")
+
 print(string.format("\n%d passed, %d failed", pass, fail))
 os.exit(fail == 0 and 0 or 1)
