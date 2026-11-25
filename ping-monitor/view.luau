@@ -28,8 +28,13 @@ local function fmt(epoch)
 end
 
 local function changed(cfg)
-  store.saveConfig(cfg)
+  -- only tell the service to reload what was actually stored; otherwise it would reload the old list
+  if not store.saveConfig(cfg) then
+    noctalia.notifyError(noctalia.tr("title"), noctalia.tr(store.readonly and "save_blocked" or "save_failed"))
+    return false
+  end
   noctalia.state.set("cfg_rev", noctalia.nowMs())
+  return true
 end
 
 local function latencyColor(ms)

@@ -38,7 +38,7 @@ noctalia msg panel-toggle nofiltera1/ping-monitor:panel_tall
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
 | `sound_enabled` | `bool` | `true` | Master switch for the "back online" sound. |
-| `sound_file` | `file` | `/usr/share/sounds/Oxygen-Sys-App-Positive.ogg` | Sound played when a device comes back online. |
+| `sound_file` | `file` | `/usr/share/sounds/Oxygen-Sys-App-Positive.ogg` | Sound played when a device comes back online. The default comes from the Oxygen sound theme and is **not shipped with the plugin**; without it pick any `.ogg`/`.wav`/`.oga` here, or turn `sound_enabled` off. A missing file is logged and the notification still appears. |
 | `history_days` | `int` | `14` | Number of days shown in each card's activity graph (3 to 30). |
 | `timeout_seconds` | `int` | `2` | How long each ping waits for a reply (1 to 10). |
 | `fail_threshold` | `int` | `2` | Failed checks in a row before a device is shown as offline (1 to 10). One check sends three pings; a failed check is repeated after 3 s. |

@@ -65,7 +65,7 @@ local function check(d)
   r.pinging = true
   local timeout = tonumber(noctalia.getConfig("timeout_seconds")) or 2
   local threshold = math.max(1, tonumber(noctalia.getConfig("fail_threshold")) or 2)
-  noctalia.runAsync({ "ping", "-c", "3", "-i", "0.3", "-W", tostring(timeout), d.ip }, function(result)
+  local started = noctalia.runAsync({ "ping", "-c", "3", "-i", "0.3", "-W", tostring(timeout), d.ip }, function(result)
     r.pinging = false
     local now = math.floor(noctalia.nowMs() / 1000)
     r.lastCheck = now
@@ -103,6 +103,13 @@ local function check(d)
     r.checkedOnce = true
     publish()
   end)
+  -- The host runs at most eight commands at once per plugin and returns false WITHOUT calling the callback
+  -- when that limit is reached (luau_host: kMaxAsyncCommandsPerHost). Treat it as "not checked yet": clear the
+  -- in-flight flag (otherwise this device would never be polled again) and try again in a second.
+  if not started then
+    r.pinging = false
+    r.nextCheck = math.floor(noctalia.nowMs() / 1000) + 1
+  end
 end
 
 local function reload()

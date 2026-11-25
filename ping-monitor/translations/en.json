@@ -90,5 +90,7 @@
       "description": "A device is shown as offline only after this many failed checks in a row. One check sends three pings."
     }
   },
-  "offline": "Device is offline"
+  "offline": "Device is offline",
+  "save_failed": "Could not save the device list. Your previous list is kept.",
+  "save_blocked": "config.json could not be read, so changes are not saved to avoid overwriting it. Fix or remove the file, then reopen."
 }

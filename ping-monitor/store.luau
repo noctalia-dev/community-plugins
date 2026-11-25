@@ -10,27 +10,58 @@ local function path(name)
   return dir and (dir .. "/" .. name) or nil
 end
 
+-- Returns the decoded table, or nil plus a reason: "missing" (no file yet) or "unreadable" (present but not readable
+-- or not valid JSON). Callers must never overwrite an unreadable file: it may be the user's only copy of the list.
 local function readJson(name)
   local p = path(name)
-  if not p then return nil end
+  if not p then return nil, "unreadable" end
+  if not noctalia.fileExists(p) then return nil, "missing" end
   local text = noctalia.readFile(p)
-  if not text then return nil end
+  if not text then return nil, "unreadable" end
   local ok, data = pcall(noctalia.json.decode, text)
   if ok and type(data) == "table" then return data end
-  return nil
+  return nil, "unreadable"
 end
 
+-- writeFile truncates the destination before writing, so an interrupted or failed write would leave an empty or
+-- partial file. Write a sibling temp file and move it over the real one only after the write succeeded.
 local function writeJson(name, data)
   local p = path(name)
-  if p then noctalia.writeFile(p, noctalia.json.encode(data)) end
+  if not p then return false end
+  local tmp = p .. ".tmp"
+  local ok, err = noctalia.writeFile(tmp, noctalia.json.encode(data))
+  if not ok then
+    noctalia.removeFile(tmp)
+    noctalia.log("ping-monitor: could not save " .. name .. ": " .. tostring(err))
+    return false
+  end
+  local moved, merr = noctalia.renameFile(tmp, p)
+  if not moved then
+    noctalia.removeFile(tmp)
+    noctalia.log("ping-monitor: could not replace " .. name .. ": " .. tostring(merr))
+    return false
+  end
+  return true
 end
 
+-- `readonly` is set when config.json exists but cannot be read: the plugin then runs on an empty list in memory and
+-- refuses to save until the file is fixed, so a broken file is never replaced by an empty one.
+M.readonly = false
+
 function M.loadConfig()
-  local cfg = readJson("config.json")
+  local cfg, why = readJson("config.json")
   if cfg == nil or type(cfg.devices) ~= "table" then
-    -- first run: start with an empty list
     cfg = { muted = false, devices = {}, groups = {} }
-    writeJson("config.json", cfg)
+    if why == "missing" then
+      M.readonly = false
+      writeJson("config.json", cfg) -- genuine first run
+    else
+      M.readonly = true
+      noctalia.log("ping-monitor: config.json exists but is unreadable or invalid; leaving it untouched")
+      return cfg
+    end
+  else
+    M.readonly = false
   end
   if M.ensureGroups(cfg) then writeJson("config.json", cfg) end
   return cfg
@@ -128,13 +159,19 @@ function M.moveDeviceToGroup(cfg, from, name)
   table.insert(cfg.devices, last == 0 and (#cfg.devices + 1) or (last + 1), dev)
 end
 
+-- false when the change could not be stored (the file was unreadable at load, or the write failed)
 function M.saveConfig(cfg)
-  writeJson("config.json", cfg)
+  if M.readonly then return false end
+  return writeJson("config.json", cfg)
 end
 
 -- history: { [ip] = { [yyyy-mm-dd] = true } }; a legacy flat map (date -> true) moves to the first device
+M.historyReadonly = false
+
 function M.loadHistory(cfg)
-  local h = readJson("history.json") or {}
+  local h, why = readJson("history.json")
+  M.historyReadonly = h == nil and why ~= "missing"
+  h = h or {}
   for key, value in h do
     if value == true then
       local first = cfg.devices[1]
@@ -148,7 +185,8 @@ function M.loadHistory(cfg)
 end
 
 function M.saveHistory(h)
-  writeJson("history.json", h)
+  if M.historyReadonly then return false end -- never replace an unreadable history with a fresh one
+  return writeJson("history.json", h)
 end
 
 function M.intervalIndex(seconds)
