@@ -8,6 +8,9 @@ It complements Noctalia's built-in Power Profiles Daemon controls instead of
 replacing them: use the built-in control for the standard power-saver,
 balanced, and performance policies, and this plugin for TCC-specific profiles.
 
+> [!NOTE]
+> If you prefer using Noctalia's built-in power profile switcher with TUXEDO Control Center, you can install my lightweight C adapter: https://github.com/detluck/tuxedo-power-profiles-adapter. It implements the standard power-profiles-daemon D-Bus interface and lets you map the three standard modes (power-saver, balanced, performance) directly to three custom TUXEDO profiles.
+
 ## Plugin
 
 | Field | Value |
