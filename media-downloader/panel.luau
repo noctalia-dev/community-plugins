@@ -10,7 +10,9 @@ local inputKey = 0
 
 -- The queue scrolls inside a column of the rows' height, up to what fits in the panel
 -- (DESIGN.md, section 6.3). A row is this tall, more for a second status line and progress.
-local LIST_MAX = 280
+-- The scroll pads its content by SCROLL_PAD_V above and below.
+local LIST_MAX = 296
+local SCROLL_PAD_V = 8
 local LIST_GAP = 6
 local ROW_HEIGHT = 56
 local LINE_HEIGHT = 17
@@ -192,7 +194,7 @@ local function queue()
       ui.label({ text = noctalia.tr("panel.sites"), color = "on_surface_variant" }),
     })
   end
-  local rows, height = {}, -LIST_GAP
+  local rows, height = {}, 2 * SCROLL_PAD_V - LIST_GAP
   local finished = 0
   -- Newest first.
   for index = #model.jobs, 1, -1 do
