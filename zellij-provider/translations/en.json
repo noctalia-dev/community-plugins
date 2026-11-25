@@ -1,0 +1,24 @@
+{
+  "layout_config": "zellij layout",
+  "no_sessions_found": "No sessions found",
+  "no_sessions_subtitle": "Start a zellij session to see it here",
+  "session_create": "Create session",
+  "session_create_subtitle": "Start a new zellij session with this name",
+  "session_delete_subtitle": "Delete this exited session",
+  "session_exited": "Exited",
+  "session_kill": "Kill session",
+  "session_kill_subtitle": "Stop this running session",
+  "session_running": "Running",
+  "settings": {
+    "show_kill_actions": {
+      "description": "Add a second row per session that kills a running session or deletes an exited one. Off by default because the row acts immediately.",
+      "label": "Show kill actions"
+    },
+    "use_layouts": {
+      "description": "Also list zellij layout files (via `zellij setup --check` and the layout directory).",
+      "label": "Enable layouts"
+    }
+  },
+  "zellij_not_found": "zellij not found",
+  "zellij_not_found_subtitle": "Install zellij to use this provider"
+}
