@@ -348,7 +348,7 @@ local function runCli(args, callback, timeoutMs)
   local cmd = table.concat(parts, " ")
   local started = noctalia.runAsync(cmd, callback, timeoutMs or 30000)
   if not started and callback then
-    callback({ exitCode = 1, stdout = "", stderr = "Failed to launch " .. daemonCmd() })
+    callback({ exitCode = 1, stdout = "", stderr = noctalia.tr("errors.launch_failed", { daemon = daemonCmd() }) })
   end
   return started
 end
@@ -356,7 +356,7 @@ end
 local function runRaw(cmd, callback, timeoutMs)
   local started = noctalia.runAsync(cmd, callback, timeoutMs or 30000)
   if not started and callback then
-    callback({ exitCode = 1, stdout = "", stderr = "Failed to launch command" })
+    callback({ exitCode = 1, stdout = "", stderr = noctalia.tr("errors.launch_command_failed") })
   end
   return started
 end
@@ -379,8 +379,8 @@ local function setBusyState(busy, title, action, targetId)
       id         = targetId or "task",
       name       = targetId or "Task",
       action     = action or "busy",
-      title      = title or "Running operation…",
-      stage      = title or "Processing…",
+      title      = title or noctalia.tr("tasks.running_operation"),
+      stage      = title or noctalia.tr("tasks.processing"),
       lastLog    = "",
       recentLogs = {},
       progress   = 0.5,
@@ -413,9 +413,9 @@ local function runStreamingTask(opts, onComplete)
     id         = opts.id or opts.name or "task",
     name       = opts.name or "Task",
     action     = opts.action or "task",
-    title      = opts.title or "Running operation…",
-    stage      = opts.initialStage or "Starting…",
-    lastLog    = "Initializing…",
+    title      = opts.title or noctalia.tr("tasks.running_operation"),
+    stage      = opts.initialStage or noctalia.tr("tasks.starting"),
+    lastLog    = noctalia.tr("tasks.initializing"),
     recentLogs = {},
     progress   = 0.1,
     startTime  = os.time(),
@@ -475,28 +475,28 @@ local function runStreamingTask(opts, onComplete)
 
           local l = line:lower()
           if l:find("downloading", 1, true) or l:find("pulling fs layer", 1, true) then
-            currentActiveTask.stage = "Downloading layers…"
+            currentActiveTask.stage = noctalia.tr("tasks.downloading_layers")
             currentActiveTask.progress = math.max(currentActiveTask.progress, 0.35)
           elseif l:find("extracting", 1, true) then
-            currentActiveTask.stage = "Extracting layers…"
+            currentActiveTask.stage = noctalia.tr("tasks.extracting_layers")
             currentActiveTask.progress = math.max(currentActiveTask.progress, 0.60)
           elseif l:find("download complete", 1, true) or l:find("pulled", 1, true) or l:find("pull complete", 1, true) then
-            currentActiveTask.stage = "Images downloaded"
+            currentActiveTask.stage = noctalia.tr("tasks.images_downloaded")
             currentActiveTask.progress = math.max(currentActiveTask.progress, 0.75)
           elseif l:find("creating", 1, true) then
-            currentActiveTask.stage = "Creating containers…"
+            currentActiveTask.stage = noctalia.tr("tasks.creating_containers")
             currentActiveTask.progress = math.max(currentActiveTask.progress, 0.85)
           elseif l:find("starting", 1, true) then
-            currentActiveTask.stage = "Starting containers…"
+            currentActiveTask.stage = noctalia.tr("tasks.starting_containers")
             currentActiveTask.progress = math.max(currentActiveTask.progress, 0.92)
           elseif l:find("started", 1, true) then
-            currentActiveTask.stage = "Containers started"
+            currentActiveTask.stage = noctalia.tr("tasks.containers_started")
             currentActiveTask.progress = 0.98
           elseif l:find("stopping", 1, true) then
-            currentActiveTask.stage = "Stopping containers…"
+            currentActiveTask.stage = noctalia.tr("tasks.stopping_containers")
             currentActiveTask.progress = math.max(currentActiveTask.progress, 0.50)
           elseif l:find("stopped", 1, true) then
-            currentActiveTask.stage = "Containers stopped"
+            currentActiveTask.stage = noctalia.tr("tasks.containers_stopped")
             currentActiveTask.progress = 0.85
           end
 
@@ -696,6 +696,11 @@ local function refreshContainers(onComplete)
 
   runCli({ "ps", "-a", "--no-trunc", "--format", "{{json .}}" }, function(result)
     pcall(function()
+      local previousStats = {}
+      for _, c in ipairs(snapshot.containers or {}) do
+        if c.id and c.id ~= "" then previousStats[c.id] = { cpu = c.cpu, ram = c.ram } end
+      end
+
       local containers = {}
       if result and result.exitCode == 0 then
         for line in string.gmatch(result.stdout or "", "[^\r\n]+") do
@@ -786,6 +791,7 @@ local function refreshContainers(onComplete)
                 end
               end
 
+              local prev = (state == "running") and previousStats[id] or nil
               table.insert(containers, {
                 id                = id,
                 name              = name,
@@ -803,8 +809,8 @@ local function refreshContainers(onComplete)
                 networksList      = netsList,
                 mounts            = table.concat(mountsList, ", "),
                 mountsList        = mountsList,
-                cpu               = "0%",
-                ram               = "0B",
+                cpu               = prev and prev.cpu or "0%",
+                ram               = prev and prev.ram or "0B",
                 rootless          = isRootless,
               })
             end
@@ -909,6 +915,9 @@ refreshContainerStats = function(onComplete)
         if s then
           c.cpu = s.cpu
           c.ram = s.ram
+        elseif c.state ~= "running" then
+          c.cpu = "0%"
+          c.ram = "0B"
         end
       end
 
@@ -958,10 +967,10 @@ local function scanComposeStacks(onComplete, notifyUser)
   if #scanDirs == 0 then
     snapshot.stacks         = {}
     snapshot.scanningStacks = false
-    snapshot.scanMessage    = "No scan directories configured. Add directories in Settings."
+    snapshot.scanMessage    = noctalia.tr("stacks.no_dirs_configured")
     publishSnapshot()
     if notifyUser then
-      noctalia.notify(noctalia.tr("name"), "No compose scan directories configured")
+      noctalia.notify(noctalia.tr("name"), noctalia.tr("notifications.no_scan_dirs"))
     end
     if onComplete then onComplete() end
     return
@@ -1017,12 +1026,12 @@ local function scanComposeStacks(onComplete, notifyUser)
 
       if stdout:find("__SHIPYARD_NO_DIRS__", 1, true) then
         snapshot.stacks = {}
-        local msg = string.format("None of the configured directories exist on disk (%s)", table.concat(scanDirs, ", "))
+        local msg = noctalia.tr("stacks.dirs_missing", { dirs = table.concat(scanDirs, ", ") })
         snapshot.scanMessage = msg
         snapshot.scanError   = msg
         publishSnapshot()
         if notifyUser then
-          noctalia.notify(noctalia.tr("name"), noctalia.tr("notifications.scan_error", { error = "Directories not found on disk" }))
+          noctalia.notify(noctalia.tr("name"), noctalia.tr("notifications.scan_error", { error = noctalia.tr("notifications.dirs_not_found") }))
         end
         return
       end
@@ -1096,10 +1105,10 @@ local function scanComposeStacks(onComplete, notifyUser)
       snapshot.lastScanTime = os.time()
 
       if #found > 0 then
-        snapshot.scanMessage = string.format("Scan complete: found %d compose stack(s)", #found)
+        snapshot.scanMessage = noctalia.tr("stacks.scan_completed_found", { count = #found })
         snapshot.scanError   = nil
       else
-        snapshot.scanMessage = string.format("No compose files found in configured scan directories (%s)", table.concat(scanDirs, ", "))
+        snapshot.scanMessage = noctalia.tr("stacks.scan_completed_empty", { dirs = table.concat(scanDirs, ", ") })
         snapshot.scanError   = nil
       end
 
@@ -1482,9 +1491,9 @@ local function onCommandReceived(cmd)
     if activeTaskPid and not activeTaskCancelling then
       activeTaskCancelling = true
       if currentActiveTask then
-        currentActiveTask.stage = "Cancelling…"
+        currentActiveTask.stage = noctalia.tr("tasks.cancelling")
         currentActiveTask.cancelling = true
-        table.insert(currentActiveTask.recentLogs, "Cancellation requested: terminating process group…")
+        table.insert(currentActiveTask.recentLogs, noctalia.tr("tasks.cancellation_requested"))
         publishSnapshot()
       end
       local pid = activeTaskPid
@@ -1647,7 +1656,7 @@ local function onCommandReceived(cmd)
   -- Podman Generate Actions
   if action == "podman_generate_systemd" and isValidIdentifier(cmd.id) then
     runCli({ "generate", "systemd", "--name", cmd.id }, function(result)
-      snapshot.generateOutput = result and trim(result.stdout) or "Error generating unit"
+      snapshot.generateOutput = result and trim(result.stdout) or noctalia.tr("errors.generate_unit")
       snapshot.generateTitle  = "systemd unit — " .. tostring(cmd.name or cmd.id)
       publishSnapshot()
     end, 10000)
@@ -1656,8 +1665,8 @@ local function onCommandReceived(cmd)
 
   if action == "podman_generate_kube" and isValidIdentifier(cmd.id) then
     runCli({ "kube", "generate", cmd.id }, function(result)
-      snapshot.generateOutput = result and trim(result.stdout) or "Error generating YAML"
-      snapshot.generateTitle  = "Kubernetes YAML — " .. tostring(cmd.name or cmd.id)
+      snapshot.generateOutput = result and trim(result.stdout) or noctalia.tr("errors.generate_yaml")
+      snapshot.generateTitle  = noctalia.tr("tasks.kube_yaml_title", { name = tostring(cmd.name or cmd.id) })
       publishSnapshot()
     end, 10000)
     return
@@ -1711,48 +1720,48 @@ local function onCommandReceived(cmd)
   }
 
   if mutating[action] and (isBusy or currentActiveTask ~= nil) then
-    noctalia.notify(noctalia.tr("name"), "Another operation is in progress. Please wait.")
+    noctalia.notify(noctalia.tr("name"), noctalia.tr("errors.busy_wait"))
     return
   end
 
   -- Container Actions
   if action == "container_start" and isValidIdentifier(cmd.id) then
-    setBusyState(true, string.format("Starting %s…", cmd.name or cmd.id), "container_start", cmd.id)
+    setBusyState(true, noctalia.tr("tasks.starting_name", { name = cmd.name or cmd.id }), "container_start", cmd.id)
     runCli({ "start", cmd.id }, function(res)
       setBusyState(false)
       if res and res.exitCode ~= 0 then
-        local err = trim(res.stderr or res.stdout or "Command failed")
-        noctalia.notify(noctalia.tr("name"), string.format("Failed to start %s: %s", cmd.name or cmd.id, err))
+        local err = trim(res.stderr or res.stdout or noctalia.tr("errors.command_failed"))
+        noctalia.notify(noctalia.tr("name"), noctalia.tr("errors.start_failed", { name = cmd.name or cmd.id, error = err }))
       end
       refreshContainers()
     end)
   elseif action == "container_stop" and isValidIdentifier(cmd.id) then
-    setBusyState(true, string.format("Stopping %s…", cmd.name or cmd.id), "container_stop", cmd.id)
+    setBusyState(true, noctalia.tr("tasks.stopping_name", { name = cmd.name or cmd.id }), "container_stop", cmd.id)
     runCli({ "stop", cmd.id }, function(res)
       setBusyState(false)
       if res and res.exitCode ~= 0 then
-        local err = trim(res.stderr or res.stdout or "Command failed")
-        noctalia.notify(noctalia.tr("name"), string.format("Failed to stop %s: %s", cmd.name or cmd.id, err))
+        local err = trim(res.stderr or res.stdout or noctalia.tr("errors.command_failed"))
+        noctalia.notify(noctalia.tr("name"), noctalia.tr("errors.stop_failed", { name = cmd.name or cmd.id, error = err }))
       end
       refreshContainers()
     end)
   elseif action == "container_restart" and isValidIdentifier(cmd.id) then
-    setBusyState(true, string.format("Restarting %s…", cmd.name or cmd.id), "container_restart", cmd.id)
+    setBusyState(true, noctalia.tr("tasks.restarting_name", { name = cmd.name or cmd.id }), "container_restart", cmd.id)
     runCli({ "restart", cmd.id }, function(res)
       setBusyState(false)
       if res and res.exitCode ~= 0 then
-        local err = trim(res.stderr or res.stdout or "Command failed")
-        noctalia.notify(noctalia.tr("name"), string.format("Failed to restart %s: %s", cmd.name or cmd.id, err))
+        local err = trim(res.stderr or res.stdout or noctalia.tr("errors.command_failed"))
+        noctalia.notify(noctalia.tr("name"), noctalia.tr("errors.restart_failed", { name = cmd.name or cmd.id, error = err }))
       end
       refreshContainers()
     end)
   elseif action == "container_remove" and isValidIdentifier(cmd.id) then
-    setBusyState(true, string.format("Removing %s…", cmd.name or cmd.id), "container_remove", cmd.id)
+    setBusyState(true, noctalia.tr("tasks.removing_name", { name = cmd.name or cmd.id }), "container_remove", cmd.id)
     runCli({ "rm", "-f", cmd.id }, function(res)
       setBusyState(false)
       if res and res.exitCode ~= 0 then
-        local err = trim(res.stderr or res.stdout or "Command failed")
-        noctalia.notify(noctalia.tr("name"), string.format("Failed to remove %s: %s", cmd.name or cmd.id, err))
+        local err = trim(res.stderr or res.stdout or noctalia.tr("errors.command_failed"))
+        noctalia.notify(noctalia.tr("name"), noctalia.tr("errors.remove_failed", { name = cmd.name or cmd.id, error = err }))
       end
       refreshContainers()
     end)
@@ -1768,13 +1777,13 @@ local function onCommandReceived(cmd)
       id           = cmd.path,
       name         = cmd.name or "Stack",
       title        = `Deploying {cmd.name or "stack"}…`,
-      initialStage = "Preparing deployment…",
+      initialStage = noctalia.tr("tasks.preparing_deploy"),
       command      = string.format("cd %s 2>&1 && %s up -d 2>&1", shellQuote(cmd.path), compCmd),
     }, function(exitCode, logs, wasCancelling)
       if wasCancelling then
         noctalia.notify(noctalia.tr("name"), `Deployment of {cmd.name or "stack"} was cancelled`)
       elseif exitCode ~= 0 then
-        local errMsg = (#logs > 0 and logs[#logs]) or "Command failed"
+        local errMsg = (#logs > 0 and logs[#logs]) or noctalia.tr("errors.command_failed")
         noctalia.notify(noctalia.tr("name"), `Failed to deploy {cmd.name or ""}: {errMsg}`)
       end
       refreshAll()
@@ -1790,13 +1799,13 @@ local function onCommandReceived(cmd)
       id           = cmd.path,
       name         = cmd.name or "Stack",
       title        = `Stopping {cmd.name or "stack"}…`,
-      initialStage = "Stopping services…",
+      initialStage = noctalia.tr("tasks.stopping_services"),
       command      = string.format("cd %s 2>&1 && %s down 2>&1", shellQuote(cmd.path), compCmd),
     }, function(exitCode, logs, wasCancelling)
       if wasCancelling then
         noctalia.notify(noctalia.tr("name"), `Stopping of {cmd.name or "stack"} was cancelled`)
       elseif exitCode ~= 0 then
-        local errMsg = (#logs > 0 and logs[#logs]) or "Command failed"
+        local errMsg = (#logs > 0 and logs[#logs]) or noctalia.tr("errors.command_failed")
         noctalia.notify(noctalia.tr("name"), `Failed to stop {cmd.name or ""}: {errMsg}`)
       end
       refreshAll()
@@ -1812,13 +1821,13 @@ local function onCommandReceived(cmd)
       id           = cmd.path,
       name         = cmd.name or "Stack",
       title        = `Deploying & Ejecting {cmd.name or "stack"}…`,
-      initialStage = "Preparing deployment…",
+      initialStage = noctalia.tr("tasks.preparing_deploy"),
       command      = string.format("cd %s 2>&1 && %s up -d 2>&1", shellQuote(cmd.path), compCmd),
     }, function(exitCode, logs, wasCancelling)
       if wasCancelling then
         noctalia.notify(noctalia.tr("name"), `Deployment of {cmd.name or "stack"} was cancelled`)
       elseif exitCode ~= 0 then
-        local errMsg = (#logs > 0 and logs[#logs]) or "Command failed"
+        local errMsg = (#logs > 0 and logs[#logs]) or noctalia.tr("errors.command_failed")
         noctalia.notify(noctalia.tr("name"), `Failed to deploy {cmd.name or ""}: {errMsg}`)
       end
       refreshAll()
@@ -1829,22 +1838,22 @@ local function onCommandReceived(cmd)
     runStreamingTask({
       action       = "images_prune",
       name         = "Images",
-      title        = "Pruning unused images…",
-      initialStage = "Pruning images…",
+      title        = noctalia.tr("tasks.pruning_unused"),
+      initialStage = noctalia.tr("tasks.pruning_images"),
       command      = string.format("%s image prune -a -f 2>&1", daemonCmd()),
     }, function(exitCode, logs, wasCancelling)
       if wasCancelling then
-        noctalia.notify(noctalia.tr("name"), "Image pruning was cancelled")
+        noctalia.notify(noctalia.tr("name"), noctalia.tr("tasks.prune_cancelled"))
       end
       refreshImages()
     end)
   elseif action == "image_remove" and isValidImageRef(cmd.id) then
-    setBusyState(true, string.format("Removing image %s…", cmd.name or cmd.id), "image_remove", cmd.id)
+    setBusyState(true, noctalia.tr("tasks.removing_image", { name = cmd.name or cmd.id }), "image_remove", cmd.id)
     runCli({ "rmi", "-f", cmd.id }, function(res)
       setBusyState(false)
       if res and res.exitCode ~= 0 then
-        local err = trim(res.stderr or res.stdout or "Command failed")
-        noctalia.notify(noctalia.tr("name"), string.format("Failed to remove image %s: %s", cmd.name or cmd.id, err))
+        local err = trim(res.stderr or res.stdout or noctalia.tr("errors.command_failed"))
+        noctalia.notify(noctalia.tr("name"), noctalia.tr("errors.image_remove_failed", { name = cmd.name or cmd.id, error = err }))
       end
       refreshImages()
     end)
@@ -1943,7 +1952,7 @@ local function onCommandReceived(cmd)
       else
         snapshot.onlineSearchResults = {}
         local err = trim(result.stderr or "")
-        snapshot.onlineSearchError = (err ~= "") and err or "Search query returned an error"
+        snapshot.onlineSearchError = (err ~= "") and err or noctalia.tr("errors.search_failed")
         publishSnapshot()
       end
     end, 20000)
@@ -1956,13 +1965,13 @@ local function onCommandReceived(cmd)
       id           = imgName,
       name         = imgName,
       title        = `Pulling {imgName}…`,
-      initialStage = "Pulling image layers…",
+      initialStage = noctalia.tr("tasks.pulling_layers"),
       command      = string.format("%s pull %s 2>&1", daemonCmd(), shellQuote(pullRef)),
     }, function(exitCode, logs, wasCancelling)
       if wasCancelling then
         noctalia.notify(noctalia.tr("name"), `Pull of {imgName} was cancelled`)
       elseif exitCode ~= 0 then
-        local errMsg = (#logs > 0 and logs[#logs]) or "Failed to pull image"
+        local errMsg = (#logs > 0 and logs[#logs]) or noctalia.tr("errors.pull_failed")
         noctalia.notify(noctalia.tr("name"), `Failed to pull {imgName}: {errMsg}`)
       end
       refreshImages()
@@ -2020,13 +2029,13 @@ local function onCommandReceived(cmd)
       id           = cName ~= "" and cName or imgName,
       name         = cName ~= "" and cName or imgName,
       title        = `Starting container from {imgName}…`,
-      initialStage = "Pulling image and starting container…",
+      initialStage = noctalia.tr("tasks.pull_and_run"),
       command      = fullCmd,
     }, function(exitCode, logs, wasCancelling)
       if wasCancelling then
         noctalia.notify(noctalia.tr("name"), `Container launch from {imgName} was cancelled`)
       elseif exitCode ~= 0 then
-        local errMsg = (#logs > 0 and logs[#logs]) or "Failed to start container"
+        local errMsg = (#logs > 0 and logs[#logs]) or noctalia.tr("errors.container_start_failed")
         noctalia.notify(noctalia.tr("name"), `Failed to run {imgName}: {errMsg}`)
       end
       refreshAll()
@@ -2034,54 +2043,54 @@ local function onCommandReceived(cmd)
 
   -- Infrastructure Actions
   elseif action == "volume_remove" and isValidIdentifier(cmd.name) then
-    setBusyState(true, string.format("Removing volume %s…", cmd.name), "volume_remove", cmd.name)
+    setBusyState(true, noctalia.tr("tasks.removing_volume", { name = cmd.name }), "volume_remove", cmd.name)
     runCli({ "volume", "rm", cmd.name }, function(res)
       setBusyState(false)
       if res and res.exitCode ~= 0 then
-        local err = trim(res.stderr or res.stdout or "Command failed")
-        noctalia.notify(noctalia.tr("name"), string.format("Failed to remove volume %s: %s", cmd.name, err))
+        local err = trim(res.stderr or res.stdout or noctalia.tr("errors.command_failed"))
+        noctalia.notify(noctalia.tr("name"), noctalia.tr("errors.volume_remove_failed", { name = cmd.name, error = err }))
       end
       refreshInfrastructure()
     end)
   elseif action == "network_remove" and isValidIdentifier(cmd.id) then
-    setBusyState(true, string.format("Removing network %s…", cmd.name or cmd.id), "network_remove", cmd.id)
+    setBusyState(true, noctalia.tr("tasks.removing_network", { name = cmd.name or cmd.id }), "network_remove", cmd.id)
     runCli({ "network", "rm", cmd.id }, function(res)
       setBusyState(false)
       if res and res.exitCode ~= 0 then
-        local err = trim(res.stderr or res.stdout or "Command failed")
-        noctalia.notify(noctalia.tr("name"), string.format("Failed to remove network %s: %s", cmd.name or cmd.id, err))
+        local err = trim(res.stderr or res.stdout or noctalia.tr("errors.command_failed"))
+        noctalia.notify(noctalia.tr("name"), noctalia.tr("errors.network_remove_failed", { name = cmd.name or cmd.id, error = err }))
       end
       refreshInfrastructure()
     end)
 
   -- Pod Actions (Podman only)
   elseif action == "pod_start" and isValidIdentifier(cmd.id) then
-    setBusyState(true, string.format("Starting pod %s…", cmd.name or cmd.id), "pod_start", cmd.id)
+    setBusyState(true, noctalia.tr("tasks.starting_pod", { name = cmd.name or cmd.id }), "pod_start", cmd.id)
     runCli({ "pod", "start", cmd.id }, function(res)
       setBusyState(false)
       if res and res.exitCode ~= 0 then
-        local err = trim(res.stderr or res.stdout or "Command failed")
-        noctalia.notify(noctalia.tr("name"), string.format("Failed to start pod %s: %s", cmd.name or cmd.id, err))
+        local err = trim(res.stderr or res.stdout or noctalia.tr("errors.command_failed"))
+        noctalia.notify(noctalia.tr("name"), noctalia.tr("errors.pod_start_failed", { name = cmd.name or cmd.id, error = err }))
       end
       refreshPods()
     end)
   elseif action == "pod_stop" and isValidIdentifier(cmd.id) then
-    setBusyState(true, string.format("Stopping pod %s…", cmd.name or cmd.id), "pod_stop", cmd.id)
+    setBusyState(true, noctalia.tr("tasks.stopping_pod", { name = cmd.name or cmd.id }), "pod_stop", cmd.id)
     runCli({ "pod", "stop", cmd.id }, function(res)
       setBusyState(false)
       if res and res.exitCode ~= 0 then
-        local err = trim(res.stderr or res.stdout or "Command failed")
-        noctalia.notify(noctalia.tr("name"), string.format("Failed to stop pod %s: %s", cmd.name or cmd.id, err))
+        local err = trim(res.stderr or res.stdout or noctalia.tr("errors.command_failed"))
+        noctalia.notify(noctalia.tr("name"), noctalia.tr("errors.pod_stop_failed", { name = cmd.name or cmd.id, error = err }))
       end
       refreshPods()
     end)
   elseif action == "pod_remove" and isValidIdentifier(cmd.id) then
-    setBusyState(true, string.format("Removing pod %s…", cmd.name or cmd.id), "pod_remove", cmd.id)
+    setBusyState(true, noctalia.tr("tasks.removing_pod", { name = cmd.name or cmd.id }), "pod_remove", cmd.id)
     runCli({ "pod", "rm", "-f", cmd.id }, function(res)
       setBusyState(false)
       if res and res.exitCode ~= 0 then
-        local err = trim(res.stderr or res.stdout or "Command failed")
-        noctalia.notify(noctalia.tr("name"), string.format("Failed to remove pod %s: %s", cmd.name or cmd.id, err))
+        local err = trim(res.stderr or res.stdout or noctalia.tr("errors.command_failed"))
+        noctalia.notify(noctalia.tr("name"), noctalia.tr("errors.pod_remove_failed", { name = cmd.name or cmd.id, error = err }))
       end
       refreshPods()
       refreshContainers()

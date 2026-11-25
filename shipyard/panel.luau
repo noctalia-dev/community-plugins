@@ -155,11 +155,11 @@ local function renderDaemonBanner(snapshot)
       ui.glyph({ name = "alert-triangle", size = 16, color = "error" }),
       ui.label({ text = msg, color = "error", fontSize = 12, flexGrow = 1 }),
       ui.button({
-        text        = "Retry",
+        text        = tr("common.retry"),
         glyph       = "refresh",
         variant     = "outline",
         controlSize = "sm",
-        tooltip     = "Retry connecting to daemon",
+        tooltip     = tr("tooltips.retry_daemon"),
         onClick     = function() sendCommand("refresh") end,
       }),
     })
@@ -205,7 +205,7 @@ local function renderActiveTaskCard(task)
   end
 
   local isCancelling = task.cancelling == true
-  local stagePillText = isCancelling and "Cancelling…" or (task.stage or "Working…")
+  local stagePillText = isCancelling and tr("tasks.cancelling") or (task.stage or tr("tasks.working"))
   if not isCancelling and pctStr ~= "" then
     stagePillText = `{pctStr} · {stagePillText}`
   end
@@ -217,17 +217,17 @@ local function renderActiveTaskCard(task)
     ui.label({ text = elapsedStr, fontSize = 11, color = "on_surface_variant" }),
   }
   if isCancelling then
-    table.insert(headerControls, ui.label({ text = "Terminating…", fontSize = 11, color = "error" }))
+    table.insert(headerControls, ui.label({ text = tr("common.terminating"), fontSize = 11, color = "error" }))
   else
     table.insert(headerControls, ui.button({
-      text        = "Cancel",
+      text        = tr("common.cancel"),
       fontSize    = 11,
       paddingH    = 6,
       paddingV    = 2,
       radius      = 4,
       fill        = "error/0.15",
       color       = "error",
-      tooltip     = "Cancel and terminate current operation",
+      tooltip     = tr("tooltips.cancel_operation"),
       onClick     = function()
         sendCommand("cancel_task")
       end,
@@ -314,7 +314,7 @@ local function renderConfirmModal(cmd, snapshot)
       ui.button({
         text    = tr("confirm.no"),
         variant = "outline",
-        tooltip = "Cancel action without making changes",
+        tooltip = tr("tooltips.cancel_action"),
         onClick = function()
           confirmPending = nil
           render()
@@ -323,7 +323,7 @@ local function renderConfirmModal(cmd, snapshot)
       ui.button({
         text    = tr("confirm.yes"),
         variant = "destructive",
-        tooltip = "Permanently proceed with deletion",
+        tooltip = tr("tooltips.confirm_delete"),
         onClick = function()
           local action = cmd.action
           local confirmedCmd = { confirmed = true }
@@ -356,7 +356,7 @@ local function renderLogsModal(snapshot)
         glyph       = "close",
         variant     = "outline",
         controlSize = "sm",
-        tooltip     = "Close log viewer",
+        tooltip     = tr("tooltips.close_logs"),
         onClick     = function()
           sendCommand("clear_logs")
         end,
@@ -392,7 +392,7 @@ local function renderGenerateModal(snapshot)
           glyph       = "copy",
           variant     = "outline",
           controlSize = "sm",
-          tooltip     = "Copy to clipboard",
+          tooltip     = tr("common.copy"),
           onClick     = function()
             noctalia.copyToClipboard(text, "text/plain")
           end,
@@ -401,7 +401,7 @@ local function renderGenerateModal(snapshot)
           glyph       = "close",
           variant     = "outline",
           controlSize = "sm",
-          tooltip     = "Close generated view",
+          tooltip     = tr("tooltips.close_generated"),
           onClick     = function()
             sendCommand("clear_generate")
           end,
@@ -442,14 +442,14 @@ local function renderStacksTab(snapshot)
       flexGrow    = 1,
       onChange    = "onStackSearch",
     }),
-    ui.label({ text = `{#stacks} stacks`, color = "on_surface_variant", fontSize = 11 }),
+    ui.label({ text = tr("stacks.count", { count = #stacks }), color = "on_surface_variant", fontSize = 11 }),
     ui.button({
-      text        = snapshot.scanningStacks and "Scanning…" or "Scan Directories",
+      text        = snapshot.scanningStacks and tr("stacks.scanning") or tr("stacks.scan_directories"),
       glyph       = snapshot.scanningStacks and "loader" or "refresh",
       variant     = "outline",
       controlSize = "sm",
       enabled     = not snapshot.scanningStacks and not snapshot.busy,
-      tooltip     = snapshot.scanningStacks and "Scanning configured directories for compose files…" or (busyTooltip or "Scan configured directories for compose files"),
+      tooltip     = snapshot.scanningStacks and tr("stacks.scanning_dirs") or (busyTooltip or tr("stacks.scan_idle")),
       onClick     = function() sendCommand("scan_stacks") end,
     }),
   })
@@ -479,11 +479,11 @@ local function renderStacksTab(snapshot)
       ui.glyph({ name = "alert-triangle", size = 15, color = "error" }),
       ui.label({ text = snapshot.scanError, color = "error", fontSize = 11, flexGrow = 1 }),
       ui.button({
-        text        = "Settings",
+        text        = tr("common.settings"),
         glyph       = "settings",
         variant     = "ghost",
         controlSize = "sm",
-        tooltip     = "Open plugin settings",
+        tooltip     = tr("tooltips.open_plugin_settings"),
         onClick     = openPluginSettings,
       }),
     })
@@ -534,11 +534,11 @@ local function renderStacksTab(snapshot)
           onClick     = function() sendCommand("scan_stacks") end,
         }),
         ui.button({
-          text        = "Configure Scan Directories",
+          text        = tr("stacks.configure_dirs"),
           glyph       = "settings",
           variant     = "secondary",
           controlSize = "sm",
-          tooltip     = "Open plugin settings to configure directories",
+          tooltip     = tr("tooltips.configure_dirs"),
           onClick     = openPluginSettings,
         }),
       }),
@@ -553,7 +553,7 @@ local function renderStacksTab(snapshot)
       ui.glyph({ name = "search", size = 40, color = "on_surface_variant" }),
       ui.label({ text = tr("stacks.no_search_results", { query = stackSearch }), color = "on_surface_variant", textAlign = "center" }),
       ui.button({
-        text        = "Clear Search",
+        text        = tr("common.clear_search"),
         glyph       = "x",
         variant     = "ghost",
         controlSize = "sm",
@@ -584,12 +584,12 @@ local function renderStacksTab(snapshot)
         ui.row({ align = "center", gap = 8 }, {
           ui.label({ text = s.name, fontWeight = "bold", color = "on_surface", fontSize = 14 }),
           isThisStackActive
-            and pill(snapshot.activeTask.stage or "Deploying…", "primary/0.2", "primary", "Stack is currently running an operation")
+            and pill(snapshot.activeTask.stage or tr("stacks.deploying"), "primary/0.2", "primary", tr("stacks.running_operation"))
             or  pill(
                   s.running and tr("stacks.active") or tr("stacks.inactive"),
                   s.running and "primary/0.2" or "surface_container_highest",
                   s.running and "primary"     or "on_surface_variant",
-                  s.running and "Stack containers are running" or "Stack containers are stopped"
+                  s.running and tr("stacks.containers_running") or tr("stacks.containers_stopped")
                 ),
         }),
         ui.label({ text = s.path, color = "on_surface_variant", fontSize = 11, maxLines = 1 }),
@@ -597,11 +597,11 @@ local function renderStacksTab(snapshot)
       ui.row({ align = "center", gap = 6 }, {
         isThisStackActive
           and ui.button({
-                text        = "Deploying…",
+                text        = tr("stacks.deploying"),
                 glyph       = "loader",
                 variant     = "primary",
                 controlSize = "sm",
-                tooltip     = "Stack deployment in progress",
+                tooltip     = tr("tooltips.deploying"),
                 enabled     = false,
               })
           or  ui.button({
@@ -609,7 +609,7 @@ local function renderStacksTab(snapshot)
                 variant     = "primary",
                 controlSize = "sm",
                 enabled     = not snapshot.busy,
-                tooltip     = busyTooltip or "Deploy stack services in background (compose up -d)",
+                tooltip     = busyTooltip or tr("stacks.up_tooltip"),
                 onClick     = function() sendCommand("compose_up", { path = s.path, name = s.name }) end,
               }),
         ui.button({
@@ -617,7 +617,7 @@ local function renderStacksTab(snapshot)
           variant     = "outline",
           controlSize = "sm",
           enabled     = not snapshot.busy and not isThisStackActive,
-          tooltip     = busyTooltip or "Stop and remove stack services (compose down)",
+          tooltip     = busyTooltip or tr("stacks.down_tooltip"),
           onClick     = function() requestDestructiveAction("compose_down", { path = s.path, name = s.name }) end,
         }),
         ui.button({
@@ -671,13 +671,13 @@ local function renderContainersTab(snapshot)
       flexGrow    = 1,
       onChange    = "onContainerSearch",
     }),
-    ui.label({ text = `{#all} containers`, color = "on_surface_variant", fontSize = 11 }),
+    ui.label({ text = tr("containers.count", { count = #all }), color = "on_surface_variant", fontSize = 11 }),
     ui.button({
-      text        = "Run Image",
+      text        = tr("stacks.run_image"),
       glyph       = "plus",
       variant     = "primary",
       controlSize = "sm",
-      tooltip     = "Find and run an image from registry",
+      tooltip     = tr("tooltips.run_image"),
       onClick     = function()
         currentTab   = "images"
         imageSubView = "online"
@@ -685,12 +685,12 @@ local function renderContainersTab(snapshot)
       end,
     }),
     ui.button({
-      text        = snapshot.isScanning and "Scanning…" or "Scan",
+      text        = snapshot.isScanning and tr("containers.scanning") or tr("containers.scan"),
       glyph       = snapshot.isScanning and "loader" or "refresh",
       variant     = "outline",
       controlSize = "sm",
       enabled     = not snapshot.isScanning and not snapshot.busy,
-      tooltip     = snapshot.isScanning and "Rescanning containers in background…" or "Rescan running containers",
+      tooltip     = snapshot.isScanning and tr("containers.rescan_busy") or tr("containers.rescan"),
       onClick     = function() sendCommand("refresh_containers") end,
     }),
   })
@@ -706,7 +706,7 @@ local function renderContainersTab(snapshot)
           glyph       = "world",
           variant     = "primary",
           controlSize = "sm",
-          tooltip     = "Browse online registry and launch a container",
+          tooltip     = tr("tooltips.browse_online_run"),
           onClick     = function()
             currentTab   = "images"
             imageSubView = "online"
@@ -728,7 +728,7 @@ local function renderContainersTab(snapshot)
         c.rootless and tr("containers.rootless") or tr("containers.rootful"),
         c.rootless and "primary/0.15" or "tertiary/0.15",
         c.rootless and "primary"      or "tertiary",
-        c.rootless and "Running in rootless mode" or "Running in rootful mode"
+        c.rootless and tr("containers.rootless_tooltip") or tr("containers.rootful_tooltip")
       ))
     end
 
@@ -792,15 +792,15 @@ local function renderContainersTab(snapshot)
     }, {
       ui.row({ align = "center", justify = "space_between", gap = 10 }, {
         ui.row({ align = "center", gap = 10, flexGrow = 1 }, {
-          statusDot(isRunning and "primary" or "error", isRunning and "Container is running" or "Container is stopped"),
+          statusDot(isRunning and "primary" or "error", isRunning and tr("containers.running_tip") or tr("containers.stopped_tip")),
           ui.column({ gap = 2, flexGrow = 1 }, {
             ui.row({ align = "center", gap = 6 }, nameChildren),
             ui.label({ text = `{c.image}  ·  {c.status}{portSummary}`, color = "on_surface_variant", fontSize = 11, maxLines = 1 }),
           }),
         }),
         ui.row({ align = "center", gap = 6 }, {
-          pill(`CPU {c.cpu or "0%"}`, "surface_container_highest", "on_surface_variant", "Current CPU utilization"),
-          pill(`RAM {c.ram or "0B"}`, "surface_container_highest", "on_surface_variant", "Current memory consumption"),
+          pill(`CPU {c.cpu or "0%"}`, "surface_container_highest", "on_surface_variant", tr("containers.cpu_tip")),
+          pill(`RAM {c.ram or "0B"}`, "surface_container_highest", "on_surface_variant", tr("containers.ram_tip")),
         }),
       }),
 
@@ -839,7 +839,7 @@ local function renderOnlineImagesView(snapshot)
       variant     = "primary",
       controlSize = "sm",
       enabled     = not isSearching and not snapshot.busy,
-      tooltip     = "Search Docker Hub for container images",
+      tooltip     = tr("tooltips.search_dockerhub"),
       onClick     = "onOnlineSearchSubmit",
     }),
   })
@@ -887,7 +887,7 @@ local function renderOnlineImagesView(snapshot)
         ui.glyph({ name = "alert-triangle", size = 18, color = "error" }),
         ui.label({ text = searchErr, color = "error", fontSize = 12 }),
         ui.button({
-          text        = "Retry",
+          text        = tr("common.retry"),
           glyph       = "refresh",
           variant     = "outline",
           controlSize = "sm",
@@ -919,7 +919,7 @@ local function renderOnlineImagesView(snapshot)
         ui.label({ text = it.displayName or it.name, fontWeight = "bold", color = "on_surface", fontSize = 13 }),
       }
       if it.official then
-        table.insert(badges, pill(tr("images.official_badge"), "primary/0.2", "primary", "Official build on Docker Hub"))
+        table.insert(badges, pill(tr("images.official_badge"), "primary/0.2", "primary", tr("images.official_tip")))
       end
       table.insert(badges, pill(`★ {it.stars}`, "surface_container_highest", "on_surface_variant", tr("images.stars_count", { count = it.stars })))
       if it.sizeStr and it.sizeStr ~= "" then
@@ -937,7 +937,7 @@ local function renderOnlineImagesView(snapshot)
         }))
       end
       table.insert(colChildren, ui.label({
-        text     = (it.description and it.description ~= "") and it.description or "No description available",
+        text     = (it.description and it.description ~= "") and it.description or tr("images.no_desc"),
         color    = "on_surface_variant",
         fontSize = 11,
         maxLines = 2,
@@ -1024,7 +1024,7 @@ local function renderLaunchModal(imageName, snapshot)
     }),
   }
   if foundSize then
-    table.insert(headerTitleRow, pill(foundSize, "secondary_container", "on_secondary_container", "Image size"))
+    table.insert(headerTitleRow, pill(foundSize, "secondary_container", "on_secondary_container", tr("images.size_tip")))
   end
 
   return ui.column({
@@ -1040,7 +1040,7 @@ local function renderLaunchModal(imageName, snapshot)
         glyph       = "close",
         variant     = "ghost",
         controlSize = "sm",
-        tooltip     = "Cancel and close",
+        tooltip     = tr("tooltips.cancel_close"),
         onClick     = function()
           launchModalImage = nil
           render()
@@ -1166,7 +1166,7 @@ local function renderImagesTab(snapshot)
         glyph       = "box",
         variant     = imageSubView == "local" and "primary" or "ghost",
         controlSize = "sm",
-        tooltip     = "View locally downloaded images",
+        tooltip     = tr("tooltips.view_local_images"),
         onClick     = function()
           imageSubView = "local"
           render()
@@ -1177,7 +1177,7 @@ local function renderImagesTab(snapshot)
         glyph       = "world",
         variant     = imageSubView == "online" and "primary" or "ghost",
         controlSize = "sm",
-        tooltip     = "Search and run images from Docker Hub / registry",
+        tooltip     = tr("tooltips.search_run_images"),
         onClick     = function()
           imageSubView = "online"
           render()
@@ -1211,16 +1211,16 @@ local function renderImagesTab(snapshot)
         flexGrow    = 1,
         onChange    = "onImageSearch",
       }),
-      ui.label({ text = `{#all} images`, color = "on_surface_variant", fontSize = 11 }),
+      ui.label({ text = tr("images.count", { count = #all }), color = "on_surface_variant", fontSize = 11 }),
     }),
     ui.row({ align = "center", gap = 6 }, {
       ui.button({
-        text        = snapshot.isScanning and "Scanning…" or "Scan Images",
+        text        = snapshot.isScanning and tr("images.scanning") or tr("images.scan"),
         glyph       = snapshot.isScanning and "loader" or "refresh",
         variant     = "outline",
         controlSize = "sm",
         enabled     = not snapshot.isScanning and not snapshot.busy,
-        tooltip     = snapshot.isScanning and "Rescanning downloaded images…" or (busyTooltip or "Rescan downloaded images"),
+        tooltip     = snapshot.isScanning and tr("images.rescan_busy") or (busyTooltip or tr("images.rescan")),
         onClick     = function() sendCommand("refresh_images") end,
       }),
       ui.button({
@@ -1229,7 +1229,7 @@ local function renderImagesTab(snapshot)
         variant     = "destructive",
         controlSize = "sm",
         enabled     = not snapshot.busy,
-        tooltip     = busyTooltip or "Remove all unused and dangling images",
+        tooltip     = busyTooltip or tr("images.remove_unused_tip"),
         onClick     = function() requestDestructiveAction("images_prune", { name = "all unused images" }) end,
       }),
     }),
@@ -1247,7 +1247,7 @@ local function renderImagesTab(snapshot)
           glyph       = "world",
           variant     = "primary",
           controlSize = "sm",
-          tooltip     = "Browse and run images online",
+          tooltip     = tr("tooltips.browse_run_online"),
           onClick     = function()
             imageSubView = "online"
             render()
@@ -1274,10 +1274,10 @@ local function renderImagesTab(snapshot)
         ui.row({ align = "center", gap = 8 }, {
           ui.label({ text = `{img.repository}:{img.tag}`, fontWeight = "bold", color = "on_surface", fontSize = 13 }),
           pill(
-            isUnused and "Unused" or tr("images.in_use", { count = tostring(img.inUseCount) }),
+            isUnused and tr("images.unused") or tr("images.in_use", { count = tostring(img.inUseCount) }),
             isUnused and "error/0.15" or "primary/0.15",
             isUnused and "error"      or "primary",
-            isUnused and "No running containers using this image" or `Referenced by {img.inUseCount} container(s)`
+            isUnused and tr("images.no_users") or tr("images.referenced_by", { count = tostring(img.inUseCount) })
           ),
         }),
         ui.label({ text = `Size: {img.size}  ·  Created: {img.created}`, color = "on_surface_variant", fontSize = 11 }),
@@ -1299,7 +1299,7 @@ local function renderImagesTab(snapshot)
           variant     = "destructive",
           controlSize = "sm",
           enabled     = isUnused and not snapshot.busy,
-          tooltip     = isUnused and (busyTooltip or tr("images.remove")) or "Cannot remove image while in use by containers",
+          tooltip     = isUnused and (busyTooltip or tr("images.remove")) or tr("images.in_use_tip"),
           onClick     = function()
             requestDestructiveAction("image_remove", { id = img.id, name = `{img.repository}:{img.tag}` })
           end,
@@ -1325,14 +1325,14 @@ local function renderInfraTab(snapshot)
   local busyTooltip = snapshot.busy and (snapshot.activeTask and snapshot.activeTask.title or tr("tasks.in_progress")) or nil
 
   local toolbar = ui.row({ key = "infra-toolbar", align = "center", justify = "space_between", paddingV = 4, flexGrow = 0 }, {
-    ui.label({ text = `{#volumes} Volumes, {#networks} Networks`, color = "on_surface_variant", fontSize = 12 }),
+    ui.label({ text = tr("infrastructure.count", { volumes = #volumes, networks = #networks }), color = "on_surface_variant", fontSize = 12 }),
     ui.button({
-      text        = snapshot.isScanning and "Scanning…" or "Scan Infrastructure",
+      text        = snapshot.isScanning and tr("infrastructure.scanning") or tr("infrastructure.scan"),
       glyph       = snapshot.isScanning and "loader" or "refresh",
       variant     = "outline",
       controlSize = "sm",
       enabled     = not snapshot.isScanning and not snapshot.busy,
-      tooltip     = snapshot.isScanning and "Rescanning storage volumes and networks…" or (busyTooltip or "Rescan storage volumes and networks"),
+      tooltip     = snapshot.isScanning and tr("infrastructure.rescan_busy") or (busyTooltip or tr("infrastructure.rescan")),
       onClick     = function() sendCommand("refresh_infra") end,
     }),
   })
@@ -1377,7 +1377,7 @@ local function renderInfraTab(snapshot)
               v.inUse and tr("infrastructure.in_use") or tr("infrastructure.orphan"),
               v.inUse and "primary/0.15" or "error/0.15",
               v.inUse and "primary"      or "error",
-              v.inUse and "Volume is currently mounted" or "Volume is unattached"
+              v.inUse and tr("infrastructure.volume_mounted") or tr("infrastructure.volume_unattached")
             ),
           }),
           ui.label({ text = `{v.driver} · {v.mountpoint}`, color = "on_surface_variant", fontSize = 10, maxLines = 1 }),
@@ -1387,7 +1387,7 @@ local function renderInfraTab(snapshot)
           variant     = "destructive",
           controlSize = "sm",
           enabled     = not snapshot.busy,
-          tooltip     = busyTooltip or "Delete unattached volume",
+          tooltip     = busyTooltip or tr("infrastructure.delete_unattached_volume"),
           onClick     = function() requestDestructiveAction("volume_remove", { name = v.name }) end,
         }) or ui.button({
           glyph       = "trash",
@@ -1433,7 +1433,7 @@ local function renderInfraTab(snapshot)
             variant     = "destructive",
             controlSize = "sm",
             enabled     = not snapshot.busy,
-            tooltip     = busyTooltip or "Delete unattached network",
+            tooltip     = busyTooltip or tr("infrastructure.delete_unattached_network"),
             onClick     = function() requestDestructiveAction("network_remove", { id = n.id, name = n.name }) end,
           })
         else
@@ -1451,7 +1451,7 @@ local function renderInfraTab(snapshot)
           variant     = "ghost",
           controlSize = "sm",
           enabled     = false,
-          tooltip     = "System network cannot be removed",
+          tooltip     = tr("infrastructure.network_system_tooltip"),
         })
       end
 
@@ -1472,7 +1472,7 @@ local function renderInfraTab(snapshot)
               n.isOrphan and tr("infrastructure.orphan") or tr("infrastructure.in_use"),
               n.isOrphan and "error/0.15" or "primary/0.15",
               n.isOrphan and "error"      or "primary",
-              n.isOrphan and "Network has no attached containers" or "Containers are attached to this network"
+              n.isOrphan and tr("infrastructure.network_no_containers") or tr("infrastructure.network_has_containers")
             ),
           }),
           ui.label({ text = `{n.driver} · {n.scope}`, color = "on_surface_variant", fontSize = 10 }),
@@ -1497,14 +1497,14 @@ local function renderPodsTab(snapshot)
   local busyTooltip = snapshot.busy and (snapshot.activeTask and snapshot.activeTask.title or tr("tasks.in_progress")) or nil
 
   local toolbar = ui.row({ key = "pods-toolbar", align = "center", justify = "space_between", paddingV = 4, flexGrow = 0 }, {
-    ui.label({ text = `{#pods} Pods`, color = "on_surface_variant", fontSize = 12 }),
+    ui.label({ text = tr("pods.count", { count = #pods }), color = "on_surface_variant", fontSize = 12 }),
     ui.button({
-      text        = snapshot.isScanning and "Scanning…" or "Scan Pods",
+      text        = snapshot.isScanning and tr("pods.scanning") or tr("pods.scan"),
       glyph       = snapshot.isScanning and "loader" or "refresh",
       variant     = "outline",
       controlSize = "sm",
       enabled     = not snapshot.isScanning and not snapshot.busy,
-      tooltip     = snapshot.isScanning and "Rescanning Podman pods…" or (busyTooltip or "Rescan Podman pods"),
+      tooltip     = snapshot.isScanning and tr("pods.rescan_busy") or (busyTooltip or tr("pods.rescan")),
       onClick     = function() sendCommand("refresh_pods") end,
     }),
   })
@@ -1532,7 +1532,7 @@ local function renderPodsTab(snapshot)
       gap     = 12,
     }, {
       ui.row({ align = "center", gap = 10, flexGrow = 1 }, {
-        statusDot(isRunning and "primary" or "error", isRunning and "Pod is running" or "Pod is stopped"),
+        statusDot(isRunning and "primary" or "error", isRunning and tr("pods.running_tip") or tr("pods.stopped_tip")),
         ui.column({ gap = 2, flexGrow = 1 }, {
           ui.row({ align = "center", gap = 6 }, {
             ui.label({ text = p.name, fontWeight = "bold", color = "on_surface", fontSize = 13 }),
@@ -1540,7 +1540,7 @@ local function renderPodsTab(snapshot)
               isRunning and tr("pods.running") or tr("pods.exited"),
               isRunning and "primary/0.2" or "surface_container_highest",
               isRunning and "primary" or "on_surface_variant",
-              isRunning and "Pod is active and running" or "Pod is exited"
+              isRunning and tr("pods.active_tip") or tr("pods.exited_tip")
             ),
           }),
           ui.label({ text = tr("pods.containers", { count = tostring(p.containerCount) }), color = "on_surface_variant", fontSize = 11 }),
@@ -1587,7 +1587,7 @@ function render()
           text        = "Docker",
           variant     = (not isPodman) and "primary" or "ghost",
           controlSize = "sm",
-          tooltip     = (not isPodman) and "Docker engine is active" or (snapshot.busy and "Operation in progress" or "Switch engine to Docker"),
+          tooltip     = (not isPodman) and tr("header.docker_active") or (snapshot.busy and tr("header.op_in_progress") or tr("header.switch_docker")),
           enabled     = not snapshot.busy,
           onClick     = function()
             if isPodman then
@@ -1599,7 +1599,7 @@ function render()
           text        = "Podman",
           variant     = isPodman and "primary" or "ghost",
           controlSize = "sm",
-          tooltip     = isPodman and "Podman engine is active" or (snapshot.busy and "Operation in progress" or "Switch engine to Podman"),
+          tooltip     = isPodman and tr("header.podman_active") or (snapshot.busy and tr("header.op_in_progress") or tr("header.switch_podman")),
           enabled     = not snapshot.busy,
           onClick     = function()
             if not isPodman then
@@ -1608,7 +1608,7 @@ function render()
           end,
         }),
       }),
-      ui.label({ text = "Shipyard", fontSize = 15, fontWeight = "bold", color = "on_surface" }),
+      ui.label({ text = tr("header.title"), fontSize = 15, fontWeight = "bold", color = "on_surface" }),
     }),
     -- Stats Pill
     ui.row({
@@ -1617,7 +1617,7 @@ function render()
       paddingH = 10,
       paddingV = 4,
       align    = "center",
-      tooltip  = "Combined host daemon CPU and RAM utilization",
+      tooltip  = tr("header.stats_tooltip"),
     }, {
       ui.label({
         text       = tr("header.stats", { cpu = stats.cpu or "0%", ram = stats.ram or "0B" }),
@@ -1628,11 +1628,11 @@ function render()
     }),
     -- Manual Scan & Refresh Button
     ui.button({
-      text        = snapshot.isScanning and "Scanning…" or "Scan",
+      text        = snapshot.isScanning and tr("header.scanning") or tr("header.scan_all"),
       glyph       = snapshot.isScanning and "loader" or "refresh",
       variant     = "outline",
       controlSize = "sm",
-      tooltip     = snapshot.isScanning and "Scanning daemon and stacks in background…" or (snapshot.busy and (snapshot.activeTask and snapshot.activeTask.title or tr("tasks.in_progress")) or "Scan & Refresh All"),
+      tooltip     = snapshot.isScanning and tr("header.scan_all_busy") or (snapshot.busy and (snapshot.activeTask and snapshot.activeTask.title or tr("tasks.in_progress")) or tr("header.scan_all")),
       enabled     = not snapshot.isScanning and not snapshot.busy,
       onClick     = function() sendCommand("refresh") end,
     }),
@@ -1641,7 +1641,7 @@ function render()
       glyph       = "settings",
       variant     = "ghost",
       controlSize = "sm",
-      tooltip     = "Open plugin settings",
+      tooltip     = tr("tooltips.open_plugin_settings"),
       onClick     = openPluginSettings,
     }),
   }
@@ -1651,7 +1651,7 @@ function render()
       glyph       = "close",
       variant     = "ghost",
       controlSize = "sm",
-      tooltip     = "Close panel",
+      tooltip     = tr("header.close_tooltip"),
       onClick     = function() panel.close() end,
     }))
   end
