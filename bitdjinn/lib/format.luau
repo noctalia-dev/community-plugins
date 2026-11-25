@@ -23,6 +23,10 @@ function M.formatPrice(price: number?, currency: string?): string
   if price >= 1000 then
     local intPart = math.floor(price)
     local decPart = math.floor((price - intPart) * 100 + 0.5)
+    if decPart >= 100 then
+      intPart = intPart + 1
+      decPart = 0
+    end
     local s = tostring(intPart)
     local formatted = ""
     local len = #s
@@ -40,6 +44,16 @@ function M.formatPrice(price: number?, currency: string?): string
   else
     return string.format("%s%.6f", sym, price)
   end
+end
+
+function M.formatValuation(amount: number?, currency: string?): string
+  if amount == nil then
+    return "--"
+  end
+  if amount == 0 then
+    return string.format("%s0.00", M.currencySymbol(currency or "usd"))
+  end
+  return M.formatPrice(amount, currency)
 end
 
 function M.formatCompactNumber(num: number?): string
@@ -107,14 +121,20 @@ function M.detectChain(addr: string?): string
   if addr == nil then
     return "unknown"
   end
-  local s = string.lower(noctalia.string.trim(addr))
-  if string.sub(s, 1, 2) == "0x" and #s == 42 then
+  local trimmed = noctalia.string.trim(addr)
+  local lower = string.lower(trimmed)
+  if string.sub(lower, 1, 2) == "0x" and #trimmed == 42 and not string.find(string.sub(lower, 3), "[^0-9a-f]") then
     return "ETH"
-  elseif string.sub(s, 1, 3) == "bc1" or string.sub(s, 1, 1) == "1" or string.sub(s, 1, 1) == "3" then
-    if #s >= 26 and #s <= 62 then
-      return "BTC"
-    end
-  elseif #s >= 32 and #s <= 44 and not string.find(s, "[^1-9a-km-za-hj-np-z]") then
+  elseif string.sub(lower, 1, 3) == "bc1" and #trimmed >= 42 and #trimmed <= 62 then
+    return "BTC"
+  elseif
+    (string.sub(trimmed, 1, 1) == "1" or string.sub(trimmed, 1, 1) == "3")
+    and #trimmed >= 26
+    and #trimmed <= 35
+    and not string.find(trimmed, "[^1-9A-HJ-NP-Za-km-z]")
+  then
+    return "BTC"
+  elseif #trimmed >= 32 and #trimmed <= 44 and not string.find(trimmed, "[^1-9A-HJ-NP-Za-km-z]") then
     return "SOL"
   end
   return "unknown"

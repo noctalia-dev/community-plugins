@@ -92,7 +92,7 @@ local function render()
       ui.column({ gap = 1 }, {
         ui.label({ text = noctalia.tr("wallet.total_valuation"), fontSize = 9, color = "on_surface_variant" }),
         ui.label({
-          text = format.formatPrice(summary.totalValuation or 0, summary.currency),
+          text = format.formatValuation(summary.totalValuation or 0, summary.currency),
           fontSize = 13,
           fontWeight = "bold",
           color = "primary",

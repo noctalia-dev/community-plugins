@@ -1,0 +1,67 @@
+{
+  "market": {
+    "last_updated": "更新時間: %s",
+    "search_placeholder": "搜尋幣種代號或名稱..."
+  },
+  "notify": {
+    "balance_decrease": "轉出 -%s %s (%s)",
+    "balance_increase": "收到 +%s %s (%s)",
+    "tx_detected": "%s 地址檢測到新交易 (%s)",
+    "tx_title": "鏈上交易變動提醒"
+  },
+  "settings": {
+    "currency": {
+      "cny": "人民幣 (¥ CNY)",
+      "description": "計價與資產估值的基礎貨幣單位（USD / CNY / EUR / USDT / USDC）。",
+      "eur": "歐元 (€ EUR)",
+      "label": "顯示貨幣單位",
+      "usd": "美元 ($ USD)",
+      "usdc": "USDC ($)",
+      "usdt": "USDT ($)"
+    },
+    "interval": {
+      "description": "加密貨幣行情與走勢資料的輪詢刷新間隔（秒）。",
+      "label": "行情刷新間隔 (秒)"
+    },
+    "notify_tx": {
+      "description": "當監控地址發生轉入、轉出或交易筆數變動時發送桌面通知。",
+      "label": "鏈上交易變動提醒"
+    },
+    "wallet_interval": {
+      "description": "檢查鏈上錢包餘額變動與交易事件的頻率（秒）。",
+      "label": "鏈上地址輪詢間隔 (秒)"
+    },
+    "widget_coin": {
+      "description": "頂欄小工具常駐顯示的預設幣種。",
+      "label": "狀態欄預設幣種"
+    }
+  },
+  "shortcut": {
+    "label_off": "鏈上提醒已靜音",
+    "label_on": "鏈上提醒已開啟"
+  },
+  "tab": {
+    "market": "即時行情走勢",
+    "wallets": "鏈上錢包監控"
+  },
+  "tagline": "加密貨幣行情與鏈上錢包監控",
+  "title": "BitDjinn",
+  "ui": {
+    "loading": "正在獲取最新資料...",
+    "refresh": "立即刷新",
+    "settings": "插件設定"
+  },
+  "wallet": {
+    "add_title": "新增監控地址",
+    "btn_add": "新增監控",
+    "copy_success": "地址已複製到剪貼簿",
+    "delete_confirm": "移除",
+    "duplicate_address": "該地址已存在於監控清單中。",
+    "empty": "暫無監控中的鏈上地址。請在上方輸入 BTC、ETH 或 SOL 地址。",
+    "input_placeholder": "輸入 BTC / ETH (0x...) / SOL 地址",
+    "invalid_address": "地址格式無效或暫不支援該網絡。",
+    "label_placeholder": "備註標籤（如：冷錢包、主力帳戶）",
+    "total_valuation": "監控資產總估值",
+    "tx_count": "%d 筆交易"
+  }
+}

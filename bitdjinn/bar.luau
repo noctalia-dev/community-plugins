@@ -29,7 +29,7 @@ local function updateTooltip()
   if summary.totalValuation and summary.totalValuation > 0 then
     table.insert(lines, {
       key = noctalia.tr("wallet.total_valuation"),
-      value = format.formatPrice(summary.totalValuation, summary.currency),
+      value = format.formatValuation(summary.totalValuation, summary.currency),
     })
   end
   barWidget.setTooltip(lines)

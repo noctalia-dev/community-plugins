@@ -134,7 +134,17 @@ local function renderWalletsTab()
   local items = {}
 
   -- Total valuation banner
-  local totalValStr = format.formatPrice(summary.totalValuation or 0, summary.currency)
+  local hasInitializedWallet = #wallets == 0
+  for _, w in ipairs(wallets) do
+    if w.initialized then
+      hasInitializedWallet = true
+      break
+    end
+  end
+  local totalValStr = format.formatValuation(
+    if hasInitializedWallet then (summary.totalValuation or 0) else nil,
+    summary.currency
+  )
   local banner = ui.row({
     align = "center",
     justify = "space_between",
@@ -195,8 +205,8 @@ local function renderWalletsTab()
   for _, w in ipairs(wallets) do
     local chainCol = if w.chain == "BTC" then "#f59e0b" elseif w.chain == "ETH" then "#6366f1" else "#14f195"
     local chainBg = if w.chain == "BTC" then "#f59e0b24" elseif w.chain == "ETH" then "#6366f124" else "#14f19524"
-    local valStr = format.formatPrice(w.value or 0, summary.currency)
-    local balStr = string.format("%.4f %s", w.balance or 0, w.chain or "")
+    local valStr = format.formatValuation(if w.initialized then (w.value or 0) else nil, summary.currency)
+    local balStr = if w.initialized then string.format("%.4f %s", w.balance or 0, w.chain or "") else "--"
 
     table.insert(items, ui.row({
       key = "wallet-" .. (w.id or w.address),
