@@ -33,7 +33,7 @@ Quick capture from the launcher with the `/td` prefix:
 
 ## Requirements
 
-- Noctalia v5.3.0 or newer (`plugin_api = 33`).
+- Noctalia v5.4.0 or newer (`plugin_api = 47`).
 - A Todoist account and an API token (Settings → Integrations → Developer → API
   token). Provide the token in one of these places; the first match wins:
   1. `TODOIST_API_TOKEN` in the environment Noctalia runs in.
@@ -64,14 +64,20 @@ Open the panel from the bar widget or with:
 noctalia msg panel-toggle snowballons/todoist-manager:manager
 ```
 
-The panel opens on the last active view. The header row shows **Overdue**,
-**Due today**, and **Priority 1** filter tiles with current counts. The nav row
-switches between **Today**, **Inbox**, **Projects**, and **Completed**.
+The panel opens centered, dismisses on outside clicks, and preserves session state
+and draft input text across closes.
 
-Each task row shows a priority flag, a circle checkbox (click to expand
-Complete / Reopen), the title, `project · due`, and action buttons:
-**Open in Todoist**, **copy link**, **edit** (pencil), **delete** (trash).
-
+- **Onboarding** — if opened before configuring a token, the panel presents a guided
+  onboarding screen with quick links to Todoist Developer Settings and Noctalia Settings.
+- **Header** — includes **Refresh** (full re-fetch), **Help (?)** (keyboard shortcuts and
+  natural language syntax cheat sheet), **Settings**, and **Close**.
+- **Filter tiles & Navigation** — filter tiles (**Overdue**, **Due today**, **Priority 1**)
+  display live task counts. The segmented navigation bar switches between **Today**, **Inbox**,
+  **Projects**, and **Completed** with dedicated icons.
+- **Task rows** — each row shows a priority flag, a circle checkbox (click to expand
+  Complete / Reopen action pair), title, `project · due`, inline description expander
+  (with full word wrapping for multiline notes), and quick actions:
+  **Open in Todoist**, **copy link**, **edit** (pencil), **delete** (trash).
 - **Completing** a task removes it from the current view and shows a 5-second
   **Undo** toast. Click Undo to reopen it immediately.
 - **Edit form** — the pencil opens a form with title, description, priority, due
@@ -80,10 +86,10 @@ Complete / Reopen), the title, `project · due`, and action buttons:
   endpoint for that). Cancel discards all edits.
 - **Completed view** — the Completed nav tab lists tasks completed in the last
   7 days. Click the circle-check on any row to reopen it.
-- **Quick Add** — type at the bottom of the Today, Inbox, filter, and project
-  views (not **Completed**). Todoist parses the text, so
-  `buy milk tomorrow p1 #Errands` works as-is.
-- The **refresh** button in the header forces a full re-fetch.
+- **Pinned Quick Add Dock** — pinned permanently to the footer so it never scrolls
+  away behind long task lists. Supports expanding multiline text, `Ctrl+Enter` submission,
+  and a toggled multiline description field (icon or setting). Todoist parses the text,
+  so `buy milk tomorrow p1 #Errands` works as-is.
 
 ### Launcher
 
@@ -112,6 +118,7 @@ Settings → Bar. Its checklist glyph toggles the panel.
 | `default_priority` | `select` | `none` | Shown as a hint under the panel's Quick Add field. Not appended to the text. |
 | `cache_tasks` | `bool` | `false` | Cache the last loaded tasks to disk so the panel paints before the first request completes. |
 | `confirm_delete` | `bool` | `true` | Ask for confirmation in the panel before deleting a task. |
+| `quick_add_description` | `bool` | `false` | Show a secondary description input field by default in Quick Add. |
 | `max_retries` | `int` | `1` | How many times a failed read or idempotent write is retried (0–3). Create is never retried. |
 
 ## IPC
