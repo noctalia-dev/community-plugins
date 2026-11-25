@@ -6,7 +6,7 @@ author = "detluck"
 license = "MIT"
 icon = "cpu"
 description = "Switch every TUXEDO Control Center power profile from a Noctalia panel."
-tags = ["bar", "panel", "power", "hardware", "tuxedo"]
+tags = ["bar", "panel", "hardware"]
 dependencies = ["busctl", "tccd"]
 
 [[setting]]
