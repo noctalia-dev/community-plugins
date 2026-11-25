@@ -53,4 +53,4 @@ noctalia msg plugin ishan0121/shipyard:daemon all toggle_daemon
 
 - Runtimes run asynchronously using `noctalia.runAsync` to ensure no blocking operations occur on the compositor thread.
 - Decoded rows are batched per Luau tick to maintain 60 FPS compositor smoothness.
-- Every user-facing string is resolved through `noctalia.tr`, so the panel, bar widget, notifications, and task progress follow the shell language. Translations ship in `translations/`. Adding a locale means copying `en.json` and translating its values; keys missing from a locale fall back to English.
+- Panel and daemon strings are resolved through `noctalia.tr`, so the panel UI, notifications, and task progress follow the shell language. Translations ship in `translations/`. Adding a locale means copying `en.json` and translating its values; keys missing from a locale fall back to English.

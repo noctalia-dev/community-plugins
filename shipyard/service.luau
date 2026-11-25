@@ -348,7 +348,7 @@ local function runCli(args, callback, timeoutMs)
   local cmd = table.concat(parts, " ")
   local started = noctalia.runAsync(cmd, callback, timeoutMs or 30000)
   if not started and callback then
-    callback({ exitCode = 1, stdout = "", stderr = noctalia.tr("errors.launch_failed") .. " " .. daemonCmd() })
+    callback({ exitCode = 1, stdout = "", stderr = noctalia.tr("errors.launch_failed", { daemon = daemonCmd() }) })
   end
   return started
 end
@@ -1099,7 +1099,7 @@ local function scanComposeStacks(onComplete, notifyUser)
         snapshot.scanMessage = noctalia.tr("stacks.scan_completed_found", { count = #found })
         snapshot.scanError   = nil
       else
-        snapshot.scanMessage = noctalia.tr("stacks.scan_completed_empty")
+        snapshot.scanMessage = noctalia.tr("stacks.scan_completed_empty", { dirs = table.concat(scanDirs, ", ") })
         snapshot.scanError   = nil
       end
 
@@ -1657,7 +1657,7 @@ local function onCommandReceived(cmd)
   if action == "podman_generate_kube" and isValidIdentifier(cmd.id) then
     runCli({ "kube", "generate", cmd.id }, function(result)
       snapshot.generateOutput = result and trim(result.stdout) or noctalia.tr("errors.generate_yaml")
-      snapshot.generateTitle  = noctalia.tr("tasks.kube_yaml_title") .. " " .. tostring(cmd.name or cmd.id)
+      snapshot.generateTitle  = noctalia.tr("tasks.kube_yaml_title", { name = tostring(cmd.name or cmd.id) })
       publishSnapshot()
     end, 10000)
     return

@@ -444,12 +444,12 @@ local function renderStacksTab(snapshot)
     }),
     ui.label({ text = tr("stacks.count", { count = #stacks }), color = "on_surface_variant", fontSize = 11 }),
     ui.button({
-      text        = snapshot.scanningStacks and tr("stacks.scanning_short") or tr("stacks.scan_directories"),
+      text        = snapshot.scanningStacks and tr("stacks.scanning") or tr("stacks.scan_directories"),
       glyph       = snapshot.scanningStacks and "loader" or "refresh",
       variant     = "outline",
       controlSize = "sm",
       enabled     = not snapshot.scanningStacks and not snapshot.busy,
-      tooltip     = snapshot.scanningStacks and tr("stacks.scan_busy") or (busyTooltip or tr("stacks.scan_idle")),
+      tooltip     = snapshot.scanningStacks and tr("stacks.scanning_dirs") or (busyTooltip or tr("stacks.scan_idle")),
       onClick     = function() sendCommand("scan_stacks") end,
     }),
   })
@@ -584,7 +584,7 @@ local function renderStacksTab(snapshot)
         ui.row({ align = "center", gap = 8 }, {
           ui.label({ text = s.name, fontWeight = "bold", color = "on_surface", fontSize = 14 }),
           isThisStackActive
-            and pill(snapshot.activeTask.stage or tr("stacks.deploying"), "primary/0.2", "primary", tr("tasks.running_operation"))
+            and pill(snapshot.activeTask.stage or tr("stacks.deploying"), "primary/0.2", "primary", tr("stacks.running_operation"))
             or  pill(
                   s.running and tr("stacks.active") or tr("stacks.inactive"),
                   s.running and "primary/0.2" or "surface_container_highest",
@@ -685,7 +685,7 @@ local function renderContainersTab(snapshot)
       end,
     }),
     ui.button({
-      text        = snapshot.isScanning and tr("header.scanning") or tr("header.scan_all"),
+      text        = snapshot.isScanning and tr("containers.scanning") or tr("containers.scan"),
       glyph       = snapshot.isScanning and "loader" or "refresh",
       variant     = "outline",
       controlSize = "sm",
@@ -728,7 +728,7 @@ local function renderContainersTab(snapshot)
         c.rootless and tr("containers.rootless") or tr("containers.rootful"),
         c.rootless and "primary/0.15" or "tertiary/0.15",
         c.rootless and "primary"      or "tertiary",
-        c.rootless and tr("containers.rootless") or tr("containers.rootful")
+        c.rootless and tr("containers.rootless_tooltip") or tr("containers.rootful_tooltip")
       ))
     end
 
@@ -1451,7 +1451,7 @@ local function renderInfraTab(snapshot)
           variant     = "ghost",
           controlSize = "sm",
           enabled     = false,
-          tooltip     = tr("tooltips.system_network"),
+          tooltip     = tr("infrastructure.network_system_tooltip"),
         })
       end
 
