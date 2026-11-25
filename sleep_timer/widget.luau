@@ -87,16 +87,8 @@ local function render()
   end
 end
 
--- Checks every this many seconds that the timer unit still exists
-local VERIFY_EVERY = 30
-local ticks = 0
-
 function update()
-  ticks += 1
-  if ticks >= VERIFY_EVERY then
-    ticks = 0
-    timer.verify(render)
-  end
+  timer.poll(render)
   render()
 end
 

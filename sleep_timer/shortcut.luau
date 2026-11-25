@@ -15,6 +15,7 @@ local function render()
 end
 
 function update()
+  timer.poll(render)
   render()
 end
 
@@ -34,4 +35,5 @@ noctalia.state.watch("minutes", render)
 noctalia.state.watch("scheduled", render)
 
 noctalia.setUpdateInterval(1000)
+timer.verify(render)
 render()

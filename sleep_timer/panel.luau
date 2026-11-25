@@ -52,7 +52,7 @@ resetInputs()
 
 local function startCompanion()
   if pluginDir and socketPath then
-    -- Exits by itself a few seconds after the panel closes; a second copy exits at once
+    -- Exits by itself a few seconds after the panel closes; only one copy serves the socket
     noctalia.runAsync({ "python3", pluginDir .. "/companion.py", socketPath })
   end
 end
@@ -408,6 +408,7 @@ function onClose()
 end
 
 function update()
+  timer.poll(refresh)
   refresh()
 end
 
@@ -430,5 +431,3 @@ if dataDir then
     end
   end
 end
-
-startCompanion()

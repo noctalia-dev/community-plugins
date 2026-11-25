@@ -110,19 +110,31 @@ the neutral color again, and so on. 2 h 30 min is two full laps plus half of a t
 ## Notes
 
 - **Commands:** starting runs
-  `systemd-run --user --unit=noctalia-sleep-timer --collect --on-active=<N>s --timer-property=AccuracySec=1s systemctl poweroff`,
-  cancelling runs `systemctl --user stop noctalia-sleep-timer.timer`, and while a timer
-  runs the plugin checks every 30 seconds with
-  `systemctl --user is-active noctalia-sleep-timer.timer` that it still exists.
+  `systemd-run --user --unit=noctalia-sleep-timer --collect --on-active=<N>s --timer-property=AccuracySec=1s --timer-property=RemainAfterElapse=no systemctl poweroff`,
+  and cancelling runs `systemctl --user stop noctalia-sleep-timer.timer`. The timer's
+  state is read with
+  `systemctl --user list-timers --all --no-pager --output=json noctalia-sleep-timer.timer`
+  when the bar widget or the tile loads, when the panel opens, and every 30 seconds while
+  a timer is running. Nothing is polled while no timer runs.
+- **Source of truth:** the timer unit in systemd. The countdown follows the unit's real
+  end time, which moves with clock changes and suspends. It disappears only when systemd
+  confirms the unit is stopped or gone; if systemd cannot be asked, the countdown and
+  Cancel stay, and Cancel always asks systemd to stop the unit. Start and Cancel from
+  different places never overlap: while one runs, the others are ignored.
+- **Refused power-off:** if the timer runs out but the system does not power off (for
+  example another user is logged in or an application blocks shutdown), the plugin shows
+  an error notification. Details are in `journalctl --user -u noctalia-sleep-timer`.
 - **Other schedules:** the plugin only starts and stops its own `noctalia-sleep-timer`
   unit. It never reads, replaces or cancels a shutdown or reboot scheduled with
   `shutdown` or by any other program, and such a schedule is not shown in the plugin.
-- **Files:** the chosen minutes, the running timer's end time (`deadline`, with the boot
-  it belongs to) and the generated dial images (SVG) are written to the plugin's data
+- **Files:** the chosen minutes, the timer's last known end time (`deadline`, with the
+  boot it belongs to, used only to draw the countdown) and the generated dial images (SVG) are written to the plugin's data
   directory. Each entry keeps only its last two dial images and removes
   older ones, and all are removed when the widget or panel loads. The companion also
   creates `dial.sock` and `dial.sock.lock` there.
-- **Process:** opening the panel starts `python3 companion.py <data dir>/dial.sock`. It
+- **Process:** opening the panel starts `python3 companion.py <data dir>/dial.sock`. Only
+  one copy runs at a time; a second copy waits a few seconds for the first to exit and
+  otherwise exits itself. It
   serves a single transparent pixel through Noctalia's pixel stream protocol, because a
   pixel stream is the only panel control that reports pointer press, drag and release.
   It exits about five seconds after the panel closes. It does not use the network.

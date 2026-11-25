@@ -15,6 +15,7 @@ import os
 import socket
 import struct
 import sys
+import time
 
 IDLE_EXIT_SECONDS = 5
 
@@ -29,16 +30,22 @@ def transparent_buffer():
 def take_lock(path):
     """Returns the lock file held for the companion's lifetime, or None if another copy has it.
 
-    The panel may start the companion twice in quick succession; the lock makes sure only
-    one of them binds the socket, so a losing copy can never unlink the winner's socket.
+    Only the copy holding the lock binds the socket, so a second copy can never unlink a
+    running copy's socket. When the panel reopens just as the previous copy is about to
+    exit on idle, the new copy waits for the lock and takes over; it gives up once the
+    other copy has clearly stayed (it got a connection, so it is serving the panel).
     """
     lock = open(path + ".lock", "a")
-    try:
-        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except OSError:
-        lock.close()
-        return None
-    return lock
+    deadline = time.monotonic() + IDLE_EXIT_SECONDS + 1
+    while True:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return lock
+        except OSError:
+            if time.monotonic() >= deadline:
+                lock.close()
+                return None
+            time.sleep(0.2)
 
 
 def serve(conn, buffer_fd):
@@ -69,8 +76,12 @@ def main():
         pass
 
     server = socket.socket(socket.AF_UNIX, socket.SOCK_SEQPACKET)
-    server.bind(path)
-    os.chmod(path, 0o600)
+    # Owner-only from the moment the socket file exists
+    old_umask = os.umask(0o177)
+    try:
+        server.bind(path)
+    finally:
+        os.umask(old_umask)
     server.listen(2)
     server.settimeout(IDLE_EXIT_SECONDS)
     buffer_fd = transparent_buffer()

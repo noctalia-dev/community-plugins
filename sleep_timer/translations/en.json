@@ -35,6 +35,8 @@
     "started_title": "Sleep timer started",
     "started_body": "The computer will shut down in {time}, at {clock}",
     "cancelled_title": "Sleep timer cancelled",
-    "cancelled_body": "The computer will not shut down"
+    "cancelled_body": "The computer will not shut down",
+    "poweroff_failed": "The timer ran out but the system refused to power off. See journalctl --user -u noctalia-sleep-timer",
+    "command_failed": "systemctl failed without an error message"
   }
 }
