@@ -1085,6 +1085,7 @@ local SHARE_EXIT_KEYS = {
   [4] = "messages.share_request_failed",
   [5] = "messages.share_invalid_response",
   [6] = "messages.share_file_too_large",
+  [7] = "messages.share_config_error",
 }
 
 -- ── Sharing ────────────────────────────────────────────────────────────────
@@ -1119,10 +1120,32 @@ local function shareFile(file)
     noctalia.notifyError(noctalia.tr("messages.share_bad_args"))
     return
   end
+  local backend = cfg("share-backend") or "uguu"
   local apiKey = cfg("x02-api-key") or ""
-  local expiry = cfg("x02-expiry") or "7d"
+  -- Default uguu (anonymous, 3h); every backend passes --backend explicitly.
+  local expiry = "3h"
+  local command = { SCRIPT_SHARE, "--backend", "uguu", file }
+  local hasAuth = false
+  if backend == "zipline" then
+    local token = trim(cfg("zipline-token") or "")
+    if token == "" then
+      noctalia.notifyError(noctalia.tr("messages.share_config_error"))
+      return
+    end
+    expiry = cfg("zipline-expiry") or "7d"
+    hasAuth = true
+    command = { SCRIPT_SHARE, "--backend", "zipline", "--url", cfg("zipline-url") or "", file, token, expiry }
+  elseif backend == "x02" then
+    if trim(apiKey) == "" then
+      noctalia.notifyError(noctalia.tr("messages.share_config_error"))
+      return
+    end
+    expiry = cfg("x02-expiry") or "7d"
+    hasAuth = true
+    command = { SCRIPT_SHARE, "--backend", "x02", file, apiKey, expiry }
+  end
   noctalia.runAsync(
-    { SCRIPT_SHARE, file, apiKey, expiry },
+    command,
     function(res)
       if res.exitCode ~= 0 then
         local msg = SHARE_EXIT_KEYS[res.exitCode]
@@ -1140,7 +1163,7 @@ local function shareFile(file)
         file = file,
         time = os.time(),
         expiry = expiry,
-        expirySecs = expirySecs(expiry, apiKey ~= ""),
+        expirySecs = expirySecs(expiry, hasAuth),
       }
       pushShareHistory(entry)
       publish("shareResult", entry)

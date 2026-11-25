@@ -27,7 +27,8 @@
     "share_request_failed": "Upload request failed.",
     "share_unknown_error": "Upload failed with unknown error.",
     "translate_failed": "Translation failed.",
-    "window_snap_fallback": "Window snap isn't supported on this compositor — drag a region instead."
+    "window_snap_fallback": "Window snap isn't supported on this compositor — drag a region instead.",
+    "share_config_error": "Share failed: check the Zipline URL and token."
   },
   "ocr": {
     "exit_args": "Invalid capture arguments.",
@@ -205,6 +206,34 @@
         "7d": "7 days",
         "permanent": "Permanent"
       }
+    },
+    "share_backend": {
+      "label": "Share backend",
+      "description": "Upload service for shared captures.",
+      "options": {
+        "x02": "X02 (up.x02.me)",
+        "uguu": "uguu.se",
+        "zipline": "Zipline"
+      }
+    },
+    "zipline_url": {
+      "label": "Zipline URL",
+      "description": "Base URL of your Zipline instance, for example https://zip.example.com."
+    },
+    "zipline_expiry": {
+      "description": "How long Zipline links stay alive. The server may enforce a maximum.",
+      "label": "Zipline Link Expiry",
+      "options": {
+        "1d": "1 day",
+        "1h": "1 hour",
+        "30d": "30 days",
+        "7d": "7 days",
+        "permanent": "Permanent"
+      }
+    },
+    "zipline_token": {
+      "label": "Zipline API token",
+      "description": "API token for your Zipline account."
     }
   },
   "shortcut": {
